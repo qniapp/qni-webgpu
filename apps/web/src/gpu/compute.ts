@@ -2,20 +2,25 @@ import { gateToIndex, type Gate } from '../domain/gate'
 import { STATE_TEXT_MAX_LEN } from '../ui/constants'
 import { computeShaderCode, stateTextComputeCode } from './shaders'
 
+export type GateOperation = {
+  gate: Gate
+  target: number
+}
+
 export async function computeStateVector(
   device: GPUDevice,
   gate: Gate,
   readback: boolean
 ): Promise<{ outputBuffer: GPUBuffer; readback: Float32Array | null }> {
-  return computeStateVectorSequence(device, [gate], readback)
+  return computeStateVectorSequence(device, [{ gate, target: 0 }], readback)
 }
 
 export async function computeStateVectorSequence(
   device: GPUDevice,
-  gates: Gate[],
+  gates: GateOperation[],
   readback: boolean
 ): Promise<{ outputBuffer: GPUBuffer; readback: Float32Array | null }> {
-  const inputState = new Float32Array([1, 0, 0, 0])
+  const inputState = new Float32Array([1, 0, 0, 0, 0, 0, 0, 0])
   const bufferA = device.createBuffer({
     size: inputState.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
@@ -25,11 +30,6 @@ export async function computeStateVectorSequence(
   const bufferB = device.createBuffer({
     size: inputState.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-  })
-
-  const paramsBuffer = device.createBuffer({
-    size: 16,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
 
   const shaderModule = device.createShaderModule({ code: computeShaderCode })
@@ -51,12 +51,15 @@ export async function computeStateVectorSequence(
   let inputBuffer = bufferA
   let outputBuffer = bufferB
 
-  const commandEncoder = device.createCommandEncoder()
   if (gates.length === 0) {
-    commandEncoder.copyBufferToBuffer(inputBuffer, 0, outputBuffer, 0, inputState.byteLength)
+    outputBuffer = inputBuffer
   } else {
-    gates.forEach((gate) => {
-      device.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([gateToIndex(gate), 0, 0, 0]))
+    gates.forEach((operation) => {
+      const paramsBuffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      })
+      device.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([gateToIndex(operation.gate), operation.target, 0, 0]))
       const bindGroup = device.createBindGroup({
         layout: pipeline.getBindGroupLayout(0),
         entries: [
@@ -65,11 +68,13 @@ export async function computeStateVectorSequence(
           { binding: 2, resource: { buffer: outputBuffer } },
         ],
       })
+      const commandEncoder = device.createCommandEncoder()
       const pass = commandEncoder.beginComputePass()
       pass.setPipeline(pipeline)
       pass.setBindGroup(0, bindGroup)
       pass.dispatchWorkgroups(1)
       pass.end()
+      device.queue.submit([commandEncoder.finish()])
       const swap = inputBuffer
       inputBuffer = outputBuffer
       outputBuffer = swap
@@ -82,6 +87,7 @@ export async function computeStateVectorSequence(
       size: inputState.byteLength,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     })
+    const commandEncoder = device.createCommandEncoder()
     commandEncoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, inputState.byteLength)
     device.queue.submit([commandEncoder.finish()])
     await readbackBuffer.mapAsync(GPUMapMode.READ)
@@ -90,7 +96,6 @@ export async function computeStateVectorSequence(
     readbackBuffer.unmap()
     return { outputBuffer, readback: result }
   }
-  device.queue.submit([commandEncoder.finish()])
   return { outputBuffer, readback: null }
 }
 
