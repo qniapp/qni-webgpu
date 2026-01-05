@@ -336,9 +336,8 @@ pub fn render_to_buffer_with_drag(
             let line_x = rect0.x.saturating_add(rect0.width / 2);
             let start_y = rect0.y.saturating_add(rect0.height / 2);
             let end_y = rect1.y.saturating_add(rect1.height / 2);
-            let line_style = Style::default()
-                .fg(Color::LightBlue)
-                .bg(Color::LightBlue);
+            let (_, background, _, _) = gate_theme(Gate::Swap);
+            let line_style = Style::default().fg(background).bg(background);
             let (top, bottom) = if start_y <= end_y {
                 (start_y, end_y)
             } else {
