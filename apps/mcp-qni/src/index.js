@@ -1,7 +1,16 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { clearCircuit, createCircuit, placeGate, runCircuit, setQubits } from './circuit.js'
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js'
+import {
+  clearCircuit,
+  createCircuit,
+  placeGate,
+  runCircuit,
+  setQubits,
+} from './circuit.js'
 
 const server = new Server(
   {
@@ -64,17 +73,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: 'qni_clear_circuit',
       description: 'Remove all operations from the circuit.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
     },
     {
       name: 'qni_get_circuit',
       description: 'Get the current circuit definition.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
     },
     {
       name: 'qni_run',
       description: 'Execute the circuit and return the state vector.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
     },
   ],
 }))

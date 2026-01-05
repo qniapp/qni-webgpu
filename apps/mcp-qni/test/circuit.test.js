@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createCircuit, placeGate, runCircuit, setQubits } from '../src/circuit.js'
+import {
+  createCircuit,
+  placeGate,
+  runCircuit,
+  setQubits,
+} from '../src/circuit.js'
 
 const EPSILON = 1e-10
 
