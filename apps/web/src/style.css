@@ -1,0 +1,36 @@
+:root {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Palatino", serif;
+  background-color: #0f1012;
+  color: #f0f1f2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 20% 20%, #1a1c20 0%, #0d0e10 55%, #070809 100%);
+}
+
+#app {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+}
+
+#gfx {
+  border: 1px solid #2b2d33;
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+#status {
+  color: #f7c873;
+  font-size: 14px;
+  min-height: 1em;
+  text-align: center;
+}

@@ -1,0 +1,11 @@
+.pnpm-store/
+node_modules/
+dist/
+apps/web/.vite/
+apps/web/playwright-report/
+apps/web/test-results/
+apps/mcp-qni/node_modules/
+apps/web/node_modules/
+apps/tui/target/
+.env
+.DS_Store

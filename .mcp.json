@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "qni": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"
+      ],
+      "env": {}
+    }
+  }
+}
