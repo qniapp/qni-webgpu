@@ -223,28 +223,30 @@ fn add(a: Complex, b: Complex) -> Complex {
     }
 }
 
-pub fn apply_gate_to_state(state: [Complex; 4], gate: Gate, target: usize) -> [Complex; 4] {
+pub fn apply_gate_to_state(
+    state: &[Complex],
+    gate: Gate,
+    target: usize,
+    qubits: usize,
+) -> Vec<Complex> {
     if gate == Gate::Swap {
-        return state;
+        return state.to_vec();
+    }
+    if target >= qubits {
+        return state.to_vec();
     }
     let [a00, a01, a10, a11] = matrix_for(gate);
-    let mut out = state;
-    match target {
-        0 => {
-            for &(i0, i1) in &[(0, 2), (1, 3)] {
-                let v0 = out[i0];
-                let v1 = out[i1];
-                out[i0] = add(mul(a00, v0), mul(a01, v1));
-                out[i1] = add(mul(a10, v0), mul(a11, v1));
-            }
-        }
-        _ => {
-            for &(i0, i1) in &[(0, 1), (2, 3)] {
-                let v0 = out[i0];
-                let v1 = out[i1];
-                out[i0] = add(mul(a00, v0), mul(a01, v1));
-                out[i1] = add(mul(a10, v0), mul(a11, v1));
-            }
+    let mut out = state.to_vec();
+    let bit = qubits.saturating_sub(1).saturating_sub(target);
+    let mask = 1usize << bit;
+    for i in 0..state.len() {
+        if i & mask == 0 {
+            let i0 = i;
+            let i1 = i | mask;
+            let v0 = state[i0];
+            let v1 = state[i1];
+            out[i0] = add(mul(a00, v0), mul(a01, v1));
+            out[i1] = add(mul(a10, v0), mul(a11, v1));
         }
     }
     out
@@ -252,63 +254,58 @@ pub fn apply_gate_to_state(state: [Complex; 4], gate: Gate, target: usize) -> [C
 
 const ZERO: Complex = Complex { re: 0.0, im: 0.0 };
 const ONE: Complex = Complex { re: 1.0, im: 0.0 };
-const SWAP_MATRIX: [Complex; 16] = [
-    ONE, ZERO, ZERO, ZERO,
-    ZERO, ZERO, ONE, ZERO,
-    ZERO, ONE, ZERO, ZERO,
-    ZERO, ZERO, ZERO, ONE,
-];
 
-fn apply_two_qubit_matrix(state: [Complex; 4], matrix: [Complex; 16]) -> [Complex; 4] {
-    let mut out = [ZERO; 4];
-    for (row, out_slot) in out.iter_mut().enumerate() {
-        let mut acc = ZERO;
-        for col in 0..4 {
-            let m = matrix[row * 4 + col];
-            acc = add(acc, mul(m, state[col]));
+fn apply_swap_qubits(state: &[Complex], q0: usize, q1: usize, qubits: usize) -> Vec<Complex> {
+    if q0 >= qubits || q1 >= qubits || q0 == q1 {
+        return state.to_vec();
+    }
+    let bit0 = qubits.saturating_sub(1).saturating_sub(q0);
+    let bit1 = qubits.saturating_sub(1).saturating_sub(q1);
+    let mask0 = 1usize << bit0;
+    let mask1 = 1usize << bit1;
+    let mut out = vec![ZERO; state.len()];
+    for (index, value) in state.iter().enumerate() {
+        let b0 = index & mask0;
+        let b1 = index & mask1;
+        if (b0 == 0) == (b1 == 0) {
+            out[index] = *value;
+        } else {
+            let swapped = index ^ mask0 ^ mask1;
+            out[swapped] = *value;
         }
-        *out_slot = acc;
     }
     out
 }
 
-pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> [Complex; 4] {
+pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> Vec<Complex> {
     apply_gates_to_zero_limit(gates, None)
 }
 
 pub(crate) fn apply_gates_to_zero_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
-) -> [Complex; 4] {
-    let mut state = [
-        Complex { re: 1.0, im: 0.0 },
-        Complex { re: 0.0, im: 0.0 },
-        Complex { re: 0.0, im: 0.0 },
-        Complex { re: 0.0, im: 0.0 },
-    ];
+) -> Vec<Complex> {
+    let qubits = gates.len().max(MIN_QUBIT_COUNT);
+    let mut state = vec![ZERO; 1usize << qubits];
+    state[0] = ONE;
     let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);
     let limit = max_columns.unwrap_or(max_slots).min(max_slots);
     for slot in 0..limit {
-        let has_swap_pair = gates
-            .get(0)
-            .and_then(|row| row.get(slot))
-            .and_then(|gate| *gate)
-            == Some(Gate::Swap)
-            && gates
-                .get(1)
-                .and_then(|row| row.get(slot))
-                .and_then(|gate| *gate)
-                == Some(Gate::Swap);
-        if has_swap_pair {
-            state = apply_two_qubit_matrix(state, SWAP_MATRIX);
-            continue;
+        let mut swap_rows = Vec::new();
+        for (row, row_gates) in gates.iter().enumerate() {
+            let is_swap = row_gates.get(slot).and_then(|gate| *gate) == Some(Gate::Swap);
+            if is_swap {
+                swap_rows.push(row);
+            }
+        }
+        if swap_rows.len() == 2 {
+            state = apply_swap_qubits(&state, swap_rows[0], swap_rows[1], qubits);
         }
         for (row, row_gates) in gates.iter().enumerate() {
-            if row >= MIN_QUBIT_COUNT {
-                continue;
-            }
             if let Some(Some(gate)) = row_gates.get(slot) {
-                state = apply_gate_to_state(state, *gate, row);
+                if *gate != Gate::Swap {
+                    state = apply_gate_to_state(&state, *gate, row, qubits);
+                }
             }
         }
     }
@@ -339,14 +336,12 @@ pub(crate) fn build_state_line_with_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
 ) -> String {
-    let [amp0, amp1, amp2, amp3] = apply_gates_to_zero_limit(gates, max_columns);
-    format!(
-        "State: [({}), ({}), ({}), ({})]",
-        format_complex(amp0),
-        format_complex(amp1),
-        format_complex(amp2),
-        format_complex(amp3)
-    )
+    let amplitudes = apply_gates_to_zero_limit(gates, max_columns);
+    let formatted: Vec<String> = amplitudes
+        .into_iter()
+        .map(|amp| format!("({})", format_complex(amp)))
+        .collect();
+    format!("State: [{}]", formatted.join(", "))
 }
 
 pub fn parse_args(args: &[String]) -> Gate {

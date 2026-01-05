@@ -57,6 +57,24 @@ mod tests {
     }
 
     #[test]
+    fn build_state_line_expands_for_three_qubits() {
+        let line = build_state_line(&[vec![None], vec![None], vec![None]]);
+        assert_eq!(
+            line,
+            "State: [(1+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i)]"
+        );
+    }
+
+    #[test]
+    fn build_state_line_updates_third_qubit() {
+        let line = build_state_line(&[vec![None], vec![None], vec![Some(Gate::X)]]);
+        assert_eq!(
+            line,
+            "State: [(0+0i), (1+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i)]"
+        );
+    }
+
+    #[test]
     fn build_state_line_for_h_gate() {
         let line = build_state_line(&[vec![Some(Gate::H)]]);
         assert_eq!(
