@@ -45,6 +45,12 @@ pnpm install
 pnpm exec playwright install chromium
 ```
 
+### Lint（TypeScript）
+```
+cd apps/web
+pnpm lint
+```
+
 ### xvfb でテスト実行（Linux）
 ```
 cd apps/web
@@ -63,6 +69,13 @@ xvfb-run -a pnpm exec playwright test
 cd apps/mcp-qni
 pnpm install
 pnpm start
+```
+
+Claude Code でプロジェクトに登録する:
+
+```
+claude mcp add --scope project --transport stdio qni -- \
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
 ```
 
 詳細は `docs/mcp-qni.md` を参照。

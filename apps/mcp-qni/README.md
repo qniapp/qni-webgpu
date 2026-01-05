@@ -19,10 +19,27 @@ pnpm install
 pnpm start
 ```
 
+## Claude Code での登録
+
+プロジェクト内で Qni を有効にする:
+
+```
+claude mcp add --scope project --transport stdio qni -- \
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
+```
+
+`/mcp` で qni を有効化して使う。
+
 ## リント
 
 ```
 pnpm lint
+```
+
+## フォーマット
+
+```
+pnpm format
 ```
 
 ## ツール
