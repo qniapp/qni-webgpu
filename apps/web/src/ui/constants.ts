@@ -11,10 +11,10 @@ export const LINE_RIGHT = CANVAS_WIDTH - 80
 
 export const GATE_SIZE = 60
 
-export const SLOT_COUNT = 7
-export const SLOT_LEFT = LINE_LEFT + GATE_SIZE / 2
-export const SLOT_RIGHT = LINE_RIGHT - GATE_SIZE / 2
-export const SLOT_SPACING = SLOT_COUNT > 1 ? (SLOT_RIGHT - SLOT_LEFT) / (SLOT_COUNT - 1) : 0
+export const SLOT_LEFT = LINE_LEFT + GATE_SIZE
+export const SLOT_RIGHT = LINE_RIGHT - GATE_SIZE
+export const SLOT_SPACING = GATE_SIZE * 1.5
+export const SLOT_COUNT = SLOT_SPACING > 0 ? Math.floor((SLOT_RIGHT - SLOT_LEFT) / SLOT_SPACING) + 1 : 0
 export const SNAP_DISTANCE = 18
 
 export const PALETTE_GATES: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
