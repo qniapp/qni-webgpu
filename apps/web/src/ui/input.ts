@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, GATE_SIZE, LINE_LEFT, LINE_RIGHT, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE } from './constants'
+import { CANVAS_WIDTH, GATE_SIZE, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, SLOT_COUNT, SLOT_LEFT, SLOT_SPACING, SLOT_RIGHT, SNAP_DISTANCE } from './constants'
 import type { PlacedGate } from './types'
 
 type InputOptions = {
@@ -16,6 +16,20 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
   const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
+  const slotCenters = Array.from({ length: SLOT_COUNT }, (_, index) => SLOT_LEFT + SLOT_SPACING * index)
+
+  const nearestSlotCenter = (x: number) => {
+    let nearest = slotCenters[0] ?? x
+    let nearestDistance = Math.abs(x - nearest)
+    for (const slot of slotCenters) {
+      const distance = Math.abs(x - slot)
+      if (distance < nearestDistance) {
+        nearest = slot
+        nearestDistance = distance
+      }
+    }
+    return nearest
+  }
 
   const getPointerPosition = (event: PointerEvent) => {
     const rect = canvas.getBoundingClientRect()
@@ -75,7 +89,15 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     const nextY = y - dragOffsetY
     const snapY = LINE_Y - GATE_SIZE / 2
     const centerY = nextY + GATE_SIZE / 2
-    gate.y = Math.abs(centerY - LINE_Y) <= 10 ? snapY : nextY
+    const shouldSnapY = Math.abs(centerY - LINE_Y) <= SNAP_DISTANCE
+    if (shouldSnapY) {
+      gate.y = snapY
+      const centerX = x - dragOffsetX + GATE_SIZE / 2
+      const snappedCenterX = nearestSlotCenter(centerX)
+      gate.x = snappedCenterX - GATE_SIZE / 2
+    } else {
+      gate.y = nextY
+    }
     onUpdate()
   })
 
@@ -94,14 +116,14 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     const centerX = gate.x + GATE_SIZE / 2
     const centerY = gate.y + GATE_SIZE / 2
     const onCircuit =
-      centerX >= LINE_LEFT &&
-      centerX <= LINE_RIGHT &&
-      Math.abs(centerY - LINE_Y) <= GATE_SIZE / 2
+      centerX >= SLOT_LEFT &&
+      centerX <= SLOT_RIGHT &&
+      Math.abs(centerY - LINE_Y) <= SNAP_DISTANCE
     if (!onCircuit) {
       placedGates.splice(gateIndex, 1)
     } else {
-      const snappedX = Math.max(LINE_LEFT, Math.min(centerX, LINE_RIGHT)) - GATE_SIZE / 2
-      gate.x = snappedX
+      const snappedCenterX = nearestSlotCenter(centerX)
+      gate.x = snappedCenterX - GATE_SIZE / 2
       gate.y = LINE_Y - GATE_SIZE / 2
       onGateDropped(gate)
     }
