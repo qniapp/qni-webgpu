@@ -47,11 +47,12 @@ if (!navigator.gpu) {
 type Color = [number, number, number, number]
 
 const COLORS = {
-  background: [0.06, 0.06, 0.07, 1.0] as Color,
-  line: [0.9, 0.9, 0.92, 1.0] as Color,
-  box: [0.18, 0.18, 0.2, 1.0] as Color,
-  boxBorder: [0.92, 0.92, 0.95, 1.0] as Color,
-  text: [0.92, 0.92, 0.95, 1.0] as Color,
+  background: [0.94, 0.94, 0.94, 1.0] as Color,
+  line: [0.62, 0.62, 0.62, 1.0] as Color,
+  box: [0.2, 0.62, 0.55, 1.0] as Color,
+  boxBorder: [0.14, 0.36, 0.34, 1.0] as Color,
+  label: [1.0, 1.0, 1.0, 1.0] as Color,
+  text: [0.45, 0.45, 0.45, 1.0] as Color,
 }
 
 const computeShaderCode = `
@@ -215,6 +216,10 @@ struct Instance {
 struct VertexOut {
   @builtin(position) position: vec4<f32>,
   @location(0) color: vec4<f32>,
+  @location(1) localPos: vec2<f32>,
+  @location(2) size: vec2<f32>,
+  @location(3) kind: f32,
+  @location(4) radius: f32,
 }
 
 fn to_clip(pos: vec2<f32>) -> vec4<f32> {
@@ -246,23 +251,42 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
   if (kindValue == 0u) {
     pos = p0 + local * p1;
   } else {
-    let dir = normalize(p1 - p0);
-    let normal = vec2<f32>(-dir.y, dir.x) * (thickness * 0.5);
-    let a = p0 + normal;
-    let b = p0 - normal;
-    let c = p1 - normal;
-    let d = p1 + normal;
-    let quadPts = array<vec2<f32>, 6>(a, b, c, a, c, d);
-    pos = quadPts[vertexIndex];
+    if (kindValue == 1u) {
+      let dir = normalize(p1 - p0);
+      let normal = vec2<f32>(-dir.y, dir.x) * (thickness * 0.5);
+      let a = p0 + normal;
+      let b = p0 - normal;
+      let c = p1 - normal;
+      let d = p1 + normal;
+      let quadPts = array<vec2<f32>, 6>(a, b, c, a, c, d);
+      pos = quadPts[vertexIndex];
+    } else {
+      pos = p0 + local * p1;
+    }
   }
 
   out.position = to_clip(pos);
   out.color = color;
+  out.localPos = local * p1;
+  out.size = p1;
+  out.kind = kind;
+  out.radius = thickness;
   return out;
 }
 
 @fragment
 fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
+  let kindValue = u32(round(input.kind));
+  if (kindValue == 2u) {
+    let half = input.size * 0.5;
+    let p = input.localPos - half;
+    let radius = min(input.radius, min(half.x, half.y));
+    let q = abs(p) - (half - vec2<f32>(radius, radius));
+    let dist = length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    if (dist > 0.0) {
+      return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+  }
   return input.color;
 }
 `
@@ -336,7 +360,7 @@ fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
 `
 
 type ShapeInstance = {
-  kind: 0 | 1
+  kind: 0 | 1 | 2
   thickness: number
   p0x: number
   p0y: number
@@ -371,16 +395,26 @@ function addLine(x1: number, y1: number, x2: number, y2: number, thickness: numb
   })
 }
 
+function addRoundedRect(x: number, y: number, w: number, h: number, radius: number, color: Color) {
+  instances.push({
+    kind: 2,
+    thickness: radius,
+    p0x: x,
+    p0y: y,
+    p1x: w,
+    p1y: h,
+    color,
+  })
+}
+
 const FONT_GLYPH_SIZE = 8
+const LABEL_GLYPH_SIZE = 18
 const FONT_COLS = 16
 const FONT_ROWS = 6
-const FONT_ATLAS_WIDTH = FONT_COLS * FONT_GLYPH_SIZE
-const FONT_ATLAS_HEIGHT = FONT_ROWS * FONT_GLYPH_SIZE
 
-function createFontAtlas() {
-  const data = new Uint8Array(FONT_ATLAS_WIDTH * FONT_ATLAS_HEIGHT * 4)
+type GlyphMap = Record<string, string[]>
 
-  const glyphs: Record<string, string[]> = {
+const BASE_GLYPHS: GlyphMap = {
     'H': [
       '11000011',
       '11000011',
@@ -643,6 +677,102 @@ function createFontAtlas() {
     ],
   }
 
+function createBlankGlyph(size: number): number[][] {
+  return Array.from({ length: size }, () => Array.from({ length: size }, () => 0))
+}
+
+function drawRect(grid: number[][], x: number, y: number, w: number, h: number) {
+  for (let row = y; row < y + h; row += 1) {
+    for (let col = x; col < x + w; col += 1) {
+      if (row >= 0 && row < grid.length && col >= 0 && col < grid.length) {
+        grid[row][col] = 1
+      }
+    }
+  }
+}
+
+function distanceToSegment(px: number, py: number, x0: number, y0: number, x1: number, y1: number) {
+  const dx = x1 - x0
+  const dy = y1 - y0
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) {
+    return Math.hypot(px - x0, py - y0)
+  }
+  const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / lenSq))
+  const projX = x0 + t * dx
+  const projY = y0 + t * dy
+  return Math.hypot(px - projX, py - projY)
+}
+
+function drawLine(grid: number[][], x0: number, y0: number, x1: number, y1: number, thickness: number) {
+  const half = thickness / 2
+  for (let y = 0; y < grid.length; y += 1) {
+    for (let x = 0; x < grid.length; x += 1) {
+      const dist = distanceToSegment(x + 0.5, y + 0.5, x0, y0, x1, y1)
+      if (dist <= half) {
+        grid[y][x] = 1
+      }
+    }
+  }
+}
+
+function glyphToRows(grid: number[][]): string[] {
+  return grid.map((row) => row.map((cell) => (cell ? '1' : '0')).join(''))
+}
+
+function buildLabelGlyphs(size: number): GlyphMap {
+  const stroke = Math.max(2, Math.round(size / 9))
+  const inset = Math.max(2, Math.round(size / 8))
+  const mid = Math.floor(size / 2)
+
+  const hGrid = createBlankGlyph(size)
+  drawRect(hGrid, inset, inset, stroke, size - inset * 2)
+  drawRect(hGrid, size - inset - stroke, inset, stroke, size - inset * 2)
+  drawRect(hGrid, inset, mid - Math.floor(stroke / 2), size - inset * 2, stroke)
+
+  const xGrid = createBlankGlyph(size)
+  drawLine(xGrid, inset, inset, size - inset, size - inset, stroke)
+  drawLine(xGrid, inset, size - inset, size - inset, inset, stroke)
+
+  const yGrid = createBlankGlyph(size)
+  drawLine(yGrid, inset, inset, mid, mid, stroke)
+  drawLine(yGrid, size - inset, inset, mid, mid, stroke)
+  drawRect(yGrid, mid - Math.floor(stroke / 2), mid, stroke, size - inset - mid)
+
+  const zGrid = createBlankGlyph(size)
+  drawRect(zGrid, inset, inset, size - inset * 2, stroke)
+  drawRect(zGrid, inset, size - inset - stroke, size - inset * 2, stroke)
+  drawLine(zGrid, size - inset, inset + stroke, inset, size - inset - stroke, stroke)
+
+  const sGrid = createBlankGlyph(size)
+  drawRect(sGrid, inset, inset, size - inset * 2, stroke)
+  drawRect(sGrid, inset, mid - Math.floor(stroke / 2), size - inset * 2, stroke)
+  drawRect(sGrid, inset, size - inset - stroke, size - inset * 2, stroke)
+  drawRect(sGrid, inset, inset, stroke, mid - inset)
+  drawRect(sGrid, size - inset - stroke, mid, stroke, size - inset - mid)
+
+  const tGrid = createBlankGlyph(size)
+  drawRect(tGrid, inset, inset, size - inset * 2, stroke)
+  drawRect(tGrid, mid - Math.floor(stroke / 2), inset, stroke, size - inset * 2)
+
+  const spaceGrid = createBlankGlyph(size)
+
+  return {
+    H: glyphToRows(hGrid),
+    X: glyphToRows(xGrid),
+    Y: glyphToRows(yGrid),
+    Z: glyphToRows(zGrid),
+    S: glyphToRows(sGrid),
+    T: glyphToRows(tGrid),
+    ' ': glyphToRows(spaceGrid),
+  }
+}
+
+function createFontAtlas(glyphSize: number, glyphs: GlyphMap) {
+  const atlasWidth = FONT_COLS * glyphSize
+  const atlasHeight = FONT_ROWS * glyphSize
+  const data = new Uint8Array(atlasWidth * atlasHeight * 4)
+
   const setGlyph = (char: string, rows: string[]) => {
     const code = char.charCodeAt(0)
     const index = code - 32
@@ -651,14 +781,14 @@ function createFontAtlas() {
     }
     const col = index % FONT_COLS
     const row = Math.floor(index / FONT_COLS)
-    const baseX = col * FONT_GLYPH_SIZE
-    const baseY = row * FONT_GLYPH_SIZE
+    const baseX = col * glyphSize
+    const baseY = row * glyphSize
     rows.forEach((rowBits, y) => {
-      for (let x = 0; x < FONT_GLYPH_SIZE; x += 1) {
+      for (let x = 0; x < glyphSize; x += 1) {
         const value = rowBits[x] === '1' ? 255 : 0
         const px = baseX + x
         const py = baseY + y
-        const offset = (py * FONT_ATLAS_WIDTH + px) * 4
+        const offset = (py * atlasWidth + px) * 4
         data[offset] = 255
         data[offset + 1] = 255
         data[offset + 2] = 255
@@ -669,7 +799,7 @@ function createFontAtlas() {
 
   Object.entries(glyphs).forEach(([char, rows]) => setGlyph(char, rows))
 
-  return data
+  return { data, atlasWidth, atlasHeight }
 }
 
 type TextLayout = {
@@ -688,21 +818,15 @@ function buildScene(
   const lineY = 160
   const lineLeft = 80
   const lineRight = CANVAS_WIDTH - 80
-  addRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, COLORS.background)
   addLine(lineLeft, lineY, lineRight, lineY, 4, COLORS.line)
 
   const gateSize = 60
   const gateX = (lineLeft + lineRight) / 2 - gateSize / 2
   const gateY = lineY - gateSize / 2
-  addRect(gateX, gateY, gateSize, gateSize, COLORS.box)
-  const border = 3
-  addRect(gateX, gateY, gateSize, border, COLORS.boxBorder)
-  addRect(gateX, gateY + gateSize - border, gateSize, border, COLORS.boxBorder)
-  addRect(gateX, gateY, border, gateSize, COLORS.boxBorder)
-  addRect(gateX + gateSize - border, gateY, border, gateSize, COLORS.boxBorder)
+  addRoundedRect(gateX, gateY, gateSize, gateSize, 6, COLORS.box)
 
-  const gateLabelX = gateX + gateSize / 2 - FONT_GLYPH_SIZE / 2
-  const gateLabelY = gateY + gateSize / 2 - FONT_GLYPH_SIZE / 2
+  const gateLabelX = gateX + gateSize / 2 - LABEL_GLYPH_SIZE / 2
+  const gateLabelY = gateY + gateSize / 2 - LABEL_GLYPH_SIZE / 2
 
   window.__vertexCount = instances.length
 
@@ -711,7 +835,8 @@ function buildScene(
       text: gateLabel,
       x: gateLabelX,
       y: gateLabelY,
-      color: COLORS.boxBorder,
+      color: COLORS.label,
+      drawSize: LABEL_GLYPH_SIZE,
     },
     stateVector: {
       text: '',
@@ -874,26 +999,58 @@ async function init() {
     device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
     await populateStateTextBuffer(device, stateVectorBuffer, stateTextGlyphBuffer)
 
-    const fontData = createFontAtlas()
+    const { data: fontData, atlasWidth: fontAtlasWidth, atlasHeight: fontAtlasHeight } = createFontAtlas(
+      FONT_GLYPH_SIZE,
+      BASE_GLYPHS
+    )
+    const labelGlyphs = buildLabelGlyphs(LABEL_GLYPH_SIZE)
+    const { data: labelFontData, atlasWidth: labelAtlasWidth, atlasHeight: labelAtlasHeight } = createFontAtlas(
+      LABEL_GLYPH_SIZE,
+      labelGlyphs
+    )
+
     const bytesPerPixel = 4
-    const unpaddedBytesPerRow = FONT_ATLAS_WIDTH * bytesPerPixel
+    const unpaddedBytesPerRow = fontAtlasWidth * bytesPerPixel
     const paddedBytesPerRow = Math.ceil(unpaddedBytesPerRow / 256) * 256
-    const paddedFontData = new Uint8Array(paddedBytesPerRow * FONT_ATLAS_HEIGHT)
-    for (let row = 0; row < FONT_ATLAS_HEIGHT; row += 1) {
+    const paddedFontData = new Uint8Array(paddedBytesPerRow * fontAtlasHeight)
+    for (let row = 0; row < fontAtlasHeight; row += 1) {
       const srcOffset = row * unpaddedBytesPerRow
       const dstOffset = row * paddedBytesPerRow
       paddedFontData.set(fontData.subarray(srcOffset, srcOffset + unpaddedBytesPerRow), dstOffset)
     }
     const fontTexture = device.createTexture({
-      size: [FONT_ATLAS_WIDTH, FONT_ATLAS_HEIGHT, 1],
+      size: [fontAtlasWidth, fontAtlasHeight, 1],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     })
     device.queue.writeTexture(
       { texture: fontTexture },
       paddedFontData,
-      { bytesPerRow: paddedBytesPerRow, rowsPerImage: FONT_ATLAS_HEIGHT },
-      { width: FONT_ATLAS_WIDTH, height: FONT_ATLAS_HEIGHT }
+      { bytesPerRow: paddedBytesPerRow, rowsPerImage: fontAtlasHeight },
+      { width: fontAtlasWidth, height: fontAtlasHeight }
+    )
+
+    const unpaddedLabelBytesPerRow = labelAtlasWidth * bytesPerPixel
+    const paddedLabelBytesPerRow = Math.ceil(unpaddedLabelBytesPerRow / 256) * 256
+    const paddedLabelFontData = new Uint8Array(paddedLabelBytesPerRow * labelAtlasHeight)
+    for (let row = 0; row < labelAtlasHeight; row += 1) {
+      const srcOffset = row * unpaddedLabelBytesPerRow
+      const dstOffset = row * paddedLabelBytesPerRow
+      paddedLabelFontData.set(
+        labelFontData.subarray(srcOffset, srcOffset + unpaddedLabelBytesPerRow),
+        dstOffset
+      )
+    }
+    const labelFontTexture = device.createTexture({
+      size: [labelAtlasWidth, labelAtlasHeight, 1],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    })
+    device.queue.writeTexture(
+      { texture: labelFontTexture },
+      paddedLabelFontData,
+      { bytesPerRow: paddedLabelBytesPerRow, rowsPerImage: labelAtlasHeight },
+      { width: labelAtlasWidth, height: labelAtlasHeight }
     )
     const fontSampler = device.createSampler({
       magFilter: 'nearest',
@@ -1036,7 +1193,14 @@ async function init() {
 
     const makeTextBuffers = (
       layout: TextLayout,
-      options?: { glyphBuffer?: GPUBuffer; glyphCount?: number }
+      options?: {
+        glyphBuffer?: GPUBuffer
+        glyphCount?: number
+        glyphSize?: number
+        atlasWidth?: number
+        atlasHeight?: number
+        texture?: GPUTexture
+      }
     ) => {
       let glyphBuffer = options?.glyphBuffer
       let glyphCount = options?.glyphCount ?? layout.text.length
@@ -1050,15 +1214,18 @@ async function init() {
         glyphCount = codes.length
       }
 
+      const glyphSize = options?.glyphSize ?? FONT_GLYPH_SIZE
+      const atlasWidth = options?.atlasWidth ?? fontAtlasWidth
+      const atlasHeight = options?.atlasHeight ?? fontAtlasHeight
       const uniformData = new Float32Array([
         CANVAS_WIDTH,
         CANVAS_HEIGHT,
         layout.x,
         layout.y,
-        FONT_GLYPH_SIZE,
-        FONT_GLYPH_SIZE,
-        FONT_ATLAS_WIDTH,
-        FONT_ATLAS_HEIGHT,
+        glyphSize,
+        glyphSize,
+        atlasWidth,
+        atlasHeight,
         layout.color[0],
         layout.color[1],
         layout.color[2],
@@ -1076,14 +1243,19 @@ async function init() {
           { binding: 0, resource: { buffer: uniformBuffer } },
           { binding: 1, resource: { buffer: glyphBuffer } },
           { binding: 2, resource: fontSampler },
-          { binding: 3, resource: fontTexture.createView() },
+          { binding: 3, resource: (options?.texture ?? fontTexture).createView() },
         ],
       })
 
       return { textBindGroup, glyphCount }
     }
 
-    const gateText = makeTextBuffers(textLayout.gateLabel)
+    const gateText = makeTextBuffers(textLayout.gateLabel, {
+      glyphSize: LABEL_GLYPH_SIZE,
+      atlasWidth: labelAtlasWidth,
+      atlasHeight: labelAtlasHeight,
+      texture: labelFontTexture,
+    })
     const stateTextDraw = makeTextBuffers(textLayout.stateVector, {
       glyphBuffer: stateTextGlyphBuffer,
       glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
