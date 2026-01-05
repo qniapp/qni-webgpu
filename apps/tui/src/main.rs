@@ -7,8 +7,8 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use qni_webgpu_tui::{
-    handle_mouse_down, handle_mouse_move, handle_mouse_up, parse_args, render_to_buffer_with_drag,
-    update_hovered_slot, AppState, DragVisual,
+    confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up, parse_args,
+    render_to_buffer_with_drag, update_hovered_slot, AppState, DragVisual,
 };
 
 fn draw_once(
@@ -80,6 +80,7 @@ fn run() -> io::Result<()> {
                         MouseEventKind::Down(MouseButton::Left) => {
                             handle_mouse_down(&mut app_state, mouse.column, mouse.row, area);
                             update_hovered_slot(&mut app_state, mouse.column, mouse.row, area);
+                            confirm_hovered_column(&mut app_state);
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
                             if app_state.dragging.is_none() {

@@ -1,8 +1,8 @@
 use ratatui::layout::Rect;
 
 use crate::{
-    GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_GAP, MIN_QUBIT_COUNT, PALETTE_GAP, PALETTE_HEIGHT,
-    ROW_GAP, SEPARATOR_TO_CIRCUIT_GAP, SLOT_GAP,
+    GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, GATE_GAP, MIN_QUBIT_COUNT, PALETTE_GAP, PALETTE_HEIGHT,
+    ROW_GAP, SEPARATOR_TO_CIRCUIT_GAP, SHADOW_OUTSET, SLOT_GAP,
 };
 use crate::model::Gate;
 
@@ -48,21 +48,21 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
     let separator_y = palette_bottom.saturating_add(PALETTE_GAP);
     let desired_circuit_y = separator_y.saturating_add(1 + SEPARATOR_TO_CIRCUIT_GAP);
     let total_circuit_height =
-        (GATE_BOX_HEIGHT * qubit_count as u16).saturating_add(ROW_GAP * (qubit_count as u16 - 1));
+        (GATE_DRAW_HEIGHT * qubit_count as u16).saturating_add(ROW_GAP * (qubit_count as u16 - 1));
     let max_circuit_y = state_y.saturating_sub(total_circuit_height + 1);
-    let circuit_y = if max_circuit_y < palette_bottom {
+    let circuit_y = if max_circuit_y < desired_circuit_y {
         palette_bottom
     } else {
-        desired_circuit_y.min(max_circuit_y)
+        desired_circuit_y
     };
     let mut circuits = Vec::with_capacity(qubit_count);
     for row in 0..qubit_count {
-        let row_y = circuit_y.saturating_add(row as u16 * (GATE_BOX_HEIGHT + ROW_GAP));
+        let row_y = circuit_y.saturating_add(row as u16 * (GATE_DRAW_HEIGHT + ROW_GAP));
         circuits.push(Rect {
             x: area.x,
             y: row_y,
             width: area.width,
-            height: GATE_BOX_HEIGHT,
+            height: GATE_DRAW_HEIGHT,
         });
     }
     Regions {
@@ -91,7 +91,7 @@ pub(crate) fn palette_items(area: Rect) -> Vec<PaletteItem> {
             x,
             y,
             width: GATE_BOX_WIDTH,
-            height: GATE_BOX_HEIGHT,
+            height: GATE_DRAW_HEIGHT,
         };
         items.push(PaletteItem { gate, rect });
         x = x.saturating_add(GATE_BOX_WIDTH + GATE_GAP);
@@ -108,7 +108,7 @@ pub fn circuit_layout(area: Rect, qubit_count: usize) -> CircuitLayout {
     let mut slots = Vec::with_capacity(qubit_count);
     for row in 0..qubit_count {
         let circuit = regions.circuits[row];
-        let wire_y = circuit.y.saturating_add(1);
+        let wire_y = circuit.y.saturating_add(SHADOW_OUTSET + 1);
         wire_rows.push(wire_y);
         let mut row_slots = Vec::new();
         let mut x = wire_start_x.saturating_add(SLOT_PADDING_LEFT);
@@ -118,7 +118,7 @@ pub fn circuit_layout(area: Rect, qubit_count: usize) -> CircuitLayout {
                 x,
                 y: circuit.y,
                 width: GATE_BOX_WIDTH,
-                height: GATE_BOX_HEIGHT,
+                height: GATE_DRAW_HEIGHT,
             });
             x = x.saturating_add(GATE_BOX_WIDTH + SLOT_GAP);
         }
@@ -193,7 +193,7 @@ pub fn insertion_snap_rect(layout: &CircuitLayout, row: usize, index: usize) -> 
         x: snap_x,
         y: left.y,
         width: GATE_BOX_WIDTH,
-        height: GATE_BOX_HEIGHT,
+        height: GATE_DRAW_HEIGHT,
     })
 }
 
