@@ -203,8 +203,13 @@ mod tests {
         let buffer = render_to_buffer(&mut state, area, None);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
+        let rect1 = layout.slots[2][0];
         let line_x = rect0.x + rect0.width / 2;
-        let line_y = rect0.y + rect0.height / 2;
+        let line_y = rect0
+            .y
+            .saturating_add(rect0.height)
+            .saturating_add(ROW_GAP / 2)
+            .min(rect1.y.saturating_sub(1));
         let symbol = buffer.get(line_x, line_y).symbol();
         assert_eq!(symbol, "│");
     }

@@ -294,17 +294,6 @@ pub fn render_to_buffer_with_drag(
         }
     }
 
-    for (row, row_slots) in layout.slots.iter().enumerate() {
-        for (slot, rect) in row_slots.iter().enumerate() {
-            if let Some(Some(gate)) = state
-                .placed
-                .get(row)
-                .and_then(|row_gates| row_gates.get(slot))
-            {
-                draw_gate_box(&mut buffer, *rect, *gate);
-            }
-        }
-    }
     if current_qubits >= 2 {
         let max_rows = layout.slots.len();
         let max_cols = layout
@@ -345,6 +334,17 @@ pub fn render_to_buffer_with_drag(
             };
             for y in top..=bottom {
                 buffer.set_string(line_x, y, "│", line_style);
+            }
+        }
+    }
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for (slot, rect) in row_slots.iter().enumerate() {
+            if let Some(Some(gate)) = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(slot))
+            {
+                draw_gate_box(&mut buffer, *rect, *gate);
             }
         }
     }
