@@ -65,6 +65,10 @@ pub struct AppState {
     pub hovered_slot: Option<usize>,
     pub hovered_row: Option<usize>,
     pub hovered_insert: Option<(usize, usize)>,
+    pub hovered_column: Option<(usize, usize)>,
+    pub hovered_start: bool,
+    pub confirmed_column: Option<usize>,
+    pub confirmed_start: bool,
 }
 
 impl AppState {
@@ -78,6 +82,10 @@ impl AppState {
             hovered_slot: None,
             hovered_row: None,
             hovered_insert: None,
+            hovered_column: None,
+            hovered_start: false,
+            confirmed_column: None,
+            confirmed_start: false,
         }
     }
 }
@@ -505,6 +513,81 @@ fn insertion_snap_rect(layout: &CircuitLayout, row: usize, index: usize) -> Opti
     })
 }
 
+fn column_line_x(layout: &CircuitLayout, row: usize, index: usize) -> Option<u16> {
+    let slot = layout.slots.get(row).and_then(|row_slots| row_slots.get(index))?;
+    Some(
+        slot.x
+            .saturating_add(slot.width)
+            .saturating_add(SLOT_GAP / 2),
+    )
+}
+
+fn start_line_x(layout: &CircuitLayout) -> Option<u16> {
+    let first_row = layout.slots.first()?;
+    let first_slot = first_row.first()?;
+    let padding = first_slot.x.saturating_sub(layout.wire_start_x);
+    Some(layout.wire_start_x.saturating_add(padding / 2))
+}
+
+fn hovered_start_at(x: u16, y: u16, layout: &CircuitLayout) -> bool {
+    let first_row = match layout.slots.first() {
+        Some(row) => row,
+        None => return false,
+    };
+    let first_slot = match first_row.first() {
+        Some(slot) => slot,
+        None => return false,
+    };
+    let last_row = match layout.slots.last() {
+        Some(row) => row,
+        None => return false,
+    };
+    let last_slot = match last_row.first() {
+        Some(slot) => slot,
+        None => return false,
+    };
+    let top = first_slot.y;
+    let bottom = last_slot.y.saturating_add(last_slot.height);
+    y >= top && y < bottom && x < first_slot.x
+}
+
+fn hovered_column_at(
+    x: u16,
+    y: u16,
+    layout: &CircuitLayout,
+) -> Option<(usize, usize)> {
+    let first_row = layout.slots.first()?;
+    let first_slot = first_row.first()?;
+    let last_row = layout.slots.last()?;
+    let last_slot = last_row.first()?;
+    let top = first_slot.y;
+    let bottom = last_slot.y.saturating_add(last_slot.height);
+    if y < top || y >= bottom {
+        return None;
+    }
+    for (index, rect) in first_row.iter().enumerate() {
+        if x >= rect.x
+            && x < rect.x.saturating_add(rect.width)
+        {
+            return Some((0, index));
+        }
+    }
+    for index in 0..first_row.len().saturating_sub(1) {
+        let left = first_row[index];
+        let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
+        let gap = Rect {
+            x: gap_x,
+            y: left.y,
+            width: SLOT_GAP,
+            height: left.height,
+        };
+        if x >= gap.x && x < gap.x.saturating_add(gap.width) {
+            return Some((0, index));
+        }
+    }
+    None
+}
+
 pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
     if let Some(gate) = hit_test_palette(x, y, area) {
         state.dragging = Some(DragState {
@@ -513,6 +596,8 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
         });
         state.drag_pos = Some((x, y));
         state.hovered_insert = None;
+        state.hovered_column = None;
+        state.hovered_start = false;
         add_empty_qubit_row(state);
         return;
     }
@@ -538,6 +623,8 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             state.drag_pos = Some((x, y));
             state.placed[row][slot] = None;
             state.hovered_insert = None;
+            state.hovered_column = None;
+            state.hovered_start = false;
             add_empty_qubit_row(state);
         }
     }
@@ -585,11 +672,30 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.hovered_slot = None;
     state.hovered_row = None;
     state.hovered_insert = None;
+    state.hovered_column = None;
+    state.hovered_start = false;
     compact_empty_columns(state);
     trim_trailing_empty_qubits(state);
 }
 
+pub fn confirm_hovered_column(state: &mut AppState) {
+    if state.hovered_start {
+        state.confirmed_column = None;
+        state.confirmed_start = true;
+    } else if let Some((_, index)) = state.hovered_column {
+        state.confirmed_column = Some(index);
+        state.confirmed_start = false;
+    }
+}
+
 pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
+    let layout = circuit_layout(area, qubit_count(state));
+    state.hovered_start = hovered_start_at(x, y, &layout);
+    state.hovered_column = if state.hovered_start {
+        None
+    } else {
+        hovered_column_at(x, y, &layout)
+    };
     if state.dragging.is_none() {
         state.hovered_slot = None;
         state.hovered_row = None;
@@ -597,7 +703,6 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
         return;
     }
 
-    let layout = circuit_layout(area, qubit_count(state));
     let counts: Vec<usize> = layout
         .slots
         .iter()
@@ -844,6 +949,13 @@ pub fn apply_gate_to_state(state: [Complex; 4], gate: Gate, target: usize) -> [C
 }
 
 pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> [Complex; 4] {
+    apply_gates_to_zero_limit(gates, None)
+}
+
+fn apply_gates_to_zero_limit(
+    gates: &[Vec<Option<Gate>>],
+    max_columns: Option<usize>,
+) -> [Complex; 4] {
     let mut state = [
         Complex { re: 1.0, im: 0.0 },
         Complex { re: 0.0, im: 0.0 },
@@ -851,7 +963,8 @@ pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> [Complex; 4] {
         Complex { re: 0.0, im: 0.0 },
     ];
     let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);
-    for slot in 0..max_slots {
+    let limit = max_columns.unwrap_or(max_slots).min(max_slots);
+    for slot in 0..limit {
         for (row, row_gates) in gates.iter().enumerate() {
             if row >= MIN_QUBIT_COUNT {
                 continue;
@@ -881,7 +994,11 @@ pub fn format_complex(value: Complex) -> String {
 }
 
 pub fn build_state_line(gates: &[Vec<Option<Gate>>]) -> String {
-    let [amp0, amp1, amp2, amp3] = apply_gates_to_zero(gates);
+    build_state_line_with_limit(gates, None)
+}
+
+fn build_state_line_with_limit(gates: &[Vec<Option<Gate>>], max_columns: Option<usize>) -> String {
+    let [amp0, amp1, amp2, amp3] = apply_gates_to_zero_limit(gates, max_columns);
     format!(
         "State: [({}), ({}), ({}), ({})]",
         format_complex(amp0),
@@ -944,6 +1061,79 @@ pub fn render_to_buffer_with_drag(
         }
     }
 
+    let top = regions
+        .circuits
+        .first()
+        .map(|rect| rect.y)
+        .unwrap_or(area.y);
+    let bottom = regions
+        .circuits
+        .last()
+        .map(|rect| rect.y.saturating_add(rect.height))
+        .unwrap_or(top);
+
+    let implicit_start = state.confirmed_column.is_none()
+        && !state.confirmed_start
+        && state.hovered_column.is_none()
+        && !state.hovered_start;
+    if let Some(index) = state.confirmed_column {
+        if let Some(line_x) = column_line_x(&layout, 0, index) {
+            if line_x < area.x.saturating_add(area.width) {
+                for y in top..bottom {
+                    buffer.set_string(
+                        line_x,
+                        y,
+                        "│",
+                        Style::default().fg(Color::Blue).bg(UI_BACKGROUND),
+                    );
+                }
+            }
+        }
+    } else if state.confirmed_start || implicit_start {
+        if let Some(line_x) = start_line_x(&layout) {
+            if line_x < area.x.saturating_add(area.width) {
+                for y in top..bottom {
+                    buffer.set_string(
+                        line_x,
+                        y,
+                        "│",
+                        Style::default().fg(Color::Blue).bg(UI_BACKGROUND),
+                    );
+                }
+            }
+        }
+    }
+
+    if let Some((row, index)) = state.hovered_column {
+        if Some(index) != state.confirmed_column {
+            if let Some(line_x) = column_line_x(&layout, row, index) {
+                if line_x < area.x.saturating_add(area.width) {
+                    for y in top..bottom {
+                        buffer.set_string(
+                            line_x,
+                            y,
+                            "│",
+                            Style::default().fg(Color::DarkGray).bg(UI_BACKGROUND),
+                        );
+                    }
+                }
+            }
+        }
+    } else if state.hovered_start && !state.confirmed_start {
+        if let Some(line_x) = start_line_x(&layout) {
+            if line_x < area.x.saturating_add(area.width) {
+                for y in top..bottom {
+                    buffer.set_string(
+                        line_x,
+                        y,
+                        "│",
+                        Style::default().fg(Color::DarkGray).bg(UI_BACKGROUND),
+                    );
+                }
+            }
+        }
+    }
+
     for (row, row_slots) in layout.slots.iter().enumerate() {
         for (slot, rect) in row_slots.iter().enumerate() {
             if let Some(Some(gate)) = state
@@ -971,7 +1161,12 @@ pub fn render_to_buffer_with_drag(
             paragraph.render(debug_area, &mut buffer);
         }
     }
-    let state_line = build_state_line(&state.placed);
+    let state_limit = state
+        .hovered_column
+        .map(|(_, index)| index + 1)
+        .or(state.confirmed_column.map(|index| index + 1))
+        .or(Some(0));
+    let state_line = build_state_line_with_limit(&state.placed, state_limit);
     let text = Text::from(state_line);
     let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
     paragraph.render(regions.state, &mut buffer);
@@ -1096,8 +1291,58 @@ mod tests {
         assert!(wire_line.starts_with("q0: "));
         assert_eq!(
             state_line,
+            "State: [(1+0i), (0+0i), (0+0i), (0+0i)]"
+        );
+    }
+
+    #[test]
+    fn state_line_respects_hovered_column() {
+        let area = Rect::new(0, 0, 100, 12);
+        let mut state = AppState::new(Gate::H);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot1 = layout.slots[0][1];
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::Z)];
+        state.hovered_column = Some((0, 0));
+        let buffer = render_to_buffer(&mut state, area, None);
+        let state_line = buffer_to_line(&buffer, area, area.height - 1);
+        assert_eq!(
+            state_line,
             "State: [(0.7071067811865475+0i), (0+0i), (0.7071067811865475+0i), (0+0i)]"
         );
+        state.hovered_column = Some((0, 1));
+        let buffer = render_to_buffer(&mut state, area, None);
+        let state_line = buffer_to_line(&buffer, area, area.height - 1);
+        assert_eq!(
+            state_line,
+            "State: [(0.7071067811865475+0i), (0+0i), (-0.7071067811865475+0i), (0+0i)]"
+        );
+        let _ = slot1;
+    }
+
+    #[test]
+    fn hover_start_shows_start_line() {
+        let area = Rect::new(0, 0, 80, 12);
+        let mut state = AppState::new(Gate::H);
+        state.hovered_start = true;
+        let buffer = render_to_buffer(&mut state, area, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let line_x = start_line_x(&layout).unwrap();
+        let symbol = buffer.get(line_x, layout.wire_rows[0]).symbol();
+        assert_eq!(symbol, "│");
+    }
+
+    #[test]
+    fn confirm_start_persists() {
+        let area = Rect::new(0, 0, 80, 12);
+        let mut state = AppState::new(Gate::H);
+        state.hovered_start = true;
+        confirm_hovered_column(&mut state);
+        state.hovered_start = false;
+        let buffer = render_to_buffer(&mut state, area, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let line_x = start_line_x(&layout).unwrap();
+        let symbol = buffer.get(line_x, layout.wire_rows[0]).symbol();
+        assert_eq!(symbol, "│");
     }
 
     #[test]
