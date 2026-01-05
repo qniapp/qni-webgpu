@@ -166,7 +166,15 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
     };
     let text = Color::Black;
     let highlight = Color::White;
-    let shadow = Color::DarkGray;
+    let shadow = match background {
+        Color::Yellow => Color::LightYellow,
+        Color::Red => Color::LightRed,
+        Color::Magenta => Color::LightMagenta,
+        Color::Blue => Color::LightBlue,
+        Color::Green => Color::LightGreen,
+        Color::Cyan => Color::LightCyan,
+        _ => Color::DarkGray,
+    };
     (text, background, highlight, shadow)
 }
 
@@ -174,7 +182,7 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_BOX_HEIGHT {
         return;
     }
-    let (text, background, highlight, shadow) = gate_theme(gate);
+    let (text, background, _highlight, shadow) = gate_theme(gate);
     let base_style = Style::default().fg(text).bg(background);
     for offset in 0..rect.height {
         let line = " ".repeat(rect.width as usize);
@@ -186,7 +194,7 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
             rect.x,
             rect.y,
             top,
-            Style::default().fg(highlight).bg(background),
+            Style::default().fg(shadow).bg(background),
         );
     }
     if rect.height > 1 {
@@ -198,21 +206,10 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
             Style::default().fg(shadow).bg(background),
         );
     }
-    if rect.width > 2 && rect.height > 1 {
-        for row in 0..rect.height {
-            let y = rect.y + row;
-            buffer.set_string(
-                rect.x,
-                y,
-                "▏",
-                Style::default().fg(highlight).bg(background),
-            );
-            buffer.set_string(
-                rect.x + rect.width - 1,
-                y,
-                "▕",
-                Style::default().fg(shadow).bg(background),
-            );
+    if rect.width > 2 && rect.height > 2 {
+        let fill = " ".repeat(rect.width as usize);
+        for row in 1..rect.height - 1 {
+            buffer.set_string(rect.x, rect.y + row, &fill, base_style);
         }
     }
     let label_x = rect.x + rect.width / 2;
@@ -906,8 +903,8 @@ mod tests {
         let state_line = buffer_to_line(&buffer, area, area.height - 1);
         let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
         assert!(!line0.trim().is_empty());
-        assert_eq!(top, "▏▔▔▔▕");
-        assert_eq!(mid, "▏ H ▕");
+        assert_eq!(top, "▔▔▔▔▔");
+        assert_eq!(mid, "  H  ");
         assert!(wire_line.starts_with("q0: "));
         assert_eq!(
             state_line,
@@ -926,7 +923,7 @@ mod tests {
         let mut state = AppState::new(Gate::H);
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay = buffer_to_string(&buffer, 5, 3, 5);
-        assert_eq!(overlay, "▏▔▔▔▕");
+        assert_eq!(overlay, "▔▔▔▔▔");
     }
 
     #[test]
@@ -965,7 +962,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
-        assert_eq!(top, "▏▔▔▔▕");
+        assert_eq!(top, "▔▔▔▔▔");
     }
 
     #[test]
@@ -988,12 +985,12 @@ mod tests {
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
-        assert_eq!(overlay_top, "▏▔▔▔▕");
-        assert_eq!(overlay_mid, "▏ X ▕");
+        assert_eq!(overlay_top, "▔▔▔▔▔");
+        assert_eq!(overlay_mid, "  X  ");
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let slot_mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
-        assert_eq!(slot_mid, "▏ Z ▕");
+        assert_eq!(slot_mid, "  Z  ");
     }
 
     #[test]
