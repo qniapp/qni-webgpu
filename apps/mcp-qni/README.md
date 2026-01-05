@@ -42,6 +42,12 @@ pnpm lint
 pnpm format
 ```
 
+## チェックまとめ
+
+```
+pnpm check
+```
+
 ## ツール
 
 - `qni_set_qubits` `{ qubits: number }`
