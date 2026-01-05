@@ -28,6 +28,7 @@ const SLOT_GAP: u16 = 3;
 const SNAP_DISTANCE: u16 = 1;
 const MIN_QUBIT_COUNT: usize = 2;
 const ROW_GAP: u16 = 1;
+const UI_BACKGROUND: Color = Color::Black;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DragOrigin {
@@ -186,6 +187,48 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     }
     let (text, background, _highlight, shadow) = gate_theme(gate);
     let base_style = Style::default().fg(text).bg(background);
+    if gate == Gate::X {
+        let full = " ".repeat(rect.width as usize);
+        let inner = " ".repeat(rect.width.saturating_sub(2) as usize);
+        if rect.height >= 1 {
+            buffer.set_string(rect.x + 1, rect.y, &inner, base_style);
+        }
+        if rect.height > 2 {
+            for offset in 1..rect.height - 1 {
+                buffer.set_string(rect.x, rect.y + offset, &full, base_style);
+            }
+        }
+        if rect.height > 1 {
+            buffer.set_string(
+                rect.x + 1,
+                rect.y + rect.height - 1,
+                &inner,
+                base_style,
+            );
+        }
+        if rect.width >= 5 && rect.height >= 3 {
+            let corner = Style::default().fg(UI_BACKGROUND).bg(background);
+            buffer.set_string(rect.x, rect.y, "◤", corner);
+            buffer.set_string(rect.x + rect.width - 1, rect.y, "◥", corner);
+            buffer.set_string(rect.x, rect.y + rect.height - 1, "◣", corner);
+            buffer.set_string(
+                rect.x + rect.width - 1,
+                rect.y + rect.height - 1,
+                "◢",
+                corner,
+            );
+            buffer.set_string(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2,
+                "+",
+                Style::default()
+                    .fg(text)
+                    .bg(background)
+                    .add_modifier(Modifier::BOLD),
+            );
+        }
+        return;
+    }
     for offset in 0..rect.height {
         let line = " ".repeat(rect.width as usize);
         buffer.set_string(rect.x, rect.y + offset, line, base_style);
@@ -822,6 +865,7 @@ pub fn render_to_buffer_with_drag(
     drag: Option<DragVisual>,
 ) -> Buffer {
     let mut buffer = Buffer::empty(area);
+    buffer.set_style(area, Style::default().bg(UI_BACKGROUND));
     let current_qubits = qubit_count(state);
     let regions = layout_regions(area, current_qubits);
     let layout = circuit_layout(area, current_qubits);
@@ -832,7 +876,7 @@ pub fn render_to_buffer_with_drag(
             regions.palette.x,
             regions.palette.y,
             PALETTE_LABEL,
-            Style::default(),
+            Style::default().bg(UI_BACKGROUND),
         );
     }
     for item in palette_items(regions.palette) {
@@ -847,7 +891,7 @@ pub fn render_to_buffer_with_drag(
             regions.palette.x,
             separator_y,
             line,
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::DarkGray).bg(UI_BACKGROUND),
         );
     }
 
@@ -858,7 +902,7 @@ pub fn render_to_buffer_with_drag(
                 regions.circuits[row].x,
                 *wire_y,
                 format!("q{}: {}", row, wire_line),
-                Style::default(),
+                Style::default().bg(UI_BACKGROUND),
             );
         }
     }
@@ -905,7 +949,7 @@ pub fn render_to_buffer_with_drag(
     if let Some(debug) = debug_line {
         if !debug.trim().is_empty() {
             let text = Text::from(format!("Debug: {}", debug));
-            let paragraph = Paragraph::new(text);
+            let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
             let debug_area = Rect {
                 x: area.x,
                 y: regions.state.y.saturating_sub(1),
@@ -917,7 +961,7 @@ pub fn render_to_buffer_with_drag(
     }
     let state_line = build_state_line(&state.placed);
     let text = Text::from(state_line);
-    let paragraph = Paragraph::new(text);
+    let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
     paragraph.render(regions.state, &mut buffer);
     if let Some(drag) = drag {
         let mut rect = Rect {
@@ -1045,7 +1089,7 @@ mod tests {
     fn render_to_buffer_shows_drag_overlay() {
         let area = Rect::new(0, 0, 20, 12);
         let drag = DragVisual {
-            gate: Gate::X,
+            gate: Gate::H,
             x: 5,
             y: 3,
         };
@@ -1079,11 +1123,11 @@ mod tests {
         state.hovered_slot = Some(1);
         state.hovered_row = Some(0);
         state.dragging = Some(DragState {
-            gate: Gate::X,
+            gate: Gate::H,
             origin: DragOrigin::Palette,
         });
         let drag = DragVisual {
-            gate: Gate::X,
+            gate: Gate::H,
             x: 1,
             y: 1,
         };
@@ -1101,13 +1145,13 @@ mod tests {
         state.hovered_slot = Some(1);
         state.hovered_row = Some(0);
         state.dragging = Some(DragState {
-            gate: Gate::X,
+            gate: Gate::H,
             origin: DragOrigin::Palette,
         });
         ensure_slots(&mut state, &[3, 3]);
         state.placed[0][1] = Some(Gate::Z);
         let drag = DragVisual {
-            gate: Gate::X,
+            gate: Gate::H,
             x: 1,
             y: 1,
         };
@@ -1115,7 +1159,7 @@ mod tests {
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
         assert_eq!(overlay_top, "▔▔▔▔▔");
-        assert_eq!(overlay_mid, "  X  ");
+        assert_eq!(overlay_mid, "  H  ");
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let slot_mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
