@@ -23,7 +23,9 @@ pub use render::{render_to_buffer, render_to_buffer_with_drag, DragVisual};
 pub(crate) const PALETTE_LABEL: &str = "";
 pub(crate) const GATE_BOX_WIDTH: u16 = 5;
 pub(crate) const GATE_BOX_HEIGHT: u16 = 3;
-pub(crate) const PALETTE_HEIGHT: u16 = GATE_BOX_HEIGHT;
+pub(crate) const SHADOW_OUTSET: u16 = 0;
+pub(crate) const GATE_DRAW_HEIGHT: u16 = GATE_BOX_HEIGHT + SHADOW_OUTSET * 2;
+pub(crate) const PALETTE_HEIGHT: u16 = GATE_DRAW_HEIGHT;
 pub(crate) const PALETTE_GAP: u16 = 1;
 pub(crate) const SEPARATOR_TO_CIRCUIT_GAP: u16 = 1;
 pub(crate) const GATE_GAP: u16 = 1;
@@ -92,18 +94,16 @@ mod tests {
 
     #[test]
     fn render_to_buffer_writes_spaced_lines() {
-        let area = Rect::new(0, 0, 100, 12);
+        let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new(Gate::H);
         let buffer = render_to_buffer(&mut state, area, None);
-        let line0 = buffer_to_line(&buffer, area, 0);
         let layout = circuit_layout(area, qubit_count(&state));
         let gate_rect = layout.slots[0][0];
         let top = buffer_to_string(&buffer, gate_rect.x, gate_rect.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, gate_rect.x, gate_rect.y + 1, GATE_BOX_WIDTH);
         let state_line = buffer_to_line(&buffer, area, area.height - 1);
         let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
-        assert!(!line0.trim().is_empty());
-        assert_eq!(top, "     ");
+        assert_eq!(top, "▔▔▔▔▔");
         assert_eq!(mid, "  H  ");
         assert!(wire_line.starts_with("q0: "));
         assert_eq!(
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn state_line_respects_hovered_column() {
-        let area = Rect::new(0, 0, 100, 12);
+        let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot1 = layout.slots[0][1];
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn hover_start_shows_start_line() {
-        let area = Rect::new(0, 0, 80, 12);
+        let area = Rect::new(0, 0, 80, 24);
         let mut state = AppState::new(Gate::H);
         state.hovered_start = true;
         let buffer = render_to_buffer(&mut state, area, None);
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn confirm_start_persists() {
-        let area = Rect::new(0, 0, 80, 12);
+        let area = Rect::new(0, 0, 80, 24);
         let mut state = AppState::new(Gate::H);
         state.hovered_start = true;
         confirm_hovered_column(&mut state);
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn render_to_buffer_shows_drag_overlay() {
-        let area = Rect::new(0, 0, 20, 12);
+        let area = Rect::new(0, 0, 20, 24);
         let drag = DragVisual {
             gate: Gate::H,
             x: 5,
@@ -173,12 +173,12 @@ mod tests {
         let mut state = AppState::new(Gate::H);
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay = buffer_to_string(&buffer, 5, 3, 5);
-        assert_eq!(overlay, "     ");
+        assert_eq!(overlay, "▔▔▔▔▔");
     }
 
     #[test]
     fn swap_gate_renders_large_x() {
-        let area = Rect::new(0, 0, 20, 10);
+        let area = Rect::new(0, 0, 20, 20);
         let state = AppState::new(Gate::Swap);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn swap_pair_draws_vertical_connection() {
-        let area = Rect::new(0, 0, 40, 14);
+        let area = Rect::new(0, 0, 40, 30);
         let mut state = AppState::new(Gate::H);
         state.placed.resize(3, Vec::new());
         state.placed[0] = vec![Some(Gate::Swap)];
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn hover_slot_draws_outline() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         state.hovered_slot = Some(1);
         state.hovered_row = Some(0);
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn drag_visual_snaps_to_hovered_slot() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         state.hovered_slot = Some(1);
         state.hovered_row = Some(0);
@@ -245,12 +245,12 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
-        assert_eq!(top, "     ");
+        assert_eq!(top, "▔▔▔▔▔");
     }
 
     #[test]
     fn drag_visual_does_not_snap_to_occupied_slot() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         state.hovered_slot = Some(1);
         state.hovered_row = Some(0);
@@ -268,7 +268,7 @@ mod tests {
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
-        assert_eq!(overlay_top, "     ");
+        assert_eq!(overlay_top, "▔▔▔▔▔");
         assert_eq!(overlay_mid, "  H  ");
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn hit_test_palette_finds_gate() {
-        let area = Rect::new(0, 0, 60, 6);
+        let area = Rect::new(0, 0, 60, 20);
         let state = AppState::new(Gate::H);
         let regions = layout_regions(area, qubit_count(&state));
         let items = palette_items(regions.palette);
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn grabbing_gate_adds_empty_qubit_row() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         let initial_rows = state.placed.len();
         let regions = layout_regions(area, qubit_count(&state));
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn drop_clears_empty_trailing_qubit() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         let regions = layout_regions(area, qubit_count(&state));
         let items = palette_items(regions.palette);
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn drop_on_bottom_qubit_keeps_row() {
-        let area = Rect::new(0, 0, 60, 12);
+        let area = Rect::new(0, 0, 60, 24);
         let mut state = AppState::new(Gate::H);
         let regions = layout_regions(area, qubit_count(&state));
         let items = palette_items(regions.palette);
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn drop_compacts_empty_columns() {
-        let area = Rect::new(0, 0, 80, 12);
+        let area = Rect::new(0, 0, 80, 24);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot0 = layout.slots[0][0];
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn drop_between_adjacent_gates_inserts_column() {
-        let area = Rect::new(0, 0, 100, 12);
+        let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot0 = layout.slots[0][0];
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn drop_uses_hovered_insert_even_if_cursor_is_off() {
-        let area = Rect::new(0, 0, 100, 12);
+        let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new(Gate::H);
         state.placed[0] = vec![Some(Gate::H), Some(Gate::X)];
         state.dragging = Some(DragState {
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn insert_snap_preferred_over_existing_gate() {
-        let area = Rect::new(0, 0, 100, 12);
+        let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot0 = layout.slots[0][0];
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn drag_from_palette_to_circuit_sets_gate() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         let regions = layout_regions(area, qubit_count(&state));
         let items = palette_items(regions.palette);
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn drag_from_circuit_to_empty_removes_gate() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn dragging_from_circuit_hides_gate_until_drop() {
-        let area = Rect::new(0, 0, 60, 10);
+        let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];

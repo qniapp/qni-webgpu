@@ -8,7 +8,10 @@ use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
 };
 use crate::model::{build_state_line_with_limit, ensure_slots, qubit_count, AppState, Gate};
-use crate::{GATE_BOX_HEIGHT, GATE_BOX_WIDTH, PALETTE_GAP, PALETTE_LABEL, UI_BACKGROUND};
+use crate::{
+    GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL,
+    SHADOW_OUTSET, UI_BACKGROUND,
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DragVisual {
@@ -18,51 +21,79 @@ pub struct DragVisual {
 }
 
 fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
-    let background = match gate {
-        Gate::H => Color::Yellow,
-        Gate::X => Color::Red,
-        Gate::Y => Color::Magenta,
-        Gate::Z => Color::Blue,
-        Gate::SqrtX => Color::Red,
-        Gate::S => Color::Green,
-        Gate::Sdg => Color::Green,
-        Gate::T => Color::Cyan,
-        Gate::Tdg => Color::Cyan,
-        Gate::Swap => Color::LightBlue,
+    let (r, g, b) = match gate {
+        Gate::H => (255, 220, 100),
+        Gate::X => (220, 80, 80),
+        Gate::Y => (180, 120, 200),
+        Gate::Z => (90, 120, 220),
+        Gate::SqrtX => (220, 80, 80),
+        Gate::S => (110, 200, 110),
+        Gate::Sdg => (110, 200, 110),
+        Gate::T => (110, 200, 200),
+        Gate::Tdg => (110, 200, 200),
+        Gate::Swap => (140, 170, 230),
     };
+    let background = Color::Rgb(r, g, b);
+    let highlight = brighten(r, g, b, 60);
+    let shadow = darken(r, g, b, 60);
     let text = Color::Black;
-    let highlight = Color::White;
-    let shadow = match background {
-        Color::Yellow => Color::LightYellow,
-        Color::Red => Color::LightRed,
-        Color::Magenta => Color::LightMagenta,
-        Color::Blue => Color::LightBlue,
-        Color::Green => Color::LightGreen,
-        Color::Cyan => Color::LightCyan,
-        _ => Color::DarkGray,
-    };
     (text, background, highlight, shadow)
 }
 
+fn brighten(r: u8, g: u8, b: u8, delta: u8) -> Color {
+    Color::Rgb(r.saturating_add(delta), g.saturating_add(delta), b.saturating_add(delta))
+}
+
+fn darken(r: u8, g: u8, b: u8, delta: u8) -> Color {
+    Color::Rgb(r.saturating_sub(delta), g.saturating_sub(delta), b.saturating_sub(delta))
+}
+
 pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
-    if rect.width < GATE_BOX_WIDTH || rect.height < GATE_BOX_HEIGHT {
+    if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
     }
-    let (text, background, _highlight, _shadow) = gate_theme(gate);
+    let (text, background, highlight, shadow) = gate_theme(gate);
     let base_style = Style::default().fg(text).bg(background);
+    let highlight_style = Style::default().fg(highlight).bg(background);
+    let shadow_style = Style::default().fg(shadow).bg(background);
+    if rect.height > 2 {
+        let top = "▔".repeat(rect.width as usize);
+        buffer.set_string(rect.x, rect.y, &top, highlight_style);
+    }
+    if rect.height > 1 {
+        let bottom = "▁".repeat(rect.width as usize);
+        buffer.set_string(
+            rect.x,
+            rect.y + rect.height.saturating_sub(1),
+            &bottom,
+            shadow_style,
+        );
+    }
+    let gate_rect = Rect {
+        x: rect.x,
+        y: rect.y + SHADOW_OUTSET,
+        width: rect.width,
+        height: GATE_BOX_HEIGHT,
+    };
     if gate == Gate::Swap {
-        let fill = " ".repeat(rect.width as usize);
-        let clear = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
-        buffer.set_string(rect.x, rect.y, &fill, clear);
-        if rect.height > 1 {
-            buffer.set_string(rect.x, rect.y + rect.height - 1, &fill, clear);
+        let fill = " ".repeat(gate_rect.width as usize);
+        let mid_y = gate_rect.y.saturating_add(gate_rect.height / 2);
+        buffer.set_string(gate_rect.x, mid_y, &fill, base_style);
+        if gate_rect.width > 2 {
+            let gap = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
+            let gap_style = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
+            buffer.set_string(gate_rect.x + 1, gate_rect.y, &gap, gap_style);
+            buffer.set_string(
+                gate_rect.x + 1,
+                gate_rect.y + gate_rect.height.saturating_sub(1),
+                &gap,
+                gap_style,
+            );
         }
-        let mid_y = rect.y.saturating_add(rect.height / 2);
-        buffer.set_string(rect.x, mid_y, &fill, base_style);
-        let left_x = rect.x;
-        let right_x = rect.x.saturating_add(rect.width.saturating_sub(1));
-        let top_y = rect.y;
-        let bottom_y = rect.y.saturating_add(rect.height.saturating_sub(1));
+        let left_x = gate_rect.x;
+        let right_x = gate_rect.x.saturating_add(gate_rect.width.saturating_sub(1));
+        let top_y = gate_rect.y;
+        let bottom_y = gate_rect.y.saturating_add(gate_rect.height.saturating_sub(1));
         let tip_style = Style::default().fg(background).bg(background);
         buffer.set_string(left_x, top_y, "\\", tip_style);
         buffer.set_string(right_x, top_y, "/", tip_style);
@@ -74,38 +105,37 @@ pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
         return;
     }
     if gate == Gate::X {
-        let full = " ".repeat(rect.width as usize);
-        let inner = " ".repeat(rect.width.saturating_sub(2) as usize);
-        if rect.height >= 1 {
-            buffer.set_string(rect.x + 1, rect.y, &inner, base_style);
-        }
-        if rect.height > 2 {
-            for offset in 1..rect.height - 1 {
-                buffer.set_string(rect.x, rect.y + offset, &full, base_style);
+        let full = " ".repeat(gate_rect.width as usize);
+        let _inner = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
+        if gate_rect.height > 2 {
+            for offset in 1..gate_rect.height - 1 {
+                buffer.set_string(gate_rect.x, gate_rect.y + offset, &full, base_style);
             }
         }
-        if rect.height > 1 {
-            buffer.set_string(
-                rect.x + 1,
-                rect.y + rect.height - 1,
-                &inner,
-                base_style,
-            );
-        }
-        if rect.width >= 5 && rect.height >= 3 {
+        if gate_rect.width >= 5 && gate_rect.height >= 3 {
             let corner = Style::default().fg(UI_BACKGROUND).bg(background);
-            buffer.set_string(rect.x, rect.y, "◤", corner);
-            buffer.set_string(rect.x + rect.width - 1, rect.y, "◥", corner);
-            buffer.set_string(rect.x, rect.y + rect.height - 1, "◣", corner);
+            buffer.set_string(gate_rect.x, gate_rect.y, "◤", corner);
             buffer.set_string(
-                rect.x + rect.width - 1,
-                rect.y + rect.height - 1,
+                gate_rect.x + gate_rect.width - 1,
+                gate_rect.y,
+                "◥",
+                corner,
+            );
+            buffer.set_string(
+                gate_rect.x,
+                gate_rect.y + gate_rect.height - 1,
+                "◣",
+                corner,
+            );
+            buffer.set_string(
+                gate_rect.x + gate_rect.width - 1,
+                gate_rect.y + gate_rect.height - 1,
                 "◢",
                 corner,
             );
             buffer.set_string(
-                rect.x + rect.width / 2,
-                rect.y + rect.height / 2,
+                gate_rect.x + gate_rect.width / 2,
+                gate_rect.y + gate_rect.height / 2,
                 "+",
                 Style::default()
                     .fg(text)
@@ -115,22 +145,18 @@ pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
         }
         return;
     }
-    for offset in 0..rect.height {
-        let line = " ".repeat(rect.width as usize);
-        buffer.set_string(rect.x, rect.y + offset, line, base_style);
-    }
-    if rect.width > 2 && rect.height > 2 {
-        let fill = " ".repeat(rect.width as usize);
-        for row in 1..rect.height - 1 {
-            buffer.set_string(rect.x, rect.y + row, &fill, base_style);
+    if gate_rect.width > 2 && gate_rect.height > 2 {
+        let fill = " ".repeat(gate_rect.width as usize);
+        for row in 1..gate_rect.height - 1 {
+            buffer.set_string(gate_rect.x, gate_rect.y + row, &fill, base_style);
         }
     }
     let label_x = if gate == Gate::SqrtX {
-        rect.x + rect.width / 2 - 1
+        gate_rect.x + gate_rect.width / 2 - 1
     } else {
-        rect.x + rect.width / 2
+        gate_rect.x + gate_rect.width / 2
     };
-    let label_y = rect.y + rect.height / 2;
+    let label_y = gate_rect.y + gate_rect.height / 2;
     buffer.set_string(
         label_x,
         label_y,
@@ -353,7 +379,7 @@ pub fn render_to_buffer_with_drag(
             x: drag.x,
             y: drag.y,
             width: GATE_BOX_WIDTH,
-            height: GATE_BOX_HEIGHT,
+            height: GATE_DRAW_HEIGHT,
         };
         if state.dragging.is_some() {
             if let Some((row, index)) = state.hovered_insert {
