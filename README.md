@@ -14,6 +14,37 @@ cd apps/tui
 cargo run -- --gate=Y
 ```
 
+## Rust（TUI）チェック
+
+```
+cd apps/tui
+cargo fmt
+cargo clippy -- -D warnings
+cargo test
+```
+
+詳細は `docs/rust.md` を参照。
+
+依存関係チェック:
+
+```
+cd apps/tui
+cargo audit
+cargo deny check --config ../../deny.toml
+```
+
+ワンコマンド:
+
+```
+./scripts/check.sh
+```
+
+または:
+
+```
+make check
+```
+
 ## WebGPU PoC の確認手順（ローカル）
 
 ### 1) インストールして起動
@@ -51,15 +82,39 @@ cd apps/web
 pnpm lint
 ```
 
+### Lint + テストまとめて実行
+```
+cd apps/web
+pnpm check
+```
+
 ### xvfb でテスト実行（Linux）
 ```
 cd apps/web
 xvfb-run -a pnpm exec playwright test
 ```
 
+## GitHub Actions での CI
+
+GitHub Actions では WebGPU を headless で動かす必要があるため、
+`xvfb-run` と SwiftShader (software WebGPU) を使って Playwright を実行する。
+`apps/web/playwright.config.ts` で必要な Chrome フラグは設定済み。
+
+ワークフロー例: `.github/workflows/ci.yml`
+
 出力される画像:
 - `/tmp/qni-webgpu-canvas.png`
 - `/tmp/qni-webgpu-webgpu.png`
+
+## まとめてチェック（トップディレクトリ）
+```
+./scripts/check-all.sh
+```
+
+内部で以下を実行する:
+- `apps/web` で `pnpm check`
+- `apps/mcp-qni` で `pnpm check`
+- ルートで `make check`（TUI 向け）
 
 ## MCP サーバ（Qni）
 

@@ -15,13 +15,19 @@ pub enum Gate {
 }
 
 const PALETTE_GATES: [Gate; 6] = [Gate::H, Gate::X, Gate::Y, Gate::Z, Gate::S, Gate::T];
-const PALETTE_LABEL: &str = "Palette: ";
+const PALETTE_LABEL: &str = "";
 const GATE_BOX_WIDTH: u16 = 5;
 const GATE_BOX_HEIGHT: u16 = 3;
 const PALETTE_HEIGHT: u16 = GATE_BOX_HEIGHT;
-const PALETTE_GAP: u16 = 2;
-const CIRCUIT_OFFSET: u16 = PALETTE_HEIGHT + PALETTE_GAP;
+const PALETTE_GAP: u16 = 1;
+const SEPARATOR_TO_CIRCUIT_GAP: u16 = 1;
 const GATE_GAP: u16 = 1;
+const WIRE_PREFIX: &str = "q0: ";
+const SLOT_PADDING_LEFT: u16 = 3;
+const SLOT_GAP: u16 = 3;
+const SNAP_DISTANCE: u16 = 1;
+const QUBIT_COUNT: usize = 2;
+const ROW_GAP: u16 = 1;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DragOrigin {
@@ -37,17 +43,25 @@ pub struct DragState {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub placed: Option<Gate>,
+    pub placed: Vec<Vec<Option<Gate>>>,
     pub dragging: Option<DragState>,
     pub drag_pos: Option<(u16, u16)>,
+    pub default_gate: Gate,
+    pub initialized: bool,
+    pub hovered_slot: Option<usize>,
+    pub hovered_row: Option<usize>,
 }
 
 impl AppState {
     pub fn new(initial_gate: Gate) -> Self {
         Self {
-            placed: Some(initial_gate),
+            placed: vec![Vec::new(); QUBIT_COUNT],
             dragging: None,
             drag_pos: None,
+            default_gate: initial_gate,
+            initialized: false,
+            hovered_slot: None,
+            hovered_row: None,
         }
     }
 }
@@ -58,10 +72,10 @@ pub struct PaletteItem {
     pub rect: Rect,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Regions {
     pub palette: Rect,
-    pub circuit: Rect,
+    pub circuits: Vec<Rect>,
     pub state: Rect,
 }
 
@@ -72,18 +86,37 @@ pub struct DragVisual {
     pub y: u16,
 }
 
+#[derive(Debug)]
+pub struct CircuitLayout {
+    pub wire_start_x: u16,
+    pub wire_width: u16,
+    pub wire_rows: Vec<u16>,
+    pub slots: Vec<Vec<Rect>>,
+}
+
 pub fn layout_regions(area: Rect) -> Regions {
-    let state_y = area
-        .y
-        .saturating_add(area.height.saturating_sub(1));
+    let state_y = area.y.saturating_add(area.height.saturating_sub(1));
     let palette_bottom = area.y.saturating_add(PALETTE_HEIGHT);
-    let desired_circuit_y = area.y.saturating_add(CIRCUIT_OFFSET);
-    let max_circuit_y = state_y.saturating_sub(GATE_BOX_HEIGHT + 1);
+    let separator_y = palette_bottom.saturating_add(PALETTE_GAP);
+    let desired_circuit_y = separator_y.saturating_add(1 + SEPARATOR_TO_CIRCUIT_GAP);
+    let total_circuit_height =
+        (GATE_BOX_HEIGHT * QUBIT_COUNT as u16).saturating_add(ROW_GAP * (QUBIT_COUNT as u16 - 1));
+    let max_circuit_y = state_y.saturating_sub(total_circuit_height + 1);
     let circuit_y = if max_circuit_y < palette_bottom {
         palette_bottom
     } else {
         desired_circuit_y.min(max_circuit_y)
     };
+    let mut circuits = Vec::with_capacity(QUBIT_COUNT);
+    for row in 0..QUBIT_COUNT {
+        let row_y = circuit_y.saturating_add(row as u16 * (GATE_BOX_HEIGHT + ROW_GAP));
+        circuits.push(Rect {
+            x: area.x,
+            y: row_y,
+            width: area.width,
+            height: GATE_BOX_HEIGHT,
+        });
+    }
     Regions {
         palette: Rect {
             x: area.x,
@@ -91,12 +124,7 @@ pub fn layout_regions(area: Rect) -> Regions {
             width: area.width,
             height: PALETTE_HEIGHT,
         },
-        circuit: Rect {
-            x: area.x,
-            y: circuit_y,
-            width: area.width,
-            height: 1,
-        },
+        circuits,
         state: Rect {
             x: area.x,
             y: state_y,
@@ -108,8 +136,7 @@ pub fn layout_regions(area: Rect) -> Regions {
 
 fn palette_items(area: Rect) -> Vec<PaletteItem> {
     let mut items = Vec::new();
-    let label_width = PALETTE_LABEL.chars().count() as u16;
-    let mut x = area.x + label_width + 1;
+    let mut x = area.x;
     let y = area.y;
     for gate in PALETTE_GATES {
         let rect = Rect {
@@ -197,6 +224,50 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     );
 }
 
+fn draw_slot_placeholder(buffer: &mut Buffer, rect: Rect, color: Color) {
+    if rect.width < GATE_BOX_WIDTH || rect.height < GATE_BOX_HEIGHT {
+        return;
+    }
+    let outline = Style::default().bg(color);
+    let line = " ".repeat(rect.width as usize);
+    for row in 0..rect.height {
+        buffer.set_string(rect.x, rect.y + row, &line, outline);
+    }
+}
+
+fn circuit_layout(area: Rect) -> CircuitLayout {
+    let regions = layout_regions(area);
+    let prefix_len = WIRE_PREFIX.chars().count() as u16;
+    let wire_start_x = regions.circuits[0].x.saturating_add(prefix_len);
+    let wire_width = regions.circuits[0].width.saturating_sub(prefix_len);
+    let mut wire_rows = Vec::with_capacity(QUBIT_COUNT);
+    let mut slots = Vec::with_capacity(QUBIT_COUNT);
+    for row in 0..QUBIT_COUNT {
+        let circuit = regions.circuits[row];
+        let wire_y = circuit.y.saturating_add(1);
+        wire_rows.push(wire_y);
+        let mut row_slots = Vec::new();
+        let mut x = wire_start_x.saturating_add(SLOT_PADDING_LEFT);
+        let max_x = wire_start_x.saturating_add(wire_width);
+        while x.saturating_add(GATE_BOX_WIDTH) <= max_x {
+            row_slots.push(Rect {
+                x,
+                y: circuit.y,
+                width: GATE_BOX_WIDTH,
+                height: GATE_BOX_HEIGHT,
+            });
+            x = x.saturating_add(GATE_BOX_WIDTH + SLOT_GAP);
+        }
+        slots.push(row_slots);
+    }
+    CircuitLayout {
+        wire_start_x,
+        wire_width,
+        wire_rows,
+        slots,
+    }
+}
+
 pub fn hit_test_palette(x: u16, y: u16, area: Rect) -> Option<Gate> {
     let regions = layout_regions(area);
     let items = palette_items(regions.palette);
@@ -212,36 +283,47 @@ pub fn hit_test_palette(x: u16, y: u16, area: Rect) -> Option<Gate> {
     None
 }
 
-fn circuit_gate_range(area: Rect) -> std::ops::Range<u16> {
-    let prefix_len = "q0: ---".len() as u16;
-    let start = area.x + prefix_len;
-    let end = start + GATE_BOX_WIDTH;
-    start..end
-}
-
-pub fn hit_test_circuit_slot(x: u16, y: u16, area: Rect) -> bool {
-    let regions = layout_regions(area);
-    let range = circuit_gate_range(regions.circuit);
-    let rect = Rect {
-        x: range.start,
-        y: regions.circuit.y,
-        width: GATE_BOX_WIDTH,
-        height: GATE_BOX_HEIGHT,
-    };
-    x >= rect.x
-        && x < rect.x.saturating_add(rect.width)
-        && y >= rect.y
-        && y < rect.y.saturating_add(rect.height)
+pub fn hit_test_circuit_slot(x: u16, y: u16, area: Rect) -> Option<(usize, usize)> {
+    let layout = circuit_layout(area);
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for (index, rect) in row_slots.iter().enumerate() {
+            if x >= rect.x
+                && x < rect.x.saturating_add(rect.width)
+                && y >= rect.y
+                && y < rect.y.saturating_add(rect.height)
+            {
+                return Some((row, index));
+            }
+        }
+    }
+    None
 }
 
 pub fn is_empty_drop(_x: u16, y: u16, area: Rect) -> bool {
     let regions = layout_regions(area);
     let palette_bottom = regions.palette.y.saturating_add(regions.palette.height);
-    let circuit_top = regions.circuit.y;
-    let circuit_bottom = circuit_top.saturating_add(GATE_BOX_HEIGHT);
+    let circuit_top = regions.circuits.first().map(|rect| rect.y).unwrap_or(0);
+    let circuit_bottom = regions
+        .circuits
+        .last()
+        .map(|rect| rect.y.saturating_add(rect.height))
+        .unwrap_or(circuit_top);
     let within_palette = y >= regions.palette.y && y < palette_bottom;
     let within_circuit = y >= circuit_top && y < circuit_bottom;
     !within_palette && !within_circuit && y != regions.state.y
+}
+
+fn ensure_slots(state: &mut AppState, counts: &[usize]) {
+    for (row, &count) in counts.iter().enumerate() {
+        if state.placed.len() <= row {
+            state.placed.push(Vec::new());
+        }
+        state.placed[row].resize(count, None);
+    }
+    if !state.initialized && !counts.is_empty() && counts[0] > 0 {
+        state.placed[0][0] = Some(state.default_gate);
+        state.initialized = true;
+    }
 }
 
 pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
@@ -254,13 +336,26 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
         return;
     }
 
-    if hit_test_circuit_slot(x, y, area) {
-        if let Some(gate) = state.placed {
+    let layout = circuit_layout(area);
+    let counts: Vec<usize> = layout
+        .slots
+        .iter()
+        .map(|row_slots| row_slots.len())
+        .collect();
+    ensure_slots(state, &counts);
+    if let Some((row, slot)) = hit_test_circuit_slot(x, y, area) {
+        if let Some(gate) = state
+            .placed
+            .get(row)
+            .and_then(|row_slots| row_slots.get(slot))
+            .and_then(|value| *value)
+        {
             state.dragging = Some(DragState {
                 gate,
                 origin: DragOrigin::Circuit,
             });
             state.drag_pos = Some((x, y));
+            state.placed[row][slot] = None;
         }
     }
 }
@@ -276,33 +371,90 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         return;
     };
 
-    if hit_test_circuit_slot(x, y, area) {
-        state.placed = Some(dragging.gate);
+    let layout = circuit_layout(area);
+    let counts: Vec<usize> = layout
+        .slots
+        .iter()
+        .map(|row_slots| row_slots.len())
+        .collect();
+    ensure_slots(state, &counts);
+    if let Some((row, slot)) = hit_test_circuit_slot(x, y, area) {
+        state.placed[row][slot] = Some(dragging.gate);
     } else if is_empty_drop(x, y, area) && dragging.origin == DragOrigin::Circuit {
-        state.placed = None;
+        // already cleared on drag start
     }
 
     state.dragging = None;
     state.drag_pos = None;
+    state.hovered_slot = None;
+    state.hovered_row = None;
 }
 
-pub fn displayed_gate(state: &AppState) -> Option<Gate> {
-    match state.dragging {
-        Some(drag) if drag.origin == DragOrigin::Circuit => None,
-        _ => state.placed,
+pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
+    if state.dragging.is_none() {
+        state.hovered_slot = None;
+        state.hovered_row = None;
+        return;
     }
+
+    let layout = circuit_layout(area);
+    let counts: Vec<usize> = layout
+        .slots
+        .iter()
+        .map(|row_slots| row_slots.len())
+        .collect();
+    ensure_slots(state, &counts);
+    let mut best: Option<(usize, u16)> = None;
+    let mut best_row: Option<usize> = None;
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for (index, rect) in row_slots.iter().enumerate() {
+            if state.placed[row]
+                .get(index)
+                .and_then(|value| *value)
+                .is_some()
+            {
+                continue;
+            }
+            let dx = if x < rect.x {
+                rect.x - x
+            } else if x >= rect.x.saturating_add(rect.width) {
+                x - rect.x.saturating_add(rect.width - 1)
+            } else {
+                0
+            };
+            let dy = if y < rect.y {
+                rect.y - y
+            } else if y >= rect.y.saturating_add(rect.height) {
+                y - rect.y.saturating_add(rect.height - 1)
+            } else {
+                0
+            };
+            let dist = dx.saturating_add(dy);
+            if dist > SNAP_DISTANCE {
+                continue;
+            }
+            if best.is_none_or(|(_, best_dist)| dist < best_dist) {
+                best = Some((index, dist));
+                best_row = Some(row);
+            }
+        }
+    }
+    state.hovered_slot = best.map(|(index, _)| index);
+    state.hovered_row = best_row;
 }
 
-impl Gate {
-    pub fn from_str(value: &str) -> Option<Self> {
+impl std::str::FromStr for Gate {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.trim().to_uppercase().as_str() {
-            "X" => Some(Self::X),
-            "H" => Some(Self::H),
-            "Y" => Some(Self::Y),
-            "Z" => Some(Self::Z),
-            "S" => Some(Self::S),
-            "T" => Some(Self::T),
-            _ => None,
+            "X" => Ok(Self::X),
+            "H" => Ok(Self::H),
+            "Y" => Ok(Self::Y),
+            "Z" => Ok(Self::Z),
+            "S" => Ok(Self::S),
+            "T" => Ok(Self::T),
+            _ => Err(()),
         }
     }
 }
@@ -342,10 +494,22 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
             Complex { re: 0.0, im: 0.0 },
         ],
         Gate::H => [
-            Complex { re: INV_SQRT2, im: 0.0 },
-            Complex { re: INV_SQRT2, im: 0.0 },
-            Complex { re: INV_SQRT2, im: 0.0 },
-            Complex { re: -INV_SQRT2, im: 0.0 },
+            Complex {
+                re: INV_SQRT2,
+                im: 0.0,
+            },
+            Complex {
+                re: INV_SQRT2,
+                im: 0.0,
+            },
+            Complex {
+                re: INV_SQRT2,
+                im: 0.0,
+            },
+            Complex {
+                re: -INV_SQRT2,
+                im: 0.0,
+            },
         ],
         Gate::Y => [
             Complex { re: 0.0, im: 0.0 },
@@ -388,24 +552,46 @@ fn add(a: Complex, b: Complex) -> Complex {
     }
 }
 
-pub fn apply_gate_to_zero(gate: Gate) -> [Complex; 2] {
-    let zero = Complex { re: 1.0, im: 0.0 };
-    let one = Complex { re: 0.0, im: 0.0 };
+pub fn apply_gate_to_state(state: [Complex; 4], gate: Gate, target: usize) -> [Complex; 4] {
     let [a00, a01, a10, a11] = matrix_for(gate);
-
-    let out0 = add(mul(a00, zero), mul(a01, one));
-    let out1 = add(mul(a10, zero), mul(a11, one));
-    [out0, out1]
+    let mut out = state;
+    match target {
+        0 => {
+            for &(i0, i1) in &[(0, 2), (1, 3)] {
+                let v0 = out[i0];
+                let v1 = out[i1];
+                out[i0] = add(mul(a00, v0), mul(a01, v1));
+                out[i1] = add(mul(a10, v0), mul(a11, v1));
+            }
+        }
+        _ => {
+            for &(i0, i1) in &[(0, 1), (2, 3)] {
+                let v0 = out[i0];
+                let v1 = out[i1];
+                out[i0] = add(mul(a00, v0), mul(a01, v1));
+                out[i1] = add(mul(a10, v0), mul(a11, v1));
+            }
+        }
+    }
+    out
 }
 
-pub fn apply_gate_to_zero_optional(gate: Option<Gate>) -> [Complex; 2] {
-    match gate {
-        Some(gate) => apply_gate_to_zero(gate),
-        None => [
-            Complex { re: 1.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-        ],
+pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> [Complex; 4] {
+    let mut state = [
+        Complex { re: 1.0, im: 0.0 },
+        Complex { re: 0.0, im: 0.0 },
+        Complex { re: 0.0, im: 0.0 },
+        Complex { re: 0.0, im: 0.0 },
+    ];
+    let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);
+    for slot in 0..max_slots {
+        for (row, row_gates) in gates.iter().enumerate() {
+            if let Some(Some(gate)) = row_gates.get(slot) {
+                state = apply_gate_to_state(state, *gate, row);
+            }
+        }
     }
+    state
 }
 
 fn normalize_zero(value: f64) -> f64 {
@@ -424,64 +610,106 @@ pub fn format_complex(value: Complex) -> String {
     format!("{}{}{}i", re, sign, abs_im)
 }
 
-pub fn build_lines(gate: Option<Gate>, debug_line: Option<&str>) -> Vec<String> {
-    let inner = " ".repeat(GATE_BOX_WIDTH as usize);
-    let wire = format!("---{}---", inner);
-    let circuit_line = format!("q0: {}", wire);
-    let [amp0, amp1] = apply_gate_to_zero_optional(gate);
-    let state_line = format!(
-        "State: [({}), ({})]",
+pub fn build_state_line(gates: &[Vec<Option<Gate>>]) -> String {
+    let [amp0, amp1, amp2, amp3] = apply_gates_to_zero(gates);
+    format!(
+        "State: [({}), ({}), ({}), ({})]",
         format_complex(amp0),
-        format_complex(amp1)
-    );
-    let mut lines = vec![circuit_line];
-    if let Some(debug) = debug_line {
-        lines.push(format!("Debug: {}", debug));
-    }
-    lines.push(state_line);
-    lines
+        format_complex(amp1),
+        format_complex(amp2),
+        format_complex(amp3)
+    )
 }
 
-pub fn render_to_buffer(gate: Option<Gate>, area: Rect, debug_line: Option<&str>) -> Buffer {
-    render_to_buffer_with_drag(gate, area, debug_line, None)
+pub fn render_to_buffer(state: &mut AppState, area: Rect, debug_line: Option<&str>) -> Buffer {
+    render_to_buffer_with_drag(state, area, debug_line, None)
 }
 
 pub fn render_to_buffer_with_drag(
-    gate: Option<Gate>,
+    state: &mut AppState,
     area: Rect,
     debug_line: Option<&str>,
     drag: Option<DragVisual>,
 ) -> Buffer {
     let mut buffer = Buffer::empty(area);
     let regions = layout_regions(area);
-    let lines = build_lines(gate, None);
-    buffer.set_string(
-        regions.palette.x,
-        regions.palette.y,
-        PALETTE_LABEL,
-        Style::default(),
-    );
+    let layout = circuit_layout(area);
+    let counts: Vec<usize> = layout.slots.iter().map(|row| row.len()).collect();
+    ensure_slots(state, &counts);
+    if !PALETTE_LABEL.is_empty() {
+        buffer.set_string(
+            regions.palette.x,
+            regions.palette.y,
+            PALETTE_LABEL,
+            Style::default(),
+        );
+    }
     for item in palette_items(regions.palette) {
         draw_gate_box(&mut buffer, item.rect, item.gate);
     }
 
-    if let Some(circuit) = lines.get(0) {
+    if !regions.circuits.is_empty() {
+        let palette_bottom = regions.palette.y.saturating_add(regions.palette.height);
+        let separator_y = palette_bottom.saturating_add(PALETTE_GAP);
+        let line = "─".repeat(regions.palette.width as usize);
         buffer.set_string(
-            regions.circuit.x,
-            regions.circuit.y,
-            circuit,
-            Style::default(),
+            regions.palette.x,
+            separator_y,
+            line,
+            Style::default().fg(Color::DarkGray),
         );
     }
-    if let Some(gate) = gate {
-        let gate_range = circuit_gate_range(regions.circuit);
-        let rect = Rect {
-            x: gate_range.start,
-            y: regions.circuit.y,
-            width: GATE_BOX_WIDTH,
-            height: GATE_BOX_HEIGHT,
-        };
-        draw_gate_box(&mut buffer, rect, gate);
+
+    let wire_line = "-".repeat(layout.wire_width as usize);
+    for row in 0..QUBIT_COUNT {
+        if let Some(wire_y) = layout.wire_rows.get(row) {
+            buffer.set_string(
+                regions.circuits[row].x,
+                *wire_y,
+                format!("q{}: {}", row, wire_line),
+                Style::default(),
+            );
+        }
+    }
+
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for (slot, rect) in row_slots.iter().enumerate() {
+            if let Some(Some(gate)) = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(slot))
+            {
+                draw_gate_box(&mut buffer, *rect, *gate);
+            }
+        }
+    }
+    if state.dragging.is_some() {
+        for (row, row_slots) in layout.slots.iter().enumerate() {
+            for (slot, rect) in row_slots.iter().enumerate() {
+                if state.placed[row]
+                    .get(slot)
+                    .and_then(|value| *value)
+                    .is_none()
+                {
+                    draw_slot_placeholder(&mut buffer, *rect, Color::DarkGray);
+                }
+            }
+        }
+        if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
+            if state.placed[row]
+                .get(slot)
+                .and_then(|value| *value)
+                .is_none()
+            {
+                if let Some(rect) = layout
+                    .slots
+                    .get(row)
+                    .and_then(|row_slots| row_slots.get(slot))
+                {
+                    draw_slot_placeholder(&mut buffer, *rect, Color::Black);
+                }
+            }
+        }
     }
     if let Some(debug) = debug_line {
         if !debug.trim().is_empty() {
@@ -496,23 +724,39 @@ pub fn render_to_buffer_with_drag(
             paragraph.render(debug_area, &mut buffer);
         }
     }
-    if let Some(state) = lines.last() {
-        let text = Text::from(state.clone());
-        let paragraph = Paragraph::new(text);
-        paragraph.render(regions.state, &mut buffer);
-    }
+    let state_line = build_state_line(&state.placed);
+    let text = Text::from(state_line);
+    let paragraph = Paragraph::new(text);
+    paragraph.render(regions.state, &mut buffer);
     if let Some(drag) = drag {
-        if drag.x >= area.x
-            && drag.y >= area.y
-            && drag.x < area.x.saturating_add(area.width)
-            && drag.y < area.y.saturating_add(area.height)
+        let mut rect = Rect {
+            x: drag.x,
+            y: drag.y,
+            width: GATE_BOX_WIDTH,
+            height: GATE_BOX_HEIGHT,
+        };
+        if state.dragging.is_some() {
+            if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
+                if state.placed[row]
+                    .get(slot)
+                    .and_then(|value| *value)
+                    .is_none()
+                {
+                    if let Some(slot_rect) = layout
+                        .slots
+                        .get(row)
+                        .and_then(|row_slots| row_slots.get(slot))
+                    {
+                        rect = *slot_rect;
+                    }
+                }
+            }
+        }
+        if rect.x >= area.x
+            && rect.y >= area.y
+            && rect.x < area.x.saturating_add(area.width)
+            && rect.y < area.y.saturating_add(area.height)
         {
-            let rect = Rect {
-                x: drag.x,
-                y: drag.y,
-                width: GATE_BOX_WIDTH,
-                height: GATE_BOX_HEIGHT,
-            };
             draw_gate_box(&mut buffer, rect, drag.gate);
         }
     }
@@ -537,7 +781,7 @@ pub fn parse_args(args: &[String]) -> Gate {
 
     gate_value
         .as_deref()
-        .and_then(Gate::from_str)
+        .and_then(|value| value.parse().ok())
         .unwrap_or(Gate::H)
 }
 
@@ -552,39 +796,24 @@ mod tests {
     }
 
     #[test]
-    fn build_lines_defaults_to_h_gate() {
-        let lines = build_lines(Some(Gate::H), None);
+    fn build_state_line_defaults_to_zero_state() {
+        let line = build_state_line(&[]);
+        assert_eq!(line, "State: [(1+0i), (0+0i), (0+0i), (0+0i)]");
+    }
+
+    #[test]
+    fn build_state_line_for_h_gate() {
+        let line = build_state_line(&[vec![Some(Gate::H)]]);
         assert_eq!(
-            lines,
-            vec![
-                "q0: ---     ---".to_string(),
-                "State: [(0.7071067811865475+0i), (0.7071067811865475+0i)]".to_string(),
-            ]
+            line,
+            "State: [(0.7071067811865475+0i), (0+0i), (0.7071067811865475+0i), (0+0i)]"
         );
     }
 
     #[test]
-    fn build_lines_for_y_gate() {
-        let lines = build_lines(Some(Gate::Y), None);
-        assert_eq!(
-            lines,
-            vec![
-                "q0: ---     ---".to_string(),
-                "State: [(0+0i), (0+1i)]".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn build_lines_with_no_gate() {
-        let lines = build_lines(None, None);
-        assert_eq!(
-            lines,
-            vec![
-                "q0: ---     ---".to_string(),
-                "State: [(1+0i), (0+0i)]".to_string(),
-            ]
-        );
+    fn build_state_line_for_y_gate() {
+        let line = build_state_line(&[vec![Some(Gate::Y)]]);
+        assert_eq!(line, "State: [(0+0i), (0+0i), (0+1i), (0+0i)]");
     }
 
     #[test]
@@ -597,30 +826,105 @@ mod tests {
 
     #[test]
     fn render_to_buffer_writes_spaced_lines() {
-        let area = Rect::new(0, 0, 60, 8);
-        let buffer = render_to_buffer(Some(Gate::H), area, None);
+        let area = Rect::new(0, 0, 100, 12);
+        let mut state = AppState::new(Gate::H);
+        let buffer = render_to_buffer(&mut state, area, None);
         let line0 = buffer_to_line(&buffer, area, 0);
-        let line4 = buffer_to_line(&buffer, area, 4);
-        let line7 = buffer_to_line(&buffer, area, 7);
-        assert!(line0.starts_with("Palette: "));
-        assert_eq!(line4, "q0: ---▏ H ▕---");
+        let layout = circuit_layout(area);
+        let gate_rect = layout.slots[0][0];
+        let top = buffer_to_string(&buffer, gate_rect.x, gate_rect.y, GATE_BOX_WIDTH);
+        let mid = buffer_to_string(&buffer, gate_rect.x, gate_rect.y + 1, GATE_BOX_WIDTH);
+        let state_line = buffer_to_line(&buffer, area, area.height - 1);
+        let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
+        assert!(!line0.trim().is_empty());
+        assert_eq!(top, "▏▔▔▔▕");
+        assert_eq!(mid, "▏ H ▕");
+        assert!(wire_line.starts_with("q0: "));
         assert_eq!(
-            line7,
-            "State: [(0.7071067811865475+0i), (0.7071067811865475+0i)]"
+            state_line,
+            "State: [(0.7071067811865475+0i), (0+0i), (0.7071067811865475+0i), (0+0i)]"
         );
     }
 
     #[test]
     fn render_to_buffer_shows_drag_overlay() {
-        let area = Rect::new(0, 0, 20, 8);
+        let area = Rect::new(0, 0, 20, 12);
         let drag = DragVisual {
             gate: Gate::X,
             x: 5,
             y: 3,
         };
-        let buffer = render_to_buffer_with_drag(Some(Gate::H), area, None, Some(drag));
+        let mut state = AppState::new(Gate::H);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay = buffer_to_string(&buffer, 5, 3, 5);
         assert_eq!(overlay, "▏▔▔▔▕");
+    }
+
+    #[test]
+    fn hover_slot_draws_outline() {
+        let area = Rect::new(0, 0, 60, 10);
+        let mut state = AppState::new(Gate::H);
+        state.hovered_slot = Some(1);
+        state.hovered_row = Some(0);
+        state.dragging = Some(DragState {
+            gate: Gate::X,
+            origin: DragOrigin::Palette,
+        });
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][1];
+        let outline = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
+        assert_eq!(outline, "     ");
+    }
+
+    #[test]
+    fn drag_visual_snaps_to_hovered_slot() {
+        let area = Rect::new(0, 0, 60, 10);
+        let mut state = AppState::new(Gate::H);
+        state.hovered_slot = Some(1);
+        state.hovered_row = Some(0);
+        state.dragging = Some(DragState {
+            gate: Gate::X,
+            origin: DragOrigin::Palette,
+        });
+        let drag = DragVisual {
+            gate: Gate::X,
+            x: 1,
+            y: 1,
+        };
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][1];
+        let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
+        assert_eq!(top, "▏▔▔▔▕");
+    }
+
+    #[test]
+    fn drag_visual_does_not_snap_to_occupied_slot() {
+        let area = Rect::new(0, 0, 60, 10);
+        let mut state = AppState::new(Gate::H);
+        state.hovered_slot = Some(1);
+        state.hovered_row = Some(0);
+        state.dragging = Some(DragState {
+            gate: Gate::X,
+            origin: DragOrigin::Palette,
+        });
+        ensure_slots(&mut state, &[3, 3]);
+        state.placed[0][1] = Some(Gate::Z);
+        let drag = DragVisual {
+            gate: Gate::X,
+            x: 1,
+            y: 1,
+        };
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
+        let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
+        assert_eq!(overlay_top, "▏▔▔▔▕");
+        assert_eq!(overlay_mid, "▏ X ▕");
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][1];
+        let slot_mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
+        assert_eq!(slot_mid, "▏ Z ▕");
     }
 
     #[test]
@@ -642,32 +946,33 @@ mod tests {
         let items = palette_items(regions.palette);
         let target = items.iter().find(|item| item.gate == Gate::Z).unwrap();
         handle_mouse_down(&mut state, target.rect.x, target.rect.y, area);
-        let gate_slot = circuit_gate_range(regions.circuit);
-        handle_mouse_up(&mut state, gate_slot.start, regions.circuit.y, area);
-        assert_eq!(state.placed, Some(Gate::Z));
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][0];
+        handle_mouse_up(&mut state, slot.x, slot.y, area);
+        assert_eq!(state.placed[0][0], Some(Gate::Z));
     }
 
     #[test]
     fn drag_from_circuit_to_empty_removes_gate() {
         let area = Rect::new(0, 0, 60, 10);
         let mut state = AppState::new(Gate::H);
-        let regions = layout_regions(area);
-        let gate_slot = circuit_gate_range(regions.circuit);
-        handle_mouse_down(&mut state, gate_slot.start, regions.circuit.y, area);
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][0];
+        handle_mouse_down(&mut state, slot.x, slot.y, area);
         handle_mouse_up(&mut state, area.x, area.y + 8, area);
-        assert_eq!(state.placed, None);
+        assert_eq!(state.placed[0][0], None);
     }
 
     #[test]
     fn dragging_from_circuit_hides_gate_until_drop() {
         let area = Rect::new(0, 0, 60, 10);
         let mut state = AppState::new(Gate::H);
-        let regions = layout_regions(area);
-        let gate_slot = circuit_gate_range(regions.circuit);
-        handle_mouse_down(&mut state, gate_slot.start, regions.circuit.y, area);
-        assert_eq!(displayed_gate(&state), None);
-        handle_mouse_up(&mut state, gate_slot.start, regions.circuit.y, area);
-        assert_eq!(displayed_gate(&state), Some(Gate::H));
+        let layout = circuit_layout(area);
+        let slot = layout.slots[0][0];
+        handle_mouse_down(&mut state, slot.x, slot.y, area);
+        assert_eq!(state.placed[0][0], None);
+        handle_mouse_up(&mut state, slot.x, slot.y, area);
+        assert_eq!(state.placed[0][0], Some(Gate::H));
     }
 
     fn buffer_to_line(buffer: &Buffer, area: Rect, y: u16) -> String {

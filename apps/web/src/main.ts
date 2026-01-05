@@ -689,7 +689,7 @@ function buildScene(
   const lineLeft = 80
   const lineRight = CANVAS_WIDTH - 80
   addRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, COLORS.background)
-  addRect(lineLeft, lineY - 2, lineRight - lineLeft, 4, COLORS.line)
+  addLine(lineLeft, lineY, lineRight, lineY, 4, COLORS.line)
 
   const gateSize = 60
   const gateX = (lineLeft + lineRight) / 2 - gateSize / 2

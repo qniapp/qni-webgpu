@@ -6,13 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check": "pnpm lint && pnpm test",
     "preview": "vite preview",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.57.0",
+    "eslint": "^9.0.0",
     "jsdom": "^27.4.0",
     "playwright": "^1.57.0",
+    "typescript-eslint": "^8.0.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vitest": "^4.0.16"

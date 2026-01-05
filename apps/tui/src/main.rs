@@ -7,19 +7,19 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use qni_webgpu_tui::{
-    displayed_gate, handle_mouse_down, handle_mouse_move, handle_mouse_up,
-    render_to_buffer_with_drag, AppState, DragVisual, Gate, parse_args,
+    handle_mouse_down, handle_mouse_move, handle_mouse_up, parse_args, render_to_buffer_with_drag,
+    update_hovered_slot, AppState, DragVisual,
 };
 
 fn draw_once(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    gate: Option<Gate>,
+    state: &mut AppState,
     debug_line: Option<&str>,
     drag_visual: Option<DragVisual>,
 ) -> io::Result<()> {
     terminal.draw(|frame| {
         let area = frame.size();
-        let buffer = render_to_buffer_with_drag(gate, area, debug_line, drag_visual);
+        let buffer = render_to_buffer_with_drag(state, area, debug_line, drag_visual);
         let frame_buffer = frame.buffer_mut();
         for y in 0..area.height {
             for x in 0..area.width {
@@ -47,26 +47,23 @@ fn run() -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout))?;
     terminal.clear()?;
     loop {
-        let drag_visual = app_state
-            .dragging
-            .and_then(|drag| app_state.drag_pos.map(|(x, y)| DragVisual {
+        let drag_visual = app_state.dragging.and_then(|drag| {
+            app_state.drag_pos.map(|(x, y)| DragVisual {
                 gate: drag.gate,
                 x,
                 y,
-            }));
+            })
+        });
         draw_once(
             &mut terminal,
-            displayed_gate(&app_state),
+            &mut app_state,
             debug_line.as_deref(),
             drag_visual,
         )?;
         if event::poll(std::time::Duration::from_millis(250))? {
             match event::read()? {
                 Event::Key(key) => {
-                    debug_line = Some(format!(
-                        "key={:?} mods={:?}",
-                        key.code, key.modifiers
-                    ));
+                    debug_line = Some(format!("key={:?} mods={:?}", key.code, key.modifiers));
                     if key.code == KeyCode::Char('c')
                         && key.modifiers.contains(KeyModifiers::CONTROL)
                     {
@@ -82,15 +79,18 @@ fn run() -> io::Result<()> {
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
                             handle_mouse_down(&mut app_state, mouse.column, mouse.row, area);
+                            update_hovered_slot(&mut app_state, mouse.column, mouse.row, area);
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
                             if app_state.dragging.is_none() {
                                 handle_mouse_down(&mut app_state, mouse.column, mouse.row, area);
                             }
                             handle_mouse_move(&mut app_state, mouse.column, mouse.row);
+                            update_hovered_slot(&mut app_state, mouse.column, mouse.row, area);
                         }
                         MouseEventKind::Moved => {
                             handle_mouse_move(&mut app_state, mouse.column, mouse.row);
+                            update_hovered_slot(&mut app_state, mouse.column, mouse.row, area);
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
                             handle_mouse_up(&mut app_state, mouse.column, mouse.row, area);
