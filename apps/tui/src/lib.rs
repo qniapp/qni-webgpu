@@ -290,17 +290,6 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     );
 }
 
-fn draw_slot_placeholder(buffer: &mut Buffer, rect: Rect, color: Color) {
-    if rect.width < GATE_BOX_WIDTH || rect.height < GATE_BOX_HEIGHT {
-        return;
-    }
-    let outline = Style::default().bg(color);
-    let line = " ".repeat(rect.width as usize);
-    for row in 0..rect.height {
-        buffer.set_string(rect.x, rect.y + row, &line, outline);
-    }
-}
-
 fn circuit_layout(area: Rect, qubit_count: usize) -> CircuitLayout {
     let regions = layout_regions(area, qubit_count);
     let prefix_len = WIRE_PREFIX.chars().count() as u16;
@@ -967,32 +956,7 @@ pub fn render_to_buffer_with_drag(
         }
     }
     if state.dragging.is_some() {
-        for (row, row_slots) in layout.slots.iter().enumerate() {
-            for (slot, rect) in row_slots.iter().enumerate() {
-                if state.placed[row]
-                    .get(slot)
-                    .and_then(|value| *value)
-                    .is_none()
-                {
-                    draw_slot_placeholder(&mut buffer, *rect, Color::DarkGray);
-                }
-            }
-        }
-        if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
-            if state.placed[row]
-                .get(slot)
-                .and_then(|value| *value)
-                .is_none()
-            {
-                if let Some(rect) = layout
-                    .slots
-                    .get(row)
-                    .and_then(|row_slots| row_slots.get(slot))
-                {
-                    draw_slot_placeholder(&mut buffer, *rect, Color::Black);
-                }
-            }
-        }
+        // No placeholder rendering; snapping is handled by the drag visual.
     }
     if let Some(debug) = debug_line {
         if !debug.trim().is_empty() {
