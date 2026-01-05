@@ -24,6 +24,7 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
     let (r, g, b) = match gate {
         Gate::H => (255, 220, 100),
         Gate::X => (220, 80, 80),
+        Gate::Control => (220, 80, 80),
         Gate::Y => (180, 120, 200),
         Gate::Z => (90, 120, 220),
         Gate::SqrtX => (220, 80, 80),
@@ -53,6 +54,16 @@ pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
         return;
     }
     let (text, background, highlight, shadow) = gate_theme(gate);
+    if gate == Gate::Control {
+        let style = Style::default()
+            .fg(background)
+            .bg(UI_BACKGROUND)
+            .add_modifier(Modifier::BOLD);
+        let mid_y = rect.y.saturating_add(rect.height / 2);
+        let mid_x = rect.x.saturating_add(rect.width / 2);
+        buffer.set_string(mid_x, mid_y, "●", style);
+        return;
+    }
     let base_style = Style::default().fg(text).bg(background);
     let highlight_style = Style::default().fg(highlight).bg(background);
     let shadow_style = Style::default().fg(shadow).bg(background);
@@ -326,6 +337,49 @@ pub fn render_to_buffer_with_drag(
             let start_y = rect0.y.saturating_add(rect0.height / 2);
             let end_y = rect1.y.saturating_add(rect1.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Swap);
+            let line_style = Style::default().fg(background).bg(background);
+            let (top, bottom) = if start_y <= end_y {
+                (start_y, end_y)
+            } else {
+                (end_y, start_y)
+            };
+            for y in top..=bottom {
+                buffer.set_string(line_x, y, "│", line_style);
+            }
+        }
+        for slot in 0..max_cols {
+            let mut control_row = None;
+            let mut target_row = None;
+            for row in 0..max_rows {
+                let gate = state
+                    .placed
+                    .get(row)
+                    .and_then(|row_gates| row_gates.get(slot))
+                    .and_then(|gate| *gate);
+                match gate {
+                    Some(Gate::Control) => {
+                        if control_row.is_none() {
+                            control_row = Some(row);
+                        }
+                    }
+                    Some(Gate::X) => {
+                        if target_row.is_none() {
+                            target_row = Some(row);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let (control_row, target_row) = match (control_row, target_row) {
+                (Some(control), Some(target)) if control != target => (control, target),
+                _ => continue,
+            };
+            let control_rect = layout.slots[control_row][slot];
+            let target_rect = layout.slots[target_row][slot];
+            let line_x = control_rect.x.saturating_add(control_rect.width / 2);
+            let start_y = control_rect.y.saturating_add(control_rect.height / 2);
+            let end_y = target_rect.y.saturating_add(target_rect.height / 2);
+            let (_, background, _, _) = gate_theme(Gate::Control);
             let line_style = Style::default().fg(background).bg(background);
             let (top, bottom) = if start_y <= end_y {
                 (start_y, end_y)
