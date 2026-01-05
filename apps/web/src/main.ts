@@ -16,6 +16,14 @@ declare global {
 const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
 const STATE_TEXT_MAX_LEN = 50
+const LINE_Y = 160
+const LINE_LEFT = 80
+const LINE_RIGHT = CANVAS_WIDTH - 80
+const GATE_SIZE = 60
+const PALETTE_GATES: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
+const PALETTE_SIZE = 60
+const PALETTE_GAP = 16
+const PALETTE_ROW_Y = 12
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
@@ -798,41 +806,46 @@ type TextLayout = {
   glyphCount?: number
 }
 
+type GateState = {
+  x: number
+  y: number
+  visible: boolean
+}
+
 function buildScene(
   gateLabel: Gate,
-  stateVectorGlyphCount: number
-): { gateLabel: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
+  stateVectorGlyphCount: number,
+  gateState: GateState
+): { gateLabel?: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
   instances.length = 0
-  const lineY = 160
-  const lineLeft = 80
-  const lineRight = CANVAS_WIDTH - 80
-  addLine(lineLeft, lineY, lineRight, lineY, 4, COLORS.line)
+  addLine(LINE_LEFT, LINE_Y, LINE_RIGHT, LINE_Y, 4, COLORS.line)
 
-  const paletteGates: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
-  const paletteSize = 60
-  const paletteGap = 16
-  const paletteRowY = 12
-  const paletteWidth = paletteGates.length * paletteSize + (paletteGates.length - 1) * paletteGap
+  const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
   const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
   const paletteLabels: TextLayout[] = []
-  paletteGates.forEach((gate, index) => {
-    const x = paletteStartX + index * (paletteSize + paletteGap)
-    addRoundedRect(x, paletteRowY, paletteSize, paletteSize, 6, COLORS.box)
+  PALETTE_GATES.forEach((gate, index) => {
+    const x = paletteStartX + index * (PALETTE_SIZE + PALETTE_GAP)
+    addRoundedRect(x, PALETTE_ROW_Y, PALETTE_SIZE, PALETTE_SIZE, 6, COLORS.box)
     paletteLabels.push({
       text: gate,
-      x: x + paletteSize / 2 - LABEL_GLYPH_SIZE / 2,
-      y: paletteRowY + paletteSize / 2 - LABEL_GLYPH_SIZE / 2,
+      x: x + PALETTE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
+      y: PALETTE_ROW_Y + PALETTE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
       color: COLORS.label,
     })
   })
 
-  const gateSize = 60
-  const gateX = (lineLeft + lineRight) / 2 - gateSize / 2
-  const gateY = lineY - gateSize / 2
-  addRoundedRect(gateX, gateY, gateSize, gateSize, 6, COLORS.box)
-
-  const gateLabelX = gateX + gateSize / 2 - LABEL_GLYPH_SIZE / 2
-  const gateLabelY = gateY + gateSize / 2 - LABEL_GLYPH_SIZE / 2
+  let gateLabelLayout: TextLayout | undefined
+  if (gateState.visible) {
+    addRoundedRect(gateState.x, gateState.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
+    const gateLabelX = gateState.x + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2
+    const gateLabelY = gateState.y + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2
+    gateLabelLayout = {
+      text: gateLabel,
+      x: gateLabelX,
+      y: gateLabelY,
+      color: COLORS.label,
+    }
+  }
 
   window.__vertexCount = instances.length
 
@@ -841,12 +854,7 @@ function buildScene(
   const stateVectorY = CANVAS_HEIGHT - 40 - FONT_GLYPH_SIZE
 
   return {
-    gateLabel: {
-      text: gateLabel,
-      x: gateLabelX,
-      y: gateLabelY,
-      color: COLORS.label,
-    },
+    gateLabel: gateLabelLayout,
     stateVector: {
       text: '',
       x: stateVectorX,
@@ -1067,30 +1075,43 @@ async function init() {
       minFilter: 'nearest',
     })
 
+    const gateState: GateState = {
+      x: (LINE_LEFT + LINE_RIGHT) / 2 - GATE_SIZE / 2,
+      y: LINE_Y - GATE_SIZE / 2,
+      visible: true,
+    }
+
     const stateVectorGlyphCount = gateLabel === 'H' ? STATE_TEXT_MAX_LEN : 16
-    const textLayout = buildScene(gateLabel, stateVectorGlyphCount)
+    const textLayout = buildScene(gateLabel, stateVectorGlyphCount, gateState)
 
     const instanceStride = 11
-    const instanceData = new Float32Array(instances.length * instanceStride)
-    instances.forEach((instance, index) => {
-      const offset = index * instanceStride
-      instanceData[offset] = instance.kind
-      instanceData[offset + 1] = instance.thickness
-      instanceData[offset + 2] = instance.p0x
-      instanceData[offset + 3] = instance.p0y
-      instanceData[offset + 4] = instance.p1x
-      instanceData[offset + 5] = instance.p1y
-      instanceData[offset + 6] = instance.color[0]
-      instanceData[offset + 7] = instance.color[1]
-      instanceData[offset + 8] = instance.color[2]
-      instanceData[offset + 9] = instance.color[3]
-      instanceData[offset + 10] = 0
-    })
+    const maxInstances = instances.length
+    const instanceData = new Float32Array(maxInstances * instanceStride)
+    let instanceCount = instances.length
     const instanceBuffer = device.createBuffer({
       size: instanceData.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     })
-    device.queue.writeBuffer(instanceBuffer, 0, instanceData.buffer)
+    const updateInstanceBuffer = () => {
+      instanceData.fill(0)
+      instances.forEach((instance, index) => {
+        const offset = index * instanceStride
+        instanceData[offset] = instance.kind
+        instanceData[offset + 1] = instance.thickness
+        instanceData[offset + 2] = instance.p0x
+        instanceData[offset + 3] = instance.p0y
+        instanceData[offset + 4] = instance.p1x
+        instanceData[offset + 5] = instance.p1y
+        instanceData[offset + 6] = instance.color[0]
+        instanceData[offset + 7] = instance.color[1]
+        instanceData[offset + 8] = instance.color[2]
+        instanceData[offset + 9] = instance.color[3]
+        instanceData[offset + 10] = 0
+      })
+      instanceCount = instances.length
+      device.queue.writeBuffer(instanceBuffer, 0, instanceData)
+    }
+    updateInstanceBuffer()
 
     const uniformBuffer = device.createBuffer({
       size: 16,
@@ -1202,6 +1223,30 @@ async function init() {
       },
     })
 
+    const updateTextUniform = (
+      buffer: GPUBuffer,
+      layout: TextLayout,
+      glyphSize: number,
+      atlasWidth: number,
+      atlasHeight: number
+    ) => {
+      const uniformData = new Float32Array([
+        CANVAS_WIDTH,
+        CANVAS_HEIGHT,
+        layout.x,
+        layout.y,
+        glyphSize,
+        glyphSize,
+        atlasWidth,
+        atlasHeight,
+        layout.color[0],
+        layout.color[1],
+        layout.color[2],
+        layout.color[3],
+      ])
+      device.queue.writeBuffer(buffer, 0, uniformData)
+    }
+
     const makeTextBuffers = (
       layout: TextLayout,
       options?: {
@@ -1228,25 +1273,11 @@ async function init() {
       const glyphSize = options?.glyphSize ?? FONT_GLYPH_SIZE
       const atlasWidth = options?.atlasWidth ?? fontAtlasWidth
       const atlasHeight = options?.atlasHeight ?? fontAtlasHeight
-      const uniformData = new Float32Array([
-        CANVAS_WIDTH,
-        CANVAS_HEIGHT,
-        layout.x,
-        layout.y,
-        glyphSize,
-        glyphSize,
-        atlasWidth,
-        atlasHeight,
-        layout.color[0],
-        layout.color[1],
-        layout.color[2],
-        layout.color[3],
-      ])
       const uniformBuffer = device.createBuffer({
-        size: uniformData.byteLength,
+        size: 48,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       })
-      device.queue.writeBuffer(uniformBuffer, 0, uniformData)
+      updateTextUniform(uniformBuffer, layout, glyphSize, atlasWidth, atlasHeight)
 
       const textBindGroup = device.createBindGroup({
         layout: textPipeline.getBindGroupLayout(0),
@@ -1258,15 +1289,17 @@ async function init() {
         ],
       })
 
-      return { textBindGroup, glyphCount }
+      return { textBindGroup, glyphCount, uniformBuffer }
     }
 
-    const gateText = makeTextBuffers(textLayout.gateLabel, {
-      glyphSize: LABEL_GLYPH_SIZE,
-      atlasWidth: labelAtlasWidth,
-      atlasHeight: labelAtlasHeight,
-      texture: labelFontTexture,
-    })
+    const gateText = textLayout.gateLabel
+      ? makeTextBuffers(textLayout.gateLabel, {
+          glyphSize: LABEL_GLYPH_SIZE,
+          atlasWidth: labelAtlasWidth,
+          atlasHeight: labelAtlasHeight,
+          texture: labelFontTexture,
+        })
+      : null
     const paletteTexts = textLayout.paletteLabels.map((layout) =>
       makeTextBuffers(layout, {
         glyphSize: LABEL_GLYPH_SIZE,
@@ -1280,7 +1313,75 @@ async function init() {
       glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
     })
 
-    const instanceCount = instances.length
+    const updateScene = () => {
+      const updatedLayout = buildScene(gateLabel, stateVectorGlyphCount, gateState)
+      updateInstanceBuffer()
+      if (gateText && updatedLayout.gateLabel) {
+        updateTextUniform(gateText.uniformBuffer, updatedLayout.gateLabel, LABEL_GLYPH_SIZE, labelAtlasWidth, labelAtlasHeight)
+        gateText.glyphCount = updatedLayout.gateLabel.text.length
+      } else if (gateText) {
+        gateText.glyphCount = 0
+      }
+    }
+
+    const getPointerPosition = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY,
+      }
+    }
+
+    let isDragging = false
+    let dragOffsetX = 0
+    let dragOffsetY = 0
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (!gateState.visible) {
+        return
+      }
+      const { x, y } = getPointerPosition(event)
+      if (x >= gateState.x && x <= gateState.x + GATE_SIZE && y >= gateState.y && y <= gateState.y + GATE_SIZE) {
+        isDragging = true
+        dragOffsetX = x - gateState.x
+        dragOffsetY = y - gateState.y
+        canvas.setPointerCapture(event.pointerId)
+      }
+    })
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!isDragging) {
+        return
+      }
+      const { x, y } = getPointerPosition(event)
+      gateState.x = x - dragOffsetX
+      gateState.y = y - dragOffsetY
+      updateScene()
+    })
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (!isDragging) {
+        return
+      }
+      isDragging = false
+      canvas.releasePointerCapture(event.pointerId)
+      const centerX = gateState.x + GATE_SIZE / 2
+      const centerY = gateState.y + GATE_SIZE / 2
+      const onCircuit =
+        centerX >= LINE_LEFT &&
+        centerX <= LINE_RIGHT &&
+        Math.abs(centerY - LINE_Y) <= GATE_SIZE / 2
+      if (!onCircuit) {
+        gateState.visible = false
+      }
+      updateScene()
+    }
+
+    canvas.addEventListener('pointerup', handlePointerEnd)
+    canvas.addEventListener('pointercancel', handlePointerEnd)
+
     let hasCaptured = false
     const renderFrame = () => {
       const commandEncoder = device.createCommandEncoder()
@@ -1304,8 +1405,10 @@ async function init() {
         pass.setBindGroup(0, paletteText.textBindGroup)
         pass.draw(6, paletteText.glyphCount, 0, 0)
       }
-      pass.setBindGroup(0, gateText.textBindGroup)
-      pass.draw(6, gateText.glyphCount, 0, 0)
+      if (gateText && gateText.glyphCount > 0) {
+        pass.setBindGroup(0, gateText.textBindGroup)
+        pass.draw(6, gateText.glyphCount, 0, 0)
+      }
       pass.setBindGroup(0, stateTextDraw.textBindGroup)
       pass.draw(6, stateTextDraw.glyphCount, 0, 0)
       pass.end()
