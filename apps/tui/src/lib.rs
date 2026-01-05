@@ -15,9 +15,10 @@ pub enum Gate {
     Sdg,
     T,
     Tdg,
+    Swap,
 }
 
-const PALETTE_GATES: [Gate; 9] = [
+const PALETTE_GATES: [Gate; 10] = [
     Gate::H,
     Gate::X,
     Gate::Y,
@@ -27,6 +28,7 @@ const PALETTE_GATES: [Gate; 9] = [
     Gate::Sdg,
     Gate::T,
     Gate::Tdg,
+    Gate::Swap,
 ];
 const PALETTE_LABEL: &str = "";
 const GATE_BOX_WIDTH: u16 = 5;
@@ -190,6 +192,7 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
         Gate::Sdg => Color::Green,
         Gate::T => Color::Cyan,
         Gate::Tdg => Color::Cyan,
+        Gate::Swap => Color::LightBlue,
     };
     let text = Color::Black;
     let highlight = Color::White;
@@ -209,8 +212,31 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_BOX_HEIGHT {
         return;
     }
-    let (text, background, _highlight, shadow) = gate_theme(gate);
+    let (text, background, _highlight, _shadow) = gate_theme(gate);
     let base_style = Style::default().fg(text).bg(background);
+    if gate == Gate::Swap {
+        let fill = " ".repeat(rect.width as usize);
+        let clear = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
+        buffer.set_string(rect.x, rect.y, &fill, clear);
+        if rect.height > 1 {
+            buffer.set_string(rect.x, rect.y + rect.height - 1, &fill, clear);
+        }
+        let mid_y = rect.y.saturating_add(rect.height / 2);
+        buffer.set_string(rect.x, mid_y, &fill, base_style);
+        let left_x = rect.x;
+        let right_x = rect.x.saturating_add(rect.width.saturating_sub(1));
+        let top_y = rect.y;
+        let bottom_y = rect.y.saturating_add(rect.height.saturating_sub(1));
+        let tip_style = Style::default().fg(background).bg(background);
+        buffer.set_string(left_x, top_y, "\\", tip_style);
+        buffer.set_string(right_x, top_y, "/", tip_style);
+        buffer.set_string(left_x, bottom_y, "/", tip_style);
+        buffer.set_string(right_x, bottom_y, "\\", tip_style);
+        let cut_style = Style::default().fg(UI_BACKGROUND).bg(background);
+        buffer.set_string(left_x, mid_y, "▶", cut_style);
+        buffer.set_string(right_x, mid_y, "◀", cut_style);
+        return;
+    }
     if gate == Gate::X {
         let full = " ".repeat(rect.width as usize);
         let inner = " ".repeat(rect.width.saturating_sub(2) as usize);
@@ -256,24 +282,6 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
     for offset in 0..rect.height {
         let line = " ".repeat(rect.width as usize);
         buffer.set_string(rect.x, rect.y + offset, line, base_style);
-    }
-    if rect.height > 2 {
-        let top = "▔".repeat(rect.width as usize);
-        buffer.set_string(
-            rect.x,
-            rect.y,
-            top,
-            Style::default().fg(shadow).bg(background),
-        );
-    }
-    if rect.height > 1 {
-        let bottom = "▁".repeat(rect.width as usize);
-        buffer.set_string(
-            rect.x,
-            rect.y + rect.height - 1,
-            bottom,
-            Style::default().fg(shadow).bg(background),
-        );
     }
     if rect.width > 2 && rect.height > 2 {
         let fill = " ".repeat(rect.width as usize);
@@ -801,6 +809,7 @@ impl std::str::FromStr for Gate {
             "S†" | "SDG" | "S_DAGGER" => Ok(Self::Sdg),
             "T" => Ok(Self::T),
             "T†" | "TDG" | "T_DAGGER" => Ok(Self::Tdg),
+            "SWAP" | "SW" => Ok(Self::Swap),
             _ => Err(()),
         }
     }
@@ -818,6 +827,7 @@ impl std::fmt::Display for Gate {
             Self::Sdg => "S†",
             Self::T => "T",
             Self::Tdg => "T†",
+            Self::Swap => "",
         };
         f.write_str(label)
     }
@@ -906,6 +916,12 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
                 re: INV_SQRT2,
                 im: -INV_SQRT2,
             },
+        ],
+        Gate::Swap => [
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 1.0, im: 0.0 },
         ],
     }
 }
@@ -1270,6 +1286,7 @@ mod tests {
         assert_eq!(parse_args_from(&["--gate", "sqrtx"]), Gate::SqrtX);
         assert_eq!(parse_args_from(&["--gate", "sdg"]), Gate::Sdg);
         assert_eq!(parse_args_from(&["--gate", "tdg"]), Gate::Tdg);
+        assert_eq!(parse_args_from(&["--gate", "swap"]), Gate::Swap);
         assert_eq!(parse_args_from(&["--gate", "nope"]), Gate::H);
     }
 
@@ -1286,7 +1303,7 @@ mod tests {
         let state_line = buffer_to_line(&buffer, area, area.height - 1);
         let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
         assert!(!line0.trim().is_empty());
-        assert_eq!(top, "▔▔▔▔▔");
+        assert_eq!(top, "     ");
         assert_eq!(mid, "  H  ");
         assert!(wire_line.starts_with("q0: "));
         assert_eq!(
@@ -1356,7 +1373,23 @@ mod tests {
         let mut state = AppState::new(Gate::H);
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay = buffer_to_string(&buffer, 5, 3, 5);
-        assert_eq!(overlay, "▔▔▔▔▔");
+        assert_eq!(overlay, "     ");
+    }
+
+    #[test]
+    fn swap_gate_renders_large_x() {
+        let area = Rect::new(0, 0, 20, 10);
+        let state = AppState::new(Gate::Swap);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        draw_gate_box(&mut buffer, slot, Gate::Swap);
+        let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
+        let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
+        let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);
+        assert_eq!(top, "\\   /");
+        assert_eq!(mid, "▶   ◀");
+        assert_eq!(bottom, "/   \\");
     }
 
     #[test]
@@ -1395,7 +1428,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
-        assert_eq!(top, "▔▔▔▔▔");
+        assert_eq!(top, "     ");
     }
 
     #[test]
@@ -1418,7 +1451,7 @@ mod tests {
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
-        assert_eq!(overlay_top, "▔▔▔▔▔");
+        assert_eq!(overlay_top, "     ");
         assert_eq!(overlay_mid, "  H  ");
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
