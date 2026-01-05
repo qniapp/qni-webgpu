@@ -339,6 +339,37 @@ fn add_empty_qubit_row(state: &mut AppState) {
     state.placed.push(Vec::new());
 }
 
+fn compact_empty_columns(state: &mut AppState) {
+    let max_len = state
+        .placed
+        .iter()
+        .map(|row| row.len())
+        .max()
+        .unwrap_or(0);
+    if max_len == 0 {
+        return;
+    }
+
+    let mut new_rows = vec![Vec::new(); state.placed.len()];
+    for col in 0..max_len {
+        let mut has_gate = false;
+        for row in &state.placed {
+            if row.get(col).and_then(|gate| *gate).is_some() {
+                has_gate = true;
+                break;
+            }
+        }
+        if !has_gate {
+            continue;
+        }
+        for (row_index, row) in state.placed.iter().enumerate() {
+            let value = row.get(col).and_then(|gate| *gate);
+            new_rows[row_index].push(value);
+        }
+    }
+    state.placed = new_rows;
+}
+
 fn trim_trailing_empty_qubits(state: &mut AppState) {
     while state.placed.len() > MIN_QUBIT_COUNT {
         let remove = state
@@ -420,6 +451,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.drag_pos = None;
     state.hovered_slot = None;
     state.hovered_row = None;
+    compact_empty_columns(state);
     trim_trailing_empty_qubits(state);
 }
 
@@ -1018,6 +1050,18 @@ mod tests {
     }
 
     #[test]
+    fn drop_compacts_empty_columns() {
+        let area = Rect::new(0, 0, 80, 12);
+        let mut state = AppState::new(Gate::H);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot0 = layout.slots[0][0];
+        let slot1 = layout.slots[0][1];
+        handle_mouse_down(&mut state, slot0.x, slot0.y, area);
+        handle_mouse_up(&mut state, slot1.x, slot1.y, area);
+        assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::H));
+    }
+
+    #[test]
     fn drag_from_palette_to_circuit_sets_gate() {
         let area = Rect::new(0, 0, 60, 10);
         let mut state = AppState::new(Gate::H);
@@ -1039,7 +1083,7 @@ mod tests {
         let slot = layout.slots[0][0];
         handle_mouse_down(&mut state, slot.x, slot.y, area);
         handle_mouse_up(&mut state, area.x, area.y + 8, area);
-        assert_eq!(state.placed[0][0], None);
+        assert!(state.placed[0].is_empty());
     }
 
     #[test]
