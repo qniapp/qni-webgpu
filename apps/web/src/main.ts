@@ -371,18 +371,6 @@ type ShapeInstance = {
 
 const instances: ShapeInstance[] = []
 
-function addRect(x: number, y: number, w: number, h: number, color: Color) {
-  instances.push({
-    kind: 0,
-    thickness: 0,
-    p0x: x,
-    p0y: y,
-    p1x: w,
-    p1y: h,
-    color,
-  })
-}
-
 function addLine(x1: number, y1: number, x2: number, y2: number, thickness: number, color: Color) {
   instances.push({
     kind: 1,
@@ -813,12 +801,30 @@ type TextLayout = {
 function buildScene(
   gateLabel: Gate,
   stateVectorGlyphCount: number
-): { gateLabel: TextLayout; stateVector: TextLayout } {
+): { gateLabel: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
   instances.length = 0
   const lineY = 160
   const lineLeft = 80
   const lineRight = CANVAS_WIDTH - 80
   addLine(lineLeft, lineY, lineRight, lineY, 4, COLORS.line)
+
+  const paletteGates: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
+  const paletteSize = 60
+  const paletteGap = 16
+  const paletteRowY = 12
+  const paletteWidth = paletteGates.length * paletteSize + (paletteGates.length - 1) * paletteGap
+  const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
+  const paletteLabels: TextLayout[] = []
+  paletteGates.forEach((gate, index) => {
+    const x = paletteStartX + index * (paletteSize + paletteGap)
+    addRoundedRect(x, paletteRowY, paletteSize, paletteSize, 6, COLORS.box)
+    paletteLabels.push({
+      text: gate,
+      x: x + paletteSize / 2 - LABEL_GLYPH_SIZE / 2,
+      y: paletteRowY + paletteSize / 2 - LABEL_GLYPH_SIZE / 2,
+      color: COLORS.label,
+    })
+  })
 
   const gateSize = 60
   const gateX = (lineLeft + lineRight) / 2 - gateSize / 2
@@ -830,21 +836,25 @@ function buildScene(
 
   window.__vertexCount = instances.length
 
+  const stateVectorWidth = stateVectorGlyphCount * FONT_GLYPH_SIZE
+  const stateVectorX = (CANVAS_WIDTH - stateVectorWidth) / 2
+  const stateVectorY = CANVAS_HEIGHT - 40 - FONT_GLYPH_SIZE
+
   return {
     gateLabel: {
       text: gateLabel,
       x: gateLabelX,
       y: gateLabelY,
       color: COLORS.label,
-      drawSize: LABEL_GLYPH_SIZE,
     },
     stateVector: {
       text: '',
-      x: 120,
-      y: 320,
+      x: stateVectorX,
+      y: stateVectorY,
       color: COLORS.text,
       glyphCount: stateVectorGlyphCount,
     },
+    paletteLabels,
   }
 }
 
@@ -1057,7 +1067,8 @@ async function init() {
       minFilter: 'nearest',
     })
 
-    const textLayout = buildScene(gateLabel, STATE_TEXT_MAX_LEN)
+    const stateVectorGlyphCount = gateLabel === 'H' ? STATE_TEXT_MAX_LEN : 16
+    const textLayout = buildScene(gateLabel, stateVectorGlyphCount)
 
     const instanceStride = 11
     const instanceData = new Float32Array(instances.length * instanceStride)
@@ -1256,6 +1267,14 @@ async function init() {
       atlasHeight: labelAtlasHeight,
       texture: labelFontTexture,
     })
+    const paletteTexts = textLayout.paletteLabels.map((layout) =>
+      makeTextBuffers(layout, {
+        glyphSize: LABEL_GLYPH_SIZE,
+        atlasWidth: labelAtlasWidth,
+        atlasHeight: labelAtlasHeight,
+        texture: labelFontTexture,
+      })
+    )
     const stateTextDraw = makeTextBuffers(textLayout.stateVector, {
       glyphBuffer: stateTextGlyphBuffer,
       glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
@@ -1281,6 +1300,10 @@ async function init() {
       pass.setVertexBuffer(0, instanceBuffer)
       pass.draw(6, instanceCount, 0, 0)
       pass.setPipeline(textPipeline)
+      for (const paletteText of paletteTexts) {
+        pass.setBindGroup(0, paletteText.textBindGroup)
+        pass.draw(6, paletteText.glyphCount, 0, 0)
+      }
       pass.setBindGroup(0, gateText.textBindGroup)
       pass.draw(6, gateText.glyphCount, 0, 0)
       pass.setBindGroup(0, stateTextDraw.textBindGroup)
