@@ -59,6 +59,7 @@ const COLORS = {
   line: [0.62, 0.62, 0.62, 1.0] as Color,
   box: [0.2, 0.62, 0.55, 1.0] as Color,
   boxBorder: [0.14, 0.36, 0.34, 1.0] as Color,
+  boxActive: [0.52, 0.45, 0.7, 1.0] as Color,
   label: [1.0, 1.0, 1.0, 1.0] as Color,
   text: [0.45, 0.45, 0.45, 1.0] as Color,
 }
@@ -811,12 +812,15 @@ type GateState = {
   y: number
   visible: boolean
   label: Gate
+  dragging: boolean
+  fromPalette: boolean
 }
 
 function buildScene(
   gateLabel: Gate,
   stateVectorGlyphCount: number,
-  gateState: GateState
+  gateState: GateState,
+  includeGateShape: boolean
 ): { gateLabel: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
   instances.length = 0
   addLine(LINE_LEFT, LINE_Y, LINE_RIGHT, LINE_Y, 4, COLORS.line)
@@ -835,8 +839,9 @@ function buildScene(
     })
   })
 
-  if (gateState.visible) {
-    addRoundedRect(gateState.x, gateState.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
+  if (gateState.visible && includeGateShape) {
+    const gateColor = gateState.dragging ? COLORS.boxActive : COLORS.box
+    addRoundedRect(gateState.x, gateState.y, GATE_SIZE, GATE_SIZE, 6, gateColor)
   }
   const gateLabelLayout = {
     text: gateState.label,
@@ -1081,9 +1086,11 @@ async function init() {
       y: LINE_Y - GATE_SIZE / 2,
       visible: false,
       label: currentGate,
+      dragging: false,
+      fromPalette: false,
     }
 
-    const textLayout = buildScene(currentGate, stateVectorGlyphCount, gateState)
+    const textLayout = buildScene(currentGate, stateVectorGlyphCount, gateState, true)
 
     const instanceStride = 11
     let instanceCapacity = PALETTE_GATES.length + 2
@@ -1299,7 +1306,7 @@ async function init() {
         ],
       })
 
-      return { textBindGroup, glyphCount, uniformBuffer }
+      return { textBindGroup, glyphCount, uniformBuffer, glyphBuffer }
     }
 
     const gateText = makeTextBuffers(textLayout.gateLabel, {
@@ -1308,6 +1315,9 @@ async function init() {
       atlasHeight: labelAtlasHeight,
       texture: labelFontTexture,
     })
+    if (!gateState.visible) {
+      gateText.glyphCount = 0
+    }
     const paletteTexts = textLayout.paletteLabels.map((layout) =>
       makeTextBuffers(layout, {
         glyphSize: LABEL_GLYPH_SIZE,
@@ -1321,6 +1331,34 @@ async function init() {
       glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
     })
 
+    let lastGateLabel = gateState.label
+
+    const gateOverlayBuffer = device.createBuffer({
+      size: instanceStride * 4,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    })
+
+    const updateGateOverlay = () => {
+      if (!gateState.visible) {
+        return
+      }
+      const gateColor = gateState.dragging ? COLORS.boxActive : COLORS.box
+      const overlayData = new Float32Array([
+        2,
+        6,
+        gateState.x,
+        gateState.y,
+        GATE_SIZE,
+        GATE_SIZE,
+        gateColor[0],
+        gateColor[1],
+        gateColor[2],
+        gateColor[3],
+        0,
+      ])
+      device.queue.writeBuffer(gateOverlayBuffer, 0, overlayData)
+    }
+
     const recomputeStateVector = async (gate: Gate) => {
       const result = await computeStateVector(device, gate, shouldReadback)
       stateVectorBuffer = result.outputBuffer
@@ -1331,13 +1369,21 @@ async function init() {
     }
 
     const updateScene = () => {
-      const updatedLayout = buildScene(currentGate, stateVectorGlyphCount, gateState)
+      const includeGateShape = !(gateState.dragging && gateState.fromPalette)
+      const updatedLayout = buildScene(currentGate, stateVectorGlyphCount, gateState, includeGateShape)
       updateInstanceBuffer()
+      if (gateState.label !== lastGateLabel) {
+        const codes = new Uint32Array(Array.from(gateState.label).map((char) => char.charCodeAt(0)))
+        device.queue.writeBuffer(gateText.glyphBuffer, 0, codes)
+        lastGateLabel = gateState.label
+      }
       updateTextUniform(gateText.uniformBuffer, updatedLayout.gateLabel, LABEL_GLYPH_SIZE, labelAtlasWidth, labelAtlasHeight)
       gateText.glyphCount = gateState.visible ? updatedLayout.gateLabel.text.length : 0
+      updateGateOverlay()
       updateTextUniform(stateTextDraw.uniformBuffer, updatedLayout.stateVector, FONT_GLYPH_SIZE, fontAtlasWidth, fontAtlasHeight)
       stateTextDraw.glyphCount = updatedLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN
     }
+    updateScene()
 
     const getPointerPosition = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect()
@@ -1374,6 +1420,8 @@ async function init() {
             gateState.x = x - GATE_SIZE / 2
             gateState.y = y - GATE_SIZE / 2
             isDragging = true
+            gateState.dragging = true
+            gateState.fromPalette = true
             dragOffsetX = GATE_SIZE / 2
             dragOffsetY = GATE_SIZE / 2
             updateScene()
@@ -1385,6 +1433,8 @@ async function init() {
       const { x, y } = getPointerPosition(event)
       if (x >= gateState.x && x <= gateState.x + GATE_SIZE && y >= gateState.y && y <= gateState.y + GATE_SIZE) {
         isDragging = true
+        gateState.dragging = true
+        gateState.fromPalette = false
         dragOffsetX = x - gateState.x
         dragOffsetY = y - gateState.y
         canvas.setPointerCapture(event.pointerId)
@@ -1409,6 +1459,8 @@ async function init() {
         return
       }
       isDragging = false
+      gateState.dragging = false
+      gateState.fromPalette = false
       canvas.releasePointerCapture(event.pointerId)
       const centerX = gateState.x + GATE_SIZE / 2
       const centerY = gateState.y + GATE_SIZE / 2
@@ -1456,6 +1508,13 @@ async function init() {
       for (const paletteText of paletteTexts) {
         pass.setBindGroup(0, paletteText.textBindGroup)
         pass.draw(6, paletteText.glyphCount, 0, 0)
+      }
+      if (gateState.dragging && gateState.fromPalette && gateState.visible) {
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0, bindGroup)
+        pass.setVertexBuffer(0, gateOverlayBuffer)
+        pass.draw(6, 1, 0, 0)
+        pass.setPipeline(textPipeline)
       }
       if (gateText.glyphCount > 0) {
         pass.setBindGroup(0, gateText.textBindGroup)
