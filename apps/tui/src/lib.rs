@@ -509,13 +509,18 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         .map(|row_slots| row_slots.len())
         .collect();
     ensure_slots(state, &counts);
-    if let Some((row, index)) = insertion_target(state, x, y, area) {
+    if let Some((row, index)) = state.hovered_insert.or_else(|| insertion_target(state, x, y, area))
+    {
         for row_slots in &mut state.placed {
             let insert_at = index.min(row_slots.len());
             row_slots.insert(insert_at, None);
         }
         state.placed[row][index] = Some(dragging.gate);
-    } else if let Some((row, slot)) = hit_test_circuit_slot(x, y, area, qubit_count(state)) {
+    } else if let Some((row, slot)) = state
+        .hovered_row
+        .and_then(|row| state.hovered_slot.map(|slot| (row, slot)))
+        .or_else(|| hit_test_circuit_slot(x, y, area, qubit_count(state)))
+    {
         state.placed[row][slot] = Some(dragging.gate);
     } else if is_empty_drop(x, y, area, qubit_count(state))
         && dragging.origin == DragOrigin::Circuit
@@ -1198,6 +1203,21 @@ mod tests {
         let gap_y = slot0.y + 1;
         handle_mouse_up(&mut state, gap_x, gap_y, area);
         assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::H));
+        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::Z));
+        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+    }
+
+    #[test]
+    fn drop_uses_hovered_insert_even_if_cursor_is_off() {
+        let area = Rect::new(0, 0, 100, 12);
+        let mut state = AppState::new(Gate::H);
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::X)];
+        state.dragging = Some(DragState {
+            gate: Gate::Z,
+            origin: DragOrigin::Palette,
+        });
+        state.hovered_insert = Some((0, 1));
+        handle_mouse_up(&mut state, area.x, area.y, area);
         assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::Z));
         assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
     }
