@@ -25,6 +25,32 @@ pnpm install
 pnpm start
 ```
 
+## Claude Code での登録
+
+プロジェクト単位で登録する場合:
+
+```
+claude mcp add --scope project --transport stdio qni -- \
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
+```
+
+`.mcp.json` を直接編集する場合:
+
+```
+{
+  "mcpServers": {
+    "qni": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
 ## ツール一覧
 
 - `qni_set_qubits`
@@ -62,6 +88,15 @@ pnpm start
 - `stateVector` は `[real, imag]` の配列
 - インデックスは `|00...0>` から順の基底
 - 対象ゲートは単一量子ビットゲートのみ
+
+## 例
+
+```
+# 1量子ビットにHゲートを置く
+qni_set_qubits { "qubits": 1 }
+qni_place_gate { "gate": "H", "target": 0, "column": 0 }
+qni_run {}
+```
 
 ## 制約
 
