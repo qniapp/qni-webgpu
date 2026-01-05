@@ -810,13 +810,14 @@ type GateState = {
   x: number
   y: number
   visible: boolean
+  label: Gate
 }
 
 function buildScene(
   gateLabel: Gate,
   stateVectorGlyphCount: number,
   gateState: GateState
-): { gateLabel?: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
+): { gateLabel: TextLayout; stateVector: TextLayout; paletteLabels: TextLayout[] } {
   instances.length = 0
   addLine(LINE_LEFT, LINE_Y, LINE_RIGHT, LINE_Y, 4, COLORS.line)
 
@@ -834,17 +835,14 @@ function buildScene(
     })
   })
 
-  let gateLabelLayout: TextLayout | undefined
   if (gateState.visible) {
     addRoundedRect(gateState.x, gateState.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
-    const gateLabelX = gateState.x + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2
-    const gateLabelY = gateState.y + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2
-    gateLabelLayout = {
-      text: gateLabel,
-      x: gateLabelX,
-      y: gateLabelY,
-      color: COLORS.label,
-    }
+  }
+  const gateLabelLayout = {
+    text: gateState.label,
+    x: gateState.x + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
+    y: gateState.y + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
+    color: COLORS.label,
   }
 
   window.__vertexCount = instances.length
@@ -1001,11 +999,12 @@ async function init() {
 
     const gateLabel = getGateFromQuery()
     const shouldReadback = window.__captureStateVector === true
-    const { outputBuffer: stateVectorBuffer, readback: stateVectorReadback } = await computeStateVector(
+    const { outputBuffer: initialStateVectorBuffer, readback: stateVectorReadback } = await computeStateVector(
       device,
       gateLabel,
       shouldReadback
     )
+    let stateVectorBuffer = initialStateVectorBuffer
     if (stateVectorReadback) {
       window.__stateVector = Array.from(stateVectorReadback)
     }
@@ -1075,25 +1074,36 @@ async function init() {
       minFilter: 'nearest',
     })
 
+    let currentGate = gateLabel
+    let stateVectorGlyphCount = currentGate === 'H' ? STATE_TEXT_MAX_LEN : 16
     const gateState: GateState = {
       x: (LINE_LEFT + LINE_RIGHT) / 2 - GATE_SIZE / 2,
       y: LINE_Y - GATE_SIZE / 2,
       visible: false,
+      label: currentGate,
     }
 
-    const stateVectorGlyphCount = gateLabel === 'H' ? STATE_TEXT_MAX_LEN : 16
-    const textLayout = buildScene(gateLabel, stateVectorGlyphCount, gateState)
+    const textLayout = buildScene(currentGate, stateVectorGlyphCount, gateState)
 
     const instanceStride = 11
-    const maxInstances = instances.length
-    const instanceData = new Float32Array(maxInstances * instanceStride)
+    let instanceCapacity = PALETTE_GATES.length + 2
+    let instanceData = new Float32Array(instanceCapacity * instanceStride)
     let instanceCount = instances.length
-    const instanceBuffer = device.createBuffer({
+    let instanceBuffer = device.createBuffer({
       size: instanceData.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     })
     const updateInstanceBuffer = () => {
-      instanceData.fill(0)
+      if (instances.length > instanceCapacity) {
+        instanceCapacity = instances.length
+        instanceData = new Float32Array(instanceCapacity * instanceStride)
+        instanceBuffer = device.createBuffer({
+          size: instanceData.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        })
+      } else {
+        instanceData.fill(0)
+      }
       instances.forEach((instance, index) => {
         const offset = index * instanceStride
         instanceData[offset] = instance.kind
@@ -1292,14 +1302,12 @@ async function init() {
       return { textBindGroup, glyphCount, uniformBuffer }
     }
 
-    const gateText = textLayout.gateLabel
-      ? makeTextBuffers(textLayout.gateLabel, {
-          glyphSize: LABEL_GLYPH_SIZE,
-          atlasWidth: labelAtlasWidth,
-          atlasHeight: labelAtlasHeight,
-          texture: labelFontTexture,
-        })
-      : null
+    const gateText = makeTextBuffers(textLayout.gateLabel, {
+      glyphSize: LABEL_GLYPH_SIZE,
+      atlasWidth: labelAtlasWidth,
+      atlasHeight: labelAtlasHeight,
+      texture: labelFontTexture,
+    })
     const paletteTexts = textLayout.paletteLabels.map((layout) =>
       makeTextBuffers(layout, {
         glyphSize: LABEL_GLYPH_SIZE,
@@ -1313,15 +1321,22 @@ async function init() {
       glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
     })
 
-    const updateScene = () => {
-      const updatedLayout = buildScene(gateLabel, stateVectorGlyphCount, gateState)
-      updateInstanceBuffer()
-      if (gateText && updatedLayout.gateLabel) {
-        updateTextUniform(gateText.uniformBuffer, updatedLayout.gateLabel, LABEL_GLYPH_SIZE, labelAtlasWidth, labelAtlasHeight)
-        gateText.glyphCount = updatedLayout.gateLabel.text.length
-      } else if (gateText) {
-        gateText.glyphCount = 0
+    const recomputeStateVector = async (gate: Gate) => {
+      const result = await computeStateVector(device, gate, shouldReadback)
+      stateVectorBuffer = result.outputBuffer
+      if (result.readback) {
+        window.__stateVector = Array.from(result.readback)
       }
+      await populateStateTextBuffer(device, stateVectorBuffer, stateTextGlyphBuffer)
+    }
+
+    const updateScene = () => {
+      const updatedLayout = buildScene(currentGate, stateVectorGlyphCount, gateState)
+      updateInstanceBuffer()
+      updateTextUniform(gateText.uniformBuffer, updatedLayout.gateLabel, LABEL_GLYPH_SIZE, labelAtlasWidth, labelAtlasHeight)
+      gateText.glyphCount = gateState.visible ? updatedLayout.gateLabel.text.length : 0
+      updateTextUniform(stateTextDraw.uniformBuffer, updatedLayout.stateVector, FONT_GLYPH_SIZE, fontAtlasWidth, fontAtlasHeight)
+      stateTextDraw.glyphCount = updatedLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN
     }
 
     const getPointerPosition = (event: PointerEvent) => {
@@ -1340,6 +1355,31 @@ async function init() {
 
     canvas.addEventListener('pointerdown', (event) => {
       if (!gateState.visible) {
+        const { x, y } = getPointerPosition(event)
+        if (
+          y >= PALETTE_ROW_Y &&
+          y <= PALETTE_ROW_Y + PALETTE_SIZE &&
+          x >= (CANVAS_WIDTH - (PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP)) / 2 &&
+          x <=
+            (CANVAS_WIDTH - (PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP)) / 2 +
+              PALETTE_GATES.length * PALETTE_SIZE +
+              (PALETTE_GATES.length - 1) * PALETTE_GAP
+        ) {
+          const startX =
+            (CANVAS_WIDTH - (PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP)) / 2
+          const index = Math.floor((x - startX) / (PALETTE_SIZE + PALETTE_GAP))
+          if (index >= 0 && index < PALETTE_GATES.length) {
+            gateState.label = PALETTE_GATES[index]
+            gateState.visible = true
+            gateState.x = x - GATE_SIZE / 2
+            gateState.y = y - GATE_SIZE / 2
+            isDragging = true
+            dragOffsetX = GATE_SIZE / 2
+            dragOffsetY = GATE_SIZE / 2
+            updateScene()
+            canvas.setPointerCapture(event.pointerId)
+          }
+        }
         return
       }
       const { x, y } = getPointerPosition(event)
@@ -1357,7 +1397,10 @@ async function init() {
       }
       const { x, y } = getPointerPosition(event)
       gateState.x = x - dragOffsetX
-      gateState.y = y - dragOffsetY
+      const nextY = y - dragOffsetY
+      const snapY = LINE_Y - GATE_SIZE / 2
+      const centerY = nextY + GATE_SIZE / 2
+      gateState.y = Math.abs(centerY - LINE_Y) <= 10 ? snapY : nextY
       updateScene()
     })
 
@@ -1375,6 +1418,15 @@ async function init() {
         Math.abs(centerY - LINE_Y) <= GATE_SIZE / 2
       if (!onCircuit) {
         gateState.visible = false
+      } else {
+        const snappedX = Math.max(LINE_LEFT, Math.min(centerX, LINE_RIGHT)) - GATE_SIZE / 2
+        gateState.x = snappedX
+        gateState.y = LINE_Y - GATE_SIZE / 2
+        if (currentGate !== gateState.label) {
+          currentGate = gateState.label
+          stateVectorGlyphCount = currentGate === 'H' ? STATE_TEXT_MAX_LEN : 16
+          void recomputeStateVector(currentGate)
+        }
       }
       updateScene()
     }
@@ -1405,7 +1457,7 @@ async function init() {
         pass.setBindGroup(0, paletteText.textBindGroup)
         pass.draw(6, paletteText.glyphCount, 0, 0)
       }
-      if (gateText && gateText.glyphCount > 0) {
+      if (gateText.glyphCount > 0) {
         pass.setBindGroup(0, gateText.textBindGroup)
         pass.draw(6, gateText.glyphCount, 0, 0)
       }
