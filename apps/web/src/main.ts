@@ -15,6 +15,7 @@ declare global {
 
 const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
+const STATE_TEXT_MAX_LEN = 50
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
@@ -122,6 +123,72 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   outputState[0] = out0;
   outputState[1] = out1;
+}
+`
+
+const stateTextComputeCode = `
+const STATE_TEXT_LEN: u32 = ${STATE_TEXT_MAX_LEN}u;
+const EPSILON: f32 = 0.000001;
+const INV_SQRT2: f32 = 0.7071067811865476;
+
+const TEXT_X: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
+  91u, 40u, 48u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 49u, 43u, 48u, 105u, 41u, 93u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
+);
+
+const TEXT_H: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
+  91u, 40u, 48u, 46u, 55u, 48u, 55u, 49u, 48u, 54u, 55u, 56u, 49u, 49u, 56u, 54u,
+  53u, 52u, 55u, 53u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 46u, 55u, 48u, 55u,
+  49u, 48u, 54u, 55u, 56u, 49u, 49u, 56u, 54u, 53u, 52u, 55u, 53u, 43u, 48u, 105u,
+  41u, 93u
+);
+
+const TEXT_Y: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
+  91u, 40u, 48u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 43u, 49u, 105u, 41u, 93u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
+);
+
+const TEXT_Z: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
+  91u, 40u, 49u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 43u, 48u, 105u, 41u, 93u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
+);
+
+@group(0) @binding(0) var<storage, read> stateVector: array<vec2<f32>, 2>;
+@group(0) @binding(1) var<storage, read_write> glyphs: array<u32>;
+
+fn close(a: f32, b: f32) -> bool {
+  return abs(a - b) < EPSILON;
+}
+
+@compute @workgroup_size(64)
+fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let idx = gid.x;
+  if (idx >= STATE_TEXT_LEN) {
+    return;
+  }
+
+  let a0 = stateVector[0];
+  let a1 = stateVector[1];
+  let isX = close(a0.x, 0.0) && close(a0.y, 0.0) && close(a1.x, 1.0) && close(a1.y, 0.0);
+  let isH = close(a0.x, INV_SQRT2) && close(a0.y, 0.0) && close(a1.x, INV_SQRT2) && close(a1.y, 0.0);
+  let isY = close(a0.x, 0.0) && close(a0.y, 0.0) && close(a1.x, 0.0) && close(a1.y, 1.0);
+  let isZ = close(a0.x, 1.0) && close(a0.y, 0.0) && close(a1.x, 0.0) && close(a1.y, 0.0);
+
+  var code = 0u;
+  if (isH) {
+    code = TEXT_H[idx];
+  } else if (isX) {
+    code = TEXT_X[idx];
+  } else if (isY) {
+    code = TEXT_Y[idx];
+  } else if (isZ) {
+    code = TEXT_Z[idx];
+  }
+
+  glyphs[idx] = code;
 }
 `
 
@@ -610,9 +677,13 @@ type TextLayout = {
   x: number
   y: number
   color: Color
+  glyphCount?: number
 }
 
-function buildScene(gateLabel: Gate, stateVectorText: string): { gateLabel: TextLayout; stateVector: TextLayout } {
+function buildScene(
+  gateLabel: Gate,
+  stateVectorGlyphCount: number
+): { gateLabel: TextLayout; stateVector: TextLayout } {
   instances.length = 0
   const lineY = 160
   const lineLeft = 80
@@ -643,15 +714,20 @@ function buildScene(gateLabel: Gate, stateVectorText: string): { gateLabel: Text
       color: COLORS.boxBorder,
     },
     stateVector: {
-      text: stateVectorText,
+      text: '',
       x: 120,
       y: 320,
       color: COLORS.text,
+      glyphCount: stateVectorGlyphCount,
     },
   }
 }
 
-async function computeStateVector(device: GPUDevice, gate: Gate, readback: boolean): Promise<Float32Array | null> {
+async function computeStateVector(
+  device: GPUDevice,
+  gate: Gate,
+  readback: boolean
+): Promise<{ outputBuffer: GPUBuffer; readback: Float32Array | null }> {
   const inputState = new Float32Array([1, 0, 0, 0])
   const inputBuffer = device.createBuffer({
     size: inputState.byteLength,
@@ -712,10 +788,48 @@ async function computeStateVector(device: GPUDevice, gate: Gate, readback: boole
     const mapped = new Float32Array(readbackBuffer.getMappedRange())
     const result = new Float32Array(mapped)
     readbackBuffer.unmap()
-    return result
+    return { outputBuffer, readback: result }
   }
   device.queue.submit([commandEncoder.finish()])
-  return null
+  return { outputBuffer, readback: null }
+}
+
+async function populateStateTextBuffer(
+  device: GPUDevice,
+  stateVectorBuffer: GPUBuffer,
+  glyphBuffer: GPUBuffer
+): Promise<void> {
+  const shaderModule = device.createShaderModule({ code: stateTextComputeCode })
+  const compilationInfo = await shaderModule.getCompilationInfo()
+  const compilationErrors = compilationInfo.messages.filter((message) => message.type === 'error')
+  if (compilationErrors.length > 0) {
+    const message = compilationErrors.map((error) => error.message).join(' | ')
+    throw new Error(message)
+  }
+
+  const pipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {
+      module: shaderModule,
+      entryPoint: 'cs_main',
+    },
+  })
+
+  const bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: stateVectorBuffer } },
+      { binding: 1, resource: { buffer: glyphBuffer } },
+    ],
+  })
+
+  const commandEncoder = device.createCommandEncoder()
+  const pass = commandEncoder.beginComputePass()
+  pass.setPipeline(pipeline)
+  pass.setBindGroup(0, bindGroup)
+  pass.dispatchWorkgroups(Math.ceil(STATE_TEXT_MAX_LEN / 64))
+  pass.end()
+  device.queue.submit([commandEncoder.finish()])
 }
 
 async function init() {
@@ -744,20 +858,21 @@ async function init() {
 
     const gateLabel = getGateFromQuery()
     const shouldReadback = window.__captureStateVector === true
-    const stateVector = await computeStateVector(device, gateLabel, shouldReadback)
-    if (stateVector) {
-      window.__stateVector = Array.from(stateVector)
+    const { outputBuffer: stateVectorBuffer, readback: stateVectorReadback } = await computeStateVector(
+      device,
+      gateLabel,
+      shouldReadback
+    )
+    if (stateVectorReadback) {
+      window.__stateVector = Array.from(stateVectorReadback)
     }
-    const invSqrt2Text = (1 / Math.sqrt(2)).toString()
-    const stateTextMap: Record<Gate, string> = {
-      X: '[(0+0i), (1+0i)]',
-      H: `[(${invSqrt2Text}+0i), (${invSqrt2Text}+0i)]`,
-      Y: '[(0+0i), (0+1i)]',
-      Z: '[(1+0i), (0+0i)]',
-      S: '[(1+0i), (0+0i)]',
-      T: '[(1+0i), (0+0i)]',
-    }
-    const stateTextString = stateTextMap[gateLabel]
+
+    const stateTextGlyphBuffer = device.createBuffer({
+      size: STATE_TEXT_MAX_LEN * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    })
+    device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
+    await populateStateTextBuffer(device, stateVectorBuffer, stateTextGlyphBuffer)
 
     const fontData = createFontAtlas()
     const bytesPerPixel = 4
@@ -785,7 +900,7 @@ async function init() {
       minFilter: 'nearest',
     })
 
-    const textLayout = buildScene(gateLabel, stateTextString)
+    const textLayout = buildScene(gateLabel, STATE_TEXT_MAX_LEN)
 
     const instanceStride = 11
     const instanceData = new Float32Array(instances.length * instanceStride)
@@ -919,13 +1034,21 @@ async function init() {
       },
     })
 
-    const makeTextBuffers = (layout: TextLayout) => {
-      const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
-      const glyphBuffer = device.createBuffer({
-        size: codes.byteLength,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      })
-      device.queue.writeBuffer(glyphBuffer, 0, codes)
+    const makeTextBuffers = (
+      layout: TextLayout,
+      options?: { glyphBuffer?: GPUBuffer; glyphCount?: number }
+    ) => {
+      let glyphBuffer = options?.glyphBuffer
+      let glyphCount = options?.glyphCount ?? layout.text.length
+      if (!glyphBuffer) {
+        const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
+        glyphBuffer = device.createBuffer({
+          size: codes.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        })
+        device.queue.writeBuffer(glyphBuffer, 0, codes)
+        glyphCount = codes.length
+      }
 
       const uniformData = new Float32Array([
         CANVAS_WIDTH,
@@ -957,11 +1080,14 @@ async function init() {
         ],
       })
 
-      return { textBindGroup, glyphCount: codes.length }
+      return { textBindGroup, glyphCount }
     }
 
     const gateText = makeTextBuffers(textLayout.gateLabel)
-    const stateTextDraw = makeTextBuffers(textLayout.stateVector)
+    const stateTextDraw = makeTextBuffers(textLayout.stateVector, {
+      glyphBuffer: stateTextGlyphBuffer,
+      glyphCount: textLayout.stateVector.glyphCount ?? STATE_TEXT_MAX_LEN,
+    })
 
     const instanceCount = instances.length
     let hasCaptured = false
