@@ -19,6 +19,12 @@ pnpm install
 pnpm start
 ```
 
+## リント
+
+```
+pnpm lint
+```
+
 ## ツール
 
 - `qni_set_qubits` `{ qubits: number }`
