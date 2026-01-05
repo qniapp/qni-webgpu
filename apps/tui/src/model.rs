@@ -3,6 +3,7 @@ use crate::MIN_QUBIT_COUNT;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Gate {
     X,
+    Control,
     H,
     Y,
     Z,
@@ -31,8 +32,6 @@ pub struct AppState {
     pub placed: Vec<Vec<Option<Gate>>>,
     pub dragging: Option<DragState>,
     pub drag_pos: Option<(u16, u16)>,
-    pub default_gate: Gate,
-    pub initialized: bool,
     pub hovered_slot: Option<usize>,
     pub hovered_row: Option<usize>,
     pub hovered_insert: Option<(usize, usize)>,
@@ -43,13 +42,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(initial_gate: Gate) -> Self {
+    pub fn new() -> Self {
         Self {
             placed: vec![Vec::new(); MIN_QUBIT_COUNT],
             dragging: None,
             drag_pos: None,
-            default_gate: initial_gate,
-            initialized: false,
             hovered_slot: None,
             hovered_row: None,
             hovered_insert: None,
@@ -72,10 +69,6 @@ pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
         }
         state.placed[row].resize(count, None);
     }
-    if !state.initialized && !counts.is_empty() && counts[0] > 0 {
-        state.placed[0][0] = Some(state.default_gate);
-        state.initialized = true;
-    }
 }
 
 impl std::str::FromStr for Gate {
@@ -84,6 +77,7 @@ impl std::str::FromStr for Gate {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.trim().to_uppercase().as_str() {
             "X" => Ok(Self::X),
+            "CTRL" | "CONTROL" | "C" => Ok(Self::Control),
             "H" => Ok(Self::H),
             "Y" => Ok(Self::Y),
             "Z" => Ok(Self::Z),
@@ -102,6 +96,7 @@ impl std::fmt::Display for Gate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {
             Self::X => "X",
+            Self::Control => "",
             Self::H => "H",
             Self::Y => "Y",
             Self::Z => "Z",
@@ -200,7 +195,7 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
                 im: -INV_SQRT2,
             },
         ],
-        Gate::Swap => [
+        Gate::Swap | Gate::Control => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
@@ -229,7 +224,7 @@ pub fn apply_gate_to_state(
     target: usize,
     qubits: usize,
 ) -> Vec<Complex> {
-    if gate == Gate::Swap {
+    if gate == Gate::Swap || gate == Gate::Control {
         return state.to_vec();
     }
     if target >= qubits {
@@ -277,6 +272,24 @@ fn apply_swap_qubits(state: &[Complex], q0: usize, q1: usize, qubits: usize) -> 
     out
 }
 
+fn apply_cnot_qubits(state: &[Complex], control: usize, target: usize, qubits: usize) -> Vec<Complex> {
+    if control >= qubits || target >= qubits || control == target {
+        return state.to_vec();
+    }
+    let control_bit = qubits.saturating_sub(1).saturating_sub(control);
+    let target_bit = qubits.saturating_sub(1).saturating_sub(target);
+    let control_mask = 1usize << control_bit;
+    let target_mask = 1usize << target_bit;
+    let mut out = state.to_vec();
+    for index in 0..state.len() {
+        if index & control_mask != 0 && index & target_mask == 0 {
+            let flipped = index | target_mask;
+            out.swap(index, flipped);
+        }
+    }
+    out
+}
+
 pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> Vec<Complex> {
     apply_gates_to_zero_limit(gates, None)
 }
@@ -292,18 +305,44 @@ pub(crate) fn apply_gates_to_zero_limit(
     let limit = max_columns.unwrap_or(max_slots).min(max_slots);
     for slot in 0..limit {
         let mut swap_rows = Vec::new();
+        let mut control_row = None;
+        let mut target_row = None;
         for (row, row_gates) in gates.iter().enumerate() {
-            let is_swap = row_gates.get(slot).and_then(|gate| *gate) == Some(Gate::Swap);
-            if is_swap {
-                swap_rows.push(row);
+            let gate = row_gates.get(slot).and_then(|gate| *gate);
+            match gate {
+                Some(Gate::Swap) => swap_rows.push(row),
+                Some(Gate::Control) => {
+                    if control_row.is_none() {
+                        control_row = Some(row);
+                    }
+                }
+                Some(Gate::X) => {
+                    if target_row.is_none() {
+                        target_row = Some(row);
+                    }
+                }
+                _ => {}
             }
         }
         if swap_rows.len() == 2 {
             state = apply_swap_qubits(&state, swap_rows[0], swap_rows[1], qubits);
         }
+        let mut cnot_target = None;
+        if let (Some(control), Some(target)) = (control_row, target_row) {
+            if control != target {
+                state = apply_cnot_qubits(&state, control, target, qubits);
+                cnot_target = Some(target);
+            }
+        }
         for (row, row_gates) in gates.iter().enumerate() {
             if let Some(Some(gate)) = row_gates.get(slot) {
-                if *gate != Gate::Swap {
+                if *gate == Gate::Swap || *gate == Gate::Control {
+                    continue;
+                }
+                if *gate == Gate::X && cnot_target == Some(row) {
+                    continue;
+                }
+                {
                     state = apply_gate_to_state(&state, *gate, row, qubits);
                 }
             }

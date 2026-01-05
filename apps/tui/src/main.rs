@@ -7,7 +7,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use qni_webgpu_tui::{
-    confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up, parse_args,
+    confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up,
     render_to_buffer_with_drag, update_hovered_slot, AppState, DragVisual,
 };
 
@@ -32,9 +32,7 @@ fn draw_once(
 }
 
 fn run() -> io::Result<()> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let gate = parse_args(&args);
-    let mut app_state = AppState::new(gate);
+    let mut app_state = AppState::new();
     let mut debug_line: Option<String> = None;
 
     terminal::enable_raw_mode()?;
