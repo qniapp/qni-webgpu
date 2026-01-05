@@ -10,11 +10,24 @@ pub enum Gate {
     H,
     Y,
     Z,
+    SqrtX,
     S,
+    Sdg,
     T,
+    Tdg,
 }
 
-const PALETTE_GATES: [Gate; 6] = [Gate::H, Gate::X, Gate::Y, Gate::Z, Gate::S, Gate::T];
+const PALETTE_GATES: [Gate; 9] = [
+    Gate::H,
+    Gate::X,
+    Gate::Y,
+    Gate::Z,
+    Gate::SqrtX,
+    Gate::S,
+    Gate::Sdg,
+    Gate::T,
+    Gate::Tdg,
+];
 const PALETTE_LABEL: &str = "";
 const GATE_BOX_WIDTH: u16 = 5;
 const GATE_BOX_HEIGHT: u16 = 3;
@@ -164,8 +177,11 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
         Gate::X => Color::Red,
         Gate::Y => Color::Magenta,
         Gate::Z => Color::Blue,
+        Gate::SqrtX => Color::Red,
         Gate::S => Color::Green,
+        Gate::Sdg => Color::Green,
         Gate::T => Color::Cyan,
+        Gate::Tdg => Color::Cyan,
     };
     let text = Color::Black;
     let highlight = Color::White;
@@ -257,7 +273,11 @@ fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
             buffer.set_string(rect.x, rect.y + row, &fill, base_style);
         }
     }
-    let label_x = rect.x + rect.width / 2;
+    let label_x = if gate == Gate::SqrtX {
+        rect.x + rect.width / 2 - 1
+    } else {
+        rect.x + rect.width / 2
+    };
     let label_y = rect.y + rect.height / 2;
     buffer.set_string(
         label_x,
@@ -682,8 +702,11 @@ impl std::str::FromStr for Gate {
             "H" => Ok(Self::H),
             "Y" => Ok(Self::Y),
             "Z" => Ok(Self::Z),
+            "SQRTX" | "SX" | "√X" => Ok(Self::SqrtX),
             "S" => Ok(Self::S),
+            "S†" | "SDG" | "S_DAGGER" => Ok(Self::Sdg),
             "T" => Ok(Self::T),
+            "T†" | "TDG" | "T_DAGGER" => Ok(Self::Tdg),
             _ => Err(()),
         }
     }
@@ -696,8 +719,11 @@ impl std::fmt::Display for Gate {
             Self::H => "H",
             Self::Y => "Y",
             Self::Z => "Z",
+            Self::SqrtX => "√X",
             Self::S => "S",
+            Self::Sdg => "S†",
             Self::T => "T",
+            Self::Tdg => "T†",
         };
         f.write_str(label)
     }
@@ -714,6 +740,7 @@ const PHASE_45: Complex = Complex {
     re: INV_SQRT2,
     im: INV_SQRT2,
 };
+const HALF: f64 = 0.5;
 
 fn matrix_for(gate: Gate) -> [Complex; 4] {
     match gate {
@@ -753,17 +780,38 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
             Complex { re: 0.0, im: 0.0 },
             Complex { re: -1.0, im: 0.0 },
         ],
+        Gate::SqrtX => [
+            Complex { re: HALF, im: HALF },
+            Complex { re: HALF, im: -HALF },
+            Complex { re: HALF, im: -HALF },
+            Complex { re: HALF, im: HALF },
+        ],
         Gate::S => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 1.0 },
         ],
+        Gate::Sdg => [
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: -1.0 },
+        ],
         Gate::T => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             PHASE_45,
+        ],
+        Gate::Tdg => [
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex {
+                re: INV_SQRT2,
+                im: -INV_SQRT2,
+            },
         ],
     }
 }
@@ -1060,6 +1108,9 @@ mod tests {
         assert_eq!(parse_args_from(&[]), Gate::H);
         assert_eq!(parse_args_from(&["--gate", "y"]), Gate::Y);
         assert_eq!(parse_args_from(&["--gate=Z"]), Gate::Z);
+        assert_eq!(parse_args_from(&["--gate", "sqrtx"]), Gate::SqrtX);
+        assert_eq!(parse_args_from(&["--gate", "sdg"]), Gate::Sdg);
+        assert_eq!(parse_args_from(&["--gate", "tdg"]), Gate::Tdg);
         assert_eq!(parse_args_from(&["--gate", "nope"]), Gate::H);
     }
 

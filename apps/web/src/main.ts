@@ -1078,7 +1078,7 @@ async function init() {
     const gateState: GateState = {
       x: (LINE_LEFT + LINE_RIGHT) / 2 - GATE_SIZE / 2,
       y: LINE_Y - GATE_SIZE / 2,
-      visible: true,
+      visible: false,
     }
 
     const stateVectorGlyphCount = gateLabel === 'H' ? STATE_TEXT_MAX_LEN : 16
