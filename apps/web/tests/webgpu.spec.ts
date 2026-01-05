@@ -35,6 +35,34 @@ for (const { gate, expected } of gateCases) {
       null,
       { timeout: 8000 }
     )
+
+    const paletteIndex = ['X', 'H', 'Y', 'Z', 'S', 'T'].indexOf(gate)
+    const PALETTE_SIZE = 60
+    const PALETTE_GAP = 16
+    const PALETTE_ROW_Y = 12
+    const CANVAS_WIDTH = 800
+    const LINE_LEFT = 80
+    const GATE_SIZE = 60
+    const SLOT_LEFT = LINE_LEFT + GATE_SIZE
+    const LINE_Y = 160
+    const paletteWidth = 6 * PALETTE_SIZE + 5 * PALETTE_GAP
+    const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
+    const sourceX = paletteStartX + paletteIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
+    const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+    const targetX = SLOT_LEFT
+    const targetY = LINE_Y
+
+    const canvasBox = await page.locator('#gfx').boundingBox()
+    expect(canvasBox).not.toBeNull()
+    const offsetX = canvasBox?.x ?? 0
+    const offsetY = canvasBox?.y ?? 0
+
+    await page.mouse.move(sourceX + offsetX, sourceY + offsetY)
+    await page.mouse.down()
+    await page.mouse.move(targetX + offsetX, targetY + offsetY)
+    await page.mouse.up()
+
+    await page.waitForTimeout(200)
     const statusAfter = await page.$eval('#status', (el) => el.textContent?.trim() ?? '')
     expect(statusAfter).toBe('')
     const vertexCount = await page.evaluate(() => (window as { __vertexCount?: number }).__vertexCount ?? 0)

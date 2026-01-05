@@ -1,6 +1,5 @@
 import './style.css'
-import { getGateFromQuery, type Gate } from './domain/gate'
-import { computeStateVector, populateStateTextBuffer } from './gpu/compute'
+import { computeStateVectorSequence, populateStateTextBuffer } from './gpu/compute'
 import { initGpu } from './gpu/init'
 import { createRenderer } from './renderer/renderer'
 import { CANVAS_HEIGHT, CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
@@ -84,11 +83,10 @@ async function init() {
       setStatus(event.error.message)
     }
 
-    const gateLabel = getGateFromQuery()
     const shouldReadback = window.__captureStateVector === true
-    const { outputBuffer: initialStateVectorBuffer, readback: stateVectorReadback } = await computeStateVector(
+    const { outputBuffer: initialStateVectorBuffer, readback: stateVectorReadback } = await computeStateVectorSequence(
       device,
-      gateLabel,
+      [],
       shouldReadback
     )
     let stateVectorBuffer = initialStateVectorBuffer
@@ -125,9 +123,15 @@ async function init() {
       stateTextGlyphBuffer,
     })
 
-    let currentGate = gateLabel
-    let stateVectorGlyphCount = currentGate === 'H' ? STATE_TEXT_MAX_LEN : 16
+    let stateVectorGlyphCount = 16
     const placedGates: PlacedGate[] = []
+
+    const getGateSequence = () => {
+      return [...placedGates]
+        .filter((gate) => !gate.dragging)
+        .sort((a, b) => (a.x === b.x ? a.id - b.id : a.x - b.x))
+        .map((gate) => gate.label)
+    }
 
     const updateScene = () => {
       const scene = buildScene(stateVectorGlyphCount, placedGates)
@@ -136,8 +140,10 @@ async function init() {
       renderer.updateScene(scene, draggingGate)
     }
 
-    const recomputeStateVector = async (gate: Gate) => {
-      const result = await computeStateVector(device, gate, shouldReadback)
+    const recomputeStateVector = async () => {
+      const gates = getGateSequence()
+      stateVectorGlyphCount = gates.length === 1 && gates[0] === 'H' ? STATE_TEXT_MAX_LEN : 16
+      const result = await computeStateVectorSequence(device, gates, shouldReadback)
       stateVectorBuffer = result.outputBuffer
       if (result.readback) {
         window.__stateVector = Array.from(result.readback)
@@ -150,12 +156,8 @@ async function init() {
       canvas,
       placedGates,
       onUpdate: updateScene,
-      onGateDropped: (gate) => {
-        if (currentGate !== gate.label) {
-          currentGate = gate.label
-          stateVectorGlyphCount = currentGate === 'H' ? STATE_TEXT_MAX_LEN : 16
-          void recomputeStateVector(currentGate)
-        }
+      onGateDropped: () => {
+        void recomputeStateVector()
       },
     })
 
