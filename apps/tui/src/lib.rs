@@ -50,6 +50,7 @@ pub struct AppState {
     pub initialized: bool,
     pub hovered_slot: Option<usize>,
     pub hovered_row: Option<usize>,
+    pub hovered_insert: Option<(usize, usize)>,
 }
 
 impl AppState {
@@ -62,6 +63,7 @@ impl AppState {
             initialized: false,
             hovered_slot: None,
             hovered_row: None,
+            hovered_insert: None,
         }
     }
 }
@@ -382,6 +384,75 @@ fn trim_trailing_empty_qubits(state: &mut AppState) {
     }
 }
 
+fn insertion_target(
+    state: &AppState,
+    x: u16,
+    y: u16,
+    area: Rect,
+) -> Option<(usize, usize)> {
+    let layout = circuit_layout(area, qubit_count(state));
+    let mut best: Option<(usize, usize, u16)> = None;
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for index in 0..row_slots.len().saturating_sub(1) {
+            let left = row_slots[index];
+            let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
+            let gap = Rect {
+                x: gap_x,
+                y: left.y,
+                width: SLOT_GAP,
+                height: left.height,
+            };
+            let left_gate = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(index))
+                .and_then(|value| *value);
+            let right_gate = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(index + 1))
+                .and_then(|value| *value);
+            if left_gate.is_none() || right_gate.is_none() {
+                continue;
+            }
+            let dx = if x < gap.x {
+                gap.x - x
+            } else if x >= gap.x.saturating_add(gap.width) {
+                x - gap.x.saturating_add(gap.width - 1)
+            } else {
+                0
+            };
+            let dy = if y < gap.y {
+                gap.y - y
+            } else if y >= gap.y.saturating_add(gap.height) {
+                y - gap.y.saturating_add(gap.height - 1)
+            } else {
+                0
+            };
+            let dist = dx.saturating_add(dy);
+            if dist > SNAP_DISTANCE {
+                continue;
+            }
+            if best.map_or(true, |(_, _, best_dist)| dist < best_dist) {
+                best = Some((row, index + 1, dist));
+            }
+        }
+    }
+    best.map(|(row, index, _)| (row, index))
+}
+
+fn insertion_snap_rect(layout: &CircuitLayout, row: usize, index: usize) -> Option<Rect> {
+    let left = layout.slots.get(row).and_then(|slots| slots.get(index.saturating_sub(1)))?;
+    let gap_center = left.x.saturating_add(GATE_BOX_WIDTH + SLOT_GAP / 2);
+    let snap_x = gap_center.saturating_sub(GATE_BOX_WIDTH / 2);
+    Some(Rect {
+        x: snap_x,
+        y: left.y,
+        width: GATE_BOX_WIDTH,
+        height: GATE_BOX_HEIGHT,
+    })
+}
+
 pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
     if let Some(gate) = hit_test_palette(x, y, area) {
         state.dragging = Some(DragState {
@@ -389,6 +460,7 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             origin: DragOrigin::Palette,
         });
         state.drag_pos = Some((x, y));
+        state.hovered_insert = None;
         add_empty_qubit_row(state);
         return;
     }
@@ -413,6 +485,7 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             });
             state.drag_pos = Some((x, y));
             state.placed[row][slot] = None;
+            state.hovered_insert = None;
             add_empty_qubit_row(state);
         }
     }
@@ -436,7 +509,13 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         .map(|row_slots| row_slots.len())
         .collect();
     ensure_slots(state, &counts);
-    if let Some((row, slot)) = hit_test_circuit_slot(x, y, area, qubit_count(state)) {
+    if let Some((row, index)) = insertion_target(state, x, y, area) {
+        for row_slots in &mut state.placed {
+            let insert_at = index.min(row_slots.len());
+            row_slots.insert(insert_at, None);
+        }
+        state.placed[row][index] = Some(dragging.gate);
+    } else if let Some((row, slot)) = hit_test_circuit_slot(x, y, area, qubit_count(state)) {
         state.placed[row][slot] = Some(dragging.gate);
     } else if is_empty_drop(x, y, area, qubit_count(state))
         && dragging.origin == DragOrigin::Circuit
@@ -448,6 +527,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.drag_pos = None;
     state.hovered_slot = None;
     state.hovered_row = None;
+    state.hovered_insert = None;
     compact_empty_columns(state);
     trim_trailing_empty_qubits(state);
 }
@@ -456,6 +536,7 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
     if state.dragging.is_none() {
         state.hovered_slot = None;
         state.hovered_row = None;
+        state.hovered_insert = None;
         return;
     }
 
@@ -501,8 +582,47 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
             }
         }
     }
-    state.hovered_slot = best.map(|(index, _)| index);
-    state.hovered_row = best_row;
+    let slot_target = match (best, best_row) {
+        (Some((index, dist)), Some(row)) => Some((row, index, dist)),
+        _ => None,
+    };
+    let insert_target = insertion_target(state, x, y, area).and_then(|(row, index)| {
+        let layout = circuit_layout(area, qubit_count(state));
+        let left = layout.slots.get(row).and_then(|slots| slots.get(index.saturating_sub(1)))?;
+        let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
+        let gap = Rect {
+            x: gap_x,
+            y: left.y,
+            width: SLOT_GAP,
+            height: left.height,
+        };
+        let dx = if x < gap.x {
+            gap.x - x
+        } else if x >= gap.x.saturating_add(gap.width) {
+            x - gap.x.saturating_add(gap.width - 1)
+        } else {
+            0
+        };
+        let dy = if y < gap.y {
+            gap.y - y
+        } else if y >= gap.y.saturating_add(gap.height) {
+            y - gap.y.saturating_add(gap.height - 1)
+        } else {
+            0
+        };
+        Some((row, index, dx.saturating_add(dy)))
+    });
+
+    if let Some((row, index, _)) = insert_target {
+        state.hovered_slot = None;
+        state.hovered_row = None;
+        state.hovered_insert = Some((row, index));
+        return;
+    }
+
+    state.hovered_slot = slot_target.map(|(_, index, _)| index);
+    state.hovered_row = slot_target.map(|(row, _, _)| row);
+    state.hovered_insert = None;
 }
 
 impl std::str::FromStr for Gate {
@@ -802,11 +922,15 @@ pub fn render_to_buffer_with_drag(
             height: GATE_BOX_HEIGHT,
         };
         if state.dragging.is_some() {
-            if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
+            if let Some((row, index)) = state.hovered_insert {
+                if let Some(insert_rect) = insertion_snap_rect(&layout, row, index) {
+                    rect = insert_rect;
+                }
+            } else if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
                 if state.placed[row]
                     .get(slot)
                     .and_then(|value| *value)
-                    .is_none()
+                .is_none()
                 {
                     if let Some(slot_rect) = layout
                         .slots
@@ -1056,6 +1180,44 @@ mod tests {
         handle_mouse_down(&mut state, slot0.x, slot0.y, area);
         handle_mouse_up(&mut state, slot1.x, slot1.y, area);
         assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::H));
+    }
+
+    #[test]
+    fn drop_between_adjacent_gates_inserts_column() {
+        let area = Rect::new(0, 0, 100, 12);
+        let mut state = AppState::new(Gate::H);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot0 = layout.slots[0][0];
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::X)];
+        state.dragging = Some(DragState {
+            gate: Gate::Z,
+            origin: DragOrigin::Palette,
+        });
+        state.drag_pos = Some((slot0.x, slot0.y));
+        let gap_x = slot0.x.saturating_add(GATE_BOX_WIDTH);
+        let gap_y = slot0.y + 1;
+        handle_mouse_up(&mut state, gap_x, gap_y, area);
+        assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::H));
+        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::Z));
+        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+    }
+
+    #[test]
+    fn insert_snap_preferred_over_existing_gate() {
+        let area = Rect::new(0, 0, 100, 12);
+        let mut state = AppState::new(Gate::H);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot0 = layout.slots[0][0];
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::X)];
+        state.dragging = Some(DragState {
+            gate: Gate::Z,
+            origin: DragOrigin::Palette,
+        });
+        let gap_x = slot0.x.saturating_add(GATE_BOX_WIDTH);
+        let gap_y = slot0.y + 1;
+        update_hovered_slot(&mut state, gap_x, gap_y, area);
+        assert_eq!(state.hovered_insert, Some((0, 1)));
+        assert_eq!(state.hovered_slot, None);
     }
 
     #[test]
