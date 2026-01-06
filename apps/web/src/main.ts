@@ -1,13 +1,12 @@
 import './style.css'
-import { computeStateVectorSequence, type GateOperation } from './gpu/compute'
+import { computeStateVectorSequence, populateStateTextBuffer, type GateOperation } from './gpu/compute'
 import { initGpu } from './gpu/init'
 import { createRenderer } from './renderer/renderer'
-import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_GLYPH_COUNT, STATE_TEXT_MAX_LEN } from './ui/constants'
 import { setupInput } from './ui/input'
 import { buildScene } from './ui/layout'
 import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, createFontAtlas, createIconAtlas } from './ui/text'
 import type { PlacedGate } from './ui/types'
-import { formatComplex } from './domain/complex'
 import hGatePng from './assets/gates/png/h-gate.png'
 import xGatePng from './assets/gates/png/x-gate.png'
 import yGatePng from './assets/gates/png/y-gate.png'
@@ -99,22 +98,23 @@ async function init() {
       setStatus(event.error.message)
     }
 
-    const shouldExposeStateVector = window.__captureStateVector === true
-    const shouldReadback = true
-    const { readback: stateVectorReadback } = await computeStateVectorSequence(
-      device,
-      [],
-      shouldReadback
-    )
-    if (stateVectorReadback && shouldExposeStateVector) {
-      window.__stateVector = Array.from(stateVectorReadback)
-    }
-
     const stateTextGlyphBuffer = device.createBuffer({
       size: STATE_TEXT_MAX_LEN * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     })
     device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
+
+    const shouldExposeStateVector = window.__captureStateVector === true
+    const shouldReadback = shouldExposeStateVector
+    const { outputBuffer: initialState, readback: stateVectorReadback } = await computeStateVectorSequence(
+      device,
+      [],
+      shouldReadback
+    )
+    await populateStateTextBuffer(device, initialState, stateTextGlyphBuffer)
+    if (stateVectorReadback && shouldExposeStateVector) {
+      window.__stateVector = Array.from(stateVectorReadback)
+    }
 
     const fontAtlas = createFontAtlas(FONT_GLYPH_SIZE, BASE_GLYPHS)
     const labelAtlas = await createIconAtlas(LABEL_GLYPH_SIZE, {
@@ -151,7 +151,7 @@ async function init() {
       stateTextGlyphBuffer,
     })
 
-    let stateVectorGlyphCount = 16
+    const stateVectorGlyphCount = STATE_TEXT_GLYPH_COUNT
     const placedGates: PlacedGate[] = []
     let hoveredPaletteIndex: number | null = null
 
@@ -160,26 +160,6 @@ async function init() {
         .filter((gate) => !gate.dragging)
         .sort((a, b) => (a.x === b.x ? a.id - b.id : a.x - b.x))
         .map((gate) => ({ gate: gate.label, target: gate.wire }))
-    }
-
-    const writeStateVectorText = (values: Float32Array) => {
-      const complexValues = []
-      for (let index = 0; index < 4; index += 1) {
-        complexValues.push(
-          formatComplex({
-            re: values[index * 2],
-            im: values[index * 2 + 1],
-          })
-        )
-      }
-      const text = `[${complexValues.map((value) => `(${value})`).join(', ')}]`
-      const glyphs = new Uint32Array(STATE_TEXT_MAX_LEN)
-      const count = Math.min(text.length, STATE_TEXT_MAX_LEN)
-      for (let index = 0; index < count; index += 1) {
-        glyphs[index] = text.charCodeAt(index)
-      }
-      device.queue.writeBuffer(stateTextGlyphBuffer, 0, glyphs)
-      stateVectorGlyphCount = count
     }
 
     const updateScene = () => {
@@ -192,18 +172,11 @@ async function init() {
     const recomputeStateVector = async () => {
       const gates = getGateSequence()
       const result = await computeStateVectorSequence(device, gates, shouldReadback)
-      void result.outputBuffer
-      if (result.readback) {
-        if (shouldExposeStateVector) {
-          window.__stateVector = Array.from(result.readback)
-        }
-        writeStateVectorText(result.readback)
+      await populateStateTextBuffer(device, result.outputBuffer, stateTextGlyphBuffer)
+      if (result.readback && shouldExposeStateVector) {
+        window.__stateVector = Array.from(result.readback)
       }
       updateScene()
-    }
-
-    if (stateVectorReadback) {
-      writeStateVectorText(stateVectorReadback)
     }
 
     setupInput({

@@ -1,5 +1,4 @@
 import { gateToIndex, type Gate } from '../domain/gate'
-import { STATE_TEXT_MAX_LEN } from '../ui/constants'
 import { computeShaderCode, stateTextComputeCode } from './shaders'
 
 export type GateOperation = {
@@ -132,7 +131,7 @@ export async function populateStateTextBuffer(
   const pass = commandEncoder.beginComputePass()
   pass.setPipeline(pipeline)
   pass.setBindGroup(0, bindGroup)
-  pass.dispatchWorkgroups(Math.ceil(STATE_TEXT_MAX_LEN / 64))
+  pass.dispatchWorkgroups(1)
   pass.end()
   device.queue.submit([commandEncoder.finish()])
 }

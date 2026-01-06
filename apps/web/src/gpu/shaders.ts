@@ -150,67 +150,77 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 export const stateTextComputeCode = `
 const STATE_TEXT_LEN: u32 = ${STATE_TEXT_MAX_LEN}u;
-const EPSILON: f32 = 0.000001;
-const INV_SQRT2: f32 = 0.7071067811865476;
+const FRACTION_DIGITS: u32 = 6u;
 
-const TEXT_X: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
-  91u, 40u, 48u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 49u, 43u, 48u, 105u, 41u, 93u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
-);
-
-const TEXT_H: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
-  91u, 40u, 48u, 46u, 55u, 48u, 55u, 49u, 48u, 54u, 55u, 56u, 49u, 49u, 56u, 54u,
-  53u, 52u, 55u, 53u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 46u, 55u, 48u, 55u,
-  49u, 48u, 54u, 55u, 56u, 49u, 49u, 56u, 54u, 53u, 52u, 55u, 53u, 43u, 48u, 105u,
-  41u, 93u
-);
-
-const TEXT_Y: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
-  91u, 40u, 48u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 43u, 49u, 105u, 41u, 93u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
-);
-
-const TEXT_Z: array<u32, ${STATE_TEXT_MAX_LEN}> = array<u32, ${STATE_TEXT_MAX_LEN}>(
-  91u, 40u, 49u, 43u, 48u, 105u, 41u, 44u, 32u, 40u, 48u, 43u, 48u, 105u, 41u, 93u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-  0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u
-);
-
-@group(0) @binding(0) var<storage, read> stateVector: array<vec2<f32>, 2>;
+@group(0) @binding(0) var<storage, read> stateVector: array<vec2<f32>, 4>;
 @group(0) @binding(1) var<storage, read_write> glyphs: array<u32>;
 
-fn close(a: f32, b: f32) -> bool {
-  return abs(a - b) < EPSILON;
+fn write_char(idx: ptr<function, u32>, code: u32) {
+  if (*idx < STATE_TEXT_LEN) {
+    glyphs[*idx] = code;
+  }
+  *idx = *idx + 1u;
 }
 
-@compute @workgroup_size(64)
+fn write_digit(idx: ptr<function, u32>, digit: u32) {
+  let d = min(digit, 9u);
+  write_char(idx, 48u + d);
+}
+
+fn write_fixed(idx: ptr<function, u32>, value: f32, include_sign: bool) {
+  var v = value;
+  if (include_sign) {
+    let sign = select(43u, 45u, v < 0.0);
+    write_char(idx, sign);
+    v = abs(v);
+  }
+
+  let int_part = u32(v);
+  write_digit(idx, int_part);
+  write_char(idx, 46u);
+
+  var frac = v - f32(int_part);
+  for (var i: u32 = 0u; i < FRACTION_DIGITS; i = i + 1u) {
+    frac = frac * 10.0;
+    let digit = u32(frac);
+    write_digit(idx, digit);
+    frac = frac - f32(digit);
+  }
+}
+
+fn write_complex(idx: ptr<function, u32>, re: f32, im: f32) {
+  write_char(idx, 40u);
+  write_fixed(idx, re, true);
+  let im_sign = select(43u, 45u, im < 0.0);
+  write_char(idx, im_sign);
+  write_fixed(idx, abs(im), false);
+  write_char(idx, 105u);
+  write_char(idx, 41u);
+}
+
+@compute @workgroup_size(1)
 fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
-  let idx = gid.x;
-  if (idx >= STATE_TEXT_LEN) {
+  if (gid.x > 0u) {
     return;
   }
 
-  let a0 = stateVector[0];
-  let a1 = stateVector[1];
-  let isX = close(a0.x, 0.0) && close(a0.y, 0.0) && close(a1.x, 1.0) && close(a1.y, 0.0);
-  let isH = close(a0.x, INV_SQRT2) && close(a0.y, 0.0) && close(a1.x, INV_SQRT2) && close(a1.y, 0.0);
-  let isY = close(a0.x, 0.0) && close(a0.y, 0.0) && close(a1.x, 0.0) && close(a1.y, 1.0);
-  let isZ = close(a0.x, 1.0) && close(a0.y, 0.0) && close(a1.x, 0.0) && close(a1.y, 0.0);
-
-  var code = 0u;
-  if (isH) {
-    code = TEXT_H[idx];
-  } else if (isX) {
-    code = TEXT_X[idx];
-  } else if (isY) {
-    code = TEXT_Y[idx];
-  } else if (isZ) {
-    code = TEXT_Z[idx];
+  for (var i: u32 = 0u; i < STATE_TEXT_LEN; i = i + 1u) {
+    glyphs[i] = 0u;
   }
 
-  glyphs[idx] = code;
+  var cursor: u32 = 0u;
+  write_char(&cursor, 91u);
+  write_complex(&cursor, stateVector[0].x, stateVector[0].y);
+  write_char(&cursor, 44u);
+  write_char(&cursor, 32u);
+  write_complex(&cursor, stateVector[1].x, stateVector[1].y);
+  write_char(&cursor, 44u);
+  write_char(&cursor, 32u);
+  write_complex(&cursor, stateVector[2].x, stateVector[2].y);
+  write_char(&cursor, 44u);
+  write_char(&cursor, 32u);
+  write_complex(&cursor, stateVector[3].x, stateVector[3].y);
+  write_char(&cursor, 93u);
 }
 `
 
