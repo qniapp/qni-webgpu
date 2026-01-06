@@ -105,6 +105,22 @@ mod tests {
     }
 
     #[test]
+    fn build_state_line_measures_qubit() {
+        let line = build_state_line(&[vec![Some(Gate::H), Some(Gate::Measure)]]);
+        let expected_zero = [
+            "State: [(1+0i), (0+0i), (0+0i), (0+0i)]",
+            "State: [(0.9999999999999998+0i), (0+0i), (0+0i), (0+0i)]",
+        ];
+        let expected_one = [
+            "State: [(0+0i), (0+0i), (1+0i), (0+0i)]",
+            "State: [(0+0i), (0+0i), (0.9999999999999998+0i), (0+0i)]",
+        ];
+        let ok_zero = expected_zero.iter().any(|value| *value == line);
+        let ok_one = expected_one.iter().any(|value| *value == line);
+        assert!(ok_zero || ok_one);
+    }
+
+    #[test]
     fn swap_gate_swaps_qubits_in_column() {
         let line = build_state_line(&[
             vec![Some(Gate::X), Some(Gate::Swap)],
@@ -119,6 +135,7 @@ mod tests {
         assert_eq!(parse_args_from(&["--gate", "y"]), Gate::Y);
         assert_eq!(parse_args_from(&["--gate=Z"]), Gate::Z);
         assert_eq!(parse_args_from(&["--gate", "control"]), Gate::Control);
+        assert_eq!(parse_args_from(&["--gate", "measure"]), Gate::Measure);
         assert_eq!(parse_args_from(&["--gate", "sqrtx"]), Gate::SqrtX);
         assert_eq!(parse_args_from(&["--gate", "sdg"]), Gate::Sdg);
         assert_eq!(parse_args_from(&["--gate", "tdg"]), Gate::Tdg);
@@ -217,7 +234,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::Swap);
+        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None);
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);

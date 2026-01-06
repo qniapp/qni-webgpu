@@ -7,7 +7,9 @@ use ratatui::widgets::{Paragraph, Widget};
 use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
 };
-use crate::model::{build_state_line_with_limit, ensure_slots, qubit_count, AppState, Gate};
+use crate::model::{
+    apply_gates_to_zero_limit, ensure_slots, format_complex, qubit_count, AppState, Complex, Gate,
+};
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL,
     SHADOW_OUTSET, UI_BACKGROUND,
@@ -25,6 +27,7 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
         Gate::H => (255, 220, 100),
         Gate::X => (220, 80, 80),
         Gate::Control => (220, 80, 80),
+        Gate::Measure => (170, 90, 200),
         Gate::Y => (180, 120, 200),
         Gate::Z => (90, 120, 220),
         Gate::SqrtX => (220, 80, 80),
@@ -49,7 +52,12 @@ fn darken(r: u8, g: u8, b: u8, delta: u8) -> Color {
     Color::Rgb(r.saturating_sub(delta), g.saturating_sub(delta), b.saturating_sub(delta))
 }
 
-pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
+pub(crate) fn draw_gate_box(
+    buffer: &mut Buffer,
+    rect: Rect,
+    gate: Gate,
+    measure_value: Option<u8>,
+) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
     }
@@ -62,6 +70,22 @@ pub(crate) fn draw_gate_box(buffer: &mut Buffer, rect: Rect, gate: Gate) {
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
         buffer.set_string(mid_x, mid_y, "●", style);
+        return;
+    }
+    if gate == Gate::Measure {
+        let base_style = Style::default().fg(text).bg(background);
+        let mid_y = rect.y.saturating_add(rect.height / 2);
+        let mid_x = rect.x.saturating_add(rect.width / 2);
+        let fill = " ".repeat(rect.width as usize);
+        for offset in 0..rect.height {
+            buffer.set_string(rect.x, rect.y + offset, &fill, base_style);
+        }
+        let symbol = match measure_value {
+            Some(1) => "1",
+            Some(0) => "0",
+            _ => "M",
+        };
+        buffer.set_string(mid_x, mid_y, symbol, base_style);
         return;
     }
     let base_style = Style::default().fg(text).bg(background);
@@ -205,7 +229,7 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(&mut buffer, item.rect, item.gate);
+        draw_gate_box(&mut buffer, item.rect, item.gate, None);
     }
 
     if !regions.circuits.is_empty() {
@@ -391,6 +415,22 @@ pub fn render_to_buffer_with_drag(
             }
         }
     }
+    let state_limit = state
+        .hovered_column
+        .map(|(_, index)| index + 1)
+        .or(state.confirmed_column.map(|index| index + 1))
+        .or(Some(0));
+    if !state.cached_full_valid {
+        let full_sim = apply_gates_to_zero_limit(&state.placed, None);
+        state.cached_full_measurements = full_sim.measurements;
+        state.cached_full_valid = true;
+    }
+    if !state.cache_valid || state.cached_limit != state_limit {
+        let simulation = apply_gates_to_zero_limit(&state.placed, state_limit);
+        state.cached_state_line = format_state_line(&simulation.state);
+        state.cached_limit = state_limit;
+        state.cache_valid = true;
+    }
     for (row, row_slots) in layout.slots.iter().enumerate() {
         for (slot, rect) in row_slots.iter().enumerate() {
             if let Some(Some(gate)) = state
@@ -398,7 +438,12 @@ pub fn render_to_buffer_with_drag(
                 .get(row)
                 .and_then(|row_gates| row_gates.get(slot))
             {
-                draw_gate_box(&mut buffer, *rect, *gate);
+                let measure_value = state
+                    .cached_full_measurements
+                    .get(row)
+                    .and_then(|row_values| row_values.get(slot))
+                    .and_then(|value| *value);
+                draw_gate_box(&mut buffer, *rect, *gate, measure_value);
             }
         }
     }
@@ -418,12 +463,7 @@ pub fn render_to_buffer_with_drag(
             paragraph.render(debug_area, &mut buffer);
         }
     }
-    let state_limit = state
-        .hovered_column
-        .map(|(_, index)| index + 1)
-        .or(state.confirmed_column.map(|index| index + 1))
-        .or(Some(0));
-    let state_line = build_state_line_with_limit(&state.placed, state_limit);
+    let state_line = state.cached_state_line.clone();
     let text = Text::from(state_line);
     let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
     paragraph.render(regions.state, &mut buffer);
@@ -456,8 +496,16 @@ pub fn render_to_buffer_with_drag(
             && rect.x < area.x.saturating_add(area.width)
             && rect.y < area.y.saturating_add(area.height)
         {
-            draw_gate_box(&mut buffer, rect, drag.gate);
+            draw_gate_box(&mut buffer, rect, drag.gate, None);
         }
     }
     buffer
+}
+
+fn format_state_line(amplitudes: &[Complex]) -> String {
+    let formatted: Vec<String> = amplitudes
+        .iter()
+        .map(|amp| format!("({})", format_complex(*amp)))
+        .collect();
+    format!("State: [{}]", formatted.join(", "))
 }

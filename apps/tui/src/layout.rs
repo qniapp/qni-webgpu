@@ -8,7 +8,7 @@ use crate::model::Gate;
 
 const WIRE_PREFIX: &str = "q0: ";
 const SLOT_PADDING_LEFT: u16 = 3;
-const PALETTE_GATES: [Gate; 11] = [
+const PALETTE_GATES: [Gate; 12] = [
     Gate::H,
     Gate::X,
     Gate::Y,
@@ -20,6 +20,7 @@ const PALETTE_GATES: [Gate; 11] = [
     Gate::Tdg,
     Gate::Swap,
     Gate::Control,
+    Gate::Measure,
 ];
 
 #[derive(Debug, Clone, Eq, PartialEq)]

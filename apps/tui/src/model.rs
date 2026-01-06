@@ -1,9 +1,12 @@
 use crate::MIN_QUBIT_COUNT;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Gate {
     X,
     Control,
+    Measure,
     H,
     Y,
     Z,
@@ -39,6 +42,12 @@ pub struct AppState {
     pub hovered_start: bool,
     pub confirmed_column: Option<usize>,
     pub confirmed_start: bool,
+    pub cache_valid: bool,
+    pub cached_state_line: String,
+    pub cached_measurements: Vec<Vec<Option<u8>>>,
+    pub cached_limit: Option<usize>,
+    pub cached_full_measurements: Vec<Vec<Option<u8>>>,
+    pub cached_full_valid: bool,
 }
 
 impl AppState {
@@ -54,6 +63,12 @@ impl AppState {
             hovered_start: false,
             confirmed_column: None,
             confirmed_start: false,
+            cache_valid: false,
+            cached_state_line: String::new(),
+            cached_measurements: Vec::new(),
+            cached_limit: None,
+            cached_full_measurements: Vec::new(),
+            cached_full_valid: false,
         }
     }
 }
@@ -78,6 +93,7 @@ impl std::str::FromStr for Gate {
         match value.trim().to_uppercase().as_str() {
             "X" => Ok(Self::X),
             "CTRL" | "CONTROL" | "C" => Ok(Self::Control),
+            "MEASURE" | "MEAS" | "M" => Ok(Self::Measure),
             "H" => Ok(Self::H),
             "Y" => Ok(Self::Y),
             "Z" => Ok(Self::Z),
@@ -97,6 +113,7 @@ impl std::fmt::Display for Gate {
         let label = match self {
             Self::X => "X",
             Self::Control => "",
+            Self::Measure => "",
             Self::H => "H",
             Self::Y => "Y",
             Self::Z => "Z",
@@ -195,7 +212,7 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
                 im: -INV_SQRT2,
             },
         ],
-        Gate::Swap | Gate::Control => [
+        Gate::Swap | Gate::Control | Gate::Measure => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
@@ -224,7 +241,7 @@ pub fn apply_gate_to_state(
     target: usize,
     qubits: usize,
 ) -> Vec<Complex> {
-    if gate == Gate::Swap || gate == Gate::Control {
+    if gate == Gate::Swap || gate == Gate::Control || gate == Gate::Measure {
         return state.to_vec();
     }
     if target >= qubits {
@@ -290,23 +307,86 @@ fn apply_cnot_qubits(state: &[Complex], control: usize, target: usize, qubits: u
     out
 }
 
+fn measure_qubit(state: &[Complex], qubit: usize, qubits: usize) -> (Vec<Complex>, u8) {
+    if qubit >= qubits {
+        return (state.to_vec(), 0);
+    }
+    let bit = qubits.saturating_sub(1).saturating_sub(qubit);
+    let mask = 1usize << bit;
+    let mut p0 = 0.0;
+    for (index, amp) in state.iter().enumerate() {
+        if index & mask == 0 {
+            p0 += amp.re * amp.re + amp.im * amp.im;
+        }
+    }
+    let rand = random_unit_f64();
+    let outcome = if rand <= p0 { 0 } else { 1 };
+    let prob = if outcome == 0 { p0 } else { 1.0 - p0 };
+    let scale = if prob > 0.0 { 1.0 / prob.sqrt() } else { 0.0 };
+    let mut collapsed = vec![ZERO; state.len()];
+    for (index, amp) in state.iter().enumerate() {
+        let is_one = index & mask != 0;
+        if (outcome == 1 && is_one) || (outcome == 0 && !is_one) {
+            collapsed[index] = Complex {
+                re: amp.re * scale,
+                im: amp.im * scale,
+            };
+        }
+    }
+    (collapsed, outcome)
+}
+
+fn random_unit_f64() -> f64 {
+    static RNG_STATE: AtomicU64 = AtomicU64::new(0);
+    let mut state = RNG_STATE.load(Ordering::Relaxed);
+    if state == 0 {
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64;
+        state = seed.max(1);
+        RNG_STATE.store(state, Ordering::Relaxed);
+    }
+    loop {
+        let mut next = state;
+        next ^= next << 13;
+        next ^= next >> 7;
+        next ^= next << 17;
+        if RNG_STATE
+            .compare_exchange(state, next, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
+            return (next as f64) / (u64::MAX as f64);
+        }
+        state = RNG_STATE.load(Ordering::Relaxed);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SimulationResult {
+    pub state: Vec<Complex>,
+    pub measurements: Vec<Vec<Option<u8>>>,
+}
+
 pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> Vec<Complex> {
-    apply_gates_to_zero_limit(gates, None)
+    apply_gates_to_zero_limit(gates, None).state
 }
 
 pub(crate) fn apply_gates_to_zero_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
-) -> Vec<Complex> {
+) -> SimulationResult {
     let qubits = gates.len().max(MIN_QUBIT_COUNT);
     let mut state = vec![ZERO; 1usize << qubits];
     state[0] = ONE;
     let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);
     let limit = max_columns.unwrap_or(max_slots).min(max_slots);
+    let mut measurements = vec![vec![None; max_slots]; qubits];
     for slot in 0..limit {
         let mut swap_rows = Vec::new();
         let mut control_row = None;
         let mut target_row = None;
+        let mut measure_rows = Vec::new();
         for (row, row_gates) in gates.iter().enumerate() {
             let gate = row_gates.get(slot).and_then(|gate| *gate);
             match gate {
@@ -321,6 +401,7 @@ pub(crate) fn apply_gates_to_zero_limit(
                         target_row = Some(row);
                     }
                 }
+                Some(Gate::Measure) => measure_rows.push(row),
                 _ => {}
             }
         }
@@ -336,7 +417,7 @@ pub(crate) fn apply_gates_to_zero_limit(
         }
         for (row, row_gates) in gates.iter().enumerate() {
             if let Some(Some(gate)) = row_gates.get(slot) {
-                if *gate == Gate::Swap || *gate == Gate::Control {
+                if *gate == Gate::Swap || *gate == Gate::Control || *gate == Gate::Measure {
                     continue;
                 }
                 if *gate == Gate::X && cnot_target == Some(row) {
@@ -347,8 +428,17 @@ pub(crate) fn apply_gates_to_zero_limit(
                 }
             }
         }
+        for row in measure_rows {
+            let (next_state, outcome) = measure_qubit(&state, row, qubits);
+            state = next_state;
+            if let Some(row_measurements) = measurements.get_mut(row) {
+                if let Some(slot_value) = row_measurements.get_mut(slot) {
+                    *slot_value = Some(outcome);
+                }
+            }
+        }
     }
-    state
+    SimulationResult { state, measurements }
 }
 
 fn normalize_zero(value: f64) -> f64 {
@@ -375,10 +465,10 @@ pub(crate) fn build_state_line_with_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
 ) -> String {
-    let amplitudes = apply_gates_to_zero_limit(gates, max_columns);
+    let amplitudes = apply_gates_to_zero_limit(gates, max_columns).state;
     let formatted: Vec<String> = amplitudes
-        .into_iter()
-        .map(|amp| format!("({})", format_complex(amp)))
+        .iter()
+        .map(|amp| format!("({})", format_complex(*amp)))
         .collect();
     format!("State: [{}]", formatted.join(", "))
 }

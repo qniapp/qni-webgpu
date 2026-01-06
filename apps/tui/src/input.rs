@@ -143,6 +143,8 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             });
             state.drag_pos = Some((x, y));
             state.placed[row][slot] = None;
+            state.cache_valid = false;
+            state.cached_full_valid = false;
             state.hovered_insert = None;
             state.hovered_column = None;
             state.hovered_start = false;
@@ -161,6 +163,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
     let Some(dragging) = state.dragging else {
         return;
     };
+    let mut changed = false;
 
     let layout = circuit_layout(area, qubit_count(state));
     let counts: Vec<usize> = layout
@@ -176,16 +179,19 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
             row_slots.insert(insert_at, None);
         }
         state.placed[row][index] = Some(dragging.gate);
+        changed = true;
     } else if let Some((row, slot)) = state
         .hovered_row
         .and_then(|row| state.hovered_slot.map(|slot| (row, slot)))
         .or_else(|| hit_test_circuit_slot(x, y, area, qubit_count(state)))
     {
         state.placed[row][slot] = Some(dragging.gate);
+        changed = true;
     } else if is_empty_drop(x, y, area, qubit_count(state))
         && dragging.origin == DragOrigin::Circuit
     {
         // already cleared on drag start
+        changed = true;
     }
 
     state.dragging = None;
@@ -197,6 +203,10 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.hovered_start = false;
     compact_empty_columns(state);
     trim_trailing_empty_qubits(state);
+    if changed {
+        state.cache_valid = false;
+        state.cached_full_valid = false;
+    }
 }
 
 pub fn confirm_hovered_column(state: &mut AppState) {
@@ -207,16 +217,23 @@ pub fn confirm_hovered_column(state: &mut AppState) {
         state.confirmed_column = Some(index);
         state.confirmed_start = false;
     }
+    state.cache_valid = false;
 }
 
 pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
     let layout = circuit_layout(area, qubit_count(state));
-    state.hovered_start = hovered_start_at(x, y, &layout);
-    state.hovered_column = if state.hovered_start {
+    let next_hovered_start = hovered_start_at(x, y, &layout);
+    let next_hovered_column = if next_hovered_start {
         None
     } else {
         hovered_column_at(x, y, &layout)
     };
+    if next_hovered_start != state.hovered_start || next_hovered_column != state.hovered_column {
+        state.cache_valid = false;
+        state.cached_full_valid = false;
+    }
+    state.hovered_start = next_hovered_start;
+    state.hovered_column = next_hovered_column;
     if state.dragging.is_none() {
         state.hovered_slot = None;
         state.hovered_row = None;
