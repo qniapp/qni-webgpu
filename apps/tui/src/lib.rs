@@ -293,6 +293,62 @@ mod tests {
     }
 
     #[test]
+    fn dragging_swap_shows_connection_line() {
+        let area = Rect::new(0, 0, 40, 30);
+        let mut state = AppState::new();
+        state.placed.resize(3, Vec::new());
+        state.phase_values.resize(3, Vec::new());
+        state.placed[0] = vec![Some(Gate::Swap)];
+        state.placed[2] = vec![None];
+        state.dragging = Some(DragState {
+            gate: Gate::Swap,
+            origin: DragOrigin::Palette,
+        });
+        state.hovered_row = Some(2);
+        state.hovered_slot = Some(0);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let rect0 = layout.slots[0][0];
+        let rect1 = layout.slots[2][0];
+        let line_x = rect0.x + rect0.width / 2;
+        let line_y = rect0
+            .y
+            .saturating_add(rect0.height)
+            .saturating_add(ROW_GAP / 2)
+            .min(rect1.y.saturating_sub(1));
+        let symbol = buffer.get(line_x, line_y).symbol();
+        assert_eq!(symbol, "│");
+    }
+
+    #[test]
+    fn dragging_cnot_shows_connection_line() {
+        let area = Rect::new(0, 0, 40, 30);
+        let mut state = AppState::new();
+        state.placed.resize(3, Vec::new());
+        state.phase_values.resize(3, Vec::new());
+        state.placed[0] = vec![Some(Gate::Control)];
+        state.placed[2] = vec![None];
+        state.dragging = Some(DragState {
+            gate: Gate::X,
+            origin: DragOrigin::Palette,
+        });
+        state.hovered_row = Some(2);
+        state.hovered_slot = Some(0);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let rect0 = layout.slots[0][0];
+        let rect1 = layout.slots[2][0];
+        let line_x = rect0.x + rect0.width / 2;
+        let line_y = rect0
+            .y
+            .saturating_add(rect0.height)
+            .saturating_add(ROW_GAP / 2)
+            .min(rect1.y.saturating_sub(1));
+        let symbol = buffer.get(line_x, line_y).symbol();
+        assert_eq!(symbol, "│");
+    }
+
+    #[test]
     fn hover_slot_draws_outline() {
         let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new();

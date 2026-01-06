@@ -387,16 +387,36 @@ pub fn render_to_buffer_with_drag(
             .map(|row| row.len())
             .min()
             .unwrap_or(0);
+        let drag_virtual = state.dragging.and_then(|drag_state| {
+            let row = state.hovered_row?;
+            let slot = state.hovered_slot?;
+            if state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(slot))
+                .and_then(|gate| *gate)
+                .is_some()
+            {
+                return None;
+            }
+            Some((row, slot, drag_state.gate))
+        });
+        let gate_at = |row: usize, slot: usize| -> Option<Gate> {
+            if let Some((drag_row, drag_slot, drag_gate)) = drag_virtual {
+                if row == drag_row && slot == drag_slot {
+                    return Some(drag_gate);
+                }
+            }
+            state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(slot))
+                .and_then(|gate| *gate)
+        };
         for slot in 0..max_cols {
             let mut swap_rows = Vec::new();
             for row in 0..max_rows {
-                let is_swap = state
-                    .placed
-                    .get(row)
-                    .and_then(|row_gates| row_gates.get(slot))
-                    .and_then(|gate| *gate)
-                    == Some(Gate::Swap);
-                if is_swap {
+                if gate_at(row, slot) == Some(Gate::Swap) {
                     swap_rows.push(row);
                 }
             }
@@ -425,11 +445,7 @@ pub fn render_to_buffer_with_drag(
             let mut control_row = None;
             let mut target_row = None;
             for row in 0..max_rows {
-                let gate = state
-                    .placed
-                    .get(row)
-                    .and_then(|row_gates| row_gates.get(slot))
-                    .and_then(|gate| *gate);
+                let gate = gate_at(row, slot);
                 match gate {
                     Some(Gate::Control) => {
                         if control_row.is_none() {
