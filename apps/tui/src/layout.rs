@@ -130,20 +130,23 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
     }
 }
 
-pub fn state_circle_layout(area: Rect, total: usize) -> Option<StateCircleLayout> {
+pub fn state_circle_layout(area: Rect, total: usize, qubits: usize) -> Option<StateCircleLayout> {
     if area.width == 0 || area.height == 0 || total == 0 {
         return None;
     }
-    let min_cell_w = 4.0_f64;
-    let min_cell_h = 3.0_f64;
+    let (min_cell_w, min_cell_h) = if qubits >= 3 {
+        (6.0_f64, 5.0_f64)
+    } else {
+        (4.0_f64, 3.0_f64)
+    };
     let max_cols = ((area.width as f64) / min_cell_w).floor() as usize;
     let max_rows = ((area.height as f64) / min_cell_h).floor() as usize;
     if max_cols == 0 || max_rows == 0 {
         return None;
     }
-    let columns_needed = (total + max_rows - 1) / max_rows;
+    let columns_needed = total.div_ceil(max_rows);
     let columns = columns_needed.min(max_cols).max(1);
-    let rows = ((total + columns - 1) / columns).min(max_rows).max(1);
+    let rows = total.div_ceil(columns).min(max_rows).max(1);
     let cell_w = area.width as f64 / columns as f64;
     let cell_h = area.height as f64 / rows as f64;
     Some(StateCircleLayout {

@@ -454,7 +454,8 @@ fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect)
         return;
     }
     let total = state.cached_state.len().max(1);
-    let Some(layout) = state_circle_layout(regions.state_circles, total) else {
+    let qubits = amplitude_qubits(total);
+    let Some(layout) = state_circle_layout(regions.state_circles, total, qubits) else {
         state.hovered_state_display = None;
         state.hovered_state_index = None;
         return;
@@ -482,7 +483,6 @@ fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect)
         state.hovered_state_index = None;
         return;
     }
-    let qubits = amplitude_qubits(total);
     let state_index = display_index_to_state_index(display_index, qubits);
     if state_index >= total {
         state.hovered_state_display = None;

@@ -201,10 +201,10 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     if area.width == 0 || area.height == 0 || amplitudes.is_empty() {
         return;
     }
-    let Some(layout) = state_circle_layout(area, amplitudes.len()) else {
+    let qubits = amplitude_qubits(amplitudes.len());
+    let Some(layout) = state_circle_layout(area, amplitudes.len(), qubits) else {
         return;
     };
-    let qubits = amplitude_qubits(amplitudes.len());
     let columns = layout.columns;
     let rows = layout.rows;
     let visible = layout.visible;
@@ -213,10 +213,11 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     let size_boost = match qubits {
         0 | 1 => 1.15,
         2 => 1.1,
-        3 => 1.05,
+        3 => 1.0,
         _ => 1.0,
     };
-    let base_radius = ((cell_w.min(cell_h) / 2.0) + 0.3) * size_boost;
+    let min_cell = cell_w.min(cell_h);
+    let base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
     if base_radius <= 0.1 {
         return;
     }
@@ -919,7 +920,12 @@ pub fn render_to_buffer_with_drag(
     if let (Some(display_index), Some(state_index)) =
         (state.hovered_state_display, state.hovered_state_index)
     {
-        if let Some(layout) = state_circle_layout(regions.state_circles, state.cached_state.len()) {
+        let qubits = amplitude_qubits(state.cached_state.len());
+        if let Some(layout) = state_circle_layout(
+            regions.state_circles,
+            state.cached_state.len(),
+            qubits,
+        ) {
             draw_state_popup(
                 &mut buffer,
                 regions.state_popup,
