@@ -442,33 +442,41 @@ pub fn render_to_buffer_with_drag(
             }
         }
         for slot in 0..max_cols {
-            let mut control_row = None;
-            let mut target_row = None;
+            let mut control_rows = Vec::new();
+            let mut target_rows = Vec::new();
             for row in 0..max_rows {
                 let gate = gate_at(row, slot);
                 match gate {
-                    Some(Gate::Control) => {
-                        if control_row.is_none() {
-                            control_row = Some(row);
-                        }
-                    }
-                    Some(Gate::X) => {
-                        if target_row.is_none() {
-                            target_row = Some(row);
-                        }
-                    }
+                    Some(Gate::Control) => control_rows.push(row),
+                    Some(Gate::X) => target_rows.push(row),
                     _ => {}
                 }
             }
-            let (control_row, target_row) = match (control_row, target_row) {
-                (Some(control), Some(target)) if control != target => (control, target),
-                _ => continue,
-            };
-            let control_rect = layout.slots[control_row][slot];
-            let target_rect = layout.slots[target_row][slot];
-            let line_x = control_rect.x.saturating_add(control_rect.width / 2);
-            let start_y = control_rect.y.saturating_add(control_rect.height / 2);
-            let end_y = target_rect.y.saturating_add(target_rect.height / 2);
+            if control_rows.is_empty() || target_rows.is_empty() {
+                continue;
+            }
+            let line_row = *control_rows
+                .first()
+                .or_else(|| target_rows.first())
+                .unwrap();
+            let line_rect = layout.slots[line_row][slot];
+            let line_x = line_rect.x.saturating_add(line_rect.width / 2);
+            let min_row = control_rows
+                .iter()
+                .chain(target_rows.iter())
+                .copied()
+                .min()
+                .unwrap_or(line_row);
+            let max_row = control_rows
+                .iter()
+                .chain(target_rows.iter())
+                .copied()
+                .max()
+                .unwrap_or(line_row);
+            let min_rect = layout.slots[min_row][slot];
+            let max_rect = layout.slots[max_row][slot];
+            let start_y = min_rect.y.saturating_add(min_rect.height / 2);
+            let end_y = max_rect.y.saturating_add(max_rect.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Control);
             let line_style = Style::default().fg(background).bg(background);
             let (top, bottom) = if start_y <= end_y {

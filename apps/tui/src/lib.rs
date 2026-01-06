@@ -349,6 +349,29 @@ mod tests {
     }
 
     #[test]
+    fn cnot_with_multiple_targets_draws_single_connection() {
+        let area = Rect::new(0, 0, 40, 30);
+        let mut state = AppState::new();
+        state.placed.resize(3, Vec::new());
+        state.phase_values.resize(3, Vec::new());
+        state.placed[0] = vec![Some(Gate::Control)];
+        state.placed[1] = vec![Some(Gate::X)];
+        state.placed[2] = vec![Some(Gate::X)];
+        let buffer = render_to_buffer(&mut state, area, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let rect0 = layout.slots[0][0];
+        let rect2 = layout.slots[2][0];
+        let line_x = rect0.x + rect0.width / 2;
+        let line_y = rect0
+            .y
+            .saturating_add(rect0.height)
+            .saturating_add(ROW_GAP / 2)
+            .min(rect2.y.saturating_sub(1));
+        let symbol = buffer.get(line_x, line_y).symbol();
+        assert_eq!(symbol, "│");
+    }
+
+    #[test]
     fn hover_slot_draws_outline() {
         let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new();
