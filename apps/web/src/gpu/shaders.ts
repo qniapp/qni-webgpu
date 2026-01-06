@@ -304,9 +304,9 @@ fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
     let radius = min(input.radius, min(half.x, half.y));
     let q = abs(p) - (half - vec2<f32>(radius, radius));
     let dist = length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - radius;
-    if (dist > 0.0) {
-      return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    }
+    let aa = 1.0;
+    let alpha = smoothstep(aa, 0.0, dist);
+    return vec4<f32>(input.color.rgb, input.color.a * alpha);
   }
   return input.color;
 }
