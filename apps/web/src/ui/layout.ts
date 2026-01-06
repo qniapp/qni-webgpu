@@ -1,4 +1,4 @@
-import { COLORS, GATE_SIZE, GATE_ICON_CHAR_MAP, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, getLayoutMetrics } from './constants'
+import { COLORS, GATE_SIZE, GATE_ICON_CHAR_MAP, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, getLayoutMetrics } from './constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from './text'
 import type { PlacedGate, ShapeInstance, TextLayout } from './types'
 
@@ -59,6 +59,20 @@ export function buildScene(
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
   const paletteStartX = (canvasWidth - paletteWidth) / 2
+  const palettePadding = 0.5 * REM
+  const paletteFrameX = paletteStartX - palettePadding
+  const paletteFrameY = PALETTE_ROW_Y - palettePadding
+  const paletteFrameWidth = paletteWidth + palettePadding * 2
+  const paletteFrameHeight = PALETTE_SIZE + palettePadding * 2
+  addRoundedRect(paletteFrameX, paletteFrameY, paletteFrameWidth, paletteFrameHeight, 14, COLORS.boxBorder)
+  addRoundedRect(
+    paletteFrameX + 2,
+    paletteFrameY + 2,
+    paletteFrameWidth - 4,
+    paletteFrameHeight - 4,
+    12,
+    COLORS.background
+  )
   const paletteLabels: TextLayout[] = []
   PALETTE_GATES.forEach((gate, index) => {
     const x = paletteStartX + index * (PALETTE_SIZE + PALETTE_GAP)
