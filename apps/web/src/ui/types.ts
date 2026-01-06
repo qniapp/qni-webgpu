@@ -24,6 +24,8 @@ export type PlacedGate = {
   id: number
   x: number
   y: number
+  wire: number
   label: Gate
   dragging: boolean
+  hovered: boolean
 }

@@ -6,13 +6,16 @@ type InputOptions = {
   placedGates: PlacedGate[]
   onUpdate: () => void
   onGateDropped: (gate: PlacedGate) => void
+  onPaletteHoverChange: (index: number | null) => void
 }
 
-export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: InputOptions) {
+export function setupInput({ canvas, placedGates, onUpdate, onGateDropped, onPaletteHoverChange }: InputOptions) {
   let nextGateId = 1
   let activeGateId: number | null = null
   let dragOffsetX = 0
   let dragOffsetY = 0
+  let lastHoverId: number | null = null
+  let lastHoverPaletteIndex: number | null = null
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
   const getMetrics = () => getLayoutMetrics(canvas.width)
@@ -92,6 +95,9 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     const hitGate = [...placedGates].reverse().find((gate) => x >= gate.x && x <= gate.x + GATE_SIZE && y >= gate.y && y <= gate.y + GATE_SIZE)
     if (hitGate) {
       activeGateId = hitGate.id
+      placedGates.forEach((gate) => {
+        gate.hovered = false
+      })
       hitGate.dragging = true
       dragOffsetX = x - hitGate.x
       dragOffsetY = y - hitGate.y
@@ -113,6 +119,7 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
           wire: 0,
           label: PALETTE_GATES[index],
           dragging: true,
+          hovered: false,
         }
         placedGates.push(newGate)
         activeGateId = newGate.id
@@ -127,22 +134,41 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
   canvas.addEventListener('pointermove', (event) => {
     if (activeGateId === null) {
       const { x, y } = getPointerPosition(event)
-      const hoveredGate = placedGates.find(
-        (gate) => x >= gate.x && x <= gate.x + GATE_SIZE && y >= gate.y && y <= gate.y + GATE_SIZE
-      )
+      let hoveredGate: PlacedGate | null = null
+      placedGates.forEach((gate) => {
+        gate.hovered = false
+        if (x >= gate.x && x <= gate.x + GATE_SIZE && y >= gate.y && y <= gate.y + GATE_SIZE) {
+          hoveredGate = gate
+        }
+      })
+      if (hoveredGate) {
+        hoveredGate.hovered = true
+      }
       const paletteStartX = (canvas.width - paletteWidth) / 2
-      const hoveringPalette =
-        y >= PALETTE_ROW_Y &&
-        y <= PALETTE_ROW_Y + PALETTE_SIZE &&
-        x >= paletteStartX &&
-        x <= paletteStartX + paletteWidth
-      const isClickable = Boolean(hoveredGate || hoveringPalette)
+      let hoveringPaletteIndex: number | null = null
+      if (y >= PALETTE_ROW_Y && y <= PALETTE_ROW_Y + PALETTE_SIZE && x >= paletteStartX && x <= paletteStartX + paletteWidth) {
+        const localX = x - paletteStartX
+        const index = Math.floor(localX / (PALETTE_SIZE + PALETTE_GAP))
+        const inBox = localX - index * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE
+        if (index >= 0 && index < PALETTE_GATES.length && inBox) {
+          hoveringPaletteIndex = index
+        }
+      }
+      const isClickable = Boolean(hoveredGate || hoveringPaletteIndex !== null)
       canvas.style.cursor = isClickable ? 'grab' : 'default'
-      if (!hoveredGate && !hoveringPalette) {
+      if (hoveredGate?.id !== lastHoverId) {
+        lastHoverId = hoveredGate?.id ?? null
+        onUpdate()
+      } else if (!hoveredGate && hoveringPaletteIndex === null) {
         return
+      }
+      if (hoveringPaletteIndex !== lastHoverPaletteIndex) {
+        lastHoverPaletteIndex = hoveringPaletteIndex
+        onPaletteHoverChange(hoveringPaletteIndex)
       }
     }
 
+    lastHoverId = null
     const gate = placedGates.find((item) => item.id === activeGateId)
     if (!gate) {
       return
@@ -170,6 +196,15 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
 
   canvas.addEventListener('pointerleave', () => {
     canvas.style.cursor = 'default'
+    placedGates.forEach((gate) => {
+      gate.hovered = false
+    })
+    lastHoverId = null
+    if (lastHoverPaletteIndex !== null) {
+      lastHoverPaletteIndex = null
+      onPaletteHoverChange(null)
+    }
+    onUpdate()
   })
 
   const handlePointerEnd = (event: PointerEvent) => {
@@ -184,6 +219,7 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
       return
     }
     gate.dragging = false
+    gate.hovered = false
     const centerX = gate.x + GATE_SIZE / 2
     const centerY = gate.y + GATE_SIZE / 2
     const { slotLeft, slotRight, lineYs, slotCenters } = getMetrics()

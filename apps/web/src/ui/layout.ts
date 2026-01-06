@@ -36,7 +36,13 @@ export type SceneLayout = {
   stateVector: TextLayout
 }
 
-export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGate[], canvasWidth: number, canvasHeight: number): SceneLayout {
+export function buildScene(
+  stateVectorGlyphCount: number,
+  placedGates: PlacedGate[],
+  canvasWidth: number,
+  canvasHeight: number,
+  hoveredPaletteIndex: number | null
+): SceneLayout {
   instances.length = 0
   const metrics = getLayoutMetrics(canvasWidth)
   metrics.lineYs.forEach((lineY) => {
@@ -48,6 +54,10 @@ export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGat
   const paletteLabels: TextLayout[] = []
   PALETTE_GATES.forEach((gate, index) => {
     const x = paletteStartX + index * (PALETTE_SIZE + PALETTE_GAP)
+    if (hoveredPaletteIndex === index) {
+      addRoundedRect(x - 4, PALETTE_ROW_Y - 4, PALETTE_SIZE + 8, PALETTE_SIZE + 8, 10, COLORS.boxBorder)
+      addRoundedRect(x - 2, PALETTE_ROW_Y - 2, PALETTE_SIZE + 4, PALETTE_SIZE + 4, 8, COLORS.background)
+    }
     addRoundedRect(x, PALETTE_ROW_Y, PALETTE_SIZE, PALETTE_SIZE, 6, COLORS.box)
     paletteLabels.push({
       text: gate,
@@ -60,6 +70,10 @@ export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGat
   const gateLabels: TextLayout[] = []
   placedGates.forEach((gate) => {
     if (!gate.dragging) {
+      if (gate.hovered) {
+        addRoundedRect(gate.x - 4, gate.y - 4, GATE_SIZE + 8, GATE_SIZE + 8, 10, COLORS.boxBorder)
+        addRoundedRect(gate.x - 2, gate.y - 2, GATE_SIZE + 4, GATE_SIZE + 4, 8, COLORS.background)
+      }
       addRoundedRect(gate.x, gate.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
     }
     gateLabels.push({

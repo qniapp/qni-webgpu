@@ -49,7 +49,7 @@ export const COLORS: Record<string, Color> = {
   background: [0.94, 0.94, 0.94, 1.0],
   line: [0.62, 0.62, 0.62, 1.0],
   box: [0.2, 0.62, 0.55, 1.0],
-  boxBorder: [0.14, 0.36, 0.34, 1.0],
+  boxBorder: [0.82, 0.82, 0.82, 1.0],
   boxActive: [0.52, 0.45, 0.7, 1.0],
   label: [1.0, 1.0, 1.0, 1.0],
   text: [0.45, 0.45, 0.45, 1.0],
