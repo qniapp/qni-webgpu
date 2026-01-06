@@ -1,26 +1,49 @@
 import type { Gate } from '../domain/gate'
 import type { Color } from './types'
 
-export const CANVAS_WIDTH = 800
-export const CANVAS_HEIGHT = 600
-export const STATE_TEXT_MAX_LEN = 50
+export const REM = 32
+export const DEFAULT_CANVAS_WIDTH = 25 * REM
+export const DEFAULT_CANVAS_HEIGHT = 18.75 * REM
+export const STATE_TEXT_MAX_LEN = 160
 
-export const LINE_Y = 160
-export const LINE_LEFT = 80
-export const LINE_RIGHT = CANVAS_WIDTH - 80
+export const LINE_Y = 5 * REM
+export const LINE_GAP = 1.5 * REM
+export const LINE_Y_VALUES = [LINE_Y, LINE_Y + LINE_GAP]
+export const LINE_LEFT_OFFSET = 2.5 * REM
+export const LINE_RIGHT_OFFSET = 2.5 * REM
 
-export const GATE_SIZE = 60
+export const GATE_SIZE = 1 * REM
 
-export const SLOT_LEFT = LINE_LEFT + GATE_SIZE
-export const SLOT_RIGHT = LINE_RIGHT - GATE_SIZE
 export const SLOT_SPACING = GATE_SIZE * 1.5
-export const SLOT_COUNT = SLOT_SPACING > 0 ? Math.floor((SLOT_RIGHT - SLOT_LEFT) / SLOT_SPACING) + 1 : 0
-export const SNAP_DISTANCE = 18
+export const SNAP_DISTANCE = 0.5625 * REM
 
 export const PALETTE_GATES: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
-export const PALETTE_SIZE = 60
-export const PALETTE_GAP = 16
-export const PALETTE_ROW_Y = 12
+export const PALETTE_SIZE = GATE_SIZE
+export const PALETTE_GAP = 0.5 * REM
+export const PALETTE_ROW_Y = 0.375 * REM
+
+export type LayoutMetrics = {
+  lineLeft: number
+  lineRight: number
+  lineYs: number[]
+  slotLeft: number
+  slotRight: number
+  slotSpacing: number
+  slotCount: number
+  slotCenters: number[]
+}
+
+export function getLayoutMetrics(canvasWidth: number): LayoutMetrics {
+  const lineLeft = LINE_LEFT_OFFSET
+  const lineRight = canvasWidth - LINE_RIGHT_OFFSET
+  const lineYs = [LINE_Y, LINE_Y + LINE_GAP]
+  const slotLeft = lineLeft + GATE_SIZE
+  const slotRight = lineRight - GATE_SIZE
+  const slotSpacing = SLOT_SPACING
+  const slotCount = slotSpacing > 0 ? Math.floor((slotRight - slotLeft) / slotSpacing) + 1 : 0
+  const slotCenters = Array.from({ length: slotCount }, (_, index) => slotLeft + slotSpacing * index)
+  return { lineLeft, lineRight, lineYs, slotLeft, slotRight, slotSpacing, slotCount, slotCenters }
+}
 
 export const COLORS: Record<string, Color> = {
   background: [0.94, 0.94, 0.94, 1.0],

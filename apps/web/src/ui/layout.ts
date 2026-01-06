@@ -1,4 +1,4 @@
-import { COLORS, CANVAS_HEIGHT, CANVAS_WIDTH, GATE_SIZE, LINE_LEFT, LINE_RIGHT, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE } from './constants'
+import { COLORS, GATE_SIZE, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, getLayoutMetrics } from './constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from './text'
 import type { PlacedGate, ShapeInstance, TextLayout } from './types'
 
@@ -32,15 +32,19 @@ export type SceneLayout = {
   instances: ShapeInstance[]
   gateLabels: TextLayout[]
   paletteLabels: TextLayout[]
+  wireLabels: TextLayout[]
   stateVector: TextLayout
 }
 
-export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGate[]): SceneLayout {
+export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGate[], canvasWidth: number, canvasHeight: number): SceneLayout {
   instances.length = 0
-  addLine(LINE_LEFT, LINE_Y, LINE_RIGHT, LINE_Y, 4, COLORS.line)
+  const metrics = getLayoutMetrics(canvasWidth)
+  metrics.lineYs.forEach((lineY) => {
+    addLine(metrics.lineLeft, lineY, metrics.lineRight, lineY, 4, COLORS.line)
+  })
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
-  const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
+  const paletteStartX = (canvasWidth - paletteWidth) / 2
   const paletteLabels: TextLayout[] = []
   PALETTE_GATES.forEach((gate, index) => {
     const x = paletteStartX + index * (PALETTE_SIZE + PALETTE_GAP)
@@ -66,14 +70,22 @@ export function buildScene(stateVectorGlyphCount: number, placedGates: PlacedGat
     })
   })
 
+  const wireLabels: TextLayout[] = metrics.lineYs.map((lineY, index) => ({
+    text: `q${index}:`,
+    x: metrics.lineLeft - FONT_GLYPH_SIZE * 3 - 12,
+    y: lineY - FONT_GLYPH_SIZE / 2,
+    color: COLORS.text,
+  }))
+
   const stateVectorWidth = stateVectorGlyphCount * FONT_GLYPH_SIZE
-  const stateVectorX = (CANVAS_WIDTH - stateVectorWidth) / 2
-  const stateVectorY = CANVAS_HEIGHT - 40 - FONT_GLYPH_SIZE
+  const stateVectorX = (canvasWidth - stateVectorWidth) / 2
+  const stateVectorY = canvasHeight - 40 - FONT_GLYPH_SIZE
 
   return {
     instances: [...instances],
     gateLabels,
     paletteLabels,
+    wireLabels,
     stateVector: {
       text: '',
       x: stateVectorX,

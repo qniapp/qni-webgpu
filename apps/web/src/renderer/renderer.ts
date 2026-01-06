@@ -1,6 +1,6 @@
 import type { SceneLayout } from '../ui/layout'
 import type { PlacedGate, ShapeInstance, TextLayout } from '../ui/types'
-import { CANVAS_HEIGHT, CANVAS_WIDTH, COLORS, GATE_SIZE } from '../ui/constants'
+import { COLORS, GATE_SIZE } from '../ui/constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from '../ui/text'
 import { shapeShaderCode, textShaderCode } from '../gpu/shaders'
 
@@ -16,6 +16,8 @@ type RendererOptions = {
   device: GPUDevice
   context: GPUCanvasContext
   format: GPUTextureFormat
+  canvasWidth: number
+  canvasHeight: number
   fontTexture: GPUTexture
   labelFontTexture: GPUTexture
   fontAtlasWidth: number
@@ -31,6 +33,8 @@ export function createRenderer(options: RendererOptions) {
     device,
     context,
     format,
+    canvasWidth: initialCanvasWidth,
+    canvasHeight: initialCanvasHeight,
     fontTexture,
     labelFontTexture,
     fontAtlasWidth,
@@ -50,11 +54,14 @@ export function createRenderer(options: RendererOptions) {
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   })
 
+  let canvasWidth = initialCanvasWidth
+  let canvasHeight = initialCanvasHeight
+
   const uniformBuffer = device.createBuffer({
     size: 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0]))
+  device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([canvasWidth, canvasHeight, 0, 0]))
 
   const shapeModule = device.createShaderModule({ code: shapeShaderCode })
   const shapePipeline = device.createRenderPipeline({
@@ -164,8 +171,8 @@ export function createRenderer(options: RendererOptions) {
 
   const updateTextUniform = (buffer: GPUBuffer, layout: TextLayout, glyphSize: number, atlasWidth: number, atlasHeight: number) => {
     const uniformData = new Float32Array([
-      CANVAS_WIDTH,
-      CANVAS_HEIGHT,
+      canvasWidth,
+      canvasHeight,
       layout.x,
       layout.y,
       glyphSize,
@@ -178,6 +185,12 @@ export function createRenderer(options: RendererOptions) {
       layout.color[3],
     ])
     device.queue.writeBuffer(buffer, 0, uniformData)
+  }
+
+  const setSize = (width: number, height: number) => {
+    canvasWidth = width
+    canvasHeight = height
+    device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([canvasWidth, canvasHeight, 0, 0]))
   }
 
   const makeTextBuffers = (layout: TextLayout, options?: { glyphBuffer?: GPUBuffer; glyphCount?: number; glyphSize?: number; atlasWidth?: number; atlasHeight?: number; texture?: GPUTexture }) => {
@@ -217,6 +230,7 @@ export function createRenderer(options: RendererOptions) {
 
   let gateTexts: TextBuffers[] = []
   let paletteTexts: TextBuffers[] = []
+  let wireTexts: TextBuffers[] = []
   let stateTextDraw: TextBuffers | null = null
 
   const syncGateTexts = (layouts: TextLayout[]) => {
@@ -303,6 +317,18 @@ export function createRenderer(options: RendererOptions) {
       })
     }
 
+    if (wireTexts.length === 0) {
+      wireTexts = scene.wireLabels.map((layout) => makeTextBuffers(layout))
+    } else {
+      scene.wireLabels.forEach((layout, index) => {
+        if (!wireTexts[index]) {
+          wireTexts.push(makeTextBuffers(layout))
+          return
+        }
+        updateTextUniform(wireTexts[index].uniformBuffer, layout, FONT_GLYPH_SIZE, fontAtlasWidth, fontAtlasHeight)
+      })
+    }
+
     if (!stateTextDraw) {
       stateTextDraw = makeTextBuffers(scene.stateVector, {
         glyphBuffer: stateTextGlyphBuffer,
@@ -341,6 +367,11 @@ export function createRenderer(options: RendererOptions) {
       pass.draw(6, paletteText.glyphCount, 0, 0)
     }
 
+    for (const wireText of wireTexts) {
+      pass.setBindGroup(0, wireText.textBindGroup)
+      pass.draw(6, wireText.glyphCount, 0, 0)
+    }
+
     if (hasGateOverlay) {
       pass.setPipeline(shapePipeline)
       pass.setBindGroup(0, shapeBindGroup)
@@ -363,5 +394,5 @@ export function createRenderer(options: RendererOptions) {
     device.queue.submit([commandEncoder.finish()])
   }
 
-  return { renderFrame, updateScene }
+  return { renderFrame, updateScene, setSize }
 }

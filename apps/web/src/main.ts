@@ -1,12 +1,13 @@
 import './style.css'
-import { computeStateVectorSequence, populateStateTextBuffer } from './gpu/compute'
+import { computeStateVectorSequence, type GateOperation } from './gpu/compute'
 import { initGpu } from './gpu/init'
 import { createRenderer } from './renderer/renderer'
-import { CANVAS_HEIGHT, CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
 import { setupInput } from './ui/input'
 import { buildScene } from './ui/layout'
 import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, buildLabelGlyphs, createFontAtlas } from './ui/text'
 import type { PlacedGate } from './ui/types'
+import { formatComplex } from './domain/complex'
 
 declare global {
   interface Window {
@@ -26,7 +27,7 @@ if (!app) {
 }
 
 app.innerHTML = `
-  <canvas id="gfx" width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}"></canvas>
+  <canvas id="gfx" width="${DEFAULT_CANVAS_WIDTH}" height="${DEFAULT_CANVAS_HEIGHT}"></canvas>
   <div id="status" aria-live="polite"></div>
 `
 
@@ -78,19 +79,25 @@ function createTextureFromAtlas(
 
 async function init() {
   try {
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resizeCanvas()
+
     const { device, context, format } = await initGpu(canvas)
     device.onuncapturederror = (event) => {
       setStatus(event.error.message)
     }
 
-    const shouldReadback = window.__captureStateVector === true
-    const { outputBuffer: initialStateVectorBuffer, readback: stateVectorReadback } = await computeStateVectorSequence(
+    const shouldExposeStateVector = window.__captureStateVector === true
+    const shouldReadback = true
+    const { readback: stateVectorReadback } = await computeStateVectorSequence(
       device,
       [],
       shouldReadback
     )
-    let stateVectorBuffer = initialStateVectorBuffer
-    if (stateVectorReadback) {
+    if (stateVectorReadback && shouldExposeStateVector) {
       window.__stateVector = Array.from(stateVectorReadback)
     }
 
@@ -99,7 +106,6 @@ async function init() {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     })
     device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
-    await populateStateTextBuffer(device, stateVectorBuffer, stateTextGlyphBuffer)
 
     const fontAtlas = createFontAtlas(FONT_GLYPH_SIZE, BASE_GLYPHS)
     const labelGlyphs = buildLabelGlyphs(LABEL_GLYPH_SIZE)
@@ -113,6 +119,8 @@ async function init() {
       device,
       context,
       format,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
       fontTexture,
       labelFontTexture,
       fontAtlasWidth: fontAtlas.atlasWidth,
@@ -126,15 +134,35 @@ async function init() {
     let stateVectorGlyphCount = 16
     const placedGates: PlacedGate[] = []
 
-    const getGateSequence = () => {
+    const getGateSequence = (): GateOperation[] => {
       return [...placedGates]
         .filter((gate) => !gate.dragging)
         .sort((a, b) => (a.x === b.x ? a.id - b.id : a.x - b.x))
-        .map((gate) => gate.label)
+        .map((gate) => ({ gate: gate.label, target: gate.wire }))
+    }
+
+    const writeStateVectorText = (values: Float32Array) => {
+      const complexValues = []
+      for (let index = 0; index < 4; index += 1) {
+        complexValues.push(
+          formatComplex({
+            re: values[index * 2],
+            im: values[index * 2 + 1],
+          })
+        )
+      }
+      const text = `[${complexValues.map((value) => `(${value})`).join(', ')}]`
+      const glyphs = new Uint32Array(STATE_TEXT_MAX_LEN)
+      const count = Math.min(text.length, STATE_TEXT_MAX_LEN)
+      for (let index = 0; index < count; index += 1) {
+        glyphs[index] = text.charCodeAt(index)
+      }
+      device.queue.writeBuffer(stateTextGlyphBuffer, 0, glyphs)
+      stateVectorGlyphCount = count
     }
 
     const updateScene = () => {
-      const scene = buildScene(stateVectorGlyphCount, placedGates)
+      const scene = buildScene(stateVectorGlyphCount, placedGates, canvas.width, canvas.height)
       const draggingGate = placedGates.find((gate) => gate.dragging) ?? null
       window.__vertexCount = scene.instances.length
       renderer.updateScene(scene, draggingGate)
@@ -142,14 +170,19 @@ async function init() {
 
     const recomputeStateVector = async () => {
       const gates = getGateSequence()
-      stateVectorGlyphCount = gates.length === 1 && gates[0] === 'H' ? STATE_TEXT_MAX_LEN : 16
       const result = await computeStateVectorSequence(device, gates, shouldReadback)
-      stateVectorBuffer = result.outputBuffer
+      void result.outputBuffer
       if (result.readback) {
-        window.__stateVector = Array.from(result.readback)
+        if (shouldExposeStateVector) {
+          window.__stateVector = Array.from(result.readback)
+        }
+        writeStateVectorText(result.readback)
       }
-      await populateStateTextBuffer(device, stateVectorBuffer, stateTextGlyphBuffer)
       updateScene()
+    }
+
+    if (stateVectorReadback) {
+      writeStateVectorText(stateVectorReadback)
     }
 
     setupInput({
@@ -162,6 +195,12 @@ async function init() {
     })
 
     updateScene()
+
+    window.addEventListener('resize', () => {
+      resizeCanvas()
+      renderer.setSize(canvas.width, canvas.height)
+      updateScene()
+    })
 
     let hasCaptured = false
     const renderFrame = () => {

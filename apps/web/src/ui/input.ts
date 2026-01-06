@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, GATE_SIZE, LINE_Y_VALUES, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, SLOT_COUNT, SLOT_LEFT, SLOT_SPACING, SLOT_RIGHT, SNAP_DISTANCE } from './constants'
+import { GATE_SIZE, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE, getLayoutMetrics } from './constants'
 import type { PlacedGate } from './types'
 
 type InputOptions = {
@@ -15,11 +15,9 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
   let dragOffsetY = 0
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
-  const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
-  const slotCenters = Array.from({ length: SLOT_COUNT }, (_, index) => SLOT_LEFT + SLOT_SPACING * index)
-  const lineYs = LINE_Y_VALUES
+  const getMetrics = () => getLayoutMetrics(canvas.width)
 
-  const nearestSlotCenter = (x: number) => {
+  const nearestSlotCenter = (x: number, slotCenters: number[]) => {
     let nearest = slotCenters[0] ?? x
     let nearestDistance = Math.abs(x - nearest)
     for (const slot of slotCenters) {
@@ -32,21 +30,21 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     return { center: nearest, distance: nearestDistance }
   }
 
-  const getOccupiedSlots = (wireIndex: number, ignoreId: number | null) => {
+  const getOccupiedSlots = (wireIndex: number, ignoreId: number | null, slotCenters: number[]) => {
     const occupied = new Set<number>()
     placedGates.forEach((gate) => {
       if (gate.dragging || gate.wire !== wireIndex || gate.id === ignoreId) {
         return
       }
       const centerX = gate.x + GATE_SIZE / 2
-      const snapped = nearestSlotCenter(centerX)
+      const snapped = nearestSlotCenter(centerX, slotCenters)
       occupied.add(snapped.center)
     })
     return occupied
   }
 
-  const nearestAvailableSlot = (x: number, wireIndex: number, ignoreId: number | null) => {
-    const occupied = getOccupiedSlots(wireIndex, ignoreId)
+  const nearestAvailableSlot = (x: number, wireIndex: number, ignoreId: number | null, slotCenters: number[]) => {
+    const occupied = getOccupiedSlots(wireIndex, ignoreId, slotCenters)
     let nearest = slotCenters[0] ?? x
     let nearestDistance = Math.abs(x - nearest)
     let found = false
@@ -64,7 +62,7 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     return found ? { center: nearest, distance: nearestDistance } : null
   }
 
-  const nearestLine = (y: number) => {
+  const nearestLine = (y: number, lineYs: number[]) => {
     let nearest = lineYs[0] ?? y
     let nearestDistance = Math.abs(y - nearest)
     let nearestIndex = 0
@@ -102,6 +100,7 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
       return
     }
 
+    const paletteStartX = (canvas.width - paletteWidth) / 2
     if (y >= PALETTE_ROW_Y && y <= PALETTE_ROW_Y + PALETTE_SIZE && x >= paletteStartX && x <= paletteStartX + paletteWidth) {
       const localX = x - paletteStartX
       const index = Math.floor(localX / (PALETTE_SIZE + PALETTE_GAP))
@@ -137,13 +136,14 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     gate.x = x - dragOffsetX
     const nextY = y - dragOffsetY
     const centerY = nextY + GATE_SIZE / 2
-    const line = nearestLine(centerY)
+    const { lineYs, slotCenters } = getMetrics()
+    const line = nearestLine(centerY, lineYs)
     const shouldSnapY = line.distance <= SNAP_DISTANCE
     if (shouldSnapY) {
       gate.y = line.y - GATE_SIZE / 2
       gate.wire = line.index
       const centerX = x - dragOffsetX + GATE_SIZE / 2
-      const snapped = nearestAvailableSlot(centerX, line.index, gate.id)
+      const snapped = nearestAvailableSlot(centerX, line.index, gate.id, slotCenters)
       if (snapped) {
         gate.x = snapped.center - GATE_SIZE / 2
       }
@@ -167,11 +167,12 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
     gate.dragging = false
     const centerX = gate.x + GATE_SIZE / 2
     const centerY = gate.y + GATE_SIZE / 2
-    const line = nearestLine(centerY)
-    const snapped = nearestAvailableSlot(centerX, line.index, gate.id)
+    const { slotLeft, slotRight, lineYs, slotCenters } = getMetrics()
+    const line = nearestLine(centerY, lineYs)
+    const snapped = nearestAvailableSlot(centerX, line.index, gate.id, slotCenters)
     const onCircuit =
-      centerX >= SLOT_LEFT &&
-      centerX <= SLOT_RIGHT &&
+      centerX >= slotLeft &&
+      centerX <= slotRight &&
       line.distance <= SNAP_DISTANCE &&
       snapped !== null &&
       snapped.distance <= SNAP_DISTANCE
