@@ -136,24 +136,49 @@ pub(crate) fn draw_gate_box(
         height: GATE_BOX_HEIGHT,
     };
     if gate == Gate::Swap {
-        let fill = " ".repeat(gate_rect.width as usize);
-        let mid_y = gate_rect.y.saturating_add(gate_rect.height / 2);
-        buffer.set_string(gate_rect.x, mid_y, &fill, base_style);
-        if gate_rect.width > 2 {
-            let gap = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
+        let swap_rect = Rect {
+            x: gate_rect.x,
+            y: gate_rect.y,
+            width: gate_rect.width,
+            height: gate_rect.height.min(3),
+        };
+        let fill = " ".repeat(swap_rect.width as usize);
+        let mid_y = swap_rect.y.saturating_add(swap_rect.height / 2);
+        buffer.set_string(swap_rect.x, mid_y, &fill, base_style);
+        if swap_rect.width > 2 {
+            let gap = " ".repeat(swap_rect.width.saturating_sub(2) as usize);
             let gap_style = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
-            buffer.set_string(gate_rect.x + 1, gate_rect.y, &gap, gap_style);
+            buffer.set_string(swap_rect.x + 1, swap_rect.y, &gap, gap_style);
             buffer.set_string(
-                gate_rect.x + 1,
-                gate_rect.y + gate_rect.height.saturating_sub(1),
+                swap_rect.x + 1,
+                swap_rect.y + swap_rect.height.saturating_sub(1),
                 &gap,
                 gap_style,
             );
         }
-        let left_x = gate_rect.x;
-        let right_x = gate_rect.x.saturating_add(gate_rect.width.saturating_sub(1));
-        let top_y = gate_rect.y;
-        let bottom_y = gate_rect.y.saturating_add(gate_rect.height.saturating_sub(1));
+        let edge_style = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
+        for offset in 0..swap_rect.height {
+            let y = swap_rect.y + offset;
+            buffer.set_string(swap_rect.x, y, " ", edge_style);
+            buffer.set_string(
+                swap_rect.x + swap_rect.width.saturating_sub(1),
+                y,
+                " ",
+                edge_style,
+            );
+        }
+        let left_x = if swap_rect.width > 2 {
+            swap_rect.x + 1
+        } else {
+            swap_rect.x
+        };
+        let right_x = if swap_rect.width > 2 {
+            swap_rect.x.saturating_add(swap_rect.width.saturating_sub(2))
+        } else {
+            swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1))
+        };
+        let top_y = swap_rect.y;
+        let bottom_y = swap_rect.y.saturating_add(swap_rect.height.saturating_sub(1));
         let tip_style = Style::default().fg(background).bg(background);
         buffer.set_string(left_x, top_y, "\\", tip_style);
         buffer.set_string(right_x, top_y, "/", tip_style);

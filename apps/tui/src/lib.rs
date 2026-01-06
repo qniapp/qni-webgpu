@@ -265,9 +265,9 @@ mod tests {
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);
-        assert_eq!(top, "\\   /");
-        assert_eq!(mid, "▶   ◀");
-        assert_eq!(bottom, "/   \\");
+        assert_eq!(top, " \\ / ");
+        assert_eq!(mid, " ▶ ◀ ");
+        assert_eq!(bottom, " / \\ ");
     }
 
     #[test]
