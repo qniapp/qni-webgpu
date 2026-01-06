@@ -539,6 +539,30 @@ mod tests {
     }
 
     #[test]
+    fn insert_preview_keeps_right_gate_visible() {
+        let area = Rect::new(0, 0, 100, 24);
+        let mut state = AppState::new();
+        ensure_slots(&mut state, &[2, 2]);
+        state.placed[0][0] = Some(Gate::Z);
+        state.placed[0][1] = Some(Gate::H);
+        state.hovered_insert = Some((0, 1));
+        state.dragging = Some(DragState {
+            gate: Gate::Z,
+            origin: DragOrigin::Palette,
+        });
+        let drag = DragVisual {
+            gate: Gate::Z,
+            x: 1,
+            y: 1,
+        };
+        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let layout = circuit_layout(area, qubit_count(&state));
+        let right_slot = layout.slots[0][1];
+        let mid = buffer_to_string(&buffer, right_slot.x, right_slot.y + 1, GATE_BOX_WIDTH);
+        assert!(mid.contains('H'));
+    }
+
+    #[test]
     fn hit_test_palette_finds_gate() {
         let area = Rect::new(0, 0, 60, 20);
         let state = AppState::new();

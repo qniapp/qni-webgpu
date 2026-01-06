@@ -691,6 +691,12 @@ pub fn render_to_buffer_with_drag(
         state.cached_limit = state_limit;
         state.cache_valid = true;
     }
+    let mut deferred_gate: Option<(Rect, Gate, Option<String>, bool, Option<u8>)> = None;
+    let defer_target = state
+        .dragging
+        .is_some()
+        .then_some(state.hovered_insert)
+        .flatten();
     for (row, row_slots) in layout.slots.iter().enumerate() {
         for (slot, rect) in row_slots.iter().enumerate() {
             if let Some(Some(gate)) = state
@@ -748,6 +754,24 @@ pub fn render_to_buffer_with_drag(
                     .get(row)
                     .and_then(|row_values| row_values.get(slot))
                     .and_then(|value| *value);
+                if let Some((target_row, target_index)) = defer_target {
+                    if row == target_row && slot == target_index {
+                        let left_gate = target_index
+                            .checked_sub(1)
+                            .and_then(|index| state.placed.get(row)?.get(index))
+                            .and_then(|gate| *gate);
+                        if left_gate.is_some() {
+                            deferred_gate = Some((
+                                *rect,
+                                *gate,
+                                phase_label,
+                                phase_edit_active,
+                                measure_value,
+                            ));
+                            continue;
+                        }
+                    }
+                }
                 draw_gate_box(
                     &mut buffer,
                     *rect,
@@ -818,6 +842,18 @@ pub fn render_to_buffer_with_drag(
                 drag.gate == Gate::Control,
             );
         }
+    }
+    if let Some((rect, gate, phase_label, phase_edit_active, measure_value)) = deferred_gate {
+        draw_gate_box(
+            &mut buffer,
+            rect,
+            gate,
+            measure_value,
+            phase_label.as_deref(),
+            phase_edit_active,
+            None,
+            false,
+        );
     }
     if state.quit_confirm {
         draw_quit_modal(&mut buffer, area, state.quit_choice);
