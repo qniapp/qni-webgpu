@@ -350,6 +350,32 @@ mod tests {
     }
 
     #[test]
+    fn cnot_line_breaks_around_unrelated_gate() {
+        let area = Rect::new(0, 0, 40, 30);
+        let mut state = AppState::new();
+        state.placed.resize(3, Vec::new());
+        state.phase_values.resize(3, Vec::new());
+        state.placed[0] = vec![Some(Gate::Control)];
+        state.placed[1] = vec![Some(Gate::H)];
+        state.placed[2] = vec![Some(Gate::X)];
+        let buffer = render_to_buffer(&mut state, area, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let rect0 = layout.slots[0][0];
+        let rect1 = layout.slots[1][0];
+        let line_x = rect0.x + rect0.width / 2;
+        let gap_top = rect1.y.saturating_sub(1);
+        let gap_bottom = rect1.y.saturating_add(rect1.height);
+        if gap_top < area.height {
+            let top_symbol = buffer.get(line_x, gap_top).symbol();
+            assert_eq!(top_symbol, "▀");
+        }
+        if gap_bottom < area.height {
+            let bottom_symbol = buffer.get(line_x, gap_bottom).symbol();
+            assert_eq!(bottom_symbol, "▄");
+        }
+    }
+
+    #[test]
     fn cnot_with_multiple_targets_draws_single_connection() {
         let area = Rect::new(0, 0, 40, 30);
         let mut state = AppState::new();

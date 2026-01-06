@@ -6,6 +6,7 @@ use ratatui::widgets::{Paragraph, Widget};
 
 use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
+    CircuitLayout,
 };
 use crate::model::{
     apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
@@ -432,12 +433,21 @@ pub fn render_to_buffer_with_drag(
             let end_y = rect1.y.saturating_add(rect1.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Swap);
             let line_style = Style::default().fg(background).bg(background);
+            let half_style = Style::default().fg(background).bg(UI_BACKGROUND);
+            let cuts = build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| gate == Gate::Swap);
             let (top, bottom) = if start_y <= end_y {
                 (start_y, end_y)
             } else {
                 (end_y, start_y)
             };
             for y in top..=bottom {
+                if let Some(ch) = line_cut_char(y, &cuts) {
+                    buffer.set_string(line_x, y, ch, half_style);
+                    continue;
+                }
+                if is_line_skip(y, &cuts) {
+                    continue;
+                }
                 buffer.set_string(line_x, y, "│", line_style);
             }
         }
@@ -479,12 +489,23 @@ pub fn render_to_buffer_with_drag(
             let end_y = max_rect.y.saturating_add(max_rect.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Control);
             let line_style = Style::default().fg(background).bg(background);
+            let half_style = Style::default().fg(background).bg(UI_BACKGROUND);
+            let cuts = build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| {
+                matches!(gate, Gate::Control | Gate::X)
+            });
             let (top, bottom) = if start_y <= end_y {
                 (start_y, end_y)
             } else {
                 (end_y, start_y)
             };
             for y in top..=bottom {
+                if let Some(ch) = line_cut_char(y, &cuts) {
+                    buffer.set_string(line_x, y, ch, half_style);
+                    continue;
+                }
+                if is_line_skip(y, &cuts) {
+                    continue;
+                }
                 buffer.set_string(line_x, y, "│", line_style);
             }
         }
@@ -783,6 +804,63 @@ fn build_bar_spans(prob: f64, width: usize, label: &str) -> Vec<Span<'static>> {
         spans.push(Span::styled(current, style));
     }
     spans
+}
+
+#[derive(Clone, Copy)]
+struct LineCut {
+    skip_start: u16,
+    skip_end: u16,
+    upper_half_y: Option<u16>,
+    lower_half_y: Option<u16>,
+}
+
+fn build_line_cuts<F, G>(
+    layout: &CircuitLayout,
+    slot: usize,
+    max_rows: usize,
+    gate_at: &F,
+    keep_gate: G,
+) -> Vec<LineCut>
+where
+    F: Fn(usize, usize) -> Option<Gate>,
+    G: Fn(Gate) -> bool,
+{
+    let mut cuts = Vec::new();
+    for row in 0..max_rows {
+        if let Some(gate) = gate_at(row, slot) {
+            if keep_gate(gate) {
+                continue;
+            }
+            if let Some(rect) = layout.slots.get(row).and_then(|row_slots| row_slots.get(slot)) {
+                let skip_start = rect.y;
+                let skip_end = rect.y.saturating_add(rect.height.saturating_sub(1));
+                cuts.push(LineCut {
+                    skip_start,
+                    skip_end,
+                    upper_half_y: rect.y.checked_sub(1),
+                    lower_half_y: rect.y.checked_add(rect.height),
+                });
+            }
+        }
+    }
+    cuts
+}
+
+fn line_cut_char(y: u16, cuts: &[LineCut]) -> Option<&'static str> {
+    for cut in cuts {
+        if cut.upper_half_y == Some(y) {
+            return Some("▀");
+        }
+        if cut.lower_half_y == Some(y) {
+            return Some("▄");
+        }
+    }
+    None
+}
+
+fn is_line_skip(y: u16, cuts: &[LineCut]) -> bool {
+    cuts.iter()
+        .any(|cut| y >= cut.skip_start && y <= cut.skip_end)
 }
 
 fn partial_block(fraction: f64) -> char {
