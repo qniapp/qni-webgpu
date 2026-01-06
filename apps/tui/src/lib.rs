@@ -16,7 +16,7 @@ pub use layout::{
 };
 pub use model::{
     apply_gate_to_state, apply_gates_to_zero, build_state_line, format_complex, parse_args,
-    AppState, Complex, DragOrigin, DragState, Gate,
+    AppState, Complex, DragOrigin, DragState, Gate, QuitChoice,
 };
 pub use render::{render_to_buffer, render_to_buffer_with_drag, DragVisual};
 
@@ -474,6 +474,24 @@ mod tests {
         let slot = layout.slots[0][1];
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         assert_eq!(top, "▔▔▔▔▔");
+    }
+
+    #[test]
+    fn quit_modal_renders_when_enabled() {
+        let area = Rect::new(0, 0, 40, 20);
+        let mut state = AppState::new();
+        state.quit_confirm = true;
+        state.quit_choice = QuitChoice::No;
+        let buffer = render_to_buffer(&mut state, area, None);
+        let mut found = false;
+        for y in 0..area.height {
+            let line = buffer_to_line(&buffer, area, y);
+            if line.contains("Quit?") {
+                found = true;
+                break;
+            }
+        }
+        assert!(found);
     }
 
     #[test]

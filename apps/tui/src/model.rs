@@ -47,6 +47,12 @@ pub struct PhaseEdit {
     pub input: String,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum QuitChoice {
+    Yes,
+    No,
+}
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub placed: Vec<Vec<Option<Gate>>>,
@@ -63,6 +69,8 @@ pub struct AppState {
     pub confirmed_start: bool,
     pub phase_edit: Option<PhaseEdit>,
     pub phase_edit_error: Option<String>,
+    pub quit_confirm: bool,
+    pub quit_choice: QuitChoice,
     pub cache_valid: bool,
     pub cached_state: Vec<Complex>,
     pub cached_measurements: Vec<Vec<Option<u8>>>,
@@ -88,6 +96,8 @@ impl AppState {
             confirmed_start: false,
             phase_edit: None,
             phase_edit_error: None,
+            quit_confirm: false,
+            quit_choice: QuitChoice::No,
             cache_valid: false,
             cached_state: Vec::new(),
             cached_measurements: Vec::new(),

@@ -9,6 +9,7 @@ use ratatui::Terminal;
 use qni_webgpu_tui::{
     confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up,
     handle_phase_edit_key, render_to_buffer_with_drag, update_hovered_slot, AppState, DragVisual,
+    QuitChoice,
 };
 
 fn draw_once(
@@ -61,6 +62,33 @@ fn run() -> io::Result<()> {
         if event::poll(std::time::Duration::from_millis(250))? {
             match event::read()? {
                 Event::Key(key) => {
+                    if app_state.quit_confirm {
+                        match key.code {
+                            KeyCode::Left | KeyCode::Char('h') => {
+                                app_state.quit_choice = QuitChoice::Yes;
+                            }
+                            KeyCode::Right | KeyCode::Char('l') => {
+                                app_state.quit_choice = QuitChoice::No;
+                            }
+                            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                                app_state.quit_choice = QuitChoice::Yes;
+                            }
+                            KeyCode::Char('n') | KeyCode::Char('N') => {
+                                app_state.quit_choice = QuitChoice::No;
+                            }
+                            KeyCode::Enter => {
+                                if app_state.quit_choice == QuitChoice::Yes {
+                                    break;
+                                }
+                                app_state.quit_confirm = false;
+                            }
+                            KeyCode::Esc => {
+                                app_state.quit_confirm = false;
+                            }
+                            _ => {}
+                        }
+                        continue;
+                    }
                     if app_state.phase_edit.is_some() {
                         handle_phase_edit_key(&mut app_state, key);
                         continue;
@@ -70,8 +98,15 @@ fn run() -> io::Result<()> {
                     {
                         break;
                     }
+                    if key.code == KeyCode::Char('q') {
+                        app_state.quit_confirm = true;
+                        app_state.quit_choice = QuitChoice::No;
+                    }
                 }
                 Event::Mouse(mouse) => {
+                    if app_state.quit_confirm {
+                        continue;
+                    }
                     let area = terminal.size()?;
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {

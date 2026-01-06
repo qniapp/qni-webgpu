@@ -10,7 +10,7 @@ use crate::layout::{
 };
 use crate::model::{
     apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
-    Gate,
+    Gate, QuitChoice,
 };
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL, SHADOW_OUTSET,
@@ -18,6 +18,8 @@ use crate::{
 };
 
 const DRAG_GATE_COLOR: Color = Color::Rgb(34, 211, 238);
+const MODAL_BG: Color = Color::DarkGray;
+const MODAL_BORDER: Color = Color::Gray;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DragVisual {
@@ -100,6 +102,83 @@ fn draw_gate_outline(buffer: &mut Buffer, rect: Rect, highlight: Color, shadow: 
             );
         }
     }
+}
+
+fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
+    if area.width < 20 || area.height < 7 {
+        return;
+    }
+    let width = 28.min(area.width.saturating_sub(2)).max(20);
+    let height = 7.min(area.height.saturating_sub(2)).max(7);
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    let rect = Rect {
+        x,
+        y,
+        width,
+        height,
+    };
+    let fill = " ".repeat(rect.width as usize);
+    let fill_style = Style::default().fg(Color::White).bg(MODAL_BG);
+    for offset in 0..rect.height {
+        buffer.set_string(rect.x, rect.y + offset, &fill, fill_style);
+    }
+    let border_style = Style::default().fg(MODAL_BORDER).bg(MODAL_BG);
+    let top = format!("┌{}┐", "─".repeat(rect.width.saturating_sub(2) as usize));
+    let bottom = format!("└{}┘", "─".repeat(rect.width.saturating_sub(2) as usize));
+    buffer.set_string(rect.x, rect.y, &top, border_style);
+    buffer.set_string(
+        rect.x,
+        rect.y + rect.height.saturating_sub(1),
+        &bottom,
+        border_style,
+    );
+    for offset in 1..rect.height.saturating_sub(1) {
+        let y = rect.y + offset;
+        buffer.set_string(rect.x, y, "│", border_style);
+        buffer.set_string(
+            rect.x + rect.width.saturating_sub(1),
+            y,
+            "│",
+            border_style,
+        );
+    }
+    let title = "Quit?";
+    let title_x = rect.x + (rect.width.saturating_sub(title.len() as u16)) / 2;
+    buffer.set_string(
+        title_x,
+        rect.y + 1,
+        title,
+        Style::default().fg(Color::White).bg(MODAL_BG).add_modifier(Modifier::BOLD),
+    );
+    let yes_label = "[ Yes ]";
+    let no_label = "[ No ]";
+    let buttons_width = yes_label.len() + 2 + no_label.len();
+    let start_x = rect.x + (rect.width.saturating_sub(buttons_width as u16)) / 2;
+    let yes_style = if choice == QuitChoice::Yes {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::White)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White).bg(MODAL_BG)
+    };
+    let no_style = if choice == QuitChoice::No {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::White)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White).bg(MODAL_BG)
+    };
+    let buttons_y = rect.y + rect.height.saturating_sub(3);
+    buffer.set_string(start_x, buttons_y, yes_label, yes_style);
+    buffer.set_string(
+        start_x + yes_label.len() as u16 + 2,
+        buttons_y,
+        no_label,
+        no_style,
+    );
 }
 
 pub(crate) fn draw_gate_box(
@@ -725,6 +804,9 @@ pub fn render_to_buffer_with_drag(
                 drag.gate == Gate::Control,
             );
         }
+    }
+    if state.quit_confirm {
+        draw_quit_modal(&mut buffer, area, state.quit_choice);
     }
     buffer
 }
