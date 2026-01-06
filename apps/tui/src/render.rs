@@ -63,7 +63,7 @@ pub(crate) fn draw_gate_box(
             .add_modifier(Modifier::BOLD);
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
-        buffer.set_string(mid_x, mid_y, "●", style);
+        buffer.set_string(mid_x, mid_y, "■", style);
         return;
     }
     if gate == Gate::Measure {

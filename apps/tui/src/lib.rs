@@ -307,6 +307,20 @@ mod tests {
     }
 
     #[test]
+    fn control_gate_renders_square() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(&mut buffer, slot, Gate::Control, None, None, false);
+        let mid_x = slot.x + slot.width / 2;
+        let mid_y = slot.y + slot.height / 2;
+        let symbol = buffer.get(mid_x, mid_y).symbol();
+        assert_eq!(symbol, "■");
+    }
+
+    #[test]
     fn dragging_swap_shows_connection_line() {
         let area = Rect::new(0, 0, 40, 30);
         let mut state = AppState::new();
