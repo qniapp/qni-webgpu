@@ -36,6 +36,14 @@ export type SceneLayout = {
   stateVector: TextLayout
 }
 
+const labelPosition = (x: number, y: number, size: number, text: string) => {
+  const width = text.length * LABEL_GLYPH_SIZE
+  return {
+    x: x + (size - width) / 2,
+    y: y + (size - LABEL_GLYPH_SIZE) / 2,
+  }
+}
+
 export function buildScene(
   stateVectorGlyphCount: number,
   placedGates: PlacedGate[],
@@ -59,10 +67,11 @@ export function buildScene(
       addRoundedRect(x - 2, PALETTE_ROW_Y - 2, PALETTE_SIZE + 4, PALETTE_SIZE + 4, 8, COLORS.background)
     }
     addRoundedRect(x, PALETTE_ROW_Y, PALETTE_SIZE, PALETTE_SIZE, 6, COLORS.box)
+    const palettePos = labelPosition(x, PALETTE_ROW_Y, PALETTE_SIZE, gate)
     paletteLabels.push({
       text: gate,
-      x: x + PALETTE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
-      y: PALETTE_ROW_Y + PALETTE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
+      x: palettePos.x,
+      y: palettePos.y,
       color: COLORS.label,
     })
   })
@@ -76,10 +85,11 @@ export function buildScene(
       }
       addRoundedRect(gate.x, gate.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
     }
+    const gatePos = labelPosition(gate.x, gate.y, GATE_SIZE, gate.label)
     gateLabels.push({
       text: gate.label,
-      x: gate.x + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
-      y: gate.y + GATE_SIZE / 2 - LABEL_GLYPH_SIZE / 2,
+      x: gatePos.x,
+      y: gatePos.y,
       color: COLORS.label,
     })
   })

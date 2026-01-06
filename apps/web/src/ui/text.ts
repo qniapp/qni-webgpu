@@ -1,5 +1,5 @@
 export const FONT_GLYPH_SIZE = 8
-export const LABEL_GLYPH_SIZE = 18
+export const LABEL_GLYPH_SIZE = 14
 export const FONT_COLS = 16
 export const FONT_ROWS = 6
 
@@ -206,6 +206,26 @@ export const BASE_GLYPHS: GlyphMap = {
     '00110000',
     '00000000',
   ],
+  'q': [
+    '00000000',
+    '00111000',
+    '01000100',
+    '01000100',
+    '01000100',
+    '00111000',
+    '00000100',
+    '00000110',
+  ],
+  ':': [
+    '00000000',
+    '00011000',
+    '00011000',
+    '00000000',
+    '00011000',
+    '00011000',
+    '00000000',
+    '00000000',
+  ],
   '(': [
     '00000110',
     '00001100',
@@ -255,79 +275,6 @@ export const BASE_GLYPHS: GlyphMap = {
     '00011000',
     '00011000',
     '00110000',
-  ],
-  ' ': [
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-  ],
-}
-
-const LABEL_BASE_GLYPHS: GlyphMap = {
-  H: [
-    '01000010',
-    '01000010',
-    '01000010',
-    '01111110',
-    '01000010',
-    '01000010',
-    '01000010',
-    '00000000',
-  ],
-  X: [
-    '10000001',
-    '01000010',
-    '00100100',
-    '00011000',
-    '00100100',
-    '01000010',
-    '10000001',
-    '00000000',
-  ],
-  Y: [
-    '10000001',
-    '01000010',
-    '00100100',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00000000',
-  ],
-  Z: [
-    '01111110',
-    '00000100',
-    '00001000',
-    '00010000',
-    '00100000',
-    '01000000',
-    '01111110',
-    '00000000',
-  ],
-  S: [
-    '00111110',
-    '01000000',
-    '01000000',
-    '00111100',
-    '00000010',
-    '00000010',
-    '01111100',
-    '00000000',
-  ],
-  T: [
-    '01111110',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00011000',
-    '00000000',
   ],
   ' ': [
     '00000000',
@@ -419,6 +366,14 @@ export function buildLabelGlyphs(size: number): GlyphMap {
   drawRect(tGrid, inset, inset, size - inset * 2, stroke)
   drawRect(tGrid, mid - Math.floor(stroke / 2), inset, stroke, size - inset * 2)
 
+  const sqrtGrid = createBlankGlyph(size)
+  drawLine(sqrtGrid, inset, mid, mid - Math.floor(stroke / 2), size - inset, stroke)
+  drawLine(sqrtGrid, mid - Math.floor(stroke / 2), size - inset, size - inset, inset, stroke)
+
+  const daggerGrid = createBlankGlyph(size)
+  drawRect(daggerGrid, mid - Math.floor(stroke / 2), inset, stroke, size - inset * 2)
+  drawRect(daggerGrid, inset, mid - Math.floor(stroke / 2), size - inset * 2, stroke)
+
   const spaceGrid = createBlankGlyph(size)
 
   return {
@@ -428,6 +383,8 @@ export function buildLabelGlyphs(size: number): GlyphMap {
     Z: glyphToRows(zGrid),
     S: glyphToRows(sGrid),
     T: glyphToRows(tGrid),
+    '^': glyphToRows(sqrtGrid),
+    '|': glyphToRows(daggerGrid),
     ' ': glyphToRows(spaceGrid),
   }
 }
