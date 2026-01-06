@@ -46,7 +46,7 @@ export function buildScene(
   instances.length = 0
   const metrics = getLayoutMetrics(canvasWidth)
   metrics.lineYs.forEach((lineY) => {
-    addLine(metrics.lineLeft, lineY, metrics.lineRight, lineY, 4, COLORS.line)
+    addLine(metrics.lineLeft, lineY, metrics.lineRight, lineY, 2, COLORS.line)
   })
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
