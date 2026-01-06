@@ -59,7 +59,7 @@ export function buildScene(
 
   const paletteWidth = PALETTE_GATES.length * PALETTE_SIZE + (PALETTE_GATES.length - 1) * PALETTE_GAP
   const paletteStartX = (canvasWidth - paletteWidth) / 2
-  const palettePadding = 0.5 * REM
+  const palettePadding = 1 * REM
   const paletteFrameX = paletteStartX - palettePadding
   const paletteFrameY = PALETTE_ROW_Y - palettePadding
   const paletteFrameWidth = paletteWidth + palettePadding * 2
