@@ -109,7 +109,7 @@ fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
         return;
     }
     let width = 28.min(area.width.saturating_sub(2)).max(20);
-    let height = 7.min(area.height.saturating_sub(2)).max(7);
+    let height = 7;
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     let rect = Rect {
