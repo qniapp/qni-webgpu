@@ -192,9 +192,10 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let innerSize = max(size - stroke * 2.0, 0.0);
   let radius = size * 0.5;
   let innerRadius = innerSize * 0.5;
+  let indexMap = array<u32, 4>(0u, 2u, 1u, 3u);
 
   for (var i: u32 = 0u; i < 4u; i = i + 1u) {
-    let amplitude = stateVector[i];
+    let amplitude = stateVector[indexMap[i]];
     let probability = clamp(dot(amplitude, amplitude), 0.0, 1.0);
     let fillSize = innerSize * sqrt(probability);
     let fillRadius = fillSize * 0.5;
