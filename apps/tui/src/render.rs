@@ -73,6 +73,35 @@ fn darken(r: u8, g: u8, b: u8, delta: u8) -> Color {
     )
 }
 
+fn draw_gate_outline(buffer: &mut Buffer, rect: Rect, highlight: Color, shadow: Color) {
+    if rect.width < 2 || rect.height < 2 {
+        return;
+    }
+    let top = "▔".repeat(rect.width as usize);
+    let bottom = "▁".repeat(rect.width as usize);
+    let highlight_style = Style::default().fg(highlight).bg(UI_BACKGROUND);
+    let shadow_style = Style::default().fg(shadow).bg(UI_BACKGROUND);
+    buffer.set_string(rect.x, rect.y, &top, highlight_style);
+    buffer.set_string(
+        rect.x,
+        rect.y.saturating_add(rect.height.saturating_sub(1)),
+        &bottom,
+        shadow_style,
+    );
+    if rect.height > 2 {
+        for offset in 1..rect.height.saturating_sub(1) {
+            let y = rect.y.saturating_add(offset);
+            buffer.set_string(rect.x, y, "▏", highlight_style);
+            buffer.set_string(
+                rect.x.saturating_add(rect.width.saturating_sub(1)),
+                y,
+                "▕",
+                shadow_style,
+            );
+        }
+    }
+}
+
 pub(crate) fn draw_gate_box(
     buffer: &mut Buffer,
     rect: Rect,
@@ -81,6 +110,7 @@ pub(crate) fn draw_gate_box(
     phase_label: Option<&str>,
     phase_edit_active: bool,
     override_background: Option<Color>,
+    outline: bool,
 ) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
@@ -88,6 +118,9 @@ pub(crate) fn draw_gate_box(
     let (text, background, highlight, shadow) =
         gate_theme_with_override(gate, override_background);
     if gate == Gate::Control {
+        if outline {
+            draw_gate_outline(buffer, rect, highlight, shadow);
+        }
         let style = Style::default()
             .fg(background)
             .bg(UI_BACKGROUND)
@@ -336,7 +369,7 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false, None);
+        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false, None, false);
     }
 
     if !regions.circuits.is_empty() {
@@ -630,6 +663,7 @@ pub fn render_to_buffer_with_drag(
                     phase_label.as_deref(),
                     phase_edit_active,
                     None,
+                    false,
                 );
             }
         }
@@ -688,6 +722,7 @@ pub fn render_to_buffer_with_drag(
                 None,
                 false,
                 Some(DRAG_GATE_COLOR),
+                drag.gate == Gate::Control,
             );
         }
     }
