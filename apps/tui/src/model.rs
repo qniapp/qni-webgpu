@@ -1,4 +1,4 @@
-use crate::MIN_QUBIT_COUNT;
+use crate::{MAX_QUBIT_COUNT, MIN_QUBIT_COUNT};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -99,7 +99,10 @@ impl AppState {
 }
 
 pub(crate) fn qubit_count(state: &AppState) -> usize {
-    state.placed.len().max(MIN_QUBIT_COUNT)
+    state
+        .placed
+        .len()
+        .clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT)
 }
 
 pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
@@ -504,7 +507,9 @@ pub(crate) fn apply_gates_to_zero_limit(
     max_columns: Option<usize>,
     phase_values: Option<&Vec<Vec<Option<PhaseValue>>>>,
 ) -> SimulationResult {
-    let qubits = gates.len().max(MIN_QUBIT_COUNT);
+    let qubits = gates
+        .len()
+        .clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT);
     let mut state = vec![ZERO; 1usize << qubits];
     state[0] = ONE;
     let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);

@@ -32,6 +32,7 @@ pub(crate) const GATE_GAP: u16 = 1;
 pub(crate) const SLOT_GAP: u16 = 3;
 pub(crate) const SNAP_DISTANCE: u16 = 1;
 pub(crate) const MIN_QUBIT_COUNT: usize = 2;
+pub(crate) const MAX_QUBIT_COUNT: usize = 16;
 pub(crate) const ROW_GAP: u16 = 1;
 pub(crate) const UI_BACKGROUND: Color = Color::Black;
 
@@ -460,6 +461,19 @@ mod tests {
         let target = items.iter().find(|item| item.gate == Gate::H).unwrap();
         handle_mouse_down(&mut state, target.rect.x, target.rect.y, area);
         assert_eq!(state.placed.len(), initial_rows + 1);
+    }
+
+    #[test]
+    fn grabbing_gate_does_not_exceed_max_qubits() {
+        let area = Rect::new(0, 0, 60, 20);
+        let mut state = AppState::new();
+        state.placed.resize(MAX_QUBIT_COUNT, Vec::new());
+        state.phase_values.resize(MAX_QUBIT_COUNT, Vec::new());
+        let regions = layout_regions(area, qubit_count(&state));
+        let items = palette_items(regions.palette);
+        let target = items.iter().find(|item| item.gate == Gate::H).unwrap();
+        handle_mouse_down(&mut state, target.rect.x, target.rect.y, area);
+        assert_eq!(state.placed.len(), MAX_QUBIT_COUNT);
     }
 
     #[test]

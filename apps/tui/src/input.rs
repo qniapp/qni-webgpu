@@ -9,9 +9,12 @@ use crate::model::{
     default_phase_value, ensure_slots, parse_phase_label, qubit_count, AppState, DragOrigin,
     DragState, Gate, PhaseEdit,
 };
-use crate::{GATE_BOX_WIDTH, SLOT_GAP, SNAP_DISTANCE, MIN_QUBIT_COUNT};
+use crate::{GATE_BOX_WIDTH, SLOT_GAP, SNAP_DISTANCE, MAX_QUBIT_COUNT, MIN_QUBIT_COUNT};
 
 fn add_empty_qubit_row(state: &mut AppState) {
+    if state.placed.len() >= MAX_QUBIT_COUNT {
+        return;
+    }
     state.placed.push(Vec::new());
     state.phase_values.push(Vec::new());
 }
