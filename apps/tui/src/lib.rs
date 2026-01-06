@@ -273,7 +273,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None, None, false, None);
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);
@@ -311,7 +311,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::Control, None, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::Control, None, None, false, None);
         let mid_x = slot.x + slot.width / 2;
         let mid_y = slot.y + slot.height / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();

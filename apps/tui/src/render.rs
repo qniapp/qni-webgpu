@@ -17,6 +17,8 @@ use crate::{
     UI_BACKGROUND,
 };
 
+const DRAG_GATE_COLOR: Color = Color::Rgb(34, 211, 238);
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DragVisual {
     pub gate: Gate,
@@ -34,6 +36,25 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
     let shadow = darken(r, g, b, 60);
     let text = Color::White;
     (text, background, highlight, shadow)
+}
+
+fn gate_theme_with_override(
+    gate: Gate,
+    override_background: Option<Color>,
+) -> (Color, Color, Color, Color) {
+    let Some(background) = override_background else {
+        return gate_theme(gate);
+    };
+    let text = Color::White;
+    match background {
+        Color::Rgb(r, g, b) => (
+            text,
+            background,
+            brighten(r, g, b, 60),
+            darken(r, g, b, 60),
+        ),
+        _ => (text, background, background, background),
+    }
 }
 
 fn brighten(r: u8, g: u8, b: u8, delta: u8) -> Color {
@@ -59,11 +80,13 @@ pub(crate) fn draw_gate_box(
     measure_value: Option<u8>,
     phase_label: Option<&str>,
     phase_edit_active: bool,
+    override_background: Option<Color>,
 ) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
     }
-    let (text, background, highlight, shadow) = gate_theme(gate);
+    let (text, background, highlight, shadow) =
+        gate_theme_with_override(gate, override_background);
     if gate == Gate::Control {
         let style = Style::default()
             .fg(background)
@@ -313,7 +336,7 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false);
+        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false, None);
     }
 
     if !regions.circuits.is_empty() {
@@ -606,6 +629,7 @@ pub fn render_to_buffer_with_drag(
                     measure_value,
                     phase_label.as_deref(),
                     phase_edit_active,
+                    None,
                 );
             }
         }
@@ -656,7 +680,15 @@ pub fn render_to_buffer_with_drag(
             && rect.x < area.x.saturating_add(area.width)
             && rect.y < area.y.saturating_add(area.height)
         {
-            draw_gate_box(&mut buffer, rect, drag.gate, None, None, false);
+            draw_gate_box(
+                &mut buffer,
+                rect,
+                drag.gate,
+                None,
+                None,
+                false,
+                Some(DRAG_GATE_COLOR),
+            );
         }
     }
     buffer
