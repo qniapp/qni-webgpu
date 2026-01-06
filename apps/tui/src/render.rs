@@ -1,8 +1,9 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::symbols::Marker;
+use ratatui::widgets::canvas::{Canvas, Circle, Line, Points};
+use ratatui::widgets::Widget;
 
 use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items,
@@ -20,6 +21,10 @@ use crate::{
 const DRAG_GATE_COLOR: Color = Color::Rgb(34, 211, 238);
 const MODAL_BG: Color = Color::DarkGray;
 const MODAL_BORDER: Color = Color::Gray;
+const STATE_CIRCLE_OUTLINE: Color = Color::White;
+const STATE_CIRCLE_FILL: Color = Color::LightCyan;
+const STATE_CIRCLE_PHASE: Color = Color::Yellow;
+const STATE_CIRCLE_ZERO: Color = Color::DarkGray;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DragVisual {
@@ -188,6 +193,131 @@ struct DeferredGate {
     phase_label: Option<String>,
     phase_edit_active: bool,
     measure_value: Option<u8>,
+}
+
+fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
+    if area.width == 0 || area.height == 0 || amplitudes.is_empty() {
+        return;
+    }
+    let qubits = amplitude_qubits(amplitudes.len());
+    let min_cell_w = 4.0_f64;
+    let min_cell_h = 3.0_f64;
+    let max_cols = ((area.width as f64) / min_cell_w).floor() as usize;
+    let max_rows = ((area.height as f64) / min_cell_h).floor() as usize;
+    if max_cols == 0 || max_rows == 0 {
+        return;
+    }
+    let total = amplitudes.len();
+    let columns_needed = (total + max_rows - 1) / max_rows;
+    let columns = columns_needed.min(max_cols).max(1);
+    let rows = ((total + columns - 1) / columns).min(max_rows).max(1);
+    let visible = rows * columns;
+    let cell_w = area.width as f64 / columns as f64;
+    let cell_h = area.height as f64 / rows as f64;
+    let size_boost = match qubits {
+        0 | 1 => 1.15,
+        2 => 1.1,
+        3 => 1.05,
+        _ => 1.0,
+    };
+    let base_radius = ((cell_w.min(cell_h) / 2.0) + 0.3) * size_boost;
+    if base_radius <= 0.1 {
+        return;
+    }
+    let x_bounds = [0.0, area.width as f64];
+    let y_bounds = [0.0, area.height as f64];
+    let canvas = Canvas::default()
+        .x_bounds(x_bounds)
+        .y_bounds(y_bounds)
+        .marker(Marker::HalfBlock)
+        .paint(|ctx| {
+            for index in 0..visible {
+                let state_index = display_index_to_state_index(index, qubits);
+                if state_index >= amplitudes.len() {
+                    continue;
+                }
+                let amp = amplitudes[state_index];
+                let row = index / columns;
+                let col = index % columns;
+                let center_x = col as f64 * cell_w + cell_w / 2.0;
+                let center_y = (rows as f64 - 1.0 - row as f64) * cell_h + cell_h / 2.0;
+                let prob = amp.re * amp.re + amp.im * amp.im;
+                let is_zero = prob <= 1e-6;
+                let outline_color = if is_zero {
+                    STATE_CIRCLE_ZERO
+                } else {
+                    STATE_CIRCLE_OUTLINE
+                };
+                ctx.draw(&Circle {
+                    x: center_x,
+                    y: center_y,
+                    radius: base_radius,
+                    color: outline_color,
+                });
+                let fill_radius = (prob.clamp(0.0, 1.0)).sqrt() * base_radius;
+                if fill_radius > 0.1 {
+                    let mut points = Vec::new();
+                    let step = 0.35;
+                    let mut y = -fill_radius;
+                    while y <= fill_radius {
+                        let mut x = -fill_radius;
+                        while x <= fill_radius {
+                            if x * x + y * y <= fill_radius * fill_radius {
+                                points.push((center_x + x, center_y + y));
+                            }
+                            x += step;
+                        }
+                        y += step;
+                    }
+                    if !points.is_empty() {
+                        ctx.draw(&Points {
+                            coords: &points,
+                            color: STATE_CIRCLE_FILL,
+                        });
+                    }
+                }
+                if !is_zero {
+                    let phase = amp.im.atan2(amp.re);
+                    let angle = phase + std::f64::consts::FRAC_PI_2;
+                    let phase_radius = base_radius * 0.75;
+                    let end_x = center_x + phase_radius * angle.cos();
+                    let end_y = center_y + phase_radius * angle.sin();
+                    ctx.draw(&Line {
+                        x1: center_x,
+                        y1: center_y,
+                        x2: end_x,
+                        y2: end_y,
+                        color: STATE_CIRCLE_PHASE,
+                    });
+                    let phase_tip = [(end_x, end_y)];
+                    ctx.draw(&Points {
+                        coords: &phase_tip,
+                        color: STATE_CIRCLE_PHASE,
+                    });
+                }
+            }
+        });
+    canvas.render(area, buffer);
+}
+
+fn amplitude_qubits(len: usize) -> usize {
+    let mut size = len.max(1);
+    let mut qubits = 0;
+    while size > 1 {
+        size >>= 1;
+        qubits += 1;
+    }
+    qubits
+}
+
+fn display_index_to_state_index(display_index: usize, qubits: usize) -> usize {
+    let mut value = display_index;
+    let mut reversed = 0usize;
+    for _ in 0..qubits {
+        reversed = (reversed << 1) | (value & 1);
+        value >>= 1;
+    }
+    reversed
 }
 
 pub(crate) fn draw_gate_box(
@@ -798,15 +928,7 @@ pub fn render_to_buffer_with_drag(
         // No placeholder rendering; snapping is handled by the drag visual.
     }
     let _ = debug_line;
-    let lines = format_state_histogram(
-        &state.cached_state,
-        current_qubits,
-        regions.state.height,
-        regions.state.width,
-    );
-    let text = Text::from(lines);
-    let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
-    paragraph.render(regions.state, &mut buffer);
+    draw_state_circles(&mut buffer, regions.state, &state.cached_state);
     if let Some(drag) = drag {
         let mut rect = Rect {
             x: drag.x,
@@ -870,176 +992,6 @@ pub fn render_to_buffer_with_drag(
     buffer
 }
 
-fn format_state_histogram(
-    amplitudes: &[Complex],
-    qubits: usize,
-    max_lines: u16,
-    width: u16,
-) -> Vec<Line<'static>> {
-    let total = amplitudes.len();
-    let max_lines = max_lines as usize;
-    let width = width as usize;
-    if max_lines == 0 || width == 0 || total == 0 {
-        return Vec::new();
-    }
-    const COLUMN_GAP: usize = 2;
-    let label_width = format!("|{:0width$b}>", 0, width = qubits).len();
-    let prob_width = format!("{:.3}", 0.0_f64).len();
-    let min_column_width = label_width + 1 + prob_width;
-    let max_columns_by_width = if width >= min_column_width {
-        ((width + COLUMN_GAP) / (min_column_width + COLUMN_GAP)).max(1)
-    } else {
-        1
-    };
-    let columns_needed = total.div_ceil(max_lines);
-    let columns = columns_needed.min(max_columns_by_width).max(1);
-    let available_width =
-        width.saturating_sub(COLUMN_GAP.saturating_mul(columns.saturating_sub(1)));
-    let column_width = (available_width / columns).max(1);
-    let mut visible_states = total.min(columns * max_lines);
-    let truncated = visible_states < total;
-    if truncated && visible_states > 0 {
-        visible_states = visible_states.saturating_sub(1);
-    }
-    let mut entries = Vec::new();
-    for (index, amp) in amplitudes.iter().take(visible_states).enumerate() {
-        entries.push(build_histogram_line(amp, index, qubits, column_width));
-    }
-    if truncated {
-        entries.push(trim_line_to_width(Line::from("..."), column_width));
-    }
-    if entries.is_empty() {
-        return Vec::new();
-    }
-    let rows = max_lines.min(entries.len());
-    let mut lines = Vec::with_capacity(rows);
-    for row in 0..rows {
-        let mut row_spans = Vec::new();
-        for column in 0..columns {
-            let entry_index = column * max_lines + row;
-            let mut spans = if entry_index < entries.len() {
-                entries[entry_index].spans.clone()
-            } else {
-                Vec::new()
-            };
-            let width = spans_width(&spans);
-            if width < column_width {
-                spans.push(Span::raw(" ".repeat(column_width - width)));
-            }
-            row_spans.extend(spans);
-            if column + 1 < columns {
-                row_spans.push(Span::raw(" ".repeat(COLUMN_GAP)));
-            }
-        }
-        lines.push(Line::from(row_spans));
-    }
-    lines
-}
-
-fn build_histogram_line(amp: &Complex, index: usize, qubits: usize, width: usize) -> Line<'static> {
-    let prob = amp.re * amp.re + amp.im * amp.im;
-    let label = format!("|{:0width$b}>", index, width = qubits);
-    let prob_text = format!("{:.3}", prob);
-    let base_len = label.len() + 1;
-    let bar_capacity = width.saturating_sub(base_len);
-    let label_style = Style::default().fg(Color::DarkGray);
-    let mut spans = Vec::new();
-    spans.push(Span::styled(label, label_style));
-    spans.push(Span::raw(" "));
-    if bar_capacity == 0 {
-        spans.push(Span::raw(prob_text));
-    } else {
-        let bar_spans = build_bar_spans(prob, bar_capacity, &prob_text);
-        spans.extend(bar_spans);
-    }
-    trim_line_to_width(Line::from(spans), width)
-}
-
-fn spans_width(spans: &[Span<'_>]) -> usize {
-    spans
-        .iter()
-        .map(|span| span.content.chars().count())
-        .sum::<usize>()
-}
-
-fn trim_line_to_width(line: Line<'static>, width: usize) -> Line<'static> {
-    let mut remaining = width;
-    let mut spans = Vec::new();
-    for span in line.spans {
-        if remaining == 0 {
-            break;
-        }
-        let span_width = span.content.chars().count();
-        if span_width <= remaining {
-            remaining -= span_width;
-            spans.push(span);
-        } else {
-            let truncated: String = span.content.chars().take(remaining).collect();
-            spans.push(Span::styled(truncated, span.style));
-            remaining = 0;
-        }
-    }
-    Line::from(spans)
-}
-
-fn build_bar_spans(prob: f64, width: usize, label: &str) -> Vec<Span<'static>> {
-    if width == 0 {
-        return Vec::new();
-    }
-    let ratio = prob.clamp(0.0, 1.0);
-    let units = ratio * width as f64;
-    let full = units.floor() as usize;
-    let frac = units - full as f64;
-    let mut cells = vec![' '; width];
-    let mut filled = vec![false; width];
-    for i in 0..full.min(width) {
-        cells[i] = '█';
-        filled[i] = true;
-    }
-    if full < width {
-        let partial = partial_block(frac);
-        if partial != ' ' {
-            cells[full] = partial;
-            filled[full] = true;
-        }
-    }
-    let label_chars: Vec<char> = label.chars().collect();
-    if label_chars.len() <= width {
-        for (offset, ch) in label_chars.into_iter().enumerate() {
-            cells[offset] = ch;
-        }
-    }
-    let normal = Style::default().fg(Color::White).bg(UI_BACKGROUND);
-    let inverted = Style::default().fg(UI_BACKGROUND).bg(Color::White);
-    let mut spans = Vec::new();
-    let mut current = String::new();
-    let mut current_style = None;
-    for (idx, ch) in cells.iter().enumerate() {
-        let is_label = idx < label.len();
-        let style = if is_label && filled[idx] {
-            inverted
-        } else {
-            normal
-        };
-        if current_style.is_none() {
-            current_style = Some(style);
-            current.push(*ch);
-            continue;
-        }
-        if current_style == Some(style) {
-            current.push(*ch);
-        } else {
-            spans.push(Span::styled(current, current_style.unwrap()));
-            current = String::new();
-            current.push(*ch);
-            current_style = Some(style);
-        }
-    }
-    if let Some(style) = current_style {
-        spans.push(Span::styled(current, style));
-    }
-    spans
-}
 
 #[derive(Clone, Copy)]
 struct LineCut {
@@ -1099,73 +1051,15 @@ fn is_line_skip(y: u16, cuts: &[LineCut]) -> bool {
         .any(|cut| y >= cut.skip_start && y <= cut.skip_end)
 }
 
-fn partial_block(fraction: f64) -> char {
-    match fraction {
-        f if f >= 7.0 / 8.0 => '▉',
-        f if f >= 6.0 / 8.0 => '▊',
-        f if f >= 5.0 / 8.0 => '▋',
-        f if f >= 4.0 / 8.0 => '▌',
-        f if f >= 3.0 / 8.0 => '▍',
-        f if f >= 2.0 / 8.0 => '▎',
-        f if f >= 1.0 / 8.0 => '▏',
-        _ => ' ',
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn line_to_string(line: &Line<'static>) -> String {
-        line.spans
-            .iter()
-            .map(|span| span.content.as_ref())
-            .collect::<String>()
-    }
-
     #[test]
-    fn histogram_uses_multiple_columns_when_height_is_limited() {
-        let amplitudes = vec![
-            Complex { re: 1.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-        ];
-        let lines = format_state_histogram(&amplitudes, 3, 4, 40);
-        assert_eq!(lines.len(), 4);
-        let row0 = line_to_string(&lines[0]);
-        let row1 = line_to_string(&lines[1]);
-        let row2 = line_to_string(&lines[2]);
-        let row3 = line_to_string(&lines[3]);
-        assert!(row0.contains("|000>"));
-        assert!(row0.contains("|100>"));
-        assert!(row1.contains("|001>"));
-        assert!(row1.contains("|101>"));
-        assert!(row2.contains("|010>"));
-        assert!(row2.contains("|110>"));
-        assert!(row3.contains("|011>"));
-        assert!(row3.contains("|111>"));
-    }
-
-    #[test]
-    fn histogram_truncates_with_ellipsis_when_columns_do_not_fit() {
-        let amplitudes = vec![
-            Complex { re: 1.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-            Complex { re: 0.0, im: 0.0 },
-        ];
-        let lines = format_state_histogram(&amplitudes, 3, 3, 16);
-        assert_eq!(lines.len(), 3);
-        let last = line_to_string(&lines[2]).trim_end().to_string();
-        assert_eq!(last, "...");
+    fn display_index_to_state_index_reverses_bits() {
+        assert_eq!(display_index_to_state_index(0, 2), 0);
+        assert_eq!(display_index_to_state_index(1, 2), 2);
+        assert_eq!(display_index_to_state_index(2, 2), 1);
+        assert_eq!(display_index_to_state_index(3, 2), 3);
     }
 }
