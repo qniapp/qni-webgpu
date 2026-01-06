@@ -618,37 +618,112 @@ fn format_state_histogram(
 ) -> Vec<Line<'static>> {
     let total = amplitudes.len();
     let max_lines = max_lines as usize;
-    if max_lines == 0 || width == 0 {
+    let width = width as usize;
+    if max_lines == 0 || width == 0 || total == 0 {
         return Vec::new();
     }
-    let mut lines = Vec::new();
-    let visible_states = if max_lines >= total {
-        total
+    const COLUMN_GAP: usize = 2;
+    let label_width = format!("|{:0width$b}>", 0, width = qubits).len();
+    let prob_width = format!("{:.3}", 0.0_f64).len();
+    let min_column_width = label_width + 1 + prob_width;
+    let max_columns_by_width = if width >= min_column_width {
+        ((width + COLUMN_GAP) / (min_column_width + COLUMN_GAP)).max(1)
     } else {
-        max_lines.saturating_sub(1)
+        1
     };
-    for (index, amp) in amplitudes.iter().take(visible_states).enumerate() {
-        let prob = amp.re * amp.re + amp.im * amp.im;
-        let label = format!("|{:0width$b}>", index, width = qubits);
-        let prob_text = format!("{:.3}", prob);
-        let base_len = label.len() + 1;
-        let bar_capacity = (width as usize).saturating_sub(base_len);
-        let label_style = Style::default().fg(Color::DarkGray);
-        let mut spans = Vec::new();
-        spans.push(Span::styled(label, label_style));
-        spans.push(Span::raw(" "));
-        if bar_capacity == 0 {
-            spans.push(Span::raw(prob_text));
-        } else {
-            let bar_spans = build_bar_spans(prob, bar_capacity, &prob_text);
-            spans.extend(bar_spans);
-        }
-        lines.push(Line::from(spans));
+    let columns_needed = (total + max_lines - 1) / max_lines;
+    let columns = columns_needed.min(max_columns_by_width).max(1);
+    let available_width = width.saturating_sub(COLUMN_GAP.saturating_mul(columns.saturating_sub(1)));
+    let column_width = (available_width / columns).max(1);
+    let mut visible_states = total.min(columns * max_lines);
+    let truncated = visible_states < total;
+    if truncated && visible_states > 0 {
+        visible_states = visible_states.saturating_sub(1);
     }
-    if max_lines < total {
-        lines.push(Line::from("..."));
+    let mut entries = Vec::new();
+    for (index, amp) in amplitudes.iter().take(visible_states).enumerate() {
+        entries.push(build_histogram_line(amp, index, qubits, column_width));
+    }
+    if truncated {
+        entries.push(trim_line_to_width(Line::from("..."), column_width));
+    }
+    if entries.is_empty() {
+        return Vec::new();
+    }
+    let rows = max_lines.min(entries.len());
+    let mut lines = Vec::with_capacity(rows);
+    for row in 0..rows {
+        let mut row_spans = Vec::new();
+        for column in 0..columns {
+            let entry_index = column * max_lines + row;
+            let mut spans = if entry_index < entries.len() {
+                entries[entry_index].spans.clone()
+            } else {
+                Vec::new()
+            };
+            let width = spans_width(&spans);
+            if width < column_width {
+                spans.push(Span::raw(" ".repeat(column_width - width)));
+            }
+            row_spans.extend(spans);
+            if column + 1 < columns {
+                row_spans.push(Span::raw(" ".repeat(COLUMN_GAP)));
+            }
+        }
+        lines.push(Line::from(row_spans));
     }
     lines
+}
+
+fn build_histogram_line(
+    amp: &Complex,
+    index: usize,
+    qubits: usize,
+    width: usize,
+) -> Line<'static> {
+    let prob = amp.re * amp.re + amp.im * amp.im;
+    let label = format!("|{:0width$b}>", index, width = qubits);
+    let prob_text = format!("{:.3}", prob);
+    let base_len = label.len() + 1;
+    let bar_capacity = width.saturating_sub(base_len);
+    let label_style = Style::default().fg(Color::DarkGray);
+    let mut spans = Vec::new();
+    spans.push(Span::styled(label, label_style));
+    spans.push(Span::raw(" "));
+    if bar_capacity == 0 {
+        spans.push(Span::raw(prob_text));
+    } else {
+        let bar_spans = build_bar_spans(prob, bar_capacity, &prob_text);
+        spans.extend(bar_spans);
+    }
+    trim_line_to_width(Line::from(spans), width)
+}
+
+fn spans_width(spans: &[Span<'_>]) -> usize {
+    spans
+        .iter()
+        .map(|span| span.content.chars().count())
+        .sum::<usize>()
+}
+
+fn trim_line_to_width(line: Line<'static>, width: usize) -> Line<'static> {
+    let mut remaining = width;
+    let mut spans = Vec::new();
+    for span in line.spans {
+        if remaining == 0 {
+            break;
+        }
+        let span_width = span.content.chars().count();
+        if span_width <= remaining {
+            remaining -= span_width;
+            spans.push(span);
+        } else {
+            let truncated: String = span.content.chars().take(remaining).collect();
+            spans.push(Span::styled(truncated, span.style));
+            remaining = 0;
+        }
+    }
+    Line::from(spans)
 }
 
 fn build_bar_spans(prob: f64, width: usize, label: &str) -> Vec<Span<'static>> {
@@ -720,5 +795,63 @@ fn partial_block(fraction: f64) -> char {
         f if f >= 2.0 / 8.0 => '▎',
         f if f >= 1.0 / 8.0 => '▏',
         _ => ' ',
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn line_to_string(line: &Line<'static>) -> String {
+        line.spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>()
+    }
+
+    #[test]
+    fn histogram_uses_multiple_columns_when_height_is_limited() {
+        let amplitudes = vec![
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+        ];
+        let lines = format_state_histogram(&amplitudes, 3, 4, 40);
+        assert_eq!(lines.len(), 4);
+        let row0 = line_to_string(&lines[0]);
+        let row1 = line_to_string(&lines[1]);
+        let row2 = line_to_string(&lines[2]);
+        let row3 = line_to_string(&lines[3]);
+        assert!(row0.contains("|000>"));
+        assert!(row0.contains("|100>"));
+        assert!(row1.contains("|001>"));
+        assert!(row1.contains("|101>"));
+        assert!(row2.contains("|010>"));
+        assert!(row2.contains("|110>"));
+        assert!(row3.contains("|011>"));
+        assert!(row3.contains("|111>"));
+    }
+
+    #[test]
+    fn histogram_truncates_with_ellipsis_when_columns_do_not_fit() {
+        let amplitudes = vec![
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+        ];
+        let lines = format_state_histogram(&amplitudes, 3, 3, 16);
+        assert_eq!(lines.len(), 3);
+        let last = line_to_string(&lines[2]).trim_end().to_string();
+        assert_eq!(last, "...");
     }
 }
