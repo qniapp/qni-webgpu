@@ -631,22 +631,17 @@ fn format_state_histogram(
         let prob = amp.re * amp.re + amp.im * amp.im;
         let label = format!("|{:0width$b}>", index, width = qubits);
         let prob_text = format!("{:.3}", prob);
-        let base_len = label.len() + 1 + prob_text.len() + 1;
+        let base_len = label.len() + 1;
         let bar_capacity = (width as usize).saturating_sub(base_len);
-        let bar_len = ((prob * bar_capacity as f64).round() as usize).min(bar_capacity);
-        let bar = if bar_capacity > 0 {
-            "█".repeat(bar_len)
-        } else {
-            String::new()
-        };
         let label_style = Style::default().fg(Color::DarkGray);
         let mut spans = Vec::new();
         spans.push(Span::styled(label, label_style));
         spans.push(Span::raw(" "));
-        spans.push(Span::raw(prob_text));
-        if bar_capacity > 0 {
-            spans.push(Span::raw(" "));
-            spans.push(Span::raw(bar));
+        if bar_capacity == 0 {
+            spans.push(Span::raw(prob_text));
+        } else {
+            let bar_spans = build_bar_spans(prob, bar_capacity, &prob_text);
+            spans.extend(bar_spans);
         }
         lines.push(Line::from(spans));
     }
@@ -654,4 +649,76 @@ fn format_state_histogram(
         lines.push(Line::from("..."));
     }
     lines
+}
+
+fn build_bar_spans(prob: f64, width: usize, label: &str) -> Vec<Span<'static>> {
+    if width == 0 {
+        return Vec::new();
+    }
+    let ratio = prob.clamp(0.0, 1.0);
+    let units = ratio * width as f64;
+    let full = units.floor() as usize;
+    let frac = units - full as f64;
+    let mut cells = vec![' '; width];
+    let mut filled = vec![false; width];
+    for i in 0..full.min(width) {
+        cells[i] = '█';
+        filled[i] = true;
+    }
+    if full < width {
+        let partial = partial_block(frac);
+        if partial != ' ' {
+            cells[full] = partial;
+            filled[full] = true;
+        }
+    }
+    let label_chars: Vec<char> = label.chars().collect();
+    if label_chars.len() <= width {
+        for (offset, ch) in label_chars.into_iter().enumerate() {
+            cells[offset] = ch;
+        }
+    }
+    let normal = Style::default().fg(Color::White).bg(UI_BACKGROUND);
+    let inverted = Style::default().fg(UI_BACKGROUND).bg(Color::White);
+    let mut spans = Vec::new();
+    let mut current = String::new();
+    let mut current_style = None;
+    for (idx, ch) in cells.iter().enumerate() {
+        let is_label = idx < label.len();
+        let style = if is_label && filled[idx] {
+            inverted
+        } else {
+            normal
+        };
+        if current_style.is_none() {
+            current_style = Some(style);
+            current.push(*ch);
+            continue;
+        }
+        if current_style == Some(style) {
+            current.push(*ch);
+        } else {
+            spans.push(Span::styled(current, current_style.unwrap()));
+            current = String::new();
+            current.push(*ch);
+            current_style = Some(style);
+        }
+    }
+    if let Some(style) = current_style {
+        spans.push(Span::styled(current, style));
+    }
+    spans
+}
+
+fn partial_block(fraction: f64) -> char {
+    match fraction {
+        f if f >= 7.0 / 8.0 => '▉',
+        f if f >= 6.0 / 8.0 => '▊',
+        f if f >= 5.0 / 8.0 => '▋',
+        f if f >= 4.0 / 8.0 => '▌',
+        f if f >= 3.0 / 8.0 => '▍',
+        f if f >= 2.0 / 8.0 => '▎',
+        f if f >= 1.0 / 8.0 => '▏',
+        _ => ' ',
+    }
 }
