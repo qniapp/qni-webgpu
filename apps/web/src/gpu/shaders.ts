@@ -154,6 +154,7 @@ struct CircleLayout {
   outlineColor: vec4<f32>,
   outlineZeroColor: vec4<f32>,
   innerColor: vec4<f32>,
+  needleColor: vec4<f32>,
 }
 
 struct Instance {
@@ -232,7 +233,7 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let center = vec2<f32>(x + radius, y + radius);
     let phase = atan2(amplitude.y, amplitude.x);
     let dir = vec2<f32>(cos(phase), sin(phase));
-    var needleColor = circleLayout.outlineColor;
+    var needleColor = circleLayout.needleColor;
     needleColor.a = needleColor.a * select(0.0, 1.0, probability > 0.0);
     write_instance(
       instanceBase + 3u,

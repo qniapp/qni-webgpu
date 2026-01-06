@@ -109,7 +109,7 @@ async function init() {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
     })
     const stateCircleLayoutBuffer = device.createBuffer({
-      size: 24 * 4,
+      size: 28 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -140,6 +140,10 @@ async function init() {
         COLORS.surface[1],
         COLORS.surface[2],
         COLORS.surface[3],
+        COLORS.stateNeedle[0],
+        COLORS.stateNeedle[1],
+        COLORS.stateNeedle[2],
+        COLORS.stateNeedle[3],
       ])
       device.queue.writeBuffer(stateCircleLayoutBuffer, 0, data)
     }

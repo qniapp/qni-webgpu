@@ -74,4 +74,5 @@ export const COLORS: Record<string, Color> = {
   stateFill: [0.16, 0.58, 0.78, 1.0],
   stateOutline: [0.16, 0.58, 0.78, 1.0],
   stateOutlineZero: [0.75, 0.75, 0.75, 1.0],
+  stateNeedle: [0.0, 0.0, 0.0, 1.0],
 }
