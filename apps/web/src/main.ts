@@ -1,10 +1,15 @@
 import './style.css'
-import { computeStateVectorSequence, populateStateTextBuffer, type GateOperation } from './gpu/compute'
+import { computeStateVectorSequence, populateStateCircleBuffer, type GateOperation } from './gpu/compute'
 import { initGpu } from './gpu/init'
 import { createRenderer } from './renderer/renderer'
-import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
+import {
+  COLORS,
+  DEFAULT_CANVAS_HEIGHT,
+  DEFAULT_CANVAS_WIDTH,
+  STATE_CIRCLE_INSTANCE_COUNT,
+} from './ui/constants'
 import { setupInput } from './ui/input'
-import { buildScene } from './ui/layout'
+import { buildScene, getStateCircleLayout } from './ui/layout'
 import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, createFontAtlas, createIconAtlas } from './ui/text'
 import type { PlacedGate } from './ui/types'
 import hGatePng from './assets/gates/png/h-gate.png'
@@ -98,11 +103,46 @@ async function init() {
       setStatus(event.error.message)
     }
 
-    const stateTextGlyphBuffer = device.createBuffer({
-      size: STATE_TEXT_MAX_LEN * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    const stateCircleInstanceStride = 11
+    const stateCircleBuffer = device.createBuffer({
+      size: STATE_CIRCLE_INSTANCE_COUNT * stateCircleInstanceStride * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
     })
-    device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
+    const stateCircleLayoutBuffer = device.createBuffer({
+      size: 24 * 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    })
+
+    const updateStateCircleLayout = () => {
+      const layout = getStateCircleLayout(canvas.width, canvas.height)
+      const data = new Float32Array([
+        layout.baseX,
+        layout.baseY,
+        layout.size,
+        layout.gap,
+        layout.stroke,
+        0,
+        0,
+        0,
+        COLORS.stateFill[0],
+        COLORS.stateFill[1],
+        COLORS.stateFill[2],
+        COLORS.stateFill[3],
+        COLORS.stateOutline[0],
+        COLORS.stateOutline[1],
+        COLORS.stateOutline[2],
+        COLORS.stateOutline[3],
+        COLORS.stateOutlineZero[0],
+        COLORS.stateOutlineZero[1],
+        COLORS.stateOutlineZero[2],
+        COLORS.stateOutlineZero[3],
+        COLORS.surface[0],
+        COLORS.surface[1],
+        COLORS.surface[2],
+        COLORS.surface[3],
+      ])
+      device.queue.writeBuffer(stateCircleLayoutBuffer, 0, data)
+    }
 
     const shouldExposeStateVector = window.__captureStateVector === true
     const shouldReadback = shouldExposeStateVector
@@ -111,7 +151,8 @@ async function init() {
       [],
       shouldReadback
     )
-    await populateStateTextBuffer(device, initialState, stateTextGlyphBuffer)
+    updateStateCircleLayout()
+    await populateStateCircleBuffer(device, initialState, stateCircleBuffer, stateCircleLayoutBuffer)
     if (stateVectorReadback && shouldExposeStateVector) {
       window.__stateVector = Array.from(stateVectorReadback)
     }
@@ -148,11 +189,13 @@ async function init() {
       labelAtlasHeight: labelAtlas.atlasHeight,
       fontSampler,
       labelSampler,
-      stateTextGlyphBuffer,
+      stateCircleBuffer,
+      stateCircleCount: STATE_CIRCLE_INSTANCE_COUNT,
     })
 
     const placedGates: PlacedGate[] = []
     let hoveredPaletteIndex: number | null = null
+    let currentStateBuffer = initialState
 
     const getGateSequence = (): GateOperation[] => {
       return [...placedGates]
@@ -162,7 +205,7 @@ async function init() {
     }
 
     const updateScene = () => {
-      const scene = buildScene(placedGates, canvas.width, canvas.height, hoveredPaletteIndex)
+      const scene = buildScene(placedGates, canvas.width, hoveredPaletteIndex)
       const draggingGate = placedGates.find((gate) => gate.dragging) ?? null
       window.__vertexCount = scene.instances.length
       renderer.updateScene(scene, draggingGate)
@@ -171,7 +214,8 @@ async function init() {
     const recomputeStateVector = async () => {
       const gates = getGateSequence()
       const result = await computeStateVectorSequence(device, gates, shouldReadback)
-      await populateStateTextBuffer(device, result.outputBuffer, stateTextGlyphBuffer)
+      currentStateBuffer = result.outputBuffer
+      await populateStateCircleBuffer(device, result.outputBuffer, stateCircleBuffer, stateCircleLayoutBuffer)
       if (result.readback && shouldExposeStateVector) {
         window.__stateVector = Array.from(result.readback)
       }
@@ -196,6 +240,8 @@ async function init() {
     window.addEventListener('resize', () => {
       resizeCanvas()
       renderer.setSize(canvas.width, canvas.height)
+      updateStateCircleLayout()
+      void populateStateCircleBuffer(device, currentStateBuffer, stateCircleBuffer, stateCircleLayoutBuffer)
       updateScene()
     })
 

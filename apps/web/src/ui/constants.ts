@@ -4,14 +4,12 @@ import type { Color } from './types'
 export const REM = 32
 export const DEFAULT_CANVAS_WIDTH = 25 * REM
 export const DEFAULT_CANVAS_HEIGHT = 18.75 * REM
-export const STATE_TEXT_MAX_LEN = 160
-export const STATE_CARD_LINE_LENGTHS = [14, 28, 23, 17] as const
-export const STATE_CARD_LINE_OFFSETS = [0, 14, 42, 65] as const
-export const STATE_CARD_MAX_LINE = 28
-export const STATE_TEXT_GLYPH_COUNT = 82
-export const STATE_CARD_PADDING = 1 * REM
-export const STATE_CARD_LINE_GAP = 0.5 * REM
-export const STATE_CARD_BOTTOM_MARGIN = 2 * REM
+export const STATE_CIRCLE_COUNT = 4
+export const STATE_CIRCLE_SIZE = 1 * REM
+export const STATE_CIRCLE_GAP = 0.5 * REM
+export const STATE_CIRCLE_BOTTOM_MARGIN = 2 * REM
+export const STATE_CIRCLE_STROKE = 2
+export const STATE_CIRCLE_INSTANCE_COUNT = STATE_CIRCLE_COUNT * 3
 
 export const LINE_Y = 6.5 * REM
 export const LINE_GAP = 1.5 * REM
@@ -73,6 +71,7 @@ export const COLORS: Record<string, Color> = {
   boxActive: [0.52, 0.45, 0.7, 1.0],
   label: [1.0, 1.0, 1.0, 1.0],
   text: [0.45, 0.45, 0.45, 1.0],
-  card: [0.15, 0.15, 0.17, 0.95],
-  cardText: [0.95, 0.96, 0.98, 1.0],
+  stateFill: [0.16, 0.58, 0.78, 1.0],
+  stateOutline: [0.16, 0.58, 0.78, 1.0],
+  stateOutlineZero: [0.75, 0.75, 0.75, 1.0],
 }

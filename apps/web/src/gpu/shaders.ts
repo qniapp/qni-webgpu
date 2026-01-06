@@ -1,5 +1,3 @@
-import { STATE_TEXT_MAX_LEN } from '../ui/constants'
-
 export const computeShaderCode = `
 struct GateParams {
   gateType: u32,
@@ -148,69 +146,36 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 `
 
-export const stateTextComputeCode = `
-const STATE_TEXT_LEN: u32 = ${STATE_TEXT_MAX_LEN}u;
-const EPSILON: f32 = 0.0000005;
-const PI: f32 = 3.14159265;
-const RAD_TO_DEG: f32 = 180.0 / PI;
-const LINE1_START: u32 = 0u;
-const LINE2_START: u32 = 14u;
-const LINE3_START: u32 = 42u;
-const LINE4_START: u32 = 65u;
+export const stateCircleComputeCode = `
+struct CircleLayout {
+  baseSizeGap: vec4<f32>,
+  strokePad: vec4<f32>,
+  fillColor: vec4<f32>,
+  outlineColor: vec4<f32>,
+  outlineZeroColor: vec4<f32>,
+  innerColor: vec4<f32>,
+}
+
+struct Instance {
+  data: array<f32, 11>,
+}
 
 @group(0) @binding(0) var<storage, read> stateVector: array<vec2<f32>, 4>;
-@group(0) @binding(1) var<storage, read_write> glyphs: array<u32>;
+@group(0) @binding(1) var<storage, read_write> instances: array<Instance>;
+@group(0) @binding(2) var<uniform> circleLayout: CircleLayout;
 
-fn write_char(idx: ptr<function, u32>, code: u32) {
-  if (*idx < STATE_TEXT_LEN) {
-    glyphs[*idx] = code;
-  }
-  *idx = *idx + 1u;
-}
-
-fn write_digit(idx: ptr<function, u32>, digit: u32) {
-  let d = min(digit, 9u);
-  write_char(idx, 48u + d);
-}
-
-fn write_uint_padded(idx: ptr<function, u32>, value: u32, width: u32) {
-  var div: u32 = 1u;
-  for (var i: u32 = 1u; i < width; i = i + 1u) {
-    div = div * 10u;
-  }
-  var v = value;
-  for (var i: u32 = 0u; i < width; i = i + 1u) {
-    let digit = v / div;
-    write_digit(idx, digit);
-    v = v - digit * div;
-    if (div > 1u) {
-      div = div / 10u;
-    }
-  }
-}
-
-fn write_fixed_unsigned(idx: ptr<function, u32>, value: f32, int_width: u32, decimals: u32) {
-  let int_part = u32(value);
-  write_uint_padded(idx, int_part, int_width);
-  write_char(idx, 46u);
-
-  var frac = value - f32(int_part);
-  for (var i: u32 = 0u; i < decimals; i = i + 1u) {
-    frac = frac * 10.0;
-    let digit = u32(frac);
-    write_digit(idx, digit);
-    frac = frac - f32(digit);
-  }
-}
-
-fn write_fixed_signed(idx: ptr<function, u32>, value: f32, int_width: u32, decimals: u32) {
-  let sign = select(43u, 45u, value < 0.0);
-  write_char(idx, sign);
-  write_fixed_unsigned(idx, abs(value), int_width, decimals);
-}
-
-fn sanitize(value: f32) -> f32 {
-  return select(value, 0.0, abs(value) < EPSILON);
+fn write_instance(index: u32, kind: f32, thickness: f32, p0: vec2<f32>, p1: vec2<f32>, color: vec4<f32>) {
+  instances[index].data[0] = kind;
+  instances[index].data[1] = thickness;
+  instances[index].data[2] = p0.x;
+  instances[index].data[3] = p0.y;
+  instances[index].data[4] = p1.x;
+  instances[index].data[5] = p1.y;
+  instances[index].data[6] = color.x;
+  instances[index].data[7] = color.y;
+  instances[index].data[8] = color.z;
+  instances[index].data[9] = color.w;
+  instances[index].data[10] = 0.0;
 }
 
 @compute @workgroup_size(1)
@@ -219,79 +184,51 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
     return;
   }
 
-  for (var i: u32 = 0u; i < STATE_TEXT_LEN; i = i + 1u) {
-    glyphs[i] = 0u;
+  let base = circleLayout.baseSizeGap.xy;
+  let size = circleLayout.baseSizeGap.z;
+  let gap = circleLayout.baseSizeGap.w;
+  let stroke = circleLayout.strokePad.x;
+  let innerSize = max(size - stroke * 2.0, 0.0);
+  let radius = size * 0.5;
+  let innerRadius = innerSize * 0.5;
+
+  for (var i: u32 = 0u; i < 4u; i = i + 1u) {
+    let amplitude = stateVector[i];
+    let probability = clamp(dot(amplitude, amplitude), 0.0, 1.0);
+    let fillSize = innerSize * sqrt(probability);
+    let fillRadius = fillSize * 0.5;
+    let x = base.x + f32(i) * (size + gap);
+    let y = base.y;
+    let outlineColor = select(circleLayout.outlineZeroColor, circleLayout.outlineColor, probability > 0.0);
+    let instanceBase = i * 3u;
+
+    write_instance(
+      instanceBase,
+      2.0,
+      radius,
+      vec2<f32>(x, y),
+      vec2<f32>(size, size),
+      outlineColor
+    );
+
+    write_instance(
+      instanceBase + 1u,
+      2.0,
+      innerRadius,
+      vec2<f32>(x + stroke, y + stroke),
+      vec2<f32>(innerSize, innerSize),
+      circleLayout.innerColor
+    );
+
+    write_instance(
+      instanceBase + 2u,
+      2.0,
+      fillRadius,
+      vec2<f32>(x + (size - fillSize) * 0.5, y + (size - fillSize) * 0.5),
+      vec2<f32>(fillSize, fillSize),
+      circleLayout.fillColor
+    );
   }
-
-  let a0 = stateVector[0];
-  let re = sanitize(a0.x);
-  let im = sanitize(a0.y);
-  let prob = (re * re + im * im) * 100.0;
-  let phase = sanitize(atan2(im, re) * RAD_TO_DEG);
-
-  var cursor: u32 = LINE1_START;
-  write_char(&cursor, 124u);
-  write_char(&cursor, 48u);
-  write_char(&cursor, 48u);
-  write_char(&cursor, 62u);
-  write_char(&cursor, 32u);
-  write_char(&cursor, 68u);
-  write_char(&cursor, 69u);
-  write_char(&cursor, 67u);
-  write_char(&cursor, 73u);
-  write_char(&cursor, 77u);
-  write_char(&cursor, 65u);
-  write_char(&cursor, 76u);
-  write_char(&cursor, 32u);
-  write_char(&cursor, 48u);
-
-  cursor = LINE2_START;
-  write_char(&cursor, 65u);
-  write_char(&cursor, 77u);
-  write_char(&cursor, 80u);
-  write_char(&cursor, 76u);
-  write_char(&cursor, 73u);
-  write_char(&cursor, 84u);
-  write_char(&cursor, 85u);
-  write_char(&cursor, 68u);
-  write_char(&cursor, 69u);
-  write_char(&cursor, 58u);
-  write_char(&cursor, 32u);
-  write_fixed_signed(&cursor, re, 1u, 5u);
-  let im_sign = select(43u, 45u, im < 0.0);
-  write_char(&cursor, im_sign);
-  write_fixed_unsigned(&cursor, abs(im), 1u, 5u);
-  write_char(&cursor, 105u);
-
-  cursor = LINE3_START;
-  write_char(&cursor, 80u);
-  write_char(&cursor, 82u);
-  write_char(&cursor, 79u);
-  write_char(&cursor, 66u);
-  write_char(&cursor, 65u);
-  write_char(&cursor, 66u);
-  write_char(&cursor, 73u);
-  write_char(&cursor, 76u);
-  write_char(&cursor, 73u);
-  write_char(&cursor, 84u);
-  write_char(&cursor, 89u);
-  write_char(&cursor, 58u);
-  write_char(&cursor, 32u);
-  write_fixed_signed(&cursor, prob, 3u, 4u);
-  write_char(&cursor, 37u);
-
-  cursor = LINE4_START;
-  write_char(&cursor, 80u);
-  write_char(&cursor, 72u);
-  write_char(&cursor, 65u);
-  write_char(&cursor, 83u);
-  write_char(&cursor, 69u);
-  write_char(&cursor, 58u);
-  write_char(&cursor, 32u);
-  write_fixed_signed(&cursor, phase, 3u, 2u);
-  write_char(&cursor, 68u);
-  write_char(&cursor, 69u);
-  write_char(&cursor, 71u);
 }
 `
 

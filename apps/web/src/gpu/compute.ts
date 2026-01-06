@@ -1,5 +1,5 @@
 import { gateToIndex, type Gate } from '../domain/gate'
-import { computeShaderCode, stateTextComputeCode } from './shaders'
+import { computeShaderCode, stateCircleComputeCode } from './shaders'
 
 export type GateOperation = {
   gate: Gate
@@ -98,12 +98,13 @@ export async function computeStateVectorSequence(
   return { outputBuffer, readback: null }
 }
 
-export async function populateStateTextBuffer(
+export async function populateStateCircleBuffer(
   device: GPUDevice,
   stateVectorBuffer: GPUBuffer,
-  glyphBuffer: GPUBuffer
+  instanceBuffer: GPUBuffer,
+  layoutBuffer: GPUBuffer
 ): Promise<void> {
-  const shaderModule = device.createShaderModule({ code: stateTextComputeCode })
+  const shaderModule = device.createShaderModule({ code: stateCircleComputeCode })
   const compilationInfo = await shaderModule.getCompilationInfo()
   const compilationErrors = compilationInfo.messages.filter((message) => message.type === 'error')
   if (compilationErrors.length > 0) {
@@ -123,7 +124,8 @@ export async function populateStateTextBuffer(
     layout: pipeline.getBindGroupLayout(0),
     entries: [
       { binding: 0, resource: { buffer: stateVectorBuffer } },
-      { binding: 1, resource: { buffer: glyphBuffer } },
+      { binding: 1, resource: { buffer: instanceBuffer } },
+      { binding: 2, resource: { buffer: layoutBuffer } },
     ],
   })
 

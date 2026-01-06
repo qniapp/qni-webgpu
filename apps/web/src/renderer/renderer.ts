@@ -1,6 +1,6 @@
 import type { SceneLayout } from '../ui/layout'
 import type { PlacedGate, ShapeInstance, TextLayout } from '../ui/types'
-import { COLORS, GATE_SIZE, STATE_CARD_LINE_OFFSETS } from '../ui/constants'
+import { COLORS, GATE_SIZE } from '../ui/constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from '../ui/text'
 import { shapeShaderCode, textShaderCode } from '../gpu/shaders'
 
@@ -26,7 +26,8 @@ type RendererOptions = {
   labelAtlasHeight: number
   fontSampler: GPUSampler
   labelSampler: GPUSampler
-  stateTextGlyphBuffer: GPUBuffer
+  stateCircleBuffer: GPUBuffer
+  stateCircleCount: number
 }
 
 export function createRenderer(options: RendererOptions) {
@@ -44,7 +45,8 @@ export function createRenderer(options: RendererOptions) {
     labelAtlasHeight,
     fontSampler,
     labelSampler,
-    stateTextGlyphBuffer,
+    stateCircleBuffer,
+    stateCircleCount,
   } = options
 
   const instanceStride = 11
@@ -256,7 +258,6 @@ export function createRenderer(options: RendererOptions) {
   let gateTexts: TextBuffers[] = []
   let paletteTexts: TextBuffers[] = []
   let wireTexts: TextBuffers[] = []
-  let stateTextDraws: TextBuffers[] = []
 
   const syncGateTexts = (layouts: TextLayout[]) => {
     if (gateTexts.length !== layouts.length) {
@@ -357,38 +358,6 @@ export function createRenderer(options: RendererOptions) {
       })
     }
 
-    if (stateTextDraws.length === 0) {
-      stateTextDraws = scene.stateVectorLines.map((layout, index) =>
-        makeTextBuffers(layout, {
-          glyphBuffer: stateTextGlyphBuffer,
-          glyphCount: layout.glyphCount ?? 0,
-          glyphOffset: STATE_CARD_LINE_OFFSETS[index] ?? 0,
-        })
-      )
-    } else {
-      scene.stateVectorLines.forEach((layout, index) => {
-        if (!stateTextDraws[index]) {
-          stateTextDraws.push(
-            makeTextBuffers(layout, {
-              glyphBuffer: stateTextGlyphBuffer,
-              glyphCount: layout.glyphCount ?? 0,
-              glyphOffset: STATE_CARD_LINE_OFFSETS[index] ?? 0,
-            })
-          )
-          return
-        }
-        updateTextUniform(
-          stateTextDraws[index].uniformBuffer,
-          layout,
-          FONT_GLYPH_SIZE,
-          fontAtlasWidth,
-          fontAtlasHeight,
-          STATE_CARD_LINE_OFFSETS[index] ?? 0
-        )
-        stateTextDraws[index].glyphCount = layout.glyphCount ?? 0
-      })
-    }
-
     updateGateOverlay(draggingGate)
   }
 
@@ -410,6 +379,11 @@ export function createRenderer(options: RendererOptions) {
     pass.setBindGroup(0, shapeBindGroup)
     pass.setVertexBuffer(0, instanceBuffer)
     pass.draw(6, instanceCount, 0, 0)
+
+    if (stateCircleCount > 0) {
+      pass.setVertexBuffer(0, stateCircleBuffer)
+      pass.draw(6, stateCircleCount, 0, 0)
+    }
 
     pass.setPipeline(textPipeline)
     for (const paletteText of paletteTexts) {
@@ -433,11 +407,6 @@ export function createRenderer(options: RendererOptions) {
     for (const gateText of gateTexts) {
       pass.setBindGroup(0, gateText.textBindGroup)
       pass.draw(6, gateText.glyphCount, 0, 0)
-    }
-
-    for (const stateTextDraw of stateTextDraws) {
-      pass.setBindGroup(0, stateTextDraw.textBindGroup)
-      pass.draw(6, stateTextDraw.glyphCount, 0, 0)
     }
 
     pass.end()

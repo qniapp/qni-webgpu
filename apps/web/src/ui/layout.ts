@@ -7,11 +7,11 @@ import {
   PALETTE_ROW_Y,
   PALETTE_SIZE,
   REM,
-  STATE_CARD_BOTTOM_MARGIN,
-  STATE_CARD_LINE_GAP,
-  STATE_CARD_LINE_LENGTHS,
-  STATE_CARD_MAX_LINE,
-  STATE_CARD_PADDING,
+  STATE_CIRCLE_BOTTOM_MARGIN,
+  STATE_CIRCLE_COUNT,
+  STATE_CIRCLE_GAP,
+  STATE_CIRCLE_SIZE,
+  STATE_CIRCLE_STROKE,
   getLayoutMetrics,
 } from './constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from './text'
@@ -48,7 +48,6 @@ export type SceneLayout = {
   gateLabels: TextLayout[]
   paletteLabels: TextLayout[]
   wireLabels: TextLayout[]
-  stateVectorLines: TextLayout[]
 }
 
 const labelPosition = (x: number, y: number, size: number, text: string) => {
@@ -59,10 +58,30 @@ const labelPosition = (x: number, y: number, size: number, text: string) => {
   }
 }
 
+export type StateCircleLayout = {
+  baseX: number
+  baseY: number
+  size: number
+  gap: number
+  stroke: number
+}
+
+export function getStateCircleLayout(canvasWidth: number, canvasHeight: number): StateCircleLayout {
+  const totalWidth = STATE_CIRCLE_COUNT * STATE_CIRCLE_SIZE + (STATE_CIRCLE_COUNT - 1) * STATE_CIRCLE_GAP
+  const baseX = (canvasWidth - totalWidth) / 2
+  const baseY = canvasHeight - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE
+  return {
+    baseX,
+    baseY,
+    size: STATE_CIRCLE_SIZE,
+    gap: STATE_CIRCLE_GAP,
+    stroke: STATE_CIRCLE_STROKE,
+  }
+}
+
 export function buildScene(
   placedGates: PlacedGate[],
   canvasWidth: number,
-  canvasHeight: number,
   hoveredPaletteIndex: number | null
 ): SceneLayout {
   instances.length = 0
@@ -131,26 +150,10 @@ export function buildScene(
     color: COLORS.text,
   }))
 
-  const lineHeight = FONT_GLYPH_SIZE + STATE_CARD_LINE_GAP
-  const stateCardTextWidth = STATE_CARD_MAX_LINE * FONT_GLYPH_SIZE
-  const stateCardWidth = stateCardTextWidth + STATE_CARD_PADDING * 2
-  const stateCardHeight = STATE_CARD_PADDING * 2 + FONT_GLYPH_SIZE + lineHeight * (STATE_CARD_LINE_LENGTHS.length - 1)
-  const stateCardX = (canvasWidth - stateCardWidth) / 2
-  const stateCardY = canvasHeight - STATE_CARD_BOTTOM_MARGIN - stateCardHeight
-  addRoundedRect(stateCardX, stateCardY, stateCardWidth, stateCardHeight, 12, COLORS.card)
-  const stateVectorLines: TextLayout[] = STATE_CARD_LINE_LENGTHS.map((length, index) => ({
-    text: '',
-    x: stateCardX + STATE_CARD_PADDING,
-    y: stateCardY + STATE_CARD_PADDING + index * lineHeight,
-    color: COLORS.cardText,
-    glyphCount: length,
-  }))
-
   return {
     instances: [...instances],
     gateLabels,
     paletteLabels,
     wireLabels,
-    stateVectorLines,
   }
 }
