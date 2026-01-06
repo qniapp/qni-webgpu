@@ -60,7 +60,7 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             .saturating_add(total_circuit_height)
             .saturating_add(1),
     );
-    let max_states = (1usize << qubit_count) as u16;
+    let max_states = (1usize << qubit_count).min(u16::MAX as usize) as u16;
     let state_height = max_states.min(available_state.max(1));
     let state_y = area
         .y
@@ -95,6 +95,18 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             width: area.width,
             height: state_height,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn layout_regions_keeps_state_height_for_16_qubits() {
+        let area = Rect::new(0, 0, 120, 120);
+        let regions = layout_regions(area, 16);
+        assert!(regions.state.height > 0);
     }
 }
 
