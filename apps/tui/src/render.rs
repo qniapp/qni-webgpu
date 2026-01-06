@@ -181,6 +181,15 @@ fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
     );
 }
 
+#[derive(Clone)]
+struct DeferredGate {
+    rect: Rect,
+    gate: Gate,
+    phase_label: Option<String>,
+    phase_edit_active: bool,
+    measure_value: Option<u8>,
+}
+
 pub(crate) fn draw_gate_box(
     buffer: &mut Buffer,
     rect: Rect,
@@ -691,7 +700,7 @@ pub fn render_to_buffer_with_drag(
         state.cached_limit = state_limit;
         state.cache_valid = true;
     }
-    let mut deferred_gate: Option<(Rect, Gate, Option<String>, bool, Option<u8>)> = None;
+    let mut deferred_gate: Option<DeferredGate> = None;
     let defer_target = state
         .dragging
         .is_some()
@@ -761,13 +770,13 @@ pub fn render_to_buffer_with_drag(
                             .and_then(|index| state.placed.get(row)?.get(index))
                             .and_then(|gate| *gate);
                         if left_gate.is_some() {
-                            deferred_gate = Some((
-                                *rect,
-                                *gate,
+                            deferred_gate = Some(DeferredGate {
+                                rect: *rect,
+                                gate: *gate,
                                 phase_label,
                                 phase_edit_active,
                                 measure_value,
-                            ));
+                            });
                             continue;
                         }
                     }
@@ -843,14 +852,14 @@ pub fn render_to_buffer_with_drag(
             );
         }
     }
-    if let Some((rect, gate, phase_label, phase_edit_active, measure_value)) = deferred_gate {
+    if let Some(deferred_gate) = deferred_gate {
         draw_gate_box(
             &mut buffer,
-            rect,
-            gate,
-            measure_value,
-            phase_label.as_deref(),
-            phase_edit_active,
+            deferred_gate.rect,
+            deferred_gate.gate,
+            deferred_gate.measure_value,
+            deferred_gate.phase_label.as_deref(),
+            deferred_gate.phase_edit_active,
             None,
             false,
         );
