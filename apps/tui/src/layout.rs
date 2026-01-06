@@ -49,12 +49,18 @@ pub struct CircuitLayout {
 }
 
 pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
-    let state_y = area.y.saturating_add(area.height.saturating_sub(1));
     let palette_bottom = area.y.saturating_add(PALETTE_HEIGHT);
     let separator_y = palette_bottom.saturating_add(PALETTE_GAP);
     let desired_circuit_y = separator_y.saturating_add(1 + SEPARATOR_TO_CIRCUIT_GAP);
     let total_circuit_height =
         (GATE_DRAW_HEIGHT * qubit_count as u16).saturating_add(ROW_GAP * (qubit_count as u16 - 1));
+    let min_top = desired_circuit_y.saturating_sub(area.y);
+    let available_state = area
+        .height
+        .saturating_sub(min_top.saturating_add(total_circuit_height).saturating_add(1));
+    let max_states = (1usize << qubit_count) as u16;
+    let state_height = max_states.min(available_state.max(1));
+    let state_y = area.y.saturating_add(area.height.saturating_sub(state_height));
     let max_circuit_y = state_y.saturating_sub(total_circuit_height + 1);
     let circuit_y = if max_circuit_y < desired_circuit_y {
         palette_bottom
@@ -83,7 +89,7 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             x: area.x,
             y: state_y,
             width: area.width,
-            height: 1,
+            height: state_height,
         },
     }
 }
@@ -185,7 +191,8 @@ pub fn is_empty_drop(_x: u16, y: u16, area: Rect, qubit_count: usize) -> bool {
         .unwrap_or(circuit_top);
     let within_palette = y >= regions.palette.y && y < palette_bottom;
     let within_circuit = y >= circuit_top && y < circuit_bottom;
-    !within_palette && !within_circuit && y != regions.state.y
+    let within_state = y >= regions.state.y && y < regions.state.y.saturating_add(regions.state.height);
+    !within_palette && !within_circuit && !within_state
 }
 
 pub fn insertion_snap_rect(layout: &CircuitLayout, row: usize, index: usize) -> Option<Rect> {

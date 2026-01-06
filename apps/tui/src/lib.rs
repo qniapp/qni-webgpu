@@ -176,42 +176,42 @@ mod tests {
         let mut state = state_with_gate(Gate::H);
         let buffer = render_to_buffer(&mut state, area, None);
         let layout = circuit_layout(area, qubit_count(&state));
+        let regions = layout_regions(area, qubit_count(&state));
         let gate_rect = layout.slots[0][0];
         let top = buffer_to_string(&buffer, gate_rect.x, gate_rect.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, gate_rect.x, gate_rect.y + 1, GATE_BOX_WIDTH);
-        let state_line = buffer_to_line(&buffer, area, area.height - 1);
+        let state_line = buffer_to_line(&buffer, area, regions.state.y);
         let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
         assert_eq!(top, "▔▔▔▔▔");
         assert_eq!(mid, "  H  ");
         assert!(wire_line.starts_with("q0: "));
-        assert_eq!(
-            state_line,
-            "State: [(1+0i), (0+0i), (0+0i), (0+0i)]"
-        );
+        assert!(state_line.starts_with("|00>"));
+        assert!(state_line.contains("1.000"));
     }
 
     #[test]
     fn state_line_respects_hovered_column() {
         let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new();
-        let layout = circuit_layout(area, qubit_count(&state));
-        let slot1 = layout.slots[0][1];
-        state.placed[0] = vec![Some(Gate::H), Some(Gate::Z)];
+        let regions = layout_regions(area, qubit_count(&state));
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::Control)];
+        state.placed[1] = vec![None, Some(Gate::X)];
         state.hovered_column = Some((0, 0));
         let buffer = render_to_buffer(&mut state, area, None);
-        let state_line = buffer_to_line(&buffer, area, area.height - 1);
-        assert_eq!(
-            state_line,
-            "State: [(0.7071067811865475+0i), (0+0i), (0.7071067811865475+0i), (0+0i)]"
-        );
+        let line_10 = buffer_to_line(&buffer, area, regions.state.y + 2);
+        let line_11 = buffer_to_line(&buffer, area, regions.state.y + 3);
+        assert!(line_10.contains("|10>"));
+        assert!(line_10.contains("0.500"));
+        assert!(line_11.contains("|11>"));
+        assert!(line_11.contains("0.000"));
         state.hovered_column = Some((0, 1));
         let buffer = render_to_buffer(&mut state, area, None);
-        let state_line = buffer_to_line(&buffer, area, area.height - 1);
-        assert_eq!(
-            state_line,
-            "State: [(0.7071067811865475+0i), (0+0i), (-0.7071067811865475+0i), (0+0i)]"
-        );
-        let _ = slot1;
+        let line_10 = buffer_to_line(&buffer, area, regions.state.y + 2);
+        let line_11 = buffer_to_line(&buffer, area, regions.state.y + 3);
+        assert!(line_10.contains("|10>"));
+        assert!(line_10.contains("0.000"));
+        assert!(line_11.contains("|11>"));
+        assert!(line_11.contains("0.500"));
     }
 
     #[test]

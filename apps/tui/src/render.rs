@@ -1,15 +1,15 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::Text;
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph, Widget};
 
 use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
 };
 use crate::model::{
-    apply_gates_to_zero_limit, default_phase_value, ensure_slots, format_complex, qubit_count,
-    AppState, Complex, Gate,
+    apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
+    Gate,
 };
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL,
@@ -453,7 +453,7 @@ pub fn render_to_buffer_with_drag(
     if !state.cache_valid || state.cached_limit != state_limit {
         let simulation =
             apply_gates_to_zero_limit(&state.placed, state_limit, Some(&state.phase_values));
-        state.cached_state_line = format_state_line(&simulation.state);
+        state.cached_state = simulation.state;
         state.cached_limit = state_limit;
         state.cache_valid = true;
     }
@@ -517,8 +517,13 @@ pub fn render_to_buffer_with_drag(
         // No placeholder rendering; snapping is handled by the drag visual.
     }
     let _ = debug_line;
-    let state_line = state.cached_state_line.clone();
-    let text = Text::from(state_line);
+    let lines = format_state_histogram(
+        &state.cached_state,
+        current_qubits,
+        regions.state.height,
+        regions.state.width,
+    );
+    let text = Text::from(lines);
     let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
     paragraph.render(regions.state, &mut buffer);
     if let Some(drag) = drag {
@@ -556,10 +561,48 @@ pub fn render_to_buffer_with_drag(
     buffer
 }
 
-fn format_state_line(amplitudes: &[Complex]) -> String {
-    let formatted: Vec<String> = amplitudes
-        .iter()
-        .map(|amp| format!("({})", format_complex(*amp)))
-        .collect();
-    format!("State: [{}]", formatted.join(", "))
+fn format_state_histogram(
+    amplitudes: &[Complex],
+    qubits: usize,
+    max_lines: u16,
+    width: u16,
+) -> Vec<Line<'static>> {
+    let total = amplitudes.len();
+    let max_lines = max_lines as usize;
+    if max_lines == 0 || width == 0 {
+        return Vec::new();
+    }
+    let mut lines = Vec::new();
+    let visible_states = if max_lines >= total {
+        total
+    } else {
+        max_lines.saturating_sub(1)
+    };
+    for (index, amp) in amplitudes.iter().take(visible_states).enumerate() {
+        let prob = amp.re * amp.re + amp.im * amp.im;
+        let label = format!("|{:0width$b}>", index, width = qubits);
+        let prob_text = format!("{:.3}", prob);
+        let base_len = label.len() + 1 + prob_text.len() + 1;
+        let bar_capacity = (width as usize).saturating_sub(base_len);
+        let bar_len = ((prob * bar_capacity as f64).round() as usize).min(bar_capacity);
+        let bar = if bar_capacity > 0 {
+            "█".repeat(bar_len)
+        } else {
+            String::new()
+        };
+        let label_style = Style::default().fg(Color::DarkGray);
+        let mut spans = Vec::new();
+        spans.push(Span::styled(label, label_style));
+        spans.push(Span::raw(" "));
+        spans.push(Span::raw(prob_text));
+        if bar_capacity > 0 {
+            spans.push(Span::raw(" "));
+            spans.push(Span::raw(bar));
+        }
+        lines.push(Line::from(spans));
+    }
+    if max_lines < total {
+        lines.push(Line::from("..."));
+    }
+    lines
 }
