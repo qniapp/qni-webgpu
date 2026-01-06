@@ -48,7 +48,7 @@ for (const { gate, expected } of gateCases) {
     const LINE_LEFT = 80
     const GATE_SIZE = 32
     const SLOT_LEFT = LINE_LEFT + GATE_SIZE
-    const LINE_Y = 160
+    const LINE_Y = 208
     const paletteWidth = 9 * PALETTE_SIZE + 8 * PALETTE_GAP
     const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
     const sourceX = paletteStartX + paletteIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2

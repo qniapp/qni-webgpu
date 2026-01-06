@@ -7,7 +7,7 @@ export const DEFAULT_CANVAS_HEIGHT = 18.75 * REM
 export const STATE_TEXT_MAX_LEN = 160
 export const STATE_TEXT_GLYPH_COUNT = 92
 
-export const LINE_Y = 5 * REM
+export const LINE_Y = 6.5 * REM
 export const LINE_GAP = 1.5 * REM
 export const LINE_Y_VALUES = [LINE_Y, LINE_Y + LINE_GAP]
 export const LINE_LEFT_OFFSET = 2.5 * REM
