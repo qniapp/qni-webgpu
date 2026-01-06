@@ -1,4 +1,19 @@
-import { COLORS, GATE_SIZE, GATE_ICON_CHAR_MAP, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, getLayoutMetrics } from './constants'
+import {
+  COLORS,
+  GATE_SIZE,
+  GATE_ICON_CHAR_MAP,
+  PALETTE_GAP,
+  PALETTE_GATES,
+  PALETTE_ROW_Y,
+  PALETTE_SIZE,
+  REM,
+  STATE_CARD_BOTTOM_MARGIN,
+  STATE_CARD_LINE_GAP,
+  STATE_CARD_LINE_LENGTHS,
+  STATE_CARD_MAX_LINE,
+  STATE_CARD_PADDING,
+  getLayoutMetrics,
+} from './constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from './text'
 import type { PlacedGate, ShapeInstance, TextLayout } from './types'
 
@@ -33,7 +48,7 @@ export type SceneLayout = {
   gateLabels: TextLayout[]
   paletteLabels: TextLayout[]
   wireLabels: TextLayout[]
-  stateVector: TextLayout
+  stateVectorLines: TextLayout[]
 }
 
 const labelPosition = (x: number, y: number, size: number, text: string) => {
@@ -45,7 +60,6 @@ const labelPosition = (x: number, y: number, size: number, text: string) => {
 }
 
 export function buildScene(
-  stateVectorGlyphCount: number,
   placedGates: PlacedGate[],
   canvasWidth: number,
   canvasHeight: number,
@@ -117,21 +131,26 @@ export function buildScene(
     color: COLORS.text,
   }))
 
-  const stateVectorWidth = stateVectorGlyphCount * FONT_GLYPH_SIZE
-  const stateVectorX = (canvasWidth - stateVectorWidth) / 2
-  const stateVectorY = canvasHeight - 40 - FONT_GLYPH_SIZE
+  const lineHeight = FONT_GLYPH_SIZE + STATE_CARD_LINE_GAP
+  const stateCardTextWidth = STATE_CARD_MAX_LINE * FONT_GLYPH_SIZE
+  const stateCardWidth = stateCardTextWidth + STATE_CARD_PADDING * 2
+  const stateCardHeight = STATE_CARD_PADDING * 2 + FONT_GLYPH_SIZE + lineHeight * (STATE_CARD_LINE_LENGTHS.length - 1)
+  const stateCardX = (canvasWidth - stateCardWidth) / 2
+  const stateCardY = canvasHeight - STATE_CARD_BOTTOM_MARGIN - stateCardHeight
+  addRoundedRect(stateCardX, stateCardY, stateCardWidth, stateCardHeight, 12, COLORS.card)
+  const stateVectorLines: TextLayout[] = STATE_CARD_LINE_LENGTHS.map((length, index) => ({
+    text: '',
+    x: stateCardX + STATE_CARD_PADDING,
+    y: stateCardY + STATE_CARD_PADDING + index * lineHeight,
+    color: COLORS.cardText,
+    glyphCount: length,
+  }))
 
   return {
     instances: [...instances],
     gateLabels,
     paletteLabels,
     wireLabels,
-    stateVector: {
-      text: '',
-      x: stateVectorX,
-      y: stateVectorY,
-      color: COLORS.text,
-      glyphCount: stateVectorGlyphCount,
-    },
+    stateVectorLines,
   }
 }

@@ -1,6 +1,6 @@
 import type { SceneLayout } from '../ui/layout'
 import type { PlacedGate, ShapeInstance, TextLayout } from '../ui/types'
-import { COLORS, GATE_SIZE } from '../ui/constants'
+import { COLORS, GATE_SIZE, STATE_CARD_LINE_OFFSETS } from '../ui/constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from '../ui/text'
 import { shapeShaderCode, textShaderCode } from '../gpu/shaders'
 
@@ -171,7 +171,14 @@ export function createRenderer(options: RendererOptions) {
     hasGateOverlay = true
   }
 
-  const updateTextUniform = (buffer: GPUBuffer, layout: TextLayout, glyphSize: number, atlasWidth: number, atlasHeight: number) => {
+  const updateTextUniform = (
+    buffer: GPUBuffer,
+    layout: TextLayout,
+    glyphSize: number,
+    atlasWidth: number,
+    atlasHeight: number,
+    glyphOffset = 0
+  ) => {
     const uniformData = new Float32Array([
       canvasWidth,
       canvasHeight,
@@ -185,6 +192,10 @@ export function createRenderer(options: RendererOptions) {
       layout.color[1],
       layout.color[2],
       layout.color[3],
+      glyphOffset,
+      0,
+      0,
+      0,
     ])
     device.queue.writeBuffer(buffer, 0, uniformData)
   }
@@ -205,6 +216,7 @@ export function createRenderer(options: RendererOptions) {
       atlasHeight?: number
       texture?: GPUTexture
       sampler?: GPUSampler
+      glyphOffset?: number
     }
   ) => {
     let glyphBuffer = options?.glyphBuffer
@@ -223,10 +235,10 @@ export function createRenderer(options: RendererOptions) {
     const atlasWidth = options?.atlasWidth ?? fontAtlasWidth
     const atlasHeight = options?.atlasHeight ?? fontAtlasHeight
     const uniformBuffer = device.createBuffer({
-      size: 48,
+      size: 64,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
-    updateTextUniform(uniformBuffer, layout, glyphSize, atlasWidth, atlasHeight)
+    updateTextUniform(uniformBuffer, layout, glyphSize, atlasWidth, atlasHeight, options?.glyphOffset ?? 0)
 
     const textBindGroup = device.createBindGroup({
       layout: textPipeline.getBindGroupLayout(0),
@@ -244,7 +256,7 @@ export function createRenderer(options: RendererOptions) {
   let gateTexts: TextBuffers[] = []
   let paletteTexts: TextBuffers[] = []
   let wireTexts: TextBuffers[] = []
-  let stateTextDraw: TextBuffers | null = null
+  let stateTextDraws: TextBuffers[] = []
 
   const syncGateTexts = (layouts: TextLayout[]) => {
     if (gateTexts.length !== layouts.length) {
@@ -345,14 +357,36 @@ export function createRenderer(options: RendererOptions) {
       })
     }
 
-    if (!stateTextDraw) {
-      stateTextDraw = makeTextBuffers(scene.stateVector, {
-        glyphBuffer: stateTextGlyphBuffer,
-        glyphCount: scene.stateVector.glyphCount ?? 0,
-      })
+    if (stateTextDraws.length === 0) {
+      stateTextDraws = scene.stateVectorLines.map((layout, index) =>
+        makeTextBuffers(layout, {
+          glyphBuffer: stateTextGlyphBuffer,
+          glyphCount: layout.glyphCount ?? 0,
+          glyphOffset: STATE_CARD_LINE_OFFSETS[index] ?? 0,
+        })
+      )
     } else {
-      updateTextUniform(stateTextDraw.uniformBuffer, scene.stateVector, FONT_GLYPH_SIZE, fontAtlasWidth, fontAtlasHeight)
-      stateTextDraw.glyphCount = scene.stateVector.glyphCount ?? 0
+      scene.stateVectorLines.forEach((layout, index) => {
+        if (!stateTextDraws[index]) {
+          stateTextDraws.push(
+            makeTextBuffers(layout, {
+              glyphBuffer: stateTextGlyphBuffer,
+              glyphCount: layout.glyphCount ?? 0,
+              glyphOffset: STATE_CARD_LINE_OFFSETS[index] ?? 0,
+            })
+          )
+          return
+        }
+        updateTextUniform(
+          stateTextDraws[index].uniformBuffer,
+          layout,
+          FONT_GLYPH_SIZE,
+          fontAtlasWidth,
+          fontAtlasHeight,
+          STATE_CARD_LINE_OFFSETS[index] ?? 0
+        )
+        stateTextDraws[index].glyphCount = layout.glyphCount ?? 0
+      })
     }
 
     updateGateOverlay(draggingGate)
@@ -401,7 +435,7 @@ export function createRenderer(options: RendererOptions) {
       pass.draw(6, gateText.glyphCount, 0, 0)
     }
 
-    if (stateTextDraw) {
+    for (const stateTextDraw of stateTextDraws) {
       pass.setBindGroup(0, stateTextDraw.textBindGroup)
       pass.draw(6, stateTextDraw.glyphCount, 0, 0)
     }

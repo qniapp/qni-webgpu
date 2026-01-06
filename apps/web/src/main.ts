@@ -2,7 +2,7 @@ import './style.css'
 import { computeStateVectorSequence, populateStateTextBuffer, type GateOperation } from './gpu/compute'
 import { initGpu } from './gpu/init'
 import { createRenderer } from './renderer/renderer'
-import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_GLYPH_COUNT, STATE_TEXT_MAX_LEN } from './ui/constants'
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
 import { setupInput } from './ui/input'
 import { buildScene } from './ui/layout'
 import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, createFontAtlas, createIconAtlas } from './ui/text'
@@ -151,7 +151,6 @@ async function init() {
       stateTextGlyphBuffer,
     })
 
-    const stateVectorGlyphCount = STATE_TEXT_GLYPH_COUNT
     const placedGates: PlacedGate[] = []
     let hoveredPaletteIndex: number | null = null
 
@@ -163,7 +162,7 @@ async function init() {
     }
 
     const updateScene = () => {
-      const scene = buildScene(stateVectorGlyphCount, placedGates, canvas.width, canvas.height, hoveredPaletteIndex)
+      const scene = buildScene(placedGates, canvas.width, canvas.height, hoveredPaletteIndex)
       const draggingGate = placedGates.find((gate) => gate.dragging) ?? null
       window.__vertexCount = scene.instances.length
       renderer.updateScene(scene, draggingGate)

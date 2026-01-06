@@ -150,7 +150,13 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 export const stateTextComputeCode = `
 const STATE_TEXT_LEN: u32 = ${STATE_TEXT_MAX_LEN}u;
-const FRACTION_DIGITS: u32 = 6u;
+const EPSILON: f32 = 0.0000005;
+const PI: f32 = 3.14159265;
+const RAD_TO_DEG: f32 = 180.0 / PI;
+const LINE1_START: u32 = 0u;
+const LINE2_START: u32 = 14u;
+const LINE3_START: u32 = 42u;
+const LINE4_START: u32 = 65u;
 
 @group(0) @binding(0) var<storage, read> stateVector: array<vec2<f32>, 4>;
 @group(0) @binding(1) var<storage, read_write> glyphs: array<u32>;
@@ -167,20 +173,29 @@ fn write_digit(idx: ptr<function, u32>, digit: u32) {
   write_char(idx, 48u + d);
 }
 
-fn write_fixed(idx: ptr<function, u32>, value: f32, include_sign: bool) {
-  var v = value;
-  if (include_sign) {
-    let sign = select(43u, 45u, v < 0.0);
-    write_char(idx, sign);
-    v = abs(v);
+fn write_uint_padded(idx: ptr<function, u32>, value: u32, width: u32) {
+  var div: u32 = 1u;
+  for (var i: u32 = 1u; i < width; i = i + 1u) {
+    div = div * 10u;
   }
+  var v = value;
+  for (var i: u32 = 0u; i < width; i = i + 1u) {
+    let digit = v / div;
+    write_digit(idx, digit);
+    v = v - digit * div;
+    if (div > 1u) {
+      div = div / 10u;
+    }
+  }
+}
 
-  let int_part = u32(v);
-  write_digit(idx, int_part);
+fn write_fixed_unsigned(idx: ptr<function, u32>, value: f32, int_width: u32, decimals: u32) {
+  let int_part = u32(value);
+  write_uint_padded(idx, int_part, int_width);
   write_char(idx, 46u);
 
-  var frac = v - f32(int_part);
-  for (var i: u32 = 0u; i < FRACTION_DIGITS; i = i + 1u) {
+  var frac = value - f32(int_part);
+  for (var i: u32 = 0u; i < decimals; i = i + 1u) {
     frac = frac * 10.0;
     let digit = u32(frac);
     write_digit(idx, digit);
@@ -188,14 +203,14 @@ fn write_fixed(idx: ptr<function, u32>, value: f32, include_sign: bool) {
   }
 }
 
-fn write_complex(idx: ptr<function, u32>, re: f32, im: f32) {
-  write_char(idx, 40u);
-  write_fixed(idx, re, true);
-  let im_sign = select(43u, 45u, im < 0.0);
-  write_char(idx, im_sign);
-  write_fixed(idx, abs(im), false);
-  write_char(idx, 105u);
-  write_char(idx, 41u);
+fn write_fixed_signed(idx: ptr<function, u32>, value: f32, int_width: u32, decimals: u32) {
+  let sign = select(43u, 45u, value < 0.0);
+  write_char(idx, sign);
+  write_fixed_unsigned(idx, abs(value), int_width, decimals);
+}
+
+fn sanitize(value: f32) -> f32 {
+  return select(value, 0.0, abs(value) < EPSILON);
 }
 
 @compute @workgroup_size(1)
@@ -208,19 +223,75 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
     glyphs[i] = 0u;
   }
 
-  var cursor: u32 = 0u;
-  write_char(&cursor, 91u);
-  write_complex(&cursor, stateVector[0].x, stateVector[0].y);
-  write_char(&cursor, 44u);
+  let a0 = stateVector[0];
+  let re = sanitize(a0.x);
+  let im = sanitize(a0.y);
+  let prob = (re * re + im * im) * 100.0;
+  let phase = sanitize(atan2(im, re) * RAD_TO_DEG);
+
+  var cursor: u32 = LINE1_START;
+  write_char(&cursor, 124u);
+  write_char(&cursor, 48u);
+  write_char(&cursor, 48u);
+  write_char(&cursor, 62u);
   write_char(&cursor, 32u);
-  write_complex(&cursor, stateVector[1].x, stateVector[1].y);
-  write_char(&cursor, 44u);
+  write_char(&cursor, 68u);
+  write_char(&cursor, 69u);
+  write_char(&cursor, 67u);
+  write_char(&cursor, 73u);
+  write_char(&cursor, 77u);
+  write_char(&cursor, 65u);
+  write_char(&cursor, 76u);
   write_char(&cursor, 32u);
-  write_complex(&cursor, stateVector[2].x, stateVector[2].y);
-  write_char(&cursor, 44u);
+  write_char(&cursor, 48u);
+
+  cursor = LINE2_START;
+  write_char(&cursor, 65u);
+  write_char(&cursor, 77u);
+  write_char(&cursor, 80u);
+  write_char(&cursor, 76u);
+  write_char(&cursor, 73u);
+  write_char(&cursor, 84u);
+  write_char(&cursor, 85u);
+  write_char(&cursor, 68u);
+  write_char(&cursor, 69u);
+  write_char(&cursor, 58u);
   write_char(&cursor, 32u);
-  write_complex(&cursor, stateVector[3].x, stateVector[3].y);
-  write_char(&cursor, 93u);
+  write_fixed_signed(&cursor, re, 1u, 5u);
+  let im_sign = select(43u, 45u, im < 0.0);
+  write_char(&cursor, im_sign);
+  write_fixed_unsigned(&cursor, abs(im), 1u, 5u);
+  write_char(&cursor, 105u);
+
+  cursor = LINE3_START;
+  write_char(&cursor, 80u);
+  write_char(&cursor, 82u);
+  write_char(&cursor, 79u);
+  write_char(&cursor, 66u);
+  write_char(&cursor, 65u);
+  write_char(&cursor, 66u);
+  write_char(&cursor, 73u);
+  write_char(&cursor, 76u);
+  write_char(&cursor, 73u);
+  write_char(&cursor, 84u);
+  write_char(&cursor, 89u);
+  write_char(&cursor, 58u);
+  write_char(&cursor, 32u);
+  write_fixed_signed(&cursor, prob, 3u, 4u);
+  write_char(&cursor, 37u);
+
+  cursor = LINE4_START;
+  write_char(&cursor, 80u);
+  write_char(&cursor, 72u);
+  write_char(&cursor, 65u);
+  write_char(&cursor, 83u);
+  write_char(&cursor, 69u);
+  write_char(&cursor, 58u);
+  write_char(&cursor, 32u);
+  write_fixed_signed(&cursor, phase, 3u, 2u);
+  write_char(&cursor, 68u);
+  write_char(&cursor, 69u);
+  write_char(&cursor, 71u);
 }
 `
 
@@ -329,6 +400,7 @@ struct TextUniforms {
   glyphSize: vec2<f32>,
   atlasSize: vec2<f32>,
   color: vec4<f32>,
+  glyphOffset: vec2<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: TextUniforms;
@@ -356,7 +428,8 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32, @builtin(instance_index) ins
   );
   let local = quad[vertexIndex];
 
-  let code = glyphs[instanceIndex];
+  let bufferIndex = instanceIndex + u32(round(uniforms.glyphOffset.x));
+  let code = glyphs[bufferIndex];
   var glyphIndex = i32(code) - 32;
   let maxGlyphs = 16 * 6;
   var valid = 1.0;
