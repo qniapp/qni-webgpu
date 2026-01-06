@@ -71,7 +71,7 @@ export function buildScene(
     paletteFrameWidth - 4,
     paletteFrameHeight - 4,
     12,
-    COLORS.background
+    COLORS.surface
   )
   const paletteLabels: TextLayout[] = []
   PALETTE_GATES.forEach((gate, index) => {
