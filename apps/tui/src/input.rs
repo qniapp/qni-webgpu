@@ -1,14 +1,19 @@
+use crossterm::event;
 use ratatui::layout::Rect;
 
 use crate::layout::{
     circuit_layout, hit_test_circuit_slot, hit_test_palette, hovered_column_at, hovered_start_at,
     is_empty_drop,
 };
-use crate::model::{ensure_slots, qubit_count, AppState, DragOrigin, DragState};
+use crate::model::{
+    default_phase_value, ensure_slots, parse_phase_label, qubit_count, AppState, DragOrigin,
+    DragState, Gate, PhaseEdit,
+};
 use crate::{GATE_BOX_WIDTH, SLOT_GAP, SNAP_DISTANCE, MIN_QUBIT_COUNT};
 
 fn add_empty_qubit_row(state: &mut AppState) {
     state.placed.push(Vec::new());
+    state.phase_values.push(Vec::new());
 }
 
 fn compact_empty_columns(state: &mut AppState) {
@@ -23,6 +28,7 @@ fn compact_empty_columns(state: &mut AppState) {
     }
 
     let mut new_rows = vec![Vec::new(); state.placed.len()];
+    let mut new_phase_rows = vec![Vec::new(); state.phase_values.len()];
     for col in 0..max_len {
         let mut has_gate = false;
         for row in &state.placed {
@@ -37,9 +43,16 @@ fn compact_empty_columns(state: &mut AppState) {
         for (row_index, row) in state.placed.iter().enumerate() {
             let value = row.get(col).and_then(|gate| *gate);
             new_rows[row_index].push(value);
+            let phase_value = state
+                .phase_values
+                .get(row_index)
+                .and_then(|row_values| row_values.get(col))
+                .and_then(|value| value.clone());
+            new_phase_rows[row_index].push(phase_value);
         }
     }
     state.placed = new_rows;
+    state.phase_values = new_phase_rows;
 }
 
 fn trim_trailing_empty_qubits(state: &mut AppState) {
@@ -51,6 +64,7 @@ fn trim_trailing_empty_qubits(state: &mut AppState) {
             .unwrap_or(false);
         if remove {
             state.placed.pop();
+            state.phase_values.pop();
         } else {
             break;
         }
@@ -110,12 +124,37 @@ fn insertion_target(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usi
 }
 
 pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
+    if let Some((row, slot)) = hit_test_phase_label(state, x, y, area) {
+        let label = state
+            .phase_values
+            .get(row)
+            .and_then(|row_values| row_values.get(slot))
+            .and_then(|value| value.as_ref())
+            .map(|value| value.label.clone())
+            .unwrap_or_else(|| default_phase_value().label);
+        state.phase_edit = Some(PhaseEdit {
+            row,
+            slot,
+            input: label,
+        });
+        state.phase_edit_error = None;
+        return;
+    }
+    if state.phase_edit.is_some() {
+        state.phase_edit = None;
+        state.phase_edit_error = None;
+    }
     if let Some(gate) = hit_test_palette(x, y, area) {
         state.dragging = Some(DragState {
             gate,
             origin: DragOrigin::Palette,
         });
         state.drag_pos = Some((x, y));
+        state.drag_phase_value = if gate == Gate::Phase {
+            Some(default_phase_value())
+        } else {
+            None
+        };
         state.hovered_insert = None;
         state.hovered_column = None;
         state.hovered_start = false;
@@ -143,6 +182,16 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             });
             state.drag_pos = Some((x, y));
             state.placed[row][slot] = None;
+            state.drag_phase_value = state
+                .phase_values
+                .get(row)
+                .and_then(|row_values| row_values.get(slot))
+                .and_then(|value| value.clone());
+            if let Some(row_values) = state.phase_values.get_mut(row) {
+                if let Some(value) = row_values.get_mut(slot) {
+                    *value = None;
+                }
+            }
             state.cache_valid = false;
             state.cached_full_valid = false;
             state.hovered_insert = None;
@@ -178,7 +227,20 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
             let insert_at = index.min(row_slots.len());
             row_slots.insert(insert_at, None);
         }
+        for row_values in &mut state.phase_values {
+            let insert_at = index.min(row_values.len());
+            row_values.insert(insert_at, None);
+        }
         state.placed[row][index] = Some(dragging.gate);
+        if let Some(row_values) = state.phase_values.get_mut(row) {
+            if let Some(value) = row_values.get_mut(index) {
+                if dragging.gate == Gate::Phase {
+                    *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
+                } else {
+                    *value = None;
+                }
+            }
+        }
         changed = true;
     } else if let Some((row, slot)) = state
         .hovered_row
@@ -186,6 +248,15 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         .or_else(|| hit_test_circuit_slot(x, y, area, qubit_count(state)))
     {
         state.placed[row][slot] = Some(dragging.gate);
+        if let Some(row_values) = state.phase_values.get_mut(row) {
+            if let Some(value) = row_values.get_mut(slot) {
+                if dragging.gate == Gate::Phase {
+                    *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
+                } else {
+                    *value = None;
+                }
+            }
+        }
         changed = true;
     } else if is_empty_drop(x, y, area, qubit_count(state))
         && dragging.origin == DragOrigin::Circuit
@@ -196,6 +267,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
 
     state.dragging = None;
     state.drag_pos = None;
+    state.drag_phase_value = None;
     state.hovered_slot = None;
     state.hovered_row = None;
     state.hovered_insert = None;
@@ -218,6 +290,7 @@ pub fn confirm_hovered_column(state: &mut AppState) {
         state.confirmed_start = false;
     }
     state.cache_valid = false;
+    state.cached_full_valid = false;
 }
 
 pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
@@ -326,4 +399,95 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.hovered_slot = slot_target.map(|(_, index, _)| index);
     state.hovered_row = slot_target.map(|(row, _, _)| row);
     state.hovered_insert = None;
+}
+
+pub fn handle_phase_edit_key(state: &mut AppState, key: event::KeyEvent) -> bool {
+    let Some(edit) = state.phase_edit.as_mut() else {
+        return false;
+    };
+    match key.code {
+        event::KeyCode::Esc => {
+            state.phase_edit = None;
+            state.phase_edit_error = None;
+            return true;
+        }
+        event::KeyCode::Enter => {
+            match parse_phase_label(&edit.input) {
+                Ok(value) => {
+                    if let Some(row_values) = state.phase_values.get_mut(edit.row) {
+                        if let Some(slot_value) = row_values.get_mut(edit.slot) {
+                            *slot_value = Some(value);
+                        }
+                    }
+                    state.phase_edit = None;
+                    state.phase_edit_error = None;
+                    state.cache_valid = false;
+                    state.cached_full_valid = false;
+                }
+                Err(error) => {
+                    state.phase_edit_error = Some(error);
+                }
+            }
+            return true;
+        }
+        event::KeyCode::Backspace => {
+            edit.input.pop();
+            return true;
+        }
+        event::KeyCode::Char(ch) => {
+            if ch.is_ascii_digit()
+                || ch == 'π'
+                || ch == 'p'
+                || ch == 'i'
+                || ch == '/'
+                || ch == '-'
+                || ch == '+'
+            {
+                edit.input.push(ch);
+            }
+            return true;
+        }
+        _ => {}
+    }
+    true
+}
+
+fn hit_test_phase_label(
+    state: &AppState,
+    x: u16,
+    y: u16,
+    area: Rect,
+) -> Option<(usize, usize)> {
+    let layout = circuit_layout(area, qubit_count(state));
+    for (row, row_slots) in layout.slots.iter().enumerate() {
+        for (slot, rect) in row_slots.iter().enumerate() {
+            let gate = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(slot))
+                .and_then(|gate| *gate);
+            if gate != Some(Gate::Phase) {
+                continue;
+            }
+            if rect.y == 0 {
+                continue;
+            }
+            let label = state
+                .phase_values
+                .get(row)
+                .and_then(|row_values| row_values.get(slot))
+                .and_then(|value| value.as_ref())
+                .map(|value| value.label.as_str())
+                .unwrap_or("π/2");
+            let label_width = label.chars().count() as u16;
+            let label_x = rect
+                .x
+                .saturating_add(rect.width.saturating_sub(label_width) / 2);
+            let label_y = rect.y.saturating_sub(1);
+            if y == label_y && x >= label_x && x < label_x.saturating_add(label_width) {
+                return Some((row, slot));
+            }
+        }
+    }
+    None
 }

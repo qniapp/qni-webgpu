@@ -8,7 +8,8 @@ use crate::layout::{
     circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
 };
 use crate::model::{
-    apply_gates_to_zero_limit, ensure_slots, format_complex, qubit_count, AppState, Complex, Gate,
+    apply_gates_to_zero_limit, default_phase_value, ensure_slots, format_complex, qubit_count,
+    AppState, Complex, Gate,
 };
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL,
@@ -28,6 +29,7 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
         Gate::X => (220, 80, 80),
         Gate::Control => (220, 80, 80),
         Gate::Measure => (170, 90, 200),
+        Gate::Phase => (170, 90, 200),
         Gate::Y => (180, 120, 200),
         Gate::Z => (90, 120, 220),
         Gate::SqrtX => (220, 80, 80),
@@ -57,6 +59,8 @@ pub(crate) fn draw_gate_box(
     rect: Rect,
     gate: Gate,
     measure_value: Option<u8>,
+    phase_label: Option<&str>,
+    phase_edit_active: bool,
 ) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
@@ -103,6 +107,20 @@ pub(crate) fn draw_gate_box(
             &bottom,
             shadow_style,
         );
+    }
+    if gate == Gate::Phase && rect.width >= 3 && rect.y > 0 {
+        if let Some(label) = phase_label {
+            let label_width = label.chars().count() as u16;
+            let label_x = rect
+                .x
+                .saturating_add(rect.width.saturating_sub(label_width) / 2);
+            let label_style = if phase_edit_active {
+                Style::default().fg(UI_BACKGROUND).bg(background)
+            } else {
+                Style::default().fg(background).bg(UI_BACKGROUND)
+            };
+            buffer.set_string(label_x, rect.y - 1, label, label_style);
+        }
     }
     let gate_rect = Rect {
         x: rect.x,
@@ -229,7 +247,7 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(&mut buffer, item.rect, item.gate, None);
+        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false);
     }
 
     if !regions.circuits.is_empty() {
@@ -421,12 +439,13 @@ pub fn render_to_buffer_with_drag(
         .or(state.confirmed_column.map(|index| index + 1))
         .or(Some(0));
     if !state.cached_full_valid {
-        let full_sim = apply_gates_to_zero_limit(&state.placed, None);
+        let full_sim = apply_gates_to_zero_limit(&state.placed, None, Some(&state.phase_values));
         state.cached_full_measurements = full_sim.measurements;
         state.cached_full_valid = true;
     }
     if !state.cache_valid || state.cached_limit != state_limit {
-        let simulation = apply_gates_to_zero_limit(&state.placed, state_limit);
+        let simulation =
+            apply_gates_to_zero_limit(&state.placed, state_limit, Some(&state.phase_values));
         state.cached_state_line = format_state_line(&simulation.state);
         state.cached_limit = state_limit;
         state.cache_valid = true;
@@ -438,12 +457,49 @@ pub fn render_to_buffer_with_drag(
                 .get(row)
                 .and_then(|row_gates| row_gates.get(slot))
             {
+                let (phase_label, phase_edit_active) = if *gate == Gate::Phase {
+                    let label = if let Some(edit) = state.phase_edit.as_ref() {
+                        if edit.row == row && edit.slot == slot {
+                            edit.input.clone()
+                        } else {
+                            state
+                                .phase_values
+                                .get(row)
+                                .and_then(|row_values| row_values.get(slot))
+                                .and_then(|value| value.as_ref())
+                                .map(|value| value.label.clone())
+                                .unwrap_or_else(|| default_phase_value().label)
+                        }
+                    } else {
+                        state
+                            .phase_values
+                            .get(row)
+                            .and_then(|row_values| row_values.get(slot))
+                            .and_then(|value| value.as_ref())
+                            .map(|value| value.label.clone())
+                            .unwrap_or_else(|| default_phase_value().label)
+                    };
+                    let is_active = state
+                        .phase_edit
+                        .as_ref()
+                        .is_some_and(|edit| edit.row == row && edit.slot == slot);
+                    (Some(label), is_active)
+                } else {
+                    (None, false)
+                };
                 let measure_value = state
                     .cached_full_measurements
                     .get(row)
                     .and_then(|row_values| row_values.get(slot))
                     .and_then(|value| *value);
-                draw_gate_box(&mut buffer, *rect, *gate, measure_value);
+                draw_gate_box(
+                    &mut buffer,
+                    *rect,
+                    *gate,
+                    measure_value,
+                    phase_label.as_deref(),
+                    phase_edit_active,
+                );
             }
         }
     }
@@ -496,7 +552,7 @@ pub fn render_to_buffer_with_drag(
             && rect.x < area.x.saturating_add(area.width)
             && rect.y < area.y.saturating_add(area.height)
         {
-            draw_gate_box(&mut buffer, rect, drag.gate, None);
+            draw_gate_box(&mut buffer, rect, drag.gate, None, None, false);
         }
     }
     buffer

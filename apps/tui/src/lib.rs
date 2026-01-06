@@ -7,7 +7,7 @@ pub mod render;
 
 pub use input::{
     confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up,
-    update_hovered_slot,
+    handle_phase_edit_key, update_hovered_slot,
 };
 pub use layout::{
     circuit_layout, column_line_x, hit_test_circuit_slot, hit_test_palette, hovered_column_at,
@@ -42,12 +42,19 @@ mod tests {
 
     use super::*;
     use crate::layout::palette_items;
-    use crate::model::{ensure_slots, qubit_count};
+    use crate::model::{ensure_slots, parse_phase_label, qubit_count};
     use pretty_assertions::assert_eq;
 
     fn state_with_gate(gate: Gate) -> AppState {
         let mut state = AppState::new();
         state.placed[0].push(Some(gate));
+        state.phase_values[0].push(
+            if gate == Gate::Phase {
+                Some(crate::model::default_phase_value())
+            } else {
+                None
+            },
+        );
         state
     }
 
@@ -96,6 +103,18 @@ mod tests {
     }
 
     #[test]
+    fn build_state_line_for_phase_gate() {
+        let line = build_state_line(&[vec![Some(Gate::Phase)]]);
+        assert_eq!(line, "State: [(1+0i), (0+0i), (0+0i), (0+0i)]");
+    }
+
+    #[test]
+    fn parse_phase_label_accepts_pi_fractions() {
+        let value = parse_phase_label("3π/4").expect("phase should parse");
+        assert_eq!(value.label, "3π/4");
+    }
+
+    #[test]
     fn build_state_line_for_cnot_gate() {
         let line = build_state_line(&[
             vec![Some(Gate::X), Some(Gate::Control)],
@@ -136,6 +155,7 @@ mod tests {
         assert_eq!(parse_args_from(&["--gate=Z"]), Gate::Z);
         assert_eq!(parse_args_from(&["--gate", "control"]), Gate::Control);
         assert_eq!(parse_args_from(&["--gate", "measure"]), Gate::Measure);
+        assert_eq!(parse_args_from(&["--gate", "phase"]), Gate::Phase);
         assert_eq!(parse_args_from(&["--gate", "sqrtx"]), Gate::SqrtX);
         assert_eq!(parse_args_from(&["--gate", "sdg"]), Gate::Sdg);
         assert_eq!(parse_args_from(&["--gate", "tdg"]), Gate::Tdg);
@@ -234,7 +254,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None);
+        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None, None, false);
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);
@@ -248,6 +268,7 @@ mod tests {
         let area = Rect::new(0, 0, 40, 30);
         let mut state = AppState::new();
         state.placed.resize(3, Vec::new());
+        state.phase_values.resize(3, Vec::new());
         state.placed[0] = vec![Some(Gate::Swap)];
         state.placed[2] = vec![Some(Gate::Swap)];
         let buffer = render_to_buffer(&mut state, area, None);

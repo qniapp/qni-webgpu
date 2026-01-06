@@ -8,7 +8,7 @@ use ratatui::Terminal;
 
 use qni_webgpu_tui::{
     confirm_hovered_column, handle_mouse_down, handle_mouse_move, handle_mouse_up,
-    render_to_buffer_with_drag, update_hovered_slot, AppState, DragVisual,
+    handle_phase_edit_key, render_to_buffer_with_drag, update_hovered_slot, AppState, DragVisual,
 };
 
 fn draw_once(
@@ -61,6 +61,14 @@ fn run() -> io::Result<()> {
         if event::poll(std::time::Duration::from_millis(250))? {
             match event::read()? {
                 Event::Key(key) => {
+                    if app_state.phase_edit.is_some() {
+                        handle_phase_edit_key(&mut app_state, key);
+                        debug_line = app_state
+                            .phase_edit_error
+                            .as_ref()
+                            .map(|error| format!("Error: {}", error));
+                        continue;
+                    }
                     debug_line = Some(format!("key={:?} mods={:?}", key.code, key.modifiers));
                     if key.code == KeyCode::Char('c')
                         && key.modifiers.contains(KeyModifiers::CONTROL)
@@ -99,6 +107,12 @@ fn run() -> io::Result<()> {
                 }
                 _ => {}
             }
+        }
+        if app_state.phase_edit_error.is_some() {
+            debug_line = app_state
+                .phase_edit_error
+                .as_ref()
+                .map(|error| format!("Error: {}", error));
         }
     }
     Ok(())

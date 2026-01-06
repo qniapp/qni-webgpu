@@ -7,6 +7,7 @@ pub enum Gate {
     X,
     Control,
     Measure,
+    Phase,
     H,
     Y,
     Z,
@@ -31,10 +32,25 @@ pub struct DragState {
 }
 
 #[derive(Debug, Clone)]
+pub struct PhaseValue {
+    pub phi: f64,
+    pub label: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PhaseEdit {
+    pub row: usize,
+    pub slot: usize,
+    pub input: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct AppState {
     pub placed: Vec<Vec<Option<Gate>>>,
+    pub phase_values: Vec<Vec<Option<PhaseValue>>>,
     pub dragging: Option<DragState>,
     pub drag_pos: Option<(u16, u16)>,
+    pub drag_phase_value: Option<PhaseValue>,
     pub hovered_slot: Option<usize>,
     pub hovered_row: Option<usize>,
     pub hovered_insert: Option<(usize, usize)>,
@@ -42,6 +58,8 @@ pub struct AppState {
     pub hovered_start: bool,
     pub confirmed_column: Option<usize>,
     pub confirmed_start: bool,
+    pub phase_edit: Option<PhaseEdit>,
+    pub phase_edit_error: Option<String>,
     pub cache_valid: bool,
     pub cached_state_line: String,
     pub cached_measurements: Vec<Vec<Option<u8>>>,
@@ -54,8 +72,10 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             placed: vec![Vec::new(); MIN_QUBIT_COUNT],
+            phase_values: vec![Vec::new(); MIN_QUBIT_COUNT],
             dragging: None,
             drag_pos: None,
+            drag_phase_value: None,
             hovered_slot: None,
             hovered_row: None,
             hovered_insert: None,
@@ -63,6 +83,8 @@ impl AppState {
             hovered_start: false,
             confirmed_column: None,
             confirmed_start: false,
+            phase_edit: None,
+            phase_edit_error: None,
             cache_valid: false,
             cached_state_line: String::new(),
             cached_measurements: Vec::new(),
@@ -81,8 +103,10 @@ pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
     for (row, &count) in counts.iter().enumerate() {
         if state.placed.len() <= row {
             state.placed.push(Vec::new());
+            state.phase_values.push(Vec::new());
         }
         state.placed[row].resize(count, None);
+        state.phase_values[row].resize(count, None);
     }
 }
 
@@ -94,6 +118,7 @@ impl std::str::FromStr for Gate {
             "X" => Ok(Self::X),
             "CTRL" | "CONTROL" | "C" => Ok(Self::Control),
             "MEASURE" | "MEAS" | "M" => Ok(Self::Measure),
+            "PHASE" | "PHI" | "PHASEGATE" => Ok(Self::Phase),
             "H" => Ok(Self::H),
             "Y" => Ok(Self::Y),
             "Z" => Ok(Self::Z),
@@ -114,6 +139,7 @@ impl std::fmt::Display for Gate {
             Self::X => "X",
             Self::Control => "",
             Self::Measure => "",
+            Self::Phase => "Φ",
             Self::H => "H",
             Self::Y => "Y",
             Self::Z => "Z",
@@ -186,6 +212,12 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
             Complex { re: HALF, im: HALF },
         ],
         Gate::S => [
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 1.0 },
+        ],
+        Gate::Phase => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
@@ -336,6 +368,86 @@ fn measure_qubit(state: &[Complex], qubit: usize, qubits: usize) -> (Vec<Complex
     (collapsed, outcome)
 }
 
+pub(crate) fn default_phase_value() -> PhaseValue {
+    PhaseValue {
+        phi: std::f64::consts::FRAC_PI_2,
+        label: "π/2".to_string(),
+    }
+}
+
+pub(crate) fn parse_phase_label(input: &str) -> Result<PhaseValue, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("φ の値が空です".to_string());
+    }
+    let normalized = trimmed.replace("pi", "π").replace("PI", "π").replace(' ', "");
+    let mut chars = normalized.chars().peekable();
+    let mut sign = 1i32;
+    if let Some(&ch) = chars.peek() {
+        if ch == '-' {
+            sign = -1;
+            chars.next();
+        } else if ch == '+' {
+            chars.next();
+        }
+    }
+    let mut coeff_str = String::new();
+    while let Some(&ch) = chars.peek() {
+        if ch.is_ascii_digit() {
+            coeff_str.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    let Some(pi_ch) = chars.next() else {
+        return Err("π を含む形式で入力してください".to_string());
+    };
+    if pi_ch != 'π' {
+        return Err("π を含む形式で入力してください".to_string());
+    }
+    let coeff = if coeff_str.is_empty() {
+        1i32
+    } else {
+        coeff_str
+            .parse::<i32>()
+            .map_err(|_| "係数が不正です".to_string())?
+    };
+    if coeff == 0 {
+        return Err("係数は 0 以外を指定してください".to_string());
+    }
+    let mut denom = 1i32;
+    if let Some(ch) = chars.next() {
+        if ch != '/' {
+            return Err("分母は /n の形式で入力してください".to_string());
+        }
+        let rest: String = chars.collect();
+        if rest.is_empty() {
+            return Err("分母が空です".to_string());
+        }
+        denom = rest
+            .parse::<i32>()
+            .map_err(|_| "分母が不正です".to_string())?;
+        if denom == 0 {
+            return Err("分母は 0 以外を指定してください".to_string());
+        }
+    }
+    let sign_prefix = if sign < 0 { "-" } else { "" };
+    let coeff_value = coeff.abs();
+    let coeff_label = if coeff_value == 1 {
+        String::new()
+    } else {
+        coeff_value.to_string()
+    };
+    let label = if denom == 1 {
+        format!("{}{}π", sign_prefix, coeff_label)
+    } else {
+        format!("{}{}π/{}", sign_prefix, coeff_label, denom)
+    };
+    let phi = (sign as f64) * (coeff.abs() as f64) * std::f64::consts::PI / (denom as f64);
+    Ok(PhaseValue { phi, label })
+}
+
 fn random_unit_f64() -> f64 {
     static RNG_STATE: AtomicU64 = AtomicU64::new(0);
     let mut state = RNG_STATE.load(Ordering::Relaxed);
@@ -369,12 +481,13 @@ pub struct SimulationResult {
 }
 
 pub fn apply_gates_to_zero(gates: &[Vec<Option<Gate>>]) -> Vec<Complex> {
-    apply_gates_to_zero_limit(gates, None).state
+    apply_gates_to_zero_limit(gates, None, None).state
 }
 
 pub(crate) fn apply_gates_to_zero_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
+    phase_values: Option<&Vec<Vec<Option<PhaseValue>>>>,
 ) -> SimulationResult {
     let qubits = gates.len().max(MIN_QUBIT_COUNT);
     let mut state = vec![ZERO; 1usize << qubits];
@@ -423,7 +536,15 @@ pub(crate) fn apply_gates_to_zero_limit(
                 if *gate == Gate::X && cnot_target == Some(row) {
                     continue;
                 }
-                {
+                if *gate == Gate::Phase {
+                    let phi = phase_values
+                        .and_then(|values| values.get(row))
+                        .and_then(|row_values| row_values.get(slot))
+                        .and_then(|value| value.as_ref())
+                        .map(|value| value.phi)
+                        .unwrap_or(default_phase_value().phi);
+                    state = apply_phase_gate(&state, row, phi, qubits);
+                } else {
                     state = apply_gate_to_state(&state, *gate, row, qubits);
                 }
             }
@@ -465,12 +586,31 @@ pub(crate) fn build_state_line_with_limit(
     gates: &[Vec<Option<Gate>>],
     max_columns: Option<usize>,
 ) -> String {
-    let amplitudes = apply_gates_to_zero_limit(gates, max_columns).state;
+    let amplitudes = apply_gates_to_zero_limit(gates, max_columns, None).state;
     let formatted: Vec<String> = amplitudes
         .iter()
         .map(|amp| format!("({})", format_complex(*amp)))
         .collect();
     format!("State: [{}]", formatted.join(", "))
+}
+
+fn apply_phase_gate(state: &[Complex], target: usize, phi: f64, qubits: usize) -> Vec<Complex> {
+    if target >= qubits {
+        return state.to_vec();
+    }
+    let bit = qubits.saturating_sub(1).saturating_sub(target);
+    let mask = 1usize << bit;
+    let phase = Complex {
+        re: phi.cos(),
+        im: phi.sin(),
+    };
+    let mut out = state.to_vec();
+    for index in 0..state.len() {
+        if index & mask != 0 {
+            out[index] = mul(phase, state[index]);
+        }
+    }
+    out
 }
 
 pub fn parse_args(args: &[String]) -> Gate {
