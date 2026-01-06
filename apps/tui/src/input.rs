@@ -9,7 +9,7 @@ use crate::model::{
     default_phase_value, ensure_slots, parse_phase_label, qubit_count, AppState, DragOrigin,
     DragState, Gate, PhaseEdit,
 };
-use crate::{GATE_BOX_WIDTH, SLOT_GAP, SNAP_DISTANCE, MAX_QUBIT_COUNT, MIN_QUBIT_COUNT};
+use crate::{GATE_BOX_WIDTH, MAX_QUBIT_COUNT, MIN_QUBIT_COUNT, SLOT_GAP, SNAP_DISTANCE};
 
 fn add_empty_qubit_row(state: &mut AppState) {
     if state.placed.len() >= MAX_QUBIT_COUNT {
@@ -20,12 +20,7 @@ fn add_empty_qubit_row(state: &mut AppState) {
 }
 
 fn compact_empty_columns(state: &mut AppState) {
-    let max_len = state
-        .placed
-        .iter()
-        .map(|row| row.len())
-        .max()
-        .unwrap_or(0);
+    let max_len = state.placed.iter().map(|row| row.len()).max().unwrap_or(0);
     if max_len == 0 {
         return;
     }
@@ -257,7 +252,9 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         .map(|row_slots| row_slots.len())
         .collect();
     ensure_slots(state, &counts);
-    if let Some((row, index)) = state.hovered_insert.or_else(|| insertion_target(state, x, y, area))
+    if let Some((row, index)) = state
+        .hovered_insert
+        .or_else(|| insertion_target(state, x, y, area))
     {
         for row_slots in &mut state.placed {
             let insert_at = index.min(row_slots.len());
@@ -271,7 +268,10 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         if let Some(row_values) = state.phase_values.get_mut(row) {
             if let Some(value) = row_values.get_mut(index) {
                 if matches!(dragging.gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
-                    *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
+                    *value = state
+                        .drag_phase_value
+                        .clone()
+                        .or_else(|| Some(default_phase_value()));
                 } else {
                     *value = None;
                 }
@@ -287,7 +287,10 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         if let Some(row_values) = state.phase_values.get_mut(row) {
             if let Some(value) = row_values.get_mut(slot) {
                 if matches!(dragging.gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
-                    *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
+                    *value = state
+                        .drag_phase_value
+                        .clone()
+                        .or_else(|| Some(default_phase_value()));
                 } else {
                     *value = None;
                 }
@@ -488,12 +491,7 @@ pub fn handle_phase_edit_key(state: &mut AppState, key: event::KeyEvent) -> bool
     true
 }
 
-fn hit_test_phase_label(
-    state: &AppState,
-    x: u16,
-    y: u16,
-    area: Rect,
-) -> Option<(usize, usize)> {
+fn hit_test_phase_label(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usize, usize)> {
     let layout = circuit_layout(area, qubit_count(state));
     for (row, row_slots) in layout.slots.iter().enumerate() {
         for (slot, rect) in row_slots.iter().enumerate() {

@@ -49,13 +49,11 @@ mod tests {
     fn state_with_gate(gate: Gate) -> AppState {
         let mut state = AppState::new();
         state.placed[0].push(Some(gate));
-        state.phase_values[0].push(
-            if gate == Gate::Phase {
-                Some(crate::model::default_phase_value())
-            } else {
-                None
-            },
-        );
+        state.phase_values[0].push(if gate == Gate::Phase {
+            Some(crate::model::default_phase_value())
+        } else {
+            None
+        });
         state
     }
 

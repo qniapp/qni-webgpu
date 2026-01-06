@@ -5,16 +5,16 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph, Widget};
 
 use crate::layout::{
-    circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items, start_line_x,
-    CircuitLayout,
+    circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items,
+    start_line_x, CircuitLayout,
 };
 use crate::model::{
     apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
     Gate,
 };
 use crate::{
-    GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL,
-    SHADOW_OUTSET, UI_BACKGROUND,
+    GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL, SHADOW_OUTSET,
+    UI_BACKGROUND,
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -37,11 +37,19 @@ fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
 }
 
 fn brighten(r: u8, g: u8, b: u8, delta: u8) -> Color {
-    Color::Rgb(r.saturating_add(delta), g.saturating_add(delta), b.saturating_add(delta))
+    Color::Rgb(
+        r.saturating_add(delta),
+        g.saturating_add(delta),
+        b.saturating_add(delta),
+    )
 }
 
 fn darken(r: u8, g: u8, b: u8, delta: u8) -> Color {
-    Color::Rgb(r.saturating_sub(delta), g.saturating_sub(delta), b.saturating_sub(delta))
+    Color::Rgb(
+        r.saturating_sub(delta),
+        g.saturating_sub(delta),
+        b.saturating_sub(delta),
+    )
 }
 
 pub(crate) fn draw_gate_box(
@@ -113,9 +121,7 @@ pub(crate) fn draw_gate_box(
             shadow_style,
         );
     }
-    if matches!(gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz)
-        && rect.width >= 3
-        && rect.y > 0
+    if matches!(gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) && rect.width >= 3 && rect.y > 0
     {
         if let Some(label) = phase_label {
             let label_width = label.chars().count() as u16;
@@ -169,7 +175,9 @@ pub(crate) fn draw_gate_box(
             );
         }
         let top_y = swap_rect.y;
-        let bottom_y = swap_rect.y.saturating_add(swap_rect.height.saturating_sub(1));
+        let bottom_y = swap_rect
+            .y
+            .saturating_add(swap_rect.height.saturating_sub(1));
         let tip_style = Style::default().fg(background).bg(UI_BACKGROUND);
         if swap_rect.width >= 4 {
             buffer.set_string(swap_rect.x, top_y, "▐ ", tip_style);
@@ -189,14 +197,18 @@ pub(crate) fn draw_gate_box(
         } else {
             buffer.set_string(swap_rect.x, top_y, "▐", tip_style);
             buffer.set_string(
-                swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1)),
+                swap_rect
+                    .x
+                    .saturating_add(swap_rect.width.saturating_sub(1)),
                 top_y,
                 "▌",
                 tip_style,
             );
             buffer.set_string(swap_rect.x, bottom_y, "▐", tip_style);
             buffer.set_string(
-                swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1)),
+                swap_rect
+                    .x
+                    .saturating_add(swap_rect.width.saturating_sub(1)),
                 bottom_y,
                 "▌",
                 tip_style,
@@ -208,9 +220,13 @@ pub(crate) fn draw_gate_box(
             swap_rect.x
         };
         let right_x = if swap_rect.width > 2 {
-            swap_rect.x.saturating_add(swap_rect.width.saturating_sub(2))
+            swap_rect
+                .x
+                .saturating_add(swap_rect.width.saturating_sub(2))
         } else {
-            swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1))
+            swap_rect
+                .x
+                .saturating_add(swap_rect.width.saturating_sub(1))
         };
         let cut_style = Style::default().fg(UI_BACKGROUND).bg(background);
         buffer.set_string(left_x, mid_y, "▶", cut_style);
@@ -228,18 +244,8 @@ pub(crate) fn draw_gate_box(
         if gate_rect.width >= 5 && gate_rect.height >= 3 {
             let corner = Style::default().fg(UI_BACKGROUND).bg(background);
             buffer.set_string(gate_rect.x, gate_rect.y, "◤", corner);
-            buffer.set_string(
-                gate_rect.x + gate_rect.width - 1,
-                gate_rect.y,
-                "◥",
-                corner,
-            );
-            buffer.set_string(
-                gate_rect.x,
-                gate_rect.y + gate_rect.height - 1,
-                "◣",
-                corner,
-            );
+            buffer.set_string(gate_rect.x + gate_rect.width - 1, gate_rect.y, "◥", corner);
+            buffer.set_string(gate_rect.x, gate_rect.y + gate_rect.height - 1, "◣", corner);
             buffer.set_string(
                 gate_rect.x + gate_rect.width - 1,
                 gate_rect.y + gate_rect.height - 1,
@@ -409,12 +415,7 @@ pub fn render_to_buffer_with_drag(
 
     if current_qubits >= 2 {
         let max_rows = layout.slots.len();
-        let max_cols = layout
-            .slots
-            .iter()
-            .map(|row| row.len())
-            .min()
-            .unwrap_or(0);
+        let max_cols = layout.slots.iter().map(|row| row.len()).min().unwrap_or(0);
         let drag_virtual = state.dragging.and_then(|drag_state| {
             let row = state.hovered_row?;
             let slot = state.hovered_slot?;
@@ -461,7 +462,8 @@ pub fn render_to_buffer_with_drag(
             let (_, background, _, _) = gate_theme(Gate::Swap);
             let line_style = Style::default().fg(background).bg(UI_BACKGROUND);
             let half_style = Style::default().fg(background).bg(UI_BACKGROUND);
-            let cuts = build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| gate == Gate::Swap);
+            let cuts =
+                build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| gate == Gate::Swap);
             let (top, bottom) = if start_y <= end_y {
                 (start_y, end_y)
             } else {
@@ -561,13 +563,20 @@ pub fn render_to_buffer_with_drag(
                 .get(row)
                 .and_then(|row_gates| row_gates.get(slot))
             {
-                let (phase_label, phase_edit_active) = if matches!(
-                    *gate,
-                    Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz
-                ) {
-                    let label = if let Some(edit) = state.phase_edit.as_ref() {
-                        if edit.row == row && edit.slot == slot {
-                            edit.input.clone()
+                let (phase_label, phase_edit_active) =
+                    if matches!(*gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
+                        let label = if let Some(edit) = state.phase_edit.as_ref() {
+                            if edit.row == row && edit.slot == slot {
+                                edit.input.clone()
+                            } else {
+                                state
+                                    .phase_values
+                                    .get(row)
+                                    .and_then(|row_values| row_values.get(slot))
+                                    .and_then(|value| value.as_ref())
+                                    .map(|value| value.label.clone())
+                                    .unwrap_or_else(|| default_phase_value().label)
+                            }
                         } else {
                             state
                                 .phase_values
@@ -576,24 +585,15 @@ pub fn render_to_buffer_with_drag(
                                 .and_then(|value| value.as_ref())
                                 .map(|value| value.label.clone())
                                 .unwrap_or_else(|| default_phase_value().label)
-                        }
+                        };
+                        let is_active = state
+                            .phase_edit
+                            .as_ref()
+                            .is_some_and(|edit| edit.row == row && edit.slot == slot);
+                        (Some(label), is_active)
                     } else {
-                        state
-                            .phase_values
-                            .get(row)
-                            .and_then(|row_values| row_values.get(slot))
-                            .and_then(|value| value.as_ref())
-                            .map(|value| value.label.clone())
-                            .unwrap_or_else(|| default_phase_value().label)
+                        (None, false)
                     };
-                    let is_active = state
-                        .phase_edit
-                        .as_ref()
-                        .is_some_and(|edit| edit.row == row && edit.slot == slot);
-                    (Some(label), is_active)
-                } else {
-                    (None, false)
-                };
                 let measure_value = state
                     .cached_full_measurements
                     .get(row)
@@ -636,7 +636,11 @@ pub fn render_to_buffer_with_drag(
                     rect = insert_rect;
                 }
             } else if let (Some(row), Some(slot)) = (state.hovered_row, state.hovered_slot) {
-                if state.placed[row].get(slot).and_then(|value| *value).is_none() {
+                if state.placed[row]
+                    .get(slot)
+                    .and_then(|value| *value)
+                    .is_none()
+                {
                     if let Some(slot_rect) = layout
                         .slots
                         .get(row)
@@ -681,7 +685,8 @@ fn format_state_histogram(
     };
     let columns_needed = total.div_ceil(max_lines);
     let columns = columns_needed.min(max_columns_by_width).max(1);
-    let available_width = width.saturating_sub(COLUMN_GAP.saturating_mul(columns.saturating_sub(1)));
+    let available_width =
+        width.saturating_sub(COLUMN_GAP.saturating_mul(columns.saturating_sub(1)));
     let column_width = (available_width / columns).max(1);
     let mut visible_states = total.min(columns * max_lines);
     let truncated = visible_states < total;
@@ -723,12 +728,7 @@ fn format_state_histogram(
     lines
 }
 
-fn build_histogram_line(
-    amp: &Complex,
-    index: usize,
-    qubits: usize,
-    width: usize,
-) -> Line<'static> {
+fn build_histogram_line(amp: &Complex, index: usize, qubits: usize, width: usize) -> Line<'static> {
     let prob = amp.re * amp.re + amp.im * amp.im;
     let label = format!("|{:0width$b}>", index, width = qubits);
     let prob_text = format!("{:.3}", prob);
@@ -858,7 +858,11 @@ where
             if keep_gate(gate) {
                 continue;
             }
-            if let Some(rect) = layout.slots.get(row).and_then(|row_slots| row_slots.get(slot)) {
+            if let Some(rect) = layout
+                .slots
+                .get(row)
+                .and_then(|row_slots| row_slots.get(slot))
+            {
                 let skip_start = rect.y;
                 let skip_end = rect.y.saturating_add(rect.height.saturating_sub(1));
                 cuts.push(LineCut {

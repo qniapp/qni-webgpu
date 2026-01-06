@@ -105,10 +105,7 @@ impl Default for AppState {
 }
 
 pub(crate) fn qubit_count(state: &AppState) -> usize {
-    state
-        .placed
-        .len()
-        .clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT)
+    state.placed.len().clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT)
 }
 
 pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
@@ -225,8 +222,14 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
         ],
         Gate::SqrtX => [
             Complex { re: HALF, im: HALF },
-            Complex { re: HALF, im: -HALF },
-            Complex { re: HALF, im: -HALF },
+            Complex {
+                re: HALF,
+                im: -HALF,
+            },
+            Complex {
+                re: HALF,
+                im: -HALF,
+            },
             Complex { re: HALF, im: HALF },
         ],
         Gate::S => [
@@ -351,9 +354,7 @@ fn apply_multi_control_x(
     target: usize,
     qubits: usize,
 ) -> Vec<Complex> {
-    if controls.is_empty()
-        || target >= qubits
-        || controls.iter().any(|control| *control >= qubits)
+    if controls.is_empty() || target >= qubits || controls.iter().any(|control| *control >= qubits)
     {
         return state.to_vec();
     }
@@ -415,7 +416,10 @@ pub(crate) fn parse_phase_label(input: &str) -> Result<PhaseValue, String> {
     if trimmed.is_empty() {
         return Err("φ の値が空です".to_string());
     }
-    let normalized = trimmed.replace("pi", "π").replace("PI", "π").replace(' ', "");
+    let normalized = trimmed
+        .replace("pi", "π")
+        .replace("PI", "π")
+        .replace(' ', "");
     let mut chars = normalized.chars().peekable();
     let mut sign = 1i32;
     if let Some(&ch) = chars.peek() {
@@ -524,9 +528,7 @@ pub(crate) fn apply_gates_to_zero_limit(
     max_columns: Option<usize>,
     phase_values: Option<&Vec<Vec<Option<PhaseValue>>>>,
 ) -> SimulationResult {
-    let qubits = gates
-        .len()
-        .clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT);
+    let qubits = gates.len().clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT);
     let mut state = vec![ZERO; 1usize << qubits];
     state[0] = ONE;
     let max_slots = gates.iter().map(|row| row.len()).max().unwrap_or(0);
@@ -568,7 +570,11 @@ pub(crate) fn apply_gates_to_zero_limit(
                 if *gate == Gate::X && controlled_targets.contains(&row) {
                     continue;
                 }
-                if *gate == Gate::Phase || *gate == Gate::Rx || *gate == Gate::Ry || *gate == Gate::Rz {
+                if *gate == Gate::Phase
+                    || *gate == Gate::Rx
+                    || *gate == Gate::Ry
+                    || *gate == Gate::Rz
+                {
                     let phi = phase_values
                         .and_then(|values| values.get(row))
                         .and_then(|row_values| row_values.get(slot))
@@ -597,7 +603,10 @@ pub(crate) fn apply_gates_to_zero_limit(
             }
         }
     }
-    SimulationResult { state, measurements }
+    SimulationResult {
+        state,
+        measurements,
+    }
 }
 
 fn normalize_zero(value: f64) -> f64 {

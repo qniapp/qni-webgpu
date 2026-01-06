@@ -1,10 +1,10 @@
 use ratatui::layout::Rect;
 
+use crate::model::Gate;
 use crate::{
     GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, GATE_GAP, MIN_QUBIT_COUNT, PALETTE_GAP, PALETTE_HEIGHT,
     ROW_GAP, SEPARATOR_TO_CIRCUIT_GAP, SHADOW_OUTSET, SLOT_GAP,
 };
-use crate::model::Gate;
 
 const WIRE_PREFIX: &str = "q0: ";
 const SLOT_PADDING_LEFT: u16 = 3;
@@ -55,12 +55,16 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
     let total_circuit_height =
         (GATE_DRAW_HEIGHT * qubit_count as u16).saturating_add(ROW_GAP * (qubit_count as u16 - 1));
     let min_top = desired_circuit_y.saturating_sub(area.y);
-    let available_state = area
-        .height
-        .saturating_sub(min_top.saturating_add(total_circuit_height).saturating_add(1));
+    let available_state = area.height.saturating_sub(
+        min_top
+            .saturating_add(total_circuit_height)
+            .saturating_add(1),
+    );
     let max_states = (1usize << qubit_count) as u16;
     let state_height = max_states.min(available_state.max(1));
-    let state_y = area.y.saturating_add(area.height.saturating_sub(state_height));
+    let state_y = area
+        .y
+        .saturating_add(area.height.saturating_sub(state_height));
     let max_circuit_y = state_y.saturating_sub(total_circuit_height + 1);
     let circuit_y = if max_circuit_y < desired_circuit_y {
         palette_bottom
@@ -191,7 +195,8 @@ pub fn is_empty_drop(_x: u16, y: u16, area: Rect, qubit_count: usize) -> bool {
         .unwrap_or(circuit_top);
     let within_palette = y >= regions.palette.y && y < palette_bottom;
     let within_circuit = y >= circuit_top && y < circuit_bottom;
-    let within_state = y >= regions.state.y && y < regions.state.y.saturating_add(regions.state.height);
+    let within_state =
+        y >= regions.state.y && y < regions.state.y.saturating_add(regions.state.height);
     !within_palette && !within_circuit && !within_state
 }
 
