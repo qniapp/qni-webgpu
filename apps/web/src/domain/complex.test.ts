@@ -61,4 +61,28 @@ describe('applyGateToZero', () => {
     expect(a1.re).toBe(0)
     expect(a1.im).toBe(0)
   })
+
+  test('√X gate', () => {
+    const [a0, a1] = applyGateToZero('√X')
+    expect(a0.re).toBeCloseTo(0.5, 6)
+    expect(a0.im).toBeCloseTo(0.5, 6)
+    expect(a1.re).toBeCloseTo(0.5, 6)
+    expect(a1.im).toBeCloseTo(-0.5, 6)
+  })
+
+  test('S† gate', () => {
+    const [a0, a1] = applyGateToZero('S†')
+    expect(a0.re).toBe(1)
+    expect(a0.im).toBe(0)
+    expect(a1.re).toBe(0)
+    expect(a1.im).toBe(0)
+  })
+
+  test('T† gate', () => {
+    const [a0, a1] = applyGateToZero('T†')
+    expect(a0.re).toBe(1)
+    expect(a0.im).toBe(0)
+    expect(a1.re).toBe(0)
+    expect(a1.im).toBe(0)
+  })
 })

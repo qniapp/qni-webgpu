@@ -8,18 +8,22 @@ export type Complex = {
 const INV_SQRT2 = 1 / Math.sqrt(2)
 const PHASE_45: Complex = { re: INV_SQRT2, im: INV_SQRT2 }
 
+const SQRT_X: Complex = { re: 0.5, im: 0.5 }
+const SQRT_X_INV: Complex = { re: 0.5, im: -0.5 }
+const T_DAGGER: Complex = { re: INV_SQRT2, im: -INV_SQRT2 }
+
 const GATE_MATRICES: Record<Gate, [Complex, Complex, Complex, Complex]> = {
-  X: [
-    { re: 0, im: 0 },
-    { re: 1, im: 0 },
-    { re: 1, im: 0 },
-    { re: 0, im: 0 },
-  ],
   H: [
     { re: INV_SQRT2, im: 0 },
     { re: INV_SQRT2, im: 0 },
     { re: INV_SQRT2, im: 0 },
     { re: -INV_SQRT2, im: 0 },
+  ],
+  X: [
+    { re: 0, im: 0 },
+    { re: 1, im: 0 },
+    { re: 1, im: 0 },
+    { re: 0, im: 0 },
   ],
   Y: [
     { re: 0, im: 0 },
@@ -33,17 +37,30 @@ const GATE_MATRICES: Record<Gate, [Complex, Complex, Complex, Complex]> = {
     { re: 0, im: 0 },
     { re: -1, im: 0 },
   ],
+  '√X': [SQRT_X, SQRT_X_INV, SQRT_X_INV, SQRT_X],
   S: [
     { re: 1, im: 0 },
     { re: 0, im: 0 },
     { re: 0, im: 0 },
     { re: 0, im: 1 },
   ],
+  'S†': [
+    { re: 1, im: 0 },
+    { re: 0, im: 0 },
+    { re: 0, im: 0 },
+    { re: 0, im: -1 },
+  ],
   T: [
     { re: 1, im: 0 },
     { re: 0, im: 0 },
     { re: 0, im: 0 },
     PHASE_45,
+  ],
+  'T†': [
+    { re: 1, im: 0 },
+    { re: 0, im: 0 },
+    { re: 0, im: 0 },
+    T_DAGGER,
   ],
 }
 

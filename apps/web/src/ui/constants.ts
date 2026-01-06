@@ -17,7 +17,7 @@ export const GATE_SIZE = 1 * REM
 export const SLOT_SPACING = GATE_SIZE * 1.5
 export const SNAP_DISTANCE = 0.5625 * REM
 
-export const PALETTE_GATES: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
+export const PALETTE_GATES: Gate[] = ['H', 'X', 'Y', 'Z', '√X', 'S', 'S†', 'T', 'T†']
 export const PALETTE_SIZE = GATE_SIZE
 export const PALETTE_GAP = 0.5 * REM
 export const PALETTE_ROW_Y = 0.375 * REM

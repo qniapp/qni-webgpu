@@ -1,6 +1,6 @@
-export type Gate = 'X' | 'H' | 'Y' | 'Z' | 'S' | 'T'
+export type Gate = 'H' | 'X' | 'Y' | 'Z' | '√X' | 'S' | 'S†' | 'T' | 'T†'
 
-export const GATE_ORDER: Gate[] = ['X', 'H', 'Y', 'Z', 'S', 'T']
+export const GATE_ORDER: Gate[] = ['H', 'X', 'Y', 'Z', '√X', 'S', 'S†', 'T', 'T†']
 export const DEFAULT_GATE: Gate = 'H'
 
 export function isGate(value: string): value is Gate {

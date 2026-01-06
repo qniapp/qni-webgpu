@@ -3,14 +3,14 @@ import { STATE_TEXT_MAX_LEN } from '../ui/constants'
 export const computeShaderCode = `
 struct GateParams {
   gateType: u32,
-  _pad0: u32,
+  targetIndex: u32,
   _pad1: u32,
   _pad2: u32,
 }
 
 @group(0) @binding(0) var<uniform> params: GateParams;
-@group(0) @binding(1) var<storage, read> inputState: array<vec2<f32>, 2>;
-@group(0) @binding(2) var<storage, read_write> outputState: array<vec2<f32>, 2>;
+@group(0) @binding(1) var<storage, read> inputState: array<vec2<f32>, 4>;
+@group(0) @binding(2) var<storage, read_write> outputState: array<vec2<f32>, 4>;
 
 fn cadd(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
   return a + b;
@@ -24,51 +24,127 @@ fn cmul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
   return vec2<f32>(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
 }
 
+fn gate_matrix(gateType: u32) -> array<vec2<f32>, 4> {
+  let invSqrt2 = 0.7071067811865476;
+  switch gateType {
+    case 0u: { // H
+      return array<vec2<f32>, 4>(
+        vec2<f32>(invSqrt2, 0.0),
+        vec2<f32>(invSqrt2, 0.0),
+        vec2<f32>(invSqrt2, 0.0),
+        vec2<f32>(-invSqrt2, 0.0)
+      );
+    }
+    case 1u: { // X
+      return array<vec2<f32>, 4>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0)
+      );
+    }
+    case 2u: { // Y
+      return array<vec2<f32>, 4>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, -1.0),
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(0.0, 0.0)
+      );
+    }
+    case 3u: { // Z
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(-1.0, 0.0)
+      );
+    }
+    case 4u: { // √X
+      return array<vec2<f32>, 4>(
+        vec2<f32>(0.5, 0.5),
+        vec2<f32>(0.5, -0.5),
+        vec2<f32>(0.5, -0.5),
+        vec2<f32>(0.5, 0.5)
+      );
+    }
+    case 5u: { // S
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 1.0)
+      );
+    }
+    case 6u: { // S†
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, -1.0)
+      );
+    }
+    case 7u: { // T
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(invSqrt2, invSqrt2)
+      );
+    }
+    case 8u: { // T†
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(invSqrt2, -invSqrt2)
+      );
+    }
+    default: {
+      return array<vec2<f32>, 4>(
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 0.0)
+      );
+    }
+  }
+}
+
 @compute @workgroup_size(1)
 fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
   if (gid.x > 0u) {
     return;
   }
 
-  let a0 = inputState[0];
-  let a1 = inputState[1];
-  var out0 = a0;
-  var out1 = a1;
-  let invSqrt2 = 0.7071067811865476;
+  let a00 = inputState[0];
+  let a01 = inputState[1];
+  let a10 = inputState[2];
+  let a11 = inputState[3];
+  let m = gate_matrix(params.gateType);
+  let m00 = m[0];
+  let m01 = m[1];
+  let m10 = m[2];
+  let m11 = m[3];
 
-  switch params.gateType {
-    case 0u: { // X
-      out0 = a1;
-      out1 = a0;
-    }
-    case 1u: { // H
-      out0 = cadd(a0, a1) * invSqrt2;
-      out1 = csub(a0, a1) * invSqrt2;
-    }
-    case 2u: { // Y
-      out0 = cmul(vec2<f32>(0.0, -1.0), a1);
-      out1 = cmul(vec2<f32>(0.0, 1.0), a0);
-    }
-    case 3u: { // Z
-      out0 = a0;
-      out1 = -a1;
-    }
-    case 4u: { // S
-      out0 = a0;
-      out1 = cmul(vec2<f32>(0.0, 1.0), a1);
-    }
-    case 5u: { // T
-      out0 = a0;
-      out1 = cmul(vec2<f32>(invSqrt2, invSqrt2), a1);
-    }
-    default: {
-      out0 = a0;
-      out1 = a1;
-    }
+  if (params.targetIndex == 0u) {
+    let out00 = cadd(cmul(m00, a00), cmul(m01, a10));
+    let out10 = cadd(cmul(m10, a00), cmul(m11, a10));
+    let out01 = cadd(cmul(m00, a01), cmul(m01, a11));
+    let out11 = cadd(cmul(m10, a01), cmul(m11, a11));
+    outputState[0] = out00;
+    outputState[1] = out01;
+    outputState[2] = out10;
+    outputState[3] = out11;
+  } else {
+    let out00 = cadd(cmul(m00, a00), cmul(m01, a01));
+    let out01 = cadd(cmul(m10, a00), cmul(m11, a01));
+    let out10 = cadd(cmul(m00, a10), cmul(m01, a11));
+    let out11 = cadd(cmul(m10, a10), cmul(m11, a11));
+    outputState[0] = out00;
+    outputState[1] = out01;
+    outputState[2] = out10;
+    outputState[3] = out11;
   }
-
-  outputState[0] = out0;
-  outputState[1] = out1;
 }
 `
 

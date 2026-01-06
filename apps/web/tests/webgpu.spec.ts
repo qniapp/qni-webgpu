@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test'
 
 const gateCases = [
-  { gate: 'X', expected: [0, 0, 0, 0, 1, 0, 0, 0] },
   { gate: 'H', expected: [1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0, 0, 0] },
+  { gate: 'X', expected: [0, 0, 0, 0, 1, 0, 0, 0] },
   { gate: 'Y', expected: [0, 0, 0, 0, 0, 1, 0, 0] },
   { gate: 'Z', expected: [1, 0, 0, 0, 0, 0, 0, 0] },
+  { gate: '√X', expected: [0.5, 0.5, 0, 0, 0.5, -0.5, 0, 0] },
   { gate: 'S', expected: [1, 0, 0, 0, 0, 0, 0, 0] },
+  { gate: 'S†', expected: [1, 0, 0, 0, 0, 0, 0, 0] },
   { gate: 'T', expected: [1, 0, 0, 0, 0, 0, 0, 0] },
+  { gate: 'T†', expected: [1, 0, 0, 0, 0, 0, 0, 0] },
 ]
 
 for (const { gate, expected } of gateCases) {
@@ -37,7 +40,7 @@ for (const { gate, expected } of gateCases) {
       { timeout: 8000 }
     )
 
-    const paletteIndex = ['X', 'H', 'Y', 'Z', 'S', 'T'].indexOf(gate)
+    const paletteIndex = ['H', 'X', 'Y', 'Z', '√X', 'S', 'S†', 'T', 'T†'].indexOf(gate)
     const PALETTE_SIZE = 32
     const PALETTE_GAP = 16
     const PALETTE_ROW_Y = 12
@@ -46,7 +49,7 @@ for (const { gate, expected } of gateCases) {
     const GATE_SIZE = 32
     const SLOT_LEFT = LINE_LEFT + GATE_SIZE
     const LINE_Y = 160
-    const paletteWidth = 6 * PALETTE_SIZE + 5 * PALETTE_GAP
+    const paletteWidth = 9 * PALETTE_SIZE + 8 * PALETTE_GAP
     const paletteStartX = (CANVAS_WIDTH - paletteWidth) / 2
     const sourceX = paletteStartX + paletteIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
     const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2

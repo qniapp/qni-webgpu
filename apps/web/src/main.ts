@@ -133,6 +133,7 @@ async function init() {
 
     let stateVectorGlyphCount = 16
     const placedGates: PlacedGate[] = []
+    let hoveredPaletteIndex: number | null = null
 
     const getGateSequence = (): GateOperation[] => {
       return [...placedGates]
@@ -162,7 +163,7 @@ async function init() {
     }
 
     const updateScene = () => {
-      const scene = buildScene(stateVectorGlyphCount, placedGates, canvas.width, canvas.height)
+      const scene = buildScene(stateVectorGlyphCount, placedGates, canvas.width, canvas.height, hoveredPaletteIndex)
       const draggingGate = placedGates.find((gate) => gate.dragging) ?? null
       window.__vertexCount = scene.instances.length
       renderer.updateScene(scene, draggingGate)
@@ -191,6 +192,10 @@ async function init() {
       onUpdate: updateScene,
       onGateDropped: () => {
         void recomputeStateVector()
+      },
+      onPaletteHoverChange: (index) => {
+        hoveredPaletteIndex = index
+        updateScene()
       },
     })
 

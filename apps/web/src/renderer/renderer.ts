@@ -193,11 +193,24 @@ export function createRenderer(options: RendererOptions) {
     device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([canvasWidth, canvasHeight, 0, 0]))
   }
 
-  const makeTextBuffers = (layout: TextLayout, options?: { glyphBuffer?: GPUBuffer; glyphCount?: number; glyphSize?: number; atlasWidth?: number; atlasHeight?: number; texture?: GPUTexture }) => {
+  const makeTextBuffers = (
+    layout: TextLayout,
+    options?: {
+      glyphBuffer?: GPUBuffer
+      glyphCount?: number
+      glyphSize?: number
+      atlasWidth?: number
+      atlasHeight?: number
+      texture?: GPUTexture
+      charMap?: Record<string, string>
+    }
+  ) => {
     let glyphBuffer = options?.glyphBuffer
     let glyphCount = options?.glyphCount ?? layout.text.length
     if (!glyphBuffer) {
-      const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
+      const codes = new Uint32Array(
+        Array.from(layout.text).map((char) => (options?.charMap?.[char] ?? char).charCodeAt(0))
+      )
       glyphBuffer = device.createBuffer({
         size: codes.byteLength,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -233,6 +246,8 @@ export function createRenderer(options: RendererOptions) {
   let wireTexts: TextBuffers[] = []
   let stateTextDraw: TextBuffers | null = null
 
+  const labelCharMap: Record<string, string> = { '√': '^', '†': '|' }
+
   const syncGateTexts = (layouts: TextLayout[]) => {
     if (gateTexts.length !== layouts.length) {
       gateTexts = layouts.map((layout) => ({
@@ -241,6 +256,7 @@ export function createRenderer(options: RendererOptions) {
           atlasWidth: labelAtlasWidth,
           atlasHeight: labelAtlasHeight,
           texture: labelFontTexture,
+          charMap: labelCharMap,
         }),
         label: layout.text,
       }))
@@ -249,7 +265,9 @@ export function createRenderer(options: RendererOptions) {
     layouts.forEach((layout, index) => {
       const gateText = gateTexts[index]
       if (gateText.label !== layout.text) {
-        const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
+        const codes = new Uint32Array(
+          Array.from(layout.text).map((char) => (labelCharMap[char] ?? char).charCodeAt(0))
+        )
         device.queue.writeBuffer(gateText.glyphBuffer, 0, codes)
         gateText.label = layout.text
       }
@@ -298,6 +316,7 @@ export function createRenderer(options: RendererOptions) {
           atlasWidth: labelAtlasWidth,
           atlasHeight: labelAtlasHeight,
           texture: labelFontTexture,
+          charMap: labelCharMap,
         })
       )
     } else {
@@ -309,6 +328,7 @@ export function createRenderer(options: RendererOptions) {
               atlasWidth: labelAtlasWidth,
               atlasHeight: labelAtlasHeight,
               texture: labelFontTexture,
+              charMap: labelCharMap,
             })
           )
           return
