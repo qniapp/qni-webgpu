@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "icons": "bash scripts/build-gate-icons.sh",
+    "prebuild": "pnpm icons",
     "build": "tsc && vite build",
     "check": "pnpm lint && pnpm test",
     "preview": "vite preview",

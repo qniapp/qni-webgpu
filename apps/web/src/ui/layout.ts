@@ -1,4 +1,4 @@
-import { COLORS, GATE_SIZE, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, getLayoutMetrics } from './constants'
+import { COLORS, GATE_SIZE, GATE_ICON_CHAR_MAP, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, getLayoutMetrics } from './constants'
 import { FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE } from './text'
 import type { PlacedGate, ShapeInstance, TextLayout } from './types'
 
@@ -67,9 +67,10 @@ export function buildScene(
       addRoundedRect(x - 2, PALETTE_ROW_Y - 2, PALETTE_SIZE + 4, PALETTE_SIZE + 4, 8, COLORS.background)
     }
     addRoundedRect(x, PALETTE_ROW_Y, PALETTE_SIZE, PALETTE_SIZE, 6, COLORS.box)
-    const palettePos = labelPosition(x, PALETTE_ROW_Y, PALETTE_SIZE, gate)
+    const paletteLabel = GATE_ICON_CHAR_MAP[gate]
+    const palettePos = labelPosition(x, PALETTE_ROW_Y, PALETTE_SIZE, paletteLabel)
     paletteLabels.push({
-      text: gate,
+      text: paletteLabel,
       x: palettePos.x,
       y: palettePos.y,
       color: COLORS.label,
@@ -85,9 +86,10 @@ export function buildScene(
       }
       addRoundedRect(gate.x, gate.y, GATE_SIZE, GATE_SIZE, 6, COLORS.box)
     }
-    const gatePos = labelPosition(gate.x, gate.y, GATE_SIZE, gate.label)
+    const gateLabel = GATE_ICON_CHAR_MAP[gate.label]
+    const gatePos = labelPosition(gate.x, gate.y, GATE_SIZE, gateLabel)
     gateLabels.push({
-      text: gate.label,
+      text: gateLabel,
       x: gatePos.x,
       y: gatePos.y,
       color: COLORS.label,

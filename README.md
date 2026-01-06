@@ -66,6 +66,14 @@ pnpm dev -- --host 127.0.0.1 --port 4173
 補足:
 - `?gate=Y` のように指定すると、`X/H/Y/Z/S/T` の表示を切り替えられる（例: `http://127.0.0.1:4173/?gate=Y`）
 
+### ゲートアイコンの更新
+SVG を更新した場合は PNG を再生成する。
+
+```
+cd apps/web
+pnpm icons
+```
+
 ## Playwright での確認（任意）
 WebGPU の描画を読み戻して検証する。
 

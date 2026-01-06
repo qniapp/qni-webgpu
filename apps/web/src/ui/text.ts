@@ -1,5 +1,5 @@
 export const FONT_GLYPH_SIZE = 8
-export const LABEL_GLYPH_SIZE = 14
+export const LABEL_GLYPH_SIZE = 24
 export const FONT_COLS = 16
 export const FONT_ROWS = 6
 
@@ -421,6 +421,48 @@ export function createFontAtlas(glyphSize: number, glyphs: GlyphMap) {
   Object.entries(glyphs).forEach(([char, rows]) => setGlyph(char, rows))
 
   return { data, atlasWidth, atlasHeight }
+}
+
+export async function createIconAtlas(glyphSize: number, iconMap: Record<string, string>) {
+  const atlasWidth = FONT_COLS * glyphSize
+  const atlasHeight = FONT_ROWS * glyphSize
+  const canvas = document.createElement('canvas')
+  canvas.width = atlasWidth
+  canvas.height = atlasHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('2D context unavailable')
+  }
+  ctx.clearRect(0, 0, atlasWidth, atlasHeight)
+  ctx.imageSmoothingEnabled = true
+
+  const loadImage = async (src: string) => {
+    const img = new Image()
+    img.decoding = 'async'
+    const loaded = new Promise<HTMLImageElement>((resolve, reject) => {
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('Failed to load icon image'))
+    })
+    img.src = src
+    return await loaded
+  }
+
+  for (const [char, src] of Object.entries(iconMap)) {
+    const code = char.charCodeAt(0)
+    const index = code - 32
+    if (index < 0 || index >= FONT_COLS * FONT_ROWS) {
+      continue
+    }
+    const col = index % FONT_COLS
+    const row = Math.floor(index / FONT_COLS)
+    const baseX = col * glyphSize
+    const baseY = row * glyphSize
+    const img = await loadImage(src)
+    ctx.drawImage(img, baseX, baseY, glyphSize, glyphSize)
+  }
+
+  const imageData = ctx.getImageData(0, 0, atlasWidth, atlasHeight)
+  return { data: new Uint8Array(imageData.data), atlasWidth, atlasHeight }
 }
 
 export { LABEL_BASE_GLYPHS }

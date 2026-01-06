@@ -25,6 +25,7 @@ type RendererOptions = {
   labelAtlasWidth: number
   labelAtlasHeight: number
   fontSampler: GPUSampler
+  labelSampler: GPUSampler
   stateTextGlyphBuffer: GPUBuffer
 }
 
@@ -42,6 +43,7 @@ export function createRenderer(options: RendererOptions) {
     labelAtlasWidth,
     labelAtlasHeight,
     fontSampler,
+    labelSampler,
     stateTextGlyphBuffer,
   } = options
 
@@ -202,15 +204,13 @@ export function createRenderer(options: RendererOptions) {
       atlasWidth?: number
       atlasHeight?: number
       texture?: GPUTexture
-      charMap?: Record<string, string>
+      sampler?: GPUSampler
     }
   ) => {
     let glyphBuffer = options?.glyphBuffer
     let glyphCount = options?.glyphCount ?? layout.text.length
     if (!glyphBuffer) {
-      const codes = new Uint32Array(
-        Array.from(layout.text).map((char) => (options?.charMap?.[char] ?? char).charCodeAt(0))
-      )
+      const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
       glyphBuffer = device.createBuffer({
         size: codes.byteLength,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -233,7 +233,7 @@ export function createRenderer(options: RendererOptions) {
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
         { binding: 1, resource: { buffer: glyphBuffer } },
-        { binding: 2, resource: fontSampler },
+        { binding: 2, resource: options?.sampler ?? fontSampler },
         { binding: 3, resource: (options?.texture ?? fontTexture).createView() },
       ],
     })
@@ -246,8 +246,6 @@ export function createRenderer(options: RendererOptions) {
   let wireTexts: TextBuffers[] = []
   let stateTextDraw: TextBuffers | null = null
 
-  const labelCharMap: Record<string, string> = { '√': '^', '†': '|' }
-
   const syncGateTexts = (layouts: TextLayout[]) => {
     if (gateTexts.length !== layouts.length) {
       gateTexts = layouts.map((layout) => ({
@@ -256,7 +254,7 @@ export function createRenderer(options: RendererOptions) {
           atlasWidth: labelAtlasWidth,
           atlasHeight: labelAtlasHeight,
           texture: labelFontTexture,
-          charMap: labelCharMap,
+          sampler: labelSampler,
         }),
         label: layout.text,
       }))
@@ -265,9 +263,7 @@ export function createRenderer(options: RendererOptions) {
     layouts.forEach((layout, index) => {
       const gateText = gateTexts[index]
       if (gateText.label !== layout.text) {
-        const codes = new Uint32Array(
-          Array.from(layout.text).map((char) => (labelCharMap[char] ?? char).charCodeAt(0))
-        )
+        const codes = new Uint32Array(Array.from(layout.text).map((char) => char.charCodeAt(0)))
         device.queue.writeBuffer(gateText.glyphBuffer, 0, codes)
         gateText.label = layout.text
       }
@@ -316,7 +312,7 @@ export function createRenderer(options: RendererOptions) {
           atlasWidth: labelAtlasWidth,
           atlasHeight: labelAtlasHeight,
           texture: labelFontTexture,
-          charMap: labelCharMap,
+          sampler: labelSampler,
         })
       )
     } else {
@@ -328,7 +324,7 @@ export function createRenderer(options: RendererOptions) {
               atlasWidth: labelAtlasWidth,
               atlasHeight: labelAtlasHeight,
               texture: labelFontTexture,
-              charMap: labelCharMap,
+              sampler: labelSampler,
             })
           )
           return

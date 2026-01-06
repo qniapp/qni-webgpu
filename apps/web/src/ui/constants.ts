@@ -22,6 +22,18 @@ export const PALETTE_SIZE = GATE_SIZE
 export const PALETTE_GAP = 0.5 * REM
 export const PALETTE_ROW_Y = 0.375 * REM
 
+export const GATE_ICON_CHAR_MAP: Record<Gate, string> = {
+  H: 'A',
+  X: 'B',
+  Y: 'C',
+  Z: 'D',
+  '√X': 'E',
+  S: 'F',
+  'S†': 'G',
+  T: 'H',
+  'T†': 'I',
+}
+
 export type LayoutMetrics = {
   lineLeft: number
   lineRight: number

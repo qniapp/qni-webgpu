@@ -5,9 +5,18 @@ import { createRenderer } from './renderer/renderer'
 import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH, STATE_TEXT_MAX_LEN } from './ui/constants'
 import { setupInput } from './ui/input'
 import { buildScene } from './ui/layout'
-import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, buildLabelGlyphs, createFontAtlas } from './ui/text'
+import { BASE_GLYPHS, FONT_GLYPH_SIZE, LABEL_GLYPH_SIZE, createFontAtlas, createIconAtlas } from './ui/text'
 import type { PlacedGate } from './ui/types'
 import { formatComplex } from './domain/complex'
+import hGatePng from './assets/gates/png/h-gate.png'
+import xGatePng from './assets/gates/png/x-gate.png'
+import yGatePng from './assets/gates/png/y-gate.png'
+import zGatePng from './assets/gates/png/z-gate.png'
+import rnotGatePng from './assets/gates/png/rnot-gate.png'
+import sGatePng from './assets/gates/png/s-gate.png'
+import sDaggerGatePng from './assets/gates/png/s-dagger-gate.png'
+import tGatePng from './assets/gates/png/t-gate.png'
+import tDaggerGatePng from './assets/gates/png/t-dagger-gate.png'
 
 declare global {
   interface Window {
@@ -108,12 +117,22 @@ async function init() {
     device.queue.writeBuffer(stateTextGlyphBuffer, 0, new Uint32Array(STATE_TEXT_MAX_LEN))
 
     const fontAtlas = createFontAtlas(FONT_GLYPH_SIZE, BASE_GLYPHS)
-    const labelGlyphs = buildLabelGlyphs(LABEL_GLYPH_SIZE)
-    const labelAtlas = createFontAtlas(LABEL_GLYPH_SIZE, labelGlyphs)
+    const labelAtlas = await createIconAtlas(LABEL_GLYPH_SIZE, {
+      A: hGatePng,
+      B: xGatePng,
+      C: yGatePng,
+      D: zGatePng,
+      E: rnotGatePng,
+      F: sGatePng,
+      G: sDaggerGatePng,
+      H: tGatePng,
+      I: tDaggerGatePng,
+    })
 
     const fontTexture = createTextureFromAtlas(device, fontAtlas)
     const labelFontTexture = createTextureFromAtlas(device, labelAtlas)
     const fontSampler = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
+    const labelSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' })
 
     const renderer = createRenderer({
       device,
@@ -128,6 +147,7 @@ async function init() {
       labelAtlasWidth: labelAtlas.atlasWidth,
       labelAtlasHeight: labelAtlas.atlasHeight,
       fontSampler,
+      labelSampler,
       stateTextGlyphBuffer,
     })
 
