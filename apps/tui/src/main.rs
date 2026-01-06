@@ -33,7 +33,7 @@ fn draw_once(
 
 fn run() -> io::Result<()> {
     let mut app_state = AppState::new();
-    let mut debug_line: Option<String> = None;
+    let debug_line: Option<String> = None;
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -63,13 +63,8 @@ fn run() -> io::Result<()> {
                 Event::Key(key) => {
                     if app_state.phase_edit.is_some() {
                         handle_phase_edit_key(&mut app_state, key);
-                        debug_line = app_state
-                            .phase_edit_error
-                            .as_ref()
-                            .map(|error| format!("Error: {}", error));
                         continue;
                     }
-                    debug_line = Some(format!("key={:?} mods={:?}", key.code, key.modifiers));
                     if key.code == KeyCode::Char('c')
                         && key.modifiers.contains(KeyModifiers::CONTROL)
                     {
@@ -78,10 +73,6 @@ fn run() -> io::Result<()> {
                 }
                 Event::Mouse(mouse) => {
                     let area = terminal.size()?;
-                    debug_line = Some(format!(
-                        "mouse={:?} mods={:?} x={} y={}",
-                        mouse.kind, mouse.modifiers, mouse.column, mouse.row
-                    ));
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
                             handle_mouse_down(&mut app_state, mouse.column, mouse.row, area);
@@ -107,12 +98,6 @@ fn run() -> io::Result<()> {
                 }
                 _ => {}
             }
-        }
-        if app_state.phase_edit_error.is_some() {
-            debug_line = app_state
-                .phase_edit_error
-                .as_ref()
-                .map(|error| format!("Error: {}", error));
         }
     }
     Ok(())

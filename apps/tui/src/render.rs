@@ -516,19 +516,7 @@ pub fn render_to_buffer_with_drag(
     if state.dragging.is_some() {
         // No placeholder rendering; snapping is handled by the drag visual.
     }
-    if let Some(debug) = debug_line {
-        if !debug.trim().is_empty() {
-            let text = Text::from(format!("Debug: {}", debug));
-            let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
-            let debug_area = Rect {
-                x: area.x,
-                y: regions.state.y.saturating_sub(1),
-                width: area.width,
-                height: 1,
-            };
-            paragraph.render(debug_area, &mut buffer);
-        }
-    }
+    let _ = debug_line;
     let state_line = state.cached_state_line.clone();
     let text = Text::from(state_line);
     let paragraph = Paragraph::new(text).style(Style::default().bg(UI_BACKGROUND));
