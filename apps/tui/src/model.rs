@@ -339,17 +339,28 @@ fn apply_swap_qubits(state: &[Complex], q0: usize, q1: usize, qubits: usize) -> 
     out
 }
 
-fn apply_cnot_qubits(state: &[Complex], control: usize, target: usize, qubits: usize) -> Vec<Complex> {
-    if control >= qubits || target >= qubits || control == target {
+fn apply_multi_control_x(
+    state: &[Complex],
+    controls: &[usize],
+    target: usize,
+    qubits: usize,
+) -> Vec<Complex> {
+    if controls.is_empty()
+        || target >= qubits
+        || controls.iter().any(|control| *control >= qubits)
+    {
         return state.to_vec();
     }
-    let control_bit = qubits.saturating_sub(1).saturating_sub(control);
     let target_bit = qubits.saturating_sub(1).saturating_sub(target);
-    let control_mask = 1usize << control_bit;
     let target_mask = 1usize << target_bit;
+    let mut control_mask = 0usize;
+    for control in controls {
+        let bit = qubits.saturating_sub(1).saturating_sub(*control);
+        control_mask |= 1usize << bit;
+    }
     let mut out = state.to_vec();
     for index in 0..state.len() {
-        if index & control_mask != 0 && index & target_mask == 0 {
+        if index & control_mask == control_mask && index & target_mask == 0 {
             let flipped = index | target_mask;
             out.swap(index, flipped);
         }
@@ -517,23 +528,15 @@ pub(crate) fn apply_gates_to_zero_limit(
     let mut measurements = vec![vec![None; max_slots]; qubits];
     for slot in 0..limit {
         let mut swap_rows = Vec::new();
-        let mut control_row = None;
-        let mut target_row = None;
+        let mut control_rows = Vec::new();
+        let mut target_rows = Vec::new();
         let mut measure_rows = Vec::new();
         for (row, row_gates) in gates.iter().enumerate() {
             let gate = row_gates.get(slot).and_then(|gate| *gate);
             match gate {
                 Some(Gate::Swap) => swap_rows.push(row),
-                Some(Gate::Control) => {
-                    if control_row.is_none() {
-                        control_row = Some(row);
-                    }
-                }
-                Some(Gate::X) => {
-                    if target_row.is_none() {
-                        target_row = Some(row);
-                    }
-                }
+                Some(Gate::Control) => control_rows.push(row),
+                Some(Gate::X) => target_rows.push(row),
                 Some(Gate::Measure) => measure_rows.push(row),
                 _ => {}
             }
@@ -541,11 +544,14 @@ pub(crate) fn apply_gates_to_zero_limit(
         if swap_rows.len() == 2 {
             state = apply_swap_qubits(&state, swap_rows[0], swap_rows[1], qubits);
         }
-        let mut cnot_target = None;
-        if let (Some(control), Some(target)) = (control_row, target_row) {
-            if control != target {
-                state = apply_cnot_qubits(&state, control, target, qubits);
-                cnot_target = Some(target);
+        let mut controlled_targets = Vec::new();
+        if !control_rows.is_empty() && !target_rows.is_empty() {
+            for target in &target_rows {
+                if control_rows.iter().any(|control| control == target) {
+                    continue;
+                }
+                state = apply_multi_control_x(&state, &control_rows, *target, qubits);
+                controlled_targets.push(*target);
             }
         }
         for (row, row_gates) in gates.iter().enumerate() {
@@ -553,7 +559,7 @@ pub(crate) fn apply_gates_to_zero_limit(
                 if *gate == Gate::Swap || *gate == Gate::Control || *gate == Gate::Measure {
                     continue;
                 }
-                if *gate == Gate::X && cnot_target == Some(row) {
+                if *gate == Gate::X && controlled_targets.contains(&row) {
                     continue;
                 }
                 if *gate == Gate::Phase || *gate == Gate::Rx || *gate == Gate::Ry || *gate == Gate::Rz {

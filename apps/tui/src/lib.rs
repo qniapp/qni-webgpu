@@ -132,6 +132,19 @@ mod tests {
     }
 
     #[test]
+    fn build_state_line_for_ccx_gate() {
+        let line = build_state_line(&[
+            vec![Some(Gate::X), Some(Gate::Control)],
+            vec![Some(Gate::X), Some(Gate::Control)],
+            vec![None, Some(Gate::X)],
+        ]);
+        assert_eq!(
+            line,
+            "State: [(0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (0+0i), (1+0i)]"
+        );
+    }
+
+    #[test]
     fn build_state_line_measures_qubit() {
         let line = build_state_line(&[vec![Some(Gate::H), Some(Gate::Measure)]]);
         let expected_zero = [
