@@ -88,7 +88,7 @@ fn insertion_target(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usi
             let first_gate = state
                 .placed
                 .get(row)
-                .and_then(|row_gates| row_gates.get(0))
+                .and_then(|row_gates| row_gates.first())
                 .and_then(|value| *value);
             if first_gate.is_some() && gap.width > 0 {
                 let dx = if x < gap.x {
@@ -106,15 +106,13 @@ fn insertion_target(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usi
                     0
                 };
                 let dist = dx.saturating_add(dy);
-                if dist <= SNAP_DISTANCE
-                    && best.map_or(true, |(_, _, best_dist)| dist < best_dist)
-                {
+                if dist <= SNAP_DISTANCE && best.is_none_or(|(_, _, best_dist)| dist < best_dist) {
                     best = Some((row, 0, dist));
                 }
             }
         }
-        for index in 0..row_slots.len().saturating_sub(1) {
-            let left = row_slots[index];
+        let last_index = row_slots.len().saturating_sub(1);
+        for (index, left) in row_slots.iter().copied().enumerate().take(last_index) {
             let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
             let gap = Rect {
                 x: gap_x,
@@ -153,7 +151,7 @@ fn insertion_target(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usi
             if dist > SNAP_DISTANCE {
                 continue;
             }
-            if best.map_or(true, |(_, _, best_dist)| dist < best_dist) {
+            if best.is_none_or(|(_, _, best_dist)| dist < best_dist) {
                 best = Some((row, index + 1, dist));
             }
         }

@@ -279,8 +279,8 @@ pub fn hovered_column_at(x: u16, y: u16, layout: &CircuitLayout) -> Option<(usiz
             return Some((0, index));
         }
     }
-    for index in 0..first_row.len().saturating_sub(1) {
-        let left = first_row[index];
+    let last_index = first_row.len().saturating_sub(1);
+    for (index, left) in first_row.iter().copied().enumerate().take(last_index) {
         let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
         let gap = Rect {
             x: gap_x,

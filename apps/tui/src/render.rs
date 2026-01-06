@@ -679,7 +679,7 @@ fn format_state_histogram(
     } else {
         1
     };
-    let columns_needed = (total + max_lines - 1) / max_lines;
+    let columns_needed = total.div_ceil(max_lines);
     let columns = columns_needed.min(max_columns_by_width).max(1);
     let available_width = width.saturating_sub(COLUMN_GAP.saturating_mul(columns.saturating_sub(1)));
     let column_width = (available_width / columns).max(1);

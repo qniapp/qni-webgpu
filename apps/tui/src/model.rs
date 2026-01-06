@@ -98,6 +98,12 @@ impl AppState {
     }
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub(crate) fn qubit_count(state: &AppState) -> usize {
     state
         .placed
