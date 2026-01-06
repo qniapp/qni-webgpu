@@ -6,13 +6,15 @@ use ratatui::widgets::canvas::{Canvas, Circle, Line, Points};
 use ratatui::widgets::Widget;
 
 use crate::layout::{
-    circuit_layout, column_line_x, insertion_snap_rect, layout_regions, palette_items,
-    start_line_x, CircuitLayout,
+    amplitude_qubits, circuit_layout, column_line_x, display_index_to_state_index,
+    insertion_snap_rect, layout_regions, palette_items, start_line_x, state_circle_layout,
+    CircuitLayout, StateCircleLayout,
 };
 use crate::model::{
     apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
     Gate, QuitChoice,
 };
+use crate::model::format_complex;
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL, SHADOW_OUTSET,
     UI_BACKGROUND,
@@ -199,21 +201,15 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     if area.width == 0 || area.height == 0 || amplitudes.is_empty() {
         return;
     }
-    let qubits = amplitude_qubits(amplitudes.len());
-    let min_cell_w = 4.0_f64;
-    let min_cell_h = 3.0_f64;
-    let max_cols = ((area.width as f64) / min_cell_w).floor() as usize;
-    let max_rows = ((area.height as f64) / min_cell_h).floor() as usize;
-    if max_cols == 0 || max_rows == 0 {
+    let Some(layout) = state_circle_layout(area, amplitudes.len()) else {
         return;
-    }
-    let total = amplitudes.len();
-    let columns_needed = (total + max_rows - 1) / max_rows;
-    let columns = columns_needed.min(max_cols).max(1);
-    let rows = ((total + columns - 1) / columns).min(max_rows).max(1);
-    let visible = rows * columns;
-    let cell_w = area.width as f64 / columns as f64;
-    let cell_h = area.height as f64 / rows as f64;
+    };
+    let qubits = amplitude_qubits(amplitudes.len());
+    let columns = layout.columns;
+    let rows = layout.rows;
+    let visible = layout.visible;
+    let cell_w = layout.cell_w;
+    let cell_h = layout.cell_h;
     let size_boost = match qubits {
         0 | 1 => 1.15,
         2 => 1.1,
@@ -300,24 +296,92 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     canvas.render(area, buffer);
 }
 
-fn amplitude_qubits(len: usize) -> usize {
-    let mut size = len.max(1);
-    let mut qubits = 0;
-    while size > 1 {
-        size >>= 1;
-        qubits += 1;
+fn draw_state_popup(
+    buffer: &mut Buffer,
+    area: Rect,
+    layout: StateCircleLayout,
+    display_index: usize,
+    state_index: usize,
+    amplitudes: &[Complex],
+) {
+    if area.width == 0 || area.height == 0 {
+        return;
     }
-    qubits
-}
-
-fn display_index_to_state_index(display_index: usize, qubits: usize) -> usize {
-    let mut value = display_index;
-    let mut reversed = 0usize;
-    for _ in 0..qubits {
-        reversed = (reversed << 1) | (value & 1);
-        value >>= 1;
+    if display_index >= layout.visible || state_index >= amplitudes.len() {
+        return;
     }
-    reversed
+    let col = display_index % layout.columns;
+    let row = display_index / layout.columns;
+    let center_x = area.x as f64 + col as f64 * layout.cell_w + layout.cell_w / 2.0;
+    let center_y =
+        area.y as f64 + (layout.rows as f64 - 1.0 - row as f64) * layout.cell_h + layout.cell_h / 2.0;
+    let center_x = center_x.round() as i32;
+    let _center_y = center_y.round() as i32;
+    let amp = amplitudes[state_index];
+    let prob = (amp.re * amp.re + amp.im * amp.im).clamp(0.0, 1.0);
+    let phase = if prob <= 1e-6 {
+        None
+    } else {
+        Some(amp.im.atan2(amp.re) * 180.0 / std::f64::consts::PI)
+    };
+    let qubits = amplitude_qubits(amplitudes.len());
+    let ket = format!("{state_index:0width$b}", width = qubits);
+    let header = format!("|{}> decimal {}", ket, state_index);
+    let amplitude = format!("Amp: {}", format_complex(amp));
+    let probability = format!("Prob: {:>6.2}%", prob * 100.0);
+    let phase_line = match phase {
+        Some(value) => format!("Phase: {value:>6.2}°"),
+        None => "Phase:   --".to_string(),
+    };
+    let lines = [header, amplitude, probability, phase_line];
+    let content_width = lines.iter().map(|line| line.chars().count()).max().unwrap_or(0);
+    let box_width = (content_width + 2).max(16) as i32;
+    let box_height = (lines.len() + 2) as i32;
+    let mut x = center_x - box_width / 2;
+    let mut y = area.y as i32;
+    let area_right = area.x as i32 + area.width as i32 - 1;
+    if x < area.x as i32 {
+        x = area.x as i32;
+    }
+    if x + box_width - 1 > area_right {
+        x = area_right - box_width + 1;
+    }
+    if y + box_height - 1 > area.y as i32 + area.height as i32 - 1 {
+        y = area.y as i32 + area.height as i32 - box_height as i32;
+    }
+    if box_width <= 0 || box_height <= 0 {
+        return;
+    }
+    let rect = Rect::new(x as u16, y as u16, box_width as u16, box_height as u16);
+    let fill = " ".repeat(rect.width as usize);
+    let fill_style = Style::default().fg(Color::White).bg(Color::Black);
+    for offset in 0..rect.height {
+        buffer.set_string(rect.x, rect.y + offset, &fill, fill_style);
+    }
+    let border_style = Style::default().fg(Color::Gray).bg(Color::Black);
+    let top = format!("┌{}┐", "─".repeat(rect.width.saturating_sub(2) as usize));
+    let bottom = format!("└{}┘", "─".repeat(rect.width.saturating_sub(2) as usize));
+    buffer.set_string(rect.x, rect.y, &top, border_style);
+    buffer.set_string(
+        rect.x,
+        rect.y + rect.height.saturating_sub(1),
+        &bottom,
+        border_style,
+    );
+    for offset in 1..rect.height.saturating_sub(1) {
+        let y = rect.y + offset;
+        buffer.set_string(rect.x, y, "│", border_style);
+        buffer.set_string(
+            rect.x + rect.width.saturating_sub(1),
+            y,
+            "│",
+            border_style,
+        );
+    }
+    let text_style = Style::default().fg(Color::White).bg(Color::Black);
+    for (idx, line) in lines.iter().enumerate() {
+        buffer.set_string(rect.x + 1, rect.y + 1 + idx as u16, line, text_style);
+    }
 }
 
 pub(crate) fn draw_gate_box(
@@ -928,7 +992,21 @@ pub fn render_to_buffer_with_drag(
         // No placeholder rendering; snapping is handled by the drag visual.
     }
     let _ = debug_line;
-    draw_state_circles(&mut buffer, regions.state, &state.cached_state);
+    draw_state_circles(&mut buffer, regions.state_circles, &state.cached_state);
+    if let (Some(display_index), Some(state_index)) =
+        (state.hovered_state_display, state.hovered_state_index)
+    {
+        if let Some(layout) = state_circle_layout(regions.state_circles, state.cached_state.len()) {
+            draw_state_popup(
+                &mut buffer,
+                regions.state_popup,
+                layout,
+                display_index,
+                state_index,
+                &state.cached_state,
+            );
+        }
+    }
     if let Some(drag) = drag {
         let mut rect = Rect {
             x: drag.x,
@@ -1049,17 +1127,4 @@ fn line_cut_char(y: u16, cuts: &[LineCut]) -> Option<&'static str> {
 fn is_line_skip(y: u16, cuts: &[LineCut]) -> bool {
     cuts.iter()
         .any(|cut| y >= cut.skip_start && y <= cut.skip_end)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn display_index_to_state_index_reverses_bits() {
-        assert_eq!(display_index_to_state_index(0, 2), 0);
-        assert_eq!(display_index_to_state_index(1, 2), 2);
-        assert_eq!(display_index_to_state_index(2, 2), 1);
-        assert_eq!(display_index_to_state_index(3, 2), 3);
-    }
 }

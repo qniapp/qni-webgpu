@@ -2,8 +2,9 @@ use crossterm::event;
 use ratatui::layout::Rect;
 
 use crate::layout::{
-    circuit_layout, hit_test_circuit_slot, hit_test_palette, hovered_column_at, hovered_start_at,
-    is_empty_drop,
+    amplitude_qubits, circuit_layout, display_index_to_state_index, hit_test_circuit_slot,
+    hit_test_palette, hovered_column_at, hovered_start_at, is_empty_drop, layout_regions,
+    state_circle_layout,
 };
 use crate::model::{
     default_phase_value, ensure_slots, parse_phase_label, qubit_count, AppState, DragOrigin,
@@ -333,6 +334,7 @@ pub fn confirm_hovered_column(state: &mut AppState) {
 }
 
 pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
+    update_hovered_state_circle(state, x, y, area);
     let layout = circuit_layout(area, qubit_count(state));
     let next_hovered_start = hovered_start_at(x, y, &layout);
     let next_hovered_column = if next_hovered_start {
@@ -438,6 +440,57 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
     state.hovered_slot = slot_target.map(|(_, index, _)| index);
     state.hovered_row = slot_target.map(|(row, _, _)| row);
     state.hovered_insert = None;
+}
+
+fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect) {
+    let regions = layout_regions(area, qubit_count(state));
+    let in_state = x >= regions.state_circles.x
+        && x < regions.state_circles.x.saturating_add(regions.state_circles.width)
+        && y >= regions.state_circles.y
+        && y < regions.state_circles.y.saturating_add(regions.state_circles.height);
+    if !in_state {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    }
+    let total = state.cached_state.len().max(1);
+    let Some(layout) = state_circle_layout(regions.state_circles, total) else {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    };
+    let rel_x = (x - regions.state_circles.x) as f64;
+    let rel_y = (y - regions.state_circles.y) as f64;
+    let col = (rel_x / layout.cell_w).floor() as isize;
+    let row_from_top = (rel_y / layout.cell_h).floor() as isize;
+    if col < 0 || row_from_top < 0 {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    }
+    let col = col as usize;
+    let row_from_top = row_from_top as usize;
+    if col >= layout.columns || row_from_top >= layout.rows {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    }
+    let row = layout.rows - 1 - row_from_top;
+    let display_index = row * layout.columns + col;
+    if display_index >= layout.visible {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    }
+    let qubits = amplitude_qubits(total);
+    let state_index = display_index_to_state_index(display_index, qubits);
+    if state_index >= total {
+        state.hovered_state_display = None;
+        state.hovered_state_index = None;
+        return;
+    }
+    state.hovered_state_display = Some(display_index);
+    state.hovered_state_index = Some(state_index);
 }
 
 pub fn handle_phase_edit_key(state: &mut AppState, key: event::KeyEvent) -> bool {

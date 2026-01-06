@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(top, "▔▔▔▔▔");
         assert_eq!(mid, "  H  ");
         assert!(wire_line.starts_with("q0: "));
-        assert!(state_region_has_content(&buffer, regions.state));
+        assert!(state_region_has_content(&buffer, regions.state_circles));
     }
 
     #[test]
@@ -223,6 +223,26 @@ mod tests {
             .collect();
         assert_ne!(first_limit, second_limit);
         assert_ne!(first_sig, second_sig);
+    }
+
+    #[test]
+    fn hover_state_circle_shows_popup() {
+        let area = Rect::new(0, 0, 80, 30);
+        let mut state = AppState::new();
+        render_to_buffer(&mut state, area, None);
+        state.hovered_state_display = Some(0);
+        state.hovered_state_index = Some(0);
+        let buffer = render_to_buffer(&mut state, area, None);
+        let mut found = false;
+        let regions = layout_regions(area, qubit_count(&state));
+        for y in 0..regions.state_popup.height {
+            let line = buffer_to_line(&buffer, regions.state_popup, y);
+            if line.contains("decimal 0") {
+                found = true;
+                break;
+            }
+        }
+        assert!(found);
     }
 
     #[test]

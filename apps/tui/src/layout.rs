@@ -38,6 +38,8 @@ pub struct Regions {
     pub palette: Rect,
     pub circuits: Vec<Rect>,
     pub state: Rect,
+    pub state_popup: Rect,
+    pub state_circles: Rect,
 }
 
 #[derive(Debug)]
@@ -46,6 +48,15 @@ pub struct CircuitLayout {
     pub wire_width: u16,
     pub wire_rows: Vec<u16>,
     pub slots: Vec<Vec<Rect>>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct StateCircleLayout {
+    pub columns: usize,
+    pub rows: usize,
+    pub cell_w: f64,
+    pub cell_h: f64,
+    pub visible: usize,
 }
 
 pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
@@ -61,10 +72,29 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             .saturating_add(1),
     );
     let max_states = (1usize << qubit_count).min(u16::MAX as usize) as u16;
-    let state_height = max_states.min(available_state.max(1));
+    let circles_height = max_states.min(available_state.max(1));
+    let popup_height = if available_state > circles_height.saturating_add(7) {
+        6
+    } else {
+        0
+    };
+    let popup_gap = if popup_height > 0 { 1 } else { 0 };
+    let state_height = circles_height.saturating_add(popup_height).saturating_add(popup_gap);
     let state_y = area
         .y
         .saturating_add(area.height.saturating_sub(state_height));
+    let state_popup = Rect {
+        x: area.x,
+        y: state_y,
+        width: area.width,
+        height: popup_height,
+    };
+    let state_circles = Rect {
+        x: area.x,
+        y: state_y.saturating_add(popup_height + popup_gap),
+        width: area.width,
+        height: circles_height,
+    };
     let max_circuit_y = state_y.saturating_sub(total_circuit_height + 1);
     let circuit_y = if max_circuit_y < desired_circuit_y {
         palette_bottom
@@ -95,19 +125,54 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             width: area.width,
             height: state_height,
         },
+        state_popup,
+        state_circles,
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn layout_regions_keeps_state_height_for_16_qubits() {
-        let area = Rect::new(0, 0, 120, 120);
-        let regions = layout_regions(area, 16);
-        assert!(regions.state.height > 0);
+pub fn state_circle_layout(area: Rect, total: usize) -> Option<StateCircleLayout> {
+    if area.width == 0 || area.height == 0 || total == 0 {
+        return None;
     }
+    let min_cell_w = 4.0_f64;
+    let min_cell_h = 3.0_f64;
+    let max_cols = ((area.width as f64) / min_cell_w).floor() as usize;
+    let max_rows = ((area.height as f64) / min_cell_h).floor() as usize;
+    if max_cols == 0 || max_rows == 0 {
+        return None;
+    }
+    let columns_needed = (total + max_rows - 1) / max_rows;
+    let columns = columns_needed.min(max_cols).max(1);
+    let rows = ((total + columns - 1) / columns).min(max_rows).max(1);
+    let cell_w = area.width as f64 / columns as f64;
+    let cell_h = area.height as f64 / rows as f64;
+    Some(StateCircleLayout {
+        columns,
+        rows,
+        cell_w,
+        cell_h,
+        visible: rows * columns,
+    })
+}
+
+pub(crate) fn amplitude_qubits(len: usize) -> usize {
+    let mut size = len.max(1);
+    let mut qubits = 0;
+    while size > 1 {
+        size >>= 1;
+        qubits += 1;
+    }
+    qubits
+}
+
+pub(crate) fn display_index_to_state_index(display_index: usize, qubits: usize) -> usize {
+    let mut value = display_index;
+    let mut reversed = 0usize;
+    for _ in 0..qubits {
+        reversed = (reversed << 1) | (value & 1);
+        value >>= 1;
+    }
+    reversed
 }
 
 pub(crate) fn palette_items(area: Rect) -> Vec<PaletteItem> {
@@ -310,4 +375,24 @@ pub fn hovered_column_at(x: u16, y: u16, layout: &CircuitLayout) -> Option<(usiz
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn layout_regions_keeps_state_height_for_16_qubits() {
+        let area = Rect::new(0, 0, 120, 120);
+        let regions = layout_regions(area, 16);
+        assert!(regions.state.height > 0);
+    }
+
+    #[test]
+    fn display_index_to_state_index_reverses_bits() {
+        assert_eq!(display_index_to_state_index(0, 2), 0);
+        assert_eq!(display_index_to_state_index(1, 2), 2);
+        assert_eq!(display_index_to_state_index(2, 2), 1);
+        assert_eq!(display_index_to_state_index(3, 2), 3);
+    }
 }
