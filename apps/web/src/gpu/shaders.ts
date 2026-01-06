@@ -200,7 +200,7 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let x = base.x + f32(i) * (size + gap);
     let y = base.y;
     let outlineColor = select(circleLayout.outlineZeroColor, circleLayout.outlineColor, probability > 0.0);
-    let instanceBase = i * 3u;
+    let instanceBase = i * 4u;
 
     write_instance(
       instanceBase,
@@ -227,6 +227,20 @@ fn cs_main(@builtin(global_invocation_id) gid: vec3<u32>) {
       vec2<f32>(x + (size - fillSize) * 0.5, y + (size - fillSize) * 0.5),
       vec2<f32>(fillSize, fillSize),
       circleLayout.fillColor
+    );
+
+    let center = vec2<f32>(x + radius, y + radius);
+    let phase = atan2(amplitude.y, amplitude.x);
+    let dir = vec2<f32>(cos(phase), sin(phase));
+    var needleColor = circleLayout.outlineColor;
+    needleColor.a = needleColor.a * select(0.0, 1.0, probability > 0.0);
+    write_instance(
+      instanceBase + 3u,
+      1.0,
+      stroke,
+      center,
+      center + dir * innerRadius,
+      needleColor
     );
   }
 }

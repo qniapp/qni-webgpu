@@ -9,7 +9,7 @@ export const STATE_CIRCLE_SIZE = 1 * REM
 export const STATE_CIRCLE_GAP = 0.5 * REM
 export const STATE_CIRCLE_BOTTOM_MARGIN = 2 * REM
 export const STATE_CIRCLE_STROKE = 2
-export const STATE_CIRCLE_INSTANCE_COUNT = STATE_CIRCLE_COUNT * 3
+export const STATE_CIRCLE_INSTANCE_COUNT = STATE_CIRCLE_COUNT * 4
 
 export const LINE_Y = 6.5 * REM
 export const LINE_GAP = 1.5 * REM
