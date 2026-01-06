@@ -126,8 +126,23 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
 
   canvas.addEventListener('pointermove', (event) => {
     if (activeGateId === null) {
-      return
+      const { x, y } = getPointerPosition(event)
+      const hoveredGate = placedGates.find(
+        (gate) => x >= gate.x && x <= gate.x + GATE_SIZE && y >= gate.y && y <= gate.y + GATE_SIZE
+      )
+      const paletteStartX = (canvas.width - paletteWidth) / 2
+      const hoveringPalette =
+        y >= PALETTE_ROW_Y &&
+        y <= PALETTE_ROW_Y + PALETTE_SIZE &&
+        x >= paletteStartX &&
+        x <= paletteStartX + paletteWidth
+      const isClickable = Boolean(hoveredGate || hoveringPalette)
+      canvas.style.cursor = isClickable ? 'grab' : 'default'
+      if (!hoveredGate && !hoveringPalette) {
+        return
+      }
     }
+
     const gate = placedGates.find((item) => item.id === activeGateId)
     if (!gate) {
       return
@@ -151,6 +166,10 @@ export function setupInput({ canvas, placedGates, onUpdate, onGateDropped }: Inp
       gate.y = nextY
     }
     onUpdate()
+  })
+
+  canvas.addEventListener('pointerleave', () => {
+    canvas.style.cursor = 'default'
   })
 
   const handlePointerEnd = (event: PointerEvent) => {
