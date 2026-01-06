@@ -45,7 +45,7 @@ for (const { gate, expected } of gateCases) {
     const PALETTE_GAP = 16
     const PALETTE_ROW_Y = 64
     const CANVAS_WIDTH = viewport?.width ?? 800
-    const LINE_LEFT = 80
+    const LINE_LEFT = 64
     const GATE_SIZE = 32
     const SLOT_LEFT = LINE_LEFT + GATE_SIZE
     const LINE_Y = 208
