@@ -43,7 +43,7 @@ mod tests {
 
     use super::*;
     use crate::layout::palette_items;
-    use crate::model::{ensure_slots, parse_phase_label, qubit_count};
+    use crate::model::{ensure_slots, parse_phase_label, qubit_count, PhaseEdit};
     use pretty_assertions::assert_eq;
 
     fn state_with_gate(gate: Gate) -> AppState {
@@ -520,6 +520,22 @@ mod tests {
         let slot = layout.slots[0][1];
         let slot_mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         assert_eq!(slot_mid, "  Z  ");
+    }
+
+    #[test]
+    fn phase_edit_shows_cursor() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut state = state_with_gate(Gate::Phase);
+        state.phase_edit = Some(PhaseEdit {
+            row: 0,
+            slot: 0,
+            input: "π/2".to_string(),
+        });
+        let buffer = render_to_buffer(&mut state, area, None);
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let label = buffer_to_string(&buffer, slot.x, slot.y - 1, GATE_BOX_WIDTH);
+        assert!(label.contains("▌"));
     }
 
     #[test]

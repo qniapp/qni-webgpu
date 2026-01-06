@@ -725,7 +725,21 @@ pub fn render_to_buffer_with_drag(
                             .phase_edit
                             .as_ref()
                             .is_some_and(|edit| edit.row == row && edit.slot == slot);
-                        (Some(label), is_active)
+                        if is_active {
+                            let max_chars = rect.width as usize;
+                            let mut chars: Vec<char> = label.chars().collect();
+                            if max_chars > 0 {
+                                if chars.len() < max_chars {
+                                    chars.push('▌');
+                                } else {
+                                    chars[max_chars.saturating_sub(1)] = '▌';
+                                }
+                            }
+                            let label_with_cursor: String = chars.into_iter().collect();
+                            (Some(label_with_cursor), is_active)
+                        } else {
+                            (Some(label), is_active)
+                        }
                     } else {
                         (None, false)
                     };
