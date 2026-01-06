@@ -266,9 +266,9 @@ mod tests {
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
         let bottom = buffer_to_string(&buffer, slot.x, slot.y + 2, GATE_BOX_WIDTH);
-        assert_eq!(top, " \\ / ");
+        assert_eq!(top, "▐   ▌");
         assert_eq!(mid, " ▶ ◀ ");
-        assert_eq!(bottom, " / \\ ");
+        assert_eq!(bottom, "▐   ▌");
     }
 
     #[test]
@@ -290,7 +290,7 @@ mod tests {
             .saturating_add(ROW_GAP / 2)
             .min(rect1.y.saturating_sub(1));
         let symbol = buffer.get(line_x, line_y).symbol();
-        assert_eq!(symbol, "│");
+        assert_eq!(symbol, "┃");
     }
 
     #[test]
@@ -318,7 +318,7 @@ mod tests {
             .saturating_add(ROW_GAP / 2)
             .min(rect1.y.saturating_sub(1));
         let symbol = buffer.get(line_x, line_y).symbol();
-        assert_eq!(symbol, "│");
+        assert_eq!(symbol, "┃");
     }
 
     #[test]
@@ -346,7 +346,7 @@ mod tests {
             .saturating_add(ROW_GAP / 2)
             .min(rect1.y.saturating_sub(1));
         let symbol = buffer.get(line_x, line_y).symbol();
-        assert_eq!(symbol, "│");
+        assert_eq!(symbol, "┃");
     }
 
     #[test]
@@ -367,11 +367,11 @@ mod tests {
         let gap_bottom = rect1.y.saturating_add(rect1.height);
         if gap_top < area.height {
             let top_symbol = buffer.get(line_x, gap_top).symbol();
-            assert_eq!(top_symbol, "▀");
+            assert_eq!(top_symbol, "┇");
         }
         if gap_bottom < area.height {
             let bottom_symbol = buffer.get(line_x, gap_bottom).symbol();
-            assert_eq!(bottom_symbol, "▄");
+            assert_eq!(bottom_symbol, "┇");
         }
     }
 
@@ -395,7 +395,7 @@ mod tests {
             .saturating_add(ROW_GAP / 2)
             .min(rect2.y.saturating_sub(1));
         let symbol = buffer.get(line_x, line_y).symbol();
-        assert_eq!(symbol, "│");
+        assert_eq!(symbol, "┃");
     }
 
     #[test]

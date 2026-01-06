@@ -168,6 +168,40 @@ pub(crate) fn draw_gate_box(
                 edge_style,
             );
         }
+        let top_y = swap_rect.y;
+        let bottom_y = swap_rect.y.saturating_add(swap_rect.height.saturating_sub(1));
+        let tip_style = Style::default().fg(background).bg(UI_BACKGROUND);
+        if swap_rect.width >= 4 {
+            buffer.set_string(swap_rect.x, top_y, "▐ ", tip_style);
+            buffer.set_string(
+                swap_rect.x.saturating_add(swap_rect.width - 2),
+                top_y,
+                " ▌",
+                tip_style,
+            );
+            buffer.set_string(swap_rect.x, bottom_y, "▐ ", tip_style);
+            buffer.set_string(
+                swap_rect.x.saturating_add(swap_rect.width - 2),
+                bottom_y,
+                " ▌",
+                tip_style,
+            );
+        } else {
+            buffer.set_string(swap_rect.x, top_y, "▐", tip_style);
+            buffer.set_string(
+                swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1)),
+                top_y,
+                "▌",
+                tip_style,
+            );
+            buffer.set_string(swap_rect.x, bottom_y, "▐", tip_style);
+            buffer.set_string(
+                swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1)),
+                bottom_y,
+                "▌",
+                tip_style,
+            );
+        }
         let left_x = if swap_rect.width > 2 {
             swap_rect.x + 1
         } else {
@@ -178,13 +212,6 @@ pub(crate) fn draw_gate_box(
         } else {
             swap_rect.x.saturating_add(swap_rect.width.saturating_sub(1))
         };
-        let top_y = swap_rect.y;
-        let bottom_y = swap_rect.y.saturating_add(swap_rect.height.saturating_sub(1));
-        let tip_style = Style::default().fg(background).bg(background);
-        buffer.set_string(left_x, top_y, "\\", tip_style);
-        buffer.set_string(right_x, top_y, "/", tip_style);
-        buffer.set_string(left_x, bottom_y, "/", tip_style);
-        buffer.set_string(right_x, bottom_y, "\\", tip_style);
         let cut_style = Style::default().fg(UI_BACKGROUND).bg(background);
         buffer.set_string(left_x, mid_y, "▶", cut_style);
         buffer.set_string(right_x, mid_y, "◀", cut_style);
@@ -432,7 +459,7 @@ pub fn render_to_buffer_with_drag(
             let start_y = rect0.y.saturating_add(rect0.height / 2);
             let end_y = rect1.y.saturating_add(rect1.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Swap);
-            let line_style = Style::default().fg(background).bg(background);
+            let line_style = Style::default().fg(background).bg(UI_BACKGROUND);
             let half_style = Style::default().fg(background).bg(UI_BACKGROUND);
             let cuts = build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| gate == Gate::Swap);
             let (top, bottom) = if start_y <= end_y {
@@ -448,7 +475,7 @@ pub fn render_to_buffer_with_drag(
                 if is_line_skip(y, &cuts) {
                     continue;
                 }
-                buffer.set_string(line_x, y, "│", line_style);
+                buffer.set_string(line_x, y, "┃", line_style);
             }
         }
         for slot in 0..max_cols {
@@ -488,7 +515,7 @@ pub fn render_to_buffer_with_drag(
             let start_y = min_rect.y.saturating_add(min_rect.height / 2);
             let end_y = max_rect.y.saturating_add(max_rect.height / 2);
             let (_, background, _, _) = gate_theme(Gate::Control);
-            let line_style = Style::default().fg(background).bg(background);
+            let line_style = Style::default().fg(background).bg(UI_BACKGROUND);
             let half_style = Style::default().fg(background).bg(UI_BACKGROUND);
             let cuts = build_line_cuts(&layout, slot, max_rows, &gate_at, |gate| {
                 matches!(gate, Gate::Control | Gate::X)
@@ -506,7 +533,7 @@ pub fn render_to_buffer_with_drag(
                 if is_line_skip(y, &cuts) {
                     continue;
                 }
-                buffer.set_string(line_x, y, "│", line_style);
+                buffer.set_string(line_x, y, "┃", line_style);
             }
         }
     }
@@ -848,11 +875,8 @@ where
 
 fn line_cut_char(y: u16, cuts: &[LineCut]) -> Option<&'static str> {
     for cut in cuts {
-        if cut.upper_half_y == Some(y) {
-            return Some("▀");
-        }
-        if cut.lower_half_y == Some(y) {
-            return Some("▄");
+        if cut.upper_half_y == Some(y) || cut.lower_half_y == Some(y) {
+            return Some("┇");
         }
     }
     None
