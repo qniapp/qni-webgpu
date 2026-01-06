@@ -591,6 +591,25 @@ mod tests {
     }
 
     #[test]
+    fn drop_before_first_gate_inserts_column() {
+        let area = Rect::new(0, 0, 100, 24);
+        let mut state = AppState::new();
+        state.placed[0] = vec![Some(Gate::H), Some(Gate::X)];
+        state.dragging = Some(DragState {
+            gate: Gate::Z,
+            origin: DragOrigin::Palette,
+        });
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot0 = layout.slots[0][0];
+        let gap_x = slot0.x.saturating_sub(1);
+        let gap_y = slot0.y + 1;
+        handle_mouse_up(&mut state, gap_x, gap_y, area);
+        assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::Z));
+        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::H));
+        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+    }
+
+    #[test]
     fn drop_uses_hovered_insert_even_if_cursor_is_off() {
         let area = Rect::new(0, 0, 100, 24);
         let mut state = AppState::new();

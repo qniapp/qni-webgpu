@@ -196,10 +196,23 @@ pub fn is_empty_drop(_x: u16, y: u16, area: Rect, qubit_count: usize) -> bool {
 }
 
 pub fn insertion_snap_rect(layout: &CircuitLayout, row: usize, index: usize) -> Option<Rect> {
-    let left = layout
-        .slots
-        .get(row)
-        .and_then(|slots| slots.get(index.saturating_sub(1)))?;
+    let row_slots = layout.slots.get(row)?;
+    if index == 0 {
+        let first = row_slots.first()?;
+        let gap_width = first.x.saturating_sub(layout.wire_start_x);
+        if gap_width == 0 {
+            return None;
+        }
+        let gap_center = layout.wire_start_x.saturating_add(gap_width / 2);
+        let snap_x = gap_center.saturating_sub(GATE_BOX_WIDTH / 2);
+        return Some(Rect {
+            x: snap_x,
+            y: first.y,
+            width: GATE_BOX_WIDTH,
+            height: GATE_DRAW_HEIGHT,
+        });
+    }
+    let left = row_slots.get(index.saturating_sub(1))?;
     let gap_center = left.x.saturating_add(GATE_BOX_WIDTH + SLOT_GAP / 2);
     let snap_x = gap_center.saturating_sub(GATE_BOX_WIDTH / 2);
     Some(Rect {

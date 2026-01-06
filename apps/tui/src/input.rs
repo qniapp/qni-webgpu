@@ -78,6 +78,41 @@ fn insertion_target(state: &AppState, x: u16, y: u16, area: Rect) -> Option<(usi
     let layout = circuit_layout(area, qubit_count(state));
     let mut best: Option<(usize, usize, u16)> = None;
     for (row, row_slots) in layout.slots.iter().enumerate() {
+        if let Some(first) = row_slots.first() {
+            let gap = Rect {
+                x: layout.wire_start_x,
+                y: first.y,
+                width: first.x.saturating_sub(layout.wire_start_x),
+                height: first.height,
+            };
+            let first_gate = state
+                .placed
+                .get(row)
+                .and_then(|row_gates| row_gates.get(0))
+                .and_then(|value| *value);
+            if first_gate.is_some() && gap.width > 0 {
+                let dx = if x < gap.x {
+                    gap.x - x
+                } else if x >= gap.x.saturating_add(gap.width) {
+                    x - gap.x.saturating_add(gap.width - 1)
+                } else {
+                    0
+                };
+                let dy = if y < gap.y {
+                    gap.y - y
+                } else if y >= gap.y.saturating_add(gap.height) {
+                    y - gap.y.saturating_add(gap.height - 1)
+                } else {
+                    0
+                };
+                let dist = dx.saturating_add(dy);
+                if dist <= SNAP_DISTANCE
+                    && best.map_or(true, |(_, _, best_dist)| dist < best_dist)
+                {
+                    best = Some((row, 0, dist));
+                }
+            }
+        }
         for index in 0..row_slots.len().saturating_sub(1) {
             let left = row_slots[index];
             let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
