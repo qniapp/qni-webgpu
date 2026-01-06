@@ -571,7 +571,7 @@ pub(crate) fn draw_gate_box(
         buffer.set_string(right_x, mid_y, "◀", cut_style);
         return;
     }
-    if gate == Gate::X {
+    if matches!(gate, Gate::X | Gate::Phase) {
         let full = " ".repeat(gate_rect.width as usize);
         let _inner = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
         if gate_rect.height > 2 {
@@ -590,10 +590,11 @@ pub(crate) fn draw_gate_box(
                 "◢",
                 corner,
             );
+            let symbol = if gate == Gate::X { "+" } else { "Φ" };
             buffer.set_string(
                 gate_rect.x + gate_rect.width / 2,
                 gate_rect.y + gate_rect.height / 2,
-                "+",
+                symbol,
                 Style::default()
                     .fg(text)
                     .bg(background)
