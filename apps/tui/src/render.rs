@@ -443,6 +443,19 @@ pub(crate) fn draw_gate_box(
         buffer.set_string(mid_x, mid_y, symbol, base_style);
         return;
     }
+    if gate == Gate::Swap {
+        if outline {
+            draw_gate_outline(buffer, rect, highlight, shadow);
+        }
+        let style = Style::default()
+            .fg(background)
+            .bg(UI_BACKGROUND)
+            .add_modifier(Modifier::BOLD);
+        let mid_y = rect.y.saturating_add(rect.height / 2);
+        let mid_x = rect.x.saturating_add(rect.width / 2);
+        buffer.set_string(mid_x, mid_y, "X", style);
+        return;
+    }
     let base_style = Style::default().fg(text).bg(background);
     let highlight_style = Style::default().fg(highlight).bg(background);
     let shadow_style = Style::default().fg(shadow).bg(background);
@@ -480,97 +493,6 @@ pub(crate) fn draw_gate_box(
         width: rect.width,
         height: GATE_BOX_HEIGHT,
     };
-    if gate == Gate::Swap {
-        let swap_rect = Rect {
-            x: gate_rect.x,
-            y: gate_rect.y,
-            width: gate_rect.width,
-            height: gate_rect.height.min(3),
-        };
-        let fill = " ".repeat(swap_rect.width as usize);
-        let mid_y = swap_rect.y.saturating_add(swap_rect.height / 2);
-        buffer.set_string(swap_rect.x, mid_y, &fill, base_style);
-        if swap_rect.width > 2 {
-            let gap = " ".repeat(swap_rect.width.saturating_sub(2) as usize);
-            let gap_style = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
-            buffer.set_string(swap_rect.x + 1, swap_rect.y, &gap, gap_style);
-            buffer.set_string(
-                swap_rect.x + 1,
-                swap_rect.y + swap_rect.height.saturating_sub(1),
-                &gap,
-                gap_style,
-            );
-        }
-        let edge_style = Style::default().fg(UI_BACKGROUND).bg(UI_BACKGROUND);
-        for offset in 0..swap_rect.height {
-            let y = swap_rect.y + offset;
-            buffer.set_string(swap_rect.x, y, " ", edge_style);
-            buffer.set_string(
-                swap_rect.x + swap_rect.width.saturating_sub(1),
-                y,
-                " ",
-                edge_style,
-            );
-        }
-        let top_y = swap_rect.y;
-        let bottom_y = swap_rect
-            .y
-            .saturating_add(swap_rect.height.saturating_sub(1));
-        let tip_style = Style::default().fg(background).bg(UI_BACKGROUND);
-        if swap_rect.width >= 4 {
-            buffer.set_string(swap_rect.x, top_y, "▐ ", tip_style);
-            buffer.set_string(
-                swap_rect.x.saturating_add(swap_rect.width - 2),
-                top_y,
-                " ▌",
-                tip_style,
-            );
-            buffer.set_string(swap_rect.x, bottom_y, "▐ ", tip_style);
-            buffer.set_string(
-                swap_rect.x.saturating_add(swap_rect.width - 2),
-                bottom_y,
-                " ▌",
-                tip_style,
-            );
-        } else {
-            buffer.set_string(swap_rect.x, top_y, "▐", tip_style);
-            buffer.set_string(
-                swap_rect
-                    .x
-                    .saturating_add(swap_rect.width.saturating_sub(1)),
-                top_y,
-                "▌",
-                tip_style,
-            );
-            buffer.set_string(swap_rect.x, bottom_y, "▐", tip_style);
-            buffer.set_string(
-                swap_rect
-                    .x
-                    .saturating_add(swap_rect.width.saturating_sub(1)),
-                bottom_y,
-                "▌",
-                tip_style,
-            );
-        }
-        let left_x = if swap_rect.width > 2 {
-            swap_rect.x + 1
-        } else {
-            swap_rect.x
-        };
-        let right_x = if swap_rect.width > 2 {
-            swap_rect
-                .x
-                .saturating_add(swap_rect.width.saturating_sub(2))
-        } else {
-            swap_rect
-                .x
-                .saturating_add(swap_rect.width.saturating_sub(1))
-        };
-        let cut_style = Style::default().fg(UI_BACKGROUND).bg(background);
-        buffer.set_string(left_x, mid_y, "▶", cut_style);
-        buffer.set_string(right_x, mid_y, "◀", cut_style);
-        return;
-    }
     if matches!(gate, Gate::X | Gate::Phase) {
         let full = " ".repeat(gate_rect.width as usize);
         let _inner = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
@@ -1049,7 +971,7 @@ pub fn render_to_buffer_with_drag(
                 None,
                 false,
                 Some(DRAG_GATE_COLOR),
-                drag.gate == Gate::Control,
+                matches!(drag.gate, Gate::Control | Gate::Swap),
             );
         }
     }
