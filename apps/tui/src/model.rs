@@ -8,6 +8,9 @@ pub enum Gate {
     Control,
     Measure,
     Phase,
+    Rx,
+    Ry,
+    Rz,
     H,
     Y,
     Z,
@@ -119,6 +122,9 @@ impl std::str::FromStr for Gate {
             "CTRL" | "CONTROL" | "C" => Ok(Self::Control),
             "MEASURE" | "MEAS" | "M" => Ok(Self::Measure),
             "PHASE" | "PHI" | "PHASEGATE" => Ok(Self::Phase),
+            "RX" => Ok(Self::Rx),
+            "RY" => Ok(Self::Ry),
+            "RZ" => Ok(Self::Rz),
             "H" => Ok(Self::H),
             "Y" => Ok(Self::Y),
             "Z" => Ok(Self::Z),
@@ -140,6 +146,9 @@ impl std::fmt::Display for Gate {
             Self::Control => "",
             Self::Measure => "",
             Self::Phase => "Φ",
+            Self::Rx => "Rx",
+            Self::Ry => "Ry",
+            Self::Rz => "Rz",
             Self::H => "H",
             Self::Y => "Y",
             Self::Z => "Z",
@@ -217,11 +226,17 @@ fn matrix_for(gate: Gate) -> [Complex; 4] {
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 1.0 },
         ],
-        Gate::Phase => [
+        Gate::Phase | Gate::Rz => [
             Complex { re: 1.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 0.0 },
             Complex { re: 0.0, im: 1.0 },
+        ],
+        Gate::Rx | Gate::Ry => [
+            Complex { re: 1.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 0.0, im: 0.0 },
+            Complex { re: 1.0, im: 0.0 },
         ],
         Gate::Sdg => [
             Complex { re: 1.0, im: 0.0 },
@@ -536,14 +551,20 @@ pub(crate) fn apply_gates_to_zero_limit(
                 if *gate == Gate::X && cnot_target == Some(row) {
                     continue;
                 }
-                if *gate == Gate::Phase {
+                if *gate == Gate::Phase || *gate == Gate::Rx || *gate == Gate::Ry || *gate == Gate::Rz {
                     let phi = phase_values
                         .and_then(|values| values.get(row))
                         .and_then(|row_values| row_values.get(slot))
                         .and_then(|value| value.as_ref())
                         .map(|value| value.phi)
                         .unwrap_or(default_phase_value().phi);
-                    state = apply_phase_gate(&state, row, phi, qubits);
+                    state = match gate {
+                        Gate::Phase => apply_phase_gate(&state, row, phi, qubits),
+                        Gate::Rx => apply_rx_gate(&state, row, phi, qubits),
+                        Gate::Ry => apply_ry_gate(&state, row, phi, qubits),
+                        Gate::Rz => apply_rz_gate(&state, row, phi, qubits),
+                        _ => state,
+                    };
                 } else {
                     state = apply_gate_to_state(&state, *gate, row, qubits);
                 }
@@ -608,6 +629,77 @@ fn apply_phase_gate(state: &[Complex], target: usize, phi: f64, qubits: usize) -
     for index in 0..state.len() {
         if index & mask != 0 {
             out[index] = mul(phase, state[index]);
+        }
+    }
+    out
+}
+
+fn apply_rx_gate(state: &[Complex], target: usize, phi: f64, qubits: usize) -> Vec<Complex> {
+    if target >= qubits {
+        return state.to_vec();
+    }
+    let half = phi * 0.5;
+    let c = half.cos();
+    let s = half.sin();
+    let a00 = Complex { re: c, im: 0.0 };
+    let a01 = Complex { re: 0.0, im: -s };
+    let a10 = Complex { re: 0.0, im: -s };
+    let a11 = Complex { re: c, im: 0.0 };
+    apply_custom_gate(state, target, qubits, a00, a01, a10, a11)
+}
+
+fn apply_ry_gate(state: &[Complex], target: usize, phi: f64, qubits: usize) -> Vec<Complex> {
+    if target >= qubits {
+        return state.to_vec();
+    }
+    let half = phi * 0.5;
+    let c = half.cos();
+    let s = half.sin();
+    let a00 = Complex { re: c, im: 0.0 };
+    let a01 = Complex { re: -s, im: 0.0 };
+    let a10 = Complex { re: s, im: 0.0 };
+    let a11 = Complex { re: c, im: 0.0 };
+    apply_custom_gate(state, target, qubits, a00, a01, a10, a11)
+}
+
+fn apply_rz_gate(state: &[Complex], target: usize, phi: f64, qubits: usize) -> Vec<Complex> {
+    if target >= qubits {
+        return state.to_vec();
+    }
+    let half = phi * 0.5;
+    let a00 = Complex {
+        re: half.cos(),
+        im: -half.sin(),
+    };
+    let a11 = Complex {
+        re: half.cos(),
+        im: half.sin(),
+    };
+    let a01 = Complex { re: 0.0, im: 0.0 };
+    let a10 = Complex { re: 0.0, im: 0.0 };
+    apply_custom_gate(state, target, qubits, a00, a01, a10, a11)
+}
+
+fn apply_custom_gate(
+    state: &[Complex],
+    target: usize,
+    qubits: usize,
+    a00: Complex,
+    a01: Complex,
+    a10: Complex,
+    a11: Complex,
+) -> Vec<Complex> {
+    let mut out = state.to_vec();
+    let bit = qubits.saturating_sub(1).saturating_sub(target);
+    let mask = 1usize << bit;
+    for i in 0..state.len() {
+        if i & mask == 0 {
+            let i0 = i;
+            let i1 = i | mask;
+            let v0 = state[i0];
+            let v1 = state[i1];
+            out[i0] = add(mul(a00, v0), mul(a01, v1));
+            out[i1] = add(mul(a10, v0), mul(a11, v1));
         }
     }
     out

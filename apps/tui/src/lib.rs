@@ -109,6 +109,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_args_handles_rotation_gates() {
+        assert_eq!(parse_args_from(&["--gate", "rx"]), Gate::Rx);
+        assert_eq!(parse_args_from(&["--gate", "ry"]), Gate::Ry);
+        assert_eq!(parse_args_from(&["--gate", "rz"]), Gate::Rz);
+    }
+
+    #[test]
     fn parse_phase_label_accepts_pi_fractions() {
         let value = parse_phase_label("3π/4").expect("phase should parse");
         assert_eq!(value.label, "3π/4");

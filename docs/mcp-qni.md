@@ -57,7 +57,7 @@ claude mcp add --scope project --transport stdio qni -- \
   - 入力: `{ "qubits": number }`
   - 回路を初期化し、量子ビット数を設定する
 - `qni_place_gate`
-  - 入力: `{ "gate": "X"|"H"|"Y"|"Z"|"S"|"T", "target": number, "column": number }`
+  - 入力: `{ "gate": "H"|"X"|"Y"|"Z"|"√X"|"S"|"S†"|"T"|"T†", "target": number, "column": number }`
   - 指定した量子ビットと列に単一ゲートを配置する
 - `qni_clear_circuit`
   - 入力: `{}`
@@ -92,8 +92,8 @@ claude mcp add --scope project --transport stdio qni -- \
 ## 例
 
 ```
-# 1量子ビットにHゲートを置く
-qni_set_qubits { "qubits": 1 }
+# 2量子ビットでq0にHゲートを置く
+qni_set_qubits { "qubits": 2 }
 qni_place_gate { "gate": "H", "target": 0, "column": 0 }
 qni_run {}
 ```

@@ -150,7 +150,7 @@ pub fn handle_mouse_down(state: &mut AppState, x: u16, y: u16, area: Rect) {
             origin: DragOrigin::Palette,
         });
         state.drag_pos = Some((x, y));
-        state.drag_phase_value = if gate == Gate::Phase {
+        state.drag_phase_value = if matches!(gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
             Some(default_phase_value())
         } else {
             None
@@ -234,7 +234,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         state.placed[row][index] = Some(dragging.gate);
         if let Some(row_values) = state.phase_values.get_mut(row) {
             if let Some(value) = row_values.get_mut(index) {
-                if dragging.gate == Gate::Phase {
+                if matches!(dragging.gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
                     *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
                 } else {
                     *value = None;
@@ -250,7 +250,7 @@ pub fn handle_mouse_up(state: &mut AppState, x: u16, y: u16, area: Rect) {
         state.placed[row][slot] = Some(dragging.gate);
         if let Some(row_values) = state.phase_values.get_mut(row) {
             if let Some(value) = row_values.get_mut(slot) {
-                if dragging.gate == Gate::Phase {
+                if matches!(dragging.gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) {
                     *value = state.drag_phase_value.clone().or_else(|| Some(default_phase_value()));
                 } else {
                     *value = None;
@@ -466,7 +466,7 @@ fn hit_test_phase_label(
                 .get(row)
                 .and_then(|row_gates| row_gates.get(slot))
                 .and_then(|gate| *gate);
-            if gate != Some(Gate::Phase) {
+            if !matches!(gate, Some(Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz)) {
                 continue;
             }
             if rect.y == 0 {

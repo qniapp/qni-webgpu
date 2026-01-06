@@ -25,24 +25,13 @@ pub struct DragVisual {
 
 fn gate_theme(gate: Gate) -> (Color, Color, Color, Color) {
     let (r, g, b) = match gate {
-        Gate::H => (255, 220, 100),
-        Gate::X => (220, 80, 80),
-        Gate::Control => (220, 80, 80),
         Gate::Measure => (170, 90, 200),
-        Gate::Phase => (170, 90, 200),
-        Gate::Y => (180, 120, 200),
-        Gate::Z => (90, 120, 220),
-        Gate::SqrtX => (220, 80, 80),
-        Gate::S => (110, 200, 110),
-        Gate::Sdg => (110, 200, 110),
-        Gate::T => (110, 200, 200),
-        Gate::Tdg => (110, 200, 200),
-        Gate::Swap => (140, 170, 230),
+        _ => (16, 185, 129),
     };
     let background = Color::Rgb(r, g, b);
     let highlight = brighten(r, g, b, 60);
     let shadow = darken(r, g, b, 60);
-    let text = Color::Black;
+    let text = Color::White;
     (text, background, highlight, shadow)
 }
 
@@ -78,11 +67,26 @@ pub(crate) fn draw_gate_box(
     }
     if gate == Gate::Measure {
         let base_style = Style::default().fg(text).bg(background);
+        let highlight_style = Style::default().fg(highlight).bg(background);
+        let shadow_style = Style::default().fg(shadow).bg(background);
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
         let fill = " ".repeat(rect.width as usize);
         for offset in 0..rect.height {
             buffer.set_string(rect.x, rect.y + offset, &fill, base_style);
+        }
+        if rect.height > 2 {
+            let top = "▔".repeat(rect.width as usize);
+            buffer.set_string(rect.x, rect.y, &top, highlight_style);
+        }
+        if rect.height > 1 {
+            let bottom = "▁".repeat(rect.width as usize);
+            buffer.set_string(
+                rect.x,
+                rect.y + rect.height.saturating_sub(1),
+                &bottom,
+                shadow_style,
+            );
         }
         let symbol = match measure_value {
             Some(1) => "1",
@@ -108,7 +112,10 @@ pub(crate) fn draw_gate_box(
             shadow_style,
         );
     }
-    if gate == Gate::Phase && rect.width >= 3 && rect.y > 0 {
+    if matches!(gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz)
+        && rect.width >= 3
+        && rect.y > 0
+    {
         if let Some(label) = phase_label {
             let label_width = label.chars().count() as u16;
             let label_x = rect
@@ -457,7 +464,10 @@ pub fn render_to_buffer_with_drag(
                 .get(row)
                 .and_then(|row_gates| row_gates.get(slot))
             {
-                let (phase_label, phase_edit_active) = if *gate == Gate::Phase {
+                let (phase_label, phase_edit_active) = if matches!(
+                    *gate,
+                    Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz
+                ) {
                     let label = if let Some(edit) = state.phase_edit.as_ref() {
                         if edit.row == row && edit.slot == slot {
                             edit.input.clone()
