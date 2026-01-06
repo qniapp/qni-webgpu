@@ -21,7 +21,7 @@ export const SNAP_DISTANCE = 0.5625 * REM
 export const PALETTE_GATES: Gate[] = ['H', 'X', 'Y', 'Z', '√X', 'S', 'S†', 'T', 'T†']
 export const PALETTE_SIZE = GATE_SIZE
 export const PALETTE_GAP = 0.5 * REM
-export const PALETTE_ROW_Y = 0.375 * REM
+export const PALETTE_ROW_Y = 2 * REM
 
 export const GATE_ICON_CHAR_MAP: Record<Gate, string> = {
   H: 'A',

@@ -43,7 +43,7 @@ for (const { gate, expected } of gateCases) {
     const paletteIndex = ['H', 'X', 'Y', 'Z', '√X', 'S', 'S†', 'T', 'T†'].indexOf(gate)
     const PALETTE_SIZE = 32
     const PALETTE_GAP = 16
-    const PALETTE_ROW_Y = 12
+    const PALETTE_ROW_Y = 64
     const CANVAS_WIDTH = viewport?.width ?? 800
     const LINE_LEFT = 80
     const GATE_SIZE = 32
