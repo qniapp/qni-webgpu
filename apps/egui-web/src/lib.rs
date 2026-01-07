@@ -29,7 +29,7 @@ const PALETTE_GAP: f32 = 0.5 * REM;
 const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
 thread_local! {
-  static GPU_READBACK: RefCell<Option<GpuReadbackState>> = RefCell::new(None);
+  static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1032,7 +1032,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             resources.active_state = 0;
             let pair_count = (self.state_count / 2) as u32;
             if pair_count > 0 && !self.gate_params.is_empty() {
-                let dispatch_x = (pair_count + STATE_WORKGROUP_SIZE - 1) / STATE_WORKGROUP_SIZE;
+                let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
                 let mut in_index = 0usize;
                 for gate in &self.gate_params {
                     queue.write_buffer(&resources.gate_params_buffer, 0, bytemuck::bytes_of(gate));
@@ -1132,7 +1132,7 @@ struct QniApp {
 impl QniApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.set_visuals(egui::Visuals::light());
-        let app = Self {
+        Self {
             next_gate_id: 1,
             placed_gates: Vec::new(),
             dragging: None,
@@ -1144,8 +1144,7 @@ impl QniApp {
             last_state_count: 2,
             needs_recompute: true,
             last_content_rect: None,
-        };
-        app
+        }
     }
 
     fn layout_qubits(&self) -> usize {
@@ -1567,14 +1566,14 @@ impl QniApp {
         let mut best_size = 0.0;
         let mut best_score = f32::INFINITY;
         for candidate in 1..=state_count {
-            if state_count % candidate != 0 {
+            if !state_count.is_multiple_of(candidate) {
                 continue;
             }
             let candidate_rows = state_count / candidate;
             let size_w = available_width / (candidate as f32 + (candidate - 1) as f32 * gap_ratio);
             let size_h = available_height
                 / (candidate_rows as f32 + (candidate_rows - 1) as f32 * gap_ratio);
-            let size = size_w.min(size_h).min(STATE_CIRCLE_SIZE).max(0.5);
+            let size = size_w.min(size_h).clamp(0.5, STATE_CIRCLE_SIZE);
             let ratio = candidate as f32 / candidate_rows as f32;
             let score = (ratio - aspect).abs();
             if size > best_size + 0.01 || ((size - best_size).abs() <= 0.01 && score < best_score) {
@@ -1595,12 +1594,25 @@ impl QniApp {
         let scale = size / STATE_CIRCLE_SIZE;
         let inner_radius = (radius - stroke * 0.5 + 0.5 * scale).max(0.0);
 
+        // Calculate handle height based on content height (before adding handle to panel)
+        let content_height = total_height + state_padding * 2.0;
+        let handle_height = (0.4 * REM)
+            .min(content_height * 0.4)
+            .max(10.0);
+
+        // Add extra padding below handle to visually balance top and bottom.
+        // The handle adds visual weight at the top, so we compensate by adding
+        // half the handle height as extra space below it.
+        let handle_padding = handle_height * 0.5;
+
+        // base_pos is shifted down by handle_height + handle_padding so circles
+        // start below the handle with visually balanced padding
         let base_pos = rect.min + egui::vec2(base_x, base_y);
         let state_rect = egui::Rect::from_min_size(
-            base_pos - egui::vec2(state_padding, state_padding),
+            base_pos - egui::vec2(state_padding, state_padding + handle_height + handle_padding),
             egui::vec2(
                 total_width + state_padding * 2.0,
-                total_height + state_padding * 2.0,
+                total_height + state_padding * 2.0 + handle_height + handle_padding,
             ),
         );
 
@@ -1615,6 +1627,7 @@ impl QniApp {
             inner_radius,
             base_pos,
             state_rect,
+            handle_height,
         }
     }
 
@@ -1641,6 +1654,7 @@ impl QniApp {
         };
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_state_vector(
         &self,
         painter: &egui::Painter,
@@ -1727,6 +1741,7 @@ struct StatePanelLayout {
     inner_radius: f32,
     base_pos: egui::Pos2,
     state_rect: egui::Rect,
+    handle_height: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -1853,13 +1868,14 @@ fn draw_gate_icon(
             true
         }
         GateKind::SqrtX => {
-            let mut points = Vec::new();
-            points.push(p(10.0, 24.0));
-            points.push(p(13.0, 24.0));
-            points.push(p(14.0, 36.0));
-            points.push(p(17.0, 36.0));
-            points.push(p(18.0, 12.0));
-            points.push(p(38.0, 12.0));
+            let points = vec![
+                p(10.0, 24.0),
+                p(13.0, 24.0),
+                p(14.0, 36.0),
+                p(17.0, 36.0),
+                p(18.0, 12.0),
+                p(38.0, 12.0),
+            ];
             painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
                 points, stroke,
             )));
@@ -2037,13 +2053,10 @@ impl eframe::App for QniApp {
             };
             let state_layout = self.state_panel_layout(screen_rect, state_count);
             self.clamp_state_panel_offset(&state_layout, screen_rect);
-            let handle_height = (0.4 * REM)
-                .min(state_layout.state_rect.height() * 0.4)
-                .max(10.0);
             let state_rect = state_layout.state_rect.translate(self.state_panel_offset);
             let handle_rect = egui::Rect::from_min_size(
                 state_rect.min,
-                egui::vec2(state_rect.width(), handle_height.max(6.0)),
+                egui::vec2(state_rect.width(), state_layout.handle_height.max(6.0)),
             );
             let handle_response = ui.interact(
                 handle_rect,
@@ -2080,7 +2093,7 @@ impl eframe::App for QniApp {
                 &colors,
                 &state_layout,
                 self.state_panel_offset,
-                handle_height,
+                state_layout.handle_height,
                 screen_rect,
                 recompute,
                 target_format,
