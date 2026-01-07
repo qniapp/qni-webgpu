@@ -1,0 +1,38 @@
+# Ralph Progress Log - egui-web
+Started: 2026-01-08
+
+## Codebase Patterns
+- **Build target**: wasm32-unknown-unknown (WASM for web)
+- **Dev server**: `trunk serve` (hot reload)
+- **Release build**: `trunk build --release`
+- **Lint**: `cargo clippy --target wasm32-unknown-unknown -- -D warnings`
+- **Tests**: Playwright (`pnpm test`)
+
+## Key Files
+- `src/lib.rs` - Main library, contains CircuitEditor and all UI logic
+- `src/main.rs` - Entry point (minimal)
+- `Cargo.toml` - Dependencies: eframe, wgpu, wasm-bindgen
+- `index.html` - HTML shell for WASM
+- `tests/egui-web.spec.js` - Playwright E2E tests
+
+## Project Structure
+```
+apps/egui-web/
+├── src/
+│   ├── lib.rs      # Main UI logic
+│   └── main.rs     # Entry point
+├── scripts/ralph/  # Ralph automation
+├── tests/          # Playwright tests
+└── dist/           # Build output
+```
+
+## Architecture Notes
+- Uses egui (immediate mode GUI) with eframe for web
+- WebGPU backend via wgpu crate
+- Quantum circuit visualization with drag-drop gates
+- State vector display with probability circles
+
+---
+## Progress Entries
+(Ralph will append entries below as stories are completed)
+
