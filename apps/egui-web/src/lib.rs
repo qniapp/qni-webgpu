@@ -1,6 +1,7 @@
 use eframe::egui;
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 const REM: f32 = 32.0;
 const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
@@ -177,6 +178,19 @@ fn nearest_slot_center(x: f32, slot_centers: &[f32]) -> (f32, f32) {
     }
   }
   (nearest, nearest_distance)
+}
+
+fn nearest_slot_index(x: f32, slot_centers: &[f32]) -> Option<(usize, f32)> {
+  let mut nearest_index = None;
+  let mut nearest_distance = f32::MAX;
+  for (index, &slot) in slot_centers.iter().enumerate() {
+    let distance = (x - slot).abs();
+    if distance < nearest_distance {
+      nearest_distance = distance;
+      nearest_index = Some(index);
+    }
+  }
+  nearest_index.map(|index| (index, nearest_distance))
 }
 
 fn nearest_available_slot(x: f32, wire_index: usize, ignore_id: Option<u32>, gates: &[PlacedGate], slot_centers: &[f32]) -> Option<(f32, f32)> {
@@ -620,6 +634,36 @@ impl QniApp {
       let start = rect.min + egui::vec2(metrics.line_left, line_y);
       let end = rect.min + egui::vec2(metrics.line_right, line_y);
       painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
+    }
+
+    let mut swap_groups: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
+    for gate in &self.placed_gates {
+      if gate.kind != GateKind::Swap {
+        continue;
+      }
+      let center_x = gate.pos.x + GATE_SIZE / 2.0;
+      if let Some((slot_index, distance)) = nearest_slot_index(center_x, &metrics.slot_centers) {
+        if distance <= SNAP_DISTANCE {
+          swap_groups.entry(slot_index).or_default().push(gate);
+        }
+      }
+    }
+
+    for (_, gates) in swap_groups {
+      if gates.len() < 2 {
+        continue;
+      }
+      let mut centers = gates
+        .iter()
+        .map(|gate| rect.min + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0))
+        .collect::<Vec<_>>();
+      centers.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap_or(Ordering::Equal));
+      let top = centers.first().copied();
+      let bottom = centers.last().copied();
+      if let (Some(top), Some(bottom)) = (top, bottom) {
+        let swap_stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+        painter.line_segment([top, bottom], swap_stroke);
+      }
     }
 
     for gate in &self.placed_gates {
