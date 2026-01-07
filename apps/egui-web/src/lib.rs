@@ -314,6 +314,8 @@ struct QniApp {
   next_gate_id: u32,
   placed_gates: Vec<PlacedGate>,
   dragging: Option<DragState>,
+  state_panel_drag: Option<egui::Vec2>,
+  state_panel_offset: egui::Vec2,
   hovered_gate_id: Option<u32>,
   hovered_palette_index: Option<usize>,
   qubit_count: usize,
@@ -328,6 +330,8 @@ impl QniApp {
       next_gate_id: 1,
       placed_gates: Vec::new(),
       dragging: None,
+      state_panel_drag: None,
+      state_panel_offset: egui::Vec2::ZERO,
       hovered_gate_id: None,
       hovered_palette_index: None,
       qubit_count: MIN_QUBITS,
@@ -642,7 +646,7 @@ impl QniApp {
     }
   }
 
-  fn draw_state_vector(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+  fn state_panel_layout(&self, rect: egui::Rect) -> StatePanelLayout {
     let state_count = self.state_vector.len().max(1);
     let qubits = amplitude_qubits(state_count);
     let gap_ratio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE;
@@ -701,10 +705,59 @@ impl QniApp {
     let scale = size / STATE_CIRCLE_SIZE;
     let inner_radius = (radius - stroke * 0.5 + 0.5 * scale).max(0.0);
 
+    let base_pos = rect.min + egui::vec2(base_x, base_y);
     let state_rect = egui::Rect::from_min_size(
-      rect.min + egui::vec2(base_x - state_padding, base_y - state_padding),
+      base_pos - egui::vec2(state_padding, state_padding),
       egui::vec2(total_width + state_padding * 2.0, total_height + state_padding * 2.0),
     );
+
+    StatePanelLayout {
+      state_count,
+      qubits,
+      columns,
+      size,
+      gap,
+      radius,
+      stroke,
+      inner_radius,
+      base_pos,
+      state_rect,
+    }
+  }
+
+  fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
+    let min_x = rect.min.x;
+    let max_x = rect.max.x - layout.state_rect.width();
+    let min_y = rect.min.y;
+    let max_y = rect.max.y - layout.state_rect.height();
+    let base_min = layout.state_rect.min;
+    let min_offset_x = min_x - base_min.x;
+    let max_offset_x = max_x - base_min.x;
+    let min_offset_y = min_y - base_min.y;
+    let max_offset_y = max_y - base_min.y;
+
+    self.state_panel_offset.x = if max_offset_x < min_offset_x {
+      min_offset_x
+    } else {
+      self.state_panel_offset.x.clamp(min_offset_x, max_offset_x)
+    };
+    self.state_panel_offset.y = if max_offset_y < min_offset_y {
+      min_offset_y
+    } else {
+      self.state_panel_offset.y.clamp(min_offset_y, max_offset_y)
+    };
+  }
+
+  fn draw_state_vector(
+    &self,
+    painter: &egui::Painter,
+    colors: &Colors,
+    layout: &StatePanelLayout,
+    offset: egui::Vec2,
+    handle_height: f32,
+  ) -> egui::Rect {
+    let state_rect = layout.state_rect.translate(offset);
+    let base_pos = layout.base_pos + offset;
     let state_corner = egui::CornerRadius::same(14);
     let state_shadow = egui::epaint::Shadow {
       offset: [0, 6],
@@ -715,41 +768,69 @@ impl QniApp {
     painter.add(egui::Shape::Rect(state_shadow.as_shape(state_rect, state_corner)));
     painter.rect_filled(state_rect, state_corner, colors.surface);
 
-    for i in 0..state_count {
-      let state_index = display_index_to_state_index(i, qubits);
+    let handle_rect = egui::Rect::from_min_size(
+      state_rect.min,
+      egui::vec2(state_rect.width(), handle_height.max(6.0)),
+    );
+    painter.rect_filled(handle_rect, state_corner, colors.box_border);
+    let grip_width = handle_rect.width() * 0.25;
+    let grip_height = handle_height * 0.25;
+    let grip_rect = egui::Rect::from_center_size(
+      handle_rect.center(),
+      egui::vec2(grip_width, grip_height.max(2.0)),
+    );
+    painter.rect_filled(grip_rect, egui::CornerRadius::same(4), colors.surface);
+
+    for i in 0..layout.state_count {
+      let state_index = display_index_to_state_index(i, layout.qubits);
       let amplitude = self.state_vector[state_index];
       let probability = amplitude.abs2().clamp(0.0, 1.0);
-      let phase_opt = Some(amplitude.phase());
-      let base_fill_radius = (radius - stroke * 0.5 + 1.0 * scale).max(0.0);
+      let base_fill_radius =
+        (layout.radius - layout.stroke * 0.5 + 1.0 * (layout.size / STATE_CIRCLE_SIZE)).max(0.0);
       let fill_radius = base_fill_radius * probability.sqrt();
-      let row = i / columns;
-      let col = i % columns;
-      let x = base_x + col as f32 * (size + gap);
-      let y = base_y + row as f32 * (size + gap);
-      let center = rect.min + egui::vec2(x + radius, y + radius);
+      let row = i / layout.columns;
+      let col = i % layout.columns;
+      let x = base_pos.x + col as f32 * (layout.size + layout.gap);
+      let y = base_pos.y + row as f32 * (layout.size + layout.gap);
+      let center = egui::pos2(x + layout.radius, y + layout.radius);
       let outline = if probability > 0.0 {
         colors.state_outline
       } else {
         colors.state_outline_zero
       };
 
-      painter.circle_filled(center, inner_radius, colors.surface);
+      painter.circle_filled(center, layout.inner_radius, colors.surface);
       if fill_radius > 0.0 {
         painter.circle_filled(center, fill_radius, colors.state_fill);
       }
-      painter.circle_stroke(center, radius, egui::Stroke::new(stroke, outline));
+      painter.circle_stroke(center, layout.radius, egui::Stroke::new(layout.stroke, outline));
 
       if probability > 0.0 {
-        let phase = phase_opt.unwrap_or(0.0);
+        let phase = amplitude.phase();
         let dir = egui::vec2(phase.sin(), -phase.cos());
-        let needle_radius = inner_radius;
+        let needle_radius = layout.inner_radius;
         painter.line_segment(
           [center, center + dir * needle_radius],
-          egui::Stroke::new(stroke, colors.state_needle),
+          egui::Stroke::new(layout.stroke, colors.state_needle),
         );
       }
     }
+
+    handle_rect
   }
+}
+
+struct StatePanelLayout {
+  state_count: usize,
+  qubits: usize,
+  columns: usize,
+  size: f32,
+  gap: f32,
+  radius: f32,
+  stroke: f32,
+  inner_radius: f32,
+  base_pos: egui::Pos2,
+  state_rect: egui::Rect,
 }
 
 impl eframe::App for QniApp {
@@ -776,10 +857,45 @@ impl eframe::App for QniApp {
           self.draw_circuit(&painter, rect, &metrics, &colors);
         });
 
+      let state_layout = self.state_panel_layout(screen_rect);
+      self.clamp_state_panel_offset(&state_layout, screen_rect);
+      let handle_height = (0.4 * REM).min(state_layout.state_rect.height() * 0.4).max(10.0);
+      let state_rect = state_layout.state_rect.translate(self.state_panel_offset);
+      let handle_rect = egui::Rect::from_min_size(
+        state_rect.min,
+        egui::vec2(state_rect.width(), handle_height.max(6.0)),
+      );
+      let handle_response = ui.interact(
+        handle_rect,
+        egui::Id::new("state_panel_handle"),
+        egui::Sense::drag(),
+      );
+      if handle_response.drag_started() {
+        if let Some(pos) = handle_response.interact_pointer_pos() {
+          self.state_panel_drag = Some(pos - handle_rect.min);
+        }
+      }
+      if handle_response.dragged() {
+        if let (Some(pos), Some(offset)) = (handle_response.interact_pointer_pos(), self.state_panel_drag) {
+          let desired_min = pos - offset;
+          self.state_panel_offset = desired_min - state_layout.state_rect.min;
+          self.clamp_state_panel_offset(&state_layout, screen_rect);
+        }
+      }
+      if handle_response.drag_stopped() {
+        self.state_panel_drag = None;
+      }
+
       let overlay_painter =
         ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("overlay")));
       self.draw_palette(&overlay_painter, screen_rect, &colors);
-      self.draw_state_vector(&overlay_painter, screen_rect, &colors);
+      self.draw_state_vector(
+        &overlay_painter,
+        &colors,
+        &state_layout,
+        self.state_panel_offset,
+        handle_height,
+      );
     });
   }
 }
