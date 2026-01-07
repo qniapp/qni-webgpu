@@ -28,12 +28,13 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   const initialState = await page.evaluate(() =>
     window.__eguiReadStateVector ? window.__eguiReadStateVector() : []
   )
-  expect(initialState).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+  expect(initialState).toEqual([1, 0, 0, 0])
+  const stateCount = Math.max(1, initialState.length / 2)
 
   const initialScreenshot = await canvas.screenshot({ type: 'png', path: '/tmp/qni-egui-webgpu-initial.png' })
   const initialBase64 = initialScreenshot.toString('base64')
   const initialColor = await page.evaluate(
-    async ({ base64, cssWidth, cssHeight }) => {
+    async ({ base64, cssWidth, cssHeight, stateCount }) => {
       const img = new Image()
       img.src = `data:image/png;base64,${base64}`
       await new Promise((resolve, reject) => {
@@ -55,7 +56,7 @@ test('egui webgpu canvas renders content', async ({ page }) => {
       const rem = 32
       const size = 1.25 * rem
       const gap = 0.5 * rem
-      const count = 4
+      const count = stateCount
       const bottomMargin = 2 * rem
       const totalWidth = count * size + (count - 1) * gap
       const baseX = (cssWidth - totalWidth) / 2
@@ -69,7 +70,7 @@ test('egui webgpu canvas renders content', async ({ page }) => {
       const idx = (py * canvas.width + px) * 4
       return { r: data[idx], g: data[idx + 1], b: data[idx + 2] }
     },
-    { base64: initialBase64, cssWidth, cssHeight }
+    { base64: initialBase64, cssWidth, cssHeight, stateCount }
   )
   expect(initialColor.r).toBeGreaterThan(30)
   expect(initialColor.g).toBeGreaterThan(120)
@@ -94,7 +95,7 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   await page.mouse.move(targetX + offsetX, targetY + offsetY, { steps: 6 })
   await page.mouse.up()
 
-  const expected = [1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0, 0, 0]
+  const expected = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
   await page.waitForFunction(
     (expectedState) => {
       const actual = window.__eguiReadStateVector ? window.__eguiReadStateVector() : []

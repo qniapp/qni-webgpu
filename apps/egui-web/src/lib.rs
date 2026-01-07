@@ -25,7 +25,7 @@ const PALETTE_GAP: f32 = 0.5 * REM;
 const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
 thread_local! {
-  static STATE_VECTOR: RefCell<Vec<f32>> = RefCell::new(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+  static STATE_VECTOR: RefCell<Vec<f32>> = RefCell::new(vec![1.0, 0.0, 0.0, 0.0]);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -333,6 +333,18 @@ impl QniApp {
     count
   }
 
+  fn state_qubits(&self) -> usize {
+    let mut max_wire: Option<usize> = None;
+    for gate in &self.placed_gates {
+      max_wire = Some(match max_wire {
+        Some(current) => current.max(gate.wire),
+        None => gate.wire,
+      });
+    }
+    let count = max_wire.map_or(1, |wire| wire + 1);
+    count.clamp(1, MAX_QUBITS)
+  }
+
   fn update_qubit_count(&mut self) {
     let mut max_wire = MIN_QUBITS - 1;
     for gate in &self.placed_gates {
@@ -345,7 +357,7 @@ impl QniApp {
     if !self.needs_recompute {
       return;
     }
-    let qubits = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
+    let qubits = self.state_qubits();
     let total = 1usize << qubits;
     let mut state = vec![Complex::new(0.0, 0.0); total];
     state[0] = Complex::new(1.0, 0.0);
@@ -360,9 +372,7 @@ impl QniApp {
     });
 
     for gate in gates {
-      if gate.wire < qubits {
-        apply_gate_to_state(&mut state, gate.kind, gate.wire, qubits);
-      }
+      apply_gate_to_state(&mut state, gate.kind, gate.wire, qubits);
     }
 
     self.state_vector = state;
@@ -612,7 +622,7 @@ impl eframe::App for QniApp {
       let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
       let radius = STATE_CIRCLE_SIZE * 0.5;
       let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
-      let qubits = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
+      let qubits = self.state_qubits();
 
       let state_padding = 1.0 * REM;
       let state_rect = egui::Rect::from_min_size(
