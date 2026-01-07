@@ -644,17 +644,55 @@ impl QniApp {
 
   fn draw_state_vector(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
     let state_count = self.state_vector.len().max(1);
-    let total_width = state_count as f32 * STATE_CIRCLE_SIZE + (state_count as f32 - 1.0) * STATE_CIRCLE_GAP;
-    let base_x = rect.width() / 2.0 - total_width / 2.0;
-    let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
-    let radius = STATE_CIRCLE_SIZE * 0.5;
-    let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
     let qubits = amplitude_qubits(state_count);
+    let gap_ratio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE;
+    let state_padding = (1.0 * REM).min(rect.width() * 0.05).min(rect.height() * 0.05);
+    let top_limit = rect.min.y + PALETTE_ROW_Y + PALETTE_SIZE + 2.0 * REM;
+    let mut available_width = rect.width() - state_padding * 2.0;
+    let mut available_height = rect.max.y - STATE_CIRCLE_BOTTOM_MARGIN - top_limit;
+    if available_width <= 0.0 {
+      available_width = rect.width().max(1.0);
+    }
+    if available_height <= 0.0 {
+      available_height = (rect.height() - STATE_CIRCLE_BOTTOM_MARGIN).max(1.0);
+    }
 
-    let state_padding = 1.0 * REM;
+    let aspect = (available_width / available_height).max(0.1);
+    let mut columns = 1usize;
+    let mut rows = state_count;
+    let mut best_size = 0.0;
+    let mut best_score = f32::INFINITY;
+    for candidate in 1..=state_count {
+      if state_count % candidate != 0 {
+        continue;
+      }
+      let candidate_rows = state_count / candidate;
+      let size_w = available_width / (candidate as f32 + (candidate - 1) as f32 * gap_ratio);
+      let size_h = available_height / (candidate_rows as f32 + (candidate_rows - 1) as f32 * gap_ratio);
+      let size = size_w.min(size_h).min(STATE_CIRCLE_SIZE).max(0.5);
+      let ratio = candidate as f32 / candidate_rows as f32;
+      let score = (ratio - aspect).abs();
+      if size > best_size + 0.01 || ((size - best_size).abs() <= 0.01 && score < best_score) {
+        columns = candidate;
+        rows = candidate_rows;
+        best_size = size;
+        best_score = score;
+      }
+    }
+    let size = best_size.max(0.5);
+    let gap = size * gap_ratio;
+    let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
+    let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
+    let base_x = rect.width() / 2.0 - total_width / 2.0;
+    let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - total_height;
+    let radius = size * 0.5;
+    let stroke = STATE_CIRCLE_STROKE.min(size * 0.25).max(0.5);
+    let scale = size / STATE_CIRCLE_SIZE;
+    let inner_radius = (radius - stroke * 0.5 + 0.5 * scale).max(0.0);
+
     let state_rect = egui::Rect::from_min_size(
       rect.min + egui::vec2(base_x - state_padding, base_y - state_padding),
-      egui::vec2(total_width + state_padding * 2.0, STATE_CIRCLE_SIZE + state_padding * 2.0),
+      egui::vec2(total_width + state_padding * 2.0, total_height + state_padding * 2.0),
     );
     let state_corner = egui::CornerRadius::same(14);
     let state_shadow = egui::epaint::Shadow {
@@ -670,10 +708,13 @@ impl QniApp {
       let state_index = display_index_to_state_index(i, qubits);
       let amplitude = self.state_vector[state_index];
       let probability = amplitude.abs2().clamp(0.0, 1.0);
-      let base_fill_radius = radius - STATE_CIRCLE_STROKE * 0.5 + 1.0;
+      let phase_opt = Some(amplitude.phase());
+      let base_fill_radius = (radius - stroke * 0.5 + 1.0 * scale).max(0.0);
       let fill_radius = base_fill_radius * probability.sqrt();
-      let x = base_x + i as f32 * (STATE_CIRCLE_SIZE + STATE_CIRCLE_GAP);
-      let y = base_y;
+      let row = i / columns;
+      let col = i % columns;
+      let x = base_x + col as f32 * (size + gap);
+      let y = base_y + row as f32 * (size + gap);
       let center = rect.min + egui::vec2(x + radius, y + radius);
       let outline = if probability > 0.0 {
         colors.state_outline
@@ -685,15 +726,15 @@ impl QniApp {
       if fill_radius > 0.0 {
         painter.circle_filled(center, fill_radius, colors.state_fill);
       }
-      painter.circle_stroke(center, radius, egui::Stroke::new(STATE_CIRCLE_STROKE, outline));
+      painter.circle_stroke(center, radius, egui::Stroke::new(stroke, outline));
 
       if probability > 0.0 {
-        let phase = amplitude.phase();
+        let phase = phase_opt.unwrap_or(0.0);
         let dir = egui::vec2(phase.sin(), -phase.cos());
         let needle_radius = inner_radius;
         painter.line_segment(
           [center, center + dir * needle_radius],
-          egui::Stroke::new(STATE_CIRCLE_STROKE, colors.state_needle),
+          egui::Stroke::new(stroke, colors.state_needle),
         );
       }
     }
