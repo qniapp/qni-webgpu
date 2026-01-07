@@ -3,11 +3,13 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 
 const REM: f32 = 32.0;
-const STATE_CIRCLE_COUNT: usize = 4;
 const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
 const STATE_CIRCLE_GAP: f32 = 0.5 * REM;
 const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 const STATE_CIRCLE_STROKE: f32 = 2.0;
+
+const MIN_QUBITS: usize = 2;
+const MAX_QUBITS: usize = 3;
 
 const LINE_Y: f32 = 6.5 * REM;
 const LINE_GAP: f32 = 1.5 * REM;
@@ -112,16 +114,18 @@ struct DragState {
 struct LayoutMetrics {
   line_left: f32,
   line_right: f32,
-  line_ys: [f32; 2],
+  line_ys: Vec<f32>,
   slot_left: f32,
   slot_right: f32,
   slot_centers: Vec<f32>,
 }
 
-fn layout_metrics(width: f32) -> LayoutMetrics {
+fn layout_metrics(width: f32, qubit_count: usize) -> LayoutMetrics {
   let line_left = LINE_LEFT_OFFSET;
   let line_right = width - LINE_RIGHT_OFFSET;
-  let line_ys = [LINE_Y, LINE_Y + LINE_GAP];
+  let line_ys = (0..qubit_count)
+    .map(|index| LINE_Y + LINE_GAP * index as f32)
+    .collect::<Vec<f32>>();
   let slot_left = line_left + GATE_SIZE;
   let slot_right = line_right - GATE_SIZE;
   let slot_count = if SLOT_SPACING > 0.0 {
@@ -194,7 +198,7 @@ fn nearest_available_slot(x: f32, wire_index: usize, ignore_id: Option<u32>, gat
   }
 }
 
-fn nearest_line(y: f32, line_ys: &[f32; 2]) -> (f32, f32, usize) {
+fn nearest_line(y: f32, line_ys: &[f32]) -> (f32, f32, usize) {
   let mut nearest = line_ys[0];
   let mut nearest_distance = (y - line_ys[0]).abs();
   let mut nearest_index = 0;
@@ -251,37 +255,37 @@ fn gate_matrix(kind: GateKind) -> [[Complex; 2]; 2] {
   }
 }
 
-fn apply_gate(state: &mut [Complex; 4], kind: GateKind, target: usize) {
+fn apply_gate_to_state(state: &mut [Complex], kind: GateKind, target: usize, qubits: usize) {
+  if target >= qubits {
+    return;
+  }
   let m = gate_matrix(kind);
-  let a00 = state[0];
-  let a01 = state[1];
-  let a10 = state[2];
-  let a11 = state[3];
-
   let m00 = m[0][0];
   let m01 = m[0][1];
   let m10 = m[1][0];
   let m11 = m[1][1];
+  let bit = qubits.saturating_sub(1).saturating_sub(target);
+  let mask = 1usize << bit;
 
-  if target == 0 {
-    let out00 = m00.mul(a00).add(m01.mul(a10));
-    let out10 = m10.mul(a00).add(m11.mul(a10));
-    let out01 = m00.mul(a01).add(m01.mul(a11));
-    let out11 = m10.mul(a01).add(m11.mul(a11));
-    state[0] = out00;
-    state[1] = out01;
-    state[2] = out10;
-    state[3] = out11;
-  } else {
-    let out00 = m00.mul(a00).add(m01.mul(a01));
-    let out01 = m10.mul(a00).add(m11.mul(a01));
-    let out10 = m00.mul(a10).add(m01.mul(a11));
-    let out11 = m10.mul(a10).add(m11.mul(a11));
-    state[0] = out00;
-    state[1] = out01;
-    state[2] = out10;
-    state[3] = out11;
+  for index in 0..state.len() {
+    if index & mask != 0 {
+      continue;
+    }
+    let pair = index | mask;
+    let a0 = state[index];
+    let a1 = state[pair];
+    state[index] = m00.mul(a0).add(m01.mul(a1));
+    state[pair] = m10.mul(a0).add(m11.mul(a1));
   }
+}
+
+fn display_index_to_state_index(mut display_index: usize, qubits: usize) -> usize {
+  let mut value = 0usize;
+  for _ in 0..qubits {
+    value = (value << 1) | (display_index & 1);
+    display_index >>= 1;
+  }
+  value
 }
 
 fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
@@ -299,42 +303,52 @@ struct QniApp {
   dragging: Option<DragState>,
   hovered_gate_id: Option<u32>,
   hovered_palette_index: Option<usize>,
-  state_vector: [Complex; 4],
+  qubit_count: usize,
+  state_vector: Vec<Complex>,
   needs_recompute: bool,
 }
 
 impl QniApp {
   pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
     cc.egui_ctx.set_visuals(egui::Visuals::light());
-    let state_vector = [
-      Complex::new(1.0, 0.0),
-      Complex::new(0.0, 0.0),
-      Complex::new(0.0, 0.0),
-      Complex::new(0.0, 0.0),
-    ];
     let mut app = Self {
       next_gate_id: 1,
       placed_gates: Vec::new(),
       dragging: None,
       hovered_gate_id: None,
       hovered_palette_index: None,
-      state_vector,
+      qubit_count: MIN_QUBITS,
+      state_vector: Vec::new(),
       needs_recompute: true,
     };
     app.sync_state_vector();
     app
   }
 
+  fn layout_qubits(&self) -> usize {
+    let mut count = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
+    if self.dragging.is_some() && count < MAX_QUBITS {
+      count += 1;
+    }
+    count
+  }
+
+  fn update_qubit_count(&mut self) {
+    let mut max_wire = MIN_QUBITS - 1;
+    for gate in &self.placed_gates {
+      max_wire = max_wire.max(gate.wire);
+    }
+    self.qubit_count = (max_wire + 1).clamp(MIN_QUBITS, MAX_QUBITS);
+  }
+
   fn sync_state_vector(&mut self) {
     if !self.needs_recompute {
       return;
     }
-    let mut state = [
-      Complex::new(1.0, 0.0),
-      Complex::new(0.0, 0.0),
-      Complex::new(0.0, 0.0),
-      Complex::new(0.0, 0.0),
-    ];
+    let qubits = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
+    let total = 1usize << qubits;
+    let mut state = vec![Complex::new(0.0, 0.0); total];
+    state[0] = Complex::new(1.0, 0.0);
 
     let mut gates: Vec<&PlacedGate> = self.placed_gates.iter().collect();
     gates.sort_by(|a, b| {
@@ -346,20 +360,17 @@ impl QniApp {
     });
 
     for gate in gates {
-      apply_gate(&mut state, gate.kind, gate.wire);
+      if gate.wire < qubits {
+        apply_gate_to_state(&mut state, gate.kind, gate.wire, qubits);
+      }
     }
 
     self.state_vector = state;
-    let flat = [
-      state[0].re,
-      state[0].im,
-      state[1].re,
-      state[1].im,
-      state[2].re,
-      state[2].im,
-      state[3].re,
-      state[3].im,
-    ];
+    let mut flat = Vec::with_capacity(total * 2);
+    for amp in &self.state_vector {
+      flat.push(amp.re);
+      flat.push(amp.im);
+    }
     STATE_VECTOR.with(|data| {
       data.borrow_mut().clear();
       data.borrow_mut().extend_from_slice(&flat);
@@ -377,7 +388,7 @@ impl QniApp {
       egui::pos2(palette_start_x, PALETTE_ROW_Y),
       egui::vec2(palette_width, PALETTE_SIZE),
     );
-    let metrics = layout_metrics(rect.width());
+    let metrics = layout_metrics(rect.width(), self.layout_qubits());
 
     if pointer.primary_pressed() {
       if let Some(cursor) = local_pos {
@@ -500,8 +511,9 @@ impl QniApp {
             gate.pos.x = slot_center - GATE_SIZE / 2.0;
             gate.pos.y = line_y - GATE_SIZE / 2.0;
             gate.wire = line_index;
-            self.needs_recompute = true;
           }
+          self.update_qubit_count();
+          self.needs_recompute = true;
         }
       }
     }
@@ -517,7 +529,7 @@ impl eframe::App for QniApp {
       self.sync_state_vector();
 
       let painter = ui.painter_at(rect);
-      let metrics = layout_metrics(rect.width());
+      let metrics = layout_metrics(rect.width(), self.layout_qubits());
 
       let colors = Colors::new();
       for &line_y in &metrics.line_ys {
@@ -594,12 +606,13 @@ impl eframe::App for QniApp {
         );
       }
 
-      let total_width = STATE_CIRCLE_COUNT as f32 * STATE_CIRCLE_SIZE + (STATE_CIRCLE_COUNT as f32 - 1.0) * STATE_CIRCLE_GAP;
+      let state_count = self.state_vector.len().max(1);
+      let total_width = state_count as f32 * STATE_CIRCLE_SIZE + (state_count as f32 - 1.0) * STATE_CIRCLE_GAP;
       let base_x = rect.width() / 2.0 - total_width / 2.0;
       let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
       let radius = STATE_CIRCLE_SIZE * 0.5;
       let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
-      let index_map = [0usize, 2, 1, 3];
+      let qubits = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
 
       let state_padding = 1.0 * REM;
       let state_rect = egui::Rect::from_min_size(
@@ -619,8 +632,9 @@ impl eframe::App for QniApp {
       painter.add(egui::Shape::Rect(state_shadow.as_shape(state_rect, state_corner)));
       painter.rect_filled(state_rect, state_corner, colors.surface);
 
-      for i in 0..STATE_CIRCLE_COUNT {
-        let amplitude = self.state_vector[index_map[i]];
+      for i in 0..state_count {
+        let state_index = display_index_to_state_index(i, qubits);
+        let amplitude = self.state_vector[state_index];
         let probability = amplitude.abs2().clamp(0.0, 1.0);
         let base_fill_radius = radius - STATE_CIRCLE_STROKE * 0.5 + 1.0;
         let fill_radius = base_fill_radius * probability.sqrt();
