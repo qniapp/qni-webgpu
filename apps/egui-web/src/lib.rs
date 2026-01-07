@@ -9,7 +9,7 @@ const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 const STATE_CIRCLE_STROKE: f32 = 2.0;
 
 const MIN_QUBITS: usize = 2;
-const MAX_QUBITS: usize = 3;
+const MAX_QUBITS: usize = 16;
 
 const LINE_Y: f32 = 6.5 * REM;
 const LINE_GAP: f32 = 1.5 * REM;
