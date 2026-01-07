@@ -1,0 +1,12 @@
+{
+  "name": "egui-web",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "playwright": "^1.57.0"
+  }
+}

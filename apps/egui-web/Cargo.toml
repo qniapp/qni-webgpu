@@ -1,0 +1,15 @@
+[package]
+name = "qni-egui-web"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+wgpu = { version = "27.0.1", default-features = false, features = ["webgpu"] }
+web-sys = { version = "0.3", features = ["Document", "HtmlCanvasElement", "Window"] }

@@ -74,6 +74,17 @@ cd apps/web
 pnpm icons
 ```
 
+## Rust (egui) WebGPU PoC（ローカル）
+
+```
+cd apps/egui-web
+trunk serve --host 127.0.0.1 --port 4174 --no-open
+```
+
+ブラウザで `http://127.0.0.1:4174/` を開く。
+
+詳細は `docs/egui-web.md` を参照。
+
 ## Playwright での確認（任意）
 WebGPU の描画を読み戻して検証する。
 

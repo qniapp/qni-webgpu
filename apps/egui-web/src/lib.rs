@@ -1,0 +1,720 @@
+use eframe::egui;
+use std::cell::RefCell;
+use std::cmp::Ordering;
+
+const REM: f32 = 32.0;
+const STATE_CIRCLE_COUNT: usize = 4;
+const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
+const STATE_CIRCLE_GAP: f32 = 0.5 * REM;
+const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
+const STATE_CIRCLE_STROKE: f32 = 2.0;
+
+const LINE_Y: f32 = 6.5 * REM;
+const LINE_GAP: f32 = 1.5 * REM;
+const LINE_LEFT_OFFSET: f32 = 2.0 * REM;
+const LINE_RIGHT_OFFSET: f32 = 2.0 * REM;
+
+const GATE_SIZE: f32 = 1.0 * REM;
+const SLOT_SPACING: f32 = GATE_SIZE * 1.5;
+const SNAP_DISTANCE: f32 = 0.5625 * REM;
+
+const PALETTE_SIZE: f32 = GATE_SIZE;
+const PALETTE_GAP: f32 = 0.5 * REM;
+const PALETTE_ROW_Y: f32 = 2.0 * REM;
+
+thread_local! {
+  static STATE_VECTOR: RefCell<Vec<f32>> = RefCell::new(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GateKind {
+  H,
+  X,
+  Y,
+  Z,
+  SqrtX,
+  S,
+  SDagger,
+  T,
+  TDagger,
+}
+
+impl GateKind {
+  fn label(self) -> &'static str {
+    match self {
+      GateKind::H => "H",
+      GateKind::X => "X",
+      GateKind::Y => "Y",
+      GateKind::Z => "Z",
+      GateKind::SqrtX => "√X",
+      GateKind::S => "S",
+      GateKind::SDagger => "S†",
+      GateKind::T => "T",
+      GateKind::TDagger => "T†",
+    }
+  }
+}
+
+const PALETTE_GATES: [GateKind; 9] = [
+  GateKind::H,
+  GateKind::X,
+  GateKind::Y,
+  GateKind::Z,
+  GateKind::SqrtX,
+  GateKind::S,
+  GateKind::SDagger,
+  GateKind::T,
+  GateKind::TDagger,
+];
+
+#[derive(Clone, Copy, Debug)]
+struct Complex {
+  re: f32,
+  im: f32,
+}
+
+impl Complex {
+  fn new(re: f32, im: f32) -> Self {
+    Self { re, im }
+  }
+
+  fn add(self, other: Self) -> Self {
+    Self::new(self.re + other.re, self.im + other.im)
+  }
+
+  fn mul(self, other: Self) -> Self {
+    Self::new(self.re * other.re - self.im * other.im, self.re * other.im + self.im * other.re)
+  }
+
+  fn abs2(self) -> f32 {
+    self.re * self.re + self.im * self.im
+  }
+
+  fn phase(self) -> f32 {
+    self.im.atan2(self.re)
+  }
+}
+
+#[derive(Clone, Debug)]
+struct PlacedGate {
+  id: u32,
+  kind: GateKind,
+  pos: egui::Pos2,
+  wire: usize,
+}
+
+struct DragState {
+  id: u32,
+  offset: egui::Vec2,
+}
+
+#[derive(Clone, Debug)]
+struct LayoutMetrics {
+  line_left: f32,
+  line_right: f32,
+  line_ys: [f32; 2],
+  slot_left: f32,
+  slot_right: f32,
+  slot_centers: Vec<f32>,
+}
+
+fn layout_metrics(width: f32) -> LayoutMetrics {
+  let line_left = LINE_LEFT_OFFSET;
+  let line_right = width - LINE_RIGHT_OFFSET;
+  let line_ys = [LINE_Y, LINE_Y + LINE_GAP];
+  let slot_left = line_left + GATE_SIZE;
+  let slot_right = line_right - GATE_SIZE;
+  let slot_count = if SLOT_SPACING > 0.0 {
+    ((slot_right - slot_left) / SLOT_SPACING).floor() as i32 + 1
+  } else {
+    0
+  };
+  let slot_centers = if slot_count > 0 {
+    (0..slot_count)
+      .map(|index| slot_left + SLOT_SPACING * index as f32)
+      .collect()
+  } else {
+    Vec::new()
+  };
+  LayoutMetrics {
+    line_left,
+    line_right,
+    line_ys,
+    slot_left,
+    slot_right,
+    slot_centers,
+  }
+}
+
+fn nearest_slot_center(x: f32, slot_centers: &[f32]) -> (f32, f32) {
+  let mut nearest = x;
+  let mut nearest_distance = f32::MAX;
+  for &slot in slot_centers {
+    let distance = (x - slot).abs();
+    if distance < nearest_distance {
+      nearest = slot;
+      nearest_distance = distance;
+    }
+  }
+  (nearest, nearest_distance)
+}
+
+fn nearest_available_slot(x: f32, wire_index: usize, ignore_id: Option<u32>, gates: &[PlacedGate], slot_centers: &[f32]) -> Option<(f32, f32)> {
+  let mut occupied = Vec::new();
+  for gate in gates {
+    if gate.wire != wire_index {
+      continue;
+    }
+    if ignore_id == Some(gate.id) {
+      continue;
+    }
+    let center_x = gate.pos.x + GATE_SIZE / 2.0;
+    let (snapped, _) = nearest_slot_center(center_x, slot_centers);
+    occupied.push(snapped);
+  }
+
+  let mut nearest = x;
+  let mut nearest_distance = f32::MAX;
+  let mut found = false;
+  for &slot in slot_centers {
+    if occupied.iter().any(|&value| (value - slot).abs() < f32::EPSILON) {
+      continue;
+    }
+    let distance = (x - slot).abs();
+    if !found || distance < nearest_distance {
+      nearest = slot;
+      nearest_distance = distance;
+      found = true;
+    }
+  }
+  if found {
+    Some((nearest, nearest_distance))
+  } else {
+    None
+  }
+}
+
+fn nearest_line(y: f32, line_ys: &[f32; 2]) -> (f32, f32, usize) {
+  let mut nearest = line_ys[0];
+  let mut nearest_distance = (y - line_ys[0]).abs();
+  let mut nearest_index = 0;
+  for (index, &line_y) in line_ys.iter().enumerate() {
+    let distance = (y - line_y).abs();
+    if distance < nearest_distance {
+      nearest = line_y;
+      nearest_distance = distance;
+      nearest_index = index;
+    }
+  }
+  (nearest, nearest_distance, nearest_index)
+}
+
+fn gate_matrix(kind: GateKind) -> [[Complex; 2]; 2] {
+  let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
+  match kind {
+    GateKind::H => [
+      [Complex::new(inv_sqrt2, 0.0), Complex::new(inv_sqrt2, 0.0)],
+      [Complex::new(inv_sqrt2, 0.0), Complex::new(-inv_sqrt2, 0.0)],
+    ],
+    GateKind::X => [
+      [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+    ],
+    GateKind::Y => [
+      [Complex::new(0.0, 0.0), Complex::new(0.0, -1.0)],
+      [Complex::new(0.0, 1.0), Complex::new(0.0, 0.0)],
+    ],
+    GateKind::Z => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(-1.0, 0.0)],
+    ],
+    GateKind::SqrtX => [
+      [Complex::new(0.5, 0.5), Complex::new(0.5, -0.5)],
+      [Complex::new(0.5, -0.5), Complex::new(0.5, 0.5)],
+    ],
+    GateKind::S => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(0.0, 1.0)],
+    ],
+    GateKind::SDagger => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(0.0, -1.0)],
+    ],
+    GateKind::T => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(inv_sqrt2, inv_sqrt2)],
+    ],
+    GateKind::TDagger => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(inv_sqrt2, -inv_sqrt2)],
+    ],
+  }
+}
+
+fn apply_gate(state: &mut [Complex; 4], kind: GateKind, target: usize) {
+  let m = gate_matrix(kind);
+  let a00 = state[0];
+  let a01 = state[1];
+  let a10 = state[2];
+  let a11 = state[3];
+
+  let m00 = m[0][0];
+  let m01 = m[0][1];
+  let m10 = m[1][0];
+  let m11 = m[1][1];
+
+  if target == 0 {
+    let out00 = m00.mul(a00).add(m01.mul(a10));
+    let out10 = m10.mul(a00).add(m11.mul(a10));
+    let out01 = m00.mul(a01).add(m01.mul(a11));
+    let out11 = m10.mul(a01).add(m11.mul(a11));
+    state[0] = out00;
+    state[1] = out01;
+    state[2] = out10;
+    state[3] = out11;
+  } else {
+    let out00 = m00.mul(a00).add(m01.mul(a01));
+    let out01 = m10.mul(a00).add(m11.mul(a01));
+    let out10 = m00.mul(a10).add(m01.mul(a11));
+    let out11 = m10.mul(a10).add(m11.mul(a11));
+    state[0] = out00;
+    state[1] = out01;
+    state[2] = out10;
+    state[3] = out11;
+  }
+}
+
+fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
+  egui::Color32::from_rgba_unmultiplied(
+    (r * 255.0).round() as u8,
+    (g * 255.0).round() as u8,
+    (b * 255.0).round() as u8,
+    (a * 255.0).round() as u8,
+  )
+}
+
+struct QniApp {
+  next_gate_id: u32,
+  placed_gates: Vec<PlacedGate>,
+  dragging: Option<DragState>,
+  hovered_gate_id: Option<u32>,
+  hovered_palette_index: Option<usize>,
+  state_vector: [Complex; 4],
+  needs_recompute: bool,
+}
+
+impl QniApp {
+  pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    cc.egui_ctx.set_visuals(egui::Visuals::light());
+    let state_vector = [
+      Complex::new(1.0, 0.0),
+      Complex::new(0.0, 0.0),
+      Complex::new(0.0, 0.0),
+      Complex::new(0.0, 0.0),
+    ];
+    let mut app = Self {
+      next_gate_id: 1,
+      placed_gates: Vec::new(),
+      dragging: None,
+      hovered_gate_id: None,
+      hovered_palette_index: None,
+      state_vector,
+      needs_recompute: true,
+    };
+    app.sync_state_vector();
+    app
+  }
+
+  fn sync_state_vector(&mut self) {
+    if !self.needs_recompute {
+      return;
+    }
+    let mut state = [
+      Complex::new(1.0, 0.0),
+      Complex::new(0.0, 0.0),
+      Complex::new(0.0, 0.0),
+      Complex::new(0.0, 0.0),
+    ];
+
+    let mut gates: Vec<&PlacedGate> = self.placed_gates.iter().collect();
+    gates.sort_by(|a, b| {
+      a.pos
+        .x
+        .partial_cmp(&b.pos.x)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| a.id.cmp(&b.id))
+    });
+
+    for gate in gates {
+      apply_gate(&mut state, gate.kind, gate.wire);
+    }
+
+    self.state_vector = state;
+    let flat = [
+      state[0].re,
+      state[0].im,
+      state[1].re,
+      state[1].im,
+      state[2].re,
+      state[2].im,
+      state[3].re,
+      state[3].im,
+    ];
+    STATE_VECTOR.with(|data| {
+      data.borrow_mut().clear();
+      data.borrow_mut().extend_from_slice(&flat);
+    });
+    self.needs_recompute = false;
+  }
+
+  fn handle_input(&mut self, rect: egui::Rect, response: &egui::Response, ctx: &egui::Context) {
+    let pointer = ctx.input(|input| input.pointer.clone());
+    let pos = response.interact_pointer_pos().or(response.hover_pos());
+    let local_pos = pos.map(|p| egui::pos2(p.x - rect.min.x, p.y - rect.min.y));
+    let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
+    let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
+    let palette_rect = egui::Rect::from_min_size(
+      egui::pos2(palette_start_x, PALETTE_ROW_Y),
+      egui::vec2(palette_width, PALETTE_SIZE),
+    );
+    let metrics = layout_metrics(rect.width());
+
+    if pointer.primary_pressed() {
+      if let Some(cursor) = local_pos {
+        if let Some((gate_id, offset)) = self
+          .placed_gates
+          .iter()
+          .rev()
+          .find(|gate| {
+            let gate_rect = egui::Rect::from_min_size(gate.pos, egui::vec2(GATE_SIZE, GATE_SIZE));
+            gate_rect.contains(cursor)
+          })
+          .map(|gate| (gate.id, cursor - gate.pos))
+        {
+          self.dragging = Some(DragState { id: gate_id, offset });
+          self.hovered_gate_id = None;
+          self.hovered_palette_index = None;
+          return;
+        }
+
+        if palette_rect.contains(cursor) {
+          let local_x = cursor.x - palette_start_x;
+          let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
+          if index >= 0 && (index as usize) < PALETTE_GATES.len() {
+            let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
+            if in_box {
+              let new_id = self.next_gate_id;
+              let new_gate = PlacedGate {
+                id: new_id,
+                kind: PALETTE_GATES[index as usize],
+                pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
+                wire: 0,
+              };
+              self.next_gate_id += 1;
+              self.placed_gates.push(new_gate);
+              self.dragging = Some(DragState {
+                id: new_id,
+                offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
+              });
+              self.hovered_palette_index = None;
+              self.hovered_gate_id = None;
+            }
+          }
+        }
+      }
+    }
+
+    if let Some(drag) = self.dragging.as_ref() {
+      if pointer.primary_down() {
+        if let Some(cursor) = local_pos {
+          if let Some(index) = self.placed_gates.iter().position(|gate| gate.id == drag.id) {
+            let mut next_pos = cursor - drag.offset;
+            let mut next_wire = self.placed_gates[index].wire;
+            let center_y = next_pos.y + GATE_SIZE / 2.0;
+            let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
+            if distance <= SNAP_DISTANCE {
+              next_pos.y = line_y - GATE_SIZE / 2.0;
+              next_wire = line_index;
+              let center_x = next_pos.x + GATE_SIZE / 2.0;
+              if let Some((slot_center, _)) =
+                nearest_available_slot(center_x, line_index, Some(drag.id), &self.placed_gates, &metrics.slot_centers)
+              {
+                next_pos.x = slot_center - GATE_SIZE / 2.0;
+              }
+            }
+            let gate = &mut self.placed_gates[index];
+            gate.pos = next_pos;
+            gate.wire = next_wire;
+            ctx.request_repaint();
+          }
+        }
+      }
+    } else if let Some(cursor) = local_pos {
+      let mut hovered_gate = None;
+      for gate in &self.placed_gates {
+        let gate_rect = egui::Rect::from_min_size(gate.pos, egui::vec2(GATE_SIZE, GATE_SIZE));
+        if gate_rect.contains(cursor) {
+          hovered_gate = Some(gate.id);
+          break;
+        }
+      }
+      self.hovered_gate_id = hovered_gate;
+
+      let mut hovered_palette = None;
+      if palette_rect.contains(cursor) {
+        let local_x = cursor.x - palette_start_x;
+        let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
+        if index >= 0 && (index as usize) < PALETTE_GATES.len() {
+          let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
+          if in_box {
+            hovered_palette = Some(index as usize);
+          }
+        }
+      }
+      self.hovered_palette_index = hovered_palette;
+    } else {
+      self.hovered_gate_id = None;
+      self.hovered_palette_index = None;
+    }
+
+    if pointer.primary_released() {
+      if let Some(drag) = self.dragging.take() {
+        if let Some(index) = self.placed_gates.iter().position(|gate| gate.id == drag.id) {
+          let gate_pos = self.placed_gates[index].pos;
+          let gate_id = self.placed_gates[index].id;
+          let center_x = gate_pos.x + GATE_SIZE / 2.0;
+          let center_y = gate_pos.y + GATE_SIZE / 2.0;
+          let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
+          let snapped =
+            nearest_available_slot(center_x, line_index, Some(gate_id), &self.placed_gates, &metrics.slot_centers);
+          let on_circuit =
+            center_x >= metrics.slot_left
+              && center_x <= metrics.slot_right
+              && distance <= SNAP_DISTANCE
+              && snapped.map(|(_, d)| d <= SNAP_DISTANCE).unwrap_or(false);
+
+          if !on_circuit {
+            self.placed_gates.remove(index);
+          } else if let Some((slot_center, _)) = snapped {
+            let gate = &mut self.placed_gates[index];
+            gate.pos.x = slot_center - GATE_SIZE / 2.0;
+            gate.pos.y = line_y - GATE_SIZE / 2.0;
+            gate.wire = line_index;
+            self.needs_recompute = true;
+          }
+        }
+      }
+    }
+  }
+}
+
+impl eframe::App for QniApp {
+  fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+      let rect = ui.max_rect();
+      let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
+      self.handle_input(rect, &response, ctx);
+      self.sync_state_vector();
+
+      let painter = ui.painter_at(rect);
+      let metrics = layout_metrics(rect.width());
+
+      let colors = Colors::new();
+      for &line_y in &metrics.line_ys {
+        let start = rect.min + egui::vec2(metrics.line_left, line_y);
+        let end = rect.min + egui::vec2(metrics.line_right, line_y);
+        painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
+      }
+
+      let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
+      let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
+      let palette_padding = 1.0 * REM;
+      let palette_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(palette_start_x - palette_padding, PALETTE_ROW_Y - palette_padding),
+        egui::vec2(palette_width + palette_padding * 2.0, PALETTE_SIZE + palette_padding * 2.0),
+      );
+      let palette_corner = egui::CornerRadius::same(14);
+      let shadow = egui::epaint::Shadow {
+        offset: [0, 6],
+        blur: 16,
+        spread: 0,
+        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+      };
+      painter.add(egui::Shape::Rect(shadow.as_shape(palette_rect, palette_corner)));
+      painter.rect_filled(palette_rect, palette_corner, colors.surface);
+
+      for (index, gate) in PALETTE_GATES.iter().enumerate() {
+        let gate_x = palette_start_x + index as f32 * (PALETTE_SIZE + PALETTE_GAP);
+        let gate_rect = egui::Rect::from_min_size(
+          rect.min + egui::vec2(gate_x, PALETTE_ROW_Y),
+          egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
+        );
+        if self.hovered_palette_index == Some(index) {
+          let hover_outer = gate_rect.expand(4.0);
+          let hover_inner = gate_rect.expand(2.0);
+          painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+          painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+        }
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+        painter.text(
+          gate_rect.center(),
+          egui::Align2::CENTER_CENTER,
+          gate.label(),
+          egui::FontId::proportional(18.0),
+          colors.label,
+        );
+      }
+
+      for gate in &self.placed_gates {
+        let gate_rect = egui::Rect::from_min_size(rect.min + gate.pos.to_vec2(), egui::vec2(GATE_SIZE, GATE_SIZE));
+        if self.hovered_gate_id == Some(gate.id) {
+          let hover_outer = gate_rect.expand(4.0);
+          let hover_inner = gate_rect.expand(2.0);
+          painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+          painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+        }
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+        painter.text(
+          gate_rect.center(),
+          egui::Align2::CENTER_CENTER,
+          gate.kind.label(),
+          egui::FontId::proportional(18.0),
+          colors.label,
+        );
+      }
+
+      for (index, &line_y) in metrics.line_ys.iter().enumerate() {
+        let label_pos = rect.min + egui::vec2(metrics.line_left - 3.0 * 14.0 - 12.0, line_y - 7.0);
+        painter.text(
+          label_pos,
+          egui::Align2::LEFT_TOP,
+          format!("q{index}:"),
+          egui::FontId::proportional(14.0),
+          colors.text,
+        );
+      }
+
+      let total_width = STATE_CIRCLE_COUNT as f32 * STATE_CIRCLE_SIZE + (STATE_CIRCLE_COUNT as f32 - 1.0) * STATE_CIRCLE_GAP;
+      let base_x = rect.width() / 2.0 - total_width / 2.0;
+      let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
+      let radius = STATE_CIRCLE_SIZE * 0.5;
+      let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
+      let index_map = [0usize, 2, 1, 3];
+
+      let state_padding = 1.0 * REM;
+      let state_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(base_x - state_padding, base_y - state_padding),
+        egui::vec2(
+          total_width + state_padding * 2.0,
+          STATE_CIRCLE_SIZE + state_padding * 2.0,
+        ),
+      );
+      let state_corner = egui::CornerRadius::same(14);
+      let state_shadow = egui::epaint::Shadow {
+        offset: [0, 6],
+        blur: 16,
+        spread: 0,
+        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+      };
+      painter.add(egui::Shape::Rect(state_shadow.as_shape(state_rect, state_corner)));
+      painter.rect_filled(state_rect, state_corner, colors.surface);
+
+      for i in 0..STATE_CIRCLE_COUNT {
+        let amplitude = self.state_vector[index_map[i]];
+        let probability = amplitude.abs2().clamp(0.0, 1.0);
+        let base_fill_radius = radius - STATE_CIRCLE_STROKE * 0.5 + 1.0;
+        let fill_radius = base_fill_radius * probability.sqrt();
+        let x = base_x + i as f32 * (STATE_CIRCLE_SIZE + STATE_CIRCLE_GAP);
+        let y = base_y;
+        let center = rect.min + egui::vec2(x + radius, y + radius);
+        let outline = if probability > 0.0 { colors.state_outline } else { colors.state_outline_zero };
+
+        painter.circle_filled(center, inner_radius, colors.surface);
+        if fill_radius > 0.0 {
+          painter.circle_filled(center, fill_radius, colors.state_fill);
+        }
+        painter.circle_stroke(center, radius, egui::Stroke::new(STATE_CIRCLE_STROKE, outline));
+
+        if probability > 0.0 {
+          let phase = amplitude.phase();
+          let dir = egui::vec2(phase.sin(), -phase.cos());
+          let needle_radius = inner_radius;
+          painter.line_segment(
+            [center, center + dir * needle_radius],
+            egui::Stroke::new(STATE_CIRCLE_STROKE, colors.state_needle),
+          );
+        }
+      }
+    });
+  }
+}
+
+struct Colors {
+  background: egui::Color32,
+  surface: egui::Color32,
+  line: egui::Color32,
+  box_fill: egui::Color32,
+  box_border: egui::Color32,
+  label: egui::Color32,
+  text: egui::Color32,
+  state_fill: egui::Color32,
+  state_outline: egui::Color32,
+  state_outline_zero: egui::Color32,
+  state_needle: egui::Color32,
+}
+
+impl Colors {
+  fn new() -> Self {
+    Self {
+      background: color_rgba(0.976, 0.98, 0.984, 1.0),
+      surface: color_rgba(1.0, 1.0, 1.0, 1.0),
+      line: color_rgba(0.72, 0.72, 0.72, 1.0),
+      box_fill: color_rgba(0.2, 0.62, 0.55, 1.0),
+      box_border: color_rgba(0.82, 0.82, 0.82, 1.0),
+      label: color_rgba(1.0, 1.0, 1.0, 1.0),
+      text: color_rgba(0.45, 0.45, 0.45, 1.0),
+      state_fill: color_rgba(0.16, 0.58, 0.78, 1.0),
+      state_outline: color_rgba(0.0, 0.0, 0.0, 1.0),
+      state_outline_zero: color_rgba(0.75, 0.75, 0.75, 1.0),
+      state_needle: color_rgba(0.0, 0.0, 0.0, 1.0),
+    }
+  }
+}
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
+  let window = web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window not found"))?;
+  let document = window
+    .document()
+    .ok_or_else(|| wasm_bindgen::JsValue::from_str("document not found"))?;
+  let canvas = document
+    .get_element_by_id(canvas_id)
+    .ok_or_else(|| wasm_bindgen::JsValue::from_str("canvas not found"))?
+    .dyn_into::<web_sys::HtmlCanvasElement>()?;
+
+  let web_options = eframe::WebOptions::default();
+  eframe::WebRunner::new()
+    .start(
+      canvas,
+      web_options,
+      Box::new(|cc| Ok(Box::new(QniApp::new(cc)))),
+    )
+    .await
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn read_state_vector() -> js_sys::Float32Array {
+  STATE_VECTOR.with(|data| {
+    let data = data.borrow();
+    let output = js_sys::Float32Array::new_with_length(data.len() as u32);
+    output.copy_from(data.as_slice());
+    output
+  })
+}
