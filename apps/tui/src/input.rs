@@ -2,13 +2,12 @@ use crossterm::event;
 use ratatui::layout::Rect;
 
 use crate::layout::{
-    amplitude_qubits, circuit_layout, display_index_to_state_index, hit_test_circuit_slot,
-    hit_test_palette, hovered_column_at, hovered_start_at, is_empty_drop, layout_regions,
-    state_circle_layout,
+    circuit_layout, display_index_to_state_index, hit_test_circuit_slot, hit_test_palette,
+    hovered_column_at, hovered_start_at, is_empty_drop, layout_regions, state_circle_layout,
 };
 use crate::model::{
-    default_phase_value, ensure_slots, parse_phase_label, qubit_count, AppState, DragOrigin,
-    DragState, Gate, PhaseEdit,
+    default_phase_value, display_qubits, ensure_slots, parse_phase_label, qubit_count, AppState,
+    DragOrigin, DragState, Gate, PhaseEdit,
 };
 use crate::{GATE_BOX_WIDTH, MAX_QUBIT_COUNT, MIN_QUBIT_COUNT, SLOT_GAP, SNAP_DISTANCE};
 
@@ -445,17 +444,30 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
 fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect) {
     let regions = layout_regions(area, qubit_count(state));
     let in_state = x >= regions.state_circles.x
-        && x < regions.state_circles.x.saturating_add(regions.state_circles.width)
+        && x < regions
+            .state_circles
+            .x
+            .saturating_add(regions.state_circles.width)
         && y >= regions.state_circles.y
-        && y < regions.state_circles.y.saturating_add(regions.state_circles.height);
+        && y < regions
+            .state_circles
+            .y
+            .saturating_add(regions.state_circles.height);
     if !in_state {
         state.hovered_state_display = None;
         state.hovered_state_index = None;
         return;
     }
-    let total = state.cached_state.len().max(1);
-    let qubits = amplitude_qubits(total);
-    let Some(layout) = state_circle_layout(regions.state_circles, total, qubits) else {
+    let cached_len = state.cached_state.len();
+    let display_qubits_count = display_qubits(state);
+    let display_total = if cached_len == 0 {
+        0
+    } else {
+        (1usize << display_qubits_count).min(cached_len).max(1)
+    };
+    let Some(layout) =
+        state_circle_layout(regions.state_circles, display_total, display_qubits_count)
+    else {
         state.hovered_state_display = None;
         state.hovered_state_index = None;
         return;
@@ -483,8 +495,8 @@ fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect)
         state.hovered_state_index = None;
         return;
     }
-    let state_index = display_index_to_state_index(display_index, qubits);
-    if state_index >= total {
+    let state_index = display_index_to_state_index(display_index, display_qubits_count);
+    if state_index >= display_total {
         state.hovered_state_display = None;
         state.hovered_state_index = None;
         return;

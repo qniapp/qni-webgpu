@@ -8,7 +8,7 @@ HEIGHT="${TUI_HEIGHT:-30}"
 OUT_PATH="${TUI_SCREENSHOT_OUT:-/tmp/tui-terminal-screenshot.png}"
 FONT_FAMILY="${TUI_FONT_FAMILY:-Caskaydia Mono Nerd Font}"
 BG_COLOR="${TUI_BACKGROUND_COLOR:-black}"
-MARGIN="${TUI_SCREENSHOT_MARGIN:-0}"
+MARGIN="${TUI_SCREENSHOT_MARGIN:-1}"
 
 cd "$ROOT_DIR"
 

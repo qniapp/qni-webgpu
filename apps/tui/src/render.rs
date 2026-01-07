@@ -12,8 +12,8 @@ use crate::layout::{
 };
 use crate::model::format_complex;
 use crate::model::{
-    apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
-    Gate, QuitChoice,
+    apply_gates_to_zero_limit, default_phase_value, display_qubits, ensure_slots, qubit_count,
+    AppState, Complex, Gate, QuitChoice,
 };
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL, SHADOW_OUTSET,
@@ -958,9 +958,21 @@ pub fn render_to_buffer_with_drag(
         // No placeholder rendering; snapping is handled by the drag visual.
     }
     let _ = debug_line;
-    draw_state_circles(&mut buffer, regions.state_circles, &state.cached_state);
-    let qubits = amplitude_qubits(state.cached_state.len());
-    let state_layout = state_circle_layout(regions.state_circles, state.cached_state.len(), qubits);
+    let cached_len = state.cached_state.len();
+    let display_qubits_count = display_qubits(state);
+    let display_total = if cached_len == 0 {
+        0
+    } else {
+        (1usize << display_qubits_count).min(cached_len).max(1)
+    };
+    let display_state = if cached_len == 0 {
+        &[][..]
+    } else {
+        &state.cached_state[..display_total]
+    };
+    draw_state_circles(&mut buffer, regions.state_circles, display_state);
+    let state_layout =
+        state_circle_layout(regions.state_circles, display_total, display_qubits_count);
     if let (Some(display_index), Some(state_index), Some(layout)) = (
         state.hovered_state_display,
         state.hovered_state_index,
@@ -972,7 +984,7 @@ pub fn render_to_buffer_with_drag(
             layout,
             display_index,
             state_index,
-            &state.cached_state,
+            display_state,
         );
     }
     if let Some(layout) = state_layout {

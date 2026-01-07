@@ -122,6 +122,19 @@ pub(crate) fn qubit_count(state: &AppState) -> usize {
     state.placed.len().clamp(MIN_QUBIT_COUNT, MAX_QUBIT_COUNT)
 }
 
+pub(crate) fn display_qubits(state: &AppState) -> usize {
+    let has_upper = state
+        .placed
+        .iter()
+        .skip(1)
+        .any(|row| row.iter().any(|gate| gate.is_some()));
+    if has_upper {
+        qubit_count(state)
+    } else {
+        1
+    }
+}
+
 pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
     for (row, &count) in counts.iter().enumerate() {
         if state.placed.len() <= row {
