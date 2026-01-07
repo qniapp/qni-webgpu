@@ -554,6 +554,12 @@ impl QniApp {
         }
       }
     }
+
+    if self.dragging.is_some() && pointer.primary_down() {
+      ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+    } else if self.hovered_gate_id.is_some() || self.hovered_palette_index.is_some() {
+      ctx.set_cursor_icon(egui::CursorIcon::Grab);
+    }
   }
 
   fn circuit_content_height(&self, qubit_count: usize, screen_height: f32) -> f32 {
