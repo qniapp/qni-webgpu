@@ -288,6 +288,19 @@ fn display_index_to_state_index(mut display_index: usize, qubits: usize) -> usiz
   value
 }
 
+fn amplitude_qubits(len: usize) -> usize {
+  let mut qubits = 0;
+  let mut size = 1usize;
+  if len == 0 {
+    return 1;
+  }
+  while size < len {
+    size <<= 1;
+    qubits += 1;
+  }
+  qubits.max(1)
+}
+
 fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
   egui::Color32::from_rgba_unmultiplied(
     (r * 255.0).round() as u8,
@@ -622,7 +635,7 @@ impl eframe::App for QniApp {
       let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
       let radius = STATE_CIRCLE_SIZE * 0.5;
       let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
-      let qubits = self.state_qubits();
+      let qubits = amplitude_qubits(state_count);
 
       let state_padding = 1.0 * REM;
       let state_rect = egui::Rect::from_min_size(
