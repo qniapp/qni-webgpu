@@ -1,7 +1,5 @@
 # Tasks
 
-Branch: `ralph/feature`
-
 ## US-001: 状態ベクトル円の青色を修正
 
 - [ ] **Status**: pending
