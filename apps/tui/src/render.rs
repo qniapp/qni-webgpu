@@ -515,6 +515,18 @@ pub(crate) fn draw_gate_box(
         let top = "▔".repeat(rect.width as usize);
         buffer.set_string(rect.x, rect.y, &top, highlight_style);
     }
+    if matches!(gate, Gate::X | Gate::Phase) && rect.height > 1 {
+        let marker_style = Style::default().fg(background).bg(UI_BACKGROUND);
+        buffer.set_string(rect.x, rect.y, "▗", marker_style);
+        if rect.width > 1 {
+            buffer.set_string(
+                rect.x + rect.width.saturating_sub(1),
+                rect.y,
+                "▖",
+                marker_style,
+            );
+        }
+    }
     if rect.height > 1 {
         let bottom = "▁".repeat(rect.width as usize);
         buffer.set_string(
@@ -523,6 +535,23 @@ pub(crate) fn draw_gate_box(
             &bottom,
             shadow_style,
         );
+    }
+    if matches!(gate, Gate::X | Gate::Phase) && rect.height > 1 {
+        let marker_style = Style::default().fg(background).bg(UI_BACKGROUND);
+        buffer.set_string(
+            rect.x,
+            rect.y + rect.height.saturating_sub(1),
+            "▝",
+            marker_style,
+        );
+        if rect.width > 1 {
+            buffer.set_string(
+                rect.x + rect.width.saturating_sub(1),
+                rect.y + rect.height.saturating_sub(1),
+                "▘",
+                marker_style,
+            );
+        }
     }
     let gate_rect = Rect {
         x: rect.x,

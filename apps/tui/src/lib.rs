@@ -323,6 +323,98 @@ mod tests {
     }
 
     #[test]
+    fn x_gate_renders_bottom_left_marker() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        let bottom_y = slot.y + slot.height.saturating_sub(1);
+        let symbol = buffer.get(slot.x, bottom_y).symbol();
+        assert_eq!(symbol, "▝");
+    }
+
+    #[test]
+    fn x_gate_renders_top_left_marker() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        let symbol = buffer.get(slot.x, slot.y).symbol();
+        assert_eq!(symbol, "▗");
+    }
+
+    #[test]
+    fn x_gate_renders_top_right_marker() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        let symbol = buffer
+            .get(slot.x + slot.width.saturating_sub(1), slot.y)
+            .symbol();
+        assert_eq!(symbol, "▖");
+    }
+
+    #[test]
+    fn x_gate_renders_bottom_right_marker() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        let symbol = buffer
+            .get(
+                slot.x + slot.width.saturating_sub(1),
+                slot.y + slot.height.saturating_sub(1),
+            )
+            .symbol();
+        assert_eq!(symbol, "▘");
+    }
+
+    #[test]
+    fn phase_gate_renders_corner_markers() {
+        let area = Rect::new(0, 0, 20, 20);
+        let state = AppState::new();
+        let layout = circuit_layout(area, qubit_count(&state));
+        let slot = layout.slots[0][0];
+        let mut buffer = Buffer::empty(area);
+        render::draw_gate_box(
+            &mut buffer,
+            slot,
+            Gate::Phase,
+            None,
+            None,
+            false,
+            None,
+            false,
+        );
+        let top_left = buffer.get(slot.x, slot.y).symbol();
+        let top_right = buffer
+            .get(slot.x + slot.width.saturating_sub(1), slot.y)
+            .symbol();
+        let bottom_left = buffer
+            .get(slot.x, slot.y + slot.height.saturating_sub(1))
+            .symbol();
+        let bottom_right = buffer
+            .get(
+                slot.x + slot.width.saturating_sub(1),
+                slot.y + slot.height.saturating_sub(1),
+            )
+            .symbol();
+        assert_eq!(top_left, "▗");
+        assert_eq!(top_right, "▖");
+        assert_eq!(bottom_left, "▝");
+        assert_eq!(bottom_right, "▘");
+    }
+
+    #[test]
     fn phase_gate_renders_phi_label() {
         let area = Rect::new(0, 0, 20, 20);
         let state = AppState::new();
