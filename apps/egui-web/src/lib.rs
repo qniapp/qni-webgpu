@@ -376,6 +376,7 @@ struct QniApp {
   qubit_count: usize,
   state_vector: Vec<Complex>,
   needs_recompute: bool,
+  last_content_rect: Option<egui::Rect>,
 }
 
 impl QniApp {
@@ -392,6 +393,7 @@ impl QniApp {
       qubit_count: MIN_QUBITS,
       state_vector: Vec::new(),
       needs_recompute: true,
+      last_content_rect: None,
     };
     app.sync_state_vector();
     app
@@ -666,7 +668,11 @@ impl QniApp {
       }
     }
 
+    let dragging_id = self.dragging.as_ref().map(|drag| drag.id);
     for gate in &self.placed_gates {
+      if Some(gate.id) == dragging_id {
+        continue;
+      }
       let gate_rect = egui::Rect::from_min_size(rect.min + gate.pos.to_vec2(), egui::vec2(GATE_SIZE, GATE_SIZE));
       if self.hovered_gate_id == Some(gate.id) {
         let hover_outer = gate_rect.expand(4.0);
@@ -674,20 +680,7 @@ impl QniApp {
         painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
         painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
       }
-      let is_swap = gate.kind == GateKind::Swap;
-      if !is_swap {
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-      }
-      let icon_color = if is_swap { colors.box_fill } else { colors.label };
-      if !draw_gate_icon(painter, gate_rect, gate.kind, icon_color) {
-        painter.text(
-          gate_rect.center(),
-          egui::Align2::CENTER_CENTER,
-          gate.kind.label(),
-          egui::FontId::proportional(18.0),
-          colors.label,
-        );
-      }
+      draw_gate_body(painter, gate_rect, gate.kind, colors);
     }
 
     for (index, &line_y) in metrics.line_ys.iter().enumerate() {
@@ -732,20 +725,19 @@ impl QniApp {
         painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
         painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
       }
-      let is_swap = *gate == GateKind::Swap;
-      if !is_swap {
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-      }
-      let icon_color = if is_swap { colors.box_fill } else { colors.label };
-      if !draw_gate_icon(painter, gate_rect, *gate, icon_color) {
-        painter.text(
-          gate_rect.center(),
-          egui::Align2::CENTER_CENTER,
-          gate.label(),
-          egui::FontId::proportional(18.0),
-          colors.label,
-        );
-      }
+      draw_gate_body(painter, gate_rect, *gate, colors);
+    }
+  }
+
+  fn draw_dragging_gate(&self, painter: &egui::Painter, colors: &Colors, content_rect: Option<egui::Rect>) {
+    let (drag, content_rect) = match (self.dragging.as_ref(), content_rect) {
+      (Some(drag), Some(rect)) => (drag, rect),
+      _ => return,
+    };
+    if let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == drag.id) {
+      let gate_rect =
+        egui::Rect::from_min_size(content_rect.min + gate.pos.to_vec2(), egui::vec2(GATE_SIZE, GATE_SIZE));
+      draw_gate_body(painter, gate_rect, gate.kind, colors);
     }
   }
 
@@ -1176,6 +1168,23 @@ fn draw_tooltip_icon(ui: &mut egui::Ui, icon: TooltipIcon, colors: &Colors) {
   }
 }
 
+fn draw_gate_body(painter: &egui::Painter, gate_rect: egui::Rect, kind: GateKind, colors: &Colors) {
+  let is_swap = kind == GateKind::Swap;
+  if !is_swap {
+    painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+  }
+  let icon_color = if is_swap { colors.box_fill } else { colors.label };
+  if !draw_gate_icon(painter, gate_rect, kind, icon_color) {
+    painter.text(
+      gate_rect.center(),
+      egui::Align2::CENTER_CENTER,
+      kind.label(),
+      egui::FontId::proportional(18.0),
+      colors.label,
+    );
+  }
+}
+
 fn draw_gate_icon(painter: &egui::Painter, rect: egui::Rect, kind: GateKind, color: egui::Color32) -> bool {
   let viewbox = 48.0;
   let scale = rect.width() / viewbox;
@@ -1411,6 +1420,7 @@ impl eframe::App for QniApp {
             ui.allocate_exact_size(egui::vec2(screen_rect.width(), content_height), egui::Sense::click_and_drag());
           self.handle_input(rect, ctx, screen_rect);
           self.sync_state_vector();
+          self.last_content_rect = Some(rect);
 
           let metrics = layout_metrics(rect.width(), self.layout_qubits());
           let painter = ui.painter_at(rect);
@@ -1457,6 +1467,7 @@ impl eframe::App for QniApp {
         handle_height,
         ctx.input(|input| input.pointer.hover_pos()),
       );
+      self.draw_dragging_gate(&overlay_painter, &colors, self.last_content_rect);
     });
   }
 }
