@@ -1,5 +1,7 @@
 # Rust 開発チェック
 
+このリポジトリは `rust-toolchain.toml` で stable を指定している。
+
 ## フォーマット
 
 ```
