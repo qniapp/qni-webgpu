@@ -7,6 +7,7 @@ const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
 const STATE_CIRCLE_GAP: f32 = 0.5 * REM;
 const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 const STATE_CIRCLE_STROKE: f32 = 2.0;
+const TOOLTIP_ICON_SIZE: f32 = 16.0;
 
 const MIN_QUBITS: usize = 2;
 const MAX_QUBITS: usize = 16;
@@ -755,6 +756,7 @@ impl QniApp {
     layout: &StatePanelLayout,
     offset: egui::Vec2,
     handle_height: f32,
+    pointer_pos: Option<egui::Pos2>,
   ) -> egui::Rect {
     let state_rect = layout.state_rect.translate(offset);
     let base_pos = layout.base_pos + offset;
@@ -781,6 +783,7 @@ impl QniApp {
     );
     painter.rect_filled(grip_rect, egui::CornerRadius::same(4), colors.surface);
 
+    let mut hovered = None;
     for i in 0..layout.state_count {
       let state_index = display_index_to_state_index(i, layout.qubits);
       let amplitude = self.state_vector[state_index];
@@ -805,6 +808,20 @@ impl QniApp {
       }
       painter.circle_stroke(center, layout.radius, egui::Stroke::new(layout.stroke, outline));
 
+      if hovered.is_none() {
+        if let Some(pos) = pointer_pos {
+          if center.distance(pos) <= layout.radius {
+            hovered = Some(StateHoverInfo {
+              display_index: i,
+              qubits: layout.qubits,
+              amplitude,
+              probability,
+              phase_deg: amplitude.phase().to_degrees(),
+            });
+          }
+        }
+      }
+
       if probability > 0.0 {
         let phase = amplitude.phase();
         let dir = egui::vec2(phase.sin(), -phase.cos());
@@ -814,6 +831,10 @@ impl QniApp {
           egui::Stroke::new(layout.stroke, colors.state_needle),
         );
       }
+    }
+
+    if let Some(info) = hovered {
+      show_state_tooltip(painter.ctx(), info, colors);
     }
 
     handle_rect
@@ -831,6 +852,224 @@ struct StatePanelLayout {
   inner_radius: f32,
   base_pos: egui::Pos2,
   state_rect: egui::Rect,
+}
+
+struct StateHoverInfo {
+  display_index: usize,
+  qubits: usize,
+  amplitude: Complex,
+  probability: f32,
+  phase_deg: f32,
+}
+
+#[derive(Clone, Copy)]
+enum TooltipIcon {
+  Amplitude,
+  Probability,
+  Phase,
+}
+
+#[derive(Clone, Copy)]
+struct SvgPoint {
+  x: f32,
+  y: f32,
+}
+
+impl SvgPoint {
+  fn new(x: f32, y: f32) -> Self {
+    Self { x, y }
+  }
+}
+
+fn map_svg_point(rect: egui::Rect, point: SvgPoint) -> egui::Pos2 {
+  let scale_x = rect.width() / 16.0;
+  let scale_y = rect.height() / 16.0;
+  egui::pos2(rect.min.x + point.x * scale_x, rect.min.y + point.y * scale_y)
+}
+
+fn push_cubic_points(
+  points: &mut Vec<egui::Pos2>,
+  rect: egui::Rect,
+  p0: SvgPoint,
+  p1: SvgPoint,
+  p2: SvgPoint,
+  p3: SvgPoint,
+  steps: usize,
+) {
+  for i in 1..=steps {
+    let t = i as f32 / steps as f32;
+    let u = 1.0 - t;
+    let uu = u * u;
+    let tt = t * t;
+    let uuu = uu * u;
+    let ttt = tt * t;
+    let x = uuu * p0.x + 3.0 * uu * t * p1.x + 3.0 * u * tt * p2.x + ttt * p3.x;
+    let y = uuu * p0.y + 3.0 * uu * t * p1.y + 3.0 * u * tt * p2.y + ttt * p3.y;
+    points.push(map_svg_point(rect, SvgPoint::new(x, y)));
+  }
+}
+
+fn draw_tooltip_icon(ui: &mut egui::Ui, icon: TooltipIcon, colors: &Colors) {
+  let (rect, _) = ui.allocate_exact_size(egui::vec2(TOOLTIP_ICON_SIZE, TOOLTIP_ICON_SIZE), egui::Sense::hover());
+  let painter = ui.painter_at(rect);
+  let scale = rect.width() / 16.0;
+  let stroke = egui::Stroke::new(2.0 * scale, colors.icon_accent);
+  // TODO: Match icon fidelity/pixels to ../qni assets more closely (currently a vector approximation).
+
+  match icon {
+    TooltipIcon::Amplitude => {
+      let center = SvgPoint::new(7.29284, 8.00006);
+      let rx = 4.89284;
+      let ry = 5.678535;
+      let steps = 48;
+      let mut ellipse = Vec::with_capacity(steps + 1);
+      for i in 0..=steps {
+        let t = (i as f32 / steps as f32) * std::f32::consts::TAU;
+        let x = center.x + rx * t.cos();
+        let y = center.y + ry * t.sin();
+        ellipse.push(map_svg_point(rect, SvgPoint::new(x, y)));
+      }
+      painter.add(egui::Shape::Path(egui::epaint::PathShape::closed_line(ellipse, stroke)));
+
+      let line_points = vec![
+        map_svg_point(rect, SvgPoint::new(12.2428, 2.73584)),
+        map_svg_point(rect, SvgPoint::new(12.2428, 12.0072)),
+        map_svg_point(rect, SvgPoint::new(14.5999, 12.793)),
+      ];
+      painter.add(egui::Shape::Path(egui::epaint::PathShape::line(line_points, stroke)));
+    }
+    TooltipIcon::Probability => {
+      let center = map_svg_point(rect, SvgPoint::new(8.0, 8.0));
+      painter.circle_filled(center, 6.4 * scale, egui::Color32::WHITE);
+      painter.circle_filled(center, 4.0 * scale, colors.icon_accent);
+    }
+    TooltipIcon::Phase => {
+      let mut fill_points = Vec::new();
+      let p0 = SvgPoint::new(6.021, 8.95146);
+      let p1 = SvgPoint::new(7.2983, 7.41248);
+      fill_points.push(map_svg_point(rect, p0));
+      fill_points.push(map_svg_point(rect, p1));
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        p1,
+        SvgPoint::new(7.32697, 7.43627),
+        SvgPoint::new(7.35545, 7.46028),
+        SvgPoint::new(7.38372, 7.4845),
+        8,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(7.38372, 7.4845),
+        SvgPoint::new(7.6668, 7.72719),
+        SvgPoint::new(7.93082, 7.99149),
+        SvgPoint::new(8.17322, 8.27482),
+        8,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(8.17322, 8.27482),
+        SvgPoint::new(8.59993, 8.77407),
+        SvgPoint::new(8.95759, 9.33083),
+        SvgPoint::new(9.23491, 9.93042),
+        8,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(9.23491, 9.93042),
+        SvgPoint::new(9.63218, 10.7894),
+        SvgPoint::new(9.8557, 11.7171),
+        SvgPoint::new(9.89406, 12.6602),
+        8,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(9.89406, 12.6602),
+        SvgPoint::new(9.89794, 12.7573),
+        SvgPoint::new(9.8999, 12.8549),
+        SvgPoint::new(9.8999, 12.9529),
+        6,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(9.8999, 12.9529),
+        SvgPoint::new(9.8999, 12.9809),
+        SvgPoint::new(9.89974, 13.0088),
+        SvgPoint::new(9.89942, 13.0367),
+        6,
+      );
+      let p8 = SvgPoint::new(7.89956, 13.0134);
+      fill_points.push(map_svg_point(rect, p8));
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        p8,
+        SvgPoint::new(7.89978, 12.9933),
+        SvgPoint::new(7.8999, 12.9731),
+        SvgPoint::new(7.8999, 12.9529),
+        6,
+      );
+      push_cubic_points(
+        &mut fill_points,
+        rect,
+        SvgPoint::new(7.8999, 12.9529),
+        SvgPoint::new(7.8999, 11.3438),
+        SvgPoint::new(7.16896, 9.9053),
+        p0,
+        8,
+      );
+
+      painter.add(egui::Shape::Path(egui::epaint::PathShape::convex_polygon(
+        fill_points,
+        egui::Color32::WHITE,
+        egui::epaint::PathStroke::NONE,
+      )));
+      painter.line_segment(
+        [
+          map_svg_point(rect, SvgPoint::new(2.5, 12.645)),
+          map_svg_point(rect, SvgPoint::new(14.1999, 12.645)),
+        ],
+        stroke,
+      );
+      painter.line_segment(
+        [
+          map_svg_point(rect, SvgPoint::new(2.26065, 12.5912)),
+          map_svg_point(rect, SvgPoint::new(10.2312, 3.09222)),
+        ],
+        stroke,
+      );
+    }
+  }
+}
+
+fn show_state_tooltip(ctx: &egui::Context, info: StateHoverInfo, colors: &Colors) {
+  let tooltip_id = egui::Id::new("state_circle_tooltip");
+  egui::show_tooltip_at_pointer(ctx, egui::LayerId::new(egui::Order::Foreground, tooltip_id), tooltip_id, |ui| {
+    let bitstring = format!("{:0width$b}", info.display_index, width = info.qubits.max(1));
+    ui.label(format!("|{}> decimal {}", bitstring, info.display_index));
+    ui.separator();
+    let amp_text = format!("{:+.4}{:+.4}i", info.amplitude.re, info.amplitude.im);
+    let prob_text = format!("{:+.4}%", info.probability * 100.0);
+    let phase_text = format!("{:+.2}°", info.phase_deg);
+
+    ui.horizontal(|ui| {
+      draw_tooltip_icon(ui, TooltipIcon::Amplitude, colors);
+      ui.label(format!("Amplitude: {amp_text}"));
+    });
+    ui.horizontal(|ui| {
+      draw_tooltip_icon(ui, TooltipIcon::Probability, colors);
+      ui.label(format!("Probability: {prob_text}"));
+    });
+    ui.horizontal(|ui| {
+      draw_tooltip_icon(ui, TooltipIcon::Phase, colors);
+      ui.label(format!("Phase: {phase_text}"));
+    });
+  });
 }
 
 impl eframe::App for QniApp {
@@ -895,6 +1134,7 @@ impl eframe::App for QniApp {
         &state_layout,
         self.state_panel_offset,
         handle_height,
+        ctx.input(|input| input.pointer.hover_pos()),
       );
     });
   }
@@ -912,6 +1152,7 @@ struct Colors {
   state_outline: egui::Color32,
   state_outline_zero: egui::Color32,
   state_needle: egui::Color32,
+  icon_accent: egui::Color32,
 }
 
 impl Colors {
@@ -928,6 +1169,7 @@ impl Colors {
       state_outline: color_rgba(0.0, 0.0, 0.0, 1.0),
       state_outline_zero: color_rgba(0.75, 0.75, 0.75, 1.0),
       state_needle: color_rgba(0.0, 0.0, 0.0, 1.0),
+      icon_accent: egui::Color32::from_rgb(0x0E, 0xA5, 0xE9),
     }
   }
 }

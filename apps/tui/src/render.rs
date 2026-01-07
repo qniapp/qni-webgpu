@@ -467,26 +467,6 @@ pub(crate) fn draw_gate_box(
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
         buffer.set_string(mid_x, mid_y, "╳", style);
-        if rect.width >= 3 && rect.height >= 3 {
-            let up = mid_y.saturating_sub(1);
-            let down = mid_y.saturating_add(1);
-            let left = mid_x.saturating_sub(1);
-            let right = mid_x.saturating_add(1);
-            if up >= rect.y && right < rect.x.saturating_add(rect.width) {
-                buffer.set_string(right, up, "╱", style);
-            }
-            if down < rect.y.saturating_add(rect.height) && left >= rect.x {
-                buffer.set_string(left, down, "╱", style);
-            }
-            if up >= rect.y && left >= rect.x {
-                buffer.set_string(left, up, "╲", style);
-            }
-            if down < rect.y.saturating_add(rect.height)
-                && right < rect.x.saturating_add(rect.width)
-            {
-                buffer.set_string(right, down, "╲", style);
-            }
-        }
         return;
     }
     let base_style = Style::default().fg(text).bg(background);

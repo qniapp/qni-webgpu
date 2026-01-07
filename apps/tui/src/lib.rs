@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn hover_state_circle_shows_popup() {
-        let area = Rect::new(0, 0, 80, 30);
+        let area = Rect::new(0, 0, 80, 40);
         let mut state = AppState::new();
         render_to_buffer(&mut state, area, None);
         state.hovered_state_display = Some(0);
@@ -511,10 +511,9 @@ mod tests {
         let mut state = AppState::new();
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let mid_x = drag.x + GATE_BOX_WIDTH / 2;
-        let left = buffer.get(mid_x.saturating_sub(1), drag.y).symbol();
-        let right = buffer.get(mid_x.saturating_add(1), drag.y).symbol();
-        assert_eq!(left, "╲");
-        assert_eq!(right, "╱");
+        let mid_y = drag.y + GATE_BOX_HEIGHT / 2;
+        let symbol = buffer.get(mid_x, mid_y).symbol();
+        assert_eq!(symbol, "╳");
     }
 
     #[test]
@@ -767,10 +766,7 @@ mod tests {
         let items = palette_items(regions.palette);
         let first = items.iter().find(|item| item.gate == Gate::H).unwrap();
         let wrapped = items.iter().find(|item| item.gate == Gate::SqrtX).unwrap();
-        assert_eq!(
-            wrapped.rect.y,
-            first.rect.y + GATE_DRAW_HEIGHT + ROW_GAP
-        );
+        assert_eq!(wrapped.rect.y, first.rect.y + GATE_DRAW_HEIGHT + ROW_GAP);
     }
 
     #[test]
