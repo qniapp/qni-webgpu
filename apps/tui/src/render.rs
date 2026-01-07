@@ -2,13 +2,13 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::Marker;
-use ratatui::widgets::canvas::{Canvas, Circle, Line, Points};
+use ratatui::widgets::canvas::{Canvas, Line, Points};
 use ratatui::widgets::Widget;
 
 use crate::layout::{
     amplitude_qubits, circuit_layout, column_line_x, display_index_to_state_index,
-    insertion_snap_rect, layout_regions, palette_items, start_line_x, state_circle_layout,
-    CircuitLayout, StateCircleLayout,
+    insertion_snap_rect, layout_regions, palette_items, start_line_x, state_circle_base_radius,
+    state_circle_layout, CircuitLayout, StateCircleLayout,
 };
 use crate::model::format_complex;
 use crate::model::{
@@ -25,8 +25,9 @@ const MODAL_BG: Color = Color::DarkGray;
 const MODAL_BORDER: Color = Color::Gray;
 const STATE_CIRCLE_OUTLINE: Color = Color::White;
 const STATE_CIRCLE_FILL: Color = Color::LightCyan;
-const STATE_CIRCLE_PHASE: Color = Color::Yellow;
+const STATE_CIRCLE_PHASE: Color = Color::DarkGray;
 const STATE_CIRCLE_ZERO: Color = Color::DarkGray;
+const STATE_CIRCLE_Y_SCALE: f64 = 0.5;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DragVisual {
@@ -201,23 +202,7 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     let columns = layout.columns;
     let rows = layout.rows;
     let visible = layout.visible;
-    let cell_w = layout.cell_w;
-    let cell_h = layout.cell_h;
-    let size_boost = match qubits {
-        0 | 1 => 1.2,
-        2 => 2.4,
-        3 => 1.0,
-        4 => 0.9,
-        _ => 0.8,
-    };
-    let min_cell = cell_w.min(cell_h);
-    let mut base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
-    if qubits <= 1 {
-        base_radius += 2.0;
-    }
-    if qubits == 2 {
-        base_radius = base_radius.min(min_cell * 0.52);
-    }
+    let base_radius = state_circle_base_radius(&layout, qubits);
     if base_radius <= 0.1 {
         return;
     }
@@ -236,8 +221,11 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                 let amp = amplitudes[state_index];
                 let row = index / columns;
                 let col = index % columns;
-                let center_x = col as f64 * cell_w + cell_w / 2.0;
-                let center_y = (rows as f64 - 1.0 - row as f64) * cell_h + cell_h / 2.0;
+                let row_from_bottom = rows - 1 - row;
+                let center_x = layout.origin_x + col as f64 * layout.step_x;
+                let center_y = layout.origin_y + row_from_bottom as f64 * layout.step_y;
+                let center_x = (center_x * 2.0).round() / 2.0;
+                let center_y = (center_y * 2.0).round() / 2.0;
                 let prob = amp.re * amp.re + amp.im * amp.im;
                 let is_zero = prob <= 1e-6;
                 let outline_color = if is_zero {
@@ -245,10 +233,17 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                 } else {
                     STATE_CIRCLE_OUTLINE
                 };
-                ctx.draw(&Circle {
-                    x: center_x,
-                    y: center_y,
-                    radius: base_radius,
+                let outline_samples = 56;
+                let mut outline = Vec::with_capacity(outline_samples);
+                for i in 0..outline_samples {
+                    let angle = (i as f64) * std::f64::consts::TAU / outline_samples as f64;
+                    outline.push((
+                        center_x + base_radius * angle.cos(),
+                        center_y + base_radius * angle.sin() * STATE_CIRCLE_Y_SCALE,
+                    ));
+                }
+                ctx.draw(&Points {
+                    coords: &outline,
                     color: outline_color,
                 });
                 let fill_radius = (prob.clamp(0.0, 1.0)).sqrt() * base_radius;
@@ -260,7 +255,7 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                         let mut x = -fill_radius;
                         while x <= fill_radius {
                             if x * x + y * y <= fill_radius * fill_radius {
-                                points.push((center_x + x, center_y + y));
+                                points.push((center_x + x, center_y + y * STATE_CIRCLE_Y_SCALE));
                             }
                             x += step;
                         }
@@ -278,7 +273,7 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                     let angle = phase + std::f64::consts::FRAC_PI_2;
                     let phase_radius = base_radius * 0.85;
                     let end_x = center_x + phase_radius * angle.cos();
-                    let end_y = center_y + phase_radius * angle.sin();
+                    let end_y = center_y + phase_radius * angle.sin() * STATE_CIRCLE_Y_SCALE;
                     ctx.draw(&Line {
                         x1: center_x,
                         y1: center_y,
@@ -320,10 +315,8 @@ fn draw_state_popup(
     }
     let col = display_index % layout.columns;
     let row = display_index / layout.columns;
-    let center_x = area.x as f64 + col as f64 * layout.cell_w + layout.cell_w / 2.0;
-    let center_y = area.y as f64
-        + (layout.rows as f64 - 1.0 - row as f64) * layout.cell_h
-        + layout.cell_h / 2.0;
+    let center_x = area.x as f64 + layout.origin_x + col as f64 * layout.step_x;
+    let center_y = area.y as f64 + layout.origin_y + (layout.rows - 1 - row) as f64 * layout.step_y;
     let center_x = center_x.round() as i32;
     let _center_y = center_y.round() as i32;
     let amp = amplitudes[state_index];

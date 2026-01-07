@@ -57,6 +57,10 @@ pub struct StateCircleLayout {
     pub cell_w: f64,
     pub cell_h: f64,
     pub visible: usize,
+    pub origin_x: f64,
+    pub origin_y: f64,
+    pub step_x: f64,
+    pub step_y: f64,
 }
 
 pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
@@ -73,7 +77,12 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             .saturating_add(1),
     );
     let max_states = (1usize << qubit_count).min(u16::MAX as usize) as u16;
-    let circles_height = max_states.min(available_state.max(1));
+    let target_states = if qubit_count <= MIN_QUBIT_COUNT {
+        max_states.max(8)
+    } else {
+        max_states
+    };
+    let circles_height = target_states.min(available_state.max(1));
     let popup_height = if available_state > circles_height.saturating_add(7) {
         6
     } else {
@@ -149,18 +158,37 @@ pub fn state_circle_layout(area: Rect, total: usize, qubits: usize) -> Option<St
     if max_cols == 0 || max_rows == 0 {
         return None;
     }
-    let columns_needed = total.div_ceil(max_rows);
-    let columns = columns_needed.min(max_cols).max(1);
-    let rows = total.div_ceil(columns).min(max_rows).max(1);
+    let (columns, rows) = if qubits <= 1 && total <= 2 && max_cols >= total {
+        (total.max(1), 1)
+    } else {
+        let columns_needed = total.div_ceil(max_rows);
+        let columns = columns_needed.min(max_cols).max(1);
+        let rows = total.div_ceil(columns).min(max_rows).max(1);
+        (columns, rows)
+    };
     let cell_w = area.width as f64 / columns as f64;
     let cell_h = area.height as f64 / rows as f64;
-    Some(StateCircleLayout {
+    let mut layout = StateCircleLayout {
         columns,
         rows,
         cell_w,
         cell_h,
         visible: rows * columns,
-    })
+        origin_x: cell_w / 2.0,
+        origin_y: cell_h / 2.0,
+        step_x: cell_w,
+        step_y: cell_h,
+    };
+    if qubits <= 1 && total <= 2 && max_cols >= total {
+        let base_radius = state_circle_base_radius(&layout, qubits);
+        let diameter = base_radius * 2.0;
+        let gap = 2.0;
+        let content_width = diameter * columns as f64 + gap * (columns.saturating_sub(1)) as f64;
+        let offset = ((area.width as f64) - content_width).max(0.0) / 2.0;
+        layout.step_x = diameter + gap;
+        layout.origin_x = offset + diameter / 2.0;
+    }
+    Some(layout)
 }
 
 pub(crate) fn amplitude_qubits(len: usize) -> usize {
@@ -181,6 +209,35 @@ pub(crate) fn display_index_to_state_index(display_index: usize, qubits: usize) 
         value >>= 1;
     }
     reversed
+}
+
+pub(crate) fn state_circle_base_radius(layout: &StateCircleLayout, qubits: usize) -> f64 {
+    let size_boost = match qubits {
+        0 | 1 => 1.9,
+        2 => 2.4,
+        3 => 1.0,
+        4 => 0.9,
+        _ => 0.8,
+    };
+    let min_cell = layout.cell_w.min(layout.cell_h);
+    let mut base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
+    if qubits == 2 {
+        base_radius = base_radius.min(min_cell * 0.52);
+    }
+    let max_radius = min_cell * 0.7;
+    base_radius = base_radius.min(max_radius);
+    let mut diameter = (base_radius * 2.0).round().max(1.0) as i32;
+    if diameter % 2 == 0 {
+        diameter += 1;
+    }
+    let mut max_diameter = (max_radius * 2.0).floor().max(1.0) as i32;
+    if max_diameter % 2 == 0 {
+        max_diameter = (max_diameter - 1).max(1);
+    }
+    if diameter > max_diameter {
+        diameter = max_diameter;
+    }
+    diameter as f64 / 2.0
 }
 
 pub(crate) fn palette_items(area: Rect) -> Vec<PaletteItem> {

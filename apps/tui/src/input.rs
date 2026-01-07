@@ -472,10 +472,12 @@ fn update_hovered_state_circle(state: &mut AppState, x: u16, y: u16, area: Rect)
         state.hovered_state_index = None;
         return;
     };
-    let rel_x = (x - regions.state_circles.x) as f64;
-    let rel_y = (y - regions.state_circles.y) as f64;
-    let col = (rel_x / layout.cell_w).floor() as isize;
-    let row_from_top = (rel_y / layout.cell_h).floor() as isize;
+    let start_x = regions.state_circles.x as f64 + layout.origin_x - layout.step_x / 2.0;
+    let start_y = regions.state_circles.y as f64 + layout.origin_y - layout.step_y / 2.0;
+    let rel_x = x as f64 - start_x;
+    let rel_y = y as f64 - start_y;
+    let col = (rel_x / layout.step_x).floor() as isize;
+    let row_from_top = (rel_y / layout.step_y).floor() as isize;
     if col < 0 || row_from_top < 0 {
         state.hovered_state_display = None;
         state.hovered_state_index = None;
