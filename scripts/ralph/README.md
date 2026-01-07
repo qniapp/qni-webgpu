@@ -6,7 +6,7 @@ Ralph は、寝ている間に機能を実装してくれる自律型 AI コー�
 
 ```
 /
-├── prd.json           # タスクリスト
+├── tasks.md           # タスクリスト
 ├── progress.md        # 学習ログ
 └── scripts/ralph/
     ├── ralph.sh       # メインループ
@@ -18,7 +18,7 @@ Ralph は、寝ている間に機能を実装してくれる自律型 AI コー�
 
 ```bash
 # 1. タスクを編集
-vim prd.json
+vim tasks.md
 
 # 2. フィーチャーブランチを作成
 git checkout -b ralph/feature
@@ -29,28 +29,25 @@ git checkout -b ralph/feature
 
 ## タスクの定義
 
-`prd.json` を編集:
+`tasks.md` を編集:
 
-```json
-{
-  "id": "US-001",
-  "title": "Add H gate to palette",
-  "acceptanceCriteria": [
-    "H gate icon appears in gate palette",
-    "Can drag H gate onto circuit",
-    "Build passes"
-  ],
-  "priority": 1,
-  "passes": false
-}
+```markdown
+## US-001: Add H gate to palette
+
+- [ ] **Status**: pending
+- **Priority**: 1
+
+**Acceptance Criteria:**
+- H gate icon appears in gate palette
+- Can drag H gate onto circuit
+- Build passes
 ```
+
+完了したら `[ ]` を `[x]` に変更。
 
 ## 進捗確認
 
 ```bash
-# ストーリーの状態
-cat prd.json | jq '.userStories[] | {id, title, passes}'
-
 # 学習ログ
 cat progress.md
 
