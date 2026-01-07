@@ -401,17 +401,22 @@ impl QniApp {
     self.needs_recompute = false;
   }
 
-  fn handle_input(&mut self, rect: egui::Rect, response: &egui::Response, ctx: &egui::Context) {
+  fn handle_input(
+    &mut self,
+    content_rect: egui::Rect,
+    ctx: &egui::Context,
+    screen_rect: egui::Rect,
+  ) {
     let pointer = ctx.input(|input| input.pointer.clone());
-    let pos = response.interact_pointer_pos().or(response.hover_pos());
-    let local_pos = pos.map(|p| egui::pos2(p.x - rect.min.x, p.y - rect.min.y));
+    let pos = pointer.latest_pos();
+    let local_pos = pos.map(|p| egui::pos2(p.x - content_rect.min.x, p.y - content_rect.min.y));
     let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
-    let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
+    let palette_start_x = screen_rect.width() / 2.0 - palette_width / 2.0;
     let palette_rect = egui::Rect::from_min_size(
-      egui::pos2(palette_start_x, PALETTE_ROW_Y),
+      egui::pos2(screen_rect.min.x + palette_start_x, screen_rect.min.y + PALETTE_ROW_Y),
       egui::vec2(palette_width, PALETTE_SIZE),
     );
-    let metrics = layout_metrics(rect.width(), self.layout_qubits());
+    let metrics = layout_metrics(content_rect.width(), self.layout_qubits());
 
     if pointer.primary_pressed() {
       if let Some(cursor) = local_pos {
@@ -431,8 +436,9 @@ impl QniApp {
           return;
         }
 
-        if palette_rect.contains(cursor) {
-          let local_x = cursor.x - palette_start_x;
+        if let Some(cursor_screen) = pos {
+          if palette_rect.contains(cursor_screen) {
+            let local_x = cursor_screen.x - (screen_rect.min.x + palette_start_x);
           let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
           if index >= 0 && (index as usize) < PALETTE_GATES.len() {
             let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
@@ -456,11 +462,12 @@ impl QniApp {
           }
         }
       }
+      }
     }
 
     if let Some(drag) = self.dragging.as_ref() {
       if pointer.primary_down() {
-        if let Some(cursor) = local_pos {
+      if let Some(cursor) = local_pos {
           if let Some(index) = self.placed_gates.iter().position(|gate| gate.id == drag.id) {
             let mut next_pos = cursor - drag.offset;
             let mut next_wire = self.placed_gates[index].wire;
@@ -495,13 +502,15 @@ impl QniApp {
       self.hovered_gate_id = hovered_gate;
 
       let mut hovered_palette = None;
-      if palette_rect.contains(cursor) {
-        let local_x = cursor.x - palette_start_x;
-        let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
-        if index >= 0 && (index as usize) < PALETTE_GATES.len() {
-          let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
-          if in_box {
-            hovered_palette = Some(index as usize);
+      if let Some(cursor_screen) = pos {
+        if palette_rect.contains(cursor_screen) {
+          let local_x = cursor_screen.x - (screen_rect.min.x + palette_start_x);
+          let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
+          if index >= 0 && (index as usize) < PALETTE_GATES.len() {
+            let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
+            if in_box {
+              hovered_palette = Some(index as usize);
+            }
           }
         }
       }
@@ -541,147 +550,184 @@ impl QniApp {
       }
     }
   }
+
+  fn circuit_content_height(&self, qubit_count: usize, screen_height: f32) -> f32 {
+    let line_count = qubit_count.max(1);
+    let last_line_y = LINE_Y + LINE_GAP * (line_count.saturating_sub(1)) as f32;
+    let content_height = last_line_y + GATE_SIZE + 4.0 * REM;
+    content_height.max(screen_height)
+  }
+
+  fn draw_circuit(
+    &self,
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    metrics: &LayoutMetrics,
+    colors: &Colors,
+  ) {
+    for &line_y in &metrics.line_ys {
+      let start = rect.min + egui::vec2(metrics.line_left, line_y);
+      let end = rect.min + egui::vec2(metrics.line_right, line_y);
+      painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
+    }
+
+    for gate in &self.placed_gates {
+      let gate_rect = egui::Rect::from_min_size(rect.min + gate.pos.to_vec2(), egui::vec2(GATE_SIZE, GATE_SIZE));
+      if self.hovered_gate_id == Some(gate.id) {
+        let hover_outer = gate_rect.expand(4.0);
+        let hover_inner = gate_rect.expand(2.0);
+        painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+        painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+      }
+      painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+      painter.text(
+        gate_rect.center(),
+        egui::Align2::CENTER_CENTER,
+        gate.kind.label(),
+        egui::FontId::proportional(18.0),
+        colors.label,
+      );
+    }
+
+    for (index, &line_y) in metrics.line_ys.iter().enumerate() {
+      let label_pos = rect.min + egui::vec2(metrics.line_left - 3.0 * 14.0 - 12.0, line_y - 7.0);
+      painter.text(
+        label_pos,
+        egui::Align2::LEFT_TOP,
+        format!("q{index}:"),
+        egui::FontId::proportional(14.0),
+        colors.text,
+      );
+    }
+  }
+
+  fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
+    let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
+    let palette_padding = 1.0 * REM;
+    let palette_rect = egui::Rect::from_min_size(
+      rect.min + egui::vec2(palette_start_x - palette_padding, PALETTE_ROW_Y - palette_padding),
+      egui::vec2(palette_width + palette_padding * 2.0, PALETTE_SIZE + palette_padding * 2.0),
+    );
+    let palette_corner = egui::CornerRadius::same(14);
+    let shadow = egui::epaint::Shadow {
+      offset: [0, 6],
+      blur: 16,
+      spread: 0,
+      color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+    };
+    painter.add(egui::Shape::Rect(shadow.as_shape(palette_rect, palette_corner)));
+    painter.rect_filled(palette_rect, palette_corner, colors.surface);
+
+    for (index, gate) in PALETTE_GATES.iter().enumerate() {
+      let gate_x = palette_start_x + index as f32 * (PALETTE_SIZE + PALETTE_GAP);
+      let gate_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(gate_x, PALETTE_ROW_Y),
+        egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
+      );
+      if self.hovered_palette_index == Some(index) {
+        let hover_outer = gate_rect.expand(4.0);
+        let hover_inner = gate_rect.expand(2.0);
+        painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+        painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+      }
+      painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+      painter.text(
+        gate_rect.center(),
+        egui::Align2::CENTER_CENTER,
+        gate.label(),
+        egui::FontId::proportional(18.0),
+        colors.label,
+      );
+    }
+  }
+
+  fn draw_state_vector(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    let state_count = self.state_vector.len().max(1);
+    let total_width = state_count as f32 * STATE_CIRCLE_SIZE + (state_count as f32 - 1.0) * STATE_CIRCLE_GAP;
+    let base_x = rect.width() / 2.0 - total_width / 2.0;
+    let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
+    let radius = STATE_CIRCLE_SIZE * 0.5;
+    let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
+    let qubits = amplitude_qubits(state_count);
+
+    let state_padding = 1.0 * REM;
+    let state_rect = egui::Rect::from_min_size(
+      rect.min + egui::vec2(base_x - state_padding, base_y - state_padding),
+      egui::vec2(total_width + state_padding * 2.0, STATE_CIRCLE_SIZE + state_padding * 2.0),
+    );
+    let state_corner = egui::CornerRadius::same(14);
+    let state_shadow = egui::epaint::Shadow {
+      offset: [0, 6],
+      blur: 16,
+      spread: 0,
+      color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+    };
+    painter.add(egui::Shape::Rect(state_shadow.as_shape(state_rect, state_corner)));
+    painter.rect_filled(state_rect, state_corner, colors.surface);
+
+    for i in 0..state_count {
+      let state_index = display_index_to_state_index(i, qubits);
+      let amplitude = self.state_vector[state_index];
+      let probability = amplitude.abs2().clamp(0.0, 1.0);
+      let base_fill_radius = radius - STATE_CIRCLE_STROKE * 0.5 + 1.0;
+      let fill_radius = base_fill_radius * probability.sqrt();
+      let x = base_x + i as f32 * (STATE_CIRCLE_SIZE + STATE_CIRCLE_GAP);
+      let y = base_y;
+      let center = rect.min + egui::vec2(x + radius, y + radius);
+      let outline = if probability > 0.0 {
+        colors.state_outline
+      } else {
+        colors.state_outline_zero
+      };
+
+      painter.circle_filled(center, inner_radius, colors.surface);
+      if fill_radius > 0.0 {
+        painter.circle_filled(center, fill_radius, colors.state_fill);
+      }
+      painter.circle_stroke(center, radius, egui::Stroke::new(STATE_CIRCLE_STROKE, outline));
+
+      if probability > 0.0 {
+        let phase = amplitude.phase();
+        let dir = egui::vec2(phase.sin(), -phase.cos());
+        let needle_radius = inner_radius;
+        painter.line_segment(
+          [center, center + dir * needle_radius],
+          egui::Stroke::new(STATE_CIRCLE_STROKE, colors.state_needle),
+        );
+      }
+    }
+  }
 }
 
 impl eframe::App for QniApp {
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     egui::CentralPanel::default().show(ctx, |ui| {
-      let rect = ui.max_rect();
-      let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
-      self.handle_input(rect, &response, ctx);
-      self.sync_state_vector();
-
-      let painter = ui.painter_at(rect);
-      let metrics = layout_metrics(rect.width(), self.layout_qubits());
-
+      let screen_rect = ui.max_rect();
       let colors = Colors::new();
-      for &line_y in &metrics.line_ys {
-        let start = rect.min + egui::vec2(metrics.line_left, line_y);
-        let end = rect.min + egui::vec2(metrics.line_right, line_y);
-        painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
-      }
+      let content_height = self.circuit_content_height(self.layout_qubits(), screen_rect.height());
 
-      let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
-      let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
-      let palette_padding = 1.0 * REM;
-      let palette_rect = egui::Rect::from_min_size(
-        rect.min + egui::vec2(palette_start_x - palette_padding, PALETTE_ROW_Y - palette_padding),
-        egui::vec2(palette_width + palette_padding * 2.0, PALETTE_SIZE + palette_padding * 2.0),
-      );
-      let palette_corner = egui::CornerRadius::same(14);
-      let shadow = egui::epaint::Shadow {
-        offset: [0, 6],
-        blur: 16,
-        spread: 0,
-        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
-      };
-      painter.add(egui::Shape::Rect(shadow.as_shape(palette_rect, palette_corner)));
-      painter.rect_filled(palette_rect, palette_corner, colors.surface);
+      egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .scroll_source(egui::scroll_area::ScrollSource {
+          drag: false,
+          ..egui::scroll_area::ScrollSource::default()
+        })
+        .show(ui, |ui| {
+          let (rect, _response) =
+            ui.allocate_exact_size(egui::vec2(screen_rect.width(), content_height), egui::Sense::click_and_drag());
+          self.handle_input(rect, ctx, screen_rect);
+          self.sync_state_vector();
 
-      for (index, gate) in PALETTE_GATES.iter().enumerate() {
-        let gate_x = palette_start_x + index as f32 * (PALETTE_SIZE + PALETTE_GAP);
-        let gate_rect = egui::Rect::from_min_size(
-          rect.min + egui::vec2(gate_x, PALETTE_ROW_Y),
-          egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
-        );
-        if self.hovered_palette_index == Some(index) {
-          let hover_outer = gate_rect.expand(4.0);
-          let hover_inner = gate_rect.expand(2.0);
-          painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
-          painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
-        }
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-        painter.text(
-          gate_rect.center(),
-          egui::Align2::CENTER_CENTER,
-          gate.label(),
-          egui::FontId::proportional(18.0),
-          colors.label,
-        );
-      }
+          let metrics = layout_metrics(rect.width(), self.layout_qubits());
+          let painter = ui.painter_at(rect);
+          self.draw_circuit(&painter, rect, &metrics, &colors);
+        });
 
-      for gate in &self.placed_gates {
-        let gate_rect = egui::Rect::from_min_size(rect.min + gate.pos.to_vec2(), egui::vec2(GATE_SIZE, GATE_SIZE));
-        if self.hovered_gate_id == Some(gate.id) {
-          let hover_outer = gate_rect.expand(4.0);
-          let hover_inner = gate_rect.expand(2.0);
-          painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
-          painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
-        }
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-        painter.text(
-          gate_rect.center(),
-          egui::Align2::CENTER_CENTER,
-          gate.kind.label(),
-          egui::FontId::proportional(18.0),
-          colors.label,
-        );
-      }
-
-      for (index, &line_y) in metrics.line_ys.iter().enumerate() {
-        let label_pos = rect.min + egui::vec2(metrics.line_left - 3.0 * 14.0 - 12.0, line_y - 7.0);
-        painter.text(
-          label_pos,
-          egui::Align2::LEFT_TOP,
-          format!("q{index}:"),
-          egui::FontId::proportional(14.0),
-          colors.text,
-        );
-      }
-
-      let state_count = self.state_vector.len().max(1);
-      let total_width = state_count as f32 * STATE_CIRCLE_SIZE + (state_count as f32 - 1.0) * STATE_CIRCLE_GAP;
-      let base_x = rect.width() / 2.0 - total_width / 2.0;
-      let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - STATE_CIRCLE_SIZE;
-      let radius = STATE_CIRCLE_SIZE * 0.5;
-      let inner_radius = (radius - STATE_CIRCLE_STROKE * 0.5 + 0.5).max(0.0);
-      let qubits = amplitude_qubits(state_count);
-
-      let state_padding = 1.0 * REM;
-      let state_rect = egui::Rect::from_min_size(
-        rect.min + egui::vec2(base_x - state_padding, base_y - state_padding),
-        egui::vec2(
-          total_width + state_padding * 2.0,
-          STATE_CIRCLE_SIZE + state_padding * 2.0,
-        ),
-      );
-      let state_corner = egui::CornerRadius::same(14);
-      let state_shadow = egui::epaint::Shadow {
-        offset: [0, 6],
-        blur: 16,
-        spread: 0,
-        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
-      };
-      painter.add(egui::Shape::Rect(state_shadow.as_shape(state_rect, state_corner)));
-      painter.rect_filled(state_rect, state_corner, colors.surface);
-
-      for i in 0..state_count {
-        let state_index = display_index_to_state_index(i, qubits);
-        let amplitude = self.state_vector[state_index];
-        let probability = amplitude.abs2().clamp(0.0, 1.0);
-        let base_fill_radius = radius - STATE_CIRCLE_STROKE * 0.5 + 1.0;
-        let fill_radius = base_fill_radius * probability.sqrt();
-        let x = base_x + i as f32 * (STATE_CIRCLE_SIZE + STATE_CIRCLE_GAP);
-        let y = base_y;
-        let center = rect.min + egui::vec2(x + radius, y + radius);
-        let outline = if probability > 0.0 { colors.state_outline } else { colors.state_outline_zero };
-
-        painter.circle_filled(center, inner_radius, colors.surface);
-        if fill_radius > 0.0 {
-          painter.circle_filled(center, fill_radius, colors.state_fill);
-        }
-        painter.circle_stroke(center, radius, egui::Stroke::new(STATE_CIRCLE_STROKE, outline));
-
-        if probability > 0.0 {
-          let phase = amplitude.phase();
-          let dir = egui::vec2(phase.sin(), -phase.cos());
-          let needle_radius = inner_radius;
-          painter.line_segment(
-            [center, center + dir * needle_radius],
-            egui::Stroke::new(STATE_CIRCLE_STROKE, colors.state_needle),
-          );
-        }
-      }
+      let overlay_painter =
+        ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("overlay")));
+      self.draw_palette(&overlay_painter, screen_rect, &colors);
+      self.draw_state_vector(&overlay_painter, screen_rect, &colors);
     });
   }
 }
