@@ -25,7 +25,6 @@ pub(crate) const GATE_BOX_WIDTH: u16 = 5;
 pub(crate) const GATE_BOX_HEIGHT: u16 = 3;
 pub(crate) const SHADOW_OUTSET: u16 = 0;
 pub(crate) const GATE_DRAW_HEIGHT: u16 = GATE_BOX_HEIGHT + SHADOW_OUTSET * 2;
-pub(crate) const PALETTE_HEIGHT: u16 = GATE_DRAW_HEIGHT;
 pub(crate) const PALETTE_GAP: u16 = 1;
 pub(crate) const SEPARATOR_TO_CIRCUIT_GAP: u16 = 1;
 pub(crate) const GATE_GAP: u16 = 1;
@@ -60,6 +59,10 @@ mod tests {
     fn parse_args_from(args: &[&str]) -> Gate {
         let owned: Vec<String> = args.iter().map(|value| value.to_string()).collect();
         parse_args(&owned)
+    }
+
+    fn gate_test_area() -> Rect {
+        Rect::new(0, 0, 120, 24)
     }
 
     #[test]
@@ -273,7 +276,7 @@ mod tests {
 
     #[test]
     fn render_to_buffer_shows_drag_overlay() {
-        let area = Rect::new(0, 0, 20, 24);
+        let area = gate_test_area();
         let drag = DragVisual {
             gate: Gate::H,
             x: 5,
@@ -287,7 +290,7 @@ mod tests {
 
     #[test]
     fn swap_gate_renders_large_x() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -310,7 +313,7 @@ mod tests {
 
     #[test]
     fn x_gate_renders_label() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -324,7 +327,7 @@ mod tests {
 
     #[test]
     fn x_gate_renders_bottom_left_marker() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -337,7 +340,7 @@ mod tests {
 
     #[test]
     fn x_gate_renders_top_left_marker() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -349,7 +352,7 @@ mod tests {
 
     #[test]
     fn x_gate_renders_top_right_marker() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -363,7 +366,7 @@ mod tests {
 
     #[test]
     fn x_gate_renders_bottom_right_marker() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -380,7 +383,7 @@ mod tests {
 
     #[test]
     fn phase_gate_renders_corner_markers() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -416,7 +419,7 @@ mod tests {
 
     #[test]
     fn phase_gate_renders_phi_label() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -461,7 +464,7 @@ mod tests {
 
     #[test]
     fn control_gate_renders_square() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let state = AppState::new();
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -484,7 +487,7 @@ mod tests {
 
     #[test]
     fn dragging_control_draws_outline() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let drag = DragVisual {
             gate: Gate::Control,
             x: 2,
@@ -499,7 +502,7 @@ mod tests {
 
     #[test]
     fn dragging_swap_draws_outline() {
-        let area = Rect::new(0, 0, 20, 20);
+        let area = gate_test_area();
         let drag = DragVisual {
             gate: Gate::Swap,
             x: 2,
@@ -757,6 +760,20 @@ mod tests {
     }
 
     #[test]
+    fn palette_wraps_when_narrow() {
+        let area = Rect::new(0, 0, 23, 20);
+        let state = AppState::new();
+        let regions = layout_regions(area, qubit_count(&state));
+        let items = palette_items(regions.palette);
+        let first = items.iter().find(|item| item.gate == Gate::H).unwrap();
+        let wrapped = items.iter().find(|item| item.gate == Gate::SqrtX).unwrap();
+        assert_eq!(
+            wrapped.rect.y,
+            first.rect.y + GATE_DRAW_HEIGHT + ROW_GAP
+        );
+    }
+
+    #[test]
     fn grabbing_gate_adds_empty_qubit_row() {
         let area = Rect::new(0, 0, 60, 20);
         let mut state = AppState::new();
@@ -910,7 +927,7 @@ mod tests {
 
     #[test]
     fn drag_from_circuit_to_empty_removes_gate() {
-        let area = Rect::new(0, 0, 60, 20);
+        let area = gate_test_area();
         let mut state = state_with_gate(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
@@ -921,7 +938,7 @@ mod tests {
 
     #[test]
     fn dragging_from_circuit_hides_gate_until_drop() {
-        let area = Rect::new(0, 0, 60, 20);
+        let area = gate_test_area();
         let mut state = state_with_gate(Gate::H);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];

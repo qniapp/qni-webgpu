@@ -2,8 +2,8 @@ use ratatui::layout::Rect;
 
 use crate::model::Gate;
 use crate::{
-    GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, GATE_GAP, MIN_QUBIT_COUNT, PALETTE_GAP, PALETTE_HEIGHT,
-    ROW_GAP, SEPARATOR_TO_CIRCUIT_GAP, SHADOW_OUTSET, SLOT_GAP,
+    GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, GATE_GAP, MIN_QUBIT_COUNT, PALETTE_GAP, ROW_GAP,
+    SEPARATOR_TO_CIRCUIT_GAP, SHADOW_OUTSET, SLOT_GAP,
 };
 
 const WIRE_PREFIX: &str = "q0: ";
@@ -60,7 +60,8 @@ pub struct StateCircleLayout {
 }
 
 pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
-    let palette_bottom = area.y.saturating_add(PALETTE_HEIGHT);
+    let palette_height = palette_height(area.width);
+    let palette_bottom = area.y.saturating_add(palette_height);
     let separator_y = palette_bottom.saturating_add(PALETTE_GAP);
     let desired_circuit_y = separator_y.saturating_add(1 + SEPARATOR_TO_CIRCUIT_GAP);
     let total_circuit_height =
@@ -79,7 +80,9 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
         0
     };
     let popup_gap = if popup_height > 0 { 1 } else { 0 };
-    let state_height = circles_height.saturating_add(popup_height).saturating_add(popup_gap);
+    let state_height = circles_height
+        .saturating_add(popup_height)
+        .saturating_add(popup_gap);
     let state_y = area
         .y
         .saturating_add(area.height.saturating_sub(state_height));
@@ -116,7 +119,7 @@ pub fn layout_regions(area: Rect, qubit_count: usize) -> Regions {
             x: area.x,
             y: area.y,
             width: area.width,
-            height: PALETTE_HEIGHT,
+            height: palette_height,
         },
         circuits,
         state: Rect {
@@ -134,13 +137,15 @@ pub fn state_circle_layout(area: Rect, total: usize, qubits: usize) -> Option<St
     if area.width == 0 || area.height == 0 || total == 0 {
         return None;
     }
-    let (min_cell_w, min_cell_h) = if qubits >= 3 {
-        (6.0_f64, 5.0_f64)
+    let (min_cell_w, min_cell_h) = if qubits == 2 {
+        (12.0_f64, 9.0_f64)
     } else {
         (4.0_f64, 3.0_f64)
     };
-    let max_cols = ((area.width as f64) / min_cell_w).floor() as usize;
-    let max_rows = ((area.height as f64) / min_cell_h).floor() as usize;
+    let min_cell_w = min_cell_w.min(area.width as f64).max(1.0);
+    let min_cell_h = min_cell_h.min(area.height as f64).max(1.0);
+    let max_cols = ((area.width as f64) / min_cell_w).floor().max(1.0) as usize;
+    let max_rows = ((area.height as f64) / min_cell_h).floor().max(1.0) as usize;
     if max_cols == 0 || max_rows == 0 {
         return None;
     }
@@ -180,19 +185,38 @@ pub(crate) fn display_index_to_state_index(display_index: usize, qubits: usize) 
 
 pub(crate) fn palette_items(area: Rect) -> Vec<PaletteItem> {
     let mut items = Vec::new();
-    let mut x = area.x;
-    let y = area.y;
-    for gate in PALETTE_GATES {
+    let columns = palette_columns(area.width) as usize;
+    let stride_x = GATE_BOX_WIDTH.saturating_add(GATE_GAP);
+    let stride_y = GATE_DRAW_HEIGHT.saturating_add(ROW_GAP);
+    for (index, gate) in PALETTE_GATES.iter().copied().enumerate() {
+        let row = index / columns;
+        let col = index % columns;
         let rect = Rect {
-            x,
-            y,
+            x: area.x.saturating_add((col as u16).saturating_mul(stride_x)),
+            y: area.y.saturating_add((row as u16).saturating_mul(stride_y)),
             width: GATE_BOX_WIDTH,
             height: GATE_DRAW_HEIGHT,
         };
         items.push(PaletteItem { gate, rect });
-        x = x.saturating_add(GATE_BOX_WIDTH + GATE_GAP);
     }
     items
+}
+
+fn palette_columns(width: u16) -> u16 {
+    if width == 0 {
+        return 1;
+    }
+    let stride = GATE_BOX_WIDTH.saturating_add(GATE_GAP);
+    let columns = width.saturating_add(GATE_GAP) / stride;
+    columns.max(1).min(PALETTE_GATES.len() as u16)
+}
+
+fn palette_height(width: u16) -> u16 {
+    let columns = palette_columns(width);
+    let total = PALETTE_GATES.len() as u16;
+    let rows = total.div_ceil(columns).max(1);
+    rows.saturating_mul(GATE_DRAW_HEIGHT)
+        .saturating_add(rows.saturating_sub(1).saturating_mul(ROW_GAP))
 }
 
 pub fn circuit_layout(area: Rect, qubit_count: usize) -> CircuitLayout {
