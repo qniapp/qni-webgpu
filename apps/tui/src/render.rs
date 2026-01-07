@@ -212,6 +212,9 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     };
     let min_cell = cell_w.min(cell_h);
     let mut base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
+    if qubits <= 1 {
+        base_radius += 2.0;
+    }
     if qubits == 2 {
         base_radius = base_radius.min(min_cell * 0.52);
     }
