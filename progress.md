@@ -5,6 +5,7 @@ Started: 2026-01-08
 - **Monorepo structure**: apps/, crates/, docs/
 - **Lint**: `cargo clippy -- -D warnings`
 - **Check all**: `./scripts/check-all.sh`
+- **確認用サーバ**: タスク完了後、ユーザーが確認できるよう開発サーバを起動したままにする（例: `trunk serve`）
 
 ## Key Projects
 - `apps/egui-web` - egui + WebGPU frontend (Trunk, Playwright tests)
