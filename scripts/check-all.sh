@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "==> Web: pnpm check"
-pnpm -C "$ROOT_DIR/apps/web" check
+echo "==> Web: Playwright (egui)"
+pnpm -C "$ROOT_DIR/apps/egui-web" exec playwright test
 
 echo "==> MCP: pnpm check"
 pnpm -C "$ROOT_DIR/apps/mcp-qni" check

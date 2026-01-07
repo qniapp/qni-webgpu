@@ -29,6 +29,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install trunk
+        run: cargo install trunk --locked
+
       - name: Install cargo audit/deny
         run: |
           cargo install cargo-audit --locked
@@ -36,7 +42,11 @@ jobs:
 
       - name: Install Web deps
         run: pnpm install
-        working-directory: apps/web
+        working-directory: apps/egui-web
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium
+        working-directory: apps/egui-web
 
       - name: Install MCP deps
         run: pnpm install

@@ -4,16 +4,16 @@
 
 ## 全体構成（何がどこにあるか）
 
-- Monorepo 構成で、WebGPU PoC は `apps/web` に集約されている。
+- Monorepo 構成で、WebGPU PoC は `apps/egui-web` に集約されている。
 - 端末向けの最小 PoC は `apps/tui` に置き、Rust + ratatui で Web 版に触れずに動作確認できる。
 - MCP サーバ `apps/mcp-qni` から回路編集と実行を行う。
-- UI はフレームワークを使わず、TypeScript + Vite だけで動く。
+- Web UI は Rust（egui/eframe）で構築し、Wasm として動く。
 - 量子回路は 2 量子ビット固定の PoC で、ゲートは `H/X/Y/Z/√X/S/S†/T/T†` のみ扱う。
 
 ```mermaid
 flowchart LR
   subgraph repo[リポジトリ]
-    web[apps/web<br/>WebGPU PoC]
+    web[apps/egui-web<br/>egui WebGPU PoC]
     tui[apps/tui<br/>TUI PoC]
     mcp[apps/mcp-qni<br/>MCP Qni]
     docs[docs<br/>設計・決定事項]
@@ -25,43 +25,35 @@ flowchart LR
 
 ## 画面構成（画面に何が出るか）
 
-- `index.html` には `#app` だけを置き、起動時に `canvas#gfx` とステータス表示を差し込む。
+- `index.html` に `canvas#egui-canvas` を配置し、eframe が描画対象として使う。
 - キャンバスはウィンドウサイズに合わせて全画面でリサイズする。
 - 画面は「2 本の量子ビット線」「上部のゲートパレット」「配置済みゲート」「状態ベクトルの円表示」で構成する。
 
 ## 描画の流れ（ざっくり）
 
-WebGPU では「GPU を使うための準備」を段階的に行う。ここでは難しい単語は気にせず、順番だけ押さえればよい。
+egui/eframe が WebGPU の初期化と描画ループを担当する。ここでは大まかな流れだけ押さえる。
 
-1. GPU を使う許可とデバイスを取得する  
-2. キャンバスと GPU をつなげる  
-3. 状態ベクトル用バッファを初期化し、必要なら読み戻す  
-4. フォント用テクスチャ（8x8 の文字）とゲートアイコン用テクスチャ（PNG）を用意する  
-5. 形状（線・角丸矩形）と文字描画用のパイプラインを用意する  
-6. 画面構成からインスタンスバッファと状態ベクトル円のバッファを更新する  
-7. 描画ループで毎フレーム描く  
+1. Wasm を初期化し、egui アプリを起動する  
+2. eframe がキャンバスと WebGPU を接続する  
+3. ゲート配置を更新し、状態ベクトルを CPU で計算する  
+4. egui の描画指示を作り、wgpu が描画する  
 
 ```mermaid
 flowchart TB
-  A[GPU を取得] --> B[Canvas と接続]
-  B --> C[Compute で状態ベクトル更新]
-  C --> D[フォント/アイコンテクスチャ作成]
-  D --> E[インスタンス/文字バッファ作成]
-  E --> F[形状/文字パイプライン準備]
-  F --> G[描画ループ開始]
+  A[Wasm 初期化] --> B[Canvas と WebGPU を接続]
+  B --> C[状態ベクトルを CPU で計算]
+  C --> D[egui が描画指示を生成]
+  D --> E[wgpu が描画]
 ```
 
 ## 描画モデル（CPU と GPU の役割分担）
 
-- CPU（JavaScript 側）は「画面レイアウト（線・矩形）」「文字の配置」「ドラッグ入力」を担当する。
-- GPU（WebGPU 側）は「状態ベクトルの更新（コンピュート）」と「状態ベクトル円のインスタンス生成」「形状/文字の描画（レンダー）」を担当する。
-- 文字は 8x8 のフォントアトラス、ゲートアイコンは PNG を集めたアトラスを使い、GPU 側で文字コードから UV を計算して描画する。
+- CPU（Wasm/Rust 側）は「ゲート配置」「状態ベクトル計算」「描画要素の構築」を担当する。
+- GPU（WebGPU/wgpu 側）は「egui が生成した描画コマンドのレンダリング」を担当する。
 
 ```mermaid
 flowchart LR
-  CPU[CPU: 形状インスタンス] --> VB[インスタンスバッファ]
-  VB --> GPU[GPU: 描画]
-  FT[フォントテクスチャ] --> GPU
+  CPU[CPU: egui 描画指示] --> GPU[GPU: 描画]
 ```
 
 ## 量子計算の流れ（PoC としての最小構成）
@@ -69,42 +61,36 @@ flowchart LR
 - 起動時は `|00>` を初期状態として GPU バッファに書き込む。
 - ゲートはパレットからドラッグしてワイヤへ配置する。
 - 配置済みゲートを左から順に並べ、ワイヤ番号（0/1）に応じてゲートを適用する。
-- 計算は GPU のコンピュートシェーダで行い、状態ベクトルの円インスタンスも GPU 側で生成する。
+- 計算は CPU 側（Rust）で行い、結果を egui の描画に反映する。
 
 ## 描画ループ（動いているか確認する仕組み）
 
-- `requestAnimationFrame` で毎フレーム描画する。
-- 初回フレームで `window.__renderDone` を立て、Playwright の待ち合わせに使う。
+- eframe が描画ループを管理し、毎フレーム egui を描画する。
 
 ## テストの仕組み（Playwright）
 
 - Playwright で「WebGPU が使えること」「ゲートのドラッグが動くこと」「状態ベクトルが期待値になること」を確認する。
 - テストはヘッドレスがデフォルト（必要なら `HEADLESS=0` で可視化）。
-- `window.__captureStateVector` と `window.__renderDone` を使い、描画完了や読み戻し結果を受け取る。
+- `window.__eguiReadStateVector` と `window.__eguiReady` を使い、計算結果や初期化完了を確認する。
 - テストで確認する項目は以下。
   - WebGPU が有効であること
   - キャンバスサイズが期待通りであること
-  - エラーステータスが空であること
-  - 描画済みフラグと頂点数
-  - 読み戻した状態ベクトルの値
+  - 初期状態の状態ベクトルが `|00>` であること
+  - ゲート配置後の状態ベクトルが期待値になること
 
 ```mermaid
 sequenceDiagram
   actor T as Playwright
   participant P as ページ
-  participant G as GPU
   T->>P: ページを開く
-  P->>G: 描画実行
-  G-->>P: 状態ベクトル読み戻し（テスト時のみ）
   P-->>T: window.__* に結果を保存
   T->>P: 結果を検証
 ```
 
 ## 主要ファイル
 
-- `apps/web/src/main.ts`: WebGPU 初期化、量子計算、入力/描画ループ
-- `apps/web/src/gpu/compute.ts`: ゲート適用のコンピュートシェーダ実行
-- `apps/web/src/renderer/renderer.ts`: 形状/文字描画のレンダラー
-- `apps/web/src/ui/layout.ts`: 画面レイアウトとインスタンス生成
-- `apps/web/tests/webgpu.spec.ts`: Playwright テスト
+- `apps/egui-web/src/lib.rs`: egui UI と状態ベクトル計算
+- `apps/egui-web/index.html`: キャンバス配置と Trunk 設定
+- `apps/egui-web/bootstrap.js`: Wasm 初期化とテスト用フック
+- `apps/egui-web/tests/egui-web.spec.js`: Playwright テスト
 - `docs/decisions.md`: PoC の仕様・決定事項

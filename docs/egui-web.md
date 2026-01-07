@@ -22,4 +22,4 @@ pnpm exec playwright test
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
 - The Playwright test drags the H gate onto q0, waits for `window.__eguiReadStateVector()` to match the expected amplitudes, and checks that the canvas contains non-background pixels.
-- The Playwright run writes a screenshot to `/tmp/qni-egui-webgpu.png`.
+- The Playwright run writes screenshots to `/tmp/qni-egui-webgpu-initial.png` and `/tmp/qni-egui-webgpu-after.png`.

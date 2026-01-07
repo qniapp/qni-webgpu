@@ -45,40 +45,11 @@ cargo deny check --config ../../deny.toml
 make check
 ```
 
-## WebGPU PoC の確認手順（ローカル）
-
-### 1) インストールして起動
-```
-cd apps/web
-pnpm install
-pnpm dev -- --host 127.0.0.1 --port 4173
-```
-
-### 2) WebGPU 対応ブラウザで開く
-- `http://127.0.0.1:4173/` を開く
-- WebGPU が無効なら有効化する:
-  - Chrome: `chrome://flags` で "WebGPU" を有効化
-
-### 3) 表示される内容
-- 1本の量子ビット線と H ゲート箱
-- 状態ベクトル表示: `[(0.7071067811865475+0i), (0.7071067811865475+0i)]`
-
-補足:
-- `?gate=Y` のように指定すると、`X/H/Y/Z/S/T` の表示を切り替えられる（例: `http://127.0.0.1:4173/?gate=Y`）
-
-### ゲートアイコンの更新
-SVG を更新した場合は PNG を再生成する。
-
-```
-cd apps/web
-pnpm icons
-```
-
 ## Rust (egui) WebGPU PoC（ローカル）
 
 ```
 cd apps/egui-web
-trunk serve --host 127.0.0.1 --port 4174 --no-open
+trunk serve --address 127.0.0.1 --port 4174
 ```
 
 ブラウザで `http://127.0.0.1:4174/` を開く。
@@ -90,26 +61,14 @@ WebGPU の描画を読み戻して検証する。
 
 ### Playwright を準備
 ```
-cd apps/web
+cd apps/egui-web
 pnpm install
 pnpm exec playwright install chromium
 ```
 
-### Lint（TypeScript）
-```
-cd apps/web
-pnpm lint
-```
-
-### Lint + テストまとめて実行
-```
-cd apps/web
-pnpm check
-```
-
 ### xvfb でテスト実行（Linux）
 ```
-cd apps/web
+cd apps/egui-web
 xvfb-run -a pnpm exec playwright test
 ```
 
@@ -117,13 +76,13 @@ xvfb-run -a pnpm exec playwright test
 
 GitHub Actions では WebGPU を headless で動かす必要があるため、
 `xvfb-run` と SwiftShader (software WebGPU) を使って Playwright を実行する。
-`apps/web/playwright.config.ts` で必要な Chrome フラグは設定済み。
+`apps/egui-web/playwright.config.cjs` で必要な Chrome フラグは設定済み。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
 出力される画像:
-- `/tmp/qni-webgpu-canvas.png`
-- `/tmp/qni-webgpu-webgpu.png`
+- `/tmp/qni-egui-webgpu-initial.png`
+- `/tmp/qni-egui-webgpu-after.png`
 
 ## まとめてチェック（トップディレクトリ）
 ```
@@ -131,7 +90,7 @@ GitHub Actions では WebGPU を headless で動かす必要があるため、
 ```
 
 内部で以下を実行する:
-- `apps/web` で `pnpm check`
+- `apps/egui-web` で Playwright
 - `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI 向け）
 
