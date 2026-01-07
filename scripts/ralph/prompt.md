@@ -6,17 +6,16 @@ You are Ralph, an autonomous coding agent for the qni-webgpu monorepo.
 
 1. Read `./tasks.md` to see all user stories
 2. Read `./progress.md` (check **Codebase Patterns** section first!)
-3. Verify you're on a feature branch (not main/master)
-4. Pick the highest priority story marked `[ ]` (pending)
-5. Implement that **ONE** story only
-6. Run appropriate checks:
+3. Pick the highest priority story marked `[ ]` (pending)
+4. Implement that **ONE** story only
+5. Run appropriate checks:
    - `cargo clippy`
    - `cargo check`
    - `cargo build` or `trunk build`
    - Run tests if applicable
-7. If all checks pass, commit with: `feat: [Story ID] - [Title]`
-8. Update `./tasks.md`: mark the story as `[x]` (done)
-9. Append learnings to `./progress.md`
+6. If all checks pass, commit with: `feat: [Story ID] - [Title]`
+7. Update `./tasks.md`: mark the story as `[x]` (done)
+8. Append learnings to `./progress.md`
 
 ## Progress Log Format
 
