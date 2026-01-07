@@ -35,25 +35,25 @@ egui/eframe が WebGPU の初期化と描画ループを担当する。ここで
 
 1. Wasm を初期化し、egui アプリを起動する  
 2. eframe がキャンバスと WebGPU を接続する  
-3. ゲート配置を更新し、状態ベクトルを CPU で計算する  
-4. egui の描画指示を作り、wgpu が描画する  
+3. ゲート配置を更新し、WebGPU の Compute で状態ベクトルを更新する  
+4. 状態ベクトルの円は GPU の Fragment で描画し、egui の描画指示と合成する  
 
 ```mermaid
 flowchart TB
   A[Wasm 初期化] --> B[Canvas と WebGPU を接続]
-  B --> C[状態ベクトルを CPU で計算]
-  C --> D[egui が描画指示を生成]
+  B --> C[Compute で状態ベクトル更新]
+  C --> D[egui 描画指示 + GPU 描画合成]
   D --> E[wgpu が描画]
 ```
 
 ## 描画モデル（CPU と GPU の役割分担）
 
-- CPU（Wasm/Rust 側）は「ゲート配置」「状態ベクトル計算」「描画要素の構築」を担当する。
-- GPU（WebGPU/wgpu 側）は「egui が生成した描画コマンドのレンダリング」を担当する。
+- CPU（Wasm/Rust 側）は「ゲート配置」「インスタンス情報の構築」を担当する。
+- GPU（WebGPU/wgpu 側）は「状態ベクトル計算（Compute）」「状態ベクトルの円描画（Fragment）」「egui の描画コマンド合成」を担当する。
 
 ```mermaid
 flowchart LR
-  CPU[CPU: egui 描画指示] --> GPU[GPU: 描画]
+  CPU[CPU: ゲート配置/インスタンス] --> GPU[GPU: Compute + Render]
 ```
 
 ## 量子計算の流れ（PoC としての最小構成）
@@ -61,7 +61,8 @@ flowchart LR
 - 起動時は `|00>` を初期状態として GPU バッファに書き込む。
 - ゲートはパレットからドラッグしてワイヤへ配置する。
 - 配置済みゲートを左から順に並べ、ワイヤ番号（0/1）に応じてゲートを適用する。
-- 計算は CPU 側（Rust）で行い、結果を egui の描画に反映する。
+- 計算は WebGPU の Compute で行い、結果は GPU バッファのまま描画に利用する。
+- CPU への読み戻しは Playwright テスト時のみ行う。
 
 ## 描画ループ（動いているか確認する仕組み）
 
@@ -71,7 +72,7 @@ flowchart LR
 
 - Playwright で「WebGPU が使えること」「ゲートのドラッグが動くこと」「状態ベクトルが期待値になること」を確認する。
 - テストはヘッドレスがデフォルト（必要なら `HEADLESS=0` で可視化）。
-- `window.__eguiReadStateVector` と `window.__eguiReady` を使い、計算結果や初期化完了を確認する。
+- `window.__eguiReadStateVector`（Promise）と `window.__eguiReady` を使い、計算結果や初期化完了を確認する。
 - テストで確認する項目は以下。
   - WebGPU が有効であること
   - キャンバスサイズが期待通りであること
@@ -89,7 +90,7 @@ sequenceDiagram
 
 ## 主要ファイル
 
-- `apps/egui-web/src/lib.rs`: egui UI と状態ベクトル計算
+- `apps/egui-web/src/lib.rs`: egui UI と GPU 状態ベクトル計算/描画
 - `apps/egui-web/index.html`: キャンバス配置と Trunk 設定
 - `apps/egui-web/bootstrap.js`: Wasm 初期化とテスト用フック
 - `apps/egui-web/tests/egui-web.spec.js`: Playwright テスト

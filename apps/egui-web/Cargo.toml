@@ -8,6 +8,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+bytemuck = { version = "1.14", features = ["derive"] }
+futures-channel = "0.3"
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
