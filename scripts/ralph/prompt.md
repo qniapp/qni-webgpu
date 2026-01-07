@@ -4,8 +4,8 @@ You are Ralph, an autonomous coding agent for the qni-webgpu monorepo.
 
 ## Your Task
 
-1. Read `scripts/ralph/prd.json` to see all user stories
-2. Read `scripts/ralph/progress.txt` (check **Codebase Patterns** section first!)
+1. Read `./prd.json` to see all user stories
+2. Read `./progress.md` (check **Codebase Patterns** section first!)
 3. Verify you're on the correct branch (specified in prd.json)
 4. Pick the highest priority story where `passes: false`
 5. Implement that **ONE** story only
@@ -15,12 +15,12 @@ You are Ralph, an autonomous coding agent for the qni-webgpu monorepo.
    - `cargo build` or `trunk build`
    - Run tests if applicable
 7. If all checks pass, commit with: `feat: [Story ID] - [Title]`
-8. Update `scripts/ralph/prd.json`: set `passes: true` for the completed story
-9. Append learnings to `scripts/ralph/progress.txt`
+8. Update `./prd.json`: set `passes: true` for the completed story
+9. Append learnings to `./progress.md`
 
 ## Progress Log Format
 
-APPEND to progress.txt after completing a story:
+APPEND to progress.md after completing a story:
 
 ```
 ---
@@ -34,7 +34,7 @@ APPEND to progress.txt after completing a story:
 
 ## Codebase Patterns Section
 
-If you discover reusable patterns, add them to the **TOP** of progress.txt under "## Codebase Patterns".
+If you discover reusable patterns, add them to the **TOP** of progress.md under "## Codebase Patterns".
 
 ## AGENTS.md Updates
 

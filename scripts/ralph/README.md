@@ -9,7 +9,7 @@ scripts/ralph/
 ├── ralph.sh       # メインループ
 ├── prompt.md      # 各イテレーションの指示
 ├── prd.json       # タスクリスト
-├── progress.txt   # 学習ログ
+├── progress.md    # 学習ログ
 └── README.md      # このファイル
 ```
 
@@ -51,7 +51,7 @@ git checkout -b ralph/feature
 cat scripts/ralph/prd.json | jq '.userStories[] | {id, title, passes}'
 
 # 学習ログ
-cat scripts/ralph/progress.txt
+cat scripts/ralph/progress.md
 
 # コミット履歴
 git log --oneline -10
