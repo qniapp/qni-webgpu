@@ -2,7 +2,7 @@
 
 ## US-001: 状態ベクトル円の青色を修正
 
-- [ ] **Status**: pending
+- [x] **Status**: done
 - **Priority**: 1
 - **Description**: egui-web の状態ベクトル円の青丸の色が濃すぎるので、適切な色に修正する
 

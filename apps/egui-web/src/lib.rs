@@ -2114,7 +2114,7 @@ impl Colors {
             box_border: color_rgba(0.82, 0.82, 0.82, 1.0),
             label: color_rgba(1.0, 1.0, 1.0, 1.0),
             text: color_rgba(0.45, 0.45, 0.45, 1.0),
-            state_fill: color_rgba(0.16, 0.58, 0.78, 1.0),
+            state_fill: color_rgba(0.055, 0.647, 0.914, 1.0), // Tailwind sky-500: rgb(14, 165, 233)
             state_outline: color_rgba(0.0, 0.0, 0.0, 1.0),
             state_outline_zero: color_rgba(0.75, 0.75, 0.75, 1.0),
             state_needle: color_rgba(0.0, 0.0, 0.0, 1.0),
