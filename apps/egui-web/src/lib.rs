@@ -44,6 +44,7 @@ enum GateKind {
   Rx,
   Ry,
   Rz,
+  Swap,
 }
 
 impl GateKind {
@@ -62,11 +63,12 @@ impl GateKind {
       GateKind::Rx => "Rx",
       GateKind::Ry => "Ry",
       GateKind::Rz => "Rz",
+      GateKind::Swap => "SWAP",
     }
   }
 }
 
-const PALETTE_GATES: [GateKind; 13] = [
+const PALETTE_GATES: [GateKind; 14] = [
   GateKind::H,
   GateKind::X,
   GateKind::Y,
@@ -80,6 +82,7 @@ const PALETTE_GATES: [GateKind; 13] = [
   GateKind::Rx,
   GateKind::Ry,
   GateKind::Rz,
+  GateKind::Swap,
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -285,6 +288,10 @@ fn gate_matrix(kind: GateKind) -> [[Complex; 2]; 2] {
     GateKind::Rz => [
       [Complex::new(cos_half, -sin_half), Complex::new(0.0, 0.0)],
       [Complex::new(0.0, 0.0), Complex::new(cos_half, sin_half)],
+    ],
+    GateKind::Swap => [
+      [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+      [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
     ],
   }
 }
@@ -623,8 +630,12 @@ impl QniApp {
         painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
         painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
       }
-      painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-      if !draw_gate_icon(painter, gate_rect, gate.kind, colors.label) {
+      let is_swap = gate.kind == GateKind::Swap;
+      if !is_swap {
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+      }
+      let icon_color = if is_swap { colors.box_fill } else { colors.label };
+      if !draw_gate_icon(painter, gate_rect, gate.kind, icon_color) {
         painter.text(
           gate_rect.center(),
           egui::Align2::CENTER_CENTER,
@@ -677,8 +688,12 @@ impl QniApp {
         painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
         painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
       }
-      painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-      if !draw_gate_icon(painter, gate_rect, *gate, colors.label) {
+      let is_swap = *gate == GateKind::Swap;
+      if !is_swap {
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+      }
+      let icon_color = if is_swap { colors.box_fill } else { colors.label };
+      if !draw_gate_icon(painter, gate_rect, *gate, icon_color) {
         painter.text(
           gate_rect.center(),
           egui::Align2::CENTER_CENTER,
@@ -1179,6 +1194,13 @@ fn draw_gate_icon(painter: &egui::Painter, rect: egui::Rect, kind: GateKind, col
       painter.add(egui::Shape::Path(egui::epaint::PathShape::line(points, stroke)));
       painter.line_segment([p(24.0, 32.0), p(34.0, 18.0)], stroke);
       painter.line_segment([p(34.0, 32.0), p(24.0, 18.0)], stroke);
+      true
+    }
+    GateKind::Swap => {
+      let scale = rect.width() / 48.0;
+      let swap_stroke = egui::Stroke::new(4.0 * scale, color);
+      painter.line_segment([p(12.0, 36.0), p(36.0, 12.0)], swap_stroke);
+      painter.line_segment([p(12.0, 12.0), p(36.0, 36.0)], swap_stroke);
       true
     }
     GateKind::Phase => {
