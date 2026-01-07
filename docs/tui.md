@@ -128,6 +128,26 @@ cd apps/tui
 TUI_FONT_FAMILY="Caskaydia Mono Nerd Font" \
 TUI_SCREENSHOT_OUT=/tmp/tui-terminal-screenshot.png \
 ./scripts/tui_terminal_screenshot.sh
+
+### 画像生成をまとめて実行
+
+1コマンドで dump / snapshot PNG / terminal PNG を生成する。
+
+```
+cd apps/tui
+./scripts/tui_render_images.sh
+```
+
+出力先を変える場合:
+
+```
+TUI_DUMP_OUT=/tmp/tui-latest.dump \
+TUI_SNAPSHOT_PNG_OUT=/tmp/tui-latest.png \
+TUI_TERMINAL_PNG_OUT=/tmp/tui-terminal-screenshot.png \
+./scripts/tui_render_images.sh
+```
+
+フォント設定は `TUI_FONT_FAMILY` など、`tui_terminal_screenshot.sh` の環境変数をそのまま使える。
 ```
 
 ## E2E（ratatui-testlib）
