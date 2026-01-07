@@ -10,11 +10,11 @@ use crate::layout::{
     insertion_snap_rect, layout_regions, palette_items, start_line_x, state_circle_layout,
     CircuitLayout, StateCircleLayout,
 };
+use crate::model::format_complex;
 use crate::model::{
     apply_gates_to_zero_limit, default_phase_value, ensure_slots, qubit_count, AppState, Complex,
     Gate, QuitChoice,
 };
-use crate::model::format_complex;
 use crate::{
     GATE_BOX_HEIGHT, GATE_BOX_WIDTH, GATE_DRAW_HEIGHT, PALETTE_GAP, PALETTE_LABEL, SHADOW_OUTSET,
     UI_BACKGROUND,
@@ -56,12 +56,7 @@ fn gate_theme_with_override(
     };
     let text = Color::White;
     match background {
-        Color::Rgb(r, g, b) => (
-            text,
-            background,
-            brighten(r, g, b, 60),
-            darken(r, g, b, 60),
-        ),
+        Color::Rgb(r, g, b) => (text, background, brighten(r, g, b, 60), darken(r, g, b, 60)),
         _ => (text, background, background, background),
     }
 }
@@ -143,12 +138,7 @@ fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
     for offset in 1..rect.height.saturating_sub(1) {
         let y = rect.y + offset;
         buffer.set_string(rect.x, y, "│", border_style);
-        buffer.set_string(
-            rect.x + rect.width.saturating_sub(1),
-            y,
-            "│",
-            border_style,
-        );
+        buffer.set_string(rect.x + rect.width.saturating_sub(1), y, "│", border_style);
     }
     let title = "Quit?";
     let title_x = rect.x + (rect.width.saturating_sub(title.len() as u16)) / 2;
@@ -156,7 +146,10 @@ fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
         title_x,
         rect.y + 1,
         title,
-        Style::default().fg(Color::White).bg(MODAL_BG).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(Color::White)
+            .bg(MODAL_BG)
+            .add_modifier(Modifier::BOLD),
     );
     let yes_label = "[ Yes ]";
     let no_label = "[ No ]";
@@ -211,13 +204,17 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
     let cell_w = layout.cell_w;
     let cell_h = layout.cell_h;
     let size_boost = match qubits {
-        0 | 1 => 1.15,
-        2 => 1.1,
+        0 | 1 => 1.2,
+        2 => 2.4,
         3 => 1.0,
-        _ => 1.0,
+        4 => 0.9,
+        _ => 0.8,
     };
     let min_cell = cell_w.min(cell_h);
-    let base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
+    let mut base_radius = ((min_cell / 2.0) + 0.3) * size_boost;
+    if qubits == 2 {
+        base_radius = base_radius.min(min_cell * 0.52);
+    }
     if base_radius <= 0.1 {
         return;
     }
@@ -276,7 +273,7 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                 if !is_zero {
                     let phase = amp.im.atan2(amp.re);
                     let angle = phase + std::f64::consts::FRAC_PI_2;
-                    let phase_radius = base_radius * 0.75;
+                    let phase_radius = base_radius * 0.85;
                     let end_x = center_x + phase_radius * angle.cos();
                     let end_y = center_y + phase_radius * angle.sin();
                     ctx.draw(&Line {
@@ -286,7 +283,14 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                         y2: end_y,
                         color: STATE_CIRCLE_PHASE,
                     });
-                    let phase_tip = [(end_x, end_y)];
+                    let mut samples = Vec::new();
+                    for t in [0.25_f64, 0.5_f64, 0.75_f64, 1.0_f64] {
+                        samples.push((
+                            center_x + (end_x - center_x) * t,
+                            center_y + (end_y - center_y) * t,
+                        ));
+                    }
+                    let phase_tip = samples;
                     ctx.draw(&Points {
                         coords: &phase_tip,
                         color: STATE_CIRCLE_PHASE,
@@ -314,8 +318,9 @@ fn draw_state_popup(
     let col = display_index % layout.columns;
     let row = display_index / layout.columns;
     let center_x = area.x as f64 + col as f64 * layout.cell_w + layout.cell_w / 2.0;
-    let center_y =
-        area.y as f64 + (layout.rows as f64 - 1.0 - row as f64) * layout.cell_h + layout.cell_h / 2.0;
+    let center_y = area.y as f64
+        + (layout.rows as f64 - 1.0 - row as f64) * layout.cell_h
+        + layout.cell_h / 2.0;
     let center_x = center_x.round() as i32;
     let _center_y = center_y.round() as i32;
     let amp = amplitudes[state_index];
@@ -335,7 +340,11 @@ fn draw_state_popup(
         None => "Phase:   --".to_string(),
     };
     let lines = [header, amplitude, probability, phase_line];
-    let content_width = lines.iter().map(|line| line.chars().count()).max().unwrap_or(0);
+    let content_width = lines
+        .iter()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
     let box_width = (content_width + 2).max(16) as i32;
     let box_height = (lines.len() + 2) as i32;
     let mut x = center_x - box_width / 2;
@@ -372,12 +381,7 @@ fn draw_state_popup(
     for offset in 1..rect.height.saturating_sub(1) {
         let y = rect.y + offset;
         buffer.set_string(rect.x, y, "│", border_style);
-        buffer.set_string(
-            rect.x + rect.width.saturating_sub(1),
-            y,
-            "│",
-            border_style,
-        );
+        buffer.set_string(rect.x + rect.width.saturating_sub(1), y, "│", border_style);
     }
     let text_style = Style::default().fg(Color::White).bg(Color::Black);
     for (idx, line) in lines.iter().enumerate() {
@@ -398,8 +402,7 @@ pub(crate) fn draw_gate_box(
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
     }
-    let (text, background, highlight, shadow) =
-        gate_theme_with_override(gate, override_background);
+    let (text, background, highlight, shadow) = gate_theme_with_override(gate, override_background);
     if gate == Gate::Control {
         if outline {
             draw_gate_outline(buffer, rect, highlight, shadow);
@@ -408,9 +411,22 @@ pub(crate) fn draw_gate_box(
             .fg(background)
             .bg(UI_BACKGROUND)
             .add_modifier(Modifier::BOLD);
+        let fill_style = Style::default().bg(background);
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
-        buffer.set_string(mid_x, mid_y, "■", style);
+        if mid_y > rect.y {
+            buffer.set_string(mid_x, mid_y.saturating_sub(1), "▁", style);
+        }
+        buffer.set_string(mid_x, mid_y, " ", fill_style);
+        if mid_x > rect.x {
+            buffer.set_string(mid_x - 1, mid_y, "▐", style);
+        }
+        if mid_x + 1 < rect.x.saturating_add(rect.width) {
+            buffer.set_string(mid_x + 1, mid_y, "▌", style);
+        }
+        if mid_y + 1 < rect.y.saturating_add(rect.height) {
+            buffer.set_string(mid_x, mid_y + 1, "▔", style);
+        }
         return;
     }
     if gate == Gate::Measure {
@@ -454,25 +470,32 @@ pub(crate) fn draw_gate_box(
             .add_modifier(Modifier::BOLD);
         let mid_y = rect.y.saturating_add(rect.height / 2);
         let mid_x = rect.x.saturating_add(rect.width / 2);
-        buffer.set_string(mid_x, mid_y, "X", style);
+        buffer.set_string(mid_x, mid_y, "╳", style);
+        if rect.width >= 3 && rect.height >= 3 {
+            let up = mid_y.saturating_sub(1);
+            let down = mid_y.saturating_add(1);
+            let left = mid_x.saturating_sub(1);
+            let right = mid_x.saturating_add(1);
+            if up >= rect.y && right < rect.x.saturating_add(rect.width) {
+                buffer.set_string(right, up, "╱", style);
+            }
+            if down < rect.y.saturating_add(rect.height) && left >= rect.x {
+                buffer.set_string(left, down, "╱", style);
+            }
+            if up >= rect.y && left >= rect.x {
+                buffer.set_string(left, up, "╲", style);
+            }
+            if down < rect.y.saturating_add(rect.height)
+                && right < rect.x.saturating_add(rect.width)
+            {
+                buffer.set_string(right, down, "╲", style);
+            }
+        }
         return;
     }
     let base_style = Style::default().fg(text).bg(background);
     let highlight_style = Style::default().fg(highlight).bg(background);
     let shadow_style = Style::default().fg(shadow).bg(background);
-    if rect.height > 2 {
-        let top = "▔".repeat(rect.width as usize);
-        buffer.set_string(rect.x, rect.y, &top, highlight_style);
-    }
-    if rect.height > 1 {
-        let bottom = "▁".repeat(rect.width as usize);
-        buffer.set_string(
-            rect.x,
-            rect.y + rect.height.saturating_sub(1),
-            &bottom,
-            shadow_style,
-        );
-    }
     if matches!(gate, Gate::Phase | Gate::Rx | Gate::Ry | Gate::Rz) && rect.width >= 3 && rect.y > 0
     {
         if let Some(label) = phase_label {
@@ -488,44 +511,25 @@ pub(crate) fn draw_gate_box(
             buffer.set_string(label_x, rect.y - 1, label, label_style);
         }
     }
+    if rect.height > 2 {
+        let top = "▔".repeat(rect.width as usize);
+        buffer.set_string(rect.x, rect.y, &top, highlight_style);
+    }
+    if rect.height > 1 {
+        let bottom = "▁".repeat(rect.width as usize);
+        buffer.set_string(
+            rect.x,
+            rect.y + rect.height.saturating_sub(1),
+            &bottom,
+            shadow_style,
+        );
+    }
     let gate_rect = Rect {
         x: rect.x,
         y: rect.y + SHADOW_OUTSET,
         width: rect.width,
         height: GATE_BOX_HEIGHT,
     };
-    if matches!(gate, Gate::X | Gate::Phase) {
-        let full = " ".repeat(gate_rect.width as usize);
-        let _inner = " ".repeat(gate_rect.width.saturating_sub(2) as usize);
-        if gate_rect.height > 2 {
-            for offset in 1..gate_rect.height - 1 {
-                buffer.set_string(gate_rect.x, gate_rect.y + offset, &full, base_style);
-            }
-        }
-        if gate_rect.width >= 5 && gate_rect.height >= 3 {
-            let corner = Style::default().fg(UI_BACKGROUND).bg(background);
-            buffer.set_string(gate_rect.x, gate_rect.y, "◤", corner);
-            buffer.set_string(gate_rect.x + gate_rect.width - 1, gate_rect.y, "◥", corner);
-            buffer.set_string(gate_rect.x, gate_rect.y + gate_rect.height - 1, "◣", corner);
-            buffer.set_string(
-                gate_rect.x + gate_rect.width - 1,
-                gate_rect.y + gate_rect.height - 1,
-                "◢",
-                corner,
-            );
-            let symbol = if gate == Gate::X { "+" } else { "Φ" };
-            buffer.set_string(
-                gate_rect.x + gate_rect.width / 2,
-                gate_rect.y + gate_rect.height / 2,
-                symbol,
-                Style::default()
-                    .fg(text)
-                    .bg(background)
-                    .add_modifier(Modifier::BOLD),
-            );
-        }
-        return;
-    }
     if gate_rect.width > 2 && gate_rect.height > 2 {
         let fill = " ".repeat(gate_rect.width as usize);
         for row in 1..gate_rect.height - 1 {
@@ -575,7 +579,16 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false, None, false);
+        draw_gate_box(
+            &mut buffer,
+            item.rect,
+            item.gate,
+            None,
+            None,
+            false,
+            None,
+            false,
+        );
     }
 
     if !regions.circuits.is_empty() {
@@ -917,22 +930,38 @@ pub fn render_to_buffer_with_drag(
     }
     let _ = debug_line;
     draw_state_circles(&mut buffer, regions.state_circles, &state.cached_state);
-    if let (Some(display_index), Some(state_index)) =
-        (state.hovered_state_display, state.hovered_state_index)
-    {
-        let qubits = amplitude_qubits(state.cached_state.len());
-        if let Some(layout) = state_circle_layout(
-            regions.state_circles,
-            state.cached_state.len(),
-            qubits,
-        ) {
-            draw_state_popup(
-                &mut buffer,
-                regions.state_popup,
-                layout,
-                display_index,
-                state_index,
-                &state.cached_state,
+    let qubits = amplitude_qubits(state.cached_state.len());
+    let state_layout = state_circle_layout(regions.state_circles, state.cached_state.len(), qubits);
+    if let (Some(display_index), Some(state_index), Some(layout)) = (
+        state.hovered_state_display,
+        state.hovered_state_index,
+        state_layout,
+    ) {
+        draw_state_popup(
+            &mut buffer,
+            regions.state_popup,
+            layout,
+            display_index,
+            state_index,
+            &state.cached_state,
+        );
+    }
+    if let Some(layout) = state_layout {
+        if std::env::var("TUI_DEBUG_CELL").is_ok() {
+            let debug = format!(
+                "cell_w={:.2} cell_h={:.2} cols={} rows={} visible={}",
+                layout.cell_w, layout.cell_h, layout.columns, layout.rows, layout.visible
+            );
+            let target = if regions.state_popup.height > 0 {
+                regions.state_popup
+            } else {
+                regions.state_circles
+            };
+            buffer.set_string(
+                target.x,
+                target.y,
+                debug,
+                Style::default().fg(Color::Yellow).bg(UI_BACKGROUND),
             );
         }
     }
@@ -977,7 +1006,7 @@ pub fn render_to_buffer_with_drag(
                 None,
                 false,
                 Some(DRAG_GATE_COLOR),
-                matches!(drag.gate, Gate::Control | Gate::Swap),
+                false,
             );
         }
     }
@@ -998,7 +1027,6 @@ pub fn render_to_buffer_with_drag(
     }
     buffer
 }
-
 
 #[derive(Clone, Copy)]
 struct LineCut {

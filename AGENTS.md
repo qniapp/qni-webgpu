@@ -1,7 +1,12 @@
-<INSTRUCTIONS>
-- WebGPUのPoCが正しく動作しているか、Playwrightで確認する。
-- Playwrightで描画が確認できるまでデバッグを継続する。
+- 実際の描画を確認できる環境をセットアップする。
+- 正しい描画が確認できるまでデバッグを継続する。
 - 開発はテスト駆動で進める。
-- ドキュメントは随時更新すること。
-- 必要なドキュメントは適宜 docs/*.md に追加すること。
-</INSTRUCTIONS>
+- ドキュメントは随時更新する。
+- 必要なドキュメントは適宜 docs/*.md に追加する。
+- UI 変更はスナップショットテストで管理し、`cargo insta review` で差分を確認して accept/reject を明示する。
+- 変更フローは「変更 → テスト → pending snapshots 確認 → review → accept/reject → CI 検証」を遵守する。
+- スナップショットのシリアライズ形式は統一し、改行や CRLF を正規化して差分ノイズを抑える。
+- UI の色・スタイルはガイドラインで統一し、ANSI 標準色を優先してテーマ互換性を保つ。
+- スタイルガイド違反は clippy の禁止 API（disallowed-methods など）で検知する。
+- デバッグ出力は `println!` を避け、ファイルロギング（tracing など）を使う。
+- CI で `cargo insta pending-snapshots` を実行し、未承認スナップショットがある場合は失敗させる。

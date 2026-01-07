@@ -10,6 +10,8 @@ cd apps/tui
 cargo run
 ```
 
+補足: `snapshot_dump` を実行する場合は `cargo run --bin snapshot_dump` を使う。
+
 ## 出力例
 
 ```
@@ -81,6 +83,52 @@ cd apps/tui
 cargo test
 ```
 
+### スナップショット（insta）
+
+```
+cd apps/tui
+INSTA_UPDATE=always cargo test --test snapshots
+```
+
+### スナップショットの目視（PNG化）
+
+文字のみの PNG を出力する。
+
+```
+cd apps/tui
+python3 scripts/render_snapshot_png.py \
+  tests/snapshots/snapshots__snapshot_two_qubit_state_circles.snap \
+  /tmp/tui-two-qubit.png
+```
+
+カラーの PNG を出力する。
+
+```
+cd apps/tui
+cargo run --bin snapshot_dump -- --out tests/snapshots/snapshot_two_qubit_state_circles.dump
+python3 scripts/render_snapshot_png.py \
+  tests/snapshots/snapshot_two_qubit_state_circles.dump \
+  /tmp/tui-two-qubit-color.png
+```
+
+### ターミナル描画のPNG化（terminal-screenshot）
+
+xterm.js で ANSI をレンダリングして PNG 化する。人間側の端末とフォントを揃えると見た目のズレが小さくなる。
+（初回は `npx` 経由で `terminal-screenshot` を取得するためネットワークが必要）
+
+```
+cd apps/tui
+./scripts/tui_terminal_screenshot.sh
+```
+
+フォントや出力先を指定する場合:
+
+```
+TUI_FONT_FAMILY="Caskaydia Mono Nerd Font" \
+TUI_SCREENSHOT_OUT=/tmp/tui-terminal-screenshot.png \
+./scripts/tui_terminal_screenshot.sh
+```
+
 ## E2E（ratatui-testlib）
 
 PTY 経由で TUI を起動し、マウス入力を注入して画面状態を検証する。
@@ -92,3 +140,35 @@ cargo test --test e2e
 
 補足:
 - `ratatui-testlib` は `apps/tui/vendor/ratatui-testlib` にローカルパッチを当てている
+
+## 描画の実装メモ（現行）
+
+TUI のゲート描画は `apps/tui/src/render.rs` の `draw_gate_box` に集約されている。
+
+- 共通: ゲート色（background）を基準にし、上下にハイライト/シャドウの線を描く。
+  - ハイライト: `▔`（fg=highlight / bg=background）
+  - シャドウ: `▁`（fg=shadow / bg=background）
+  - 内側は ` `（スペース）を `fg=text / bg=background` で塗る。
+- X / Φ: 他ゲートと同じ四角形の描画（8角形の角表現は使わない）。
+- Φ / Rx / Ry / Rz: 位相ラベルはゲート矩形の 1 行上に表示。
+  - 編集中は反転表示（`fg=UI_BACKGROUND / bg=background`）
+
+## 文字選定メモ（TUI での安全性）
+
+端末描画ではフォント差・レンダラ差が出やすいため、文字選定に注意が必要。
+
+- もっとも安全: ASCII（U+0020–U+007E）。
+- 比較的安全: Box Drawing（U+2500–U+257F）と Block Elements（U+2580–U+259F）。
+  - 罫線/ブロックは端末 UI を想定した字形で、ズレが出にくい。
+  - 参考: Unicode ブロック一覧
+    - Box Drawing: https://unicode.link/blocks/box-drawing
+    - Block Elements: https://unicode.link/blocks/block-elements
+  - 参考: Unicode Core Spec（Chapter 22）
+    - https://unicode.org/versions/Unicode17.0.0/core-spec/chapter-22/
+- 要注意: 幾何記号（特に三角 `◢◣◥◤` など）。
+  - フォントにより字形がセル全面を埋めないため、上下左右に隙間/ズレが出る。
+- PUA / Nerd Fonts 系の記号は環境依存が大きいため、使用時は実機フォントで確認する。
+  - 参考: Nerd Fonts（フォント依存）
+    - https://www.nerdfonts.com/
+  - 参考: DEC Special Graphics（端末の罫線セット）
+    - https://en.wikipedia.org/wiki/DEC_Special_Graphics

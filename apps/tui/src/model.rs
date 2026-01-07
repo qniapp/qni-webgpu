@@ -162,7 +162,7 @@ impl std::str::FromStr for Gate {
 impl std::fmt::Display for Gate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {
-            Self::X => "X",
+            Self::X => "+",
             Self::Control => "",
             Self::Measure => "",
             Self::Phase => "Φ",
