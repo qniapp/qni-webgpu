@@ -271,7 +271,7 @@ fn draw_state_circles(buffer: &mut Buffer, area: Rect, amplitudes: &[Complex]) {
                 if !is_zero {
                     let phase = amp.im.atan2(amp.re);
                     let angle = phase + std::f64::consts::FRAC_PI_2;
-                    let phase_radius = base_radius * 0.85;
+                    let phase_radius = base_radius;
                     let end_x = center_x + phase_radius * angle.cos();
                     let end_y = center_y + phase_radius * angle.sin() * STATE_CIRCLE_Y_SCALE;
                     ctx.draw(&Line {
