@@ -10,3 +10,7 @@ crossterm = "0.27"
 
 [dev-dependencies]
 pretty_assertions = "1"
+ratatui-testlib = "0.1"
+
+[patch.crates-io]
+ratatui-testlib = { path = "vendor/ratatui-testlib" }

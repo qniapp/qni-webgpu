@@ -80,3 +80,15 @@ q1: ---------
 cd apps/tui
 cargo test
 ```
+
+## E2E（ratatui-testlib）
+
+PTY 経由で TUI を起動し、マウス入力を注入して画面状態を検証する。
+
+```
+cd apps/tui
+cargo test --test e2e
+```
+
+補足:
+- `ratatui-testlib` は `apps/tui/vendor/ratatui-testlib` にローカルパッチを当てている
