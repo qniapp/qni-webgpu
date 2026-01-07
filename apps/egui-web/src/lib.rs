@@ -656,6 +656,17 @@ impl QniApp {
     if available_height <= 0.0 {
       available_height = (rect.height() - STATE_CIRCLE_BOTTOM_MARGIN).max(1.0);
     }
+    let max_fraction = if state_count <= 4 {
+      0.4
+    } else if state_count <= 16 {
+      0.3
+    } else {
+      0.25
+    };
+    let max_height = rect.height() * max_fraction;
+    if available_height > max_height {
+      available_height = max_height.max(1.0);
+    }
 
     let aspect = (available_width / available_height).max(0.1);
     let mut columns = 1usize;
