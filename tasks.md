@@ -13,3 +13,14 @@
 - Playwright でブラウザ上の見た目を確認する
 
 **Notes:** 色の定義は `../qni` にあるのでそれを参照すること
+
+## US-004: ワイヤラベルと端点の間隔を修正
+
+- [ ] **Status**: todo
+- **Priority**: 1
+- **Description**: 各ワイヤのラベル (q0:, q1:) と、ワイヤの端点の間隔が広すぎるので 0.5rem に修正する
+
+**Acceptance Criteria:**
+- ワイヤラベル (q0:, q1: など) とワイヤ端点の間隔を 0.5rem に設定
+- `trunk build` が成功する
+- Playwright でブラウザ上の見た目を確認する
