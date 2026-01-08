@@ -17,8 +17,11 @@ const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
 
 const LINE_Y: f32 = 6.5 * REM;
 const LINE_GAP: f32 = 1.5 * REM;
-const LINE_LEFT_OFFSET: f32 = 2.0 * REM;
-const LINE_RIGHT_OFFSET: f32 = 2.0 * REM;
+const CIRCUIT_PADDING: f32 = 2.0 * REM; // Same as PALETTE_ROW_Y for visual consistency
+const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
+const QUBIT_LABEL_GAP: f32 = 12.0; // Gap between label and line
+const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
+const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
 
 const GATE_SIZE: f32 = 1.0 * REM;
 const SLOT_SPACING: f32 = GATE_SIZE * 1.5;
@@ -1457,8 +1460,7 @@ impl QniApp {
         }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
-            let label_pos =
-                rect.min + egui::vec2(metrics.line_left - 3.0 * 14.0 - 12.0, line_y - 7.0);
+            let label_pos = rect.min + egui::vec2(CIRCUIT_PADDING, line_y - 7.0);
             painter.text(
                 label_pos,
                 egui::Align2::LEFT_TOP,
