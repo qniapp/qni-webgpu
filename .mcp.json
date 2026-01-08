@@ -7,6 +7,16 @@
         "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"
       ],
       "env": {}
+    },
+    "playwright": {
+      "command": "xvfb-run",
+      "args": [
+        "-d",
+        "-s", "-screen 0 1920x1080x24",
+        "npx",
+        "@playwright/mcp@latest",
+        "--config", "/home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json"
+      ]
     }
   }
 }

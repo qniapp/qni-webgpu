@@ -1,0 +1,21 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false,
+      "executablePath": "/usr/bin/chromium",
+      "args": [
+        "--ozone-platform=x11",
+        "--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan",
+        "--enable-unsafe-webgpu",
+        "--enable-dawn-features=allow_unsafe_apis,enable_immediate_error_handling",
+        "--ignore-gpu-blocklist",
+        "--disable-gpu-sandbox",
+        "--no-sandbox",
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--use-vulkan=swiftshader"
+      ]
+    }
+  }
+}

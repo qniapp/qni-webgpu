@@ -11,3 +11,4 @@ apps/tui/tests/snapshots/*.snap.new
 apps/tui/tests/snapshots/*.snap.old
 .env
 .DS_Store
+.playwright-mcp/*.png
