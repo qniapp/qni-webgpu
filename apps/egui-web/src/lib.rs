@@ -19,7 +19,7 @@ const LINE_Y: f32 = 6.5 * REM;
 const LINE_GAP: f32 = 1.5 * REM;
 const CIRCUIT_PADDING: f32 = 2.0 * REM; // Same as PALETTE_ROW_Y for visual consistency
 const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
-const QUBIT_LABEL_GAP: f32 = 12.0; // Gap between label and line
+const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
 const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
 const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
 
