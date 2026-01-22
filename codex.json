@@ -1,0 +1,7 @@
+{
+  "include": ["../agent-scripts/AGENTS.MD"],
+  "sandbox_mode": "workspace-write",
+  "sandbox_workspace_write": {
+    "writable_roots": ["../agent-scripts"]
+  }
+}

@@ -16,7 +16,7 @@
 
 ## US-004: ワイヤラベルと端点の間隔を修正
 
-- [ ] **Status**: todo
+- [x] **Status**: done
 - **Priority**: 1
 - **Description**: 各ワイヤのラベル (q0:, q1:) と、ワイヤの端点の間隔が広すぎるので 0.5rem に修正する
 

@@ -1,3 +1,5 @@
+READ ../agent-scripts/AGENTS.MD BEFORE ANYTHING.
+
 - 実際の描画を確認できる環境をセットアップする。
 - 正しい描画が確認できるまでデバッグを継続する。
 - 開発はテスト駆動で進める。

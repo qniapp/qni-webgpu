@@ -2,7 +2,7 @@ use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wgpu::util::DeviceExt as _;
 
 const REM: f32 = 32.0;
@@ -38,6 +38,7 @@ thread_local! {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GateKind {
     H,
+    Control,
     X,
     Y,
     Z,
@@ -57,6 +58,7 @@ impl GateKind {
     fn label(self) -> &'static str {
         match self {
             GateKind::H => "H",
+            GateKind::Control => "C",
             GateKind::X => "X",
             GateKind::Y => "Y",
             GateKind::Z => "Z",
@@ -74,8 +76,9 @@ impl GateKind {
     }
 }
 
-const PALETTE_GATES: [GateKind; 14] = [
+const PALETTE_GATES: [GateKind; 15] = [
     GateKind::H,
+    GateKind::Control,
     GateKind::X,
     GateKind::Y,
     GateKind::Z,
@@ -251,6 +254,12 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
             m10: [inv_sqrt2, 0.0],
             m11: [-inv_sqrt2, 0.0],
         },
+        GateKind::Control => GateMatrix {
+            m00: [1.0, 0.0],
+            m01: [0.0, 0.0],
+            m10: [0.0, 0.0],
+            m11: [1.0, 0.0],
+        },
         GateKind::X => GateMatrix {
             m00: [0.0, 0.0],
             m01: [1.0, 0.0],
@@ -350,8 +359,8 @@ struct GateParams {
     m11: [f32; 2],
     bit: u32,
     state_count: u32,
-    _pad0: u32,
-    _pad1: u32,
+    control_mask: u32,
+    control_value: u32,
 }
 
 fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GateParams {
@@ -363,8 +372,28 @@ fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GateParams {
         m11: matrix.m11,
         bit,
         state_count,
-        _pad0: 0,
-        _pad1: 0,
+        control_mask: 0,
+        control_value: 0,
+    }
+}
+
+fn gate_params_controlled(
+    kind: GateKind,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    let matrix = gate_matrix(kind);
+    GateParams {
+        m00: matrix.m00,
+        m01: matrix.m01,
+        m10: matrix.m10,
+        m11: matrix.m11,
+        bit,
+        state_count,
+        control_mask,
+        control_value,
     }
 }
 
@@ -421,8 +450,8 @@ struct GateParams {
   m11: vec2<f32>,
   bit: u32,
   state_count: u32,
-  _pad0: u32,
-  _pad1: u32,
+  control_mask: u32,
+  control_value: u32,
 };
 
 @group(0) @binding(0) var<storage, read> state_in: array<vec2<f32>>;
@@ -448,6 +477,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let i1 = i0 | (1u << bit);
   let a0 = state_in[i0];
   let a1 = state_in[i1];
+  if (params.control_mask != 0u) {
+    if ((i0 & params.control_mask) != params.control_value) {
+      state_out[i0] = a0;
+      state_out[i1] = a1;
+      return;
+    }
+  }
   state_out[i0] = cmul(params.m00, a0) + cmul(params.m01, a1);
   state_out[i1] = cmul(params.m10, a0) + cmul(params.m11, a1);
 }
@@ -487,7 +523,9 @@ struct VsOut {
 
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
-  let local = input.position * input.radius;
+  let outer = input.radius + input.stroke * 0.5;
+  // Pad the quad so the AA edge has coverage; avoids flat/clipped circle edges.
+  let local = input.position * (outer + 1.0);
   let world = input.center + local;
   let ndc = vec2<f32>(
     (world.x / params.screen_size.x) * 2.0 - 1.0,
@@ -516,23 +554,23 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
   let fill_radius = input.inner_radius * sqrt(prob);
   var color = params.surface;
-  if (dist <= fill_radius + 0.5) {
-    color = params.fill;
-  }
+  let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
+  color = mix(color, params.fill, fill_alpha);
   if (prob > 0.0) {
     let phase = atan2(amp.y, amp.x);
     let dir = vec2<f32>(-sin(phase), -cos(phase));
     let t = clamp(dot(input.local, dir), 0.0, input.inner_radius);
     let closest = dir * t;
     let d = length(input.local - closest);
-    if (d <= input.stroke * 0.5) {
-      color = params.needle;
-    }
+    let needle_alpha = 1.0 - smoothstep(input.stroke * 0.5 - edge, input.stroke * 0.5 + edge, d);
+    color = mix(color, params.needle, needle_alpha);
   }
-  if (dist >= input.radius - half_stroke) {
-    color = select(params.outline_zero, params.outline, prob > 0.0);
-  }
-  let outer_alpha = smoothstep(outer + edge, outer - edge, dist);
+  let outline_color = select(params.outline_zero, params.outline, prob > 0.0);
+  let outline_inner = 1.0 - smoothstep(input.radius - half_stroke - edge, input.radius - half_stroke + edge, dist);
+  let outline_outer = 1.0 - smoothstep(input.radius + half_stroke - edge, input.radius + half_stroke + edge, dist);
+  let outline_alpha = max(0.0, outline_outer - outline_inner);
+  color = mix(color, outline_color, outline_alpha);
+  let outer_alpha = 1.0 - smoothstep(outer - edge, outer + edge, dist);
   return color * outer_alpha;
 }
 "#;
@@ -978,7 +1016,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        egui_encoder: &mut wgpu::CommandEncoder,
+        _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         let resources = if callback_resources.contains::<StateVectorResources>() {
@@ -1039,9 +1077,13 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 let mut in_index = 0usize;
                 for gate in &self.gate_params {
                     queue.write_buffer(&resources.gate_params_buffer, 0, bytemuck::bytes_of(gate));
+                    let mut encoder =
+                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("state_vector_compute_encoder"),
+                        });
                     {
                         let mut pass =
-                            egui_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                            encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                                 label: Some("state_vector_compute_pass"),
                                 timestamp_writes: None,
                             });
@@ -1049,6 +1091,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                         pass.set_bind_group(0, &resources.compute_bind_groups[in_index], &[]);
                         pass.dispatch_workgroups(dispatch_x, 1, 1);
                     }
+                    queue.submit(Some(encoder.finish()));
                     in_index = 1 - in_index;
                 }
                 resources.active_state = in_index;
@@ -1182,7 +1225,12 @@ impl QniApp {
         1usize << self.state_qubits()
     }
 
-    fn collect_gate_params(&self, qubits: usize, state_count: usize) -> Vec<GateParams> {
+    fn collect_gate_params(
+        &self,
+        qubits: usize,
+        state_count: usize,
+        metrics: &LayoutMetrics,
+    ) -> Vec<GateParams> {
         let mut gates: Vec<&PlacedGate> = self.placed_gates.iter().collect();
         gates.sort_by(|a, b| {
             a.pos
@@ -1192,7 +1240,76 @@ impl QniApp {
                 .then_with(|| a.id.cmp(&b.id))
         });
 
-        let mut params = Vec::new();
+        struct GateGroup<'a> {
+            controls: Vec<&'a PlacedGate>,
+            targets: Vec<&'a PlacedGate>,
+            slot_x: f32,
+            min_id: u32,
+        }
+
+        let mut groups: HashMap<usize, GateGroup<'_>> = HashMap::new();
+        for gate in &gates {
+            let center_x = gate.pos.x + GATE_SIZE / 2.0;
+            let Some((slot_index, distance)) = nearest_slot_index(center_x, &metrics.slot_centers)
+            else {
+                continue;
+            };
+            if distance > SNAP_DISTANCE {
+                continue;
+            }
+            let entry = groups.entry(slot_index).or_insert_with(|| GateGroup {
+                controls: Vec::new(),
+                targets: Vec::new(),
+                slot_x: metrics.slot_centers[slot_index],
+                min_id: gate.id,
+            });
+            entry.min_id = entry.min_id.min(gate.id);
+            if gate.kind == GateKind::Control {
+                entry.controls.push(*gate);
+            } else {
+                entry.targets.push(*gate);
+            }
+        }
+
+        let mut used_ids = HashSet::new();
+        let mut ops: Vec<(f32, u32, GateParams)> = Vec::new();
+        for group in groups.values() {
+            let mut control_mask = 0u32;
+            let mut control_value = 0u32;
+            for control in &group.controls {
+                if control.wire >= qubits {
+                    continue;
+                }
+                let control_bit = (qubits.saturating_sub(1).saturating_sub(control.wire)) as u32;
+                let bit_mask = 1u32 << control_bit;
+                control_mask |= bit_mask;
+                control_value |= bit_mask;
+                used_ids.insert(control.id);
+            }
+            for target in &group.targets {
+                if target.wire >= qubits {
+                    continue;
+                }
+                if target.kind == GateKind::Swap {
+                    continue;
+                }
+                let bit = (qubits.saturating_sub(1).saturating_sub(target.wire)) as u32;
+                let params = if control_mask == 0 {
+                    gate_params(target.kind, bit, state_count as u32)
+                } else {
+                    gate_params_controlled(
+                        target.kind,
+                        bit,
+                        control_mask,
+                        control_value,
+                        state_count as u32,
+                    )
+                };
+                ops.push((group.slot_x, group.min_id.min(target.id), params));
+                used_ids.insert(target.id);
+            }
+        }
+
         for gate in gates {
             if gate.wire >= qubits {
                 continue;
@@ -1200,10 +1317,22 @@ impl QniApp {
             if gate.kind == GateKind::Swap {
                 continue;
             }
+            if gate.kind == GateKind::Control {
+                continue;
+            }
+            if used_ids.contains(&gate.id) {
+                continue;
+            }
             let bit = (qubits.saturating_sub(1).saturating_sub(gate.wire)) as u32;
-            params.push(gate_params(gate.kind, bit, state_count as u32));
+            ops.push((gate.pos.x, gate.id, gate_params(gate.kind, bit, state_count as u32)));
         }
-        params
+
+        ops.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| a.1.cmp(&b.1))
+        });
+        ops.into_iter().map(|(_, _, params)| params).collect()
     }
 
     fn handle_input(
@@ -1405,6 +1534,51 @@ impl QniApp {
             let start = rect.min + egui::vec2(metrics.line_left, line_y);
             let end = rect.min + egui::vec2(metrics.line_right, line_y);
             painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
+        }
+
+        let mut control_groups: HashMap<usize, (Vec<egui::Pos2>, Vec<egui::Pos2>)> = HashMap::new();
+        for gate in &self.placed_gates {
+            if gate.kind == GateKind::Swap {
+                continue;
+            }
+            let is_control = gate.kind == GateKind::Control;
+            let center_x = gate.pos.x + GATE_SIZE / 2.0;
+            if let Some((slot_index, distance)) =
+                nearest_slot_index(center_x, &metrics.slot_centers)
+            {
+                if distance > SNAP_DISTANCE {
+                    continue;
+                }
+                let center =
+                    rect.min + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+                let entry = control_groups.entry(slot_index).or_insert((Vec::new(), Vec::new()));
+                if is_control {
+                    entry.0.push(center);
+                } else {
+                    entry.1.push(center);
+                }
+            }
+        }
+
+        for (_, (controls, targets)) in control_groups {
+            if controls.is_empty() || targets.is_empty() {
+                continue;
+            }
+            let mut min_y = f32::INFINITY;
+            let mut max_y = f32::NEG_INFINITY;
+            let mut xs = Vec::with_capacity(controls.len() + targets.len());
+            for point in controls.iter().chain(targets.iter()) {
+                min_y = min_y.min(point.y);
+                max_y = max_y.max(point.y);
+                xs.push(point.x);
+            }
+            let x = if xs.is_empty() {
+                continue;
+            } else {
+                xs.iter().sum::<f32>() / xs.len() as f32
+            };
+            let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+            painter.line_segment([egui::pos2(x, min_y), egui::pos2(x, max_y)], stroke);
         }
 
         let mut swap_groups: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
@@ -1712,7 +1886,8 @@ impl QniApp {
                 });
             }
 
-            let gate_params = self.collect_gate_params(layout.qubits, layout.state_count);
+            let metrics = layout_metrics(screen_rect.width(), layout.qubits);
+            let gate_params = self.collect_gate_params(layout.qubits, layout.state_count, &metrics);
             let render_colors = RenderColors::new(colors);
             let callback = StateVectorCallback {
                 instances,
@@ -1827,6 +2002,10 @@ fn draw_gate_icon(
             painter.line_segment([p(17.0, 13.0), p(17.0, 35.0)], stroke);
             painter.line_segment([p(17.0, 24.0), p(31.0, 24.0)], stroke);
             painter.line_segment([p(31.0, 13.0), p(31.0, 35.0)], stroke);
+            true
+        }
+        GateKind::Control => {
+            painter.circle_filled(p(24.0, 24.0), 5.5 * scale, color);
             true
         }
         GateKind::X => {

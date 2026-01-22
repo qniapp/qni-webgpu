@@ -33,3 +33,13 @@ Started: 2026-01-08
   - Previous color was too dark: `color_rgba(0.16, 0.58, 0.78, 1.0)`
   - Use `trunk build` for WASM builds, not native cargo build
 
+---
+## 2026-01-08 - US-004
+- Changed wire label to endpoint gap to 0.5rem (16px)
+- **Files changed**: `apps/egui-web/src/lib.rs` (line 22)
+- **Learnings:**
+  - `QUBIT_LABEL_GAP` controls spacing between wire labels (q0:, q1:) and wire start points
+  - Changed from hardcoded `12.0` to `0.5 * REM` for consistent rem-based spacing
+  - REM = 32.0 in this codebase, so 0.5 * REM = 16.0 pixels
+  - Layout constants are at the top of lib.rs (lines 8-32)
+
