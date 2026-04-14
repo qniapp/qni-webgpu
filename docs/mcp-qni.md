@@ -57,8 +57,8 @@ claude mcp add --scope project --transport stdio qni -- \
   - 入力: `{ "qubits": number }`
   - 回路を初期化し、量子ビット数を設定する
 - `qni_place_gate`
-  - 入力: `{ "gate": "H"|"X"|"Y"|"Z"|"√X"|"S"|"S†"|"T"|"T†", "target": number, "column": number }`
-  - 指定した量子ビットと列に単一ゲートを配置する
+  - 入力: `{ "gate": "H"|"X"|"Y"|"Z"|"S"|"T", "target": number, "column": number }`
+  - 指定した量子ビットと列に単一量子ビットゲートを配置する
 - `qni_clear_circuit`
   - 入力: `{}`
   - 回路の全操作を削除する
@@ -87,7 +87,7 @@ claude mcp add --scope project --transport stdio qni -- \
 
 - `stateVector` は `[real, imag]` の配列
 - インデックスは `|00...0>` から順の基底
-- 対象ゲートは単一量子ビットゲートのみ
+- 複数量子ビット回路は扱えるが、各列に置けるのは単一量子ビットゲートのみ
 
 ## 例
 
@@ -100,5 +100,6 @@ qni_run {}
 
 ## 制約
 
-- 2量子ビット以上のエンタングル操作には未対応
+- 対応ゲートは `X/H/Y/Z/S/T` のみ
+- CNOT / SWAP などの多量子ビットゲートやエンタングル操作には未対応
 - WebGPU 表示との同期は今後の拡張で対応予定

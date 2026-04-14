@@ -2,22 +2,23 @@
 Started: 2026-01-08
 
 ## Codebase Patterns
-- **Monorepo structure**: apps/, crates/, docs/
-- **Lint**: `cargo clippy -- -D warnings`
-- **Check all**: `./scripts/check-all.sh`
-- **確認用サーバ**: タスク完了後、ユーザーが確認できるよう開発サーバを起動したままにする（例: `trunk serve`）
+- **Monorepo structure**: `apps/`, `docs/`, `scripts/`
+- **Primary apps**: `apps/egui-web`, `apps/tui`, `apps/mcp-qni`
+- **Top-level verification**: `./scripts/check-all.sh`
+- **TUI lint**: `cd apps/tui && cargo clippy -- -D warnings`
+- **egui-web prerequisites**: `rustup target add wasm32-unknown-unknown` and `cargo install trunk --locked`
+- **確認用サーバ**: Web 側の確認では `trunk serve` を使う
 
 ## Key Projects
 - `apps/egui-web` - egui + WebGPU frontend (Trunk, Playwright tests)
-- `apps/tui` - Terminal UI
+- `apps/tui` - Terminal UI (ratatui, snapshot/E2E tests)
+- `apps/mcp-qni` - MCP server for circuit editing and state-vector execution
 
 ## Build Commands
-- egui-web: `cd apps/egui-web && trunk serve`
+- egui-web: `cd apps/egui-web && trunk serve --address 127.0.0.1 --port 4174 --no-autoreload`
+- egui-web test: `cd apps/egui-web && pnpm exec playwright test`
 - tui: `cd apps/tui && cargo run`
-
-- **WASM clippy**: Run `cargo clippy --target wasm32-unknown-unknown -- -D warnings` (native target fails on this codebase)
-- **Color constants**: Colors are defined in `Colors` struct in `apps/egui-web/src/lib.rs` using normalized floats (0.0-1.0)
-- **Reference colors**: The qni project uses Tailwind CSS colors - see `packages/elements/src/qubit-circle-element.ts`
+- mcp-qni: `cd apps/mcp-qni && pnpm start`
 
 ---
 ## Progress Entries
@@ -43,3 +44,9 @@ Started: 2026-01-08
   - REM = 32.0 in this codebase, so 0.5 * REM = 16.0 pixels
   - Layout constants are at the top of lib.rs (lines 8-32)
 
+
+## Review
+- What's correct: README / docs / MCP docs are aligned with current code and config for tool availability, gate sets, and check commands.
+- Fixed: `progress.md` の egui-web 実行コマンドを現行設定（`--address ... --no-autoreload`）に合わせた。
+- Fixed: `docs/tui.md` のコードフェンス崩れを修正し、手順セクションが正しくレンダリングされるようにした。
+- Note: 上記以外の対象ドキュメントは、現行コード/設定との事実不整合は確認されなかった。

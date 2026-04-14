@@ -34,7 +34,8 @@ Claude Code の設定は複数のレベルで管理されています：
         "-s", "-screen 0 1920x1080x24",
         "npx",
         "@playwright/mcp@latest",
-        "--config", "/path/to/qni-webgpu/.playwright-mcp/config.json"
+        "--isolated",
+        "--config", "/home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json"
       ]
     }
   }
@@ -46,6 +47,12 @@ Claude Code の設定は複数のレベルで管理されています：
 - **qni**: 量子回路シミュレータ用 MCP サーバー
 - **playwright**: ブラウザ自動化用（xvfb + WebGPU 対応）
 
+#### 並行開発時の注意
+
+複数プロジェクトで Playwright MCP を同時に動かす場合は `--isolated` を付けて起動します。
+これにより user data dir のロック競合（`Browser is already in use ... mcp-chrome`）を回避できます。
+変更を反映するには Claude を再起動して MCP サーバーを再起動します。
+
 ### .playwright-mcp/config.json
 
 Playwright MCP の設定ファイル。WebGPU を xvfb 上で動作させるための設定：
@@ -55,7 +62,7 @@ Playwright MCP の設定ファイル。WebGPU を xvfb 上で動作させるた�
   "browser": {
     "browserName": "chromium",
     "launchOptions": {
-      "headless": false,
+      "headless": true,
       "executablePath": "/usr/bin/chromium",
       "args": [
         "--ozone-platform=x11",
@@ -81,13 +88,14 @@ Playwright MCP の設定ファイル。WebGPU を xvfb 上で動作させるた�
 | `--ozone-platform=x11` | Wayland 環境でも xvfb の X11 に接続 |
 | `--use-angle=swiftshader` | ソフトウェア WebGPU レンダリング |
 | `--enable-unsafe-webgpu` | WebGPU を有効化 |
-| `headless: false` | 真の headless では WebGPU が動作しないため |
+| `headless: true` | 現在のプロジェクト設定。`xvfb-run` と組み合わせて headless 実行する |
 
 #### なぜ xvfb が必要か
 
-Chrome の WebGPU (ANGLE) は X11 接続が必要なため、`--headless=new` では動作しません。
-`xvfb-run` で仮想 X11 サーバーを提供し、`headless: false` でブラウザを起動することで、
-物理モニターにウィンドウを表示せずに WebGPU を使用できます。
+このプロジェクトでは `xvfb-run` で仮想 X11 サーバーを提供し、
+Chromium を SwiftShader + WebGPU フラグ付きで起動する。
+現在の `.playwright-mcp/config.json` は `headless: true` だが、X11 が必要な点は変わらないため
+`xvfb-run` を前段に置いている。
 
 ### .claude/settings.local.json
 
@@ -179,9 +187,9 @@ cat ~/.claude/settings.json | jq '.enabledPlugins'
 claude mcp list
 ```
 
-期待される出力（公式プラグインが無効化されている場合）：
+期待される出力（公式プラグインが無効化されている場合の一例）：
 ```
-playwright: npx @playwright/mcp@latest --browser chromium --executable-path /usr/bin/chromium - ✓ Connected
+playwright: xvfb-run -d -s -screen 0 1920x1080x24 npx @playwright/mcp@latest --isolated --config /home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json - ✓ Connected
 qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js - ✓ Connected
 ```
 

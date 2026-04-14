@@ -1,17 +1,19 @@
 # qni-webgpu
 
+## 前提ツール
+
+Web 側のローカル実行では以下が必要:
+
+```
+rustup target add wasm32-unknown-unknown
+cargo install trunk --locked
+```
+
 ## TUI PoC（ローカル）
 
 ```
 cd apps/tui
 cargo run
-```
-
-ゲートを切り替える場合:
-
-```
-cd apps/tui
-cargo run -- --gate=Y
 ```
 
 ## Rust（TUI）チェック
@@ -69,14 +71,14 @@ pnpm exec playwright install chromium
 ### xvfb でテスト実行（Linux）
 ```
 cd apps/egui-web
-xvfb-run -a pnpm exec playwright test
+xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 ```
 
 ## GitHub Actions での CI
 
-GitHub Actions では WebGPU を headless で動かす必要があるため、
-`xvfb-run` と SwiftShader (software WebGPU) を使って Playwright を実行する。
-`apps/egui-web/playwright.config.cjs` で必要な Chrome フラグは設定済み。
+GitHub Actions では `apps/egui-web/playwright.config.cjs` の Chromium フラグを使って
+Playwright を実行する。ローカル Linux 環境では `xvfb-run` を併用できるが、現在の CI ワークフロー
+自体は `./scripts/check-all.sh` から `pnpm exec playwright test` を直接呼ぶ構成。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
