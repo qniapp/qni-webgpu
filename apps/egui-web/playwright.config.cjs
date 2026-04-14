@@ -1,4 +1,5 @@
 const { defineConfig } = require('@playwright/test')
+const { chromium } = require('playwright')
 
 module.exports = defineConfig({
   testDir: './tests',
@@ -8,6 +9,7 @@ module.exports = defineConfig({
     browserName: 'chromium',
     headless: process.env.HEADLESS !== '0',
     launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath(),
       args: [
         '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
         '--enable-unsafe-webgpu',
