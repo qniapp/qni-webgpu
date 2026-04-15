@@ -450,6 +450,134 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await waitForStateVectorLength(page, 16)
 })
 
+test('palette panel keeps its corners and shadow while dragging', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const PALETTE_SIZE = REM
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const palettePadding = REM
+  const paletteRect = {
+    x: paletteStartX - palettePadding,
+    y: PALETTE_ROW_Y - palettePadding,
+    width: paletteWidth + palettePadding * 2,
+    height: PALETTE_SIZE + palettePadding * 2,
+  }
+  const sourceX = paletteStartX + PALETTE_SIZE / 2
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const dragTarget = { x: sourceX + 80, y: sourceY + 80 }
+  const panelPoints = [
+    { name: 'corner', x: paletteRect.x + 2, y: paletteRect.y + 2 },
+    { name: 'fill', x: paletteRect.x + 24, y: paletteRect.y + 24 },
+    { name: 'shadow', x: paletteRect.x + paletteRect.width / 2, y: paletteRect.y + paletteRect.height + 10 },
+    { name: 'background', x: paletteRect.x - 20, y: paletteRect.y + paletteRect.height + 10 },
+  ]
+
+  const beforeDrag = await sampleCanvasPixels(page, canvas, panelPoints)
+
+  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await page.waitForTimeout(50)
+  const duringDrag = await sampleCanvasPixels(page, canvas, panelPoints)
+
+  for (const name of ['corner', 'fill']) {
+    const before = beforeDrag[name]
+    const during = duringDrag[name]
+    const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
+    expect(diff).toBeLessThan(40)
+  }
+
+  const cornerBrightness = duringDrag.corner[0] + duringDrag.corner[1] + duringDrag.corner[2]
+  const fillBrightness = duringDrag.fill[0] + duringDrag.fill[1] + duringDrag.fill[2]
+  expect(Math.abs(cornerBrightness - fillBrightness)).toBeGreaterThan(10)
+
+  const shadowBrightness = duringDrag.shadow[0] + duringDrag.shadow[1] + duringDrag.shadow[2]
+  const backgroundBrightness = duringDrag.background[0] + duringDrag.background[1] + duringDrag.background[2]
+  expect(Math.abs(shadowBrightness - backgroundBrightness)).toBeGreaterThan(10)
+
+  await page.mouse.up()
+})
+
+test('palette control gate keeps its icon while dragging', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const PALETTE_SIZE = REM
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const dragSource = { x: paletteStartX + PALETTE_SIZE / 2, y: PALETTE_ROW_Y + PALETTE_SIZE / 2 }
+  const dragTarget = { x: dragSource.x + 80, y: dragSource.y + 80 }
+  const controlIndex = 1
+  const controlRect = {
+    x: paletteStartX + controlIndex * (PALETTE_SIZE + PALETTE_GAP),
+    y: PALETTE_ROW_Y,
+  }
+  const signaturePoints = [
+    { name: 'center', x: controlRect.x + PALETTE_SIZE / 2, y: controlRect.y + PALETTE_SIZE / 2 },
+    { name: 'top', x: controlRect.x + PALETTE_SIZE / 2, y: controlRect.y + 6 },
+    { name: 'bottom', x: controlRect.x + PALETTE_SIZE / 2, y: controlRect.y + PALETTE_SIZE - 6 },
+    { name: 'left', x: controlRect.x + 6, y: controlRect.y + PALETTE_SIZE / 2 },
+    { name: 'right', x: controlRect.x + PALETTE_SIZE - 6, y: controlRect.y + PALETTE_SIZE / 2 },
+  ]
+
+  const beforeDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  await dragPointer(page, dragSource, dragTarget, 6, false)
+  await page.waitForTimeout(50)
+  const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  for (const name of Object.keys(beforeDrag)) {
+    const before = beforeDrag[name]
+    const during = duringDrag[name]
+    const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
+    expect(diff).toBeLessThan(40)
+  }
+
+  await page.mouse.up()
+})
+
 test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await page.goto('/')
 
@@ -500,6 +628,71 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   expect(cornerBrightness).toBeGreaterThan(fillBrightness + 100)
 
   await page.mouse.up()
+})
+
+test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const PALETTE_SIZE = GATE_SIZE
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const startX = cssWidth / 2 - paletteWidth / 2
+  const gateIndex = 2
+  const sourceX = startX + gateIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const targetCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
+  const targetRect = {
+    x: targetCenter.x - GATE_SIZE / 2,
+    y: targetCenter.y - GATE_SIZE / 2,
+  }
+  const signaturePoints = [
+    { name: 'center', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + GATE_SIZE / 2 },
+    { name: 'top', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + 6 },
+    { name: 'bottom', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + GATE_SIZE - 6 },
+    { name: 'left', x: targetRect.x + 6, y: targetRect.y + GATE_SIZE / 2 },
+    { name: 'right', x: targetRect.x + GATE_SIZE - 6, y: targetRect.y + GATE_SIZE / 2 },
+  ]
+
+  await dragPointer(page, { x: sourceX, y: sourceY }, targetCenter, 6, false)
+  await page.waitForTimeout(50)
+  const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  await releasePointer(page, targetCenter)
+  await page.waitForTimeout(50)
+  const afterDrop = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  for (const name of Object.keys(duringDrag)) {
+    const during = duringDrag[name]
+    const after = afterDrop[name]
+    const diff = Math.abs(during[0] - after[0]) + Math.abs(during[1] - after[1]) + Math.abs(during[2] - after[2])
+    expect(diff).toBeLessThan(60)
+  }
 })
 
 test('CNOT with control on q1 yields bell state', async ({ page }) => {

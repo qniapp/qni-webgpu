@@ -248,6 +248,10 @@ fn nearest_available_slot(
     }
 }
 
+fn should_use_fast_gate_body(fast_drag: bool, dragging: Option<DragState>, gate_id: u32) -> bool {
+    fast_drag && dragging.map(|drag| drag.id) != Some(gate_id)
+}
+
 fn nearest_line(y: f32, line_ys: &[f32]) -> (f32, f32, usize) {
     let mut nearest = line_ys[0];
     let mut nearest_distance = (y - line_ys[0]).abs();
@@ -1690,7 +1694,7 @@ impl QniApp {
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
-            if fast_drag {
+            if should_use_fast_gate_body(fast_drag, self.dragging, gate.id) {
                 draw_gate_body_fast(painter, gate_rect, gate.kind, colors);
             } else {
                 draw_gate_body(painter, gate_rect, gate.kind, colors);
@@ -1709,13 +1713,7 @@ impl QniApp {
         }
     }
 
-    fn draw_palette(
-        &self,
-        painter: &egui::Painter,
-        rect: egui::Rect,
-        colors: &Colors,
-        fast_drag: bool,
-    ) {
+    fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
         let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE
             + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
         let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
@@ -1731,22 +1729,16 @@ impl QniApp {
                 PALETTE_SIZE + palette_padding * 2.0,
             ),
         );
-        let palette_corner = if fast_drag {
-            egui::CornerRadius::ZERO
-        } else {
-            egui::CornerRadius::same(14)
+        let palette_corner = egui::CornerRadius::same(14);
+        let shadow = egui::epaint::Shadow {
+            offset: [0, 6],
+            blur: 16,
+            spread: 0,
+            color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
         };
-        if !fast_drag {
-            let shadow = egui::epaint::Shadow {
-                offset: [0, 6],
-                blur: 16,
-                spread: 0,
-                color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
-            };
-            painter.add(egui::Shape::Rect(
-                shadow.as_shape(palette_rect, palette_corner),
-            ));
-        }
+        painter.add(egui::Shape::Rect(
+            shadow.as_shape(palette_rect, palette_corner),
+        ));
         painter.rect_filled(palette_rect, palette_corner, colors.surface);
 
         for (index, gate) in PALETTE_GATES.iter().enumerate() {
@@ -1755,17 +1747,13 @@ impl QniApp {
                 rect.min + egui::vec2(gate_x, PALETTE_ROW_Y),
                 egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
             );
-            if !fast_drag && self.hovered_palette_index == Some(index) {
+            if self.hovered_palette_index == Some(index) {
                 let hover_outer = gate_rect.expand(4.0);
                 let hover_inner = gate_rect.expand(2.0);
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
-            if fast_drag {
-                draw_gate_body_fast(painter, gate_rect, *gate, colors);
-            } else {
-                draw_gate_body(painter, gate_rect, *gate, colors);
-            }
+            draw_gate_body(painter, gate_rect, *gate, colors);
         }
     }
 
@@ -2429,8 +2417,7 @@ impl eframe::App for QniApp {
                 ctx.request_repaint();
                 recompute = false;
             }
-            let fast_drag = self.dragging.is_some();
-            self.draw_palette(&overlay_painter, screen_rect, &colors, fast_drag);
+            self.draw_palette(&overlay_painter, screen_rect, &colors);
             self.draw_state_vector(
                 &overlay_painter,
                 &colors,
