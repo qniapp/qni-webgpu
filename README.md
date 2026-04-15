@@ -49,12 +49,23 @@ make check
 
 ## Rust (egui) WebGPU PoC（ローカル）
 
+まずサーバを起動する:
+
 ```
 cd apps/egui-web
 trunk serve --address 127.0.0.1 --port 4174
 ```
 
-ブラウザで `http://127.0.0.1:4174/` を開く。
+通常のブラウザ起動では WebGPU adapter を取れず、白画面やエラーメッセージになることがある。
+Linux / Wayland での今後のローカル動作確認は、別ターミナルから **フラグ付き Google Chrome** を helper script で開く運用を正本とする:
+
+```
+./scripts/open-egui-web.sh
+```
+
+この helper は `google-chrome-stable` を優先し、見つからない場合のみ Chromium 系へ fallback する。
+
+直接開く場合の URL は `http://127.0.0.1:4174/`。
 
 詳細は `docs/egui-web.md` を参照。
 
@@ -76,9 +87,10 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 
 ## GitHub Actions での CI
 
-GitHub Actions では `apps/egui-web/playwright.config.cjs` の Chromium フラグを使って
-Playwright を実行する。ローカル Linux 環境では `xvfb-run` を併用できるが、現在の CI ワークフロー
-自体は `./scripts/check-all.sh` から `pnpm exec playwright test` を直接呼ぶ構成。
+GitHub Actions では `apps/egui-web/playwright.config.cjs` の WebGPU フラグを使って
+Playwright を実行する。ローカルでは `playwright.config.cjs` も `google-chrome-stable` を優先し、
+未インストール時のみ Playwright 同梱 Chromium へ fallback する。Linux 環境では `xvfb-run` を併用できるが、
+現在の CI ワークフロー自体は `./scripts/check-all.sh` から `pnpm exec playwright test` を直接呼ぶ構成。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
@@ -92,6 +104,7 @@ Playwright を実行する。ローカル Linux 環境では `xvfb-run` を併�
 ```
 
 内部で以下を実行する:
+- `apps/egui-web` で browser preflight（Chrome 優先解決の Node テスト）
 - `apps/egui-web` で Playwright
 - `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI 向け）

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test')
+const { chromium } = require('playwright')
 
 const evaluateWithRetry = async (page, fn, arg, attempts = 3) => {
   let lastError
@@ -520,4 +521,30 @@ test('Control does not affect gates in other columns', async ({ page }) => {
 
   const expected = [0, 0, 1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expected)
+})
+
+test('default chromium shows a visible WebGPU error instead of a blank page', async () => {
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath(),
+    args: ['--disable-gpu', '--disable-software-rasterizer'],
+  })
+
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+    await page.goto('http://127.0.0.1:4174/', { waitUntil: 'load' })
+    await page.waitForFunction(
+      () => window.__eguiReady === true || Boolean(window.__eguiError),
+      null,
+      { timeout: 20000 }
+    )
+
+    await expect.poll(async () => page.evaluate(() => window.__eguiError || null), {
+      timeout: 20000,
+    }).not.toBeNull()
+    await expect(page.locator('[data-testid="webgpu-error"]')).toBeVisible()
+    await expect(page.locator('[data-testid="webgpu-error"]')).toContainText('WebGPU')
+  } finally {
+    await browser.close()
+  }
 })

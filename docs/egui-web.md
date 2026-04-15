@@ -5,11 +5,33 @@
 - `cargo install trunk`
 
 ## Run (local)
+まずサーバを起動する。
 ```
 cd apps/egui-web
-trunk serve --host 127.0.0.1 --port 4174 --no-open
+trunk serve --address 127.0.0.1 --port 4174
 ```
 Open: `http://127.0.0.1:4174/`
+
+Linux / Wayland では通常起動のブラウザだと WebGPU adapter を取れず、白画面や初期化エラーになることがある。
+今後のローカル動作確認は、**フラグ付きの Google Chrome を正本**として扱う。
+まずはリポジトリルートから helper script を使う。
+```
+./scripts/open-egui-web.sh
+```
+この script は `google-chrome-stable` を最優先で探し、見つからない場合のみ Chromium 系へ fallback する。
+起動時には `--ozone-platform=x11` と WebGPU 用フラグを付ける。
+`--disable-gpu-sandbox` は使わない。`--enable-unsafe-webgpu` による警告バーは表示されるが、現状のローカル実行では想定内。
+
+明示的にブラウザを固定したい場合の例:
+```
+QNI_EGUI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-egui-web.sh
+```
+
+環境変数:
+- `QNI_EGUI_WEB_BROWSER`: 使用する Chromium 系ブラウザを明示
+- `QNI_EGUI_WEB_PORT`: 接続先ポートを変更
+- `QNI_EGUI_WEB_URL`: 接続先 URL を直接指定
+- `QNI_EGUI_WEB_PROFILE_DIR`: 一時 profile ディレクトリを変更
 
 ## Playwright
 ```
@@ -27,10 +49,15 @@ cd apps/egui-web
 xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 ```
 `@playwright/test` の headless shell だと SRI mismatch が起きるため、
-`playwright.config.cjs` は `chromium.executablePath()` を使って full Chromium を起動する。
+`playwright.config.cjs` は Playwright 同梱ブラウザよりも先に `google-chrome-stable` を優先し、
+見つからない場合のみ `chromium.executablePath()` に fallback する。
+必要なら `PLAYWRIGHT_CHROMIUM_PATH` で明示上書きできる。
+`pnpm run test:preflight` では、この browser 選択ロジックの Node テストだけを先に確認できる。
 
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
+- 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
+- Linux / Wayland では Wayland + swiftshader 系の起動オプションで真っ黒になることがあり、現状は `./scripts/open-egui-web.sh` で起動するフラグ付き Google Chrome（fallback: Chromium）の X11 起動を正本とする。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。
 - `window.__eguiReadStateVector()` は非同期（Promise）で、Playwright は await して検証する。
 - The Playwright test drags the H gate onto q0, waits for `window.__eguiReadStateVector()` to match the expected amplitudes, and checks that the canvas contains non-background pixels.
