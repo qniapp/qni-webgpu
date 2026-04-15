@@ -1,5 +1,3 @@
-use eframe::egui;
-
 use crate::{
     PlacedGate, GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
 };
@@ -44,7 +42,7 @@ pub(crate) fn layout_metrics(width: f32, qubit_count: usize) -> LayoutMetrics {
     }
 }
 
-pub(crate) fn nearest_slot_center(x: f32, slot_centers: &[f32]) -> (f32, f32) {
+fn nearest_slot_center(x: f32, slot_centers: &[f32]) -> (f32, f32) {
     let mut nearest = x;
     let mut nearest_distance = f32::MAX;
     for &slot in slot_centers {

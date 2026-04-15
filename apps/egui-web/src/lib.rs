@@ -10,8 +10,7 @@ use std::time::Duration;
 use wgpu::util::DeviceExt as _;
 
 use crate::layout::{
-    layout_metrics, nearest_available_slot, nearest_line, nearest_slot_center,
-    nearest_slot_index,
+    layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
 };
 
 const REM: f32 = 32.0;
