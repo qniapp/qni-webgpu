@@ -110,10 +110,12 @@
 許可する `gpu.rs` → `crate::...` 参照:
 - `crate::Colors`
 - `crate::GateParams`
+- `crate::MAX_STATE_COUNT`
 
 想定される依存:
 - `gpu.rs` → `crate::Colors`
 - `gpu.rs` → `crate::GateParams`
+- `gpu.rs` → `crate::MAX_STATE_COUNT`
 - `lib.rs` → `gpu::StateInstance`
 - `lib.rs` → `gpu::RenderColors`
 - `lib.rs` → `gpu::StateVectorCallback`
@@ -194,7 +196,7 @@ cd /home/yasuhito/Work/qni-webgpu && git diff --check
 追加で、symbol move を機械的に確認する。
 
 ```bash
-cd /home/yasuhito/Work/qni-webgpu && rg -n '^(pub\(crate\) )?(struct StateInstance|struct RenderParams|struct RenderColors|const STATE_WORKGROUP_SIZE|const STATE_COMPUTE_SHADER|const STATE_RENDER_SHADER|struct StateVectorResources|struct StateVectorCallback|struct GpuReadbackState)' apps/egui-web/src/lib.rs apps/egui-web/src/gpu.rs
+cd /home/yasuhito/Work/qni-webgpu && rg -n '^(pub\(crate\) )?(struct StateInstance|struct RenderParams|struct RenderColors|const STATE_WORKGROUP_SIZE|const STATE_COMPUTE_SHADER|const STATE_RENDER_SHADER|struct StateVectorResources|struct StateVectorCallback|struct GpuReadbackState)|GPU_READBACK' apps/egui-web/src/lib.rs apps/egui-web/src/gpu.rs
 ```
 
 期待値:
