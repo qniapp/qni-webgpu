@@ -4,14 +4,13 @@ mod layout;
 
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::gpu::{
-    RenderColors, RenderParams, StateInstance, StateVectorResources, STATE_WORKGROUP_SIZE,
+    RenderColors, StateInstance, StateVectorCallback, GPU_READBACK,
 };
 use crate::icons::{draw_gate_body, draw_gate_body_fast};
 use crate::layout::{
@@ -46,10 +45,6 @@ const DRAG_REPAINT_PUMP_FACTOR: f64 = 0.1;
 const PALETTE_SIZE: f32 = GATE_SIZE;
 const PALETTE_GAP: f32 = 0.5 * REM;
 const PALETTE_ROW_Y: f32 = 2.0 * REM;
-
-thread_local! {
-    static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
-}
 
 #[cfg(target_arch = "wasm32")]
 fn now_seconds() -> f64 {
@@ -307,146 +302,6 @@ fn gate_params_controlled(
         state_count,
         control_mask,
         control_value,
-    }
-}
-
-struct StateVectorCallback {
-    instances: Arc<[StateInstance]>,
-    instances_dirty: bool,
-    gate_params: Vec<GateParams>,
-    state_count: usize,
-    recompute: bool,
-    target_format: wgpu::TextureFormat,
-    colors: RenderColors,
-}
-
-impl egui_wgpu::CallbackTrait for StateVectorCallback {
-    fn prepare(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _egui_encoder: &mut wgpu::CommandEncoder,
-        callback_resources: &mut egui_wgpu::CallbackResources,
-    ) -> Vec<wgpu::CommandBuffer> {
-        let resources = if callback_resources.contains::<StateVectorResources>() {
-            callback_resources
-                .get_mut::<StateVectorResources>()
-                .expect("StateVectorResources missing")
-        } else {
-            callback_resources.insert(StateVectorResources::new(device, self.target_format));
-            callback_resources
-                .get_mut::<StateVectorResources>()
-                .expect("StateVectorResources just inserted")
-        };
-
-        resources.update_render_pipeline(device, self.target_format);
-
-        let screen_size = [
-            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
-            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
-        ];
-        let render_params = RenderParams {
-            screen_size,
-            _pad0: [0.0, 0.0],
-            surface: self.colors.surface,
-            fill: self.colors.fill,
-            outline: self.colors.outline,
-            outline_zero: self.colors.outline_zero,
-            needle: self.colors.needle,
-        };
-        queue.write_buffer(
-            &resources.render_params_buffer,
-            0,
-            bytemuck::bytes_of(&render_params),
-        );
-
-        let should_update_instances = self.instances_dirty || resources.state_count == 0;
-        if should_update_instances && !self.instances.is_empty() {
-            queue.write_buffer(
-                &resources.instance_buffer,
-                0,
-                bytemuck::cast_slice(self.instances.as_ref()),
-            );
-        }
-
-        if self.recompute || resources.state_count != self.state_count {
-            resources.state_count = self.state_count;
-            if self.state_count > 0 {
-                let mut initial = vec![[0.0f32, 0.0f32]; self.state_count];
-                initial[0] = [1.0, 0.0];
-                queue.write_buffer(
-                    &resources.state_buffers[0],
-                    0,
-                    bytemuck::cast_slice(&initial),
-                );
-            }
-            resources.active_state = 0;
-            let pair_count = (self.state_count / 2) as u32;
-            if pair_count > 0 && !self.gate_params.is_empty() {
-                let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
-                let mut in_index = 0usize;
-                for gate in &self.gate_params {
-                    queue.write_buffer(&resources.gate_params_buffer, 0, bytemuck::bytes_of(gate));
-                    let mut encoder =
-                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("state_vector_compute_encoder"),
-                        });
-                    {
-                        let mut pass =
-                            encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                                label: Some("state_vector_compute_pass"),
-                                timestamp_writes: None,
-                            });
-                        pass.set_pipeline(&resources.compute_pipeline);
-                        pass.set_bind_group(0, &resources.compute_bind_groups[in_index], &[]);
-                        pass.dispatch_workgroups(dispatch_x, 1, 1);
-                    }
-                    queue.submit(Some(encoder.finish()));
-                    in_index = 1 - in_index;
-                }
-                resources.active_state = in_index;
-            }
-        }
-
-        GPU_READBACK.with(|slot| {
-            *slot.borrow_mut() = Some(GpuReadbackState {
-                device: device.clone(),
-                queue: queue.clone(),
-                state_buffers: [
-                    resources.state_buffers[0].clone(),
-                    resources.state_buffers[1].clone(),
-                ],
-                state_count: resources.state_count,
-                active_state: resources.active_state,
-            });
-        });
-
-        Vec::new()
-    }
-
-    fn paint(
-        &self,
-        _info: egui::PaintCallbackInfo,
-        render_pass: &mut wgpu::RenderPass<'static>,
-        callback_resources: &egui_wgpu::CallbackResources,
-    ) {
-        let Some(resources) = callback_resources.get::<StateVectorResources>() else {
-            return;
-        };
-        if self.instances.is_empty() {
-            return;
-        }
-        render_pass.set_pipeline(&resources.render_pipeline);
-        render_pass.set_bind_group(
-            0,
-            &resources.render_bind_groups[resources.active_state],
-            &[],
-        );
-        render_pass.set_vertex_buffer(0, resources.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.instance_buffer.slice(..));
-        render_pass.set_index_buffer(resources.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..resources.index_count, 0, 0..self.instances.len() as u32);
     }
 }
 
@@ -1316,7 +1171,7 @@ struct StateInstanceKey {
 
 struct StateInstanceCache {
     key: StateInstanceKey,
-    instances: Arc<[StateInstance]>,
+    instances: Arc<[gpu::StateInstance]>,
 }
 
 
@@ -1463,15 +1318,6 @@ impl Colors {
             state_needle: color_rgba(0.0, 0.0, 0.0, 1.0),
         }
     }
-}
-
-#[derive(Clone)]
-struct GpuReadbackState {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    state_buffers: [wgpu::Buffer; 2],
-    state_count: usize,
-    active_state: usize,
 }
 
 #[cfg(target_arch = "wasm32")]
