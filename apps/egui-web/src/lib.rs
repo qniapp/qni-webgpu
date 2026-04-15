@@ -1,6 +1,7 @@
 mod gpu;
 mod icons;
 mod layout;
+mod render;
 
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
@@ -14,6 +15,7 @@ use crate::icons::{draw_gate_body, draw_gate_body_fast};
 use crate::layout::{
     layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
 };
+use crate::render::{StateInstanceCache, StateInstanceKey, StatePanelLayout};
 
 const REM: f32 = 32.0;
 const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
@@ -1140,38 +1142,6 @@ impl QniApp {
         handle_rect
     }
 }
-
-struct StatePanelLayout {
-    state_count: usize,
-    qubits: usize,
-    columns: usize,
-    size: f32,
-    gap: f32,
-    radius: f32,
-    stroke: f32,
-    inner_radius: f32,
-    base_pos: egui::Pos2,
-    state_rect: egui::Rect,
-    handle_height: f32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct StateInstanceKey {
-    state_count: usize,
-    columns: usize,
-    size: f32,
-    gap: f32,
-    radius: f32,
-    inner_radius: f32,
-    stroke: f32,
-    origin: egui::Pos2,
-}
-
-struct StateInstanceCache {
-    key: StateInstanceKey,
-    instances: Arc<[gpu::StateInstance]>,
-}
-
 
 impl eframe::App for QniApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
