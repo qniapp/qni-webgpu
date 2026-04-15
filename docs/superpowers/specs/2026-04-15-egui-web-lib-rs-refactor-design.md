@@ -111,14 +111,14 @@
 - 「ついで」の命名変更、ロジック整理、最適化は第1パスでは行わない。
 
 ## 実装手順
-1. `layout.rs` を追加する。
+1. `layout.rs` を追加し、`lib.rs` 側に `mod layout;` を先に宣言する。
 2. `lib.rs` から layout / snap helper を移す。
-3. `cargo check` を一度実行し、抽出失敗点を早期に切り分ける。
-4. `icons.rs` を追加する。
-5. `lib.rs` から gate icon / SVG helper / body drawing を移す。
-6. `cargo check` を再度実行し、icons 抽出後の壊れ方を切り分ける。
-7. `lib.rs` 側に `mod layout; mod icons;` を追加する。
-8. import と可視性 (`pub(crate)`) を最小限調整する。
+3. import と可視性 (`pub(crate)`) を最小限調整する。
+4. `cargo check` を一度実行し、layout 抽出の失敗点を早期に切り分ける。
+5. `icons.rs` を追加し、`lib.rs` 側に `mod icons;` を先に宣言する。
+6. `lib.rs` から gate icon / SVG helper / body drawing を移す。
+7. import と可視性 (`pub(crate)`) を最小限調整する。
+8. `cargo check` を再度実行し、icons 抽出後の壊れ方を切り分ける。
 9. 既存挙動が変わらないことを検証する。
 10. 分割後の `lib.rs` を観察し、第2パス候補を決める。
 
