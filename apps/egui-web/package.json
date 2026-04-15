@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "test": "playwright test",
-    "test:preflight": "node --test test-node/playwright-browser.test.cjs"
+    "test:preflight": "node --test test-node/*.test.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
