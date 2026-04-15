@@ -9,9 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::gpu::{
-    RenderColors, StateInstance, StateVectorCallback, GPU_READBACK,
-};
+use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
 use crate::icons::{draw_gate_body, draw_gate_body_fast};
 use crate::layout::{
     layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
@@ -1321,8 +1319,6 @@ impl Colors {
 }
 
 #[cfg(target_arch = "wasm32")]
-use futures_channel::oneshot;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
@@ -1353,44 +1349,5 @@ pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn read_state_vector() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
-    let Some(state) = GPU_READBACK.with(|slot| slot.borrow().clone()) else {
-        return Err(wasm_bindgen::JsValue::from_str("state vector not ready"));
-    };
-    let byte_len = state.state_count * 2 * std::mem::size_of::<f32>();
-    let staging = state.device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("state_vector_readback"),
-        size: byte_len as wgpu::BufferAddress,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let mut encoder = state
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("state_vector_readback_encoder"),
-        });
-    encoder.copy_buffer_to_buffer(
-        &state.state_buffers[state.active_state],
-        0,
-        &staging,
-        0,
-        byte_len as wgpu::BufferAddress,
-    );
-    state.queue.submit(Some(encoder.finish()));
-
-    let slice = staging.slice(..);
-    let (sender, receiver) = oneshot::channel();
-    slice.map_async(wgpu::MapMode::Read, move |result| {
-        let _ = sender.send(result);
-    });
-    receiver
-        .await
-        .map_err(|_| wasm_bindgen::JsValue::from_str("readback dropped"))?
-        .map_err(|err| wasm_bindgen::JsValue::from_str(&format!("map_async failed: {err:?}")))?;
-    let data = slice.get_mapped_range();
-    let floats: &[f32] = bytemuck::cast_slice(&data);
-    let output = js_sys::Float32Array::new_with_length(floats.len() as u32);
-    output.copy_from(floats);
-    drop(data);
-    staging.unmap();
-    Ok(output)
+    gpu::read_state_vector_impl().await
 }

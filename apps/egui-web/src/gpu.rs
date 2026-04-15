@@ -4,6 +4,11 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use wgpu::util::DeviceExt as _;
 
+#[cfg(target_arch = "wasm32")]
+use futures_channel::oneshot;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
+
 use crate::{Colors, GateParams, MAX_STATE_COUNT};
 
 #[repr(C)]
@@ -761,4 +766,48 @@ pub(crate) struct GpuReadbackState {
 
 thread_local! {
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_state_vector_impl() -> Result<js_sys::Float32Array, JsValue> {
+    let Some(state) = GPU_READBACK.with(|slot| slot.borrow().clone()) else {
+        return Err(JsValue::from_str("state vector not ready"));
+    };
+    let byte_len = state.state_count * 2 * std::mem::size_of::<f32>();
+    let staging = state.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("state_vector_readback"),
+        size: byte_len as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = state
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("state_vector_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &state.state_buffers[state.active_state],
+        0,
+        &staging,
+        0,
+        byte_len as wgpu::BufferAddress,
+    );
+    state.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let floats: &[f32] = bytemuck::cast_slice(&data);
+    let output = js_sys::Float32Array::new_with_length(floats.len() as u32);
+    output.copy_from(floats);
+    drop(data);
+    staging.unmap();
+    Ok(output)
 }
