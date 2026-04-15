@@ -49,6 +49,51 @@ const screenshotWithRetry = async (page, locator, options, attempts = 3) => {
   throw lastError
 }
 
+const sampleCanvasPixels = async (page, locator, samples) => {
+  const screenshot = await screenshotWithRetry(page, locator, { type: 'png' })
+  const base64 = screenshot.toString('base64')
+  const box = await locator.boundingBox()
+  if (!box) {
+    throw new Error('canvas not found')
+  }
+  return evaluateWithRetry(
+    page,
+    async ({ base64, samples, cssWidth, cssHeight }) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${base64}`
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(null)
+        img.onerror = () => reject(new Error('Failed to decode screenshot'))
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) {
+        return {}
+      }
+      ctx.drawImage(img, 0, 0)
+
+      const scaleX = img.width / cssWidth
+      const scaleY = img.height / cssHeight
+
+      return Object.fromEntries(
+        samples.map(({ name, x, y }) => {
+          const data = ctx.getImageData(
+            Math.floor(x * scaleX),
+            Math.floor(y * scaleY),
+            1,
+            1
+          ).data
+          return [name, Array.from(data)]
+        })
+      )
+    },
+    { base64, samples, cssWidth: box.width, cssHeight: box.height }
+  )
+}
+
 const readStateVector = async (page) =>
   evaluateWithRetry(page, async () => {
     if (!window.__eguiReadStateVector) {
@@ -403,6 +448,58 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await releasePointer(page, { x: targetX, y: targetY2 })
 
   await waitForStateVectorLength(page, 16)
+})
+
+test('dragged palette gate keeps rounded corners', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const PALETTE_SIZE = GATE_SIZE
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const startX = cssWidth / 2 - paletteWidth / 2
+  const sourceX = startX + PALETTE_SIZE / 2
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const dragTarget = { x: sourceX + 80, y: sourceY + 80 }
+  const dragRect = {
+    x: dragTarget.x - GATE_SIZE / 2,
+    y: dragTarget.y - GATE_SIZE / 2,
+  }
+
+  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await page.waitForTimeout(50)
+
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'corner', x: dragRect.x + 1, y: dragRect.y + 1 },
+    { name: 'fill', x: dragRect.x + GATE_SIZE - 6, y: dragRect.y + GATE_SIZE - 6 },
+  ])
+
+  const cornerBrightness = pixels.corner[0] + pixels.corner[1] + pixels.corner[2]
+  const fillBrightness = pixels.fill[0] + pixels.fill[1] + pixels.fill[2]
+  expect(cornerBrightness).toBeGreaterThan(fillBrightness + 100)
+
+  await page.mouse.up()
 })
 
 test('CNOT with control on q1 yields bell state', async ({ page }) => {

@@ -73,7 +73,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 - ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。
 - ドラッグ中の再描画は CooldownThrottle 相当で、10ms ベース + 0.1 倍ポンプ（Quirk 相当）で `request_repaint` と `request_repaint_after` を切り替える。
-- ドラッグ中は gate/palette を簡略描画（角丸・影・アイコン線を省略）して tessellator 負荷を下げる。
+- ドラッグ中は gate/palette を簡略描画し、影とアイコン線を省略して tessellator 負荷を下げる。ゲート本体の角丸は維持するが、パレットの外枠は高速化のため簡略化される。
 - ドラッグ中の最終カーソル位置は `drag_cursor_pos` を保持し、ドロップ時に位置が欠けないようにする。
 - 起動直後は短時間だけ `request_repaint_after` を回してキャンバス描画を安定させる。
 - ドラッグ遅延のプロファイル結果: `docs/egui-web-drag-profiling.md`。

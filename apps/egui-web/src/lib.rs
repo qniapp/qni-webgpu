@@ -2120,7 +2120,9 @@ fn draw_gate_body_fast(
     kind: GateKind,
     colors: &Colors,
 ) {
-    painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.box_fill);
+    if kind != GateKind::Swap {
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+    }
     painter.text(
         gate_rect.center(),
         egui::Align2::CENTER_CENTER,
