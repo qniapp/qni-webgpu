@@ -1,6 +1,5 @@
-use crate::{
-    PlacedGate, GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
-};
+use crate::app::PlacedGate;
+use crate::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING};
 
 #[derive(Clone, Debug)]
 pub(crate) struct LayoutMetrics {
