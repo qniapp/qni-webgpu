@@ -578,6 +578,176 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   await page.mouse.up()
 })
 
+test('dragged palette gate stays visible above the palette panel', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const PALETTE_SIZE = GATE_SIZE
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const sourceX = paletteStartX + PALETTE_SIZE / 2
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const dragTarget = {
+    x: paletteStartX - PALETTE_SIZE / 2,
+    y: sourceY,
+  }
+  const dragRect = {
+    x: dragTarget.x - GATE_SIZE / 2,
+    y: dragTarget.y - GATE_SIZE / 2,
+  }
+  const fillPoint = {
+    name: 'fill',
+    x: dragRect.x + GATE_SIZE - 6,
+    y: dragRect.y + GATE_SIZE - 6,
+  }
+
+  const beforeDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
+
+  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await page.waitForTimeout(50)
+
+  const duringDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
+
+  const before = beforeDrag.fill
+  const during = duringDrag.fill
+  const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
+  expect(diff).toBeGreaterThan(120)
+  expect(during[1]).toBeGreaterThan(during[0] + 40)
+
+  await page.mouse.up()
+})
+
+test('dragged palette gate stays below the state panel overlay', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+  const cssHeight = box?.height ?? (viewport?.height ?? 700)
+
+  const REM = 32
+  const STATE_CIRCLE_SIZE = 1.25 * REM
+  const STATE_CIRCLE_GAP = 0.5 * REM
+  const STATE_CIRCLE_BOTTOM_MARGIN = 2 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_SIZE = 1 * REM
+  const stateCount = 4
+  const statePadding = Math.min(REM, cssWidth * 0.05, cssHeight * 0.05)
+  const topLimit = PALETTE_ROW_Y + PALETTE_SIZE + 2 * REM
+  let availableWidth = cssWidth - statePadding * 2
+  let availableHeight = cssHeight - STATE_CIRCLE_BOTTOM_MARGIN - topLimit
+  if (availableWidth <= 0) {
+    availableWidth = Math.max(cssWidth, 1)
+  }
+  if (availableHeight <= 0) {
+    availableHeight = Math.max(cssHeight - STATE_CIRCLE_BOTTOM_MARGIN, 1)
+  }
+  const maxHeight = cssHeight * 0.4
+  if (availableHeight > maxHeight) {
+    availableHeight = Math.max(maxHeight, 1)
+  }
+
+  const gapRatio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE
+  let columns = 1
+  let rows = stateCount
+  let bestSize = 0
+  let bestScore = Number.POSITIVE_INFINITY
+  const divisors = [1, 2, 4]
+  for (const candidate of divisors) {
+    if (stateCount % candidate !== 0) {
+      continue
+    }
+    const candidateRows = stateCount / candidate
+    const sizeW = availableWidth / (candidate + (candidate - 1) * gapRatio)
+    const sizeH = availableHeight / (candidateRows + (candidateRows - 1) * gapRatio)
+    const size = Math.min(sizeW, sizeH, STATE_CIRCLE_SIZE)
+    const ratio = candidate / candidateRows
+    const score = Math.abs(ratio - Math.max(availableWidth / availableHeight, 0.1))
+    if (size > bestSize + 0.01 || (Math.abs(size - bestSize) <= 0.01 && score < bestScore)) {
+      columns = candidate
+      rows = candidateRows
+      bestSize = size
+      bestScore = score
+    }
+  }
+  const size = Math.max(bestSize, 0.5)
+  const gap = size * gapRatio
+  const totalWidth = size * columns + gap * Math.max(columns - 1, 0)
+  const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
+  const baseX = cssWidth / 2 - totalWidth / 2
+  const baseY = cssHeight - STATE_CIRCLE_BOTTOM_MARGIN - totalHeight
+  const contentHeight = totalHeight + statePadding * 2
+  const handleHeight = Math.max(Math.min(0.4 * REM, contentHeight * 0.4), 10)
+  const handlePadding = handleHeight * 0.5
+  const stateRectMin = {
+    x: baseX - statePadding,
+    y: baseY - (statePadding + handleHeight + handlePadding),
+  }
+  const handleCenter = {
+    x: baseX + totalWidth / 2,
+    y: stateRectMin.y + handleHeight / 2,
+  }
+
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const source = {
+    x: paletteStartX + PALETTE_SIZE / 2,
+    y: PALETTE_ROW_Y + PALETTE_SIZE / 2,
+  }
+  const handleSample = [{ name: 'handle', ...handleCenter }]
+  const beforeDrag = await sampleCanvasPixels(page, canvas, handleSample)
+
+  await dragPointer(page, source, handleCenter, 8, false)
+  await page.waitForTimeout(50)
+
+  const duringDrag = await sampleCanvasPixels(page, canvas, handleSample)
+
+  const before = beforeDrag.handle
+  const during = duringDrag.handle
+  const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
+  expect(diff).toBeLessThan(60)
+
+  await page.mouse.up()
+})
+
 test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await page.goto('/')
 

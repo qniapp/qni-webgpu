@@ -63,6 +63,7 @@ impl QniApp {
         metrics: &LayoutMetrics,
         colors: &Colors,
         fast_drag: bool,
+        dragging_gate_id: Option<u32>,
     ) {
         for &line_y in &metrics.line_ys {
             let start = rect.min + egui::vec2(metrics.line_left, line_y);
@@ -156,6 +157,9 @@ impl QniApp {
         }
 
         for gate in &self.placed_gates {
+            if dragging_gate_id == Some(gate.id) {
+                continue;
+            }
             let gate_rect = egui::Rect::from_min_size(
                 rect.min + gate.pos.to_vec2(),
                 egui::vec2(GATE_SIZE, GATE_SIZE),
@@ -223,6 +227,23 @@ impl QniApp {
             }
             draw_gate_body(painter, gate_rect, *gate, colors);
         }
+    }
+
+    pub(super) fn draw_drag_preview(
+        &self,
+        painter: &egui::Painter,
+        content_rect: egui::Rect,
+        colors: &Colors,
+        dragging_gate_id: u32,
+    ) {
+        let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == dragging_gate_id) else {
+            return;
+        };
+        let gate_rect = egui::Rect::from_min_size(
+            content_rect.min + gate.pos.to_vec2(),
+            egui::vec2(GATE_SIZE, GATE_SIZE),
+        );
+        draw_gate_body(painter, gate_rect, gate.kind, colors);
     }
 
     pub(super) fn state_panel_layout(

@@ -452,6 +452,8 @@ impl eframe::App for QniApp {
             let content_height =
                 self.circuit_content_height(self.layout_qubits(), screen_rect.height());
 
+            let mut dragging_gate_id = None;
+            let mut content_rect = None;
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .scroll_source(egui::scroll_area::ScrollSource {
@@ -466,6 +468,7 @@ impl eframe::App for QniApp {
                     self.handle_input(rect, ctx, screen_rect);
                     let content_changed = self.last_content_rect.map_or(true, |last| last != rect);
                     self.last_content_rect = Some(rect);
+                    content_rect = Some(rect);
                     if content_changed {
                         ctx.request_repaint();
                     }
@@ -473,7 +476,15 @@ impl eframe::App for QniApp {
                     let metrics = layout_metrics(rect.width(), self.layout_qubits());
                     let painter = ui.painter_at(rect);
                     let fast_drag = self.dragging.is_some();
-                    self.draw_circuit(&painter, rect, &metrics, &colors, fast_drag);
+                    dragging_gate_id = self.dragging.map(|drag| drag.id);
+                    self.draw_circuit(
+                        &painter,
+                        rect,
+                        &metrics,
+                        &colors,
+                        fast_drag,
+                        dragging_gate_id,
+                    );
                 });
 
             let base_state_count = self.state_count();
@@ -529,6 +540,9 @@ impl eframe::App for QniApp {
                 recompute = false;
             }
             self.draw_palette(&overlay_painter, screen_rect, &colors);
+            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
+                self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
+            }
             self.draw_state_vector(
                 &overlay_painter,
                 &colors,
