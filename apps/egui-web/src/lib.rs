@@ -1,8 +1,9 @@
+mod app;
+mod colors;
+mod gates;
 mod gpu;
 mod icons;
 mod layout;
-mod app;
-mod gates;
 mod render;
 
 use eframe::egui;
@@ -102,38 +103,6 @@ fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
         (b * 255.0).round() as u8,
         (a * 255.0).round() as u8,
     )
-}
-
-struct Colors {
-    background: egui::Color32,
-    surface: egui::Color32,
-    line: egui::Color32,
-    box_fill: egui::Color32,
-    box_border: egui::Color32,
-    label: egui::Color32,
-    text: egui::Color32,
-    state_fill: egui::Color32,
-    state_outline: egui::Color32,
-    state_outline_zero: egui::Color32,
-    state_needle: egui::Color32,
-}
-
-impl Colors {
-    fn new() -> Self {
-        Self {
-            background: color_rgba(0.976, 0.98, 0.984, 1.0),
-            surface: color_rgba(1.0, 1.0, 1.0, 1.0),
-            line: color_rgba(0.72, 0.72, 0.72, 1.0),
-            box_fill: color_rgba(0.2, 0.62, 0.55, 1.0),
-            box_border: color_rgba(0.82, 0.82, 0.82, 1.0),
-            label: color_rgba(1.0, 1.0, 1.0, 1.0),
-            text: color_rgba(0.45, 0.45, 0.45, 1.0),
-            state_fill: color_rgba(0.055, 0.647, 0.914, 1.0), // Tailwind sky-500: rgb(14, 165, 233)
-            state_outline: color_rgba(0.0, 0.0, 0.0, 1.0),
-            state_outline_zero: color_rgba(0.75, 0.75, 0.75, 1.0),
-            state_needle: color_rgba(0.0, 0.0, 0.0, 1.0),
-        }
-    }
 }
 
 #[cfg(target_arch = "wasm32")]

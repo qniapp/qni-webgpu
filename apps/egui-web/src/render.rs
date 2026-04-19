@@ -5,15 +5,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::app::{PlacedGate, QniApp};
+use crate::colors::Colors;
 use crate::gates::GateKind;
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
 use crate::icons::draw_gate_body;
 use crate::layout::{layout_metrics, nearest_slot_index, LayoutMetrics};
 use crate::{
-    amplitude_qubits, display_index_to_state_index, Colors, CIRCUIT_PADDING, GATE_SIZE,
-    LINE_GAP, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM,
-    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE,
-    STATE_CIRCLE_STROKE,
+    amplitude_qubits, display_index_to_state_index, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y,
+    PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE,
+    STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
 };
 
 pub(super) struct StatePanelLayout {
@@ -87,7 +87,9 @@ impl QniApp {
                     let center = rect.min
                         + gate.pos.to_vec2()
                         + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-                    let entry = control_groups.entry(slot_index).or_insert((Vec::new(), Vec::new()));
+                    let entry = control_groups
+                        .entry(slot_index)
+                        .or_insert((Vec::new(), Vec::new()));
                     if is_control {
                         entry.0.push(center);
                     } else {
@@ -297,7 +299,11 @@ impl QniApp {
         let base_pos = rect.min + egui::vec2(base_x, base_y);
         let state_rect = egui::Rect::from_min_size(
             // Balance the extra top handle space with the regular circle padding so the panel still feels centered.
-            base_pos - egui::vec2(state_padding, state_padding + handle_height + handle_padding),
+            base_pos
+                - egui::vec2(
+                    state_padding,
+                    state_padding + handle_height + handle_padding,
+                ),
             egui::vec2(
                 total_width + state_padding * 2.0,
                 total_height + state_padding * 2.0 + handle_height + handle_padding,
@@ -319,11 +325,7 @@ impl QniApp {
         }
     }
 
-    pub(super) fn clamp_state_panel_offset(
-        &mut self,
-        layout: &StatePanelLayout,
-        rect: egui::Rect,
-    ) {
+    pub(super) fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
         let min_x = rect.min.x;
         let max_x = rect.max.x - layout.state_rect.width();
         let min_y = rect.min.y;

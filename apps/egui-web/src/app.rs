@@ -3,13 +3,14 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use crate::colors::Colors;
 use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
 use crate::layout::{
     layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
 };
 use crate::render::StateInstanceCache;
 use crate::{
-    now_seconds, Colors, DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
+    now_seconds, DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GAP, PALETTE_GATES,
     PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE,
 };
@@ -209,7 +210,11 @@ impl QniApp {
                 continue;
             }
             let bit = (qubits.saturating_sub(1).saturating_sub(gate.wire)) as u32;
-            ops.push((gate.pos.x, gate.id, gate_params(gate.kind, bit, state_count as u32)));
+            ops.push((
+                gate.pos.x,
+                gate.id,
+                gate_params(gate.kind, bit, state_count as u32),
+            ));
         }
 
         ops.sort_by(|a, b| {
@@ -260,7 +265,10 @@ impl QniApp {
                     })
                     .map(|gate| (gate.id, cursor - gate.pos))
                 {
-                    self.dragging = Some(DragState { id: gate_id, offset });
+                    self.dragging = Some(DragState {
+                        id: gate_id,
+                        offset,
+                    });
                     self.drag_state_count = Some(self.state_count());
                     self.drag_cursor_pos = Some(cursor);
                     ctx.request_repaint();
@@ -357,8 +365,8 @@ impl QniApp {
                     let local_x = cursor_screen.x - (screen_rect.min.x + palette_start_x);
                     let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
                     if index >= 0 && (index as usize) < PALETTE_GATES.len() {
-                        let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP)
-                            <= PALETTE_SIZE;
+                        let in_box =
+                            local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
                         if in_box {
                             hovered_palette = Some(index as usize);
                         }
@@ -432,7 +440,6 @@ impl QniApp {
             ctx.request_repaint_after(Duration::from_secs_f64(remaining));
         }
     }
-
 }
 
 impl eframe::App for QniApp {
@@ -456,8 +463,7 @@ impl eframe::App for QniApp {
                         egui::Sense::click_and_drag(),
                     );
                     self.handle_input(rect, ctx, screen_rect);
-                    let content_changed =
-                        self.last_content_rect.map_or(true, |last| last != rect);
+                    let content_changed = self.last_content_rect.map_or(true, |last| last != rect);
                     self.last_content_rect = Some(rect);
                     if content_changed {
                         ctx.request_repaint();
@@ -547,4 +553,3 @@ impl eframe::App for QniApp {
         }
     }
 }
-

@@ -9,8 +9,9 @@ use futures_channel::oneshot;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
+use crate::colors::Colors;
 use crate::gates::GateParams;
-use crate::{Colors, MAX_STATE_COUNT};
+use crate::MAX_STATE_COUNT;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -699,11 +700,10 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                             label: Some("state_vector_compute_encoder"),
                         });
                     {
-                        let mut pass =
-                            encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                                label: Some("state_vector_compute_pass"),
-                                timestamp_writes: None,
-                            });
+                        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                            label: Some("state_vector_compute_pass"),
+                            timestamp_writes: None,
+                        });
                         pass.set_pipeline(&resources.compute_pipeline);
                         pass.set_bind_group(0, &resources.compute_bind_groups[in_index], &[]);
                         pass.dispatch_workgroups(dispatch_x, 1, 1);

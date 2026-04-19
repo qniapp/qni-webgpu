@@ -1,7 +1,7 @@
 use eframe::egui;
 
+use crate::colors::Colors;
 use crate::gates::GateKind;
-use crate::Colors;
 
 const VIEWBOX: f32 = 48.0;
 
