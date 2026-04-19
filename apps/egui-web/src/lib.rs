@@ -5,8 +5,7 @@ mod gpu;
 mod icons;
 mod layout;
 mod render;
-
-use eframe::egui;
+mod shared;
 
 use crate::app::QniApp;
 
@@ -39,23 +38,6 @@ const PALETTE_SIZE: f32 = GATE_SIZE;
 const PALETTE_GAP: f32 = 0.5 * REM;
 const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
-#[cfg(target_arch = "wasm32")]
-fn now_seconds() -> f64 {
-    web_sys::window()
-        .and_then(|window| window.performance())
-        .map(|performance| performance.now() / 1000.0)
-        .unwrap_or(0.0)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now_seconds() -> f64 {
-    use std::sync::OnceLock;
-    use std::time::Instant;
-
-    static START: OnceLock<Instant> = OnceLock::new();
-    START.get_or_init(Instant::now).elapsed().as_secs_f64()
-}
-
 const PALETTE_GATES: [gates::GateKind; 15] = [
     gates::GateKind::H,
     gates::GateKind::Control,
@@ -73,37 +55,6 @@ const PALETTE_GATES: [gates::GateKind; 15] = [
     gates::GateKind::Rz,
     gates::GateKind::Swap,
 ];
-
-fn display_index_to_state_index(mut display_index: usize, qubits: usize) -> usize {
-    let mut value = 0usize;
-    for _ in 0..qubits {
-        value = (value << 1) | (display_index & 1);
-        display_index >>= 1;
-    }
-    value
-}
-
-fn amplitude_qubits(len: usize) -> usize {
-    let mut qubits = 0;
-    let mut size = 1usize;
-    if len == 0 {
-        return 1;
-    }
-    while size < len {
-        size <<= 1;
-        qubits += 1;
-    }
-    qubits.max(1)
-}
-
-fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
-    egui::Color32::from_rgba_unmultiplied(
-        (r * 255.0).round() as u8,
-        (g * 255.0).round() as u8,
-        (b * 255.0).round() as u8,
-        (a * 255.0).round() as u8,
-    )
-}
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

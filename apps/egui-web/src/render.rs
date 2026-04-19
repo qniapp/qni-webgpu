@@ -10,10 +10,11 @@ use crate::gates::GateKind;
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
 use crate::icons::draw_gate_body;
 use crate::layout::{layout_metrics, nearest_slot_index, LayoutMetrics};
+use crate::shared::{amplitude_qubits, display_index_to_state_index};
 use crate::{
-    amplitude_qubits, display_index_to_state_index, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y,
-    PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE,
-    STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
+    CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y,
+    PALETTE_SIZE, REM, SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP,
+    STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
 };
 
 pub(super) struct StatePanelLayout {
