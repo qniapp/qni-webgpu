@@ -4,17 +4,17 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use crate::colors::Colors;
+use crate::constants::{
+    DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
+    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GAP, PALETTE_GATES,
+    PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE,
+};
 use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
 use crate::layout::{
     layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
 };
 use crate::render::StateInstanceCache;
 use crate::shared::now_seconds;
-use crate::{
-    DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
-    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GAP, PALETTE_GATES,
-    PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE,
-};
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {

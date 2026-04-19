@@ -1,5 +1,6 @@
 mod app;
 mod colors;
+mod constants;
 mod gates;
 mod gpu;
 mod icons;
@@ -8,53 +9,6 @@ mod render;
 mod shared;
 
 use crate::app::QniApp;
-
-const REM: f32 = 32.0;
-const STATE_CIRCLE_SIZE: f32 = 1.25 * REM;
-const STATE_CIRCLE_GAP: f32 = 0.5 * REM;
-const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
-const STATE_CIRCLE_STROKE: f32 = 2.0;
-
-const MIN_QUBITS: usize = 2;
-const MAX_QUBITS: usize = 16;
-const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
-
-const LINE_Y: f32 = 6.5 * REM;
-const LINE_GAP: f32 = 1.5 * REM;
-const CIRCUIT_PADDING: f32 = 2.0 * REM; // Same as PALETTE_ROW_Y for visual consistency
-const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
-const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
-const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
-const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
-
-const GATE_SIZE: f32 = 1.0 * REM;
-const SLOT_SPACING: f32 = GATE_SIZE * 1.5;
-const SNAP_DISTANCE: f32 = 0.5625 * REM;
-const DRAG_REPAINT_BASE_SECS: f64 = 0.01;
-const DRAG_REPAINT_MIN_SECS: f64 = 0.004;
-const DRAG_REPAINT_MAX_SECS: f64 = 1.0 / 30.0;
-const DRAG_REPAINT_PUMP_FACTOR: f64 = 0.1;
-const PALETTE_SIZE: f32 = GATE_SIZE;
-const PALETTE_GAP: f32 = 0.5 * REM;
-const PALETTE_ROW_Y: f32 = 2.0 * REM;
-
-const PALETTE_GATES: [gates::GateKind; 15] = [
-    gates::GateKind::H,
-    gates::GateKind::Control,
-    gates::GateKind::X,
-    gates::GateKind::Y,
-    gates::GateKind::Z,
-    gates::GateKind::SqrtX,
-    gates::GateKind::S,
-    gates::GateKind::SDagger,
-    gates::GateKind::T,
-    gates::GateKind::TDagger,
-    gates::GateKind::Phase,
-    gates::GateKind::Rx,
-    gates::GateKind::Ry,
-    gates::GateKind::Rz,
-    gates::GateKind::Swap,
-];
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

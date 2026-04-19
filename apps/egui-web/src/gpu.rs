@@ -10,8 +10,8 @@ use futures_channel::oneshot;
 use wasm_bindgen::JsValue;
 
 use crate::colors::Colors;
+use crate::constants::MAX_STATE_COUNT;
 use crate::gates::GateParams;
-use crate::MAX_STATE_COUNT;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
