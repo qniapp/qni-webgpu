@@ -9,7 +9,8 @@ use futures_channel::oneshot;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
-use crate::{Colors, GateParams, MAX_STATE_COUNT};
+use crate::gates::GateParams;
+use crate::{Colors, MAX_STATE_COUNT};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
