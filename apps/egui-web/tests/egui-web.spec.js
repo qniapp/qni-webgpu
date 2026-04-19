@@ -639,7 +639,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   await page.mouse.up()
 })
 
-test('dragged palette gate stays below the state panel overlay', async ({ page }) => {
+test('dragged palette gate stays above the state panel overlay', async ({ page }) => {
   await page.goto('/')
 
   await page.waitForFunction(
@@ -732,18 +732,23 @@ test('dragged palette gate stays below the state panel overlay', async ({ page }
     x: paletteStartX + PALETTE_SIZE / 2,
     y: PALETTE_ROW_Y + PALETTE_SIZE / 2,
   }
-  const handleSample = [{ name: 'handle', ...handleCenter }]
-  const beforeDrag = await sampleCanvasPixels(page, canvas, handleSample)
+  const dragFillPoint = {
+    name: 'fill',
+    x: handleCenter.x + PALETTE_SIZE / 2 - 6,
+    y: handleCenter.y + PALETTE_SIZE / 2 - 6,
+  }
+  const beforeDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
 
   await dragPointer(page, source, handleCenter, 8, false)
   await page.waitForTimeout(50)
 
-  const duringDrag = await sampleCanvasPixels(page, canvas, handleSample)
+  const duringDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
 
-  const before = beforeDrag.handle
-  const during = duringDrag.handle
+  const before = beforeDrag.fill
+  const during = duringDrag.fill
   const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
-  expect(diff).toBeLessThan(60)
+  expect(diff).toBeGreaterThan(120)
+  expect(during[1]).toBeGreaterThan(during[0] + 40)
 
   await page.mouse.up()
 })

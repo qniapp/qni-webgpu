@@ -540,9 +540,6 @@ impl eframe::App for QniApp {
                 recompute = false;
             }
             self.draw_palette(&overlay_painter, screen_rect, &colors);
-            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
-                self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
-            }
             self.draw_state_vector(
                 &overlay_painter,
                 &colors,
@@ -553,6 +550,9 @@ impl eframe::App for QniApp {
                 recompute,
                 target_format,
             );
+            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
+                self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
+            }
         });
 
         let now = now_seconds();
