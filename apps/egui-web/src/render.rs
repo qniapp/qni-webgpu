@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
-use crate::icons::{draw_gate_body, draw_gate_body_fast};
+use crate::icons::draw_gate_body;
 use crate::layout::{layout_metrics, nearest_slot_index, LayoutMetrics};
 use crate::{
-    amplitude_qubits, display_index_to_state_index, should_use_fast_gate_body, Colors, GateKind,
+    amplitude_qubits, display_index_to_state_index, Colors, GateKind,
     PlacedGate, QniApp, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_GAP,
     PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN,
     STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
@@ -161,11 +161,7 @@ impl QniApp {
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
-            if should_use_fast_gate_body(fast_drag, self.dragging, gate.id) {
-                draw_gate_body_fast(painter, gate_rect, gate.kind, colors);
-            } else {
-                draw_gate_body(painter, gate_rect, gate.kind, colors);
-            }
+            draw_gate_body(painter, gate_rect, gate.kind, colors);
         }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {

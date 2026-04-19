@@ -695,6 +695,85 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   }
 })
 
+test('placed circuit gate keeps its visual while dragging another gate', async ({ page }) => {
+  await page.goto('/')
+
+  await page.waitForFunction(
+    () => window.__eguiReady === true || Boolean(window.__eguiError),
+    null,
+    { timeout: 20000 }
+  )
+  const eguiError = await page.evaluate(() => window.__eguiError || null)
+  expect(eguiError).toBeNull()
+
+  await waitForStateVectorReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const PALETTE_SIZE = GATE_SIZE
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const startX = cssWidth / 2 - paletteWidth / 2
+  const paletteCenterX = (index) =>
+    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
+
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const sqrtXGateCenter = { x: paletteCenterX(5), y: sourceY }
+  const hGateCenter = { x: paletteCenterX(0), y: sourceY }
+  const placedGateCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
+  const placedGateRect = {
+    x: placedGateCenter.x - GATE_SIZE / 2,
+    y: placedGateCenter.y - GATE_SIZE / 2,
+  }
+
+  const signaturePoints = []
+  let pointIndex = 0
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 5; col++) {
+      signaturePoints.push({
+        name: `p${pointIndex++}`,
+        x: placedGateRect.x + 5 + col * 5,
+        y: placedGateRect.y + 5 + row * 5,
+      })
+    }
+  }
+
+  await dragPointer(page, sqrtXGateCenter, placedGateCenter)
+  await page.waitForTimeout(50)
+  await page.mouse.move((box?.x ?? 0) + placedGateCenter.x + 120, (box?.y ?? 0) + placedGateCenter.y + 120)
+  await page.waitForTimeout(50)
+  const beforeDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  await dragPointer(page, hGateCenter, { x: placedGateCenter.x + 80, y: placedGateCenter.y + 40 }, 6, false)
+  await page.waitForTimeout(50)
+  const duringOtherDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
+
+  let totalDiff = 0
+  for (const name of Object.keys(beforeDrag)) {
+    const before = beforeDrag[name]
+    const during = duringOtherDrag[name]
+    totalDiff += Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
+  }
+
+  expect(totalDiff).toBeLessThan(1100)
+
+  await page.mouse.up()
+})
+
 test('CNOT with control on q1 yields bell state', async ({ page }) => {
   await page.goto('/')
 

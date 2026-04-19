@@ -74,24 +74,6 @@ pub(crate) fn draw_gate_body(
     }
 }
 
-pub(crate) fn draw_gate_body_fast(
-    painter: &egui::Painter,
-    gate_rect: egui::Rect,
-    kind: GateKind,
-    colors: &Colors,
-) {
-    if kind != GateKind::Swap {
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
-    }
-    painter.text(
-        gate_rect.center(),
-        egui::Align2::CENTER_CENTER,
-        kind.label(),
-        egui::FontId::proportional(16.0),
-        colors.label,
-    );
-}
-
 fn draw_gate_icon(
     painter: &egui::Painter,
     rect: egui::Rect,

@@ -140,10 +140,6 @@ struct DragState {
     offset: egui::Vec2,
 }
 
-fn should_use_fast_gate_body(fast_drag: bool, dragging: Option<DragState>, gate_id: u32) -> bool {
-    fast_drag && dragging.map(|drag| drag.id) != Some(gate_id)
-}
-
 fn gate_matrix(kind: GateKind) -> GateMatrix {
     let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
     let default_angle = std::f32::consts::FRAC_PI_2;
