@@ -4,7 +4,7 @@ const { Given, When, Then } = require('@cucumber/cucumber')
 const { STANDARD_BROWSER_MODE, openPageForMode } = require('../support/browser.cjs')
 const {
   openEguiApp,
-  waitForAppReady,
+  waitForStartupReady,
   readEguiError,
   readStateVector,
   waitForCanvasContent,
@@ -18,8 +18,7 @@ Given('the egui web app is open in the standard WebGPU browser', async function 
 
 When('the app finishes initializing', async function () {
   assert.ok(this.page, 'expected egui page to be open')
-  await waitForAppReady(this.page)
-  await waitForStateVectorReady(this.page)
+  await waitForStartupReady(this.page, { waitForStateVector: true })
 })
 
 Then('the WebGPU error is absent', async function () {

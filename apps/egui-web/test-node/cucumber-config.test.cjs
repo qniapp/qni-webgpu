@@ -213,5 +213,6 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   assert.equal(typeof server.shutdownSharedWebServer, 'function')
   assert.equal(typeof world.EguiWorld, 'function')
   assert.equal(typeof helpers.waitForAppReady, 'function')
+  assert.equal(typeof helpers.waitForStartupReady, 'function')
   assert.equal(typeof helpers.readEguiError, 'function')
 })

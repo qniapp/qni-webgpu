@@ -79,6 +79,24 @@ const readStateVector = async (page) =>
     return window.__eguiReadStateVector()
   })
 
+const waitForStartupReady = async (
+  page,
+  { timeout = DEFAULT_READY_TIMEOUT_MS, waitForStateVector = false } = {}
+) => {
+  await waitForAppReady(page, timeout)
+
+  const eguiError = await readEguiError(page)
+  if (eguiError) {
+    throw new Error(`egui app error while waiting for app startup: ${eguiError}`)
+  }
+
+  if (waitForStateVector) {
+    return waitForStateVectorReady(page, timeout)
+  }
+
+  return null
+}
+
 const waitForStateVectorReady = async (page, timeout = DEFAULT_READY_TIMEOUT_MS) => {
   const deadline = Date.now() + timeout
 
@@ -223,6 +241,7 @@ module.exports = {
   waitForAppReady,
   readEguiError,
   readStateVector,
+  waitForStartupReady,
   waitForStateVectorReady,
   readCanvasContentStats,
   waitForCanvasContent,

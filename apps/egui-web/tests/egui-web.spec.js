@@ -7,6 +7,7 @@ const {
   readStateVector,
   waitForAppReady,
   waitForCanvasContent,
+  waitForStartupReady,
   waitForStateVectorReady,
 } = require('../features/support/egui-helpers.cjs')
 
@@ -130,8 +131,7 @@ const releasePointer = async (page, at) => {
 
 test('egui webgpu canvas renders content', async ({ page }) => {
   await page.goto('/')
-  await waitForAppReady(page)
-  expect(await readEguiError(page)).toBeNull()
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const gpuAvailable = await page.evaluate(() => Boolean(navigator.gpu))
   expect(gpuAvailable).toBe(true)
@@ -144,7 +144,6 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  await waitForStateVectorReady(page)
   const initialState = await readStateVector(page)
   expect(initialState).toEqual([1, 0, 0, 0])
 
@@ -203,15 +202,7 @@ test('egui webgpu canvas renders content', async ({ page }) => {
 test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
 
@@ -256,15 +247,7 @@ test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
 test('dragging does not grow state vector until drop', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -316,15 +299,7 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
 test('palette panel keeps its corners and shadow while dragging', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -385,15 +360,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
 test('palette control gate keeps its icon while dragging', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -444,15 +411,7 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
 test('dragged palette gate stays visible above the palette panel', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -505,15 +464,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
 test('dragged palette gate stays above the state panel overlay', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -619,15 +570,7 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
 test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -671,15 +614,7 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
 test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -736,15 +671,7 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
 test('placed circuit gate keeps its visual while dragging another gate', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -815,15 +742,7 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
 test('CNOT with control on q1 yields bell state', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
@@ -875,15 +794,7 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
 test('Control does not affect gates in other columns', async ({ page }) => {
   await page.goto('/')
 
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
-
-  await waitForStateVectorReady(page)
+  await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
