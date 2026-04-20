@@ -11,6 +11,15 @@ const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
 const DEFAULT_NON_BACKGROUND_THRESHOLD = 20
 const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
+const DEFAULT_REM = 32
+const DEFAULT_GATE_SIZE = 1 * DEFAULT_REM
+const DEFAULT_PALETTE_GAP = 0.5 * DEFAULT_REM
+const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
+const DEFAULT_PALETTE_COUNT = 15
+const DEFAULT_STATE_CIRCLE_SIZE = 1.25 * DEFAULT_REM
+const DEFAULT_STATE_CIRCLE_GAP = 0.5 * DEFAULT_REM
+const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = 2 * DEFAULT_REM
+const DEFAULT_STATE_COUNT = 4
 
 const RETRYABLE_EVALUATE_ERRORS = ['Execution context was destroyed']
 const RETRYABLE_SCREENSHOT_ERRORS = [
@@ -210,6 +219,193 @@ const waitForCanvasContent = async (
   )
 }
 
+const requireCanvasBoundingBox = async (page) => {
+  const box = await page.locator('#egui-canvas').boundingBox()
+  if (!box) {
+    throw new Error('canvas not found')
+  }
+  return box
+}
+
+const sampleCanvasPixels = async (page, locator, samples) => {
+  const screenshot = await screenshotWithRetry(page, locator, { type: 'png' })
+  const base64 = screenshot.toString('base64')
+  const box = await locator.boundingBox()
+  if (!box) {
+    throw new Error('canvas not found')
+  }
+
+  return evaluateWithRetry(
+    page,
+    async ({ base64, samples, cssWidth, cssHeight }) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${base64}`
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(null)
+        img.onerror = () => reject(new Error('Failed to decode screenshot'))
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) {
+        return {}
+      }
+      ctx.drawImage(img, 0, 0)
+
+      const scaleX = img.width / cssWidth
+      const scaleY = img.height / cssHeight
+
+      return Object.fromEntries(
+        samples.map(({ name, x, y }) => {
+          const data = ctx.getImageData(
+            Math.floor(x * scaleX),
+            Math.floor(y * scaleY),
+            1,
+            1
+          ).data
+          return [name, Array.from(data)]
+        })
+      )
+    },
+    { base64, samples, cssWidth: box.width, cssHeight: box.height }
+  )
+}
+
+const dragPointer = async (page, from, to, steps = 6, release = true) => {
+  const box = await requireCanvasBoundingBox(page)
+  const startX = box.x + from.x
+  const startY = box.y + from.y
+  const endX = box.x + to.x
+  const endY = box.y + to.y
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.waitForTimeout(16)
+  await page.mouse.move(endX, endY, { steps })
+  await page.waitForTimeout(16)
+  if (release) {
+    await page.mouse.up()
+  }
+}
+
+const releasePointer = async (page, at) => {
+  const box = await requireCanvasBoundingBox(page)
+  const endX = box.x + at.x
+  const endY = box.y + at.y
+  await page.mouse.move(endX, endY)
+  await page.mouse.up()
+}
+
+const getPaletteGateCenter = (
+  cssWidth,
+  gateIndex,
+  {
+    gateSize = DEFAULT_GATE_SIZE,
+    gap = DEFAULT_PALETTE_GAP,
+    rowY = DEFAULT_PALETTE_ROW_Y,
+    count = DEFAULT_PALETTE_COUNT,
+  } = {}
+) => {
+  const paletteWidth = count * gateSize + (count - 1) * gap
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+
+  return {
+    x: paletteStartX + gateIndex * (gateSize + gap) + gateSize / 2,
+    y: rowY + gateSize / 2,
+  }
+}
+
+const getDragPreviewAboveStatePanelProbe = (
+  cssWidth,
+  cssHeight,
+  {
+    gateIndex = 0,
+    gateSize = DEFAULT_GATE_SIZE,
+    paletteGap = DEFAULT_PALETTE_GAP,
+    paletteRowY = DEFAULT_PALETTE_ROW_Y,
+    paletteCount = DEFAULT_PALETTE_COUNT,
+    stateCircleSize = DEFAULT_STATE_CIRCLE_SIZE,
+    stateCircleGap = DEFAULT_STATE_CIRCLE_GAP,
+    stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
+    stateCount = DEFAULT_STATE_COUNT,
+    rem = DEFAULT_REM,
+  } = {}
+) => {
+  const source = getPaletteGateCenter(cssWidth, gateIndex, {
+    gateSize,
+    gap: paletteGap,
+    rowY: paletteRowY,
+    count: paletteCount,
+  })
+
+  const statePadding = Math.min(rem, cssWidth * 0.05, cssHeight * 0.05)
+  const topLimit = paletteRowY + gateSize + 2 * rem
+  let availableWidth = cssWidth - statePadding * 2
+  let availableHeight = cssHeight - stateCircleBottomMargin - topLimit
+  if (availableWidth <= 0) {
+    availableWidth = Math.max(cssWidth, 1)
+  }
+  if (availableHeight <= 0) {
+    availableHeight = Math.max(cssHeight - stateCircleBottomMargin, 1)
+  }
+
+  const maxHeight = cssHeight * 0.4
+  if (availableHeight > maxHeight) {
+    availableHeight = Math.max(maxHeight, 1)
+  }
+
+  const gapRatio = stateCircleGap / stateCircleSize
+  let columns = 1
+  let rows = stateCount
+  let bestSize = 0
+  let bestScore = Number.POSITIVE_INFINITY
+  const divisors = [1, 2, 4]
+  for (const candidate of divisors) {
+    if (stateCount % candidate !== 0) {
+      continue
+    }
+
+    const candidateRows = stateCount / candidate
+    const sizeW = availableWidth / (candidate + (candidate - 1) * gapRatio)
+    const sizeH = availableHeight / (candidateRows + (candidateRows - 1) * gapRatio)
+    const size = Math.min(sizeW, sizeH, stateCircleSize)
+    const ratio = candidate / candidateRows
+    const score = Math.abs(ratio - Math.max(availableWidth / availableHeight, 0.1))
+
+    if (size > bestSize + 0.01 || (Math.abs(size - bestSize) <= 0.01 && score < bestScore)) {
+      columns = candidate
+      rows = candidateRows
+      bestSize = size
+      bestScore = score
+    }
+  }
+
+  const size = Math.max(bestSize, 0.5)
+  const gap = size * gapRatio
+  const totalWidth = size * columns + gap * Math.max(columns - 1, 0)
+  const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
+  const baseX = cssWidth / 2 - totalWidth / 2
+  const baseY = cssHeight - stateCircleBottomMargin - totalHeight
+  const contentHeight = totalHeight + statePadding * 2
+  const handleHeight = Math.max(Math.min(0.4 * rem, contentHeight * 0.4), 10)
+  const handlePadding = handleHeight * 0.5
+  const handleCenter = {
+    x: baseX + totalWidth / 2,
+    y: baseY - (statePadding + handlePadding + handleHeight / 2),
+  }
+
+  return {
+    source,
+    handleCenter,
+    dragFillPoint: {
+      name: 'fill',
+      x: handleCenter.x + gateSize / 2 - 6,
+      y: handleCenter.y + gateSize / 2 - 6,
+    },
+  }
+}
+
 const openEguiApp = async (page, baseUrl, pathname = '/') => {
   const targetUrl = new URL(pathname, baseUrl).toString()
   await page.goto(targetUrl, { waitUntil: 'load' })
@@ -245,6 +441,11 @@ module.exports = {
   waitForStateVectorReady,
   readCanvasContentStats,
   waitForCanvasContent,
+  sampleCanvasPixels,
+  dragPointer,
+  releasePointer,
+  getPaletteGateCenter,
+  getDragPreviewAboveStatePanelProbe,
   openEguiApp,
   sanitizeArtifactSegment,
   getScenarioArtifactPath,

@@ -2,7 +2,11 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const {
+  dragPointer,
   evaluateWithRetry,
+  getDragPreviewAboveStatePanelProbe,
+  releasePointer,
+  sampleCanvasPixels,
   waitForCanvasContent,
   waitForStartupReady,
   waitForStateVectorReady,
@@ -30,9 +34,10 @@ const makePage = ({ evaluateImpl } = {}) => {
   }
 }
 
-const makeLocator = ({ screenshotImpl } = {}) => {
+const makeLocator = ({ screenshotImpl, boundingBoxImpl } = {}) => {
   const calls = {
     screenshot: [],
+    boundingBox: 0,
   }
 
   return {
@@ -40,6 +45,46 @@ const makeLocator = ({ screenshotImpl } = {}) => {
     async screenshot(options) {
       calls.screenshot.push(options)
       return screenshotImpl ? screenshotImpl(options, calls.screenshot.length - 1) : Buffer.from('png')
+    },
+    async boundingBox() {
+      calls.boundingBox += 1
+      return boundingBoxImpl ? boundingBoxImpl(calls.boundingBox - 1) : { x: 10, y: 20, width: 1000, height: 800 }
+    },
+  }
+}
+
+const makeCanvasPage = ({ box = { x: 10, y: 20, width: 1000, height: 800 } } = {}) => {
+  const calls = {
+    locator: [],
+    move: [],
+    down: 0,
+    up: 0,
+    waitForTimeout: [],
+  }
+
+  return {
+    calls,
+    locator(selector) {
+      calls.locator.push(selector)
+      return {
+        async boundingBox() {
+          return box
+        },
+      }
+    },
+    mouse: {
+      async move(x, y, options) {
+        calls.move.push({ x, y, options })
+      },
+      async down() {
+        calls.down += 1
+      },
+      async up() {
+        calls.up += 1
+      },
+    },
+    async waitForTimeout(ms) {
+      calls.waitForTimeout.push(ms)
     },
   }
 }
@@ -187,4 +232,59 @@ test('waitForCanvasContent reports the last sampled non-background count on time
   )
   assert.equal(locator.calls.screenshot.length, 1)
   assert.equal(page.calls.evaluate.length, 2)
+})
+
+test('dragPointer moves relative to the egui canvas and can keep the pointer pressed', async () => {
+  const page = makeCanvasPage()
+
+  await dragPointer(page, { x: 12, y: 34 }, { x: 56, y: 78 }, 8, false)
+
+  assert.deepEqual(page.calls.locator, ['#egui-canvas'])
+  assert.deepEqual(page.calls.move, [
+    { x: 22, y: 54, options: undefined },
+    { x: 66, y: 98, options: { steps: 8 } },
+  ])
+  assert.equal(page.calls.down, 1)
+  assert.equal(page.calls.up, 0)
+  assert.deepEqual(page.calls.waitForTimeout, [16, 16])
+})
+
+test('releasePointer releases relative to the egui canvas', async () => {
+  const page = makeCanvasPage()
+
+  await releasePointer(page, { x: 90, y: 45 })
+
+  assert.deepEqual(page.calls.locator, ['#egui-canvas'])
+  assert.deepEqual(page.calls.move, [{ x: 100, y: 65, options: undefined }])
+  assert.equal(page.calls.up, 1)
+})
+
+test('sampleCanvasPixels passes screenshot bytes and css size into page evaluation', async () => {
+  const page = makePage({
+    evaluateImpl: async (_fn, arg) => arg,
+  })
+  const locator = makeLocator({
+    screenshotImpl: async () => Buffer.from('png'),
+    boundingBoxImpl: async () => ({ width: 320, height: 180 }),
+  })
+  const samples = [{ name: 'probe', x: 12, y: 34 }]
+
+  const result = await sampleCanvasPixels(page, locator, samples)
+
+  assert.deepEqual(result.samples, samples)
+  assert.equal(result.cssWidth, 320)
+  assert.equal(result.cssHeight, 180)
+  assert.match(result.base64, /^[A-Za-z0-9+/=]+$/)
+  assert.deepEqual(locator.calls.screenshot, [{ type: 'png' }])
+  assert.equal(locator.calls.boundingBox, 1)
+})
+
+test('getDragPreviewAboveStatePanelProbe preserves the current drag target contract', () => {
+  const probe = getDragPreviewAboveStatePanelProbe(1000, 800)
+
+  assert.deepEqual(probe.source, { x: 164, y: 80 })
+  assert.ok(probe.handleCenter.y > probe.source.y)
+  assert.equal(probe.dragFillPoint.name, 'fill')
+  assert.equal(probe.dragFillPoint.x, probe.handleCenter.x + 10)
+  assert.equal(probe.dragFillPoint.y, probe.handleCenter.y + 10)
 })

@@ -2,9 +2,12 @@ const { test, expect } = require('@playwright/test')
 const { chromium } = require('playwright')
 
 const {
+  dragPointer: sharedDragPointer,
   evaluateWithRetry,
+  getDragPreviewAboveStatePanelProbe,
   readEguiError,
   readStateVector,
+  sampleCanvasPixels: sharedSampleCanvasPixels,
   waitForAppReady,
   waitForCanvasContent,
   waitForStartupReady,
@@ -469,94 +472,19 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
   const canvas = page.locator('#egui-canvas')
   await expect(canvas).toBeVisible()
 
-  const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
   expect(box).not.toBeNull()
-  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
-  const cssHeight = box?.height ?? (viewport?.height ?? 700)
 
-  const REM = 32
-  const STATE_CIRCLE_SIZE = 1.25 * REM
-  const STATE_CIRCLE_GAP = 0.5 * REM
-  const STATE_CIRCLE_BOTTOM_MARGIN = 2 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_SIZE = 1 * REM
-  const stateCount = 4
-  const statePadding = Math.min(REM, cssWidth * 0.05, cssHeight * 0.05)
-  const topLimit = PALETTE_ROW_Y + PALETTE_SIZE + 2 * REM
-  let availableWidth = cssWidth - statePadding * 2
-  let availableHeight = cssHeight - STATE_CIRCLE_BOTTOM_MARGIN - topLimit
-  if (availableWidth <= 0) {
-    availableWidth = Math.max(cssWidth, 1)
-  }
-  if (availableHeight <= 0) {
-    availableHeight = Math.max(cssHeight - STATE_CIRCLE_BOTTOM_MARGIN, 1)
-  }
-  const maxHeight = cssHeight * 0.4
-  if (availableHeight > maxHeight) {
-    availableHeight = Math.max(maxHeight, 1)
-  }
+  const { source, handleCenter, dragFillPoint } = getDragPreviewAboveStatePanelProbe(
+    box.width,
+    box.height
+  )
+  const beforeDrag = await sharedSampleCanvasPixels(page, canvas, [dragFillPoint])
 
-  const gapRatio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE
-  let columns = 1
-  let rows = stateCount
-  let bestSize = 0
-  let bestScore = Number.POSITIVE_INFINITY
-  const divisors = [1, 2, 4]
-  for (const candidate of divisors) {
-    if (stateCount % candidate !== 0) {
-      continue
-    }
-    const candidateRows = stateCount / candidate
-    const sizeW = availableWidth / (candidate + (candidate - 1) * gapRatio)
-    const sizeH = availableHeight / (candidateRows + (candidateRows - 1) * gapRatio)
-    const size = Math.min(sizeW, sizeH, STATE_CIRCLE_SIZE)
-    const ratio = candidate / candidateRows
-    const score = Math.abs(ratio - Math.max(availableWidth / availableHeight, 0.1))
-    if (size > bestSize + 0.01 || (Math.abs(size - bestSize) <= 0.01 && score < bestScore)) {
-      columns = candidate
-      rows = candidateRows
-      bestSize = size
-      bestScore = score
-    }
-  }
-  const size = Math.max(bestSize, 0.5)
-  const gap = size * gapRatio
-  const totalWidth = size * columns + gap * Math.max(columns - 1, 0)
-  const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
-  const baseX = cssWidth / 2 - totalWidth / 2
-  const baseY = cssHeight - STATE_CIRCLE_BOTTOM_MARGIN - totalHeight
-  const contentHeight = totalHeight + statePadding * 2
-  const handleHeight = Math.max(Math.min(0.4 * REM, contentHeight * 0.4), 10)
-  const handlePadding = handleHeight * 0.5
-  const stateRectMin = {
-    x: baseX - statePadding,
-    y: baseY - (statePadding + handleHeight + handlePadding),
-  }
-  const handleCenter = {
-    x: baseX + totalWidth / 2,
-    y: stateRectMin.y + handleHeight / 2,
-  }
-
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_COUNT = 15
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const source = {
-    x: paletteStartX + PALETTE_SIZE / 2,
-    y: PALETTE_ROW_Y + PALETTE_SIZE / 2,
-  }
-  const dragFillPoint = {
-    name: 'fill',
-    x: handleCenter.x + PALETTE_SIZE / 2 - 6,
-    y: handleCenter.y + PALETTE_SIZE / 2 - 6,
-  }
-  const beforeDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
-
-  await dragPointer(page, source, handleCenter, 8, false)
+  await sharedDragPointer(page, source, handleCenter, 8, false)
   await page.waitForTimeout(50)
 
-  const duringDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
+  const duringDrag = await sharedSampleCanvasPixels(page, canvas, [dragFillPoint])
 
   const before = beforeDrag.fill
   const during = duringDrag.fill
