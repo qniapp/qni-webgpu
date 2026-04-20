@@ -2,6 +2,8 @@ const { test, expect } = require('@playwright/test')
 const { chromium } = require('playwright')
 
 const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.cjs')
+const { getPlainChromiumLaunchOptions } = require('../test-support/browser-launch.cjs')
+const { getWebServerConfig } = require('../test-support/web-server.cjs')
 const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
@@ -668,15 +670,17 @@ test('Control does not affect gates in other columns', async ({ page }) => {
 })
 
 test('default chromium shows a visible WebGPU error instead of a blank page', async () => {
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath(),
-    args: ['--disable-gpu', '--disable-software-rasterizer'],
+  const plainChromium = getPlainChromiumLaunchOptions({
+    env: process.env,
+    defaultPath: chromium.executablePath(),
   })
+  const { url } = getWebServerConfig()
+
+  const browser = await chromium.launch(plainChromium)
 
   try {
     const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
-    await page.goto('http://127.0.0.1:4174/', { waitUntil: 'load' })
+    await page.goto(new URL('/', url).toString(), { waitUntil: 'load' })
     await waitForAppReady(page)
 
     await expect.poll(async () => readEguiError(page), {

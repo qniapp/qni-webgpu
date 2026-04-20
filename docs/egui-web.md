@@ -8,7 +8,7 @@
 まずサーバを起動する。
 ```
 cd apps/egui-web
-trunk serve --address 127.0.0.1 --port 4174
+trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 Open: `http://127.0.0.1:4174/`
 
