@@ -31,6 +31,16 @@ test('shared browser executable resolution uses PLAYWRIGHT_CHROMIUM_PATH overrid
   assert.equal(actual, '/custom/browser')
 })
 
+test('shared browser executable resolution falls back to the bundled default when no command is found', () => {
+  const actual = resolvePlaywrightBrowserExecutable({
+    env: {},
+    defaultPath: '/bundled/chromium',
+    commandLookup: () => null,
+  })
+
+  assert.equal(actual, '/bundled/chromium')
+})
+
 test('shared browser executable resolution preserves system Chrome priority', () => {
   const actual = resolvePlaywrightBrowserExecutable({
     env: {},
@@ -47,6 +57,16 @@ test('shared browser executable resolution preserves system Chrome priority', ()
   })
 
   assert.equal(actual, '/usr/bin/google-chrome')
+})
+
+test('shared browser executable resolution supports chrome-only systems', () => {
+  const actual = resolvePlaywrightBrowserExecutable({
+    env: {},
+    defaultPath: '/bundled/chromium',
+    commandLookup: (name) => (name === 'chrome' ? '/usr/bin/chrome' : null),
+  })
+
+  assert.equal(actual, '/usr/bin/chrome')
 })
 
 test('shared standard WebGPU launch options preserve current flagged browser policy', () => {
