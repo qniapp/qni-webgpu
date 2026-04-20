@@ -1,13 +1,26 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
+const { chromium } = require('playwright')
+const {
+  getStandardWebGpuLaunchOptions,
+} = require('../test-support/browser-launch.cjs')
+const { getWebServerConfig } = require('../test-support/web-server.cjs')
 const config = require('../playwright.config.cjs')
 
-test('web server startup timeout allows cold CI trunk builds', () => {
-  assert.ok(config.webServer, 'playwright config should define webServer')
-  assert.equal(typeof config.webServer.timeout, 'number')
-  assert.ok(
-    config.webServer.timeout >= 180_000,
-    `expected webServer.timeout >= 180000, got ${config.webServer.timeout}`
-  )
+test('playwright config uses the shared browser and web server policies', () => {
+  const expectedBrowser = getStandardWebGpuLaunchOptions({
+    env: process.env,
+    defaultPath: chromium.executablePath(),
+  })
+
+  const expectedWebServer = getWebServerConfig()
+
+  assert.equal(config.use.baseURL, expectedWebServer.url)
+  assert.equal(config.use.headless, expectedBrowser.headless)
+  assert.deepEqual(config.use.launchOptions, {
+    executablePath: expectedBrowser.executablePath,
+    args: expectedBrowser.args,
+  })
+  assert.deepEqual(config.webServer, expectedWebServer)
 })
