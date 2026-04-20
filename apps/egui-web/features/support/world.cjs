@@ -1,19 +1,8 @@
-const os = require('node:os')
-const path = require('node:path')
-const { setWorldConstructor } = require('@cucumber/cucumber')
+const { setWorldConstructor: defaultSetWorldConstructor } = require('@cucumber/cucumber')
 
 const { getWebServerConfig } = require('../../test-support/web-server.cjs')
+const { DEFAULT_ARTIFACT_DIR } = require('./egui-helpers.cjs')
 const { STANDARD_BROWSER_MODE } = require('./browser.cjs')
-
-const registerSupportCode = (register) => {
-  try {
-    register()
-  } catch (error) {
-    if (!String(error).includes("isn't running")) {
-      throw error
-    }
-  }
-}
 
 class EguiWorld {
   constructor({ attach, log, link, parameters }) {
@@ -22,7 +11,7 @@ class EguiWorld {
     this.link = link
     this.parameters = parameters
     this.baseUrl = getWebServerConfig().url
-    this.artifactDir = path.join(os.tmpdir(), 'qni-egui-web-cucumber')
+    this.artifactDir = DEFAULT_ARTIFACT_DIR
     this.resetRuntimeState()
   }
 
@@ -48,10 +37,11 @@ class EguiWorld {
   }
 }
 
-registerSupportCode(() => {
+const registerWorld = ({ setWorldConstructor = defaultSetWorldConstructor } = {}) => {
   setWorldConstructor(EguiWorld)
-})
+}
 
 module.exports = {
   EguiWorld,
+  registerWorld,
 }

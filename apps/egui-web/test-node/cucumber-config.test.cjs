@@ -6,17 +6,31 @@ const os = require('node:os')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
+const supportDir = path.join(rootDir, 'features', 'support')
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+const CUCUMBER_SMOKE_TIMEOUT_MS = 20_000
 
 const readPackageJson = async () => {
   const packageJsonPath = path.join(rootDir, 'package.json')
   return JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 }
 
+const readSupportSource = async (fileName) => fs.readFile(path.join(supportDir, fileName), 'utf8')
+
+const parseMessageOutput = async (messagePath) => {
+  const lines = (await fs.readFile(messagePath, 'utf8'))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  return lines.map((line) => JSON.parse(line))
+}
+
 const writeTempSmokeFixture = async (featureText) => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'egui-web-cucumber-smoke-'))
   const featurePath = path.join(tempDir, 'smoke.feature.md')
   const stepsPath = path.join(tempDir, 'smoke.steps.cjs')
+  const messagePath = path.join(tempDir, 'messages.ndjson')
 
   await fs.writeFile(featurePath, featureText)
   await fs.writeFile(
@@ -28,7 +42,7 @@ const writeTempSmokeFixture = async (featureText) => {
     ].join('\n')
   )
 
-  return { tempDir, featurePath, stepsPath }
+  return { tempDir, featurePath, stepsPath, messagePath }
 }
 
 test('package scripts add bdd and keep legacy Playwright as the primary test command', async () => {
@@ -41,19 +55,106 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
 })
 
-test('cucumber config only targets markdown feature files and support globs', () => {
+test('cucumber config only targets markdown feature files and uses explicit support bootstrap', () => {
   const config = require('../cucumber.cjs')
 
   assert.deepEqual(config.paths, ['features/**/*.feature.md'])
   assert.deepEqual([...config.require].sort(), [
     'features/step_definitions/**/*.cjs',
-    'features/support/**/*.cjs',
+    'features/support/bootstrap.cjs',
   ].sort())
   assert.equal(config.publishQuiet, true)
   assert.equal(config.failFast, true)
 })
 
-test('cucumber dry-run smoke uses a valid markdown-with-gherkin feature fixture', async (t) => {
+test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
+  const hooks = require('../features/support/hooks.cjs')
+  const world = require('../features/support/world.cjs')
+
+  assert.equal(typeof hooks.registerHooks, 'function')
+  assert.equal(typeof world.registerWorld, 'function')
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.cjs')))
+
+  const [hooksSource, worldSource] = await Promise.all([
+    readSupportSource('hooks.cjs'),
+    readSupportSource('world.cjs'),
+  ])
+
+  assert.doesNotMatch(hooksSource, /isn['’]?t running/)
+  assert.doesNotMatch(worldSource, /isn['’]?t running/)
+})
+
+test('support hooks keep shared server lifecycle at run scope while resetting browser state per scenario', async () => {
+  const hooks = require('../features/support/hooks.cjs')
+  const registrations = {}
+  const calls = []
+
+  hooks.registerHooks({
+    BeforeAll: (callback) => {
+      registrations.beforeAll = callback
+    },
+    Before: (callback) => {
+      registrations.before = callback
+    },
+    After: (callback) => {
+      registrations.after = callback
+    },
+    AfterAll: (callback) => {
+      registrations.afterAll = callback
+    },
+    Status: { FAILED: 'FAILED' },
+    ensureSharedWebServer: async () => {
+      calls.push('ensure-server')
+      return { url: 'http://127.0.0.1:4174', managed: true }
+    },
+    shutdownSharedWebServer: async () => {
+      calls.push('shutdown-server')
+    },
+    closeWorldBrowser: async () => {
+      calls.push('close-browser')
+    },
+    readEguiError: async () => null,
+    getScenarioArtifactPath: async () => '/tmp/failure.png',
+    getSharedWebServerConfig: () => ({ url: 'http://127.0.0.1:4174' }),
+  })
+
+  assert.equal(typeof registrations.beforeAll, 'function')
+  assert.equal(typeof registrations.before, 'function')
+  assert.equal(typeof registrations.after, 'function')
+  assert.equal(typeof registrations.afterAll, 'function')
+
+  const world = {
+    page: null,
+    consoleErrors: [],
+    pageErrors: [],
+    async attach() {},
+    startScenario(name) {
+      calls.push(`start:${name}`)
+    },
+    resetRuntimeState() {
+      calls.push('reset-world')
+    },
+  }
+
+  await registrations.beforeAll.call({})
+  await registrations.before.call(world, { pickle: { name: 'smoke scenario' } })
+  await registrations.after.call(world, {
+    pickle: { name: 'smoke scenario' },
+    result: { status: 'PASSED' },
+  })
+  await registrations.afterAll.call({})
+
+  assert.equal(world.baseUrl, 'http://127.0.0.1:4174')
+  assert.deepEqual(calls, [
+    'ensure-server',
+    'start:smoke scenario',
+    'close-browser',
+    'reset-world',
+    'shutdown-server',
+  ])
+})
+
+test('cucumber dry-run smoke discovers exactly one markdown scenario without relying on formatter text', async (t) => {
   const fixture = await writeTempSmokeFixture([
     '# Feature: cucumber config smoke',
     '## Scenario: runner loads config and support',
@@ -73,6 +174,8 @@ test('cucumber dry-run smoke uses a valid markdown-with-gherkin feature fixture'
       '--config',
       'cucumber.cjs',
       '--dry-run',
+      '--format',
+      `message:${fixture.messagePath}`,
       '--require',
       fixture.stepsPath,
       fixture.featurePath,
@@ -80,12 +183,18 @@ test('cucumber dry-run smoke uses a valid markdown-with-gherkin feature fixture'
     {
       cwd: rootDir,
       encoding: 'utf8',
+      timeout: CUCUMBER_SMOKE_TIMEOUT_MS,
     }
   )
 
   assert.ifError(result.error)
+  assert.equal(result.signal, null, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
   assert.equal(result.status, 0, `stderr:\n${result.stderr}\nstdout:\n${result.stdout}`)
-  assert.match(result.stdout, /1 scenario/, `stdout:\n${result.stdout}`)
+
+  const messages = await parseMessageOutput(fixture.messagePath)
+  const pickleCount = messages.filter((message) => message.pickle).length
+
+  assert.equal(pickleCount, 1, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
 })
 
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {
@@ -96,7 +205,6 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   const world = require('../features/support/world.cjs')
   const helpers = require('../features/support/egui-helpers.cjs')
 
-  assert.doesNotThrow(() => require('../features/support/hooks.cjs'))
   assert.equal(browser.getStandardWebGpuLaunchOptions, sharedBrowser.getStandardWebGpuLaunchOptions)
   assert.equal(browser.getPlainChromiumLaunchOptions, sharedBrowser.getPlainChromiumLaunchOptions)
   assert.equal(server.getSharedWebServerConfig, sharedServer.getWebServerConfig)
