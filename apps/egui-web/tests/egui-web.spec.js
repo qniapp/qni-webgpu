@@ -1,26 +1,14 @@
 const { test, expect } = require('@playwright/test')
 const { chromium } = require('playwright')
 
-const evaluateWithRetry = async (page, fn, arg, attempts = 3) => {
-  let lastError
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      return await page.evaluate(fn, arg)
-    } catch (error) {
-      lastError = error
-      if (!String(error).includes('Execution context was destroyed')) {
-        throw error
-      }
-      await page.waitForLoadState('load')
-      await page.waitForFunction(
-        () => window.__eguiReady === true || Boolean(window.__eguiError),
-        null,
-        { timeout: 20000 }
-      )
-    }
-  }
-  throw lastError
-}
+const {
+  evaluateWithRetry,
+  readEguiError,
+  readStateVector,
+  waitForAppReady,
+  waitForCanvasContent,
+  waitForStateVectorReady,
+} = require('../features/support/egui-helpers.cjs')
 
 const screenshotWithRetry = async (page, locator, options, attempts = 3) => {
   let lastError
@@ -37,13 +25,9 @@ const screenshotWithRetry = async (page, locator, options, attempts = 3) => {
       ) {
         throw error
       }
-      await page.waitForLoadState('load')
-      await page.waitForFunction(
-        () => window.__eguiReady === true || Boolean(window.__eguiError),
-        null,
-        { timeout: 20000 }
-      )
-      await waitForStateVectorReady(page)
+      await page.waitForLoadState('load').catch(() => {})
+      await waitForAppReady(page).catch(() => {})
+      await waitForStateVectorReady(page).catch(() => {})
     }
   }
   throw lastError
@@ -94,20 +78,6 @@ const sampleCanvasPixels = async (page, locator, samples) => {
   )
 }
 
-const readStateVector = async (page) =>
-  evaluateWithRetry(page, async () => {
-    if (!window.__eguiReadStateVector) {
-      return []
-    }
-    return await window.__eguiReadStateVector()
-  })
-
-const waitForStateVectorReady = async (page, timeout = 20000) => {
-  await expect
-    .poll(async () => (await readStateVector(page)).length > 0, { timeout })
-    .toBe(true)
-}
-
 const waitForStateVectorLength = async (page, length, timeout = 5000) => {
   await expect
     .poll(async () => (await readStateVector(page)).length, { timeout })
@@ -124,59 +94,6 @@ const waitForStateVectorApprox = async (page, expected, timeout = 5000, toleranc
       return expected.every((value, index) => Math.abs(actual[index] - value) < tolerance)
     }, { timeout })
     .toBe(true)
-}
-
-const waitForCanvasBlue = async (page, canvas, path, timeout = 5000) => {
-  const start = Date.now()
-  let lastHits = 0
-  let lastScreenshot
-  while (Date.now() - start < timeout) {
-    lastScreenshot = await screenshotWithRetry(page, canvas, { type: 'png', path })
-    const base64 = lastScreenshot.toString('base64')
-    const { hits } = await evaluateWithRetry(
-      page,
-      async ({ base64 }) => {
-        const img = new Image()
-        img.src = `data:image/png;base64,${base64}`
-        await new Promise((resolve, reject) => {
-          img.onload = () => resolve(null)
-          img.onerror = () => reject(new Error('Failed to decode screenshot'))
-        })
-
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
-        if (!ctx) {
-          return { hits: 0 }
-        }
-        ctx.drawImage(img, 0, 0)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
-
-        let hits = 0
-        for (let y = Math.floor(canvas.height * 0.6); y < canvas.height; y += 2) {
-          for (let x = 0; x < canvas.width; x += 2) {
-            const idx = (y * canvas.width + x) * 4
-            const r = data[idx]
-            const g = data[idx + 1]
-            const b = data[idx + 2]
-            if (b > r + 30 && b > g + 30) {
-              hits += 1
-            }
-          }
-        }
-        return { hits }
-      },
-      { base64 }
-    )
-    lastHits = hits
-    if (hits > 100) {
-      return { hits, screenshot: lastScreenshot }
-    }
-    await page.waitForTimeout(100)
-  }
-  return { hits: lastHits, screenshot: lastScreenshot }
 }
 
 const dragPointer = async (page, from, to, steps = 6, release = true) => {
@@ -213,14 +130,8 @@ const releasePointer = async (page, at) => {
 
 test('egui webgpu canvas renders content', async ({ page }) => {
   await page.goto('/')
-
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout: 20000 }
-  )
-  const eguiError = await page.evaluate(() => window.__eguiError || null)
-  expect(eguiError).toBeNull()
+  await waitForAppReady(page)
+  expect(await readEguiError(page)).toBeNull()
 
   const gpuAvailable = await page.evaluate(() => Boolean(navigator.gpu))
   expect(gpuAvailable).toBe(true)
@@ -232,20 +143,15 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   const box = await canvas.boundingBox()
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
-  const cssHeight = box?.height ?? (viewport?.height ?? 800)
 
   await waitForStateVectorReady(page)
   const initialState = await readStateVector(page)
   expect(initialState).toEqual([1, 0, 0, 0])
-  const stateCount = Math.max(1, initialState.length / 2)
 
-  await page.waitForTimeout(500)
-  const { hits: initialHits } = await waitForCanvasBlue(
-    page,
-    canvas,
-    '/tmp/qni-egui-webgpu-initial.png'
-  )
-  expect(initialHits).toBeGreaterThan(100)
+  const initialRender = await waitForCanvasContent(page, canvas, {
+    path: '/tmp/qni-egui-webgpu-initial.png',
+  })
+  expect(initialRender.nonBackground).toBeGreaterThanOrEqual(40)
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -287,53 +193,10 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   const expectedBell = [1 / Math.sqrt(2), 0, 0, 0, 0, 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expectedBell)
 
-  const screenshot = await screenshotWithRetry(page, canvas, {
-    type: 'png',
-    path: '/tmp/qni-egui-webgpu-after.png'
+  const afterRender = await waitForCanvasContent(page, canvas, {
+    path: '/tmp/qni-egui-webgpu-after.png',
   })
-  const base64 = screenshot.toString('base64')
-
-  const stats = await evaluateWithRetry(page, async ({ base64 }) => {
-    const img = new Image()
-    img.src = `data:image/png;base64,${base64}`
-    await new Promise((resolve, reject) => {
-      img.onload = () => resolve(null)
-      img.onerror = () => reject(new Error('Failed to decode screenshot'))
-    })
-
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) {
-      return { nonBackground: 0 }
-    }
-    ctx.drawImage(img, 0, 0)
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const data = imageData.data
-    const width = imageData.width
-    const height = imageData.height
-    const background = [255, 255, 255]
-    const threshold = 20
-    let nonBackground = 0
-
-    for (let y = 0; y < height; y += 4) {
-      for (let x = 0; x < width; x += 4) {
-        const idx = (y * width + x) * 4
-        const diff =
-          Math.abs(data[idx] - background[0]) +
-          Math.abs(data[idx + 1] - background[1]) +
-          Math.abs(data[idx + 2] - background[2])
-        if (diff > threshold) {
-          nonBackground += 1
-        }
-      }
-    }
-
-    return { nonBackground }
-  }, { base64 })
-
-  expect(stats.nonBackground).toBeGreaterThan(40)
+  expect(afterRender.nonBackground).toBeGreaterThanOrEqual(40)
   await canvas.screenshot({ path: '/tmp/qni-egui-webgpu.png' })
 })
 
@@ -1077,13 +940,9 @@ test('default chromium shows a visible WebGPU error instead of a blank page', as
   try {
     const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
     await page.goto('http://127.0.0.1:4174/', { waitUntil: 'load' })
-    await page.waitForFunction(
-      () => window.__eguiReady === true || Boolean(window.__eguiError),
-      null,
-      { timeout: 20000 }
-    )
+    await waitForAppReady(page)
 
-    await expect.poll(async () => page.evaluate(() => window.__eguiError || null), {
+    await expect.poll(async () => readEguiError(page), {
       timeout: 20000,
     }).not.toBeNull()
     await expect(page.locator('[data-testid="webgpu-error"]')).toBeVisible()

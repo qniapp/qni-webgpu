@@ -5,4 +5,5 @@
 - When the app finishes initializing
 - Then the WebGPU error is absent
 - And the canvas is visible
+- And the canvas renders non-background content
 - And the initial state vector is "[1,0,0,0]"

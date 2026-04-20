@@ -7,6 +7,7 @@ const {
   waitForAppReady,
   readEguiError,
   readStateVector,
+  waitForCanvasContent,
   waitForStateVectorReady,
 } = require('../support/egui-helpers.cjs')
 
@@ -29,6 +30,13 @@ Then('the WebGPU error is absent', async function () {
 Then('the canvas is visible', async function () {
   assert.ok(this.page, 'expected egui page to be open')
   await this.page.locator('#egui-canvas').waitFor({ state: 'visible' })
+})
+
+Then('the canvas renders non-background content', async function () {
+  assert.ok(this.page, 'expected egui page to be open')
+  const canvas = this.page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  await waitForCanvasContent(this.page, canvas)
 })
 
 Then('the initial state vector is {string}', async function (expectedJson) {
