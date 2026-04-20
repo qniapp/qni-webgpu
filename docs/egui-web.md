@@ -43,7 +43,7 @@ pnpm run test:bdd
 pnpm run test:pw-legacy
 ```
 初回導入では Cucumber の Markdown Gherkin (`.feature.md`) を staged rollout で追加している。
-`features/*.feature.md` は `@cucumber/cucumber` で実行し、`pnpm run test:bdd` がその入口になる。
+`features/**/*.feature.md` は `@cucumber/cucumber` で実行し、`pnpm run test:bdd` がその入口になる。
 一方で既存の `@playwright/test` suite はまだ正本として残しており、`pnpm run test:pw-legacy` と `pnpm test` はどちらも `playwright test` を実行する。
 つまり **初回 pass では `test` を BDD へ切り替えない**。
 

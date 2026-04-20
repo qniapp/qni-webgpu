@@ -87,10 +87,11 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 
 ## GitHub Actions での CI
 
-GitHub Actions では `apps/egui-web/playwright.config.cjs` の WebGPU フラグを使って
-Playwright を実行する。ローカルでは `playwright.config.cjs` も `google-chrome-stable` を優先し、
-未インストール時のみ Playwright 同梱 Chromium へ fallback する。Linux 環境では `xvfb-run` を併用できるが、
-現在の CI ワークフロー自体は `./scripts/check-all.sh` から `pnpm exec playwright test` を直接呼ぶ構成。
+GitHub Actions では `./scripts/check-all.sh` 経由で staged rollout の Web gate を通す。
+`apps/egui-web` では `pnpm run test:preflight` → `pnpm run test:bdd` → `pnpm run test:pw-legacy` の順で実行し、
+legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.cjs` の WebGPU フラグ付き Playwright を呼ぶ。
+ローカルでは `playwright.config.cjs` も `google-chrome-stable` を優先し、
+未インストール時のみ Playwright 同梱 Chromium へ fallback する。Linux 環境では `xvfb-run` を併用できる。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
@@ -104,8 +105,9 @@ Playwright を実行する。ローカルでは `playwright.config.cjs` も `goo
 ```
 
 内部で以下を実行する:
-- `apps/egui-web` で browser preflight（Chrome 優先解決の Node テスト）
-- `apps/egui-web` で Playwright
+- `apps/egui-web` で `pnpm run test:preflight`（Chrome 優先解決の browser preflight）
+- `apps/egui-web` で `pnpm run test:bdd`（Cucumber BDD）
+- `apps/egui-web` で `pnpm run test:pw-legacy`（legacy Playwright）
 - `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI 向け）
 
