@@ -279,6 +279,39 @@ test('sampleCanvasPixels passes screenshot bytes and css size into page evaluati
   assert.equal(locator.calls.boundingBox, 1)
 })
 
+test('sampleCanvasPixels waits for state-vector readiness before retrying a destroyed screenshot context', async () => {
+  const page = makePage({
+    evaluateImpl: async (fn, arg) => {
+      const source = fn.toString()
+      if (source.includes('__eguiError')) {
+        return null
+      }
+      if (source.includes('__eguiReadStateVector')) {
+        return [1, 0, 0, 0]
+      }
+      return arg
+    },
+  })
+  const locator = makeLocator({
+    screenshotImpl: async (_options, index) => {
+      if (index === 0) {
+        throw new Error('Execution context was destroyed, most likely because of a navigation')
+      }
+      return Buffer.from('png')
+    },
+    boundingBoxImpl: async () => ({ width: 320, height: 180 }),
+  })
+
+  const result = await sampleCanvasPixels(page, locator, [{ name: 'probe', x: 12, y: 34 }])
+
+  assert.equal(result.cssWidth, 320)
+  assert.deepEqual(page.calls.waitForLoadState, ['load'])
+  assert.equal(page.calls.waitForFunction.length, 1)
+  assert.match(page.calls.evaluate[0].source, /__eguiError/)
+  assert.match(page.calls.evaluate[1].source, /__eguiReadStateVector/)
+  assert.equal(locator.calls.screenshot.length, 2)
+})
+
 test('getDragPreviewAboveStatePanelProbe preserves the current drag target contract', () => {
   const probe = getDragPreviewAboveStatePanelProbe(1000, 800)
 
@@ -287,4 +320,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
   assert.equal(probe.dragFillPoint.name, 'fill')
   assert.equal(probe.dragFillPoint.x, probe.handleCenter.x + 10)
   assert.equal(probe.dragFillPoint.y, probe.handleCenter.y + 10)
+  assert.equal(probe.sourceFillPoint.name, 'sourceFill')
+  assert.equal(probe.sourceFillPoint.x, probe.source.x + 10)
+  assert.equal(probe.sourceFillPoint.y, probe.source.y + 10)
 })

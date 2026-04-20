@@ -58,7 +58,12 @@ const evaluateWithRetry = async (page, fn, arg, attempts = DEFAULT_EVALUATE_ATTE
   throw lastError
 }
 
-const screenshotWithRetry = async (page, locator, options = {}, attempts = DEFAULT_EVALUATE_ATTEMPTS) => {
+const screenshotWithRetry = async (
+  page,
+  locator,
+  { waitForStateVector = false, ...options } = {},
+  attempts = DEFAULT_EVALUATE_ATTEMPTS
+) => {
   let lastError
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -71,6 +76,9 @@ const screenshotWithRetry = async (page, locator, options = {}, attempts = DEFAU
       }
       await page.waitForLoadState('load').catch(() => {})
       await waitForAppReady(page).catch(() => {})
+      if (waitForStateVector) {
+        await waitForStateVectorReady(page).catch(() => {})
+      }
     }
   }
 
@@ -228,7 +236,10 @@ const requireCanvasBoundingBox = async (page) => {
 }
 
 const sampleCanvasPixels = async (page, locator, samples) => {
-  const screenshot = await screenshotWithRetry(page, locator, { type: 'png' })
+  const screenshot = await screenshotWithRetry(page, locator, {
+    type: 'png',
+    waitForStateVector: true,
+  })
   const base64 = screenshot.toString('base64')
   const box = await locator.boundingBox()
   if (!box) {
@@ -398,6 +409,11 @@ const getDragPreviewAboveStatePanelProbe = (
   return {
     source,
     handleCenter,
+    sourceFillPoint: {
+      name: 'sourceFill',
+      x: source.x + gateSize / 2 - 6,
+      y: source.y + gateSize / 2 - 6,
+    },
     dragFillPoint: {
       name: 'fill',
       x: handleCenter.x + gateSize / 2 - 6,

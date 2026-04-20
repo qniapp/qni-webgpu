@@ -1,86 +1,18 @@
 const { test, expect } = require('@playwright/test')
 const { chromium } = require('playwright')
 
+const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.cjs')
 const {
-  dragPointer: sharedDragPointer,
-  evaluateWithRetry,
+  dragPointer,
   getDragPreviewAboveStatePanelProbe,
   readEguiError,
   readStateVector,
-  sampleCanvasPixels: sharedSampleCanvasPixels,
+  releasePointer,
+  sampleCanvasPixels,
   waitForAppReady,
   waitForCanvasContent,
   waitForStartupReady,
-  waitForStateVectorReady,
 } = require('../features/support/egui-helpers.cjs')
-
-const screenshotWithRetry = async (page, locator, options, attempts = 3) => {
-  let lastError
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      return await locator.screenshot(options)
-    } catch (error) {
-      lastError = error
-      const message = String(error)
-      if (
-        !message.includes('Execution context was destroyed') &&
-        !message.includes('Element is not attached') &&
-        !message.includes('Cannot find context')
-      ) {
-        throw error
-      }
-      await page.waitForLoadState('load').catch(() => {})
-      await waitForAppReady(page).catch(() => {})
-      await waitForStateVectorReady(page).catch(() => {})
-    }
-  }
-  throw lastError
-}
-
-const sampleCanvasPixels = async (page, locator, samples) => {
-  const screenshot = await screenshotWithRetry(page, locator, { type: 'png' })
-  const base64 = screenshot.toString('base64')
-  const box = await locator.boundingBox()
-  if (!box) {
-    throw new Error('canvas not found')
-  }
-  return evaluateWithRetry(
-    page,
-    async ({ base64, samples, cssWidth, cssHeight }) => {
-      const img = new Image()
-      img.src = `data:image/png;base64,${base64}`
-      await new Promise((resolve, reject) => {
-        img.onload = () => resolve(null)
-        img.onerror = () => reject(new Error('Failed to decode screenshot'))
-      })
-
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
-      if (!ctx) {
-        return {}
-      }
-      ctx.drawImage(img, 0, 0)
-
-      const scaleX = img.width / cssWidth
-      const scaleY = img.height / cssHeight
-
-      return Object.fromEntries(
-        samples.map(({ name, x, y }) => {
-          const data = ctx.getImageData(
-            Math.floor(x * scaleX),
-            Math.floor(y * scaleY),
-            1,
-            1
-          ).data
-          return [name, Array.from(data)]
-        })
-      )
-    },
-    { base64, samples, cssWidth: box.width, cssHeight: box.height }
-  )
-}
 
 const waitForStateVectorLength = async (page, length, timeout = 5000) => {
   await expect
@@ -98,38 +30,6 @@ const waitForStateVectorApprox = async (page, expected, timeout = 5000, toleranc
       return expected.every((value, index) => Math.abs(actual[index] - value) < tolerance)
     }, { timeout })
     .toBe(true)
-}
-
-const dragPointer = async (page, from, to, steps = 6, release = true) => {
-  const canvas = page.locator('#egui-canvas')
-  const box = await canvas.boundingBox()
-  if (!box) {
-    throw new Error('canvas not found')
-  }
-  const startX = box.x + from.x
-  const startY = box.y + from.y
-  const endX = box.x + to.x
-  const endY = box.y + to.y
-  await page.mouse.move(startX, startY)
-  await page.mouse.down()
-  await page.waitForTimeout(16)
-  await page.mouse.move(endX, endY, { steps })
-  await page.waitForTimeout(16)
-  if (release) {
-    await page.mouse.up()
-  }
-}
-
-const releasePointer = async (page, at) => {
-  const canvas = page.locator('#egui-canvas')
-  const box = await canvas.boundingBox()
-  if (!box) {
-    throw new Error('canvas not found')
-  }
-  const endX = box.x + at.x
-  const endY = box.y + at.y
-  await page.mouse.move(endX, endY)
-  await page.mouse.up()
 }
 
 test('egui webgpu canvas renders content', async ({ page }) => {
@@ -475,22 +375,20 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
   const box = await canvas.boundingBox()
   expect(box).not.toBeNull()
 
-  const { source, handleCenter, dragFillPoint } = getDragPreviewAboveStatePanelProbe(
-    box.width,
-    box.height
-  )
-  const beforeDrag = await sharedSampleCanvasPixels(page, canvas, [dragFillPoint])
+  const { source, handleCenter, dragFillPoint, sourceFillPoint } =
+    getDragPreviewAboveStatePanelProbe(box.width, box.height)
+  const beforeDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint, sourceFillPoint])
 
-  await sharedDragPointer(page, source, handleCenter, 8, false)
+  await dragPointer(page, source, handleCenter, 8, false)
   await page.waitForTimeout(50)
 
-  const duringDrag = await sharedSampleCanvasPixels(page, canvas, [dragFillPoint])
+  const duringDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
 
-  const before = beforeDrag.fill
-  const during = duringDrag.fill
-  const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
-  expect(diff).toBeGreaterThan(120)
-  expect(during[1]).toBeGreaterThan(during[0] + 40)
+  assertDragPreviewAboveOverlay({
+    before: beforeDrag.fill,
+    during: duringDrag.fill,
+    source: beforeDrag.sourceFill,
+  })
 
   await page.mouse.up()
 })
