@@ -33,26 +33,44 @@ QNI_EGUI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-egui-web.sh
 - `QNI_EGUI_WEB_URL`: 接続先 URL を直接指定
 - `QNI_EGUI_WEB_PROFILE_DIR`: 一時 profile ディレクトリを変更
 
-## Playwright
+## Playwright / Cucumber rollout
 ```
 cd apps/egui-web
 pnpm install
 pnpm exec playwright install chromium
-pnpm exec playwright test
+pnpm run test:preflight
+pnpm run test:bdd
+pnpm run test:pw-legacy
 ```
+初回導入では Cucumber の Markdown Gherkin (`.feature.md`) を staged rollout で追加している。
+`features/*.feature.md` は `@cucumber/cucumber` で実行し、`pnpm run test:bdd` がその入口になる。
+一方で既存の `@playwright/test` suite はまだ正本として残しており、`pnpm run test:pw-legacy` と `pnpm test` はどちらも `playwright test` を実行する。
+つまり **初回 pass では `test` を BDD へ切り替えない**。
+
+BDD 化したのは最初の 3 scenario のみ:
+- `startup-success.feature.md`
+- `plain-chromium-error.feature.md`
+- `drag-preview-z-order.feature.md`
+
 MCP から Playwright を使う場合は、helper の `scripts/playwright-mcp.sh` を使うと
 `.playwright-mcp/config.json` を自動検出しつつ `--isolated` 付きで起動できる。
 （このプロジェクトの `.mcp.json` でも同等の設定を直接記述している。）
 WebGPU は X がないと adapter が取れないため、Xvfb を挟んで実行する。
 ```
 cd apps/egui-web
-xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
+xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 ```
 `@playwright/test` の headless shell だと SRI mismatch が起きるため、
 `playwright.config.cjs` は Playwright 同梱ブラウザよりも先に `google-chrome-stable` を優先し、
 見つからない場合のみ `chromium.executablePath()` に fallback する。
 必要なら `PLAYWRIGHT_CHROMIUM_PATH` で明示上書きできる。
-`pnpm run test:preflight` では、この browser 選択ロジックの Node テストだけを先に確認できる。
+この browser policy と `trunk serve --address 127.0.0.1 --port 4174 --no-autoreload` の server policy は
+`test-support/browser-launch.cjs` と `test-support/web-server.cjs` に集約されており、
+legacy Playwright と BDD の両方が同じ shared source of truth を使う。
+そのため、flagged Chrome を正本にする挙動は両経路で一致する。
+
+repo root の `scripts/check-all.sh` でも staged rollout を維持し、
+`test:preflight` → `test:bdd` → `test:pw-legacy` の順で Web の gate を通す。
 
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
