@@ -6,10 +6,59 @@ const { getWebServerConfig } = require('../../test-support/web-server.cjs')
 
 const APP_ROOT = path.join(__dirname, '..', '..')
 const POLL_INTERVAL_MS = 250
+const PROCESS_TERM_TIMEOUT_MS = 5_000
+const PROCESS_KILL_TIMEOUT_MS = 5_000
 
 let managedServerProcess = null
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const didProcessExit = (processToCheck) =>
+  Boolean(processToCheck) && (processToCheck.exitCode !== null || processToCheck.signalCode !== null)
+
+const waitForProcessExit = async (processToWaitFor, timeoutMs) => {
+  if (!processToWaitFor || didProcessExit(processToWaitFor)) {
+    return true
+  }
+
+  let timeoutId
+  try {
+    const timeout = new Promise((resolve) => {
+      timeoutId = setTimeout(() => resolve(false), timeoutMs)
+    })
+
+    const exited = await Promise.race([
+      once(processToWaitFor, 'exit')
+        .then(() => true)
+        .catch(() => true),
+      timeout,
+    ])
+
+    return exited || didProcessExit(processToWaitFor)
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+const terminateProcess = async (
+  processToStop,
+  {
+    termTimeoutMs = PROCESS_TERM_TIMEOUT_MS,
+    killTimeoutMs = PROCESS_KILL_TIMEOUT_MS,
+  } = {}
+) => {
+  if (!processToStop || didProcessExit(processToStop)) {
+    return
+  }
+
+  processToStop.kill('SIGTERM')
+  if (await waitForProcessExit(processToStop, termTimeoutMs)) {
+    return
+  }
+
+  processToStop.kill('SIGKILL')
+  await waitForProcessExit(processToStop, killTimeoutMs)
+}
 
 const probeServer = async (url) => {
   try {
@@ -36,7 +85,7 @@ const waitForServer = async (url, timeout) => {
 const ensureSharedWebServer = async () => {
   const config = getWebServerConfig()
 
-  if (managedServerProcess && managedServerProcess.exitCode === null) {
+  if (managedServerProcess && !didProcessExit(managedServerProcess)) {
     await waitForServer(config.url, config.timeout)
     return { ...config, managed: true }
   }
@@ -45,7 +94,7 @@ const ensureSharedWebServer = async () => {
     return { ...config, managed: false }
   }
 
-  managedServerProcess = spawn('sh', ['-lc', config.command], {
+  managedServerProcess = spawn('sh', ['-lc', `exec ${config.command}`], {
     cwd: APP_ROOT,
     stdio: 'ignore',
   })
@@ -64,21 +113,12 @@ const shutdownSharedWebServer = async () => {
   const processToStop = managedServerProcess
   managedServerProcess = null
 
-  if (!processToStop || processToStop.exitCode !== null) {
-    return
-  }
-
-  processToStop.kill('SIGTERM')
-  await Promise.race([once(processToStop, 'exit'), delay(5_000)])
-
-  if (processToStop.exitCode === null) {
-    processToStop.kill('SIGKILL')
-    await once(processToStop, 'exit').catch(() => {})
-  }
+  await terminateProcess(processToStop)
 }
 
 module.exports = {
   getSharedWebServerConfig: getWebServerConfig,
   ensureSharedWebServer,
   shutdownSharedWebServer,
+  terminateProcess,
 }
