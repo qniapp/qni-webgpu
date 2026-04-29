@@ -90,7 +90,8 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
   const calls = []
 
   hooks.registerHooks({
-    BeforeAll: (callback) => {
+    BeforeAll: (options, callback) => {
+      registrations.beforeAllOptions = options
       registrations.beforeAll = callback
     },
     Before: (callback) => {
@@ -99,7 +100,8 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
     After: (callback) => {
       registrations.after = callback
     },
-    AfterAll: (callback) => {
+    AfterAll: (options, callback) => {
+      registrations.afterAllOptions = options
       registrations.afterAll = callback
     },
     Status: { FAILED: 'FAILED' },
@@ -115,13 +117,15 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
     },
     readEguiError: async () => null,
     getScenarioArtifactPath: async () => '/tmp/failure.png',
-    getSharedWebServerConfig: () => ({ url: 'http://127.0.0.1:4174' }),
+    getSharedWebServerConfig: () => ({ url: 'http://127.0.0.1:4174', timeout: 123_456 }),
   })
 
   assert.equal(typeof registrations.beforeAll, 'function')
   assert.equal(typeof registrations.before, 'function')
   assert.equal(typeof registrations.after, 'function')
   assert.equal(typeof registrations.afterAll, 'function')
+  assert.deepEqual(registrations.beforeAllOptions, { timeout: 123_456 })
+  assert.deepEqual(registrations.afterAllOptions, { timeout: 123_456 })
 
   const world = {
     page: null,

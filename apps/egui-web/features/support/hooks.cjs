@@ -25,7 +25,7 @@ const registerHooks = ({
 } = {}) => {
   let sharedServer = null
 
-  BeforeAll(async function () {
+  BeforeAll({ timeout: getServerConfig().timeout }, async function () {
     sharedServer = await ensureServer()
   })
 
@@ -63,7 +63,7 @@ const registerHooks = ({
     }
   })
 
-  AfterAll(async function () {
+  AfterAll({ timeout: getServerConfig().timeout }, async function () {
     try {
       await shutdownServer()
     } finally {
