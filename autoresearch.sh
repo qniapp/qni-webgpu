@@ -33,10 +33,36 @@ print(f"{(end_ns - start_ns) / 1_000_000_000:.3f}")
 PY
 }
 
+measure_median_seconds() {
+  local label="$1"
+  local repeats="$2"
+  shift 2
+
+  python - "$label" "$repeats" "$@" <<'PY'
+import statistics
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+label = sys.argv[1]
+repeats = int(sys.argv[2])
+cmd = sys.argv[3:]
+results = []
+for index in range(repeats):
+    start = time.perf_counter_ns()
+    completed = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True)
+    end = time.perf_counter_ns()
+    Path(f"/tmp/{label}-{index + 1}.log").write_text(completed.stdout)
+    results.append((end - start) / 1_000_000_000)
+print(f"{statistics.median(results):.3f}")
+PY
+}
+
 WEB_PREFLIGHT_S=$(measure_seconds web-preflight pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
 WEB_TRUNK_BUILD_S=$(measure_seconds web-trunk-build bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
-WEB_TRUNK_BUILD_COLD_S=$(measure_seconds web-trunk-build-cold bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
-WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_seconds web-trunk-build-cold-system-wasm-bindgen bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
+WEB_TRUNK_BUILD_COLD_S=$(measure_median_seconds web-trunk-build-cold 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_median_seconds web-trunk-build-cold-system-wasm-bindgen 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
 from pathlib import Path
 matches = sorted(Path.home().glob('.cache/trunk/wasm-bindgen-*/wasm-bindgen'))
 print(matches[-1].parent if matches else '')
