@@ -106,6 +106,7 @@ PY
 ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_TRUNK_BUILD_S" "$WEB_TRUNK_BUILD_COLD_S" "$WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
 require 'json'
 require 'open3'
+require 'set'
 require 'time'
 require 'yaml'
 
@@ -170,6 +171,8 @@ exact_run_runtime_job_step_cost_s = {}
 exact_run_runtime_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 exact_run_runtime_step_cost_s = {}
 exact_run_runtime_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
+exact_run_runtime_job_names = Set.new
+exact_run_runtime_step_job_counts = Hash.new(0)
 observed_run_id = nil
 observed_run_count = 0
 selected_records_exact_runtime = false
@@ -178,6 +181,7 @@ can_use_exact_run_runtime_costs = false
 expected_job_steps = jobs.transform_values do |job|
   Array(job['steps']).map { |step| step['name'].to_s }
 end
+current_step_job_counts = expected_job_steps.values.flatten.tally
 
 if !branch_name.to_s.empty?
   run_list_out, run_list_status = Open3.capture2(
@@ -283,7 +287,10 @@ if !branch_name.to_s.empty?
     end
 
     run_records.select { |record| record[:exact_run_runtime] }.first(5).each do |record|
+      record_step_job_counts = Hash.new(0)
+
       record.fetch(:jobs).each do |job|
+        exact_run_runtime_job_names << job['name'].to_s
         Array(job['steps']).each do |step|
           next unless step['status'] == 'completed'
           next if step['name'].to_s.start_with?('Post ')
@@ -296,7 +303,12 @@ if !branch_name.to_s.empty?
           duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
           exact_run_runtime_job_step_cost_lists[[job['name'], step['name']]] << duration_s
           exact_run_runtime_step_cost_lists[step['name']] << duration_s
+          record_step_job_counts[step['name']] += 1
         end
+      end
+
+      record_step_job_counts.each do |step_name, count|
+        exact_run_runtime_step_job_counts[step_name] = [exact_run_runtime_step_job_counts[step_name], count].max
       end
     end
   end
@@ -341,14 +353,32 @@ else
   web_trunk_build_cold_s.to_f
 end
 
+compile_heavy_run_step = lambda do |step_name, text|
+  step_name == 'Web trunk build' ||
+    text.start_with?('cargo ') ||
+    text == 'make check' ||
+    (text.include?('make -C') && text.include?('check'))
+end
+
 normalize_run = lambda do |job_name, step_name, run_text, working_directory|
   text = run_text.to_s.strip.gsub(/\s+/, ' ')
   wd = working_directory.to_s.strip
   return nil if text.empty?
 
   if can_use_exact_run_runtime_costs
-    exact_cost = exact_run_runtime_job_step_cost_s[[job_name, step_name]] || exact_run_runtime_step_cost_s[step_name]
-    return exact_cost if exact_cost
+    exact_job_step_cost = exact_run_runtime_job_step_cost_s[[job_name, step_name]]
+    return exact_job_step_cost if exact_job_step_cost
+
+    if exact_run_runtime_job_names.include?(job_name)
+      exact_cost = exact_run_runtime_step_cost_s[step_name]
+      return exact_cost if exact_cost
+    end
+
+    if current_step_job_counts.fetch(step_name, 0) > exact_run_runtime_step_job_counts.fetch(step_name, 0) &&
+       compile_heavy_run_step.call(step_name, text)
+      conservative_cost = fallback_step_cost_s[step_name] || step_cost_s[step_name]
+      return conservative_cost if conservative_cost
+    end
   end
 
   if text == './scripts/check-all.sh'
