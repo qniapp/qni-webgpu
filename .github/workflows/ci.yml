@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  check:
+  web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -26,8 +28,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
 
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
@@ -35,22 +35,65 @@ jobs:
       - name: Install trunk
         run: cargo install trunk --locked
 
-      - name: Install cargo audit/deny
-        run: |
-          cargo install cargo-audit --locked
-          cargo install cargo-deny --locked
-
       - name: Install Web deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
         working-directory: apps/egui-web
 
       - name: Install Playwright browser
         run: pnpm exec playwright install chromium
         working-directory: apps/egui-web
 
+      - name: Web preflight
+        run: pnpm -C apps/egui-web run test:preflight
+
+      - name: Web Cucumber BDD
+        run: pnpm -C apps/egui-web run test:bdd
+
+      - name: Web Playwright legacy
+        run: pnpm -C apps/egui-web run test:pw-legacy
+
+  mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/mcp-qni/pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
       - name: Install MCP deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
         working-directory: apps/mcp-qni
 
-      - name: Run all checks
-        run: ./scripts/check-all.sh
+      - name: MCP check
+        run: pnpm -C apps/mcp-qni check
+
+  tui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install cargo audit/deny
+        run: |
+          cargo install cargo-audit --locked
+          cargo install cargo-deny --locked
+
+      - name: TUI check
+        run: make check
