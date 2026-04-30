@@ -107,6 +107,10 @@ observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_run_id = nil
 observed_run_count = 0
 
+expected_job_steps = jobs.transform_values do |job|
+  Array(job['steps']).map { |step| step['name'].to_s }
+end
+
 if !branch_name.to_s.empty?
   run_list_out, run_list_status = Open3.capture2(
     'gh', 'run', 'list',
@@ -118,17 +122,44 @@ if !branch_name.to_s.empty?
 
   if run_list_status.success?
     successful_runs = JSON.parse(run_list_out).select { |run| run['conclusion'] == 'success' }
-    observed_run_id = successful_runs.first&.fetch('databaseId', nil)
+    run_records = []
 
-    successful_runs.first(5).each_with_index do |run, index|
+    successful_runs.each do |run|
       run_view_out, run_view_status = Open3.capture2(
         'gh', 'run', 'view', run.fetch('databaseId').to_s,
         '--json', 'jobs'
       )
       next unless run_view_status.success?
 
-      observed_run_count += 1
-      JSON.parse(run_view_out).fetch('jobs').each do |job|
+      run_jobs = JSON.parse(run_view_out).fetch('jobs')
+      run_job_steps = run_jobs.each_with_object({}) do |job, hash|
+        hash[job['name']] = Array(job['steps']).filter_map do |step|
+          next unless step['status'] == 'completed'
+          next if step['name'].to_s.start_with?('Post ')
+          next if step['name'].to_s == 'Complete job'
+
+          step['name'].to_s
+        end
+      end
+
+      matches_current_workflow =
+        run_job_steps.keys.sort == expected_job_steps.keys.sort &&
+        expected_job_steps.all? { |job_name, steps| run_job_steps[job_name] == steps }
+
+      run_records << {
+        id: run.fetch('databaseId'),
+        jobs: run_jobs,
+        matching: matches_current_workflow,
+      }
+    end
+
+    matching_records = run_records.select { |record| record[:matching] }
+    selected_records = matching_records.empty? ? run_records.first(5) : matching_records.first(5)
+    observed_run_id = selected_records.first&.fetch(:id, nil)
+    observed_run_count = selected_records.size
+
+    selected_records.each_with_index do |record, index|
+      record.fetch(:jobs).each do |job|
         Array(job['steps']).each do |step|
           next unless step['status'] == 'completed'
           next if step['name'].to_s.start_with?('Post ')
@@ -153,10 +184,15 @@ end
 step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
 
 web_job = jobs['web'] || {}
+web_caches_trunk_tools = Array(web_job['steps']).any? do |step|
+  step['name'].to_s.downcase.include?('cache trunk tools')
+end
 web_installs_system_wasm_bindgen = Array(web_job['steps']).any? do |step|
   step['name'].to_s.downcase.include?('install wasm-bindgen')
 end
-web_trunk_model_s = if web_installs_system_wasm_bindgen
+web_trunk_model_s = if web_caches_trunk_tools
+  web_trunk_build_s.to_f
+elsif web_installs_system_wasm_bindgen
   web_trunk_build_cold_system_wasm_bindgen_s.to_f
 else
   web_trunk_build_cold_s.to_f
