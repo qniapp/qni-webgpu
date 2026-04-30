@@ -1,4 +1,3 @@
 - Recalibrate `autoresearch.sh` from the latest successful CI run so the proxy reflects post-`install-action` reality instead of stale cargo-install setup timings.
-- Start `trunk serve` once for the web job and reuse that server across both `test:bdd` and `test:pw-legacy` so CI stops paying server/bootstrap startup twice.
-- Fold `wasm32-unknown-unknown` target installation into `dtolnay/rust-toolchain` setup (if supported cleanly) to shave one more Rust setup step without changing coverage.
+- Cache the Playwright browser payload (or otherwise avoid re-installing Chromium every run) if GitHub-hosted runners are not already warm there; the current web job still spends about a dozen seconds in browser setup.
 - If branch protection allows, add a small aggregate status job that depends on `web`, `mcp`, and `tui` so required-check naming stays stable while keeping the parallel topology.

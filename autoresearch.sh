@@ -45,14 +45,17 @@ print(f"{sum(float(v) for v in sys.argv[1:]):.3f}")
 PY
 )
 
-ruby - "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
+ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
+require 'json'
+require 'open3'
+require 'time'
 require 'yaml'
 
-workflow_path, web_preflight_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
+root_dir, workflow_path, web_preflight_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
 config = YAML.load_file(workflow_path)
 jobs = config.fetch('jobs')
 
-setup_cost_s = {
+fallback_step_cost_s = {
   'Set up job' => 3.0,
   'Checkout' => 1.0,
   'Setup Node' => 1.0,
@@ -67,6 +70,9 @@ setup_cost_s = {
   'Install MCP deps' => 2.0,
 }
 
+web_bundle = web_preflight_s.to_f + web_bdd_s.to_f + web_legacy_s.to_f
+full_bundle = web_bundle + mcp_check_s.to_f + tui_check_s.to_f
+
 command_cost_s = {
   'pnpm -C apps/egui-web run test:preflight' => web_preflight_s.to_f,
   'pnpm -C apps/egui-web run test:bdd' => web_bdd_s.to_f,
@@ -75,8 +81,59 @@ command_cost_s = {
   'make -C . check' => tui_check_s.to_f,
 }
 
-web_bundle = web_preflight_s.to_f + web_bdd_s.to_f + web_legacy_s.to_f
-full_bundle = web_bundle + mcp_check_s.to_f + tui_check_s.to_f
+branch_name = ENV['AUTORESEARCH_BRANCH']
+if branch_name.to_s.empty?
+  out, status = Open3.capture2('git', '-C', root_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
+  branch_name = out.strip if status.success?
+end
+
+observed_job_step_cost_s = {}
+observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
+observed_run_id = nil
+
+if !branch_name.to_s.empty?
+  run_list_out, run_list_status = Open3.capture2(
+    'gh', 'run', 'list',
+    '--branch', branch_name,
+    '--workflow', 'CI',
+    '--limit', '20',
+    '--json', 'databaseId,conclusion'
+  )
+
+  if run_list_status.success?
+    successful_run = JSON.parse(run_list_out).find { |run| run['conclusion'] == 'success' }
+    if successful_run
+      observed_run_id = successful_run['databaseId']
+      run_view_out, run_view_status = Open3.capture2(
+        'gh', 'run', 'view', observed_run_id.to_s,
+        '--json', 'jobs'
+      )
+
+      if run_view_status.success?
+        JSON.parse(run_view_out).fetch('jobs').each do |job|
+          Array(job['steps']).each do |step|
+            next unless step['status'] == 'completed'
+            next if step['name'].to_s.start_with?('Post ')
+            next if step['name'].to_s == 'Complete job'
+
+            started_at = step['startedAt']
+            completed_at = step['completedAt']
+            next if started_at.to_s.empty? || completed_at.to_s.empty?
+
+            duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
+            observed_job_step_cost_s[[job['name'], step['name']]] = duration_s
+            observed_step_cost_lists[step['name']] << duration_s
+          end
+        end
+      end
+    end
+  end
+end
+
+observed_step_cost_s = observed_step_cost_lists.transform_values do |durations|
+  durations.sum / durations.size
+end
+step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
 
 normalize_run = lambda do |run_text, working_directory|
   text = run_text.to_s.strip.gsub(/\s+/, ' ')
@@ -105,8 +162,14 @@ jobs.each do |job_name, job|
   total_s = 0.0
   Array(job['steps']).each do |step|
     name = step['name'].to_s
-    if setup_cost_s.key?(name)
-      total_s += setup_cost_s.fetch(name)
+
+    if observed_job_step_cost_s.key?([job_name, name])
+      total_s += observed_job_step_cost_s.fetch([job_name, name])
+      next
+    end
+
+    if step_cost_s.key?(name)
+      total_s += step_cost_s.fetch(name)
       next
     end
 
@@ -132,6 +195,7 @@ puts "METRIC mcp_local_s=#{mcp_check_s.to_f.round(3)}"
 puts "METRIC tui_local_s=#{tui_check_s.to_f.round(3)}"
 puts "METRIC modeled_jobs=#{job_totals.size}"
 puts "METRIC modeled_unknown_steps=#{unknown_steps.size}"
+puts "METRIC observed_ci_run_id=#{observed_run_id || 0}"
 unknown_steps.each do |job_name, step_name, run_text|
   warn "UNMODELED_STEP #{job_name} :: #{step_name} :: #{run_text}"
 end
