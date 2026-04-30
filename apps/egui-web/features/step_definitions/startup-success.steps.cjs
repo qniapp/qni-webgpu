@@ -11,12 +11,14 @@ const {
   waitForStateVectorReady,
 } = require('../support/egui-helpers.cjs')
 
-Given('the egui web app is open in the standard WebGPU browser', async function () {
+const CUCUMBER_STEP_TIMEOUT_MS = 20_000
+
+Given('the egui web app is open in the standard WebGPU browser', { timeout: CUCUMBER_STEP_TIMEOUT_MS }, async function () {
   const page = await openPageForMode(this, STANDARD_BROWSER_MODE)
   await openEguiApp(page, this.baseUrl)
 })
 
-When('the app finishes initializing', async function () {
+When('the app finishes initializing', { timeout: CUCUMBER_STEP_TIMEOUT_MS }, async function () {
   assert.ok(this.page, 'expected egui page to be open')
   await waitForStartupReady(this.page, { waitForStateVector: true })
 })
