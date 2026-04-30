@@ -35,6 +35,13 @@ PY
 
 WEB_PREFLIGHT_S=$(measure_seconds web-preflight pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
 WEB_TRUNK_BUILD_S=$(measure_seconds web-trunk-build bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_TRUNK_BUILD_COLD_S=$(measure_seconds web-trunk-build-cold bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_seconds web-trunk-build-cold-system-wasm-bindgen bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
+from pathlib import Path
+matches = sorted(Path.home().glob('.cache/trunk/wasm-bindgen-*/wasm-bindgen'))
+print(matches[-1].parent if matches else '')
+PY
+) && trap 'rm -rf \"\$tmp_cache\"' EXIT && if [ -n \"\$candidate_dir\" ]; then PATH=\"\$candidate_dir:\$PATH\" XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; else XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; fi")
 WEB_BDD_S=$(measure_seconds web-bdd bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd")
 WEB_LEGACY_S=$(measure_seconds web-legacy bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy")
 MCP_CHECK_S=$(measure_seconds mcp-check pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
@@ -46,13 +53,13 @@ print(f"{sum(float(v) for v in sys.argv[1:]):.3f}")
 PY
 )
 
-ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_TRUNK_BUILD_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
+ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_TRUNK_BUILD_S" "$WEB_TRUNK_BUILD_COLD_S" "$WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
 require 'json'
 require 'open3'
 require 'time'
 require 'yaml'
 
-root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
+root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_trunk_build_cold_s, web_trunk_build_cold_system_wasm_bindgen_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
 config = YAML.load_file(workflow_path)
 jobs = config.fetch('jobs')
 
@@ -82,7 +89,6 @@ full_bundle = web_bundle + mcp_check_s.to_f + tui_check_s.to_f
 
 command_cost_s = {
   'pnpm -C apps/egui-web run test:preflight' => web_preflight_s.to_f,
-  'env -u NO_COLOR TRUNK_COLOR=never trunk build' => web_trunk_build_s.to_f,
   'pnpm -C apps/egui-web run test:bdd' => web_bdd_s.to_f,
   'pnpm -C apps/egui-web run test:pw-legacy' => web_legacy_s.to_f,
   'pnpm -C apps/mcp-qni check' => mcp_check_s.to_f,
@@ -145,6 +151,16 @@ observed_step_cost_s = observed_step_cost_lists.transform_values do |durations|
 end
 step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
 
+web_job = jobs['web'] || {}
+web_installs_system_wasm_bindgen = Array(web_job['steps']).any? do |step|
+  step['name'].to_s.downcase.include?('install wasm-bindgen')
+end
+web_trunk_model_s = if web_installs_system_wasm_bindgen
+  web_trunk_build_cold_system_wasm_bindgen_s.to_f
+else
+  web_trunk_build_cold_s.to_f
+end
+
 normalize_run = lambda do |run_text, working_directory|
   text = run_text.to_s.strip.gsub(/\s+/, ' ')
   wd = working_directory.to_s.strip
@@ -155,7 +171,7 @@ normalize_run = lambda do |run_text, working_directory|
   end
 
   return web_preflight_s.to_f if text.include?('test:preflight')
-  return web_trunk_build_s.to_f if wd.include?('apps/egui-web') && text == 'env -u NO_COLOR TRUNK_COLOR=never trunk build'
+  return web_trunk_model_s if wd.include?('apps/egui-web') && text == 'env -u NO_COLOR TRUNK_COLOR=never trunk build'
   return web_bdd_s.to_f if text.include?('test:bdd')
   return web_legacy_s.to_f if text.include?('test:pw-legacy') || (wd.include?('apps/egui-web') && text == 'playwright test')
   return mcp_check_s.to_f if text.include?('apps/mcp-qni') && text.include?('check')
@@ -218,6 +234,8 @@ projected_ci_s = jobs.keys.map { |job_name| critical_path.call(job_name) }.max |
 puts "METRIC projected_ci_s=#{projected_ci_s.round(3)}"
 puts "METRIC web_local_s=#{web_bundle.round(3)}"
 puts "METRIC web_trunk_build_s=#{web_trunk_build_s.to_f.round(3)}"
+puts "METRIC web_trunk_build_cold_s=#{web_trunk_build_cold_s.to_f.round(3)}"
+puts "METRIC web_trunk_build_cold_system_wasm_bindgen_s=#{web_trunk_build_cold_system_wasm_bindgen_s.to_f.round(3)}"
 puts "METRIC mcp_local_s=#{mcp_check_s.to_f.round(3)}"
 puts "METRIC tui_local_s=#{tui_check_s.to_f.round(3)}"
 puts "METRIC modeled_jobs=#{job_totals.size}"
