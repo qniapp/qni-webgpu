@@ -171,6 +171,10 @@ exact_run_runtime_job_step_cost_s = {}
 exact_run_runtime_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 exact_run_runtime_step_cost_s = {}
 exact_run_runtime_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
+observed_job_overhead_s = {}
+observed_job_overhead_lists = Hash.new { |hash, key| hash[key] = [] }
+exact_run_runtime_job_overhead_s = {}
+exact_run_runtime_job_overhead_lists = Hash.new { |hash, key| hash[key] = [] }
 exact_run_runtime_job_names = Set.new
 exact_run_runtime_step_job_counts = Hash.new(0)
 observed_run_id = nil
@@ -270,6 +274,8 @@ if !branch_name.to_s.empty?
 
     selected_records.each do |record|
       record.fetch(:jobs).each do |job|
+        counted_duration_s = 0.0
+
         Array(job['steps']).each do |step|
           next unless step['status'] == 'completed'
           next if step['name'].to_s.start_with?('Post ')
@@ -280,9 +286,17 @@ if !branch_name.to_s.empty?
           next if started_at.to_s.empty? || completed_at.to_s.empty?
 
           duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
+          counted_duration_s += duration_s
           observed_job_step_cost_lists[[job['name'], step['name']]] << duration_s
           observed_step_cost_lists[step['name']] << duration_s
         end
+
+        job_started_at = job['startedAt']
+        job_completed_at = job['completedAt']
+        next if job_started_at.to_s.empty? || job_completed_at.to_s.empty?
+
+        job_wall_s = Time.iso8601(job_completed_at) - Time.iso8601(job_started_at)
+        observed_job_overhead_lists[job['name']] << [job_wall_s - counted_duration_s, 0.0].max
       end
     end
 
@@ -291,6 +305,8 @@ if !branch_name.to_s.empty?
 
       record.fetch(:jobs).each do |job|
         exact_run_runtime_job_names << job['name'].to_s
+        counted_duration_s = 0.0
+
         Array(job['steps']).each do |step|
           next unless step['status'] == 'completed'
           next if step['name'].to_s.start_with?('Post ')
@@ -301,9 +317,17 @@ if !branch_name.to_s.empty?
           next if started_at.to_s.empty? || completed_at.to_s.empty?
 
           duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
+          counted_duration_s += duration_s
           exact_run_runtime_job_step_cost_lists[[job['name'], step['name']]] << duration_s
           exact_run_runtime_step_cost_lists[step['name']] << duration_s
           record_step_job_counts[step['name']] += 1
+        end
+
+        job_started_at = job['startedAt']
+        job_completed_at = job['completedAt']
+        unless job_started_at.to_s.empty? || job_completed_at.to_s.empty?
+          job_wall_s = Time.iso8601(job_completed_at) - Time.iso8601(job_started_at)
+          exact_run_runtime_job_overhead_lists[job['name']] << [job_wall_s - counted_duration_s, 0.0].max
         end
       end
 
@@ -334,6 +358,12 @@ exact_run_runtime_job_step_cost_s = exact_run_runtime_job_step_cost_lists.transf
   median.call(durations)
 end
 exact_run_runtime_step_cost_s = exact_run_runtime_step_cost_lists.transform_values do |durations|
+  median.call(durations)
+end
+observed_job_overhead_s = observed_job_overhead_lists.transform_values do |durations|
+  median.call(durations)
+end
+exact_run_runtime_job_overhead_s = exact_run_runtime_job_overhead_lists.transform_values do |durations|
   median.call(durations)
 end
 step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
@@ -431,6 +461,12 @@ jobs.each do |job_name, job|
 
     unknown_steps << [job_name, name, step['run'].to_s.strip]
   end
+  if selected_records_exact_runtime
+    total_s += observed_job_overhead_s.fetch(job_name, 0.0)
+  elsif can_use_exact_run_runtime_costs
+    total_s += exact_run_runtime_job_overhead_s.fetch(job_name, 0.0)
+  end
+
   job_totals[job_name] = total_s
 end
 
