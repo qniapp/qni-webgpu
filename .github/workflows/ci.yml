@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  web-build:
+  web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -53,43 +53,6 @@ jobs:
         run: env -u NO_COLOR TRUNK_COLOR=never trunk build
         working-directory: apps/egui-web
 
-      - name: Upload web dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-          if-no-files-found: error
-
-  web-bdd:
-    runs-on: ubuntu-latest
-    needs: web-build
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '9'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
-
-      - name: Install Web deps
-        run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
-
-      - name: Download web dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-
       - name: Web Cucumber BDD (static dist)
         run: |
           python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-server.log 2>&1 &
@@ -97,36 +60,6 @@ jobs:
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           pnpm run test:bdd
         working-directory: apps/egui-web
-
-  web-legacy:
-    runs-on: ubuntu-latest
-    needs: web-build
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '9'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
-
-      - name: Install Web deps
-        run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
-
-      - name: Download web dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
 
       - name: Web Playwright legacy (static dist)
         run: |
