@@ -11,10 +11,12 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
   env: process.env,
   defaultPath: chromium.executablePath(),
 })
+const workers = process.env.CI ? 4 : undefined
 
 module.exports = defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  workers,
   use: {
     baseURL: getPlaywrightBaseUrl({ env: process.env }),
     viewport: { width: 1000, height: 800 },

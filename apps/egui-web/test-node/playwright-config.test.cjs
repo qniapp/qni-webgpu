@@ -18,6 +18,7 @@ const loadConfig = (env = process.env) => {
 
   const previousExternal = process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
   const previousBaseUrl = process.env[PLAYWRIGHT_BASE_URL_ENV]
+  const previousCi = process.env.CI
 
   if (env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === undefined) {
     delete process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
@@ -29,6 +30,12 @@ const loadConfig = (env = process.env) => {
     delete process.env[PLAYWRIGHT_BASE_URL_ENV]
   } else {
     process.env[PLAYWRIGHT_BASE_URL_ENV] = env[PLAYWRIGHT_BASE_URL_ENV]
+  }
+
+  if (env.CI === undefined) {
+    delete process.env.CI
+  } else {
+    process.env.CI = env.CI
   }
 
   try {
@@ -44,6 +51,12 @@ const loadConfig = (env = process.env) => {
       delete process.env[PLAYWRIGHT_BASE_URL_ENV]
     } else {
       process.env[PLAYWRIGHT_BASE_URL_ENV] = previousBaseUrl
+    }
+
+    if (previousCi === undefined) {
+      delete process.env.CI
+    } else {
+      process.env.CI = previousCi
     }
 
     delete require.cache[configPath]
@@ -67,6 +80,16 @@ test('playwright config uses the shared browser and web server policies', () => 
     args: expectedBrowser.args,
   })
   assert.deepEqual(config.webServer, expectedWebServer)
+})
+
+test('playwright config uses more than one worker on CI', () => {
+  const env = {
+    ...process.env,
+    CI: '1',
+  }
+  const config = loadConfig(env)
+
+  assert.equal(config.workers, 4)
 })
 
 test('playwright config can reuse an externally managed egui-web server', () => {
