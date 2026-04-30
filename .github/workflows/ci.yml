@@ -28,15 +28,14 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
         with:
           cache-bin: "true"
           cache-all-crates: "true"
-
-      - name: Install wasm32 target
-        run: rustup target add wasm32-unknown-unknown
 
       - name: Install trunk
         uses: taiki-e/install-action@v2

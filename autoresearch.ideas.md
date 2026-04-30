@@ -1,3 +1,4 @@
-- Replace `cargo install trunk --locked` and `cargo install cargo-{audit,deny} --locked` in CI with prebuilt-binary installation (`taiki-e/install-action` or equivalent) to attack the remaining 438s + 458s setup hotspot directly.
-- Add `Swatinem/rust-cache@v2` with `cache-bin: true` and `cache-directories: ~/.cargo/advisory-db` so repeated CI runs do not rebuild/reinstall Rust tooling and advisory data from scratch.
+- Recalibrate `autoresearch.sh` from the latest successful CI run so the proxy reflects post-`install-action` reality instead of stale cargo-install setup timings.
+- Start `trunk serve` once for the web job and reuse that server across both `test:bdd` and `test:pw-legacy` so CI stops paying server/bootstrap startup twice.
+- Fold `wasm32-unknown-unknown` target installation into `dtolnay/rust-toolchain` setup (if supported cleanly) to shave one more Rust setup step without changing coverage.
 - If branch protection allows, add a small aggregate status job that depends on `web`, `mcp`, and `tui` so required-check naming stays stable while keeping the parallel topology.
