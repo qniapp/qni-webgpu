@@ -112,6 +112,14 @@ require 'yaml'
 root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_trunk_build_cold_s, web_trunk_build_cold_system_wasm_bindgen_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
 config = YAML.load_file(workflow_path)
 jobs = config.fetch('jobs')
+runtime_match_pathspecs = [
+  '.github/workflows/ci.yml',
+  'Makefile',
+  'scripts/check-all.sh',
+  'apps/egui-web',
+  'apps/mcp-qni',
+  'apps/tui',
+]
 
 fallback_step_cost_s = {
   'Set up job' => 3.0,
@@ -168,12 +176,19 @@ if !branch_name.to_s.empty?
     '--branch', branch_name,
     '--workflow', 'CI',
     '--limit', '20',
-    '--json', 'databaseId,conclusion'
+    '--json', 'databaseId,conclusion,headSha'
   )
 
   if run_list_status.success?
     successful_runs = JSON.parse(run_list_out).select { |run| run['conclusion'] == 'success' }
     run_records = []
+    tracked_runtime_tree_clean = Open3.capture2(
+      'git', '-C', root_dir, 'diff', '--quiet', 'HEAD', '--', *runtime_match_pathspecs
+    )[1].success?
+    untracked_runtime_files_out, = Open3.capture2(
+      'git', '-C', root_dir, 'ls-files', '--others', '--exclude-standard', '--', *runtime_match_pathspecs
+    )
+    can_exact_match_runtime_code = tracked_runtime_tree_clean && untracked_runtime_files_out.strip.empty?
 
     successful_runs.each do |run|
       run_view_out, run_view_status = Open3.capture2(
@@ -198,15 +213,30 @@ if !branch_name.to_s.empty?
         run_job_steps.keys.sort == expected_job_steps.keys.sort &&
         expected_job_steps.all? { |job_name, steps| run_job_steps[job_name] == steps }
 
+      matches_current_runtime_code = false
+      if can_exact_match_runtime_code
+        matches_current_runtime_code = Open3.capture2(
+          'git', '-C', root_dir, 'diff', '--quiet', run.fetch('headSha').to_s, 'HEAD', '--', *runtime_match_pathspecs
+        )[1].success?
+      end
+
       run_records << {
         id: run.fetch('databaseId'),
         jobs: run_jobs,
         matching: matches_current_workflow,
+        exact_runtime: matches_current_workflow && matches_current_runtime_code,
       }
     end
 
+    exact_runtime_records = run_records.select { |record| record[:exact_runtime] }
     matching_records = run_records.select { |record| record[:matching] }
-    selected_records = matching_records.empty? ? run_records.first(5) : matching_records.first(5)
+    selected_records = if exact_runtime_records.any?
+      exact_runtime_records.first(5)
+    elsif matching_records.any?
+      matching_records.first(5)
+    else
+      run_records.first(5)
+    end
     observed_run_id = selected_records.first&.fetch(:id, nil)
     observed_run_count = selected_records.size
 
