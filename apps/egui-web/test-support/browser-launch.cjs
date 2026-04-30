@@ -58,10 +58,11 @@ const getStandardWebGpuLaunchOptions = ({
 const getPlainChromiumLaunchOptions = ({
   env = process.env,
   defaultPath,
+  commandLookup = findCommand,
   headless = true,
 } = {}) => ({
   headless,
-  executablePath: env.PLAYWRIGHT_CHROMIUM_PATH || defaultPath,
+  executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
   args: [...PLAIN_CHROMIUM_ARGS],
 })
 
