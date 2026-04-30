@@ -7,6 +7,32 @@ on:
     branches: [master]
 
 jobs:
+  web-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/egui-web
+
+      - name: Web preflight
+        run: pnpm -C apps/egui-web run test:preflight
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -45,9 +71,6 @@ jobs:
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
         working-directory: apps/egui-web
-
-      - name: Web preflight
-        run: pnpm -C apps/egui-web run test:preflight
 
       - name: Web trunk build
         run: env -u NO_COLOR TRUNK_COLOR=never trunk build
