@@ -165,6 +165,7 @@ observed_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_run_id = nil
 observed_run_count = 0
+selected_records_exact_runtime = false
 
 expected_job_steps = jobs.transform_values do |job|
   Array(job['steps']).map { |step| step['name'].to_s }
@@ -237,6 +238,7 @@ if !branch_name.to_s.empty?
     else
       run_records.first(5)
     end
+    selected_records_exact_runtime = exact_runtime_records.any?
     observed_run_id = selected_records.first&.fetch(:id, nil)
     observed_run_count = selected_records.size
 
@@ -321,6 +323,11 @@ jobs.each do |job_name, job|
   total_s = 0.0
   Array(job['steps']).each do |step|
     name = step['name'].to_s
+
+    if selected_records_exact_runtime && observed_job_step_cost_s.key?([job_name, name])
+      total_s += observed_job_step_cost_s.fetch([job_name, name])
+      next
+    end
 
     run_cost = normalize_run.call(step['run'], step['working-directory'])
     if run_cost
