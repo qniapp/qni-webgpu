@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  web:
+  web-bdd:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -55,6 +55,49 @@ jobs:
 
       - name: Web Cucumber BDD
         run: pnpm -C apps/egui-web run test:bdd
+
+  web-legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+
+      - name: Install trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/egui-web
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium
+        working-directory: apps/egui-web
 
       - name: Web Playwright legacy
         run: pnpm -C apps/egui-web run test:pw-legacy
