@@ -135,6 +135,7 @@ if !branch_name.to_s.empty?
       run_job_steps = run_jobs.each_with_object({}) do |job, hash|
         hash[job['name']] = Array(job['steps']).filter_map do |step|
           next unless step['status'] == 'completed'
+          next if step['name'].to_s == 'Set up job'
           next if step['name'].to_s.start_with?('Post ')
           next if step['name'].to_s == 'Complete job'
 
