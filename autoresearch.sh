@@ -48,13 +48,28 @@ from pathlib import Path
 label = sys.argv[1]
 repeats = int(sys.argv[2])
 cmd = sys.argv[3:]
+max_attempts = repeats + 2
 results = []
-for index in range(repeats):
+last_failure = None
+attempt = 0
+
+while len(results) < repeats and attempt < max_attempts:
+    attempt += 1
     start = time.perf_counter_ns()
-    completed = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True)
+    completed = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
     end = time.perf_counter_ns()
-    Path(f"/tmp/{label}-{index + 1}.log").write_text(completed.stdout)
-    results.append((end - start) / 1_000_000_000)
+    Path(f"/tmp/{label}-attempt-{attempt}.log").write_text(completed.stdout)
+
+    if completed.returncode == 0:
+        results.append((end - start) / 1_000_000_000)
+    else:
+        last_failure = completed
+
+if len(results) < repeats:
+    if last_failure is not None:
+        raise subprocess.CalledProcessError(last_failure.returncode, cmd, output=last_failure.stdout)
+    raise RuntimeError(f"{label}: unable to collect {repeats} successful samples")
+
 print(f"{statistics.median(results):.3f}")
 PY
 }
