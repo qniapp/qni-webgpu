@@ -7,50 +7,169 @@ on:
     branches: [master]
 
 jobs:
-  check:
+  web-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '9'
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          components: rustfmt, clippy
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/egui-web
+
+      - name: Web preflight
+        run: pnpm -C apps/egui-web run test:preflight
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
 
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
 
-      - name: Install trunk
-        run: cargo install trunk --locked
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+          workspaces: |
+            apps/egui-web
 
-      - name: Install cargo audit/deny
-        run: |
-          cargo install cargo-audit --locked
-          cargo install cargo-deny --locked
+      - name: Install trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
 
       - name: Install Web deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
         working-directory: apps/egui-web
 
-      - name: Install Playwright browser
-        run: pnpm exec playwright install chromium
+      - name: Web trunk build
+        run: env -u NO_COLOR TRUNK_COLOR=never trunk build
         working-directory: apps/egui-web
+
+      - name: Web Cucumber BDD (static dist)
+        run: |
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import time
+          import urllib.request
+
+          url = 'http://127.0.0.1:4174/'
+          deadline = time.time() + 20
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(url) as response:
+                      response.read()
+                  break
+              except Exception:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit('Timed out waiting for static egui-web server')
+          PY
+          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
+        working-directory: apps/egui-web
+
+      - name: Web Playwright legacy (static dist)
+        run: |
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import time
+          import urllib.request
+
+          url = 'http://127.0.0.1:4174/'
+          deadline = time.time() + 20
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(url) as response:
+                      response.read()
+                  break
+              except Exception:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit('Timed out waiting for static egui-web server')
+          PY
+          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy
+        working-directory: apps/egui-web
+
+  mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: apps/mcp-qni/pnpm-lock.yaml
 
       - name: Install MCP deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
         working-directory: apps/mcp-qni
 
-      - name: Run all checks
-        run: ./scripts/check-all.sh
+      - name: MCP check
+        run: pnpm -C apps/mcp-qni check
+
+  tui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+          workspaces: |
+            apps/tui
+          cache-directories: ~/.cargo/advisory-db
+
+      - name: Install cargo audit/deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny
+
+      - name: TUI check
+        run: make check

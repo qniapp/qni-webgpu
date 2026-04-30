@@ -1,18 +1,24 @@
 const { defineConfig } = require('@playwright/test')
 const { chromium } = require('playwright')
 const { getStandardWebGpuLaunchOptions } = require('./test-support/browser-launch.cjs')
-const { getWebServerConfig } = require('./test-support/web-server.cjs')
+const {
+  getPlaywrightBaseUrl,
+  getPlaywrightWebServerConfig,
+} = require('./test-support/web-server.cjs')
 
-const webServer = getWebServerConfig()
+const webServer = getPlaywrightWebServerConfig({ env: process.env })
 const standardBrowser = getStandardWebGpuLaunchOptions({
   env: process.env,
   defaultPath: chromium.executablePath(),
 })
+const workers = process.env.CI ? 6 : undefined
 
 module.exports = defineConfig({
   testDir: './tests',
+  fullyParallel: true,
+  workers,
   use: {
-    baseURL: webServer.url,
+    baseURL: getPlaywrightBaseUrl({ env: process.env }),
     viewport: { width: 1000, height: 800 },
     browserName: 'chromium',
     headless: standardBrowser.headless,

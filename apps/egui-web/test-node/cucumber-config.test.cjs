@@ -26,6 +26,29 @@ const parseMessageOutput = async (messagePath) => {
   return lines.map((line) => JSON.parse(line))
 }
 
+const loadCucumberConfig = (env = process.env) => {
+  const configPath = require.resolve('../cucumber.cjs')
+  delete require.cache[configPath]
+
+  const previousCi = process.env.CI
+  if (env.CI === undefined) {
+    delete process.env.CI
+  } else {
+    process.env.CI = env.CI
+  }
+
+  try {
+    return require('../cucumber.cjs')
+  } finally {
+    if (previousCi === undefined) {
+      delete process.env.CI
+    } else {
+      process.env.CI = previousCi
+    }
+    delete require.cache[configPath]
+  }
+}
+
 const writeTempSmokeFixture = async (featureText) => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'egui-web-cucumber-smoke-'))
   const featurePath = path.join(tempDir, 'smoke.feature.md')
@@ -56,7 +79,7 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
 })
 
 test('cucumber config only targets markdown feature files and uses explicit support bootstrap', () => {
-  const config = require('../cucumber.cjs')
+  const config = loadCucumberConfig()
 
   assert.deepEqual(config.paths, ['features/**/*.feature.md'])
   assert.deepEqual([...config.require].sort(), [
@@ -65,6 +88,12 @@ test('cucumber config only targets markdown feature files and uses explicit supp
   ].sort())
   assert.equal(config.publishQuiet, true)
   assert.equal(config.failFast, true)
+})
+
+test('cucumber config uses bounded scenario parallelism on CI', () => {
+  const config = loadCucumberConfig({ ...process.env, CI: '1' })
+
+  assert.equal(config.parallel, 2)
 })
 
 test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
@@ -219,4 +248,40 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   assert.equal(typeof helpers.waitForAppReady, 'function')
   assert.equal(typeof helpers.waitForStartupReady, 'function')
   assert.equal(typeof helpers.readEguiError, 'function')
+})
+
+test('cucumber world uses an externally managed base URL when configured', () => {
+  const worldModulePath = require.resolve('../features/support/world.cjs')
+  delete require.cache[worldModulePath]
+
+  const previousExternal = process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
+  const previousBaseUrl = process.env.QNI_EGUI_WEB_BASE_URL
+  process.env.QNI_EGUI_WEB_EXTERNAL_SERVER = '1'
+  process.env.QNI_EGUI_WEB_BASE_URL = 'http://127.0.0.1:5999'
+
+  try {
+    const { EguiWorld } = require('../features/support/world.cjs')
+    const world = new EguiWorld({
+      attach: async () => {},
+      log: () => {},
+      link: () => {},
+      parameters: {},
+    })
+
+    assert.equal(world.baseUrl, 'http://127.0.0.1:5999')
+  } finally {
+    if (previousExternal === undefined) {
+      delete process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
+    } else {
+      process.env.QNI_EGUI_WEB_EXTERNAL_SERVER = previousExternal
+    }
+
+    if (previousBaseUrl === undefined) {
+      delete process.env.QNI_EGUI_WEB_BASE_URL
+    } else {
+      process.env.QNI_EGUI_WEB_BASE_URL = previousBaseUrl
+    }
+
+    delete require.cache[worldModulePath]
+  }
 })

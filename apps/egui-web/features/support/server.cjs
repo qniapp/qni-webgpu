@@ -83,7 +83,12 @@ const waitForServer = async (url, timeout) => {
 }
 
 const ensureSharedWebServer = async () => {
-  const config = getWebServerConfig()
+  const config = getWebServerConfig({ env: process.env })
+
+  if (config.external) {
+    await waitForServer(config.url, config.timeout)
+    return { ...config, managed: false }
+  }
 
   if (managedServerProcess && !didProcessExit(managedServerProcess)) {
     await waitForServer(config.url, config.timeout)

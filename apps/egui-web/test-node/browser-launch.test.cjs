@@ -96,10 +96,11 @@ test('shared plain chromium launch options preserve current visible error policy
   })
 })
 
-test('shared plain chromium launch options fall back to Playwright bundled chromium', () => {
+test('shared plain chromium launch options fall back to Playwright bundled chromium when no system browser is found', () => {
   const actual = getPlainChromiumLaunchOptions({
     env: {},
     defaultPath: '/bundled/chromium',
+    commandLookup: () => null,
   })
 
   assert.deepEqual(actual, {
