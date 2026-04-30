@@ -95,6 +95,7 @@ end
 observed_job_step_cost_s = {}
 observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_run_id = nil
+observed_run_count = 0
 
 if !branch_name.to_s.empty?
   run_list_out, run_list_status = Open3.capture2(
@@ -106,29 +107,30 @@ if !branch_name.to_s.empty?
   )
 
   if run_list_status.success?
-    successful_run = JSON.parse(run_list_out).find { |run| run['conclusion'] == 'success' }
-    if successful_run
-      observed_run_id = successful_run['databaseId']
+    successful_runs = JSON.parse(run_list_out).select { |run| run['conclusion'] == 'success' }
+    observed_run_id = successful_runs.first&.fetch('databaseId', nil)
+
+    successful_runs.first(5).each_with_index do |run, index|
       run_view_out, run_view_status = Open3.capture2(
-        'gh', 'run', 'view', observed_run_id.to_s,
+        'gh', 'run', 'view', run.fetch('databaseId').to_s,
         '--json', 'jobs'
       )
+      next unless run_view_status.success?
 
-      if run_view_status.success?
-        JSON.parse(run_view_out).fetch('jobs').each do |job|
-          Array(job['steps']).each do |step|
-            next unless step['status'] == 'completed'
-            next if step['name'].to_s.start_with?('Post ')
-            next if step['name'].to_s == 'Complete job'
+      observed_run_count += 1
+      JSON.parse(run_view_out).fetch('jobs').each do |job|
+        Array(job['steps']).each do |step|
+          next unless step['status'] == 'completed'
+          next if step['name'].to_s.start_with?('Post ')
+          next if step['name'].to_s == 'Complete job'
 
-            started_at = step['startedAt']
-            completed_at = step['completedAt']
-            next if started_at.to_s.empty? || completed_at.to_s.empty?
+          started_at = step['startedAt']
+          completed_at = step['completedAt']
+          next if started_at.to_s.empty? || completed_at.to_s.empty?
 
-            duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
-            observed_job_step_cost_s[[job['name'], step['name']]] = duration_s
-            observed_step_cost_lists[step['name']] << duration_s
-          end
+          duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
+          observed_job_step_cost_s[[job['name'], step['name']]] = duration_s if index.zero?
+          observed_step_cost_lists[step['name']] << duration_s
         end
       end
     end
@@ -216,6 +218,7 @@ puts "METRIC tui_local_s=#{tui_check_s.to_f.round(3)}"
 puts "METRIC modeled_jobs=#{job_totals.size}"
 puts "METRIC modeled_unknown_steps=#{unknown_steps.size}"
 puts "METRIC observed_ci_run_id=#{observed_run_id || 0}"
+puts "METRIC observed_ci_run_count=#{observed_run_count}"
 unknown_steps.each do |job_name, step_name, run_text|
   warn "UNMODELED_STEP #{job_name} :: #{step_name} :: #{run_text}"
 end
