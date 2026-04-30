@@ -3,4 +3,5 @@ module.exports = {
   require: ['features/support/bootstrap.cjs', 'features/step_definitions/**/*.cjs'],
   publishQuiet: true,
   failFast: true,
+  parallel: process.env.CI ? 2 : undefined,
 }

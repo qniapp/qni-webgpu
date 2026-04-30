@@ -35,8 +35,8 @@ PY
 
 WEB_PREFLIGHT_S=$(measure_seconds web-preflight pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
 WEB_TRUNK_BUILD_S=$(measure_seconds web-trunk-build bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
-WEB_BDD_S=$(measure_seconds web-bdd pnpm -C "$ROOT_DIR/apps/egui-web" run test:bdd)
-WEB_LEGACY_S=$(measure_seconds web-legacy pnpm -C "$ROOT_DIR/apps/egui-web" run test:pw-legacy)
+WEB_BDD_S=$(measure_seconds web-bdd bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd")
+WEB_LEGACY_S=$(measure_seconds web-legacy bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy")
 MCP_CHECK_S=$(measure_seconds mcp-check pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
 TUI_CHECK_S=$(measure_seconds tui-check make -C "$ROOT_DIR" check)
 
@@ -63,6 +63,7 @@ fallback_step_cost_s = {
   'Setup pnpm' => 1.0,
   'Setup Rust' => 10.0,
   'Cache Rust artifacts' => 0.0,
+  'Cache Trunk tools' => 1.0,
   'Install wasm32 target' => 2.0,
   'Install trunk' => 438.0,
   'Install cargo audit/deny' => 458.0,
