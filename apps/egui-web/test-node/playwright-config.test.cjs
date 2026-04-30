@@ -89,7 +89,7 @@ test('playwright config uses a bounded multi-worker count on CI', () => {
   }
   const config = loadConfig(env)
 
-  assert.equal(config.workers, 7)
+  assert.equal(config.workers, 6)
 })
 
 test('playwright config can reuse an externally managed egui-web server', () => {
