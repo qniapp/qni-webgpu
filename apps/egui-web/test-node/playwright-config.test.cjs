@@ -82,14 +82,14 @@ test('playwright config uses the shared browser and web server policies', () => 
   assert.deepEqual(config.webServer, expectedWebServer)
 })
 
-test('playwright config uses more than one worker on CI', () => {
+test('playwright config uses a bounded multi-worker count on CI', () => {
   const env = {
     ...process.env,
     CI: '1',
   }
   const config = loadConfig(env)
 
-  assert.equal(config.workers, 4)
+  assert.equal(config.workers, 6)
 })
 
 test('playwright config can reuse an externally managed egui-web server', () => {
