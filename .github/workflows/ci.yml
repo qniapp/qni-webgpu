@@ -42,11 +42,6 @@ jobs:
         with:
           tool: trunk
 
-      - name: Install wasm-bindgen
-        uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-bindgen@0.2.106
-
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
         working-directory: apps/egui-web
