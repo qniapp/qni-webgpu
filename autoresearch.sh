@@ -192,7 +192,22 @@ jobs.each do |job_name, job|
   job_totals[job_name] = total_s
 end
 
-projected_ci_s = job_totals.values.max || 0.0
+path_totals = {}
+visiting = {}
+critical_path = lambda do |job_name|
+  return path_totals.fetch(job_name) if path_totals.key?(job_name)
+  raise "cyclic job dependency at #{job_name}" if visiting[job_name]
+
+  visiting[job_name] = true
+  job = jobs.fetch(job_name)
+  dependencies = Array(job['needs']).map(&:to_s)
+  dependency_total = dependencies.map { |dependency| critical_path.call(dependency) }.max || 0.0
+  path_totals[job_name] = dependency_total + job_totals.fetch(job_name, 0.0)
+  visiting.delete(job_name)
+  path_totals.fetch(job_name)
+end
+
+projected_ci_s = jobs.keys.map { |job_name| critical_path.call(job_name) }.max || 0.0
 
 puts "METRIC projected_ci_s=#{projected_ci_s.round(3)}"
 puts "METRIC web_local_s=#{web_bundle.round(3)}"
