@@ -59,8 +59,8 @@ print(f"{statistics.median(results):.3f}")
 PY
 }
 
-WEB_PREFLIGHT_S=$(measure_seconds web-preflight pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
-WEB_TRUNK_BUILD_S=$(measure_seconds web-trunk-build bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_PREFLIGHT_S=$(measure_median_seconds web-preflight 3 pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
+WEB_TRUNK_BUILD_S=$(measure_median_seconds web-trunk-build 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
 WEB_TRUNK_BUILD_COLD_S=$(measure_median_seconds web-trunk-build-cold 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
 WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_median_seconds web-trunk-build-cold-system-wasm-bindgen 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
 from pathlib import Path
@@ -68,10 +68,34 @@ matches = sorted(Path.home().glob('.cache/trunk/wasm-bindgen-*/wasm-bindgen'))
 print(matches[-1].parent if matches else '')
 PY
 ) && trap 'rm -rf \"\$tmp_cache\"' EXIT && if [ -n \"\$candidate_dir\" ]; then PATH=\"\$candidate_dir:\$PATH\" XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; else XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; fi")
-WEB_BDD_S=$(measure_seconds web-bdd bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd")
-WEB_LEGACY_S=$(measure_seconds web-legacy bash -lc "cd '$ROOT_DIR/apps/egui-web' && python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 & server_pid=\$! && trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT && CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy")
-MCP_CHECK_S=$(measure_seconds mcp-check pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
-TUI_CHECK_S=$(measure_seconds tui-check make -C "$ROOT_DIR" check)
+WEB_BDD_S=$(measure_median_seconds web-bdd 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+port=\$(python - <<'PY'
+import socket
+sock = socket.socket()
+sock.bind(('127.0.0.1', 0))
+print(sock.getsockname()[1])
+sock.close()
+PY
+)
+python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 &
+server_pid=\$!
+trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
+CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd")
+WEB_LEGACY_S=$(measure_median_seconds web-legacy 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+port=\$(python - <<'PY'
+import socket
+sock = socket.socket()
+sock.bind(('127.0.0.1', 0))
+print(sock.getsockname()[1])
+sock.close()
+PY
+)
+python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 &
+server_pid=\$!
+trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
+CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
+MCP_CHECK_S=$(measure_median_seconds mcp-check 3 pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
+TUI_CHECK_S=$(measure_median_seconds tui-check 3 make -C "$ROOT_DIR" check)
 
 WEB_LOCAL_S=$(python - "$WEB_PREFLIGHT_S" "$WEB_BDD_S" "$WEB_LEGACY_S" <<'PY'
 import sys
