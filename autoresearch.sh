@@ -476,6 +476,21 @@ jobs.each do |job_name, job|
     end
 
     run_cost = normalize_run.call(job_name, name, step['run'], step['working-directory'])
+    workflow_only_observed_cost = nil
+    if observed_selection_tier == 1 && observed_job_step_cost_s.key?([job_name, name])
+      workflow_only_observed_cost = observed_job_step_cost_s.fetch([job_name, name])
+    end
+
+    if workflow_only_observed_cost && run_cost
+      total_s += [workflow_only_observed_cost, run_cost].max
+      next
+    end
+
+    if workflow_only_observed_cost
+      total_s += workflow_only_observed_cost
+      next
+    end
+
     if run_cost
       total_s += run_cost
       next
