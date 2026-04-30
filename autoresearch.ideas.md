@@ -1,3 +1,2 @@
-- Cache the Playwright browser payload (or otherwise avoid re-installing Chromium every run) if GitHub-hosted runners are not already warm there; the current web jobs still spend about a dozen seconds in browser setup.
-- If revisiting web-suite parallelism, first solve the cold-start regression: when `test:pw-legacy` runs alone its CI step balloons to ~119s, so naive `web-bdd`/`web-legacy` splitting does not beat the warmed single-web job.
-- If branch protection requires stable job names, add a tiny aggregate `web` status job that depends on `web-bdd` and `web-legacy`, but only after a real speed win exists.
+- Configure `Swatinem/rust-cache@v2` with explicit subdirectory `workspaces` (`apps/egui-web -> apps/egui-web/target`, `apps/tui -> apps/tui/target`) because current CI logs show `cargo metadata` failing at repo root and web still spends ~57s in `trunk build` despite cache hits.
+- If `trunk build` still dominates after fixing rust-cache workspace discovery, inspect whether the remaining cost is mostly final-link/wasm-bindgen work and whether a leaner build path can preserve the same static-dist test coverage.

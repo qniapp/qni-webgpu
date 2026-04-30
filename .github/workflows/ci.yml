@@ -36,6 +36,8 @@ jobs:
         with:
           cache-bin: "true"
           cache-all-crates: "true"
+          workspaces: |
+            apps/egui-web
 
       - name: Install trunk
         uses: taiki-e/install-action@v2
@@ -112,6 +114,8 @@ jobs:
         with:
           cache-bin: "true"
           cache-all-crates: "true"
+          workspaces: |
+            apps/tui
           cache-directories: ~/.cargo/advisory-db
 
       - name: Install cargo audit/deny
