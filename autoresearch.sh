@@ -194,6 +194,11 @@ exact_run_runtime_job_names = Set.new
 exact_run_runtime_step_job_counts = Hash.new(0)
 observed_run_id = nil
 observed_run_count = 0
+observed_selection_tier = 0
+observed_matching_run_count = 0
+observed_exact_runtime_run_count = 0
+observed_exact_run_runtime_count = 0
+observed_view_failure_count = 0
 selected_records_exact_runtime = false
 can_use_exact_run_runtime_costs = false
 
@@ -214,6 +219,7 @@ if !branch_name.to_s.empty?
   if run_list_status.success?
     successful_runs = JSON.parse(run_list_out).select { |run| run['conclusion'] == 'success' }
     run_records = []
+    view_failures = 0
     tracked_exact_runtime_tree_clean = Open3.capture2(
       'git', '-C', root_dir, 'diff', '--quiet', 'HEAD', '--', *exact_runtime_match_pathspecs
     )[1].success?
@@ -234,7 +240,10 @@ if !branch_name.to_s.empty?
         'gh', 'run', 'view', run.fetch('databaseId').to_s,
         '--json', 'jobs'
       )
-      next unless run_view_status.success?
+      unless run_view_status.success?
+        view_failures += 1
+        next
+      end
 
       run_jobs = JSON.parse(run_view_out).fetch('jobs')
       run_job_steps = run_jobs.each_with_object({}) do |job, hash|
@@ -283,6 +292,17 @@ if !branch_name.to_s.empty?
     else
       run_records.first(5)
     end
+    observed_selection_tier = if exact_runtime_records.any?
+      2
+    elsif matching_records.any?
+      1
+    else
+      0
+    end
+    observed_matching_run_count = matching_records.size
+    observed_exact_runtime_run_count = exact_runtime_records.size
+    observed_exact_run_runtime_count = run_records.count { |record| record[:exact_run_runtime] }
+    observed_view_failure_count = view_failures
     selected_records_exact_runtime = exact_runtime_records.any?
     observed_run_id = selected_records.first&.fetch(:id, nil)
     observed_run_count = selected_records.size
@@ -513,6 +533,11 @@ puts "METRIC modeled_jobs=#{job_totals.size}"
 puts "METRIC modeled_unknown_steps=#{unknown_steps.size}"
 puts "METRIC observed_ci_run_id=#{observed_run_id || 0}"
 puts "METRIC observed_ci_run_count=#{observed_run_count}"
+puts "METRIC observed_ci_selection_tier=#{observed_selection_tier}"
+puts "METRIC observed_ci_matching_run_count=#{observed_matching_run_count}"
+puts "METRIC observed_ci_exact_runtime_run_count=#{observed_exact_runtime_run_count}"
+puts "METRIC observed_ci_exact_run_runtime_count=#{observed_exact_run_runtime_count}"
+puts "METRIC observed_ci_view_failure_count=#{observed_view_failure_count}"
 unknown_steps.each do |job_name, step_name, run_text|
   warn "UNMODELED_STEP #{job_name} :: #{step_name} :: #{run_text}"
 end
