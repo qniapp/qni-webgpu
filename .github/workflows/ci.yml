@@ -26,10 +26,8 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: apps/egui-web/pnpm-lock.yaml
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
@@ -103,11 +101,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
