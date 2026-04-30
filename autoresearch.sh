@@ -73,6 +73,7 @@ fallback_step_cost_s = {
   'Cache Trunk tools' => 1.0,
   'Install wasm32 target' => 2.0,
   'Install trunk' => 438.0,
+  'Install wasm-bindgen' => 1.0,
   'Install cargo audit/deny' => 458.0,
   'Install Web deps' => 3.0,
   'Install Playwright browser' => 13.0,
