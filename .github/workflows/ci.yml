@@ -29,11 +29,19 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
 
       - name: Install trunk
-        run: cargo install trunk --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
 
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
@@ -90,10 +98,17 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+          cache-directories: ~/.cargo/advisory-db
+
       - name: Install cargo audit/deny
-        run: |
-          cargo install cargo-audit --locked
-          cargo install cargo-deny --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny
 
       - name: TUI check
         run: make check

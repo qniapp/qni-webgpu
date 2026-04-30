@@ -58,6 +58,7 @@ setup_cost_s = {
   'Setup Node' => 1.0,
   'Setup pnpm' => 1.0,
   'Setup Rust' => 10.0,
+  'Cache Rust artifacts' => 0.0,
   'Install wasm32 target' => 2.0,
   'Install trunk' => 438.0,
   'Install cargo audit/deny' => 458.0,
