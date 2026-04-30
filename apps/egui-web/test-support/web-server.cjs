@@ -1,18 +1,30 @@
 const PLAYWRIGHT_EXTERNAL_SERVER_ENV = 'QNI_EGUI_WEB_EXTERNAL_SERVER'
 const PLAYWRIGHT_BASE_URL_ENV = 'QNI_EGUI_WEB_BASE_URL'
+const DEFAULT_WEB_SERVER_URL = 'http://127.0.0.1:4174'
+const DEFAULT_WEB_SERVER_TIMEOUT_MS = 180_000
 
-const getWebServerConfig = () => ({
-  command: 'env -u NO_COLOR TRUNK_COLOR=never trunk serve --address 127.0.0.1 --port 4174 --no-autoreload',
-  url: 'http://127.0.0.1:4174',
-  timeout: 180_000,
-  reuseExistingServer: true,
-})
+const getWebServerConfig = ({ env = process.env } = {}) => {
+  if (env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === '1') {
+    return {
+      url: env[PLAYWRIGHT_BASE_URL_ENV] || DEFAULT_WEB_SERVER_URL,
+      timeout: DEFAULT_WEB_SERVER_TIMEOUT_MS,
+      reuseExistingServer: true,
+      external: true,
+    }
+  }
 
-const getPlaywrightBaseUrl = ({ env = process.env } = {}) =>
-  env[PLAYWRIGHT_BASE_URL_ENV] || getWebServerConfig().url
+  return {
+    command: 'env -u NO_COLOR TRUNK_COLOR=never trunk serve --address 127.0.0.1 --port 4174 --no-autoreload',
+    url: DEFAULT_WEB_SERVER_URL,
+    timeout: DEFAULT_WEB_SERVER_TIMEOUT_MS,
+    reuseExistingServer: true,
+  }
+}
+
+const getPlaywrightBaseUrl = ({ env = process.env } = {}) => getWebServerConfig({ env }).url
 
 const getPlaywrightWebServerConfig = ({ env = process.env } = {}) =>
-  env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === '1' ? undefined : getWebServerConfig()
+  env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === '1' ? undefined : getWebServerConfig({ env })
 
 module.exports = {
   getWebServerConfig,

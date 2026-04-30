@@ -95,6 +95,23 @@ PY
 python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 &
 server_pid=\$!
 trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
+QNI_EGUI_WEB_PORT=\$port python3 - <<'PY'
+import os
+import time
+import urllib.request
+
+url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+deadline = time.time() + 20
+while time.time() < deadline:
+    try:
+        with urllib.request.urlopen(url) as response:
+            response.read()
+        break
+    except Exception:
+        time.sleep(0.25)
+else:
+    raise SystemExit('Timed out waiting for static egui-web server')
+PY
 CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd")
 WEB_LEGACY_S=$(measure_median_seconds web-legacy 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
 port=\$(python - <<'PY'
@@ -108,6 +125,23 @@ PY
 python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 &
 server_pid=\$!
 trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
+QNI_EGUI_WEB_PORT=\$port python3 - <<'PY'
+import os
+import time
+import urllib.request
+
+url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+deadline = time.time() + 20
+while time.time() < deadline:
+    try:
+        with urllib.request.urlopen(url) as response:
+            response.read()
+        break
+    except Exception:
+        time.sleep(0.25)
+else:
+    raise SystemExit('Timed out waiting for static egui-web server')
+PY
 CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
 MCP_CHECK_S=$(measure_median_seconds mcp-check 3 pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
 TUI_CHECK_S=$(measure_median_seconds tui-check 3 make -C "$ROOT_DIR" check)

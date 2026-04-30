@@ -249,3 +249,39 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   assert.equal(typeof helpers.waitForStartupReady, 'function')
   assert.equal(typeof helpers.readEguiError, 'function')
 })
+
+test('cucumber world uses an externally managed base URL when configured', () => {
+  const worldModulePath = require.resolve('../features/support/world.cjs')
+  delete require.cache[worldModulePath]
+
+  const previousExternal = process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
+  const previousBaseUrl = process.env.QNI_EGUI_WEB_BASE_URL
+  process.env.QNI_EGUI_WEB_EXTERNAL_SERVER = '1'
+  process.env.QNI_EGUI_WEB_BASE_URL = 'http://127.0.0.1:5999'
+
+  try {
+    const { EguiWorld } = require('../features/support/world.cjs')
+    const world = new EguiWorld({
+      attach: async () => {},
+      log: () => {},
+      link: () => {},
+      parameters: {},
+    })
+
+    assert.equal(world.baseUrl, 'http://127.0.0.1:5999')
+  } finally {
+    if (previousExternal === undefined) {
+      delete process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
+    } else {
+      process.env.QNI_EGUI_WEB_EXTERNAL_SERVER = previousExternal
+    }
+
+    if (previousBaseUrl === undefined) {
+      delete process.env.QNI_EGUI_WEB_BASE_URL
+    } else {
+      process.env.QNI_EGUI_WEB_BASE_URL = previousBaseUrl
+    }
+
+    delete require.cache[worldModulePath]
+  }
+})

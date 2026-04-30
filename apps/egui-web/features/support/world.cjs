@@ -10,7 +10,7 @@ class EguiWorld {
     this.log = log
     this.link = link
     this.parameters = parameters
-    this.baseUrl = getWebServerConfig().url
+    this.baseUrl = getWebServerConfig({ env: process.env }).url
     this.artifactDir = DEFAULT_ARTIFACT_DIR
     this.resetRuntimeState()
   }
