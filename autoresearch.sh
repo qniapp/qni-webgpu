@@ -103,6 +103,7 @@ if branch_name.to_s.empty?
 end
 
 observed_job_step_cost_s = {}
+observed_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_run_id = nil
 observed_run_count = 0
@@ -159,7 +160,7 @@ if !branch_name.to_s.empty?
     observed_run_id = selected_records.first&.fetch(:id, nil)
     observed_run_count = selected_records.size
 
-    selected_records.each_with_index do |record, index|
+    selected_records.each do |record|
       record.fetch(:jobs).each do |job|
         Array(job['steps']).each do |step|
           next unless step['status'] == 'completed'
@@ -171,7 +172,7 @@ if !branch_name.to_s.empty?
           next if started_at.to_s.empty? || completed_at.to_s.empty?
 
           duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
-          observed_job_step_cost_s[[job['name'], step['name']]] = duration_s if index.zero?
+          observed_job_step_cost_lists[[job['name'], step['name']]] << duration_s
           observed_step_cost_lists[step['name']] << duration_s
         end
       end
@@ -179,8 +180,21 @@ if !branch_name.to_s.empty?
   end
 end
 
+median = lambda do |durations|
+  sorted = durations.sort
+  middle = sorted.length / 2
+  if sorted.length.odd?
+    sorted[middle]
+  else
+    (sorted[middle - 1] + sorted[middle]) / 2.0
+  end
+end
+
+observed_job_step_cost_s = observed_job_step_cost_lists.transform_values do |durations|
+  median.call(durations)
+end
 observed_step_cost_s = observed_step_cost_lists.transform_values do |durations|
-  durations.sum / durations.size
+  median.call(durations)
 end
 step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
 
