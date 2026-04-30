@@ -34,7 +34,7 @@ const waitForStateVectorApprox = async (page, expected, timeout = 5000, toleranc
     .toBe(true)
 }
 
-test('egui webgpu canvas renders content', async ({ page }) => {
+test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
 
@@ -53,7 +53,7 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   expect(initialState).toEqual([1, 0, 0, 0])
 
   const initialRender = await waitForCanvasContent(page, canvas, {
-    path: '/tmp/qni-egui-webgpu-initial.png',
+    path: testInfo.outputPath('qni-egui-webgpu-initial.png'),
   })
   expect(initialRender.nonBackground).toBeGreaterThanOrEqual(40)
 
@@ -98,10 +98,10 @@ test('egui webgpu canvas renders content', async ({ page }) => {
   await waitForStateVectorApprox(page, expectedBell)
 
   const afterRender = await waitForCanvasContent(page, canvas, {
-    path: '/tmp/qni-egui-webgpu-after.png',
+    path: testInfo.outputPath('qni-egui-webgpu-after.png'),
   })
   expect(afterRender.nonBackground).toBeGreaterThanOrEqual(40)
-  await canvas.screenshot({ path: '/tmp/qni-egui-webgpu.png' })
+  await canvas.screenshot({ path: testInfo.outputPath('qni-egui-webgpu.png') })
 })
 
 test('H on q0 and q1 yields uniform superposition', async ({ page }) => {

@@ -170,6 +170,12 @@ jobs.each do |job_name, job|
   Array(job['steps']).each do |step|
     name = step['name'].to_s
 
+    run_cost = normalize_run.call(step['run'], step['working-directory'])
+    if run_cost
+      total_s += run_cost
+      next
+    end
+
     if observed_job_step_cost_s.key?([job_name, name])
       total_s += observed_job_step_cost_s.fetch([job_name, name])
       next
@@ -177,12 +183,6 @@ jobs.each do |job_name, job|
 
     if step_cost_s.key?(name)
       total_s += step_cost_s.fetch(name)
-      next
-    end
-
-    run_cost = normalize_run.call(step['run'], step['working-directory'])
-    if run_cost
-      total_s += run_cost
       next
     end
 

@@ -14,6 +14,7 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
 
 module.exports = defineConfig({
   testDir: './tests',
+  fullyParallel: true,
   use: {
     baseURL: getPlaywrightBaseUrl({ env: process.env }),
     viewport: { width: 1000, height: 800 },

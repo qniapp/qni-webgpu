@@ -59,6 +59,7 @@ test('playwright config uses the shared browser and web server policies', () => 
 
   const expectedWebServer = getWebServerConfig()
 
+  assert.equal(config.fullyParallel, true)
   assert.equal(config.use.baseURL, expectedWebServer.url)
   assert.equal(config.use.headless, expectedBrowser.headless)
   assert.deepEqual(config.use.launchOptions, {

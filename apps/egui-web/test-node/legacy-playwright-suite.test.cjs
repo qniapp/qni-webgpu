@@ -23,3 +23,10 @@ test('legacy Playwright plain-chromium lane uses shared launch/server policy mod
   assert.doesNotMatch(source, /args:\s*\['--disable-gpu',\s*'--disable-software-rasterizer'\]/)
   assert.doesNotMatch(source, /http:\/\/127\.0\.0\.1:4174\//)
 })
+
+test('legacy Playwright suite avoids shared fixed screenshot paths that would collide under parallel workers', async () => {
+  const source = await fs.readFile(legacySuitePath, 'utf8')
+
+  assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/)
+  assert.match(source, /testInfo\.outputPath\(/)
+})
