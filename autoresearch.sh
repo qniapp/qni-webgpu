@@ -112,14 +112,17 @@ require 'yaml'
 root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_trunk_build_cold_s, web_trunk_build_cold_system_wasm_bindgen_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
 config = YAML.load_file(workflow_path)
 jobs = config.fetch('jobs')
-runtime_match_pathspecs = [
+workflow_match_pathspecs = [
   '.github/workflows/ci.yml',
+]
+run_runtime_match_pathspecs = [
   'Makefile',
   'scripts/check-all.sh',
   'apps/egui-web',
   'apps/mcp-qni',
   'apps/tui',
 ]
+exact_runtime_match_pathspecs = workflow_match_pathspecs + run_runtime_match_pathspecs
 
 fallback_step_cost_s = {
   'Set up job' => 3.0,
@@ -163,9 +166,14 @@ end
 observed_job_step_cost_s = {}
 observed_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
+exact_run_runtime_job_step_cost_s = {}
+exact_run_runtime_job_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
+exact_run_runtime_step_cost_s = {}
+exact_run_runtime_step_cost_lists = Hash.new { |hash, key| hash[key] = [] }
 observed_run_id = nil
 observed_run_count = 0
 selected_records_exact_runtime = false
+can_use_exact_run_runtime_costs = false
 
 expected_job_steps = jobs.transform_values do |job|
   Array(job['steps']).map { |step| step['name'].to_s }
@@ -183,13 +191,20 @@ if !branch_name.to_s.empty?
   if run_list_status.success?
     successful_runs = JSON.parse(run_list_out).select { |run| run['conclusion'] == 'success' }
     run_records = []
-    tracked_runtime_tree_clean = Open3.capture2(
-      'git', '-C', root_dir, 'diff', '--quiet', 'HEAD', '--', *runtime_match_pathspecs
+    tracked_exact_runtime_tree_clean = Open3.capture2(
+      'git', '-C', root_dir, 'diff', '--quiet', 'HEAD', '--', *exact_runtime_match_pathspecs
     )[1].success?
-    untracked_runtime_files_out, = Open3.capture2(
-      'git', '-C', root_dir, 'ls-files', '--others', '--exclude-standard', '--', *runtime_match_pathspecs
+    untracked_exact_runtime_files_out, = Open3.capture2(
+      'git', '-C', root_dir, 'ls-files', '--others', '--exclude-standard', '--', *exact_runtime_match_pathspecs
     )
-    can_exact_match_runtime_code = tracked_runtime_tree_clean && untracked_runtime_files_out.strip.empty?
+    can_exact_match_runtime_code = tracked_exact_runtime_tree_clean && untracked_exact_runtime_files_out.strip.empty?
+    tracked_run_runtime_tree_clean = Open3.capture2(
+      'git', '-C', root_dir, 'diff', '--quiet', 'HEAD', '--', *run_runtime_match_pathspecs
+    )[1].success?
+    untracked_run_runtime_files_out, = Open3.capture2(
+      'git', '-C', root_dir, 'ls-files', '--others', '--exclude-standard', '--', *run_runtime_match_pathspecs
+    )
+    can_use_exact_run_runtime_costs = tracked_run_runtime_tree_clean && untracked_run_runtime_files_out.strip.empty?
 
     successful_runs.each do |run|
       run_view_out, run_view_status = Open3.capture2(
@@ -217,7 +232,13 @@ if !branch_name.to_s.empty?
       matches_current_runtime_code = false
       if can_exact_match_runtime_code
         matches_current_runtime_code = Open3.capture2(
-          'git', '-C', root_dir, 'diff', '--quiet', run.fetch('headSha').to_s, 'HEAD', '--', *runtime_match_pathspecs
+          'git', '-C', root_dir, 'diff', '--quiet', run.fetch('headSha').to_s, 'HEAD', '--', *exact_runtime_match_pathspecs
+        )[1].success?
+      end
+      matches_current_run_runtime_code = false
+      if can_use_exact_run_runtime_costs
+        matches_current_run_runtime_code = Open3.capture2(
+          'git', '-C', root_dir, 'diff', '--quiet', run.fetch('headSha').to_s, 'HEAD', '--', *run_runtime_match_pathspecs
         )[1].success?
       end
 
@@ -226,6 +247,7 @@ if !branch_name.to_s.empty?
         jobs: run_jobs,
         matching: matches_current_workflow,
         exact_runtime: matches_current_workflow && matches_current_runtime_code,
+        exact_run_runtime: matches_current_run_runtime_code,
       }
     end
 
@@ -259,6 +281,24 @@ if !branch_name.to_s.empty?
         end
       end
     end
+
+    run_records.select { |record| record[:exact_run_runtime] }.first(5).each do |record|
+      record.fetch(:jobs).each do |job|
+        Array(job['steps']).each do |step|
+          next unless step['status'] == 'completed'
+          next if step['name'].to_s.start_with?('Post ')
+          next if step['name'].to_s == 'Complete job'
+
+          started_at = step['startedAt']
+          completed_at = step['completedAt']
+          next if started_at.to_s.empty? || completed_at.to_s.empty?
+
+          duration_s = Time.iso8601(completed_at) - Time.iso8601(started_at)
+          exact_run_runtime_job_step_cost_lists[[job['name'], step['name']]] << duration_s
+          exact_run_runtime_step_cost_lists[step['name']] << duration_s
+        end
+      end
+    end
   end
 end
 
@@ -278,6 +318,12 @@ end
 observed_step_cost_s = observed_step_cost_lists.transform_values do |durations|
   median.call(durations)
 end
+exact_run_runtime_job_step_cost_s = exact_run_runtime_job_step_cost_lists.transform_values do |durations|
+  median.call(durations)
+end
+exact_run_runtime_step_cost_s = exact_run_runtime_step_cost_lists.transform_values do |durations|
+  median.call(durations)
+end
 step_cost_s = fallback_step_cost_s.merge(observed_step_cost_s)
 
 web_job = jobs['web'] || {}
@@ -295,10 +341,15 @@ else
   web_trunk_build_cold_s.to_f
 end
 
-normalize_run = lambda do |run_text, working_directory|
+normalize_run = lambda do |job_name, step_name, run_text, working_directory|
   text = run_text.to_s.strip.gsub(/\s+/, ' ')
   wd = working_directory.to_s.strip
   return nil if text.empty?
+
+  if can_use_exact_run_runtime_costs
+    exact_cost = exact_run_runtime_job_step_cost_s[[job_name, step_name]] || exact_run_runtime_step_cost_s[step_name]
+    return exact_cost if exact_cost
+  end
 
   if text == './scripts/check-all.sh'
     return full_bundle
@@ -329,7 +380,7 @@ jobs.each do |job_name, job|
       next
     end
 
-    run_cost = normalize_run.call(step['run'], step['working-directory'])
+    run_cost = normalize_run.call(job_name, name, step['run'], step['working-directory'])
     if run_cost
       total_s += run_cost
       next
