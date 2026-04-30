@@ -68,6 +68,11 @@ fallback_step_cost_s = {
   'Install Web deps' => 3.0,
   'Install Playwright browser' => 13.0,
   'Install MCP deps' => 2.0,
+  'Web trunk build' => 55.0,
+  'Upload web dist artifact' => 2.0,
+  'Download web dist artifact' => 2.0,
+  'Web Cucumber BDD (static dist)' => 15.0,
+  'Web Playwright legacy (static dist)' => 45.0,
 }
 
 web_bundle = web_preflight_s.to_f + web_bdd_s.to_f + web_legacy_s.to_f

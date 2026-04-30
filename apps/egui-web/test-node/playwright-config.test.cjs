@@ -5,10 +5,53 @@ const { chromium } = require('playwright')
 const {
   getStandardWebGpuLaunchOptions,
 } = require('../test-support/browser-launch.cjs')
-const { getWebServerConfig } = require('../test-support/web-server.cjs')
-const config = require('../playwright.config.cjs')
+const {
+  getWebServerConfig,
+  getPlaywrightBaseUrl,
+  PLAYWRIGHT_EXTERNAL_SERVER_ENV,
+  PLAYWRIGHT_BASE_URL_ENV,
+} = require('../test-support/web-server.cjs')
+
+const loadConfig = (env = process.env) => {
+  const configPath = require.resolve('../playwright.config.cjs')
+  delete require.cache[configPath]
+
+  const previousExternal = process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
+  const previousBaseUrl = process.env[PLAYWRIGHT_BASE_URL_ENV]
+
+  if (env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === undefined) {
+    delete process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
+  } else {
+    process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] = env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
+  }
+
+  if (env[PLAYWRIGHT_BASE_URL_ENV] === undefined) {
+    delete process.env[PLAYWRIGHT_BASE_URL_ENV]
+  } else {
+    process.env[PLAYWRIGHT_BASE_URL_ENV] = env[PLAYWRIGHT_BASE_URL_ENV]
+  }
+
+  try {
+    return require('../playwright.config.cjs')
+  } finally {
+    if (previousExternal === undefined) {
+      delete process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
+    } else {
+      process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] = previousExternal
+    }
+
+    if (previousBaseUrl === undefined) {
+      delete process.env[PLAYWRIGHT_BASE_URL_ENV]
+    } else {
+      process.env[PLAYWRIGHT_BASE_URL_ENV] = previousBaseUrl
+    }
+
+    delete require.cache[configPath]
+  }
+}
 
 test('playwright config uses the shared browser and web server policies', () => {
+  const config = loadConfig()
   const expectedBrowser = getStandardWebGpuLaunchOptions({
     env: process.env,
     defaultPath: chromium.executablePath(),
@@ -23,4 +66,16 @@ test('playwright config uses the shared browser and web server policies', () => 
     args: expectedBrowser.args,
   })
   assert.deepEqual(config.webServer, expectedWebServer)
+})
+
+test('playwright config can reuse an externally managed egui-web server', () => {
+  const env = {
+    ...process.env,
+    [PLAYWRIGHT_EXTERNAL_SERVER_ENV]: '1',
+    [PLAYWRIGHT_BASE_URL_ENV]: 'http://127.0.0.1:5999',
+  }
+  const config = loadConfig(env)
+
+  assert.equal(config.use.baseURL, getPlaywrightBaseUrl({ env }))
+  assert.equal(config.webServer, undefined)
 })

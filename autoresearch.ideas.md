@@ -1,3 +1,3 @@
-- Recalibrate `autoresearch.sh` from the latest successful CI run so the proxy reflects post-`install-action` reality instead of stale cargo-install setup timings.
-- Cache the Playwright browser payload (or otherwise avoid re-installing Chromium every run) if GitHub-hosted runners are not already warm there; the current web job still spends about a dozen seconds in browser setup.
-- If branch protection allows, add a small aggregate status job that depends on `web`, `mcp`, and `tui` so required-check naming stays stable while keeping the parallel topology.
+- Cache the Playwright browser payload (or otherwise avoid re-installing Chromium every run) if GitHub-hosted runners are not already warm there; the current web jobs still spend about a dozen seconds in browser setup.
+- If revisiting web-suite parallelism, first solve the cold-start regression: when `test:pw-legacy` runs alone its CI step balloons to ~119s, so naive `web-bdd`/`web-legacy` splitting does not beat the warmed single-web job.
+- If branch protection requires stable job names, add a tiny aggregate `web` status job that depends on `web-bdd` and `web-legacy`, but only after a real speed win exists.
