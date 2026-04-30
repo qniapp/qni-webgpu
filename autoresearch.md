@@ -54,4 +54,9 @@ The script outputs `METRIC ...` lines for the projected CI wall time and local c
 ## What's Been Tried
 - Baseline success run `25151678429`: 18m53s total, with setup dominating more than app checks.
 - CI flake fixes for egui-web Cucumber were completed before this session; this lane is now focused on runtime only.
-- First optimization lane: restructure workflow topology so expensive setup/install work can overlap across jobs rather than forcing a single sequential critical path.
+- Baseline proxy measurement on the current single-job workflow: `projected_ci_s=956.375`.
+- Winning experiment so far: split `.github/workflows/ci.yml` into parallel `web`, `mcp`, and `tui` jobs while preserving the exact validation commands and enabling `setup-node` pnpm cache + `pnpm install --frozen-lockfile` in the Node jobs.
+  - Initial proxy result: `projected_ci_s=486.499`.
+  - After review-driven fix (run `pnpm/action-setup` before `actions/setup-node` in the Node jobs): `projected_ci_s=484.554`.
+- Reviewer found one important safety issue in the first draft: `setup-node` pnpm caching must come **after** `pnpm/action-setup`, or cache restore can fail because `pnpm` is not available yet.
+- Next high-upside lane, not yet explored in code: reduce the remaining dominant setup costs (`Install trunk`, `Install cargo audit/deny`) with prebuilt-binary installation and/or Rust caching.

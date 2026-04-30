@@ -1,0 +1,3 @@
+- Replace `cargo install trunk --locked` and `cargo install cargo-{audit,deny} --locked` in CI with prebuilt-binary installation (`taiki-e/install-action` or equivalent) to attack the remaining 438s + 458s setup hotspot directly.
+- Add `Swatinem/rust-cache@v2` with `cache-bin: true` and `cache-directories: ~/.cargo/advisory-db` so repeated CI runs do not rebuild/reinstall Rust tooling and advisory data from scratch.
+- If branch protection allows, add a small aggregate status job that depends on `web`, `mcp`, and `tui` so required-check naming stays stable while keeping the parallel topology.
