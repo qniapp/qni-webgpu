@@ -38,3 +38,12 @@ test('legacy Playwright canvas smoke does not duplicate Bell-state circuit cover
   assert.doesNotMatch(canvasSmoke, /expectedBell/)
   assert.doesNotMatch(canvasSmoke, /controlX/)
 })
+
+test('legacy Playwright drag-growth test uses the smallest circuit that covers delayed growth', async () => {
+  const source = await fs.readFile(legacySuitePath, 'utf8')
+  const dragGrowthTest = source.match(/test\('dragging does not grow state vector until drop'[\s\S]*?\n}\)/)?.[0] || ''
+
+  assert.doesNotMatch(dragGrowthTest, /targetY1/)
+  assert.match(dragGrowthTest, /waitForStateVectorLength\(page, 4\)/)
+  assert.match(dragGrowthTest, /waitForStateVectorLength\(page, 16\)/)
+})

@@ -168,18 +168,15 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY0 = LINE_Y
-  const targetY1 = LINE_Y + LINE_GAP
   const targetY2 = LINE_Y + 2 * LINE_GAP
 
   await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY0 })
-
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY1 })
-  await waitForStateVectorLength(page, 8)
+  await waitForStateVectorLength(page, 4)
 
   await dragPointer(page, { x: targetX, y: targetY0 }, { x: targetX, y: targetY2 }, 6, false)
 
   const lengthDuringDrag = (await readStateVector(page)).length
-  expect(lengthDuringDrag).toBe(8)
+  expect(lengthDuringDrag).toBe(4)
 
   await releasePointer(page, { x: targetX, y: targetY2 })
 
