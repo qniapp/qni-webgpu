@@ -20,3 +20,11 @@ test('autoresearch script treats compile-heavy run steps in renamed jobs conserv
   assert.match(source, /compile_heavy_run_step\.call\(step_name, text\)/)
   assert.match(source, /renamed_compile_heavy_cost/)
 })
+
+test('autoresearch script readiness probes survive bash string interpolation and fail fast', async () => {
+  const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
+
+  assert.doesNotMatch(source, /url = f"http:\/\/127\.0\.0\.1:/)
+  assert.match(source, /set -euo pipefail\nport=/)
+  assert.match(source, /url = 'http:\/\/127\.0\.0\.1:\{\}\/'\.format\(os\.environ\['QNI_EGUI_WEB_PORT'\]\)/)
+})

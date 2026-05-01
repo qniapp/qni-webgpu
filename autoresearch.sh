@@ -84,6 +84,7 @@ print(matches[-1].parent if matches else '')
 PY
 ) && trap 'rm -rf \"\$tmp_cache\"' EXIT && if [ -n \"\$candidate_dir\" ]; then PATH=\"\$candidate_dir:\$PATH\" XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; else XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; fi")
 WEB_BDD_S=$(measure_median_seconds web-bdd 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+set -euo pipefail
 port=\$(python - <<'PY'
 import socket
 sock = socket.socket()
@@ -100,7 +101,7 @@ import os
 import time
 import urllib.request
 
-url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+url = 'http://127.0.0.1:{}/'.format(os.environ['QNI_EGUI_WEB_PORT'])
 deadline = time.time() + 20
 while time.time() < deadline:
     try:
@@ -114,6 +115,7 @@ else:
 PY
 CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd")
 WEB_LEGACY_S=$(measure_median_seconds web-legacy 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+set -euo pipefail
 port=\$(python - <<'PY'
 import socket
 sock = socket.socket()
@@ -130,7 +132,7 @@ import os
 import time
 import urllib.request
 
-url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+url = 'http://127.0.0.1:{}/'.format(os.environ['QNI_EGUI_WEB_PORT'])
 deadline = time.time() + 20
 while time.time() < deadline:
     try:
