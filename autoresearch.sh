@@ -521,9 +521,18 @@ jobs.each do |job_name, job|
     if observed_selection_tier == 1 && observed_job_step_cost_s.key?([job_name, name])
       workflow_only_observed_cost = observed_job_step_cost_s.fetch([job_name, name])
     end
+    fallback_observed_step_cost = nil
+    if observed_selection_tier == 0 && run_cost && observed_step_cost_s.key?(name)
+      fallback_observed_step_cost = observed_step_cost_s.fetch(name)
+    end
 
     if workflow_only_observed_cost && run_cost
       total_s += [workflow_only_observed_cost, run_cost].max
+      next
+    end
+
+    if fallback_observed_step_cost
+      total_s += [fallback_observed_step_cost, run_cost].max
       next
     end
 
