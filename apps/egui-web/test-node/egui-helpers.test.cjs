@@ -12,9 +12,10 @@ const {
   waitForStateVectorReady,
 } = require('../features/support/egui-helpers.cjs')
 
-const makePage = ({ evaluateImpl } = {}) => {
+const makePage = ({ evaluateImpl, screenshotImpl } = {}) => {
   const calls = {
     evaluate: [],
+    screenshot: [],
     waitForLoadState: [],
     waitForFunction: [],
   }
@@ -24,6 +25,10 @@ const makePage = ({ evaluateImpl } = {}) => {
     async evaluate(fn, arg) {
       calls.evaluate.push({ source: fn.toString(), arg })
       return evaluateImpl(fn, arg, calls.evaluate.length - 1)
+    },
+    async screenshot(options) {
+      calls.screenshot.push(options)
+      return screenshotImpl ? screenshotImpl(options, calls.screenshot.length - 1) : Buffer.from('png')
     },
     async waitForLoadState(state) {
       calls.waitForLoadState.push(state)
@@ -259,23 +264,29 @@ test('releasePointer releases relative to the egui canvas', async () => {
   assert.equal(page.calls.up, 1)
 })
 
-test('sampleCanvasPixels passes screenshot bytes and css size into page evaluation', async () => {
+test('sampleCanvasPixels uses a clipped page screenshot around requested probes', async () => {
   const page = makePage({
     evaluateImpl: async (_fn, arg) => arg,
+    screenshotImpl: async () => Buffer.from('png'),
   })
   const locator = makeLocator({
-    screenshotImpl: async () => Buffer.from('png'),
-    boundingBoxImpl: async () => ({ width: 320, height: 180 }),
+    boundingBoxImpl: async () => ({ x: 10, y: 20, width: 320, height: 180 }),
   })
-  const samples = [{ name: 'probe', x: 12, y: 34 }]
+  const samples = [
+    { name: 'a', x: 12, y: 34 },
+    { name: 'b', x: 42, y: 54 },
+  ]
 
   const result = await sampleCanvasPixels(page, locator, samples)
 
   assert.deepEqual(result.samples, samples)
-  assert.equal(result.cssWidth, 320)
-  assert.equal(result.cssHeight, 180)
+  assert.equal(result.clipX, 11)
+  assert.equal(result.clipY, 33)
+  assert.equal(result.clipWidth, 33)
+  assert.equal(result.clipHeight, 23)
   assert.match(result.base64, /^[A-Za-z0-9+/=]+$/)
-  assert.deepEqual(locator.calls.screenshot, [{ type: 'png' }])
+  assert.deepEqual(page.calls.screenshot, [{ type: 'png', clip: { x: 21, y: 53, width: 33, height: 23 } }])
+  assert.deepEqual(locator.calls.screenshot, [])
   assert.equal(locator.calls.boundingBox, 1)
 })
 
@@ -291,25 +302,26 @@ test('sampleCanvasPixels waits for state-vector readiness before retrying a dest
       }
       return arg
     },
-  })
-  const locator = makeLocator({
     screenshotImpl: async (_options, index) => {
       if (index === 0) {
         throw new Error('Execution context was destroyed, most likely because of a navigation')
       }
       return Buffer.from('png')
     },
-    boundingBoxImpl: async () => ({ width: 320, height: 180 }),
+  })
+  const locator = makeLocator({
+    boundingBoxImpl: async () => ({ x: 10, y: 20, width: 320, height: 180 }),
   })
 
   const result = await sampleCanvasPixels(page, locator, [{ name: 'probe', x: 12, y: 34 }])
 
-  assert.equal(result.cssWidth, 320)
+  assert.equal(result.clipWidth, 3)
   assert.deepEqual(page.calls.waitForLoadState, ['load'])
   assert.equal(page.calls.waitForFunction.length, 1)
   assert.match(page.calls.evaluate[0].source, /__eguiError/)
   assert.match(page.calls.evaluate[1].source, /__eguiReadStateVector/)
-  assert.equal(locator.calls.screenshot.length, 2)
+  assert.equal(page.calls.screenshot.length, 2)
+  assert.equal(locator.calls.screenshot.length, 0)
 })
 
 test('getDragPreviewAboveStatePanelProbe preserves the current drag target contract', () => {

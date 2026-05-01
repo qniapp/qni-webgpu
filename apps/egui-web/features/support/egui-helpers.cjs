@@ -58,17 +58,17 @@ const evaluateWithRetry = async (page, fn, arg, attempts = DEFAULT_EVALUATE_ATTE
   throw lastError
 }
 
-const screenshotWithRetry = async (
+const retryScreenshot = async (
   page,
-  locator,
-  { waitForStateVector = false, ...options } = {},
+  capture,
+  { waitForStateVector = false } = {},
   attempts = DEFAULT_EVALUATE_ATTEMPTS
 ) => {
   let lastError
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      return await locator.screenshot({ type: 'png', ...options })
+      return await capture()
     } catch (error) {
       lastError = error
       if (!includesAny(error, RETRYABLE_SCREENSHOT_ERRORS)) {
@@ -84,6 +84,31 @@ const screenshotWithRetry = async (
 
   throw lastError
 }
+
+const screenshotWithRetry = async (
+  page,
+  locator,
+  { waitForStateVector = false, ...options } = {},
+  attempts = DEFAULT_EVALUATE_ATTEMPTS
+) =>
+  retryScreenshot(
+    page,
+    () => locator.screenshot({ type: 'png', ...options }),
+    { waitForStateVector },
+    attempts
+  )
+
+const pageScreenshotWithRetry = async (
+  page,
+  { waitForStateVector = false, ...options } = {},
+  attempts = DEFAULT_EVALUATE_ATTEMPTS
+) =>
+  retryScreenshot(
+    page,
+    () => page.screenshot({ type: 'png', ...options }),
+    { waitForStateVector },
+    attempts
+  )
 
 const readEguiError = async (page) => evaluateWithRetry(page, () => window.__eguiError || null)
 
@@ -236,19 +261,40 @@ const requireCanvasBoundingBox = async (page) => {
 }
 
 const sampleCanvasPixels = async (page, locator, samples) => {
-  const screenshot = await screenshotWithRetry(page, locator, {
-    type: 'png',
-    waitForStateVector: true,
-  })
-  const base64 = screenshot.toString('base64')
   const box = await locator.boundingBox()
   if (!box) {
     throw new Error('canvas not found')
   }
+  if (samples.length === 0) {
+    return {}
+  }
+
+  const padding = 1
+  const minX = Math.min(...samples.map(({ x }) => x))
+  const maxX = Math.max(...samples.map(({ x }) => x))
+  const minY = Math.min(...samples.map(({ y }) => y))
+  const maxY = Math.max(...samples.map(({ y }) => y))
+  const clipX = Math.max(0, Math.floor(minX) - padding)
+  const clipY = Math.max(0, Math.floor(minY) - padding)
+  const clipRight = Math.min(box.width, Math.ceil(maxX) + padding + 1)
+  const clipBottom = Math.min(box.height, Math.ceil(maxY) + padding + 1)
+  const clipWidth = Math.max(1, clipRight - clipX)
+  const clipHeight = Math.max(1, clipBottom - clipY)
+
+  const screenshot = await pageScreenshotWithRetry(page, {
+    waitForStateVector: true,
+    clip: {
+      x: box.x + clipX,
+      y: box.y + clipY,
+      width: clipWidth,
+      height: clipHeight,
+    },
+  })
+  const base64 = screenshot.toString('base64')
 
   return evaluateWithRetry(
     page,
-    async ({ base64, samples, cssWidth, cssHeight }) => {
+    async ({ base64, samples, clipX, clipY, clipWidth, clipHeight }) => {
       const img = new Image()
       img.src = `data:image/png;base64,${base64}`
       await new Promise((resolve, reject) => {
@@ -265,14 +311,15 @@ const sampleCanvasPixels = async (page, locator, samples) => {
       }
       ctx.drawImage(img, 0, 0)
 
-      const scaleX = img.width / cssWidth
-      const scaleY = img.height / cssHeight
+      const scaleX = img.width / clipWidth
+      const scaleY = img.height / clipHeight
+      const clamp = (value, max) => Math.min(Math.max(value, 0), Math.max(max - 1, 0))
 
       return Object.fromEntries(
         samples.map(({ name, x, y }) => {
           const data = ctx.getImageData(
-            Math.floor(x * scaleX),
-            Math.floor(y * scaleY),
+            clamp(Math.floor((x - clipX) * scaleX), img.width),
+            clamp(Math.floor((y - clipY) * scaleY), img.height),
             1,
             1
           ).data
@@ -280,7 +327,7 @@ const sampleCanvasPixels = async (page, locator, samples) => {
         })
       )
     },
-    { base64, samples, cssWidth: box.width, cssHeight: box.height }
+    { base64, samples, clipX, clipY, clipWidth, clipHeight }
   )
 }
 
