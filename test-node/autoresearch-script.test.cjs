@@ -36,3 +36,9 @@ test('autoresearch script uses observed same-step run costs in fallback-tier top
   assert.match(source, /observed_selection_tier == 0/)
   assert.match(source, /\[fallback_observed_step_cost, run_cost\]\.max/)
 })
+
+test('autoresearch script keeps retired secondary metrics explicit for log compatibility', async () => {
+  const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
+
+  assert.match(source, /METRIC web_static_suites_s=0/)
+})
