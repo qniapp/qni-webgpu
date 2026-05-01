@@ -93,7 +93,7 @@ test('cucumber config only targets markdown feature files and uses explicit supp
 test('cucumber config uses bounded scenario parallelism on CI', () => {
   const config = loadCucumberConfig({ ...process.env, CI: '1' })
 
-  assert.equal(config.parallel, 2)
+  assert.equal(config.parallel, 3)
 })
 
 test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
