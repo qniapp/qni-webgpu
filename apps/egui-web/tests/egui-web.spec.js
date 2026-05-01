@@ -516,7 +516,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const PALETTE_COUNT = 15
@@ -587,19 +587,21 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
         const midX = Math.floor((minX + maxX) / 2)
         const midY = Math.floor((minY + maxY) / 2)
+        const insideRadius = 14
+        const outsideDiagonal = 13
         return {
           count,
           width: maxX - minX + 1,
           height: maxY - minY + 1,
           samples: {
-            top: sample(midX, minY + 3),
-            bottom: sample(midX, maxY - 3),
-            left: sample(minX + 3, midY),
-            right: sample(maxX - 3, midY),
-            topLeft: sample(minX + 2, minY + 2),
-            topRight: sample(maxX - 2, minY + 2),
-            bottomLeft: sample(minX + 2, maxY - 2),
-            bottomRight: sample(maxX - 2, maxY - 2),
+            top: sample(midX, midY - insideRadius),
+            bottom: sample(midX, midY + insideRadius),
+            left: sample(midX - insideRadius, midY),
+            right: sample(midX + insideRadius, midY),
+            topLeft: sample(midX - outsideDiagonal, midY - outsideDiagonal),
+            topRight: sample(midX + outsideDiagonal, midY - outsideDiagonal),
+            bottomLeft: sample(midX - outsideDiagonal, midY + outsideDiagonal),
+            bottomRight: sample(midX + outsideDiagonal, midY + outsideDiagonal),
           },
         }
       },
