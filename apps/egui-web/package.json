@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "test": "playwright test",
-    "test:pw-legacy": "playwright test",
+    "test:pw-legacy": "playwright test --reporter=list",
     "test:bdd": "cucumber-js --config cucumber.cjs",
     "test:preflight": "node --test test-node/*.test.cjs"
   },

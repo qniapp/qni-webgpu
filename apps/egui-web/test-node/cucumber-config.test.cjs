@@ -72,7 +72,7 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   const pkg = await readPackageJson()
 
   assert.equal(pkg.scripts.test, 'playwright test')
-  assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
+  assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test --reporter=list')
   assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.cjs')
   assert.equal(pkg.scripts['test:preflight'], 'node --test test-node/*.test.cjs')
   assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
