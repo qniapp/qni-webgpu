@@ -537,6 +537,11 @@ normalize_run = lambda do |job_name, step_name, run_text, working_directory|
       return exact_cost if exact_cost
     end
 
+    if !exact_run_runtime_job_names.include?(job_name) && compile_heavy_run_step.call(step_name, text)
+      renamed_compile_heavy_cost = fallback_step_cost_s[step_name] || step_cost_s[step_name]
+      return renamed_compile_heavy_cost if renamed_compile_heavy_cost
+    end
+
     if current_step_job_counts.fetch(step_name, 0) > exact_run_runtime_step_job_counts.fetch(step_name, 0) &&
        compile_heavy_run_step.call(step_name, text)
       conservative_cost = fallback_step_cost_s[step_name] || step_cost_s[step_name]
