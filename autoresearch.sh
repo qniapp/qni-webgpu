@@ -145,6 +145,38 @@ else:
     raise SystemExit('Timed out waiting for static egui-web server')
 PY
 CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
+WEB_STATIC_SUITES_S=$(measure_median_seconds web-static-suites 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+set -euo pipefail
+port=\$(python - <<'PY'
+import socket
+sock = socket.socket()
+sock.bind(('127.0.0.1', 0))
+print(sock.getsockname()[1])
+sock.close()
+PY
+)
+python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-static-suites-benchmark.log 2>&1 &
+server_pid=\$!
+trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
+QNI_EGUI_WEB_PORT=\$port python3 - <<'PY'
+import os
+import time
+import urllib.request
+
+url = 'http://127.0.0.1:{}/'.format(os.environ['QNI_EGUI_WEB_PORT'])
+deadline = time.time() + 20
+while time.time() < deadline:
+    try:
+        with urllib.request.urlopen(url) as response:
+            response.read()
+        break
+    except Exception:
+        time.sleep(0.25)
+else:
+    raise SystemExit('Timed out waiting for static egui-web server')
+PY
+CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd
+CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
 MCP_CHECK_S=$(measure_median_seconds mcp-check 3 pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
 TUI_CHECK_S=$(measure_median_seconds tui-check 3 make -C "$ROOT_DIR" check)
 
@@ -154,14 +186,14 @@ print(f"{sum(float(v) for v in sys.argv[1:]):.3f}")
 PY
 )
 
-ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_TRUNK_BUILD_S" "$WEB_TRUNK_BUILD_COLD_S" "$WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
+ruby - "$ROOT_DIR" "$WORKFLOW_PATH" "$WEB_PREFLIGHT_S" "$WEB_TRUNK_BUILD_S" "$WEB_TRUNK_BUILD_COLD_S" "$WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S" "$WEB_BDD_S" "$WEB_LEGACY_S" "$WEB_STATIC_SUITES_S" "$MCP_CHECK_S" "$TUI_CHECK_S" <<'RUBY'
 require 'json'
 require 'open3'
 require 'set'
 require 'time'
 require 'yaml'
 
-root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_trunk_build_cold_s, web_trunk_build_cold_system_wasm_bindgen_s, web_bdd_s, web_legacy_s, mcp_check_s, tui_check_s = ARGV
+root_dir, workflow_path, web_preflight_s, web_trunk_build_s, web_trunk_build_cold_s, web_trunk_build_cold_system_wasm_bindgen_s, web_bdd_s, web_legacy_s, web_static_suites_s, mcp_check_s, tui_check_s = ARGV
 config = YAML.load_file(workflow_path)
 jobs = config.fetch('jobs')
 workflow_match_pathspecs = [
@@ -196,6 +228,7 @@ fallback_step_cost_s = {
   'Download web dist artifact' => 2.0,
   'Web Cucumber BDD (static dist)' => 15.0,
   'Web Playwright legacy (static dist)' => 45.0,
+  'Web static BDD and legacy suites' => 60.0,
 }
 
 web_bundle = web_preflight_s.to_f + web_bdd_s.to_f + web_legacy_s.to_f
@@ -454,6 +487,17 @@ else
   web_trunk_build_cold_s.to_f
 end
 
+observed_static_suite_costs = [
+  observed_step_cost_s['Web Cucumber BDD (static dist)'],
+  observed_step_cost_s['Web Playwright legacy (static dist)'],
+].compact
+web_static_suites_model_s = if observed_static_suite_costs.size == 2
+  local_shared_server_delta_s = web_static_suites_s.to_f - web_bdd_s.to_f - web_legacy_s.to_f
+  [observed_static_suite_costs.sum + local_shared_server_delta_s, web_static_suites_s.to_f].max
+else
+  web_static_suites_s.to_f
+end
+
 compile_heavy_run_step = lambda do |step_name, text|
   step_name == 'Web trunk build' ||
     text.start_with?('cargo ') ||
@@ -493,6 +537,7 @@ normalize_run = lambda do |job_name, step_name, run_text, working_directory|
 
   return web_preflight_s.to_f if text.include?('test:preflight')
   return web_trunk_model_s if wd.include?('apps/egui-web') && text == 'env -u NO_COLOR TRUNK_COLOR=never trunk build'
+  return web_static_suites_model_s if text.include?('pnpm run test:bdd') && text.include?('pnpm run test:pw-legacy')
   return web_bdd_s.to_f if text.include?('test:bdd')
   return web_legacy_s.to_f if text.include?('test:pw-legacy') || (wd.include?('apps/egui-web') && text == 'playwright test')
   return mcp_check_s.to_f if text.include?('apps/mcp-qni') && text.include?('check')
@@ -592,6 +637,7 @@ puts "METRIC web_local_s=#{web_bundle.round(3)}"
 puts "METRIC web_trunk_build_s=#{web_trunk_build_s.to_f.round(3)}"
 puts "METRIC web_trunk_build_cold_s=#{web_trunk_build_cold_s.to_f.round(3)}"
 puts "METRIC web_trunk_build_cold_system_wasm_bindgen_s=#{web_trunk_build_cold_system_wasm_bindgen_s.to_f.round(3)}"
+puts "METRIC web_static_suites_s=#{web_static_suites_s.to_f.round(3)}"
 puts "METRIC mcp_local_s=#{mcp_check_s.to_f.round(3)}"
 puts "METRIC tui_local_s=#{tui_check_s.to_f.round(3)}"
 puts "METRIC modeled_jobs=#{job_totals.size}"

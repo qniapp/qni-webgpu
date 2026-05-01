@@ -36,3 +36,13 @@ test('autoresearch script uses observed same-step run costs in fallback-tier top
   assert.match(source, /observed_selection_tier == 0/)
   assert.match(source, /\[fallback_observed_step_cost, run_cost\]\.max/)
 })
+
+test('autoresearch script measures the shared static web suite command', async () => {
+  const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
+
+  assert.match(source, /WEB_STATIC_SUITES_S=/)
+  assert.match(source, /pnpm run test:bdd[\s\S]*pnpm run test:pw-legacy/)
+  assert.match(source, /web_static_suites_model_s/)
+  assert.match(source, /return web_static_suites_model_s if text\.include\?\('pnpm run test:bdd'\) && text\.include\?\('pnpm run test:pw-legacy'\)/)
+  assert.match(source, /METRIC web_static_suites_s=/)
+})
