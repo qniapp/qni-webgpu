@@ -27,6 +27,14 @@ test('legacy Playwright plain-chromium lane uses shared launch/server policy mod
 test('legacy Playwright suite avoids shared fixed screenshot paths that would collide under parallel workers', async () => {
   const source = await fs.readFile(legacySuitePath, 'utf8')
 
-  assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/)
+  assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/) 
   assert.match(source, /testInfo\.outputPath\(/)
+})
+
+test('legacy Playwright canvas smoke does not duplicate Bell-state circuit coverage', async () => {
+  const source = await fs.readFile(legacySuitePath, 'utf8')
+  const canvasSmoke = source.match(/test\('egui webgpu canvas renders content'[\s\S]*?\n}\)/)?.[0] || ''
+
+  assert.doesNotMatch(canvasSmoke, /expectedBell/)
+  assert.doesNotMatch(canvasSmoke, /controlX/)
 })

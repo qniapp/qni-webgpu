@@ -59,7 +59,6 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
   const PALETTE_SIZE = GATE_SIZE
   const PALETTE_GAP = 0.5 * REM
   const PALETTE_ROW_Y = 2 * REM
@@ -68,34 +67,20 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
-  const LINE_GAP = 1.5 * REM
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
   const paletteCenterX = (index) =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
   const sourceX = paletteCenterX(0)
-  const controlX = paletteCenterX(1)
-  const xGateX = paletteCenterX(2)
   const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY = LINE_Y
-  const targetX2 = targetX + SLOT_SPACING
-  const targetY2 = LINE_Y + LINE_GAP
 
   await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY })
 
-  const expected = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
-  await waitForStateVectorApprox(page, expected)
-
-  await dragPointer(page, { x: controlX, y: sourceY }, { x: targetX2, y: targetY })
-
-  await waitForStateVectorApprox(page, expected)
-
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX2, y: targetY2 })
-
-  const expectedBell = [1 / Math.sqrt(2), 0, 0, 0, 0, 0, 1 / Math.sqrt(2), 0]
-  await waitForStateVectorApprox(page, expectedBell)
+  const expectedAfterH = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
+  await waitForStateVectorApprox(page, expectedAfterH)
 
   const afterRender = await waitForCanvasContent(page, canvas, {
     path: testInfo.outputPath('qni-egui-webgpu-after.png'),
