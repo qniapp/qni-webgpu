@@ -496,6 +496,131 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   }
 })
 
+test('x gate uses a circular body in palette, circuit, and drag preview', async ({ page }, testInfo) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  await waitForCanvasContent(page, canvas)
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const PALETTE_SIZE = GATE_SIZE
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const PALETTE_COUNT = 15
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const startX = cssWidth / 2 - paletteWidth / 2
+  const paletteCenterX = (index) =>
+    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
+  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const xGateCenter = { x: paletteCenterX(2), y: sourceY }
+  const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
+  const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
+  const readGateBodySignature = async (center) => {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const base64 = screenshot.toString('base64')
+    const canvasBox = await canvas.boundingBox()
+    expect(canvasBox).not.toBeNull()
+
+    return page.evaluate(
+      async ({ base64, center, cssWidth, cssHeight }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+
+        const probe = document.createElement('canvas')
+        probe.width = img.width
+        probe.height = img.height
+        const ctx = probe.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          throw new Error('2D canvas unavailable')
+        }
+        ctx.drawImage(img, 0, 0)
+
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const sample = (x, y) => {
+          const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
+          return [data[0], data[1], data[2], data[3]]
+        }
+        const isGateFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+        const radius = 52
+        let minX = Infinity
+        let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+        let count = 0
+
+        for (let y = center.y - radius; y <= center.y + radius; y += 1) {
+          for (let x = center.x - radius; x <= center.x + radius; x += 1) {
+            const pixel = sample(x, y)
+            if (!isGateFill(pixel)) {
+              continue
+            }
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            maxX = Math.max(maxX, x)
+            maxY = Math.max(maxY, y)
+            count += 1
+          }
+        }
+
+        if (count === 0) {
+          throw new Error('gate fill not found near probe center')
+        }
+
+        const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
+        return {
+          count,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1,
+          diagonalBody: brightness(sample(minX + 4, minY + 8)),
+          body: brightness(sample(minX + 8, minY + 8)),
+        }
+      },
+      {
+        base64,
+        center,
+        cssWidth: canvasBox?.width ?? 1000,
+        cssHeight: canvasBox?.height ?? 800,
+      }
+    )
+  }
+  const expectCircularBody = (signature) => {
+    expect(signature.width).toBeGreaterThan(24)
+    expect(signature.height).toBeGreaterThan(24)
+    expect(signature.diagonalBody).toBeLessThan(signature.body + 80)
+  }
+
+  expectCircularBody(await readGateBodySignature({ x: xGateCenter.x, y: xGateCenter.y + 8 }))
+
+  await dragPointer(page, xGateCenter, placedXCenter)
+  await page.waitForTimeout(50)
+  expectCircularBody(await readGateBodySignature({ x: placedXCenter.x + 8, y: placedXCenter.y + 8 }))
+
+  await dragPointer(page, placedXCenter, dragXCenter, 6, false)
+  await page.waitForTimeout(50)
+  expectCircularBody(await readGateBodySignature({ x: dragXCenter.x + 24, y: dragXCenter.y + 16 }))
+  await canvas.screenshot({ path: testInfo.outputPath('x-gate-circular-body.png') })
+
+  await page.mouse.up()
+})
+
 test('placed circuit gate keeps its visual while dragging another gate', async ({ page }) => {
   await page.goto('/')
 
