@@ -528,7 +528,8 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const xGateCenter = { x: paletteCenterX(2), y: sourceY }
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
-  const readGateBodySignature = async (center) => {
+  const isGateFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+  const readCircularBodySignature = async (center) => {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const base64 = screenshot.toString('base64')
     const canvasBox = await canvas.boundingBox()
@@ -558,18 +559,18 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
           const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
           return [data[0], data[1], data[2], data[3]]
         }
-        const isGateFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
-        const radius = 52
+        const isFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+        const searchRadius = 20
         let minX = Infinity
         let minY = Infinity
         let maxX = -Infinity
         let maxY = -Infinity
         let count = 0
 
-        for (let y = center.y - radius; y <= center.y + radius; y += 1) {
-          for (let x = center.x - radius; x <= center.x + radius; x += 1) {
+        for (let y = center.y - searchRadius; y <= center.y + searchRadius; y += 1) {
+          for (let x = center.x - searchRadius; x <= center.x + searchRadius; x += 1) {
             const pixel = sample(x, y)
-            if (!isGateFill(pixel)) {
+            if (!isFill(pixel)) {
               continue
             }
             minX = Math.min(minX, x)
@@ -581,16 +582,25 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
         }
 
         if (count === 0) {
-          throw new Error('gate fill not found near probe center')
+          throw new Error('gate fill not found inside scoped X gate probe')
         }
 
-        const brightness = (pixel) => pixel[0] + pixel[1] + pixel[2]
+        const midX = Math.floor((minX + maxX) / 2)
+        const midY = Math.floor((minY + maxY) / 2)
         return {
           count,
           width: maxX - minX + 1,
           height: maxY - minY + 1,
-          diagonalBody: brightness(sample(minX + 4, minY + 8)),
-          body: brightness(sample(minX + 8, minY + 8)),
+          samples: {
+            top: sample(midX, minY + 3),
+            bottom: sample(midX, maxY - 3),
+            left: sample(minX + 3, midY),
+            right: sample(maxX - 3, midY),
+            topLeft: sample(minX + 2, minY + 2),
+            topRight: sample(maxX - 2, minY + 2),
+            bottomLeft: sample(minX + 2, maxY - 2),
+            bottomRight: sample(maxX - 2, maxY - 2),
+          },
         }
       },
       {
@@ -601,21 +611,35 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
       }
     )
   }
-  const expectCircularBody = (signature) => {
-    expect(signature.width).toBeGreaterThan(24)
-    expect(signature.height).toBeGreaterThan(24)
-    expect(signature.diagonalBody).toBeLessThan(signature.body + 80)
+  const expectCircularBody = async (label, center) => {
+    const signature = await readCircularBodySignature(center)
+    const edgeNames = ['top', 'bottom', 'left', 'right']
+    const cornerNames = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
+    const filledEdges = edgeNames.filter((name) => isGateFill(signature.samples[name])).length
+    const filledCorners = cornerNames.filter((name) => isGateFill(signature.samples[name])).length
+
+    expect(signature.count, `${label} should find only the local X gate fill`).toBeGreaterThan(500)
+    expect(signature.width, `${label} should have a full-width body`).toBeGreaterThan(24)
+    expect(signature.height, `${label} should have a full-height body`).toBeGreaterThan(24)
+    expect(
+      filledEdges,
+      `${label} should fill the four cardinal edge samples: ${JSON.stringify(signature)}`
+    ).toBe(edgeNames.length)
+    expect(
+      filledCorners,
+      `${label} should leave the four diagonal corner samples unfilled: ${JSON.stringify(signature)}`
+    ).toBe(0)
   }
 
-  expectCircularBody(await readGateBodySignature({ x: xGateCenter.x, y: xGateCenter.y + 8 }))
+  await expectCircularBody('palette X gate', { x: xGateCenter.x, y: xGateCenter.y + 8 })
 
   await dragPointer(page, xGateCenter, placedXCenter)
   await page.waitForTimeout(50)
-  expectCircularBody(await readGateBodySignature({ x: placedXCenter.x + 8, y: placedXCenter.y + 8 }))
+  await expectCircularBody('placed X gate', { x: placedXCenter.x + 8, y: placedXCenter.y + 8 })
 
   await dragPointer(page, placedXCenter, dragXCenter, 6, false)
   await page.waitForTimeout(50)
-  expectCircularBody(await readGateBodySignature({ x: dragXCenter.x + 24, y: dragXCenter.y + 16 }))
+  await expectCircularBody('drag preview X gate', { x: dragXCenter.x + 24, y: dragXCenter.y + 16 })
   await canvas.screenshot({ path: testInfo.outputPath('x-gate-circular-body.png') })
 
   await page.mouse.up()
