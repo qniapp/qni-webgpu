@@ -7,6 +7,7 @@ const {
   getDragPreviewAboveStatePanelProbe,
   releasePointer,
   sampleCanvasPixels,
+  waitForAnimationFrames,
   waitForCanvasContent,
   waitForStartupReady,
   waitForStateVectorReady,
@@ -232,6 +233,22 @@ test('waitForCanvasContent reports the last sampled non-background count on time
   )
   assert.equal(locator.calls.screenshot.length, 1)
   assert.equal(page.calls.evaluate.length, 2)
+})
+
+test('waitForAnimationFrames waits for the requested number of browser paint frames', async () => {
+  const frames = []
+  const page = makePage({
+    evaluateImpl: async (fn, count) => {
+      frames.push({ source: fn.toString(), count })
+      return null
+    },
+  })
+
+  await waitForAnimationFrames(page, 2)
+
+  assert.equal(frames.length, 1)
+  assert.equal(frames[0].count, 2)
+  assert.match(frames[0].source, /requestAnimationFrame/)
 })
 
 test('dragPointer moves relative to the egui canvas and can keep the pointer pressed', async () => {

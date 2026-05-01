@@ -39,6 +39,14 @@ const waitForAppReady = async (page, timeout = DEFAULT_READY_TIMEOUT_MS) => {
   )
 }
 
+const waitForAnimationFrames = async (page, count = 2) => {
+  await page.evaluate(async (frameCount) => {
+    for (let index = 0; index < frameCount; index += 1) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    }
+  }, count)
+}
+
 const evaluateWithRetry = async (page, fn, arg, attempts = DEFAULT_EVALUATE_ATTEMPTS) => {
   let lastError
 
@@ -451,6 +459,7 @@ module.exports = {
   DEFAULT_MIN_NON_BACKGROUND_PIXELS,
   evaluateWithRetry,
   waitForAppReady,
+  waitForAnimationFrames,
   readEguiError,
   readStateVector,
   waitForStartupReady,

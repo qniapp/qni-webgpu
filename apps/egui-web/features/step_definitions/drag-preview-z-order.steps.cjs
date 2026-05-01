@@ -6,6 +6,7 @@ const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
   sampleCanvasPixels,
+  waitForAnimationFrames,
 } = require('../support/egui-helpers.cjs')
 
 When('I drag the palette gate from the palette over the state panel', async function () {
@@ -23,7 +24,7 @@ When('I drag the palette gate from the palette over the state panel', async func
   ])
 
   await dragPointer(this.page, probe.source, probe.handleCenter, 8, false)
-  await this.page.waitForTimeout(50)
+  await waitForAnimationFrames(this.page)
 
   const duringDrag = await sampleCanvasPixels(this.page, canvas, [probe.dragFillPoint])
   this.dragPreviewZOrder = {

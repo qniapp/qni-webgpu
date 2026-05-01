@@ -12,6 +12,7 @@ const {
   releasePointer,
   sampleCanvasPixels,
   waitForAppReady,
+  waitForAnimationFrames,
   waitForCanvasContent,
   waitForStartupReady,
 } = require('../features/support/egui-helpers.cjs')
@@ -241,7 +242,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const beforeDrag = await sampleCanvasPixels(page, canvas, panelPoints)
 
   await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const duringDrag = await sampleCanvasPixels(page, canvas, panelPoints)
 
   for (const name of ['corner', 'fill']) {
@@ -300,7 +301,7 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   const beforeDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   await dragPointer(page, dragSource, dragTarget, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   for (const name of Object.keys(beforeDrag)) {
@@ -353,7 +354,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   const beforeDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
 
   await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
 
   const duringDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
 
@@ -382,7 +383,7 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
   const beforeDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint, sourceFillPoint])
 
   await dragPointer(page, source, handleCenter, 8, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
 
   const duringDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
 
@@ -425,7 +426,7 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   }
 
   await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
 
   const pixels = await sampleCanvasPixels(page, canvas, [
     { name: 'corner', x: dragRect.x + 1, y: dragRect.y + 1 },
@@ -481,11 +482,11 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   ]
 
   await dragPointer(page, { x: sourceX, y: sourceY }, targetCenter, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   await releasePointer(page, targetCenter)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const afterDrop = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   for (const name of Object.keys(duringDrag)) {
@@ -546,13 +547,13 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
   }
 
   await dragPointer(page, sqrtXGateCenter, placedGateCenter)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   await page.mouse.move((box?.x ?? 0) + placedGateCenter.x + 120, (box?.y ?? 0) + placedGateCenter.y + 120)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const beforeDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   await dragPointer(page, hGateCenter, { x: placedGateCenter.x + 80, y: placedGateCenter.y + 40 }, 6, false)
-  await page.waitForTimeout(50)
+  await waitForAnimationFrames(page)
   const duringOtherDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
   let totalDiff = 0
