@@ -29,6 +29,15 @@ test('autoresearch script readiness probes survive bash string interpolation and
   assert.match(source, /url = 'http:\/\/127\.0\.0\.1:\{\}\/'\.format\(os\.environ\['QNI_EGUI_WEB_PORT'\]\)/)
 })
 
+test('autoresearch script includes successful rerun attempts in CI observation samples', async () => {
+  const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
+
+  assert.match(source, /--json', 'databaseId,conclusion,headSha,attempt'/)
+  assert.match(source, /1\.upto\(run\.fetch\('attempt', 1\)\.to_i\)/)
+  assert.match(source, /'--attempt', attempt_number\.to_s/)
+  assert.match(source, /attempt_success/)
+})
+
 test('autoresearch script uses observed same-step run costs in fallback-tier topology models', async () => {
   const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
 

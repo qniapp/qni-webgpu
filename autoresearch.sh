@@ -249,7 +249,7 @@ if !branch_name.to_s.empty?
     '--branch', branch_name,
     '--workflow', 'CI',
     '--limit', '20',
-    '--json', 'databaseId,conclusion,headSha'
+    '--json', 'databaseId,conclusion,headSha,attempt'
   )
 
   if run_list_status.success?
@@ -272,31 +272,6 @@ if !branch_name.to_s.empty?
     can_use_exact_run_runtime_costs = tracked_run_runtime_tree_clean && untracked_run_runtime_files_out.strip.empty?
 
     successful_runs.each do |run|
-      run_view_out, run_view_status = Open3.capture2(
-        'gh', 'run', 'view', run.fetch('databaseId').to_s,
-        '--json', 'jobs'
-      )
-      unless run_view_status.success?
-        view_failures += 1
-        next
-      end
-
-      run_jobs = JSON.parse(run_view_out).fetch('jobs')
-      run_job_steps = run_jobs.each_with_object({}) do |job, hash|
-        hash[job['name']] = Array(job['steps']).filter_map do |step|
-          next unless step['status'] == 'completed'
-          next if step['name'].to_s == 'Set up job'
-          next if step['name'].to_s.start_with?('Post ')
-          next if step['name'].to_s == 'Complete job'
-
-          step['name'].to_s
-        end
-      end
-
-      matches_current_workflow =
-        run_job_steps.keys.sort == expected_job_steps.keys.sort &&
-        expected_job_steps.all? { |job_name, steps| run_job_steps[job_name] == steps }
-
       matches_current_runtime_code = false
       if can_exact_match_runtime_code
         matches_current_runtime_code = Open3.capture2(
@@ -310,13 +285,45 @@ if !branch_name.to_s.empty?
         )[1].success?
       end
 
-      run_records << {
-        id: run.fetch('databaseId'),
-        jobs: run_jobs,
-        matching: matches_current_workflow,
-        exact_runtime: matches_current_workflow && matches_current_runtime_code,
-        exact_run_runtime: matches_current_run_runtime_code,
-      }
+      1.upto(run.fetch('attempt', 1).to_i) do |attempt_number|
+        run_view_out, run_view_status = Open3.capture2(
+          'gh', 'run', 'view', run.fetch('databaseId').to_s,
+          '--attempt', attempt_number.to_s,
+          '--json', 'jobs'
+        )
+        unless run_view_status.success?
+          view_failures += 1
+          next
+        end
+
+        run_jobs = JSON.parse(run_view_out).fetch('jobs')
+        attempt_success = run_jobs.all? { |job| job['conclusion'].to_s == 'success' }
+        next unless attempt_success
+
+        run_job_steps = run_jobs.each_with_object({}) do |job, hash|
+          hash[job['name']] = Array(job['steps']).filter_map do |step|
+            next unless step['status'] == 'completed'
+            next if step['name'].to_s == 'Set up job'
+            next if step['name'].to_s.start_with?('Post ')
+            next if step['name'].to_s == 'Complete job'
+
+            step['name'].to_s
+          end
+        end
+
+        matches_current_workflow =
+          run_job_steps.keys.sort == expected_job_steps.keys.sort &&
+          expected_job_steps.all? { |job_name, steps| run_job_steps[job_name] == steps }
+
+        run_records << {
+          id: run.fetch('databaseId'),
+          attempt: attempt_number,
+          jobs: run_jobs,
+          matching: matches_current_workflow,
+          exact_runtime: matches_current_workflow && matches_current_runtime_code,
+          exact_run_runtime: matches_current_run_runtime_code,
+        }
+      end
     end
 
     exact_runtime_records = run_records.select { |record| record[:exact_runtime] }
