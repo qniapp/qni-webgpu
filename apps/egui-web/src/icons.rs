@@ -55,11 +55,13 @@ pub(crate) fn draw_gate_body(
     kind: GateKind,
     colors: &Colors,
 ) {
-    let is_swap = kind == GateKind::Swap;
-    if !is_swap {
+    if kind == GateKind::X {
+        let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
+        painter.circle_filled(gate_rect.center(), radius, colors.box_fill);
+    } else if kind != GateKind::Swap {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
     }
-    let icon_color = if is_swap {
+    let icon_color = if kind == GateKind::Swap {
         colors.box_fill
     } else {
         colors.label
