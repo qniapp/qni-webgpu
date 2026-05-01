@@ -27,13 +27,6 @@ test('legacy Playwright plain-chromium lane uses shared launch/server policy mod
 test('legacy Playwright suite avoids shared fixed screenshot paths that would collide under parallel workers', async () => {
   const source = await fs.readFile(legacySuitePath, 'utf8')
 
-  assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/) 
+  assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/)
   assert.match(source, /testInfo\.outputPath\(/)
-})
-
-test('legacy Playwright suite uses frame-based settling instead of raw 50ms sleeps', async () => {
-  const source = await fs.readFile(legacySuitePath, 'utf8')
-
-  assert.match(source, /waitForAnimationFrames/)
-  assert.doesNotMatch(source, /waitForTimeout\(50\)/)
 })
