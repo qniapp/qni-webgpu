@@ -13,15 +13,6 @@ test('autoresearch script emits CI observation diagnostics for selection tier an
   assert.match(source, /METRIC observed_ci_view_failure_count=/)
 })
 
-test('autoresearch script models legacy Playwright shard commands separately', async () => {
-  const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
-
-  assert.match(source, /WEB_LEGACY_SHARD_1_S=/)
-  assert.match(source, /WEB_LEGACY_SHARD_2_S=/)
-  assert.match(source, /playwright test --shard=1\/2/)
-  assert.match(source, /playwright test --shard=2\/2/)
-})
-
 test('autoresearch script treats compile-heavy run steps in renamed jobs conservatively', async () => {
   const source = await fs.readFile(path.join(__dirname, '..', 'autoresearch.sh'), 'utf8')
 

@@ -33,7 +33,7 @@ jobs:
       - name: Web preflight
         run: pnpm -C apps/egui-web run test:preflight
 
-  web-build:
+  web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -76,44 +76,6 @@ jobs:
         run: env -u NO_COLOR TRUNK_COLOR=never trunk build
         working-directory: apps/egui-web
 
-      - name: Upload web dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-          if-no-files-found: error
-          retention-days: 1
-
-  web-bdd:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: web-build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '9'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
-
-      - name: Install Web deps
-        run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
-
-      - name: Download web dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-
       - name: Web Cucumber BDD (static dist)
         run: |
           python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-server.log 2>&1 &
@@ -138,39 +100,9 @@ jobs:
           QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
         working-directory: apps/egui-web
 
-  web-legacy-shard-1:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: web-build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '9'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
-
-      - name: Install Web deps
-        run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
-
-      - name: Download web dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-
-      - name: Web Playwright legacy shard 1 (static dist)
+      - name: Web Playwright legacy (static dist)
         run: |
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-shard-1-server.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           python3 - <<'PY'
@@ -189,61 +121,7 @@ jobs:
           else:
               raise SystemExit('Timed out waiting for static egui-web server')
           PY
-          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm exec playwright test --shard=1/2
-        working-directory: apps/egui-web
-
-  web-legacy-shard-2:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: web-build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '9'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
-
-      - name: Install Web deps
-        run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
-
-      - name: Download web dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: egui-web-dist
-          path: apps/egui-web/dist
-
-      - name: Web Playwright legacy shard 2 (static dist)
-        run: |
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-shard-2-server.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          python3 - <<'PY'
-          import time
-          import urllib.request
-
-          url = 'http://127.0.0.1:4174/'
-          deadline = time.time() + 20
-          while time.time() < deadline:
-              try:
-                  with urllib.request.urlopen(url) as response:
-                      response.read()
-                  break
-              except Exception:
-                  time.sleep(0.25)
-          else:
-              raise SystemExit('Timed out waiting for static egui-web server')
-          PY
-          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm exec playwright test --shard=2/2
+          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy
         working-directory: apps/egui-web
 
   mcp:
