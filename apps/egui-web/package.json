@@ -5,7 +5,7 @@
   "scripts": {
     "test": "playwright test",
     "test:pw-legacy": "playwright test",
-    "test:bdd": "cucumber-js --config cucumber.cjs",
+    "test:bdd": "cucumber-js --config cucumber.ts",
     "typecheck": "tsc --noEmit",
     "test:preflight": "pnpm run typecheck && node --test test-node/*.test.cjs"
   },

@@ -22,6 +22,8 @@ const readTsConfig = async () => {
   return JSON.parse(await fs.readFile(tsconfigPath, 'utf8'))
 }
 
+const readDocs = () => fs.readFile(path.join(rootDir, '..', '..', 'docs', 'egui-web.md'), 'utf8')
+
 const readSupportSource = async (fileName) => fs.readFile(path.join(supportDir, fileName), 'utf8')
 
 const parseMessageOutput = async (messagePath) => {
@@ -34,7 +36,7 @@ const parseMessageOutput = async (messagePath) => {
 }
 
 const loadCucumberConfig = (env = process.env) => {
-  const configPath = require.resolve('../cucumber.cjs')
+  const configPath = require.resolve('../cucumber.ts')
   delete require.cache[configPath]
 
   const previousCi = process.env.CI
@@ -45,7 +47,8 @@ const loadCucumberConfig = (env = process.env) => {
   }
 
   try {
-    return require('../cucumber.cjs').default
+    const configModule = require('../cucumber.ts')
+    return configModule.default || configModule
   } finally {
     if (previousCi === undefined) {
       delete process.env.CI
@@ -81,13 +84,22 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
 
   assert.equal(pkg.scripts.test, 'playwright test')
   assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
-  assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.cjs')
+  assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.ts')
   assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
   assert.equal(pkg.scripts['test:preflight'], 'pnpm run typecheck && node --test test-node/*.test.cjs')
   assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
   assert.match(pkg.devDependencies['@types/node'], /^\^\d+/)
   assert.match(pkg.devDependencies['ts-node'], /^\^\d+/)
   assert.match(pkg.devDependencies.typescript, /^\^\d+/)
+})
+
+test('cucumber config is TypeScript without a compatibility wrapper', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'cucumber.ts')))
+  await assert.rejects(() => fs.access(path.join(rootDir, 'cucumber.cjs')), /ENOENT/)
+
+  const docs = await readDocs()
+  assert.match(docs, /cucumber\.ts/)
+  assert.doesNotMatch(docs, /cucumber\.cjs/)
 })
 
 test('typescript config type-checks cucumber glue without emitting files', async () => {
@@ -100,18 +112,18 @@ test('typescript config type-checks cucumber glue without emitting files', async
   assert.ok(tsconfig.compilerOptions.types.includes('node'))
   assert.ok(tsconfig.include.includes('features/**/*.ts'))
   assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
+  assert.ok(tsconfig.include.includes('cucumber.ts'))
   assert.ok(tsconfig.include.includes('playwright.config.ts'))
   assert.ok(tsconfig.include.includes('scripts/**/*.ts'))
   assert.ok(tsconfig.include.includes('test-support/**/*.ts'))
 })
 
 test('cucumber CLI resolves the default profile with TypeScript support', async () => {
-  const { useConfiguration, runConfiguration } = await loadConfiguration({ file: 'cucumber.cjs' })
+  const { useConfiguration, runConfiguration } = await loadConfiguration({ file: 'cucumber.ts' })
 
   assert.deepEqual(useConfiguration.paths, ['features/**/*.feature.md'])
   assert.deepEqual(runConfiguration.support.requireModules, ['ts-node/register'])
   assert.deepEqual([...runConfiguration.support.requirePaths].sort(), [
-    'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
     'features/support/bootstrap.ts',
   ].sort())
@@ -125,7 +137,6 @@ test('cucumber config only targets markdown feature files and uses explicit supp
   assert.deepEqual(config.paths, ['features/**/*.feature.md'])
   assert.deepEqual(config.requireModule, ['ts-node/register'])
   assert.deepEqual([...config.require].sort(), [
-    'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
     'features/support/bootstrap.ts',
   ].sort())
@@ -249,7 +260,7 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
       'exec',
       'cucumber-js',
       '--config',
-      'cucumber.cjs',
+      'cucumber.ts',
       '--dry-run',
       '--format',
       `message:${fixture.messagePath}`,

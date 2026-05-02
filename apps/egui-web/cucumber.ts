@@ -1,9 +1,17 @@
-const defaultProfile = {
+type CucumberProfile = {
+  paths: string[]
+  requireModule: string[]
+  require: string[]
+  publishQuiet: boolean
+  failFast: boolean
+  parallel?: number
+}
+
+const defaultProfile: CucumberProfile = {
   paths: ['features/**/*.feature.md'],
   requireModule: ['ts-node/register'],
   require: [
     'features/support/bootstrap.ts',
-    'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
   ],
   publishQuiet: true,
@@ -11,6 +19,4 @@ const defaultProfile = {
   parallel: process.env.CI ? 2 : undefined,
 }
 
-module.exports = {
-  default: defaultProfile,
-}
+module.exports = defaultProfile
