@@ -146,6 +146,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 この browser policy と `trunk serve --address 127.0.0.1 --port 4174 --no-autoreload` の server policy は
 `test-support/browser-launch.ts` と `test-support/web-server.ts` に集約されており、
 legacy Playwright と BDD の両方が同じ shared source of truth を使う。
+後方互換用の `playwright-browser.cjs` wrapper は残さず、呼び出し側は直接 `test-support/browser-launch.ts` を参照する。
 そのため、flagged Chrome を正本にする挙動は両経路で一致する。
 
 repo root の `scripts/check-all.sh` でも staged rollout を維持し、

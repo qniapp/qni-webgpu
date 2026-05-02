@@ -1,14 +1,16 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs/promises')
+const path = require('node:path')
 
 require('ts-node/register/transpile-only')
 const shared = require('../test-support/browser-launch.ts')
-const browserPolicy = require('../playwright-browser.cjs')
 
-test('playwright-browser remains a thin wrapper over the shared browser policy module', () => {
-  assert.equal(browserPolicy.resolvePlaywrightBrowserExecutable, shared.resolvePlaywrightBrowserExecutable)
-  assert.equal(browserPolicy.getStandardWebGpuLaunchOptions, shared.getStandardWebGpuLaunchOptions)
-  assert.equal(browserPolicy.getPlainChromiumLaunchOptions, shared.getPlainChromiumLaunchOptions)
+test('playwright-browser compatibility wrapper is not shipped', async () => {
+  await assert.rejects(
+    () => fs.access(path.join(__dirname, '..', 'playwright-browser.cjs')),
+    /ENOENT/
+  )
 })
 
 test('plain chromium launch options can reuse a system-installed browser when available', () => {
