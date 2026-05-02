@@ -2,6 +2,7 @@
 node_modules/
 dist/
 apps/egui-web/target/
+apps/egui-web/.trunk-generated/
 apps/egui-web/output/
 apps/egui-web/playwright-report/
 apps/egui-web/test-results/

@@ -9,7 +9,7 @@
 ## 全体像
 
 - リポジトリ構成: **monorepo**
-- 主言語: **Rust** / **JavaScript (Node.js)**
+- 主言語: **Rust** / **TypeScript** / **JavaScript (Node.js)**
 - Rust toolchain: **stable** (`rust-toolchain.toml`)
 - Web 向けビルド: **Rust → WebAssembly**
 - Node パッケージ管理: **pnpm**
@@ -26,7 +26,7 @@
 - GPU API: **wgpu**（**WebGPU** バックエンド）
 - 配布形態: **WebAssembly (`wasm32-unknown-unknown`)**
 - ビルド/開発サーバ: **Trunk**
-- ブラウザ側の起動補助: **ES Modules の `bootstrap.js`**
+- ブラウザ側の起動補助: **TypeScript source の `bootstrap.ts`**（Trunk hook で browser module `bootstrap.js` へ生成）
 - テスト: **Playwright + Chromium**
 
 要するに、一般的な React/Vue ベースの Web アプリではなく、**Rust で書いた egui アプリを Wasm としてブラウザ上で動かし、描画と状態計算に WebGPU を使う構成**です。

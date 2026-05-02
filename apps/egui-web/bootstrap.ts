@@ -1,8 +1,24 @@
-import init, { read_state_vector, start } from '/qni-egui-web.js'
+type QniEguiWebModule = {
+  default: () => Promise<void>
+  read_state_vector: () => Promise<ArrayLike<number>>
+  start: (canvasId: string) => Promise<void>
+}
+
+declare global {
+  interface Window {
+    __eguiError?: unknown
+    __eguiReady?: boolean
+    __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
+  }
+}
+
+const wasmModulePath = '/qni-egui-web.js'
+const loadQniEguiWeb = async (): Promise<QniEguiWebModule> =>
+  import(wasmModulePath) as Promise<QniEguiWebModule>
 
 const statusEl = document.getElementById('app-status')
 
-const hideStatus = () => {
+const hideStatus = (): void => {
   if (!statusEl) {
     return
   }
@@ -10,7 +26,7 @@ const hideStatus = () => {
   statusEl.textContent = ''
 }
 
-const showStatus = (message) => {
+const showStatus = (message: string): void => {
   if (!statusEl) {
     return
   }
@@ -18,8 +34,8 @@ const showStatus = (message) => {
   statusEl.textContent = message
 }
 
-const formatStartupError = (err) => {
-  const detail = err && typeof err.message === 'string' ? err.message : String(err)
+const formatStartupError = (err: unknown): string => {
+  const detail = err instanceof Error ? err.message : String(err)
   return [
     'WebGPU initialization failed.',
     'This browser or environment could not provide a usable WebGPU adapter.',
@@ -27,8 +43,9 @@ const formatStartupError = (err) => {
   ].join('\n\n')
 }
 
-const run = async () => {
+const run = async (): Promise<void> => {
   try {
+    const { default: init, read_state_vector, start } = await loadQniEguiWeb()
     await init()
     window.__eguiReadStateVector = async () => {
       try {
@@ -55,4 +72,6 @@ const run = async () => {
   }
 }
 
-run()
+void run()
+
+export {}

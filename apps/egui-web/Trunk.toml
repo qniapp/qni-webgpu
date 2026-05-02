@@ -1,2 +1,10 @@
 [build]
 filehash = false
+
+[watch]
+watch = ["bootstrap.ts"]
+
+[[hooks]]
+stage = "pre_build"
+command = "pnpm"
+command_arguments = ["run", "build:bootstrap"]

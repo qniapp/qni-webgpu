@@ -85,6 +85,7 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   assert.equal(pkg.scripts.test, 'playwright test')
   assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
   assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.ts')
+  assert.match(pkg.scripts['build:bootstrap'], /tsc bootstrap\.ts/)
   assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
   assert.equal(
     pkg.scripts['test:preflight'],
@@ -113,6 +114,7 @@ test('typescript config type-checks cucumber glue without emitting files', async
   assert.equal(tsconfig.compilerOptions.module, 'CommonJS')
   assert.equal(tsconfig.compilerOptions.strict, true)
   assert.ok(tsconfig.compilerOptions.types.includes('node'))
+  assert.ok(tsconfig.include.includes('bootstrap.ts'))
   assert.ok(tsconfig.include.includes('features/**/*.ts'))
   assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
   assert.ok(tsconfig.include.includes('cucumber.ts'))

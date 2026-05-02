@@ -93,6 +93,6 @@ sequenceDiagram
 
 - `apps/egui-web/src/lib.rs`: egui UI と GPU 状態ベクトル計算/描画
 - `apps/egui-web/index.html`: キャンバス配置と Trunk 設定
-- `apps/egui-web/bootstrap.js`: Wasm 初期化とテスト用フック
-- `apps/egui-web/tests/egui-web.spec.js`: Playwright テスト
+- `apps/egui-web/bootstrap.ts`: Wasm 初期化とテスト用フック（Trunk hook で `bootstrap.js` を生成）
+- `apps/egui-web/tests/egui-web.spec.ts`: Playwright テスト
 - `docs/decisions.md`: PoC の仕様・決定事項
