@@ -1,43 +1,7 @@
 import assert = require('node:assert/strict')
 import { Then, When } from '@cucumber/cucumber'
-import type { Locator, Page } from 'playwright'
-import type { CanvasPixel, DragPreviewZOrderSamples, EguiWorld } from '../support/world-types'
-
-type Point = {
-  x: number
-  y: number
-}
-
-type PixelSamplePoint = Point & {
-  name: string
-}
-
-type DragPreviewProbe = {
-  source: Point
-  handleCenter: Point
-  dragFillPoint: PixelSamplePoint
-  sourceFillPoint: PixelSamplePoint
-}
-
-type AssertionsSupport = {
-  assertDragPreviewAboveOverlay: (samples: DragPreviewZOrderSamples) => void
-}
-
-type EguiHelpers = {
-  dragPointer: (
-    page: Page,
-    from: Point,
-    to: Point,
-    steps?: number,
-    release?: boolean
-  ) => Promise<void>
-  getDragPreviewAboveStatePanelProbe: (cssWidth: number, cssHeight: number) => DragPreviewProbe
-  sampleCanvasPixels: (
-    page: Page,
-    locator: Locator,
-    samples: PixelSamplePoint[]
-  ) => Promise<Record<string, CanvasPixel>>
-}
+import type { Page } from 'playwright'
+import type { AssertionsSupport, EguiHelpers, EguiWorld } from '../support/support-types'
 
 const { assertDragPreviewAboveOverlay } = require('../support/assertions.cjs') as AssertionsSupport
 const {

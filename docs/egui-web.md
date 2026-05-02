@@ -123,7 +123,7 @@ Step definitions は段階的に TypeScript へ移行する。
 対象は `features/step_definitions/**/*.cjs` と `features/step_definitions/**/*.ts` の両方にする。
 新規または移行済みの step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
 移行中は同じ step phrase を CJS と TS の両方に残すと Cucumber の duplicate step になるため、1 file ずつ置き換える。
-現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する World 型は `features/support/world-types.ts` に置く。
+現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する support 型は `features/support/support-types.ts` に置く。
 既存の CJS support modules はそのまま使い、TS step からは `require(...) as ...` で薄く型を付ける。
 
 BDD 化したのは最初の 3 scenario のみ:

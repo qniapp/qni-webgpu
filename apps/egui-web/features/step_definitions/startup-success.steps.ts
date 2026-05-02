@@ -1,21 +1,7 @@
 import assert = require('node:assert/strict')
 import { Given, Then, When } from '@cucumber/cucumber'
-import type { Locator, Page } from 'playwright'
-import type { EguiWorld } from '../support/world-types'
-
-type BrowserSupport = {
-  STANDARD_BROWSER_MODE: string
-  openPageForMode: (world: EguiWorld, mode: string) => Promise<Page>
-}
-
-type EguiHelpers = {
-  openEguiApp: (page: Page, baseUrl: string) => Promise<void>
-  waitForStartupReady: (page: Page, options: { waitForStateVector: boolean }) => Promise<void>
-  readEguiError: (page: Page) => Promise<string | null>
-  readStateVector: (page: Page) => Promise<unknown>
-  waitForCanvasContent: (page: Page, canvas: Locator) => Promise<void>
-  waitForStateVectorReady: (page: Page) => Promise<void>
-}
+import type { Page } from 'playwright'
+import type { BrowserSupport, EguiHelpers, EguiWorld } from '../support/support-types'
 
 const { STANDARD_BROWSER_MODE, openPageForMode } = require('../support/browser.cjs') as BrowserSupport
 const {

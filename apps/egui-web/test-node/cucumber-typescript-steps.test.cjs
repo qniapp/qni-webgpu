@@ -10,12 +10,16 @@ const supportDir = path.join(rootDir, 'features', 'support')
 const readStep = (name) => fs.readFile(path.join(stepDefinitionsDir, name), 'utf8')
 const readSupport = (name) => fs.readFile(path.join(supportDir, name), 'utf8')
 
-test('typescript cucumber steps share the typed egui world state', async () => {
-  const worldTypes = await readSupport('world-types.ts')
+test('typescript cucumber steps share support module type contracts', async () => {
+  const supportTypes = await readSupport('support-types.ts')
 
-  assert.match(worldTypes, /export type EguiWorld =/)
-  assert.match(worldTypes, /export type DragPreviewZOrderSamples =/)
-  assert.match(worldTypes, /dragPreviewZOrder\?: DragPreviewZOrderSamples/)
+  assert.match(supportTypes, /export type EguiWorld =/)
+  assert.match(supportTypes, /export type BrowserSupport =/)
+  assert.match(supportTypes, /export type EguiHelpers =/)
+  assert.match(supportTypes, /export type AssertionsSupport =/)
+  assert.match(supportTypes, /export type WindowWithEguiError =/)
+  assert.match(supportTypes, /dragPreviewZOrder\?: DragPreviewZOrderSamples/)
+  await assert.rejects(() => fs.access(path.join(supportDir, 'world-types.ts')), /ENOENT/)
 
   for (const stepFile of [
     'startup-success.steps.ts',
@@ -24,8 +28,11 @@ test('typescript cucumber steps share the typed egui world state', async () => {
   ]) {
     const source = await readStep(stepFile)
 
-    assert.match(source, /import type \{[^}]*EguiWorld[^}]*\} from '..\/support\/world-types'/)
-    assert.doesNotMatch(source, /type EguiWorld =/)
+    assert.match(source, /import type \{[^}]*EguiWorld[^}]*\} from '..\/support\/support-types'/)
+    assert.doesNotMatch(
+      source,
+      /type (AssertionsSupport|BrowserSupport|DragPreviewProbe|EguiHelpers|EguiWorld|PixelSamplePoint|Point|WindowWithEguiError)\b/
+    )
   }
 })
 
