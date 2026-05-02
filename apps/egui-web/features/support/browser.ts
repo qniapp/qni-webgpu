@@ -39,7 +39,7 @@ type OpenPageOptions = {
 const {
   getStandardWebGpuLaunchOptions,
   getPlainChromiumLaunchOptions,
-} = require('../../test-support/browser-launch.cjs') as BrowserLaunchSupport
+} = require('../../test-support/browser-launch.ts') as BrowserLaunchSupport
 
 export const STANDARD_BROWSER_MODE = 'standard-webgpu'
 export const PLAIN_BROWSER_MODE = 'plain-chromium'

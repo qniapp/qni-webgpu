@@ -1,6 +1,15 @@
-const { execFileSync } = require('node:child_process')
+import { execFileSync } from 'node:child_process'
+import type { LaunchOptions } from 'playwright'
 
-const STANDARD_WEBGPU_ARGS = [
+type CommandLookup = (name: string) => string | null
+type BrowserLaunchRequest = {
+  env?: NodeJS.ProcessEnv
+  defaultPath?: string
+  commandLookup?: CommandLookup
+  headless?: boolean
+}
+
+export const STANDARD_WEBGPU_ARGS = [
   '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
   '--enable-unsafe-webgpu',
   '--enable-dawn-features=allow_unsafe_apis,enable_immediate_error_handling',
@@ -12,15 +21,15 @@ const STANDARD_WEBGPU_ARGS = [
   '--use-vulkan=swiftshader',
 ]
 
-const PLAIN_CHROMIUM_ARGS = ['--disable-gpu', '--disable-software-rasterizer']
+export const PLAIN_CHROMIUM_ARGS = ['--disable-gpu', '--disable-software-rasterizer']
 
-const CODEX_VISUAL_WEBGPU_ARGS = [
+export const CODEX_VISUAL_WEBGPU_ARGS = [
   '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
   '--enable-unsafe-webgpu',
   '--ignore-gpu-blocklist',
 ]
 
-const findCommand = (name) => {
+const findCommand = (name: string): string | null => {
   try {
     return execFileSync('sh', ['-lc', `command -v ${name}`], {
       encoding: 'utf8',
@@ -31,11 +40,11 @@ const findCommand = (name) => {
   }
 }
 
-const resolvePlaywrightBrowserExecutable = ({
+export const resolvePlaywrightBrowserExecutable = ({
   env = process.env,
   defaultPath,
   commandLookup = findCommand,
-} = {}) => {
+}: BrowserLaunchRequest = {}): string | undefined => {
   if (env.PLAYWRIGHT_CHROMIUM_PATH) {
     return env.PLAYWRIGHT_CHROMIUM_PATH
   }
@@ -50,45 +59,35 @@ const resolvePlaywrightBrowserExecutable = ({
   return defaultPath
 }
 
-const getStandardWebGpuLaunchOptions = ({
+export const getStandardWebGpuLaunchOptions = ({
   env = process.env,
   defaultPath,
   commandLookup = findCommand,
   headless = env.HEADLESS !== '0',
-} = {}) => ({
+}: BrowserLaunchRequest = {}): LaunchOptions => ({
   headless,
   executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
   args: [...STANDARD_WEBGPU_ARGS],
 })
 
-const getPlainChromiumLaunchOptions = ({
+export const getPlainChromiumLaunchOptions = ({
   env = process.env,
   defaultPath,
   commandLookup = findCommand,
   headless = true,
-} = {}) => ({
+}: BrowserLaunchRequest = {}): LaunchOptions => ({
   headless,
   executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
   args: [...PLAIN_CHROMIUM_ARGS],
 })
 
-const getCodexVisualLaunchOptions = ({
+export const getCodexVisualLaunchOptions = ({
   env = process.env,
   defaultPath,
   commandLookup = findCommand,
   headless = env.HEADLESS === '1',
-} = {}) => ({
+}: BrowserLaunchRequest = {}): LaunchOptions => ({
   headless,
   executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
   args: [...CODEX_VISUAL_WEBGPU_ARGS],
 })
-
-module.exports = {
-  CODEX_VISUAL_WEBGPU_ARGS,
-  STANDARD_WEBGPU_ARGS,
-  PLAIN_CHROMIUM_ARGS,
-  getCodexVisualLaunchOptions,
-  resolvePlaywrightBrowserExecutable,
-  getStandardWebGpuLaunchOptions,
-  getPlainChromiumLaunchOptions,
-}

@@ -1,12 +1,13 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
 const {
   getCodexVisualLaunchOptions,
   getPlainChromiumLaunchOptions,
   getStandardWebGpuLaunchOptions,
   resolvePlaywrightBrowserExecutable,
-} = require('../test-support/browser-launch.cjs')
+} = require('../test-support/browser-launch.ts')
 
 const STANDARD_WEBGPU_ARGS = [
   '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',

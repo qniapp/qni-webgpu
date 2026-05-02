@@ -1,6 +1,7 @@
+require('ts-node/register/transpile-only')
 const { defineConfig } = require('@playwright/test')
 const { chromium } = require('playwright')
-const { getStandardWebGpuLaunchOptions } = require('./test-support/browser-launch.cjs')
+const { getStandardWebGpuLaunchOptions } = require('./test-support/browser-launch.ts')
 const {
   getPlaywrightBaseUrl,
   getPlaywrightWebServerConfig,

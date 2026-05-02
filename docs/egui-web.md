@@ -50,7 +50,7 @@ cd /home/yasuhito/Work/qni-webgpu
 ```
 
 Codex からスクリーンショットや操作込みで確認する場合は、既存サーバを使って headed Playwright を走らせる。
-この経路は `test-support/browser-launch.cjs` の WebGPU フラグ付き Chrome 設定を使う。
+この経路は `test-support/browser-launch.ts` の WebGPU フラグ付き Chrome 設定を使う。
 ```
 cd apps/egui-web
 QNI_EGUI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'egui webgpu canvas renders content' --workers=1
@@ -124,7 +124,7 @@ Step definitions は段階的に TypeScript へ移行する。
 新規または移行済みの step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
 移行中は同じ step phrase を CJS と TS の両方に残すと Cucumber の duplicate step になるため、1 file ずつ置き換える。
 現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する support 型は `features/support/support-types.ts` に置く。
-TS 化済み support module は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
+TS 化済み support module は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts` と `test-support/browser-launch.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
 
 BDD 化したのは最初の 3 scenario のみ:
 - `startup-success.feature.md`
@@ -144,7 +144,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 見つからない場合のみ `chromium.executablePath()` に fallback する。
 必要なら `PLAYWRIGHT_CHROMIUM_PATH` で明示上書きできる。
 この browser policy と `trunk serve --address 127.0.0.1 --port 4174 --no-autoreload` の server policy は
-`test-support/browser-launch.cjs` と `test-support/web-server.cjs` に集約されており、
+`test-support/browser-launch.ts` と `test-support/web-server.cjs` に集約されており、
 legacy Playwright と BDD の両方が同じ shared source of truth を使う。
 そのため、flagged Chrome を正本にする挙動は両経路で一致する。
 

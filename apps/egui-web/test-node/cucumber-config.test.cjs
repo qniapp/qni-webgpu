@@ -100,6 +100,7 @@ test('typescript config type-checks cucumber glue without emitting files', async
   assert.ok(tsconfig.compilerOptions.types.includes('node'))
   assert.ok(tsconfig.include.includes('features/**/*.ts'))
   assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
+  assert.ok(tsconfig.include.includes('test-support/**/*.ts'))
 })
 
 test('cucumber CLI resolves the default profile with TypeScript support', async () => {
@@ -274,7 +275,7 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
 })
 
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {
-  const sharedBrowser = require('../test-support/browser-launch.cjs')
+  const sharedBrowser = require('../test-support/browser-launch.ts')
   const sharedServer = require('../test-support/web-server.cjs')
   const browser = require('../features/support/browser.ts')
   const server = require('../features/support/server.ts')

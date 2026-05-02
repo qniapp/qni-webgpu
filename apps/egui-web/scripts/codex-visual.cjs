@@ -3,7 +3,7 @@ require('ts-node/register/transpile-only')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const { getCodexVisualLaunchOptions } = require('../test-support/browser-launch.cjs')
+const { getCodexVisualLaunchOptions } = require('../test-support/browser-launch.ts')
 const {
   buildDragOperation,
   buildScreenshotPlan,

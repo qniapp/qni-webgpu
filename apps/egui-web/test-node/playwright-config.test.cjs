@@ -1,10 +1,11 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
 const { chromium } = require('playwright')
 const {
   getStandardWebGpuLaunchOptions,
-} = require('../test-support/browser-launch.cjs')
+} = require('../test-support/browser-launch.ts')
 const {
   getWebServerConfig,
   getPlaywrightBaseUrl,

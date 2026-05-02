@@ -6,6 +6,7 @@ const path = require('node:path')
 const rootDir = path.join(__dirname, '..')
 const stepDefinitionsDir = path.join(rootDir, 'features', 'step_definitions')
 const supportDir = path.join(rootDir, 'features', 'support')
+const testSupportDir = path.join(rootDir, 'test-support')
 
 const readStep = (name) => fs.readFile(path.join(stepDefinitionsDir, name), 'utf8')
 const readSupport = (name) => fs.readFile(path.join(supportDir, name), 'utf8')
@@ -78,4 +79,9 @@ test('bootstrap support entrypoint is implemented in TypeScript', async () => {
 test('egui helpers support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'egui-helpers.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'egui-helpers.cjs')), /ENOENT/)
+})
+
+test('browser launch test support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(testSupportDir, 'browser-launch.ts')))
+  await assert.rejects(() => fs.access(path.join(testSupportDir, 'browser-launch.cjs')), /ENOENT/)
 })

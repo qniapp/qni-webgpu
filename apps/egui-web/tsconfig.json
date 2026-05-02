@@ -9,5 +9,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["features/**/*.ts", "features/**/*.d.ts"]
+  "include": ["features/**/*.ts", "features/**/*.d.ts", "test-support/**/*.ts"]
 }
