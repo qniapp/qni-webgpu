@@ -69,3 +69,8 @@ test('hooks support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'hooks.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'hooks.cjs')), /ENOENT/)
 })
+
+test('bootstrap support entrypoint is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'bootstrap.cjs')), /ENOENT/)
+})

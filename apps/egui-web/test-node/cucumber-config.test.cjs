@@ -110,7 +110,7 @@ test('cucumber CLI resolves the default profile with TypeScript support', async 
   assert.deepEqual([...runConfiguration.support.requirePaths].sort(), [
     'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
-    'features/support/bootstrap.cjs',
+    'features/support/bootstrap.ts',
   ].sort())
   assert.equal(useConfiguration.publish, false)
   assert.equal(useConfiguration.failFast, true)
@@ -124,7 +124,7 @@ test('cucumber config only targets markdown feature files and uses explicit supp
   assert.deepEqual([...config.require].sort(), [
     'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
-    'features/support/bootstrap.cjs',
+    'features/support/bootstrap.ts',
   ].sort())
   assert.equal(config.publishQuiet, true)
   assert.equal(config.failFast, true)
@@ -142,7 +142,8 @@ test('support modules expose explicit registration hooks without runtime message
 
   assert.equal(typeof hooks.registerHooks, 'function')
   assert.equal(typeof world.registerWorld, 'function')
-  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.cjs')))
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'bootstrap.cjs')), /ENOENT/)
 
   const [hooksSource, worldSource] = await Promise.all([
     readSupportSource('hooks.ts'),

@@ -2,7 +2,7 @@ const defaultProfile = {
   paths: ['features/**/*.feature.md'],
   requireModule: ['ts-node/register'],
   require: [
-    'features/support/bootstrap.cjs',
+    'features/support/bootstrap.ts',
     'features/step_definitions/**/*.cjs',
     'features/step_definitions/**/*.ts',
   ],
