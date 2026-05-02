@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { spawnSync } = require('node:child_process')
+require('ts-node/register/transpile-only')
 const { loadConfiguration } = require('@cucumber/cucumber/api')
 const fs = require('node:fs/promises')
 const os = require('node:os')
@@ -274,7 +275,7 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {
   const sharedBrowser = require('../test-support/browser-launch.cjs')
   const sharedServer = require('../test-support/web-server.cjs')
-  const browser = require('../features/support/browser.cjs')
+  const browser = require('../features/support/browser.ts')
   const server = require('../features/support/server.cjs')
   const world = require('../features/support/world.cjs')
   const helpers = require('../features/support/egui-helpers.cjs')

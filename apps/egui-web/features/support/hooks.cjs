@@ -6,7 +6,7 @@ const {
   Status,
 } = require('@cucumber/cucumber')
 
-const { closeWorldBrowser } = require('./browser.cjs')
+const { closeWorldBrowser } = require('./browser.ts')
 const { readEguiError, getScenarioArtifactPath } = require('./egui-helpers.cjs')
 const { ensureSharedWebServer, getSharedWebServerConfig, shutdownSharedWebServer } = require('./server.cjs')
 

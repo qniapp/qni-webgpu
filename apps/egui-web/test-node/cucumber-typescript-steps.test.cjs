@@ -29,6 +29,7 @@ test('typescript cucumber steps share support module type contracts', async () =
     const source = await readStep(stepFile)
 
     assert.match(source, /import type \{[^}]*EguiWorld[^}]*\} from '..\/support\/support-types'/)
+    assert.doesNotMatch(source, /browser\.cjs/)
     assert.doesNotMatch(
       source,
       /type (AssertionsSupport|BrowserSupport|DragPreviewProbe|EguiHelpers|EguiWorld|PixelSamplePoint|Point|WindowWithEguiError)\b/
@@ -47,4 +48,9 @@ test('drag preview z-order cucumber steps are implemented in TypeScript', async 
 test('drag preview assertions support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'assertions.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'assertions.cjs')), /ENOENT/)
+})
+
+test('browser support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'browser.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'browser.cjs')), /ENOENT/)
 })

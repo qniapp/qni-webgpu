@@ -3,7 +3,7 @@ import { Given, Then, When } from '@cucumber/cucumber'
 import type { Page } from 'playwright'
 import type { BrowserSupport, EguiHelpers, EguiWorld } from '../support/support-types'
 
-const { STANDARD_BROWSER_MODE, openPageForMode } = require('../support/browser.cjs') as BrowserSupport
+const { STANDARD_BROWSER_MODE, openPageForMode } = require('../support/browser.ts') as BrowserSupport
 const {
   openEguiApp,
   waitForStartupReady,
