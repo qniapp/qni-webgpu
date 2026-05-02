@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
 const {
   buildDragOperation,
@@ -7,9 +8,9 @@ const {
   getGateIndex,
   parseWire,
   parseOperations,
-} = require('../test-support/codex-visual-command.cjs')
+} = require('../test-support/agent-visual-command.ts')
 
-test('codex visual command resolves palette gate aliases', () => {
+test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('H'), 0)
   assert.equal(getGateIndex('control'), 1)
   assert.equal(getGateIndex('sqrtx'), 5)
@@ -17,12 +18,12 @@ test('codex visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('tdagger'), 9)
 })
 
-test('codex visual command parses q-prefixed and numeric wires', () => {
+test('agent visual command parses q-prefixed and numeric wires', () => {
   assert.equal(parseWire('q0'), 0)
   assert.equal(parseWire('1'), 1)
 })
 
-test('codex visual command builds drag coordinates from semantic gate placement', () => {
+test('agent visual command builds drag coordinates from semantic gate placement', () => {
   const operation = buildDragOperation({
     cssWidth: 1000,
     gate: 'x',
@@ -40,7 +41,7 @@ test('codex visual command builds drag coordinates from semantic gate placement'
   })
 })
 
-test('codex visual command supports egui content vertical offset', () => {
+test('agent visual command supports egui content vertical offset', () => {
   const operation = buildDragOperation({
     cssWidth: 1000,
     gate: 'h',
@@ -53,7 +54,7 @@ test('codex visual command supports egui content vertical offset', () => {
   assert.equal(operation.to.y, 216)
 })
 
-test('codex visual command parses comma separated operations', () => {
+test('agent visual command parses comma separated operations', () => {
   assert.deepEqual(parseOperations('H:q0:0,C:q0:1,X:q1:1'), [
     { gate: 'H', wire: 'q0', slot: 0 },
     { gate: 'C', wire: 'q0', slot: 1 },
@@ -61,9 +62,9 @@ test('codex visual command parses comma separated operations', () => {
   ])
 })
 
-test('codex visual command writes page screenshots by default', () => {
+test('agent visual command writes page screenshots by default', () => {
   assert.deepEqual(buildScreenshotPlan({ command: 'drag' }), {
-    pageOut: 'output/playwright/codex-visual/drag.png',
+    pageOut: 'output/playwright/agent-visual/drag.png',
     canvasOut: null,
   })
 

@@ -90,3 +90,8 @@ test('web server test support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(testSupportDir, 'web-server.ts')))
   await assert.rejects(() => fs.access(path.join(testSupportDir, 'web-server.cjs')), /ENOENT/)
 })
+
+test('agent visual command test support is implemented in TypeScript with a generic name', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(testSupportDir, 'agent-visual-command.ts')))
+  await assert.rejects(() => fs.access(path.join(testSupportDir, 'codex-visual-command.cjs')), /ENOENT/)
+})

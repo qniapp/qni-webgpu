@@ -1,3 +1,33 @@
+type DragOperationInput = {
+  cssWidth: number
+  gate: string
+  wire: string | number
+  slot: string | number
+  gateSize?: number
+  paletteGap?: number
+  paletteRowY?: number
+  paletteCount?: number
+  circuitPadding?: number
+  qubitLabelWidth?: number
+  qubitLabelGap?: number
+  lineY?: number
+  lineGap?: number
+  slotSpacing?: number
+  verticalOffset?: number
+}
+
+type ScreenshotPlanInput = {
+  command?: string
+  out?: string
+  canvasOut?: string
+}
+
+type ParsedOperation = {
+  gate: string
+  wire: string
+  slot: number
+}
+
 const DEFAULT_REM = 32
 const DEFAULT_GATE_SIZE = DEFAULT_REM
 const DEFAULT_PALETTE_GAP = 0.5 * DEFAULT_REM
@@ -40,17 +70,17 @@ const GATE_ALIASES = new Map([
   ['swap', 14],
 ])
 
-const normalizeGateName = (gate) => String(gate || '').trim().toLowerCase()
+const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()
 
-const getGateIndex = (gate) => {
+export const getGateIndex = (gate: unknown): number => {
   const normalized = normalizeGateName(gate)
   if (!GATE_ALIASES.has(normalized)) {
     throw new Error(`Unknown gate: ${gate}`)
   }
-  return GATE_ALIASES.get(normalized)
+  return GATE_ALIASES.get(normalized) as number
 }
 
-const parseWire = (wire) => {
+export const parseWire = (wire: unknown): number => {
   const normalized = String(wire ?? '').trim().toLowerCase().replace(/^q/, '')
   const parsed = Number.parseInt(normalized, 10)
   if (!Number.isInteger(parsed) || parsed < 0) {
@@ -59,7 +89,7 @@ const parseWire = (wire) => {
   return parsed
 }
 
-const parseSlot = (slot) => {
+export const parseSlot = (slot: unknown): number => {
   const parsed = Number.parseInt(String(slot ?? '').trim(), 10)
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error(`Invalid slot: ${slot}`)
@@ -67,7 +97,7 @@ const parseSlot = (slot) => {
   return parsed
 }
 
-const parseOperations = (ops) =>
+export const parseOperations = (ops: unknown): ParsedOperation[] =>
   String(ops || '')
     .split(',')
     .map((entry) => entry.trim())
@@ -80,15 +110,15 @@ const parseOperations = (ops) =>
       return { gate, wire, slot: parseSlot(slot) }
     })
 
-const defaultScreenshotPath = (command) =>
-  `output/playwright/codex-visual/${command || 'screenshot'}.png`
+const defaultScreenshotPath = (command?: string): string =>
+  `output/playwright/agent-visual/${command || 'screenshot'}.png`
 
-const buildScreenshotPlan = ({ command, out, canvasOut } = {}) => ({
+export const buildScreenshotPlan = ({ command, out, canvasOut }: ScreenshotPlanInput = {}) => ({
   pageOut: out || defaultScreenshotPath(command),
   canvasOut: canvasOut || null,
 })
 
-const buildDragOperation = ({
+export const buildDragOperation = ({
   cssWidth,
   gate,
   wire,
@@ -104,7 +134,7 @@ const buildDragOperation = ({
   lineGap = DEFAULT_LINE_GAP,
   slotSpacing = DEFAULT_SLOT_SPACING,
   verticalOffset = 0,
-}) => {
+}: DragOperationInput) => {
   const gateIndex = getGateIndex(gate)
   const wireIndex = parseWire(wire)
   const slotIndex = parseSlot(slot)
@@ -126,13 +156,4 @@ const buildDragOperation = ({
       y: lineY + wireIndex * lineGap + verticalOffset,
     },
   }
-}
-
-module.exports = {
-  buildDragOperation,
-  buildScreenshotPlan,
-  getGateIndex,
-  parseOperations,
-  parseSlot,
-  parseWire,
 }

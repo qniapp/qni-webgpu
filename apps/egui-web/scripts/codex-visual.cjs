@@ -8,7 +8,7 @@ const {
   buildDragOperation,
   buildScreenshotPlan,
   parseOperations,
-} = require('../test-support/codex-visual-command.cjs')
+} = require('../test-support/agent-visual-command.ts')
 const { getPlaywrightBaseUrl } = require('../test-support/web-server.ts')
 const {
   dragPointer,
