@@ -1,16 +1,15 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { spawn } = require('node:child_process')
-require('ts-node/register/transpile-only')
 const os = require('node:os')
 const path = require('node:path')
 const fs = require('node:fs/promises')
 
 const { terminateProcess } = require('../features/support/server.ts')
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-test('terminateProcess resolves after a SIGTERM exit even when exitCode stays null', async (t) => {
+test('terminateProcess resolves after a SIGTERM exit even when exitCode stays null', async (t: import('node:test').TestContext) => {
   if (process.platform === 'win32') {
     t.skip('signal semantics differ on Windows')
     return
@@ -36,12 +35,16 @@ test('terminateProcess resolves after a SIGTERM exit even when exitCode stays nu
   assert.equal(child.signalCode, 'SIGTERM')
 })
 
-test('ensureSharedWebServer reuses an explicitly configured external server instead of spawning trunk', async (t) => {
+test('ensureSharedWebServer reuses an explicitly configured external server instead of spawning trunk', async (t: import('node:test').TestContext) => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'qni-egui-external-server-'))
-  const port = await new Promise((resolve, reject) => {
+  const port = await new Promise<number>((resolve, reject) => {
     const server = require('node:net').createServer()
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
+      if (!address || typeof address === 'string') {
+        reject(new Error('expected a TCP server address'))
+        return
+      }
       server.close(() => resolve(address.port))
     })
     server.on('error', reject)
@@ -88,3 +91,5 @@ test('ensureSharedWebServer reuses an explicitly configured external server inst
     delete require.cache[serverModulePath]
   }
 })
+
+export {}

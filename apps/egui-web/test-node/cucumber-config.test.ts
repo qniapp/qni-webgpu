@@ -1,7 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { spawnSync } = require('node:child_process')
-require('ts-node/register/transpile-only')
 const { loadConfiguration } = require('@cucumber/cucumber/api')
 const fs = require('node:fs/promises')
 const os = require('node:os')
@@ -11,6 +10,7 @@ const rootDir = path.join(__dirname, '..')
 const supportDir = path.join(rootDir, 'features', 'support')
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const CUCUMBER_SMOKE_TIMEOUT_MS = 20_000
+type MutableRecord = Record<string, any>
 
 const readPackageJson = async () => {
   const packageJsonPath = path.join(rootDir, 'package.json')
@@ -24,18 +24,18 @@ const readTsConfig = async () => {
 
 const readDocs = () => fs.readFile(path.join(rootDir, '..', '..', 'docs', 'egui-web.md'), 'utf8')
 
-const readSupportSource = async (fileName) => fs.readFile(path.join(supportDir, fileName), 'utf8')
+const readSupportSource = async (fileName: string) => fs.readFile(path.join(supportDir, fileName), 'utf8')
 
-const parseMessageOutput = async (messagePath) => {
+const parseMessageOutput = async (messagePath: string): Promise<MutableRecord[]> => {
   const lines = (await fs.readFile(messagePath, 'utf8'))
     .split('\n')
-    .map((line) => line.trim())
+    .map((line: string) => line.trim())
     .filter(Boolean)
 
-  return lines.map((line) => JSON.parse(line))
+  return lines.map((line: string) => JSON.parse(line))
 }
 
-const loadCucumberConfig = (env = process.env) => {
+const loadCucumberConfig = (env: NodeJS.ProcessEnv = process.env) => {
   const configPath = require.resolve('../cucumber.ts')
   delete require.cache[configPath]
 
@@ -59,7 +59,7 @@ const loadCucumberConfig = (env = process.env) => {
   }
 }
 
-const writeTempSmokeFixture = async (featureText) => {
+const writeTempSmokeFixture = async (featureText: string) => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'egui-web-cucumber-smoke-'))
   const featurePath = path.join(tempDir, 'smoke.feature.md')
   const stepsPath = path.join(tempDir, 'smoke.steps.ts')
@@ -86,7 +86,10 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
   assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.ts')
   assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
-  assert.equal(pkg.scripts['test:preflight'], 'pnpm run typecheck && node --test test-node/*.test.cjs')
+  assert.equal(
+    pkg.scripts['test:preflight'],
+    'pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts'
+  )
   assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
   assert.match(pkg.devDependencies['@types/node'], /^\^\d+/)
   assert.match(pkg.devDependencies['ts-node'], /^\^\d+/)
@@ -115,6 +118,7 @@ test('typescript config type-checks cucumber glue without emitting files', async
   assert.ok(tsconfig.include.includes('cucumber.ts'))
   assert.ok(tsconfig.include.includes('playwright.config.ts'))
   assert.ok(tsconfig.include.includes('scripts/**/*.ts'))
+  assert.ok(tsconfig.include.includes('test-node/**/*.ts'))
   assert.ok(tsconfig.include.includes('tests/**/*.ts'))
   assert.ok(tsconfig.include.includes('test-support/**/*.ts'))
 })
@@ -171,21 +175,21 @@ test('support modules expose explicit registration hooks without runtime message
 
 test('support hooks keep shared server lifecycle at run scope while resetting browser state per scenario', async () => {
   const hooks = require('../features/support/hooks.ts')
-  const registrations = {}
-  const calls = []
+  const registrations: MutableRecord = {}
+  const calls: string[] = []
 
   hooks.registerHooks({
-    BeforeAll: (options, callback) => {
+    BeforeAll: (options: any, callback: any) => {
       registrations.beforeAllOptions = options
       registrations.beforeAll = callback
     },
-    Before: (callback) => {
+    Before: (callback: any) => {
       registrations.before = callback
     },
-    After: (callback) => {
+    After: (callback: any) => {
       registrations.after = callback
     },
-    AfterAll: (options, callback) => {
+    AfterAll: (options: any, callback: any) => {
       registrations.afterAllOptions = options
       registrations.afterAll = callback
     },
@@ -212,12 +216,12 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
   assert.deepEqual(registrations.beforeAllOptions, { timeout: 123_456 })
   assert.deepEqual(registrations.afterAllOptions, { timeout: 123_456 })
 
-  const world = {
+  const world: MutableRecord = {
     page: null,
     consoleErrors: [],
     pageErrors: [],
     async attach() {},
-    startScenario(name) {
+    startScenario(name: string) {
       calls.push(`start:${name}`)
     },
     resetRuntimeState() {
@@ -243,7 +247,7 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
   ])
 })
 
-test('cucumber dry-run smoke plans exactly one selected markdown scenario without relying on formatter text', async (t) => {
+test('cucumber dry-run smoke plans exactly one selected markdown scenario without relying on formatter text', async (t: import('node:test').TestContext) => {
   const fixture = await writeTempSmokeFixture([
     '# Feature: cucumber config smoke',
     '## Scenario: runner loads config and support',
@@ -283,7 +287,7 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
   assert.equal(result.status, 0, `stderr:\n${result.stderr}\nstdout:\n${result.stdout}`)
 
   const messages = await parseMessageOutput(fixture.messagePath)
-  const testCaseStartedCount = messages.filter((message) => message.testCaseStarted).length
+  const testCaseStartedCount = messages.filter((message: MutableRecord) => message.testCaseStarted).length
 
   assert.equal(testCaseStartedCount, 1, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
 })
@@ -343,3 +347,5 @@ test('cucumber world uses an externally managed base URL when configured', () =>
     delete require.cache[worldModulePath]
   }
 })
+
+export {}

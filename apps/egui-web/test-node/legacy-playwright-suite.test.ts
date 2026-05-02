@@ -35,3 +35,5 @@ test('legacy Playwright suite avoids shared fixed screenshot paths that would co
   assert.doesNotMatch(source, /path:\s*['"]\/tmp\/qni-egui-webgpu-[^'"]+['"]/)
   assert.match(source, /testInfo\.outputPath\(/)
 })
+
+export {}

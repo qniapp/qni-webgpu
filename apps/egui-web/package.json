@@ -7,7 +7,7 @@
     "test:pw-legacy": "playwright test",
     "test:bdd": "cucumber-js --config cucumber.ts",
     "typecheck": "tsc --noEmit",
-    "test:preflight": "pnpm run typecheck && node --test test-node/*.test.cjs"
+    "test:preflight": "pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.1",

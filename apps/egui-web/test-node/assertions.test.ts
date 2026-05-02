@@ -1,6 +1,5 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-require('ts-node/register/transpile-only')
 
 const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
 
@@ -39,3 +38,5 @@ test('assertDragPreviewAboveOverlay rejects a drag preview that drifts away from
     /source gate fill/
   )
 })
+
+export {}

@@ -1,6 +1,5 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-require('ts-node/register/transpile-only')
 
 const {
   getAgentVisualLaunchOptions,
@@ -52,7 +51,7 @@ test('shared browser executable resolution preserves system Chrome priority', ()
   const actual = resolvePlaywrightBrowserExecutable({
     env: {},
     defaultPath: '/bundled/chromium',
-    commandLookup: (name) => {
+    commandLookup: (name: string) => {
       if (name === 'google-chrome') {
         return '/usr/bin/google-chrome'
       }
@@ -70,7 +69,7 @@ test('shared browser executable resolution supports chrome-only systems', () => 
   const actual = resolvePlaywrightBrowserExecutable({
     env: {},
     defaultPath: '/bundled/chromium',
-    commandLookup: (name) => (name === 'chrome' ? '/usr/bin/chrome' : null),
+    commandLookup: (name: string) => (name === 'chrome' ? '/usr/bin/chrome' : null),
   })
 
   assert.equal(actual, '/usr/bin/chrome')
@@ -80,7 +79,7 @@ test('shared standard WebGPU launch options preserve current flagged browser pol
   const actual = getStandardWebGpuLaunchOptions({
     env: { HEADLESS: '0' },
     defaultPath: '/bundled/chromium',
-    commandLookup: (name) => (name === 'google-chrome-stable' ? '/usr/bin/google-chrome-stable' : null),
+    commandLookup: (name: string) => (name === 'google-chrome-stable' ? '/usr/bin/google-chrome-stable' : null),
   })
 
   assert.deepEqual(actual, {
@@ -94,7 +93,7 @@ test('agent visual launch options keep screenshots inspectable', () => {
   const actual = getAgentVisualLaunchOptions({
     env: {},
     defaultPath: '/bundled/chromium',
-    commandLookup: (name) => (name === 'google-chrome-stable' ? '/usr/bin/google-chrome-stable' : null),
+    commandLookup: (name: string) => (name === 'google-chrome-stable' ? '/usr/bin/google-chrome-stable' : null),
   })
 
   assert.deepEqual(actual, {
@@ -130,3 +129,5 @@ test('shared plain chromium launch options fall back to Playwright bundled chrom
     args: PLAIN_CHROMIUM_ARGS,
   })
 })
+
+export {}

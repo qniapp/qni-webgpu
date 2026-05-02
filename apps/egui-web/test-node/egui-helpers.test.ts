@@ -1,6 +1,5 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-require('ts-node/register/transpile-only')
 
 const {
   dragPointer,
@@ -13,37 +12,68 @@ const {
   waitForStateVectorReady,
 } = require('../features/support/egui-helpers.ts')
 
-const makePage = ({ evaluateImpl } = {}) => {
+type MockEvaluateCall = {
+  source: string
+  arg: any
+}
+
+type MockPageCalls = {
+  evaluate: MockEvaluateCall[]
+  waitForLoadState: string[]
+  waitForFunction: Array<{ source: string; arg: any; options: any }>
+}
+
+type MockPageOptions = {
+  evaluateImpl?: (fn: Function, arg: any, index: number) => any | Promise<any>
+}
+
+type BoundingBox = {
+  x?: number
+  y?: number
+  width: number
+  height: number
+}
+
+type MockLocatorOptions = {
+  screenshotImpl?: (options: any, index: number) => Buffer | Promise<Buffer>
+  boundingBoxImpl?: (index: number) => BoundingBox | Promise<BoundingBox>
+}
+
+type MockCanvasPageOptions = {
+  box?: { x: number; y: number; width: number; height: number }
+}
+
+const makePage = ({ evaluateImpl = async () => null }: MockPageOptions = {}) => {
   const calls = {
     evaluate: [],
     waitForLoadState: [],
     waitForFunction: [],
-  }
+  } as MockPageCalls
 
   return {
     calls,
-    async evaluate(fn, arg) {
+    async evaluate(fn: Function, arg?: any) {
       calls.evaluate.push({ source: fn.toString(), arg })
       return evaluateImpl(fn, arg, calls.evaluate.length - 1)
     },
-    async waitForLoadState(state) {
+    async waitForLoadState(state: string) {
       calls.waitForLoadState.push(state)
     },
-    async waitForFunction(fn, arg, options) {
+    async waitForFunction(fn: Function, arg?: any, options?: any) {
       calls.waitForFunction.push({ source: fn.toString(), arg, options })
     },
   }
 }
 
-const makeLocator = ({ screenshotImpl, boundingBoxImpl } = {}) => {
+const makeLocator = ({ screenshotImpl, boundingBoxImpl }: MockLocatorOptions = {}) => {
   const calls = {
     screenshot: [],
     boundingBox: 0,
-  }
+  } as { screenshot: any[]; boundingBox: number }
 
   return {
     calls,
-    async screenshot(options) {
+    async screenshot(options?: any) {
       calls.screenshot.push(options)
       return screenshotImpl ? screenshotImpl(options, calls.screenshot.length - 1) : Buffer.from('png')
     },
@@ -54,18 +84,24 @@ const makeLocator = ({ screenshotImpl, boundingBoxImpl } = {}) => {
   }
 }
 
-const makeCanvasPage = ({ box = { x: 10, y: 20, width: 1000, height: 800 } } = {}) => {
+const makeCanvasPage = ({ box = { x: 10, y: 20, width: 1000, height: 800 } }: MockCanvasPageOptions = {}) => {
   const calls = {
     locator: [],
     move: [],
     down: 0,
     up: 0,
     waitForTimeout: [],
+  } as {
+    locator: string[]
+    move: Array<{ x: number; y: number; options: any }>
+    down: number
+    up: number
+    waitForTimeout: number[]
   }
 
   return {
     calls,
-    locator(selector) {
+    locator(selector: string) {
       calls.locator.push(selector)
       return {
         async boundingBox() {
@@ -74,7 +110,7 @@ const makeCanvasPage = ({ box = { x: 10, y: 20, width: 1000, height: 800 } } = {
       }
     },
     mouse: {
-      async move(x, y, options) {
+      async move(x: number, y: number, options?: any) {
         calls.move.push({ x, y, options })
       },
       async down() {
@@ -84,7 +120,7 @@ const makeCanvasPage = ({ box = { x: 10, y: 20, width: 1000, height: 800 } } = {
         calls.up += 1
       },
     },
-    async waitForTimeout(ms) {
+    async waitForTimeout(ms: number) {
       calls.waitForTimeout.push(ms)
     },
   }
@@ -325,3 +361,5 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
   assert.equal(probe.sourceFillPoint.x, probe.source.x + 10)
   assert.equal(probe.sourceFillPoint.y, probe.source.y + 10)
 })
+
+export {}

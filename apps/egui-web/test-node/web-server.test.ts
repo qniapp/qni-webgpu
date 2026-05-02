@@ -1,6 +1,5 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-require('ts-node/register/transpile-only')
 
 const {
   getWebServerConfig,
@@ -43,3 +42,5 @@ test('shared web server config can target an externally managed egui-web server 
     external: true,
   })
 })
+
+export {}

@@ -8,8 +8,8 @@ const stepDefinitionsDir = path.join(rootDir, 'features', 'step_definitions')
 const supportDir = path.join(rootDir, 'features', 'support')
 const testSupportDir = path.join(rootDir, 'test-support')
 
-const readStep = (name) => fs.readFile(path.join(stepDefinitionsDir, name), 'utf8')
-const readSupport = (name) => fs.readFile(path.join(supportDir, name), 'utf8')
+const readStep = (name: string) => fs.readFile(path.join(stepDefinitionsDir, name), 'utf8')
+const readSupport = (name: string) => fs.readFile(path.join(supportDir, name), 'utf8')
 
 test('typescript cucumber steps share support module type contracts', async () => {
   const supportTypes = await readSupport('support-types.ts')
@@ -95,3 +95,5 @@ test('agent visual command test support is implemented in TypeScript with a gene
   await assert.doesNotReject(() => fs.access(path.join(testSupportDir, 'agent-visual-command.ts')))
   await assert.rejects(() => fs.access(path.join(testSupportDir, 'codex-visual-command.cjs')), /ENOENT/)
 })
+
+export {}

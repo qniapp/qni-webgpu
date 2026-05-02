@@ -2,7 +2,6 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs/promises')
 const path = require('node:path')
-require('ts-node/register/transpile-only')
 
 const {
   buildDragOperation,
@@ -14,7 +13,7 @@ const {
 
 const rootDir = path.join(__dirname, '..')
 const repoRoot = path.join(rootDir, '..', '..')
-const readText = (filePath) => fs.readFile(filePath, 'utf8')
+const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('H'), 0)
@@ -97,3 +96,5 @@ test('agent visual CLI uses a generic name without a compatibility wrapper', asy
   assert.match(agents, /後方互換/)
   assert.match(agents, /残さない/)
 })
+
+export {}

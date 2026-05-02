@@ -5,7 +5,7 @@ const path = require('node:path')
 
 const stepsDir = path.join(__dirname, '..', 'features', 'step_definitions')
 
-const readStep = (name) => fs.readFile(path.join(stepsDir, name), 'utf8')
+const readStep = (name: string) => fs.readFile(path.join(stepsDir, name), 'utf8')
 
 test('standard browser startup steps declare explicit cucumber timeouts', async () => {
   const source = await readStep('startup-success.steps.ts')
@@ -32,3 +32,5 @@ test('plain chromium startup steps declare explicit cucumber timeouts', async ()
     /When\('the plain chromium session finishes loading',\s*\{\s*timeout:\s*\w+\s*\}/,
   )
 })
+
+export {}

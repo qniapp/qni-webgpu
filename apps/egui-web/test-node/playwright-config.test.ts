@@ -1,6 +1,5 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-require('ts-node/register/transpile-only')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
@@ -119,3 +118,5 @@ test('playwright config can reuse an externally managed egui-web server', () => 
   assert.equal(config.use.baseURL, getPlaywrightBaseUrl({ env }))
   assert.equal(config.webServer, undefined)
 })
+
+export {}
