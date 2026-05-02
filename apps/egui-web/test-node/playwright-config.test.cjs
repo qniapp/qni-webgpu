@@ -1,6 +1,8 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 require('ts-node/register/transpile-only')
+const fs = require('node:fs/promises')
+const path = require('node:path')
 
 const { chromium } = require('playwright')
 const {
@@ -13,8 +15,11 @@ const {
   PLAYWRIGHT_BASE_URL_ENV,
 } = require('../test-support/web-server.ts')
 
+const rootDir = path.join(__dirname, '..')
+const repoRoot = path.join(rootDir, '..', '..')
+
 const loadConfig = (env = process.env) => {
-  const configPath = require.resolve('../playwright.config.cjs')
+  const configPath = require.resolve('../playwright.config.ts')
   delete require.cache[configPath]
 
   const previousExternal = process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
@@ -40,7 +45,8 @@ const loadConfig = (env = process.env) => {
   }
 
   try {
-    return require('../playwright.config.cjs')
+    const configModule = require('../playwright.config.ts')
+    return configModule.default || configModule
   } finally {
     if (previousExternal === undefined) {
       delete process.env[PLAYWRIGHT_EXTERNAL_SERVER_ENV]
@@ -63,6 +69,15 @@ const loadConfig = (env = process.env) => {
     delete require.cache[configPath]
   }
 }
+
+test('playwright config is TypeScript without a compatibility wrapper', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'playwright.config.ts')))
+  await assert.rejects(() => fs.access(path.join(rootDir, 'playwright.config.cjs')), /ENOENT/)
+
+  const docs = await fs.readFile(path.join(repoRoot, 'docs', 'egui-web.md'), 'utf8')
+  assert.match(docs, /playwright\.config\.ts/)
+  assert.doesNotMatch(docs, /playwright\.config\.cjs/)
+})
 
 test('playwright config uses the shared browser and web server policies', () => {
   const config = loadConfig()

@@ -100,6 +100,7 @@ test('typescript config type-checks cucumber glue without emitting files', async
   assert.ok(tsconfig.compilerOptions.types.includes('node'))
   assert.ok(tsconfig.include.includes('features/**/*.ts'))
   assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
+  assert.ok(tsconfig.include.includes('playwright.config.ts'))
   assert.ok(tsconfig.include.includes('scripts/**/*.ts'))
   assert.ok(tsconfig.include.includes('test-support/**/*.ts'))
 })

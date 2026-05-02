@@ -12,6 +12,7 @@ type WebServerConfig = {
       command?: never
     }
 )
+type PlaywrightWebServerConfig = Extract<WebServerConfig, { command: string }>
 
 type WebServerRequest = {
   env?: NodeJS.ProcessEnv
@@ -43,5 +44,9 @@ export const getWebServerConfig = ({ env = process.env }: WebServerRequest = {})
 export const getPlaywrightBaseUrl = ({ env = process.env }: WebServerRequest = {}): string =>
   getWebServerConfig({ env }).url
 
-export const getPlaywrightWebServerConfig = ({ env = process.env }: WebServerRequest = {}): WebServerConfig | undefined =>
-  env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === '1' ? undefined : getWebServerConfig({ env })
+export const getPlaywrightWebServerConfig = ({
+  env = process.env,
+}: WebServerRequest = {}): PlaywrightWebServerConfig | undefined =>
+  env[PLAYWRIGHT_EXTERNAL_SERVER_ENV] === '1'
+    ? undefined
+    : getWebServerConfig({ env }) as PlaywrightWebServerConfig

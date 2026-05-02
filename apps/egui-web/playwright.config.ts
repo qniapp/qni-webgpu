@@ -1,11 +1,10 @@
-require('ts-node/register/transpile-only')
-const { defineConfig } = require('@playwright/test')
-const { chromium } = require('playwright')
-const { getStandardWebGpuLaunchOptions } = require('./test-support/browser-launch.ts')
-const {
+import { defineConfig } from '@playwright/test'
+import { chromium } from 'playwright'
+import { getStandardWebGpuLaunchOptions } from './test-support/browser-launch'
+import {
   getPlaywrightBaseUrl,
   getPlaywrightWebServerConfig,
-} = require('./test-support/web-server.ts')
+} from './test-support/web-server'
 
 const webServer = getPlaywrightWebServerConfig({ env: process.env })
 const standardBrowser = getStandardWebGpuLaunchOptions({
@@ -14,7 +13,7 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
 })
 const workers = process.env.CI ? 6 : undefined
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   workers,

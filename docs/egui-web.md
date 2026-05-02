@@ -124,7 +124,7 @@ Step definitions は段階的に TypeScript へ移行する。
 新規または移行済みの step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
 移行中は同じ step phrase を CJS と TS の両方に残すと Cucumber の duplicate step になるため、1 file ずつ置き換える。
 現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する support 型は `features/support/support-types.ts` に置く。
-TS 化済み support module / CLI は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`scripts/agent-visual.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
+TS 化済み support module / CLI / config は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`playwright.config.ts`、`scripts/agent-visual.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
 
 BDD 化したのは最初の 3 scenario のみ:
 - `startup-success.feature.md`
@@ -140,7 +140,7 @@ cd apps/egui-web
 xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 ```
 `@playwright/test` の headless shell だと SRI mismatch が起きるため、
-`playwright.config.cjs` は Playwright 同梱ブラウザよりも先に `google-chrome-stable` を優先し、
+`playwright.config.ts` は Playwright 同梱ブラウザよりも先に `google-chrome-stable` を優先し、
 見つからない場合のみ `chromium.executablePath()` に fallback する。
 必要なら `PLAYWRIGHT_CHROMIUM_PATH` で明示上書きできる。
 この browser policy と `trunk serve --address 127.0.0.1 --port 4174 --no-autoreload` の server policy は
