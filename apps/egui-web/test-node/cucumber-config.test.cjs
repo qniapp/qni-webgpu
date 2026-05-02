@@ -138,7 +138,7 @@ test('cucumber config uses bounded scenario parallelism on CI', () => {
 
 test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
   const hooks = require('../features/support/hooks.cjs')
-  const world = require('../features/support/world.cjs')
+  const world = require('../features/support/world.ts')
 
   assert.equal(typeof hooks.registerHooks, 'function')
   assert.equal(typeof world.registerWorld, 'function')
@@ -146,7 +146,7 @@ test('support modules expose explicit registration hooks without runtime message
 
   const [hooksSource, worldSource] = await Promise.all([
     readSupportSource('hooks.cjs'),
-    readSupportSource('world.cjs'),
+    readSupportSource('world.ts'),
   ])
 
   assert.doesNotMatch(hooksSource, /isn['’]?t running/)
@@ -277,7 +277,7 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   const sharedServer = require('../test-support/web-server.cjs')
   const browser = require('../features/support/browser.ts')
   const server = require('../features/support/server.ts')
-  const world = require('../features/support/world.cjs')
+  const world = require('../features/support/world.ts')
   const helpers = require('../features/support/egui-helpers.cjs')
 
   assert.equal(browser.getStandardWebGpuLaunchOptions, sharedBrowser.getStandardWebGpuLaunchOptions)
@@ -293,7 +293,7 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
 })
 
 test('cucumber world uses an externally managed base URL when configured', () => {
-  const worldModulePath = require.resolve('../features/support/world.cjs')
+  const worldModulePath = require.resolve('../features/support/world.ts')
   delete require.cache[worldModulePath]
 
   const previousExternal = process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
@@ -302,7 +302,7 @@ test('cucumber world uses an externally managed base URL when configured', () =>
   process.env.QNI_EGUI_WEB_BASE_URL = 'http://127.0.0.1:5999'
 
   try {
-    const { EguiWorld } = require('../features/support/world.cjs')
+    const { EguiWorld } = require('../features/support/world.ts')
     const world = new EguiWorld({
       attach: async () => {},
       log: () => {},
