@@ -9,7 +9,7 @@ const {
   buildScreenshotPlan,
   parseOperations,
 } = require('../test-support/codex-visual-command.cjs')
-const { getPlaywrightBaseUrl } = require('../test-support/web-server.cjs')
+const { getPlaywrightBaseUrl } = require('../test-support/web-server.ts')
 const {
   dragPointer,
   readStateVector,

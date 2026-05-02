@@ -11,7 +11,7 @@ const {
   getPlaywrightBaseUrl,
   PLAYWRIGHT_EXTERNAL_SERVER_ENV,
   PLAYWRIGHT_BASE_URL_ENV,
-} = require('../test-support/web-server.cjs')
+} = require('../test-support/web-server.ts')
 
 const loadConfig = (env = process.env) => {
   const configPath = require.resolve('../playwright.config.cjs')

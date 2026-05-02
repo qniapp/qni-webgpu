@@ -4,7 +4,7 @@ const { chromium } = require('playwright')
 
 const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
 const { getPlainChromiumLaunchOptions } = require('../test-support/browser-launch.ts')
-const { getWebServerConfig } = require('../test-support/web-server.cjs')
+const { getWebServerConfig } = require('../test-support/web-server.ts')
 const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,

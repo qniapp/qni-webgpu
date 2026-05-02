@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
 const {
   getWebServerConfig,
@@ -7,7 +8,7 @@ const {
   getPlaywrightWebServerConfig,
   PLAYWRIGHT_EXTERNAL_SERVER_ENV,
   PLAYWRIGHT_BASE_URL_ENV,
-} = require('../test-support/web-server.cjs')
+} = require('../test-support/web-server.ts')
 
 test('shared web server config preserves trunk serve contract', () => {
   assert.deepEqual(getWebServerConfig(), {

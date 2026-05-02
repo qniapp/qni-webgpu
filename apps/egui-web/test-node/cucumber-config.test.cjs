@@ -276,7 +276,7 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
 
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {
   const sharedBrowser = require('../test-support/browser-launch.ts')
-  const sharedServer = require('../test-support/web-server.cjs')
+  const sharedServer = require('../test-support/web-server.ts')
   const browser = require('../features/support/browser.ts')
   const server = require('../features/support/server.ts')
   const world = require('../features/support/world.ts')

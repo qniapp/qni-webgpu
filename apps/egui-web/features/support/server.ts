@@ -26,7 +26,7 @@ type ManagedWebServer = WebServerConfig & {
   managed: boolean
 }
 
-const { getWebServerConfig } = require('../../test-support/web-server.cjs') as WebServerSupport
+const { getWebServerConfig } = require('../../test-support/web-server.ts') as WebServerSupport
 
 const APP_ROOT = path.join(__dirname, '..', '..')
 const POLL_INTERVAL_MS = 250

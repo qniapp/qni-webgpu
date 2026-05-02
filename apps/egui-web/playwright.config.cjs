@@ -5,7 +5,7 @@ const { getStandardWebGpuLaunchOptions } = require('./test-support/browser-launc
 const {
   getPlaywrightBaseUrl,
   getPlaywrightWebServerConfig,
-} = require('./test-support/web-server.cjs')
+} = require('./test-support/web-server.ts')
 
 const webServer = getPlaywrightWebServerConfig({ env: process.env })
 const standardBrowser = getStandardWebGpuLaunchOptions({
