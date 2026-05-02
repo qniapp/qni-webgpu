@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { spawnSync } = require('node:child_process')
+const { loadConfiguration } = require('@cucumber/cucumber/api')
 const fs = require('node:fs/promises')
 const os = require('node:os')
 const path = require('node:path')
@@ -13,6 +14,11 @@ const CUCUMBER_SMOKE_TIMEOUT_MS = 20_000
 const readPackageJson = async () => {
   const packageJsonPath = path.join(rootDir, 'package.json')
   return JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+}
+
+const readTsConfig = async () => {
+  const tsconfigPath = path.join(rootDir, 'tsconfig.json')
+  return JSON.parse(await fs.readFile(tsconfigPath, 'utf8'))
 }
 
 const readSupportSource = async (fileName) => fs.readFile(path.join(supportDir, fileName), 'utf8')
@@ -38,7 +44,7 @@ const loadCucumberConfig = (env = process.env) => {
   }
 
   try {
-    return require('../cucumber.cjs')
+    return require('../cucumber.cjs').default
   } finally {
     if (previousCi === undefined) {
       delete process.env.CI
@@ -52,15 +58,16 @@ const loadCucumberConfig = (env = process.env) => {
 const writeTempSmokeFixture = async (featureText) => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'egui-web-cucumber-smoke-'))
   const featurePath = path.join(tempDir, 'smoke.feature.md')
-  const stepsPath = path.join(tempDir, 'smoke.steps.cjs')
+  const stepsPath = path.join(tempDir, 'smoke.steps.ts')
   const messagePath = path.join(tempDir, 'messages.ndjson')
 
   await fs.writeFile(featurePath, featureText)
   await fs.writeFile(
     stepsPath,
     [
-      "const { Given } = require('@cucumber/cucumber')",
-      "Given('a smoke noop step', function () {})",
+      `const { Given } = require(${JSON.stringify(require.resolve('@cucumber/cucumber'))})`,
+      "enum SmokeKind { Noop = 'noop' }",
+      "Given('a smoke noop step', function () { void SmokeKind.Noop })",
       '',
     ].join('\n')
   )
@@ -74,16 +81,47 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   assert.equal(pkg.scripts.test, 'playwright test')
   assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
   assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.cjs')
-  assert.equal(pkg.scripts['test:preflight'], 'node --test test-node/*.test.cjs')
+  assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
+  assert.equal(pkg.scripts['test:preflight'], 'pnpm run typecheck && node --test test-node/*.test.cjs')
   assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
+  assert.match(pkg.devDependencies['@types/node'], /^\^\d+/)
+  assert.match(pkg.devDependencies['ts-node'], /^\^\d+/)
+  assert.match(pkg.devDependencies.typescript, /^\^\d+/)
+})
+
+test('typescript config type-checks cucumber glue without emitting files', async () => {
+  const tsconfig = await readTsConfig()
+
+  assert.equal(tsconfig.compilerOptions.noEmit, true)
+  assert.equal(tsconfig.compilerOptions.module, 'CommonJS')
+  assert.equal(tsconfig.compilerOptions.strict, true)
+  assert.ok(tsconfig.compilerOptions.types.includes('node'))
+  assert.ok(tsconfig.include.includes('features/**/*.ts'))
+  assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
+})
+
+test('cucumber CLI resolves the default profile with TypeScript support', async () => {
+  const { useConfiguration, runConfiguration } = await loadConfiguration({ file: 'cucumber.cjs' })
+
+  assert.deepEqual(useConfiguration.paths, ['features/**/*.feature.md'])
+  assert.deepEqual(runConfiguration.support.requireModules, ['ts-node/register'])
+  assert.deepEqual([...runConfiguration.support.requirePaths].sort(), [
+    'features/step_definitions/**/*.cjs',
+    'features/step_definitions/**/*.ts',
+    'features/support/bootstrap.cjs',
+  ].sort())
+  assert.equal(useConfiguration.publish, false)
+  assert.equal(useConfiguration.failFast, true)
 })
 
 test('cucumber config only targets markdown feature files and uses explicit support bootstrap', () => {
   const config = loadCucumberConfig()
 
   assert.deepEqual(config.paths, ['features/**/*.feature.md'])
+  assert.deepEqual(config.requireModule, ['ts-node/register'])
   assert.deepEqual([...config.require].sort(), [
     'features/step_definitions/**/*.cjs',
+    'features/step_definitions/**/*.ts',
     'features/support/bootstrap.cjs',
   ].sort())
   assert.equal(config.publishQuiet, true)
@@ -187,7 +225,7 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
   ])
 })
 
-test('cucumber dry-run smoke discovers exactly one markdown scenario without relying on formatter text', async (t) => {
+test('cucumber dry-run smoke plans exactly one selected markdown scenario without relying on formatter text', async (t) => {
   const fixture = await writeTempSmokeFixture([
     '# Feature: cucumber config smoke',
     '## Scenario: runner loads config and support',
@@ -211,6 +249,8 @@ test('cucumber dry-run smoke discovers exactly one markdown scenario without rel
       `message:${fixture.messagePath}`,
       '--require',
       fixture.stepsPath,
+      '--name',
+      '^runner loads config and support$',
       fixture.featurePath,
     ],
     {
@@ -225,9 +265,9 @@ test('cucumber dry-run smoke discovers exactly one markdown scenario without rel
   assert.equal(result.status, 0, `stderr:\n${result.stderr}\nstdout:\n${result.stdout}`)
 
   const messages = await parseMessageOutput(fixture.messagePath)
-  const pickleCount = messages.filter((message) => message.pickle).length
+  const testCaseStartedCount = messages.filter((message) => message.testCaseStarted).length
 
-  assert.equal(pickleCount, 1, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
+  assert.equal(testCaseStartedCount, 1, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
 })
 
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {

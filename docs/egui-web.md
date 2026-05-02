@@ -118,6 +118,12 @@ pnpm run test:pw-legacy
 一方で既存の `@playwright/test` suite はまだ正本として残しており、`pnpm run test:pw-legacy` と `pnpm test` はどちらも `playwright test` を実行する。
 つまり **初回 pass では `test` を BDD へ切り替えない**。
 
+Step definitions は段階的に TypeScript へ移行する。
+`cucumber.cjs` は Cucumber v12 の `default` profile として定義し、`ts-node/register` を読み込む。
+対象は `features/step_definitions/**/*.cjs` と `features/step_definitions/**/*.ts` の両方にする。
+新規または移行済みの step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
+移行中は同じ step phrase を CJS と TS の両方に残すと Cucumber の duplicate step になるため、1 file ずつ置き換える。
+
 BDD 化したのは最初の 3 scenario のみ:
 - `startup-success.feature.md`
 - `plain-chromium-error.feature.md`

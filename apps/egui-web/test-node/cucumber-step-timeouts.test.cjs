@@ -8,11 +8,11 @@ const stepsDir = path.join(__dirname, '..', 'features', 'step_definitions')
 const readStep = (name) => fs.readFile(path.join(stepsDir, name), 'utf8')
 
 test('standard browser startup steps declare explicit cucumber timeouts', async () => {
-  const source = await readStep('startup-success.steps.cjs')
+  const source = await readStep('startup-success.steps.ts')
 
   assert.match(
     source,
-    /Given\('the egui web app is open in the standard WebGPU browser',\s*\{\s*timeout:\s*\w+\s*\}/,
+    /Given\(\s*'the egui web app is open in the standard WebGPU browser',\s*\{\s*timeout:\s*\w+\s*\}/,
   )
   assert.match(
     source,
