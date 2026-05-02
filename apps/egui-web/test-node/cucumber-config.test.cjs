@@ -137,7 +137,7 @@ test('cucumber config uses bounded scenario parallelism on CI', () => {
 })
 
 test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
-  const hooks = require('../features/support/hooks.cjs')
+  const hooks = require('../features/support/hooks.ts')
   const world = require('../features/support/world.ts')
 
   assert.equal(typeof hooks.registerHooks, 'function')
@@ -145,7 +145,7 @@ test('support modules expose explicit registration hooks without runtime message
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.cjs')))
 
   const [hooksSource, worldSource] = await Promise.all([
-    readSupportSource('hooks.cjs'),
+    readSupportSource('hooks.ts'),
     readSupportSource('world.ts'),
   ])
 
@@ -154,7 +154,7 @@ test('support modules expose explicit registration hooks without runtime message
 })
 
 test('support hooks keep shared server lifecycle at run scope while resetting browser state per scenario', async () => {
-  const hooks = require('../features/support/hooks.cjs')
+  const hooks = require('../features/support/hooks.ts')
   const registrations = {}
   const calls = []
 

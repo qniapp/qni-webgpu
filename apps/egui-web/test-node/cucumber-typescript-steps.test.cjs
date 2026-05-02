@@ -64,3 +64,8 @@ test('world support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'world.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'world.cjs')), /ENOENT/)
 })
+
+test('hooks support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'hooks.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'hooks.cjs')), /ENOENT/)
+})

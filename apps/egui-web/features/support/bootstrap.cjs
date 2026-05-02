@@ -1,5 +1,5 @@
 const { registerWorld } = require('./world.ts')
-const { registerHooks } = require('./hooks.cjs')
+const { registerHooks } = require('./hooks.ts')
 
 const registerSupport = () => {
   registerWorld()
