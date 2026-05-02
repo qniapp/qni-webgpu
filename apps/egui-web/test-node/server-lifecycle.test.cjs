@@ -1,11 +1,12 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { spawn } = require('node:child_process')
+require('ts-node/register/transpile-only')
 const os = require('node:os')
 const path = require('node:path')
 const fs = require('node:fs/promises')
 
-const { terminateProcess } = require('../features/support/server.cjs')
+const { terminateProcess } = require('../features/support/server.ts')
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -56,7 +57,7 @@ test('ensureSharedWebServer reuses an explicitly configured external server inst
     await fs.rm(tempDir, { recursive: true, force: true })
   })
 
-  const serverModulePath = require.resolve('../features/support/server.cjs')
+  const serverModulePath = require.resolve('../features/support/server.ts')
   delete require.cache[serverModulePath]
 
   const previousExternal = process.env.QNI_EGUI_WEB_EXTERNAL_SERVER
@@ -65,7 +66,7 @@ test('ensureSharedWebServer reuses an explicitly configured external server inst
   process.env.QNI_EGUI_WEB_BASE_URL = `http://127.0.0.1:${port}`
 
   try {
-    const { ensureSharedWebServer, shutdownSharedWebServer } = require('../features/support/server.cjs')
+    const { ensureSharedWebServer, shutdownSharedWebServer } = require('../features/support/server.ts')
     const config = await ensureSharedWebServer()
 
     assert.equal(config.url, `http://127.0.0.1:${port}`)

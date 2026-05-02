@@ -1,29 +1,61 @@
-const { spawn } = require('node:child_process')
-const path = require('node:path')
-const { once } = require('node:events')
+import { spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+import { once } from 'node:events'
+import path from 'node:path'
 
-const { getWebServerConfig } = require('../../test-support/web-server.cjs')
+type WebServerConfig = {
+  url: string
+  timeout: number
+  reuseExistingServer: boolean
+} & (
+  | {
+      command: string
+      external?: false
+    }
+  | {
+      external: true
+      command?: never
+    }
+)
+
+type WebServerSupport = {
+  getWebServerConfig: (options?: { env?: NodeJS.ProcessEnv }) => WebServerConfig
+}
+
+type ManagedWebServer = WebServerConfig & {
+  managed: boolean
+}
+
+const { getWebServerConfig } = require('../../test-support/web-server.cjs') as WebServerSupport
 
 const APP_ROOT = path.join(__dirname, '..', '..')
 const POLL_INTERVAL_MS = 250
 const PROCESS_TERM_TIMEOUT_MS = 5_000
 const PROCESS_KILL_TIMEOUT_MS = 5_000
 
-let managedServerProcess = null
+let managedServerProcess: ChildProcess | null = null
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-const didProcessExit = (processToCheck) =>
-  Boolean(processToCheck) && (processToCheck.exitCode !== null || processToCheck.signalCode !== null)
+const didProcessExit = (processToCheck?: ChildProcess | null): boolean => {
+  if (!processToCheck) {
+    return false
+  }
 
-const waitForProcessExit = async (processToWaitFor, timeoutMs) => {
+  return processToCheck.exitCode !== null || processToCheck.signalCode !== null
+}
+
+const waitForProcessExit = async (
+  processToWaitFor: ChildProcess | null | undefined,
+  timeoutMs: number
+): Promise<boolean> => {
   if (!processToWaitFor || didProcessExit(processToWaitFor)) {
     return true
   }
 
-  let timeoutId
+  let timeoutId: NodeJS.Timeout | undefined
   try {
-    const timeout = new Promise((resolve) => {
+    const timeout = new Promise<boolean>((resolve) => {
       timeoutId = setTimeout(() => resolve(false), timeoutMs)
     })
 
@@ -36,17 +68,22 @@ const waitForProcessExit = async (processToWaitFor, timeoutMs) => {
 
     return exited || didProcessExit(processToWaitFor)
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 
-const terminateProcess = async (
-  processToStop,
+export const terminateProcess = async (
+  processToStop: ChildProcess | null | undefined,
   {
     termTimeoutMs = PROCESS_TERM_TIMEOUT_MS,
     killTimeoutMs = PROCESS_KILL_TIMEOUT_MS,
+  }: {
+    termTimeoutMs?: number
+    killTimeoutMs?: number
   } = {}
-) => {
+): Promise<void> => {
   if (!processToStop || didProcessExit(processToStop)) {
     return
   }
@@ -60,7 +97,7 @@ const terminateProcess = async (
   await waitForProcessExit(processToStop, killTimeoutMs)
 }
 
-const probeServer = async (url) => {
+const probeServer = async (url: string): Promise<boolean> => {
   try {
     const response = await fetch(url, { redirect: 'manual' })
     await response.arrayBuffer().catch(() => {})
@@ -70,7 +107,7 @@ const probeServer = async (url) => {
   }
 }
 
-const waitForServer = async (url, timeout) => {
+const waitForServer = async (url: string, timeout: number): Promise<void> => {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
     if (await probeServer(url)) {
@@ -82,7 +119,7 @@ const waitForServer = async (url, timeout) => {
   throw new Error(`Timed out waiting for egui-web test server: ${url}`)
 }
 
-const ensureSharedWebServer = async () => {
+export const ensureSharedWebServer = async (): Promise<ManagedWebServer> => {
   const config = getWebServerConfig({ env: process.env })
 
   if (config.external) {
@@ -114,16 +151,11 @@ const ensureSharedWebServer = async () => {
   return { ...config, managed: true }
 }
 
-const shutdownSharedWebServer = async () => {
+export const shutdownSharedWebServer = async (): Promise<void> => {
   const processToStop = managedServerProcess
   managedServerProcess = null
 
   await terminateProcess(processToStop)
 }
 
-module.exports = {
-  getSharedWebServerConfig: getWebServerConfig,
-  ensureSharedWebServer,
-  shutdownSharedWebServer,
-  terminateProcess,
-}
+export { getWebServerConfig as getSharedWebServerConfig }

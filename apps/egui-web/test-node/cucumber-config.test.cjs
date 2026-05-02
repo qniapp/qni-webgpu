@@ -276,7 +276,7 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   const sharedBrowser = require('../test-support/browser-launch.cjs')
   const sharedServer = require('../test-support/web-server.cjs')
   const browser = require('../features/support/browser.ts')
-  const server = require('../features/support/server.cjs')
+  const server = require('../features/support/server.ts')
   const world = require('../features/support/world.cjs')
   const helpers = require('../features/support/egui-helpers.cjs')
 

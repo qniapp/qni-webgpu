@@ -8,7 +8,7 @@ const {
 
 const { closeWorldBrowser } = require('./browser.ts')
 const { readEguiError, getScenarioArtifactPath } = require('./egui-helpers.cjs')
-const { ensureSharedWebServer, getSharedWebServerConfig, shutdownSharedWebServer } = require('./server.cjs')
+const { ensureSharedWebServer, getSharedWebServerConfig, shutdownSharedWebServer } = require('./server.ts')
 
 const registerHooks = ({
   BeforeAll = defaultBeforeAll,

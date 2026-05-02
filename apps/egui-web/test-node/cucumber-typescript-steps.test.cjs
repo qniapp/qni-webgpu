@@ -54,3 +54,8 @@ test('browser support is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'browser.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'browser.cjs')), /ENOENT/)
 })
+
+test('server support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'server.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'server.cjs')), /ENOENT/)
+})
