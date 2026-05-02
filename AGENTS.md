@@ -1,4 +1,4 @@
-READ ../agent-scripts/AGENTS.MD BEFORE ANYTHING.
+READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 - 実際の描画を確認できる環境をセットアップする。
 - Codex で egui WebGPU の見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/egui-web.md` の Codex browser workflow に従い、WebGPU フラグ付き外部 Chrome / Playwright で実描画を確認する。

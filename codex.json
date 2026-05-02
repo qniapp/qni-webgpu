@@ -1,7 +1,7 @@
 {
-  "include": ["../agent-scripts/AGENTS.MD"],
+  "include": ["../agent-kit/AGENTS.MD"],
   "sandbox_mode": "workspace-write",
   "sandbox_workspace_write": {
-    "writable_roots": ["../agent-scripts"]
+    "writable_roots": ["../agent-kit"]
   }
 }
