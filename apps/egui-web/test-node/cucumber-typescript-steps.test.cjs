@@ -74,3 +74,8 @@ test('bootstrap support entrypoint is implemented in TypeScript', async () => {
   await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.ts')))
   await assert.rejects(() => fs.access(path.join(supportDir, 'bootstrap.cjs')), /ENOENT/)
 })
+
+test('egui helpers support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'egui-helpers.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'egui-helpers.cjs')), /ENOENT/)
+})

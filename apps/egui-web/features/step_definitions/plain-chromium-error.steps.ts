@@ -4,7 +4,7 @@ import type { Page } from 'playwright'
 import type { BrowserSupport, EguiHelpers, EguiWorld, WindowWithEguiError } from '../support/support-types'
 
 const { PLAIN_BROWSER_MODE, openPageForMode } = require('../support/browser.ts') as BrowserSupport
-const { openEguiApp, waitForAppReady, readEguiError } = require('../support/egui-helpers.cjs') as EguiHelpers
+const { openEguiApp, waitForAppReady, readEguiError } = require('../support/egui-helpers.ts') as EguiHelpers
 
 const CUCUMBER_STEP_TIMEOUT_MS = 20_000
 

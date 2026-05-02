@@ -279,7 +279,7 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   const browser = require('../features/support/browser.ts')
   const server = require('../features/support/server.ts')
   const world = require('../features/support/world.ts')
-  const helpers = require('../features/support/egui-helpers.cjs')
+  const helpers = require('../features/support/egui-helpers.ts')
 
   assert.equal(browser.getStandardWebGpuLaunchOptions, sharedBrowser.getStandardWebGpuLaunchOptions)
   assert.equal(browser.getPlainChromiumLaunchOptions, sharedBrowser.getPlainChromiumLaunchOptions)

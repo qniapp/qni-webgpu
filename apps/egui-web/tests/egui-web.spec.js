@@ -15,7 +15,7 @@ const {
   waitForAppReady,
   waitForCanvasContent,
   waitForStartupReady,
-} = require('../features/support/egui-helpers.cjs')
+} = require('../features/support/egui-helpers.ts')
 
 const waitForStateVectorLength = async (page, length, timeout = 5000) => {
   await expect

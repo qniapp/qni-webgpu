@@ -11,7 +11,7 @@ const {
   readStateVector,
   waitForCanvasContent,
   waitForStateVectorReady,
-} = require('../support/egui-helpers.cjs') as EguiHelpers
+} = require('../support/egui-helpers.ts') as EguiHelpers
 
 const CUCUMBER_STEP_TIMEOUT_MS = 20_000
 

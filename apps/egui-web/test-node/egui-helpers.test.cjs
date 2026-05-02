@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
 const {
   dragPointer,
@@ -10,7 +11,7 @@ const {
   waitForCanvasContent,
   waitForStartupReady,
   waitForStateVectorReady,
-} = require('../features/support/egui-helpers.cjs')
+} = require('../features/support/egui-helpers.ts')
 
 const makePage = ({ evaluateImpl } = {}) => {
   const calls = {

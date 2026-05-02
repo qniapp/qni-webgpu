@@ -24,6 +24,11 @@ export type DragPreviewZOrderSamples = {
   source: CanvasPixel
 }
 
+export type CanvasContentStats = {
+  nonBackground: number
+  sampledPixels: number
+}
+
 export type EguiWorld = {
   page: Page | null
   baseUrl: string
@@ -37,13 +42,16 @@ export type BrowserSupport = {
 }
 
 export type EguiHelpers = {
-  openEguiApp: (page: Page, baseUrl: string) => Promise<void>
+  openEguiApp: (page: Page, baseUrl: string) => Promise<string>
   waitForAppReady: (page: Page) => Promise<void>
-  waitForStartupReady: (page: Page, options: { waitForStateVector: boolean }) => Promise<void>
+  waitForStartupReady: (
+    page: Page,
+    options: { timeout?: number; waitForStateVector?: boolean }
+  ) => Promise<unknown[] | null>
   readEguiError: (page: Page) => Promise<string | null>
-  readStateVector: (page: Page) => Promise<unknown>
-  waitForCanvasContent: (page: Page, canvas: Locator) => Promise<void>
-  waitForStateVectorReady: (page: Page) => Promise<void>
+  readStateVector: (page: Page) => Promise<unknown[]>
+  waitForCanvasContent: (page: Page, canvas: Locator) => Promise<CanvasContentStats>
+  waitForStateVectorReady: (page: Page) => Promise<unknown[]>
   dragPointer: (
     page: Page,
     from: Point,

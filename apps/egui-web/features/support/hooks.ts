@@ -89,7 +89,7 @@ const {
 } = require('@cucumber/cucumber') as CucumberRuntime
 
 const { closeWorldBrowser } = require('./browser.ts') as BrowserSupport
-const { readEguiError, getScenarioArtifactPath } = require('./egui-helpers.cjs') as EguiHelpersSupport
+const { readEguiError, getScenarioArtifactPath } = require('./egui-helpers.ts') as EguiHelpersSupport
 const {
   ensureSharedWebServer,
   getSharedWebServerConfig,

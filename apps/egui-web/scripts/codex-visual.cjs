@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+require('ts-node/register/transpile-only')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
@@ -14,7 +15,7 @@ const {
   readStateVector,
   waitForCanvasContent,
   waitForStartupReady,
-} = require('../features/support/egui-helpers.cjs')
+} = require('../features/support/egui-helpers.ts')
 
 const usage = () => {
   console.error(`Usage:

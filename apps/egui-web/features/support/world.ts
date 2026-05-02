@@ -35,7 +35,7 @@ const { setWorldConstructor: defaultSetWorldConstructor } = require('@cucumber/c
 }
 
 const { getWebServerConfig } = require('../../test-support/web-server.cjs') as WebServerSupport
-const { DEFAULT_ARTIFACT_DIR } = require('./egui-helpers.cjs') as EguiHelpersSupport
+const { DEFAULT_ARTIFACT_DIR } = require('./egui-helpers.ts') as EguiHelpersSupport
 const { STANDARD_BROWSER_MODE } = require('./browser.ts') as BrowserSupport
 
 export class EguiWorld {

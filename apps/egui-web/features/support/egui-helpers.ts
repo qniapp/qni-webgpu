@@ -1,13 +1,35 @@
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import type { Locator, Page } from 'playwright'
+import type { CanvasPixel, DragPreviewProbe, PixelSamplePoint, Point } from './support-types'
 
-const DEFAULT_READY_TIMEOUT_MS = 20_000
-const DEFAULT_CANVAS_CONTENT_TIMEOUT_MS = 5_000
-const DEFAULT_ARTIFACT_DIR = path.join(os.tmpdir(), 'qni-egui-web-cucumber')
+declare global {
+  interface Window {
+    __eguiReady?: boolean
+    __eguiError?: unknown
+    __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
+  }
+}
+
+type CanvasBoundingBox = { x: number; y: number; width: number; height: number }
+type CanvasContentStats = { nonBackground: number; sampledPixels: number }
+type ReadCanvasContentStatsOptions = { path?: string; background?: readonly number[]; threshold?: number; step?: number }
+type WaitForCanvasContentOptions = ReadCanvasContentStatsOptions & { timeout?: number; minNonBackground?: number }
+type ScreenshotWithRetryOptions = NonNullable<Parameters<Locator['screenshot']>[0]> & { waitForStateVector?: boolean }
+type PaletteGateCenterOptions = { gateSize?: number; gap?: number; rowY?: number; count?: number }
+type DragPreviewProbeOptions = {
+  gateIndex?: number; gateSize?: number; paletteGap?: number; paletteRowY?: number; paletteCount?: number
+  stateCircleSize?: number; stateCircleGap?: number; stateCircleBottomMargin?: number; stateCount?: number; rem?: number
+}
+type ArtifactWorld = { artifactDir?: string } | null | undefined
+
+export const DEFAULT_READY_TIMEOUT_MS = 20_000
+export const DEFAULT_CANVAS_CONTENT_TIMEOUT_MS = 5_000
+export const DEFAULT_ARTIFACT_DIR = path.join(os.tmpdir(), 'qni-egui-web-cucumber')
 const DEFAULT_EVALUATE_ATTEMPTS = 3
 const DEFAULT_POLL_INTERVAL_MS = 100
-const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
+export const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
 const DEFAULT_NON_BACKGROUND_THRESHOLD = 20
 const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
@@ -28,23 +50,23 @@ const RETRYABLE_SCREENSHOT_ERRORS = [
   'Cannot find context',
 ]
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const includesAny = (value, substrings) => substrings.some((substring) => String(value).includes(substring))
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+const includesAny = (value: unknown, substrings: readonly string[]): boolean =>
+  substrings.some((substring) => String(value).includes(substring))
 
-const waitForAppReady = async (page, timeout = DEFAULT_READY_TIMEOUT_MS) => {
-  await page.waitForFunction(
-    () => window.__eguiReady === true || Boolean(window.__eguiError),
-    null,
-    { timeout }
-  )
+export const waitForAppReady = async (page: Page, timeout = DEFAULT_READY_TIMEOUT_MS): Promise<void> => {
+  await page.waitForFunction(() => window.__eguiReady === true || Boolean(window.__eguiError), null, { timeout })
 }
 
-const evaluateWithRetry = async (page, fn, arg, attempts = DEFAULT_EVALUATE_ATTEMPTS) => {
-  let lastError
+export const evaluateWithRetry = async <Result = unknown, Arg = unknown>(
+  page: Page, fn: (arg: Arg) => Result | Promise<Result>, arg?: Arg, attempts = DEFAULT_EVALUATE_ATTEMPTS
+): Promise<Result> => {
+  let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      return await page.evaluate(fn, arg)
+      const evaluatePageFunction = page.evaluate.bind(page) as (pageFunction: unknown, pageArgument?: unknown) => Promise<Result>
+      return await evaluatePageFunction(fn, arg)
     } catch (error) {
       lastError = error
       if (!includesAny(error, RETRYABLE_EVALUATE_ERRORS)) {
@@ -59,12 +81,10 @@ const evaluateWithRetry = async (page, fn, arg, attempts = DEFAULT_EVALUATE_ATTE
 }
 
 const screenshotWithRetry = async (
-  page,
-  locator,
-  { waitForStateVector = false, ...options } = {},
+  page: Page, locator: Locator, { waitForStateVector = false, ...options }: ScreenshotWithRetryOptions = {},
   attempts = DEFAULT_EVALUATE_ATTEMPTS
-) => {
-  let lastError
+): Promise<Buffer> => {
+  let lastError: unknown
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
@@ -85,10 +105,13 @@ const screenshotWithRetry = async (
   throw lastError
 }
 
-const readEguiError = async (page) => evaluateWithRetry(page, () => window.__eguiError || null)
+export const readEguiError = async (page: Page): Promise<string | null> => {
+  const error = await evaluateWithRetry<unknown>(page, () => window.__eguiError || null)
+  return error == null ? null : String(error)
+}
 
-const readStateVector = async (page) =>
-  evaluateWithRetry(page, async () => {
+export const readStateVector = async (page: Page): Promise<unknown[]> =>
+  evaluateWithRetry<unknown[]>(page, async () => {
     if (!window.__eguiReadStateVector) {
       return []
     }
@@ -96,10 +119,10 @@ const readStateVector = async (page) =>
     return window.__eguiReadStateVector()
   })
 
-const waitForStartupReady = async (
-  page,
-  { timeout = DEFAULT_READY_TIMEOUT_MS, waitForStateVector = false } = {}
-) => {
+export const waitForStartupReady = async (
+  page: Page,
+  { timeout = DEFAULT_READY_TIMEOUT_MS, waitForStateVector = false }: { timeout?: number; waitForStateVector?: boolean } = {}
+): Promise<unknown[] | null> => {
   await waitForAppReady(page, timeout)
 
   const eguiError = await readEguiError(page)
@@ -114,7 +137,7 @@ const waitForStartupReady = async (
   return null
 }
 
-const waitForStateVectorReady = async (page, timeout = DEFAULT_READY_TIMEOUT_MS) => {
+export const waitForStateVectorReady = async (page: Page, timeout = DEFAULT_READY_TIMEOUT_MS): Promise<unknown[]> => {
   const deadline = Date.now() + timeout
 
   while (Date.now() < deadline) {
@@ -133,16 +156,16 @@ const waitForStateVectorReady = async (page, timeout = DEFAULT_READY_TIMEOUT_MS)
   throw new Error('Timed out waiting for egui state vector to become available')
 }
 
-const readCanvasContentStats = async (
-  page,
-  locator,
+export const readCanvasContentStats = async (
+  page: Page,
+  locator: Locator,
   {
     path: screenshotPath,
     background = DEFAULT_BACKGROUND_RGB,
     threshold = DEFAULT_NON_BACKGROUND_THRESHOLD,
     step = DEFAULT_CANVAS_SAMPLE_STEP,
-  } = {}
-) => {
+  }: ReadCanvasContentStatsOptions = {}
+): Promise<CanvasContentStats> => {
   const screenshot = await screenshotWithRetry(
     page,
     locator,
@@ -150,7 +173,12 @@ const readCanvasContentStats = async (
   )
   const base64 = screenshot.toString('base64')
 
-  return evaluateWithRetry(
+  return evaluateWithRetry<CanvasContentStats, {
+    base64: string
+    background: readonly number[]
+    threshold: number
+    step: number
+  }>(
     page,
     async ({ base64, background, threshold, step }) => {
       const img = new Image()
@@ -195,15 +223,15 @@ const readCanvasContentStats = async (
   )
 }
 
-const waitForCanvasContent = async (
-  page,
-  locator,
+export const waitForCanvasContent = async (
+  page: Page,
+  locator: Locator,
   {
     timeout = DEFAULT_CANVAS_CONTENT_TIMEOUT_MS,
     minNonBackground = DEFAULT_MIN_NON_BACKGROUND_PIXELS,
     ...options
-  } = {}
-) => {
+  }: WaitForCanvasContentOptions = {}
+): Promise<CanvasContentStats> => {
   const deadline = Date.now() + timeout
   let lastStats = { nonBackground: 0, sampledPixels: 0 }
 
@@ -227,7 +255,7 @@ const waitForCanvasContent = async (
   )
 }
 
-const requireCanvasBoundingBox = async (page) => {
+const requireCanvasBoundingBox = async (page: Page): Promise<CanvasBoundingBox> => {
   const box = await page.locator('#egui-canvas').boundingBox()
   if (!box) {
     throw new Error('canvas not found')
@@ -235,7 +263,11 @@ const requireCanvasBoundingBox = async (page) => {
   return box
 }
 
-const sampleCanvasPixels = async (page, locator, samples) => {
+export const sampleCanvasPixels = async (
+  page: Page,
+  locator: Locator,
+  samples: PixelSamplePoint[]
+): Promise<Record<string, CanvasPixel>> => {
   const screenshot = await screenshotWithRetry(page, locator, {
     type: 'png',
     waitForStateVector: true,
@@ -246,7 +278,12 @@ const sampleCanvasPixels = async (page, locator, samples) => {
     throw new Error('canvas not found')
   }
 
-  return evaluateWithRetry(
+  return evaluateWithRetry<Record<string, CanvasPixel>, {
+    base64: string
+    samples: PixelSamplePoint[]
+    cssWidth: number
+    cssHeight: number
+  }>(
     page,
     async ({ base64, samples, cssWidth, cssHeight }) => {
       const img = new Image()
@@ -284,7 +321,13 @@ const sampleCanvasPixels = async (page, locator, samples) => {
   )
 }
 
-const dragPointer = async (page, from, to, steps = 6, release = true) => {
+export const dragPointer = async (
+  page: Page,
+  from: Point,
+  to: Point,
+  steps = 6,
+  release = true
+): Promise<void> => {
   const box = await requireCanvasBoundingBox(page)
   const startX = box.x + from.x
   const startY = box.y + from.y
@@ -300,7 +343,7 @@ const dragPointer = async (page, from, to, steps = 6, release = true) => {
   }
 }
 
-const releasePointer = async (page, at) => {
+export const releasePointer = async (page: Page, at: Point): Promise<void> => {
   const box = await requireCanvasBoundingBox(page)
   const endX = box.x + at.x
   const endY = box.y + at.y
@@ -308,16 +351,16 @@ const releasePointer = async (page, at) => {
   await page.mouse.up()
 }
 
-const getPaletteGateCenter = (
-  cssWidth,
-  gateIndex,
+export const getPaletteGateCenter = (
+  cssWidth: number,
+  gateIndex: number,
   {
     gateSize = DEFAULT_GATE_SIZE,
     gap = DEFAULT_PALETTE_GAP,
     rowY = DEFAULT_PALETTE_ROW_Y,
     count = DEFAULT_PALETTE_COUNT,
-  } = {}
-) => {
+  }: PaletteGateCenterOptions = {}
+): Point => {
   const paletteWidth = count * gateSize + (count - 1) * gap
   const paletteStartX = cssWidth / 2 - paletteWidth / 2
 
@@ -327,9 +370,9 @@ const getPaletteGateCenter = (
   }
 }
 
-const getDragPreviewAboveStatePanelProbe = (
-  cssWidth,
-  cssHeight,
+export const getDragPreviewAboveStatePanelProbe = (
+  cssWidth: number,
+  cssHeight: number,
   {
     gateIndex = 0,
     gateSize = DEFAULT_GATE_SIZE,
@@ -341,8 +384,8 @@ const getDragPreviewAboveStatePanelProbe = (
     stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
     stateCount = DEFAULT_STATE_COUNT,
     rem = DEFAULT_REM,
-  } = {}
-) => {
+  }: DragPreviewProbeOptions = {}
+): DragPreviewProbe => {
   const source = getPaletteGateCenter(cssWidth, gateIndex, {
     gateSize,
     gap: paletteGap,
@@ -422,13 +465,17 @@ const getDragPreviewAboveStatePanelProbe = (
   }
 }
 
-const openEguiApp = async (page, baseUrl, pathname = '/') => {
+export const openEguiApp = async (
+  page: Page,
+  baseUrl: string,
+  pathname = '/'
+): Promise<string> => {
   const targetUrl = new URL(pathname, baseUrl).toString()
   await page.goto(targetUrl, { waitUntil: 'load' })
   return targetUrl
 }
 
-const sanitizeArtifactSegment = (value) => {
+export const sanitizeArtifactSegment = (value: unknown): string => {
   const normalized = String(value || 'scenario')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -438,31 +485,12 @@ const sanitizeArtifactSegment = (value) => {
   return normalized || 'scenario'
 }
 
-const getScenarioArtifactPath = async (world, scenarioName, suffix) => {
+export const getScenarioArtifactPath = async (
+  world: ArtifactWorld,
+  scenarioName: string | undefined,
+  suffix: string
+): Promise<string> => {
   const artifactDir = world?.artifactDir || DEFAULT_ARTIFACT_DIR
   await fs.mkdir(artifactDir, { recursive: true })
   return path.join(artifactDir, `${sanitizeArtifactSegment(scenarioName)}-${suffix}`)
-}
-
-module.exports = {
-  DEFAULT_READY_TIMEOUT_MS,
-  DEFAULT_CANVAS_CONTENT_TIMEOUT_MS,
-  DEFAULT_ARTIFACT_DIR,
-  DEFAULT_MIN_NON_BACKGROUND_PIXELS,
-  evaluateWithRetry,
-  waitForAppReady,
-  readEguiError,
-  readStateVector,
-  waitForStartupReady,
-  waitForStateVectorReady,
-  readCanvasContentStats,
-  waitForCanvasContent,
-  sampleCanvasPixels,
-  dragPointer,
-  releasePointer,
-  getPaletteGateCenter,
-  getDragPreviewAboveStatePanelProbe,
-  openEguiApp,
-  sanitizeArtifactSegment,
-  getScenarioArtifactPath,
 }

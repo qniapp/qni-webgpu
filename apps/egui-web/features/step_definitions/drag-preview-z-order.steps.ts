@@ -8,7 +8,7 @@ const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
   sampleCanvasPixels,
-} = require('../support/egui-helpers.cjs') as EguiHelpers
+} = require('../support/egui-helpers.ts') as EguiHelpers
 
 const requirePage = (world: EguiWorld): Page => {
   assert.ok(world.page, 'expected egui page to be open')
