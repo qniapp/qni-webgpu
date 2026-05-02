@@ -1,7 +1,8 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+require('ts-node/register/transpile-only')
 
-const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.cjs')
+const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
 
 test('assertDragPreviewAboveOverlay accepts a drag preview that matches the source gate fill while differing from the hidden baseline', () => {
   assert.doesNotThrow(() => {

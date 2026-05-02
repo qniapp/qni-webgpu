@@ -3,7 +3,7 @@ import { Then, When } from '@cucumber/cucumber'
 import type { Page } from 'playwright'
 import type { AssertionsSupport, EguiHelpers, EguiWorld } from '../support/support-types'
 
-const { assertDragPreviewAboveOverlay } = require('../support/assertions.cjs') as AssertionsSupport
+const { assertDragPreviewAboveOverlay } = require('../support/assertions.ts') as AssertionsSupport
 const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,

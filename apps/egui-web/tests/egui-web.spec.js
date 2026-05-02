@@ -1,7 +1,8 @@
+require('ts-node/register/transpile-only')
 const { test, expect } = require('@playwright/test')
 const { chromium } = require('playwright')
 
-const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.cjs')
+const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
 const { getPlainChromiumLaunchOptions } = require('../test-support/browser-launch.cjs')
 const { getWebServerConfig } = require('../test-support/web-server.cjs')
 const {

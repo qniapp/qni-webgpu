@@ -93,6 +93,7 @@ test('typescript config type-checks cucumber glue without emitting files', async
   const tsconfig = await readTsConfig()
 
   assert.equal(tsconfig.compilerOptions.noEmit, true)
+  assert.equal(tsconfig.compilerOptions.rootDir, '.')
   assert.equal(tsconfig.compilerOptions.module, 'CommonJS')
   assert.equal(tsconfig.compilerOptions.strict, true)
   assert.ok(tsconfig.compilerOptions.types.includes('node'))

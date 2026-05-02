@@ -41,4 +41,10 @@ test('drag preview z-order cucumber steps are implemented in TypeScript', async 
 
   assert.match(source, /dragPreviewZOrder/)
   assert.match(source, /assertDragPreviewAboveOverlay/)
+  assert.doesNotMatch(source, /assertions\.cjs/)
+})
+
+test('drag preview assertions support is implemented in TypeScript', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'assertions.ts')))
+  await assert.rejects(() => fs.access(path.join(supportDir, 'assertions.cjs')), /ENOENT/)
 })
