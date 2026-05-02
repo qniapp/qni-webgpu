@@ -24,7 +24,7 @@ Claude Code の設定は複数のレベルで管理されています：
     "qni": {
       "type": "stdio",
       "command": "node",
-      "args": ["/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"],
+      "args": ["/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js"],
       "env": {}
     },
     "playwright": {
@@ -190,7 +190,7 @@ claude mcp list
 期待される出力（公式プラグインが無効化されている場合の一例）：
 ```
 playwright: xvfb-run -d -s -screen 0 1920x1080x24 npx @playwright/mcp@latest --isolated --config /home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json - ✓ Connected
-qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js - ✓ Connected
+qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js - ✓ Connected
 ```
 
 ## トラブルシューティング

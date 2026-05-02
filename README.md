@@ -118,6 +118,7 @@ legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.cjs` の Web
 ```
 cd apps/mcp-qni
 pnpm install
+pnpm run build
 pnpm start
 ```
 
@@ -125,7 +126,7 @@ Claude Code でプロジェクトに登録する:
 
 ```
 claude mcp add --scope project --transport stdio qni -- \
-  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js
 ```
 
 詳細は `docs/mcp-qni.md` を参照。

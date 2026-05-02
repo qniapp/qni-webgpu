@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"
+        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js"
       ],
       "env": {}
     },

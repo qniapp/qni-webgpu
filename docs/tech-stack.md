@@ -9,7 +9,7 @@
 ## 全体像
 
 - リポジトリ構成: **monorepo**
-- 主言語: **Rust** / **TypeScript** / **JavaScript (Node.js)**
+- 主言語: **Rust** / **TypeScript**
 - Rust toolchain: **stable** (`rust-toolchain.toml`)
 - Web 向けビルド: **Rust → WebAssembly**
 - Node パッケージ管理: **pnpm**
@@ -59,17 +59,20 @@ Web 版とは別に、ローカルで素早く確認できる TUI PoC です。
 Codex / Claude などの MCP クライアントから量子回路を操作するためのサーバです。
 
 - 実行環境: **Node.js**
+- 言語: **TypeScript**（`src/**/*.ts` / `test/**/*.ts` を `dist/` へビルド）
 - モジュール形式: **ESM** (`"type": "module"`)
 - SDK: **@modelcontextprotocol/sdk**
 - 通信方式: **stdio**
 - パッケージ管理: **pnpm**
 - 品質チェック: **ESLint / Prettier / Node test runner**
+  - `pnpm run typecheck` で TypeScript を `--noEmit` 検証
 
 主な依存関係:
 
 - `@modelcontextprotocol/sdk`（package.json では `^1.0.0`、lockfile では 1.x 系を解決）
 - `eslint`（9.x）
 - `prettier`（3.x）
+- `typescript`（6.x）
 
 ## 開発・検証ツール
 

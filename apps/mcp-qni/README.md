@@ -11,6 +11,7 @@ Qni は回路編集と状態ベクトル取得を行う最小構成の MCP サ�
 
 ```
 pnpm install
+pnpm run build
 ```
 
 ## 起動
@@ -25,7 +26,7 @@ pnpm start
 
 ```
 claude mcp add --scope project --transport stdio qni -- \
-  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js
 ```
 
 `/mcp` で qni を有効化して使う。
@@ -34,6 +35,12 @@ claude mcp add --scope project --transport stdio qni -- \
 
 ```
 pnpm lint
+```
+
+## 型チェック
+
+```
+pnpm typecheck
 ```
 
 ## フォーマット

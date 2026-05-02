@@ -1,7 +1,30 @@
-const GATE_SET = new Set(['X', 'H', 'Y', 'Z', 'S', 'T'])
+const GATES = ['X', 'H', 'Y', 'Z', 'S', 'T'] as const
+const GATE_SET = new Set<string>(GATES)
 const INV_SQRT2 = 1 / Math.sqrt(2)
 
-function complex(re, im) {
+export type Gate = (typeof GATES)[number]
+
+export type Complex = {
+  re: number
+  im: number
+}
+
+export type Operation = {
+  gate: Gate
+  target: number
+  column: number
+  order: number
+}
+
+export type Circuit = {
+  qubits: number
+  operations: Operation[]
+  _order: number
+}
+
+type Matrix = [[Complex, Complex], [Complex, Complex]]
+
+function complex(re: number, im: number): Complex {
   return { re, im }
 }
 
@@ -10,7 +33,7 @@ const COMPLEX_ONE = complex(1, 0)
 const COMPLEX_I = complex(0, 1)
 const COMPLEX_NEG_I = complex(0, -1)
 
-const GATE_MATRICES = {
+const GATE_MATRICES: Record<Gate, Matrix> = {
   X: [
     [COMPLEX_ZERO, COMPLEX_ONE],
     [COMPLEX_ONE, COMPLEX_ZERO],
@@ -37,46 +60,57 @@ const GATE_MATRICES = {
   ],
 }
 
-function complexAdd(a, b) {
+function complexAdd(a: Complex, b: Complex): Complex {
   return { re: a.re + b.re, im: a.im + b.im }
 }
 
-function complexMul(a, b) {
+function complexMul(a: Complex, b: Complex): Complex {
   return { re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re }
 }
 
-function normalizeGate(value) {
+function normalizeGate(value: unknown): Gate | null {
   if (typeof value !== 'string') {
     return null
   }
   const gate = value.trim().toUpperCase()
-  return GATE_SET.has(gate) ? gate : null
+  return GATE_SET.has(gate) ? (gate as Gate) : null
 }
 
-function requirePositiveInt(value, label) {
+function requirePositiveInt(value: number, label: string): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`${label} must be an integer >= 1`)
   }
 }
 
-export function createCircuit(qubits = 1) {
+export function createCircuit(qubits = 1): Circuit {
   requirePositiveInt(qubits, 'qubits')
   return { qubits, operations: [], _order: 0 }
 }
 
-export function setQubits(circuit, qubits) {
+export function setQubits(circuit: Circuit, qubits: number): void {
   requirePositiveInt(qubits, 'qubits')
   circuit.qubits = qubits
   circuit.operations = []
   circuit._order = 0
 }
 
-export function clearCircuit(circuit) {
+export function clearCircuit(circuit: Circuit): void {
   circuit.operations = []
   circuit._order = 0
 }
 
-export function placeGate(circuit, { gate, target, column }) {
+export function placeGate(
+  circuit: Circuit,
+  {
+    gate,
+    target,
+    column,
+  }: {
+    gate: unknown
+    target: number
+    column: number
+  }
+): void {
   const normalizedGate = normalizeGate(gate)
   if (!normalizedGate) {
     throw new Error('gate must be one of X, H, Y, Z, S, T')
@@ -105,18 +139,15 @@ export function placeGate(circuit, { gate, target, column }) {
   circuit._order += 1
 }
 
-function createZeroState(qubits) {
+function createZeroState(qubits: number): Complex[] {
   const size = 1 << qubits
   const state = Array.from({ length: size }, () => ({ re: 0, im: 0 }))
   state[0] = { re: 1, im: 0 }
   return state
 }
 
-function applyGate(state, qubits, target, gate) {
+function applyGate(state: Complex[], target: number, gate: Gate): void {
   const matrix = GATE_MATRICES[gate]
-  if (!matrix) {
-    throw new Error(`Unknown gate: ${gate}`)
-  }
   const step = 1 << target
   const span = step * 2
   for (let base = 0; base < state.length; base += span) {
@@ -137,7 +168,7 @@ function applyGate(state, qubits, target, gate) {
   }
 }
 
-export function runCircuit(circuit) {
+export function runCircuit(circuit: Circuit): Complex[] {
   const state = createZeroState(circuit.qubits)
   const ordered = [...circuit.operations].sort((a, b) => {
     if (a.column !== b.column) {
@@ -147,7 +178,7 @@ export function runCircuit(circuit) {
   })
 
   ordered.forEach((operation) => {
-    applyGate(state, circuit.qubits, operation.target, operation.gate)
+    applyGate(state, operation.target, operation.gate)
   })
 
   return state

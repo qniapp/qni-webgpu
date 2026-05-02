@@ -17,6 +17,7 @@
 ```
 cd apps/mcp-qni
 pnpm install
+pnpm run build
 ```
 
 起動:
@@ -31,7 +32,7 @@ pnpm start
 
 ```
 claude mcp add --scope project --transport stdio qni -- \
-  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js
+  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js
 ```
 
 `.mcp.json` を直接編集する場合:
@@ -43,7 +44,7 @@ claude mcp add --scope project --transport stdio qni -- \
       "type": "stdio",
       "command": "node",
       "args": [
-        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/src/index.js"
+        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js"
       ],
       "env": {}
     }

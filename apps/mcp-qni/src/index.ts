@@ -12,6 +12,17 @@ import {
   setQubits,
 } from './circuit.js'
 
+type ToolArguments = Record<string, unknown>
+
+type SerializedCircuit = {
+  qubits: number
+  operations: Array<{
+    gate: string
+    target: number
+    column: number
+  }>
+}
+
 const server = new Server(
   {
     name: 'qni',
@@ -26,14 +37,14 @@ const server = new Server(
 
 const circuit = createCircuit(1)
 
-function toolError(message) {
+function toolError(message: string) {
   return {
     content: [{ type: 'text', text: message }],
     isError: true,
   }
 }
 
-function serializeCircuit() {
+function serializeCircuit(): SerializedCircuit {
   return {
     qubits: circuit.qubits,
     operations: circuit.operations.map((operation) => ({
@@ -42,6 +53,13 @@ function serializeCircuit() {
       column: operation.column,
     })),
   }
+}
+
+function toolArguments(value: unknown): ToolArguments {
+  if (!value || typeof value !== 'object') {
+    return {}
+  }
+  return value as ToolArguments
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -101,20 +119,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }))
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params
+  const { name } = request.params
+  const args = toolArguments(request.params.arguments)
   try {
     switch (name) {
       case 'qni_set_qubits': {
-        setQubits(circuit, Number(args?.qubits))
+        setQubits(circuit, Number(args.qubits))
         return {
           content: [{ type: 'text', text: JSON.stringify(serializeCircuit()) }],
         }
       }
       case 'qni_place_gate': {
         placeGate(circuit, {
-          gate: args?.gate,
-          target: Number(args?.target),
-          column: Number(args?.column),
+          gate: args.gate,
+          target: Number(args.target),
+          column: Number(args.column),
         })
         return {
           content: [{ type: 'text', text: JSON.stringify(serializeCircuit()) }],
@@ -149,8 +168,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return toolError(`Unknown tool: ${name}`)
     }
   } catch (error) {
-    const message =
-      error && typeof error.message === 'string' ? error.message : String(error)
+    const message = error instanceof Error ? error.message : String(error)
     return toolError(message)
   }
 })

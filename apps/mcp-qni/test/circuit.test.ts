@@ -9,7 +9,7 @@ import {
 
 const EPSILON = 1e-10
 
-function approxEqual(actual, expected, message) {
+function approxEqual(actual: number, expected: number, message: string): void {
   assert.ok(Math.abs(actual - expected) < EPSILON, message)
 }
 
