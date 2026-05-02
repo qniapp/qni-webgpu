@@ -9,5 +9,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["cucumber.ts", "features/**/*.ts", "features/**/*.d.ts", "playwright.config.ts", "scripts/**/*.ts", "test-support/**/*.ts"]
+  "include": ["cucumber.ts", "features/**/*.ts", "features/**/*.d.ts", "playwright.config.ts", "scripts/**/*.ts", "tests/**/*.ts", "test-support/**/*.ts"]
 }

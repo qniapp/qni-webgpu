@@ -1,11 +1,8 @@
-require('ts-node/register/transpile-only')
-const { test, expect } = require('@playwright/test')
-const { chromium } = require('playwright')
-
-const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
-const { getPlainChromiumLaunchOptions } = require('../test-support/browser-launch.ts')
-const { getWebServerConfig } = require('../test-support/web-server.ts')
-const {
+import { expect, test } from '@playwright/test'
+import { chromium } from 'playwright'
+import type { Page } from 'playwright'
+import { assertDragPreviewAboveOverlay } from '../features/support/assertions'
+import {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
   readEguiError,
@@ -15,18 +12,37 @@ const {
   waitForAppReady,
   waitForCanvasContent,
   waitForStartupReady,
-} = require('../features/support/egui-helpers.ts')
+} from '../features/support/egui-helpers'
+import type { CanvasPixel, PixelSamplePoint, Point } from '../features/support/support-types'
+import { getPlainChromiumLaunchOptions } from '../test-support/browser-launch'
+import { getWebServerConfig } from '../test-support/web-server'
 
-const waitForStateVectorLength = async (page, length, timeout = 5000) => {
+type CircularBodySignature = {
+  count: number
+  width: number
+  height: number
+  samples: Record<string, CanvasPixel>
+}
+
+const waitForStateVectorLength = async (
+  page: Page,
+  length: number,
+  timeout = 5000
+): Promise<void> => {
   await expect
     .poll(async () => (await readStateVector(page)).length, { timeout })
     .toBe(length)
 }
 
-const waitForStateVectorApprox = async (page, expected, timeout = 5000, tolerance = 1e-3) => {
+const waitForStateVectorApprox = async (
+  page: Page,
+  expected: number[],
+  timeout = 5000,
+  tolerance = 1e-3
+): Promise<void> => {
   await expect
     .poll(async () => {
-      const actual = await readStateVector(page)
+      const actual = await readStateVector(page) as number[]
       if (actual.length !== expected.length) {
         return false
       }
@@ -73,7 +89,7 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
   const sourceX = paletteCenterX(0)
   const controlX = paletteCenterX(1)
@@ -131,7 +147,7 @@ test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
   const sourceX = paletteCenterX(0)
@@ -177,7 +193,7 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
   const sourceX = paletteCenterX(0)
@@ -377,6 +393,9 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
 
   const box = await canvas.boundingBox()
   expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('canvas bounding box should be available')
+  }
 
   const { source, handleCenter, dragFillPoint, sourceFillPoint } =
     getDragPreviewAboveStatePanelProbe(box.width, box.height)
@@ -523,20 +542,24 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
   const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
   const xGateCenter = { x: paletteCenterX(2), y: sourceY }
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
-  const isGateFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
-  const readCircularBodySignature = async (center) => {
+  const isGateFill = ([r, g, b]: CanvasPixel): boolean =>
+    r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+  const readCircularBodySignature = async (center: Point): Promise<CircularBodySignature> => {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const base64 = screenshot.toString('base64')
     const canvasBox = await canvas.boundingBox()
     expect(canvasBox).not.toBeNull()
 
-    return page.evaluate(
+    return page.evaluate<
+      CircularBodySignature,
+      { base64: string; center: Point; cssWidth: number; cssHeight: number }
+    >(
       async ({ base64, center, cssWidth, cssHeight }) => {
         const img = new Image()
         img.src = `data:image/png;base64,${base64}`
@@ -556,11 +579,12 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
-        const sample = (x, y) => {
+        const sample = (x: number, y: number): CanvasPixel => {
           const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
           return [data[0], data[1], data[2], data[3]]
         }
-        const isFill = ([r, g, b]) => r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+        const isFill = ([r, g, b]: CanvasPixel): boolean =>
+          r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
         const searchRadius = 20
         let minX = Infinity
         let minY = Infinity
@@ -614,7 +638,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
       }
     )
   }
-  const expectCircularBody = async (label, center) => {
+  const expectCircularBody = async (label: string, center: Point): Promise<void> => {
     const signature = await readCircularBodySignature(center)
     const edgeNames = ['top', 'bottom', 'left', 'right']
     const cornerNames = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
@@ -673,7 +697,7 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
   const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
@@ -746,7 +770,7 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
   const sourceX = paletteCenterX(0)
@@ -798,7 +822,7 @@ test('Control does not affect gates in other columns', async ({ page }) => {
   const PALETTE_COUNT = 15
   const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
   const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index) =>
+  const paletteCenterX = (index: number): number =>
     startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
   const sourceX = paletteCenterX(0)

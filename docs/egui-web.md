@@ -123,7 +123,7 @@ Step definitions は TypeScript へ移行済み。
 対象は `features/step_definitions/**/*.ts` のみにする。
 新規 step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
 現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する support 型は `features/support/support-types.ts` に置く。
-TS 化済み support module / CLI / config は `cucumber.ts`、`features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`playwright.config.ts`、`scripts/agent-visual.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts`。
+TS 化済み support module / CLI / config / suite は `cucumber.ts`、`features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`playwright.config.ts`、`scripts/agent-visual.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts`、`tests/egui-web.spec.ts`。
 
 BDD 化したのは最初の 3 scenario のみ:
 - `startup-success.feature.md`

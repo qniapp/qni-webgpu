@@ -4,7 +4,12 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
-const legacySuitePath = path.join(rootDir, 'tests', 'egui-web.spec.js')
+const legacySuitePath = path.join(rootDir, 'tests', 'egui-web.spec.ts')
+
+test('legacy Playwright suite is TypeScript without a compatibility wrapper', async () => {
+  await assert.doesNotReject(() => fs.access(legacySuitePath))
+  await assert.rejects(() => fs.access(path.join(rootDir, 'tests', 'egui-web.spec.js')), /ENOENT/)
+})
 
 test('legacy Playwright suite reuses the shared drag and pixel helpers for the drag-preview lane', async () => {
   const source = await fs.readFile(legacySuitePath, 'utf8')
