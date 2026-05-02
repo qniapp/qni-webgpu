@@ -21,11 +21,11 @@ test('standard browser startup steps declare explicit cucumber timeouts', async 
 })
 
 test('plain chromium startup steps declare explicit cucumber timeouts', async () => {
-  const source = await readStep('plain-chromium-error.steps.cjs')
+  const source = await readStep('plain-chromium-error.steps.ts')
 
   assert.match(
     source,
-    /Given\('the egui web app is open in plain chromium',\s*\{\s*timeout:\s*\w+\s*\}/,
+    /Given\(\s*'the egui web app is open in plain chromium',\s*\{\s*timeout:\s*\w+\s*\}/,
   )
   assert.match(
     source,
