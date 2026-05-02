@@ -61,20 +61,20 @@ QNI_EGUI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'egui
 目視確認用にページ全体 screenshot を保存し、`window.__eguiReadStateVector()` も JSON で出力する。
 ```
 cd apps/egui-web
-QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/agent-visual.cjs drag \
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-visual.ts drag \
   --gate H --wire q0 --slot 0 \
   --out output/playwright/agent-visual/h-q0.png
 
-QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/agent-visual.cjs ops \
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-visual.ts ops \
   --ops H:q0:0,C:q0:1,X:q1:1 \
   --out output/playwright/agent-visual/bell.png
 ```
 
-`scripts/agent-visual.cjs` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない agent visual launch を使う。
+`scripts/agent-visual.ts` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない agent visual launch を使う。
 現状の egui content margin に合わせて drop 座標に `--vertical-offset 8` を既定で加える。
 UI の外枠や egui panel margin を変えた場合は、この値を一時的に上書きして確認する。
 ```
-QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/agent-visual.cjs drag \
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-visual.ts drag \
   --gate X --wire q1 --slot 2 \
   --vertical-offset 8
 ```
@@ -124,7 +124,7 @@ Step definitions は段階的に TypeScript へ移行する。
 新規または移行済みの step は `.steps.ts` で書き、`pnpm run typecheck` と `pnpm run test:bdd` の両方で確認する。
 移行中は同じ step phrase を CJS と TS の両方に残すと Cucumber の duplicate step になるため、1 file ずつ置き換える。
 現在の 3 本の代表 scenario の step definitions は `.steps.ts` に移行済みで、共有する support 型は `features/support/support-types.ts` に置く。
-TS 化済み support module は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
+TS 化済み support module / CLI は `features/support/bootstrap.ts`、`features/support/assertions.ts`、`features/support/browser.ts`、`features/support/egui-helpers.ts`、`features/support/hooks.ts`、`features/support/server.ts`、`features/support/world.ts`、`scripts/agent-visual.ts`、`test-support/agent-visual-command.ts`、`test-support/browser-launch.ts`、`test-support/web-server.ts` で、残りの CJS support modules は `require(...) as ...` で薄く型を付ける。
 
 BDD 化したのは最初の 3 scenario のみ:
 - `startup-success.feature.md`

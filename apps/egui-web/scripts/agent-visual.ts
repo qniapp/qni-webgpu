@@ -1,35 +1,56 @@
-#!/usr/bin/env node
-require('ts-node/register/transpile-only')
-const path = require('node:path')
-const { chromium } = require('playwright')
+#!/usr/bin/env -S node -r ts-node/register/transpile-only
+import path from 'node:path'
+import { chromium } from 'playwright'
+import type { Page } from 'playwright'
 
-const { getAgentVisualLaunchOptions } = require('../test-support/browser-launch.ts')
+type CliOptions = {
+  command?: string
+  help?: string
+  url?: string
+  out?: string
+  gate?: string
+  wire?: string
+  slot?: string
+  ops?: string
+  'canvas-out'?: string
+  'vertical-offset'?: string
+  [key: string]: string | undefined
+}
+
+type VisualOperationInput = {
+  gate: string
+  wire: string | number
+  slot: string | number
+  verticalOffset?: number
+}
+
+const { getAgentVisualLaunchOptions } = require('../test-support/browser-launch.ts') as typeof import('../test-support/browser-launch')
 const {
   buildDragOperation,
   buildScreenshotPlan,
   parseOperations,
-} = require('../test-support/agent-visual-command.ts')
-const { getPlaywrightBaseUrl } = require('../test-support/web-server.ts')
+} = require('../test-support/agent-visual-command.ts') as typeof import('../test-support/agent-visual-command')
+const { getPlaywrightBaseUrl } = require('../test-support/web-server.ts') as typeof import('../test-support/web-server')
 const {
   dragPointer,
   readStateVector,
   waitForCanvasContent,
   waitForStartupReady,
-} = require('../features/support/egui-helpers.ts')
+} = require('../features/support/egui-helpers.ts') as typeof import('../features/support/egui-helpers')
 
 const usage = () => {
   console.error(`Usage:
-  node scripts/agent-visual.cjs screenshot [--url URL] [--out PATH]
-  node scripts/agent-visual.cjs drag --gate H --wire q0 --slot 0 [--url URL] [--out PATH]
-  node scripts/agent-visual.cjs ops --ops H:q0:0,C:q0:1,X:q1:1 [--url URL] [--out PATH]
+  node -r ts-node/register/transpile-only scripts/agent-visual.ts screenshot [--url URL] [--out PATH]
+  node -r ts-node/register/transpile-only scripts/agent-visual.ts drag --gate H --wire q0 --slot 0 [--url URL] [--out PATH]
+  node -r ts-node/register/transpile-only scripts/agent-visual.ts ops --ops H:q0:0,C:q0:1,X:q1:1 [--url URL] [--out PATH]
 
 Environment:
   HEADLESS=1 hides the browser. QNI_EGUI_WEB_EXTERNAL_SERVER=1 uses the existing server.`)
 }
 
-const parseArgs = (argv) => {
+const parseArgs = (argv: string[]): CliOptions => {
   const [command, ...rest] = argv
-  const options = { command }
+  const options: CliOptions = { command }
 
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index]
@@ -48,7 +69,7 @@ const parseArgs = (argv) => {
   return options
 }
 
-const placeGate = async (page, operationInput) => {
+const placeGate = async (page: Page, operationInput: VisualOperationInput) => {
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
   if (!box) {
@@ -81,9 +102,9 @@ const main = async () => {
     const operations = []
     if (options.command === 'drag') {
       operations.push(await placeGate(page, {
-        gate: options.gate,
-        wire: options.wire,
-        slot: options.slot,
+        gate: options.gate ?? '',
+        wire: options.wire ?? '',
+        slot: options.slot ?? '',
         verticalOffset: Number.parseFloat(options['vertical-offset'] ?? '8'),
       }))
     } else if (options.command === 'ops') {
@@ -124,8 +145,8 @@ const main = async () => {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message)
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error))
   usage()
   process.exit(1)
 })

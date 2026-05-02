@@ -85,12 +85,13 @@ test('agent visual command writes page screenshots by default', () => {
 })
 
 test('agent visual CLI uses a generic name without a compatibility wrapper', async () => {
-  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.cjs')))
+  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.ts')))
+  await assert.rejects(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.cjs')), /ENOENT/)
   await assert.rejects(() => fs.access(path.join(rootDir, 'scripts', 'codex-visual.cjs')), /ENOENT/)
 
   const docs = await readText(path.join(repoRoot, 'docs', 'egui-web.md'))
-  assert.match(docs, /scripts\/agent-visual\.cjs/)
-  assert.doesNotMatch(docs, /scripts\/codex-visual\.cjs/)
+  assert.match(docs, /scripts\/agent-visual\.ts/)
+  assert.doesNotMatch(docs, /scripts\/agent-visual\.cjs/)
 
   const agents = await readText(path.join(repoRoot, 'AGENTS.md'))
   assert.match(agents, /後方互換/)
