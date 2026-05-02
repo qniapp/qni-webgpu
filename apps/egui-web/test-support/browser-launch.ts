@@ -23,7 +23,7 @@ export const STANDARD_WEBGPU_ARGS = [
 
 export const PLAIN_CHROMIUM_ARGS = ['--disable-gpu', '--disable-software-rasterizer']
 
-export const CODEX_VISUAL_WEBGPU_ARGS = [
+export const AGENT_VISUAL_WEBGPU_ARGS = [
   '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
   '--enable-unsafe-webgpu',
   '--ignore-gpu-blocklist',
@@ -81,7 +81,7 @@ export const getPlainChromiumLaunchOptions = ({
   args: [...PLAIN_CHROMIUM_ARGS],
 })
 
-export const getCodexVisualLaunchOptions = ({
+export const getAgentVisualLaunchOptions = ({
   env = process.env,
   defaultPath,
   commandLookup = findCommand,
@@ -89,5 +89,5 @@ export const getCodexVisualLaunchOptions = ({
 }: BrowserLaunchRequest = {}): LaunchOptions => ({
   headless,
   executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
-  args: [...CODEX_VISUAL_WEBGPU_ARGS],
+  args: [...AGENT_VISUAL_WEBGPU_ARGS],
 })

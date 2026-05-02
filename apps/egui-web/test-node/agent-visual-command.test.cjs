@@ -1,5 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs/promises')
+const path = require('node:path')
 require('ts-node/register/transpile-only')
 
 const {
@@ -9,6 +11,10 @@ const {
   parseWire,
   parseOperations,
 } = require('../test-support/agent-visual-command.ts')
+
+const rootDir = path.join(__dirname, '..')
+const repoRoot = path.join(rootDir, '..', '..')
+const readText = (filePath) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('H'), 0)
@@ -76,4 +82,17 @@ test('agent visual command writes page screenshots by default', () => {
     pageOut: 'page.png',
     canvasOut: 'canvas.png',
   })
+})
+
+test('agent visual CLI uses a generic name without a compatibility wrapper', async () => {
+  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.cjs')))
+  await assert.rejects(() => fs.access(path.join(rootDir, 'scripts', 'codex-visual.cjs')), /ENOENT/)
+
+  const docs = await readText(path.join(repoRoot, 'docs', 'egui-web.md'))
+  assert.match(docs, /scripts\/agent-visual\.cjs/)
+  assert.doesNotMatch(docs, /scripts\/codex-visual\.cjs/)
+
+  const agents = await readText(path.join(repoRoot, 'AGENTS.md'))
+  assert.match(agents, /後方互換/)
+  assert.match(agents, /残さない/)
 })

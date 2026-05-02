@@ -3,7 +3,7 @@ require('ts-node/register/transpile-only')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const { getCodexVisualLaunchOptions } = require('../test-support/browser-launch.ts')
+const { getAgentVisualLaunchOptions } = require('../test-support/browser-launch.ts')
 const {
   buildDragOperation,
   buildScreenshotPlan,
@@ -19,9 +19,9 @@ const {
 
 const usage = () => {
   console.error(`Usage:
-  node scripts/codex-visual.cjs screenshot [--url URL] [--out PATH]
-  node scripts/codex-visual.cjs drag --gate H --wire q0 --slot 0 [--url URL] [--out PATH]
-  node scripts/codex-visual.cjs ops --ops H:q0:0,C:q0:1,X:q1:1 [--url URL] [--out PATH]
+  node scripts/agent-visual.cjs screenshot [--url URL] [--out PATH]
+  node scripts/agent-visual.cjs drag --gate H --wire q0 --slot 0 [--url URL] [--out PATH]
+  node scripts/agent-visual.cjs ops --ops H:q0:0,C:q0:1,X:q1:1 [--url URL] [--out PATH]
 
 Environment:
   HEADLESS=1 hides the browser. QNI_EGUI_WEB_EXTERNAL_SERVER=1 uses the existing server.`)
@@ -67,7 +67,7 @@ const main = async () => {
     process.exit(options.command ? 0 : 1)
   }
 
-  const launchOptions = getCodexVisualLaunchOptions({
+  const launchOptions = getAgentVisualLaunchOptions({
     env: process.env,
     defaultPath: chromium.executablePath(),
   })
