@@ -1,6 +1,7 @@
 READ ../agent-scripts/AGENTS.MD BEFORE ANYTHING.
 
 - 実際の描画を確認できる環境をセットアップする。
+- Codex で egui WebGPU の見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/egui-web.md` の Codex browser workflow に従い、WebGPU フラグ付き外部 Chrome / Playwright で実描画を確認する。
 - 正しい描画が確認できるまでデバッグを継続する。
 - 開発はテスト駆動で進める。
 - ドキュメントは随時更新する。

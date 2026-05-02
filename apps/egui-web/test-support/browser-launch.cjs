@@ -14,6 +14,12 @@ const STANDARD_WEBGPU_ARGS = [
 
 const PLAIN_CHROMIUM_ARGS = ['--disable-gpu', '--disable-software-rasterizer']
 
+const CODEX_VISUAL_WEBGPU_ARGS = [
+  '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
+  '--enable-unsafe-webgpu',
+  '--ignore-gpu-blocklist',
+]
+
 const findCommand = (name) => {
   try {
     return execFileSync('sh', ['-lc', `command -v ${name}`], {
@@ -66,9 +72,22 @@ const getPlainChromiumLaunchOptions = ({
   args: [...PLAIN_CHROMIUM_ARGS],
 })
 
+const getCodexVisualLaunchOptions = ({
+  env = process.env,
+  defaultPath,
+  commandLookup = findCommand,
+  headless = env.HEADLESS === '1',
+} = {}) => ({
+  headless,
+  executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
+  args: [...CODEX_VISUAL_WEBGPU_ARGS],
+})
+
 module.exports = {
+  CODEX_VISUAL_WEBGPU_ARGS,
   STANDARD_WEBGPU_ARGS,
   PLAIN_CHROMIUM_ARGS,
+  getCodexVisualLaunchOptions,
   resolvePlaywrightBrowserExecutable,
   getStandardWebGpuLaunchOptions,
   getPlainChromiumLaunchOptions,

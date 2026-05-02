@@ -2,6 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const {
+  getCodexVisualLaunchOptions,
   getPlainChromiumLaunchOptions,
   getStandardWebGpuLaunchOptions,
   resolvePlaywrightBrowserExecutable,
@@ -20,6 +21,11 @@ const STANDARD_WEBGPU_ARGS = [
 ]
 
 const PLAIN_CHROMIUM_ARGS = ['--disable-gpu', '--disable-software-rasterizer']
+const CODEX_VISUAL_WEBGPU_ARGS = [
+  '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
+  '--enable-unsafe-webgpu',
+  '--ignore-gpu-blocklist',
+]
 
 test('shared browser executable resolution uses PLAYWRIGHT_CHROMIUM_PATH override first', () => {
   const actual = resolvePlaywrightBrowserExecutable({
@@ -80,6 +86,20 @@ test('shared standard WebGPU launch options preserve current flagged browser pol
     headless: false,
     executablePath: '/usr/bin/google-chrome-stable',
     args: STANDARD_WEBGPU_ARGS,
+  })
+})
+
+test('codex visual launch options keep screenshots inspectable', () => {
+  const actual = getCodexVisualLaunchOptions({
+    env: {},
+    defaultPath: '/bundled/chromium',
+    commandLookup: (name) => (name === 'google-chrome-stable' ? '/usr/bin/google-chrome-stable' : null),
+  })
+
+  assert.deepEqual(actual, {
+    headless: false,
+    executablePath: '/usr/bin/google-chrome-stable',
+    args: CODEX_VISUAL_WEBGPU_ARGS,
   })
 })
 

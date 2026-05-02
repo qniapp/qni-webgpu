@@ -33,6 +33,77 @@ QNI_EGUI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-egui-web.sh
 - `QNI_EGUI_WEB_URL`: 接続先 URL を直接指定
 - `QNI_EGUI_WEB_PROFILE_DIR`: 一時 profile ディレクトリを変更
 
+## Codex browser / visual workflow
+Codex アプリ内ブラウザは `http://127.0.0.1:4174/` を開けるが、Chrome 起動フラグを付けられない。
+WebGPU adapter が必要な実描画確認では、アプリ内ブラウザは URL 到達確認に留め、外部のフラグ付き Chrome か Playwright 経路を使う。
+
+基本の手順:
+```
+cd apps/egui-web
+trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
+```
+
+別ターミナルで外部 Chrome を開く:
+```
+cd /home/yasuhito/Work/qni-webgpu
+./scripts/open-egui-web.sh
+```
+
+Codex からスクリーンショットや操作込みで確認する場合は、既存サーバを使って headed Playwright を走らせる。
+この経路は `test-support/browser-launch.cjs` の WebGPU フラグ付き Chrome 設定を使う。
+```
+cd apps/egui-web
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'egui webgpu canvas renders content' --workers=1
+```
+
+Codex からゲートを意味ベースでドラッグアンドドロップする場合は、専用 CLI を使う。
+この CLI は Playwright で Chrome を起動し、`H:q0:0` のような指定を palette gate → circuit slot のドラッグへ変換する。
+目視確認用にページ全体 screenshot を保存し、`window.__eguiReadStateVector()` も JSON で出力する。
+```
+cd apps/egui-web
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/codex-visual.cjs drag \
+  --gate H --wire q0 --slot 0 \
+  --out output/playwright/codex-visual/h-q0.png
+
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/codex-visual.cjs ops \
+  --ops H:q0:0,C:q0:1,X:q1:1 \
+  --out output/playwright/codex-visual/bell.png
+```
+
+`scripts/codex-visual.cjs` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない Codex visual launch を使う。
+現状の egui content margin に合わせて drop 座標に `--vertical-offset 8` を既定で加える。
+UI の外枠や egui panel margin を変えた場合は、この値を一時的に上書きして確認する。
+```
+QNI_EGUI_WEB_EXTERNAL_SERVER=1 node scripts/codex-visual.cjs drag \
+  --gate X --wire q1 --slot 2 \
+  --vertical-offset 8
+```
+
+手動デバッグで DevTools/CDP 接続が必要なときだけ、専用 profile と remote debugging port を使って Chrome を起動する。
+```
+/usr/bin/google-chrome-stable \
+  --user-data-dir=/tmp/qni-webgpu-chrome-codex-verify \
+  --new-window \
+  --no-first-run \
+  --no-default-browser-check \
+  --ozone-platform=x11 \
+  --enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan \
+  --enable-unsafe-webgpu \
+  --ignore-gpu-blocklist \
+  --remote-debugging-port=9222 \
+  http://127.0.0.1:4174/
+```
+
+確認すること:
+- `navigator.gpu` が `true`
+- `[data-testid="webgpu-error"]` が非表示
+- `await window.__eguiReadStateVector()` が非空の配列を返す
+- ページスクリーンショットでパレット、q0/q1 のライン、状態ベクトル表示が見える
+- UI 操作を伴う変更では Playwright の `egui webgpu canvas renders content` など、該当する描画テストを通す
+
+スクリーンショットや一時アーティファクトは `apps/egui-web/output/playwright/` か Playwright の `test-results/` に置き、必要な確認が終わったらコミット対象にしない。
+OS 全体のスクリーンショットが取れない環境では、Playwright の `page.screenshot()` / `locator('#egui-canvas').screenshot()` を使う。
+
 ## Playwright / Cucumber rollout
 ```
 cd apps/egui-web

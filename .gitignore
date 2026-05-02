@@ -2,6 +2,7 @@
 node_modules/
 dist/
 apps/egui-web/target/
+apps/egui-web/output/
 apps/egui-web/playwright-report/
 apps/egui-web/test-results/
 apps/egui-web/node_modules/
@@ -11,4 +12,5 @@ apps/tui/tests/snapshots/*.snap.new
 apps/tui/tests/snapshots/*.snap.old
 .env
 .DS_Store
+.playwright-cli/
 .playwright-mcp/*.png
