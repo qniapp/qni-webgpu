@@ -17,11 +17,87 @@ use std::collections::HashMap;
 
 use crate::app::PlacedGate;
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
-use crate::gates::{gate_matrix, GateKind, GateMatrix};
+use crate::gates::{
+    gate_matrix, gate_params, gate_params_controlled, GateKind, GateMatrix, GateParams,
+};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 
 /// Bloch vector for a single qubit, in qni's convention.
 pub(crate) type BlochVector = [f32; 3];
+
+/// Walks the placed gates column by column and emits one `GateParams` per
+/// matrix / write-mode operation in the order the GPU shader should apply
+/// them. Non-mutating gates (Bloch / Measurement / Spacer / Swap) are skipped:
+/// they don't show up in the GPU compute pipeline.
+pub(crate) fn linearize_gates(
+    placed_gates: &[PlacedGate],
+    qubits: usize,
+    metrics: &LayoutMetrics,
+) -> Vec<GateParams> {
+    if qubits == 0 || metrics.slot_centers.is_empty() {
+        return Vec::new();
+    }
+    let state_count = (1u32 << qubits) as u32;
+
+    let mut by_slot: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
+    for gate in placed_gates {
+        let center_x = gate.pos.x + GATE_SIZE / 2.0;
+        let Some((slot, distance)) = nearest_slot_index(center_x, &metrics.slot_centers) else {
+            continue;
+        };
+        if distance > SNAP_DISTANCE {
+            continue;
+        }
+        by_slot.entry(slot).or_default().push(gate);
+    }
+
+    let mut slot_indices: Vec<usize> = by_slot.keys().copied().collect();
+    slot_indices.sort();
+
+    let mut ops: Vec<GateParams> = Vec::new();
+    for slot in slot_indices {
+        let column = by_slot.get(&slot).expect("slot exists");
+        let mut control_mask = 0u32;
+        let mut control_value = 0u32;
+        let mut targets: Vec<&PlacedGate> = Vec::new();
+
+        for gate in column {
+            if gate.wire >= qubits {
+                continue;
+            }
+            let bit = (qubits - 1 - gate.wire) as u32;
+            let bit_mask = 1u32 << bit;
+            match gate.kind {
+                GateKind::Control => {
+                    control_mask |= bit_mask;
+                    control_value |= bit_mask;
+                }
+                GateKind::AntiControl => {
+                    control_mask |= bit_mask;
+                }
+                GateKind::Swap
+                | GateKind::Spacer
+                | GateKind::BlochDisplay
+                | GateKind::Measurement => {
+                    // Non-mutating in the matrix/write pipeline.
+                }
+                _ => targets.push(gate),
+            }
+        }
+
+        targets.sort_by(|a, b| a.id.cmp(&b.id));
+        for target in &targets {
+            let bit = (qubits - 1 - target.wire) as u32;
+            let params = if control_mask == 0 {
+                gate_params(target.kind, bit, state_count)
+            } else {
+                gate_params_controlled(target.kind, bit, control_mask, control_value, state_count)
+            };
+            ops.push(params);
+        }
+    }
+    ops
+}
 
 pub(crate) struct SimulationResult {
     pub(crate) final_state: Vec<[f32; 2]>,

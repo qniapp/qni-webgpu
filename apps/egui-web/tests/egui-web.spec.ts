@@ -1178,6 +1178,61 @@ test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
+test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page }) => {
+  // Specifically targets the GPU per-gate compute path: a circuit with no
+  // measurements should be simulated entirely by the WGSL `STATE_COMPUTE_SHADER`
+  // dispatched once per linearised GateParams. We assert against the textbook
+  // amplitudes for H q0 → CNOT(q0, q1) → Z q0 → H q0 (Bell-like prep with a
+  // phase flip), which exercises matrix multiply + control mask + sign flip in
+  // a single dispatch chain.
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const LINE_GAP = 1.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const zSource = getPaletteGateCenter(cssWidth, 3)
+  const controlSource = getPaletteGateCenter(cssWidth, 14)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetX3 = targetX2 + SLOT_SPACING
+  const targetX4 = targetX3 + SLOT_SPACING
+  const targetY0 = LINE_Y
+  const targetY1 = LINE_Y + LINE_GAP
+
+  // H q0
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
+  // CNOT(q0, q1) — control q0 + X q1 in slot 1
+  await dragPointer(page, controlSource, { x: targetX2, y: targetY0 })
+  await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
+  // Z q0 in slot 2
+  await dragPointer(page, zSource, { x: targetX3, y: targetY0 })
+  // H q0 in slot 3
+  await dragPointer(page, hSource, { x: targetX4, y: targetY0 })
+
+  // After H q0: (|00⟩+|10⟩)/√2 → CNOT: (|00⟩+|11⟩)/√2 → Z q0: (|00⟩-|11⟩)/√2
+  // → H q0: (|00⟩-|01⟩+|10⟩+|11⟩)/2 (state index n = 2·q0 + q1; q0 is MSB).
+  const half = 0.5
+  await waitForStateVectorApprox(page, [half, 0, -half, 0, half, 0, half, 0])
+})
+
 test('Spacer is a NOP and does not alter the state vector', async ({ page }) => {
   await page.goto('/')
 

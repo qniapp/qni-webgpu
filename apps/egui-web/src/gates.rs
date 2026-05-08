@@ -173,6 +173,71 @@ pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
     }
 }
 
-// Per-gate matrices feed the CPU simulator in `bloch.rs`. The legacy
-// `GateParams` GPU compute pipeline has been retired in favour of CPU-side
-// simulation + a single state-vector upload (see `gpu.rs`).
+// `GateParams` is the on-wire layout of a single gate operation handed to the
+// WGSL compute shader (`STATE_COMPUTE_SHADER` in `gpu.rs`). Each placed gate is
+// linearised into one of these so the GPU can apply it via per-pair matrix
+// multiply or, for Write0/Write1, a per-pair conditional swap.
+pub(crate) const GATE_MODE_MATRIX: u32 = 0;
+pub(crate) const GATE_MODE_WRITE0: u32 = 1;
+pub(crate) const GATE_MODE_WRITE1: u32 = 2;
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct GateParams {
+    m00: [f32; 2],
+    m01: [f32; 2],
+    m10: [f32; 2],
+    m11: [f32; 2],
+    bit: u32,
+    state_count: u32,
+    control_mask: u32,
+    control_value: u32,
+    mode: u32,
+    _pad: [u32; 3],
+}
+
+fn gate_mode(kind: GateKind) -> u32 {
+    match kind {
+        GateKind::Write0 => GATE_MODE_WRITE0,
+        GateKind::Write1 => GATE_MODE_WRITE1,
+        _ => GATE_MODE_MATRIX,
+    }
+}
+
+pub(crate) fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GateParams {
+    let matrix = gate_matrix(kind);
+    GateParams {
+        m00: matrix.m00,
+        m01: matrix.m01,
+        m10: matrix.m10,
+        m11: matrix.m11,
+        bit,
+        state_count,
+        control_mask: 0,
+        control_value: 0,
+        mode: gate_mode(kind),
+        _pad: [0; 3],
+    }
+}
+
+pub(crate) fn gate_params_controlled(
+    kind: GateKind,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    let matrix = gate_matrix(kind);
+    GateParams {
+        m00: matrix.m00,
+        m01: matrix.m01,
+        m10: matrix.m10,
+        m11: matrix.m11,
+        bit,
+        state_count,
+        control_mask,
+        control_value,
+        mode: gate_mode(kind),
+        _pad: [0; 3],
+    }
+}

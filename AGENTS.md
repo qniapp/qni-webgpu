@@ -1,5 +1,6 @@
 READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
+- 量子状態のシミュレーションは **GPU (WebGPU compute shader) でのみ** 行う。CPU 側で state vector / 密度行列 / 測定確率 / Bloch ベクトルなどを計算してはならない。「とりあえず CPU で動かしておく」「fallback として残す」も禁止。GPU で書きにくい場合は GPU shader を直すか、ユーザーに止めて相談する。
 - 実際の描画を確認できる環境をセットアップする。
 - エージェントで egui WebGPU の見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/egui-web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
 - 正しい描画が確認できるまでデバッグを継続する。

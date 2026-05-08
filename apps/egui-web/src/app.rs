@@ -2,8 +2,9 @@ use eframe::egui;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::bloch::{simulate, BlochVector, SimulationResult};
+use crate::bloch::{linearize_gates, simulate, BlochVector, SimulationResult};
 use crate::colors::Colors;
+use crate::gates::GateParams;
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
@@ -48,6 +49,7 @@ pub(crate) struct QniApp {
     pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
     pub(crate) measurements: HashMap<u32, u8>,
     pub(crate) cpu_state: Vec<[f32; 2]>,
+    pub(crate) gate_params: Vec<GateParams>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -79,6 +81,7 @@ impl QniApp {
             bloch_vectors: HashMap::new(),
             measurements: HashMap::new(),
             cpu_state: vec![[1.0, 0.0], [0.0, 0.0]],
+            gate_params: Vec::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -419,11 +422,13 @@ impl eframe::App for QniApp {
                     self.needs_recompute = false;
                     self.last_state_count = state_count;
                     let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
+                    let qubits = self.state_qubits();
+                    self.gate_params = linearize_gates(&self.placed_gates, qubits, &sim_metrics);
                     let SimulationResult {
                         final_state,
                         bloch_vectors,
                         measurements,
-                    } = simulate(&self.placed_gates, self.state_qubits(), &sim_metrics);
+                    } = simulate(&self.placed_gates, qubits, &sim_metrics);
                     self.cpu_state = final_state;
                     self.bloch_vectors = bloch_vectors;
                     self.measurements = measurements;

@@ -488,16 +488,28 @@ impl QniApp {
 
         if let Some(target_format) = target_format {
             let (instances, instances_dirty) = self.state_instances_for(layout, base_pos);
-            let cpu_state: Arc<[[f32; 2]]> = if recompute {
-                Arc::from(self.cpu_state.as_slice())
+            // While measurement collapse still runs on the CPU, fall back to
+            // uploading the CPU-computed state so the visualization matches
+            // the captured measurement outcomes. Otherwise the GPU executes
+            // the per-gate compute pipeline directly from `gate_params`.
+            let (gate_params, cpu_state_override) = if recompute {
+                if self.measurements.is_empty() {
+                    (self.gate_params.clone(), None)
+                } else {
+                    (
+                        Vec::new(),
+                        Some(Arc::<[[f32; 2]]>::from(self.cpu_state.as_slice())),
+                    )
+                }
             } else {
-                Arc::from(&[][..])
+                (Vec::new(), None)
             };
             let render_colors = RenderColors::new(colors);
             let callback = StateVectorCallback {
                 instances,
                 instances_dirty,
-                cpu_state,
+                gate_params,
+                cpu_state_override,
                 state_count: layout.state_count,
                 recompute,
                 target_format,
