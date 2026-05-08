@@ -172,6 +172,7 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - Measurement ゲートは qni `simulator.ts:measure` を踏襲: 列ごとに pZero を計算し、決定論的 RNG (gate id ベース) で 0/1 をサンプル。選ばれた基底に状態を射影して √(p) で再正規化する。結果は CPU 側で次の列に持ち越されるため、State vector は collapse 後の状態を表示する。
 - Measurement の見た目は qni `measurement_gate.css` に合わせる: パレット / 未測定時はメーターを intermediate purple (#a855f7)、回路に置いて結果が出ると `text-zinc-200` (#e4e4e7) のメーターに切り替え、`0` は red-500・`1` は blue-500 で中央にオーバーレイする。
 - 状態ベクトル計算は CPU 側 (`bloch::simulate`) を唯一のソースとし、結果を GPU の state buffer にそのままアップロードする。Per-gate compute pipeline (旧 `STATE_COMPUTE_SHADER`) は撤去。
+- Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`bloch::simulate` 内では Swap と同じく状態を変更しない。
 - パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
 - |0⟩ の桁は qni semantic-color-off (red-500: `#ef4444`)、|1⟩ の桁は semantic-color-on (blue-500: `#3b82f6`) で描画する。

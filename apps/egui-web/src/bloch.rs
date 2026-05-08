@@ -89,6 +89,9 @@ pub(crate) fn simulate(
                 GateKind::Swap => {
                     // Mirror collect_gate_params: SWAP is currently unimplemented.
                 }
+                GateKind::Spacer => {
+                    // Decoration only — spacer never mutates the state.
+                }
                 GateKind::BlochDisplay => bloch_targets.push(gate),
                 GateKind::Measurement => measurement_targets.push(gate),
                 _ => targets.push(gate),

@@ -249,6 +249,7 @@ fn draw_gate_body_with_fill(
         && kind != GateKind::AntiControl
         && kind != GateKind::Swap
         && kind != GateKind::Measurement
+        && kind != GateKind::Spacer
     {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
@@ -262,6 +263,9 @@ fn draw_gate_body_with_fill(
     } else if kind == GateKind::Measurement {
         // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
         colors.semantic_intermediate
+    } else if kind == GateKind::Spacer {
+        // qni `spacer_gate.css`: text-neutral-900 (#171717).
+        colors.spacer_dots
     } else {
         colors.label
     };
@@ -306,6 +310,20 @@ fn draw_gate_icon(
         GateKind::Measurement => {
             // qni reference: packages/elements/icon/measurement-gate.svg
             draw_meter_icon(painter, rect, color);
+            true
+        }
+        GateKind::Spacer => {
+            // qni reference: packages/elements/icon/spacer-gate.svg
+            // Three filled 6×6 squares at x=9, 21, 33 (y=21–27 in viewbox).
+            let rect_at = |x: f32| {
+                egui::Rect::from_min_max(
+                    map_svg_point_in_rect(rect, SvgPoint::new(x, 21.0), viewbox),
+                    map_svg_point_in_rect(rect, SvgPoint::new(x + 6.0, 27.0), viewbox),
+                )
+            };
+            painter.rect_filled(rect_at(9.0), egui::CornerRadius::ZERO, color);
+            painter.rect_filled(rect_at(21.0), egui::CornerRadius::ZERO, color);
+            painter.rect_filled(rect_at(33.0), egui::CornerRadius::ZERO, color);
             true
         }
         GateKind::Write0 | GateKind::Write1 => {

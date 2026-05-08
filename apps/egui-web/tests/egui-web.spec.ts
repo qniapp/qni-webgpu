@@ -227,7 +227,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const PALETTE_PADDING_X = 16
   const PALETTE_PADDING_Y = 20
   const PALETTE_ROW1_COUNT = 13
-  const PALETTE_ROW2_COUNT = 7
+  const PALETTE_ROW2_COUNT = 8
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
   const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
   const paletteWidth = Math.max(row1Width, row2Width)
@@ -1176,6 +1176,41 @@ test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
   // Measurement collapses to a basis state. Since the pre-measurement
   // amplitude is fully on |1>, the only valid post-measurement vector is |1>.
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
+})
+
+test('Spacer is a NOP and does not alter the state vector', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const spacerSource = getPaletteGateCenter(cssWidth, 20)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, hSource, { x: targetX, y: targetY })
+  const superposition = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
+  await waitForStateVectorApprox(page, superposition)
+
+  await dragPointer(page, spacerSource, { x: targetX2, y: targetY })
+  await waitForStateVectorApprox(page, superposition)
 })
 
 test('default chromium shows a visible WebGPU error instead of a blank page', async () => {

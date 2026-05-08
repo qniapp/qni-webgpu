@@ -22,6 +22,7 @@ pub(crate) struct Colors {
     pub(crate) bloch_vector_tip: egui::Color32,
     pub(crate) bloch_vector_zero: egui::Color32,
     pub(crate) measurement_fired_icon: egui::Color32,
+    pub(crate) spacer_dots: egui::Color32,
 }
 
 impl Colors {
@@ -55,6 +56,8 @@ impl Colors {
             // qni measurement fired icon is text-zinc-200 (#e4e4e7) so the
             // colored digit dominates.
             measurement_fired_icon: crate::shared::color_rgba(0.894, 0.894, 0.910, 1.0),
+            // qni text-neutral-900 (#171717) for the spacer ellipsis squares.
+            spacer_dots: crate::shared::color_rgba(0.090, 0.090, 0.090, 1.0),
         }
     }
 }

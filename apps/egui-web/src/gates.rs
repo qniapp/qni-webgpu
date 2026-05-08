@@ -5,6 +5,7 @@ pub(crate) enum GateKind {
     AntiControl,
     BlochDisplay,
     Measurement,
+    Spacer,
     Write0,
     Write1,
     X,
@@ -30,6 +31,7 @@ impl GateKind {
             GateKind::AntiControl => "◦",
             GateKind::BlochDisplay => "B",
             GateKind::Measurement => "M",
+            GateKind::Spacer => "…",
             GateKind::Write0 => "|0⟩",
             GateKind::Write1 => "|1⟩",
             GateKind::X => "X",
@@ -80,7 +82,8 @@ pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
         GateKind::Write0
         | GateKind::Write1
         | GateKind::BlochDisplay
-        | GateKind::Measurement => GateMatrix {
+        | GateKind::Measurement
+        | GateKind::Spacer => GateMatrix {
             // BlochDisplay/Measurement are non-mutating viewers (Measurement
             // collapses on the CPU side); Write0/Write1 are mode-driven on the
             // GPU. Matrix is unused for these but filled with identity for safety.

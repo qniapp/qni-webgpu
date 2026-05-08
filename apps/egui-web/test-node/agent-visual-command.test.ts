@@ -34,6 +34,8 @@ test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('write1'), 18)
   assert.equal(getGateIndex('measure'), 19)
   assert.equal(getGateIndex('m'), 19)
+  assert.equal(getGateIndex('spacer'), 20)
+  assert.equal(getGateIndex('…'), 20)
 })
 
 test('agent visual command parses q-prefixed and numeric wires', () => {
