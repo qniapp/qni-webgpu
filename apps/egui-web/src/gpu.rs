@@ -9,6 +9,7 @@ use futures_channel::oneshot;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
+use crate::bloch::SimulationOp;
 use crate::colors::Colors;
 use crate::constants::MAX_STATE_COUNT;
 use crate::gates::GateParams;
@@ -129,6 +130,95 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 "#;
 
+/// Maximum number of Bloch displays whose vectors can be captured in a single
+/// recompute. Each placed `BlochDisplay` occupies one slot in the GPU's
+/// `bloch_output_buffer` (a vec4 per slot, .xyz used).
+pub(crate) const MAX_BLOCH_SLOTS: usize = 64;
+
+// Workgroup size for the Bloch reduction shader is hard-coded to 64 (matches
+// `@workgroup_size(64)` in `BLOCH_REDUCE_SHADER`). One workgroup processes the
+// entire state vector for a single qubit and reduces (ρ_00, ρ_11, Re(ρ_01),
+// Im(ρ_01)) via shared memory.
+
+const BLOCH_REDUCE_SHADER: &str = r#"
+struct BlochParams {
+  qubit_bit: u32,
+  state_count: u32,
+  output_slot: u32,
+  _pad: u32,
+};
+
+@group(0) @binding(0) var<storage, read> state: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read_write> bloch_out: array<vec4<f32>>;
+@group(0) @binding(2) var<uniform> params: BlochParams;
+
+var<workgroup> shared_rho00: array<f32, 64>;
+var<workgroup> shared_rho11: array<f32, 64>;
+var<workgroup> shared_rho01_re: array<f32, 64>;
+var<workgroup> shared_rho01_im: array<f32, 64>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
+  let tid = lid.x;
+  let qubit_mask: u32 = 1u << params.qubit_bit;
+  let total: u32 = params.state_count;
+
+  var rho_00: f32 = 0.0;
+  var rho_11: f32 = 0.0;
+  var rho_01_re: f32 = 0.0;
+  var rho_01_im: f32 = 0.0;
+
+  // Each thread handles state indices striding by workgroup size. Only loop
+  // over indices whose `qubit_bit` is 0 — the matching index_with_one is
+  // looked up directly so we accumulate ρ_01 in the same iteration.
+  var i: u32 = tid;
+  loop {
+    if (i >= total) { break; }
+    let bit_is_zero: bool = (i & qubit_mask) == 0u;
+    let amp = state[i];
+    let mag2 = amp.x * amp.x + amp.y * amp.y;
+    if (bit_is_zero) {
+      rho_00 = rho_00 + mag2;
+      let j: u32 = i | qubit_mask;
+      let amp_j = state[j];
+      // ρ_01 = Σ_rest amp_i · conj(amp_j)
+      //   amp_i · conj(amp_j) = (a + bi)(c - di) = (ac + bd) + (bc - ad)i.
+      rho_01_re = rho_01_re + (amp.x * amp_j.x + amp.y * amp_j.y);
+      rho_01_im = rho_01_im + (amp.y * amp_j.x - amp.x * amp_j.y);
+    } else {
+      rho_11 = rho_11 + mag2;
+    }
+    i = i + 64u;
+  }
+
+  shared_rho00[tid] = rho_00;
+  shared_rho11[tid] = rho_11;
+  shared_rho01_re[tid] = rho_01_re;
+  shared_rho01_im[tid] = rho_01_im;
+  workgroupBarrier();
+
+  // Tree reduction: 64 → 32 → 16 → 8 → 4 → 2 → 1.
+  for (var step: u32 = 32u; step > 0u; step = step >> 1u) {
+    if (tid < step) {
+      shared_rho00[tid] = shared_rho00[tid] + shared_rho00[tid + step];
+      shared_rho11[tid] = shared_rho11[tid] + shared_rho11[tid + step];
+      shared_rho01_re[tid] = shared_rho01_re[tid] + shared_rho01_re[tid + step];
+      shared_rho01_im[tid] = shared_rho01_im[tid] + shared_rho01_im[tid + step];
+    }
+    workgroupBarrier();
+  }
+
+  if (tid == 0u) {
+    // qni convention (`packages/simulator/src/matrix.ts`):
+    //   x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11.
+    let x: f32 =  2.0 * shared_rho01_re[0];
+    let y: f32 = -2.0 * shared_rho01_im[0];
+    let z: f32 = shared_rho00[0] - shared_rho11[0];
+    bloch_out[params.output_slot] = vec4<f32>(x, y, z, 0.0);
+  }
+}
+"#;
+
 const STATE_RENDER_SHADER: &str = r#"
 struct RenderParams {
   screen_size: vec2<f32>,
@@ -215,6 +305,15 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 }
 "#;
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct BlochParams {
+    pub(crate) qubit_bit: u32,
+    pub(crate) state_count: u32,
+    pub(crate) output_slot: u32,
+    pub(crate) _pad: u32,
+}
+
 pub(crate) struct StateVectorResources {
     pub(crate) compute_pipeline: wgpu::ComputePipeline,
     pub(crate) render_pipeline: wgpu::RenderPipeline,
@@ -231,6 +330,15 @@ pub(crate) struct StateVectorResources {
     pub(crate) target_format: wgpu::TextureFormat,
     pub(crate) state_count: usize,
     pub(crate) active_state: usize,
+    /// Bloch reduction pipeline + buffers. Two bind groups so we can read from
+    /// either ping-pong state buffer (whichever holds the current state at
+    /// capture time). The output buffer is GPU-only — readback uses a fresh
+    /// MAP_READ staging buffer per dispatch so we never re-issue commands
+    /// against a buffer that is still mapped from an earlier readback.
+    pub(crate) bloch_pipeline: wgpu::ComputePipeline,
+    pub(crate) bloch_bind_groups: [wgpu::BindGroup; 2],
+    pub(crate) bloch_params_buffer: wgpu::Buffer,
+    pub(crate) bloch_output_buffer: wgpu::Buffer,
 }
 
 impl StateVectorResources {
@@ -238,6 +346,10 @@ impl StateVectorResources {
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("state_vector_compute"),
             source: wgpu::ShaderSource::Wgsl(STATE_COMPUTE_SHADER.into()),
+        });
+        let bloch_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("bloch_reduce"),
+            source: wgpu::ShaderSource::Wgsl(BLOCH_REDUCE_SHADER.into()),
         });
         let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("state_vector_render"),
@@ -292,6 +404,57 @@ impl StateVectorResources {
             label: Some("state_vector_compute_pipeline"),
             layout: Some(&compute_pipeline_layout),
             module: &compute_shader,
+            entry_point: Some("main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
+        });
+
+        let bloch_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bloch_reduce_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let bloch_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("bloch_reduce_pipeline_layout"),
+            bind_group_layouts: &[&bloch_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+        let bloch_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("bloch_reduce_pipeline"),
+            layout: Some(&bloch_pipeline_layout),
+            module: &bloch_shader,
             entry_point: Some("main"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
@@ -377,6 +540,20 @@ impl StateVectorResources {
             mapped_at_creation: false,
         });
 
+        let bloch_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("bloch_reduce_params"),
+            size: std::mem::size_of::<BlochParams>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bloch_buffer_size = (MAX_BLOCH_SLOTS * 4 * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
+        let bloch_output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("bloch_output"),
+            size: bloch_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
         let render_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("state_vector_render_params"),
             size: std::mem::size_of::<RenderParams>() as wgpu::BufferAddress,
@@ -418,6 +595,45 @@ impl StateVectorResources {
                     wgpu::BindGroupEntry {
                         binding: 2,
                         resource: gate_params_buffer.as_entire_binding(),
+                    },
+                ],
+            }),
+        ];
+
+        let bloch_bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bloch_reduce_read_a"),
+                layout: &bloch_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: state_buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: bloch_output_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: bloch_params_buffer.as_entire_binding(),
+                    },
+                ],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bloch_reduce_read_b"),
+                layout: &bloch_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: state_buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: bloch_output_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: bloch_params_buffer.as_entire_binding(),
                     },
                 ],
             }),
@@ -548,6 +764,10 @@ impl StateVectorResources {
             target_format,
             state_count: 0,
             active_state: 0,
+            bloch_pipeline,
+            bloch_bind_groups,
+            bloch_params_buffer,
+            bloch_output_buffer,
         }
     }
 
@@ -644,10 +864,12 @@ impl StateVectorResources {
 pub(crate) struct StateVectorCallback {
     pub(crate) instances: Arc<[StateInstance]>,
     pub(crate) instances_dirty: bool,
-    /// Per-gate parameters for the GPU compute pipeline (matrix / write modes
-    /// only). Skipped when `cpu_state_override` is provided — that path is
-    /// used only while measurement collapse still runs on the CPU.
-    pub(crate) gate_params: Vec<GateParams>,
+    /// Linearised simulation ops for the GPU pipeline: a sequence of
+    /// `ApplyGate` (matrix/write) and `CaptureBloch` (per-qubit reduction)
+    /// dispatches in column order. Skipped when `cpu_state_override` is
+    /// `Some` — that path is used only while measurement collapse still
+    /// runs on the CPU.
+    pub(crate) sim_ops: Vec<SimulationOp>,
     /// Optional override for the post-simulation state vector. When `Some`,
     /// the GPU compute pass is skipped and this state is uploaded directly.
     /// Used as a transitional fallback for circuits whose simulation paths
@@ -722,7 +944,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                     }
                     resources.active_state = 0;
                 } else {
-                    // Initialize to |0...0⟩ then dispatch each gate on the GPU.
+                    // Initialize to |0...0⟩ then dispatch each op on the GPU.
                     let mut initial = vec![[0.0f32, 0.0f32]; self.state_count];
                     initial[0] = [1.0, 0.0];
                     queue.write_buffer(
@@ -732,37 +954,166 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                     );
                     resources.active_state = 0;
                     let pair_count = (self.state_count / 2) as u32;
-                    if pair_count > 0 && !self.gate_params.is_empty() {
-                        let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
-                        let mut in_index = 0usize;
-                        for gate in &self.gate_params {
-                            queue.write_buffer(
-                                &resources.gate_params_buffer,
-                                0,
-                                bytemuck::bytes_of(gate),
-                            );
-                            let mut encoder =
-                                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                    label: Some("state_vector_compute_encoder"),
-                                });
-                            {
-                                let mut pass =
-                                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                                        label: Some("state_vector_compute_pass"),
-                                        timestamp_writes: None,
-                                    });
-                                pass.set_pipeline(&resources.compute_pipeline);
-                                pass.set_bind_group(
+                    let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
+                    let mut in_index = 0usize;
+                    let mut bloch_capture_count: u32 = 0;
+                    let mut bloch_slot_to_gate_id: Vec<u32> = Vec::new();
+                    for op in &self.sim_ops {
+                        match op {
+                            SimulationOp::ApplyGate(params) => {
+                                if pair_count == 0 {
+                                    continue;
+                                }
+                                queue.write_buffer(
+                                    &resources.gate_params_buffer,
                                     0,
-                                    &resources.compute_bind_groups[in_index],
-                                    &[],
+                                    bytemuck::bytes_of(params),
                                 );
-                                pass.dispatch_workgroups(dispatch_x, 1, 1);
+                                let mut encoder = device.create_command_encoder(
+                                    &wgpu::CommandEncoderDescriptor {
+                                        label: Some("state_vector_compute_encoder"),
+                                    },
+                                );
+                                {
+                                    let mut pass = encoder.begin_compute_pass(
+                                        &wgpu::ComputePassDescriptor {
+                                            label: Some("state_vector_compute_pass"),
+                                            timestamp_writes: None,
+                                        },
+                                    );
+                                    pass.set_pipeline(&resources.compute_pipeline);
+                                    pass.set_bind_group(
+                                        0,
+                                        &resources.compute_bind_groups[in_index],
+                                        &[],
+                                    );
+                                    pass.dispatch_workgroups(dispatch_x, 1, 1);
+                                }
+                                queue.submit(Some(encoder.finish()));
+                                in_index = 1 - in_index;
                             }
-                            queue.submit(Some(encoder.finish()));
-                            in_index = 1 - in_index;
+                            SimulationOp::CaptureBloch {
+                                gate_id,
+                                qubit_bit,
+                                output_slot,
+                            } => {
+                                if (*output_slot as usize) >= MAX_BLOCH_SLOTS {
+                                    continue;
+                                }
+                                let bloch_params = BlochParams {
+                                    qubit_bit: *qubit_bit,
+                                    state_count: self.state_count as u32,
+                                    output_slot: *output_slot,
+                                    _pad: 0,
+                                };
+                                queue.write_buffer(
+                                    &resources.bloch_params_buffer,
+                                    0,
+                                    bytemuck::bytes_of(&bloch_params),
+                                );
+                                let mut encoder = device.create_command_encoder(
+                                    &wgpu::CommandEncoderDescriptor {
+                                        label: Some("bloch_reduce_encoder"),
+                                    },
+                                );
+                                {
+                                    let mut pass = encoder.begin_compute_pass(
+                                        &wgpu::ComputePassDescriptor {
+                                            label: Some("bloch_reduce_pass"),
+                                            timestamp_writes: None,
+                                        },
+                                    );
+                                    pass.set_pipeline(&resources.bloch_pipeline);
+                                    // The current state lives in `state_buffers[in_index]`,
+                                    // which is the read side of the next gate dispatch.
+                                    pass.set_bind_group(
+                                        0,
+                                        &resources.bloch_bind_groups[in_index],
+                                        &[],
+                                    );
+                                    pass.dispatch_workgroups(1, 1, 1);
+                                }
+                                queue.submit(Some(encoder.finish()));
+                                bloch_slot_to_gate_id.push(*gate_id);
+                                bloch_capture_count += 1;
+                            }
                         }
-                        resources.active_state = in_index;
+                    }
+                    resources.active_state = in_index;
+
+                    if bloch_capture_count > 0 {
+                        let copy_bytes = (bloch_capture_count as usize)
+                            * 4
+                            * std::mem::size_of::<f32>();
+                        // Fresh staging buffer per readback. Reusing one
+                        // shared buffer would race: the next recompute would
+                        // start a copy_buffer_to_buffer while the previous
+                        // map_async is still holding the buffer mapped.
+                        let staging = device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("bloch_staging_per_readback"),
+                            size: copy_bytes as wgpu::BufferAddress,
+                            usage: wgpu::BufferUsages::MAP_READ
+                                | wgpu::BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                        let mut copy_encoder =
+                            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                                label: Some("bloch_readback_copy_encoder"),
+                            });
+                        copy_encoder.copy_buffer_to_buffer(
+                            &resources.bloch_output_buffer,
+                            0,
+                            &staging,
+                            0,
+                            copy_bytes as wgpu::BufferAddress,
+                        );
+                        queue.submit(Some(copy_encoder.finish()));
+
+                        // Sequence number guards against stale callbacks
+                        // overwriting a more recent recompute's results.
+                        let seq = BLOCH_SEQ.with(|c| {
+                            let next = c.get().wrapping_add(1);
+                            c.set(next);
+                            next
+                        });
+                        let staging_for_callback = staging.clone();
+                        let slice = staging.slice(..copy_bytes as wgpu::BufferAddress);
+                        slice.map_async(wgpu::MapMode::Read, move |result| {
+                            if result.is_err() {
+                                return;
+                            }
+                            let mapped =
+                                staging_for_callback.slice(..copy_bytes as wgpu::BufferAddress);
+                            let data = mapped.get_mapped_range();
+                            let floats: &[f32] = bytemuck::cast_slice(&data);
+                            let mut entries: Vec<[f32; 4]> = Vec::new();
+                            for (slot, &gate_id) in bloch_slot_to_gate_id.iter().enumerate() {
+                                let base = slot * 4;
+                                if base + 2 >= floats.len() {
+                                    break;
+                                }
+                                entries.push([
+                                    gate_id as f32,
+                                    floats[base],
+                                    floats[base + 1],
+                                    floats[base + 2],
+                                ]);
+                            }
+                            BLOCH_CACHE.with(|cell| {
+                                let mut current = cell.borrow_mut();
+                                let should_update = match current.as_ref() {
+                                    None => true,
+                                    Some((existing_seq, _)) => {
+                                        seq.wrapping_sub(*existing_seq) as i64 > 0
+                                    }
+                                };
+                                if should_update {
+                                    *current = Some((seq, entries));
+                                }
+                            });
+                            drop(data);
+                            staging_for_callback.unmap();
+                        });
                     }
                 }
             } else {
@@ -822,6 +1173,16 @@ pub(crate) struct GpuReadbackState {
 
 thread_local! {
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
+    /// Pending Bloch readback results, flushed by `prepare()` once the staging
+    /// buffer has been mapped. Tagged with a monotonically increasing sequence
+    /// so out-of-order async callbacks don't overwrite a fresher recompute.
+    /// Each entry is `[gate_id, x, y, z]` (the gate id is reinterpreted as
+    /// f32 for transport convenience).
+    pub(crate) static BLOCH_CACHE: RefCell<Option<(u64, Vec<[f32; 4]>)>> =
+        const { RefCell::new(None) };
+    /// Sequence counter used to tag each Bloch readback dispatched from
+    /// `prepare()`. Plain `Cell<u64>` since wasm is single-threaded.
+    pub(crate) static BLOCH_SEQ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(target_arch = "wasm32")]

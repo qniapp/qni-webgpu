@@ -44,3 +44,14 @@ pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
 pub async fn read_state_vector() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
     gpu::read_state_vector_impl().await
 }
+
+/// Returns the most recent Bloch readback as a flat `Float32Array` laid out
+/// as `[gate_id, x, y, z, gate_id, x, y, z, …]`. Empty when there are no
+/// `BlochDisplay` gates placed (or while a readback is in flight). Used by
+/// the test harness to assert per-qubit Bloch vectors without poking at
+/// individual canvas pixels.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn read_bloch_vectors() -> js_sys::Float32Array {
+    app::read_bloch_vectors_snapshot()
+}

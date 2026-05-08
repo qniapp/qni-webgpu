@@ -182,7 +182,7 @@ pub(crate) const GATE_MODE_WRITE0: u32 = 1;
 pub(crate) const GATE_MODE_WRITE1: u32 = 2;
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct GateParams {
     m00: [f32; 2],
     m01: [f32; 2],

@@ -25,15 +25,31 @@ use crate::layout::{nearest_slot_index, LayoutMetrics};
 /// Bloch vector for a single qubit, in qni's convention.
 pub(crate) type BlochVector = [f32; 3];
 
-/// Walks the placed gates column by column and emits one `GateParams` per
-/// matrix / write-mode operation in the order the GPU shader should apply
-/// them. Non-mutating gates (Bloch / Measurement / Spacer / Swap) are skipped:
-/// they don't show up in the GPU compute pipeline.
-pub(crate) fn linearize_gates(
+/// One step the GPU dispatcher should run during a recompute. Either applies
+/// a unitary / write gate to the state vector via `STATE_COMPUTE_SHADER`, or
+/// asks the Bloch reduction shader to capture (x, y, z) for a single qubit
+/// at the current position in the gate sequence.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum SimulationOp {
+    ApplyGate(GateParams),
+    CaptureBloch {
+        gate_id: u32,
+        qubit_bit: u32,
+        output_slot: u32,
+    },
+}
+
+/// Walks placed gates column by column and emits ops in the exact order the
+/// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
+/// When `capture_bloch` is true, each `BlochDisplay` placed in a column emits
+/// a `CaptureBloch` op AFTER that column's unitaries — matching qni's
+/// "display reads the post-column state" semantics.
+pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
     metrics: &LayoutMetrics,
-) -> Vec<GateParams> {
+    capture_bloch: bool,
+) -> Vec<SimulationOp> {
     if qubits == 0 || metrics.slot_centers.is_empty() {
         return Vec::new();
     }
@@ -54,12 +70,14 @@ pub(crate) fn linearize_gates(
     let mut slot_indices: Vec<usize> = by_slot.keys().copied().collect();
     slot_indices.sort();
 
-    let mut ops: Vec<GateParams> = Vec::new();
+    let mut ops: Vec<SimulationOp> = Vec::new();
+    let mut bloch_slot: u32 = 0;
     for slot in slot_indices {
         let column = by_slot.get(&slot).expect("slot exists");
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
         let mut targets: Vec<&PlacedGate> = Vec::new();
+        let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
 
         for gate in column {
             if gate.wire >= qubits {
@@ -75,12 +93,10 @@ pub(crate) fn linearize_gates(
                 GateKind::AntiControl => {
                     control_mask |= bit_mask;
                 }
-                GateKind::Swap
-                | GateKind::Spacer
-                | GateKind::BlochDisplay
-                | GateKind::Measurement => {
+                GateKind::Swap | GateKind::Spacer | GateKind::Measurement => {
                     // Non-mutating in the matrix/write pipeline.
                 }
+                GateKind::BlochDisplay => bloch_targets.push(gate),
                 _ => targets.push(gate),
             }
         }
@@ -93,7 +109,20 @@ pub(crate) fn linearize_gates(
             } else {
                 gate_params_controlled(target.kind, bit, control_mask, control_value, state_count)
             };
-            ops.push(params);
+            ops.push(SimulationOp::ApplyGate(params));
+        }
+
+        if capture_bloch {
+            bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
+            for display in &bloch_targets {
+                let qubit_bit = (qubits - 1 - display.wire) as u32;
+                ops.push(SimulationOp::CaptureBloch {
+                    gate_id: display.id,
+                    qubit_bit,
+                    output_slot: bloch_slot,
+                });
+                bloch_slot += 1;
+            }
         }
     }
     ops

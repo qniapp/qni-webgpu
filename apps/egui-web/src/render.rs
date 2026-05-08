@@ -492,9 +492,9 @@ impl QniApp {
             // uploading the CPU-computed state so the visualization matches
             // the captured measurement outcomes. Otherwise the GPU executes
             // the per-gate compute pipeline directly from `gate_params`.
-            let (gate_params, cpu_state_override) = if recompute {
+            let (sim_ops, cpu_state_override) = if recompute {
                 if self.measurements.is_empty() {
-                    (self.gate_params.clone(), None)
+                    (self.sim_ops.clone(), None)
                 } else {
                     (
                         Vec::new(),
@@ -508,7 +508,7 @@ impl QniApp {
             let callback = StateVectorCallback {
                 instances,
                 instances_dirty,
-                gate_params,
+                sim_ops,
                 cpu_state_override,
                 state_count: layout.state_count,
                 recompute,

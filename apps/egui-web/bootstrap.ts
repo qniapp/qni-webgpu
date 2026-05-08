@@ -1,6 +1,7 @@
 type QniEguiWebModule = {
   default: () => Promise<void>
   read_state_vector: () => Promise<ArrayLike<number>>
+  read_bloch_vectors: () => ArrayLike<number>
   start: (canvasId: string) => Promise<void>
 }
 
@@ -9,6 +10,7 @@ declare global {
     __eguiError?: unknown
     __eguiReady?: boolean
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
+    __eguiReadBlochVectors?: () => number[]
   }
 }
 
@@ -45,11 +47,18 @@ const formatStartupError = (err: unknown): string => {
 
 const run = async (): Promise<void> => {
   try {
-    const { default: init, read_state_vector, start } = await loadQniEguiWeb()
+    const { default: init, read_bloch_vectors, read_state_vector, start } = await loadQniEguiWeb()
     await init()
     window.__eguiReadStateVector = async () => {
       try {
         return Array.from(await read_state_vector())
+      } catch {
+        return []
+      }
+    }
+    window.__eguiReadBlochVectors = () => {
+      try {
+        return Array.from(read_bloch_vectors())
       } catch {
         return []
       }

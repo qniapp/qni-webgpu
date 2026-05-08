@@ -2,9 +2,41 @@ use eframe::egui;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::bloch::{linearize_gates, simulate, BlochVector, SimulationResult};
+use std::cell::RefCell;
+
+use crate::bloch::{linearize_ops, simulate, BlochVector, SimulationOp, SimulationResult};
 use crate::colors::Colors;
-use crate::gates::GateParams;
+use crate::gpu::BLOCH_CACHE;
+
+thread_local! {
+    /// Snapshot of `self.bloch_vectors` made each frame so the wasm-bindgen
+    /// `read_bloch_vectors()` API (used by Playwright) can read it
+    /// synchronously. Layout matches `BLOCH_CACHE`: `[gate_id, x, y, z]` per
+    /// entry, sorted by gate id for stable assertions.
+    pub(crate) static BLOCH_SNAPSHOT: RefCell<Vec<[f32; 4]>> = const { RefCell::new(Vec::new()) };
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn read_bloch_vectors_snapshot() -> js_sys::Float32Array {
+    BLOCH_SNAPSHOT.with(|cell| {
+        let entries = cell.borrow();
+        let len = entries.len() * 4;
+        let arr = js_sys::Float32Array::new_with_length(len as u32);
+        for (i, entry) in entries.iter().enumerate() {
+            for (j, v) in entry.iter().enumerate() {
+                arr.set_index((i * 4 + j) as u32, *v);
+            }
+        }
+        arr
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(dead_code)]
+pub(crate) fn read_bloch_vectors_snapshot() {
+    // Exposed for native builds so the wasm_bindgen-gated `read_bloch_vectors`
+    // call site still compiles when target_arch != wasm32.
+}
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
@@ -49,7 +81,7 @@ pub(crate) struct QniApp {
     pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
     pub(crate) measurements: HashMap<u32, u8>,
     pub(crate) cpu_state: Vec<[f32; 2]>,
-    pub(crate) gate_params: Vec<GateParams>,
+    pub(crate) sim_ops: Vec<SimulationOp>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -81,7 +113,7 @@ impl QniApp {
             bloch_vectors: HashMap::new(),
             measurements: HashMap::new(),
             cpu_state: vec![[1.0, 0.0], [0.0, 0.0]],
-            gate_params: Vec::new(),
+            sim_ops: Vec::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -333,6 +365,33 @@ impl QniApp {
 impl eframe::App for QniApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let frame_start = now_seconds();
+        // Drain any Bloch readback results that completed since the last frame.
+        // The async `map_async` callback in `gpu.rs` publishes them here; the
+        // current frame picks them up so the rendered Bloch arrows match the
+        // simulator output computed on the GPU.
+        let drained = BLOCH_CACHE.with(|cell| cell.borrow_mut().take());
+        if let Some((_seq, entries)) = drained {
+            self.bloch_vectors.clear();
+            for entry in &entries {
+                let id = entry[0] as u32;
+                self.bloch_vectors.insert(id, [entry[1], entry[2], entry[3]]);
+            }
+            ctx.request_repaint();
+        }
+        // Publish a snapshot of the latest Bloch values for the JS test API.
+        BLOCH_SNAPSHOT.with(|cell| {
+            let mut snap = cell.borrow_mut();
+            snap.clear();
+            let mut sorted: Vec<(u32, [f32; 3])> = self
+                .bloch_vectors
+                .iter()
+                .map(|(id, v)| (*id, *v))
+                .collect();
+            sorted.sort_by_key(|(id, _)| *id);
+            for (id, v) in sorted {
+                snap.push([id as f32, v[0], v[1], v[2]]);
+            }
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             let screen_rect = ui.max_rect();
             let colors = Colors::new();
@@ -423,7 +482,6 @@ impl eframe::App for QniApp {
                     self.last_state_count = state_count;
                     let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
                     let qubits = self.state_qubits();
-                    self.gate_params = linearize_gates(&self.placed_gates, qubits, &sim_metrics);
                     let SimulationResult {
                         final_state,
                         bloch_vectors,
@@ -432,6 +490,17 @@ impl eframe::App for QniApp {
                     self.cpu_state = final_state;
                     self.bloch_vectors = bloch_vectors;
                     self.measurements = measurements;
+                    // Bloch capture is included in the GPU op list only when
+                    // the circuit is purely unitary/write — measurement still
+                    // runs on the CPU until Step 3, and a GPU pre-collapse
+                    // bloch would diverge from the CPU post-collapse state.
+                    let capture_bloch = self.measurements.is_empty();
+                    self.sim_ops = linearize_ops(
+                        &self.placed_gates,
+                        qubits,
+                        &sim_metrics,
+                        capture_bloch,
+                    );
                 }
             } else if recompute {
                 ctx.request_repaint();
