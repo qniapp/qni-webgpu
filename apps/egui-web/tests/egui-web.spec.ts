@@ -24,6 +24,20 @@ type CircularBodySignature = {
   samples: Record<string, CanvasPixel>
 }
 
+const QNI_INTERMEDIATE_FILL: CanvasPixel = [168, 85, 247, 255]
+
+const pixelRgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
+  [0, 1, 2].reduce((total, channel) => total + Math.abs(left[channel] - right[channel]), 0)
+
+const isQniIntermediateFill = (pixel: CanvasPixel): boolean =>
+  pixelRgbDistance(pixel, QNI_INTERMEDIATE_FILL) <= 80
+
+const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
+  r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+
+const isGateBodyFill = (pixel: CanvasPixel): boolean =>
+  isRegularGateFill(pixel) || isQniIntermediateFill(pixel)
+
 const waitForStateVectorLength = async (
   page: Page,
   length: number,
@@ -426,7 +440,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   const during = duringDrag.fill
   const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
   expect(diff).toBeGreaterThan(120)
-  expect(during[1]).toBeGreaterThan(during[0] + 40)
+  expect(isQniIntermediateFill(during)).toBe(true)
 
   await page.mouse.up()
 })
@@ -507,7 +521,7 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await page.mouse.up()
 })
 
-test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
+test('dragged x gate uses qni intermediate purple before dropping back to green', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -536,17 +550,12 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   const sourceX = startX + gateIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
   const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
   const targetCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
-  const targetRect = {
-    x: targetCenter.x - GATE_SIZE / 2,
-    y: targetCenter.y - GATE_SIZE / 2,
+  const signaturePoints: PixelSamplePoint[] = []
+  for (let dy = -24; dy <= 32; dy += 4) {
+    for (let dx = -24; dx <= 32; dx += 4) {
+      signaturePoints.push({ name: `${dx},${dy}`, x: targetCenter.x + dx, y: targetCenter.y + 8 + dy })
+    }
   }
-  const signaturePoints = [
-    { name: 'center', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + GATE_SIZE / 2 },
-    { name: 'top', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + 6 },
-    { name: 'bottom', x: targetRect.x + GATE_SIZE / 2, y: targetRect.y + GATE_SIZE - 6 },
-    { name: 'left', x: targetRect.x + 6, y: targetRect.y + GATE_SIZE / 2 },
-    { name: 'right', x: targetRect.x + GATE_SIZE - 6, y: targetRect.y + GATE_SIZE / 2 },
-  ]
 
   await dragPointer(page, { x: sourceX, y: sourceY }, targetCenter, 6, false)
   await page.waitForTimeout(50)
@@ -556,12 +565,10 @@ test('dragged x gate keeps the same visual as after drop', async ({ page }) => {
   await page.waitForTimeout(50)
   const afterDrop = await sampleCanvasPixels(page, canvas, signaturePoints)
 
-  for (const name of Object.keys(duringDrag)) {
-    const during = duringDrag[name]
-    const after = afterDrop[name]
-    const diff = Math.abs(during[0] - after[0]) + Math.abs(during[1] - after[1]) + Math.abs(during[2] - after[2])
-    expect(diff).toBeLessThan(60)
-  }
+  const duringPurpleCount = Object.values(duringDrag).filter(isQniIntermediateFill).length
+  const afterGreenCount = Object.values(afterDrop).filter(isRegularGateFill).length
+  expect(duringPurpleCount, 'dragged X body should use qni intermediate purple').toBeGreaterThan(20)
+  expect(afterGreenCount, 'dropped X body should return to regular green').toBeGreaterThan(20)
 })
 
 test('x gate uses a circular body in palette, circuit, and drag preview', async ({ page }, testInfo) => {
@@ -596,8 +603,6 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const xGateCenter = { x: paletteCenterX(2), y: sourceY }
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
-  const isGateFill = ([r, g, b]: CanvasPixel): boolean =>
-    r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
   const readCircularBodySignature = async (center: Point): Promise<CircularBodySignature> => {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const base64 = screenshot.toString('base64')
@@ -631,8 +636,15 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
           const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
           return [data[0], data[1], data[2], data[3]]
         }
-        const isFill = ([r, g, b]: CanvasPixel): boolean =>
+        const qniIntermediateFill = [168, 85, 247, 255]
+        const rgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
+          [0, 1, 2].reduce((total, channel) => total + Math.abs(left[channel] - right[channel]), 0)
+        const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
           r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+        const isQniIntermediateFill = (pixel: CanvasPixel): boolean =>
+          rgbDistance(pixel, qniIntermediateFill) <= 80
+        const isFill = (pixel: CanvasPixel): boolean =>
+          isRegularGateFill(pixel) || isQniIntermediateFill(pixel)
         const searchRadius = 20
         let minX = Infinity
         let minY = Infinity
@@ -690,8 +702,8 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
     const signature = await readCircularBodySignature(center)
     const edgeNames = ['top', 'bottom', 'left', 'right']
     const cornerNames = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
-    const filledEdges = edgeNames.filter((name) => isGateFill(signature.samples[name])).length
-    const filledCorners = cornerNames.filter((name) => isGateFill(signature.samples[name])).length
+    const filledEdges = edgeNames.filter((name) => isGateBodyFill(signature.samples[name])).length
+    const filledCorners = cornerNames.filter((name) => isGateBodyFill(signature.samples[name])).length
 
     expect(signature.count, `${label} should find only the local X gate fill`).toBeGreaterThan(500)
     expect(signature.width, `${label} should have a full-width body`).toBeGreaterThan(24)

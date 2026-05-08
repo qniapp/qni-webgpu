@@ -13,7 +13,7 @@ use crate::constants::{
 };
 use crate::gates::GateKind;
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
-use crate::icons::draw_gate_body;
+use crate::icons::{draw_drag_gate_body, draw_gate_body};
 use crate::layout::{layout_metrics, nearest_slot_index, LayoutMetrics};
 use crate::shared::{amplitude_qubits, display_index_to_state_index};
 
@@ -243,7 +243,7 @@ impl QniApp {
             content_rect.min + gate.pos.to_vec2(),
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
-        draw_gate_body(painter, gate_rect, gate.kind, colors);
+        draw_drag_gate_body(painter, gate_rect, gate.kind, colors);
     }
 
     pub(super) fn state_panel_layout(

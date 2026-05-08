@@ -55,14 +55,33 @@ pub(crate) fn draw_gate_body(
     kind: GateKind,
     colors: &Colors,
 ) {
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill);
+}
+
+pub(crate) fn draw_drag_gate_body(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+) {
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.drag_fill);
+}
+
+fn draw_gate_body_with_fill(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+    fill: egui::Color32,
+) {
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
-        painter.circle_filled(gate_rect.center(), radius, colors.box_fill);
+        painter.circle_filled(gate_rect.center(), radius, fill);
     } else if kind != GateKind::Control && kind != GateKind::Swap {
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
     let icon_color = if kind == GateKind::Control || kind == GateKind::Swap {
-        colors.box_fill
+        fill
     } else {
         colors.label
     };

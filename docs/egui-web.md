@@ -166,6 +166,7 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。
 - ドラッグ中の再描画は CooldownThrottle 相当で、10ms ベース + 0.1 倍ポンプ（Quirk 相当）で `request_repaint` と `request_repaint_after` を切り替える。
 - ドラッグ中は回路側の影や接続線などの周辺装飾を省略して tessellator 負荷を下げる。一方で、いま掴んでいるゲート自身・回路上に既に置かれているゲート・パレット上のゲートは、ドラッグ中も通常描画（角丸・アイコン・ラベル維持）のままにする。
+- いま掴んでいるゲートは qni の grabbed state に合わせて intermediate purple (`#a855f7`) で描画し、drop 後は通常の primary green に戻す。
 - パレットから掴んだゲートのドラッグプレビューは、パレット panel と状態ベクトルウィンドウの両方より前面に描画して、重なっても隠れないようにする。
 - ドラッグ中の最終カーソル位置は `drag_cursor_pos` を保持し、ドロップ時に位置が欠けないようにする。
 - 起動直後は短時間だけ `request_repaint_after` を回してキャンバス描画を安定させる。

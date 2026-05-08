@@ -5,6 +5,7 @@ pub(crate) struct Colors {
     pub(crate) surface: egui::Color32,
     pub(crate) line: egui::Color32,
     pub(crate) box_fill: egui::Color32,
+    pub(crate) drag_fill: egui::Color32,
     pub(crate) box_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
@@ -21,6 +22,7 @@ impl Colors {
             surface: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
             line: crate::shared::color_rgba(0.72, 0.72, 0.72, 1.0),
             box_fill: crate::shared::color_rgba(0.2, 0.62, 0.55, 1.0),
+            drag_fill: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0), // qni purple-500: #a855f7
             box_border: crate::shared::color_rgba(0.82, 0.82, 0.82, 1.0),
             label: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
             text: crate::shared::color_rgba(0.45, 0.45, 0.45, 1.0),
