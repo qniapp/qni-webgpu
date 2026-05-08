@@ -442,6 +442,102 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 }
 "#;
 
+// MEASUREMENT_DIGIT_SHADER renders the `0` / `1` digit of every placed
+// measurement directly from `measurement_aux_buffer`. The aux layout is
+// `(pZero, r, outcome, sqrt_p_kept)` per slot; we sample `.z` to pick the
+// glyph and the colour. Procedural SDFs: `0` is a stroked circle, `1` is a
+// vertical bar — close enough to qni's `font-mono text-lg` look without
+// needing a glyph atlas.
+const MEASUREMENT_DIGIT_SHADER: &str = r#"
+struct DigitParams {
+  screen_size: vec2<f32>,
+  _pad0: vec2<f32>,
+  zero_color: vec4<f32>,
+  one_color: vec4<f32>,
+};
+
+@group(0) @binding(0) var<storage, read> aux_data: array<vec4<f32>>;
+@group(0) @binding(1) var<uniform> params: DigitParams;
+
+struct VsIn {
+  @location(0) corner: vec2<f32>,
+  @location(1) center: vec2<f32>,
+  @location(2) half_extent: f32,
+  @location(3) slot: u32,
+};
+
+struct VsOut {
+  @builtin(position) clip: vec4<f32>,
+  @location(0) local: vec2<f32>,
+  @location(1) half_extent: f32,
+  @location(2) @interpolate(flat) slot: u32,
+};
+
+@vertex
+fn vs_main(input: VsIn) -> VsOut {
+  let local = input.corner * input.half_extent;
+  let world = input.center + local;
+  let ndc = vec2<f32>(
+    (world.x / params.screen_size.x) * 2.0 - 1.0,
+    1.0 - (world.y / params.screen_size.y) * 2.0,
+  );
+  var out: VsOut;
+  out.clip = vec4<f32>(ndc, 0.0, 1.0);
+  out.local = local;
+  out.half_extent = input.half_extent;
+  out.slot = input.slot;
+  return out;
+}
+
+@fragment
+fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
+  let aux = aux_data[input.slot];
+  let outcome: f32 = aux.z;
+
+  // Glyph metrics — tuned to roughly match an 18pt monospace digit on a
+  // 32px gate.  Edge softness uses fwidth-style screen-space derivatives so
+  // antialiasing scales with DPR.
+  let half_h: f32 = 7.0;
+  let half_w: f32 = 5.0;
+  let thickness: f32 = 2.0;
+  let edge: f32 = 0.75;
+
+  var alpha: f32 = 0.0;
+  var color: vec3<f32>;
+  if (outcome < 0.5) {
+    // "0" — stroked ellipse-ish circle.
+    let dist = length(input.local);
+    let outer = half_h;
+    let inner = half_h - thickness;
+    let outer_alpha = 1.0 - smoothstep(outer - edge, outer + edge, dist);
+    let inner_alpha = 1.0 - smoothstep(inner - edge, inner + edge, dist);
+    alpha = max(0.0, outer_alpha - inner_alpha);
+    color = params.zero_color.rgb;
+  } else {
+    // "1" — vertical bar with a tiny diagonal serif so it doesn't read as a
+    // bare line.
+    let bar_alpha_x = 1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, abs(input.local.x));
+    let bar_alpha_y = 1.0 - smoothstep(half_h - edge, half_h + edge, abs(input.local.y));
+    let bar = bar_alpha_x * bar_alpha_y;
+    // Serif: from top-left toward the bar.
+    let serif_dir = normalize(vec2<f32>(1.0, 1.0));
+    let serif_p = input.local - vec2<f32>(-half_w * 0.6, -half_h * 0.7);
+    let serif_along = dot(serif_p, serif_dir);
+    let serif_perp = dot(serif_p, vec2<f32>(-serif_dir.y, serif_dir.x));
+    let serif_alpha_along = 1.0 - smoothstep(half_w * 0.6, half_w * 0.6 + edge, abs(serif_along));
+    let serif_alpha_perp = 1.0 - smoothstep(thickness * 0.4 - edge, thickness * 0.4 + edge, abs(serif_perp));
+    let serif = serif_alpha_along * serif_alpha_perp;
+    alpha = max(bar, serif);
+    color = params.one_color.rgb;
+  }
+
+  if (alpha < 1.0e-3) {
+    discard;
+  }
+  return vec4<f32>(color * alpha, alpha);
+}
+"#;
+
 const STATE_RENDER_SHADER: &str = r#"
 struct RenderParams {
   screen_size: vec2<f32>,
@@ -574,6 +670,23 @@ pub(crate) struct BlochOverlayInstance {
     pub(crate) slot: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct MeasurementDigitParams {
+    pub(crate) screen_size: [f32; 2],
+    pub(crate) _pad0: [f32; 2],
+    pub(crate) zero_color: [f32; 4],
+    pub(crate) one_color: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct MeasurementDigitInstance {
+    pub(crate) center: [f32; 2],
+    pub(crate) half_extent: f32,
+    pub(crate) slot: u32,
+}
+
 pub(crate) struct StateVectorResources {
     pub(crate) compute_pipeline: wgpu::ComputePipeline,
     pub(crate) render_pipeline: wgpu::RenderPipeline,
@@ -620,6 +733,12 @@ pub(crate) struct StateVectorResources {
     pub(crate) bloch_overlay_instance_buffer: wgpu::Buffer,
     pub(crate) bloch_overlay_vertex_buffer: wgpu::Buffer,
     pub(crate) bloch_overlay_index_buffer: wgpu::Buffer,
+    /// Renders the 0/1 measurement digit straight from
+    /// `measurement_aux_buffer`. Static meter icon is still painted by egui.
+    pub(crate) measurement_digit_pipeline: wgpu::RenderPipeline,
+    pub(crate) measurement_digit_bind_group: wgpu::BindGroup,
+    pub(crate) measurement_digit_params_buffer: wgpu::Buffer,
+    pub(crate) measurement_digit_instance_buffer: wgpu::Buffer,
 }
 
 impl StateVectorResources {
@@ -871,9 +990,40 @@ impl StateVectorResources {
             label: Some("bloch_overlay"),
             source: wgpu::ShaderSource::Wgsl(BLOCH_OVERLAY_SHADER.into()),
         });
+        let measurement_digit_shader =
+            device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("measurement_digit"),
+                source: wgpu::ShaderSource::Wgsl(MEASUREMENT_DIGIT_SHADER.into()),
+            });
         let bloch_overlay_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bloch_overlay_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+        let measurement_digit_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("measurement_digit_layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -1044,6 +1194,20 @@ impl StateVectorResources {
                 contents: bytemuck::cast_slice(&bloch_overlay_index_data),
                 usage: wgpu::BufferUsages::INDEX,
             });
+
+        let measurement_digit_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("measurement_digit_params"),
+            size: std::mem::size_of::<MeasurementDigitParams>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let measurement_digit_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("measurement_digit_instances"),
+            size: (MAX_MEASUREMENT_SLOTS * std::mem::size_of::<MeasurementDigitInstance>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         let render_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("state_vector_render_params"),
@@ -1411,6 +1575,90 @@ impl StateVectorResources {
                 cache: None,
             });
 
+        let measurement_digit_bind_group =
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("measurement_digit_bind_group"),
+                layout: &measurement_digit_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: measurement_aux_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: measurement_digit_params_buffer.as_entire_binding(),
+                    },
+                ],
+            });
+        let measurement_digit_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("measurement_digit_pipeline_layout"),
+                bind_group_layouts: &[&measurement_digit_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        let measurement_digit_vertex_layout = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x2,
+                offset: 0,
+                shader_location: 0,
+            }],
+        };
+        let measurement_digit_instance_layout = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<MeasurementDigitInstance>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x2,
+                    offset: 0,
+                    shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32,
+                    offset: 8,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Uint32,
+                    offset: 12,
+                    shader_location: 3,
+                },
+            ],
+        };
+        let measurement_digit_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("measurement_digit_pipeline"),
+                layout: Some(&measurement_digit_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &measurement_digit_shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    buffers: &[
+                        measurement_digit_vertex_layout,
+                        measurement_digit_instance_layout,
+                    ],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &measurement_digit_shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: target_format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    ..Default::default()
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
+
         Self {
             compute_pipeline,
             render_pipeline,
@@ -1444,6 +1692,10 @@ impl StateVectorResources {
             bloch_overlay_instance_buffer,
             bloch_overlay_vertex_buffer,
             bloch_overlay_index_buffer,
+            measurement_digit_pipeline,
+            measurement_digit_bind_group,
+            measurement_digit_params_buffer,
+            measurement_digit_instance_buffer,
         }
     }
 
@@ -1604,6 +1856,80 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
         render_pass.set_bind_group(0, &resources.bloch_overlay_bind_group, &[]);
         render_pass.set_vertex_buffer(0, resources.bloch_overlay_vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, resources.bloch_overlay_instance_buffer.slice(..));
+        render_pass.set_index_buffer(
+            resources.bloch_overlay_index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        render_pass.draw_indexed(0..6, 0, 0..self.instances.len() as u32);
+    }
+}
+
+/// Renders the 0/1 measurement digit straight from
+/// `measurement_aux_buffer.z` (the GPU-sampled outcome). Static meter icon
+/// (purple or zinc-200 ring) is still painted by egui — only the digit is
+/// quantum-state-derived.
+pub(crate) struct MeasurementDigitCallback {
+    pub(crate) instances: Arc<[MeasurementDigitInstance]>,
+    pub(crate) zero_color: [f32; 4],
+    pub(crate) one_color: [f32; 4],
+}
+
+impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
+    fn prepare(
+        &self,
+        _device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _egui_encoder: &mut wgpu::CommandEncoder,
+        callback_resources: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        let Some(resources) = callback_resources.get_mut::<StateVectorResources>() else {
+            return Vec::new();
+        };
+        if self.instances.is_empty() {
+            return Vec::new();
+        }
+        let screen_size = [
+            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
+            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
+        ];
+        let params = MeasurementDigitParams {
+            screen_size,
+            _pad0: [0.0, 0.0],
+            zero_color: self.zero_color,
+            one_color: self.one_color,
+        };
+        queue.write_buffer(
+            &resources.measurement_digit_params_buffer,
+            0,
+            bytemuck::bytes_of(&params),
+        );
+        queue.write_buffer(
+            &resources.measurement_digit_instance_buffer,
+            0,
+            bytemuck::cast_slice(self.instances.as_ref()),
+        );
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        render_pass: &mut wgpu::RenderPass<'static>,
+        callback_resources: &egui_wgpu::CallbackResources,
+    ) {
+        let Some(resources) = callback_resources.get::<StateVectorResources>() else {
+            return;
+        };
+        if self.instances.is_empty() {
+            return;
+        }
+        render_pass.set_pipeline(&resources.measurement_digit_pipeline);
+        render_pass.set_bind_group(0, &resources.measurement_digit_bind_group, &[]);
+        // Reuse the bloch overlay's quad geometry — both render full-rect
+        // quads with `[-1..1]` corners.
+        render_pass.set_vertex_buffer(0, resources.bloch_overlay_vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, resources.measurement_digit_instance_buffer.slice(..));
         render_pass.set_index_buffer(
             resources.bloch_overlay_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,

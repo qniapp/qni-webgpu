@@ -84,31 +84,6 @@ pub(crate) fn draw_bloch_sphere(painter: &egui::Painter, rect: egui::Rect, color
     )));
 }
 
-/// Re-paints the meter icon in `text-zinc-200` and overlays the qni
-/// measurement digit (`0` red / `1` blue) on top. qni reference:
-/// `packages/elements/css/measurement_gate.css` (`[data-value]::part(icon)
-/// → text-zinc-200`, `text-red-500` / `text-blue-500` for the value).
-pub(crate) fn draw_measurement_value(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    value: u8,
-    colors: &Colors,
-) {
-    draw_meter_icon(painter, rect, colors.measurement_fired_icon);
-    let (digit, digit_color) = if value == 0 {
-        ("0", colors.semantic_off)
-    } else {
-        ("1", colors.semantic_on)
-    };
-    painter.text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        digit,
-        egui::FontId::monospace(18.0),
-        digit_color,
-    );
-}
-
 /// Draws the qni meter icon (half-arc + needle + pivot dot) in `color`. Used
 /// both by the un-fired gate body and the fired overlay (different color).
 pub(crate) fn draw_meter_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {

@@ -13,11 +13,10 @@ use crate::constants::{
 };
 use crate::gates::GateKind;
 use crate::gpu::{
-    BlochOverlayCallback, BlochOverlayInstance, RenderColors, StateInstance, StateVectorCallback,
+    BlochOverlayCallback, BlochOverlayInstance, MeasurementDigitCallback,
+    MeasurementDigitInstance, RenderColors, StateInstance, StateVectorCallback,
 };
-use crate::icons::{
-    draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_measurement_value,
-};
+use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_meter_icon};
 use crate::layout::{
     nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics,
 };
@@ -178,10 +177,12 @@ impl QniApp {
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
-            if gate.kind == GateKind::Measurement {
-                if let Some(&value) = self.measurements.get(&gate.id) {
-                    draw_measurement_value(painter, gate_rect, value, colors);
-                }
+            if gate.kind == GateKind::Measurement && self.measurement_slots.contains_key(&gate.id) {
+                // Repaint the meter in zinc-200 ("fired" appearance per qni's
+                // `measurement_gate.css`). The GPU `MeasurementDigitCallback`
+                // overlays the colored 0/1 digit directly from
+                // `measurement_aux_buffer.z` — no CPU readback.
+                draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
             }
             if gate.kind == GateKind::BlochDisplay && !self.bloch_slots.contains_key(&gate.id) {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
@@ -228,6 +229,42 @@ impl QniApp {
                 line_color: egui::Rgba::from(colors.bloch_vector_line).to_array(),
                 tip_color: egui::Rgba::from(colors.bloch_vector_tip).to_array(),
                 zero_color: egui::Rgba::from(colors.bloch_vector_zero).to_array(),
+            };
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
+            painter.add(egui::Shape::Callback(paint_callback));
+        }
+
+        // GPU overlay: 0/1 digit per measurement, sourced directly from
+        // `measurement_aux_buffer.z`. Half extent is roughly digit-bounding
+        // box + AA fringe.
+        let measurement_digit_instances: Vec<MeasurementDigitInstance> = self
+            .placed_gates
+            .iter()
+            .filter_map(|gate| {
+                if gate.kind != GateKind::Measurement {
+                    return None;
+                }
+                if dragging_gate_id == Some(gate.id) {
+                    return None;
+                }
+                let slot = *self.measurement_slots.get(&gate.id)?;
+                let gate_rect = egui::Rect::from_min_size(
+                    rect.min + gate.pos.to_vec2(),
+                    egui::vec2(GATE_SIZE, GATE_SIZE),
+                );
+                let center = gate_rect.center();
+                Some(MeasurementDigitInstance {
+                    center: [center.x, center.y],
+                    half_extent: 9.0,
+                    slot,
+                })
+            })
+            .collect();
+        if !measurement_digit_instances.is_empty() {
+            let callback = MeasurementDigitCallback {
+                instances: measurement_digit_instances.into(),
+                zero_color: egui::Rgba::from(colors.semantic_off).to_array(),
+                one_color: egui::Rgba::from(colors.semantic_on).to_array(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

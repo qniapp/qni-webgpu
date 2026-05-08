@@ -107,6 +107,8 @@ pub(crate) struct QniApp {
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
     pub(crate) bloch_slots: HashMap<u32, u32>,
+    /// Same idea for measurement gates → `measurement_aux_buffer` slot.
+    pub(crate) measurement_slots: HashMap<u32, u32>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -139,6 +141,7 @@ impl QniApp {
             measurements: HashMap::new(),
             sim_ops: Vec::new(),
             bloch_slots: HashMap::new(),
+            measurement_slots: HashMap::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -532,14 +535,24 @@ impl eframe::App for QniApp {
                     let qubits = self.state_qubits();
                     self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
                     self.bloch_slots.clear();
+                    self.measurement_slots.clear();
                     for op in &self.sim_ops {
-                        if let SimulationOp::CaptureBloch {
-                            gate_id,
-                            output_slot,
-                            ..
-                        } = op
-                        {
-                            self.bloch_slots.insert(*gate_id, *output_slot);
+                        match op {
+                            SimulationOp::CaptureBloch {
+                                gate_id,
+                                output_slot,
+                                ..
+                            } => {
+                                self.bloch_slots.insert(*gate_id, *output_slot);
+                            }
+                            SimulationOp::MeasureReduceSample {
+                                gate_id,
+                                output_slot,
+                                ..
+                            } => {
+                                self.measurement_slots.insert(*gate_id, *output_slot);
+                            }
+                            _ => {}
                         }
                     }
                 }
