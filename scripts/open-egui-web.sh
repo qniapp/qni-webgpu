@@ -3,7 +3,6 @@ set -euo pipefail
 
 PORT="${QNI_EGUI_WEB_PORT:-4174}"
 URL="${QNI_EGUI_WEB_URL:-http://127.0.0.1:${PORT}/}"
-PROFILE_DIR="${QNI_EGUI_WEB_PROFILE_DIR:-/tmp/qni-webgpu-chrome-profile}"
 BROWSER_BIN="${QNI_EGUI_WEB_BROWSER:-}"
 
 find_browser() {
@@ -35,7 +34,6 @@ PY
 }
 
 browser="$(find_browser)"
-mkdir -p "$PROFILE_DIR"
 
 if ! wait_for_server; then
   cat >&2 <<EOF
@@ -49,13 +47,4 @@ EOF
   exit 1
 fi
 
-exec "$browser" \
-  --user-data-dir="$PROFILE_DIR" \
-  --new-window \
-  --no-first-run \
-  --no-default-browser-check \
-  --ozone-platform=x11 \
-  --enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan \
-  --enable-unsafe-webgpu \
-  --ignore-gpu-blocklist \
-  "$URL"
+exec "$browser" "$URL"

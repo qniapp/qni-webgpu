@@ -330,6 +330,54 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   await page.mouse.up()
 })
 
+test('control gate uses the qni-style standalone circular dot', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const PALETTE_SIZE = REM
+  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_COUNT = 15
+  const controlIndex = 1
+  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const controlCenter = {
+    x: paletteStartX + controlIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2,
+    y: PALETTE_ROW_Y + PALETTE_SIZE / 2 + 8,
+  }
+  const signaturePoints = [
+    { name: 'center', x: controlCenter.x, y: controlCenter.y },
+    { name: 'inner-left', x: controlCenter.x - 4, y: controlCenter.y },
+    { name: 'inner-right', x: controlCenter.x + 4, y: controlCenter.y },
+    { name: 'inner-top', x: controlCenter.x, y: controlCenter.y - 4 },
+    { name: 'inner-bottom', x: controlCenter.x, y: controlCenter.y + 4 },
+    { name: 'outside-left', x: controlCenter.x - 10, y: controlCenter.y },
+    { name: 'outside-right', x: controlCenter.x + 10, y: controlCenter.y },
+    { name: 'outside-top', x: controlCenter.x, y: controlCenter.y - 10 },
+    { name: 'outside-bottom', x: controlCenter.x, y: controlCenter.y + 10 },
+  ] satisfies PixelSamplePoint[]
+
+  const pixels = await sampleCanvasPixels(page, canvas, signaturePoints)
+  const isControlFill = ([r, g, b]: CanvasPixel): boolean => r < 90 && g > 120 && b > 100 && b < 180
+
+  for (const name of ['center', 'inner-left', 'inner-right', 'inner-top', 'inner-bottom']) {
+    expect(isControlFill(pixels[name]), `${name} should be filled by the control dot`).toBe(true)
+  }
+  for (const name of ['outside-left', 'outside-right', 'outside-top', 'outside-bottom']) {
+    expect(isControlFill(pixels[name]), `${name} should remain outside the standalone circular dot`).toBe(false)
+  }
+})
+
 test('dragged palette gate stays visible above the palette panel', async ({ page }) => {
   await page.goto('/')
 

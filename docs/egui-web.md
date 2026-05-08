@@ -12,15 +12,12 @@ trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 Open: `http://127.0.0.1:4174/`
 
-Linux / Wayland では通常起動のブラウザだと WebGPU adapter を取れず、白画面や初期化エラーになることがある。
-今後のローカル動作確認は、**フラグ付きの Google Chrome を正本**として扱う。
-まずはリポジトリルートから helper script を使う。
+ローカル開発では通常の Chrome で上記 URL を開く。WebGPU 用の特別な起動フラグは不要。
+リポジトリルートから helper script を使う場合も、通常起動の Chrome を開くだけにする。
 ```
 ./scripts/open-egui-web.sh
 ```
 この script は `google-chrome-stable` を最優先で探し、見つからない場合のみ Chromium 系へ fallback する。
-起動時には `--ozone-platform=x11` と WebGPU 用フラグを付ける。
-`--disable-gpu-sandbox` は使わない。`--enable-unsafe-webgpu` による警告バーは表示されるが、現状のローカル実行では想定内。
 
 明示的にブラウザを固定したい場合の例:
 ```
@@ -31,11 +28,10 @@ QNI_EGUI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-egui-web.sh
 - `QNI_EGUI_WEB_BROWSER`: 使用する Chromium 系ブラウザを明示
 - `QNI_EGUI_WEB_PORT`: 接続先ポートを変更
 - `QNI_EGUI_WEB_URL`: 接続先 URL を直接指定
-- `QNI_EGUI_WEB_PROFILE_DIR`: 一時 profile ディレクトリを変更
 
 ## Agent browser / visual workflow
-アプリ内ブラウザは `http://127.0.0.1:4174/` を開けるが、Chrome 起動フラグを付けられない。
-WebGPU adapter が必要な実描画確認では、アプリ内ブラウザは URL 到達確認に留め、外部のフラグ付き Chrome か Playwright 経路を使う。
+アプリ内ブラウザは `http://127.0.0.1:4174/` を開ける。
+WebGPU の実描画確認では、通常の外部 Chrome か Playwright 経路を使う。
 
 基本の手順:
 ```
@@ -50,7 +46,7 @@ cd /home/yasuhito/Work/qni-webgpu
 ```
 
 エージェントからスクリーンショットや操作込みで確認する場合は、既存サーバを使って headed Playwright を走らせる。
-この経路は `test-support/browser-launch.ts` の WebGPU フラグ付き Chrome 設定を使う。
+この経路は CI/headless 安定化用に `test-support/browser-launch.ts` の Playwright 起動設定を使う。
 ```
 cd apps/egui-web
 QNI_EGUI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'egui webgpu canvas renders content' --workers=1
@@ -80,16 +76,13 @@ QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/a
 ```
 
 手動デバッグで DevTools/CDP 接続が必要なときだけ、専用 profile と remote debugging port を使って Chrome を起動する。
+WebGPU 用の特別なフラグは付けない。
 ```
 /usr/bin/google-chrome-stable \
   --user-data-dir=/tmp/qni-webgpu-chrome-agent-verify \
   --new-window \
   --no-first-run \
   --no-default-browser-check \
-  --ozone-platform=x11 \
-  --enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan \
-  --enable-unsafe-webgpu \
-  --ignore-gpu-blocklist \
   --remote-debugging-port=9222 \
   http://127.0.0.1:4174/
 ```
@@ -147,7 +140,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 `test-support/browser-launch.ts` と `test-support/web-server.ts` に集約されており、
 legacy Playwright と BDD の両方が同じ shared source of truth を使う。
 後方互換用の `playwright-browser.cjs` wrapper は残さず、呼び出し側は直接 `test-support/browser-launch.ts` を参照する。
-そのため、flagged Chrome を正本にする挙動は両経路で一致する。
+ローカルの手動起動は通常 Chrome、Playwright 経路は CI/headless 安定化用の起動設定を使う。
 
 repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 `test:preflight` → `test:bdd` → `test:pw-legacy` の順で Web の gate を通す。
@@ -155,7 +148,7 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
 - 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
-- Linux / Wayland では Wayland + swiftshader 系の起動オプションで真っ黒になることがあり、現状は `./scripts/open-egui-web.sh` で起動するフラグ付き Google Chrome（fallback: Chromium）の X11 起動を正本とする。
+- ローカル手動確認は通常の Chrome で行う。`./scripts/open-egui-web.sh` も WebGPU 用の特別な起動フラグは付けない。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。
 - `window.__eguiReadStateVector()` は非同期（Promise）で、Playwright は await して検証する。
 - The Playwright test drags the H gate onto q0, waits for `window.__eguiReadStateVector()` to match the expected amplitudes, and checks that the canvas contains non-background pixels.
@@ -165,6 +158,7 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - The circle quad now expands to include stroke width to avoid flat/clipped edges.
 - The vertex quad adds a small pad (1px) so the AA fringe isn't clipped at the bounds.
 - Compute dispatches submit per gate so each pass sees its own GateParams (avoids reusing the last params across multiple gates).
+- Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control gates apply to every non-control gate in the same column (same step).
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。

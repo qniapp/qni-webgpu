@@ -58,10 +58,10 @@ pub(crate) fn draw_gate_body(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, colors.box_fill);
-    } else if kind != GateKind::Swap {
+    } else if kind != GateKind::Control && kind != GateKind::Swap {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.box_fill);
     }
-    let icon_color = if kind == GateKind::Swap {
+    let icon_color = if kind == GateKind::Control || kind == GateKind::Swap {
         colors.box_fill
     } else {
         colors.label
@@ -96,7 +96,7 @@ fn draw_gate_icon(
             true
         }
         GateKind::Control => {
-            painter.circle_filled(p(24.0, 24.0), 5.5 * scale, color);
+            painter.circle_filled(p(24.0, 24.0), 8.0 * scale, color);
             true
         }
         GateKind::X => {

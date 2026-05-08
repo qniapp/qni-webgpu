@@ -53,19 +53,17 @@ make check
 
 ```
 cd apps/egui-web
-trunk serve --address 127.0.0.1 --port 4174
+trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 
-通常のブラウザ起動では WebGPU adapter を取れず、白画面やエラーメッセージになることがある。
-Linux / Wayland での今後のローカル動作確認は、別ターミナルから **フラグ付き Google Chrome** を helper script で開く運用を正本とする:
+通常の Chrome で `http://127.0.0.1:4174/` を開く。
+リポジトリルートから helper script を使ってもよい:
 
 ```
 ./scripts/open-egui-web.sh
 ```
 
-この helper は `google-chrome-stable` を優先し、見つからない場合のみ Chromium 系へ fallback する。
-
-直接開く場合の URL は `http://127.0.0.1:4174/`。
+この helper は `google-chrome-stable` を優先し、見つからない場合のみ Chromium 系へ fallback する。WebGPU 用の特別な起動フラグは付けない。
 
 詳細は `docs/egui-web.md` を参照。
 
@@ -89,9 +87,9 @@ xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 
 GitHub Actions では `./scripts/check-all.sh` 経由で staged rollout の Web gate を通す。
 `apps/egui-web` では `pnpm run test:preflight` → `pnpm run test:bdd` → `pnpm run test:pw-legacy` の順で実行し、
-legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.cjs` の WebGPU フラグ付き Playwright を呼ぶ。
-ローカルでは `playwright.config.cjs` も `google-chrome-stable` を優先し、
-未インストール時のみ Playwright 同梱 Chromium へ fallback する。Linux 環境では `xvfb-run` を併用できる。
+legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.ts` の Playwright 設定を呼ぶ。
+ローカルでは `playwright.config.ts` も `google-chrome-stable` を優先し、
+未インストール時のみ Playwright 同梱 Chromium へ fallback する。CI/headless の安定化用に Playwright 側では WebGPU 起動設定を持つ。Linux 環境では `xvfb-run` を併用できる。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
