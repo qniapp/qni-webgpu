@@ -52,14 +52,14 @@ impl GateKind {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct GateMatrix {
-    pub(crate) m00: [f32; 2],
-    pub(crate) m01: [f32; 2],
-    pub(crate) m10: [f32; 2],
-    pub(crate) m11: [f32; 2],
+struct GateMatrix {
+    m00: [f32; 2],
+    m01: [f32; 2],
+    m10: [f32; 2],
+    m11: [f32; 2],
 }
 
-pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
+fn gate_matrix(kind: GateKind) -> GateMatrix {
     let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
     let default_angle = std::f32::consts::FRAC_PI_2;
     let half_angle = default_angle * 0.5;
