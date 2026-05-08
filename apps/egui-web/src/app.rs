@@ -104,6 +104,9 @@ pub(crate) struct QniApp {
     pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
     pub(crate) measurements: HashMap<u32, u8>,
     pub(crate) sim_ops: Vec<SimulationOp>,
+    /// gate_id → output_slot mapping derived from the latest `sim_ops` so
+    /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
+    pub(crate) bloch_slots: HashMap<u32, u32>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -135,6 +138,7 @@ impl QniApp {
             bloch_vectors: HashMap::new(),
             measurements: HashMap::new(),
             sim_ops: Vec::new(),
+            bloch_slots: HashMap::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -527,6 +531,17 @@ impl eframe::App for QniApp {
                     let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
                     let qubits = self.state_qubits();
                     self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
+                    self.bloch_slots.clear();
+                    for op in &self.sim_ops {
+                        if let SimulationOp::CaptureBloch {
+                            gate_id,
+                            output_slot,
+                            ..
+                        } = op
+                        {
+                            self.bloch_slots.insert(*gate_id, *output_slot);
+                        }
+                    }
                 }
             } else if recompute {
                 ctx.request_repaint();

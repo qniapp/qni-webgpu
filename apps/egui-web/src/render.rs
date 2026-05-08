@@ -12,7 +12,9 @@ use crate::constants::{
     STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
 };
 use crate::gates::GateKind;
-use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
+use crate::gpu::{
+    BlochOverlayCallback, BlochOverlayInstance, RenderColors, StateInstance, StateVectorCallback,
+};
 use crate::icons::{
     draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_measurement_value,
 };
@@ -181,17 +183,54 @@ impl QniApp {
                     draw_measurement_value(painter, gate_rect, value, colors);
                 }
             }
-            if gate.kind == GateKind::BlochDisplay {
-                // Default to (0, 0, 0): an entangled qubit (or one whose vector
-                // hasn't been computed yet) renders as the qni "d=0" blue dot
-                // at the sphere center.
-                let vector = self
-                    .bloch_vectors
-                    .get(&gate.id)
-                    .copied()
-                    .unwrap_or([0.0, 0.0, 0.0]);
-                draw_bloch_vector(painter, gate_rect, vector, colors);
+            if gate.kind == GateKind::BlochDisplay && !self.bloch_slots.contains_key(&gate.id) {
+                // Not yet captured by a recompute (placed mid-drag, unsnapped,
+                // or before the first frame's GPU dispatch). Show qni's
+                // d=0 blue dot via egui until the GPU overlay takes over.
+                draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
             }
+        }
+
+        // GPU overlay: draws the dynamic arrow + tip dot for every placed
+        // BlochDisplay whose values are live in `bloch_output_buffer`. No
+        // CPU readback — the fragment shader samples the storage buffer
+        // directly.
+        let bloch_overlay_instances: Vec<BlochOverlayInstance> = self
+            .placed_gates
+            .iter()
+            .filter_map(|gate| {
+                if gate.kind != GateKind::BlochDisplay {
+                    return None;
+                }
+                if dragging_gate_id == Some(gate.id) {
+                    return None;
+                }
+                let slot = *self.bloch_slots.get(&gate.id)?;
+                let gate_rect = egui::Rect::from_min_size(
+                    rect.min + gate.pos.to_vec2(),
+                    egui::vec2(GATE_SIZE, GATE_SIZE),
+                );
+                let center = gate_rect.center();
+                let radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
+                // 4px slack covers the 3px tip dot + 1px AA fringe.
+                let outer = radius + 4.0;
+                Some(BlochOverlayInstance {
+                    center: [center.x, center.y],
+                    radius,
+                    outer,
+                    slot,
+                })
+            })
+            .collect();
+        if !bloch_overlay_instances.is_empty() {
+            let callback = BlochOverlayCallback {
+                instances: bloch_overlay_instances.into(),
+                line_color: egui::Rgba::from(colors.bloch_vector_line).to_array(),
+                tip_color: egui::Rgba::from(colors.bloch_vector_tip).to_array(),
+                zero_color: egui::Rgba::from(colors.bloch_vector_zero).to_array(),
+            };
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
+            painter.add(egui::Shape::Callback(paint_callback));
         }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {

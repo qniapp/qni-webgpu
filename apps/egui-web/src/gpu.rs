@@ -334,6 +334,114 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 "#;
 
+// BLOCH_OVERLAY_RENDER_SHADER renders the dynamic arrow + tip dot of every
+// placed Bloch display directly from `bloch_output_buffer`. Static decoration
+// (sphere bg, axis lines, equator/meridian ellipses) is still painted by
+// egui — it doesn't depend on quantum state — but the part that does depend
+// stays on the GPU end-to-end (no CPU readback). Projection mirrors
+// `icons::bloch_project` (qni's `rotateY(phi) rotateX(-theta)` axis swap +
+// `perspective: 4rem` pinhole at top-right).
+const BLOCH_OVERLAY_SHADER: &str = r#"
+struct OverlayParams {
+  screen_size: vec2<f32>,
+  _pad0: vec2<f32>,
+  line_color: vec4<f32>,
+  tip_color: vec4<f32>,
+  zero_color: vec4<f32>,
+};
+
+@group(0) @binding(0) var<storage, read> bloch_data: array<vec4<f32>>;
+@group(0) @binding(1) var<uniform> params: OverlayParams;
+
+struct VsIn {
+  @location(0) corner: vec2<f32>,
+  @location(1) center: vec2<f32>,
+  @location(2) radius: f32,
+  @location(3) outer: f32,
+  @location(4) slot: u32,
+};
+
+struct VsOut {
+  @builtin(position) clip: vec4<f32>,
+  @location(0) local: vec2<f32>,
+  @location(1) radius: f32,
+  @location(2) outer: f32,
+  @location(3) @interpolate(flat) slot: u32,
+};
+
+@vertex
+fn vs_main(input: VsIn) -> VsOut {
+  let local = input.corner * input.outer;
+  let world = input.center + local;
+  let ndc = vec2<f32>(
+    (world.x / params.screen_size.x) * 2.0 - 1.0,
+    1.0 - (world.y / params.screen_size.y) * 2.0,
+  );
+  var out: VsOut;
+  out.clip = vec4<f32>(ndc, 0.0, 1.0);
+  out.local = local;
+  out.radius = input.radius;
+  out.outer = input.outer;
+  out.slot = input.slot;
+  return out;
+}
+
+fn bloch_project(b: vec3<f32>) -> vec2<f32> {
+  let p = 4.0;
+  let px = 1.0;
+  let py = -1.0;
+  let x_3d: f32 = b.y;
+  let y_3d: f32 = -b.z;
+  let z_3d: f32 = b.x;
+  let factor: f32 = p / (p - z_3d);
+  let sx: f32 = px + factor * (x_3d - px);
+  let sy: f32 = py + factor * (y_3d - py);
+  return vec2<f32>(sx, sy);
+}
+
+fn line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
+  let pa = p - a;
+  let ba = b - a;
+  let denom = max(dot(ba, ba), 1.0e-12);
+  let t = clamp(dot(pa, ba) / denom, 0.0, 1.0);
+  return length(pa - ba * t);
+}
+
+@fragment
+fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
+  let bloch = bloch_data[input.slot].xyz;
+  let mag2 = dot(bloch, bloch);
+  let mag = sqrt(mag2);
+  let proj = bloch_project(bloch);
+  let tip = proj * input.radius;
+
+  let line_half: f32 = 0.75;
+  let tip_radius: f32 = 3.0;
+  let edge: f32 = 0.75;
+
+  let dist_line = line_distance(input.local, vec2<f32>(0.0, 0.0), tip);
+  let dist_tip = length(input.local - tip);
+
+  var color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+  if (mag > 1.0e-3) {
+    let line_alpha = 1.0 - smoothstep(line_half - edge, line_half + edge, dist_line);
+    let line_rgb = params.line_color.rgb;
+    color = vec4<f32>(line_rgb * line_alpha, line_alpha);
+  }
+  let tip_rgb = select(params.tip_color.rgb, params.zero_color.rgb, mag < 1.0e-3);
+  let tip_alpha = 1.0 - smoothstep(tip_radius - edge, tip_radius + edge, dist_tip);
+  color = vec4<f32>(
+    color.rgb * (1.0 - tip_alpha) + tip_rgb * tip_alpha,
+    color.a * (1.0 - tip_alpha) + tip_alpha,
+  );
+
+  if (color.a < 1.0e-3) {
+    discard;
+  }
+  return color;
+}
+"#;
+
 const STATE_RENDER_SHADER: &str = r#"
 struct RenderParams {
   screen_size: vec2<f32>,
@@ -447,6 +555,25 @@ pub(crate) struct MeasureCollapseParams {
     pub(crate) _pad: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct BlochOverlayParams {
+    pub(crate) screen_size: [f32; 2],
+    pub(crate) _pad0: [f32; 2],
+    pub(crate) line_color: [f32; 4],
+    pub(crate) tip_color: [f32; 4],
+    pub(crate) zero_color: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct BlochOverlayInstance {
+    pub(crate) center: [f32; 2],
+    pub(crate) radius: f32,
+    pub(crate) outer: f32,
+    pub(crate) slot: u32,
+}
+
 pub(crate) struct StateVectorResources {
     pub(crate) compute_pipeline: wgpu::ComputePipeline,
     pub(crate) render_pipeline: wgpu::RenderPipeline,
@@ -485,6 +612,14 @@ pub(crate) struct StateVectorResources {
     pub(crate) measure_collapse_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) measure_collapse_params_buffer: wgpu::Buffer,
     pub(crate) measurement_aux_buffer: wgpu::Buffer,
+    /// GPU render pass that draws the dynamic Bloch arrow + tip dot directly
+    /// from `bloch_output_buffer`. No CPU readback in production.
+    pub(crate) bloch_overlay_pipeline: wgpu::RenderPipeline,
+    pub(crate) bloch_overlay_bind_group: wgpu::BindGroup,
+    pub(crate) bloch_overlay_params_buffer: wgpu::Buffer,
+    pub(crate) bloch_overlay_instance_buffer: wgpu::Buffer,
+    pub(crate) bloch_overlay_vertex_buffer: wgpu::Buffer,
+    pub(crate) bloch_overlay_index_buffer: wgpu::Buffer,
 }
 
 impl StateVectorResources {
@@ -732,6 +867,37 @@ impl StateVectorResources {
                 cache: None,
             });
 
+        let bloch_overlay_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("bloch_overlay"),
+            source: wgpu::ShaderSource::Wgsl(BLOCH_OVERLAY_SHADER.into()),
+        });
+        let bloch_overlay_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bloch_overlay_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
         let render_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("state_vector_render_layout"),
@@ -846,6 +1012,38 @@ impl StateVectorResources {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+
+        let bloch_overlay_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("bloch_overlay_params"),
+            size: std::mem::size_of::<BlochOverlayParams>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bloch_overlay_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("bloch_overlay_instances"),
+            size: (MAX_BLOCH_SLOTS * std::mem::size_of::<BlochOverlayInstance>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bloch_overlay_vertex_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("bloch_overlay_quad_vertices"),
+                contents: bytemuck::cast_slice(&[
+                    [-1.0f32, -1.0],
+                    [1.0, -1.0],
+                    [1.0, 1.0],
+                    [-1.0, 1.0],
+                ]),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        let bloch_overlay_index_data: [u16; 6] = [0, 1, 2, 0, 2, 3];
+        let bloch_overlay_index_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("bloch_overlay_quad_indices"),
+                contents: bytemuck::cast_slice(&bloch_overlay_index_data),
+                usage: wgpu::BufferUsages::INDEX,
+            });
 
         let render_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("state_vector_render_params"),
@@ -1127,6 +1325,92 @@ impl StateVectorResources {
             mapped_at_creation: false,
         });
 
+        let bloch_overlay_bind_group =
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bloch_overlay_bind_group"),
+                layout: &bloch_overlay_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: bloch_output_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: bloch_overlay_params_buffer.as_entire_binding(),
+                    },
+                ],
+            });
+        let bloch_overlay_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("bloch_overlay_pipeline_layout"),
+                bind_group_layouts: &[&bloch_overlay_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        let bloch_overlay_vertex_layout = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x2,
+                offset: 0,
+                shader_location: 0,
+            }],
+        };
+        let bloch_overlay_instance_layout = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<BlochOverlayInstance>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x2,
+                    offset: 0,
+                    shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32,
+                    offset: 8,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32,
+                    offset: 12,
+                    shader_location: 3,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Uint32,
+                    offset: 16,
+                    shader_location: 4,
+                },
+            ],
+        };
+        let bloch_overlay_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("bloch_overlay_pipeline"),
+                layout: Some(&bloch_overlay_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &bloch_overlay_shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    buffers: &[bloch_overlay_vertex_layout, bloch_overlay_instance_layout],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &bloch_overlay_shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: target_format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    ..Default::default()
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
+
         Self {
             compute_pipeline,
             render_pipeline,
@@ -1154,6 +1438,12 @@ impl StateVectorResources {
             measure_collapse_bind_groups,
             measure_collapse_params_buffer,
             measurement_aux_buffer,
+            bloch_overlay_pipeline,
+            bloch_overlay_bind_group,
+            bloch_overlay_params_buffer,
+            bloch_overlay_instance_buffer,
+            bloch_overlay_vertex_buffer,
+            bloch_overlay_index_buffer,
         }
     }
 
@@ -1244,6 +1534,81 @@ impl StateVectorResources {
             cache: None,
         });
         self.target_format = target_format;
+    }
+}
+
+/// Renders the dynamic Bloch arrow + tip dot for every placed Bloch display
+/// directly from `bloch_output_buffer`. No CPU readback in production —
+/// `BlochOverlayInstance` carries (screen center, radius, output_slot) and
+/// the fragment shader reads (x, y, z) straight from the GPU buffer the
+/// reduction shader just wrote.
+pub(crate) struct BlochOverlayCallback {
+    pub(crate) instances: Arc<[BlochOverlayInstance]>,
+    pub(crate) line_color: [f32; 4],
+    pub(crate) tip_color: [f32; 4],
+    pub(crate) zero_color: [f32; 4],
+}
+
+impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
+    fn prepare(
+        &self,
+        _device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _egui_encoder: &mut wgpu::CommandEncoder,
+        callback_resources: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        let Some(resources) = callback_resources.get_mut::<StateVectorResources>() else {
+            return Vec::new();
+        };
+        if self.instances.is_empty() {
+            return Vec::new();
+        }
+        let screen_size = [
+            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
+            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
+        ];
+        let params = BlochOverlayParams {
+            screen_size,
+            _pad0: [0.0, 0.0],
+            line_color: self.line_color,
+            tip_color: self.tip_color,
+            zero_color: self.zero_color,
+        };
+        queue.write_buffer(
+            &resources.bloch_overlay_params_buffer,
+            0,
+            bytemuck::bytes_of(&params),
+        );
+        queue.write_buffer(
+            &resources.bloch_overlay_instance_buffer,
+            0,
+            bytemuck::cast_slice(self.instances.as_ref()),
+        );
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        render_pass: &mut wgpu::RenderPass<'static>,
+        callback_resources: &egui_wgpu::CallbackResources,
+    ) {
+        let Some(resources) = callback_resources.get::<StateVectorResources>() else {
+            return;
+        };
+        if self.instances.is_empty() {
+            return;
+        }
+        render_pass.set_pipeline(&resources.bloch_overlay_pipeline);
+        render_pass.set_bind_group(0, &resources.bloch_overlay_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, resources.bloch_overlay_vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, resources.bloch_overlay_instance_buffer.slice(..));
+        render_pass.set_index_buffer(
+            resources.bloch_overlay_index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        render_pass.draw_indexed(0..6, 0, 0..self.instances.len() as u32);
     }
 }
 
