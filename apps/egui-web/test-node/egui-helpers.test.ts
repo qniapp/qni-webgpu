@@ -352,7 +352,7 @@ test('sampleCanvasPixels waits for state-vector readiness before retrying a dest
 test('getDragPreviewAboveStatePanelProbe preserves the current drag target contract', () => {
   const probe = getDragPreviewAboveStatePanelProbe(1000, 800)
 
-  assert.deepEqual(probe.source, { x: 164, y: 80 })
+  assert.deepEqual(probe.source, { x: 140, y: 80 })
   assert.ok(probe.handleCenter.y > probe.source.y)
   assert.equal(probe.dragFillPoint.name, 'fill')
   assert.equal(probe.dragFillPoint.x, probe.handleCenter.x + 10)

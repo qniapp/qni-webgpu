@@ -65,6 +65,7 @@ QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/a
   --ops H:q0:0,C:q0:1,X:q1:1 \
   --out output/playwright/agent-visual/bell.png
 ```
+Anti-control は `anti-control:q0:0` / `anti:q0:0` / `◦:q0:0` で指定できる。
 
 `scripts/agent-visual.ts` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない agent visual launch を使う。
 現状の egui content margin に合わせて drop 座標に `--vertical-offset 8` を既定で加える。
@@ -159,8 +160,9 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - The vertex quad adds a small pad (1px) so the AA fringe isn't clipped at the bounds.
 - Compute dispatches submit per gate so each pass sees its own GateParams (avoids reusing the last params across multiple gates).
 - Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
+- Anti-control gates render as a qni-style standalone open circle and control on the zero state.
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
-- Control gates apply to every non-control gate in the same column (same step).
+- Control and anti-control gates apply to every non-control gate in the same column (same step).
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。

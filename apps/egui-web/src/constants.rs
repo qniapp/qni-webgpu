@@ -29,9 +29,10 @@ pub(crate) const PALETTE_SIZE: f32 = GATE_SIZE;
 pub(crate) const PALETTE_GAP: f32 = 0.5 * REM;
 pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
-pub(crate) const PALETTE_GATES: [GateKind; 15] = [
+pub(crate) const PALETTE_GATES: [GateKind; 16] = [
     GateKind::H,
     GateKind::Control,
+    GateKind::AntiControl,
     GateKind::X,
     GateKind::Y,
     GateKind::Z,

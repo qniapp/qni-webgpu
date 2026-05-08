@@ -2,6 +2,7 @@
 pub(crate) enum GateKind {
     H,
     Control,
+    AntiControl,
     X,
     Y,
     Z,
@@ -22,6 +23,7 @@ impl GateKind {
         match self {
             GateKind::H => "H",
             GateKind::Control => "C",
+            GateKind::AntiControl => "◦",
             GateKind::X => "X",
             GateKind::Y => "Y",
             GateKind::Z => "Z",
@@ -61,7 +63,7 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
             m10: [inv_sqrt2, 0.0],
             m11: [-inv_sqrt2, 0.0],
         },
-        GateKind::Control => GateMatrix {
+        GateKind::Control | GateKind::AntiControl => GateMatrix {
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],

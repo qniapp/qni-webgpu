@@ -4,6 +4,9 @@ use crate::colors::Colors;
 use crate::gates::GateKind;
 
 const VIEWBOX: f32 = 48.0;
+const CONTROL_RADIUS: f32 = 8.0;
+const ANTI_CONTROL_STROKE_WIDTH: f32 = 3.0;
+const ANTI_CONTROL_RADIUS: f32 = CONTROL_RADIUS - ANTI_CONTROL_STROKE_WIDTH;
 
 #[derive(Clone, Copy)]
 struct SvgPoint {
@@ -77,14 +80,15 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
-    } else if kind != GateKind::Control && kind != GateKind::Swap {
+    } else if kind != GateKind::Control && kind != GateKind::AntiControl && kind != GateKind::Swap {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
-    let icon_color = if kind == GateKind::Control || kind == GateKind::Swap {
-        fill
-    } else {
-        colors.label
-    };
+    let icon_color =
+        if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
+            fill
+        } else {
+            colors.label
+        };
     if !draw_gate_icon(painter, gate_rect, kind, icon_color) {
         painter.text(
             gate_rect.center(),
@@ -115,7 +119,12 @@ fn draw_gate_icon(
             true
         }
         GateKind::Control => {
-            painter.circle_filled(p(24.0, 24.0), 8.0 * scale, color);
+            painter.circle_filled(p(24.0, 24.0), CONTROL_RADIUS * scale, color);
+            true
+        }
+        GateKind::AntiControl => {
+            let anti_control_stroke = egui::Stroke::new(ANTI_CONTROL_STROKE_WIDTH * scale, color);
+            painter.circle_stroke(p(24.0, 24.0), ANTI_CONTROL_RADIUS * scale, anti_control_stroke);
             true
         }
         GateKind::X => {

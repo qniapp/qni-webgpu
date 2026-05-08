@@ -18,9 +18,11 @@ const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('H'), 0)
   assert.equal(getGateIndex('control'), 1)
-  assert.equal(getGateIndex('sqrtx'), 5)
-  assert.equal(getGateIndex('s†'), 7)
-  assert.equal(getGateIndex('tdagger'), 9)
+  assert.equal(getGateIndex('anti-control'), 2)
+  assert.equal(getGateIndex('◦'), 2)
+  assert.equal(getGateIndex('sqrtx'), 6)
+  assert.equal(getGateIndex('s†'), 8)
+  assert.equal(getGateIndex('tdagger'), 10)
 })
 
 test('agent visual command parses q-prefixed and numeric wires', () => {
@@ -38,10 +40,10 @@ test('agent visual command builds drag coordinates from semantic gate placement'
 
   assert.deepEqual(operation, {
     gate: 'x',
-    gateIndex: 2,
+    gateIndex: 3,
     wire: 1,
     slot: 2,
-    from: { x: 260, y: 80 },
+    from: { x: 284, y: 80 },
     to: { x: 250, y: 256 },
   })
 })

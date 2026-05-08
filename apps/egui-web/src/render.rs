@@ -78,7 +78,8 @@ impl QniApp {
                 if gate.kind == GateKind::Swap {
                     continue;
                 }
-                let is_control = gate.kind == GateKind::Control;
+                let is_control =
+                    gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl;
                 let center_x = gate.pos.x + GATE_SIZE / 2.0;
                 if let Some((slot_index, distance)) =
                     nearest_slot_index(center_x, &metrics.slot_centers)

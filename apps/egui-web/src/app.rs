@@ -129,6 +129,7 @@ impl QniApp {
 
         struct GateGroup<'a> {
             controls: Vec<&'a PlacedGate>,
+            anti_controls: Vec<&'a PlacedGate>,
             targets: Vec<&'a PlacedGate>,
             slot_x: f32,
             min_id: u32,
@@ -146,6 +147,7 @@ impl QniApp {
             }
             let entry = groups.entry(slot_index).or_insert_with(|| GateGroup {
                 controls: Vec::new(),
+                anti_controls: Vec::new(),
                 targets: Vec::new(),
                 slot_x: metrics.slot_centers[slot_index],
                 min_id: gate.id,
@@ -153,6 +155,8 @@ impl QniApp {
             entry.min_id = entry.min_id.min(gate.id);
             if gate.kind == GateKind::Control {
                 entry.controls.push(*gate);
+            } else if gate.kind == GateKind::AntiControl {
+                entry.anti_controls.push(*gate);
             } else {
                 entry.targets.push(*gate);
             }
@@ -172,6 +176,16 @@ impl QniApp {
                 control_mask |= bit_mask;
                 control_value |= bit_mask;
                 used_ids.insert(control.id);
+            }
+            for anti_control in &group.anti_controls {
+                if anti_control.wire >= qubits {
+                    continue;
+                }
+                let control_bit =
+                    (qubits.saturating_sub(1).saturating_sub(anti_control.wire)) as u32;
+                let bit_mask = 1u32 << control_bit;
+                control_mask |= bit_mask;
+                used_ids.insert(anti_control.id);
             }
             for target in &group.targets {
                 if target.wire >= qubits {
@@ -204,7 +218,7 @@ impl QniApp {
             if gate.kind == GateKind::Swap {
                 continue;
             }
-            if gate.kind == GateKind::Control {
+            if gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl {
                 continue;
             }
             if used_ids.contains(&gate.id) {

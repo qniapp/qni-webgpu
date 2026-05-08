@@ -32,7 +32,7 @@ const DEFAULT_REM = 32
 const DEFAULT_GATE_SIZE = DEFAULT_REM
 const DEFAULT_PALETTE_GAP = 0.5 * DEFAULT_REM
 const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
-const DEFAULT_PALETTE_COUNT = 15
+const DEFAULT_PALETTE_COUNT = 16
 const DEFAULT_CIRCUIT_PADDING = 2 * DEFAULT_REM
 const DEFAULT_QUBIT_LABEL_WIDTH = 3 * 14
 const DEFAULT_QUBIT_LABEL_GAP = 0.5 * DEFAULT_REM
@@ -45,29 +45,35 @@ const GATE_ALIASES = new Map([
   ['hadamard', 0],
   ['c', 1],
   ['control', 1],
-  ['x', 2],
-  ['y', 3],
-  ['z', 4],
-  ['sqrtx', 5],
-  ['sqrt-x', 5],
-  ['sqrt_x', 5],
-  ['sx', 5],
-  ['s', 6],
-  ['sdg', 7],
-  ['sdagger', 7],
-  ['s†', 7],
-  ['s+', 7],
-  ['t', 8],
-  ['tdg', 9],
-  ['tdagger', 9],
-  ['t†', 9],
-  ['t+', 9],
-  ['phase', 10],
-  ['p', 10],
-  ['rx', 11],
-  ['ry', 12],
-  ['rz', 13],
-  ['swap', 14],
+  ['anti', 2],
+  ['anti-control', 2],
+  ['anticontrol', 2],
+  ['anti_control', 2],
+  ['o', 2],
+  ['◦', 2],
+  ['x', 3],
+  ['y', 4],
+  ['z', 5],
+  ['sqrtx', 6],
+  ['sqrt-x', 6],
+  ['sqrt_x', 6],
+  ['sx', 6],
+  ['s', 7],
+  ['sdg', 8],
+  ['sdagger', 8],
+  ['s†', 8],
+  ['s+', 8],
+  ['t', 9],
+  ['tdg', 10],
+  ['tdagger', 10],
+  ['t†', 10],
+  ['t+', 10],
+  ['phase', 11],
+  ['p', 11],
+  ['rx', 12],
+  ['ry', 13],
+  ['rz', 14],
+  ['swap', 15],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()
