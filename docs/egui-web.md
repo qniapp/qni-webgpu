@@ -66,6 +66,7 @@ QNI_EGUI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/a
   --out output/playwright/agent-visual/bell.png
 ```
 Anti-control は `anti-control:q0:0` / `anti:q0:0` / `◦:q0:0` で指定できる。
+|0⟩ / |1⟩ は `|0>:q0:0` / `write0:q0:0` / `|1>:q0:0` / `write1:q0:0` などで指定できる。
 
 `scripts/agent-visual.ts` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない agent visual launch を使う。
 現状の egui content margin に合わせて drop 座標に `--vertical-offset 8` を既定で加える。
@@ -161,6 +162,16 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - Compute dispatches submit per gate so each pass sees its own GateParams (avoids reusing the last params across multiple gates).
 - Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
+- |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
+- BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。各ゲート列で CPU 側に状態をミラーシミュレートし、その時点の縮約密度行列から (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector`）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。
+- BlochDisplay の見た目は qni の `bloch_display.css` に揃える: bg-green-50 (#f0fdf4)、軸 / 球境界 gray-400 (#9ca3af)、ベクトル線 gray-900 (#111827)、矢印先 red-500 (#ef4444)、ゼロベクトルのみ blue-500 (#3b82f6)。
+- 投影は qni の DOM 変換 `rotateY(phi) rotateX(-theta)` + `perspective: 4rem` + `perspective-origin: top right` をそのまま再現（pinhole 投影、p = 4·radius、origin = (1, -1) in radius units）。Bloch → CSS 軸対応は +x → +z (奥行き、視点向き)、+y → +x (右)、+z → -y (上)。
+- 結果として Bloch (1,0,0) (|+⟩, H|0⟩) は短く左下へ前縮小、Bloch (0,0,1) (|0⟩) は真上、(0,0,-1) (|1⟩) は真下、(0,±1,0) (|±i⟩) は真横、Bloch (-1,0,0) (|-⟩) は右上奥に縮小される。
+- 球の装飾線は qni の SVG (横線・縦線・NE/SW 斜線、垂直細楕円 rx=18% ry=50%、水平細楕円 rx=50% ry=18%) を踏襲し、傾けない。
+- ベクトル長 ≈ 0 のとき (もつれて部分トレースが maximally mixed になる、palette 表示、ドラッグ中、未スナップなど) は qni の `data-d='0'` ルール通り中心に blue-500 の点だけを描画し、線は引かない。Bell 状態の各量子ビットが好例。
+- パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
+- パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
+- |0⟩ の桁は qni semantic-color-off (red-500: `#ef4444`)、|1⟩ の桁は semantic-color-on (blue-500: `#3b82f6`) で描画する。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。

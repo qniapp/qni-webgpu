@@ -7,6 +7,8 @@ type DragOperationInput = {
   paletteGap?: number
   paletteRowY?: number
   paletteCount?: number
+  paletteRow1Count?: number
+  paletteRowGap?: number
   circuitPadding?: number
   qubitLabelWidth?: number
   qubitLabelGap?: number
@@ -30,9 +32,11 @@ type ParsedOperation = {
 
 const DEFAULT_REM = 32
 const DEFAULT_GATE_SIZE = DEFAULT_REM
-const DEFAULT_PALETTE_GAP = 0.5 * DEFAULT_REM
+const DEFAULT_PALETTE_GAP = 8
 const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
-const DEFAULT_PALETTE_COUNT = 16
+const DEFAULT_PALETTE_COUNT = 19
+const DEFAULT_PALETTE_ROW1_COUNT = 13
+const DEFAULT_PALETTE_ROW_GAP = 8
 const DEFAULT_CIRCUIT_PADDING = 2 * DEFAULT_REM
 const DEFAULT_QUBIT_LABEL_WIDTH = 3 * 14
 const DEFAULT_QUBIT_LABEL_GAP = 0.5 * DEFAULT_REM
@@ -43,37 +47,56 @@ const DEFAULT_SLOT_SPACING = 1.5 * DEFAULT_GATE_SIZE
 const GATE_ALIASES = new Map([
   ['h', 0],
   ['hadamard', 0],
-  ['c', 1],
-  ['control', 1],
-  ['anti', 2],
-  ['anti-control', 2],
-  ['anticontrol', 2],
-  ['anti_control', 2],
-  ['o', 2],
-  ['◦', 2],
-  ['x', 3],
-  ['y', 4],
-  ['z', 5],
-  ['sqrtx', 6],
-  ['sqrt-x', 6],
-  ['sqrt_x', 6],
-  ['sx', 6],
-  ['s', 7],
-  ['sdg', 8],
-  ['sdagger', 8],
-  ['s†', 8],
-  ['s+', 8],
-  ['t', 9],
-  ['tdg', 10],
-  ['tdagger', 10],
-  ['t†', 10],
-  ['t+', 10],
-  ['phase', 11],
-  ['p', 11],
-  ['rx', 12],
-  ['ry', 13],
-  ['rz', 14],
-  ['swap', 15],
+  ['x', 1],
+  ['y', 2],
+  ['z', 3],
+  ['sqrtx', 4],
+  ['sqrt-x', 4],
+  ['sqrt_x', 4],
+  ['sx', 4],
+  ['s', 5],
+  ['sdg', 6],
+  ['sdagger', 6],
+  ['s†', 6],
+  ['s+', 6],
+  ['t', 7],
+  ['tdg', 8],
+  ['tdagger', 8],
+  ['t†', 8],
+  ['t+', 8],
+  ['phase', 9],
+  ['p', 9],
+  ['rx', 10],
+  ['ry', 11],
+  ['rz', 12],
+  ['swap', 13],
+  ['c', 14],
+  ['control', 14],
+  ['anti', 15],
+  ['anti-control', 15],
+  ['anticontrol', 15],
+  ['anti_control', 15],
+  ['o', 15],
+  ['◦', 15],
+  ['bloch', 16],
+  ['bloch-display', 16],
+  ['blochdisplay', 16],
+  ['bloch_display', 16],
+  ['sphere', 16],
+  ['|0>', 17],
+  ['|0⟩', 17],
+  ['write0', 17],
+  ['write-0', 17],
+  ['write_0', 17],
+  ['ket0', 17],
+  ['ket-0', 17],
+  ['|1>', 18],
+  ['|1⟩', 18],
+  ['write1', 18],
+  ['write-1', 18],
+  ['write_1', 18],
+  ['ket1', 18],
+  ['ket-1', 18],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()
@@ -133,6 +156,8 @@ export const buildDragOperation = ({
   paletteGap = DEFAULT_PALETTE_GAP,
   paletteRowY = DEFAULT_PALETTE_ROW_Y,
   paletteCount = DEFAULT_PALETTE_COUNT,
+  paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
+  paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
   circuitPadding = DEFAULT_CIRCUIT_PADDING,
   qubitLabelWidth = DEFAULT_QUBIT_LABEL_WIDTH,
   qubitLabelGap = DEFAULT_QUBIT_LABEL_GAP,
@@ -144,8 +169,13 @@ export const buildDragOperation = ({
   const gateIndex = getGateIndex(gate)
   const wireIndex = parseWire(wire)
   const slotIndex = parseSlot(slot)
-  const paletteWidth = paletteCount * gateSize + (paletteCount - 1) * paletteGap
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const row2Count = Math.max(paletteCount - paletteRow1Count, 0)
+  const row1Width = paletteRow1Count > 0 ? paletteRow1Count * gateSize + (paletteRow1Count - 1) * paletteGap : 0
+  const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * paletteGap : 0
+  const totalWidth = Math.max(row1Width, row2Width)
+  const paletteStartX = cssWidth / 2 - totalWidth / 2
+  const row = gateIndex < paletteRow1Count ? 0 : 1
+  const col = gateIndex < paletteRow1Count ? gateIndex : gateIndex - paletteRow1Count
   const lineLeftOffset = circuitPadding + qubitLabelWidth + qubitLabelGap
 
   return {
@@ -154,8 +184,9 @@ export const buildDragOperation = ({
     wire: wireIndex,
     slot: slotIndex,
     from: {
-      x: paletteStartX + gateIndex * (gateSize + paletteGap) + gateSize / 2,
-      y: paletteRowY + gateSize / 2 + verticalOffset,
+      // Both rows are left-aligned to match qni's `flex flex-row` layout.
+      x: paletteStartX + col * (gateSize + paletteGap) + gateSize / 2,
+      y: paletteRowY + row * (gateSize + paletteRowGap) + gateSize / 2 + verticalOffset,
     },
     to: {
       x: lineLeftOffset + gateSize + slotIndex * slotSpacing,

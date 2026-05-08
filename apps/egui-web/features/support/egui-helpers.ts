@@ -17,9 +17,13 @@ type CanvasContentStats = { nonBackground: number; sampledPixels: number }
 type ReadCanvasContentStatsOptions = { path?: string; background?: readonly number[]; threshold?: number; step?: number }
 type WaitForCanvasContentOptions = ReadCanvasContentStatsOptions & { timeout?: number; minNonBackground?: number }
 type ScreenshotWithRetryOptions = NonNullable<Parameters<Locator['screenshot']>[0]> & { waitForStateVector?: boolean }
-type PaletteGateCenterOptions = { gateSize?: number; gap?: number; rowY?: number; count?: number }
+type PaletteGateCenterOptions = {
+  gateSize?: number; gap?: number; rowY?: number; count?: number
+  row1Count?: number; rowGap?: number
+}
 type DragPreviewProbeOptions = {
   gateIndex?: number; gateSize?: number; paletteGap?: number; paletteRowY?: number; paletteCount?: number
+  paletteRow1Count?: number; paletteRowGap?: number
   stateCircleSize?: number; stateCircleGap?: number; stateCircleBottomMargin?: number; stateCount?: number; rem?: number
 }
 type ArtifactWorld = { artifactDir?: string } | null | undefined
@@ -35,9 +39,12 @@ const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
 const DEFAULT_REM = 32
 const DEFAULT_GATE_SIZE = 1 * DEFAULT_REM
-const DEFAULT_PALETTE_GAP = 0.5 * DEFAULT_REM
+// qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
+const DEFAULT_PALETTE_GAP = 8
 const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
-const DEFAULT_PALETTE_COUNT = 16
+const DEFAULT_PALETTE_COUNT = 19
+const DEFAULT_PALETTE_ROW1_COUNT = 13
+const DEFAULT_PALETTE_ROW_GAP = 8
 const DEFAULT_STATE_CIRCLE_SIZE = 1.25 * DEFAULT_REM
 const DEFAULT_STATE_CIRCLE_GAP = 0.5 * DEFAULT_REM
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = 2 * DEFAULT_REM
@@ -359,14 +366,23 @@ export const getPaletteGateCenter = (
     gap = DEFAULT_PALETTE_GAP,
     rowY = DEFAULT_PALETTE_ROW_Y,
     count = DEFAULT_PALETTE_COUNT,
+    row1Count = DEFAULT_PALETTE_ROW1_COUNT,
+    rowGap = DEFAULT_PALETTE_ROW_GAP,
   }: PaletteGateCenterOptions = {}
 ): Point => {
-  const paletteWidth = count * gateSize + (count - 1) * gap
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const row2Count = Math.max(count - row1Count, 0)
+  const row1Width = row1Count > 0 ? row1Count * gateSize + (row1Count - 1) * gap : 0
+  const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * gap : 0
+  const totalWidth = Math.max(row1Width, row2Width)
+  const paletteStartX = cssWidth / 2 - totalWidth / 2
 
+  const row = gateIndex < row1Count ? 0 : 1
+  const col = gateIndex < row1Count ? gateIndex : gateIndex - row1Count
+
+  // Both rows are left-aligned to match qni's `flex flex-row` layout.
   return {
-    x: paletteStartX + gateIndex * (gateSize + gap) + gateSize / 2,
-    y: rowY + gateSize / 2,
+    x: paletteStartX + col * (gateSize + gap) + gateSize / 2,
+    y: rowY + row * (gateSize + rowGap) + gateSize / 2,
   }
 }
 
@@ -379,6 +395,8 @@ export const getDragPreviewAboveStatePanelProbe = (
     paletteGap = DEFAULT_PALETTE_GAP,
     paletteRowY = DEFAULT_PALETTE_ROW_Y,
     paletteCount = DEFAULT_PALETTE_COUNT,
+    paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
+    paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
     stateCircleSize = DEFAULT_STATE_CIRCLE_SIZE,
     stateCircleGap = DEFAULT_STATE_CIRCLE_GAP,
     stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
@@ -391,6 +409,8 @@ export const getDragPreviewAboveStatePanelProbe = (
     gap: paletteGap,
     rowY: paletteRowY,
     count: paletteCount,
+    row1Count: paletteRow1Count,
+    rowGap: paletteRowGap,
   })
 
   const statePadding = Math.min(rem, cssWidth * 0.05, cssHeight * 0.05)

@@ -5,6 +5,7 @@ import { assertDragPreviewAboveOverlay } from '../features/support/assertions'
 import {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
+  getPaletteGateCenter,
   readEguiError,
   readStateVector,
   releasePointer,
@@ -91,39 +92,30 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   const REM = 32
   const GATE_SIZE = 1 * REM
   const SLOT_SPACING = 1.5 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
-  const sourceX = paletteCenterX(0)
-  const controlX = paletteCenterX(1)
-  const xGateX = paletteCenterX(3)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const controlSource = getPaletteGateCenter(cssWidth, 14)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY = LINE_Y
   const targetX2 = targetX + SLOT_SPACING
   const targetY2 = LINE_Y + LINE_GAP
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY })
+  await dragPointer(page, hSource, { x: targetX, y: targetY })
 
   const expected = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expected)
 
-  await dragPointer(page, { x: controlX, y: sourceY }, { x: targetX2, y: targetY })
+  await dragPointer(page, controlSource, { x: targetX2, y: targetY })
 
   await waitForStateVectorApprox(page, expected)
 
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX2, y: targetY2 })
+  await dragPointer(page, xSource, { x: targetX2, y: targetY2 })
 
   const expectedBell = [1 / Math.sqrt(2), 0, 0, 0, 0, 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expectedBell)
@@ -149,32 +141,23 @@ test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const sourceX = paletteCenterX(0)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY0 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
 
   const expectedAfterQ0 = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expectedAfterQ0)
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY1 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY1 })
 
   const expected = [0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0]
   await waitForStateVectorApprox(page, expected)
@@ -195,31 +178,22 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const sourceX = paletteCenterX(0)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
   const targetY2 = LINE_Y + 2 * LINE_GAP
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY0 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY1 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY1 })
   await waitForStateVectorLength(page, 8)
 
   await dragPointer(page, { x: targetX, y: targetY0 }, { x: targetX, y: targetY2 }, 6, false)
@@ -247,21 +221,26 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
 
   const REM = 32
   const PALETTE_SIZE = REM
-  const PALETTE_GAP = 0.5 * REM
+  const PALETTE_GAP = 8
   const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_X = 16
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_ROW1_COUNT = 13
+  const PALETTE_ROW2_COUNT = 6
+  const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
+  const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
+  const paletteWidth = Math.max(row1Width, row2Width)
+  const paletteHeight = 2 * PALETTE_SIZE + PALETTE_ROW_GAP
   const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const palettePadding = REM
   const paletteRect = {
-    x: paletteStartX - palettePadding,
-    y: PALETTE_ROW_Y - palettePadding,
-    width: paletteWidth + palettePadding * 2,
-    height: PALETTE_SIZE + palettePadding * 2,
+    x: paletteStartX - PALETTE_PADDING_X,
+    y: PALETTE_ROW_Y - PALETTE_PADDING_Y,
+    width: paletteWidth + PALETTE_PADDING_X * 2,
+    height: paletteHeight + PALETTE_PADDING_Y * 2,
   }
-  const sourceX = paletteStartX + PALETTE_SIZE / 2
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
-  const dragTarget = { x: sourceX + 80, y: sourceY + 80 }
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const dragTarget = { x: hSource.x + 80, y: hSource.y + 80 }
   const panelPoints = [
     { name: 'corner', x: paletteRect.x + 2, y: paletteRect.y + 2 },
     { name: 'fill', x: paletteRect.x + 24, y: paletteRect.y + 24 },
@@ -271,7 +250,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
 
   const beforeDrag = await sampleCanvasPixels(page, canvas, panelPoints)
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await dragPointer(page, hSource, dragTarget, 6, false)
   await page.waitForTimeout(50)
   const duringDrag = await sampleCanvasPixels(page, canvas, panelPoints)
 
@@ -306,19 +285,13 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const REM = 32
-  const PALETTE_SIZE = REM
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const dragSource = { x: paletteStartX + PALETTE_SIZE / 2, y: PALETTE_ROW_Y + PALETTE_SIZE / 2 }
+  const PALETTE_SIZE = 32
+  const dragSource = getPaletteGateCenter(cssWidth, 0)
   const dragTarget = { x: dragSource.x + 80, y: dragSource.y + 80 }
-  const controlIndex = 1
+  const controlCenter = getPaletteGateCenter(cssWidth, 14)
   const controlRect = {
-    x: paletteStartX + controlIndex * (PALETTE_SIZE + PALETTE_GAP),
-    y: PALETTE_ROW_Y,
+    x: controlCenter.x - PALETTE_SIZE / 2,
+    y: controlCenter.y - PALETTE_SIZE / 2,
   }
   const signaturePoints = [
     { name: 'center', x: controlRect.x + PALETTE_SIZE / 2, y: controlRect.y + PALETTE_SIZE / 2 },
@@ -357,18 +330,8 @@ test('control gate uses the qni-style standalone circular dot', async ({ page })
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const REM = 32
-  const PALETTE_SIZE = REM
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const controlIndex = 1
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const controlCenter = {
-    x: paletteStartX + controlIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2,
-    y: PALETTE_ROW_Y + PALETTE_SIZE / 2 + 8,
-  }
+  const palettePos = getPaletteGateCenter(cssWidth, 14)
+  const controlCenter = { x: palettePos.x, y: palettePos.y + 8 }
   const signaturePoints = [
     { name: 'center', x: controlCenter.x, y: controlCenter.y },
     { name: 'inner-left', x: controlCenter.x - 4, y: controlCenter.y },
@@ -405,18 +368,8 @@ test('anti-control gate uses the qni-style open circular dot', async ({ page }) 
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const REM = 32
-  const PALETTE_SIZE = REM
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const antiControlIndex = 2
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const antiControlCenter = {
-    x: paletteStartX + antiControlIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2,
-    y: PALETTE_ROW_Y + PALETTE_SIZE / 2 + 8,
-  }
+  const palettePos = getPaletteGateCenter(cssWidth, 15)
+  const antiControlCenter = { x: palettePos.x, y: palettePos.y + 8 }
   const signaturePoints: PixelSamplePoint[] = [
     { name: 'center', x: antiControlCenter.x, y: antiControlCenter.y },
     { name: 'outside-left', x: antiControlCenter.x - 12, y: antiControlCenter.y },
@@ -457,17 +410,10 @@ test('control and anti-control have matching outer diameters', async ({ page }) 
   const cssWidth = box?.width ?? 1000
   const cssHeight = box?.height ?? 800
 
-  const REM = 32
-  const PALETTE_SIZE = REM
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const centerFor = (index: number): Point => ({
-    x: paletteStartX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2,
-    y: PALETTE_ROW_Y + PALETTE_SIZE / 2 + 8,
-  })
+  const centerFor = (index: number): Point => {
+    const pos = getPaletteGateCenter(cssWidth, index)
+    return { x: pos.x, y: pos.y + 8 }
+  }
   const screenshot = await canvas.screenshot({ type: 'png' })
 
   const bounds = await page.evaluate<
@@ -521,8 +467,8 @@ test('control and anti-control have matching outer diameters', async ({ page }) 
     cssWidth,
     cssHeight,
     centers: {
-      control: centerFor(1),
-      antiControl: centerFor(2),
+      control: centerFor(14),
+      antiControl: centerFor(15),
     },
   })
 
@@ -545,17 +491,12 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
-  const sourceX = paletteStartX + PALETTE_SIZE / 2
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  // Drop target sits outside the palette panel to the left, matching the
+  // visual probe used in the original test.
   const dragTarget = {
-    x: paletteStartX - PALETTE_SIZE / 2,
-    y: sourceY,
+    x: hSource.x - GATE_SIZE,
+    y: hSource.y,
   }
   const dragRect = {
     x: dragTarget.x - GATE_SIZE / 2,
@@ -569,7 +510,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
 
   const beforeDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await dragPointer(page, hSource, dragTarget, 6, false)
   await page.waitForTimeout(50)
 
   const duringDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
@@ -630,21 +571,14 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const sourceX = startX + PALETTE_SIZE / 2
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
-  const dragTarget = { x: sourceX + 80, y: sourceY + 80 }
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const dragTarget = { x: hSource.x + 80, y: hSource.y + 80 }
   const dragRect = {
     x: dragTarget.x - GATE_SIZE / 2,
     y: dragTarget.y - GATE_SIZE / 2,
   }
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, dragTarget, 6, false)
+  await dragPointer(page, hSource, dragTarget, 6, false)
   await page.waitForTimeout(50)
 
   const pixels = await sampleCanvasPixels(page, canvas, [
@@ -673,20 +607,12 @@ test('dragged x gate uses qni intermediate purple before dropping back to green'
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const gateIndex = 3
-  const sourceX = startX + gateIndex * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const signaturePoints: PixelSamplePoint[] = []
   for (let dy = -24; dy <= 32; dy += 4) {
@@ -695,7 +621,7 @@ test('dragged x gate uses qni intermediate purple before dropping back to green'
     }
   }
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, targetCenter, 6, false)
+  await dragPointer(page, xSource, targetCenter, 6, false)
   await page.waitForTimeout(50)
   const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
@@ -724,21 +650,12 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
-  const xGateCenter = { x: paletteCenterX(3), y: sourceY }
+  const xGateCenter = getPaletteGateCenter(cssWidth, 1)
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
   const readCircularBodySignature = async (center: Point): Promise<CircularBodySignature> => {
@@ -884,23 +801,14 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
-  const sqrtXGateCenter = { x: paletteCenterX(6), y: sourceY }
-  const hGateCenter = { x: paletteCenterX(0), y: sourceY }
+  const sqrtXGateCenter = getPaletteGateCenter(cssWidth, 4)
+  const hGateCenter = getPaletteGateCenter(cssWidth, 0)
   const placedGateCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const placedGateRect = {
     x: placedGateCenter.x - GATE_SIZE / 2,
@@ -956,38 +864,29 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
   const REM = 32
   const GATE_SIZE = 1 * REM
   const SLOT_SPACING = 1.5 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const sourceX = paletteCenterX(0)
-  const controlX = paletteCenterX(1)
-  const xGateX = paletteCenterX(3)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const controlSource = getPaletteGateCenter(cssWidth, 14)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetX2 = targetX + SLOT_SPACING
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY1 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY1 })
 
   const expectedAfterH = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0, 0, 0, 0, 0]
   await waitForStateVectorApprox(page, expectedAfterH)
 
-  await dragPointer(page, { x: controlX, y: sourceY }, { x: targetX2, y: targetY1 })
+  await dragPointer(page, controlSource, { x: targetX2, y: targetY1 })
 
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX2, y: targetY0 })
+  await dragPointer(page, xSource, { x: targetX2, y: targetY0 })
 
   const expectedBell = [1 / Math.sqrt(2), 0, 0, 0, 0, 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expectedBell)
@@ -1007,32 +906,23 @@ test('anti-control with a zero control wire applies the target gate', async ({ p
 
   const REM = 32
   const GATE_SIZE = 1 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const antiControlX = paletteCenterX(2)
-  const xGateX = paletteCenterX(3)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const antiControlSource = getPaletteGateCenter(cssWidth, 15)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  await dragPointer(page, { x: antiControlX, y: sourceY }, { x: targetX, y: targetY0 })
+  await dragPointer(page, antiControlSource, { x: targetX, y: targetY0 })
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX, y: targetY1 })
+  await dragPointer(page, xSource, { x: targetX, y: targetY1 })
   await waitForStateVectorApprox(page, [0, 0, 1, 0, 0, 0, 0, 0])
 })
 
@@ -1051,34 +941,25 @@ test('anti-control does not apply when the control wire is one', async ({ page }
   const REM = 32
   const GATE_SIZE = 1 * REM
   const SLOT_SPACING = 1.5 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const antiControlX = paletteCenterX(2)
-  const xGateX = paletteCenterX(3)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const antiControlSource = getPaletteGateCenter(cssWidth, 15)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetX2 = targetX + SLOT_SPACING
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX, y: targetY0 })
+  await dragPointer(page, xSource, { x: targetX, y: targetY0 })
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
-  await dragPointer(page, { x: antiControlX, y: sourceY }, { x: targetX2, y: targetY0 })
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX2, y: targetY1 })
+  await dragPointer(page, antiControlSource, { x: targetX2, y: targetY0 })
+  await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
@@ -1097,39 +978,164 @@ test('Control does not affect gates in other columns', async ({ page }) => {
   const REM = 32
   const GATE_SIZE = 1 * REM
   const SLOT_SPACING = 1.5 * REM
-  const PALETTE_SIZE = GATE_SIZE
-  const PALETTE_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 12
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y = 6.5 * REM
   const LINE_GAP = 1.5 * REM
-  const PALETTE_COUNT = 16
-  const paletteWidth = PALETTE_COUNT * PALETTE_SIZE + (PALETTE_COUNT - 1) * PALETTE_GAP
-  const startX = cssWidth / 2 - paletteWidth / 2
-  const paletteCenterX = (index: number): number =>
-    startX + index * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2
 
-  const sourceX = paletteCenterX(0)
-  const controlX = paletteCenterX(1)
-  const xGateX = paletteCenterX(3)
-  const sourceY = PALETTE_ROW_Y + PALETTE_SIZE / 2
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const controlSource = getPaletteGateCenter(cssWidth, 14)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetX2 = targetX + SLOT_SPACING
   const targetX3 = targetX2 + SLOT_SPACING
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  await dragPointer(page, { x: sourceX, y: sourceY }, { x: targetX, y: targetY0 })
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
 
-  await dragPointer(page, { x: controlX, y: sourceY }, { x: targetX2, y: targetY0 })
+  await dragPointer(page, controlSource, { x: targetX2, y: targetY0 })
 
-  await dragPointer(page, { x: xGateX, y: sourceY }, { x: targetX3, y: targetY1 })
+  await dragPointer(page, xSource, { x: targetX3, y: targetY1 })
 
   const expected = [0, 0, 1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expected)
+})
+
+test('|0> resets a flipped qubit back to |0>', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const write0Source = getPaletteGateCenter(cssWidth, 17)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, xSource, { x: targetX, y: targetY })
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+
+  await dragPointer(page, write0Source, { x: targetX2, y: targetY })
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
+})
+
+test('|1> flips |0> to |1>', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const write1Source = getPaletteGateCenter(cssWidth, 18)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetY = LINE_Y
+
+  await dragPointer(page, write1Source, { x: targetX, y: targetY })
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+})
+
+test('|0> after H leaves the superposition unchanged (qni-faithful no-op)', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const write0Source = getPaletteGateCenter(cssWidth, 17)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, hSource, { x: targetX, y: targetY })
+  const superposition = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
+  await waitForStateVectorApprox(page, superposition)
+
+  await dragPointer(page, write0Source, { x: targetX2, y: targetY })
+  // qni's write gate is a no-op when the qubit is in superposition (pZero ≠ 0,1).
+  await waitForStateVectorApprox(page, superposition)
+})
+
+test('Bloch display does not alter the state vector', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const blochSource = getPaletteGateCenter(cssWidth, 16)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, hSource, { x: targetX, y: targetY })
+  const superposition = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
+  await waitForStateVectorApprox(page, superposition)
+
+  await dragPointer(page, blochSource, { x: targetX2, y: targetY })
+  // BlochDisplay only reads the state; it must not mutate it.
+  await waitForStateVectorApprox(page, superposition)
 })
 
 test('default chromium shows a visible WebGPU error instead of a blank page', async () => {

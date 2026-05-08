@@ -68,6 +68,7 @@ struct GateParams {
   state_count: u32,
   control_mask: u32,
   control_value: u32,
+  mode: u32,
 };
 
 @group(0) @binding(0) var<storage, read> state_in: array<vec2<f32>>;
@@ -99,6 +100,31 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       state_out[i1] = a1;
       return;
     }
+  }
+  // Write |0> / |1>: per-pair conditional X. Matches qni's CPU behavior where
+  // the gate is X iff the qubit is in the opposite basis state, and a no-op
+  // otherwise. For unentangled product states each pair's |a0|/|a1| ratio is
+  // consistent so the local decision agrees with the global one.
+  if (params.mode == 1u || params.mode == 2u) {
+    let mag0 = a0.x * a0.x + a0.y * a0.y;
+    let mag1 = a1.x * a1.x + a1.y * a1.y;
+    let eps = 1.0e-6;
+    var swap = false;
+    if (params.mode == 1u) {
+      // |0>: flip if a1 dominates (qubit was in |1>).
+      swap = mag1 > mag0 + eps;
+    } else {
+      // |1>: flip if a0 dominates (qubit was in |0>).
+      swap = mag0 > mag1 + eps;
+    }
+    if (swap) {
+      state_out[i0] = a1;
+      state_out[i1] = a0;
+    } else {
+      state_out[i0] = a0;
+      state_out[i1] = a1;
+    }
+    return;
   }
   state_out[i0] = cmul(params.m00, a0) + cmul(params.m01, a1);
   state_out[i1] = cmul(params.m10, a0) + cmul(params.m11, a1);

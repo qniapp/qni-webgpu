@@ -3,15 +3,17 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use crate::bloch::{compute_bloch_vectors, BlochVector};
 use crate::colors::Colors;
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
-    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GAP, PALETTE_GATES,
-    PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE,
+    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
+    SNAP_DISTANCE,
 };
 use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
 use crate::layout::{
-    layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, LayoutMetrics,
+    layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, palette_hit_test,
+    palette_layout, LayoutMetrics,
 };
 use crate::render::StateInstanceCache;
 use crate::shared::now_seconds;
@@ -45,6 +47,7 @@ pub(crate) struct QniApp {
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
     pub(crate) state_instance_cache: Option<StateInstanceCache>,
+    pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -73,6 +76,7 @@ impl QniApp {
             last_content_rect: None,
             drag_cursor_pos: None,
             state_instance_cache: None,
+            bloch_vectors: HashMap::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -191,7 +195,7 @@ impl QniApp {
                 if target.wire >= qubits {
                     continue;
                 }
-                if target.kind == GateKind::Swap {
+                if target.kind == GateKind::Swap || target.kind == GateKind::BlochDisplay {
                     continue;
                 }
                 let bit = (qubits.saturating_sub(1).saturating_sub(target.wire)) as u32;
@@ -218,7 +222,10 @@ impl QniApp {
             if gate.kind == GateKind::Swap {
                 continue;
             }
-            if gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl {
+            if gate.kind == GateKind::Control
+                || gate.kind == GateKind::AntiControl
+                || gate.kind == GateKind::BlochDisplay
+            {
                 continue;
             }
             if used_ids.contains(&gate.id) {
@@ -255,15 +262,15 @@ impl QniApp {
         let pointer_start = pointer_pressed || (pointer_down && !self.pointer_was_down);
         self.pointer_was_down = pointer_down;
         let local_pos = pos.map(|p| egui::pos2(p.x - content_rect.min.x, p.y - content_rect.min.y));
-        let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE
-            + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
-        let palette_start_x = screen_rect.width() / 2.0 - palette_width / 2.0;
+        let palette_geom = palette_layout();
+        let palette_start_x = screen_rect.width() / 2.0 - palette_geom.total_width / 2.0;
+        let palette_origin = egui::pos2(
+            screen_rect.min.x + palette_start_x,
+            screen_rect.min.y + PALETTE_ROW_Y,
+        );
         let palette_rect = egui::Rect::from_min_size(
-            egui::pos2(
-                screen_rect.min.x + palette_start_x,
-                screen_rect.min.y + PALETTE_ROW_Y,
-            ),
-            egui::vec2(palette_width, PALETTE_SIZE),
+            palette_origin,
+            egui::vec2(palette_geom.total_width, palette_geom.total_height),
         );
         let metrics = layout_metrics(content_rect.width(), self.layout_qubits());
 
@@ -293,37 +300,33 @@ impl QniApp {
                 }
 
                 if let Some(cursor_screen) = pos {
-                    if palette_rect.contains(cursor_screen) {
-                        let local_x = cursor_screen.x - (screen_rect.min.x + palette_start_x);
-                        let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
-                        if index >= 0 && (index as usize) < PALETTE_GATES.len() {
-                            let in_box = local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP)
-                                <= PALETTE_SIZE;
-                            if in_box {
-                                let new_id = self.next_gate_id;
-                                let new_gate = PlacedGate {
-                                    id: new_id,
-                                    kind: PALETTE_GATES[index as usize],
-                                    pos: egui::pos2(
-                                        cursor.x - GATE_SIZE / 2.0,
-                                        cursor.y - GATE_SIZE / 2.0,
-                                    ),
-                                    wire: 0,
-                                };
-                                self.next_gate_id += 1;
-                                self.placed_gates.push(new_gate);
-                                self.dragging = Some(DragState {
-                                    id: new_id,
-                                    offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
-                                });
-                                self.drag_state_count = Some(self.state_count());
-                                self.drag_cursor_pos = Some(cursor);
-                                ctx.request_repaint();
-                                self.hovered_palette_index = None;
-                                self.hovered_gate_id = None;
-                                return;
-                            }
-                        }
+                    let local = egui::pos2(
+                        cursor_screen.x - palette_origin.x,
+                        cursor_screen.y - palette_origin.y,
+                    );
+                    if let Some(index) = palette_hit_test(local, &palette_geom) {
+                        let new_id = self.next_gate_id;
+                        let new_gate = PlacedGate {
+                            id: new_id,
+                            kind: PALETTE_GATES[index],
+                            pos: egui::pos2(
+                                cursor.x - GATE_SIZE / 2.0,
+                                cursor.y - GATE_SIZE / 2.0,
+                            ),
+                            wire: 0,
+                        };
+                        self.next_gate_id += 1;
+                        self.placed_gates.push(new_gate);
+                        self.dragging = Some(DragState {
+                            id: new_id,
+                            offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
+                        });
+                        self.drag_state_count = Some(self.state_count());
+                        self.drag_cursor_pos = Some(cursor);
+                        ctx.request_repaint();
+                        self.hovered_palette_index = None;
+                        self.hovered_gate_id = None;
+                        return;
                     }
                 }
             }
@@ -377,15 +380,11 @@ impl QniApp {
             let mut hovered_palette = None;
             if let Some(cursor_screen) = pos {
                 if palette_rect.contains(cursor_screen) {
-                    let local_x = cursor_screen.x - (screen_rect.min.x + palette_start_x);
-                    let index = (local_x / (PALETTE_SIZE + PALETTE_GAP)).floor() as i32;
-                    if index >= 0 && (index as usize) < PALETTE_GATES.len() {
-                        let in_box =
-                            local_x - index as f32 * (PALETTE_SIZE + PALETTE_GAP) <= PALETTE_SIZE;
-                        if in_box {
-                            hovered_palette = Some(index as usize);
-                        }
-                    }
+                    let local = egui::pos2(
+                        cursor_screen.x - palette_origin.x,
+                        cursor_screen.y - palette_origin.y,
+                    );
+                    hovered_palette = palette_hit_test(local, &palette_geom);
                 }
             }
             self.hovered_palette_index = hovered_palette;
@@ -548,6 +547,12 @@ impl eframe::App for QniApp {
                 if recompute {
                     self.needs_recompute = false;
                     self.last_state_count = state_count;
+                    let bloch_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
+                    self.bloch_vectors = compute_bloch_vectors(
+                        &self.placed_gates,
+                        self.state_qubits(),
+                        &bloch_metrics,
+                    );
                 }
             } else if recompute {
                 ctx.request_repaint();

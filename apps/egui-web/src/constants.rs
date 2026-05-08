@@ -26,13 +26,24 @@ pub(crate) const DRAG_REPAINT_MIN_SECS: f64 = 0.004;
 pub(crate) const DRAG_REPAINT_MAX_SECS: f64 = 1.0 / 30.0;
 pub(crate) const DRAG_REPAINT_PUMP_FACTOR: f64 = 0.1;
 pub(crate) const PALETTE_SIZE: f32 = GATE_SIZE;
-pub(crate) const PALETTE_GAP: f32 = 0.5 * REM;
+// qni reference (apps/www/app/views/application/_palette_md.html.erb):
+//   space-x-2 / space-y-2 → 0.5rem (8px) inter-gate gap
+//   px-4 / py-5           → 1rem (16px) horizontal / 1.25rem (20px) vertical padding
+//   rounded-xl            → 0.75rem (12px) border radius
+pub(crate) const PALETTE_GAP: f32 = 8.0;
+pub(crate) const PALETTE_ROW_GAP: f32 = 8.0;
+pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
+pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
+pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
 pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
-pub(crate) const PALETTE_GATES: [GateKind; 16] = [
+// Two-row layout. Row 1 holds the unitary single-qubit gates; row 2 holds the
+// special-purpose gates (SWAP/Control/AntiControl/Bloch/|0>/|1>). Indices remain
+// a flat list so callers can look up a gate without branching.
+pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
+pub(crate) const PALETTE_GATES: [GateKind; 19] = [
+    // Row 1
     GateKind::H,
-    GateKind::Control,
-    GateKind::AntiControl,
     GateKind::X,
     GateKind::Y,
     GateKind::Z,
@@ -45,5 +56,11 @@ pub(crate) const PALETTE_GATES: [GateKind; 16] = [
     GateKind::Rx,
     GateKind::Ry,
     GateKind::Rz,
+    // Row 2
     GateKind::Swap,
+    GateKind::Control,
+    GateKind::AntiControl,
+    GateKind::BlochDisplay,
+    GateKind::Write0,
+    GateKind::Write1,
 ];

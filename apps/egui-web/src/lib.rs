@@ -1,4 +1,5 @@
 mod app;
+mod bloch;
 mod colors;
 mod constants;
 mod gates;

@@ -17,12 +17,21 @@ const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
   assert.equal(getGateIndex('H'), 0)
-  assert.equal(getGateIndex('control'), 1)
-  assert.equal(getGateIndex('anti-control'), 2)
-  assert.equal(getGateIndex('◦'), 2)
-  assert.equal(getGateIndex('sqrtx'), 6)
-  assert.equal(getGateIndex('s†'), 8)
-  assert.equal(getGateIndex('tdagger'), 10)
+  assert.equal(getGateIndex('X'), 1)
+  assert.equal(getGateIndex('sqrtx'), 4)
+  assert.equal(getGateIndex('s†'), 6)
+  assert.equal(getGateIndex('tdagger'), 8)
+  assert.equal(getGateIndex('swap'), 13)
+  assert.equal(getGateIndex('control'), 14)
+  assert.equal(getGateIndex('anti-control'), 15)
+  assert.equal(getGateIndex('◦'), 15)
+  assert.equal(getGateIndex('bloch'), 16)
+  assert.equal(getGateIndex('sphere'), 16)
+  assert.equal(getGateIndex('|0>'), 17)
+  assert.equal(getGateIndex('|0⟩'), 17)
+  assert.equal(getGateIndex('write0'), 17)
+  assert.equal(getGateIndex('|1>'), 18)
+  assert.equal(getGateIndex('write1'), 18)
 })
 
 test('agent visual command parses q-prefixed and numeric wires', () => {
@@ -40,10 +49,10 @@ test('agent visual command builds drag coordinates from semantic gate placement'
 
   assert.deepEqual(operation, {
     gate: 'x',
-    gateIndex: 3,
+    gateIndex: 1,
     wire: 1,
     slot: 2,
-    from: { x: 284, y: 80 },
+    from: { x: 300, y: 80 },
     to: { x: 250, y: 256 },
   })
 })

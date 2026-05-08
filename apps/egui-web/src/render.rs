@@ -7,14 +7,16 @@ use std::sync::Arc;
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::{
-    CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y,
-    PALETTE_SIZE, REM, SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP,
-    STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
+    CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS, PALETTE_GATES,
+    PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE,
+    STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
 };
 use crate::gates::GateKind;
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
-use crate::icons::{draw_drag_gate_body, draw_gate_body};
-use crate::layout::{layout_metrics, nearest_slot_index, LayoutMetrics};
+use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body};
+use crate::layout::{
+    layout_metrics, nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics,
+};
 use crate::shared::{amplitude_qubits, display_index_to_state_index};
 
 pub(super) struct StatePanelLayout {
@@ -172,6 +174,17 @@ impl QniApp {
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
+            if gate.kind == GateKind::BlochDisplay {
+                // Default to (0, 0, 0): an entangled qubit (or one whose vector
+                // hasn't been computed yet) renders as the qni "d=0" blue dot
+                // at the sphere center.
+                let vector = self
+                    .bloch_vectors
+                    .get(&gate.id)
+                    .copied()
+                    .unwrap_or([0.0, 0.0, 0.0]);
+                draw_bloch_vector(painter, gate_rect, vector, colors);
+            }
         }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
@@ -187,22 +200,20 @@ impl QniApp {
     }
 
     pub(super) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
-        let palette_width = PALETTE_GATES.len() as f32 * PALETTE_SIZE
-            + (PALETTE_GATES.len() as f32 - 1.0) * PALETTE_GAP;
-        let palette_start_x = rect.width() / 2.0 - palette_width / 2.0;
-        let palette_padding = 1.0 * REM;
+        let layout = palette_layout();
+        let palette_start_x = rect.width() / 2.0 - layout.total_width / 2.0;
         let palette_rect = egui::Rect::from_min_size(
             rect.min
                 + egui::vec2(
-                    palette_start_x - palette_padding,
-                    PALETTE_ROW_Y - palette_padding,
+                    palette_start_x - PALETTE_PADDING_X,
+                    PALETTE_ROW_Y - PALETTE_PADDING_Y,
                 ),
             egui::vec2(
-                palette_width + palette_padding * 2.0,
-                PALETTE_SIZE + palette_padding * 2.0,
+                layout.total_width + PALETTE_PADDING_X * 2.0,
+                layout.total_height + PALETTE_PADDING_Y * 2.0,
             ),
         );
-        let palette_corner = egui::CornerRadius::same(14);
+        let palette_corner = egui::CornerRadius::same(PALETTE_CORNER_RADIUS);
         let shadow = egui::epaint::Shadow {
             offset: [0, 6],
             blur: 16,
@@ -214,10 +225,13 @@ impl QniApp {
         ));
         painter.rect_filled(palette_rect, palette_corner, colors.surface);
 
+        let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
         for (index, gate) in PALETTE_GATES.iter().enumerate() {
-            let gate_x = palette_start_x + index as f32 * (PALETTE_SIZE + PALETTE_GAP);
+            let Some(local) = palette_gate_local_pos(index, &layout) else {
+                continue;
+            };
             let gate_rect = egui::Rect::from_min_size(
-                rect.min + egui::vec2(gate_x, PALETTE_ROW_Y),
+                palette_origin + local.to_vec2(),
                 egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
             );
             if self.hovered_palette_index == Some(index) {
@@ -227,6 +241,10 @@ impl QniApp {
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
             draw_gate_body(painter, gate_rect, *gate, colors);
+            if *gate == GateKind::BlochDisplay {
+                // Palette has no associated state: render qni's d=0 blue center dot.
+                draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+            }
         }
     }
 
@@ -245,6 +263,11 @@ impl QniApp {
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
         draw_drag_gate_body(painter, gate_rect, gate.kind, colors);
+        if gate.kind == GateKind::BlochDisplay {
+            // While dragging the gate isn't snapped, so we can't compute a
+            // Bloch vector. Render the qni d=0 blue dot at the sphere center.
+            draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+        }
     }
 
     pub(super) fn state_panel_layout(
@@ -258,7 +281,9 @@ impl QniApp {
         let state_padding = (1.0 * REM)
             .min(rect.width() * 0.05)
             .min(rect.height() * 0.05);
-        let top_limit = rect.min.y + PALETTE_ROW_Y + PALETTE_SIZE + 2.0 * REM;
+        let palette_geom = palette_layout();
+        let top_limit =
+            rect.min.y + PALETTE_ROW_Y + palette_geom.total_height + PALETTE_PADDING_Y + REM;
         let mut available_width = rect.width() - state_padding * 2.0;
         let mut available_height = rect.max.y - STATE_CIRCLE_BOTTOM_MARGIN - top_limit;
         if available_width <= 0.0 {

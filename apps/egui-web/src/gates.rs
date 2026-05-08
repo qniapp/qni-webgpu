@@ -3,6 +3,9 @@ pub(crate) enum GateKind {
     H,
     Control,
     AntiControl,
+    BlochDisplay,
+    Write0,
+    Write1,
     X,
     Y,
     Z,
@@ -24,6 +27,9 @@ impl GateKind {
             GateKind::H => "H",
             GateKind::Control => "C",
             GateKind::AntiControl => "◦",
+            GateKind::BlochDisplay => "B",
+            GateKind::Write0 => "|0⟩",
+            GateKind::Write1 => "|1⟩",
             GateKind::X => "X",
             GateKind::Y => "Y",
             GateKind::Z => "Z",
@@ -42,14 +48,14 @@ impl GateKind {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct GateMatrix {
-    m00: [f32; 2],
-    m01: [f32; 2],
-    m10: [f32; 2],
-    m11: [f32; 2],
+pub(crate) struct GateMatrix {
+    pub(crate) m00: [f32; 2],
+    pub(crate) m01: [f32; 2],
+    pub(crate) m10: [f32; 2],
+    pub(crate) m11: [f32; 2],
 }
 
-fn gate_matrix(kind: GateKind) -> GateMatrix {
+pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
     let inv_sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
     let default_angle = std::f32::consts::FRAC_PI_2;
     let half_angle = default_angle * 0.5;
@@ -64,6 +70,14 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
             m11: [-inv_sqrt2, 0.0],
         },
         GateKind::Control | GateKind::AntiControl => GateMatrix {
+            m00: [1.0, 0.0],
+            m01: [0.0, 0.0],
+            m10: [0.0, 0.0],
+            m11: [1.0, 0.0],
+        },
+        GateKind::Write0 | GateKind::Write1 | GateKind::BlochDisplay => GateMatrix {
+            // BlochDisplay is a non-mutating viewer; Write0/Write1 are mode-driven on
+            // the GPU. Matrix is unused for these but filled with identity for safety.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
@@ -150,6 +164,10 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
     }
 }
 
+pub(crate) const GATE_MODE_MATRIX: u32 = 0;
+pub(crate) const GATE_MODE_WRITE0: u32 = 1;
+pub(crate) const GATE_MODE_WRITE1: u32 = 2;
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct GateParams {
@@ -161,6 +179,16 @@ pub(crate) struct GateParams {
     state_count: u32,
     control_mask: u32,
     control_value: u32,
+    mode: u32,
+    _pad: [u32; 3],
+}
+
+fn gate_mode(kind: GateKind) -> u32 {
+    match kind {
+        GateKind::Write0 => GATE_MODE_WRITE0,
+        GateKind::Write1 => GATE_MODE_WRITE1,
+        _ => GATE_MODE_MATRIX,
+    }
 }
 
 pub(crate) fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GateParams {
@@ -174,6 +202,8 @@ pub(crate) fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GatePar
         state_count,
         control_mask: 0,
         control_value: 0,
+        mode: gate_mode(kind),
+        _pad: [0; 3],
     }
 }
 
@@ -194,5 +224,7 @@ pub(crate) fn gate_params_controlled(
         state_count,
         control_mask,
         control_value,
+        mode: gate_mode(kind),
+        _pad: [0; 3],
     }
 }
