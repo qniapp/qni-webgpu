@@ -2,64 +2,8 @@ use eframe::egui;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use std::cell::RefCell;
-
-use crate::bloch::{linearize_ops, BlochVector, SimulationOp};
+use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
-use crate::gpu::{BLOCH_CACHE, MEASUREMENT_CACHE};
-
-thread_local! {
-    /// Snapshot of `self.bloch_vectors` made each frame so the wasm-bindgen
-    /// `read_bloch_vectors()` API (used by Playwright) can read it
-    /// synchronously. Layout matches `BLOCH_CACHE`: `[gate_id, x, y, z]` per
-    /// entry, sorted by gate id for stable assertions.
-    pub(crate) static BLOCH_SNAPSHOT: RefCell<Vec<[f32; 4]>> = const { RefCell::new(Vec::new()) };
-    /// Same idea as `BLOCH_SNAPSHOT` but for measurement outcomes. Each
-    /// entry is `[gate_id_as_f32, outcome_as_f32]`.
-    pub(crate) static MEASUREMENT_SNAPSHOT: RefCell<Vec<[f32; 2]>> =
-        const { RefCell::new(Vec::new()) };
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn read_bloch_vectors_snapshot() -> js_sys::Float32Array {
-    BLOCH_SNAPSHOT.with(|cell| {
-        let entries = cell.borrow();
-        let len = entries.len() * 4;
-        let arr = js_sys::Float32Array::new_with_length(len as u32);
-        for (i, entry) in entries.iter().enumerate() {
-            for (j, v) in entry.iter().enumerate() {
-                arr.set_index((i * 4 + j) as u32, *v);
-            }
-        }
-        arr
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(dead_code)]
-pub(crate) fn read_bloch_vectors_snapshot() {
-    // Exposed for native builds so the wasm_bindgen-gated `read_bloch_vectors`
-    // call site still compiles when target_arch != wasm32.
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn read_measurement_outcomes_snapshot() -> js_sys::Float32Array {
-    MEASUREMENT_SNAPSHOT.with(|cell| {
-        let entries = cell.borrow();
-        let len = entries.len() * 2;
-        let arr = js_sys::Float32Array::new_with_length(len as u32);
-        for (i, entry) in entries.iter().enumerate() {
-            for (j, v) in entry.iter().enumerate() {
-                arr.set_index((i * 2 + j) as u32, *v);
-            }
-        }
-        arr
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(dead_code)]
-pub(crate) fn read_measurement_outcomes_snapshot() {}
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
@@ -101,8 +45,6 @@ pub(crate) struct QniApp {
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
     pub(crate) state_instance_cache: Option<StateInstanceCache>,
-    pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
-    pub(crate) measurements: HashMap<u32, u8>,
     pub(crate) sim_ops: Vec<SimulationOp>,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
@@ -137,8 +79,6 @@ impl QniApp {
             last_content_rect: None,
             drag_cursor_pos: None,
             state_instance_cache: None,
-            bloch_vectors: HashMap::new(),
-            measurements: HashMap::new(),
             sim_ops: Vec::new(),
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
@@ -393,56 +333,6 @@ impl QniApp {
 impl eframe::App for QniApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let frame_start = now_seconds();
-        // Drain any Bloch readback results that completed since the last frame.
-        // The async `map_async` callback in `gpu.rs` publishes them here; the
-        // current frame picks them up so the rendered Bloch arrows match the
-        // simulator output computed on the GPU.
-        let drained_bloch = BLOCH_CACHE.with(|cell| cell.borrow_mut().take());
-        if let Some((_seq, entries)) = drained_bloch {
-            self.bloch_vectors.clear();
-            for entry in &entries {
-                let id = entry[0] as u32;
-                self.bloch_vectors.insert(id, [entry[1], entry[2], entry[3]]);
-            }
-            ctx.request_repaint();
-        }
-        let drained_meas = MEASUREMENT_CACHE.with(|cell| cell.borrow_mut().take());
-        if let Some((_seq, entries)) = drained_meas {
-            self.measurements.clear();
-            for entry in &entries {
-                let id = entry[0] as u32;
-                let outcome = if entry[1] >= 0.5 { 1u8 } else { 0u8 };
-                self.measurements.insert(id, outcome);
-            }
-            ctx.request_repaint();
-        }
-        // Publish a snapshot of the latest Bloch values for the JS test API.
-        BLOCH_SNAPSHOT.with(|cell| {
-            let mut snap = cell.borrow_mut();
-            snap.clear();
-            let mut sorted: Vec<(u32, [f32; 3])> = self
-                .bloch_vectors
-                .iter()
-                .map(|(id, v)| (*id, *v))
-                .collect();
-            sorted.sort_by_key(|(id, _)| *id);
-            for (id, v) in sorted {
-                snap.push([id as f32, v[0], v[1], v[2]]);
-            }
-        });
-        MEASUREMENT_SNAPSHOT.with(|cell| {
-            let mut snap = cell.borrow_mut();
-            snap.clear();
-            let mut sorted: Vec<(u32, u8)> = self
-                .measurements
-                .iter()
-                .map(|(id, v)| (*id, *v))
-                .collect();
-            sorted.sort_by_key(|(id, _)| *id);
-            for (id, outcome) in sorted {
-                snap.push([id as f32, outcome as f32]);
-            }
-        });
         egui::CentralPanel::default().show(ctx, |ui| {
             let screen_rect = ui.max_rect();
             let colors = Colors::new();

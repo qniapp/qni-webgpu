@@ -17,11 +17,6 @@ use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 
-/// Bloch vector for a single qubit, in qni's convention. The values are
-/// always produced by `BLOCH_REDUCE_SHADER`; this alias just names the shape
-/// of the cached read-back triple.
-pub(crate) type BlochVector = [f32; 3];
-
 /// One step the GPU dispatcher should run during a recompute.
 ///   * `ApplyGate`: unitary / write gate via `STATE_COMPUTE_SHADER`.
 ///   * `CaptureBloch`: per-qubit reduction (Bloch x, y, z) via

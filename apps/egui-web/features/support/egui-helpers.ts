@@ -9,8 +9,8 @@ declare global {
     __eguiReady?: boolean
     __eguiError?: unknown
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
-    __eguiReadBlochVectors?: () => number[]
-    __eguiReadMeasurementOutcomes?: () => number[]
+    __eguiReadBlochVectors?: () => Promise<number[]>
+    __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
 }
 
@@ -131,11 +131,11 @@ export const readStateVector = async (page: Page): Promise<unknown[]> =>
 export type BlochEntry = { gateId: number; x: number; y: number; z: number }
 
 export const readBlochVectors = async (page: Page): Promise<BlochEntry[]> => {
-  const flat = await evaluateWithRetry<number[]>(page, () => {
+  const flat = await evaluateWithRetry<number[]>(page, async () => {
     if (!window.__eguiReadBlochVectors) {
       return []
     }
-    return window.__eguiReadBlochVectors()
+    return await window.__eguiReadBlochVectors()
   })
   const entries: BlochEntry[] = []
   for (let i = 0; i + 3 < flat.length; i += 4) {
@@ -152,11 +152,11 @@ export const readBlochVectors = async (page: Page): Promise<BlochEntry[]> => {
 export type MeasurementOutcome = { gateId: number; outcome: number }
 
 export const readMeasurementOutcomes = async (page: Page): Promise<MeasurementOutcome[]> => {
-  const flat = await evaluateWithRetry<number[]>(page, () => {
+  const flat = await evaluateWithRetry<number[]>(page, async () => {
     if (!window.__eguiReadMeasurementOutcomes) {
       return []
     }
-    return window.__eguiReadMeasurementOutcomes()
+    return await window.__eguiReadMeasurementOutcomes()
   })
   const entries: MeasurementOutcome[] = []
   for (let i = 0; i + 1 < flat.length; i += 2) {

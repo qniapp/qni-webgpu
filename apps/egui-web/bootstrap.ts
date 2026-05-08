@@ -1,8 +1,8 @@
 type QniEguiWebModule = {
   default: () => Promise<void>
   read_state_vector: () => Promise<ArrayLike<number>>
-  read_bloch_vectors: () => ArrayLike<number>
-  read_measurement_outcomes: () => ArrayLike<number>
+  read_bloch_vectors: () => Promise<ArrayLike<number>>
+  read_measurement_outcomes: () => Promise<ArrayLike<number>>
   start: (canvasId: string) => Promise<void>
 }
 
@@ -11,8 +11,8 @@ declare global {
     __eguiError?: unknown
     __eguiReady?: boolean
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
-    __eguiReadBlochVectors?: () => number[]
-    __eguiReadMeasurementOutcomes?: () => number[]
+    __eguiReadBlochVectors?: () => Promise<number[]>
+    __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
 }
 
@@ -64,16 +64,16 @@ const run = async (): Promise<void> => {
         return []
       }
     }
-    window.__eguiReadBlochVectors = () => {
+    window.__eguiReadBlochVectors = async () => {
       try {
-        return Array.from(read_bloch_vectors())
+        return Array.from(await read_bloch_vectors())
       } catch {
         return []
       }
     }
-    window.__eguiReadMeasurementOutcomes = () => {
+    window.__eguiReadMeasurementOutcomes = async () => {
       try {
-        return Array.from(read_measurement_outcomes())
+        return Array.from(await read_measurement_outcomes())
       } catch {
         return []
       }

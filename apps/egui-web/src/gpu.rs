@@ -2189,139 +2189,19 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 }
                 resources.active_state = in_index;
 
-                if measurement_count > 0 {
-                    let copy_bytes =
-                        (measurement_count as usize) * 4 * std::mem::size_of::<f32>();
-                    let staging = device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("measurement_staging_per_readback"),
-                        size: copy_bytes as wgpu::BufferAddress,
-                        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
-                    let mut copy_encoder =
-                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("measurement_readback_copy_encoder"),
-                        });
-                    copy_encoder.copy_buffer_to_buffer(
-                        &resources.measurement_aux_buffer,
-                        0,
-                        &staging,
-                        0,
-                        copy_bytes as wgpu::BufferAddress,
-                    );
-                    queue.submit(Some(copy_encoder.finish()));
-
-                    let seq = MEASUREMENT_SEQ.with(|c| {
-                        let next = c.get().wrapping_add(1);
-                        c.set(next);
-                        next
-                    });
-                    let staging_for_callback = staging.clone();
-                    let slice = staging.slice(..copy_bytes as wgpu::BufferAddress);
-                    slice.map_async(wgpu::MapMode::Read, move |result| {
-                        if result.is_err() {
-                            return;
-                        }
-                        let mapped =
-                            staging_for_callback.slice(..copy_bytes as wgpu::BufferAddress);
-                        let data = mapped.get_mapped_range();
-                        let floats: &[f32] = bytemuck::cast_slice(&data);
-                        let mut entries: Vec<[f32; 2]> = Vec::new();
-                        for (slot, &gate_id) in measurement_slot_to_gate_id.iter().enumerate() {
-                            // aux layout: (pZero, r, outcome, sqrt_p_kept).
-                            let outcome_idx = slot * 4 + 2;
-                            if outcome_idx >= floats.len() {
-                                break;
-                            }
-                            entries.push([gate_id as f32, floats[outcome_idx]]);
-                        }
-                        MEASUREMENT_CACHE.with(|cell| {
-                            let mut current = cell.borrow_mut();
-                            let should_update = match current.as_ref() {
-                                None => true,
-                                Some((existing_seq, _)) => {
-                                    seq.wrapping_sub(*existing_seq) as i64 > 0
-                                }
-                            };
-                            if should_update {
-                                *current = Some((seq, entries));
-                            }
-                        });
-                        drop(data);
-                        staging_for_callback.unmap();
-                    });
-                }
-
-                if bloch_capture_count > 0 {
-                    let copy_bytes =
-                        (bloch_capture_count as usize) * 4 * std::mem::size_of::<f32>();
-                    // Fresh staging buffer per readback. Reusing one shared
-                    // buffer would race: the next recompute would start a
-                    // copy_buffer_to_buffer while the previous map_async is
-                    // still holding the buffer mapped.
-                    let staging = device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("bloch_staging_per_readback"),
-                        size: copy_bytes as wgpu::BufferAddress,
-                        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
-                    let mut copy_encoder =
-                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("bloch_readback_copy_encoder"),
-                        });
-                    copy_encoder.copy_buffer_to_buffer(
-                        &resources.bloch_output_buffer,
-                        0,
-                        &staging,
-                        0,
-                        copy_bytes as wgpu::BufferAddress,
-                    );
-                    queue.submit(Some(copy_encoder.finish()));
-
-                    let seq = BLOCH_SEQ.with(|c| {
-                        let next = c.get().wrapping_add(1);
-                        c.set(next);
-                        next
-                    });
-                    let staging_for_callback = staging.clone();
-                    let slice = staging.slice(..copy_bytes as wgpu::BufferAddress);
-                    slice.map_async(wgpu::MapMode::Read, move |result| {
-                        if result.is_err() {
-                            return;
-                        }
-                        let mapped =
-                            staging_for_callback.slice(..copy_bytes as wgpu::BufferAddress);
-                        let data = mapped.get_mapped_range();
-                        let floats: &[f32] = bytemuck::cast_slice(&data);
-                        let mut entries: Vec<[f32; 4]> = Vec::new();
-                        for (slot, &gate_id) in bloch_slot_to_gate_id.iter().enumerate() {
-                            let base = slot * 4;
-                            if base + 2 >= floats.len() {
-                                break;
-                            }
-                            entries.push([
-                                gate_id as f32,
-                                floats[base],
-                                floats[base + 1],
-                                floats[base + 2],
-                            ]);
-                        }
-                        BLOCH_CACHE.with(|cell| {
-                            let mut current = cell.borrow_mut();
-                            let should_update = match current.as_ref() {
-                                None => true,
-                                Some((existing_seq, _)) => {
-                                    seq.wrapping_sub(*existing_seq) as i64 > 0
-                                }
-                            };
-                            if should_update {
-                                *current = Some((seq, entries));
-                            }
-                        });
-                        drop(data);
-                        staging_for_callback.unmap();
-                    });
-                }
+                // Production path never reads back. The slot mappings are
+                // stashed in thread-locals so the test-only on-demand
+                // readback APIs (`read_bloch_vectors_impl` /
+                // `read_measurement_outcomes_impl`) can copy + map the
+                // GPU buffers when JS asks for them.
+                BLOCH_SLOT_MAP.with(|cell| {
+                    *cell.borrow_mut() = bloch_slot_to_gate_id;
+                });
+                MEASUREMENT_SLOT_MAP.with(|cell| {
+                    *cell.borrow_mut() = measurement_slot_to_gate_id;
+                });
+                let _ = bloch_capture_count;
+                let _ = measurement_count;
             } else {
                 resources.active_state = 0;
             }
@@ -2337,6 +2217,20 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 ],
                 state_count: resources.state_count,
                 active_state: resources.active_state,
+            });
+        });
+        BLOCH_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(BlochGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                output_buffer: resources.bloch_output_buffer.clone(),
+            });
+        });
+        MEASUREMENT_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(MeasurementGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                aux_buffer: resources.measurement_aux_buffer.clone(),
             });
         });
 
@@ -2377,24 +2271,36 @@ pub(crate) struct GpuReadbackState {
     pub(crate) active_state: usize,
 }
 
+#[derive(Clone)]
+pub(crate) struct BlochGpuHandle {
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) output_buffer: wgpu::Buffer,
+}
+
+#[derive(Clone)]
+pub(crate) struct MeasurementGpuHandle {
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) aux_buffer: wgpu::Buffer,
+}
+
 thread_local! {
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
-    /// Pending Bloch readback results, flushed by `prepare()` once the staging
-    /// buffer has been mapped. Tagged with a monotonically increasing sequence
-    /// so out-of-order async callbacks don't overwrite a fresher recompute.
-    /// Each entry is `[gate_id, x, y, z]` (the gate id is reinterpreted as
-    /// f32 for transport convenience).
-    pub(crate) static BLOCH_CACHE: RefCell<Option<(u64, Vec<[f32; 4]>)>> =
+    /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
+    /// `prepare()`; consumed by the test-only async API
+    /// `read_bloch_vectors_impl`. No production code touches it — production
+    /// rendering reads `bloch_output_buffer` directly inside the GPU shader.
+    pub(crate) static BLOCH_GPU_HANDLE: RefCell<Option<BlochGpuHandle>> =
         const { RefCell::new(None) };
-    /// Sequence counter used to tag each Bloch readback dispatched from
-    /// `prepare()`. Plain `Cell<u64>` since wasm is single-threaded.
-    pub(crate) static BLOCH_SEQ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
-    /// Pending measurement readback results (one entry per measurement gate
-    /// in the latest recompute), tagged with a sequence number. Each entry
-    /// is `[gate_id_as_f32, outcome]`. Drained by `app.rs::update`.
-    pub(crate) static MEASUREMENT_CACHE: RefCell<Option<(u64, Vec<[f32; 2]>)>> =
+    /// gate_id list ordered by output_slot. Parallel to the contents of
+    /// `bloch_output_buffer`; the test API joins this with the read-back
+    /// floats to produce `[gate_id, x, y, z, …]`.
+    pub(crate) static BLOCH_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    /// Same as `BLOCH_GPU_HANDLE` for the measurement aux buffer.
+    pub(crate) static MEASUREMENT_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> =
         const { RefCell::new(None) };
-    pub(crate) static MEASUREMENT_SEQ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -2436,6 +2342,119 @@ pub(crate) async fn read_state_vector_impl() -> Result<js_sys::Float32Array, JsV
     let floats: &[f32] = bytemuck::cast_slice(&data);
     let output = js_sys::Float32Array::new_with_length(floats.len() as u32);
     output.copy_from(floats);
+    drop(data);
+    staging.unmap();
+    Ok(output)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_bloch_vectors_impl() -> Result<js_sys::Float32Array, JsValue> {
+    let Some(handle) = BLOCH_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    };
+    let slot_map = BLOCH_SLOT_MAP.with(|cell| cell.borrow().clone());
+    if slot_map.is_empty() {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    }
+    let copy_bytes = slot_map.len() * 4 * std::mem::size_of::<f32>();
+    let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("bloch_readback"),
+        size: copy_bytes as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("bloch_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &handle.output_buffer,
+        0,
+        &staging,
+        0,
+        copy_bytes as wgpu::BufferAddress,
+    );
+    handle.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let floats: &[f32] = bytemuck::cast_slice(&data);
+    let output = js_sys::Float32Array::new_with_length((slot_map.len() * 4) as u32);
+    for (slot, gate_id) in slot_map.iter().enumerate() {
+        let base = slot * 4;
+        if base + 2 >= floats.len() {
+            break;
+        }
+        output.set_index((slot * 4) as u32, *gate_id as f32);
+        output.set_index((slot * 4 + 1) as u32, floats[base]);
+        output.set_index((slot * 4 + 2) as u32, floats[base + 1]);
+        output.set_index((slot * 4 + 3) as u32, floats[base + 2]);
+    }
+    drop(data);
+    staging.unmap();
+    Ok(output)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_measurement_outcomes_impl() -> Result<js_sys::Float32Array, JsValue> {
+    let Some(handle) = MEASUREMENT_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    };
+    let slot_map = MEASUREMENT_SLOT_MAP.with(|cell| cell.borrow().clone());
+    if slot_map.is_empty() {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    }
+    let copy_bytes = slot_map.len() * 4 * std::mem::size_of::<f32>();
+    let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("measurement_readback"),
+        size: copy_bytes as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("measurement_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &handle.aux_buffer,
+        0,
+        &staging,
+        0,
+        copy_bytes as wgpu::BufferAddress,
+    );
+    handle.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let floats: &[f32] = bytemuck::cast_slice(&data);
+    let output = js_sys::Float32Array::new_with_length((slot_map.len() * 2) as u32);
+    for (slot, gate_id) in slot_map.iter().enumerate() {
+        // aux layout (.x, .y, .z, .w) = (pZero, r, outcome, sqrt_p_kept).
+        let outcome_idx = slot * 4 + 2;
+        if outcome_idx >= floats.len() {
+            break;
+        }
+        output.set_index((slot * 2) as u32, *gate_id as f32);
+        output.set_index((slot * 2 + 1) as u32, floats[outcome_idx]);
+    }
     drop(data);
     staging.unmap();
     Ok(output)
