@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use std::cell::RefCell;
 
-use crate::bloch::{linearize_ops, simulate, BlochVector, SimulationOp, SimulationResult};
+use crate::bloch::{linearize_ops, BlochVector, SimulationOp};
 use crate::colors::Colors;
-use crate::gpu::BLOCH_CACHE;
+use crate::gpu::{BLOCH_CACHE, MEASUREMENT_CACHE};
 
 thread_local! {
     /// Snapshot of `self.bloch_vectors` made each frame so the wasm-bindgen
@@ -14,6 +14,10 @@ thread_local! {
     /// synchronously. Layout matches `BLOCH_CACHE`: `[gate_id, x, y, z]` per
     /// entry, sorted by gate id for stable assertions.
     pub(crate) static BLOCH_SNAPSHOT: RefCell<Vec<[f32; 4]>> = const { RefCell::new(Vec::new()) };
+    /// Same idea as `BLOCH_SNAPSHOT` but for measurement outcomes. Each
+    /// entry is `[gate_id_as_f32, outcome_as_f32]`.
+    pub(crate) static MEASUREMENT_SNAPSHOT: RefCell<Vec<[f32; 2]>> =
+        const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -37,6 +41,25 @@ pub(crate) fn read_bloch_vectors_snapshot() {
     // Exposed for native builds so the wasm_bindgen-gated `read_bloch_vectors`
     // call site still compiles when target_arch != wasm32.
 }
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn read_measurement_outcomes_snapshot() -> js_sys::Float32Array {
+    MEASUREMENT_SNAPSHOT.with(|cell| {
+        let entries = cell.borrow();
+        let len = entries.len() * 2;
+        let arr = js_sys::Float32Array::new_with_length(len as u32);
+        for (i, entry) in entries.iter().enumerate() {
+            for (j, v) in entry.iter().enumerate() {
+                arr.set_index((i * 2 + j) as u32, *v);
+            }
+        }
+        arr
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(dead_code)]
+pub(crate) fn read_measurement_outcomes_snapshot() {}
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
@@ -369,12 +392,22 @@ impl eframe::App for QniApp {
         // The async `map_async` callback in `gpu.rs` publishes them here; the
         // current frame picks them up so the rendered Bloch arrows match the
         // simulator output computed on the GPU.
-        let drained = BLOCH_CACHE.with(|cell| cell.borrow_mut().take());
-        if let Some((_seq, entries)) = drained {
+        let drained_bloch = BLOCH_CACHE.with(|cell| cell.borrow_mut().take());
+        if let Some((_seq, entries)) = drained_bloch {
             self.bloch_vectors.clear();
             for entry in &entries {
                 let id = entry[0] as u32;
                 self.bloch_vectors.insert(id, [entry[1], entry[2], entry[3]]);
+            }
+            ctx.request_repaint();
+        }
+        let drained_meas = MEASUREMENT_CACHE.with(|cell| cell.borrow_mut().take());
+        if let Some((_seq, entries)) = drained_meas {
+            self.measurements.clear();
+            for entry in &entries {
+                let id = entry[0] as u32;
+                let outcome = if entry[1] >= 0.5 { 1u8 } else { 0u8 };
+                self.measurements.insert(id, outcome);
             }
             ctx.request_repaint();
         }
@@ -390,6 +423,19 @@ impl eframe::App for QniApp {
             sorted.sort_by_key(|(id, _)| *id);
             for (id, v) in sorted {
                 snap.push([id as f32, v[0], v[1], v[2]]);
+            }
+        });
+        MEASUREMENT_SNAPSHOT.with(|cell| {
+            let mut snap = cell.borrow_mut();
+            snap.clear();
+            let mut sorted: Vec<(u32, u8)> = self
+                .measurements
+                .iter()
+                .map(|(id, v)| (*id, *v))
+                .collect();
+            sorted.sort_by_key(|(id, _)| *id);
+            for (id, outcome) in sorted {
+                snap.push([id as f32, outcome as f32]);
             }
         });
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -482,25 +528,7 @@ impl eframe::App for QniApp {
                     self.last_state_count = state_count;
                     let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
                     let qubits = self.state_qubits();
-                    let SimulationResult {
-                        final_state,
-                        bloch_vectors,
-                        measurements,
-                    } = simulate(&self.placed_gates, qubits, &sim_metrics);
-                    self.cpu_state = final_state;
-                    self.bloch_vectors = bloch_vectors;
-                    self.measurements = measurements;
-                    // Bloch capture is included in the GPU op list only when
-                    // the circuit is purely unitary/write — measurement still
-                    // runs on the CPU until Step 3, and a GPU pre-collapse
-                    // bloch would diverge from the CPU post-collapse state.
-                    let capture_bloch = self.measurements.is_empty();
-                    self.sim_ops = linearize_ops(
-                        &self.placed_gates,
-                        qubits,
-                        &sim_metrics,
-                        capture_bloch,
-                    );
+                    self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
                 }
             } else if recompute {
                 ctx.request_repaint();

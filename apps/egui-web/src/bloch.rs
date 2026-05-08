@@ -25,10 +25,15 @@ use crate::layout::{nearest_slot_index, LayoutMetrics};
 /// Bloch vector for a single qubit, in qni's convention.
 pub(crate) type BlochVector = [f32; 3];
 
-/// One step the GPU dispatcher should run during a recompute. Either applies
-/// a unitary / write gate to the state vector via `STATE_COMPUTE_SHADER`, or
-/// asks the Bloch reduction shader to capture (x, y, z) for a single qubit
-/// at the current position in the gate sequence.
+/// One step the GPU dispatcher should run during a recompute.
+///   * `ApplyGate`: unitary / write gate via `STATE_COMPUTE_SHADER`.
+///   * `CaptureBloch`: per-qubit reduction (Bloch x, y, z) via
+///     `BLOCH_REDUCE_SHADER`.
+///   * `MeasureReduceSample`: pZero reduction + deterministic PCG sample,
+///     writes `(pZero, r, outcome, sqrt_p_kept)` to the measurement aux
+///     buffer (`MEASURE_REDUCE_SHADER`).
+///   * `MeasureCollapse`: per-pair zero+normalize using the previously
+///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SimulationOp {
     ApplyGate(GateParams),
@@ -37,18 +42,26 @@ pub(crate) enum SimulationOp {
         qubit_bit: u32,
         output_slot: u32,
     },
+    MeasureReduceSample {
+        gate_id: u32,
+        qubit_bit: u32,
+        output_slot: u32,
+    },
+    MeasureCollapse {
+        qubit_bit: u32,
+        aux_slot: u32,
+    },
 }
 
 /// Walks placed gates column by column and emits ops in the exact order the
 /// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
-/// When `capture_bloch` is true, each `BlochDisplay` placed in a column emits
-/// a `CaptureBloch` op AFTER that column's unitaries — matching qni's
-/// "display reads the post-column state" semantics.
+/// Within each column the order is: column unitaries / writes → measurements
+/// (reduce-sample then collapse) → bloch captures, mirroring qni's
+/// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
     metrics: &LayoutMetrics,
-    capture_bloch: bool,
 ) -> Vec<SimulationOp> {
     if qubits == 0 || metrics.slot_centers.is_empty() {
         return Vec::new();
@@ -72,12 +85,14 @@ pub(crate) fn linearize_ops(
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut bloch_slot: u32 = 0;
+    let mut measurement_slot: u32 = 0;
     for slot in slot_indices {
         let column = by_slot.get(&slot).expect("slot exists");
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
+        let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
 
         for gate in column {
             if gate.wire >= qubits {
@@ -93,9 +108,10 @@ pub(crate) fn linearize_ops(
                 GateKind::AntiControl => {
                     control_mask |= bit_mask;
                 }
-                GateKind::Swap | GateKind::Spacer | GateKind::Measurement => {
-                    // Non-mutating in the matrix/write pipeline.
+                GateKind::Swap | GateKind::Spacer => {
+                    // Non-mutating decoration.
                 }
+                GateKind::Measurement => measurement_targets.push(gate),
                 GateKind::BlochDisplay => bloch_targets.push(gate),
                 _ => targets.push(gate),
             }
@@ -112,17 +128,33 @@ pub(crate) fn linearize_ops(
             ops.push(SimulationOp::ApplyGate(params));
         }
 
-        if capture_bloch {
-            bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
-            for display in &bloch_targets {
-                let qubit_bit = (qubits - 1 - display.wire) as u32;
-                ops.push(SimulationOp::CaptureBloch {
-                    gate_id: display.id,
-                    qubit_bit,
-                    output_slot: bloch_slot,
-                });
-                bloch_slot += 1;
-            }
+        // Measurements run after the column's unitaries: reduce + sample,
+        // then collapse. Each consumes one aux slot.
+        measurement_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        for measurement in &measurement_targets {
+            let qubit_bit = (qubits - 1 - measurement.wire) as u32;
+            ops.push(SimulationOp::MeasureReduceSample {
+                gate_id: measurement.id,
+                qubit_bit,
+                output_slot: measurement_slot,
+            });
+            ops.push(SimulationOp::MeasureCollapse {
+                qubit_bit,
+                aux_slot: measurement_slot,
+            });
+            measurement_slot += 1;
+        }
+
+        // Bloch captures see the post-measurement state.
+        bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        for display in &bloch_targets {
+            let qubit_bit = (qubits - 1 - display.wire) as u32;
+            ops.push(SimulationOp::CaptureBloch {
+                gate_id: display.id,
+                qubit_bit,
+                output_slot: bloch_slot,
+            });
+            bloch_slot += 1;
         }
     }
     ops

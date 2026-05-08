@@ -8,6 +8,7 @@ import {
   getPaletteGateCenter,
   readBlochVectors,
   readEguiError,
+  readMeasurementOutcomes,
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
@@ -1301,6 +1302,52 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
     [1, 0, 0],
     [0, 0, -1],
   ])
+})
+
+test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const measureSource = getPaletteGateCenter(cssWidth, 19)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, xSource, { x: targetX, y: targetY })
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+  await dragPointer(page, measureSource, { x: targetX2, y: targetY })
+
+  // pZero is exactly 0 because q0 = |1⟩, so the GPU sample and collapse must
+  // converge on outcome=1 and a state of |1⟩ (the same amplitude as before
+  // collapse, just normalized).
+  await expect
+    .poll(async () => {
+      const outcomes = await readMeasurementOutcomes(page)
+      if (outcomes.length !== 1) {
+        return false
+      }
+      return outcomes[0].outcome === 1
+    }, { timeout: 5000 })
+    .toBe(true)
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
 test('Spacer is a NOP and does not alter the state vector', async ({ page }) => {

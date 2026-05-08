@@ -10,6 +10,7 @@ declare global {
     __eguiError?: unknown
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => number[]
+    __eguiReadMeasurementOutcomes?: () => number[]
   }
 }
 
@@ -143,6 +144,25 @@ export const readBlochVectors = async (page: Page): Promise<BlochEntry[]> => {
       x: flat[i + 1],
       y: flat[i + 2],
       z: flat[i + 3],
+    })
+  }
+  return entries
+}
+
+export type MeasurementOutcome = { gateId: number; outcome: number }
+
+export const readMeasurementOutcomes = async (page: Page): Promise<MeasurementOutcome[]> => {
+  const flat = await evaluateWithRetry<number[]>(page, () => {
+    if (!window.__eguiReadMeasurementOutcomes) {
+      return []
+    }
+    return window.__eguiReadMeasurementOutcomes()
+  })
+  const entries: MeasurementOutcome[] = []
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    entries.push({
+      gateId: Math.round(flat[i]),
+      outcome: Math.round(flat[i + 1]),
     })
   }
   return entries

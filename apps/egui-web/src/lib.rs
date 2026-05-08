@@ -55,3 +55,13 @@ pub async fn read_state_vector() -> Result<js_sys::Float32Array, wasm_bindgen::J
 pub fn read_bloch_vectors() -> js_sys::Float32Array {
     app::read_bloch_vectors_snapshot()
 }
+
+/// Returns the most recent measurement readback as a flat `Float32Array`
+/// laid out as `[gate_id, outcome, gate_id, outcome, …]`. `outcome` is 0 or
+/// 1 (still encoded as f32 for transport). Empty when there are no
+/// `Measurement` gates placed (or while a readback is in flight).
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn read_measurement_outcomes() -> js_sys::Float32Array {
+    app::read_measurement_outcomes_snapshot()
+}
