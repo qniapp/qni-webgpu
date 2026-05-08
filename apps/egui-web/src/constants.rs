@@ -38,10 +38,10 @@ pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
 pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
 // Two-row layout. Row 1 holds the unitary single-qubit gates; row 2 holds the
-// special-purpose gates (SWAP/Control/AntiControl/Bloch/|0>/|1>). Indices remain
-// a flat list so callers can look up a gate without branching.
+// special-purpose gates (SWAP/Control/AntiControl/Bloch/|0>/|1>/Measurement).
+// Indices remain a flat list so callers can look up a gate without branching.
 pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 19] = [
+pub(crate) const PALETTE_GATES: [GateKind; 20] = [
     // Row 1
     GateKind::H,
     GateKind::X,
@@ -63,4 +63,5 @@ pub(crate) const PALETTE_GATES: [GateKind; 19] = [
     GateKind::BlochDisplay,
     GateKind::Write0,
     GateKind::Write1,
+    GateKind::Measurement,
 ];

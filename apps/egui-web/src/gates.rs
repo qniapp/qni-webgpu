@@ -4,6 +4,7 @@ pub(crate) enum GateKind {
     Control,
     AntiControl,
     BlochDisplay,
+    Measurement,
     Write0,
     Write1,
     X,
@@ -28,6 +29,7 @@ impl GateKind {
             GateKind::Control => "C",
             GateKind::AntiControl => "◦",
             GateKind::BlochDisplay => "B",
+            GateKind::Measurement => "M",
             GateKind::Write0 => "|0⟩",
             GateKind::Write1 => "|1⟩",
             GateKind::X => "X",
@@ -75,9 +77,13 @@ pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
             m10: [0.0, 0.0],
             m11: [1.0, 0.0],
         },
-        GateKind::Write0 | GateKind::Write1 | GateKind::BlochDisplay => GateMatrix {
-            // BlochDisplay is a non-mutating viewer; Write0/Write1 are mode-driven on
-            // the GPU. Matrix is unused for these but filled with identity for safety.
+        GateKind::Write0
+        | GateKind::Write1
+        | GateKind::BlochDisplay
+        | GateKind::Measurement => GateMatrix {
+            // BlochDisplay/Measurement are non-mutating viewers (Measurement
+            // collapses on the CPU side); Write0/Write1 are mode-driven on the
+            // GPU. Matrix is unused for these but filled with identity for safety.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
@@ -164,67 +170,6 @@ pub(crate) fn gate_matrix(kind: GateKind) -> GateMatrix {
     }
 }
 
-pub(crate) const GATE_MODE_MATRIX: u32 = 0;
-pub(crate) const GATE_MODE_WRITE0: u32 = 1;
-pub(crate) const GATE_MODE_WRITE1: u32 = 2;
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct GateParams {
-    m00: [f32; 2],
-    m01: [f32; 2],
-    m10: [f32; 2],
-    m11: [f32; 2],
-    bit: u32,
-    state_count: u32,
-    control_mask: u32,
-    control_value: u32,
-    mode: u32,
-    _pad: [u32; 3],
-}
-
-fn gate_mode(kind: GateKind) -> u32 {
-    match kind {
-        GateKind::Write0 => GATE_MODE_WRITE0,
-        GateKind::Write1 => GATE_MODE_WRITE1,
-        _ => GATE_MODE_MATRIX,
-    }
-}
-
-pub(crate) fn gate_params(kind: GateKind, bit: u32, state_count: u32) -> GateParams {
-    let matrix = gate_matrix(kind);
-    GateParams {
-        m00: matrix.m00,
-        m01: matrix.m01,
-        m10: matrix.m10,
-        m11: matrix.m11,
-        bit,
-        state_count,
-        control_mask: 0,
-        control_value: 0,
-        mode: gate_mode(kind),
-        _pad: [0; 3],
-    }
-}
-
-pub(crate) fn gate_params_controlled(
-    kind: GateKind,
-    bit: u32,
-    control_mask: u32,
-    control_value: u32,
-    state_count: u32,
-) -> GateParams {
-    let matrix = gate_matrix(kind);
-    GateParams {
-        m00: matrix.m00,
-        m01: matrix.m01,
-        m10: matrix.m10,
-        m11: matrix.m11,
-        bit,
-        state_count,
-        control_mask,
-        control_value,
-        mode: gate_mode(kind),
-        _pad: [0; 3],
-    }
-}
+// Per-gate matrices feed the CPU simulator in `bloch.rs`. The legacy
+// `GateParams` GPU compute pipeline has been retired in favour of CPU-side
+// simulation + a single state-vector upload (see `gpu.rs`).

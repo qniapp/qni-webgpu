@@ -84,6 +84,59 @@ pub(crate) fn draw_bloch_sphere(painter: &egui::Painter, rect: egui::Rect, color
     )));
 }
 
+/// Re-paints the meter icon in `text-zinc-200` and overlays the qni
+/// measurement digit (`0` red / `1` blue) on top. qni reference:
+/// `packages/elements/css/measurement_gate.css` (`[data-value]::part(icon)
+/// → text-zinc-200`, `text-red-500` / `text-blue-500` for the value).
+pub(crate) fn draw_measurement_value(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    value: u8,
+    colors: &Colors,
+) {
+    draw_meter_icon(painter, rect, colors.measurement_fired_icon);
+    let (digit, digit_color) = if value == 0 {
+        ("0", colors.semantic_off)
+    } else {
+        ("1", colors.semantic_on)
+    };
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        digit,
+        egui::FontId::monospace(18.0),
+        digit_color,
+    );
+}
+
+/// Draws the qni meter icon (half-arc + needle + pivot dot) in `color`. Used
+/// both by the un-fired gate body and the fired overlay (different color).
+pub(crate) fn draw_meter_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    let viewbox = VIEWBOX;
+    let scale = rect.width() / viewbox;
+    let stroke = egui::Stroke::new(2.0 * scale, color);
+    let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
+    let arc_points: Vec<egui::Pos2> = (0..=24)
+        .map(|i| {
+            let t = i as f32 / 24.0;
+            let angle = std::f32::consts::PI * (1.0 - t);
+            let cx = 24.0;
+            let cy = 36.0;
+            let r = 20.0;
+            egui::Pos2::new(cx + r * angle.cos(), cy - r * angle.sin())
+        })
+        .map(|pos| map_svg_point_in_rect(rect, SvgPoint::new(pos.x, pos.y), viewbox))
+        .collect();
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        arc_points,
+        stroke,
+    )));
+    painter.line_segment([p(24.625, 33.5), p(37.75, 11.0)], stroke);
+    // qni's SVG pivot is a 1.875-radius circle with stroke-width=3 outset
+    // (≈ 3.4 in viewbox units). Use 3.5*scale to match its visual weight.
+    painter.circle_filled(p(24.625, 33.5), 3.5 * scale, color);
+}
+
 pub(crate) fn draw_bloch_vector(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -192,7 +245,11 @@ fn draw_gate_body_with_fill(
             radius,
             egui::Stroke::new(1.5, colors.bloch_sphere_lines),
         );
-    } else if kind != GateKind::Control && kind != GateKind::AntiControl && kind != GateKind::Swap {
+    } else if kind != GateKind::Control
+        && kind != GateKind::AntiControl
+        && kind != GateKind::Swap
+        && kind != GateKind::Measurement
+    {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
     let icon_color = if kind == GateKind::Control
@@ -202,6 +259,9 @@ fn draw_gate_body_with_fill(
         fill
     } else if kind == GateKind::BlochDisplay {
         colors.bloch_sphere_lines
+    } else if kind == GateKind::Measurement {
+        // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
+        colors.semantic_intermediate
     } else {
         colors.label
     };
@@ -241,6 +301,11 @@ fn draw_gate_icon(
             // overlaid by `render::draw_bloch_display` so it can read the
             // current state.
             draw_bloch_sphere(painter, rect, color);
+            true
+        }
+        GateKind::Measurement => {
+            // qni reference: packages/elements/icon/measurement-gate.svg
+            draw_meter_icon(painter, rect, color);
             true
         }
         GateKind::Write0 | GateKind::Write1 => {

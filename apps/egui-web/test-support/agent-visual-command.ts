@@ -34,7 +34,7 @@ const DEFAULT_REM = 32
 const DEFAULT_GATE_SIZE = DEFAULT_REM
 const DEFAULT_PALETTE_GAP = 8
 const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
-const DEFAULT_PALETTE_COUNT = 19
+const DEFAULT_PALETTE_COUNT = 20
 const DEFAULT_PALETTE_ROW1_COUNT = 13
 const DEFAULT_PALETTE_ROW_GAP = 8
 const DEFAULT_CIRCUIT_PADDING = 2 * DEFAULT_REM
@@ -97,6 +97,10 @@ const GATE_ALIASES = new Map([
   ['write_1', 18],
   ['ket1', 18],
   ['ket-1', 18],
+  ['m', 19],
+  ['measure', 19],
+  ['measurement', 19],
+  ['meter', 19],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()

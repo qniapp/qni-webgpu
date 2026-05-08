@@ -227,7 +227,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const PALETTE_PADDING_X = 16
   const PALETTE_PADDING_Y = 20
   const PALETTE_ROW1_COUNT = 13
-  const PALETTE_ROW2_COUNT = 6
+  const PALETTE_ROW2_COUNT = 7
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
   const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
   const paletteWidth = Math.max(row1Width, row2Width)
@@ -960,7 +960,11 @@ test('anti-control does not apply when the control wire is one', async ({ page }
 
   await dragPointer(page, antiControlSource, { x: targetX2, y: targetY0 })
   await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
-  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+  // anti-control(q0) sees q0=1, so it does not fire and the X on q1 is
+  // suppressed. The state vector still grows to two qubits because q1 has a
+  // placed gate; the final amplitude is on |q0=1, q1=0⟩ (state index 2 with
+  // q0 as the MSB).
+  await waitForStateVectorApprox(page, [0, 0, 0, 0, 1, 0, 0, 0])
 })
 
 test('Control does not affect gates in other columns', async ({ page }) => {
@@ -1136,6 +1140,42 @@ test('Bloch display does not alter the state vector', async ({ page }) => {
   await dragPointer(page, blochSource, { x: targetX2, y: targetY })
   // BlochDisplay only reads the state; it must not mutate it.
   await waitForStateVectorApprox(page, superposition)
+})
+
+test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const measureSource = getPaletteGateCenter(cssWidth, 19)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, xSource, { x: targetX, y: targetY })
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+
+  await dragPointer(page, measureSource, { x: targetX2, y: targetY })
+  // Measurement collapses to a basis state. Since the pre-measurement
+  // amplitude is fully on |1>, the only valid post-measurement vector is |1>.
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
 test('default chromium shows a visible WebGPU error instead of a blank page', async () => {

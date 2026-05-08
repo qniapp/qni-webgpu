@@ -15,11 +15,13 @@ pub(crate) struct Colors {
     pub(crate) state_needle: egui::Color32,
     pub(crate) semantic_off: egui::Color32,
     pub(crate) semantic_on: egui::Color32,
+    pub(crate) semantic_intermediate: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
     pub(crate) bloch_vector_tip: egui::Color32,
     pub(crate) bloch_vector_zero: egui::Color32,
+    pub(crate) measurement_fired_icon: egui::Color32,
 }
 
 impl Colors {
@@ -41,6 +43,8 @@ impl Colors {
             semantic_off: crate::shared::color_rgba(0.937, 0.267, 0.267, 1.0),
             // qni semantic-color-on (blue-500: #3b82f6) for |1>
             semantic_on: crate::shared::color_rgba(0.231, 0.510, 0.965, 1.0),
+            // qni semantic-color-intermediate (purple-500: #a855f7); shared with drag_fill.
+            semantic_intermediate: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
             // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
             // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
             bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),
@@ -48,6 +52,9 @@ impl Colors {
             bloch_vector_line: crate::shared::color_rgba(0.067, 0.094, 0.153, 1.0),
             bloch_vector_tip: crate::shared::color_rgba(0.937, 0.267, 0.267, 1.0),
             bloch_vector_zero: crate::shared::color_rgba(0.231, 0.510, 0.965, 1.0),
+            // qni measurement fired icon is text-zinc-200 (#e4e4e7) so the
+            // colored digit dominates.
+            measurement_fired_icon: crate::shared::color_rgba(0.894, 0.894, 0.910, 1.0),
         }
     }
 }

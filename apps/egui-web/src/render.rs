@@ -13,9 +13,11 @@ use crate::constants::{
 };
 use crate::gates::GateKind;
 use crate::gpu::{RenderColors, StateInstance, StateVectorCallback};
-use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body};
+use crate::icons::{
+    draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_measurement_value,
+};
 use crate::layout::{
-    layout_metrics, nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics,
+    nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics,
 };
 use crate::shared::{amplitude_qubits, display_index_to_state_index};
 
@@ -174,6 +176,11 @@ impl QniApp {
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
+            if gate.kind == GateKind::Measurement {
+                if let Some(&value) = self.measurements.get(&gate.id) {
+                    draw_measurement_value(painter, gate_rect, value, colors);
+                }
+            }
             if gate.kind == GateKind::BlochDisplay {
                 // Default to (0, 0, 0): an entangled qubit (or one whose vector
                 // hasn't been computed yet) renders as the qni "d=0" blue dot
@@ -481,17 +488,16 @@ impl QniApp {
 
         if let Some(target_format) = target_format {
             let (instances, instances_dirty) = self.state_instances_for(layout, base_pos);
-            let gate_params = if recompute {
-                let metrics = layout_metrics(screen_rect.width(), layout.qubits);
-                self.collect_gate_params(layout.qubits, layout.state_count, &metrics)
+            let cpu_state: Arc<[[f32; 2]]> = if recompute {
+                Arc::from(self.cpu_state.as_slice())
             } else {
-                Vec::new()
+                Arc::from(&[][..])
             };
             let render_colors = RenderColors::new(colors);
             let callback = StateVectorCallback {
                 instances,
                 instances_dirty,
-                gate_params,
+                cpu_state,
                 state_count: layout.state_count,
                 recompute,
                 target_format,

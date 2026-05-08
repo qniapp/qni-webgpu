@@ -1,19 +1,17 @@
 use eframe::egui;
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::bloch::{compute_bloch_vectors, BlochVector};
+use crate::bloch::{simulate, BlochVector, SimulationResult};
 use crate::colors::Colors;
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
     SNAP_DISTANCE,
 };
-use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
+use crate::gates::GateKind;
 use crate::layout::{
-    layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index, palette_hit_test,
-    palette_layout, LayoutMetrics,
+    layout_metrics, nearest_available_slot, nearest_line, palette_hit_test, palette_layout,
 };
 use crate::render::StateInstanceCache;
 use crate::shared::now_seconds;
@@ -48,6 +46,8 @@ pub(crate) struct QniApp {
     drag_cursor_pos: Option<egui::Pos2>,
     pub(crate) state_instance_cache: Option<StateInstanceCache>,
     pub(crate) bloch_vectors: HashMap<u32, BlochVector>,
+    pub(crate) measurements: HashMap<u32, u8>,
+    pub(crate) cpu_state: Vec<[f32; 2]>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -77,6 +77,8 @@ impl QniApp {
             drag_cursor_pos: None,
             state_instance_cache: None,
             bloch_vectors: HashMap::new(),
+            measurements: HashMap::new(),
+            cpu_state: vec![[1.0, 0.0], [0.0, 0.0]],
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
@@ -114,137 +116,6 @@ impl QniApp {
 
     fn state_count(&self) -> usize {
         1usize << self.state_qubits()
-    }
-
-    pub(crate) fn collect_gate_params(
-        &self,
-        qubits: usize,
-        state_count: usize,
-        metrics: &LayoutMetrics,
-    ) -> Vec<GateParams> {
-        let mut gates: Vec<&PlacedGate> = self.placed_gates.iter().collect();
-        gates.sort_by(|a, b| {
-            a.pos
-                .x
-                .partial_cmp(&b.pos.x)
-                .unwrap_or(Ordering::Equal)
-                .then_with(|| a.id.cmp(&b.id))
-        });
-
-        struct GateGroup<'a> {
-            controls: Vec<&'a PlacedGate>,
-            anti_controls: Vec<&'a PlacedGate>,
-            targets: Vec<&'a PlacedGate>,
-            slot_x: f32,
-            min_id: u32,
-        }
-
-        let mut groups: HashMap<usize, GateGroup<'_>> = HashMap::new();
-        for gate in &gates {
-            let center_x = gate.pos.x + GATE_SIZE / 2.0;
-            let Some((slot_index, distance)) = nearest_slot_index(center_x, &metrics.slot_centers)
-            else {
-                continue;
-            };
-            if distance > SNAP_DISTANCE {
-                continue;
-            }
-            let entry = groups.entry(slot_index).or_insert_with(|| GateGroup {
-                controls: Vec::new(),
-                anti_controls: Vec::new(),
-                targets: Vec::new(),
-                slot_x: metrics.slot_centers[slot_index],
-                min_id: gate.id,
-            });
-            entry.min_id = entry.min_id.min(gate.id);
-            if gate.kind == GateKind::Control {
-                entry.controls.push(*gate);
-            } else if gate.kind == GateKind::AntiControl {
-                entry.anti_controls.push(*gate);
-            } else {
-                entry.targets.push(*gate);
-            }
-        }
-
-        let mut used_ids = HashSet::new();
-        let mut ops: Vec<(f32, u32, GateParams)> = Vec::new();
-        for group in groups.values() {
-            let mut control_mask = 0u32;
-            let mut control_value = 0u32;
-            for control in &group.controls {
-                if control.wire >= qubits {
-                    continue;
-                }
-                let control_bit = (qubits.saturating_sub(1).saturating_sub(control.wire)) as u32;
-                let bit_mask = 1u32 << control_bit;
-                control_mask |= bit_mask;
-                control_value |= bit_mask;
-                used_ids.insert(control.id);
-            }
-            for anti_control in &group.anti_controls {
-                if anti_control.wire >= qubits {
-                    continue;
-                }
-                let control_bit =
-                    (qubits.saturating_sub(1).saturating_sub(anti_control.wire)) as u32;
-                let bit_mask = 1u32 << control_bit;
-                control_mask |= bit_mask;
-                used_ids.insert(anti_control.id);
-            }
-            for target in &group.targets {
-                if target.wire >= qubits {
-                    continue;
-                }
-                if target.kind == GateKind::Swap || target.kind == GateKind::BlochDisplay {
-                    continue;
-                }
-                let bit = (qubits.saturating_sub(1).saturating_sub(target.wire)) as u32;
-                let params = if control_mask == 0 {
-                    gate_params(target.kind, bit, state_count as u32)
-                } else {
-                    gate_params_controlled(
-                        target.kind,
-                        bit,
-                        control_mask,
-                        control_value,
-                        state_count as u32,
-                    )
-                };
-                ops.push((group.slot_x, group.min_id.min(target.id), params));
-                used_ids.insert(target.id);
-            }
-        }
-
-        for gate in gates {
-            if gate.wire >= qubits {
-                continue;
-            }
-            if gate.kind == GateKind::Swap {
-                continue;
-            }
-            if gate.kind == GateKind::Control
-                || gate.kind == GateKind::AntiControl
-                || gate.kind == GateKind::BlochDisplay
-            {
-                continue;
-            }
-            if used_ids.contains(&gate.id) {
-                continue;
-            }
-            let bit = (qubits.saturating_sub(1).saturating_sub(gate.wire)) as u32;
-            ops.push((
-                gate.pos.x,
-                gate.id,
-                gate_params(gate.kind, bit, state_count as u32),
-            ));
-        }
-
-        ops.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .unwrap_or(Ordering::Equal)
-                .then_with(|| a.1.cmp(&b.1))
-        });
-        ops.into_iter().map(|(_, _, params)| params).collect()
     }
 
     fn handle_input(
@@ -547,12 +418,15 @@ impl eframe::App for QniApp {
                 if recompute {
                     self.needs_recompute = false;
                     self.last_state_count = state_count;
-                    let bloch_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
-                    self.bloch_vectors = compute_bloch_vectors(
-                        &self.placed_gates,
-                        self.state_qubits(),
-                        &bloch_metrics,
-                    );
+                    let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
+                    let SimulationResult {
+                        final_state,
+                        bloch_vectors,
+                        measurements,
+                    } = simulate(&self.placed_gates, self.state_qubits(), &sim_metrics);
+                    self.cpu_state = final_state;
+                    self.bloch_vectors = bloch_vectors;
+                    self.measurements = measurements;
                 }
             } else if recompute {
                 ctx.request_repaint();

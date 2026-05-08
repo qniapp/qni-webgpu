@@ -11,7 +11,6 @@ use wasm_bindgen::JsValue;
 
 use crate::colors::Colors;
 use crate::constants::MAX_STATE_COUNT;
-use crate::gates::GateParams;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -56,81 +55,9 @@ impl RenderColors {
     }
 }
 
-pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
-
-const STATE_COMPUTE_SHADER: &str = r#"
-struct GateParams {
-  m00: vec2<f32>,
-  m01: vec2<f32>,
-  m10: vec2<f32>,
-  m11: vec2<f32>,
-  bit: u32,
-  state_count: u32,
-  control_mask: u32,
-  control_value: u32,
-  mode: u32,
-};
-
-@group(0) @binding(0) var<storage, read> state_in: array<vec2<f32>>;
-@group(0) @binding(1) var<storage, read_write> state_out: array<vec2<f32>>;
-@group(0) @binding(2) var<uniform> params: GateParams;
-
-fn cmul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
-  return vec2<f32>(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
-}
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-  let pair = gid.x;
-  let total_pairs = params.state_count / 2u;
-  if (pair >= total_pairs) {
-    return;
-  }
-  let bit = params.bit;
-  let mask = (1u << bit) - 1u;
-  let low = pair & mask;
-  let high = pair >> bit;
-  let i0 = (high << (bit + 1u)) | low;
-  let i1 = i0 | (1u << bit);
-  let a0 = state_in[i0];
-  let a1 = state_in[i1];
-  if (params.control_mask != 0u) {
-    if ((i0 & params.control_mask) != params.control_value) {
-      state_out[i0] = a0;
-      state_out[i1] = a1;
-      return;
-    }
-  }
-  // Write |0> / |1>: per-pair conditional X. Matches qni's CPU behavior where
-  // the gate is X iff the qubit is in the opposite basis state, and a no-op
-  // otherwise. For unentangled product states each pair's |a0|/|a1| ratio is
-  // consistent so the local decision agrees with the global one.
-  if (params.mode == 1u || params.mode == 2u) {
-    let mag0 = a0.x * a0.x + a0.y * a0.y;
-    let mag1 = a1.x * a1.x + a1.y * a1.y;
-    let eps = 1.0e-6;
-    var swap = false;
-    if (params.mode == 1u) {
-      // |0>: flip if a1 dominates (qubit was in |1>).
-      swap = mag1 > mag0 + eps;
-    } else {
-      // |1>: flip if a0 dominates (qubit was in |0>).
-      swap = mag0 > mag1 + eps;
-    }
-    if (swap) {
-      state_out[i0] = a1;
-      state_out[i1] = a0;
-    } else {
-      state_out[i0] = a0;
-      state_out[i1] = a1;
-    }
-    return;
-  }
-  state_out[i0] = cmul(params.m00, a0) + cmul(params.m01, a1);
-  state_out[i1] = cmul(params.m10, a0) + cmul(params.m11, a1);
-}
-"#;
-
+// Simulation runs on the CPU (`bloch::simulate`); the GPU pipeline is
+// render-only. The state vector is uploaded once per recompute into
+// `state_buffers[0]` and the render shader samples from it directly.
 const STATE_RENDER_SHADER: &str = r#"
 struct RenderParams {
   screen_size: vec2<f32>,
@@ -218,12 +145,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 "#;
 
 pub(crate) struct StateVectorResources {
-    pub(crate) compute_pipeline: wgpu::ComputePipeline,
     pub(crate) render_pipeline: wgpu::RenderPipeline,
-    pub(crate) compute_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) render_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) render_bind_group_layout: wgpu::BindGroupLayout,
-    pub(crate) gate_params_buffer: wgpu::Buffer,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) state_buffers: [wgpu::Buffer; 2],
     pub(crate) instance_buffer: wgpu::Buffer,
@@ -237,66 +161,9 @@ pub(crate) struct StateVectorResources {
 
 impl StateVectorResources {
     pub(crate) fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
-        let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("state_vector_compute"),
-            source: wgpu::ShaderSource::Wgsl(STATE_COMPUTE_SHADER.into()),
-        });
         let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("state_vector_render"),
             source: wgpu::ShaderSource::Wgsl(STATE_RENDER_SHADER.into()),
-        });
-
-        let compute_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("state_vector_compute_layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let compute_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("state_vector_compute_pipeline_layout"),
-                bind_group_layouts: &[&compute_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("state_vector_compute_pipeline"),
-            layout: Some(&compute_pipeline_layout),
-            module: &compute_shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
         });
 
         let render_bind_group_layout =
@@ -372,58 +239,12 @@ impl StateVectorResources {
             }),
         ];
 
-        let gate_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("state_vector_gate_params"),
-            size: std::mem::size_of::<GateParams>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         let render_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("state_vector_render_params"),
             size: std::mem::size_of::<RenderParams>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-
-        let compute_bind_groups = [
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("state_vector_compute_a_to_b"),
-                layout: &compute_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: state_buffers[0].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: state_buffers[1].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: gate_params_buffer.as_entire_binding(),
-                    },
-                ],
-            }),
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("state_vector_compute_b_to_a"),
-                layout: &compute_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: state_buffers[1].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: state_buffers[0].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: gate_params_buffer.as_entire_binding(),
-                    },
-                ],
-            }),
-        ];
 
         let render_bind_groups = [
             device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -535,12 +356,9 @@ impl StateVectorResources {
         });
 
         Self {
-            compute_pipeline,
             render_pipeline,
-            compute_bind_groups,
             render_bind_groups,
             render_bind_group_layout,
-            gate_params_buffer,
             render_params_buffer,
             state_buffers,
             instance_buffer,
@@ -646,7 +464,11 @@ impl StateVectorResources {
 pub(crate) struct StateVectorCallback {
     pub(crate) instances: Arc<[StateInstance]>,
     pub(crate) instances_dirty: bool,
-    pub(crate) gate_params: Vec<GateParams>,
+    /// Final state vector pre-computed on the CPU (see `bloch::simulate`).
+    /// This is the authoritative source — measurement collapse and
+    /// non-unitary writes happen on the CPU and the result is uploaded here
+    /// so the GPU only ever renders the visualization.
+    pub(crate) cpu_state: Arc<[[f32; 2]]>,
     pub(crate) state_count: usize,
     pub(crate) recompute: bool,
     pub(crate) target_format: wgpu::TextureFormat,
@@ -705,40 +527,14 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
 
         if self.recompute || resources.state_count != self.state_count {
             resources.state_count = self.state_count;
-            if self.state_count > 0 {
-                let mut initial = vec![[0.0f32, 0.0f32]; self.state_count];
-                initial[0] = [1.0, 0.0];
+            if self.state_count > 0 && self.cpu_state.len() >= self.state_count {
                 queue.write_buffer(
                     &resources.state_buffers[0],
                     0,
-                    bytemuck::cast_slice(&initial),
+                    bytemuck::cast_slice(&self.cpu_state[..self.state_count]),
                 );
             }
             resources.active_state = 0;
-            let pair_count = (self.state_count / 2) as u32;
-            if pair_count > 0 && !self.gate_params.is_empty() {
-                let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
-                let mut in_index = 0usize;
-                for gate in &self.gate_params {
-                    queue.write_buffer(&resources.gate_params_buffer, 0, bytemuck::bytes_of(gate));
-                    let mut encoder =
-                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("state_vector_compute_encoder"),
-                        });
-                    {
-                        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                            label: Some("state_vector_compute_pass"),
-                            timestamp_writes: None,
-                        });
-                        pass.set_pipeline(&resources.compute_pipeline);
-                        pass.set_bind_group(0, &resources.compute_bind_groups[in_index], &[]);
-                        pass.dispatch_workgroups(dispatch_x, 1, 1);
-                    }
-                    queue.submit(Some(encoder.finish()));
-                    in_index = 1 - in_index;
-                }
-                resources.active_state = in_index;
-            }
         }
 
         GPU_READBACK.with(|slot| {
