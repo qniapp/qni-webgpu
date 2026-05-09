@@ -485,44 +485,39 @@ fn vs_main(input: VsIn) -> VsOut {
   return out;
 }
 
-@fragment
-fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  // Pad pixels (panel_local outside [0, panel_size)) get clamped to the
-  // nearest edge cell. The cell's circle then naturally renders into the
-  // pad area through the same dist-from-center math; we only need to make
-  // sure the col / row indices are valid.
-  let col_f = floor(input.panel_local.x / params.cell_pitch);
-  let row_f = floor(input.panel_local.y / params.cell_pitch);
-  let col = u32(clamp(col_f, 0.0, f32(params.cols - 1u)));
-  let row = u32(clamp(row_f, 0.0, f32(params.rows - 1u)));
-  // Cell-local coordinates with origin at the circle centre. The cell box
-  // is `2 * radius` wide; `cell_pitch = size + gap`, so the centre is
-  // `cell_origin + radius`, NOT `(col + 0.5) * cell_pitch` (those only
-  // coincide when gap == 0). Matches the CPU formula used previously in
-  // `state_instances_for` (render.rs).
+// Pre-multiplied colour contribution from a single (col, row) cell at this
+// pixel. Returns zero outside everything the cell renders (i.e. outside
+// the outline, outside the fill, off the needle). The egui `rect_filled`
+// panel surface is drawn underneath in a separate pass, so the cell does
+// NOT need to fill its interior with `params.surface`; doing so produced a
+// halo of alpha-1 white that occluded neighbouring cells' strokes through
+// the 2x2 "over" composite.
+//
+// `edge` is the pixel-sized fwidth value pre-computed by the caller in
+// uniform control flow — must not be re-derived inside this function
+// because the 2x2 neighbourhood loop in fs_main already breaks uniform
+// flow before reaching here.
+fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> vec4<f32> {
   let cell_origin = vec2<f32>(f32(col), f32(row)) * params.cell_pitch;
   let cell_center = cell_origin + vec2<f32>(params.radius);
-  let local = input.panel_local - cell_center;
+  let local = panel_local - cell_center;
   let dist = length(local);
   let half_stroke = params.stroke * 0.5;
   let outer = params.radius + half_stroke;
-  let edge = fwidth(dist);
-  // Discard the gap between cells.
   if (dist > outer + edge) {
-    discard;
+    return vec4<f32>(0.0);
   }
-  // Display index → state-vector index via bit reversal over `qubits` bits.
-  // `display_index_to_state_index` in shared.rs reverses the lowest
-  // `qubits` bits; reverseBits() reverses all 32 bits, so we shift the
-  // result back down.
   let display_index = row * params.cols + col;
   let state_index = reverseBits(display_index) >> (32u - params.qubits);
   let amp = state[state_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
+
+  // Layer 1: probability fill — solid disc whose radius is √prob × inner_radius.
   let fill_radius = params.inner_radius * sqrt(prob);
-  var color = params.surface;
   let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
-  color = mix(color, params.fill, fill_alpha);
+  var color = vec4<f32>(params.fill.rgb * fill_alpha, fill_alpha);
+
+  // Layer 2: phase needle (only when prob > 0).
   if (prob > 0.0) {
     let phase = atan2(amp.y, amp.x);
     let dir = vec2<f32>(-sin(phase), -cos(phase));
@@ -530,14 +525,72 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     let closest = dir * t;
     let d = length(local - closest);
     let needle_alpha = 1.0 - smoothstep(half_stroke - edge, half_stroke + edge, d);
-    color = mix(color, params.needle, needle_alpha);
+    let needle_pre = vec4<f32>(params.needle.rgb * needle_alpha, needle_alpha);
+    color = needle_pre + color * (1.0 - needle_pre.a);
   }
-  let outline_color = select(params.outline_zero, params.outline, prob > 0.0);
-  let outline_inner = 1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
-  let outline_outer = 1.0 - smoothstep(params.radius + half_stroke - edge, params.radius + half_stroke + edge, dist);
+
+  // Layer 3: outline ring at radius=params.radius, width=stroke.
+  let outline_rgba = select(params.outline_zero, params.outline, prob > 0.0);
+  let outline_inner =
+    1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
+  let outline_outer =
+    1.0 - smoothstep(params.radius + half_stroke - edge, params.radius + half_stroke + edge, dist);
   let outline_alpha = max(0.0, outline_outer - outline_inner);
-  color = mix(color, outline_color, outline_alpha);
-  let outer_alpha = 1.0 - smoothstep(outer - edge, outer + edge, dist);
-  return color * outer_alpha;
+  let outline_pre = vec4<f32>(outline_rgba.rgb * outline_alpha, outline_alpha);
+  color = outline_pre + color * (1.0 - outline_pre.a);
+
+  return color;
+}
+
+@fragment
+fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
+  // Compute the AA edge width once, in uniform control flow, before the
+  // per-cell sampling diverges. `length(fwidth(panel_local))` is the size
+  // of one fragment in panel-local units (≈ 1 at 1:1 zoom, ≈ 0.5 at
+  // DPR=2) and stays valid even when threads in the same 2x2 quad sample
+  // different cells.
+  let edge = length(fwidth(input.panel_local));
+  // qni's layout has gap == stroke, so adjacent cells' strokes meet at a
+  // 1-px boundary. The old per-instance render produced ~75 % alpha there
+  // by overdrawing both cell quads; we replicate that by sampling the
+  // 2x2 cell neighbourhood whose centres surround this pixel and
+  // composing their contributions with pre-multiplied "over" alpha.
+  // Shift the floor by `radius` so col0 picks the left neighbour when the
+  // pixel is in the left half of cell col, the right neighbour when it
+  // is in the right half — either way the 2x2 covers the four cells
+  // whose centres are nearest the pixel.
+  let col0 = i32(floor((input.panel_local.x - params.radius) / params.cell_pitch));
+  let row0 = i32(floor((input.panel_local.y - params.radius) / params.cell_pitch));
+  let cols_i = i32(params.cols);
+  let rows_i = i32(params.rows);
+  let s00 = sample_cell(col0,     row0,     cols_i, rows_i, input.panel_local, edge);
+  let s10 = sample_cell(col0 + 1, row0,     cols_i, rows_i, input.panel_local, edge);
+  let s01 = sample_cell(col0,     row0 + 1, cols_i, rows_i, input.panel_local, edge);
+  let s11 = sample_cell(col0 + 1, row0 + 1, cols_i, rows_i, input.panel_local, edge);
+  // Composite via pre-multiplied "over": dst = src + dst * (1 - src.a).
+  var color = s00;
+  color = s10 + color * (1.0 - s10.a);
+  color = s01 + color * (1.0 - s01.a);
+  color = s11 + color * (1.0 - s11.a);
+  if (color.a < 0.001) {
+    discard;
+  }
+  return color;
+}
+
+// Bounds-checked wrapper around `cell_contribution`. Returns zero for
+// out-of-range indices.
+fn sample_cell(
+  col: i32,
+  row: i32,
+  cols: i32,
+  rows: i32,
+  panel_local: vec2<f32>,
+  edge: f32,
+) -> vec4<f32> {
+  if (col < 0 || col >= cols || row < 0 || row >= rows) {
+    return vec4<f32>(0.0);
+  }
+  return cell_contribution(u32(col), u32(row), panel_local, edge);
 }
 "#;
