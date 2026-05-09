@@ -539,6 +539,10 @@ impl eframe::App for QniApp {
                 .interactable(false)
                 .resizable(false)
                 .title_bar(false)
+                // Above the foreground-layer state panel; otherwise the
+                // panel header strip occludes the cpu/svp lines on big
+                // viewports.
+                .order(egui::Order::Tooltip)
                 .frame(
                     egui::Frame::popup(&ctx.style())
                         .inner_margin(egui::Margin::symmetric(8, 6))
