@@ -658,6 +658,59 @@ impl QniApp {
             clipped.add(egui::Shape::Callback(paint_callback));
         }
 
+        Self::draw_state_minimap(painter, layout, viewport_rect, grid_origin);
+
         handle_rect
+    }
+
+    /// Bottom-right minimap that shows where the viewport is sitting on the
+    /// (potentially much larger) grid. Drawn as a semi-transparent dark
+    /// rectangle with a lighter inset rectangle marking the visible region.
+    /// Only painted when the grid actually exceeds the viewport on at least
+    /// one axis — otherwise the whole grid is on screen and the minimap is
+    /// just chrome.
+    fn draw_state_minimap(
+        painter: &egui::Painter,
+        layout: &StatePanelLayout,
+        viewport_rect: egui::Rect,
+        grid_origin: egui::Pos2,
+    ) {
+        let grid = layout.grid_size;
+        if grid.x <= viewport_rect.width() && grid.y <= viewport_rect.height() {
+            return;
+        }
+        let mm_size = egui::vec2(64.0, 40.0);
+        let pad = 6.0;
+        let inset = 4.0;
+        let mm_rect = egui::Rect::from_min_max(
+            viewport_rect.max - mm_size - egui::vec2(pad, pad),
+            viewport_rect.max - egui::vec2(pad, pad),
+        );
+        let bg = egui::Color32::from_rgba_unmultiplied(0, 0, 0, 140);
+        painter.rect_filled(mm_rect, egui::CornerRadius::same(4), bg);
+
+        // Fit the grid aspect inside the minimap interior.
+        let interior = mm_rect.shrink(inset);
+        let scale = (interior.width() / grid.x).min(interior.height() / grid.y);
+        let mm_grid_size = egui::vec2(grid.x * scale, grid.y * scale);
+        let mm_grid_min = interior.center() - mm_grid_size / 2.0;
+        // Visible region inside the grid, in grid-space pixels:
+        let visible_offset = viewport_rect.min - grid_origin;
+        let mm_vp_min = mm_grid_min + visible_offset * scale;
+        let mm_vp_size = egui::vec2(viewport_rect.width(), viewport_rect.height()) * scale;
+        let mm_vp_rect = egui::Rect::from_min_size(mm_vp_min, mm_vp_size)
+            .intersect(egui::Rect::from_min_size(mm_grid_min, mm_grid_size));
+        let vp_fill = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 70);
+        let vp_stroke = egui::Stroke::new(
+            1.0,
+            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220),
+        );
+        painter.rect_filled(mm_vp_rect, egui::CornerRadius::ZERO, vp_fill);
+        painter.rect_stroke(
+            mm_vp_rect,
+            egui::CornerRadius::ZERO,
+            vp_stroke,
+            egui::StrokeKind::Inside,
+        );
     }
 }
