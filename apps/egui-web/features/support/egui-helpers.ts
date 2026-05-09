@@ -455,9 +455,13 @@ export const getDragPreviewAboveStatePanelProbe = (
     rowGap: paletteRowGap,
   })
 
-  const statePadding = Math.min(rem, cssWidth * 0.05, cssHeight * 0.05)
+  // qni reference: `circle_notation` is rendered with `padding_x: 16,
+  // padding_y: 20` (`apps/www/app/views/circuits/show.html.erb:66-67`),
+  // matching the palette's `px-4 py-5`. Mirror that on the egui side.
+  const statePaddingX = 16
+  const statePaddingY = 20
   const topLimit = paletteRowY + gateSize + 2 * rem
-  let availableWidth = cssWidth - statePadding * 2
+  let availableWidth = cssWidth - statePaddingX * 2
   let availableHeight = cssHeight - stateCircleBottomMargin - topLimit
   if (availableWidth <= 0) {
     availableWidth = Math.max(cssWidth, 1)
@@ -503,12 +507,12 @@ export const getDragPreviewAboveStatePanelProbe = (
   const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
   const baseX = cssWidth / 2 - totalWidth / 2
   const baseY = cssHeight - stateCircleBottomMargin - totalHeight
-  const contentHeight = totalHeight + statePadding * 2
+  const contentHeight = totalHeight + statePaddingY * 2
   const handleHeight = Math.max(Math.min(0.4 * rem, contentHeight * 0.4), 10)
   const handlePadding = handleHeight * 0.5
   const handleCenter = {
     x: baseX + totalWidth / 2,
-    y: baseY - (statePadding + handlePadding + handleHeight / 2),
+    y: baseY - (statePaddingY + handlePadding + handleHeight / 2),
   }
 
   return {

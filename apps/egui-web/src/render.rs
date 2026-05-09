@@ -378,13 +378,15 @@ impl QniApp {
         let state_count = state_count.max(1);
         let qubits = amplitude_qubits(state_count);
         let gap_ratio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE;
-        let state_padding = (1.0 * REM)
-            .min(rect.width() * 0.05)
-            .min(rect.height() * 0.05);
+        // qni reference: `apps/www/app/views/circuits/show.html.erb:66-67`
+        // — `circle_notation` is rendered with `padding_x: 16, padding_y: 20`,
+        // mirroring the palette's `px-4 py-5`. Reuse the palette constants.
+        let state_padding_x = PALETTE_PADDING_X;
+        let state_padding_y = PALETTE_PADDING_Y;
         let palette_geom = palette_layout();
         let top_limit =
             rect.min.y + PALETTE_ROW_Y + palette_geom.total_height + PALETTE_PADDING_Y + REM;
-        let mut available_width = rect.width() - state_padding * 2.0;
+        let mut available_width = rect.width() - state_padding_x * 2.0;
         let mut available_height = rect.max.y - STATE_CIRCLE_BOTTOM_MARGIN - top_limit;
         if available_width <= 0.0 {
             available_width = rect.width().max(1.0);
@@ -438,7 +440,7 @@ impl QniApp {
         let scale = size / STATE_CIRCLE_SIZE;
         let inner_radius = (radius - stroke * 0.5 + 0.5 * scale).max(0.0);
 
-        let content_height = total_height + state_padding * 2.0;
+        let content_height = total_height + state_padding_y * 2.0;
         // Keep the grip bar tall enough to stay easy to grab even when the circles shrink.
         let handle_height = (0.4 * REM).min(content_height * 0.4).max(10.0);
         // Reserve half a handle of padding so the drag affordance reads as separate from the circles.
@@ -449,12 +451,12 @@ impl QniApp {
             // Balance the extra top handle space with the regular circle padding so the panel still feels centered.
             base_pos
                 - egui::vec2(
-                    state_padding,
-                    state_padding + handle_height + handle_padding,
+                    state_padding_x,
+                    state_padding_y + handle_height + handle_padding,
                 ),
             egui::vec2(
-                total_width + state_padding * 2.0,
-                total_height + state_padding * 2.0 + handle_height + handle_padding,
+                total_width + state_padding_x * 2.0,
+                total_height + state_padding_y * 2.0 + handle_height + handle_padding,
             ),
         );
 
