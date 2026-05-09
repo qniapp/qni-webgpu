@@ -10,185 +10,24 @@ use futures_channel::oneshot;
 use wasm_bindgen::JsValue;
 
 use crate::bloch::SimulationOp;
-use crate::colors::Colors;
 use crate::constants::MAX_STATE_COUNT;
 use crate::gates::GateParams;
 
 mod digit_atlas;
+mod params;
 mod shaders;
 use digit_atlas::{rasterize_digit_atlas, DIGIT_ATLAS_HEIGHT, DIGIT_ATLAS_WIDTH};
+pub(crate) use params::{
+    BlochOverlayInstance, BlochOverlayParams, BlochParams, MeasureCollapseParams,
+    MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, RenderColors,
+    RenderParams, StateInstance, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    STATE_WORKGROUP_SIZE,
+};
 use shaders::{
     BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER, MEASUREMENT_DIGIT_SHADER, MEASURE_COLLAPSE_SHADER,
     MEASURE_REDUCE_SHADER, STATE_COMPUTE_SHADER, STATE_RENDER_SHADER,
 };
 
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct StateInstance {
-    pub(crate) center: [f32; 2],
-    pub(crate) radius: f32,
-    pub(crate) inner_radius: f32,
-    pub(crate) stroke: f32,
-    pub(crate) state_index: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct RenderParams {
-    /// See `BlochOverlayParams::viewport_min`. NDC -1..1 maps to the egui
-    /// callback viewport, not the full canvas.
-    pub(crate) viewport_min: [f32; 2],
-    pub(crate) viewport_size: [f32; 2],
-    pub(crate) surface: [f32; 4],
-    pub(crate) fill: [f32; 4],
-    pub(crate) outline: [f32; 4],
-    pub(crate) outline_zero: [f32; 4],
-    pub(crate) needle: [f32; 4],
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct RenderColors {
-    pub(crate) surface: [f32; 4],
-    pub(crate) fill: [f32; 4],
-    pub(crate) outline: [f32; 4],
-    pub(crate) outline_zero: [f32; 4],
-    pub(crate) needle: [f32; 4],
-}
-
-impl RenderColors {
-    pub(crate) fn new(colors: &Colors) -> Self {
-        Self {
-            surface: egui::Rgba::from(colors.surface).to_array(),
-            fill: egui::Rgba::from(colors.state_fill).to_array(),
-            outline: egui::Rgba::from(colors.state_outline).to_array(),
-            outline_zero: egui::Rgba::from(colors.state_outline_zero).to_array(),
-            needle: egui::Rgba::from(colors.state_needle).to_array(),
-        }
-    }
-}
-
-pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
-
-/// Upper bound on the number of `SimulationOp`s of any single variant we can
-/// batch into one recompute encoder. Issue A's fix packs all per-op params
-/// into staging buffers up-front, then issues `copy_buffer_to_buffer` from
-/// staging slots into the existing small uniform buffers between dispatches
-/// inside a single encoder. Each variant has its own staging buffer sized to
-/// `MAX_OPS_PER_RECOMPUTE` slots; if a circuit ever exceeds this, the
-/// `debug_assert!` in the prepare pass will trip.
-pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
-
-
-/// Maximum number of Bloch displays whose vectors can be captured in a single
-/// recompute. Each placed `BlochDisplay` occupies one slot in the GPU's
-/// `bloch_output_buffer` (a vec4 per slot, .xyz used).
-pub(crate) const MAX_BLOCH_SLOTS: usize = 64;
-
-// Workgroup size for the Bloch reduction shader is hard-coded to 64 (matches
-// `@workgroup_size(64)` in `BLOCH_REDUCE_SHADER`). One workgroup processes the
-// entire state vector for a single qubit and reduces (ρ_00, ρ_11, Re(ρ_01),
-// Im(ρ_01)) via shared memory.
-
-
-/// Maximum number of measurement gates whose outcomes can be captured in a
-/// single recompute. Each placed `Measurement` occupies one slot in the GPU's
-/// `measurement_aux_buffer` (a vec4 per slot — pZero, r, outcome, √p_kept).
-pub(crate) const MAX_MEASUREMENT_SLOTS: usize = 64;
-
-// MEASURE_REDUCE_SAMPLE — workgroup reduces pZero across the state vector,
-// samples a deterministic [0, 1) value with a PCG-style hash seeded by the
-// placed gate's id, and writes `(pZero, r, outcome, sqrt_p_kept)` into
-// `aux_out[output_slot]`.  qni reference: `simulator.ts:measure`.
-
-// MEASURE_COLLAPSE — per-pair shader that reads the previously-sampled
-// outcome + sqrt_p_kept from the aux buffer, zeroes the unobserved branch,
-// and renormalizes the surviving amplitudes.
-
-// BLOCH_OVERLAY_RENDER_SHADER renders the dynamic arrow + tip dot of every
-// placed Bloch display directly from `bloch_output_buffer`. Static decoration
-// (sphere bg, axis lines, equator/meridian ellipses) is still painted by
-// egui — it doesn't depend on quantum state — but the part that does depend
-// stays on the GPU end-to-end (no CPU readback). Projection mirrors
-// `icons::bloch_project` (qni's `rotateY(phi) rotateX(-theta)` axis swap +
-// `perspective: 4rem` pinhole at top-right).
-
-// MEASUREMENT_DIGIT_SHADER renders the `0` / `1` digit of every placed
-// measurement directly from `measurement_aux_buffer`. The aux layout is
-// `(pZero, r, outcome, sqrt_p_kept)` per slot; we sample `.z` to pick the
-// glyph and the colour. The digit pixels come from a single-channel atlas
-// of two cells (`0` on top, `1` on bottom) baked at startup from Hack
-// Regular at the same 16-px size egui uses for the |0> / |1> labels —
-// keeps the measurement digit visually identical to the write gate digit
-// without forcing a CPU readback of the outcome.
-
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct BlochParams {
-    pub(crate) qubit_bit: u32,
-    pub(crate) state_count: u32,
-    pub(crate) output_slot: u32,
-    pub(crate) _pad: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MeasureReduceParams {
-    pub(crate) qubit_bit: u32,
-    pub(crate) state_count: u32,
-    pub(crate) output_slot: u32,
-    pub(crate) seed: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MeasureCollapseParams {
-    pub(crate) qubit_bit: u32,
-    pub(crate) state_count: u32,
-    pub(crate) aux_slot: u32,
-    pub(crate) _pad: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct BlochOverlayParams {
-    /// Egui callback viewport in CSS pixels (= the rect we passed to
-    /// `Callback::new_paint_callback`). NDC -1..1 maps to this viewport,
-    /// NOT to the full canvas — using `screen_descriptor.size_in_pixels`
-    /// here would shift everything by `viewport_min`.
-    pub(crate) viewport_min: [f32; 2],
-    pub(crate) viewport_size: [f32; 2],
-    pub(crate) line_color: [f32; 4],
-    pub(crate) tip_color: [f32; 4],
-    pub(crate) zero_color: [f32; 4],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct BlochOverlayInstance {
-    pub(crate) center: [f32; 2],
-    pub(crate) radius: f32,
-    pub(crate) outer: f32,
-    pub(crate) slot: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MeasurementDigitParams {
-    /// See `BlochOverlayParams::viewport_min` — same NDC story.
-    pub(crate) viewport_min: [f32; 2],
-    pub(crate) viewport_size: [f32; 2],
-    pub(crate) zero_color: [f32; 4],
-    pub(crate) one_color: [f32; 4],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MeasurementDigitInstance {
-    pub(crate) center: [f32; 2],
-    pub(crate) half_extent: f32,
-    pub(crate) slot: u32,
-}
 
 pub(crate) struct StateVectorResources {
     pub(crate) compute_pipeline: wgpu::ComputePipeline,
