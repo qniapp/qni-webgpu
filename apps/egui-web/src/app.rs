@@ -496,7 +496,7 @@ impl eframe::App for QniApp {
         if self.fps_hud_visible {
             let dt = ctx.input(|i| i.stable_dt);
             self.fps_hud_history.push_back(dt);
-            while self.fps_hud_history.len() > 60 {
+            while self.fps_hud_history.len() > 120 {
                 self.fps_hud_history.pop_front();
             }
             let avg_dt = self.fps_hud_history.iter().sum::<f32>()
@@ -509,21 +509,97 @@ impl eframe::App for QniApp {
                 .title_bar(false)
                 .frame(
                     egui::Frame::popup(&ctx.style())
-                        .fill(egui::Color32::from_rgba_unmultiplied(20, 20, 26, 220))
+                        .inner_margin(egui::Margin::symmetric(8, 6))
+                        .fill(egui::Color32::from_rgba_unmultiplied(10, 10, 14, 235))
                         .stroke(egui::Stroke::new(
                             1.0,
                             egui::Color32::from_rgb(60, 60, 75),
                         )),
                 )
                 .show(ctx, |ui| {
-                    ui.spacing_mut().item_spacing.y = 2.0;
+                    ui.spacing_mut().item_spacing.y = 4.0;
                     ui.colored_label(
-                        egui::Color32::from_rgb(140, 200, 220),
-                        format!("{:5.1} fps", fps),
+                        egui::Color32::WHITE,
+                        egui::RichText::new(format!("{:5.1} FPS", fps))
+                            .monospace()
+                            .size(13.0),
+                    );
+                    let (graph_rect, _) = ui.allocate_exact_size(
+                        egui::vec2(150.0, 50.0),
+                        egui::Sense::hover(),
+                    );
+                    let painter = ui.painter_at(graph_rect);
+                    // Graph background.
+                    painter.rect_filled(
+                        graph_rect,
+                        0.0,
+                        egui::Color32::from_rgba_unmultiplied(0, 0, 0, 180),
+                    );
+                    // Axes.
+                    let axis_color = egui::Color32::from_gray(110);
+                    painter.line_segment(
+                        [graph_rect.left_top(), graph_rect.left_bottom()],
+                        egui::Stroke::new(1.0, axis_color),
+                    );
+                    painter.line_segment(
+                        [graph_rect.left_bottom(), graph_rect.right_bottom()],
+                        egui::Stroke::new(1.0, axis_color),
+                    );
+                    // Y-axis ceiling: round up to next 30 fps step, min 60.
+                    let history_max = self
+                        .fps_hud_history
+                        .iter()
+                        .map(|dt| if *dt > 1e-6 { 1.0 / *dt } else { 0.0 })
+                        .fold(0.0f32, f32::max);
+                    let y_max = ((history_max / 30.0).ceil() * 30.0).max(60.0);
+                    // Plot line.
+                    let n = self.fps_hud_history.len();
+                    if n >= 2 {
+                        let denom = (n - 1) as f32;
+                        let points: Vec<egui::Pos2> = self
+                            .fps_hud_history
+                            .iter()
+                            .enumerate()
+                            .map(|(i, dt)| {
+                                let inst_fps =
+                                    if *dt > 1e-6 { 1.0 / *dt } else { 0.0 };
+                                let x = graph_rect.left()
+                                    + (i as f32 / denom) * graph_rect.width();
+                                let y = graph_rect.bottom()
+                                    - (inst_fps / y_max).clamp(0.0, 1.0)
+                                        * graph_rect.height();
+                                egui::pos2(x, y)
+                            })
+                            .collect();
+                        painter.add(egui::Shape::line(
+                            points,
+                            egui::Stroke::new(
+                                1.5,
+                                egui::Color32::from_rgb(80, 220, 120),
+                            ),
+                        ));
+                    }
+                    // Y-axis labels.
+                    let label_color = egui::Color32::from_gray(160);
+                    painter.text(
+                        egui::pos2(graph_rect.left() + 3.0, graph_rect.top() + 1.0),
+                        egui::Align2::LEFT_TOP,
+                        format!("{:.0}", y_max),
+                        egui::FontId::monospace(9.0),
+                        label_color,
+                    );
+                    painter.text(
+                        egui::pos2(graph_rect.left() + 3.0, graph_rect.bottom() - 1.0),
+                        egui::Align2::LEFT_BOTTOM,
+                        "0",
+                        egui::FontId::monospace(9.0),
+                        label_color,
                     );
                     ui.colored_label(
                         egui::Color32::from_rgb(168, 163, 179),
-                        format!("{:5.2} ms", avg_dt * 1000.0),
+                        egui::RichText::new(format!("{:5.2} ms", avg_dt * 1000.0))
+                            .monospace()
+                            .size(11.0),
                     );
                 });
             // Force continuous repaint so the reading stays live.
