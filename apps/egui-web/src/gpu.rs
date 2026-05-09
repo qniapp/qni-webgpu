@@ -1,3 +1,4 @@
+use ab_glyph::{Font as _, ScaleFont as _};
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 use std::cell::RefCell;
@@ -451,9 +452,11 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 // MEASUREMENT_DIGIT_SHADER renders the `0` / `1` digit of every placed
 // measurement directly from `measurement_aux_buffer`. The aux layout is
 // `(pZero, r, outcome, sqrt_p_kept)` per slot; we sample `.z` to pick the
-// glyph and the colour. Procedural SDFs: `0` is a stroked circle, `1` is a
-// vertical bar — close enough to qni's `font-mono text-lg` look without
-// needing a glyph atlas.
+// glyph and the colour. The digit pixels come from a single-channel atlas
+// of two cells (`0` on top, `1` on bottom) baked at startup from Hack
+// Regular at the same 16-px size egui uses for the |0> / |1> labels —
+// keeps the measurement digit visually identical to the write gate digit
+// without forcing a CPU readback of the outcome.
 const MEASUREMENT_DIGIT_SHADER: &str = r#"
 struct DigitParams {
   viewport_min: vec2<f32>,
@@ -464,6 +467,8 @@ struct DigitParams {
 
 @group(0) @binding(0) var<storage, read> aux_data: array<vec4<f32>>;
 @group(0) @binding(1) var<uniform> params: DigitParams;
+@group(0) @binding(2) var digit_atlas: texture_2d<f32>;
+@group(0) @binding(3) var digit_sampler: sampler;
 
 struct VsIn {
   @location(0) corner: vec2<f32>,
@@ -497,59 +502,18 @@ fn vs_main(input: VsIn) -> VsOut {
   return out;
 }
 
-// Approximate signed distance from `p` to a centered axis-aligned ellipse
-// with half-axes (rx, ry). Sign is negative inside, positive outside; scale
-// is roughly screen pixels for small eccentricities (good enough for AA).
-fn ellipse_sdf(p: vec2<f32>, rx: f32, ry: f32) -> f32 {
-  let q = vec2<f32>(p.x / rx, p.y / ry);
-  let qlen = length(q);
-  return (qlen - 1.0) * min(rx, ry);
-}
-
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let aux = aux_data[input.slot];
   let outcome: f32 = aux.z;
-
-  // Glyph metrics — tuned to read like an 18pt monospace digit on a 32px gate.
-  let half_h: f32 = 7.0;
-  let half_w: f32 = 5.0;
-  let thickness: f32 = 2.0;
-  let edge: f32 = 0.75;
-
-  var alpha: f32 = 0.0;
-  var color: vec3<f32>;
-  if (outcome < 0.5) {
-    // "0" — vertical ellipse outline (taller than wide so it reads as a digit
-    // rather than a generic ring).
-    let outer_rx: f32 = 4.0;
-    let outer_ry: f32 = 7.0;
-    let inner_rx: f32 = 2.5;
-    let inner_ry: f32 = 5.5;
-    let outer_dist = ellipse_sdf(input.local, outer_rx, outer_ry);
-    let inner_dist = ellipse_sdf(input.local, inner_rx, inner_ry);
-    // alpha = inside outer ellipse AND outside inner ellipse.
-    let outer_alpha = 1.0 - smoothstep(-edge, edge, outer_dist);
-    let inner_alpha = 1.0 - smoothstep(-edge, edge, inner_dist);
-    alpha = max(0.0, outer_alpha - inner_alpha);
-    color = params.zero_color.rgb;
-  } else {
-    // "1" — vertical bar with a horizontal base, monospace-friendly.
-    let bar_alpha_x =
-      1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, abs(input.local.x));
-    let bar_alpha_y = 1.0 - smoothstep(half_h - edge, half_h + edge, abs(input.local.y));
-    let bar = bar_alpha_x * bar_alpha_y;
-    // Horizontal base at the bottom, half_w wide.
-    let base_y = abs(input.local.y - half_h);
-    let base_alpha_y =
-      1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, base_y);
-    let base_alpha_x =
-      1.0 - smoothstep(half_w - edge, half_w + edge, abs(input.local.x));
-    let base = base_alpha_x * base_alpha_y;
-    alpha = max(bar, base);
-    color = params.one_color.rgb;
-  }
-
+  // Map local coords ([-half_extent, +half_extent]^2) into the right cell
+  // of a 1x2 atlas (top half = "0", bottom half = "1"). UV.y picks the row.
+  let cell_u = (input.local.x / input.half_extent) * 0.5 + 0.5;
+  let cell_v = (input.local.y / input.half_extent) * 0.5 + 0.5;
+  let row = select(0.0, 1.0, outcome >= 0.5);
+  let uv = vec2<f32>(cell_u, (cell_v + row) * 0.5);
+  let alpha = textureSample(digit_atlas, digit_sampler, uv).r;
+  let color = select(params.zero_color.rgb, params.one_color.rgb, outcome >= 0.5);
   if (alpha < 1.0e-3) {
     discard;
   }
@@ -768,8 +732,56 @@ pub(crate) struct StateVectorResources {
     pub(crate) measurement_digit_instance_buffer: wgpu::Buffer,
 }
 
+/// Atlas geometry for the measurement digit texture: a 1x2 grid of cells,
+/// each holding a single rasterised glyph. Cell size matches the
+/// `MeasurementDigitInstance::half_extent * 2` quad the shader draws into,
+/// so UVs map identity-style.
+const DIGIT_ATLAS_CELL: u32 = 18;
+const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
+const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
+
+/// Rasterises the digits "0" and "1" using Hack Regular (the same font
+/// egui's monospace family resolves to) at the same pixel size as
+/// `FontId::monospace(16.0)`. Done once at startup; the resulting bytes
+/// are uploaded to a GPU texture sampled by `MEASUREMENT_DIGIT_SHADER`.
+fn rasterize_digit_atlas() -> Vec<u8> {
+    let font = ab_glyph::FontRef::try_from_slice(epaint_default_fonts::HACK_REGULAR)
+        .expect("Hack Regular bytes should parse as a TTF");
+    let scale = ab_glyph::PxScale::from(16.0);
+    let scaled = font.as_scaled(scale);
+
+    let mut atlas = vec![0u8; (DIGIT_ATLAS_WIDTH * DIGIT_ATLAS_HEIGHT) as usize];
+    for (cell_index, ch) in ['0', '1'].iter().enumerate() {
+        let glyph_id = font.glyph_id(*ch);
+        let glyph =
+            glyph_id.with_scale_and_position(scale, ab_glyph::Point { x: 0.0, y: scaled.ascent() });
+        let Some(outlined) = font.outline_glyph(glyph) else {
+            continue;
+        };
+        let bounds = outlined.px_bounds();
+        let glyph_w = bounds.width().ceil() as u32;
+        let glyph_h = bounds.height().ceil() as u32;
+        let cell_origin_x = DIGIT_ATLAS_CELL.saturating_sub(glyph_w) / 2;
+        let cell_origin_y =
+            cell_index as u32 * DIGIT_ATLAS_CELL + DIGIT_ATLAS_CELL.saturating_sub(glyph_h) / 2;
+        outlined.draw(|gx, gy, alpha| {
+            let px = cell_origin_x + gx;
+            let py = cell_origin_y + gy;
+            if px < DIGIT_ATLAS_WIDTH && py < DIGIT_ATLAS_HEIGHT {
+                atlas[(py * DIGIT_ATLAS_WIDTH + px) as usize] =
+                    (alpha.clamp(0.0, 1.0) * 255.0) as u8;
+            }
+        });
+    }
+    atlas
+}
+
 impl StateVectorResources {
-    pub(crate) fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("state_vector_compute"),
             source: wgpu::ShaderSource::Wgsl(STATE_COMPUTE_SHADER.into()),
@@ -1072,8 +1084,55 @@ impl StateVectorResources {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
+
+        // Bake the digit atlas (Hack "0" / "1") once and upload to a GPU
+        // texture sampled by `MEASUREMENT_DIGIT_SHADER`.
+        let digit_atlas_data = rasterize_digit_atlas();
+        let digit_atlas_texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("measurement_digit_atlas"),
+                size: wgpu::Extent3d {
+                    width: DIGIT_ATLAS_WIDTH,
+                    height: DIGIT_ATLAS_HEIGHT,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::R8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::default(),
+            &digit_atlas_data,
+        );
+        let digit_atlas_view =
+            digit_atlas_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let digit_atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("measurement_digit_sampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
 
         let render_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1615,6 +1674,14 @@ impl StateVectorResources {
                         binding: 1,
                         resource: measurement_digit_params_buffer.as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&digit_atlas_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Sampler(&digit_atlas_sampler),
+                    },
                 ],
             });
         let measurement_digit_pipeline_layout =
@@ -1997,7 +2064,11 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 .get_mut::<StateVectorResources>()
                 .expect("StateVectorResources missing")
         } else {
-            callback_resources.insert(StateVectorResources::new(device, self.target_format));
+            callback_resources.insert(StateVectorResources::new(
+                device,
+                queue,
+                self.target_format,
+            ));
             callback_resources
                 .get_mut::<StateVectorResources>()
                 .expect("StateVectorResources just inserted")
