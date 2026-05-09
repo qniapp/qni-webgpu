@@ -226,6 +226,8 @@ impl QniApp {
         if !bloch_overlay_instances.is_empty() {
             let callback = BlochOverlayCallback {
                 instances: bloch_overlay_instances.into(),
+                viewport_min: [rect.min.x, rect.min.y],
+                viewport_size: [rect.width(), rect.height()],
                 line_color: egui::Rgba::from(colors.bloch_vector_line).to_array(),
                 tip_color: egui::Rgba::from(colors.bloch_vector_tip).to_array(),
                 zero_color: egui::Rgba::from(colors.bloch_vector_zero).to_array(),
@@ -263,6 +265,8 @@ impl QniApp {
         if !measurement_digit_instances.is_empty() {
             let callback = MeasurementDigitCallback {
                 instances: measurement_digit_instances.into(),
+                viewport_min: [rect.min.x, rect.min.y],
+                viewport_size: [rect.width(), rect.height()],
                 zero_color: egui::Rgba::from(colors.semantic_off).to_array(),
                 one_color: egui::Rgba::from(colors.semantic_on).to_array(),
             };
@@ -574,6 +578,7 @@ impl QniApp {
                 Vec::new()
             };
             let render_colors = RenderColors::new(colors);
+            let callback_rect = screen_rect;
             let callback = StateVectorCallback {
                 instances,
                 instances_dirty,
@@ -582,8 +587,9 @@ impl QniApp {
                 recompute,
                 target_format,
                 colors: render_colors,
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
             };
-            let callback_rect = screen_rect;
             let clipped = painter.with_clip_rect(state_rect);
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             clipped.add(egui::Shape::Callback(paint_callback));

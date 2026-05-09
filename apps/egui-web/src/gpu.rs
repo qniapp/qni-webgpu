@@ -27,8 +27,10 @@ pub(crate) struct StateInstance {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct RenderParams {
-    pub(crate) screen_size: [f32; 2],
-    pub(crate) _pad0: [f32; 2],
+    /// See `BlochOverlayParams::viewport_min`. NDC -1..1 maps to the egui
+    /// callback viewport, not the full canvas.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
     pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) outline: [f32; 4],
@@ -343,8 +345,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 // `perspective: 4rem` pinhole at top-right).
 const BLOCH_OVERLAY_SHADER: &str = r#"
 struct OverlayParams {
-  screen_size: vec2<f32>,
-  _pad0: vec2<f32>,
+  viewport_min: vec2<f32>,
+  viewport_size: vec2<f32>,
   line_color: vec4<f32>,
   tip_color: vec4<f32>,
   zero_color: vec4<f32>,
@@ -373,9 +375,13 @@ struct VsOut {
 fn vs_main(input: VsIn) -> VsOut {
   let local = input.corner * input.outer;
   let world = input.center + local;
+  // egui_wgpu sets the GL viewport to the rect we passed to
+  // `Callback::new_paint_callback`, so NDC -1..1 maps to that rect (not the
+  // full canvas). World coords already include `rect.min`, so subtract it.
+  let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
-    (world.x / params.screen_size.x) * 2.0 - 1.0,
-    1.0 - (world.y / params.screen_size.y) * 2.0,
+    (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
+    1.0 - (viewport_pos.y / params.viewport_size.y) * 2.0,
   );
   var out: VsOut;
   out.clip = vec4<f32>(ndc, 0.0, 1.0);
@@ -450,8 +456,8 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 // needing a glyph atlas.
 const MEASUREMENT_DIGIT_SHADER: &str = r#"
 struct DigitParams {
-  screen_size: vec2<f32>,
-  _pad0: vec2<f32>,
+  viewport_min: vec2<f32>,
+  viewport_size: vec2<f32>,
   zero_color: vec4<f32>,
   one_color: vec4<f32>,
 };
@@ -477,9 +483,11 @@ struct VsOut {
 fn vs_main(input: VsIn) -> VsOut {
   let local = input.corner * input.half_extent;
   let world = input.center + local;
+  // See BLOCH_OVERLAY_SHADER — NDC maps to the egui callback viewport.
+  let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
-    (world.x / params.screen_size.x) * 2.0 - 1.0,
-    1.0 - (world.y / params.screen_size.y) * 2.0,
+    (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
+    1.0 - (viewport_pos.y / params.viewport_size.y) * 2.0,
   );
   var out: VsOut;
   out.clip = vec4<f32>(ndc, 0.0, 1.0);
@@ -489,14 +497,21 @@ fn vs_main(input: VsIn) -> VsOut {
   return out;
 }
 
+// Approximate signed distance from `p` to a centered axis-aligned ellipse
+// with half-axes (rx, ry). Sign is negative inside, positive outside; scale
+// is roughly screen pixels for small eccentricities (good enough for AA).
+fn ellipse_sdf(p: vec2<f32>, rx: f32, ry: f32) -> f32 {
+  let q = vec2<f32>(p.x / rx, p.y / ry);
+  let qlen = length(q);
+  return (qlen - 1.0) * min(rx, ry);
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let aux = aux_data[input.slot];
   let outcome: f32 = aux.z;
 
-  // Glyph metrics — tuned to roughly match an 18pt monospace digit on a
-  // 32px gate.  Edge softness uses fwidth-style screen-space derivatives so
-  // antialiasing scales with DPR.
+  // Glyph metrics — tuned to read like an 18pt monospace digit on a 32px gate.
   let half_h: f32 = 7.0;
   let half_w: f32 = 5.0;
   let thickness: f32 = 2.0;
@@ -505,29 +520,33 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   var alpha: f32 = 0.0;
   var color: vec3<f32>;
   if (outcome < 0.5) {
-    // "0" — stroked ellipse-ish circle.
-    let dist = length(input.local);
-    let outer = half_h;
-    let inner = half_h - thickness;
-    let outer_alpha = 1.0 - smoothstep(outer - edge, outer + edge, dist);
-    let inner_alpha = 1.0 - smoothstep(inner - edge, inner + edge, dist);
+    // "0" — vertical ellipse outline (taller than wide so it reads as a digit
+    // rather than a generic ring).
+    let outer_rx: f32 = 4.0;
+    let outer_ry: f32 = 7.0;
+    let inner_rx: f32 = 2.5;
+    let inner_ry: f32 = 5.5;
+    let outer_dist = ellipse_sdf(input.local, outer_rx, outer_ry);
+    let inner_dist = ellipse_sdf(input.local, inner_rx, inner_ry);
+    // alpha = inside outer ellipse AND outside inner ellipse.
+    let outer_alpha = 1.0 - smoothstep(-edge, edge, outer_dist);
+    let inner_alpha = 1.0 - smoothstep(-edge, edge, inner_dist);
     alpha = max(0.0, outer_alpha - inner_alpha);
     color = params.zero_color.rgb;
   } else {
-    // "1" — vertical bar with a tiny diagonal serif so it doesn't read as a
-    // bare line.
-    let bar_alpha_x = 1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, abs(input.local.x));
+    // "1" — vertical bar with a horizontal base, monospace-friendly.
+    let bar_alpha_x =
+      1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, abs(input.local.x));
     let bar_alpha_y = 1.0 - smoothstep(half_h - edge, half_h + edge, abs(input.local.y));
     let bar = bar_alpha_x * bar_alpha_y;
-    // Serif: from top-left toward the bar.
-    let serif_dir = normalize(vec2<f32>(1.0, 1.0));
-    let serif_p = input.local - vec2<f32>(-half_w * 0.6, -half_h * 0.7);
-    let serif_along = dot(serif_p, serif_dir);
-    let serif_perp = dot(serif_p, vec2<f32>(-serif_dir.y, serif_dir.x));
-    let serif_alpha_along = 1.0 - smoothstep(half_w * 0.6, half_w * 0.6 + edge, abs(serif_along));
-    let serif_alpha_perp = 1.0 - smoothstep(thickness * 0.4 - edge, thickness * 0.4 + edge, abs(serif_perp));
-    let serif = serif_alpha_along * serif_alpha_perp;
-    alpha = max(bar, serif);
+    // Horizontal base at the bottom, half_w wide.
+    let base_y = abs(input.local.y - half_h);
+    let base_alpha_y =
+      1.0 - smoothstep(thickness * 0.5 - edge, thickness * 0.5 + edge, base_y);
+    let base_alpha_x =
+      1.0 - smoothstep(half_w - edge, half_w + edge, abs(input.local.x));
+    let base = base_alpha_x * base_alpha_y;
+    alpha = max(bar, base);
     color = params.one_color.rgb;
   }
 
@@ -540,8 +559,10 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
 const STATE_RENDER_SHADER: &str = r#"
 struct RenderParams {
-  screen_size: vec2<f32>,
-  _pad0: vec2<f32>,
+  // Egui callback viewport in CSS pixels. NDC -1..1 maps to this rect, NOT
+  // the full canvas — see BLOCH_OVERLAY_SHADER for the explanation.
+  viewport_min: vec2<f32>,
+  viewport_size: vec2<f32>,
   surface: vec4<f32>,
   fill: vec4<f32>,
   outline: vec4<f32>,
@@ -576,9 +597,10 @@ fn vs_main(input: VsIn) -> VsOut {
   // Pad the quad so the AA edge has coverage; avoids flat/clipped circle edges.
   let local = input.position * (outer + 1.0);
   let world = input.center + local;
+  let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
-    (world.x / params.screen_size.x) * 2.0 - 1.0,
-    1.0 - (world.y / params.screen_size.y) * 2.0
+    (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
+    1.0 - (viewport_pos.y / params.viewport_size.y) * 2.0
   );
   var out: VsOut;
   out.clip = vec4<f32>(ndc, 0.0, 1.0);
@@ -654,8 +676,12 @@ pub(crate) struct MeasureCollapseParams {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct BlochOverlayParams {
-    pub(crate) screen_size: [f32; 2],
-    pub(crate) _pad0: [f32; 2],
+    /// Egui callback viewport in CSS pixels (= the rect we passed to
+    /// `Callback::new_paint_callback`). NDC -1..1 maps to this viewport,
+    /// NOT to the full canvas — using `screen_descriptor.size_in_pixels`
+    /// here would shift everything by `viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],
     pub(crate) tip_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
@@ -673,8 +699,9 @@ pub(crate) struct BlochOverlayInstance {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct MeasurementDigitParams {
-    pub(crate) screen_size: [f32; 2],
-    pub(crate) _pad0: [f32; 2],
+    /// See `BlochOverlayParams::viewport_min` — same NDC story.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
     pub(crate) one_color: [f32; 4],
 }
@@ -1796,6 +1823,11 @@ impl StateVectorResources {
 /// reduction shader just wrote.
 pub(crate) struct BlochOverlayCallback {
     pub(crate) instances: Arc<[BlochOverlayInstance]>,
+    /// CSS-pixel rect of the egui callback viewport (= the rect we passed
+    /// to `Callback::new_paint_callback`). NDC -1..1 maps to this, not the
+    /// full canvas, so the shader needs both `min` and `size`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],
     pub(crate) tip_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
@@ -1806,7 +1838,7 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
         &self,
         _device: &wgpu::Device,
         queue: &wgpu::Queue,
-        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
@@ -1816,13 +1848,9 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
-        let screen_size = [
-            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
-            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
-        ];
         let params = BlochOverlayParams {
-            screen_size,
-            _pad0: [0.0, 0.0],
+            viewport_min: self.viewport_min,
+            viewport_size: self.viewport_size,
             line_color: self.line_color,
             tip_color: self.tip_color,
             zero_color: self.zero_color,
@@ -1870,6 +1898,9 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
 /// quantum-state-derived.
 pub(crate) struct MeasurementDigitCallback {
     pub(crate) instances: Arc<[MeasurementDigitInstance]>,
+    /// See `BlochOverlayCallback::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
     pub(crate) one_color: [f32; 4],
 }
@@ -1879,7 +1910,7 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
         &self,
         _device: &wgpu::Device,
         queue: &wgpu::Queue,
-        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
@@ -1889,13 +1920,9 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
-        let screen_size = [
-            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
-            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
-        ];
         let params = MeasurementDigitParams {
-            screen_size,
-            _pad0: [0.0, 0.0],
+            viewport_min: self.viewport_min,
+            viewport_size: self.viewport_size,
             zero_color: self.zero_color,
             one_color: self.one_color,
         };
@@ -1951,6 +1978,9 @@ pub(crate) struct StateVectorCallback {
     pub(crate) recompute: bool,
     pub(crate) target_format: wgpu::TextureFormat,
     pub(crate) colors: RenderColors,
+    /// See `BlochOverlayCallback::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
 }
 
 impl egui_wgpu::CallbackTrait for StateVectorCallback {
@@ -1958,7 +1988,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
@@ -1975,13 +2005,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
 
         resources.update_render_pipeline(device, self.target_format);
 
-        let screen_size = [
-            screen_descriptor.size_in_pixels[0] as f32 / screen_descriptor.pixels_per_point,
-            screen_descriptor.size_in_pixels[1] as f32 / screen_descriptor.pixels_per_point,
-        ];
         let render_params = RenderParams {
-            screen_size,
-            _pad0: [0.0, 0.0],
+            viewport_min: self.viewport_min,
+            viewport_size: self.viewport_size,
             surface: self.colors.surface,
             fill: self.colors.fill,
             outline: self.colors.outline,
