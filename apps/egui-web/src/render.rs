@@ -175,6 +175,10 @@ impl QniApp {
                 let hover_inner = gate_rect.expand(2.0);
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+            } else if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
+                // Write gates have no fill, so the wire would otherwise show
+                // through the brackets. Mask just the wire under the gate.
+                painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
             if gate.kind == GateKind::Measurement && self.measurement_slots.contains_key(&gate.id) {
