@@ -548,54 +548,25 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  // qni's `gap == stroke` layout makes adjacent cells' strokes meet at a
-  // 1-px boundary. Single-cell sampling renders that pixel at ~50 % alpha
-  // (smoothstep midpoint), which leaves a visibly faded outline. Sample
-  // the 2x2 cell neighbourhood whose centres surround this pixel and
-  // compose with pre-multiplied "over" alpha; the old per-instance render
-  // produced the same ~75 % alpha at the boundary by overdrawing both
-  // quads, so this matches the previous look.
+  // Single-cell sampling: each pixel maps to exactly one (col, row) and
+  // evaluates that cell only. This is correct as long as adjacent cells'
+  // strokes don't meet at the cell-cell boundary — render.rs adds a
+  // 1-px slack to `gap` (gap == stroke + 1) so the strokes are separated
+  // by a 1-px panel-surface seam, sidestepping the symmetric-AA boundary
+  // alpha problem (smoothstep at dist == outer always returns 0.5).
   //
   // `edge` is computed once here in uniform control flow and passed down
   // to `cell_contribution`; the per-cell function must not call fwidth
-  // itself because the bounds-check inside `sample_cell` breaks uniform
-  // flow and would give undefined derivative results.
+  // itself because the bounds-check below would break uniform flow.
   let edge = length(fwidth(input.panel_local));
-  // Shift the floor by `radius` so col0 picks the left neighbour when the
-  // pixel is in the left half of cell col, the right neighbour when in
-  // the right half — either way the 2x2 covers the four cells whose
-  // centres are nearest the pixel.
-  let col0 = i32(floor((input.panel_local.x - params.radius) / params.cell_pitch));
-  let row0 = i32(floor((input.panel_local.y - params.radius) / params.cell_pitch));
-  let cols_i = i32(params.cols);
-  let rows_i = i32(params.rows);
-  let s00 = sample_cell(col0,     row0,     cols_i, rows_i, input.panel_local, edge);
-  let s10 = sample_cell(col0 + 1, row0,     cols_i, rows_i, input.panel_local, edge);
-  let s01 = sample_cell(col0,     row0 + 1, cols_i, rows_i, input.panel_local, edge);
-  let s11 = sample_cell(col0 + 1, row0 + 1, cols_i, rows_i, input.panel_local, edge);
-  var color = s00;
-  color = s10 + color * (1.0 - s10.a);
-  color = s01 + color * (1.0 - s01.a);
-  color = s11 + color * (1.0 - s11.a);
-  if (color.a < 0.001) {
+  let col_f = floor(input.panel_local.x / params.cell_pitch);
+  let row_f = floor(input.panel_local.y / params.cell_pitch);
+  let col = u32(clamp(col_f, 0.0, f32(params.cols - 1u)));
+  let row = u32(clamp(row_f, 0.0, f32(params.rows - 1u)));
+  let pre = cell_contribution(col, row, input.panel_local, edge);
+  if (pre.a < 0.001) {
     discard;
   }
-  return color;
-}
-
-// Bounds-checked wrapper around `cell_contribution`. Returns zero for
-// out-of-range indices.
-fn sample_cell(
-  col: i32,
-  row: i32,
-  cols: i32,
-  rows: i32,
-  panel_local: vec2<f32>,
-  edge: f32,
-) -> vec4<f32> {
-  if (col < 0 || col >= cols || row < 0 || row >= rows) {
-    return vec4<f32>(0.0);
-  }
-  return cell_contribution(u32(col), u32(row), panel_local, edge);
+  return pre;
 }
 "#;

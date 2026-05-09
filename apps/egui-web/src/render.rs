@@ -369,13 +369,20 @@ impl QniApp {
 
         // qni hard-codes the (cols, rows, size, line_width) per qubit count
         // (`circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`).
-        // Mirror that table so circles pack the same way: gap == stroke.
+        // Mirror that table so circles pack the same way. qni's reference
+        // uses gap == stroke (cells touch); we add 1 px so adjacent stroke
+        // rings don't share a pixel boundary at dist == outer. Without
+        // this slack the GPU-side single-cell render gives 50 % alpha at
+        // the boundary (symmetric smoothstep midpoint is exactly 0.5),
+        // visibly fading the outline. The 1-px seam is barely perceptible
+        // at typical zoom and lets us keep V-sync at 11+ qubits without
+        // paying for 2x2 cell sampling in the fragment shader.
         let qni = state_circle_layout(qubits);
         let columns = qni.cols;
         let rows = qni.rows;
         let size = qni.size;
         let stroke = qni.line_width;
-        let gap = qni.line_width;
+        let gap = qni.line_width + 1.0;
 
         let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
         let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
