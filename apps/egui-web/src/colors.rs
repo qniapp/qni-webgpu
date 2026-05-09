@@ -16,6 +16,7 @@ pub(crate) struct Colors {
     pub(crate) semantic_off: egui::Color32,
     pub(crate) semantic_on: egui::Color32,
     pub(crate) semantic_intermediate: egui::Color32,
+    pub(crate) semantic_disabled: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
@@ -46,6 +47,9 @@ impl Colors {
             semantic_on: crate::shared::color_rgba(0.231, 0.510, 0.965, 1.0),
             // qni semantic-color-intermediate (purple-500: #a855f7); shared with drag_fill.
             semantic_intermediate: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
+            // qni semantic-fill-color-disabled (zinc-500: #71717a) — write
+            // gate brackets, control / anti-control / swap icons.
+            semantic_disabled: crate::shared::color_rgba(0.443, 0.443, 0.478, 1.0),
             // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
             // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
             bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),

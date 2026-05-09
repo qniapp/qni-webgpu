@@ -243,12 +243,11 @@ fn draw_gate_body_with_fill(
     } else if kind == GateKind::Spacer {
         // qni `spacer_gate.css`: text-neutral-900 (#171717).
         colors.spacer_dots
-    } else if kind == GateKind::Write0 {
-        // qni `write_gate.css`: brackets are red (semantic-color-off) for |0>.
-        colors.semantic_off
-    } else if kind == GateKind::Write1 {
-        // qni `write_gate.css`: brackets are blue (semantic-color-on) for |1>.
-        colors.semantic_on
+    } else if kind == GateKind::Write0 || kind == GateKind::Write1 {
+        // qni `write_gate.css`: ::part(icon) (the brackets) is
+        // semantic-fill-color-disabled (zinc-500). Only the digit itself
+        // is red/blue — handled inside draw_gate_icon.
+        colors.semantic_disabled
     } else {
         colors.label
     };
