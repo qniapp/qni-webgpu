@@ -549,18 +549,23 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   // Single-cell sampling: each pixel maps to exactly one (col, row) and
-  // evaluates that cell only. This is correct as long as adjacent cells'
-  // strokes don't meet at the cell-cell boundary — render.rs adds a
-  // 1-px slack to `gap` (gap == stroke + 1) so the strokes are separated
-  // by a 1-px panel-surface seam, sidestepping the symmetric-AA boundary
-  // alpha problem (smoothstep at dist == outer always returns 0.5).
+  // evaluates that cell only. The (col, row) lookup is shifted by half a
+  // gap so the cell-cell boundary falls at the *centre* of the panel
+  // surface seam, not at the start of the next cell's slot. Without the
+  // shift, the right-hand cell's left-edge AA fringe would fall inside
+  // the left-hand cell's slot and never get drawn; the result is an
+  // asymmetric outline with a fading right side and a sharp left side,
+  // visible as a "halo" between adjacent circles. With the shift each
+  // cell renders its own outer AA on its own side of the gap, producing
+  // a symmetric 0.5 / 0.5 pair that reads as a continuous gradient.
   //
   // `edge` is computed once here in uniform control flow and passed down
   // to `cell_contribution`; the per-cell function must not call fwidth
   // itself because the bounds-check below would break uniform flow.
   let edge = length(fwidth(input.panel_local));
-  let col_f = floor(input.panel_local.x / params.cell_pitch);
-  let row_f = floor(input.panel_local.y / params.cell_pitch);
+  let half_gap = (params.cell_pitch - 2.0 * params.radius) * 0.5;
+  let col_f = floor((input.panel_local.x + half_gap) / params.cell_pitch);
+  let row_f = floor((input.panel_local.y + half_gap) / params.cell_pitch);
   let col = u32(clamp(col_f, 0.0, f32(params.cols - 1u)));
   let row = u32(clamp(row_f, 0.0, f32(params.rows - 1u)));
   let pre = cell_contribution(col, row, input.panel_local, edge);
