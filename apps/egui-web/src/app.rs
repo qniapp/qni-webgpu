@@ -62,6 +62,14 @@ pub(crate) struct QniApp {
     /// DevTools.
     fps_hud_visible: bool,
     fps_hud_history: VecDeque<f32>,
+    /// Per-frame CPU time spent inside `update()` (seconds). Lets the HUD
+    /// split total frame ms (= stable_dt) into CPU vs GPU/sync.
+    fps_hud_cpu_history: VecDeque<f32>,
+    /// CPU time spent specifically inside `draw_state_vector` (seconds).
+    /// Isolates the state-panel cost so the HUD can show it next to the
+    /// total CPU time — useful for "is the state panel scaling badly?"
+    /// diagnostics.
+    fps_hud_svp_history: VecDeque<f32>,
 }
 
 impl QniApp {
@@ -94,7 +102,9 @@ impl QniApp {
             startup_repaint_until: now_seconds() + 0.5,
             pointer_was_down: false,
             fps_hud_visible: false,
-            fps_hud_history: VecDeque::with_capacity(60),
+            fps_hud_history: VecDeque::with_capacity(120),
+            fps_hud_cpu_history: VecDeque::with_capacity(120),
+            fps_hud_svp_history: VecDeque::with_capacity(120),
         }
     }
 
@@ -460,6 +470,7 @@ impl eframe::App for QniApp {
                 recompute = false;
             }
             self.draw_palette(&overlay_painter, screen_rect, &colors);
+            let svp_t0 = now_seconds();
             self.draw_state_vector(
                 &overlay_painter,
                 &colors,
@@ -470,6 +481,13 @@ impl eframe::App for QniApp {
                 recompute,
                 target_format,
             );
+            if self.fps_hud_visible {
+                let svp_secs = (now_seconds() - svp_t0).max(0.0) as f32;
+                self.fps_hud_svp_history.push_back(svp_secs);
+                while self.fps_hud_svp_history.len() > 120 {
+                    self.fps_hud_svp_history.pop_front();
+                }
+            }
             if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
                 self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
             }
@@ -491,6 +509,8 @@ impl eframe::App for QniApp {
             self.fps_hud_visible = !self.fps_hud_visible;
             if !self.fps_hud_visible {
                 self.fps_hud_history.clear();
+                self.fps_hud_cpu_history.clear();
+                self.fps_hud_svp_history.clear();
             }
         }
         if self.fps_hud_visible {
@@ -499,8 +519,20 @@ impl eframe::App for QniApp {
             while self.fps_hud_history.len() > 120 {
                 self.fps_hud_history.pop_front();
             }
+            self.fps_hud_cpu_history.push_back(frame_secs as f32);
+            while self.fps_hud_cpu_history.len() > 120 {
+                self.fps_hud_cpu_history.pop_front();
+            }
             let avg_dt = self.fps_hud_history.iter().sum::<f32>()
                 / self.fps_hud_history.len().max(1) as f32;
+            let avg_cpu = self.fps_hud_cpu_history.iter().sum::<f32>()
+                / self.fps_hud_cpu_history.len().max(1) as f32;
+            let avg_svp = if self.fps_hud_svp_history.is_empty() {
+                0.0
+            } else {
+                self.fps_hud_svp_history.iter().sum::<f32>()
+                    / self.fps_hud_svp_history.len() as f32
+            };
             let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
             egui::Window::new("perf_hud")
                 .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
@@ -545,13 +577,17 @@ impl eframe::App for QniApp {
                         [graph_rect.left_bottom(), graph_rect.right_bottom()],
                         egui::Stroke::new(1.0, axis_color),
                     );
-                    // Y-axis ceiling: round up to next 30 fps step, min 60.
+                    // Y-axis ceiling: round up to next 30 fps step, clamped
+                    // to [60, 150] so a single startup spike (sub-ms first
+                    // frame → 600+ fps) doesn't wreck the scale.
                     let history_max = self
                         .fps_hud_history
                         .iter()
                         .map(|dt| if *dt > 1e-6 { 1.0 / *dt } else { 0.0 })
-                        .fold(0.0f32, f32::max);
-                    let y_max = ((history_max / 30.0).ceil() * 30.0).max(60.0);
+                        .fold(0.0f32, f32::max)
+                        .min(150.0);
+                    let y_max = ((history_max / 30.0).ceil() * 30.0)
+                        .clamp(60.0, 150.0);
                     // Plot line.
                     let n = self.fps_hud_history.len();
                     if n >= 2 {
@@ -595,11 +631,35 @@ impl eframe::App for QniApp {
                         egui::FontId::monospace(9.0),
                         label_color,
                     );
+                    let ms_color = egui::Color32::from_rgb(168, 163, 179);
+                    let svp_color = egui::Color32::from_rgb(232, 199, 158);
+                    let cpu_color = egui::Color32::from_rgb(140, 200, 220);
                     ui.colored_label(
-                        egui::Color32::from_rgb(168, 163, 179),
-                        egui::RichText::new(format!("{:5.2} ms", avg_dt * 1000.0))
-                            .monospace()
-                            .size(11.0),
+                        ms_color,
+                        egui::RichText::new(format!(
+                            "{:5.2} ms total",
+                            avg_dt * 1000.0
+                        ))
+                        .monospace()
+                        .size(11.0),
+                    );
+                    ui.colored_label(
+                        cpu_color,
+                        egui::RichText::new(format!(
+                            "{:5.2} ms cpu",
+                            avg_cpu * 1000.0
+                        ))
+                        .monospace()
+                        .size(11.0),
+                    );
+                    ui.colored_label(
+                        svp_color,
+                        egui::RichText::new(format!(
+                            "{:5.2} ms svp",
+                            avg_svp * 1000.0
+                        ))
+                        .monospace()
+                        .size(11.0),
                     );
                 });
             // Force continuous repaint so the reading stays live.
