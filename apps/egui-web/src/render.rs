@@ -380,9 +380,14 @@ impl QniApp {
         let qni = state_circle_layout(qubits);
         let columns = qni.cols;
         let rows = qni.rows;
-        let size = qni.size;
-        let stroke = qni.line_width;
-        let gap = qni.line_width + 1.0;
+        // Zoom scales every length-y thing in the grid uniformly so cells
+        // grow / shrink together. Stroke has a 0.5 px floor so very-zoomed-
+        // out cells still get a visible outline rather than collapsing into
+        // pure fill.
+        let zoom = self.state_grid_zoom;
+        let size = qni.size * zoom;
+        let stroke = (qni.line_width * zoom).max(0.5);
+        let gap = (qni.line_width + 1.0) * zoom;
 
         let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
         let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;

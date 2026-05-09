@@ -16,6 +16,12 @@ pub(crate) const STATE_HANDLE_HEIGHT: f32 = 22.0;
 pub(crate) const STATE_VIEWPORT_WIDTH: f32 = 560.0;
 pub(crate) const STATE_VIEWPORT_HEIGHT: f32 = 160.0;
 
+/// Zoom factor range for the state panel circle grid (Ctrl+wheel). Below
+/// 0.5 the cells become unreadable noise; above 4.0 the panel is mostly
+/// the inside of one circle.
+pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
+pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
+
 /// Per-qubit-count circle-notation geometry. Matches qni's desktop layout
 /// in `packages/elements/src/circle-notation-element.ts`:
 ///   * `updateDimension()` (cols × rows)

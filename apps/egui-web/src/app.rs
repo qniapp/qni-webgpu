@@ -7,7 +7,7 @@ use crate::colors::Colors;
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
-    SNAP_DISTANCE,
+    SNAP_DISTANCE, STATE_GRID_ZOOM_MAX, STATE_GRID_ZOOM_MIN,
 };
 use crate::gates::GateKind;
 use crate::layout::{
@@ -41,6 +41,10 @@ pub(crate) struct QniApp {
     /// Only used when the grid is bigger than the viewport on a given axis;
     /// when it fits, the grid is centred and this offset is ignored.
     pub(crate) state_grid_offset: egui::Vec2,
+    /// Zoom factor for the state panel circle grid (1.0 = qni's natural
+    /// per-qubit cell sizes). Ctrl+wheel inside the viewport adjusts this;
+    /// `clamp_state_grid_zoom` keeps it inside `STATE_GRID_ZOOM_RANGE`.
+    pub(crate) state_grid_zoom: f32,
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
@@ -90,6 +94,7 @@ impl QniApp {
             state_panel_drag: None,
             state_panel_offset: egui::Vec2::ZERO,
             state_grid_offset: egui::Vec2::ZERO,
+            state_grid_zoom: 1.0,
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: MIN_QUBITS,
@@ -446,6 +451,46 @@ impl eframe::App for QniApp {
             if viewport_response.dragged() {
                 self.state_grid_offset += viewport_response.drag_delta();
                 self.clamp_state_grid_offset(&state_layout);
+            }
+
+            // Ctrl+wheel inside the viewport zooms the grid. Plain wheel is
+            // intentionally NOT consumed — the page / scroll area still
+            // scrolls. Zoom is anchored at the cursor: we adjust
+            // `state_grid_offset` so the cell under the pointer stays put.
+            if viewport_response.hovered() {
+                let scroll = ctx.input(|i| {
+                    if i.modifiers.ctrl || i.modifiers.command {
+                        i.smooth_scroll_delta.y
+                    } else {
+                        0.0
+                    }
+                });
+                if scroll.abs() > f32::EPSILON {
+                    let pointer = ctx.input(|i| i.pointer.hover_pos());
+                    let old_zoom = self.state_grid_zoom;
+                    let new_zoom = (old_zoom * (scroll * 0.005).exp())
+                        .clamp(STATE_GRID_ZOOM_MIN, STATE_GRID_ZOOM_MAX);
+                    if (new_zoom - old_zoom).abs() > f32::EPSILON {
+                        // Keep the cell under the cursor (or viewport
+                        // centre, fallback) anchored across the zoom.
+                        let anchor = pointer.unwrap_or(viewport_rect.center());
+                        let pre_origin = QniApp::grid_origin(
+                            &state_layout,
+                            self.state_panel_offset,
+                            self.state_grid_offset,
+                        );
+                        let from_origin = anchor - pre_origin;
+                        let scale = new_zoom / old_zoom;
+                        let drift = from_origin * (scale - 1.0);
+                        self.state_grid_zoom = new_zoom;
+                        self.state_grid_offset -= drift;
+                        // Layout recomputes on the next frame with the new
+                        // zoom, but clamp now so we don't render a 1-frame
+                        // out-of-bounds pan.
+                        let zoomed = self.state_panel_layout(screen_rect, state_count);
+                        self.clamp_state_grid_offset(&zoomed);
+                    }
+                }
             }
 
             let overlay_painter = ctx.layer_painter(egui::LayerId::new(
