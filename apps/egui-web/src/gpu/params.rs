@@ -5,8 +5,6 @@
 //! here. No shader strings, no buffer creation, no render logic — just
 //! the data shapes shared across `resources.rs` and `callbacks.rs`.
 
-use eframe::egui;
-
 use crate::colors::Colors;
 
 #[repr(C)]
@@ -44,12 +42,17 @@ pub(crate) struct RenderColors {
 
 impl RenderColors {
     pub(crate) fn new(colors: &Colors) -> Self {
+        // The framebuffer is rgba8unorm (non-sRGB), so egui paints sRGB
+        // Color32 bytes straight in. Match that with
+        // `to_normalized_gamma_f32` here — `Rgba::from(Color32)` would
+        // convert to linear and the GPU-rendered circles would come out
+        // visibly darker than the egui-painted handle / palette colours.
         Self {
-            surface: egui::Rgba::from(colors.surface).to_array(),
-            fill: egui::Rgba::from(colors.state_fill).to_array(),
-            outline: egui::Rgba::from(colors.state_outline).to_array(),
-            outline_zero: egui::Rgba::from(colors.state_outline_zero).to_array(),
-            needle: egui::Rgba::from(colors.state_needle).to_array(),
+            surface: colors.surface.to_normalized_gamma_f32(),
+            fill: colors.state_fill.to_normalized_gamma_f32(),
+            outline: colors.state_outline.to_normalized_gamma_f32(),
+            outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
+            needle: colors.state_needle.to_normalized_gamma_f32(),
         }
     }
 }

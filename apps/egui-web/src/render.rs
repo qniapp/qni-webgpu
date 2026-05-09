@@ -232,9 +232,11 @@ impl QniApp {
                 instances: bloch_overlay_instances.into(),
                 viewport_min: [rect.min.x, rect.min.y],
                 viewport_size: [rect.width(), rect.height()],
-                line_color: egui::Rgba::from(colors.bloch_vector_line).to_array(),
-                tip_color: egui::Rgba::from(colors.bloch_vector_tip).to_array(),
-                zero_color: egui::Rgba::from(colors.bloch_vector_zero).to_array(),
+                // Same gamma story as `RenderColors::new` — surface is
+                // rgba8unorm so we hand the GPU sRGB bytes, not linear.
+                line_color: colors.bloch_vector_line.to_normalized_gamma_f32(),
+                tip_color: colors.bloch_vector_tip.to_normalized_gamma_f32(),
+                zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
