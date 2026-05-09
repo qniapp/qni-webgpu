@@ -455,10 +455,24 @@ impl QniApp {
     }
 
     pub(super) fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
-        let min_x = rect.min.x;
-        let max_x = rect.max.x - layout.state_rect.width();
-        let min_y = rect.min.y;
-        let max_y = rect.max.y - layout.state_rect.height();
+        // The whole panel may extend past the screen edges (especially for
+        // 16-qubit grids that are wider than the canvas), but the drag
+        // handle must stay reachable — keep at least `MIN_VISIBLE` pixels
+        // of it inside `rect` on both axes.
+        const MIN_VISIBLE: f32 = 40.0;
+
+        let panel_w = layout.state_rect.width();
+        let handle_h = layout.handle_height;
+
+        // Horizontal: panel right edge ≥ rect.min.x + MIN_VISIBLE  (left clip)
+        //             panel left  edge ≤ rect.max.x − MIN_VISIBLE  (right clip)
+        let min_x = rect.min.x + MIN_VISIBLE - panel_w;
+        let max_x = rect.max.x - MIN_VISIBLE;
+        // Vertical: handle bottom ≥ rect.min.y + MIN_VISIBLE   (top clip)
+        //           handle top    ≤ rect.max.y − MIN_VISIBLE   (bottom clip)
+        let min_y = rect.min.y + MIN_VISIBLE - handle_h;
+        let max_y = rect.max.y - MIN_VISIBLE;
+
         let base_min = layout.state_rect.min;
         let min_offset_x = min_x - base_min.x;
         let max_offset_x = max_x - base_min.x;
