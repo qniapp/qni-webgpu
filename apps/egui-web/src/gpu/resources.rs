@@ -37,8 +37,7 @@ pub(crate) struct StateVectorResources {
     /// loop; each per-gate dispatch then sources its params via
     /// `encoder.copy_buffer_to_buffer` from the matching slot into
     /// `gate_params_buffer`. Lets us keep the existing uniform binding while
-    /// collapsing N per-gate `queue.submit` round trips into a single submit
-    /// (Issue A — see docs/perf-issue-a-fix-plan.html).
+    /// collapsing N per-gate `queue.submit` round trips into a single submit.
     pub(crate) gate_params_staging_buffer: wgpu::Buffer,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) state_buffers: [wgpu::Buffer; 2],

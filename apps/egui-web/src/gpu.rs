@@ -1,6 +1,6 @@
 //! GPU module — WebGPU pipelines, buffers, and egui callbacks.
 //!
-//! Layered structure (see docs/refactor-gpu-plan.html):
+//! Layered structure:
 //! * Layer 0 (leaves): `shaders`, `params`, `digit_atlas`
 //! * Layer 1: `resources` — `StateVectorResources` + its giant `new`
 //! * Layer 2: `callbacks` — `egui_wgpu::CallbackTrait` impls
