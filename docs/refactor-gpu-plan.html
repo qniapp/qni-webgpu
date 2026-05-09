@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gpu.rs リファクタ — モジュール分割案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b11;
+    --bg-deep:   #06060a;
+    --surface:   #14141d;
+    --surface-2: #1c1c27;
+    --line:      #262633;
+    --text:      #ece8de;
+    --text-mid:  #a8a3b3;
+    --text-dim:  #6e6a7a;
+    --high:      #ff4a30;
+    --med:       #f5b942;
+    --good:      #79d27c;
+    --cool:      #5fc4d3;
+    --plum:      #c5a3ff;
+    --sand:      #e8c79e;
+    --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --mono:      'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(197,163,255,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(232,199,158,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+    min-height: 100vh;
+    padding: 0 0 120px 0;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+  .hero { padding: 96px 0 64px; border-bottom: 1px solid var(--line); margin-bottom: 64px; }
+  .hero .crumb {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 28px;
+  }
+  .hero .crumb a { color: var(--text-mid); text-decoration: none; }
+  .hero .crumb a:hover { color: var(--text); }
+  .hero .crumb .badge {
+    display: inline-block; padding: 3px 10px; margin-left: 12px;
+    border: 1px solid var(--plum); color: var(--plum);
+    font-family: var(--mono); font-size: 10px;
+  }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 800;
+    font-size: clamp(40px, 6.5vw, 78px);
+    line-height: 0.96; letter-spacing: -0.02em;
+    margin: 0 0 28px 0;
+  }
+  .hero h1 em { font-style: italic; font-weight: 400; color: var(--text-mid); }
+  .hero .lede {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 22px; line-height: 1.5;
+    color: var(--text-mid); max-width: 760px; margin: 0;
+  }
+
+  h2 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.01em;
+    margin: 88px 0 28px 0;
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--text-dim); font-weight: 400;
+  }
+
+  p { color: var(--text-mid); max-width: 780px; margin: 0 0 18px 0; }
+  p strong { color: var(--text); font-weight: 500; }
+  p code, .ic {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 3px; color: var(--text);
+  }
+
+  .stat-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 20px; margin: 32px 0;
+  }
+  .stat {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 24px;
+  }
+  .stat .n {
+    font-family: var(--serif); font-weight: 600; font-style: italic;
+    font-size: 64px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--high); margin-bottom: 8px;
+  }
+  .stat.mid .n { color: var(--med); }
+  .stat.cool .n { color: var(--cool); }
+  .stat .label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .stat .desc { font-family: var(--mono); font-size: 12px; color: var(--text-mid); margin-top: 8px; }
+
+  .figure {
+    margin: 32px 0; border: 1px solid var(--line);
+    background: var(--surface); overflow: hidden;
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure-caption {
+    padding: 16px 24px; border-top: 1px solid var(--line);
+    background: var(--bg-deep); font-size: 12px; color: var(--text-mid);
+  }
+  .figure-caption b { color: var(--text); }
+
+  /* Module grid */
+  .modules {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin: 32px 0;
+  }
+  .module {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 22px; position: relative;
+  }
+  .module.shaders     { border-top: 3px solid var(--plum); }
+  .module.params      { border-top: 3px solid var(--cool); }
+  .module.atlas       { border-top: 3px solid var(--sand); }
+  .module.resources   { border-top: 3px solid var(--med); }
+  .module.callbacks   { border-top: 3px solid var(--high); }
+  .module.readback    { border-top: 3px solid var(--good); }
+  .module .file {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text-dim); margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  .module h3 {
+    font-family: var(--serif); font-weight: 600; font-size: 22px;
+    margin: 0 0 8px 0; color: var(--text);
+  }
+  .module .lines {
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    color: var(--text-mid); font-size: 14px; margin-bottom: 12px;
+  }
+  .module .lines b { color: var(--text); font-weight: 600; }
+  .module ul {
+    margin: 0; padding: 0; list-style: none;
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-mid);
+  }
+  .module ul li {
+    padding: 3px 0; padding-left: 14px;
+    position: relative;
+  }
+  .module ul li::before {
+    content: "·"; position: absolute; left: 4px; top: 2px;
+    color: var(--text-dim);
+  }
+
+  /* Mapping table */
+  .map-table {
+    border: 1px solid var(--line); background: var(--surface);
+    margin: 24px 0;
+    width: 100%; border-collapse: collapse;
+  }
+  .map-table th, .map-table td {
+    padding: 10px 16px; text-align: left;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12px;
+  }
+  .map-table th {
+    color: var(--text-dim); font-size: 10px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    font-weight: 500;
+    background: var(--bg-deep);
+  }
+  .map-table td.range { color: var(--text-dim); white-space: nowrap; }
+  .map-table td.what { color: var(--text); }
+  .map-table td.into { font-weight: 500; }
+  .map-table td.into.shaders   { color: var(--plum); }
+  .map-table td.into.params    { color: var(--cool); }
+  .map-table td.into.atlas     { color: var(--sand); }
+  .map-table td.into.resources { color: var(--med); }
+  .map-table td.into.callbacks { color: var(--high); }
+  .map-table td.into.readback  { color: var(--good); }
+
+  /* Steps */
+  .steps { margin: 32px 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps > li {
+    counter-increment: step;
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 24px 28px 24px 90px;
+    margin-bottom: 12px; position: relative;
+  }
+  .steps > li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute; left: 24px; top: 22px;
+    font-family: var(--serif); font-style: italic; font-weight: 600;
+    font-size: 40px; line-height: 1; color: var(--plum);
+  }
+  .steps > li h3 {
+    font-family: var(--serif); font-weight: 600; font-size: 20px;
+    margin: 0 0 8px 0; color: var(--text);
+  }
+  .steps > li p { margin: 0; max-width: none; font-size: 13px; }
+
+  .aside {
+    border-left: 3px solid var(--cool);
+    background: linear-gradient(90deg, rgba(95,196,211,0.06) 0%, transparent 70%);
+    padding: 18px 24px; margin: 24px 0;
+    max-width: 780px;
+  }
+  .aside .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--cool); margin-bottom: 4px;
+  }
+  .aside p { margin: 0; color: var(--text); }
+
+  /* Risk grid */
+  .risks {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin: 24px 0;
+  }
+  .risk { border: 1px solid var(--line); background: var(--surface); padding: 22px; }
+  .risk .level {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .risk.lo .level { color: var(--good); }
+  .risk.mid .level { color: var(--med); }
+  .risk h4 { font-family: var(--serif); font-weight: 600; font-size: 18px; margin: 0 0 8px 0; }
+  .risk p { margin: 0; font-size: 12px; max-width: none; }
+
+  footer {
+    margin-top: 96px; padding-top: 32px;
+    border-top: 1px solid var(--line); color: var(--text-dim);
+    font-size: 11px; letter-spacing: 0.1em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+
+  @media (max-width: 760px) {
+    main { padding: 0 20px; }
+    .stat-row, .modules, .risks { grid-template-columns: 1fr; }
+    .steps > li { padding-left: 28px; }
+    .steps > li::before { position: static; display: block; margin-bottom: 8px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="hero">
+    <div class="crumb">
+      <a href="./egui-web-perf-audit.html">← perf audit</a>
+      &nbsp;/&nbsp; refactor plan
+      <span class="badge">PLAN</span>
+    </div>
+    <h1>gpu.rs を、<em>分ける</em>。<br>2,759 行を <em>7 ファイル</em>へ。</h1>
+    <p class="lede">
+      Issue A / C を入れた現在、<code>gpu.rs</code> は 1 ファイル 2,759 行。
+      プロジェクト規約 (500 行以下) の <strong>5.5 倍</strong>。
+      これから来る Issue B / G の前に、構造だけを直しておく。振る舞いは変えない。
+    </p>
+
+    <div style="margin-top:32px;padding:18px 24px;border-left:3px solid var(--good);background:linear-gradient(90deg,rgba(121,210,124,0.10) 0%,transparent 70%);max-width:780px;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--good);margin-bottom:6px;">✅ Implemented · 2026-05-09</div>
+      <p style="margin:0;color:var(--text);font-size:13px;">
+        6 commit に分けて完了。<code>gpu.rs</code> 27 行 (shim) / shaders.rs 511 / params.rs 144 / digit_atlas.rs 56 / resources.rs 1,260 / callbacks.rs 621 / readback.rs 215。Playwright 28/28、TS preflight 72/72、Cucumber 3/3 すべて green。Bell / GHZ / H+Bloch の state vector も変化なし。
+      </p>
+    </div>
+  </header>
+
+  <!-- ========== §1 ========== -->
+  <section>
+    <h2><span class="num">§01</span> 規模の問題</h2>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="n">2,759</div>
+        <div class="label">gpu.rs の行数</div>
+        <div class="desc">imports からテスト readback まで</div>
+      </div>
+      <div class="stat mid">
+        <div class="n">5.5×</div>
+        <div class="label">guideline 超過</div>
+        <div class="desc">CLAUDE.md: 500 行以下を目安</div>
+      </div>
+      <div class="stat cool">
+        <div class="n">3</div>
+        <div class="label">独立した関心事が同居</div>
+        <div class="desc">compute / overlay / readback</div>
+      </div>
+    </div>
+
+    <p>
+      A/C で性能は上げた。次は <strong>編集コスト</strong>を下げる番。<br>
+      Issue B (params dirty flag) は 3 個の callback struct を跨ぐ。Issue G (overlay instance cache) は別の関心事。両方とも、ファイルが分かれていたほうが 1 PR の差分が読みやすい。
+    </p>
+  </section>
+
+  <!-- ========== §2 ========== -->
+  <section>
+    <h2><span class="num">§02</span> 現状の中身を可視化</h2>
+    <p>1 ファイル内で行レンジごとに役割が分かれている。それぞれが <strong>独立した module になり得る単位</strong>:</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 540" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text x="40" y="32" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">CURRENT — apps/egui-web/src/gpu.rs (2,759 lines)</text>
+
+        <!-- one tall block -->
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <!-- imports / colors -->
+          <rect x="180" y="60" width="380" height="20" fill="#1c1c27" stroke="#262633"/>
+          <text x="370" y="74" text-anchor="middle" fill="#a8a3b3">imports + colors  (1–62)</text>
+
+          <!-- params + constants -->
+          <rect x="180" y="80" width="380" height="14" fill="#14141d" stroke="#5fc4d3"/>
+          <text x="370" y="91" text-anchor="middle" fill="#5fc4d3">consts (63–72)</text>
+
+          <!-- WGSL shaders -->
+          <rect x="180" y="94" width="380" height="170" fill="#14141d" stroke="#c5a3ff"/>
+          <text x="370" y="184" text-anchor="middle" fill="#c5a3ff" font-size="14" font-family="Fraunces, serif" font-weight="600">WGSL shaders × 7</text>
+          <text x="370" y="202" text-anchor="middle" fill="#a8a3b3" font-size="10">73–622  ·  ~590 lines</text>
+
+          <!-- POD params -->
+          <rect x="180" y="264" width="380" height="20" fill="#14141d" stroke="#5fc4d3"/>
+          <text x="370" y="278" text-anchor="middle" fill="#5fc4d3">POD param structs (623–688)</text>
+
+          <!-- StateVectorResources struct -->
+          <rect x="180" y="284" width="380" height="24" fill="#14141d" stroke="#f5b942"/>
+          <text x="370" y="300" text-anchor="middle" fill="#f5b942">StateVectorResources struct (689–770)</text>
+
+          <!-- digit atlas -->
+          <rect x="180" y="308" width="380" height="14" fill="#14141d" stroke="#e8c79e"/>
+          <text x="370" y="319" text-anchor="middle" fill="#e8c79e">digit atlas (771–815)</text>
+
+          <!-- StateVectorResources::new -->
+          <rect x="180" y="322" width="380" height="142" fill="#14141d" stroke="#f5b942"/>
+          <text x="370" y="386" text-anchor="middle" fill="#f5b942" font-size="14" font-family="Fraunces, serif" font-weight="600">StateVectorResources::new + update_render_pipeline</text>
+          <text x="370" y="404" text-anchor="middle" fill="#a8a3b3" font-size="10">816–1,969  ·  ~1,150 lines</text>
+
+          <!-- Callbacks -->
+          <rect x="180" y="464" width="380" height="58" fill="#14141d" stroke="#ff4a30"/>
+          <text x="370" y="490" text-anchor="middle" fill="#ff4a30" font-size="14" font-family="Fraunces, serif" font-weight="600">3 × CallbackTrait impl</text>
+          <text x="370" y="506" text-anchor="middle" fill="#a8a3b3" font-size="10">1,976–2,562  ·  ~580 lines</text>
+        </g>
+
+        <!-- right side: line counter callouts -->
+        <g font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">
+          <text x="610" y="74">62 lines</text>
+          <text x="610" y="91">10 lines</text>
+          <text x="610" y="184">590 lines  ← biggest by content type</text>
+          <text x="610" y="278">66 lines</text>
+          <text x="610" y="300">82 lines</text>
+          <text x="610" y="319">45 lines</text>
+          <text x="610" y="394">1,150 lines  ← biggest single function area</text>
+          <text x="610" y="497">580 lines  ← second biggest</text>
+        </g>
+
+        <!-- left side: module candidate labels -->
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <text x="40" y="74" fill="#6e6a7a" letter-spacing="1">→ mod.rs</text>
+          <text x="40" y="91" fill="#5fc4d3" letter-spacing="1">→ params.rs</text>
+          <text x="40" y="184" fill="#c5a3ff" letter-spacing="1">→ shaders.rs</text>
+          <text x="40" y="278" fill="#5fc4d3" letter-spacing="1">→ params.rs</text>
+          <text x="40" y="300" fill="#f5b942" letter-spacing="1">→ resources.rs</text>
+          <text x="40" y="319" fill="#e8c79e" letter-spacing="1">→ digit_atlas.rs</text>
+          <text x="40" y="394" fill="#f5b942" letter-spacing="1">→ resources.rs</text>
+          <text x="40" y="497" fill="#ff4a30" letter-spacing="1">→ callbacks.rs</text>
+        </g>
+
+        <!-- bottom note about readback (split across line ranges) -->
+        <text x="180" y="528" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">+ test-only readback (#[wasm_bindgen]) at 2,563–2,759 → readback.rs (~200 lines)</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 1</b> &nbsp; gpu.rs の中身を行レンジで色分け。各セクションは独立した関心事に対応しており、自然な分割線が見える。
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §3 ========== -->
+  <section>
+    <h2><span class="num">§03</span> 提案 — 7 ファイル構成</h2>
+    <p>
+      <code>gpu.rs</code> を <code>gpu/</code> ディレクトリに昇格させ、関心事ごとに分割。
+      全ファイル <strong>1,200 行未満</strong>、ほとんどが <strong>600 行未満</strong>。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 460" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text x="40" y="32" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">PROPOSED — apps/egui-web/src/gpu/</text>
+
+        <!-- mod.rs at top -->
+        <rect x="380" y="60" width="340" height="48" fill="#14141d" stroke="#a8a3b3"/>
+        <text x="550" y="82" text-anchor="middle" font-family="Fraunces, serif" font-size="16" fill="#ece8de" font-weight="600">mod.rs</text>
+        <text x="550" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">~30 lines  ·  pub use の集約</text>
+
+        <!-- Layer 0: leaves (no internal deps) -->
+        <text x="40" y="140" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 0 — リーフモジュール (内部依存なし)</text>
+
+        <rect x="40"  y="156" width="320" height="86" fill="#14141d" stroke="#c5a3ff" stroke-width="2"/>
+        <text x="60" y="178" font-family="JetBrains Mono, monospace" font-size="11" fill="#c5a3ff">shaders.rs</text>
+        <text x="60" y="200" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">WGSL 文字列定数</text>
+        <text x="60" y="222" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">~570 lines  ·  7 shaders</text>
+        <text x="60" y="236" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">STATE_COMPUTE / BLOCH_REDUCE / MEASURE_*</text>
+
+        <rect x="380" y="156" width="320" height="86" fill="#14141d" stroke="#5fc4d3" stroke-width="2"/>
+        <text x="400" y="178" font-family="JetBrains Mono, monospace" font-size="11" fill="#5fc4d3">params.rs</text>
+        <text x="400" y="200" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">POD struct + 定数</text>
+        <text x="400" y="222" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">~150 lines</text>
+        <text x="400" y="236" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">GateParams / BlochParams / 各 Instance</text>
+
+        <rect x="720" y="156" width="320" height="86" fill="#14141d" stroke="#e8c79e" stroke-width="2"/>
+        <text x="740" y="178" font-family="JetBrains Mono, monospace" font-size="11" fill="#e8c79e">digit_atlas.rs</text>
+        <text x="740" y="200" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">グリフ atlas</text>
+        <text x="740" y="222" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">~50 lines</text>
+        <text x="740" y="236" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">rasterize_digit_atlas + 定数</text>
+
+        <!-- Layer 1: resources -->
+        <text x="40" y="270" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 1 — Layer 0 を組み合わせる</text>
+
+        <rect x="40" y="286" width="1000" height="60" fill="#14141d" stroke="#f5b942" stroke-width="2"/>
+        <text x="60" y="308" font-family="JetBrains Mono, monospace" font-size="11" fill="#f5b942">resources.rs</text>
+        <text x="60" y="330" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">StateVectorResources + new() + update_render_pipeline</text>
+        <text x="900" y="330" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3" text-anchor="end">~1,180 lines</text>
+
+        <!-- Layer 2: callbacks + readback -->
+        <text x="40" y="376" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 2 — Layer 1 + 0 を使う</text>
+
+        <rect x="40"  y="392" width="490" height="60" fill="#14141d" stroke="#ff4a30" stroke-width="2"/>
+        <text x="60" y="414" font-family="JetBrains Mono, monospace" font-size="11" fill="#ff4a30">callbacks.rs</text>
+        <text x="60" y="436" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">3 × CallbackTrait impl</text>
+
+        <rect x="550" y="392" width="490" height="60" fill="#14141d" stroke="#79d27c" stroke-width="2"/>
+        <text x="570" y="414" font-family="JetBrains Mono, monospace" font-size="11" fill="#79d27c">readback.rs</text>
+        <text x="570" y="436" font-family="Fraunces, serif" font-size="20" font-weight="600" fill="#ece8de">test-only readback (3 fn)</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 2</b> &nbsp; 提案レイアウト。3 層の依存グラフ — Layer 0 (リーフ) → Layer 1 (resources) → Layer 2 (callbacks / readback)。
+      </div>
+    </div>
+
+    <div class="modules">
+      <div class="module shaders">
+        <div class="file">gpu/shaders.rs</div>
+        <h3>WGSL 文字列定数</h3>
+        <div class="lines"><b>~570</b> 行</div>
+        <ul>
+          <li>STATE_COMPUTE_SHADER</li>
+          <li>BLOCH_REDUCE_SHADER</li>
+          <li>MEASURE_REDUCE_SHADER</li>
+          <li>MEASURE_COLLAPSE_SHADER</li>
+          <li>BLOCH_OVERLAY_SHADER</li>
+          <li>MEASUREMENT_DIGIT_SHADER</li>
+          <li>STATE_RENDER_SHADER</li>
+        </ul>
+      </div>
+
+      <div class="module params">
+        <div class="file">gpu/params.rs</div>
+        <h3>POD struct + 容量定数</h3>
+        <div class="lines"><b>~150</b> 行</div>
+        <ul>
+          <li>StateInstance / RenderParams / RenderColors</li>
+          <li>BlochParams / MeasureReduceParams / MeasureCollapseParams</li>
+          <li>BlochOverlayParams / Instance</li>
+          <li>MeasurementDigitParams / Instance</li>
+          <li>STATE_WORKGROUP_SIZE</li>
+          <li>MAX_OPS_PER_RECOMPUTE</li>
+          <li>MAX_BLOCH_SLOTS / MAX_MEASUREMENT_SLOTS</li>
+        </ul>
+      </div>
+
+      <div class="module atlas">
+        <div class="file">gpu/digit_atlas.rs</div>
+        <h3>グリフ atlas</h3>
+        <div class="lines"><b>~50</b> 行</div>
+        <ul>
+          <li>DIGIT_ATLAS_CELL / WIDTH / HEIGHT</li>
+          <li>rasterize_digit_atlas()</li>
+        </ul>
+      </div>
+
+      <div class="module resources">
+        <div class="file">gpu/resources.rs</div>
+        <h3>StateVectorResources</h3>
+        <div class="lines"><b>~1,180</b> 行</div>
+        <ul>
+          <li>StateVectorResources struct (~80)</li>
+          <li>impl StateVectorResources</li>
+          <li>　└ new() ─ pipeline / buffer / bind group 作成 (~1,050)</li>
+          <li>　└ update_render_pipeline() (~90)</li>
+        </ul>
+      </div>
+
+      <div class="module callbacks">
+        <div class="file">gpu/callbacks.rs</div>
+        <h3>3 × CallbackTrait impl</h3>
+        <div class="lines"><b>~580</b> 行</div>
+        <ul>
+          <li>BlochOverlayCallback + impl (~80)</li>
+          <li>MeasurementDigitCallback + impl (~80)</li>
+          <li>StateVectorCallback + impl (~420)</li>
+          <li>　└ recompute (Issue A 実装の場所)</li>
+        </ul>
+      </div>
+
+      <div class="module readback">
+        <div class="file">gpu/readback.rs</div>
+        <h3>test-only readback</h3>
+        <div class="lines"><b>~200</b> 行</div>
+        <ul>
+          <li>GpuReadbackState / BlochGpuHandle / MeasurementGpuHandle</li>
+          <li>thread_local! 3 個</li>
+          <li>read_state_vector_impl()</li>
+          <li>read_bloch_vectors_impl()</li>
+          <li>read_measurement_outcomes_impl()</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §4 ========== -->
+  <section>
+    <h2><span class="num">§04</span> 依存グラフ</h2>
+    <p>循環なしの DAG。下の層は上の層に依存しない。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 420" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#a8a3b3"/>
+          </marker>
+        </defs>
+
+        <!-- Layer 2: top -->
+        <text x="40" y="40" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 2</text>
+        <rect x="180" y="50" width="280" height="60" fill="#14141d" stroke="#ff4a30"/>
+        <text x="320" y="74" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">callbacks.rs</text>
+        <text x="320" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#ff4a30">CallbackTrait × 3</text>
+
+        <rect x="640" y="50" width="280" height="60" fill="#14141d" stroke="#79d27c"/>
+        <text x="780" y="74" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">readback.rs</text>
+        <text x="780" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#79d27c">#[wasm_bindgen] (test only)</text>
+
+        <!-- Layer 1: middle -->
+        <text x="40" y="170" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 1</text>
+        <rect x="380" y="180" width="340" height="60" fill="#14141d" stroke="#f5b942"/>
+        <text x="550" y="204" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">resources.rs</text>
+        <text x="550" y="224" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#f5b942">StateVectorResources</text>
+
+        <!-- Layer 0: bottom -->
+        <text x="40" y="300" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">LAYER 0</text>
+
+        <rect x="40"  y="310" width="280" height="60" fill="#14141d" stroke="#c5a3ff"/>
+        <text x="180" y="334" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">shaders.rs</text>
+        <text x="180" y="354" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c5a3ff">WGSL strings</text>
+
+        <rect x="380" y="310" width="280" height="60" fill="#14141d" stroke="#5fc4d3"/>
+        <text x="520" y="334" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">params.rs</text>
+        <text x="520" y="354" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5fc4d3">POD + 定数</text>
+
+        <rect x="720" y="310" width="280" height="60" fill="#14141d" stroke="#e8c79e"/>
+        <text x="860" y="334" text-anchor="middle" font-family="Fraunces, serif" font-size="18" font-weight="600" fill="#ece8de">digit_atlas.rs</text>
+        <text x="860" y="354" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#e8c79e">glyph rasterizer</text>
+
+        <!-- arrows: Layer 2 → Layer 1 -->
+        <line x1="320" y1="110" x2="500" y2="180" stroke="#a8a3b3" marker-end="url(#arr)"/>
+        <line x1="780" y1="110" x2="600" y2="180" stroke="#a8a3b3" marker-end="url(#arr)"/>
+
+        <!-- arrows: Layer 2 → Layer 0 (params) -->
+        <line x1="320" y1="110" x2="500" y2="310" stroke="#a8a3b3" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+        <line x1="780" y1="110" x2="600" y2="310" stroke="#a8a3b3" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+        <!-- arrows: Layer 1 → Layer 0 -->
+        <line x1="500" y1="240" x2="200" y2="310" stroke="#a8a3b3" marker-end="url(#arr)"/>
+        <line x1="550" y1="240" x2="510" y2="310" stroke="#a8a3b3" marker-end="url(#arr)"/>
+        <line x1="600" y1="240" x2="820" y2="310" stroke="#a8a3b3" marker-end="url(#arr)"/>
+
+        <!-- legend -->
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <line x1="40" y1="395" x2="80" y2="395" stroke="#a8a3b3"/>
+          <text x="90" y="399" fill="#a8a3b3">直接 use</text>
+          <line x1="200" y1="395" x2="240" y2="395" stroke="#a8a3b3" stroke-dasharray="4 3"/>
+          <text x="250" y="399" fill="#a8a3b3">params.rs を共有 (struct 型として)</text>
+        </g>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 3</b> &nbsp; 依存方向は常に下向き。<code>callbacks.rs</code> も <code>readback.rs</code> も互いを参照しない。
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="tag">なぜ DAG が大事か</div>
+      <p>
+        循環依存が無いので、各モジュールを単体でテストしたり差し替えたりしやすい。将来 Issue B/G で <code>callbacks.rs</code> を触るとき、<code>resources.rs</code> や <code>shaders.rs</code> を読まずに済む。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §5 ========== -->
+  <section>
+    <h2><span class="num">§05</span> 何がどこへ行くか</h2>
+
+    <table class="map-table">
+      <thead>
+        <tr>
+          <th style="width:120px">行範囲</th>
+          <th>現在の中身</th>
+          <th style="width:200px">移動先</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="range">1–17</td>
+          <td class="what">imports</td>
+          <td class="into">各ファイルへ分配</td>
+        </tr>
+        <tr>
+          <td class="range">18–61</td>
+          <td class="what">StateInstance, RenderParams, RenderColors + impl</td>
+          <td class="into params">params.rs</td>
+        </tr>
+        <tr>
+          <td class="range">63–72</td>
+          <td class="what">STATE_WORKGROUP_SIZE / MAX_OPS_PER_RECOMPUTE</td>
+          <td class="into params">params.rs</td>
+        </tr>
+        <tr>
+          <td class="range">73–622</td>
+          <td class="what">7 個の WGSL 文字列定数</td>
+          <td class="into shaders">shaders.rs</td>
+        </tr>
+        <tr>
+          <td class="range">148, 237</td>
+          <td class="what">MAX_BLOCH_SLOTS / MAX_MEASUREMENT_SLOTS</td>
+          <td class="into params">params.rs</td>
+        </tr>
+        <tr>
+          <td class="range">623–688</td>
+          <td class="what">BlochParams / MeasureReduceParams / Overlay / Digit POD</td>
+          <td class="into params">params.rs</td>
+        </tr>
+        <tr>
+          <td class="range">689–770</td>
+          <td class="what">StateVectorResources struct 定義</td>
+          <td class="into resources">resources.rs</td>
+        </tr>
+        <tr>
+          <td class="range">771–815</td>
+          <td class="what">DIGIT_ATLAS_* + rasterize_digit_atlas</td>
+          <td class="into atlas">digit_atlas.rs</td>
+        </tr>
+        <tr>
+          <td class="range">816–1,969</td>
+          <td class="what">StateVectorResources::new + update_render_pipeline</td>
+          <td class="into resources">resources.rs</td>
+        </tr>
+        <tr>
+          <td class="range">1,976–2,562</td>
+          <td class="what">BlochOverlayCallback / MeasurementDigitCallback / StateVectorCallback (recompute も)</td>
+          <td class="into callbacks">callbacks.rs</td>
+        </tr>
+        <tr>
+          <td class="range">2,563–2,604</td>
+          <td class="what">GpuReadbackState / BlochGpuHandle / MeasurementGpuHandle + thread_local</td>
+          <td class="into readback">readback.rs</td>
+        </tr>
+        <tr>
+          <td class="range">2,605–2,759</td>
+          <td class="what">read_state_vector_impl / read_bloch_vectors_impl / read_measurement_outcomes_impl</td>
+          <td class="into readback">readback.rs</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========== §6 ========== -->
+  <section>
+    <h2><span class="num">§06</span> 段取り</h2>
+
+    <ol class="steps">
+      <li>
+        <h3>準備 — <code>gpu.rs</code> → <code>gpu/mod.rs</code> に rename</h3>
+        <p>
+          <code>git mv apps/egui-web/src/gpu.rs apps/egui-web/src/gpu/mod.rs</code>。
+          この時点で 1 ファイルから 1 ディレクトリへ。中身は手付かず、ビルドも通る。コミット小さく。
+        </p>
+      </li>
+      <li>
+        <h3>Layer 0 を切り出す (shaders / params / digit_atlas)</h3>
+        <p>
+          リーフモジュール 3 つを順に作る。中身は cut & paste。<code>mod.rs</code> から <code>mod shaders;</code> 等を宣言し、各種参照を <code>self::shaders::STATE_COMPUTE_SHADER</code> に置換。1 モジュールずつコミット。
+        </p>
+      </li>
+      <li>
+        <h3>Layer 1 — <code>resources.rs</code> を切り出す</h3>
+        <p>
+          <code>StateVectorResources</code> + <code>new</code> + <code>update_render_pipeline</code> をまるごと移動。<code>use super::shaders::*;</code> / <code>use super::params::*;</code> / <code>use super::digit_atlas::*;</code> で import 解決。
+        </p>
+      </li>
+      <li>
+        <h3>Layer 2 — <code>callbacks.rs</code></h3>
+        <p>
+          3 個の Callback struct + impl を移動。Issue A の recompute ロジックも一緒に来る。
+        </p>
+      </li>
+      <li>
+        <h3>Layer 2 — <code>readback.rs</code></h3>
+        <p>
+          test-only readback と thread_local を最後に切り出し。<code>#[cfg(target_arch = "wasm32")]</code> を維持。
+        </p>
+      </li>
+      <li>
+        <h3>掃除 — <code>mod.rs</code> を pub use 専用に</h3>
+        <p>
+          <code>pub(crate) use callbacks::*;</code> 等で外部 API を維持。<code>lib.rs</code> 側 (<code>read_state_vector</code> など) の参照は変更不要。
+        </p>
+      </li>
+      <li>
+        <h3>検証</h3>
+        <p>
+          各ステップごとに <code>cargo build --target wasm32-unknown-unknown</code> + Playwright suite を流す。最終ステップで Bell / GHZ のスクショと <code>test:bdd</code> を含むフルサイクル。
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ========== §7 ========== -->
+  <section>
+    <h2><span class="num">§07</span> リスク評価</h2>
+
+    <div class="risks">
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>振る舞いの変化</h4>
+        <p>
+          純粋な構造変更。識別子の引っ越しのみで、ロジックは触らない。Playwright suite (28 件) が回帰検出器。
+        </p>
+      </div>
+      <div class="risk mid">
+        <div class="level">● Medium</div>
+        <h4>可視性の調整</h4>
+        <p>
+          <code>pub(crate)</code> が増えるかもしれない。<code>StateVectorResources</code> のフィールドを別モジュールから読むため。最小限に留める。
+        </p>
+      </div>
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>diff の大きさ</h4>
+        <p>
+          差分は大きいが <code>git mv</code> + cut/paste 中心。レビュアは構造を見るだけで済む。各 step を別コミットにすれば bisect も効く。
+        </p>
+      </div>
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>循環依存</h4>
+        <p>
+          DAG が決まっているので機械的に防げる。<code>cargo build</code> が即座にエラーで教えてくれる。
+        </p>
+      </div>
+      <div class="risk mid">
+        <div class="level">● Medium</div>
+        <h4>resources.rs が依然として大きい (~1,180 行)</h4>
+        <p>
+          <code>new()</code> が膨大だから。Phase 2 として <code>buffers.rs</code> / <code>pipelines.rs</code> / <code>bind_groups.rs</code> に細分化することは可能。今回は Phase 1 のスコープ外。
+        </p>
+      </div>
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>roll back 容易性</h4>
+        <p>
+          各 step が独立コミット。問題があれば該当 step だけ revert。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §8 ========== -->
+  <section>
+    <h2><span class="num">§08</span> 完了の定義</h2>
+    <ul style="list-style:none;padding-left:0;border:1px solid var(--line);background:var(--surface);padding:24px 32px;">
+      <li style="padding:8px 0 8px 32px;border-bottom:1px dashed var(--line);position:relative;color:var(--text);"><span style="position:absolute;left:0;top:6px;font-size:18px;color:var(--text-dim);">☐</span> <code>apps/egui-web/src/gpu/</code> 配下に 7 ファイル (mod.rs 含む)</li>
+      <li style="padding:8px 0 8px 32px;border-bottom:1px dashed var(--line);position:relative;color:var(--text);"><span style="position:absolute;left:0;top:6px;font-size:18px;color:var(--text-dim);">☐</span> 全ファイル <strong>1,200 行未満</strong>、6 個は 600 行未満</li>
+      <li style="padding:8px 0 8px 32px;border-bottom:1px dashed var(--line);position:relative;color:var(--text);"><span style="position:absolute;left:0;top:6px;font-size:18px;color:var(--text-dim);">☐</span> Playwright 28/28、TS preflight 72/72、Cucumber 3/3 すべて green</li>
+      <li style="padding:8px 0 8px 32px;border-bottom:1px dashed var(--line);position:relative;color:var(--text);"><span style="position:absolute;left:0;top:6px;font-size:18px;color:var(--text-dim);">☐</span> Bell / GHZ / H+Bloch+Measurement の state vector が refactor 前後で完全一致</li>
+      <li style="padding:8px 0 8px 32px;position:relative;color:var(--text);"><span style="position:absolute;left:0;top:6px;font-size:18px;color:var(--text-dim);">☐</span> <code>lib.rs</code> から見た公開 API (<code>read_state_vector</code> など) に変更なし</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>qni-webgpu / docs / refactor-gpu-plan.html</span>
+    <span>2026-05-09 · planning</span>
+  </footer>
+
+</main>
+</body>
+</html>
