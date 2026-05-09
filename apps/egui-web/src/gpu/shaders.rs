@@ -465,7 +465,14 @@ struct VsOut {
 // dispatch overhead that dominates frame time on contended GPUs.
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
-  let panel_local = (input.position * 0.5 + 0.5) * params.panel_size;
+  // Expand the quad outward by `pad` so the edge cells' stroke + 1 px AA
+  // fringe (which sits half_stroke past the cell box, plus an fwidth-worth
+  // of edge fade) has somewhere to render. Without this the top / left
+  // pixels of the (col=0, row=0) cell get clipped at panel_origin.
+  let pad = params.stroke * 0.5 + 1.0;
+  let pad_v = vec2<f32>(pad);
+  let panel_local =
+    (input.position * 0.5 + 0.5) * (params.panel_size + 2.0 * pad_v) - pad_v;
   let world = params.panel_origin + panel_local;
   let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
@@ -480,11 +487,14 @@ fn vs_main(input: VsIn) -> VsOut {
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  let col = u32(floor(input.panel_local.x / params.cell_pitch));
-  let row = u32(floor(input.panel_local.y / params.cell_pitch));
-  if (col >= params.cols || row >= params.rows) {
-    discard;
-  }
+  // Pad pixels (panel_local outside [0, panel_size)) get clamped to the
+  // nearest edge cell. The cell's circle then naturally renders into the
+  // pad area through the same dist-from-center math; we only need to make
+  // sure the col / row indices are valid.
+  let col_f = floor(input.panel_local.x / params.cell_pitch);
+  let row_f = floor(input.panel_local.y / params.cell_pitch);
+  let col = u32(clamp(col_f, 0.0, f32(params.cols - 1u)));
+  let row = u32(clamp(row_f, 0.0, f32(params.rows - 1u)));
   // Cell-local coordinates with origin at the circle centre. The cell box
   // is `2 * radius` wide; `cell_pitch = size + gap`, so the centre is
   // `cell_origin + radius`, NOT `(col + 0.5) * cell_pitch` (those only
