@@ -62,6 +62,15 @@ impl RenderColors {
 
 pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
 
+/// Upper bound on the number of `SimulationOp`s of any single variant we can
+/// batch into one recompute encoder. Issue A's fix packs all per-op params
+/// into staging buffers up-front, then issues `copy_buffer_to_buffer` from
+/// staging slots into the existing small uniform buffers between dispatches
+/// inside a single encoder. Each variant has its own staging buffer sized to
+/// `MAX_OPS_PER_RECOMPUTE` slots; if a circuit ever exceeds this, the
+/// `debug_assert!` in the prepare pass will trip.
+pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
+
 const STATE_COMPUTE_SHADER: &str = r#"
 struct GateParams {
   m00: vec2<f32>,
@@ -685,6 +694,14 @@ pub(crate) struct StateVectorResources {
     pub(crate) render_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) render_bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) gate_params_buffer: wgpu::Buffer,
+    /// Staging buffer holding all `GateParams` for a recompute, packed
+    /// contiguously. Filled once via `queue.write_buffer` before the dispatch
+    /// loop; each per-gate dispatch then sources its params via
+    /// `encoder.copy_buffer_to_buffer` from the matching slot into
+    /// `gate_params_buffer`. Lets us keep the existing uniform binding while
+    /// collapsing N per-gate `queue.submit` round trips into a single submit
+    /// (Issue A — see docs/perf-issue-a-fix-plan.html).
+    pub(crate) gate_params_staging_buffer: wgpu::Buffer,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) state_buffers: [wgpu::Buffer; 2],
     pub(crate) instance_buffer: wgpu::Buffer,
@@ -702,6 +719,9 @@ pub(crate) struct StateVectorResources {
     pub(crate) bloch_pipeline: wgpu::ComputePipeline,
     pub(crate) bloch_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) bloch_params_buffer: wgpu::Buffer,
+    /// See `gate_params_staging_buffer`. Same pattern, holds packed
+    /// `BlochParams` for every Bloch capture in the recompute.
+    pub(crate) bloch_params_staging_buffer: wgpu::Buffer,
     pub(crate) bloch_output_buffer: wgpu::Buffer,
     /// Measurement reduce + sample shader and its bind groups (one per ping-
     /// pong state buffer). Writes `(pZero, r, outcome, sqrt_p_kept)` to
@@ -709,12 +729,18 @@ pub(crate) struct StateVectorResources {
     pub(crate) measure_reduce_pipeline: wgpu::ComputePipeline,
     pub(crate) measure_reduce_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) measure_reduce_params_buffer: wgpu::Buffer,
+    /// Packed `MeasureReduceParams` for every measurement-reduce in the
+    /// recompute. See `gate_params_staging_buffer` for the rationale.
+    pub(crate) measure_reduce_params_staging_buffer: wgpu::Buffer,
     /// Measurement collapse shader. Four bind groups: two ping-pong
     /// directions × ?, actually two bind groups (state_in side selects which
     /// buffer to read; the other is the write target).
     pub(crate) measure_collapse_pipeline: wgpu::ComputePipeline,
     pub(crate) measure_collapse_bind_groups: [wgpu::BindGroup; 2],
     pub(crate) measure_collapse_params_buffer: wgpu::Buffer,
+    /// Packed `MeasureCollapseParams` for every measurement-collapse in the
+    /// recompute. See `gate_params_staging_buffer` for the rationale.
+    pub(crate) measure_collapse_params_staging_buffer: wgpu::Buffer,
     pub(crate) measurement_aux_buffer: wgpu::Buffer,
     /// GPU render pass that draws the dynamic Bloch arrow + tip dot directly
     /// from `bloch_output_buffer`. No CPU readback in production.
@@ -1214,14 +1240,32 @@ impl StateVectorResources {
         let gate_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("state_vector_gate_params"),
             size: std::mem::size_of::<GateParams>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let gate_params_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("state_vector_gate_params_staging"),
+            size: (MAX_OPS_PER_RECOMPUTE * std::mem::size_of::<GateParams>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
         let bloch_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("bloch_reduce_params"),
             size: std::mem::size_of::<BlochParams>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let bloch_params_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("bloch_reduce_params_staging"),
+            size: (MAX_OPS_PER_RECOMPUTE * std::mem::size_of::<BlochParams>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let bloch_buffer_size = (MAX_BLOCH_SLOTS * 4 * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
@@ -1235,15 +1279,34 @@ impl StateVectorResources {
         let measure_reduce_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("measure_reduce_params"),
             size: std::mem::size_of::<MeasureReduceParams>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let measure_reduce_params_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("measure_reduce_params_staging"),
+            size: (MAX_OPS_PER_RECOMPUTE * std::mem::size_of::<MeasureReduceParams>())
+                as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let measure_collapse_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("measure_collapse_params"),
             size: std::mem::size_of::<MeasureCollapseParams>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+        let measure_collapse_params_staging_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("measure_collapse_params_staging"),
+                size: (MAX_OPS_PER_RECOMPUTE * std::mem::size_of::<MeasureCollapseParams>())
+                    as wgpu::BufferAddress,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
         let measurement_aux_size =
             (MAX_MEASUREMENT_SLOTS * 4 * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
         let measurement_aux_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -1764,6 +1827,7 @@ impl StateVectorResources {
             render_bind_groups,
             render_bind_group_layout,
             gate_params_buffer,
+            gate_params_staging_buffer,
             render_params_buffer,
             state_buffers,
             instance_buffer,
@@ -1776,13 +1840,16 @@ impl StateVectorResources {
             bloch_pipeline,
             bloch_bind_groups,
             bloch_params_buffer,
+            bloch_params_staging_buffer,
             bloch_output_buffer,
             measure_reduce_pipeline,
             measure_reduce_bind_groups,
             measure_reduce_params_buffer,
+            measure_reduce_params_staging_buffer,
             measure_collapse_pipeline,
             measure_collapse_bind_groups,
             measure_collapse_params_buffer,
+            measure_collapse_params_staging_buffer,
             measurement_aux_buffer,
             bloch_overlay_pipeline,
             bloch_overlay_bind_group,
@@ -2118,34 +2185,161 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 resources.active_state = 0;
                 let pair_count = (self.state_count / 2) as u32;
                 let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
-                let mut in_index = 0usize;
-                let mut bloch_capture_count: u32 = 0;
-                let mut bloch_slot_to_gate_id: Vec<u32> = Vec::new();
-                let mut measurement_count: u32 = 0;
-                let mut measurement_slot_to_gate_id: Vec<u32> = Vec::new();
+
+                // ─── Issue A pre-pass ─────────────────────────────────────
+                // Classify every op by variant and pack their params
+                // contiguously into the per-variant staging buffers via a
+                // single `queue.write_buffer` per variant. The dispatch loop
+                // below will then source each op's params via
+                // `encoder.copy_buffer_to_buffer` from these staging buffers
+                // instead of re-uploading per gate, so all dispatches can
+                // live in one encoder + one submit.
+                let mut packed_gate_params: Vec<GateParams> =
+                    Vec::with_capacity(self.sim_ops.len());
+                let mut packed_bloch_params: Vec<BlochParams> =
+                    Vec::with_capacity(self.sim_ops.len());
+                let mut packed_measure_reduce_params: Vec<MeasureReduceParams> =
+                    Vec::with_capacity(self.sim_ops.len());
+                let mut packed_measure_collapse_params: Vec<MeasureCollapseParams> =
+                    Vec::with_capacity(self.sim_ops.len());
                 for op in &self.sim_ops {
                     match op {
                         SimulationOp::ApplyGate(params) => {
+                            packed_gate_params.push(*params);
+                        }
+                        SimulationOp::CaptureBloch {
+                            qubit_bit,
+                            output_slot,
+                            ..
+                        } => {
+                            if (*output_slot as usize) >= MAX_BLOCH_SLOTS {
+                                continue;
+                            }
+                            packed_bloch_params.push(BlochParams {
+                                qubit_bit: *qubit_bit,
+                                state_count: self.state_count as u32,
+                                output_slot: *output_slot,
+                                _pad: 0,
+                            });
+                        }
+                        SimulationOp::MeasureReduceSample {
+                            gate_id,
+                            qubit_bit,
+                            output_slot,
+                        } => {
+                            if (*output_slot as usize) >= MAX_MEASUREMENT_SLOTS {
+                                continue;
+                            }
+                            packed_measure_reduce_params.push(MeasureReduceParams {
+                                qubit_bit: *qubit_bit,
+                                state_count: self.state_count as u32,
+                                output_slot: *output_slot,
+                                seed: *gate_id,
+                            });
+                        }
+                        SimulationOp::MeasureCollapse {
+                            qubit_bit,
+                            aux_slot,
+                        } => {
                             if pair_count == 0 {
                                 continue;
                             }
-                            queue.write_buffer(
+                            packed_measure_collapse_params.push(MeasureCollapseParams {
+                                qubit_bit: *qubit_bit,
+                                state_count: self.state_count as u32,
+                                aux_slot: *aux_slot,
+                                _pad: 0,
+                            });
+                        }
+                    }
+                }
+                debug_assert!(
+                    packed_gate_params.len() <= MAX_OPS_PER_RECOMPUTE
+                        && packed_bloch_params.len() <= MAX_OPS_PER_RECOMPUTE
+                        && packed_measure_reduce_params.len() <= MAX_OPS_PER_RECOMPUTE
+                        && packed_measure_collapse_params.len() <= MAX_OPS_PER_RECOMPUTE,
+                    "sim_ops exceeds MAX_OPS_PER_RECOMPUTE; bump the constant in gpu.rs"
+                );
+                if !packed_gate_params.is_empty() {
+                    queue.write_buffer(
+                        &resources.gate_params_staging_buffer,
+                        0,
+                        bytemuck::cast_slice(&packed_gate_params),
+                    );
+                }
+                if !packed_bloch_params.is_empty() {
+                    queue.write_buffer(
+                        &resources.bloch_params_staging_buffer,
+                        0,
+                        bytemuck::cast_slice(&packed_bloch_params),
+                    );
+                }
+                if !packed_measure_reduce_params.is_empty() {
+                    queue.write_buffer(
+                        &resources.measure_reduce_params_staging_buffer,
+                        0,
+                        bytemuck::cast_slice(&packed_measure_reduce_params),
+                    );
+                }
+                if !packed_measure_collapse_params.is_empty() {
+                    queue.write_buffer(
+                        &resources.measure_collapse_params_staging_buffer,
+                        0,
+                        bytemuck::cast_slice(&packed_measure_collapse_params),
+                    );
+                }
+                // ──────────────────────────────────────────────────────────
+
+                let mut in_index = 0usize;
+                let mut bloch_capture_count: u32 = 0;
+                let mut bloch_slot_to_gate_id: Vec<u32> = Vec::with_capacity(MAX_BLOCH_SLOTS);
+                let mut measurement_count: u32 = 0;
+                let mut measurement_slot_to_gate_id: Vec<u32> =
+                    Vec::with_capacity(MAX_MEASUREMENT_SLOTS);
+                // Single encoder for the entire recompute. Each per-op param
+                // update is encoded as `copy_buffer_to_buffer` from the
+                // matching staging slot into the existing tiny uniform
+                // buffer, immediately followed by the dispatch that reads it.
+                // WebGPU guarantees in-order execution within one encoder,
+                // and inserts the necessary memory barriers automatically,
+                // so each dispatch sees its own params even though all
+                // dispatches share `gate_params_buffer` etc. Issue A: this
+                // replaces N per-op `queue.submit` round trips with one.
+                let mut encoder =
+                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("recompute_batched_encoder"),
+                    });
+                let gate_param_size =
+                    std::mem::size_of::<GateParams>() as wgpu::BufferAddress;
+                let bloch_param_size =
+                    std::mem::size_of::<BlochParams>() as wgpu::BufferAddress;
+                let measure_reduce_param_size =
+                    std::mem::size_of::<MeasureReduceParams>() as wgpu::BufferAddress;
+                let measure_collapse_param_size =
+                    std::mem::size_of::<MeasureCollapseParams>() as wgpu::BufferAddress;
+                let mut gate_slot: u64 = 0;
+                let mut bloch_slot: u64 = 0;
+                let mut measure_reduce_slot: u64 = 0;
+                let mut measure_collapse_slot: u64 = 0;
+                for op in &self.sim_ops {
+                    match op {
+                        SimulationOp::ApplyGate(_) => {
+                            if pair_count == 0 {
+                                continue;
+                            }
+                            encoder.copy_buffer_to_buffer(
+                                &resources.gate_params_staging_buffer,
+                                gate_slot * gate_param_size,
                                 &resources.gate_params_buffer,
                                 0,
-                                bytemuck::bytes_of(params),
-                            );
-                            let mut encoder = device.create_command_encoder(
-                                &wgpu::CommandEncoderDescriptor {
-                                    label: Some("state_vector_compute_encoder"),
-                                },
+                                gate_param_size,
                             );
                             {
-                                let mut pass = encoder.begin_compute_pass(
-                                    &wgpu::ComputePassDescriptor {
+                                let mut pass =
+                                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                                         label: Some("state_vector_compute_pass"),
                                         timestamp_writes: None,
-                                    },
-                                );
+                                    });
                                 pass.set_pipeline(&resources.compute_pipeline);
                                 pass.set_bind_group(
                                     0,
@@ -2154,40 +2348,30 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 );
                                 pass.dispatch_workgroups(dispatch_x, 1, 1);
                             }
-                            queue.submit(Some(encoder.finish()));
+                            gate_slot += 1;
                             in_index = 1 - in_index;
                         }
                         SimulationOp::CaptureBloch {
                             gate_id,
-                            qubit_bit,
                             output_slot,
+                            ..
                         } => {
                             if (*output_slot as usize) >= MAX_BLOCH_SLOTS {
                                 continue;
                             }
-                            let bloch_params = BlochParams {
-                                qubit_bit: *qubit_bit,
-                                state_count: self.state_count as u32,
-                                output_slot: *output_slot,
-                                _pad: 0,
-                            };
-                            queue.write_buffer(
+                            encoder.copy_buffer_to_buffer(
+                                &resources.bloch_params_staging_buffer,
+                                bloch_slot * bloch_param_size,
                                 &resources.bloch_params_buffer,
                                 0,
-                                bytemuck::bytes_of(&bloch_params),
-                            );
-                            let mut encoder = device.create_command_encoder(
-                                &wgpu::CommandEncoderDescriptor {
-                                    label: Some("bloch_reduce_encoder"),
-                                },
+                                bloch_param_size,
                             );
                             {
-                                let mut pass = encoder.begin_compute_pass(
-                                    &wgpu::ComputePassDescriptor {
+                                let mut pass =
+                                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                                         label: Some("bloch_reduce_pass"),
                                         timestamp_writes: None,
-                                    },
-                                );
+                                    });
                                 pass.set_pipeline(&resources.bloch_pipeline);
                                 // The current state lives in `state_buffers[in_index]`,
                                 // which is the read side of the next gate dispatch.
@@ -2198,41 +2382,31 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 );
                                 pass.dispatch_workgroups(1, 1, 1);
                             }
-                            queue.submit(Some(encoder.finish()));
+                            bloch_slot += 1;
                             bloch_slot_to_gate_id.push(*gate_id);
                             bloch_capture_count += 1;
                         }
                         SimulationOp::MeasureReduceSample {
                             gate_id,
-                            qubit_bit,
                             output_slot,
+                            ..
                         } => {
                             if (*output_slot as usize) >= MAX_MEASUREMENT_SLOTS {
                                 continue;
                             }
-                            let measure_params = MeasureReduceParams {
-                                qubit_bit: *qubit_bit,
-                                state_count: self.state_count as u32,
-                                output_slot: *output_slot,
-                                seed: *gate_id,
-                            };
-                            queue.write_buffer(
+                            encoder.copy_buffer_to_buffer(
+                                &resources.measure_reduce_params_staging_buffer,
+                                measure_reduce_slot * measure_reduce_param_size,
                                 &resources.measure_reduce_params_buffer,
                                 0,
-                                bytemuck::bytes_of(&measure_params),
-                            );
-                            let mut encoder = device.create_command_encoder(
-                                &wgpu::CommandEncoderDescriptor {
-                                    label: Some("measure_reduce_encoder"),
-                                },
+                                measure_reduce_param_size,
                             );
                             {
-                                let mut pass = encoder.begin_compute_pass(
-                                    &wgpu::ComputePassDescriptor {
+                                let mut pass =
+                                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                                         label: Some("measure_reduce_pass"),
                                         timestamp_writes: None,
-                                    },
-                                );
+                                    });
                                 pass.set_pipeline(&resources.measure_reduce_pipeline);
                                 pass.set_bind_group(
                                     0,
@@ -2241,40 +2415,27 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 );
                                 pass.dispatch_workgroups(1, 1, 1);
                             }
-                            queue.submit(Some(encoder.finish()));
+                            measure_reduce_slot += 1;
                             measurement_slot_to_gate_id.push(*gate_id);
                             measurement_count += 1;
                         }
-                        SimulationOp::MeasureCollapse {
-                            qubit_bit,
-                            aux_slot,
-                        } => {
+                        SimulationOp::MeasureCollapse { .. } => {
                             if pair_count == 0 {
                                 continue;
                             }
-                            let collapse_params = MeasureCollapseParams {
-                                qubit_bit: *qubit_bit,
-                                state_count: self.state_count as u32,
-                                aux_slot: *aux_slot,
-                                _pad: 0,
-                            };
-                            queue.write_buffer(
+                            encoder.copy_buffer_to_buffer(
+                                &resources.measure_collapse_params_staging_buffer,
+                                measure_collapse_slot * measure_collapse_param_size,
                                 &resources.measure_collapse_params_buffer,
                                 0,
-                                bytemuck::bytes_of(&collapse_params),
-                            );
-                            let mut encoder = device.create_command_encoder(
-                                &wgpu::CommandEncoderDescriptor {
-                                    label: Some("measure_collapse_encoder"),
-                                },
+                                measure_collapse_param_size,
                             );
                             {
-                                let mut pass = encoder.begin_compute_pass(
-                                    &wgpu::ComputePassDescriptor {
+                                let mut pass =
+                                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                                         label: Some("measure_collapse_pass"),
                                         timestamp_writes: None,
-                                    },
-                                );
+                                    });
                                 pass.set_pipeline(&resources.measure_collapse_pipeline);
                                 pass.set_bind_group(
                                     0,
@@ -2283,11 +2444,12 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 );
                                 pass.dispatch_workgroups(dispatch_x, 1, 1);
                             }
-                            queue.submit(Some(encoder.finish()));
+                            measure_collapse_slot += 1;
                             in_index = 1 - in_index;
                         }
                     }
                 }
+                queue.submit(Some(encoder.finish()));
                 resources.active_state = in_index;
 
                 // Production path never reads back. The slot mappings are

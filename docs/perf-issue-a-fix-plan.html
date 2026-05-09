@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue A — 修正プラン</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b11;
+    --bg-deep:   #06060a;
+    --surface:   #14141d;
+    --surface-2: #1c1c27;
+    --line:      #262633;
+    --text:      #ece8de;
+    --text-mid:  #a8a3b3;
+    --text-dim:  #6e6a7a;
+    --high:      #ff4a30;
+    --med:       #f5b942;
+    --good:      #79d27c;
+    --cool:      #5fc4d3;
+    --plum:      #c5a3ff;
+    --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --mono:      'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(95,196,211,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(121,210,124,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+    min-height: 100vh;
+    padding: 0 0 120px 0;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+  /* Hero */
+  .hero { padding: 96px 0 64px; border-bottom: 1px solid var(--line); margin-bottom: 64px; }
+  .hero .crumb {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 28px;
+  }
+  .hero .crumb a { color: var(--text-mid); text-decoration: none; }
+  .hero .crumb a:hover { color: var(--text); }
+  .hero .crumb .badge {
+    display: inline-block; padding: 3px 10px; margin-left: 12px;
+    border: 1px solid var(--cool); color: var(--cool);
+    font-family: var(--mono); font-size: 10px;
+  }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 800;
+    font-size: clamp(40px, 6.5vw, 78px);
+    line-height: 0.96; letter-spacing: -0.02em;
+    margin: 0 0 28px 0;
+  }
+  .hero h1 em { font-style: italic; font-weight: 400; color: var(--text-mid); }
+  .hero .lede {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 22px; line-height: 1.5;
+    color: var(--text-mid); max-width: 760px; margin: 0;
+  }
+
+  h2 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.01em;
+    margin: 88px 0 28px 0;
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--text-dim); font-weight: 400;
+  }
+
+  p { color: var(--text-mid); max-width: 780px; margin: 0 0 18px 0; }
+  p strong { color: var(--text); font-weight: 500; }
+  p code, .ic {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 3px; color: var(--text);
+  }
+
+  .aside {
+    border-left: 3px solid var(--cool);
+    background: linear-gradient(90deg, rgba(95,196,211,0.06) 0%, transparent 70%);
+    padding: 18px 24px; margin: 24px 0;
+    max-width: 780px;
+  }
+  .aside.warn {
+    border-color: var(--med);
+    background: linear-gradient(90deg, rgba(245,185,66,0.06) 0%, transparent 70%);
+  }
+  .aside .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--cool); margin-bottom: 4px;
+  }
+  .aside.warn .tag { color: var(--med); }
+  .aside p { margin: 0; color: var(--text); }
+
+  .figure {
+    margin: 32px 0; border: 1px solid var(--line);
+    background: var(--surface); overflow: hidden;
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure-caption {
+    padding: 16px 24px; border-top: 1px solid var(--line);
+    background: var(--bg-deep); font-size: 12px; color: var(--text-mid);
+  }
+  .figure-caption b { color: var(--text); }
+
+  pre {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--bg-deep); border: 1px solid var(--line);
+    padding: 18px 20px; overflow-x: auto; line-height: 1.55;
+    color: var(--text); margin: 0 0 16px 0;
+  }
+  pre .kw { color: #c5a3ff; }
+  pre .fn { color: #5fc4d3; }
+  pre .str { color: #79d27c; }
+  pre .cm { color: var(--text-dim); font-style: italic; }
+  pre .hi-good { background: rgba(121,210,124,0.16); display: inline-block; padding: 0 4px; }
+  pre .hi-bad { background: rgba(255,74,48,0.14); display: inline-block; padding: 0 4px; }
+  pre .hi-cool { background: rgba(95,196,211,0.16); display: inline-block; padding: 0 4px; }
+
+  /* Step list */
+  .steps { margin: 32px 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps > li {
+    counter-increment: step;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 28px 32px 28px 100px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .steps > li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute; left: 28px; top: 28px;
+    font-family: var(--serif); font-style: italic; font-weight: 600;
+    font-size: 44px; line-height: 1;
+    color: var(--cool);
+  }
+  .steps > li h3 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 22px; margin: 0 0 8px 0;
+    color: var(--text);
+  }
+  .steps > li .where {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text-dim); margin-bottom: 14px;
+  }
+  .steps > li p { margin-bottom: 12px; max-width: none; }
+  .steps > li:last-child { margin-bottom: 0; }
+
+  /* Checklist */
+  .checklist {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 28px 32px; margin: 24px 0;
+    list-style: none; padding-left: 32px;
+  }
+  .checklist li {
+    padding: 10px 0 10px 32px;
+    border-bottom: 1px dashed var(--line);
+    position: relative;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before {
+    content: "☐";
+    position: absolute; left: 0; top: 8px;
+    font-size: 18px; color: var(--text-dim);
+  }
+  .checklist li code {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text-mid);
+    background: var(--bg-deep); border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 2px;
+  }
+
+  /* Risk grid */
+  .risks {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin: 24px 0;
+  }
+  .risk {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 22px;
+  }
+  .risk .level {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .risk.lo .level { color: var(--good); }
+  .risk.mid .level { color: var(--med); }
+  .risk.hi .level { color: var(--high); }
+  .risk h4 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 18px; margin: 0 0 8px 0;
+  }
+  .risk p { margin: 0; font-size: 12px; max-width: none; }
+
+  /* Timeline */
+  .timeline {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 32px; margin: 24px 0;
+  }
+  .timeline-row {
+    display: grid; grid-template-columns: 80px 1fr;
+    gap: 24px; padding: 16px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .timeline-row:last-child { border-bottom: none; }
+  .timeline-day {
+    font-family: var(--serif); font-style: italic; font-weight: 600;
+    font-size: 24px; color: var(--cool);
+  }
+  .timeline-task b {
+    font-family: var(--serif); font-weight: 600; font-size: 16px;
+    color: var(--text); display: block; margin-bottom: 4px;
+  }
+  .timeline-task span {
+    font-size: 12px; color: var(--text-mid);
+  }
+
+  footer {
+    margin-top: 96px; padding-top: 32px;
+    border-top: 1px solid var(--line); color: var(--text-dim);
+    font-size: 11px; letter-spacing: 0.1em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+
+  @media (max-width: 760px) {
+    main { padding: 0 20px; }
+    .risks { grid-template-columns: 1fr; }
+    .steps > li { padding-left: 32px; }
+    .steps > li::before { position: static; display: block; margin-bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="hero">
+    <div class="crumb">
+      <a href="./egui-web-perf-audit.html">← perf audit</a>
+      &nbsp;·&nbsp;
+      <a href="./perf-issue-a-explained.html">issue A 解説</a>
+      &nbsp;/&nbsp; 修正プラン
+      <span class="badge">PLAN</span>
+    </div>
+    <h1>Issue A を <em>直す</em>。<br>計画と<em> 段取り</em>。</h1>
+    <p class="lede">
+      ゴール: ゲートごとの <code>queue.submit</code> を 1 recompute につき
+      <strong>1 回</strong>に集約する。実コードに触る前に、何が起きて何に気をつけるかをここで固めておく。
+    </p>
+
+    <div style="margin-top:32px;padding:18px 24px;border-left:3px solid var(--good);background:linear-gradient(90deg,rgba(121,210,124,0.10) 0%,transparent 70%);max-width:780px;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--good);margin-bottom:6px;">✅ Implemented · 2026-05-09</div>
+      <p style="margin:0;color:var(--text);font-size:13px;">
+        <code>apps/egui-web/src/gpu.rs</code> に staging buffer + <code>copy_buffer_to_buffer</code> パターンを実装。Bell / GHZ / H+Bloch+Measurement の state vector が一致、描画も正しい。Playwright suite 28 件すべて green。
+      </p>
+    </div>
+  </header>
+
+  <!-- ========== §1 ========== -->
+  <section>
+    <h2><span class="num">§01</span> 「encoder を外に出すだけ」では済まない理由</h2>
+    <p>
+      最初に思いつくのは「<code>create_command_encoder</code> をループの外に出して、最後に 1 回 <code>submit</code> するだけ」という案。<strong>残念ながらこれだと壊れる</strong>。
+    </p>
+    <p>
+      WebGPU の仕様上、<code>queue.write_buffer</code> は<strong>すべての submitted command buffer の前にまとめて実行される</strong>。つまり同じ buffer を上書きすると、最後の値ですべての dispatch が読み取りに行く。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="arx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4a30"/>
+          </marker>
+        </defs>
+
+        <text x="40" y="36" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">NAIVE FIX — encoder を外に出しただけ</text>
+
+        <!-- write buffer + dispatch row -->
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <rect x="40"  y="60" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="55" y="84" fill="#ece8de">write(params, gate1)</text>
+          <rect x="230" y="60" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="245" y="84" fill="#ece8de">encode dispatch 1</text>
+
+          <rect x="40"  y="106" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="55" y="130" fill="#ece8de">write(params, gate2)</text>
+          <rect x="230" y="106" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="245" y="130" fill="#ece8de">encode dispatch 2</text>
+
+          <rect x="40"  y="152" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="55" y="176" fill="#ece8de">write(params, gate3)</text>
+          <rect x="230" y="152" width="180" height="36" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="245" y="176" fill="#ece8de">encode dispatch 3</text>
+
+          <rect x="430" y="60" width="160" height="128" fill="rgba(255,74,48,0.06)" stroke="#ff4a30" stroke-dasharray="3 3"/>
+          <text x="510" y="100" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+          <text x="510" y="120" text-anchor="middle" fill="#ff4a30" font-size="10">(loop の後)</text>
+        </g>
+
+        <!-- arrow + actual execution order -->
+        <line x1="610" y1="124" x2="650" y2="124" stroke="#ff4a30" stroke-width="1.5" marker-end="url(#arx)"/>
+
+        <text x="660" y="56" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#ff4a30">GPU 上での実行順序</text>
+
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <rect x="660" y="70" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="89" fill="#ece8de">write(params, gate1)  ← 上書きされる</text>
+          <rect x="660" y="100" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="119" fill="#ece8de">write(params, gate2)  ← 上書きされる</text>
+          <rect x="660" y="130" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="149" fill="#ece8de">write(params, gate3)  ← これが残る</text>
+          <line x1="660" y1="166" x2="1040" y2="166" stroke="#262633"/>
+          <rect x="660" y="170" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="189" fill="#ff4a30">dispatch 1 (gate3 の params で実行)</text>
+          <rect x="660" y="200" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="219" fill="#ff4a30">dispatch 2 (gate3 の params で実行)</text>
+          <rect x="660" y="230" width="380" height="28" fill="#14141d" stroke="#ff4a30"/>
+          <text x="675" y="249" fill="#ff4a30">dispatch 3 (gate3 の params で実行)</text>
+        </g>
+
+        <text x="40" y="290" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ <tspan fill="#ff4a30" font-weight="700">queue.write_buffer は encoder の中身と<tspan font-style="italic">交互に</tspan>実行されない</tspan>。すべての write が先に走る。</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 1</b> &nbsp; 単純に encoder を外出ししただけだと、param の上書きで全 dispatch が同じ値を読む → 結果が壊れる。
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §2 ========== -->
+  <section>
+    <h2><span class="num">§02</span> 解決策 — <span style="color:var(--cool)">copy_buffer_to_buffer</span></h2>
+    <p>
+      ポイントは「<strong>params の更新も encoder の中で行う</strong>」こと。<code>queue.write_buffer</code> ではなく <code>encoder.copy_buffer_to_buffer</code> を使えば、param 更新と dispatch を encoder 内で<strong>順序保証つきで交互に</strong>並べられる。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 360" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#79d27c"/>
+          </marker>
+        </defs>
+
+        <text x="40" y="36" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">NEW DESIGN — staging buffer + intra-encoder copy</text>
+
+        <!-- staging buffer -->
+        <rect x="40" y="60" width="380" height="80" fill="#14141d" stroke="#5fc4d3"/>
+        <text x="55" y="82" font-family="Fraunces, serif" font-size="16" font-weight="600" fill="#ece8de">params_staging (大きい uniform/storage buffer)</text>
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <rect x="55"  y="96" width="84" height="32" fill="#1c1c27" stroke="#5fc4d3"/>
+          <text x="97"  y="116" text-anchor="middle" fill="#5fc4d3">slot 0</text>
+          <rect x="145" y="96" width="84" height="32" fill="#1c1c27" stroke="#5fc4d3"/>
+          <text x="187" y="116" text-anchor="middle" fill="#5fc4d3">slot 1</text>
+          <rect x="235" y="96" width="84" height="32" fill="#1c1c27" stroke="#5fc4d3"/>
+          <text x="277" y="116" text-anchor="middle" fill="#5fc4d3">slot 2</text>
+          <rect x="325" y="96" width="84" height="32" fill="#1c1c27" stroke="#5fc4d3"/>
+          <text x="367" y="116" text-anchor="middle" fill="#5fc4d3">…</text>
+        </g>
+        <text x="40" y="160" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">↑ recompute 開始時に queue.write_buffer で 1 度だけ全 gate ぶんを upload</text>
+
+        <!-- target small buffer -->
+        <rect x="600" y="60" width="220" height="80" fill="#14141d" stroke="#79d27c"/>
+        <text x="615" y="82" font-family="Fraunces, serif" font-size="16" font-weight="600" fill="#ece8de">gate_params (現状の小バッファ)</text>
+        <text x="615" y="106" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">bind group はそのまま</text>
+        <text x="615" y="124" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">レイアウト変更不要</text>
+
+        <!-- arrow staging -> small -->
+        <line x1="430" y1="100" x2="600" y2="100" stroke="#79d27c" stroke-width="1.5" marker-end="url(#ar2)"/>
+        <text x="515" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#79d27c">copy_buffer_to_buffer</text>
+        <text x="515" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#79d27c">(encoder 内で実行)</text>
+
+        <!-- single encoder timeline -->
+        <text x="40" y="200" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">ONE ENCODER — 中身は順序保証つき</text>
+        <line x1="40" y1="216" x2="1060" y2="216" stroke="#262633"/>
+
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <rect x="40"  y="226" width="120" height="32" fill="rgba(95,196,211,0.10)" stroke="#5fc4d3"/>
+          <text x="100" y="247" text-anchor="middle" fill="#5fc4d3">copy slot 0</text>
+          <rect x="160" y="226" width="120" height="32" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="220" y="247" text-anchor="middle" fill="#ece8de">dispatch 1</text>
+
+          <rect x="290" y="226" width="120" height="32" fill="rgba(95,196,211,0.10)" stroke="#5fc4d3"/>
+          <text x="350" y="247" text-anchor="middle" fill="#5fc4d3">copy slot 1</text>
+          <rect x="410" y="226" width="120" height="32" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="470" y="247" text-anchor="middle" fill="#ece8de">dispatch 2</text>
+
+          <rect x="540" y="226" width="120" height="32" fill="rgba(95,196,211,0.10)" stroke="#5fc4d3"/>
+          <text x="600" y="247" text-anchor="middle" fill="#5fc4d3">copy slot 2</text>
+          <rect x="660" y="226" width="120" height="32" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="720" y="247" text-anchor="middle" fill="#ece8de">dispatch 3</text>
+
+          <rect x="790" y="226" width="40" height="32" fill="#14141d" stroke="#262633" stroke-dasharray="2 2"/>
+          <text x="810" y="247" text-anchor="middle" fill="#6e6a7a">…</text>
+
+          <rect x="850" y="226" width="180" height="32" fill="rgba(121,210,124,0.15)" stroke="#79d27c"/>
+          <text x="940" y="247" text-anchor="middle" fill="#79d27c" font-weight="700">submit ⇆ 1 回</text>
+        </g>
+
+        <text x="40" y="298" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ copy と dispatch が encoder 内で<tspan fill="#79d27c" font-weight="700">交互に</tspan>並ぶので、各 dispatch は自分の params を読める</text>
+        <text x="40" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ 既存の bind group / shader / レイアウトは無変更</text>
+        <text x="40" y="334" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ submit は最後の <tspan fill="#79d27c" font-weight="700">1 回だけ</tspan></text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 2</b> &nbsp; staging buffer に全 gate の params を一括 upload → encoder 内で <code>copy_buffer_to_buffer</code> を挟みながら dispatch → 最後に 1 回 submit。
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="tag">なぜ copy_buffer_to_buffer か</div>
+      <p>
+        bind group のレイアウト変更が不要で、既存コードへの影響が最小。動的オフセット (<code>has_dynamic_offset</code>) を使う方法もあるが、shader の binding 定義から触る必要があり diff が大きくなる。性能差は小バッファでは無視できる。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §3 ========== -->
+  <section>
+    <h2><span class="num">§03</span> 実装ステップ</h2>
+
+    <ol class="steps">
+      <li>
+        <h3>StateVectorResources に staging buffer を 4 種追加</h3>
+        <div class="where">gpu.rs:783–1798 (StateVectorResources::new)</div>
+        <p>
+          <code>SimulationOp</code> の各 variant ぶん、上限サイズの staging buffer を作る:
+        </p>
+        <pre><span class="kw">const</span> <span class="fn">MAX_OPS</span>: <span class="kw">usize</span> = 256; <span class="cm">// 回路の最大ゲート数 + 余裕</span>
+
+gate_params_staging:           <span class="fn">create_buffer</span>(MAX_OPS * size_of::&lt;GateParams&gt;())
+bloch_params_staging:          <span class="fn">create_buffer</span>(MAX_OPS * size_of::&lt;BlochParams&gt;())
+measure_reduce_params_staging: <span class="fn">create_buffer</span>(MAX_OPS * size_of::&lt;MeasureReduceParams&gt;())
+measure_collapse_params_staging:<span class="fn">create_buffer</span>(MAX_OPS * size_of::&lt;MeasureCollapseParams&gt;())</pre>
+        <p>
+          usage は <code>BufferUsages::COPY_SRC | COPY_DST</code>。各 staging は uniform alignment を意識してパディング (256 byte 境界)。
+        </p>
+      </li>
+
+      <li>
+        <h3>事前パスで params を分類して staging に packing</h3>
+        <div class="where">新規ヘルパー関数 — gpu.rs StateVectorCallback::prepare 内</div>
+        <p>
+          dispatch ループに入る前に、<code>sim_ops</code> を 1 周して op 種別ごとに <code>Vec&lt;GateParams&gt;</code> などへ分け、それぞれ <code>queue.write_buffer</code> で staging に一括 upload する。
+        </p>
+        <pre><span class="kw">let mut</span> gate_packed: Vec&lt;GateParams&gt; = Vec::with_capacity(<span class="fn">sim_ops</span>.len());
+<span class="kw">let mut</span> bloch_packed: Vec&lt;BlochParams&gt; = Vec::with_capacity(<span class="fn">sim_ops</span>.len());
+<span class="cm">// ...</span>
+<span class="kw">for</span> op <span class="kw">in</span> &<span class="fn">self</span>.sim_ops { <span class="cm">/* 振り分け + slot index 記録 */</span> }
+<span class="hi-cool">queue.write_buffer(&amp;gate_params_staging, 0, bytemuck::cast_slice(&amp;gate_packed));</span>
+<span class="cm">// 4 種ぶん同様</span></pre>
+        <p>
+          副産物として、各 op がどの staging slot を使うかの index 列ができる。これを次のステップで使う。
+        </p>
+      </li>
+
+      <li>
+        <h3>encoder をループの外に出す</h3>
+        <div class="where">gpu.rs:2126 直前</div>
+        <p>
+          recompute ブロック先頭で encoder を 1 つだけ作る:
+        </p>
+        <pre><span class="kw">let mut</span> encoder = device.<span class="fn">create_command_encoder</span>(&amp;wgpu::CommandEncoderDescriptor {
+    label: <span class="kw">Some</span>(<span class="str">"recompute_batched_encoder"</span>),
+});</pre>
+      </li>
+
+      <li>
+        <h3>ループ内: copy_buffer_to_buffer + dispatch</h3>
+        <div class="where">gpu.rs:2126–2289 (各 match arm)</div>
+        <p>
+          各 op の処理を以下の形に書き換える (<code>ApplyGate</code> の例):
+        </p>
+        <pre><span class="kw">let</span> slot_offset = (gate_idx * GATE_PARAMS_STRIDE) <span class="kw">as</span> wgpu::BufferAddress;
+<span class="hi-good">encoder.copy_buffer_to_buffer(
+    &amp;resources.gate_params_staging, slot_offset,
+    &amp;resources.gate_params_buffer,  0,
+    size_of::&lt;GateParams&gt;() <span class="kw">as</span> wgpu::BufferAddress,
+);</span>
+{
+    <span class="kw">let mut</span> pass = encoder.<span class="fn">begin_compute_pass</span>(&amp;...);
+    pass.<span class="fn">set_pipeline</span>(&amp;resources.compute_pipeline);
+    pass.<span class="fn">set_bind_group</span>(0, &amp;resources.compute_bind_groups[in_index], &amp;[]);
+    pass.<span class="fn">dispatch_workgroups</span>(dispatch_x, 1, 1);
+}
+<span class="cm">// queue.submit はしない</span></pre>
+        <p>
+          <code>CaptureBloch</code> / <code>MeasureReduceSample</code> / <code>MeasureCollapse</code> も同形に。
+        </p>
+      </li>
+
+      <li>
+        <h3>ループ後: 1 回だけ submit</h3>
+        <div class="where">gpu.rs:2289 直後</div>
+        <pre><span class="hi-good">queue.submit(<span class="fn">Some</span>(encoder.finish()));</span></pre>
+      </li>
+
+      <li>
+        <h3>関連: write_buffer の重複削除</h3>
+        <div class="where">gpu.rs:2132 / 2174 / 2219 / 2261 (旧コード)</div>
+        <p>
+          各 match arm にあった <code>queue.write_buffer(&amp;resources.gate_params_buffer, ...)</code> 系の行は<strong>すべて削除</strong>。staging に置き換わっている。
+        </p>
+      </li>
+
+      <li>
+        <h3>テスト harness の確認</h3>
+        <div class="where">apps/egui-web/tests/ + read_*_impl</div>
+        <p>
+          <code>read_state_vector_impl</code> など test-only readback API は production submit 経路と独立しているので、振る舞いは変わらないはず。それでも E2E テストで結果が一致することを確認。
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ========== §4 ========== -->
+  <section>
+    <h2><span class="num">§04</span> 計測 — Before/After を数字で見る</h2>
+    <p>
+      推測ではなく実測で効果を確認する。最低でも以下 3 点を取る:
+    </p>
+
+    <ul class="checklist">
+      <li>Chrome DevTools の <b>Performance</b> パネルで recompute 中の <code>queue.submit</code> 呼び出し回数 (Console / Performance イベント) を Before/After で比較</li>
+      <li><b>WebGPU timestamp queries</b> (<code>wgpu::QuerySet::Timestamp</code>) で recompute の壁時計を計測。30 ゲート回路で <code>recompute</code> ワンショットを N 回繰り返し中央値を取る</li>
+      <li>ドラッグ中のフレーム時間 — 既存の <code>egui-web-drag-profiling.md</code> のメソドロジに沿って frame time を取り、引っかかりが消えるか確認</li>
+    </ul>
+
+    <div class="aside warn">
+      <div class="tag">注意</div>
+      <p>
+        Chromium の <code>chrome://flags/#enable-webgpu-developer-features</code> を有効にしないと timestamp queries が使えないことがある。Playwright で計測するときは launch options に <code>--enable-features=WebGPUDeveloperFeatures</code> を渡す。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §5 ========== -->
+  <section>
+    <h2><span class="num">§05</span> テスト — 振る舞い不変であることの確認</h2>
+
+    <ul class="checklist">
+      <li><code>cargo test -p qni_egui_web</code> — 単体テストは全パス</li>
+      <li><code>cargo insta test</code> → <code>cargo insta pending-snapshots</code> — UI スナップショットに差分が出ないこと (描画は等価のはず)</li>
+      <li>Playwright E2E (<code>cucumber.ts</code> 経由) で代表回路 (Bell / GHZ / 量子テレポーテーション) の出力一致を <code>read_state_vector</code> で確認</li>
+      <li><code>read_bloch_vectors</code> / <code>read_measurement_outcomes</code> も同様に Before/After で同一値</li>
+      <li>外部 Chrome + Playwright で実描画を確認 (<code>docs/egui-web.md</code> の agent browser workflow)</li>
+    </ul>
+  </section>
+
+  <!-- ========== §6 ========== -->
+  <section>
+    <h2><span class="num">§06</span> リスク評価</h2>
+
+    <div class="risks">
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>順序の崩れ</h4>
+        <p>
+          WebGPU は同一 encoder 内の copy / pass を発行順に実行することを仕様で保証。memory barrier も自動挿入。
+        </p>
+      </div>
+
+      <div class="risk mid">
+        <div class="level">● Medium</div>
+        <h4>staging サイズの上限</h4>
+        <p>
+          MAX_OPS を超える長大な回路で OOB。<code>debug_assert!(gate_idx &lt; MAX_OPS)</code> を入れて早期に検出。実用上は 256 で十分。
+        </p>
+      </div>
+
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>uniform alignment</h4>
+        <p>
+          各 slot を 256 byte 境界にパディング。<code>min_uniform_buffer_offset_alignment</code> を Limits から動的に取って計算するのが安全。
+        </p>
+      </div>
+
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>copy のオーバーヘッド</h4>
+        <p>
+          16–64 byte の intra-encoder copy は driver 上ほぼ無料。submit 集約のメリットが圧倒的に上回る。
+        </p>
+      </div>
+
+      <div class="risk mid">
+        <div class="level">● Medium</div>
+        <h4>初回 staging 作成の追加メモリ</h4>
+        <p>
+          MAX_OPS × 256B × 4 種 ≈ 256KB の追加 GPU メモリ。回路を開いている間は常駐。許容範囲。
+        </p>
+      </div>
+
+      <div class="risk lo">
+        <div class="level">● Low</div>
+        <h4>roll back 容易性</h4>
+        <p>
+          1 PR 内に閉じる変更。問題が出れば revert で元に戻せる。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §7 ========== -->
+  <section>
+    <h2><span class="num">§07</span> 段取り</h2>
+
+    <div class="timeline">
+      <div class="timeline-row">
+        <div class="timeline-day">Day 1</div>
+        <div class="timeline-task">
+          <b>StateVectorResources に staging 追加 + write_buffer の事前パス</b>
+          <span>Step 1–2 / shader 変更なし / 既存テスト全 green を維持</span>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-day">Day 2</div>
+        <div class="timeline-task">
+          <b>encoder 統合 + copy_buffer_to_buffer 化 + 単一 submit</b>
+          <span>Step 3–6 / Bell, GHZ などで read_state_vector が同値を返すことを確認</span>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-day">Day 3</div>
+        <div class="timeline-task">
+          <b>計測 + スナップショットレビュー + ドキュメント更新</b>
+          <span>§04 計測 / cargo insta review / docs/egui-web.md と本ファイルへ実測値を追記</span>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-day">Day 4</div>
+        <div class="timeline-task">
+          <b>PR / レビュー / マージ</b>
+          <span>Conventional Commits: <code>perf(egui-web): batch gate dispatches into single submit</code></span>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      Issue C (|0…0⟩ 初期化の GPU 化) は同じファイルを触るので、同一 PR か直後の PR で片付けるとレビュー効率が良い。
+    </p>
+  </section>
+
+  <!-- ========== §8 ========== -->
+  <section>
+    <h2><span class="num">§08</span> 完了の定義</h2>
+    <ul class="checklist">
+      <li>recompute 1 回あたりの <code>queue.submit</code> 呼び出しが <b>1 回</b>に減っている (実測)</li>
+      <li>30 ゲート回路の recompute 壁時計が <b>有意に短縮</b> (中央値で測定)</li>
+      <li>すべての既存テストが green (<code>cargo test</code> + <code>cargo insta</code> + Playwright)</li>
+      <li><code>docs/egui-web-perf-audit.html</code> で Issue A を <b>resolved</b> にマーク</li>
+      <li>本ファイルの末尾に実測 Before/After を追記</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>qni-webgpu / docs / perf-issue-a-fix-plan.html</span>
+    <span>2026-05-09 · planning</span>
+  </footer>
+
+</main>
+</body>
+</html>

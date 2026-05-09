@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue A — submit を 1 回にまとめる</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b11;
+    --bg-deep:   #06060a;
+    --surface:   #14141d;
+    --surface-2: #1c1c27;
+    --line:      #262633;
+    --text:      #ece8de;
+    --text-mid:  #a8a3b3;
+    --text-dim:  #6e6a7a;
+    --high:      #ff4a30;
+    --med:       #f5b942;
+    --good:      #79d27c;
+    --cool:      #5fc4d3;
+    --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --mono:      'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(255,74,48,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(95,196,211,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+    min-height: 100vh;
+    padding: 0 0 120px 0;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    z-index: 0;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+  /* Hero */
+  .hero { padding: 96px 0 64px; border-bottom: 1px solid var(--line); margin-bottom: 64px; }
+  .hero .crumb {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 28px;
+  }
+  .hero .crumb a { color: var(--text-mid); text-decoration: none; }
+  .hero .crumb a:hover { color: var(--text); }
+  .hero .crumb .badge {
+    display: inline-block; padding: 3px 10px; margin-left: 12px;
+    border: 1px solid var(--high); color: var(--high);
+    font-family: var(--mono); font-size: 10px;
+  }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 800;
+    font-size: clamp(40px, 6.5vw, 78px);
+    line-height: 0.96; letter-spacing: -0.02em;
+    margin: 0 0 28px 0;
+  }
+  .hero h1 em { font-style: italic; font-weight: 400; color: var(--text-mid); }
+  .hero .lede {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 22px; line-height: 1.5;
+    color: var(--text-mid); max-width: 720px;
+    margin: 0;
+  }
+
+  /* Sections */
+  h2 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 36px; line-height: 1.1; letter-spacing: -0.01em;
+    margin: 88px 0 28px 0;
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--text-dim); font-weight: 400;
+  }
+
+  p { color: var(--text-mid); max-width: 760px; margin: 0 0 18px 0; }
+  p strong { color: var(--text); font-weight: 500; }
+  p code, .ic {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 3px; color: var(--text);
+  }
+
+  /* Aside callout */
+  .aside {
+    border-left: 3px solid var(--cool);
+    background: linear-gradient(90deg, rgba(95,196,211,0.06) 0%, transparent 70%);
+    padding: 18px 24px; margin: 24px 0;
+    max-width: 760px;
+  }
+  .aside .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--cool); margin-bottom: 4px;
+  }
+  .aside p { margin: 0; color: var(--text); }
+
+  /* Figure */
+  .figure {
+    margin: 32px 0; border: 1px solid var(--line);
+    background: var(--surface); overflow: hidden;
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure-caption {
+    padding: 16px 24px; border-top: 1px solid var(--line);
+    background: var(--bg-deep); font-size: 12px; color: var(--text-mid);
+  }
+  .figure-caption b { color: var(--text); }
+
+  /* Two-column compare */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px; margin: 32px 0;
+  }
+  .compare > div {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 24px;
+  }
+  .compare .bad { border-top: 3px solid var(--high); }
+  .compare .good { border-top: 3px solid var(--good); }
+  .compare h3 {
+    font-family: var(--serif); font-weight: 600; font-size: 22px;
+    margin: 0 0 14px 0;
+  }
+  .compare .bad h3 small { color: var(--high); }
+  .compare .good h3 small { color: var(--good); }
+  .compare h3 small {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase; display: block; margin-bottom: 6px;
+    font-weight: 400;
+  }
+
+  /* Code block */
+  pre {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--bg-deep); border: 1px solid var(--line);
+    padding: 18px 20px; overflow-x: auto; line-height: 1.55;
+    color: var(--text); margin: 0;
+  }
+  pre .kw { color: #c5a3ff; }
+  pre .fn { color: #5fc4d3; }
+  pre .str { color: #79d27c; }
+  pre .cm { color: var(--text-dim); font-style: italic; }
+  pre .hi-bad { background: rgba(255,74,48,0.18); display: inline-block; padding: 0 4px; }
+  pre .hi-good { background: rgba(121,210,124,0.16); display: inline-block; padding: 0 4px; }
+
+  /* Big numeric callout */
+  .stat-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 20px; margin: 32px 0;
+  }
+  .stat {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 24px; text-align: left;
+  }
+  .stat .n {
+    font-family: var(--serif); font-weight: 600; font-style: italic;
+    font-size: 64px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--high); margin-bottom: 8px;
+  }
+  .stat.good .n { color: var(--good); }
+  .stat .label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .stat .desc {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--text-mid); margin-top: 8px;
+  }
+
+  footer {
+    margin-top: 96px; padding-top: 32px;
+    border-top: 1px solid var(--line); color: var(--text-dim);
+    font-size: 11px; letter-spacing: 0.1em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+
+  @media (max-width: 760px) {
+    main { padding: 0 20px; }
+    .compare, .stat-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="hero">
+    <div class="crumb">
+      <a href="./egui-web-perf-audit.html">← perf audit</a>
+      &nbsp;/&nbsp; issue A
+      <span class="badge">HIGH</span>
+    </div>
+    <h1>GPU に <em>5 往復</em><br>するか、<em>1 往復</em>で済ますか。</h1>
+    <p class="lede">
+      量子ゲートを 5 個並べた回路を 1 回シミュレーションするのに、
+      いま私たちは GPU と <strong>5 回</strong>やりとりしている。
+      本当は 1 回で済む。これが Issue A のすべて。
+    </p>
+  </header>
+
+  <!-- ========== §1 ========== -->
+  <section>
+    <h2><span class="num">§01</span> まず登場人物</h2>
+    <p>
+      ブラウザで Rust + WebGPU を動かすとき、コードは<strong>2 つの世界</strong>に分かれて住んでいる。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#a8a3b3"/>
+          </marker>
+        </defs>
+
+        <!-- left world -->
+        <rect x="40" y="60" width="380" height="220" fill="#14141d" stroke="#262633"/>
+        <text x="60" y="92" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="2" fill="#6e6a7a">CPU 側 — Renderer プロセス</text>
+        <text x="60" y="138" font-family="Fraunces, serif" font-size="26" font-weight="600" fill="#ece8de">あなたの Rust / Wasm</text>
+        <text x="60" y="170" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">「こういう計算をしてほしい」</text>
+        <text x="60" y="190" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">という命令を</text>
+        <text x="60" y="210" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">紙に書いて渡す係。</text>
+
+        <text x="60" y="252" font-family="JetBrains Mono, monospace" font-size="11" fill="#6e6a7a">使う API:</text>
+        <text x="60" y="266" font-family="JetBrains Mono, monospace" font-size="11" fill="#79d27c">create_command_encoder()</text>
+
+        <!-- boundary -->
+        <line x1="500" y1="60" x2="500" y2="280" stroke="#ff4a30" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="500" y="48" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#ff4a30">PROCESS BOUNDARY</text>
+        <text x="500" y="300" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#ff4a30">↑ ここを越えるのにコストがかかる</text>
+
+        <!-- right world -->
+        <rect x="580" y="60" width="480" height="220" fill="#14141d" stroke="#262633"/>
+        <text x="600" y="92" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="2" fill="#6e6a7a">GPU 側 — GPU プロセス + ドライバ</text>
+        <text x="600" y="138" font-family="Fraunces, serif" font-size="26" font-weight="600" fill="#ece8de">実際に GPU を回す係</text>
+        <text x="600" y="170" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">受け取った紙を読んで</text>
+        <text x="600" y="190" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">Vulkan / Metal / D3D に翻訳。</text>
+        <text x="600" y="210" font-family="JetBrains Mono, monospace" font-size="13" fill="#a8a3b3">本物の GPU が計算する。</text>
+
+        <!-- arrow with label -->
+        <line x1="420" y1="170" x2="580" y2="170" stroke="#a8a3b3" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="500" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">queue.submit()</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 1</b> &nbsp; ブラウザは <b>セキュリティのため</b>、Rust/Wasm が走る場所と GPU を直接叩く場所を別プロセスに隔離している。両者の間は IPC (プロセス間通信) でしかやりとりできない。
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="tag">用語</div>
+      <p>
+        <b>encoder</b> = 命令を書き溜めるノート。<b>command buffer</b> = ノートを綴じた完成品。<b>queue.submit</b> = それを GPU に提出する行為。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §2 ========== -->
+  <section>
+    <h2><span class="num">§02</span> なぜ「越える」のがコスト?</h2>
+    <p>
+      <strong>境界線を越えるたびに</strong>、毎回こういう手続きが走る:
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 280" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f5b942"/>
+          </marker>
+        </defs>
+
+        <!-- 4 steps -->
+        <g font-family="JetBrains Mono, monospace" font-size="12" fill="#ece8de">
+          <rect x="40"  y="80" width="220" height="100" fill="#14141d" stroke="#f5b942"/>
+          <text x="55" y="106" font-size="32" font-family="Fraunces, serif" font-style="italic" fill="#f5b942">1</text>
+          <text x="55" y="138">命令を serialize</text>
+          <text x="55" y="156" fill="#a8a3b3" font-size="11">バイト列に変換</text>
+
+          <rect x="290" y="80" width="220" height="100" fill="#14141d" stroke="#f5b942"/>
+          <text x="305" y="106" font-size="32" font-family="Fraunces, serif" font-style="italic" fill="#f5b942">2</text>
+          <text x="305" y="138">IPC で送る</text>
+          <text x="305" y="156" fill="#a8a3b3" font-size="11">プロセス境界を越える</text>
+
+          <rect x="540" y="80" width="220" height="100" fill="#14141d" stroke="#f5b942"/>
+          <text x="555" y="106" font-size="32" font-family="Fraunces, serif" font-style="italic" fill="#f5b942">3</text>
+          <text x="555" y="138">受け取って検査</text>
+          <text x="555" y="156" fill="#a8a3b3" font-size="11">バリデーション + 翻訳</text>
+
+          <rect x="790" y="80" width="220" height="100" fill="#14141d" stroke="#f5b942"/>
+          <text x="805" y="106" font-size="32" font-family="Fraunces, serif" font-style="italic" fill="#f5b942">4</text>
+          <text x="805" y="138">ドライバに渡す</text>
+          <text x="805" y="156" fill="#a8a3b3" font-size="11">完了 ack を返す</text>
+
+          <line x1="260" y1="130" x2="290" y2="130" stroke="#f5b942" stroke-width="1.5" marker-end="url(#ar2)"/>
+          <line x1="510" y1="130" x2="540" y2="130" stroke="#f5b942" stroke-width="1.5" marker-end="url(#ar2)"/>
+          <line x1="760" y1="130" x2="790" y2="130" stroke="#f5b942" stroke-width="1.5" marker-end="url(#ar2)"/>
+        </g>
+
+        <text x="40" y="220" font-family="JetBrains Mono, monospace" font-size="11" fill="#6e6a7a">これが 1 回の往復で発生する作業。1 回ぶん数十〜数百 µs 程度。</text>
+        <text x="40" y="240" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">中身が空でも、submit するだけでこのコストはかかる。</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 2</b> &nbsp; <b>queue.submit</b> 1 回の中身。問題はここで「中身がいくつ詰まっているか」を問わず、<b>毎回</b>このオーバーヘッドが乗ること。
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="tag">アナロジー</div>
+      <p>
+        宅配便で考えるとわかりやすい。荷物 1 個ずつでも 10 個まとめてでも、<b>トラックを動かす燃料代は同じ</b>。だったら 1 回の便にまとめたほうがいい。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §3 ========== -->
+  <section>
+    <h2><span class="num">§03</span> いま起きていること</h2>
+    <p>
+      <code>StateVectorCallback::prepare</code> の中、recompute ブロックでは<strong>ゲート 1 個ごとに</strong>こうしている:
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 360" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4a30"/>
+          </marker>
+        </defs>
+
+        <!-- timeline axis -->
+        <text x="40" y="40" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">TIMELINE — 5 ゲートの回路を recompute する場合</text>
+        <line x1="40" y1="60" x2="1060" y2="60" stroke="#262633"/>
+
+        <!-- 5 trips -->
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <!-- gate1 -->
+          <rect x="60"  y="80" width="80" height="40" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="100" y="105" text-anchor="middle" fill="#ece8de">gate 1</text>
+          <rect x="140" y="80" width="80" height="40" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="180" y="105" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+
+          <rect x="240" y="80" width="80" height="40" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="280" y="105" text-anchor="middle" fill="#ece8de">gate 2</text>
+          <rect x="320" y="80" width="80" height="40" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="360" y="105" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+
+          <rect x="420" y="80" width="80" height="40" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="460" y="105" text-anchor="middle" fill="#ece8de">gate 3</text>
+          <rect x="500" y="80" width="80" height="40" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="540" y="105" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+
+          <rect x="600" y="80" width="80" height="40" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="640" y="105" text-anchor="middle" fill="#ece8de">gate 4</text>
+          <rect x="680" y="80" width="80" height="40" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="720" y="105" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+
+          <rect x="780" y="80" width="80" height="40" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="820" y="105" text-anchor="middle" fill="#ece8de">gate 5</text>
+          <rect x="860" y="80" width="80" height="40" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="900" y="105" text-anchor="middle" fill="#ff4a30">submit ⇆</text>
+        </g>
+
+        <!-- legend -->
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <rect x="60" y="160" width="20" height="14" fill="#14141d" stroke="#a8a3b3"/>
+          <text x="90" y="172" fill="#a8a3b3">実際の計算</text>
+
+          <rect x="220" y="160" width="20" height="14" fill="rgba(255,74,48,0.15)" stroke="#ff4a30"/>
+          <text x="250" y="172" fill="#ff4a30">submit の往復オーバーヘッド (ムダ)</text>
+        </g>
+
+        <!-- diagram annotation -->
+        <text x="40" y="230" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">回路が 5 ゲート → submit が <tspan fill="#ff4a30" font-weight="700">5 回</tspan></text>
+        <text x="40" y="248" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">回路が 30 ゲート → submit が <tspan fill="#ff4a30" font-weight="700">30 回</tspan></text>
+        <text x="40" y="266" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ ゲート数に比例してオーバーヘッドが積み上がる。</text>
+
+        <!-- code-side -->
+        <rect x="40" y="290" width="1020" height="60" fill="#0b0b11" stroke="#262633"/>
+        <text x="60" y="312" font-family="JetBrains Mono, monospace" font-size="11" fill="#6e6a7a">// gpu.rs:2126–2289 — recompute branch (簡略化)</text>
+        <text x="60" y="334" font-family="JetBrains Mono, monospace" font-size="12" fill="#ece8de">for op in <tspan fill="#5fc4d3">sim_ops</tspan> { let mut <tspan fill="#5fc4d3">encoder</tspan> = device.create_command_encoder(...); ...; queue.<tspan fill="#ff4a30" font-weight="700">submit</tspan>(<tspan fill="#5fc4d3">encoder</tspan>.finish()); }</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 3</b> &nbsp; ループの中で <code>encoder</code> を作って即 <code>submit</code> しているので、ゲートの数だけ往復が発生する。実際の計算 (黒) よりも往復 (赤) のほうが時間を食うことすらある。
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §4 ========== -->
+  <section>
+    <h2><span class="num">§04</span> どう直すか</h2>
+    <p>
+      アイデアは単純。<strong>ノート (encoder) を 1 冊だけ用意して、ゲート全部の命令をそこに書き溜めてから、最後に 1 回だけ提出する。</strong>
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 1100 280" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text x="40" y="40" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">TIMELINE — 改善後</text>
+        <line x1="40" y1="60" x2="1060" y2="60" stroke="#262633"/>
+
+        <g font-family="JetBrains Mono, monospace" font-size="10">
+          <rect x="60"  y="80" width="80" height="40" fill="#14141d" stroke="#79d27c"/>
+          <text x="100" y="105" text-anchor="middle" fill="#ece8de">gate 1</text>
+          <rect x="140" y="80" width="80" height="40" fill="#14141d" stroke="#79d27c"/>
+          <text x="180" y="105" text-anchor="middle" fill="#ece8de">gate 2</text>
+          <rect x="220" y="80" width="80" height="40" fill="#14141d" stroke="#79d27c"/>
+          <text x="260" y="105" text-anchor="middle" fill="#ece8de">gate 3</text>
+          <rect x="300" y="80" width="80" height="40" fill="#14141d" stroke="#79d27c"/>
+          <text x="340" y="105" text-anchor="middle" fill="#ece8de">gate 4</text>
+          <rect x="380" y="80" width="80" height="40" fill="#14141d" stroke="#79d27c"/>
+          <text x="420" y="105" text-anchor="middle" fill="#ece8de">gate 5</text>
+
+          <rect x="460" y="80" width="120" height="40" fill="rgba(121,210,124,0.15)" stroke="#79d27c"/>
+          <text x="520" y="105" text-anchor="middle" fill="#79d27c">submit ⇆ 1 回だけ</text>
+        </g>
+
+        <text x="40" y="170" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">回路が 5 ゲート → submit が <tspan fill="#79d27c" font-weight="700">1 回</tspan></text>
+        <text x="40" y="188" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">回路が 30 ゲート → submit が <tspan fill="#79d27c" font-weight="700">1 回</tspan></text>
+        <text x="40" y="206" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8a3b3">→ オーバーヘッドが回路の長さに依存しなくなる。</text>
+
+        <rect x="40" y="220" width="1020" height="40" fill="#0b0b11" stroke="#262633"/>
+        <text x="60" y="244" font-family="JetBrains Mono, monospace" font-size="12" fill="#ece8de">let mut <tspan fill="#5fc4d3">encoder</tspan> = device.create_command_encoder(...); for op in <tspan fill="#5fc4d3">sim_ops</tspan> { ...pass... } queue.<tspan fill="#79d27c" font-weight="700">submit</tspan>(<tspan fill="#5fc4d3">encoder</tspan>.finish());</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 4</b> &nbsp; <code>encoder</code> をループの<b>外</b>で 1 つだけ作る。ループ内では <code>begin_compute_pass</code> → <code>dispatch</code> → <code>end</code> を繰り返すだけ。<code>submit</code> はループの後で 1 回。
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §5 ========== -->
+  <section>
+    <h2><span class="num">§05</span> Before / After</h2>
+
+    <div class="compare">
+      <div class="bad">
+        <h3><small>Before — 現状</small>ゲートごとに submit</h3>
+<pre><span class="cm">// gpu.rs:2126–2289</span>
+<span class="kw">for</span> op <span class="kw">in</span> &<span class="fn">self</span>.sim_ops {
+    <span class="hi-bad"><span class="kw">let mut</span> encoder = device
+        .create_command_encoder(...);</span>
+    {
+        <span class="kw">let mut</span> pass = encoder
+            .begin_compute_pass(...);
+        pass.set_pipeline(...);
+        pass.dispatch_workgroups(...);
+    }
+    <span class="hi-bad">queue.submit(<span class="kw">Some</span>(encoder.finish()));</span>
+}</pre>
+      </div>
+      <div class="good">
+        <h3><small>After — 改善案</small>1 回にまとめる</h3>
+<pre><span class="cm">// 提案</span>
+<span class="hi-good"><span class="kw">let mut</span> encoder = device
+    .create_command_encoder(...);</span>
+<span class="kw">for</span> op <span class="kw">in</span> &<span class="fn">self</span>.sim_ops {
+    {
+        <span class="kw">let mut</span> pass = encoder
+            .begin_compute_pass(...);
+        pass.set_pipeline(...);
+        pass.dispatch_workgroups(...);
+    }
+}
+<span class="hi-good">queue.submit(<span class="kw">Some</span>(encoder.finish()));</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== §6 ========== -->
+  <section>
+    <h2><span class="num">§06</span> 大事なところ — 順序は崩れない</h2>
+    <p>
+      「ゲート 1 の結果を ゲート 2 が使う、これ大丈夫?」と思うかもしれない。<strong>大丈夫。</strong>
+    </p>
+    <p>
+      WebGPU は<strong>同じ encoder の中に書いた compute pass は、書いた順番で実行される</strong>ことを保証している。間に submit を挟む必要はない。間に挟む submit は<strong>同期のためではなく、単に「ここまで提出」という区切り</strong>でしかない。
+    </p>
+
+    <div class="aside">
+      <div class="tag">補足</div>
+      <p>
+        ゲート間のメモリ依存も WebGPU が automatic に解決する (memory barrier を内部で挿入する)。なので「明示的に同期」が必要な場面は基本ない。
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== §7 ========== -->
+  <section>
+    <h2><span class="num">§07</span> どれくらい速くなる?</h2>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="n">N</div>
+        <div class="label">submit の回数 / 現状</div>
+        <div class="desc">回路のゲート数 N に比例</div>
+      </div>
+      <div class="stat good">
+        <div class="n">1</div>
+        <div class="label">submit の回数 / 改善後</div>
+        <div class="desc">回路の長さに依存しない</div>
+      </div>
+      <div class="stat good">
+        <div class="n">~60%</div>
+        <div class="label">recompute 時間の削減 (推定)</div>
+        <div class="desc">深い回路ほど効く</div>
+      </div>
+    </div>
+
+    <p>
+      submit 1 回ぶんが数十〜数百 µs。30 ゲートの回路なら最大で <strong>数 ms / recompute</strong> の節約。回路を編集しながらドラッグするときの引っかかりが消えるレベル。
+    </p>
+  </section>
+
+  <!-- ========== §8 ========== -->
+  <section>
+    <h2><span class="num">§08</span> まとめ</h2>
+    <p>
+      <strong>Issue A の本質</strong>:<br>
+      「GPU との会話は<b>提出回数</b>でコストが決まる。中身の量ではない」。<br>
+      だから提出は最後にまとめて 1 回。
+    </p>
+    <p>
+      <strong>変更範囲</strong>: <code>gpu.rs</code> の recompute ループ周辺、約 50 行。
+      shader には触らない。スナップショットも変わらない (描画結果は同じ)。
+    </p>
+    <p>
+      <strong>リスク</strong>: 低。WebGPU の仕様上、同じ encoder 内の pass 順序は保証されているため、振る舞いは現状と等価。
+    </p>
+  </section>
+
+  <footer>
+    <span>qni-webgpu / docs / perf-issue-a-explained.html</span>
+    <span>2026-05-09</span>
+  </footer>
+
+</main>
+</body>
+</html>
