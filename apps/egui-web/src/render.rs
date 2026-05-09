@@ -261,7 +261,11 @@ impl QniApp {
                 let center = gate_rect.center();
                 Some(MeasurementDigitInstance {
                     center: [center.x, center.y],
-                    half_extent: 9.0,
+                    // Quad spans `2 * half_extent` px; matches the digit
+                    // atlas cell size in `gpu.rs::DIGIT_ATLAS_CELL` so a
+                    // glyph rasterised at the cell-pixel scale renders 1:1
+                    // and matches egui's `FontId::monospace(16.0)`.
+                    half_extent: 11.0,
                     slot,
                 })
             })
@@ -271,8 +275,13 @@ impl QniApp {
                 instances: measurement_digit_instances.into(),
                 viewport_min: [rect.min.x, rect.min.y],
                 viewport_size: [rect.width(), rect.height()],
-                zero_color: egui::Rgba::from(colors.semantic_off).to_array(),
-                one_color: egui::Rgba::from(colors.semantic_on).to_array(),
+                // Surface is rgba8unorm (non-sRGB) — egui paints text using
+                // sRGB-encoded colours straight to the framebuffer, so we
+                // need to do the same for the digit to read identically.
+                // `Rgba::from(Color32)` would convert to linear and produce
+                // a desaturated digit.
+                zero_color: colors.semantic_off.to_normalized_gamma_f32(),
+                one_color: colors.semantic_on.to_normalized_gamma_f32(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

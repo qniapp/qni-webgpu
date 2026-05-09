@@ -736,18 +736,22 @@ pub(crate) struct StateVectorResources {
 /// each holding a single rasterised glyph. Cell size matches the
 /// `MeasurementDigitInstance::half_extent * 2` quad the shader draws into,
 /// so UVs map identity-style.
-const DIGIT_ATLAS_CELL: u32 = 18;
+const DIGIT_ATLAS_CELL: u32 = 22;
 const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
 const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
 
 /// Rasterises the digits "0" and "1" using Hack Regular (the same font
-/// egui's monospace family resolves to) at the same pixel size as
-/// `FontId::monospace(16.0)`. Done once at startup; the resulting bytes
-/// are uploaded to a GPU texture sampled by `MEASUREMENT_DIGIT_SHADER`.
+/// egui's monospace family resolves to) so the measurement digits look
+/// identical to the |0> / |1> labels egui paints. Done once at startup;
+/// the result is uploaded to a GPU texture sampled by
+/// `MEASUREMENT_DIGIT_SHADER`. The PxScale is calibrated so the rasterised
+/// "0" matches the on-screen size of `FontId::monospace(16.0)`'s glyph
+/// (egui internally upscales monospace ~1.2x past the raw em-size we'd
+/// get from a plain ab_glyph rasterisation at PxScale(16)).
 fn rasterize_digit_atlas() -> Vec<u8> {
     let font = ab_glyph::FontRef::try_from_slice(epaint_default_fonts::HACK_REGULAR)
         .expect("Hack Regular bytes should parse as a TTF");
-    let scale = ab_glyph::PxScale::from(16.0);
+    let scale = ab_glyph::PxScale::from(20.0);
     let scaled = font.as_scaled(scale);
 
     let mut atlas = vec![0u8; (DIGIT_ATLAS_WIDTH * DIGIT_ATLAS_HEIGHT) as usize];
