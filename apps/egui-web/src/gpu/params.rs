@@ -8,22 +8,30 @@
 use crate::colors::Colors;
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct StateInstance {
-    pub(crate) center: [f32; 2],
-    pub(crate) radius: f32,
-    pub(crate) inner_radius: f32,
-    pub(crate) stroke: f32,
-    pub(crate) state_index: u32,
-}
-
-#[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct RenderParams {
     /// See `BlochOverlayParams::viewport_min`. NDC -1..1 maps to the egui
     /// callback viewport, not the full canvas.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
+    /// Top-left of the state-circle grid in egui pixels — the unit quad
+    /// gets stretched from here over `panel_size`.
+    pub(crate) panel_origin: [f32; 2],
+    /// Total grid extent (`cols * cell_pitch`, `rows * cell_pitch`).
+    pub(crate) panel_size: [f32; 2],
+    /// Distance between adjacent cell origins (`size + gap`). Used in the
+    /// fragment shader to map a panel-local pixel to its `(col, row)` cell.
+    pub(crate) cell_pitch: f32,
+    pub(crate) radius: f32,
+    pub(crate) inner_radius: f32,
+    pub(crate) stroke: f32,
+    pub(crate) cols: u32,
+    pub(crate) rows: u32,
+    /// Number of qubits. The fragment shader bit-reverses the display index
+    /// over `qubits` bits to produce the state-vector index — qni's
+    /// row-major-to-state-vector mapping.
+    pub(crate) qubits: u32,
+    pub(crate) _pad: u32,
     pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) outline: [f32; 4],

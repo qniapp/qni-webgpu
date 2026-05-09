@@ -2,7 +2,6 @@ use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
@@ -14,13 +13,13 @@ use crate::constants::{
 use crate::gates::GateKind;
 use crate::gpu::{
     BlochOverlayCallback, BlochOverlayInstance, MeasurementDigitCallback,
-    MeasurementDigitInstance, RenderColors, StateInstance, StateVectorCallback,
+    MeasurementDigitInstance, RenderColors, StateVectorCallback,
 };
 use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_meter_icon};
 use crate::layout::{
     nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics,
 };
-use crate::shared::{amplitude_qubits, display_index_to_state_index};
+use crate::shared::amplitude_qubits;
 
 pub(super) struct StatePanelLayout {
     state_count: usize,
@@ -34,23 +33,6 @@ pub(super) struct StatePanelLayout {
     base_pos: egui::Pos2,
     pub(super) state_rect: egui::Rect,
     pub(super) handle_height: f32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct StateInstanceKey {
-    state_count: usize,
-    columns: usize,
-    size: f32,
-    gap: f32,
-    radius: f32,
-    inner_radius: f32,
-    stroke: f32,
-    origin: egui::Pos2,
-}
-
-pub(super) struct StateInstanceCache {
-    key: StateInstanceKey,
-    instances: Arc<[StateInstance]>,
 }
 
 impl QniApp {
@@ -491,49 +473,6 @@ impl QniApp {
         };
     }
 
-    fn state_instances_for(
-        &mut self,
-        layout: &StatePanelLayout,
-        origin: egui::Pos2,
-    ) -> (Arc<[StateInstance]>, bool) {
-        let key = StateInstanceKey {
-            state_count: layout.state_count,
-            columns: layout.columns,
-            size: layout.size,
-            gap: layout.gap,
-            radius: layout.radius,
-            inner_radius: layout.inner_radius,
-            stroke: layout.stroke,
-            origin,
-        };
-        if let Some(cache) = &self.state_instance_cache {
-            if cache.key == key {
-                return (cache.instances.clone(), false);
-            }
-        }
-
-        let mut instances = Vec::with_capacity(layout.state_count);
-        for i in 0..layout.state_count {
-            let state_index = display_index_to_state_index(i, layout.qubits) as u32;
-            let row = i / layout.columns;
-            let col = i % layout.columns;
-            let x = origin.x + col as f32 * (layout.size + layout.gap);
-            let y = origin.y + row as f32 * (layout.size + layout.gap);
-            instances.push(StateInstance {
-                center: [x + layout.radius, y + layout.radius],
-                radius: layout.radius,
-                inner_radius: layout.inner_radius,
-                stroke: layout.stroke,
-                state_index,
-            });
-        }
-        let instances: Arc<[StateInstance]> = instances.into();
-        self.state_instance_cache = Some(StateInstanceCache {
-            key,
-            instances: instances.clone(),
-        });
-        (instances, true)
-    }
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn draw_state_vector(
@@ -604,11 +543,6 @@ impl QniApp {
         );
 
         if let Some(target_format) = target_format {
-            let (instances, instances_dirty) = self.state_instances_for(layout, base_pos);
-            // While measurement collapse still runs on the CPU, fall back to
-            // uploading the CPU-computed state so the visualization matches
-            // the captured measurement outcomes. Otherwise the GPU executes
-            // the per-gate compute pipeline directly from `gate_params`.
             let sim_ops = if recompute {
                 self.sim_ops.clone()
             } else {
@@ -616,16 +550,34 @@ impl QniApp {
             };
             let render_colors = RenderColors::new(colors);
             let callback_rect = screen_rect;
+            let cell_pitch = layout.size + layout.gap;
+            let cols = layout.columns as u32;
+            let rows = (layout.state_count / layout.columns.max(1)) as u32;
+            let render_params = crate::gpu::RenderParams {
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                panel_origin: [base_pos.x, base_pos.y],
+                panel_size: [cols as f32 * cell_pitch, rows as f32 * cell_pitch],
+                cell_pitch,
+                radius: layout.radius,
+                inner_radius: layout.inner_radius,
+                stroke: layout.stroke,
+                cols,
+                rows,
+                qubits: layout.qubits as u32,
+                _pad: 0,
+                surface: render_colors.surface,
+                fill: render_colors.fill,
+                outline: render_colors.outline,
+                outline_zero: render_colors.outline_zero,
+                needle: render_colors.needle,
+            };
             let callback = StateVectorCallback {
-                instances,
-                instances_dirty,
                 sim_ops,
                 state_count: layout.state_count,
                 recompute,
                 target_format,
-                colors: render_colors,
-                viewport_min: [callback_rect.min.x, callback_rect.min.y],
-                viewport_size: [callback_rect.width(), callback_rect.height()],
+                render_params,
             };
             let clipped = painter.with_clip_rect(state_rect);
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);

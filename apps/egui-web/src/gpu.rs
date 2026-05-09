@@ -19,7 +19,7 @@ mod shaders;
 
 pub(crate) use callbacks::{BlochOverlayCallback, MeasurementDigitCallback, StateVectorCallback};
 pub(crate) use params::{
-    BlochOverlayInstance, MeasurementDigitInstance, RenderColors, StateInstance,
+    BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams,
 };
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{

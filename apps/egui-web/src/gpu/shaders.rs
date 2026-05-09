@@ -427,6 +427,18 @@ struct RenderParams {
   // the full canvas — see BLOCH_OVERLAY_SHADER for the explanation.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
+  // Top-left of the state-circle grid (egui pixels).
+  panel_origin: vec2<f32>,
+  // Total grid extent (cols * cell_pitch, rows * cell_pitch).
+  panel_size: vec2<f32>,
+  cell_pitch: f32,
+  radius: f32,
+  inner_radius: f32,
+  stroke: f32,
+  cols: u32,
+  rows: u32,
+  qubits: u32,
+  _pad: u32,
   surface: vec4<f32>,
   fill: vec4<f32>,
   outline: vec4<f32>,
@@ -438,29 +450,23 @@ struct RenderParams {
 @group(0) @binding(1) var<uniform> params: RenderParams;
 
 struct VsIn {
-  @location(0) position: vec2<f32>,
-  @location(1) center: vec2<f32>,
-  @location(2) radius: f32,
-  @location(3) inner_radius: f32,
-  @location(4) stroke: f32,
-  @location(5) state_index: u32,
+  @location(0) position: vec2<f32>,  // unit quad in -1..1
 };
 
 struct VsOut {
   @builtin(position) clip: vec4<f32>,
-  @location(0) local: vec2<f32>,
-  @location(1) radius: f32,
-  @location(2) inner_radius: f32,
-  @location(3) stroke: f32,
-  @location(4) @interpolate(flat) state_index: u32,
+  @location(0) panel_local: vec2<f32>,  // 0..panel_size in egui pixels
 };
 
+// Single quad covering the entire grid. The fragment shader figures out
+// which (col, row) cell each pixel belongs to and draws the corresponding
+// state circle. This replaces an N-instance instanced draw (one quad per
+// cell) — N == 2^qubits, up to 65 536 — and avoids the per-instance
+// dispatch overhead that dominates frame time on contended GPUs.
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
-  let outer = input.radius + input.stroke * 0.5;
-  // Pad the quad so the AA edge has coverage; avoids flat/clipped circle edges.
-  let local = input.position * (outer + 1.0);
-  let world = input.center + local;
+  let panel_local = (input.position * 0.5 + 0.5) * params.panel_size;
+  let world = params.panel_origin + panel_local;
   let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
     (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
@@ -468,41 +474,57 @@ fn vs_main(input: VsIn) -> VsOut {
   );
   var out: VsOut;
   out.clip = vec4<f32>(ndc, 0.0, 1.0);
-  out.local = local;
-  out.radius = input.radius;
-  out.inner_radius = input.inner_radius;
-  out.stroke = input.stroke;
-  out.state_index = input.state_index;
+  out.panel_local = panel_local;
   return out;
 }
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  let dist = length(input.local);
-  let half_stroke = input.stroke * 0.5;
-  let outer = input.radius + half_stroke;
+  let col = u32(floor(input.panel_local.x / params.cell_pitch));
+  let row = u32(floor(input.panel_local.y / params.cell_pitch));
+  if (col >= params.cols || row >= params.rows) {
+    discard;
+  }
+  // Cell-local coordinates with origin at the circle centre. The cell box
+  // is `2 * radius` wide; `cell_pitch = size + gap`, so the centre is
+  // `cell_origin + radius`, NOT `(col + 0.5) * cell_pitch` (those only
+  // coincide when gap == 0). Matches the CPU formula used previously in
+  // `state_instances_for` (render.rs).
+  let cell_origin = vec2<f32>(f32(col), f32(row)) * params.cell_pitch;
+  let cell_center = cell_origin + vec2<f32>(params.radius);
+  let local = input.panel_local - cell_center;
+  let dist = length(local);
+  let half_stroke = params.stroke * 0.5;
+  let outer = params.radius + half_stroke;
   let edge = fwidth(dist);
+  // Discard the gap between cells.
   if (dist > outer + edge) {
     discard;
   }
-  let amp = state[input.state_index];
+  // Display index → state-vector index via bit reversal over `qubits` bits.
+  // `display_index_to_state_index` in shared.rs reverses the lowest
+  // `qubits` bits; reverseBits() reverses all 32 bits, so we shift the
+  // result back down.
+  let display_index = row * params.cols + col;
+  let state_index = reverseBits(display_index) >> (32u - params.qubits);
+  let amp = state[state_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
-  let fill_radius = input.inner_radius * sqrt(prob);
+  let fill_radius = params.inner_radius * sqrt(prob);
   var color = params.surface;
   let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
   color = mix(color, params.fill, fill_alpha);
   if (prob > 0.0) {
     let phase = atan2(amp.y, amp.x);
     let dir = vec2<f32>(-sin(phase), -cos(phase));
-    let t = clamp(dot(input.local, dir), 0.0, input.inner_radius);
+    let t = clamp(dot(local, dir), 0.0, params.inner_radius);
     let closest = dir * t;
-    let d = length(input.local - closest);
-    let needle_alpha = 1.0 - smoothstep(input.stroke * 0.5 - edge, input.stroke * 0.5 + edge, d);
+    let d = length(local - closest);
+    let needle_alpha = 1.0 - smoothstep(half_stroke - edge, half_stroke + edge, d);
     color = mix(color, params.needle, needle_alpha);
   }
   let outline_color = select(params.outline_zero, params.outline, prob > 0.0);
-  let outline_inner = 1.0 - smoothstep(input.radius - half_stroke - edge, input.radius - half_stroke + edge, dist);
-  let outline_outer = 1.0 - smoothstep(input.radius + half_stroke - edge, input.radius + half_stroke + edge, dist);
+  let outline_inner = 1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
+  let outline_outer = 1.0 - smoothstep(params.radius + half_stroke - edge, params.radius + half_stroke + edge, dist);
   let outline_alpha = max(0.0, outline_outer - outline_inner);
   color = mix(color, outline_color, outline_alpha);
   let outer_alpha = 1.0 - smoothstep(outer - edge, outer + edge, dist);

@@ -18,8 +18,8 @@ use crate::gates::GateParams;
 
 use super::params::{
     BlochOverlayInstance, BlochOverlayParams, BlochParams, MeasureCollapseParams,
-    MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, RenderColors,
-    RenderParams, StateInstance, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, RenderParams,
+    MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
     STATE_WORKGROUP_SIZE,
 };
 use super::readback::{
@@ -184,8 +184,6 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
 }
 
 pub(crate) struct StateVectorCallback {
-    pub(crate) instances: Arc<[StateInstance]>,
-    pub(crate) instances_dirty: bool,
     /// Linearised simulation ops for the GPU pipeline. Includes all four
     /// op kinds: `ApplyGate`, `CaptureBloch`, `MeasureReduceSample`, and
     /// `MeasureCollapse`. The GPU dispatches them in order; ping-pong of
@@ -195,10 +193,12 @@ pub(crate) struct StateVectorCallback {
     pub(crate) state_count: usize,
     pub(crate) recompute: bool,
     pub(crate) target_format: wgpu::TextureFormat,
-    pub(crate) colors: RenderColors,
-    /// See `BlochOverlayCallback::viewport_min`.
-    pub(crate) viewport_min: [f32; 2],
-    pub(crate) viewport_size: [f32; 2],
+    /// Pre-built render params describing the panel geometry, cell pitch,
+    /// circle radii, and palette. Built by `render.rs` from
+    /// `StatePanelLayout` and passed straight through to the uniform
+    /// buffer; the fragment shader uses every field to figure out which
+    /// cell each pixel belongs to and how to draw its state circle.
+    pub(crate) render_params: RenderParams,
 }
 
 impl egui_wgpu::CallbackTrait for StateVectorCallback {
@@ -227,31 +227,13 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
 
         resources.update_render_pipeline(device, self.target_format);
 
-        let render_params = RenderParams {
-            viewport_min: self.viewport_min,
-            viewport_size: self.viewport_size,
-            surface: self.colors.surface,
-            fill: self.colors.fill,
-            outline: self.colors.outline,
-            outline_zero: self.colors.outline_zero,
-            needle: self.colors.needle,
-        };
-        if resources.last_render_params != Some(render_params) {
+        if resources.last_render_params != Some(self.render_params) {
             queue.write_buffer(
                 &resources.render_params_buffer,
                 0,
-                bytemuck::bytes_of(&render_params),
+                bytemuck::bytes_of(&self.render_params),
             );
-            resources.last_render_params = Some(render_params);
-        }
-
-        let should_update_instances = self.instances_dirty || resources.state_count == 0;
-        if should_update_instances && !self.instances.is_empty() {
-            queue.write_buffer(
-                &resources.instance_buffer,
-                0,
-                bytemuck::cast_slice(self.instances.as_ref()),
-            );
+            resources.last_render_params = Some(self.render_params);
         }
 
         if self.recompute || resources.state_count != self.state_count {
@@ -613,7 +595,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
         let Some(resources) = callback_resources.get::<StateVectorResources>() else {
             return;
         };
-        if self.instances.is_empty() {
+        if self.render_params.cols == 0 || self.render_params.rows == 0 {
             return;
         }
         render_pass.set_pipeline(&resources.render_pipeline);
@@ -623,8 +605,10 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             &[],
         );
         render_pass.set_vertex_buffer(0, resources.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.instance_buffer.slice(..));
         render_pass.set_index_buffer(resources.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..resources.index_count, 0, 0..self.instances.len() as u32);
+        // One instanced draw of the panel quad — the fragment shader splits
+        // it into per-cell circles. Replaces the previous N-instance loop
+        // (one quad per cell). See gpu/shaders.rs::STATE_RENDER_SHADER.
+        render_pass.draw_indexed(0..resources.index_count, 0, 0..1);
     }
 }

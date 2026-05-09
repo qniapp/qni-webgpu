@@ -18,7 +18,7 @@ use super::digit_atlas::{rasterize_digit_atlas, DIGIT_ATLAS_HEIGHT, DIGIT_ATLAS_
 use super::params::{
     BlochOverlayInstance, BlochOverlayParams, BlochParams, MeasureCollapseParams,
     MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, RenderParams,
-    StateInstance, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
 };
 use super::shaders::{
     BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER, MEASUREMENT_DIGIT_SHADER, MEASURE_COLLAPSE_SHADER,
@@ -48,7 +48,6 @@ pub(crate) struct StateVectorResources {
     /// CPU-side `vec![[0.0; 2]; state_count]` + `queue.write_buffer` upload
     /// (Issue C — see docs/egui-web-perf-audit.html).
     pub(crate) state_seed_buffer: wgpu::Buffer,
-    pub(crate) instance_buffer: wgpu::Buffer,
     pub(crate) vertex_buffer: wgpu::Buffer,
     pub(crate) index_buffer: wgpu::Buffer,
     pub(crate) index_count: u32,
@@ -885,38 +884,8 @@ impl StateVectorResources {
             }],
         };
 
-        let instance_layout = wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<StateInstance>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: 0,
-                    shader_location: 1,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 8,
-                    shader_location: 2,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 12,
-                    shader_location: 3,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 16,
-                    shader_location: 4,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Uint32,
-                    offset: 20,
-                    shader_location: 5,
-                },
-            ],
-        };
-
+        // Single-quad render: the shader figures out which (col, row) cell
+        // each pixel belongs to, so there is no per-cell instance buffer.
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("state_vector_render_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -924,7 +893,7 @@ impl StateVectorResources {
                 module: &render_shader,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[vertex_layout, instance_layout],
+                buffers: &[vertex_layout],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &render_shader,
@@ -944,13 +913,6 @@ impl StateVectorResources {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
-        });
-
-        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("state_vector_instances"),
-            size: (MAX_STATE_COUNT * std::mem::size_of::<StateInstance>()) as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
         });
 
         let bloch_overlay_bind_group =
@@ -1142,7 +1104,6 @@ impl StateVectorResources {
             render_params_buffer,
             state_buffers,
             state_seed_buffer,
-            instance_buffer,
             vertex_buffer,
             index_buffer,
             index_count: index_data.len() as u32,
@@ -1206,37 +1167,6 @@ impl StateVectorResources {
                 shader_location: 0,
             }],
         };
-        let instance_layout = wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<StateInstance>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: 0,
-                    shader_location: 1,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 8,
-                    shader_location: 2,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 12,
-                    shader_location: 3,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32,
-                    offset: 16,
-                    shader_location: 4,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Uint32,
-                    offset: 20,
-                    shader_location: 5,
-                },
-            ],
-        };
         self.render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("state_vector_render_pipeline"),
             layout: Some(&pipeline_layout),
@@ -1244,7 +1174,7 @@ impl StateVectorResources {
                 module: &render_shader,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[vertex_layout, instance_layout],
+                buffers: &[vertex_layout],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &render_shader,

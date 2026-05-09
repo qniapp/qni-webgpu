@@ -13,7 +13,6 @@ use crate::gates::GateKind;
 use crate::layout::{
     layout_metrics, nearest_available_slot, nearest_line, palette_hit_test, palette_layout,
 };
-use crate::render::StateInstanceCache;
 use crate::shared::now_seconds;
 
 #[derive(Clone, Debug)]
@@ -44,7 +43,6 @@ pub(crate) struct QniApp {
     needs_recompute: bool,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
-    pub(crate) state_instance_cache: Option<StateInstanceCache>,
     pub(crate) sim_ops: Vec<SimulationOp>,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
@@ -93,7 +91,6 @@ impl QniApp {
             needs_recompute: true,
             last_content_rect: None,
             drag_cursor_pos: None,
-            state_instance_cache: None,
             sim_ops: Vec::new(),
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),

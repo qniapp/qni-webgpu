@@ -17,15 +17,6 @@ pub(crate) fn now_seconds() -> f64 {
     START.get_or_init(Instant::now).elapsed().as_secs_f64()
 }
 
-pub(crate) fn display_index_to_state_index(mut display_index: usize, qubits: usize) -> usize {
-    let mut value = 0usize;
-    for _ in 0..qubits {
-        value = (value << 1) | (display_index & 1);
-        display_index >>= 1;
-    }
-    value
-}
-
 pub(crate) fn amplitude_qubits(len: usize) -> usize {
     let mut qubits = 0;
     let mut size = 1usize;
