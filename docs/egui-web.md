@@ -147,6 +147,41 @@ legacy Playwright と BDD の両方が同じ shared source of truth を使う。
 repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 `test:preflight` → `test:bdd` → `test:pw-legacy` の順で Web の gate を通す。
 
+## Performance
+
+CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production で CPU readback しない」) に対する現状を以下に記録する。詳細な audit 結果は `docs/egui-web-perf-audit.html`。
+
+### Production パスの GPU 常駐性
+
+- 状態ベクトル / Bloch / 測定の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
+- `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/egui-web/src/gpu/readback.rs`)。
+
+### recompute あたりの GPU 往復
+
+| 項目 | 旧 | 現 |
+|---|---:|---:|
+| `queue.submit` 呼び出し / recompute | N (gate ごと) | **1** |
+| `\|0…0⟩` 初期化のための CPU 確保 + upload | 2^N × 8 byte | **0** (encoder 内で `clear_buffer` + 8 byte `copy_buffer_to_buffer`) |
+| アイドルフレームの params `queue.write_buffer` | 3 / frame | **0** (dirty flag) |
+
+設計のキモ:
+- 全 gate / Bloch capture / 測定 dispatch を **1 つの encoder** にまとめる。各 op の params は recompute 開始時に staging buffer へ一括 upload しておき、ループ内で `copy_buffer_to_buffer` から個別に取り出す (`gpu/callbacks.rs` の `StateVectorCallback::prepare`)。
+- 「encoder を外に出すだけ」では `queue.write_buffer` が submit 前にまとめて実行される仕様で壊れるため、staging + intra-encoder copy を採用 (動的 uniform offset でも実現可能だが bind group layout 変更が増えるので未採用)。
+- params 用の `Option<*Params>` を `StateVectorResources` に保持し、`prepare()` で前フレームと等しいときは `queue.write_buffer` を skip する。viewport / colors はほとんど変化しないので、idle frame では params 系は完全に無 upload。
+
+### 計測メモ
+
+実 wall-clock で改善を検出したい場合は **30+ ゲートの recompute** を含むシナリオが必要。既存 Playwright suite (1〜5 gates / test) では submit 削減ぶん (~50–500 μs) が browser 起動 / drag 機構 / readback の 1,100 ms+ ノイズに埋もれる。
+
+実測例 (10 runs each, `--repeat-each 10`):
+
+| テスト | 改修前 中央値 | 改修後 中央値 |
+|---|---:|---:|
+| `applies a unitary chain` | 1,251 ms | 1,280 ms |
+| `GPU bloch reduction` | 1,130 ms | 1,132 ms |
+
+ノイズと同程度。**構造改善は事実だが、現行テストでは検出限界以下**。深い回路向けの「先行投資」と理解しておく。
+
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
 - 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
@@ -159,7 +194,7 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 - State circles use shader-side AA (fwidth + smoothstep) for fill/outline/needle to reduce jagged edges.
 - The circle quad now expands to include stroke width to avoid flat/clipped edges.
 - The vertex quad adds a small pad (1px) so the AA fringe isn't clipped at the bounds.
-- Compute dispatches submit per gate so each pass sees its own GateParams (avoids reusing the last params across multiple gates).
+- 全ゲート dispatch は 1 つの encoder にまとめて 1 回 `queue.submit` する。各ゲートの params は事前に staging buffer へ packing し、ループ内で `copy_buffer_to_buffer` で `gate_params_buffer` へ書き戻す。これで「最後の write_buffer が全 dispatch に効いてしまう」問題を避けつつ、recompute あたりの IPC 往復を N → 1 に圧縮している (gpu/callbacks.rs)。
 - Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
 - |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
