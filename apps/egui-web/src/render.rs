@@ -664,11 +664,12 @@ impl QniApp {
     }
 
     /// Bottom-right minimap that shows where the viewport is sitting on the
-    /// (potentially much larger) grid. Drawn as a semi-transparent dark
-    /// rectangle with a lighter inset rectangle marking the visible region.
-    /// Only painted when the grid actually exceeds the viewport on at least
-    /// one axis — otherwise the whole grid is on screen and the minimap is
-    /// just chrome.
+    /// (potentially much larger) grid. The outer rectangle matches the grid
+    /// aspect (so a 32×32 grid produces a square minimap, a 32×8 grid a
+    /// wide one), and the lighter inset rectangle inside marks the visible
+    /// region. Only painted when the grid actually exceeds the viewport on
+    /// at least one axis — otherwise the whole grid is on screen and the
+    /// minimap is just chrome.
     fn draw_state_minimap(
         painter: &egui::Painter,
         layout: &StatePanelLayout,
@@ -679,9 +680,19 @@ impl QniApp {
         if grid.x <= viewport_rect.width() && grid.y <= viewport_rect.height() {
             return;
         }
-        let mm_size = egui::vec2(64.0, 40.0);
+        // Grid aspect drives the minimap's outer dimensions, capped at a
+        // bounding box. No letterboxing inside — the inset rect IS the grid.
+        const MAX_W: f32 = 80.0;
+        const MAX_H: f32 = 50.0;
+        const INSET: f32 = 3.0;
+        let aspect = grid.x / grid.y;
+        let (inner_w, inner_h) = if aspect >= MAX_W / MAX_H {
+            (MAX_W, MAX_W / aspect)
+        } else {
+            (MAX_H * aspect, MAX_H)
+        };
+        let mm_size = egui::vec2(inner_w + INSET * 2.0, inner_h + INSET * 2.0);
         let pad = 6.0;
-        let inset = 4.0;
         let mm_rect = egui::Rect::from_min_max(
             viewport_rect.max - mm_size - egui::vec2(pad, pad),
             viewport_rect.max - egui::vec2(pad, pad),
@@ -689,12 +700,10 @@ impl QniApp {
         let bg = egui::Color32::from_rgba_unmultiplied(0, 0, 0, 140);
         painter.rect_filled(mm_rect, egui::CornerRadius::same(4), bg);
 
-        // Fit the grid aspect inside the minimap interior.
-        let interior = mm_rect.shrink(inset);
-        let scale = (interior.width() / grid.x).min(interior.height() / grid.y);
-        let mm_grid_size = egui::vec2(grid.x * scale, grid.y * scale);
-        let mm_grid_min = interior.center() - mm_grid_size / 2.0;
-        // Visible region inside the grid, in grid-space pixels:
+        let mm_grid_min = mm_rect.min + egui::vec2(INSET, INSET);
+        let mm_grid_size = egui::vec2(inner_w, inner_h);
+        let scale = inner_w / grid.x;
+        // Visible region inside the grid, in grid-space pixels.
         let visible_offset = viewport_rect.min - grid_origin;
         let mm_vp_min = mm_grid_min + visible_offset * scale;
         let mm_vp_size = egui::vec2(viewport_rect.width(), viewport_rect.height()) * scale;
