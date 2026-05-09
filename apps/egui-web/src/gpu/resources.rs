@@ -100,6 +100,14 @@ pub(crate) struct StateVectorResources {
     pub(crate) measurement_digit_bind_group: wgpu::BindGroup,
     pub(crate) measurement_digit_params_buffer: wgpu::Buffer,
     pub(crate) measurement_digit_instance_buffer: wgpu::Buffer,
+    /// Last params written to each `*_params_buffer`. Lets the per-frame
+    /// `prepare()` code skip `queue.write_buffer` when nothing changed —
+    /// viewport / colors are stable across most frames, so without these
+    /// caches we'd issue 3 redundant uploads every frame even when the
+    /// circuit is idle (Issue B).
+    pub(crate) last_render_params: Option<RenderParams>,
+    pub(crate) last_bloch_overlay_params: Option<BlochOverlayParams>,
+    pub(crate) last_measurement_digit_params: Option<MeasurementDigitParams>,
 }
 
 
@@ -1165,6 +1173,9 @@ impl StateVectorResources {
             measurement_digit_bind_group,
             measurement_digit_params_buffer,
             measurement_digit_instance_buffer,
+            last_render_params: None,
+            last_bloch_overlay_params: None,
+            last_measurement_digit_params: None,
         }
     }
 

@@ -67,11 +67,14 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
             tip_color: self.tip_color,
             zero_color: self.zero_color,
         };
-        queue.write_buffer(
-            &resources.bloch_overlay_params_buffer,
-            0,
-            bytemuck::bytes_of(&params),
-        );
+        if resources.last_bloch_overlay_params != Some(params) {
+            queue.write_buffer(
+                &resources.bloch_overlay_params_buffer,
+                0,
+                bytemuck::bytes_of(&params),
+            );
+            resources.last_bloch_overlay_params = Some(params);
+        }
         queue.write_buffer(
             &resources.bloch_overlay_instance_buffer,
             0,
@@ -138,11 +141,14 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
             zero_color: self.zero_color,
             one_color: self.one_color,
         };
-        queue.write_buffer(
-            &resources.measurement_digit_params_buffer,
-            0,
-            bytemuck::bytes_of(&params),
-        );
+        if resources.last_measurement_digit_params != Some(params) {
+            queue.write_buffer(
+                &resources.measurement_digit_params_buffer,
+                0,
+                bytemuck::bytes_of(&params),
+            );
+            resources.last_measurement_digit_params = Some(params);
+        }
         queue.write_buffer(
             &resources.measurement_digit_instance_buffer,
             0,
@@ -230,11 +236,14 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             outline_zero: self.colors.outline_zero,
             needle: self.colors.needle,
         };
-        queue.write_buffer(
-            &resources.render_params_buffer,
-            0,
-            bytemuck::bytes_of(&render_params),
-        );
+        if resources.last_render_params != Some(render_params) {
+            queue.write_buffer(
+                &resources.render_params_buffer,
+                0,
+                bytemuck::bytes_of(&render_params),
+            );
+            resources.last_render_params = Some(render_params);
+        }
 
         let should_update_instances = self.instances_dirty || resources.state_count == 0;
         if should_update_instances && !self.instances.is_empty() {

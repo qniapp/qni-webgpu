@@ -20,7 +20,7 @@ pub(crate) struct StateInstance {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct RenderParams {
     /// See `BlochOverlayParams::viewport_min`. NDC -1..1 maps to the egui
     /// callback viewport, not the full canvas.
@@ -103,7 +103,7 @@ pub(crate) struct MeasureCollapseParams {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct BlochOverlayParams {
     /// Egui callback viewport in CSS pixels (= the rect we passed to
     /// `Callback::new_paint_callback`). NDC -1..1 maps to this viewport,
@@ -126,7 +126,7 @@ pub(crate) struct BlochOverlayInstance {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct MeasurementDigitParams {
     /// See `BlochOverlayParams::viewport_min` — same NDC story.
     pub(crate) viewport_min: [f32; 2],
