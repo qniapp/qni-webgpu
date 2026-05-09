@@ -530,11 +530,20 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   }
 
   // Layer 3: outline ring at radius=params.radius, width=stroke.
+  // The outer AA fringe is shifted to fade *past* outer instead of straddling
+  // it: at dist == outer the outline is at full alpha, then it falls off to
+  // zero over `edge` pixels on the outside. Without the shift, dist == outer
+  // gives a 0.5 smoothstep value, and at the cell-cell gap boundary (where
+  // qni's `gap == stroke` layout puts the boundary pixel exactly at
+  // dist == outer for both adjacent cells) single-cell sampling renders
+  // only ~50 % alpha, leaving a visibly faded outline. The shifted fringe
+  // gives full alpha at the boundary pixel without paying for 2x2 cell
+  // sampling.
   let outline_rgba = select(params.outline_zero, params.outline, prob > 0.0);
   let outline_inner =
     1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
   let outline_outer =
-    1.0 - smoothstep(params.radius + half_stroke - edge, params.radius + half_stroke + edge, dist);
+    1.0 - smoothstep(params.radius + half_stroke, params.radius + half_stroke + edge, dist);
   let outline_alpha = max(0.0, outline_outer - outline_inner);
   let outline_pre = vec4<f32>(outline_rgba.rgb * outline_alpha, outline_alpha);
   color = outline_pre + color * (1.0 - outline_pre.a);
