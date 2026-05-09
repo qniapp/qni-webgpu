@@ -225,6 +225,8 @@ fn draw_gate_body_with_fill(
         && kind != GateKind::Swap
         && kind != GateKind::Measurement
         && kind != GateKind::Spacer
+        && kind != GateKind::Write0
+        && kind != GateKind::Write1
     {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
@@ -241,6 +243,12 @@ fn draw_gate_body_with_fill(
     } else if kind == GateKind::Spacer {
         // qni `spacer_gate.css`: text-neutral-900 (#171717).
         colors.spacer_dots
+    } else if kind == GateKind::Write0 {
+        // qni `write_gate.css`: brackets are red (semantic-color-off) for |0>.
+        colors.semantic_off
+    } else if kind == GateKind::Write1 {
+        // qni `write_gate.css`: brackets are blue (semantic-color-on) for |1>.
+        colors.semantic_on
     } else {
         colors.label
     };
