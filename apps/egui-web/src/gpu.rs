@@ -704,6 +704,13 @@ pub(crate) struct StateVectorResources {
     pub(crate) gate_params_staging_buffer: wgpu::Buffer,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) state_buffers: [wgpu::Buffer; 2],
+    /// 8-byte read-only buffer holding the |0…0⟩ amplitude `(1.0, 0.0)`. At
+    /// the start of every recompute we encode `clear_buffer(state_buffers[0])`
+    /// followed by `copy_buffer_to_buffer(seed → state_buffers[0])` to
+    /// initialize the state vector entirely on the GPU. Replaces the prior
+    /// CPU-side `vec![[0.0; 2]; state_count]` + `queue.write_buffer` upload
+    /// (Issue C — see docs/egui-web-perf-audit.html).
+    pub(crate) state_seed_buffer: wgpu::Buffer,
     pub(crate) instance_buffer: wgpu::Buffer,
     pub(crate) vertex_buffer: wgpu::Buffer,
     pub(crate) index_buffer: wgpu::Buffer,
@@ -1214,6 +1221,12 @@ impl StateVectorResources {
             label: Some("state_vector_quad_indices"),
             contents: bytemuck::cast_slice(&index_data),
             usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let state_seed_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("state_vector_ground_seed"),
+            contents: bytemuck::cast_slice(&[1.0f32, 0.0f32]),
+            usage: wgpu::BufferUsages::COPY_SRC,
         });
 
         let state_buffer_size =
@@ -1830,6 +1843,7 @@ impl StateVectorResources {
             gate_params_staging_buffer,
             render_params_buffer,
             state_buffers,
+            state_seed_buffer,
             instance_buffer,
             vertex_buffer,
             index_buffer,
@@ -2174,14 +2188,12 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
         if self.recompute || resources.state_count != self.state_count {
             resources.state_count = self.state_count;
             if self.state_count > 0 {
-                // Initialize to |0...0⟩ then dispatch each op on the GPU.
-                let mut initial = vec![[0.0f32, 0.0f32]; self.state_count];
-                initial[0] = [1.0, 0.0];
-                queue.write_buffer(
-                    &resources.state_buffers[0],
-                    0,
-                    bytemuck::cast_slice(&initial),
-                );
+                // Initialize to |0…0⟩ then dispatch each op on the GPU.
+                // The init itself happens on the GPU: `clear_buffer` zeros
+                // the state range, then `copy_buffer_to_buffer` writes the
+                // ground-state amplitude (1.0, 0.0) into slot 0. Both are
+                // encoded into the recompute encoder below — no CPU
+                // allocation, no `queue.write_buffer` upload (Issue C).
                 resources.active_state = 0;
                 let pair_count = (self.state_count / 2) as u32;
                 let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
@@ -2309,6 +2321,29 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                         label: Some("recompute_batched_encoder"),
                     });
+
+                // Issue C: GPU-only |0…0⟩ initialization. clear_buffer zeros
+                // the active state range, then copy_buffer_to_buffer writes
+                // the ground-state amplitude into slot 0. Both live in the
+                // same encoder as the gate dispatches, so the auto-inserted
+                // memory barriers make the first ApplyGate read this fresh
+                // |0…0⟩ vector.
+                let state_active_bytes = (self.state_count
+                    * std::mem::size_of::<[f32; 2]>())
+                    as wgpu::BufferAddress;
+                encoder.clear_buffer(
+                    &resources.state_buffers[0],
+                    0,
+                    Some(state_active_bytes),
+                );
+                encoder.copy_buffer_to_buffer(
+                    &resources.state_seed_buffer,
+                    0,
+                    &resources.state_buffers[0],
+                    0,
+                    std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                );
+
                 let gate_param_size =
                     std::mem::size_of::<GateParams>() as wgpu::BufferAddress;
                 let bloch_param_size =
