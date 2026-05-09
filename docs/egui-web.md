@@ -169,6 +169,12 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - 「encoder を外に出すだけ」では `queue.write_buffer` が submit 前にまとめて実行される仕様で壊れるため、staging + intra-encoder copy を採用 (動的 uniform offset でも実現可能だが bind group layout 変更が増えるので未採用)。
 - params 用の `Option<*Params>` を `StateVectorResources` に保持し、`prepare()` で前フレームと等しいときは `queue.write_buffer` を skip する。viewport / colors はほとんど変化しないので、idle frame では params 系は完全に無 upload。
 
+### Debug HUD
+
+`Backquote` (`) キーで右上に FPS / フレーム時間の overlay を出せる (off ↔ on トグル)。OFF の間は何のコストもなく、ON の間は連続再描画を強制するので perf 計測には注意。F12 は Chrome DevTools と競合するので避けた。
+
+実装: `apps/egui-web/src/app.rs` の `QniApp::update()` 末尾。`ctx.input(|i| i.stable_dt)` を 60 frame の `VecDeque` に貯めて移動平均。
+
 ### 計測メモ
 
 実 wall-clock で改善を検出したい場合は **30+ ゲートの recompute** を含むシナリオが必要。既存 Playwright suite (1〜5 gates / test) では submit 削減ぶん (~50–500 μs) が browser 起動 / drag 機構 / readback の 1,100 ms+ ノイズに埋もれる。

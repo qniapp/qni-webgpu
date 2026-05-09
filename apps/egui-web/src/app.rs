@@ -1,5 +1,5 @@
 use eframe::egui;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 use crate::bloch::{linearize_ops, SimulationOp};
@@ -55,6 +55,13 @@ pub(crate) struct QniApp {
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
     pointer_was_down: bool,
+    /// Debug HUD: backtick (`) toggles a small top-right overlay showing
+    /// smoothed FPS + frame ms. Off by default — when on, forces continuous
+    /// repaint so the reading stays responsive (which itself costs perf,
+    /// hence the toggle). F12 is avoided because Chrome reserves it for
+    /// DevTools.
+    fps_hud_visible: bool,
+    fps_hud_history: VecDeque<f32>,
 }
 
 impl QniApp {
@@ -86,6 +93,8 @@ impl QniApp {
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
             pointer_was_down: false,
+            fps_hud_visible: false,
+            fps_hud_history: VecDeque::with_capacity(60),
         }
     }
 
@@ -476,6 +485,49 @@ impl eframe::App for QniApp {
         }
         if now < self.startup_repaint_until {
             ctx.request_repaint_after(Duration::from_secs_f64(DRAG_REPAINT_MIN_SECS));
+        }
+
+        if ctx.input(|i| i.key_pressed(egui::Key::Backtick)) {
+            self.fps_hud_visible = !self.fps_hud_visible;
+            if !self.fps_hud_visible {
+                self.fps_hud_history.clear();
+            }
+        }
+        if self.fps_hud_visible {
+            let dt = ctx.input(|i| i.stable_dt);
+            self.fps_hud_history.push_back(dt);
+            while self.fps_hud_history.len() > 60 {
+                self.fps_hud_history.pop_front();
+            }
+            let avg_dt = self.fps_hud_history.iter().sum::<f32>()
+                / self.fps_hud_history.len().max(1) as f32;
+            let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
+            egui::Window::new("perf_hud")
+                .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
+                .interactable(false)
+                .resizable(false)
+                .title_bar(false)
+                .frame(
+                    egui::Frame::popup(&ctx.style())
+                        .fill(egui::Color32::from_rgba_unmultiplied(20, 20, 26, 220))
+                        .stroke(egui::Stroke::new(
+                            1.0,
+                            egui::Color32::from_rgb(60, 60, 75),
+                        )),
+                )
+                .show(ctx, |ui| {
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    ui.colored_label(
+                        egui::Color32::from_rgb(140, 200, 220),
+                        format!("{:5.1} fps", fps),
+                    );
+                    ui.colored_label(
+                        egui::Color32::from_rgb(168, 163, 179),
+                        format!("{:5.2} ms", avg_dt * 1000.0),
+                    );
+                });
+            // Force continuous repaint so the reading stays live.
+            ctx.request_repaint();
         }
     }
 }
