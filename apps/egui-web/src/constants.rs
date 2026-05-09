@@ -9,6 +9,13 @@ pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 /// `docs/state-panel-handle-mockups.html` (G-2).
 pub(crate) const STATE_HANDLE_HEIGHT: f32 = 22.0;
 
+/// Default size of the state panel's viewport (the area below the handle
+/// strip where circles render). The panel itself is fixed at this size
+/// regardless of qubit count: small circuits get centred inside, big ones
+/// pan / scroll within. See `docs/state-panel-sizing-mockups.html` (B 案).
+pub(crate) const STATE_VIEWPORT_WIDTH: f32 = 560.0;
+pub(crate) const STATE_VIEWPORT_HEIGHT: f32 = 160.0;
+
 /// Per-qubit-count circle-notation geometry. Matches qni's desktop layout
 /// in `packages/elements/src/circle-notation-element.ts`:
 ///   * `updateDimension()` (cols × rows)

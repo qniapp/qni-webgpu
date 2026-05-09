@@ -8,7 +8,8 @@ use crate::colors::Colors;
 use crate::constants::{
     state_circle_layout, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS,
     PALETTE_GATES, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM,
-    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT,
+    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT, STATE_VIEWPORT_HEIGHT,
+    STATE_VIEWPORT_WIDTH,
 };
 use crate::gates::GateKind;
 use crate::gpu::{
@@ -30,7 +31,11 @@ pub(super) struct StatePanelLayout {
     radius: f32,
     stroke: f32,
     inner_radius: f32,
-    base_pos: egui::Pos2,
+    /// Total pixel size of the circle grid (cols × cell_pitch, rows × cell_pitch).
+    grid_size: egui::Vec2,
+    /// Inner area below the header strip where circles render. Fixed size;
+    /// when the grid is smaller it gets centred, when larger it pans inside.
+    pub(super) viewport_rect: egui::Rect,
     pub(super) state_rect: egui::Rect,
     pub(super) handle_height: f32,
 }
@@ -361,11 +366,6 @@ impl QniApp {
     ) -> StatePanelLayout {
         let state_count = state_count.max(1);
         let qubits = amplitude_qubits(state_count);
-        // qni reference: `apps/www/app/views/circuits/show.html.erb:66-67`
-        // — `circle_notation` is rendered with `padding_x: 16, padding_y: 20`,
-        // mirroring the palette's `px-4 py-5`. Reuse the palette constants.
-        let state_padding_x = PALETTE_PADDING_X;
-        let state_padding_y = PALETTE_PADDING_Y;
 
         // qni hard-codes the (cols, rows, size, line_width) per qubit count
         // (`circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`).
@@ -386,7 +386,6 @@ impl QniApp {
 
         let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
         let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
-        let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - total_height;
         let radius = size * 0.5;
         let inner_radius = (radius - stroke * 0.5).max(0.0);
 
@@ -397,8 +396,7 @@ impl QniApp {
 
         // Make sure the panel is wide enough that the strip's left/right
         // labels never overlap. Hack monospace at 11 px is ≈7 px / glyph;
-        // budget a bit extra for the multiplication sign. The estimate is a
-        // lower bound — for bigger circuits the circles already exceed it.
+        // budget a bit extra for the multiplication sign.
         const STRIP_CHAR_WIDTH: f32 = 7.0;
         const STRIP_PADDING_X: f32 = 12.0;
         const STRIP_LABEL_GAP: f32 = 16.0;
@@ -411,21 +409,23 @@ impl QniApp {
         let strip_min_width = (qubits_chars + states_chars) as f32 * STRIP_CHAR_WIDTH
             + STRIP_PADDING_X * 2.0
             + STRIP_LABEL_GAP;
-        let panel_width = (total_width + state_padding_x * 2.0).max(strip_min_width);
+
+        // Panel size is fixed (B 案): the viewport is always
+        // STATE_VIEWPORT_WIDTH × STATE_VIEWPORT_HEIGHT regardless of qubit
+        // count. Small grids get centred inside; big grids pan within (handled
+        // in `draw_state_vector`). Strip-text minimum is the only thing that
+        // can grow `panel_width` — practically a no-op for ≤16 qubits.
+        let panel_width = STATE_VIEWPORT_WIDTH.max(strip_min_width);
+        let panel_height = STATE_VIEWPORT_HEIGHT + handle_height;
         let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
-        let base_pos = egui::pos2(
-            rect.min.x + panel_min_x + (panel_width - total_width) / 2.0,
-            rect.min.y + base_y,
-        );
+        let panel_min_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - panel_height;
         let state_rect = egui::Rect::from_min_size(
-            egui::pos2(
-                rect.min.x + panel_min_x,
-                base_pos.y - state_padding_y - handle_height,
-            ),
-            egui::vec2(
-                panel_width,
-                total_height + state_padding_y * 2.0 + handle_height,
-            ),
+            rect.min + egui::vec2(panel_min_x, panel_min_y),
+            egui::vec2(panel_width, panel_height),
+        );
+        let viewport_rect = egui::Rect::from_min_max(
+            state_rect.min + egui::vec2(0.0, handle_height),
+            state_rect.max,
         );
 
         StatePanelLayout {
@@ -437,10 +437,42 @@ impl QniApp {
             radius,
             stroke,
             inner_radius,
-            base_pos,
+            grid_size: egui::vec2(total_width, total_height),
+            viewport_rect,
             state_rect,
             handle_height,
         }
+    }
+
+    /// Where the circle grid's top-left corner should render given the panel
+    /// layout and the user's pan offset. If the grid fits inside the
+    /// viewport on an axis it gets centred (and the pan offset is ignored
+    /// for that axis); otherwise the offset is clamped so the grid can pan
+    /// only as far as its edges meet the viewport edges.
+    pub(super) fn grid_origin(
+        layout: &StatePanelLayout,
+        viewport_offset: egui::Vec2,
+        pan: egui::Vec2,
+    ) -> egui::Pos2 {
+        let viewport = layout.viewport_rect.translate(viewport_offset);
+        let grid = layout.grid_size;
+        let origin_x = if grid.x <= viewport.width() {
+            viewport.min.x + (viewport.width() - grid.x) / 2.0
+        } else {
+            // Grid wider than viewport — clamp pan so the grid edges can't
+            // separate from the viewport edges (no empty bands either side).
+            let min = viewport.max.x - grid.x;
+            let max = viewport.min.x;
+            (viewport.min.x + pan.x).clamp(min, max)
+        };
+        let origin_y = if grid.y <= viewport.height() {
+            viewport.min.y + (viewport.height() - grid.y) / 2.0
+        } else {
+            let min = viewport.max.y - grid.y;
+            let max = viewport.min.y;
+            (viewport.min.y + pan.y).clamp(min, max)
+        };
+        egui::pos2(origin_x, origin_y)
     }
 
     pub(super) fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
@@ -480,6 +512,30 @@ impl QniApp {
         };
     }
 
+    /// Keep `state_grid_offset` inside the range that lets `grid_origin`
+    /// produce a non-flickering value: 0 when the grid fits on an axis,
+    /// `[viewport - grid, 0]` when it overflows. Called every frame after
+    /// the layout is computed so qubit-count changes don't leave a stale
+    /// (possibly huge) pan offset around.
+    pub(super) fn clamp_state_grid_offset(&mut self, layout: &StatePanelLayout) {
+        let viewport = layout.viewport_rect.translate(self.state_panel_offset);
+        let grid = layout.grid_size;
+        self.state_grid_offset.x = if grid.x <= viewport.width() {
+            0.0
+        } else {
+            self.state_grid_offset
+                .x
+                .clamp(viewport.width() - grid.x, 0.0)
+        };
+        self.state_grid_offset.y = if grid.y <= viewport.height() {
+            0.0
+        } else {
+            self.state_grid_offset
+                .y
+                .clamp(viewport.height() - grid.y, 0.0)
+        };
+    }
+
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn draw_state_vector(
@@ -494,7 +550,10 @@ impl QniApp {
         target_format: Option<wgpu::TextureFormat>,
     ) -> egui::Rect {
         let state_rect = layout.state_rect.translate(offset);
-        let base_pos = layout.base_pos + offset;
+        let viewport_rect = layout.viewport_rect.translate(offset);
+        // Where the circle grid actually lands in viewport coords. Centred
+        // when the grid fits, panned by `state_grid_offset` otherwise.
+        let grid_origin = Self::grid_origin(layout, offset, self.state_grid_offset);
         let state_corner = egui::CornerRadius::same(14);
         let state_shadow = egui::epaint::Shadow {
             offset: [0, 6],
@@ -563,7 +622,7 @@ impl QniApp {
             let render_params = crate::gpu::RenderParams {
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
-                panel_origin: [base_pos.x, base_pos.y],
+                panel_origin: [grid_origin.x, grid_origin.y],
                 panel_size: [cols as f32 * cell_pitch, rows as f32 * cell_pitch],
                 cell_pitch,
                 radius: layout.radius,
@@ -586,7 +645,10 @@ impl QniApp {
                 target_format,
                 render_params,
             };
-            let clipped = painter.with_clip_rect(state_rect);
+            // Clip the GPU pass to the viewport so the grid is cropped at
+            // the panel body's inner edge — circles flush against the rounded
+            // corners get sliced cleanly instead of bleeding past the panel.
+            let clipped = painter.with_clip_rect(viewport_rect);
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             clipped.add(egui::Shape::Callback(paint_callback));
         }

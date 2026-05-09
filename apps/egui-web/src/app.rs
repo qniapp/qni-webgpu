@@ -36,6 +36,11 @@ pub(crate) struct QniApp {
     drag_state_count: Option<usize>,
     state_panel_drag: Option<egui::Vec2>,
     pub(crate) state_panel_offset: egui::Vec2,
+    /// Pan offset of the circle grid INSIDE the state panel viewport.
+    /// Independent of `state_panel_offset` (which moves the whole panel).
+    /// Only used when the grid is bigger than the viewport on a given axis;
+    /// when it fits, the grid is centred and this offset is ignored.
+    pub(crate) state_grid_offset: egui::Vec2,
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
@@ -84,6 +89,7 @@ impl QniApp {
             drag_state_count: None,
             state_panel_drag: None,
             state_panel_offset: egui::Vec2::ZERO,
+            state_grid_offset: egui::Vec2::ZERO,
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: MIN_QUBITS,
@@ -399,6 +405,7 @@ impl eframe::App for QniApp {
             let mut recompute = self.needs_recompute || state_count != self.last_state_count;
             let state_layout = self.state_panel_layout(screen_rect, state_count);
             self.clamp_state_panel_offset(&state_layout, screen_rect);
+            self.clamp_state_grid_offset(&state_layout);
             let state_rect = state_layout.state_rect.translate(self.state_panel_offset);
             let handle_rect = egui::Rect::from_min_size(
                 state_rect.min,
@@ -426,6 +433,19 @@ impl eframe::App for QniApp {
             }
             if handle_response.drag_stopped() {
                 self.state_panel_drag = None;
+            }
+
+            // Pan the grid inside the viewport. Disabled axes (= grid fits
+            // on that axis) ignore the delta — see `clamp_state_grid_offset`.
+            let viewport_rect = state_layout.viewport_rect.translate(self.state_panel_offset);
+            let viewport_response = ui.interact(
+                viewport_rect,
+                egui::Id::new("state_panel_viewport"),
+                egui::Sense::drag(),
+            );
+            if viewport_response.dragged() {
+                self.state_grid_offset += viewport_response.drag_delta();
+                self.clamp_state_grid_offset(&state_layout);
             }
 
             let overlay_painter = ctx.layer_painter(egui::LayerId::new(

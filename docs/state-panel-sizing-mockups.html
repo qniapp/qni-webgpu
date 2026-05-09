@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>状態ベクトルパネル サイズ案</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --zinc-100: #f4f4f5;
+        --zinc-200: #e4e4e7;
+        --zinc-300: #d4d4d8;
+        --zinc-400: #a1a1aa;
+        --zinc-500: #71717a;
+        --zinc-700: #3f3f46;
+        --sky-100: #e0f2fe;
+        --sky-300: #7dd3fc;
+        --sky-500: #0ea5e9;
+        --shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--zinc-700);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.55;
+      }
+      header.page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 48px 24px 16px;
+      }
+      header.page h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        font-weight: 600;
+        color: #18181b;
+      }
+      header.page p {
+        margin: 0;
+        color: var(--zinc-500);
+        font-size: 14px;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        gap: 32px;
+      }
+      .case {
+        background: var(--surface);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.04);
+      }
+      .case h2 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #18181b;
+      }
+      .case .tag {
+        display: inline-block;
+        background: var(--zinc-100);
+        color: var(--zinc-500);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+      }
+      .case > p {
+        margin: 0 0 18px;
+        font-size: 13px;
+        color: var(--zinc-500);
+      }
+      .case > p strong {
+        color: var(--zinc-700);
+      }
+      .row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        align-items: start;
+      }
+      .row > .stage {
+        background: var(--bg);
+        border-radius: 12px;
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .stage .label {
+        font-size: 12px;
+        color: var(--zinc-500);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      /* Shared panel skeleton (G-2 of the handle mockups) */
+      .panel {
+        width: 100%;
+        max-width: 360px;
+        background: var(--surface);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panel .strip {
+        background: var(--sky-500);
+        height: 22px;
+        padding: 0 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: white;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      .panel .body {
+        background: var(--surface);
+        padding: 12px;
+      }
+      /* The grid that holds either circles or pixels. */
+      .grid {
+        display: grid;
+        gap: 1px;
+        justify-content: center;
+        align-content: center;
+      }
+      .grid > .cell {
+        background: var(--surface);
+        border: 1px solid var(--zinc-400);
+        border-radius: 50%;
+      }
+      .grid > .cell.filled {
+        background: var(--sky-500);
+        border-color: #0c4a6e;
+        position: relative;
+      }
+      .grid > .cell.filled::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 8%;
+        width: 10%;
+        height: 50%;
+        background: #18181b;
+        transform: translateX(-50%);
+      }
+
+      /* Each variant tunes cell size + count. Sizes are demo only. */
+      .grid.q2 {
+        grid-template-columns: repeat(4, 64px);
+        grid-auto-rows: 64px;
+      }
+      .grid.q2 .cell.filled::after { width: 4%; }
+
+      /* ── A: 固定パネル + auto-fit circles ─────────────────── */
+      .a-q2 {
+        grid-template-columns: repeat(4, 56px);
+        grid-auto-rows: 56px;
+      }
+      .a-q8 {
+        grid-template-columns: repeat(32, 8px);
+        grid-auto-rows: 8px;
+      }
+      .a-q16 {
+        grid-template-columns: repeat(256, 1px);
+        grid-auto-rows: 1px;
+        gap: 0;
+      }
+      .a-q8 .cell { border-width: 0.5px; border-radius: 50%; }
+      .a-q16 .cell {
+        border: none;
+        background: var(--zinc-200);
+        border-radius: 0;
+      }
+      .a-q16 .cell.filled {
+        background: var(--sky-500);
+      }
+      .a-q16 .cell.filled::after { display: none; }
+
+      /* ── B: pan + zoom inside fixed panel ─────────────────── */
+      /* B 案ではビューポート = パネル内縁いっぱいまで。.body の padding は
+         潰し、rounded 角は親の overflow:hidden が拾う。 */
+      .panel.flush .body {
+        padding: 0;
+      }
+      .b-viewport {
+        position: relative;
+        width: 100%;
+        height: 200px;
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .b-viewport .grid {
+        position: absolute;
+        top: -40px;
+        left: -200px;
+      }
+      .b-viewport.q8 .grid {
+        grid-template-columns: repeat(32, 24px);
+        grid-auto-rows: 24px;
+      }
+      .b-viewport.q16 .grid {
+        grid-template-columns: repeat(256, 16px);
+        grid-auto-rows: 16px;
+      }
+      /* 中身が viewport に収まる qubit 数では pan しない。flex で
+         縦横どちらも中央寄せ。 */
+      .b-viewport.fits {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .b-viewport.fits .grid {
+        position: static;
+      }
+      .b-viewport.q2 .grid {
+        grid-template-columns: repeat(4, 56px);
+        grid-auto-rows: 56px;
+      }
+      .b-minimap {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 60px;
+        height: 36px;
+        background: rgb(0 0 0 / 0.55);
+        border-radius: 4px;
+        padding: 4px;
+      }
+      .b-minimap .vp {
+        width: 28%;
+        height: 36%;
+        border: 1px solid white;
+        background: rgb(255 255 255 / 0.15);
+        margin: 18% 0 0 24%;
+      }
+      .b-zoom {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        display: flex;
+        gap: 2px;
+      }
+      .b-zoom button {
+        all: unset;
+        background: rgb(0 0 0 / 0.55);
+        color: white;
+        font-size: 14px;
+        line-height: 1;
+        width: 22px;
+        height: 22px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+        font-family: ui-monospace, monospace;
+      }
+
+      /* ── C: heatmap mode for high qubit counts ────────────── */
+      .c-q2 {
+        grid-template-columns: repeat(4, 56px);
+        grid-auto-rows: 56px;
+      }
+      .c-q8 {
+        grid-template-columns: repeat(32, 8px);
+        grid-auto-rows: 8px;
+        gap: 0;
+      }
+      .c-q16 {
+        grid-template-columns: repeat(256, 1px);
+        grid-auto-rows: 1px;
+        gap: 0;
+      }
+      .c-q8 .cell, .c-q16 .cell {
+        border-radius: 0;
+        border: none;
+      }
+      .c-mode-switch {
+        display: inline-flex;
+        background: rgb(255 255 255 / 0.18);
+        border-radius: 999px;
+        padding: 2px;
+        font-size: 10px;
+        line-height: 1;
+        gap: 2px;
+        margin-left: 8px;
+      }
+      .c-mode-switch span {
+        padding: 2px 8px;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .c-mode-switch span.active {
+        background: white;
+        color: var(--sky-500);
+      }
+
+      footer {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 16px 24px 64px;
+        color: var(--zinc-500);
+        font-size: 13px;
+      }
+      footer ul {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      footer li {
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page">
+      <h1>状態ベクトルパネル — サイズ案 (qubit 数のスケーリング)</h1>
+      <p>
+        現状は qubit 数が増えるとパネル自体が拡大していく方式 (qni と同じ)。1〜4 qubit ではきれいだが、8 qubit を超えると見苦しく、16 qubit で画面に収まりません。代替を 3 つ並べます。各案で 2 / 8 / 16 qubit 時の見た目を比較できるようにしてあります。
+      </p>
+    </header>
+
+    <main>
+      <!-- Option A -->
+      <section class="case">
+        <span class="tag">A 案</span>
+        <h2>固定パネルサイズ + 円を auto-fit で縮小</h2>
+        <p>
+          パネルのサイズを固定して、qubit 数が増えるほど円のサイズだけが小さくなります。<strong>UI は最も単純</strong>。低 qubit 数ではゆったり、16 qubit ではほぼ「ヒートマップ」になり個別の値は読めなくなりますが、状態の<strong>パターン</strong>は把握できます。リサイズハンドル (G-2 で議論) と組み合わせると、ユーザーは詳細を見たいときにパネルを大きくするだけ。
+        </p>
+        <div class="row">
+          <div class="stage">
+            <span class="label">2 qubits → 4 cells</span>
+            <div class="panel">
+              <div class="strip"><span>2 qubits</span><span>4 × 1 = 4 states</span></div>
+              <div class="body">
+                <div class="grid a-q2">
+                  <span class="cell filled"></span>
+                  <span class="cell"></span>
+                  <span class="cell"></span>
+                  <span class="cell"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">8 qubits → 256 cells</span>
+            <div class="panel">
+              <div class="strip"><span>8 qubits</span><span>32 × 8 = 256 states</span></div>
+              <div class="body">
+                <div class="grid a-q8" id="grid-a-q8"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">16 qubits → 65536 cells</span>
+            <div class="panel">
+              <div class="strip"><span>16 qubits</span><span>256 × 256 = 65536 states</span></div>
+              <div class="body">
+                <div class="grid a-q16" id="grid-a-q16"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Option B -->
+      <section class="case">
+        <span class="tag">B 案</span>
+        <h2>固定パネル + pan / zoom (ゲームマップ風)</h2>
+        <p>
+          パネルは固定サイズ、内側は<strong>ビューポート</strong>として grid 上の一部だけを表示します。ドラッグで pan、Ctrl+ホイールで zoom、右下にミニマップで位置を表示。低 qubit 数では拡大率を 1.0 に固定して全体が収まる挙動。<strong>詳細インスペクション能力は最強</strong>ですが、操作が増えるぶん UI 複雑度は最大。
+        </p>
+        <div class="row">
+          <div class="stage">
+            <span class="label">2 qubits → 全体表示</span>
+            <div class="panel flush">
+              <div class="strip"><span>2 qubits</span><span>4 × 1 = 4 states</span></div>
+              <div class="body">
+                <div class="b-viewport q2 fits">
+                  <div class="grid">
+                    <span class="cell filled"></span>
+                    <span class="cell"></span>
+                    <span class="cell"></span>
+                    <span class="cell"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">8 qubits → ビュー + zoom</span>
+            <div class="panel flush">
+              <div class="strip"><span>8 qubits</span><span>32 × 8 = 256 states</span></div>
+              <div class="body">
+                <div class="b-viewport q8">
+                  <div class="grid" id="grid-b-q8"></div>
+                  <div class="b-zoom"><button>+</button><button>−</button></div>
+                  <div class="b-minimap"><div class="vp"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">16 qubits → ビュー + zoom</span>
+            <div class="panel flush">
+              <div class="strip"><span>16 qubits</span><span>256 × 256 = 65536 states</span></div>
+              <div class="body">
+                <div class="b-viewport q16">
+                  <div class="grid" id="grid-b-q16"></div>
+                  <div class="b-zoom"><button>+</button><button>−</button></div>
+                  <div class="b-minimap"><div class="vp"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Option C -->
+      <section class="case">
+        <span class="tag">C 案</span>
+        <h2>qubit 数で表示モード切替 (円 ↔ ヒートマップ)</h2>
+        <p>
+          ある qubit 数 (たとえば 7 以上) になったら、円表示をやめてヒートマップに切り替える案。各セルは「<strong>位相 = 色相 / 振幅 = 明度</strong>」の点で、円より情報密度が高く、大きい状態数でもパターンが読めます。低 qubit では従来の円を維持。ヘッダー帯にモード切替トグルを置いて手動で切り替えることも可能 (右下のトグル)。
+        </p>
+        <div class="row">
+          <div class="stage">
+            <span class="label">2 qubits → 円</span>
+            <div class="panel">
+              <div class="strip">
+                <span>2 qubits</span>
+                <span style="display: flex; align-items: center;">
+                  4 × 1 = 4 states
+                  <span class="c-mode-switch"><span class="active">circle</span><span>heat</span></span>
+                </span>
+              </div>
+              <div class="body">
+                <div class="grid c-q2">
+                  <span class="cell filled"></span>
+                  <span class="cell"></span>
+                  <span class="cell"></span>
+                  <span class="cell"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">8 qubits → 自動でヒートマップに</span>
+            <div class="panel">
+              <div class="strip">
+                <span>8 qubits</span>
+                <span style="display: flex; align-items: center;">
+                  32 × 8 = 256 states
+                  <span class="c-mode-switch"><span>circle</span><span class="active">heat</span></span>
+                </span>
+              </div>
+              <div class="body">
+                <div class="grid c-q8" id="grid-c-q8"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stage">
+            <span class="label">16 qubits → ヒートマップ専用</span>
+            <div class="panel">
+              <div class="strip">
+                <span>16 qubits</span>
+                <span style="display: flex; align-items: center;">
+                  256 × 256 = 65536 states
+                  <span class="c-mode-switch"><span>circle</span><span class="active">heat</span></span>
+                </span>
+              </div>
+              <div class="body">
+                <div class="grid c-q16" id="grid-c-q16"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p><strong>3 案の比較</strong></p>
+      <ul>
+        <li><strong>A 案 — 固定パネル + auto-fit</strong>: UI が最もシンプル。リサイズハンドル (G-2) と相性が良く、高 qubit ではユーザーがパネルを引き伸ばして個別 value を見る運用が成立。実装コストも低い (現状の grid layout を fixed-panel に切り替えるだけ)。</li>
+        <li><strong>B 案 — pan/zoom</strong>: 詳細インスペクションが最強。一方で zoom コントロール / ミニマップ / pan ジェスチャの実装が増える。タッチ操作も別途検討必要。教育用途では「全体を見渡す」体験のほうが優先かも。</li>
+        <li><strong>C 案 — モード切替</strong>: 表示密度の本質的な解。円とヒートマップを両方実装する必要があり最も重い。ただし「位相 = 色」のヒートマップは美しく、14+ qubit の状態を一望するには最適 (qni 以外のシミュレータでもよく採用)。</li>
+      </ul>
+      <p>
+        個人的なおすすめは <strong>A 案</strong>: G-2 のリサイズハンドル前提なら、追加実装はほぼ「panel size を固定し、grid を auto-fit にする」だけ。B / C は power-user 向けの拡張として後で追加することもできます。
+      </p>
+    </footer>
+
+    <script>
+      // 8q grid (256 cells, sample 2 filled)
+      (function () {
+        var g = document.getElementById('grid-a-q8');
+        var g2 = document.getElementById('grid-c-q8');
+        var bg = document.getElementById('grid-b-q8');
+        for (var i = 0; i < 256; i++) {
+          for (var t = 0; t < 3; t++) {
+            var s = document.createElement('span');
+            s.className = 'cell';
+            if (i === 0 || i === 128) s.classList.add('filled');
+            if (t === 1 && i !== 0 && i !== 128) s.style.opacity = '0.15';
+            // c-q8 heatmap: random sky-500 brightness for visual demo
+            if (t === 2) {
+              s.style.background = i === 0 || i === 128
+                ? '#0ea5e9'
+                : 'hsl(' + (200 + (i % 60)) + ',60%,' + (95 - (i % 6) * 4) + '%)';
+              s.classList.remove('filled');
+            }
+            (t === 0 ? g : t === 1 ? bg : g2).appendChild(s);
+          }
+        }
+      })();
+
+      // 16q grid (65536 cells)
+      (function () {
+        var ga = document.getElementById('grid-a-q16');
+        var gb = document.getElementById('grid-b-q16');
+        var gc = document.getElementById('grid-c-q16');
+        // For perf, only render a smaller subset (we just show the visual)
+        var rows = 100;
+        var cols = 256;
+        for (var r = 0; r < rows; r++) {
+          for (var c = 0; c < cols; c++) {
+            var sa = document.createElement('span');
+            sa.className = 'cell';
+            if (r === 0 && c === 0) sa.classList.add('filled');
+            ga.appendChild(sa);
+
+            var sb = document.createElement('span');
+            sb.className = 'cell';
+            sb.style.background = (r === 0 && c === 0) ? '#0ea5e9' : '#e4e4e7';
+            sb.style.border = 'none';
+            sb.style.borderRadius = '0';
+            gb.appendChild(sb);
+
+            var sc = document.createElement('span');
+            sc.className = 'cell';
+            // Heatmap: random small variations
+            var hue = 200 + ((r * cols + c) % 100);
+            var lum = 90 - ((r + c) % 30);
+            sc.style.background = (r === 0 && c === 0)
+              ? '#0ea5e9'
+              : 'hsl(' + hue + ', 70%, ' + lum + '%)';
+            gc.appendChild(sc);
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
