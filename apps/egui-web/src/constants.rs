@@ -3,6 +3,12 @@ use crate::gates::GateKind;
 pub(crate) const REM: f32 = 32.0;
 pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
+/// Height of the state panel's drag handle (the zinc-100 strip on top
+/// showing "N qubits" / "C × R = N states"). Fixed so the strip text stays
+/// readable regardless of the circle grid's size — see
+/// `docs/state-panel-handle-mockups.html` (G-2).
+pub(crate) const STATE_HANDLE_HEIGHT: f32 = 22.0;
+
 /// Per-qubit-count circle-notation geometry. Matches qni's desktop layout
 /// in `packages/elements/src/circle-notation-element.ts`:
 ///   * `updateDimension()` (cols × rows)

@@ -9,7 +9,7 @@ use crate::colors::Colors;
 use crate::constants::{
     state_circle_layout, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS,
     PALETTE_GATES, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM,
-    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN,
+    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT,
 };
 use crate::gates::GateKind;
 use crate::gpu::{
@@ -395,28 +395,45 @@ impl QniApp {
 
         let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
         let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
-        let base_x = rect.width() / 2.0 - total_width / 2.0;
         let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - total_height;
         let radius = size * 0.5;
         let inner_radius = (radius - stroke * 0.5).max(0.0);
 
-        let content_height = total_height + state_padding_y * 2.0;
-        // Keep the grip bar tall enough to stay easy to grab even when the circles shrink.
-        let handle_height = (0.4 * REM).min(content_height * 0.4).max(10.0);
-        // Reserve half a handle of padding so the drag affordance reads as separate from the circles.
-        let handle_padding = handle_height * 0.5;
+        // qni-style header strip (G-2): fixed-height zinc-100 bar showing
+        // qubit count + grid dims. Drag-to-move is the only interaction
+        // attached to the strip for now (resize handles are TBD).
+        let handle_height = STATE_HANDLE_HEIGHT;
 
-        let base_pos = rect.min + egui::vec2(base_x, base_y);
+        // Make sure the panel is wide enough that the strip's left/right
+        // labels never overlap. Hack monospace at 11 px is ≈7 px / glyph;
+        // budget a bit extra for the multiplication sign. The estimate is a
+        // lower bound — for bigger circuits the circles already exceed it.
+        const STRIP_CHAR_WIDTH: f32 = 7.0;
+        const STRIP_PADDING_X: f32 = 12.0;
+        const STRIP_LABEL_GAP: f32 = 16.0;
+        let qubits_label = if qubits == 1 { "qubit" } else { "qubits" };
+        let states_label = if state_count == 1 { "state" } else { "states" };
+        let qubits_chars = format!("{qubits} {qubits_label}").chars().count();
+        let states_chars = format!("{columns} × {rows} = {state_count} {states_label}")
+            .chars()
+            .count();
+        let strip_min_width = (qubits_chars + states_chars) as f32 * STRIP_CHAR_WIDTH
+            + STRIP_PADDING_X * 2.0
+            + STRIP_LABEL_GAP;
+        let panel_width = (total_width + state_padding_x * 2.0).max(strip_min_width);
+        let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
+        let base_pos = egui::pos2(
+            rect.min.x + panel_min_x + (panel_width - total_width) / 2.0,
+            rect.min.y + base_y,
+        );
         let state_rect = egui::Rect::from_min_size(
-            // Balance the extra top handle space with the regular circle padding so the panel still feels centered.
-            base_pos
-                - egui::vec2(
-                    state_padding_x,
-                    state_padding_y + handle_height + handle_padding,
-                ),
+            egui::pos2(
+                rect.min.x + panel_min_x,
+                base_pos.y - state_padding_y - handle_height,
+            ),
             egui::vec2(
-                total_width + state_padding_x * 2.0,
-                total_height + state_padding_y * 2.0 + handle_height + handle_padding,
+                panel_width,
+                total_height + state_padding_y * 2.0 + handle_height,
             ),
         );
 
@@ -528,18 +545,46 @@ impl QniApp {
         ));
         painter.rect_filled(state_rect, state_corner, colors.surface);
 
+        // G-2 header strip: zinc-100 bar with qubit count on the left and
+        // "cols × rows = N states" on the right. Top corners follow the
+        // panel's corner radius; the bottom edge is flat where the strip
+        // meets the white panel body.
         let handle_rect = egui::Rect::from_min_size(
             state_rect.min,
             egui::vec2(state_rect.width(), handle_height.max(6.0)),
         );
-        painter.rect_filled(handle_rect, state_corner, colors.box_border);
-        let grip_width = handle_rect.width() * 0.25;
-        let grip_height = handle_height * 0.25;
-        let grip_rect = egui::Rect::from_center_size(
-            handle_rect.center(),
-            egui::vec2(grip_width, grip_height.max(2.0)),
+        let handle_corner = egui::CornerRadius {
+            nw: 14,
+            ne: 14,
+            sw: 0,
+            se: 0,
+        };
+        painter.rect_filled(handle_rect, handle_corner, colors.state_handle_bg);
+
+        let strip_padding_x = 12.0;
+        let strip_font = egui::FontId::monospace(11.0);
+        let qubits_label = if layout.qubits == 1 { "qubit" } else { "qubits" };
+        let states_label = if layout.state_count == 1 { "state" } else { "states" };
+        let qubits_text = format!("{} {}", layout.qubits, qubits_label);
+        let rows = layout.state_count / layout.columns.max(1);
+        let states_text = format!(
+            "{} × {} = {} {}",
+            layout.columns, rows, layout.state_count, states_label
         );
-        painter.rect_filled(grip_rect, egui::CornerRadius::same(4), colors.surface);
+        painter.text(
+            handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
+            egui::Align2::LEFT_CENTER,
+            qubits_text,
+            strip_font.clone(),
+            colors.semantic_disabled,
+        );
+        painter.text(
+            handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0),
+            egui::Align2::RIGHT_CENTER,
+            states_text,
+            strip_font,
+            colors.semantic_disabled,
+        );
 
         if let Some(target_format) = target_format {
             let (instances, instances_dirty) = self.state_instances_for(layout, base_pos);
