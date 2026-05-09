@@ -7,9 +7,9 @@ use std::sync::Arc;
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::{
-    CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS, PALETTE_GATES,
-    PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE,
-    STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE,
+    state_circle_layout, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS,
+    PALETTE_GATES, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM,
+    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN,
 };
 use crate::gates::GateKind;
 use crate::gpu::{
@@ -377,68 +377,28 @@ impl QniApp {
     ) -> StatePanelLayout {
         let state_count = state_count.max(1);
         let qubits = amplitude_qubits(state_count);
-        let gap_ratio = STATE_CIRCLE_GAP / STATE_CIRCLE_SIZE;
         // qni reference: `apps/www/app/views/circuits/show.html.erb:66-67`
         // — `circle_notation` is rendered with `padding_x: 16, padding_y: 20`,
         // mirroring the palette's `px-4 py-5`. Reuse the palette constants.
         let state_padding_x = PALETTE_PADDING_X;
         let state_padding_y = PALETTE_PADDING_Y;
-        let palette_geom = palette_layout();
-        let top_limit =
-            rect.min.y + PALETTE_ROW_Y + palette_geom.total_height + PALETTE_PADDING_Y + REM;
-        let mut available_width = rect.width() - state_padding_x * 2.0;
-        let mut available_height = rect.max.y - STATE_CIRCLE_BOTTOM_MARGIN - top_limit;
-        if available_width <= 0.0 {
-            available_width = rect.width().max(1.0);
-        }
-        if available_height <= 0.0 {
-            available_height = (rect.height() - STATE_CIRCLE_BOTTOM_MARGIN).max(1.0);
-        }
-        let max_fraction = if state_count <= 4 {
-            0.4
-        } else if state_count <= 16 {
-            0.3
-        } else {
-            0.25
-        };
-        let max_height = rect.height() * max_fraction;
-        if available_height > max_height {
-            available_height = max_height.max(1.0);
-        }
 
-        let aspect = (available_width / available_height).max(0.1);
-        let mut columns = 1usize;
-        let mut rows = state_count;
-        let mut best_size = 0.0;
-        let mut best_score = f32::INFINITY;
-        for candidate in 1..=state_count {
-            if !state_count.is_multiple_of(candidate) {
-                continue;
-            }
-            let candidate_rows = state_count / candidate;
-            let size_w = available_width / (candidate as f32 + (candidate - 1) as f32 * gap_ratio);
-            let size_h = available_height
-                / (candidate_rows as f32 + (candidate_rows - 1) as f32 * gap_ratio);
-            let size = size_w.min(size_h).clamp(0.5, STATE_CIRCLE_SIZE);
-            let ratio = candidate as f32 / candidate_rows as f32;
-            let score = (ratio - aspect).abs();
-            if size > best_size + 0.01 || ((size - best_size).abs() <= 0.01 && score < best_score) {
-                columns = candidate;
-                rows = candidate_rows;
-                best_size = size;
-                best_score = score;
-            }
-        }
-        let size = best_size.max(0.5);
-        let gap = size * gap_ratio;
+        // qni hard-codes the (cols, rows, size, line_width) per qubit count
+        // (`circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`).
+        // Mirror that table so circles pack the same way: gap == stroke.
+        let qni = state_circle_layout(qubits);
+        let columns = qni.cols;
+        let rows = qni.rows;
+        let size = qni.size;
+        let stroke = qni.line_width;
+        let gap = qni.line_width;
+
         let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
         let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
         let base_x = rect.width() / 2.0 - total_width / 2.0;
         let base_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - total_height;
         let radius = size * 0.5;
-        let stroke = STATE_CIRCLE_STROKE.min(size * 0.25).max(0.5);
-        let scale = size / STATE_CIRCLE_SIZE;
-        let inner_radius = (radius - stroke * 0.5 + 0.5 * scale).max(0.0);
+        let inner_radius = (radius - stroke * 0.5).max(0.0);
 
         let content_height = total_height + state_padding_y * 2.0;
         // Keep the grip bar tall enough to stay easy to grab even when the circles shrink.

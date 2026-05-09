@@ -26,7 +26,7 @@ type PaletteGateCenterOptions = {
 type DragPreviewProbeOptions = {
   gateIndex?: number; gateSize?: number; paletteGap?: number; paletteRowY?: number; paletteCount?: number
   paletteRow1Count?: number; paletteRowGap?: number
-  stateCircleSize?: number; stateCircleGap?: number; stateCircleBottomMargin?: number; stateCount?: number; rem?: number
+  stateCircleBottomMargin?: number; stateCount?: number; rem?: number
 }
 type ArtifactWorld = { artifactDir?: string } | null | undefined
 
@@ -47,10 +47,32 @@ const DEFAULT_PALETTE_ROW_Y = 2 * DEFAULT_REM
 const DEFAULT_PALETTE_COUNT = 21
 const DEFAULT_PALETTE_ROW1_COUNT = 13
 const DEFAULT_PALETTE_ROW_GAP = 8
-const DEFAULT_STATE_CIRCLE_SIZE = 1.25 * DEFAULT_REM
-const DEFAULT_STATE_CIRCLE_GAP = 0.5 * DEFAULT_REM
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = 2 * DEFAULT_REM
 const DEFAULT_STATE_COUNT = 4
+
+// qni circle-notation desktop layout, mirroring
+// `circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`.
+// Keep this table in sync with `state_circle_layout` in `apps/egui-web/src/constants.rs`.
+const QNI_CIRCLE_LAYOUT: Record<number, { cols: number; rows: number; size: number; lineWidth: number }> = {
+  1:  { cols: 2,   rows: 1,   size: 64, lineWidth: 2 },
+  2:  { cols: 4,   rows: 1,   size: 64, lineWidth: 2 },
+  3:  { cols: 8,   rows: 1,   size: 64, lineWidth: 2 },
+  4:  { cols: 8,   rows: 2,   size: 48, lineWidth: 2 },
+  5:  { cols: 16,  rows: 2,   size: 32, lineWidth: 2 },
+  6:  { cols: 16,  rows: 4,   size: 32, lineWidth: 2 },
+  7:  { cols: 32,  rows: 4,   size: 16, lineWidth: 1 },
+  8:  { cols: 32,  rows: 8,   size: 16, lineWidth: 1 },
+  9:  { cols: 32,  rows: 16,  size: 16, lineWidth: 1 },
+  10: { cols: 32,  rows: 32,  size: 16, lineWidth: 1 },
+  11: { cols: 64,  rows: 32,  size: 16, lineWidth: 1 },
+  12: { cols: 64,  rows: 64,  size: 16, lineWidth: 1 },
+  13: { cols: 128, rows: 64,  size: 16, lineWidth: 1 },
+  14: { cols: 128, rows: 128, size: 16, lineWidth: 1 },
+  15: { cols: 256, rows: 128, size: 16, lineWidth: 1 },
+  16: { cols: 256, rows: 256, size: 16, lineWidth: 1 },
+}
+
+const stateCircleLayoutForQubits = (qubits: number) => QNI_CIRCLE_LAYOUT[Math.max(1, Math.min(16, qubits))]
 
 const RETRYABLE_EVALUATE_ERRORS = ['Execution context was destroyed']
 const RETRYABLE_SCREENSHOT_ERRORS = [
@@ -439,8 +461,6 @@ export const getDragPreviewAboveStatePanelProbe = (
     paletteCount = DEFAULT_PALETTE_COUNT,
     paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
     paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
-    stateCircleSize = DEFAULT_STATE_CIRCLE_SIZE,
-    stateCircleGap = DEFAULT_STATE_CIRCLE_GAP,
     stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
     stateCount = DEFAULT_STATE_COUNT,
     rem = DEFAULT_REM,
@@ -458,51 +478,13 @@ export const getDragPreviewAboveStatePanelProbe = (
   // qni reference: `circle_notation` is rendered with `padding_x: 16,
   // padding_y: 20` (`apps/www/app/views/circuits/show.html.erb:66-67`),
   // matching the palette's `px-4 py-5`. Mirror that on the egui side.
-  const statePaddingX = 16
   const statePaddingY = 20
-  const topLimit = paletteRowY + gateSize + 2 * rem
-  let availableWidth = cssWidth - statePaddingX * 2
-  let availableHeight = cssHeight - stateCircleBottomMargin - topLimit
-  if (availableWidth <= 0) {
-    availableWidth = Math.max(cssWidth, 1)
-  }
-  if (availableHeight <= 0) {
-    availableHeight = Math.max(cssHeight - stateCircleBottomMargin, 1)
-  }
 
-  const maxHeight = cssHeight * 0.4
-  if (availableHeight > maxHeight) {
-    availableHeight = Math.max(maxHeight, 1)
-  }
+  // Match qni's per-qubit-count circle grid: fixed cols/rows/size, gap == stroke.
+  const qubits = Math.max(1, Math.round(Math.log2(Math.max(stateCount, 1))))
+  const layout = stateCircleLayoutForQubits(qubits)
+  const { cols: columns, rows, size, lineWidth: gap } = layout
 
-  const gapRatio = stateCircleGap / stateCircleSize
-  let columns = 1
-  let rows = stateCount
-  let bestSize = 0
-  let bestScore = Number.POSITIVE_INFINITY
-  const divisors = [1, 2, 4]
-  for (const candidate of divisors) {
-    if (stateCount % candidate !== 0) {
-      continue
-    }
-
-    const candidateRows = stateCount / candidate
-    const sizeW = availableWidth / (candidate + (candidate - 1) * gapRatio)
-    const sizeH = availableHeight / (candidateRows + (candidateRows - 1) * gapRatio)
-    const size = Math.min(sizeW, sizeH, stateCircleSize)
-    const ratio = candidate / candidateRows
-    const score = Math.abs(ratio - Math.max(availableWidth / availableHeight, 0.1))
-
-    if (size > bestSize + 0.01 || (Math.abs(size - bestSize) <= 0.01 && score < bestScore)) {
-      columns = candidate
-      rows = candidateRows
-      bestSize = size
-      bestScore = score
-    }
-  }
-
-  const size = Math.max(bestSize, 0.5)
-  const gap = size * gapRatio
   const totalWidth = size * columns + gap * Math.max(columns - 1, 0)
   const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
   const baseX = cssWidth / 2 - totalWidth / 2
