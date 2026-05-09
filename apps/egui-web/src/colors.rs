@@ -51,8 +51,11 @@ impl Colors {
             // qni semantic-fill-color-disabled (zinc-500: #71717a) — write
             // gate brackets, control / anti-control / swap icons.
             semantic_disabled: crate::shared::color_rgba(0.443, 0.443, 0.478, 1.0),
-            // zinc-100 (#f4f4f5) — state panel header strip background.
-            state_handle_bg: crate::shared::color_rgba(0.957, 0.957, 0.961, 1.0),
+            // sky-500 (#0ea5e9) — state panel header strip background.
+            // Matches the amplitude fill so the panel reads as belonging to
+            // the state-vector concept (zinc-100 was too close to the page
+            // background and got lost).
+            state_handle_bg: crate::shared::color_rgba(0.055, 0.647, 0.914, 1.0),
             // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
             // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
             bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),

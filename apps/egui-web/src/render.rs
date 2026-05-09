@@ -571,19 +571,20 @@ impl QniApp {
             "{} × {} = {} {}",
             layout.columns, rows, layout.state_count, states_label
         );
+        // sky-500 strip → white text for legibility.
         painter.text(
             handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
             egui::Align2::LEFT_CENTER,
             qubits_text,
             strip_font.clone(),
-            colors.semantic_disabled,
+            colors.surface,
         );
         painter.text(
             handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0),
             egui::Align2::RIGHT_CENTER,
             states_text,
             strip_font,
-            colors.semantic_disabled,
+            colors.surface,
         );
 
         if let Some(target_format) = target_format {
