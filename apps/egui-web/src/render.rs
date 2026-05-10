@@ -581,7 +581,6 @@ impl QniApp {
         painter.rect_filled(rect, corner, colors.surface);
 
         let label_font = egui::FontId::monospace(12.0);
-        let check_font = egui::FontId::monospace(13.0);
         const THUMB_SLOT_W: f32 = 50.0;
         const THUMB_SLOT_H: f32 = 16.0;
         for (i, row_rect) in rows.iter().enumerate() {
@@ -631,14 +630,15 @@ impl QniApp {
                 label_font.clone(),
                 label_color,
             );
-            // Check mark for current
+            // "(now)" tag for the current row — visible without depending
+            // on the ✓ glyph (Hack font ships a generic box for it).
             if is_current {
                 painter.text(
-                    egui::pos2(row_rect.max.x - 12.0, row_rect.center().y),
+                    egui::pos2(row_rect.max.x - 10.0, row_rect.center().y),
                     egui::Align2::RIGHT_CENTER,
-                    "✓",
-                    check_font.clone(),
-                    egui::Color32::WHITE,
+                    "(now)",
+                    egui::FontId::monospace(10.0),
+                    egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220),
                 );
             }
         }
