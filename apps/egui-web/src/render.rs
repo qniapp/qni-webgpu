@@ -367,17 +367,18 @@ impl QniApp {
         let state_count = state_count.max(1);
         let qubits = amplitude_qubits(state_count);
 
-        // qni hard-codes the (cols, rows, size, line_width) per qubit count
-        // (`circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`).
-        // Mirror that table so circles pack the same way. qni's reference
-        // uses gap == stroke (cells touch); we add 1 px so adjacent stroke
-        // rings don't share a pixel boundary at dist == outer. Without
-        // this slack the GPU-side single-cell render gives 50 % alpha at
-        // the boundary (symmetric smoothstep midpoint is exactly 0.5),
-        // visibly fading the outline. The 1-px seam is barely perceptible
-        // at typical zoom and lets us keep V-sync at 11+ qubits without
-        // paying for 2x2 cell sampling in the fragment shader.
-        let qni = state_circle_layout(qubits);
+        // Cell size + line width follow qni's per-qubit-count table; the
+        // (cols, rows) split is parameterised by `self.aspect_index` so
+        // the user can change the layout aspect at runtime. qni's
+        // reference uses gap == stroke (cells touch); we add 1 px so
+        // adjacent stroke rings don't share a pixel boundary at dist ==
+        // outer. Without this slack the GPU-side single-cell render
+        // gives 50 % alpha at the boundary (symmetric smoothstep midpoint
+        // is exactly 0.5), visibly fading the outline. The 1-px seam is
+        // barely perceptible at typical zoom and lets us keep V-sync at
+        // 11+ qubits without paying for 2x2 cell sampling in the
+        // fragment shader.
+        let qni = state_circle_layout(qubits, self.aspect_index);
         let columns = qni.cols;
         let rows = qni.rows;
         // Zoom scales every length-y thing in the grid uniformly so cells
@@ -408,9 +409,12 @@ impl QniApp {
         let qubits_label = if qubits == 1 { "qubit" } else { "qubits" };
         let states_label = if state_count == 1 { "state" } else { "states" };
         let qubits_chars = format!("{qubits} {qubits_label}").chars().count();
+        // "+ 2" reserves room for the " ▾" suffix on the right text that
+        // signals the aspect popover is openable.
         let states_chars = format!("{columns} × {rows} = {state_count} {states_label}")
             .chars()
-            .count();
+            .count()
+            + 2;
         let strip_min_width = (qubits_chars + states_chars) as f32 * STRIP_CHAR_WIDTH
             + STRIP_PADDING_X * 2.0
             + STRIP_LABEL_GAP;
@@ -477,6 +481,167 @@ impl QniApp {
             (viewport.min.y + pan.y).clamp(min, max)
         };
         egui::pos2(origin_x, origin_y)
+    }
+
+    /// Hit rect for the strip's dimensions text ("C × R = N states ▾"),
+    /// which is wheel-scrollable for aspect ±1 and click-able to open the
+    /// aspect popover. Computed by measuring the text with the actual font
+    /// so the rect exactly tracks the rendered glyphs; expanded by a few
+    /// px on all sides for forgiving clicks.
+    pub(crate) fn dims_text(layout: &StatePanelLayout) -> String {
+        let states_label = if layout.state_count == 1 {
+            "state"
+        } else {
+            "states"
+        };
+        let rows = layout.state_count / layout.columns.max(1);
+        format!(
+            "{} × {} = {} {} ▾",
+            layout.columns, rows, layout.state_count, states_label
+        )
+    }
+
+    pub(super) fn dims_hit_rect(
+        ctx: &egui::Context,
+        layout: &StatePanelLayout,
+        state_panel_offset: egui::Vec2,
+    ) -> egui::Rect {
+        let state_rect = layout.state_rect.translate(state_panel_offset);
+        let handle_rect = egui::Rect::from_min_size(
+            state_rect.min,
+            egui::vec2(state_rect.width(), layout.handle_height.max(6.0)),
+        );
+        let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
+        let font = egui::FontId::monospace(11.0);
+        let text = Self::dims_text(layout);
+        let size = ctx.fonts_mut(|f| {
+            f.layout_no_wrap(text, font, egui::Color32::WHITE).size()
+        });
+        let right_center = handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0);
+        let visible = egui::Rect::from_min_max(
+            egui::pos2(right_center.x - size.x, right_center.y - size.y / 2.0),
+            egui::pos2(right_center.x, right_center.y + size.y / 2.0),
+        );
+        visible.expand2(egui::vec2(6.0, 4.0))
+    }
+
+    /// Aspect popover (D 案) layout. Anchored to the bottom-right corner
+    /// of the dimensions text, opening downward. Each row corresponds to
+    /// one `aspect_index ∈ [0, qubits]` choice. Returns the popover rect
+    /// (for outside-click detection) plus a Vec of per-row rects (for
+    /// click-to-pick interaction and matching draw geometry).
+    pub(super) fn aspect_popover_layout(
+        dims_rect: egui::Rect,
+        qubits: usize,
+    ) -> (egui::Rect, Vec<egui::Rect>) {
+        const ROW_HEIGHT: f32 = 22.0;
+        const PADDING: f32 = 8.0;
+        const WIDTH: f32 = 240.0;
+        const MAX_HEIGHT: f32 = 420.0;
+        let n_rows = qubits + 1;
+        let content_height = n_rows as f32 * ROW_HEIGHT;
+        let total_height = (content_height + PADDING * 2.0).min(MAX_HEIGHT);
+        let rect = egui::Rect::from_min_size(
+            egui::pos2(dims_rect.max.x - WIDTH, dims_rect.max.y + 2.0),
+            egui::vec2(WIDTH, total_height),
+        );
+        let mut rows = Vec::with_capacity(n_rows);
+        for i in 0..n_rows {
+            let y = rect.min.y + PADDING + (i as f32 * ROW_HEIGHT);
+            rows.push(egui::Rect::from_min_size(
+                egui::pos2(rect.min.x + PADDING, y),
+                egui::vec2(WIDTH - PADDING * 2.0, ROW_HEIGHT - 2.0),
+            ));
+        }
+        (rect, rows)
+    }
+
+    /// Draw the aspect popover (background + rows). Each row shows an
+    /// aspect-correct thumbnail rect, the cols × rows label, and a "✓"
+    /// for the current selection. Currently a fixed-height popover with
+    /// up to qubits+1 rows; for 16 qubits that's 17 rows × 22 px ≈ 374 px,
+    /// which fits inside `MAX_HEIGHT = 420`.
+    pub(super) fn draw_aspect_popover(
+        painter: &egui::Painter,
+        colors: &Colors,
+        rect: egui::Rect,
+        rows: &[egui::Rect],
+        qubits: usize,
+        current_aspect: usize,
+    ) {
+        // Drop shadow behind the popover so it lifts above the panel.
+        let corner = egui::CornerRadius::same(10);
+        let shadow = egui::epaint::Shadow {
+            offset: [0, 8],
+            blur: 24,
+            spread: 0,
+            color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 46),
+        };
+        painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
+        painter.rect_filled(rect, corner, colors.surface);
+
+        let label_font = egui::FontId::monospace(12.0);
+        let check_font = egui::FontId::monospace(13.0);
+        const THUMB_SLOT_W: f32 = 50.0;
+        const THUMB_SLOT_H: f32 = 16.0;
+        for (i, row_rect) in rows.iter().enumerate() {
+            let is_current = i == current_aspect;
+            let cols = 1usize << i;
+            let layout_rows = 1usize << (qubits - i);
+            // Row background (current = sky-500, else hover-ready surface).
+            if is_current {
+                painter.rect_filled(*row_rect, egui::CornerRadius::same(6), colors.state_fill);
+            }
+            // Thumbnail (aspect-correct rect) inside a fixed 50×16 slot.
+            let slot_min = egui::pos2(
+                row_rect.min.x + 8.0,
+                row_rect.center().y - THUMB_SLOT_H / 2.0,
+            );
+            let slot_rect =
+                egui::Rect::from_min_size(slot_min, egui::vec2(THUMB_SLOT_W, THUMB_SLOT_H));
+            let aspect_scale =
+                (THUMB_SLOT_W / cols as f32).min(THUMB_SLOT_H / layout_rows as f32);
+            let thumb_w = (cols as f32 * aspect_scale).max(1.0);
+            let thumb_h = (layout_rows as f32 * aspect_scale).max(1.0);
+            let thumb_min = egui::pos2(
+                slot_rect.center().x - thumb_w / 2.0,
+                slot_rect.center().y - thumb_h / 2.0,
+            );
+            let thumb_color = if is_current {
+                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220)
+            } else {
+                egui::Color32::from_rgba_unmultiplied(82, 82, 91, 180) // zinc-600 60%
+            };
+            painter.rect_filled(
+                egui::Rect::from_min_size(thumb_min, egui::vec2(thumb_w, thumb_h)),
+                egui::CornerRadius::ZERO,
+                thumb_color,
+            );
+            // Label
+            let label = format!("{} × {}", cols, layout_rows);
+            let label_color = if is_current {
+                egui::Color32::WHITE
+            } else {
+                colors.text
+            };
+            painter.text(
+                egui::pos2(row_rect.min.x + 8.0 + THUMB_SLOT_W + 12.0, row_rect.center().y),
+                egui::Align2::LEFT_CENTER,
+                label,
+                label_font.clone(),
+                label_color,
+            );
+            // Check mark for current
+            if is_current {
+                painter.text(
+                    egui::pos2(row_rect.max.x - 12.0, row_rect.center().y),
+                    egui::Align2::RIGHT_CENTER,
+                    "✓",
+                    check_font.clone(),
+                    egui::Color32::WHITE,
+                );
+            }
+        }
     }
 
     /// Hit rect for grabbing one corner. The visible handle is an arc of
@@ -627,8 +792,9 @@ impl QniApp {
         let states_label = if layout.state_count == 1 { "state" } else { "states" };
         let qubits_text = format!("{} {}", layout.qubits, qubits_label);
         let rows = layout.state_count / layout.columns.max(1);
+        // " ▾" indicates the dimensions text opens the aspect popover.
         let states_text = format!(
-            "{} × {} = {} {}",
+            "{} × {} = {} {} ▾",
             layout.columns, rows, layout.state_count, states_label
         );
         // sky-500 strip → white text for legibility.
@@ -693,6 +859,26 @@ impl QniApp {
         }
 
         Self::draw_state_minimap(painter, layout, viewport_rect, grid_origin);
+
+        // Aspect popover (D 案) — only draw when open. Positioned below
+        // the dimensions text; floats above the panel and any minimap.
+        if self.aspect_popover_open {
+            let dims_rect = Self::dims_hit_rect(
+                painter.ctx(),
+                layout,
+                offset,
+            );
+            let (pop_rect, row_rects) =
+                Self::aspect_popover_layout(dims_rect, layout.qubits);
+            Self::draw_aspect_popover(
+                painter,
+                colors,
+                pop_rect,
+                &row_rects,
+                layout.qubits,
+                self.aspect_index.min(layout.qubits),
+            );
+        }
 
         // Resize handles — 4 corner arcs concentric with the panel's
         // rounded corners (G 案 / 内側配置). Drawn after the GPU pass so

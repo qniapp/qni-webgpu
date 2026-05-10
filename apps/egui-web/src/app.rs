@@ -5,11 +5,11 @@ use std::time::Duration;
 use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
 use crate::constants::{
-    DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
-    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y,
-    SNAP_DISTANCE, STATE_GRID_ZOOM_MAX, STATE_GRID_ZOOM_MIN, STATE_VIEWPORT_DEFAULT_HEIGHT,
-    STATE_VIEWPORT_DEFAULT_WIDTH, STATE_VIEWPORT_MAX_HEIGHT, STATE_VIEWPORT_MAX_WIDTH,
-    STATE_VIEWPORT_MIN_HEIGHT, STATE_VIEWPORT_MIN_WIDTH,
+    state_circle_default_aspect_index, DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS,
+    DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS,
+    PALETTE_GATES, PALETTE_ROW_Y, SNAP_DISTANCE, STATE_GRID_ZOOM_MAX, STATE_GRID_ZOOM_MIN,
+    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH, STATE_VIEWPORT_MAX_HEIGHT,
+    STATE_VIEWPORT_MAX_WIDTH, STATE_VIEWPORT_MIN_HEIGHT, STATE_VIEWPORT_MIN_WIDTH,
 };
 use crate::gates::GateKind;
 use crate::layout::{
@@ -84,6 +84,17 @@ pub(crate) struct QniApp {
     /// Currently-hovered resize corner (for cursor / paint state). Set
     /// each frame by `ui.interact` hovered checks.
     pub(crate) hovered_resize_corner: Option<ResizeCorner>,
+    /// `aspect_index = log2(cols)`. Determines (cols, rows) =
+    /// (2^aspect_index, 2^(qubits − aspect_index)) for the state-vector
+    /// circle grid. Mutated by wheel-on-dims (A 案) or popover (D 案).
+    pub(crate) aspect_index: usize,
+    /// Has the user explicitly chosen an aspect (vs. following qni
+    /// defaults)? While `false`, aspect_index auto-tracks the qni
+    /// default for the current qubit count. Once `true`, the user's
+    /// pick is sticky and only clamped when it goes out of range.
+    pub(crate) aspect_customized: bool,
+    /// Whether the aspect-pick popover (D 案) is currently open.
+    pub(crate) aspect_popover_open: bool,
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
@@ -140,6 +151,9 @@ impl QniApp {
             ),
             state_resize_drag: None,
             hovered_resize_corner: None,
+            aspect_index: state_circle_default_aspect_index(1),
+            aspect_customized: false,
+            aspect_popover_open: false,
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: MIN_QUBITS,
@@ -534,6 +548,16 @@ impl eframe::App for QniApp {
             };
             let mut recompute = self.needs_recompute || state_count != self.last_state_count;
             self.clamp_state_viewport_size();
+            // Sync aspect_index with the current qubit count. While the
+            // user hasn't customised, follow qni's per-qubit default;
+            // once customised, only clamp to the valid [0, qubits] range
+            // so the choice is sticky across qubit changes.
+            let aspect_qubits = crate::shared::amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
+            if !self.aspect_customized {
+                self.aspect_index = state_circle_default_aspect_index(aspect_qubits);
+            } else {
+                self.aspect_index = self.aspect_index.min(aspect_qubits);
+            }
             let state_layout = self.state_panel_layout(screen_rect, state_count);
             self.clamp_state_panel_offset(&state_layout, screen_rect);
             self.clamp_state_grid_offset(&state_layout);
@@ -628,6 +652,76 @@ impl eframe::App for QniApp {
                         self.clamp_state_grid_offset(&zoomed);
                     }
                 }
+            }
+
+            // Aspect dims (A 案: wheel / click on the "C × R = N states ▾"
+            // text in the strip). Registered after the strip drag so its
+            // hit rect takes priority for clicks that land on it.
+            let dims_hit = QniApp::dims_hit_rect(ctx, &state_layout, self.state_panel_offset);
+            let dims_resp = ui.interact(
+                dims_hit,
+                egui::Id::new("state_dims"),
+                egui::Sense::click(),
+            );
+            if dims_resp.hovered() {
+                // Plain wheel: cycle aspect by 1. Up → fewer cols (taller),
+                // down → more cols (wider). Ctrl+wheel is reserved for
+                // viewport zoom and is NOT consumed here.
+                let plain_scroll = ctx.input(|i| {
+                    if i.modifiers.ctrl || i.modifiers.command {
+                        0.0
+                    } else {
+                        i.smooth_scroll_delta.y
+                    }
+                });
+                if plain_scroll.abs() > 1.0 {
+                    let step: i32 = if plain_scroll > 0.0 { -1 } else { 1 };
+                    let new_aspect = (self.aspect_index as i32 + step)
+                        .clamp(0, aspect_qubits as i32) as usize;
+                    if new_aspect != self.aspect_index {
+                        self.aspect_index = new_aspect;
+                        self.aspect_customized = true;
+                        ctx.request_repaint();
+                    }
+                }
+                ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            if dims_resp.clicked() {
+                self.aspect_popover_open = !self.aspect_popover_open;
+            }
+
+            // Aspect popover (D 案) — row clicks + outside-click / ESC close.
+            if self.aspect_popover_open {
+                let (popover_rect, row_rects) =
+                    QniApp::aspect_popover_layout(dims_hit, aspect_qubits);
+                for (i, row_rect) in row_rects.iter().enumerate() {
+                    let resp = ui.interact(
+                        *row_rect,
+                        egui::Id::new(("state_aspect_row", i)),
+                        egui::Sense::click(),
+                    );
+                    if resp.hovered() {
+                        ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+                    }
+                    if resp.clicked() {
+                        self.aspect_index = i;
+                        self.aspect_customized = true;
+                        self.aspect_popover_open = false;
+                    }
+                }
+                // Outside click closes. Use any_pressed to catch the click
+                // that initiated outside the popover this frame.
+                let pressed = ctx.input(|i| i.pointer.any_pressed());
+                if pressed {
+                    if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                        if !dims_hit.contains(pos) && !popover_rect.contains(pos) {
+                            self.aspect_popover_open = false;
+                        }
+                    }
+                }
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.aspect_popover_open {
+                self.aspect_popover_open = false;
             }
 
             // Resize handles last so they take priority over the strip

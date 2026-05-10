@@ -45,13 +45,14 @@ pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
 pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
 
-/// Per-qubit-count circle-notation geometry. Matches qni's desktop layout
-/// in `packages/elements/src/circle-notation-element.ts`:
-///   * `updateDimension()` (cols × rows)
-///   * `qubitCircleSizePx` (circle px)
-///   * `qubitCircleLineWidth` (gap = stroke)
-/// qni uses gap == stroke so the circles read as a tight grid with just
-/// the outline showing between them.
+/// Per-qubit-count circle-notation geometry. Cell size + line width
+/// follow qni's desktop layout (`circle-notation-element.ts:qubitCircleSizePx`
+/// / `qubitCircleLineWidth`). The (cols, rows) split is parameterised by
+/// `aspect_index = log2(cols)`, so the user can change the layout's
+/// aspect at runtime without touching cell size — see the aspect popover
+/// (`docs/state-panel-aspect-prototype.html`). qni uses gap == stroke so
+/// the circles read as a tight grid with just the outline showing between
+/// them.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct StateCircleLayout {
     pub(crate) cols: usize,
@@ -60,31 +61,41 @@ pub(crate) struct StateCircleLayout {
     pub(crate) line_width: f32,
 }
 
-pub(crate) fn state_circle_layout(qubits: usize) -> StateCircleLayout {
+pub(crate) fn state_circle_layout(qubits: usize, aspect_index: usize) -> StateCircleLayout {
     let q = qubits.clamp(1, 16);
-    let (cols, rows, size, line_width) = match q {
-        1 => (2, 1, 64.0, 2.0),
-        2 => (4, 1, 64.0, 2.0),
-        3 => (8, 1, 64.0, 2.0),
-        4 => (8, 2, 48.0, 2.0),
-        5 => (16, 2, 32.0, 2.0),
-        6 => (16, 4, 32.0, 2.0),
-        7 => (32, 4, 16.0, 1.0),
-        8 => (32, 8, 16.0, 1.0),
-        9 => (32, 16, 16.0, 1.0),
-        10 => (32, 32, 16.0, 1.0),
-        11 => (64, 32, 16.0, 1.0),
-        12 => (64, 64, 16.0, 1.0),
-        13 => (128, 64, 16.0, 1.0),
-        14 => (128, 128, 16.0, 1.0),
-        15 => (256, 128, 16.0, 1.0),
-        _ => (256, 256, 16.0, 1.0),
+    let aspect = aspect_index.min(q);
+    let cols = 1usize << aspect;
+    let rows = 1usize << (q - aspect);
+    let (size, line_width) = match q {
+        1..=3 => (64.0, 2.0),
+        4 => (48.0, 2.0),
+        5..=6 => (32.0, 2.0),
+        _ => (16.0, 1.0),
     };
     StateCircleLayout {
         cols,
         rows,
         size,
         line_width,
+    }
+}
+
+/// Default aspect index per qubit count. Mirrors qni's hard-coded
+/// (cols, rows) layout — used on app start and when the user hasn't yet
+/// customised the aspect.
+pub(crate) fn state_circle_default_aspect_index(qubits: usize) -> usize {
+    let q = qubits.clamp(1, 16);
+    match q {
+        1 => 1,                              // 2 × 1
+        2 => 2,                              // 4 × 1
+        3 => 3,                              // 8 × 1
+        4 => 3,                              // 8 × 2
+        5 => 4,                              // 16 × 2
+        6 => 4,                              // 16 × 4
+        7 | 8 | 9 | 10 => 5,                 // 32 × {4..32}
+        11 | 12 => 6,                        // 64 × {32, 64}
+        13 | 14 => 7,                        // 128 × {64, 128}
+        _ => 8,                              // 256 × {128, 256}
     }
 }
 
