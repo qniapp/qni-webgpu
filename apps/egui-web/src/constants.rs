@@ -3,18 +3,41 @@ use crate::gates::GateKind;
 pub(crate) const REM: f32 = 32.0;
 pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
-/// Height of the state panel's drag handle (the zinc-100 strip on top
-/// showing "N qubits" / "C × R = N states"). Fixed so the strip text stays
-/// readable regardless of the circle grid's size — see
-/// `docs/state-panel-handle-mockups.html` (G-2).
-pub(crate) const STATE_HANDLE_HEIGHT: f32 = 22.0;
+/// Height of the state panel's header strip (the sky-500 bar at the top
+/// showing "N qubits" / "C × R = N states", and that hosts the top resize
+/// handles). 28 px so the strip can comfortably fit a 10x10 resize handle
+/// at 3 px padding on either side without crowding the text — see
+/// `docs/state-panel-resize-handle-mockups.html` (G-2 + 内側 L 字).
+pub(crate) const STATE_HANDLE_HEIGHT: f32 = 28.0;
 
-/// Default size of the state panel's viewport (the area below the handle
-/// strip where circles render). The panel itself is fixed at this size
-/// regardless of qubit count: small circuits get centred inside, big ones
-/// pan / scroll within. See `docs/state-panel-sizing-mockups.html` (B 案).
-pub(crate) const STATE_VIEWPORT_WIDTH: f32 = 560.0;
-pub(crate) const STATE_VIEWPORT_HEIGHT: f32 = 160.0;
+/// Initial viewport size (the area below the header strip where circles
+/// render). The user can resize the panel by dragging the corner L
+/// handles, clamped to `STATE_VIEWPORT_{MIN,MAX}_{WIDTH,HEIGHT}`.
+pub(crate) const STATE_VIEWPORT_DEFAULT_WIDTH: f32 = 560.0;
+pub(crate) const STATE_VIEWPORT_DEFAULT_HEIGHT: f32 = 160.0;
+pub(crate) const STATE_VIEWPORT_MIN_WIDTH: f32 = 280.0;
+pub(crate) const STATE_VIEWPORT_MIN_HEIGHT: f32 = 80.0;
+pub(crate) const STATE_VIEWPORT_MAX_WIDTH: f32 = 1200.0;
+pub(crate) const STATE_VIEWPORT_MAX_HEIGHT: f32 = 600.0;
+
+/// Panel rounded-corner radius (px). The top resize handles' outer arcs
+/// curve along this radius minus the handle padding so they sit flush
+/// against the panel's rounded inner edge. Mirrored by `state_corner` in
+/// `render.rs`.
+pub(crate) const STATE_PANEL_CORNER_RADIUS: f32 = 14.0;
+
+/// Geometry of the 4 corner resize handles (G 案 / 内側配置).
+/// The handle is a 90° arc segment of a circle <strong>concentric with
+/// the panel's rounded corner</strong>: the same centre, radius =
+/// (panel R − PAD). This makes the handle literally trace the panel's
+/// rounded inner edge, offset inward by PAD.
+///   * PAD: inward offset from the panel's outer rounded edge, 3 px.
+///   * STROKE: handle line thickness, 2 px.
+///   * HIT_PAD: extra padding on the hit rect for forgiving grabs.
+/// See `docs/state-panel-resize-handle-mockups.html`.
+pub(crate) const STATE_RESIZE_HANDLE_PAD: f32 = 3.0;
+pub(crate) const STATE_RESIZE_HANDLE_STROKE: f32 = 2.0;
+pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 
 /// Zoom factor range for the state panel circle grid (Ctrl+wheel). Below
 /// 0.5 the cells become unreadable noise; above 4.0 the panel is mostly

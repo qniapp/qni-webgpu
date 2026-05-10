@@ -3,13 +3,13 @@ use eframe::{egui_wgpu, wgpu};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use crate::app::{PlacedGate, QniApp};
+use crate::app::{PlacedGate, QniApp, ResizeCorner};
 use crate::colors::Colors;
 use crate::constants::{
     state_circle_layout, CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_CORNER_RADIUS,
     PALETTE_GATES, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE, REM,
-    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT, STATE_VIEWPORT_HEIGHT,
-    STATE_VIEWPORT_WIDTH,
+    SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT, STATE_PANEL_CORNER_RADIUS,
+    STATE_RESIZE_HANDLE_PAD, STATE_RESIZE_HANDLE_STROKE, STATE_RESIZE_HIT_PAD,
 };
 use crate::gates::GateKind;
 use crate::gpu::{
@@ -415,13 +415,12 @@ impl QniApp {
             + STRIP_PADDING_X * 2.0
             + STRIP_LABEL_GAP;
 
-        // Panel size is fixed (B 案): the viewport is always
-        // STATE_VIEWPORT_WIDTH × STATE_VIEWPORT_HEIGHT regardless of qubit
-        // count. Small grids get centred inside; big grids pan within (handled
-        // in `draw_state_vector`). Strip-text minimum is the only thing that
-        // can grow `panel_width` — practically a no-op for ≤16 qubits.
-        let panel_width = STATE_VIEWPORT_WIDTH.max(strip_min_width);
-        let panel_height = STATE_VIEWPORT_HEIGHT + handle_height;
+        // Panel size is user-controlled (resize via the corner L-handles).
+        // Strip-text minimum is the only thing that can force `panel_width`
+        // above the user's choice — practically a no-op for ≤16 qubits
+        // since min viewport width already covers the widest label.
+        let panel_width = self.state_viewport_size.x.max(strip_min_width);
+        let panel_height = self.state_viewport_size.y + handle_height;
         let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
         let panel_min_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - panel_height;
         let state_rect = egui::Rect::from_min_size(
@@ -478,6 +477,38 @@ impl QniApp {
             (viewport.min.y + pan.y).clamp(min, max)
         };
         egui::pos2(origin_x, origin_y)
+    }
+
+    /// Hit rect for grabbing one corner. The visible handle is an arc of
+    /// the panel's rounded inner edge, but for clicks we expose the full
+    /// `R × R` square at the corner (the panel's rounded-corner bounding
+    /// box) inflated by `STATE_RESIZE_HIT_PAD` so the corner is forgiving
+    /// to grab even when the cursor isn't right on the curve.
+    pub(super) fn resize_handle_hit_rect(
+        layout: &StatePanelLayout,
+        offset: egui::Vec2,
+        corner: ResizeCorner,
+    ) -> egui::Rect {
+        let state_rect = layout.state_rect.translate(offset);
+        let r = STATE_PANEL_CORNER_RADIUS;
+        let base = match corner {
+            ResizeCorner::TopLeft => {
+                egui::Rect::from_min_size(state_rect.min, egui::vec2(r, r))
+            }
+            ResizeCorner::TopRight => egui::Rect::from_min_size(
+                egui::pos2(state_rect.max.x - r, state_rect.min.y),
+                egui::vec2(r, r),
+            ),
+            ResizeCorner::BottomLeft => egui::Rect::from_min_size(
+                egui::pos2(state_rect.min.x, state_rect.max.y - r),
+                egui::vec2(r, r),
+            ),
+            ResizeCorner::BottomRight => egui::Rect::from_min_size(
+                egui::pos2(state_rect.max.x - r, state_rect.max.y - r),
+                egui::vec2(r, r),
+            ),
+        };
+        base.expand(STATE_RESIZE_HIT_PAD)
     }
 
     pub(super) fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
@@ -587,7 +618,10 @@ impl QniApp {
         };
         painter.rect_filled(handle_rect, handle_corner, colors.state_handle_bg);
 
-        let strip_padding_x = 12.0;
+        // Strip text starts past the corner resize-handle area
+        // (panel rounded R + breathing). Keeps "16 qubits" / "256 × 256 = …"
+        // from touching the curved handle marks at the top corners.
+        let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
         let strip_font = egui::FontId::monospace(11.0);
         let qubits_label = if layout.qubits == 1 { "qubit" } else { "qubits" };
         let states_label = if layout.state_count == 1 { "state" } else { "states" };
@@ -660,7 +694,75 @@ impl QniApp {
 
         Self::draw_state_minimap(painter, layout, viewport_rect, grid_origin);
 
+        // Resize handles — 4 corner arcs concentric with the panel's
+        // rounded corners (G 案 / 内側配置). Drawn after the GPU pass so
+        // they sit on top of the circle grid at all zoom levels. Color
+        // follows the local background: sky-tone for the top handles (on
+        // the sky-500 strip), neutral gray for the bottom handles (on the
+        // white panel).
+        for corner in [
+            ResizeCorner::TopLeft,
+            ResizeCorner::TopRight,
+            ResizeCorner::BottomLeft,
+            ResizeCorner::BottomRight,
+        ] {
+            let dragging = self.active_resize_corner() == Some(corner);
+            let color = match (corner.is_top(), dragging) {
+                (true, false) => colors.state_resize_handle_top_idle,
+                (true, true) => colors.state_resize_handle_top_drag,
+                (false, false) => colors.state_resize_handle_bottom_idle,
+                (false, true) => colors.state_resize_handle_bottom_drag,
+            };
+            Self::draw_resize_handle_arc(painter, corner, state_rect, color);
+        }
+
         handle_rect
+    }
+
+    /// Draw a single resize-handle arc. The arc is concentric with the
+    /// panel's rounded corner: same centre as the panel's corner-radius
+    /// circle, radius = `STATE_PANEL_CORNER_RADIUS − STATE_RESIZE_HANDLE_PAD`.
+    /// This means the handle literally traces the panel's rounded inner
+    /// edge offset inward by `PAD`, so the handle's curvature matches the
+    /// panel's R exactly.
+    fn draw_resize_handle_arc(
+        painter: &egui::Painter,
+        corner: ResizeCorner,
+        state_rect: egui::Rect,
+        color: egui::Color32,
+    ) {
+        use std::f32::consts::PI;
+        let r = STATE_PANEL_CORNER_RADIUS;
+        let inner_r = (r - STATE_RESIZE_HANDLE_PAD).max(0.0);
+        if inner_r <= 0.0 {
+            return;
+        }
+        // `center` is the centre of the panel's rounded-corner circle for
+        // this corner (located `r` px inside the corner along both axes).
+        // `start_angle` is the angle on the circle at which the arc begins;
+        // we always sweep +π/2 (90°) counterclockwise (in math y-up terms;
+        // visually that's "along the corner curve").
+        let (center, start_angle) = match corner {
+            ResizeCorner::TopLeft => (state_rect.min + egui::vec2(r, r), PI),
+            ResizeCorner::TopRight => {
+                (egui::pos2(state_rect.max.x - r, state_rect.min.y + r), -PI / 2.0)
+            }
+            ResizeCorner::BottomRight => (state_rect.max - egui::vec2(r, r), 0.0),
+            ResizeCorner::BottomLeft => {
+                (egui::pos2(state_rect.min.x + r, state_rect.max.y - r), PI / 2.0)
+            }
+        };
+        const ARC_SEGMENTS: usize = 16;
+        let mut points: Vec<egui::Pos2> = Vec::with_capacity(ARC_SEGMENTS + 1);
+        for i in 0..=ARC_SEGMENTS {
+            let t = i as f32 / ARC_SEGMENTS as f32;
+            let a = start_angle + t * (PI / 2.0);
+            points.push(center + egui::vec2(inner_r * a.cos(), inner_r * a.sin()));
+        }
+        painter.add(egui::Shape::line(
+            points,
+            egui::Stroke::new(STATE_RESIZE_HANDLE_STROKE, color),
+        ));
     }
 
     /// Bottom-right minimap that shows where the viewport is sitting on the

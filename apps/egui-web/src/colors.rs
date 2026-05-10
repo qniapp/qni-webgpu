@@ -18,6 +18,14 @@ pub(crate) struct Colors {
     pub(crate) semantic_intermediate: egui::Color32,
     pub(crate) semantic_disabled: egui::Color32,
     pub(crate) state_handle_bg: egui::Color32,
+    /// Top resize handle (inside sky-500 strip) — idle.
+    pub(crate) state_resize_handle_top_idle: egui::Color32,
+    /// Top resize handle — while dragging.
+    pub(crate) state_resize_handle_top_drag: egui::Color32,
+    /// Bottom resize handle (on white panel) — idle.
+    pub(crate) state_resize_handle_bottom_idle: egui::Color32,
+    /// Bottom resize handle — while dragging.
+    pub(crate) state_resize_handle_bottom_drag: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
@@ -56,6 +64,16 @@ impl Colors {
             // the state-vector concept (zinc-100 was too close to the page
             // background and got lost).
             state_handle_bg: crate::shared::color_rgba(0.055, 0.647, 0.914, 1.0),
+            // Top resize handles sit on the sky-500 strip, so they're tinted
+            // sky-200 (#bae6fd) to harmonize with the background and pop to
+            // pure white while being dragged. Bottom handles sit on the
+            // white panel, so they use neutral grays (zinc-300 → zinc-600).
+            // The L-shape is the identifier; color adapts to local context.
+            // See `docs/state-panel-resize-handle-mockups.html`.
+            state_resize_handle_top_idle: crate::shared::color_rgba(0.729, 0.902, 0.992, 1.0),
+            state_resize_handle_top_drag: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
+            state_resize_handle_bottom_idle: crate::shared::color_rgba(0.831, 0.831, 0.847, 1.0),
+            state_resize_handle_bottom_drag: crate::shared::color_rgba(0.322, 0.322, 0.357, 1.0),
             // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
             // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
             bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),
