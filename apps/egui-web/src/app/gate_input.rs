@@ -318,6 +318,13 @@ impl QniApp {
                         gate.pos.y = line_y - GATE_SIZE / 2.0;
                         gate.wire = line_index;
                     }
+                    // Mirror qni's post-drop `resize()` pipeline: any
+                    // column that became empty (either because the
+                    // user moved a gate off the circuit, or because
+                    // they dropped one past an empty step) is removed
+                    // and the trailing gates shift left to fill the
+                    // gap. Runs for both branches above.
+                    self.compact_empty_steps(&metrics.slot_centers);
                     self.update_qubit_count();
                     self.needs_recompute = true;
                     ctx.request_repaint();

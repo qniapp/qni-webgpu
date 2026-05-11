@@ -15,7 +15,7 @@ use std::time::Duration;
 use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
 use crate::constants::{
-    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS, MIN_QUBITS,
+    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, GATE_SIZE, MAX_QUBITS, MIN_QUBITS,
     STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
 };
 use crate::gates::GateKind;
@@ -256,6 +256,64 @@ impl QniApp {
             max_wire = max_wire.max(bottom_wire);
         }
         self.qubit_count = (max_wire + 1).clamp(MIN_QUBITS, MAX_QUBITS);
+    }
+
+    /// After a successful drop or off-circuit removal, collapse any
+    /// columns that contain zero gates and shift the trailing gates
+    /// left to fill the gap. Mirrors qni's
+    /// `QuantumCircuitElement.removeEmptySteps()` — every empty step,
+    /// including a leading one or one between two non-empty steps, is
+    /// removed indiscriminately, then the natural slot layout supplies
+    /// the trailing drop-target zone again.
+    ///
+    /// Because our model stores each gate's column as a pixel
+    /// (`pos.x`) rather than an integer index, the compaction works
+    /// in three steps:
+    ///   1. Snap every gate's current `pos.x` back to a slot index.
+    ///   2. Build a sorted-unique set of occupied indices; the
+    ///      position of each entry in that set becomes the new index.
+    ///   3. Write `pos.x = slot_centers[new_index] - GATE_SIZE/2`.
+    ///
+    /// `slot_centers` is the per-frame slot-center array from
+    /// `layout::layout_metrics`. Multi-qubit gates (CNOT, swap) and
+    /// QFT (`span > 1`) just ride along — they share a column with
+    /// their partners by virtue of having the same snapped index, so
+    /// they shift together.
+    pub(crate) fn compact_empty_steps(&mut self, slot_centers: &[f32]) {
+        use std::collections::{BTreeSet, HashMap};
+        if self.placed_gates.is_empty() || slot_centers.is_empty() {
+            return;
+        }
+        let mut occupied: BTreeSet<usize> = BTreeSet::new();
+        for gate in &self.placed_gates {
+            let center_x = gate.pos.x + GATE_SIZE / 2.0;
+            if let Some((idx, _)) = crate::layout::nearest_slot_index(center_x, slot_centers) {
+                occupied.insert(idx);
+            }
+        }
+        // Already-compact short-circuit: occupied indices are exactly
+        // 0..=occupied.len()-1. Avoids the rewrite when nothing moved.
+        let already_compact = occupied
+            .iter()
+            .enumerate()
+            .all(|(new_i, &old_i)| new_i == old_i);
+        if already_compact {
+            return;
+        }
+        let mut remap: HashMap<usize, usize> = HashMap::with_capacity(occupied.len());
+        for (new_i, &old_i) in occupied.iter().enumerate() {
+            remap.insert(old_i, new_i);
+        }
+        for gate in &mut self.placed_gates {
+            let center_x = gate.pos.x + GATE_SIZE / 2.0;
+            if let Some((old_i, _)) = crate::layout::nearest_slot_index(center_x, slot_centers) {
+                if let Some(&new_i) = remap.get(&old_i) {
+                    if new_i != old_i {
+                        gate.pos.x = slot_centers[new_i] - GATE_SIZE / 2.0;
+                    }
+                }
+            }
+        }
     }
 
     fn state_count(&self) -> usize {
