@@ -2,9 +2,11 @@
 //!
 //! Layered structure:
 //! * Layer 0 (leaves): `shaders`, `params`, `digit_atlas`, `popup_glyph_atlas`
-//! * Layer 1: `resources` — `StateVectorResources` + its giant `new`
-//! * Layer 2: `callbacks` — `egui_wgpu::CallbackTrait` impls
-//!           `readback` — test-only `#[wasm_bindgen]` async APIs
+//! * Layer 1: `resources` — `StateVectorResources` aggregator + the
+//!   per-subsystem submodules (`common`, `state`, `bloch`, `measure`,
+//!   `digit`, `popup_value`) under `resources/`
+//! * Layer 2: `callbacks` — `egui_wgpu::CallbackTrait` impls;
+//!   `readback` — test-only `#[wasm_bindgen]` async APIs
 //!
 //! This file re-exports the public API external callers (`lib.rs`,
 //! `render.rs`) depend on so the existing `crate::gpu::Foo` paths keep
@@ -21,10 +23,10 @@ mod shaders;
 pub(crate) use callbacks::{
     BlochOverlayCallback, MeasurementDigitCallback, PopupValueCallback, StateVectorCallback,
 };
-pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 pub(crate) use params::{
     BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams,
 };
+pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
     read_bloch_vectors_impl, read_measurement_outcomes_impl, read_state_vector_impl,

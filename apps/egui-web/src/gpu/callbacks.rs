@@ -67,16 +67,16 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
             tip_color: self.tip_color,
             zero_color: self.zero_color,
         };
-        if resources.last_bloch_overlay_params != Some(params) {
+        if resources.bloch.last_overlay_params != Some(params) {
             queue.write_buffer(
-                &resources.bloch_overlay_params_buffer,
+                &resources.bloch.overlay_params_buffer,
                 0,
                 bytemuck::bytes_of(&params),
             );
-            resources.last_bloch_overlay_params = Some(params);
+            resources.bloch.last_overlay_params = Some(params);
         }
         queue.write_buffer(
-            &resources.bloch_overlay_instance_buffer,
+            &resources.bloch.overlay_instance_buffer,
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
@@ -95,12 +95,12 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
         if self.instances.is_empty() {
             return;
         }
-        render_pass.set_pipeline(&resources.bloch_overlay_pipeline);
-        render_pass.set_bind_group(0, &resources.bloch_overlay_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, resources.bloch_overlay_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.bloch_overlay_instance_buffer.slice(..));
+        render_pass.set_pipeline(&resources.bloch.overlay_pipeline);
+        render_pass.set_bind_group(0, &resources.bloch.overlay_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, resources.bloch.overlay_instance_buffer.slice(..));
         render_pass.set_index_buffer(
-            resources.bloch_overlay_index_buffer.slice(..),
+            resources.common.unit_quad_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,
         );
         render_pass.draw_indexed(0..6, 0, 0..self.instances.len() as u32);
@@ -141,16 +141,16 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
             zero_color: self.zero_color,
             one_color: self.one_color,
         };
-        if resources.last_measurement_digit_params != Some(params) {
+        if resources.digit.last_params != Some(params) {
             queue.write_buffer(
-                &resources.measurement_digit_params_buffer,
+                &resources.digit.params_buffer,
                 0,
                 bytemuck::bytes_of(&params),
             );
-            resources.last_measurement_digit_params = Some(params);
+            resources.digit.last_params = Some(params);
         }
         queue.write_buffer(
-            &resources.measurement_digit_instance_buffer,
+            &resources.digit.instance_buffer,
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
@@ -169,14 +169,14 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
         if self.instances.is_empty() {
             return;
         }
-        render_pass.set_pipeline(&resources.measurement_digit_pipeline);
-        render_pass.set_bind_group(0, &resources.measurement_digit_bind_group, &[]);
+        render_pass.set_pipeline(&resources.digit.pipeline);
+        render_pass.set_bind_group(0, &resources.digit.bind_group, &[]);
         // Reuse the bloch overlay's quad geometry — both render full-rect
         // quads with `[-1..1]` corners.
-        render_pass.set_vertex_buffer(0, resources.bloch_overlay_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.measurement_digit_instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, resources.digit.instance_buffer.slice(..));
         render_pass.set_index_buffer(
-            resources.bloch_overlay_index_buffer.slice(..),
+            resources.common.unit_quad_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,
         );
         render_pass.draw_indexed(0..6, 0, 0..self.instances.len() as u32);
@@ -232,13 +232,13 @@ impl egui_wgpu::CallbackTrait for PopupValueCallback {
             qubits: self.qubits,
             _pad: [0; 2],
         };
-        if resources.last_popup_value_params != Some(params) {
+        if resources.popup_value.last_params != Some(params) {
             queue.write_buffer(
-                &resources.popup_value_params_buffer,
+                &resources.popup_value.params_buffer,
                 0,
                 bytemuck::bytes_of(&params),
             );
-            resources.last_popup_value_params = Some(params);
+            resources.popup_value.last_params = Some(params);
         }
         Vec::new()
     }
@@ -253,8 +253,8 @@ impl egui_wgpu::CallbackTrait for PopupValueCallback {
             return;
         };
         let active = resources.active_state;
-        render_pass.set_pipeline(&resources.popup_value_pipeline);
-        render_pass.set_bind_group(0, &resources.popup_value_bind_groups[active], &[]);
+        render_pass.set_pipeline(&resources.popup_value.pipeline);
+        render_pass.set_bind_group(0, &resources.popup_value.bind_groups[active], &[]);
         // 6 verts × 3 instances (one quad per row, no vertex buffer —
         // verts come from `@builtin(vertex_index)`).
         render_pass.draw(0..6, 0..3);
@@ -293,25 +293,21 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 .get_mut::<StateVectorResources>()
                 .expect("StateVectorResources missing")
         } else {
-            callback_resources.insert(StateVectorResources::new(
-                device,
-                queue,
-                self.target_format,
-            ));
+            callback_resources.insert(StateVectorResources::new(device, queue, self.target_format));
             callback_resources
                 .get_mut::<StateVectorResources>()
                 .expect("StateVectorResources just inserted")
         };
 
-        resources.update_render_pipeline(device, self.target_format);
+        resources.update_target_format(device, self.target_format);
 
-        if resources.last_render_params != Some(self.render_params) {
+        if resources.state.last_render_params != Some(self.render_params) {
             queue.write_buffer(
-                &resources.render_params_buffer,
+                &resources.state.render_params_buffer,
                 0,
                 bytemuck::bytes_of(&self.render_params),
             );
-            resources.last_render_params = Some(self.render_params);
+            resources.state.last_render_params = Some(self.render_params);
         }
 
         if self.recompute || resources.state_count != self.state_count {
@@ -403,28 +399,28 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 );
                 if !packed_gate_params.is_empty() {
                     queue.write_buffer(
-                        &resources.gate_params_staging_buffer,
+                        &resources.state.gate_params_staging_buffer,
                         0,
                         bytemuck::cast_slice(&packed_gate_params),
                     );
                 }
                 if !packed_bloch_params.is_empty() {
                     queue.write_buffer(
-                        &resources.bloch_params_staging_buffer,
+                        &resources.bloch.params_staging_buffer,
                         0,
                         bytemuck::cast_slice(&packed_bloch_params),
                     );
                 }
                 if !packed_measure_reduce_params.is_empty() {
                     queue.write_buffer(
-                        &resources.measure_reduce_params_staging_buffer,
+                        &resources.measure.reduce_params_staging_buffer,
                         0,
                         bytemuck::cast_slice(&packed_measure_reduce_params),
                     );
                 }
                 if !packed_measure_collapse_params.is_empty() {
                     queue.write_buffer(
-                        &resources.measure_collapse_params_staging_buffer,
+                        &resources.measure.collapse_params_staging_buffer,
                         0,
                         bytemuck::cast_slice(&packed_measure_collapse_params),
                     );
@@ -446,10 +442,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 // so each dispatch sees its own params even though all
                 // dispatches share `gate_params_buffer` etc. Issue A: this
                 // replaces N per-op `queue.submit` round trips with one.
-                let mut encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                        label: Some("recompute_batched_encoder"),
-                    });
+                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("recompute_batched_encoder"),
+                });
 
                 // Issue C: GPU-only |0…0⟩ initialization. clear_buffer zeros
                 // the active state range, then copy_buffer_to_buffer writes
@@ -457,26 +452,23 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 // same encoder as the gate dispatches, so the auto-inserted
                 // memory barriers make the first ApplyGate read this fresh
                 // |0…0⟩ vector.
-                let state_active_bytes = (self.state_count
-                    * std::mem::size_of::<[f32; 2]>())
-                    as wgpu::BufferAddress;
+                let state_active_bytes =
+                    (self.state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
                 encoder.clear_buffer(
-                    &resources.state_buffers[0],
+                    &resources.common.state_buffers[0],
                     0,
                     Some(state_active_bytes),
                 );
                 encoder.copy_buffer_to_buffer(
-                    &resources.state_seed_buffer,
+                    &resources.common.state_seed_buffer,
                     0,
-                    &resources.state_buffers[0],
+                    &resources.common.state_buffers[0],
                     0,
                     std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                 );
 
-                let gate_param_size =
-                    std::mem::size_of::<GateParams>() as wgpu::BufferAddress;
-                let bloch_param_size =
-                    std::mem::size_of::<BlochParams>() as wgpu::BufferAddress;
+                let gate_param_size = std::mem::size_of::<GateParams>() as wgpu::BufferAddress;
+                let bloch_param_size = std::mem::size_of::<BlochParams>() as wgpu::BufferAddress;
                 let measure_reduce_param_size =
                     std::mem::size_of::<MeasureReduceParams>() as wgpu::BufferAddress;
                 let measure_collapse_param_size =
@@ -492,9 +484,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 continue;
                             }
                             encoder.copy_buffer_to_buffer(
-                                &resources.gate_params_staging_buffer,
+                                &resources.state.gate_params_staging_buffer,
                                 gate_slot * gate_param_size,
-                                &resources.gate_params_buffer,
+                                &resources.state.gate_params_buffer,
                                 0,
                                 gate_param_size,
                             );
@@ -504,10 +496,10 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                         label: Some("state_vector_compute_pass"),
                                         timestamp_writes: None,
                                     });
-                                pass.set_pipeline(&resources.compute_pipeline);
+                                pass.set_pipeline(&resources.state.compute_pipeline);
                                 pass.set_bind_group(
                                     0,
-                                    &resources.compute_bind_groups[in_index],
+                                    &resources.state.compute_bind_groups[in_index],
                                     &[],
                                 );
                                 pass.dispatch_workgroups(dispatch_x, 1, 1);
@@ -524,9 +516,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 continue;
                             }
                             encoder.copy_buffer_to_buffer(
-                                &resources.bloch_params_staging_buffer,
+                                &resources.bloch.params_staging_buffer,
                                 bloch_slot * bloch_param_size,
-                                &resources.bloch_params_buffer,
+                                &resources.bloch.params_buffer,
                                 0,
                                 bloch_param_size,
                             );
@@ -536,12 +528,12 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                         label: Some("bloch_reduce_pass"),
                                         timestamp_writes: None,
                                     });
-                                pass.set_pipeline(&resources.bloch_pipeline);
+                                pass.set_pipeline(&resources.bloch.reduce_pipeline);
                                 // The current state lives in `state_buffers[in_index]`,
                                 // which is the read side of the next gate dispatch.
                                 pass.set_bind_group(
                                     0,
-                                    &resources.bloch_bind_groups[in_index],
+                                    &resources.bloch.reduce_bind_groups[in_index],
                                     &[],
                                 );
                                 pass.dispatch_workgroups(1, 1, 1);
@@ -559,9 +551,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 continue;
                             }
                             encoder.copy_buffer_to_buffer(
-                                &resources.measure_reduce_params_staging_buffer,
+                                &resources.measure.reduce_params_staging_buffer,
                                 measure_reduce_slot * measure_reduce_param_size,
-                                &resources.measure_reduce_params_buffer,
+                                &resources.measure.reduce_params_buffer,
                                 0,
                                 measure_reduce_param_size,
                             );
@@ -571,10 +563,10 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                         label: Some("measure_reduce_pass"),
                                         timestamp_writes: None,
                                     });
-                                pass.set_pipeline(&resources.measure_reduce_pipeline);
+                                pass.set_pipeline(&resources.measure.reduce_pipeline);
                                 pass.set_bind_group(
                                     0,
-                                    &resources.measure_reduce_bind_groups[in_index],
+                                    &resources.measure.reduce_bind_groups[in_index],
                                     &[],
                                 );
                                 pass.dispatch_workgroups(1, 1, 1);
@@ -588,9 +580,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                 continue;
                             }
                             encoder.copy_buffer_to_buffer(
-                                &resources.measure_collapse_params_staging_buffer,
+                                &resources.measure.collapse_params_staging_buffer,
                                 measure_collapse_slot * measure_collapse_param_size,
-                                &resources.measure_collapse_params_buffer,
+                                &resources.measure.collapse_params_buffer,
                                 0,
                                 measure_collapse_param_size,
                             );
@@ -600,10 +592,10 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                                         label: Some("measure_collapse_pass"),
                                         timestamp_writes: None,
                                     });
-                                pass.set_pipeline(&resources.measure_collapse_pipeline);
+                                pass.set_pipeline(&resources.measure.collapse_pipeline);
                                 pass.set_bind_group(
                                     0,
-                                    &resources.measure_collapse_bind_groups[in_index],
+                                    &resources.measure.collapse_bind_groups[in_index],
                                     &[],
                                 );
                                 pass.dispatch_workgroups(dispatch_x, 1, 1);
@@ -639,8 +631,8 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 device: device.clone(),
                 queue: queue.clone(),
                 state_buffers: [
-                    resources.state_buffers[0].clone(),
-                    resources.state_buffers[1].clone(),
+                    resources.common.state_buffers[0].clone(),
+                    resources.common.state_buffers[1].clone(),
                 ],
                 state_count: resources.state_count,
                 active_state: resources.active_state,
@@ -650,14 +642,14 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             *slot.borrow_mut() = Some(BlochGpuHandle {
                 device: device.clone(),
                 queue: queue.clone(),
-                output_buffer: resources.bloch_output_buffer.clone(),
+                output_buffer: resources.bloch.output_buffer.clone(),
             });
         });
         MEASUREMENT_GPU_HANDLE.with(|slot| {
             *slot.borrow_mut() = Some(MeasurementGpuHandle {
                 device: device.clone(),
                 queue: queue.clone(),
-                aux_buffer: resources.measurement_aux_buffer.clone(),
+                aux_buffer: resources.measure.aux_buffer.clone(),
             });
         });
 
@@ -676,17 +668,20 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
         if self.render_params.cols == 0 || self.render_params.rows == 0 {
             return;
         }
-        render_pass.set_pipeline(&resources.render_pipeline);
+        render_pass.set_pipeline(&resources.state.render_pipeline);
         render_pass.set_bind_group(
             0,
-            &resources.render_bind_groups[resources.active_state],
+            &resources.state.render_bind_groups[resources.active_state],
             &[],
         );
-        render_pass.set_vertex_buffer(0, resources.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(resources.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
+        render_pass.set_index_buffer(
+            resources.common.unit_quad_index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
         // One instanced draw of the panel quad — the fragment shader splits
         // it into per-cell circles. Replaces the previous N-instance loop
         // (one quad per cell). See gpu/shaders.rs::STATE_RENDER_SHADER.
-        render_pass.draw_indexed(0..resources.index_count, 0, 0..1);
+        render_pass.draw_indexed(0..resources.common.unit_quad_index_count, 0, 0..1);
     }
 }
