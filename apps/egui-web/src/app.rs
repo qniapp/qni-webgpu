@@ -1,3 +1,12 @@
+//! App root — `QniApp` struct, init / accessors, and the
+//! `eframe::App::update` coordinator. The bulk of per-frame work lives
+//! in two submodules:
+//!   * `state_panel` — state-panel interactions + small state helpers
+//!   * `gate_input`  — gate pickup / drag / drop / hover + repaint throttle
+
+mod state_panel;
+mod gate_input;
+
 use eframe::egui;
 use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
