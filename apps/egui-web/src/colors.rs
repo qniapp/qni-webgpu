@@ -15,6 +15,7 @@ use eframe::egui;
 ///   red-600           #AF3029  (0.686, 0.188, 0.161)
 ///   green-600         #66800B  (0.400, 0.502, 0.043)
 ///   blue-100          #BCD1E0  (0.737, 0.820, 0.878)
+///   blue-400          #4385BE  (0.263, 0.522, 0.745)
 ///   blue-600          #205EA6  (0.125, 0.369, 0.651)
 ///   purple-400        #8B7EC8  (0.545, 0.494, 0.784)
 ///   purple-600        #5E409D  (0.369, 0.251, 0.616)
@@ -79,8 +80,10 @@ impl Colors {
             label: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
             // tx-2 — body text (q-labels etc.).
             text: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
-            // blue-600 — amplitude fill in the state panel.
-            state_fill: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
+            // blue-400 — amplitude fill in the state panel. Lighter
+            // than blue-600 (the panel header) so the dark `state_needle`
+            // line stays high-contrast against the fill.
+            state_fill: crate::shared::color_rgba(0.263, 0.522, 0.745, 1.0),
             // tx — state-vector outline (non-zero amplitude).
             state_outline: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
             // ui-2 — outline for zero-amplitude circles.
