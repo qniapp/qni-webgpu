@@ -43,9 +43,9 @@ pub(crate) struct PlacedGate {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct DragState {
-    id: u32,
-    offset: egui::Vec2,
+pub(crate) struct DragState {
+    pub(crate) id: u32,
+    pub(crate) offset: egui::Vec2,
 }
 
 /// Which corner of the state panel a resize drag is anchored to. The
@@ -94,7 +94,7 @@ pub(crate) struct QniApp {
     /// the trailing gates. Always clamped to
     /// `[0, max(0, line_right - canvas_width)]` post-update.
     pub(crate) circuit_scroll_x: f32,
-    dragging: Option<DragState>,
+    pub(crate) dragging: Option<DragState>,
     drag_state_count: Option<usize>,
     state_panel_drag: Option<egui::Vec2>,
     pub(crate) state_panel_offset: egui::Vec2,
@@ -193,6 +193,26 @@ impl QniApp {
         cc.egui_ctx.style_mut(|style| {
             style.spacing.window_margin = egui::Margin::same(0);
         });
+        // Register Hack as a fallback for the proportional family so
+        // mathematical angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in
+        // ket labels render instead of falling back to tofu. egui's
+        // bundled `Ubuntu-Light` proportional font does not include
+        // those code points, but `Hack-Regular` does.
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert(
+            "hack_fallback".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(
+                epaint_default_fonts::HACK_REGULAR,
+            )),
+        );
+        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .push("hack_fallback".to_owned());
+        }
+        cc.egui_ctx.set_fonts(fonts);
         cc.egui_ctx.request_repaint();
         // Restore a shared circuit from the URL (`#{"cols":[...]}` or
         // qni-style path) so a pasted URL spins up the same circuit.
@@ -396,8 +416,7 @@ impl QniApp {
                 // hovered wins over breakpoint (live preview); `None`
                 // for both = apply every column = final state.
                 let step_limit = self.hovered_step.or(self.breakpoint_step);
-                self.sim_ops =
-                    linearize_ops(&self.placed_gates, qubits, &sim_metrics, step_limit);
+                self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics, step_limit);
                 self.bloch_slots.clear();
                 self.measurement_slots.clear();
                 for op in &self.sim_ops {
@@ -428,7 +447,6 @@ impl QniApp {
             false
         }
     }
-
 }
 
 impl eframe::App for QniApp {
@@ -444,8 +462,7 @@ impl eframe::App for QniApp {
             // surrounding ScrollArea's page-scroll. If pointer is on the
             // state panel (or its popover), we want wheel to route to
             // our handlers (aspect dims, viewport zoom) instead.
-            let pointer_over_state_panel =
-                self.compute_state_panel_input_gate(ctx, screen_rect);
+            let pointer_over_state_panel = self.compute_state_panel_input_gate(ctx, screen_rect);
 
             let mut dragging_gate_id = None;
             let mut content_rect = None;
@@ -462,15 +479,18 @@ impl eframe::App for QniApp {
                         egui::Sense::click_and_drag(),
                     );
                     self.handle_input(rect, ctx, screen_rect);
-                    let content_changed = self.last_content_rect.map_or(true, |last| last != rect);
+                    let content_changed = self.last_content_rect != Some(rect);
                     self.last_content_rect = Some(rect);
                     content_rect = Some(rect);
                     if content_changed {
                         ctx.request_repaint();
                     }
 
-                    let metrics =
-                        layout_metrics(rect.width(), self.layout_qubits(), self.min_circuit_slots());
+                    let metrics = layout_metrics(
+                        rect.width(),
+                        self.layout_qubits(),
+                        self.min_circuit_slots(),
+                    );
                     let painter = ui.painter_at(rect);
                     let fast_drag = self.dragging.is_some();
                     dragging_gate_id = self.dragging.map(|drag| drag.id);
@@ -521,7 +541,11 @@ impl eframe::App for QniApp {
             // viewport interacts at overlapping pointer hits.
             self.process_state_panel_strip_drag(ui, &state_layout, screen_rect, handle_rect);
             self.process_state_panel_viewport_pan_and_zoom(
-                ctx, ui, &state_layout, screen_rect, state_count,
+                ctx,
+                ui,
+                &state_layout,
+                screen_rect,
+                state_count,
             );
             let dims_hit = QniApp::dims_hit_rect(ctx, &state_layout, self.state_panel_offset);
             self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
@@ -542,8 +566,14 @@ impl eframe::App for QniApp {
             self.draw_palette(&overlay_painter, screen_rect, &colors);
             let svp_t0 = now_seconds();
             self.draw_state_vector(
-                &overlay_painter, &colors, &state_layout, self.state_panel_offset,
-                state_layout.handle_height, screen_rect, recompute, target_format,
+                &overlay_painter,
+                &colors,
+                &state_layout,
+                self.state_panel_offset,
+                state_layout.handle_height,
+                screen_rect,
+                recompute,
+                target_format,
             );
             if self.fps_hud_visible {
                 let svp_secs = (now_seconds() - svp_t0).max(0.0) as f32;
@@ -552,8 +582,7 @@ impl eframe::App for QniApp {
                     self.fps_hud_svp_history.pop_front();
                 }
             }
-            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id)
-            {
+            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
                 self.draw_drag_preview(
                     &overlay_painter,
                     content_rect,
@@ -562,6 +591,12 @@ impl eframe::App for QniApp {
                     self.circuit_scroll_x,
                 );
             }
+
+            // Tooltip is drawn last so it sits on top of the drag
+            // preview / state panel / everything else in the overlay
+            // layer. `draw_palette_tooltip` is a no-op when no palette
+            // gate is hovered or a drag is in progress.
+            self.draw_palette_tooltip(&overlay_painter, screen_rect, &colors);
         });
 
         // Per-frame repaint scheduling: drag throttle + startup priming.

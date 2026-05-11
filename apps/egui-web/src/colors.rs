@@ -30,6 +30,11 @@ pub(crate) struct Colors {
     pub(crate) box_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
+    /// tx (#100F0F) — emphasized text colour used for tooltip / popup
+    /// titles where the regular `text` (tx-2) would read as too muted.
+    /// Same RGB as `state_needle` / `bloch_vector_line` etc., but
+    /// surfaced under a text-specific name so call sites read clearly.
+    pub(crate) text_strong: egui::Color32,
     pub(crate) state_fill: egui::Color32,
     pub(crate) state_outline: egui::Color32,
     pub(crate) state_outline_zero: egui::Color32,
@@ -97,6 +102,8 @@ impl Colors {
             label: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
             // tx-2 — body text (q-labels etc.).
             text: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
+            // tx — emphasized title text on tooltip / popup cards.
+            text_strong: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
             // blue-300 — amplitude fill in the state panel. Two
             // Flexoki steps lighter than the panel header (blue-600),
             // so the dark `state_needle` line stays high-contrast and
