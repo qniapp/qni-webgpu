@@ -32,6 +32,13 @@ pub(crate) struct PlacedGate {
     /// QFT / QFT† can be resized to span 2+ wires via the bottom-edge
     /// resize handle that appears on hover.
     pub(crate) span: usize,
+    /// Angle string for parametric gates (currently only `GateKind::Phase`).
+    /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
+    /// `"2π/3"`, `"0"` — so URL round-trips are exact. `None` means
+    /// "use the gate's default" (palette-placed Phase falls back to π/2
+    /// to preserve the editor's pre-parametric behaviour); qni would
+    /// instead error out at simulate time.
+    pub(crate) angle: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]

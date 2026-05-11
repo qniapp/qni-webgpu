@@ -262,6 +262,106 @@ pub(crate) fn gate_params_controlled(
     }
 }
 
+/// Parametric `P(φ)` phase gate: `diag(1, e^{iφ})`. Mirrors qni's
+/// `gate-matrices.ts::PHASE` (`/packages/simulator/src/gate-matrices.ts:116`).
+/// `control_mask` / `control_value` follow the standard control-mask
+/// convention — pass `0`/`0` for an uncontrolled phase, or a bit mask
+/// for a controlled-phase as part of a CZ-style column.
+pub(crate) fn phase_params(
+    phase: f32,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    GateParams {
+        m00: [1.0, 0.0],
+        m01: [0.0, 0.0],
+        m10: [0.0, 0.0],
+        m11: [phase.cos(), phase.sin()],
+        bit,
+        state_count,
+        control_mask,
+        control_value,
+        mode: gate_mode(GateKind::Phase),
+        _pad: [0; 3],
+    }
+}
+
+/// Parse qni's URL angle string into radians. Mirrors qni's
+/// `angle-parser.ts::radian` + `piCoefficient`
+/// (`/packages/common/src/angle-parser.ts:3-62`):
+///
+/// * `"π"`            → π
+/// * `"-π"`           → -π
+/// * `"π/2"` / `"π_2"`→ π/2  (URL stores `_` in place of `/`)
+/// * `"-π/128"`       → -π/128
+/// * `"2π/3"`         → 2π/3
+/// * `"0"`            → 0
+///
+/// Returns `None` for unparseable input. The string must contain `π`
+/// unless it is exactly `"0"` (matches qni's `isValidAngle`).
+pub(crate) fn parse_angle_radians(s: &str) -> Option<f32> {
+    let trimmed = s.trim();
+    if trimmed == "0" {
+        return Some(0.0);
+    }
+    // Replace first `_` with `/` per qni's `replace('_','/')` (non-global).
+    let with_slash = if let Some(idx) = trimmed.find('_') {
+        let mut out = String::with_capacity(trimmed.len());
+        out.push_str(&trimmed[..idx]);
+        out.push('/');
+        out.push_str(&trimmed[idx + 1..]);
+        out
+    } else {
+        trimmed.to_string()
+    };
+    if !with_slash.contains('π') {
+        return None;
+    }
+    // piCoefficient: strip `π`; bare `π` becomes `"1"`, `Nπ` becomes `"N"`.
+    let coefficient = pi_coefficient(&with_slash);
+    let value = parse_fraction(&coefficient)?;
+    Some(value * std::f32::consts::PI)
+}
+
+/// Strip the `π` literal from an angle string, leaving its numeric
+/// coefficient. `"π"` → `"1"`, `"-π"` → `"-1"`, `"3π"` → `"3"`,
+/// `"π/2"` → `"1/2"`, `"-π/128"` → `"-1/128"`, `"2π/3"` → `"2/3"`.
+fn pi_coefficient(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == 'π' {
+            // If the immediately preceding output is a digit, just drop
+            // the `π` (we already captured the coefficient). Otherwise
+            // (start of string, after a sign, after `/`), the `π`
+            // stands alone — emit `1` in its place.
+            let last = out.chars().last();
+            if !matches!(last, Some(ch) if ch.is_ascii_digit()) {
+                out.push('1');
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// Parse `"a/b"` (or bare `"a"`) as f32. Both sides may carry a sign.
+fn parse_fraction(s: &str) -> Option<f32> {
+    if let Some((num, denom)) = s.split_once('/') {
+        let n: f32 = num.trim().parse().ok()?;
+        let d: f32 = denom.trim().parse().ok()?;
+        if d == 0.0 {
+            return None;
+        }
+        Some(n / d)
+    } else {
+        s.trim().parse().ok()
+    }
+}
+
 /// Single-control phase gate with an arbitrary phase angle. Used by the
 /// QFT / QFT† decomposition (the textbook `R_k = diag(1, e^{iπ/2^j})`
 /// rotations between every pair of qubits in the QFT span). Unlike the

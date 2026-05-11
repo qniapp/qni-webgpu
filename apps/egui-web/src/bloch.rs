@@ -15,7 +15,8 @@ use std::collections::HashMap;
 use crate::app::PlacedGate;
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::gates::{
-    controlled_phase_params, gate_params, gate_params_controlled, GateKind, GateParams,
+    controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
+    phase_params, GateKind, GateParams,
 };
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 
@@ -124,7 +125,26 @@ pub(crate) fn linearize_ops(
         targets.sort_by(|a, b| a.id.cmp(&b.id));
         for target in &targets {
             let bit = (qubits - 1 - target.wire) as u32;
-            let params = if control_mask == 0 {
+            // Phase gates carry an optional angle string ("π/2",
+            // "-π/128", …). When present we route through
+            // `phase_params(rad, …)` so the matrix carries the parsed
+            // angle; when absent we fall back to the editor's
+            // pre-parametric π/2 default (Phase's hard-coded matrix in
+            // `gate_matrix`). qni would instead error out at simulate
+            // time for a bare `P`.
+            let params = if target.kind == GateKind::Phase {
+                if let Some(angle_str) = target.angle.as_deref() {
+                    let radians = parse_angle_radians(angle_str)
+                        .unwrap_or(std::f32::consts::FRAC_PI_2);
+                    phase_params(radians, bit, control_mask, control_value, state_count)
+                } else if control_mask == 0 {
+                    gate_params(target.kind, bit, state_count)
+                } else {
+                    gate_params_controlled(
+                        target.kind, bit, control_mask, control_value, state_count,
+                    )
+                }
+            } else if control_mask == 0 {
                 gate_params(target.kind, bit, state_count)
             } else {
                 gate_params_controlled(target.kind, bit, control_mask, control_value, state_count)

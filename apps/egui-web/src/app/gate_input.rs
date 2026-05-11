@@ -174,6 +174,10 @@ impl QniApp {
                             ),
                             wire: 0,
                             span: 1,
+                            // Palette drop: no explicit angle yet — Phase
+                            // falls back to its π/2 default until a future
+                            // angle picker lets the user set one.
+                            angle: None,
                         };
                         self.next_gate_id += 1;
                         self.placed_gates.push(new_gate);

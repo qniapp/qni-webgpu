@@ -92,7 +92,7 @@ pub(crate) fn circuit_to_json(
         // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count).map(|_| "1".to_string()).collect();
         for gate in bucket {
-            let Some(token) = gate_token(gate.kind, gate.span) else {
+            let Some(token) = gate_token(gate.kind, gate.span, gate.angle.as_deref()) else {
                 continue;
             };
             if gate.wire < entries.len() {
@@ -112,10 +112,18 @@ pub(crate) fn circuit_to_json(
     format!(r#"{{"cols":[{}]}}"#, cols.join(","))
 }
 
-/// Map a gate kind + span to its URL token. `None` for kinds that
-/// shouldn't appear in the serialised circuit at all (currently no
-/// such kinds — every `GateKind` is serialisable).
-fn gate_token(kind: GateKind, span: usize) -> Option<String> {
+/// Map a gate kind + span + optional angle string to its URL token.
+/// `None` for kinds that shouldn't appear in the serialised circuit
+/// at all (currently no such kinds — every `GateKind` is
+/// serialisable).
+///
+/// `angle` is `Some` only for parametric `GateKind::Phase` and is
+/// emitted as `P(<angle>)` with `/` replaced by `_` so the literal
+/// fits cleanly into URL fragments — mirroring qni's
+/// `phase-gate-element.ts::toJson`. `None` (= "use the gate's
+/// default") emits the bare `"P"` token, matching qni's editor
+/// placeholder.
+fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String> {
     let s = match kind {
         GateKind::H => "H".to_string(),
         GateKind::X => "X".to_string(),
@@ -129,7 +137,10 @@ fn gate_token(kind: GateKind, span: usize) -> Option<String> {
         GateKind::Rx => "Rx".to_string(),
         GateKind::Ry => "Ry".to_string(),
         GateKind::Rz => "Rz".to_string(),
-        GateKind::Phase => "P".to_string(),
+        GateKind::Phase => match angle {
+            Some(a) if !a.is_empty() => format!("P({})", a.replacen('/', "_", 1)),
+            _ => "P".to_string(),
+        },
         GateKind::Swap => "Swap".to_string(),
         GateKind::Control => "•".to_string(),
         GateKind::AntiControl => "◦".to_string(),
@@ -312,7 +323,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             let Some(token) = entry.as_deref() else {
                 continue;
             };
-            let Some((kind, span)) = token_to_gate(token) else {
+            let Some((kind, span, angle)) = token_to_gate(token) else {
                 continue;
             };
             let line_y = LINE_Y + LINE_GAP * wire_idx as f32;
@@ -325,6 +336,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
                 ),
                 wire: wire_idx,
                 span,
+                angle,
             });
         }
     }
@@ -332,16 +344,40 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
 }
 
 /// Reverse of `gate_token`. Handles the `QFT<n>` / `QFT†<n>` span
-/// suffixes. Returns `None` for unrecognised tokens (e.g. tokens
-/// emitted by a future qni version we don't yet know about).
-fn token_to_gate(token: &str) -> Option<(GateKind, usize)> {
+/// suffixes and the parametric `P(<angle>)` form. Returns `None` for
+/// unrecognised tokens (e.g. tokens emitted by a future qni version
+/// we don't yet know about).
+///
+/// The third tuple slot is the angle string — `Some("π/2")` etc. —
+/// `None` for non-parametric gates and for bare `"P"` (which uses
+/// the editor's default angle).
+fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;
-        return Some((GateKind::QftDaggerGate, span.max(1)));
+        return Some((GateKind::QftDaggerGate, span.max(1), None));
     }
     if let Some(rest) = token.strip_prefix("QFT") {
         let span: usize = rest.parse().ok()?;
-        return Some((GateKind::QftGate, span.max(1)));
+        return Some((GateKind::QftGate, span.max(1), None));
+    }
+    // `P(<angle>)` — mirrors qni's
+    // `quantum-circuit-element.ts::angleParameter`: strip the outer
+    // parens, trim, replace the first `_` with `/` so the URL-safe
+    // `"π_2"` becomes the canonical `"π/2"`.
+    if let Some(rest) = token.strip_prefix("P(") {
+        if let Some(inner) = rest.strip_suffix(')') {
+            let trimmed = inner.trim();
+            let normalized = if let Some(idx) = trimmed.find('_') {
+                let mut s = String::with_capacity(trimmed.len());
+                s.push_str(&trimmed[..idx]);
+                s.push('/');
+                s.push_str(&trimmed[idx + 1..]);
+                s
+            } else {
+                trimmed.to_string()
+            };
+            return Some((GateKind::Phase, 1, Some(normalized)));
+        }
     }
     let kind = match token {
         "H" => GateKind::H,
@@ -367,7 +403,7 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize)> {
         "…" => GateKind::Spacer,
         _ => return None,
     };
-    Some((kind, 1))
+    Some((kind, 1, None))
 }
 
 /// Assign sequential ids starting from 1 and return the next available
