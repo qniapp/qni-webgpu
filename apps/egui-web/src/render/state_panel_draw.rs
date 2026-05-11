@@ -219,13 +219,20 @@ impl QniApp {
         display_index: u32,
     ) {
         let qubits = layout.qubits.max(1) as u32;
-        let state_index = display_index.reverse_bits() >> (32u32.saturating_sub(qubits));
+        // Label uses the cell's *display position* (= `display_index`)
+        // rather than the bit-reversed state-vector index. Matches
+        // qni's `circle-notation-element.ts:907` where
+        // `ket = col + row * colCount` — the same `(row, col)` the user
+        // is visually hovering. The fragment shader still reads
+        // `state[reverse_bits(display_index)]` for the amplitude /
+        // probability / phase columns, so the displayed numbers stay
+        // consistent with the cell the user is pointing at.
         let ket_binary = format!(
             "{:0width$b}",
-            state_index,
+            display_index,
             width = qubits as usize
         );
-        let header = format!("|{}⟩ decimal {}", ket_binary, state_index);
+        let header = format!("|{}⟩ decimal {}", ket_binary, display_index);
 
         let pitch = layout.cell_pitch();
         let cols = layout.columns().max(1);
