@@ -26,12 +26,11 @@ pub(crate) struct Colors {
     pub(crate) state_resize_handle_bottom_idle: egui::Color32,
     /// Bottom resize handle — while dragging.
     pub(crate) state_resize_handle_bottom_drag: egui::Color32,
-    /// QFT / QFT† gate body fill — purple-500 to match qni's visual
-    /// treatment of the resizable multi-qubit operator.
-    pub(crate) qft_fill: egui::Color32,
-    /// QFT resize-handle chrome (the chevron strip at the gate's bottom
-    /// edge that's revealed on hover). zinc-200 idle, zinc-400 on hover
-    /// — the icon color stays white for legibility on the purple body.
+    /// QFT / QFT† resize-handle chrome (the small chevron strip at the
+    /// gate's bottom edge that appears on hover). Purple-400 idle,
+    /// purple-500 on hover — matches qni's
+    /// `--qni-component-resize-handle-fill-color` and *-hovered.
+    /// The body itself is `box_fill` (green) like every other gate.
     pub(crate) qft_resize_handle_bg: egui::Color32,
     pub(crate) qft_resize_handle_bg_hover: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
@@ -81,14 +80,12 @@ impl Colors {
             state_resize_handle_top_drag: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
             state_resize_handle_bottom_idle: crate::shared::color_rgba(0.831, 0.831, 0.847, 1.0),
             state_resize_handle_bottom_drag: crate::shared::color_rgba(0.322, 0.322, 0.357, 1.0),
-            // qni's QFT gate is purple-500 (#a855f7) in practice. Shares
-            // the RGB with `drag_fill` but kept separate for semantic
-            // clarity — drag_fill is "ghost while dragging", qft_fill
-            // is "this gate is the QFT family".
-            qft_fill: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
-            // zinc-200 / zinc-400 — subtle bar at the gate's bottom edge.
-            qft_resize_handle_bg: crate::shared::color_rgba(0.894, 0.894, 0.910, 0.6),
-            qft_resize_handle_bg_hover: crate::shared::color_rgba(0.631, 0.631, 0.667, 0.9),
+            // qni `--qni-semantic-color-intermediate-light` (#c084fc =
+            // purple-400) idle; `--qni-semantic-color-intermediate`
+            // (#a855f7 = purple-500) on hover. White chevron icon for
+            // legibility on both shades.
+            qft_resize_handle_bg: crate::shared::color_rgba(0.753, 0.518, 0.988, 1.0),
+            qft_resize_handle_bg_hover: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
             // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
             // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
             bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),

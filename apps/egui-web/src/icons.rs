@@ -247,12 +247,12 @@ fn draw_gate_body_with_fill(
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
-        // QFT family — purple body, rounded rect spanning the full
-        // gate_rect (which the caller may have extended vertically for
-        // span > 1). "QFT" / "QFT†" label centred horizontally and
-        // anchored near the top so the bottom of the gate is free for
-        // the resize-handle chevron.
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.qft_fill);
+        // QFT family — same green body as the other unitary gates
+        // (qni `--qni-semantic-fill-color-primary`). "QFT" / "QFT†"
+        // label centred horizontally and anchored near the top of the
+        // gate; the bottom edge stays free for the purple resize-handle
+        // chevron that appears on hover.
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
         let label_y = gate_rect.min.y + crate::constants::GATE_SIZE * 0.5;
         let font_size = if kind == GateKind::QftDaggerGate { 12.0 } else { 14.0 };
         painter.text(
