@@ -52,10 +52,15 @@ pub(crate) enum SimulationOp {
 /// Within each column the order is: column unitaries / writes → measurements
 /// (reduce-sample then collapse) → bloch captures, mirroring qni's
 /// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
+/// `step_limit`: inclusive column index up to which to apply gates.
+/// `None` = apply everything (= final state). `Some(k)` truncates the
+/// linearisation after column k, so the GPU only runs the dispatches
+/// for slots `0..=k` — this powers the per-step state preview.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
     metrics: &LayoutMetrics,
+    step_limit: Option<usize>,
 ) -> Vec<SimulationOp> {
     if qubits == 0 || metrics.slot_centers.is_empty() {
         return Vec::new();
@@ -76,6 +81,9 @@ pub(crate) fn linearize_ops(
 
     let mut slot_indices: Vec<usize> = by_slot.keys().copied().collect();
     slot_indices.sort();
+    if let Some(limit) = step_limit {
+        slot_indices.retain(|&slot| slot <= limit);
+    }
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut bloch_slot: u32 = 0;

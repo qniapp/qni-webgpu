@@ -48,6 +48,41 @@ impl QniApp {
             painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
         }
 
+        // Step-preview vertical bars at the right edge of the
+        // hovered / breakpoint column. Hovered = 30% alpha (live
+        // preview), breakpoint = full opacity (locked-in step). Mirrors
+        // qni's `circuit-step::after` data-active / data-breakpoint
+        // styling.
+        if !metrics.line_ys.is_empty() && !metrics.slot_centers.is_empty() {
+            let top = metrics.line_ys[0] - crate::constants::LINE_GAP * 0.5;
+            let bot = metrics.line_ys[metrics.line_ys.len() - 1]
+                + crate::constants::LINE_GAP * 0.5;
+            let step_line = |painter: &egui::Painter, slot: usize, alpha: u8| {
+                if slot >= metrics.slot_centers.len() {
+                    return;
+                }
+                let x = metrics.slot_centers[slot]
+                    + crate::constants::SLOT_SPACING * 0.5
+                    + rect.min.x;
+                let color = egui::Color32::from_rgba_unmultiplied(14, 165, 233, alpha);
+                painter.line_segment(
+                    [
+                        egui::pos2(x, rect.min.y + top),
+                        egui::pos2(x, rect.min.y + bot),
+                    ],
+                    egui::Stroke::new(3.0, color),
+                );
+            };
+            if let Some(step) = self.breakpoint_step {
+                step_line(painter, step, 255);
+            }
+            if let Some(step) = self.hovered_step {
+                if Some(step) != self.breakpoint_step {
+                    step_line(painter, step, 80);
+                }
+            }
+        }
+
         if !fast_drag {
             let mut control_groups: HashMap<usize, (Vec<egui::Pos2>, Vec<egui::Pos2>)> =
                 HashMap::new();

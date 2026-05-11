@@ -109,6 +109,15 @@ pub(crate) struct QniApp {
     pub(crate) hovered_qft_resize_handle: Option<u32>,
     /// In-flight QFT span-resize drag (only one at a time).
     pub(crate) qft_resize_drag: Option<QftResizeDrag>,
+    /// Column index the pointer is currently hovering over for the
+    /// step-preview interaction. Drives the live "state-vector at step
+    /// k" preview without committing — drops back to `breakpoint_step`
+    /// when the pointer leaves the slot row.
+    pub(crate) hovered_step: Option<usize>,
+    /// Column index the user clicked to "lock in" as the step shown.
+    /// `None` means: show the final-state (all columns applied), which
+    /// is the default.
+    pub(crate) breakpoint_step: Option<usize>,
     /// `aspect_index = log2(cols)`. Determines (cols, rows) =
     /// (2^aspect_index, 2^(qubits − aspect_index)) for the state-vector
     /// circle grid. Mutated by wheel-on-dims (A 案) or popover (D 案).
@@ -184,6 +193,8 @@ impl QniApp {
             hovered_resize_corner: None,
             hovered_qft_resize_handle: None,
             qft_resize_drag: None,
+            hovered_step: None,
+            breakpoint_step: None,
             aspect_index: state_circle_default_aspect_index(1),
             aspect_customized: false,
             aspect_popover_open: false,
@@ -264,7 +275,11 @@ impl QniApp {
                 self.last_state_count = state_count;
                 let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
                 let qubits = self.state_qubits();
-                self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
+                // hovered wins over breakpoint (live preview); `None`
+                // for both = apply every column = final state.
+                let step_limit = self.hovered_step.or(self.breakpoint_step);
+                self.sim_ops =
+                    linearize_ops(&self.placed_gates, qubits, &sim_metrics, step_limit);
                 self.bloch_slots.clear();
                 self.measurement_slots.clear();
                 for op in &self.sim_ops {

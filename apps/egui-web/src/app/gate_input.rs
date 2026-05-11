@@ -8,12 +8,39 @@ use super::{DragState, PlacedGate, QftResizeDrag, QniApp};
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
     DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, LINE_GAP, PALETTE_GATES, PALETTE_ROW_Y, QFT_MAX_SPAN,
-    SNAP_DISTANCE,
+    SLOT_SPACING, SNAP_DISTANCE,
 };
 use crate::layout::{
-    gate_visible_rect, layout_metrics, nearest_available_slot, nearest_line, palette_hit_test,
-    palette_layout, qft_resize_handle_rect,
+    gate_visible_rect, layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index,
+    palette_hit_test, palette_layout, qft_resize_handle_rect, LayoutMetrics,
 };
+
+/// Column index the pointer is hovering over for the step-preview
+/// interaction. Returns `None` when the cursor is outside the slot
+/// row (above the top wire, below the bottom wire, or to the side of
+/// the slot range). Steps map 1:1 to slots, so the index is the slot
+/// the cursor would snap to if a gate were dropped here.
+fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<usize> {
+    if metrics.slot_centers.is_empty() || metrics.line_ys.is_empty() {
+        return None;
+    }
+    let top = metrics.line_ys[0] - LINE_GAP * 0.5;
+    let bottom = metrics.line_ys[metrics.line_ys.len() - 1] + LINE_GAP * 0.5;
+    if cursor.y < top || cursor.y > bottom {
+        return None;
+    }
+    if cursor.x < metrics.slot_left - SLOT_SPACING * 0.5
+        || cursor.x > metrics.slot_right + SLOT_SPACING * 0.5
+    {
+        return None;
+    }
+    let (slot, dist) = nearest_slot_index(cursor.x, &metrics.slot_centers)?;
+    if dist <= SLOT_SPACING * 0.5 {
+        Some(slot)
+    } else {
+        None
+    }
+}
 use crate::shared::now_seconds;
 
 impl QniApp {
@@ -162,6 +189,17 @@ impl QniApp {
                         return;
                     }
                 }
+
+                // No gate / palette under the cursor. If we're inside a
+                // step slot, lock the breakpoint to that column.
+                if let Some(step) = step_at_cursor(cursor, &metrics) {
+                    if self.breakpoint_step != Some(step) {
+                        self.breakpoint_step = Some(step);
+                        self.needs_recompute = true;
+                        ctx.request_repaint();
+                    }
+                    return;
+                }
             }
         }
 
@@ -221,6 +259,16 @@ impl QniApp {
             self.hovered_gate_id = hovered_gate;
             self.hovered_qft_resize_handle = hovered_handle;
 
+            // Step preview: which column is the cursor on? Changes
+            // trigger a recompute so the state-vector panel reflects
+            // the new step in real time.
+            let new_hovered_step = step_at_cursor(cursor, &metrics);
+            if new_hovered_step != self.hovered_step {
+                self.hovered_step = new_hovered_step;
+                self.needs_recompute = true;
+                ctx.request_repaint();
+            }
+
             let mut hovered_palette = None;
             if let Some(cursor_screen) = pos {
                 if palette_rect.contains(cursor_screen) {
@@ -236,6 +284,10 @@ impl QniApp {
             self.hovered_gate_id = None;
             self.hovered_qft_resize_handle = None;
             self.hovered_palette_index = None;
+            if self.hovered_step.is_some() {
+                self.hovered_step = None;
+                self.needs_recompute = true;
+            }
         }
 
         if pointer_released {
