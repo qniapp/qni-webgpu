@@ -90,8 +90,11 @@ impl Colors {
             // the hover brightness(0.9) darken still reads against the
             // pale base.
             state_fill: crate::shared::color_rgba(0.400, 0.627, 0.784, 1.0),
-            // tx — state-vector outline (non-zero amplitude).
-            state_outline: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
+            // tx-2 — state-vector outline (non-zero amplitude). Lighter
+            // than the needle so the border reads as chrome / surround
+            // and the needle as the data. Matches qni's split: outline
+            // slate-500, needle slate-900.
+            state_outline: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
             // ui-2 — outline for zero-amplitude circles.
             state_outline_zero: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
             // tx — phase-needle line.
