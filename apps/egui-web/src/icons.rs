@@ -204,13 +204,17 @@ fn draw_qft_lettering(
     dagger: bool,
     color: egui::Color32,
 ) {
+    // Stroke width is *always* derived from a 48-unit reference
+    // viewbox so the line thickness matches every other gate icon
+    // (H / Y / Z / …) regardless of which SVG's viewBox a sub-letter
+    // came from. qni's SVGs all use `non-scaling-stroke` for the same
+    // reason.
+    let stroke = egui::Stroke::new(2.0 * rect.width() / 48.0, color);
     if dagger {
         // qni/packages/elements/icon/qft-dagger-gate.svg (viewBox 32×32).
         // The QFT lettering is shifted left to make room for a small †
         // mark at the top-right.
-        let viewbox = 32.0;
-        let scale = rect.width() / viewbox;
-        let stroke = egui::Stroke::new(2.0 * scale, color);
+        let scale = rect.width() / 32.0;
         let p = |x: f32, y: f32| egui::pos2(rect.min.x + x * scale, rect.min.y + y * scale);
         // Q (open circle + short diagonal tail). The original SVG's
         // tail uses a transformed line; the endpoints below are the
@@ -229,9 +233,7 @@ fn draw_qft_lettering(
         painter.line_segment([p(27.7, 6.0), p(27.7, 11.0)], stroke);
     } else {
         // qni/packages/elements/icon/qft-gate.svg (viewBox 48×48).
-        let viewbox = 48.0;
-        let scale = rect.width() / viewbox;
-        let stroke = egui::Stroke::new(2.0 * scale, color);
+        let scale = rect.width() / 48.0;
         let p = |x: f32, y: f32| egui::pos2(rect.min.x + x * scale, rect.min.y + y * scale);
         // Q (open circle + tail).
         painter.circle_stroke(p(11.5, 23.5), 5.5 * scale, stroke);
