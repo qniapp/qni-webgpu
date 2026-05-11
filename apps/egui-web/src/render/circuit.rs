@@ -181,6 +181,65 @@ impl QniApp {
                     painter.line_segment([top, bottom], swap_stroke);
                 }
             }
+
+            // Phase-Phase connector. qni's
+            // `circuit-step-element.ts::updatePhasePhaseConnections`
+            // (:566-602) draws a connector between same-angle Phase
+            // gates in the same column. Semantically it's a *visual*
+            // pairing only — qni's simulator still runs each Phase
+            // independently (`simulator.ts::cu` :413-417 loops over
+            // targets and applies the same 2x2 to each in turn), so we
+            // mirror just the line rendering. Phases with no angle
+            // (qni's empty placeholder) are skipped per :573.
+            let mut phase_groups: HashMap<usize, HashMap<String, Vec<egui::Pos2>>> =
+                HashMap::new();
+            for gate in &self.placed_gates {
+                if gate.kind != GateKind::Phase {
+                    continue;
+                }
+                let angle = gate.angle.as_deref().unwrap_or("");
+                if angle.is_empty() {
+                    continue;
+                }
+                let center_x = gate.pos.x + GATE_SIZE / 2.0;
+                if let Some((slot_index, distance)) =
+                    nearest_slot_index(center_x, &metrics.slot_centers)
+                {
+                    if distance > SNAP_DISTANCE {
+                        continue;
+                    }
+                    let center = rect.min
+                        + gate.pos.to_vec2()
+                        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+                    phase_groups
+                        .entry(slot_index)
+                        .or_default()
+                        .entry(angle.to_string())
+                        .or_default()
+                        .push(center);
+                }
+            }
+            for (_, angle_buckets) in phase_groups {
+                for (_, points) in angle_buckets {
+                    if points.len() < 2 {
+                        continue;
+                    }
+                    let mut min_y = f32::INFINITY;
+                    let mut max_y = f32::NEG_INFINITY;
+                    let mut xs = Vec::with_capacity(points.len());
+                    for point in &points {
+                        min_y = min_y.min(point.y);
+                        max_y = max_y.max(point.y);
+                        xs.push(point.x);
+                    }
+                    let x = xs.iter().sum::<f32>() / xs.len() as f32;
+                    let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+                    painter.line_segment(
+                        [egui::pos2(x, min_y), egui::pos2(x, max_y)],
+                        stroke,
+                    );
+                }
+            }
         }
 
         for gate in &self.placed_gates {
