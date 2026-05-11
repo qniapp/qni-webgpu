@@ -6,9 +6,8 @@ use std::time::Duration;
 
 use super::{DragState, PlacedGate, QftResizeDrag, QniApp};
 use crate::constants::{
-    DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
-    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, LINE_GAP, PALETTE_GATES, PALETTE_ROW_Y, QFT_MAX_SPAN,
-    SLOT_SPACING, SNAP_DISTANCE,
+    DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR,
+    GATE_SIZE, LINE_GAP, PALETTE_GATES, PALETTE_ROW_Y, QFT_MAX_SPAN, SLOT_SPACING, SNAP_DISTANCE,
 };
 use crate::layout::{
     gate_visible_rect, layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index,
@@ -98,7 +97,11 @@ impl QniApp {
         let cursor_in_circuit = pos.is_some_and(|p| content_rect.contains(p));
         if cursor_in_circuit {
             let (raw_dx, raw_dy, shift) = ctx.input(|i| {
-                (i.smooth_scroll_delta.x, i.smooth_scroll_delta.y, i.modifiers.shift)
+                (
+                    i.smooth_scroll_delta.x,
+                    i.smooth_scroll_delta.y,
+                    i.modifiers.shift,
+                )
             });
             let dx = if raw_dx.abs() > raw_dy.abs() || !shift {
                 raw_dx
@@ -106,22 +109,19 @@ impl QniApp {
                 raw_dy
             };
             if dx != 0.0 {
-                let max_scroll = (metrics.line_right
-                    + crate::constants::CIRCUIT_PADDING
+                let max_scroll = (metrics.line_right + crate::constants::CIRCUIT_PADDING
                     - content_rect.width())
-                    .max(0.0);
-                self.circuit_scroll_x =
-                    (self.circuit_scroll_x - dx).clamp(0.0, max_scroll);
+                .max(0.0);
+                self.circuit_scroll_x = (self.circuit_scroll_x - dx).clamp(0.0, max_scroll);
                 ctx.request_repaint();
             }
         }
         // After the scroll update, force a clamp so newly-loaded
         // circuits or window resizes never leave us scrolled past the
         // current content extent.
-        let max_scroll = (metrics.line_right
-            + crate::constants::CIRCUIT_PADDING
+        let max_scroll = (metrics.line_right + crate::constants::CIRCUIT_PADDING
             - content_rect.width())
-            .max(0.0);
+        .max(0.0);
         if self.circuit_scroll_x > max_scroll {
             self.circuit_scroll_x = max_scroll;
         }
@@ -166,9 +166,9 @@ impl QniApp {
                     // One LINE_GAP of drag = one extra wire. Round to
                     // the nearest integer so the snap feels positive.
                     let span_delta = (delta_y / LINE_GAP).round() as i32;
-                    let new_span = (drag.start_span as i32 + span_delta).clamp(1, QFT_MAX_SPAN as i32) as usize;
-                    if let Some(index) =
-                        self.placed_gates.iter().position(|g| g.id == drag.gate_id)
+                    let new_span = (drag.start_span as i32 + span_delta)
+                        .clamp(1, QFT_MAX_SPAN as i32) as usize;
+                    if let Some(index) = self.placed_gates.iter().position(|g| g.id == drag.gate_id)
                     {
                         if self.placed_gates[index].span != new_span {
                             self.placed_gates[index].span = new_span;
@@ -223,10 +223,7 @@ impl QniApp {
                         let new_gate = PlacedGate {
                             id: new_id,
                             kind: PALETTE_GATES[index],
-                            pos: egui::pos2(
-                                cursor.x - GATE_SIZE / 2.0,
-                                cursor.y - GATE_SIZE / 2.0,
-                            ),
+                            pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
                             wire: 0,
                             span: 1,
                             // Palette drop: no explicit angle yet — Phase

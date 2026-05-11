@@ -46,7 +46,11 @@ impl QniApp {
         } else {
             delta.x
         };
-        let dh = if drag.corner.is_top() { -delta.y } else { delta.y };
+        let dh = if drag.corner.is_top() {
+            -delta.y
+        } else {
+            delta.y
+        };
         let new_w = (drag.start_viewport_size.x + dw)
             .clamp(STATE_VIEWPORT_MIN_WIDTH, STATE_VIEWPORT_MAX_WIDTH);
         let new_h = (drag.start_viewport_size.y + dh)
@@ -64,7 +68,11 @@ impl QniApp {
         } else {
             eff_dw
         };
-        let eff_dy = if drag.corner.is_top() { -eff_dh } else { eff_dh };
+        let eff_dy = if drag.corner.is_top() {
+            -eff_dh
+        } else {
+            eff_dh
+        };
         self.state_viewport_size = egui::vec2(new_w, new_h);
         // Auto-centred horizontally → compensate by eff_dx/2 regardless of corner.
         self.state_panel_offset.x = drag.start_panel_offset.x + eff_dx / 2.0;
@@ -106,7 +114,9 @@ impl QniApp {
     ) -> bool {
         let state_count = self.state_count();
         let pre_state_layout = self.state_panel_layout(screen_rect, state_count);
-        let pre_state_rect = pre_state_layout.state_rect.translate(self.state_panel_offset);
+        let pre_state_rect = pre_state_layout
+            .state_rect
+            .translate(self.state_panel_offset);
         let pre_popover_rect = if self.aspect_popover_open {
             let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel_offset);
             let (rect, _) = QniApp::aspect_popover_layout(
@@ -118,10 +128,7 @@ impl QniApp {
             None
         };
         ctx.input(|i| i.pointer.hover_pos())
-            .map(|p| {
-                pre_state_rect.contains(p)
-                    || pre_popover_rect.map_or(false, |r| r.contains(p))
-            })
+            .map(|p| pre_state_rect.contains(p) || pre_popover_rect.is_some_and(|r| r.contains(p)))
             .unwrap_or(false)
     }
 
@@ -176,7 +183,9 @@ impl QniApp {
         screen_rect: egui::Rect,
         state_count: usize,
     ) {
-        let viewport_rect = state_layout.viewport_rect.translate(self.state_panel_offset);
+        let viewport_rect = state_layout
+            .viewport_rect
+            .translate(self.state_panel_offset);
         let viewport_response = ui.interact(
             viewport_rect,
             egui::Id::new("state_panel_viewport"),
@@ -266,11 +275,7 @@ impl QniApp {
         aspect_qubits: usize,
         dims_hit: egui::Rect,
     ) {
-        let dims_resp = ui.interact(
-            dims_hit,
-            egui::Id::new("state_dims"),
-            egui::Sense::click(),
-        );
+        let dims_resp = ui.interact(dims_hit, egui::Id::new("state_dims"), egui::Sense::click());
         if dims_resp.hovered() {
             let plain_scroll = ctx.input(|i| {
                 if i.modifiers.ctrl || i.modifiers.command {
@@ -291,8 +296,8 @@ impl QniApp {
                     steps += 1; // negative scroll → wider (cols +1)
                 }
                 if steps != 0 {
-                    let new_aspect = (self.aspect_index as i32 + steps)
-                        .clamp(0, aspect_qubits as i32) as usize;
+                    let new_aspect =
+                        (self.aspect_index as i32 + steps).clamp(0, aspect_qubits as i32) as usize;
                     if new_aspect != self.aspect_index {
                         self.aspect_index = new_aspect;
                         self.aspect_customized = true;
@@ -324,8 +329,7 @@ impl QniApp {
         dims_hit: egui::Rect,
     ) {
         if self.aspect_popover_open {
-            let (popover_rect, row_rects) =
-                QniApp::aspect_popover_layout(dims_hit, aspect_qubits);
+            let (popover_rect, row_rects) = QniApp::aspect_popover_layout(dims_hit, aspect_qubits);
             for (i, row_rect) in row_rects.iter().enumerate() {
                 let resp = ui.interact(
                     *row_rect,
@@ -373,11 +377,7 @@ impl QniApp {
             ResizeCorner::BottomLeft,
             ResizeCorner::BottomRight,
         ] {
-            let hit = QniApp::resize_handle_hit_rect(
-                state_layout,
-                self.state_panel_offset,
-                corner,
-            );
+            let hit = QniApp::resize_handle_hit_rect(state_layout, self.state_panel_offset, corner);
             let id_label = match corner {
                 ResizeCorner::TopLeft => "state_resize_tl",
                 ResizeCorner::TopRight => "state_resize_tr",

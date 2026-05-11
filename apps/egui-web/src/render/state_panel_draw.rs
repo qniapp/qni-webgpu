@@ -5,6 +5,7 @@
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
+use super::state_panel_layout::StatePanelLayout;
 use crate::app::{QniApp, ResizeCorner};
 use crate::colors::Colors;
 use crate::constants::{
@@ -13,7 +14,6 @@ use crate::constants::{
 use crate::gpu::{
     PopupValueCallback, RenderColors, StateVectorCallback, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
-use super::state_panel_layout::StatePanelLayout;
 
 impl QniApp {
     #[allow(clippy::too_many_arguments)]
@@ -69,8 +69,16 @@ impl QniApp {
         // both blue-on-paper "card chrome" text sits at the same step on
         // the type scale.
         let strip_font = egui::FontId::monospace(14.0);
-        let qubits_label = if layout.qubits == 1 { "qubit" } else { "qubits" };
-        let states_label = if layout.state_count == 1 { "state" } else { "states" };
+        let qubits_label = if layout.qubits == 1 {
+            "qubit"
+        } else {
+            "qubits"
+        };
+        let states_label = if layout.state_count == 1 {
+            "state"
+        } else {
+            "states"
+        };
         let qubits_text = format!("{} {}", layout.qubits, qubits_label);
         let rows = layout.state_count / layout.columns.max(1);
         // " ▾" indicates the dimensions text opens the aspect popover.
@@ -205,10 +213,10 @@ impl QniApp {
     ///
     /// Numeric amplitude / probability / phase values are placeholders
     /// for now — the actual values live on the GPU and reading them
-    /// back per-hover requires either a one-shot copy_buffer_to_buffer
-    /// + map_async (mild violation of the "no readback in production"
-    /// rule but on-demand, not per-frame) or a shader-side text
-    /// renderer. Chrome first; wire up values in a follow-up.
+    /// back per-hover requires either a one-shot `copy_buffer_to_buffer`
+    /// followed by `map_async` (mild violation of the "no readback in
+    /// production" rule but on-demand, not per-frame) or a shader-side
+    /// text renderer. Chrome first; wire up values in a follow-up.
     fn draw_state_cell_popup(
         painter: &egui::Painter,
         colors: &Colors,
@@ -227,11 +235,7 @@ impl QniApp {
         // `state[reverse_bits(display_index)]` for the amplitude /
         // probability / phase columns, so the displayed numbers stay
         // consistent with the cell the user is pointing at.
-        let ket_binary = format!(
-            "{:0width$b}",
-            display_index,
-            width = qubits as usize
-        );
+        let ket_binary = format!("{:0width$b}", display_index, width = qubits as usize);
         let header = format!("|{}⟩ decimal {}", ket_binary, display_index);
 
         let pitch = layout.cell_pitch();
@@ -437,10 +441,8 @@ impl QniApp {
                 ROW_H * 3.0,
             ),
         );
-        let paint_callback = egui_wgpu::Callback::new_paint_callback(
-            screen_rect,
-            popup_value_callback,
-        );
+        let paint_callback =
+            egui_wgpu::Callback::new_paint_callback(screen_rect, popup_value_callback);
         let clipped = painter.with_clip_rect(value_rect);
         clipped.add(egui::Shape::Callback(paint_callback));
     }
@@ -589,8 +591,7 @@ impl QniApp {
             );
             let slot_rect =
                 egui::Rect::from_min_size(slot_min, egui::vec2(THUMB_SLOT_W, THUMB_SLOT_H));
-            let aspect_scale =
-                (THUMB_SLOT_W / cols as f32).min(THUMB_SLOT_H / layout_rows as f32);
+            let aspect_scale = (THUMB_SLOT_W / cols as f32).min(THUMB_SLOT_H / layout_rows as f32);
             let thumb_w = (cols as f32 * aspect_scale).max(1.0);
             let thumb_h = (layout_rows as f32 * aspect_scale).max(1.0);
             let thumb_min = egui::pos2(
@@ -615,7 +616,10 @@ impl QniApp {
                 colors.text
             };
             painter.text(
-                egui::pos2(row_rect.min.x + 8.0 + THUMB_SLOT_W + 12.0, row_rect.center().y),
+                egui::pos2(
+                    row_rect.min.x + 8.0 + THUMB_SLOT_W + 12.0,
+                    row_rect.center().y,
+                ),
                 egui::Align2::LEFT_CENTER,
                 label,
                 label_font.clone(),
@@ -661,13 +665,15 @@ impl QniApp {
         // visually that's "along the corner curve").
         let (center, start_angle) = match corner {
             ResizeCorner::TopLeft => (state_rect.min + egui::vec2(r, r), PI),
-            ResizeCorner::TopRight => {
-                (egui::pos2(state_rect.max.x - r, state_rect.min.y + r), -PI / 2.0)
-            }
+            ResizeCorner::TopRight => (
+                egui::pos2(state_rect.max.x - r, state_rect.min.y + r),
+                -PI / 2.0,
+            ),
             ResizeCorner::BottomRight => (state_rect.max - egui::vec2(r, r), 0.0),
-            ResizeCorner::BottomLeft => {
-                (egui::pos2(state_rect.min.x + r, state_rect.max.y - r), PI / 2.0)
-            }
+            ResizeCorner::BottomLeft => (
+                egui::pos2(state_rect.min.x + r, state_rect.max.y - r),
+                PI / 2.0,
+            ),
         };
         const ARC_SEGMENTS: usize = 16;
         let mut points: Vec<egui::Pos2> = Vec::with_capacity(ARC_SEGMENTS + 1);

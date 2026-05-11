@@ -32,8 +32,13 @@ pub(super) fn rasterize_digit_atlas() -> Vec<u8> {
     let mut atlas = vec![0u8; (DIGIT_ATLAS_WIDTH * DIGIT_ATLAS_HEIGHT) as usize];
     for (cell_index, ch) in ['0', '1'].iter().enumerate() {
         let glyph_id = font.glyph_id(*ch);
-        let glyph =
-            glyph_id.with_scale_and_position(scale, ab_glyph::Point { x: 0.0, y: scaled.ascent() });
+        let glyph = glyph_id.with_scale_and_position(
+            scale,
+            ab_glyph::Point {
+                x: 0.0,
+                y: scaled.ascent(),
+            },
+        );
         let Some(outlined) = font.outline_glyph(glyph) else {
             continue;
         };

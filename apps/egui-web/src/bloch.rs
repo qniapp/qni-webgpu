@@ -66,7 +66,7 @@ pub(crate) fn linearize_ops(
     if qubits == 0 || metrics.slot_centers.is_empty() {
         return Vec::new();
     }
-    let state_count = (1u32 << qubits) as u32;
+    let state_count = 1u32 << qubits;
 
     let mut by_slot: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
     for gate in placed_gates {
@@ -172,9 +172,8 @@ pub(crate) fn linearize_ops(
             // pre-parametric π/2 default (the gate's hard-coded matrix
             // in `gate_matrix`). qni would instead error out at
             // simulate time for a bare `P` / `Rx` / `Ry` / `Rz`.
-            let parametric_builder: Option<
-                fn(f32, u32, u32, u32, u32) -> crate::gates::GateParams,
-            > = match target.kind {
+            type ParametricBuilder = fn(f32, u32, u32, u32, u32) -> crate::gates::GateParams;
+            let parametric_builder: Option<ParametricBuilder> = match target.kind {
                 GateKind::Phase => Some(phase_params),
                 GateKind::Rx => Some(rx_params),
                 GateKind::Ry => Some(ry_params),
@@ -183,14 +182,18 @@ pub(crate) fn linearize_ops(
             };
             let params = if let Some(build) = parametric_builder {
                 if let Some(angle_str) = target.angle.as_deref() {
-                    let radians = parse_angle_radians(angle_str)
-                        .unwrap_or(std::f32::consts::FRAC_PI_2);
+                    let radians =
+                        parse_angle_radians(angle_str).unwrap_or(std::f32::consts::FRAC_PI_2);
                     build(radians, bit, control_mask, control_value, state_count)
                 } else if control_mask == 0 {
                     gate_params(target.kind, bit, state_count)
                 } else {
                     gate_params_controlled(
-                        target.kind, bit, control_mask, control_value, state_count,
+                        target.kind,
+                        bit,
+                        control_mask,
+                        control_value,
+                        state_count,
                     )
                 }
             } else if control_mask == 0 {

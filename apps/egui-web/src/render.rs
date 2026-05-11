@@ -8,7 +8,7 @@
 //! Nothing else lives here.
 
 mod circuit;
-mod state_panel_layout;
 mod state_panel_draw;
+mod state_panel_layout;
 
 pub(crate) use state_panel_layout::StatePanelLayout;

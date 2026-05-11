@@ -103,8 +103,7 @@ pub(crate) fn draw_meter_icon(painter: &egui::Painter, rect: egui::Rect, color: 
         .map(|pos| map_svg_point_in_rect(rect, SvgPoint::new(pos.x, pos.y), viewbox))
         .collect();
     painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-        arc_points,
-        stroke,
+        arc_points, stroke,
     )));
     painter.line_segment([p(24.625, 33.5), p(37.75, 11.0)], stroke);
     // qni's SVG pivot is a 1.875-radius circle with stroke-width=3 outset
@@ -252,11 +251,7 @@ fn draw_qft_lettering(
 /// (▽/△ stacked) shown on hover. The `rect` is the handle's bounding
 /// box at the bottom of the gate body; `bg` colours the strip behind
 /// the chevron (idle / hover variants).
-pub(crate) fn draw_qft_resize_handle(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    bg: egui::Color32,
-) {
+pub(crate) fn draw_qft_resize_handle(painter: &egui::Painter, rect: egui::Rect, bg: egui::Color32) {
     painter.rect_filled(rect, egui::CornerRadius::same(6), bg);
     // Two stacked triangles forming a vertical chevron selector.
     let cx = rect.center().x;
@@ -351,27 +346,25 @@ fn draw_gate_body_with_fill(
     {
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
     }
-    let icon_color = if kind == GateKind::Control
-        || kind == GateKind::AntiControl
-        || kind == GateKind::Swap
-    {
-        fill
-    } else if kind == GateKind::BlochDisplay {
-        colors.bloch_sphere_lines
-    } else if kind == GateKind::Measurement {
-        // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
-        colors.semantic_intermediate
-    } else if kind == GateKind::Spacer {
-        // qni `spacer_gate.css`: text-neutral-900 (#171717).
-        colors.spacer_dots
-    } else if kind == GateKind::Write0 || kind == GateKind::Write1 {
-        // qni `write_gate.css`: ::part(icon) (the brackets) is
-        // semantic-fill-color-disabled (zinc-500). Only the digit itself
-        // is red/blue — handled inside draw_gate_icon.
-        colors.semantic_disabled
-    } else {
-        colors.label
-    };
+    let icon_color =
+        if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
+            fill
+        } else if kind == GateKind::BlochDisplay {
+            colors.bloch_sphere_lines
+        } else if kind == GateKind::Measurement {
+            // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
+            colors.semantic_intermediate
+        } else if kind == GateKind::Spacer {
+            // qni `spacer_gate.css`: text-neutral-900 (#171717).
+            colors.spacer_dots
+        } else if kind == GateKind::Write0 || kind == GateKind::Write1 {
+            // qni `write_gate.css`: ::part(icon) (the brackets) is
+            // semantic-fill-color-disabled (zinc-500). Only the digit itself
+            // is red/blue — handled inside draw_gate_icon.
+            colors.semantic_disabled
+        } else {
+            colors.label
+        };
     if !draw_gate_icon(painter, gate_rect, kind, icon_color, colors) {
         painter.text(
             gate_rect.center(),
@@ -454,7 +447,11 @@ fn draw_gate_icon(
         }
         GateKind::AntiControl => {
             let anti_control_stroke = egui::Stroke::new(ANTI_CONTROL_STROKE_WIDTH * scale, color);
-            painter.circle_stroke(p(24.0, 24.0), ANTI_CONTROL_RADIUS * scale, anti_control_stroke);
+            painter.circle_stroke(
+                p(24.0, 24.0),
+                ANTI_CONTROL_RADIUS * scale,
+                anti_control_stroke,
+            );
             true
         }
         GateKind::X => {

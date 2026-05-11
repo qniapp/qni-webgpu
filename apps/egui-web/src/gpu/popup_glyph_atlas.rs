@@ -69,8 +69,13 @@ pub(super) fn rasterize_popup_glyph_atlas() -> Vec<u8> {
     let mut atlas = vec![0u8; (POPUP_GLYPH_ATLAS_WIDTH * POPUP_GLYPH_ATLAS_HEIGHT) as usize];
     for (cell_index, ch) in POPUP_GLYPHS.iter().enumerate() {
         let glyph_id = font.glyph_id(*ch);
-        let glyph =
-            glyph_id.with_scale_and_position(scale, ab_glyph::Point { x: 0.0, y: scaled.ascent() });
+        let glyph = glyph_id.with_scale_and_position(
+            scale,
+            ab_glyph::Point {
+                x: 0.0,
+                y: scaled.ascent(),
+            },
+        );
         let Some(outlined) = font.outline_glyph(glyph) else {
             continue;
         };
@@ -147,10 +152,8 @@ mod tests {
             let last_col_of_prev = boundary * POPUP_GLYPH_CELL_W - 1;
             let first_col_of_next = boundary * POPUP_GLYPH_CELL_W;
             for y in 0..POPUP_GLYPH_ATLAS_HEIGHT {
-                let prev_px = atlas
-                    [(y * POPUP_GLYPH_ATLAS_WIDTH + last_col_of_prev) as usize];
-                let next_px = atlas
-                    [(y * POPUP_GLYPH_ATLAS_WIDTH + first_col_of_next) as usize];
+                let prev_px = atlas[(y * POPUP_GLYPH_ATLAS_WIDTH + last_col_of_prev) as usize];
+                let next_px = atlas[(y * POPUP_GLYPH_ATLAS_WIDTH + first_col_of_next) as usize];
                 // Allow a touch of antialiasing fringe (≤ 32/255 ≈
                 // 12 %), but anything brighter means a glyph spilled
                 // past the cell.

@@ -17,15 +17,14 @@ impl QniApp {
         while self.fps_hud_cpu_history.len() > 120 {
             self.fps_hud_cpu_history.pop_front();
         }
-        let avg_dt = self.fps_hud_history.iter().sum::<f32>()
-            / self.fps_hud_history.len().max(1) as f32;
+        let avg_dt =
+            self.fps_hud_history.iter().sum::<f32>() / self.fps_hud_history.len().max(1) as f32;
         let avg_cpu = self.fps_hud_cpu_history.iter().sum::<f32>()
             / self.fps_hud_cpu_history.len().max(1) as f32;
         let avg_svp = if self.fps_hud_svp_history.is_empty() {
             0.0
         } else {
-            self.fps_hud_svp_history.iter().sum::<f32>()
-                / self.fps_hud_svp_history.len() as f32
+            self.fps_hud_svp_history.iter().sum::<f32>() / self.fps_hud_svp_history.len() as f32
         };
         let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
         egui::Window::new("perf_hud")

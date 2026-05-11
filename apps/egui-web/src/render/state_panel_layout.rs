@@ -207,9 +207,7 @@ impl QniApp {
         // up with what the user actually sees.
         let font = egui::FontId::monospace(14.0);
         let text = Self::dims_text(layout);
-        let size = ctx.fonts_mut(|f| {
-            f.layout_no_wrap(text, font, egui::Color32::WHITE).size()
-        });
+        let size = ctx.fonts_mut(|f| f.layout_no_wrap(text, font, egui::Color32::WHITE).size());
         let right_center = handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0);
         let visible = egui::Rect::from_min_max(
             egui::pos2(right_center.x - size.x, right_center.y - size.y / 2.0),
@@ -262,9 +260,7 @@ impl QniApp {
         let state_rect = layout.state_rect.translate(offset);
         let r = STATE_PANEL_CORNER_RADIUS;
         let base = match corner {
-            ResizeCorner::TopLeft => {
-                egui::Rect::from_min_size(state_rect.min, egui::vec2(r, r))
-            }
+            ResizeCorner::TopLeft => egui::Rect::from_min_size(state_rect.min, egui::vec2(r, r)),
             ResizeCorner::TopRight => egui::Rect::from_min_size(
                 egui::pos2(state_rect.max.x - r, state_rect.min.y),
                 egui::vec2(r, r),
@@ -281,11 +277,7 @@ impl QniApp {
         base.expand(STATE_RESIZE_HIT_PAD)
     }
 
-    pub(crate) fn clamp_state_panel_offset(
-        &mut self,
-        layout: &StatePanelLayout,
-        rect: egui::Rect,
-    ) {
+    pub(crate) fn clamp_state_panel_offset(&mut self, layout: &StatePanelLayout, rect: egui::Rect) {
         // The whole panel may extend past the screen edges (especially for
         // 16-qubit grids that are wider than the canvas), but the drag
         // handle must stay reachable — keep at least `MIN_VISIBLE` pixels

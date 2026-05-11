@@ -58,11 +58,7 @@ pub(crate) struct LayoutMetrics {
 /// from `placed_gates` (e.g. `max_slot_index + 2` so the trailing
 /// empty drop-target slot stays visible). Passing `0` keeps the old
 /// canvas-width-only behaviour.
-pub(crate) fn layout_metrics(
-    width: f32,
-    qubit_count: usize,
-    min_slots: usize,
-) -> LayoutMetrics {
+pub(crate) fn layout_metrics(width: f32, qubit_count: usize, min_slots: usize) -> LayoutMetrics {
     let line_left = LINE_LEFT_OFFSET;
     let canvas_line_right = width - LINE_RIGHT_OFFSET;
     let line_ys = (0..qubit_count)
@@ -86,10 +82,7 @@ pub(crate) fn layout_metrics(
     } else {
         Vec::new()
     };
-    let slot_right = slot_centers
-        .last()
-        .copied()
-        .unwrap_or(slot_left);
+    let slot_right = slot_centers.last().copied().unwrap_or(slot_left);
     // Wires terminate one GATE_SIZE past the rightmost slot center so
     // the last gate's body sits comfortably inside the line, mirroring
     // the original canvas-width-based formula.

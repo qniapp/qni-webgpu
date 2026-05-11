@@ -196,7 +196,9 @@ pub(crate) fn write_circuit_to_url(json: &str) {
         return;
     };
     let payload = if json.contains('%') {
-        js_sys::encode_uri_component(json).as_string().unwrap_or_else(|| json.to_string())
+        js_sys::encode_uri_component(json)
+            .as_string()
+            .unwrap_or_else(|| json.to_string())
     } else {
         json.to_string()
     };
@@ -208,10 +210,10 @@ pub(crate) fn write_circuit_to_url(json: &str) {
         _ => return,
     };
     let url = format!("{base}{hash}");
-    let _ = window
-        .history()
-        .ok()
-        .and_then(|h| h.replace_state_with_url(&JsValue::NULL, "", Some(&url)).ok());
+    let _ = window.history().ok().and_then(|h| {
+        h.replace_state_with_url(&JsValue::NULL, "", Some(&url))
+            .ok()
+    });
 }
 
 /// Non-wasm stub so callers don't need to `cfg`-gate.
