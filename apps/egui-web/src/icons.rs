@@ -303,6 +303,13 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if kind == GateKind::Phase {
+        // qni renders the parametric Phase as a circular body (the
+        // Ø glyph centred inside) so the angle label has somewhere
+        // clean to sit above / below the gate without colliding with
+        // the gate body's square corners.
+        let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
+        painter.circle_filled(gate_rect.center(), radius, fill);
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
         // QFT family — same green body as the other unitary gates
         // (qni `--qni-semantic-fill-color-primary`). The SVG lettering

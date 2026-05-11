@@ -240,6 +240,93 @@ impl QniApp {
                     );
                 }
             }
+
+            // Angle labels for Phase gates. qni puts the angle text just
+            // outside the circular gate body (above for the topmost /
+            // standalone gate in a same-angle pair, below for the
+            // bottommost) so the label never overlaps the vertical
+            // connector that ties same-angle Phase gates together. We
+            // replicate the same dodge logic here.
+            for gate in &self.placed_gates {
+                if gate.kind != GateKind::Phase {
+                    continue;
+                }
+                let Some(angle) = gate.angle.as_deref() else {
+                    continue;
+                };
+                if angle.is_empty() {
+                    continue;
+                }
+                let center_x = gate.pos.x + GATE_SIZE / 2.0;
+                let Some((slot_index, distance)) =
+                    nearest_slot_index(center_x, &metrics.slot_centers)
+                else {
+                    continue;
+                };
+                if distance > SNAP_DISTANCE {
+                    continue;
+                }
+                let center = rect.min
+                    + gate.pos.to_vec2()
+                    + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+
+                // Peers in the same column with the same angle.
+                let mut peers_above = false;
+                let mut peers_below = false;
+                for other in &self.placed_gates {
+                    if other.id == gate.id || other.kind != GateKind::Phase {
+                        continue;
+                    }
+                    if other.angle.as_deref() != Some(angle) {
+                        continue;
+                    }
+                    let other_center_x = other.pos.x + GATE_SIZE / 2.0;
+                    let Some((other_slot, other_distance)) =
+                        nearest_slot_index(other_center_x, &metrics.slot_centers)
+                    else {
+                        continue;
+                    };
+                    if other_slot != slot_index || other_distance > SNAP_DISTANCE {
+                        continue;
+                    }
+                    if other.pos.y < gate.pos.y {
+                        peers_above = true;
+                    } else if other.pos.y > gate.pos.y {
+                        peers_below = true;
+                    }
+                }
+
+                // Above for the topmost / standalone gate; below for
+                // the bottommost. A middle gate in a 3+ chain falls
+                // back to above and is left to overlap the connector
+                // (qni does the same).
+                //   standalone (no peers)         → above
+                //   topmost (peer below only)     → above
+                //   bottommost (peer above only)  → below
+                //   middle (peers above & below)  → above (fallback)
+                let label_above = peers_below || !peers_above;
+                let (label_y, align) = if label_above {
+                    (
+                        center.y - GATE_SIZE / 2.0 - 2.0,
+                        egui::Align2::CENTER_BOTTOM,
+                    )
+                } else {
+                    (
+                        center.y + GATE_SIZE / 2.0 + 2.0,
+                        egui::Align2::CENTER_TOP,
+                    )
+                };
+                painter.text(
+                    egui::pos2(center.x, label_y),
+                    align,
+                    angle,
+                    // text-xs (12 px) — Tailwind. Matches the popup body
+                    // font so labels feel like they belong to the same
+                    // typographic system.
+                    egui::FontId::monospace(12.0),
+                    colors.text,
+                );
+            }
         }
 
         for gate in &self.placed_gates {
