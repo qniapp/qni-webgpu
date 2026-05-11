@@ -191,6 +191,61 @@ pub(crate) fn draw_gate_body(
     draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill);
 }
 
+/// QFT / QFT† lettering — a stylised "QFT" (and optional dagger mark)
+/// drawn with the same line-segment primitives as the other gate
+/// icons (H / Y / Z / etc.), translated directly from qni's
+/// `qft-gate.svg` and `qft-dagger-gate.svg`. Renders into a square
+/// `rect` (typically a GATE_SIZE square centred in the gate body);
+/// stroke width tracks `rect.width()` so the lettering scales with
+/// the body and stays visually consistent with other gates.
+fn draw_qft_lettering(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    dagger: bool,
+    color: egui::Color32,
+) {
+    if dagger {
+        // qni/packages/elements/icon/qft-dagger-gate.svg (viewBox 32×32).
+        // The QFT lettering is shifted left to make room for a small †
+        // mark at the top-right.
+        let viewbox = 32.0;
+        let scale = rect.width() / viewbox;
+        let stroke = egui::Stroke::new(2.0 * scale, color);
+        let p = |x: f32, y: f32| egui::pos2(rect.min.x + x * scale, rect.min.y + y * scale);
+        // Q (open circle + short diagonal tail). The original SVG's
+        // tail uses a transformed line; the endpoints below are the
+        // pre-computed result of `matrix(...) * (1, -1)..(3.34, -1)`.
+        painter.circle_stroke(p(5.97, 16.0), 2.97 * scale, stroke);
+        painter.line_segment([p(7.34, 18.76), p(8.68, 20.69)], stroke);
+        // F (vertical + top bar + middle bar).
+        painter.line_segment([p(13.0, 12.0), p(13.0, 20.0)], stroke);
+        painter.line_segment([p(13.0, 12.0), p(16.45, 12.0)], stroke);
+        painter.line_segment([p(14.0, 16.0), p(16.0, 16.0)], stroke);
+        // T (top bar + vertical).
+        painter.line_segment([p(20.10, 12.0), p(25.04, 12.0)], stroke);
+        painter.line_segment([p(22.7, 13.0), p(22.7, 20.0)], stroke);
+        // † small cross at top-right.
+        painter.line_segment([p(26.2, 7.48), p(29.2, 7.48)], stroke);
+        painter.line_segment([p(27.7, 6.0), p(27.7, 11.0)], stroke);
+    } else {
+        // qni/packages/elements/icon/qft-gate.svg (viewBox 48×48).
+        let viewbox = 48.0;
+        let scale = rect.width() / viewbox;
+        let stroke = egui::Stroke::new(2.0 * scale, color);
+        let p = |x: f32, y: f32| egui::pos2(rect.min.x + x * scale, rect.min.y + y * scale);
+        // Q (open circle + tail).
+        painter.circle_stroke(p(11.5, 23.5), 5.5 * scale, stroke);
+        painter.line_segment([p(13.39, 27.28), p(16.28, 31.61)], stroke);
+        // F (vertical + top + middle).
+        painter.line_segment([p(21.0, 17.0), p(21.0, 30.0)], stroke);
+        painter.line_segment([p(21.0, 17.0), p(28.0, 17.0)], stroke);
+        painter.line_segment([p(21.0, 23.0), p(27.0, 23.0)], stroke);
+        // T (top + vertical).
+        painter.line_segment([p(32.0, 17.0), p(42.0, 17.0)], stroke);
+        painter.line_segment([p(37.0, 18.0), p(37.0, 30.0)], stroke);
+    }
+}
+
 /// QFT gate's bottom-edge resize handle — a small horizontal chevron
 /// (▽/△ stacked) shown on hover. The `rect` is the handle's bounding
 /// box at the bottom of the gate body; `bg` colours the strip behind
@@ -248,17 +303,22 @@ fn draw_gate_body_with_fill(
         painter.circle_filled(gate_rect.center(), radius, fill);
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
         // QFT family — same green body as the other unitary gates
-        // (qni `--qni-semantic-fill-color-primary`). "QFT" / "QFT†"
-        // label vertically centred in the gate body; the purple resize
-        // handle chevron lives outside the body, below the bottom edge
-        // (rendered separately by the caller on hover / drag).
+        // (qni `--qni-semantic-fill-color-primary`). The SVG lettering
+        // is centred in a GATE_SIZE square so multi-qubit spans keep
+        // the icon at the vertical centre of the body. Purple resize
+        // handle is drawn separately by the caller below the body.
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
-        let font_size = if kind == GateKind::QftDaggerGate { 12.0 } else { 14.0 };
-        painter.text(
-            gate_rect.center(),
-            egui::Align2::CENTER_CENTER,
-            kind.label(),
-            egui::FontId::proportional(font_size),
+        let cx = gate_rect.center().x;
+        let cy = gate_rect.center().y;
+        let half = crate::constants::GATE_SIZE * 0.5;
+        let icon_rect = egui::Rect::from_min_max(
+            egui::pos2(cx - half, cy - half),
+            egui::pos2(cx + half, cy + half),
+        );
+        draw_qft_lettering(
+            painter,
+            icon_rect,
+            kind == GateKind::QftDaggerGate,
             colors.label,
         );
         return;
