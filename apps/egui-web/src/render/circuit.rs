@@ -115,7 +115,12 @@ impl QniApp {
             }
 
             for (_, (controls, targets)) in control_groups {
-                if controls.is_empty() || targets.is_empty() {
+                // Draw the connector whenever the column has at least
+                // two pieces to connect — covers both CNOT (1 control +
+                // 1 target) and multi-controlled-Z (≥2 controls, no
+                // targets). A single isolated control is a no-op gate
+                // and gets no line.
+                if controls.len() + targets.len() < 2 {
                     continue;
                 }
                 let mut min_y = f32::INFINITY;
