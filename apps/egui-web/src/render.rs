@@ -980,7 +980,10 @@ impl QniApp {
             (MAX_H * aspect, MAX_H)
         };
         let mm_size = egui::vec2(inner_w + INSET * 2.0, inner_h + INSET * 2.0);
-        let pad = 6.0;
+        // Inset enough that the minimap clears the BR resize-handle arc
+        // visually — the handle sits at (panel R + pad) ≈ 17 px from the
+        // corner, so 20 px keeps the two from looking touched together.
+        let pad = 20.0;
         let mm_rect = egui::Rect::from_min_max(
             viewport_rect.max - mm_size - egui::vec2(pad, pad),
             viewport_rect.max - egui::vec2(pad, pad),
