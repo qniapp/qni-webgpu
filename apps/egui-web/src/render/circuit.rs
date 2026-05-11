@@ -115,12 +115,20 @@ impl QniApp {
             }
 
             for (_, (controls, targets)) in control_groups {
-                // Draw the connector whenever the column has at least
-                // two pieces to connect — covers both CNOT (1 control +
-                // 1 target) and multi-controlled-Z (≥2 controls, no
-                // targets). A single isolated control is a no-op gate
-                // and gets no line.
-                if controls.len() + targets.len() < 2 {
+                // Connector is a *control-only* affordance: it tells
+                // the reader "this column is a multi-qubit controlled
+                // operation". Columns with no controls (e.g. four
+                // parallel Hs, parallel Blochs, parallel writes) are
+                // independent single-qubit gates and must NOT get a
+                // line — matching qni's `circuit-step-element.ts:526`
+                // early-return when both control lists are empty.
+                if controls.is_empty() {
+                    continue;
+                }
+                // A lone control with no controllable target is a
+                // disabled no-op in qni (`:513-524`); we likewise skip
+                // the line for it.
+                if targets.is_empty() && controls.len() < 2 {
                     continue;
                 }
                 let mut min_y = f32::INFINITY;
