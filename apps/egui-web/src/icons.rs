@@ -200,14 +200,14 @@ pub(crate) fn draw_qft_resize_handle(
     rect: egui::Rect,
     bg: egui::Color32,
 ) {
-    painter.rect_filled(rect, egui::CornerRadius::same(3), bg);
+    painter.rect_filled(rect, egui::CornerRadius::same(6), bg);
     // Two stacked triangles forming a vertical chevron selector.
     let cx = rect.center().x;
     let cy = rect.center().y;
     let h = rect.height();
-    let tri_h = (h * 0.18).max(2.0);
-    let tri_half_w = tri_h * 1.2;
-    let gap = (h * 0.06).max(1.0);
+    let tri_h = (h * 0.22).max(3.0);
+    let tri_half_w = tri_h * 1.1;
+    let gap = (h * 0.08).max(1.5);
     let up_tip = egui::pos2(cx, cy - gap - tri_h);
     let up_l = egui::pos2(cx - tri_half_w, cy - gap);
     let up_r = egui::pos2(cx + tri_half_w, cy - gap);
@@ -249,14 +249,13 @@ fn draw_gate_body_with_fill(
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
         // QFT family — same green body as the other unitary gates
         // (qni `--qni-semantic-fill-color-primary`). "QFT" / "QFT†"
-        // label centred horizontally and anchored near the top of the
-        // gate; the bottom edge stays free for the purple resize-handle
-        // chevron that appears on hover.
+        // label vertically centred in the gate body; the purple resize
+        // handle chevron lives outside the body, below the bottom edge
+        // (rendered separately by the caller on hover / drag).
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
-        let label_y = gate_rect.min.y + crate::constants::GATE_SIZE * 0.5;
         let font_size = if kind == GateKind::QftDaggerGate { 12.0 } else { 14.0 };
         painter.text(
-            egui::pos2(gate_rect.center().x, label_y),
+            gate_rect.center(),
             egui::Align2::CENTER_CENTER,
             kind.label(),
             egui::FontId::proportional(font_size),

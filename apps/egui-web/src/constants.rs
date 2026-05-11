@@ -43,14 +43,17 @@ pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
 pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
 
-/// QFT / QFT† resizable-span gate geometry.
+/// QFT / QFT† resizable-span gate geometry. Matches qni's
+/// `--qni-component-resize-handle-width / -height` (= operation-base /
+/// operation-base-¾) — a square-ish purple button below the gate body
+/// the user grabs to change span.
 ///   * MAX_SPAN: clamp the dragged span to this many qubit wires.
-///   * RESIZE_HANDLE_HEIGHT: bottom-edge handle visible on hover, the
-///     little chevron the user grabs to change span.
-///   * RESIZE_HANDLE_WIDTH: same handle horizontal extent.
+///   * RESIZE_HANDLE_WIDTH: full gate width (= GATE_SIZE) so the
+///     handle sits flush under the body.
+///   * RESIZE_HANDLE_HEIGHT: 0.75 * GATE_SIZE (qni's `-¾` size).
 pub(crate) const QFT_MAX_SPAN: usize = 16;
-pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = 14.0;
-pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = 18.0;
+pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = GATE_SIZE;
+pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = GATE_SIZE * 0.75;
 
 /// How much accumulated wheel scroll delta = one aspect-step on the
 /// dims text. A typical OS wheel notch is roughly 50–100 px of smooth

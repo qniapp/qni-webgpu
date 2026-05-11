@@ -22,14 +22,18 @@ pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::
     egui::Rect::from_min_size(origin, egui::vec2(GATE_SIZE, height))
 }
 
-/// QFT bottom-edge resize-handle bounding box for the given gate body
-/// rect. Centred horizontally; tucked against the bottom edge with a
-/// small overhang above for grab-room.
+/// QFT resize-handle bounding box — a square-ish purple button below
+/// the gate body, centred horizontally and offset slightly past the
+/// bottom edge so it visually reads as a separate affordance. Matches
+/// qni's `--qni-component-resize-handle-{width,height}` (= GATE_SIZE
+/// × 0.75·GATE_SIZE).
 pub(crate) fn qft_resize_handle_rect(gate_rect: egui::Rect) -> egui::Rect {
     let cx = gate_rect.center().x;
     let bottom = gate_rect.max.y;
     let half_w = QFT_RESIZE_HANDLE_WIDTH * 0.5;
-    let top = bottom - QFT_RESIZE_HANDLE_HEIGHT * 0.6;
+    // Small overlap so the handle visually anchors to the body but
+    // mostly sits below it (matches qni's "overlap" margin pattern).
+    let top = bottom - QFT_RESIZE_HANDLE_HEIGHT * 0.25;
     egui::Rect::from_min_max(
         egui::pos2(cx - half_w, top),
         egui::pos2(cx + half_w, top + QFT_RESIZE_HANDLE_HEIGHT),
