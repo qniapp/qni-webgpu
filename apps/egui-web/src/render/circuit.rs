@@ -93,7 +93,13 @@ impl QniApp {
             }
         }
 
-        if !fast_drag {
+        // Connector lines (CNOT / CZ / Swap / Phase-Phase) are computed
+        // every frame, including mid-drag, so a gate being moved into
+        // a CNOT pair (or out of one) shows the line snapping live
+        // instead of waiting for the drop. The work is cheap — one
+        // pass over `placed_gates` per group — and well under the
+        // dispatch budget at our 16-qubit cap.
+        {
             let mut control_groups: HashMap<usize, (Vec<egui::Pos2>, Vec<egui::Pos2>)> =
                 HashMap::new();
             for gate in &self.placed_gates {
