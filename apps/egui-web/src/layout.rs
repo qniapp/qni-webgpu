@@ -50,26 +50,50 @@ pub(crate) struct LayoutMetrics {
     pub(crate) slot_centers: Vec<f32>,
 }
 
-pub(crate) fn layout_metrics(width: f32, qubit_count: usize) -> LayoutMetrics {
+/// Compute layout metrics for the circuit area.
+///
+/// `min_slots` ensures the wire extends far enough to cover every
+/// placed gate even when the rightmost gate sits past the canvas's
+/// natural `width - LINE_RIGHT_OFFSET` boundary. Callers compute it
+/// from `placed_gates` (e.g. `max_slot_index + 2` so the trailing
+/// empty drop-target slot stays visible). Passing `0` keeps the old
+/// canvas-width-only behaviour.
+pub(crate) fn layout_metrics(
+    width: f32,
+    qubit_count: usize,
+    min_slots: usize,
+) -> LayoutMetrics {
     let line_left = LINE_LEFT_OFFSET;
-    let line_right = width - LINE_RIGHT_OFFSET;
+    let canvas_line_right = width - LINE_RIGHT_OFFSET;
     let line_ys = (0..qubit_count)
         .map(|index| LINE_Y + LINE_GAP * index as f32)
         .collect::<Vec<f32>>();
     let slot_left = line_left + GATE_SIZE;
-    let slot_right = line_right - GATE_SIZE;
-    let slot_count = if SLOT_SPACING > 0.0 {
-        ((slot_right - slot_left) / SLOT_SPACING).floor() as i32 + 1
+    let canvas_slot_right = canvas_line_right - GATE_SIZE;
+    let canvas_slots = if SLOT_SPACING > 0.0 {
+        (((canvas_slot_right - slot_left) / SLOT_SPACING).floor() as i32 + 1).max(0) as usize
     } else {
         0
     };
+    // Take whichever is larger: the slots that naturally fit in the
+    // canvas, or the slots demanded by the placed-gate set. Wires +
+    // slot_centers grow with the larger number.
+    let slot_count = canvas_slots.max(min_slots);
     let slot_centers = if slot_count > 0 {
         (0..slot_count)
             .map(|index| slot_left + SLOT_SPACING * index as f32)
-            .collect()
+            .collect::<Vec<f32>>()
     } else {
         Vec::new()
     };
+    let slot_right = slot_centers
+        .last()
+        .copied()
+        .unwrap_or(slot_left);
+    // Wires terminate one GATE_SIZE past the rightmost slot center so
+    // the last gate's body sits comfortably inside the line, mirroring
+    // the original canvas-width-based formula.
+    let line_right = slot_right + GATE_SIZE;
     LayoutMetrics {
         line_left,
         line_right,

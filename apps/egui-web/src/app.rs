@@ -15,8 +15,9 @@ use std::time::Duration;
 use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
 use crate::constants::{
-    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, GATE_SIZE, MAX_QUBITS, MIN_QUBITS,
-    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
+    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, GATE_SIZE, LINE_LEFT_OFFSET,
+    MAX_QUBITS, MIN_QUBITS, SLOT_SPACING, STATE_VIEWPORT_DEFAULT_HEIGHT,
+    STATE_VIEWPORT_DEFAULT_WIDTH,
 };
 use crate::gates::GateKind;
 use crate::layout::layout_metrics;
@@ -245,6 +246,37 @@ impl QniApp {
         count
     }
 
+    /// Minimum number of slot centers the layout must expose so every
+    /// placed gate has a valid snap target. Passed to `layout_metrics`
+    /// so the wire stretches all the way past the rightmost gate even
+    /// when that gate sits beyond the canvas's natural right edge.
+    ///
+    /// Each gate's column is derived from its `pos.x` via the same
+    /// `slot_left + i * SLOT_SPACING` formula `layout_metrics` uses,
+    /// so we can recover the slot index from `pos.x` alone — no
+    /// dependence on the slot_centers we are about to build. We then
+    /// reserve one extra trailing slot as a drop-target landing zone
+    /// (mirrors qni's `appendMinimumSteps`).
+    fn min_circuit_slots(&self) -> usize {
+        let slot_left = LINE_LEFT_OFFSET + GATE_SIZE;
+        let mut max_slot: i32 = -1;
+        for gate in &self.placed_gates {
+            let center_x = gate.pos.x + GATE_SIZE / 2.0;
+            if center_x < slot_left {
+                continue;
+            }
+            let slot = ((center_x - slot_left) / SLOT_SPACING).round() as i32;
+            if slot > max_slot {
+                max_slot = slot;
+            }
+        }
+        if max_slot < 0 {
+            0
+        } else {
+            (max_slot as usize) + 2
+        }
+    }
+
     fn state_qubits(&self) -> usize {
         let mut max_wire: Option<usize> = None;
         for gate in &self.placed_gates {
@@ -348,7 +380,11 @@ impl QniApp {
             if recompute {
                 self.needs_recompute = false;
                 self.last_state_count = state_count;
-                let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
+                let sim_metrics = layout_metrics(
+                    screen_rect.width(),
+                    self.layout_qubits(),
+                    self.min_circuit_slots(),
+                );
                 let qubits = self.state_qubits();
                 // hovered wins over breakpoint (live preview); `None`
                 // for both = apply every column = final state.
@@ -426,7 +462,8 @@ impl eframe::App for QniApp {
                         ctx.request_repaint();
                     }
 
-                    let metrics = layout_metrics(rect.width(), self.layout_qubits());
+                    let metrics =
+                        layout_metrics(rect.width(), self.layout_qubits(), self.min_circuit_slots());
                     let painter = ui.painter_at(rect);
                     let fast_drag = self.dragging.is_some();
                     dragging_gate_id = self.dragging.map(|drag| drag.id);

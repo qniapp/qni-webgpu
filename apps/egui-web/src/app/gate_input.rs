@@ -69,7 +69,11 @@ impl QniApp {
             palette_origin,
             egui::vec2(palette_geom.total_width, palette_geom.total_height),
         );
-        let metrics = layout_metrics(content_rect.width(), self.layout_qubits());
+        let metrics = layout_metrics(
+            content_rect.width(),
+            self.layout_qubits(),
+            self.min_circuit_slots(),
+        );
 
         // QFT resize handle takes priority over gate body for press
         // events, so dragging the bottom-edge chevron resizes the span
