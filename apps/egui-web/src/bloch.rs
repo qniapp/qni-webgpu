@@ -132,6 +132,45 @@ pub(crate) fn linearize_ops(
             ops.push(SimulationOp::ApplyGate(params));
         }
 
+        // Controls-only step ⇒ multi-controlled-Z (CZ / CCZ / …).
+        // Mirrors qni's `circuit-step-element.ts:1303-1310`: a step with
+        // ≥ 2 `ControlGateElement`s and no controllable target emits a
+        // single `'•'` operation whose first wire becomes the Z target
+        // and whose remaining wires become the controls. AntiControls
+        // and lone single controls stay no-ops (qni :1312-1316 and the
+        // `< 2` guard at :1306).
+        //
+        // `control_value` bits = Controls only (AntiControls live in
+        // `control_mask & !control_value`). We pick the topmost wire
+        // (= the highest set bit of `control_value`, since our bit
+        // numbering runs qubits-1..0 top→bottom) as the Z target so the
+        // dispatch matches qni's "first in target list" convention. CZ
+        // is physically symmetric so the choice only affects the
+        // GateParams shape, not the resulting state.
+        if targets.is_empty()
+            && qft_gates.is_empty()
+            && measurement_targets.is_empty()
+            && bloch_targets.is_empty()
+            && control_value.count_ones() >= 2
+        {
+            let target_bit = 31 - control_value.leading_zeros();
+            let target_bit_mask = 1u32 << target_bit;
+            let cz_control_value = control_value & !target_bit_mask;
+            // Match qni and drop anti-control bits entirely: only the
+            // remaining `Control` wires gate the Z. (Mixing anti-control
+            // bits into the mask would change the semantics from qni's
+            // `{type:'•', targets:[control bits]}` form.)
+            let cz_control_mask = cz_control_value;
+            let params = gate_params_controlled(
+                GateKind::Z,
+                target_bit,
+                cz_control_mask,
+                cz_control_value,
+                state_count,
+            );
+            ops.push(SimulationOp::ApplyGate(params));
+        }
+
         // QFT-family gates expand to their textbook decomposition (H +
         // controlled-phase rotations). Column controls are ignored here
         // — qni's simulator doesn't model controlled-QFT either.
