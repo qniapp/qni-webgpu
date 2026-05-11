@@ -180,9 +180,14 @@ impl QniApp {
             style.spacing.window_margin = egui::Margin::same(0);
         });
         cc.egui_ctx.request_repaint();
+        // Restore a shared circuit from the URL (`#{"cols":[...]}` or
+        // qni-style path) so a pasted URL spins up the same circuit.
+        let (initial_gates, next_gate_id) = crate::url_circuit::parse_circuit_from_url();
+        let initial_qubit_count = crate::url_circuit::qubit_count_from_gates(&initial_gates)
+            .clamp(MIN_QUBITS, MAX_QUBITS);
         Self {
-            next_gate_id: 1,
-            placed_gates: Vec::new(),
+            next_gate_id,
+            placed_gates: initial_gates,
             dragging: None,
             drag_state_count: None,
             state_panel_drag: None,
@@ -206,7 +211,7 @@ impl QniApp {
             aspect_wheel_accum: 0.0,
             hovered_gate_id: None,
             hovered_palette_index: None,
-            qubit_count: MIN_QUBITS,
+            qubit_count: initial_qubit_count,
             last_state_count: 2,
             needs_recompute: true,
             last_content_rect: None,

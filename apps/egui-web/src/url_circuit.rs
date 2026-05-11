@@ -198,3 +198,317 @@ pub(crate) fn write_circuit_to_url(json: &str) {
 /// Non-wasm stub so callers don't need to `cfg`-gate.
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn write_circuit_to_url(_json: &str) {}
+
+// ─────────────────────────────────────────────────────────────────────
+//  URL → circuit decoder. Restores a circuit on page load so the URL
+//  is shareable: copy the URL → paste into a new tab → same circuit.
+//  Two URL shapes are accepted:
+//
+//    * Our native format: `#{"cols":[...]}` (or `#circuit={...}` for
+//      Quirk URLs the user pasted in).
+//    * qni's path format: `/{...}` with the JSON percent-encoded.
+//
+//  Tokens (`"H"`, `"•"`, `"QFT3"`, …) are mapped back to `GateKind`
+//  via `token_to_gate`. The gate's screen position is reconstructed
+//  from the *column index* (= slot index) and *wire index* (= qubit
+//  number) via the same `LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING
+//  * i` and `LINE_Y + LINE_GAP * w` formulas the layout uses, so no
+//  canvas-width knowledge is required at startup.
+// ─────────────────────────────────────────────────────────────────────
+
+use crate::constants::{LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, SLOT_SPACING};
+
+/// Decode the URL and return the placed gates plus a recommended
+/// `next_gate_id`. Empty `Vec` (with `next_gate_id = 1`) if no circuit
+/// payload was found.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
+    let Some(window) = web_sys::window() else {
+        return (Vec::new(), 1);
+    };
+    let location = window.location();
+    // 1. Hash fragment (our native write path).
+    if let Ok(hash) = location.hash() {
+        if let Some(gates) = try_decode(hash.strip_prefix('#').unwrap_or(&hash)) {
+            return assign_ids(gates);
+        }
+    }
+    // 2. Last path segment (qni-compatible — JSON percent-encoded in
+    //    the URL path, e.g. `/%7B%22cols%22:...%7D`).
+    if let Ok(pathname) = location.pathname() {
+        if let Some(last) = pathname.rsplit('/').next() {
+            if let Some(gates) = try_decode(last) {
+                return assign_ids(gates);
+            }
+        }
+    }
+    (Vec::new(), 1)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
+    (Vec::new(), 1)
+}
+
+/// Largest wire index seen across the gates' spans, plus one — i.e.
+/// the qubit count needed to host them all. `MIN_QUBITS` floor is
+/// applied by the caller (the app's clamp).
+pub(crate) fn qubit_count_from_gates(gates: &[PlacedGate]) -> usize {
+    gates
+        .iter()
+        .map(|g| g.wire + g.span.saturating_sub(1) + 1)
+        .max()
+        .unwrap_or(0)
+}
+
+/// Try to decode `payload` (a possibly-percent-encoded `{"cols":...}`
+/// snippet) into a list of `PlacedGate`. Strips a `circuit=` prefix
+/// if present so Quirk URLs paste cleanly. Returns `None` for any
+/// payload that doesn't decode + parse + non-empty-resolve.
+fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
+    if payload.is_empty() {
+        return None;
+    }
+    let decoded = decode_percent(payload)?;
+    let json = decoded
+        .strip_prefix("circuit=")
+        .unwrap_or(&decoded)
+        .trim_start();
+    if !json.starts_with('{') {
+        return None;
+    }
+    let cols = parse_cols(json)?;
+    let gates = build_gates(&cols);
+    if gates.is_empty() {
+        None
+    } else {
+        Some(gates)
+    }
+}
+
+/// `decodeURIComponent` via js_sys on wasm; pure-Rust passthrough
+/// otherwise (native builds never call this in practice).
+#[cfg(target_arch = "wasm32")]
+fn decode_percent(s: &str) -> Option<String> {
+    js_sys::decode_uri_component(s).ok()?.as_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn decode_percent(s: &str) -> Option<String> {
+    Some(s.to_string())
+}
+
+/// Walk the parsed columns and place each non-empty entry as a
+/// `PlacedGate`. Position is reconstructed from the column index
+/// (slot) and wire index using the same formulas `layout_metrics`
+/// uses — independent of canvas width so this works at startup
+/// before any frame has rendered.
+fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
+    let slot_left = LINE_LEFT_OFFSET + crate::constants::GATE_SIZE;
+    let mut gates = Vec::new();
+    for (col_idx, col) in cols.iter().enumerate() {
+        let slot_center_x = slot_left + SLOT_SPACING * col_idx as f32;
+        for (wire_idx, entry) in col.iter().enumerate() {
+            let Some(token) = entry.as_deref() else {
+                continue;
+            };
+            let Some((kind, span)) = token_to_gate(token) else {
+                continue;
+            };
+            let line_y = LINE_Y + LINE_GAP * wire_idx as f32;
+            gates.push(PlacedGate {
+                id: 0, // assigned by assign_ids
+                kind,
+                pos: eframe::egui::pos2(
+                    slot_center_x - crate::constants::GATE_SIZE / 2.0,
+                    line_y - crate::constants::GATE_SIZE / 2.0,
+                ),
+                wire: wire_idx,
+                span,
+            });
+        }
+    }
+    gates
+}
+
+/// Reverse of `gate_token`. Handles the `QFT<n>` / `QFT†<n>` span
+/// suffixes. Returns `None` for unrecognised tokens (e.g. tokens
+/// emitted by a future qni version we don't yet know about).
+fn token_to_gate(token: &str) -> Option<(GateKind, usize)> {
+    if let Some(rest) = token.strip_prefix("QFT†") {
+        let span: usize = rest.parse().ok()?;
+        return Some((GateKind::QftDaggerGate, span.max(1)));
+    }
+    if let Some(rest) = token.strip_prefix("QFT") {
+        let span: usize = rest.parse().ok()?;
+        return Some((GateKind::QftGate, span.max(1)));
+    }
+    let kind = match token {
+        "H" => GateKind::H,
+        "X" => GateKind::X,
+        "Y" => GateKind::Y,
+        "Z" => GateKind::Z,
+        "S" => GateKind::S,
+        "S†" => GateKind::SDagger,
+        "T" => GateKind::T,
+        "T†" => GateKind::TDagger,
+        "X^½" => GateKind::SqrtX,
+        "Rx" => GateKind::Rx,
+        "Ry" => GateKind::Ry,
+        "Rz" => GateKind::Rz,
+        "P" => GateKind::Phase,
+        "Swap" => GateKind::Swap,
+        "•" => GateKind::Control,
+        "◦" => GateKind::AntiControl,
+        "Measure" => GateKind::Measurement,
+        "Bloch" => GateKind::BlochDisplay,
+        "|0>" => GateKind::Write0,
+        "|1>" => GateKind::Write1,
+        "…" => GateKind::Spacer,
+        _ => return None,
+    };
+    Some((kind, 1))
+}
+
+/// Assign sequential ids starting from 1 and return the next available
+/// id (so `QniApp::next_gate_id` can resume without collision).
+fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, u32) {
+    let mut next = 1u32;
+    for gate in &mut gates {
+        gate.id = next;
+        next += 1;
+    }
+    (gates, next)
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Minimal JSON parser scoped to our `{"cols": [[entry, ...], ...]}`
+//  format. Avoids pulling in serde_json (~60 KB wasm). Each entry is
+//  either the integer literal `1` (empty wire) or a JSON string
+//  containing a gate token. Multi-byte UTF-8 chars inside strings
+//  (•, ◦, †, ½, ⟩, …) round-trip verbatim because we accumulate the
+//  raw bytes and re-`String::from_utf8` at the end.
+// ─────────────────────────────────────────────────────────────────────
+
+/// Parse a single `{"cols": [[...], ...]}` document and return the
+/// columns as `Vec<Vec<Option<String>>>` (outer = columns, inner =
+/// per-wire entries, `None` for the `1` empty marker).
+fn parse_cols(s: &str) -> Option<Vec<Vec<Option<String>>>> {
+    let bytes = s.as_bytes();
+    let mut p = Parser { s: bytes, i: 0 };
+    p.skip_ws();
+    p.expect(b'{')?;
+    p.skip_ws();
+    let key = p.parse_string()?;
+    if key != "cols" {
+        return None;
+    }
+    p.skip_ws();
+    p.expect(b':')?;
+    p.skip_ws();
+    p.expect(b'[')?;
+    let mut cols = Vec::new();
+    p.skip_ws();
+    if p.peek() != Some(b']') {
+        loop {
+            cols.push(p.parse_column()?);
+            p.skip_ws();
+            match p.peek() {
+                Some(b',') => {
+                    p.advance();
+                    p.skip_ws();
+                }
+                Some(b']') => break,
+                _ => return None,
+            }
+        }
+    }
+    p.expect(b']')?;
+    p.skip_ws();
+    p.expect(b'}')?;
+    Some(cols)
+}
+
+struct Parser<'a> {
+    s: &'a [u8],
+    i: usize,
+}
+
+impl<'a> Parser<'a> {
+    fn peek(&self) -> Option<u8> {
+        self.s.get(self.i).copied()
+    }
+    fn advance(&mut self) {
+        self.i += 1;
+    }
+    fn skip_ws(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.advance();
+        }
+    }
+    fn expect(&mut self, c: u8) -> Option<()> {
+        if self.peek() == Some(c) {
+            self.advance();
+            Some(())
+        } else {
+            None
+        }
+    }
+    fn parse_string(&mut self) -> Option<String> {
+        self.expect(b'"')?;
+        let mut out: Vec<u8> = Vec::new();
+        loop {
+            match self.peek()? {
+                b'"' => {
+                    self.advance();
+                    return String::from_utf8(out).ok();
+                }
+                b'\\' => {
+                    self.advance();
+                    match self.peek()? {
+                        b'"' => out.push(b'"'),
+                        b'\\' => out.push(b'\\'),
+                        b'n' => out.push(b'\n'),
+                        b't' => out.push(b'\t'),
+                        b'/' => out.push(b'/'),
+                        _ => return None,
+                    }
+                    self.advance();
+                }
+                c => {
+                    out.push(c);
+                    self.advance();
+                }
+            }
+        }
+    }
+    fn parse_column(&mut self) -> Option<Vec<Option<String>>> {
+        self.expect(b'[')?;
+        let mut entries = Vec::new();
+        self.skip_ws();
+        if self.peek() != Some(b']') {
+            loop {
+                self.skip_ws();
+                entries.push(self.parse_entry()?);
+                self.skip_ws();
+                match self.peek() {
+                    Some(b',') => self.advance(),
+                    Some(b']') => break,
+                    _ => return None,
+                }
+            }
+        }
+        self.expect(b']')?;
+        Some(entries)
+    }
+    fn parse_entry(&mut self) -> Option<Option<String>> {
+        match self.peek()? {
+            b'"' => Some(Some(self.parse_string()?)),
+            b'1' => {
+                self.advance();
+                Some(None)
+            }
+            _ => None,
+        }
+    }
+}
