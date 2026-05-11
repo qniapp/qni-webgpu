@@ -124,9 +124,12 @@ impl Colors {
             // blue-600 — state-panel header strip (the same blue as
             // `state_fill` so the strip reads as part of the panel).
             state_handle_bg: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
-            // blue-100 — top resize handle on the blue strip; pops to
-            // paper while being dragged.
-            state_resize_handle_top_idle: crate::shared::color_rgba(0.737, 0.820, 0.878, 1.0),
+            // blue-400 — top resize handle on the blue-600 strip; sits
+            // close to the strip's own hue/lightness so the idle handle
+            // recedes into the background (matching the lightness
+            // contrast that ui-2 → paper has on the bottom panel).
+            // Pops to paper while being dragged.
+            state_resize_handle_top_idle: crate::shared::color_rgba(0.263, 0.522, 0.745, 1.0),
             state_resize_handle_top_drag: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
             // ui-2 → tx-2 — bottom resize handle on the paper panel.
             state_resize_handle_bottom_idle: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
