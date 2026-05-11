@@ -118,6 +118,10 @@ pub(crate) struct QniApp {
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
     pub(crate) breakpoint_step: Option<usize>,
+    /// Display-index (`row * cols + col`) of the state-vector cell the
+    /// pointer is currently hovering over. Drives the GPU shader's
+    /// brightness(0.9) darken on fill / needle / outline for that cell.
+    pub(crate) hovered_state_cell: Option<u32>,
     /// `aspect_index = log2(cols)`. Determines (cols, rows) =
     /// (2^aspect_index, 2^(qubits − aspect_index)) for the state-vector
     /// circle grid. Mutated by wheel-on-dims (A 案) or popover (D 案).
@@ -195,6 +199,7 @@ impl QniApp {
             qft_resize_drag: None,
             hovered_step: None,
             breakpoint_step: None,
+            hovered_state_cell: None,
             aspect_index: state_circle_default_aspect_index(1),
             aspect_customized: false,
             aspect_popover_open: false,

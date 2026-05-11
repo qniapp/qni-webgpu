@@ -31,7 +31,12 @@ pub(crate) struct RenderParams {
     /// over `qubits` bits to produce the state-vector index — qni's
     /// row-major-to-state-vector mapping.
     pub(crate) qubits: u32,
-    pub(crate) _pad: u32,
+    /// Cell display-index (= `row * cols + col`) the pointer is currently
+    /// hovering over, or `-1` for "no hover". The fragment shader
+    /// multiplies fill / needle / outline RGB by 0.9 on the matching cell
+    /// — qni's `:host(:hover) #border { filter: brightness(0.9) }` style
+    /// extended to all three layers.
+    pub(crate) hovered_cell: i32,
     pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) outline: [f32; 4],

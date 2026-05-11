@@ -30,6 +30,23 @@ pub(crate) struct StatePanelLayout {
     pub(crate) handle_height: f32,
 }
 
+impl StatePanelLayout {
+    /// Cell-to-cell pitch in panel-local pixels: the distance between two
+    /// adjacent cell origins. Used by hover-test code to map a cursor
+    /// position to its `(col, row)` cell.
+    pub(crate) fn cell_pitch(&self) -> f32 {
+        self.size + self.gap
+    }
+
+    pub(crate) fn columns(&self) -> usize {
+        self.columns
+    }
+
+    pub(crate) fn rows(&self) -> usize {
+        self.state_count / self.columns.max(1)
+    }
+}
+
 impl QniApp {
     pub(crate) fn state_panel_layout(
         &self,

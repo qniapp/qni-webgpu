@@ -438,7 +438,7 @@ struct RenderParams {
   cols: u32,
   rows: u32,
   qubits: u32,
-  _pad: u32,
+  hovered_cell: i32,
   surface: vec4<f32>,
   fill: vec4<f32>,
   outline: vec4<f32>,
@@ -512,10 +512,14 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   let amp = state[state_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
 
+  // Hover darken — qni's `:host(:hover) #border { filter: brightness(0.9) }`
+  // extended to fill + needle + outline in one go. -1 = no hovered cell.
+  let hover_mult = select(1.0, 0.9, i32(display_index) == params.hovered_cell);
+
   // Layer 1: probability fill — solid disc whose radius is √prob × inner_radius.
   let fill_radius = params.inner_radius * sqrt(prob);
   let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
-  var color = vec4<f32>(params.fill.rgb * fill_alpha, fill_alpha);
+  var color = vec4<f32>(params.fill.rgb * hover_mult * fill_alpha, fill_alpha);
 
   // Layer 2: phase needle (only when prob > 0).
   if (prob > 0.0) {
@@ -525,7 +529,7 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     let closest = dir * t;
     let d = length(local - closest);
     let needle_alpha = 1.0 - smoothstep(half_stroke - edge, half_stroke + edge, d);
-    let needle_pre = vec4<f32>(params.needle.rgb * needle_alpha, needle_alpha);
+    let needle_pre = vec4<f32>(params.needle.rgb * hover_mult * needle_alpha, needle_alpha);
     color = needle_pre + color * (1.0 - needle_pre.a);
   }
 
@@ -540,7 +544,7 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   let outline_outer =
     1.0 - smoothstep(params.radius + half_stroke - edge, params.radius + half_stroke + edge, dist);
   let outline_alpha = max(0.0, outline_outer - outline_inner);
-  let outline_pre = vec4<f32>(outline_rgba.rgb * outline_alpha, outline_alpha);
+  let outline_pre = vec4<f32>(outline_rgba.rgb * hover_mult * outline_alpha, outline_alpha);
   color = outline_pre + color * (1.0 - outline_pre.a);
 
   return color;

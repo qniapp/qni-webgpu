@@ -112,7 +112,7 @@ impl QniApp {
                 cols,
                 rows,
                 qubits: layout.qubits as u32,
-                _pad: 0,
+                hovered_cell: self.hovered_state_cell.map_or(-1, |c| c as i32),
                 surface: render_colors.surface,
                 fill: render_colors.fill,
                 outline: render_colors.outline,

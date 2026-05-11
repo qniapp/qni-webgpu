@@ -187,6 +187,37 @@ impl QniApp {
             self.clamp_state_grid_offset(state_layout);
         }
 
+        // Cell hover detection: which (col, row) cell is the pointer
+        // over? Maps the cursor's panel-local position to a display
+        // index via the grid origin + cell pitch. Drives the GPU
+        // shader's brightness-darken on fill / needle / outline.
+        let new_hovered_cell = if viewport_response.hovered() {
+            ctx.input(|i| i.pointer.hover_pos()).and_then(|pos| {
+                let grid_origin = QniApp::grid_origin(
+                    state_layout,
+                    self.state_panel_offset,
+                    self.state_grid_offset,
+                );
+                let local = pos - grid_origin;
+                let pitch = state_layout.cell_pitch();
+                if pitch <= 0.0 || local.x < 0.0 || local.y < 0.0 {
+                    return None;
+                }
+                let col = (local.x / pitch) as usize;
+                let row = (local.y / pitch) as usize;
+                if col >= state_layout.columns() || row >= state_layout.rows() {
+                    return None;
+                }
+                Some((row * state_layout.columns() + col) as u32)
+            })
+        } else {
+            None
+        };
+        if new_hovered_cell != self.hovered_state_cell {
+            self.hovered_state_cell = new_hovered_cell;
+            ctx.request_repaint();
+        }
+
         // Ctrl+wheel inside the viewport zooms the grid. Plain wheel
         // is reserved for aspect-dims and (when over the panel) gets
         // routed there via `compute_state_panel_input_gate`. Zoom is
