@@ -47,9 +47,10 @@ pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
 
 /// How much accumulated wheel scroll delta = one aspect-step on the
 /// dims text. A typical OS wheel notch is roughly 50–100 px of smooth
-/// scroll delta, so 120 makes ~2 notches per step — a deliberate dial
-/// that doesn't over-shoot on a single flick. Lower for snappier.
-pub(crate) const ASPECT_WHEEL_PER_STEP: f32 = 120.0;
+/// scroll delta, so 240 makes ~3–5 notches per step — heavy enough
+/// that a single flick rarely over-shoots even by one. Lower for
+/// snappier.
+pub(crate) const ASPECT_WHEEL_PER_STEP: f32 = 240.0;
 
 /// Per-qubit-count circle-notation geometry. Cell size + line width
 /// follow qni's desktop layout (`circle-notation-element.ts:qubitCircleSizePx`
