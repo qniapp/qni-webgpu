@@ -134,13 +134,10 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
         GateKind::T => "T".to_string(),
         GateKind::TDagger => "T†".to_string(),
         GateKind::SqrtX => "X^½".to_string(),
-        GateKind::Rx => "Rx".to_string(),
-        GateKind::Ry => "Ry".to_string(),
-        GateKind::Rz => "Rz".to_string(),
-        GateKind::Phase => match angle {
-            Some(a) if !a.is_empty() => format!("P({})", a.replacen('/', "_", 1)),
-            _ => "P".to_string(),
-        },
+        GateKind::Phase => format_parametric("P", angle),
+        GateKind::Rx => format_parametric("Rx", angle),
+        GateKind::Ry => format_parametric("Ry", angle),
+        GateKind::Rz => format_parametric("Rz", angle),
         GateKind::Swap => "Swap".to_string(),
         GateKind::Control => "•".to_string(),
         GateKind::AntiControl => "◦".to_string(),
@@ -153,6 +150,17 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
         GateKind::QftDaggerGate => format!("QFT†{}", span.max(1)),
     };
     Some(s)
+}
+
+/// Emit a parametric gate token: `Base(<angle>)` when `angle` is set,
+/// otherwise bare `Base`. The angle string is URL-safed by replacing
+/// the first `/` with `_` to match qni's
+/// `phase-gate-element.ts::toJson` substitution.
+fn format_parametric(base: &str, angle: Option<&str>) -> String {
+    match angle {
+        Some(a) if !a.is_empty() => format!("{}({})", base, a.replacen('/', "_", 1)),
+        _ => base.to_string(),
+    }
 }
 
 /// Escape a token for JSON string embedding. The token vocabulary only
@@ -360,23 +368,30 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftGate, span.max(1), None));
     }
-    // `P(<angle>)` — mirrors qni's
-    // `quantum-circuit-element.ts::angleParameter`: strip the outer
-    // parens, trim, replace the first `_` with `/` so the URL-safe
-    // `"π_2"` becomes the canonical `"π/2"`.
-    if let Some(rest) = token.strip_prefix("P(") {
-        if let Some(inner) = rest.strip_suffix(')') {
-            let trimmed = inner.trim();
-            let normalized = if let Some(idx) = trimmed.find('_') {
-                let mut s = String::with_capacity(trimmed.len());
-                s.push_str(&trimmed[..idx]);
-                s.push('/');
-                s.push_str(&trimmed[idx + 1..]);
-                s
-            } else {
-                trimmed.to_string()
-            };
-            return Some((GateKind::Phase, 1, Some(normalized)));
+    // Parametric `P(...)` / `Rx(...)` / `Ry(...)` / `Rz(...)` —
+    // mirrors qni's `quantum-circuit-element.ts::angleParameter`:
+    // strip the outer parens, trim, replace the first `_` with `/`
+    // so the URL-safe `"π_2"` becomes the canonical `"π/2"`.
+    for (prefix, kind) in [
+        ("P(", GateKind::Phase),
+        ("Rx(", GateKind::Rx),
+        ("Ry(", GateKind::Ry),
+        ("Rz(", GateKind::Rz),
+    ] {
+        if let Some(rest) = token.strip_prefix(prefix) {
+            if let Some(inner) = rest.strip_suffix(')') {
+                let trimmed = inner.trim();
+                let normalized = if let Some(idx) = trimmed.find('_') {
+                    let mut s = String::with_capacity(trimmed.len());
+                    s.push_str(&trimmed[..idx]);
+                    s.push('/');
+                    s.push_str(&trimmed[idx + 1..]);
+                    s
+                } else {
+                    trimmed.to_string()
+                };
+                return Some((kind, 1, Some(normalized)));
+            }
         }
     }
     let kind = match token {

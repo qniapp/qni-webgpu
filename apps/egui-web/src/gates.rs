@@ -288,6 +288,85 @@ pub(crate) fn phase_params(
     }
 }
 
+/// Parametric `Rx(θ)` rotation gate: `[[cos(θ/2), -i sin(θ/2)],
+/// [-i sin(θ/2), cos(θ/2)]]`. Mirrors qni's
+/// `gate-matrices.ts::RX` family. `control_mask` / `control_value`
+/// follow the standard convention (pass `0`/`0` for uncontrolled).
+pub(crate) fn rx_params(
+    theta: f32,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    let half = theta * 0.5;
+    let c = half.cos();
+    let s = half.sin();
+    GateParams {
+        m00: [c, 0.0],
+        m01: [0.0, -s],
+        m10: [0.0, -s],
+        m11: [c, 0.0],
+        bit,
+        state_count,
+        control_mask,
+        control_value,
+        mode: gate_mode(GateKind::Rx),
+        _pad: [0; 3],
+    }
+}
+
+/// Parametric `Ry(θ)` rotation gate: `[[cos(θ/2), -sin(θ/2)],
+/// [sin(θ/2), cos(θ/2)]]`.
+pub(crate) fn ry_params(
+    theta: f32,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    let half = theta * 0.5;
+    let c = half.cos();
+    let s = half.sin();
+    GateParams {
+        m00: [c, 0.0],
+        m01: [-s, 0.0],
+        m10: [s, 0.0],
+        m11: [c, 0.0],
+        bit,
+        state_count,
+        control_mask,
+        control_value,
+        mode: gate_mode(GateKind::Ry),
+        _pad: [0; 3],
+    }
+}
+
+/// Parametric `Rz(θ)` rotation gate: `diag(e^{-iθ/2}, e^{iθ/2})`.
+pub(crate) fn rz_params(
+    theta: f32,
+    bit: u32,
+    control_mask: u32,
+    control_value: u32,
+    state_count: u32,
+) -> GateParams {
+    let half = theta * 0.5;
+    let c = half.cos();
+    let s = half.sin();
+    GateParams {
+        m00: [c, -s],
+        m01: [0.0, 0.0],
+        m10: [0.0, 0.0],
+        m11: [c, s],
+        bit,
+        state_count,
+        control_mask,
+        control_value,
+        mode: gate_mode(GateKind::Rz),
+        _pad: [0; 3],
+    }
+}
+
 /// Parse qni's URL angle string into radians. Mirrors qni's
 /// `angle-parser.ts::radian` + `piCoefficient`
 /// (`/packages/common/src/angle-parser.ts:3-62`):
