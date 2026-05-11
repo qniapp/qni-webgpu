@@ -129,7 +129,7 @@ impl QniApp {
                 }
             }
 
-            for (_, (controls, targets)) in control_groups {
+            for (slot_index, (controls, targets)) in &control_groups {
                 // Connector is a *control-only* affordance: it tells
                 // the reader "this column is a multi-qubit controlled
                 // operation". Columns with no controls (e.g. four
@@ -148,17 +148,17 @@ impl QniApp {
                 }
                 let mut min_y = f32::INFINITY;
                 let mut max_y = f32::NEG_INFINITY;
-                let mut xs = Vec::with_capacity(controls.len() + targets.len());
                 for point in controls.iter().chain(targets.iter()) {
                     min_y = min_y.min(point.y);
                     max_y = max_y.max(point.y);
-                    xs.push(point.x);
                 }
-                let x = if xs.is_empty() {
-                    continue;
-                } else {
-                    xs.iter().sum::<f32>() / xs.len() as f32
-                };
+                // Anchor the line at the *slot center*, not the mean
+                // of the gate centers — during a drag the moving gate
+                // may sit a few pixels off the slot midpoint even
+                // while it's inside `SNAP_DISTANCE`, and averaging
+                // would pull the line off the column the snap is
+                // actually going to commit to.
+                let x = circuit_origin.x + metrics.slot_centers[*slot_index];
                 let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
                 painter.line_segment([egui::pos2(x, min_y), egui::pos2(x, max_y)], stroke);
             }
@@ -178,25 +178,29 @@ impl QniApp {
                 }
             }
 
-            for (_, gates) in swap_groups {
+            for (slot_index, gates) in &swap_groups {
                 if gates.len() < 2 {
                     continue;
                 }
-                let mut centers = gates
+                let mut ys = gates
                     .iter()
                     .map(|gate| {
-                        circuit_origin
-                            + gate.pos.to_vec2()
-                            + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0)
+                        circuit_origin.y
+                            + gate.pos.y
+                            + GATE_SIZE / 2.0
                     })
                     .collect::<Vec<_>>();
-                centers.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap_or(Ordering::Equal));
-                let top = centers.first().copied();
-                let bottom = centers.last().copied();
-                if let (Some(top), Some(bottom)) = (top, bottom) {
-                    let swap_stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
-                    painter.line_segment([top, bottom], swap_stroke);
-                }
+                ys.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+                let top_y = *ys.first().unwrap();
+                let bottom_y = *ys.last().unwrap();
+                // Slot-center anchored — same rationale as the control
+                // connector above.
+                let x = circuit_origin.x + metrics.slot_centers[*slot_index];
+                let swap_stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+                painter.line_segment(
+                    [egui::pos2(x, top_y), egui::pos2(x, bottom_y)],
+                    swap_stroke,
+                );
             }
 
             // Phase-Phase connector. qni's
@@ -236,20 +240,20 @@ impl QniApp {
                         .push(center);
                 }
             }
-            for (_, angle_buckets) in phase_groups {
-                for (_, points) in angle_buckets {
+            for (slot_index, angle_buckets) in &phase_groups {
+                for points in angle_buckets.values() {
                     if points.len() < 2 {
                         continue;
                     }
                     let mut min_y = f32::INFINITY;
                     let mut max_y = f32::NEG_INFINITY;
-                    let mut xs = Vec::with_capacity(points.len());
-                    for point in &points {
+                    for point in points {
                         min_y = min_y.min(point.y);
                         max_y = max_y.max(point.y);
-                        xs.push(point.x);
                     }
-                    let x = xs.iter().sum::<f32>() / xs.len() as f32;
+                    // Slot-center anchored — same rationale as the
+                    // control / swap connectors above.
+                    let x = circuit_origin.x + metrics.slot_centers[*slot_index];
                     let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
                     painter.line_segment(
                         [egui::pos2(x, min_y), egui::pos2(x, max_y)],
