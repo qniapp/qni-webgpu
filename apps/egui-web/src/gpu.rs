@@ -1,7 +1,7 @@
 //! GPU module — WebGPU pipelines, buffers, and egui callbacks.
 //!
 //! Layered structure:
-//! * Layer 0 (leaves): `shaders`, `params`, `digit_atlas`
+//! * Layer 0 (leaves): `shaders`, `params`, `digit_atlas`, `popup_glyph_atlas`
 //! * Layer 1: `resources` — `StateVectorResources` + its giant `new`
 //! * Layer 2: `callbacks` — `egui_wgpu::CallbackTrait` impls
 //!           `readback` — test-only `#[wasm_bindgen]` async APIs
@@ -13,11 +13,15 @@
 mod callbacks;
 mod digit_atlas;
 mod params;
+mod popup_glyph_atlas;
 mod readback;
 mod resources;
 mod shaders;
 
-pub(crate) use callbacks::{BlochOverlayCallback, MeasurementDigitCallback, StateVectorCallback};
+pub(crate) use callbacks::{
+    BlochOverlayCallback, MeasurementDigitCallback, PopupValueCallback, StateVectorCallback,
+};
+pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 pub(crate) use params::{
     BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams,
 };

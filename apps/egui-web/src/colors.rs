@@ -52,6 +52,19 @@ pub(crate) struct Colors {
     /// uses `box_fill` (green-600) like every other unitary gate.
     pub(crate) qft_resize_handle_bg: egui::Color32,
     pub(crate) qft_resize_handle_bg_hover: egui::Color32,
+    /// Accent colour for the state-cell hover popup icons (amplitude /
+    /// probability / phase glyphs). qni paints these in sky-500
+    /// (#0EA5E9) — Flexoki's nearest "saturated, bright blue" tone is
+    /// blue-400 (#4385BE), which keeps the icons readable at 14px and
+    /// still feels like an accent rather than data-ink. Reserved for
+    /// the *one-point* element of each icon (amp arrow, prob inner
+    /// disk, phase arc).
+    pub(crate) popup_icon: egui::Color32,
+    /// Chrome colour for the popup icons — the supporting strokes
+    /// (amp axes + origin dot, prob outer ring, phase base + hypotenuse).
+    /// Flexoki tx-3 (#B7B5AC) sits a step lighter than the label text
+    /// (tx-2) so the blue accent reads as the foreground subject.
+    pub(crate) popup_icon_chrome: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
@@ -123,6 +136,14 @@ impl Colors {
             // family, but recoloured into Flexoki's purple tones).
             qft_resize_handle_bg: crate::shared::color_rgba(0.545, 0.494, 0.784, 1.0),
             qft_resize_handle_bg_hover: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
+            // blue-400 — popup icon accent (qni uses sky-500 #0EA5E9;
+            // blue-400 #4385BE is the closest saturated-bright blue on
+            // Flexoki Light).
+            popup_icon: crate::shared::color_rgba(0.263, 0.522, 0.745, 1.0),
+            // tx-3 (#B7B5AC) — popup icon chrome (axes / outer ring /
+            // base lines). One step lighter than label text (tx-2) so
+            // the blue accent stays foreground.
+            popup_icon_chrome: crate::shared::color_rgba(0.718, 0.710, 0.675, 1.0),
             // bg-2 → tx-3 → tx → red-600 → blue-600 — bloch sphere
             // background, latitude / longitude lines, vector line,
             // tip and origin dot.

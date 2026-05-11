@@ -158,3 +158,36 @@ pub(crate) struct MeasurementDigitInstance {
     pub(crate) half_extent: f32,
     pub(crate) slot: u32,
 }
+
+/// Uniform for the state-cell hover popup value text shader
+/// (`POPUP_VALUE_SHADER`). Layout matches the WGSL `PopupParams` struct
+/// byte-for-byte — implicit WGSL alignment padding is made explicit
+/// here via `_pad_*` fields so `bytemuck::cast_slice` writes the exact
+/// shape the shader expects.
+///
+/// Total size: 80 bytes (multiple of 16 for uniform-buffer alignment).
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct PopupValueParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Top-left of the row-0 (amplitude) value text in egui pixels.
+    pub(crate) value_anchor: [f32; 2],
+    /// Vertical pitch between value rows (= ROW_H from popup geometry).
+    pub(crate) row_pitch: f32,
+    /// Pad to vec2 alignment.
+    pub(crate) _pad_row: f32,
+    /// Size of one atlas character cell on screen (egui pixels).
+    pub(crate) char_size: [f32; 2],
+    /// Padding before the next vec4-aligned field (`text_color`).
+    pub(crate) _pad_char: [f32; 2],
+    /// RGBA text colour (premultiplied at sample time).
+    pub(crate) text_color: [f32; 4],
+    /// Which state-vector cell the user is hovering — display-space
+    /// index, the shader applies the bit-reverse to get the state-space
+    /// index (same convention as `STATE_RENDER_SHADER`).
+    pub(crate) hovered_display_index: u32,
+    pub(crate) qubits: u32,
+    pub(crate) _pad: [u32; 2],
+}

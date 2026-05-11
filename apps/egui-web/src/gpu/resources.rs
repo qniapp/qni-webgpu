@@ -17,12 +17,15 @@ use crate::gates::GateParams;
 use super::digit_atlas::{rasterize_digit_atlas, DIGIT_ATLAS_HEIGHT, DIGIT_ATLAS_WIDTH};
 use super::params::{
     BlochOverlayInstance, BlochOverlayParams, BlochParams, MeasureCollapseParams,
-    MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, RenderParams,
-    MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MeasureReduceParams, MeasurementDigitInstance, MeasurementDigitParams, PopupValueParams,
+    RenderParams, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+};
+use super::popup_glyph_atlas::{
+    rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
 };
 use super::shaders::{
     BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER, MEASUREMENT_DIGIT_SHADER, MEASURE_COLLAPSE_SHADER,
-    MEASURE_REDUCE_SHADER, STATE_COMPUTE_SHADER, STATE_RENDER_SHADER,
+    MEASURE_REDUCE_SHADER, POPUP_VALUE_SHADER, STATE_COMPUTE_SHADER, STATE_RENDER_SHADER,
 };
 
 pub(crate) struct StateVectorResources {
@@ -99,6 +102,14 @@ pub(crate) struct StateVectorResources {
     pub(crate) measurement_digit_bind_group: wgpu::BindGroup,
     pub(crate) measurement_digit_params_buffer: wgpu::Buffer,
     pub(crate) measurement_digit_instance_buffer: wgpu::Buffer,
+    /// Renders the amplitude / probability / phase numeric rows of the
+    /// state-cell hover popup straight from `state_buffers[active]`.
+    /// Three-instance draw (one per row) sampling
+    /// `popup_glyph_atlas_texture`. Popup chrome / icons / labels are
+    /// still drawn by egui's painter (CPU side).
+    pub(crate) popup_value_pipeline: wgpu::RenderPipeline,
+    pub(crate) popup_value_bind_groups: [wgpu::BindGroup; 2],
+    pub(crate) popup_value_params_buffer: wgpu::Buffer,
     /// Last params written to each `*_params_buffer`. Lets the per-frame
     /// `prepare()` code skip `queue.write_buffer` when nothing changed —
     /// viewport / colors are stable across most frames, so without these
@@ -107,6 +118,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) last_render_params: Option<RenderParams>,
     pub(crate) last_bloch_overlay_params: Option<BlochOverlayParams>,
     pub(crate) last_measurement_digit_params: Option<MeasurementDigitParams>,
+    pub(crate) last_popup_value_params: Option<PopupValueParams>,
 }
 
 
@@ -368,6 +380,10 @@ impl StateVectorResources {
                 label: Some("measurement_digit"),
                 source: wgpu::ShaderSource::Wgsl(MEASUREMENT_DIGIT_SHADER.into()),
             });
+        let popup_value_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("popup_value"),
+            source: wgpu::ShaderSource::Wgsl(POPUP_VALUE_SHADER.into()),
+        });
         let bloch_overlay_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bloch_overlay_layout"),
@@ -436,6 +452,84 @@ impl StateVectorResources {
                     },
                 ],
             });
+
+        // Popup-value bind group layout — same shape as the measurement
+        // digit layout (state buffer, params uniform, atlas, sampler)
+        // but the buffer here is one of the ping-ponged state buffers
+        // (read-only) rather than the measurement aux buffer.
+        let popup_value_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("popup_value_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        // Popup-value glyph atlas — baked once, uploaded to a small
+        // R8Unorm texture sampled by `POPUP_VALUE_SHADER`.
+        let popup_glyph_atlas_data = rasterize_popup_glyph_atlas();
+        let popup_glyph_atlas_texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("popup_glyph_atlas"),
+                size: wgpu::Extent3d {
+                    width: POPUP_GLYPH_ATLAS_WIDTH,
+                    height: POPUP_GLYPH_ATLAS_HEIGHT,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::R8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::default(),
+            &popup_glyph_atlas_data,
+        );
+        let popup_glyph_atlas_view =
+            popup_glyph_atlas_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let popup_glyph_atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("popup_glyph_atlas_sampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
 
         // Bake the digit atlas (Hack "0" / "1") once and upload to a GPU
         // texture sampled by `MEASUREMENT_DIGIT_SHADER`.
@@ -661,6 +755,12 @@ impl StateVectorResources {
         let measurement_digit_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("measurement_digit_params"),
             size: std::mem::size_of::<MeasurementDigitParams>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let popup_value_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("popup_value_params"),
+            size: std::mem::size_of::<PopupValueParams>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -1060,6 +1160,93 @@ impl StateVectorResources {
                 },
             ],
         };
+        // Popup-value bind groups — one per state buffer so we can pick
+        // the right ping-pong index when the popup paints.
+        let popup_value_bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("popup_value_bind_group_0"),
+                layout: &popup_value_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: state_buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: popup_value_params_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&popup_glyph_atlas_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Sampler(&popup_glyph_atlas_sampler),
+                    },
+                ],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("popup_value_bind_group_1"),
+                layout: &popup_value_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: state_buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: popup_value_params_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&popup_glyph_atlas_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Sampler(&popup_glyph_atlas_sampler),
+                    },
+                ],
+            }),
+        ];
+        let popup_value_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("popup_value_pipeline_layout"),
+                bind_group_layouts: &[&popup_value_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        // Vertex / instance indices come from built-ins
+        // (`@builtin(vertex_index)` / `@builtin(instance_index)`); no
+        // vertex buffer is needed.
+        let popup_value_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("popup_value_pipeline"),
+                layout: Some(&popup_value_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &popup_value_shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &popup_value_shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: target_format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    ..Default::default()
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
+
         let measurement_digit_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("measurement_digit_pipeline"),
@@ -1134,9 +1321,13 @@ impl StateVectorResources {
             measurement_digit_bind_group,
             measurement_digit_params_buffer,
             measurement_digit_instance_buffer,
+            popup_value_pipeline,
+            popup_value_bind_groups,
+            popup_value_params_buffer,
             last_render_params: None,
             last_bloch_overlay_params: None,
             last_measurement_digit_params: None,
+            last_popup_value_params: None,
         }
     }
 
