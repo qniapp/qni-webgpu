@@ -90,9 +90,10 @@ impl QniApp {
         let handle_height = STATE_HANDLE_HEIGHT;
 
         // Make sure the panel is wide enough that the strip's left/right
-        // labels never overlap. Hack monospace at 11 px is ≈7 px / glyph;
-        // budget a bit extra for the multiplication sign.
-        const STRIP_CHAR_WIDTH: f32 = 7.0;
+        // labels never overlap. Hack monospace at text-sm (14 px) is
+        // ≈ 9 px / glyph; budget a bit extra for the multiplication sign.
+        const STRIP_CHAR_WIDTH: f32 = 9.0;
+        // spacing-3 (12px) padding, spacing-4 (16px) gap between labels.
         const STRIP_PADDING_X: f32 = 12.0;
         const STRIP_LABEL_GAP: f32 = 16.0;
         let qubits_label = if qubits == 1 { "qubit" } else { "qubits" };
@@ -201,7 +202,10 @@ impl QniApp {
             egui::vec2(state_rect.width(), layout.handle_height.max(6.0)),
         );
         let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
-        let font = egui::FontId::monospace(11.0);
+        // Must mirror the strip_font in state_panel_draw.rs — both must
+        // sit at Tailwind text-sm (14px) for the hit-test rect to line
+        // up with what the user actually sees.
+        let font = egui::FontId::monospace(14.0);
         let text = Self::dims_text(layout);
         let size = ctx.fonts_mut(|f| {
             f.layout_no_wrap(text, font, egui::Color32::WHITE).size()

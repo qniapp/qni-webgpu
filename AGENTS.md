@@ -14,6 +14,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 - スナップショットのシリアライズ形式は統一し、改行や CRLF を正規化して差分ノイズを抑える。
 - UI の色・スタイルはガイドラインで統一し、ANSI 標準色を優先してテーマ互換性を保つ。
 - **配色は Flexoki Light に厳密に従う** ([kepano/flexoki](https://github.com/kepano/flexoki))。新規 / 変更色は必ず Flexoki の名前付きトーン (bg / bg-2 / ui / ui-2 / tx-3 / tx-2 / tx / red-600 / green-600 / blue-100 / blue-600 / purple-400 / purple-600 など) にマップし、ソース側のコメントにマッピング先を明記する。Tailwind 等の独自色 (sky-500 / zinc-600 / emerald-500 など) を直接書かない。
+- **タイポグラフィ / スペーシングは Tailwind のデフォルトスケールに揃える** ([tailwindcss.com/docs/font-size](https://tailwindcss.com/docs/font-size) / [tailwindcss.com/docs/customizing-spacing](https://tailwindcss.com/docs/customizing-spacing))。フォントサイズは `text-xs` (12px) / `text-sm` (14px) / `text-base` (16px) / `text-lg` (18px) / `text-xl` (20px) などスケール内のサイズのみ使う。13px / 11px / 9px のようなスケール外サイズは使わない。同様にスペーシング (padding / gap / margin / row pitch) も Tailwind の 4px 倍数スケール (`spacing-1` = 4 / `spacing-2` = 8 / `spacing-3` = 12 / `spacing-4` = 16 / `spacing-5` = 20 / `spacing-6` = 24 / ...) に揃え、`px-3.5` などスケール外の値を避ける。line-height は対応するフォントサイズの Tailwind 既定 (text-sm → 20px / text-xs → 16px) を使う。ソース側のコメントに対応する Tailwind トークン (例: `// text-sm = 14px`) を明記する。
 - スタイルガイド違反は clippy の禁止 API（disallowed-methods など）で検知する。
 - デバッグ出力は `println!` を避け、ファイルロギング（tracing など）を使う。
 - CI で `cargo insta pending-snapshots` を実行し、未承認スナップショットがある場合は失敗させる。

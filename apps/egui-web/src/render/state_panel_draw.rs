@@ -65,7 +65,10 @@ impl QniApp {
         // (panel rounded R + breathing). Keeps "16 qubits" / "256 × 256 = …"
         // from touching the curved handle marks at the top corners.
         let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
-        let strip_font = egui::FontId::monospace(11.0);
+        // text-sm (14px) — Tailwind default. Matches the popup header so
+        // both blue-on-paper "card chrome" text sits at the same step on
+        // the type scale.
+        let strip_font = egui::FontId::monospace(14.0);
         let qubits_label = if layout.qubits == 1 { "qubit" } else { "qubits" };
         let states_label = if layout.state_count == 1 { "state" } else { "states" };
         let qubits_text = format!("{} {}", layout.qubits, qubits_label);
@@ -233,19 +236,24 @@ impl QniApp {
             grid_origin.y + row as f32 * pitch + pitch * 0.5,
         );
 
-        // Popup geometry. PAD_Y is symmetric; height is derived from
-        // the *rendered* extent of the text — header glyph height +
-        // gap + (rows-1) pitches + final-row glyph height — so the gap
-        // above the header and below the last row match exactly. Pad
-        // values are approximations of egui's mono line metrics
-        // (13pt → ~16px, 12pt → ~14px) and were chosen visually.
+        // Popup geometry, on the Tailwind 4-px spacing scale. Heights are
+        // derived from each text size's default Tailwind line-height so
+        // the gap above the header and below the last row match exactly.
+        //   POPUP_W       — header + body width (no Tailwind preset for
+        //                   "tooltip width"; sized to fit the widest row,
+        //                   17 chars × 9 px glyph cell + chrome).
+        //   POPUP_PAD_X/Y — spacing-4 (16) / spacing-3 (12).
+        //   HEADER_TEXT_H — text-sm line-height (20px).
+        //   HEADER_GAP    — spacing-2 (8px).
+        //   ROW_H         — spacing-5 (20px); also text-sm line-height.
+        //   BODY_TEXT_H   — text-xs line-height (16px).
         const POPUP_W: f32 = 296.0;
-        const POPUP_PAD_X: f32 = 14.0;
+        const POPUP_PAD_X: f32 = 16.0;
         const POPUP_PAD_Y: f32 = 12.0;
-        const HEADER_TEXT_H: f32 = 16.0;
+        const HEADER_TEXT_H: f32 = 20.0;
         const HEADER_GAP: f32 = 8.0;
-        const ROW_H: f32 = 18.0;
-        const BODY_TEXT_H: f32 = 14.0;
+        const ROW_H: f32 = 20.0;
+        const BODY_TEXT_H: f32 = 16.0;
         const ROWS: usize = 3;
         let popup_h = POPUP_PAD_Y * 2.0
             + HEADER_TEXT_H
@@ -336,7 +344,9 @@ impl QniApp {
         // for full readability; labels share the same colour so the row
         // doesn't fade. Icons use tx-2 (a half-step lighter) to read as
         // chrome rather than data.
-        let header_font = egui::FontId::monospace(13.0);
+        // text-sm (14px) for the |ket⟩ header, text-xs (12px) for the
+        // amplitude/probability/phase rows. Both are Tailwind defaults.
+        let header_font = egui::FontId::monospace(14.0);
         let body_font = egui::FontId::monospace(12.0);
         // Label / value contrast mirrors the mock: labels in tx-2
         // (`state_outline`, light gray) and values in tx
@@ -611,7 +621,8 @@ impl QniApp {
                     egui::pos2(row_rect.max.x - 10.0, row_rect.center().y),
                     egui::Align2::RIGHT_CENTER,
                     "(now)",
-                    egui::FontId::monospace(10.0),
+                    // text-xs (12px) — Tailwind's smallest type-scale step.
+                    egui::FontId::monospace(12.0),
                     egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220),
                 );
             }
