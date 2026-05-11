@@ -14,7 +14,9 @@ use std::collections::HashMap;
 
 use crate::app::PlacedGate;
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
-use crate::gates::{gate_params, gate_params_controlled, GateKind, GateParams};
+use crate::gates::{
+    controlled_phase_params, gate_params, gate_params_controlled, GateKind, GateParams,
+};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 
 /// One step the GPU dispatcher should run during a recompute.
@@ -86,6 +88,7 @@ pub(crate) fn linearize_ops(
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
 
+        let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column {
             if gate.wire >= qubits {
                 continue;
@@ -105,6 +108,7 @@ pub(crate) fn linearize_ops(
                 }
                 GateKind::Measurement => measurement_targets.push(gate),
                 GateKind::BlochDisplay => bloch_targets.push(gate),
+                GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
         }
@@ -118,6 +122,15 @@ pub(crate) fn linearize_ops(
                 gate_params_controlled(target.kind, bit, control_mask, control_value, state_count)
             };
             ops.push(SimulationOp::ApplyGate(params));
+        }
+
+        // QFT-family gates expand to their textbook decomposition (H +
+        // controlled-phase rotations). Column controls are ignored here
+        // — qni's simulator doesn't model controlled-QFT either.
+        qft_gates.sort_by(|a, b| a.id.cmp(&b.id));
+        for qft in &qft_gates {
+            let dagger = qft.kind == GateKind::QftDaggerGate;
+            ops.extend(linearize_qft(qft, qubits, state_count, dagger));
         }
 
         // Measurements run after the column's unitaries: reduce + sample,
@@ -147,6 +160,76 @@ pub(crate) fn linearize_ops(
                 output_slot: bloch_slot,
             });
             bloch_slot += 1;
+        }
+    }
+    ops
+}
+
+/// Expand a placed QFT (or QFT†) gate into its textbook decomposition:
+/// `span` Hadamards interleaved with controlled-phase rotations
+/// `R_k = diag(1, exp(iπ/2^j))`. Translated 1:1 from qni's
+/// `simulator.ts::qftSingleTargetBit` / `qftDaggerSingleTargetBit`.
+/// No final bit-reversal SWAPs — qni's simulator skips them too, so
+/// the output is in bit-reversed order, but this matches qni exactly.
+///
+/// Wire-to-bit mapping: `gate.wire + idx` (wire index of the i-th
+/// qubit in the QFT register) → `bit = qubits − 1 − wire` (the
+/// simulator convention where the top wire is the MSB).
+fn linearize_qft(
+    gate: &PlacedGate,
+    qubits: usize,
+    state_count: u32,
+    dagger: bool,
+) -> Vec<SimulationOp> {
+    if gate.wire >= qubits {
+        return Vec::new();
+    }
+    // Clamp the span so the QFT never reaches past the qubit register;
+    // a user-resized QFT can momentarily extend beyond the placed
+    // bottom wire before `update_qubit_count` catches up.
+    let span = gate.span.max(1).min(qubits - gate.wire);
+    if span == 0 {
+        return Vec::new();
+    }
+    let bit_of = |idx: usize| (qubits - 1 - gate.wire - idx) as u32;
+    let mut ops = Vec::new();
+
+    if !dagger {
+        // QFT: for i in 0..span: H(i), then controlled-Phase π/2^j with
+        // control=(i+j) for j in 1..span-i.
+        for i in 0..span {
+            ops.push(SimulationOp::ApplyGate(gate_params(
+                GateKind::H,
+                bit_of(i),
+                state_count,
+            )));
+            for j in 1..(span - i) {
+                let phase = std::f32::consts::PI / (1u32 << j) as f32;
+                ops.push(SimulationOp::ApplyGate(controlled_phase_params(
+                    bit_of(i),
+                    bit_of(i + j),
+                    phase,
+                    state_count,
+                )));
+            }
+        }
+    } else {
+        // QFT†: reverse loop, negated phases, H *after* the phases.
+        for i in (0..span).rev() {
+            for j in (1..(span - i)).rev() {
+                let phase = -std::f32::consts::PI / (1u32 << j) as f32;
+                ops.push(SimulationOp::ApplyGate(controlled_phase_params(
+                    bit_of(i),
+                    bit_of(i + j),
+                    phase,
+                    state_count,
+                )));
+            }
+            ops.push(SimulationOp::ApplyGate(gate_params(
+                GateKind::H,
+                bit_of(i),
+                state_count,
+            )));
         }
     }
     ops
