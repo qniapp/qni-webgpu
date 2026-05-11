@@ -58,7 +58,19 @@ impl QniApp {
 
         let pointer_start = pointer_pressed || (pointer_down && !self.pointer_was_down);
         self.pointer_was_down = pointer_down;
-        let local_pos = pos.map(|p| egui::pos2(p.x - content_rect.min.x, p.y - content_rect.min.y));
+        // `local_pos` is the cursor in *circuit space* — the same
+        // coordinate frame `gate.pos` lives in. We undo the horizontal
+        // scroll here once so every downstream hit-test (gate body,
+        // slot snap, step preview, palette drop on circuit) gets a
+        // cursor it can compare directly against `gate.pos.x`.
+        // Palette pickup itself uses `pos` (screen) so it isn't
+        // affected by the offset.
+        let local_pos = pos.map(|p| {
+            egui::pos2(
+                p.x - content_rect.min.x + self.circuit_scroll_x,
+                p.y - content_rect.min.y,
+            )
+        });
         let palette_geom = palette_layout();
         let palette_start_x = screen_rect.width() / 2.0 - palette_geom.total_width / 2.0;
         let palette_origin = egui::pos2(
@@ -74,6 +86,45 @@ impl QniApp {
             self.layout_qubits(),
             self.min_circuit_slots(),
         );
+
+        // Horizontal scroll: trackpad horizontal swipes come through
+        // as `smooth_scroll_delta.x`; desktop mice typically only
+        // produce a `delta.y`, so we treat shift+wheel-y as wheel-x
+        // when the cursor is inside the circuit area. Scroll right
+        // (positive delta) → reveal trailing gates → `scroll_x`
+        // grows. Always clamp to `[0, max(0, line_right -
+        // canvas_width + CIRCUIT_PADDING)]` so the rightmost slot
+        // stops just past the canvas edge.
+        let cursor_in_circuit = pos.is_some_and(|p| content_rect.contains(p));
+        if cursor_in_circuit {
+            let (raw_dx, raw_dy, shift) = ctx.input(|i| {
+                (i.smooth_scroll_delta.x, i.smooth_scroll_delta.y, i.modifiers.shift)
+            });
+            let dx = if raw_dx.abs() > raw_dy.abs() || !shift {
+                raw_dx
+            } else {
+                raw_dy
+            };
+            if dx != 0.0 {
+                let max_scroll = (metrics.line_right
+                    + crate::constants::CIRCUIT_PADDING
+                    - content_rect.width())
+                    .max(0.0);
+                self.circuit_scroll_x =
+                    (self.circuit_scroll_x - dx).clamp(0.0, max_scroll);
+                ctx.request_repaint();
+            }
+        }
+        // After the scroll update, force a clamp so newly-loaded
+        // circuits or window resizes never leave us scrolled past the
+        // current content extent.
+        let max_scroll = (metrics.line_right
+            + crate::constants::CIRCUIT_PADDING
+            - content_rect.width())
+            .max(0.0);
+        if self.circuit_scroll_x > max_scroll {
+            self.circuit_scroll_x = max_scroll;
+        }
 
         // QFT resize handle takes priority over gate body for press
         // events, so dragging the bottom-edge chevron resizes the span

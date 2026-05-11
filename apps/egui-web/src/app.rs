@@ -88,6 +88,12 @@ pub(crate) struct QftResizeDrag {
 pub(crate) struct QniApp {
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
+    /// Horizontal scroll offset for the circuit area, in egui pixels.
+    /// When circuit content exceeds the canvas width, this pushes the
+    /// rendered circuit left by that many pixels so the user can see
+    /// the trailing gates. Always clamped to
+    /// `[0, max(0, line_right - canvas_width)]` post-update.
+    pub(crate) circuit_scroll_x: f32,
     dragging: Option<DragState>,
     drag_state_count: Option<usize>,
     state_panel_drag: Option<egui::Vec2>,
@@ -196,6 +202,7 @@ impl QniApp {
         Self {
             next_gate_id,
             placed_gates: initial_gates,
+            circuit_scroll_x: 0.0,
             dragging: None,
             drag_state_count: None,
             state_panel_drag: None,
@@ -468,7 +475,13 @@ impl eframe::App for QniApp {
                     let fast_drag = self.dragging.is_some();
                     dragging_gate_id = self.dragging.map(|drag| drag.id);
                     self.draw_circuit(
-                        &painter, rect, &metrics, &colors, fast_drag, dragging_gate_id,
+                        &painter,
+                        rect,
+                        &metrics,
+                        &colors,
+                        fast_drag,
+                        dragging_gate_id,
+                        self.circuit_scroll_x,
                     );
                 });
 
@@ -541,7 +554,13 @@ impl eframe::App for QniApp {
             }
             if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id)
             {
-                self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
+                self.draw_drag_preview(
+                    &overlay_painter,
+                    content_rect,
+                    &colors,
+                    dragging_gate_id,
+                    self.circuit_scroll_x,
+                );
             }
         });
 

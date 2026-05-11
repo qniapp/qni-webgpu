@@ -33,6 +33,7 @@ impl QniApp {
         content_height.max(screen_height)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn draw_circuit(
         &self,
         painter: &egui::Painter,
@@ -41,10 +42,18 @@ impl QniApp {
         colors: &Colors,
         fast_drag: bool,
         dragging_gate_id: Option<u32>,
+        scroll_x: f32,
     ) {
+        // `circuit_origin` is `rect.min` shifted left by the current
+        // horizontal scroll offset. Anything pinned to the circuit's
+        // coordinate system (wires, slot grid, gate bodies, step
+        // indicators, connectors) is drawn relative to it; the qubit
+        // label strip on the left and the GPU callback viewports stay
+        // on `rect.min` so they don't track the scroll.
+        let circuit_origin = rect.min - egui::vec2(scroll_x, 0.0);
         for &line_y in &metrics.line_ys {
-            let start = rect.min + egui::vec2(metrics.line_left, line_y);
-            let end = rect.min + egui::vec2(metrics.line_right, line_y);
+            let start = circuit_origin + egui::vec2(metrics.line_left, line_y);
+            let end = circuit_origin + egui::vec2(metrics.line_right, line_y);
             painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
         }
 
@@ -63,7 +72,7 @@ impl QniApp {
                 }
                 let x = metrics.slot_centers[slot]
                     + crate::constants::SLOT_SPACING * 0.5
-                    + rect.min.x;
+                    + circuit_origin.x;
                 // Flexoki blue-600 (#205EA6) — matches `state_fill`.
                 let color = egui::Color32::from_rgba_unmultiplied(32, 94, 166, alpha);
                 painter.line_segment(
@@ -100,7 +109,7 @@ impl QniApp {
                     if distance > SNAP_DISTANCE {
                         continue;
                     }
-                    let center = rect.min
+                    let center = circuit_origin
                         + gate.pos.to_vec2()
                         + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
                     let entry = control_groups
@@ -170,7 +179,9 @@ impl QniApp {
                 let mut centers = gates
                     .iter()
                     .map(|gate| {
-                        rect.min + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0)
+                        circuit_origin
+                            + gate.pos.to_vec2()
+                            + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0)
                     })
                     .collect::<Vec<_>>();
                 centers.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap_or(Ordering::Equal));
@@ -208,7 +219,7 @@ impl QniApp {
                     if distance > SNAP_DISTANCE {
                         continue;
                     }
-                    let center = rect.min
+                    let center = circuit_origin
                         + gate.pos.to_vec2()
                         + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
                     phase_groups
@@ -266,7 +277,7 @@ impl QniApp {
                 if distance > SNAP_DISTANCE {
                     continue;
                 }
-                let center = rect.min
+                let center = circuit_origin
                     + gate.pos.to_vec2()
                     + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
 
@@ -343,7 +354,7 @@ impl QniApp {
                 GATE_SIZE
             };
             let gate_rect = egui::Rect::from_min_size(
-                rect.min + gate.pos.to_vec2(),
+                circuit_origin + gate.pos.to_vec2(),
                 egui::vec2(GATE_SIZE, gate_height),
             );
             if !fast_drag && self.hovered_gate_id == Some(gate.id) {
@@ -404,7 +415,7 @@ impl QniApp {
                 }
                 let slot = *self.bloch_slots.get(&gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
-                    rect.min + gate.pos.to_vec2(),
+                    circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
@@ -449,7 +460,7 @@ impl QniApp {
                 }
                 let slot = *self.measurement_slots.get(&gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
-                    rect.min + gate.pos.to_vec2(),
+                    circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
@@ -548,12 +559,17 @@ impl QniApp {
         content_rect: egui::Rect,
         colors: &Colors,
         dragging_gate_id: u32,
+        scroll_x: f32,
     ) {
         let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == dragging_gate_id) else {
             return;
         };
+        // Same convention as draw_circuit — gate.pos is in circuit
+        // space, so we shift the content_rect origin left by the scroll
+        // offset before placing the drag preview.
+        let circuit_origin = content_rect.min - egui::vec2(scroll_x, 0.0);
         let gate_rect = egui::Rect::from_min_size(
-            content_rect.min + gate.pos.to_vec2(),
+            circuit_origin + gate.pos.to_vec2(),
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
         draw_drag_gate_body(painter, gate_rect, gate.kind, colors);
