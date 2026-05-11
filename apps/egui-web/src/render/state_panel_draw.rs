@@ -229,7 +229,7 @@ impl QniApp {
             let thumb_color = if is_current {
                 egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220)
             } else {
-                egui::Color32::from_rgba_unmultiplied(82, 82, 91, 180) // zinc-600 60%
+                egui::Color32::from_rgba_unmultiplied(111, 110, 105, 180) // Flexoki tx-2 #6F6E69 70%
             };
             painter.rect_filled(
                 egui::Rect::from_min_size(thumb_min, egui::vec2(thumb_w, thumb_h)),

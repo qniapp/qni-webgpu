@@ -64,7 +64,8 @@ impl QniApp {
                 let x = metrics.slot_centers[slot]
                     + crate::constants::SLOT_SPACING * 0.5
                     + rect.min.x;
-                let color = egui::Color32::from_rgba_unmultiplied(14, 165, 233, alpha);
+                // Flexoki blue-600 (#205EA6) — matches `state_fill`.
+                let color = egui::Color32::from_rgba_unmultiplied(32, 94, 166, alpha);
                 painter.line_segment(
                     [
                         egui::pos2(x, rect.min.y + top),

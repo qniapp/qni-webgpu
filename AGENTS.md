@@ -13,6 +13,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 - 変更フローは「変更 → テスト → pending snapshots 確認 → review → accept/reject → CI 検証」を遵守する。
 - スナップショットのシリアライズ形式は統一し、改行や CRLF を正規化して差分ノイズを抑える。
 - UI の色・スタイルはガイドラインで統一し、ANSI 標準色を優先してテーマ互換性を保つ。
+- **配色は Flexoki Light に厳密に従う** ([kepano/flexoki](https://github.com/kepano/flexoki))。新規 / 変更色は必ず Flexoki の名前付きトーン (bg / bg-2 / ui / ui-2 / tx-3 / tx-2 / tx / red-600 / green-600 / blue-100 / blue-600 / purple-400 / purple-600 など) にマップし、ソース側のコメントにマッピング先を明記する。Tailwind 等の独自色 (sky-500 / zinc-600 / emerald-500 など) を直接書かない。
 - スタイルガイド違反は clippy の禁止 API（disallowed-methods など）で検知する。
 - デバッグ出力は `println!` を避け、ファイルロギング（tracing など）を使う。
 - CI で `cargo insta pending-snapshots` を実行し、未承認スナップショットがある場合は失敗させる。

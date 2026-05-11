@@ -1,5 +1,23 @@
 use eframe::egui;
 
+/// Application palette — strict Flexoki Light (Steph Ango / kepano,
+/// <https://github.com/kepano/flexoki>). All semantic colours below map
+/// to a Flexoki named tone; the comment on each line spells out which.
+///
+/// Flexoki Light reference tones used here:
+///   bg     paper      #FFFCF0  (1.000, 0.988, 0.941)
+///   bg-2   base-50    #F2F0E5  (0.949, 0.941, 0.898)
+///   ui     base-100   #E6E4D9  (0.902, 0.894, 0.851)
+///   ui-2   base-150   #DAD8CE  (0.855, 0.847, 0.808)
+///   tx-3   base-300   #B7B5AC  (0.718, 0.710, 0.675)
+///   tx-2   base-600   #6F6E69  (0.435, 0.431, 0.412)
+///   tx     black      #100F0F  (0.063, 0.059, 0.059)
+///   red-600           #AF3029  (0.686, 0.188, 0.161)
+///   green-600         #66800B  (0.400, 0.502, 0.043)
+///   blue-100          #BCD1E0  (0.737, 0.820, 0.878)
+///   blue-600          #205EA6  (0.125, 0.369, 0.651)
+///   purple-400        #8B7EC8  (0.545, 0.494, 0.784)
+///   purple-600        #5E409D  (0.369, 0.251, 0.616)
 pub(crate) struct Colors {
     pub(crate) background: egui::Color32,
     pub(crate) surface: egui::Color32,
@@ -18,19 +36,17 @@ pub(crate) struct Colors {
     pub(crate) semantic_intermediate: egui::Color32,
     pub(crate) semantic_disabled: egui::Color32,
     pub(crate) state_handle_bg: egui::Color32,
-    /// Top resize handle (inside sky-500 strip) — idle.
+    /// Top resize handle (inside the blue header strip) — idle.
     pub(crate) state_resize_handle_top_idle: egui::Color32,
     /// Top resize handle — while dragging.
     pub(crate) state_resize_handle_top_drag: egui::Color32,
-    /// Bottom resize handle (on white panel) — idle.
+    /// Bottom resize handle (on the paper panel surface) — idle.
     pub(crate) state_resize_handle_bottom_idle: egui::Color32,
     /// Bottom resize handle — while dragging.
     pub(crate) state_resize_handle_bottom_drag: egui::Color32,
-    /// QFT / QFT† resize-handle chrome (the small chevron strip at the
-    /// gate's bottom edge that appears on hover). Purple-400 idle,
-    /// purple-500 on hover — matches qni's
-    /// `--qni-component-resize-handle-fill-color` and *-hovered.
-    /// The body itself is `box_fill` (green) like every other gate.
+    /// QFT / QFT† resize-handle chrome at the bottom of the gate body
+    /// (Flexoki purple-400 idle, purple-600 on hover). The body itself
+    /// uses `box_fill` (green-600) like every other unitary gate.
     pub(crate) qft_resize_handle_bg: egui::Color32,
     pub(crate) qft_resize_handle_bg_hover: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
@@ -45,59 +61,68 @@ pub(crate) struct Colors {
 impl Colors {
     pub(crate) fn new() -> Self {
         Self {
-            background: crate::shared::color_rgba(0.976, 0.98, 0.984, 1.0),
-            surface: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
-            line: crate::shared::color_rgba(0.72, 0.72, 0.72, 1.0),
-            box_fill: crate::shared::color_rgba(0.2, 0.62, 0.55, 1.0),
-            drag_fill: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0), // qni purple-500: #a855f7
-            box_border: crate::shared::color_rgba(0.82, 0.82, 0.82, 1.0),
-            label: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
-            text: crate::shared::color_rgba(0.45, 0.45, 0.45, 1.0),
-            state_fill: crate::shared::color_rgba(0.055, 0.647, 0.914, 1.0), // Tailwind sky-500: rgb(14, 165, 233)
-            state_outline: crate::shared::color_rgba(0.0, 0.0, 0.0, 1.0),
-            state_outline_zero: crate::shared::color_rgba(0.75, 0.75, 0.75, 1.0),
-            state_needle: crate::shared::color_rgba(0.0, 0.0, 0.0, 1.0),
-            // qni semantic-color-off (red-500: #ef4444) for |0>
-            semantic_off: crate::shared::color_rgba(0.937, 0.267, 0.267, 1.0),
-            // qni semantic-color-on (blue-500: #3b82f6) for |1>
-            semantic_on: crate::shared::color_rgba(0.231, 0.510, 0.965, 1.0),
-            // qni semantic-color-intermediate (purple-500: #a855f7); shared with drag_fill.
-            semantic_intermediate: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
-            // qni semantic-fill-color-disabled (zinc-500: #71717a) — write
-            // gate brackets, control / anti-control / swap icons.
-            semantic_disabled: crate::shared::color_rgba(0.443, 0.443, 0.478, 1.0),
-            // sky-500 (#0ea5e9) — state panel header strip background.
-            // Matches the amplitude fill so the panel reads as belonging to
-            // the state-vector concept (zinc-100 was too close to the page
-            // background and got lost).
-            state_handle_bg: crate::shared::color_rgba(0.055, 0.647, 0.914, 1.0),
-            // Top resize handles sit on the sky-500 strip, so they're tinted
-            // sky-200 (#bae6fd) to harmonize with the background and pop to
-            // pure white while being dragged. Bottom handles sit on the
-            // white panel, so they use neutral grays (zinc-300 → zinc-600).
-            // The L-shape is the identifier; color adapts to local context.
-            state_resize_handle_top_idle: crate::shared::color_rgba(0.729, 0.902, 0.992, 1.0),
-            state_resize_handle_top_drag: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
-            state_resize_handle_bottom_idle: crate::shared::color_rgba(0.831, 0.831, 0.847, 1.0),
-            state_resize_handle_bottom_drag: crate::shared::color_rgba(0.322, 0.322, 0.357, 1.0),
-            // qni `--qni-semantic-color-intermediate-light` (#c084fc =
-            // purple-400) idle; `--qni-semantic-color-intermediate`
-            // (#a855f7 = purple-500) on hover. White chevron icon for
-            // legibility on both shades.
-            qft_resize_handle_bg: crate::shared::color_rgba(0.753, 0.518, 0.988, 1.0),
-            qft_resize_handle_bg_hover: crate::shared::color_rgba(0.659, 0.333, 0.969, 1.0),
-            // qni bloch-display palette: bg green-50 (#f0fdf4), gray-400 (#9ca3af),
-            // gray-900 (#111827), red-500 (#ef4444), blue-500 (#3b82f6).
-            bloch_sphere_bg: crate::shared::color_rgba(0.941, 0.992, 0.957, 1.0),
-            bloch_sphere_lines: crate::shared::color_rgba(0.612, 0.639, 0.686, 1.0),
-            bloch_vector_line: crate::shared::color_rgba(0.067, 0.094, 0.153, 1.0),
-            bloch_vector_tip: crate::shared::color_rgba(0.937, 0.267, 0.267, 1.0),
-            bloch_vector_zero: crate::shared::color_rgba(0.231, 0.510, 0.965, 1.0),
-            // qni measurement fired icon is text-zinc-200 (#e4e4e7) so the
-            // colored digit dominates.
-            measurement_fired_icon: crate::shared::color_rgba(0.894, 0.894, 0.910, 1.0),
-            // qni text-neutral-900 (#171717) for the spacer ellipsis squares.
-            spacer_dots: crate::shared::color_rgba(0.090, 0.090, 0.090, 1.0),
+            // bg-2 (base-50) — page / canvas behind the cards.
+            background: crate::shared::color_rgba(0.949, 0.941, 0.898, 1.0),
+            // paper — palette / state-panel surface (one notch lighter
+            // than the page so cards read as "elevated").
+            surface: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
+            // ui-2 — qubit wires.
+            line: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
+            // green-600 — unitary gate body.
+            box_fill: crate::shared::color_rgba(0.400, 0.502, 0.043, 1.0),
+            // purple-600 — gate-drag preview ("intermediate / ghost"
+            // tone, same as `semantic_intermediate`).
+            drag_fill: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
+            // ui — gate hover outline.
+            box_border: crate::shared::color_rgba(0.902, 0.894, 0.851, 1.0),
+            // paper — gate label / icon strokes (on green/blue bodies).
+            label: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
+            // tx-2 — body text (q-labels etc.).
+            text: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
+            // blue-600 — amplitude fill in the state panel.
+            state_fill: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
+            // tx — state-vector outline (non-zero amplitude).
+            state_outline: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
+            // ui-2 — outline for zero-amplitude circles.
+            state_outline_zero: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
+            // tx — phase-needle line.
+            state_needle: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
+            // red-600 — |0⟩ measurement / write digit colour.
+            semantic_off: crate::shared::color_rgba(0.686, 0.188, 0.161, 1.0),
+            // blue-600 — |1⟩ measurement / write digit colour.
+            semantic_on: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
+            // purple-600 — intermediate / dragging ghost (= drag_fill).
+            semantic_intermediate: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
+            // tx-2 — disabled fills (write-gate brackets, control / swap
+            // icons in the palette).
+            semantic_disabled: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
+            // blue-600 — state-panel header strip (the same blue as
+            // `state_fill` so the strip reads as part of the panel).
+            state_handle_bg: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
+            // blue-100 — top resize handle on the blue strip; pops to
+            // paper while being dragged.
+            state_resize_handle_top_idle: crate::shared::color_rgba(0.737, 0.820, 0.878, 1.0),
+            state_resize_handle_top_drag: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
+            // ui-2 → tx-2 — bottom resize handle on the paper panel.
+            state_resize_handle_bottom_idle: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
+            state_resize_handle_bottom_drag: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
+            // purple-400 / purple-600 — QFT resize handle (matches
+            // qni's `--qni-component-resize-handle-fill-color{,-hovered}`
+            // family, but recoloured into Flexoki's purple tones).
+            qft_resize_handle_bg: crate::shared::color_rgba(0.545, 0.494, 0.784, 1.0),
+            qft_resize_handle_bg_hover: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
+            // bg-2 → tx-3 → tx → red-600 → blue-600 — bloch sphere
+            // background, latitude / longitude lines, vector line,
+            // tip and origin dot.
+            bloch_sphere_bg: crate::shared::color_rgba(0.949, 0.941, 0.898, 1.0),
+            bloch_sphere_lines: crate::shared::color_rgba(0.718, 0.710, 0.675, 1.0),
+            bloch_vector_line: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
+            bloch_vector_tip: crate::shared::color_rgba(0.686, 0.188, 0.161, 1.0),
+            bloch_vector_zero: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
+            // ui — "fired" meter icon (the colored digit dominates on top).
+            measurement_fired_icon: crate::shared::color_rgba(0.902, 0.894, 0.851, 1.0),
+            // tx — spacer ellipsis squares.
+            spacer_dots: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
         }
     }
 }
