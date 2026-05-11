@@ -14,6 +14,7 @@ use eframe::egui;
 ///   tx     black      #100F0F  (0.063, 0.059, 0.059)
 ///   red-600           #AF3029  (0.686, 0.188, 0.161)
 ///   green-600         #66800B  (0.400, 0.502, 0.043)
+///   cyan-400          #3AA99F  (0.227, 0.663, 0.624)
 ///   blue-100          #BCD1E0  (0.737, 0.820, 0.878)
 ///   blue-400          #4385BE  (0.263, 0.522, 0.745)
 ///   blue-600          #205EA6  (0.125, 0.369, 0.651)
@@ -69,8 +70,10 @@ impl Colors {
             surface: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
             // ui-2 — qubit wires.
             line: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
-            // green-600 — unitary gate body.
-            box_fill: crate::shared::color_rgba(0.400, 0.502, 0.043, 1.0),
+            // cyan-400 — unitary gate body. Flexoki's green-600 read as
+            // olive in practice; cyan-400 lands closer to qni's original
+            // teal emerald-500 (#10b981) while staying on-palette.
+            box_fill: crate::shared::color_rgba(0.227, 0.663, 0.624, 1.0),
             // purple-600 — gate-drag preview ("intermediate / ghost"
             // tone, same as `semantic_intermediate`).
             drag_fill: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
