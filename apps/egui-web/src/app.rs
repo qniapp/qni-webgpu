@@ -507,11 +507,44 @@ impl eframe::App for QniApp {
 
             let mut dragging_gate_id = None;
             let mut content_rect = None;
+            // Pre-compute the state panel rect (and any open popover rect)
+            // so we can disable wheel-as-scroll-input when the pointer is
+            // over them — otherwise the ScrollArea consumes the wheel
+            // before the dims aspect handler (or viewport zoom) sees it,
+            // and the circuit scrolls up/down underneath. We use the
+            // current frame's state_count / aspect / offset; small drag
+            // intra-frame jitter doesn't matter for a pointer-in-rect
+            // check.
+            let state_count_for_input_gate = self.state_count();
+            let pre_state_layout =
+                self.state_panel_layout(screen_rect, state_count_for_input_gate);
+            let pre_state_rect = pre_state_layout
+                .state_rect
+                .translate(self.state_panel_offset);
+            let pre_popover_rect = if self.aspect_popover_open {
+                let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel_offset);
+                let (rect, _) = QniApp::aspect_popover_layout(
+                    dims_hit,
+                    crate::shared::amplitude_qubits(state_count_for_input_gate)
+                        .clamp(1, MAX_QUBITS),
+                );
+                Some(rect)
+            } else {
+                None
+            };
+            let pointer_over_state_panel = ctx
+                .input(|i| i.pointer.hover_pos())
+                .map(|p| {
+                    pre_state_rect.contains(p)
+                        || pre_popover_rect.map_or(false, |r| r.contains(p))
+                })
+                .unwrap_or(false);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .scroll_source(egui::scroll_area::ScrollSource {
                     drag: false,
-                    ..egui::scroll_area::ScrollSource::default()
+                    mouse_wheel: !pointer_over_state_panel,
+                    scroll_bar: true,
                 })
                 .show(ui, |ui| {
                     let (rect, _response) = ui.allocate_exact_size(
