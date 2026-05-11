@@ -493,7 +493,11 @@ impl QniApp {
         }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
-            let label_pos = rect.min + egui::vec2(CIRCUIT_PADDING, line_y - 7.0);
+            // Labels live in circuit space (anchored to the wire's
+            // start) so they scroll with the rest of the circuit —
+            // otherwise the leftmost gates would slide under fixed
+            // "q0:" / "q1:" labels and visually collide.
+            let label_pos = circuit_origin + egui::vec2(CIRCUIT_PADDING, line_y - 7.0);
             painter.text(
                 label_pos,
                 egui::Align2::LEFT_TOP,
