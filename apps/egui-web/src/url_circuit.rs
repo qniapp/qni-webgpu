@@ -8,14 +8,16 @@
 //!   `encodeURIComponent`, producing a `%7B%22cols%22%3A...` blob that
 //!   is impossible to read at a glance.
 //! * **Quirk**: writes the raw JSON to the *hash fragment* under a
-//!   `circuit=` key, only falling back to percent-encoding when the
-//!   JSON itself contains `%` or `&`. Browsers tolerate `{ } [ ] " : ,`
-//!   in `location.hash` and display them literally, so the address bar
-//!   shows e.g. `#circuit={"cols":[["H"],["•","X"]]}`.
+//!   `circuit=` key (so the hash can fit multiple `key=value` params
+//!   joined with `&`), only falling back to percent-encoding when the
+//!   JSON itself contains `%` or `&`. Browsers tolerate `{ } [ ] : ,`
+//!   in `location.hash` and display them literally.
 //!
-//! We want the Quirk readability while keeping the qni JSON shape so
-//! the URL is portable between projects. This module produces the
-//! shared `{"cols":[...]}` JSON and pushes it to `location.hash`.
+//! We keep Quirk's "raw JSON in the hash" idea but drop the `circuit=`
+//! prefix — this project never plans to layer other key-value params
+//! into the hash, so the bare `#{"cols":[...]}` form is shorter and
+//! parses unambiguously. (Importing a Quirk URL needs the `circuit=`
+//! prefix stripped first; doable but not a workflow we ship today.)
 //!
 //! Token vocabulary (must match qni's `Serialized*Type` constants):
 //!   H X Y Z S T  — text-book single-qubit gates
@@ -158,11 +160,14 @@ fn json_escape(s: &str) -> String {
     out
 }
 
-/// Push the serialised circuit into `location.hash`, Quirk-style:
-///   #circuit={"cols":[...]}
+/// Push the serialised circuit into `location.hash`, Quirk-style but
+/// without the `circuit=` key prefix:
+///   #{"cols":[...]}
 ///
 /// JSON is written raw; falls back to `encodeURIComponent` only when
-/// the payload contains `%` or `&` (which would break hash parsing).
+/// the payload contains `%` (which would otherwise be interpreted as
+/// the start of a percent-escape sequence on read-back). `&` is no
+/// longer a hazard since we don't split the hash into key=value pairs.
 /// Uses `history.replaceState` so navigation back/forward doesn't fill
 /// up with one entry per drop.
 #[cfg(target_arch = "wasm32")]
@@ -171,12 +176,12 @@ pub(crate) fn write_circuit_to_url(json: &str) {
     let Some(window) = web_sys::window() else {
         return;
     };
-    let payload = if json.contains('%') || json.contains('&') {
+    let payload = if json.contains('%') {
         js_sys::encode_uri_component(json).as_string().unwrap_or_else(|| json.to_string())
     } else {
         json.to_string()
     };
-    let hash = format!("#circuit={payload}");
+    let hash = format!("#{payload}");
     // Compose a full URL so `replaceState` doesn't rewrite the path.
     let location = window.location();
     let base = match (location.origin(), location.pathname(), location.search()) {
