@@ -96,6 +96,7 @@ pub(crate) fn linearize_ops(
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
+        let mut swap_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column {
@@ -112,7 +113,8 @@ pub(crate) fn linearize_ops(
                 GateKind::AntiControl => {
                     control_mask |= bit_mask;
                 }
-                GateKind::Swap | GateKind::Spacer => {
+                GateKind::Swap => swap_targets.push(gate),
+                GateKind::Spacer => {
                     // Non-mutating decoration.
                 }
                 GateKind::Measurement => measurement_targets.push(gate),
@@ -120,6 +122,44 @@ pub(crate) fn linearize_ops(
                 GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
+        }
+
+        // Swap step → 3-CNOT decomposition. Mirrors qni's
+        // `simulator.ts::swap` (`packages/simulator/src/simulator.ts:296`):
+        //   X target1 controls=[target0]
+        //   X target0 controls=[target1]
+        //   X target1 controls=[target0]
+        // Any column-level controls (Fredkin / controlled-SWAP) ride
+        // along — they're OR'd into each CX's control mask the same way
+        // qni does via `controlOptions.controls.concat(...)`.
+        //
+        // Two-target swap only; if the user dropped a single Swap with
+        // no partner, or three+ Swaps in one column, the column is
+        // skipped (qni dispatches only the first two `targets` and
+        // disables stray swaps via `updateSwapConnections`).
+        swap_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        if swap_targets.len() == 2 {
+            let bit_a = (qubits - 1 - swap_targets[0].wire) as u32;
+            let bit_b = (qubits - 1 - swap_targets[1].wire) as u32;
+            let mask_a = 1u32 << bit_a;
+            let mask_b = 1u32 << bit_b;
+            let cx_a_to_b = gate_params_controlled(
+                GateKind::X,
+                bit_b,
+                control_mask | mask_a,
+                control_value | mask_a,
+                state_count,
+            );
+            let cx_b_to_a = gate_params_controlled(
+                GateKind::X,
+                bit_a,
+                control_mask | mask_b,
+                control_value | mask_b,
+                state_count,
+            );
+            ops.push(SimulationOp::ApplyGate(cx_a_to_b));
+            ops.push(SimulationOp::ApplyGate(cx_b_to_a));
+            ops.push(SimulationOp::ApplyGate(cx_a_to_b));
         }
 
         targets.sort_by(|a, b| a.id.cmp(&b.id));
@@ -171,6 +211,7 @@ pub(crate) fn linearize_ops(
             && qft_gates.is_empty()
             && measurement_targets.is_empty()
             && bloch_targets.is_empty()
+            && swap_targets.is_empty()
             && control_value.count_ones() >= 2
         {
             let target_bit = 31 - control_value.leading_zeros();
