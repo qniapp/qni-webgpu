@@ -10,3 +10,5 @@
 mod circuit;
 mod state_panel_layout;
 mod state_panel_draw;
+
+pub(crate) use state_panel_layout::StatePanelLayout;

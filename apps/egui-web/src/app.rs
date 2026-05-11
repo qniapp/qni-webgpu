@@ -4,8 +4,9 @@
 //!   * `state_panel` — state-panel interactions + small state helpers
 //!   * `gate_input`  — gate pickup / drag / drop / hover + repaint throttle
 
-mod state_panel;
+mod fps_hud;
 mod gate_input;
+mod state_panel;
 
 use eframe::egui;
 use std::collections::{HashMap, VecDeque};
@@ -14,13 +15,12 @@ use std::time::Duration;
 use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
 use crate::constants::{
-    state_circle_default_aspect_index, ASPECT_WHEEL_PER_STEP, DRAG_REPAINT_MIN_SECS, MAX_QUBITS,
-    MIN_QUBITS, STATE_GRID_ZOOM_MAX, STATE_GRID_ZOOM_MIN, STATE_VIEWPORT_DEFAULT_HEIGHT,
-    STATE_VIEWPORT_DEFAULT_WIDTH,
+    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS, MIN_QUBITS,
+    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
 };
 use crate::gates::GateKind;
 use crate::layout::layout_metrics;
-use crate::shared::now_seconds;
+use crate::shared::{amplitude_qubits, now_seconds};
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {
@@ -218,6 +218,57 @@ impl QniApp {
     fn state_count(&self) -> usize {
         1usize << self.state_qubits()
     }
+
+    /// Refresh the simulation operation list + per-gate slot lookups
+    /// when something changed (qubits added, gates rearranged, etc.).
+    /// Returns the (possibly updated) recompute flag — false if we
+    /// punted because the GPU target wasn't ready yet.
+    fn process_gpu_recompute(
+        &mut self,
+        target_format: Option<eframe::wgpu::TextureFormat>,
+        recompute: bool,
+        screen_rect: egui::Rect,
+        state_count: usize,
+        ctx: &egui::Context,
+    ) -> bool {
+        if target_format.is_some() {
+            if recompute {
+                self.needs_recompute = false;
+                self.last_state_count = state_count;
+                let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
+                let qubits = self.state_qubits();
+                self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
+                self.bloch_slots.clear();
+                self.measurement_slots.clear();
+                for op in &self.sim_ops {
+                    match op {
+                        SimulationOp::CaptureBloch {
+                            gate_id,
+                            output_slot,
+                            ..
+                        } => {
+                            self.bloch_slots.insert(*gate_id, *output_slot);
+                        }
+                        SimulationOp::MeasureReduceSample {
+                            gate_id,
+                            output_slot,
+                            ..
+                        } => {
+                            self.measurement_slots.insert(*gate_id, *output_slot);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            recompute
+        } else if recompute {
+            ctx.request_repaint();
+            false
+        } else {
+            false
+        }
+    }
+
 }
 
 impl eframe::App for QniApp {
@@ -229,40 +280,15 @@ impl eframe::App for QniApp {
             let content_height =
                 self.circuit_content_height(self.layout_qubits(), screen_rect.height());
 
+            // Decide whether wheel-over-the-panel should suppress the
+            // surrounding ScrollArea's page-scroll. If pointer is on the
+            // state panel (or its popover), we want wheel to route to
+            // our handlers (aspect dims, viewport zoom) instead.
+            let pointer_over_state_panel =
+                self.compute_state_panel_input_gate(ctx, screen_rect);
+
             let mut dragging_gate_id = None;
             let mut content_rect = None;
-            // Pre-compute the state panel rect (and any open popover rect)
-            // so we can disable wheel-as-scroll-input when the pointer is
-            // over them — otherwise the ScrollArea consumes the wheel
-            // before the dims aspect handler (or viewport zoom) sees it,
-            // and the circuit scrolls up/down underneath. We use the
-            // current frame's state_count / aspect / offset; small drag
-            // intra-frame jitter doesn't matter for a pointer-in-rect
-            // check.
-            let state_count_for_input_gate = self.state_count();
-            let pre_state_layout =
-                self.state_panel_layout(screen_rect, state_count_for_input_gate);
-            let pre_state_rect = pre_state_layout
-                .state_rect
-                .translate(self.state_panel_offset);
-            let pre_popover_rect = if self.aspect_popover_open {
-                let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel_offset);
-                let (rect, _) = QniApp::aspect_popover_layout(
-                    dims_hit,
-                    crate::shared::amplitude_qubits(state_count_for_input_gate)
-                        .clamp(1, MAX_QUBITS),
-                );
-                Some(rect)
-            } else {
-                None
-            };
-            let pointer_over_state_panel = ctx
-                .input(|i| i.pointer.hover_pos())
-                .map(|p| {
-                    pre_state_rect.contains(p)
-                        || pre_popover_rect.map_or(false, |r| r.contains(p))
-                })
-                .unwrap_or(false);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .scroll_source(egui::scroll_area::ScrollSource {
@@ -288,28 +314,27 @@ impl eframe::App for QniApp {
                     let fast_drag = self.dragging.is_some();
                     dragging_gate_id = self.dragging.map(|drag| drag.id);
                     self.draw_circuit(
-                        &painter,
-                        rect,
-                        &metrics,
-                        &colors,
-                        fast_drag,
-                        dragging_gate_id,
+                        &painter, rect, &metrics, &colors, fast_drag, dragging_gate_id,
                     );
                 });
 
+            // Resolve the state count / aspect / layout for this frame.
+            // While a gate is mid-drag, an extra phantom qubit is added
+            // (`drag_state_count`) so the layout doesn't reflow underneath
+            // the user during the drag.
             let base_state_count = self.state_count();
             let state_count = if self.dragging.is_some() {
                 self.drag_state_count.unwrap_or(base_state_count)
             } else {
                 base_state_count
             };
-            let mut recompute = self.needs_recompute || state_count != self.last_state_count;
+            let recompute = self.needs_recompute || state_count != self.last_state_count;
             self.clamp_state_viewport_size();
             // Sync aspect_index with the current qubit count. While the
             // user hasn't customised, follow qni's per-qubit default;
             // once customised, only clamp to the valid [0, qubits] range
             // so the choice is sticky across qubit changes.
-            let aspect_qubits = crate::shared::amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
+            let aspect_qubits = amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
             if !self.aspect_customized {
                 self.aspect_index = state_circle_default_aspect_index(aspect_qubits);
             } else {
@@ -324,288 +349,34 @@ impl eframe::App for QniApp {
                 egui::vec2(state_rect.width(), state_layout.handle_height.max(6.0)),
             );
 
-            // Strip drag (move-the-panel) area excludes the corner-handle
-            // strip on both sides so dragging from a corner triggers
-            // resize, not move. The corner resize interacts are registered
-            // AFTER the strip / viewport so they take priority for
-            // overlapping pointer hits.
-            const STRIP_CORNER_EXCLUDE: f32 = 16.0;
-            let strip_drag_rect = egui::Rect::from_min_max(
-                handle_rect.min + egui::vec2(STRIP_CORNER_EXCLUDE, 0.0),
-                handle_rect.max - egui::vec2(STRIP_CORNER_EXCLUDE, 0.0),
+            // State panel interactions. Order matters: resize handles are
+            // registered last so they take priority over the strip and
+            // viewport interacts at overlapping pointer hits.
+            self.process_state_panel_strip_drag(ui, &state_layout, screen_rect, handle_rect);
+            self.process_state_panel_viewport_pan_and_zoom(
+                ctx, ui, &state_layout, screen_rect, state_count,
             );
-            let handle_response = ui.interact(
-                strip_drag_rect,
-                egui::Id::new("state_panel_handle"),
-                egui::Sense::drag(),
-            );
-            if handle_response.drag_started() {
-                if let Some(pos) = handle_response.interact_pointer_pos() {
-                    self.state_panel_drag = Some(pos - handle_rect.min);
-                }
-            }
-            if handle_response.dragged() {
-                if let (Some(pos), Some(offset)) = (
-                    handle_response.interact_pointer_pos(),
-                    self.state_panel_drag,
-                ) {
-                    let desired_min = pos - offset;
-                    self.state_panel_offset = desired_min - state_layout.state_rect.min;
-                    self.clamp_state_panel_offset(&state_layout, screen_rect);
-                }
-            }
-            if handle_response.drag_stopped() {
-                self.state_panel_drag = None;
-            }
-
-            // Pan the grid inside the viewport. Disabled axes (= grid fits
-            // on that axis) ignore the delta — see `clamp_state_grid_offset`.
-            let viewport_rect = state_layout.viewport_rect.translate(self.state_panel_offset);
-            let viewport_response = ui.interact(
-                viewport_rect,
-                egui::Id::new("state_panel_viewport"),
-                egui::Sense::drag(),
-            );
-            if viewport_response.dragged() {
-                self.state_grid_offset += viewport_response.drag_delta();
-                self.clamp_state_grid_offset(&state_layout);
-            }
-
-            // Ctrl+wheel inside the viewport zooms the grid. Plain wheel is
-            // intentionally NOT consumed — the page / scroll area still
-            // scrolls. Zoom is anchored at the cursor: we adjust
-            // `state_grid_offset` so the cell under the pointer stays put.
-            if viewport_response.hovered() {
-                let scroll = ctx.input(|i| {
-                    if i.modifiers.ctrl || i.modifiers.command {
-                        i.smooth_scroll_delta.y
-                    } else {
-                        0.0
-                    }
-                });
-                if scroll.abs() > f32::EPSILON {
-                    let pointer = ctx.input(|i| i.pointer.hover_pos());
-                    let old_zoom = self.state_grid_zoom;
-                    let new_zoom = (old_zoom * (scroll * 0.005).exp())
-                        .clamp(STATE_GRID_ZOOM_MIN, STATE_GRID_ZOOM_MAX);
-                    if (new_zoom - old_zoom).abs() > f32::EPSILON {
-                        // Keep the cell under the cursor (or viewport
-                        // centre, fallback) anchored across the zoom.
-                        let anchor = pointer.unwrap_or(viewport_rect.center());
-                        let pre_origin = QniApp::grid_origin(
-                            &state_layout,
-                            self.state_panel_offset,
-                            self.state_grid_offset,
-                        );
-                        let from_origin = anchor - pre_origin;
-                        let scale = new_zoom / old_zoom;
-                        let drift = from_origin * (scale - 1.0);
-                        self.state_grid_zoom = new_zoom;
-                        self.state_grid_offset -= drift;
-                        // Layout recomputes on the next frame with the new
-                        // zoom, but clamp now so we don't render a 1-frame
-                        // out-of-bounds pan.
-                        let zoomed = self.state_panel_layout(screen_rect, state_count);
-                        self.clamp_state_grid_offset(&zoomed);
-                    }
-                }
-            }
-
-            // Aspect dims (A 案: wheel / click on the "C × R = N states ▾"
-            // text in the strip). Registered after the strip drag so its
-            // hit rect takes priority for clicks that land on it.
             let dims_hit = QniApp::dims_hit_rect(ctx, &state_layout, self.state_panel_offset);
-            let dims_resp = ui.interact(
-                dims_hit,
-                egui::Id::new("state_dims"),
-                egui::Sense::click(),
-            );
-            if dims_resp.hovered() {
-                // Plain wheel: accumulate scroll delta into
-                // `aspect_wheel_accum` and step the aspect each time the
-                // sum crosses ±ASPECT_WHEEL_PER_STEP. Without the
-                // accumulator the previous "fire every frame |scroll|>1"
-                // logic stepped tens of times per wheel notch and was
-                // unusable for fine adjustment. Ctrl+wheel is reserved
-                // for viewport zoom and is NOT consumed here.
-                let plain_scroll = ctx.input(|i| {
-                    if i.modifiers.ctrl || i.modifiers.command {
-                        0.0
-                    } else {
-                        i.smooth_scroll_delta.y
-                    }
-                });
-                if plain_scroll.abs() > f32::EPSILON {
-                    self.aspect_wheel_accum += plain_scroll;
-                    let mut steps: i32 = 0;
-                    while self.aspect_wheel_accum >= ASPECT_WHEEL_PER_STEP {
-                        self.aspect_wheel_accum -= ASPECT_WHEEL_PER_STEP;
-                        steps -= 1; // positive scroll → taller (cols −1)
-                    }
-                    while self.aspect_wheel_accum <= -ASPECT_WHEEL_PER_STEP {
-                        self.aspect_wheel_accum += ASPECT_WHEEL_PER_STEP;
-                        steps += 1; // negative scroll → wider (cols +1)
-                    }
-                    if steps != 0 {
-                        let new_aspect = (self.aspect_index as i32 + steps)
-                            .clamp(0, aspect_qubits as i32)
-                            as usize;
-                        if new_aspect != self.aspect_index {
-                            self.aspect_index = new_aspect;
-                            self.aspect_customized = true;
-                            ctx.request_repaint();
-                        }
-                    }
-                } else {
-                    // Wheel stopped this frame — drop any sub-step
-                    // residue so the next notch starts from zero.
-                    self.aspect_wheel_accum = 0.0;
-                }
-                ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
-            } else {
-                // Pointer left the dims area — discard pending accum so
-                // re-entering doesn't fire a stale step.
-                self.aspect_wheel_accum = 0.0;
-            }
-            if dims_resp.clicked() {
-                self.aspect_popover_open = !self.aspect_popover_open;
-            }
+            self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
+            self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit);
+            self.process_resize_handles(ctx, ui, &state_layout);
 
-            // Aspect popover (D 案) — row clicks + outside-click / ESC close.
-            if self.aspect_popover_open {
-                let (popover_rect, row_rects) =
-                    QniApp::aspect_popover_layout(dims_hit, aspect_qubits);
-                for (i, row_rect) in row_rects.iter().enumerate() {
-                    let resp = ui.interact(
-                        *row_rect,
-                        egui::Id::new(("state_aspect_row", i)),
-                        egui::Sense::click(),
-                    );
-                    if resp.hovered() {
-                        ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
-                    }
-                    if resp.clicked() {
-                        self.aspect_index = i;
-                        self.aspect_customized = true;
-                        self.aspect_popover_open = false;
-                    }
-                }
-                // Outside click closes. Use any_pressed to catch the click
-                // that initiated outside the popover this frame.
-                let pressed = ctx.input(|i| i.pointer.any_pressed());
-                if pressed {
-                    if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                        if !dims_hit.contains(pos) && !popover_rect.contains(pos) {
-                            self.aspect_popover_open = false;
-                        }
-                    }
-                }
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.aspect_popover_open {
-                self.aspect_popover_open = false;
-            }
-
-            // Resize handles last so they take priority over the strip
-            // and viewport interactions on pointer hits (egui's last-added
-            // widget wins for overlapping rects). The hit rect is the
-            // visible L plus `STATE_RESIZE_HIT_PAD` on each side.
-            self.hovered_resize_corner = None;
-            for corner in [
-                ResizeCorner::TopLeft,
-                ResizeCorner::TopRight,
-                ResizeCorner::BottomLeft,
-                ResizeCorner::BottomRight,
-            ] {
-                let hit = QniApp::resize_handle_hit_rect(
-                    &state_layout,
-                    self.state_panel_offset,
-                    corner,
-                );
-                let id_label = match corner {
-                    ResizeCorner::TopLeft => "state_resize_tl",
-                    ResizeCorner::TopRight => "state_resize_tr",
-                    ResizeCorner::BottomLeft => "state_resize_bl",
-                    ResizeCorner::BottomRight => "state_resize_br",
-                };
-                let resp = ui.interact(hit, egui::Id::new(id_label), egui::Sense::drag());
-                if resp.hovered() {
-                    self.hovered_resize_corner = Some(corner);
-                }
-                if resp.drag_started() {
-                    if let Some(p) = resp.interact_pointer_pos() {
-                        self.begin_resize_drag(corner, p);
-                    }
-                }
-                if resp.dragged() && self.active_resize_corner() == Some(corner) {
-                    if let Some(p) = resp.interact_pointer_pos() {
-                        self.apply_resize_drag(p);
-                    }
-                }
-                if resp.drag_stopped() && self.active_resize_corner() == Some(corner) {
-                    self.end_resize_drag();
-                }
-                if resp.hovered() || self.active_resize_corner() == Some(corner) {
-                    let cursor = match corner {
-                        ResizeCorner::TopLeft | ResizeCorner::BottomRight => {
-                            egui::CursorIcon::ResizeNwSe
-                        }
-                        ResizeCorner::TopRight | ResizeCorner::BottomLeft => {
-                            egui::CursorIcon::ResizeNeSw
-                        }
-                    };
-                    ctx.set_cursor_icon(cursor);
-                }
-            }
-
+            // GPU recompute (sim_ops + per-gate slot lookups) if anything
+            // changed since the last frame and the target is ready.
             let overlay_painter = ctx.layer_painter(egui::LayerId::new(
                 egui::Order::Foreground,
                 egui::Id::new("overlay"),
             ));
             let target_format = frame.wgpu_render_state().map(|state| state.target_format);
-            if target_format.is_some() {
-                if recompute {
-                    self.needs_recompute = false;
-                    self.last_state_count = state_count;
-                    let sim_metrics = layout_metrics(screen_rect.width(), self.layout_qubits());
-                    let qubits = self.state_qubits();
-                    self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics);
-                    self.bloch_slots.clear();
-                    self.measurement_slots.clear();
-                    for op in &self.sim_ops {
-                        match op {
-                            SimulationOp::CaptureBloch {
-                                gate_id,
-                                output_slot,
-                                ..
-                            } => {
-                                self.bloch_slots.insert(*gate_id, *output_slot);
-                            }
-                            SimulationOp::MeasureReduceSample {
-                                gate_id,
-                                output_slot,
-                                ..
-                            } => {
-                                self.measurement_slots.insert(*gate_id, *output_slot);
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            } else if recompute {
-                ctx.request_repaint();
-                recompute = false;
-            }
+            let recompute =
+                self.process_gpu_recompute(target_format, recompute, screen_rect, state_count, ctx);
+
+            // Draw palette + state vector + (optional) drag preview.
             self.draw_palette(&overlay_painter, screen_rect, &colors);
             let svp_t0 = now_seconds();
             self.draw_state_vector(
-                &overlay_painter,
-                &colors,
-                &state_layout,
-                self.state_panel_offset,
-                state_layout.handle_height,
-                screen_rect,
-                recompute,
-                target_format,
+                &overlay_painter, &colors, &state_layout, self.state_panel_offset,
+                state_layout.handle_height, screen_rect, recompute, target_format,
             );
             if self.fps_hud_visible {
                 let svp_secs = (now_seconds() - svp_t0).max(0.0) as f32;
@@ -614,11 +385,13 @@ impl eframe::App for QniApp {
                     self.fps_hud_svp_history.pop_front();
                 }
             }
-            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id) {
+            if let (Some(content_rect), Some(dragging_gate_id)) = (content_rect, dragging_gate_id)
+            {
                 self.draw_drag_preview(&overlay_painter, content_rect, &colors, dragging_gate_id);
             }
         });
 
+        // Per-frame repaint scheduling: drag throttle + startup priming.
         let now = now_seconds();
         let frame_secs = (now - frame_start).max(0.0);
         if self.dragging.is_some() {
@@ -631,6 +404,7 @@ impl eframe::App for QniApp {
             ctx.request_repaint_after(Duration::from_secs_f64(DRAG_REPAINT_MIN_SECS));
         }
 
+        // Debug FPS HUD (backtick toggles).
         if ctx.input(|i| i.key_pressed(egui::Key::Backtick)) {
             self.fps_hud_visible = !self.fps_hud_visible;
             if !self.fps_hud_visible {
@@ -640,160 +414,7 @@ impl eframe::App for QniApp {
             }
         }
         if self.fps_hud_visible {
-            let dt = ctx.input(|i| i.stable_dt);
-            self.fps_hud_history.push_back(dt);
-            while self.fps_hud_history.len() > 120 {
-                self.fps_hud_history.pop_front();
-            }
-            self.fps_hud_cpu_history.push_back(frame_secs as f32);
-            while self.fps_hud_cpu_history.len() > 120 {
-                self.fps_hud_cpu_history.pop_front();
-            }
-            let avg_dt = self.fps_hud_history.iter().sum::<f32>()
-                / self.fps_hud_history.len().max(1) as f32;
-            let avg_cpu = self.fps_hud_cpu_history.iter().sum::<f32>()
-                / self.fps_hud_cpu_history.len().max(1) as f32;
-            let avg_svp = if self.fps_hud_svp_history.is_empty() {
-                0.0
-            } else {
-                self.fps_hud_svp_history.iter().sum::<f32>()
-                    / self.fps_hud_svp_history.len() as f32
-            };
-            let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
-            egui::Window::new("perf_hud")
-                .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
-                .interactable(false)
-                .resizable(false)
-                .title_bar(false)
-                // Above the foreground-layer state panel; otherwise the
-                // panel header strip occludes the cpu/svp lines on big
-                // viewports.
-                .order(egui::Order::Tooltip)
-                .frame(
-                    egui::Frame::popup(&ctx.style())
-                        .inner_margin(egui::Margin::symmetric(8, 6))
-                        .fill(egui::Color32::from_rgba_unmultiplied(10, 10, 14, 235))
-                        .stroke(egui::Stroke::new(
-                            1.0,
-                            egui::Color32::from_rgb(60, 60, 75),
-                        )),
-                )
-                .show(ctx, |ui| {
-                    ui.spacing_mut().item_spacing.y = 4.0;
-                    ui.colored_label(
-                        egui::Color32::WHITE,
-                        egui::RichText::new(format!("{:5.1} FPS", fps))
-                            .monospace()
-                            .size(13.0),
-                    );
-                    let (graph_rect, _) = ui.allocate_exact_size(
-                        egui::vec2(150.0, 50.0),
-                        egui::Sense::hover(),
-                    );
-                    let painter = ui.painter_at(graph_rect);
-                    // Graph background.
-                    painter.rect_filled(
-                        graph_rect,
-                        0.0,
-                        egui::Color32::from_rgba_unmultiplied(0, 0, 0, 180),
-                    );
-                    // Axes.
-                    let axis_color = egui::Color32::from_gray(110);
-                    painter.line_segment(
-                        [graph_rect.left_top(), graph_rect.left_bottom()],
-                        egui::Stroke::new(1.0, axis_color),
-                    );
-                    painter.line_segment(
-                        [graph_rect.left_bottom(), graph_rect.right_bottom()],
-                        egui::Stroke::new(1.0, axis_color),
-                    );
-                    // Y-axis ceiling: round up to next 30 fps step, clamped
-                    // to [60, 150] so a single startup spike (sub-ms first
-                    // frame → 600+ fps) doesn't wreck the scale.
-                    let history_max = self
-                        .fps_hud_history
-                        .iter()
-                        .map(|dt| if *dt > 1e-6 { 1.0 / *dt } else { 0.0 })
-                        .fold(0.0f32, f32::max)
-                        .min(150.0);
-                    let y_max = ((history_max / 30.0).ceil() * 30.0)
-                        .clamp(60.0, 150.0);
-                    // Plot line.
-                    let n = self.fps_hud_history.len();
-                    if n >= 2 {
-                        let denom = (n - 1) as f32;
-                        let points: Vec<egui::Pos2> = self
-                            .fps_hud_history
-                            .iter()
-                            .enumerate()
-                            .map(|(i, dt)| {
-                                let inst_fps =
-                                    if *dt > 1e-6 { 1.0 / *dt } else { 0.0 };
-                                let x = graph_rect.left()
-                                    + (i as f32 / denom) * graph_rect.width();
-                                let y = graph_rect.bottom()
-                                    - (inst_fps / y_max).clamp(0.0, 1.0)
-                                        * graph_rect.height();
-                                egui::pos2(x, y)
-                            })
-                            .collect();
-                        painter.add(egui::Shape::line(
-                            points,
-                            egui::Stroke::new(
-                                1.5,
-                                egui::Color32::from_rgb(80, 220, 120),
-                            ),
-                        ));
-                    }
-                    // Y-axis labels.
-                    let label_color = egui::Color32::from_gray(160);
-                    painter.text(
-                        egui::pos2(graph_rect.left() + 3.0, graph_rect.top() + 1.0),
-                        egui::Align2::LEFT_TOP,
-                        format!("{:.0}", y_max),
-                        egui::FontId::monospace(9.0),
-                        label_color,
-                    );
-                    painter.text(
-                        egui::pos2(graph_rect.left() + 3.0, graph_rect.bottom() - 1.0),
-                        egui::Align2::LEFT_BOTTOM,
-                        "0",
-                        egui::FontId::monospace(9.0),
-                        label_color,
-                    );
-                    let ms_color = egui::Color32::from_rgb(168, 163, 179);
-                    let svp_color = egui::Color32::from_rgb(232, 199, 158);
-                    let cpu_color = egui::Color32::from_rgb(140, 200, 220);
-                    ui.colored_label(
-                        ms_color,
-                        egui::RichText::new(format!(
-                            "{:5.2} ms total",
-                            avg_dt * 1000.0
-                        ))
-                        .monospace()
-                        .size(11.0),
-                    );
-                    ui.colored_label(
-                        cpu_color,
-                        egui::RichText::new(format!(
-                            "{:5.2} ms cpu",
-                            avg_cpu * 1000.0
-                        ))
-                        .monospace()
-                        .size(11.0),
-                    );
-                    ui.colored_label(
-                        svp_color,
-                        egui::RichText::new(format!(
-                            "{:5.2} ms svp",
-                            avg_svp * 1000.0
-                        ))
-                        .monospace()
-                        .size(11.0),
-                    );
-                });
-            // Force continuous repaint so the reading stays live.
-            ctx.request_repaint();
+            self.draw_fps_hud(ctx, frame_secs);
         }
     }
 }
