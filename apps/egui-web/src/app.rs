@@ -5,11 +5,12 @@ use std::time::Duration;
 use crate::bloch::{linearize_ops, SimulationOp};
 use crate::colors::Colors;
 use crate::constants::{
-    state_circle_default_aspect_index, DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS,
-    DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS,
-    PALETTE_GATES, PALETTE_ROW_Y, SNAP_DISTANCE, STATE_GRID_ZOOM_MAX, STATE_GRID_ZOOM_MIN,
-    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH, STATE_VIEWPORT_MAX_HEIGHT,
-    STATE_VIEWPORT_MAX_WIDTH, STATE_VIEWPORT_MIN_HEIGHT, STATE_VIEWPORT_MIN_WIDTH,
+    state_circle_default_aspect_index, ASPECT_WHEEL_PER_STEP, DRAG_REPAINT_BASE_SECS,
+    DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS,
+    MIN_QUBITS, PALETTE_GATES, PALETTE_ROW_Y, SNAP_DISTANCE, STATE_GRID_ZOOM_MAX,
+    STATE_GRID_ZOOM_MIN, STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
+    STATE_VIEWPORT_MAX_HEIGHT, STATE_VIEWPORT_MAX_WIDTH, STATE_VIEWPORT_MIN_HEIGHT,
+    STATE_VIEWPORT_MIN_WIDTH,
 };
 use crate::gates::GateKind;
 use crate::layout::{
@@ -95,6 +96,12 @@ pub(crate) struct QniApp {
     pub(crate) aspect_customized: bool,
     /// Whether the aspect-pick popover (D 案) is currently open.
     pub(crate) aspect_popover_open: bool,
+    /// Accumulator for wheel deltas while the dims text is hovered. We
+    /// step aspect only when the running sum crosses
+    /// `ASPECT_WHEEL_PER_STEP`, so one wheel notch ≈ one step instead of
+    /// per-frame firing. Reset when the pointer leaves the dims or the
+    /// wheel stops for a frame so a half-step doesn't sit waiting.
+    aspect_wheel_accum: f32,
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
@@ -154,6 +161,7 @@ impl QniApp {
             aspect_index: state_circle_default_aspect_index(1),
             aspect_customized: false,
             aspect_popover_open: false,
+            aspect_wheel_accum: 0.0,
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: MIN_QUBITS,
@@ -697,9 +705,13 @@ impl eframe::App for QniApp {
                 egui::Sense::click(),
             );
             if dims_resp.hovered() {
-                // Plain wheel: cycle aspect by 1. Up → fewer cols (taller),
-                // down → more cols (wider). Ctrl+wheel is reserved for
-                // viewport zoom and is NOT consumed here.
+                // Plain wheel: accumulate scroll delta into
+                // `aspect_wheel_accum` and step the aspect each time the
+                // sum crosses ±ASPECT_WHEEL_PER_STEP. Without the
+                // accumulator the previous "fire every frame |scroll|>1"
+                // logic stepped tens of times per wheel notch and was
+                // unusable for fine adjustment. Ctrl+wheel is reserved
+                // for viewport zoom and is NOT consumed here.
                 let plain_scroll = ctx.input(|i| {
                     if i.modifiers.ctrl || i.modifiers.command {
                         0.0
@@ -707,17 +719,37 @@ impl eframe::App for QniApp {
                         i.smooth_scroll_delta.y
                     }
                 });
-                if plain_scroll.abs() > 1.0 {
-                    let step: i32 = if plain_scroll > 0.0 { -1 } else { 1 };
-                    let new_aspect = (self.aspect_index as i32 + step)
-                        .clamp(0, aspect_qubits as i32) as usize;
-                    if new_aspect != self.aspect_index {
-                        self.aspect_index = new_aspect;
-                        self.aspect_customized = true;
-                        ctx.request_repaint();
+                if plain_scroll.abs() > f32::EPSILON {
+                    self.aspect_wheel_accum += plain_scroll;
+                    let mut steps: i32 = 0;
+                    while self.aspect_wheel_accum >= ASPECT_WHEEL_PER_STEP {
+                        self.aspect_wheel_accum -= ASPECT_WHEEL_PER_STEP;
+                        steps -= 1; // positive scroll → taller (cols −1)
                     }
+                    while self.aspect_wheel_accum <= -ASPECT_WHEEL_PER_STEP {
+                        self.aspect_wheel_accum += ASPECT_WHEEL_PER_STEP;
+                        steps += 1; // negative scroll → wider (cols +1)
+                    }
+                    if steps != 0 {
+                        let new_aspect = (self.aspect_index as i32 + steps)
+                            .clamp(0, aspect_qubits as i32)
+                            as usize;
+                        if new_aspect != self.aspect_index {
+                            self.aspect_index = new_aspect;
+                            self.aspect_customized = true;
+                            ctx.request_repaint();
+                        }
+                    }
+                } else {
+                    // Wheel stopped this frame — drop any sub-step
+                    // residue so the next notch starts from zero.
+                    self.aspect_wheel_accum = 0.0;
                 }
                 ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+            } else {
+                // Pointer left the dims area — discard pending accum so
+                // re-entering doesn't fire a stale step.
+                self.aspect_wheel_accum = 0.0;
             }
             if dims_resp.clicked() {
                 self.aspect_popover_open = !self.aspect_popover_open;

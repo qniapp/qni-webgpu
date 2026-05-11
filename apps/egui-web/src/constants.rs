@@ -45,6 +45,12 @@ pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
 pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
 
+/// How much accumulated wheel scroll delta = one aspect-step on the
+/// dims text. A typical OS wheel notch is roughly 50–100 px of smooth
+/// scroll delta, so ~60 makes one notch ≈ one step. Raise this for
+/// "heavier" aspect dial, lower for snappier.
+pub(crate) const ASPECT_WHEEL_PER_STEP: f32 = 60.0;
+
 /// Per-qubit-count circle-notation geometry. Cell size + line width
 /// follow qni's desktop layout (`circle-notation-element.ts:qubitCircleSizePx`
 /// / `qubitCircleLineWidth`). The (cols, rows) split is parameterised by
