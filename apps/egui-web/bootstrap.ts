@@ -40,6 +40,20 @@ const showStatus = (message: string): void => {
 
 const formatStartupError = (err: unknown): string => {
   const detail = err instanceof Error ? err.message : String(err)
+  // The dynamic `import()` of the wasm-bindgen JS shim throws a
+  // TypeError with the literal "Failed to fetch dynamically imported
+  // module" message when the browser cache holds a stale reference to
+  // an asset trunk has since replaced. That's a totally different
+  // problem from a missing WebGPU adapter, so peel the two cases apart.
+  if (detail.includes('Failed to fetch dynamically imported module')) {
+    return [
+      'Asset load failed.',
+      'The browser could not fetch /qni-egui-web.js — usually a stale',
+      'cache from a previous dev build. Hard reload (Ctrl+Shift+R) to',
+      'force a fresh download.',
+      detail,
+    ].join('\n\n')
+  }
   return [
     'WebGPU initialization failed.',
     'This browser or environment could not provide a usable WebGPU adapter.',
