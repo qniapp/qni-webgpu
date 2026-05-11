@@ -69,7 +69,6 @@ impl Colors {
             // pure white while being dragged. Bottom handles sit on the
             // white panel, so they use neutral grays (zinc-300 → zinc-600).
             // The L-shape is the identifier; color adapts to local context.
-            // See `docs/state-panel-resize-handle-mockups.html`.
             state_resize_handle_top_idle: crate::shared::color_rgba(0.729, 0.902, 0.992, 1.0),
             state_resize_handle_top_drag: crate::shared::color_rgba(1.0, 1.0, 1.0, 1.0),
             state_resize_handle_bottom_idle: crate::shared::color_rgba(0.831, 0.831, 0.847, 1.0),

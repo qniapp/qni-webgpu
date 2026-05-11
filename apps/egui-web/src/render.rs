@@ -1,6 +1,5 @@
 //! Render module — entry point. The implementation is split across
-//! three submodules by responsibility (see
-//! `docs/render-refactor-plan.html`):
+//! three submodules by responsibility:
 //!   * `circuit`            — qubit lines, gates, palette, drag preview
 //!   * `state_panel_layout` — geometry & hit rects (no painter)
 //!   * `state_panel_draw`   — painter-side drawing for the state panel

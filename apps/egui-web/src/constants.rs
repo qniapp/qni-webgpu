@@ -6,8 +6,7 @@ pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 /// Height of the state panel's header strip (the sky-500 bar at the top
 /// showing "N qubits" / "C × R = N states", and that hosts the top resize
 /// handles). 28 px so the strip can comfortably fit a 10x10 resize handle
-/// at 3 px padding on either side without crowding the text — see
-/// `docs/state-panel-resize-handle-mockups.html` (G-2 + 内側 L 字).
+/// at 3 px padding on either side without crowding the text.
 pub(crate) const STATE_HANDLE_HEIGHT: f32 = 28.0;
 
 /// Initial viewport size (the area below the header strip where circles
@@ -34,7 +33,6 @@ pub(crate) const STATE_PANEL_CORNER_RADIUS: f32 = 14.0;
 ///   * PAD: inward offset from the panel's outer rounded edge, 3 px.
 ///   * STROKE: handle line thickness, 2 px.
 ///   * HIT_PAD: extra padding on the hit rect for forgiving grabs.
-/// See `docs/state-panel-resize-handle-mockups.html`.
 pub(crate) const STATE_RESIZE_HANDLE_PAD: f32 = 3.0;
 pub(crate) const STATE_RESIZE_HANDLE_STROKE: f32 = 2.0;
 pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
@@ -56,10 +54,10 @@ pub(crate) const ASPECT_WHEEL_PER_STEP: f32 = 180.0;
 /// follow qni's desktop layout (`circle-notation-element.ts:qubitCircleSizePx`
 /// / `qubitCircleLineWidth`). The (cols, rows) split is parameterised by
 /// `aspect_index = log2(cols)`, so the user can change the layout's
-/// aspect at runtime without touching cell size — see the aspect popover
-/// (`docs/state-panel-aspect-prototype.html`). qni uses gap == stroke so
-/// the circles read as a tight grid with just the outline showing between
-/// them.
+/// aspect at runtime without touching cell size (via the aspect popover
+/// on the dims text in the state panel header). qni uses gap == stroke
+/// so the circles read as a tight grid with just the outline showing
+/// between them.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct StateCircleLayout {
     pub(crate) cols: usize,
