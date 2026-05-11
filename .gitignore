@@ -14,4 +14,5 @@ apps/tui/tests/snapshots/*.snap.old
 .env
 .DS_Store
 .playwright-cli/
-.playwright-mcp/*.png
+.playwright-mcp/
+.claude/
