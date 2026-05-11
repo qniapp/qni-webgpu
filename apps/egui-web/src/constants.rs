@@ -3,11 +3,12 @@ use crate::gates::GateKind;
 pub(crate) const REM: f32 = 32.0;
 pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
-/// Height of the state panel's header strip (the sky-500 bar at the top
+/// Height of the state panel's header strip (the blue-600 bar at the top
 /// showing "N qubits" / "C × R = N states", and that hosts the top resize
-/// handles). 28 px so the strip can comfortably fit a 10x10 resize handle
-/// at 3 px padding on either side without crowding the text.
-pub(crate) const STATE_HANDLE_HEIGHT: f32 = 28.0;
+/// handles). Tailwind h-8 (32px), giving text-sm (14px / 20px LH) ~6 px
+/// of breathing room above and below — a comfortable "header" feel
+/// without crowding the strip's 10×10 corner resize handles.
+pub(crate) const STATE_HANDLE_HEIGHT: f32 = 32.0;
 
 /// Initial viewport size (the area below the header strip where circles
 /// render). The user can resize the panel by dragging the corner L
