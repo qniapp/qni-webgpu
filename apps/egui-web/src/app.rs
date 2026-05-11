@@ -28,6 +28,10 @@ pub(crate) struct PlacedGate {
     pub(crate) kind: GateKind,
     pub(crate) pos: egui::Pos2,
     pub(crate) wire: usize,
+    /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
+    /// QFT / QFT† can be resized to span 2+ wires via the bottom-edge
+    /// resize handle that appears on hover.
+    pub(crate) span: usize,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -63,6 +67,16 @@ struct ResizeDrag {
     start_panel_offset: egui::Vec2,
 }
 
+/// In-flight resize of a QFT-family gate's vertical span. Tracks which
+/// gate's resize handle was grabbed and the start span so per-frame drag
+/// math derives the new span from the *total* cursor delta.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct QftResizeDrag {
+    pub(crate) gate_id: u32,
+    pub(crate) start_pointer_y: f32,
+    pub(crate) start_span: usize,
+}
+
 pub(crate) struct QniApp {
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
@@ -89,6 +103,12 @@ pub(crate) struct QniApp {
     /// Currently-hovered resize corner (for cursor / paint state). Set
     /// each frame by `ui.interact` hovered checks.
     pub(crate) hovered_resize_corner: Option<ResizeCorner>,
+    /// Gate id whose QFT resize handle is currently hovered (drives
+    /// the handle's idle → hover color). `None` when no hand is on a
+    /// QFT bottom-edge handle.
+    pub(crate) hovered_qft_resize_handle: Option<u32>,
+    /// In-flight QFT span-resize drag (only one at a time).
+    pub(crate) qft_resize_drag: Option<QftResizeDrag>,
     /// `aspect_index = log2(cols)`. Determines (cols, rows) =
     /// (2^aspect_index, 2^(qubits − aspect_index)) for the state-vector
     /// circle grid. Mutated by wheel-on-dims (A 案) or popover (D 案).
@@ -162,6 +182,8 @@ impl QniApp {
             ),
             state_resize_drag: None,
             hovered_resize_corner: None,
+            hovered_qft_resize_handle: None,
+            qft_resize_drag: None,
             aspect_index: state_circle_default_aspect_index(1),
             aspect_customized: false,
             aspect_popover_open: false,
@@ -198,9 +220,10 @@ impl QniApp {
     fn state_qubits(&self) -> usize {
         let mut max_wire: Option<usize> = None;
         for gate in &self.placed_gates {
+            let bottom = gate.wire + gate.span.saturating_sub(1);
             max_wire = Some(match max_wire {
-                Some(current) => current.max(gate.wire),
-                None => gate.wire,
+                Some(current) => current.max(bottom),
+                None => bottom,
             });
         }
         let count = max_wire.map_or(1, |wire| wire + 1);
@@ -210,7 +233,11 @@ impl QniApp {
     fn update_qubit_count(&mut self) {
         let mut max_wire = MIN_QUBITS - 1;
         for gate in &self.placed_gates {
-            max_wire = max_wire.max(gate.wire);
+            // A multi-qubit gate at `wire` with `span = N` occupies
+            // wires [wire, wire + N - 1]; the bottom of that range is
+            // what bounds the qubit count.
+            let bottom_wire = gate.wire + gate.span.saturating_sub(1);
+            max_wire = max_wire.max(bottom_wire);
         }
         self.qubit_count = (max_wire + 1).clamp(MIN_QUBITS, MAX_QUBITS);
     }

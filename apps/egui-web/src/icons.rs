@@ -191,6 +191,42 @@ pub(crate) fn draw_gate_body(
     draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill);
 }
 
+/// QFT gate's bottom-edge resize handle — a small horizontal chevron
+/// (▽/△ stacked) shown on hover. The `rect` is the handle's bounding
+/// box at the bottom of the gate body; `bg` colours the strip behind
+/// the chevron (idle / hover variants).
+pub(crate) fn draw_qft_resize_handle(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    bg: egui::Color32,
+) {
+    painter.rect_filled(rect, egui::CornerRadius::same(3), bg);
+    // Two stacked triangles forming a vertical chevron selector.
+    let cx = rect.center().x;
+    let cy = rect.center().y;
+    let h = rect.height();
+    let tri_h = (h * 0.18).max(2.0);
+    let tri_half_w = tri_h * 1.2;
+    let gap = (h * 0.06).max(1.0);
+    let up_tip = egui::pos2(cx, cy - gap - tri_h);
+    let up_l = egui::pos2(cx - tri_half_w, cy - gap);
+    let up_r = egui::pos2(cx + tri_half_w, cy - gap);
+    let down_tip = egui::pos2(cx, cy + gap + tri_h);
+    let down_l = egui::pos2(cx - tri_half_w, cy + gap);
+    let down_r = egui::pos2(cx + tri_half_w, cy + gap);
+    let arrow_color = egui::Color32::WHITE;
+    painter.add(egui::Shape::convex_polygon(
+        vec![up_l, up_r, up_tip],
+        arrow_color,
+        egui::Stroke::NONE,
+    ));
+    painter.add(egui::Shape::convex_polygon(
+        vec![down_l, down_r, down_tip],
+        arrow_color,
+        egui::Stroke::NONE,
+    ));
+}
+
 pub(crate) fn draw_drag_gate_body(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
@@ -210,6 +246,23 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
+        // QFT family — purple body, rounded rect spanning the full
+        // gate_rect (which the caller may have extended vertically for
+        // span > 1). "QFT" / "QFT†" label centred horizontally and
+        // anchored near the top so the bottom of the gate is free for
+        // the resize-handle chevron.
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), colors.qft_fill);
+        let label_y = gate_rect.min.y + crate::constants::GATE_SIZE * 0.5;
+        let font_size = if kind == GateKind::QftDaggerGate { 12.0 } else { 14.0 };
+        painter.text(
+            egui::pos2(gate_rect.center().x, label_y),
+            egui::Align2::CENTER_CENTER,
+            kind.label(),
+            egui::FontId::proportional(font_size),
+            colors.label,
+        );
+        return;
     } else if kind == GateKind::BlochDisplay {
         // qni renders the bloch display as a stand-alone sphere — bg-green-50
         // background with a gray-400 border (`packages/elements/css/bloch_display.css`).
@@ -425,6 +478,9 @@ fn draw_gate_icon(
             )));
             true
         }
+        // QFT family draws its label via the special body branch above,
+        // not through this icon table.
+        GateKind::QftGate | GateKind::QftDaggerGate => false,
     }
 }
 

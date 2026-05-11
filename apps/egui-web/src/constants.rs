@@ -43,6 +43,15 @@ pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
 pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
 
+/// QFT / QFT† resizable-span gate geometry.
+///   * MAX_SPAN: clamp the dragged span to this many qubit wires.
+///   * RESIZE_HANDLE_HEIGHT: bottom-edge handle visible on hover, the
+///     little chevron the user grabs to change span.
+///   * RESIZE_HANDLE_WIDTH: same handle horizontal extent.
+pub(crate) const QFT_MAX_SPAN: usize = 16;
+pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = 14.0;
+pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = 18.0;
+
 /// How much accumulated wheel scroll delta = one aspect-step on the
 /// dims text. A typical OS wheel notch is roughly 50–100 px of smooth
 /// scroll delta, so 180 makes ~2–4 notches per step — heavy enough
@@ -137,10 +146,10 @@ pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
 
 // Two-row layout. Row 1 holds the unitary single-qubit gates; row 2 holds the
 // special-purpose gates (SWAP/Control/AntiControl/Bloch/|0>/|1>/Measurement/
-// Spacer). Indices remain a flat list so callers can look up a gate without
-// branching.
+// Spacer/QFT/QFT†). Indices remain a flat list so callers can look up a gate
+// without branching.
 pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 21] = [
+pub(crate) const PALETTE_GATES: [GateKind; 23] = [
     // Row 1
     GateKind::H,
     GateKind::X,
@@ -164,4 +173,6 @@ pub(crate) const PALETTE_GATES: [GateKind; 21] = [
     GateKind::Write1,
     GateKind::Measurement,
     GateKind::Spacer,
+    GateKind::QftGate,
+    GateKind::QftDaggerGate,
 ];

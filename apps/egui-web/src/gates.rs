@@ -21,6 +21,13 @@ pub(crate) enum GateKind {
     Ry,
     Rz,
     Swap,
+    /// Quantum Fourier Transform — multi-qubit gate whose `span` (number
+    /// of qubits covered) is user-resizable via a hover-revealed handle.
+    /// Simulation is deferred; for now the gate is a placeholder that
+    /// renders but does not affect the state vector.
+    QftGate,
+    /// Inverse QFT.
+    QftDaggerGate,
 }
 
 impl GateKind {
@@ -47,7 +54,16 @@ impl GateKind {
             GateKind::Ry => "Ry",
             GateKind::Rz => "Rz",
             GateKind::Swap => "SWAP",
+            GateKind::QftGate => "QFT",
+            GateKind::QftDaggerGate => "QFT†",
         }
+    }
+
+    /// Is this a multi-qubit gate whose vertical span is user-controlled
+    /// via the hover-revealed resize handle? Right now QFT / QFT† are the
+    /// only such gates.
+    pub(crate) fn is_resizable_span(self) -> bool {
+        matches!(self, GateKind::QftGate | GateKind::QftDaggerGate)
     }
 }
 
@@ -83,10 +99,14 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::Write1
         | GateKind::BlochDisplay
         | GateKind::Measurement
-        | GateKind::Spacer => GateMatrix {
+        | GateKind::Spacer
+        | GateKind::QftGate
+        | GateKind::QftDaggerGate => GateMatrix {
             // BlochDisplay/Measurement are non-mutating viewers (Measurement
             // collapses on the CPU side); Write0/Write1 are mode-driven on the
-            // GPU. Matrix is unused for these but filled with identity for safety.
+            // GPU. QFT / QFT† simulation is deferred — for now the gate is a
+            // UI-only placeholder that renders but does not affect the state.
+            // Matrix is unused for these but filled with identity for safety.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],

@@ -4,13 +4,15 @@
 use eframe::egui;
 use std::time::Duration;
 
-use super::{DragState, PlacedGate, QniApp};
+use super::{DragState, PlacedGate, QftResizeDrag, QniApp};
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS,
-    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, PALETTE_GATES, PALETTE_ROW_Y, SNAP_DISTANCE,
+    DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, LINE_GAP, PALETTE_GATES, PALETTE_ROW_Y, QFT_MAX_SPAN,
+    SNAP_DISTANCE,
 };
 use crate::layout::{
-    layout_metrics, nearest_available_slot, nearest_line, palette_hit_test, palette_layout,
+    gate_visible_rect, layout_metrics, nearest_available_slot, nearest_line, palette_hit_test,
+    palette_layout, qft_resize_handle_rect,
 };
 use crate::shared::now_seconds;
 
@@ -42,6 +44,69 @@ impl QniApp {
         );
         let metrics = layout_metrics(content_rect.width(), self.layout_qubits());
 
+        // QFT resize handle takes priority over gate body for press
+        // events, so dragging the bottom-edge chevron resizes the span
+        // instead of picking up the whole gate.
+        if pointer_start {
+            if let Some(cursor) = local_pos {
+                if let Some((gate_id, start_span, start_pointer_y)) = self
+                    .placed_gates
+                    .iter()
+                    .rev()
+                    .find(|gate| {
+                        if !gate.kind.is_resizable_span() {
+                            return false;
+                        }
+                        let gate_rect = gate_visible_rect(gate, gate.pos);
+                        qft_resize_handle_rect(gate_rect).contains(cursor)
+                    })
+                    .map(|gate| (gate.id, gate.span.max(1), cursor.y))
+                {
+                    self.qft_resize_drag = Some(QftResizeDrag {
+                        gate_id,
+                        start_pointer_y,
+                        start_span,
+                    });
+                    self.hovered_gate_id = None;
+                    self.hovered_palette_index = None;
+                    ctx.request_repaint();
+                    return;
+                }
+            }
+        }
+
+        // Active QFT resize → update span from total Δy and skip the
+        // rest of the input pipeline (gate drag, hover) for this frame.
+        if let Some(drag) = self.qft_resize_drag {
+            if pointer_down || pointer_released {
+                if let Some(cursor) = local_pos {
+                    let delta_y = cursor.y - drag.start_pointer_y;
+                    // One LINE_GAP of drag = one extra wire. Round to
+                    // the nearest integer so the snap feels positive.
+                    let span_delta = (delta_y / LINE_GAP).round() as i32;
+                    let new_span = (drag.start_span as i32 + span_delta).clamp(1, QFT_MAX_SPAN as i32) as usize;
+                    if let Some(index) =
+                        self.placed_gates.iter().position(|g| g.id == drag.gate_id)
+                    {
+                        if self.placed_gates[index].span != new_span {
+                            self.placed_gates[index].span = new_span;
+                            self.update_qubit_count();
+                            self.needs_recompute = true;
+                            ctx.request_repaint();
+                        }
+                    }
+                }
+            }
+            if pointer_released {
+                self.qft_resize_drag = None;
+                self.drag_repaint_deadline = None;
+                self.drag_repaint_pending = false;
+            }
+            // Keep the cursor in a "resize" mode while the drag is active.
+            ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
+            return;
+        }
+
         if pointer_start {
             if let Some(cursor) = local_pos {
                 if let Some((gate_id, offset)) = self
@@ -49,8 +114,7 @@ impl QniApp {
                     .iter()
                     .rev()
                     .find(|gate| {
-                        let gate_rect =
-                            egui::Rect::from_min_size(gate.pos, egui::vec2(GATE_SIZE, GATE_SIZE));
+                        let gate_rect = gate_visible_rect(gate, gate.pos);
                         gate_rect.contains(cursor)
                     })
                     .map(|gate| (gate.id, cursor - gate.pos))
@@ -82,6 +146,7 @@ impl QniApp {
                                 cursor.y - GATE_SIZE / 2.0,
                             ),
                             wire: 0,
+                            span: 1,
                         };
                         self.next_gate_id += 1;
                         self.placed_gates.push(new_gate);
@@ -134,16 +199,27 @@ impl QniApp {
                 }
             }
         } else if let Some(cursor) = local_pos {
+            // Iterate top-of-stack first so the QFT resize handle wins
+            // over the gate body when the cursor is on both (the handle
+            // overhangs the gate's bottom edge).
             let mut hovered_gate = None;
-            for gate in &self.placed_gates {
-                let gate_rect =
-                    egui::Rect::from_min_size(gate.pos, egui::vec2(GATE_SIZE, GATE_SIZE));
+            let mut hovered_handle = None;
+            for gate in self.placed_gates.iter().rev() {
+                let gate_rect = gate_visible_rect(gate, gate.pos);
+                if gate.kind.is_resizable_span()
+                    && qft_resize_handle_rect(gate_rect).contains(cursor)
+                {
+                    hovered_handle = Some(gate.id);
+                    hovered_gate = Some(gate.id);
+                    break;
+                }
                 if gate_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);
                     break;
                 }
             }
             self.hovered_gate_id = hovered_gate;
+            self.hovered_qft_resize_handle = hovered_handle;
 
             let mut hovered_palette = None;
             if let Some(cursor_screen) = pos {
@@ -158,6 +234,7 @@ impl QniApp {
             self.hovered_palette_index = hovered_palette;
         } else {
             self.hovered_gate_id = None;
+            self.hovered_qft_resize_handle = None;
             self.hovered_palette_index = None;
         }
 
@@ -202,6 +279,8 @@ impl QniApp {
 
         if self.dragging.is_some() && pointer_down {
             ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+        } else if self.hovered_qft_resize_handle.is_some() {
+            ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
         } else if self.hovered_gate_id.is_some() || self.hovered_palette_index.is_some() {
             ctx.set_cursor_icon(egui::CursorIcon::Grab);
         }

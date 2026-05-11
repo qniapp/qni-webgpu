@@ -16,8 +16,14 @@ use crate::gates::GateKind;
 use crate::gpu::{
     BlochOverlayCallback, BlochOverlayInstance, MeasurementDigitCallback, MeasurementDigitInstance,
 };
-use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_meter_icon};
-use crate::layout::{nearest_slot_index, palette_gate_local_pos, palette_layout, LayoutMetrics};
+use crate::icons::{
+    draw_bloch_vector, draw_drag_gate_body, draw_gate_body, draw_meter_icon,
+    draw_qft_resize_handle,
+};
+use crate::layout::{
+    nearest_slot_index, palette_gate_local_pos, palette_layout, qft_resize_handle_rect,
+    LayoutMetrics,
+};
 
 impl QniApp {
     pub(crate) fn circuit_content_height(&self, qubit_count: usize, screen_height: f32) -> f32 {
@@ -132,9 +138,18 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) {
                 continue;
             }
+            // QFT family is a multi-qubit gate — its body extends
+            // downward to cover `span` wires. Other gates stay single-
+            // qubit (GATE_SIZE × GATE_SIZE).
+            let gate_height = if gate.kind.is_resizable_span() {
+                let span = gate.span.max(1);
+                (span - 1) as f32 * LINE_GAP + GATE_SIZE
+            } else {
+                GATE_SIZE
+            };
             let gate_rect = egui::Rect::from_min_size(
                 rect.min + gate.pos.to_vec2(),
-                egui::vec2(GATE_SIZE, GATE_SIZE),
+                egui::vec2(GATE_SIZE, gate_height),
             );
             if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = gate_rect.expand(4.0);
@@ -147,6 +162,22 @@ impl QniApp {
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
+            // QFT family: the bottom-edge resize handle appears on hover
+            // (or while actively being resized). Drawn on top of the body.
+            if gate.kind.is_resizable_span()
+                && (self.hovered_gate_id == Some(gate.id)
+                    || self.qft_resize_drag.map(|d| d.gate_id) == Some(gate.id))
+            {
+                let bg = if self.hovered_qft_resize_handle == Some(gate.id)
+                    || self.qft_resize_drag.map(|d| d.gate_id) == Some(gate.id)
+                {
+                    colors.qft_resize_handle_bg_hover
+                } else {
+                    colors.qft_resize_handle_bg
+                };
+                let handle_rect = qft_resize_handle_rect(gate_rect);
+                draw_qft_resize_handle(painter, handle_rect, bg);
+            }
             if gate.kind == GateKind::Measurement && self.measurement_slots.contains_key(&gate.id) {
                 // Repaint the meter in zinc-200 ("fired" appearance per qni's
                 // `measurement_gate.css`). The GPU `MeasurementDigitCallback`

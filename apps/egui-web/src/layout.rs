@@ -3,8 +3,38 @@ use eframe::egui;
 use crate::app::PlacedGate;
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, PALETTE_GAP, PALETTE_GATES,
-    PALETTE_ROW1_COUNT, PALETTE_ROW_GAP, PALETTE_SIZE, SLOT_SPACING,
+    PALETTE_ROW1_COUNT, PALETTE_ROW_GAP, PALETTE_SIZE, QFT_RESIZE_HANDLE_HEIGHT,
+    QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
 };
+
+/// Visible rect of a placed gate, accounting for the multi-qubit
+/// `span` of QFT-family gates. Single-qubit gates get `GATE_SIZE` ×
+/// `GATE_SIZE`; QFT extends downward to cover all wires in its span.
+/// `origin` is the top-left of the gate body (= rect.min + gate.pos
+/// in the circuit's local coordinate space).
+pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
+    let height = if gate.kind.is_resizable_span() {
+        let span = gate.span.max(1);
+        (span - 1) as f32 * LINE_GAP + GATE_SIZE
+    } else {
+        GATE_SIZE
+    };
+    egui::Rect::from_min_size(origin, egui::vec2(GATE_SIZE, height))
+}
+
+/// QFT bottom-edge resize-handle bounding box for the given gate body
+/// rect. Centred horizontally; tucked against the bottom edge with a
+/// small overhang above for grab-room.
+pub(crate) fn qft_resize_handle_rect(gate_rect: egui::Rect) -> egui::Rect {
+    let cx = gate_rect.center().x;
+    let bottom = gate_rect.max.y;
+    let half_w = QFT_RESIZE_HANDLE_WIDTH * 0.5;
+    let top = bottom - QFT_RESIZE_HANDLE_HEIGHT * 0.6;
+    egui::Rect::from_min_max(
+        egui::pos2(cx - half_w, top),
+        egui::pos2(cx + half_w, top + QFT_RESIZE_HANDLE_HEIGHT),
+    )
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct LayoutMetrics {
