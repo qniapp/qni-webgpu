@@ -8,6 +8,7 @@ mod icons;
 mod layout;
 mod render;
 mod shared;
+mod url_circuit;
 
 use crate::app::QniApp;
 

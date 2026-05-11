@@ -326,6 +326,16 @@ impl QniApp {
                     // gap. Runs for both branches above.
                     self.compact_empty_steps(&metrics.slot_centers);
                     self.update_qubit_count();
+                    // Mirror qni / Quirk: every committed circuit
+                    // change syncs to the URL hash. We use Quirk's
+                    // readable-JSON format (`#circuit={"cols":[...]}`)
+                    // instead of qni's percent-encoded path.
+                    let json = crate::url_circuit::circuit_to_json(
+                        &self.placed_gates,
+                        &metrics.slot_centers,
+                        self.qubit_count,
+                    );
+                    crate::url_circuit::write_circuit_to_url(&json);
                     self.needs_recompute = true;
                     ctx.request_repaint();
                 }
