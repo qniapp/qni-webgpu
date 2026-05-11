@@ -1,3 +1,18 @@
+//! Render module — entry point. The bulk lives in three submodules
+//! split by responsibility (see `docs/render-refactor-plan.html`):
+//!   * `circuit`            — qubit lines, gates, palette, drag preview
+//!   * `state_panel_layout` — geometry & hit rects (no painter)
+//!   * `state_panel_draw`   — painter-side drawing for the state panel
+//!
+//! Mid-migration: the file still owns the implementations while the
+//! submodules are populated incrementally. New `impl QniApp` blocks
+//! land in the submodules and methods get removed from here one chunk
+//! at a time, each step verified by `cargo check` + Playwright.
+
+mod circuit;
+mod state_panel_layout;
+mod state_panel_draw;
+
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 use std::cmp::Ordering;

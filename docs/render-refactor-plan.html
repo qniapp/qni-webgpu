@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>render.rs リファクタリング案</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --zinc-100: #f4f4f5;
+        --zinc-200: #e4e4e7;
+        --zinc-300: #d4d4d8;
+        --zinc-400: #a1a1aa;
+        --zinc-500: #71717a;
+        --zinc-600: #52525b;
+        --zinc-700: #3f3f46;
+        --zinc-800: #27272a;
+        --sky-100: #e0f2fe;
+        --sky-200: #bae6fd;
+        --sky-500: #0ea5e9;
+        --sky-700: #0369a1;
+        --amber-100: #fef3c7;
+        --amber-300: #fcd34d;
+        --amber-600: #d97706;
+        --emerald-100: #d1fae5;
+        --emerald-500: #10b981;
+        --emerald-700: #047857;
+        --rose-100: #ffe4e6;
+        --rose-300: #fda4af;
+        --rose-500: #f43f5e;
+        --shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--zinc-700);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.55;
+      }
+      header.page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 48px 24px 16px;
+      }
+      header.page h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        font-weight: 700;
+        color: #18181b;
+      }
+      header.page p {
+        margin: 0 0 8px;
+        color: var(--zinc-500);
+        font-size: 14px;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      section.card {
+        background: var(--surface);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.04);
+        margin-bottom: 24px;
+      }
+      section.card h2 {
+        margin: 0 0 16px;
+        font-size: 17px;
+        font-weight: 600;
+        color: #18181b;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      section.card h2 .badge {
+        background: var(--sky-500);
+        color: #fff;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      section.card p {
+        font-size: 14px;
+        color: var(--zinc-500);
+        margin: 0 0 12px;
+      }
+      code, kbd {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 12.5px;
+      }
+
+      /* ─── Current state visualization ─────────────────────── */
+      .file-block {
+        border: 2px solid var(--rose-300);
+        background: var(--rose-100);
+        border-radius: 12px;
+        padding: 18px;
+      }
+      .file-block .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .file-block .head .name {
+        font-family: ui-monospace, monospace;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--zinc-800);
+      }
+      .file-block .head .count {
+        font-family: ui-monospace, monospace;
+        background: var(--rose-500);
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .fn-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 6px;
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .fn-list .fn {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 8px;
+        background: #fff;
+        border-radius: 4px;
+      }
+      .fn-list .fn .lines {
+        color: var(--zinc-400);
+      }
+
+      /* ─── Arrow ───────────────────────────────────────────── */
+      .arrow {
+        text-align: center;
+        font-size: 28px;
+        color: var(--sky-500);
+        margin: 18px 0;
+      }
+
+      /* ─── Proposed structure ──────────────────────────────── */
+      .tree {
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        background: var(--zinc-100);
+        padding: 16px 20px;
+        border-radius: 10px;
+        line-height: 1.8;
+      }
+      .tree .node {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: baseline;
+      }
+      .tree .indent-0 { padding-left: 0; }
+      .tree .indent-1 { padding-left: 24px; }
+      .tree .file-tag {
+        background: var(--emerald-100);
+        color: var(--emerald-700);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      .tree .file-tag.green {
+        background: var(--emerald-100);
+        color: var(--emerald-700);
+      }
+      .tree .file-tag.amber {
+        background: var(--amber-100);
+        color: var(--amber-600);
+      }
+      .tree .desc {
+        color: var(--zinc-500);
+        font-family: ui-sans-serif;
+        font-size: 12px;
+      }
+
+      .new-files {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .new-file {
+        border: 2px solid var(--emerald-500);
+        background: var(--emerald-100);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+      .new-file .head {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .new-file .head .name {
+        font-family: ui-monospace, monospace;
+        font-weight: 600;
+        color: var(--zinc-800);
+        font-size: 14px;
+      }
+      .new-file .head .count {
+        font-family: ui-monospace, monospace;
+        background: var(--emerald-500);
+        color: #fff;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+      }
+      .new-file ul {
+        margin: 0;
+        padding-left: 20px;
+        font-size: 12px;
+        font-family: ui-monospace, monospace;
+      }
+      .new-file ul li {
+        margin: 2px 0;
+        color: var(--zinc-700);
+      }
+      .new-file .role {
+        font-size: 12px;
+        color: var(--zinc-500);
+        font-family: ui-sans-serif;
+        margin-bottom: 8px;
+      }
+
+      /* ─── Migration table ─────────────────────────────────── */
+      table.migration {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+      }
+      table.migration thead {
+        background: var(--zinc-100);
+      }
+      table.migration th {
+        text-align: left;
+        padding: 10px 12px;
+        font-weight: 600;
+        color: var(--zinc-700);
+        font-size: 12px;
+      }
+      table.migration td {
+        padding: 8px 12px;
+        border-top: 1px solid var(--zinc-200);
+        font-family: ui-monospace, monospace;
+      }
+      table.migration td.desc {
+        font-family: ui-sans-serif;
+        color: var(--zinc-500);
+      }
+      table.migration td .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .pill-circuit {
+        background: var(--sky-100);
+        color: var(--sky-700);
+      }
+      .pill-layout {
+        background: var(--amber-100);
+        color: var(--amber-600);
+      }
+      .pill-draw {
+        background: var(--emerald-100);
+        color: var(--emerald-700);
+      }
+      .pill-keep {
+        background: var(--zinc-100);
+        color: var(--zinc-600);
+      }
+
+      /* ─── Order & checks ──────────────────────────────────── */
+      ol.steps {
+        margin: 0;
+        padding-left: 20px;
+      }
+      ol.steps li {
+        margin: 8px 0;
+        font-size: 13.5px;
+      }
+      ol.steps li code {
+        background: var(--zinc-100);
+        padding: 1px 6px;
+        border-radius: 4px;
+      }
+
+      .legend {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .legend .item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--zinc-500);
+      }
+      .legend .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page">
+      <h1>render.rs リファクタリング案</h1>
+      <p>
+        現在 <code>render.rs</code> は <strong>1016 行</strong> あり、目標の 500 行/ファイルを超過しています。state panel 周りの機能 (resize handles / aspect popover / minimap) を追加する過程で肥大化しました。本ファイルを<strong>責務ごとに 3 + 1 ファイル</strong>に分割するプランです。
+      </p>
+    </header>
+
+    <main>
+      <!-- ─── Current state ─────────────────────────────────────── -->
+      <section class="card">
+        <h2><span class="badge">現状</span>1 ファイルに混在</h2>
+        <div class="file-block">
+          <div class="head">
+            <span class="name">apps/egui-web/src/render.rs</span>
+            <span class="count">1016 行</span>
+          </div>
+          <div class="fn-list">
+            <div class="fn"><span>StatePanelLayout (struct)</span><span class="lines">18 行</span></div>
+            <div class="fn"><span>circuit_content_height</span><span class="lines">7 行</span></div>
+            <div class="fn"><span>draw_circuit</span><span class="lines">240 行</span></div>
+            <div class="fn"><span>draw_palette</span><span class="lines">49 行</span></div>
+            <div class="fn"><span>draw_drag_preview</span><span class="lines">22 行</span></div>
+            <div class="fn"><span>state_panel_layout</span><span class="lines">98 行</span></div>
+            <div class="fn"><span>grid_origin</span><span class="lines">31 行</span></div>
+            <div class="fn"><span>dims_text</span><span class="lines">13 行</span></div>
+            <div class="fn"><span>dims_hit_rect</span><span class="lines">29 行</span></div>
+            <div class="fn"><span>aspect_popover_layout</span><span class="lines">31 行</span></div>
+            <div class="fn"><span>draw_aspect_popover</span><span class="lines">88 行</span></div>
+            <div class="fn"><span>resize_handle_hit_rect</span><span class="lines">27 行</span></div>
+            <div class="fn"><span>clamp_state_panel_offset</span><span class="lines">42 行</span></div>
+            <div class="fn"><span>clamp_state_grid_offset</span><span class="lines">21 行</span></div>
+            <div class="fn"><span>draw_state_vector</span><span class="lines">172 行</span></div>
+            <div class="fn"><span>draw_resize_handle_arc</span><span class="lines">47 行</span></div>
+            <div class="fn"><span>draw_state_minimap</span><span class="lines">56 行</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow">↓</div>
+
+      <!-- ─── Proposed structure ────────────────────────────────── -->
+      <section class="card">
+        <h2><span class="badge" style="background: var(--emerald-500)">提案</span>責務で 4 ファイルに分割</h2>
+        <p>
+          <code>render.rs</code> はモジュール root (re-exports のみ)。実体は <code>render/circuit.rs</code> / <code>render/state_panel_layout.rs</code> / <code>render/state_panel_draw.rs</code>。<code>StatePanelLayout</code> struct は layout 側に置く (geometry の所有者)。
+        </p>
+        <div class="tree">
+          <div class="node indent-0"><span><code>apps/egui-web/src/render.rs</code></span><span class="file-tag amber">~30 行 (mod root)</span></div>
+          <div class="node indent-1"><span>├── <code>render/circuit.rs</code> <span class="desc">回路 & パレット & ドラッグプレビュー</span></span><span class="file-tag">~320 行</span></div>
+          <div class="node indent-1"><span>├── <code>render/state_panel_layout.rs</code> <span class="desc">state panel の幾何 & hit rect & clamp</span></span><span class="file-tag">~290 行</span></div>
+          <div class="node indent-1"><span>└── <code>render/state_panel_draw.rs</code> <span class="desc">state panel の描画一式</span></span><span class="file-tag">~370 行</span></div>
+        </div>
+
+        <div style="margin-top: 24px;">
+          <div class="new-files">
+            <div class="new-file">
+              <div class="head"><span class="name">render/circuit.rs</span><span class="count">~320 行</span></div>
+              <div class="role">回路エリア (qubit lines + 配置済みゲート) + パレット + ドラッグ中プレビュー。state panel と完全に独立した責務。</div>
+              <ul>
+                <li>circuit_content_height</li>
+                <li>draw_circuit (240)</li>
+                <li>draw_palette</li>
+                <li>draw_drag_preview</li>
+              </ul>
+            </div>
+
+            <div class="new-file">
+              <div class="head"><span class="name">render/state_panel_layout.rs</span><span class="count">~290 行</span></div>
+              <div class="role">幾何計算と hit rect 計算 (no painter)。テストで純粋関数として叩きやすい単位。</div>
+              <ul>
+                <li>pub struct StatePanelLayout</li>
+                <li>state_panel_layout</li>
+                <li>grid_origin</li>
+                <li>dims_text / dims_hit_rect</li>
+                <li>aspect_popover_layout</li>
+                <li>resize_handle_hit_rect</li>
+                <li>clamp_state_panel_offset</li>
+                <li>clamp_state_grid_offset</li>
+              </ul>
+            </div>
+
+            <div class="new-file">
+              <div class="head"><span class="name">render/state_panel_draw.rs</span><span class="count">~370 行</span></div>
+              <div class="role">painter で実際に描画する関数群。layout の rect を受け取ってピクセルを置く役。</div>
+              <ul>
+                <li>draw_state_vector (172)</li>
+                <li>draw_aspect_popover</li>
+                <li>draw_state_minimap</li>
+                <li>draw_resize_handle_arc</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Migration table ──────────────────────────────────── -->
+      <section class="card">
+        <h2><span class="badge">対応表</span>関数 → 移動先</h2>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background: var(--sky-100)"></span> circuit.rs</span>
+          <span class="item"><span class="swatch" style="background: var(--amber-100)"></span> state_panel_layout.rs</span>
+          <span class="item"><span class="swatch" style="background: var(--emerald-100)"></span> state_panel_draw.rs</span>
+          <span class="item"><span class="swatch" style="background: var(--zinc-100)"></span> mod root (再エクスポート)</span>
+        </div>
+        <table class="migration">
+          <thead>
+            <tr>
+              <th style="width: 28%;">関数 / 型</th>
+              <th style="width: 8%;">行数</th>
+              <th style="width: 20%;">移動先</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>StatePanelLayout</td>
+              <td>18</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">幾何を所有するファイルに置く</td>
+            </tr>
+            <tr>
+              <td>circuit_content_height</td>
+              <td>7</td>
+              <td><span class="pill pill-circuit">circuit.rs</span></td>
+              <td class="desc">qubit line 数から content の高さを返す</td>
+            </tr>
+            <tr>
+              <td>draw_circuit</td>
+              <td>240</td>
+              <td><span class="pill pill-circuit">circuit.rs</span></td>
+              <td class="desc">qubit lines + ゲート + コントロール接続</td>
+            </tr>
+            <tr>
+              <td>draw_palette</td>
+              <td>49</td>
+              <td><span class="pill pill-circuit">circuit.rs</span></td>
+              <td class="desc">画面上部のゲートパレット</td>
+            </tr>
+            <tr>
+              <td>draw_drag_preview</td>
+              <td>22</td>
+              <td><span class="pill pill-circuit">circuit.rs</span></td>
+              <td class="desc">ドラッグ中のゲートのオーバーレイ</td>
+            </tr>
+            <tr>
+              <td>state_panel_layout</td>
+              <td>98</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">StatePanelLayout を組み立てるエントリ関数</td>
+            </tr>
+            <tr>
+              <td>grid_origin</td>
+              <td>31</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">grid 中央寄せ / pan の終点計算</td>
+            </tr>
+            <tr>
+              <td>dims_text</td>
+              <td>13</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">"C × R = N states ▾" 文字列生成</td>
+            </tr>
+            <tr>
+              <td>dims_hit_rect</td>
+              <td>29</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">文字幅計測してホイール / クリック領域を返す</td>
+            </tr>
+            <tr>
+              <td>aspect_popover_layout</td>
+              <td>31</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">popover 外形 rect + 行 rect の配列</td>
+            </tr>
+            <tr>
+              <td>resize_handle_hit_rect</td>
+              <td>27</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">4 隅の hit rect (panel R 内側)</td>
+            </tr>
+            <tr>
+              <td>clamp_state_panel_offset</td>
+              <td>42</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">パネル移動 offset を画面内 MIN_VISIBLE で clamp</td>
+            </tr>
+            <tr>
+              <td>clamp_state_grid_offset</td>
+              <td>21</td>
+              <td><span class="pill pill-layout">state_panel_layout.rs</span></td>
+              <td class="desc">grid pan offset を viewport 内 clamp</td>
+            </tr>
+            <tr>
+              <td>draw_state_vector</td>
+              <td>172</td>
+              <td><span class="pill pill-draw">state_panel_draw.rs</span></td>
+              <td class="desc">パネル本体 + GPU callback + minimap / handles 呼び出し</td>
+            </tr>
+            <tr>
+              <td>draw_aspect_popover</td>
+              <td>88</td>
+              <td><span class="pill pill-draw">state_panel_draw.rs</span></td>
+              <td class="desc">サムネ + ラベル + (now) タグ</td>
+            </tr>
+            <tr>
+              <td>draw_state_minimap</td>
+              <td>56</td>
+              <td><span class="pill pill-draw">state_panel_draw.rs</span></td>
+              <td class="desc">右下のミニマップ (grid overview)</td>
+            </tr>
+            <tr>
+              <td>draw_resize_handle_arc</td>
+              <td>47</td>
+              <td><span class="pill pill-draw">state_panel_draw.rs</span></td>
+              <td class="desc">4 隅の L 字弧 (panel R 同心)</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ─── Order ─────────────────────────────────────────────── -->
+      <section class="card">
+        <h2><span class="badge" style="background: var(--amber-600)">手順</span>段階的に分割 → 各段でビルド & スナップショット確認</h2>
+        <ol class="steps">
+          <li><code>mkdir src/render/</code> と空の <code>src/render/circuit.rs</code> / <code>state_panel_layout.rs</code> / <code>state_panel_draw.rs</code> 作成。<code>render.rs</code> に <code>mod render { mod circuit; mod state_panel_layout; mod state_panel_draw; }</code> を追加だけしてビルド確認 (空 mod のまま)。</li>
+          <li><strong>circuit.rs</strong> へ移動 — <code>circuit_content_height</code> + <code>draw_circuit</code> + <code>draw_palette</code> + <code>draw_drag_preview</code>。<code>impl QniApp</code> ブロックは新ファイル側にも書く (Rust は同じ struct の <code>impl</code> ブロックを複数ファイルに分散可)。<code>cargo check</code> → 既存テスト走らせて差分ゼロ。</li>
+          <li><strong>state_panel_layout.rs</strong> へ移動 — <code>StatePanelLayout</code> struct + <code>state_panel_layout</code>, <code>grid_origin</code>, <code>dims_*</code>, <code>aspect_popover_layout</code>, <code>resize_handle_hit_rect</code>, <code>clamp_*</code>。<code>pub(super) struct</code> → <code>pub(crate) struct</code> に visibility 引き上げる必要があれば調整。</li>
+          <li><strong>state_panel_draw.rs</strong> へ移動 — <code>draw_state_vector</code> + <code>draw_aspect_popover</code> + <code>draw_state_minimap</code> + <code>draw_resize_handle_arc</code>。state_panel_layout を <code>use super::state_panel_layout::*;</code> で呼ぶ。</li>
+          <li><code>render.rs</code> 本体を mod root 化 — <code>pub use circuit::*; pub use state_panel_layout::*; pub use state_panel_draw::*;</code> だけ残す (~30 行)。</li>
+          <li>最終確認: <code>cargo check --target wasm32-unknown-unknown</code> + Playwright snapshot で UI 差分ゼロを確認。</li>
+        </ol>
+        <p style="margin-top: 16px; font-size: 13px;">
+          <strong>注意:</strong> 各ステップで commit を分けると、もし 1 つでもバグれば <code>git bisect</code> で問題箇所を特定しやすい。CLAUDE.md の「変更 → テスト → review → accept/reject」フローと相性が良い。
+        </p>
+      </section>
+
+      <!-- ─── Why split this way ────────────────────────────── -->
+      <section class="card">
+        <h2><span class="badge" style="background: var(--zinc-600)">設計</span>なぜ "layout vs draw" で切るのか</h2>
+        <ul style="font-size: 13.5px; padding-left: 20px;">
+          <li><strong>テスト容易性</strong>: layout 系は painter 不要の純粋関数。<code>cargo test</code> で叩ける (現状は wasm target のせいで叩けないが、将来 native target テストを追加する余地)。</li>
+          <li><strong>再利用しやすい</strong>: hit rect は <code>app.rs</code> 側の interaction でも、<code>state_panel_draw.rs</code> 側の描画でも使う。layout を別ファイルに切り出すと「描画とは別の責務」が明確になる。</li>
+          <li><strong>修正の局所性</strong>: 「色 / アイコン / 矢印を変えたい」→ draw 側のみ。「padding / 位置を変えたい」→ layout 側のみ。手を入れるファイルが一意に決まる。</li>
+          <li><strong>circuit と state_panel の分離</strong>: 元々まったく別の UI 要素。混在してたのは歴史的経緯のみ。</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
