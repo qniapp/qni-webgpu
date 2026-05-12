@@ -36,8 +36,8 @@ pub(crate) const STATE_RESIZE_HANDLE_PAD: f32 = 3.0;
 pub(crate) const STATE_RESIZE_HANDLE_STROKE: f32 = 2.0;
 pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 
-/// Zoom factor range for the state panel circle grid (Ctrl+wheel). Below
-/// 0.5 the cells become unreadable noise; above 4.0 the panel is mostly
+/// Zoom factor range for the state panel circle grid (wheel over viewport).
+/// Below 0.5 the cells become unreadable noise; above 4.0 the panel is mostly
 /// the inside of one circle.
 pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
 pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;

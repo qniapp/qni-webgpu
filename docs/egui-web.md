@@ -226,6 +226,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
+- 状態ベクトル panel の viewport 上では wheel だけで円グリッドを cursor anchor zoom する。ドラッグで pan、header 右側の dims text 上の wheel は aspect 変更に使う。
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。
 - ドラッグ中の再描画は CooldownThrottle 相当で、10ms ベース + 0.1 倍ポンプ（Quirk 相当）で `request_repaint` と `request_repaint_after` を切り替える。
 - ドラッグ中は回路側の影や接続線などの周辺装飾を省略して tessellator 負荷を下げる。一方で、いま掴んでいるゲート自身・回路上に既に置かれているゲート・パレット上のゲートは、ドラッグ中も通常描画（角丸・アイコン・ラベル維持）のままにする。

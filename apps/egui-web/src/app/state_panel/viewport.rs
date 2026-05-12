@@ -6,8 +6,8 @@ use crate::render::StatePanelLayout;
 
 impl QniApp {
     /// Pan the circle grid inside the viewport (drag) + zoom the grid
-    /// at the cursor anchor (Ctrl+wheel). The two share a single
-    /// `ui.interact` on the viewport rect, so they live together.
+    /// at the cursor anchor (wheel, Google-Maps style). The two share a
+    /// single `ui.interact` on the viewport rect, so they live together.
     pub(crate) fn process_state_panel_viewport_pan_and_zoom(
         &mut self,
         ctx: &egui::Context,
@@ -85,18 +85,12 @@ impl QniApp {
         screen_rect: egui::Rect,
         state_count: usize,
     ) {
-        // Ctrl+wheel inside the viewport zooms the grid. Plain wheel
-        // is reserved for aspect-dims and (when over the panel) gets
-        // routed there via `compute_state_panel_input_gate`. Zoom is
-        // anchored at the cursor so the cell under it stays put.
+        // Wheel inside the viewport zooms the grid, anchored at the cursor
+        // so the cell under it stays put. The dimensions text in the header
+        // owns wheel events for aspect changes; the viewport gets the
+        // Google-Maps-style plain-wheel zoom path.
         if viewport_response.hovered() {
-            let scroll = ctx.input(|i| {
-                if i.modifiers.ctrl || i.modifiers.command {
-                    i.smooth_scroll_delta.y
-                } else {
-                    0.0
-                }
-            });
+            let scroll = ctx.input(|i| i.smooth_scroll_delta.y);
             if scroll.abs() > f32::EPSILON {
                 let pointer = ctx.input(|i| i.pointer.hover_pos());
                 let old_zoom = self.state_panel.grid_zoom;
