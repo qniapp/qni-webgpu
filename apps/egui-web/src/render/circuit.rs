@@ -50,6 +50,17 @@ impl QniApp {
         // label strip on the left and the GPU callback viewports stay
         // on `rect.min` so they don't track the scroll.
         let circuit_origin = rect.min - egui::vec2(scroll_x, 0.0);
+        let gate_slot_index = |gate: &PlacedGate| -> Option<usize> {
+            if dragging_gate_id == Some(gate.id) {
+                let center_x = gate.pos.x + GATE_SIZE / 2.0;
+                let (slot_index, distance) = nearest_slot_index(center_x, &metrics.slot_centers)?;
+                (distance <= SNAP_DISTANCE).then_some(slot_index)
+            } else if gate.column < metrics.slot_centers.len() {
+                Some(gate.column)
+            } else {
+                None
+            }
+        };
         for &line_y in &metrics.line_ys {
             let start = circuit_origin + egui::vec2(metrics.line_left, line_y);
             let end = circuit_origin + egui::vec2(metrics.line_right, line_y);
@@ -106,24 +117,19 @@ impl QniApp {
                 }
                 let is_control =
                     gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl;
-                let center_x = gate.pos.x + GATE_SIZE / 2.0;
-                if let Some((slot_index, distance)) =
-                    nearest_slot_index(center_x, &metrics.slot_centers)
-                {
-                    if distance > SNAP_DISTANCE {
-                        continue;
-                    }
-                    let center = circuit_origin
-                        + gate.pos.to_vec2()
-                        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-                    let entry = control_groups
-                        .entry(slot_index)
-                        .or_insert((Vec::new(), Vec::new()));
-                    if is_control {
-                        entry.0.push(center);
-                    } else {
-                        entry.1.push(center);
-                    }
+                let Some(slot_index) = gate_slot_index(gate) else {
+                    continue;
+                };
+                let center = circuit_origin
+                    + gate.pos.to_vec2()
+                    + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+                let entry = control_groups
+                    .entry(slot_index)
+                    .or_insert((Vec::new(), Vec::new()));
+                if is_control {
+                    entry.0.push(center);
+                } else {
+                    entry.1.push(center);
                 }
             }
 
@@ -166,13 +172,8 @@ impl QniApp {
                 if gate.kind != GateKind::Swap {
                     continue;
                 }
-                let center_x = gate.pos.x + GATE_SIZE / 2.0;
-                if let Some((slot_index, distance)) =
-                    nearest_slot_index(center_x, &metrics.slot_centers)
-                {
-                    if distance <= SNAP_DISTANCE {
-                        swap_groups.entry(slot_index).or_default().push(gate);
-                    }
+                if let Some(slot_index) = gate_slot_index(gate) {
+                    swap_groups.entry(slot_index).or_default().push(gate);
                 }
             }
 
@@ -212,23 +213,18 @@ impl QniApp {
                 if angle.is_empty() {
                     continue;
                 }
-                let center_x = gate.pos.x + GATE_SIZE / 2.0;
-                if let Some((slot_index, distance)) =
-                    nearest_slot_index(center_x, &metrics.slot_centers)
-                {
-                    if distance > SNAP_DISTANCE {
-                        continue;
-                    }
-                    let center = circuit_origin
-                        + gate.pos.to_vec2()
-                        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-                    phase_groups
-                        .entry(slot_index)
-                        .or_default()
-                        .entry(angle.to_string())
-                        .or_default()
-                        .push(center);
-                }
+                let Some(slot_index) = gate_slot_index(gate) else {
+                    continue;
+                };
+                let center = circuit_origin
+                    + gate.pos.to_vec2()
+                    + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+                phase_groups
+                    .entry(slot_index)
+                    .or_default()
+                    .entry(angle.to_string())
+                    .or_default()
+                    .push(center);
             }
             for (slot_index, angle_buckets) in &phase_groups {
                 for points in angle_buckets.values() {
@@ -265,15 +261,9 @@ impl QniApp {
                 if angle.is_empty() {
                     continue;
                 }
-                let center_x = gate.pos.x + GATE_SIZE / 2.0;
-                let Some((slot_index, distance)) =
-                    nearest_slot_index(center_x, &metrics.slot_centers)
-                else {
+                let Some(slot_index) = gate_slot_index(gate) else {
                     continue;
                 };
-                if distance > SNAP_DISTANCE {
-                    continue;
-                }
                 let center = circuit_origin
                     + gate.pos.to_vec2()
                     + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
@@ -288,18 +278,15 @@ impl QniApp {
                     if other.angle.as_deref() != Some(angle) {
                         continue;
                     }
-                    let other_center_x = other.pos.x + GATE_SIZE / 2.0;
-                    let Some((other_slot, other_distance)) =
-                        nearest_slot_index(other_center_x, &metrics.slot_centers)
-                    else {
+                    let Some(other_slot) = gate_slot_index(other) else {
                         continue;
                     };
-                    if other_slot != slot_index || other_distance > SNAP_DISTANCE {
+                    if other_slot != slot_index {
                         continue;
                     }
-                    if other.pos.y < gate.pos.y {
+                    if other.wire < gate.wire {
                         peers_above = true;
-                    } else if other.pos.y > gate.pos.y {
+                    } else if other.wire > gate.wire {
                         peers_below = true;
                     }
                 }

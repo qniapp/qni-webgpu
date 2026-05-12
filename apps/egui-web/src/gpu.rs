@@ -24,7 +24,8 @@ pub(crate) use callbacks::{
     BlochOverlayCallback, MeasurementDigitCallback, PopupValueCallback, StateVectorCallback,
 };
 pub(crate) use params::{
-    BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams,
+    BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams, MAX_BLOCH_SLOTS,
+    MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]

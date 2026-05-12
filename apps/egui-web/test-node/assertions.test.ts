@@ -3,11 +3,11 @@ const assert = require('node:assert/strict')
 
 const { assertDragPreviewAboveOverlay } = require('../features/support/assertions.ts')
 
-test('assertDragPreviewAboveOverlay accepts qni intermediate purple while differing from the hidden baseline and source', () => {
+test('assertDragPreviewAboveOverlay accepts Flexoki purple-600 while differing from the hidden baseline and source', () => {
   assert.doesNotThrow(() => {
     assertDragPreviewAboveOverlay({
       before: [255, 255, 255, 255],
-      during: [168, 85, 247, 255],
+      during: [94, 64, 157, 255],
       source: [48, 160, 139, 255],
     })
   })
@@ -39,7 +39,7 @@ test('assertDragPreviewAboveOverlay rejects a drag preview that stays green like
   )
 })
 
-test('assertDragPreviewAboveOverlay rejects a drag preview that is not qni intermediate purple', () => {
+test('assertDragPreviewAboveOverlay rejects a drag preview that is not Flexoki purple-600', () => {
   assert.throws(
     () => {
       assertDragPreviewAboveOverlay({
@@ -48,7 +48,7 @@ test('assertDragPreviewAboveOverlay rejects a drag preview that is not qni inter
         source: [51, 158, 140, 255],
       })
     },
-    /qni intermediate purple/
+    /Flexoki purple-600/
   )
 })
 

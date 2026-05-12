@@ -220,17 +220,19 @@ impl QniApp {
                     );
                     if let Some(index) = palette_hit_test(local, &palette_geom) {
                         let new_id = self.next_gate_id;
-                        let new_gate = PlacedGate {
-                            id: new_id,
-                            kind: PALETTE_GATES[index],
-                            pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
-                            wire: 0,
-                            span: 1,
+                        let mut new_gate = PlacedGate::new(
+                            new_id,
+                            PALETTE_GATES[index],
+                            0,
+                            0,
+                            1,
                             // Palette drop: no explicit angle yet — Phase
                             // falls back to its π/2 default until a future
                             // angle picker lets the user set one.
-                            angle: None,
-                        };
+                            None,
+                        );
+                        new_gate.pos =
+                            egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0);
                         self.next_gate_id += 1;
                         self.placed_gates.push(new_gate);
                         self.dragging = Some(DragState {
@@ -269,6 +271,7 @@ impl QniApp {
                     {
                         let mut next_pos = cursor - drag.offset;
                         let mut next_wire = self.placed_gates[index].wire;
+                        let mut next_column = self.placed_gates[index].column;
                         let center_y = next_pos.y + GATE_SIZE / 2.0;
                         let (line_y, distance, line_index) =
                             nearest_line(center_y, &metrics.line_ys);
@@ -276,19 +279,21 @@ impl QniApp {
                             next_pos.y = line_y - GATE_SIZE / 2.0;
                             next_wire = line_index;
                             let center_x = next_pos.x + GATE_SIZE / 2.0;
-                            if let Some((slot_center, _)) = nearest_available_slot(
+                            if let Some(snap) = nearest_available_slot(
                                 center_x,
                                 line_index,
                                 Some(drag.id),
                                 &self.placed_gates,
                                 &metrics.slot_centers,
                             ) {
-                                next_pos.x = slot_center - GATE_SIZE / 2.0;
+                                next_pos.x = snap.center - GATE_SIZE / 2.0;
+                                next_column = snap.index;
                             }
                         }
                         let gate = &mut self.placed_gates[index];
                         gate.pos = next_pos;
                         gate.wire = next_wire;
+                        gate.column = next_column;
                     }
                 }
             }
@@ -353,7 +358,7 @@ impl QniApp {
                     let gate_id = self.placed_gates[index].id;
                     let center_x = gate_pos.x + GATE_SIZE / 2.0;
                     let center_y = gate_pos.y + GATE_SIZE / 2.0;
-                    let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
+                    let (_line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
                     let snapped = nearest_available_slot(
                         center_x,
                         line_index,
@@ -364,15 +369,18 @@ impl QniApp {
                     let on_circuit = center_x >= metrics.slot_left
                         && center_x <= metrics.slot_right
                         && distance <= SNAP_DISTANCE
-                        && snapped.map(|(_, d)| d <= SNAP_DISTANCE).unwrap_or(false);
+                        && snapped
+                            .as_ref()
+                            .map(|snap| snap.distance <= SNAP_DISTANCE)
+                            .unwrap_or(false);
 
                     if !on_circuit {
                         self.placed_gates.remove(index);
-                    } else if let Some((slot_center, _)) = snapped {
+                    } else if let Some(snap) = snapped {
                         let gate = &mut self.placed_gates[index];
-                        gate.pos.x = slot_center - GATE_SIZE / 2.0;
-                        gate.pos.y = line_y - GATE_SIZE / 2.0;
+                        gate.column = snap.index;
                         gate.wire = line_index;
+                        gate.sync_pos_from_grid();
                     }
                     // Mirror qni's post-drop `resize()` pipeline: any
                     // column that became empty (either because the
@@ -380,17 +388,14 @@ impl QniApp {
                     // they dropped one past an empty step) is removed
                     // and the trailing gates shift left to fill the
                     // gap. Runs for both branches above.
-                    self.compact_empty_steps(&metrics.slot_centers);
+                    self.compact_empty_steps();
                     self.update_qubit_count();
                     // Mirror qni / Quirk: every committed circuit
                     // change syncs to the URL hash. We use Quirk's
                     // readable-JSON format (`#circuit={"cols":[...]}`)
                     // instead of qni's percent-encoded path.
-                    let json = crate::url_circuit::circuit_to_json(
-                        &self.placed_gates,
-                        &metrics.slot_centers,
-                        self.qubit_count,
-                    );
+                    let json =
+                        crate::url_circuit::circuit_to_json(&self.placed_gates, self.qubit_count);
                     crate::url_circuit::write_circuit_to_url(&json);
                     self.needs_recompute = true;
                     ctx.request_repaint();

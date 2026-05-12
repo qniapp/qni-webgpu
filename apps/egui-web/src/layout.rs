@@ -97,19 +97,6 @@ pub(crate) fn layout_metrics(width: f32, qubit_count: usize, min_slots: usize) -
     }
 }
 
-fn nearest_slot_center(x: f32, slot_centers: &[f32]) -> (f32, f32) {
-    let mut nearest = x;
-    let mut nearest_distance = f32::MAX;
-    for &slot in slot_centers {
-        let distance = (x - slot).abs();
-        if distance < nearest_distance {
-            nearest = slot;
-            nearest_distance = distance;
-        }
-    }
-    (nearest, nearest_distance)
-}
-
 pub(crate) fn nearest_slot_index(x: f32, slot_centers: &[f32]) -> Option<(usize, f32)> {
     let mut nearest_index = None;
     let mut nearest_distance = f32::MAX;
@@ -123,14 +110,21 @@ pub(crate) fn nearest_slot_index(x: f32, slot_centers: &[f32]) -> Option<(usize,
     nearest_index.map(|index| (index, nearest_distance))
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SlotSnap {
+    pub(crate) index: usize,
+    pub(crate) center: f32,
+    pub(crate) distance: f32,
+}
+
 pub(crate) fn nearest_available_slot(
     x: f32,
     wire_index: usize,
     ignore_id: Option<u32>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
-) -> Option<(f32, f32)> {
-    let mut occupied = Vec::new();
+) -> Option<SlotSnap> {
+    let mut occupied_columns = Vec::new();
     for gate in gates {
         if gate.wire != wire_index {
             continue;
@@ -138,33 +132,26 @@ pub(crate) fn nearest_available_slot(
         if ignore_id == Some(gate.id) {
             continue;
         }
-        let center_x = gate.pos.x + GATE_SIZE / 2.0;
-        let (snapped, _) = nearest_slot_center(center_x, slot_centers);
-        occupied.push(snapped);
+        occupied_columns.push(gate.column);
     }
 
-    let mut nearest = x;
+    let mut nearest = None;
     let mut nearest_distance = f32::MAX;
-    let mut found = false;
-    for &slot in slot_centers {
-        if occupied
-            .iter()
-            .any(|&value| (value - slot).abs() < f32::EPSILON)
-        {
+    for (index, &center) in slot_centers.iter().enumerate() {
+        if occupied_columns.contains(&index) {
             continue;
         }
-        let distance = (x - slot).abs();
-        if !found || distance < nearest_distance {
-            nearest = slot;
+        let distance = (x - center).abs();
+        if nearest.is_none() || distance < nearest_distance {
+            nearest = Some(SlotSnap {
+                index,
+                center,
+                distance,
+            });
             nearest_distance = distance;
-            found = true;
         }
     }
-    if found {
-        Some((nearest, nearest_distance))
-    } else {
-        None
-    }
+    nearest
 }
 
 #[derive(Clone, Copy, Debug)]

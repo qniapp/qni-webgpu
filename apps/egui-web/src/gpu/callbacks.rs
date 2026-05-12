@@ -13,7 +13,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use crate::bloch::SimulationOp;
+use crate::bloch::{validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits};
 use crate::gates::GateParams;
 
 use super::params::{
@@ -323,6 +323,19 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 let pair_count = (self.state_count / 2) as u32;
                 let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);
 
+                if validate_simulation_plan_capacity(
+                    &self.sim_ops,
+                    SimulationPlanLimits {
+                        max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
+                        max_bloch_slots: MAX_BLOCH_SLOTS,
+                        max_measurement_slots: MAX_MEASUREMENT_SLOTS,
+                    },
+                )
+                .is_err()
+                {
+                    return Vec::new();
+                }
+
                 // ─── Issue A pre-pass ─────────────────────────────────────
                 // Classify every op by variant and pack their params
                 // contiguously into the per-variant staging buffers via a
@@ -349,9 +362,6 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                             output_slot,
                             ..
                         } => {
-                            if (*output_slot as usize) >= MAX_BLOCH_SLOTS {
-                                continue;
-                            }
                             packed_bloch_params.push(BlochParams {
                                 qubit_bit: *qubit_bit,
                                 state_count: self.state_count as u32,
@@ -364,9 +374,6 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                             qubit_bit,
                             output_slot,
                         } => {
-                            if (*output_slot as usize) >= MAX_MEASUREMENT_SLOTS {
-                                continue;
-                            }
                             packed_measure_reduce_params.push(MeasureReduceParams {
                                 qubit_bit: *qubit_bit,
                                 state_count: self.state_count as u32,
@@ -390,13 +397,6 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                         }
                     }
                 }
-                debug_assert!(
-                    packed_gate_params.len() <= MAX_OPS_PER_RECOMPUTE
-                        && packed_bloch_params.len() <= MAX_OPS_PER_RECOMPUTE
-                        && packed_measure_reduce_params.len() <= MAX_OPS_PER_RECOMPUTE
-                        && packed_measure_collapse_params.len() <= MAX_OPS_PER_RECOMPUTE,
-                    "sim_ops exceeds MAX_OPS_PER_RECOMPUTE; bump the constant in gpu.rs"
-                );
                 if !packed_gate_params.is_empty() {
                     queue.write_buffer(
                         &resources.state.gate_params_staging_buffer,
@@ -507,14 +507,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                             gate_slot += 1;
                             in_index = 1 - in_index;
                         }
-                        SimulationOp::CaptureBloch {
-                            gate_id,
-                            output_slot,
-                            ..
-                        } => {
-                            if (*output_slot as usize) >= MAX_BLOCH_SLOTS {
-                                continue;
-                            }
+                        SimulationOp::CaptureBloch { gate_id, .. } => {
                             encoder.copy_buffer_to_buffer(
                                 &resources.bloch.params_staging_buffer,
                                 bloch_slot * bloch_param_size,
@@ -542,14 +535,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                             bloch_slot_to_gate_id.push(*gate_id);
                             bloch_capture_count += 1;
                         }
-                        SimulationOp::MeasureReduceSample {
-                            gate_id,
-                            output_slot,
-                            ..
-                        } => {
-                            if (*output_slot as usize) >= MAX_MEASUREMENT_SLOTS {
-                                continue;
-                            }
+                        SimulationOp::MeasureReduceSample { gate_id, .. } => {
                             encoder.copy_buffer_to_buffer(
                                 &resources.measure.reduce_params_staging_buffer,
                                 measure_reduce_slot * measure_reduce_param_size,

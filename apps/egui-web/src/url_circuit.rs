@@ -42,9 +42,7 @@
 //! the top dropzone.
 
 use crate::app::PlacedGate;
-use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
-use crate::layout::nearest_slot_index;
 
 /// JSON `circuit=` payload for an empty circuit. Quirk uses the same
 /// literal (`{"cols":[]}`) when the circuit is cleared.
@@ -58,32 +56,21 @@ pub(crate) const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 /// token otherwise. Trailing `1`s in a column are stripped to match
 /// Quirk / qni's compact JSON; a column with no gates at all (which
 /// shouldn't happen post-`compact_empty_steps`) becomes `[1]`.
-pub(crate) fn circuit_to_json(
-    placed_gates: &[PlacedGate],
-    slot_centers: &[f32],
-    qubit_count: usize,
-) -> String {
-    if placed_gates.is_empty() || slot_centers.is_empty() {
+pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -> String {
+    if placed_gates.is_empty() {
         return EMPTY_CIRCUIT_JSON.to_string();
     }
-    // Bucket gates by slot index (column). After `compact_empty_steps`
-    // the occupied indices are dense from 0..N-1, but be defensive in
-    // case this is ever called pre-compaction.
-    let mut max_slot: i64 = -1;
-    let mut buckets: Vec<Vec<&PlacedGate>> = Vec::new();
+    // Bucket gates by semantic column. After `compact_empty_steps` the
+    // occupied indices are dense from 0..N-1, but be defensive in case this
+    // is ever called pre-compaction.
+    let max_slot = placed_gates
+        .iter()
+        .map(|gate| gate.column)
+        .max()
+        .unwrap_or(0);
+    let mut buckets: Vec<Vec<&PlacedGate>> = vec![Vec::new(); max_slot + 1];
     for gate in placed_gates {
-        let center_x = gate.pos.x + GATE_SIZE / 2.0;
-        let Some((slot_index, _)) = nearest_slot_index(center_x, slot_centers) else {
-            continue;
-        };
-        max_slot = max_slot.max(slot_index as i64);
-        if buckets.len() <= slot_index {
-            buckets.resize(slot_index + 1, Vec::new());
-        }
-        buckets[slot_index].push(gate);
-    }
-    if max_slot < 0 {
-        return EMPTY_CIRCUIT_JSON.to_string();
+        buckets[gate.column].push(gate);
     }
 
     let mut cols: Vec<String> = Vec::with_capacity(buckets.len());
@@ -230,14 +217,10 @@ pub(crate) fn write_circuit_to_url(_json: &str) {}
 //    * qni's path format: `/{...}` with the JSON percent-encoded.
 //
 //  Tokens (`"H"`, `"•"`, `"QFT3"`, …) are mapped back to `GateKind`
-//  via `token_to_gate`. The gate's screen position is reconstructed
-//  from the *column index* (= slot index) and *wire index* (= qubit
-//  number) via the same `LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING
-//  * i` and `LINE_Y + LINE_GAP * w` formulas the layout uses, so no
-//  canvas-width knowledge is required at startup.
+//  via `token_to_gate`. The semantic column index (= qni step index)
+//  and wire index (= qubit number) are restored directly; the derived
+//  draw position is then synchronised from that grid.
 // ─────────────────────────────────────────────────────────────────────
-
-use crate::constants::{LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, SLOT_SPACING};
 
 /// Decode the URL and return the placed gates plus a recommended
 /// `next_gate_id`. Empty `Vec` (with `next_gate_id = 1`) if no circuit
@@ -320,15 +303,11 @@ fn decode_percent(s: &str) -> Option<String> {
 }
 
 /// Walk the parsed columns and place each non-empty entry as a
-/// `PlacedGate`. Position is reconstructed from the column index
-/// (slot) and wire index using the same formulas `layout_metrics`
-/// uses — independent of canvas width so this works at startup
-/// before any frame has rendered.
+/// `PlacedGate`. The URL columns become semantic gate columns; pixel
+/// position is derived by `PlacedGate::new`.
 fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
-    let slot_left = LINE_LEFT_OFFSET + crate::constants::GATE_SIZE;
     let mut gates = Vec::new();
     for (col_idx, col) in cols.iter().enumerate() {
-        let slot_center_x = slot_left + SLOT_SPACING * col_idx as f32;
         for (wire_idx, entry) in col.iter().enumerate() {
             let Some(token) = entry.as_deref() else {
                 continue;
@@ -336,18 +315,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             let Some((kind, span, angle)) = token_to_gate(token) else {
                 continue;
             };
-            let line_y = LINE_Y + LINE_GAP * wire_idx as f32;
-            gates.push(PlacedGate {
-                id: 0, // assigned by assign_ids
-                kind,
-                pos: eframe::egui::pos2(
-                    slot_center_x - crate::constants::GATE_SIZE / 2.0,
-                    line_y - crate::constants::GATE_SIZE / 2.0,
-                ),
-                wire: wire_idx,
-                span,
-                angle,
-            });
+            gates.push(PlacedGate::new(0, kind, col_idx, wire_idx, span, angle));
         }
     }
     gates

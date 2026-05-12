@@ -77,8 +77,8 @@ pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
 /// into staging buffers up-front, then issues `copy_buffer_to_buffer` from
 /// staging slots into the existing small uniform buffers between dispatches
 /// inside a single encoder. Each variant has its own staging buffer sized to
-/// `MAX_OPS_PER_RECOMPUTE` slots; if a circuit ever exceeds this, the
-/// `debug_assert!` in the prepare pass will trip.
+/// `MAX_OPS_PER_RECOMPUTE` slots; capacity is validated before packing so
+/// release builds fail explicitly instead of truncating the plan.
 pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
 
 /// Maximum number of Bloch displays whose vectors can be captured in a single

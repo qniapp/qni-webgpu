@@ -204,13 +204,13 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
 - |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
-- BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。各ゲート列で CPU 側に状態をミラーシミュレートし、その時点の縮約密度行列から (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector`）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。
+- BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。`linearize_ops` が列ごとに GPU の Bloch capture を挿入し、`BLOCH_REDUCE_SHADER` がその時点の縮約密度行列由来の (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector` と同じ意味論）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。CPU ミラーシミュレータは使わない。
 - BlochDisplay の見た目は qni の `bloch_display.css` に揃える: bg-green-50 (#f0fdf4)、軸 / 球境界 gray-400 (#9ca3af)、ベクトル線 gray-900 (#111827)、矢印先 red-500 (#ef4444)、ゼロベクトルのみ blue-500 (#3b82f6)。
 - 投影は qni の DOM 変換 `rotateY(phi) rotateX(-theta)` + `perspective: 4rem` + `perspective-origin: top right` をそのまま再現（pinhole 投影、p = 4·radius、origin = (1, -1) in radius units）。Bloch → CSS 軸対応は +x → +z (奥行き、視点向き)、+y → +x (右)、+z → -y (上)。
 - 結果として Bloch (1,0,0) (|+⟩, H|0⟩) は短く左下へ前縮小、Bloch (0,0,1) (|0⟩) は真上、(0,0,-1) (|1⟩) は真下、(0,±1,0) (|±i⟩) は真横、Bloch (-1,0,0) (|-⟩) は右上奥に縮小される。
 - 球の装飾線は qni の SVG (横線・縦線・NE/SW 斜線、垂直細楕円 rx=18% ry=50%、水平細楕円 rx=50% ry=18%) を踏襲し、傾けない。
 - ベクトル長 ≈ 0 のとき (もつれて部分トレースが maximally mixed になる、palette 表示、ドラッグ中、未スナップなど) は qni の `data-d='0'` ルール通り中心に blue-500 の点だけを描画し、線は引かない。Bell 状態の各量子ビットが好例。
-- Measurement ゲートは qni `simulator.ts:measure` を踏襲: 列ごとに pZero を計算し、決定論的 RNG (gate id ベース) で 0/1 をサンプル。選ばれた基底に状態を射影して √(p) で再正規化する。結果は CPU 側で次の列に持ち越されるため、State vector は collapse 後の状態を表示する。
+- Measurement ゲートは qni `simulator.ts:measure` の意味論を GPU で実行する: 列ごとに `MEASURE_REDUCE_SHADER` が pZero を計算し、決定論的 RNG (gate id ベース) で 0/1 をサンプル。続く `MEASURE_COLLAPSE_SHADER` が選ばれた基底に状態を射影して √(p) で再正規化する。結果は GPU state buffer の ping-pong で次の列に持ち越されるため、State vector は collapse 後の状態を表示する。
 - Measurement の見た目は qni `measurement_gate.css` に合わせる: パレット / 未測定時はメーターを intermediate purple (#a855f7)、回路に置いて結果が出ると `text-zinc-200` (#e4e4e7) のメーターに切り替え、`0` は red-500・`1` は blue-500 で中央にオーバーレイする。
 - 状態ベクトル計算は GPU の `STATE_COMPUTE_SHADER` (per-gate dispatch + ping-pong) で実行する。CPU 側にミラーシミュレータは残っていない (Step 4 で削除済み)。`bloch.rs` は `linearize_ops` で配置済みゲートを GPU op ストリームに並び替えるだけのオーケストレーション専用モジュールに整理した。AGENTS.md ルール「シミュレーションは GPU でのみ」を満たしている。
 - Measurement は GPU 完結。`MEASURE_REDUCE_SHADER` (workgroup_size=64) で pZero を reduction し、決定論的 PCG を gate id でシードして r をサンプル、`(pZero, r, outcome, sqrt_p_kept)` を `measurement_aux_buffer[slot]` に書く。続けて `MEASURE_COLLAPSE_SHADER` が同じ aux スロットを読み、生き残った基底側の振幅を `1/sqrt_p_kept` で正規化、もう一方を 0 にして state buffer の ping-pong 反対側に書き込む。

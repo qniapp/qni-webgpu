@@ -4,6 +4,7 @@
 //!   * `state_panel` — state-panel interactions + small state helpers
 //!   * `gate_input`  — gate pickup / drag / drop / hover + repaint throttle
 
+mod circuit_model;
 mod fps_hud;
 mod gate_input;
 mod state_panel;
@@ -12,41 +13,19 @@ use eframe::egui;
 use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
-use crate::bloch::{linearize_ops, SimulationOp};
+use crate::bloch::{
+    linearize_ops, validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits,
+};
 use crate::colors::Colors;
 use crate::constants::{
-    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, GATE_SIZE, LINE_LEFT_OFFSET,
-    MAX_QUBITS, MIN_QUBITS, SLOT_SPACING, STATE_VIEWPORT_DEFAULT_HEIGHT,
-    STATE_VIEWPORT_DEFAULT_WIDTH,
+    state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS, MIN_QUBITS,
+    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
 };
-use crate::gates::GateKind;
+use crate::gpu::{MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
 use crate::layout::layout_metrics;
 use crate::shared::{amplitude_qubits, now_seconds};
 
-#[derive(Clone, Debug)]
-pub(crate) struct PlacedGate {
-    pub(crate) id: u32,
-    pub(crate) kind: GateKind,
-    pub(crate) pos: egui::Pos2,
-    pub(crate) wire: usize,
-    /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
-    /// QFT / QFT† can be resized to span 2+ wires via the bottom-edge
-    /// resize handle that appears on hover.
-    pub(crate) span: usize,
-    /// Angle string for parametric gates (currently only `GateKind::Phase`).
-    /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
-    /// `"2π/3"`, `"0"` — so URL round-trips are exact. `None` means
-    /// "use the gate's default" (palette-placed Phase falls back to π/2
-    /// to preserve the editor's pre-parametric behaviour); qni would
-    /// instead error out at simulate time.
-    pub(crate) angle: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct DragState {
-    pub(crate) id: u32,
-    pub(crate) offset: egui::Vec2,
-}
+pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
 
 /// Which corner of the state panel a resize drag is anchored to. The
 /// opposite corner stays fixed during the drag.
@@ -73,16 +52,6 @@ struct ResizeDrag {
     start_pointer: egui::Pos2,
     start_viewport_size: egui::Vec2,
     start_panel_offset: egui::Vec2,
-}
-
-/// In-flight resize of a QFT-family gate's vertical span. Tracks which
-/// gate's resize handle was grabbed and the start span so per-frame drag
-/// math derives the new span from the *total* cursor delta.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct QftResizeDrag {
-    pub(crate) gate_id: u32,
-    pub(crate) start_pointer_y: f32,
-    pub(crate) start_span: usize,
 }
 
 pub(crate) struct QniApp {
@@ -273,124 +242,6 @@ impl QniApp {
         count
     }
 
-    /// Minimum number of slot centers the layout must expose so every
-    /// placed gate has a valid snap target. Passed to `layout_metrics`
-    /// so the wire stretches all the way past the rightmost gate even
-    /// when that gate sits beyond the canvas's natural right edge.
-    ///
-    /// Each gate's column is derived from its `pos.x` via the same
-    /// `slot_left + i * SLOT_SPACING` formula `layout_metrics` uses,
-    /// so we can recover the slot index from `pos.x` alone — no
-    /// dependence on the slot_centers we are about to build. We then
-    /// reserve one extra trailing slot as a drop-target landing zone
-    /// (mirrors qni's `appendMinimumSteps`).
-    fn min_circuit_slots(&self) -> usize {
-        let slot_left = LINE_LEFT_OFFSET + GATE_SIZE;
-        let mut max_slot: i32 = -1;
-        for gate in &self.placed_gates {
-            let center_x = gate.pos.x + GATE_SIZE / 2.0;
-            if center_x < slot_left {
-                continue;
-            }
-            let slot = ((center_x - slot_left) / SLOT_SPACING).round() as i32;
-            if slot > max_slot {
-                max_slot = slot;
-            }
-        }
-        if max_slot < 0 {
-            0
-        } else {
-            (max_slot as usize) + 2
-        }
-    }
-
-    fn state_qubits(&self) -> usize {
-        let mut max_wire: Option<usize> = None;
-        for gate in &self.placed_gates {
-            let bottom = gate.wire + gate.span.saturating_sub(1);
-            max_wire = Some(match max_wire {
-                Some(current) => current.max(bottom),
-                None => bottom,
-            });
-        }
-        let count = max_wire.map_or(1, |wire| wire + 1);
-        count.clamp(1, MAX_QUBITS)
-    }
-
-    fn update_qubit_count(&mut self) {
-        let mut max_wire = MIN_QUBITS - 1;
-        for gate in &self.placed_gates {
-            // A multi-qubit gate at `wire` with `span = N` occupies
-            // wires [wire, wire + N - 1]; the bottom of that range is
-            // what bounds the qubit count.
-            let bottom_wire = gate.wire + gate.span.saturating_sub(1);
-            max_wire = max_wire.max(bottom_wire);
-        }
-        self.qubit_count = (max_wire + 1).clamp(MIN_QUBITS, MAX_QUBITS);
-    }
-
-    /// After a successful drop or off-circuit removal, collapse any
-    /// columns that contain zero gates and shift the trailing gates
-    /// left to fill the gap. Mirrors qni's
-    /// `QuantumCircuitElement.removeEmptySteps()` — every empty step,
-    /// including a leading one or one between two non-empty steps, is
-    /// removed indiscriminately, then the natural slot layout supplies
-    /// the trailing drop-target zone again.
-    ///
-    /// Because our model stores each gate's column as a pixel
-    /// (`pos.x`) rather than an integer index, the compaction works
-    /// in three steps:
-    ///   1. Snap every gate's current `pos.x` back to a slot index.
-    ///   2. Build a sorted-unique set of occupied indices; the
-    ///      position of each entry in that set becomes the new index.
-    ///   3. Write `pos.x = slot_centers[new_index] - GATE_SIZE/2`.
-    ///
-    /// `slot_centers` is the per-frame slot-center array from
-    /// `layout::layout_metrics`. Multi-qubit gates (CNOT, swap) and
-    /// QFT (`span > 1`) just ride along — they share a column with
-    /// their partners by virtue of having the same snapped index, so
-    /// they shift together.
-    pub(crate) fn compact_empty_steps(&mut self, slot_centers: &[f32]) {
-        use std::collections::{BTreeSet, HashMap};
-        if self.placed_gates.is_empty() || slot_centers.is_empty() {
-            return;
-        }
-        let mut occupied: BTreeSet<usize> = BTreeSet::new();
-        for gate in &self.placed_gates {
-            let center_x = gate.pos.x + GATE_SIZE / 2.0;
-            if let Some((idx, _)) = crate::layout::nearest_slot_index(center_x, slot_centers) {
-                occupied.insert(idx);
-            }
-        }
-        // Already-compact short-circuit: occupied indices are exactly
-        // 0..=occupied.len()-1. Avoids the rewrite when nothing moved.
-        let already_compact = occupied
-            .iter()
-            .enumerate()
-            .all(|(new_i, &old_i)| new_i == old_i);
-        if already_compact {
-            return;
-        }
-        let mut remap: HashMap<usize, usize> = HashMap::with_capacity(occupied.len());
-        for (new_i, &old_i) in occupied.iter().enumerate() {
-            remap.insert(old_i, new_i);
-        }
-        for gate in &mut self.placed_gates {
-            let center_x = gate.pos.x + GATE_SIZE / 2.0;
-            if let Some((old_i, _)) = crate::layout::nearest_slot_index(center_x, slot_centers) {
-                if let Some(&new_i) = remap.get(&old_i) {
-                    if new_i != old_i {
-                        gate.pos.x = slot_centers[new_i] - GATE_SIZE / 2.0;
-                    }
-                }
-            }
-        }
-    }
-
-    fn state_count(&self) -> usize {
-        1usize << self.state_qubits()
-    }
-
     /// Refresh the simulation operation list + per-gate slot lookups
     /// when something changed (qubits added, gates rearranged, etc.).
     /// Returns the (possibly updated) recompute flag — false if we
@@ -399,7 +250,7 @@ impl QniApp {
         &mut self,
         target_format: Option<eframe::wgpu::TextureFormat>,
         recompute: bool,
-        screen_rect: egui::Rect,
+        _screen_rect: egui::Rect,
         state_count: usize,
         ctx: &egui::Context,
     ) -> bool {
@@ -407,18 +258,25 @@ impl QniApp {
             if recompute {
                 self.needs_recompute = false;
                 self.last_state_count = state_count;
-                let sim_metrics = layout_metrics(
-                    screen_rect.width(),
-                    self.layout_qubits(),
-                    self.min_circuit_slots(),
-                );
                 let qubits = self.state_qubits();
                 // hovered wins over breakpoint (live preview); `None`
                 // for both = apply every column = final state.
                 let step_limit = self.hovered_step.or(self.breakpoint_step);
-                self.sim_ops = linearize_ops(&self.placed_gates, qubits, &sim_metrics, step_limit);
+                self.sim_ops = linearize_ops(&self.placed_gates, qubits, step_limit);
                 self.bloch_slots.clear();
                 self.measurement_slots.clear();
+                if let Err(error) = validate_simulation_plan_capacity(
+                    &self.sim_ops,
+                    SimulationPlanLimits {
+                        max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
+                        max_bloch_slots: MAX_BLOCH_SLOTS,
+                        max_measurement_slots: MAX_MEASUREMENT_SLOTS,
+                    },
+                ) {
+                    self.log_gpu_plan_capacity_error(&error.to_string());
+                    self.sim_ops.clear();
+                    return recompute;
+                }
                 for op in &self.sim_ops {
                     match op {
                         SimulationOp::CaptureBloch {
@@ -445,6 +303,18 @@ impl QniApp {
             false
         } else {
             false
+        }
+    }
+
+    fn log_gpu_plan_capacity_error(&self, message: &str) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let message = format!("qni-webgpu recompute skipped: {message}");
+            web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&message));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = message;
         }
     }
 }

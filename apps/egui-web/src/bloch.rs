@@ -13,12 +13,11 @@
 use std::collections::HashMap;
 
 use crate::app::PlacedGate;
-use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
+
 use crate::gates::{
     controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
     phase_params, rx_params, ry_params, rz_params, GateKind, GateParams,
 };
-use crate::layout::{nearest_slot_index, LayoutMetrics};
 
 /// One step the GPU dispatcher should run during a recompute.
 ///   * `ApplyGate`: unitary / write gate via `STATE_COMPUTE_SHADER`.
@@ -48,6 +47,91 @@ pub(crate) enum SimulationOp {
     },
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct SimulationPlanLimits {
+    pub(crate) max_ops_per_variant: usize,
+    pub(crate) max_bloch_slots: usize,
+    pub(crate) max_measurement_slots: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SimulationPlanCapacityError {
+    message: String,
+}
+
+impl SimulationPlanCapacityError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for SimulationPlanCapacityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+pub(crate) fn validate_simulation_plan_capacity(
+    ops: &[SimulationOp],
+    limits: SimulationPlanLimits,
+) -> Result<(), SimulationPlanCapacityError> {
+    let mut gate_ops = 0usize;
+    let mut bloch_ops = 0usize;
+    let mut measure_reduce_ops = 0usize;
+    let mut measure_collapse_ops = 0usize;
+    for op in ops {
+        match op {
+            SimulationOp::ApplyGate(_) => gate_ops += 1,
+            SimulationOp::CaptureBloch { output_slot, .. } => {
+                bloch_ops += 1;
+                let slot = *output_slot as usize;
+                if slot >= limits.max_bloch_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "Bloch slot {slot} exceeds MAX_BLOCH_SLOTS={}; reduce Bloch displays or grow the GPU buffer",
+                        limits.max_bloch_slots
+                    )));
+                }
+            }
+            SimulationOp::MeasureReduceSample { output_slot, .. } => {
+                measure_reduce_ops += 1;
+                let slot = *output_slot as usize;
+                if slot >= limits.max_measurement_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "measurement slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
+                        limits.max_measurement_slots
+                    )));
+                }
+            }
+            SimulationOp::MeasureCollapse { aux_slot, .. } => {
+                measure_collapse_ops += 1;
+                let slot = *aux_slot as usize;
+                if slot >= limits.max_measurement_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "measurement collapse slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
+                        limits.max_measurement_slots
+                    )));
+                }
+            }
+        }
+    }
+    for (label, count) in [
+        ("gate", gate_ops),
+        ("bloch", bloch_ops),
+        ("measure_reduce", measure_reduce_ops),
+        ("measure_collapse", measure_collapse_ops),
+    ] {
+        if count > limits.max_ops_per_variant {
+            return Err(SimulationPlanCapacityError::new(format!(
+                "{label} op count {count} exceeds MAX_OPS_PER_RECOMPUTE={}; split the circuit or grow the GPU staging buffer",
+                limits.max_ops_per_variant
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Walks placed gates column by column and emits ops in the exact order the
 /// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
 /// Within each column the order is: column unitaries / writes → measurements
@@ -56,28 +140,20 @@ pub(crate) enum SimulationOp {
 /// `step_limit`: inclusive column index up to which to apply gates.
 /// `None` = apply everything (= final state). `Some(k)` truncates the
 /// linearisation after column k, so the GPU only runs the dispatches
-/// for slots `0..=k` — this powers the per-step state preview.
+/// for semantic columns `0..=k` — this powers the per-step state preview.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
-    metrics: &LayoutMetrics,
     step_limit: Option<usize>,
 ) -> Vec<SimulationOp> {
-    if qubits == 0 || metrics.slot_centers.is_empty() {
+    if qubits == 0 {
         return Vec::new();
     }
     let state_count = 1u32 << qubits;
 
     let mut by_slot: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
     for gate in placed_gates {
-        let center_x = gate.pos.x + GATE_SIZE / 2.0;
-        let Some((slot, distance)) = nearest_slot_index(center_x, &metrics.slot_centers) else {
-            continue;
-        };
-        if distance > SNAP_DISTANCE {
-            continue;
-        }
-        by_slot.entry(slot).or_default().push(gate);
+        by_slot.entry(gate.column).or_default().push(gate);
     }
 
     let mut slot_indices: Vec<usize> = by_slot.keys().copied().collect();

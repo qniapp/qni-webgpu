@@ -7,7 +7,8 @@ type DragPreviewZOrderAssertionOptions = DragPreviewZOrderSamples & {
   dragFillTolerance?: number
 }
 
-const QNI_INTERMEDIATE_FILL: CanvasPixel = [168, 85, 247, 255]
+// Flexoki purple-600 — drag preview / semantic-intermediate fill.
+const DRAG_PREVIEW_FILL: CanvasPixel = [94, 64, 157, 255]
 
 export const rgbDistance = (left: CanvasPixel | undefined, right: CanvasPixel | undefined): number =>
   [0, 1, 2].reduce((total, channel) => total + Math.abs((left?.[channel] ?? 0) - (right?.[channel] ?? 0)), 0)
@@ -34,10 +35,10 @@ export const assertDragPreviewAboveOverlay = ({
       `(diff=${sourceDiff}, min=${sourceMinDiff}, source=${source}, during=${during})`
   )
 
-  const dragFillDiff = rgbDistance(QNI_INTERMEDIATE_FILL, during)
+  const dragFillDiff = rgbDistance(DRAG_PREVIEW_FILL, during)
   assert.ok(
     dragFillDiff <= dragFillTolerance,
-    `expected dragged palette gate fill to use qni intermediate purple ` +
-      `(diff=${dragFillDiff}, tolerance=${dragFillTolerance}, expected=${QNI_INTERMEDIATE_FILL}, during=${during})`
+    `expected dragged palette gate fill to use Flexoki purple-600 ` +
+      `(diff=${dragFillDiff}, tolerance=${dragFillTolerance}, expected=${DRAG_PREVIEW_FILL}, during=${during})`
   )
 }

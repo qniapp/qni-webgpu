@@ -28,19 +28,20 @@ type CircularBodySignature = {
   samples: Record<string, CanvasPixel>
 }
 
-const QNI_INTERMEDIATE_FILL: CanvasPixel = [168, 85, 247, 255]
+// Flexoki purple-600 — drag preview / semantic-intermediate fill.
+const DRAG_PREVIEW_FILL: CanvasPixel = [94, 64, 157, 255]
 
 const pixelRgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
   [0, 1, 2].reduce((total, channel) => total + Math.abs(left[channel] - right[channel]), 0)
 
-const isQniIntermediateFill = (pixel: CanvasPixel): boolean =>
-  pixelRgbDistance(pixel, QNI_INTERMEDIATE_FILL) <= 80
+const isDragPreviewFill = (pixel: CanvasPixel): boolean =>
+  pixelRgbDistance(pixel, DRAG_PREVIEW_FILL) <= 80
 
 const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
   r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
 
 const isGateBodyFill = (pixel: CanvasPixel): boolean =>
-  isRegularGateFill(pixel) || isQniIntermediateFill(pixel)
+  isRegularGateFill(pixel) || isDragPreviewFill(pixel)
 
 const waitForStateVectorLength = async (
   page: Page,
@@ -289,9 +290,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
     expect(diff).toBeLessThan(40)
   }
 
-  const cornerBrightness = duringDrag.corner[0] + duringDrag.corner[1] + duringDrag.corner[2]
-  const fillBrightness = duringDrag.fill[0] + duringDrag.fill[1] + duringDrag.fill[2]
-  expect(Math.abs(cornerBrightness - fillBrightness)).toBeGreaterThan(10)
+  expect(pixelRgbDistance(duringDrag.corner, duringDrag.fill)).toBeGreaterThan(10)
 
   const shadowBrightness = duringDrag.shadow[0] + duringDrag.shadow[1] + duringDrag.shadow[2]
   const backgroundBrightness = duringDrag.background[0] + duringDrag.background[1] + duringDrag.background[2]
@@ -547,7 +546,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   const during = duringDrag.fill
   const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
   expect(diff).toBeGreaterThan(120)
-  expect(isQniIntermediateFill(during)).toBe(true)
+  expect(isDragPreviewFill(during)).toBe(true)
 
   await page.mouse.up()
 })
@@ -621,7 +620,7 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await page.mouse.up()
 })
 
-test('dragged x gate uses qni intermediate purple before dropping back to green', async ({ page }) => {
+test('dragged x gate uses Flexoki purple-600 before dropping back to green', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -657,9 +656,9 @@ test('dragged x gate uses qni intermediate purple before dropping back to green'
   await page.waitForTimeout(50)
   const afterDrop = await sampleCanvasPixels(page, canvas, signaturePoints)
 
-  const duringPurpleCount = Object.values(duringDrag).filter(isQniIntermediateFill).length
+  const duringPurpleCount = Object.values(duringDrag).filter(isDragPreviewFill).length
   const afterGreenCount = Object.values(afterDrop).filter(isRegularGateFill).length
-  expect(duringPurpleCount, 'dragged X body should use qni intermediate purple').toBeGreaterThan(20)
+  expect(duringPurpleCount, 'dragged X body should use Flexoki purple-600').toBeGreaterThan(20)
   expect(afterGreenCount, 'dropped X body should return to regular green').toBeGreaterThan(20)
 })
 
@@ -719,15 +718,15 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
           const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
           return [data[0], data[1], data[2], data[3]]
         }
-        const qniIntermediateFill = [168, 85, 247, 255]
+        const dragPreviewFill = [94, 64, 157, 255]
         const rgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
           [0, 1, 2].reduce((total, channel) => total + Math.abs(left[channel] - right[channel]), 0)
         const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
           r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
-        const isQniIntermediateFill = (pixel: CanvasPixel): boolean =>
-          rgbDistance(pixel, qniIntermediateFill) <= 80
+        const isDragPreviewFill = (pixel: CanvasPixel): boolean =>
+          rgbDistance(pixel, dragPreviewFill) <= 80
         const isFill = (pixel: CanvasPixel): boolean =>
-          isRegularGateFill(pixel) || isQniIntermediateFill(pixel)
+          isRegularGateFill(pixel) || isDragPreviewFill(pixel)
         const searchRadius = 20
         let minX = Infinity
         let minY = Infinity

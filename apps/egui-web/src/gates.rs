@@ -23,8 +23,8 @@ pub(crate) enum GateKind {
     Swap,
     /// Quantum Fourier Transform — multi-qubit gate whose `span` (number
     /// of qubits covered) is user-resizable via a hover-revealed handle.
-    /// Simulation is deferred; for now the gate is a placeholder that
-    /// renders but does not affect the state vector.
+    /// Simulation is expanded into a textbook GPU op stream by
+    /// `bloch::linearize_ops`; no CPU fallback is used.
     QftGate,
     /// Inverse QFT.
     QftDaggerGate,
@@ -479,11 +479,10 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::Spacer
         | GateKind::QftGate
         | GateKind::QftDaggerGate => GateMatrix {
-            // BlochDisplay/Measurement are non-mutating viewers (Measurement
-            // collapses on the CPU side); Write0/Write1 are mode-driven on the
-            // GPU. QFT / QFT† simulation is deferred — for now the gate is a
-            // UI-only placeholder that renders but does not affect the state.
-            // Matrix is unused for these but filled with identity for safety.
+            // BlochDisplay / Measurement / QFT are handled by dedicated GPU
+            // orchestration paths instead of this 2x2 matrix helper. Write0 /
+            // Write1 are mode-driven on the GPU. Matrix is unused for these
+            // variants but filled with identity for safety.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
