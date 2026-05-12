@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>qni-webgpu — チーム向けプロジェクト案内</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b11;
+    --bg-deep:   #06060a;
+    --surface:   #14141d;
+    --surface-2: #1c1c27;
+    --line:      #262633;
+    --text:      #ece8de;
+    --text-mid:  #a8a3b3;
+    --text-dim:  #6e6a7a;
+    --accent-1:  #ff4a30; /* warm red - "old qni" lane */
+    --accent-2:  #5fc4d3; /* cyan - "this project" lane */
+    --accent-3:  #f5b942; /* amber - perf */
+    --good:      #79d27c;
+    --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --mono:      'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(95,196,211,0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(245,185,66,0.05), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 0 0 160px 0;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    z-index: 0;
+  }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+  /* Hero */
+  .hero { padding: 96px 0 64px; border-bottom: 1px solid var(--line); margin-bottom: 56px; }
+  .hero .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+  .hero .eyebrow span { color: var(--accent-2); }
+  .hero h1 {
+    font-family: var(--serif);
+    font-weight: 800;
+    font-size: clamp(44px, 7vw, 88px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 28px 0;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--text-mid);
+  }
+  .hero .lead {
+    font-family: var(--serif);
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--text-mid);
+    max-width: 720px;
+    margin: 0 0 32px 0;
+  }
+  .hero .meta { display: flex; gap: 32px; flex-wrap: wrap; color: var(--text-mid); font-size: 12px; letter-spacing: 0.05em; }
+  .hero .meta span b { color: var(--text); font-weight: 500; }
+
+  /* TL;DR */
+  .tldr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 56px; }
+  .tldr .card {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 24px;
+  }
+  .tldr .card .n {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .tldr .card h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 18px;
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+    color: var(--text);
+  }
+  .tldr .card p { margin: 0; font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+
+  /* Section heading */
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 80px 0 8px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .lede {
+    color: var(--text-mid);
+    font-size: 14px;
+    max-width: 760px;
+    margin: 0 0 32px 0;
+  }
+
+  /* Stack table */
+  .stack {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr;
+    border-top: 1px solid var(--line);
+  }
+  .stack .row {
+    display: contents;
+  }
+  .stack .row > div {
+    border-bottom: 1px solid var(--line);
+    padding: 16px 20px;
+    font-size: 13px;
+  }
+  .stack .row .layer {
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .stack .row .what { color: var(--text); }
+  .stack .row .what code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; }
+  .stack .row .note { color: var(--text-mid); font-size: 12px; }
+
+  /* Architecture diagram */
+  .arch {
+    display: grid;
+    grid-template-columns: 1fr 16px 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .arch .lane {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .arch .lane.cpu  { border-top: 3px solid var(--accent-3); }
+  .arch .lane.gpu  { border-top: 3px solid var(--accent-2); }
+  .arch .lane h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin: 0 0 4px 0;
+    color: var(--text);
+  }
+  .arch .lane h3 b { color: var(--text-dim); font-weight: 400; }
+  .arch .box {
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    padding: 12px 14px;
+    border-radius: 4px;
+    position: relative;
+  }
+  .arch .box .name { color: var(--text); font-size: 13px; font-weight: 500; }
+  .arch .box .name .mod { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
+  .arch .box .role { color: var(--text-mid); font-size: 12px; margin-top: 4px; }
+  .arch .bus {
+    align-self: center;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+  }
+  .arch .bus::before {
+    content: "↔";
+    display: block;
+    font-size: 18px;
+    color: var(--text-mid);
+    margin-bottom: 8px;
+    writing-mode: horizontal-tb;
+  }
+
+  /* Module map */
+  .modmap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .modmap .col {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 20px;
+  }
+  .modmap h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    margin: 0 0 12px 0;
+  }
+  .modmap ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+  .modmap li { margin-bottom: 8px; line-height: 1.5; }
+  .modmap li code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+  .modmap li b { color: var(--text-mid); font-weight: 400; }
+
+  /* Comparison: qni vs this */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compare .side {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 24px 28px;
+  }
+  .compare .side.old { border-top: 3px solid var(--accent-1); }
+  .compare .side.new { border-top: 3px solid var(--accent-2); }
+  .compare .side .head {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .compare .side h3 {
+    font-family: var(--serif);
+    font-size: 22px;
+    margin: 0 0 16px 0;
+    color: var(--text);
+  }
+  .compare .side h3 .ver { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 8px; }
+  .compare dl { margin: 0; }
+  .compare dt {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+  .compare dt:first-of-type { margin-top: 0; }
+  .compare dd {
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .compare dd code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; }
+
+  /* Performance principles */
+  .perf {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .perf .item {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 24px;
+    position: relative;
+  }
+  .perf .item .badge {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--good);
+    border: 1px solid var(--good);
+    padding: 2px 8px;
+  }
+  .perf .item .id {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .perf .item h3 {
+    font-family: var(--serif);
+    font-size: 19px;
+    margin: 0 0 12px 0;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .perf .item p { margin: 0 0 12px 0; color: var(--text-mid); font-size: 13px; line-height: 1.65; }
+  .perf .item p:last-child { margin-bottom: 0; }
+  .perf .item code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; color: var(--text); }
+  .perf .item .meta { color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; }
+
+  /* Frame budget chart */
+  .budget {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+  }
+  .budget .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .budget .bar {
+    display: grid;
+    grid-template-columns: 1.5fr 4fr 1fr 1fr;
+    height: 28px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .budget .bar > div {
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bg);
+  }
+  .budget .b1 { background: var(--accent-3); }
+  .budget .b2 { background: var(--accent-2); }
+  .budget .b3 { background: var(--good); }
+  .budget .b4 { background: var(--text-dim); color: var(--bg); }
+  .budget .legend {
+    display: grid;
+    grid-template-columns: 1.5fr 4fr 1fr 1fr;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-mid);
+  }
+
+  /* Reading order */
+  .reading {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px 24px;
+    align-items: baseline;
+  }
+  .reading .step {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent-2);
+  }
+  .reading .what { color: var(--text); font-size: 14px; }
+  .reading .what b { color: var(--text); }
+  .reading .what code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; color: var(--text); }
+  .reading .what .why { display: block; color: var(--text-mid); font-size: 12px; margin-top: 4px; line-height: 1.55; }
+
+  /* Footer */
+  .end {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 900px) {
+    .tldr, .modmap, .perf { grid-template-columns: 1fr; }
+    .compare { grid-template-columns: 1fr; }
+    .arch { grid-template-columns: 1fr; }
+    .arch .bus { writing-mode: horizontal-tb; }
+    .stack { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ───────────── HERO ───────────── -->
+  <section class="hero">
+    <div class="eyebrow"><span>● Internal</span> · project orientation · 2026</div>
+    <h1>qni-webgpu <em>— a Rust + WebGPU rewrite of qni.</em></h1>
+    <p class="lead">
+      Quantum-circuit playground in the browser, but with every state-vector
+      gate dispatched on the GPU and every pixel drawn from a single
+      <code>&lt;canvas&gt;</code>. No React, no DOM trees of qubits — just
+      Rust compiled to WebAssembly talking to wgpu.
+    </p>
+    <div class="meta">
+      <span><b>Lang.</b> Rust 2021 · TypeScript</span>
+      <span><b>Render.</b> WebGPU via <code>wgpu 27</code></span>
+      <span><b>UI.</b> egui / eframe</span>
+      <span><b>Bundle.</b> <code>wasm32-unknown-unknown</code> via Trunk</span>
+      <span><b>Cap.</b> ≤ 16 qubits (state-vector)</span>
+    </div>
+  </section>
+
+  <!-- ───────────── TL;DR ───────────── -->
+  <section class="tldr">
+    <div class="card">
+      <div class="n">01</div>
+      <h3>1 言語 / 1 canvas / 1 wasm</h3>
+      <p>HTML/CSS で UI を組み立てる代わりに、Rust の egui アプリを丸ごと <code>&lt;canvas&gt;</code> に描く。フォーカス管理も DOM も Custom Elements も使わない。</p>
+    </div>
+    <div class="card">
+      <div class="n">02</div>
+      <h3>状態ベクトルは GPU 完結</h3>
+      <p>ゲート適用・Bloch 球縮約・測定崩壊・popup の数値表示まで WGSL の compute / fragment で完結。production 経路で <code>map_async</code> readback はしない。</p>
+    </div>
+    <div class="card">
+      <div class="n">03</div>
+      <h3>"qni のリプレース" ではない</h3>
+      <p>本家 qni (Rails + Web Components) は仕様の参照元。シミュレーションロジック・UI 規約・配色・ゲート種は qni と互換、内部の作り方は完全に別物。</p>
+    </div>
+  </section>
+
+  <!-- ───────────── STACK ───────────── -->
+  <h2><span class="num">§ 01</span> Stack at a glance</h2>
+  <p class="lede">各レイヤで使っている主な技術と、なぜそれを採ったかを 1 行で。バージョンは 2026-05 時点の `Cargo.toml` / `package.json` 由来。</p>
+  <div class="stack">
+    <div class="row">
+      <div class="layer">Language</div>
+      <div class="what">Rust 2021 (stable) · TypeScript 5.x</div>
+      <div class="note">UI / シミュレーション / GPU パイプラインはすべて Rust。テストと MCP サーバが TS。</div>
+    </div>
+    <div class="row">
+      <div class="layer">UI</div>
+      <div class="what"><code>egui 0.33</code> / <code>eframe 0.33</code></div>
+      <div class="note">immediate-mode GUI。レイアウトキャッシュやリアクティブツリーが無く、毎フレーム再描画する設計。</div>
+    </div>
+    <div class="row">
+      <div class="layer">GPU</div>
+      <div class="what"><code>wgpu 27</code> (WebGPU backend)</div>
+      <div class="note">native と Web で同じ shader が動く。WebGPU 専用ビルドで他 backend を切り落とし wasm を軽くしている。</div>
+    </div>
+    <div class="row">
+      <div class="layer">Shader</div>
+      <div class="what">WGSL — 5 module (<code>state / bloch / measure / digit / popup_value</code>)</div>
+      <div class="note">compute = ゲート適用 / 測定。fragment = state 円 / Bloch 矢印 / 測定 0/1 / popup 数値。</div>
+    </div>
+    <div class="row">
+      <div class="layer">Bundle</div>
+      <div class="what"><code>wasm32-unknown-unknown</code> · Trunk · wasm-bindgen</div>
+      <div class="note">Rust → wasm を Trunk が build しつつ `bootstrap.ts` から動的 import。SRI 付きでキャッシュバスト。</div>
+    </div>
+    <div class="row">
+      <div class="layer">Style</div>
+      <div class="what">Flexoki Light palette · Tailwind 既定スケール</div>
+      <div class="note">配色は Flexoki トークン (bg / ui-2 / tx-2 / blue-600 …) に厳密 mapping、サイズは text-xs/sm/base/lg, spacing-1..6 のみ。</div>
+    </div>
+    <div class="row">
+      <div class="layer">Test</div>
+      <div class="what">Playwright + Chromium · Node test runner</div>
+      <div class="note">実 WebGPU で headed / headless 両対応。on-demand readback の API <code>read_state_vector</code> だけ wasm から expose。</div>
+    </div>
+    <div class="row">
+      <div class="layer">CI</div>
+      <div class="what">GitHub Actions · cargo fmt / clippy -D warnings / build / Playwright</div>
+      <div class="note"><code>cargo insta pending-snapshots</code> も走り、未承認スナップショットでは fail する。</div>
+    </div>
+    <div class="row">
+      <div class="layer">Adjacent apps</div>
+      <div class="what"><code>apps/tui</code> (ratatui) · <code>apps/mcp-qni</code> (MCP server)</div>
+      <div class="note">同じ回路を端末から確認する PoC と、Claude/Codex 経由で回路を編集する MCP サーバ。</div>
+    </div>
+  </div>
+
+  <!-- ───────────── ARCHITECTURE ───────────── -->
+  <h2><span class="num">§ 02</span> Two-lane architecture</h2>
+  <p class="lede">毎フレームの仕事を、<b>CPU 側 (Rust / wasm)</b> と <b>GPU 側 (WGSL pipelines)</b> の 2 レーンに完全に分けている。CPU 側は<em>「何を計算したいか」</em>を組み立て、GPU 側が<em>「実際に数値を作って描く」</em>。</p>
+  <div class="arch">
+    <div class="lane cpu">
+      <h3>CPU lane <b>· src/app · src/render</b></h3>
+      <div class="box">
+        <div class="name">app/ <span class="mod">QniApp::update</span></div>
+        <div class="role">回路状態 + drag / hover / scroll の保持。<code>update_flow</code>, <code>drag_controller</code>, <code>state_panel</code> 等の submodule に責務分割済み。</div>
+      </div>
+      <div class="box">
+        <div class="name">simulation_plan/ <span class="mod">linearize</span></div>
+        <div class="role">placed_gates → <code>Vec&lt;SimulationOp&gt;</code> (Apply / CaptureBloch / MeasureReduceSample / MeasureCollapse) を線形化。CZ / Phase-pair / Swap の意味付けはここ。</div>
+      </div>
+      <div class="box">
+        <div class="name">render/ <span class="mod">circuit_* · state_panel_*</span></div>
+        <div class="role">回路 / palette / 接続線 / popup を egui Painter に発行。GPU 描画する箇所だけ <code>egui_wgpu::Callback</code> として GPU レーンに橋渡し。</div>
+      </div>
+      <div class="box">
+        <div class="name">url_circuit/</div>
+        <div class="role">qni 互換 JSON ↔ <code>Vec&lt;PlacedGate&gt;</code>。<code>#{"cols":[…]}</code> hash でリンク共有。</div>
+      </div>
+    </div>
+    <div class="bus">eframe · egui_wgpu callbacks · storage / uniform buffers</div>
+    <div class="lane gpu">
+      <h3>GPU lane <b>· src/gpu</b></h3>
+      <div class="box">
+        <div class="name">gpu/resources/ <span class="mod">common · state · bloch · measure · digit · popup_value</span></div>
+        <div class="role">subsystem 毎に pipeline + bind group + params buffer をオーナーシップ。state buffers は ping-pong で gate ごとに in/out 反転。</div>
+      </div>
+      <div class="box">
+        <div class="name">gpu/recompute.rs</div>
+        <div class="role"><code>SimulationOp</code> を 1 つの command encoder に展開。Apply は <code>state_count/2</code> 並列、CaptureBloch / MeasureReduce は workgroup 1 で in-place 縮約。</div>
+      </div>
+      <div class="box">
+        <div class="name">gpu/shaders/ <span class="mod">state · bloch · measure · digit · popup_value</span></div>
+        <div class="role">WGSL ソース。compute = ゲート適用 / Bloch / 測定。render = 状態円 / Bloch 矢印 / 測定 0/1 / popup 数値、すべて storage buffer を直接 sample する。</div>
+      </div>
+      <div class="box">
+        <div class="name">gpu/readback.rs <b>· test only</b></div>
+        <div class="role">JS から <code>window.__eguiReadStateVector()</code> 等を呼ばれたときだけ map_async。production 経路は通らない。</div>
+      </div>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:24px;">
+    線形化された <code>sim_ops</code> がレーンの唯一の API。CPU 側は完了した <em>circuit description</em> を渡し、GPU 側は state buffer を更新してそのまま render に流す。間に CPU を経由する数値は本番では一切ない。
+  </p>
+
+  <!-- ───────────── MODULE MAP ───────────── -->
+  <h2><span class="num">§ 03</span> Module map</h2>
+  <p class="lede">最近の refactor で責務単位に分割された後の構成。最大ファイルでも 18 KB 程度、機能を足すたびに「どこへ書くか」がほぼ一意に決まる。</p>
+  <div class="modmap">
+    <div class="col">
+      <h4>App state / interactions</h4>
+      <ul>
+        <li><code>app/</code> <b>— QniApp 本体 + 入力</b></li>
+        <li><code>app/update_flow.rs</code> per-frame coordinator</li>
+        <li><code>app/drag_controller/</code> drop / hover / preview / resize / scroll / start</li>
+        <li><code>app/state_panel*.rs</code> 状態ベクトルパネルの相互作用</li>
+        <li><code>app/circuit_model.rs</code> PlacedGate / DragState</li>
+        <li><code>app/gpu_plan_state.rs</code> GPU バッファに渡す前段のキャッシュ</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>Rendering</h4>
+      <ul>
+        <li><code>render/circuit_palette.rs</code> palette + hover tooltip</li>
+        <li><code>render/circuit_gates.rs</code> 配置済みゲート本体</li>
+        <li><code>render/circuit_connectors.rs</code> CNOT / CZ / Swap / Phase-pair の縦線</li>
+        <li><code>render/state_panel_draw.rs</code> 状態ベクトル GPU callback の発火</li>
+        <li><code>render/state_panel_chrome.rs</code> minimap / resize handle</li>
+        <li><code>render/state_panel_popup.rs</code> aspect popover / cell hover popup</li>
+        <li><code>icons/</code> gate body / glyph / qft / svg primitives</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>GPU · simulation</h4>
+      <ul>
+        <li><code>gpu/resources/</code> pipeline + bind group 構築</li>
+        <li><code>gpu/shaders/</code> WGSL ソース</li>
+        <li><code>gpu/recompute.rs</code> sim_ops → encoder dispatch</li>
+        <li><code>gpu/callbacks.rs</code> egui_wgpu::CallbackTrait 実装</li>
+        <li><code>gpu/readback.rs</code> on-demand readback (test only)</li>
+        <li><code>simulation_plan/</code> PlacedGate → SimulationOp 線形化</li>
+        <li><code>gates/info.rs</code> tooltip 用名前 + 説明 + 遷移表</li>
+        <li><code>gates/params.rs</code> 行列 + パラメトリック角度パース</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───────────── DIFFERENCES vs qni ───────────── -->
+  <h2><span class="num">§ 04</span> qni vs qni-webgpu</h2>
+  <p class="lede">機能や見た目は qni を踏襲しつつ、内部の組み方はほぼ全部書き直している。ここは「設計思想がどう変わったか」を見るための比較。</p>
+  <div class="compare">
+    <div class="side old">
+      <div class="head">Reference · 既存</div>
+      <h3>qni <span class="ver">Rails / TS</span></h3>
+      <dl>
+        <dt>UI</dt>
+        <dd>Custom Elements (<code>&lt;h-gate&gt;</code>, <code>&lt;circuit-step&gt;</code>) + tippy.js + DOM event 配信</dd>
+        <dt>シミュレーション</dt>
+        <dd>TypeScript <code>simulator.ts</code> による CPU 計算。WebWorker 不要だが大規模回路で詰まる</dd>
+        <dt>状態表示</dt>
+        <dd><code>&lt;qubit-circle&gt;</code> CE を DOM に並べる。位相針も SVG / Canvas を個別に</dd>
+        <dt>レイアウト</dt>
+        <dd>step / dropzone が DOM ノード。CSS で grid 配置</dd>
+        <dt>URL 共有</dt>
+        <dd>独自パス形式 <code>/[…]</code>。フラグメントは使わない</dd>
+        <dt>配色 / タイポ</dt>
+        <dd>Tailwind フルパレット + 独自トークン。emerald / sky / zinc など混在</dd>
+        <dt>テスト</dt>
+        <dd>Rails system test + Playwright system spec</dd>
+      </dl>
+    </div>
+    <div class="side new">
+      <div class="head">This project · 書き直し</div>
+      <h3>qni-webgpu <span class="ver">Rust / WGSL</span></h3>
+      <dl>
+        <dt>UI</dt>
+        <dd>egui immediate-mode を 1 つの <code>&lt;canvas&gt;</code> に。DOM は wasm + 1 status div だけ</dd>
+        <dt>シミュレーション</dt>
+        <dd>WGSL compute shader。16 qubit (state-vector 65,536 振幅) を 1 dispatch で並列適用</dd>
+        <dt>状態表示</dt>
+        <dd>1 quad の fragment shader が cell 数だけ判定して全部塗る。位相針もシェーダ内</dd>
+        <dt>レイアウト</dt>
+        <dd>PlacedGate (column / wire) を semantic に保持。pixel 座標は描画時のみ</dd>
+        <dt>URL 共有</dt>
+        <dd>qni 互換 JSON を <code>location.hash</code> へ。Quirk 互換のリンクが直接開ける</dd>
+        <dt>配色 / タイポ</dt>
+        <dd>Flexoki Light に厳密に限定。サイズは text-xs/sm/base/lg と 4 px spacing スケールのみ</dd>
+        <dt>テスト</dt>
+        <dd>Playwright (実 WebGPU) + on-demand readback で state vector を検証</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ───────────── PERFORMANCE PRINCIPLES ───────────── -->
+  <h2><span class="num">§ 05</span> Performance principles</h2>
+  <p class="lede">「とりあえず動く」と「ドラッグしてもガタつかない」は別物。<code>docs/egui-web-perf-audit.html</code> の Issue A〜G が原則の出どころで、A〜C は既に潰してある。</p>
+  <div class="perf">
+    <div class="item">
+      <span class="badge">resolved</span>
+      <div class="id">— principle A</div>
+      <h3>1 recompute = 1 submit</h3>
+      <p>毎ゲートで <code>queue.submit</code> していた頃は CPU↔GPU の wakeups が支配項だった。今は <code>recompute.rs</code> が 1 encoder にすべての compute pass を積んで 1 回だけ submit する。staging buffer に params を一括書き込みし、各 dispatch 直前に <code>copy_buffer_to_buffer</code> で uniform スロットへ差し替える。</p>
+      <p class="meta">gpu/recompute.rs</p>
+    </div>
+    <div class="item">
+      <span class="badge">resolved</span>
+      <div class="id">— principle B</div>
+      <h3>params dirty flag</h3>
+      <p>render / overlay / digit / popup の各 params buffer は subsystem ごとに <code>last_*_params: Option&lt;…&gt;</code> を持ち、フレーム前後で変化が無ければ <code>queue.write_buffer</code> をまるごと省く。viewport や色がそのままなら毎フレームのアップロード 3 本がゼロになる。</p>
+      <p class="meta">gpu/resources/{state,bloch,digit,popup_value}.rs</p>
+    </div>
+    <div class="item">
+      <span class="badge">resolved</span>
+      <div class="id">— principle C</div>
+      <h3>|0…0⟩ 初期化も GPU で</h3>
+      <p>recompute 開始時に <code>encoder.clear_buffer(state_buffers[0])</code> → <code>copy_buffer_to_buffer(seed → slot 0)</code>。<code>(1.0, 0.0)</code> の 8-byte seed を持っておき、CPU で 65,536 振幅の <code>Vec</code> を確保していた頃のメモリピークを 0 に。</p>
+      <p class="meta">gpu/resources/common.rs · gpu/recompute.rs</p>
+    </div>
+    <div class="item">
+      <div class="id">— principle D</div>
+      <h3>state buffer ping-pong</h3>
+      <p>state vector 用ストレージは 2 本。ゲートごとに in / out を入れ替える。<code>compute_bind_groups[0/1]</code> と <code>measure_collapse_bind_groups[0/1]</code> の 2 セットを事前に作っておくので、bind group の再構築は無い。</p>
+      <p class="meta">gpu/resources/common.rs</p>
+    </div>
+    <div class="item">
+      <div class="id">— principle E</div>
+      <h3>render shader が storage buffer を直接 sample</h3>
+      <p>state 円 / Bloch 矢印 / 測定 0/1 / popup 数値はすべて <em>同じ</em> GPU 上の値を fragment shader から直接読む。CPU 経由しないので 1 frame 遅れも staging 割り当ても発生しない。値の表示が常に最新フレームの計算結果と同一であることが保証される。</p>
+      <p class="meta">gpu/shaders/{state,bloch,digit,popup_value}.rs</p>
+    </div>
+    <div class="item">
+      <div class="id">— principle F</div>
+      <h3>drag 中は描画を簡略化</h3>
+      <p>tessellator 負荷を下げるため、ドラッグ中は角丸・影・アイコン線・接続線を抜いてテキスト描画に切り替える。state vector の再計算は drop / snap の瞬間だけに絞り、CPU は repaint pacing にだけ集中する。</p>
+      <p class="meta">app/drag_controller/preview.rs · render/circuit_gates.rs</p>
+    </div>
+    <div class="item">
+      <div class="id">— principle G</div>
+      <h3>repaint throttle (CooldownThrottle 風)</h3>
+      <p>Quirk の <code>REDRAW_COOLDOWN_MILLIS=10</code> を踏襲。ドラッグ中は 10 ms base + 0.1× ポンプで <code>request_repaint</code> / <code>request_repaint_after</code> を切り替え、フレーム間隔を間引きする。</p>
+      <p class="meta">app/update_flow.rs · constants.rs</p>
+    </div>
+    <div class="item">
+      <div class="id">— principle H</div>
+      <h3>16 qubit cap (1 dispatch で並列)</h3>
+      <p>state-vector アプローチで現実的に動く上限を 16 qubit (= 2¹⁶ = 65,536 振幅) に絞る。それ以上は将来 qiskit + GPU backend にまわす設計判断。1 ゲート = <code>state_count / 2</code> 並列を 1 dispatch で消化できる。</p>
+      <p class="meta">constants.rs · MAX_STATE_COUNT</p>
+    </div>
+  </div>
+
+  <!-- ───────────── FRAME BUDGET ───────────── -->
+  <h2><span class="num">§ 06</span> Frame budget shape</h2>
+  <p class="lede">アイドル時の 60 fps フレームを概念的に分解すると、CPU 仕事は egui の毎フレーム再構築・state panel paint・drag pacing で占められ、GPU 仕事はゲート適用 dispatch + 4 つの render pass。下記は実測の傾向を視覚化したもので、実数値はビルド構成により変動。</p>
+  <div class="budget">
+    <div class="label">— 1 frame @ 60 fps (~16.6 ms)</div>
+    <div class="bar">
+      <div class="b1">egui paint</div>
+      <div class="b2">render passes (state / bloch / digit / popup)</div>
+      <div class="b3">gate compute</div>
+      <div class="b4">idle</div>
+    </div>
+    <div class="legend">
+      <div>CPU paint</div>
+      <div>GPU fragment</div>
+      <div>GPU compute</div>
+      <div>vsync</div>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:24px;">
+    実測のプロファイル詳細は <code>docs/egui-web-drag-profiling.md</code>。perf-audit の Issue D〜G (Vec::new 容量 / sim_ops.clone / stale comment / overlay 毎フレーム再構築) はまだ open。
+  </p>
+
+  <!-- ───────────── READING ORDER ───────────── -->
+  <h2><span class="num">§ 07</span> Where to start reading</h2>
+  <p class="lede">新しく入ってきた人向けの推奨順。回路を 1 つ動かす道筋に沿って 7 ステップで読むと、CPU 側から GPU 側まで一気通貫で追える。</p>
+  <div class="reading">
+    <div class="step">01</div>
+    <div class="what">
+      <b>エントリポイント</b> · <code>src/lib.rs</code> → <code>src/app/mod.rs</code>
+      <span class="why">wasm の <code>start()</code> から <code>QniApp::new</code> までの 1 本道。ここで font fallback / 初期 URL load / initial qubit count を見る。</span>
+    </div>
+    <div class="step">02</div>
+    <div class="what">
+      <b>per-frame coordinator</b> · <code>src/app/update_flow.rs</code>
+      <span class="why">毎フレームの順序: input → recompute trigger → palette / circuit / state-panel paint → tooltip。app 関数の "目次"。</span>
+    </div>
+    <div class="step">03</div>
+    <div class="what">
+      <b>回路を意味で表現する</b> · <code>src/app/circuit_model.rs</code> + <code>src/simulation_plan/linearize.rs</code>
+      <span class="why">UI ピクセル座標と独立した <em>column × wire</em> モデルが軸。<code>SimulationOp</code> 線形化はここで起こる。</span>
+    </div>
+    <div class="step">04</div>
+    <div class="what">
+      <b>GPU dispatch</b> · <code>src/gpu/recompute.rs</code>
+      <span class="why">sim_ops を 1 encoder に展開。Apply / CaptureBloch / MeasureReduce / MeasureCollapse の各分岐がどう staging buffer + copy + dispatch に落ちるかを見る。</span>
+    </div>
+    <div class="step">05</div>
+    <div class="what">
+      <b>shader 本体</b> · <code>src/gpu/shaders/state.rs</code> (compute / render)
+      <span class="why">2¹⁶ 並列で 2×2 行列をどう適用するか + state 円を 1 quad の fragment でどう全 cell 塗るかが両方ある。</span>
+    </div>
+    <div class="step">06</div>
+    <div class="what">
+      <b>描画レイヤ</b> · <code>src/render/circuit_palette.rs</code> · <code>src/render/state_panel_draw.rs</code>
+      <span class="why">パレット (ホバーtooltip 含む) と状態ベクトル GPU callback。egui Painter から GPU 描画への橋渡しを見る。</span>
+    </div>
+    <div class="step">07</div>
+    <div class="what">
+      <b>テスト経路</b> · <code>apps/egui-web/tests/egui-web-*.spec.ts</code> + <code>src/gpu/readback.rs</code>
+      <span class="why">機能ごとに分割された Playwright spec と、JS から呼べる on-demand readback。CI で実 WebGPU が回るのを担保する。</span>
+    </div>
+  </div>
+
+  <!-- ───────────── FOOTER ───────────── -->
+  <div class="end">
+    docs/project-overview.html · 関連: architecture.md / tech-stack.md / egui-web-perf-audit.html / egui-web-drag-profiling.md · 最終更新 2026-05-12
+  </div>
+
+</main>
+</body>
+</html>
