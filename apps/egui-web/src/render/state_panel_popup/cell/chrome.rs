@@ -15,7 +15,7 @@ fn paint_card(painter: &egui::Painter, colors: &Colors, rect: egui::Rect) {
         offset: [0, 10],
         blur: 28,
         spread: 0,
-        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 36),
+        color: colors.state_cell_popup_shadow,
     };
     painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
     painter.rect_filled(rect, corner, colors.surface);

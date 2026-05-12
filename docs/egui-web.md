@@ -188,6 +188,18 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 ノイズと同程度。**構造改善は事実だが、現行テストでは検出限界以下**。深い回路向けの「先行投資」と理解しておく。
 
+## Theme / color roles
+
+`apps/egui-web/src/colors.rs` が唯一の色定義。現在の既定 theme は `ThemeKind::FlexokiLight` で、raw RGB はこの theme 定義内にだけ置く。描画コードは `Colors` の semantic role (`background`, `surface`, `line`, `semantic_on`, `bloch_vector_tip`, `fps_hud_bg` など) だけを参照する。
+
+新しい theme を足す場合は:
+1. `ThemeKind` に variant を追加
+2. `Colors::for_theme` に role mapping を追加
+3. `Theme::apply_to_context` で egui `Visuals` を同じ role から設定
+4. Rust render code に `Color32::from_*` / raw RGB を直接追加しない
+
+影・minimap・FPS HUD・hover outline などの半透明色も theme role 化済み。alpha 違いは `with_alpha(theme_tone, alpha)` で作る。
+
 ## Notes
 - `apps/egui-web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
 - 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
@@ -205,13 +217,13 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
 - |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
 - BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。`linearize_ops` が列ごとに GPU の Bloch capture を挿入し、`BLOCH_REDUCE_SHADER` がその時点の縮約密度行列由来の (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector` と同じ意味論）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。CPU ミラーシミュレータは使わない。
-- BlochDisplay の見た目は qni の `bloch_display.css` に揃える: bg-green-50 (#f0fdf4)、軸 / 球境界 gray-400 (#9ca3af)、ベクトル線 gray-900 (#111827)、矢印先 red-500 (#ef4444)、ゼロベクトルのみ blue-500 (#3b82f6)。
+- BlochDisplay の見た目は qni の `bloch_display.css` の役割に揃え、実色は theme role (`bloch_sphere_bg`, `bloch_sphere_lines`, `bloch_vector_line`, `bloch_vector_tip`, `bloch_vector_zero`) から取る。Flexoki Light では bg-2 / tx-3 / tx / red-600 / blue-600 に対応する。
 - 投影は qni の DOM 変換 `rotateY(phi) rotateX(-theta)` + `perspective: 4rem` + `perspective-origin: top right` をそのまま再現（pinhole 投影、p = 4·radius、origin = (1, -1) in radius units）。Bloch → CSS 軸対応は +x → +z (奥行き、視点向き)、+y → +x (右)、+z → -y (上)。
 - 結果として Bloch (1,0,0) (|+⟩, H|0⟩) は短く左下へ前縮小、Bloch (0,0,1) (|0⟩) は真上、(0,0,-1) (|1⟩) は真下、(0,±1,0) (|±i⟩) は真横、Bloch (-1,0,0) (|-⟩) は右上奥に縮小される。
 - 球の装飾線は qni の SVG (横線・縦線・NE/SW 斜線、垂直細楕円 rx=18% ry=50%、水平細楕円 rx=50% ry=18%) を踏襲し、傾けない。
 - ベクトル長 ≈ 0 のとき (もつれて部分トレースが maximally mixed になる、palette 表示、ドラッグ中、未スナップなど) は qni の `data-d='0'` ルール通り中心に blue-500 の点だけを描画し、線は引かない。Bell 状態の各量子ビットが好例。
 - Measurement ゲートは qni `simulator.ts:measure` の意味論を GPU で実行する: 列ごとに `MEASURE_REDUCE_SHADER` が pZero を計算し、決定論的 RNG (gate id ベース) で 0/1 をサンプル。続く `MEASURE_COLLAPSE_SHADER` が選ばれた基底に状態を射影して √(p) で再正規化する。結果は GPU state buffer の ping-pong で次の列に持ち越されるため、State vector は collapse 後の状態を表示する。
-- Measurement の見た目は qni `measurement_gate.css` に合わせる: パレット / 未測定時はメーターを intermediate purple (#a855f7)、回路に置いて結果が出ると `text-zinc-200` (#e4e4e7) のメーターに切り替え、`0` は red-500・`1` は blue-500 で中央にオーバーレイする。
+- Measurement の見た目は qni `measurement_gate.css` の役割に合わせる。実色は theme role から取り、パレット / 未測定時は `semantic_intermediate`、測定済みメーターは `measurement_fired_icon`、`0` は `semantic_off`、`1` は `semantic_on`。回路上では meter 内側と左右 4px を `background` でマスクし、ワイヤを通さない。
 - 状態ベクトル計算は GPU の `STATE_COMPUTE_SHADER` (per-gate dispatch + ping-pong) で実行する。CPU 側にミラーシミュレータは残っていない (Step 4 で削除済み)。`simulation_plan/*` は `linearize_ops` で配置済みゲートを GPU op ストリームに並び替え、capacity を検証するだけのオーケストレーション専用モジュール。AGENTS.md ルール「シミュレーションは GPU でのみ」を満たしている。
 - Measurement は GPU 完結。`MEASURE_REDUCE_SHADER` (workgroup_size=64) で pZero を reduction し、決定論的 PCG を gate id でシードして r をサンプル、`(pZero, r, outcome, sqrt_p_kept)` を `measurement_aux_buffer[slot]` に書く。続けて `MEASURE_COLLAPSE_SHADER` が同じ aux スロットを読み、生き残った基底側の振幅を `1/sqrt_p_kept` で正規化、もう一方を 0 にして state buffer の ping-pong 反対側に書き込む。
 - `read_measurement_outcomes()` (wasm_bindgen) で `[gate_id, outcome, …]` を取得できる。`window.__eguiReadMeasurementOutcomes()` 経由で Playwright から `readMeasurementOutcomes` ヘルパーが返す `MeasurementOutcome[]` を assert する。
@@ -221,7 +233,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
 - パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
-- |0⟩ の桁は qni semantic-color-off (red-500: `#ef4444`)、|1⟩ の桁は semantic-color-on (blue-500: `#3b82f6`) で描画する。
+- |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
 - QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。
@@ -233,7 +245,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。
 - ドラッグ中の再描画は CooldownThrottle 相当で、10ms ベース + 0.1 倍ポンプ（Quirk 相当）で `request_repaint` と `request_repaint_after` を切り替える。
 - ドラッグ中は回路側の影や接続線などの周辺装飾を省略して tessellator 負荷を下げる。一方で、いま掴んでいるゲート自身・回路上に既に置かれているゲート・パレット上のゲートは、ドラッグ中も通常描画（角丸・アイコン・ラベル維持）のままにする。
-- いま掴んでいるゲートは qni の grabbed state に合わせて intermediate purple (`#a855f7`) で描画し、drop 後は通常の primary green に戻す。
+- いま掴んでいるゲートは qni の grabbed state に合わせて `drag_fill` / `semantic_intermediate` で描画し、drop 後は通常の `box_fill` に戻す。
 - パレットから掴んだゲートのドラッグプレビューは、パレット panel と状態ベクトルウィンドウの両方より前面に描画して、重なっても隠れないようにする。
 - ドラッグ中の最終カーソル位置は `drag_cursor_pos` を保持し、ドロップ時に位置が欠けないようにする。
 - 起動直後は短時間だけ `request_repaint_after` を回してキャンバス描画を安定させる。

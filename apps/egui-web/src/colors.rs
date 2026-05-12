@@ -1,26 +1,18 @@
 use eframe::egui;
 
-/// Application palette — strict Flexoki Light (Steph Ango / kepano,
-/// <https://github.com/kepano/flexoki>). All semantic colours below map
-/// to a Flexoki named tone; the comment on each line spells out which.
-///
-/// Flexoki Light reference tones used here:
-///   bg     paper      #FFFCF0  (1.000, 0.988, 0.941)
-///   bg-2   base-50    #F2F0E5  (0.949, 0.941, 0.898)
-///   ui     base-100   #E6E4D9  (0.902, 0.894, 0.851)
-///   ui-2   base-150   #DAD8CE  (0.855, 0.847, 0.808)
-///   tx-3   base-300   #B7B5AC  (0.718, 0.710, 0.675)
-///   tx-2   base-600   #6F6E69  (0.435, 0.431, 0.412)
-///   tx     black      #100F0F  (0.063, 0.059, 0.059)
-///   red-600           #AF3029  (0.686, 0.188, 0.161)
-///   green-600         #66800B  (0.400, 0.502, 0.043)
-///   cyan-400          #3AA99F  (0.227, 0.663, 0.624)
-///   blue-100          #BCD1E0  (0.737, 0.820, 0.878)
-///   blue-300          #66A0C8  (0.400, 0.627, 0.784)
-///   blue-400          #4385BE  (0.263, 0.522, 0.745)
-///   blue-600          #205EA6  (0.125, 0.369, 0.651)
-///   purple-400        #8B7EC8  (0.545, 0.494, 0.784)
-///   purple-600        #5E409D  (0.369, 0.251, 0.616)
+/// Currently shipped visual theme. Additional themes should add another
+/// `ThemeKind` variant and a sibling constructor next to `flexoki_light`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ThemeKind {
+    FlexokiLight,
+}
+
+pub(crate) const DEFAULT_THEME: ThemeKind = ThemeKind::FlexokiLight;
+
+/// Resolved application colours. Call sites consume semantic roles only; raw
+/// palette tones live in the theme definition below so future theme switching
+/// stays a data change instead of a render-code hunt.
+#[derive(Clone, Copy)]
 pub(crate) struct Colors {
     pub(crate) background: egui::Color32,
     pub(crate) surface: egui::Color32,
@@ -30,10 +22,6 @@ pub(crate) struct Colors {
     pub(crate) box_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
-    /// tx (#100F0F) — emphasized text colour used for tooltip / popup
-    /// titles where the regular `text` (tx-2) would read as too muted.
-    /// Same RGB as `state_needle` / `bloch_vector_line` etc., but
-    /// surfaced under a text-specific name so call sites read clearly.
     pub(crate) text_strong: egui::Color32,
     pub(crate) state_fill: egui::Color32,
     pub(crate) state_outline: egui::Color32,
@@ -44,31 +32,13 @@ pub(crate) struct Colors {
     pub(crate) semantic_intermediate: egui::Color32,
     pub(crate) semantic_disabled: egui::Color32,
     pub(crate) state_handle_bg: egui::Color32,
-    /// Top resize handle (inside the blue header strip) — idle.
     pub(crate) state_resize_handle_top_idle: egui::Color32,
-    /// Top resize handle — while dragging.
     pub(crate) state_resize_handle_top_drag: egui::Color32,
-    /// Bottom resize handle (on the paper panel surface) — idle.
     pub(crate) state_resize_handle_bottom_idle: egui::Color32,
-    /// Bottom resize handle — while dragging.
     pub(crate) state_resize_handle_bottom_drag: egui::Color32,
-    /// QFT / QFT† resize-handle chrome at the bottom of the gate body
-    /// (Flexoki purple-400 idle, purple-600 on hover). The body itself
-    /// uses `box_fill` (green-600) like every other unitary gate.
     pub(crate) qft_resize_handle_bg: egui::Color32,
     pub(crate) qft_resize_handle_bg_hover: egui::Color32,
-    /// Accent colour for the state-cell hover popup icons (amplitude /
-    /// probability / phase glyphs). qni paints these in sky-500
-    /// (#0EA5E9) — Flexoki's nearest "saturated, bright blue" tone is
-    /// blue-400 (#4385BE), which keeps the icons readable at 14px and
-    /// still feels like an accent rather than data-ink. Reserved for
-    /// the *one-point* element of each icon (amp arrow, prob inner
-    /// disk, phase arc).
     pub(crate) popup_icon: egui::Color32,
-    /// Chrome colour for the popup icons — the supporting strokes
-    /// (amp axes + origin dot, prob outer ring, phase base + hypotenuse).
-    /// Flexoki tx-3 (#B7B5AC) sits a step lighter than the label text
-    /// (tx-2) so the blue accent reads as the foreground subject.
     pub(crate) popup_icon_chrome: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
@@ -77,96 +47,156 @@ pub(crate) struct Colors {
     pub(crate) bloch_vector_zero: egui::Color32,
     pub(crate) measurement_fired_icon: egui::Color32,
     pub(crate) spacer_dots: egui::Color32,
+    pub(crate) step_preview: egui::Color32,
+    pub(crate) palette_shadow: egui::Color32,
+    pub(crate) state_panel_shadow: egui::Color32,
+    pub(crate) tooltip_shadow: egui::Color32,
+    pub(crate) aspect_popover_shadow: egui::Color32,
+    pub(crate) state_cell_popup_shadow: egui::Color32,
+    pub(crate) minimap_bg: egui::Color32,
+    pub(crate) minimap_viewport_fill: egui::Color32,
+    pub(crate) minimap_viewport_stroke: egui::Color32,
+    pub(crate) aspect_thumb_current: egui::Color32,
+    pub(crate) aspect_thumb_idle: egui::Color32,
+    pub(crate) aspect_text_current: egui::Color32,
+    pub(crate) fps_hud_bg: egui::Color32,
+    pub(crate) fps_hud_border: egui::Color32,
+    pub(crate) fps_hud_text: egui::Color32,
+    pub(crate) fps_graph_bg: egui::Color32,
+    pub(crate) fps_axis: egui::Color32,
+    pub(crate) fps_plot: egui::Color32,
+    pub(crate) fps_axis_label: egui::Color32,
+    pub(crate) fps_total: egui::Color32,
+    pub(crate) fps_cpu: egui::Color32,
+    pub(crate) fps_svp: egui::Color32,
+}
+
+pub(crate) struct Theme {
+    pub(crate) kind: ThemeKind,
+    pub(crate) colors: Colors,
+}
+
+impl Theme {
+    pub(crate) fn default() -> Self {
+        Self::new(DEFAULT_THEME)
+    }
+
+    pub(crate) fn new(kind: ThemeKind) -> Self {
+        Self {
+            kind,
+            colors: Colors::for_theme(kind),
+        }
+    }
+
+    pub(crate) fn apply_to_context(&self, ctx: &egui::Context) {
+        let mut visuals = egui::Visuals::light();
+        visuals.panel_fill = self.colors.background;
+        visuals.window_fill = self.colors.surface;
+        visuals.faint_bg_color = self.colors.surface;
+        visuals.extreme_bg_color = self.colors.background;
+        visuals.hyperlink_color = self.colors.semantic_on;
+        visuals.selection.bg_fill = with_alpha(self.colors.semantic_on, 80);
+        visuals.selection.stroke = egui::Stroke::new(1.0, self.colors.semantic_on);
+        ctx.set_visuals(visuals);
+    }
 }
 
 impl Colors {
     pub(crate) fn new() -> Self {
-        Self {
-            // bg-2 (base-50) — page / canvas behind the cards.
-            background: crate::shared::color_rgba(0.949, 0.941, 0.898, 1.0),
-            // paper — palette / state-panel surface (one notch lighter
-            // than the page so cards read as "elevated").
-            surface: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
-            // ui-2 — qubit wires.
-            line: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
-            // cyan-400 — unitary gate body. Flexoki's green-600 read as
-            // olive in practice; cyan-400 lands closer to qni's original
-            // teal emerald-500 (#10b981) while staying on-palette.
-            box_fill: crate::shared::color_rgba(0.227, 0.663, 0.624, 1.0),
-            // purple-600 — gate-drag preview ("intermediate / ghost"
-            // tone, same as `semantic_intermediate`).
-            drag_fill: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
-            // ui — gate hover outline.
-            box_border: crate::shared::color_rgba(0.902, 0.894, 0.851, 1.0),
-            // paper — gate label / icon strokes (on green/blue bodies).
-            label: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
-            // tx-2 — body text (q-labels etc.).
-            text: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
-            // tx — emphasized title text on tooltip / popup cards.
-            text_strong: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
-            // blue-300 — amplitude fill in the state panel. Two
-            // Flexoki steps lighter than the panel header (blue-600),
-            // so the dark `state_needle` line stays high-contrast and
-            // the hover brightness(0.9) darken still reads against the
-            // pale base.
-            state_fill: crate::shared::color_rgba(0.400, 0.627, 0.784, 1.0),
-            // tx-2 — state-vector outline (non-zero amplitude). Lighter
-            // than the needle so the border reads as chrome / surround
-            // and the needle as the data. Matches qni's split: outline
-            // slate-500, needle slate-900.
-            state_outline: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
-            // ui-2 — outline for zero-amplitude circles.
-            state_outline_zero: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
-            // tx — phase-needle line.
-            state_needle: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
-            // red-600 — |0⟩ measurement / write digit colour.
-            semantic_off: crate::shared::color_rgba(0.686, 0.188, 0.161, 1.0),
-            // blue-600 — |1⟩ measurement / write digit colour.
-            semantic_on: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
-            // purple-600 — intermediate / dragging ghost (= drag_fill).
-            semantic_intermediate: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
-            // tx-2 — disabled fills (write-gate brackets, control / swap
-            // icons in the palette).
-            semantic_disabled: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
-            // blue-600 — state-panel header strip (the same blue as
-            // `state_fill` so the strip reads as part of the panel).
-            state_handle_bg: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
-            // blue-400 — top resize handle on the blue-600 strip; sits
-            // close to the strip's own hue/lightness so the idle handle
-            // recedes into the background (matching the lightness
-            // contrast that ui-2 → paper has on the bottom panel).
-            // Pops to paper while being dragged.
-            state_resize_handle_top_idle: crate::shared::color_rgba(0.263, 0.522, 0.745, 1.0),
-            state_resize_handle_top_drag: crate::shared::color_rgba(1.000, 0.988, 0.941, 1.0),
-            // ui-2 → tx-2 — bottom resize handle on the paper panel.
-            state_resize_handle_bottom_idle: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
-            state_resize_handle_bottom_drag: crate::shared::color_rgba(0.435, 0.431, 0.412, 1.0),
-            // purple-400 / purple-600 — QFT resize handle (matches
-            // qni's `--qni-component-resize-handle-fill-color{,-hovered}`
-            // family, but recoloured into Flexoki's purple tones).
-            qft_resize_handle_bg: crate::shared::color_rgba(0.545, 0.494, 0.784, 1.0),
-            qft_resize_handle_bg_hover: crate::shared::color_rgba(0.369, 0.251, 0.616, 1.0),
-            // blue-400 — popup icon accent (qni uses sky-500 #0EA5E9;
-            // blue-400 #4385BE is the closest saturated-bright blue on
-            // Flexoki Light).
-            popup_icon: crate::shared::color_rgba(0.263, 0.522, 0.745, 1.0),
-            // tx-3 (#B7B5AC) — popup icon chrome (axes / outer ring /
-            // base lines). One step lighter than label text (tx-2) so
-            // the blue accent stays foreground.
-            popup_icon_chrome: crate::shared::color_rgba(0.718, 0.710, 0.675, 1.0),
-            // bg-2 → tx-3 → tx → red-600 → blue-600 — bloch sphere
-            // background, latitude / longitude lines, vector line,
-            // tip and origin dot.
-            bloch_sphere_bg: crate::shared::color_rgba(0.949, 0.941, 0.898, 1.0),
-            bloch_sphere_lines: crate::shared::color_rgba(0.718, 0.710, 0.675, 1.0),
-            bloch_vector_line: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
-            bloch_vector_tip: crate::shared::color_rgba(0.686, 0.188, 0.161, 1.0),
-            bloch_vector_zero: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
-            // ui-2 — "fired" meter icon, matching the circuit wire colour
-            // just like qni's neutral-200 wire / zinc-200 measurement pairing.
-            measurement_fired_icon: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
-            // tx — spacer ellipsis squares.
-            spacer_dots: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
+        Self::for_theme(DEFAULT_THEME)
+    }
+
+    pub(crate) fn for_theme(theme: ThemeKind) -> Self {
+        match theme {
+            ThemeKind::FlexokiLight => flexoki_light(),
         }
+    }
+}
+
+pub(crate) fn with_alpha(color: egui::Color32, alpha: u8) -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha)
+}
+
+fn tone(r: f32, g: f32, b: f32) -> egui::Color32 {
+    crate::shared::color_rgba(r, g, b, 1.0)
+}
+
+/// Strict Flexoki Light (Steph Ango / kepano, <https://github.com/kepano/flexoki>).
+/// Every role below maps to a named tone. Raw RGB appears only in this theme
+/// definition; rendering code uses `Colors` roles.
+fn flexoki_light() -> Colors {
+    // Flexoki Light reference tones.
+    let paper = tone(1.000, 0.988, 0.941); // bg / paper #FFFCF0
+    let bg_2 = tone(0.949, 0.941, 0.898); // bg-2 / base-50 #F2F0E5
+    let ui = tone(0.902, 0.894, 0.851); // ui / base-100 #E6E4D9
+    let ui_2 = tone(0.855, 0.847, 0.808); // ui-2 / base-150 #DAD8CE
+    let tx_3 = tone(0.718, 0.710, 0.675); // tx-3 / base-300 #B7B5AC
+    let tx_2 = tone(0.435, 0.431, 0.412); // tx-2 / base-600 #6F6E69
+    let tx = tone(0.063, 0.059, 0.059); // tx / black #100F0F
+    let red_600 = tone(0.686, 0.188, 0.161); // red-600 #AF3029
+    let green_600 = tone(0.400, 0.502, 0.043); // green-600 #66800B
+    let cyan_400 = tone(0.227, 0.663, 0.624); // cyan-400 #3AA99F
+    let blue_300 = tone(0.400, 0.627, 0.784); // blue-300 #66A0C8
+    let blue_400 = tone(0.263, 0.522, 0.745); // blue-400 #4385BE
+    let blue_600 = tone(0.125, 0.369, 0.651); // blue-600 #205EA6
+    let purple_400 = tone(0.545, 0.494, 0.784); // purple-400 #8B7EC8
+    let purple_600 = tone(0.369, 0.251, 0.616); // purple-600 #5E409D
+
+    Colors {
+        background: bg_2,                  // page / circuit panel
+        surface: paper,                    // palette / cards / state panel
+        line: ui_2,                        // qubit wires
+        box_fill: cyan_400,                // unitary gate body
+        drag_fill: purple_600,             // grabbed / preview body
+        box_border: ui,                    // hover outline
+        label: paper,                      // inverse label on filled gates
+        text: tx_2,                        // body text
+        text_strong: tx,                   // emphasized titles / data ink
+        state_fill: blue_300,              // amplitude disk
+        state_outline: tx_2,               // non-zero amplitude outline
+        state_outline_zero: ui_2,          // zero-amplitude outline
+        state_needle: tx,                  // phase needle
+        semantic_off: red_600,             // |0⟩ digit / measurement 0
+        semantic_on: blue_600,             // |1⟩ digit / measurement 1
+        semantic_intermediate: purple_600, // measurement idle / drag ghost
+        semantic_disabled: tx_2,           // disabled / bracket chrome
+        state_handle_bg: blue_600,         // state panel header
+        state_resize_handle_top_idle: blue_400,
+        state_resize_handle_top_drag: paper,
+        state_resize_handle_bottom_idle: ui_2,
+        state_resize_handle_bottom_drag: tx_2,
+        qft_resize_handle_bg: purple_400,
+        qft_resize_handle_bg_hover: purple_600,
+        popup_icon: blue_400,
+        popup_icon_chrome: tx_3,
+        bloch_sphere_bg: bg_2,
+        bloch_sphere_lines: tx_3,
+        bloch_vector_line: tx,
+        bloch_vector_tip: red_600,
+        bloch_vector_zero: blue_600,
+        measurement_fired_icon: ui_2,
+        spacer_dots: tx,
+        step_preview: blue_600,
+        palette_shadow: with_alpha(tx, 25),
+        state_panel_shadow: with_alpha(tx, 25),
+        tooltip_shadow: with_alpha(tx, 25),
+        aspect_popover_shadow: with_alpha(tx, 46),
+        state_cell_popup_shadow: with_alpha(tx, 36),
+        minimap_bg: with_alpha(tx, 140),
+        minimap_viewport_fill: with_alpha(paper, 70),
+        minimap_viewport_stroke: with_alpha(paper, 220),
+        aspect_thumb_current: with_alpha(paper, 220),
+        aspect_thumb_idle: with_alpha(tx_2, 180),
+        aspect_text_current: with_alpha(paper, 255),
+        fps_hud_bg: with_alpha(tx, 235),
+        fps_hud_border: tx_2,
+        fps_hud_text: paper,
+        fps_graph_bg: with_alpha(tx, 180),
+        fps_axis: tx_3,
+        fps_plot: green_600,
+        fps_axis_label: tx_3,
+        fps_total: purple_400,
+        fps_cpu: blue_300,
+        fps_svp: cyan_400,
     }
 }

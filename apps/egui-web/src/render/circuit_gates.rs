@@ -50,7 +50,7 @@ impl QniApp {
             );
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
-            let circuit_fill = painter.ctx().style().visuals.panel_fill;
+            let circuit_fill = colors.background;
             if gate.kind == GateKind::Measurement {
                 // qni shortens the input/output wire around a measurement
                 // dropzone and the meter's interior is opaque. Mask the
@@ -97,7 +97,7 @@ impl QniApp {
                     colors.qft_resize_handle_bg
                 };
                 let handle_rect = qft_resize_handle_rect(gate_rect);
-                draw_qft_resize_handle(painter, handle_rect, bg);
+                draw_qft_resize_handle(painter, handle_rect, bg, colors.label);
             }
             if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,

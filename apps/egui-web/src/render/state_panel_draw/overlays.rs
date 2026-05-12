@@ -17,7 +17,7 @@ pub(super) fn paint_state_panel_overlays(
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
 ) {
-    state_panel_chrome::draw_state_minimap(painter, layout, viewport_rect, grid_origin);
+    state_panel_chrome::draw_state_minimap(painter, colors, layout, viewport_rect, grid_origin);
     paint_aspect_popover(app, painter, colors, layout, offset);
     paint_resize_handles(app, painter, colors, state_rect);
     paint_cell_popup(

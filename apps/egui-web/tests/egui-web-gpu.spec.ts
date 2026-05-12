@@ -161,7 +161,8 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
-  const isCircuitBackground = ([r, g, b]: CanvasPixel): boolean => r > 240 && g > 240 && b > 240
+  const isCircuitBackground = ([r, g, b]: CanvasPixel): boolean =>
+    Math.abs(r - 242) + Math.abs(g - 240) + Math.abs(b - 229) < 40
   const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
     Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 40
 

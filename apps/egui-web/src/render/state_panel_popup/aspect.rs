@@ -21,7 +21,7 @@ pub(crate) fn draw_aspect_popover(
         offset: [0, 8],
         blur: 24,
         spread: 0,
-        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 46),
+        color: colors.aspect_popover_shadow,
     };
     painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
     painter.rect_filled(rect, corner, colors.surface);
@@ -51,9 +51,9 @@ pub(crate) fn draw_aspect_popover(
             slot_rect.center().y - thumb_h / 2.0,
         );
         let thumb_color = if is_current {
-            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220)
+            colors.aspect_thumb_current
         } else {
-            egui::Color32::from_rgba_unmultiplied(111, 110, 105, 180) // Flexoki tx-2 #6F6E69 70%
+            colors.aspect_thumb_idle
         };
         painter.rect_filled(
             egui::Rect::from_min_size(thumb_min, egui::vec2(thumb_w, thumb_h)),
@@ -63,7 +63,7 @@ pub(crate) fn draw_aspect_popover(
         // Label
         let label = format!("{} × {}", cols, layout_rows);
         let label_color = if is_current {
-            egui::Color32::WHITE
+            colors.aspect_text_current
         } else {
             colors.text
         };
@@ -86,7 +86,7 @@ pub(crate) fn draw_aspect_popover(
                 "(now)",
                 // text-xs (12px) — Tailwind's smallest type-scale step.
                 egui::FontId::monospace(12.0),
-                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220),
+                colors.aspect_text_current,
             );
         }
     }

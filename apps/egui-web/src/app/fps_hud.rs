@@ -27,6 +27,7 @@ impl QniApp {
             self.fps_hud_svp_history.iter().sum::<f32>() / self.fps_hud_svp_history.len() as f32
         };
         let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
+        let colors = self.colors();
         egui::Window::new("perf_hud")
             .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
             .interactable(false)
@@ -39,16 +40,13 @@ impl QniApp {
             .frame(
                 egui::Frame::popup(&ctx.style())
                     .inner_margin(egui::Margin::symmetric(8, 6))
-                    .fill(egui::Color32::from_rgba_unmultiplied(10, 10, 14, 235))
-                    .stroke(egui::Stroke::new(
-                        1.0,
-                        egui::Color32::from_rgb(60, 60, 75),
-                    )),
+                    .fill(colors.fps_hud_bg)
+                    .stroke(egui::Stroke::new(1.0, colors.fps_hud_border)),
             )
             .show(ctx, |ui| {
                 ui.spacing_mut().item_spacing.y = 4.0;
                 ui.colored_label(
-                    egui::Color32::WHITE,
+                    colors.fps_hud_text,
                     egui::RichText::new(format!("{:5.1} FPS", fps))
                         .monospace()
                         .size(13.0),
@@ -62,10 +60,10 @@ impl QniApp {
                 painter.rect_filled(
                     graph_rect,
                     0.0,
-                    egui::Color32::from_rgba_unmultiplied(0, 0, 0, 180),
+                    colors.fps_graph_bg,
                 );
                 // Axes.
-                let axis_color = egui::Color32::from_gray(110);
+                let axis_color = colors.fps_axis;
                 painter.line_segment(
                     [graph_rect.left_top(), graph_rect.left_bottom()],
                     egui::Stroke::new(1.0, axis_color),
@@ -103,11 +101,11 @@ impl QniApp {
                         .collect();
                     painter.add(egui::Shape::line(
                         points,
-                        egui::Stroke::new(1.5, egui::Color32::from_rgb(80, 220, 120)),
+                        egui::Stroke::new(1.5, colors.fps_plot),
                     ));
                 }
                 // Y-axis labels.
-                let label_color = egui::Color32::from_gray(160);
+                let label_color = colors.fps_axis_label;
                 painter.text(
                     egui::pos2(graph_rect.left() + 3.0, graph_rect.top() + 1.0),
                     egui::Align2::LEFT_TOP,
@@ -124,9 +122,9 @@ impl QniApp {
                     egui::FontId::monospace(12.0),
                     label_color,
                 );
-                let ms_color = egui::Color32::from_rgb(168, 163, 179);
-                let svp_color = egui::Color32::from_rgb(232, 199, 158);
-                let cpu_color = egui::Color32::from_rgb(140, 200, 220);
+                let ms_color = colors.fps_total;
+                let svp_color = colors.fps_svp;
+                let cpu_color = colors.fps_cpu;
                 ui.colored_label(
                     ms_color,
                     egui::RichText::new(format!("{:5.2} ms total", avg_dt * 1000.0))

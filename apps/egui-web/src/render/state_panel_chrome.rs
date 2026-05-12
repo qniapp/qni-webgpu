@@ -4,6 +4,7 @@ use eframe::egui;
 
 use super::state_panel_layout::StatePanelLayout;
 use crate::app::ResizeCorner;
+use crate::colors::Colors;
 use crate::constants::{
     STATE_PANEL_CORNER_RADIUS, STATE_RESIZE_HANDLE_PAD, STATE_RESIZE_HANDLE_STROKE,
 };
@@ -65,6 +66,7 @@ pub(super) fn draw_resize_handle_arc(
 /// minimap is just chrome.
 pub(super) fn draw_state_minimap(
     painter: &egui::Painter,
+    colors: &Colors,
     layout: &StatePanelLayout,
     viewport_rect: egui::Rect,
     grid_origin: egui::Pos2,
@@ -93,8 +95,7 @@ pub(super) fn draw_state_minimap(
         viewport_rect.max - mm_size - egui::vec2(pad, pad),
         viewport_rect.max - egui::vec2(pad, pad),
     );
-    let bg = egui::Color32::from_rgba_unmultiplied(0, 0, 0, 140);
-    painter.rect_filled(mm_rect, egui::CornerRadius::same(4), bg);
+    painter.rect_filled(mm_rect, egui::CornerRadius::same(4), colors.minimap_bg);
 
     let mm_grid_min = mm_rect.min + egui::vec2(INSET, INSET);
     let mm_grid_size = egui::vec2(inner_w, inner_h);
@@ -105,11 +106,8 @@ pub(super) fn draw_state_minimap(
     let mm_vp_size = egui::vec2(viewport_rect.width(), viewport_rect.height()) * scale;
     let mm_vp_rect = egui::Rect::from_min_size(mm_vp_min, mm_vp_size)
         .intersect(egui::Rect::from_min_size(mm_grid_min, mm_grid_size));
-    let vp_fill = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 70);
-    let vp_stroke = egui::Stroke::new(
-        1.0,
-        egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220),
-    );
+    let vp_fill = colors.minimap_viewport_fill;
+    let vp_stroke = egui::Stroke::new(1.0, colors.minimap_viewport_stroke);
     painter.rect_filled(mm_vp_rect, egui::CornerRadius::ZERO, vp_fill);
     painter.rect_stroke(
         mm_vp_rect,

@@ -12,7 +12,7 @@ pub(super) fn paint_panel_background(
         offset: [0, 6],
         blur: 16,
         spread: 0,
-        color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+        color: colors.state_panel_shadow,
     };
     painter.add(egui::Shape::Rect(
         state_shadow.as_shape(state_rect, state_corner),

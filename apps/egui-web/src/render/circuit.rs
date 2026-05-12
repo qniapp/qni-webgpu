@@ -4,7 +4,7 @@
 use eframe::egui;
 
 use crate::app::{PlacedGate, QniApp};
-use crate::colors::Colors;
+use crate::colors::{with_alpha, Colors};
 use crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, REM, SNAP_DISTANCE};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 
@@ -71,8 +71,7 @@ impl QniApp {
                 let x = metrics.slot_centers[slot]
                     + crate::constants::SLOT_SPACING * 0.5
                     + circuit_origin.x;
-                // Flexoki blue-600 (#205EA6) — matches `state_fill`.
-                let color = egui::Color32::from_rgba_unmultiplied(32, 94, 166, alpha);
+                let color = with_alpha(colors.step_preview, alpha);
                 painter.line_segment(
                     [
                         egui::pos2(x, rect.min.y + top),

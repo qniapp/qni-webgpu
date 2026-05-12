@@ -13,7 +13,6 @@ mod state_panel_frame;
 use eframe::egui;
 
 use super::QniApp;
-use crate::colors::Colors;
 use crate::render::StatePanelLayout;
 use crate::shared::now_seconds;
 
@@ -36,7 +35,7 @@ impl QniApp {
         ui: &mut egui::Ui,
     ) {
         let screen_rect = ui.max_rect();
-        let colors = Colors::new();
+        let colors = self.colors();
         let content_height =
             self.circuit_content_height(self.layout_qubits(), screen_rect.height());
 

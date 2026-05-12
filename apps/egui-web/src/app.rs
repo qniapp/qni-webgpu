@@ -13,6 +13,7 @@ mod update_flow;
 use eframe::egui;
 use std::collections::VecDeque;
 
+use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
 
@@ -21,6 +22,7 @@ pub(crate) use gpu_plan_state::GpuPlanState;
 pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
+    theme: ThemeKind,
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
@@ -76,7 +78,8 @@ pub(crate) struct QniApp {
 
 impl QniApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::light());
+        let theme = Theme::default();
+        theme.apply_to_context(&cc.egui_ctx);
         cc.egui_ctx.style_mut(|style| {
             style.spacing.window_margin = egui::Margin::same(0);
         });
@@ -107,6 +110,7 @@ impl QniApp {
         let initial_qubit_count = crate::url_circuit::qubit_count_from_gates(&initial_gates)
             .clamp(MIN_QUBITS, MAX_QUBITS);
         Self {
+            theme: theme.kind,
             next_gate_id,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
@@ -132,6 +136,10 @@ impl QniApp {
             fps_hud_cpu_history: VecDeque::with_capacity(120),
             fps_hud_svp_history: VecDeque::with_capacity(120),
         }
+    }
+
+    pub(crate) fn colors(&self) -> Colors {
+        Colors::for_theme(self.theme)
     }
 
     fn layout_qubits(&self) -> usize {

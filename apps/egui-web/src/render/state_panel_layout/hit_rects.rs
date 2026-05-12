@@ -2,6 +2,7 @@ use eframe::egui;
 
 use super::StatePanelLayout;
 use crate::app::{QniApp, ResizeCorner};
+use crate::colors::Colors;
 use crate::constants::{STATE_PANEL_CORNER_RADIUS, STATE_RESIZE_HIT_PAD};
 
 impl QniApp {
@@ -39,7 +40,8 @@ impl QniApp {
         // up with what the user actually sees.
         let font = egui::FontId::monospace(14.0);
         let text = Self::dims_text(layout);
-        let size = ctx.fonts_mut(|f| f.layout_no_wrap(text, font, egui::Color32::WHITE).size());
+        let measure_color = Colors::new().aspect_text_current;
+        let size = ctx.fonts_mut(|f| f.layout_no_wrap(text, font, measure_color).size());
         let right_center = handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0);
         let visible = egui::Rect::from_min_max(
             egui::pos2(right_center.x - size.x, right_center.y - size.y / 2.0),

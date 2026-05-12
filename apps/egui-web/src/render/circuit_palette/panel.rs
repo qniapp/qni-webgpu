@@ -29,7 +29,7 @@ impl QniApp {
             offset: [0, 6],
             blur: 16,
             spread: 0,
-            color: egui::Color32::from_rgba_unmultiplied(0, 0, 0, 25),
+            color: colors.palette_shadow,
         };
         painter.add(egui::Shape::Rect(
             shadow.as_shape(palette_rect, palette_corner),
