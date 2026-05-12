@@ -13,6 +13,15 @@ use crate::gpu::{
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_qft_resize_handle};
 use crate::layout::qft_resize_handle_rect;
 
+// qni's Bloch vector tip is a 6px dot. Keep the dot's centre inset by its
+// radius so the needle reads as attached to the sphere rather than floating
+// outside the outline at ±Z.
+const BLOCH_VECTOR_TIP_RADIUS: f32 = 3.0;
+// The GPU digit atlas is centred by glyph bounds; qni centres the text-lg line
+// box in the measurement body. This small baseline nudge makes the visible
+// digit sit optically centred over the meter icon.
+const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 3.0;
+
 impl QniApp {
     pub(super) fn draw_placed_circuit_gates(
         &self,
@@ -110,12 +119,13 @@ impl QniApp {
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
-                let radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
+                let sphere_radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
+                let vector_radius = (sphere_radius - BLOCH_VECTOR_TIP_RADIUS).max(0.0);
                 // 4px slack covers the 3px tip dot + 1px AA fringe.
-                let outer = radius + 4.0;
+                let outer = sphere_radius + 4.0;
                 Some(BlochOverlayInstance {
                     center: [center.x, center.y],
-                    radius,
+                    radius: vector_radius,
                     outer,
                     slot,
                 })
@@ -154,7 +164,8 @@ impl QniApp {
                     circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
-                let center = gate_rect.center();
+                let center =
+                    gate_rect.center() + egui::vec2(0.0, MEASUREMENT_DIGIT_CENTER_Y_OFFSET);
                 Some(MeasurementDigitInstance {
                     center: [center.x, center.y],
                     // Quad spans `2 * half_extent` px; matches the digit

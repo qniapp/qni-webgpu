@@ -4,6 +4,8 @@ use eframe::egui;
 
 use crate::colors::Colors;
 
+const VECTOR_TIP_RADIUS: f32 = 3.0;
+
 /// Projects a Bloch vector (x, y, z) ∈ [-1, 1] to a 2D screen offset in units
 /// of sphere radius. Mirrors qni's `bloch-display-element.ts` rendering pipeline:
 ///   - The DOM applies `rotateY(phi) rotateX(-theta)` to a vector that initially
@@ -90,7 +92,8 @@ pub(crate) fn draw_bloch_vector(
     let radius = rect.width().min(rect.height()) * 0.5 - 1.0;
     let length = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
     let (sx, sy) = bloch_project(vector[0], vector[1], vector[2]);
-    let tip = egui::pos2(center.x + sx * radius, center.y + sy * radius);
+    let vector_radius = (radius - VECTOR_TIP_RADIUS).max(0.0);
+    let tip = egui::pos2(center.x + sx * vector_radius, center.y + sy * vector_radius);
     if length > 1.0e-3 {
         painter.line_segment(
             [center, tip],

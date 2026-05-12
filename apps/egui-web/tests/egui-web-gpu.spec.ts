@@ -126,6 +126,45 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
   ])
 })
 
+test('GPU circuit overlays stay optically anchored to measurement and Bloch bodies', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['X'], ['Measure'], ['Bloch']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  // Egui keeps an 8px panel margin inside the canvas; the interaction helpers
+  // can be fuzzy because snap distance absorbs it, but visual pixel probes need
+  // the actual painted position.
+  const EGUI_PANEL_MARGIN = 8
+  const slotCenter = (column: number) =>
+    EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
+  const wireCenterY = EGUI_PANEL_MARGIN + LINE_Y
+
+  const measureX = slotCenter(1)
+  const blochX = slotCenter(2)
+  const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'measurement_digit_centered', x: measureX, y: wireCenterY + 8 },
+    { name: 'bloch_tip_inside_sphere', x: blochX, y: wireCenterY + 12 },
+    { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 16 },
+  ])
+
+  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 100 && g < 160
+  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
+
+  expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)
+})
+
 test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
   await page.goto('/')
 

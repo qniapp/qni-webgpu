@@ -154,7 +154,13 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let mag2 = dot(bloch, bloch);
   let mag = sqrt(mag2);
   let proj = bloch_project(bloch);
-  let tip = proj * input.radius;
+  let raw_tip = proj * input.radius;
+  let raw_tip_len = length(raw_tip);
+  let tip = select(
+    raw_tip,
+    raw_tip * (input.radius / max(raw_tip_len, 1.0e-6)),
+    raw_tip_len > input.radius && input.radius > 0.0,
+  );
 
   let line_half: f32 = 0.75;
   let tip_radius: f32 = 3.0;
