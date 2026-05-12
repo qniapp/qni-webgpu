@@ -5,12 +5,11 @@ use eframe::egui;
 use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{
-    GATE_SIZE, PALETTE_CORNER_RADIUS, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y,
-    PALETTE_SIZE,
+    PALETTE_CORNER_RADIUS, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE,
 };
 use crate::gates::{GateKind, PALETTE_GATES};
 use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_gate_body};
-use crate::layout::{palette_gate_local_pos, palette_layout};
+use crate::layout::{gate_visible_rect, palette_gate_local_pos, palette_layout};
 
 impl QniApp {
     pub(crate) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
@@ -385,10 +384,7 @@ impl QniApp {
         // space, so we shift the content_rect origin left by the scroll
         // offset before placing the drag preview.
         let circuit_origin = content_rect.min - egui::vec2(scroll_x, 0.0);
-        let gate_rect = egui::Rect::from_min_size(
-            circuit_origin + gate.pos.to_vec2(),
-            egui::vec2(GATE_SIZE, GATE_SIZE),
-        );
+        let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
         draw_drag_gate_body(painter, gate_rect, gate.kind, colors);
         if gate.kind == GateKind::BlochDisplay {
             // While dragging the gate isn't snapped, so we can't compute a

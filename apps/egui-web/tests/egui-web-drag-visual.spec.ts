@@ -339,6 +339,41 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   await page.mouse.up()
 })
 
+test('drag preview preserves resized QFT span', async ({ page }) => {
+  await page.goto(`/#${encodeURIComponent(JSON.stringify({ cols: [['QFT3']] }))}`)
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const LINE_GAP = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const SLOT_SPACING = GATE_SIZE * 1.5
+
+  const placedCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
+  const dragTarget = { x: placedCenter.x + SLOT_SPACING, y: placedCenter.y }
+  const lowerSpanFillPoint = {
+    name: 'lowerSpanFill',
+    x: dragTarget.x,
+    y: dragTarget.y + 2 * LINE_GAP,
+  }
+
+  await dragPointer(page, placedCenter, dragTarget, 6, false)
+  await page.waitForTimeout(50)
+
+  const duringDrag = await sampleCanvasPixels(page, canvas, [lowerSpanFillPoint])
+  expect(isDragPreviewFill(duringDrag.lowerSpanFill)).toBe(true)
+
+  await page.mouse.up()
+})
+
 test('placed circuit gate keeps its visual while dragging another gate', async ({ page }) => {
   await page.goto('/')
 
