@@ -762,8 +762,8 @@
           <article class="candidate high">
             <div class="topline"><span class="rank">C-01</span><span class="badge">P0 architecture</span></div>
             <h3>回路モデルを pixel 座標から column / wire 正本へ</h3>
-            <p><code>PlacedGate.pos</code> を永続モデルにするのをやめ、ドラッグ中だけ preview 座標を持つ。Qni の step/dropzone 構造を Rust の semantic grid として取り込む。</p>
-            <ul><li>slot逆算の重複を削除</li><li>URL / GPU linearize / render の境界が明確化</li><li>Qni: <code>QuantumCircuitElement.steps</code> / <code>CircuitStepElement.dropzones</code></li></ul>
+            <p><code>PlacedGate.pos</code> を永続モデルにするのをやめ、ドラッグ中だけ preview 座標を持つ。Qni の step/dropzone 構造を Rust の semantic grid として取り込む。<strong>進捗:</strong> URL codec は encode / decode / parser / history に分割済み。</p>
+            <ul><li>slot逆算の重複を削除</li><li>URL / GPU linearize / render の境界が明確化</li><li>URL codec split</li><li>Qni: <code>QuantumCircuitElement.steps</code> / <code>CircuitStepElement.dropzones</code></li></ul>
             <div class="file-list"><span class="file-chip">app.rs</span><span class="file-chip">layout.rs</span><span class="file-chip">bloch.rs</span><span class="file-chip">url_circuit.rs</span><span class="file-chip">render/circuit.rs</span></div>
           </article>
 
@@ -861,7 +861,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr><td>C-01 model</td><td><span class="status p0">P0</span></td><td>pixel 座標が永続モデル</td><td><code>column/wire/span</code> 正本化。Qni の step/dropzone 発想を採用</td><td>URL互換・drag/dropの座標ズレ</td><td>Playwright drag + URL load + state vector</td></tr>
+                <tr><td>C-01 model</td><td><span class="status p0">P0</span></td><td>pixel 座標が永続モデル</td><td><code>column/wire/span</code> 正本化 + URL codec split 済み</td><td>URL互換・drag/dropの座標ズレ</td><td>Playwright drag + URL load + state vector</td></tr>
                 <tr><td>C-02 GPU caps</td><td><span class="status p0">P0</span></td><td>release で capacity 超過が静かに壊れる</td><td><code>RecomputePlan::validate</code> or dynamic resize。Qni の max gate 制約を参考</td><td>既存回路の上限変更</td><td>unit test + large circuit smoke</td></tr>
                 <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>実装に合わせて削除・更新</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
                 <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller は抽出済み。残は state panel / GPU plan state</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 現作業ツリーには既存の未コミット画像アーティファクトが多数あり。監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> と <code>icons/*</code> を追加し、pointer adapter / drag state machine / icon drawing responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 現作業ツリーには既存の未コミット画像アーティファクトが多数あり。監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag state machine / icon drawing / URL codec responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>
