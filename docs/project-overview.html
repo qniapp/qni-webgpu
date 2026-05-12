@@ -9,18 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #0b0b11;
-    --bg-deep:   #06060a;
-    --surface:   #14141d;
-    --surface-2: #1c1c27;
-    --line:      #262633;
-    --text:      #ece8de;
-    --text-mid:  #a8a3b3;
-    --text-dim:  #6e6a7a;
-    --accent-1:  #ff4a30; /* warm red - "old qni" lane */
-    --accent-2:  #5fc4d3; /* cyan - "this project" lane */
-    --accent-3:  #f5b942; /* amber - perf */
-    --good:      #79d27c;
+    /* Flexoki Light tokens — keep doc palette aligned with the app UI. */
+    --bg:        #F2F0E5; /* bg-2  — page canvas */
+    --bg-deep:   #E6E4D9; /* ui    — deeper recess (unused) */
+    --surface:   #FFFCF0; /* paper — cards / panels */
+    --surface-2: #E6E4D9; /* ui    — inline chip / code background */
+    --line:      #DAD8CE; /* ui-2  — hairline rules + card borders */
+    --text:      #100F0F; /* tx    — body text */
+    --text-mid:  #6F6E69; /* tx-2  — secondary text */
+    --text-dim:  #B7B5AC; /* tx-3  — meta / eyebrow text */
+    --accent-1:  #AF3029; /* red-600    — qni / legacy lane */
+    --accent-2:  #205EA6; /* blue-600   — this project lane */
+    --accent-3:  #66800B; /* green-600  — perf / unitary tone */
+    --good:      #66800B; /* green-600  — "resolved" badge */
     --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
     --mono:      'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
   }
@@ -29,8 +30,8 @@
   html, body { margin: 0; padding: 0; }
   body {
     background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(95,196,211,0.08), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, rgba(245,185,66,0.05), transparent 60%),
+      radial-gradient(1200px 600px at 80% -10%, rgba(32,94,166,0.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(102,128,11,0.05), transparent 60%),
       var(--bg);
     color: var(--text);
     font-family: var(--mono);
@@ -38,15 +39,6 @@
     line-height: 1.6;
     min-height: 100vh;
     padding: 0 0 160px 0;
-  }
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
-    z-index: 0;
   }
 
   main { max-width: 1120px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
@@ -361,12 +353,14 @@
     font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--bg);
+    /* Light-bg variant: cream text on the dark accent bars. The
+       legibility budget assumes >= blue-600 / green-600 contrast. */
+    color: var(--surface);
   }
   .budget .b1 { background: var(--accent-3); }
   .budget .b2 { background: var(--accent-2); }
-  .budget .b3 { background: var(--good); }
-  .budget .b4 { background: var(--text-dim); color: var(--bg); }
+  .budget .b3 { background: #8B7EC8; /* purple-400 — distinct from b1 (green-600) */ }
+  .budget .b4 { background: var(--text-mid); color: var(--surface); }
   .budget .legend {
     display: grid;
     grid-template-columns: 1.5fr 4fr 1fr 1fr;
