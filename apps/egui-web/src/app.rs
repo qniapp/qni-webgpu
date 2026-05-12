@@ -7,6 +7,7 @@ mod drag_controller;
 mod fps_hud;
 mod gate_input;
 mod state_panel;
+mod state_panel_state;
 
 use eframe::egui;
 use std::collections::{HashMap, VecDeque};
@@ -18,40 +19,13 @@ use crate::bloch::{
 use crate::colors::Colors;
 use crate::constants::{
     state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS, MIN_QUBITS,
-    STATE_VIEWPORT_DEFAULT_HEIGHT, STATE_VIEWPORT_DEFAULT_WIDTH,
 };
 use crate::gpu::{MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
 use crate::layout::layout_metrics;
 use crate::shared::{amplitude_qubits, now_seconds};
 
 pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
-
-/// Which corner of the state panel a resize drag is anchored to. The
-/// opposite corner stays fixed during the drag.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ResizeCorner {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-}
-
-impl ResizeCorner {
-    pub(crate) fn is_top(self) -> bool {
-        matches!(self, ResizeCorner::TopLeft | ResizeCorner::TopRight)
-    }
-}
-
-/// In-flight resize drag. `start_*` fields snapshot the panel state at
-/// drag-start so the new size is computed relative to the cursor's total
-/// movement (avoiding the integrator drift you'd get from per-frame deltas).
-#[derive(Clone, Copy, Debug)]
-struct ResizeDrag {
-    corner: ResizeCorner,
-    start_pointer: egui::Pos2,
-    start_viewport_size: egui::Vec2,
-    start_panel_offset: egui::Vec2,
-}
+pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
     next_gate_id: u32,
@@ -64,27 +38,7 @@ pub(crate) struct QniApp {
     pub(crate) circuit_scroll_x: f32,
     pub(crate) dragging: Option<DragState>,
     drag_state_count: Option<usize>,
-    state_panel_drag: Option<egui::Vec2>,
-    pub(crate) state_panel_offset: egui::Vec2,
-    /// Pan offset of the circle grid INSIDE the state panel viewport.
-    /// Independent of `state_panel_offset` (which moves the whole panel).
-    /// Only used when the grid is bigger than the viewport on a given axis;
-    /// when it fits, the grid is centred and this offset is ignored.
-    pub(crate) state_grid_offset: egui::Vec2,
-    /// Zoom factor for the state panel circle grid (1.0 = qni's natural
-    /// per-qubit cell sizes). Ctrl+wheel inside the viewport adjusts this;
-    /// `clamp_state_grid_zoom` keeps it inside `STATE_GRID_ZOOM_RANGE`.
-    pub(crate) state_grid_zoom: f32,
-    /// User-controlled size of the state panel viewport (the circle area
-    /// below the header strip). Initialized to `STATE_VIEWPORT_DEFAULT_*`
-    /// and changed by dragging the 4 corner L-handles. Always clamped to
-    /// `STATE_VIEWPORT_MIN/MAX_*`.
-    pub(crate) state_viewport_size: egui::Vec2,
-    /// In-flight resize drag (one of the 4 corner handles).
-    state_resize_drag: Option<ResizeDrag>,
-    /// Currently-hovered resize corner (for cursor / paint state). Set
-    /// each frame by `ui.interact` hovered checks.
-    pub(crate) hovered_resize_corner: Option<ResizeCorner>,
+    pub(crate) state_panel: StatePanelState,
     /// Gate id whose QFT resize handle is currently hovered (drives
     /// the handle's idle → hover color). `None` when no hand is on a
     /// QFT bottom-edge handle.
@@ -100,27 +54,6 @@ pub(crate) struct QniApp {
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
     pub(crate) breakpoint_step: Option<usize>,
-    /// Display-index (`row * cols + col`) of the state-vector cell the
-    /// pointer is currently hovering over. Drives the GPU shader's
-    /// brightness(0.9) darken on fill / needle / outline for that cell.
-    pub(crate) hovered_state_cell: Option<u32>,
-    /// `aspect_index = log2(cols)`. Determines (cols, rows) =
-    /// (2^aspect_index, 2^(qubits − aspect_index)) for the state-vector
-    /// circle grid. Mutated by wheel-on-dims (A 案) or popover (D 案).
-    pub(crate) aspect_index: usize,
-    /// Has the user explicitly chosen an aspect (vs. following qni
-    /// defaults)? While `false`, aspect_index auto-tracks the qni
-    /// default for the current qubit count. Once `true`, the user's
-    /// pick is sticky and only clamped when it goes out of range.
-    pub(crate) aspect_customized: bool,
-    /// Whether the aspect-pick popover (D 案) is currently open.
-    pub(crate) aspect_popover_open: bool,
-    /// Accumulator for wheel deltas while the dims text is hovered. We
-    /// step aspect only when the running sum crosses
-    /// `ASPECT_WHEEL_PER_STEP`, so one wheel notch ≈ one step instead of
-    /// per-frame firing. Reset when the pointer leaves the dims or the
-    /// wheel stops for a frame so a half-step doesn't sit waiting.
-    aspect_wheel_accum: f32,
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
@@ -193,25 +126,11 @@ impl QniApp {
             circuit_scroll_x: 0.0,
             dragging: None,
             drag_state_count: None,
-            state_panel_drag: None,
-            state_panel_offset: egui::Vec2::ZERO,
-            state_grid_offset: egui::Vec2::ZERO,
-            state_grid_zoom: 1.0,
-            state_viewport_size: egui::vec2(
-                STATE_VIEWPORT_DEFAULT_WIDTH,
-                STATE_VIEWPORT_DEFAULT_HEIGHT,
-            ),
-            state_resize_drag: None,
-            hovered_resize_corner: None,
+            state_panel: StatePanelState::default(),
             hovered_qft_resize_handle: None,
             qft_resize_drag: None,
             hovered_step: None,
             breakpoint_step: None,
-            hovered_state_cell: None,
-            aspect_index: state_circle_default_aspect_index(1),
-            aspect_customized: false,
-            aspect_popover_open: false,
-            aspect_wheel_accum: 0.0,
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
@@ -391,15 +310,15 @@ impl eframe::App for QniApp {
             // once customised, only clamp to the valid [0, qubits] range
             // so the choice is sticky across qubit changes.
             let aspect_qubits = amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
-            if !self.aspect_customized {
-                self.aspect_index = state_circle_default_aspect_index(aspect_qubits);
+            if !self.state_panel.aspect_customized {
+                self.state_panel.aspect_index = state_circle_default_aspect_index(aspect_qubits);
             } else {
-                self.aspect_index = self.aspect_index.min(aspect_qubits);
+                self.state_panel.aspect_index = self.state_panel.aspect_index.min(aspect_qubits);
             }
             let state_layout = self.state_panel_layout(screen_rect, state_count);
             self.clamp_state_panel_offset(&state_layout, screen_rect);
             self.clamp_state_grid_offset(&state_layout);
-            let state_rect = state_layout.state_rect.translate(self.state_panel_offset);
+            let state_rect = state_layout.state_rect.translate(self.state_panel.offset);
             let handle_rect = egui::Rect::from_min_size(
                 state_rect.min,
                 egui::vec2(state_rect.width(), state_layout.handle_height.max(6.0)),
@@ -416,7 +335,7 @@ impl eframe::App for QniApp {
                 screen_rect,
                 state_count,
             );
-            let dims_hit = QniApp::dims_hit_rect(ctx, &state_layout, self.state_panel_offset);
+            let dims_hit = QniApp::dims_hit_rect(ctx, &state_layout, self.state_panel.offset);
             self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
             self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit);
             self.process_resize_handles(ctx, ui, &state_layout);
@@ -438,7 +357,7 @@ impl eframe::App for QniApp {
                 &overlay_painter,
                 &colors,
                 &state_layout,
-                self.state_panel_offset,
+                self.state_panel.offset,
                 state_layout.handle_height,
                 screen_rect,
                 recompute,

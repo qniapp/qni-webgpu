@@ -57,7 +57,7 @@ impl QniApp {
         let qubits = amplitude_qubits(state_count);
 
         // Cell size + line width follow qni's per-qubit-count table; the
-        // (cols, rows) split is parameterised by `self.aspect_index` so
+        // (cols, rows) split is parameterised by `self.state_panel.aspect_index` so
         // the user can change the layout aspect at runtime. qni's
         // reference uses gap == stroke (cells touch); we add 1 px so
         // adjacent stroke rings don't share a pixel boundary at dist ==
@@ -67,14 +67,14 @@ impl QniApp {
         // barely perceptible at typical zoom and lets us keep V-sync at
         // 11+ qubits without paying for 2x2 cell sampling in the
         // fragment shader.
-        let qni = state_circle_layout(qubits, self.aspect_index);
+        let qni = state_circle_layout(qubits, self.state_panel.aspect_index);
         let columns = qni.cols;
         let rows = qni.rows;
         // Zoom scales every length-y thing in the grid uniformly so cells
         // grow / shrink together. Stroke has a 0.5 px floor so very-zoomed-
         // out cells still get a visible outline rather than collapsing into
         // pure fill.
-        let zoom = self.state_grid_zoom;
+        let zoom = self.state_panel.grid_zoom;
         let size = qni.size * zoom;
         let stroke = (qni.line_width * zoom).max(0.5);
         let gap = (qni.line_width + 1.0) * zoom;
@@ -113,8 +113,8 @@ impl QniApp {
         // Strip-text minimum is the only thing that can force `panel_width`
         // above the user's choice — practically a no-op for ≤16 qubits
         // since min viewport width already covers the widest label.
-        let panel_width = self.state_viewport_size.x.max(strip_min_width);
-        let panel_height = self.state_viewport_size.y + handle_height;
+        let panel_width = self.state_panel.viewport_size.x.max(strip_min_width);
+        let panel_height = self.state_panel.viewport_size.y + handle_height;
         let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
         let panel_min_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - panel_height;
         let state_rect = egui::Rect::from_min_size(
@@ -302,15 +302,15 @@ impl QniApp {
         let min_offset_y = min_y - base_min.y;
         let max_offset_y = max_y - base_min.y;
 
-        self.state_panel_offset.x = if max_offset_x < min_offset_x {
+        self.state_panel.offset.x = if max_offset_x < min_offset_x {
             min_offset_x
         } else {
-            self.state_panel_offset.x.clamp(min_offset_x, max_offset_x)
+            self.state_panel.offset.x.clamp(min_offset_x, max_offset_x)
         };
-        self.state_panel_offset.y = if max_offset_y < min_offset_y {
+        self.state_panel.offset.y = if max_offset_y < min_offset_y {
             min_offset_y
         } else {
-            self.state_panel_offset.y.clamp(min_offset_y, max_offset_y)
+            self.state_panel.offset.y.clamp(min_offset_y, max_offset_y)
         };
     }
 
@@ -320,19 +320,21 @@ impl QniApp {
     /// the layout is computed so qubit-count changes don't leave a stale
     /// (possibly huge) pan offset around.
     pub(crate) fn clamp_state_grid_offset(&mut self, layout: &StatePanelLayout) {
-        let viewport = layout.viewport_rect.translate(self.state_panel_offset);
+        let viewport = layout.viewport_rect.translate(self.state_panel.offset);
         let grid = layout.grid_size;
-        self.state_grid_offset.x = if grid.x <= viewport.width() {
+        self.state_panel.grid_offset.x = if grid.x <= viewport.width() {
             0.0
         } else {
-            self.state_grid_offset
+            self.state_panel
+                .grid_offset
                 .x
                 .clamp(viewport.width() - grid.x, 0.0)
         };
-        self.state_grid_offset.y = if grid.y <= viewport.height() {
+        self.state_panel.grid_offset.y = if grid.y <= viewport.height() {
             0.0
         } else {
-            self.state_grid_offset
+            self.state_panel
+                .grid_offset
                 .y
                 .clamp(viewport.height() - grid.y, 0.0)
         };

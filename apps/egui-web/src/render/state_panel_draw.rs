@@ -29,7 +29,7 @@ impl QniApp {
         let viewport_rect = layout.viewport_rect.translate(offset);
         // Where the circle grid actually lands in viewport coords. Centred
         // when the grid fits, panned by `state_grid_offset` otherwise.
-        let grid_origin = Self::grid_origin(layout, offset, self.state_grid_offset);
+        let grid_origin = Self::grid_origin(layout, offset, self.state_panel.grid_offset);
         let state_corner = egui::CornerRadius::same(14);
         let state_shadow = egui::epaint::Shadow {
             offset: [0, 6],
@@ -122,7 +122,7 @@ impl QniApp {
                 cols,
                 rows,
                 qubits: layout.qubits as u32,
-                hovered_cell: self.hovered_state_cell.map_or(-1, |c| c as i32),
+                hovered_cell: self.state_panel.hovered_cell.map_or(-1, |c| c as i32),
                 surface: render_colors.surface,
                 fill: render_colors.fill,
                 outline: render_colors.outline,
@@ -148,7 +148,7 @@ impl QniApp {
 
         // Aspect popover (D 案) — only draw when open. Positioned below
         // the dimensions text; floats above the panel and any minimap.
-        if self.aspect_popover_open {
+        if self.state_panel.aspect_popover_open {
             let dims_rect = Self::dims_hit_rect(painter.ctx(), layout, offset);
             let (pop_rect, row_rects) = Self::aspect_popover_layout(dims_rect, layout.qubits);
             state_panel_popup::draw_aspect_popover(
@@ -157,7 +157,7 @@ impl QniApp {
                 pop_rect,
                 &row_rects,
                 layout.qubits,
-                self.aspect_index.min(layout.qubits),
+                self.state_panel.aspect_index.min(layout.qubits),
             );
         }
 
@@ -187,8 +187,8 @@ impl QniApp {
         // qni-style amplitude / probability / phase icons). Drawn last
         // so it lifts above the resize handles + minimap + GPU circle
         // pass.
-        if let Some(cell) = self.hovered_state_cell {
-            let grid_origin = Self::grid_origin(layout, offset, self.state_grid_offset);
+        if let Some(cell) = self.state_panel.hovered_cell {
+            let grid_origin = Self::grid_origin(layout, offset, self.state_panel.grid_offset);
             state_panel_popup::draw_state_cell_popup(
                 painter,
                 colors,

@@ -15,12 +15,14 @@ use crate::shared::amplitude_qubits;
 
 impl QniApp {
     pub(crate) fn clamp_state_viewport_size(&mut self) {
-        self.state_viewport_size.x = self
-            .state_viewport_size
+        self.state_panel.viewport_size.x = self
+            .state_panel
+            .viewport_size
             .x
             .clamp(STATE_VIEWPORT_MIN_WIDTH, STATE_VIEWPORT_MAX_WIDTH);
-        self.state_viewport_size.y = self
-            .state_viewport_size
+        self.state_panel.viewport_size.y = self
+            .state_panel
+            .viewport_size
             .y
             .clamp(STATE_VIEWPORT_MIN_HEIGHT, STATE_VIEWPORT_MAX_HEIGHT);
     }
@@ -32,7 +34,7 @@ impl QniApp {
     /// the top edges (TL/TR) need no adjustment, but the bottom edges
     /// (BL/BR) compensate by `effective_dy`.
     pub(crate) fn apply_resize_drag(&mut self, pointer: egui::Pos2) {
-        let Some(drag) = self.state_resize_drag else {
+        let Some(drag) = self.state_panel.resize_drag else {
             return;
         };
         let delta = pointer - drag.start_pointer;
@@ -73,12 +75,12 @@ impl QniApp {
         } else {
             eff_dh
         };
-        self.state_viewport_size = egui::vec2(new_w, new_h);
+        self.state_panel.viewport_size = egui::vec2(new_w, new_h);
         // Auto-centred horizontally → compensate by eff_dx/2 regardless of corner.
-        self.state_panel_offset.x = drag.start_panel_offset.x + eff_dx / 2.0;
+        self.state_panel.offset.x = drag.start_panel_offset.x + eff_dx / 2.0;
         // Bottom-anchored vertically → top corners need no offset; bottom
         // corners absorb the full eff_dy so the top edge stays put.
-        self.state_panel_offset.y = if drag.corner.is_top() {
+        self.state_panel.offset.y = if drag.corner.is_top() {
             drag.start_panel_offset.y
         } else {
             drag.start_panel_offset.y + eff_dy
@@ -86,20 +88,20 @@ impl QniApp {
     }
 
     pub(crate) fn begin_resize_drag(&mut self, corner: ResizeCorner, pointer: egui::Pos2) {
-        self.state_resize_drag = Some(ResizeDrag {
+        self.state_panel.resize_drag = Some(ResizeDrag {
             corner,
             start_pointer: pointer,
-            start_viewport_size: self.state_viewport_size,
-            start_panel_offset: self.state_panel_offset,
+            start_viewport_size: self.state_panel.viewport_size,
+            start_panel_offset: self.state_panel.offset,
         });
     }
 
     pub(crate) fn end_resize_drag(&mut self) {
-        self.state_resize_drag = None;
+        self.state_panel.resize_drag = None;
     }
 
     pub(crate) fn active_resize_corner(&self) -> Option<ResizeCorner> {
-        self.state_resize_drag.map(|d| d.corner)
+        self.state_panel.resize_drag.map(|d| d.corner)
     }
 
     /// Should wheel input over the panel area be captured (= not eaten
@@ -116,9 +118,9 @@ impl QniApp {
         let pre_state_layout = self.state_panel_layout(screen_rect, state_count);
         let pre_state_rect = pre_state_layout
             .state_rect
-            .translate(self.state_panel_offset);
-        let pre_popover_rect = if self.aspect_popover_open {
-            let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel_offset);
+            .translate(self.state_panel.offset);
+        let pre_popover_rect = if self.state_panel.aspect_popover_open {
+            let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel.offset);
             let (rect, _) = QniApp::aspect_popover_layout(
                 dims_hit,
                 amplitude_qubits(state_count).clamp(1, MAX_QUBITS),
@@ -154,21 +156,21 @@ impl QniApp {
         );
         if handle_response.drag_started() {
             if let Some(pos) = handle_response.interact_pointer_pos() {
-                self.state_panel_drag = Some(pos - handle_rect.min);
+                self.state_panel.drag = Some(pos - handle_rect.min);
             }
         }
         if handle_response.dragged() {
             if let (Some(pos), Some(offset)) = (
                 handle_response.interact_pointer_pos(),
-                self.state_panel_drag,
+                self.state_panel.drag,
             ) {
                 let desired_min = pos - offset;
-                self.state_panel_offset = desired_min - state_layout.state_rect.min;
+                self.state_panel.offset = desired_min - state_layout.state_rect.min;
                 self.clamp_state_panel_offset(state_layout, screen_rect);
             }
         }
         if handle_response.drag_stopped() {
-            self.state_panel_drag = None;
+            self.state_panel.drag = None;
         }
     }
 
@@ -185,14 +187,14 @@ impl QniApp {
     ) {
         let viewport_rect = state_layout
             .viewport_rect
-            .translate(self.state_panel_offset);
+            .translate(self.state_panel.offset);
         let viewport_response = ui.interact(
             viewport_rect,
             egui::Id::new("state_panel_viewport"),
             egui::Sense::drag(),
         );
         if viewport_response.dragged() {
-            self.state_grid_offset += viewport_response.drag_delta();
+            self.state_panel.grid_offset += viewport_response.drag_delta();
             self.clamp_state_grid_offset(state_layout);
         }
 
@@ -204,8 +206,8 @@ impl QniApp {
             ctx.input(|i| i.pointer.hover_pos()).and_then(|pos| {
                 let grid_origin = QniApp::grid_origin(
                     state_layout,
-                    self.state_panel_offset,
-                    self.state_grid_offset,
+                    self.state_panel.offset,
+                    self.state_panel.grid_offset,
                 );
                 let local = pos - grid_origin;
                 let pitch = state_layout.cell_pitch();
@@ -222,8 +224,8 @@ impl QniApp {
         } else {
             None
         };
-        if new_hovered_cell != self.hovered_state_cell {
-            self.hovered_state_cell = new_hovered_cell;
+        if new_hovered_cell != self.state_panel.hovered_cell {
+            self.state_panel.hovered_cell = new_hovered_cell;
             ctx.request_repaint();
         }
 
@@ -241,21 +243,21 @@ impl QniApp {
             });
             if scroll.abs() > f32::EPSILON {
                 let pointer = ctx.input(|i| i.pointer.hover_pos());
-                let old_zoom = self.state_grid_zoom;
+                let old_zoom = self.state_panel.grid_zoom;
                 let new_zoom = (old_zoom * (scroll * 0.005).exp())
                     .clamp(STATE_GRID_ZOOM_MIN, STATE_GRID_ZOOM_MAX);
                 if (new_zoom - old_zoom).abs() > f32::EPSILON {
                     let anchor = pointer.unwrap_or(viewport_rect.center());
                     let pre_origin = QniApp::grid_origin(
                         state_layout,
-                        self.state_panel_offset,
-                        self.state_grid_offset,
+                        self.state_panel.offset,
+                        self.state_panel.grid_offset,
                     );
                     let from_origin = anchor - pre_origin;
                     let scale = new_zoom / old_zoom;
                     let drift = from_origin * (scale - 1.0);
-                    self.state_grid_zoom = new_zoom;
-                    self.state_grid_offset -= drift;
+                    self.state_panel.grid_zoom = new_zoom;
+                    self.state_panel.grid_offset -= drift;
                     // Layout recomputes next frame with the new zoom;
                     // clamp now to avoid a 1-frame out-of-bounds pan.
                     let zoomed = self.state_panel_layout(screen_rect, state_count);
@@ -285,38 +287,39 @@ impl QniApp {
                 }
             });
             if plain_scroll.abs() > f32::EPSILON {
-                self.aspect_wheel_accum += plain_scroll;
+                self.state_panel.aspect_wheel_accum += plain_scroll;
                 let mut steps: i32 = 0;
-                while self.aspect_wheel_accum >= ASPECT_WHEEL_PER_STEP {
-                    self.aspect_wheel_accum -= ASPECT_WHEEL_PER_STEP;
+                while self.state_panel.aspect_wheel_accum >= ASPECT_WHEEL_PER_STEP {
+                    self.state_panel.aspect_wheel_accum -= ASPECT_WHEEL_PER_STEP;
                     steps -= 1; // positive scroll → taller (cols −1)
                 }
-                while self.aspect_wheel_accum <= -ASPECT_WHEEL_PER_STEP {
-                    self.aspect_wheel_accum += ASPECT_WHEEL_PER_STEP;
+                while self.state_panel.aspect_wheel_accum <= -ASPECT_WHEEL_PER_STEP {
+                    self.state_panel.aspect_wheel_accum += ASPECT_WHEEL_PER_STEP;
                     steps += 1; // negative scroll → wider (cols +1)
                 }
                 if steps != 0 {
-                    let new_aspect =
-                        (self.aspect_index as i32 + steps).clamp(0, aspect_qubits as i32) as usize;
-                    if new_aspect != self.aspect_index {
-                        self.aspect_index = new_aspect;
-                        self.aspect_customized = true;
+                    let new_aspect = (self.state_panel.aspect_index as i32 + steps)
+                        .clamp(0, aspect_qubits as i32)
+                        as usize;
+                    if new_aspect != self.state_panel.aspect_index {
+                        self.state_panel.aspect_index = new_aspect;
+                        self.state_panel.aspect_customized = true;
                         ctx.request_repaint();
                     }
                 }
             } else {
                 // Wheel stopped this frame — drop any sub-step residue
                 // so the next notch starts from zero.
-                self.aspect_wheel_accum = 0.0;
+                self.state_panel.aspect_wheel_accum = 0.0;
             }
             ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
         } else {
             // Pointer left the dims area — discard pending accum so
             // re-entering doesn't fire a stale step.
-            self.aspect_wheel_accum = 0.0;
+            self.state_panel.aspect_wheel_accum = 0.0;
         }
         if dims_resp.clicked() {
-            self.aspect_popover_open = !self.aspect_popover_open;
+            self.state_panel.aspect_popover_open = !self.state_panel.aspect_popover_open;
         }
     }
 
@@ -328,7 +331,7 @@ impl QniApp {
         aspect_qubits: usize,
         dims_hit: egui::Rect,
     ) {
-        if self.aspect_popover_open {
+        if self.state_panel.aspect_popover_open {
             let (popover_rect, row_rects) = QniApp::aspect_popover_layout(dims_hit, aspect_qubits);
             for (i, row_rect) in row_rects.iter().enumerate() {
                 let resp = ui.interact(
@@ -340,9 +343,9 @@ impl QniApp {
                     ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
                 if resp.clicked() {
-                    self.aspect_index = i;
-                    self.aspect_customized = true;
-                    self.aspect_popover_open = false;
+                    self.state_panel.aspect_index = i;
+                    self.state_panel.aspect_customized = true;
+                    self.state_panel.aspect_popover_open = false;
                 }
             }
             // Outside click closes. `any_pressed` catches a click that
@@ -351,13 +354,13 @@ impl QniApp {
             if pressed {
                 if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
                     if !dims_hit.contains(pos) && !popover_rect.contains(pos) {
-                        self.aspect_popover_open = false;
+                        self.state_panel.aspect_popover_open = false;
                     }
                 }
             }
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.aspect_popover_open {
-            self.aspect_popover_open = false;
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.state_panel.aspect_popover_open {
+            self.state_panel.aspect_popover_open = false;
         }
     }
 
@@ -370,14 +373,14 @@ impl QniApp {
         ui: &mut egui::Ui,
         state_layout: &StatePanelLayout,
     ) {
-        self.hovered_resize_corner = None;
+        self.state_panel.hovered_resize_corner = None;
         for corner in [
             ResizeCorner::TopLeft,
             ResizeCorner::TopRight,
             ResizeCorner::BottomLeft,
             ResizeCorner::BottomRight,
         ] {
-            let hit = QniApp::resize_handle_hit_rect(state_layout, self.state_panel_offset, corner);
+            let hit = QniApp::resize_handle_hit_rect(state_layout, self.state_panel.offset, corner);
             let id_label = match corner {
                 ResizeCorner::TopLeft => "state_resize_tl",
                 ResizeCorner::TopRight => "state_resize_tr",
@@ -386,7 +389,7 @@ impl QniApp {
             };
             let resp = ui.interact(hit, egui::Id::new(id_label), egui::Sense::drag());
             if resp.hovered() {
-                self.hovered_resize_corner = Some(corner);
+                self.state_panel.hovered_resize_corner = Some(corner);
             }
             if resp.drag_started() {
                 if let Some(p) = resp.interact_pointer_pos() {
