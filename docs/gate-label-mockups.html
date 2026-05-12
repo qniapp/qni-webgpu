@@ -168,8 +168,11 @@
         flex-shrink: 0;
         font-feature-settings: "ss01", "calt", "tnum";
       }
+      /* 丸ゲート (X / Phase) — icons.rs で circle_filled を使う 2 種類。
+         本体は同じ cyan-400、形だけ円。 */
+      .g.circle { border-radius: 50%; }
 
-      /* dagger / subscript の位置は全案共通。文字サイズだけフォントごとに変える。
+      /* dagger の位置は全案共通。文字サイズだけフォントごとに変える。
          box が 32 px に縮んだので overlay 位置と font-size も比例で詰める。 */
       .g .dag {
         position: absolute;
@@ -177,7 +180,6 @@
         right: 4px;
         line-height: 1;
       }
-      .g .sub  { font-size: 0.55em; margin-left: 0.5px; vertical-align: -0.05em; }
 
       /* ──────────────────────────────────────────
          案ごとに差し替えるのはここから下だけ
@@ -233,10 +235,14 @@
       </p>
       <p>
         差し替えの対象は <strong>文字グリフ 15 個</strong>:
-        <kbd>H</kbd> <kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> <kbd>√X</kbd> <kbd>S</kbd>
+        <kbd>H</kbd> <kbd>+</kbd> <kbd>Y</kbd> <kbd>Z</kbd> <kbd>√X</kbd> <kbd>S</kbd>
         <kbd>S†</kbd> <kbd>T</kbd> <kbd>T†</kbd> <kbd>P</kbd>
-        <kbd>R<sub>x</sub></kbd> <kbd>R<sub>y</sub></kbd> <kbd>R<sub>z</sub></kbd>
+        <kbd>RX</kbd> <kbd>RY</kbd> <kbd>RZ</kbd>
         <kbd>QFT</kbd> <kbd>QFT†</kbd>。
+        ゲートの形は icons.rs と一致させる: <strong>X と P は丸</strong>、それ以外は角丸正方形。
+        X の中身は <code>+</code> (CNOT target の慣習)、P は <code>P</code> 一文字、
+        Rx/Ry/Rz は 32 px ボックスで subscript が読めないので <code>R</code>+大文字
+        <code>X / Y / Z</code> を並べる icons.rs の流派を踏襲。
       </p>
       <p>
         Swap / Control / AntiControl / Bloch 球 / Measurement / Write |0⟩ / Write |1⟩ /
@@ -269,7 +275,7 @@
         <div class="strip">
           <div class="group-label">— Pauli / Hadamard</div>
           <div class="g">H</div>
-          <div class="g">X</div>
+          <div class="g circle">+</div>
           <div class="g">Y</div>
           <div class="g">Z</div>
 
@@ -279,12 +285,12 @@
           <div class="g">S<span class="dag">†</span></div>
           <div class="g">T</div>
           <div class="g">T<span class="dag">†</span></div>
-          <div class="g small">P<span class="sub">θ</span></div>
+          <div class="g circle">P</div>
 
           <div class="group-label">— Rotations</div>
-          <div class="g small">R<span class="sub">x</span></div>
-          <div class="g small">R<span class="sub">y</span></div>
-          <div class="g small">R<span class="sub">z</span></div>
+          <div class="g small">RX</div>
+          <div class="g small">RY</div>
+          <div class="g small">RZ</div>
           <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
@@ -317,7 +323,7 @@
         <div class="strip">
           <div class="group-label">— Pauli / Hadamard</div>
           <div class="g">H</div>
-          <div class="g">X</div>
+          <div class="g circle">+</div>
           <div class="g">Y</div>
           <div class="g">Z</div>
 
@@ -327,12 +333,12 @@
           <div class="g">S<span class="dag">†</span></div>
           <div class="g">T</div>
           <div class="g">T<span class="dag">†</span></div>
-          <div class="g small">P<span class="sub">θ</span></div>
+          <div class="g circle">P</div>
 
           <div class="group-label">— Rotations</div>
-          <div class="g small">R<span class="sub">x</span></div>
-          <div class="g small">R<span class="sub">y</span></div>
-          <div class="g small">R<span class="sub">z</span></div>
+          <div class="g small">RX</div>
+          <div class="g small">RY</div>
+          <div class="g small">RZ</div>
           <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
@@ -366,7 +372,7 @@
         <div class="strip">
           <div class="group-label">— Pauli / Hadamard</div>
           <div class="g">H</div>
-          <div class="g">X</div>
+          <div class="g circle">+</div>
           <div class="g">Y</div>
           <div class="g">Z</div>
 
@@ -376,12 +382,12 @@
           <div class="g">S<span class="dag">†</span></div>
           <div class="g">T</div>
           <div class="g">T<span class="dag">†</span></div>
-          <div class="g small">P<span class="sub">θ</span></div>
+          <div class="g circle">P</div>
 
           <div class="group-label">— Rotations</div>
-          <div class="g small">R<span class="sub">x</span></div>
-          <div class="g small">R<span class="sub">y</span></div>
-          <div class="g small">R<span class="sub">z</span></div>
+          <div class="g small">RX</div>
+          <div class="g small">RY</div>
+          <div class="g small">RZ</div>
           <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
@@ -415,7 +421,7 @@
         <div class="strip">
           <div class="group-label">— Pauli / Hadamard</div>
           <div class="g">H</div>
-          <div class="g">X</div>
+          <div class="g circle">+</div>
           <div class="g">Y</div>
           <div class="g">Z</div>
 
@@ -425,12 +431,12 @@
           <div class="g">S<span class="dag">†</span></div>
           <div class="g">T</div>
           <div class="g">T<span class="dag">†</span></div>
-          <div class="g small">P<span class="sub">θ</span></div>
+          <div class="g circle">P</div>
 
           <div class="group-label">— Rotations</div>
-          <div class="g small">R<span class="sub">x</span></div>
-          <div class="g small">R<span class="sub">y</span></div>
-          <div class="g small">R<span class="sub">z</span></div>
+          <div class="g small">RX</div>
+          <div class="g small">RY</div>
+          <div class="g small">RZ</div>
           <div class="group-label">— QFT family</div>
           <div class="g upright small">QFT</div>
           <div class="g upright small">QFT<span class="dag">†</span></div>
