@@ -237,17 +237,21 @@
         red-600 / blue-600 の Write0 / Write1 ブラケット — すべて Flexoki Light の現行マッピング通り。
       </p>
       <p>
-        差し替えの対象は <kbd>H</kbd> <kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> <kbd>√X</kbd> <kbd>S</kbd>
-        <kbd>S†</kbd> <kbd>T</kbd> <kbd>T†</kbd> <kbd>P</kbd> <kbd>R<sub>x</sub></kbd>
-        <kbd>R<sub>y</sub></kbd> <kbd>R<sub>z</sub></kbd> <kbd>QFT</kbd> <kbd>QFT†</kbd>
-        <kbd>|0⟩</kbd> <kbd>|1⟩</kbd> といった<strong>文字グリフ</strong> だけ。
-        Bloch 球 / Measurement の計器 / Control の点 / AntiControl の白丸 / Swap の × / Spacer の ⋯ は
-        記号 / アイコンで現状の SVG パスをそのまま流用する。
+        差し替えの対象は <strong>文字グリフ 15 個</strong>:
+        <kbd>H</kbd> <kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> <kbd>√X</kbd> <kbd>S</kbd>
+        <kbd>S†</kbd> <kbd>T</kbd> <kbd>T†</kbd> <kbd>P</kbd>
+        <kbd>R<sub>x</sub></kbd> <kbd>R<sub>y</sub></kbd> <kbd>R<sub>z</sub></kbd>
+        <kbd>QFT</kbd> <kbd>QFT†</kbd>。
       </p>
       <p>
-        どの案も同じ chrome の上に同じレイアウトで <strong>23 ゲート全部</strong> を
-        Pauli / Phase &amp; Roots / Rotations / Control / Display &amp; I/O に分けて並べてある。
-        差分はフォント family と weight、わずかな size / letter-spacing 調整のみ。
+        Swap / Control / AntiControl / Bloch 球 / Measurement / Write |0⟩ / Write |1⟩ /
+        Spacer は<strong>グラフィカルに描く</strong>側のゲートなので、ここでは扱わない
+        (それらは現状の SVG ベクター描画のまま)。
+      </p>
+      <p>
+        どの案も同じ chrome の上に同じレイアウトで上記 15 ゲートを
+        Pauli / Phase &amp; Roots / Rotations / QFT family に分けて並べてある。
+        差分はフォント family と weight、わずかな size / letter-spacing の調整のみ。
       </p>
     </header>
 
@@ -279,31 +283,7 @@
           <div class="g small">R<span class="sub">x</span></div>
           <div class="g small">R<span class="sub">y</span></div>
           <div class="g small">R<span class="sub">z</span></div>
-
-          <div class="group-label">— Multi-qubit / Control</div>
-          <div class="g bare">×</div>
-          <div class="g bare">●</div>
-          <div class="g bare">○</div>
-
-          <div class="group-label">— Display / I-O / Misc</div>
-          <div class="g bloch">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g write0 small">|0⟩</div>
-          <div class="g write1 small">|1⟩</div>
-          <div class="g meter">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g bare">⋯</div>
+          <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
         </div>
@@ -351,31 +331,7 @@
           <div class="g small">R<span class="sub">x</span></div>
           <div class="g small">R<span class="sub">y</span></div>
           <div class="g small">R<span class="sub">z</span></div>
-
-          <div class="group-label">— Multi-qubit / Control</div>
-          <div class="g bare">×</div>
-          <div class="g bare">●</div>
-          <div class="g bare">○</div>
-
-          <div class="group-label">— Display / I-O / Misc</div>
-          <div class="g bloch">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g write0 small">|0⟩</div>
-          <div class="g write1 small">|1⟩</div>
-          <div class="g meter">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g bare">⋯</div>
+          <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
         </div>
@@ -424,31 +380,7 @@
           <div class="g small">R<span class="sub">x</span></div>
           <div class="g small">R<span class="sub">y</span></div>
           <div class="g small">R<span class="sub">z</span></div>
-
-          <div class="group-label">— Multi-qubit / Control</div>
-          <div class="g bare">×</div>
-          <div class="g bare">●</div>
-          <div class="g bare">○</div>
-
-          <div class="group-label">— Display / I-O / Misc</div>
-          <div class="g bloch">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g write0 small">|0⟩</div>
-          <div class="g write1 small">|1⟩</div>
-          <div class="g meter">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g bare">⋯</div>
+          <div class="group-label">— QFT family</div>
           <div class="g small">QFT</div>
           <div class="g small">QFT<span class="dag">†</span></div>
         </div>
@@ -497,31 +429,7 @@
           <div class="g small">R<span class="sub">x</span></div>
           <div class="g small">R<span class="sub">y</span></div>
           <div class="g small">R<span class="sub">z</span></div>
-
-          <div class="group-label">— Multi-qubit / Control</div>
-          <div class="g bare upright">×</div>
-          <div class="g bare upright">●</div>
-          <div class="g bare upright">○</div>
-
-          <div class="group-label">— Display / I-O / Misc</div>
-          <div class="g bloch">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".55"/>
-              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g write0 upright small">|0⟩</div>
-          <div class="g write1 upright small">|1⟩</div>
-          <div class="g meter">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
-              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="g bare upright">⋯</div>
+          <div class="group-label">— QFT family</div>
           <div class="g upright small">QFT</div>
           <div class="g upright small">QFT<span class="dag">†</span></div>
         </div>
