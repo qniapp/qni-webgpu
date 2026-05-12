@@ -23,12 +23,19 @@ cd apps/tui
 cargo test
 ```
 
-## 依存関係チェック
+## 依存関係 / Snapshot チェック
 
 事前にインストール:
 
 ```
-cargo install cargo-audit cargo-deny
+cargo install cargo-audit cargo-deny cargo-insta
+```
+
+未承認 snapshot 確認:
+
+```
+cd apps/tui
+cargo insta pending-snapshots
 ```
 
 脆弱性チェック:

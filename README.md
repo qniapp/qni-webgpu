@@ -18,6 +18,12 @@ cargo run
 
 ## Rust（TUI）チェック
 
+初回のみ:
+
+```
+cargo install cargo-audit cargo-deny cargo-insta
+```
+
 ```
 cd apps/tui
 cargo fmt
@@ -27,10 +33,11 @@ cargo test
 
 詳細は `docs/rust.md` を参照。
 
-依存関係チェック:
+依存関係 / snapshot チェック:
 
 ```
 cd apps/tui
+cargo insta pending-snapshots
 cargo audit
 cargo deny check --config ../../deny.toml
 ```
@@ -107,7 +114,7 @@ legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.ts` の Play
 - `apps/egui-web` で `pnpm run test:bdd`（Cucumber BDD）
 - `apps/egui-web` で `pnpm run test:pw-legacy`（legacy Playwright）
 - `apps/mcp-qni` で `pnpm check`
-- ルートで `make check`（TUI 向け）
+- ルートで `make check`（TUI fmt / clippy / test / snapshot / audit / deny）
 
 ## MCP サーバ（Qni）
 

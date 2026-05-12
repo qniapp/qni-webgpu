@@ -166,10 +166,10 @@ jobs:
             apps/tui
           cache-directories: ~/.cargo/advisory-db
 
-      - name: Install cargo audit/deny
+      - name: Install cargo audit/deny/insta
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-audit,cargo-deny
+          tool: cargo-audit,cargo-deny,cargo-insta
 
       - name: TUI check
         run: make check
