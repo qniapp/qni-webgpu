@@ -17,6 +17,7 @@ mod digit_atlas;
 mod params;
 mod popup_glyph_atlas;
 mod readback;
+mod recompute;
 mod resources;
 mod shaders;
 

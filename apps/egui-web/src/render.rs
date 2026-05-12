@@ -8,6 +8,9 @@
 //! Nothing else lives here.
 
 mod circuit;
+mod circuit_connectors;
+mod circuit_gates;
+mod circuit_palette;
 mod state_panel_draw;
 mod state_panel_layout;
 

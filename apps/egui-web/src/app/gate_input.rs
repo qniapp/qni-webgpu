@@ -7,8 +7,9 @@ use std::time::Duration;
 use super::{DragState, PlacedGate, QftResizeDrag, QniApp};
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR,
-    GATE_SIZE, LINE_GAP, PALETTE_GATES, PALETTE_ROW_Y, QFT_MAX_SPAN, SLOT_SPACING, SNAP_DISTANCE,
+    GATE_SIZE, LINE_GAP, PALETTE_ROW_Y, QFT_MAX_SPAN, SLOT_SPACING, SNAP_DISTANCE,
 };
+use crate::gates::PALETTE_GATES;
 use crate::layout::{
     gate_visible_rect, layout_metrics, nearest_available_slot, nearest_line, nearest_slot_index,
     palette_hit_test, palette_layout, qft_resize_handle_rect, LayoutMetrics,

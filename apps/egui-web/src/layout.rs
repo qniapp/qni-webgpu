@@ -2,10 +2,10 @@ use eframe::egui;
 
 use crate::app::PlacedGate;
 use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, PALETTE_GAP, PALETTE_GATES,
-    PALETTE_ROW1_COUNT, PALETTE_ROW_GAP, PALETTE_SIZE, QFT_RESIZE_HANDLE_HEIGHT,
-    QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
+    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, PALETTE_GAP, PALETTE_ROW_GAP,
+    PALETTE_SIZE, QFT_RESIZE_HANDLE_HEIGHT, QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
 };
+use crate::gates::{PALETTE_GATES, PALETTE_ROW1_COUNT};
 
 /// Visible rect of a placed gate, accounting for the multi-qubit
 /// `span` of QFT-family gates. Single-qubit gates get `GATE_SIZE` ×

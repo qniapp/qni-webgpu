@@ -1,5 +1,3 @@
-use crate::gates::GateKind;
-
 pub(crate) const REM: f32 = 32.0;
 pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
@@ -147,36 +145,3 @@ pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
 pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
 pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
 pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
-
-// Two-row layout. Row 1 holds the unitary single-qubit gates; row 2 holds the
-// special-purpose gates (SWAP/Control/AntiControl/Bloch/|0>/|1>/Measurement/
-// Spacer/QFT/QFT†). Indices remain a flat list so callers can look up a gate
-// without branching.
-pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 23] = [
-    // Row 1
-    GateKind::H,
-    GateKind::X,
-    GateKind::Y,
-    GateKind::Z,
-    GateKind::SqrtX,
-    GateKind::S,
-    GateKind::SDagger,
-    GateKind::T,
-    GateKind::TDagger,
-    GateKind::Phase,
-    GateKind::Rx,
-    GateKind::Ry,
-    GateKind::Rz,
-    // Row 2
-    GateKind::Swap,
-    GateKind::Control,
-    GateKind::AntiControl,
-    GateKind::BlochDisplay,
-    GateKind::Write0,
-    GateKind::Write1,
-    GateKind::Measurement,
-    GateKind::Spacer,
-    GateKind::QftGate,
-    GateKind::QftDaggerGate,
-];

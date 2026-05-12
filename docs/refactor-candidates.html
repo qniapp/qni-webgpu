@@ -667,7 +667,7 @@
           <div class="metric"><b>11</b><span>候補カテゴリ</span></div>
           <div class="metric"><b>6</b><span>Qni から取り込む観点</span></div>
           <div class="metric"><b>3</b><span>P0 / 先に直す</span></div>
-          <div class="metric"><b>3</b><span>今回着手した P0</span></div>
+          <div class="metric"><b>6</b><span>着手済み候補</span></div>
         </div>
       </header>
 
@@ -786,7 +786,7 @@
           <article class="candidate medium">
             <div class="topline"><span class="rank">C-04</span><span class="badge">P1 state</span></div>
             <h3><code>QniApp</code> を状態別に分割</h3>
-            <p>circuit state、drag、state panel、GPU plan、HUD が一つの struct に集まる。Qni は Circuit / Step / Dropzone / Operation の境界で責務を割っている。</p>
+            <p>circuit state、drag、state panel、GPU plan、HUD が一つの struct に集まる。Qni は Circuit / Step / Dropzone / Operation の境界で責務を割っている。<strong>進捗:</strong> <code>app/circuit_model.rs</code> へ semantic grid と compaction を抽出済み。</p>
             <ul><li><code>CircuitModel</code></li><li><code>DragController</code></li><li><code>StatePanelState</code></li><li><code>GpuPlanState</code></li><li>Qni: element 境界は参考、DOM 依存は取り込まない</li></ul>
             <div class="file-list"><span class="file-chip">app.rs</span><span class="file-chip">app/*.rs</span></div>
           </article>
@@ -794,7 +794,7 @@
           <article class="candidate medium">
             <div class="topline"><span class="rank">C-05</span><span class="badge">P1 functions</span></div>
             <h3>巨大関数を責務単位に分割</h3>
-            <p>描画・入力・GPU prepare が長く、局所変更でも広範囲レビューになる。Qni の SNAP / UNSNAP / DROP / RESIZE イベント分割を、Rust の enum 状態遷移として採用する。</p>
+            <p>描画・入力・GPU prepare が長く、局所変更でも広範囲レビューになる。Qni の SNAP / UNSNAP / DROP / RESIZE イベント分割を、Rust の enum 状態遷移として採用する。<strong>進捗:</strong> circuit 描画と recompute encoder は責務別ファイルへ分割済み。</p>
             <ul><li>connector drawing</li><li>drop commit</li><li>op packing</li><li>dispatch encoding</li><li>Qni: <code>DraggableMixin</code> / <code>CircuitDropzoneElement</code></li></ul>
             <div class="file-list"><span class="file-chip">render/circuit.rs</span><span class="file-chip">app/gate_input.rs</span><span class="file-chip">gpu/callbacks.rs</span><span class="file-chip">state_panel_draw.rs</span></div>
           </article>
@@ -802,7 +802,7 @@
           <article class="candidate medium">
             <div class="topline"><span class="rank">C-06</span><span class="badge">P1 registry</span></div>
             <h3>Gate 定義を中央 registry 化</h3>
-            <p>label / palette order / URL token / icon / matrix / tooltip / linearize が別ファイルに分散。Qni の <code>operationType</code> / <code>toJson</code> は参考にしつつ、instanceof union 羅列は避ける。</p>
+            <p>label / palette order / URL token / icon / matrix / tooltip / linearize が別ファイルに分散。Qni の <code>operationType</code> / <code>toJson</code> は参考にしつつ、instanceof union 羅列は避ける。<strong>進捗:</strong> <code>GateSpec</code> で label / URL token / palette / resizable を中央化し、tooltip と params を分離済み。</p>
             <ul><li><code>GateSpec</code> を導入</li><li>新 gate 追加時の編集箇所を削減</li><li>Qni: per-gate element の metadata 発想だけ採用</li></ul>
             <div class="file-list"><span class="file-chip">gates.rs</span><span class="file-chip">constants.rs</span><span class="file-chip">icons.rs</span><span class="file-chip">url_circuit.rs</span><span class="file-chip">bloch.rs</span></div>
           </article>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 現作業ツリーには既存の未コミット変更と画像アーティファクトが多数あり。監査後の今回パスで C-01 / C-02 / C-03 に着手し、egui-web の Rust と docs を更新した。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 現作業ツリーには既存の未コミット変更と画像アーティファクトが多数あり。監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 に着手し、egui-web の Rust と docs を更新した。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>

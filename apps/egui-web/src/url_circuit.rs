@@ -111,30 +111,15 @@ pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -
 /// default") emits the bare `"P"` token, matching qni's editor
 /// placeholder.
 fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String> {
+    let spec = kind.spec();
     let s = match kind {
-        GateKind::H => "H".to_string(),
-        GateKind::X => "X".to_string(),
-        GateKind::Y => "Y".to_string(),
-        GateKind::Z => "Z".to_string(),
-        GateKind::S => "S".to_string(),
-        GateKind::SDagger => "S†".to_string(),
-        GateKind::T => "T".to_string(),
-        GateKind::TDagger => "T†".to_string(),
-        GateKind::SqrtX => "X^½".to_string(),
-        GateKind::Phase => format_parametric("P", angle),
-        GateKind::Rx => format_parametric("Rx", angle),
-        GateKind::Ry => format_parametric("Ry", angle),
-        GateKind::Rz => format_parametric("Rz", angle),
-        GateKind::Swap => "Swap".to_string(),
-        GateKind::Control => "•".to_string(),
-        GateKind::AntiControl => "◦".to_string(),
-        GateKind::Measurement => "Measure".to_string(),
-        GateKind::BlochDisplay => "Bloch".to_string(),
-        GateKind::Write0 => "|0>".to_string(),
-        GateKind::Write1 => "|1>".to_string(),
-        GateKind::Spacer => "…".to_string(),
-        GateKind::QftGate => format!("QFT{}", span.max(1)),
-        GateKind::QftDaggerGate => format!("QFT†{}", span.max(1)),
+        GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => {
+            format_parametric(spec.url_token, angle)
+        }
+        GateKind::QftGate | GateKind::QftDaggerGate => {
+            format!("{}{}", spec.url_token, span.max(1))
+        }
+        _ => spec.url_token.to_string(),
     };
     Some(s)
 }
@@ -364,31 +349,7 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
             }
         }
     }
-    let kind = match token {
-        "H" => GateKind::H,
-        "X" => GateKind::X,
-        "Y" => GateKind::Y,
-        "Z" => GateKind::Z,
-        "S" => GateKind::S,
-        "S†" => GateKind::SDagger,
-        "T" => GateKind::T,
-        "T†" => GateKind::TDagger,
-        "X^½" => GateKind::SqrtX,
-        "Rx" => GateKind::Rx,
-        "Ry" => GateKind::Ry,
-        "Rz" => GateKind::Rz,
-        "P" => GateKind::Phase,
-        "Swap" => GateKind::Swap,
-        "•" => GateKind::Control,
-        "◦" => GateKind::AntiControl,
-        "Measure" => GateKind::Measurement,
-        "Bloch" => GateKind::BlochDisplay,
-        "|0>" => GateKind::Write0,
-        "|1>" => GateKind::Write1,
-        "…" => GateKind::Spacer,
-        _ => return None,
-    };
-    Some((kind, 1, None))
+    GateKind::from_url_token(token).map(|kind| (kind, 1, None))
 }
 
 /// Assign sequential ids starting from 1 and return the next available
