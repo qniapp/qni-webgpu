@@ -794,8 +794,8 @@
           <article class="candidate medium">
             <div class="topline"><span class="rank">C-05</span><span class="badge">P1 functions</span></div>
             <h3>巨大関数を責務単位に分割</h3>
-            <p>描画・入力・GPU prepare が長く、局所変更でも広範囲レビューになる。Qni の SNAP / UNSNAP / DROP / RESIZE イベント分割を、Rust の enum 状態遷移として採用する。<strong>進捗:</strong> circuit 描画、state panel chrome/popup、recompute encoder、WGSL shader source、DragController は責務別ファイルへ分割済み。</p>
-            <ul><li>connector drawing</li><li>drop commit state machine</li><li>op packing</li><li>dispatch encoding</li><li>shader source ownership</li><li>Qni: <code>DraggableMixin</code> / <code>CircuitDropzoneElement</code></li></ul>
+            <p>描画・入力・GPU prepare が長く、局所変更でも広範囲レビューになる。Qni の SNAP / UNSNAP / DROP / RESIZE イベント分割を、Rust の enum 状態遷移として採用する。<strong>進捗:</strong> circuit 描画、state panel chrome/popup、recompute encoder、WGSL shader source、DragController、update flow coordinator は責務別ファイルへ分割済み。</p>
+            <ul><li>connector drawing</li><li>drop commit state machine</li><li>update flow order</li><li>op packing</li><li>dispatch encoding</li><li>shader source ownership</li><li>Qni: <code>DraggableMixin</code> / <code>CircuitDropzoneElement</code></li></ul>
             <div class="file-list"><span class="file-chip">render/circuit.rs</span><span class="file-chip">app/gate_input.rs</span><span class="file-chip">gpu/callbacks.rs</span><span class="file-chip">state_panel_draw.rs</span></div>
           </article>
 
@@ -865,7 +865,7 @@
                 <tr><td>C-02 GPU caps</td><td><span class="status p0">P0</span></td><td>release で capacity 超過が静かに壊れる</td><td><code>RecomputePlan::validate</code> or dynamic resize。Qni の max gate 制約を参考</td><td>既存回路の上限変更</td><td>unit test + large circuit smoke</td></tr>
                 <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>実装に合わせて削除・更新</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
                 <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller + state panel state は抽出済み。残は GPU plan state</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
-                <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>circuit / state panel / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
+                <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>update flow / circuit / state panel / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
                 <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata + icon drawing split 済み</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
                 <tr><td>C-07 CPU islands</td><td><span class="status p2">P2</span></td><td>TUI/MCP が CPU simulation</td><td>境界を docs 化 or GPU 経路統合</td><td>scope が大きい</td><td>TUI tests + MCP tests</td></tr>
                 <tr><td>C-08 TUI split</td><td><span class="status p2">P2</span></td><td>500行超ファイル複数</td><td>renderer/model/tests 分割</td><td>snapshot 差分</td><td>cargo test + insta review</td></tr>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> / <code>app/state_panel_state.rs</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag state machine / state panel state / icon drawing / URL codec responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> / <code>app/state_panel_state.rs</code> / <code>app/update_flow.rs</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag state machine / state panel state / update coordinator / icon drawing / URL codec responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>
