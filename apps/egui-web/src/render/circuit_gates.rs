@@ -50,6 +50,8 @@ impl QniApp {
                 circuit_origin + gate.pos.to_vec2(),
                 egui::vec2(GATE_SIZE, gate_height),
             );
+            let measurement_has_slot =
+                gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
             if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = gate_rect.expand(4.0);
                 let hover_inner = gate_rect.expand(2.0);
@@ -69,7 +71,14 @@ impl QniApp {
                 let circuit_fill = painter.ctx().style().visuals.panel_fill;
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
-            draw_gate_body(painter, gate_rect, gate.kind, colors);
+            if measurement_has_slot {
+                // Repaint the meter in the same neutral tone as the wire after
+                // masking the wire gap. Draw it once (instead of purple then
+                // neutral) so anti-aliased edges do not leak the palette colour.
+                draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
+            } else {
+                draw_gate_body(painter, gate_rect, gate.kind, colors);
+            }
             // QFT family: the bottom-edge resize handle appears on hover
             // (or while actively being resized). Drawn on top of the body.
             if gate.kind.is_resizable_span()
@@ -85,13 +94,6 @@ impl QniApp {
                 };
                 let handle_rect = qft_resize_handle_rect(gate_rect);
                 draw_qft_resize_handle(painter, handle_rect, bg);
-            }
-            if gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id) {
-                // Repaint the meter in zinc-200 ("fired" appearance per qni's
-                // `measurement_gate.css`). The GPU `MeasurementDigitCallback`
-                // overlays the colored 0/1 digit directly from
-                // `measurement_aux_buffer.z` — no CPU readback.
-                draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
             }
             if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
