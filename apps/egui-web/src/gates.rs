@@ -31,7 +31,7 @@ pub(crate) enum GateKind {
 }
 
 mod info;
-pub(crate) use info::Amp;
+pub(crate) use info::{Amp, GateInfo};
 mod params;
 pub(crate) use params::{
     controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
