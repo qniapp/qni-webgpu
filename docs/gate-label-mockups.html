@@ -129,14 +129,15 @@
       .variant .ref:hover { text-decoration: underline; }
 
       /* ─────── shared chrome — 全案共通 ───────
-         実アプリの GATE_SIZE = 32 px を 1.5 倍して 48 px で見せる。
-         色も chrome も Flexoki トークンに準拠した <strong>現状の見た目を一切変えない</strong> 前提。
+         実アプリの GATE_SIZE = 32 px, corner-radius 6 px,
+         PALETTE_GAP = 8 px を <strong>そのまま</strong> 採用。
+         色も chrome も Flexoki トークンに準拠した現状の見た目を変えない前提。
          案ごとに差し替わるのはフォント family / weight / size / letter-spacing のみ。 */
       .strip {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        padding: 24px 16px;
+        gap: 8px; /* PALETTE_GAP */
+        padding: 16px 14px;
         background: var(--bg-2);
         border-radius: 8px;
         align-items: flex-start;
@@ -148,18 +149,18 @@
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--tx-3);
-        margin: 12px 4px 4px;
+        margin: 8px 2px 2px;
       }
       .strip .group-label:first-child { margin-top: 0; }
 
       /* 共通 gate-body — Pauli / Hadamard / Phase / Rotation 系 (ユニタリ箱)。
-         qni と同じ cyan-400 角丸、paper 文字。回転系も同じ箱で塗りは変えない。 */
+         qni と同じ cyan-400 角丸、paper 文字。GATE_SIZE 32 px / radius 6 px は実機と完全一致。 */
       .g {
-        width: 48px;
-        height: 48px;
+        width: 32px;   /* GATE_SIZE */
+        height: 32px;
         background: var(--cyan-400);
         color: var(--paper);
-        border-radius: 8px;
+        border-radius: 6px; /* icons.rs::draw_gate_body と同じ */
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -167,51 +168,45 @@
         flex-shrink: 0;
         font-feature-settings: "ss01", "calt", "tnum";
       }
-      /* control / swap / spacer は qni と同じく塗らず、tx-2 のアウトラインアイコン。 */
-      .g.bare {
-        background: transparent;
-        color: var(--tx-2);
-      }
-      /* Bloch は薄塗り + 線。Measurement は paper bg + 紫アイコン (現行どおり)。*/
-      .g.bloch    { background: transparent; color: var(--tx-2); }
-      .g.meter    { background: var(--paper); color: var(--purple-600); border: 1px solid var(--ui-2); }
-      .g.write0   { background: var(--paper); color: var(--red-600);    border: 1px solid var(--ui-2); }
-      .g.write1   { background: var(--paper); color: var(--blue-600);   border: 1px solid var(--ui-2); }
 
-      /* dagger / subscript の位置は全案共通。文字サイズだけフォントごとに変える。 */
+      /* dagger / subscript の位置は全案共通。文字サイズだけフォントごとに変える。
+         box が 32 px に縮んだので overlay 位置と font-size も比例で詰める。 */
       .g .dag {
         position: absolute;
-        top: 7px;
-        right: 8px;
+        top: 3px;
+        right: 4px;
         line-height: 1;
       }
-      .g .sub  { font-size: 0.6em; margin-left: 1px; vertical-align: -0.05em; }
-      .icon-svg { width: 24px; height: 24px; }
+      .g .sub  { font-size: 0.55em; margin-left: 0.5px; vertical-align: -0.05em; }
 
       /* ──────────────────────────────────────────
          案ごとに差し替えるのはここから下だけ
          ────────────────────────────────────────── */
 
+      /* 全案で 32 px ボックスに対する <strong>実寸</strong> のフォントサイズ。
+         sans 系は ~14 px / serif italic は baseline 補正で ~16 px が読める下限。
+         "small" は QFT/Rx/Ry/Rz/P 等の 2 字以上ラベル用に 1〜2 px 詰めたもの。 */
+
       /* A: JetBrains Mono 700 */
-      .v-a .g { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 20px; letter-spacing: -0.02em; }
-      .v-a .g.small { font-size: 15px; }
-      .v-a .g .dag  { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; }
+      .v-a .g { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 14px; letter-spacing: -0.02em; }
+      .v-a .g.small { font-size: 10px; }
+      .v-a .g .dag  { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 8px; }
 
       /* B: Inter 800 (UI 標準) */
-      .v-b .g { font-family: 'Inter', system-ui, sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
-      .v-b .g.small { font-size: 14px; font-weight: 700; }
-      .v-b .g .dag  { font-weight: 700; font-size: 12px; }
+      .v-b .g { font-family: 'Inter', system-ui, sans-serif; font-weight: 800; font-size: 14px; letter-spacing: -0.02em; }
+      .v-b .g.small { font-size: 10px; font-weight: 700; }
+      .v-b .g .dag  { font-weight: 700; font-size: 8px; }
 
       /* C: Geist 700 (Vercel) */
-      .v-c .g { font-family: 'Geist', system-ui, sans-serif; font-weight: 700; font-size: 21px; letter-spacing: -0.02em; }
-      .v-c .g.small { font-size: 14px; }
-      .v-c .g .dag  { font-weight: 600; font-size: 12px; }
+      .v-c .g { font-family: 'Geist', system-ui, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
+      .v-c .g.small { font-size: 10px; }
+      .v-c .g .dag  { font-weight: 600; font-size: 8px; }
 
       /* D: Newsreader Italic 700 + STIX Two Text */
-      .v-d .g { font-family: 'STIX Two Text', 'Newsreader', 'Times New Roman', serif; font-style: italic; font-weight: 700; font-size: 24px; letter-spacing: 0; }
-      .v-d .g.small  { font-size: 17px; }
+      .v-d .g { font-family: 'STIX Two Text', 'Newsreader', 'Times New Roman', serif; font-style: italic; font-weight: 700; font-size: 17px; letter-spacing: 0; }
+      .v-d .g.small  { font-size: 12px; }
       .v-d .g.upright{ font-style: normal; font-family: 'Newsreader', serif; }
-      .v-d .g .dag   { font-style: normal; font-weight: 700; font-size: 13px; }
+      .v-d .g .dag   { font-style: normal; font-weight: 700; font-size: 9px; top: 2px; right: 3px; }
 
       footer.page {
         max-width: 1200px;
@@ -252,6 +247,13 @@
         どの案も同じ chrome の上に同じレイアウトで上記 15 ゲートを
         Pauli / Phase &amp; Roots / Rotations / QFT family に分けて並べてある。
         差分はフォント family と weight、わずかな size / letter-spacing の調整のみ。
+      </p>
+      <p>
+        <strong>サイズは実アプリと完全一致</strong>:
+        <code>GATE_SIZE = 32 px</code> ・ corner radius <code>6 px</code> ・
+        <code>PALETTE_GAP = 8 px</code>。
+        モニタ越しに見えるそのまま (DPR 100%) が、回路に配置されたときのゲートの
+        実寸サイズなので、視認性 / 字面の潰れ / 縦棒の細さ等を直接判断できる。
       </p>
     </header>
 
