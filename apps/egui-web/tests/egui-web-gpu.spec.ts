@@ -155,8 +155,8 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
     { name: 'measurement_gap_left', x: measureX - 20, y: wireCenterY },
     { name: 'measurement_wire_left', x: measureX - 24, y: wireCenterY },
     { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
-    { name: 'bloch_tip_inside_sphere', x: blochX, y: wireCenterY + 12 },
-    { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 16 },
+    { name: 'bloch_tip_on_sphere', x: blochX, y: wireCenterY + 15 },
+    { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 21 },
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
@@ -168,7 +168,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   expect(isCircuitBackground(samples.measurement_gap_left)).toBe(true)
   expect(isWireLine(samples.measurement_wire_left)).toBe(true)
   expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_on_sphere)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)
 
   const box = await canvas.boundingBox()
@@ -218,8 +218,8 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   const samples = await sampleCanvasPixels(page, canvas, [
     { name: 'measurement_digit_too_high', x: overlayX, y: wireCenterY(0) - 12 },
     { name: 'measurement_digit_on_wire', x: overlayX, y: wireCenterY(0) },
-    { name: 'bloch_tip_inside_sphere', x: overlayX, y: wireCenterY(2) - 14 },
-    { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 24 },
+    { name: 'bloch_tip_on_sphere', x: overlayX, y: wireCenterY(2) - 15 },
+    { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 21 },
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
@@ -227,7 +227,7 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
 
   expect(isOutcomeBlue(samples.measurement_digit_too_high)).toBe(false)
   expect(isOutcomeBlue(samples.measurement_digit_on_wire)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_on_sphere)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_too_high)).toBe(false)
 })
 

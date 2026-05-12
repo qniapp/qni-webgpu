@@ -13,10 +13,8 @@ use crate::gpu::{
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_qft_resize_handle};
 use crate::layout::qft_resize_handle_rect;
 
-// qni's Bloch vector tip is a 6px dot. Keep the dot's centre inset by its
-// radius so the needle reads as attached to the sphere rather than floating
-// outside the outline at ±Z.
-const BLOCH_VECTOR_TIP_RADIUS: f32 = 3.0;
+// qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
+// circumference for ±Z states; the dot itself may extend slightly outside.
 // Font-rasterisation baseline correction for the GPU atlas: keep the visible
 // digit's vertical centre on the wire, matching qni's flex-centred value layer.
 const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
@@ -148,12 +146,11 @@ impl QniApp {
                 );
                 let center = gate_rect.center();
                 let sphere_radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
-                let vector_radius = (sphere_radius - BLOCH_VECTOR_TIP_RADIUS).max(0.0);
                 // 4px slack covers the 3px tip dot + 1px AA fringe.
                 let outer = sphere_radius + 4.0;
                 Some(BlochOverlayInstance {
                     center: [center.x, center.y],
-                    radius: vector_radius,
+                    radius: sphere_radius,
                     outer,
                     slot,
                 })
