@@ -1,0 +1,173 @@
+import { expect, test } from '@playwright/test'
+import {
+  assertDragPreviewAboveOverlay,
+  chromium,
+  dragPointer,
+  getDragPreviewAboveStatePanelProbe,
+  getPaletteGateCenter,
+  getPlainChromiumLaunchOptions,
+  getWebServerConfig,
+  isDragPreviewFill,
+  isGateBodyFill,
+  isRegularGateFill,
+  pixelRgbDistance,
+  readEguiError,
+  readMeasurementOutcomes,
+  readStateVector,
+  releasePointer,
+  sampleCanvasPixels,
+  waitForAppReady,
+  waitForBlochVectorsApprox,
+  waitForCanvasContent,
+  waitForStartupReady,
+  waitForStateVectorApprox,
+  waitForStateVectorLength,
+  type CanvasPixel,
+  type CircularBodySignature,
+  type PixelSamplePoint,
+  type Point,
+} from './support/egui-web-spec-helpers'
+
+test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page }) => {
+  // Specifically targets the GPU per-gate compute path: a circuit with no
+  // measurements should be simulated entirely by the WGSL `STATE_COMPUTE_SHADER`
+  // dispatched once per linearised GateParams. We assert against the textbook
+  // amplitudes for H q0 → CNOT(q0, q1) → Z q0 → H q0 (Bell-like prep with a
+  // phase flip), which exercises matrix multiply + control mask + sign flip in
+  // a single dispatch chain.
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const LINE_GAP = 1.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const zSource = getPaletteGateCenter(cssWidth, 3)
+  const controlSource = getPaletteGateCenter(cssWidth, 14)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetX3 = targetX2 + SLOT_SPACING
+  const targetX4 = targetX3 + SLOT_SPACING
+  const targetY0 = LINE_Y
+  const targetY1 = LINE_Y + LINE_GAP
+
+  // H q0
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
+  // CNOT(q0, q1) — control q0 + X q1 in slot 1
+  await dragPointer(page, controlSource, { x: targetX2, y: targetY0 })
+  await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
+  // Z q0 in slot 2
+  await dragPointer(page, zSource, { x: targetX3, y: targetY0 })
+  // H q0 in slot 3
+  await dragPointer(page, hSource, { x: targetX4, y: targetY0 })
+
+  // After H q0: (|00⟩+|10⟩)/√2 → CNOT: (|00⟩+|11⟩)/√2 → Z q0: (|00⟩-|11⟩)/√2
+  // → H q0: (|00⟩-|01⟩+|10⟩+|11⟩)/2 (state index n = 2·q0 + q1; q0 is MSB).
+  const half = 0.5
+  await waitForStateVectorApprox(page, [half, 0, -half, 0, half, 0, half, 0])
+})
+
+test('GPU bloch reduction captures the textbook vectors per qubit', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const LINE_GAP = 1.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const blochSource = getPaletteGateCenter(cssWidth, 16)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY0 = LINE_Y
+  const targetY1 = LINE_Y + LINE_GAP
+
+  // q0: H placed first → |+⟩ → bloch should report +x.
+  await dragPointer(page, hSource, { x: targetX, y: targetY0 })
+  await dragPointer(page, blochSource, { x: targetX2, y: targetY0 })
+  // q1: X placed first → |1⟩ → bloch should report -z.
+  await dragPointer(page, xSource, { x: targetX, y: targetY1 })
+  await dragPointer(page, blochSource, { x: targetX2, y: targetY1 })
+
+  await waitForBlochVectorsApprox(page, [
+    [1, 0, 0],
+    [0, 0, -1],
+  ])
+})
+
+test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const measureSource = getPaletteGateCenter(cssWidth, 19)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const targetY = LINE_Y
+
+  await dragPointer(page, xSource, { x: targetX, y: targetY })
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+  await dragPointer(page, measureSource, { x: targetX2, y: targetY })
+
+  // pZero is exactly 0 because q0 = |1⟩, so the GPU sample and collapse must
+  // converge on outcome=1 and a state of |1⟩ (the same amplitude as before
+  // collapse, just normalized).
+  await expect
+    .poll(async () => {
+      const outcomes = await readMeasurementOutcomes(page)
+      if (outcomes.length !== 1) {
+        return false
+      }
+      return outcomes[0].outcome === 1
+    }, { timeout: 5000 })
+    .toBe(true)
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+})

@@ -1,0 +1,115 @@
+import { expect } from '@playwright/test'
+import { chromium } from 'playwright'
+import type { Page } from 'playwright'
+import { assertDragPreviewAboveOverlay } from '../../features/support/assertions'
+import {
+  dragPointer,
+  getDragPreviewAboveStatePanelProbe,
+  getPaletteGateCenter,
+  readBlochVectors,
+  readEguiError,
+  readMeasurementOutcomes,
+  readStateVector,
+  releasePointer,
+  sampleCanvasPixels,
+  waitForAppReady,
+  waitForCanvasContent,
+  waitForStartupReady,
+} from '../../features/support/egui-helpers'
+import type { BlochEntry } from '../../features/support/egui-helpers'
+import type { CanvasPixel, PixelSamplePoint, Point } from '../../features/support/support-types'
+import { getPlainChromiumLaunchOptions } from '../../test-support/browser-launch'
+import { getWebServerConfig } from '../../test-support/web-server'
+
+export {
+  assertDragPreviewAboveOverlay,
+  chromium,
+  dragPointer,
+  getDragPreviewAboveStatePanelProbe,
+  getPaletteGateCenter,
+  getPlainChromiumLaunchOptions,
+  getWebServerConfig,
+  readEguiError,
+  readMeasurementOutcomes,
+  readStateVector,
+  releasePointer,
+  sampleCanvasPixels,
+  waitForAppReady,
+  waitForCanvasContent,
+  waitForStartupReady,
+}
+export type { CanvasPixel, PixelSamplePoint, Point }
+
+export type CircularBodySignature = {
+  count: number
+  width: number
+  height: number
+  samples: Record<string, CanvasPixel>
+}
+
+// Flexoki purple-600 — drag preview / semantic-intermediate fill.
+export const DRAG_PREVIEW_FILL: CanvasPixel = [94, 64, 157, 255]
+
+export const pixelRgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
+  [0, 1, 2].reduce((total, channel) => total + Math.abs(left[channel] - right[channel]), 0)
+
+export const isDragPreviewFill = (pixel: CanvasPixel): boolean =>
+  pixelRgbDistance(pixel, DRAG_PREVIEW_FILL) <= 80
+
+export const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
+  r >= 35 && r <= 130 && g >= 120 && g <= 210 && b >= 100 && b <= 190
+
+export const isGateBodyFill = (pixel: CanvasPixel): boolean =>
+  isRegularGateFill(pixel) || isDragPreviewFill(pixel)
+
+export const waitForStateVectorLength = async (
+  page: Page,
+  length: number,
+  timeout = 5000
+): Promise<void> => {
+  await expect
+    .poll(async () => (await readStateVector(page)).length, { timeout })
+    .toBe(length)
+}
+
+export const waitForStateVectorApprox = async (
+  page: Page,
+  expected: number[],
+  timeout = 5000,
+  tolerance = 1e-3
+): Promise<void> => {
+  await expect
+    .poll(async () => {
+      const actual = await readStateVector(page) as number[]
+      if (actual.length !== expected.length) {
+        return false
+      }
+      return expected.every((value, index) => Math.abs(actual[index] - value) < tolerance)
+    }, { timeout })
+    .toBe(true)
+}
+
+export const waitForBlochVectorsApprox = async (
+  page: Page,
+  expected: Array<[number, number, number]>,
+  timeout = 5000,
+  tolerance = 1e-3
+): Promise<void> => {
+  await expect
+    .poll(async () => {
+      const entries = await readBlochVectors(page)
+      if (entries.length !== expected.length) {
+        return false
+      }
+      const sortedEntries = [...entries].sort((a: BlochEntry, b: BlochEntry) => a.gateId - b.gateId)
+      return expected.every(([x, y, z], index) => {
+        const e = sortedEntries[index]
+        return (
+          Math.abs(e.x - x) < tolerance &&
+          Math.abs(e.y - y) < tolerance &&
+          Math.abs(e.z - z) < tolerance
+        )
+      })
+    }, { timeout })
+    .toBe(true)
+}
