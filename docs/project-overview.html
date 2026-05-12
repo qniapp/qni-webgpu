@@ -339,6 +339,43 @@
   .perf .item code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; color: var(--text); }
   .perf .item .meta { color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; }
 
+  /* Jargon glossary card (§06 intro) */
+  .jargon {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 20px 24px 24px;
+    margin-bottom: 24px;
+  }
+  .jargon-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+  .jargon-list {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 14px 24px;
+    margin: 0;
+  }
+  .jargon-list dt {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin: 0;
+  }
+  .jargon-list dd {
+    font-size: 13px;
+    color: var(--text-mid);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .jargon-list dd em { font-style: italic; color: var(--text); }
+  .jargon-list dd code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; font-size: 11px; color: var(--text); }
+
   /* Glyph atlas strip + pipeline diagram */
   .atlas {
     border: 1px solid var(--line);
@@ -852,18 +889,37 @@
 
   <!-- ───────────── GPU TEXT RENDERING ───────────── -->
   <h2><span class="num">§ 06</span> GPU-side text rendering</h2>
-  <p class="lede">状態ベクトルセルの hover popup には「振幅 / 確率 / 位相」の <em>数値</em> が表示される。これらの数値は GPU の storage buffer に在る state vector から計算するもので、CPU に戻して文字レイアウトしては <b>no readback ルールに違反</b> する。<br>解決策: 文字も丸ごと fragment shader で描く。仕組みは "<em>baked glyph atlas + per-pixel digit extraction</em>" の 2 段。</p>
+  <p class="lede">状態ベクトルセルの hover popup には「振幅 / 確率 / 位相」の <em>数値</em> が表示される。これらの数値は GPU のメモリ上にある state vector から計算するもので、CPU に戻して文字レイアウトしては <b>「本番で GPU → CPU readback しない」ルールに違反</b> する。<br>解決策: 文字も丸ごと fragment shader (GPU で動く、ピクセル 1 個ずつ色を決める小さなプログラム) で描く。仕組みは "<em>baked glyph atlas + per-pixel digit extraction</em>" の 2 段だが、まずは用語から。</p>
+
+  <!-- jargon mini-glossary -->
+  <div class="jargon">
+    <div class="jargon-title">— このセクションだけで使う用語</div>
+    <dl class="jargon-list">
+      <dt>glyph</dt>
+      <dd>「<em>1 文字分の絵柄</em>」。文字コード上は同じ "A" でも、フォントごとに描かれる形 (= glyph) は別物。ここでは <code>0..9 . + − i % °</code> の 16 個の glyph を扱う。</dd>
+      <dt>atlas</dt>
+      <dd>「<em>たくさんの小さな絵を 1 枚にまとめたテクスチャ</em>」。ゲーム開発では「sprite atlas」と呼ばれる、まったく同じ概念。1 枚のテクスチャに 16 個の glyph を横並びで詰めて GPU にアップロードする。</dd>
+      <dt>bake / rasterize</dt>
+      <dd>「<em>ベクター形式の文字を、ピクセルの白黒画像に焼き付ける</em>」操作。フォントファイル (TTF) は曲線で文字を表していて、そのままでは GPU で sample できない。起動時に 1 回だけピクセル化して atlas に置く。</dd>
+      <dt>R8Unorm</dt>
+      <dd>テクスチャの「<em>1 ピクセル = 8 bit × 1 チャンネル</em>」フォーマット。色を持たず、0〜255 の濃淡だけ。今回は「インクの濃さ」として使うので RGB は要らない。</dd>
+      <dt>UV</dt>
+      <dd>テクスチャ内を 0..1 で示す<em>座標</em>。<code>(u, v) = (0.5, 0.0)</code> なら「テクスチャの上端の真ん中」。シェーダはこの UV を使って atlas からピクセルを取り出す。</dd>
+      <dt>textureSample</dt>
+      <dd>WGSL の組み込み関数。<code>textureSample(tex, sampler, uv)</code> でテクスチャから 1 ピクセルの色を取り出す。これが「<em>atlas からこの glyph のこのピクセル</em>」を取ってくる本体。</dd>
+    </dl>
+  </div>
 
   <!-- visual: atlas strip -->
   <div class="atlas">
-    <div class="atlas-label">— popup_glyph_atlas (起動時 1 回 bake / R8Unorm GPU texture)</div>
+    <div class="atlas-label">— 焼き上がった atlas (起動時に 1 回作って、以降ずっと GPU 上)</div>
     <div class="atlas-strip">
       <div class="cell">0</div><div class="cell">1</div><div class="cell">2</div><div class="cell">3</div>
       <div class="cell">4</div><div class="cell">5</div><div class="cell">6</div><div class="cell">7</div>
       <div class="cell">8</div><div class="cell">9</div><div class="cell">.</div><div class="cell">+</div>
       <div class="cell">−</div><div class="cell"><em>i</em></div><div class="cell">%</div><div class="cell">°</div>
     </div>
-    <div class="atlas-meta">9 × 16 px / cell × 16 cells = 144 × 16 px の単色テクスチャ。Hack Regular を <code>ab_glyph</code> でラスタライズ。</div>
+    <div class="atlas-meta">1 cell = 9 × 16 px、16 cell 並べて <b>144 × 16 px</b> の単色画像。中身は Hack Regular フォントを <code>ab_glyph</code> crate でラスタライズした結果。図ではセルの境界を見せるためにグレーで描いているが、実物は各セル内に白黒の文字グリフだけが入った縞模様。</div>
   </div>
 
   <!-- pipeline diagram -->
@@ -871,25 +927,25 @@
     <div class="stage">
       <div class="stage-id">— input</div>
       <h3>state buffer (GPU)</h3>
-      <p>compute pass の最後に <code>state_buffers[active]</code> に書き込まれた complex amplitude。<code>vec2&lt;f32&gt;(re, im)</code> の配列。fragment shader が <code>@group(0) @binding(0)</code> として直接 sample する。</p>
+      <p>compute pass がゲートを全部適用したあとの最終結果。complex 振幅 <code>(re, im)</code> が 2¹⁶ 個並んでいる配列。CPU は触らず、fragment shader が <em>同じ buffer</em> を直接読む。</p>
     </div>
     <div class="arrow-h">→</div>
     <div class="stage">
       <div class="stage-id">— per pixel</div>
       <h3>fragment shader</h3>
-      <p>各ピクセルから「自分は popup 内のどの行 / 何文字目か」を計算 → 表示すべき値が <code>amp</code> / <code>prob = |amp|²</code> / <code>phase = atan2(im, re)</code> のどれか決まる。</p>
+      <p>呼ばれるのは popup の各ピクセル。「私はこの popup の何行目 / 何文字目?」を座標から逆算し、表示する値が <em>振幅</em> / <em>確率 (|amp|²)</em> / <em>位相 (atan2)</em> のどれか決める。</p>
     </div>
     <div class="arrow-h">→</div>
     <div class="stage">
       <div class="stage-id">— format</div>
       <h3>digit_at(value, exp)</h3>
-      <p>10 進数 <em>1 桁</em> を取り出すヘルパ。<code>digit_at(3.14, -1) = 1</code>、<code>digit_at(3.14, 0) = 3</code>。<code>pow10_table</code> は <code>switch</code> 文で実装、<code>pow(10, x)</code> の累積誤差で <code>pow(10,5)</code> が 99999 に丸まる罠を避ける。</p>
+      <p>10 進数の <em>1 桁</em> を取り出す。<code>digit_at(3.14, 0) = 3</code>、<code>digit_at(3.14, -1) = 1</code>。これで「+3.14」の各文字位置に出すべき数字が決まる。<code>pow(10, x)</code> は f32 誤差が累積するので、累乗値を <code>switch</code> 文で table 引きしている。</p>
     </div>
     <div class="arrow-h">→</div>
     <div class="stage">
       <div class="stage-id">— output</div>
       <h3>atlas sample</h3>
-      <p>digit (0-9) や記号 (+, −, ., i, %, °) を <em>glyph index</em> へ写像 → atlas UV を組み立て → R8Unorm を <code>textureSample</code> → alpha 値をそのまま popup フォアグラウンド色に乗せて出力。</p>
+      <p>出すべき数字 / 記号 → atlas 上の何番目の glyph か (= cell index) → そこに対応する <em>UV</em> → <code>textureSample</code> で <em>1 ピクセルの濃さ</em> を取得 → popup の前景色にその濃さを乗せて出力。</p>
     </div>
   </div>
 
@@ -901,8 +957,8 @@
   </div>
 
   <p class="lede" style="margin-top:24px;">
-    結果として popup は <b>常に最新フレームの GPU 計算値</b> を表示する。CPU に値が一度も戻らないので、1 frame 遅れも staging buffer 確保も発生しない。<code>digit_atlas</code> (測定ゲートの "0" / "1"  9 × 16 → 大型 2 glyph) も同じパターンの兄弟モジュール。
-    <br><br>関連ソース: <code>gpu/popup_glyph_atlas.rs</code> · <code>gpu/shaders/popup_value.rs</code> · <code>gpu/resources/popup_value.rs</code>
+    結果として popup は <b>常に最新フレームの GPU 計算値</b> を表示する。CPU に値が一度も戻らないので、1 frame 遅れも staging buffer 確保も発生しない。<code>digit_atlas</code> (測定ゲートの "0" / "1" を表示する、glyph が 2 個だけの小型版) も同じ仕組みの兄弟モジュール。
+    <br><br>関連ソース: <code>gpu/popup_glyph_atlas.rs</code> (atlas を焼く) · <code>gpu/shaders/popup_value.rs</code> (上の 4 段を行う WGSL) · <code>gpu/resources/popup_value.rs</code> (pipeline と bind group の組み立て)
   </p>
 
   <!-- ───────────── FRAME BUDGET ───────────── -->
