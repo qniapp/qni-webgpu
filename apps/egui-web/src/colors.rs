@@ -162,8 +162,9 @@ impl Colors {
             bloch_vector_line: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
             bloch_vector_tip: crate::shared::color_rgba(0.686, 0.188, 0.161, 1.0),
             bloch_vector_zero: crate::shared::color_rgba(0.125, 0.369, 0.651, 1.0),
-            // ui — "fired" meter icon (the colored digit dominates on top).
-            measurement_fired_icon: crate::shared::color_rgba(0.902, 0.894, 0.851, 1.0),
+            // ui-2 — "fired" meter icon, matching the circuit wire colour
+            // just like qni's neutral-200 wire / zinc-200 measurement pairing.
+            measurement_fired_icon: crate::shared::color_rgba(0.855, 0.847, 0.808, 1.0),
             // tx — spacer ellipsis squares.
             spacer_dots: crate::shared::color_rgba(0.063, 0.059, 0.059, 1.0),
         }

@@ -152,6 +152,8 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const measureX = slotCenter(1)
   const blochX = slotCenter(2)
   const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'measurement_gap_left', x: measureX - 20, y: wireCenterY },
+    { name: 'measurement_wire_left', x: measureX - 24, y: wireCenterY },
     { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
     { name: 'bloch_tip_inside_sphere', x: blochX, y: wireCenterY + 12 },
     { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 16 },
@@ -159,7 +161,12 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
+  const isCircuitBackground = ([r, g, b]: CanvasPixel): boolean => r > 240 && g > 240 && b > 240
+  const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
+    Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 40
 
+  expect(isCircuitBackground(samples.measurement_gap_left)).toBe(true)
+  expect(isWireLine(samples.measurement_wire_left)).toBe(true)
   expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)

@@ -20,6 +20,9 @@ const BLOCH_VECTOR_TIP_RADIUS: f32 = 3.0;
 // Font-rasterisation baseline correction for the GPU atlas: keep the visible
 // digit's vertical centre on the wire, matching qni's flex-centred value layer.
 const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
+// Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
+// around the meter body, so the wire never touches or runs through the arc.
+const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
 
 impl QniApp {
     pub(super) fn draw_placed_circuit_gates(
@@ -52,10 +55,19 @@ impl QniApp {
                 let hover_inner = gate_rect.expand(2.0);
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
-            } else if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
+            }
+            if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
                 // Write gates have no fill, so the wire would otherwise show
                 // through the brackets. Mask just the wire under the gate.
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
+            }
+            if gate.kind == GateKind::Measurement {
+                // qni shortens the input/output wire around a measurement
+                // dropzone and the meter's interior is opaque. Mask the
+                // circuit wire before painting the SVG strokes/digit overlay.
+                let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
+                let circuit_fill = painter.ctx().style().visuals.panel_fill;
+                painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
             draw_gate_body(painter, gate_rect, gate.kind, colors);
             // QFT family: the bottom-edge resize handle appears on hover
