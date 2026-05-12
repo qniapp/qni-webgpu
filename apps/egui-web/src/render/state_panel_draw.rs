@@ -100,11 +100,7 @@ impl QniApp {
         );
 
         if let Some(target_format) = target_format {
-            let sim_ops = if recompute {
-                self.sim_ops.clone()
-            } else {
-                Vec::new()
-            };
+            let sim_ops = self.gpu_plan.sim_ops_for_callback(recompute);
             let render_colors = RenderColors::new(colors);
             let callback_rect = screen_rect;
             let cell_pitch = layout.size + layout.gap;

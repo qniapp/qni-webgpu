@@ -170,7 +170,7 @@ impl DragController {
             DragStartIntent::BreakpointStep(step) => {
                 if app.breakpoint_step != Some(step) {
                     app.breakpoint_step = Some(step);
-                    app.needs_recompute = true;
+                    app.gpu_plan.mark_dirty();
                     ctx.request_repaint();
                 }
                 true
@@ -203,7 +203,7 @@ impl DragController {
                     if app.placed_gates[index].span != new_span {
                         app.placed_gates[index].span = new_span;
                         app.update_qubit_count();
-                        app.needs_recompute = true;
+                        app.gpu_plan.mark_dirty();
                         ctx.request_repaint();
                     }
                 }
@@ -299,7 +299,7 @@ impl DragController {
             let new_hovered_step = step_at_cursor(cursor, &geometry.metrics);
             if new_hovered_step != app.hovered_step {
                 app.hovered_step = new_hovered_step;
-                app.needs_recompute = true;
+                app.gpu_plan.mark_dirty();
                 ctx.request_repaint();
             }
 
@@ -320,7 +320,7 @@ impl DragController {
             app.hovered_palette_index = None;
             if app.hovered_step.is_some() {
                 app.hovered_step = None;
-                app.needs_recompute = true;
+                app.gpu_plan.mark_dirty();
             }
         }
     }
@@ -374,7 +374,7 @@ impl DragController {
                 // percent-encoded path.
                 let json = crate::url_circuit::circuit_to_json(&app.placed_gates, app.qubit_count);
                 crate::url_circuit::write_circuit_to_url(&json);
-                app.needs_recompute = true;
+                app.gpu_plan.mark_dirty();
                 ctx.request_repaint();
             }
         }

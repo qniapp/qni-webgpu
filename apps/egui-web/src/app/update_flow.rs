@@ -15,7 +15,7 @@ use crate::layout::layout_metrics;
 use crate::render::StatePanelLayout;
 use crate::shared::{amplitude_qubits, now_seconds};
 use crate::simulation_plan::{
-    linearize_ops, validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits,
+    linearize_ops, validate_simulation_plan_capacity, SimulationPlanLimits,
 };
 
 struct CircuitFrameState {
@@ -129,7 +129,7 @@ impl QniApp {
         } else {
             base_state_count
         };
-        let recompute = self.needs_recompute || state_count != self.last_state_count;
+        let recompute = self.gpu_plan.needs_recompute_for(state_count);
         self.clamp_state_viewport_size();
 
         // Sync aspect_index with the current qubit count. While the user hasn't
@@ -259,17 +259,14 @@ impl QniApp {
     ) -> bool {
         if target_format.is_some() {
             if recompute {
-                self.needs_recompute = false;
-                self.last_state_count = state_count;
+                self.gpu_plan.mark_clean_for(state_count);
                 let qubits = self.state_qubits();
                 // Hovered wins over breakpoint (live preview); `None` for both
                 // = apply every column = final state.
                 let step_limit = self.hovered_step.or(self.breakpoint_step);
-                self.sim_ops = linearize_ops(&self.placed_gates, qubits, step_limit);
-                self.bloch_slots.clear();
-                self.measurement_slots.clear();
+                let sim_ops = linearize_ops(&self.placed_gates, qubits, step_limit);
                 if let Err(error) = validate_simulation_plan_capacity(
-                    &self.sim_ops,
+                    &sim_ops,
                     SimulationPlanLimits {
                         max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
                         max_bloch_slots: MAX_BLOCH_SLOTS,
@@ -277,28 +274,10 @@ impl QniApp {
                     },
                 ) {
                     self.log_gpu_plan_capacity_error(&error.to_string());
-                    self.sim_ops.clear();
+                    self.gpu_plan.clear_ops();
                     return recompute;
                 }
-                for op in &self.sim_ops {
-                    match op {
-                        SimulationOp::CaptureBloch {
-                            gate_id,
-                            output_slot,
-                            ..
-                        } => {
-                            self.bloch_slots.insert(*gate_id, *output_slot);
-                        }
-                        SimulationOp::MeasureReduceSample {
-                            gate_id,
-                            output_slot,
-                            ..
-                        } => {
-                            self.measurement_slots.insert(*gate_id, *output_slot);
-                        }
-                        _ => {}
-                    }
-                }
+                self.gpu_plan.replace_ops(sim_ops);
             }
             recompute
         } else if recompute {

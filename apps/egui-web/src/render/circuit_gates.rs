@@ -66,14 +66,14 @@ impl QniApp {
                 let handle_rect = qft_resize_handle_rect(gate_rect);
                 draw_qft_resize_handle(painter, handle_rect, bg);
             }
-            if gate.kind == GateKind::Measurement && self.measurement_slots.contains_key(&gate.id) {
+            if gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id) {
                 // Repaint the meter in zinc-200 ("fired" appearance per qni's
                 // `measurement_gate.css`). The GPU `MeasurementDigitCallback`
                 // overlays the colored 0/1 digit directly from
                 // `measurement_aux_buffer.z` — no CPU readback.
                 draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
             }
-            if gate.kind == GateKind::BlochDisplay && !self.bloch_slots.contains_key(&gate.id) {
+            if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
                 // or before the first frame's GPU dispatch). Show qni's
                 // d=0 blue dot via egui until the GPU overlay takes over.
@@ -104,7 +104,7 @@ impl QniApp {
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
-                let slot = *self.bloch_slots.get(&gate.id)?;
+                let slot = self.gpu_plan.bloch_slot(gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
                     circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
@@ -149,7 +149,7 @@ impl QniApp {
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
-                let slot = *self.measurement_slots.get(&gate.id)?;
+                let slot = self.gpu_plan.measurement_slot(gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
                     circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),

@@ -5,18 +5,19 @@ mod circuit_model;
 mod drag_controller;
 mod fps_hud;
 mod gate_input;
+mod gpu_plan_state;
 mod state_panel;
 mod state_panel_state;
 mod update_flow;
 
 use eframe::egui;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use crate::constants::{MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
-use crate::simulation_plan::SimulationOp;
 
 pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
+pub(crate) use gpu_plan_state::GpuPlanState;
 pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
@@ -49,16 +50,9 @@ pub(crate) struct QniApp {
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
-    last_state_count: usize,
-    needs_recompute: bool,
+    pub(crate) gpu_plan: GpuPlanState,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
-    pub(crate) sim_ops: Vec<SimulationOp>,
-    /// gate_id → output_slot mapping derived from the latest `sim_ops` so
-    /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
-    pub(crate) bloch_slots: HashMap<u32, u32>,
-    /// Same idea for measurement gates → `measurement_aux_buffer` slot.
-    pub(crate) measurement_slots: HashMap<u32, u32>,
     drag_repaint_deadline: Option<f64>,
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
@@ -126,13 +120,9 @@ impl QniApp {
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
-            last_state_count: 2,
-            needs_recompute: true,
+            gpu_plan: GpuPlanState::default(),
             last_content_rect: None,
             drag_cursor_pos: None,
-            sim_ops: Vec::new(),
-            bloch_slots: HashMap::new(),
-            measurement_slots: HashMap::new(),
             drag_repaint_deadline: None,
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
