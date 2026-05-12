@@ -165,6 +165,51 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)
 })
 
+test('GPU circuit overlays stay anchored in tall scroll-area viewports', async ({ page }) => {
+  const col0 = Array(16).fill(1)
+  col0[15] = 'H'
+  const col1 = Array(16).fill(1)
+  col1[1] = 'Measure'
+  const col2 = Array(16).fill(1)
+  col2[0] = 'Measure'
+  col2[2] = 'Bloch'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0, col1, col2] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+  const LINE_GAP = 1.5 * REM
+  const EGUI_PANEL_MARGIN = 8
+  const slotCenter = (column: number) =>
+    EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
+  const wireCenterY = (wire: number) => EGUI_PANEL_MARGIN + LINE_Y + LINE_GAP * wire
+
+  const overlayX = slotCenter(2)
+  const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'measurement_digit_too_high', x: overlayX, y: wireCenterY(0) - 8 },
+    { name: 'measurement_digit_inside_meter', x: overlayX, y: wireCenterY(0) + 8 },
+    { name: 'bloch_tip_inside_sphere', x: overlayX, y: wireCenterY(2) - 14 },
+    { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 24 },
+  ])
+
+  const isOutcomeRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 120 && b < 120
+  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
+
+  expect(isOutcomeRed(samples.measurement_digit_too_high)).toBe(false)
+  expect(isOutcomeRed(samples.measurement_digit_inside_meter)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
+  expect(isBlochRed(samples.bloch_tip_too_high)).toBe(false)
+})
+
 test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
   await page.goto('/')
 

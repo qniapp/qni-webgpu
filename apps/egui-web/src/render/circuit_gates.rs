@@ -99,6 +99,15 @@ impl QniApp {
         dragging_gate_id: Option<u32>,
         colors: &Colors,
     ) {
+        // Egui clamps callback viewports to the physical screen. Use the
+        // visible clip intersection as the callback viewport; otherwise tall
+        // circuits (e.g. 16 qubits) get vertically rescaled by wgpu and GPU
+        // overlays drift above their egui-painted gate bodies.
+        let callback_rect = rect.intersect(painter.clip_rect());
+        if callback_rect.width() <= 0.0 || callback_rect.height() <= 0.0 {
+            return;
+        }
+
         // GPU overlay: draws the dynamic arrow + tip dot for every placed
         // BlochDisplay whose values are live in `bloch_output_buffer`. No
         // CPU readback — the fragment shader samples the storage buffer
@@ -134,15 +143,15 @@ impl QniApp {
         if !bloch_overlay_instances.is_empty() {
             let callback = BlochOverlayCallback {
                 instances: bloch_overlay_instances.into(),
-                viewport_min: [rect.min.x, rect.min.y],
-                viewport_size: [rect.width(), rect.height()],
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
                 // Same gamma story as `RenderColors::new` — surface is
                 // rgba8unorm so we hand the GPU sRGB bytes, not linear.
                 line_color: colors.bloch_vector_line.to_normalized_gamma_f32(),
                 tip_color: colors.bloch_vector_tip.to_normalized_gamma_f32(),
                 zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
         }
 
@@ -180,8 +189,8 @@ impl QniApp {
         if !measurement_digit_instances.is_empty() {
             let callback = MeasurementDigitCallback {
                 instances: measurement_digit_instances.into(),
-                viewport_min: [rect.min.x, rect.min.y],
-                viewport_size: [rect.width(), rect.height()],
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
                 // Surface is rgba8unorm (non-sRGB) — egui paints text using
                 // sRGB-encoded colours straight to the framebuffer, so we
                 // need to do the same for the digit to read identically.
@@ -190,7 +199,7 @@ impl QniApp {
                 zero_color: colors.semantic_off.to_normalized_gamma_f32(),
                 one_color: colors.semantic_on.to_normalized_gamma_f32(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
         }
     }
