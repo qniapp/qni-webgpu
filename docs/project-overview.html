@@ -131,7 +131,7 @@
   /* Stack table */
   .stack {
     display: grid;
-    grid-template-columns: 160px 1fr 1fr;
+    grid-template-columns: 140px 240px 1fr;
     border-top: 1px solid var(--line);
   }
   .stack .row {
@@ -139,7 +139,7 @@
   }
   .stack .row > div {
     border-bottom: 1px solid var(--line);
-    padding: 16px 20px;
+    padding: 20px 20px;
     font-size: 13px;
   }
   .stack .row .layer {
@@ -147,10 +147,26 @@
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+    padding-top: 22px; /* align with first line of multi-line note */
   }
-  .stack .row .what { color: var(--text); }
-  .stack .row .what code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; }
-  .stack .row .note { color: var(--text-mid); font-size: 12px; }
+  .stack .row .what {
+    color: var(--text);
+    padding-top: 22px;
+    line-height: 1.5;
+  }
+  .stack .row .what code,
+  .stack .row .note code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .stack .row .note { color: var(--text-mid); font-size: 13px; line-height: 1.65; }
+  .stack .row .note p { margin: 0; }
+  .stack .row .note p + p { margin-top: 8px; }
+  .stack .row .note p b { color: var(--text); font-weight: 500; }
+  .stack .row .note em { color: var(--text); font-style: italic; }
 
   /* Architecture diagram */
   .arch {
@@ -449,53 +465,91 @@
 
   <!-- ───────────── STACK ───────────── -->
   <h2><span class="num">§ 01</span> Stack at a glance</h2>
-  <p class="lede">各レイヤで使っている主な技術と、なぜそれを採ったかを 1 行で。バージョンは 2026-05 時点の `Cargo.toml` / `package.json` 由来。</p>
+  <p class="lede">各レイヤで使っている技術を、「<em>これは何</em>」と「<em>このプロジェクトでどう使うか</em>」の 2 段で説明する。バージョンは 2026-05 時点の <code>Cargo.toml</code> / <code>package.json</code> 由来。</p>
   <div class="stack">
+
     <div class="row">
       <div class="layer">Language</div>
-      <div class="what">Rust 2021 (stable) · TypeScript 5.x</div>
-      <div class="note">UI / シミュレーション / GPU パイプラインはすべて Rust。テストと MCP サーバが TS。</div>
+      <div class="what">Rust 2021 (stable)<br>TypeScript 5.x</div>
+      <div class="note">
+        <p><b>Rust</b> — C/C++ 系のシステム言語。<em>ガーベジコレクタを持たない</em> ので実行時オーバーヘッドが小さく、所有権 (ownership) と借用 (borrowing) の型システムでメモリ安全を<em>コンパイル時に</em> 保証する。`cargo` でビルド・テスト・依存解決まで一括。ネイティブ実行ファイルにも <em>WebAssembly</em> にも同じソースからコンパイルできるのが本プロジェクトの肝。</p>
+        <p>UI / シミュレーション / GPU パイプライン本体はすべて Rust。<b>TypeScript</b> は (1) ブラウザ起動時の wasm 読み込み glue (<code>bootstrap.ts</code>) と (2) MCP サーバ (Node.js) だけに限定。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">UI</div>
-      <div class="what"><code>egui 0.33</code> / <code>eframe 0.33</code></div>
-      <div class="note">immediate-mode GUI。レイアウトキャッシュやリアクティブツリーが無く、毎フレーム再描画する設計。</div>
+      <div class="what"><code>egui 0.33</code><br><code>eframe 0.33</code></div>
+      <div class="note">
+        <p><b>egui</b> — Rust 製の GUI ライブラリ。"<em>immediate-mode</em>" 方式を採る。React や DOM が "<em>retained-mode</em>" (ウィジェットの木を一度作って保持し、変更があるところだけ更新) なのに対し、immediate-mode は <em>毎フレーム UI 全体を関数として再宣言する</em>。`if hovered { show_tooltip() }` のような素直なコードがそのまま動く。状態は単一の構造体 (`QniApp`) に集約されるので、virtual DOM ↔ real DOM のような二重表現の同期問題が無い。</p>
+        <p><b>eframe</b> — egui を OS / ブラウザの window に接続するランナー。アプリのライフサイクル (init / update / repaint) を管理し、入力イベントを egui へ渡す。本プロジェクトでは <code>web</code> backend を使い、ブラウザの <code>&lt;canvas&gt;</code> 1 枚に egui を描かせている。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">GPU</div>
       <div class="what"><code>wgpu 27</code> (WebGPU backend)</div>
-      <div class="note">native と Web で同じ shader が動く。WebGPU 専用ビルドで他 backend を切り落とし wasm を軽くしている。</div>
+      <div class="note">
+        <p><b>WebGPU</b> — WebGL の後継となる、ブラウザから GPU を直接叩くための新しい標準。WebGL に無かった <em>compute shader</em> (汎用 GPU 計算) が使えるのが最大の差。Chrome / Edge では既定で有効、他ブラウザは flag 有効化が必要な段階。</p>
+        <p><b>wgpu</b> — Rust 製の WebGPU 仕様実装。ブラウザでは WebGPU、ネイティブでは Vulkan / Metal / D3D12 / OpenGL のいずれかに自動 fallback する <em>クロスプラットフォーム GPU 抽象</em> を提供する。同じ shader / pipeline 定義が `apps/egui-web` (wasm) でも将来の native ビルドでも動く。本プロジェクトでは依存量を削るため <code>features = ["webgpu"]</code> だけを有効化し、他 backend は切り落としている。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">Shader</div>
-      <div class="what">WGSL — 5 module (<code>state / bloch / measure / digit / popup_value</code>)</div>
-      <div class="note">compute = ゲート適用 / 測定。fragment = state 円 / Bloch 矢印 / 測定 0/1 / popup 数値。</div>
+      <div class="what">WGSL — 5 module<br><code>state / bloch / measure / digit / popup_value</code></div>
+      <div class="note">
+        <p><b>WGSL</b> (<em>WebGPU Shading Language</em>) — WebGPU 用の shader 言語。GLSL や HLSL に相当するが、よりモダンで型に厳しい。GPU 上で動く小さなプログラムを書く。種類は (a) <em>compute shader</em> (汎用並列計算)、(b) <em>vertex / fragment shader</em> (描画) の 2 系統。</p>
+        <p>このプロジェクトの shader は <code>gpu/shaders/</code> 配下に <code>&amp;'static str</code> として埋め込まれており、起動時に wgpu がコンパイルする。compute 側はゲートの状態ベクトル適用 / Bloch 球縮約 / 測定崩壊を、fragment 側は状態ベクトル円・Bloch 矢印・測定 0/1・popup 数値の描画を担当する。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">Bundle</div>
-      <div class="what"><code>wasm32-unknown-unknown</code> · Trunk · wasm-bindgen</div>
-      <div class="note">Rust → wasm を Trunk が build しつつ `bootstrap.ts` から動的 import。SRI 付きでキャッシュバスト。</div>
+      <div class="what"><code>wasm32-unknown-unknown</code><br>Trunk · wasm-bindgen</div>
+      <div class="note">
+        <p><b>WebAssembly (wasm)</b> — ブラウザで動く<em>バイナリ形式の実行コード</em>。JS と並んで browser native。Rust や C++ をコンパイル先に指定すると、ネイティブと同等の速度で動く小さな実行可能ファイル (.wasm) を吐ける。<code>wasm32-unknown-unknown</code> は「32-bit wasm / OS なし / 標準ライブラリの I/O は browser API 経由」というターゲット三組。</p>
+        <p><b>Trunk</b> — Rust → wasm 用のビルドツール。`cargo build` を実行 → <em>wasm-bindgen</em> で JS↔Rust 呼び出し glue を生成 → 静的アセットを `dist/` にコピー → 開発サーバとして配信、までを 1 コマンドで行う。HTML <code>&lt;link data-trunk&gt;</code> 経由でアセットを宣言的に組み立てるのが特徴。</p>
+        <p><b>wasm-bindgen</b> — Rust 関数を JS 側から呼べる形に変換するブリッジ生成器。本プロジェクトでは Window / Document などの browser API 呼び出しと、テストハーネスの <code>window.__eguiReadStateVector()</code> に使っている。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">Style</div>
-      <div class="what">Flexoki Light palette · Tailwind 既定スケール</div>
-      <div class="note">配色は Flexoki トークン (bg / ui-2 / tx-2 / blue-600 …) に厳密 mapping、サイズは text-xs/sm/base/lg, spacing-1..6 のみ。</div>
+      <div class="what">Flexoki Light palette<br>Tailwind 既定スケール</div>
+      <div class="note">
+        <p><b>Flexoki</b> — Steph Ango (kepano) が設計した、紙とインクの質感をモチーフにした小さな色トークン集 (<a href="https://github.com/kepano/flexoki">github.com/kepano/flexoki</a>)。`paper` / `bg-2` / `ui-2` / `tx-2` / `blue-600` のような<em>名前で意味の付いた</em>トーンで、明色・暗色の 2 系統を持つ。本プロジェクトは Light だけを厳密に使い、独自の `sky-500` などは禁じている。</p>
+        <p><b>Tailwind 既定スケール</b> — CSS フレームワークの方ではなく <em>サイズの目盛りだけ</em> を借りる。フォントサイズは `text-xs` (12px) / `text-sm` (14) / `text-base` (16) / `text-lg` (18) などの段階だけ、spacing は 4px 倍数 (`spacing-1` = 4 / `spacing-2` = 8 / …) のみ使う。13px / `px-3.5` のようなスケール外の値は書かない。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">Test</div>
-      <div class="what">Playwright + Chromium · Node test runner</div>
-      <div class="note">実 WebGPU で headed / headless 両対応。on-demand readback の API <code>read_state_vector</code> だけ wasm から expose。</div>
+      <div class="what">Playwright + Chromium<br>Node test runner</div>
+      <div class="note">
+        <p><b>Playwright</b> — Microsoft 製のブラウザ自動操作フレームワーク (Cypress や Selenium と同じ系統)。Node.js から Chromium / Firefox / WebKit を起動して、クリック / ドラッグ / スクリーンショット撮影 / コンソール検査 ができる。本プロジェクトでは <em>実 WebGPU を有効化した Chromium</em> を使うので、shader / wasm の挙動を実機相当で検証できる。</p>
+        <p>spec は <code>apps/egui-web/tests/egui-web-*.spec.ts</code> に機能別 (drag / error / gpu / interaction / palette / state-semantics) に分かれている。GPU 上の状態ベクトルを取り出すために、wasm から `window.__eguiReadStateVector()` という on-demand readback API だけ公開している。これが production-readback ルールの唯一の例外。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">CI</div>
-      <div class="what">GitHub Actions · cargo fmt / clippy -D warnings / build / Playwright</div>
-      <div class="note"><code>cargo insta pending-snapshots</code> も走り、未承認スナップショットでは fail する。</div>
+      <div class="what">GitHub Actions</div>
+      <div class="note">
+        <p>毎 push で以下が走る: <code>cargo fmt --check</code> (整形差分ゼロ) / <code>cargo clippy -- -D warnings</code> (lint 警告も全部エラー扱い) / <code>cargo build --release --target wasm32-unknown-unknown</code> (wasm リリースビルド) / <code>pnpm exec playwright test</code> (実 Chromium / WebGPU)。</p>
+        <p>UI のスナップショットは <code>cargo insta</code> で管理しており、CI で <code>cargo insta pending-snapshots</code> も走らせる。誰かが review し忘れた `.pending-snap` がリポに残っていれば fail する仕組み。</p>
+      </div>
     </div>
+
     <div class="row">
       <div class="layer">Adjacent apps</div>
-      <div class="what"><code>apps/tui</code> (ratatui) · <code>apps/mcp-qni</code> (MCP server)</div>
-      <div class="note">同じ回路を端末から確認する PoC と、Claude/Codex 経由で回路を編集する MCP サーバ。</div>
+      <div class="what"><code>apps/tui</code> (ratatui)<br><code>apps/mcp-qni</code> (MCP server)</div>
+      <div class="note">
+        <p><b>apps/tui</b> — 同じ回路モデルを <em>ターミナルで</em> 描くプロトタイプ。<code>ratatui</code> + <code>crossterm</code> で動き、wasm を立てなくても素早く動作確認ができる。配色も Flexoki トーンの ANSI 近似で揃えている。</p>
+        <p><b>apps/mcp-qni</b> — <em>MCP</em> (Model Context Protocol) のサーバ。Claude や Codex などのエージェントが stdio 経由で「H ゲートを q0 に置いて」「状態ベクトルを返して」のような操作を呼べる。エージェント駆動で回路編集とテストを回すための入口。</p>
+      </div>
     </div>
+
   </div>
 
   <!-- ───────────── ARCHITECTURE ───────────── -->
