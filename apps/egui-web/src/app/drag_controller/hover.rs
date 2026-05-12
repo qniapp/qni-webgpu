@@ -5,6 +5,16 @@ use crate::app::QniApp;
 use crate::layout::{gate_visible_rect, palette_hit_test, qft_resize_handle_rect};
 
 impl DragController {
+    pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
+        app.hovered_gate_id = None;
+        app.hovered_qft_resize_handle = None;
+        app.hovered_palette_index = None;
+        if app.hovered_step.take().is_some() {
+            app.gpu_plan.mark_dirty();
+            ctx.request_repaint();
+        }
+    }
+
     pub(in crate::app) fn update_idle_hover(
         app: &mut QniApp,
         pointer: DragPointer,
@@ -56,13 +66,7 @@ impl DragController {
             }
             app.hovered_palette_index = hovered_palette;
         } else {
-            app.hovered_gate_id = None;
-            app.hovered_qft_resize_handle = None;
-            app.hovered_palette_index = None;
-            if app.hovered_step.is_some() {
-                app.hovered_step = None;
-                app.gpu_plan.mark_dirty();
-            }
+            Self::clear_idle_hover(app, ctx);
         }
     }
 

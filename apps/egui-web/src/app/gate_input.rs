@@ -17,6 +17,7 @@ impl QniApp {
         content_rect: egui::Rect,
         ctx: &egui::Context,
         screen_rect: egui::Rect,
+        pointer_over_state_panel: bool,
     ) {
         let pointer = ctx.input(|input| input.pointer.clone());
         let pos = pointer.latest_pos();
@@ -52,6 +53,11 @@ impl QniApp {
             start: pointer_start,
             released: pointer_released,
         };
+
+        if pointer_over_state_panel && self.dragging.is_none() && self.qft_resize_drag.is_none() {
+            DragController::clear_idle_hover(self, ctx);
+            return;
+        }
 
         DragController::update_circuit_scroll(
             self,

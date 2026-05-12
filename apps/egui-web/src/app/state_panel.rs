@@ -31,16 +31,19 @@ impl QniApp {
             .clamp(STATE_VIEWPORT_MIN_HEIGHT, STATE_VIEWPORT_MAX_HEIGHT);
     }
 
-    /// Should wheel input over the panel area be captured (= not eaten
-    /// by the surrounding `ScrollArea`)? True while the pointer is over
-    /// the panel rect or any open aspect popover, so wheel events route
-    /// to our dims-aspect / viewport-zoom handlers instead of scrolling
-    /// the circuit underneath.
+    /// Should pointer input over the panel area be captured (= not seen
+    /// by the circuit underneath)? True while the pointer is over the
+    /// panel rect or any open aspect popover, so hover/click/wheel events
+    /// route to state-panel handlers instead of circuit step preview / scroll.
     pub(crate) fn compute_state_panel_input_gate(
         &self,
         ctx: &egui::Context,
         screen_rect: egui::Rect,
     ) -> bool {
+        if self.state_panel.drag.is_some() || self.state_panel.resize_drag.is_some() {
+            return true;
+        }
+
         let state_count = self.state_count();
         let pre_state_layout = self.state_panel_layout(screen_rect, state_count);
         let pre_state_rect = pre_state_layout

@@ -36,6 +36,53 @@ const readCircuitColsFromHash = (url: string): unknown[] => {
   return JSON.parse(decodeURIComponent(hash)).cols
 }
 
+test('state panel hover does not drive circuit step preview', async ({ page }) => {
+  const col0: Array<string | number> = Array(8).fill(1)
+  col0[7] = 'X'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const EGUI_PANEL_MARGIN = 8
+  const slotCenter = (column: number) =>
+    EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
+  const stepLineX = (column: number) => slotCenter(column) + SLOT_SPACING * 0.5
+  const hoveredColumn = 2
+  const probeY = 480
+  const probePoints: PixelSamplePoint[] = [
+    { name: 'line', x: stepLineX(hoveredColumn), y: probeY },
+    { name: 'background', x: stepLineX(hoveredColumn) + 8, y: probeY },
+  ]
+  const stepLineContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, probePoints)
+    return pixelRgbDistance(pixels.line, pixels.background)
+  }
+
+  await page.mouse.move(
+    (box?.x ?? 0) + slotCenter(hoveredColumn),
+    (box?.y ?? 0) + probeY
+  )
+  await expect.poll(stepLineContrast).toBeGreaterThan(50)
+
+  await page.mouse.move(
+    (box?.x ?? 0) + slotCenter(hoveredColumn),
+    (box?.y ?? 0) + 560
+  )
+  await expect.poll(stepLineContrast).toBeLessThan(25)
+})
+
 test('dragging does not grow state vector until drop', async ({ page }) => {
   await page.goto('/')
 
