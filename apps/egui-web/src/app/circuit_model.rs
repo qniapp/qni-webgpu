@@ -76,6 +76,9 @@ impl PlacedGate {
 pub(crate) struct DragState {
     pub(crate) id: u32,
     pub(crate) offset: egui::Vec2,
+    /// Original semantic column for an existing gate. `None` means a palette
+    /// gate that has no committed source column yet.
+    pub(crate) original_column: Option<usize>,
 }
 
 /// In-flight resize of a QFT-family gate's vertical span. Tracks which gate's
@@ -154,6 +157,54 @@ impl QniApp {
                 gate.column = new_i;
                 gate.sync_pos_from_grid();
             }
+        }
+    }
+
+    /// Insert the dragged gate into a qni-style shadow step. The insert index
+    /// is expressed against the columns visible while dragging; if moving an
+    /// existing gate leaves its source column empty, that source step is first
+    /// removed just like qni's post-drop `resize()`.
+    pub(crate) fn insert_gate_at_column(
+        &mut self,
+        gate_id: u32,
+        wire: usize,
+        insert_index: usize,
+        original_column: Option<usize>,
+    ) {
+        let Some(gate_index) = self.placed_gates.iter().position(|gate| gate.id == gate_id) else {
+            return;
+        };
+
+        let mut adjusted_insert = insert_index;
+        if let Some(old_column) = original_column {
+            let old_column_still_occupied = self
+                .placed_gates
+                .iter()
+                .any(|gate| gate.id != gate_id && gate.column == old_column);
+            if !old_column_still_occupied {
+                for gate in &mut self.placed_gates {
+                    if gate.id != gate_id && gate.column > old_column {
+                        gate.column -= 1;
+                    }
+                }
+                if old_column < adjusted_insert {
+                    adjusted_insert -= 1;
+                }
+            }
+        }
+
+        for gate in &mut self.placed_gates {
+            if gate.id != gate_id && gate.column >= adjusted_insert {
+                gate.column += 1;
+            }
+        }
+
+        let gate = &mut self.placed_gates[gate_index];
+        gate.column = adjusted_insert;
+        gate.wire = wire;
+
+        for gate in &mut self.placed_gates {
+            gate.sync_pos_from_grid();
         }
     }
 

@@ -3,7 +3,7 @@ use eframe::egui;
 use super::{reset_drag_frame_state, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
-use crate::layout::{nearest_available_slot, nearest_line, LayoutMetrics};
+use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
 
 impl DragController {
     pub(in crate::app) fn commit_gate_drop(
@@ -22,28 +22,38 @@ impl DragController {
                 let center_x = gate_pos.x + GATE_SIZE / 2.0;
                 let center_y = gate_pos.y + GATE_SIZE / 2.0;
                 let (_line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
-                let snapped = nearest_available_slot(
+                let snapped = nearest_circuit_snap(
                     center_x,
                     line_index,
                     Some(gate_id),
                     &app.placed_gates,
                     &metrics.slot_centers,
                 );
-                let on_circuit = center_x >= metrics.slot_left
-                    && center_x <= metrics.slot_right
-                    && distance <= SNAP_DISTANCE
+                let on_circuit = distance <= SNAP_DISTANCE
                     && snapped
                         .as_ref()
-                        .map(|snap| snap.distance <= SNAP_DISTANCE)
+                        .map(|snap| snap.distance() <= SNAP_DISTANCE)
                         .unwrap_or(false);
 
                 if !on_circuit {
                     app.placed_gates.remove(index);
                 } else if let Some(snap) = snapped {
-                    let gate = &mut app.placed_gates[index];
-                    gate.column = snap.index;
-                    gate.wire = line_index;
-                    gate.sync_pos_from_grid();
+                    match snap {
+                        CircuitSnap::Slot(snap) => {
+                            let gate = &mut app.placed_gates[index];
+                            gate.column = snap.index;
+                            gate.wire = line_index;
+                            gate.sync_pos_from_grid();
+                        }
+                        CircuitSnap::Insert(snap) => {
+                            app.insert_gate_at_column(
+                                gate_id,
+                                line_index,
+                                snap.index,
+                                drag.original_column,
+                            );
+                        }
+                    }
                 }
                 // Mirror qni's post-drop `resize()`: remove empty
                 // columns and shift trailing gates left for both branches.

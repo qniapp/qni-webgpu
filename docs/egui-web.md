@@ -224,6 +224,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - |0⟩ の桁は qni semantic-color-off (red-500: `#ef4444`)、|1⟩ の桁は semantic-color-on (blue-500: `#3b82f6`) で描画する。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
+- ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
 - 状態ベクトル panel の viewport 上では wheel だけで円グリッドを cursor anchor zoom する。ドラッグで pan、header 右側の dims text 上の wheel は aspect 変更に使う。zoom clamp は倍率固定ではなく、描画される円サイズ 1px〜256px で決める。

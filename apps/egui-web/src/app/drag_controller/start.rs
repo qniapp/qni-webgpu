@@ -61,6 +61,7 @@ impl DragController {
                 app.dragging = Some(DragState {
                     id: new_id,
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
+                    original_column: None,
                 });
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
@@ -125,6 +126,7 @@ fn start_intent(
         .map(|gate| DragState {
             id: gate.id,
             offset: cursor - gate.pos,
+            original_column: Some(gate.column),
         })
     {
         return DragStartIntent::ExistingGate(drag);

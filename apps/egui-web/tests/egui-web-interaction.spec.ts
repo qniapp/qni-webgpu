@@ -28,6 +28,14 @@ import {
   type Point,
 } from './support/egui-web-spec-helpers'
 
+const readCircuitColsFromHash = (url: string): unknown[] => {
+  const hash = new URL(url).hash.slice(1)
+  if (!hash) {
+    return []
+  }
+  return JSON.parse(decodeURIComponent(hash)).cols
+}
+
 test('dragging does not grow state vector until drop', async ({ page }) => {
   await page.goto('/')
 
@@ -69,4 +77,47 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await releasePointer(page, { x: targetX, y: targetY2 })
 
   await waitForStateVectorLength(page, 16)
+})
+
+test('dropping between existing columns inserts a new column', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const ySource = getPaletteGateCenter(cssWidth, 2)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const insertX = targetX + SLOT_SPACING / 2
+
+  await dragPointer(page, hSource, { x: targetX, y: LINE_Y })
+  await dragPointer(page, xSource, { x: targetX2, y: LINE_Y })
+
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['H'], ['X']])
+
+  await dragPointer(page, ySource, { x: insertX, y: LINE_Y })
+
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([
+    ['H'],
+    ['Y'],
+    ['X'],
+  ])
 })
