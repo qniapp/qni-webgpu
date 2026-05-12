@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ゲートラベルのデザイン案</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- A: JetBrains Mono (700) / B: Inter (700-800) / C: Newsreader serif (italic 600) + STIX Two Text fallback / D: General Sans 取れないので Public Sans (500-700) -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Inter:wght@500;600;700;800&family=Newsreader:ital,wght@0,500;0,700;1,500;1,700&family=STIX+Two+Text:ital,wght@0,500;0,700;1,500;1,700&family=Public+Sans:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Flexoki Light */
+        --paper:      #FFFCF0;
+        --bg-2:       #F2F0E5;
+        --ui:         #E6E4D9;
+        --ui-2:       #DAD8CE;
+        --tx-3:       #B7B5AC;
+        --tx-2:       #6F6E69;
+        --tx:         #100F0F;
+        --red-600:    #AF3029;
+        --green-100:  #DAE5C8;
+        --green-600:  #66800B;
+        --cyan-100:   #BFE0E2;
+        --cyan-400:   #3AA99F;
+        --cyan-600:   #24837B;
+        --blue-50:    #E1ECEB;
+        --blue-100:   #BCD1E0;
+        --blue-200:   #92BDE4;
+        --blue-400:   #4385BE;
+        --blue-600:   #205EA6;
+        --purple-100: #DBD2E5;
+        --purple-200: #C0B0DA;
+        --purple-400: #8B7EC8;
+        --purple-600: #5E409D;
+        --yellow-100: #ECDDA0;
+        --yellow-600: #AD8301;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg-2);
+        color: var(--tx);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.55;
+        padding: 0 0 96px 0;
+      }
+      header.page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 56px 24px 24px;
+      }
+      header.page h1 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      header.page p {
+        margin: 0 0 8px;
+        color: var(--tx-2);
+        font-size: 14px;
+        max-width: 800px;
+      }
+      header.page p code {
+        background: var(--ui);
+        border: 1px solid var(--ui-2);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-size: 12px;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+
+      /* ─────── variant card chrome ─────── */
+      .variant {
+        background: var(--paper);
+        border: 1px solid var(--ui-2);
+        border-radius: 12px;
+        padding: 28px 32px 32px;
+      }
+      .variant .tag {
+        display: inline-block;
+        background: var(--bg-2);
+        color: var(--tx-2);
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+        letter-spacing: 0.05em;
+      }
+      .variant h2 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .variant .sub {
+        margin: 0 0 12px;
+        color: var(--tx-2);
+        font-size: 13px;
+      }
+      .variant .meta {
+        margin-top: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+        font-size: 12px;
+      }
+      .variant .meta dt {
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--tx-3);
+        margin-bottom: 4px;
+      }
+      .variant .meta dd {
+        margin: 0;
+        color: var(--tx-2);
+        line-height: 1.5;
+      }
+      .variant .meta dd code {
+        background: var(--ui);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-size: 11px;
+      }
+      .variant .pros, .variant .cons {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .variant .pros { color: var(--green-600); }
+      .variant .cons { color: var(--red-600); }
+      .variant .ref { color: var(--blue-600); text-decoration: none; }
+      .variant .ref:hover { text-decoration: underline; }
+
+      /* ─────── gate strip layout ─────── */
+      .strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 24px 16px;
+        background: var(--bg-2);
+        border-radius: 8px;
+        align-items: flex-start;
+      }
+      .strip .group-sep {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .strip .group-label {
+        flex-basis: 100%;
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--tx-3);
+        margin: 12px 4px 4px;
+      }
+      .strip .group-label:first-child { margin-top: 0; }
+
+      /* ─────── shared gate-box base ─────── */
+      .g {
+        width: 48px;
+        height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-feature-settings: "ss01", "calt", "tnum";
+        font-variant-numeric: tabular-nums;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .g .dag {
+        position: absolute;
+        top: 7px;
+        right: 8px;
+        font-size: 12px;
+        line-height: 1;
+      }
+      .g .sub {
+        font-size: 0.6em;
+        margin-left: 1px;
+      }
+
+      /* ─────────────────────────────────────────────
+         A — Editorial Mono (JetBrains Mono)
+         ───────────────────────────────────────────── */
+      .v-a .strip { background: var(--paper); border: 1px solid var(--ui-2); }
+      .v-a .g {
+        background: var(--paper);
+        border: 1px solid var(--ui-2);
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--tx);
+        letter-spacing: -0.02em;
+      }
+      .v-a .g.param { font-size: 14px; }
+      .v-a .g.icon  { font-size: 14px; }
+      .v-a .g .dag  { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 11px; }
+
+      /* ─────────────────────────────────────────────
+         B — Geometric Sans (Inter)
+         ───────────────────────────────────────────── */
+      .v-b .strip { background: var(--paper); border: 1px solid var(--ui-2); }
+      .v-b .g {
+        background: var(--cyan-400);
+        color: var(--paper);
+        border-radius: 8px;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 19px;
+        letter-spacing: -0.015em;
+      }
+      .v-b .g.param   { background: var(--purple-400); font-size: 14px; font-weight: 700; }
+      .v-b .g.special { background: var(--tx-2); }
+      .v-b .g.outline { background: transparent; color: var(--tx); border: 2px solid var(--tx-2); }
+      .v-b .g .dag    { font-size: 12px; font-weight: 600; }
+
+      /* ─────────────────────────────────────────────
+         C — Display Serif (Newsreader / STIX Two)
+         ───────────────────────────────────────────── */
+      .v-c .strip { background: var(--paper); border: 1px solid var(--ui-2); padding-top: 28px; padding-bottom: 28px; }
+      .v-c .g {
+        background: transparent;
+        border: 1.5px solid var(--tx);
+        border-radius: 4px;
+        font-family: 'STIX Two Text', 'Newsreader', 'Times New Roman', serif;
+        font-style: italic;
+        font-weight: 500;
+        font-size: 24px;
+        color: var(--tx);
+      }
+      .v-c .g.param   { font-size: 17px; }
+      .v-c .g.icon    { font-style: normal; font-size: 14px; font-family: 'Newsreader', serif; }
+      .v-c .g.upright { font-style: normal; }
+      .v-c .g .dag    { font-style: normal; font-size: 13px; font-weight: 700; top: 6px; right: 7px; }
+
+      /* ─────────────────────────────────────────────
+         D — Soft Pastel (Public Sans + family tints)
+         ───────────────────────────────────────────── */
+      .v-d .strip { background: var(--paper); border: 1px solid var(--ui-2); }
+      .v-d .g {
+        background: var(--blue-100);
+        color: var(--blue-600);
+        border-radius: 12px;
+        font-family: 'Public Sans', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+      .v-d .g.fam-pauli { background: var(--blue-100); color: var(--blue-600); }
+      .v-d .g.fam-h     { background: var(--cyan-100); color: var(--cyan-600); }
+      .v-d .g.fam-phase { background: var(--purple-100); color: var(--purple-600); }
+      .v-d .g.fam-rot   { background: var(--purple-100); color: var(--purple-600); font-size: 14px; }
+      .v-d .g.fam-ctrl  { background: var(--ui); color: var(--tx); }
+      .v-d .g.fam-meter { background: var(--yellow-100); color: var(--yellow-600); }
+      .v-d .g.fam-init  { background: var(--green-100); color: var(--green-600); }
+      .v-d .g.fam-bloch { background: var(--ui); color: var(--tx-2); }
+      .v-d .g.fam-spacer{ background: transparent; color: var(--tx-3); }
+      .v-d .g .dag      { font-size: 12px; font-weight: 700; }
+
+      /* ─────── sphere / meter SVG sizing ─────── */
+      .icon-svg { width: 22px; height: 22px; }
+      .icon-svg.lg { width: 24px; height: 24px; }
+
+      footer.page {
+        max-width: 1200px;
+        margin: 32px auto 0;
+        padding: 24px 24px 0;
+        color: var(--tx-2);
+        font-size: 12px;
+        border-top: 1px solid var(--ui-2);
+      }
+      footer.page a { color: var(--blue-600); text-decoration: none; }
+      footer.page a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header class="page">
+      <h1>ゲートラベルのデザイン案</h1>
+      <p>
+        現在のゲートアイコンは qni の SVG パスを座標ごと書き写したベクター線。これをよりモダンな方向で見直すための 4 案。
+        各案で <strong>23 個すべてのゲート</strong> (Pauli 系 / 平方根・位相 / パラメトリック回転 / control & swap / 表示 & 初期化) を並べて比較できるようにしてある。
+      </p>
+      <p>
+        フォントはすべて Google Fonts から読み込み (<code>JetBrains Mono</code> / <code>Inter</code> / <code>Newsreader</code> / <code>STIX Two Text</code> / <code>Public Sans</code>)。
+        Bloch 球 / 測定計のアイコンは現状の qni 移植を簡略化して inline SVG で再現。色は <a class="ref" href="https://github.com/kepano/flexoki">Flexoki Light</a> トークンの範囲内で割り当てている。
+      </p>
+    </header>
+
+    <main>
+
+      <!-- ─────────────────────────────────── A ─────────────────────────────────── -->
+      <section class="variant v-a">
+        <span class="tag">A 案</span>
+        <h2>Editorial Mono — JetBrains Mono</h2>
+        <p class="sub">
+          ターミナル / dataviz パネル系のトーン。塗りつぶしを捨て、紙のカードに <strong>等幅ボールド</strong> の記号を置く。Linear / Berkeley Mono 系 UI の文法。
+        </p>
+        <div class="strip">
+          <div class="group-label">— Pauli / Hadamard</div>
+          <div class="g">H</div>
+          <div class="g">X</div>
+          <div class="g">Y</div>
+          <div class="g">Z</div>
+
+          <div class="group-label">— Phase &amp; Roots</div>
+          <div class="g">√<span style="font-size:0.95em">X</span></div>
+          <div class="g">S</div>
+          <div class="g">S<span class="dag">†</span></div>
+          <div class="g">T</div>
+          <div class="g">T<span class="dag">†</span></div>
+          <div class="g param">P<span class="sub">θ</span></div>
+
+          <div class="group-label">— Rotations (parametric)</div>
+          <div class="g param">R<span class="sub">x</span></div>
+          <div class="g param">R<span class="sub">y</span></div>
+          <div class="g param">R<span class="sub">z</span></div>
+
+          <div class="group-label">— Multi-qubit / Control</div>
+          <div class="g icon">×</div>
+          <div class="g icon">●</div>
+          <div class="g icon">○</div>
+
+          <div class="group-label">— Display / I-O / Misc</div>
+          <div class="g icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".5"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".5"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g icon">|0⟩</div>
+          <div class="g icon">|1⟩</div>
+          <div class="g icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g icon">⋯</div>
+          <div class="g">QFT</div>
+          <div class="g">QFT<span class="dag">†</span></div>
+        </div>
+        <div class="meta">
+          <div>
+            <dt>font</dt>
+            <dd><code>JetBrains Mono 700</code></dd>
+          </div>
+          <div>
+            <dt>chrome</dt>
+            <dd>paper bg / ui-2 1px border / 6 px radius / no fill</dd>
+          </div>
+          <div>
+            <dt>references</dt>
+            <dd>
+              <a class="ref" href="https://www.jetbrains.com/lp/mono/">JetBrains Mono</a> ·
+              Linear / Berkeley Mono 系 UI
+            </dd>
+          </div>
+        </div>
+        <p class="pros">+ 高解像度の数式記号にも強く、`†` `√` `θ` `⋯` `|0⟩` が同じ字幅でまっすぐ並ぶ</p>
+        <p class="cons">− 色面が消えるので、視認性は文字とアイコン線そのものに依存する。多数並ぶと地味</p>
+      </section>
+
+      <!-- ─────────────────────────────────── B ─────────────────────────────────── -->
+      <section class="variant v-b">
+        <span class="tag">B 案</span>
+        <h2>Geometric Sans — Inter</h2>
+        <p class="sub">
+          現在の qni と同系統だが、ゲート種を <strong>3 つの色面</strong> で分類:
+          ユニタリ = cyan-400、パラメトリック / 位相 = purple-400、control / SWAP / spacer 等 = tx-2。Inter 700 の硬めの幾何学的字面でリブランド。
+        </p>
+        <div class="strip">
+          <div class="group-label">— Pauli / Hadamard</div>
+          <div class="g">H</div>
+          <div class="g">X</div>
+          <div class="g">Y</div>
+          <div class="g">Z</div>
+
+          <div class="group-label">— Phase &amp; Roots</div>
+          <div class="g">√<span style="font-size:0.95em">X</span></div>
+          <div class="g">S</div>
+          <div class="g">S<span class="dag">†</span></div>
+          <div class="g">T</div>
+          <div class="g">T<span class="dag">†</span></div>
+          <div class="g param">P<span class="sub">θ</span></div>
+
+          <div class="group-label">— Rotations (parametric)</div>
+          <div class="g param">R<span class="sub">x</span></div>
+          <div class="g param">R<span class="sub">y</span></div>
+          <div class="g param">R<span class="sub">z</span></div>
+
+          <div class="group-label">— Multi-qubit / Control</div>
+          <div class="g special">×</div>
+          <div class="g special">●</div>
+          <div class="g outline">○</div>
+
+          <div class="group-label">— Display / I-O / Misc</div>
+          <div class="g special">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".7"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".7"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g special">|0⟩</div>
+          <div class="g special">|1⟩</div>
+          <div class="g special">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g special">⋯</div>
+          <div class="g" style="font-size:14px">QFT</div>
+          <div class="g" style="font-size:14px">QFT<span class="dag">†</span></div>
+        </div>
+        <div class="meta">
+          <div>
+            <dt>font</dt>
+            <dd><code>Inter 700</code></dd>
+          </div>
+          <div>
+            <dt>chrome</dt>
+            <dd>cyan-400 / purple-400 / tx-2 塗り、8 px radius、paper 文字</dd>
+          </div>
+          <div>
+            <dt>references</dt>
+            <dd>
+              <a class="ref" href="https://fonts.google.com/specimen/Inter">Inter</a> ·
+              <a class="ref" href="https://algassert.com/quirk">Quirk</a> · 現在の qni
+            </dd>
+          </div>
+        </div>
+        <p class="pros">+ 視認性が高い (色塊で位置が分かる)。ゲートカテゴリが色で見える。動く UI で映える</p>
+        <p class="cons">− 色面が多いと回路が「派手」に見える。学術論文っぽい引き締まりは出ない</p>
+      </section>
+
+      <!-- ─────────────────────────────────── C ─────────────────────────────────── -->
+      <section class="variant v-c">
+        <span class="tag">C 案</span>
+        <h2>Display Serif — Newsreader / STIX Two Text</h2>
+        <p class="sub">
+          物理ジャーナル (PRL / Nature) や LaTeX 出力の "<strong>論文に印刷されたら多分こう見える</strong>" 流派。
+          演算子は <strong>イタリック セリフ</strong> (Newsreader Italic)、特殊記号は upright で STIX Two Text。塗りは捨て、tx の細枠だけ。
+        </p>
+        <div class="strip">
+          <div class="group-label">— Pauli / Hadamard</div>
+          <div class="g">H</div>
+          <div class="g">X</div>
+          <div class="g">Y</div>
+          <div class="g">Z</div>
+
+          <div class="group-label">— Phase &amp; Roots</div>
+          <div class="g upright" style="font-size:18px">√<span style="font-style:italic">X</span></div>
+          <div class="g">S</div>
+          <div class="g">S<span class="dag">†</span></div>
+          <div class="g">T</div>
+          <div class="g">T<span class="dag">†</span></div>
+          <div class="g param">P<span class="sub">θ</span></div>
+
+          <div class="group-label">— Rotations (parametric)</div>
+          <div class="g param">R<span class="sub">x</span></div>
+          <div class="g param">R<span class="sub">y</span></div>
+          <div class="g param">R<span class="sub">z</span></div>
+
+          <div class="group-label">— Multi-qubit / Control</div>
+          <div class="g upright">×</div>
+          <div class="g upright icon">●</div>
+          <div class="g upright icon">○</div>
+
+          <div class="group-label">— Display / I-O / Misc</div>
+          <div class="g upright icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".5"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".5"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g upright icon">|0⟩</div>
+          <div class="g upright icon">|1⟩</div>
+          <div class="g upright icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g upright icon">⋯</div>
+          <div class="g upright" style="font-size:14px">QFT</div>
+          <div class="g upright" style="font-size:14px">QFT<span class="dag">†</span></div>
+        </div>
+        <div class="meta">
+          <div>
+            <dt>font</dt>
+            <dd>
+              <code>Newsreader 500 italic</code> (letters)<br/>
+              <code>STIX Two Text 500</code> (math marks)
+            </dd>
+          </div>
+          <div>
+            <dt>chrome</dt>
+            <dd>透明塗り / tx 1.5 px border / 4 px radius</dd>
+          </div>
+          <div>
+            <dt>references</dt>
+            <dd>
+              <a class="ref" href="https://www.stixfonts.org/">STIX Two</a> ·
+              <a class="ref" href="https://fonts.google.com/specimen/Newsreader">Newsreader</a> ·
+              Nielsen &amp; Chuang の図、PRL 図版
+            </dd>
+          </div>
+        </div>
+        <p class="pros">+ 論文画像との親和性が極めて高い。Z や X の italic は標準の "operator" 記法とも一致</p>
+        <p class="cons">− 印象が静的。小さいサイズ (24 px 以下) でセリフのコントラストが落ちて潰れる可能性</p>
+      </section>
+
+      <!-- ─────────────────────────────────── D ─────────────────────────────────── -->
+      <section class="variant v-d">
+        <span class="tag">D 案</span>
+        <h2>Soft Pastel — Public Sans + family tints</h2>
+        <p class="sub">
+          PennyLane / 教育系ツール寄りの<strong>パステル分類</strong>。Pauli = blue, Hadamard = cyan, S/T/Phase = purple,
+          回転 = purple (薄)、|0⟩|1⟩ = green、Measurement = yellow、control / swap = neutral。
+          1 つの大きな塊にせず、家族ごとに役割色で分ける。
+        </p>
+        <div class="strip">
+          <div class="group-label">— Pauli / Hadamard</div>
+          <div class="g fam-h">H</div>
+          <div class="g fam-pauli">X</div>
+          <div class="g fam-pauli">Y</div>
+          <div class="g fam-pauli">Z</div>
+
+          <div class="group-label">— Phase &amp; Roots</div>
+          <div class="g fam-h">√<span style="font-size:0.95em">X</span></div>
+          <div class="g fam-phase">S</div>
+          <div class="g fam-phase">S<span class="dag">†</span></div>
+          <div class="g fam-phase">T</div>
+          <div class="g fam-phase">T<span class="dag">†</span></div>
+          <div class="g fam-phase" style="font-size:14px">P<span class="sub">θ</span></div>
+
+          <div class="group-label">— Rotations (parametric)</div>
+          <div class="g fam-rot">R<span class="sub">x</span></div>
+          <div class="g fam-rot">R<span class="sub">y</span></div>
+          <div class="g fam-rot">R<span class="sub">z</span></div>
+
+          <div class="group-label">— Multi-qubit / Control</div>
+          <div class="g fam-ctrl">×</div>
+          <div class="g fam-ctrl">●</div>
+          <div class="g fam-ctrl">○</div>
+
+          <div class="group-label">— Display / I-O / Misc</div>
+          <div class="g fam-bloch">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+              <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" stroke-width="1" opacity=".6"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity=".6"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g fam-init" style="font-size:14px">|0⟩</div>
+          <div class="g fam-init" style="font-size:14px">|1⟩</div>
+          <div class="g fam-meter">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none">
+              <path d="M3 17a9 9 0 0 1 18 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="12" y1="17" x2="18" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="17" r="1.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="g fam-spacer">⋯</div>
+          <div class="g fam-h" style="font-size:13px">QFT</div>
+          <div class="g fam-h" style="font-size:13px">QFT<span class="dag">†</span></div>
+        </div>
+        <div class="meta">
+          <div>
+            <dt>font</dt>
+            <dd><code>Public Sans 700</code></dd>
+          </div>
+          <div>
+            <dt>chrome</dt>
+            <dd>family ごとのパステル塗り / 12 px radius / 縁なし</dd>
+          </div>
+          <div>
+            <dt>references</dt>
+            <dd>
+              <a class="ref" href="https://pennylane.ai/blog/2021/05/how-to-visualize-quantum-circuits-in-pennylane">PennyLane circuit viz</a> ·
+              Catppuccin / Tailwind 100 tones
+            </dd>
+          </div>
+        </div>
+        <p class="pros">+ ゲート種が色で即座に分類できる。教材や紹介資料で映える</p>
+        <p class="cons">− 配色が増えるので、隣接列の色干渉に気を遣う必要がある。Flexoki のトーン制限を緩めることに</p>
+      </section>
+
+    </main>
+
+    <footer class="page">
+      参考:
+      <a href="https://algassert.com/quirk">Quirk</a> ·
+      <a href="https://www.untitledui.com/blog/best-free-fonts">UI font trends 2026 (Untitled UI)</a> ·
+      <a href="https://www.stixfonts.org/">STIX Two</a> ·
+      <a href="https://github.com/kepano/flexoki">Flexoki</a>
+    </footer>
+  </body>
+</html>
