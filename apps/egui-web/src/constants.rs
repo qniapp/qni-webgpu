@@ -36,11 +36,20 @@ pub(crate) const STATE_RESIZE_HANDLE_PAD: f32 = 3.0;
 pub(crate) const STATE_RESIZE_HANDLE_STROKE: f32 = 2.0;
 pub(crate) const STATE_RESIZE_HIT_PAD: f32 = 2.0;
 
-/// Zoom factor range for the state panel circle grid (wheel over viewport).
-/// Below 0.5 the cells become unreadable noise; above 4.0 the panel is mostly
-/// the inside of one circle.
-pub(crate) const STATE_GRID_ZOOM_MIN: f32 = 0.5;
-pub(crate) const STATE_GRID_ZOOM_MAX: f32 = 4.0;
+/// Rendered circle-size range for state-panel wheel zoom. The mutable state
+/// still stores a zoom factor, but the clamp is expressed in pixels so every
+/// qubit count can zoom to the same visual min/max instead of inheriting a
+/// different range from qni's natural circle size.
+pub(crate) const STATE_GRID_CIRCLE_SIZE_MIN: f32 = 1.0;
+pub(crate) const STATE_GRID_CIRCLE_SIZE_MAX: f32 = 256.0;
+
+pub(crate) fn state_grid_zoom_limits(natural_circle_size: f32) -> (f32, f32) {
+    let natural = natural_circle_size.max(f32::EPSILON);
+    (
+        STATE_GRID_CIRCLE_SIZE_MIN / natural,
+        STATE_GRID_CIRCLE_SIZE_MAX / natural,
+    )
+}
 
 /// QFT / QFT† resizable-span gate geometry. Matches qni's
 /// `--qni-component-resize-handle-width / -height` (= operation-base /

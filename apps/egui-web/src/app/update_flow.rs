@@ -9,7 +9,10 @@ use std::time::Duration;
 
 use super::QniApp;
 use crate::colors::Colors;
-use crate::constants::{state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS};
+use crate::constants::{
+    state_circle_default_aspect_index, state_circle_layout, state_grid_zoom_limits,
+    DRAG_REPAINT_MIN_SECS, MAX_QUBITS,
+};
 use crate::gpu::{MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
 use crate::layout::layout_metrics;
 use crate::render::StatePanelLayout;
@@ -141,6 +144,10 @@ impl QniApp {
         } else {
             self.state_panel.aspect_index = self.state_panel.aspect_index.min(aspect_qubits);
         }
+        let natural_circle_size =
+            state_circle_layout(aspect_qubits, self.state_panel.aspect_index).size;
+        let (min_zoom, max_zoom) = state_grid_zoom_limits(natural_circle_size);
+        self.state_panel.grid_zoom = self.state_panel.grid_zoom.clamp(min_zoom, max_zoom);
 
         let layout = self.state_panel_layout(screen_rect, state_count);
         self.clamp_state_panel_offset(&layout, screen_rect);

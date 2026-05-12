@@ -46,6 +46,7 @@ pub(crate) struct StatePanelState {
     /// Pan offset of the circle grid inside the viewport.
     pub(crate) grid_offset: egui::Vec2,
     /// Zoom factor for the circle grid (1.0 = qni's natural cell sizes).
+    /// Runtime clamps convert this to a rendered circle-size range.
     pub(crate) grid_zoom: f32,
     /// User-controlled circle viewport size below the header strip.
     pub(crate) viewport_size: egui::Vec2,
