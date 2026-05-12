@@ -1,10 +1,9 @@
 //! App root — `QniApp` struct, init / accessors, and the
-//! `eframe::App::update` coordinator. The bulk of per-frame work lives
-//! in two submodules:
-//!   * `state_panel` — state-panel interactions + small state helpers
-//!   * `gate_input`  — gate pickup / drag / drop / hover + repaint throttle
+//! `eframe::App::update` coordinator. Per-frame helpers live in
+//! `state_panel`, `gate_input`, and `drag_controller`.
 
 mod circuit_model;
+mod drag_controller;
 mod fps_hud;
 mod gate_input;
 mod state_panel;
