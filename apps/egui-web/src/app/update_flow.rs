@@ -8,15 +8,15 @@ use eframe::egui;
 use std::time::Duration;
 
 use super::QniApp;
-use crate::bloch::{
-    linearize_ops, validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits,
-};
 use crate::colors::Colors;
 use crate::constants::{state_circle_default_aspect_index, DRAG_REPAINT_MIN_SECS, MAX_QUBITS};
 use crate::gpu::{MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
 use crate::layout::layout_metrics;
 use crate::render::StatePanelLayout;
 use crate::shared::{amplitude_qubits, now_seconds};
+use crate::simulation_plan::{
+    linearize_ops, validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits,
+};
 
 struct CircuitFrameState {
     content_rect: Option<egui::Rect>,

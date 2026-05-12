@@ -1,136 +1,20 @@
-//! Linearises placed gates into the GPU op stream consumed by `gpu.rs`.
-//! No quantum math runs here — the column-by-column walk only decides which
-//! WGSL dispatches to issue (and in what order). Per AGENTS.md the simulation
-//! is GPU-only; this module is purely an orchestration helper.
+//! Column-by-column lowering from editor gates into GPU dispatch ops.
 //!
 //! qni references for the per-column semantics:
 //! - `packages/simulator/src/simulator.ts:runStep` — controls + targets in
 //!   each step, then any measurement / display readouts on the post-step
 //!   state.
 //! - `packages/simulator/src/state-vector.ts` and `matrix.ts` — the math each
-//!   shader implements (kept in `gpu.rs`).
+//!   shader implements (kept in `gpu/*`).
 
 use std::collections::HashMap;
 
+use super::SimulationOp;
 use crate::app::PlacedGate;
-
 use crate::gates::{
     controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
-    phase_params, rx_params, ry_params, rz_params, GateKind, GateParams,
+    phase_params, rx_params, ry_params, rz_params, GateKind,
 };
-
-/// One step the GPU dispatcher should run during a recompute.
-///   * `ApplyGate`: unitary / write gate via `STATE_COMPUTE_SHADER`.
-///   * `CaptureBloch`: per-qubit reduction (Bloch x, y, z) via
-///     `BLOCH_REDUCE_SHADER`.
-///   * `MeasureReduceSample`: pZero reduction + deterministic PCG sample,
-///     writes `(pZero, r, outcome, sqrt_p_kept)` to the measurement aux
-///     buffer (`MEASURE_REDUCE_SHADER`).
-///   * `MeasureCollapse`: per-pair zero+normalize using the previously
-///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum SimulationOp {
-    ApplyGate(GateParams),
-    CaptureBloch {
-        gate_id: u32,
-        qubit_bit: u32,
-        output_slot: u32,
-    },
-    MeasureReduceSample {
-        gate_id: u32,
-        qubit_bit: u32,
-        output_slot: u32,
-    },
-    MeasureCollapse {
-        qubit_bit: u32,
-        aux_slot: u32,
-    },
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct SimulationPlanLimits {
-    pub(crate) max_ops_per_variant: usize,
-    pub(crate) max_bloch_slots: usize,
-    pub(crate) max_measurement_slots: usize,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SimulationPlanCapacityError {
-    message: String,
-}
-
-impl SimulationPlanCapacityError {
-    fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-        }
-    }
-}
-
-impl std::fmt::Display for SimulationPlanCapacityError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.message)
-    }
-}
-
-pub(crate) fn validate_simulation_plan_capacity(
-    ops: &[SimulationOp],
-    limits: SimulationPlanLimits,
-) -> Result<(), SimulationPlanCapacityError> {
-    let mut gate_ops = 0usize;
-    let mut bloch_ops = 0usize;
-    let mut measure_reduce_ops = 0usize;
-    let mut measure_collapse_ops = 0usize;
-    for op in ops {
-        match op {
-            SimulationOp::ApplyGate(_) => gate_ops += 1,
-            SimulationOp::CaptureBloch { output_slot, .. } => {
-                bloch_ops += 1;
-                let slot = *output_slot as usize;
-                if slot >= limits.max_bloch_slots {
-                    return Err(SimulationPlanCapacityError::new(format!(
-                        "Bloch slot {slot} exceeds MAX_BLOCH_SLOTS={}; reduce Bloch displays or grow the GPU buffer",
-                        limits.max_bloch_slots
-                    )));
-                }
-            }
-            SimulationOp::MeasureReduceSample { output_slot, .. } => {
-                measure_reduce_ops += 1;
-                let slot = *output_slot as usize;
-                if slot >= limits.max_measurement_slots {
-                    return Err(SimulationPlanCapacityError::new(format!(
-                        "measurement slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
-                        limits.max_measurement_slots
-                    )));
-                }
-            }
-            SimulationOp::MeasureCollapse { aux_slot, .. } => {
-                measure_collapse_ops += 1;
-                let slot = *aux_slot as usize;
-                if slot >= limits.max_measurement_slots {
-                    return Err(SimulationPlanCapacityError::new(format!(
-                        "measurement collapse slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
-                        limits.max_measurement_slots
-                    )));
-                }
-            }
-        }
-    }
-    for (label, count) in [
-        ("gate", gate_ops),
-        ("bloch", bloch_ops),
-        ("measure_reduce", measure_reduce_ops),
-        ("measure_collapse", measure_collapse_ops),
-    ] {
-        if count > limits.max_ops_per_variant {
-            return Err(SimulationPlanCapacityError::new(format!(
-                "{label} op count {count} exceeds MAX_OPS_PER_RECOMPUTE={}; split the circuit or grow the GPU staging buffer",
-                limits.max_ops_per_variant
-            )));
-        }
-    }
-    Ok(())
-}
 
 /// Walks placed gates column by column and emits ops in the exact order the
 /// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.

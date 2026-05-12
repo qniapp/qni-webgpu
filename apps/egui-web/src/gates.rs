@@ -24,7 +24,7 @@ pub(crate) enum GateKind {
     /// Quantum Fourier Transform — multi-qubit gate whose `span` (number
     /// of qubits covered) is user-resizable via a hover-revealed handle.
     /// Simulation is expanded into a textbook GPU op stream by
-    /// `bloch::linearize_ops`; no CPU fallback is used.
+    /// `simulation_plan::linearize_ops`; no CPU fallback is used.
     QftGate,
     /// Inverse QFT.
     QftDaggerGate,

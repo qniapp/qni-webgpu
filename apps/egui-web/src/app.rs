@@ -12,9 +12,9 @@ mod update_flow;
 use eframe::egui;
 use std::collections::{HashMap, VecDeque};
 
-use crate::bloch::SimulationOp;
 use crate::constants::{MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
+use crate::simulation_plan::SimulationOp;
 
 pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
 pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};

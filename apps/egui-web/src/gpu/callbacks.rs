@@ -13,7 +13,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use crate::bloch::SimulationOp;
+use crate::simulation_plan::SimulationOp;
 
 use super::params::{
     BlochOverlayInstance, BlochOverlayParams, MeasurementDigitInstance, MeasurementDigitParams,

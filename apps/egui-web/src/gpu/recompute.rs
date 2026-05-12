@@ -7,8 +7,10 @@
 
 use eframe::wgpu;
 
-use crate::bloch::{validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits};
 use crate::gates::GateParams;
+use crate::simulation_plan::{
+    validate_simulation_plan_capacity, SimulationOp, SimulationPlanLimits,
+};
 
 use super::params::{
     BlochParams, MeasureCollapseParams, MeasureReduceParams, MAX_BLOCH_SLOTS,

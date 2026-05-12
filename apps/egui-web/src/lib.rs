@@ -1,5 +1,4 @@
 mod app;
-mod bloch;
 mod colors;
 mod constants;
 mod gates;
@@ -8,6 +7,7 @@ mod icons;
 mod layout;
 mod render;
 mod shared;
+mod simulation_plan;
 mod url_circuit;
 
 use crate::app::QniApp;
