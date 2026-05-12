@@ -778,9 +778,9 @@
           <article class="candidate high">
             <div class="topline"><span class="rank">C-03</span><span class="badge">P0 docs</span></div>
             <h3>古いコメント / docs の GPU 方針ズレを修正</h3>
-            <p>「CPU side collapse」「QFT simulation deferred」など、現実と逆の説明が残る。新規作業者を誤誘導する。</p>
-            <ul><li>Web 本番は GPU-only と明記</li><li>historical note は削除か隔離</li></ul>
-            <div class="file-list"><span class="file-chip">docs/egui-web.md</span><span class="file-chip">gates.rs</span><span class="file-chip">gpu/shaders.rs</span></div>
+            <p>「CPU side collapse」「QFT simulation deferred」など、現実と逆の説明が残る。新規作業者を誤誘導する。<strong>進捗:</strong> <code>docs/gpu-plan.md</code> を現状の GPU-only production path / test-only readback / shader direct sample 方針へ更新済み。</p>
+            <ul><li>Web 本番は GPU-only と明記</li><li>test-only readback を明記</li><li>historical note は削除か隔離</li></ul>
+            <div class="file-list"><span class="file-chip">docs/egui-web.md</span><span class="file-chip">docs/gpu-plan.md</span><span class="file-chip">gates.rs</span><span class="file-chip">gpu/shaders.rs</span></div>
           </article>
 
           <article class="candidate medium">
@@ -863,7 +863,7 @@
               <tbody>
                 <tr><td>C-01 model</td><td><span class="status p0">P0</span></td><td>pixel 座標が永続モデル</td><td><code>column/wire/span</code> 正本化 + URL codec split 済み</td><td>URL互換・drag/dropの座標ズレ</td><td>Playwright drag + URL load + state vector</td></tr>
                 <tr><td>C-02 GPU caps</td><td><span class="status p0">P0</span></td><td>release で capacity 超過が静かに壊れる</td><td><code>RecomputePlan::validate</code> or dynamic resize。Qni の max gate 制約を参考</td><td>既存回路の上限変更</td><td>unit test + large circuit smoke</td></tr>
-                <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>実装に合わせて削除・更新</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
+                <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>GPU-only production path と test-only readback へ更新済み</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
                 <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller + state panel state + GPU plan state は抽出済み</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
                 <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>drag controller / update flow / circuit / state panel / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
                 <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata + icon drawing split 済み</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller/*</code> / <code>app/state_panel_state.rs</code> / <code>app/gpu_plan_state.rs</code> / <code>app/update_flow.rs</code> / <code>simulation_plan/*</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag start-resize-preview-hover-drop state machine / state panel state / GPU plan state / update coordinator / GPU plan lowering / icon drawing / URL codec responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller/*</code> / <code>app/state_panel_state.rs</code> / <code>app/gpu_plan_state.rs</code> / <code>app/update_flow.rs</code> / <code>simulation_plan/*</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag start-resize-preview-hover-drop state machine / state panel state / GPU plan state / update coordinator / GPU plan lowering / icon drawing / URL codec responsibilities を分離。<code>docs/gpu-plan.md</code> は GPU-only production path と test-only readback 方針へ更新。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>
