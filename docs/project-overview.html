@@ -339,6 +339,111 @@
   .perf .item code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 12px; color: var(--text); }
   .perf .item .meta { color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; }
 
+  /* Glyph atlas strip + pipeline diagram */
+  .atlas {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 20px 24px 24px;
+    margin-bottom: 24px;
+  }
+  .atlas-label, .atlas-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .atlas-meta { text-transform: none; letter-spacing: 0; margin-top: 14px; font-size: 12px; }
+  .atlas-meta code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; font-size: 11px; color: var(--text); }
+  .atlas-strip {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 0;
+    margin-top: 12px;
+    border: 1px solid var(--line);
+  }
+  .atlas-strip .cell {
+    aspect-ratio: 9 / 16;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 18px;
+    color: var(--text);
+    background: var(--surface-2);
+    border-right: 1px solid var(--line);
+  }
+  .atlas-strip .cell:last-child { border-right: none; }
+  .atlas-strip .cell em { font-style: italic; font-family: var(--serif); font-size: 20px; }
+
+  .pipe {
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr 24px 1fr 24px 1fr;
+    gap: 0;
+    margin-bottom: 24px;
+    align-items: stretch;
+  }
+  .pipe .stage {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 20px 22px;
+  }
+  .pipe .stage-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .pipe .stage h3 {
+    font-family: var(--serif);
+    font-size: 17px;
+    margin: 0 0 10px 0;
+    color: var(--text);
+  }
+  .pipe .stage p { margin: 0; font-size: 12.5px; color: var(--text-mid); line-height: 1.6; }
+  .pipe .stage p code { background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; font-size: 11px; color: var(--text); }
+  .pipe .stage p em { font-style: italic; color: var(--text); }
+  .pipe .arrow-h {
+    display: grid;
+    place-items: center;
+    color: var(--text-mid);
+    font-size: 18px;
+  }
+
+  .formats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .formats .fmt {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 14px 16px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .formats .fmt-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .formats .fmt code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 2px 8px;
+    color: var(--text);
+    font-size: 12px;
+    flex-grow: 1;
+  }
+  .formats .fmt-cnt { color: var(--text-mid); font-size: 11px; }
+
   /* Frame budget chart */
   .budget {
     border: 1px solid var(--line);
@@ -745,8 +850,63 @@
     </div>
   </div>
 
+  <!-- ───────────── GPU TEXT RENDERING ───────────── -->
+  <h2><span class="num">§ 06</span> GPU-side text rendering</h2>
+  <p class="lede">状態ベクトルセルの hover popup には「振幅 / 確率 / 位相」の <em>数値</em> が表示される。これらの数値は GPU の storage buffer に在る state vector から計算するもので、CPU に戻して文字レイアウトしては <b>no readback ルールに違反</b> する。<br>解決策: 文字も丸ごと fragment shader で描く。仕組みは "<em>baked glyph atlas + per-pixel digit extraction</em>" の 2 段。</p>
+
+  <!-- visual: atlas strip -->
+  <div class="atlas">
+    <div class="atlas-label">— popup_glyph_atlas (起動時 1 回 bake / R8Unorm GPU texture)</div>
+    <div class="atlas-strip">
+      <div class="cell">0</div><div class="cell">1</div><div class="cell">2</div><div class="cell">3</div>
+      <div class="cell">4</div><div class="cell">5</div><div class="cell">6</div><div class="cell">7</div>
+      <div class="cell">8</div><div class="cell">9</div><div class="cell">.</div><div class="cell">+</div>
+      <div class="cell">−</div><div class="cell"><em>i</em></div><div class="cell">%</div><div class="cell">°</div>
+    </div>
+    <div class="atlas-meta">9 × 16 px / cell × 16 cells = 144 × 16 px の単色テクスチャ。Hack Regular を <code>ab_glyph</code> でラスタライズ。</div>
+  </div>
+
+  <!-- pipeline diagram -->
+  <div class="pipe">
+    <div class="stage">
+      <div class="stage-id">— input</div>
+      <h3>state buffer (GPU)</h3>
+      <p>compute pass の最後に <code>state_buffers[active]</code> に書き込まれた complex amplitude。<code>vec2&lt;f32&gt;(re, im)</code> の配列。fragment shader が <code>@group(0) @binding(0)</code> として直接 sample する。</p>
+    </div>
+    <div class="arrow-h">→</div>
+    <div class="stage">
+      <div class="stage-id">— per pixel</div>
+      <h3>fragment shader</h3>
+      <p>各ピクセルから「自分は popup 内のどの行 / 何文字目か」を計算 → 表示すべき値が <code>amp</code> / <code>prob = |amp|²</code> / <code>phase = atan2(im, re)</code> のどれか決まる。</p>
+    </div>
+    <div class="arrow-h">→</div>
+    <div class="stage">
+      <div class="stage-id">— format</div>
+      <h3>digit_at(value, exp)</h3>
+      <p>10 進数 <em>1 桁</em> を取り出すヘルパ。<code>digit_at(3.14, -1) = 1</code>、<code>digit_at(3.14, 0) = 3</code>。<code>pow10_table</code> は <code>switch</code> 文で実装、<code>pow(10, x)</code> の累積誤差で <code>pow(10,5)</code> が 99999 に丸まる罠を避ける。</p>
+    </div>
+    <div class="arrow-h">→</div>
+    <div class="stage">
+      <div class="stage-id">— output</div>
+      <h3>atlas sample</h3>
+      <p>digit (0-9) や記号 (+, −, ., i, %, °) を <em>glyph index</em> へ写像 → atlas UV を組み立て → R8Unorm を <code>textureSample</code> → alpha 値をそのまま popup フォアグラウンド色に乗せて出力。</p>
+    </div>
+  </div>
+
+  <!-- formats -->
+  <div class="formats">
+    <div class="fmt"><span class="fmt-name">amplitude</span> <code>+r.rrrrr+i.iiiii</code> <span class="fmt-cnt">17 chars</span></div>
+    <div class="fmt"><span class="fmt-name">probability</span> <code>+ddd.dddd%</code> <span class="fmt-cnt">10 chars</span></div>
+    <div class="fmt"><span class="fmt-name">phase</span> <code>+ddd.dd°</code> <span class="fmt-cnt">8 chars</span></div>
+  </div>
+
+  <p class="lede" style="margin-top:24px;">
+    結果として popup は <b>常に最新フレームの GPU 計算値</b> を表示する。CPU に値が一度も戻らないので、1 frame 遅れも staging buffer 確保も発生しない。<code>digit_atlas</code> (測定ゲートの "0" / "1"  9 × 16 → 大型 2 glyph) も同じパターンの兄弟モジュール。
+    <br><br>関連ソース: <code>gpu/popup_glyph_atlas.rs</code> · <code>gpu/shaders/popup_value.rs</code> · <code>gpu/resources/popup_value.rs</code>
+  </p>
+
   <!-- ───────────── FRAME BUDGET ───────────── -->
-  <h2><span class="num">§ 06</span> Frame budget shape</h2>
+  <h2><span class="num">§ 07</span> Frame budget shape</h2>
   <p class="lede">アイドル時の 60 fps フレームを概念的に分解すると、CPU 仕事は egui の毎フレーム再構築・state panel paint・drag pacing で占められ、GPU 仕事はゲート適用 dispatch + 4 つの render pass。下記は実測の傾向を視覚化したもので、実数値はビルド構成により変動。</p>
   <div class="budget">
     <div class="label">— 1 frame @ 60 fps (~16.6 ms)</div>
@@ -768,7 +928,7 @@
   </p>
 
   <!-- ───────────── READING ORDER ───────────── -->
-  <h2><span class="num">§ 07</span> Where to start reading</h2>
+  <h2><span class="num">§ 08</span> Where to start reading</h2>
   <p class="lede">新しく入ってきた人向けの推奨順。回路を 1 つ動かす道筋に沿って 7 ステップで読むと、CPU 側から GPU 側まで一気通貫で追える。</p>
   <div class="reading">
     <div class="step">01</div>
