@@ -802,8 +802,8 @@
           <article class="candidate medium">
             <div class="topline"><span class="rank">C-06</span><span class="badge">P1 registry</span></div>
             <h3>Gate 定義を中央 registry 化</h3>
-            <p>label / palette order / URL token / icon / matrix / tooltip / linearize が別ファイルに分散。Qni の <code>operationType</code> / <code>toJson</code> は参考にしつつ、instanceof union 羅列は避ける。<strong>進捗:</strong> <code>GateSpec</code> で label / URL token / palette / resizable を中央化し、tooltip と params を分離済み。</p>
-            <ul><li><code>GateSpec</code> を導入</li><li>新 gate 追加時の編集箇所を削減</li><li>Qni: per-gate element の metadata 発想だけ採用</li></ul>
+            <p>label / palette order / URL token / icon / matrix / tooltip / linearize が別ファイルに分散。Qni の <code>operationType</code> / <code>toJson</code> は参考にしつつ、instanceof union 羅列は避ける。<strong>進捗:</strong> <code>GateSpec</code> で label / URL token / palette / resizable を中央化し、tooltip と params を分離済み。<code>icons.rs</code> も body / glyph / Bloch / QFT / SVG helper へ分割済み。</p>
+            <ul><li><code>GateSpec</code> を導入</li><li>icon drawing split</li><li>新 gate 追加時の編集箇所を削減</li><li>Qni: per-gate element の metadata 発想だけ採用</li></ul>
             <div class="file-list"><span class="file-chip">gates.rs</span><span class="file-chip">constants.rs</span><span class="file-chip">icons.rs</span><span class="file-chip">url_circuit.rs</span><span class="file-chip">bloch.rs</span></div>
           </article>
 
@@ -826,7 +826,7 @@
           <article class="candidate low">
             <div class="topline"><span class="rank">C-09</span><span class="badge">P2 style</span></div>
             <h3>Flexoki / Tailwind token を constants 化</h3>
-            <p>一部 hardcoded RGB と scale 外フォントが残る。style guide 違反の検知前に整理。</p>
+            <p>一部 hardcoded RGB と scale 外フォントが残る。style guide 違反の検知前に整理。<strong>進捗:</strong> icon 実装は小ファイル化し、今後の token 置換範囲を狭めた。</p>
             <ul><li>debug HUD colors を <code>Colors</code> へ</li><li><code>10px</code> label を Tailwind scale へ</li></ul>
             <div class="file-list"><span class="file-chip">app/fps_hud.rs</span><span class="file-chip">colors.rs</span><span class="file-chip">render/circuit.rs</span><span class="file-chip">state_panel_draw.rs</span></div>
           </article>
@@ -866,7 +866,7 @@
                 <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>実装に合わせて削除・更新</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
                 <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller は抽出済み。残は state panel / GPU plan state</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
                 <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>circuit / state panel / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
-                <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata。Qni の operationType/toJson を data-driven 化</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
+                <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata + icon drawing split 済み</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
                 <tr><td>C-07 CPU islands</td><td><span class="status p2">P2</span></td><td>TUI/MCP が CPU simulation</td><td>境界を docs 化 or GPU 経路統合</td><td>scope が大きい</td><td>TUI tests + MCP tests</td></tr>
                 <tr><td>C-08 TUI split</td><td><span class="status p2">P2</span></td><td>500行超ファイル複数</td><td>renderer/model/tests 分割</td><td>snapshot 差分</td><td>cargo test + insta review</td></tr>
                 <tr><td>C-09 style tokens</td><td><span class="status p2">P2</span></td><td>hardcoded RGB / scale外サイズ</td><td>Flexoki + Tailwind constants</td><td>見た目の微差</td><td>visual screenshot + clippy禁止API</td></tr>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 現作業ツリーには既存の未コミット画像アーティファクトが多数あり。監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> を追加し、pointer adapter と drag state machine を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 現作業ツリーには既存の未コミット画像アーティファクトが多数あり。監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller.rs</code> と <code>icons/*</code> を追加し、pointer adapter / drag state machine / icon drawing responsibilities を分離。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>

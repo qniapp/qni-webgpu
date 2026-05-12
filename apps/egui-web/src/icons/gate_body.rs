@@ -1,0 +1,116 @@
+//! Gate body fill, special bodies, and fallback label drawing.
+
+use eframe::egui;
+
+use crate::colors::Colors;
+use crate::constants::GATE_SIZE;
+use crate::gates::GateKind;
+
+use super::gate_glyphs::draw_gate_icon;
+use super::qft::draw_qft_lettering;
+
+pub(crate) fn draw_gate_body(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+) {
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill);
+}
+
+pub(crate) fn draw_drag_gate_body(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+) {
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.drag_fill);
+}
+
+fn draw_gate_body_with_fill(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+    fill: egui::Color32,
+) {
+    if kind == GateKind::X {
+        let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
+        painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if kind == GateKind::Phase {
+        // qni renders the parametric Phase as a circular body (the
+        // Ø glyph centred inside) so the angle label has somewhere
+        // clean to sit above / below the gate without colliding with
+        // the gate body's square corners.
+        let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
+        painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
+        // QFT family — same green body as the other unitary gates
+        // (qni `--qni-semantic-fill-color-primary`). The SVG lettering
+        // is centred in a GATE_SIZE square so multi-qubit spans keep
+        // the icon at the vertical centre of the body. Purple resize
+        // handle is drawn separately by the caller below the body.
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
+        let cx = gate_rect.center().x;
+        let cy = gate_rect.center().y;
+        let half = GATE_SIZE * 0.5;
+        let icon_rect = egui::Rect::from_min_max(
+            egui::pos2(cx - half, cy - half),
+            egui::pos2(cx + half, cy + half),
+        );
+        draw_qft_lettering(
+            painter,
+            icon_rect,
+            kind == GateKind::QftDaggerGate,
+            colors.label,
+        );
+        return;
+    } else if kind == GateKind::BlochDisplay {
+        // qni renders the bloch display as a stand-alone sphere — bg-green-50
+        // background with a gray-400 border (`packages/elements/css/bloch_display.css`).
+        let radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
+        painter.circle_filled(gate_rect.center(), radius, colors.bloch_sphere_bg);
+        painter.circle_stroke(
+            gate_rect.center(),
+            radius,
+            egui::Stroke::new(1.5, colors.bloch_sphere_lines),
+        );
+    } else if kind != GateKind::Control
+        && kind != GateKind::AntiControl
+        && kind != GateKind::Swap
+        && kind != GateKind::Measurement
+        && kind != GateKind::Spacer
+        && kind != GateKind::Write0
+        && kind != GateKind::Write1
+    {
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
+    }
+    let icon_color =
+        if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
+            fill
+        } else if kind == GateKind::BlochDisplay {
+            colors.bloch_sphere_lines
+        } else if kind == GateKind::Measurement {
+            // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
+            colors.semantic_intermediate
+        } else if kind == GateKind::Spacer {
+            // qni `spacer_gate.css`: text-neutral-900 (#171717).
+            colors.spacer_dots
+        } else if kind == GateKind::Write0 || kind == GateKind::Write1 {
+            // qni `write_gate.css`: ::part(icon) (the brackets) is
+            // semantic-fill-color-disabled (zinc-500). Only the digit itself
+            // is red/blue — handled inside draw_gate_icon.
+            colors.semantic_disabled
+        } else {
+            colors.label
+        };
+    if !draw_gate_icon(painter, gate_rect, kind, icon_color, colors) {
+        painter.text(
+            gate_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            kind.label(),
+            egui::FontId::proportional(18.0),
+            colors.label,
+        );
+    }
+}
