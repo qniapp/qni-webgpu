@@ -17,10 +17,9 @@ use crate::layout::qft_resize_handle_rect;
 // radius so the needle reads as attached to the sphere rather than floating
 // outside the outline at ±Z.
 const BLOCH_VECTOR_TIP_RADIUS: f32 = 3.0;
-// The GPU digit atlas is centred by glyph bounds; qni centres the text-lg line
-// box in the measurement body. This small baseline nudge makes the visible
-// digit sit optically centred over the meter icon.
-const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 3.0;
+// Font-rasterisation baseline correction for the GPU atlas: keep the visible
+// digit's vertical centre on the wire, matching qni's flex-centred value layer.
+const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 
 impl QniApp {
     pub(super) fn draw_placed_circuit_gates(

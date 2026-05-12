@@ -152,12 +152,12 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const measureX = slotCenter(1)
   const blochX = slotCenter(2)
   const samples = await sampleCanvasPixels(page, canvas, [
-    { name: 'measurement_digit_centered', x: measureX, y: wireCenterY + 8 },
+    { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
     { name: 'bloch_tip_inside_sphere', x: blochX, y: wireCenterY + 12 },
     { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 16 },
   ])
 
-  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 100 && g < 160
+  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
 
   expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
@@ -167,6 +167,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
 
 test('GPU circuit overlays stay anchored in tall scroll-area viewports', async ({ page }) => {
   const col0 = Array(16).fill(1)
+  col0[0] = 'X'
   col0[15] = 'H'
   const col1 = Array(16).fill(1)
   col1[1] = 'Measure'
@@ -195,17 +196,17 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
 
   const overlayX = slotCenter(2)
   const samples = await sampleCanvasPixels(page, canvas, [
-    { name: 'measurement_digit_too_high', x: overlayX, y: wireCenterY(0) - 8 },
-    { name: 'measurement_digit_inside_meter', x: overlayX, y: wireCenterY(0) + 8 },
+    { name: 'measurement_digit_too_high', x: overlayX, y: wireCenterY(0) - 12 },
+    { name: 'measurement_digit_on_wire', x: overlayX, y: wireCenterY(0) },
     { name: 'bloch_tip_inside_sphere', x: overlayX, y: wireCenterY(2) - 14 },
     { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 24 },
   ])
 
-  const isOutcomeRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 120 && b < 120
+  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
 
-  expect(isOutcomeRed(samples.measurement_digit_too_high)).toBe(false)
-  expect(isOutcomeRed(samples.measurement_digit_inside_meter)).toBe(true)
+  expect(isOutcomeBlue(samples.measurement_digit_too_high)).toBe(false)
+  expect(isOutcomeBlue(samples.measurement_digit_on_wire)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_too_high)).toBe(false)
 })
