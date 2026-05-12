@@ -112,13 +112,20 @@ impl QniApp {
                     );
                     let from_origin = anchor - pre_origin;
                     let scale = new_zoom / old_zoom;
-                    let drift = from_origin * (scale - 1.0);
+                    let desired_origin = anchor - from_origin * scale;
                     self.state_panel.grid_zoom = new_zoom;
-                    self.state_panel.grid_offset -= drift;
-                    // Layout recomputes next frame with the new zoom;
-                    // clamp now to avoid a 1-frame out-of-bounds pan.
+                    // Convert the desired post-zoom origin through the zoomed
+                    // layout's own pan base. This keeps the cursor anchor fixed
+                    // even when the grid switches between centred-fit and
+                    // overflowing-panned modes.
                     let zoomed = self.state_panel_layout(screen_rect, state_count);
+                    self.state_panel.grid_offset = QniApp::grid_offset_for_origin(
+                        &zoomed,
+                        self.state_panel.offset,
+                        desired_origin,
+                    );
                     self.clamp_state_grid_offset(&zoomed);
+                    ctx.request_repaint();
                 }
             }
         }

@@ -57,8 +57,13 @@ impl QniApp {
             pointer_over_state_panel,
             &colors,
         );
-        let state_frame = self.prepare_state_panel_frame(screen_rect);
+        let mut state_frame = self.prepare_state_panel_frame(screen_rect);
         self.process_state_panel_interactions(ctx, ui, screen_rect, &state_frame);
+        // State-panel interactions can change zoom, aspect, viewport size, or
+        // panel offset. Draw with a fresh layout in the same frame; otherwise
+        // the pan/anchor math is one frame ahead of radius/cell_pitch and the
+        // GPU-rendered circles visibly wobble during wheel zoom.
+        state_frame = self.prepare_state_panel_frame(screen_rect);
         self.draw_frame_overlay(
             ctx,
             frame,

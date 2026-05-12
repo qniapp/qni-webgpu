@@ -101,10 +101,11 @@ impl QniApp {
     }
 
     /// Where the circle grid's top-left corner should render given the panel
-    /// layout and the user's pan offset. If the grid fits inside the
-    /// viewport on an axis it gets centred (and the pan offset is ignored
-    /// for that axis); otherwise the offset is clamped so the grid can pan
-    /// only as far as its edges meet the viewport edges.
+    /// layout and the user's pan offset. A fitting grid starts centred, but
+    /// pan still applies within the available slack so wheel zoom can keep
+    /// the cursor anchor fixed instead of always expanding from the centre.
+    /// Once the grid overflows, pan is clamped so its edges stay attached to
+    /// the viewport edges (no empty bands beyond the grid).
     pub(crate) fn grid_origin(
         layout: &StatePanelLayout,
         viewport_offset: egui::Vec2,
@@ -112,22 +113,49 @@ impl QniApp {
     ) -> egui::Pos2 {
         let viewport = layout.viewport_rect.translate(viewport_offset);
         let grid = layout.grid_size;
-        let origin_x = if grid.x <= viewport.width() {
-            viewport.min.x + (viewport.width() - grid.x) / 2.0
-        } else {
-            // Grid wider than viewport — clamp pan so the grid edges can't
-            // separate from the viewport edges (no empty bands either side).
-            let min = viewport.max.x - grid.x;
-            let max = viewport.min.x;
-            (viewport.min.x + pan.x).clamp(min, max)
-        };
-        let origin_y = if grid.y <= viewport.height() {
-            viewport.min.y + (viewport.height() - grid.y) / 2.0
-        } else {
-            let min = viewport.max.y - grid.y;
-            let max = viewport.min.y;
-            (viewport.min.y + pan.y).clamp(min, max)
-        };
-        egui::pos2(origin_x, origin_y)
+        egui::pos2(
+            grid_axis_origin(viewport.min.x, viewport.width(), grid.x, pan.x),
+            grid_axis_origin(viewport.min.y, viewport.height(), grid.y, pan.y),
+        )
+    }
+
+    /// Convert a desired grid top-left origin into the pan value that
+    /// `grid_origin` expects for a given layout. Used by cursor-anchored zoom
+    /// after the zoomed layout is known, avoiding base-origin drift when the
+    /// grid transitions between "fits and centred" and "overflows" modes.
+    pub(crate) fn grid_offset_for_origin(
+        layout: &StatePanelLayout,
+        viewport_offset: egui::Vec2,
+        origin: egui::Pos2,
+    ) -> egui::Vec2 {
+        let viewport = layout.viewport_rect.translate(viewport_offset);
+        let grid = layout.grid_size;
+        egui::vec2(
+            grid_axis_pan_for_origin(viewport.min.x, viewport.width(), grid.x, origin.x),
+            grid_axis_pan_for_origin(viewport.min.y, viewport.height(), grid.y, origin.y),
+        )
+    }
+}
+
+fn grid_axis_origin(viewport_min: f32, viewport_size: f32, grid_size: f32, pan: f32) -> f32 {
+    if grid_size <= viewport_size {
+        let slack = (viewport_size - grid_size) * 0.5;
+        (viewport_min + slack + pan).clamp(viewport_min, viewport_min + slack * 2.0)
+    } else {
+        (viewport_min + pan).clamp(viewport_min + viewport_size - grid_size, viewport_min)
+    }
+}
+
+fn grid_axis_pan_for_origin(
+    viewport_min: f32,
+    viewport_size: f32,
+    grid_size: f32,
+    origin: f32,
+) -> f32 {
+    if grid_size <= viewport_size {
+        let slack = (viewport_size - grid_size) * 0.5;
+        origin - (viewport_min + slack)
+    } else {
+        origin - viewport_min
     }
 }

@@ -227,6 +227,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 - QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
+- 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。
 - ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
 - 状態ベクトル panel の viewport 上では wheel だけで円グリッドを cursor anchor zoom する。ドラッグで pan、header 右側の dims text 上の wheel は aspect 変更に使う。zoom clamp は倍率固定ではなく、描画される円サイズ 1px〜256px で決める。
 - 状態ベクトルのインスタンスは layout/offset が変わらない限りキャッシュし、GPU バッファ更新を抑制する。
