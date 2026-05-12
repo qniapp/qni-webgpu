@@ -52,24 +52,30 @@ impl QniApp {
             );
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
+            let circuit_fill = painter.ctx().style().visuals.panel_fill;
+            if gate.kind == GateKind::Measurement {
+                // qni shortens the input/output wire around a measurement
+                // dropzone and the meter's interior is opaque. Mask the
+                // circuit wire before painting hover chrome / SVG strokes /
+                // digit overlay so the hover side borders remain visible.
+                let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
+                painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
+            }
             if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = gate_rect.expand(4.0);
                 let hover_inner = gate_rect.expand(2.0);
+                let hover_inner_fill = if gate.kind == GateKind::Measurement {
+                    circuit_fill
+                } else {
+                    colors.background
+                };
                 painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
-                painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
+                painter.rect_filled(hover_inner, egui::CornerRadius::same(8), hover_inner_fill);
             }
             if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
                 // Write gates have no fill, so the wire would otherwise show
                 // through the brackets. Mask just the wire under the gate.
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
-            }
-            if gate.kind == GateKind::Measurement {
-                // qni shortens the input/output wire around a measurement
-                // dropzone and the meter's interior is opaque. Mask the
-                // circuit wire before painting the SVG strokes/digit overlay.
-                let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
-                let circuit_fill = painter.ctx().style().visuals.panel_fill;
-                painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
             if measurement_has_slot {
                 // Repaint the meter in the same neutral tone as the wire after

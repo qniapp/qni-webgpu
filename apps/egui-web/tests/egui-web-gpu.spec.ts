@@ -170,6 +170,19 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_inside_sphere)).toBe(true)
   expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)
+
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  await page.mouse.move((box?.x ?? 0) + measureX, (box?.y ?? 0) + wireCenterY)
+  await page.waitForTimeout(100)
+  const hoverSamples = await sampleCanvasPixels(page, canvas, [
+    { name: 'measurement_hover_left_side', x: measureX - 19, y: wireCenterY },
+    { name: 'measurement_hover_right_side', x: measureX + 19, y: wireCenterY },
+  ])
+  const isHoverBorder = ([r, g, b]: CanvasPixel): boolean =>
+    r >= 220 && r <= 240 && g >= 220 && g <= 240 && b >= 210 && b <= 230
+  expect(isHoverBorder(hoverSamples.measurement_hover_left_side)).toBe(true)
+  expect(isHoverBorder(hoverSamples.measurement_hover_right_side)).toBe(true)
 })
 
 test('GPU circuit overlays stay anchored in tall scroll-area viewports', async ({ page }) => {
