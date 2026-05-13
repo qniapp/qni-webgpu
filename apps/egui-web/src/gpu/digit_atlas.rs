@@ -23,7 +23,7 @@ pub(super) const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
 pub(super) fn rasterize_digit_atlas() -> Vec<u8> {
     let font = ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/Geist-Bold.ttf"))
         .expect("Geist Bold bytes should parse as a TTF");
-    let scale = ab_glyph::PxScale::from(20.0);
+    let scale = ab_glyph::PxScale::from(23.0);
     let scaled = font.as_scaled(scale);
 
     let mut atlas = vec![0u8; (DIGIT_ATLAS_WIDTH * DIGIT_ATLAS_HEIGHT) as usize];
