@@ -171,7 +171,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 ### Debug HUD
 
-`Backquote` (`) キーで右上に FPS / フレーム時間の overlay を出せる (off ↔ on トグル)。OFF の間は何のコストもなく、ON の間は連続再描画を強制するので perf 計測には注意。F12 は Chrome DevTools と競合するので避けた。
+`Backquote` (`) キーで右下に FPS / フレーム時間の overlay を出せる (off ↔ on トグル)。OFF の間は何のコストもなく、ON の間は連続再描画を強制するので perf 計測には注意。F12 は Chrome DevTools と競合するので避けた。
 
 実装: `apps/egui-web/src/app/update_flow.rs` の update tail と `apps/egui-web/src/app/fps_hud.rs`。`ctx.input(|i| i.stable_dt)` を 60 frame の `VecDeque` に貯めて移動平均。
 

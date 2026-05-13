@@ -1,6 +1,6 @@
 //! Debug FPS / frame-ms / svp-ms overlay window. Backtick toggles
 //! `fps_hud_visible`; while visible it tracks rolling 120-frame
-//! averages and renders a small FPS plot at the top-right.
+//! averages and renders a small FPS plot at the bottom-right.
 
 use eframe::egui;
 
@@ -29,7 +29,7 @@ impl QniApp {
         let fps = if avg_dt > 1e-6 { 1.0 / avg_dt } else { 0.0 };
         let colors = self.colors();
         egui::Window::new("perf_hud")
-            .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
+            .anchor(egui::Align2::RIGHT_BOTTOM, [-8.0, -8.0])
             .interactable(false)
             .resizable(false)
             .title_bar(false)
