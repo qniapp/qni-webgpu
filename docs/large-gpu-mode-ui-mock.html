@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>外部 GPU 実行モード — UI モック</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* Flexoki Light — palette is locked to kepano/flexoki named tones.
+       Tailwind default scale for typography (text-xs 12 / text-sm 14 /
+       text-base 16 / text-lg 18 / text-xl 20) and spacing (4 px multiples). */
+    :root {
+      color-scheme: light;
+      --font-body: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+      --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:      #FFFCF0; /* Flexoki bg     — paper / panels */
+      --bg-2:    #F2F0E5; /* Flexoki bg-2   — page canvas */
+      --ui:      #E6E4D9; /* Flexoki ui     — chip / code background */
+      --ui-2:    #DAD8CE; /* Flexoki ui-2   — hairline rules */
+      --ui-3:    #CECDC3; /* Flexoki ui-3   — inactive bar / outline */
+      --tx-3:    #B7B5AC; /* Flexoki tx-3   — eyebrow / meta text */
+      --tx-2:    #6F6E69; /* Flexoki tx-2   — secondary text */
+      --tx:      #100F0F; /* Flexoki tx     — body / strong text */
+      --red:     #AF3029; /* Flexoki red-600    — failure / danger */
+      --orange:  #BC5215; /* Flexoki orange-600 — abort / re-run-needed */
+      --yellow:  #AD8301; /* Flexoki yellow-600 — pending / warning */
+      --green:   #66800B; /* Flexoki green-600  — success / default */
+      --cyan-4:  #3AA99F; /* Flexoki cyan-400   — gate body fill */
+      --blue-2:  #92BDE4; /* Flexoki blue-200   — histogram bar fill */
+      --blue:    #205EA6; /* Flexoki blue-600   — primary action / panel header */
+      --purple:  #5E409D; /* Flexoki purple-600 — running */
+
+      --red-dim:    rgba(175, 48, 41, 0.10);
+      --orange-dim: rgba(188, 82, 21, 0.10);
+      --yellow-dim: rgba(173, 131, 1, 0.12);
+      --green-dim:  rgba(102, 128, 11, 0.10);
+      --blue-dim:   rgba(32, 94, 166, 0.08);
+      --purple-dim: rgba(94, 64, 157, 0.10);
+
+      --shadow-card: 0 8px 24px rgba(16, 15, 15, 0.06);
+      --shadow-panel: 0 16px 40px rgba(16, 15, 15, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--tx);
+      font-family: var(--font-body);
+      font-size: 16px; /* text-base */
+      line-height: 24px;
+      background:
+        radial-gradient(circle at 12% 6%, var(--blue-dim), transparent 32%),
+        radial-gradient(circle at 92% 14%, var(--yellow-dim), transparent 26%),
+        var(--bg-2);
+      padding: 0 0 96px;
+    }
+
+    /* ───────────────── Layout primitives ───────────────── */
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 56px 32px 24px;
+    }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+    }
+    h1.page-title {
+      margin: 12px 0 8px;
+      font-size: 32px;
+      line-height: 40px;
+      letter-spacing: -0.01em;
+      font-weight: 700;
+    }
+    p.page-lede {
+      margin: 0 0 8px;
+      color: var(--tx-2);
+      font-size: 16px;
+      line-height: 24px;
+      max-width: 720px;
+    }
+    p.page-lede code {
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    section.block {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 32px;
+    }
+    section.block > h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 32px;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    section.block > h2 .num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--tx-3);
+      font-weight: 500;
+    }
+    section.block > p.note {
+      margin: 0 0 20px;
+      color: var(--tx-2);
+      max-width: 760px;
+    }
+
+    /* ───────────────── 1. Full-frame mock (looks like the live app) ───────────────── */
+    .app-frame {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      padding: 0;
+      overflow: hidden;
+    }
+    .app-frame .scene-label {
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--ui-2);
+      padding: 12px 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+    }
+    .app-frame .scene-label .url {
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--tx-2);
+    }
+
+    .app-body {
+      padding: 20px 24px 24px;
+    }
+
+    /* ───── Palette (mimics the live cyan-400 boxes) ───── */
+    .palette {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px; /* PALETTE_GAP */
+      box-shadow: var(--shadow-card);
+      margin: 8px auto 0;
+    }
+    .palette .gate {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--cyan-4);
+      color: var(--bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-family: var(--font-body);
+      position: relative;
+    }
+    .palette .gate.circle { border-radius: 50%; }
+    .palette .gate.bare {
+      background: transparent;
+      color: var(--tx-2);
+      font-size: 18px;
+    }
+    .palette .gate.small { font-size: 12px; }
+    .palette .gate sup { font-size: 9px; position: absolute; top: 3px; right: 5px; }
+    .palette-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    /* ───── Banner: external GPU execution status ───── */
+    .gpu-banner {
+      margin: 20px 0 16px;
+      border-radius: 12px;
+      border: 1px solid var(--ui-2);
+      background: var(--bg);
+      box-shadow: var(--shadow-card);
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px 18px;
+      align-items: center;
+    }
+    .gpu-banner.state-rerun { border-left: 4px solid var(--orange); background: linear-gradient(90deg, var(--orange-dim), transparent 28%), var(--bg); }
+    .gpu-banner.state-idle  { border-left: 4px solid var(--tx-3);  background: var(--bg); }
+    .gpu-banner.state-queued{ border-left: 4px solid var(--yellow); background: linear-gradient(90deg, var(--yellow-dim), transparent 28%), var(--bg); }
+    .gpu-banner.state-running { border-left: 4px solid var(--purple); background: linear-gradient(90deg, var(--purple-dim), transparent 28%), var(--bg); }
+    .gpu-banner.state-done  { border-left: 4px solid var(--green);  background: linear-gradient(90deg, var(--green-dim), transparent 28%), var(--bg); }
+    .gpu-banner.state-fail  { border-left: 4px solid var(--red);    background: linear-gradient(90deg, var(--red-dim), transparent 28%), var(--bg); }
+
+    .gpu-banner .left { display: grid; gap: 4px; }
+    .gpu-banner .badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; color: var(--tx-3); }
+    .gpu-banner .badges b { color: var(--tx); font-weight: 600; letter-spacing: 0.02em; }
+    .gpu-banner .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: var(--ui);
+      color: var(--tx-2);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+    .gpu-banner.state-rerun  .pill.status { background: var(--orange-dim); color: var(--orange); }
+    .gpu-banner.state-queued .pill.status { background: var(--yellow-dim); color: var(--yellow); }
+    .gpu-banner.state-running .pill.status { background: var(--purple-dim); color: var(--purple); }
+    .gpu-banner.state-done   .pill.status { background: var(--green-dim);  color: var(--green); }
+    .gpu-banner.state-fail   .pill.status { background: var(--red-dim);    color: var(--red); }
+
+    .gpu-banner .message {
+      color: var(--tx-2);
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+    }
+    .gpu-banner .message strong { color: var(--tx); font-weight: 600; }
+    .gpu-banner .buttons { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--ui-2);
+      background: var(--bg);
+      color: var(--tx);
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: default;
+      transition: background 80ms;
+    }
+    .btn.primary { background: var(--blue); color: var(--bg); border-color: var(--blue); }
+    .btn.primary[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn.danger { color: var(--red); border-color: var(--red); }
+    .btn .icon { font-family: var(--font-mono); margin-right: 6px; font-size: 12px; }
+
+    /* ───── Circuit area (showing 17+ qubits) ───── */
+    .circuit-area {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+    .circuit-area .wires {
+      display: grid;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-2);
+    }
+    .circuit-area .wire {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      align-items: center;
+      gap: 12px;
+      height: 32px;
+    }
+    .circuit-area .wire .line {
+      height: 2px;
+      background: var(--ui-2);
+      border-radius: 1px;
+      position: relative;
+    }
+    .circuit-area .wire .line .g {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      top: -16px;
+      border-radius: 6px;
+      background: var(--cyan-4);
+      color: var(--bg);
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .circuit-area .wire .line .g.circle { border-radius: 50%; }
+    .circuit-area .wire .line .g.bare { background: transparent; color: var(--tx-2); }
+    .circuit-area .ellipsis-wire {
+      color: var(--tx-3);
+      text-align: center;
+      font-family: var(--font-mono);
+      letter-spacing: 0.2em;
+      padding: 4px 0;
+    }
+
+    /* ───── Result panel (replaces the state-vector panel) ───── */
+    .result-panel {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .result-panel-header {
+      background: var(--blue);
+      color: var(--bg);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .result-panel-header b { font-weight: 600; }
+    .result-panel-header .meta { color: rgba(255, 252, 240, 0.78); font-size: 13px; }
+    .tabs {
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--ui-2);
+      display: flex;
+      gap: 4px;
+      padding: 0 12px;
+    }
+    .tabs .tab {
+      padding: 10px 16px;
+      font-size: 14px;
+      color: var(--tx-2);
+      border-top: 2px solid transparent;
+      cursor: default;
+      font-family: var(--font-body);
+    }
+    .tabs .tab.active {
+      color: var(--tx);
+      background: var(--bg);
+      border-top: 2px solid var(--blue);
+      font-weight: 600;
+    }
+    .tabs .tab .count {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-3);
+      margin-left: 6px;
+    }
+    .tab-body {
+      padding: 20px 24px 24px;
+    }
+
+    /* ───── Histogram (default tab content) ───── */
+    .hist-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .hist-header .title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .hist-header .meta-row {
+      display: flex;
+      gap: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-2);
+    }
+    .hist-header .meta-row b { color: var(--tx); font-weight: 600; }
+    .hist-warn {
+      background: var(--yellow-dim);
+      color: var(--yellow);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hist-warn .icon { font-family: var(--font-mono); font-weight: 700; }
+
+    .hist {
+      display: grid;
+      grid-template-columns: 220px 1fr 80px;
+      gap: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      align-items: center;
+    }
+    .hist .bitstr {
+      color: var(--tx);
+      letter-spacing: 0;
+      word-break: break-all;
+      padding: 4px 0;
+    }
+    .hist .bar-wrap {
+      height: 14px;
+      background: var(--ui);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+      display: block; /* span by default is inline → ignores width:% on child */
+    }
+    .hist .bar-wrap .bar {
+      display: block;
+      height: 100%;
+      background: var(--blue-2);
+      border-radius: 2px;
+    }
+    .hist .pct {
+      color: var(--tx-2);
+      text-align: right;
+    }
+    .hist .pct b { color: var(--tx); }
+
+    .hist-footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--ui-2);
+      color: var(--tx-3);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .hist-footer b { color: var(--tx-2); }
+
+    /* ───── Marginal distribution tab ───── */
+    .marg {
+      display: grid;
+      grid-template-columns: 80px 1fr 60px;
+      gap: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      align-items: center;
+    }
+    .marg .label { color: var(--tx); }
+    .marg .bar-wrap { display: block; height: 14px; background: var(--ui); border-radius: 2px; overflow: hidden; }
+    .marg .bar-wrap .bar { display: block; height: 100%; background: var(--green); opacity: 0.66; border-radius: 2px; }
+
+    /* ───── Amplitude tab ───── */
+    .amp-form {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .amp-form .input {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 8px 12px;
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--tx);
+      width: 320px;
+    }
+    .amp-form .input.placeholder { color: var(--tx-3); }
+    .amp-form .hint {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-3);
+    }
+    .amp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .amp-table th, .amp-table td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--ui-2);
+    }
+    .amp-table th {
+      color: var(--tx-3);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .amp-table td.num { font-variant-numeric: tabular-nums; }
+    .amp-table td.idx { color: var(--tx-2); }
+
+    /* ───── Observable tab ───── */
+    .obs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .obs-table th, .obs-table td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--ui-2);
+    }
+    .obs-table th {
+      color: var(--tx-3);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .obs-table .op { color: var(--blue); font-weight: 600; }
+    .obs-table .val { font-variant-numeric: tabular-nums; }
+    .obs-add {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--ui-2);
+    }
+    .obs-add .input {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 6px 10px;
+      border: 1px solid var(--ui-2);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--tx-3);
+    }
+
+    /* ───── Log tab ───── */
+    .log {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 18px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .log .row { display: grid; grid-template-columns: 84px 1fr; gap: 12px; padding: 1px 0; }
+    .log .row .ts { color: var(--tx-3); }
+    .log .row.info .msg { color: var(--tx-2); }
+    .log .row.ok   .msg { color: var(--green); }
+    .log .row.warn .msg { color: var(--yellow); }
+    .log .row.err  .msg { color: var(--red); }
+
+    /* ───────────────── 2. Banner state gallery ───────────────── */
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .state-grid .state-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+      margin: 0 0 8px;
+    }
+    .state-cell { display: grid; gap: 4px; }
+
+    /* ───────────────── 3. Tab content gallery ───────────────── */
+    .tab-gallery .panel {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .panel-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+      padding: 8px 20px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--ui-2);
+    }
+
+    /* ───────────────── 4. Non-goals strip ───────────────── */
+    .non-goals {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .non-goals .card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-left: 4px solid var(--red);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .non-goals .card .icon {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      margin-bottom: 8px;
+    }
+    .non-goals .card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    .non-goals .card p { margin: 0; color: var(--tx-2); font-size: 13px; line-height: 20px; }
+
+    /* ───────────────── Footer ───────────────── */
+    .doc-foot {
+      max-width: 1180px;
+      margin: 48px auto 0;
+      padding: 24px 32px 0;
+      color: var(--tx-3);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      border-top: 1px solid var(--ui-2);
+      letter-spacing: 0.08em;
+    }
+    .doc-foot a { color: var(--blue); text-decoration: none; }
+    .doc-foot a:hover { text-decoration: underline; }
+
+    @media (max-width: 900px) {
+      .state-grid, .non-goals { grid-template-columns: 1fr; }
+      .gpu-banner { grid-template-columns: 1fr; }
+      .gpu-banner .buttons { justify-self: start; }
+      .hist { grid-template-columns: 140px 1fr 64px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ───────────────── Header ───────────────── -->
+  <header class="page">
+    <span class="eyebrow">外部 GPU 実行モード · UI モック · 設計レビュー用</span>
+    <h1 class="page-title">17量子ビット以上の「実行結果」画面</h1>
+    <p class="page-lede">
+      手元の WebGPU は 16量子ビット以下の即時表示に限定する。17量子ビット以上では <code>BackendSelector</code>
+      が外部 GPU 実行に切り替え、状態ベクトル円グリッドを<strong>実行結果パネル</strong>に差し替える。
+      ここに集めたのは画面モックのみで、Rust / egui 側の実装はまだ着手していない。
+    </p>
+    <p class="page-lede">
+      設計の文脈: <a href="large-gpu-mode-design.html" style="color:var(--blue);text-decoration:none;">large-gpu-mode-design.html</a>。
+      バイトサイズ試算 / qni-gl 調査 / 実装順はそちらにある。
+    </p>
+  </header>
+
+  <!-- ───────────────── 1. Full-frame mock (the "完了" state) ───────────────── -->
+  <section class="block">
+    <h2><span class="num">§ 01</span> 画面全体の構成 — 実行完了後の状態</h2>
+    <p class="note">
+      28量子ビットの回路を外部 GPU で実行し、結果が返ってきた直後の画面。
+      上部の操作領域はそのまま、下部の状態ベクトルパネルが<strong>実行結果パネル</strong>に置き換わる。
+    </p>
+
+    <div class="app-frame">
+      <div class="scene-label">
+        <span>egui-web · 外部 GPU モード</span>
+        <span class="url">localhost:4174/#{"cols":[…28-qubit circuit…]}</span>
+      </div>
+      <div class="app-body">
+
+        <!-- Palette -->
+        <div style="display:flex; justify-content:center;">
+          <div class="palette">
+            <div class="palette-row">
+              <div class="gate">H</div>
+              <div class="gate circle">+</div>
+              <div class="gate">Y</div>
+              <div class="gate">Z</div>
+              <div class="gate small">√X</div>
+              <div class="gate">S</div>
+              <div class="gate">S<sup>†</sup></div>
+              <div class="gate">T</div>
+              <div class="gate">T<sup>†</sup></div>
+              <div class="gate circle">P</div>
+              <div class="gate small">RX</div>
+              <div class="gate small">RY</div>
+              <div class="gate small">RZ</div>
+            </div>
+            <div class="palette-row">
+              <div class="gate bare">×</div>
+              <div class="gate bare" style="font-size:24px;">●</div>
+              <div class="gate bare" style="font-size:20px;">○</div>
+              <div class="gate bare">⊕</div>
+              <div class="gate bare" style="font-size:14px;">|0⟩</div>
+              <div class="gate bare" style="font-size:14px;">|1⟩</div>
+              <div class="gate bare">⌒</div>
+              <div class="gate bare">⋯</div>
+              <div class="gate small">QFT</div>
+              <div class="gate small">QFT<sup>†</sup></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- External GPU banner — done -->
+        <div class="gpu-banner state-done">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">外部 GPU 実行</span>
+              <span class="pill">実行先 · qiskit-aer-gpu</span>
+              <span class="pill status">● 完了</span>
+            </div>
+            <div class="message">
+              実行 <strong>#42</strong> が <strong>3.2 秒</strong>で完了。4096 試行の測定ヒストグラムを取得済み。
+              回路を編集すると結果は古くなり、<em>再実行が必要</em> 状態に戻る。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで再実行</span>
+            <span class="btn">見積もり</span>
+          </div>
+        </div>
+
+        <!-- Circuit area (compact) -->
+        <div class="circuit-area">
+          <div class="wires">
+            <div class="wire">
+              <span>q0:</span>
+              <div class="line">
+                <div class="g" style="left:8px;">H</div>
+                <div class="g circle" style="left:64px;">+</div>
+                <div class="g" style="left:120px;">Z</div>
+                <div class="g circle" style="left:176px;">P</div>
+              </div>
+            </div>
+            <div class="wire">
+              <span>q1:</span>
+              <div class="line">
+                <div class="g bare" style="left:64px;font-size:18px;">●</div>
+                <div class="g circle" style="left:176px;font-size:14px;">P</div>
+              </div>
+            </div>
+            <div class="wire">
+              <span>q2:</span>
+              <div class="line">
+                <div class="g" style="left:8px;">H</div>
+                <div class="g" style="left:120px;">T</div>
+              </div>
+            </div>
+            <div class="wire">
+              <span>q3:</span>
+              <div class="line">
+                <div class="g" style="left:64px;">H</div>
+              </div>
+            </div>
+            <div class="ellipsis-wire">q4 … q26 (省略)</div>
+            <div class="wire">
+              <span>q27:</span>
+              <div class="line">
+                <div class="g" style="left:8px;">H</div>
+                <div class="g circle" style="left:64px;">+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result panel — replaces the state-vector panel -->
+        <div class="result-panel">
+          <div class="result-panel-header">
+            <div><b>実行結果</b> · 28 量子ビット</div>
+            <div class="meta">実行 #42 · 3.2s · 12,288 bytes · 種 0x4f31a9c2 · 回路 hash 7b21…</div>
+          </div>
+          <div class="tabs">
+            <div class="tab active">測定ヒストグラム<span class="count">4096 試行</span></div>
+            <div class="tab">周辺分布<span class="count">q0..q3</span></div>
+            <div class="tab">指定振幅<span class="count">0 / 4096</span></div>
+            <div class="tab">観測量<span class="count">3 項目</span></div>
+            <div class="tab">ログ</div>
+          </div>
+          <div class="tab-body">
+            <div class="hist-header">
+              <div class="title">上位 8 ビット列</div>
+              <div class="meta-row">
+                <span>試行 <b>4,096</b></span>
+                <span>異なる結果 <b>312</b></span>
+                <span>返却 <b>12.0 KiB</b></span>
+              </div>
+            </div>
+            <div class="hist-warn">
+              <span class="icon">!</span>
+              これは「試行から作ったヒストグラム」。全確率分布ではない。完全な分布は 2<sup>28</sup> ≈ 2.7 億行で返せない。
+            </div>
+
+            <div class="hist">
+              <span class="bitstr">0000…00000000</span>
+              <span class="bar-wrap"><span class="bar" style="width:96%"></span></span>
+              <span class="pct"><b>15.6 %</b> · 638</span>
+
+              <span class="bitstr">1111…11111111</span>
+              <span class="bar-wrap"><span class="bar" style="width:94%"></span></span>
+              <span class="pct"><b>15.4 %</b> · 632</span>
+
+              <span class="bitstr">0101…01010101</span>
+              <span class="bar-wrap"><span class="bar" style="width:54%"></span></span>
+              <span class="pct"><b>8.8 %</b> · 362</span>
+
+              <span class="bitstr">1010…10101010</span>
+              <span class="bar-wrap"><span class="bar" style="width:52%"></span></span>
+              <span class="pct"><b>8.5 %</b> · 348</span>
+
+              <span class="bitstr">0011…00110011</span>
+              <span class="bar-wrap"><span class="bar" style="width:34%"></span></span>
+              <span class="pct"><b>5.5 %</b> · 226</span>
+
+              <span class="bitstr">1100…11001100</span>
+              <span class="bar-wrap"><span class="bar" style="width:33%"></span></span>
+              <span class="pct"><b>5.4 %</b> · 220</span>
+
+              <span class="bitstr">0001…00010001</span>
+              <span class="bar-wrap"><span class="bar" style="width:18%"></span></span>
+              <span class="pct"><b>3.0 %</b> · 122</span>
+
+              <span class="bitstr">1110…11101110</span>
+              <span class="bar-wrap"><span class="bar" style="width:17%"></span></span>
+              <span class="pct"><b>2.9 %</b> · 118</span>
+            </div>
+
+            <div class="hist-footer">
+              <span>合計 <b>4,096</b> 試行</span>
+              <span>表示行数の上限 <b>1,024</b></span>
+              <span>1 行 = 1 ビット列 + 1 整数</span>
+              <span>返却バイト数の上限 <b>16 MiB</b></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── 2. Banner state gallery ───────────────── -->
+  <section class="block">
+    <h2><span class="num">§ 02</span> 実行バナー — 6 つの状態</h2>
+    <p class="note">
+      手元 WebGPU は「触ったら即時更新」だが、外部 GPU は通信・キュー・GPU 計算・結果抽出を含む。
+      画面側はその進行度合いを 6 つの状態で明示する。色は Flexoki Light の意味色トーン (tx-3 / orange / yellow / purple / green / red)。
+    </p>
+
+    <div class="state-grid">
+      <div class="state-cell">
+        <p class="state-label">状態 1 · 未実行</p>
+        <div class="gpu-banner state-idle">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">外部 GPU 実行</span>
+              <span class="pill status">○ 未実行</span>
+            </div>
+            <div class="message">
+              まだ実行されていない。回路を組み終えたら <strong>GPUで実行</strong> を押す。
+              16 量子ビット以下なら自動的に手元 WebGPU で更新される。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで実行</span>
+            <span class="btn">見積もり</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-cell">
+        <p class="state-label">状態 2 · 再実行が必要</p>
+        <div class="gpu-banner state-rerun">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">外部 GPU 実行</span>
+              <span class="pill status">⟳ 再実行が必要</span>
+            </div>
+            <div class="message">
+              前回結果は<strong>古い回路</strong>に対するもの。編集は続けられるが、結果パネルは再実行まで更新しない。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで再実行</span>
+            <span class="btn">前回結果を表示</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-cell">
+        <p class="state-label">状態 3 · 待機中</p>
+        <div class="gpu-banner state-queued">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">qiskit-aer-gpu</span>
+              <span class="pill status">⏳ 待機中 · 1/3</span>
+            </div>
+            <div class="message">
+              実行 <strong>#43</strong> はキュー 3 件中の 1 番目。前のジョブが終わるまで待つ。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary" disabled><span class="icon">▶</span>GPUで実行</span>
+            <span class="btn danger">中止</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-cell">
+        <p class="state-label">状態 4 · 実行中</p>
+        <div class="gpu-banner state-running">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">qiskit-aer-gpu</span>
+              <span class="pill status">▣ 実行中 · 1.4 s</span>
+            </div>
+            <div class="message">
+              実行 <strong>#43</strong> · 経過 <strong>1.4 s</strong> · 標本 4,096 試行。
+              完了まで結果は表示されない。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary" disabled><span class="icon">▶</span>GPUで実行</span>
+            <span class="btn danger">中止</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-cell">
+        <p class="state-label">状態 5 · 完了</p>
+        <div class="gpu-banner state-done">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">qiskit-aer-gpu</span>
+              <span class="pill status">● 完了 · 3.2 s</span>
+            </div>
+            <div class="message">
+              実行 <strong>#42</strong> が完了。返却 <strong>12.0 KiB</strong> · 試行 4,096 · 切り詰めなし。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで再実行</span>
+            <span class="btn">結果を保存</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-cell">
+        <p class="state-label">状態 6 · 失敗</p>
+        <div class="gpu-banner state-fail">
+          <div class="left">
+            <div class="badges">
+              <span class="pill"><b>28 量子ビット</b></span>
+              <span class="pill">qiskit-aer-gpu</span>
+              <span class="pill status">✕ 失敗 · timeout</span>
+            </div>
+            <div class="message">
+              実行 <strong>#44</strong> は <strong>60 s</strong> で時間切れ。GPU メモリ不足の可能性。
+              ログを確認し、量子ビット数か試行回数を減らして再実行する。
+            </div>
+          </div>
+          <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで再実行</span>
+            <span class="btn">ログを開く</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── 3. Result panel tab gallery ───────────────── -->
+  <section class="block tab-gallery">
+    <h2><span class="num">§ 03</span> 実行結果パネル — タブごとの中身</h2>
+    <p class="note">
+      下部の状態ベクトル円グリッドは丸ごと差し替わる。<strong>測定ヒストグラム</strong>を既定タブにし、補助タブで
+      周辺分布 / 指定振幅 / 観測量 / ログを切り替える。返却サイズと表示行数の上限は各タブで明示する。
+    </p>
+
+    <!-- Tab: histogram (default) -->
+    <div class="panel">
+      <div class="panel-label">タブ A · 測定ヒストグラム (既定)</div>
+      <div class="tab-body">
+        <div class="hist-header">
+          <div class="title">上位 8 ビット列 · q0..q27</div>
+          <div class="meta-row">
+            <span>試行 <b>4,096</b></span>
+            <span>異なる結果 <b>312</b></span>
+            <span>表示 <b>8 / 1,024</b></span>
+            <span>返却 <b>12.0 KiB</b></span>
+          </div>
+        </div>
+        <div class="hist-warn">
+          <span class="icon">!</span>
+          試行結果の集計です。厳密な全確率分布 (2<sup>28</sup> = 2.7 億行) は<strong>返しません</strong>。
+        </div>
+        <div class="hist">
+          <span class="bitstr">0000000000000000000000000000</span>
+          <span class="bar-wrap"><span class="bar" style="width:92%"></span></span>
+          <span class="pct"><b>15.6 %</b></span>
+
+          <span class="bitstr">1111111111111111111111111111</span>
+          <span class="bar-wrap"><span class="bar" style="width:91%"></span></span>
+          <span class="pct"><b>15.4 %</b></span>
+
+          <span class="bitstr">0101010101010101010101010101</span>
+          <span class="bar-wrap"><span class="bar" style="width:52%"></span></span>
+          <span class="pct"><b>8.8 %</b></span>
+
+          <span class="bitstr">1010101010101010101010101010</span>
+          <span class="bar-wrap"><span class="bar" style="width:50%"></span></span>
+          <span class="pct"><b>8.5 %</b></span>
+
+          <span class="bitstr">0011001100110011001100110011</span>
+          <span class="bar-wrap"><span class="bar" style="width:32%"></span></span>
+          <span class="pct"><b>5.5 %</b></span>
+
+          <span class="bitstr">1100110011001100110011001100</span>
+          <span class="bar-wrap"><span class="bar" style="width:31%"></span></span>
+          <span class="pct"><b>5.4 %</b></span>
+
+          <span class="bitstr">0001000100010001000100010001</span>
+          <span class="bar-wrap"><span class="bar" style="width:18%"></span></span>
+          <span class="pct"><b>3.0 %</b></span>
+
+          <span class="bitstr">1110111011101110111011101110</span>
+          <span class="bar-wrap"><span class="bar" style="width:17%"></span></span>
+          <span class="pct"><b>2.9 %</b></span>
+        </div>
+        <div class="hist-footer">
+          <span>測定ゲートがない回路では「最後に全量子ビットを測定」した標本を取る</span>
+          <span>返却バイト数の上限 <b>16 MiB</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: marginal -->
+    <div class="panel">
+      <div class="panel-label">タブ B · 周辺分布 (q0..q3)</div>
+      <div class="tab-body">
+        <div class="hist-header">
+          <div class="title">q0..q3 の周辺分布 — 2<sup>4</sup> = 16 行</div>
+          <div class="meta-row">
+            <span>対象 <b>q0, q1, q2, q3</b></span>
+            <span>行数 <b>16</b></span>
+            <span>返却 <b>448 B</b></span>
+          </div>
+        </div>
+        <p class="note" style="margin-bottom:16px;">
+          表示量子ビットを 1〜8 個程度に絞れば、行数は <code>2<sup>k</sup></code> で抑えられる。
+          全量子ビットを並べる必要はないので、画面側で軽い。
+        </p>
+        <div class="marg">
+          <span class="label">0000</span>
+          <span class="bar-wrap"><span class="bar" style="width:84%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">22.1 %</span>
+
+          <span class="label">0001</span>
+          <span class="bar-wrap"><span class="bar" style="width:32%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">8.4 %</span>
+
+          <span class="label">0010</span>
+          <span class="bar-wrap"><span class="bar" style="width:30%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">7.9 %</span>
+
+          <span class="label">0011</span>
+          <span class="bar-wrap"><span class="bar" style="width:18%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">4.7 %</span>
+
+          <span class="label">0100</span>
+          <span class="bar-wrap"><span class="bar" style="width:24%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">6.3 %</span>
+
+          <span class="label">0101</span>
+          <span class="bar-wrap"><span class="bar" style="width:14%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">3.6 %</span>
+
+          <span class="label">0110</span>
+          <span class="bar-wrap"><span class="bar" style="width:12%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">3.1 %</span>
+
+          <span class="label">0111</span>
+          <span class="bar-wrap"><span class="bar" style="width:6%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">1.6 %</span>
+
+          <span class="label">1000</span>
+          <span class="bar-wrap"><span class="bar" style="width:8%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">2.0 %</span>
+
+          <span class="label">1001</span>
+          <span class="bar-wrap"><span class="bar" style="width:8%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">2.1 %</span>
+
+          <span class="label">1010</span>
+          <span class="bar-wrap"><span class="bar" style="width:7%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">1.9 %</span>
+
+          <span class="label">1011</span>
+          <span class="bar-wrap"><span class="bar" style="width:6%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">1.5 %</span>
+
+          <span class="label">1100</span>
+          <span class="bar-wrap"><span class="bar" style="width:64%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">16.9 %</span>
+
+          <span class="label">1101</span>
+          <span class="bar-wrap"><span class="bar" style="width:24%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">6.2 %</span>
+
+          <span class="label">1110</span>
+          <span class="bar-wrap"><span class="bar" style="width:22%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">5.9 %</span>
+
+          <span class="label">1111</span>
+          <span class="bar-wrap"><span class="bar" style="width:22%"></span></span>
+          <span style="text-align:right;color:var(--tx-2);">5.8 %</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: amplitude query -->
+    <div class="panel">
+      <div class="panel-label">タブ C · 指定振幅 (デバッグ用途)</div>
+      <div class="tab-body">
+        <p class="note" style="margin-bottom:16px;">
+          状態番号を指定して振幅 (re, im) を取得する<strong>調査用機能</strong>。1 回あたり最大 16,384 件、
+          返却バイト数は 16 MiB を上限。主役ではないので、既定タブではない。
+        </p>
+        <div class="amp-form">
+          <span style="font-family:var(--font-mono);font-size:13px;color:var(--tx-2);">状態番号:</span>
+          <span class="input">0, 1, 2, 3, 16, 1024, …</span>
+          <span class="btn primary">取得</span>
+          <span class="hint">10 進または 0x プレフィックス · 範囲 0..2<sup>28</sup>-1</span>
+        </div>
+        <table class="amp-table">
+          <thead>
+            <tr>
+              <th style="width:80px;">#</th>
+              <th>ビット列</th>
+              <th style="width:160px;">re</th>
+              <th style="width:160px;">im</th>
+              <th style="width:120px;">|amp|²</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="idx">0</td>
+              <td class="num">0000000000000000000000000000</td>
+              <td class="num">+0.39510</td>
+              <td class="num">+0.00000</td>
+              <td class="num">0.15611</td>
+            </tr>
+            <tr>
+              <td class="idx">1</td>
+              <td class="num">0000000000000000000000000001</td>
+              <td class="num">−0.01892</td>
+              <td class="num">+0.04210</td>
+              <td class="num">0.00213</td>
+            </tr>
+            <tr>
+              <td class="idx">2</td>
+              <td class="num">0000000000000000000000000010</td>
+              <td class="num">+0.00081</td>
+              <td class="num">−0.02114</td>
+              <td class="num">0.00045</td>
+            </tr>
+            <tr>
+              <td class="idx">1024</td>
+              <td class="num">0000000000000000010000000000</td>
+              <td class="num">+0.09122</td>
+              <td class="num">+0.01803</td>
+              <td class="num">0.00865</td>
+            </tr>
+            <tr style="color:var(--tx-3);">
+              <td class="idx">…</td><td>4 件 / 16,384 件まで</td><td></td><td></td><td></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:16px;color:var(--tx-3);font-size:12px;">
+          全振幅 (2<sup>28</sup>) を取得する API は存在しない。
+          欲しい状態番号を明示する必要がある。
+        </p>
+      </div>
+    </div>
+
+    <!-- Tab: observable -->
+    <div class="panel">
+      <div class="panel-label">タブ D · 観測量 (期待値)</div>
+      <div class="tab-body">
+        <p class="note" style="margin-bottom:16px;">
+          Pauli 文字列で観測量を指定すると、大きな状態を返さずに少数の数値に畳み込んで返せる。
+          大規模回路でも返却サイズは小さい。
+        </p>
+        <table class="obs-table">
+          <thead>
+            <tr>
+              <th style="width:140px;">観測量</th>
+              <th>説明</th>
+              <th style="width:140px;">期待値</th>
+              <th style="width:120px;">標準誤差</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="op">Z₀</span></td>
+              <td>q0 のパウリ Z</td>
+              <td class="val">+0.0078</td>
+              <td class="val">±0.0156</td>
+            </tr>
+            <tr>
+              <td><span class="op">Z₁</span></td>
+              <td>q1 のパウリ Z</td>
+              <td class="val">−0.0042</td>
+              <td class="val">±0.0156</td>
+            </tr>
+            <tr>
+              <td><span class="op">X₀ X₁</span></td>
+              <td>q0, q1 の XX 相関</td>
+              <td class="val">+0.8901</td>
+              <td class="val">±0.0073</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="obs-add">
+          <span style="font-family:var(--font-mono);font-size:13px;color:var(--tx-2);">追加:</span>
+          <span class="input">Z2 X3 ・ Pauli 文字列</span>
+          <span class="btn">追加して再計算</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: log -->
+    <div class="panel">
+      <div class="panel-label">タブ E · ログ</div>
+      <div class="tab-body">
+        <div class="log">
+          <div class="row info"><span class="ts">12:03:14</span><span class="msg">実行 #42 を投入 — 28 qubit · 4096 試行 · 種 0x4f31a9c2</span></div>
+          <div class="row info"><span class="ts">12:03:14</span><span class="msg">回路 hash 7b21d4f8a2c0… · 直列化サイズ 1.2 KiB</span></div>
+          <div class="row info"><span class="ts">12:03:14</span><span class="msg">送信先 qiskit-aer-gpu (ABCI A100×1)</span></div>
+          <div class="row info"><span class="ts">12:03:15</span><span class="msg">キュー位置 3/3 → 待機</span></div>
+          <div class="row info"><span class="ts">12:03:16</span><span class="msg">キュー位置 1/1 → 実行開始</span></div>
+          <div class="row info"><span class="ts">12:03:17</span><span class="msg">回路変換完了 → AerSimulator(method="statevector", device="GPU")</span></div>
+          <div class="row info"><span class="ts">12:03:19</span><span class="msg">cuStateVec_enable=True · GPU メモリ確保 2.1 GiB</span></div>
+          <div class="row ok"  ><span class="ts">12:03:20</span><span class="msg">完了 · 4096 試行 · 312 unique outcomes · 経過 3.2s</span></div>
+          <div class="row info"><span class="ts">12:03:20</span><span class="msg">返却 12,288 bytes · 切り詰めなし · 上限 16 MiB</span></div>
+          <div class="row warn"><span class="ts">12:03:45</span><span class="msg">回路が編集されたため結果を「再実行が必要」に変更</span></div>
+          <div class="row err" ><span class="ts">12:04:02</span><span class="msg">実行 #44 失敗 · timeout (60 s) · GPU メモリ不足の可能性</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── 4. Non-goals strip ───────────────── -->
+  <section class="block">
+    <h2><span class="num">§ 04</span> 明確な非目標 — 画面に出さないもの</h2>
+    <p class="note">
+      30 量子ビット級では全状態ベクトルが 8 GiB を超え、ブラウザに送れない。
+      下記は<strong>あえて画面に出さない</strong>項目。
+    </p>
+    <div class="non-goals">
+      <div class="card">
+        <div class="icon">— 非目標 1</div>
+        <h3>全状態ベクトル表示</h3>
+        <p>2<sup>N</sup> 個の振幅と位相を全部描く表示はしない。30 qubit で 8 GiB、JSON 化すれば 24 GiB 級に膨らむ。</p>
+      </div>
+      <div class="card">
+        <div class="icon">— 非目標 2</div>
+        <h3>厳密な全確率分布</h3>
+        <p>確率値だけでも 2<sup>N</sup> 件。30 qubit の float32 で 4 GiB。既定タブでは出さない。試行ヒストグラムで代替。</p>
+      </div>
+      <div class="card">
+        <div class="icon">— 非目標 3</div>
+        <h3>CPU フォールバック</h3>
+        <p>外部 GPU が落ちたときに CPU で代替計算しない。実行サーバー不在は明確なエラーとして表示し、再実行を待つ。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── Footer ───────────────── -->
+  <div class="doc-foot">
+    関連:
+    <a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a> ·
+    <a href="project-overview.html">project-overview.html</a> ·
+    <a href="refactor-candidates.html">refactor-candidates.html</a> ·
+    <a href="egui-web-perf-audit.html">egui-web-perf-audit.html</a>
+    · UI モック · 設計レビュー用 · 2026-05
+  </div>
+
+</body>
+</html>
