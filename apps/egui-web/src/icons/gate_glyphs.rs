@@ -101,11 +101,14 @@ pub(super) fn draw_gate_icon(
             } else {
                 ("1", colors.semantic_on)
             };
+            // Keep the ket digit in the same Geist Bold 700 family as the
+            // gate labels. Size stays below the large single-letter gates so
+            // the digit sits cleanly between the bracket strokes.
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 digit,
-                egui::FontId::monospace(16.0),
+                egui::FontId::new(rect.width() * 0.56, crate::app::GATE_LABEL_FAMILY.clone()),
                 digit_color,
             );
             true
@@ -207,6 +210,33 @@ fn draw_text_label(
         base_label_font_px(label, body_px),
         crate::app::GATE_LABEL_FAMILY.clone(),
     );
+    // `√X` is rendered as two galleys: a smaller `√` prefix (matches
+    // the mathematical convention — radical scales with the radicand,
+    // not bigger than it) and an `X` at the full single-letter size.
+    // The radical glyph is lifted so its bottom lands on the X's
+    // baseline, hiding Geist Bold's `√` descender that would
+    // otherwise drop a hair below X if both shared one layout line.
+    if label == "√X" {
+        let x_font_px = base_label_font_px("X", body_px);
+        let radical_font_px = x_font_px * 0.85;
+        let x_font = egui::FontId::new(x_font_px, crate::app::GATE_LABEL_FAMILY.clone());
+        let radical_font =
+            egui::FontId::new(radical_font_px, crate::app::GATE_LABEL_FAMILY.clone());
+        let radical = painter.layout_no_wrap("√".to_owned(), radical_font, color);
+        let x_g = painter.layout_no_wrap("X".to_owned(), x_font, color);
+        let radical_w = radical.size().x;
+        let radical_h = radical.size().y;
+        let x_h = x_g.size().y;
+        let total_w = radical_w + x_g.size().x;
+        let left = rect.center().x - total_w / 2.0;
+        let x_top = rect.center().y - x_h / 2.0;
+        // Lift √ so its layout-bottom lands 5% body above X's
+        // layout-bottom — empirically this hides Geist's descender.
+        let radical_top = x_top + (x_h - radical_h) - body_px * 0.05;
+        painter.galley(egui::pos2(left, radical_top), radical, color);
+        painter.galley(egui::pos2(left + radical_w, x_top), x_g, color);
+        return;
+    }
     // Vertical centring quirk: egui aligns text by the font's
     // ascent/descent, not by the glyph's visual centre. For letters
     // (H / X / Y / Z / S / T / P / RX / RY / RZ / QFT) the

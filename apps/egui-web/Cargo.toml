@@ -9,8 +9,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 # Used to rasterize the measurement gate digits ("0" / "1") into a GPU
-# texture so the WGSL fragment shader can sample the same Hack glyphs egui
-# paints for |0> / |1>. Done once at startup (no per-frame readback).
+# texture so the WGSL fragment shader can sample the same Geist Bold glyphs
+# egui paints for |0> / |1>. Done once at startup (no per-frame readback).
 ab_glyph = "0.2"
 epaint_default_fonts = "0.33.3"
 bytemuck = { version = "1.14", features = ["derive"] }

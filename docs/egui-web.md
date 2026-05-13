@@ -230,12 +230,12 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - Measurement は GPU 完結。`MEASURE_REDUCE_SHADER` (workgroup_size=64) で pZero を reduction し、決定論的 PCG を gate id でシードして r をサンプル、`(pZero, r, outcome, sqrt_p_kept)` を `measurement_aux_buffer[slot]` に書く。続けて `MEASURE_COLLAPSE_SHADER` が同じ aux スロットを読み、生き残った基底側の振幅を `1/sqrt_p_kept` で正規化、もう一方を 0 にして state buffer の ping-pong 反対側に書き込む。
 - `read_measurement_outcomes()` (wasm_bindgen) で `[gate_id, outcome, …]` を取得できる。`window.__eguiReadMeasurementOutcomes()` 経由で Playwright から `readMeasurementOutcomes` ヘルパーが返す `MeasurementOutcome[]` を assert する。
 - Bloch ベクトル計算は GPU の `BLOCH_REDUCE_SHADER` (workgroup_size=64 で 1 workgroup の reduction) が処理する。`linearize_ops` が列ごとに `ApplyGate` と `CaptureBloch` を交互に並べ、`gpu.rs::prepare` がそれを順番に dispatch する。出力は `bloch_output_buffer` に shader-side で書き込まれる。
-- 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample して `0` を SDF 円、`1` を SDF 縦棒で描画する。本番経路で GPU → CPU リードバックは発生しない。
+- 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample し、起動時に rasterize した Geist Bold 700 の `0` / `1` atlas から outcome 桁を描画する。本番経路で GPU → CPU リードバックは発生しない。
 - `read_bloch_vectors()` / `read_measurement_outcomes()` (wasm_bindgen) は **テスト専用の async on-demand readback**: 呼ばれた時に staging buffer + map_async で `[gateId, x, y, z, …]` / `[gateId, outcome, …]` を返す。本番のレンダーには影響しない。Playwright は `readBlochVectors` / `readMeasurementOutcomes` ヘルパー経由で await して使う。
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
 - パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
-- |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。
+- |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは通常ゲートラベルと同じ Geist Bold 700。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
 - QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。

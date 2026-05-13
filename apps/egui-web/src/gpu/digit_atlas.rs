@@ -15,17 +15,14 @@ pub(super) const DIGIT_ATLAS_CELL: u32 = 22;
 pub(super) const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
 pub(super) const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
 
-/// Rasterises the digits "0" and "1" using Hack Regular (the same font
-/// egui's monospace family resolves to) so the measurement digits look
-/// identical to the |0> / |1> labels egui paints. Done once at startup;
-/// the result is uploaded to a GPU texture sampled by
-/// `MEASUREMENT_DIGIT_SHADER`. The PxScale is calibrated so the rasterised
-/// "0" matches the on-screen size of `FontId::monospace(16.0)`'s glyph
-/// (egui internally upscales monospace ~1.2x past the raw em-size we'd
-/// get from a plain ab_glyph rasterisation at PxScale(16)).
+/// Rasterises the digits "0" and "1" using Geist Bold 700 — the same
+/// embedded font that egui uses for the gate labels and ket digits. Done
+/// once at startup; the result is uploaded to a GPU texture sampled by
+/// `MEASUREMENT_DIGIT_SHADER`, so outcome rendering stays GPU-only and does
+/// not read measurement results back to the CPU.
 pub(super) fn rasterize_digit_atlas() -> Vec<u8> {
-    let font = ab_glyph::FontRef::try_from_slice(epaint_default_fonts::HACK_REGULAR)
-        .expect("Hack Regular bytes should parse as a TTF");
+    let font = ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/Geist-Bold.ttf"))
+        .expect("Geist Bold bytes should parse as a TTF");
     let scale = ab_glyph::PxScale::from(20.0);
     let scaled = font.as_scaled(scale);
 
