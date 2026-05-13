@@ -673,27 +673,67 @@
       border-radius: 4px;
     }
 
-    /* Live segmented control — uses <button> children, real cursor + hover + focus. */
+    /* Live segmented control with sliding thumb.
+       The active background is a single absolute element that translates
+       (and crossfades from tx-2 → blue-600) between segments using a
+       slightly-overshooting spring curve. Labels stay put; only their
+       color crossfades. iOS / macOS UISegmentedControl feel. */
     .seg-live {
+      position: relative;
+      isolation: isolate;
       padding: 2px;
+      overflow: hidden;
     }
+    .seg-live .thumb {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 0;
+      width: 0;
+      border-radius: 6px;
+      background: var(--tx-2);
+      z-index: 0;
+      pointer-events: none;
+      transform: translateX(0);
+      /* Spring-ish: ~5% overshoot on transform/width, plain ease on color
+         so the colour swap finishes a touch ahead of the motion settle. */
+      transition:
+        transform 380ms cubic-bezier(0.34, 1.3, 0.5, 1),
+        width 380ms cubic-bezier(0.34, 1.3, 0.5, 1),
+        background-color 260ms ease;
+    }
+    .seg-live[data-mode="gpu"] .thumb { background: var(--blue); }
+    /* No transition until the first measurement lands — otherwise the
+       thumb visibly animates from (0,0) on page load. */
+    .seg-live:not([data-ready]) .thumb { transition: none; }
     .seg-live .opt {
+      position: relative;
+      z-index: 1;
       cursor: pointer;
       border: none;
+      background: transparent;
       font-family: inherit;
       font-size: inherit;
       letter-spacing: inherit;
+      transition: color 220ms ease, transform 140ms ease;
     }
-    .seg-live .opt:hover:not(.active) {
-      background: var(--ui);
-      color: var(--tx);
+    /* The base .seg .opt.active rules paint a solid background on the
+       active button; for the live control the thumb provides that, so
+       neutralise the base styling. */
+    .seg-live .opt.active,
+    .seg-live .opt.active.local,
+    .seg-live .opt.active.gpu {
+      background: transparent;
     }
+    .seg-live .opt:hover:not(.active) { color: var(--tx); }
     .seg-live .opt:focus-visible {
       outline: 2px solid var(--blue);
       outline-offset: 2px;
     }
-    .seg-live .opt:active:not(.active) {
-      transform: translateY(1px);
+    .seg-live .opt:active { transform: scale(0.96); }
+    @media (prefers-reduced-motion: reduce) {
+      .seg-live .thumb,
+      .seg-live .opt { transition: none; }
     }
 
     /* ─── Implementation spec card ─── */
@@ -1305,10 +1345,13 @@
   <section class="block">
     <h2><span class="num">§ 03</span> 実装プロトタイプ — 動く T-1 トップバー</h2>
     <p class="note">
-      T-1 を実際に押して切り替えられる状態にしたもの。下のバーをクリックすると
-      Local ↔ GPU が切り替わり、配色 (Local = tx-2 / GPU = blue-600) が反映される。
-      Codex 実装の参照として使う。クリック / Enter / Space で切替、左右矢印キーで移動、
-      フォーカスリングは Flexoki の blue-600 で半透明。
+      T-1 を実際に押して切り替えられる状態にしたもの。アクティブ側の塗りは
+      単一の<strong>サム</strong>として実装してあり、選択を変えると
+      <strong>位置 + 幅 + 色 (tx-2 ↔ blue-600)</strong> がスプリング調のカーブで
+      なめらかに補間される (iOS の UISegmentedControl 風)。Codex 実装の参照として使う。
+      クリック / Enter / Space で切替、左右矢印キーで移動、フォーカスリングは
+      Flexoki の blue-600 で半透明。<code>prefers-reduced-motion: reduce</code>
+      の環境ではアニメーションは無効化。
     </p>
 
     <!-- The interactive top bar. Toggle only, nothing else. -->
@@ -1316,7 +1359,8 @@
       <div class="proto-scene">egui-web · 上部ツールバー (toggle only)</div>
       <div class="proto-bar">
         <span class="spacer"></span>
-        <div class="seg seg-live" role="tablist" aria-label="実行モード">
+        <div class="seg seg-live" role="tablist" aria-label="実行モード" data-mode="local">
+          <span class="thumb" aria-hidden="true"></span>
           <button class="opt active local" data-mode="local" role="tab" aria-selected="true">Local</button>
           <button class="opt" data-mode="gpu" role="tab" aria-selected="false">GPU</button>
         </div>
@@ -1359,7 +1403,24 @@
         <dd>透明 bg、文字 = tx-2、weight 400。</dd>
 
         <dt>ホバー (非アクティブ)</dt>
-        <dd>bg = ui / 文字 = tx。アクティブ側はホバー反応なし。</dd>
+        <dd>文字色のみ tx に上がる。サムは動かない (アクティブ側はホバー反応なし)。</dd>
+
+        <dt>アニメーション</dt>
+        <dd>
+          アクティブ背景はサム (絶対配置の単一要素) で表現し、選択変更時に
+          <strong>位置 + 幅 + 色</strong> を補間する:<br/>
+          ・transform / width:
+            <code>380ms cubic-bezier(0.34, 1.3, 0.5, 1)</code>
+            (5% 程度のオーバーシュート — iOS の UISegmentedControl 風) <br/>
+          ・background-color: <code>260ms ease</code>
+            (動きより一拍早く tx-2 ↔ blue-600 が落ち着く) <br/>
+          ・ボタン文字色: <code>220ms ease</code>、押下時のみ <code>scale(0.96)</code> 140ms。<br/>
+          初回フレームはサム位置だけ計測してアニメーションさせない。
+          <code>prefers-reduced-motion: reduce</code> ならすべての遷移をオフ。<br/>
+          egui 側は <code>Context::animate_value_with_time</code> でアクティブ
+          側のレクト (x / width) と色 (tx-2 ↔ blue-600 を <code>lerp</code>) を
+          補間し、毎フレームサムだけ <code>painter.rect_filled</code> で描く。
+        </dd>
 
         <dt>フォーカス</dt>
         <dd>focus ring = blue-600 半透明 2 px outline。Tab で外枠に入り、左右矢印で移動。</dd>
@@ -1889,13 +1950,25 @@
 
   <script>
     // T-1 toggle prototype. Click / Enter / Space / Arrow keys.
+    // Sliding thumb: measured from the active button's geometry so width
+    // adapts when labels change. Spring curve + colour crossfade live in
+    // CSS — JS only sets transform / width / data-mode.
     (function () {
       const seg = document.querySelector('.seg-live');
       if (!seg) return;
+      const thumb = seg.querySelector('.thumb');
       const opts = Array.from(seg.querySelectorAll('.opt'));
       const out = document.getElementById('mode-out');
+      let currentMode = 'local';
+
+      function moveThumbTo(btn) {
+        thumb.style.width = btn.offsetWidth + 'px';
+        thumb.style.transform = 'translateX(' + btn.offsetLeft + 'px)';
+      }
 
       function select(mode) {
+        currentMode = mode;
+        seg.dataset.mode = mode;
         opts.forEach((o) => {
           const active = o.dataset.mode === mode;
           o.classList.toggle('active', active);
@@ -1904,6 +1977,8 @@
           o.setAttribute('aria-selected', active ? 'true' : 'false');
           o.tabIndex = active ? 0 : -1;
         });
+        const activeBtn = opts.find((o) => o.dataset.mode === mode);
+        if (activeBtn) moveThumbTo(activeBtn);
         if (out) {
           out.textContent = mode === 'gpu' ? 'ExecMode::Gpu' : 'ExecMode::Local';
         }
@@ -1926,6 +2001,26 @@
           }
         });
       });
+
+      // Initial placement (no animation) — then flip data-ready so
+      // future moves use the spring transition.
+      function placeInitial() {
+        const initial = opts.find((o) => o.classList.contains('active')) || opts[0];
+        moveThumbTo(initial);
+        requestAnimationFrame(() => { seg.dataset.ready = ''; });
+      }
+      if (document.readyState === 'complete') {
+        placeInitial();
+      } else {
+        window.addEventListener('load', placeInitial, { once: true });
+      }
+
+      // Keep the thumb in sync if the container resizes (font load, zoom…).
+      const ro = new ResizeObserver(() => {
+        const active = opts.find((o) => o.dataset.mode === currentMode);
+        if (active) moveThumbTo(active);
+      });
+      ro.observe(seg);
     })();
   </script>
 
