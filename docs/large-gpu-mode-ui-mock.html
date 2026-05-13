@@ -925,32 +925,30 @@
   <section class="block">
     <h2><span class="num">§ 01</span> 上部ツールバー — 詳細案</h2>
     <p class="note">
-      ツールバーには <strong>app 名 · 量子ビット数 · Local/GPU セグメント · 実行ボタン</strong>
-      の最大 4 要素が乗る。並び・整列・余白・分離線をどう組むかで読み取りやすさが変わる。
-      4 つの異なる組み方を実寸で並べて、A-3 を採用する。
+      ツールバーは<strong>両モードで常に同じ形</strong>でなければならない。
+      「GPUで実行」ボタンは GPU モードでしか意味を持たないので<strong>ツールバーには入れない</strong>
+      (GPU バナー側に置く)。ツールバーに乗るのは <strong>量子ビット数 · 直近ステータス · Local/GPU セグメント</strong>
+      の 3 要素のみ。並び・整列・分離線をどう組むかで読み取りやすさが変わる。3 案を比較して A-3 を採る。
     </p>
 
     <!-- detailed toolbar gallery (full-width, real toolbar rows) -->
     <div class="tb-gallery">
 
-      <!-- A-1: three-zone, left-grouped meta -->
+      <!-- A-1: minimal — meta + toggle, no status text -->
       <div class="tb-card">
         <div class="tb-card-head">
-          <span class="tb-label">A-1 · 左にメタ / 右にトグル + 実行</span>
-          <span class="tb-meta">採用候補</span>
+          <span class="tb-label">A-1 · ミニマル / メタ + トグルのみ</span>
         </div>
         <div class="tb-row">
-          <span class="app-name"><b>qni-webgpu</b></span>
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="spacer"></span>
           <span class="seg">
             <span class="opt"><span class="dot"></span>Local</span>
             <span class="opt active gpu"><span class="dot"></span>GPU</span>
           </span>
-          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
         </div>
-        <p class="pros">単純で読みやすい。左から右へ「ここは何 → 何ビット → どのモード → 実行」と動線が一直線。</p>
-        <p class="cons">app 名を出すと冗長になりがち。ブラウザのタブで分かるので「qni-webgpu」は要らないかも。</p>
+        <p class="pros">最小要素。視線は左 (量子ビット数) → 右 (モード) の 2 点に集中する。</p>
+        <p class="cons">直近の実行結果が古いのか・完了しているのかが、下にスクロールしないと分からない。</p>
       </div>
 
       <!-- A-2: centered mode toggle -->
@@ -966,63 +964,44 @@
             <span class="opt active gpu"><span class="dot"></span>GPU</span>
           </span>
           <span class="spacer"></span>
-          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
+          <span class="tb-status">
+            <span class="status-dot done"></span>
+            <span>外部 GPU · 完了 3.2 s</span>
+          </span>
         </div>
-        <p class="pros">最重要 (モード) を視覚中心に置き、左右に文脈と動作を振り分ける。シンメトリーで落ち着く。</p>
-        <p class="cons">画面幅が変わると中央位置がずれて、目が泳ぐ。狭い画面では破綻しやすい。</p>
+        <p class="pros">最重要 (モード) を視覚中心に置き、左右に文脈とステータスを振り分けてシンメトリー。</p>
+        <p class="cons">画面幅が変わると中央位置がずれて、目が泳ぐ。狭い画面ではステータス文が右端から落ちる。</p>
       </div>
 
-      <!-- A-3: Mode + run as a paired unit, with divider (CHOSEN) -->
+      <!-- A-3: meta + status on the left, toggle on the right (CHOSEN) -->
       <div class="tb-card chosen">
         <div class="tb-card-head">
-          <span class="tb-label">A-3 · モードと実行を右側で 1 ユニットに <span class="chosen-pill">採用</span></span>
+          <span class="tb-label">A-3 · 左にメタ + 直近ステータス / 右にトグル <span class="chosen-pill">採用</span></span>
         </div>
         <div class="tb-row">
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="tb-sep"></span>
           <span class="tb-status">
             <span class="status-dot done"></span>
-            <span>外部 GPU · 完了 3.2 s</span>
+            <span>外部 GPU · 完了 3.2 s · 4,096 試行</span>
           </span>
           <span class="spacer"></span>
           <span class="seg">
             <span class="opt"><span class="dot"></span>Local</span>
             <span class="opt active gpu"><span class="dot"></span>GPU</span>
           </span>
-          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
         </div>
-        <p class="pros">「モード + 実行」がユーザーアクションの塊として右端にまとまる (IBM Composer の Run ボタン位置と同じ流派)。</p>
-        <p class="pros">直近の実行ステータス (● 完了 3.2s / ⚠失敗 など) を左寄りに出せるので、別バナーを出さずにツールバーで状況がわかる。</p>
+        <p class="pros">直近の実行ステータスをツールバーに常時表示できる → 編集中も「いま結果は古い / 完了している / 失敗中」がスクロールせず分かる。</p>
+        <p class="pros">構造が両モードで完全に同じ。Local モードではステータス文言が「Local · 触ったら即時更新」に変わるだけ。</p>
         <p class="cons">ステータス文字列がトグルに干渉しないよう、最大幅と省略表示を決める必要がある。</p>
-      </div>
-
-      <!-- A-4: Run integrated into the GPU side of the segmented control -->
-      <div class="tb-card">
-        <div class="tb-card-head">
-          <span class="tb-label">A-4 · GPU 側に実行アイコンを内包</span>
-        </div>
-        <div class="tb-row">
-          <span class="qubit-badge"><b>28</b> 量子ビット</span>
-          <span class="spacer"></span>
-          <span class="seg seg-with-run">
-            <span class="opt"><span class="dot"></span>Local</span>
-            <span class="opt active gpu run-merged">
-              <span class="dot"></span>GPU
-              <span class="run-mini">▶ 実行</span>
-            </span>
-          </span>
-        </div>
-        <p class="pros">ボタン数が減って画面が静か。「GPU = 押せる」が直感的。</p>
-        <p class="cons">Local 側にだけアクションが付かないので、トグルとボタンの役割が混ざる。「アクション」と「モード」は別役なので分けたほうが安全。</p>
       </div>
 
     </div>
 
     <p class="note" style="margin-top:8px;">
-      <strong>採用:</strong> A-3。理由は (1) 直近実行ステータスをツールバーに常時表示でき、編集中も
-      「いま結果は古い / 完了している / 失敗中」が分かる、(2) モードと実行ボタンが右端で 1 ユニットとして
-      凝集している、(3) IBM Quantum Composer の Run / Backend 配置と相性が良い。
-      app 名 (<code>qni-webgpu</code>) はタブタイトルで分かるのでツールバーからは省略する。
+      <strong>採用:</strong> A-3。両モードで形が一致し、編集中も直近実行ステータスが見える。
+      実行ボタン (<code>▶GPUで実行</code>) は GPU バナー側に置き、GPU モードでだけ現れる。
+      app 名 (<code>qni-webgpu</code>) はブラウザのタブで分かるのでツールバーからは省略する。
     </p>
   </section>
 
@@ -1030,8 +1009,9 @@
   <section class="block">
     <h2><span class="num">§ 02</span> 主案 — 全画面モック</h2>
     <p class="note">
-      A-3 を全画面に適用。ツールバーは左から <strong>量子ビット数 → 直近実行ステータス → Local/GPU セグメント → GPUで実行</strong>。
-      回路エリアは枠なし (現状の live app に合わせる)。Local モードに切り替えるとステータス文言は「Local · 触ったら即時更新」になり、Run ボタンは消える。
+      A-3 を全画面に適用。ツールバーは左から <strong>量子ビット数 → 直近実行ステータス → Local/GPU セグメント</strong>。
+      <strong>実行ボタンは GPU バナー側</strong> (ツールバーには入れない)。回路エリアは枠なし (現状の live app に合わせる)。
+      Local モードに切り替えるとステータス文言は「Local · 触ったら即時更新」になり、GPU バナーごと消える。
     </p>
 
     <div class="app-frame">
@@ -1041,7 +1021,7 @@
       </div>
       <div class="app-body">
 
-        <!-- Top toolbar (A-3 chosen) -->
+        <!-- Top toolbar (A-3 chosen) — same shape in both modes; no run button here. -->
         <div class="toolbar">
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="tb-sep"></span>
@@ -1054,7 +1034,6 @@
             <span class="opt"><span class="dot"></span>Local</span>
             <span class="opt active gpu"><span class="dot"></span>GPU</span>
           </span>
-          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
         </div>
 
         <!-- Palette -->
@@ -1090,7 +1069,7 @@
           </div>
         </div>
 
-        <!-- GPU execution status banner (NO 見積もり) -->
+        <!-- GPU execution banner — run button lives here, not in the toolbar. -->
         <div class="gpu-banner state-done">
           <div class="left">
             <div class="badges">
@@ -1104,6 +1083,7 @@
             </div>
           </div>
           <div class="buttons">
+            <span class="btn primary"><span class="icon">▶</span>GPUで実行</span>
             <span class="btn">結果を保存</span>
           </div>
         </div>
