@@ -176,17 +176,21 @@ fn is_dagger_variant(kind: GateKind) -> bool {
 /// Pixel font size for the base label, derived from the gate-body
 /// width. Ratios picked on the gate-label mockup (Geist Bold 700);
 /// stays consistent across the 32 px palette and any future scale.
+/// Sizes were validated visually at 32 px against Geist's metrics —
+/// going much above these starts clipping the round-cap descender on
+/// `Q` and the radical on `√X`.
 fn base_label_font_px(label: &str, body_px: f32) -> f32 {
     let ratio = if label == "√X" {
         // √X needs extra headroom — the radical extends above the X
-        // cap-height and clips the gate body if scaled like 2 plain chars.
-        0.41
+        // cap-height and clips the gate body if scaled like a single char.
+        0.50
     } else if label.chars().count() == 1 {
-        0.47
+        0.62
     } else {
         // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
-        // two-glyph width inside the body.
-        0.31
+        // two-glyph width inside the body. Geist Bold is wide enough
+        // that going higher pushes "QFT" past the rounded body edge.
+        0.40
     };
     body_px * ratio
 }
@@ -203,8 +207,16 @@ fn draw_text_label(
         base_label_font_px(label, body_px),
         crate::app::GATE_LABEL_FAMILY.clone(),
     );
+    // Vertical centring quirk: egui aligns text by the font's
+    // ascent/descent, not by the glyph's visual centre. For letters
+    // (H / X / Y / Z / S / T / P / RX / RY / RZ / QFT) the
+    // ascent-to-baseline span already matches the body centre well.
+    // For `+`, the math axis sits roughly 5% of the em above the
+    // ascent/descent midpoint, so without a nudge the glyph reads as
+    // slightly low. Bias the `+` anchor up by `0.05 × body`.
+    let y_nudge = if label == "+" { -body_px * 0.05 } else { 0.0 };
     painter.text(
-        rect.center(),
+        rect.center() + egui::vec2(0.0, y_nudge),
         egui::Align2::CENTER_CENTER,
         label,
         font,
@@ -212,9 +224,9 @@ fn draw_text_label(
     );
     if is_dagger_variant(kind) {
         // Dagger sits at the body's top-right so the base letter stays
-        // dead-centre. Size ≈ 0.28× body; insets ≈ 0.13× / 0.18× match
+        // dead-centre. Size ≈ 0.32× body; insets ≈ 0.13× / 0.18× match
         // the gate-label mockup's `top:3 right:4` overlay at 32 px.
-        let dag_font = egui::FontId::new(body_px * 0.28, crate::app::GATE_LABEL_FAMILY.clone());
+        let dag_font = egui::FontId::new(body_px * 0.32, crate::app::GATE_LABEL_FAMILY.clone());
         let inset_x = body_px * 0.13;
         let inset_y = body_px * 0.18;
         painter.text(
