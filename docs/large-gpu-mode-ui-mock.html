@@ -216,11 +216,6 @@
       transition: background 80ms;
       letter-spacing: 0.04em;
     }
-    .seg .opt .dot {
-      width: 8px; height: 8px; border-radius: 999px;
-      background: var(--ui-3);
-      flex-shrink: 0;
-    }
     .seg .opt.active {
       color: var(--bg);
       background: var(--tx);
@@ -228,7 +223,6 @@
     }
     .seg .opt.active.local { background: var(--green); }
     .seg .opt.active.gpu { background: var(--blue); }
-    .seg .opt.active .dot { background: var(--bg); }
     .seg .opt.disabled { color: var(--tx-3); cursor: not-allowed; }
 
     /* Run button (toolbar variant — primary in GPU mode) */
@@ -557,6 +551,104 @@
       background: var(--tx);
       transform: translate(-50%, -100%);
     }
+
+    /* ───────────────── Toggle-only variant gallery ───────────────── */
+    .toggle-gallery {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .tg-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .tg-card.chosen { border-left: 4px solid var(--green); }
+    .tg-card-head {
+      padding: 10px 20px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--ui-2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+    }
+    .tg-card-head .chosen-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      background: var(--green-dim);
+      color: var(--green);
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+    .tg-stage {
+      padding: 24px 20px;
+      display: grid;
+      gap: 16px;
+      background: var(--bg);
+    }
+    .tg-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .tg-label-sm {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-3);
+      letter-spacing: 0.04em;
+    }
+    .tg-card .pros, .tg-card .cons {
+      padding: 6px 20px;
+      font-size: 13px;
+      color: var(--tx-2);
+      line-height: 20px;
+      display: flex;
+      gap: 8px;
+    }
+    .tg-card .pros::before {
+      content: '+';
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .tg-card .cons::before {
+      content: '−';
+      color: var(--red);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .tg-card .pros:last-child, .tg-card .cons:last-child { padding-bottom: 14px; }
+
+    /* T-2: pill (fully rounded) */
+    .seg.pill { border-radius: 999px; padding: 3px; }
+    .seg.pill .opt { border-radius: 999px; padding: 6px 16px; }
+
+    /* T-3: ghost (no track, active = underline only) */
+    .seg.ghost {
+      border: none;
+      background: transparent;
+      padding: 0;
+      gap: 4px;
+    }
+    .seg.ghost .opt {
+      padding: 6px 12px;
+      border-radius: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--tx-2);
+    }
+    .seg.ghost .opt.active {
+      background: transparent;
+      color: var(--tx);
+      font-weight: 600;
+    }
+    .seg.ghost .opt.active.local { background: transparent; border-bottom-color: var(--green); }
+    .seg.ghost .opt.active.gpu { background: transparent; border-bottom-color: var(--blue); }
 
     /* ───────────────── Toolbar variant gallery ───────────────── */
     .tb-gallery {
@@ -943,8 +1035,8 @@
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt"><span class="dot"></span>Local</span>
-            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+            <span class="opt">Local</span>
+            <span class="opt active gpu">GPU</span>
           </span>
         </div>
         <p class="pros">最小要素。視線は左 (量子ビット数) → 右 (モード) の 2 点に集中する。</p>
@@ -960,8 +1052,8 @@
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt"><span class="dot"></span>Local</span>
-            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+            <span class="opt">Local</span>
+            <span class="opt active gpu">GPU</span>
           </span>
           <span class="spacer"></span>
           <span class="tb-status">
@@ -987,8 +1079,8 @@
           </span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt"><span class="dot"></span>Local</span>
-            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+            <span class="opt">Local</span>
+            <span class="opt active gpu">GPU</span>
           </span>
         </div>
         <p class="pros">直近の実行ステータスをツールバーに常時表示できる → 編集中も「いま結果は古い / 完了している / 失敗中」がスクロールせず分かる。</p>
@@ -1005,9 +1097,97 @@
     </p>
   </section>
 
-  <!-- ───────────────── 2. Full-frame mock — chosen layout ───────────────── -->
+  <!-- ───────────────── 2. Toggle-only detail ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 02</span> 主案 — 全画面モック</h2>
+    <h2><span class="num">§ 02</span> トグル本体 — 形状の検討</h2>
+    <p class="note">
+      ツールバーの中央にあるセグメンテッドコントロール (Local | GPU) を実寸で並べて比較する。
+      装飾的だったドットは外した (役割がなく情報が冗長になっていた)。
+      アクティブ表現は「色面塗り + paper 文字 + 太字」の 3 要素が共通で、残るのは
+      <strong>角丸の強さ・トラックの見え方</strong>。3 案を見て T-1 を採用する。
+    </p>
+
+    <div class="toggle-gallery">
+
+      <div class="tg-card chosen">
+        <div class="tg-card-head"><span>T-1 · 角丸 8 px / paper トラック <span class="chosen-pill">採用</span></span></div>
+        <div class="tg-stage">
+          <div class="tg-row">
+            <span class="seg">
+              <span class="opt active local">Local</span>
+              <span class="opt">GPU</span>
+            </span>
+            <span class="tg-label-sm">Local 選択中</span>
+          </div>
+          <div class="tg-row">
+            <span class="seg">
+              <span class="opt">Local</span>
+              <span class="opt active gpu">GPU</span>
+            </span>
+            <span class="tg-label-sm">GPU 選択中</span>
+          </div>
+        </div>
+        <p class="pros">既存 UI の角丸 (palette card 12 px / box-border 6 px) と整合。やや角張った形でツールバー要素として馴染む。</p>
+        <p class="pros">paper トラック + ui-2 hairline 枠で「触れる場所」がはっきり。Flexoki の表面層と同じ語彙。</p>
+      </div>
+
+      <div class="tg-card">
+        <div class="tg-card-head"><span>T-2 · 完全なピル形状 (radius 999 px)</span></div>
+        <div class="tg-stage">
+          <div class="tg-row">
+            <span class="seg pill">
+              <span class="opt active local">Local</span>
+              <span class="opt">GPU</span>
+            </span>
+            <span class="tg-label-sm">Local 選択中</span>
+          </div>
+          <div class="tg-row">
+            <span class="seg pill">
+              <span class="opt">Local</span>
+              <span class="opt active gpu">GPU</span>
+            </span>
+            <span class="tg-label-sm">GPU 選択中</span>
+          </div>
+        </div>
+        <p class="pros">switch / pill control 感が出てモード切替らしさが強まる。「ON/OFF」の比喩が分かりやすい。</p>
+        <p class="cons">UI の他の要素 (gate body radius 6 / panel 14) と角丸スケールが揃わず、唯一だけ丸くて浮く。</p>
+      </div>
+
+      <div class="tg-card">
+        <div class="tg-card-head"><span>T-3 · トラックなし / 下線でアクティブ</span></div>
+        <div class="tg-stage">
+          <div class="tg-row">
+            <span class="seg ghost">
+              <span class="opt active local">Local</span>
+              <span class="opt">GPU</span>
+            </span>
+            <span class="tg-label-sm">Local 選択中</span>
+          </div>
+          <div class="tg-row">
+            <span class="seg ghost">
+              <span class="opt">Local</span>
+              <span class="opt active gpu">GPU</span>
+            </span>
+            <span class="tg-label-sm">GPU 選択中</span>
+          </div>
+        </div>
+        <p class="pros">最も静か。ツールバーが視覚的に重くならない。</p>
+        <p class="cons">「クリックできるコントロール」だと一目で分からない。ボタンより<strong>タブ</strong>に見えるので、モード切替の意味合いが弱まる。</p>
+      </div>
+
+    </div>
+
+    <p class="note" style="margin-top:8px;">
+      <strong>採用:</strong> T-1。アクティブセグメントの<strong>色面</strong>で
+      「いま Local / いま GPU」がひと目で分かる。Flexoki の角丸スケール (6–14 px) と整合し、
+      Local 選択時は green-600 塗り、GPU 選択時は blue-600 塗りに切り替わるので、
+      <strong>背景色そのものが現状モードのアイデンティティ</strong>になる。
+    </p>
+  </section>
+
+  <!-- ───────────────── 3. Full-frame mock — chosen layout ───────────────── -->
+  <section class="block">
+    <h2><span class="num">§ 03</span> 主案 — 全画面モック</h2>
     <p class="note">
       A-3 を全画面に適用。ツールバーは左から <strong>量子ビット数 → 直近実行ステータス → Local/GPU セグメント</strong>。
       <strong>実行ボタンは GPU バナー側</strong> (ツールバーには入れない)。回路エリアは枠なし (現状の live app に合わせる)。
@@ -1031,8 +1211,8 @@
           </span>
           <span class="spacer"></span>
           <span class="seg" role="tablist" aria-label="実行モード">
-            <span class="opt"><span class="dot"></span>Local</span>
-            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+            <span class="opt">Local</span>
+            <span class="opt active gpu">GPU</span>
           </span>
         </div>
 
@@ -1199,7 +1379,7 @@
 
   <!-- ───────────────── 3. Same screen, but in Local mode ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 03</span> 比較 — Local モードの場合</h2>
+    <h2><span class="num">§ 04</span> 比較 — Local モードの場合</h2>
     <p class="note">
       同じ画面で <strong>Local</strong> セグメントを選んだ状態。実行バナーは消え、下部は<strong>状態ベクトル円グリッド</strong>に戻る。
       Run ボタンも消える (Local は触ったら即時更新なので実行ボタンが要らない)。
@@ -1222,8 +1402,8 @@
           </span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt active local"><span class="dot"></span>Local</span>
-            <span class="opt"><span class="dot"></span>GPU</span>
+            <span class="opt active local">Local</span>
+            <span class="opt">GPU</span>
           </span>
         </div>
 
@@ -1299,7 +1479,7 @@
 
   <!-- ───────────────── 4. 17+ qubit in Local mode: error ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 04</span> 17量子ビット以上で Local を選んだとき</h2>
+    <h2><span class="num">§ 05</span> 17量子ビット以上で Local を選んだとき</h2>
     <p class="note">
       自動切替はしない。代わりに、Local では計算できないことを明示し、GPU への切替を促す。
       <strong>勝手にモードを変更しない</strong> — 操作はあくまでユーザーに残す。
@@ -1320,8 +1500,8 @@
           </span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt active local"><span class="dot"></span>Local</span>
-            <span class="opt"><span class="dot"></span>GPU</span>
+            <span class="opt active local">Local</span>
+            <span class="opt">GPU</span>
           </span>
         </div>
 
@@ -1375,7 +1555,7 @@
 
   <!-- ───────────────── 5. Banner state gallery (no 見積もり) ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 05</span> GPU モード 実行バナー — 6 状態</h2>
+    <h2><span class="num">§ 06</span> GPU モード 実行バナー — 6 状態</h2>
     <p class="note">
       GPU モードで現れるバナー。<strong>「見積もり」ボタンは廃止</strong> (実行前に正確に見積もる手段が薄く、UI を冗長にするだけ)。
       ボタンは「GPUで実行」「中止」「再実行」など最小限に絞る。
@@ -1484,7 +1664,7 @@
 
   <!-- ───────────────── 6. Non-goals strip ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 06</span> 明確な非目標</h2>
+    <h2><span class="num">§ 07</span> 明確な非目標</h2>
     <div class="non-goals">
       <div class="card">
         <div class="icon">— 非目標 1</div>
