@@ -192,6 +192,8 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 `apps/egui-web/src/colors.rs` が唯一の色定義。現在の既定 theme は `ThemeKind::FlexokiLight` で、raw RGB はこの theme 定義内にだけ置く。描画コードは `Colors` の semantic role (`background`, `surface`, `line`, `semantic_on`, `bloch_vector_tip`, `fps_hud_bg` など) だけを参照する。
 
+Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` / `|1⟩` の wire mask も同じ `background` を使うため、ゲート背面だけ別色の矩形に見えてはいけない。
+
 新しい theme を足す場合は:
 1. `ThemeKind` に variant を追加
 2. `Colors::for_theme` に role mapping を追加

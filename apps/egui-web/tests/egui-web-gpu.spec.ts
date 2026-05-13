@@ -152,6 +152,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const measureX = slotCenter(1)
   const blochX = slotCenter(2)
   const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'circuit_background', x: blochX + 80, y: wireCenterY - 20 },
     { name: 'measurement_gap_left', x: measureX - 20, y: wireCenterY },
     { name: 'measurement_wire_left', x: measureX - 24, y: wireCenterY },
     { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
@@ -166,6 +167,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
     Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 40
 
+  expect(isCircuitBackground(samples.circuit_background)).toBe(true)
   expect(isCircuitBackground(samples.measurement_gap_left)).toBe(true)
   expect(isWireLine(samples.measurement_wire_left)).toBe(true)
   expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)

@@ -73,9 +73,13 @@ impl QniApp {
 impl eframe::App for QniApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let frame_start = now_seconds();
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.show_update_central_panel(ctx, frame, ui);
-        });
+        let mut panel_frame = egui::Frame::central_panel(&ctx.style());
+        panel_frame.fill = self.colors().background;
+        egui::CentralPanel::default()
+            .frame(panel_frame)
+            .show(ctx, |ui| {
+                self.show_update_central_panel(ctx, frame, ui);
+            });
         self.finish_update_frame(ctx, frame_start);
     }
 }
