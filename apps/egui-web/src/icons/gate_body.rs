@@ -7,7 +7,6 @@ use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
 
 use super::gate_glyphs::draw_gate_icon;
-use super::qft::draw_qft_lettering;
 
 pub(crate) fn draw_gate_body(
     painter: &egui::Painter,
@@ -45,11 +44,12 @@ fn draw_gate_body_with_fill(
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
-        // QFT family — same green body as the other unitary gates
-        // (qni `--qni-semantic-fill-color-primary`). The SVG lettering
-        // is centred in a GATE_SIZE square so multi-qubit spans keep
-        // the icon at the vertical centre of the body. Purple resize
-        // handle is drawn separately by the caller below the body.
+        // QFT family — same green body as the other unitary gates. The
+        // letter rendering is delegated to `draw_gate_icon` along with
+        // every other typographic gate (it picks up `"QFT"` / `"QFT†"`
+        // and renders via Geist Bold). For multi-qubit spans the icon
+        // is anchored to a GATE_SIZE square at the vertical centre so
+        // the lettering stays put even when the body is taller.
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
         let cx = gate_rect.center().x;
         let cy = gate_rect.center().y;
@@ -58,12 +58,7 @@ fn draw_gate_body_with_fill(
             egui::pos2(cx - half, cy - half),
             egui::pos2(cx + half, cy + half),
         );
-        draw_qft_lettering(
-            painter,
-            icon_rect,
-            kind == GateKind::QftDaggerGate,
-            colors.label,
-        );
+        draw_gate_icon(painter, icon_rect, kind, colors.label, colors);
         return;
     } else if kind == GateKind::BlochDisplay {
         // qni renders the bloch display as a stand-alone sphere — bg-green-50

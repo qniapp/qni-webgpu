@@ -12,10 +12,19 @@ mod update_flow;
 
 use eframe::egui;
 use std::collections::VecDeque;
+use std::sync::LazyLock;
 
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
+
+/// Named font family rendering quantum-gate text labels (H / X / Y /
+/// Z / S† / RX / QFT…). Resolves to Geist Bold, registered in
+/// `QniApp::new` via `include_bytes!("../assets/Geist-Bold.ttf")`.
+/// `LazyLock` is needed because `FontFamily::Name` wraps an
+/// `Arc<str>`, which isn't `const`-constructible.
+pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
+    LazyLock::new(|| egui::FontFamily::Name("geist".into()));
 
 pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
 pub(crate) use gpu_plan_state::GpuPlanState;
@@ -83,17 +92,31 @@ impl QniApp {
         cc.egui_ctx.style_mut(|style| {
             style.spacing.window_margin = egui::Margin::same(0);
         });
-        // Register Hack as a fallback for the proportional family so
-        // mathematical angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in
-        // ket labels render instead of falling back to tofu. egui's
-        // bundled `Ubuntu-Light` proportional font does not include
-        // those code points, but `Hack-Regular` does.
+        // Font setup:
+        // 1. Register Hack as a fallback for the proportional / monospace
+        //    families so mathematical angle brackets `⟨` `⟩` (U+27E8 /
+        //    U+27E9) used in ket labels render instead of falling back
+        //    to tofu. egui's bundled `Ubuntu-Light` doesn't ship those
+        //    code points, but `Hack-Regular` does.
+        // 2. Register Geist Bold under the named family `geist` so
+        //    `gate_glyphs` can render H / X / Y / Z / S† / RX / QFT…
+        //    via `painter.text` with `FontFamily::Name("geist")`. Geist
+        //    is SIL OFL 1.1 (vercel/geist-font); 128 KB TTF embedded
+        //    via `include_bytes!`. Picked over Inter / JetBrains Mono
+        //    after the gate-label mockup review for its dagger glyph
+        //    and the geometric `+` (CNOT-target).
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "hack_fallback".to_owned(),
             std::sync::Arc::new(egui::FontData::from_static(
                 epaint_default_fonts::HACK_REGULAR,
             )),
+        );
+        fonts.font_data.insert(
+            "geist_bold".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/Geist-Bold.ttf"
+            ))),
         );
         for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
             fonts
@@ -102,6 +125,9 @@ impl QniApp {
                 .or_default()
                 .push("hack_fallback".to_owned());
         }
+        fonts
+            .families
+            .insert(GATE_LABEL_FAMILY.clone(), vec!["geist_bold".to_owned()]);
         cc.egui_ctx.set_fonts(fonts);
         cc.egui_ctx.request_repaint();
         // Restore a shared circuit from the URL (`#{"cols":[...]}` or

@@ -6,7 +6,7 @@ use crate::colors::Colors;
 use crate::gates::GateKind;
 
 use super::bloch::draw_bloch_sphere;
-use super::svg::{map_svg_point_in_rect, push_cubic_points_viewbox, SvgPoint};
+use super::svg::{map_svg_point_in_rect, SvgPoint};
 use super::VIEWBOX;
 
 const CONTROL_RADIUS: f32 = 8.0;
@@ -47,18 +47,23 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
+    // Typographic gates (H / X-as-`+` / Y / Z / √X / S / S† / T / T† /
+    // P / RX / RY / RZ / QFT / QFT†) are rendered as Geist Bold text
+    // via `painter.text` instead of hand-extracted SVG strokes. The
+    // dagger gates render the base letter centred and the † as a
+    // smaller mark in the top-right corner so the central glyph stays
+    // legible at 32 px.
+    if let Some(label) = base_label_for(kind) {
+        draw_text_label(painter, rect, kind, label, color);
+        return true;
+    }
+
     let viewbox = VIEWBOX;
     let scale = rect.width() / viewbox;
     let stroke = egui::Stroke::new(2.0 * scale, color);
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
 
     match kind {
-        GateKind::H => {
-            painter.line_segment([p(17.0, 13.0), p(17.0, 35.0)], stroke);
-            painter.line_segment([p(17.0, 24.0), p(31.0, 24.0)], stroke);
-            painter.line_segment([p(31.0, 13.0), p(31.0, 35.0)], stroke);
-            true
-        }
         GateKind::BlochDisplay => {
             // Stand-alone sphere with crossed axes drawn directly on the wire,
             // matching qni's bloch-display element. The dynamic Bloch vector is
@@ -118,194 +123,106 @@ pub(super) fn draw_gate_icon(
             );
             true
         }
-        GateKind::X => {
-            painter.line_segment([p(15.0, 24.0), p(33.0, 24.0)], stroke);
-            painter.line_segment([p(24.0, 15.0), p(24.0, 33.0)], stroke);
-            true
-        }
-        GateKind::Y => {
-            painter.line_segment([p(17.0, 13.0), p(24.0, 24.0)], stroke);
-            painter.line_segment([p(24.0, 24.0), p(31.0, 13.0)], stroke);
-            painter.line_segment([p(24.0, 24.0), p(24.0, 35.0)], stroke);
-            true
-        }
-        GateKind::Z => {
-            let points = vec![p(17.5, 13.0), p(31.0, 13.0), p(17.5, 35.0), p(31.0, 35.0)];
-            painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-                points, stroke,
-            )));
-            true
-        }
-        GateKind::S => {
-            draw_s_curve(painter, rect, stroke);
-            true
-        }
-        GateKind::SDagger => {
-            draw_s_curve(painter, rect, stroke);
-            painter.line_segment([p(37.0, 10.0), p(43.0, 10.0)], stroke);
-            painter.line_segment([p(40.0, 6.0), p(40.0, 20.0)], stroke);
-            true
-        }
-        GateKind::T => {
-            painter.line_segment([p(15.0, 13.0), p(33.0, 13.0)], stroke);
-            painter.line_segment([p(24.0, 13.0), p(24.0, 35.0)], stroke);
-            true
-        }
-        GateKind::TDagger => {
-            painter.line_segment([p(15.0, 13.0), p(33.0, 13.0)], stroke);
-            painter.line_segment([p(24.0, 13.0), p(24.0, 35.0)], stroke);
-            painter.line_segment([p(37.0, 10.0), p(43.0, 10.0)], stroke);
-            painter.line_segment([p(40.0, 6.0), p(40.0, 20.0)], stroke);
-            true
-        }
-        GateKind::SqrtX => {
-            let points = vec![
-                p(10.0, 24.0),
-                p(13.0, 24.0),
-                p(14.0, 36.0),
-                p(17.0, 36.0),
-                p(18.0, 12.0),
-                p(38.0, 12.0),
-            ];
-            painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-                points, stroke,
-            )));
-            painter.line_segment([p(24.0, 32.0), p(34.0, 18.0)], stroke);
-            painter.line_segment([p(34.0, 32.0), p(24.0, 18.0)], stroke);
-            true
-        }
         GateKind::Swap => {
-            let scale = rect.width() / VIEWBOX;
             let swap_stroke = egui::Stroke::new(4.0 * scale, color);
             painter.line_segment([p(12.0, 36.0), p(36.0, 12.0)], swap_stroke);
             painter.line_segment([p(12.0, 12.0), p(36.0, 36.0)], swap_stroke);
             true
         }
-        GateKind::Phase => {
-            painter.line_segment([p(18.2857, 36.0), p(29.7143, 12.0)], stroke);
-            painter.circle_stroke(p(24.0, 24.5714), 8.0 * scale, stroke);
-            true
-        }
-        GateKind::Rx => {
-            draw_r_letter(painter, rect, stroke);
-            painter.line_segment([p(34.6093, 13.0016), p(24.7475, 35.0)], stroke);
-            painter.line_segment([p(24.8187, 13.0016), p(34.6093, 35.0)], stroke);
-            true
-        }
-        GateKind::Ry => {
-            draw_r_letter(painter, rect, stroke);
-            painter.line_segment([p(34.6093, 13.0016), p(29.5, 23.5)], stroke);
-            painter.line_segment([p(29.5, 23.5), p(29.5, 35.0)], stroke);
-            painter.line_segment([p(24.5, 13.0), p(29.5, 23.5)], stroke);
-            true
-        }
-        GateKind::Rz => {
-            draw_r_letter(painter, rect, stroke);
-            let points = vec![p(24.5, 13.0), p(34.5, 13.0), p(24.5, 35.0), p(34.5, 35.0)];
-            painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-                points, stroke,
-            )));
-            true
-        }
-        // QFT family draws its label via the special body branch above,
-        // not through this icon table.
-        GateKind::QftGate | GateKind::QftDaggerGate => false,
+        // Everything else (H / X-as-`+` / Y / Z / √X / S / S† / T /
+        // T† / P / RX / RY / RZ / QFT / QFT†) was already handled by
+        // `base_label_for` at the top via Geist Bold text. Anything that
+        // reaches here without matching is a non-typographic gate the
+        // body code knows how to fall back on with `kind.label()`.
+        _ => false,
     }
 }
 
-fn draw_r_letter(painter: &egui::Painter, rect: egui::Rect, stroke: egui::Stroke) {
-    let viewbox = VIEWBOX;
-    let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
-    painter.line_segment([p(12.3214, 35.0), p(12.3214, 24.0)], stroke);
-    painter.line_segment([p(18.0, 24.5), p(21.7303, 35.0)], stroke);
-
-    let mut points = Vec::new();
-    let start = SvgPoint::new(12.3214, 24.0);
-    points.push(p(start.x, start.y));
-    points.push(p(12.3214, 13.0));
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(12.3214, 13.0),
-        SvgPoint::new(21.0, 13.0),
-        SvgPoint::new(22.0, 15.5),
-        SvgPoint::new(22.0, 18.5),
-        10,
-        viewbox,
-    );
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(22.0, 18.5),
-        SvgPoint::new(22.0, 21.5),
-        SvgPoint::new(21.0, 24.0),
-        SvgPoint::new(12.3214, 24.0),
-        10,
-        viewbox,
-    );
-    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-        points, stroke,
-    )));
+/// Map a `GateKind` to the base text label rendered at the centre of
+/// its body. Daggered variants share the same base letter as their
+/// non-daggered sibling; the dagger mark is added separately by
+/// `draw_text_label`.
+fn base_label_for(kind: GateKind) -> Option<&'static str> {
+    Some(match kind {
+        GateKind::H => "H",
+        // qni renders the X gate body as a filled circle with a `+`
+        // glyph centred inside (CNOT-target convention). Keep that.
+        GateKind::X => "+",
+        GateKind::Y => "Y",
+        GateKind::Z => "Z",
+        GateKind::SqrtX => "√X",
+        GateKind::S | GateKind::SDagger => "S",
+        GateKind::T | GateKind::TDagger => "T",
+        GateKind::Phase => "P",
+        // R-axis rotations: at GATE_SIZE 32 px a subscript x / y / z
+        // is sub-5 px and unreadable. `icons.rs`'s old hand-drawn
+        // glyphs already rendered the axis letter at the same height
+        // as R, so typeset as `RX` / `RY` / `RZ` to match.
+        GateKind::Rx => "RX",
+        GateKind::Ry => "RY",
+        GateKind::Rz => "RZ",
+        GateKind::QftGate | GateKind::QftDaggerGate => "QFT",
+        _ => return None,
+    })
 }
 
-fn draw_s_curve(painter: &egui::Painter, rect: egui::Rect, stroke: egui::Stroke) {
-    let viewbox = VIEWBOX;
-    let mut points = Vec::new();
-    let start = SvgPoint::new(30.0, 15.5982);
-    points.push(map_svg_point_in_rect(rect, start, viewbox));
+fn is_dagger_variant(kind: GateKind) -> bool {
+    matches!(
+        kind,
+        GateKind::SDagger | GateKind::TDagger | GateKind::QftDaggerGate
+    )
+}
 
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        start,
-        SvgPoint::new(30.0, 15.5982),
-        SvgPoint::new(29.0, 13.5893),
-        SvgPoint::new(25.0, 13.3512),
-        12,
-        viewbox,
-    );
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(25.0, 13.3512),
-        SvgPoint::new(21.5, 13.1429),
-        SvgPoint::new(16.5, 13.8029),
-        SvgPoint::new(17.0, 19.1515),
-        12,
-        viewbox,
-    );
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(17.0, 19.1515),
-        SvgPoint::new(17.5, 24.5001),
-        SvgPoint::new(31.0, 23.1432),
-        SvgPoint::new(31.0, 29.035),
-        12,
-        viewbox,
-    );
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(31.0, 29.035),
-        SvgPoint::new(31.0, 34.9268),
-        SvgPoint::new(25.5934, 35.2343),
-        SvgPoint::new(21.5, 34.9268),
-        12,
-        viewbox,
-    );
-    push_cubic_points_viewbox(
-        &mut points,
-        rect,
-        SvgPoint::new(21.5, 34.9268),
-        SvgPoint::new(19.0063, 34.7396),
-        SvgPoint::new(17.0, 33.2578),
-        SvgPoint::new(17.0, 33.2578),
-        10,
-        viewbox,
-    );
+/// Pixel font size for the base label, derived from the gate-body
+/// width. Ratios picked on the gate-label mockup (Geist Bold 700);
+/// stays consistent across the 32 px palette and any future scale.
+fn base_label_font_px(label: &str, body_px: f32) -> f32 {
+    let ratio = if label == "√X" {
+        // √X needs extra headroom — the radical extends above the X
+        // cap-height and clips the gate body if scaled like 2 plain chars.
+        0.41
+    } else if label.chars().count() == 1 {
+        0.47
+    } else {
+        // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
+        // two-glyph width inside the body.
+        0.31
+    };
+    body_px * ratio
+}
 
-    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-        points, stroke,
-    )));
+fn draw_text_label(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    kind: GateKind,
+    label: &str,
+    color: egui::Color32,
+) {
+    let body_px = rect.width();
+    let font = egui::FontId::new(
+        base_label_font_px(label, body_px),
+        crate::app::GATE_LABEL_FAMILY.clone(),
+    );
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        label,
+        font,
+        color,
+    );
+    if is_dagger_variant(kind) {
+        // Dagger sits at the body's top-right so the base letter stays
+        // dead-centre. Size ≈ 0.28× body; insets ≈ 0.13× / 0.18× match
+        // the gate-label mockup's `top:3 right:4` overlay at 32 px.
+        let dag_font = egui::FontId::new(body_px * 0.28, crate::app::GATE_LABEL_FAMILY.clone());
+        let inset_x = body_px * 0.13;
+        let inset_y = body_px * 0.18;
+        painter.text(
+            egui::pos2(rect.right() - inset_x, rect.top() + inset_y),
+            egui::Align2::CENTER_CENTER,
+            "†",
+            dag_font,
+            color,
+        );
+    }
 }
