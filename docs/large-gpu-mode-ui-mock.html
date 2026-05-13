@@ -558,7 +558,116 @@
       transform: translate(-50%, -100%);
     }
 
-    /* ───────────────── Placement comparison grid ───────────────── */
+    /* ───────────────── Toolbar variant gallery ───────────────── */
+    .tb-gallery {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .tb-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .tb-card.chosen { border-left: 4px solid var(--green); }
+    .tb-card-head {
+      padding: 10px 20px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--ui-2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+    }
+    .tb-label .chosen-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      background: var(--green-dim);
+      color: var(--green);
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+    .tb-meta {
+      color: var(--tx-3);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+    }
+    .tb-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg);
+    }
+    .tb-card .pros, .tb-card .cons {
+      padding: 6px 20px;
+      font-size: 13px;
+      color: var(--tx-2);
+      line-height: 20px;
+      display: flex;
+      gap: 8px;
+    }
+    .tb-card .pros::before {
+      content: '+';
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .tb-card .cons::before {
+      content: '−';
+      color: var(--red);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .tb-card .pros:last-child, .tb-card .cons:last-child { padding-bottom: 14px; }
+
+    .tb-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--ui-2);
+    }
+    .tb-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--tx-2);
+      letter-spacing: 0.02em;
+    }
+    .tb-status .status-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--tx-3);
+      flex-shrink: 0;
+    }
+    .tb-status .status-dot.done { background: var(--green); }
+    .tb-status .status-dot.running { background: var(--purple); }
+    .tb-status .status-dot.rerun { background: var(--orange); }
+    .tb-status .status-dot.fail { background: var(--red); }
+
+    .seg-with-run .run-merged {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .seg-with-run .run-mini {
+      display: inline-flex;
+      align-items: center;
+      padding-left: 8px;
+      border-left: 1px solid rgba(255, 252, 240, 0.36);
+      font-family: var(--font-body);
+      font-weight: 600;
+    }
+
+    /* ───────────────── (legacy) Placement comparison grid ───────────────── */
     .placement-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -801,138 +910,119 @@
     <p class="page-lede">
       量子ビット数による<strong>自動切替はしない</strong>。
       ユーザーが <strong>Local</strong> と <strong>GPU</strong> を明示的に選ぶ。
-      現在どちらにいるかは<strong>常にツールバーで見える</strong>。
+      現在どちらにいるかは<strong>常に上部ツールバーで見える</strong>。
       17量子ビット以上でも Local のままにすれば 16 ビット超は計算不能としてエラーを出し、
-      GPU を選んだときだけ外部実行に切り替わる。
+      GPU を選んだときだけ外部実行に切り替わる。配置は A 案 (上部ツールバー) に確定済みで、
+      本書では <strong>ツールバー内の組み方</strong>を 4 案で詳細化し、A-3 を採用する。
     </p>
     <p class="page-lede">
       参考: <a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a> ·
-      IBM Quantum Composer の上部ツールバー流派 (Backend selector が常に top に出ているレイアウト) を採用。
+      IBM Quantum Composer の Run / Backend 配置を流用 (右端で 1 ユニット)。
     </p>
   </header>
 
-  <!-- ───────────────── 1. Placement comparison ───────────────── -->
+  <!-- ───────────────── 1. Toolbar variants ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 01</span> Local / GPU 切替の配置検討</h2>
+    <h2><span class="num">§ 01</span> 上部ツールバー — 詳細案</h2>
     <p class="note">
-      切替コントロールをどこに置くかで「いま自分はどのモードか」「次のアクションは何か」の読み取りやすさが変わる。
-      4 案を作って比較し、<strong>A 案 (上部ツールバー)</strong> を採る。
+      ツールバーには <strong>app 名 · 量子ビット数 · Local/GPU セグメント · 実行ボタン</strong>
+      の最大 4 要素が乗る。並び・整列・余白・分離線をどう組むかで読み取りやすさが変わる。
+      4 つの異なる組み方を実寸で並べて、A-3 を採用する。
     </p>
 
-    <div class="placement-grid">
+    <!-- detailed toolbar gallery (full-width, real toolbar rows) -->
+    <div class="tb-gallery">
 
-      <!-- A: top toolbar (chosen) -->
-      <div class="placement-card chosen">
-        <div class="label">A 案 · 上部ツールバー <span class="chosen-pill">採用</span></div>
-        <div class="mini">
-          <div class="mini-shell">
-            <div class="mini-toolbar">
-              <span class="label-mini">qni-webgpu</span>
-              <span class="spacer"></span>
-              <span class="seg-mini">
-                <span class="opt">Local</span>
-                <span class="opt active gpu">GPU</span>
-              </span>
-            </div>
-            <div class="mini-palette">
-              <span class="g">H</span><span class="g">X</span><span class="g">Y</span><span class="g">Z</span>
-              <span class="g">S</span><span class="g">T</span>
-            </div>
-            <div class="mini-banner">
-              <span>28 量子ビット · ● 完了</span>
-              <span class="run">GPUで実行</span>
-            </div>
-            <div class="mini-circuit"><div class="w"></div><div class="w"></div><div class="w"></div></div>
-            <div class="mini-panel"><span>実行結果</span><span>4096</span></div>
-          </div>
+      <!-- A-1: three-zone, left-grouped meta -->
+      <div class="tb-card">
+        <div class="tb-card-head">
+          <span class="tb-label">A-1 · 左にメタ / 右にトグル + 実行</span>
+          <span class="tb-meta">採用候補</span>
         </div>
-        <p class="pros">画面の最上段に置くので、スクロールで隠れず、最初に目に入る。</p>
-        <p class="pros">IBM Quantum Composer の Backend selector と同じ位置感覚 (top toolbar)。</p>
-        <p class="cons">既存の egui-web には top toolbar が無いので、新規追加が必要。</p>
+        <div class="tb-row">
+          <span class="app-name"><b>qni-webgpu</b></span>
+          <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="spacer"></span>
+          <span class="seg">
+            <span class="opt"><span class="dot"></span>Local</span>
+            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+          </span>
+          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
+        </div>
+        <p class="pros">単純で読みやすい。左から右へ「ここは何 → 何ビット → どのモード → 実行」と動線が一直線。</p>
+        <p class="cons">app 名を出すと冗長になりがち。ブラウザのタブで分かるので「qni-webgpu」は要らないかも。</p>
       </div>
 
-      <!-- B: above circuit toolbar -->
-      <div class="placement-card">
-        <div class="label">B 案 · 回路の直上</div>
-        <div class="mini">
-          <div class="mini-shell">
-            <div class="mini-palette">
-              <span class="g">H</span><span class="g">X</span><span class="g">Y</span><span class="g">Z</span>
-              <span class="g">S</span><span class="g">T</span>
-            </div>
-            <div class="mini-toolbar" style="margin-top:6px;">
-              <span class="label-mini">28 量子ビット</span>
-              <span class="spacer"></span>
-              <span class="seg-mini">
-                <span class="opt">Local</span>
-                <span class="opt active gpu">GPU</span>
-              </span>
-            </div>
-            <div class="mini-circuit"><div class="w"></div><div class="w"></div><div class="w"></div></div>
-            <div class="mini-panel"><span>実行結果</span><span>4096</span></div>
-          </div>
+      <!-- A-2: centered mode toggle -->
+      <div class="tb-card">
+        <div class="tb-card-head">
+          <span class="tb-label">A-2 · モードを中央に寄せる</span>
         </div>
-        <p class="pros">編集している回路のすぐ脇に切替がある。</p>
-        <p class="cons">パレットと回路の間に水平バーが挟まり、構造が三層になって視覚的に重い。</p>
-        <p class="cons">回路を縦スクロールすると見えなくなる位置。</p>
+        <div class="tb-row">
+          <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="spacer"></span>
+          <span class="seg">
+            <span class="opt"><span class="dot"></span>Local</span>
+            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+          </span>
+          <span class="spacer"></span>
+          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
+        </div>
+        <p class="pros">最重要 (モード) を視覚中心に置き、左右に文脈と動作を振り分ける。シンメトリーで落ち着く。</p>
+        <p class="cons">画面幅が変わると中央位置がずれて、目が泳ぐ。狭い画面では破綻しやすい。</p>
       </div>
 
-      <!-- C: inside execution banner -->
-      <div class="placement-card">
-        <div class="label">C 案 · 実行バナー内</div>
-        <div class="mini">
-          <div class="mini-shell">
-            <div class="mini-palette">
-              <span class="g">H</span><span class="g">X</span><span class="g">Y</span><span class="g">Z</span>
-              <span class="g">S</span><span class="g">T</span>
-            </div>
-            <div class="mini-banner">
-              <span>
-                <span class="seg-mini" style="margin-right:6px;">
-                  <span class="opt">Local</span>
-                  <span class="opt active gpu">GPU</span>
-                </span>
-                28 量子ビット · ● 完了
-              </span>
-              <span class="run">GPUで実行</span>
-            </div>
-            <div class="mini-circuit"><div class="w"></div><div class="w"></div><div class="w"></div></div>
-            <div class="mini-panel"><span>実行結果</span><span>4096</span></div>
-          </div>
+      <!-- A-3: Mode + run as a paired unit, with divider (CHOSEN) -->
+      <div class="tb-card chosen">
+        <div class="tb-card-head">
+          <span class="tb-label">A-3 · モードと実行を右側で 1 ユニットに <span class="chosen-pill">採用</span></span>
         </div>
-        <p class="pros">モードと実行状態を 1 バーにまとめられる。</p>
-        <p class="cons">Local モードのときバナーが消えると、切替コントロールも消える。「いま Local」が見えなくなるので採用不可。</p>
+        <div class="tb-row">
+          <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="tb-sep"></span>
+          <span class="tb-status">
+            <span class="status-dot done"></span>
+            <span>外部 GPU · 完了 3.2 s</span>
+          </span>
+          <span class="spacer"></span>
+          <span class="seg">
+            <span class="opt"><span class="dot"></span>Local</span>
+            <span class="opt active gpu"><span class="dot"></span>GPU</span>
+          </span>
+          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
+        </div>
+        <p class="pros">「モード + 実行」がユーザーアクションの塊として右端にまとまる (IBM Composer の Run ボタン位置と同じ流派)。</p>
+        <p class="pros">直近の実行ステータス (● 完了 3.2s / ⚠失敗 など) を左寄りに出せるので、別バナーを出さずにツールバーで状況がわかる。</p>
+        <p class="cons">ステータス文字列がトグルに干渉しないよう、最大幅と省略表示を決める必要がある。</p>
       </div>
 
-      <!-- D: result panel header -->
-      <div class="placement-card">
-        <div class="label">D 案 · 結果パネル見出し</div>
-        <div class="mini">
-          <div class="mini-shell">
-            <div class="mini-palette">
-              <span class="g">H</span><span class="g">X</span><span class="g">Y</span><span class="g">Z</span>
-              <span class="g">S</span><span class="g">T</span>
-            </div>
-            <div class="mini-circuit"><div class="w"></div><div class="w"></div><div class="w"></div></div>
-            <div class="mini-panel">
-              <span>実行結果</span>
-              <span class="seg-mini" style="background:rgba(255,252,240,0.16);border-color:rgba(255,252,240,0.24);">
-                <span class="opt" style="color:rgba(255,252,240,0.66);">Local</span>
-                <span class="opt active gpu" style="background:var(--bg);color:var(--blue);font-weight:600;">GPU</span>
-              </span>
-            </div>
-          </div>
+      <!-- A-4: Run integrated into the GPU side of the segmented control -->
+      <div class="tb-card">
+        <div class="tb-card-head">
+          <span class="tb-label">A-4 · GPU 側に実行アイコンを内包</span>
         </div>
-        <p class="pros">下部パネルの「出口側」にあり、結果の出所として読みやすい。</p>
-        <p class="cons">回路エディタからは遠く、編集中に「今 Local だっけ」を確認しづらい。</p>
-        <p class="cons">下部パネルに依存するため、パネルを閉じた状態でモードが見えない。</p>
+        <div class="tb-row">
+          <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="spacer"></span>
+          <span class="seg seg-with-run">
+            <span class="opt"><span class="dot"></span>Local</span>
+            <span class="opt active gpu run-merged">
+              <span class="dot"></span>GPU
+              <span class="run-mini">▶ 実行</span>
+            </span>
+          </span>
+        </div>
+        <p class="pros">ボタン数が減って画面が静か。「GPU = 押せる」が直感的。</p>
+        <p class="cons">Local 側にだけアクションが付かないので、トグルとボタンの役割が混ざる。「アクション」と「モード」は別役なので分けたほうが安全。</p>
       </div>
 
     </div>
 
     <p class="note" style="margin-top:8px;">
-      <strong>結論:</strong> A 案を採る。理由は「常に見える」「最上段で一目で分かる」「IBM Composer 流のシンプルさ」。
-      コストは egui-web に新規 toolbar 行を 1 つ追加する分。
+      <strong>採用:</strong> A-3。理由は (1) 直近実行ステータスをツールバーに常時表示でき、編集中も
+      「いま結果は古い / 完了している / 失敗中」が分かる、(2) モードと実行ボタンが右端で 1 ユニットとして
+      凝集している、(3) IBM Quantum Composer の Run / Backend 配置と相性が良い。
+      app 名 (<code>qni-webgpu</code>) はタブタイトルで分かるのでツールバーからは省略する。
     </p>
   </section>
 
@@ -940,8 +1030,8 @@
   <section class="block">
     <h2><span class="num">§ 02</span> 主案 — 全画面モック</h2>
     <p class="note">
-      上部ツールバーに <code>qni-webgpu</code> + 量子ビット数 + <strong>Local / GPU</strong> セグメント。
-      GPU モード時は同じ行に「<strong>GPUで実行</strong>」も並ぶ。回路エリアは枠なし (現状の live app に合わせる)。
+      A-3 を全画面に適用。ツールバーは左から <strong>量子ビット数 → 直近実行ステータス → Local/GPU セグメント → GPUで実行</strong>。
+      回路エリアは枠なし (現状の live app に合わせる)。Local モードに切り替えるとステータス文言は「Local · 触ったら即時更新」になり、Run ボタンは消える。
     </p>
 
     <div class="app-frame">
@@ -951,16 +1041,20 @@
       </div>
       <div class="app-body">
 
-        <!-- Top toolbar (chosen placement) -->
+        <!-- Top toolbar (A-3 chosen) -->
         <div class="toolbar">
-          <span class="app-name"><b>qni-webgpu</b></span>
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="tb-sep"></span>
+          <span class="tb-status">
+            <span class="status-dot done"></span>
+            <span>外部 GPU · 完了 3.2 s · 4,096 試行</span>
+          </span>
           <span class="spacer"></span>
           <span class="seg" role="tablist" aria-label="実行モード">
             <span class="opt"><span class="dot"></span>Local</span>
             <span class="opt active gpu"><span class="dot"></span>GPU</span>
           </span>
-          <span class="run-btn" data-done><span class="icon">▶</span>GPUで実行</span>
+          <span class="run-btn"><span class="icon">▶</span>GPUで実行</span>
         </div>
 
         <!-- Palette -->
@@ -1138,16 +1232,19 @@
       </div>
       <div class="app-body">
 
-        <!-- Toolbar — Local active -->
+        <!-- Toolbar — Local active. Status pill shows "触ったら即時更新" instead of run state. -->
         <div class="toolbar">
-          <span class="app-name"><b>qni-webgpu</b></span>
           <span class="qubit-badge"><b>2</b> 量子ビット</span>
+          <span class="tb-sep"></span>
+          <span class="tb-status">
+            <span class="status-dot" style="background: var(--green);"></span>
+            <span>Local · 触ったら即時更新</span>
+          </span>
           <span class="spacer"></span>
           <span class="seg">
             <span class="opt active local"><span class="dot"></span>Local</span>
             <span class="opt"><span class="dot"></span>GPU</span>
           </span>
-          <span style="font-family:var(--font-mono);font-size:12px;color:var(--tx-3);letter-spacing:0.04em;">触ったら即時更新</span>
         </div>
 
         <!-- Palette -->
@@ -1235,8 +1332,12 @@
       </div>
       <div class="app-body">
         <div class="toolbar">
-          <span class="app-name"><b>qni-webgpu</b></span>
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
+          <span class="tb-sep"></span>
+          <span class="tb-status">
+            <span class="status-dot fail"></span>
+            <span>Local · 16 量子ビット超 · 計算できません</span>
+          </span>
           <span class="spacer"></span>
           <span class="seg">
             <span class="opt active local"><span class="dot"></span>Local</span>
