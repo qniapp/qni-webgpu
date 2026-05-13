@@ -254,11 +254,13 @@ fn draw_text_label(
     );
     if is_dagger_variant(kind) {
         // Dagger sits at the body's top-right so the base letter stays
-        // dead-centre. Size ≈ 0.32× body; insets ≈ 0.13× / 0.18× match
-        // the gate-label mockup's `top:3 right:4` overlay at 32 px.
+        // dead-centre. Size ≈ 0.32× body. Insets are pulled inward
+        // (0.17× / 0.22× instead of 0.13× / 0.18× from the mockup) so
+        // the 10 px-tall glyph clears the cyan body's 6 px corner
+        // radius and no longer clips the rounded top-right edge.
         let dag_font = egui::FontId::new(body_px * 0.32, crate::app::GATE_LABEL_FAMILY.clone());
-        let inset_x = body_px * 0.13;
-        let inset_y = body_px * 0.18;
+        let inset_x = body_px * 0.17;
+        let inset_y = body_px * 0.22;
         painter.text(
             egui::pos2(rect.right() - inset_x, rect.top() + inset_y),
             egui::Align2::CENTER_CENTER,
