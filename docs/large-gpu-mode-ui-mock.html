@@ -628,6 +628,117 @@
     }
     .tg-card .pros:last-child, .tg-card .cons:last-child { padding-bottom: 14px; }
 
+    /* ─── Interactive prototype frame ─── */
+    .proto-frame {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .proto-scene {
+      padding: 10px 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+      background: var(--bg);
+      border-bottom: 1px solid var(--ui-2);
+    }
+    .proto-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--bg);
+    }
+    .proto-readout {
+      padding: 10px 20px;
+      background: var(--bg-2);
+      border-top: 1px solid var(--ui-2);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--tx-2);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .proto-readout .lbl { color: var(--tx-3); }
+    .proto-readout code {
+      color: var(--tx);
+      background: var(--ui);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Live segmented control — uses <button> children, real cursor + hover + focus. */
+    .seg-live {
+      padding: 2px;
+    }
+    .seg-live .opt {
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      font-size: inherit;
+      letter-spacing: inherit;
+    }
+    .seg-live .opt:hover:not(.active) {
+      background: var(--ui);
+      color: var(--tx);
+    }
+    .seg-live .opt:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .seg-live .opt:active:not(.active) {
+      transform: translateY(1px);
+    }
+
+    /* ─── Implementation spec card ─── */
+    .impl-spec {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 20px 24px;
+    }
+    .impl-spec h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--tx);
+    }
+    .spec-dl {
+      display: grid;
+      grid-template-columns: 168px 1fr;
+      gap: 10px 20px;
+      margin: 0;
+      font-size: 13px;
+    }
+    .spec-dl dt {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+      padding-top: 2px;
+    }
+    .spec-dl dd {
+      margin: 0;
+      color: var(--tx-2);
+      line-height: 20px;
+    }
+    .spec-dl dd code {
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx);
+    }
+
     /* T-2: pill (fully rounded) */
     .seg.pill { border-radius: 999px; padding: 3px; }
     .seg.pill .opt { border-radius: 999px; padding: 6px 16px; }
@@ -1190,9 +1301,87 @@
     </p>
   </section>
 
-  <!-- ───────────────── 3. Full-frame mock — chosen layout ───────────────── -->
+  <!-- ───────────────── 3. Working prototype (T-1 interactive) ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 03</span> 主案 — 全画面モック</h2>
+    <h2><span class="num">§ 03</span> 実装プロトタイプ — 動く T-1 トップバー</h2>
+    <p class="note">
+      T-1 を実際に押して切り替えられる状態にしたもの。下のバーをクリックすると
+      Local ↔ GPU が切り替わり、配色 (Local = tx-2 / GPU = blue-600) が反映される。
+      Codex 実装の参照として使う。クリック / Enter / Space で切替、左右矢印キーで移動、
+      フォーカスリングは Flexoki の blue-600 で半透明。
+    </p>
+
+    <!-- The interactive top bar. Toggle only, nothing else. -->
+    <div class="proto-frame">
+      <div class="proto-scene">egui-web · 上部ツールバー (toggle only)</div>
+      <div class="proto-bar">
+        <span class="spacer"></span>
+        <div class="seg seg-live" role="tablist" aria-label="実行モード">
+          <button class="opt active local" data-mode="local" role="tab" aria-selected="true">Local</button>
+          <button class="opt" data-mode="gpu" role="tab" aria-selected="false">GPU</button>
+        </div>
+      </div>
+      <div class="proto-readout" id="proto-readout">
+        <span class="lbl">state.exec_mode =</span>
+        <code id="mode-out">ExecMode::Local</code>
+      </div>
+    </div>
+
+    <!-- Compact implementation spec — what Codex needs to reproduce in Rust / egui. -->
+    <div class="impl-spec">
+      <h3>実装仕様 (Codex 用リファレンス)</h3>
+      <dl class="spec-dl">
+        <dt>状態</dt>
+        <dd>
+          <code>enum ExecMode { Local, Gpu }</code>。アプリ状態 (例: <code>QniApp</code>) に
+          1 つ持つ。既定は <code>Local</code>。<strong>量子ビット数では変えない</strong>。
+        </dd>
+
+        <dt>コンテナ</dt>
+        <dd>
+          ツールバーは paper bg、高さ 32 px (toolbar) + 上下 padding 8 px。
+          このフェーズではトグルのみ。右寄せ。
+        </dd>
+
+        <dt>セグメンテッドコントロール</dt>
+        <dd>
+          外枠: paper bg / ui-2 1 px border / radius 8 px / 内側 padding 2 px。<br/>
+          セグメント: padding 6 / 14 px、radius 6 px、font monospace 13 px、letter-spacing 0.04em。
+        </dd>
+
+        <dt>アクティブ</dt>
+        <dd>
+          Local 側: bg = <code>tx-2 #6F6E69</code> (off)、文字 = paper、weight 600。<br/>
+          GPU 側:   bg = <code>blue-600 #205EA6</code> (on)、文字 = paper、weight 600。
+        </dd>
+
+        <dt>非アクティブ</dt>
+        <dd>透明 bg、文字 = tx-2、weight 400。</dd>
+
+        <dt>ホバー (非アクティブ)</dt>
+        <dd>bg = ui / 文字 = tx。アクティブ側はホバー反応なし。</dd>
+
+        <dt>フォーカス</dt>
+        <dd>focus ring = blue-600 半透明 2 px outline。Tab で外枠に入り、左右矢印で移動。</dd>
+
+        <dt>キーバインド</dt>
+        <dd>Click / Enter / Space で当該モード選択。← → で兄弟セグメントへ移動 (selection も移動)。</dd>
+
+        <dt>影響範囲</dt>
+        <dd>
+          Local → GPU で:<br/>
+          (1) 状態ベクトルパネル領域を「結果パネル」に差し替える<br/>
+          (2) GPU バナーを表示する<br/>
+          (3) 自動再計算を停止する<br/>
+          GPU → Local で全部逆。<strong>遷移はすべてユーザー操作のみ</strong>。
+        </dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ───────────────── 4. Full-frame mock — chosen layout ───────────────── -->
+  <section class="block">
+    <h2><span class="num">§ 04</span> 主案 — 全画面モック</h2>
     <p class="note">
       A-3 を全画面に適用。ツールバーは左から <strong>量子ビット数 → 直近実行ステータス → Local/GPU セグメント</strong>。
       <strong>実行ボタンは GPU バナー側</strong> (ツールバーには入れない)。回路エリアは枠なし (現状の live app に合わせる)。
@@ -1384,7 +1573,7 @@
 
   <!-- ───────────────── 3. Same screen, but in Local mode ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 04</span> 比較 — Local モードの場合</h2>
+    <h2><span class="num">§ 05</span> 比較 — Local モードの場合</h2>
     <p class="note">
       同じ画面で <strong>Local</strong> セグメントを選んだ状態。実行バナーは消え、下部は<strong>状態ベクトル円グリッド</strong>に戻る。
       Run ボタンも消える (Local は触ったら即時更新なので実行ボタンが要らない)。
@@ -1484,7 +1673,7 @@
 
   <!-- ───────────────── 4. 17+ qubit in Local mode: error ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 05</span> 17量子ビット以上で Local を選んだとき</h2>
+    <h2><span class="num">§ 06</span> 17量子ビット以上で Local を選んだとき</h2>
     <p class="note">
       自動切替はしない。代わりに、Local では計算できないことを明示し、GPU への切替を促す。
       <strong>勝手にモードを変更しない</strong> — 操作はあくまでユーザーに残す。
@@ -1560,7 +1749,7 @@
 
   <!-- ───────────────── 5. Banner state gallery (no 見積もり) ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 06</span> GPU モード 実行バナー — 6 状態</h2>
+    <h2><span class="num">§ 07</span> GPU モード 実行バナー — 6 状態</h2>
     <p class="note">
       GPU モードで現れるバナー。<strong>「見積もり」ボタンは廃止</strong> (実行前に正確に見積もる手段が薄く、UI を冗長にするだけ)。
       ボタンは「GPUで実行」「中止」「再実行」など最小限に絞る。
@@ -1669,7 +1858,7 @@
 
   <!-- ───────────────── 6. Non-goals strip ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 07</span> 明確な非目標</h2>
+    <h2><span class="num">§ 08</span> 明確な非目標</h2>
     <div class="non-goals">
       <div class="card">
         <div class="icon">— 非目標 1</div>
@@ -1697,6 +1886,48 @@
     <a href="refactor-candidates.html">refactor-candidates.html</a>
     · UI モック · 設計レビュー用 · 2026-05
   </div>
+
+  <script>
+    // T-1 toggle prototype. Click / Enter / Space / Arrow keys.
+    (function () {
+      const seg = document.querySelector('.seg-live');
+      if (!seg) return;
+      const opts = Array.from(seg.querySelectorAll('.opt'));
+      const out = document.getElementById('mode-out');
+
+      function select(mode) {
+        opts.forEach((o) => {
+          const active = o.dataset.mode === mode;
+          o.classList.toggle('active', active);
+          o.classList.toggle('local', active && mode === 'local');
+          o.classList.toggle('gpu', active && mode === 'gpu');
+          o.setAttribute('aria-selected', active ? 'true' : 'false');
+          o.tabIndex = active ? 0 : -1;
+        });
+        if (out) {
+          out.textContent = mode === 'gpu' ? 'ExecMode::Gpu' : 'ExecMode::Local';
+        }
+      }
+
+      opts.forEach((o) => {
+        o.addEventListener('click', () => {
+          select(o.dataset.mode);
+          o.focus();
+        });
+        o.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const idx = opts.indexOf(o);
+            const next = e.key === 'ArrowLeft'
+              ? opts[(idx - 1 + opts.length) % opts.length]
+              : opts[(idx + 1) % opts.length];
+            select(next.dataset.mode);
+            next.focus();
+          }
+        });
+      });
+    })();
+  </script>
 
 </body>
 </html>
