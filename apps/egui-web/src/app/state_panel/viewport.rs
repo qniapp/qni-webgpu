@@ -50,7 +50,13 @@ impl QniApp {
         // over? Maps the cursor's panel-local position to a display
         // index via the grid origin + cell pitch. Drives the GPU
         // shader's brightness-darken on fill / needle / outline.
-        let new_hovered_cell = if viewport_response.hovered() {
+        // While any drag is in progress, hide the popup/highlight so the
+        // floating card doesn't chase the pointer or obscure the drag target.
+        let suppress_hover = self.dragging.is_some()
+            || self.state_panel.drag.is_some()
+            || self.state_panel.resize_drag.is_some()
+            || ctx.input(|i| i.pointer.primary_down());
+        let new_hovered_cell = if !suppress_hover && viewport_response.hovered() {
             ctx.input(|i| i.pointer.hover_pos()).and_then(|pos| {
                 let grid_origin = QniApp::grid_origin(
                     state_layout,

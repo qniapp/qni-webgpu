@@ -83,6 +83,54 @@ test('state panel hover does not drive circuit step preview', async ({ page }) =
   await expect.poll(stepLineContrast).toBeLessThan(25)
 })
 
+test('state cell popup hides while dragging over the state panel', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const cssHeight = box?.height ?? 800
+
+  const EGUI_PANEL_MARGIN = 8
+  const STATE_PANEL_WIDTH = 560
+  const STATE_VIEWPORT_HEIGHT = 160
+  const STATE_HANDLE_HEIGHT = 32
+  const STATE_BOTTOM_MARGIN = 64
+  const STATE_CELL_SIZE = 64
+  const STATE_CELL_GAP = 3
+  const innerWidth = cssWidth - EGUI_PANEL_MARGIN * 2
+  const innerHeight = cssHeight - EGUI_PANEL_MARGIN * 2
+  const stateRectMinX = EGUI_PANEL_MARGIN + innerWidth / 2 - STATE_PANEL_WIDTH / 2
+  const stateRectMinY =
+    EGUI_PANEL_MARGIN + innerHeight - STATE_BOTTOM_MARGIN - STATE_VIEWPORT_HEIGHT - STATE_HANDLE_HEIGHT
+  const viewportMinY = stateRectMinY + STATE_HANDLE_HEIGHT
+  const gridWidth = STATE_CELL_SIZE * 2 + STATE_CELL_GAP
+  const cellCenter = {
+    x: stateRectMinX + (STATE_PANEL_WIDTH - gridWidth) / 2 + STATE_CELL_SIZE / 2,
+    y: viewportMinY + (STATE_VIEWPORT_HEIGHT - STATE_CELL_SIZE) / 2 + STATE_CELL_SIZE / 2,
+  }
+  const popupHeight = 108
+  const popupTop = cellCenter.y - STATE_CELL_SIZE / 2 - 4 - 8 - popupHeight
+  const popupFill = { name: 'popupFill', x: cellCenter.x, y: popupTop + 16 }
+  const nearbyBackground = { name: 'nearbyBackground', x: cellCenter.x, y: popupTop - 12 }
+  const popupContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [popupFill, nearbyBackground])
+    return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
+  }
+
+  await page.mouse.move((box?.x ?? 0) + cellCenter.x, (box?.y ?? 0) + cellCenter.y)
+  await expect.poll(popupContrast).toBeGreaterThan(20)
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  await dragPointer(page, hSource, cellCenter, 8, false)
+  await expect.poll(popupContrast).toBeLessThan(15)
+  await page.mouse.up()
+})
+
 test('dragging does not grow state vector until drop', async ({ page }) => {
   await page.goto('/')
 
