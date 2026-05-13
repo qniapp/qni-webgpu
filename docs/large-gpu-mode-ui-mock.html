@@ -221,8 +221,11 @@
       background: var(--tx);
       font-weight: 600;
     }
-    .seg .opt.active.local { background: var(--green); }
-    .seg .opt.active.gpu { background: var(--blue); }
+    /* Local = OFF (GPU を使わない) → 無彩色 tx-2 塗り。
+       GPU   = ON (外部 GPU を有効化) → アクセント blue-600 塗り。
+       iOS / macOS の toggle switch と同じ意味づけ。 */
+    .seg .opt.active.local { background: var(--tx-2); }
+    .seg .opt.active.gpu   { background: var(--blue); }
     .seg .opt.disabled { color: var(--tx-3); cursor: not-allowed; }
 
     /* Run button (toolbar variant — primary in GPU mode) */
@@ -647,7 +650,7 @@
       color: var(--tx);
       font-weight: 600;
     }
-    .seg.ghost .opt.active.local { background: transparent; border-bottom-color: var(--green); }
+    .seg.ghost .opt.active.local { background: transparent; border-bottom-color: var(--tx-2); }
     .seg.ghost .opt.active.gpu { background: transparent; border-bottom-color: var(--blue); }
 
     /* ───────────────── Toolbar variant gallery ───────────────── */
@@ -1178,10 +1181,12 @@
     </div>
 
     <p class="note" style="margin-top:8px;">
-      <strong>採用:</strong> T-1。アクティブセグメントの<strong>色面</strong>で
-      「いま Local / いま GPU」がひと目で分かる。Flexoki の角丸スケール (6–14 px) と整合し、
-      Local 選択時は green-600 塗り、GPU 選択時は blue-600 塗りに切り替わるので、
-      <strong>背景色そのものが現状モードのアイデンティティ</strong>になる。
+      <strong>採用:</strong> T-1。Flexoki の角丸スケール (6–14 px) と整合する。
+      アクティブの色は <strong>「GPU の ON / OFF」</strong> 比喩を採る:
+      Local = OFF (GPU を使わない) → <strong>無彩色 tx-2</strong>、
+      GPU = ON (外部 GPU を有効化) → <strong>アクセント blue-600</strong>。
+      iOS / macOS の toggle switch と同じ意味づけで、色そのものが
+      「いま外部 GPU が起動しているか」を伝える。
     </p>
   </section>
 
@@ -1397,7 +1402,7 @@
           <span class="qubit-badge"><b>2</b> 量子ビット</span>
           <span class="tb-sep"></span>
           <span class="tb-status">
-            <span class="status-dot" style="background: var(--green);"></span>
+            <span class="status-dot" style="background: var(--tx-2);"></span>
             <span>Local · 触ったら即時更新</span>
           </span>
           <span class="spacer"></span>
