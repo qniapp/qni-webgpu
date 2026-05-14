@@ -287,6 +287,7 @@ pub(crate) enum PickerState {
     Closed,
     Open {
         focused_index: usize,
+        focus_visible: bool,
         submenu: Option<PickerSubmenuState>,
         renaming: Option<RenameState>,
     },
@@ -296,6 +297,16 @@ impl PickerState {
     pub(crate) fn open(focused_index: usize) -> Self {
         Self::Open {
             focused_index,
+            focus_visible: false,
+            submenu: None,
+            renaming: None,
+        }
+    }
+
+    pub(crate) fn open_with_focus(focused_index: usize) -> Self {
+        Self::Open {
+            focused_index,
+            focus_visible: true,
             submenu: None,
             renaming: None,
         }
@@ -366,6 +377,13 @@ impl PickerState {
                 ..
             } => Some(&rename.entry_id),
             _ => None,
+        }
+    }
+
+    pub(crate) fn focus_visible(&self) -> bool {
+        match self {
+            Self::Open { focus_visible, .. } => *focus_visible,
+            Self::Closed => false,
         }
     }
 
@@ -449,23 +467,26 @@ impl QniApp {
             let circuit_json = entry.circuit_json.clone();
             let focused_index = self.library.active_index();
             self.picker.set_focused_index(focused_index);
+            self.suppress_picker_hover_until_pointer_moves(ctx);
             self.replace_editor_circuit(circuit_json, ctx);
         }
         self.picker.close_submenu();
     }
 
-    pub(crate) fn move_circuit_entry_up(&mut self, index: usize) {
+    pub(crate) fn move_circuit_entry_up(&mut self, index: usize, ctx: &egui::Context) {
         let focused_index = index.saturating_sub(1);
         self.library.move_up(index);
         self.picker.set_focused_index(focused_index);
+        self.suppress_picker_hover_until_pointer_moves(ctx);
         persist_library(&self.library);
         self.picker.close_submenu();
     }
 
-    pub(crate) fn move_circuit_entry_down(&mut self, index: usize) {
+    pub(crate) fn move_circuit_entry_down(&mut self, index: usize, ctx: &egui::Context) {
         let focused_index = (index + 1).min(self.library.entries.len().saturating_sub(1));
         self.library.move_down(index);
         self.picker.set_focused_index(focused_index);
+        self.suppress_picker_hover_until_pointer_moves(ctx);
         persist_library(&self.library);
         self.picker.close_submenu();
     }
@@ -475,6 +496,7 @@ impl QniApp {
         if self.library.delete(index).is_some() {
             let focused_index = index.min(self.library.entries.len().saturating_sub(1));
             self.picker.set_focused_index(focused_index);
+            self.suppress_picker_hover_until_pointer_moves(ctx);
             if was_active {
                 let circuit_json = self.library.active().circuit_json.clone();
                 self.replace_editor_circuit(circuit_json, ctx);
@@ -483,6 +505,31 @@ impl QniApp {
             }
         }
         self.picker.close_submenu();
+    }
+
+    pub(crate) fn suppress_picker_hover_until_pointer_moves(&mut self, ctx: &egui::Context) {
+        self.picker_hover_suppressed_at = ctx.input(|input| {
+            input
+                .pointer
+                .hover_pos()
+                .or_else(|| input.pointer.interact_pos())
+        });
+    }
+
+    pub(crate) fn picker_pointer_hover_suppressed(&mut self, ctx: &egui::Context) -> bool {
+        let Some(suppressed_at) = self.picker_hover_suppressed_at else {
+            return false;
+        };
+        let Some(current_pos) = ctx.input(|input| input.pointer.hover_pos()) else {
+            self.picker_hover_suppressed_at = None;
+            return false;
+        };
+        if current_pos.distance_sq(suppressed_at) > 1.0 {
+            self.picker_hover_suppressed_at = None;
+            false
+        } else {
+            true
+        }
     }
 
     pub(crate) fn start_circuit_rename(&mut self, index: usize) {

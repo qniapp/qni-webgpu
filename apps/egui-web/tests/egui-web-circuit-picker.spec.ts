@@ -23,6 +23,7 @@ const ROW_1: Point = { x: 80, y: 74 }
 const ROW_2: Point = { x: 80, y: 110 }
 const FOOTER: Point = { x: 90, y: 195 }
 const ROW_3: Point = { x: 80, y: 146 }
+const ROW_4: Point = { x: 80, y: 182 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
 const MOVE_UP_SUBMENU_Y = 232
@@ -204,24 +205,39 @@ test('Rename action turns the item into an inline editor and commits on Enter', 
 })
 
 test('Move up keeps the displaced bottom item visually idle', async ({ page }) => {
-  await seedLibrary(page, 'qft')
+  const library = {
+    entries: [
+      { id: 'current', name: 'Untitled', circuit_json: '{"cols":[]}', updated_at: 0 },
+      { id: 'bell', name: 'Bell state', circuit_json: BELL_JSON, updated_at: 1 },
+      { id: 'ghz', name: 'GHZ state', circuit_json: GHZ_JSON, updated_at: 2 },
+      { id: 'qft', name: 'QFT 4-qubit', circuit_json: QFT_JSON, updated_at: 3 },
+    ],
+    active_id: 'qft',
+  }
+  await page.evaluate((payload) => {
+    const seed = (window as any).__seedCircuits
+    if (typeof seed !== 'function') throw new Error('__seedCircuits hook missing')
+    seed(JSON.stringify(payload))
+  }, library)
+  await expect.poll(async () => (await snapshot(page)).active_id).toBe('qft')
 
   await clickCanvas(page, TRIGGER)
   await page.waitForTimeout(300)
-  await clickCanvas(page, { x: KEBAB_X, y: ROW_3.y })
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_4.y })
   await page.waitForTimeout(300)
-  await clickCanvas(page, { x: SUBMENU_X, y: MOVE_UP_SUBMENU_Y })
+  await clickCanvas(page, { x: SUBMENU_X, y: MOVE_UP_SUBMENU_Y + 36 })
   await page.waitForTimeout(300)
 
   await expect.poll(async () => (await snapshot(page)).entries.map((entry) => entry.id)).toEqual([
+    'current',
     'bell',
     'qft',
     'ghz',
   ])
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'bottomRowBg', x: 180, y: ROW_3.y },
+    { name: 'bottomRowBg', x: 180, y: ROW_4.y },
   ])
-  expect(pixelRgbDistance(pixels.bottomRowBg, FLEXOKI_BG)).toBeLessThan(25)
+  expect(pixelRgbDistance(pixels.bottomRowBg, FLEXOKI_BG)).toBeLessThan(10)
 })
 
 test('Delete active circuit falls back to the first remaining entry', async ({ page }) => {

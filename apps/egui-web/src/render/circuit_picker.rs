@@ -57,7 +57,7 @@ impl QniApp {
                 input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space)
             })
         {
-            self.picker = PickerState::open(self.library.active_index());
+            self.picker = PickerState::open_with_focus(self.library.active_index());
             ctx.request_repaint();
         }
         if let Some(dropdown_rect) = self.show_picker_dropdown(ctx, colors, trigger.rect) {
@@ -133,7 +133,11 @@ impl QniApp {
         let pos = trigger_rect.left_bottom() + egui::vec2(0.0, POPOVER_GAP);
         let entries = self.library.entries.clone();
         let active_id = self.library.active_id.clone();
-        let focused_index = self.picker.focused_index();
+        let focused_index = if self.picker.focus_visible() {
+            self.picker.focused_index()
+        } else {
+            None
+        };
         let submenu_index = self.picker.submenu_index();
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
         let mut submenu_anchor = None;
@@ -217,7 +221,9 @@ impl QniApp {
             return kebab_rect;
         }
         let kebab = ui.interact(kebab_rect, response.id.with("kebab"), egui::Sense::click());
-        let hovered = response.hovered() || kebab.hovered() || focused || submenu_open;
+        let pointer_hovered = (response.hovered() || kebab.hovered())
+            && !self.picker_pointer_hover_suppressed(ui.ctx());
+        let hovered = pointer_hovered || focused || submenu_open;
         if active {
             ui.painter().rect_filled(
                 rect,
@@ -416,6 +422,7 @@ impl QniApp {
     fn handle_picker_keyboard(&mut self, ctx: &egui::Context) {
         let PickerState::Open {
             focused_index,
+            focus_visible,
             submenu,
             renaming,
         } = &mut self.picker
@@ -450,10 +457,12 @@ impl QniApp {
                 ctx.request_repaint();
             }
             Some(egui::Key::ArrowDown) => {
+                *focus_visible = true;
                 *focused_index = (*focused_index + 1) % len;
                 ctx.request_repaint();
             }
             Some(egui::Key::ArrowUp) => {
+                *focus_visible = true;
                 *focused_index = (*focused_index + len - 1) % len;
                 ctx.request_repaint();
             }
@@ -526,8 +535,8 @@ impl QniApp {
             }
             PickerAction::CancelRename => self.picker.cancel_rename(),
             PickerAction::Duplicate(index) => self.duplicate_circuit_entry(index, ctx),
-            PickerAction::MoveUp(index) => self.move_circuit_entry_up(index),
-            PickerAction::MoveDown(index) => self.move_circuit_entry_down(index),
+            PickerAction::MoveUp(index) => self.move_circuit_entry_up(index, ctx),
+            PickerAction::MoveDown(index) => self.move_circuit_entry_down(index, ctx),
             PickerAction::Delete(index) => self.delete_circuit_entry(index, ctx),
         }
         ctx.request_repaint();

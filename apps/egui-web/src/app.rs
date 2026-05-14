@@ -57,6 +57,7 @@ pub(crate) struct QniApp {
     circuit_revision: CircuitRevision,
     pub(crate) library: CircuitLibrary,
     pub(crate) picker: PickerState,
+    picker_hover_suppressed_at: Option<egui::Pos2>,
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
@@ -228,6 +229,7 @@ impl QniApp {
             circuit_revision: CircuitRevision::starting_at(initial_json),
             library,
             picker: PickerState::default(),
+            picker_hover_suppressed_at: None,
             next_gate_id,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
