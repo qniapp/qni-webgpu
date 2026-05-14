@@ -1554,6 +1554,7 @@ dependencies = [
  "epaint_default_fonts",
  "futures-channel",
  "js-sys",
+ "serde",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",

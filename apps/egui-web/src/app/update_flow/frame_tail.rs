@@ -20,6 +20,7 @@ impl QniApp {
         }
 
         self.process_fps_hud(ctx, frame_secs);
+        self.publish_circuit_library_snapshot();
     }
 
     fn process_fps_hud(&mut self, ctx: &egui::Context, frame_secs: f64) {

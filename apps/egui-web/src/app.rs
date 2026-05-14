@@ -2,6 +2,7 @@
 //! Per-frame update order lives in `update_flow`.
 
 mod circuit_history;
+pub(crate) mod circuit_library;
 mod circuit_model;
 mod drag_controller;
 mod exec_mode;
@@ -21,6 +22,7 @@ use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
+use circuit_library::{CircuitLibrary, PickerState};
 
 /// Named font family rendering the heavyweight gate labels — i.e. the
 /// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
@@ -53,6 +55,8 @@ pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 pub(crate) struct QniApp {
     theme: ThemeKind,
     circuit_revision: CircuitRevision,
+    pub(crate) library: CircuitLibrary,
+    pub(crate) picker: PickerState,
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
@@ -198,9 +202,11 @@ impl QniApp {
         let initial_qubit_count =
             initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
         let initial_json = crate::url_circuit::circuit_to_json(&initial_gates, initial_qubit_count);
-        Self {
+        let mut app = Self {
             theme: theme.kind,
-            circuit_revision: CircuitRevision::starting_at(initial_json),
+            circuit_revision: CircuitRevision::starting_at(initial_json.clone()),
+            library: CircuitLibrary::seed(),
+            picker: PickerState::default(),
             next_gate_id,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
@@ -230,7 +236,9 @@ impl QniApp {
             fps_hud_history: VecDeque::with_capacity(120),
             fps_hud_cpu_history: VecDeque::with_capacity(120),
             fps_hud_svp_history: VecDeque::with_capacity(120),
-        }
+        };
+        app.initialize_circuit_library_from_current_url(initial_json);
+        app
     }
 
     pub(crate) fn colors(&self) -> Colors {

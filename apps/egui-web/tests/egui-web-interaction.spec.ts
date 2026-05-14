@@ -44,7 +44,8 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
   { name: 'gpu', x: cssWidth - 30, y: 23 },
 ]
 
-const RUN_GPU_BUTTON_POINT: Point = { x: 156, y: 22 }
+const CIRCUIT_PICKER_TOOLBAR_SHIFT = 228
+const RUN_GPU_BUTTON_POINT: Point = { x: 156 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 const TEST_REM = 32
 const TEST_GATE_SIZE = TEST_REM
 const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
@@ -230,31 +231,31 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
-  await clickToolbar(26)
+  await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
-  await clickToolbar(26)
+  await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
-  await clickToolbar(62)
+  await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
-  await clickToolbar(62)
+  await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
-  await clickToolbar(98)
+  await clickToolbar(98 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
-  await clickToolbar(26)
+  await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
-  await clickToolbar(62)
+  await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })

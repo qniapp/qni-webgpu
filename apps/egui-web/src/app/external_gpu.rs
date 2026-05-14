@@ -202,6 +202,7 @@ impl QniApp {
 
     pub(crate) fn wire_test_hooks(ctx: &egui::Context) {
         wire_external_gpu_test_hooks(ctx);
+        super::circuit_library::wire_test_hooks(ctx);
     }
 }
 

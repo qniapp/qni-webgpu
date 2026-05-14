@@ -30,6 +30,7 @@ impl QniApp {
                     ui.set_min_height(32.0); // h-8 = 32px content row.
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0); // gap-2 = 8px.
+                        self.show_circuit_picker(ui, colors, ctx);
                         self.show_edit_utilities(ui, colors, ctx);
                         if self.exec_mode == ExecMode::Gpu {
                             paint_toolbar_divider(ui, colors);

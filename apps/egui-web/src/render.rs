@@ -11,6 +11,7 @@ mod circuit;
 mod circuit_connectors;
 mod circuit_gates;
 mod circuit_palette;
+mod circuit_picker;
 mod gpu_status_pill;
 mod state_panel_chrome;
 mod state_panel_draw;

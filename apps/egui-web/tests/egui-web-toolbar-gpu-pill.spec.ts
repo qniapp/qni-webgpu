@@ -16,10 +16,11 @@ const FLEXOKI_RED_600: CanvasPixel = [175, 48, 41, 255] // Flexoki red-600 #AF30
 const FLEXOKI_GREEN_600: CanvasPixel = [102, 128, 11, 255] // Flexoki green-600 #66800B
 const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
 
+const CIRCUIT_PICKER_TOOLBAR_SHIFT = 228
 const TOOLBAR_PROBES: PixelSamplePoint[] = [
-  { name: 'undoIcon', x: 24, y: 16 },
-  { name: 'runIcon', x: 156, y: 22 },
-  { name: 'statusDot', x: 195, y: 21 },
+  { name: 'undoIcon', x: 24 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 16 },
+  { name: 'runIcon', x: 156 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 },
+  { name: 'statusDot', x: 195 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 21 },
 ]
 
 const execModeFocusRingProbePoints = (cssWidth: number): PixelSamplePoint[] => [
