@@ -1,6 +1,7 @@
 //! App root — `QniApp` state, initialization, and small accessors.
 //! Per-frame update order lives in `update_flow`.
 
+mod circuit_history;
 mod circuit_model;
 mod drag_controller;
 mod exec_mode;
@@ -19,6 +20,7 @@ use std::sync::LazyLock;
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
+use circuit_history::CircuitRevision;
 
 /// Named font family rendering the heavyweight gate labels — i.e. the
 /// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
@@ -50,6 +52,7 @@ pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
     theme: ThemeKind,
+    circuit_revision: CircuitRevision,
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
@@ -188,8 +191,10 @@ impl QniApp {
         };
         let initial_qubit_count =
             initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
+        let initial_json = crate::url_circuit::circuit_to_json(&initial_gates, initial_qubit_count);
         Self {
             theme: theme.kind,
+            circuit_revision: CircuitRevision::starting_at(initial_json),
             next_gate_id,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,

@@ -44,19 +44,34 @@ impl QniApp {
     }
 
     fn show_edit_utilities(&mut self, ui: &mut egui::Ui, colors: &Colors, ctx: &egui::Context) {
-        if icon_button(ui, colors, ToolbarIcon::Undo, true, "Undo").clicked() {
-            tracing::info!(target: "qni_egui_web::toolbar", "undo requested");
+        if icon_button(
+            ui,
+            colors,
+            ToolbarIcon::Undo,
+            self.can_undo_circuit(),
+            "Undo",
+        )
+        .clicked()
+        {
+            self.undo_circuit(ctx);
         }
-        if icon_button(ui, colors, ToolbarIcon::Redo, false, "Redo").clicked() {
-            tracing::info!(target: "qni_egui_web::toolbar", "redo requested");
+        if icon_button(
+            ui,
+            colors,
+            ToolbarIcon::Redo,
+            self.can_redo_circuit(),
+            "Redo",
+        )
+        .clicked()
+        {
+            self.redo_circuit(ctx);
         }
         if icon_button(ui, colors, ToolbarIcon::Trash, true, "Clear circuit").clicked() {
             self.placed_gates.clear();
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
             self.external_gpu_status = ExternalGpuStatus::Idle;
-            crate::url_circuit::write_circuit_to_url(crate::url_circuit::EMPTY_CIRCUIT_JSON);
-            ctx.request_repaint();
+            self.commit_current_circuit(ctx);
         }
     }
 

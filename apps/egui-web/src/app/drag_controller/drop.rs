@@ -61,14 +61,11 @@ impl DragController {
                 // columns and shift trailing gates left for both branches.
                 app.compact_empty_steps();
                 app.update_qubit_count();
-                // Mirror qni / Quirk: every committed circuit change
-                // syncs to the URL hash. We use Quirk's readable-JSON
-                // format (`#circuit={"cols":[...]}`) instead of qni's
-                // percent-encoded path.
-                let json = crate::url_circuit::circuit_to_json(&app.placed_gates, app.qubit_count);
-                crate::url_circuit::write_circuit_to_url(&json);
+                // Mirror qni / Quirk: live drag state is transient;
+                // drop creates one undoable JSON checkpoint and syncs it
+                // to the URL hash.
                 app.gpu_plan.mark_dirty();
-                ctx.request_repaint();
+                app.commit_current_circuit(ctx);
             }
         }
         app.drag_state_count = None;

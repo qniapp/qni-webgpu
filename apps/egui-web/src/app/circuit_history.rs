@@ -1,0 +1,197 @@
+//! Quirk-style linear circuit revision history.
+//!
+//! Quirk keeps the mutable drag/display state out of the undo stack: drag start
+//! calls `startedWorkingOnCommit`, live drag mutates the displayed circuit, and
+//! drop commits exactly one serialised circuit checkpoint. Pressing undo while a
+//! commit is in progress cancels back to the active checkpoint instead of
+//! skipping over it. This module mirrors that model with qni-compatible circuit
+//! JSON snapshots (`{"cols":[...]}`), so the URL and undo stack share one
+//! canonical representation.
+
+use eframe::egui;
+
+use super::{ExecMode, ExternalGpuStatus, QniApp};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CircuitRevision {
+    history: Vec<String>,
+    index: usize,
+    is_working_on_commit: bool,
+}
+
+impl CircuitRevision {
+    pub(crate) fn starting_at(state: String) -> Self {
+        Self {
+            history: vec![state],
+            index: 0,
+            is_working_on_commit: false,
+        }
+    }
+
+    pub(crate) fn is_at_beginning_of_history(&self) -> bool {
+        self.index == 0 && !self.is_working_on_commit
+    }
+
+    pub(crate) fn is_at_end_of_history(&self) -> bool {
+        self.index + 1 == self.history.len()
+    }
+
+    pub(crate) fn started_working_on_commit(&mut self) {
+        self.is_working_on_commit = true;
+    }
+
+    pub(crate) fn commit(&mut self, new_checkpoint: String) {
+        if new_checkpoint == self.history[self.index] {
+            self.is_working_on_commit = false;
+            return;
+        }
+        self.is_working_on_commit = false;
+        self.index += 1;
+        self.history.truncate(self.index);
+        self.history.push(new_checkpoint);
+    }
+
+    pub(crate) fn undo(&mut self) -> Option<String> {
+        if !self.is_working_on_commit {
+            if self.index == 0 {
+                return None;
+            }
+            self.index -= 1;
+        }
+        self.is_working_on_commit = false;
+        Some(self.history[self.index].clone())
+    }
+
+    pub(crate) fn redo(&mut self) -> Option<String> {
+        if self.index + 1 == self.history.len() {
+            return None;
+        }
+        self.index += 1;
+        self.is_working_on_commit = false;
+        Some(self.history[self.index].clone())
+    }
+}
+
+impl QniApp {
+    pub(crate) fn begin_circuit_commit(&mut self) {
+        self.circuit_revision.started_working_on_commit();
+    }
+
+    pub(crate) fn commit_current_circuit(&mut self, ctx: &egui::Context) {
+        let json = self.current_circuit_json();
+        self.circuit_revision.commit(json.clone());
+        crate::url_circuit::write_circuit_to_url(&json);
+        ctx.request_repaint();
+    }
+
+    pub(crate) fn can_undo_circuit(&self) -> bool {
+        !self.circuit_revision.is_at_beginning_of_history()
+    }
+
+    pub(crate) fn can_redo_circuit(&self) -> bool {
+        !self.circuit_revision.is_at_end_of_history()
+    }
+
+    pub(crate) fn undo_circuit(&mut self, ctx: &egui::Context) {
+        if let Some(json) = self.circuit_revision.undo() {
+            self.apply_circuit_json(&json, ctx);
+        }
+    }
+
+    pub(crate) fn redo_circuit(&mut self, ctx: &egui::Context) {
+        if let Some(json) = self.circuit_revision.redo() {
+            self.apply_circuit_json(&json, ctx);
+        }
+    }
+
+    fn current_circuit_json(&self) -> String {
+        crate::url_circuit::circuit_to_json(&self.placed_gates, self.qubit_count)
+    }
+
+    fn apply_circuit_json(&mut self, json: &str, ctx: &egui::Context) {
+        let (gates, next_gate_id) = crate::url_circuit::parse_circuit_json(json);
+        self.placed_gates = gates;
+        self.next_gate_id = next_gate_id;
+        if self.required_qubit_count() > self.exec_mode.qubit_capacity() {
+            self.exec_mode = ExecMode::Gpu;
+        }
+        self.update_qubit_count();
+        self.dragging = None;
+        self.drag_state_count = None;
+        self.qft_resize_drag = None;
+        self.hovered_gate_id = None;
+        self.hovered_palette_index = None;
+        self.hovered_qft_resize_handle = None;
+        self.hovered_step = None;
+        self.breakpoint_step = None;
+        self.drag_cursor_pos = None;
+        self.drag_repaint_deadline = None;
+        self.drag_repaint_pending = false;
+        self.external_gpu_status = ExternalGpuStatus::Idle;
+        self.external_gpu_started_at = None;
+        self.external_gpu_state_refresh_pending = false;
+        self.gpu_plan.mark_dirty();
+        crate::url_circuit::write_circuit_to_url(json);
+        ctx.request_repaint();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CircuitRevision;
+
+    #[test]
+    fn undo_while_working_cancels_in_progress_commit() {
+        let mut revision = CircuitRevision::starting_at("a".to_owned());
+        revision.commit("b".to_owned());
+        revision.started_working_on_commit();
+
+        assert_eq!(revision.undo(), Some("b".to_owned()));
+        assert_eq!(
+            revision,
+            CircuitRevision {
+                history: vec!["a".to_owned(), "b".to_owned()],
+                index: 1,
+                is_working_on_commit: false,
+            }
+        );
+    }
+
+    #[test]
+    fn committing_after_undo_discards_redo_tail() {
+        let mut revision = CircuitRevision::starting_at("a".to_owned());
+        revision.commit("b".to_owned());
+        revision.commit("c".to_owned());
+        assert_eq!(revision.undo(), Some("b".to_owned()));
+
+        revision.commit("d".to_owned());
+
+        assert!(revision.is_at_end_of_history());
+        assert_eq!(revision.redo(), None);
+        assert_eq!(
+            revision,
+            CircuitRevision {
+                history: vec!["a".to_owned(), "b".to_owned(), "d".to_owned()],
+                index: 2,
+                is_working_on_commit: false,
+            }
+        );
+    }
+
+    #[test]
+    fn redo_at_end_preserves_work_in_progress() {
+        let mut revision = CircuitRevision::starting_at("a".to_owned());
+        revision.commit("b".to_owned());
+        revision.started_working_on_commit();
+
+        assert_eq!(revision.redo(), None);
+        assert_eq!(
+            revision,
+            CircuitRevision {
+                history: vec!["a".to_owned(), "b".to_owned()],
+                index: 1,
+                is_working_on_commit: true,
+            }
+        );
+    }
+}

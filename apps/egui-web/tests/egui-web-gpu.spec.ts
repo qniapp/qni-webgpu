@@ -51,9 +51,9 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
   const SLOT_SPACING = 1.5 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y = 7.375 * REM
   const LINE_GAP = 1.5 * REM
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -100,9 +100,9 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
   const SLOT_SPACING = 1.5 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y = 7.375 * REM
   const LINE_GAP = 1.5 * REM
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -140,7 +140,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y = 7.375 * REM
   // Egui keeps an 8px panel margin inside the canvas; the interaction helpers
   // can be fuzzy because snap distance absorbs it, but visual pixel probes need
   // the actual painted position.
@@ -210,7 +210,7 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y = 7.375 * REM
   const LINE_GAP = 1.5 * REM
   const EGUI_PANEL_MARGIN = 8
   const slotCenter = (column: number) =>
@@ -251,9 +251,9 @@ test('GPU measurement collapses |1> deterministically with outcome 1', async ({ 
   const SLOT_SPACING = 1.5 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y = 7.375 * REM
 
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const measureSource = getPaletteGateCenter(cssWidth, 19)

@@ -52,6 +52,14 @@ pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
     (Vec::new(), 1)
 }
 
+/// Decode one canonical circuit JSON checkpoint. Unlike URL parsing,
+/// `{"cols":[]}` is a valid empty circuit and returns no gates with
+/// `next_gate_id = 1`.
+pub(crate) fn parse_circuit_json(json: &str) -> (Vec<PlacedGate>, u32) {
+    let cols = parse_cols(json).unwrap_or_default();
+    assign_ids(build_gates(&cols))
+}
+
 /// Largest wire index seen across the gates' spans, plus one — i.e.
 /// the qubit count needed to host them all. `MIN_QUBITS` floor is
 /// applied by the caller (the app's clamp).
@@ -65,8 +73,8 @@ pub(crate) fn qubit_count_from_gates(gates: &[PlacedGate]) -> usize {
 
 /// Try to decode `payload` (a possibly-percent-encoded `{"cols":...}`
 /// snippet) into a list of `PlacedGate`. Strips a `circuit=` prefix
-/// if present so Quirk URLs paste cleanly. Returns `None` for any
-/// payload that doesn't decode + parse + non-empty-resolve.
+/// if present so Quirk URLs paste cleanly. A valid empty `cols` payload
+/// is a real circuit checkpoint and must override any stale path payload.
 fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
     if payload.is_empty() {
         return None;
@@ -81,7 +89,8 @@ fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
     }
     let cols = parse_cols(json)?;
     let gates = build_gates(&cols);
-    if gates.is_empty() {
+    let has_gate_tokens = cols.iter().flatten().any(Option::is_some);
+    if gates.is_empty() && has_gate_tokens {
         None
     } else {
         Some(gates)

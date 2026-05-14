@@ -45,6 +45,20 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
 ]
 
 const RUN_GPU_BUTTON_POINT: Point = { x: 147, y: 18 }
+const TEST_REM = 32
+const TEST_GATE_SIZE = TEST_REM
+const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
+const TEST_PALETTE_ROW_GAP = 8
+const TEST_PALETTE_PADDING_Y = 20
+const TEST_PALETTE_CIRCUIT_GAP = 48
+const TEST_CIRCUIT_LINE_Y =
+  TEST_PALETTE_ROW_Y +
+  TEST_GATE_SIZE * 2 +
+  TEST_PALETTE_ROW_GAP +
+  TEST_PALETTE_PADDING_Y +
+  TEST_PALETTE_CIRCUIT_GAP +
+  TEST_GATE_SIZE / 2
+const TEST_CIRCUIT_LINE_GAP = 1.5 * TEST_REM
 
 test('execution mode toggle switches visually without recomputing state', async ({ page }) => {
   await page.goto('/')
@@ -99,6 +113,17 @@ test('execution mode toggle switches visually without recomputing state', async 
   expect(await readStateVector(page)).toEqual(initialState)
 })
 
+test('empty hash checkpoint overrides a stale qni path payload on load', async ({ page }) => {
+  const pathPayload = encodeURIComponent(JSON.stringify({ cols: [['X']] }))
+  const emptyHash = encodeURIComponent(JSON.stringify({ cols: [] }))
+  await page.goto(`/${pathPayload}#${emptyHash}`)
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  expect(readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
+})
+
 test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', async ({ page }) => {
   await page.goto('/')
 
@@ -141,9 +166,14 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
   const GATE_SIZE = 1 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2.5 * REM
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y =
+    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
@@ -157,6 +187,76 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
 
   await expect.poll(async () => page.evaluate(() => (window as any).__qniLastQiskitResult?.status))
     .toBe('completed')
+})
+
+test('toolbar undo and redo restore committed circuit history', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2.5 * REM
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_CIRCUIT_GAP = 48
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y =
+    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  const targetX2 = targetX + SLOT_SPACING
+  const clickToolbar = async (x: number): Promise<void> => {
+    await page.mouse.click((box?.x ?? 0) + x, (box?.y ?? 0) + 18)
+  }
+
+  await dragPointer(page, xSource, { x: targetX, y: LINE_Y })
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+
+  await dragPointer(page, hSource, { x: targetX2, y: LINE_Y })
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+
+  await clickToolbar(26)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+
+  await clickToolbar(26)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
+
+  await clickToolbar(62)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
+
+  await clickToolbar(62)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+
+  await clickToolbar(98)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
+
+  await clickToolbar(26)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+
+  await clickToolbar(62)
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })
 
 test('Local mode refuses a 17th qubit drop', async ({ page }) => {
@@ -173,7 +273,8 @@ test('Local mode refuses a 17th qubit drop', async ({ page }) => {
   expect(box).not.toBeNull()
   const cssWidth = box?.width ?? 1000
   const source = getPaletteGateCenter(cssWidth, 0)
-  await dragPointer(page, source, { x: 180, y: 976 }, 8, true)
+  const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
+  await dragPointer(page, source, { x: 180, y: targetY17 }, 8, true)
   await page.waitForTimeout(100)
 
   const cols = readCircuitColsFromHash(page.url()) as unknown[][]
@@ -205,7 +306,8 @@ test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
     .toBeLessThan(36)
 
   const source = getPaletteGateCenter(cssWidth, 0)
-  await dragPointer(page, source, { x: 180, y: 976 }, 8, true)
+  const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
+  await dragPointer(page, source, { x: 180, y: targetY17 }, 8, true)
   await page.waitForTimeout(100)
 
   const cols = readCircuitColsFromHash(page.url()) as unknown[][]
@@ -358,9 +460,14 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   const GATE_SIZE = 1 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2.5 * REM
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y =
+    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
   const LINE_GAP = 1.5 * REM
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -374,10 +481,12 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await dragPointer(page, hSource, { x: targetX, y: targetY1 })
   await waitForStateVectorLength(page, 8)
 
+  const colsBeforeDrag = readCircuitColsFromHash(page.url())
   await dragPointer(page, { x: targetX, y: targetY0 }, { x: targetX, y: targetY2 }, 6, false)
 
   const lengthDuringDrag = (await readStateVector(page)).length
   expect(lengthDuringDrag).toBe(8)
+  expect(readCircuitColsFromHash(page.url())).toEqual(colsBeforeDrag)
 
   await releasePointer(page, { x: targetX, y: targetY2 })
 
@@ -402,9 +511,14 @@ test('dropping between existing columns inserts a new column', async ({ page }) 
   const SLOT_SPACING = 1.5 * REM
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 12
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const PALETTE_ROW_Y = 2.5 * REM
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 6.5 * REM
+  const LINE_Y =
+    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const xSource = getPaletteGateCenter(cssWidth, 1)

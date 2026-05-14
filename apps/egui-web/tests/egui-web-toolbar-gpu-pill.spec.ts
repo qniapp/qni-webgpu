@@ -9,6 +9,7 @@ import {
 } from './support/egui-web-spec-helpers'
 
 const FLEXOKI_TX_2: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
+const FLEXOKI_TX_3: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
 const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
 const FLEXOKI_BG_2: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5
 const FLEXOKI_RED_600: CanvasPixel = [175, 48, 41, 255] // Flexoki red-600 #AF3029
@@ -54,19 +55,31 @@ test('Local mode keeps edit utilities but hides the GPU run cluster', async ({ p
 
   const canvas = page.locator('#egui-canvas')
   const pixels = await sampleCanvasPixels(page, canvas, TOOLBAR_PROBES)
-  expect(pixelRgbDistance(pixels.undoIcon, FLEXOKI_TX_2)).toBeLessThan(60)
+  expect(pixelRgbDistance(pixels.undoIcon, FLEXOKI_TX_3)).toBeLessThan(60)
   expect(pixelRgbDistance(pixels.runIcon, FLEXOKI_TX_2)).toBeGreaterThan(90)
+
+  const REM = 32
+  const GATE_SIZE = REM
+  const PALETTE_ROW_Y = 2.5 * REM
+  const PALETTE_ROW_GAP = 8
+  const PALETTE_PADDING_Y = 20
+  const PALETTE_CIRCUIT_GAP = 48
+  const paletteBottom = PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y
+  const lineY = paletteBottom + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  expect(lineY - GATE_SIZE / 2 - paletteBottom).toBe(48)
 
   const layoutPixels = await sampleCanvasPixels(page, canvas, [
     { name: 'toolbarTopLeft', x: 1, y: 1 },
     { name: 'toolbarBottomLeft', x: 1, y: 35 },
     { name: 'toolbarPaletteGap', x: 500, y: 48 },
     { name: 'paletteTop', x: 500, y: 62 },
+    { name: 'paletteCircuitGap', x: 500, y: paletteBottom + PALETTE_CIRCUIT_GAP / 2 },
   ])
   expect(pixelRgbDistance(layoutPixels.toolbarTopLeft, FLEXOKI_BG)).toBeLessThan(10)
   expect(pixelRgbDistance(layoutPixels.toolbarBottomLeft, FLEXOKI_BG)).toBeLessThan(10)
   expect(pixelRgbDistance(layoutPixels.toolbarPaletteGap, FLEXOKI_BG_2)).toBeLessThan(50)
   expect(pixelRgbDistance(layoutPixels.paletteTop, FLEXOKI_BG)).toBeLessThan(50)
+  expect(pixelRgbDistance(layoutPixels.paletteCircuitGap, FLEXOKI_BG_2)).toBeLessThan(50)
   expect(await readEguiError(page)).toBeNull()
 })
 

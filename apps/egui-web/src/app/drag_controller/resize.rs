@@ -40,6 +40,7 @@ impl DragController {
         }
         if pointer.released {
             app.qft_resize_drag = None;
+            app.commit_current_circuit(ctx);
             reset_drag_frame_state(app);
         }
         // Keep the cursor in a "resize" mode while the drag is active.

@@ -444,8 +444,10 @@
     全状態を縦に並べる。toolbar は <strong>paper bg + shadow (下方向のみ)</strong> の
     フルワイド header strip。ウィンドウの top / left / right 3 辺すべてに密着するので
     <strong>4 角すべて square</strong> (角丸を入れるとフチが切れて「タブ」っぽくなる)。
-    下に <strong>spacing-6 (24 px)</strong> 空けてゲートパレットを置き、shadow が
-    呼吸できる距離を確保する。レイアウトは
+    下に <strong>spacing-6 (24 px)</strong> 空けてゲートパレットを置き、さらに
+    palette と回路 1 段目ゲートの間は <strong>spacing-12 (48 px)</strong> 空ける
+    (palette と回路はどちらも cyan-400 ゲートが並ぶ同質要素なので、より強い境界が必要)。
+    レイアウトは
     <strong><code>[↶ undo] [↷ redo] [🗑 trash] | [▶ run] [status pill] … [spacer] … [Local | GPU]</code></strong>
     の 3 ゾーン構成:<br>
     ・<strong>edit cluster (左)</strong>: undo / redo / trash — 回路編集の utilities。Local / GPU 両モードで常時表示。<br>
@@ -745,10 +747,25 @@
         ウィンドウの top / left / right 3 辺に密着するので、stroke も角丸も入れない。shadow は下方向だけ。
       </li>
       <li>
-        <strong>Toolbar の下余白</strong> ─ toolbar とゲートパレットの間に
-        <code>spacing-6 (24 px)</code>。<code>ui.add_space(24.0)</code> を toolbar 描画直後に入れて、
-        toolbar の下方向 shadow が呼吸できる距離を確保する。これより詰めると panel 同士が
-        密着し、両者が同じ z-index 階層であることが読みにくくなる。
+        <strong>縦方向の余白 (toolbar / palette / circuit の 3 段)</strong> ─
+        toolbar 下 → palette 上 = <strong>24 px (spacing-6)</strong>、
+        palette 下 → 回路 1 段目ゲート上 = <strong>48 px (spacing-12)</strong>。
+        24 / 48 の 2 倍リズムが「異なるレイヤー」と「同質要素間の境界」を伝える。
+        後者を 24 px と同値にすると palette と回路のゲートが視覚的に近接しすぎる
+        (どちらも同じ cyan-400 32×32 の body で、同質性が高いため通常以上のセパレーションが要る)。<br />
+        実装:<br />
+        ・toolbar は full-width <code>Area</code> で描き、palette 側は <code>PALETTE_ROW_Y</code> から
+        <code>PALETTE_PADDING_Y</code> を引いた top が toolbar bottom + 24 px になるよう固定する<br />
+        ・<code>constants.rs</code> に
+        <code>pub(crate) const PALETTE_CIRCUIT_GAP: f32 = 48.0;</code> を追加<br />
+        ・<code>LINE_Y</code> は実数値ではなく次の式で組む (旧 <code>6.5 * REM = 208</code> から
+        <code>236</code> に変更):
+        <pre style="margin:8px 0; padding:8px 12px; background: var(--ui); border-radius: 6px; font-family: var(--font-mono); font-size: 12px; overflow-x: auto;">pub(crate) const LINE_Y: f32 =
+    PALETTE_ROW_Y                                 // 80
+    + (PALETTE_SIZE * 2.0 + PALETTE_ROW_GAP)      // 72
+    + PALETTE_PADDING_Y                           // 20  → palette bottom = 172
+    + PALETTE_CIRCUIT_GAP                         // 48
+    + GATE_SIZE / 2.0;                            // 16  → 236</pre>
       </li>
       <li>
         <strong>Toolbar の並び順</strong>:
@@ -831,6 +848,8 @@
     <ol>
       <li>toolbar が §01 の 6 状態と pixel-by-pixel で一致 (色・寸法・位置)。4 角すべて square で window edge に密着。</li>
       <li>toolbar の bottom と gate palette の top の間に 24 px の余白がある。</li>
+      <li>gate palette の bottom (panel 下端) と回路 1 段目ゲートの top の間に 48 px の余白がある。
+          実測手順: <code>LINE_Y - GATE_SIZE/2 - (PALETTE_ROW_Y + PALETTE_SIZE*2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y) == 48.0</code>。</li>
       <li>backend を落とした状態で Run を押す → 1 秒以内に "Backend unreachable · {url}" pill が出る。</li>
       <li>未対応 gate (例: Spacer) を含む回路で Run → "Unsupported gate · Spacer" pill が出る。</li>
       <li>backend が 502 を返す → "Backend error · HTTP 502" pill が出る。</li>

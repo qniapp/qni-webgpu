@@ -44,7 +44,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const REM = 32
   const PALETTE_SIZE = REM
   const PALETTE_GAP = 8
-  const PALETTE_ROW_Y = 2 * REM
+  const PALETTE_ROW_Y = 2.5 * REM
   const PALETTE_ROW_GAP = 8
   const PALETTE_PADDING_X = 16
   const PALETTE_PADDING_Y = 20

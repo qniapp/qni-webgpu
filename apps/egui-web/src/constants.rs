@@ -137,9 +137,20 @@ pub(crate) const GPU_MAX_QUBITS: usize = 30;
 pub(crate) const MAX_QUBITS: usize = LOCAL_MAX_QUBITS;
 pub(crate) const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
 
-pub(crate) const LINE_Y: f32 = 6.5 * REM;
+/// Vertical gap between the gate palette panel's bottom edge and the
+/// first qubit wire's top-of-gate. Tailwind spacing-12 (48 px) — twice
+/// the toolbar→palette gap so the boundary between "input bank" and
+/// "circuit canvas" reads clearly even though both areas display
+/// visually identical cyan-400 gates.
+pub(crate) const PALETTE_CIRCUIT_GAP: f32 = 48.0;
+
+pub(crate) const LINE_Y: f32 = PALETTE_ROW_Y
+    + (PALETTE_SIZE * 2.0 + PALETTE_ROW_GAP)
+    + PALETTE_PADDING_Y
+    + PALETTE_CIRCUIT_GAP
+    + GATE_SIZE / 2.0;
 pub(crate) const LINE_GAP: f32 = 1.5 * REM;
-pub(crate) const CIRCUIT_PADDING: f32 = 2.0 * REM; // Same as PALETTE_ROW_Y for visual consistency
+pub(crate) const CIRCUIT_PADDING: f32 = 2.0 * REM; // spacing-16 = 64px circuit side padding.
 pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
 pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
 pub(crate) const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
