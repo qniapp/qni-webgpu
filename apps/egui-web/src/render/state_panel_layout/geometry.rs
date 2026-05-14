@@ -48,8 +48,8 @@ impl QniApp {
         let handle_height = STATE_HANDLE_HEIGHT;
 
         // Make sure the panel is wide enough that the strip's left/right
-        // labels never overlap. Hack monospace at text-sm (14 px) is
-        // ≈ 9 px / glyph; budget a bit extra for the multiplication sign.
+        // labels never overlap. Geist Mono at text-sm (14 px) is ≈ 9 px /
+        // glyph; budget a bit extra for the multiplication sign.
         const STRIP_CHAR_WIDTH: f32 = 9.0;
         // spacing-3 (12px) padding, spacing-4 (16px) gap between labels.
         const STRIP_PADDING_X: f32 = 12.0;

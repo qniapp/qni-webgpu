@@ -28,13 +28,12 @@
 
 use ab_glyph::{Font as _, ScaleFont as _};
 
-/// Width of one glyph cell in atlas pixels. Sized to match Hack
-/// monospace's advance width at `POPUP_GLYPH_PX_SCALE` (~8.6 px) plus a
-/// thin safety margin — wide enough that no glyph bleeds into the
-/// neighbouring cell, narrow enough that the rendered text matches
-/// egui's own monospace label spacing on screen. Exposed crate-wide so
-/// the CPU-side popup layout can use the exact same cell size the
-/// shader samples from.
+/// Width of one glyph cell in atlas pixels. Sized to match Geist Mono's
+/// advance width at `POPUP_GLYPH_PX_SCALE` plus a thin safety margin —
+/// wide enough that no glyph bleeds into the neighbouring cell, narrow
+/// enough that the rendered text matches egui's own monospace label
+/// spacing on screen. Exposed crate-wide so the CPU-side popup layout
+/// can use the exact same cell size the shader samples from.
 pub(crate) const POPUP_GLYPH_CELL_W: u32 = 9;
 /// Height of one glyph cell in atlas pixels.
 pub(crate) const POPUP_GLYPH_CELL_H: u32 = 16;
@@ -61,8 +60,9 @@ const POPUP_GLYPH_PX_SCALE: f32 = 14.4;
 /// all sit on a shared baseline). Used at startup; the result is
 /// uploaded once to a GPU texture.
 pub(super) fn rasterize_popup_glyph_atlas() -> Vec<u8> {
-    let font = ab_glyph::FontRef::try_from_slice(epaint_default_fonts::HACK_REGULAR)
-        .expect("Hack Regular bytes should parse as a TTF");
+    let font =
+        ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/GeistMono-Regular.ttf"))
+            .expect("Geist Mono Regular bytes should parse as a TTF");
     let scale = ab_glyph::PxScale::from(POPUP_GLYPH_PX_SCALE);
     let scaled = font.as_scaled(scale);
 

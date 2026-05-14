@@ -434,8 +434,33 @@ test('state cell popup hides while dragging over the state panel', async ({ page
     return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
   }
 
+  const POPUP_WIDTH = 296
+  const POPUP_PAD_X = 16
+  const POPUP_HEADER_TEXT_H = 20
+  const POPUP_HEADER_GAP = 8
+  const POPUP_ICON_SIZE = 16
+  const POPUP_ICON_TEXT_GAP = 8
+  const POPUP_VALUE_X_OFFSET = POPUP_ICON_SIZE + POPUP_ICON_TEXT_GAP + 96
+  const popupValueAnchor = {
+    x: cellCenter.x - POPUP_WIDTH / 2 + POPUP_PAD_X + POPUP_VALUE_X_OFFSET,
+    y: popupTop + 12 + POPUP_HEADER_TEXT_H + POPUP_HEADER_GAP - 2,
+  }
+  const popupValuePoints: PixelSamplePoint[] = []
+  for (let y = popupValueAnchor.y; y <= popupValueAnchor.y + 56; y += 4) {
+    for (let x = popupValueAnchor.x; x <= popupValueAnchor.x + 148; x += 6) {
+      popupValuePoints.push({ name: `popupValue-${popupValuePoints.length}`, x, y })
+    }
+  }
+  const popupValueInkCount = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [popupFill, ...popupValuePoints])
+    return popupValuePoints.filter(
+      (point) => pixelRgbDistance(pixels[point.name], pixels.popupFill) > 80
+    ).length
+  }
+
   await page.mouse.move((box?.x ?? 0) + cellCenter.x, (box?.y ?? 0) + cellCenter.y)
   await expect.poll(popupContrast).toBeGreaterThan(20)
+  await expect.poll(popupValueInkCount).toBeGreaterThan(10)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   await dragPointer(page, hSource, cellCenter, 8, false)

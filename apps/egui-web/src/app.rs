@@ -122,19 +122,18 @@ impl QniApp {
             style.spacing.window_margin = egui::Margin::same(0);
         });
         // Font setup:
-        // 1. Register Hack as a fallback for the proportional / monospace
-        //    families so mathematical angle brackets `⟨` `⟩` (U+27E8 /
-        //    U+27E9) used in ket labels render instead of falling back
-        //    to tofu. egui's bundled `Ubuntu-Light` doesn't ship those
-        //    code points, but `Hack-Regular` does.
-        // 2. Register Geist Bold under the named family `geist` so
-        //    `gate_glyphs` can render H / X / Y / Z / S† / RX / QFT…
-        //    via `painter.text` with `FontFamily::Name("geist")`. Geist
-        //    is SIL OFL 1.1 (vercel/geist-font); 128 KB TTF embedded
-        //    via `include_bytes!`. Picked over Inter / JetBrains Mono
-        //    after the gate-label mockup review for its dagger glyph
-        //    and the geometric `+` (CNOT-target).
-        let mut fonts = egui::FontDefinitions::default();
+        // Start from `empty` so egui doesn't parse unused bundled fonts
+        // (Ubuntu / Noto Emoji / default Hack) after we replace both
+        // public font families.
+        // 1. Register Hack only as the final fallback so mathematical
+        //    angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in ket labels
+        //    render instead of falling back to tofu if Geist lacks them.
+        // 2. Register Geist Sans weights for gate labels and all
+        //    proportional UI text. Register Geist Mono for monospace UI
+        //    text (state headers, popups, phase labels, FPS HUD, toggle).
+        //    Geist is SIL OFL 1.1 (vercel/geist-font) and embedded via
+        //    `include_bytes!`.
+        let mut fonts = egui::FontDefinitions::empty();
         fonts.font_data.insert(
             "hack_fallback".to_owned(),
             std::sync::Arc::new(egui::FontData::from_static(
@@ -159,13 +158,20 @@ impl QniApp {
                 "../assets/Geist-Medium.ttf"
             ))),
         );
-        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-            fonts
-                .families
-                .entry(family)
-                .or_default()
-                .push("hack_fallback".to_owned());
-        }
+        fonts.font_data.insert(
+            "geist_mono".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/GeistMono-Regular.ttf"
+            ))),
+        );
+        fonts.families.insert(
+            egui::FontFamily::Proportional,
+            vec!["geist_regular".to_owned(), "hack_fallback".to_owned()],
+        );
+        fonts.families.insert(
+            egui::FontFamily::Monospace,
+            vec!["geist_mono".to_owned(), "hack_fallback".to_owned()],
+        );
         fonts
             .families
             .insert(GATE_LABEL_FAMILY.clone(), vec!["geist_bold".to_owned()]);
