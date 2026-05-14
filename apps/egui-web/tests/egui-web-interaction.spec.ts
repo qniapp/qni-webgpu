@@ -44,7 +44,7 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
   { name: 'gpu', x: cssWidth - 30, y: 23 },
 ]
 
-const CIRCUIT_PICKER_TOOLBAR_SHIFT = 228
+const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
 const RUN_GPU_BUTTON_POINT: Point = { x: 156 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 const TEST_REM = 32
 const TEST_GATE_SIZE = TEST_REM

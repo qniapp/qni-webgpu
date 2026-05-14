@@ -4,8 +4,12 @@ use crate::app::circuit_library::{CircuitEntry, PickerState};
 use crate::app::QniApp;
 use crate::colors::{with_alpha, Colors};
 
-const TRIGGER_SIZE: egui::Vec2 = egui::vec2(220.0, 32.0); // max-w-[220px] / h-8.
-const TRIGGER_NAME_WIDTH: f32 = 180.0;
+const TRIGGER_HEIGHT: f32 = 32.0; // h-8.
+const TRIGGER_PAD_LEFT: f32 = 10.0; // px-2.5 = 10px; ITEM_PAD_X と揃える。
+const TRIGGER_PAD_RIGHT: f32 = 8.0; // spacing-2.
+const TRIGGER_NAME_CHEVRON_GAP: f32 = 6.0; // spacing-1.5.
+const TRIGGER_CHEVRON_W: f32 = 14.0; // mock chevron-down 描画幅 = 14px.
+const TRIGGER_NAME_MAX_WIDTH: f32 = 176.0; // max-w-44 = 176px — 超えたら ellipsis。
 const DROPDOWN_WIDTH: f32 = 240.0;
 const DROPDOWN_MAX_HEIGHT: f32 = 320.0;
 const SUBMENU_WIDTH: f32 = 160.0;
@@ -62,7 +66,26 @@ impl QniApp {
     }
 
     fn show_picker_trigger(&self, ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
-        let (rect, mut response) = ui.allocate_exact_size(TRIGGER_SIZE, egui::Sense::click());
+        let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
+        let name = self.active_circuit_name();
+        let galley = egui::WidgetText::from(
+            egui::RichText::new(name.to_owned())
+                .font(font.clone())
+                .color(colors.text_strong),
+        )
+        .into_galley(
+            ui,
+            Some(egui::TextWrapMode::Truncate),
+            TRIGGER_NAME_MAX_WIDTH,
+            font,
+        );
+        let trigger_w = TRIGGER_PAD_LEFT
+            + galley.size().x
+            + TRIGGER_NAME_CHEVRON_GAP
+            + TRIGGER_CHEVRON_W
+            + TRIGGER_PAD_RIGHT;
+        let trigger_size = egui::vec2(trigger_w, TRIGGER_HEIGHT);
+        let (rect, mut response) = ui.allocate_exact_size(trigger_size, egui::Sense::click());
         let hovered = response.hovered() || self.picker.is_open();
         let hover_t = ui
             .ctx()
@@ -74,22 +97,9 @@ impl QniApp {
                 with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8), // Flexoki ui.
             );
         }
-        let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
-        let name = self.active_circuit_name();
-        let galley = egui::WidgetText::from(
-            egui::RichText::new(name.to_owned())
-                .font(font.clone())
-                .color(colors.text_strong),
-        )
-        .into_galley(
-            ui,
-            Some(egui::TextWrapMode::Truncate),
-            TRIGGER_NAME_WIDTH,
-            font,
-        );
         ui.painter().galley(
             egui::pos2(
-                rect.left() + ITEM_PAD_X,
+                rect.left() + TRIGGER_PAD_LEFT,
                 rect.center().y - galley.size().y / 2.0,
             ),
             galley,
@@ -100,7 +110,10 @@ impl QniApp {
             self.picker.is_open(),
             0.16,
         );
-        let chev_center = egui::pos2(rect.left() + 210.0, rect.center().y);
+        let chev_center = egui::pos2(
+            rect.right() - TRIGGER_PAD_RIGHT - TRIGGER_CHEVRON_W / 2.0,
+            rect.center().y,
+        );
         paint_chevron(ui.painter(), chev_center, open_t, colors.toolbar_icon);
         if name.chars().count() > 40 {
             response = response.on_hover_text(name.to_owned());
