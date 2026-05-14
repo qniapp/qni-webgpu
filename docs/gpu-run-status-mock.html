@@ -124,7 +124,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;                  /* gap-2 */
-      padding: 4px 8px;          /* px-2 py-1 */
+      padding: 2px 8px;          /* px-2 py-0.5 */
       border-radius: 6px;        /* rounded-md */
       font-size: 14px;           /* text-sm */
       line-height: 20px;
@@ -139,7 +139,7 @@
     .pill .sep { color: var(--tx-3); padding: 0 1px; }
     .pill code {
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: 14px;
       background: transparent;
       border: 0;
       padding: 0;
@@ -169,8 +169,8 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      width: 28px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       border-radius: 6px;
       font-family: var(--font-body);
@@ -205,10 +205,10 @@
       background: var(--ui);
       color: var(--tx);
     }
-    /* Play glyph matches the other Lucide icons' 14×14 box / 2 px
+    /* Play glyph matches the other Lucide icons' 18×18 box / 2 px
        stroke. Outline (not filled) so it sits in the same line-art
        family as undo / redo / trash. */
-    .run .play { width: 14px; height: 14px; }
+    .run .play { width: 18px; height: 18px; }
     /* Running — same ▷ icon, dimmed to tx-3 (disabled grey).
        The pill's pulsing blue dot is the only motion in the toolbar;
        a second spinner inside the button would compete for attention
@@ -224,8 +224,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       border-radius: 6px;
       background: transparent;
@@ -235,7 +235,7 @@
       transition: background 120ms ease, color 120ms ease;
     }
     .tool:hover { background: var(--ui); color: var(--tx); }
-    .tool svg { display: block; width: 14px; height: 14px; }
+    .tool svg { display: block; width: 18px; height: 18px; }
     .tool[disabled] { color: var(--tx-3); cursor: not-allowed; background: transparent; }
     .tool[disabled]:hover { background: transparent; color: var(--tx-3); }
 
@@ -257,7 +257,7 @@
       background: var(--bg);
       padding: 2px;
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: 14px;
     }
     .seg .opt {
       padding: 4px 12px;
@@ -403,7 +403,7 @@
 <body>
 
 <!-- Icon defs reused by all toolbar instances.
-     Lucide-style 24×24 line icons rendered at 14×14 in the buttons. -->
+     Lucide-style 24×24 line icons rendered at 18×18 in the buttons. -->
 <svg style="position:absolute; width:0; height:0" aria-hidden="true">
   <defs>
     <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -776,7 +776,7 @@
       </li>
       <li>
         <strong>Edit utility ボタン</strong> ─ undo / redo / trash は同じ <code>ToolButton</code> widget で描く:
-        サイズ 28×24 px、icon 14 px、bg transparent、hover で <code>ui</code> 塗り、disabled は <code>tx-3</code> + 押せない。
+        サイズ 32×32 px、icon 18 px / stroke 2 px、bg transparent、hover で <code>ui</code> 塗り、disabled は <code>tx-3</code> + 押せない。
         アイコンは Lucide スタイル (24 viewBox / 2 px stroke) を <code>painter.add(Shape::Path { ... })</code> で描く。
         Lucide の polyline 座標をそのまま採用すれば良い (アセット追加なし)。
         action handler の対応:
@@ -788,7 +788,7 @@
         高さ 18 px、左右の margin 2 px。
       </li>
       <li>
-        <strong>Run button</strong> ─ <code>ToolButton</code> と同じ寸法 (28×24 px、icon 14 px) で
+        <strong>Run button</strong> ─ <code>ToolButton</code> と同じ寸法 (32×32 px、icon 18 px / stroke 2 px) で
         ▷ アイコンを 1 種類だけ描く。色だけ状態で切替:
         idle / completed / failed = <code>tx-2</code> / hover で <code>tx</code>、
         running = <code>tx-3</code> + <code>cursor: NotAllowed</code> (hover なし)。

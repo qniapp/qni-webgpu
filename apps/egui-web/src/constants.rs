@@ -174,6 +174,8 @@ pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
 pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
 pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
 /// Palette first-row top aligned after the full-width toolbar strip.
-/// Toolbar content height is 36px; palette panel top is `PALETTE_ROW_Y - py-5`.
-/// `80 - 20 - 36 = 24px`, matching Tailwind spacing-6 between sibling panels.
+/// Toolbar strip height is 44px (32px content row + py-1.5), and egui's
+/// central panel adds an 8px top margin. Palette panel top is
+/// `8 + PALETTE_ROW_Y - py-5`, so `8 + 80 - 20 - 44 = 24px`, matching
+/// Tailwind spacing-6 between sibling panels.
 pub(crate) const PALETTE_ROW_Y: f32 = 2.5 * REM;

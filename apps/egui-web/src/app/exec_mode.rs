@@ -111,11 +111,11 @@ impl egui::Widget for ExecModeToggle<'_> {
         let gpu = ui
             .painter()
             .layout_no_wrap("GPU".to_owned(), font.clone(), self.colors.text);
-        let segment_padding = egui::vec2(24.0, 8.0); // spacing-3 x / spacing-1 y per side.
-        let local_size = local.size() + segment_padding;
-        let gpu_size = gpu.size() + segment_padding;
+        let segment_padding = egui::vec2(12.0, 4.0); // px-3 / py-1 per side — match mock.
+        let local_size = local.size() + segment_padding * 2.0;
+        let gpu_size = gpu.size() + segment_padding * 2.0;
         let segment_height = local_size.y.max(gpu_size.y);
-        let track_padding = 4.0; // spacing-1 = 4px inner padding.
+        let track_padding = 2.0; // mock .seg padding = 2px.
         let track_size = egui::vec2(
             local_size.x + gpu_size.x + track_padding * 2.0,
             segment_height + track_padding * 2.0,

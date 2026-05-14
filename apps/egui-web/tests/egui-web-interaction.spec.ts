@@ -40,11 +40,11 @@ const readCircuitColsFromHash = (url: string): unknown[] => {
 }
 
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
-  { name: 'local', x: cssWidth - 120, y: 24 },
-  { name: 'gpu', x: cssWidth - 64, y: 24 },
+  { name: 'local', x: cssWidth - 100, y: 23 },
+  { name: 'gpu', x: cssWidth - 30, y: 23 },
 ]
 
-const RUN_GPU_BUTTON_POINT: Point = { x: 147, y: 18 }
+const RUN_GPU_BUTTON_POINT: Point = { x: 156, y: 22 }
 const TEST_REM = 32
 const TEST_GATE_SIZE = TEST_REM
 const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
