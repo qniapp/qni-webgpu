@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QNI WebGPU 大規模 GPU 実行設計</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Flexoki Light palette — kepano/flexoki named tones only. */
+    :root {
+      color-scheme: light;
+      --font-body: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+      --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg: #FFFCF0;       /* Flexoki bg */
+      --bg-2: #F2F0E5;     /* Flexoki bg-2 */
+      --ui: #E6E4D9;       /* Flexoki ui */
+      --ui-2: #DAD8CE;     /* Flexoki ui-2 */
+      --ui-3: #CECDC3;     /* Flexoki ui-3 */
+      --tx-3: #B7B5AC;     /* Flexoki tx-3 */
+      --tx-2: #6F6E69;     /* Flexoki tx-2 */
+      --tx: #100F0F;       /* Flexoki tx */
+      --red: #AF3029;      /* Flexoki red-600 */
+      --orange: #BC5215;   /* Flexoki orange-600 */
+      --yellow: #AD8301;   /* Flexoki yellow-600 */
+      --green: #66800B;    /* Flexoki green-600 */
+      --cyan: #24837B;     /* Flexoki cyan-600 */
+      --blue: #205EA6;     /* Flexoki blue-600 */
+      --purple: #5E409D;   /* Flexoki purple-600 */
+      --red-dim: rgba(175, 48, 41, 0.10);
+      --orange-dim: rgba(188, 82, 21, 0.10);
+      --yellow-dim: rgba(173, 131, 1, 0.12);
+      --green-dim: rgba(102, 128, 11, 0.12);
+      --cyan-dim: rgba(36, 131, 123, 0.10);
+      --blue-dim: rgba(32, 94, 166, 0.10);
+      --purple-dim: rgba(94, 64, 157, 0.10);
+      --shadow: 0 24px 64px rgba(16, 15, 15, 0.10);
+      --shadow-soft: 0 12px 32px rgba(16, 15, 15, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--tx);
+      font-family: var(--font-body);
+      font-size: 16px; /* Tailwind text-base = 16px */
+      line-height: 24px; /* Tailwind text-base line-height */
+      background:
+        radial-gradient(circle at 12% 10%, var(--blue-dim), transparent 28%),
+        radial-gradient(circle at 88% 18%, var(--yellow-dim), transparent 24%),
+        radial-gradient(circle at 72% 88%, var(--cyan-dim), transparent 30%),
+        linear-gradient(90deg, rgba(218, 216, 206, 0.42) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(218, 216, 206, 0.42) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, auto, auto, 24px 24px, 24px 24px, auto; /* spacing-6 */
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); } /* spacing-4 */
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    }
+    .wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 40px 24px 64px; /* spacing-10 / 6 / 16 */
+      display: grid;
+      grid-template-columns: 184px minmax(0, 1fr);
+      gap: 32px; /* spacing-8 */
+    }
+    .toc {
+      position: sticky;
+      top: 24px; /* spacing-6 */
+      align-self: start;
+      max-height: calc(100dvh - 48px);
+      overflow: auto;
+      padding: 12px 0; /* spacing-3 */
+    }
+    .toc-title {
+      color: var(--tx-2);
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--ui-2);
+      padding-bottom: 8px; /* spacing-2 */
+      margin-bottom: 8px;
+    }
+    .toc a {
+      display: block;
+      color: var(--tx-2);
+      text-decoration: none;
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      padding: 8px 10px; /* spacing-2 */
+      border-left: 2px solid transparent;
+      border-radius: 8px;
+      transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+    .toc a:hover, .toc a.active { color: var(--tx); background: var(--bg-2); border-left-color: var(--blue); }
+    .main { min-width: 0; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 28px; /* spacing-7 */
+      border: 1px solid var(--ui-2);
+      border-radius: 24px; /* rounded-3xl */
+      background: linear-gradient(135deg, rgba(255, 252, 240, 0.94), rgba(242, 240, 229, 0.88));
+      box-shadow: var(--shadow);
+      animation: fadeUp 0.42s ease both;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      right: -80px;
+      bottom: -96px;
+      width: 280px;
+      height: 280px;
+      border-radius: 9999px;
+      background: radial-gradient(circle, var(--blue-dim), transparent 68%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px; /* spacing-2 */
+      padding: 6px 10px;
+      border: 1px solid var(--ui-2);
+      border-radius: 9999px;
+      color: var(--blue);
+      background: var(--blue-dim);
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 16px 0 12px; /* spacing-4 / 3 */
+      max-width: 880px;
+      font-size: 40px;
+      line-height: 48px;
+      letter-spacing: -0.03em;
+    }
+    .lead { max-width: 900px; color: var(--tx-2); font-size: 18px; line-height: 28px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .kpi {
+      padding: 16px;
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      background: rgba(255, 252, 240, 0.76);
+    }
+    .kpi b { display: block; color: var(--tx); font-size: 24px; line-height: 32px; }
+    .kpi span { color: var(--tx-2); font-family: var(--font-mono); font-size: 12px; line-height: 16px; }
+    .section { margin-top: 40px; animation: fadeUp 0.42s ease both; animation-delay: calc(var(--i, 0) * 0.04s); }
+    .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .sec-num {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--bg);
+      background: var(--tx);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 700;
+    }
+    h2 { margin: 0; font-size: 24px; line-height: 32px; letter-spacing: -0.02em; }
+    h3 { margin: 0 0 8px; font-size: 18px; line-height: 28px; }
+    p { margin: 0; }
+    code { font-family: var(--font-mono); font-size: 0.92em; color: var(--purple); }
+    .note { color: var(--tx-2); max-width: 900px; margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .card {
+      border: 1px solid var(--ui-2);
+      border-radius: 18px;
+      background: rgba(255, 252, 240, 0.88);
+      padding: 18px;
+      box-shadow: var(--shadow-soft);
+    }
+    .card.warn { border-color: rgba(188, 82, 21, 0.38); background: linear-gradient(180deg, var(--orange-dim), rgba(255, 252, 240, 0.88)); }
+    .card.good { border-color: rgba(102, 128, 11, 0.36); background: linear-gradient(180deg, var(--green-dim), rgba(255, 252, 240, 0.88)); }
+    .card.stop { border-color: rgba(175, 48, 41, 0.36); background: linear-gradient(180deg, var(--red-dim), rgba(255, 252, 240, 0.88)); }
+    .label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--blue);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .label::before { content: ''; width: 8px; height: 8px; border-radius: 9999px; background: currentColor; }
+    ul { margin: 10px 0 0; padding-left: 20px; color: var(--tx-2); }
+    li + li { margin-top: 6px; }
+    .mode-flow { display: grid; grid-template-columns: 1fr 96px 1fr; gap: 16px; align-items: stretch; }
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: var(--tx-2);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .banner-demo {
+      border: 1px solid var(--ui-2);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .banner-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--bg);
+      background: var(--blue);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 700;
+    }
+    .banner-body { padding: 16px; color: var(--tx-2); }
+    .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .btn {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 16px;
+      background: var(--bg-2);
+      color: var(--tx);
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: var(--bg); }
+    .btn.danger { color: var(--red); border-color: rgba(175, 48, 41, 0.32); background: var(--red-dim); }
+    .table-wrap { border: 1px solid var(--ui-2); border-radius: 18px; overflow: hidden; background: rgba(255, 252, 240, 0.92); box-shadow: var(--shadow-soft); }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    th, td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ui); }
+    th { background: var(--bg-2); color: var(--tx-2); font-family: var(--font-mono); font-size: 12px; line-height: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { font-size: 14px; line-height: 20px; }
+    tr:last-child td { border-bottom: 0; }
+    .num { font-family: var(--font-mono); white-space: nowrap; }
+    .pill { display: inline-flex; align-items: center; border-radius: 9999px; padding: 2px 8px; font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 700; }
+    .pill.local { color: var(--green); background: var(--green-dim); }
+    .pill.remote { color: var(--blue); background: var(--blue-dim); }
+    .pill.no { color: var(--red); background: var(--red-dim); }
+    .api {
+      white-space: pre-wrap;
+      overflow-x: auto;
+      padding: 16px;
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      background: var(--bg-2);
+      color: var(--tx);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 20px;
+    }
+    .refs { display: grid; gap: 10px; }
+    .ref { padding: 10px 12px; border: 1px solid var(--ui); border-radius: 12px; background: rgba(242, 240, 229, 0.64); font-size: 14px; line-height: 20px; }
+    .footer { margin-top: 40px; color: var(--tx-2); font-size: 14px; line-height: 20px; }
+    @media (max-width: 1000px) {
+      .wrap { grid-template-columns: 1fr; padding-top: 0; }
+      .toc { position: sticky; top: 0; z-index: 20; display: flex; gap: 4px; margin: 0 -24px; padding: 10px 24px; background: var(--bg); border-bottom: 1px solid var(--ui-2); overflow-x: auto; }
+      .toc-title { display: none; }
+      .toc a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+      .toc a.active { border-bottom-color: var(--blue); }
+      .kpis, .grid-2, .grid-3, .mode-flow { grid-template-columns: 1fr; }
+      .arrow { min-height: 32px; }
+      h1 { font-size: 32px; line-height: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" id="toc">
+      <div class="toc-title">Contents</div>
+      <a href="#decision">1. 方針</a>
+      <a href="#latency">2. 操作感</a>
+      <a href="#size">3. サイズ試算</a>
+      <a href="#state">4. 状態表示</a>
+      <a href="#qnigl">5. qni-gl</a>
+      <a href="#api">6. 入出力仕様</a>
+      <a href="#plan">7. 実装順</a>
+    </nav>
+
+    <main class="main">
+      <header class="hero">
+        <span class="eyebrow">Local / GPU 明示切替</span>
+        <h1>画面上の明確な切替で「手元で即時表示」か「外部 GPU で実行」かをユーザーが選ぶ。</h1>
+        <p class="lead">17量子ビット以上になった瞬間に自動で GPU 実行へ切り替えるのではなく、現在の実行モードを画面上に常に出す。Local では 17量子ビット目を追加できない。GPU で 17量子ビット以上の回路を開いている間は、Local へ戻れない。</p>
+        <div class="kpis">
+          <div class="kpi"><b>Local</b><span>16量子ビットまで即時表示</span></div>
+          <div class="kpi"><b>GPU</b><span>1量子ビットでも明示実行</span></div>
+          <div class="kpi"><b>30q</b><span>complex64 生データ 8 GiB</span></div>
+          <div class="kpi"><b>別画面</b><span>状態ベクトル表示を差替</span></div>
+        </div>
+      </header>
+
+      <section class="section" id="decision" style="--i:1">
+        <div class="sec-head"><span class="sec-num">1</span><h2>方針 — 自動切替ではなく、明示切替</h2></div>
+        <p class="note"><strong>Local / GPU</strong> の切替を、現在の実行形態が常に分かる場所に置く。配置は画面設計で決める。Local は手元 WebGPU の即時表示、GPU は外部 GPU への明示実行。Local は 16量子ビットで編集上限を止め、GPU の 17量子ビット以上では Local 側を選択不可にする。</p>
+        <div class="mode-flow">
+          <article class="card good">
+            <div class="label">Local</div>
+            <h3>手元の WebGPU で即時更新</h3>
+            <ul>
+              <li>16量子ビット以下で使う通常モード。</li>
+              <li>ドラッグやドロップの直後に再計算する。</li>
+              <li>本番経路では GPU から CPU へ読み戻さない。</li>
+              <li>17量子ビット目の追加は受け付けず、Local の上限を越えた状態を作らない。</li>
+            </ul>
+          </article>
+          <div class="arrow">ユーザーが<br>明示的に<br>選ぶ</div>
+          <article class="card warn">
+            <div class="label">GPU</div>
+            <h3>外部 GPU へ明示的に実行</h3>
+            <ul>
+              <li>1量子ビットでも選べる。qni-gl と同じく「GPU 版として実行」を明示できる。</li>
+              <li>自動再計算、ホバー中のプレビュー再計算、ドラッグ中の再計算を止める。</li>
+              <li>返すのは全状態ベクトルではなく、要約、標本、指定した振幅だけにする。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="latency" style="--i:2">
+        <div class="sec-head"><span class="sec-num">2</span><h2>操作感 — GPU 実行中であることを明確に見せる</h2></div>
+        <p class="note">GPU モードでは通信、待ち行列、回路変換、GPU 計算、結果抽出が入る。手元の WebGPU の「触るたび即時更新」と同じ見せ方にしてはいけない。小さな回路でも、GPU モードを選んだら実行ボタンを押す流れに統一する。</p>
+        <div class="grid-2">
+          <article class="banner-demo">
+            <div class="banner-top"><span>外部 GPU 実行 · 28量子ビット</span><span>再実行が必要</span></div>
+            <div class="banner-body">
+              前回結果は古い回路に対するもの。編集は続けられるが、状態表示は再実行まで更新しない。
+              <div class="button-row">
+                <span class="btn primary">GPUで実行</span>
+                <span class="btn">見積もり</span>
+                <span class="btn danger">中止</span>
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <div class="label">画面状態</div>
+            <h3>状態をはっきり表示する</h3>
+            <ul>
+              <li>Local: 16量子ビット以下を手元で即時更新。</li>
+              <li>Local 上限到達: 16量子ビット。17量子ビット目の追加は不可。</li>
+              <li>GPU: 未実行。まだ結果がない。</li>
+              <li>再実行が必要: 実行後に回路が変わった。</li>
+              <li>待機中 / 実行中: 実行番号、経過秒、実行先を表示。</li>
+              <li>完了 / 失敗 / 中止: 結果要約と再実行導線を表示。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="size" style="--i:3">
+        <div class="sec-head"><span class="sec-num">3</span><h2>状態ベクトルの大きさ — 30量子ビット近辺はブラウザへ送れない</h2></div>
+        <p class="note">1つの振幅は複素数。GPU 側の complex64 でも 8 byte、Qiskit / NumPy の complex128 なら 16 byte。JSON 化すると、文字列表現、配列、キーのぶんだけさらに膨らむ。</p>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>量子ビット</th><th>状態数</th><th>complex64 生データ</th><th>complex128 生データ</th><th>JSON 概算</th><th>判断</th></tr></thead>
+            <tbody>
+              <tr><td class="num">16</td><td class="num">65,536</td><td class="num">512 KiB</td><td class="num">1 MiB</td><td class="num">1.5–4 MiB</td><td><span class="pill local">手元で即時表示</span></td></tr>
+              <tr><td class="num">17</td><td class="num">131,072</td><td class="num">1 MiB</td><td class="num">2 MiB</td><td class="num">3–8 MiB</td><td><span class="pill remote">外部 GPU へ切替</span></td></tr>
+              <tr><td class="num">20</td><td class="num">1,048,576</td><td class="num">8 MiB</td><td class="num">16 MiB</td><td class="num">24–64 MiB</td><td>JSON 全文は既に重い</td></tr>
+              <tr><td class="num">24</td><td class="num">16,777,216</td><td class="num">128 MiB</td><td class="num">256 MiB</td><td class="num">384 MiB–1 GiB</td><td>既定で返してはいけない</td></tr>
+              <tr><td class="num">26</td><td class="num">67,108,864</td><td class="num">512 MiB</td><td class="num">1 GiB</td><td class="num">1.5–4 GiB</td><td><span class="pill no">ブラウザ不可</span></td></tr>
+              <tr><td class="num">28</td><td class="num">268,435,456</td><td class="num">2 GiB</td><td class="num">4 GiB</td><td class="num">6–16 GiB</td><td><span class="pill no">ブラウザ不可</span></td></tr>
+              <tr><td class="num">30</td><td class="num">1,073,741,824</td><td class="num">8 GiB</td><td class="num">16 GiB</td><td class="num">24–64 GiB</td><td><span class="pill no">全件転送しない</span></td></tr>
+              <tr><td class="num">32</td><td class="num">4,294,967,296</td><td class="num">32 GiB</td><td class="num">64 GiB</td><td class="num">96–256 GiB</td><td><span class="pill no">実行結果だけ返す</span></td></tr>
+            </tbody>
+          </table>
+        </div></div>
+      </section>
+
+      <section class="section" id="state" style="--i:4">
+        <div class="sec-head"><span class="sec-num">4</span><h2>状態表示 — 外部 GPU では状態ベクトル画面を廃止する</h2></div>
+        <p class="note">筋が良いのは、17量子ビット以上では「状態ベクトルを見る画面」から「実行結果を見る画面」へ切り替えること。全確率分布のヒストグラムも 2^N 件になり得るので、既定にはしない。</p>
+        <div class="grid-3">
+          <article class="card stop">
+            <div class="label">廃止</div>
+            <h3>全状態ベクトル表示</h3>
+            <ul>
+              <li>振幅と位相を全基底状態ぶん描く表示は、30量子ビットでは意味的にも転送量的にも破綻する。</li>
+              <li>「見えている範囲だけ問い合わせる」方式も、状態ベクトル画面を残す限り期待値を誤解させる。</li>
+            </ul>
+          </article>
+          <article class="card good">
+            <div class="label">既定</div>
+            <h3>測定結果の集計</h3>
+            <ul>
+              <li>試行回数を指定して実行し、出たビット列と回数だけ返す。</li>
+              <li>返る行数は最大でも試行回数ぶん。4096回なら多くても 4096 行。</li>
+              <li>測定ゲートがない回路では、表示用に「最後に全量子ビットを測った場合」の標本を取る。</li>
+              <li>量子計算機らしい「実行結果」として自然。</li>
+            </ul>
+          </article>
+          <article class="card warn">
+            <div class="label">補助</div>
+            <h3>限定的な問い合わせ</h3>
+            <ul>
+              <li>一部の量子ビットだけの周辺分布。</li>
+              <li>上位 k 件の頻出ビット列。</li>
+              <li>指定した状態番号の振幅、指定した観測量の期待値。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;"><div class="table-scroll">
+          <table>
+            <thead><tr><th>表示</th><th>既定にするか</th><th>理由</th></tr></thead>
+            <tbody>
+              <tr><td>状態ベクトル全体</td><td><span class="pill no">しない</span></td><td>振幅・位相が 2^N 件。転送も理解も破綻。</td></tr>
+              <tr><td>厳密な確率分布</td><td><span class="pill no">しない</span></td><td>確率だけでも 2^N 件。30量子ビットなら float32 生データで 4 GiB。</td></tr>
+              <tr><td>試行結果から作るヒストグラム</td><td><span class="pill local">する</span></td><td>最大行数が試行回数で抑えられる。4096回なら JSON でも数百 KiB 程度。</td></tr>
+              <tr><td>一部量子ビットの周辺分布</td><td><span class="pill local">する</span></td><td>表示対象を 1〜8量子ビット程度に絞れば、2^k 件で済む。</td></tr>
+              <tr><td>指定した振幅</td><td><span class="pill remote">任意</span></td><td>デバッグ用途。状態番号を明示し、件数と返却サイズに上限を置く。</td></tr>
+              <tr><td>期待値・忠実度など</td><td><span class="pill remote">任意</span></td><td>大きな状態を返さず、少数の数値に畳み込める。</td></tr>
+            </tbody>
+          </table>
+        </div></div>
+        <p class="note" style="margin-top:16px;">結論: 外部 GPU モードでは、下部の状態ベクトルパネルを <strong>実行結果パネル</strong> に差し替える。既定タブは「測定ヒストグラム」。次に「周辺分布」「指定振幅」「観測量」「ログ」を置く。振幅表示は主役ではなく、上限付きの調査機能にする。</p>
+      </section>
+
+      <section class="section" id="qnigl" style="--i:5">
+        <div class="sec-head"><span class="sec-num">5</span><h2>qni-gl 調査 — 取り入れる点と避ける点</h2></div>
+        <div class="grid-2">
+          <article class="card good">
+            <div class="label">取り入れる</div>
+            <h3>表示中の振幅だけ要求する発想</h3>
+            <ul>
+              <li>画面側は <code>visibleQubitCircleIndices</code> を <code>amplitudeIndices</code> として送る。</li>
+              <li>実行サーバーは <code>requestType=circuit/export</code> を持つ。</li>
+              <li>GPU 実行は <code>AerSimulator(method="statevector")</code> + <code>device="GPU"</code> + <code>cuStateVec_enable=True</code>。</li>
+              <li>ローカル開発では <code>qiskit-cpu-dev</code> runner で Qiskit 経路だけ確認できる。これは WebGPU の CPU fallback ではない。</li>
+              <li>ABCI では Open OnDemand で GPU 資源上にアプリを起動する。</li>
+            </ul>
+          </article>
+          <article class="card stop">
+            <div class="label">避ける</div>
+            <h3>全状態ベクトルを作ってから絞り込む流れ</h3>
+            <ul>
+              <li><code>save_statevector</code> で状態ベクトル全体を結果へ保存している。</li>
+              <li><code>dict(enumerate(amplitudes))</code> で全振幅を Python の辞書にしている。</li>
+              <li>その後に <code>amplitudeIndices</code> で絞り込む。30量子ビットではここで破綻する。</li>
+              <li>service worker が手元のシミュレータで状態ベクトルを複製する無駄もあり、qni-webgpu では禁止。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="refs" style="margin-top:16px;">
+          <div class="ref"><code>../qni-gl/backend/src/qni/qiskit_runner.py</code>: AerSimulator の GPU 設定、<code>save_statevector</code>、全状態ベクトルの列挙。</div>
+          <div class="ref"><code>../qni-gl/backend/src/qni/backend.py</code>: <code>_filter_amplitudes</code> の考え方は良いが、絞り込みが遅すぎる位置にある。</div>
+          <div class="ref"><code>../qni-gl/frontend/src/state-vector-renderer.ts</code>: 見えている円だけを持つ表示方式は採用候補。</div>
+          <div class="ref"><code>../qni-gl/abci_ood/*.yml</code>: ABCI はジョブ投入 API ではなく、GPU ノード上の対話アプリ起動。</div>
+        </div>
+      </section>
+
+      <section class="section" id="api" style="--i:6">
+        <div class="sec-head"><span class="sec-num">6</span><h2>入出力仕様 — 状態そのものではなく観測した値を返す</h2></div>
+        <pre class="api"><code>実行形態
+  - Local: 手元 WebGPU。16量子ビット以下を常時更新
+  - Local 上限到達: 16量子ビット。17量子ビット目の追加は不可
+  - GPU: 外部 GPU。未実行 / 再実行が必要 / 待機中 / 実行中 / 完了 / 失敗 / 中止
+
+実行依頼
+  - 回路のハッシュ
+  - 量子ビット数
+  - 途中停止する列（任意）
+  - 直列化した回路
+  - 乱数種（任意）
+  - 欲しい結果の種類
+
+返せる結果
+  - 測定ヒストグラム: 試行回数を指定。返却行数は最大でも試行回数ぶん
+  - 一部量子ビットの周辺分布: 対象量子ビットを指定
+  - 上位 k 件のビット列: k と実行回数を指定
+  - 振幅: 状態番号の一覧を指定。最大 4k〜16k 件
+  - Bloch ベクトル: 対象量子ビットを指定
+  - 期待値: Pauli 文字列などを指定
+  - 返さないもの: 全状態ベクトル、全確率分布
+
+実行結果
+  - 実行番号
+  - 実行先名（例: qiskit-aer-gpu / ABCI）
+  - 経過時間
+  - 返却バイト数
+  - 上限で切り詰めたかどうか
+  - 結果本体</code></pre>
+      </section>
+
+      <section class="section" id="plan" style="--i:7">
+        <div class="sec-head"><span class="sec-num">7</span><h2>実装順 — 安全な順番</h2></div>
+        <div class="table-wrap"><div class="table-scroll">
+          <table>
+            <thead><tr><th>順番</th><th>実装</th><th>検証</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td><code>Local / GPU</code> 切替と実行モード状態を追加する。配置は UI モックで決める。外部 GPU は模擬実装だけ。</td><td>単体テスト: Local / GPU の状態遷移。GPU は 1量子ビットでも選べる。</td></tr>
+              <tr><td class="num">2</td><td>Local では 17量子ビット目を追加できないようにし、GPU で 17量子ビット以上になったら Local を選択不可にする。GPU モードでは実行バー、再実行表示、中止ボタンを出す。</td><td>Playwright: Local は 16量子ビットで止まる。17量子ビット以上の GPU 回路では Local に戻れない。</td></tr>
+              <tr><td class="num">3</td><td>外部 GPU 実行依頼を直列化する。全状態ベクトル要求を作れない型にする。</td><td>契約テスト: 返却上限、全件返却なし。</td></tr>
+              <tr><td class="num">4</td><td>模擬の外部 GPU 結果表示を作る。状態ベクトルパネルを実行結果パネルへ差し替え、測定ヒストグラムを既定にする。</td><td>画面スクリーンショットとラベル確認。</td></tr>
+              <tr><td class="num">5</td><td>実際の qiskit-aer-gpu 実行サーバーへ接続する。まず標本、集計、指定振幅だけ。</td><td>小さな回路で一致確認。実行サーバー不在時のエラー確認。</td></tr>
+              <tr><td class="num">6</td><td>ABCI/OOD または実行サービスへ接続する。認証、進捗確認、時間切れ、中止を扱う。</td><td>検証環境で疎通。CPU 代替なし。</td></tr>
+            </tbody>
+          </table>
+        </div></div>
+        <p class="footer">設計規則: 実行モードはユーザーが明示的に選ぶ。Local は手元 WebGPU の即時表示、GPU は大規模実行。手元 WebGPU の本番経路は GPU 上で完結させ、外部 GPU の結果は上限付きの問い合わせとして別扱いにする。</p>
+      </section>
+    </main>
+  </div>
+  <script>
+    (function() {
+      const toc = document.getElementById('toc');
+      const links = Array.from(toc.querySelectorAll('a'));
+      const sections = links.map(link => ({ link, el: document.getElementById(link.getAttribute('href').slice(1)) })).filter(x => x.el);
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          links.forEach(link => link.classList.remove('active'));
+          const hit = sections.find(section => section.el === entry.target);
+          if (hit) hit.link.classList.add('active');
+        });
+      }, { rootMargin: '-12% 0px -78% 0px' });
+      sections.forEach(section => observer.observe(section.el));
+    })();
+  </script>
+</body>
+</html>

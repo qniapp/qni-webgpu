@@ -12,6 +12,9 @@ apps/tui/target/
 apps/tui/tests/snapshots/*.snap.new
 apps/tui/tests/snapshots/*.snap.old
 .env
+.venv/
+__pycache__/
+*.pyc
 .DS_Store
 .playwright-cli/
 .playwright-mcp/

@@ -55,11 +55,13 @@ pub(crate) fn state_grid_zoom_limits(natural_circle_size: f32) -> (f32, f32) {
 /// `--qni-component-resize-handle-width / -height` (= operation-base /
 /// operation-base-¾) — a square-ish purple button below the gate body
 /// the user grabs to change span.
-///   * MAX_SPAN: clamp the dragged span to this many qubit wires.
+///   * MAX_SPAN: clamp the dragged span to the current execution-mode
+///     circuit capacity (Local = 16, GPU = 30) so Local never grows a
+///     17th live-sim wire.
 ///   * RESIZE_HANDLE_WIDTH: full gate width (= GATE_SIZE) so the
 ///     handle sits flush under the body.
 ///   * RESIZE_HANDLE_HEIGHT: 0.75 * GATE_SIZE (qni's `-¾` size).
-pub(crate) const QFT_MAX_SPAN: usize = 16;
+pub(crate) const QFT_MAX_SPAN: usize = GPU_MAX_QUBITS;
 pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = GATE_SIZE;
 pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = GATE_SIZE * 0.75;
 
@@ -125,7 +127,14 @@ pub(crate) fn state_circle_default_aspect_index(qubits: usize) -> usize {
 }
 
 pub(crate) const MIN_QUBITS: usize = 2;
-pub(crate) const MAX_QUBITS: usize = 16;
+/// Local WebGPU live simulation capacity. State-vector / Bloch / measurement
+/// rendering buffers are sized for this cap and stay GPU-resident.
+pub(crate) const LOCAL_MAX_QUBITS: usize = 16;
+/// External GPU editing capacity for the phase-1/2 UI path. Large execution
+/// result rendering is separate from the Local WebGPU state-vector panel.
+pub(crate) const GPU_MAX_QUBITS: usize = 30;
+/// Backwards-compatible name for Local state-vector capacity.
+pub(crate) const MAX_QUBITS: usize = LOCAL_MAX_QUBITS;
 pub(crate) const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
 
 pub(crate) const LINE_Y: f32 = 6.5 * REM;
@@ -153,4 +162,7 @@ pub(crate) const PALETTE_ROW_GAP: f32 = 8.0;
 pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
 pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
 pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
-pub(crate) const PALETTE_ROW_Y: f32 = 2.0 * REM;
+/// Palette first-row top aligned after the full-width toolbar strip.
+/// Toolbar content height is 36px; palette panel top is `PALETTE_ROW_Y - py-5`.
+/// `80 - 20 - 36 = 24px`, matching Tailwind spacing-6 between sibling panels.
+pub(crate) const PALETTE_ROW_Y: f32 = 2.5 * REM;

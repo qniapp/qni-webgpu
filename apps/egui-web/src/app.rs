@@ -3,6 +3,8 @@
 
 mod circuit_model;
 mod drag_controller;
+mod exec_mode;
+mod external_gpu;
 mod fps_hud;
 mod gate_input;
 mod gpu_plan_state;
@@ -15,18 +17,34 @@ use std::collections::VecDeque;
 use std::sync::LazyLock;
 
 use crate::colors::{Colors, Theme, ThemeKind};
-use crate::constants::{MAX_QUBITS, MIN_QUBITS};
+use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
 
-/// Named font family rendering quantum-gate text labels (H / X / Y /
-/// Z / S† / RX / QFT…). Resolves to Geist Bold, registered in
-/// `QniApp::new` via `include_bytes!("../assets/Geist-Bold.ttf")`.
-/// `LazyLock` is needed because `FontFamily::Name` wraps an
-/// `Arc<str>`, which isn't `const`-constructible.
+/// Named font family rendering the heavyweight gate labels — i.e. the
+/// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
+/// At that small size Geist Bold (700) is what reads as the "normal"
+/// weight; the larger solo labels (H / Y / Z / S / T / √X) below
+/// drop a notch lighter so the visual stroke matches.
 pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist".into()));
 
+/// Geist Regular (400) — used for the solo gate letters (H / Y / Z /
+/// S / T / √X and their daggers). Drops a weight relative to the
+/// Bold multi-char labels so the two rows sit at the same visual
+/// stroke thickness despite the size delta (~19.8 px vs ~12.8 px).
+pub(crate) static GATE_LABEL_LIGHT_FAMILY: LazyLock<egui::FontFamily> =
+    LazyLock::new(|| egui::FontFamily::Name("geist-regular".into()));
+
+/// Geist Medium (500) — only the `+` glyph rendered inside the X gate
+/// (CNOT target). Two orthogonal strokes read as thinner than letter
+/// forms at the same weight, so `+` lives one step heavier than the
+/// surrounding solo letters.
+pub(crate) static GATE_LABEL_PLUS_FAMILY: LazyLock<egui::FontFamily> =
+    LazyLock::new(|| egui::FontFamily::Name("geist-medium".into()));
+
 pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
+pub(crate) use exec_mode::ExecMode;
+pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
 pub(crate) use gpu_plan_state::GpuPlanState;
 pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
@@ -61,6 +79,14 @@ pub(crate) struct QniApp {
     pub(crate) hovered_gate_id: Option<u32>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
+    pub(crate) exec_mode: ExecMode,
+    pub(crate) exec_mode_keyboard_focus: bool,
+    pub(crate) external_gpu_status: ExternalGpuStatus,
+    pub(crate) external_gpu_started_at: Option<f64>,
+    /// One-shot local WebGPU refresh for the state-vector panel after an
+    /// explicit external GPU run completes. Keeps GPU mode from live-
+    /// recomputing on every edit while still making <=16-qubit runs visible.
+    pub(crate) external_gpu_state_refresh_pending: bool,
     pub(crate) gpu_plan: GpuPlanState,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
@@ -68,7 +94,7 @@ pub(crate) struct QniApp {
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
     pointer_was_down: bool,
-    /// Debug HUD: backtick (`) toggles a small top-right overlay showing
+    /// Debug HUD: backtick (`) toggles a small bottom-right overlay showing
     /// smoothed FPS + frame ms. Off by default — when on, forces continuous
     /// repaint so the reading stays responsive (which itself costs perf,
     /// hence the toggle). F12 is avoided because Chrome reserves it for
@@ -118,6 +144,18 @@ impl QniApp {
                 "../assets/Geist-Bold.ttf"
             ))),
         );
+        fonts.font_data.insert(
+            "geist_regular".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/Geist-Regular.ttf"
+            ))),
+        );
+        fonts.font_data.insert(
+            "geist_medium".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/Geist-Medium.ttf"
+            ))),
+        );
         for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
             fonts
                 .families
@@ -128,13 +166,28 @@ impl QniApp {
         fonts
             .families
             .insert(GATE_LABEL_FAMILY.clone(), vec!["geist_bold".to_owned()]);
+        fonts.families.insert(
+            GATE_LABEL_LIGHT_FAMILY.clone(),
+            vec!["geist_regular".to_owned()],
+        );
+        fonts.families.insert(
+            GATE_LABEL_PLUS_FAMILY.clone(),
+            vec!["geist_medium".to_owned()],
+        );
         cc.egui_ctx.set_fonts(fonts);
+        Self::wire_test_hooks(&cc.egui_ctx);
         cc.egui_ctx.request_repaint();
         // Restore a shared circuit from the URL (`#{"cols":[...]}` or
         // qni-style path) so a pasted URL spins up the same circuit.
         let (initial_gates, next_gate_id) = crate::url_circuit::parse_circuit_from_url();
-        let initial_qubit_count = crate::url_circuit::qubit_count_from_gates(&initial_gates)
-            .clamp(MIN_QUBITS, MAX_QUBITS);
+        let initial_required_qubits = crate::url_circuit::qubit_count_from_gates(&initial_gates);
+        let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
+            ExecMode::Gpu
+        } else {
+            ExecMode::default()
+        };
+        let initial_qubit_count =
+            initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
         Self {
             theme: theme.kind,
             next_gate_id,
@@ -150,6 +203,11 @@ impl QniApp {
             hovered_gate_id: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
+            exec_mode,
+            exec_mode_keyboard_focus: false,
+            external_gpu_status: ExternalGpuStatus::default(),
+            external_gpu_started_at: None,
+            external_gpu_state_refresh_pending: false,
             gpu_plan: GpuPlanState::default(),
             last_content_rect: None,
             drag_cursor_pos: None,
@@ -169,10 +227,19 @@ impl QniApp {
     }
 
     fn layout_qubits(&self) -> usize {
-        let mut count = self.qubit_count.clamp(MIN_QUBITS, MAX_QUBITS);
-        if self.dragging.is_some() && count < MAX_QUBITS {
+        let capacity = self.exec_mode.qubit_capacity();
+        let mut count = self.qubit_count.clamp(MIN_QUBITS, capacity);
+        if self.dragging.is_some() && count < capacity {
             count += 1;
         }
         count
+    }
+
+    pub(crate) fn local_state_vector_active(&self) -> bool {
+        self.exec_mode == ExecMode::Local && self.required_qubit_count() <= LOCAL_MAX_QUBITS
+    }
+
+    pub(crate) fn local_exec_mode_available(&self) -> bool {
+        self.required_qubit_count() <= LOCAL_MAX_QUBITS
     }
 }

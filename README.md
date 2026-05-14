@@ -116,6 +116,21 @@ legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.ts` の Play
 - `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI fmt / clippy / test / snapshot / audit / deny）
 
+## Qiskit backend（ローカル開発）
+
+外部 GPU 実行パスの API / UI 確認用 backend は `apps/qiskit-backend` にある。
+既定の `mock` runner は量子計算をせず固定 histogram を返す。
+`qiskit-cpu-dev` は Qiskit 経路確認用の明示的な CPU runner で、WebGPU の CPU fallback ではない。
+本番相当の `qiskit-gpu` は `device="GPU"` / `cuStateVec_enable=True` を要求し、CPU fallback しない。
+Web UI の `Run GPU` は histogram-only API を呼び、16量子ビット以下では成功後に状態ベクトルパネルをローカル WebGPU で1回だけ更新する。backend から全状態ベクトルは返さない。
+
+```
+PYTHONPATH=apps/qiskit-backend/src python3 -m qni_qiskit_backend --port 4184 --runner mock
+PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests
+```
+
+詳細は `apps/qiskit-backend/README.md` を参照。
+
 ## MCP サーバ（Qni）
 
 回路編集と状態ベクトル取得を行う MCP サーバは `apps/mcp-qni` にある。

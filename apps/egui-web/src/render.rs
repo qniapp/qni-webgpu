@@ -11,9 +11,11 @@ mod circuit;
 mod circuit_connectors;
 mod circuit_gates;
 mod circuit_palette;
+mod gpu_status_pill;
 mod state_panel_chrome;
 mod state_panel_draw;
 mod state_panel_layout;
 mod state_panel_popup;
+mod toolbar;
 
 pub(crate) use state_panel_layout::StatePanelLayout;

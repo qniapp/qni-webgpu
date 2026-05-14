@@ -56,7 +56,7 @@ test('agent visual command builds drag coordinates from semantic gate placement'
     gateIndex: 1,
     wire: 1,
     slot: 2,
-    from: { x: 300, y: 80 },
+    from: { x: 300, y: 96 },
     to: { x: 250, y: 256 },
   })
 })
@@ -70,7 +70,7 @@ test('agent visual command supports egui content vertical offset', () => {
     verticalOffset: 8,
   })
 
-  assert.equal(operation.from.y, 88)
+  assert.equal(operation.from.y, 104)
   assert.equal(operation.to.y, 216)
 })
 

@@ -28,6 +28,9 @@ import {
   type Point,
 } from './support/egui-web-spec-helpers'
 
+const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
+const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
   if (!hash) {
@@ -35,6 +38,213 @@ const readCircuitColsFromHash = (url: string): unknown[] => {
   }
   return JSON.parse(decodeURIComponent(hash)).cols
 }
+
+const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
+  { name: 'local', x: cssWidth - 120, y: 24 },
+  { name: 'gpu', x: cssWidth - 64, y: 24 },
+]
+
+const RUN_GPU_BUTTON_POINT: Point = { x: 147, y: 18 }
+
+test('execution mode toggle switches visually without recomputing state', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const points = execModeProbePoints(cssWidth)
+
+  const expectLocal = async () => {
+    await expect
+      .poll(async () => {
+        const pixels = await sampleCanvasPixels(page, canvas, points)
+        return pixelRgbDistance(pixels.local, EXEC_MODE_LOCAL_FILL)
+      })
+      .toBeLessThan(36)
+  }
+  const expectGpu = async () => {
+    await expect
+      .poll(async () => {
+        const pixels = await sampleCanvasPixels(page, canvas, points)
+        return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
+      })
+      .toBeLessThan(36)
+  }
+
+  const initialState = await readStateVector(page)
+  await expectLocal()
+
+  await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
+  await expectGpu()
+  expect(await readStateVector(page)).toEqual(initialState)
+
+  await page.mouse.click((box?.x ?? 0) + points[0].x, (box?.y ?? 0) + points[0].y)
+  await expectLocal()
+  expect(await readStateVector(page)).toEqual(initialState)
+
+  await page.mouse.click((box?.x ?? 0) + cssWidth / 2, (box?.y ?? 0) + 300)
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('ArrowRight')
+  await expectGpu()
+  await page.keyboard.press('ArrowLeft')
+  await expectLocal()
+  await page.keyboard.press('Enter')
+  await expectGpu()
+  await page.keyboard.press('Space')
+  await expectLocal()
+  expect(await readStateVector(page)).toEqual(initialState)
+})
+
+test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const points = execModeProbePoints(cssWidth)
+  const initialState = await readStateVector(page)
+
+  await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
+  await expect
+    .poll(async () => {
+      const pixels = await sampleCanvasPixels(page, canvas, points)
+      return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
+    })
+    .toBeLessThan(36)
+
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '0': 512, '1': 512 },
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 12
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 6.5 * REM
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
+  await dragPointer(page, hSource, { x: targetX, y: LINE_Y })
+
+  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['H']])
+  expect(await readStateVector(page)).toEqual(initialState)
+
+  await page.mouse.click((box?.x ?? 0) + RUN_GPU_BUTTON_POINT.x, (box?.y ?? 0) + RUN_GPU_BUTTON_POINT.y)
+  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, Math.SQRT1_2, 0])
+
+  await expect.poll(async () => page.evaluate(() => (window as any).__qniLastQiskitResult?.status))
+    .toBe('completed')
+})
+
+test('Local mode refuses a 17th qubit drop', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 1200 })
+  const col0: Array<string | number> = Array(16).fill(1)
+  col0[15] = 'X'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const source = getPaletteGateCenter(cssWidth, 0)
+  await dragPointer(page, source, { x: 180, y: 976 }, 8, true)
+  await page.waitForTimeout(100)
+
+  const cols = readCircuitColsFromHash(page.url()) as unknown[][]
+  expect(cols.every((col) => col.length <= 16)).toBe(true)
+  expect(await readStateVector(page)).toHaveLength(131072)
+})
+
+test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 1200 })
+  const col0: Array<string | number> = Array(16).fill(1)
+  col0[15] = 'X'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const points = execModeProbePoints(cssWidth)
+
+  await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
+  await expect
+    .poll(async () => {
+      const pixels = await sampleCanvasPixels(page, canvas, points)
+      return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
+    })
+    .toBeLessThan(36)
+
+  const source = getPaletteGateCenter(cssWidth, 0)
+  await dragPointer(page, source, { x: 180, y: 976 }, 8, true)
+  await page.waitForTimeout(100)
+
+  const cols = readCircuitColsFromHash(page.url()) as unknown[][]
+  expect(cols.some((col) => col.length === 17)).toBe(true)
+})
+
+test('17-qubit GPU circuit keeps Local mode unavailable', async ({ page }) => {
+  const col0: Array<string | number> = Array(17).fill(1)
+  col0[16] = 'X'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await expect(canvas).toBeVisible()
+  const box = await canvas.boundingBox()
+  expect(box).not.toBeNull()
+  const cssWidth = box?.width ?? 1000
+  const points = execModeProbePoints(cssWidth)
+  const expectGpu = async () => {
+    await expect
+      .poll(async () => {
+        const pixels = await sampleCanvasPixels(page, canvas, points)
+        return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
+      })
+      .toBeLessThan(36)
+  }
+
+  await expectGpu()
+  const cols = readCircuitColsFromHash(page.url()) as unknown[][]
+  expect(cols[0]).toHaveLength(17)
+
+  await page.mouse.click((box?.x ?? 0) + points[0].x, (box?.y ?? 0) + points[0].y)
+  await expectGpu()
+
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('ArrowLeft')
+  await expectGpu()
+})
 
 test('state panel hover does not drive circuit step preview', async ({ page }) => {
   const col0: Array<string | number> = Array(8).fill(1)

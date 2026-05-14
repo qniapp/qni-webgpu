@@ -101,14 +101,19 @@ pub(super) fn draw_gate_icon(
             } else {
                 ("1", colors.semantic_on)
             };
-            // Keep the ket digit in the same Geist Bold 700 family as the
-            // gate labels. Size stays below the large single-letter gates so
-            // the digit sits cleanly between the bracket strokes.
+            // Ket digit follows the solo letters' Geist Regular 400 so
+            // the visual stroke matches H / Y / Z / S / T sitting next
+            // to it in the palette. Size stays below the large
+            // single-letter gates so the digit sits cleanly between
+            // the bracket strokes.
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 digit,
-                egui::FontId::new(rect.width() * 0.56, crate::app::GATE_LABEL_FAMILY.clone()),
+                egui::FontId::new(
+                    rect.width() * 0.56,
+                    crate::app::GATE_LABEL_LIGHT_FAMILY.clone(),
+                ),
                 digit_color,
             );
             true
@@ -177,11 +182,11 @@ fn is_dagger_variant(kind: GateKind) -> bool {
 }
 
 /// Pixel font size for the base label, derived from the gate-body
-/// width. Ratios picked on the gate-label mockup (Geist Bold 700);
-/// stays consistent across the 32 px palette and any future scale.
-/// Sizes were validated visually at 32 px against Geist's metrics —
-/// going much above these starts clipping the round-cap descender on
-/// `Q` and the radical on `√X`.
+/// width. Ratios picked on the gate-label mockup; stays consistent
+/// across the 32 px palette and any future scale. Sizes were
+/// validated visually at 32 px against Geist's metrics — going much
+/// above these starts clipping the round-cap descender on `Q` and the
+/// radical on `√X`.
 fn base_label_font_px(label: &str, body_px: f32) -> f32 {
     let ratio = if label == "√X" {
         // √X needs extra headroom — the radical extends above the X
@@ -191,11 +196,31 @@ fn base_label_font_px(label: &str, body_px: f32) -> f32 {
         0.62
     } else {
         // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
-        // two-glyph width inside the body. Geist Bold is wide enough
-        // that going higher pushes "QFT" past the rounded body edge.
+        // two-glyph width inside the body. Bold is wide enough that
+        // going higher pushes "QFT" past the rounded body edge.
         0.40
     };
     body_px * ratio
+}
+
+/// Which Geist weight a given gate label is rendered in.
+///
+/// The size differential between solo (≈ 19.8 px) and multi-char
+/// (≈ 12.8 px) labels makes the same physical Bold 700 weight look
+/// noticeably *thinner* on the multi side. We compensate by routing
+/// the bigger solo glyphs (H / Y / Z / S / T / √X) to **Geist Regular
+/// 400** so their absolute stroke width lands close to Bold-at-12.8 px.
+/// `+` gets **Medium 500** — two orthogonal strokes read as lighter
+/// than letter forms at the same weight. The multi-char labels stay
+/// on **Bold 700**, which is the bedrock the others are matching.
+fn base_label_family(label: &str) -> egui::FontFamily {
+    if label == "+" {
+        crate::app::GATE_LABEL_PLUS_FAMILY.clone()
+    } else if label == "√X" || label.chars().count() == 1 {
+        crate::app::GATE_LABEL_LIGHT_FAMILY.clone()
+    } else {
+        crate::app::GATE_LABEL_FAMILY.clone()
+    }
 }
 
 fn draw_text_label(
@@ -206,22 +231,19 @@ fn draw_text_label(
     color: egui::Color32,
 ) {
     let body_px = rect.width();
-    let font = egui::FontId::new(
-        base_label_font_px(label, body_px),
-        crate::app::GATE_LABEL_FAMILY.clone(),
-    );
+    let family = base_label_family(label);
+    let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
     // `√X` is rendered as two galleys: a smaller `√` prefix (matches
     // the mathematical convention — radical scales with the radicand,
     // not bigger than it) and an `X` at the full single-letter size.
     // The radical glyph is lifted so its bottom lands on the X's
-    // baseline, hiding Geist Bold's `√` descender that would
-    // otherwise drop a hair below X if both shared one layout line.
+    // baseline, hiding Geist's `√` descender that would otherwise
+    // drop a hair below X if both shared one layout line.
     if label == "√X" {
         let x_font_px = base_label_font_px("X", body_px);
         let radical_font_px = x_font_px * 0.85;
-        let x_font = egui::FontId::new(x_font_px, crate::app::GATE_LABEL_FAMILY.clone());
-        let radical_font =
-            egui::FontId::new(radical_font_px, crate::app::GATE_LABEL_FAMILY.clone());
+        let x_font = egui::FontId::new(x_font_px, family.clone());
+        let radical_font = egui::FontId::new(radical_font_px, family.clone());
         let radical = painter.layout_no_wrap("√".to_owned(), radical_font, color);
         let x_g = painter.layout_no_wrap("X".to_owned(), x_font, color);
         let radical_w = radical.size().x;
@@ -257,8 +279,10 @@ fn draw_text_label(
         // dead-centre. Size ≈ 0.32× body. Insets are pulled inward
         // (0.17× / 0.22× instead of 0.13× / 0.18× from the mockup) so
         // the 10 px-tall glyph clears the cyan body's 6 px corner
-        // radius and no longer clips the rounded top-right edge.
-        let dag_font = egui::FontId::new(body_px * 0.32, crate::app::GATE_LABEL_FAMILY.clone());
+        // radius and no longer clips the rounded top-right edge. The
+        // dagger follows the base label's weight so S† / T† go light
+        // alongside their solo letter, while QFT† stays on Bold.
+        let dag_font = egui::FontId::new(body_px * 0.32, family.clone());
         let inset_x = body_px * 0.17;
         let inset_y = body_px * 0.22;
         painter.text(

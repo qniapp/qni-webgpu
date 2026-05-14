@@ -13,8 +13,16 @@ declare global {
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
+    __qniExecModeFocusRequested?: boolean
+    __qniQiskitBackendUrl?: string
+    __qniLastQiskitRequest?: unknown
+    __qniLastQiskitResult?: unknown
+    __qniRunQiskitBackend?: (payloadJson: string) => Promise<unknown>
+    __setExternalGpuStatus?: (json: string | unknown) => void
   }
 }
+
+type QniBackendError = Error & { qniHttpStatus?: number }
 
 const wasmModulePath = '/qni-egui-web.js'
 const loadQniEguiWeb = async (): Promise<QniEguiWebModule> =>
@@ -92,6 +100,40 @@ const run = async (): Promise<void> => {
         return []
       }
     }
+    const canvas = document.getElementById('egui-canvas') as HTMLCanvasElement | null
+    if (canvas) {
+      canvas.tabIndex = 0
+    }
+    window.__qniExecModeFocusRequested = false
+    window.__qniRunQiskitBackend = async (payloadJson: string): Promise<unknown> => {
+      const payload = JSON.parse(payloadJson) as unknown
+      window.__qniLastQiskitRequest = payload
+      window.__qniLastQiskitResult = undefined
+      const response = await fetch(window.__qniQiskitBackendUrl ?? 'http://127.0.0.1:4184/run', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await response.json().catch((): unknown => undefined)
+      if (!response.ok) {
+        const detail = typeof body === 'object' && body !== null && 'message' in body
+          ? String((body as { message?: unknown }).message)
+          : `HTTP ${response.status}`
+        const error: QniBackendError = new Error(detail)
+        error.qniHttpStatus = response.status
+        throw error
+      }
+      window.__qniLastQiskitResult = body
+      return body
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab' || event.shiftKey || event.defaultPrevented) {
+        return
+      }
+      window.__qniExecModeFocusRequested = true
+      canvas?.focus()
+      event.preventDefault()
+    }, { capture: true })
     const promise = start('egui-canvas')
     window.__eguiReady = true
     promise

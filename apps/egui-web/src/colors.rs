@@ -69,6 +69,15 @@ pub(crate) struct Colors {
     pub(crate) fps_total: egui::Color32,
     pub(crate) fps_cpu: egui::Color32,
     pub(crate) fps_svp: egui::Color32,
+    pub(crate) toolbar_hover_bg: egui::Color32,
+    pub(crate) toolbar_icon: egui::Color32,
+    pub(crate) toolbar_icon_hover: egui::Color32,
+    pub(crate) toolbar_icon_disabled: egui::Color32,
+    pub(crate) toolbar_shadow: egui::Color32,
+    pub(crate) gpu_status_running: egui::Color32,
+    pub(crate) gpu_status_completed: egui::Color32,
+    pub(crate) gpu_status_failed: egui::Color32,
+    pub(crate) gpu_status_separator: egui::Color32,
 }
 
 pub(crate) struct Theme {
@@ -198,5 +207,14 @@ fn flexoki_light() -> Colors {
         fps_total: purple_400,
         fps_cpu: blue_300,
         fps_svp: cyan_400,
+        toolbar_hover_bg: ui,               // Flexoki ui #E6E4D9
+        toolbar_icon: tx_2,                 // Flexoki tx-2 #6F6E69
+        toolbar_icon_hover: tx,             // Flexoki tx #100F0F
+        toolbar_icon_disabled: tx_3,        // Flexoki tx-3 #B7B5AC
+        toolbar_shadow: with_alpha(tx, 15), // Flexoki tx alpha for shadow-card
+        gpu_status_running: blue_600,       // Flexoki blue-600 #205EA6
+        gpu_status_completed: green_600,    // Flexoki green-600 #66800B
+        gpu_status_failed: red_600,         // Flexoki red-600 #AF3029
+        gpu_status_separator: tx_3,         // Flexoki tx-3 #B7B5AC
     }
 }

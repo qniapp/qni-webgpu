@@ -1157,8 +1157,8 @@
       量子ビット数による<strong>自動切替はしない</strong>。
       ユーザーが <strong>Local</strong> と <strong>GPU</strong> を明示的に選ぶ。
       現在どちらにいるかは<strong>常に上部ツールバーで見える</strong>。
-      17量子ビット以上でも Local のままにすれば 16 ビット超は計算不能としてエラーを出し、
-      GPU を選んだときだけ外部実行に切り替わる。配置は A 案 (上部ツールバー) に確定済みで、
+      Local では 17 量子ビット目を追加できない。GPU で 17 量子ビット以上の回路を開いている間は、
+      Local に戻れない。配置は A 案 (上部ツールバー) に確定済みで、
       本書では <strong>ツールバー内の組み方</strong>を 4 案で詳細化し、A-3 を採用する。
     </p>
     <p class="page-lede">
@@ -1732,17 +1732,17 @@
     </div>
   </section>
 
-  <!-- ───────────────── 4. 17+ qubit in Local mode: error ───────────────── -->
+  <!-- ───────────────── 4. 17+ qubit in GPU mode: Local disabled ───────────────── -->
   <section class="block">
-    <h2><span class="num">§ 06</span> 17量子ビット以上で Local を選んだとき</h2>
+    <h2><span class="num">§ 06</span> 17量子ビット以上の GPU 回路</h2>
     <p class="note">
-      自動切替はしない。代わりに、Local では計算できないことを明示し、GPU への切替を促す。
-      <strong>勝手にモードを変更しない</strong> — 操作はあくまでユーザーに残す。
+      Local では 17 量子ビット目を追加できない。すでに GPU で 17 量子ビット以上なら、
+      Local 側を disabled にして戻れない理由を示す。
     </p>
 
     <div class="app-frame">
       <div class="scene-label">
-        <span>egui-web · 28 量子ビット · Local 選択中 (計算不可)</span>
+        <span>egui-web · 28 量子ビット · GPU 選択中 (Local 不可)</span>
         <span class="url">localhost:4174/#{…}</span>
       </div>
       <div class="app-body">
@@ -1751,12 +1751,12 @@
           <span class="tb-sep"></span>
           <span class="tb-status">
             <span class="status-dot fail"></span>
-            <span>Local · 16 量子ビット超 · 計算できません</span>
+            <span>GPU · 28 量子ビット · Local は 16 量子ビットまで</span>
           </span>
           <span class="spacer"></span>
           <span class="seg">
-            <span class="opt active local">Local</span>
-            <span class="opt">GPU</span>
+            <span class="opt" style="opacity:.45;">Local</span>
+            <span class="opt active gpu">GPU</span>
           </span>
         </div>
 
@@ -1780,20 +1780,20 @@
           </div>
         </div>
 
-        <!-- Inline warning inside the state-vector area -->
+        <!-- Inline note inside the result area -->
         <div class="gpu-banner state-fail" style="margin-top:20px;">
           <div class="left">
             <div class="badges">
-              <span class="pill">Local モード</span>
-              <span class="pill status">⚠ 計算できません</span>
+              <span class="pill">GPU モード</span>
+              <span class="pill status">Local 不可</span>
             </div>
             <div class="message">
               Local モードは <strong>16 量子ビットまで</strong>。現在 28 量子ビット。
-              GPU モードに切り替えると外部 GPU で実行できる。
+              量子ビットを 16 以下に減らすまで Local には戻れない。
             </div>
           </div>
           <div class="buttons">
-            <span class="btn primary"><span class="icon">▶</span>GPU に切替</span>
+            <span class="btn primary"><span class="icon">▶</span>GPUで実行</span>
           </div>
         </div>
 
@@ -1924,7 +1924,7 @@
       <div class="card">
         <div class="icon">— 非目標 1</div>
         <h3>量子ビット数による自動切替</h3>
-        <p>17 量子ビットになった瞬間に勝手に GPU へ切り替えない。Local のままにすれば「計算できない」エラーを出す。モード変更は<strong>常にユーザーが選ぶ</strong>。</p>
+        <p>17 量子ビットになった瞬間に勝手に GPU へ切り替えない。Local では 17 量子ビット目を追加できず、GPU で 17 量子ビット以上なら Local へ戻れない。モード変更は<strong>常にユーザーが選ぶ</strong>。</p>
       </div>
       <div class="card">
         <div class="icon">— 非目標 2</div>

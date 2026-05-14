@@ -207,6 +207,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
 - ローカル手動確認は通常の Chrome で行う。`./scripts/open-egui-web.sh` も WebGPU 用の特別な起動フラグは付けない。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。
+- GPU モードの toolbar は `docs/gpu-run-status-mock.html` に従い、左から edit utilities、▷ Run、status pill、Local/GPU toggle を並べる。Run は `window.__qniRunQiskitBackend()` 経由で `http://127.0.0.1:4184/run` へ histogram-only payload を送る。16量子ビット以下では、成功後に状態ベクトル panel を明示的に1回だけローカル WebGPU で再描画する。backend から全状態ベクトル / 全確率分布は受け取らない。17量子ビット以上の結果 panel 差し替えは後続作業。
 - `window.__eguiReadStateVector()` は非同期（Promise）で、Playwright は await して検証する。
 - The Playwright test drags the H gate onto q0, waits for `window.__eguiReadStateVector()` to match the expected amplitudes, and checks that the canvas contains non-background pixels.
 - The Playwright run writes screenshots to `/tmp/qni-egui-webgpu-initial.png` and `/tmp/qni-egui-webgpu-after.png`.

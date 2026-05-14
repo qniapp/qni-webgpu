@@ -44,9 +44,11 @@ impl DragController {
                 next_column = snap.column();
             }
         }
+        let capacity = app.exec_mode.qubit_capacity();
         let gate = &mut app.placed_gates[index];
         gate.pos = next_pos;
         gate.wire = next_wire;
         gate.column = next_column;
+        gate.clamp_span_to_qubit_capacity(capacity);
     }
 }

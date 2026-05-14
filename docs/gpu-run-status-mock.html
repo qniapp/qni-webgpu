@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPU Run Status — toolbar UI モック</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* Flexoki Light — locked to kepano/flexoki named tones.
+       Tailwind default scale for typography / spacing. */
+    :root {
+      color-scheme: light;
+      --font-body: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+      --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:      #FFFCF0; /* bg     — paper */
+      --bg-2:    #F2F0E5; /* bg-2   — page canvas */
+      --ui:      #E6E4D9; /* ui     — chip background */
+      --ui-2:    #DAD8CE; /* ui-2   — hairline rules */
+      --tx-3:    #B7B5AC; /* tx-3   — meta */
+      --tx-2:    #6F6E69; /* tx-2   — secondary */
+      --tx:      #100F0F; /* tx     — body */
+      --red:     #AF3029; /* red-600    — failure */
+      --green:   #66800B; /* green-600  — success */
+      --blue:    #205EA6; /* blue-600   — primary / running accent */
+      --blue-100: #C6DDE8;/* blue-100   — running button bg / hover */
+      --red-100:  #FFE1D5;/* red-100    — (unused — kept for future reference) */
+      --green-100:#E2EBA7;/* green-100  — (unused — kept for future reference) */
+
+      --shadow-card: 0 8px 24px rgba(16, 15, 15, 0.06);
+      --shadow-panel: 0 16px 40px rgba(16, 15, 15, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--tx);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 24px;
+      background: var(--bg-2);
+      padding: 0 0 96px;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+    }
+    h1.page-title { margin: 12px 0 8px; font-size: 32px; line-height: 40px; letter-spacing: -0.01em; font-weight: 700; }
+    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
+    p.page-lede code, .note code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+
+    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+    section.block > h2 {
+      margin: 0 0 8px; font-size: 24px; line-height: 32px;
+      letter-spacing: -0.01em;
+      display: flex; align-items: baseline; gap: 12px;
+    }
+    section.block > h2 .num {
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.2em; color: var(--tx-3); font-weight: 500;
+    }
+    section.block > p.note { margin: 0 0 20px; color: var(--tx-2); max-width: 760px; }
+
+    /* ───── App frame + toolbar (matches large-gpu-mode-ui-mock.html) ───── */
+    .app-frame {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .app-frame .scene-label {
+      background: var(--bg);
+      border-bottom: 1px solid var(--ui-2);
+      padding: 10px 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+    }
+    .app-body { padding: 20px 24px 14px; background: var(--bg-2); }
+
+    /* Toolbar is a full-width header strip pinned to the top of the
+       window — the panel butts up against the top / left / right
+       edges of the viewport. All 4 corners are square (rounded
+       bottom corners would create a "tab" look that conflicts with
+       the edge-to-edge width). Shadow only drops below the bottom
+       edge so the toolbar reads as a paper strip floating just above
+       the canvas. paper bg + shadow language matches the gate
+       palette below it — same z-index tier. */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;            /* gap-2 */
+      padding: 6px 12px;   /* py-1.5 px-3 — extra y so shadow has room */
+      background: var(--bg);
+      border: none;
+      border-radius: 0;
+      box-shadow: var(--shadow-card);
+      min-height: 32px;    /* h-8 */
+    }
+    .toolbar .spacer { flex: 1; }
+
+    /* ───── Status pill — dot + text + meta separator ─────
+       Always 1 line. tx-3 separator (` · `) splits "fact" from "detail". */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;                  /* gap-2 */
+      padding: 4px 8px;          /* px-2 py-1 */
+      border-radius: 6px;        /* rounded-md */
+      font-size: 14px;           /* text-sm */
+      line-height: 20px;
+      font-family: var(--font-body);
+    }
+    .pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .pill .sep { color: var(--tx-3); padding: 0 1px; }
+    .pill code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    .pill.is-running { background: transparent; color: var(--blue); }
+    .pill.is-running .dot { background: var(--blue); animation: pulse 1.2s ease-in-out infinite; }
+
+    .pill.is-completed { background: transparent; color: var(--green); }
+    .pill.is-completed .dot { background: var(--green); }
+
+    .pill.is-failed { background: transparent; color: var(--red); }
+    .pill.is-failed .dot { background: var(--red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.35; }
+    }
+
+    /* ───── Run button — borderless icon button matching .tool. ▷
+       outline for every state; running just dims the icon to tx-3.
+       State info lives entirely in the pill (its pulsing blue dot
+       is the only motion); the button is stateless except for the
+       greyed-out colour + cursor: not-allowed when running. */
+    .run {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 28px;
+      height: 24px;
+      padding: 0;
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 20px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+      white-space: nowrap;
+    }
+    /* Variant A demo only — text-led buttons want enough room for
+       "Run on GPU". Applied to the §03 variant-A card buttons. Width
+       grows back to the natural label width and a hairline border
+       reappears so the text button still reads as "button". */
+    .run.has-label {
+      width: auto;
+      min-width: 102px;
+      padding: 4px 12px;
+      border: 1px solid var(--ui-2);
+    }
+    /* Idle / Completed / Failed all share the same calm grey icon.
+       The button reads as a toolbar utility — pill carries every bit
+       of state. */
+    .run.is-idle,
+    .run.is-completed,
+    .run.is-failed { color: var(--tx-2); }
+    .run.is-idle:hover,
+    .run.is-completed:hover,
+    .run.is-failed:hover {
+      background: var(--ui);
+      color: var(--tx);
+    }
+    /* Play glyph matches the other Lucide icons' 14×14 box / 2 px
+       stroke. Outline (not filled) so it sits in the same line-art
+       family as undo / redo / trash. */
+    .run .play { width: 14px; height: 14px; }
+    /* Running — same ▷ icon, dimmed to tx-3 (disabled grey).
+       The pill's pulsing blue dot is the only motion in the toolbar;
+       a second spinner inside the button would compete for attention
+       and falsely suggest the button is interactive. */
+    .run.is-running { color: var(--tx-3); cursor: not-allowed; }
+
+    /* Edit-toolbar buttons (undo / redo / trash) — borderless icon
+       buttons, transparent at rest. Hover reveals a soft ui bg as
+       the only affordance feedback. Same line-icon weight as the
+       Run button so undo/redo/trash and the play icon all read as
+       the same Lucide 24×24 / 2 px-stroke family. */
+    .tool {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 24px;
+      padding: 0;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--tx-2);
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .tool:hover { background: var(--ui); color: var(--tx); }
+    .tool svg { display: block; width: 14px; height: 14px; }
+    .tool[disabled] { color: var(--tx-3); cursor: not-allowed; background: transparent; }
+    .tool[disabled]:hover { background: transparent; color: var(--tx-3); }
+
+    /* 1 px hairline divider between edit-history tools and the execute
+       cluster. Same colour as the button borders so it reads as a quiet
+       intent break, not a decoration. */
+    .tool-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--ui-2);
+      margin: 0 2px;
+    }
+
+    /* Local | GPU segmented (copied from large-gpu mock for layout fidelity) */
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      background: var(--bg);
+      padding: 2px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .seg .opt {
+      padding: 4px 12px;
+      border-radius: 6px;
+      color: var(--tx-2);
+      letter-spacing: 0.04em;
+    }
+    .seg .opt.active { color: var(--bg); background: var(--blue); font-weight: 600; }
+
+    /* ───── State gallery — every toolbar variant in one column ───── */
+    .gallery .row { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: center; margin-bottom: 18px; }
+    .gallery .row .label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx-3);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .gallery .row .label b { color: var(--tx-2); font-weight: 600; }
+
+    /* ───── Variant comparison cards (§03 — text vs icon) ───── */
+    .variant-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+    }
+    .variant-card .variant-head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .variant-card .variant-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+    }
+    .variant-card .variant-ttl { font-size: 14px; font-weight: 600; color: var(--tx); }
+    .variant-card .variant-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 8px 0 18px;
+      border-bottom: 1px solid var(--ui-2);
+      margin-bottom: 16px;
+    }
+    .variant-card .variant-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr 1.4fr;
+      gap: 24px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--tx-2);
+    }
+    .variant-card .variant-grid h4 {
+      margin: 0 0 6px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+      font-family: var(--font-mono);
+    }
+    .variant-card .variant-grid p { margin: 0; }
+    .variant-card .variant-grid ul { margin: 0; padding-left: 16px; }
+    .variant-card .variant-grid code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 0 5px; border-radius: 4px;
+    }
+
+    /* ───── Anatomy callout ───── */
+    .anatomy {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 28px 32px;
+    }
+    .anatomy .target { transform: scale(2); transform-origin: left center; margin: 28px 0 60px 12px; display: inline-block; }
+    .anatomy table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    .anatomy th, .anatomy td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--ui-2); }
+    .anatomy th { color: var(--tx-3); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+    .anatomy td code { font-family: var(--font-mono); font-size: 12px; background: var(--ui); padding: 1px 6px; border-radius: 4px; }
+
+    /* ───── Impl spec card ───── */
+    .impl-spec {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 24px 28px;
+    }
+    .impl-spec h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .impl-spec ol { margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec ol code { font-family: var(--font-mono); font-size: 13px; background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx); }
+    .impl-spec .avoid { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--ui-2); }
+    .impl-spec .avoid h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--red); font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+    .impl-spec .avoid ul { margin: 0; padding-left: 18px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec .avoid del { color: var(--red); text-decoration: line-through; }
+
+    /* ───── Interactive prototype ───── */
+    .proto {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 22px 28px;
+    }
+    .proto .scene {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+      margin-bottom: 14px;
+    }
+    .proto .ctrl-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .proto .ctrl-row button {
+      font-family: var(--font-mono); font-size: 12px;
+      padding: 4px 10px; border-radius: 6px;
+      background: var(--bg); color: var(--tx-2);
+      border: 1px solid var(--ui-2); cursor: pointer;
+    }
+    .proto .ctrl-row button:hover { background: var(--ui); color: var(--tx); }
+    .proto .ctrl-row .hint { color: var(--tx-3); font-family: var(--font-mono); font-size: 12px; align-self: center; }
+
+    .doc-foot {
+      max-width: 1100px;
+      margin: 24px auto 0;
+      padding: 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--tx-3);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
+    .doc-foot a:hover { color: var(--blue); border-color: var(--blue); }
+  </style>
+</head>
+<body>
+
+<!-- Icon defs reused by all toolbar instances.
+     Lucide-style 24×24 line icons rendered at 14×14 in the buttons. -->
+<svg style="position:absolute; width:0; height:0" aria-hidden="true">
+  <defs>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 14L4 9l5-5"/>
+      <path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
+    </symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 14l5-5-5-5"/>
+      <path d="M20 9H9a5 5 0 0 0 0 10h1"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="6 4 20 12 6 20"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · ui mock</p>
+  <h1 class="page-title">Run GPU button & status pill</h1>
+  <p class="page-lede">
+    GPU モードで <code>Run on GPU</code> を押した直後・実行中・完了・失敗の
+    4 状態を toolbar 内に収める提案。失敗時は理由 (backend offline /
+    unsupported gate / HTTP error) を pill の右側に <code> · </code>
+    区切りで足す。CPU fallback を匂わせる文言や generic な
+    <code>Loading…</code> は使わない。
+  </p>
+</div>
+
+<!-- ───────────────── 1. State gallery ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> 6 状態 — toolbar 一直線で</h2>
+  <p class="note">
+    全状態を縦に並べる。toolbar は <strong>paper bg + shadow (下方向のみ)</strong> の
+    フルワイド header strip。ウィンドウの top / left / right 3 辺すべてに密着するので
+    <strong>4 角すべて square</strong> (角丸を入れるとフチが切れて「タブ」っぽくなる)。
+    下に <strong>spacing-6 (24 px)</strong> 空けてゲートパレットを置き、shadow が
+    呼吸できる距離を確保する。レイアウトは
+    <strong><code>[↶ undo] [↷ redo] [🗑 trash] | [▶ run] [status pill] … [spacer] … [Local | GPU]</code></strong>
+    の 3 ゾーン構成:<br>
+    ・<strong>edit cluster (左)</strong>: undo / redo / trash — 回路編集の utilities。Local / GPU 両モードで常時表示。<br>
+    ・<strong>execute cluster (中)</strong>: run + status pill。Run はアイコンのみ ▷、edit と同じ neutral gray ボタンで揃え、1 px hairline divider で intent group の境を見せる。<br>
+    ・<strong>mode (右)</strong>: <code>Local | GPU</code> セグメント。<br>
+    button は <strong>常に ▷ アイコン</strong> 固定 (running 時は tx-3 に dim するだけで形は変わらない)。位置・幅も不変。
+    動的アクセントは pill の脈動ドット 1 点に集約。
+    Local モード時は execute cluster (run + pill) が消え、edit + spacer + toggle だけになる。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · 上部 toolbar · GPU モード</div>
+    <div class="app-body gallery">
+
+      <div class="row">
+        <span class="label"><b>idle</b> · 未実行</span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-idle" aria-label="Run on GPU">
+            <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label"><b>running</b></span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-running" aria-label="Running on GPU"><svg class="play" aria-hidden="true"><use href="#i-play"/></svg></button>
+          <span class="pill is-running"><span class="dot"></span>Running on GPU…</span>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label"><b>completed</b></span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-completed" aria-label="Run on GPU">
+            <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <span class="pill is-completed"><span class="dot"></span>Completed<span class="sep">·</span><code>1.4 s</code></span>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label"><b>failed</b> · backend offline</span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-failed" aria-label="Run on GPU">
+            <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <span class="pill is-failed"><span class="dot"></span>Backend unreachable<span class="sep">·</span><code>localhost:8081</code></span>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label"><b>failed</b> · unsupported gate</span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-failed" aria-label="Run on GPU">
+            <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <span class="pill is-failed"><span class="dot"></span>Unsupported gate<span class="sep">·</span><code>Spacer</code></span>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label"><b>failed</b> · HTTP error</span>
+        <div class="toolbar">
+          <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+          <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+          <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+          <span class="tool-divider"></span>
+          <button class="run is-failed" aria-label="Run on GPU">
+            <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <span class="pill is-failed"><span class="dot"></span>Backend error<span class="sep">·</span><code>HTTP 502</code></span>
+          <span class="spacer"></span>
+          <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Pill anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> Status pill の解剖</h2>
+  <p class="note">
+    pill は常に <code>[● dot] [事実テキスト] [<span style="color:var(--tx-3)">·</span>] [補足]</code> の 1 行。
+    <code>·</code> セパレータは <code>tx-3</code>。補足は <code>code</code> 等幅で
+    値らしさを出す。詳細な stacktrace / JSON は pill に出さず <code>tracing</code> 経由でログへ。
+  </p>
+
+  <div class="anatomy">
+    <span class="pill is-failed target"><span class="dot"></span>Backend unreachable<span class="sep">·</span><code>localhost:8081</code></span>
+
+    <table>
+      <thead><tr><th>part</th><th>役割</th><th>token</th></tr></thead>
+      <tbody>
+        <tr><td>dot (6 px ●)</td><td>状態色のハイライト。running 時のみ脈動。</td><td><code>red-600</code> / <code>blue-600</code> / <code>green-600</code></td></tr>
+        <tr><td>事実テキスト</td><td><code>text-sm</code> 14 px、状態色と同色。1 〜 3 語で固定。</td><td><code>red-600</code> / 状態色</td></tr>
+        <tr><td>セパレータ</td><td>事実と補足を分ける。詰めすぎず広げすぎず。</td><td><code>tx-3</code></td></tr>
+        <tr><td>補足 (code)</td><td>URL / gate 名 / HTTP code など、生の値。等幅。</td><td><code>tx</code> (実装では状態色継承)</td></tr>
+        <tr><td>pill 背景</td><td>全状態で透明。塗り分けると装飾過多になるので dot + text に色情報を集約。</td><td>transparent</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 3. Run button states ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> Run button — 文字 vs アイコンの 2 案</h2>
+  <p class="note">
+    押下後に起こる動作は <strong>どの状態でも同じ「現回路を GPU で実行する」</strong>
+    なので、ラベルは <code>Run on GPU</code> で統一し、見た目も全状態で
+    <strong>同じ neutral グレー</strong> に揃える (押せるアクションは何度押しても同じ)。
+    唯一の差は running ─ <code>tx-3</code> に dim して <code>cursor: not-allowed</code>。
+    動的アクセントは pill の脈動ドット 1 点に集約。<br>
+    その上で <strong>button のラベルを文字にするかアイコンにするか</strong> を比較する:
+    <strong>A · text-led</strong> (常に <code>Run on GPU</code> と書く) と
+    <strong>B · icon-led</strong> (常に ▷ — pill が文字を全部担当)。
+  </p>
+
+  <div class="variant-card">
+    <div class="variant-head">
+      <span class="variant-tag">A · text-led</span>
+      <span class="variant-ttl">状態ごとに最も意味の濃い文字を出す</span>
+    </div>
+    <div class="variant-row">
+      <button class="run is-idle has-label">Run on GPU</button>
+      <button class="run is-running has-label" aria-label="Running on GPU"><svg class="play" aria-hidden="true"><use href="#i-play"/></svg></button>
+      <button class="run is-completed has-label">Run on GPU</button>
+      <button class="run is-failed has-label">Run on GPU</button>
+    </div>
+    <div class="variant-grid">
+      <div>
+        <h4>規則</h4>
+        <p>全状態で <code>Run on GPU</code> をベタ書き。色は全状態 neutral グレー。Running は <code>tx-3</code> に dim して disabled を伝える (テキスト内容は変えない)。状態の語りは pill 側が完全担当。</p>
+      </div>
+      <div>
+        <h4>長所</h4>
+        <ul>
+          <li>初見で何が起きるか button だけで読める (`Run on GPU` で動詞 + 対象が完結)</li>
+          <li>screen reader は visible caption をそのまま読むので a11y 実装がシンプル</li>
+          <li>右隣の <code>Local | GPU</code> セグメント (文字) と視覚リズムが揃う</li>
+        </ul>
+      </div>
+      <div>
+        <h4>短所</h4>
+        <ul>
+          <li><code>on GPU</code> 部分は隣のトグルが既に語っており、厳密には冗長</li>
+          <li>同じテキストが 3 状態で並ぶので画面情報量がやや高い (pill + button が両方文字)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <div class="variant-head">
+      <span class="variant-tag">B · icon-led</span>
+      <span class="variant-ttl">context が既に語っている部分はアイコン化する</span>
+    </div>
+    <div class="variant-row">
+      <button class="run is-idle" aria-label="Run on GPU">
+        <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+      <button class="run is-running" aria-label="Running on GPU"><svg class="play" aria-hidden="true"><use href="#i-play"/></svg></button>
+      <button class="run is-completed" aria-label="Run on GPU">
+        <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+      <button class="run is-failed" aria-label="Run on GPU">
+        <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+    </div>
+    <div class="variant-grid">
+      <div>
+        <h4>規則</h4>
+        <p>全状態で ▷ (play) アイコン 1 種類のみ。idle / completed / failed は <code>tx-2</code>、running は <code>tx-3</code> に dim して disabled を表現。形は不変、色だけ落ちる。状態は pill 側でだけ語る。</p>
+      </div>
+      <div>
+        <h4>長所</h4>
+        <ul>
+          <li>button 内に文字がない分 toolbar 全体の情報密度が下がって calm</li>
+          <li>pill (文字) と button (アイコン) で役割が完全に分離 — pill = 何が起きた、button = run できる</li>
+          <li>▷ アイコン 1 種類だけが画面に出続けるので形・幅・位置の揺らぎがゼロ</li>
+          <li>▶ は Jupyter / VSCode / 一般メディアプレイヤーで universal な execute affordance</li>
+        </ul>
+      </div>
+      <div>
+        <h4>短所</h4>
+        <ul>
+          <li>初見ユーザーに「これは何のボタン？」と問われた場合、tooltip / <code>aria-label</code> がないと答えられない (実装ではどちらにせよ付ける)</li>
+          <li>右隣の <code>Local | GPU</code> セグメント (文字) と並ぶと button だけアイコンで視覚スタイルがやや浮く</li>
+          <li>failed の attention は pill だけが担うので、button が calm すぎて見落とされないか確認が要る (pill の red dot + 文言が十分なら問題ない見込み)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:18px">
+    <strong>採用: B (icon-led)</strong>。
+    押下後の動作は <code>Run on GPU</code> 一択で同じ、状態は pill 側でだけ語る、
+    という前提が固まったので button にテキストを持たせる意味が薄い。<br>
+    A は文字 + 色だけで状態を語る代替案として残してあるが、§01 ギャラリー /
+    §04 プロトタイプ / §05 impl spec は <strong>B (icon-led)</strong> で揃えている。
+    button は ▷ アイコン 1 種類で固定、running 時は <code>tx-3</code> に dim するだけ。spinner も不要なので実装側も async タイマー要らず。
+  </p>
+</section>
+
+<!-- ───────────────── 4. Interactive prototype ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> 実装プロトタイプ — クリックで遷移</h2>
+  <p class="note">
+    button をクリック → running 1.2 s → 完了 or 失敗にランダム遷移。
+    下の <code>force…</code> ボタンで特定の failure 文言に強制セットできる。
+    Codex 実装用のリファレンスとして使う。
+  </p>
+
+  <div class="proto">
+    <div class="scene">egui-web · 上部 toolbar (interactive)</div>
+    <div class="toolbar" id="proto-toolbar">
+      <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+      <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+      <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+      <span class="tool-divider"></span>
+      <button class="run is-idle" id="proto-run" aria-label="Run on GPU">
+        <svg class="play" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+      <span class="pill" id="proto-pill" style="display:none"></span>
+      <span class="spacer"></span>
+      <div class="seg"><span class="opt">Local</span><span class="opt active">GPU</span></div>
+    </div>
+    <div class="ctrl-row">
+      <span class="hint">force →</span>
+      <button data-force="offline">backend offline</button>
+      <button data-force="gate">unsupported gate</button>
+      <button data-force="http">HTTP 502</button>
+      <button data-force="reset">reset</button>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 5. Impl spec ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span> 実装仕様 (Codex 用リファレンス)</h2>
+
+  <div class="impl-spec">
+    <h3>差分は toolbar だけ。結果 panel・banner は別 PR。</h3>
+    <ol>
+      <li>
+        <strong>状態 enum</strong> ─ <code>apps/egui-web/src/app/external_gpu.rs</code> に 1 本化:<br />
+        <code>enum ExternalGpuStatus { Idle, Running, Completed { duration: Duration }, Failed(GpuFailure) }</code><br />
+        <code>enum GpuFailure { BackendOffline, UnsupportedGate(String), Http(u16), Other(&amp;'static str) }</code><br />
+        既存の <code>completed: bool</code> / <code>error: Option&lt;String&gt;</code> は廃止 (後方互換レイヤーは残さない)。
+      </li>
+      <li>
+        <strong>Runner のエラー分岐</strong> をこの 4 variant にマップ:<br />
+        ・<code>fetch error / ECONNREFUSED</code> → <code>BackendOffline</code><br />
+        ・gate validator → <code>UnsupportedGate(name)</code><br />
+        ・<code>response.status != 2xx</code> → <code>Http(code)</code><br />
+        ・それ以外 → <code>Other(short_label)</code>。詳細は <code>tracing::warn!</code> で吐く。
+      </li>
+      <li>
+        <strong>Toolbar panel container</strong> ─ <code>render/toolbar.rs</code> で
+        <code>egui::Frame</code> を:
+        <code>fill = paper (bg)</code> / <code>stroke = none</code> /
+        <code>corner_radius = CornerRadius::ZERO</code> (full-width header strip、4 角すべて square) /
+        <code>shadow = Shadow { offset: vec2(0, 4), blur: 24, spread: 0, color: tx \w/ alpha 15 }</code> /
+        <code>inner_margin = Margin::symmetric(12, 6)</code> で組む。
+        ウィンドウの top / left / right 3 辺に密着するので、stroke も角丸も入れない。shadow は下方向だけ。
+      </li>
+      <li>
+        <strong>Toolbar の下余白</strong> ─ toolbar とゲートパレットの間に
+        <code>spacing-6 (24 px)</code>。<code>ui.add_space(24.0)</code> を toolbar 描画直後に入れて、
+        toolbar の下方向 shadow が呼吸できる距離を確保する。これより詰めると panel 同士が
+        密着し、両者が同じ z-index 階層であることが読みにくくなる。
+      </li>
+      <li>
+        <strong>Toolbar の並び順</strong>:
+        <code>undo → redo → trash → divider → run_button → status_pill → spacer → exec_mode_toggle</code>。
+        edit utilities は Local / GPU 両モードで常時表示。
+        GPU モード時のみ <code>run_button + status_pill</code> を edit と spacer の間に挿す。
+        Local モード時はその位置を抜いて edit → spacer → toggle の 3 ゾーン。
+      </li>
+      <li>
+        <strong>Edit utility ボタン</strong> ─ undo / redo / trash は同じ <code>ToolButton</code> widget で描く:
+        サイズ 28×24 px、icon 14 px、bg transparent、hover で <code>ui</code> 塗り、disabled は <code>tx-3</code> + 押せない。
+        アイコンは Lucide スタイル (24 viewBox / 2 px stroke) を <code>painter.add(Shape::Path { ... })</code> で描く。
+        Lucide の polyline 座標をそのまま採用すれば良い (アセット追加なし)。
+        action handler の対応:
+        ・undo / redo は履歴スタック (まだ無ければ <code>tracing::info!("undo")</code> でスタブし、別 PR で実装)<br />
+        ・trash は <code>placed_gates.clear()</code>。
+      </li>
+      <li>
+        <strong>1 px の縦 divider</strong> ─ trash と run の間。<code>painter.line_segment([top, bottom], Stroke::new(1.0, ui_2))</code>、
+        高さ 18 px、左右の margin 2 px。
+      </li>
+      <li>
+        <strong>Run button</strong> ─ <code>ToolButton</code> と同じ寸法 (28×24 px、icon 14 px) で
+        ▷ アイコンを 1 種類だけ描く。色だけ状態で切替:
+        idle / completed / failed = <code>tx-2</code> / hover で <code>tx</code>、
+        running = <code>tx-3</code> + <code>cursor: NotAllowed</code> (hover なし)。
+        spinner は不要 — pill の脈動ドットがアクティブ感を担当する。
+        <code>response.on_hover_text("Run on GPU")</code> を全状態で付ける (egui の tooltip; running も同じテキストでよい)。
+        三角形は <code>Shape::convex_polygon</code> で 3 頂点 (例: (0, 0), (10, 5.5), (0, 11)) を stroke 描き、
+        <code>stroke: Stroke::new(2.0, color)</code> / <code>linejoin: round</code> 相当 (<code>PathShape::stroke</code> + <code>closed: true</code>)。
+      </li>
+      <li>
+        <strong>Status pill</strong> ─ 新規 <code>apps/egui-web/src/render/gpu_status_pill.rs</code>。
+        signature: <code>pub fn gpu_status_pill(ui: &amp;mut Ui, status: &amp;ExternalGpuStatus) -&gt; Option&lt;Response&gt;</code>。
+        <code>Idle</code> は <code>None</code> を返して呼び出し側で <code>ui.add</code> をスキップ。<br />
+        構造: <code>● dot (6 px circle) + label (text-sm) + (option) " · " + code (text-sm mono)</code> を
+        <code>ui.horizontal</code> 内に並べる。bg は transparent、padding <code>2 / 8 px</code>。<br />
+        色トークン:<br />
+        ・running = <code>blue</code> (dot 脈動 1.2 s)<br />
+        ・completed = <code>green</code><br />
+        ・failed = <code>red</code><br />
+        ・<code> · </code> セパレータは <code>tx-3</code>。<br />
+        本文は §02 の文言 (Backend unreachable / Unsupported gate / Backend error / Completed) を厳守。
+        詳細値 (URL / gate 名 / HTTP code / duration) は <code>RichText::new().monospace()</code> で右側に。
+      </li>
+      <li>
+        <strong>Dot 脈動 (running のみ)</strong> ─
+        <code>let opacity = ctx.animate_bool_with_time(id, ctx.frame_nr() % 2 == 0, 0.6);</code>
+        で 0.35 ↔ 1.0 を行き来。running 中だけ
+        <code>ctx.request_repaint_after(Duration::from_millis(600))</code> を予約し、他状態では tick しない。
+        最も簡単な実装は <code>ui.ctx().animate_value_with_time</code> で sin 波相当の係数を入れる方式。
+      </li>
+      <li>
+        <strong>Snapshot / interaction tests</strong> ─
+        <code>apps/egui-web/tests/egui-web-toolbar-gpu-pill.spec.ts</code> を新規。
+        test-only hook を <code>QniApp::wire_test_hooks()</code> から生やす:
+        <code>window.__setExternalGpuStatus = (json) =&gt; { app.borrow_mut().exec.status = ... }</code>。
+        Playwright で 4 状態 + 3 failure variant を直接挿し、palette 領域含めた canvas pixel を比較。
+        実 backend を落とす test は flaky になるので避ける。
+      </li>
+      <li>
+        <strong>Local モード</strong> ─ exec mode が <code>Local</code> の時:<br />
+        ・<code>run_button + status_pill</code> は描かない (空のスロット)<br />
+        ・<code>edit utilities + spacer + toggle</code> はそのまま<br />
+        Local では auto-recompute なので Run の概念が無い。状態は state-vector パネルが直接表示する。
+      </li>
+      <li>
+        <strong>exec_mode_toggle の focus 表示</strong> ─ seg の外側コンテナに egui デフォルトの青い focus
+        outline を出さない。アクティブ側の塗り (Local = tx-2 / GPU = blue-600) で「どっちが選ばれているか」
+        は既に明確で、focus ring と二重表現になる上に、クリック後も outline が残って "光る → 残る" のノイズを生む。<br />
+        実装:<br />
+        ・seg の outer 容器は <code>egui::Frame</code> のみで作り、自身が <code>Sense::click()</code> を持たない (= focusable じゃない)<br />
+        ・個別の opt (Local / GPU) は focusable のままだが、その widget の <code>visuals.widgets.focused.bg_stroke = Stroke::NONE</code> を局所オーバーライドして 2 px 青ストロークを抑制<br />
+        ・キーボード a11y は確保: Tab で seg に到達 → 矢印キーで Local ↔ GPU 切替 (これは既に動いてるはず)。
+        focus 視覚は塗り (active opt の bg 色) で十分。
+      </li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance</h3>
+    <ol>
+      <li>toolbar が §01 の 6 状態と pixel-by-pixel で一致 (色・寸法・位置)。4 角すべて square で window edge に密着。</li>
+      <li>toolbar の bottom と gate palette の top の間に 24 px の余白がある。</li>
+      <li>backend を落とした状態で Run を押す → 1 秒以内に "Backend unreachable · {url}" pill が出る。</li>
+      <li>未対応 gate (例: Spacer) を含む回路で Run → "Unsupported gate · Spacer" pill が出る。</li>
+      <li>backend が 502 を返す → "Backend error · HTTP 502" pill が出る。</li>
+      <li>成功 run 後、duration が小数点 1 桁の秒表示 (例: "1.4 s"; 1 秒未満は "ms" 単位、例 "420 ms")。</li>
+      <li>running 中、button 全体は静止画。pill 内の dot だけが 1.2 s 周期で脈動。</li>
+      <li>Local モードで toolbar を見ると run + pill が消える。edit utilities と toggle はそのまま。</li>
+      <li>Local / GPU トグルをマウスで切り替えても seg の周りに青い focus outline が出ない。アクティブ側の塗りだけが selected を語る。</li>
+      <li><code>cargo clippy --all-targets -- -D warnings</code> と <code>cargo fmt --check</code> 通過。</li>
+      <li>snapshot tests が CI で flaky にならない (実 backend に依存しない)。</li>
+    </ol>
+
+    <div class="avoid">
+      <h4>避ける文言</h4>
+      <ul>
+        <li><del>CPU で代わりに計算します</del> / <del>Switching to CPU</del> / <del>Local モードで実行</del> — GPU を求めた行為に CPU 救済を匂わせない。</li>
+        <li><del>Loading…</del> — 何を loading してるか不明。<code>Running on GPU…</code> で具体に。</li>
+        <li><del>Quantum simulation in progress</del> — 文脈で自明。修飾は省く。</li>
+        <li><del>Try again</del> 単独 — 理由を pill 側で必ず示す。button だけ Retry にしても直らない。</li>
+        <li><del>Crashed / Fatal / Disaster</del> — 過剰。<code>Failed</code> / <code>Unreachable</code> で十分。</li>
+        <li><del>Working on it… / Please wait</del> — 体感ゼロ。dot 脈動と 1 文で。</li>
+        <li>生 stacktrace / JSON dump — pill に出さず <code>tracing</code> へ。</li>
+        <li>顔文字 / 励まし語尾 — トーンに合わない。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="doc-foot">
+  関連:
+  <a href="large-gpu-mode-ui-mock.html">large-gpu-mode-ui-mock.html</a> ·
+  <a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a> ·
+  <a href="project-overview.html">project-overview.html</a>
+  · UI モック · 設計レビュー用 · 2026-05
+</div>
+
+<script>
+  // Interactive prototype — cycles button states; force buttons inject a specific failure.
+  (function () {
+    const run = document.getElementById('proto-run');
+    const pill = document.getElementById('proto-pill');
+
+    // Icon-only design — every state renders the same ▷ glyph;
+     // running is just dimmed to tx-3 via CSS. aria-label is always
+     // present (no visible caption to fall back to).
+    const PLAY_SVG = '<svg class="play" aria-hidden="true"><use href="#i-play"/></svg>';
+
+    function setState(state, detail) {
+      run.className = 'run is-' + state;
+      run.innerHTML = '';
+      pill.className = 'pill';
+      pill.style.display = 'none';
+      pill.innerHTML = '';
+
+      if (state === 'idle') {
+        run.innerHTML = PLAY_SVG;
+        run.setAttribute('aria-label', 'Run on GPU');
+        return;
+      }
+      if (state === 'running') {
+        run.innerHTML = PLAY_SVG;
+        run.setAttribute('aria-label', 'Running on GPU');
+        pill.className = 'pill is-running';
+        pill.style.display = 'inline-flex';
+        pill.innerHTML = '<span class="dot"></span>Running on GPU…';
+        return;
+      }
+      if (state === 'completed') {
+        run.innerHTML = PLAY_SVG;
+        run.setAttribute('aria-label', 'Run on GPU');
+        pill.className = 'pill is-completed';
+        pill.style.display = 'inline-flex';
+        pill.innerHTML = '<span class="dot"></span>Completed<span class="sep">·</span><code>1.4 s</code>';
+        return;
+      }
+      if (state === 'failed') {
+        run.innerHTML = PLAY_SVG;
+        run.setAttribute('aria-label', 'Run on GPU');
+        pill.className = 'pill is-failed';
+        pill.style.display = 'inline-flex';
+        pill.innerHTML = '<span class="dot"></span>' + detail;
+        return;
+      }
+    }
+
+    const FAILURES = {
+      offline: 'Backend unreachable<span class="sep">·</span><code>localhost:8081</code>',
+      gate:    'Unsupported gate<span class="sep">·</span><code>Spacer</code>',
+      http:    'Backend error<span class="sep">·</span><code>HTTP 502</code>',
+    };
+
+    function pickRandomFailure() {
+      const keys = Object.keys(FAILURES);
+      return FAILURES[keys[Math.floor(Math.random() * keys.length)]];
+    }
+
+    let pendingFailure = null;
+    run.addEventListener('click', () => {
+      const cls = run.className;
+      if (cls.includes('is-running')) return;
+      setState('running');
+      const detail = pendingFailure || pickRandomFailure();
+      pendingFailure = null;
+      setTimeout(() => {
+        // 70% success when not forced; 100% failure when forced.
+        if (pendingFailure === null && Math.random() < 0.7) {
+          setState('completed');
+        } else {
+          setState('failed', detail);
+        }
+      }, 1200);
+    });
+
+    document.querySelectorAll('.ctrl-row [data-force]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const k = b.dataset.force;
+        if (k === 'reset') {
+          pendingFailure = null;
+          setState('idle');
+          return;
+        }
+        pendingFailure = FAILURES[k];
+        // Auto-trigger run immediately so the forced failure shows.
+        setState('running');
+        const detail = pendingFailure;
+        pendingFailure = null;
+        setTimeout(() => setState('failed', detail), 900);
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

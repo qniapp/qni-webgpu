@@ -51,5 +51,5 @@ mod parser;
 pub(crate) const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 
 pub(crate) use decode::{parse_circuit_from_url, qubit_count_from_gates};
-pub(crate) use encode::circuit_to_json;
+pub(crate) use encode::{circuit_columns_to_json, circuit_to_json};
 pub(crate) use history::write_circuit_to_url;

@@ -2,7 +2,7 @@
 //!
 //! Renders the "0" or "1" character above each measured qubit by
 //! reading the `outcome` field of `measure::aux_buffer` in the
-//! fragment shader and sampling the pre-rasterised Geist Bold digit
+//! fragment shader and sampling the pre-rasterised Geist Regular digit
 //! atlas. Static meter chrome is still painted by egui.
 //!
 //! The instance draw geometry is the shared `Common::unit_quad_*`

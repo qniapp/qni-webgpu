@@ -18,6 +18,17 @@ impl QniApp {
         state_count: usize,
         ctx: &egui::Context,
     ) -> bool {
+        let external_gpu_state_refresh = self.external_gpu_state_refresh_pending
+            && self.local_exec_mode_available()
+            && !self.local_state_vector_active();
+        let state_vector_active = self.local_state_vector_active() || external_gpu_state_refresh;
+        if !state_vector_active {
+            if recompute {
+                self.gpu_plan.clear_ops();
+                self.gpu_plan.mark_clean_for(state_count);
+            }
+            return false;
+        }
         if target_format.is_some() {
             if recompute {
                 self.gpu_plan.mark_clean_for(state_count);
@@ -39,6 +50,9 @@ impl QniApp {
                     return recompute;
                 }
                 self.gpu_plan.replace_ops(sim_ops);
+                if external_gpu_state_refresh {
+                    self.external_gpu_state_refresh_pending = false;
+                }
             }
             recompute
         } else if recompute {

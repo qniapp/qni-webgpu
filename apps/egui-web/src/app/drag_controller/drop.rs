@@ -40,9 +40,11 @@ impl DragController {
                 } else if let Some(snap) = snapped {
                     match snap {
                         CircuitSnap::Slot(snap) => {
+                            let capacity = app.exec_mode.qubit_capacity();
                             let gate = &mut app.placed_gates[index];
                             gate.column = snap.index;
                             gate.wire = line_index;
+                            gate.clamp_span_to_qubit_capacity(capacity);
                             gate.sync_pos_from_grid();
                         }
                         CircuitSnap::Insert(snap) => {

@@ -17,6 +17,16 @@ pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -
     if placed_gates.is_empty() {
         return EMPTY_CIRCUIT_JSON.to_string();
     }
+    format!(
+        r#"{{"cols":{}}}"#,
+        circuit_columns_to_json(placed_gates, qubit_count)
+    )
+}
+
+pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -> String {
+    if placed_gates.is_empty() {
+        return "[]".to_string();
+    }
     // Bucket gates by semantic column. After `compact_empty_steps` the
     // occupied indices are dense from 0..N-1, but be defensive in case this
     // is ever called pre-compaction.
@@ -53,7 +63,7 @@ pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -
         }
         cols.push(format!("[{}]", entries.join(",")));
     }
-    format!(r#"{{"cols":[{}]}}"#, cols.join(","))
+    format!("[{}]", cols.join(","))
 }
 
 /// Map a gate kind + span + optional angle string to its URL token.

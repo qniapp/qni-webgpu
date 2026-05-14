@@ -8,7 +8,8 @@ use eframe::egui;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MAX_QUBITS, MIN_QUBITS, SLOT_SPACING,
+    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, QFT_MAX_SPAN,
+    SLOT_SPACING,
 };
 use crate::gates::GateKind;
 
@@ -70,6 +71,14 @@ impl PlacedGate {
     pub(crate) fn sync_pos_from_grid(&mut self) {
         self.pos = Self::grid_pos(self.column, self.wire);
     }
+
+    pub(crate) fn clamp_span_to_qubit_capacity(&mut self, capacity: usize) {
+        if !self.kind.is_resizable_span() {
+            return;
+        }
+        let max_span = capacity.saturating_sub(self.wire).clamp(1, QFT_MAX_SPAN);
+        self.span = self.span.clamp(1, max_span);
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -108,29 +117,34 @@ impl QniApp {
             .unwrap_or(0)
     }
 
-    pub(super) fn state_qubits(&self) -> usize {
-        let mut max_wire: Option<usize> = None;
-        for gate in &self.placed_gates {
-            let bottom = gate.wire + gate.span.saturating_sub(1);
-            max_wire = Some(match max_wire {
-                Some(current) => current.max(bottom),
-                None => bottom,
-            });
-        }
-        let count = max_wire.map_or(1, |wire| wire + 1);
-        count.clamp(1, MAX_QUBITS)
+    fn raw_required_qubit_count(&self) -> usize {
+        self.placed_gates
+            .iter()
+            .map(|gate| gate.wire + gate.span.saturating_sub(1) + 1)
+            .max()
+            .unwrap_or(0)
     }
 
-    pub(super) fn update_qubit_count(&mut self) {
-        let mut max_wire = MIN_QUBITS - 1;
-        for gate in &self.placed_gates {
-            // A multi-qubit gate at `wire` with `span = N` occupies wires
-            // [wire, wire + N - 1]; the bottom of that range bounds the qubit
-            // count.
-            let bottom_wire = gate.wire + gate.span.saturating_sub(1);
-            max_wire = max_wire.max(bottom_wire);
-        }
-        self.qubit_count = (max_wire + 1).clamp(MIN_QUBITS, MAX_QUBITS);
+    pub(super) fn required_qubit_count(&self) -> usize {
+        self.raw_required_qubit_count().max(MIN_QUBITS)
+    }
+
+    pub(super) fn external_execution_qubits(&self) -> usize {
+        self.raw_required_qubit_count()
+            .max(1)
+            .min(self.exec_mode.qubit_capacity())
+    }
+
+    pub(super) fn state_qubits(&self) -> usize {
+        self.raw_required_qubit_count()
+            .max(1)
+            .clamp(1, LOCAL_MAX_QUBITS)
+    }
+
+    pub(crate) fn update_qubit_count(&mut self) {
+        self.qubit_count = self
+            .required_qubit_count()
+            .clamp(MIN_QUBITS, self.exec_mode.qubit_capacity());
     }
 
     /// After a successful drop or off-circuit removal, collapse empty columns
@@ -199,9 +213,11 @@ impl QniApp {
             }
         }
 
+        let capacity = self.exec_mode.qubit_capacity();
         let gate = &mut self.placed_gates[gate_index];
         gate.column = adjusted_insert;
         gate.wire = wire;
+        gate.clamp_span_to_qubit_capacity(capacity);
 
         for gate in &mut self.placed_gates {
             gate.sync_pos_from_grid();
