@@ -11,6 +11,7 @@ type Point = { x: number; y: number }
 const BELL_JSON = '{"cols":[["H"]]}'
 const GHZ_JSON = '{"cols":[["X"]]}'
 const QFT_JSON = '{"cols":[["QFT4"]]}'
+const STORAGE_KEY = 'qni.circuit_library.v1'
 
 const TRIGGER: Point = { x: 80, y: 22 }
 const ROW_1: Point = { x: 80, y: 74 }
@@ -33,6 +34,9 @@ const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   })
   return JSON.parse(raw) as CircuitLibrarySnapshot
 }
+
+const storedDocument = async (page: Page): Promise<any> =>
+  page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), STORAGE_KEY)
 
 const seedLibrary = async (page: Page, activeId = 'bell'): Promise<void> => {
   const library = {
@@ -76,6 +80,74 @@ test('startup current entry preserves the three seeded sample circuits', async (
   expect(readCircuitColsFromHash(page.url())).toEqual([])
 })
 
+test('localStorage active circuit hydrates the picker and URL on reload', async ({ page }) => {
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      version: 1,
+      activeId: 'stored-x',
+      circuits: [{
+        id: 'stored-x',
+        name: 'Stored X',
+        json: '{"cols":[["X"]]}',
+        createdAt: 1,
+        updatedAt: 1,
+        meta: { qubits: 1, columns: 1, gateCount: 1 },
+      }],
+    }))
+  }, STORAGE_KEY)
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  await expect.poll(async () => (await snapshot(page)).active_id).toBe('stored-x')
+  expect((await snapshot(page)).entries[0]).toMatchObject({ name: 'Stored X', circuit_json: '{"cols":[["X"]]}' })
+  expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+})
+
+test('startup does not overwrite unsupported localStorage documents', async ({ page }) => {
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({ version: 2, activeId: null, circuits: [] }))
+  }, STORAGE_KEY)
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  expect(await storedDocument(page)).toEqual({ version: 2, activeId: null, circuits: [] })
+})
+
+test('URL payload wins over a different persisted active circuit', async ({ page }) => {
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      version: 1,
+      activeId: 'stored-x',
+      circuits: [{
+        id: 'stored-x',
+        name: 'Stored X',
+        json: '{"cols":[["X"]]}',
+        createdAt: 1,
+        updatedAt: 1,
+        meta: { qubits: 1, columns: 1, gateCount: 1 },
+      }],
+    }))
+  }, STORAGE_KEY)
+  await page.goto('/#' + encodeURIComponent('{"cols":[["H"]]}'))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  await expect.poll(async () => (await snapshot(page)).active_id).toBe('current')
+  expect(readCircuitColsFromHash(page.url())).toEqual([['H']])
+})
+
+test('low-level localStorage save hook refreshes the live picker', async ({ page }) => {
+  const id = await page.evaluate(() => {
+    const save = (window as any).__qniCircuitLibrarySave
+    if (typeof save !== 'function') throw new Error('__qniCircuitLibrarySave hook missing')
+    return save('Saved X', '{"cols":[["X"]]}')
+  })
+
+  await expect.poll(async () => (await snapshot(page)).active_id).toBe(id)
+  const state = await snapshot(page)
+  expect(state.entries[0]).toMatchObject({ id, name: 'Saved X', circuit_json: '{"cols":[["X"]]}' })
+  expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+})
+
 test('circuit picker opens and selecting another item syncs the URL hash', async ({ page }) => {
   await seedLibrary(page)
 
@@ -85,6 +157,10 @@ test('circuit picker opens and selecting another item syncs the URL hash', async
 
   await expect.poll(async () => (await snapshot(page)).active_id).toBe('ghz')
   expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+
+  await page.reload()
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await expect.poll(async () => (await snapshot(page)).active_id).toBe('ghz')
 })
 
 test('Create new circuit adds an empty Untitled entry and makes it active', async ({ page }) => {
@@ -99,6 +175,9 @@ test('Create new circuit adds an empty Untitled entry and makes it active', asyn
   expect(state.entries.at(-1)).toMatchObject({ name: 'Untitled', circuit_json: '{"cols":[]}' })
   expect(state.active_id).toBe(state.entries.at(-1)?.id)
   expect(readCircuitColsFromHash(page.url())).toEqual([])
+  const stored = await storedDocument(page)
+  expect(stored.activeId).toBe(state.active_id)
+  expect(stored.circuits.at(-1)).toMatchObject({ name: 'Untitled', json: '{"cols":[]}' })
 })
 
 test('Rename action turns the item into an inline editor and commits on Enter', async ({ page }) => {

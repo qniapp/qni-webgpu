@@ -10,6 +10,7 @@
 
 use eframe::egui;
 
+use super::circuit_library::persist_library;
 use super::{ExecMode, ExternalGpuStatus, QniApp};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -81,6 +82,7 @@ impl QniApp {
         let json = self.current_circuit_json();
         self.circuit_revision.commit(json.clone());
         self.library.update_active(json.clone());
+        persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(&json);
         ctx.request_repaint();
     }
@@ -133,6 +135,7 @@ impl QniApp {
         self.external_gpu_state_refresh_pending = false;
         self.gpu_plan.mark_dirty();
         self.library.update_active(json.to_owned());
+        persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(json);
         ctx.request_repaint();
     }

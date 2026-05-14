@@ -191,8 +191,28 @@ impl QniApp {
         Self::wire_test_hooks(&cc.egui_ctx);
         cc.egui_ctx.request_repaint();
         // Restore a shared circuit from the URL (`#{"cols":[...]}` or
-        // qni-style path) so a pasted URL spins up the same circuit.
-        let (initial_gates, next_gate_id) = crate::url_circuit::parse_circuit_from_url();
+        // qni-style path) first. If no URL payload is present, use the
+        // persisted active localStorage circuit; if no persisted library
+        // exists, keep the seeded samples and a separate Untitled current
+        // entry so examples are not overwritten by the empty editor.
+        let (url_gates, url_next_gate_id) = crate::url_circuit::parse_circuit_from_url();
+        let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);
+        let url_exec_mode = if url_required_qubits > LOCAL_MAX_QUBITS {
+            ExecMode::Gpu
+        } else {
+            ExecMode::default()
+        };
+        let url_qubit_count = url_required_qubits.clamp(MIN_QUBITS, url_exec_mode.qubit_capacity());
+        let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_qubit_count);
+        let (library, initial_json) = CircuitLibrary::for_startup(
+            url_json.clone(),
+            crate::url_circuit::current_url_has_circuit_payload(),
+        );
+        let (initial_gates, next_gate_id) = if initial_json == url_json {
+            (url_gates, url_next_gate_id)
+        } else {
+            crate::url_circuit::parse_circuit_json(&initial_json)
+        };
         let initial_required_qubits = crate::url_circuit::qubit_count_from_gates(&initial_gates);
         let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
             ExecMode::Gpu
@@ -202,10 +222,11 @@ impl QniApp {
         let initial_qubit_count =
             initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
         let initial_json = crate::url_circuit::circuit_to_json(&initial_gates, initial_qubit_count);
-        let mut app = Self {
+        crate::url_circuit::write_circuit_to_url(&initial_json);
+        Self {
             theme: theme.kind,
-            circuit_revision: CircuitRevision::starting_at(initial_json.clone()),
-            library: CircuitLibrary::seed(),
+            circuit_revision: CircuitRevision::starting_at(initial_json),
+            library,
             picker: PickerState::default(),
             next_gate_id,
             placed_gates: initial_gates,
@@ -236,9 +257,7 @@ impl QniApp {
             fps_hud_history: VecDeque::with_capacity(120),
             fps_hud_cpu_history: VecDeque::with_capacity(120),
             fps_hud_svp_history: VecDeque::with_capacity(120),
-        };
-        app.initialize_circuit_library_from_current_url(initial_json);
-        app
+        }
     }
 
     pub(crate) fn colors(&self) -> Colors {

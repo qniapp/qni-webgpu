@@ -1,9 +1,8 @@
 //! In-memory named circuit library for the toolbar circuit picker.
 //!
 //! The stored circuit body is the canonical `{"cols":[...]}` JSON shared with
-//! URL hashes and undo checkpoints. Persistence is deliberately not wired yet;
-//! this module only seeds memory and keeps a serde-compatible shape for the
-//! future localStorage layer.
+//! URL hashes and undo checkpoints. The app owns picker/editor state while the
+//! root `crate::circuit_library` module adapts this shape to localStorage.
 
 use eframe::egui;
 use serde::{Deserialize, Serialize};
@@ -243,6 +242,43 @@ impl CircuitLibrary {
             index += 1;
         }
     }
+
+    pub(crate) fn for_startup(url_json: String, url_has_payload: bool) -> (Self, String) {
+        let load_state = load_persisted_library_state();
+        let loaded = matches!(&load_state, PersistedLibraryState::Loaded(_));
+        let can_persist = !matches!(&load_state, PersistedLibraryState::Invalid);
+        let mut changed = false;
+        let mut library = match load_state {
+            PersistedLibraryState::Loaded(library) => library,
+            PersistedLibraryState::Missing | PersistedLibraryState::Invalid => Self::seed(),
+        };
+        let active_json = if url_has_payload {
+            if let Some(entry) = library
+                .entries
+                .iter()
+                .find(|entry| entry.circuit_json == url_json)
+            {
+                if library.active_id != entry.id {
+                    library.active_id = entry.id.clone();
+                    changed = true;
+                }
+            } else {
+                library.set_active_current_circuit(url_json.clone());
+                changed = true;
+            }
+            url_json
+        } else if loaded {
+            library.active().circuit_json.clone()
+        } else {
+            library.set_active_current_circuit(url_json.clone());
+            changed = true;
+            url_json
+        };
+        if can_persist && changed {
+            persist_library(&library);
+        }
+        (library, active_json)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -364,10 +400,6 @@ pub(crate) struct RenameState {
 }
 
 impl QniApp {
-    pub(crate) fn initialize_circuit_library_from_current_url(&mut self, initial_json: String) {
-        self.library.set_active_current_circuit(initial_json);
-    }
-
     pub(crate) fn active_circuit_name(&self) -> &str {
         &self.library.active().name
     }
@@ -377,6 +409,16 @@ impl QniApp {
             self.library = library;
             let active_json = self.library.active().circuit_json.clone();
             self.replace_editor_circuit(active_json, ctx);
+        }
+    }
+
+    pub(crate) fn apply_external_circuit_library_update(&mut self, ctx: &egui::Context) {
+        if take_external_library_dirty() {
+            if let Some(library) = load_persisted_library() {
+                self.library = library;
+                let active_json = self.library.active().circuit_json.clone();
+                self.replace_editor_circuit(active_json, ctx);
+            }
         }
     }
 
@@ -406,11 +448,13 @@ impl QniApp {
 
     pub(crate) fn move_circuit_entry_up(&mut self, index: usize) {
         self.library.move_up(index);
+        persist_library(&self.library);
         self.picker.close_submenu();
     }
 
     pub(crate) fn move_circuit_entry_down(&mut self, index: usize) {
         self.library.move_down(index);
+        persist_library(&self.library);
         self.picker.close_submenu();
     }
 
@@ -419,6 +463,8 @@ impl QniApp {
         if self.library.delete(index).is_some() && was_active {
             let circuit_json = self.library.active().circuit_json.clone();
             self.replace_editor_circuit(circuit_json, ctx);
+        } else {
+            persist_library(&self.library);
         }
         self.picker.close_submenu();
     }
@@ -431,6 +477,7 @@ impl QniApp {
 
     pub(crate) fn commit_circuit_rename(&mut self, entry_id: &str, next_name: String) {
         self.library.rename(entry_id, &next_name);
+        persist_library(&self.library);
         self.picker.finish_rename();
     }
 
@@ -438,6 +485,71 @@ impl QniApp {
         self.circuit_revision = CircuitRevision::starting_at(circuit_json.clone());
         self.apply_circuit_json(&circuit_json, ctx);
     }
+}
+
+enum PersistedLibraryState {
+    Missing,
+    Loaded(CircuitLibrary),
+    Invalid,
+}
+
+fn load_persisted_library() -> Option<CircuitLibrary> {
+    match load_persisted_library_state() {
+        PersistedLibraryState::Loaded(library) => Some(library),
+        PersistedLibraryState::Missing | PersistedLibraryState::Invalid => None,
+    }
+}
+
+fn load_persisted_library_state() -> PersistedLibraryState {
+    match load_persisted_library_result() {
+        Ok(Some(library)) => PersistedLibraryState::Loaded(library),
+        Ok(None) => PersistedLibraryState::Missing,
+        Err(message) => {
+            tracing::warn!(%message, "failed to load circuit library from localStorage");
+            PersistedLibraryState::Invalid
+        }
+    }
+}
+
+pub(crate) fn persist_library(library: &CircuitLibrary) {
+    if let Err(message) = persist_library_result(library) {
+        tracing::warn!(%message, "failed to persist circuit library to localStorage");
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_persisted_library_result() -> Result<Option<CircuitLibrary>, String> {
+    crate::circuit_library::load_app_library().map_err(js_error_message)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_persisted_library_result() -> Result<Option<CircuitLibrary>, String> {
+    Ok(None)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn persist_library_result(library: &CircuitLibrary) -> Result<(), String> {
+    crate::circuit_library::save_app_library(library).map_err(js_error_message)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn persist_library_result(_library: &CircuitLibrary) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn take_external_library_dirty() -> bool {
+    crate::circuit_library::take_app_library_dirty()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn take_external_library_dirty() -> bool {
+    false
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_error_message(value: wasm_bindgen::JsValue) -> String {
+    value.as_string().unwrap_or_else(|| format!("{value:?}"))
 }
 
 fn json_escape(input: &str) -> String {

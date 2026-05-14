@@ -45,6 +45,10 @@ pub(super) fn parse_cols(s: &str) -> Option<Vec<Vec<Option<String>>>> {
     p.expect(b']')?;
     p.skip_ws();
     p.expect(b'}')?;
+    p.skip_ws();
+    if p.peek().is_some() {
+        return None;
+    }
     Some(cols)
 }
 

@@ -1,4 +1,5 @@
 mod app;
+mod circuit_library;
 mod colors;
 mod constants;
 mod gates;
@@ -62,4 +63,43 @@ pub async fn read_bloch_vectors() -> Result<js_sys::Float32Array, wasm_bindgen::
 #[wasm_bindgen]
 pub async fn read_measurement_outcomes() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
     gpu::read_measurement_outcomes_impl().await
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_list() -> Result<String, wasm_bindgen::JsValue> {
+    circuit_library::list()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_save(
+    name: &str,
+    circuit_json: &str,
+) -> Result<String, wasm_bindgen::JsValue> {
+    circuit_library::save(name, circuit_json)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_load(id: &str) -> Result<String, wasm_bindgen::JsValue> {
+    circuit_library::load(id)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_rename(id: &str, name: &str) -> Result<(), wasm_bindgen::JsValue> {
+    circuit_library::rename(id, name)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_delete(id: &str) -> Result<(), wasm_bindgen::JsValue> {
+    circuit_library::delete(id)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn circuit_library_clear() -> Result<(), wasm_bindgen::JsValue> {
+    circuit_library::clear()
 }

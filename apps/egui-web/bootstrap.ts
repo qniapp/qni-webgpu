@@ -1,5 +1,11 @@
 type QniEguiWebModule = {
   default: () => Promise<void>
+  circuit_library_clear: () => void
+  circuit_library_delete: (id: string) => void
+  circuit_library_list: () => string
+  circuit_library_load: (id: string) => string
+  circuit_library_rename: (id: string, name: string) => void
+  circuit_library_save: (name: string, circuitJson: string) => string
   read_state_vector: () => Promise<ArrayLike<number>>
   read_bloch_vectors: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
@@ -18,6 +24,12 @@ declare global {
     __qniLastQiskitRequest?: unknown
     __qniLastQiskitResult?: unknown
     __qniRunQiskitBackend?: (payloadJson: string) => Promise<unknown>
+    __qniCircuitLibraryClear?: () => void
+    __qniCircuitLibraryDelete?: (id: string) => void
+    __qniCircuitLibraryList?: () => string
+    __qniCircuitLibraryLoad?: (id: string) => string
+    __qniCircuitLibraryRename?: (id: string, name: string) => void
+    __qniCircuitLibrarySave?: (name: string, circuitJson: string) => string
     __setExternalGpuStatus?: (json: string | unknown) => void
   }
 }
@@ -73,6 +85,12 @@ const run = async (): Promise<void> => {
   try {
     const {
       default: init,
+      circuit_library_clear,
+      circuit_library_delete,
+      circuit_library_list,
+      circuit_library_load,
+      circuit_library_rename,
+      circuit_library_save,
       read_bloch_vectors,
       read_measurement_outcomes,
       read_state_vector,
@@ -100,6 +118,12 @@ const run = async (): Promise<void> => {
         return []
       }
     }
+    window.__qniCircuitLibraryClear = circuit_library_clear
+    window.__qniCircuitLibraryDelete = circuit_library_delete
+    window.__qniCircuitLibraryList = circuit_library_list
+    window.__qniCircuitLibraryLoad = circuit_library_load
+    window.__qniCircuitLibraryRename = circuit_library_rename
+    window.__qniCircuitLibrarySave = circuit_library_save
     const canvas = document.getElementById('egui-canvas') as HTMLCanvasElement | null
     if (canvas) {
       canvas.tabIndex = 0

@@ -52,12 +52,66 @@ pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
     (Vec::new(), 1)
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn current_url_has_circuit_payload() -> bool {
+    let Some(window) = web_sys::window() else {
+        return false;
+    };
+    let location = window.location();
+    if let Ok(hash) = location.hash() {
+        if try_decode(hash.strip_prefix('#').unwrap_or(&hash)).is_some() {
+            return true;
+        }
+    }
+    if let Ok(pathname) = location.pathname() {
+        if let Some(last) = pathname.rsplit('/').next() {
+            return try_decode(last).is_some();
+        }
+    }
+    false
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn current_url_has_circuit_payload() -> bool {
+    false
+}
+
 /// Decode one canonical circuit JSON checkpoint. Unlike URL parsing,
 /// `{"cols":[]}` is a valid empty circuit and returns no gates with
 /// `next_gate_id = 1`.
 pub(crate) fn parse_circuit_json(json: &str) -> (Vec<PlacedGate>, u32) {
     let cols = parse_cols(json).unwrap_or_default();
     assign_ids(build_gates(&cols))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CircuitJsonSummary {
+    pub(crate) qubits: usize,
+    pub(crate) columns: usize,
+    pub(crate) gate_count: usize,
+}
+
+/// Summarise a canonical circuit JSON payload without simulating it.
+/// Used by browser-local persistence metadata; state-vector / Bloch /
+/// measurement values remain GPU-only.
+pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
+    let cols = parse_cols(json)?;
+    let mut qubits = 0usize;
+    let mut gate_count = 0usize;
+    for col in &cols {
+        for (wire, entry) in col.iter().enumerate() {
+            if let Some(token) = entry.as_deref() {
+                let (_, span, _) = token_to_gate(token)?;
+                gate_count += 1;
+                qubits = qubits.max(wire + span);
+            }
+        }
+    }
+    Some(CircuitJsonSummary {
+        qubits,
+        columns: cols.len(),
+        gate_count,
+    })
 }
 
 /// Largest wire index seen across the gates' spans, plus one — i.e.
@@ -79,6 +133,10 @@ fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
     if payload.is_empty() {
         return None;
     }
+    let payload = payload
+        .strip_prefix("circuit=")
+        .map(|value| value.split('&').next().unwrap_or(value))
+        .unwrap_or(payload);
     let decoded = decode_percent(payload)?;
     let json = decoded
         .strip_prefix("circuit=")
