@@ -385,6 +385,12 @@ impl PickerState {
             _ => None,
         }
     }
+
+    pub(crate) fn set_focused_index(&mut self, index: usize) {
+        if let Self::Open { focused_index, .. } = self {
+            *focused_index = index;
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -441,30 +447,40 @@ impl QniApp {
     pub(crate) fn duplicate_circuit_entry(&mut self, index: usize, ctx: &egui::Context) {
         if let Some(entry) = self.library.duplicate(index) {
             let circuit_json = entry.circuit_json.clone();
+            let focused_index = self.library.active_index();
+            self.picker.set_focused_index(focused_index);
             self.replace_editor_circuit(circuit_json, ctx);
         }
         self.picker.close_submenu();
     }
 
     pub(crate) fn move_circuit_entry_up(&mut self, index: usize) {
+        let focused_index = index.saturating_sub(1);
         self.library.move_up(index);
+        self.picker.set_focused_index(focused_index);
         persist_library(&self.library);
         self.picker.close_submenu();
     }
 
     pub(crate) fn move_circuit_entry_down(&mut self, index: usize) {
+        let focused_index = (index + 1).min(self.library.entries.len().saturating_sub(1));
         self.library.move_down(index);
+        self.picker.set_focused_index(focused_index);
         persist_library(&self.library);
         self.picker.close_submenu();
     }
 
     pub(crate) fn delete_circuit_entry(&mut self, index: usize, ctx: &egui::Context) {
         let was_active = self.library.active_index() == index;
-        if self.library.delete(index).is_some() && was_active {
-            let circuit_json = self.library.active().circuit_json.clone();
-            self.replace_editor_circuit(circuit_json, ctx);
-        } else {
-            persist_library(&self.library);
+        if self.library.delete(index).is_some() {
+            let focused_index = index.min(self.library.entries.len().saturating_sub(1));
+            self.picker.set_focused_index(focused_index);
+            if was_active {
+                let circuit_json = self.library.active().circuit_json.clone();
+                self.replace_editor_circuit(circuit_json, ctx);
+            } else {
+                persist_library(&self.library);
+            }
         }
         self.picker.close_submenu();
     }

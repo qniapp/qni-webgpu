@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
-import { waitForStartupReady } from './support/egui-web-spec-helpers'
+import {
+  pixelRgbDistance,
+  sampleCanvasPixels,
+  waitForStartupReady,
+  type CanvasPixel,
+} from './support/egui-web-spec-helpers'
 
 type CircuitLibrarySnapshot = {
   entries: Array<{ id: string; name: string; circuit_json: string; updated_at: number }>
@@ -17,8 +22,11 @@ const TRIGGER: Point = { x: 80, y: 22 }
 const ROW_1: Point = { x: 80, y: 74 }
 const ROW_2: Point = { x: 80, y: 110 }
 const FOOTER: Point = { x: 90, y: 195 }
+const ROW_3: Point = { x: 80, y: 146 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
+const MOVE_UP_SUBMENU_Y = 232
+const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -193,6 +201,27 @@ test('Rename action turns the item into an inline editor and commits on Enter', 
   await page.keyboard.press('Enter')
 
   await expect.poll(async () => (await snapshot(page)).entries[0].name).toBe('Renamed Bell')
+})
+
+test('Move up keeps the displaced bottom item visually idle', async ({ page }) => {
+  await seedLibrary(page, 'qft')
+
+  await clickCanvas(page, TRIGGER)
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_3.y })
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: SUBMENU_X, y: MOVE_UP_SUBMENU_Y })
+  await page.waitForTimeout(300)
+
+  await expect.poll(async () => (await snapshot(page)).entries.map((entry) => entry.id)).toEqual([
+    'bell',
+    'qft',
+    'ghz',
+  ])
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'bottomRowBg', x: 180, y: ROW_3.y },
+  ])
+  expect(pixelRgbDistance(pixels.bottomRowBg, FLEXOKI_BG)).toBeLessThan(25)
 })
 
 test('Delete active circuit falls back to the first remaining entry', async ({ page }) => {
