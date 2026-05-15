@@ -112,9 +112,14 @@ mod tests {
 
     #[test]
     fn parse_args_handles_rotation_gates() {
-        assert_eq!(parse_args_from(&["--gate", "rx"]), Gate::Rx);
-        assert_eq!(parse_args_from(&["--gate", "ry"]), Gate::Ry);
-        assert_eq!(parse_args_from(&["--gate", "rz"]), Gate::Rz);
+        assert_eq!(
+            (
+                parse_args_from(&["--gate", "rx"]),
+                parse_args_from(&["--gate", "ry"]),
+                parse_args_from(&["--gate", "rz"]),
+            ),
+            (Gate::Rx, Gate::Ry, Gate::Rz)
+        );
     }
 
     #[test]
@@ -172,17 +177,34 @@ mod tests {
 
     #[test]
     fn parse_args_handles_gate_flags() {
-        assert_eq!(parse_args_from(&[]), Gate::H);
-        assert_eq!(parse_args_from(&["--gate", "y"]), Gate::Y);
-        assert_eq!(parse_args_from(&["--gate=Z"]), Gate::Z);
-        assert_eq!(parse_args_from(&["--gate", "control"]), Gate::Control);
-        assert_eq!(parse_args_from(&["--gate", "measure"]), Gate::Measure);
-        assert_eq!(parse_args_from(&["--gate", "phase"]), Gate::Phase);
-        assert_eq!(parse_args_from(&["--gate", "sqrtx"]), Gate::SqrtX);
-        assert_eq!(parse_args_from(&["--gate", "sdg"]), Gate::Sdg);
-        assert_eq!(parse_args_from(&["--gate", "tdg"]), Gate::Tdg);
-        assert_eq!(parse_args_from(&["--gate", "swap"]), Gate::Swap);
-        assert_eq!(parse_args_from(&["--gate", "nope"]), Gate::H);
+        assert_eq!(
+            (
+                parse_args_from(&[]),
+                parse_args_from(&["--gate", "y"]),
+                parse_args_from(&["--gate=Z"]),
+                parse_args_from(&["--gate", "control"]),
+                parse_args_from(&["--gate", "measure"]),
+                parse_args_from(&["--gate", "phase"]),
+                parse_args_from(&["--gate", "sqrtx"]),
+                parse_args_from(&["--gate", "sdg"]),
+                parse_args_from(&["--gate", "tdg"]),
+                parse_args_from(&["--gate", "swap"]),
+                parse_args_from(&["--gate", "nope"]),
+            ),
+            (
+                Gate::H,
+                Gate::Y,
+                Gate::Z,
+                Gate::Control,
+                Gate::Measure,
+                Gate::Phase,
+                Gate::SqrtX,
+                Gate::Sdg,
+                Gate::Tdg,
+                Gate::Swap,
+                Gate::H,
+            )
+        );
     }
 
     #[test]
@@ -196,10 +218,15 @@ mod tests {
         let top = buffer_to_string(&buffer, gate_rect.x, gate_rect.y, GATE_BOX_WIDTH);
         let mid = buffer_to_string(&buffer, gate_rect.x, gate_rect.y + 1, GATE_BOX_WIDTH);
         let wire_line = buffer_to_line(&buffer, area, layout.wire_rows[0]);
-        assert_eq!(top, "▔▔▔▔▔");
-        assert_eq!(mid, "  H  ");
-        assert!(wire_line.starts_with("q0: "));
-        assert!(state_region_has_content(&buffer, regions.state_circles));
+        assert_eq!(
+            (
+                top.as_str(),
+                mid.as_str(),
+                wire_line.starts_with("q0: "),
+                state_region_has_content(&buffer, regions.state_circles),
+            ),
+            ("▔▔▔▔▔", "  H  ", true, true)
+        );
     }
 
     #[test]
@@ -224,8 +251,7 @@ mod tests {
             .iter()
             .map(|amp| format_complex(*amp))
             .collect();
-        assert_ne!(first_limit, second_limit);
-        assert_ne!(first_sig, second_sig);
+        assert_ne!((first_limit, first_sig), (second_limit, second_sig));
     }
 
     #[test]
@@ -411,10 +437,10 @@ mod tests {
                 slot.y + slot.height.saturating_sub(1),
             )
             .symbol();
-        assert_eq!(top_left, "▗");
-        assert_eq!(top_right, "▖");
-        assert_eq!(bottom_left, "▝");
-        assert_eq!(bottom_right, "▘");
+        assert_eq!(
+            (top_left, top_right, bottom_left, bottom_right),
+            ("▗", "▖", "▝", "▘")
+        );
     }
 
     #[test]
@@ -588,14 +614,10 @@ mod tests {
         let line_x = rect0.x + rect0.width / 2;
         let gap_top = rect1.y.saturating_sub(1);
         let gap_bottom = rect1.y.saturating_add(rect1.height);
-        if gap_top < area.height {
-            let top_symbol = buffer.get(line_x, gap_top).symbol();
-            assert_eq!(top_symbol, "┇");
-        }
-        if gap_bottom < area.height {
-            let bottom_symbol = buffer.get(line_x, gap_bottom).symbol();
-            assert_eq!(bottom_symbol, "┇");
-        }
+        let top_symbol = (gap_top < area.height).then(|| buffer.get(line_x, gap_top).symbol());
+        let bottom_symbol =
+            (gap_bottom < area.height).then(|| buffer.get(line_x, gap_bottom).symbol());
+        assert_eq!((top_symbol, bottom_symbol), (Some("┇"), Some("┇")));
     }
 
     #[test]
@@ -698,12 +720,17 @@ mod tests {
         let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
-        assert_eq!(overlay_top, "▔▔▔▔▔");
-        assert_eq!(overlay_mid, "  H  ");
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let slot_mid = buffer_to_string(&buffer, slot.x, slot.y + 1, GATE_BOX_WIDTH);
-        assert_eq!(slot_mid, "  Z  ");
+        assert_eq!(
+            (
+                overlay_top.as_str(),
+                overlay_mid.as_str(),
+                slot_mid.as_str()
+            ),
+            ("▔▔▔▔▔", "  H  ", "  Z  ")
+        );
     }
 
     #[test]
@@ -850,9 +877,14 @@ mod tests {
         let gap_x = slot0.x.saturating_add(GATE_BOX_WIDTH);
         let gap_y = slot0.y + 1;
         handle_mouse_up(&mut state, gap_x, gap_y, area);
-        assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::H));
-        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::Z));
-        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+        assert_eq!(
+            (
+                state.placed[0].get(0).and_then(|gate| *gate),
+                state.placed[0].get(1).and_then(|gate| *gate),
+                state.placed[0].get(2).and_then(|gate| *gate),
+            ),
+            (Some(Gate::H), Some(Gate::Z), Some(Gate::X))
+        );
     }
 
     #[test]
@@ -869,9 +901,14 @@ mod tests {
         let gap_x = slot0.x.saturating_sub(1);
         let gap_y = slot0.y + 1;
         handle_mouse_up(&mut state, gap_x, gap_y, area);
-        assert_eq!(state.placed[0].get(0).and_then(|gate| *gate), Some(Gate::Z));
-        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::H));
-        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+        assert_eq!(
+            (
+                state.placed[0].get(0).and_then(|gate| *gate),
+                state.placed[0].get(1).and_then(|gate| *gate),
+                state.placed[0].get(2).and_then(|gate| *gate),
+            ),
+            (Some(Gate::Z), Some(Gate::H), Some(Gate::X))
+        );
     }
 
     #[test]
@@ -885,8 +922,13 @@ mod tests {
         });
         state.hovered_insert = Some((0, 1));
         handle_mouse_up(&mut state, area.x, area.y, area);
-        assert_eq!(state.placed[0].get(1).and_then(|gate| *gate), Some(Gate::Z));
-        assert_eq!(state.placed[0].get(2).and_then(|gate| *gate), Some(Gate::X));
+        assert_eq!(
+            (
+                state.placed[0].get(1).and_then(|gate| *gate),
+                state.placed[0].get(2).and_then(|gate| *gate),
+            ),
+            (Some(Gate::Z), Some(Gate::X))
+        );
     }
 
     #[test]
@@ -903,8 +945,10 @@ mod tests {
         let gap_x = slot0.x.saturating_add(GATE_BOX_WIDTH);
         let gap_y = slot0.y + 1;
         update_hovered_slot(&mut state, gap_x, gap_y, area);
-        assert_eq!(state.hovered_insert, Some((0, 1)));
-        assert_eq!(state.hovered_slot, None);
+        assert_eq!(
+            (state.hovered_insert, state.hovered_slot),
+            (Some((0, 1)), None)
+        );
     }
 
     #[test]
@@ -939,9 +983,9 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         handle_mouse_down(&mut state, slot.x, slot.y, area);
-        assert_eq!(state.placed[0][0], None);
+        let during_drag = state.placed[0][0];
         handle_mouse_up(&mut state, slot.x, slot.y, area);
-        assert_eq!(state.placed[0][0], Some(Gate::H));
+        assert_eq!((during_drag, state.placed[0][0]), (None, Some(Gate::H)));
     }
 
     fn buffer_to_line(buffer: &Buffer, area: Rect, y: u16) -> String {

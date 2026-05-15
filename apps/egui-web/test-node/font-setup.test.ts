@@ -8,6 +8,8 @@ const appSource = fs.readFileSync(path.join(root, 'src/app.rs'), 'utf8')
 const popupAtlasSource = fs.readFileSync(path.join(root, 'src/gpu/popup_glyph_atlas.rs'), 'utf8')
 const geistMonoPath = path.join(root, 'assets/GeistMono-Regular.ttf')
 const geistMonoBytes = fs.readFileSync(geistMonoPath)
+const japaneseFallbackPath = path.join(root, 'assets/QniJapaneseFallback-Regular.otf')
+const japaneseFallbackBytes = fs.readFileSync(japaneseFallbackPath)
 
 type TableMap = Map<string, { offset: number; length: number }>
 
@@ -89,24 +91,53 @@ const fontHasCodePoint = (bytes: Buffer, codePoint: number): boolean => {
   return false
 }
 
-test('egui font setup makes Geist the primary UI voice with Hack as fallback', () => {
-  assert.match(appSource, /FontDefinitions::empty\(\)/)
-  assert.match(appSource, /"geist_regular"\.to_owned\(\),\s*"hack_fallback"\.to_owned\(\)/s)
-  assert.match(appSource, /"geist_mono"\.to_owned\(\),\s*"hack_fallback"\.to_owned\(\)/s)
-  assert.doesNotMatch(appSource, /for family in \[egui::FontFamily::Proportional, egui::FontFamily::Monospace\]/)
+test('egui font setup makes Geist the primary UI voice with Japanese and Hack fallbacks', () => {
+  assert.deepEqual({
+    usesEmptyDefinitions: /FontDefinitions::empty\(\)/.test(appSource),
+    proportionalFallbackOrder: /"geist_regular"\.to_owned\(\),\s*"qni_japanese_fallback"\.to_owned\(\),\s*"hack_fallback"\.to_owned\(\)/s.test(appSource),
+    monoFallbackOrder: /"geist_mono"\.to_owned\(\),\s*"qni_japanese_fallback"\.to_owned\(\),\s*"hack_fallback"\.to_owned\(\)/s.test(appSource),
+    noDefaultFamilyLoop: !/for family in \[egui::FontFamily::Proportional, egui::FontFamily::Monospace\]/.test(appSource),
+  }, {
+    usesEmptyDefinitions: true,
+    proportionalFallbackOrder: true,
+    monoFallbackOrder: true,
+    noDefaultFamilyLoop: true,
+  })
+})
+
+// QNI Japanese fallback is a CP932/JIS subset generated from Noto Sans CJK JP
+// Regular: keeps wasm size bounded while covering Japanese circuit names typed
+// into the Rename field.
+test('Japanese fallback asset covers circuit names', () => {
+  const glyphs = ['日', '本', '語', '量', '子', '回', '路', '髙', '﨑', 'あ', 'ア', 'ー']
+  assert.deepEqual({
+    assetIsSubsetSize: japaneseFallbackBytes.length > 3_000_000,
+    appIncludesAsset: /QniJapaneseFallback-Regular\.otf/.test(appSource),
+    missingGlyphs: glyphs.filter((glyph) => !fontHasCodePoint(japaneseFallbackBytes, glyph.codePointAt(0)!)),
+  }, {
+    assetIsSubsetSize: true,
+    appIncludesAsset: true,
+    missingGlyphs: [],
+  })
 })
 
 test('Geist Mono asset is checked in and used for the popup glyph atlas', () => {
-  assert.ok(geistMonoBytes.length > 100_000)
-  assert.deepEqual([...geistMonoBytes.subarray(0, 4)], [0, 1, 0, 0])
-  assert.match(popupAtlasSource, /GeistMono-Regular\.ttf/)
-  assert.doesNotMatch(popupAtlasSource, /HACK_REGULAR/)
+  assert.deepEqual({
+    assetIsPresent: geistMonoBytes.length > 100_000,
+    ttfHeader: [...geistMonoBytes.subarray(0, 4)],
+    atlasIncludesAsset: /GeistMono-Regular\.ttf/.test(popupAtlasSource),
+    atlasAvoidsHackFallback: !/HACK_REGULAR/.test(popupAtlasSource),
+  }, {
+    assetIsPresent: true,
+    ttfHeader: [0, 1, 0, 0],
+    atlasIncludesAsset: true,
+    atlasAvoidsHackFallback: true,
+  })
 })
 
 test('Geist Mono covers every shader-formatted popup value glyph', () => {
-  for (const glyph of ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', 'i', '%', '°']) {
-    assert.equal(fontHasCodePoint(geistMonoBytes, glyph.codePointAt(0)!), true, `missing ${glyph}`)
-  }
+  const glyphs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', 'i', '%', '°']
+  assert.deepEqual(glyphs.filter((glyph) => !fontHasCodePoint(geistMonoBytes, glyph.codePointAt(0)!)), [])
 })
 
 export {}

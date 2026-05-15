@@ -11,7 +11,7 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
   env: process.env,
   defaultPath: chromium.executablePath(),
 })
-const workers = process.env.CI ? 6 : undefined
+const workers = 6
 
 export default defineConfig({
   testDir: './tests',

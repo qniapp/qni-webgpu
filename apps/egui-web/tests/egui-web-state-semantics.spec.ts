@@ -33,11 +33,13 @@ test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -70,10 +72,12 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -113,10 +117,12 @@ test('anti-control with a zero control wire applies the target gate', async ({ p
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -147,10 +153,12 @@ test('anti-control does not apply when the control wire is one', async ({ page }
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -188,10 +196,12 @@ test('Control does not affect gates in other columns', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -228,11 +238,13 @@ test('|0> resets a flipped qubit back to |0>', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -262,11 +274,13 @@ test('|1> flips |0> to |1>', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -290,11 +304,13 @@ test('|0> after H leaves the superposition unchanged (qni-faithful no-op)', asyn
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -326,11 +342,13 @@ test('Bloch display does not alter the state vector', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -362,11 +380,13 @@ test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -398,11 +418,13 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32

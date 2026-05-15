@@ -39,11 +39,13 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -88,11 +90,13 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -131,7 +135,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -167,15 +171,19 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
     Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 40
 
-  expect(isCircuitBackground(samples.circuit_background)).toBe(true)
-  expect(isCircuitBackground(samples.measurement_gap_left)).toBe(true)
-  expect(isWireLine(samples.measurement_wire_left)).toBe(true)
-  expect(isOutcomeBlue(samples.measurement_digit_centered)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_on_sphere)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_outside_sphere)).toBe(false)
+  const restingProbe = {
+    circuitBackground: isCircuitBackground(samples.circuit_background),
+    measurementGapLeft: isCircuitBackground(samples.measurement_gap_left),
+    measurementWireLeft: isWireLine(samples.measurement_wire_left),
+    measurementDigitCentered: isOutcomeBlue(samples.measurement_digit_centered),
+    blochTipOnSphere: isBlochRed(samples.bloch_tip_on_sphere),
+    blochTipOutsideSphere: isBlochRed(samples.bloch_tip_outside_sphere),
+  }
 
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   await page.mouse.move((box?.x ?? 0) + measureX, (box?.y ?? 0) + wireCenterY)
   await page.waitForTimeout(100)
   const hoverSamples = await sampleCanvasPixels(page, canvas, [
@@ -184,8 +192,20 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   ])
   const isHoverBorder = ([r, g, b]: CanvasPixel): boolean =>
     r >= 220 && r <= 240 && g >= 220 && g <= 240 && b >= 210 && b <= 230
-  expect(isHoverBorder(hoverSamples.measurement_hover_left_side)).toBe(true)
-  expect(isHoverBorder(hoverSamples.measurement_hover_right_side)).toBe(true)
+  expect({
+    ...restingProbe,
+    hoverLeftSide: isHoverBorder(hoverSamples.measurement_hover_left_side),
+    hoverRightSide: isHoverBorder(hoverSamples.measurement_hover_right_side),
+  }).toEqual({
+    circuitBackground: true,
+    measurementGapLeft: true,
+    measurementWireLeft: true,
+    measurementDigitCentered: true,
+    blochTipOnSphere: true,
+    blochTipOutsideSphere: false,
+    hoverLeftSide: true,
+    hoverRightSide: true,
+  })
 })
 
 test('GPU circuit overlays stay anchored in tall scroll-area viewports', async ({ page }) => {
@@ -201,7 +221,7 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -228,10 +248,17 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
 
-  expect(isOutcomeBlue(samples.measurement_digit_too_high)).toBe(false)
-  expect(isOutcomeBlue(samples.measurement_digit_on_wire)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_on_sphere)).toBe(true)
-  expect(isBlochRed(samples.bloch_tip_too_high)).toBe(false)
+  expect({
+    measurementDigitTooHigh: isOutcomeBlue(samples.measurement_digit_too_high),
+    measurementDigitOnWire: isOutcomeBlue(samples.measurement_digit_on_wire),
+    blochTipOnSphere: isBlochRed(samples.bloch_tip_on_sphere),
+    blochTipTooHigh: isBlochRed(samples.bloch_tip_too_high),
+  }).toEqual({
+    measurementDigitTooHigh: false,
+    measurementDigitOnWire: true,
+    blochTipOnSphere: true,
+    blochTipTooHigh: false,
+  })
 })
 
 test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
@@ -239,11 +266,13 @@ test('GPU measurement collapses |1> deterministically with outcome 1', async ({ 
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32

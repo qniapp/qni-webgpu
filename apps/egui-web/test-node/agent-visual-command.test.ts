@@ -16,31 +16,12 @@ const repoRoot = path.join(rootDir, '..', '..')
 const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
-  assert.equal(getGateIndex('H'), 0)
-  assert.equal(getGateIndex('X'), 1)
-  assert.equal(getGateIndex('sqrtx'), 4)
-  assert.equal(getGateIndex('s†'), 6)
-  assert.equal(getGateIndex('tdagger'), 8)
-  assert.equal(getGateIndex('swap'), 13)
-  assert.equal(getGateIndex('control'), 14)
-  assert.equal(getGateIndex('anti-control'), 15)
-  assert.equal(getGateIndex('◦'), 15)
-  assert.equal(getGateIndex('bloch'), 16)
-  assert.equal(getGateIndex('sphere'), 16)
-  assert.equal(getGateIndex('|0>'), 17)
-  assert.equal(getGateIndex('|0⟩'), 17)
-  assert.equal(getGateIndex('write0'), 17)
-  assert.equal(getGateIndex('|1>'), 18)
-  assert.equal(getGateIndex('write1'), 18)
-  assert.equal(getGateIndex('measure'), 19)
-  assert.equal(getGateIndex('m'), 19)
-  assert.equal(getGateIndex('spacer'), 20)
-  assert.equal(getGateIndex('…'), 20)
+  const aliases = ['H', 'X', 'sqrtx', 's†', 'tdagger', 'swap', 'control', 'anti-control', '◦', 'bloch', 'sphere', '|0>', '|0⟩', 'write0', '|1>', 'write1', 'measure', 'm', 'spacer', '…']
+  assert.deepEqual(aliases.map(getGateIndex), [0, 1, 4, 6, 8, 13, 14, 15, 15, 16, 16, 17, 17, 17, 18, 18, 19, 19, 20, 20])
 })
 
 test('agent visual command parses q-prefixed and numeric wires', () => {
-  assert.equal(parseWire('q0'), 0)
-  assert.equal(parseWire('1'), 1)
+  assert.deepEqual(['q0', '1'].map(parseWire), [0, 1])
 })
 
 test('agent visual command builds drag coordinates from semantic gate placement', () => {
@@ -70,8 +51,7 @@ test('agent visual command supports egui content vertical offset', () => {
     verticalOffset: 8,
   })
 
-  assert.equal(operation.from.y, 104)
-  assert.equal(operation.to.y, 244)
+  assert.deepEqual({ fromY: operation.from.y, toY: operation.to.y }, { fromY: 104, toY: 244 })
 })
 
 test('agent visual command parses comma separated operations', () => {
@@ -83,33 +63,36 @@ test('agent visual command parses comma separated operations', () => {
 })
 
 test('agent visual command writes page screenshots by default', () => {
-  assert.deepEqual(buildScreenshotPlan({ command: 'drag' }), {
-    pageOut: 'output/playwright/agent-visual/drag.png',
-    canvasOut: null,
-  })
-
-  assert.deepEqual(buildScreenshotPlan({
-    command: 'drag',
-    out: 'page.png',
-    canvasOut: 'canvas.png',
-  }), {
-    pageOut: 'page.png',
-    canvasOut: 'canvas.png',
+  assert.deepEqual({
+    defaultPlan: buildScreenshotPlan({ command: 'drag' }),
+    explicitPlan: buildScreenshotPlan({ command: 'drag', out: 'page.png', canvasOut: 'canvas.png' }),
+  }, {
+    defaultPlan: { pageOut: 'output/playwright/agent-visual/drag.png', canvasOut: null },
+    explicitPlan: { pageOut: 'page.png', canvasOut: 'canvas.png' },
   })
 })
 
 test('agent visual CLI uses a generic name without a compatibility wrapper', async () => {
-  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.ts')))
-  await assert.rejects(() => fs.access(path.join(rootDir, 'scripts', 'agent-visual.cjs')), /ENOENT/)
-  await assert.rejects(() => fs.access(path.join(rootDir, 'scripts', 'codex-visual.cjs')), /ENOENT/)
-
+  const accessOk = async (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
   const docs = await readText(path.join(repoRoot, 'docs', 'egui-web.md'))
-  assert.match(docs, /scripts\/agent-visual\.ts/)
-  assert.doesNotMatch(docs, /scripts\/agent-visual\.cjs/)
-
   const agents = await readText(path.join(repoRoot, 'AGENTS.md'))
-  assert.match(agents, /後方互換/)
-  assert.match(agents, /残さない/)
+  assert.deepEqual({
+    tsEntrypoint: await accessOk(path.join(rootDir, 'scripts', 'agent-visual.ts')),
+    legacyEntrypoint: await accessOk(path.join(rootDir, 'scripts', 'agent-visual.cjs')),
+    codexEntrypoint: await accessOk(path.join(rootDir, 'scripts', 'codex-visual.cjs')),
+    docsUseTs: /scripts\/agent-visual\.ts/.test(docs),
+    docsAvoidCjs: !/scripts\/agent-visual\.cjs/.test(docs),
+    agentsMentionCompatibility: /後方互換/.test(agents),
+    agentsMentionNoWrappers: /残さない/.test(agents),
+  }, {
+    tsEntrypoint: true,
+    legacyEntrypoint: false,
+    codexEntrypoint: false,
+    docsUseTs: true,
+    docsAvoidCjs: true,
+    agentsMentionCompatibility: true,
+    agentsMentionNoWrappers: true,
+  })
 })
 
 export {}

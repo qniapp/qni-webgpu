@@ -134,10 +134,15 @@ impl QniApp {
         // Start from `empty` so egui doesn't parse unused bundled fonts
         // (Ubuntu / Noto Emoji / default Hack) after we replace both
         // public font families.
-        // 1. Register Hack only as the final fallback so mathematical
+        // 1. Register a CP932/JIS Japanese subset of Noto Sans CJK JP
+        //    Regular as the UI fallback, so circuit names entered during
+        //    Rename render Japanese text instead of tofu. Noto CJK is SIL
+        //    OFL 1.1; the subset covers hiragana, katakana, common kanji,
+        //    full-width forms, and Windows Japanese name variants.
+        // 2. Register Hack only as the final fallback so mathematical
         //    angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in ket labels
         //    render instead of falling back to tofu if Geist lacks them.
-        // 2. Register Geist Sans weights for gate labels and all
+        // 3. Register Geist Sans weights for gate labels and all
         //    proportional UI text. Register Geist Mono for monospace UI
         //    text (state headers, popups, phase labels, FPS HUD, toggle).
         //    Geist is SIL OFL 1.1 (vercel/geist-font) and embedded via
@@ -173,13 +178,27 @@ impl QniApp {
                 "../assets/GeistMono-Regular.ttf"
             ))),
         );
+        fonts.font_data.insert(
+            "qni_japanese_fallback".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/QniJapaneseFallback-Regular.otf"
+            ))),
+        );
         fonts.families.insert(
             egui::FontFamily::Proportional,
-            vec!["geist_regular".to_owned(), "hack_fallback".to_owned()],
+            vec![
+                "geist_regular".to_owned(),
+                "qni_japanese_fallback".to_owned(),
+                "hack_fallback".to_owned(),
+            ],
         );
         fonts.families.insert(
             egui::FontFamily::Monospace,
-            vec!["geist_mono".to_owned(), "hack_fallback".to_owned()],
+            vec![
+                "geist_mono".to_owned(),
+                "qni_japanese_fallback".to_owned(),
+                "hack_fallback".to_owned(),
+            ],
         );
         fonts
             .families
@@ -198,7 +217,7 @@ impl QniApp {
         // Restore a shared circuit from the URL (`#{"cols":[...]}` or
         // qni-style path) first. If no URL payload is present, use the
         // persisted active localStorage circuit; if no persisted library
-        // exists, keep the seeded samples and a separate Untitled current
+        // exists, keep the seeded samples and a separate "Circuit 1" current
         // entry so examples are not overwritten by the empty editor.
         let (url_gates, url_next_gate_id) = crate::url_circuit::parse_circuit_from_url();
         let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);

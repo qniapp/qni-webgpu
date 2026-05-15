@@ -11,14 +11,14 @@ pub(super) fn paint_state_panel_overlays(
     painter: &egui::Painter,
     colors: &Colors,
     layout: &StatePanelLayout,
-    offset: egui::Vec2,
+    _offset: egui::Vec2,
     state_rect: egui::Rect,
     viewport_rect: egui::Rect,
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
 ) {
     state_panel_chrome::draw_state_minimap(painter, colors, layout, viewport_rect, grid_origin);
-    paint_aspect_popover(app, painter, colors, layout, offset);
+    paint_aspect_popover(app, painter, colors, layout, _offset, state_rect);
     paint_resize_handles(app, painter, colors, state_rect);
     paint_cell_popup(
         app,
@@ -37,18 +37,22 @@ fn paint_aspect_popover(
     colors: &Colors,
     layout: &StatePanelLayout,
     offset: egui::Vec2,
+    state_rect: egui::Rect,
 ) {
-    // Aspect popover (D 案) — only draw when open. Positioned below the
-    // dimensions text; floats above the panel and any minimap.
+    // Aspect popover — only draw when open. Its chrome mirrors the Circuit
+    // picker, opens below the dimensions trigger, and its right edge aligns
+    // with the state-vector panel right edge.
     if !app.state_panel.aspect_popover_open {
         return;
     }
 
     let dims_rect = QniApp::dims_hit_rect(painter.ctx(), layout, offset);
-    let (pop_rect, row_rects) = QniApp::aspect_popover_layout(dims_rect, layout.qubits);
+    let (pop_rect, row_rects) = QniApp::aspect_popover_layout(state_rect, dims_rect, layout.qubits);
     state_panel_popup::draw_aspect_popover(
         painter,
         colors,
+        state_rect,
+        dims_rect,
         pop_rect,
         &row_rects,
         layout.qubits,

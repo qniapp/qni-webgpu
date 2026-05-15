@@ -24,26 +24,41 @@ function readPackageJson(): PackageJson {
 }
 
 test('MCP server source and tests are TypeScript-only', () => {
-  assert.ok(existsSync(packagePath('src/circuit.ts')), 'src/circuit.ts exists')
-  assert.ok(existsSync(packagePath('src/index.ts')), 'src/index.ts exists')
-  assert.ok(
-    existsSync(packagePath('test/circuit.test.ts')),
-    'test/circuit.test.ts exists'
+  assert.deepEqual(
+    {
+      sourceCircuitTs: existsSync(packagePath('src/circuit.ts')),
+      sourceIndexTs: existsSync(packagePath('src/index.ts')),
+      testCircuitTs: existsSync(packagePath('test/circuit.test.ts')),
+      sourceCircuitJs: existsSync(packagePath('src/circuit.js')),
+      sourceIndexJs: existsSync(packagePath('src/index.js')),
+      testCircuitJs: existsSync(packagePath('test/circuit.test.js')),
+    },
+    {
+      sourceCircuitTs: true,
+      sourceIndexTs: true,
+      testCircuitTs: true,
+      sourceCircuitJs: false,
+      sourceIndexJs: false,
+      testCircuitJs: false,
+    }
   )
-
-  assert.equal(existsSync(packagePath('src/circuit.js')), false)
-  assert.equal(existsSync(packagePath('src/index.js')), false)
-  assert.equal(existsSync(packagePath('test/circuit.test.js')), false)
 })
 
 test('MCP package scripts build and run compiled TypeScript', () => {
   const packageJson = readPackageJson()
 
-  assert.equal(packageJson.scripts.build, 'tsc -p tsconfig.json')
-  assert.equal(packageJson.scripts.typecheck, 'tsc -p tsconfig.json --noEmit')
-  assert.equal(packageJson.scripts.start, 'node dist/src/index.js')
-  assert.equal(
-    packageJson.scripts.test,
-    'pnpm run build && node --test dist/test/*.test.js'
+  assert.deepEqual(
+    {
+      build: packageJson.scripts.build,
+      typecheck: packageJson.scripts.typecheck,
+      start: packageJson.scripts.start,
+      test: packageJson.scripts.test,
+    },
+    {
+      build: 'tsc -p tsconfig.json',
+      typecheck: 'tsc -p tsconfig.json --noEmit',
+      start: 'node dist/src/index.js',
+      test: 'pnpm run build && node --test dist/test/*.test.js',
+    }
   )
 })

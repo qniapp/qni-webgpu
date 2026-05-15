@@ -477,30 +477,40 @@ mod tests {
     fn payload_requests_histogram_without_full_vectors() {
         let payload = qiskit_run_payload(2, r#"[["H",1]]"#, 256);
         assert_eq!(
-            payload,
-            r#"{"qubits":2,"columns":[["H",1]],"shots":256,"outputs":{"histogram":true}}"#
+            (
+                payload.as_str(),
+                payload.contains("statevector"),
+                payload.contains("probabilities"),
+            ),
+            (
+                r#"{"qubits":2,"columns":[["H",1]],"shots":256,"outputs":{"histogram":true}}"#,
+                false,
+                false,
+            )
         );
-        assert!(!payload.contains("statevector"));
-        assert!(!payload.contains("probabilities"));
     }
 
     #[test]
     fn duration_uses_seconds_or_milliseconds() {
-        assert_eq!(format_gpu_duration(Duration::from_millis(420)), "420 ms");
-        assert_eq!(format_gpu_duration(Duration::from_millis(1_400)), "1.4 s");
+        assert_eq!(
+            (
+                format_gpu_duration(Duration::from_millis(420)),
+                format_gpu_duration(Duration::from_millis(1_400)),
+            ),
+            ("420 ms".to_owned(), "1.4 s".to_owned())
+        );
     }
 
     #[test]
     fn unsupported_gate_messages_are_mapped_to_gate_names() {
         assert_eq!(
-            unsupported_gate_from_message("unsupported gate token: …"),
-            Some("Spacer".to_owned())
-        );
-        assert_eq!(
-            unsupported_gate_from_message(
-                "QFT tokens are not supported by the dev Qiskit runner yet"
+            (
+                unsupported_gate_from_message("unsupported gate token: …"),
+                unsupported_gate_from_message(
+                    "QFT tokens are not supported by the dev Qiskit runner yet"
+                ),
             ),
-            Some("QFT".to_owned())
+            (Some("Spacer".to_owned()), Some("QFT".to_owned()))
         );
     }
 }

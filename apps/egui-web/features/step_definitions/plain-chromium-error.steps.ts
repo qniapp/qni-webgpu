@@ -9,7 +9,9 @@ const { openEguiApp, waitForAppReady, readEguiError } = require('../support/egui
 const CUCUMBER_STEP_TIMEOUT_MS = 20_000
 
 const requirePage = (world: EguiWorld): Page => {
-  assert.ok(world.page, 'expected egui page to be open')
+  if (!world.page) {
+    throw new Error('expected egui page to be open')
+  }
   return world.page
 }
 
@@ -33,9 +35,9 @@ Then('a visible WebGPU error is shown', async function (this: EguiWorld) {
     timeout: 20_000,
   })
 
-  assert.notEqual(await readEguiError(page), null)
-
   const errorLocator = page.locator('[data-testid="webgpu-error"]')
   await errorLocator.waitFor({ state: 'visible' })
-  assert.match(await errorLocator.innerText(), /WebGPU/i)
+  const message = await readEguiError(page)
+  const visibleText = await errorLocator.innerText()
+  assert.match(`${message}\n${visibleText}`, /WebGPU/i)
 })

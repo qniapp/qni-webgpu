@@ -9,8 +9,8 @@ import {
 
 const EPSILON = 1e-10
 
-function approxEqual(actual: number, expected: number, message: string): void {
-  assert.ok(Math.abs(actual - expected) < EPSILON, message)
+function approxEqual(actual: number, expected: number): boolean {
+  return Math.abs(actual - expected) < EPSILON
 }
 
 test('runCircuit applies H gate on single qubit', () => {
@@ -19,10 +19,15 @@ test('runCircuit applies H gate on single qubit', () => {
   const state = runCircuit(circuit)
   const invSqrt2 = 1 / Math.sqrt(2)
 
-  approxEqual(state[0].re, invSqrt2, 'state[0].re')
-  approxEqual(state[0].im, 0, 'state[0].im')
-  approxEqual(state[1].re, invSqrt2, 'state[1].re')
-  approxEqual(state[1].im, 0, 'state[1].im')
+  assert.deepEqual(
+    {
+      state0Re: approxEqual(state[0].re, invSqrt2),
+      state0Im: approxEqual(state[0].im, 0),
+      state1Re: approxEqual(state[1].re, invSqrt2),
+      state1Im: approxEqual(state[1].im, 0),
+    },
+    { state0Re: true, state0Im: true, state1Re: true, state1Im: true }
+  )
 })
 
 test('runCircuit applies X on qubit 0 for two qubits', () => {
@@ -30,11 +35,22 @@ test('runCircuit applies X on qubit 0 for two qubits', () => {
   placeGate(circuit, { gate: 'X', target: 0, column: 0 })
   const state = runCircuit(circuit)
 
-  assert.equal(state.length, 4)
-  approxEqual(state[0].re, 0, 'state[0].re')
-  approxEqual(state[1].re, 1, 'state[1].re')
-  approxEqual(state[2].re, 0, 'state[2].re')
-  approxEqual(state[3].re, 0, 'state[3].re')
+  assert.deepEqual(
+    {
+      length: state.length,
+      state0Re: approxEqual(state[0].re, 0),
+      state1Re: approxEqual(state[1].re, 1),
+      state2Re: approxEqual(state[2].re, 0),
+      state3Re: approxEqual(state[3].re, 0),
+    },
+    {
+      length: 4,
+      state0Re: true,
+      state1Re: true,
+      state2Re: true,
+      state3Re: true,
+    }
+  )
 })
 
 test('runCircuit respects column order', () => {
@@ -44,8 +60,13 @@ test('runCircuit respects column order', () => {
   const state = runCircuit(circuit)
   const invSqrt2 = 1 / Math.sqrt(2)
 
-  approxEqual(state[0].re, invSqrt2, 'state[0].re')
-  approxEqual(state[1].re, -invSqrt2, 'state[1].re')
+  assert.deepEqual(
+    {
+      state0Re: approxEqual(state[0].re, invSqrt2),
+      state1Re: approxEqual(state[1].re, -invSqrt2),
+    },
+    { state0Re: true, state1Re: true }
+  )
 })
 
 test('setQubits resets circuit operations', () => {
@@ -53,6 +74,8 @@ test('setQubits resets circuit operations', () => {
   placeGate(circuit, { gate: 'X', target: 0, column: 0 })
   setQubits(circuit, 2)
 
-  assert.equal(circuit.qubits, 2)
-  assert.equal(circuit.operations.length, 0)
+  assert.deepEqual(
+    { qubits: circuit.qubits, operations: circuit.operations.length },
+    { qubits: 2, operations: 0 }
+  )
 })

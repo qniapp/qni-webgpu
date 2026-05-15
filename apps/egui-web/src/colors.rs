@@ -51,12 +51,10 @@ pub(crate) struct Colors {
     pub(crate) palette_shadow: egui::Color32,
     pub(crate) state_panel_shadow: egui::Color32,
     pub(crate) tooltip_shadow: egui::Color32,
-    pub(crate) aspect_popover_shadow: egui::Color32,
     pub(crate) state_cell_popup_shadow: egui::Color32,
     pub(crate) minimap_bg: egui::Color32,
     pub(crate) minimap_viewport_fill: egui::Color32,
     pub(crate) minimap_viewport_stroke: egui::Color32,
-    pub(crate) aspect_thumb_current: egui::Color32,
     pub(crate) aspect_thumb_idle: egui::Color32,
     pub(crate) aspect_text_current: egui::Color32,
     pub(crate) fps_hud_bg: egui::Color32,
@@ -104,8 +102,12 @@ impl Theme {
         visuals.faint_bg_color = self.colors.surface;
         visuals.extreme_bg_color = self.colors.background;
         visuals.hyperlink_color = self.colors.semantic_on;
-        visuals.selection.bg_fill = with_alpha(self.colors.semantic_on, 80);
-        visuals.selection.stroke = egui::Stroke::new(1.0, self.colors.semantic_on);
+        // Text selection: Flexoki blue-100 (#C6DDE8) — pale enough to
+        // keep the underlying glyph readable in near-black tx. The
+        // previous `with_alpha(blue-600, 80)` came out mid-saturation
+        // and the dark text disappeared into it.
+        visuals.selection.bg_fill = egui::Color32::from_rgb(0xC6, 0xDD, 0xE8);
+        visuals.selection.stroke = egui::Stroke::NONE;
         ctx.set_visuals(visuals);
     }
 }
@@ -189,12 +191,10 @@ fn flexoki_light() -> Colors {
         palette_shadow: with_alpha(tx, 25),
         state_panel_shadow: with_alpha(tx, 25),
         tooltip_shadow: with_alpha(tx, 25),
-        aspect_popover_shadow: with_alpha(tx, 46),
         state_cell_popup_shadow: with_alpha(tx, 36),
         minimap_bg: with_alpha(tx, 140),
         minimap_viewport_fill: with_alpha(paper, 70),
         minimap_viewport_stroke: with_alpha(paper, 220),
-        aspect_thumb_current: with_alpha(paper, 220),
         aspect_thumb_idle: with_alpha(tx_2, 180),
         aspect_text_current: with_alpha(paper, 255),
         fps_hud_bg: with_alpha(tx, 235),

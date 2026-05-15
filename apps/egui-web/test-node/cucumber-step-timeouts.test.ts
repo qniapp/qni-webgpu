@@ -10,27 +10,19 @@ const readStep = (name: string) => fs.readFile(path.join(stepsDir, name), 'utf8'
 test('standard browser startup steps declare explicit cucumber timeouts', async () => {
   const source = await readStep('startup-success.steps.ts')
 
-  assert.match(
-    source,
-    /Given\(\s*'the egui web app is open in the standard WebGPU browser',\s*\{\s*timeout:\s*\w+\s*\}/,
-  )
-  assert.match(
-    source,
-    /When\('the app finishes initializing',\s*\{\s*timeout:\s*\w+\s*\}/,
-  )
+  assert.deepEqual({
+    givenHasTimeout: /Given\(\s*'the egui web app is open in the standard WebGPU browser',\s*\{\s*timeout:\s*\w+\s*\}/.test(source),
+    whenHasTimeout: /When\('the app finishes initializing',\s*\{\s*timeout:\s*\w+\s*\}/.test(source),
+  }, { givenHasTimeout: true, whenHasTimeout: true })
 })
 
 test('plain chromium startup steps declare explicit cucumber timeouts', async () => {
   const source = await readStep('plain-chromium-error.steps.ts')
 
-  assert.match(
-    source,
-    /Given\(\s*'the egui web app is open in plain chromium',\s*\{\s*timeout:\s*\w+\s*\}/,
-  )
-  assert.match(
-    source,
-    /When\('the plain chromium session finishes loading',\s*\{\s*timeout:\s*\w+\s*\}/,
-  )
+  assert.deepEqual({
+    givenHasTimeout: /Given\(\s*'the egui web app is open in plain chromium',\s*\{\s*timeout:\s*\w+\s*\}/.test(source),
+    whenHasTimeout: /When\('the plain chromium session finishes loading',\s*\{\s*timeout:\s*\w+\s*\}/.test(source),
+  }, { givenHasTimeout: true, whenHasTimeout: true })
 })
 
 export {}

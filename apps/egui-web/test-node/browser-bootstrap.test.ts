@@ -7,26 +7,39 @@ const rootDir = path.join(__dirname, '..')
 const repoRoot = path.join(rootDir, '..', '..')
 
 test('browser bootstrap source is TypeScript without a checked-in JavaScript wrapper', async () => {
-  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'bootstrap.ts')))
-  await assert.rejects(() => fs.access(path.join(rootDir, 'bootstrap.js')), /ENOENT/)
-
+  const accessOk = async (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
   const pkg = JSON.parse(await fs.readFile(path.join(rootDir, 'package.json'), 'utf8'))
-  assert.match(pkg.scripts['build:bootstrap'], /tsc bootstrap\.ts/)
-
   const trunkConfig = await fs.readFile(path.join(rootDir, 'Trunk.toml'), 'utf8')
-  assert.match(trunkConfig, /\[\[hooks\]\]/)
-  assert.match(trunkConfig, /stage = "pre_build"/)
-  assert.match(trunkConfig, /command = "pnpm"/)
-  assert.match(trunkConfig, /"build:bootstrap"/)
-  assert.match(trunkConfig, /watch = \["bootstrap\.ts"\]/)
-
   const index = await fs.readFile(path.join(rootDir, 'index.html'), 'utf8')
-  assert.match(index, /href="\.trunk-generated\/bootstrap\.js"/)
-  assert.doesNotMatch(index, /data-target-path="bootstrap\.js"/)
-  assert.match(index, /<script type="module" src="bootstrap\.js"><\/script>/)
-
   const gitignore = await fs.readFile(path.join(repoRoot, '.gitignore'), 'utf8')
-  assert.match(gitignore, /apps\/egui-web\/\.trunk-generated\//)
+
+  assert.deepEqual({
+    hasBootstrapTs: await accessOk(path.join(rootDir, 'bootstrap.ts')),
+    hasBootstrapJs: await accessOk(path.join(rootDir, 'bootstrap.js')),
+    buildScriptUsesTs: /tsc bootstrap\.ts/.test(pkg.scripts['build:bootstrap']),
+    trunkHasHook: /\[\[hooks\]\]/.test(trunkConfig),
+    trunkPreBuild: /stage = "pre_build"/.test(trunkConfig),
+    trunkUsesPnpm: /command = "pnpm"/.test(trunkConfig),
+    trunkBuildBootstrap: /"build:bootstrap"/.test(trunkConfig),
+    trunkWatchesBootstrapTs: /watch = \["bootstrap\.ts"\]/.test(trunkConfig),
+    indexLoadsGeneratedBootstrap: /href="\.trunk-generated\/bootstrap\.js"/.test(index),
+    indexAvoidsCheckedInBootstrapTarget: !/data-target-path="bootstrap\.js"/.test(index),
+    indexUsesModuleScript: /<script type="module" src="bootstrap\.js"><\/script>/.test(index),
+    gitignoreIgnoresGeneratedBootstrap: /apps\/egui-web\/\.trunk-generated\//.test(gitignore),
+  }, {
+    hasBootstrapTs: true,
+    hasBootstrapJs: false,
+    buildScriptUsesTs: true,
+    trunkHasHook: true,
+    trunkPreBuild: true,
+    trunkUsesPnpm: true,
+    trunkBuildBootstrap: true,
+    trunkWatchesBootstrapTs: true,
+    indexLoadsGeneratedBootstrap: true,
+    indexAvoidsCheckedInBootstrapTarget: true,
+    indexUsesModuleScript: true,
+    gitignoreIgnoresGeneratedBootstrap: true,
+  })
 })
 
 export {}

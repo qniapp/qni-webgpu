@@ -34,11 +34,13 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -70,8 +72,10 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   const before = beforeDrag.fill
   const during = duringDrag.fill
   const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
-  expect(diff).toBeGreaterThan(120)
-  expect(isDragPreviewFill(during)).toBe(true)
+  expect({ diffVisible: diff > 120, usesDragFill: isDragPreviewFill(during) }).toEqual({
+    diffVisible: true,
+    usesDragFill: true,
+  })
 
   await page.mouse.up()
 })
@@ -82,10 +86,12 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   if (!box) {
     throw new Error('canvas bounding box should be available')
   }
@@ -114,11 +120,13 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -151,10 +159,12 @@ test('dragged x gate uses Flexoki purple-600 before dropping back to green', asy
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -183,8 +193,10 @@ test('dragged x gate uses Flexoki purple-600 before dropping back to green', asy
 
   const duringPurpleCount = Object.values(duringDrag).filter(isDragPreviewFill).length
   const afterGreenCount = Object.values(afterDrop).filter(isRegularGateFill).length
-  expect(duringPurpleCount, 'dragged X body should use Flexoki purple-600').toBeGreaterThan(20)
-  expect(afterGreenCount, 'dropped X body should return to regular green').toBeGreaterThan(20)
+  expect({ draggedUsesPurple: duringPurpleCount > 20, droppedReturnsGreen: afterGreenCount > 20 }).toEqual({
+    draggedUsesPurple: true,
+    droppedReturnsGreen: true,
+  })
 })
 
 test('x gate uses a circular body in palette, circuit, and drag preview', async ({ page }, testInfo) => {
@@ -193,11 +205,13 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   await waitForCanvasContent(page, canvas)
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -214,7 +228,9 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
     const screenshot = await canvas.screenshot({ type: 'png' })
     const base64 = screenshot.toString('base64')
     const canvasBox = await canvas.boundingBox()
-    expect(canvasBox).not.toBeNull()
+    if (!canvasBox) {
+    throw new Error('expected egui canvas to be measurable')
+  }
 
     return page.evaluate<
       CircularBodySignature,
@@ -305,36 +321,37 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
       }
     )
   }
-  const expectCircularBody = async (label: string, center: Point): Promise<void> => {
+  const readCircularBodyCheck = async (center: Point) => {
     const signature = await readCircularBodySignature(center)
     const edgeNames = ['top', 'bottom', 'left', 'right']
     const cornerNames = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
     const filledEdges = edgeNames.filter((name) => isGateBodyFill(signature.samples[name])).length
     const filledCorners = cornerNames.filter((name) => isGateBodyFill(signature.samples[name])).length
-
-    expect(signature.count, `${label} should find only the local X gate fill`).toBeGreaterThan(500)
-    expect(signature.width, `${label} should have a full-width body`).toBeGreaterThan(24)
-    expect(signature.height, `${label} should have a full-height body`).toBeGreaterThan(24)
-    expect(
+    return {
+      countOk: signature.count > 500,
+      widthOk: signature.width > 24,
+      heightOk: signature.height > 24,
       filledEdges,
-      `${label} should fill the four cardinal edge samples: ${JSON.stringify(signature)}`
-    ).toBe(edgeNames.length)
-    expect(
       filledCorners,
-      `${label} should leave the four diagonal corner samples unfilled: ${JSON.stringify(signature)}`
-    ).toBe(0)
+    }
   }
 
-  await expectCircularBody('palette X gate', { x: xGateCenter.x, y: xGateCenter.y + 8 })
+  const palette = await readCircularBodyCheck({ x: xGateCenter.x, y: xGateCenter.y + 8 })
 
   await dragPointer(page, xGateCenter, placedXCenter)
   await page.waitForTimeout(50)
-  await expectCircularBody('placed X gate', { x: placedXCenter.x + 8, y: placedXCenter.y + 8 })
+  const placed = await readCircularBodyCheck({ x: placedXCenter.x + 8, y: placedXCenter.y + 8 })
 
   await dragPointer(page, placedXCenter, dragXCenter, 6, false)
   await page.waitForTimeout(50)
-  await expectCircularBody('drag preview X gate', { x: dragXCenter.x + 24, y: dragXCenter.y + 16 })
+  const dragPreview = await readCircularBodyCheck({ x: dragXCenter.x + 24, y: dragXCenter.y + 16 })
   await canvas.screenshot({ path: testInfo.outputPath('x-gate-circular-body.png') })
+
+  expect({ palette, placed, dragPreview }).toEqual({
+    palette: { countOk: true, widthOk: true, heightOk: true, filledEdges: 4, filledCorners: 0 },
+    placed: { countOk: true, widthOk: true, heightOk: true, filledEdges: 4, filledCorners: 0 },
+    dragPreview: { countOk: true, widthOk: true, heightOk: true, filledEdges: 4, filledCorners: 0 },
+  })
 
   await page.mouse.up()
 })
@@ -345,7 +362,7 @@ test('drag preview preserves resized QFT span', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -380,10 +397,12 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32

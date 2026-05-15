@@ -70,12 +70,14 @@ const loadConfig = (env = process.env) => {
 }
 
 test('playwright config is TypeScript without a compatibility wrapper', async () => {
-  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'playwright.config.ts')))
-  await assert.rejects(() => fs.access(path.join(rootDir, 'playwright.config.cjs')), /ENOENT/)
-
+  const accessOk = (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
   const docs = await fs.readFile(path.join(repoRoot, 'docs', 'egui-web.md'), 'utf8')
-  assert.match(docs, /playwright\.config\.ts/)
-  assert.doesNotMatch(docs, /playwright\.config\.cjs/)
+  assert.deepEqual({
+    hasTsConfig: await accessOk(path.join(rootDir, 'playwright.config.ts')),
+    hasCjsConfig: await accessOk(path.join(rootDir, 'playwright.config.cjs')),
+    docsUseTs: /playwright\.config\.ts/.test(docs),
+    docsAvoidCjs: !/playwright\.config\.cjs/.test(docs),
+  }, { hasTsConfig: true, hasCjsConfig: false, docsUseTs: true, docsAvoidCjs: true })
 })
 
 test('playwright config uses the shared browser and web server policies', () => {
@@ -87,14 +89,19 @@ test('playwright config uses the shared browser and web server policies', () => 
 
   const expectedWebServer = getWebServerConfig()
 
-  assert.equal(config.fullyParallel, true)
-  assert.equal(config.use.baseURL, expectedWebServer.url)
-  assert.equal(config.use.headless, expectedBrowser.headless)
-  assert.deepEqual(config.use.launchOptions, {
-    executablePath: expectedBrowser.executablePath,
-    args: expectedBrowser.args,
+  assert.deepEqual({
+    fullyParallel: config.fullyParallel,
+    baseURL: config.use.baseURL,
+    headless: config.use.headless,
+    launchOptions: config.use.launchOptions,
+    webServer: config.webServer,
+  }, {
+    fullyParallel: true,
+    baseURL: expectedWebServer.url,
+    headless: expectedBrowser.headless,
+    launchOptions: { executablePath: expectedBrowser.executablePath, args: expectedBrowser.args },
+    webServer: expectedWebServer,
   })
-  assert.deepEqual(config.webServer, expectedWebServer)
 })
 
 test('playwright config uses a bounded multi-worker count on CI', () => {
@@ -107,6 +114,12 @@ test('playwright config uses a bounded multi-worker count on CI', () => {
   assert.equal(config.workers, 6)
 })
 
+test('playwright config uses the same bounded worker count outside CI', () => {
+  const config = loadConfig({ ...process.env, CI: undefined })
+
+  assert.equal(config.workers, 6)
+})
+
 test('playwright config can reuse an externally managed egui-web server', () => {
   const env = {
     ...process.env,
@@ -115,8 +128,10 @@ test('playwright config can reuse an externally managed egui-web server', () => 
   }
   const config = loadConfig(env)
 
-  assert.equal(config.use.baseURL, getPlaywrightBaseUrl({ env }))
-  assert.equal(config.webServer, undefined)
+  assert.deepEqual({ baseURL: config.use.baseURL, webServer: config.webServer }, {
+    baseURL: getPlaywrightBaseUrl({ env }),
+    webServer: undefined,
+  })
 })
 
 export {}

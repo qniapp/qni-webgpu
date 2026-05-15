@@ -52,6 +52,7 @@ impl QniApp {
         let pre_popover_rect = if self.state_panel.aspect_popover_open {
             let dims_hit = QniApp::dims_hit_rect(ctx, &pre_state_layout, self.state_panel.offset);
             let (rect, _) = QniApp::aspect_popover_layout(
+                pre_state_rect,
                 dims_hit,
                 amplitude_qubits(state_count).clamp(1, MAX_QUBITS),
             );

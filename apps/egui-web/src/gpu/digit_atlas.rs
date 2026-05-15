@@ -15,15 +15,16 @@ pub(super) const DIGIT_ATLAS_CELL: u32 = 22;
 pub(super) const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
 pub(super) const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
 
-/// Rasterises the digits "0" and "1" using Geist Regular 400 — the same
-/// weight egui uses for the solo gate letters (H / Y / Z / S / T) and
-/// the ket digits, so the measurement outcome matches them visually.
-/// Done once at startup; the result is uploaded to a GPU texture
-/// sampled by `MEASUREMENT_DIGIT_SHADER`, so outcome rendering stays
-/// GPU-only and does not read measurement results back to the CPU.
+/// Rasterises the digits "0" and "1" using Geist Mono Regular so the
+/// slashed "0" is unambiguously a zero (matches the ket digits, which
+/// are also drawn in Geist Mono). Done once at startup; the result is
+/// uploaded to a GPU texture sampled by `MEASUREMENT_DIGIT_SHADER`,
+/// so outcome rendering stays GPU-only and does not read measurement
+/// results back to the CPU.
 pub(super) fn rasterize_digit_atlas() -> Vec<u8> {
-    let font = ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/Geist-Regular.ttf"))
-        .expect("Geist Regular bytes should parse as a TTF");
+    let font =
+        ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/GeistMono-Regular.ttf"))
+            .expect("Geist Mono Regular bytes should parse as a TTF");
     let scale = ab_glyph::PxScale::from(23.0);
     let scaled = font.as_scaled(scale);
 

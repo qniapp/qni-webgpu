@@ -474,9 +474,14 @@ mod tests {
 
     #[test]
     fn display_index_to_state_index_reverses_bits() {
-        assert_eq!(display_index_to_state_index(0, 2), 0);
-        assert_eq!(display_index_to_state_index(1, 2), 2);
-        assert_eq!(display_index_to_state_index(2, 2), 1);
-        assert_eq!(display_index_to_state_index(3, 2), 3);
+        assert_eq!(
+            (
+                display_index_to_state_index(0, 2),
+                display_index_to_state_index(1, 2),
+                display_index_to_state_index(2, 2),
+                display_index_to_state_index(3, 2),
+            ),
+            (0, 2, 1, 3)
+        );
     }
 }

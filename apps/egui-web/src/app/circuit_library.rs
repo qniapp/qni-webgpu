@@ -13,6 +13,8 @@ use crate::url_circuit::EMPTY_CIRCUIT_JSON;
 
 pub(crate) type CircuitId = String;
 
+const DEFAULT_CIRCUIT_NAME_PREFIX: &str = "Circuit ";
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct CircuitEntry {
     pub id: CircuitId,
@@ -131,17 +133,17 @@ impl CircuitLibrary {
     }
 
     pub(crate) fn duplicate(&mut self, index: usize) -> Option<&CircuitEntry> {
-        let source = self.entries.get(index)?.clone();
-        let entry = CircuitEntry {
-            id: self.fresh_id("circuit"),
-            name: format!("{} (copy)", source.name),
-            circuit_json: source.circuit_json,
-            updated_at: now_millis(),
-        };
-        let id = entry.id.clone();
-        self.entries
-            .insert((index + 1).min(self.entries.len()), entry);
-        Some(self.set_active(id))
+        self.duplicate_at_index(index)?;
+        Some(self.active())
+    }
+
+    /// Insert a copy of the active entry right after it; switch active to the
+    /// new entry and bump its timestamp. Copy names follow the picker/toolbar
+    /// contract: "Name (copy)", then "Name (copy 2)", "Name (copy 3)", …
+    pub(crate) fn duplicate_active(&mut self) -> CircuitId {
+        let index = self.active_index();
+        self.duplicate_at_index(index)
+            .expect("active circuit entry should always exist")
     }
 
     pub(crate) fn move_up(&mut self, index: usize) {
@@ -196,7 +198,7 @@ impl CircuitLibrary {
     pub(crate) fn create_new(&mut self) -> &CircuitEntry {
         let entry = CircuitEntry {
             id: self.fresh_id("circuit"),
-            name: "Untitled".to_owned(),
+            name: self.next_default_circuit_name(None),
             circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
             updated_at: now_millis(),
         };
@@ -209,7 +211,7 @@ impl CircuitLibrary {
         let id = "current".to_owned();
         let entry = CircuitEntry {
             id: id.clone(),
-            name: "Untitled".to_owned(),
+            name: self.next_default_circuit_name(Some(&id)),
             circuit_json,
             updated_at: now_millis(),
         };
@@ -219,6 +221,22 @@ impl CircuitLibrary {
             self.entries.insert(0, entry);
         }
         self.active_id = id;
+    }
+
+    pub(crate) fn migrate_legacy_default_names(&mut self) -> bool {
+        let mut changed = false;
+        let now = now_millis();
+        for index in 0..self.entries.len() {
+            if self.entries[index].name == "Untitled"
+                && is_auto_generated_circuit_id(&self.entries[index].id)
+            {
+                let id = self.entries[index].id.clone();
+                self.entries[index].name = self.next_default_circuit_name(Some(&id));
+                self.entries[index].updated_at = now;
+                changed = true;
+            }
+        }
+        changed
     }
 
     pub(crate) fn to_test_json(&self) -> String {
@@ -243,11 +261,43 @@ impl CircuitLibrary {
         )
     }
 
+    fn duplicate_at_index(&mut self, index: usize) -> Option<CircuitId> {
+        let source = self.entries.get(index)?.clone();
+        let entry = CircuitEntry {
+            id: self.fresh_id("circuit"),
+            name: self.unique_copy_name(&source.name),
+            circuit_json: source.circuit_json,
+            updated_at: now_millis(),
+        };
+        let id = entry.id.clone();
+        self.entries
+            .insert((index + 1).min(self.entries.len()), entry);
+        self.active_id = id.clone();
+        self.bump_updated_at();
+        Some(id)
+    }
+
+    fn unique_copy_name(&self, source_name: &str) -> String {
+        let root = copy_name_root(source_name);
+        let first = format!("{root} (copy)");
+        if !self.entries.iter().any(|entry| entry.name == first) {
+            return first;
+        }
+        let mut suffix = 2;
+        loop {
+            let candidate = format!("{root} (copy {suffix})");
+            if !self.entries.iter().any(|entry| entry.name == candidate) {
+                return candidate;
+            }
+            suffix += 1;
+        }
+    }
+
     fn ensure_non_empty(&mut self) {
         if self.entries.is_empty() {
             self.entries.push(CircuitEntry {
                 id: "circuit-1".to_owned(),
-                name: "Untitled".to_owned(),
+                name: "Circuit 1".to_owned(),
                 circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
                 updated_at: now_millis(),
             });
@@ -255,6 +305,18 @@ impl CircuitLibrary {
         if self.active_id.is_empty() {
             self.active_id = self.entries[0].id.clone();
         }
+    }
+
+    fn next_default_circuit_name(&self, excluding_id: Option<&str>) -> String {
+        let next_index = self
+            .entries
+            .iter()
+            .filter(|entry| excluding_id != Some(entry.id.as_str()))
+            .filter_map(|entry| default_circuit_number(&entry.name))
+            .max()
+            .unwrap_or(0)
+            + 1;
+        format!("{DEFAULT_CIRCUIT_NAME_PREFIX}{next_index}")
     }
 
     fn fresh_id(&self, prefix: &str) -> CircuitId {
@@ -277,6 +339,9 @@ impl CircuitLibrary {
             PersistedLibraryState::Loaded(library) => library,
             PersistedLibraryState::Missing | PersistedLibraryState::Invalid => Self::seed(),
         };
+        if library.migrate_legacy_default_names() {
+            changed = true;
+        }
         let active_json = if url_has_payload {
             if let Some(entry) = library
                 .entries
@@ -706,12 +771,13 @@ impl QniApp {
     }
 
     pub(crate) fn apply_external_circuit_library_update(&mut self, ctx: &egui::Context) {
-        if take_external_library_dirty() {
-            if let Some(library) = load_persisted_library() {
-                self.library = library;
-                let active_json = self.library.active().circuit_json.clone();
-                self.replace_editor_circuit(active_json, ctx);
-            }
+        if !take_external_library_dirty() {
+            return;
+        }
+        if let PersistedLibraryState::Loaded(library) = load_persisted_library_state() {
+            self.library = library;
+            let active_json = self.library.active().circuit_json.clone();
+            self.replace_editor_circuit(active_json, ctx);
         }
     }
 
@@ -740,6 +806,13 @@ impl QniApp {
             self.replace_editor_circuit(circuit_json, ctx);
         }
         self.picker.close_submenu();
+    }
+
+    pub(crate) fn duplicate_active_circuit(&mut self, ctx: &egui::Context) {
+        self.library.duplicate_active();
+        let circuit_json = self.library.active().circuit_json.clone();
+        self.picker.close();
+        self.replace_editor_circuit(circuit_json, ctx);
     }
 
     pub(crate) fn move_circuit_entry_up(&mut self, index: usize, ctx: &egui::Context) {
@@ -825,13 +898,6 @@ enum PersistedLibraryState {
     Invalid,
 }
 
-fn load_persisted_library() -> Option<CircuitLibrary> {
-    match load_persisted_library_state() {
-        PersistedLibraryState::Loaded(library) => Some(library),
-        PersistedLibraryState::Missing | PersistedLibraryState::Invalid => None,
-    }
-}
-
 fn load_persisted_library_state() -> PersistedLibraryState {
     match load_persisted_library_result() {
         Ok(Some(library)) => PersistedLibraryState::Loaded(library),
@@ -882,6 +948,39 @@ fn take_external_library_dirty() -> bool {
 #[cfg(target_arch = "wasm32")]
 fn js_error_message(value: wasm_bindgen::JsValue) -> String {
     value.as_string().unwrap_or_else(|| format!("{value:?}"))
+}
+
+fn is_auto_generated_circuit_id(id: &str) -> bool {
+    if id == "current" {
+        return true;
+    }
+    id.strip_prefix("circuit-")
+        .is_some_and(|suffix| suffix.parse::<usize>().is_ok())
+}
+
+fn default_circuit_number(name: &str) -> Option<usize> {
+    let number = name.strip_prefix(DEFAULT_CIRCUIT_NAME_PREFIX)?;
+    if number.is_empty() || !number.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    match number.parse::<usize>() {
+        Ok(0) | Err(_) => None,
+        Ok(number) => Some(number),
+    }
+}
+
+fn copy_name_root(name: &str) -> &str {
+    if let Some(root) = name.strip_suffix(" (copy)") {
+        return root;
+    }
+    if let Some((root, suffix)) = name.rsplit_once(" (copy ") {
+        if let Some(number) = suffix.strip_suffix(')') {
+            if number.parse::<usize>().is_ok() {
+                return root;
+            }
+        }
+    }
+    name
 }
 
 fn json_escape(input: &str) -> String {
@@ -963,6 +1062,63 @@ mod test_hooks {
             snapshot.as_ref().unchecked_ref(),
         );
         snapshot.forget();
+
+        wrap_library_mutation_hooks(window.as_ref(), ctx.clone());
+    }
+
+    fn wrap_library_mutation_hooks(window: &wasm_bindgen::JsValue, ctx: egui::Context) {
+        wrap_library_hook_1(window, "__qniCircuitLibraryDelete", ctx.clone());
+        wrap_library_hook_1(window, "__qniCircuitLibraryLoad", ctx.clone());
+        wrap_library_hook_2(window, "__qniCircuitLibraryRename", ctx.clone());
+        wrap_library_hook_2(window, "__qniCircuitLibrarySave", ctx);
+    }
+
+    fn library_hook(window: &wasm_bindgen::JsValue, name: &str) -> Option<js_sys::Function> {
+        js_sys::Reflect::get(window, &wasm_bindgen::JsValue::from_str(name))
+            .ok()?
+            .dyn_into::<js_sys::Function>()
+            .ok()
+    }
+
+    fn wrap_library_hook_1(window: &wasm_bindgen::JsValue, name: &str, ctx: egui::Context) {
+        let Some(original) = library_hook(window, name) else {
+            return;
+        };
+        let hook =
+            wasm_bindgen::closure::Closure::wrap(Box::new(move |arg: wasm_bindgen::JsValue| {
+                let result = original.call1(&wasm_bindgen::JsValue::NULL, &arg);
+                ctx.request_repaint();
+                result.unwrap_or_else(|error| wasm_bindgen::throw_val(error))
+            })
+                as Box<dyn FnMut(wasm_bindgen::JsValue) -> wasm_bindgen::JsValue>);
+        let _ = js_sys::Reflect::set(
+            window,
+            &wasm_bindgen::JsValue::from_str(name),
+            hook.as_ref().unchecked_ref(),
+        );
+        hook.forget();
+    }
+
+    fn wrap_library_hook_2(window: &wasm_bindgen::JsValue, name: &str, ctx: egui::Context) {
+        let Some(original) = library_hook(window, name) else {
+            return;
+        };
+        let hook = wasm_bindgen::closure::Closure::wrap(Box::new(
+            move |first: wasm_bindgen::JsValue, second: wasm_bindgen::JsValue| {
+                let result = original.call2(&wasm_bindgen::JsValue::NULL, &first, &second);
+                ctx.request_repaint();
+                result.unwrap_or_else(|error| wasm_bindgen::throw_val(error))
+            },
+        )
+            as Box<
+                dyn FnMut(wasm_bindgen::JsValue, wasm_bindgen::JsValue) -> wasm_bindgen::JsValue,
+            >);
+        let _ = js_sys::Reflect::set(
+            window,
+            &wasm_bindgen::JsValue::from_str(name),
+            hook.as_ref().unchecked_ref(),
+        );
+        hook.forget();
     }
 
     pub(super) fn take_seeded_library() -> Option<CircuitLibrary> {
@@ -1047,17 +1203,84 @@ fn publish_library_snapshot(_library: &CircuitLibrary) {}
 
 #[cfg(test)]
 mod tests {
-    use super::{CircuitLibrary, EMPTY_CIRCUIT_JSON};
+    use super::{CircuitEntry, CircuitLibrary, EMPTY_CIRCUIT_JSON};
 
     #[test]
     fn seed_contains_three_named_samples() {
         let library = CircuitLibrary::seed();
 
-        assert_eq!(library.entries.len(), 3);
-        assert_eq!(library.active_id, "bell");
-        assert_eq!(library.entries[0].name, "Bell state");
-        assert_eq!(library.entries[1].name, "GHZ state");
-        assert_eq!(library.entries[2].name, "QFT 4-qubit");
+        assert_eq!(
+            (
+                library.entries.len(),
+                library.active_id.as_str(),
+                library.entries[0].name.as_str(),
+                library.entries[1].name.as_str(),
+                library.entries[2].name.as_str(),
+            ),
+            (3, "bell", "Bell state", "GHZ state", "QFT 4-qubit")
+        );
+    }
+
+    #[test]
+    fn current_and_new_circuits_use_incrementing_default_names() {
+        let mut library = CircuitLibrary::seed();
+
+        library.set_active_current_circuit(EMPTY_CIRCUIT_JSON.to_owned());
+        let initial_name = library.active().name.clone();
+
+        library.set_active_current_circuit(r#"{"cols":[["H"]]}"#.to_owned());
+        let edited_name = library.active().name.clone();
+
+        let first = library.create_new().clone();
+        let second = library.create_new().clone();
+
+        assert_eq!(
+            (
+                initial_name.as_str(),
+                edited_name.as_str(),
+                first.name.as_str(),
+                second.name.as_str()
+            ),
+            ("Circuit 1", "Circuit 1", "Circuit 2", "Circuit 3")
+        );
+    }
+
+    #[test]
+    fn legacy_auto_untitled_entries_migrate_to_numbered_circuits() {
+        let mut library = CircuitLibrary::from_entries(
+            vec![
+                CircuitEntry {
+                    id: "current".to_owned(),
+                    name: "Untitled".to_owned(),
+                    circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
+                    updated_at: 0,
+                },
+                CircuitEntry {
+                    id: "circuit-8".to_owned(),
+                    name: "Untitled".to_owned(),
+                    circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
+                    updated_at: 0,
+                },
+                CircuitEntry {
+                    id: "ckt_saved".to_owned(),
+                    name: "Untitled".to_owned(),
+                    circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
+                    updated_at: 0,
+                },
+            ],
+            "current".to_owned(),
+        );
+
+        let migrated = library.migrate_legacy_default_names();
+        assert_eq!(
+            (
+                migrated,
+                library.entries[0].name.as_str(),
+                library.entries[1].name.as_str(),
+                library.entries[2].name.as_str(),
+            ),
+            (true, "Circuit 1", "Circuit 2", "Untitled")
+        );
     }
 
     #[test]
@@ -1067,8 +1290,13 @@ mod tests {
         library.set_active("ghz".to_owned());
         library.update_active(EMPTY_CIRCUIT_JSON.to_owned());
 
-        assert_eq!(library.active().id, "ghz");
-        assert_eq!(library.active().circuit_json, EMPTY_CIRCUIT_JSON);
+        assert_eq!(
+            (
+                library.active().id.as_str(),
+                library.active().circuit_json.as_str()
+            ),
+            ("ghz", EMPTY_CIRCUIT_JSON)
+        );
     }
 
     #[test]
@@ -1076,18 +1304,109 @@ mod tests {
         let mut library = CircuitLibrary::seed();
 
         let duplicated = library.duplicate(1).expect("duplicate").clone();
-        assert_eq!(duplicated.name, "GHZ state (copy)");
-        assert_eq!(library.active_id, duplicated.id);
-        assert_eq!(library.entries[2].id, duplicated.id);
+        let after_duplicate = (
+            duplicated.name.clone(),
+            duplicated.updated_at != 0,
+            library.active_id.clone(),
+            library.entries[2].id.clone(),
+        );
 
         library.move_up(2);
-        assert_eq!(library.entries[1].id, duplicated.id);
+        let after_move_up_id = library.entries[1].id.clone();
         library.move_down(1);
-        assert_eq!(library.entries[2].id, duplicated.id);
+        let after_move_down_id = library.entries[2].id.clone();
 
         library.delete(2);
-        assert_eq!(library.active_id, "bell");
-        assert_eq!(library.entries.len(), 3);
+        assert_eq!(
+            (
+                after_duplicate.0.as_str(),
+                after_duplicate.1,
+                after_duplicate.2.as_str(),
+                after_duplicate.3.as_str(),
+                after_move_up_id.as_str(),
+                after_move_down_id.as_str(),
+                library.active_id.as_str(),
+                library.entries.len(),
+            ),
+            (
+                "GHZ state (copy)",
+                true,
+                duplicated.id.as_str(),
+                duplicated.id.as_str(),
+                duplicated.id.as_str(),
+                duplicated.id.as_str(),
+                "bell",
+                3,
+            )
+        );
+    }
+
+    #[test]
+    fn duplicate_active_inserts_after_active_and_numbers_copy_names() {
+        let mut library = CircuitLibrary::seed();
+        library.set_active("bell".to_owned());
+        if let Some(entry) = library.entries.iter_mut().find(|entry| entry.id == "bell") {
+            entry.updated_at = 0;
+        }
+
+        let first_id = library.duplicate_active();
+        let first_snapshot = (
+            library.entries[1].id.clone(),
+            library.active_id.clone(),
+            library.entries[1].name.clone(),
+            library.entries[1].circuit_json.clone(),
+            library.entries[0].circuit_json.clone(),
+            library.active().updated_at != 0,
+        );
+
+        let second_id = library.duplicate_active();
+        let second_snapshot = (
+            library.entries[2].id.clone(),
+            library.entries[2].name.clone(),
+        );
+
+        let third_id = library.duplicate_active();
+        assert_eq!(
+            (
+                first_snapshot.0.as_str(),
+                first_snapshot.1.as_str(),
+                first_snapshot.2.as_str(),
+                first_snapshot.3.as_str(),
+                first_snapshot.4.as_str(),
+                first_snapshot.5,
+                second_snapshot.0.as_str(),
+                second_snapshot.1.as_str(),
+                library.entries[3].id.as_str(),
+                library.entries[3].name.as_str(),
+            ),
+            (
+                first_id.as_str(),
+                first_id.as_str(),
+                "Bell state (copy)",
+                first_snapshot.4.as_str(),
+                first_snapshot.4.as_str(),
+                true,
+                second_id.as_str(),
+                "Bell state (copy 2)",
+                third_id.as_str(),
+                "Bell state (copy 3)",
+            )
+        );
+    }
+
+    #[test]
+    fn duplicate_active_skips_existing_copy_name_collisions() {
+        let mut library = CircuitLibrary::seed();
+        library.entries[1].name = "Bell state (copy)".to_owned();
+        library.entries[2].name = "Bell state (copy 2)".to_owned();
+        library.set_active("bell".to_owned());
+
+        let id = library.duplicate_active();
+
+        assert_eq!(
+            (library.active_id.as_str(), library.entries[1].name.as_str()),
+            (id.as_str(), "Bell state (copy 3)")
+        );
     }
 
     #[test]
@@ -1098,14 +1417,16 @@ mod tests {
         library.reorder(0, 3);
 
         assert_eq!(
-            library
-                .entries
-                .iter()
-                .map(|entry| entry.id.as_str())
-                .collect::<Vec<_>>(),
-            vec!["ghz", "qft-4", "bell"]
+            (
+                library
+                    .entries
+                    .iter()
+                    .map(|entry| entry.id.as_str())
+                    .collect::<Vec<_>>(),
+                library.active_id.as_str(),
+            ),
+            (vec!["ghz", "qft-4", "bell"], "ghz")
         );
-        assert_eq!(library.active_id, "ghz");
     }
 
     #[test]
@@ -1114,13 +1435,16 @@ mod tests {
         let original = library.clone();
 
         library.reorder(2, 2);
-        assert_eq!(library, original);
+        let after_same_index = library.clone();
 
         library.reorder(2, 3);
-        assert_eq!(library, original);
+        let after_endpoint_noop = library.clone();
 
         library.reorder(99, 0);
-        assert_eq!(library, original);
+        assert_eq!(
+            (after_same_index, after_endpoint_noop, library),
+            (original.clone(), original.clone(), original)
+        );
     }
 
     #[test]
@@ -1134,14 +1458,16 @@ mod tests {
         library.swap_adjacent(1, 2);
 
         assert_eq!(
-            library
-                .entries
-                .iter()
-                .map(|entry| entry.id.as_str())
-                .collect::<Vec<_>>(),
-            vec!["bell", "qft-4", "ghz"]
+            (
+                library
+                    .entries
+                    .iter()
+                    .map(|entry| entry.id.as_str())
+                    .collect::<Vec<_>>(),
+                library.active_id.as_str(),
+                library.active().updated_at,
+            ),
+            (vec!["bell", "qft-4", "ghz"], "ghz", 0)
         );
-        assert_eq!(library.active_id, "ghz");
-        assert_eq!(library.active().updated_at, 0);
     }
 }

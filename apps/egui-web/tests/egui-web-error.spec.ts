@@ -42,11 +42,18 @@ test('default chromium shows a visible WebGPU error instead of a blank page', as
     await page.goto(new URL('/', url).toString(), { waitUntil: 'load' })
     await waitForAppReady(page)
 
-    await expect.poll(async () => readEguiError(page), {
-      timeout: 20000,
-    }).not.toBeNull()
-    await expect(page.locator('[data-testid="webgpu-error"]')).toBeVisible()
-    await expect(page.locator('[data-testid="webgpu-error"]')).toContainText('WebGPU')
+    let error: string | null = null
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      error = await readEguiError(page)
+      if (error) break
+      await page.waitForTimeout(100)
+    }
+    const errorLocator = page.locator('[data-testid="webgpu-error"]')
+    await errorLocator.waitFor({ state: 'visible' })
+    expect({ errorPresent: error !== null, visibleTextMentionsWebGpu: (await errorLocator.innerText()).includes('WebGPU') }).toEqual({
+      errorPresent: true,
+      visibleTextMentionsWebGpu: true,
+    })
   } finally {
     await browser.close()
   }

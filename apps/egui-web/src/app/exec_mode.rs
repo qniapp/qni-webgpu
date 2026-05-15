@@ -330,48 +330,41 @@ mod tests {
     #[test]
     fn arrow_keys_select_sibling_modes() {
         assert_eq!(
-            exec_mode_after_key(ExecMode::Local, ExecModeKey::ArrowRight, true),
-            ExecMode::Gpu
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::ArrowLeft, true),
-            ExecMode::Local
+            (
+                exec_mode_after_key(ExecMode::Local, ExecModeKey::ArrowRight, true),
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::ArrowLeft, true),
+            ),
+            (ExecMode::Gpu, ExecMode::Local)
         );
     }
 
     #[test]
     fn enter_and_space_toggle_modes() {
         assert_eq!(
-            exec_mode_after_key(ExecMode::Local, ExecModeKey::Enter, true),
-            ExecMode::Gpu
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Enter, true),
-            ExecMode::Local
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Local, ExecModeKey::Space, true),
-            ExecMode::Gpu
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Space, true),
-            ExecMode::Local
+            (
+                exec_mode_after_key(ExecMode::Local, ExecModeKey::Enter, true),
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Enter, true),
+                exec_mode_after_key(ExecMode::Local, ExecModeKey::Space, true),
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Space, true),
+            ),
+            (
+                ExecMode::Gpu,
+                ExecMode::Local,
+                ExecMode::Gpu,
+                ExecMode::Local
+            )
         );
     }
 
     #[test]
     fn local_unavailable_keeps_gpu_selected() {
         assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::ArrowLeft, false),
-            ExecMode::Gpu
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Enter, false),
-            ExecMode::Gpu
-        );
-        assert_eq!(
-            exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Space, false),
-            ExecMode::Gpu
+            (
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::ArrowLeft, false),
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Enter, false),
+                exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Space, false),
+            ),
+            (ExecMode::Gpu, ExecMode::Gpu, ExecMode::Gpu)
         );
     }
 }

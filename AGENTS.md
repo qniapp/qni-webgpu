@@ -6,6 +6,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 - エージェントで egui WebGPU の見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/egui-web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
 - 正しい描画が確認できるまでデバッグを継続する。
 - 開発はテスト駆動で進める。
+- テストケースごとのアサーションは 1 つまでにする。Playwright / Node / Rust / TUI では `expect` / `assert*` / `assert_*` を 1 test に 1 回だけ置き、複数観点を確認したい場合はテストケースを分割する。setup / helper は失敗時に例外を投げてもよいが、複数アサーションを隠す wrapper にしない。Cucumber は 1 Scenario につき `Then` を 1 つだけにし、`Then` 後の `And` で追加検証しない。
 - 実装後は、コミット前に必ず現在の差分へ並列レビューをかける。観点は correctness（正しさ）、test coverage（テスト網羅性）、unnecessary complexity（不要な複雑さ）。所見は重大度別に要約し、適用価値のある修正だけを反映してからコミットする。
 - ドキュメントは随時更新する。
 - 必要なドキュメントは適宜 docs/*.md に追加する。

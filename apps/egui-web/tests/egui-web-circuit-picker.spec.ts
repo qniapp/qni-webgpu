@@ -44,6 +44,19 @@ const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   return JSON.parse(raw) as CircuitLibrarySnapshot
 }
 
+const waitForSnapshot = async (
+  page: Page,
+  predicate: (state: CircuitLibrarySnapshot) => boolean,
+  description: string,
+): Promise<CircuitLibrarySnapshot> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const state = await snapshot(page)
+    if (predicate(state)) return state
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`timed out waiting for circuit picker snapshot: ${description}`)
+}
+
 const storedDocument = async (page: Page): Promise<any> =>
   page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), STORAGE_KEY)
 
@@ -67,7 +80,9 @@ const seedLibrary = async (page: Page, activeId = 'bell'): Promise<void> => {
 const clickCanvas = async (page: Page, point: Point): Promise<void> => {
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   await page.mouse.click((box?.x ?? 0) + point.x, (box?.y ?? 0) + point.y)
 }
 
@@ -79,14 +94,21 @@ test.beforeEach(async ({ page }) => {
 test('startup current entry preserves the three seeded sample circuits', async ({ page }) => {
   const state = await snapshot(page)
 
-  expect(state.active_id).toBe('current')
-  expect(state.entries.find((entry) => entry.id === 'bell')).toMatchObject({
-    name: 'Bell state',
-    circuit_json: '{"cols":[["H"],["•","X"]]}',
+  expect({
+    activeId: state.active_id,
+    current: state.entries.find((entry) => entry.id === 'current'),
+    bell: state.entries.find((entry) => entry.id === 'bell'),
+    ghzName: state.entries.find((entry) => entry.id === 'ghz')?.name,
+    qftName: state.entries.find((entry) => entry.id === 'qft-4')?.name,
+    hashCols: readCircuitColsFromHash(page.url()),
+  }).toMatchObject({
+    activeId: 'current',
+    current: { name: 'Circuit 1', circuit_json: '{"cols":[]}' },
+    bell: { name: 'Bell state', circuit_json: '{"cols":[["H"],["•","X"]]}' },
+    ghzName: 'GHZ state',
+    qftName: 'QFT 4-qubit',
+    hashCols: [],
   })
-  expect(state.entries.find((entry) => entry.id === 'ghz')).toMatchObject({ name: 'GHZ state' })
-  expect(state.entries.find((entry) => entry.id === 'qft-4')).toMatchObject({ name: 'QFT 4-qubit' })
-  expect(readCircuitColsFromHash(page.url())).toEqual([])
 })
 
 test('localStorage active circuit hydrates the picker and URL on reload', async ({ page }) => {
@@ -107,9 +129,11 @@ test('localStorage active circuit hydrates the picker and URL on reload', async 
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
 
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('stored-x')
-  expect((await snapshot(page)).entries[0]).toMatchObject({ name: 'Stored X', circuit_json: '{"cols":[["X"]]}' })
-  expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+  const state = await waitForSnapshot(page, (next) => next.active_id === 'stored-x', 'stored circuit active')
+  expect({ entry: state.entries[0], hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
+    entry: { name: 'Stored X', circuit_json: '{"cols":[["X"]]}' },
+    hashCols: [['X']],
+  })
 })
 
 test('startup does not overwrite unsupported localStorage documents', async ({ page }) => {
@@ -140,8 +164,11 @@ test('URL payload wins over a different persisted active circuit', async ({ page
   await page.goto('/#' + encodeURIComponent('{"cols":[["H"]]}'))
   await waitForStartupReady(page, { waitForStateVector: true })
 
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('current')
-  expect(readCircuitColsFromHash(page.url())).toEqual([['H']])
+  const state = await waitForSnapshot(page, (next) => next.active_id === 'current', 'URL payload current entry')
+  expect({ activeId: state.active_id, hashCols: readCircuitColsFromHash(page.url()) }).toEqual({
+    activeId: 'current',
+    hashCols: [['H']],
+  })
 })
 
 test('low-level localStorage save hook refreshes the live picker', async ({ page }) => {
@@ -151,10 +178,11 @@ test('low-level localStorage save hook refreshes the live picker', async ({ page
     return save('Saved X', '{"cols":[["X"]]}')
   })
 
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe(id)
-  const state = await snapshot(page)
-  expect(state.entries[0]).toMatchObject({ id, name: 'Saved X', circuit_json: '{"cols":[["X"]]}' })
-  expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+  const state = await waitForSnapshot(page, (next) => next.active_id === id, 'saved circuit active')
+  expect({ entry: state.entries[0], hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
+    entry: { id, name: 'Saved X', circuit_json: '{"cols":[["X"]]}' },
+    hashCols: [['X']],
+  })
 })
 
 test('circuit picker opens and selecting another item syncs the URL hash', async ({ page }) => {
@@ -164,29 +192,42 @@ test('circuit picker opens and selecting another item syncs the URL hash', async
   await page.waitForTimeout(300)
   await clickCanvas(page, ROW_2)
 
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('ghz')
-  expect(readCircuitColsFromHash(page.url())).toEqual([['X']])
+  const selected = await waitForSnapshot(page, (state) => state.active_id === 'ghz', 'selected GHZ entry')
+  const hashAfterSelect = readCircuitColsFromHash(page.url())
 
   await page.reload()
   await waitForStartupReady(page, { waitForStateVector: true })
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('ghz')
+  const reloaded = await waitForSnapshot(page, (state) => state.active_id === 'ghz', 'reloaded GHZ entry')
+  expect({ selected: selected.active_id, hashAfterSelect, reloaded: reloaded.active_id }).toEqual({
+    selected: 'ghz',
+    hashAfterSelect: [['X']],
+    reloaded: 'ghz',
+  })
 })
 
-test('Create new circuit adds an empty Untitled entry and makes it active', async ({ page }) => {
+test('Create new circuit adds an empty numbered Circuit entry and makes it active', async ({ page }) => {
   await seedLibrary(page)
 
   await clickCanvas(page, TRIGGER)
   await page.waitForTimeout(300)
   await clickCanvas(page, FOOTER)
 
-  await expect.poll(async () => (await snapshot(page)).entries.length).toBe(4)
-  const state = await snapshot(page)
-  expect(state.entries.at(-1)).toMatchObject({ name: 'Untitled', circuit_json: '{"cols":[]}' })
-  expect(state.active_id).toBe(state.entries.at(-1)?.id)
-  expect(readCircuitColsFromHash(page.url())).toEqual([])
+  const state = await waitForSnapshot(page, (next) => next.entries.length === 4, 'new circuit appended')
+  const lastEntry = state.entries.at(-1)
   const stored = await storedDocument(page)
-  expect(stored.activeId).toBe(state.active_id)
-  expect(stored.circuits.at(-1)).toMatchObject({ name: 'Untitled', json: '{"cols":[]}' })
+  expect({
+    lastEntry,
+    activeId: state.active_id,
+    hashCols: readCircuitColsFromHash(page.url()),
+    storedActiveId: stored.activeId,
+    storedLast: stored.circuits.at(-1),
+  }).toMatchObject({
+    lastEntry: { name: 'Circuit 1', circuit_json: '{"cols":[]}' },
+    activeId: lastEntry?.id,
+    hashCols: [],
+    storedActiveId: lastEntry?.id,
+    storedLast: { name: 'Circuit 1', json: '{"cols":[]}' },
+  })
 })
 
 test('Rename action turns the item into an inline editor and commits on Enter', async ({ page }) => {
@@ -204,10 +245,25 @@ test('Rename action turns the item into an inline editor and commits on Enter', 
   await expect.poll(async () => (await snapshot(page)).entries[0].name).toBe('Renamed Bell')
 })
 
+test('Rename action accepts Japanese circuit names', async ({ page }) => {
+  await seedLibrary(page)
+
+  await clickCanvas(page, TRIGGER)
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: SUBMENU_X, y: 88 })
+  await page.waitForTimeout(300)
+  await page.keyboard.type('量子回路')
+  await page.keyboard.press('Enter')
+
+  await expect.poll(async () => (await snapshot(page)).entries[0].name).toBe('量子回路')
+})
+
 test('Move up keeps the displaced bottom item visually idle', async ({ page }) => {
   const library = {
     entries: [
-      { id: 'current', name: 'Untitled', circuit_json: '{"cols":[]}', updated_at: 0 },
+      { id: 'current', name: 'Circuit 1', circuit_json: '{"cols":[]}', updated_at: 0 },
       { id: 'bell', name: 'Bell state', circuit_json: BELL_JSON, updated_at: 1 },
       { id: 'ghz', name: 'GHZ state', circuit_json: GHZ_JSON, updated_at: 2 },
       { id: 'qft', name: 'QFT 4-qubit', circuit_json: QFT_JSON, updated_at: 3 },
@@ -219,7 +275,7 @@ test('Move up keeps the displaced bottom item visually idle', async ({ page }) =
     if (typeof seed !== 'function') throw new Error('__seedCircuits hook missing')
     seed(JSON.stringify(payload))
   }, library)
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('qft')
+  await waitForSnapshot(page, (state) => state.active_id === 'qft', 'seeded QFT active')
 
   await clickCanvas(page, TRIGGER)
   await page.waitForTimeout(300)
@@ -228,16 +284,21 @@ test('Move up keeps the displaced bottom item visually idle', async ({ page }) =
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_UP_SUBMENU_Y + 36 })
   await page.waitForTimeout(300)
 
-  await expect.poll(async () => (await snapshot(page)).entries.map((entry) => entry.id)).toEqual([
-    'current',
-    'bell',
-    'qft',
-    'ghz',
-  ])
+  const state = await waitForSnapshot(
+    page,
+    (next) => next.entries.map((entry) => entry.id).join(',') === 'current,bell,qft,ghz',
+    'QFT moved above GHZ',
+  )
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
     { name: 'bottomRowBg', x: 180, y: ROW_4.y },
   ])
-  expect(pixelRgbDistance(pixels.bottomRowBg, FLEXOKI_BG)).toBeLessThan(10)
+  expect({
+    order: state.entries.map((entry) => entry.id),
+    bottomRowIdle: pixelRgbDistance(pixels.bottomRowBg, FLEXOKI_BG) < 10,
+  }).toEqual({
+    order: ['current', 'bell', 'qft', 'ghz'],
+    bottomRowIdle: true,
+  })
 })
 
 test('Delete active circuit falls back to the first remaining entry', async ({ page }) => {
@@ -249,8 +310,14 @@ test('Delete active circuit falls back to the first remaining entry', async ({ p
   await page.waitForTimeout(300)
   await clickCanvas(page, { x: SUBMENU_X, y: 302 })
 
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe('bell')
-  const state = await snapshot(page)
-  expect(state.entries.map((entry) => entry.id)).toEqual(['bell', 'qft'])
-  expect(readCircuitColsFromHash(page.url())).toEqual([['H']])
+  const state = await waitForSnapshot(page, (next) => next.active_id === 'bell', 'delete fallback active')
+  expect({
+    activeId: state.active_id,
+    entries: state.entries.map((entry) => entry.id),
+    hashCols: readCircuitColsFromHash(page.url()),
+  }).toEqual({
+    activeId: 'bell',
+    entries: ['bell', 'qft'],
+    hashCols: [['H']],
+  })
 })

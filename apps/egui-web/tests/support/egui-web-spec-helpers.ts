@@ -1,4 +1,3 @@
-import { expect } from '@playwright/test'
 import { chromium } from 'playwright'
 import type { Page } from 'playwright'
 import { assertDragPreviewAboveOverlay } from '../../features/support/assertions'
@@ -62,14 +61,29 @@ export const isRegularGateFill = ([r, g, b]: CanvasPixel): boolean =>
 export const isGateBodyFill = (pixel: CanvasPixel): boolean =>
   isRegularGateFill(pixel) || isDragPreviewFill(pixel)
 
+const waitUntil = async (
+  predicate: () => Promise<boolean>,
+  timeout: number,
+  failureMessage: string,
+): Promise<void> => {
+  const deadline = Date.now() + timeout
+  while (Date.now() <= deadline) {
+    if (await predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  throw new Error(failureMessage)
+}
+
 export const waitForStateVectorLength = async (
   page: Page,
   length: number,
   timeout = 5000
 ): Promise<void> => {
-  await expect
-    .poll(async () => (await readStateVector(page)).length, { timeout })
-    .toBe(length)
+  await waitUntil(
+    async () => (await readStateVector(page)).length === length,
+    timeout,
+    `state vector length did not become ${length}`,
+  )
 }
 
 export const waitForStateVectorApprox = async (
@@ -78,15 +92,17 @@ export const waitForStateVectorApprox = async (
   timeout = 5000,
   tolerance = 1e-3
 ): Promise<void> => {
-  await expect
-    .poll(async () => {
+  await waitUntil(
+    async () => {
       const actual = await readStateVector(page) as number[]
       if (actual.length !== expected.length) {
         return false
       }
       return expected.every((value, index) => Math.abs(actual[index] - value) < tolerance)
-    }, { timeout })
-    .toBe(true)
+    },
+    timeout,
+    `state vector did not match expected amplitudes (${expected.join(',')})`,
+  )
 }
 
 export const waitForBlochVectorsApprox = async (
@@ -95,8 +111,8 @@ export const waitForBlochVectorsApprox = async (
   timeout = 5000,
   tolerance = 1e-3
 ): Promise<void> => {
-  await expect
-    .poll(async () => {
+  await waitUntil(
+    async () => {
       const entries = await readBlochVectors(page)
       if (entries.length !== expected.length) {
         return false
@@ -110,6 +126,8 @@ export const waitForBlochVectorsApprox = async (
           Math.abs(e.z - z) < tolerance
         )
       })
-    }, { timeout })
-    .toBe(true)
+    },
+    timeout,
+    'Bloch vectors did not match expected values',
+  )
 }

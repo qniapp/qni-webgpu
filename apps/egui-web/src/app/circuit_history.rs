@@ -151,14 +151,17 @@ mod tests {
         revision.commit("b".to_owned());
         revision.started_working_on_commit();
 
-        assert_eq!(revision.undo(), Some("b".to_owned()));
+        let undo_result = revision.undo();
         assert_eq!(
-            revision,
-            CircuitRevision {
-                history: vec!["a".to_owned(), "b".to_owned()],
-                index: 1,
-                is_working_on_commit: false,
-            }
+            (undo_result, revision),
+            (
+                Some("b".to_owned()),
+                CircuitRevision {
+                    history: vec!["a".to_owned(), "b".to_owned()],
+                    index: 1,
+                    is_working_on_commit: false,
+                }
+            )
         );
     }
 
@@ -167,19 +170,28 @@ mod tests {
         let mut revision = CircuitRevision::starting_at("a".to_owned());
         revision.commit("b".to_owned());
         revision.commit("c".to_owned());
-        assert_eq!(revision.undo(), Some("b".to_owned()));
+        let undo_result = revision.undo();
 
         revision.commit("d".to_owned());
+        let redo_result = revision.redo();
 
-        assert!(revision.is_at_end_of_history());
-        assert_eq!(revision.redo(), None);
         assert_eq!(
-            revision,
-            CircuitRevision {
-                history: vec!["a".to_owned(), "b".to_owned(), "d".to_owned()],
-                index: 2,
-                is_working_on_commit: false,
-            }
+            (
+                undo_result,
+                revision.is_at_end_of_history(),
+                redo_result,
+                revision
+            ),
+            (
+                Some("b".to_owned()),
+                true,
+                None,
+                CircuitRevision {
+                    history: vec!["a".to_owned(), "b".to_owned(), "d".to_owned()],
+                    index: 2,
+                    is_working_on_commit: false,
+                }
+            )
         );
     }
 
@@ -189,14 +201,17 @@ mod tests {
         revision.commit("b".to_owned());
         revision.started_working_on_commit();
 
-        assert_eq!(revision.redo(), None);
+        let redo_result = revision.redo();
         assert_eq!(
-            revision,
-            CircuitRevision {
-                history: vec!["a".to_owned(), "b".to_owned()],
-                index: 1,
-                is_working_on_commit: true,
-            }
+            (redo_result, revision),
+            (
+                None,
+                CircuitRevision {
+                    history: vec!["a".to_owned(), "b".to_owned()],
+                    index: 1,
+                    is_working_on_commit: true,
+                }
+            )
         );
     }
 }

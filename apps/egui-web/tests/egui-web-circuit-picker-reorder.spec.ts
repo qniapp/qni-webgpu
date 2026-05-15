@@ -13,6 +13,13 @@ type CircuitLibrarySnapshot = {
 
 type Point = { x: number; y: number }
 type HoverSnapshot = { hoveredGateId: number | null; hoveredPaletteIndex: number | null }
+type PickerDropdownGeometry = {
+  trigger_top: number
+  trigger_bottom: number
+  topbar_bottom: number
+  dropdown_top: number
+  dropdown_bottom: number
+}
 type SubmenuGeometry = {
   index: number
   parent_row_top: number
@@ -33,9 +40,9 @@ const FLEXOKI_UI: CanvasPixel = [230, 228, 217, 255]
 const FLEXOKI_TX: CanvasPixel = [16, 15, 15, 255]
 
 const TRIGGER: Point = { x: 40, y: 22 }
-const ROW_1: Point = { x: 80, y: 74 }
-const ROW_2: Point = { x: 80, y: 110 }
-const ROW_3: Point = { x: 80, y: 146 }
+const ROW_1: Point = { x: 80, y: 68 }
+const ROW_2: Point = { x: 80, y: 104 }
+const ROW_3: Point = { x: 80, y: 140 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
 const MOVE_DOWN_Y = 196
@@ -47,6 +54,14 @@ const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
     return getter()
   })
   return JSON.parse(raw) as CircuitLibrarySnapshot
+}
+
+const waitForCondition = async (page: Page, predicate: () => Promise<boolean>, description: string): Promise<void> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (await predicate()) return
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`timed out waiting for ${description}`)
 }
 
 const seedLibrary = async (page: Page, activeId = 'two'): Promise<void> => {
@@ -63,12 +78,14 @@ const seedLibrary = async (page: Page, activeId = 'two'): Promise<void> => {
     if (typeof seed !== 'function') throw new Error('__seedCircuits hook missing')
     seed(JSON.stringify(payload))
   }, library)
-  await expect.poll(async () => (await snapshot(page)).active_id).toBe(activeId)
+  await waitForCondition(page, async () => (await snapshot(page)).active_id === activeId, `active circuit ${activeId}`)
 }
 
 const canvasBox = async (page: Page) => {
   const box = await page.locator('#egui-canvas').boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   return box!
 }
 
@@ -100,6 +117,12 @@ const entryIds = async (page: Page): Promise<string[]> => (await snapshot(page))
 const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> =>
   page.evaluate(() => JSON.parse((window as any).__qniHoverSnapshotJson ?? '{}') as HoverSnapshot)
 
+const pickerDropdownGeometry = async (page: Page): Promise<PickerDropdownGeometry | null> =>
+  page.evaluate(() => {
+    const raw = (window as any).__qniCircuitPickerDropdownGeometryJson
+    return typeof raw === 'string' ? JSON.parse(raw) as PickerDropdownGeometry : null
+  })
+
 const submenuGeometry = async (page: Page): Promise<SubmenuGeometry | null> =>
   page.evaluate(() => {
     const raw = (window as any).__qniCircuitPickerGeometryJson
@@ -120,6 +143,15 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(200)
 })
 
+test('circuit picker dropdown attaches to the topbar with no vertical gap', async ({ page }) => {
+  await waitForCondition(page, async () => (await pickerDropdownGeometry(page)) !== null, 'picker dropdown geometry')
+  const geometry = (await pickerDropdownGeometry(page))!
+  expect({
+    attachedToTopbar: Math.abs(geometry.dropdown_top - geometry.topbar_bottom) <= 0.5,
+    belowTrigger: geometry.dropdown_top > geometry.trigger_bottom,
+  }).toEqual({ attachedToTopbar: true, belowTrigger: true })
+})
+
 test('pressed row shows dragged styling before movement threshold', async ({ page }) => {
   const box = await canvasBox(page)
   await page.mouse.move(box.x + ROW_2.x, box.y + ROW_2.y)
@@ -131,10 +163,18 @@ test('pressed row shows dragged styling before movement threshold', async ({ pag
       { name: 'next-row-paper', x: 180, y: ROW_2.y + 24 },
     ])
     const fill = pixels['pressed-row-fill']
-    expect(pixelRgbDistance(fill, FLEXOKI_UI)).toBeLessThan(40)
-    expect(pixelRgbDistance(fill, FLEXOKI_BG)).toBeGreaterThan(45)
-    expect(pixelRgbDistance(pixels['next-row-paper'], FLEXOKI_BG)).toBeLessThan(25)
-    await expect.poll(async () => entryIds(page)).toEqual(['one', 'two', 'three'])
+    const ids = await entryIds(page)
+    expect({
+      pressedFillUsesUi: pixelRgbDistance(fill, FLEXOKI_UI) < 40,
+      pressedFillDiffersFromPaper: pixelRgbDistance(fill, FLEXOKI_BG) > 45,
+      nextRowStaysPaper: pixelRgbDistance(pixels['next-row-paper'], FLEXOKI_BG) < 25,
+      ids,
+    }).toEqual({
+      pressedFillUsesUi: true,
+      pressedFillDiffersFromPaper: true,
+      nextRowStaysPaper: true,
+      ids: ['one', 'two', 'three'],
+    })
   } finally {
     await page.mouse.up()
   }
@@ -143,28 +183,45 @@ test('pressed row shows dragged styling before movement threshold', async ({ pag
 test('dragging the third item above the first reorders to [3, 1, 2]', async ({ page }) => {
   await dragCanvas(page, ROW_3, { x: ROW_1.x + 48, y: ROW_1.y - 18 })
 
-  await expect.poll(async () => entryIds(page)).toEqual(['three', 'one', 'two'])
-  expect((await snapshot(page)).active_id).toBe('two')
-  await expect.poll(async () => storedEntryIds(page)).toEqual(['three', 'one', 'two'])
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'three,one,two', 'third item reordered first')
+  const idsAfterDrag = await entryIds(page)
+  const activeAfterDrag = (await snapshot(page)).active_id
+  const storedIds = await storedEntryIds(page)
 
   await page.reload()
   await waitForStartupReady(page, { waitForStateVector: true })
-  await expect.poll(async () => entryIds(page)).toEqual(['three', 'one', 'two'])
-  expect((await snapshot(page)).active_id).toBe('two')
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'three,one,two', 'reloaded reordered entries')
+  expect({
+    idsAfterDrag,
+    activeAfterDrag,
+    storedIds,
+    activeAfterReload: (await snapshot(page)).active_id,
+  }).toEqual({
+    idsAfterDrag: ['three', 'one', 'two'],
+    activeAfterDrag: 'two',
+    storedIds: ['three', 'one', 'two'],
+    activeAfterReload: 'two',
+  })
 })
 
 test('dragging the first item to the end reorders to [2, 3, 1]', async ({ page }) => {
   await dragCanvas(page, ROW_1, { x: ROW_3.x + 36, y: ROW_3.y + 28 })
 
-  await expect.poll(async () => entryIds(page)).toEqual(['two', 'three', 'one'])
-  expect((await snapshot(page)).active_id).toBe('two')
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'two,three,one', 'first item reordered last')
+  expect({ ids: await entryIds(page), activeId: (await snapshot(page)).active_id }).toEqual({
+    ids: ['two', 'three', 'one'],
+    activeId: 'two',
+  })
 })
 
 test('Escape while dragging cancels reorder', async ({ page }) => {
   await dragCanvasAndCancel(page, ROW_3, { x: ROW_1.x + 48, y: ROW_1.y - 18 })
 
-  await expect.poll(async () => entryIds(page)).toEqual(['one', 'two', 'three'])
-  expect((await snapshot(page)).active_id).toBe('two')
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'one,two,three', 'drag cancel restored order')
+  expect({ ids: await entryIds(page), activeId: (await snapshot(page)).active_id }).toEqual({
+    ids: ['one', 'two', 'three'],
+    activeId: 'two',
+  })
 })
 
 test('picker overlay suppresses underlying circuit and palette hover', async ({ page }) => {
@@ -187,9 +244,11 @@ test('kebab hover darkens only the dots without painting a chip', async ({ page 
     { name: 'hover-dot', x: KEBAB_X, y: ROW_1.y },
   ])
 
-  expect(pixelRgbDistance(pixels['row-hover-fill-under-kebab'], FLEXOKI_BG_2)).toBeLessThan(25)
-  expect(pixelRgbDistance(pixels['row-hover-fill-under-kebab'], FLEXOKI_UI)).toBeGreaterThan(20)
-  expect(pixelRgbDistance(pixels['hover-dot'], FLEXOKI_TX)).toBeLessThan(80)
+  expect({
+    rowKeepsHoverFill: pixelRgbDistance(pixels['row-hover-fill-under-kebab'], FLEXOKI_BG_2) < 25,
+    noChipFill: pixelRgbDistance(pixels['row-hover-fill-under-kebab'], FLEXOKI_UI) > 20,
+    dotsDarken: pixelRgbDistance(pixels['hover-dot'], FLEXOKI_TX) < 80,
+  }).toEqual({ rowKeepsHoverFill: true, noChipFill: true, dotsDarken: true })
 })
 
 test('starting a row drag closes an open kebab submenu', async ({ page }) => {
@@ -203,7 +262,8 @@ test('starting a row drag closes an open kebab submenu', async ({ page }) => {
   await page.mouse.up()
 
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_DOWN_Y })
-  await expect.poll(async () => entryIds(page)).toEqual(['one', 'two', 'three'])
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'one,two,three', 'submenu move ignored after row drag')
+  expect(await entryIds(page)).toEqual(['one', 'two', 'three'])
 })
 
 test('clicking the open kebab trigger closes its submenu', async ({ page }) => {
@@ -212,7 +272,8 @@ test('clicking the open kebab trigger closes its submenu', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
 
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_DOWN_Y })
-  await expect.poll(async () => entryIds(page)).toEqual(['one', 'two', 'three'])
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'one,two,three', 'submenu move ignored after close')
+  expect(await entryIds(page)).toEqual(['one', 'two', 'three'])
 })
 
 test('kebab click opens the submenu without starting a drag', async ({ page }) => {
@@ -220,15 +281,14 @@ test('kebab click opens the submenu without starting a drag', async ({ page }) =
   await page.waitForTimeout(200)
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_DOWN_Y })
 
-  await expect.poll(async () => entryIds(page)).toEqual(['two', 'one', 'three'])
+  await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'two,one,three', 'submenu move applied')
+  expect(await entryIds(page)).toEqual(['two', 'one', 'three'])
 })
 
 test('submenu top edge aligns to the parent row on right and flipped anchors', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
-  await expect.poll(async () => await submenuGeometry(page)).not.toBeNull()
+  await waitForCondition(page, async () => (await submenuGeometry(page)) !== null, 'right-anchored submenu geometry')
   const rightAnchored = (await submenuGeometry(page))!
-  expect(Math.abs(rightAnchored.submenu_top - rightAnchored.parent_row_top)).toBeLessThanOrEqual(0.5)
-  expect(rightAnchored.submenu_left).toBeGreaterThan(rightAnchored.kebab_right)
 
   await page.setViewportSize({ width: 380, height: 800 })
   await page.reload()
@@ -238,8 +298,17 @@ test('submenu top edge aligns to the parent row on right and flipped anchors', a
   await page.waitForTimeout(200)
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
 
-  await expect.poll(async () => await submenuGeometry(page)).not.toBeNull()
+  await waitForCondition(page, async () => (await submenuGeometry(page)) !== null, 'flipped submenu geometry')
   const flipped = (await submenuGeometry(page))!
-  expect(Math.abs(flipped.submenu_top - flipped.parent_row_top)).toBeLessThanOrEqual(0.5)
-  expect(flipped.submenu_right).toBeLessThan(flipped.kebab_left)
+  expect({
+    rightTopAligned: Math.abs(rightAnchored.submenu_top - rightAnchored.parent_row_top) <= 0.5,
+    rightSideAnchored: rightAnchored.submenu_left > rightAnchored.kebab_right,
+    flippedTopAligned: Math.abs(flipped.submenu_top - flipped.parent_row_top) <= 0.5,
+    flippedLeftSideAnchored: flipped.submenu_right < flipped.kebab_left,
+  }).toEqual({
+    rightTopAligned: true,
+    rightSideAnchored: true,
+    flippedTopAligned: true,
+    flippedLeftSideAnchored: true,
+  })
 })

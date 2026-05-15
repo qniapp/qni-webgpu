@@ -1,4 +1,3 @@
-import assert = require('node:assert/strict')
 import type { CanvasPixel, DragPreviewZOrderSamples } from './support-types'
 
 type DragPreviewZOrderAssertionOptions = DragPreviewZOrderSamples & {
@@ -22,23 +21,15 @@ export const assertDragPreviewAboveOverlay = ({
   dragFillTolerance = 80,
 }: DragPreviewZOrderAssertionOptions): void => {
   const hiddenBaselineDiff = rgbDistance(before, during)
-  assert.ok(
-    hiddenBaselineDiff > hiddenBaselineMinDiff,
-    `expected drag preview fill to differ from the hidden baseline ` +
-      `(diff=${hiddenBaselineDiff}, before=${before}, during=${during})`
-  )
-
   const sourceDiff = rgbDistance(source, during)
-  assert.ok(
-    sourceDiff > sourceMinDiff,
-    `expected dragged palette gate fill to switch away from the green source fill ` +
-      `(diff=${sourceDiff}, min=${sourceMinDiff}, source=${source}, during=${during})`
-  )
-
   const dragFillDiff = rgbDistance(DRAG_PREVIEW_FILL, during)
-  assert.ok(
-    dragFillDiff <= dragFillTolerance,
-    `expected dragged palette gate fill to use Flexoki purple-600 ` +
-      `(diff=${dragFillDiff}, tolerance=${dragFillTolerance}, expected=${DRAG_PREVIEW_FILL}, during=${during})`
-  )
+  if (hiddenBaselineDiff <= hiddenBaselineMinDiff) {
+    throw new Error(`hidden baseline diff too small (diff=${hiddenBaselineDiff}, before=${before}, during=${during})`)
+  }
+  if (sourceDiff <= sourceMinDiff) {
+    throw new Error(`green source fill diff too small (diff=${sourceDiff}, min=${sourceMinDiff}, source=${source}, during=${during})`)
+  }
+  if (dragFillDiff > dragFillTolerance) {
+    throw new Error(`not Flexoki purple-600 (diff=${dragFillDiff}, tolerance=${dragFillTolerance}, expected=${DRAG_PREVIEW_FILL}, during=${during})`)
+  }
 }

@@ -514,6 +514,7 @@ if idx &lt; entries.len() - 1 {
       <li>release は単に drag state クリア (data は live swap で既に最終状態)。active な entry の id は変わらない (= active 表示も維持)。</li>
       <li>Esc で drag をキャンセル、順序維持。</li>
       <li>kebab をクリックしても drag は始まらず、submenu が開く (既存挙動の回帰なし)。同じ kebab をもう一度クリックすると閉じる。</li>
+      <li>dropdown は topbar 直下に隙間なく開く (state vector aspect dropdown と同じ接続感)。</li>
       <li>submenu が開いている状態で別行の drag を始めたら submenu は閉じる。</li>
       <li>submenu は右側表示 / 画面右端での左 flip とも、親行の上辺 Y と同じ px に揃う。</li>
       <li>submenu の Move up / Move down は引き続き動く。</li>
@@ -541,7 +542,7 @@ if idx &lt; entries.len() - 1 {
     const KEBAB_SVG = '<span class="kebab" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="18" r="1"/></svg></span>';
 
     const state = {
-      entries: ['Bell state', 'GHZ state', 'QFT 4-qubit', 'Grover (3 qubits)', 'Untitled 5'],
+      entries: ['Bell state', 'GHZ state', 'QFT 4-qubit', 'Grover (3 qubits)', 'Circuit 5'],
       activeId: 'GHZ state',  // use name as id in this mock
       drag: null,             // { idx, pointerOffsetY, originalEntries }
     };

@@ -39,13 +39,22 @@ const readCircuitColsFromHash = (url: string): unknown[] => {
   return JSON.parse(decodeURIComponent(hash)).cols
 }
 
+const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number): Promise<void> }, expected: unknown[]): Promise<void> => {
+  const expectedJson = JSON.stringify(expected)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (JSON.stringify(readCircuitColsFromHash(page.url())) === expectedJson) return
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`URL hash columns did not become ${expectedJson}`)
+}
+
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
   { name: 'local', x: cssWidth - 100, y: 23 },
   { name: 'gpu', x: cssWidth - 30, y: 23 },
 ]
 
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
-const RUN_GPU_BUTTON_POINT: Point = { x: 156 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
+const RUN_GPU_BUTTON_POINT: Point = { x: 196 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 const TEST_REM = 32
 const TEST_GATE_SIZE = TEST_REM
 const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
@@ -67,51 +76,50 @@ test('execution mode toggle switches visually without recomputing state', async 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const points = execModeProbePoints(cssWidth)
 
-  const expectLocal = async () => {
-    await expect
-      .poll(async () => {
-        const pixels = await sampleCanvasPixels(page, canvas, points)
-        return pixelRgbDistance(pixels.local, EXEC_MODE_LOCAL_FILL)
-      })
-      .toBeLessThan(36)
-  }
-  const expectGpu = async () => {
-    await expect
-      .poll(async () => {
-        const pixels = await sampleCanvasPixels(page, canvas, points)
-        return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
-      })
-      .toBeLessThan(36)
+  const waitForModeFill = async (mode: 'local' | 'gpu') => {
+    const expected = mode === 'local' ? EXEC_MODE_LOCAL_FILL : EXEC_MODE_GPU_FILL
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const pixels = await sampleCanvasPixels(page, canvas, points)
+      if (pixelRgbDistance(pixels[mode], expected) < 36) return
+      await page.waitForTimeout(50)
+    }
+    throw new Error(`execution mode ${mode} did not reach expected fill`)
   }
 
   const initialState = await readStateVector(page)
-  await expectLocal()
+  await waitForModeFill('local')
 
   await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
-  await expectGpu()
-  expect(await readStateVector(page)).toEqual(initialState)
+  await waitForModeFill('gpu')
+  const stateAfterMouseGpu = await readStateVector(page)
 
   await page.mouse.click((box?.x ?? 0) + points[0].x, (box?.y ?? 0) + points[0].y)
-  await expectLocal()
-  expect(await readStateVector(page)).toEqual(initialState)
+  await waitForModeFill('local')
+  const stateAfterMouseLocal = await readStateVector(page)
 
   await page.mouse.click((box?.x ?? 0) + cssWidth / 2, (box?.y ?? 0) + 300)
   await page.keyboard.press('Tab')
   await page.keyboard.press('ArrowRight')
-  await expectGpu()
+  await waitForModeFill('gpu')
   await page.keyboard.press('ArrowLeft')
-  await expectLocal()
+  await waitForModeFill('local')
   await page.keyboard.press('Enter')
-  await expectGpu()
+  await waitForModeFill('gpu')
   await page.keyboard.press('Space')
-  await expectLocal()
-  expect(await readStateVector(page)).toEqual(initialState)
+  await waitForModeFill('local')
+  expect({ stateAfterMouseGpu, stateAfterMouseLocal, stateAfterKeyboard: await readStateVector(page) }).toEqual({
+    stateAfterMouseGpu: initialState,
+    stateAfterMouseLocal: initialState,
+    stateAfterKeyboard: initialState,
+  })
 })
 
 test('empty hash checkpoint overrides a stale qni path payload on load', async ({ page }) => {
@@ -131,20 +139,22 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const points = execModeProbePoints(cssWidth)
   const initialState = await readStateVector(page)
 
   await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
-  await expect
-    .poll(async () => {
-      const pixels = await sampleCanvasPixels(page, canvas, points)
-      return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
-    })
-    .toBeLessThan(36)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const pixels = await sampleCanvasPixels(page, canvas, points)
+    if (pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL) < 36) break
+    if (attempt === 49) throw new Error('GPU mode did not reach expected fill')
+    await page.waitForTimeout(50)
+  }
 
   await page.evaluate(() => {
     ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
@@ -180,14 +190,27 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   await dragPointer(page, hSource, { x: targetX, y: LINE_Y })
 
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['H']])
-  expect(await readStateVector(page)).toEqual(initialState)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (JSON.stringify(readCircuitColsFromHash(page.url())) === JSON.stringify([['H']])) break
+    if (attempt === 49) throw new Error('H gate did not appear in URL hash')
+    await page.waitForTimeout(50)
+  }
+  const stateBeforeRun = await readStateVector(page)
 
   await page.mouse.click((box?.x ?? 0) + RUN_GPU_BUTTON_POINT.x, (box?.y ?? 0) + RUN_GPU_BUTTON_POINT.y)
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, Math.SQRT1_2, 0])
 
-  await expect.poll(async () => page.evaluate(() => (window as any).__qniLastQiskitResult?.status))
-    .toBe('completed')
+  let qiskitStatus: string | undefined
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    qiskitStatus = await page.evaluate(() => (window as any).__qniLastQiskitResult?.status)
+    if (qiskitStatus === 'completed') break
+    await page.waitForTimeout(50)
+  }
+  expect({ hashCols: readCircuitColsFromHash(page.url()), stateBeforeRun, qiskitStatus }).toEqual({
+    hashCols: [['H']],
+    stateBeforeRun: initialState,
+    qiskitStatus: 'completed',
+  })
 })
 
 test('toolbar undo and redo restore committed circuit history', async ({ page }) => {
@@ -196,9 +219,11 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
 
   const REM = 32
@@ -224,39 +249,39 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   }
 
   await dragPointer(page, xSource, { x: targetX, y: LINE_Y })
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForHashCols(page, [['X']])
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await dragPointer(page, hSource, { x: targetX2, y: LINE_Y })
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForHashCols(page, [['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForHashCols(page, [['X']])
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForHashCols(page, [])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X']])
+  await waitForHashCols(page, [['X']])
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForHashCols(page, [['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
   await clickToolbar(98 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForHashCols(page, [])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['X'], ['H']])
+  await waitForHashCols(page, [['X'], ['H']])
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([])
+  await waitForHashCols(page, [])
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })
 
@@ -269,9 +294,11 @@ test('Local mode refuses a 17th qubit drop', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const source = getPaletteGateCenter(cssWidth, 0)
   const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
@@ -279,8 +306,10 @@ test('Local mode refuses a 17th qubit drop', async ({ page }) => {
   await page.waitForTimeout(100)
 
   const cols = readCircuitColsFromHash(page.url()) as unknown[][]
-  expect(cols.every((col) => col.length <= 16)).toBe(true)
-  expect(await readStateVector(page)).toHaveLength(131072)
+  expect({
+    localCapacityPreserved: cols.every((col) => col.length <= 16),
+    stateVectorLength: (await readStateVector(page)).length,
+  }).toEqual({ localCapacityPreserved: true, stateVectorLength: 131072 })
 })
 
 test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
@@ -292,19 +321,21 @@ test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const points = execModeProbePoints(cssWidth)
 
   await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
-  await expect
-    .poll(async () => {
-      const pixels = await sampleCanvasPixels(page, canvas, points)
-      return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
-    })
-    .toBeLessThan(36)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const pixels = await sampleCanvasPixels(page, canvas, points)
+    if (pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL) < 36) break
+    if (attempt === 49) throw new Error('GPU mode did not reach expected fill')
+    await page.waitForTimeout(50)
+  }
 
   const source = getPaletteGateCenter(cssWidth, 0)
   const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
@@ -323,30 +354,32 @@ test('17-qubit GPU circuit keeps Local mode unavailable', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const points = execModeProbePoints(cssWidth)
-  const expectGpu = async () => {
-    await expect
-      .poll(async () => {
-        const pixels = await sampleCanvasPixels(page, canvas, points)
-        return pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL)
-      })
-      .toBeLessThan(36)
+  const waitForGpu = async () => {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const pixels = await sampleCanvasPixels(page, canvas, points)
+      if (pixelRgbDistance(pixels.gpu, EXEC_MODE_GPU_FILL) < 36) return
+      await page.waitForTimeout(50)
+    }
+    throw new Error('GPU mode did not reach expected fill')
   }
 
-  await expectGpu()
+  await waitForGpu()
   const cols = readCircuitColsFromHash(page.url()) as unknown[][]
   expect(cols[0]).toHaveLength(17)
 
   await page.mouse.click((box?.x ?? 0) + points[0].x, (box?.y ?? 0) + points[0].y)
-  await expectGpu()
+  await waitForGpu()
 
   await page.keyboard.press('Tab')
   await page.keyboard.press('ArrowLeft')
-  await expectGpu()
+  await waitForGpu()
 })
 
 test('state panel hover does not drive circuit step preview', async ({ page }) => {
@@ -357,9 +390,11 @@ test('state panel hover does not drive circuit step preview', async ({ page }) =
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -387,13 +422,21 @@ test('state panel hover does not drive circuit step preview', async ({ page }) =
     (box?.x ?? 0) + slotCenter(hoveredColumn),
     (box?.y ?? 0) + probeY
   )
-  await expect.poll(stepLineContrast).toBeGreaterThan(50)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (await stepLineContrast() > 50) break
+    if (attempt === 49) throw new Error('state-panel hover did not show the step preview')
+    await page.waitForTimeout(50)
+  }
 
   await page.mouse.move(
     (box?.x ?? 0) + slotCenter(hoveredColumn),
     (box?.y ?? 0) + 560
   )
-  await expect.poll(stepLineContrast).toBeLessThan(25)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (await stepLineContrast() < 25) return
+    if (attempt === 49) throw new Error('state-panel hover kept driving the step preview')
+    await page.waitForTimeout(50)
+  }
 })
 
 test('state cell popup hides while dragging over the state panel', async ({ page }) => {
@@ -402,9 +445,11 @@ test('state cell popup hides while dragging over the state panel', async ({ page
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const cssHeight = box?.height ?? 800
 
@@ -460,12 +505,19 @@ test('state cell popup hides while dragging over the state panel', async ({ page
   }
 
   await page.mouse.move((box?.x ?? 0) + cellCenter.x, (box?.y ?? 0) + cellCenter.y)
-  await expect.poll(popupContrast).toBeGreaterThan(20)
-  await expect.poll(popupValueInkCount).toBeGreaterThan(10)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await popupContrast()) > 20 && (await popupValueInkCount()) > 10) break
+    if (attempt === 49) throw new Error('state-cell popup did not become visible')
+    await page.waitForTimeout(50)
+  }
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   await dragPointer(page, hSource, cellCenter, 8, false)
-  await expect.poll(popupContrast).toBeLessThan(15)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (await popupContrast() < 15) break
+    if (attempt === 49) throw new Error('state-cell popup did not hide during drag')
+    await page.waitForTimeout(50)
+  }
   await page.mouse.up()
 })
 
@@ -475,11 +527,13 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -511,8 +565,10 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await dragPointer(page, { x: targetX, y: targetY0 }, { x: targetX, y: targetY2 }, 6, false)
 
   const lengthDuringDrag = (await readStateVector(page)).length
-  expect(lengthDuringDrag).toBe(8)
-  expect(readCircuitColsFromHash(page.url())).toEqual(colsBeforeDrag)
+  expect({ lengthDuringDrag, colsDuringDrag: readCircuitColsFromHash(page.url()) }).toEqual({
+    lengthDuringDrag: 8,
+    colsDuringDrag: colsBeforeDrag,
+  })
 
   await releasePointer(page, { x: targetX, y: targetY2 })
 
@@ -525,11 +581,13 @@ test('dropping between existing columns inserts a new column', async ({ page }) 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -556,13 +614,9 @@ test('dropping between existing columns inserts a new column', async ({ page }) 
   await dragPointer(page, hSource, { x: targetX, y: LINE_Y })
   await dragPointer(page, xSource, { x: targetX2, y: LINE_Y })
 
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([['H'], ['X']])
+  await waitForHashCols(page, [['H'], ['X']])
 
   await dragPointer(page, ySource, { x: insertX, y: LINE_Y })
 
-  await expect.poll(async () => readCircuitColsFromHash(page.url())).toEqual([
-    ['H'],
-    ['Y'],
-    ['X'],
-  ])
+  await waitForHashCols(page, [['H'], ['Y'], ['X']])
 })

@@ -72,6 +72,24 @@ const libraryClear = async (page: Page): Promise<void> =>
     fn()
   })
 
+const waitForEmptyLibrary = async (page: Page): Promise<LibraryDocument> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const document = await libraryList(page)
+    if (document.activeId === null && document.circuits.length === 0) return document
+    await page.waitForTimeout(50)
+  }
+  throw new Error('localStorage circuit library did not become empty')
+}
+
+const errorMessage = async (operation: () => Promise<unknown>): Promise<string> => {
+  try {
+    await operation()
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+  throw new Error('operation unexpectedly succeeded')
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page)
@@ -79,70 +97,91 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('localStorage circuit library supports save, list, load, rename, and delete without UI coupling', async ({ page }) => {
-  await expect.poll(async () => await libraryList(page)).toEqual({
-    version: 1,
-    activeId: null,
-    circuits: [],
-  })
+  const initial = await waitForEmptyLibrary(page)
 
   const circuitJson = '{"cols":[["H"],["•","X"]]}'
   const id = await librarySave(page, '  Bell state  ', circuitJson)
-  expect(id).toMatch(/^ckt_\d+_[0-9a-f]{6}$/)
-
   let document = await libraryList(page)
-  expect(document.activeId).toBe(id)
-  expect(document.circuits).toHaveLength(1)
-  expect(document.circuits[0]).toMatchObject({
-    id,
-    name: 'Bell state',
-    json: circuitJson,
-    meta: { qubits: 2, columns: 2, gateCount: 3 },
-  })
-  expect(document.circuits[0].updatedAt).toBeGreaterThanOrEqual(document.circuits[0].createdAt)
-
-  await expect(libraryLoad(page, id)).resolves.toBe(circuitJson)
-  document = await libraryList(page)
-  expect(document.activeId).toBe(id)
+  const savedActiveId = document.activeId
+  const saved = document.circuits[0]
+  const loadedJson = await libraryLoad(page, id)
+  const afterLoad = await libraryList(page)
 
   await libraryRename(page, id, '  Renamed Bell  ')
   document = await libraryList(page)
-  expect(document.circuits[0].name).toBe('Renamed Bell')
-  expect(document.circuits[0].updatedAt).toBeGreaterThanOrEqual(document.circuits[0].createdAt)
+  const renamed = document.circuits[0]
 
-  const qftId = await librarySave(page, 'QFT span', '{"cols":[["QFT3"]]}')
+  const qftJson = '{"cols":[["QFT3"]]}'
+  const qftId = await librarySave(page, 'QFT span', qftJson)
   document = await libraryList(page)
-  expect(document.activeId).toBe(qftId)
-  expect(document.circuits[0]).toMatchObject({
-    id: qftId,
-    meta: { qubits: 3, columns: 1, gateCount: 1 },
-  })
+  const qft = document.circuits[0]
 
   await libraryDelete(page, qftId)
   await libraryDelete(page, id)
-  await expect.poll(async () => await libraryList(page)).toEqual({
-    version: 1,
-    activeId: null,
-    circuits: [],
+  const final = await waitForEmptyLibrary(page)
+
+  expect({
+    initial,
+    idMatches: /^ckt_\d+_[0-9a-f]{6}$/.test(id),
+    savedActiveId,
+    saved,
+    savedTimestampOk: saved ? saved.updatedAt >= saved.createdAt : false,
+    loadedJson,
+    activeIdAfterLoad: afterLoad.activeId,
+    renamedName: renamed?.name,
+    renamedTimestampOk: renamed ? renamed.updatedAt >= renamed.createdAt : false,
+    qftActiveId: qft ? document.activeId : null,
+    qft,
+    final,
+  }).toEqual({
+    initial: { version: 1, activeId: null, circuits: [] },
+    idMatches: true,
+    savedActiveId: id,
+    saved: {
+      id,
+      name: 'Bell state',
+      json: circuitJson,
+      createdAt: saved?.createdAt,
+      updatedAt: saved?.updatedAt,
+      meta: { qubits: 2, columns: 2, gateCount: 3 },
+    },
+    savedTimestampOk: true,
+    loadedJson: circuitJson,
+    activeIdAfterLoad: id,
+    renamedName: 'Renamed Bell',
+    renamedTimestampOk: true,
+    qftActiveId: qftId,
+    qft: {
+      id: qftId,
+      name: 'QFT span',
+      json: qftJson,
+      createdAt: qft?.createdAt,
+      updatedAt: qft?.updatedAt,
+      meta: { qubits: 3, columns: 1, gateCount: 1 },
+    },
+    final: { version: 1, activeId: null, circuits: [] },
   })
 })
 
 test('localStorage circuit library rejects invalid names, invalid circuits, and corrupted documents', async ({ page }) => {
-  await expect(librarySave(page, '   ', '{"cols":[]}')).rejects.toThrow(/circuit name is empty/)
-  await expect(librarySave(page, 'Bad circuit', '{"bad":[]}')).rejects.toThrow(/invalid circuit json/)
-  await expect(librarySave(page, 'Unknown gate', '{"cols":[["BAD"]]}')).rejects.toThrow(/invalid circuit json/)
-  await expect(librarySave(page, 'Trailing garbage', '{"cols":[]} trailing')).rejects.toThrow(/invalid circuit json/)
+  const messages = [
+    await errorMessage(() => librarySave(page, '   ', '{"cols":[]}')),
+    await errorMessage(() => librarySave(page, 'Bad circuit', '{"bad":[]}')),
+    await errorMessage(() => librarySave(page, 'Unknown gate', '{"cols":[["BAD"]]}')),
+    await errorMessage(() => librarySave(page, 'Trailing garbage', '{"cols":[]} trailing')),
+  ]
 
   await page.evaluate((key) => localStorage.setItem(key, '{not json'), STORAGE_KEY)
-  await expect(libraryList(page)).rejects.toThrow(/circuit library is corrupted/)
+  messages.push(await errorMessage(() => libraryList(page)))
 
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 2, circuits: [] })), STORAGE_KEY)
-  await expect(libraryList(page)).rejects.toThrow(/unsupported circuit library version/)
+  messages.push(await errorMessage(() => libraryList(page)))
 
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 1, activeId: null })), STORAGE_KEY)
-  await expect(libraryList(page)).rejects.toThrow(/circuit library is corrupted/)
+  messages.push(await errorMessage(() => libraryList(page)))
 
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 1, activeId: 'missing', circuits: [] })), STORAGE_KEY)
-  await expect(libraryList(page)).rejects.toThrow(/circuit library is corrupted/)
+  messages.push(await errorMessage(() => libraryList(page)))
 
   await page.evaluate((key) => {
     localStorage.setItem(key, JSON.stringify({
@@ -151,7 +190,19 @@ test('localStorage circuit library rejects invalid names, invalid circuits, and 
       circuits: [{ id: 'ckt_bad', name: 'Bad', json: '{"cols":[]}', createdAt: 1, updatedAt: 1 }],
     }))
   }, STORAGE_KEY)
-  await expect(libraryList(page)).rejects.toThrow(/circuit library is corrupted/)
+  messages.push(await errorMessage(() => libraryList(page)))
+
+  expect(messages.map((message) => message.replace(/^.*?(circuit|invalid|unsupported|localStorage)/, '$1'))).toEqual([
+    'circuit name is empty',
+    'invalid circuit json',
+    'invalid circuit json',
+    'invalid circuit json',
+    'circuit library is corrupted',
+    'unsupported circuit library version',
+    'circuit library is corrupted',
+    'circuit library is corrupted',
+    'circuit library is corrupted',
+  ])
 })
 
 test('localStorage circuit library reports quota errors without mutating the document', async ({ page }) => {
@@ -168,15 +219,18 @@ test('localStorage circuit library reports quota errors without mutating the doc
     }
   }, STORAGE_KEY)
 
+  let message: string
   try {
-    await expect(librarySave(page, 'Too large', '{"cols":[]}')).rejects.toThrow(/localStorage error: QuotaExceededError/)
+    message = await errorMessage(() => librarySave(page, 'Too large', '{"cols":[]}'))
   } finally {
     await page.evaluate(() => (window as any).__restoreQniStorageSetItem?.())
   }
 
-  await expect.poll(async () => await libraryList(page)).toEqual({
-    version: 1,
-    activeId: null,
-    circuits: [],
+  expect({
+    quotaError: message.includes('localStorage error: QuotaExceededError'),
+    document: await waitForEmptyLibrary(page),
+  }).toEqual({
+    quotaError: true,
+    document: { version: 1, activeId: null, circuits: [] },
   })
 })

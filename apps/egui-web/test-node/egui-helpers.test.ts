@@ -138,10 +138,12 @@ test('evaluateWithRetry retries execution-context-destroyed failures after waiti
 
   const result = await evaluateWithRetry(page, () => 'ok')
 
-  assert.equal(result, 'ok')
-  assert.equal(page.calls.evaluate.length, 2)
-  assert.deepEqual(page.calls.waitForLoadState, ['load'])
-  assert.equal(page.calls.waitForFunction.length, 1)
+  assert.deepEqual({
+    result,
+    evaluateCount: page.calls.evaluate.length,
+    waitForLoadState: page.calls.waitForLoadState,
+    waitForFunctionCount: page.calls.waitForFunction.length,
+  }, { result: 'ok', evaluateCount: 2, waitForLoadState: ['load'], waitForFunctionCount: 1 })
 })
 
 test('evaluateWithRetry does not retry unexpected errors', async () => {
@@ -151,10 +153,18 @@ test('evaluateWithRetry does not retry unexpected errors', async () => {
     },
   })
 
-  await assert.rejects(() => evaluateWithRetry(page, () => 'nope'), /Unexpected evaluate failure/)
-  assert.equal(page.calls.evaluate.length, 1)
-  assert.deepEqual(page.calls.waitForLoadState, [])
-  assert.equal(page.calls.waitForFunction.length, 0)
+  let message = ''
+  try {
+    await evaluateWithRetry(page, () => 'nope')
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert.deepEqual({
+    message,
+    evaluateCount: page.calls.evaluate.length,
+    waitForLoadState: page.calls.waitForLoadState,
+    waitForFunctionCount: page.calls.waitForFunction.length,
+  }, { message: 'Unexpected evaluate failure', evaluateCount: 1, waitForLoadState: [], waitForFunctionCount: 0 })
 })
 
 test('waitForStartupReady waits for app readiness and optional state vector readiness', async () => {
@@ -176,10 +186,17 @@ test('waitForStartupReady waits for app readiness and optional state vector read
     waitForStateVector: true,
   })
 
-  assert.deepEqual(stateVector, [1, 0, 0, 0])
-  assert.equal(page.calls.waitForFunction.length, 1)
-  assert.deepEqual(page.calls.waitForFunction[0].options, { timeout: 1_000 })
-  assert.equal(page.calls.evaluate.length, 3)
+  assert.deepEqual({
+    stateVector,
+    waitForFunctionCount: page.calls.waitForFunction.length,
+    waitForFunctionOptions: page.calls.waitForFunction[0].options,
+    evaluateCount: page.calls.evaluate.length,
+  }, {
+    stateVector: [1, 0, 0, 0],
+    waitForFunctionCount: 1,
+    waitForFunctionOptions: { timeout: 1_000 },
+    evaluateCount: 3,
+  })
 })
 
 test('waitForStartupReady fails fast when egui reports an app error after startup', async () => {
@@ -196,12 +213,17 @@ test('waitForStartupReady fails fast when egui reports an app error after startu
     },
   })
 
-  await assert.rejects(
-    () => waitForStartupReady(page, { timeout: 1_000, waitForStateVector: true }),
-    /WebGPU adapter unavailable/
-  )
-  assert.equal(page.calls.waitForFunction.length, 1)
-  assert.equal(page.calls.evaluate.length, 1)
+  let message = ''
+  try {
+    await waitForStartupReady(page, { timeout: 1_000, waitForStateVector: true })
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert.deepEqual({
+    message,
+    waitForFunctionCount: page.calls.waitForFunction.length,
+    evaluateCount: page.calls.evaluate.length,
+  }, { message: 'egui app error while waiting for app startup: WebGPU adapter unavailable', waitForFunctionCount: 1, evaluateCount: 1 })
 })
 
 test('waitForStateVectorReady fails fast when egui reports an app error', async () => {
@@ -218,11 +240,16 @@ test('waitForStateVectorReady fails fast when egui reports an app error', async 
     },
   })
 
-  await assert.rejects(
-    () => waitForStateVectorReady(page, 1_000),
-    /WebGPU adapter unavailable/
-  )
-  assert.equal(page.calls.evaluate.length, 1)
+  let message = ''
+  try {
+    await waitForStateVectorReady(page, 1_000)
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert.deepEqual({ message, evaluateCount: page.calls.evaluate.length }, {
+    message: 'egui app error while waiting for state vector: WebGPU adapter unavailable',
+    evaluateCount: 1,
+  })
 })
 
 test('waitForCanvasContent fails fast when egui reports an app error', async () => {
@@ -240,12 +267,17 @@ test('waitForCanvasContent fails fast when egui reports an app error', async () 
   })
   const locator = makeLocator()
 
-  await assert.rejects(
-    () => waitForCanvasContent(page, locator, { timeout: 1_000, minNonBackground: 40 }),
-    /WebGPU adapter unavailable/
-  )
-  assert.equal(locator.calls.screenshot.length, 0)
-  assert.equal(page.calls.evaluate.length, 1)
+  let message = ''
+  try {
+    await waitForCanvasContent(page, locator, { timeout: 1_000, minNonBackground: 40 })
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert.deepEqual({ message, screenshotCount: locator.calls.screenshot.length, evaluateCount: page.calls.evaluate.length }, {
+    message: 'egui app error while waiting for canvas content: WebGPU adapter unavailable',
+    screenshotCount: 0,
+    evaluateCount: 1,
+  })
 })
 
 test('waitForCanvasContent reports the last sampled non-background count on timeout', async () => {
@@ -263,12 +295,17 @@ test('waitForCanvasContent reports the last sampled non-background count on time
   })
   const locator = makeLocator()
 
-  await assert.rejects(
-    () => waitForCanvasContent(page, locator, { timeout: 1, minNonBackground: 40 }),
-    /Timed out waiting for egui canvas to render non-background content \(nonBackground=7, expected >= 40\)/
-  )
-  assert.equal(locator.calls.screenshot.length, 1)
-  assert.equal(page.calls.evaluate.length, 2)
+  let message = ''
+  try {
+    await waitForCanvasContent(page, locator, { timeout: 1, minNonBackground: 40 })
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert.deepEqual({
+    timedOutWithCount: /Timed out waiting for egui canvas to render non-background content \(nonBackground=7, expected >= 40\)/.test(message),
+    screenshotCount: locator.calls.screenshot.length,
+    evaluateCount: page.calls.evaluate.length,
+  }, { timedOutWithCount: true, screenshotCount: 1, evaluateCount: 2 })
 })
 
 test('dragPointer moves relative to the egui canvas and can keep the pointer pressed', async () => {
@@ -276,14 +313,16 @@ test('dragPointer moves relative to the egui canvas and can keep the pointer pre
 
   await dragPointer(page, { x: 12, y: 34 }, { x: 56, y: 78 }, 8, false)
 
-  assert.deepEqual(page.calls.locator, ['#egui-canvas'])
-  assert.deepEqual(page.calls.move, [
-    { x: 22, y: 54, options: undefined },
-    { x: 66, y: 98, options: { steps: 8 } },
-  ])
-  assert.equal(page.calls.down, 1)
-  assert.equal(page.calls.up, 0)
-  assert.deepEqual(page.calls.waitForTimeout, [16, 16])
+  assert.deepEqual(page.calls, {
+    locator: ['#egui-canvas'],
+    move: [
+      { x: 22, y: 54, options: undefined },
+      { x: 66, y: 98, options: { steps: 8 } },
+    ],
+    down: 1,
+    up: 0,
+    waitForTimeout: [16, 16],
+  })
 })
 
 test('releasePointer releases relative to the egui canvas', async () => {
@@ -291,9 +330,11 @@ test('releasePointer releases relative to the egui canvas', async () => {
 
   await releasePointer(page, { x: 90, y: 45 })
 
-  assert.deepEqual(page.calls.locator, ['#egui-canvas'])
-  assert.deepEqual(page.calls.move, [{ x: 100, y: 65, options: undefined }])
-  assert.equal(page.calls.up, 1)
+  assert.deepEqual({ locator: page.calls.locator, move: page.calls.move, up: page.calls.up }, {
+    locator: ['#egui-canvas'],
+    move: [{ x: 100, y: 65, options: undefined }],
+    up: 1,
+  })
 })
 
 test('sampleCanvasPixels passes screenshot bytes and css size into page evaluation', async () => {
@@ -308,12 +349,21 @@ test('sampleCanvasPixels passes screenshot bytes and css size into page evaluati
 
   const result = await sampleCanvasPixels(page, locator, samples)
 
-  assert.deepEqual(result.samples, samples)
-  assert.equal(result.cssWidth, 320)
-  assert.equal(result.cssHeight, 180)
-  assert.match(result.base64, /^[A-Za-z0-9+/=]+$/)
-  assert.deepEqual(locator.calls.screenshot, [{ type: 'png' }])
-  assert.equal(locator.calls.boundingBox, 1)
+  assert.deepEqual({
+    samples: result.samples,
+    cssWidth: result.cssWidth,
+    cssHeight: result.cssHeight,
+    base64IsEncoded: /^[A-Za-z0-9+/=]+$/.test(result.base64),
+    screenshot: locator.calls.screenshot,
+    boundingBox: locator.calls.boundingBox,
+  }, {
+    samples,
+    cssWidth: 320,
+    cssHeight: 180,
+    base64IsEncoded: true,
+    screenshot: [{ type: 'png' }],
+    boundingBox: 1,
+  })
 })
 
 test('sampleCanvasPixels waits for state-vector readiness before retrying a destroyed screenshot context', async () => {
@@ -341,25 +391,37 @@ test('sampleCanvasPixels waits for state-vector readiness before retrying a dest
 
   const result = await sampleCanvasPixels(page, locator, [{ name: 'probe', x: 12, y: 34 }])
 
-  assert.equal(result.cssWidth, 320)
-  assert.deepEqual(page.calls.waitForLoadState, ['load'])
-  assert.equal(page.calls.waitForFunction.length, 1)
-  assert.match(page.calls.evaluate[0].source, /__eguiError/)
-  assert.match(page.calls.evaluate[1].source, /__eguiReadStateVector/)
-  assert.equal(locator.calls.screenshot.length, 2)
+  assert.deepEqual({
+    cssWidth: result.cssWidth,
+    waitForLoadState: page.calls.waitForLoadState,
+    waitForFunctionCount: page.calls.waitForFunction.length,
+    firstEvaluateReadsError: /__eguiError/.test(page.calls.evaluate[0].source),
+    secondEvaluateReadsState: /__eguiReadStateVector/.test(page.calls.evaluate[1].source),
+    screenshotCount: locator.calls.screenshot.length,
+  }, {
+    cssWidth: 320,
+    waitForLoadState: ['load'],
+    waitForFunctionCount: 1,
+    firstEvaluateReadsError: true,
+    secondEvaluateReadsState: true,
+    screenshotCount: 2,
+  })
 })
 
 test('getDragPreviewAboveStatePanelProbe preserves the current drag target contract', () => {
   const probe = getDragPreviewAboveStatePanelProbe(1000, 800)
 
-  assert.deepEqual(probe.source, { x: 260, y: 96 })
-  assert.ok(probe.handleCenter.y > probe.source.y)
-  assert.equal(probe.dragFillPoint.name, 'fill')
-  assert.equal(probe.dragFillPoint.x, probe.handleCenter.x + 10)
-  assert.equal(probe.dragFillPoint.y, probe.handleCenter.y + 10)
-  assert.equal(probe.sourceFillPoint.name, 'sourceFill')
-  assert.equal(probe.sourceFillPoint.x, probe.source.x + 10)
-  assert.equal(probe.sourceFillPoint.y, probe.source.y + 10)
+  assert.deepEqual({
+    source: probe.source,
+    handleBelowSource: probe.handleCenter.y > probe.source.y,
+    dragFillPoint: probe.dragFillPoint,
+    sourceFillPoint: probe.sourceFillPoint,
+  }, {
+    source: { x: 260, y: 96 },
+    handleBelowSource: true,
+    dragFillPoint: { name: 'fill', x: probe.handleCenter.x + 10, y: probe.handleCenter.y + 10 },
+    sourceFillPoint: { name: 'sourceFill', x: probe.source.x + 10, y: probe.source.y + 10 },
+  })
 })
 
 export {}

@@ -33,23 +33,22 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const gpuAvailable = await page.evaluate(() => Boolean(navigator.gpu))
-  expect(gpuAvailable).toBe(true)
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const initialState = await readStateVector(page)
-  expect(initialState).toEqual([1, 0, 0, 0])
 
   const initialRender = await waitForCanvasContent(page, canvas, {
     path: testInfo.outputPath('qni-egui-webgpu-initial.png'),
   })
-  expect(initialRender.nonBackground).toBeGreaterThanOrEqual(40)
 
   const REM = 32
   const GATE_SIZE = 1 * REM
@@ -85,6 +84,16 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   const afterRender = await waitForCanvasContent(page, canvas, {
     path: testInfo.outputPath('qni-egui-webgpu-after.png'),
   })
-  expect(afterRender.nonBackground).toBeGreaterThanOrEqual(40)
+  expect({
+    gpuAvailable,
+    initialState,
+    initialRenderHasContent: initialRender.nonBackground >= 40,
+    afterRenderHasContent: afterRender.nonBackground >= 40,
+  }).toEqual({
+    gpuAvailable: true,
+    initialState: [1, 0, 0, 0],
+    initialRenderHasContent: true,
+    afterRenderHasContent: true,
+  })
   await canvas.screenshot({ path: testInfo.outputPath('qni-egui-webgpu.png') })
 })

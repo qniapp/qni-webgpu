@@ -81,7 +81,7 @@ impl QniApp {
         let dims_hit = QniApp::dims_hit_rect(ctx, &state_frame.layout, self.state_panel.offset);
         let aspect_qubits = amplitude_qubits(state_frame.state_count).clamp(1, MAX_QUBITS);
         self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
-        self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit);
+        self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit, state_rect);
         self.process_resize_handles(ctx, ui, &state_frame.layout);
     }
 }

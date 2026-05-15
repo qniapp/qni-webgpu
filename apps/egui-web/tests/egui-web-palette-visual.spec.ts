@@ -34,11 +34,13 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
@@ -76,18 +78,19 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   await page.waitForTimeout(50)
   const duringDrag = await sampleCanvasPixels(page, canvas, panelPoints)
 
-  for (const name of ['corner', 'fill']) {
+  const stablePanelParts = ['corner', 'fill'].map((name) => {
     const before = beforeDrag[name]
     const during = duringDrag[name]
     const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
-    expect(diff).toBeLessThan(40)
-  }
-
-  expect(pixelRgbDistance(duringDrag.corner, duringDrag.fill)).toBeGreaterThan(10)
-
+    return diff < 40
+  })
   const shadowBrightness = duringDrag.shadow[0] + duringDrag.shadow[1] + duringDrag.shadow[2]
   const backgroundBrightness = duringDrag.background[0] + duringDrag.background[1] + duringDrag.background[2]
-  expect(Math.abs(shadowBrightness - backgroundBrightness)).toBeGreaterThan(10)
+  expect({
+    stablePanelParts,
+    cornerDiffersFromFill: pixelRgbDistance(duringDrag.corner, duringDrag.fill) > 10,
+    shadowVisible: Math.abs(shadowBrightness - backgroundBrightness) > 10,
+  }).toEqual({ stablePanelParts: [true, true], cornerDiffersFromFill: true, shadowVisible: true })
 
   await page.mouse.up()
 })
@@ -98,11 +101,13 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const PALETTE_SIZE = 32
@@ -127,12 +132,13 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   await page.waitForTimeout(50)
   const duringDrag = await sampleCanvasPixels(page, canvas, signaturePoints)
 
-  for (const name of Object.keys(beforeDrag)) {
+  const stableIconPixels = Object.keys(beforeDrag).map((name) => {
     const before = beforeDrag[name]
     const during = duringDrag[name]
     const diff = Math.abs(before[0] - during[0]) + Math.abs(before[1] - during[1]) + Math.abs(before[2] - during[2])
-    expect(diff).toBeLessThan(40)
-  }
+    return diff < 40
+  })
+  expect(stableIconPixels).toEqual(Object.keys(beforeDrag).map(() => true))
 
   await page.mouse.up()
 })
@@ -143,11 +149,13 @@ test('control gate uses the qni-style standalone circular dot', async ({ page })
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const palettePos = getPaletteGateCenter(cssWidth, 14)
@@ -167,12 +175,10 @@ test('control gate uses the qni-style standalone circular dot', async ({ page })
   const pixels = await sampleCanvasPixels(page, canvas, signaturePoints)
   const isControlFill = ([r, g, b]: CanvasPixel): boolean => r < 90 && g > 120 && b > 100 && b < 180
 
-  for (const name of ['center', 'inner-left', 'inner-right', 'inner-top', 'inner-bottom']) {
-    expect(isControlFill(pixels[name]), `${name} should be filled by the control dot`).toBe(true)
-  }
-  for (const name of ['outside-left', 'outside-right', 'outside-top', 'outside-bottom']) {
-    expect(isControlFill(pixels[name]), `${name} should remain outside the standalone circular dot`).toBe(false)
-  }
+  expect({
+    filled: ['center', 'inner-left', 'inner-right', 'inner-top', 'inner-bottom'].map((name) => isControlFill(pixels[name])),
+    outside: ['outside-left', 'outside-right', 'outside-top', 'outside-bottom'].map((name) => isControlFill(pixels[name])),
+  }).toEqual({ filled: [true, true, true, true, true], outside: [false, false, false, false] })
 })
 
 test('anti-control gate uses the qni-style open circular dot', async ({ page }) => {
@@ -181,11 +187,13 @@ test('anti-control gate uses the qni-style open circular dot', async ({ page }) 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const viewport = page.viewportSize()
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const palettePos = getPaletteGateCenter(cssWidth, 15)
@@ -207,14 +215,14 @@ test('anti-control gate uses the qni-style open circular dot', async ({ page }) 
   const pixels = await sampleCanvasPixels(page, canvas, signaturePoints)
   const isAntiControlStroke = ([r, g, b]: CanvasPixel): boolean => r < 90 && g > 120 && b > 100 && b < 180
 
-  expect(isAntiControlStroke(pixels.center), 'center should remain open').toBe(false)
   const ringStrokeCount = signaturePoints
     .filter(({ name }) => name.startsWith('ring-'))
     .filter(({ name }) => isAntiControlStroke(pixels[name])).length
-  expect(ringStrokeCount, 'open-circle stroke should be visible around the center').toBeGreaterThanOrEqual(8)
-  for (const name of ['outside-left', 'outside-right']) {
-    expect(isAntiControlStroke(pixels[name]), `${name} should remain outside the open circle`).toBe(false)
-  }
+  expect({
+    centerOpen: isAntiControlStroke(pixels.center),
+    ringVisible: ringStrokeCount >= 8,
+    outside: ['outside-left', 'outside-right'].map((name) => isAntiControlStroke(pixels[name])),
+  }).toEqual({ centerOpen: false, ringVisible: true, outside: [false, false] })
 })
 
 test('control and anti-control have matching outer diameters', async ({ page }) => {
@@ -223,10 +231,12 @@ test('control and anti-control have matching outer diameters', async ({ page }) 
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
-  await expect(canvas).toBeVisible()
+  await canvas.waitFor({ state: 'visible' })
 
   const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const cssWidth = box?.width ?? 1000
   const cssHeight = box?.height ?? 800
 
@@ -292,6 +302,8 @@ test('control and anti-control have matching outer diameters', async ({ page }) 
     },
   })
 
-  expect(Math.abs(bounds.control.width - bounds.antiControl.width)).toBeLessThanOrEqual(1)
-  expect(Math.abs(bounds.control.height - bounds.antiControl.height)).toBeLessThanOrEqual(1)
+  expect({
+    widthAligned: Math.abs(bounds.control.width - bounds.antiControl.width) <= 1,
+    heightAligned: Math.abs(bounds.control.height - bounds.antiControl.height) <= 1,
+  }).toEqual({ widthAligned: true, heightAligned: true })
 })

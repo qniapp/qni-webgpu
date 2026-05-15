@@ -82,73 +82,106 @@ const writeTempSmokeFixture = async (featureText: string) => {
 test('package scripts add bdd and keep legacy Playwright as the primary test command', async () => {
   const pkg = await readPackageJson()
 
-  assert.equal(pkg.scripts.test, 'playwright test')
-  assert.equal(pkg.scripts['test:pw-legacy'], 'playwright test')
-  assert.equal(pkg.scripts['test:bdd'], 'cucumber-js --config cucumber.ts')
-  assert.match(pkg.scripts['build:bootstrap'], /tsc bootstrap\.ts/)
-  assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
-  assert.equal(
-    pkg.scripts['test:preflight'],
-    'pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts'
-  )
-  assert.match(pkg.devDependencies['@cucumber/cucumber'], /^\^\d+/)
-  assert.match(pkg.devDependencies['@types/node'], /^\^\d+/)
-  assert.match(pkg.devDependencies['ts-node'], /^\^\d+/)
-  assert.match(pkg.devDependencies.typescript, /^\^\d+/)
+  assert.deepEqual({
+    test: pkg.scripts.test,
+    pwLegacy: pkg.scripts['test:pw-legacy'],
+    bdd: pkg.scripts['test:bdd'],
+    buildBootstrapUsesTs: /tsc bootstrap\.ts/.test(pkg.scripts['build:bootstrap']),
+    typecheck: pkg.scripts.typecheck,
+    preflight: pkg.scripts['test:preflight'],
+    cucumberVersionPinned: /^\^\d+/.test(pkg.devDependencies['@cucumber/cucumber']),
+    nodeTypesVersionPinned: /^\^\d+/.test(pkg.devDependencies['@types/node']),
+    tsNodeVersionPinned: /^\^\d+/.test(pkg.devDependencies['ts-node']),
+    typescriptVersionPinned: /^\^\d+/.test(pkg.devDependencies.typescript),
+  }, {
+    test: 'playwright test',
+    pwLegacy: 'playwright test',
+    bdd: 'cucumber-js --config cucumber.ts',
+    buildBootstrapUsesTs: true,
+    typecheck: 'tsc --noEmit',
+    preflight: 'pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts',
+    cucumberVersionPinned: true,
+    nodeTypesVersionPinned: true,
+    tsNodeVersionPinned: true,
+    typescriptVersionPinned: true,
+  })
 })
 
 test('cucumber config is TypeScript without a compatibility wrapper', async () => {
-  await assert.doesNotReject(() => fs.access(path.join(rootDir, 'cucumber.ts')))
-  await assert.rejects(() => fs.access(path.join(rootDir, 'cucumber.cjs')), /ENOENT/)
-
+  const accessOk = async (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
   const docs = await readDocs()
-  assert.match(docs, /cucumber\.ts/)
-  assert.doesNotMatch(docs, /cucumber\.cjs/)
+  assert.deepEqual({
+    hasTsConfig: await accessOk(path.join(rootDir, 'cucumber.ts')),
+    hasCjsConfig: await accessOk(path.join(rootDir, 'cucumber.cjs')),
+    docsUseTs: /cucumber\.ts/.test(docs),
+    docsAvoidCjs: !/cucumber\.cjs/.test(docs),
+  }, { hasTsConfig: true, hasCjsConfig: false, docsUseTs: true, docsAvoidCjs: true })
 })
 
 test('typescript config type-checks cucumber glue without emitting files', async () => {
   const tsconfig = await readTsConfig()
 
-  assert.equal(tsconfig.compilerOptions.noEmit, true)
-  assert.equal(tsconfig.compilerOptions.rootDir, '.')
-  assert.equal(tsconfig.compilerOptions.module, 'CommonJS')
-  assert.equal(tsconfig.compilerOptions.strict, true)
-  assert.ok(tsconfig.compilerOptions.types.includes('node'))
-  assert.ok(tsconfig.include.includes('bootstrap.ts'))
-  assert.ok(tsconfig.include.includes('features/**/*.ts'))
-  assert.ok(tsconfig.include.includes('features/**/*.d.ts'))
-  assert.ok(tsconfig.include.includes('cucumber.ts'))
-  assert.ok(tsconfig.include.includes('playwright.config.ts'))
-  assert.ok(tsconfig.include.includes('scripts/**/*.ts'))
-  assert.ok(tsconfig.include.includes('test-node/**/*.ts'))
-  assert.ok(tsconfig.include.includes('tests/**/*.ts'))
-  assert.ok(tsconfig.include.includes('test-support/**/*.ts'))
+  assert.deepEqual({
+    noEmit: tsconfig.compilerOptions.noEmit,
+    rootDir: tsconfig.compilerOptions.rootDir,
+    module: tsconfig.compilerOptions.module,
+    strict: tsconfig.compilerOptions.strict,
+    hasNodeTypes: tsconfig.compilerOptions.types.includes('node'),
+    includeFlags: [
+      'bootstrap.ts',
+      'features/**/*.ts',
+      'features/**/*.d.ts',
+      'cucumber.ts',
+      'playwright.config.ts',
+      'scripts/**/*.ts',
+      'test-node/**/*.ts',
+      'tests/**/*.ts',
+      'test-support/**/*.ts',
+    ].map((entry) => tsconfig.include.includes(entry)),
+  }, {
+    noEmit: true,
+    rootDir: '.',
+    module: 'CommonJS',
+    strict: true,
+    hasNodeTypes: true,
+    includeFlags: [true, true, true, true, true, true, true, true, true],
+  })
 })
 
 test('cucumber CLI resolves the default profile with TypeScript support', async () => {
   const { useConfiguration, runConfiguration } = await loadConfiguration({ file: 'cucumber.ts' })
 
-  assert.deepEqual(useConfiguration.paths, ['features/**/*.feature.md'])
-  assert.deepEqual(runConfiguration.support.requireModules, ['ts-node/register'])
-  assert.deepEqual([...runConfiguration.support.requirePaths].sort(), [
-    'features/step_definitions/**/*.ts',
-    'features/support/bootstrap.ts',
-  ].sort())
-  assert.equal(useConfiguration.publish, false)
-  assert.equal(useConfiguration.failFast, true)
+  assert.deepEqual({
+    paths: useConfiguration.paths,
+    requireModules: runConfiguration.support.requireModules,
+    requirePaths: [...runConfiguration.support.requirePaths].sort(),
+    publish: useConfiguration.publish,
+    failFast: useConfiguration.failFast,
+  }, {
+    paths: ['features/**/*.feature.md'],
+    requireModules: ['ts-node/register'],
+    requirePaths: ['features/step_definitions/**/*.ts', 'features/support/bootstrap.ts'].sort(),
+    publish: false,
+    failFast: true,
+  })
 })
 
 test('cucumber config only targets markdown feature files and uses explicit support bootstrap', () => {
   const config = loadCucumberConfig()
 
-  assert.deepEqual(config.paths, ['features/**/*.feature.md'])
-  assert.deepEqual(config.requireModule, ['ts-node/register'])
-  assert.deepEqual([...config.require].sort(), [
-    'features/step_definitions/**/*.ts',
-    'features/support/bootstrap.ts',
-  ].sort())
-  assert.equal(config.publishQuiet, true)
-  assert.equal(config.failFast, true)
+  assert.deepEqual({
+    paths: config.paths,
+    requireModule: config.requireModule,
+    require: [...config.require].sort(),
+    publishQuiet: config.publishQuiet,
+    failFast: config.failFast,
+  }, {
+    paths: ['features/**/*.feature.md'],
+    requireModule: ['ts-node/register'],
+    require: ['features/step_definitions/**/*.ts', 'features/support/bootstrap.ts'].sort(),
+    publishQuiet: true,
+    failFast: true,
+  })
 })
 
 test('cucumber config uses bounded scenario parallelism on CI', () => {
@@ -160,19 +193,28 @@ test('cucumber config uses bounded scenario parallelism on CI', () => {
 test('support modules expose explicit registration hooks without runtime message sniffing', async () => {
   const hooks = require('../features/support/hooks.ts')
   const world = require('../features/support/world.ts')
-
-  assert.equal(typeof hooks.registerHooks, 'function')
-  assert.equal(typeof world.registerWorld, 'function')
-  await assert.doesNotReject(() => fs.access(path.join(supportDir, 'bootstrap.ts')))
-  await assert.rejects(() => fs.access(path.join(supportDir, 'bootstrap.cjs')), /ENOENT/)
+  const accessOk = async (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
 
   const [hooksSource, worldSource] = await Promise.all([
     readSupportSource('hooks.ts'),
     readSupportSource('world.ts'),
   ])
 
-  assert.doesNotMatch(hooksSource, /isn['’]?t running/)
-  assert.doesNotMatch(worldSource, /isn['’]?t running/)
+  assert.deepEqual({
+    registerHooks: typeof hooks.registerHooks,
+    registerWorld: typeof world.registerWorld,
+    hasBootstrapTs: await accessOk(path.join(supportDir, 'bootstrap.ts')),
+    hasBootstrapCjs: await accessOk(path.join(supportDir, 'bootstrap.cjs')),
+    hooksAvoidRuntimeSniffing: !/isn['’]?t running/.test(hooksSource),
+    worldAvoidRuntimeSniffing: !/isn['’]?t running/.test(worldSource),
+  }, {
+    registerHooks: 'function',
+    registerWorld: 'function',
+    hasBootstrapTs: true,
+    hasBootstrapCjs: false,
+    hooksAvoidRuntimeSniffing: true,
+    worldAvoidRuntimeSniffing: true,
+  })
 })
 
 test('support hooks keep shared server lifecycle at run scope while resetting browser state per scenario', async () => {
@@ -211,12 +253,14 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
     getSharedWebServerConfig: () => ({ url: 'http://127.0.0.1:4174', timeout: 123_456 }),
   })
 
-  assert.equal(typeof registrations.beforeAll, 'function')
-  assert.equal(typeof registrations.before, 'function')
-  assert.equal(typeof registrations.after, 'function')
-  assert.equal(typeof registrations.afterAll, 'function')
-  assert.deepEqual(registrations.beforeAllOptions, { timeout: 123_456 })
-  assert.deepEqual(registrations.afterAllOptions, { timeout: 123_456 })
+  const registeredCallbacks = {
+    beforeAll: typeof registrations.beforeAll,
+    before: typeof registrations.before,
+    after: typeof registrations.after,
+    afterAll: typeof registrations.afterAll,
+    beforeAllOptions: registrations.beforeAllOptions,
+    afterAllOptions: registrations.afterAllOptions,
+  }
 
   const world: MutableRecord = {
     page: null,
@@ -239,14 +283,18 @@ test('support hooks keep shared server lifecycle at run scope while resetting br
   })
   await registrations.afterAll.call({})
 
-  assert.equal(world.baseUrl, 'http://127.0.0.1:4174')
-  assert.deepEqual(calls, [
-    'ensure-server',
-    'start:smoke scenario',
-    'close-browser',
-    'reset-world',
-    'shutdown-server',
-  ])
+  assert.deepEqual({ registeredCallbacks, baseUrl: world.baseUrl, calls }, {
+    registeredCallbacks: {
+      beforeAll: 'function',
+      before: 'function',
+      after: 'function',
+      afterAll: 'function',
+      beforeAllOptions: { timeout: 123_456 },
+      afterAllOptions: { timeout: 123_456 },
+    },
+    baseUrl: 'http://127.0.0.1:4174',
+    calls: ['ensure-server', 'start:smoke scenario', 'close-browser', 'reset-world', 'shutdown-server'],
+  })
 })
 
 test('cucumber dry-run smoke plans exactly one selected markdown scenario without relying on formatter text', async (t: import('node:test').TestContext) => {
@@ -284,14 +332,15 @@ test('cucumber dry-run smoke plans exactly one selected markdown scenario withou
     }
   )
 
-  assert.ifError(result.error)
-  assert.equal(result.signal, null, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
-  assert.equal(result.status, 0, `stderr:\n${result.stderr}\nstdout:\n${result.stdout}`)
-
   const messages = await parseMessageOutput(fixture.messagePath)
   const testCaseStartedCount = messages.filter((message: MutableRecord) => message.testCaseStarted).length
 
-  assert.equal(testCaseStartedCount, 1, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
+  assert.deepEqual({
+    error: result.error ?? null,
+    signal: result.signal,
+    status: result.status,
+    testCaseStartedCount,
+  }, { error: null, signal: null, status: 0, testCaseStartedCount: 1 })
 })
 
 test('support scaffolding loads and reuses the shared Task 1 browser and server policies', () => {
@@ -302,16 +351,29 @@ test('support scaffolding loads and reuses the shared Task 1 browser and server 
   const world = require('../features/support/world.ts')
   const helpers = require('../features/support/egui-helpers.ts')
 
-  assert.equal(browser.getStandardWebGpuLaunchOptions, sharedBrowser.getStandardWebGpuLaunchOptions)
-  assert.equal(browser.getPlainChromiumLaunchOptions, sharedBrowser.getPlainChromiumLaunchOptions)
-  assert.equal(server.getSharedWebServerConfig, sharedServer.getWebServerConfig)
-  assert.equal(typeof browser.launchBrowserForMode, 'function')
-  assert.equal(typeof server.ensureSharedWebServer, 'function')
-  assert.equal(typeof server.shutdownSharedWebServer, 'function')
-  assert.equal(typeof world.EguiWorld, 'function')
-  assert.equal(typeof helpers.waitForAppReady, 'function')
-  assert.equal(typeof helpers.waitForStartupReady, 'function')
-  assert.equal(typeof helpers.readEguiError, 'function')
+  assert.deepEqual({
+    standardLaunchShared: browser.getStandardWebGpuLaunchOptions === sharedBrowser.getStandardWebGpuLaunchOptions,
+    plainLaunchShared: browser.getPlainChromiumLaunchOptions === sharedBrowser.getPlainChromiumLaunchOptions,
+    serverConfigShared: server.getSharedWebServerConfig === sharedServer.getWebServerConfig,
+    launchBrowserForMode: typeof browser.launchBrowserForMode,
+    ensureSharedWebServer: typeof server.ensureSharedWebServer,
+    shutdownSharedWebServer: typeof server.shutdownSharedWebServer,
+    worldClass: typeof world.EguiWorld,
+    waitForAppReady: typeof helpers.waitForAppReady,
+    waitForStartupReady: typeof helpers.waitForStartupReady,
+    readEguiError: typeof helpers.readEguiError,
+  }, {
+    standardLaunchShared: true,
+    plainLaunchShared: true,
+    serverConfigShared: true,
+    launchBrowserForMode: 'function',
+    ensureSharedWebServer: 'function',
+    shutdownSharedWebServer: 'function',
+    worldClass: 'function',
+    waitForAppReady: 'function',
+    waitForStartupReady: 'function',
+    readEguiError: 'function',
+  })
 })
 
 test('cucumber world uses an externally managed base URL when configured', () => {

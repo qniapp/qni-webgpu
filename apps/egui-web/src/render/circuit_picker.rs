@@ -16,7 +16,7 @@ const SUBMENU_WIDTH: f32 = 160.0;
 const ITEM_HEIGHT: f32 = 36.0;
 const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.
 const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.
-const POPOVER_GAP: f32 = 12.0; // spacing-3.
+const TOPBAR_BOTTOM_OFFSET: f32 = 6.0; // py-1.5 = 6px; trigger bottom → topbar bottom.
 const SUBMENU_GAP: f32 = 4.0; // spacing-1.
 const KEBAB_SIZE: egui::Vec2 = egui::vec2(20.0, 20.0);
 const DRAG_ACTIVATE_DISTANCE_SQ: f32 = 16.0; // 4px threshold squared, per mock §02.
@@ -143,7 +143,9 @@ impl QniApp {
         if !self.picker.is_open() {
             return None;
         }
-        let pos = trigger_rect.left_bottom() + egui::vec2(0.0, POPOVER_GAP);
+        // Attach the picker to the topbar bottom with no gap below the bar.
+        // The trigger sits inside the toolbar's py-1.5 (6px) vertical padding.
+        let pos = trigger_rect.left_bottom() + egui::vec2(0.0, TOPBAR_BOTTOM_OFFSET);
         let entries = self.library.entries.clone();
         let active_id = self.library.active_id.clone();
         let focused_index = if self.picker.focus_visible() {
@@ -198,6 +200,7 @@ impl QniApp {
                 });
             });
         let dropdown_rect = area.response.rect;
+        publish_picker_dropdown_geometry_json(trigger_rect, dropdown_rect, TOPBAR_BOTTOM_OFFSET);
         let mut deferred_actions = Vec::with_capacity(actions.len());
         for action in actions {
             match action {
@@ -810,6 +813,38 @@ fn popover_frame(colors: &Colors) -> egui::Frame {
             color: with_alpha(colors.text_strong, 25),
         },
     }
+}
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+fn publish_picker_dropdown_geometry_json(
+    trigger_rect: egui::Rect,
+    dropdown_rect: egui::Rect,
+    topbar_bottom_offset: f32,
+) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let json = format!(
+        "{{\"trigger_top\":{:.3},\"trigger_bottom\":{:.3},\"topbar_bottom\":{:.3},\"dropdown_top\":{:.3},\"dropdown_bottom\":{:.3}}}",
+        trigger_rect.top(),
+        trigger_rect.bottom(),
+        trigger_rect.bottom() + topbar_bottom_offset,
+        dropdown_rect.top(),
+        dropdown_rect.bottom(),
+    );
+    let _ = js_sys::Reflect::set(
+        window.as_ref(),
+        &wasm_bindgen::JsValue::from_str("__qniCircuitPickerDropdownGeometryJson"),
+        &wasm_bindgen::JsValue::from_str(&json),
+    );
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+fn publish_picker_dropdown_geometry_json(
+    _trigger_rect: egui::Rect,
+    _dropdown_rect: egui::Rect,
+    _topbar_bottom_offset: f32,
+) {
 }
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]

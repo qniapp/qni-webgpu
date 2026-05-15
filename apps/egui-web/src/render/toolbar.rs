@@ -13,6 +13,7 @@ enum ToolbarIcon {
     Undo,
     Redo,
     Trash,
+    Copy,
     Play,
 }
 
@@ -74,6 +75,9 @@ impl QniApp {
             self.external_gpu_status = ExternalGpuStatus::Idle;
             self.commit_current_circuit(ctx);
         }
+        if icon_button(ui, colors, ToolbarIcon::Copy, true, "Duplicate circuit").clicked() {
+            self.duplicate_active_circuit(ctx);
+        }
     }
 
     fn show_gpu_execute_cluster(
@@ -125,6 +129,7 @@ fn icon_button(
     let (rect, response) = ui.allocate_exact_size(TOOL_SIZE, sense);
     let response = response.on_hover_text(tooltip);
     let hovered = response.hovered() && enabled;
+    publish_toolbar_button_debug_json(tooltip, rect, hovered);
     let hover_t = ui
         .ctx()
         .animate_bool_with_time(response.id.with("hover"), hovered, 0.12);
@@ -148,6 +153,39 @@ fn icon_button(
     paint_icon(ui.painter(), rect, icon, color);
     response
 }
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: bool) {
+    if tooltip != "Duplicate circuit" {
+        return;
+    }
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let json = format!(
+        "{{\"left\":{:.3},\"right\":{:.3},\"top\":{:.3},\"bottom\":{:.3},\"hovered\":{}}}",
+        rect.left(),
+        rect.right(),
+        rect.top(),
+        rect.bottom(),
+        hovered,
+    );
+    let _ = js_sys::Reflect::set(
+        window.as_ref(),
+        &wasm_bindgen::JsValue::from_str("__qniToolbarDuplicateGeometryJson"),
+        &wasm_bindgen::JsValue::from_str(&json),
+    );
+    if hovered {
+        let _ = js_sys::Reflect::set(
+            window.as_ref(),
+            &wasm_bindgen::JsValue::from_str("__qniToolbarTooltipText"),
+            &wasm_bindgen::JsValue::from_str(tooltip),
+        );
+    }
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+fn publish_toolbar_button_debug_json(_tooltip: &str, _rect: egui::Rect, _hovered: bool) {}
 
 fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
     let (rect, _) = ui.allocate_exact_size(
@@ -251,6 +289,10 @@ fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, colo
                 stroke,
             );
         }
+        ToolbarIcon::Copy => {
+            paint_icon_rect_outline(painter, icon_rect, 9.0, 9.0, 13.0, 13.0, 2.0, stroke);
+            paint_copy_back_path(painter, icon_rect, stroke);
+        }
         ToolbarIcon::Play => {
             paint_path(
                 painter,
@@ -260,6 +302,68 @@ fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, colo
                 stroke,
             );
         }
+    }
+}
+
+fn paint_icon_rect_outline(
+    painter: &egui::Painter,
+    icon_rect: egui::Rect,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    radius: f32,
+    stroke: egui::Stroke,
+) {
+    let rect = egui::Rect::from_min_size(
+        icon_point(icon_rect, x, y),
+        egui::vec2(
+            icon_rect.width() * width / 24.0,
+            icon_rect.height() * height / 24.0,
+        ),
+    );
+    let radius = (icon_rect.width() * radius / 24.0).round().max(0.0) as u8;
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::same(radius),
+        stroke,
+        egui::StrokeKind::Middle,
+    );
+}
+
+fn paint_copy_back_path(painter: &egui::Painter, icon_rect: egui::Rect, stroke: egui::Stroke) {
+    let mut points = Vec::with_capacity(20);
+    points.push(icon_point(icon_rect, 5.0, 15.0));
+    points.push(icon_point(icon_rect, 4.0, 15.0));
+    append_icon_arc(&mut points, icon_rect, (4.0, 13.0), 2.0, 90.0, 180.0);
+    points.push(icon_point(icon_rect, 2.0, 4.0));
+    append_icon_arc(&mut points, icon_rect, (4.0, 4.0), 2.0, 180.0, 270.0);
+    points.push(icon_point(icon_rect, 13.0, 2.0));
+    append_icon_arc(&mut points, icon_rect, (13.0, 4.0), 2.0, -90.0, 0.0);
+    points.push(icon_point(icon_rect, 15.0, 5.0));
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        points, stroke,
+    )));
+}
+
+fn append_icon_arc(
+    points: &mut Vec<egui::Pos2>,
+    icon_rect: egui::Rect,
+    center: (f32, f32),
+    radius: f32,
+    start_degrees: f32,
+    end_degrees: f32,
+) {
+    const STEPS: usize = 4;
+    for step in 1..=STEPS {
+        let t = step as f32 / STEPS as f32;
+        let degrees = start_degrees + (end_degrees - start_degrees) * t;
+        let radians = degrees.to_radians();
+        points.push(icon_point(
+            icon_rect,
+            center.0 + radius * radians.cos(),
+            center.1 + radius * radians.sin(),
+        ));
     }
 }
 

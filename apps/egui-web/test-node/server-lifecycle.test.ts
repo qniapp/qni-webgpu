@@ -15,7 +15,7 @@ test('terminateProcess resolves after a SIGTERM exit even when exitCode stays nu
     return
   }
 
-  assert.equal(typeof terminateProcess, 'function')
+  const terminateProcessType = typeof terminateProcess
 
   const child = spawn('sh', ['-lc', 'exec sleep 999'], { stdio: 'ignore' })
 
@@ -31,8 +31,11 @@ test('terminateProcess resolves after a SIGTERM exit even when exitCode stays nu
   await terminateProcess(child, { termTimeoutMs: 250, killTimeoutMs: 250 })
   const elapsedMs = Date.now() - startedAt
 
-  assert.ok(elapsedMs < 2_000, `terminateProcess took too long: ${elapsedMs}ms`)
-  assert.equal(child.signalCode, 'SIGTERM')
+  assert.deepEqual({
+    terminateProcessType,
+    elapsedUnderLimit: elapsedMs < 2_000,
+    signalCode: child.signalCode,
+  }, { terminateProcessType: 'function', elapsedUnderLimit: true, signalCode: 'SIGTERM' })
 })
 
 test('ensureSharedWebServer reuses an explicitly configured external server instead of spawning trunk', async (t: import('node:test').TestContext) => {
@@ -72,8 +75,7 @@ test('ensureSharedWebServer reuses an explicitly configured external server inst
     const { ensureSharedWebServer, shutdownSharedWebServer } = require('../features/support/server.ts')
     const config = await ensureSharedWebServer()
 
-    assert.equal(config.url, `http://127.0.0.1:${port}`)
-    assert.equal(config.managed, false)
+    assert.deepEqual({ url: config.url, managed: config.managed }, { url: `http://127.0.0.1:${port}`, managed: false })
     await shutdownSharedWebServer()
   } finally {
     if (previousExternal === undefined) {

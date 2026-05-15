@@ -101,19 +101,15 @@ pub(super) fn draw_gate_icon(
             } else {
                 ("1", colors.semantic_on)
             };
-            // Ket digit follows the solo letters' Geist Regular 400 so
-            // the visual stroke matches H / Y / Z / S / T sitting next
-            // to it in the palette. Size stays below the large
-            // single-letter gates so the digit sits cleanly between
-            // the bracket strokes.
+            // Ket digit uses Geist Mono so the slashed "0" is
+            // unambiguously a zero rather than an "O". Size stays
+            // below the large single-letter gates so the digit sits
+            // cleanly between the bracket strokes.
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 digit,
-                egui::FontId::new(
-                    rect.width() * 0.56,
-                    crate::app::GATE_LABEL_LIGHT_FAMILY.clone(),
-                ),
+                egui::FontId::new(rect.width() * 0.56, egui::FontFamily::Monospace),
                 digit_color,
             );
             true

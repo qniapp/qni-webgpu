@@ -16,7 +16,9 @@ const {
 const CUCUMBER_STEP_TIMEOUT_MS = 20_000
 
 const requirePage = (world: EguiWorld): Page => {
-  assert.ok(world.page, 'expected egui page to be open')
+  if (!world.page) {
+    throw new Error('expected egui page to be open')
+  }
   return world.page
 }
 

@@ -24,9 +24,15 @@ test('playwright web server helpers can target an externally managed egui-web se
     [PLAYWRIGHT_BASE_URL_ENV]: 'http://127.0.0.1:5999',
   }
 
-  assert.equal(getPlaywrightBaseUrl({ env }), 'http://127.0.0.1:5999')
-  assert.equal(getPlaywrightWebServerConfig({ env }), undefined)
-  assert.deepEqual(getPlaywrightWebServerConfig(), getWebServerConfig())
+  assert.deepEqual({
+    baseUrl: getPlaywrightBaseUrl({ env }),
+    externalConfig: getPlaywrightWebServerConfig({ env }),
+    defaultConfig: getPlaywrightWebServerConfig(),
+  }, {
+    baseUrl: 'http://127.0.0.1:5999',
+    externalConfig: undefined,
+    defaultConfig: getWebServerConfig(),
+  })
 })
 
 test('shared web server config can target an externally managed egui-web server for cucumber support', () => {
