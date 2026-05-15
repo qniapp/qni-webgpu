@@ -220,10 +220,18 @@ impl QniApp {
                 kebab_rects
                     .get(index)
                     .copied()
-                    .map(|anchor| (index, anchor))
+                    .zip(row_rects.get(index).copied())
+                    .map(|(anchor, parent_row)| (index, anchor, parent_row))
             })
-            .and_then(|(index, anchor)| {
-                self.show_picker_submenu(ctx, colors, index, anchor, &mut deferred_actions)
+            .and_then(|(index, anchor, parent_row)| {
+                self.show_picker_submenu(
+                    ctx,
+                    colors,
+                    index,
+                    anchor,
+                    parent_row,
+                    &mut deferred_actions,
+                )
             });
         let picker_rect = submenu_rect
             .map(|rect| dropdown_rect.union(rect))
@@ -597,11 +605,13 @@ impl QniApp {
         colors: &Colors,
         index: usize,
         kebab_rect: egui::Rect,
+        parent_row_rect: egui::Rect,
         actions: &mut Vec<PickerAction>,
     ) -> Option<egui::Rect> {
         let viewport = ctx.content_rect();
-        let right = kebab_rect.right_top() + egui::vec2(SUBMENU_GAP, 0.0);
-        let left = kebab_rect.left_top() - egui::vec2(SUBMENU_WIDTH + SUBMENU_GAP, 0.0);
+        let row_top = parent_row_rect.top();
+        let right = egui::pos2(kebab_rect.right() + SUBMENU_GAP, row_top);
+        let left = egui::pos2(kebab_rect.left() - SUBMENU_WIDTH - SUBMENU_GAP, row_top);
         let pos = if right.x + SUBMENU_WIDTH > viewport.right() {
             left
         } else {
@@ -635,6 +645,12 @@ impl QniApp {
                     }
                 });
             });
+        publish_picker_submenu_geometry_json(
+            index,
+            parent_row_rect,
+            kebab_rect,
+            area.response.rect,
+        );
         Some(area.response.rect)
     }
 
@@ -794,6 +810,41 @@ fn popover_frame(colors: &Colors) -> egui::Frame {
             color: with_alpha(colors.text_strong, 25),
         },
     }
+}
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+fn publish_picker_submenu_geometry_json(
+    index: usize,
+    parent_row_rect: egui::Rect,
+    kebab_rect: egui::Rect,
+    submenu_rect: egui::Rect,
+) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let json = format!(
+        "{{\"index\":{index},\"parent_row_top\":{:.3},\"kebab_left\":{:.3},\"kebab_right\":{:.3},\"submenu_left\":{:.3},\"submenu_right\":{:.3},\"submenu_top\":{:.3}}}",
+        parent_row_rect.top(),
+        kebab_rect.left(),
+        kebab_rect.right(),
+        submenu_rect.left(),
+        submenu_rect.right(),
+        submenu_rect.top(),
+    );
+    let _ = js_sys::Reflect::set(
+        window.as_ref(),
+        &wasm_bindgen::JsValue::from_str("__qniCircuitPickerGeometryJson"),
+        &wasm_bindgen::JsValue::from_str(&json),
+    );
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+fn publish_picker_submenu_geometry_json(
+    _index: usize,
+    _parent_row_rect: egui::Rect,
+    _kebab_rect: egui::Rect,
+    _submenu_rect: egui::Rect,
+) {
 }
 
 fn paint_dragged_row_background(painter: &egui::Painter, colors: &Colors, rect: egui::Rect) {

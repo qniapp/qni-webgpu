@@ -515,6 +515,7 @@ if idx &lt; entries.len() - 1 {
       <li>Esc で drag をキャンセル、順序維持。</li>
       <li>kebab をクリックしても drag は始まらず、submenu が開く (既存挙動の回帰なし)。同じ kebab をもう一度クリックすると閉じる。</li>
       <li>submenu が開いている状態で別行の drag を始めたら submenu は閉じる。</li>
+      <li>submenu は右側表示 / 画面右端での左 flip とも、親行の上辺 Y と同じ px に揃う。</li>
       <li>submenu の Move up / Move down は引き続き動く。</li>
       <li>cursor が行 hover で <code>grab</code>、drag 中で <code>grabbing</code>。</li>
       <li><code>cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings</code> 通過、<code>cargo fmt --check</code> クリーン。</li>

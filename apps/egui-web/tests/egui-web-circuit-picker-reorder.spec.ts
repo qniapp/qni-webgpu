@@ -13,6 +13,15 @@ type CircuitLibrarySnapshot = {
 
 type Point = { x: number; y: number }
 type HoverSnapshot = { hoveredGateId: number | null; hoveredPaletteIndex: number | null }
+type SubmenuGeometry = {
+  index: number
+  parent_row_top: number
+  kebab_left: number
+  kebab_right: number
+  submenu_left: number
+  submenu_right: number
+  submenu_top: number
+}
 
 const ONE_JSON = '{"cols":[["H"]]}'
 const TWO_JSON = '{"cols":[["X"]]}'
@@ -90,6 +99,12 @@ const entryIds = async (page: Page): Promise<string[]> => (await snapshot(page))
 
 const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> =>
   page.evaluate(() => JSON.parse((window as any).__qniHoverSnapshotJson ?? '{}') as HoverSnapshot)
+
+const submenuGeometry = async (page: Page): Promise<SubmenuGeometry | null> =>
+  page.evaluate(() => {
+    const raw = (window as any).__qniCircuitPickerGeometryJson
+    return typeof raw === 'string' ? JSON.parse(raw) as SubmenuGeometry : null
+  })
 
 const storedEntryIds = async (page: Page): Promise<string[]> =>
   page.evaluate((key) => {
@@ -206,4 +221,25 @@ test('kebab click opens the submenu without starting a drag', async ({ page }) =
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_DOWN_Y })
 
   await expect.poll(async () => entryIds(page)).toEqual(['two', 'one', 'three'])
+})
+
+test('submenu top edge aligns to the parent row on right and flipped anchors', async ({ page }) => {
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
+  await expect.poll(async () => await submenuGeometry(page)).not.toBeNull()
+  const rightAnchored = (await submenuGeometry(page))!
+  expect(Math.abs(rightAnchored.submenu_top - rightAnchored.parent_row_top)).toBeLessThanOrEqual(0.5)
+  expect(rightAnchored.submenu_left).toBeGreaterThan(rightAnchored.kebab_right)
+
+  await page.setViewportSize({ width: 380, height: 800 })
+  await page.reload()
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await seedLibrary(page)
+  await clickCanvas(page, TRIGGER)
+  await page.waitForTimeout(200)
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
+
+  await expect.poll(async () => await submenuGeometry(page)).not.toBeNull()
+  const flipped = (await submenuGeometry(page))!
+  expect(Math.abs(flipped.submenu_top - flipped.parent_row_top)).toBeLessThanOrEqual(0.5)
+  expect(flipped.submenu_right).toBeLessThan(flipped.kebab_left)
 })
