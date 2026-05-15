@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Circuit picker reorder — UI モック</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --font-body: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+      --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:      #FFFCF0;
+      --bg-2:    #F2F0E5;
+      --ui:      #E6E4D9;
+      --ui-2:    #DAD8CE;
+      --tx-3:    #B7B5AC;
+      --tx-2:    #6F6E69;
+      --tx:      #100F0F;
+      --blue:    #205EA6;
+      --shadow-card: 0 8px 24px rgba(16, 15, 15, 0.06);
+      --shadow-panel: 0 16px 40px rgba(16, 15, 15, 0.08);
+      --shadow-popover: 0 12px 32px rgba(16, 15, 15, 0.10);
+      --shadow-drag: 0 8px 18px rgba(16, 15, 15, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--tx);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 24px;
+      background: var(--bg-2);
+      padding: 0 0 96px;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+    }
+    h1.page-title { margin: 12px 0 8px; font-size: 32px; line-height: 40px; letter-spacing: -0.01em; font-weight: 700; }
+    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
+    p.page-lede code, .note code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+
+    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+    section.block > h2 {
+      margin: 0 0 8px; font-size: 24px; line-height: 32px;
+      letter-spacing: -0.01em;
+      display: flex; align-items: baseline; gap: 12px;
+    }
+    section.block > h2 .num {
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.2em; color: var(--tx-3); font-weight: 500;
+    }
+    section.block > p.note { margin: 0 0 20px; color: var(--tx-2); max-width: 760px; }
+
+    /* ───── Dropdown (matches the implemented picker) ───── */
+    .picker-dropdown {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      box-shadow: var(--shadow-popover);
+      padding: 6px;
+      width: 240px;
+      font-size: 14px;
+      position: relative;          /* anchor for drop indicator */
+    }
+    .picker-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 6px;
+      color: var(--tx);
+      cursor: grab;                /* hint that this row is draggable */
+      transition: background 80ms ease;
+      user-select: none;
+      position: relative;
+    }
+    .picker-item:hover { background: var(--bg-2); }
+    .picker-item.is-active { background: var(--ui); font-weight: 500; }
+    .picker-item.is-active:hover { background: var(--ui); }
+    .picker-item .name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .picker-item .kebab {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      align-items: center;
+      justify-content: center;
+      color: var(--tx-3);
+      cursor: pointer;            /* kebab itself isn't a drag handle */
+    }
+    .picker-item:hover .kebab { display: inline-flex; }
+    .picker-item .kebab:hover { background: var(--ui); color: var(--tx); }
+
+    /* ───── Drag states ───── */
+    .picker-item.is-dragging {
+      cursor: grabbing;
+      opacity: 0.35;              /* source row dims; ghost follows the cursor */
+    }
+    .picker-item.is-grabbing { cursor: grabbing; }
+
+    /* Floating ghost — a clone that follows the pointer during drag. */
+    .picker-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      background: var(--bg);
+      border-radius: 6px;
+      box-shadow: var(--shadow-drag);
+      padding: 0 10px;
+      height: 36px;
+      width: 228px;               /* dropdown 240 - 6 - 6 (panel inner padding) */
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      color: var(--tx);
+      font-family: var(--font-body);
+      transform: rotate(-1deg);   /* very subtle tilt — "picked up" feel */
+    }
+
+    /* Drop indicator — 2 px blue line between rows. */
+    .drop-indicator {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      height: 2px;
+      background: var(--blue);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ───── Gallery / state stage ───── */
+    .stage {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 28px 32px;
+      display: flex;
+      gap: 36px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    .stage .col { display: flex; flex-direction: column; gap: 8px; }
+    .stage .col .label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+    }
+
+    /* ───── Anatomy callout ───── */
+    .anatomy {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 24px 28px;
+    }
+    .anatomy table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .anatomy th, .anatomy td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--ui-2); vertical-align: top; }
+    .anatomy th { color: var(--tx-3); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; width: 200px; }
+    .anatomy td code { font-family: var(--font-mono); font-size: 12px; background: var(--ui); padding: 1px 5px; border-radius: 4px; }
+
+    /* ───── Impl spec ───── */
+    .impl-spec {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 24px 28px;
+    }
+    .impl-spec h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .impl-spec ol { margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec ol code {
+      font-family: var(--font-mono); font-size: 13px;
+      background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx);
+    }
+    .impl-spec pre {
+      margin: 8px 0;
+      padding: 10px 14px;
+      background: var(--ui);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-x: auto;
+    }
+
+    .doc-foot {
+      max-width: 1100px;
+      margin: 24px auto 0;
+      padding: 32px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--tx-3);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
+    .doc-foot a:hover { color: var(--blue); border-color: var(--blue); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · ui mock</p>
+  <h1 class="page-title">Circuit picker reorder</h1>
+  <p class="page-lede">
+    回路一覧をマウスでつかんで上下にドラッグして並び替える機能。
+    submenu の <strong>Move up / Move down はそのまま残す</strong> (キーボード派や
+    1 段ずつ動かしたい時の代替) ─ ドラッグはマウスでまとめて再配置したい時の
+    primary な手段。ドロップダウンの幅 / 影 / 角丸 / その他の挙動は実装済みの
+    picker と同じ。<strong>差分はドラッグハンドル無しの whole-row drag と drop indicator のみ</strong>。
+  </p>
+</div>
+
+<!-- ───────────────── 1. State gallery ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> ドラッグの 3 状態</h2>
+  <p class="note">
+    Idle (普通) → Hover (掴める合図 = <code>cursor: grab</code>) → Dragging
+    (ソースは <code>opacity: 0.35</code> で薄く残り、ゴースト要素がカーソルに付いて移動)。
+    Drop indicator は 2 px の blue-600 線で「ここに入る」位置を示す。
+  </p>
+
+  <div class="stage">
+    <div class="col">
+      <span class="label">idle</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2);">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item is-active"><span class="name">GHZ state</span></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <span class="label">hover · 掴める</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2);">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item is-active" style="background: var(--bg-2); cursor: grab;"><span class="name">GHZ state</span></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <span class="label">dragging</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2); position: relative;">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item is-dragging is-active"><span class="name">GHZ state</span></div>
+        <div class="drop-indicator" style="top: 88px;"></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Drag mechanics anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> ドラッグ機構の解剖</h2>
+  <p class="note">
+    ドラッグハンドルは導入しない ─ <strong>行のどこを掴んでも</strong> drag に入る。
+    kebab だけは drag 対象外 (kebab クリックで submenu を開く挙動を維持)。
+    Drop indicator の位置は「カーソル Y が hovered item の<strong>上半分なら 1 つ上、下半分なら 1 つ下</strong>」で決まる。
+    Create new circuit の footer は drag target から除外。
+  </p>
+
+  <div class="anatomy">
+    <table>
+      <thead><tr><th>part</th><th>挙動 / トークン</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>drag start</th>
+          <td>行の <code>mousedown</code> + 移動距離 ≥ <strong>4 px</strong> で drag 開始 (egui だと <code>response.drag_started()</code> 相当)。閾値以下のクリックは選択 / kebab open など本来の挙動。</td>
+        </tr>
+        <tr>
+          <th>cursor</th>
+          <td>行 hover で <code>grab</code>、drag 中は <code>grabbing</code>。kebab hover では <code>pointer</code>。</td>
+        </tr>
+        <tr>
+          <th>source row</th>
+          <td>drag 中は <code>opacity: 0.35</code> で薄く居残り、レイアウトは動かない (他の行が押し出されない)。</td>
+        </tr>
+        <tr>
+          <th>ghost</th>
+          <td>
+            <code>position: fixed</code> のクローンが pointer に追従。<code>shadow-drag</code> + 1° 弱の傾き、bg paper、width は dropdown 内側 (240 - 12 = 228 px)。<br />
+            <strong>移動は Y 軸のみ</strong> ─ 横方向にカーソルが動いても ghost.left は drag 開始時の row.left に固定。
+            横移動を許すと dropdown 列から外れて視覚的に紛らわしいので意図的に抑制。
+          </td>
+        </tr>
+        <tr>
+          <th>drop indicator</th>
+          <td>2 px <code>blue-600</code> 横線。dropdown 内側 left 6 / right 6 のフルワイド。z-index で行より前面。</td>
+        </tr>
+        <tr>
+          <th>drop target 判定</th>
+          <td>カーソル Y が hovered row の rect.center より上 → <code>target = hovered_index</code>、下 → <code>target = hovered_index + 1</code>。source 自身と隣接 (no-op) は indicator を出さない。</td>
+        </tr>
+        <tr>
+          <th>kebab 除外</th>
+          <td>kebab 上の mousedown は drag を開始しない (event を kebab handler に渡す)。kebab は drag handle ではなく submenu trigger。</td>
+        </tr>
+        <tr>
+          <th>auto scroll</th>
+          <td>dropdown が scrollable で、カーソルが dropdown rect の上下 24 px 以内に入ったら 60 fps で 6 px/frame スクロール (entries が多い時用、今は entries 少ないので<strong>第 1 弾では実装不要</strong>)。</td>
+        </tr>
+        <tr>
+          <th>release</th>
+          <td><code>mouseup</code> で <code>entries.splice(src, 1)</code> + <code>entries.splice(adjusted_target, 0, item)</code>。active_id は entry id で保持してるので index ズレなし。Esc 中断 = source 戻し。</td>
+        </tr>
+        <tr>
+          <th>submenu との両立</th>
+          <td>submenu の Move up / Move down は据置 ─ キーボード代替 / 1 段ずつ動かしたい時用。drag は飛ばし移動の primary path。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 3. Interactive prototype ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> 実装プロトタイプ — 掴んで上下に動かす</h2>
+  <p class="note">
+    各行を mouse でつかんで上下に移動 → 2 px の青ライン (drop indicator) が出ている位置で離すと並び替わる。
+    Esc でキャンセル。kebab は drag されない (クリックすると "kebab clicked" alert)。
+    Create new circuit は drag 対象外。
+  </p>
+
+  <div class="picker-dropdown" id="proto-dropdown" role="listbox"></div>
+
+  <p class="note" style="margin-top: 18px;">
+    <strong>現在の順序</strong>:
+    <code id="proto-order" style="font-family: var(--font-mono); font-size: 12px;"></code>
+  </p>
+</section>
+
+<!-- ───────────────── 4. Impl spec ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> 実装仕様 (Codex 用リファレンス)</h2>
+
+  <div class="impl-spec">
+    <h3>既存 picker への差分 — drag-reorder の追加だけ。</h3>
+    <ol>
+      <li>
+        <strong>状態</strong> ─ <code>PickerState::Open</code> に drag 中 sub-state を追加:
+        <pre>pub(crate) enum DragState {
+    Idle,
+    Pending { entry_index: usize, started_pos: Pos2 },  // mousedown 直後、まだ 4 px 動いてない
+    Active  { entry_index: usize, ghost_offset: Vec2 }, // drag 確定。ghost を painter で描く
+}</pre>
+        Pending → Active への昇格は pointer 移動距離 ≥ 4 px。
+        Pending 中に mouseup なら通常の click として扱う (select)。
+      </li>
+      <li>
+        <strong>各 item 行</strong> の <code>egui::Sense::click_and_drag()</code> に変更。
+        <code>response.drag_started()</code> で <code>DragState::Pending</code>。
+        <code>response.drag_delta().length_sq() > 16.0</code> で <code>Active</code> に昇格。
+        <code>response.drag_released()</code> で drop 実行。
+        <code>ui.input(|i| i.key_pressed(Key::Escape))</code> で cancel。
+      </li>
+      <li>
+        <strong>kebab は drag 対象外</strong> ─ kebab 用の inner <code>Response</code> が
+        <code>Sense::click()</code> のままで、その上のクリックは行の drag を起こさない
+        (egui は inner widget のクリックを優先する)。
+      </li>
+      <li>
+        <strong>ghost 描画</strong> ─ <code>egui::Area::new("circuit-picker-drag-ghost")
+        .order(Order::Tooltip)</code> で floating な layer に行のコピーを描く。
+        <code>Frame</code> は paper bg / radius 6 / <code>Shadow { offset: vec2(0, 6), blur: 16, color: tx \w 40 }</code>。
+        ghost width = dropdown.inner_width。傾きは <code>Mesh::rotate(-0.017)</code> (≒ -1°) で軽く。<br />
+        <strong>position は Y 軸のみ追従</strong>:
+        <pre>let ghost_x = source_row_rect.left();  // drag 開始時の row 左端で固定
+let ghost_y = pointer_pos.y - drag.ghost_offset_y;
+area.fixed_pos(pos2(ghost_x, ghost_y))</pre>
+        cursor の X 座標は意図的に無視する。横にずらすと dropdown 列から外れて
+        視覚的にうるさく、また「上下に並び替える」というアフォーダンスを壊すため。
+      </li>
+      <li>
+        <strong>drop target 計算</strong>:
+        <pre>let cursor_y = pointer_pos.y;
+let mut target = entries.len();  // 末尾デフォルト
+for (i, row_rect) in row_rects.iter().enumerate() {
+    if cursor_y < row_rect.center().y {
+        target = i; break;
+    }
+}
+// source 自身 / 隣接 (target == src || target == src + 1) は no-op。</pre>
+      </li>
+      <li>
+        <strong>drop indicator 描画</strong> ─ target が決まったら、
+        <code>row_rects[target].top()</code> (または末尾なら <code>last_rect.bottom()</code>) の
+        Y 位置に 2 px の青 (<code>blue-600</code>) 横線を <code>painter.rect_filled</code> で描く。
+        dropdown 内側 left + 6 / right + 6 のフルワイド。source と隣接の場合は描かない。
+      </li>
+      <li>
+        <strong>release で reorder</strong>:
+        <pre>let mut adjusted_target = target;
+if target > src { adjusted_target -= 1; }  // source を抜いた後の index ずれ補正
+let entry = library.entries.remove(src);
+library.entries.insert(adjusted_target, entry);
+library.bump_updated_at();  // 永続化 Codex がこの flag で save</pre>
+        active_id は entry の id で保持してるので index 変更しても active は同じ entry を指したまま。
+      </li>
+      <li>
+        <strong>Esc で cancel</strong> ─ <code>DragState::Active</code> 中の Esc キーで
+        <code>DragState::Idle</code> に戻す。source row の opacity が戻り、ghost が消える。reorder は起こらない。
+      </li>
+      <li>
+        <strong>auto scroll</strong> ─ entries 件数が dropdown max-height (320 px) を超えないうちは
+        <strong>本 PR では実装しない</strong>。スクロール対応が要る段階で別 PR。
+      </li>
+      <li>
+        <strong>submenu の Move up / Move down は touched しない</strong>。
+        既存実装 (entries の隣接 swap) と drag-reorder は独立で並存。
+      </li>
+      <li>
+        <strong>cursor アイコン</strong>:
+        ・行 hover → <code>CursorIcon::Grab</code><br/>
+        ・<code>DragState::Pending</code> / <code>Active</code> 中 → <code>CursorIcon::Grabbing</code><br/>
+        ・kebab hover → <code>CursorIcon::PointingHand</code><br/>
+        <code>ui.output_mut(|o| o.cursor_icon = ...)</code> で設定。
+      </li>
+      <li>
+        <strong>Tests</strong> ─
+        <code>tests/egui-web-circuit-picker-reorder.spec.ts</code> を新規:<br/>
+        ・3 件目を 1 件目の上にドラッグ → 順序が <code>[3, 1, 2]</code> に<br/>
+        ・1 件目を末尾にドラッグ → 順序が <code>[2, 3, 1]</code> に<br/>
+        ・drag 中 Esc → 順序維持<br/>
+        ・kebab クリックは drag を起こさず submenu を開く (回帰防止)<br/>
+        Playwright の <code>mouse.down()</code> / <code>mouse.move()</code> / <code>mouse.up()</code> で本物のマウス操作を実行。
+      </li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance</h3>
+    <ol>
+      <li>行を mouse で掴んで上下にドラッグできる。drag 中 source は薄く残り、ghost が cursor に付いて移動。</li>
+      <li>ghost は <strong>Y 軸のみ追従</strong>。カーソルが横に動いても ghost は dropdown 列のまま (left 固定)。</li>
+      <li>2 px の青い drop indicator がドロップ位置に出る。source 自身 / 隣接位置では出ない (no-op)。</li>
+      <li>release で entries が並び替わる。active な entry の id は変わらない (= active 表示も維持)。</li>
+      <li>Esc で drag をキャンセル、順序維持。</li>
+      <li>kebab をクリックしても drag は始まらず、submenu が開く (既存挙動の回帰なし)。</li>
+      <li>submenu の Move up / Move down は引き続き動く。</li>
+      <li>cursor が行 hover で <code>grab</code>、drag 中で <code>grabbing</code>。</li>
+      <li><code>cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings</code> 通過、<code>cargo fmt --check</code> クリーン。</li>
+      <li>snapshot tests は drag 中の中間 frame をキャプチャしない (flaky 防止) ─ before / after だけ。</li>
+    </ol>
+  </div>
+</section>
+
+<div class="doc-foot">
+  関連:
+  <a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a> ·
+  <a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a> ·
+  <a href="project-overview.html">project-overview.html</a>
+  · UI モック · 設計レビュー用 · 2026-05
+</div>
+
+<script>
+  (function () {
+    const dropdown = document.getElementById('proto-dropdown');
+    const orderOut = document.getElementById('proto-order');
+    if (!dropdown || !orderOut) return;
+
+    const KEBAB_SVG = '<span class="kebab" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="18" r="1"/></svg></span>';
+
+    const state = {
+      entries: ['Bell state', 'GHZ state', 'QFT 4-qubit', 'Grover (3 qubits)', 'Untitled 5'],
+      activeId: 'GHZ state', // use name as id in this mock
+      drag: null,            // { srcIdx, ghostEl, indicatorEl, startY, currentTarget }
+    };
+
+    function render() {
+      const items = state.entries.map((name, idx) => {
+        const isActive = name === state.activeId;
+        const isDragging = state.drag && state.drag.srcIdx === idx;
+        const classes = ['picker-item', isActive ? 'is-active' : '', isDragging ? 'is-dragging' : ''].filter(Boolean).join(' ');
+        return `<div class="${classes}" data-index="${idx}"><span class="name">${name}</span>${KEBAB_SVG}</div>`;
+      }).join('');
+      dropdown.innerHTML = items;
+      orderOut.textContent = '[ ' + state.entries.join(' · ') + ' ]';
+    }
+
+    function dropTargetFromY(y) {
+      // Returns insertion index based on cursor Y, ignoring source row's own slot.
+      const rows = Array.from(dropdown.querySelectorAll('.picker-item'));
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) return i;
+      }
+      return rows.length;
+    }
+
+    function indicatorY(targetIdx) {
+      // The Y (in fixed-page coords) for the drop indicator line.
+      const rows = Array.from(dropdown.querySelectorAll('.picker-item'));
+      if (targetIdx < rows.length) return rows[targetIdx].getBoundingClientRect().top;
+      return rows[rows.length - 1].getBoundingClientRect().bottom;
+    }
+
+    function showIndicator(targetIdx) {
+      const src = state.drag.srcIdx;
+      if (targetIdx === src || targetIdx === src + 1) {
+        if (state.drag.indicatorEl) state.drag.indicatorEl.style.display = 'none';
+        state.drag.currentTarget = null;
+        return;
+      }
+      state.drag.currentTarget = targetIdx;
+      if (!state.drag.indicatorEl) {
+        const el = document.createElement('div');
+        el.className = 'drop-indicator';
+        el.style.position = 'fixed';
+        document.body.appendChild(el);
+        state.drag.indicatorEl = el;
+      }
+      const rect = dropdown.getBoundingClientRect();
+      state.drag.indicatorEl.style.display = 'block';
+      state.drag.indicatorEl.style.left = (rect.left + 6) + 'px';
+      state.drag.indicatorEl.style.right = '';
+      state.drag.indicatorEl.style.width = (rect.width - 12) + 'px';
+      state.drag.indicatorEl.style.top = (indicatorY(targetIdx) - 1) + 'px';
+    }
+
+    function startDrag(idx, ev) {
+      const row = dropdown.querySelector(`[data-index="${idx}"]`);
+      const ghost = document.createElement('div');
+      ghost.className = 'picker-ghost';
+      ghost.innerHTML = `<span class="name">${state.entries[idx]}</span>`;
+      document.body.appendChild(ghost);
+      const rowRect = row.getBoundingClientRect();
+      state.drag = {
+        srcIdx: idx,
+        ghostEl: ghost,
+        indicatorEl: null,
+        ghostLeft: rowRect.left,             // X is locked to the row's original left edge.
+        ghostOffsetY: ev.clientY - rowRect.top,
+        currentTarget: null,
+      };
+      moveGhost(ev.clientY);
+      render();
+    }
+
+    function moveGhost(y) {
+      // Y-axis only — horizontal drag is intentionally suppressed so the ghost
+      // stays aligned with the dropdown column even if the user wanders sideways.
+      const g = state.drag.ghostEl;
+      g.style.left = state.drag.ghostLeft + 'px';
+      g.style.top = (y - state.drag.ghostOffsetY) + 'px';
+    }
+
+    function endDrag(commit) {
+      if (!state.drag) return;
+      const { srcIdx, ghostEl, indicatorEl, currentTarget } = state.drag;
+      ghostEl.remove();
+      if (indicatorEl) indicatorEl.remove();
+      if (commit && currentTarget !== null) {
+        let adjusted = currentTarget;
+        if (adjusted > srcIdx) adjusted -= 1;
+        const [item] = state.entries.splice(srcIdx, 1);
+        state.entries.splice(adjusted, 0, item);
+      }
+      state.drag = null;
+      document.body.style.cursor = '';
+      render();
+    }
+
+    dropdown.addEventListener('mousedown', (e) => {
+      const kebab = e.target.closest('.kebab');
+      if (kebab) {
+        // Demo: just alert. Real implementation opens the submenu (existing picker behavior).
+        e.stopPropagation();
+        alert('kebab clicked — submenu would open here (existing picker feature)');
+        return;
+      }
+      const row = e.target.closest('.picker-item');
+      if (!row) return;
+      const idx = parseInt(row.dataset.index, 10);
+      if (isNaN(idx)) return;
+      e.preventDefault();
+      const startX = e.clientX, startY = e.clientY;
+      let started = false;
+
+      function onMove(ev) {
+        if (!started) {
+          const dx = ev.clientX - startX, dy = ev.clientY - startY;
+          if (dx * dx + dy * dy >= 16) {
+            started = true;
+            startDrag(idx, { clientX: startX, clientY: startY });
+            document.body.style.cursor = 'grabbing';
+          } else {
+            return;
+          }
+        }
+        moveGhost(ev.clientY);
+        showIndicator(dropTargetFromY(ev.clientY));
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('keydown', onKey);
+        if (started) endDrag(true);
+        else if (!isNaN(idx)) { state.activeId = state.entries[idx]; render(); }
+      }
+      function onKey(ev) {
+        if (ev.key === 'Escape' && started) {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener('keydown', onKey);
+          endDrag(false);
+        }
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('keydown', onKey);
+    });
+
+    render();
+  })();
+</script>
+
+</body>
+</html>

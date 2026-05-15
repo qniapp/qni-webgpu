@@ -19,6 +19,14 @@ const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.
 const POPOVER_GAP: f32 = 12.0; // spacing-3.
 const SUBMENU_GAP: f32 = 4.0; // spacing-1.
 const KEBAB_SIZE: egui::Vec2 = egui::vec2(20.0, 20.0);
+const DRAG_ACTIVATE_DISTANCE_SQ: f32 = 16.0; // 4px threshold squared, per mock §02.
+const DROP_INDICATOR_HEIGHT: f32 = 2.0; // h-0.5 = 2px.
+
+#[derive(Clone, Copy, Debug)]
+struct PickerItemRects {
+    row: egui::Rect,
+    kebab: egui::Rect,
+}
 
 #[derive(Clone, Debug)]
 enum PickerAction {
@@ -32,6 +40,7 @@ enum PickerAction {
     Duplicate(usize),
     MoveUp(usize),
     MoveDown(usize),
+    Reorder { src: usize, target: usize },
     Delete(usize),
 }
 
@@ -42,6 +51,7 @@ impl QniApp {
         colors: &Colors,
         ctx: &egui::Context,
     ) {
+        self.update_picker_drag_suppression(ctx);
         self.handle_picker_keyboard(ctx);
         let trigger = self.show_picker_trigger(ui, colors);
         if trigger.clicked() {
@@ -142,6 +152,7 @@ impl QniApp {
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
         let mut submenu_anchor = None;
         let mut actions = Vec::new();
+        let mut row_rects = Vec::with_capacity(entries.len());
         let area = egui::Area::new(egui::Id::new("circuit-picker-dropdown"))
             .order(egui::Order::Tooltip)
             .fixed_pos(pos)
@@ -154,7 +165,7 @@ impl QniApp {
                         .auto_shrink([false, true])
                         .show(ui, |ui| {
                             for (index, entry) in entries.iter().enumerate() {
-                                let kebab_rect = self.show_picker_item(
+                                let rects = self.show_picker_item(
                                     ui,
                                     colors,
                                     entry,
@@ -165,10 +176,13 @@ impl QniApp {
                                     renaming_id.as_deref() == Some(entry.id.as_str()),
                                     &mut actions,
                                 );
+                                row_rects.push(rects.row);
                                 if submenu_index == Some(index) {
-                                    submenu_anchor = Some(kebab_rect);
+                                    submenu_anchor = Some(rects.kebab);
                                 }
                             }
+                            self.update_picker_drag(ctx, &row_rects, &mut actions);
+                            self.paint_picker_drop_indicator(ui.painter(), colors, &row_rects);
                             paint_divider(ui, colors);
                             if footer(ui, colors).clicked() {
                                 actions.push(PickerAction::Create);
@@ -177,6 +191,7 @@ impl QniApp {
                 });
             });
         let dropdown_rect = area.response.rect;
+        self.show_picker_drag_ghost(ctx, colors, &entries);
         let submenu_rect = if let (Some(index), Some(anchor)) = (submenu_index, submenu_anchor) {
             self.show_picker_submenu(ctx, colors, index, anchor, &mut actions)
         } else {
@@ -204,10 +219,10 @@ impl QniApp {
         submenu_open: bool,
         renaming: bool,
         actions: &mut Vec<PickerAction>,
-    ) -> egui::Rect {
+    ) -> PickerItemRects {
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(ui.available_width(), ITEM_HEIGHT),
-            egui::Sense::click(),
+            egui::Sense::click_and_drag(),
         );
         let kebab_rect = egui::Rect::from_center_size(
             egui::pos2(
@@ -218,19 +233,31 @@ impl QniApp {
         );
         if renaming {
             self.show_rename_row(ui, colors, rect, entry, actions);
-            return kebab_rect;
+            return PickerItemRects {
+                row: rect,
+                kebab: kebab_rect,
+            };
         }
         let kebab = ui.interact(kebab_rect, response.id.with("kebab"), egui::Sense::click());
+        let dragging_source = self.picker.active_drag_index() == Some(index);
         let pointer_hovered = (response.hovered() || kebab.hovered())
             && !self.picker_pointer_hover_suppressed(ui.ctx());
         let hovered = pointer_hovered || focused || submenu_open;
+        if kebab.hovered() {
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
+        } else if self.picker.drag_in_progress() {
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grabbing);
+        } else if pointer_hovered {
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grab);
+        }
+        let row_alpha = if dragging_source { 90 } else { 255 };
         if active {
             ui.painter().rect_filled(
                 rect,
                 egui::CornerRadius::same(ITEM_RADIUS),
-                colors.toolbar_hover_bg, // Flexoki ui.
+                with_alpha(colors.toolbar_hover_bg, row_alpha), // Flexoki ui.
             );
-        } else if hovered {
+        } else if hovered && !dragging_source {
             ui.painter().rect_filled(
                 rect,
                 egui::CornerRadius::same(ITEM_RADIUS),
@@ -242,10 +269,11 @@ impl QniApp {
             egui::pos2(rect.left() + ITEM_PAD_X, rect.top()),
             egui::pos2(kebab_rect.left() - 8.0, rect.bottom()),
         );
+        let text_color = with_alpha(colors.text_strong, row_alpha);
         let galley = egui::WidgetText::from(
             egui::RichText::new(entry.name.clone())
                 .font(font.clone())
-                .color(colors.text_strong),
+                .color(text_color),
         )
         .into_galley(
             ui,
@@ -259,9 +287,9 @@ impl QniApp {
                 name_rect.center().y - galley.size().y / 2.0,
             ),
             galley,
-            colors.text_strong,
+            text_color,
         );
-        if hovered || submenu_open {
+        if (hovered || submenu_open) && !dragging_source {
             if kebab.hovered() || submenu_open {
                 ui.painter().rect_filled(
                     kebab_rect,
@@ -279,12 +307,145 @@ impl QniApp {
                 },
             );
         }
+        if response.is_pointer_button_down_on()
+            && !self.picker_drag_suppressed_until_release
+            && !kebab.hovered()
+            && !kebab.is_pointer_button_down_on()
+        {
+            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                self.picker.start_drag_pending(index, pointer_pos, rect);
+            }
+        }
+        if let Some(pointer_pos) = response.interact_pointer_pos() {
+            self.picker
+                .promote_pending_drag(pointer_pos, DRAG_ACTIVATE_DISTANCE_SQ);
+        }
         if kebab.clicked() {
             actions.push(PickerAction::OpenSubmenu(index));
-        } else if response.clicked() {
+        } else if response.clicked()
+            && (!self.picker.drag_in_progress() || self.picker.pending_drag_index() == Some(index))
+        {
             actions.push(PickerAction::Select(index));
         }
-        kebab_rect
+        PickerItemRects {
+            row: rect,
+            kebab: kebab_rect,
+        }
+    }
+
+    fn update_picker_drag_suppression(&mut self, ctx: &egui::Context) {
+        if self.picker_drag_suppressed_until_release
+            && !ctx.input(|input| input.pointer.primary_down())
+        {
+            self.picker_drag_suppressed_until_release = false;
+        }
+    }
+
+    fn update_picker_drag(
+        &mut self,
+        ctx: &egui::Context,
+        row_rects: &[egui::Rect],
+        actions: &mut Vec<PickerAction>,
+    ) {
+        if !self.picker.drag_in_progress() {
+            return;
+        }
+        ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+        let pointer_pos = ctx.input(|input| {
+            input
+                .pointer
+                .hover_pos()
+                .or_else(|| input.pointer.interact_pos())
+        });
+        if let Some(pointer_pos) = pointer_pos {
+            self.picker
+                .promote_pending_drag(pointer_pos, DRAG_ACTIVATE_DISTANCE_SQ);
+            let target = self.drag_target_from_y(pointer_pos.y, row_rects);
+            let visible_target = self.visible_drag_target(target);
+            self.picker.set_drag_target(visible_target);
+        }
+        let released = ctx.input(|input| input.pointer.any_released());
+        if released {
+            if let Some((src, target)) = self.picker.finish_drag() {
+                actions.push(PickerAction::Reorder { src, target });
+            }
+        }
+    }
+
+    fn drag_target_from_y(&self, y: f32, row_rects: &[egui::Rect]) -> usize {
+        for (index, row_rect) in row_rects.iter().enumerate() {
+            if y < row_rect.center().y {
+                return index;
+            }
+        }
+        row_rects.len()
+    }
+
+    fn visible_drag_target(&self, target: usize) -> Option<usize> {
+        let src = self.picker.active_drag_index()?;
+        if target == src || target == src.saturating_add(1) {
+            None
+        } else {
+            Some(target)
+        }
+    }
+
+    fn paint_picker_drop_indicator(
+        &self,
+        painter: &egui::Painter,
+        colors: &Colors,
+        row_rects: &[egui::Rect],
+    ) {
+        let Some((_, target)) = self.picker.visible_drag_target() else {
+            return;
+        };
+        let Some(first) = row_rects.first() else {
+            return;
+        };
+        let y = row_rects.get(target).map_or_else(
+            || row_rects.last().map_or(first.bottom(), egui::Rect::bottom),
+            egui::Rect::top,
+        );
+        let rect = egui::Rect::from_min_max(
+            egui::pos2(first.left(), y - DROP_INDICATOR_HEIGHT / 2.0),
+            egui::pos2(first.right(), y + DROP_INDICATOR_HEIGHT / 2.0),
+        );
+        painter.rect_filled(
+            rect,
+            egui::CornerRadius::same(1),
+            colors.semantic_on, // Flexoki blue-600.
+        );
+    }
+
+    fn show_picker_drag_ghost(
+        &self,
+        ctx: &egui::Context,
+        colors: &Colors,
+        entries: &[CircuitEntry],
+    ) {
+        let Some((index, source_row_left, row_width, ghost_offset_y)) = self.picker.drag_ghost()
+        else {
+            return;
+        };
+        let Some(pointer_pos) = ctx.input(|input| input.pointer.hover_pos()) else {
+            return;
+        };
+        let Some(entry) = entries.get(index) else {
+            return;
+        };
+        let pos = egui::pos2(source_row_left, pointer_pos.y - ghost_offset_y);
+        egui::Area::new(egui::Id::new("circuit-picker-drag-ghost"))
+            .order(egui::Order::Tooltip)
+            .fixed_pos(pos)
+            .show(ctx, |ui| {
+                drag_ghost_frame(colors).show(ui, |ui| {
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::vec2(row_width, ITEM_HEIGHT),
+                        egui::Sense::hover(),
+                    );
+                    paint_item_name(ui, colors, rect, &entry.name);
+                });
+            });
     }
 
     fn show_rename_row(
@@ -420,11 +581,21 @@ impl QniApp {
     }
 
     fn handle_picker_keyboard(&mut self, ctx: &egui::Context) {
+        if self.picker.drag_in_progress() {
+            if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+                self.picker.cancel_drag();
+                self.picker_drag_suppressed_until_release =
+                    ctx.input(|input| input.pointer.primary_down());
+                ctx.request_repaint();
+            }
+            return;
+        }
         let PickerState::Open {
             focused_index,
             focus_visible,
             submenu,
             renaming,
+            ..
         } = &mut self.picker
         else {
             return;
@@ -537,6 +708,7 @@ impl QniApp {
             PickerAction::Duplicate(index) => self.duplicate_circuit_entry(index, ctx),
             PickerAction::MoveUp(index) => self.move_circuit_entry_up(index, ctx),
             PickerAction::MoveDown(index) => self.move_circuit_entry_down(index, ctx),
+            PickerAction::Reorder { src, target } => self.reorder_circuit_entries(src, target),
             PickerAction::Delete(index) => self.delete_circuit_entry(index, ctx),
         }
         ctx.request_repaint();
@@ -557,6 +729,46 @@ fn popover_frame(colors: &Colors) -> egui::Frame {
             color: with_alpha(colors.text_strong, 25),
         },
     }
+}
+
+fn drag_ghost_frame(colors: &Colors) -> egui::Frame {
+    egui::Frame {
+        inner_margin: egui::Margin::ZERO,
+        fill: colors.surface, // Flexoki bg / paper.
+        stroke: egui::Stroke::NONE,
+        corner_radius: egui::CornerRadius::same(ITEM_RADIUS), // rounded-md = 6px.
+        outer_margin: egui::Margin::ZERO,
+        shadow: egui::epaint::Shadow {
+            offset: [0, 8],
+            blur: 18,
+            spread: 0,
+            color: with_alpha(colors.text_strong, 46),
+        },
+    }
+}
+
+fn paint_item_name(ui: &egui::Ui, colors: &Colors, rect: egui::Rect, name: &str) {
+    let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
+    let name_rect = rect.shrink2(egui::vec2(ITEM_PAD_X, 0.0)); // px-2.5 = 10px.
+    let galley = egui::WidgetText::from(
+        egui::RichText::new(name.to_owned())
+            .font(font.clone())
+            .color(colors.text_strong),
+    )
+    .into_galley(
+        ui,
+        Some(egui::TextWrapMode::Truncate),
+        name_rect.width(),
+        font,
+    );
+    ui.painter().galley(
+        egui::pos2(
+            name_rect.left(),
+            name_rect.center().y - galley.size().y / 2.0,
+        ),
+        galley,
+        colors.text_strong,
+    );
 }
 
 fn footer(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {

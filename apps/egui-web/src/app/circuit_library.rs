@@ -156,6 +156,23 @@ impl CircuitLibrary {
         }
     }
 
+    pub(crate) fn reorder(&mut self, src: usize, target: usize) {
+        if src >= self.entries.len() || target == src || target == src + 1 {
+            return;
+        }
+        let entry = self.entries.remove(src);
+        let adjusted = if target > src { target - 1 } else { target };
+        self.entries.insert(adjusted.min(self.entries.len()), entry);
+        self.bump_updated_at();
+    }
+
+    fn bump_updated_at(&mut self) {
+        let active_id = self.active_id.clone();
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
+            entry.updated_at = now_millis();
+        }
+    }
+
     pub(crate) fn delete(&mut self, index: usize) -> Option<&CircuitEntry> {
         if self.entries.len() <= 1 || index >= self.entries.len() {
             return None;
@@ -281,7 +298,7 @@ impl CircuitLibrary {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub(crate) enum PickerState {
     #[default]
     Closed,
@@ -290,6 +307,27 @@ pub(crate) enum PickerState {
         focus_visible: bool,
         submenu: Option<PickerSubmenuState>,
         renaming: Option<RenameState>,
+        drag: PickerDragState,
+    },
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum PickerDragState {
+    #[default]
+    Idle,
+    Pending {
+        entry_index: usize,
+        started_pos: egui::Pos2,
+        source_row_left: f32,
+        row_width: f32,
+        ghost_offset_y: f32,
+    },
+    Active {
+        entry_index: usize,
+        source_row_left: f32,
+        row_width: f32,
+        ghost_offset_y: f32,
+        target: Option<usize>,
     },
 }
 
@@ -300,6 +338,7 @@ impl PickerState {
             focus_visible: false,
             submenu: None,
             renaming: None,
+            drag: PickerDragState::Idle,
         }
     }
 
@@ -309,6 +348,7 @@ impl PickerState {
             focus_visible: true,
             submenu: None,
             renaming: None,
+            drag: PickerDragState::Idle,
         }
     }
 
@@ -409,6 +449,153 @@ impl PickerState {
             *focused_index = index;
         }
     }
+
+    pub(crate) fn drag_in_progress(&self) -> bool {
+        matches!(
+            self,
+            Self::Open {
+                drag: PickerDragState::Pending { .. } | PickerDragState::Active { .. },
+                ..
+            }
+        )
+    }
+
+    pub(crate) fn active_drag_index(&self) -> Option<usize> {
+        match self {
+            Self::Open {
+                drag: PickerDragState::Active { entry_index, .. },
+                ..
+            } => Some(*entry_index),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn pending_drag_index(&self) -> Option<usize> {
+        match self {
+            Self::Open {
+                drag: PickerDragState::Pending { entry_index, .. },
+                ..
+            } => Some(*entry_index),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn drag_ghost(&self) -> Option<(usize, f32, f32, f32)> {
+        match self {
+            Self::Open {
+                drag:
+                    PickerDragState::Active {
+                        entry_index,
+                        source_row_left,
+                        row_width,
+                        ghost_offset_y,
+                        ..
+                    },
+                ..
+            } => Some((*entry_index, *source_row_left, *row_width, *ghost_offset_y)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn start_drag_pending(
+        &mut self,
+        entry_index: usize,
+        started_pos: egui::Pos2,
+        row_rect: egui::Rect,
+    ) {
+        if let Self::Open { drag, .. } = self {
+            if matches!(drag, PickerDragState::Idle) {
+                *drag = PickerDragState::Pending {
+                    entry_index,
+                    started_pos,
+                    source_row_left: row_rect.left(),
+                    row_width: row_rect.width(),
+                    ghost_offset_y: started_pos.y - row_rect.top(),
+                };
+            }
+        }
+    }
+
+    pub(crate) fn promote_pending_drag(&mut self, pointer_pos: egui::Pos2, threshold_sq: f32) {
+        let next = match self {
+            Self::Open {
+                drag:
+                    PickerDragState::Pending {
+                        entry_index,
+                        started_pos,
+                        source_row_left,
+                        row_width,
+                        ghost_offset_y,
+                    },
+                ..
+            } if pointer_pos.distance_sq(*started_pos) >= threshold_sq => {
+                Some(PickerDragState::Active {
+                    entry_index: *entry_index,
+                    source_row_left: *source_row_left,
+                    row_width: *row_width,
+                    ghost_offset_y: *ghost_offset_y,
+                    target: None,
+                })
+            }
+            _ => None,
+        };
+        if let (Self::Open { drag, .. }, Some(next)) = (self, next) {
+            *drag = next;
+        }
+    }
+
+    pub(crate) fn set_drag_target(&mut self, target: Option<usize>) {
+        if let Self::Open {
+            drag: PickerDragState::Active {
+                target: current, ..
+            },
+            ..
+        } = self
+        {
+            *current = target;
+        }
+    }
+
+    pub(crate) fn visible_drag_target(&self) -> Option<(usize, usize)> {
+        match self {
+            Self::Open {
+                drag:
+                    PickerDragState::Active {
+                        entry_index,
+                        target: Some(target),
+                        ..
+                    },
+                ..
+            } => Some((*entry_index, *target)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn finish_drag(&mut self) -> Option<(usize, usize)> {
+        match self {
+            Self::Open { drag, .. } => {
+                let result = match drag {
+                    PickerDragState::Active {
+                        entry_index,
+                        target: Some(target),
+                        ..
+                    } => Some((*entry_index, *target)),
+                    PickerDragState::Idle
+                    | PickerDragState::Pending { .. }
+                    | PickerDragState::Active { target: None, .. } => None,
+                };
+                *drag = PickerDragState::Idle;
+                result
+            }
+            Self::Closed => None,
+        }
+    }
+
+    pub(crate) fn cancel_drag(&mut self) {
+        if let Self::Open { drag, .. } = self {
+            *drag = PickerDragState::Idle;
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -489,6 +676,18 @@ impl QniApp {
         self.suppress_picker_hover_until_pointer_moves(ctx);
         persist_library(&self.library);
         self.picker.close_submenu();
+    }
+
+    pub(crate) fn reorder_circuit_entries(&mut self, src: usize, target: usize) {
+        let focused_index = if target > src {
+            target.saturating_sub(1)
+        } else {
+            target
+        }
+        .min(self.library.entries.len().saturating_sub(1));
+        self.library.reorder(src, target);
+        self.picker.set_focused_index(focused_index);
+        persist_library(&self.library);
     }
 
     pub(crate) fn delete_circuit_entry(&mut self, index: usize, ctx: &egui::Context) {
@@ -819,5 +1018,38 @@ mod tests {
         library.delete(2);
         assert_eq!(library.active_id, "bell");
         assert_eq!(library.entries.len(), 3);
+    }
+
+    #[test]
+    fn reorder_moves_by_insertion_index_and_preserves_active_id() {
+        let mut library = CircuitLibrary::seed();
+        library.set_active("ghz".to_owned());
+
+        library.reorder(0, 3);
+
+        assert_eq!(
+            library
+                .entries
+                .iter()
+                .map(|entry| entry.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["ghz", "qft-4", "bell"]
+        );
+        assert_eq!(library.active_id, "ghz");
+    }
+
+    #[test]
+    fn reorder_ignores_no_ops_and_out_of_bounds_source() {
+        let mut library = CircuitLibrary::seed();
+        let original = library.clone();
+
+        library.reorder(2, 2);
+        assert_eq!(library, original);
+
+        library.reorder(2, 3);
+        assert_eq!(library, original);
+
+        library.reorder(99, 0);
+        assert_eq!(library, original);
     }
 }

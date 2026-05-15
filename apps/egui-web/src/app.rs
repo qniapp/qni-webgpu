@@ -58,6 +58,7 @@ pub(crate) struct QniApp {
     pub(crate) library: CircuitLibrary,
     pub(crate) picker: PickerState,
     picker_hover_suppressed_at: Option<egui::Pos2>,
+    pub(crate) picker_drag_suppressed_until_release: bool,
     next_gate_id: u32,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
@@ -230,6 +231,7 @@ impl QniApp {
             library,
             picker: PickerState::default(),
             picker_hover_suppressed_at: None,
+            picker_drag_suppressed_until_release: false,
             next_gate_id,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
