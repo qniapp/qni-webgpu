@@ -9,15 +9,8 @@
       "env": {}
     },
     "playwright": {
-      "command": "xvfb-run",
-      "args": [
-        "-d",
-        "-s", "-screen 0 1920x1080x24",
-        "npx",
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--config", "/home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json"
-      ]
+      "command": "/home/yasuhito/Work/qni-webgpu/scripts/playwright-mcp.sh",
+      "args": []
     }
   }
 }
