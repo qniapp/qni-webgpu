@@ -1,8 +1,9 @@
 import { Then, When } from '@cucumber/cucumber'
+import assert = require('node:assert/strict')
 import type { Page } from 'playwright'
 import type { AssertionsSupport, EguiHelpers, EguiWorld } from '../support/support-types'
 
-const { assertDragPreviewAboveOverlay } = require('../support/assertions.ts') as AssertionsSupport
+const { dragPreviewAboveOverlayIssue } = require('../support/assertions.ts') as AssertionsSupport
 const {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
@@ -49,7 +50,7 @@ Then('the dragged gate stays above the state panel overlay', async function (thi
   }
 
   try {
-    assertDragPreviewAboveOverlay(this.dragPreviewZOrder)
+    assert.equal(dragPreviewAboveOverlayIssue(this.dragPreviewZOrder), null)
   } finally {
     await page.mouse.up().catch(() => {})
   }

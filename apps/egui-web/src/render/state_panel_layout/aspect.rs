@@ -11,6 +11,7 @@ impl QniApp {
         panel_rect: egui::Rect,
         dims_rect: egui::Rect,
         qubits: usize,
+        bounds: egui::Rect,
     ) -> (egui::Rect, Vec<egui::Rect>) {
         const ROW_HEIGHT: f32 = 36.0; // h-9 / picker item height.
         const PADDING: f32 = 6.0; // p-1.5 = 6px.
@@ -18,8 +19,18 @@ impl QniApp {
         const TRIGGER_GAP: f32 = 2.0;
         let n_rows = qubits + 1;
         let total_height = n_rows as f32 * ROW_HEIGHT + PADDING * 2.0;
+        let down_top = dims_rect.bottom() + TRIGGER_GAP;
+        let down_bottom = down_top + total_height;
+        let up_top = dims_rect.top() - TRIGGER_GAP - total_height;
+        let top = if down_bottom <= bounds.bottom() {
+            down_top
+        } else if up_top >= bounds.top() {
+            up_top
+        } else {
+            (bounds.bottom() - total_height).max(bounds.top())
+        };
         let rect = egui::Rect::from_min_size(
-            egui::pos2(panel_rect.right() - WIDTH, dims_rect.bottom() + TRIGGER_GAP),
+            egui::pos2(panel_rect.right() - WIDTH, top),
             egui::vec2(WIDTH, total_height),
         );
         let mut rows = Vec::with_capacity(n_rows);

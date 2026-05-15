@@ -343,7 +343,10 @@ impl CircuitLibrary {
             changed = true;
         }
         let active_json = if url_has_payload {
-            if let Some(entry) = library
+            if library.active().circuit_json == url_json {
+                // Preserve the persisted active entry when the URL hash mirrors it.
+                // Duplicates can intentionally share identical circuit JSON.
+            } else if let Some(entry) = library
                 .entries
                 .iter()
                 .find(|entry| entry.circuit_json == url_json)

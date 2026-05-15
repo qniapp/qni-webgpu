@@ -55,6 +55,7 @@ impl QniApp {
                 pre_state_rect,
                 dims_hit,
                 amplitude_qubits(state_count).clamp(1, MAX_QUBITS),
+                screen_rect,
             );
             Some(rect)
         } else {

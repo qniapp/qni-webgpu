@@ -40,8 +40,14 @@ const waitForSnapshot = async (
   description: string,
 ): Promise<CircuitLibrarySnapshot> => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const state = await snapshot(page)
-    if (predicate(state)) return state
+    try {
+      const state = await snapshot(page)
+      if (predicate(state)) return state
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('__qniCircuitPickerSnapshot hook missing')) {
+        throw error
+      }
+    }
     await page.waitForTimeout(50)
   }
   throw new Error(`timed out waiting for circuit picker snapshot: ${description}`)
@@ -104,6 +110,18 @@ test('toolbar Duplicate increments copy suffixes on consecutive clicks', async (
     names: ['Circuit 1', 'Circuit 1 (copy)', 'Circuit 1 (copy 2)', 'Circuit 1 (copy 3)'],
     activeId: state.entries[3].id,
   })
+})
+
+test('toolbar Duplicate active copy stays active after reload', async ({ page }) => {
+  await clickDuplicate(page)
+  const duplicated = await waitForSnapshot(page, (state) => state.active_id !== 'current', 'duplicate active')
+  const duplicatedId = duplicated.active_id
+
+  await page.reload()
+  await waitForStartupReady(page)
+  const reloaded = await waitForSnapshot(page, (state) => state.active_id === duplicatedId, 'duplicate active after reload')
+
+  expect(reloaded.active_id).toBe(duplicatedId)
 })
 
 test('toolbar Duplicate exposes the Duplicate circuit tooltip on hover', async ({ page }) => {

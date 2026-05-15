@@ -50,8 +50,14 @@ const waitForSnapshot = async (
   description: string,
 ): Promise<CircuitLibrarySnapshot> => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const state = await snapshot(page)
-    if (predicate(state)) return state
+    try {
+      const state = await snapshot(page)
+      if (predicate(state)) return state
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('__qniCircuitPickerSnapshot hook missing')) {
+        throw error
+      }
+    }
     await page.waitForTimeout(50)
   }
   throw new Error(`timed out waiting for circuit picker snapshot: ${description}`)
@@ -127,7 +133,7 @@ test('localStorage active circuit hydrates the picker and URL on reload', async 
     }))
   }, STORAGE_KEY)
   await page.goto('/')
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page)
 
   const state = await waitForSnapshot(page, (next) => next.active_id === 'stored-x', 'stored circuit active')
   expect({ entry: state.entries[0], hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
@@ -196,7 +202,7 @@ test('circuit picker opens and selecting another item syncs the URL hash', async
   const hashAfterSelect = readCircuitColsFromHash(page.url())
 
   await page.reload()
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page)
   const reloaded = await waitForSnapshot(page, (state) => state.active_id === 'ghz', 'reloaded GHZ entry')
   expect({ selected: selected.active_id, hashAfterSelect, reloaded: reloaded.active_id }).toEqual({
     selected: 'ghz',

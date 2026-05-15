@@ -47,7 +47,12 @@ fn paint_aspect_popover(
     }
 
     let dims_rect = QniApp::dims_hit_rect(painter.ctx(), layout, offset);
-    let (pop_rect, row_rects) = QniApp::aspect_popover_layout(state_rect, dims_rect, layout.qubits);
+    let (pop_rect, row_rects) = QniApp::aspect_popover_layout(
+        state_rect,
+        dims_rect,
+        layout.qubits,
+        painter.ctx().content_rect(),
+    );
     state_panel_popup::draw_aspect_popover(
         painter,
         colors,

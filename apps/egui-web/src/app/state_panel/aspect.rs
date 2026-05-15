@@ -70,8 +70,12 @@ impl QniApp {
         panel_rect: egui::Rect,
     ) {
         if self.state_panel.aspect_popover_open {
-            let (popover_rect, row_rects) =
-                QniApp::aspect_popover_layout(panel_rect, dims_hit, aspect_qubits);
+            let (popover_rect, row_rects) = QniApp::aspect_popover_layout(
+                panel_rect,
+                dims_hit,
+                aspect_qubits,
+                ctx.content_rect(),
+            );
             for (i, row_rect) in row_rects.iter().enumerate() {
                 let resp = ui.interact(
                     *row_rect,

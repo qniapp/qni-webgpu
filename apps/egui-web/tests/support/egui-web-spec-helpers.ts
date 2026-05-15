@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 import type { Page } from 'playwright'
-import { assertDragPreviewAboveOverlay } from '../../features/support/assertions'
+import { dragPreviewAboveOverlayIssue } from '../../features/support/assertions'
 import {
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
@@ -21,7 +21,7 @@ import { getPlainChromiumLaunchOptions } from '../../test-support/browser-launch
 import { getWebServerConfig } from '../../test-support/web-server'
 
 export {
-  assertDragPreviewAboveOverlay,
+  dragPreviewAboveOverlayIssue,
   chromium,
   dragPointer,
   getDragPreviewAboveStatePanelProbe,

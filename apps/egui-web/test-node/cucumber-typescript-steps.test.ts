@@ -44,7 +44,7 @@ test('drag preview z-order cucumber steps are implemented in TypeScript', async 
 
   assert.deepEqual({
     usesDragPreviewState: /dragPreviewZOrder/.test(source),
-    usesSharedAssertion: /assertDragPreviewAboveOverlay/.test(source),
+    usesSharedAssertion: /dragPreviewAboveOverlayIssue/.test(source),
     avoidsCjsAssertion: !/assertions\.cjs/.test(source),
   }, { usesDragPreviewState: true, usesSharedAssertion: true, avoidsCjsAssertion: true })
 })

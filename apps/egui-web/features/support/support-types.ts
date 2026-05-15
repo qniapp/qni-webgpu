@@ -68,7 +68,7 @@ export type EguiHelpers = {
 }
 
 export type AssertionsSupport = {
-  assertDragPreviewAboveOverlay: (samples: DragPreviewZOrderSamples) => void
+  dragPreviewAboveOverlayIssue: (samples: DragPreviewZOrderSamples) => string | null
 }
 
 export type WindowWithEguiError = Window & {

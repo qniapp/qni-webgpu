@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
 import {
-  assertDragPreviewAboveOverlay,
   chromium,
   dragPointer,
   getDragPreviewAboveStatePanelProbe,

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
-  assertDragPreviewAboveOverlay,
+  dragPreviewAboveOverlayIssue,
   chromium,
   dragPointer,
   getDragPreviewAboveStatePanelProbe,
@@ -105,13 +105,14 @@ test('dragged palette gate stays above the state panel overlay', async ({ page }
 
   const duringDrag = await sampleCanvasPixels(page, canvas, [dragFillPoint])
 
-  assertDragPreviewAboveOverlay({
+  const issue = dragPreviewAboveOverlayIssue({
     before: beforeDrag.fill,
     during: duringDrag.fill,
     source: beforeDrag.sourceFill,
   })
 
   await page.mouse.up()
+  expect(issue).toBeNull()
 })
 
 test('dragged palette gate keeps rounded corners', async ({ page }) => {

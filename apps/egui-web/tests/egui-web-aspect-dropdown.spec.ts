@@ -57,6 +57,18 @@ const openAspectDropdown = async (page: Page): Promise<AspectGeometry> => {
 
 const centerY = (rect: RectJson): number => (rect.top + rect.bottom) / 2
 
+test('state panel aspect dropdown stays inside the viewport for 8-qubit circuits', async ({ page }) => {
+  const col0: Array<string | number> = Array(8).fill(1)
+  col0[7] = 'H'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const geometry = await openAspectDropdown(page)
+  const box = await canvasBox(page)
+
+  expect(geometry.popover_top >= 0 && geometry.popover_bottom <= box.height).toBe(true)
+})
+
 test('state panel aspect dropdown matches picker chrome and row semantics', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
