@@ -54,7 +54,13 @@ impl QniApp {
             released: pointer_released,
         };
 
-        if pointer_over_state_panel && self.dragging.is_none() && self.qft_resize_drag.is_none() {
+        let pointer_over_picker = self
+            .picker_overlay_rect
+            .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
+        if (pointer_over_picker || pointer_over_state_panel)
+            && self.dragging.is_none()
+            && self.qft_resize_drag.is_none()
+        {
             DragController::clear_idle_hover(self, ctx);
             return;
         }

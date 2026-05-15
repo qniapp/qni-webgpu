@@ -21,6 +21,11 @@ impl QniApp {
 
         self.process_fps_hud(ctx, frame_secs);
         self.publish_circuit_library_snapshot();
+        self.publish_hover_snapshot();
+    }
+
+    fn publish_hover_snapshot(&self) {
+        publish_hover_snapshot(self.hovered_gate_id, self.hovered_palette_index);
     }
 
     fn process_fps_hud(&mut self, ctx: &egui::Context, frame_secs: f64) {
@@ -37,3 +42,25 @@ impl QniApp {
         }
     }
 }
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+fn publish_hover_snapshot(hovered_gate_id: Option<u32>, hovered_palette_index: Option<usize>) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let gate = hovered_gate_id
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "null".to_owned());
+    let palette = hovered_palette_index
+        .map(|index| index.to_string())
+        .unwrap_or_else(|| "null".to_owned());
+    let snapshot = format!("{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette}}}");
+    let _ = js_sys::Reflect::set(
+        window.as_ref(),
+        &wasm_bindgen::JsValue::from_str("__qniHoverSnapshotJson"),
+        &wasm_bindgen::JsValue::from_str(&snapshot),
+    );
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+fn publish_hover_snapshot(_hovered_gate_id: Option<u32>, _hovered_palette_index: Option<usize>) {}
