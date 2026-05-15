@@ -1,6 +1,7 @@
 use eframe::egui;
 
-use crate::app::circuit_library::{persist_library, CircuitEntry, PickerState};
+use crate::app::circuit_library::{persist_library, CircuitEntry};
+use crate::app::circuit_picker_state::PickerState;
 use crate::app::QniApp;
 use crate::colors::{with_alpha, Colors};
 

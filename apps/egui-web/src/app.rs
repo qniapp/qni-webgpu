@@ -4,6 +4,7 @@
 mod circuit_history;
 pub(crate) mod circuit_library;
 mod circuit_model;
+pub(crate) mod circuit_picker_state;
 mod drag_controller;
 mod exec_mode;
 mod external_gpu;
@@ -22,7 +23,8 @@ use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
-use circuit_library::{CircuitLibrary, PickerState};
+use circuit_library::CircuitLibrary;
+use circuit_picker_state::PickerState;
 
 /// Named font family rendering the heavyweight gate labels — i.e. the
 /// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
