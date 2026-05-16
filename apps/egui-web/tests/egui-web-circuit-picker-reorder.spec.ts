@@ -159,6 +159,18 @@ test('circuit picker dropdown attaches to the topbar with no vertical gap', asyn
   }).toEqual({ attachedToTopbar: true, belowTrigger: true })
 })
 
+test('hovering a picker row uses the pointing-hand cursor', async ({ page }) => {
+  const box = await canvasBox(page)
+  await page.mouse.move(box.x + ROW_2.x, box.y + ROW_2.y)
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector('#egui-canvas')
+    return canvas && getComputedStyle(canvas).cursor === 'pointer'
+  })
+  const cursor = await page.locator('#egui-canvas').evaluate((canvas) => getComputedStyle(canvas).cursor)
+
+  expect(cursor).toBe('pointer')
+})
+
 test('pressed row shows dragged styling before movement threshold', async ({ page }) => {
   const box = await canvasBox(page)
   await page.mouse.move(box.x + ROW_2.x, box.y + ROW_2.y)

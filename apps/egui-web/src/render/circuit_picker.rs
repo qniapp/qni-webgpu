@@ -345,7 +345,7 @@ impl QniApp {
         } else if self.picker.drag_in_progress() {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grabbing);
         } else if pointer_hovered {
-            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grab);
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         }
         if !dragging_source {
             let visual_rect = self.animated_picker_item_rect(ui, entry, rect, live_reorder_active);
