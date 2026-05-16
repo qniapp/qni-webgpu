@@ -98,7 +98,9 @@ fn update_and_set_active_keep_canonical_json() {
 fn duplicate_move_and_delete_preserve_active_invariant() {
     let mut library = CircuitLibrary::seed();
 
-    let duplicated = library.duplicate(1).expect("duplicate").clone();
+    let Some(duplicated) = library.duplicate(1).cloned() else {
+        panic!("duplicate entry should be created");
+    };
     let after_duplicate = (
         duplicated.name.clone(),
         duplicated.updated_at != 0,

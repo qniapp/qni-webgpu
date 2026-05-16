@@ -289,18 +289,33 @@ test('kebab click opens the submenu without starting a drag', async ({ page }) =
 
 test('submenu top edge aligns to the parent row on right and flipped anchors', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
-  await waitForCondition(page, async () => (await submenuGeometry(page)) !== null, 'right-anchored submenu geometry')
+  await waitForCondition(
+    page,
+    async () => {
+      const geometry = await submenuGeometry(page)
+      return geometry !== null && geometry.submenu_left > geometry.kebab_right
+    },
+    'right-anchored submenu geometry',
+  )
   const rightAnchored = (await submenuGeometry(page))!
 
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => {
+    const global = window as any
+    global.__qniCircuitPickerGeometryJson = undefined
+  })
   await page.setViewportSize({ width: 380, height: 800 })
-  await page.reload()
-  await waitForStartupReady(page)
-  await seedLibrary(page)
-  await clickCanvas(page, TRIGGER)
-  await page.waitForTimeout(200)
+  await waitForCondition(page, async () => (await pickerDropdownGeometry(page)) !== null, 'flipped picker dropdown geometry')
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
 
-  await waitForCondition(page, async () => (await submenuGeometry(page)) !== null, 'flipped submenu geometry')
+  await waitForCondition(
+    page,
+    async () => {
+      const geometry = await submenuGeometry(page)
+      return geometry !== null && geometry.submenu_right < geometry.kebab_left
+    },
+    'flipped submenu geometry',
+  )
   const flipped = (await submenuGeometry(page))!
   expect({
     rightTopAligned: Math.abs(rightAnchored.submenu_top - rightAnchored.parent_row_top) <= 0.5,
