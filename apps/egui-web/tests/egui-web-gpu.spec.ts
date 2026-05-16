@@ -25,6 +25,7 @@ import {
   type CircularBodySignature,
   type PixelSamplePoint,
   type Point,
+  UI_CONSTANTS,
 } from './support/egui-web-spec-helpers'
 
 const waitForSeedHook = async (page: Page): Promise<void> => {
@@ -50,13 +51,64 @@ const seedActiveCircuit = async (page: Page, circuitJson: string): Promise<void>
 const readGpuPlanCapacityError = async (page: Page): Promise<string | null> =>
   page.evaluate(() => (window as any).__qniGpuPlanCapacityError ?? null)
 
-test('GPU capacity overflow reports an explicit error instead of recomputing empty ops', async ({ page }) => {
+const hasCapacityErrorCardPixels = async (page: Page): Promise<boolean> => {
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) return false
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  return page.evaluate(async ({ base64, cssWidth, cssHeight, stateBottomMargin, stateViewportHeight }) => {
+    const img = new Image()
+    img.src = `data:image/png;base64,${base64}`
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve(null)
+      img.onerror = () => reject(new Error('Failed to decode screenshot'))
+    })
+    const canvas = document.createElement('canvas')
+    canvas.width = img.width
+    canvas.height = img.height
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) return false
+    context.drawImage(img, 0, 0)
+    const scaleX = img.width / cssWidth
+    const scaleY = img.height / cssHeight
+    const centerX = cssWidth / 2
+    const centerY = cssHeight - stateBottomMargin - stateViewportHeight / 2
+    let redPixels = 0
+    for (let y = centerY - 40; y <= centerY + 40; y += 2) {
+      for (let x = centerX - 220; x <= centerX + 220; x += 2) {
+        const [r, g, b, a] = context.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
+        if (a > 200 && r > 130 && r > g + 40 && r > b + 40 && g < 130 && b < 130) {
+          redPixels += 1
+        }
+      }
+    }
+    return redPixels > 30
+  }, {
+    base64: screenshot.toString('base64'),
+    cssWidth: box.width,
+    cssHeight: box.height,
+    stateBottomMargin: UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN,
+    stateViewportHeight: UI_CONSTANTS.STATE_VIEWPORT_DEFAULT_HEIGHT,
+  })
+}
+
+const waitForCapacityErrorCardVisible = async (page: Page): Promise<boolean> => {
+  const deadline = Date.now() + 5000
+  while (Date.now() <= deadline) {
+    if (await hasCapacityErrorCardPixels(page)) return true
+    await page.waitForTimeout(50)
+  }
+  return false
+}
+
+test('GPU capacity overflow shows a visible error card instead of recomputing empty ops', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page)
   const columns = Array.from({ length: 257 }, () => ['H'])
   await seedActiveCircuit(page, JSON.stringify({ cols: columns }))
+  await page.waitForFunction(() => String((window as any).__qniGpuPlanCapacityError ?? '').includes('MAX_OPS_PER_RECOMPUTE'))
 
-  await expect.poll(async () => readGpuPlanCapacityError(page)).toContain('MAX_OPS_PER_RECOMPUTE')
+  await expect(await waitForCapacityErrorCardVisible(page)).toBe(true)
 })
 
 test('GPU capacity error hook clears after a valid recompute', async ({ page }) => {

@@ -230,7 +230,7 @@ impl QniApp {
         };
         let url_qubit_count = url_required_qubits.clamp(MIN_QUBITS, url_exec_mode.qubit_capacity());
         let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_qubit_count);
-        let (library, initial_json) = CircuitLibrary::for_startup(
+        let (library, initial_json) = circuit_library::for_startup(
             url_json.clone(),
             crate::url_circuit::current_url_has_circuit_payload(),
         );

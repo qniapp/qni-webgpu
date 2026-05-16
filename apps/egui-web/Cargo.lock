@@ -1554,12 +1554,21 @@ dependencies = [
  "epaint_default_fonts",
  "futures-channel",
  "js-sys",
+ "qni-egui-web-circuit-library-model",
  "serde",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
  "wgpu",
+]
+
+[[package]]
+name = "qni-egui-web-circuit-library-model"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
 ]
 
 [[package]]

@@ -2,14 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::url_circuit::EMPTY_CIRCUIT_JSON;
+pub const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 
-pub(crate) type CircuitId = String;
+pub type CircuitId = String;
 
 const DEFAULT_CIRCUIT_NAME_PREFIX: &str = "Circuit ";
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct CircuitEntry {
+pub struct CircuitEntry {
     pub id: CircuitId,
     pub name: String,
     pub circuit_json: String,
@@ -28,7 +28,7 @@ impl Default for CircuitEntry {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct CircuitLibrary {
+pub struct CircuitLibrary {
     pub entries: Vec<CircuitEntry>,
     pub active_id: CircuitId,
 }
@@ -40,7 +40,7 @@ impl Default for CircuitLibrary {
 }
 
 impl CircuitLibrary {
-    pub(crate) fn seed() -> Self {
+    pub fn seed() -> Self {
         let now = now_millis();
         let entries = vec![
             CircuitEntry {
@@ -68,7 +68,7 @@ impl CircuitLibrary {
         }
     }
 
-    pub(crate) fn from_entries(entries: Vec<CircuitEntry>, active_id: CircuitId) -> Self {
+    pub fn from_entries(entries: Vec<CircuitEntry>, active_id: CircuitId) -> Self {
         let mut library = Self { entries, active_id };
         library.ensure_non_empty();
         if !library
@@ -81,18 +81,18 @@ impl CircuitLibrary {
         library
     }
 
-    pub(crate) fn active_index(&self) -> usize {
+    pub fn active_index(&self) -> usize {
         self.entries
             .iter()
             .position(|entry| entry.id == self.active_id)
             .unwrap_or(0)
     }
 
-    pub(crate) fn active(&self) -> &CircuitEntry {
+    pub fn active(&self) -> &CircuitEntry {
         &self.entries[self.active_index()]
     }
 
-    pub(crate) fn update_active(&mut self, circuit_json: String) {
+    pub fn update_active(&mut self, circuit_json: String) {
         let active_id = self.active_id.clone();
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
             entry.circuit_json = circuit_json;
@@ -100,21 +100,21 @@ impl CircuitLibrary {
         }
     }
 
-    pub(crate) fn set_active(&mut self, id: CircuitId) -> &CircuitEntry {
+    pub fn set_active(&mut self, id: CircuitId) -> &CircuitEntry {
         if self.entries.iter().any(|entry| entry.id == id) {
             self.active_id = id;
         }
         self.active()
     }
 
-    pub(crate) fn set_active_index(&mut self, index: usize) -> &CircuitEntry {
+    pub fn set_active_index(&mut self, index: usize) -> &CircuitEntry {
         if let Some(entry) = self.entries.get(index) {
             self.active_id = entry.id.clone();
         }
         self.active()
     }
 
-    pub(crate) fn rename(&mut self, id: &str, name: &str) {
+    pub fn rename(&mut self, id: &str, name: &str) {
         let trimmed = name.trim();
         if trimmed.is_empty() {
             return;
@@ -125,7 +125,7 @@ impl CircuitLibrary {
         }
     }
 
-    pub(crate) fn duplicate(&mut self, index: usize) -> Option<&CircuitEntry> {
+    pub fn duplicate(&mut self, index: usize) -> Option<&CircuitEntry> {
         self.duplicate_at_index(index)?;
         Some(self.active())
     }
@@ -133,26 +133,26 @@ impl CircuitLibrary {
     /// Insert a copy of the active entry right after it; switch active to the
     /// new entry and bump its timestamp. Copy names follow the picker/toolbar
     /// contract: "Name (copy)", then "Name (copy 2)", "Name (copy 3)", …
-    pub(crate) fn duplicate_active(&mut self) -> CircuitId {
+    pub fn duplicate_active(&mut self) -> CircuitId {
         let index = self.active_index();
         self.duplicate_at_index(index)
             .expect("active circuit entry should always exist")
     }
 
-    pub(crate) fn move_up(&mut self, index: usize) {
+    pub fn move_up(&mut self, index: usize) {
         if index > 0 && index < self.entries.len() {
             self.entries.swap(index - 1, index);
         }
     }
 
-    pub(crate) fn move_down(&mut self, index: usize) {
+    pub fn move_down(&mut self, index: usize) {
         if index + 1 < self.entries.len() {
             self.entries.swap(index, index + 1);
         }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn reorder(&mut self, src: usize, target: usize) {
+    pub fn reorder(&mut self, src: usize, target: usize) {
         if src >= self.entries.len() || target == src || target == src + 1 {
             return;
         }
@@ -162,21 +162,21 @@ impl CircuitLibrary {
         self.bump_updated_at();
     }
 
-    pub(crate) fn swap_adjacent(&mut self, a: usize, b: usize) {
+    pub fn swap_adjacent(&mut self, a: usize, b: usize) {
         debug_assert!(a.abs_diff(b) == 1);
         if a < self.entries.len() && b < self.entries.len() && a.abs_diff(b) == 1 {
             self.entries.swap(a, b);
         }
     }
 
-    pub(crate) fn bump_updated_at(&mut self) {
+    pub fn bump_updated_at(&mut self) {
         let active_id = self.active_id.clone();
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
             entry.updated_at = now_millis();
         }
     }
 
-    pub(crate) fn delete(&mut self, index: usize) -> Option<&CircuitEntry> {
+    pub fn delete(&mut self, index: usize) -> Option<&CircuitEntry> {
         if self.entries.len() <= 1 || index >= self.entries.len() {
             return None;
         }
@@ -188,7 +188,7 @@ impl CircuitLibrary {
         Some(self.active())
     }
 
-    pub(crate) fn create_new(&mut self) -> &CircuitEntry {
+    pub fn create_new(&mut self) -> &CircuitEntry {
         let entry = CircuitEntry {
             id: self.fresh_id("circuit"),
             name: self.next_default_circuit_name(None),
@@ -200,7 +200,7 @@ impl CircuitLibrary {
         self.set_active(id)
     }
 
-    pub(crate) fn set_active_current_circuit(&mut self, circuit_json: String) {
+    pub fn set_active_current_circuit(&mut self, circuit_json: String) {
         let id = "current".to_owned();
         let entry = CircuitEntry {
             id: id.clone(),
@@ -216,7 +216,7 @@ impl CircuitLibrary {
         self.active_id = id;
     }
 
-    pub(crate) fn migrate_legacy_default_names(&mut self) -> bool {
+    pub fn migrate_legacy_default_names(&mut self) -> bool {
         let mut changed = false;
         let now = now_millis();
         for index in 0..self.entries.len() {
@@ -232,7 +232,7 @@ impl CircuitLibrary {
         changed
     }
 
-    pub(crate) fn to_test_json(&self) -> String {
+    pub fn to_test_json(&self) -> String {
         let entries = self
             .entries
             .iter()
@@ -373,12 +373,12 @@ fn json_escape(input: &str) -> String {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(super) fn now_millis() -> u64 {
+pub fn now_millis() -> u64 {
     js_sys::Date::now().max(0.0) as u64
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn now_millis() -> u64 {
+pub fn now_millis() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     SystemTime::now()

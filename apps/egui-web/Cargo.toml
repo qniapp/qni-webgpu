@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[workspace]
+members = ["crates/circuit-library-model"]
+resolver = "2"
+
 [dependencies]
 eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 # Used to rasterize the measurement gate digits ("0" / "1") into a GPU
@@ -13,6 +17,7 @@ eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "de
 # egui paints for |0> / |1>. Done once at startup (no per-frame readback).
 ab_glyph = "0.2"
 epaint_default_fonts = "0.33.3"
+qni-egui-web-circuit-library-model = { path = "crates/circuit-library-model" }
 bytemuck = { version = "1.14", features = ["derive"] }
 futures-channel = "0.3"
 js-sys = "0.3"

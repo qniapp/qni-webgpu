@@ -5,11 +5,13 @@
 //! integration, persistence, startup reconciliation, and wasm test hooks apart.
 
 mod app_adapter;
-mod model;
 mod startup;
 mod storage;
 mod test_hooks;
 
-pub(crate) use model::{CircuitEntry, CircuitId, CircuitLibrary};
+pub(crate) use qni_egui_web_circuit_library_model::{
+    now_millis, CircuitEntry, CircuitId, CircuitLibrary,
+};
+pub(crate) use startup::for_startup;
 pub(crate) use storage::persist_library;
 pub(crate) use test_hooks::wire_test_hooks;
