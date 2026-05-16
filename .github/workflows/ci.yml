@@ -63,14 +63,17 @@ jobs:
           workspaces: |
             apps/egui-web
 
-      - name: Install trunk
+      - name: Install trunk and cargo-insta
         uses: taiki-e/install-action@v2
         with:
-          tool: trunk
+          tool: trunk,cargo-insta
 
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
         working-directory: apps/egui-web
+
+      - name: Web Rust check
+        run: apps/egui-web/scripts/check-rust.sh
 
       - name: Web trunk build
         run: env -u NO_COLOR TRUNK_COLOR=never trunk build

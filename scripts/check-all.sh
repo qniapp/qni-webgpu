@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+echo "==> Web: Rust fmt/clippy/wasm no-run/insta"
+"$ROOT_DIR/apps/egui-web/scripts/check-rust.sh"
+
 echo "==> Web: Playwright preflight (browser resolution)"
 pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight
 
