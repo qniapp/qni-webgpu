@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QNI WebGPU Refactor Candidates — 2026-05-16</title>
+  <title>QNI WebGPU Refactor Candidates</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,18 +28,20 @@
       --green: #66800B;       /* Flexoki green-600 */
       --cyan: #24837B;        /* Flexoki cyan-600 */
       --blue: #205EA6;        /* Flexoki blue-600 */
+      --purple: #5E409D;      /* Flexoki purple-600 */
       --magenta: #A02F6F;     /* Flexoki magenta-600 */
 
-      --red-dim: rgba(175, 48, 41, 0.10);      /* Flexoki red-600 @ 10% */
-      --orange-dim: rgba(188, 82, 21, 0.10);   /* Flexoki orange-600 @ 10% */
-      --yellow-dim: rgba(173, 131, 1, 0.12);   /* Flexoki yellow-600 @ 12% */
-      --green-dim: rgba(102, 128, 11, 0.12);   /* Flexoki green-600 @ 12% */
-      --cyan-dim: rgba(36, 131, 123, 0.10);    /* Flexoki cyan-600 @ 10% */
-      --blue-dim: rgba(32, 94, 166, 0.10);     /* Flexoki blue-600 @ 10% */
-      --magenta-dim: rgba(160, 47, 111, 0.10); /* Flexoki magenta-600 @ 10% */
+      --red-dim: rgba(175, 48, 41, 0.10);       /* Flexoki red-600 @ 10% */
+      --orange-dim: rgba(188, 82, 21, 0.10);    /* Flexoki orange-600 @ 10% */
+      --yellow-dim: rgba(173, 131, 1, 0.12);    /* Flexoki yellow-600 @ 12% */
+      --green-dim: rgba(102, 128, 11, 0.12);    /* Flexoki green-600 @ 12% */
+      --cyan-dim: rgba(36, 131, 123, 0.10);     /* Flexoki cyan-600 @ 10% */
+      --blue-dim: rgba(32, 94, 166, 0.10);      /* Flexoki blue-600 @ 10% */
+      --purple-dim: rgba(94, 64, 157, 0.10);    /* Flexoki purple-600 @ 10% */
+      --magenta-dim: rgba(160, 47, 111, 0.10);  /* Flexoki magenta-600 @ 10% */
 
-      --shadow: 0 24px 64px rgba(16, 15, 15, 0.10); /* Flexoki tx @ 10% */
-      --shadow-soft: 0 12px 32px rgba(16, 15, 15, 0.08); /* Flexoki tx @ 8% */
+      --shadow: 0 24px 64px rgba(16, 15, 15, 0.10);
+      --shadow-soft: 0 12px 32px rgba(16, 15, 15, 0.08);
     }
 
     * { box-sizing: border-box; }
@@ -49,21 +51,25 @@
       min-height: 100vh;
       color: var(--tx);
       font-family: var(--font-body);
-      font-size: 16px; /* Tailwind text-base = 16px */
-      line-height: 24px; /* Tailwind text-base line-height = 24px */
+      /* Tailwind text-base = 16px / 24px line-height. */
+      font-size: 16px;
+      line-height: 24px;
       background:
-        radial-gradient(circle at 12% 8%, var(--blue-dim), transparent 28%),
-        radial-gradient(circle at 92% 12%, var(--yellow-dim), transparent 24%),
-        radial-gradient(circle at 82% 78%, var(--cyan-dim), transparent 26%),
+        radial-gradient(circle at 16% 8%, var(--blue-dim), transparent 28%),
+        radial-gradient(circle at 88% 18%, var(--yellow-dim), transparent 24%),
         linear-gradient(90deg, rgba(218, 216, 206, 0.42) 1px, transparent 1px),
         linear-gradient(0deg, rgba(218, 216, 206, 0.42) 1px, transparent 1px),
         var(--bg);
-      background-size: auto, auto, auto, 24px 24px, 24px 24px, auto; /* Tailwind spacing-6 grid pitch = 24px */
+      background-size: auto, auto, 24px 24px, 24px 24px, auto; /* Tailwind spacing-6 grid pitch = 24px. */
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(16px); } /* Tailwind spacing-4 = 16px */
+      from { opacity: 0; transform: translateY(16px); } /* Tailwind spacing-4. */
       to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes drawLine {
+      from { stroke-dashoffset: 280; }
+      to { stroke-dashoffset: 0; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -75,70 +81,71 @@
     }
 
     .wrap {
-      width: min(1440px, calc(100% - 48px)); /* Tailwind spacing-6 per side */
+      width: min(1440px, calc(100% - 48px)); /* Tailwind spacing-6 per side on small screens. */
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 224px minmax(0, 1fr); /* Tailwind spacing-56 sidebar = 224px */
-      gap: 40px; /* Tailwind spacing-10 = 40px */
-      padding: 40px 0 64px; /* Tailwind spacing-10 / spacing-16 */
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 40px; /* Tailwind spacing-10. */
+      padding: 40px 0 64px; /* Tailwind spacing-10 / spacing-16. */
     }
     .main { min-width: 0; }
 
     .toc {
       position: sticky;
-      top: 24px; /* Tailwind spacing-6 */
+      top: 24px; /* Tailwind spacing-6. */
       align-self: start;
       max-height: calc(100dvh - 48px);
       overflow-y: auto;
-      padding: 16px; /* Tailwind spacing-4 */
+      padding: 16px; /* Tailwind spacing-4. */
       border: 1px solid var(--ui-2);
-      border-radius: 16px; /* Tailwind rounded-2xl */
-      background: rgba(255, 252, 240, 0.86); /* Flexoki bg @ 86% */
+      border-radius: 16px; /* Tailwind rounded-2xl. */
+      background: rgba(255, 252, 240, 0.82); /* Flexoki bg @ 82%. */
       backdrop-filter: blur(10px);
       box-shadow: var(--shadow-soft);
     }
     .toc-title {
       font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs = 12px */
-      line-height: 16px; /* Tailwind text-xs line-height = 16px */
+      /* Tailwind text-xs = 12px / 16px. */
+      font-size: 12px;
+      line-height: 16px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--tx-2);
-      padding-bottom: 12px; /* Tailwind spacing-3 */
-      margin-bottom: 12px; /* Tailwind spacing-3 */
+      padding-bottom: 12px; /* Tailwind spacing-3. */
+      margin-bottom: 12px;
       border-bottom: 1px solid var(--ui-2);
     }
     .toc a {
       display: block;
-      padding: 8px 8px 8px 12px; /* Tailwind spacing-2 / spacing-3 */
-      margin-bottom: 4px; /* Tailwind spacing-1 */
+      padding: 8px 8px 8px 12px; /* Tailwind spacing-2 / spacing-3. */
+      margin-bottom: 4px; /* Tailwind spacing-1. */
       border-left: 2px solid transparent;
-      border-radius: 8px; /* Tailwind rounded-lg */
+      border-radius: 8px; /* Tailwind rounded-lg. */
       color: var(--tx-2);
       text-decoration: none;
       font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
       transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
     }
     .toc a:hover,
     .toc a.active {
       color: var(--tx);
       background: var(--bg-2);
-      border-left-color: var(--blue); /* Flexoki blue-600 */
+      border-left-color: var(--blue);
     }
 
     .hero {
       position: relative;
       overflow: hidden;
       border: 1px solid var(--ui-2);
-      border-radius: 24px; /* Tailwind rounded-3xl */
+      border-radius: 24px; /* Tailwind rounded-3xl. */
       background:
         linear-gradient(135deg, rgba(32, 94, 166, 0.10), rgba(173, 131, 1, 0.10)),
         var(--bg);
       box-shadow: var(--shadow);
-      padding: 40px; /* Tailwind spacing-10 */
+      padding: 40px; /* Tailwind spacing-10. */
       animation: fadeUp 0.4s ease both;
     }
     .hero::after {
@@ -148,662 +155,868 @@
       width: 360px;
       height: 360px;
       border-radius: 999px;
-      border: 1px solid rgba(32, 94, 166, 0.18); /* Flexoki blue-600 @ 18% */
-      background: repeating-linear-gradient(45deg, transparent 0 12px, rgba(32, 94, 166, 0.06) 12px 16px); /* Flexoki blue-600 @ 6% */
+      border: 1px solid rgba(32, 94, 166, 0.18); /* Flexoki blue-600 @ 18%. */
+      background: repeating-linear-gradient(45deg, transparent 0 12px, rgba(32, 94, 166, 0.06) 12px 16px);
       transform: rotate(-10deg);
     }
     .kicker {
       display: inline-flex;
-      gap: 8px; /* Tailwind spacing-2 */
+      gap: 8px; /* Tailwind spacing-2. */
       align-items: center;
       font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--blue); /* Flexoki blue-600 */
-      margin-bottom: 16px; /* Tailwind spacing-4 */
+      color: var(--blue);
+      margin-bottom: 16px; /* Tailwind spacing-4. */
     }
     .kicker::before {
       content: '';
-      width: 8px; /* Tailwind spacing-2 */
+      width: 8px; /* Tailwind spacing-2. */
       height: 8px;
       border-radius: 999px;
-      background: var(--blue); /* Flexoki blue-600 */
+      background: var(--blue);
     }
     h1 {
       margin: 0;
-      max-width: 980px;
-      font-size: 36px; /* Tailwind text-4xl = 36px */
-      line-height: 40px; /* Tailwind text-4xl line-height = 40px */
+      max-width: 900px;
+      /* Tailwind text-4xl = 36px / 40px. */
+      font-size: 36px;
+      line-height: 40px;
       letter-spacing: -0.03em;
     }
     .lead {
       position: relative;
       z-index: 1;
-      max-width: 940px;
-      margin: 20px 0 0; /* Tailwind spacing-5 */
+      max-width: 880px;
+      margin: 20px 0 0; /* Tailwind spacing-5. */
       color: var(--tx-2);
-      font-size: 18px; /* Tailwind text-lg = 18px */
-      line-height: 28px; /* Tailwind text-lg line-height = 28px */
+      /* Tailwind text-lg = 18px / 28px. */
+      font-size: 18px;
+      line-height: 28px;
     }
-    .hero-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px; /* Tailwind spacing-2 */
-      margin-top: 24px; /* Tailwind spacing-6 */
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px; /* Tailwind spacing-4. */
+      margin-top: 24px; /* Tailwind spacing-6. */
       position: relative;
       z-index: 1;
     }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px; /* Tailwind spacing-2 = 8px */
-      padding: 8px 12px; /* Tailwind spacing-2 / spacing-3 */
+    .metric {
+      padding: 16px; /* Tailwind spacing-4. */
       border: 1px solid var(--ui-2);
-      border-radius: 999px;
-      background: rgba(255, 252, 240, 0.80); /* Flexoki bg @ 80% */
+      border-radius: 16px;
+      background: rgba(255, 252, 240, 0.72); /* Flexoki bg @ 72%. */
+    }
+    .metric b {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 24px; /* Tailwind text-2xl = 24px / 32px. */
+      line-height: 32px;
+    }
+    .metric span {
+      display: block;
+      margin-top: 4px; /* Tailwind spacing-1. */
       color: var(--tx-2);
       font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
     }
-    .pill strong { color: var(--tx); font-weight: 700; }
 
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px; /* Tailwind spacing-4 */
-      margin: 24px 0 0; /* Tailwind spacing-6 */
-    }
-    .metric {
-      border: 1px solid var(--ui-2);
-      border-radius: 18px; /* Tailwind rounded-2xl-ish */
-      background: rgba(255, 252, 240, 0.76); /* Flexoki bg @ 76% */
-      padding: 16px; /* Tailwind spacing-4 */
-      box-shadow: var(--shadow-soft);
-      animation: fadeUp 0.45s ease both;
+    .section {
+      margin-top: 48px; /* Tailwind spacing-12. */
+      animation: fadeUp 0.4s ease both;
       animation-delay: calc(var(--i, 0) * 0.04s);
     }
-    .metric .value {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 30px; /* Tailwind text-3xl = 30px */
-      line-height: 36px; /* Tailwind text-3xl line-height = 36px */
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--tx);
-    }
-    .metric .label {
-      display: block;
-      margin-top: 8px; /* Tailwind spacing-2 */
-      color: var(--tx-2);
-      font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
-    }
-
-    section {
-      margin-top: 40px; /* Tailwind spacing-10 */
-      animation: fadeUp 0.45s ease both;
-    }
     .sec-head {
+      scroll-margin-top: 24px;
       display: flex;
       align-items: center;
-      gap: 12px; /* Tailwind spacing-3 */
-      margin-bottom: 16px; /* Tailwind spacing-4 */
-      scroll-margin-top: 32px; /* Tailwind spacing-8 */
+      gap: 12px; /* Tailwind spacing-3. */
+      margin-bottom: 16px; /* Tailwind spacing-4. */
     }
     .sec-num {
-      flex: 0 0 auto;
-      width: 32px; /* Tailwind spacing-8 */
+      width: 32px; /* Tailwind spacing-8. */
       height: 32px;
-      border-radius: 999px;
       display: grid;
       place-items: center;
-      background: var(--tx); /* Flexoki tx */
-      color: var(--bg); /* Flexoki bg */
+      border-radius: 999px;
+      background: var(--tx);
+      color: var(--bg);
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
     }
     h2 {
       margin: 0;
-      font-size: 24px; /* Tailwind text-2xl = 24px */
-      line-height: 32px; /* Tailwind text-2xl line-height = 32px */
+      font-size: 24px; /* Tailwind text-2xl = 24px / 32px. */
+      line-height: 32px;
       letter-spacing: -0.02em;
     }
-    h3 {
-      margin: 0;
-      font-size: 18px; /* Tailwind text-lg = 18px */
-      line-height: 28px; /* Tailwind text-lg line-height = 28px */
-      letter-spacing: -0.01em;
+    .section-note {
+      margin: -8px 0 20px 44px; /* Tailwind spacing-2 / spacing-5 + icon offset. */
+      color: var(--tx-2);
+      font-size: 14px; /* Tailwind text-sm = 14px / 20px. */
+      line-height: 20px;
     }
-    p { margin: 0; }
-    code {
+
+    .map-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 16px; /* Tailwind spacing-4. */
+      align-items: stretch;
+    }
+    .map-card,
+    .candidate,
+    .panel,
+    .road-card,
+    details {
+      border: 1px solid var(--ui-2);
+      border-radius: 16px; /* Tailwind rounded-2xl. */
+      background: rgba(255, 252, 240, 0.86); /* Flexoki bg @ 86%. */
+      box-shadow: var(--shadow-soft);
+    }
+    .map-card { padding: 20px; } /* Tailwind spacing-5. */
+    .map-card.center {
+      background: linear-gradient(180deg, rgba(32, 94, 166, 0.12), rgba(32, 94, 166, 0.04)), var(--bg);
+      border-color: rgba(32, 94, 166, 0.32); /* Flexoki blue-600 @ 32%. */
+    }
+    .map-label,
+    .card-label,
+    .phase-label {
       font-family: var(--font-mono);
-      font-size: 0.92em;
-      padding: 0 4px; /* Tailwind spacing-0 / spacing-1 */
-      border-radius: 6px;
-      background: var(--bg-2); /* Flexoki bg-2 */
-      border: 1px solid var(--ui); /* Flexoki ui */
-      overflow-wrap: anywhere;
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--tx-2);
+      margin-bottom: 12px; /* Tailwind spacing-3. */
     }
-    a { color: var(--blue); text-decoration-color: rgba(32, 94, 166, 0.35); } /* Flexoki blue-600 */
-
-    .notice {
-      border: 1px solid var(--orange); /* Flexoki orange-600 */
-      border-radius: 18px; /* Tailwind rounded-2xl-ish */
-      background: var(--orange-dim);
-      padding: 20px; /* Tailwind spacing-5 */
-      color: var(--tx);
+    .map-card h3,
+    .candidate h3,
+    .panel h3,
+    .road-card h3 {
+      margin: 0 0 8px; /* Tailwind spacing-2. */
+      font-size: 18px; /* Tailwind text-lg = 18px / 28px. */
+      line-height: 28px;
     }
-    .notice strong { color: var(--orange); }
+    .map-card p,
+    .candidate p,
+    .panel p,
+    .road-card p {
+      margin: 0;
+      color: var(--tx-2);
+      font-size: 14px; /* Tailwind text-sm. */
+      line-height: 20px;
+    }
+    .arrow-stack {
+      display: grid;
+      gap: 12px; /* Tailwind spacing-3. */
+      margin-top: 16px; /* Tailwind spacing-4. */
+    }
+    .arrow-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px; /* Tailwind spacing-3. */
+      border-radius: 12px; /* Tailwind rounded-xl. */
+      background: var(--bg-2);
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .arrow-item strong { color: var(--tx); }
+    .arrow-item::after { content: '→'; color: var(--blue); font-weight: 700; }
+    .after .arrow-item::after { content: '✓'; color: var(--green); }
 
-    .grid-2 {
+    .candidate-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px; /* Tailwind spacing-4 */
+      gap: 16px; /* Tailwind spacing-4. */
     }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px; /* Tailwind spacing-4 */
-    }
-    .issue-card, .phase-card, .compact-card {
-      min-width: 0;
-      border: 1px solid var(--ui-2);
-      border-radius: 18px; /* Tailwind rounded-2xl-ish */
-      background: rgba(255, 252, 240, 0.84); /* Flexoki bg @ 84% */
-      padding: 20px; /* Tailwind spacing-5 */
-      box-shadow: var(--shadow-soft);
+    .candidate {
       position: relative;
       overflow: hidden;
+      padding: 20px; /* Tailwind spacing-5. */
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
     }
-    .issue-card::before {
-      content: '';
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 4px; /* Tailwind spacing-1 */
-      background: var(--blue); /* Flexoki blue-600 */
-    }
-    .issue-card[data-severity="critical"]::before { background: var(--red); }
-    .issue-card[data-severity="high"]::before { background: var(--orange); }
-    .issue-card[data-severity="medium"]::before { background: var(--yellow); }
-    .issue-card[data-severity="low"]::before { background: var(--cyan); }
-    .issue-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px; /* Tailwind spacing-3 */
-      margin-bottom: 12px; /* Tailwind spacing-3 */
-    }
-    .badge {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 4px 8px; /* Tailwind spacing-1 / spacing-2 */
-      font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
-      font-weight: 700;
-      border: 1px solid var(--ui-2);
-      color: var(--tx);
-      background: var(--bg-2); /* Flexoki bg-2 */
-      white-space: nowrap;
-    }
-    .badge.critical { color: var(--red); background: var(--red-dim); border-color: rgba(175, 48, 41, 0.30); }
-    .badge.high { color: var(--orange); background: var(--orange-dim); border-color: rgba(188, 82, 21, 0.30); }
-    .badge.medium { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(173, 131, 1, 0.30); }
-    .badge.low { color: var(--cyan); background: var(--cyan-dim); border-color: rgba(36, 131, 123, 0.30); }
-    .issue-card p, .compact-card p, .phase-card p { color: var(--tx-2); }
-    .evidence {
-      margin-top: 12px; /* Tailwind spacing-3 */
-      padding-top: 12px; /* Tailwind spacing-3 */
-      border-top: 1px solid var(--ui); /* Flexoki ui */
-    }
-    .evidence-title {
-      color: var(--tx-2);
-      font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-bottom: 8px; /* Tailwind spacing-2 */
-    }
-    ul {
-      margin: 8px 0 0; /* Tailwind spacing-2 */
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 8px; /* Tailwind spacing-2 */
-    }
-    li {
-      position: relative;
-      padding-left: 16px; /* Tailwind spacing-4 */
-      color: var(--tx-2);
-    }
-    li::before {
+    .candidate:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .candidate::before {
       content: '';
       position: absolute;
       left: 0;
-      top: 0.72em;
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--ui-3); /* Flexoki ui-3 */
+      top: 0;
+      bottom: 0;
+      width: 4px; /* Tailwind spacing-1. */
+      background: var(--accent, var(--blue));
     }
+    .candidate.high { --accent: var(--red); }
+    .candidate.medium { --accent: var(--orange); }
+    .candidate.low { --accent: var(--cyan); }
+    .candidate.safety { --accent: var(--purple); }
+    .candidate .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .rank {
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      font-weight: 700;
+      color: var(--accent, var(--blue));
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px; /* Tailwind spacing-1 / spacing-2. */
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      font-weight: 600;
+      color: var(--accent, var(--blue));
+      background: color-mix(in srgb, var(--accent, var(--blue)) 10%, transparent);
+    }
+    .badge::before {
+      content: '';
+      width: 8px; /* Tailwind spacing-2. */
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px; /* Tailwind spacing-2. */
+      margin-top: 16px; /* Tailwind spacing-4. */
+    }
+    code,
+    .file-chip {
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      color: var(--blue);
+      background: var(--blue-dim);
+      border-radius: 6px;
+      padding: 2px 6px;
+    }
+    .file-chip { color: var(--tx-2); background: var(--bg-2); }
 
     .table-wrap {
-      border: 1px solid var(--ui-2);
-      border-radius: 18px; /* Tailwind rounded-2xl-ish */
       overflow: hidden;
-      background: rgba(255, 252, 240, 0.88); /* Flexoki bg @ 88% */
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      background: var(--bg);
       box-shadow: var(--shadow-soft);
     }
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll { overflow-x: auto; }
     table {
       width: 100%;
-      min-width: 880px;
       border-collapse: collapse;
-      font-size: 14px; /* Tailwind text-sm = 14px */
-      line-height: 20px; /* Tailwind text-sm line-height = 20px */
+      min-width: 1080px;
+      font-size: 14px; /* Tailwind text-sm = 14px / 20px. */
+      line-height: 20px;
     }
-    thead { position: sticky; top: 0; z-index: 2; }
     th {
-      background: var(--bg-2); /* Flexoki bg-2 */
-      color: var(--tx-2);
-      font-family: var(--font-mono);
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
-      font-weight: 700;
-      text-align: left;
-      padding: 12px 16px; /* Tailwind spacing-3 / spacing-4 */
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 12px 16px; /* Tailwind spacing-3 / spacing-4. */
+      background: var(--bg-2);
       border-bottom: 2px solid var(--ui-2);
+      color: var(--tx-2);
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       white-space: nowrap;
     }
     td {
+      padding: 16px; /* Tailwind spacing-4. */
+      border-bottom: 1px solid var(--ui);
       vertical-align: top;
-      padding: 12px 16px; /* Tailwind spacing-3 / spacing-4 */
-      border-bottom: 1px solid var(--ui); /* Flexoki ui */
-      color: var(--tx-2);
     }
-    tbody tr:nth-child(even) { background: rgba(242, 240, 229, 0.52); } /* Flexoki bg-2 @ 52% */
-    tbody tr:last-child td { border-bottom: none; }
-    .num {
-      text-align: right;
+    tbody tr:nth-child(even) { background: rgba(242, 240, 229, 0.62); /* Flexoki bg-2 @ 62%. */ }
+    tbody tr:hover { background: var(--yellow-dim); }
+    td small {
+      display: block;
+      margin-top: 4px; /* Tailwind spacing-1. */
+      color: var(--tx-2);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px; /* Tailwind spacing-1 / spacing-2. */
+      border-radius: 999px;
       font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-      color: var(--tx);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      font-weight: 700;
       white-space: nowrap;
     }
+    .status::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: currentColor; }
+    .p0 { color: var(--red); background: var(--red-dim); }
+    .p1 { color: var(--orange); background: var(--orange-dim); }
+    .p2 { color: var(--blue); background: var(--blue-dim); }
+    .p3 { color: var(--cyan); background: var(--cyan-dim); }
 
-    .phase-card {
-      counter-increment: phase;
+    .split {
       display: grid;
-      gap: 12px; /* Tailwind spacing-3 = 12px */
+      grid-template-columns: 1fr 1fr;
+      gap: 16px; /* Tailwind spacing-4. */
     }
-    .phase-card::before {
-      content: counter(phase);
-      width: 32px; /* Tailwind spacing-8 */
-      height: 32px;
+    .panel { padding: 20px; } /* Tailwind spacing-5. */
+    .panel.current { border-color: rgba(175, 48, 41, 0.28); background: linear-gradient(180deg, var(--red-dim), rgba(255, 252, 240, 0.88)); }
+    .panel.target { border-color: rgba(102, 128, 11, 0.28); background: linear-gradient(180deg, var(--green-dim), rgba(255, 252, 240, 0.88)); }
+    .flow-list {
+      display: grid;
+      gap: 12px; /* Tailwind spacing-3. */
+      margin-top: 16px;
+    }
+    .flow-step {
+      padding: 12px 16px; /* Tailwind spacing-3 / spacing-4. */
+      border: 1px solid var(--ui);
+      border-radius: 12px;
+      background: rgba(255, 252, 240, 0.70); /* Flexoki bg @ 70%. */
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .flow-step strong { color: var(--tx); }
+
+    .roadmap {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px; /* Tailwind spacing-4. */
+      position: relative;
+    }
+    .road-card {
+      padding: 20px; /* Tailwind spacing-5. */
+      min-height: 220px;
+    }
+    .phase-index {
+      width: 40px; /* Tailwind spacing-10. */
+      height: 40px;
       display: grid;
       place-items: center;
-      border-radius: 999px;
-      background: var(--blue); /* Flexoki blue-600 */
-      color: var(--bg); /* Flexoki bg */
+      border-radius: 12px; /* Tailwind rounded-xl. */
+      background: var(--tx);
+      color: var(--bg);
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: 12px; /* Tailwind text-xs */
-      line-height: 16px; /* Tailwind text-xs line-height */
+      margin-bottom: 16px; /* Tailwind spacing-4. */
     }
-    .roadmap { counter-reset: phase; }
-
-    .callout-row {
+    .road-card ul,
+    .candidate ul,
+    details ul {
+      margin: 12px 0 0; /* Tailwind spacing-3. */
+      padding: 0;
+      list-style: none;
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
-      gap: 16px; /* Tailwind spacing-4 */
+      gap: 8px; /* Tailwind spacing-2. */
+      color: var(--tx-2);
+      font-size: 14px; /* Tailwind text-sm. */
+      line-height: 20px;
     }
-    .code-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px; /* Tailwind spacing-2 */
-      margin-top: 12px; /* Tailwind spacing-3 */
+    .road-card li,
+    .candidate li,
+    details li {
+      position: relative;
+      padding-left: 16px; /* Tailwind spacing-4. */
+    }
+    .road-card li::before,
+    .candidate li::before,
+    details li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px; /* Tailwind spacing-2. */
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--blue);
     }
 
-    @media (max-width: 1100px) {
+    .svg-lane {
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      background: rgba(255, 252, 240, 0.74); /* Flexoki bg @ 74%. */
+      box-shadow: var(--shadow-soft);
+    }
+    .svg-lane path {
+      stroke-dasharray: 280;
+      stroke-dashoffset: 280;
+      animation: drawLine 0.8s ease forwards;
+      animation-delay: 0.2s;
+    }
+    .svg-label {
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs. */
+      line-height: 16px;
+      fill: var(--tx-2);
+    }
+    .svg-title {
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 18px; /* Tailwind text-lg. */
+      fill: var(--tx);
+    }
+
+    details {
+      padding: 0;
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      padding: 16px 20px; /* Tailwind spacing-4 / spacing-5. */
+      font-weight: 700;
+      font-size: 16px; /* Tailwind text-base. */
+      line-height: 24px;
+      background: var(--bg-2);
+    }
+    .details-body { padding: 20px; } /* Tailwind spacing-5. */
+
+    .footer-note {
+      margin-top: 48px; /* Tailwind spacing-12. */
+      padding: 24px; /* Tailwind spacing-6. */
+      border-top: 1px solid var(--ui-2);
+      color: var(--tx-2);
+      font-size: 14px; /* Tailwind text-sm. */
+      line-height: 20px;
+    }
+
+    @media (max-width: 1080px) {
       .wrap {
-        width: min(100%, calc(100% - 32px)); /* Tailwind spacing-4 per side */
+        width: min(100% - 32px, 960px); /* Tailwind spacing-4 per side. */
         grid-template-columns: 1fr;
-        gap: 24px; /* Tailwind spacing-6 */
         padding-top: 0;
       }
       .toc {
         position: sticky;
         top: 0;
         z-index: 10;
-        max-height: none;
         display: flex;
-        gap: 4px; /* Tailwind spacing-1 */
+        gap: 4px; /* Tailwind spacing-1. */
         overflow-x: auto;
-        border-radius: 0 0 16px 16px; /* Tailwind rounded-2xl bottom */
-        margin: 0 -16px; /* Tailwind spacing-4 */
-        padding: 12px 16px; /* Tailwind spacing-3 / spacing-4 */
+        max-height: none;
+        border-radius: 0 0 16px 16px;
+        margin: 0 -16px;
+        padding: 12px 16px; /* Tailwind spacing-3 / spacing-4. */
       }
       .toc-title { display: none; }
       .toc a {
-        flex: 0 0 auto;
+        white-space: nowrap;
         border-left: none;
         border-bottom: 2px solid transparent;
-        white-space: nowrap;
       }
       .toc a.active { border-bottom-color: var(--blue); }
-      .metrics, .grid-2, .grid-3, .callout-row { grid-template-columns: 1fr; }
-      .hero { padding: 24px; } /* Tailwind spacing-6 */
-      h1 { font-size: 30px; line-height: 36px; } /* Tailwind text-3xl = 30px / 36px */
+      .metric-row,
+      .map-grid,
+      .candidate-grid,
+      .split,
+      .roadmap { grid-template-columns: 1fr; }
+      .hero { padding: 24px; } /* Tailwind spacing-6. */
+      h1 { font-size: 30px; line-height: 36px; } /* Tailwind text-3xl. */
+      .section-note { margin-left: 0; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <nav class="toc" id="toc" aria-label="Refactor report sections">
+    <nav class="toc" id="toc" aria-label="目次">
       <div class="toc-title">Refactor map</div>
-      <a href="#summary">1. Summary</a>
-      <a href="#hotspots">2. Hotspots</a>
-      <a href="#issues">3. Issues</a>
-      <a href="#roadmap">4. Roadmap</a>
-      <a href="#scope">5. Scope note</a>
+      <a href="#overview">Overview</a>
+      <a href="#pressure">Pressure map</a>
+      <a href="#qni">Qni lessons</a>
+      <a href="#candidates">Candidates</a>
+      <a href="#matrix">Decision table</a>
+      <a href="#model">Model refactor</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#checks">Checks</a>
     </nav>
 
     <main class="main">
-      <header class="hero">
-        <div class="kicker">egui-web only audit</div>
-        <h1>リファクタリング候補は <code>apps/egui-web</code> のみに限定。いま残る主な論点は picker、test hook、visual spec の保守性。</h1>
-        <p class="lead">2026-05-16 時点の current source を再確認し、既に分割済みの circuit library / external GPU model は前提に更新した。周辺アプリの論点は含めず、egui WebGPU PoC 内で今後効くリファクタだけを整理する。</p>
-        <div class="hero-meta">
-          <span class="pill"><strong>対象</strong> <code>apps/egui-web</code> 配下のみ</span>
-          <span class="pill"><strong>確認</strong> current source line counts / diff review</span>
-          <span class="pill"><strong>出力</strong> docs/refactor-candidates.html</span>
-        </div>
-        <div class="metrics" aria-label="Audit metrics">
-          <div class="metric" style="--i:0"><span class="value">7</span><span class="label">egui-web candidates</span></div>
-          <div class="metric" style="--i:1"><span class="value">3</span><span class="label">egui-web files over 500 lines</span></div>
-          <div class="metric" style="--i:2"><span class="value">115</span><span class="label">window/test-hook references</span></div>
-          <div class="metric" style="--i:3"><span class="value">1</span><span class="label">scope: apps/egui-web only</span></div>
+      <header class="hero" id="overview">
+        <div class="kicker">QNI WebGPU source audit</div>
+        <h1>現状ソースのリファクタリング候補を、影響範囲と実行順に整理。</h1>
+        <p class="lead">
+          主軸は <strong>pixel 座標を正本にしている回路モデル</strong> と、そこから波及する巨大関数・Gate 定義の分散・GPU capacity の暗黙化。Qni 本家の step / dropzone / serialized step の分離を参考にしつつ、Web 本番の GPU-only 方針を壊さず、まずモデル境界を作るのが安全。
+        </p>
+        <div class="metric-row" aria-label="監査サマリ">
+          <div class="metric"><b>11</b><span>候補カテゴリ</span></div>
+          <div class="metric"><b>6</b><span>Qni から取り込む観点</span></div>
+          <div class="metric"><b>3</b><span>P0 / 先に直す</span></div>
+          <div class="metric"><b>6</b><span>着手済み候補</span></div>
         </div>
       </header>
 
-      <section id="summary">
-        <div class="sec-head"><span class="sec-num">1</span><h2>Summary — egui-web 内だけの結論</h2></div>
-        <div class="callout-row">
-          <div class="notice">
-            <p><strong>結論:</strong> 大きな分割は進んでいる。次に効くのは <code>render/circuit_picker.rs</code> の coordinator 責務をさらに薄くすること、test hook を registry 化すること、visual spec の座標・色定数を Rust 側 source of truth へ寄せること。</p>
+      <section class="section" id="pressure" style="--i:1">
+        <div class="sec-head"><span class="sec-num">1</span><h2>Pressure map — 何が複雑さを生んでいるか</h2></div>
+        <p class="section-note">中央の「pixel-based gate model」が多くの責務へ伸びている。ここを column / wire 正本へ変えると、後続の整理が連鎖的に効く。</p>
+        <div class="map-grid">
+          <div class="map-card">
+            <div class="map-label">Current consumers</div>
+            <div class="arrow-stack">
+              <div class="arrow-item"><strong>layout</strong><span>slot逆算</span></div>
+              <div class="arrow-item"><strong>render</strong><span>body座標</span></div>
+              <div class="arrow-item"><strong>URL</strong><span>JSON列化</span></div>
+              <div class="arrow-item"><strong>GPU plan</strong><span>linearize</span></div>
+            </div>
           </div>
-          <div class="compact-card">
-            <h3>今回の観点</h3>
-            <ul>
-              <li><code>apps/egui-web</code> 以外の問題は除外</li>
-              <li>500 行超ファイルと残った coordinator 責務</li>
-              <li>test-only readback / window hook の境界</li>
-              <li>Rust と TS visual spec 間の手動同期</li>
-            </ul>
+          <div class="map-card center">
+            <div class="map-label">Root pressure</div>
+            <h3><code>PlacedGate.pos</code> が正本</h3>
+            <p>配置、スナップ、列、描画、URL、シミュレーション計画がすべて pixel 座標へ依存。画面幅・スクロール・ドラッグ状態がモデルへ混ざる。</p>
+          </div>
+          <div class="map-card after">
+            <div class="map-label">Target shape</div>
+            <div class="arrow-stack">
+              <div class="arrow-item"><strong>column</strong><span>正本</span></div>
+              <div class="arrow-item"><strong>wire</strong><span>正本</span></div>
+              <div class="arrow-item"><strong>span</strong><span>正本</span></div>
+              <div class="arrow-item"><strong>preview_pos</strong><span>一時値</span></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="hotspots">
-        <div class="sec-head"><span class="sec-num">2</span><h2>Hotspots — egui-web の行数と責務集中</h2></div>
+      <section class="section" id="qni" style="--i:2">
+        <div class="sec-head"><span class="sec-num">2</span><h2>Qni lessons — 本家実装から取り込む観点</h2></div>
+        <p class="section-note">指定の <code>../oss/qni</code> は存在しなかったため、同一ワークスペースの <code>../qni</code> を参照。DOM / xstate / CPU simulator はそのまま移植せず、構造だけ Rust/WebGPU 向けに取り込む。</p>
+        <div class="candidate-grid">
+          <article class="candidate high">
+            <div class="topline"><span class="rank">Q-01</span><span class="badge">model</span></div>
+            <h3>step / dropzone を意味モデルとして扱う</h3>
+            <p>Qni は <code>QuantumCircuitElement.steps</code> と <code>CircuitStepElement.dropzones</code> を正本にして、座標は snap target として派生させる。</p>
+            <ul><li>qni-webgpu の C-01 を補強</li><li><code>PlacedGate.column</code> / <code>wire</code> / <code>span</code> が Qni の step/dropzone に相当</li></ul>
+            <div class="file-list"><span class="file-chip">packages/elements/src/quantum-circuit-element.ts</span><span class="file-chip">setSnapTargets</span><span class="file-chip">resize</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">Q-02</span><span class="badge">state machine</span></div>
+            <h3>drag / drop / resize を明示状態にする</h3>
+            <p>Qni の <code>DraggableMixin</code> / <code>CircuitDropzoneElement</code> / <code>ResizeableMixin</code> は、SNAP / UNSNAP / DROP / RESIZE をイベントで分ける。</p>
+            <ul><li><code>handle_input</code> 分割の設計指針</li><li>Rust では xstate ではなく enum + reducer で十分</li></ul>
+            <div class="file-list"><span class="file-chip">mixin/draggable.ts</span><span class="file-chip">circuit-dropzone-element.ts</span><span class="file-chip">mixin/resizeable.ts</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">Q-03</span><span class="badge">step IR</span></div>
+            <h3>serialized step を中間表現として持つ</h3>
+            <p>Qni は <code>SerializedCircuitStep</code> を <code>{type, targets, controls, antiControls, angle, span}</code> の配列にする。GPU plan の入力 IR として有用。</p>
+            <ul><li><code>ColumnAnalysis</code> → <code>StepIr</code> → <code>RecomputePlan</code></li><li>render connector と GPU linearize の重複を減らす</li></ul>
+            <div class="file-list"><span class="file-chip">packages/common/src/circuit-step.ts</span><span class="file-chip">CircuitStepElement.serialize</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">Q-04</span><span class="badge">connection policy</span></div>
+            <h3>接続線と enable/disable 判定を列単位へ集約</h3>
+            <p>Qni の <code>updateOperationAttributes</code> は control / anti-control / swap / phase-phase / free dropzone wire を一箇所で決める。</p>
+            <ul><li>qni-webgpu の connector 描画と GPU op 分類を同じ列解析から出す</li><li>max control / max target も capacity validation に接続</li></ul>
+            <div class="file-list"><span class="file-chip">circuit-step-element.ts</span><span class="file-chip">updateControlledUConnections</span><span class="file-chip">updateSwapConnections</span></div>
+          </article>
+
+          <article class="candidate low">
+            <div class="topline"><span class="rank">Q-05</span><span class="badge">gate metadata</span></div>
+            <h3>operationType / toJson は参考、巨大 union は反面教師</h3>
+            <p>Qni の各 gate element は <code>operationType</code> と <code>toJson</code> を持つ。一方 <code>operation.ts</code> の instanceof union は肥大化している。</p>
+            <ul><li>Rust 側は <code>GateSpec</code> registry で data-driven に寄せる</li><li>type guard 羅列は増やさない</li></ul>
+            <div class="file-list"><span class="file-chip">operation.ts</span><span class="file-chip">h-gate-element.ts</span><span class="file-chip">common/*-gate.ts</span></div>
+          </article>
+
+          <article class="candidate safety">
+            <div class="topline"><span class="rank">Q-06</span><span class="badge">semantics only</span></div>
+            <h3>simulator は仕様参照に留める</h3>
+            <p>Qni の <code>Simulator.runStep</code> は CPU state vector 実装。qni-webgpu では GPU shader へ落とす仕様確認用として読む。</p>
+            <ul><li>QFT / write / measure / bloch の順序確認に使う</li><li>CPU fallback として取り込まない</li></ul>
+            <div class="file-list"><span class="file-chip">packages/simulator/src/simulator.ts</span><span class="file-chip">angle-parser.ts</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="candidates" style="--i:3">
+        <div class="sec-head"><span class="sec-num">3</span><h2>Candidate cards — 全候補</h2></div>
+        <p class="section-note">P0 は安全性 / 設計の土台。P1 は保守性。P2/P3 は運用・見た目・テストの負債。Qni 由来の観点は各候補に織り込み済み。</p>
+        <div class="candidate-grid">
+          <article class="candidate high">
+            <div class="topline"><span class="rank">C-01</span><span class="badge">P0 architecture</span></div>
+            <h3>回路モデルを pixel 座標から column / wire 正本へ</h3>
+            <p><code>PlacedGate.pos</code> を永続モデルにするのをやめ、ドラッグ中だけ preview 座標を持つ。Qni の step/dropzone 構造を Rust の semantic grid として取り込む。<strong>進捗:</strong> URL codec は encode / decode / parser / history に分割済み。GPU plan lowering は <code>simulation_plan/*</code> へ改名・分割済み。</p>
+            <ul><li>slot逆算の重複を削除</li><li>URL / GPU linearize / render の境界が明確化</li><li>URL codec split</li><li>simulation plan split</li><li>Qni: <code>QuantumCircuitElement.steps</code> / <code>CircuitStepElement.dropzones</code></li></ul>
+            <div class="file-list"><span class="file-chip">app.rs</span><span class="file-chip">layout.rs</span><span class="file-chip">simulation_plan/*</span><span class="file-chip">url_circuit.rs</span><span class="file-chip">render/circuit.rs</span></div>
+          </article>
+
+          <article class="candidate high">
+            <div class="topline"><span class="rank">C-02</span><span class="badge">P0 safety</span></div>
+            <h3>GPU capacity を明示的に扱う</h3>
+            <p><code>MAX_OPS_PER_RECOMPUTE</code> などが debug_assert / skip に寄っている。release で静かに壊れる余地。Qni の max control / target gate 属性のように、制限を仕様として表に出す。</p>
+            <ul><li>RecomputePlan validation</li><li>UI cap か dynamic buffer resize を選択</li><li>Qni: <code>ConnectionProps</code> の maxControl / maxTarget 系</li></ul>
+            <div class="file-list"><span class="file-chip">gpu/params.rs</span><span class="file-chip">gpu/callbacks.rs</span><span class="file-chip">gpu/resources/*</span></div>
+          </article>
+
+          <article class="candidate high">
+            <div class="topline"><span class="rank">C-03</span><span class="badge">P0 docs</span></div>
+            <h3>古いコメント / docs の GPU 方針ズレを修正</h3>
+            <p>「CPU side collapse」「QFT simulation deferred」など、現実と逆の説明が残る。新規作業者を誤誘導する。<strong>進捗:</strong> <code>docs/gpu-plan.md</code> を現状の GPU-only production path / test-only readback / shader direct sample 方針へ更新済み。</p>
+            <ul><li>Web 本番は GPU-only と明記</li><li>test-only readback を明記</li><li>historical note は削除か隔離</li></ul>
+            <div class="file-list"><span class="file-chip">docs/egui-web.md</span><span class="file-chip">docs/gpu-plan.md</span><span class="file-chip">gates.rs</span><span class="file-chip">gpu/shaders.rs</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">C-04</span><span class="badge">P1 state</span></div>
+            <h3><code>QniApp</code> を状態別に分割</h3>
+            <p>circuit state、drag、state panel、GPU plan、HUD が一つの struct に集まる。Qni は Circuit / Step / Dropzone / Operation の境界で責務を割っている。<strong>進捗:</strong> <code>app/circuit_model.rs</code> へ semantic grid と compaction、<code>app/drag_controller.rs</code> へ gate drag / resize / drop state machine、<code>app/state_panel_state.rs</code> へ panel offset / zoom / aspect / hover state、<code>app/gpu_plan_state.rs</code> へ dirty flag / op stream / GPU slot maps を抽出済み。</p>
+            <ul><li><code>CircuitModel</code></li><li><code>DragController</code> done</li><li><code>StatePanelState</code> done</li><li><code>GpuPlanState</code> done</li><li>Qni: element 境界は参考、DOM 依存は取り込まない</li></ul>
+            <div class="file-list"><span class="file-chip">app.rs</span><span class="file-chip">app/*.rs</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">C-05</span><span class="badge">P1 functions</span></div>
+            <h3>巨大関数を責務単位に分割</h3>
+            <p>描画・入力・GPU prepare が長く、局所変更でも広範囲レビューになる。Qni の SNAP / UNSNAP / DROP / RESIZE イベント分割を、Rust の enum 状態遷移として採用する。<strong>進捗:</strong> circuit 描画、connector control/swap/phase、palette panel/tooltip/drag preview、tooltip layout/text/diagram/amplitude、circuit layout/snap/palette geometry、state panel layout/popup submodules、state panel draw panel/header/GPU callback/overlays、state cell popup geometry/chrome/rows/value callback、state panel chrome/interactions、GPU callbacks、recompute pack/dispatch/clear、Bloch reduce/overlay/pipeline、state-vector compute/render/pipeline、measurement reduce/collapse/buffers、measurement digit atlas/bindings/pipeline、popup value atlas/bindings/pipeline、WGSL shader source、DragController submodules、update flow circuit/state/overlay/gpu/tail coordinator は責務別ファイルへ分割済み。</p>
+            <ul><li>connector control / swap / phase split</li><li>drop commit state machine split</li><li>drag start / resize / preview / hover split</li><li>palette panel / tooltip / drag preview split</li><li>tooltip layout / text / diagram / amplitude split</li><li>circuit layout geometry / snap / palette split</li><li>state panel drag / viewport / aspect / resize split</li><li>popup cell / aspect / icon drawing split</li><li>state panel draw panel / header / GPU callback / overlays split</li><li>state cell popup geometry / chrome / rows / value callback split</li><li>layout geometry / aspect / hit rect / clamp split</li><li>GPU callback split</li><li>recompute pack / dispatch / clear split</li><li>Bloch reduce / overlay / pipeline split</li><li>state-vector compute / render / pipeline split</li><li>measurement reduce / collapse / buffers split</li><li>measurement digit atlas / bindings / pipeline split</li><li>popup value atlas / bindings / pipeline split</li><li>update flow circuit / state / overlay / gpu / tail split</li><li>op packing</li><li>dispatch encoding</li><li>shader source ownership</li><li>Qni: <code>DraggableMixin</code> / <code>CircuitDropzoneElement</code></li></ul>
+            <div class="file-list"><span class="file-chip">render/circuit.rs</span><span class="file-chip">app/gate_input.rs</span><span class="file-chip">gpu/callbacks.rs</span><span class="file-chip">state_panel_popup/*</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">C-06</span><span class="badge">P1 registry</span></div>
+            <h3>Gate 定義を中央 registry 化</h3>
+            <p>label / palette order / URL token / icon / matrix / tooltip / linearize が別ファイルに分散。Qni の <code>operationType</code> / <code>toJson</code> は参考にしつつ、instanceof union 羅列は避ける。<strong>進捗:</strong> <code>GateSpec</code> で label / URL token / palette / resizable を中央化し、tooltip と params を分離済み。<code>icons.rs</code> も body / glyph / Bloch / QFT / SVG helper へ分割済み。</p>
+            <ul><li><code>GateSpec</code> を導入</li><li>icon drawing split</li><li>新 gate 追加時の編集箇所を削減</li><li>Qni: per-gate element の metadata 発想だけ採用</li></ul>
+            <div class="file-list"><span class="file-chip">gates.rs</span><span class="file-chip">constants.rs</span><span class="file-chip">icons.rs</span><span class="file-chip">url_circuit.rs</span><span class="file-chip">simulation_plan/*</span></div>
+          </article>
+
+          <article class="candidate safety">
+            <div class="topline"><span class="rank">C-07</span><span class="badge">P2 policy</span></div>
+            <h3>CPU simulation islands の扱いを決める</h3>
+            <p>Web本番外だが、TUI / MCP は CPU state vector simulation を持つ。Qni 本家 simulator も CPU 実装なので、仕様参照に限定する境界を明示。</p>
+            <ul><li>legacy / test-only と docs 化</li><li>または WebGPU 経路へ寄せる</li><li>Qni: <code>Simulator.runStep</code> は semantics oracle</li></ul>
+            <div class="file-list"><span class="file-chip">apps/tui/src/model.rs</span><span class="file-chip">apps/mcp-qni/src/circuit.ts</span></div>
+          </article>
+
+          <article class="candidate medium">
+            <div class="topline"><span class="rank">C-08</span><span class="badge">P2 TUI</span></div>
+            <h3>TUI の 500行超ファイルを分割</h3>
+            <p><code>render.rs</code> / <code>model.rs</code> / <code>lib.rs</code> が肥大。描画・simulation・テストが密結合。</p>
+            <ul><li>render components</li><li>simulation core</li><li>tests module split</li></ul>
+            <div class="file-list"><span class="file-chip">tui/src/render.rs</span><span class="file-chip">tui/src/model.rs</span><span class="file-chip">tui/src/lib.rs</span></div>
+          </article>
+
+          <article class="candidate low">
+            <div class="topline"><span class="rank">C-09</span><span class="badge">P2 style</span></div>
+            <h3>Flexoki / Tailwind token を constants 化</h3>
+            <p>一部 hardcoded RGB と scale 外フォントが残る。style guide 違反の検知前に整理。<strong>進捗:</strong> icon 実装は小ファイル化し、今後の token 置換範囲を狭めた。</p>
+            <ul><li>debug HUD colors を <code>Colors</code> へ</li><li><code>10px</code> label を Tailwind scale へ</li></ul>
+            <div class="file-list"><span class="file-chip">app/fps_hud.rs</span><span class="file-chip">colors.rs</span><span class="file-chip">render/circuit.rs</span><span class="file-chip">state_panel_draw.rs</span></div>
+          </article>
+
+          <article class="candidate low">
+            <div class="topline"><span class="rank">C-10</span><span class="badge">P3 tests</span></div>
+            <h3>巨大 Playwright spec と helper を整理</h3>
+            <p><code>egui-web.spec.ts</code> が 1400行超だった。<strong>進捗:</strong> smoke / interaction / palette visual / drag visual / state semantics / GPU / error spec と shared helper に分割済み。</p>
+            <ul><li>visual specs</li><li>simulation specs</li><li>shared fixtures</li><li>残: URL/import 専用 spec は対象テスト追加時に分離</li></ul>
+            <div class="file-list"><span class="file-chip">tests/egui-web.spec.ts</span><span class="file-chip">features/support/*</span></div>
+          </article>
+
+          <article class="candidate low">
+            <div class="topline"><span class="rank">C-11</span><span class="badge">P3 docs</span></div>
+            <h3>docs の現状 / 決定 / 手順を再編</h3>
+            <p>機能追加メモが <code>docs/egui-web.md</code> に集中。Read when 付きの短い設計ノートへ分ける。</p>
+            <ul><li>GPU policy</li><li>visual workflow</li><li>gate semantics</li><li>style guide</li></ul>
+            <div class="file-list"><span class="file-chip">docs/*.md</span><span class="file-chip">AGENTS.md</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="matrix" style="--i:4">
+        <div class="sec-head"><span class="sec-num">4</span><h2>Decision table — 優先度と検証</h2></div>
+        <p class="section-note">実装順は「Qni の semantic grid を参考にした正本モデル → safety cap → 誤情報削除 → 分割」。動作を変えるものは Playwright / screenshot 経路まで確認。</p>
         <div class="table-wrap">
           <div class="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Lines</th>
-                  <th>File</th>
-                  <th>Why it matters</th>
-                  <th>Suggested split / next step</th>
+                  <th>候補</th><th>Priority</th><th>匂い</th><th>リファクタ方針</th><th>主なリスク</th><th>検証</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td class="num">621</td><td><code>apps/egui-web/tests/egui-web-interaction.spec.ts</code></td><td>複数 user flow、座標、色、待機ロジックが同居。読むべき assertion が埋もれやすい。</td><td>flow 別 spec / scenario helper へ分割</td></tr>
-                <tr><td class="num">561</td><td><code>apps/egui-web/src/render/circuit_picker.rs</code></td><td>submodule 化済みだが、dropdown orchestration、keyboard、outside click、submenu、row paint coordination がまだ集中。</td><td>coordinator を action reducer + layout pass へ薄くする</td></tr>
-                <tr><td class="num">545</td><td><code>apps/egui-web/features/support/egui-helpers.ts</code></td><td>Rust UI 定数を TS 側で手動ミラー。visual spec の magic number が増える。</td><td><code>test-fixtures/constants.json</code> 生成 or debug geometry hook 優先</td></tr>
-                <tr><td class="num">464</td><td><code>apps/egui-web/src/app/circuit_picker_state.rs</code></td><td>picker open/focus/rename/drag state が集約。状態遷移の unit test は増やしやすいが、UI reducer としてさらに明示できる。</td><td>transition 関数を純粋化し、drag / rename を小 module 化</td></tr>
-                <tr><td class="num">457</td><td><code>apps/egui-web/tests/egui-web-drag-visual.spec.ts</code></td><td>drag visual の pixel probe が厚い。UI geometry 変更時に修正範囲が広がりやすい。</td><td>probe builder / color matcher を shared helper へ移す</td></tr>
-                <tr><td class="num">450</td><td><code>apps/egui-web/tests/egui-web-state-semantics.spec.ts</code></td><td>state semantics と interaction setup が肥大化。1 test 1 assertion 方針は守りつつ setup DSL が欲しい。</td><td>semantic setup DSL + focused specs</td></tr>
-                <tr><td class="num">400</td><td><code>apps/egui-web/src/gates/params.rs</code></td><td>gate matrix packing、parametric angle parsing、POD params が同居。gate 追加時の差分が広い。</td><td><code>matrix</code> / <code>angle</code> / <code>pod_params</code> へ分割</td></tr>
-                <tr><td class="num">355</td><td><code>apps/egui-web/src/render/circuit_picker/chrome.rs</code></td><td>popover chrome、row text、footer、resize separator、geometry publish が同居。</td><td>paint primitives と debug publish を分ける</td></tr>
+                <tr><td>C-01 model</td><td><span class="status p0">P0</span></td><td>pixel 座標が永続モデル</td><td><code>column/wire/span</code> 正本化 + URL codec split 済み</td><td>URL互換・drag/dropの座標ズレ</td><td>Playwright drag + URL load + state vector</td></tr>
+                <tr><td>C-02 GPU caps</td><td><span class="status p0">P0</span></td><td>release で capacity 超過が静かに壊れる</td><td><code>RecomputePlan::validate</code> or dynamic resize。Qni の max gate 制約を参考</td><td>既存回路の上限変更</td><td>unit test + large circuit smoke</td></tr>
+                <tr><td>C-03 stale docs</td><td><span class="status p0">P0</span></td><td>CPU collapse / deferred QFT など古い記述</td><td>GPU-only production path と test-only readback へ更新済み</td><td>仕様判断の履歴喪失</td><td>docs review</td></tr>
+                <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller + state panel state + GPU plan state は抽出済み</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
+                <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>drag controller / update flow / circuit / state panel interaction / layout / popup / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
+                <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata + icon drawing split 済み</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
+                <tr><td>C-07 CPU islands</td><td><span class="status p2">P2</span></td><td>TUI/MCP が CPU simulation</td><td>境界を docs 化 or GPU 経路統合</td><td>scope が大きい</td><td>TUI tests + MCP tests</td></tr>
+                <tr><td>C-08 TUI split</td><td><span class="status p2">P2</span></td><td>500行超ファイル複数</td><td>renderer/model/tests 分割</td><td>snapshot 差分</td><td>cargo test + insta review</td></tr>
+                <tr><td>C-09 style tokens</td><td><span class="status p2">P2</span></td><td>hardcoded RGB / scale外サイズ</td><td>Flexoki + Tailwind constants</td><td>見た目の微差</td><td>visual screenshot + clippy禁止API</td></tr>
+                <tr><td>C-10 tests split</td><td><span class="status p3">P3</span></td><td>巨大 spec</td><td>観点別 spec + shared helper に分割済み</td><td>テスト起動時間の変動</td><td>pnpm test:preflight / bdd / pw-legacy</td></tr>
+                <tr><td>C-11 docs split</td><td><span class="status p3">P3</span></td><td>egui-web.md に集中</td><td>Read when 付き短文書へ</td><td>リンク切れ</td><td>docs:list + link check</td></tr>
               </tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <section id="issues">
-        <div class="sec-head"><span class="sec-num">3</span><h2>Issues — egui-web 優先度順</h2></div>
-        <div class="grid-2">
-          <article class="issue-card" data-severity="high">
-            <div class="issue-top"><h3>Circuit picker は分割後も coordinator が厚い</h3><span class="badge high">High</span></div>
-            <p><code>action</code> / <code>chrome</code> / <code>constants</code> / <code>drag</code> / <code>rename</code> へ分割済み。ただし本体 file は 561 行残り、dropdown orchestration と input handling がまだ密。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>render/circuit_picker.rs</code>: module facade + picker orchestration。</li>
-                <li><code>render/circuit_picker/chrome.rs</code>: footer / popover / geometry publish など 355 行。</li>
-                <li><code>app/circuit_picker_state.rs</code>: picker state transition が 464 行。</li>
-              </ul>
+      <section class="section" id="model" style="--i:5">
+        <div class="sec-head"><span class="sec-num">5</span><h2>Model refactor — 一番効く変更の形</h2></div>
+        <p class="section-note"><code>PlacedGate</code> の正本を column / wire / span にする。Qni の <code>stepAt()</code> / <code>dropzoneAt()</code> と同じく、pixel は layout の出力か drag preview の一時値だけに閉じ込める。</p>
+        <div class="split">
+          <div class="panel current">
+            <div class="card-label">Before</div>
+            <h3>Pixel drives everything</h3>
+            <div class="flow-list">
+              <div class="flow-step"><strong>PlacedGate.pos</strong> — 永続 state</div>
+              <div class="flow-step">nearest_slot_index — 毎回逆算</div>
+              <div class="flow-step">URL JSON — pos から column 化</div>
+              <div class="flow-step">GPU linearize — pos から slot bucket</div>
+              <div class="flow-step">render — pos を直接配置</div>
             </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li>row layout / dropdown layout / submenu placement を pure layout helper 化。</li>
-                <li>paint から mutation を外し、<code>PickerAction</code> reducer を明示する。</li>
-                <li>debug geometry publish は test hook registry に移す。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="high">
-            <div class="issue-top"><h3>window hook / debug geometry hook が散在している</h3><span class="badge high">High</span></div>
-            <p>テスト用 hook は必要だが、bootstrap、app、render 各所に <code>__qni*</code> / <code>__egui*</code> の公開が散る。production / debug / test の境界を読み取りにくい。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>bootstrap.ts</code> が readback と circuit library hook を公開。</li>
-                <li><code>render/circuit_picker/chrome.rs</code>, <code>render/toolbar.rs</code>, <code>state_panel_popup/aspect.rs</code> が geometry JSON を公開。</li>
-                <li>current source 上の window/test-hook 参照は 115 箇所。</li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li><code>apps/egui-web/src/test_hooks.rs</code> のような単一 registry に集約。</li>
-                <li>hook 名と型を TS declaration と Rust 側で共有する。</li>
-                <li>test-only readback と visual geometry hook を明確に namespace 化する。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="medium">
-            <div class="issue-top"><h3>Rust UI 定数と TS テスト定数が手動同期</h3><span class="badge medium">Medium</span></div>
-            <p>visual specs は座標と色に強く依存する。Rust 側の <code>constants.rs</code> と TS helper/spec の値が別々に書かれ、UI 変更時に片側だけ更新されるリスクがある。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>features/support/egui-helpers.ts</code>: <code>QNI_CIRCLE_LAYOUT</code>, <code>DEFAULT_REM</code>, palette geometry。</li>
-                <li><code>tests/egui-web-interaction.spec.ts</code>: <code>TEST_CIRCUIT_LINE_Y</code>, <code>LINE_LEFT_OFFSET</code> など。</li>
-                <li><code>features/support/assertions.ts</code> と <code>tests/support/egui-web-spec-helpers.ts</code> の color matcher 重複。</li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li>Rust から <code>test-fixtures/ui-constants.json</code> を生成。</li>
-                <li>座標は canvas pixel 推定より app の debug geometry hook を優先。</li>
-                <li>色トークンは Flexoki 名から共有し、RGB literal を最小化。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="medium">
-            <div class="issue-top"><h3>列セマンティクスの解析が描画と GPU lowering に分散</h3><span class="badge medium">Medium</span></div>
-            <p>control / swap / phase / QFT の列単位ルールを、connector 描画と <code>simulation_plan</code> が別々に解析している。仕様追加時に「見た目は接続されるが GPU op が違う」型のズレが起きやすい。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>simulation_plan/linearize.rs</code>: control mask, swap decomposition, QFT expansion, measurement / Bloch order。</li>
-                <li><code>render/circuit_connectors/control.rs</code>: control groups。</li>
-                <li><code>render/circuit_connectors/swap.rs</code> and <code>phase.rs</code>: column grouping を別実装。</li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li><code>ColumnAnalysis</code> または <code>StepIr</code> を導入。</li>
-                <li>GPU ops と connector paint inputs を同じ解析結果から出す。</li>
-                <li>drag preview 用の仮配置も同じ analyzer に流す。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="medium">
-            <div class="issue-top"><h3>visual specs が座標と pixel 色に強く依存している</h3><span class="badge medium">Medium</span></div>
-            <p>Playwright の visual specs は実描画確認に役立つ一方、magic number と pixel probe が増えると UI 微調整のたびに test 修正が膨らむ。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>egui-web-drag-visual.spec.ts</code> 457 行。</li>
-                <li><code>egui-web-state-semantics.spec.ts</code> 450 行。</li>
-                <li><code>features/support/egui-helpers.ts</code> が screenshot decode、drag helpers、layout estimation をまとめて持つ。</li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li>semantic helper と pixel helper を分ける。</li>
-                <li>色の exact RGB assert は必要な箇所だけに限定する。</li>
-                <li>UI geometry は hook / snapshot から読む。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="low">
-            <div class="issue-top"><h3>gate params は matrix / angle / POD が同居している</h3><span class="badge low">Low</span></div>
-            <p>現状は 400 行で破綻はしていない。ただし parametric gate や QFT 展開が増えると、matrix 定義と parser と GPU POD layout の責務を分けた方が安全。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>gate_matrix</code> が fixed gate matrix を保持。</li>
-                <li><code>parse_angle_radians</code> / <code>pi_coefficient</code> / <code>parse_fraction</code> が同居。</li>
-                <li><code>GateParams</code> と各 <code>*_params</code> builder も同居。</li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li><code>gates/matrix.rs</code>, <code>gates/angle.rs</code>, <code>gates/gpu_params.rs</code> へ分割。</li>
-                <li>angle parser の unit tests を module-local に寄せる。</li>
-                <li>POD layout の変更は GPU shader と一緒にレビューする。</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="issue-card" data-severity="low">
-            <div class="issue-top"><h3>固定 GPU capacity は今後のスケールで詰まりやすい</h3><span class="badge low">Backlog</span></div>
-            <p>現在は validation で silent skip を避けているため緊急ではない。ただし large mode や QFT 展開で op 数が伸びると、定数調整だけでは保守しにくくなる。</p>
-            <div class="evidence">
-              <div class="evidence-title">Evidence</div>
-              <ul>
-                <li><code>MAX_OPS_PER_RECOMPUTE = 256</code></li>
-                <li><code>MAX_BLOCH_SLOTS = 64</code></li>
-                <li><code>MAX_MEASUREMENT_SLOTS = 64</code></li>
-              </ul>
-            </div>
-            <div class="evidence">
-              <div class="evidence-title">Refactor</div>
-              <ul>
-                <li>buffer grow or explicit user-facing capacity error。</li>
-                <li>QFT 展開後 op 数を UI で見える化。</li>
-                <li>docs/gpu-plan.md の Dynamic GPU capacity 候補と連動。</li>
-              </ul>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="roadmap">
-        <div class="sec-head"><span class="sec-num">4</span><h2>Roadmap — egui-web 内での安全な実行順</h2></div>
-        <div class="roadmap grid-3">
-          <article class="phase-card">
-            <h3>Circuit picker coordinator を薄くする</h3>
-            <p>分割済み module を活かし、layout pass と action reducer をさらに明示して本体 file を短くする。</p>
-            <div class="code-list"><code>render/circuit_picker.rs</code><code>app/circuit_picker_state.rs</code></div>
-          </article>
-          <article class="phase-card">
-            <h3>test hook registry を作る</h3>
-            <p>global hook 名、geometry JSON、dirty/repaint を一箇所へ集約。既存 Playwright / Cucumber の flaky 要因を減らす。</p>
-            <div class="code-list"><code>bootstrap.ts</code><code>src/test_hooks.rs</code></div>
-          </article>
-          <article class="phase-card">
-            <h3>UI constants を生成物にする</h3>
-            <p>Rust 定数から TS fixture を生成し、visual tests の magic number を削る。色は Flexoki token 名で扱う。</p>
-            <div class="code-list"><code>constants.rs</code><code>egui-helpers.ts</code></div>
-          </article>
-          <article class="phase-card">
-            <h3>ColumnAnalysis を導入</h3>
-            <p>connector 描画と GPU op lowering の入力を共有し、gate 追加時の見た目/意味ズレを防ぐ。</p>
-            <div class="code-list"><code>simulation_plan</code><code>render/circuit_connectors</code></div>
-          </article>
-          <article class="phase-card">
-            <h3>visual specs を helper 層で整理</h3>
-            <p>pixel probe、drag helper、semantic setup を分け、UI 微調整時の修正範囲を狭める。</p>
-            <div class="code-list"><code>tests/*.spec.ts</code><code>features/support</code></div>
-          </article>
-          <article class="phase-card">
-            <h3>capacity 設計を前倒し</h3>
-            <p>dynamic buffer grow か明示エラーを設計し、QFT / large mode の op 数増加に備える。</p>
-            <div class="code-list"><code>gpu/params.rs</code><code>simulation_plan/capacity.rs</code></div>
-          </article>
-        </div>
-      </section>
-
-      <section id="scope">
-        <div class="sec-head"><span class="sec-num">5</span><h2>Scope note — この更新でやったこと</h2></div>
-        <div class="grid-2">
-          <div class="compact-card">
-            <h3>変更したファイル</h3>
-            <ul>
-              <li><code>docs/refactor-candidates.html</code> を current egui-web source に合わせて更新。</li>
-              <li><code>apps/egui-web/src/render/circuit_picker/chrome.rs</code> で footer の label / plus 色を回路名と揃えた。</li>
-              <li>untracked mock docs はこの変更範囲外。</li>
-            </ul>
           </div>
-          <div class="compact-card">
-            <h3>次の確認</h3>
-            <ul>
-              <li>最初に <code>circuit_picker</code> coordinator の分割単位を決める。</li>
-              <li>リファクタ着手時は TDD で小分けにする。</li>
-              <li>UI 変更を伴う場合は snapshot / Playwright で差分確認。</li>
-            </ul>
+          <div class="panel target">
+            <div class="card-label">After</div>
+            <h3>Semantic model drives layout</h3>
+            <div class="flow-list">
+              <div class="flow-step"><strong>PlacedGate.column</strong> — Qni stepIndex 相当</div>
+              <div class="flow-step"><strong>PlacedGate.wire</strong> — Qni dropzone bit 相当</div>
+              <div class="flow-step"><strong>PlacedGate.span</strong> — Qni ResizeableSpan 相当</div>
+              <div class="flow-step">layout.position(gate) — 描画時だけ pixel</div>
+              <div class="flow-step">DragPreview.pos — pointer 追従の一時値</div>
+              <div class="flow-step">StepIr — Qni SerializedCircuitStep 相当</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <svg class="svg-lane" viewBox="0 0 980 260" role="img" aria-label="model refactor flow">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#205EA6"></path>
+              </marker>
+            </defs>
+            <rect x="32" y="48" width="188" height="96" rx="16" fill="#F2F0E5" stroke="#DAD8CE"></rect>
+            <text x="56" y="88" class="svg-title">CircuitModel</text>
+            <text x="56" y="116" class="svg-label">column / wire / span (Qni step/dropzone)</text>
+            <path d="M226 96 C310 96, 310 56, 386 56" fill="none" stroke="#205EA6" stroke-width="3" marker-end="url(#arrow)"></path>
+            <path d="M226 96 C310 96, 310 128, 386 128" fill="none" stroke="#205EA6" stroke-width="3" marker-end="url(#arrow)"></path>
+            <path d="M226 96 C310 96, 310 200, 386 200" fill="none" stroke="#205EA6" stroke-width="3" marker-end="url(#arrow)"></path>
+            <rect x="392" y="24" width="188" height="64" rx="16" fill="#EAF2F8" stroke="#BCD1E0"></rect>
+            <text x="416" y="64" class="svg-title">Layout</text>
+            <rect x="392" y="96" width="188" height="64" rx="16" fill="#EAF2F8" stroke="#BCD1E0"></rect>
+            <text x="416" y="136" class="svg-title">URL codec</text>
+            <rect x="392" y="168" width="188" height="64" rx="16" fill="#EAF2F8" stroke="#BCD1E0"></rect>
+            <text x="416" y="208" class="svg-title">StepIr → RecomputePlan</text>
+            <path d="M586 56 C654 56, 654 96, 720 96" fill="none" stroke="#66800B" stroke-width="3" marker-end="url(#arrow)"></path>
+            <path d="M586 128 C654 128, 654 112, 720 112" fill="none" stroke="#66800B" stroke-width="3" marker-end="url(#arrow)"></path>
+            <path d="M586 200 C654 200, 654 128, 720 128" fill="none" stroke="#66800B" stroke-width="3" marker-end="url(#arrow)"></path>
+            <rect x="728" y="64" width="220" height="96" rx="16" fill="#F2F0E5" stroke="#DAD8CE"></rect>
+            <text x="752" y="104" class="svg-title">Stable behavior</text>
+            <text x="752" y="132" class="svg-label">drag / share / GPU stay aligned</text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="section" id="roadmap" style="--i:6">
+        <div class="sec-head"><span class="sec-num">6</span><h2>Roadmap — 小さく安全に進める順番</h2></div>
+        <p class="section-note">大きな差分を避けるため、各 phase ごとにテストを通す。Qni の構造は参照し、CPU simulator / DOM state machine はそのまま移植しない。</p>
+        <div class="roadmap">
+          <div class="road-card">
+            <div class="phase-index">01</div>
+            <div class="phase-label">Normalize</div>
+            <h3>モデル正本化</h3>
+            <p>C-01 + Q-01。column / wire / span を導入し、pos 依存を縮小。</p>
+            <ul><li>Qni step/dropzone 対応表</li><li>URL roundtrip</li><li>drag/drop smoke</li><li>state vector一致</li></ul>
+          </div>
+          <div class="road-card">
+            <div class="phase-index">02</div>
+            <div class="phase-label">Guard</div>
+            <h3>StepIr / GPU plan safety</h3>
+            <p>C-02 + Q-03/Q-04。列解析は <code>simulation_plan/*</code> に分離済み。capacity overflow を明示エラーか拡張へ。</p>
+            <ul><li>large circuit test</li><li>release behavior確認</li><li>connector と GPU op の同一入力化</li></ul>
+          </div>
+          <div class="road-card">
+            <div class="phase-index">03</div>
+            <div class="phase-label">Extract</div>
+            <h3>関数 / state 分割</h3>
+            <p>C-04/C-05 + Q-02。挙動を変えずに読みやすさを上げる。</p>
+            <ul><li>draw connectors</li><li>drop pipeline</li><li>dispatch encoder</li><li>enum reducer for drag/resize — done</li></ul>
+          </div>
+          <div class="road-card">
+            <div class="phase-index">04</div>
+            <div class="phase-label">Unify</div>
+            <h3>GateSpec と docs</h3>
+            <p>C-03/C-06/C-09 + Q-05/Q-06。定義と説明を一箇所に寄せる。</p>
+            <ul><li>Gate registry</li><li>Qni simulator は semantics oracle</li><li>Flexoki tokens</li><li>docs split</li></ul>
           </div>
         </div>
       </section>
+
+      <section class="section" id="checks" style="--i:7">
+        <div class="sec-head"><span class="sec-num">7</span><h2>Checks — リファクタ時の検証ゲート</h2></div>
+        <p class="section-note">今回の監査で通った軽量チェック。実装時は変更範囲に応じて Playwright / Cucumber / snapshot まで広げる。</p>
+        <div class="split">
+          <details open>
+            <summary>軽量チェック</summary>
+            <div class="details-body">
+              <ul>
+                <li><code>cd apps/egui-web &amp;&amp; cargo check --target wasm32-unknown-unknown</code></li>
+                <li><code>cd apps/egui-web &amp;&amp; cargo clippy --target wasm32-unknown-unknown -- -D warnings</code></li>
+                <li><code>cd apps/egui-web &amp;&amp; pnpm run typecheck</code></li>
+                <li><code>cd apps/tui &amp;&amp; cargo check</code> / <code>cargo clippy -- -D warnings</code></li>
+                <li><code>cd apps/mcp-qni &amp;&amp; pnpm run typecheck</code> / <code>pnpm run lint</code></li>
+              </ul>
+            </div>
+          </details>
+          <details open>
+            <summary>UI / GPU 変更時</summary>
+            <div class="details-body">
+              <ul>
+                <li><code>pnpm run test:preflight</code></li>
+                <li><code>pnpm run test:bdd</code></li>
+                <li><code>pnpm run test:pw-legacy</code></li>
+                <li><code>scripts/agent-visual.ts</code> で外部 Chrome screenshot</li>
+                <li>TUI UI 変更は <code>cargo insta review</code> で accept / reject 明示</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller/*</code> / <code>app/state_panel/*</code> / <code>render/state_panel_layout/*</code> / <code>render/state_panel_popup/*</code> / <code>app/state_panel_state.rs</code> / <code>app/gpu_plan_state.rs</code> / <code>app/update_flow.rs</code> / <code>simulation_plan/*</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag start-resize-preview-hover-drop state machine / state panel drag-viewport-aspect-resize interactions / state panel geometry-aspect-hit rect-clamp layout / popup cell-aspect-icon drawing / state panel state / GPU plan state / update coordinator / GPU plan lowering / icon drawing / URL codec responsibilities を分離。<code>docs/gpu-plan.md</code> は GPU-only production path と test-only readback 方針へ更新。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+      </div>
     </main>
   </div>
 
   <script>
-    (function() {
+    (function () {
       const toc = document.getElementById('toc');
-      if (!toc) return;
       const links = Array.from(toc.querySelectorAll('a'));
       const sections = links.map((link) => {
         const id = link.getAttribute('href').slice(1);
         return { link, el: document.getElementById(id) };
       }).filter((item) => item.el);
+
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
@@ -811,12 +1024,13 @@
           const match = sections.find((item) => item.el === entry.target);
           if (match) {
             match.link.classList.add('active');
-            if (window.innerWidth <= 1100) {
+            if (window.innerWidth <= 1080) {
               match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
           }
         });
-      }, { rootMargin: '-10% 0px -80% 0px' });
+      }, { rootMargin: '-10% 0px -78% 0px' });
+
       sections.forEach((item) => observer.observe(item.el));
       links.forEach((link) => {
         link.addEventListener('click', (event) => {
