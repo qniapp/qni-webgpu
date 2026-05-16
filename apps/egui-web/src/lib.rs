@@ -9,6 +9,7 @@ mod layout;
 mod render;
 mod shared;
 mod simulation_plan;
+mod test_hooks;
 mod url_circuit;
 
 use crate::app::QniApp;

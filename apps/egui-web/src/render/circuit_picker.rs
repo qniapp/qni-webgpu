@@ -822,9 +822,6 @@ fn publish_picker_dropdown_geometry_json(
     dropdown_rect: egui::Rect,
     topbar_bottom_offset: f32,
 ) {
-    let Some(window) = web_sys::window() else {
-        return;
-    };
     let json = format!(
         "{{\"trigger_top\":{:.3},\"trigger_bottom\":{:.3},\"topbar_bottom\":{:.3},\"dropdown_top\":{:.3},\"dropdown_bottom\":{:.3}}}",
         trigger_rect.top(),
@@ -833,9 +830,8 @@ fn publish_picker_dropdown_geometry_json(
         dropdown_rect.top(),
         dropdown_rect.bottom(),
     );
-    let _ = js_sys::Reflect::set(
-        window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__qniCircuitPickerDropdownGeometryJson"),
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_CIRCUIT_PICKER_DROPDOWN_GEOMETRY_JSON,
         &wasm_bindgen::JsValue::from_str(&json),
     );
 }
@@ -855,9 +851,6 @@ fn publish_picker_submenu_geometry_json(
     kebab_rect: egui::Rect,
     submenu_rect: egui::Rect,
 ) {
-    let Some(window) = web_sys::window() else {
-        return;
-    };
     let json = format!(
         "{{\"index\":{index},\"parent_row_top\":{:.3},\"kebab_left\":{:.3},\"kebab_right\":{:.3},\"submenu_left\":{:.3},\"submenu_right\":{:.3},\"submenu_top\":{:.3}}}",
         parent_row_rect.top(),
@@ -867,9 +860,8 @@ fn publish_picker_submenu_geometry_json(
         submenu_rect.right(),
         submenu_rect.top(),
     );
-    let _ = js_sys::Reflect::set(
-        window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__qniCircuitPickerGeometryJson"),
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_CIRCUIT_PICKER_GEOMETRY_JSON,
         &wasm_bindgen::JsValue::from_str(&json),
     );
 }

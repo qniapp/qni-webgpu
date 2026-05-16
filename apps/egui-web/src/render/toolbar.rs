@@ -159,9 +159,6 @@ fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: b
     if tooltip != "Duplicate circuit" {
         return;
     }
-    let Some(window) = web_sys::window() else {
-        return;
-    };
     let json = format!(
         "{{\"left\":{:.3},\"right\":{:.3},\"top\":{:.3},\"bottom\":{:.3},\"hovered\":{}}}",
         rect.left(),
@@ -170,15 +167,13 @@ fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: b
         rect.bottom(),
         hovered,
     );
-    let _ = js_sys::Reflect::set(
-        window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__qniToolbarDuplicateGeometryJson"),
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON,
         &wasm_bindgen::JsValue::from_str(&json),
     );
     if hovered {
-        let _ = js_sys::Reflect::set(
-            window.as_ref(),
-            &wasm_bindgen::JsValue::from_str("__qniToolbarTooltipText"),
+        crate::test_hooks::set_window_value(
+            crate::test_hooks::QNI_TOOLBAR_TOOLTIP_TEXT,
             &wasm_bindgen::JsValue::from_str(tooltip),
         );
     }

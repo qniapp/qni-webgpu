@@ -137,9 +137,6 @@ fn publish_aspect_popover_geometry_json(
     rows: &[egui::Rect],
     current_aspect: usize,
 ) {
-    let Some(window) = web_sys::window() else {
-        return;
-    };
     let rows_json = rows
         .iter()
         .map(|row| {
@@ -169,9 +166,8 @@ fn publish_aspect_popover_geometry_json(
         current_aspect,
         rows_json,
     );
-    let _ = js_sys::Reflect::set(
-        window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__qniAspectPopoverGeometryJson"),
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_ASPECT_POPOVER_GEOMETRY_JSON,
         &wasm_bindgen::JsValue::from_str(&json),
     );
 }

@@ -45,9 +45,6 @@ impl QniApp {
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_hover_snapshot(hovered_gate_id: Option<u32>, hovered_palette_index: Option<usize>) {
-    let Some(window) = web_sys::window() else {
-        return;
-    };
     let gate = hovered_gate_id
         .map(|id| id.to_string())
         .unwrap_or_else(|| "null".to_owned());
@@ -55,9 +52,8 @@ fn publish_hover_snapshot(hovered_gate_id: Option<u32>, hovered_palette_index: O
         .map(|index| index.to_string())
         .unwrap_or_else(|| "null".to_owned());
     let snapshot = format!("{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette}}}");
-    let _ = js_sys::Reflect::set(
-        window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__qniHoverSnapshotJson"),
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_HOVER_SNAPSHOT_JSON,
         &wasm_bindgen::JsValue::from_str(&snapshot),
     );
 }

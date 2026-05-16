@@ -300,9 +300,9 @@ fn wire_external_gpu_test_hooks(ctx: &egui::Context) {
             });
             ctx.request_repaint();
         }) as Box<dyn FnMut(wasm_bindgen::JsValue)>);
-    let _ = js_sys::Reflect::set(
+    crate::test_hooks::set_property(
         window.as_ref(),
-        &wasm_bindgen::JsValue::from_str("__setExternalGpuStatus"),
+        crate::test_hooks::QNI_SET_EXTERNAL_GPU_STATUS,
         closure.as_ref().unchecked_ref(),
     );
     closure.forget();

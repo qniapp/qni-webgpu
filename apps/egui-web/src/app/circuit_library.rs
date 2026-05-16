@@ -638,6 +638,11 @@ mod test_hooks {
     use wasm_bindgen::JsCast;
 
     use super::{CircuitEntry, CircuitLibrary};
+    use crate::test_hooks::{
+        set_property, QNI_CIRCUIT_LIBRARY_DELETE, QNI_CIRCUIT_LIBRARY_LOAD,
+        QNI_CIRCUIT_LIBRARY_RENAME, QNI_CIRCUIT_LIBRARY_SAVE, QNI_CIRCUIT_PICKER_SNAPSHOT,
+        QNI_SEED_CIRCUITS,
+    };
 
     thread_local! {
         static PENDING_LIBRARY_SEED: RefCell<Option<CircuitLibrary>> = const { RefCell::new(None) };
@@ -662,9 +667,9 @@ mod test_hooks {
                 }
             })
                 as Box<dyn FnMut(wasm_bindgen::JsValue)>);
-        let _ = js_sys::Reflect::set(
+        set_property(
             window.as_ref(),
-            &wasm_bindgen::JsValue::from_str("__seedCircuits"),
+            QNI_SEED_CIRCUITS,
             seed.as_ref().unchecked_ref(),
         );
         seed.forget();
@@ -673,9 +678,9 @@ mod test_hooks {
             LIBRARY_SNAPSHOT.with(|snapshot| snapshot.borrow().clone())
         })
             as Box<dyn FnMut() -> String>);
-        let _ = js_sys::Reflect::set(
+        set_property(
             window.as_ref(),
-            &wasm_bindgen::JsValue::from_str("__qniCircuitPickerSnapshot"),
+            QNI_CIRCUIT_PICKER_SNAPSHOT,
             snapshot.as_ref().unchecked_ref(),
         );
         snapshot.forget();
@@ -684,10 +689,10 @@ mod test_hooks {
     }
 
     fn wrap_library_mutation_hooks(window: &wasm_bindgen::JsValue, ctx: egui::Context) {
-        wrap_library_hook_1(window, "__qniCircuitLibraryDelete", ctx.clone());
-        wrap_library_hook_1(window, "__qniCircuitLibraryLoad", ctx.clone());
-        wrap_library_hook_2(window, "__qniCircuitLibraryRename", ctx.clone());
-        wrap_library_hook_2(window, "__qniCircuitLibrarySave", ctx);
+        wrap_library_hook_1(window, QNI_CIRCUIT_LIBRARY_DELETE, ctx.clone());
+        wrap_library_hook_1(window, QNI_CIRCUIT_LIBRARY_LOAD, ctx.clone());
+        wrap_library_hook_2(window, QNI_CIRCUIT_LIBRARY_RENAME, ctx.clone());
+        wrap_library_hook_2(window, QNI_CIRCUIT_LIBRARY_SAVE, ctx);
     }
 
     fn library_hook(window: &wasm_bindgen::JsValue, name: &str) -> Option<js_sys::Function> {
@@ -708,11 +713,7 @@ mod test_hooks {
                 result.unwrap_or_else(|error| wasm_bindgen::throw_val(error))
             })
                 as Box<dyn FnMut(wasm_bindgen::JsValue) -> wasm_bindgen::JsValue>);
-        let _ = js_sys::Reflect::set(
-            window,
-            &wasm_bindgen::JsValue::from_str(name),
-            hook.as_ref().unchecked_ref(),
-        );
+        set_property(window, name, hook.as_ref().unchecked_ref());
         hook.forget();
     }
 
@@ -730,11 +731,7 @@ mod test_hooks {
             as Box<
                 dyn FnMut(wasm_bindgen::JsValue, wasm_bindgen::JsValue) -> wasm_bindgen::JsValue,
             >);
-        let _ = js_sys::Reflect::set(
-            window,
-            &wasm_bindgen::JsValue::from_str(name),
-            hook.as_ref().unchecked_ref(),
-        );
+        set_property(window, name, hook.as_ref().unchecked_ref());
         hook.forget();
     }
 
