@@ -7,6 +7,7 @@ use eframe::egui;
 
 use super::circuit_library::{CircuitEntry, CircuitId};
 
+const PICKER_ROW_HEIGHT: f32 = 36.0; // h-9 = 36px picker row height.
 const DEFAULT_PICKER_ITEMS_HEIGHT: f32 = 216.0; // 6 picker rows × 36px, mock §03 default.
 const DEFAULT_PICKER_MIN_ITEMS_HEIGHT: f32 = 72.0; // 2 picker rows × 36px, mock §03 min.
 
@@ -22,6 +23,7 @@ pub(crate) enum PickerState {
         drag: PickerDragState,
         items_height: f32,
         resize_drag: Option<ResizeDrag>,
+        pending_scroll_offset: Option<f32>,
     },
 }
 
@@ -37,12 +39,11 @@ pub(crate) enum PickerDragState {
         pointer_offset_y: f32,
     },
     Active {
-        entry_index: usize,
+        original_index: usize,
+        current_slot: usize,
         source_row_left: f32,
         row_width: f32,
         pointer_offset_y: f32,
-        original_entries: Vec<CircuitEntry>,
-        did_reorder: bool,
     },
 }
 
@@ -64,6 +65,7 @@ impl PickerState {
             drag: PickerDragState::Idle,
             items_height: DEFAULT_PICKER_ITEMS_HEIGHT,
             resize_drag: None,
+            pending_scroll_offset: None,
         }
     }
 
@@ -241,12 +243,12 @@ impl PickerState {
         )
     }
 
-    pub(crate) fn active_drag_index(&self) -> Option<usize> {
+    pub(crate) fn active_drag_slot(&self) -> Option<usize> {
         match self {
             Self::Open {
-                drag: PickerDragState::Active { entry_index, .. },
+                drag: PickerDragState::Active { current_slot, .. },
                 ..
-            } => Some(*entry_index),
+            } => Some(*current_slot),
             _ => None,
         }
     }
@@ -264,12 +266,39 @@ impl PickerState {
     pub(crate) fn drag_source_index(&self) -> Option<usize> {
         match self {
             Self::Open {
-                drag:
-                    PickerDragState::Pending { entry_index, .. }
-                    | PickerDragState::Active { entry_index, .. },
+                drag: PickerDragState::Pending { entry_index, .. },
                 ..
             } => Some(*entry_index),
+            Self::Open {
+                drag: PickerDragState::Active { original_index, .. },
+                ..
+            } => Some(*original_index),
             _ => None,
+        }
+    }
+
+    pub(crate) fn visual_row_shift(&self, index: usize) -> f32 {
+        let Self::Open {
+            drag:
+                PickerDragState::Active {
+                    original_index,
+                    current_slot,
+                    ..
+                },
+            ..
+        } = self
+        else {
+            return 0.0;
+        };
+        if *current_slot > *original_index && index > *original_index && index <= *current_slot {
+            -PICKER_ROW_HEIGHT
+        } else if *current_slot < *original_index
+            && index >= *current_slot
+            && index < *original_index
+        {
+            PICKER_ROW_HEIGHT
+        } else {
+            0.0
         }
     }
 
@@ -295,7 +324,7 @@ impl PickerState {
             Self::Open {
                 drag:
                     PickerDragState::Active {
-                        entry_index,
+                        original_index,
                         source_row_left,
                         row_width,
                         pointer_offset_y,
@@ -303,7 +332,7 @@ impl PickerState {
                     },
                 ..
             } => Some((
-                *entry_index,
+                *original_index,
                 *source_row_left,
                 *row_width,
                 *pointer_offset_y,
@@ -318,7 +347,7 @@ impl PickerState {
             Self::Open {
                 drag:
                     PickerDragState::Active {
-                        entry_index,
+                        original_index,
                         source_row_left,
                         row_width,
                         pointer_offset_y,
@@ -326,7 +355,7 @@ impl PickerState {
                     },
                 ..
             } => Some((
-                *entry_index,
+                *original_index,
                 *source_row_left,
                 *row_width,
                 *pointer_offset_y,
@@ -357,12 +386,7 @@ impl PickerState {
         false
     }
 
-    pub(crate) fn promote_pending_drag(
-        &mut self,
-        pointer_pos: egui::Pos2,
-        threshold_sq: f32,
-        original_entries: &[CircuitEntry],
-    ) {
+    pub(crate) fn promote_pending_drag(&mut self, pointer_pos: egui::Pos2, threshold_sq: f32) {
         let next = match self {
             Self::Open {
                 drag:
@@ -376,12 +400,11 @@ impl PickerState {
                 ..
             } if pointer_pos.distance_sq(*started_pos) >= threshold_sq => {
                 Some(PickerDragState::Active {
-                    entry_index: *entry_index,
+                    original_index: *entry_index,
+                    current_slot: *entry_index,
                     source_row_left: *source_row_left,
                     row_width: *row_width,
                     pointer_offset_y: *pointer_offset_y,
-                    original_entries: original_entries.to_vec(),
-                    did_reorder: false,
                 })
             }
             _ => None,
@@ -391,56 +414,83 @@ impl PickerState {
         }
     }
 
-    pub(crate) fn set_active_drag_index(&mut self, index: usize) {
+    pub(crate) fn set_active_drag_slot(&mut self, slot: usize) -> bool {
         if let Self::Open {
-            drag: PickerDragState::Active { entry_index, .. },
+            drag: PickerDragState::Active { current_slot, .. },
             ..
         } = self
         {
-            *entry_index = index;
+            let changed = *current_slot != slot;
+            *current_slot = slot;
+            return changed;
         }
+        false
     }
 
-    pub(crate) fn mark_drag_reordered(&mut self) {
-        if let Self::Open {
-            drag: PickerDragState::Active { did_reorder, .. },
-            ..
-        } = self
-        {
-            *did_reorder = true;
-        }
-    }
-
-    pub(crate) fn finish_drag(&mut self) -> bool {
+    pub(crate) fn take_pending_scroll_offset(&mut self) -> Option<f32> {
         match self {
-            Self::Open { drag, .. } => {
-                let did_reorder = matches!(
-                    drag,
+            Self::Open {
+                pending_scroll_offset,
+                ..
+            } => pending_scroll_offset.take(),
+            Self::Closed => None,
+        }
+    }
+
+    pub(crate) fn set_pending_scroll_offset(&mut self, offset: f32) {
+        if let Self::Open {
+            pending_scroll_offset,
+            ..
+        } = self
+        {
+            *pending_scroll_offset = Some(offset);
+        }
+    }
+
+    pub(crate) fn clear_pending_scroll_offset(&mut self) {
+        if let Self::Open {
+            pending_scroll_offset,
+            ..
+        } = self
+        {
+            *pending_scroll_offset = None;
+        }
+    }
+
+    pub(crate) fn finish_drag(&mut self) -> Option<(usize, usize)> {
+        match self {
+            Self::Open {
+                drag,
+                pending_scroll_offset,
+                ..
+            } => {
+                let move_to = match drag {
                     PickerDragState::Active {
-                        did_reorder: true,
+                        original_index,
+                        current_slot,
                         ..
-                    }
-                );
-                *drag = PickerDragState::Idle;
-                did_reorder
-            }
-            Self::Closed => false,
-        }
-    }
-
-    pub(crate) fn cancel_drag(&mut self) -> Option<Vec<CircuitEntry>> {
-        match self {
-            Self::Open { drag, .. } => {
-                let original_entries = match drag {
-                    PickerDragState::Active {
-                        original_entries, ..
-                    } => Some(original_entries.clone()),
-                    PickerDragState::Idle | PickerDragState::Pending { .. } => None,
+                    } if original_index != current_slot => Some((*original_index, *current_slot)),
+                    PickerDragState::Idle
+                    | PickerDragState::Pending { .. }
+                    | PickerDragState::Active { .. } => None,
                 };
                 *drag = PickerDragState::Idle;
-                original_entries
+                *pending_scroll_offset = None;
+                move_to
             }
             Self::Closed => None,
+        }
+    }
+
+    pub(crate) fn cancel_drag(&mut self) {
+        if let Self::Open {
+            drag,
+            pending_scroll_offset,
+            ..
+        } = self
+        {
+            *drag = PickerDragState::Idle;
+            *pending_scroll_offset = None;
         }
     }
 }

@@ -149,41 +149,52 @@ impl QniApp {
                     ctx.style_mut(|style| {
                         style.animation_time = ITEMS_SCROLLBAR_FADE_SECONDS;
                     });
-                    let scroll_output = egui::ScrollArea::vertical()
+                    let pending_scroll_offset = self.picker.take_pending_scroll_offset();
+                    let scroll_area = egui::ScrollArea::vertical()
                         .id_salt("circuit-picker-items")
                         .max_height(items_height)
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            ui.set_style(previous_style.clone());
-                            ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
-                            ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
-                            for (index, entry) in entries.iter().enumerate() {
-                                let rects = self.show_picker_item(
-                                    ui,
-                                    colors,
-                                    entry,
-                                    index,
-                                    entry.id == active_id,
-                                    focused_index == Some(index),
-                                    submenu_index == Some(index),
-                                    renaming_id.as_deref() == Some(entry.id.as_str()),
-                                    &entries,
-                                    &mut actions,
-                                );
-                                row_rects.push(rects.row);
-                                kebab_rects.push(rects.kebab);
-                            }
-                            self.update_picker_drag(ctx, &row_rects);
-                            self.paint_picker_dragged_row(
+                        .auto_shrink([false, false]);
+                    let scroll_area = if let Some(offset) = pending_scroll_offset {
+                        scroll_area.vertical_scroll_offset(offset)
+                    } else {
+                        scroll_area
+                    };
+                    let scroll_output = scroll_area.show(ui, |ui| {
+                        ui.set_style(previous_style.clone());
+                        ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
+                        ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
+                        for (index, entry) in entries.iter().enumerate() {
+                            let rects = self.show_picker_item(
                                 ui,
                                 colors,
-                                &self.library.entries,
-                                &row_rects,
+                                entry,
+                                index,
+                                entry.id == active_id,
+                                focused_index == Some(index),
+                                submenu_index == Some(index),
+                                renaming_id.as_deref() == Some(entry.id.as_str()),
+                                &mut actions,
                             );
-                            ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
-                        });
+                            row_rects.push(rects.row);
+                            kebab_rects.push(rects.kebab);
+                        }
+                        self.update_picker_drag(ctx, &row_rects);
+                        self.paint_picker_dragged_row(
+                            ui,
+                            colors,
+                            &self.library.entries,
+                            ui.clip_rect(),
+                        );
+                        ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
+                    });
                     ui.set_style(previous_style);
                     ctx.set_style(previous_context_style);
+                    self.update_picker_drag_auto_scroll(
+                        ctx,
+                        scroll_output.inner_rect,
+                        scroll_output.content_size.y,
+                        scroll_output.state.offset.y,
+                    );
                     ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
                         egui::vec2(ui.available_width(), RESIZE_HANDLE_H),
@@ -296,7 +307,6 @@ impl QniApp {
         focused: bool,
         submenu_open: bool,
         renaming: bool,
-        entries: &[CircuitEntry],
         actions: &mut Vec<PickerAction>,
     ) -> PickerItemRects {
         let (rect, response) = ui.allocate_exact_size(
@@ -341,10 +351,10 @@ impl QniApp {
         }
         if let Some(pointer_pos) = response.interact_pointer_pos() {
             self.picker
-                .promote_pending_drag(pointer_pos, DRAG_ACTIVATE_DISTANCE_SQ, entries);
+                .promote_pending_drag(pointer_pos, DRAG_ACTIVATE_DISTANCE_SQ);
         }
         let drag_active = self.picker.drag_in_progress();
-        let live_reorder_active = self.picker.active_drag_index().is_some();
+        let live_reorder_active = self.picker.active_drag_slot().is_some();
         let dragging_source = self.picker.drag_source_index() == Some(index);
         let pointer_hovered = (response.hovered() || kebab.hovered())
             && !drag_active
@@ -358,7 +368,8 @@ impl QniApp {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         }
         if !dragging_source {
-            let visual_rect = self.animated_picker_item_rect(ui, entry, rect, live_reorder_active);
+            let visual_rect =
+                self.animated_picker_item_rect(ui, entry, index, rect, live_reorder_active);
             if hovered && !drag_active {
                 ui.painter().rect_filled(
                     visual_rect,
@@ -452,9 +463,7 @@ impl QniApp {
     fn handle_picker_keyboard(&mut self, ctx: &egui::Context) {
         if self.picker.drag_in_progress() {
             if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-                if let Some(original_entries) = self.picker.cancel_drag() {
-                    self.library.entries = original_entries;
-                }
+                self.picker.cancel_drag();
                 self.picker_drag_suppressed_until_release =
                     ctx.input(|input| input.pointer.primary_down());
                 ctx.request_repaint();

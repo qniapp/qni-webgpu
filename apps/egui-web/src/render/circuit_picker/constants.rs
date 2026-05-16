@@ -31,6 +31,8 @@ pub(super) const TOPBAR_BOTTOM_OFFSET: f32 = 6.0; // py-1.5 = 6px; trigger botto
 pub(super) const SUBMENU_GAP: f32 = 4.0; // spacing-1.
 pub(super) const KEBAB_SIZE: egui::Vec2 = egui::vec2(20.0, 20.0);
 pub(super) const DRAG_ACTIVATE_DISTANCE_SQ: f32 = 16.0; // 4px threshold squared, per mock §02.
+pub(super) const EDGE_AUTO_SCROLL_ZONE: f32 = 36.0; // h-9 = 36px edge zone, mock §03.
+pub(super) const EDGE_AUTO_SCROLL_MAX_PX: f32 = 12.0; // 12px/frame max speed, mock §03.
 pub(super) const LIVE_REORDER_ANIM_SECONDS: f32 = 0.08; // 80ms FLIP slide per mock §04.
 
 #[derive(Clone, Copy, Debug)]

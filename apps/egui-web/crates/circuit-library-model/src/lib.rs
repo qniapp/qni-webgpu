@@ -162,6 +162,14 @@ impl CircuitLibrary {
         self.bump_updated_at();
     }
 
+    pub fn move_to_slot(&mut self, src: usize, slot: usize) {
+        if src >= self.entries.len() || slot >= self.entries.len() || src == slot {
+            return;
+        }
+        let entry = self.entries.remove(src);
+        self.entries.insert(slot, entry);
+    }
+
     pub fn swap_adjacent(&mut self, a: usize, b: usize) {
         debug_assert!(a.abs_diff(b) == 1);
         if a < self.entries.len() && b < self.entries.len() && a.abs_diff(b) == 1 {

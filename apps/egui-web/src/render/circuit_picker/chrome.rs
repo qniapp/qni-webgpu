@@ -182,12 +182,6 @@ pub(super) fn paint_dragged_row_background(
     );
 }
 
-pub(super) fn drag_clamp_bounds(row_rects: &[egui::Rect]) -> Option<(f32, f32)> {
-    let first = row_rects.first()?;
-    let last = row_rects.last()?;
-    Some((first.top(), last.bottom() - ITEM_HEIGHT))
-}
-
 pub(super) fn paint_picker_item_text(
     ui: &egui::Ui,
     colors: &Colors,
