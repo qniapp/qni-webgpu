@@ -7,8 +7,10 @@
     "test:pw-legacy": "playwright test",
     "test:bdd": "cucumber-js --config cucumber.ts",
     "build:bootstrap": "tsc bootstrap.ts --ignoreConfig --target ES2022 --module ES2022 --strict --skipLibCheck --lib ES2022,DOM,DOM.Iterable --outDir .trunk-generated --declaration false --sourceMap false",
+    "generate:ui-constants": "node -r ts-node/register/transpile-only scripts/generate-ui-constants.ts",
+    "check:ui-constants": "node -r ts-node/register/transpile-only scripts/generate-ui-constants.ts --check",
     "typecheck": "tsc --noEmit",
-    "test:preflight": "pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts"
+    "test:preflight": "pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.1",

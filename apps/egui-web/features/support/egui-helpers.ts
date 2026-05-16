@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { Locator, Page } from 'playwright'
+import { UI_CONSTANTS } from '../../test-support/generated-ui-constants'
 import type { CanvasPixel, DragPreviewProbe, PixelSamplePoint, Point } from './support-types'
 
 declare global {
@@ -39,15 +40,15 @@ export const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
 const DEFAULT_NON_BACKGROUND_THRESHOLD = 20
 const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
-const DEFAULT_REM = 32
-const DEFAULT_GATE_SIZE = 1 * DEFAULT_REM
+const DEFAULT_REM = UI_CONSTANTS.REM
+const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 // qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
-const DEFAULT_PALETTE_GAP = 8
-const DEFAULT_PALETTE_ROW_Y = 2.5 * DEFAULT_REM
+const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
+const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
 const DEFAULT_PALETTE_COUNT = 21
 const DEFAULT_PALETTE_ROW1_COUNT = 13
-const DEFAULT_PALETTE_ROW_GAP = 8
-const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = 2 * DEFAULT_REM
+const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
+const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
 const DEFAULT_STATE_COUNT = 4
 
 // qni circle-notation desktop layout, mirroring

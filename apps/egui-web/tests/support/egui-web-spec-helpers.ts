@@ -18,6 +18,7 @@ import {
 import type { BlochEntry } from '../../features/support/egui-helpers'
 import type { CanvasPixel, PixelSamplePoint, Point } from '../../features/support/support-types'
 import { getPlainChromiumLaunchOptions } from '../../test-support/browser-launch'
+import { UI_CONSTANTS } from '../../test-support/generated-ui-constants'
 import { getWebServerConfig } from '../../test-support/web-server'
 
 export {
@@ -36,6 +37,7 @@ export {
   waitForAppReady,
   waitForCanvasContent,
   waitForStartupReady,
+  UI_CONSTANTS,
 }
 export type { CanvasPixel, PixelSamplePoint, Point }
 
