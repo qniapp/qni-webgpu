@@ -18,6 +18,7 @@ pub(crate) struct GpuPlanState {
     bloch_slots: HashMap<u32, u32>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
     measurement_slots: HashMap<u32, u32>,
+    capacity_error: Option<String>,
 }
 
 impl Default for GpuPlanState {
@@ -28,6 +29,7 @@ impl Default for GpuPlanState {
             sim_ops: Vec::new(),
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
+            capacity_error: None,
         }
     }
 }
@@ -35,6 +37,9 @@ impl Default for GpuPlanState {
 impl GpuPlanState {
     pub(crate) fn mark_dirty(&mut self) {
         self.needs_recompute = true;
+        self.bloch_slots.clear();
+        self.measurement_slots.clear();
+        self.capacity_error = None;
     }
 
     pub(crate) fn needs_recompute_for(&self, state_count: usize) -> bool {
@@ -50,9 +55,22 @@ impl GpuPlanState {
         self.sim_ops.clear();
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.capacity_error = None;
+    }
+
+    pub(crate) fn set_capacity_error(&mut self, message: String) {
+        self.sim_ops.clear();
+        self.bloch_slots.clear();
+        self.measurement_slots.clear();
+        self.capacity_error = Some(message);
+    }
+
+    pub(crate) fn capacity_error(&self) -> Option<&str> {
+        self.capacity_error.as_deref()
     }
 
     pub(crate) fn replace_ops(&mut self, sim_ops: Vec<SimulationOp>) {
+        self.capacity_error = None;
         self.sim_ops = sim_ops;
         self.rebuild_slot_maps();
     }

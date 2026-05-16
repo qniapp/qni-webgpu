@@ -16,6 +16,7 @@ pub(crate) const QNI_CIRCUIT_PICKER_DROPDOWN_GEOMETRY_JSON: &str =
     "__qniCircuitPickerDropdownGeometryJson";
 pub(crate) const QNI_CIRCUIT_PICKER_GEOMETRY_JSON: &str = "__qniCircuitPickerGeometryJson";
 pub(crate) const QNI_CIRCUIT_PICKER_SNAPSHOT: &str = "__qniCircuitPickerSnapshot";
+pub(crate) const QNI_GPU_PLAN_CAPACITY_ERROR: &str = "__qniGpuPlanCapacityError";
 pub(crate) const QNI_HOVER_SNAPSHOT_JSON: &str = "__qniHoverSnapshotJson";
 pub(crate) const QNI_SEED_CIRCUITS: &str = "__seedCircuits";
 pub(crate) const QNI_SET_EXTERNAL_GPU_STATUS: &str = "__setExternalGpuStatus";

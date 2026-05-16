@@ -104,7 +104,11 @@ fn paint_cell_popup(
 ) {
     // Cell hover popup (B — Paper + ui-2 1px border + shadow, with qni-style
     // amplitude / probability / phase icons). Drawn last so it lifts above the
-    // resize handles + minimap + GPU circle pass.
+    // resize handles + minimap + GPU circle pass. Suppressed while a capacity
+    // error is visible so stale GPU state values never overlap the error card.
+    if app.gpu_plan.capacity_error().is_some() {
+        return;
+    }
     if let Some(cell) = app.state_panel.hovered_cell {
         state_panel_popup::draw_state_cell_popup(
             painter,

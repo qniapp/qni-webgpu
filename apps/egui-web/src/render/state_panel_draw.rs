@@ -36,17 +36,21 @@ impl QniApp {
         panel::paint_panel_background(painter, colors, state_rect);
         let handle_rect =
             header::paint_header_strip(painter, colors, layout, state_rect, handle_height);
-        gpu_callback::paint_state_vector_gpu(
-            self,
-            painter,
-            colors,
-            layout,
-            viewport_rect,
-            grid_origin,
-            screen_rect,
-            recompute,
-            target_format,
-        );
+        if let Some(message) = self.gpu_plan.capacity_error() {
+            panel::paint_capacity_error(painter, colors, viewport_rect, message);
+        } else {
+            gpu_callback::paint_state_vector_gpu(
+                self,
+                painter,
+                colors,
+                layout,
+                viewport_rect,
+                grid_origin,
+                screen_rect,
+                recompute,
+                target_format,
+            );
+        }
         overlays::paint_state_panel_overlays(
             self,
             painter,

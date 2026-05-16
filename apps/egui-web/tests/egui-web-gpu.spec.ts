@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   chromium,
   dragPointer,
@@ -26,6 +26,49 @@ import {
   type PixelSamplePoint,
   type Point,
 } from './support/egui-web-spec-helpers'
+
+const waitForSeedHook = async (page: Page): Promise<void> => {
+  await page.waitForFunction(() => typeof (window as any).__seedCircuits === 'function')
+}
+
+const seedActiveCircuit = async (page: Page, circuitJson: string): Promise<void> => {
+  await waitForSeedHook(page)
+  await page.evaluate((json) => {
+    const seed = (window as any).__seedCircuits
+    seed(JSON.stringify({
+      entries: [{ id: 'overflow', name: 'Overflow', circuit_json: json, updated_at: 1 }],
+      active_id: 'overflow',
+    }))
+  }, circuitJson)
+  await page.waitForFunction((json) => {
+    const snapshot = (window as any).__qniCircuitPickerSnapshot
+    if (typeof snapshot !== 'function') return false
+    return JSON.parse(snapshot()).entries[0]?.circuit_json === json
+  }, circuitJson)
+}
+
+const readGpuPlanCapacityError = async (page: Page): Promise<string | null> =>
+  page.evaluate(() => (window as any).__qniGpuPlanCapacityError ?? null)
+
+test('GPU capacity overflow reports an explicit error instead of recomputing empty ops', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page)
+  const columns = Array.from({ length: 257 }, () => ['H'])
+  await seedActiveCircuit(page, JSON.stringify({ cols: columns }))
+
+  await expect.poll(async () => readGpuPlanCapacityError(page)).toContain('MAX_OPS_PER_RECOMPUTE')
+})
+
+test('GPU capacity error hook clears after a valid recompute', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page)
+  const columns = Array.from({ length: 257 }, () => ['H'])
+  await seedActiveCircuit(page, JSON.stringify({ cols: columns }))
+  await page.waitForFunction(() => typeof (window as any).__qniGpuPlanCapacityError === 'string')
+  await seedActiveCircuit(page, JSON.stringify({ cols: [['H']] }))
+
+  await expect.poll(async () => readGpuPlanCapacityError(page)).toBeNull()
+})
 
 test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page }) => {
   // Specifically targets the GPU per-gate compute path: a circuit with no

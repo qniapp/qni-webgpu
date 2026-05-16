@@ -25,6 +25,7 @@ impl QniApp {
         if !state_vector_active {
             if recompute {
                 self.gpu_plan.clear_ops();
+                self.publish_gpu_plan_capacity_error(None);
                 self.gpu_plan.mark_clean_for(state_count);
             }
             return false;
@@ -45,11 +46,14 @@ impl QniApp {
                         max_measurement_slots: MAX_MEASUREMENT_SLOTS,
                     },
                 ) {
-                    self.log_gpu_plan_capacity_error(&error.to_string());
-                    self.gpu_plan.clear_ops();
-                    return recompute;
+                    let message = error.to_string();
+                    self.log_gpu_plan_capacity_error(&message);
+                    self.publish_gpu_plan_capacity_error(Some(&message));
+                    self.gpu_plan.set_capacity_error(message);
+                    return false;
                 }
                 self.gpu_plan.replace_ops(sim_ops);
+                self.publish_gpu_plan_capacity_error(None);
                 if external_gpu_state_refresh {
                     self.external_gpu_state_refresh_pending = false;
                 }
@@ -67,9 +71,31 @@ impl QniApp {
         #[cfg(target_arch = "wasm32")]
         {
             let message = format!("qni-webgpu recompute skipped: {message}");
-            web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&message));
+            let js_message = wasm_bindgen::JsValue::from_str(&message);
+            web_sys::console::error_1(&js_message);
         }
         #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = message;
+        }
+    }
+
+    pub(crate) fn clear_gpu_plan_capacity_error(&self) {
+        self.publish_gpu_plan_capacity_error(None);
+    }
+
+    fn publish_gpu_plan_capacity_error(&self, message: Option<&str>) {
+        #[cfg(all(target_arch = "wasm32", debug_assertions))]
+        {
+            let value = message
+                .map(wasm_bindgen::JsValue::from_str)
+                .unwrap_or(wasm_bindgen::JsValue::NULL);
+            crate::test_hooks::set_window_value(
+                crate::test_hooks::QNI_GPU_PLAN_CAPACITY_ERROR,
+                &value,
+            );
+        }
+        #[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
         {
             let _ = message;
         }

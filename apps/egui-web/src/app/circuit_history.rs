@@ -134,6 +134,7 @@ impl QniApp {
         self.external_gpu_started_at = None;
         self.external_gpu_state_refresh_pending = false;
         self.gpu_plan.mark_dirty();
+        self.clear_gpu_plan_capacity_error();
         self.library.update_active(json.to_owned());
         persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(json);
