@@ -81,6 +81,16 @@ const waitForEmptyLibrary = async (page: Page): Promise<LibraryDocument> => {
   throw new Error('localStorage circuit library did not become empty')
 }
 
+const clearLibraryUntilEmpty = async (page: Page): Promise<LibraryDocument> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    await libraryClear(page)
+    const document = await libraryList(page)
+    if (document.activeId === null && document.circuits.length === 0) return document
+    await page.waitForTimeout(50)
+  }
+  throw new Error('localStorage circuit library cleanup did not settle')
+}
+
 const errorMessage = async (operation: () => Promise<unknown>): Promise<string> => {
   try {
     await operation()
@@ -93,7 +103,7 @@ const errorMessage = async (operation: () => Promise<unknown>): Promise<string> 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page)
-  await libraryClear(page)
+  await clearLibraryUntilEmpty(page)
 })
 
 test('localStorage circuit library supports save, list, load, rename, and delete without UI coupling', async ({ page }) => {
