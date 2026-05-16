@@ -1555,6 +1555,7 @@ dependencies = [
  "futures-channel",
  "js-sys",
  "qni-egui-web-circuit-library-model",
+ "qni-egui-web-external-gpu-model",
  "serde",
  "tracing",
  "wasm-bindgen",
@@ -1570,6 +1571,10 @@ dependencies = [
  "js-sys",
  "serde",
 ]
+
+[[package]]
+name = "qni-egui-web-external-gpu-model"
+version = "0.1.0"
 
 [[package]]
 name = "quick-error"

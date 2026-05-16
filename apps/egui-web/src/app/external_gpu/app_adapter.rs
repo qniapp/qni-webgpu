@@ -3,9 +3,8 @@ use std::time::Duration;
 use eframe::egui;
 
 use super::client::{start_qiskit_run, take_qiskit_run_result};
-use super::payload::qiskit_run_payload;
-use super::status::{ExternalGpuStatus, GpuFailure};
 use super::test_hooks::{take_external_gpu_status_override, wire_external_gpu_test_hooks};
+use super::{qiskit_run_payload, ExternalGpuStatus, GpuFailure};
 use super::{ExecMode, QniApp};
 use crate::app::circuit_library;
 use crate::gates::GateKind;

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use super::status::{ExternalGpuStatus, GpuFailure};
+use super::{ExternalGpuStatus, GpuFailure};
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {

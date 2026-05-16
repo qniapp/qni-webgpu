@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use eframe::egui;
 
-use super::status::{short_failure_label, unsupported_gate_from_message, GpuFailure};
+use super::{short_failure_label, unsupported_gate_from_message, GpuFailure};
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {
