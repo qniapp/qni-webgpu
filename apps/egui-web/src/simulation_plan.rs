@@ -5,9 +5,11 @@
 //! hold the plan. Per AGENTS.md, production simulation remains GPU-only.
 
 mod capacity;
+mod column_analysis;
 mod linearize;
 mod op;
 
 pub(crate) use capacity::{validate_simulation_plan_capacity, SimulationPlanLimits};
+pub(crate) use column_analysis::{AnalyzedColumn, ColumnAnalysis};
 pub(crate) use linearize::linearize_ops;
 pub(crate) use op::SimulationOp;

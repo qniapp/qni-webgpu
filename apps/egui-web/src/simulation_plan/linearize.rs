@@ -7,9 +7,7 @@
 //! - `packages/simulator/src/state-vector.ts` and `matrix.ts` — the math each
 //!   shader implements (kept in `gpu/*`).
 
-use std::collections::HashMap;
-
-use super::SimulationOp;
+use super::{ColumnAnalysis, SimulationOp};
 use crate::app::PlacedGate;
 use crate::gates::{
     controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
@@ -35,22 +33,18 @@ pub(crate) fn linearize_ops(
     }
     let state_count = 1u32 << qubits;
 
-    let mut by_slot: HashMap<usize, Vec<&PlacedGate>> = HashMap::new();
-    for gate in placed_gates {
-        by_slot.entry(gate.column).or_default().push(gate);
-    }
-
-    let mut slot_indices: Vec<usize> = by_slot.keys().copied().collect();
-    slot_indices.sort();
-    if let Some(limit) = step_limit {
-        slot_indices.retain(|&slot| slot <= limit);
-    }
+    let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
+        if gate.wire >= qubits || step_limit.is_some_and(|limit| gate.column > limit) {
+            return None;
+        }
+        Some(gate.column)
+    });
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut bloch_slot: u32 = 0;
     let mut measurement_slot: u32 = 0;
-    for slot in slot_indices {
-        let column = by_slot.get(&slot).expect("slot exists");
+    for column in analysis.columns() {
+        let column_gates = column.gates();
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
         let mut targets: Vec<&PlacedGate> = Vec::new();
@@ -59,10 +53,7 @@ pub(crate) fn linearize_ops(
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
-        for gate in column {
-            if gate.wire >= qubits {
-                continue;
-            }
+        for gate in column_gates {
             let bit = (qubits - 1 - gate.wire) as u32;
             let bit_mask = 1u32 << bit;
             match gate.kind {

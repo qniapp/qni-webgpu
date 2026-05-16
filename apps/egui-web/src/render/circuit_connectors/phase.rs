@@ -6,6 +6,7 @@ use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
 use crate::layout::LayoutMetrics;
+use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 
 use super::super::circuit::gate_slot_index_for_render;
 
@@ -51,28 +52,26 @@ fn draw_phase_phase_connectors(
     // targets and applies the same 2x2 to each in turn), so we mirror just the
     // line rendering. Phases with no angle (qni's empty placeholder) are
     // skipped per :573.
-    let mut phase_groups: HashMap<usize, HashMap<String, Vec<egui::Pos2>>> = HashMap::new();
-    for gate in &app.placed_gates {
-        if gate.kind != GateKind::Phase {
-            continue;
+    let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
+        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+    });
+    for column in analysis.columns() {
+        let mut angle_buckets: HashMap<String, Vec<egui::Pos2>> = HashMap::new();
+        for gate in column.gates() {
+            if gate.kind != GateKind::Phase {
+                continue;
+            }
+            let angle = gate.angle.as_deref().unwrap_or("");
+            if angle.is_empty() {
+                continue;
+            }
+            let center =
+                circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+            angle_buckets
+                .entry(angle.to_string())
+                .or_default()
+                .push(center);
         }
-        let angle = gate.angle.as_deref().unwrap_or("");
-        if angle.is_empty() {
-            continue;
-        }
-        let Some(slot_index) = gate_slot_index_for_render(gate, metrics, dragging_gate_id) else {
-            continue;
-        };
-        let center =
-            circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-        phase_groups
-            .entry(slot_index)
-            .or_default()
-            .entry(angle.to_string())
-            .or_default()
-            .push(center);
-    }
-    for (slot_index, angle_buckets) in &phase_groups {
         for points in angle_buckets.values() {
             if points.len() < 2 {
                 continue;
@@ -85,7 +84,7 @@ fn draw_phase_phase_connectors(
             }
             // Slot-center anchored — same rationale as the control / swap
             // connectors.
-            let x = circuit_origin.x + metrics.slot_centers[*slot_index];
+            let x = circuit_origin.x + metrics.slot_centers[column.slot];
             let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
             painter.line_segment([egui::pos2(x, min_y), egui::pos2(x, max_y)], stroke);
         }
@@ -105,83 +104,67 @@ fn draw_phase_angle_labels(
     // same-angle pair, below for the bottommost) so the label never overlaps
     // the vertical connector that ties same-angle Phase gates together. We
     // replicate the same dodge logic here.
-    for gate in &app.placed_gates {
-        if gate.kind != GateKind::Phase {
-            continue;
-        }
-        let Some(angle) = gate.angle.as_deref() else {
-            continue;
-        };
-        if angle.is_empty() {
-            continue;
-        }
-        let Some(slot_index) = gate_slot_index_for_render(gate, metrics, dragging_gate_id) else {
-            continue;
-        };
-        let center =
-            circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
+        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+    });
+    for column in analysis.columns() {
+        for gate in column.gates() {
+            if gate.kind != GateKind::Phase {
+                continue;
+            }
+            let Some(angle) = gate.angle.as_deref() else {
+                continue;
+            };
+            if angle.is_empty() {
+                continue;
+            }
+            let center =
+                circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
 
-        let (peers_above, peers_below) = phase_peers_by_side(
-            app,
-            gate.id,
-            gate.wire,
-            angle,
-            slot_index,
-            metrics,
-            dragging_gate_id,
-        );
+            let (peers_above, peers_below) = phase_peers_by_side(column, gate.id, gate.wire, angle);
 
-        // Above for the topmost / standalone gate; below for the bottommost. A
-        // middle gate in a 3+ chain falls back to above and is left to overlap
-        // the connector (qni does the same).
-        //   standalone (no peers)         → above
-        //   topmost (peer below only)     → above
-        //   bottommost (peer above only)  → below
-        //   middle (peers above & below)  → above (fallback)
-        let label_above = peers_below || !peers_above;
-        let (label_y, align) = if label_above {
-            (
-                center.y - GATE_SIZE / 2.0 - 2.0,
-                egui::Align2::CENTER_BOTTOM,
-            )
-        } else {
-            (center.y + GATE_SIZE / 2.0 + 2.0, egui::Align2::CENTER_TOP)
-        };
-        painter.text(
-            egui::pos2(center.x, label_y),
-            align,
-            angle,
-            // text-xs (12 px) — Tailwind. Matches the popup body font so labels
-            // feel like they belong to the same typographic system.
-            egui::FontId::monospace(12.0),
-            colors.text,
-        );
+            // Above for the topmost / standalone gate; below for the bottommost. A
+            // middle gate in a 3+ chain falls back to above and is left to overlap
+            // the connector (qni does the same).
+            //   standalone (no peers)         → above
+            //   topmost (peer below only)     → above
+            //   bottommost (peer above only)  → below
+            //   middle (peers above & below)  → above (fallback)
+            let label_above = peers_below || !peers_above;
+            let (label_y, align) = if label_above {
+                (
+                    center.y - GATE_SIZE / 2.0 - 2.0,
+                    egui::Align2::CENTER_BOTTOM,
+                )
+            } else {
+                (center.y + GATE_SIZE / 2.0 + 2.0, egui::Align2::CENTER_TOP)
+            };
+            painter.text(
+                egui::pos2(center.x, label_y),
+                align,
+                angle,
+                // text-xs (12 px) — Tailwind. Matches the popup body font so labels
+                // feel like they belong to the same typographic system.
+                egui::FontId::monospace(12.0),
+                colors.text,
+            );
+        }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn phase_peers_by_side(
-    app: &QniApp,
+    column: &AnalyzedColumn<'_>,
     gate_id: u32,
     wire: usize,
     angle: &str,
-    slot_index: usize,
-    metrics: &LayoutMetrics,
-    dragging_gate_id: Option<u32>,
 ) -> (bool, bool) {
     let mut peers_above = false;
     let mut peers_below = false;
-    for other in &app.placed_gates {
+    for other in column.gates() {
         if other.id == gate_id || other.kind != GateKind::Phase {
             continue;
         }
         if other.angle.as_deref() != Some(angle) {
-            continue;
-        }
-        let Some(other_slot) = gate_slot_index_for_render(other, metrics, dragging_gate_id) else {
-            continue;
-        };
-        if other_slot != slot_index {
             continue;
         }
         if other.wire < wire {
