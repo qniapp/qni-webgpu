@@ -148,6 +148,7 @@ impl QniApp {
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
                             ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
+                            ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
                             for (index, entry) in entries.iter().enumerate() {
                                 let rects = self.show_picker_item(
                                     ui,
@@ -171,8 +172,9 @@ impl QniApp {
                                 &self.library.entries,
                                 &row_rects,
                             );
+                            ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
                         });
-                    ui.add_space(RESIZE_HANDLE_MARGIN_Y); // mt-0.5 = 2px.
+                    ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
                         egui::vec2(ui.available_width(), RESIZE_HANDLE_H),
                         egui::Sense::click_and_drag(),
@@ -207,7 +209,7 @@ impl QniApp {
                         ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::ResizeRow);
                     }
                     paint_resize_separator(ui, colors, handle_rect, handle_active);
-                    ui.add_space(RESIZE_HANDLE_MARGIN_Y); // mb-0.5 = 2px.
+                    ui.add_space(RESIZE_HANDLE_MARGIN_BOTTOM_Y); // mb-0.5 = 2px.
                     let (footer_response, footer_rect) = footer(ui, colors);
                     if footer_response.clicked() {
                         actions.push(PickerAction::Create);
@@ -218,6 +220,8 @@ impl QniApp {
                         scroll_output.inner_rect,
                         handle_rect,
                         footer_rect,
+                        row_rects.first().copied(),
+                        row_rects.last().copied(),
                         scroll_output.state.offset.y,
                         handle_response.hovered(),
                         self.picker.resize_drag_active(),

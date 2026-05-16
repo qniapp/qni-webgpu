@@ -60,12 +60,20 @@ pub(super) fn publish_picker_resize_geometry_json(
     items_rect: egui::Rect,
     handle_rect: egui::Rect,
     footer_rect: egui::Rect,
+    first_row_rect: Option<egui::Rect>,
+    last_row_rect: Option<egui::Rect>,
     scroll_offset_y: f32,
     hovered: bool,
     dragging: bool,
 ) {
+    let first_row_top = first_row_rect
+        .map(|rect| rect.top())
+        .unwrap_or_else(|| items_rect.top());
+    let last_row_bottom = last_row_rect
+        .map(|rect| rect.bottom())
+        .unwrap_or_else(|| items_rect.bottom());
     let json = format!(
-        "{{\"items_height\":{items_height:.3},\"max_items_height\":{max_items_height:.3},\"items_top\":{:.3},\"items_bottom\":{:.3},\"handle_left\":{:.3},\"handle_right\":{:.3},\"handle_top\":{:.3},\"handle_bottom\":{:.3},\"footer_top\":{:.3},\"footer_bottom\":{:.3},\"scroll_offset_y\":{scroll_offset_y:.3},\"hovered\":{hovered},\"dragging\":{dragging}}}",
+        "{{\"items_height\":{items_height:.3},\"max_items_height\":{max_items_height:.3},\"items_top\":{:.3},\"items_bottom\":{:.3},\"handle_left\":{:.3},\"handle_right\":{:.3},\"handle_top\":{:.3},\"handle_bottom\":{:.3},\"footer_top\":{:.3},\"footer_bottom\":{:.3},\"first_row_top\":{first_row_top:.3},\"last_row_bottom\":{last_row_bottom:.3},\"scroll_offset_y\":{scroll_offset_y:.3},\"hovered\":{hovered},\"dragging\":{dragging}}}",
         items_rect.top(),
         items_rect.bottom(),
         handle_rect.left(),
@@ -89,6 +97,8 @@ pub(super) fn publish_picker_resize_geometry_json(
     _items_rect: egui::Rect,
     _handle_rect: egui::Rect,
     _footer_rect: egui::Rect,
+    _first_row_rect: Option<egui::Rect>,
+    _last_row_rect: Option<egui::Rect>,
     _scroll_offset_y: f32,
     _hovered: bool,
     _dragging: bool,

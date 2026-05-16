@@ -40,12 +40,12 @@ const FLEXOKI_UI: CanvasPixel = [230, 228, 217, 255]
 const FLEXOKI_TX: CanvasPixel = [16, 15, 15, 255]
 
 const TRIGGER: Point = { x: 40, y: 22 }
-const ROW_1: Point = { x: 80, y: 68 }
-const ROW_2: Point = { x: 80, y: 104 }
-const ROW_3: Point = { x: 80, y: 140 }
+const ROW_1: Point = { x: 80, y: 74 }
+const ROW_2: Point = { x: 80, y: 110 }
+const ROW_3: Point = { x: 80, y: 146 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
-const MOVE_DOWN_Y = 196
+const MOVE_DOWN_Y = 202
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   const raw = await page.evaluate(() => {

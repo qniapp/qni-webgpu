@@ -18,9 +18,15 @@ type ResizeGeometry = {
   handle_bottom: number
   footer_top: number
   footer_bottom: number
+  first_row_top: number
+  last_row_bottom: number
   scroll_offset_y: number
   hovered: boolean
   dragging: boolean
+}
+
+type DropdownGeometry = {
+  dropdown_top: number
 }
 
 const TRIGGER: Point = { x: 40, y: 22 }
@@ -71,6 +77,12 @@ const resizeGeometry = async (page: Page): Promise<ResizeGeometry | null> =>
     return typeof raw === 'string' ? JSON.parse(raw) as ResizeGeometry : null
   })
 
+const dropdownGeometry = async (page: Page): Promise<DropdownGeometry | null> =>
+  page.evaluate(() => {
+    const raw = (window as any).__qniCircuitPickerDropdownGeometryJson
+    return typeof raw === 'string' ? JSON.parse(raw) as DropdownGeometry : null
+  })
+
 const tryResizeGeometry = async (
   page: Page,
   predicate: (geometry: ResizeGeometry) => boolean,
@@ -96,6 +108,16 @@ const waitForResizeGeometry = async (
   const geometry = await tryResizeGeometry(page, predicate, 100)
   if (!geometry) throw new Error(`timed out waiting for ${description}`)
   return geometry
+}
+
+const waitForDropdownGeometry = async (page: Page): Promise<DropdownGeometry> => {
+  let last: DropdownGeometry | null = null
+  await waitForCondition(page, async () => {
+    last = await dropdownGeometry(page)
+    return last !== null
+  }, 'picker dropdown geometry')
+  if (!last) throw new Error('picker dropdown geometry missing')
+  return last
 }
 
 const openPicker = async (page: Page, count = 12): Promise<ResizeGeometry> => {
@@ -183,6 +205,18 @@ test('circuit picker maximum content height reveals all rows without residual it
   const after = await waitForResizeGeometry(page, (geometry) => geometry.hovered, 'resize handle hover after content-cap wheel')
 
   expect(Math.round(after.scroll_offset_y)).toBe(0)
+})
+
+test('circuit picker max-height balances the first row and divider padding', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 1400 })
+  await openPicker(page, 7)
+  await dragSeparator(page, 800)
+  const maxed = await waitForResizeGeometry(page, (geometry) => Math.abs(geometry.items_height - geometry.max_items_height) <= 1, 'content height maximum')
+  const dropdown = await waitForDropdownGeometry(page)
+  const topPadding = maxed.first_row_top - dropdown.dropdown_top
+  const dividerPadding = (maxed.handle_top + maxed.handle_bottom) / 2 - maxed.last_row_bottom
+
+  expect(Math.abs(topPadding - dividerPadding) <= 1).toBe(true)
 })
 
 test('circuit picker resize handle hover paints the separator in Flexoki blue-600', async ({ page }) => {
