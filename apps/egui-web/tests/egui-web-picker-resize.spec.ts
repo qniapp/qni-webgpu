@@ -148,6 +148,21 @@ const itemsCenter = (geometry: ResizeGeometry): Point => ({
   y: (geometry.items_top + geometry.items_bottom) / 2,
 })
 
+const rowLabelSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_left + 14,
+  y: geometry.first_row_top + 13,
+})
+
+const footerLabelSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_left + 14,
+  y: footerCenter(geometry).y - 5,
+})
+
+const footerPlusSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_right - 17,
+  y: footerCenter(geometry).y - 1,
+})
+
 const scrollbarThumbSample = (geometry: ResizeGeometry): Point => ({
   x: geometry.handle_right - 5,
   y: geometry.items_top + 24,
@@ -263,6 +278,26 @@ test('circuit picker resize handle hover paints the separator in Flexoki blue-60
   ])
 
   expect(pixelRgbDistance(pixels['handle-line'], FLEXOKI_BLUE_600) < 80).toBe(true)
+})
+
+test('circuit picker footer label matches the item label color', async ({ page }) => {
+  const geometry = await openPicker(page, 3)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'row-label', ...rowLabelSample(geometry) },
+    { name: 'footer-label', ...footerLabelSample(geometry) },
+  ])
+
+  expect(pixelRgbDistance(pixels['footer-label'], pixels['row-label'])).toBeLessThan(20)
+})
+
+test('circuit picker footer plus matches the item label color', async ({ page }) => {
+  const geometry = await openPicker(page, 3)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'row-label', ...rowLabelSample(geometry) },
+    { name: 'footer-plus', ...footerPlusSample(geometry) },
+  ])
+
+  expect(pixelRgbDistance(pixels['footer-plus'], pixels['row-label'])).toBeLessThan(20)
 })
 
 test('circuit picker floating scrollbar starts hidden before items-pane hover', async ({ page }) => {

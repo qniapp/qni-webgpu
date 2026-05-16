@@ -237,11 +237,7 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
             colors.background, // Flexoki bg-2.
         );
     }
-    let color = if response.hovered() {
-        colors.text_strong
-    } else {
-        colors.text
-    };
+    let color = colors.text_strong; // Flexoki tx, matching circuit item labels.
     let galley = ui.painter().layout_no_wrap(
         "Create new circuit".to_owned(),
         egui::FontId::new(14.0, egui::FontFamily::Proportional), // text-sm = 14px.
@@ -258,11 +254,7 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
     paint_plus(
         ui.painter(),
         egui::pos2(rect.right() - ITEM_PAD_X - 7.0, rect.center().y),
-        if response.hovered() {
-            colors.text_strong
-        } else {
-            colors.toolbar_icon_disabled
-        },
+        color,
     );
     (response, rect)
 }
