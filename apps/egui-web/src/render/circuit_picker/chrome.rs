@@ -3,7 +3,10 @@ use eframe::egui;
 use crate::app::circuit_library::CircuitEntry;
 use crate::colors::{with_alpha, Colors};
 
-use super::constants::{ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS};
+use super::constants::{
+    ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS, RESIZE_HANDLE_ACTIVE_STROKE, RESIZE_HANDLE_IDLE_STROKE,
+    RESIZE_HANDLE_LINE_INSET_X,
+};
 
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
@@ -46,6 +49,49 @@ pub(super) fn publish_picker_dropdown_geometry_json(
     _trigger_rect: egui::Rect,
     _dropdown_rect: egui::Rect,
     _topbar_bottom_offset: f32,
+) {
+}
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn publish_picker_resize_geometry_json(
+    items_height: f32,
+    max_items_height: f32,
+    items_rect: egui::Rect,
+    handle_rect: egui::Rect,
+    footer_rect: egui::Rect,
+    scroll_offset_y: f32,
+    hovered: bool,
+    dragging: bool,
+) {
+    let json = format!(
+        "{{\"items_height\":{items_height:.3},\"max_items_height\":{max_items_height:.3},\"items_top\":{:.3},\"items_bottom\":{:.3},\"handle_left\":{:.3},\"handle_right\":{:.3},\"handle_top\":{:.3},\"handle_bottom\":{:.3},\"footer_top\":{:.3},\"footer_bottom\":{:.3},\"scroll_offset_y\":{scroll_offset_y:.3},\"hovered\":{hovered},\"dragging\":{dragging}}}",
+        items_rect.top(),
+        items_rect.bottom(),
+        handle_rect.left(),
+        handle_rect.right(),
+        handle_rect.top(),
+        handle_rect.bottom(),
+        footer_rect.top(),
+        footer_rect.bottom(),
+    );
+    crate::test_hooks::set_window_value(
+        crate::test_hooks::QNI_CIRCUIT_PICKER_RESIZE_GEOMETRY_JSON,
+        &wasm_bindgen::JsValue::from_str(&json),
+    );
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn publish_picker_resize_geometry_json(
+    _items_height: f32,
+    _max_items_height: f32,
+    _items_rect: egui::Rect,
+    _handle_rect: egui::Rect,
+    _footer_rect: egui::Rect,
+    _scroll_offset_y: f32,
+    _hovered: bool,
+    _dragging: bool,
 ) {
 }
 
@@ -135,7 +181,7 @@ pub(super) fn paint_picker_item_text(
     );
 }
 
-pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
+pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egui::Rect) {
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), ITEM_HEIGHT),
         egui::Sense::click(),
@@ -174,7 +220,33 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
             colors.toolbar_icon_disabled
         },
     );
-    response
+    (response, rect)
+}
+
+pub(super) fn paint_resize_separator(
+    ui: &mut egui::Ui,
+    colors: &Colors,
+    rect: egui::Rect,
+    active: bool,
+) {
+    let stroke_width = if active {
+        RESIZE_HANDLE_ACTIVE_STROKE
+    } else {
+        RESIZE_HANDLE_IDLE_STROKE
+    };
+    let color = if active {
+        colors.semantic_on // Flexoki blue-600.
+    } else {
+        colors.line // Flexoki ui-2.
+    };
+    let y = rect.center().y;
+    ui.painter().line_segment(
+        [
+            egui::pos2(rect.left() + RESIZE_HANDLE_LINE_INSET_X, y), // spacing-1 = 4px.
+            egui::pos2(rect.right() - RESIZE_HANDLE_LINE_INSET_X, y), // spacing-1 = 4px.
+        ],
+        egui::Stroke::new(stroke_width, color),
+    );
 }
 
 pub(super) fn submenu_item(

@@ -7,6 +7,9 @@ use eframe::egui;
 
 use super::circuit_library::{CircuitEntry, CircuitId};
 
+const DEFAULT_PICKER_ITEMS_HEIGHT: f32 = 216.0; // 6 picker rows × 36px, mock §03 default.
+const DEFAULT_PICKER_MIN_ITEMS_HEIGHT: f32 = 72.0; // 2 picker rows × 36px, mock §03 min.
+
 #[derive(Clone, Debug, Default)]
 pub(crate) enum PickerState {
     #[default]
@@ -17,6 +20,8 @@ pub(crate) enum PickerState {
         submenu: Option<PickerSubmenuState>,
         renaming: Option<RenameState>,
         drag: PickerDragState,
+        items_height: f32,
+        resize_drag: Option<ResizeDrag>,
     },
 }
 
@@ -43,22 +48,22 @@ pub(crate) enum PickerDragState {
 
 impl PickerState {
     pub(crate) fn open(focused_index: usize) -> Self {
-        Self::Open {
-            focused_index,
-            focus_visible: false,
-            submenu: None,
-            renaming: None,
-            drag: PickerDragState::Idle,
-        }
+        Self::open_with_focus_state(focused_index, false)
     }
 
     pub(crate) fn open_with_focus(focused_index: usize) -> Self {
+        Self::open_with_focus_state(focused_index, true)
+    }
+
+    fn open_with_focus_state(focused_index: usize, focus_visible: bool) -> Self {
         Self::Open {
             focused_index,
-            focus_visible: true,
+            focus_visible,
             submenu: None,
             renaming: None,
             drag: PickerDragState::Idle,
+            items_height: DEFAULT_PICKER_ITEMS_HEIGHT,
+            resize_drag: None,
         }
     }
 
@@ -165,6 +170,65 @@ impl PickerState {
         if let Self::Open { focused_index, .. } = self {
             *focused_index = index;
         }
+    }
+
+    pub(crate) fn items_height(&self) -> f32 {
+        match self {
+            Self::Open { items_height, .. } => *items_height,
+            Self::Closed => DEFAULT_PICKER_ITEMS_HEIGHT,
+        }
+    }
+
+    pub(crate) fn clamp_items_height(&mut self, max_items_height: f32) {
+        if let Self::Open { items_height, .. } = self {
+            *items_height = (*items_height)
+                .max(DEFAULT_PICKER_MIN_ITEMS_HEIGHT)
+                .min(max_items_height.max(DEFAULT_PICKER_MIN_ITEMS_HEIGHT));
+        }
+    }
+
+    pub(crate) fn start_resize_drag(&mut self, pointer_y: f32) {
+        if let Self::Open {
+            items_height,
+            resize_drag,
+            ..
+        } = self
+        {
+            *resize_drag = Some(ResizeDrag {
+                start_pointer_y: pointer_y,
+                base_height: *items_height,
+            });
+        }
+    }
+
+    pub(crate) fn update_resize_drag(&mut self, pointer_y: f32, max_items_height: f32) {
+        if let Self::Open {
+            items_height,
+            resize_drag: Some(resize_drag),
+            ..
+        } = self
+        {
+            let unclamped = resize_drag.base_height + pointer_y - resize_drag.start_pointer_y;
+            *items_height = unclamped
+                .max(DEFAULT_PICKER_MIN_ITEMS_HEIGHT)
+                .min(max_items_height.max(DEFAULT_PICKER_MIN_ITEMS_HEIGHT));
+        }
+    }
+
+    pub(crate) fn finish_resize_drag(&mut self) {
+        if let Self::Open { resize_drag, .. } = self {
+            *resize_drag = None;
+        }
+    }
+
+    pub(crate) fn resize_drag_active(&self) -> bool {
+        matches!(
+            self,
+            Self::Open {
+                resize_drag: Some(_),
+                ..
+            }
+        )
     }
 
     pub(crate) fn drag_in_progress(&self) -> bool {
@@ -379,6 +443,12 @@ impl PickerState {
             Self::Closed => None,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ResizeDrag {
+    pub(crate) start_pointer_y: f32,
+    pub(crate) base_height: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -7,7 +7,14 @@ pub(super) const TRIGGER_NAME_CHEVRON_GAP: f32 = 6.0; // spacing-1.5.
 pub(super) const TRIGGER_CHEVRON_W: f32 = 14.0; // mock chevron-down 描画幅 = 14px.
 pub(super) const TRIGGER_NAME_MAX_WIDTH: f32 = 176.0; // max-w-44 = 176px — 超えたら ellipsis。
 pub(super) const DROPDOWN_WIDTH: f32 = 240.0;
-pub(super) const DROPDOWN_MAX_HEIGHT: f32 = 320.0;
+pub(super) const MIN_ITEMS_HEIGHT: f32 = 72.0; // 2 picker rows × 36px, mock §03 min.
+pub(super) const ITEMS_VIEWPORT_CAP_MARGIN: f32 = 240.0; // Mock §03 viewport chrome/footer cap.
+pub(super) const ITEMS_CONTENT_EXTRA: f32 = 12.0; // p-1.5 top+bottom = 12px, mock §03 content cap.
+pub(super) const RESIZE_HANDLE_H: f32 = 8.0; // spacing-2 separator hit area.
+pub(super) const RESIZE_HANDLE_MARGIN_Y: f32 = 2.0; // py-0.5 = 2px.
+pub(super) const RESIZE_HANDLE_LINE_INSET_X: f32 = 4.0; // spacing-1.
+pub(super) const RESIZE_HANDLE_IDLE_STROKE: f32 = 1.0;
+pub(super) const RESIZE_HANDLE_ACTIVE_STROKE: f32 = 2.0;
 pub(super) const SUBMENU_WIDTH: f32 = 160.0;
 pub(super) const ITEM_HEIGHT: f32 = 36.0;
 pub(super) const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.

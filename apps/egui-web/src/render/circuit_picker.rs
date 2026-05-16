@@ -13,8 +13,9 @@ mod rename;
 
 use action::PickerAction;
 use chrome::{
-    footer, paint_chevron, paint_divider, paint_kebab, paint_picker_item_text, popover_frame,
-    publish_picker_dropdown_geometry_json, publish_picker_submenu_geometry_json, submenu_item,
+    footer, paint_chevron, paint_divider, paint_kebab, paint_picker_item_text,
+    paint_resize_separator, popover_frame, publish_picker_dropdown_geometry_json,
+    publish_picker_resize_geometry_json, publish_picker_submenu_geometry_json, submenu_item,
 };
 use constants::*;
 impl QniApp {
@@ -128,6 +129,8 @@ impl QniApp {
         };
         let submenu_index = self.picker.submenu_index();
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
+        let max_items_height = picker_max_items_height(entries.len(), ctx.content_rect().height());
+        self.picker.clamp_items_height(max_items_height);
         let mut actions = Vec::new();
         let mut row_rects = Vec::with_capacity(entries.len());
         let mut kebab_rects = Vec::with_capacity(entries.len());
@@ -138,10 +141,13 @@ impl QniApp {
                 popover_frame(colors).show(ui, |ui| {
                     ui.set_min_width(DROPDOWN_WIDTH - 12.0);
                     ui.set_max_width(DROPDOWN_WIDTH - 12.0);
-                    egui::ScrollArea::vertical()
-                        .max_height(DROPDOWN_MAX_HEIGHT)
-                        .auto_shrink([false, true])
+                    let items_height = self.picker.items_height();
+                    let scroll_output = egui::ScrollArea::vertical()
+                        .id_salt("circuit-picker-items")
+                        .max_height(items_height)
+                        .auto_shrink([false, false])
                         .show(ui, |ui| {
+                            ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
                             for (index, entry) in entries.iter().enumerate() {
                                 let rects = self.show_picker_item(
                                     ui,
@@ -165,11 +171,57 @@ impl QniApp {
                                 &self.library.entries,
                                 &row_rects,
                             );
-                            paint_divider(ui, colors);
-                            if footer(ui, colors).clicked() {
-                                actions.push(PickerAction::Create);
-                            }
                         });
+                    ui.add_space(RESIZE_HANDLE_MARGIN_Y); // mt-0.5 = 2px.
+                    let (handle_rect, handle_response) = ui.allocate_exact_size(
+                        egui::vec2(ui.available_width(), RESIZE_HANDLE_H),
+                        egui::Sense::click_and_drag(),
+                    );
+                    if !self.picker.resize_drag_active() {
+                        if handle_response.is_pointer_button_down_on() {
+                            if let Some(pointer) = handle_response.interact_pointer_pos() {
+                                self.picker.start_resize_drag(pointer.y);
+                            }
+                        } else if handle_response.drag_started() {
+                            if let Some(pointer) = handle_response.interact_pointer_pos() {
+                                self.picker
+                                    .start_resize_drag(pointer.y - handle_response.drag_delta().y);
+                            }
+                        }
+                    }
+                    if self.picker.resize_drag_active() {
+                        if let Some(pointer) = ctx.input(|input| input.pointer.latest_pos()) {
+                            self.picker.update_resize_drag(pointer.y, max_items_height);
+                        }
+                        ctx.request_repaint();
+                    }
+                    if handle_response.drag_stopped()
+                        || (self.picker.resize_drag_active()
+                            && !ctx.input(|input| input.pointer.primary_down()))
+                    {
+                        self.picker.finish_resize_drag();
+                    }
+                    let handle_active =
+                        handle_response.hovered() || self.picker.resize_drag_active();
+                    if handle_active {
+                        ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::ResizeRow);
+                    }
+                    paint_resize_separator(ui, colors, handle_rect, handle_active);
+                    ui.add_space(RESIZE_HANDLE_MARGIN_Y); // mb-0.5 = 2px.
+                    let (footer_response, footer_rect) = footer(ui, colors);
+                    if footer_response.clicked() {
+                        actions.push(PickerAction::Create);
+                    }
+                    publish_picker_resize_geometry_json(
+                        self.picker.items_height(),
+                        max_items_height,
+                        scroll_output.inner_rect,
+                        handle_rect,
+                        footer_rect,
+                        scroll_output.state.offset.y,
+                        handle_response.hovered(),
+                        self.picker.resize_drag_active(),
+                    );
                 });
             });
         let dropdown_rect = area.response.rect;
@@ -496,4 +548,10 @@ impl QniApp {
             ctx.request_repaint();
         }
     }
+}
+
+fn picker_max_items_height(entries_len: usize, viewport_height: f32) -> f32 {
+    let content_cap = entries_len as f32 * ITEM_HEIGHT + ITEMS_CONTENT_EXTRA;
+    let viewport_cap = (viewport_height - ITEMS_VIEWPORT_CAP_MARGIN).max(MIN_ITEMS_HEIGHT);
+    content_cap.min(viewport_cap).max(MIN_ITEMS_HEIGHT)
 }
