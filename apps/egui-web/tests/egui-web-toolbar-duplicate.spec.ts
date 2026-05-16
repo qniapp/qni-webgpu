@@ -101,11 +101,16 @@ test('toolbar Duplicate inserts a copy right after the active circuit and activa
 })
 
 test('toolbar Duplicate increments copy suffixes on consecutive clicks', async ({ page }) => {
-  await clickDuplicate(page)
-  await clickDuplicate(page)
-  await clickDuplicate(page)
+  let state = await snapshot(page)
+  for (const expectedLength of [state.entries.length + 1, state.entries.length + 2, state.entries.length + 3]) {
+    await clickDuplicate(page)
+    state = await waitForSnapshot(
+      page,
+      (snapshot) => snapshot.entries.length === expectedLength,
+      `duplicate inserted at length ${expectedLength}`,
+    )
+  }
 
-  const state = await snapshot(page)
   expect({ names: state.entries.slice(0, 4).map((entry) => entry.name), activeId: state.active_id }).toEqual({
     names: ['Circuit 1', 'Circuit 1 (copy)', 'Circuit 1 (copy 2)', 'Circuit 1 (copy 3)'],
     activeId: state.entries[3].id,
