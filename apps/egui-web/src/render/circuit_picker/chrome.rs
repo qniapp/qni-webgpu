@@ -4,8 +4,9 @@ use crate::app::circuit_library::CircuitEntry;
 use crate::colors::{with_alpha, Colors};
 
 use super::constants::{
-    ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS, RESIZE_HANDLE_ACTIVE_STROKE, RESIZE_HANDLE_IDLE_STROKE,
-    RESIZE_HANDLE_LINE_INSET_X,
+    ITEMS_SCROLLBAR_HOVER_ALPHA, ITEMS_SCROLLBAR_IDLE_ALPHA, ITEMS_SCROLLBAR_OUTER_MARGIN,
+    ITEMS_SCROLLBAR_THUMB_RADIUS, ITEMS_SCROLLBAR_W, ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS,
+    RESIZE_HANDLE_ACTIVE_STROKE, RESIZE_HANDLE_IDLE_STROKE, RESIZE_HANDLE_LINE_INSET_X,
 };
 
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
@@ -134,6 +135,39 @@ pub(super) fn publish_picker_submenu_geometry_json(
     _kebab_rect: egui::Rect,
     _submenu_rect: egui::Rect,
 ) {
+}
+
+pub(super) fn apply_items_scrollbar_style(ui: &mut egui::Ui, colors: &Colors) {
+    let style = ui.style_mut();
+    style.spacing.scroll.floating = true;
+    style.spacing.scroll.bar_width = ITEMS_SCROLLBAR_W;
+    style.spacing.scroll.floating_width = ITEMS_SCROLLBAR_W;
+    style.spacing.scroll.floating_allocated_width = 0.0;
+    style.spacing.scroll.bar_inner_margin = 0.0;
+    style.spacing.scroll.bar_outer_margin = ITEMS_SCROLLBAR_OUTER_MARGIN;
+    style.spacing.scroll.foreground_color = false;
+    style.spacing.scroll.dormant_background_opacity = 0.0;
+    style.spacing.scroll.active_background_opacity = 0.0;
+    style.spacing.scroll.interact_background_opacity = 0.0;
+    style.spacing.scroll.dormant_handle_opacity = 0.0;
+    style.spacing.scroll.active_handle_opacity = 1.0;
+    style.spacing.scroll.interact_handle_opacity = 1.0;
+
+    let idle_thumb = with_alpha(
+        colors.toolbar_icon_disabled, // Flexoki tx-3 #B7B5AC @ 60%.
+        ITEMS_SCROLLBAR_IDLE_ALPHA,
+    );
+    let hover_thumb = with_alpha(
+        colors.toolbar_icon, // Flexoki tx-2 #6F6E69 @ 70%.
+        ITEMS_SCROLLBAR_HOVER_ALPHA,
+    );
+    let radius = egui::CornerRadius::same(ITEMS_SCROLLBAR_THUMB_RADIUS);
+    style.visuals.widgets.inactive.bg_fill = idle_thumb;
+    style.visuals.widgets.inactive.corner_radius = radius;
+    style.visuals.widgets.hovered.bg_fill = hover_thumb;
+    style.visuals.widgets.hovered.corner_radius = radius;
+    style.visuals.widgets.active.bg_fill = hover_thumb;
+    style.visuals.widgets.active.corner_radius = radius;
 }
 
 pub(super) fn paint_dragged_row_background(

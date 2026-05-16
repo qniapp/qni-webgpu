@@ -17,6 +17,12 @@ pub(super) const RESIZE_HANDLE_MARGIN_BOTTOM_Y: f32 = 2.0; // mb-0.5 = 2px.
 pub(super) const RESIZE_HANDLE_LINE_INSET_X: f32 = 4.0; // spacing-1.
 pub(super) const RESIZE_HANDLE_IDLE_STROKE: f32 = 1.0;
 pub(super) const RESIZE_HANDLE_ACTIVE_STROKE: f32 = 2.0;
+pub(super) const ITEMS_SCROLLBAR_W: f32 = 6.0; // spacing-1.5 fixed floating scrollbar width.
+pub(super) const ITEMS_SCROLLBAR_OUTER_MARGIN: f32 = 2.0; // spacing-0.5 right inset.
+pub(super) const ITEMS_SCROLLBAR_THUMB_RADIUS: u8 = 3; // fixed 3px thumb radius per scrollbar spec.
+pub(super) const ITEMS_SCROLLBAR_IDLE_ALPHA: u8 = 153; // 60% alpha.
+pub(super) const ITEMS_SCROLLBAR_HOVER_ALPHA: u8 = 179; // 70% alpha.
+pub(super) const ITEMS_SCROLLBAR_FADE_SECONDS: f32 = 0.15; // 150ms opacity transition.
 pub(super) const SUBMENU_WIDTH: f32 = 160.0;
 pub(super) const ITEM_HEIGHT: f32 = 36.0;
 pub(super) const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.

@@ -13,9 +13,10 @@ mod rename;
 
 use action::PickerAction;
 use chrome::{
-    footer, paint_chevron, paint_divider, paint_kebab, paint_picker_item_text,
-    paint_resize_separator, popover_frame, publish_picker_dropdown_geometry_json,
-    publish_picker_resize_geometry_json, publish_picker_submenu_geometry_json, submenu_item,
+    apply_items_scrollbar_style, footer, paint_chevron, paint_divider, paint_kebab,
+    paint_picker_item_text, paint_resize_separator, popover_frame,
+    publish_picker_dropdown_geometry_json, publish_picker_resize_geometry_json,
+    publish_picker_submenu_geometry_json, submenu_item,
 };
 use constants::*;
 impl QniApp {
@@ -142,11 +143,18 @@ impl QniApp {
                     ui.set_min_width(DROPDOWN_WIDTH - 12.0);
                     ui.set_max_width(DROPDOWN_WIDTH - 12.0);
                     let items_height = self.picker.items_height();
+                    let previous_style = ui.style().clone();
+                    let previous_context_style = ctx.style();
+                    apply_items_scrollbar_style(ui, colors);
+                    ctx.style_mut(|style| {
+                        style.animation_time = ITEMS_SCROLLBAR_FADE_SECONDS;
+                    });
                     let scroll_output = egui::ScrollArea::vertical()
                         .id_salt("circuit-picker-items")
                         .max_height(items_height)
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
+                            ui.set_style(previous_style.clone());
                             ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
                             ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
                             for (index, entry) in entries.iter().enumerate() {
@@ -174,6 +182,8 @@ impl QniApp {
                             );
                             ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
                         });
+                    ui.set_style(previous_style);
+                    ctx.set_style(previous_context_style);
                     ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
                         egui::vec2(ui.available_width(), RESIZE_HANDLE_H),

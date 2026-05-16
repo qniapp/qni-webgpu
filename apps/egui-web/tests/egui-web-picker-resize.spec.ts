@@ -32,6 +32,11 @@ type DropdownGeometry = {
 const TRIGGER: Point = { x: 40, y: 22 }
 const EMPTY_JSON = '{"cols":[]}'
 const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255]
+const FLEXOKI_PAPER: CanvasPixel = [255, 252, 240, 255]
+// Flexoki tx-3 #B7B5AC at 60% alpha over bg #FFFCF0.
+const SCROLLBAR_IDLE_ON_PAPER: CanvasPixel = [212, 209, 199, 255]
+// Flexoki tx-2 #6F6E69 at 70% alpha over bg #FFFCF0.
+const SCROLLBAR_HOVER_ON_PAPER: CanvasPixel = [154, 153, 146, 255]
 
 const waitForCondition = async (
   page: Page,
@@ -143,6 +148,34 @@ const itemsCenter = (geometry: ResizeGeometry): Point => ({
   y: (geometry.items_top + geometry.items_bottom) / 2,
 })
 
+const scrollbarThumbSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_right - 5,
+  y: geometry.items_top + 24,
+})
+
+const sampleScrollbarThumb = async (page: Page, geometry: ResizeGeometry): Promise<CanvasPixel> => {
+  const point = scrollbarThumbSample(geometry)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'scrollbar-thumb', x: point.x, y: point.y },
+  ])
+  return pixels['scrollbar-thumb']
+}
+
+const waitForScrollbarThumb = async (
+  page: Page,
+  geometry: ResizeGeometry,
+  predicate: (pixel: CanvasPixel) => boolean,
+  description: string,
+): Promise<CanvasPixel> => {
+  let last: CanvasPixel | null = null
+  await waitForCondition(page, async () => {
+    last = await sampleScrollbarThumb(page, geometry)
+    return predicate(last)
+  }, description)
+  if (!last) throw new Error('scrollbar thumb pixel missing')
+  return last
+}
+
 const beginSeparatorDrag = async (page: Page, box: { x: number; y: number }, from: Point): Promise<void> => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await page.mouse.move(box.x + from.x, box.y + from.y)
@@ -230,6 +263,63 @@ test('circuit picker resize handle hover paints the separator in Flexoki blue-60
   ])
 
   expect(pixelRgbDistance(pixels['handle-line'], FLEXOKI_BLUE_600) < 80).toBe(true)
+})
+
+test('circuit picker floating scrollbar starts hidden before items-pane hover', async ({ page }) => {
+  const geometry = await openPicker(page, 12)
+  const initial = await sampleScrollbarThumb(page, geometry)
+
+  expect(pixelRgbDistance(initial, FLEXOKI_PAPER) < 35).toBe(true)
+})
+
+test('circuit picker floating scrollbar fades in on overflowing items-pane hover', async ({ page }) => {
+  const geometry = await openPicker(page, 12)
+  const box = await canvasBox(page)
+  await page.mouse.move(box.x + itemsCenter(geometry).x, box.y + itemsCenter(geometry).y)
+  const paneHover = await waitForScrollbarThumb(
+    page,
+    geometry,
+    (pixel) => pixelRgbDistance(pixel, SCROLLBAR_IDLE_ON_PAPER) < 70,
+    'idle scrollbar thumb fade-in',
+  )
+
+  expect(pixelRgbDistance(paneHover, FLEXOKI_PAPER) > 35).toBe(true)
+})
+
+test('circuit picker floating scrollbar darkens on thumb hover', async ({ page }) => {
+  const geometry = await openPicker(page, 12)
+  const box = await canvasBox(page)
+  await page.mouse.move(box.x + itemsCenter(geometry).x, box.y + itemsCenter(geometry).y)
+  const paneHover = await waitForScrollbarThumb(
+    page,
+    geometry,
+    (pixel) => pixelRgbDistance(pixel, SCROLLBAR_IDLE_ON_PAPER) < 70,
+    'idle scrollbar thumb fade-in before thumb hover',
+  )
+  const thumb = scrollbarThumbSample(geometry)
+  await page.mouse.move(box.x + thumb.x, box.y + thumb.y)
+  const thumbHover = await waitForScrollbarThumb(
+    page,
+    geometry,
+    (pixel) => pixelRgbDistance(pixel, SCROLLBAR_HOVER_ON_PAPER) < 70,
+    'hovered scrollbar thumb darken',
+  )
+
+  expect(pixelRgbDistance(thumbHover, paneHover) > 35).toBe(true)
+})
+
+test('circuit picker floating scrollbar stays hidden when all items fit', async ({ page }) => {
+  const geometry = await openPicker(page, 3)
+  const box = await canvasBox(page)
+  await page.mouse.move(box.x + itemsCenter(geometry).x, box.y + itemsCenter(geometry).y)
+  const fittingHover = await waitForScrollbarThumb(
+    page,
+    geometry,
+    (pixel) => pixelRgbDistance(pixel, FLEXOKI_PAPER) < 35,
+    'fitting items pane keeps scrollbar hidden',
+  )
+
+  expect(pixelRgbDistance(fittingHover, FLEXOKI_PAPER) < 35).toBe(true)
 })
 
 test('circuit picker keeps the row-resize cursor while dragging outside the handle', async ({ page }) => {
