@@ -8,13 +8,14 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z + √X
+    python3 scripts/extract-gate-svg.py H X Y Z + √X S S†
 
 設定:
     - 単一字ゲートは Geist Regular 400 (gate_glyphs.rs の
       `GATE_LABEL_LIGHT_FAMILY` 規約に合わせる)
     - "+" (X ゲートの本体) は Geist Medium 500
     - √X は旧 egui 描画と同じく Geist Regular の √ と X を合成
+    - S† は旧 egui 描画と同じく Geist Regular の S と † を合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -38,6 +39,9 @@ RASTER_SIZE = 128
 GLYPH_RATIO = 0.62
 SQRTX_RADICAL_RATIO = 0.85
 SQRTX_RADICAL_LIFT = 0.05
+DAGGER_RATIO = 0.32
+DAGGER_INSET_X = 0.17
+DAGGER_INSET_Y = 0.22
 
 WEIGHT_FOR_CHAR = {
     "+": "Medium",
@@ -47,13 +51,19 @@ DEFAULT_WEIGHT = "Regular"
 FILENAME_FOR_TOKEN = {
     "+": "plus",
     "√X": "sqrtx",
+    "S†": "sdagger",
 }
 
 SQRTX_ALIASES = {"√X", "sqrtx", "SqrtX", "SQRTX", "X^½"}
+SDAGGER_ALIASES = {"S†", "sdagger", "SDagger", "SDAGGER"}
 
 
 def normalize_token(token: str) -> str:
-    return "√X" if token in SQRTX_ALIASES else token
+    if token in SQRTX_ALIASES:
+        return "√X"
+    if token in SDAGGER_ALIASES:
+        return "S†"
+    return token
 
 
 def font_for_weight(weight: str) -> TTFont:
@@ -137,6 +147,30 @@ def sqrtx_svg() -> str:
     return svg_document(body)
 
 
+def dagger_svg(base_char: str) -> str:
+    weight = DEFAULT_WEIGHT
+    font = font_for_weight(weight)
+    base_scale = VIEWBOX * GLYPH_RATIO / font["head"].unitsPerEm
+    dagger_scale = VIEWBOX * DAGGER_RATIO / font["head"].unitsPerEm
+    base_w, base_h = glyph_box_size(base_char, weight, base_scale)
+    dagger_w, dagger_h = glyph_box_size("†", weight, dagger_scale)
+
+    base_left = (VIEWBOX - base_w) / 2.0
+    base_top = (VIEWBOX - base_h) / 2.0
+    dagger_cx = VIEWBOX - VIEWBOX * DAGGER_INSET_X
+    dagger_cy = VIEWBOX * DAGGER_INSET_Y
+    dagger_left = dagger_cx - dagger_w / 2.0
+    dagger_top = dagger_cy - dagger_h / 2.0
+
+    body = "\n".join(
+        [
+            path_element(base_char, weight, base_scale, base_left, base_top),
+            path_element("†", weight, dagger_scale, dagger_left, dagger_top),
+        ]
+    )
+    return svg_document(body)
+
+
 def svg_document(body: str) -> str:
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {VIEWBOX:.0f} {VIEWBOX:.0f}">
 {body}
@@ -147,6 +181,8 @@ def svg_document(body: str) -> str:
 def extract(token: str) -> str:
     if token == "√X":
         return sqrtx_svg()
+    if token == "S†":
+        return dagger_svg("S")
     if len(token) == 1:
         return single_glyph_svg(token)
     raise ValueError(f"未対応トークン: {token!r}")
@@ -173,7 +209,7 @@ def render_png(svg_path: str, png_path: str) -> None:
 
 
 def weight_description(token: str) -> str:
-    if token == "√X":
+    if token in {"√X", "S†"}:
         return "Geist Regular composite"
     return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
 

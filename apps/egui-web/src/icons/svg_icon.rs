@@ -1,7 +1,8 @@
 //! SVG 共有アセットから焼き付けた PNG を、単色テクスチャとして描画する。
 //!
-//! `assets/icons/{h,x,y,z,plus,sqrtx}.svg` を正にし、`scripts/extract-gate-svg.py` が
-//! 同じ場所へ 128×128 px の PNG を生成する。ビルド時に PNG のアルファだけを RLE 化して
+//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger}.svg` を正にし、
+//! `scripts/extract-gate-svg.py` が同じ場所へ 128×128 px の PNG を生成する。
+//! ビルド時に PNG のアルファだけを RLE 化して
 //! wasm に埋め込み、初回描画時に egui テクスチャへ展開する。実行時の SVG パーサや PNG
 //! デコーダは不要。
 
@@ -23,6 +24,8 @@ pub(super) enum GateGlyph {
     Z,
     Plus,
     SqrtX,
+    S,
+    SDagger,
 }
 
 thread_local! {
@@ -37,6 +40,8 @@ fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::Z => Z_ALPHA_RLE,
         GateGlyph::Plus => PLUS_ALPHA_RLE,
         GateGlyph::SqrtX => SQRTX_ALPHA_RLE,
+        GateGlyph::S => S_ALPHA_RLE,
+        GateGlyph::SDagger => SDAGGER_ALPHA_RLE,
     }
 }
 
@@ -48,6 +53,8 @@ fn texture_name(glyph: GateGlyph) -> &'static str {
         GateGlyph::Z => "gate-icon-z-png-raster",
         GateGlyph::Plus => "gate-icon-plus-png-raster",
         GateGlyph::SqrtX => "gate-icon-sqrtx-png-raster",
+        GateGlyph::S => "gate-icon-s-png-raster",
+        GateGlyph::SDagger => "gate-icon-sdagger-png-raster",
     }
 }
 

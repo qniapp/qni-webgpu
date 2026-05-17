@@ -2,13 +2,15 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-const ICONS: [(&str, &str); 6] = [
+const ICONS: [(&str, &str); 8] = [
     ("H", "h.png"),
     ("X", "x.png"),
     ("Y", "y.png"),
     ("Z", "z.png"),
     ("PLUS", "plus.png"),
     ("SQRTX", "sqrtx.png"),
+    ("S", "s.png"),
+    ("SDAGGER", "sdagger.png"),
 ];
 const RASTER_SIZE: u32 = 128;
 

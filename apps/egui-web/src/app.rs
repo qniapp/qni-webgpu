@@ -29,15 +29,15 @@ use circuit_picker_state::PickerState;
 /// Named font family rendering the heavyweight gate labels — i.e. the
 /// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
 /// At that small size Geist Bold (700) is what reads as the "normal"
-/// weight; the larger remaining solo labels (S / T) below drop a notch
+/// weight; the larger remaining solo labels (T / P) below drop a notch
 /// lighter so the visual stroke matches.
 pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist".into()));
 
 /// Geist Regular (400) — used for the remaining solo gate letters
-/// (S / T and their daggers). Drops a weight relative to the Bold
-/// multi-char labels so the two rows sit at the same visual stroke
-/// thickness despite the size delta (~19.8 px vs ~12.8 px).
+/// (T / P and T†). Drops a weight relative to the Bold multi-char
+/// labels so the two rows sit at the same visual stroke thickness
+/// despite the size delta (~19.8 px vs ~12.8 px).
 pub(crate) static GATE_LABEL_LIGHT_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist-regular".into()));
 
