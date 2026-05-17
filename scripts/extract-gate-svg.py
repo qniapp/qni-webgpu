@@ -8,7 +8,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P RX RY RZ
+    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P RX RY RZ QFT QFT†
 
 設定:
     - 単一字ゲートは Geist Regular 400
@@ -16,6 +16,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
     - √X は Geist Regular の √ と X を合成
     - S† / T† は Geist Regular の基底文字と † を合成
     - RX / RY / RZ は Geist Medium 500 の 2 文字を 0.46 倍で合成
+    - QFT / QFT† は Geist Medium 500 の 3 文字を 0.46 倍で合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -53,6 +54,13 @@ WEIGHT_FOR_TOKEN = {
     "RX": "Medium",
     "RY": "Medium",
     "RZ": "Medium",
+    "QFT": "Medium",
+}
+RATIO_FOR_TOKEN = {
+    "RX": MULTI_GLYPH_RATIO,
+    "RY": MULTI_GLYPH_RATIO,
+    "RZ": MULTI_GLYPH_RATIO,
+    "QFT": 0.46,
 }
 DEFAULT_WEIGHT = "Regular"
 
@@ -61,11 +69,13 @@ FILENAME_FOR_TOKEN = {
     "√X": "sqrtx",
     "S†": "sdagger",
     "T†": "tdagger",
+    "QFT†": "qftdagger",
 }
 
 SQRTX_ALIASES = {"√X", "sqrtx", "SqrtX", "SQRTX", "X^½"}
 SDAGGER_ALIASES = {"S†", "sdagger", "SDagger", "SDAGGER"}
 TDAGGER_ALIASES = {"T†", "tdagger", "TDagger", "TDAGGER"}
+QFTDAGGER_ALIASES = {"QFT†", "qftdagger", "QftDagger", "QFTDAGGER"}
 ROTATION_ALIASES = {
     "RX": "RX",
     "Rx": "RX",
@@ -86,6 +96,8 @@ def normalize_token(token: str) -> str:
         return "S†"
     if token in TDAGGER_ALIASES:
         return "T†"
+    if token in QFTDAGGER_ALIASES:
+        return "QFT†"
     if token in ROTATION_ALIASES:
         return ROTATION_ALIASES[token]
     return token
@@ -179,10 +191,7 @@ def sqrtx_svg() -> str:
     return svg_document(body)
 
 
-def multi_glyph_svg(text: str) -> str:
-    weight = WEIGHT_FOR_TOKEN[text]
-    font = font_for_weight(weight)
-    scale = VIEWBOX * MULTI_GLYPH_RATIO / font["head"].unitsPerEm
+def multi_glyph_body(text: str, weight: str, scale: float) -> str:
     glyphs = []
     cursor = 0
     min_x = float("inf")
@@ -202,7 +211,7 @@ def multi_glyph_svg(text: str) -> str:
     union_h = (max_y - min_y) * scale
     origin_x = (VIEWBOX - union_w) / 2.0 - min_x * scale
     baseline_y = (VIEWBOX - union_h) / 2.0 + max_y * scale
-    body = "\n".join(
+    return "\n".join(
         path_element(
             char,
             weight,
@@ -211,6 +220,31 @@ def multi_glyph_svg(text: str) -> str:
             baseline_y - box.yMax * scale,
         )
         for char, box, cursor in glyphs
+    )
+
+
+def multi_glyph_svg(text: str) -> str:
+    weight = WEIGHT_FOR_TOKEN[text]
+    font = font_for_weight(weight)
+    scale = VIEWBOX * RATIO_FOR_TOKEN[text] / font["head"].unitsPerEm
+    return svg_document(multi_glyph_body(text, weight, scale))
+
+
+def qft_dagger_svg() -> str:
+    weight = WEIGHT_FOR_TOKEN["QFT"]
+    font = font_for_weight(weight)
+    base_scale = VIEWBOX * RATIO_FOR_TOKEN["QFT"] / font["head"].unitsPerEm
+    dagger_scale = VIEWBOX * DAGGER_RATIO / font["head"].unitsPerEm
+    dagger_w, dagger_h = glyph_box_size("†", weight, dagger_scale)
+    dagger_cx = VIEWBOX - VIEWBOX * DAGGER_INSET_X
+    dagger_cy = VIEWBOX * DAGGER_INSET_Y
+    dagger_left = dagger_cx - dagger_w / 2.0
+    dagger_top = dagger_cy - dagger_h / 2.0
+    body = "\n".join(
+        [
+            multi_glyph_body("QFT", weight, base_scale),
+            path_element("†", weight, dagger_scale, dagger_left, dagger_top),
+        ]
     )
     return svg_document(body)
 
@@ -253,6 +287,8 @@ def extract(token: str) -> str:
         return dagger_svg("S")
     if token == "T†":
         return dagger_svg("T")
+    if token == "QFT†":
+        return qft_dagger_svg()
     if token in WEIGHT_FOR_TOKEN:
         return multi_glyph_svg(token)
     if len(token) == 1:
@@ -283,8 +319,8 @@ def render_png(svg_path: str, png_path: str) -> None:
 def weight_description(token: str) -> str:
     if token in {"√X", "S†", "T†"}:
         return "Geist Regular composite"
-    if token in WEIGHT_FOR_TOKEN:
-        return f"Geist {WEIGHT_FOR_TOKEN[token]} composite"
+    if token in WEIGHT_FOR_TOKEN or token == "QFT†":
+        return "Geist Medium composite"
     return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
 
 

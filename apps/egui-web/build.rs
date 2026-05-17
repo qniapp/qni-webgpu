@@ -2,7 +2,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-const ICONS: [(&str, &str); 14] = [
+const ICONS: [(&str, &str); 16] = [
     ("H", "h.png"),
     ("X", "x.png"),
     ("Y", "y.png"),
@@ -17,6 +17,8 @@ const ICONS: [(&str, &str); 14] = [
     ("RX", "rx.png"),
     ("RY", "ry.png"),
     ("RZ", "rz.png"),
+    ("QFT", "qft.png"),
+    ("QFTDAGGER", "qftdagger.png"),
 ];
 const RASTER_SIZE: u32 = 256;
 const SDF_PX_RANGE: f32 = 32.0;

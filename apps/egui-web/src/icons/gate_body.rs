@@ -49,10 +49,9 @@ fn draw_gate_body_with_fill(
     } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
         // QFT family — same green body as the other unitary gates. The
         // letter rendering is delegated to `draw_gate_icon` along with
-        // every other typographic gate (it picks up `"QFT"` / `"QFT†"`
-        // and renders via Geist Bold). For multi-qubit spans the icon
-        // is anchored to a GATE_SIZE square at the vertical centre so
-        // the lettering stays put even when the body is taller.
+        // every other SVG/SDF-backed typographic gate. For multi-qubit
+        // spans the icon is anchored to a GATE_SIZE square at the vertical
+        // centre so the lettering stays put even when the body is taller.
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
         let cx = gate_rect.center().x;
         let cy = gate_rect.center().y;

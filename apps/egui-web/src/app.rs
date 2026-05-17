@@ -15,22 +15,14 @@ mod state_panel;
 mod state_panel_state;
 mod update_flow;
 
-use eframe::egui;
-use std::collections::VecDeque;
-use std::sync::LazyLock;
-
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
 use circuit_library::CircuitLibrary;
 use circuit_picker_state::PickerState;
-
-/// Named font family rendering the remaining heavyweight text labels — i.e.
-/// QFT / QFT† at body × 0.40 px. Large gate glyphs, including RX / RY / RZ,
-/// now use the shared SVG/SDF icon path.
-pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
-    LazyLock::new(|| egui::FontFamily::Name("geist".into()));
+use eframe::egui;
+use std::collections::VecDeque;
 
 pub(crate) use circuit_model::{DragState, PlacedGate, SpanResizeDrag};
 pub(crate) use exec_mode::ExecMode;
@@ -131,23 +123,18 @@ impl QniApp {
         // 2. Register Hack only as the final fallback so mathematical
         //    angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in ket labels
         //    render instead of falling back to tofu if Geist lacks them.
-        // 3. Register Geist Sans weights for gate labels and all
-        //    proportional UI text. Register Geist Mono for monospace UI
-        //    text (state headers, popups, phase labels, FPS HUD, toggle).
-        //    Geist is SIL OFL 1.1 (vercel/geist-font) and embedded via
-        //    `include_bytes!`.
+        // 3. Register Geist Sans for proportional UI text and Geist Medium
+        //    for the aspect-popup label. Gate glyphs use SVG/SDF assets
+        //    generated from Geist, so no runtime gate-label font family is
+        //    needed. Register Geist Mono for monospace UI text (state
+        //    headers, popups, phase labels, FPS HUD, toggle). Geist is SIL
+        //    OFL 1.1 (vercel/geist-font) and embedded via `include_bytes!`.
         let mut fonts = egui::FontDefinitions::empty();
         fonts.font_data.insert(
             "hack_fallback".to_owned(),
             std::sync::Arc::new(egui::FontData::from_static(
                 epaint_default_fonts::HACK_REGULAR,
             )),
-        );
-        fonts.font_data.insert(
-            "geist_bold".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/Geist-Bold.ttf"
-            ))),
         );
         fonts.font_data.insert(
             "geist_regular".to_owned(),
@@ -189,9 +176,6 @@ impl QniApp {
                 "hack_fallback".to_owned(),
             ],
         );
-        fonts
-            .families
-            .insert(GATE_LABEL_FAMILY.clone(), vec!["geist_bold".to_owned()]);
         fonts.families.insert(
             egui::FontFamily::Name("geist-medium".into()),
             vec!["geist_medium".to_owned()],

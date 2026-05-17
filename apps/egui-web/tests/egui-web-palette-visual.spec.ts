@@ -49,7 +49,7 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
 
 test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async ({ page }) => {
   await page.setViewportSize({ width: 1001, height: 800 })
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†'], ['T'], ['T†'], ['P'], ['Rx'], ['Ry'], ['Rz']] })))
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†'], ['T'], ['T†'], ['P'], ['Rx'], ['Ry'], ['Rz'], ['QFT2'], ['QFT†2']] })))
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
@@ -63,27 +63,29 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
   const EGUI_PANEL_MARGIN = 8
   const gateSize = UI_CONSTANTS.GATE_SIZE
   const labels = [
-    { name: 'H', index: 0 },
-    { name: 'X', index: 1 },
-    { name: 'Y', index: 2 },
-    { name: 'Z', index: 3 },
-    { name: 'SqrtX', index: 4 },
-    { name: 'S', index: 5 },
-    { name: 'SDagger', index: 6 },
-    { name: 'T', index: 7 },
-    { name: 'TDagger', index: 8 },
-    { name: 'P', index: 9 },
-    { name: 'RX', index: 10 },
-    { name: 'RY', index: 11 },
-    { name: 'RZ', index: 12 },
+    { name: 'H', paletteIndex: 0, circuitIndex: 0, circuitYOffset: 0 },
+    { name: 'X', paletteIndex: 1, circuitIndex: 1, circuitYOffset: 0 },
+    { name: 'Y', paletteIndex: 2, circuitIndex: 2, circuitYOffset: 0 },
+    { name: 'Z', paletteIndex: 3, circuitIndex: 3, circuitYOffset: 0 },
+    { name: 'SqrtX', paletteIndex: 4, circuitIndex: 4, circuitYOffset: 0 },
+    { name: 'S', paletteIndex: 5, circuitIndex: 5, circuitYOffset: 0 },
+    { name: 'SDagger', paletteIndex: 6, circuitIndex: 6, circuitYOffset: 0 },
+    { name: 'T', paletteIndex: 7, circuitIndex: 7, circuitYOffset: 0 },
+    { name: 'TDagger', paletteIndex: 8, circuitIndex: 8, circuitYOffset: 0 },
+    { name: 'P', paletteIndex: 9, circuitIndex: 9, circuitYOffset: 0 },
+    { name: 'RX', paletteIndex: 10, circuitIndex: 10, circuitYOffset: 0 },
+    { name: 'RY', paletteIndex: 11, circuitIndex: 11, circuitYOffset: 0 },
+    { name: 'RZ', paletteIndex: 12, circuitIndex: 12, circuitYOffset: 0 },
+    { name: 'QFT', paletteIndex: 22, circuitIndex: 13, circuitYOffset: UI_CONSTANTS.LINE_GAP / 2 },
+    { name: 'QFTDagger', paletteIndex: 23, circuitIndex: 14, circuitYOffset: UI_CONSTANTS.LINE_GAP / 2 },
   ] as const
-  const centers = Object.fromEntries(labels.flatMap(({ name, index }) => {
-    const paletteCenter = getPaletteGateCenter(box.width, index)
+  const centers = Object.fromEntries(labels.flatMap(({ name, paletteIndex, circuitIndex, circuitYOffset }) => {
+    const paletteCenter = getPaletteGateCenter(box.width, paletteIndex)
     return [
       [`palette${name}`, { x: paletteCenter.x, y: EGUI_PANEL_MARGIN + paletteCenter.y }],
       [`circuit${name}`, {
-        x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * index,
-        y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+        x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * circuitIndex,
+        y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y + circuitYOffset,
       }],
     ]
   }))
@@ -162,6 +164,10 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
     circuitRY: { count: 27, width: 16, height: 10 },
     paletteRZ: { count: 43, width: 16, height: 10 },
     circuitRZ: { count: 43, width: 16, height: 10 },
+    paletteQFT: { count: 36, width: 22, height: 10 },
+    circuitQFT: { count: 36, width: 22, height: 10 },
+    paletteQFTDagger: { count: 43, width: 23, height: 17 },
+    circuitQFTDagger: { count: 43, width: 23, height: 17 },
   })
 })
 

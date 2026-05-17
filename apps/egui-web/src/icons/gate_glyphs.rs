@@ -47,24 +47,14 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / X
-    // (本体は "+" として描く) は
-    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,plus}.svg`
+    // H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT /
+    // QFT† / X (本体は "+" として描く) は
+    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,plus}.svg`
     // を 1 ソースに、ビルド時に 256 px PNG から作った SDF テクスチャで
     // 描画する。パレットと回路のサブピクセル位置差で見かけの太さが揺れず、
     // 拡大時も輪郭をシェーダで再構成できるようにする。
-    // 残りの文字系（QFT / QFT†）は引き続き Geist フォントを `painter.text` で描画する。
     if let Some(glyph) = svg_glyph_for(kind) {
         super::svg_icon::draw_glyph(painter, rect, color, glyph);
-        return true;
-    }
-
-    // Remaining typographic gates (QFT / QFT†) are rendered as Geist text
-    // via `painter.text`. QFT† renders the base label centred and the † as
-    // a smaller mark in the top-right corner so the central glyph stays
-    // legible at 32 px.
-    if let Some(label) = base_label_for(kind) {
-        draw_text_label(painter, rect, kind, label, color);
         return true;
     }
 
@@ -169,75 +159,12 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::Rx => GateGlyph::Rx,
         GateKind::Ry => GateGlyph::Ry,
         GateKind::Rz => GateGlyph::Rz,
+        GateKind::QftGate => GateGlyph::Qft,
+        GateKind::QftDaggerGate => GateGlyph::QftDagger,
         // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
         // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
         // ここでは Plus を返す。
         GateKind::X => GateGlyph::Plus,
         _ => return None,
     })
-}
-
-/// Map a `GateKind` to the remaining text label rendered at the centre of
-/// its body. SVG/SDF-backed glyphs are handled before this function.
-fn base_label_for(kind: GateKind) -> Option<&'static str> {
-    Some(match kind {
-        GateKind::QftGate | GateKind::QftDaggerGate => "QFT",
-        _ => return None,
-    })
-}
-
-fn is_dagger_variant(kind: GateKind) -> bool {
-    matches!(kind, GateKind::QftDaggerGate)
-}
-
-/// Pixel font size for the base label, derived from the gate-body
-/// width. Ratios picked on the gate-label mockup; stays consistent
-/// across the 32 px palette and any future scale. Sizes were
-/// validated visually at 32 px against Geist's metrics.
-fn base_label_font_px(label: &str, body_px: f32) -> f32 {
-    debug_assert!(label.chars().count() > 1);
-    // QFT is a 3-char label that needs a smaller size to fit inside
-    // the body. Bold is wide enough that going higher pushes "QFT"
-    // past the rounded body edge.
-    body_px * 0.40
-}
-
-fn draw_text_label(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    kind: GateKind,
-    label: &str,
-    color: egui::Color32,
-) {
-    let body_px = rect.width();
-    let family = crate::app::GATE_LABEL_FAMILY.clone();
-    let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
-    // Vertical centring quirk: egui aligns text by the font's
-    // ascent/descent, not by the glyph's visual centre. For QFT, the
-    // ascent-to-baseline span already matches the body centre well.
-    painter.text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        label,
-        font,
-        color,
-    );
-    if is_dagger_variant(kind) {
-        // Dagger sits at the body's top-right so the base letter stays
-        // dead-centre. Size ≈ 0.32× body. Insets are pulled inward
-        // (0.17× / 0.22× instead of 0.13× / 0.18× from the mockup) so
-        // the 10 px-tall glyph clears the cyan body's 6 px corner
-        // radius and no longer clips the rounded top-right edge. The
-        // dagger follows the base label's weight, so QFT† stays on Bold.
-        let dag_font = egui::FontId::new(body_px * 0.32, family.clone());
-        let inset_x = body_px * 0.17;
-        let inset_y = body_px * 0.22;
-        painter.text(
-            egui::pos2(rect.right() - inset_x, rect.top() + inset_y),
-            egui::Align2::CENTER_CENTER,
-            "†",
-            dag_font,
-            color,
-        );
-    }
 }
