@@ -119,6 +119,73 @@ const waitForChanceBarPixels = async (
   return last
 }
 
+const readoutVisualStabilityEvidence = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+  box: { x: number; y: number },
+): Promise<{ chanceDefaultFrames: number; missingMeasurementDigitFrames: number }> => {
+  const chanceGateLeft = LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const chanceGateTop = LINE_Y - GATE_SIZE / 2
+  const chanceRowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
+  const chanceProbe = { x: chanceGateLeft + 20, y: chanceGateTop + chanceRowH * 20.5 }
+  const measureCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * 2, y: LINE_Y + 4 * LINE_GAP }
+  let chanceDefaultFrames = 0
+  let missingMeasurementDigitFrames = 0
+  for (const column of [0, 1, 0, 2, 1, 0]) {
+    await page.mouse.move(box.x + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column, box.y + LINE_Y)
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())))
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const canvasBox = await canvas.boundingBox()
+    if (!canvasBox) throw new Error('expected egui canvas to be measurable')
+    const evidence = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, chanceProbe, measureCenter }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { chanceDefault: true, measurementDigitPixels: 0 }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const px = (xCss: number, yCss: number) => {
+          const x = Math.round(xCss * scaleX)
+          const y = Math.round(yCss * scaleY)
+          return Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3)) as [number, number, number]
+        }
+        const dist = (rgb: [number, number, number], target: [number, number, number]) =>
+          Math.abs(rgb[0] - target[0]) + Math.abs(rgb[1] - target[1]) + Math.abs(rgb[2] - target[2])
+        const chanceDefault = dist(px(chanceProbe.x, chanceProbe.y), [102, 160, 200]) < 48
+        let measurementDigitPixels = 0
+        for (let y = measureCenter.y - 14; y <= measureCenter.y + 14; y += 1) {
+          for (let x = measureCenter.x - 14; x <= measureCenter.x + 14; x += 1) {
+            const rgb = px(x, y)
+            if (dist(rgb, [32, 94, 166]) < 48 || dist(rgb, [175, 48, 41]) < 48) {
+              measurementDigitPixels += 1
+            }
+          }
+        }
+        return { chanceDefault, measurementDigitPixels }
+      },
+      {
+        base64: screenshot.toString('base64'),
+        cssWidth: canvasBox.width,
+        cssHeight: canvasBox.height,
+        chanceProbe,
+        measureCenter,
+      },
+    )
+    if (evidence.chanceDefault) chanceDefaultFrames += 1
+    if (evidence.measurementDigitPixels < 12) missingMeasurementDigitFrames += 1
+  }
+  return { chanceDefaultFrames, missingMeasurementDigitFrames }
+}
+
 const waitForChanceHoverEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
@@ -218,6 +285,19 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ outcome: 1, hoverBlue: true, popupText: true })
+})
+
+test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 'X'], ['Chance5'], [1, 1, 1, 1, 'Measure']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const evidence = await readoutVisualStabilityEvidence(page, canvas, box)
+
+  expect(evidence).toEqual({ chanceDefaultFrames: 0, missingMeasurementDigitFrames: 0 })
 })
 
 test('selected earlier column keeps later readouts populated', async ({ page }) => {

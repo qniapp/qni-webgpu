@@ -46,6 +46,15 @@ impl GpuPlanState {
         self.capacity_error = None;
     }
 
+    pub(crate) fn mark_step_preview_dirty(&mut self) {
+        self.needs_recompute = true;
+        // Preserve existing readout slot maps until the next recompute finishes.
+        // Circuit gates are painted before GPU recompute in a frame; clearing
+        // here makes Chance / measurement displays fall back to their default
+        // egui bodies for one frame while hovering columns.
+        self.capacity_error = None;
+    }
+
     pub(crate) fn needs_recompute_for(&self, state_count: usize) -> bool {
         self.needs_recompute || state_count != self.last_state_count
     }
