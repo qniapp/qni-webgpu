@@ -15,7 +15,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
     - "+" (X ゲートの本体) は Geist Medium 500
     - √X は Geist Regular の √ と X を合成
     - S† / T† は Geist Regular の基底文字と † を合成
-    - RX / RY / RZ は Geist Medium 500 の 2 文字を合成
+    - RX / RY / RZ は Geist Medium 500 の 2 文字を 0.46 倍で合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -37,7 +37,9 @@ OUT_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets/icons")
 VIEWBOX = 48.0
 RASTER_SIZE = 256
 GLYPH_RATIO = 0.62
-MULTI_GLYPH_RATIO = 0.40
+# 2 文字の回転ラベルは 0.40 倍だと H / S / P より線が細く見えるため、
+# 32 px ゲート内に収まる範囲で少し大きくする。
+MULTI_GLYPH_RATIO = 0.46
 SQRTX_RADICAL_RATIO = 0.85
 SQRTX_RADICAL_LIFT = 0.05
 DAGGER_RATIO = 0.32

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <g transform="translate(10.704 30.816) scale(0.019200 -0.019200)">
+  <g transform="translate(8.710 31.838) scale(0.022080 -0.022080)">
     <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z" fill="currentColor"/>
   </g>
-  <g transform="translate(23.760 30.816) scale(0.019200 -0.019200)">
+  <g transform="translate(23.724 31.838) scale(0.022080 -0.022080)">
     <path d="M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z" fill="currentColor"/>
   </g>
 </svg>

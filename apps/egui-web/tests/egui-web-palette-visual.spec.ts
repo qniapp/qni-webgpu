@@ -156,12 +156,12 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
     circuitTDagger: { count: 11, width: 16, height: 5 },
     paletteP: { count: 32, width: 10, height: 14 },
     circuitP: { count: 32, width: 10, height: 14 },
-    paletteRX: { count: 15, width: 14, height: 8 },
-    circuitRX: { count: 15, width: 14, height: 8 },
-    paletteRY: { count: 14, width: 13, height: 8 },
-    circuitRY: { count: 14, width: 13, height: 8 },
-    paletteRZ: { count: 20, width: 14, height: 8 },
-    circuitRZ: { count: 20, width: 14, height: 8 },
+    paletteRX: { count: 28, width: 16, height: 10 },
+    circuitRX: { count: 28, width: 16, height: 10 },
+    paletteRY: { count: 27, width: 16, height: 10 },
+    circuitRY: { count: 27, width: 16, height: 10 },
+    paletteRZ: { count: 43, width: 16, height: 10 },
+    circuitRZ: { count: 43, width: 16, height: 10 },
   })
 })
 
