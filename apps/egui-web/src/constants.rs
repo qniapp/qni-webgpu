@@ -51,15 +51,12 @@ pub(crate) fn state_grid_zoom_limits(natural_circle_size: f32) -> (f32, f32) {
     )
 }
 
-/// QFT / QFT† resizable-span gate geometry. Matches qni's
-/// `--qni-component-resize-handle-width / -height` (= operation-base /
-/// operation-base-¾) — a square-ish purple button below the gate body
-/// the user grabs to change span.
-///   * RESIZE_HANDLE_WIDTH: full gate width (= GATE_SIZE) so the
-///     handle sits flush under the body.
-///   * RESIZE_HANDLE_HEIGHT: 0.75 * GATE_SIZE (qni's `-¾` size).
+/// QFT / QFT† resizable-span gate geometry. Width follows the 40 px gate
+/// body (Tailwind spacing-10). Height uses spacing-8 (32 px): close to qni's
+/// 0.75 ratio while staying on the 4 px spacing scale and keeping the handle
+/// easy to grab.
 pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = GATE_SIZE;
-pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = GATE_SIZE * 0.75;
+pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = 32.0;
 
 /// How much accumulated wheel scroll delta = one aspect-step on the
 /// dims text. A typical OS wheel notch is roughly 50–100 px of smooth
@@ -145,16 +142,21 @@ pub(crate) const LINE_Y: f32 = PALETTE_ROW_Y
     + PALETTE_PADDING_Y
     + PALETTE_CIRCUIT_GAP
     + GATE_SIZE / 2.0;
-pub(crate) const LINE_GAP: f32 = 1.5 * REM;
+// spacing-14 = 56 px. With GATE_SIZE = 40 this preserves the previous
+// 16 px visual gap between gates on neighbouring wires (48 - 32 = 56 - 40).
+pub(crate) const LINE_GAP: f32 = 56.0;
 pub(crate) const CIRCUIT_PADDING: f32 = 2.0 * REM; // spacing-16 = 64px circuit side padding.
 pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
 pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
 pub(crate) const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
 pub(crate) const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
 
-pub(crate) const GATE_SIZE: f32 = 1.0 * REM;
-pub(crate) const SLOT_SPACING: f32 = GATE_SIZE * 1.5;
-pub(crate) const SNAP_DISTANCE: f32 = 0.5625 * REM;
+// spacing-10 = 40 px, matching Quirk's operation base size.
+pub(crate) const GATE_SIZE: f32 = 40.0;
+// spacing-14 = 56 px. Kept equal to LINE_GAP for a square visual rhythm.
+pub(crate) const SLOT_SPACING: f32 = 56.0;
+// spacing-5 = 20 px, half of the 40 px gate body.
+pub(crate) const SNAP_DISTANCE: f32 = 20.0;
 pub(crate) const DRAG_REPAINT_BASE_SECS: f64 = 0.01;
 pub(crate) const DRAG_REPAINT_MIN_SECS: f64 = 0.004;
 pub(crate) const DRAG_REPAINT_MAX_SECS: f64 = 1.0 / 30.0;

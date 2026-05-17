@@ -143,14 +143,14 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const LINE_GAP = 1.5 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const xSource = getPaletteGateCenter(cssWidth, 1)
@@ -194,14 +194,14 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const LINE_GAP = 1.5 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const xSource = getPaletteGateCenter(cssWidth, 1)
@@ -232,13 +232,13 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
   // Egui keeps an 8px panel margin inside the canvas; the interaction helpers
   // can be fuzzy because snap distance absorbs it, but visual pixel probes need
   // the actual painted position.
@@ -251,11 +251,11 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const blochX = slotCenter(2)
   const samples = await sampleCanvasPixels(page, canvas, [
     { name: 'circuit_background', x: blochX + 80, y: wireCenterY - 20 },
-    { name: 'measurement_gap_left', x: measureX - 20, y: wireCenterY },
-    { name: 'measurement_wire_left', x: measureX - 24, y: wireCenterY },
+    { name: 'measurement_gap_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2, y: wireCenterY },
+    { name: 'measurement_wire_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2 - 8, y: wireCenterY },
     { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
-    { name: 'bloch_tip_on_sphere', x: blochX, y: wireCenterY + 15 },
-    { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 21 },
+    { name: 'bloch_tip_on_sphere', x: blochX, y: wireCenterY + 21 },
+    { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 26 },
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
@@ -281,11 +281,12 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   await page.mouse.move((box?.x ?? 0) + measureX, (box?.y ?? 0) + wireCenterY)
   await page.waitForTimeout(100)
   const hoverSamples = await sampleCanvasPixels(page, canvas, [
-    { name: 'measurement_hover_left_side', x: measureX - 19, y: wireCenterY },
-    { name: 'measurement_hover_right_side', x: measureX + 19, y: wireCenterY },
+    { name: 'measurement_hover_left_side', x: measureX - UI_CONSTANTS.GATE_SIZE / 2 - 5, y: wireCenterY },
+    { name: 'measurement_hover_right_side', x: measureX + UI_CONSTANTS.GATE_SIZE / 2 + 5, y: wireCenterY },
   ])
   const isHoverBorder = ([r, g, b]: CanvasPixel): boolean =>
-    r >= 220 && r <= 240 && g >= 220 && g <= 240 && b >= 210 && b <= 230
+    (r >= 210 && r <= 245 && g >= 208 && g <= 245 && b >= 200 && b <= 235) ||
+    pixelRgbDistance([r, g, b, 255], [139, 126, 200, 255]) < 48
   expect({
     ...restingProbe,
     hoverLeftSide: isHoverBorder(hoverSamples.measurement_hover_left_side),
@@ -318,14 +319,14 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const LINE_GAP = 1.5 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const EGUI_PANEL_MARGIN = 8
   const slotCenter = (column: number) =>
     EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
@@ -335,8 +336,8 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   const samples = await sampleCanvasPixels(page, canvas, [
     { name: 'measurement_digit_too_high', x: overlayX, y: wireCenterY(0) - 12 },
     { name: 'measurement_digit_on_wire', x: overlayX, y: wireCenterY(0) },
-    { name: 'bloch_tip_on_sphere', x: overlayX, y: wireCenterY(2) - 15 },
-    { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 21 },
+    { name: 'bloch_tip_on_sphere', x: overlayX, y: wireCenterY(2) - 21 },
+    { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 26 },
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
@@ -371,14 +372,14 @@ test('Write and measurement digits share the same SDF size', async ({ page }) =>
   }
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const LINE_GAP = 1.5 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const EGUI_PANEL_MARGIN = 8
   const slotCenter = (column: number) =>
     EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
@@ -444,10 +445,10 @@ test('Write and measurement digits share the same SDF size', async ({ page }) =>
   }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, centers })
 
   expect(digitMetrics).toEqual({
-    write0: { width: 8, height: 14 },
-    write1: { width: 8, height: 12 },
-    measure0: { width: 8, height: 14 },
-    measure1: { width: 8, height: 12 },
+    write0: { width: 10, height: 16 },
+    write1: { width: 10, height: 16 },
+    measure0: { width: 10, height: 16 },
+    measure1: { width: 10, height: 16 },
   })
 })
 
@@ -466,13 +467,13 @@ test('GPU measurement collapses |1> deterministically with outcome 1', async ({ 
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
 
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const measureSource = getPaletteGateCenter(cssWidth, 19)

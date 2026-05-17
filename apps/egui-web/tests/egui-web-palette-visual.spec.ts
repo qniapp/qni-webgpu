@@ -42,7 +42,10 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   const gateCenter = getPaletteGateCenter(box.width, 0)
   await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
   await page.waitForTimeout(50)
-  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverRing', x: gateCenter.x - 19, y: gateCenter.y }])
+  const EGUI_PANEL_MARGIN = 8
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'hoverRing', x: gateCenter.x - UI_CONSTANTS.GATE_SIZE / 2 - 3, y: EGUI_PANEL_MARGIN + gateCenter.y },
+  ])
 
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
@@ -85,17 +88,17 @@ test('palette chance display preview uses four Gaussian rows', async ({ page }) 
   const left = gateCenter.x - UI_CONSTANTS.GATE_SIZE / 2
   const top = EGUI_PANEL_MARGIN + gateCenter.y - UI_CONSTANTS.GATE_SIZE / 2
   const samples: PixelSamplePoint[] = [
-    { name: 'row1Bar', x: left + 5, y: top + 4 },
-    { name: 'row1Tail', x: left + 12, y: top + 4 },
-    { name: 'row2Bar', x: left + 20, y: top + 12 },
-    { name: 'row2Tail', x: left + 26, y: top + 12 },
-    { name: 'row3Bar', x: left + 14, y: top + 20 },
-    { name: 'row3Tail', x: left + 20, y: top + 20 },
-    { name: 'row4Bar', x: left + 4, y: top + 28 },
-    { name: 'row4Tail', x: left + 9, y: top + 28 },
-    { name: 'divider1', x: left + 30, y: top + 8 },
-    { name: 'divider2', x: left + 30, y: top + 16 },
-    { name: 'divider3', x: left + 30, y: top + 24 },
+    { name: 'row1Bar', x: left + 5, y: top + 5 },
+    { name: 'row1Tail', x: left + 15, y: top + 5 },
+    { name: 'row2Bar', x: left + 20, y: top + 15 },
+    { name: 'row2Tail', x: left + 34, y: top + 15 },
+    { name: 'row3Bar', x: left + 14, y: top + 25 },
+    { name: 'row3Tail', x: left + 26, y: top + 25 },
+    { name: 'row4Bar', x: left + 4, y: top + 35 },
+    { name: 'row4Tail', x: left + 12, y: top + 35 },
+    { name: 'divider1', x: left + 36, y: top + 10 },
+    { name: 'divider2', x: left + 36, y: top + 20 },
+    { name: 'divider3', x: left + 36, y: top + 30 },
   ]
   const pixels = await sampleCanvasPixels(page, canvas, samples)
   const isBlue300 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [102, 160, 200, 255]) < 36
@@ -181,7 +184,7 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
     ctx.drawImage(img, 0, 0)
     const scaleX = img.width / cssWidth
     const scaleY = img.height / cssHeight
-    const measure = ({ x: cx, y: cy }: Point) => {
+    const measure = (name: string, { x: cx, y: cy }: Point) => {
       let minX = Number.POSITIVE_INFINITY
       let minY = Number.POSITIVE_INFINITY
       let maxX = Number.NEGATIVE_INFINITY
@@ -189,8 +192,16 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
       let count = 0
       const left = cx - gateSize / 2
       const top = cy - gateSize / 2
+      const isCircularBody = name.endsWith('X') || name.endsWith('P')
+      const circleCenter = gateSize / 2
+      const circleRadius = gateSize / 2 - 1
       for (let y = 4; y < gateSize - 4; y += 1) {
         for (let x = 4; x < gateSize - 4; x += 1) {
+          if (isCircularBody) {
+            const dx = x - circleCenter
+            const dy = y - circleCenter
+            if (Math.sqrt(dx * dx + dy * dy) > circleRadius) continue
+          }
           const [r, g, b, a] = ctx.getImageData(Math.floor((left + x) * scaleX), Math.floor((top + y) * scaleY), 1, 1).data
           const isLabelInk = a > 128 && r > 245 && g > 243 && b > 232
           if (isLabelInk) {
@@ -204,40 +215,40 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
       }
       return { count, width: maxX - minX + 1, height: maxY - minY + 1 }
     }
-    return Object.fromEntries(Object.entries(centers).map(([name, center]) => [name, measure(center)]))
+    return Object.fromEntries(Object.entries(centers).map(([name, center]) => [name, measure(name, center)]))
   }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateSize, centers })
 
   expect(metrics).toEqual({
-    paletteH: { count: 28, width: 10, height: 14 },
-    circuitH: { count: 28, width: 10, height: 14 },
-    paletteX: { count: 4, width: 2, height: 2 },
-    circuitX: { count: 4, width: 2, height: 2 },
-    paletteY: { count: 14, width: 10, height: 8 },
-    circuitY: { count: 14, width: 10, height: 8 },
-    paletteZ: { count: 27, width: 8, height: 14 },
-    circuitZ: { count: 27, width: 8, height: 14 },
-    paletteSqrtX: { count: 38, width: 20, height: 16 },
-    circuitSqrtX: { count: 38, width: 20, height: 16 },
-    paletteS: { count: 29, width: 10, height: 14 },
-    circuitS: { count: 29, width: 10, height: 14 },
-    paletteSDagger: { count: 30, width: 16, height: 18 },
-    circuitSDagger: { count: 30, width: 16, height: 18 },
-    paletteT: { count: 10, width: 10, height: 1 },
-    circuitT: { count: 10, width: 10, height: 1 },
-    paletteTDagger: { count: 11, width: 16, height: 5 },
-    circuitTDagger: { count: 11, width: 16, height: 5 },
-    paletteP: { count: 32, width: 10, height: 14 },
-    circuitP: { count: 32, width: 10, height: 14 },
-    paletteRX: { count: 28, width: 16, height: 10 },
-    circuitRX: { count: 28, width: 16, height: 10 },
-    paletteRY: { count: 27, width: 16, height: 10 },
-    circuitRY: { count: 27, width: 16, height: 10 },
-    paletteRZ: { count: 43, width: 16, height: 10 },
-    circuitRZ: { count: 43, width: 16, height: 10 },
-    paletteQFT: { count: 36, width: 22, height: 10 },
-    circuitQFT: { count: 36, width: 22, height: 10 },
-    paletteQFTDagger: { count: 43, width: 23, height: 17 },
-    circuitQFTDagger: { count: 43, width: 23, height: 17 },
+    paletteH: { count: 44, width: 12, height: 16 },
+    circuitH: { count: 44, width: 12, height: 16 },
+    paletteX: { count: 36, width: 10, height: 10 },
+    circuitX: { count: 36, width: 10, height: 10 },
+    paletteY: { count: 38, width: 12, height: 16 },
+    circuitY: { count: 38, width: 12, height: 16 },
+    paletteZ: { count: 40, width: 12, height: 16 },
+    circuitZ: { count: 40, width: 12, height: 16 },
+    paletteSqrtX: { count: 65, width: 25, height: 19 },
+    circuitSqrtX: { count: 65, width: 25, height: 19 },
+    paletteS: { count: 58, width: 12, height: 18 },
+    circuitS: { count: 58, width: 12, height: 18 },
+    paletteSDagger: { count: 58, width: 12, height: 18 },
+    circuitSDagger: { count: 58, width: 12, height: 18 },
+    paletteT: { count: 42, width: 12, height: 16 },
+    circuitT: { count: 42, width: 12, height: 16 },
+    paletteTDagger: { count: 42, width: 12, height: 16 },
+    circuitTDagger: { count: 42, width: 12, height: 16 },
+    paletteP: { count: 50, width: 12, height: 16 },
+    circuitP: { count: 50, width: 12, height: 16 },
+    paletteRX: { count: 61, width: 21, height: 12 },
+    circuitRX: { count: 61, width: 21, height: 12 },
+    paletteRY: { count: 43, width: 20, height: 12 },
+    circuitRY: { count: 43, width: 20, height: 12 },
+    paletteRZ: { count: 61, width: 20, height: 12 },
+    circuitRZ: { count: 61, width: 20, height: 12 },
+    paletteQFT: { count: 91, width: 32, height: 14 },
+    circuitQFT: { count: 91, width: 32, height: 14 },
+    paletteQFTDagger: { count: 92, width: 32, height: 20 },
+    circuitQFTDagger: { count: 92, width: 32, height: 20 },
   })
 })
 
@@ -256,13 +267,12 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const REM = 32
-  const PALETTE_SIZE = REM
-  const PALETTE_GAP = 8
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_X = 16
-  const PALETTE_PADDING_Y = 20
+  const PALETTE_SIZE = UI_CONSTANTS.PALETTE_SIZE
+  const PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
+  const PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
+  const PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
+  const PALETTE_PADDING_X = UI_CONSTANTS.PALETTE_PADDING_X
+  const PALETTE_PADDING_Y = UI_CONSTANTS.PALETTE_PADDING_Y
   const PALETTE_ROW1_COUNT = 13
   const PALETTE_ROW2_COUNT = 8
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
@@ -323,7 +333,7 @@ test('palette control gate keeps its icon while dragging', async ({ page }) => {
   }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const PALETTE_SIZE = 32
+  const PALETTE_SIZE = UI_CONSTANTS.PALETTE_SIZE
   const dragSource = getPaletteGateCenter(cssWidth, 0)
   const dragTarget = { x: dragSource.x + 80, y: dragSource.y + 80 }
   const controlCenter = getPaletteGateCenter(cssWidth, 14)

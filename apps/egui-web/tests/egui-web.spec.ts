@@ -15,6 +15,7 @@ import {
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForAppReady,
   waitForBlochVectorsApprox,
   waitForCanvasContent,
@@ -50,14 +51,14 @@ test('egui webgpu canvas renders content', async ({ page }, testInfo) => {
   })
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const LINE_GAP = 1.5 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const controlSource = getPaletteGateCenter(cssWidth, 14)
   const xSource = getPaletteGateCenter(cssWidth, 1)

@@ -3,6 +3,7 @@ import {
   pixelRgbDistance,
   readEguiError,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForStartupReady,
   type CanvasPixel,
   type PixelSamplePoint,
@@ -60,7 +61,7 @@ test('Local mode keeps edit utilities but hides the GPU run cluster', async ({ p
   const pixels = await sampleCanvasPixels(page, canvas, TOOLBAR_PROBES)
 
   const REM = 32
-  const GATE_SIZE = REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const PALETTE_ROW_Y = 2.5 * REM
   const PALETTE_ROW_GAP = 8
   const PALETTE_PADDING_Y = 20

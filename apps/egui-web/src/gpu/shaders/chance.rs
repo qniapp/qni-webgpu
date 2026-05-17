@@ -143,10 +143,11 @@ fn glyph_chance_percent(idx: u32, prob_01: f32) -> u32 {
   return GLYPH_BLANK;
 }
 
-fn chance_text_color(local: vec2<f32>, rect_size: vec2<f32>, row: u32, row_h: f32, prob: f32, base: vec4<f32>) -> vec4<f32> {
-  // Quirk と同じく、行が十分高い Chance1..4 だけパーセント文字を出す。
-  // Chance5+ は小さな行を読みやすく保つためバーのみ描く。
-  if (row_h <= 8.0) { return base; }
+fn chance_text_color(local: vec2<f32>, rect_size: vec2<f32>, row: u32, row_count: u32, row_h: f32, prob: f32, base: vec4<f32>) -> vec4<f32> {
+  // Quirk と同じく、Chance1..4 だけパーセント文字を出す。
+  // 40 px 化後の Chance5 は row_h が 8px を少し超えるが、9px グリフより低く
+  // 詰まって見えるため Chance5+ はバーのみ描く。
+  if (row_count > 16u || row_h <= 8.0) { return base; }
   let text_w = f32(CHANCE_TEXT_CHARS) * CHANCE_TEXT_CHAR_W;
   let text_left = rect_size.x - 2.0 - text_w;
   let text_top = f32(row) * row_h + (row_h - CHANCE_TEXT_CHAR_H) * 0.5;
@@ -194,6 +195,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   if (on_border || on_separator) {
     color = params.border;
   }
-  return chance_text_color(input.local, input.rect_size, raw_row, row_h, prob, color);
+  return chance_text_color(input.local, input.rect_size, raw_row, row_count, row_h, prob, color);
 }
 "#;

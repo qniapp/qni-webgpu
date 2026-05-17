@@ -15,6 +15,7 @@ import {
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForAppReady,
   waitForBlochVectorsApprox,
   waitForCanvasContent,
@@ -55,7 +56,7 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
 const RUN_GPU_BUTTON_POINT: Point = { x: 196 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 const TEST_REM = 32
-const TEST_GATE_SIZE = TEST_REM
+const TEST_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
 const TEST_PALETTE_ROW_GAP = 8
 const TEST_PALETTE_PADDING_Y = 20
@@ -67,7 +68,7 @@ const TEST_CIRCUIT_LINE_Y =
   TEST_PALETTE_PADDING_Y +
   TEST_PALETTE_CIRCUIT_GAP +
   TEST_GATE_SIZE / 2
-const TEST_CIRCUIT_LINE_GAP = 1.5 * TEST_REM
+const TEST_CIRCUIT_LINE_GAP = UI_CONSTANTS.LINE_GAP
 
 test('execution mode toggle switches visually without recomputing state', async ({ page }) => {
   await page.goto('/')
@@ -173,7 +174,7 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
   })
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
@@ -226,8 +227,8 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   const cssWidth = box?.width ?? 1000
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
@@ -396,8 +397,8 @@ test('state panel hover does not drive circuit step preview', async ({ page }) =
   }
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
@@ -536,7 +537,7 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
@@ -547,7 +548,7 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
   const LINE_Y =
     PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
-  const LINE_GAP = 1.5 * REM
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
@@ -590,8 +591,8 @@ test('dropping between existing columns inserts a new column', async ({ page }) 
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const SLOT_SPACING = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM

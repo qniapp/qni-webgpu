@@ -7,22 +7,16 @@ import {
   readMeasurementOutcomes,
   readStateVector,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForStartupReady,
 } from './support/egui-web-spec-helpers'
 
-const REM = 32
-const GATE_SIZE = REM
-const SLOT_SPACING = GATE_SIZE * 1.5
-const CIRCUIT_PADDING = 2 * REM
-const QUBIT_LABEL_WIDTH = 3 * 14
-const QUBIT_LABEL_GAP = 0.5 * REM
-const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-const PALETTE_ROW_Y = 2.5 * REM
-const PALETTE_ROW_GAP = 8
-const PALETTE_PADDING_Y = 20
-const PALETTE_CIRCUIT_GAP = 48
-const LINE_Y = PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
-const LINE_GAP = 1.5 * REM
+const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
+const LINE_LEFT_OFFSET = UI_CONSTANTS.LINE_LEFT_OFFSET
+const LINE_Y = UI_CONSTANTS.LINE_Y
+const LINE_GAP = UI_CONSTANTS.LINE_GAP
+const EGUI_PANEL_MARGIN = 8
 const CHANCE_PALETTE_INDEX = 20
 const readCircuitColsFromHash = (url: string): unknown[] => JSON.parse(decodeURIComponent(new URL(url).hash.slice(1))).cols
 
@@ -74,8 +68,8 @@ const waitForChancePercentLabelPixels = async (
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   span: number,
 ): Promise<number> => {
-  const gateLeft = LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
-  const gateTop = LINE_Y - GATE_SIZE / 2
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const gateHeight = (span - 1) * LINE_GAP + GATE_SIZE
   let last = 0
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -119,13 +113,15 @@ const waitForChanceBarPixels = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ barIsBlue: boolean; emptyIsPaper: boolean }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   let last = { barIsBlue: false, emptyIsPaper: false }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
     if (!box) throw new Error('expected egui canvas to be measurable')
     last = await page.evaluate(
-      async ({ base64, cssWidth, cssHeight }) => {
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop }) => {
         const img = new Image()
         img.src = `data:image/png;base64,${base64}`
         await new Promise((resolve, reject) => {
@@ -140,10 +136,10 @@ const waitForChanceBarPixels = async (
         ctx.drawImage(img, 0, 0)
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
-        const x0 = Math.floor(180 * scaleX)
-        const x1 = Math.floor(232 * scaleX)
-        const y0 = Math.floor(220 * scaleY)
-        const y1 = Math.floor(268 * scaleY)
+        const x0 = Math.floor((gateLeft + 2) * scaleX)
+        const x1 = Math.floor((gateLeft + 38) * scaleX)
+        const y0 = Math.floor((gateTop + 2) * scaleY)
+        const y1 = Math.floor((gateTop + 38) * scaleY)
         let blue = 0
         let paper = 0
         for (let y = y0; y <= y1; y += 1) {
@@ -155,7 +151,7 @@ const waitForChanceBarPixels = async (
         }
         return { barIsBlue: blue > 80, emptyIsPaper: paper > 80 }
       },
-      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop },
     )
     if (last.barIsBlue && last.emptyIsPaper) return last
     await page.waitForTimeout(50)
@@ -168,15 +164,15 @@ const readoutVisualStabilityEvidence = async (
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   box: { x: number; y: number },
 ): Promise<{ chanceDefaultFrames: number; missingMeasurementDigitFrames: number }> => {
-  const chanceGateLeft = LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
-  const chanceGateTop = LINE_Y - GATE_SIZE / 2
+  const chanceGateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const chanceGateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const chanceRowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
   const chanceProbe = { x: chanceGateLeft + 20, y: chanceGateTop + chanceRowH * 20.5 }
-  const measureCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * 2, y: LINE_Y + 4 * LINE_GAP }
+  const measureCenter = { x: EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * 2, y: EGUI_PANEL_MARGIN + LINE_Y + 4 * LINE_GAP }
   let chanceDefaultFrames = 0
   let missingMeasurementDigitFrames = 0
   for (const column of [0, 1, 0, 2, 1, 0]) {
-    await page.mouse.move(box.x + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column, box.y + LINE_Y)
+    await page.mouse.move(box.x + EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column, box.y + EGUI_PANEL_MARGIN + LINE_Y)
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())))
     const screenshot = await canvas.screenshot({ type: 'png' })
     const canvasBox = await canvas.boundingBox()
@@ -234,13 +230,15 @@ const waitForChanceHoverEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ hoverBlue: boolean; popupText: boolean }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const selectedRowTop = EGUI_PANEL_MARGIN + LINE_Y
   let last = { hoverBlue: false, popupText: false }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
     if (!box) throw new Error('expected egui canvas to be measurable')
     const pixels = await page.evaluate(
-      async ({ base64, cssWidth, cssHeight }) => {
+      async ({ base64, cssWidth, cssHeight, gateLeft, selectedRowTop }) => {
         const img = new Image()
         img.src = `data:image/png;base64,${base64}`
         await new Promise((resolve, reject) => {
@@ -277,16 +275,16 @@ const waitForChanceHoverEvidence = async (
         }
         return {
           hoverBlue: countMatching(
-            186,
-            218,
-            236,
-            252,
+            gateLeft + 2,
+            gateLeft + 38,
+            selectedRowTop + 2,
+            selectedRowTop + 18,
             ([r, g, b]) => Math.abs(r - 32) + Math.abs(g - 94) + Math.abs(b - 166) < 24,
           ) > 40,
-          popupText: countMatching(226, 390, 216, 272, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
+          popupText: countMatching(226, 390, 216, 292, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
         }
       },
-      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, selectedRowTop },
     )
     last = pixels
     if (last.hoverBlue && last.popupText) return last
@@ -328,6 +326,17 @@ test('Chance4 displays GPU-rendered percentage labels', async ({ page }) => {
   expect(textPixels > 32).toBe(true)
 })
 
+test('Chance5 keeps the Quirk-style bar-only display', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 'H'], ['Chance5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const textPixels = await waitForChancePercentLabelPixels(page, canvas, 5)
+
+  expect(textPixels < 8).toBe(true)
+})
+
 test('Chance hover highlights an outcome row and opens the popup', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Chance']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -335,7 +344,7 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
   if (!box) throw new Error('expected egui canvas to be measurable')
-  await page.mouse.move(box.x + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE, box.y + LINE_Y + 8)
+  await page.mouse.move(box.x + EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE, box.y + EGUI_PANEL_MARGIN + LINE_Y + 8)
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ hoverBlue: true, popupText: true })

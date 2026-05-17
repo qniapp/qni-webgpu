@@ -254,9 +254,9 @@ impl QniApp {
                     gate_rect.center() + egui::vec2(0.0, MEASUREMENT_DIGIT_CENTER_Y_OFFSET);
                 Some(MeasurementDigitInstance {
                     center: [center.x, center.y],
-                    // Quad spans 32 px, matching the Write gate digit rect so
-                    // Measurement and Write share the same SVG/SDF digit size.
-                    half_extent: 16.0,
+                    // Quad spans the full gate body, matching the Write gate digit
+                    // rect so Measurement and Write share the same SVG/SDF digit size.
+                    half_extent: GATE_SIZE * 0.5,
                     slot,
                 })
             })

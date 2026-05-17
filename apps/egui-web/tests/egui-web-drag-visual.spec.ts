@@ -16,6 +16,7 @@ import {
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForAppReady,
   waitForBlochVectorsApprox,
   waitForCanvasContent,
@@ -44,7 +45,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const hSource = getPaletteGateCenter(cssWidth, 0)
   // Drop target sits outside the palette panel to the left, matching the
   // visual probe used in the original test.
@@ -131,7 +132,7 @@ test('dragged palette gate keeps rounded corners', async ({ page }) => {
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const dragTarget = { x: hSource.x + 80, y: hSource.y + 80 }
   const dragRect = {
@@ -169,12 +170,12 @@ test('dragged x gate uses Flexoki purple-600 before dropping back to green', asy
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const signaturePoints: PixelSamplePoint[] = []
@@ -216,12 +217,12 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
   const xGateCenter = getPaletteGateCenter(cssWidth, 1)
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
@@ -235,9 +236,9 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
     return page.evaluate<
       CircularBodySignature,
-      { base64: string; center: Point; cssWidth: number; cssHeight: number }
+      { base64: string; center: Point; cssWidth: number; cssHeight: number; gateSize: number }
     >(
-      async ({ base64, center, cssWidth, cssHeight }) => {
+      async ({ base64, center, cssWidth, cssHeight, gateSize }) => {
         const img = new Image()
         img.src = `data:image/png;base64,${base64}`
         await new Promise((resolve, reject) => {
@@ -269,7 +270,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
           rgbDistance(pixel, dragPreviewFill) <= 80
         const isFill = (pixel: CanvasPixel): boolean =>
           isRegularGateFill(pixel) || isDragPreviewFill(pixel)
-        const searchRadius = 20
+        const searchRadius = Math.ceil(gateSize * 0.9)
         let minX = Infinity
         let minY = Infinity
         let maxX = -Infinity
@@ -296,8 +297,8 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
         const midX = Math.floor((minX + maxX) / 2)
         const midY = Math.floor((minY + maxY) / 2)
-        const insideRadius = 14
-        const outsideDiagonal = 13
+        const insideRadius = Math.floor(gateSize / 2) - 3
+        const outsideDiagonal = Math.floor(gateSize / 2) - 3
         return {
           count,
           width: maxX - minX + 1,
@@ -319,6 +320,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
         center,
         cssWidth: canvasBox?.width ?? 1000,
         cssHeight: canvasBox?.height ?? 800,
+        gateSize: GATE_SIZE,
       }
     )
   }
@@ -329,9 +331,9 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
     const filledEdges = edgeNames.filter((name) => isGateBodyFill(signature.samples[name])).length
     const filledCorners = cornerNames.filter((name) => isGateBodyFill(signature.samples[name])).length
     return {
-      countOk: signature.count > 500,
-      widthOk: signature.width > 24,
-      heightOk: signature.height > 24,
+      countOk: signature.count > 900,
+      widthOk: signature.width > 32,
+      heightOk: signature.height > 32,
       filledEdges,
       filledCorners,
     }
@@ -345,7 +347,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
 
   await dragPointer(page, placedXCenter, dragXCenter, 6, false)
   await page.waitForTimeout(50)
-  const dragPreview = await readCircularBodyCheck({ x: dragXCenter.x + 24, y: dragXCenter.y + 16 })
+  const dragPreview = await readCircularBodyCheck({ x: dragXCenter.x - GATE_SIZE / 4, y: dragXCenter.y + GATE_SIZE / 2 + 2 })
   await canvas.screenshot({ path: testInfo.outputPath('x-gate-circular-body.png') })
 
   expect({ palette, placed, dragPreview }).toEqual({
@@ -366,14 +368,14 @@ test('drag preview preserves resized QFT span', async ({ page }) => {
   await canvas.waitFor({ state: 'visible' })
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
-  const LINE_GAP = 1.5 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
-  const SLOT_SPACING = GATE_SIZE * 1.5
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
 
   const placedCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragTarget = { x: placedCenter.x + SLOT_SPACING, y: placedCenter.y }
@@ -407,12 +409,12 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
   const REM = 32
-  const GATE_SIZE = 1 * REM
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = 7.375 * REM
+  const LINE_Y = UI_CONSTANTS.LINE_Y
 
   const sqrtXGateCenter = getPaletteGateCenter(cssWidth, 4)
   const hGateCenter = getPaletteGateCenter(cssWidth, 0)
