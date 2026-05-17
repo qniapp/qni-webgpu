@@ -1,6 +1,6 @@
 //! SVG 共有アセットから焼き付けた PNG を、単色アイコンとして描画する。
 //!
-//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger}.svg` を正にし、
+//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,digit0,digit1}.svg` を正にし、
 //! `scripts/extract-gate-svg.py` が同じ場所へ 256×256 px の PNG を生成する。
 //! WebGPU 経路では PNG アルファから生成した SDF（符号付き距離場）を
 //! `sdf_icon` のシェーダで描く。WebGPU が無い経路だけ、同じ PNG アルファの
@@ -33,10 +33,15 @@ pub(super) enum GateGlyph {
     Rz,
     Qft,
     QftDagger,
+    Digit0,
+    Digit1,
 }
 
+pub(crate) const DIGIT_SDF_SIZE: usize = RASTER_SIZE;
+pub(crate) const DIGIT_SDF_PX_RANGE: f32 = SDF_PX_RANGE;
+
 impl GateGlyph {
-    pub(super) const ALL: [Self; 16] = [
+    pub(super) const ALL: [Self; 18] = [
         Self::H,
         Self::X,
         Self::Y,
@@ -53,6 +58,8 @@ impl GateGlyph {
         Self::Rz,
         Self::Qft,
         Self::QftDagger,
+        Self::Digit0,
+        Self::Digit1,
     ];
 }
 
@@ -78,6 +85,8 @@ fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::Rz => RZ_ALPHA_RLE,
         GateGlyph::Qft => QFT_ALPHA_RLE,
         GateGlyph::QftDagger => QFTDAGGER_ALPHA_RLE,
+        GateGlyph::Digit0 => DIGIT0_ALPHA_RLE,
+        GateGlyph::Digit1 => DIGIT1_ALPHA_RLE,
     }
 }
 
@@ -99,6 +108,16 @@ pub(super) fn sdf_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::Rz => RZ_SDF_RLE,
         GateGlyph::Qft => QFT_SDF_RLE,
         GateGlyph::QftDagger => QFTDAGGER_SDF_RLE,
+        GateGlyph::Digit0 => DIGIT0_SDF_RLE,
+        GateGlyph::Digit1 => DIGIT1_SDF_RLE,
+    }
+}
+
+pub(crate) fn digit_sdf_rle(digit: u32) -> &'static [(u16, u8)] {
+    match digit {
+        0 => DIGIT0_SDF_RLE,
+        1 => DIGIT1_SDF_RLE,
+        _ => panic!("digit SDF only supports 0 and 1"),
     }
 }
 
@@ -120,6 +139,8 @@ fn texture_name(glyph: GateGlyph) -> &'static str {
         GateGlyph::Rz => "gate-icon-rz-png-raster",
         GateGlyph::Qft => "gate-icon-qft-png-raster",
         GateGlyph::QftDagger => "gate-icon-qftdagger-png-raster",
+        GateGlyph::Digit0 => "gate-icon-digit0-png-raster",
+        GateGlyph::Digit1 => "gate-icon-digit1-png-raster",
     }
 }
 

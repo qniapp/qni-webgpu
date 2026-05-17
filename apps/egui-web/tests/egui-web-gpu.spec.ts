@@ -355,6 +355,102 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   })
 })
 
+test('Write and measurement digits share the same SDF size', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['|0>', '|1>'], ['Measure', 'Measure']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await readMeasurementOutcomes(page)).length === 2) break
+    await page.waitForTimeout(50)
+  }
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+
+  const REM = 32
+  const GATE_SIZE = 1 * REM
+  const SLOT_SPACING = 1.5 * REM
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = 7.375 * REM
+  const LINE_GAP = 1.5 * REM
+  const EGUI_PANEL_MARGIN = 8
+  const slotCenter = (column: number) =>
+    EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * column
+  const wireCenterY = (wire: number) => EGUI_PANEL_MARGIN + LINE_Y + LINE_GAP * wire
+  const centers = {
+    write0: { x: slotCenter(0), y: wireCenterY(0) },
+    write1: { x: slotCenter(0), y: wireCenterY(1) },
+    measure0: { x: slotCenter(1), y: wireCenterY(0) + 1 },
+    measure1: { x: slotCenter(1), y: wireCenterY(1) + 1 },
+  }
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  const digitMetrics = await page.evaluate<
+    Record<keyof typeof centers, { width: number; height: number }>,
+    { base64: string; cssWidth: number; cssHeight: number; centers: typeof centers }
+  >(async ({ base64, cssWidth, cssHeight, centers }) => {
+    const img = new Image()
+    img.src = `data:image/png;base64,${base64}`
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve(null)
+      img.onerror = () => reject(new Error('Failed to decode screenshot'))
+    })
+    const probe = document.createElement('canvas')
+    probe.width = img.width
+    probe.height = img.height
+    const ctx = probe.getContext('2d', { willReadFrequently: true })
+    if (!ctx) {
+      throw new Error('expected 2d context')
+    }
+    ctx.drawImage(img, 0, 0)
+    const scaleX = img.width / cssWidth
+    const scaleY = img.height / cssHeight
+    const distance = (rgb: [number, number, number], target: [number, number, number]) =>
+      Math.abs(rgb[0] - target[0]) + Math.abs(rgb[1] - target[1]) + Math.abs(rgb[2] - target[2])
+    const measure = (center: { x: number; y: number }, target: [number, number, number]) => {
+      let minX = Number.POSITIVE_INFINITY
+      let minY = Number.POSITIVE_INFINITY
+      let maxX = Number.NEGATIVE_INFINITY
+      let maxY = Number.NEGATIVE_INFINITY
+      for (let y = 2; y < 30; y += 1) {
+        for (let x = 2; x < 30; x += 1) {
+          const [r, g, b, a] = ctx.getImageData(
+            Math.floor((center.x - 16 + x) * scaleX),
+            Math.floor((center.y - 16 + y) * scaleY),
+            1,
+            1,
+          ).data
+          if (a > 128 && distance([r, g, b], target) < 70) {
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            maxX = Math.max(maxX, x)
+            maxY = Math.max(maxY, y)
+          }
+        }
+      }
+      return { width: maxX - minX + 1, height: maxY - minY + 1 }
+    }
+    return {
+      write0: measure(centers.write0, [175, 48, 41]),
+      write1: measure(centers.write1, [32, 94, 166]),
+      measure0: measure(centers.measure0, [175, 48, 41]),
+      measure1: measure(centers.measure1, [32, 94, 166]),
+    }
+  }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, centers })
+
+  expect(digitMetrics).toEqual({
+    write0: { width: 8, height: 14 },
+    write1: { width: 8, height: 12 },
+    measure0: { width: 8, height: 14 },
+    measure1: { width: 8, height: 12 },
+  })
+})
+
 test('GPU measurement collapses |1> deterministically with outcome 1', async ({ page }) => {
   await page.goto('/')
 

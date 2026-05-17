@@ -6,7 +6,7 @@
 
 理由は次の通り。
 
-- パレットと回路で同じ SDF テクスチャを使うため、サブピクセル位置差で H / X / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† の太さが変わらない。
+- パレットと回路で同じ SDF テクスチャを使うため、サブピクセル位置差で H / X / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / Write0 / Write1 の太さが変わらない。
 - SDF の距離値を WebGPU シェーダ内で輪郭へ戻すため、S の曲線を拡大しても通常の PNG 拡大より階段状の揺れが目立ちにくい。
 - `assets/icons/*.svg` を正にしたまま、TypeScript 側は SVG、Rust 側は同じ SVG から生成した PNG / SDF を使える。
 - 実行時の SVG パーサ、PNG デコーダ、フォント抽出器を wasm に入れないため、`resvg` 案より wasm サイズを抑えられる。
@@ -19,7 +19,7 @@
 | 基準コマンド | `pnpm -C apps/egui-web exec trunk build --release` |
 | 基準 wasm | `apps/egui-web/dist/qni-egui-web_bg.wasm` |
 | 自作 SVG パーサ基準 | 8,108,489 bytes |
-| 画面確認 | `http://127.0.0.1:4180/#%7B%22cols%22%3A%5B%5B%22H%22%5D%2C%5B%22X%22%5D%2C%5B%22Y%22%5D%2C%5B%22Z%22%5D%2C%5B%22X%5E%C2%BD%22%5D%2C%5B%22S%22%5D%2C%5B%22S%E2%80%A0%22%5D%2C%5B%22T%22%5D%2C%5B%22T%E2%80%A0%22%5D%2C%5B%22P%22%5D%2C%5B%22Rx%22%5D%2C%5B%22Ry%22%5D%2C%5B%22Rz%22%5D%2C%5B%22QFT2%22%5D%2C%5B%22QFT%E2%80%A02%22%5D%5D%7D` |
+| 画面確認 | `http://127.0.0.1:4180/#%7B%22cols%22%3A%5B%5B%22H%22%5D%2C%5B%22X%22%5D%2C%5B%22Y%22%5D%2C%5B%22Z%22%5D%2C%5B%22X%5E%C2%BD%22%5D%2C%5B%22S%22%5D%2C%5B%22S%E2%80%A0%22%5D%2C%5B%22T%22%5D%2C%5B%22T%E2%80%A0%22%5D%2C%5B%22P%22%5D%2C%5B%22Rx%22%5D%2C%5B%22Ry%22%5D%2C%5B%22Rz%22%5D%2C%5B%22QFT2%22%5D%2C%5B%22QFT%E2%80%A02%22%5D%5D%7D` / `http://127.0.0.1:4180/#%7B%22cols%22%3A%5B%5B%22%7C0%3E%22%2C%22%7C1%3E%22%5D%2C%5B%22Measure%22%2C%22Measure%22%5D%5D%7D` |
 | After スクリーンショット | `h-palette-vs-circuit.png` |
 
 ## 比較表
@@ -28,7 +28,7 @@
 | --- | --- | --- | ---: | --- | --- | --- | --- |
 | A: `ttf-parser` でフォントから直接抽出 | `/tmp/qni-icon-a` で `ttf-parser = 0.25.1` を使い、Geist から輪郭を取り出してメッシュ描画 | H は描画できたが、最終描画はメッシュのまま。フォントヒンティング相当が無く、根本原因のサブピクセル細りを解かない | 8,349,058 bytes（+240,569） | フォント由来なので輪郭取得は容易。ただし塗りつぶし用の三角形分割は残る | Rust はフォント直、TypeScript は SVG になり、共有アセットの正が分かれる | 実行時コードが増える。Geist フォント依存が描画経路に残る | 不採用 |
 | B: `resvg` + 高解像度ラスタ化 | `resvg = 0.47.0`、`default-features = false` で初回描画時に SVG を 128×128 px テクスチャ化 | 通常表示は良いが、拡大時は通常のラスタ画像として階段状になりやすい | 8,989,134 bytes（+880,645） | SVG を足すだけ | 維持できる | 実行時に SVG 解析器とラスタ化器を wasm に含める。サイズ増が大きい | 不採用 |
-| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, P, RX, RY, RZ, QFT, QFT† が一致（内側の白画素: H 28 px、X 4 px、Y 14 px、Z 27 px、√X 38 px、S 29 px、S† 30 px、T 10 px、T† 11 px、P 32 px、RX 28 px、RY 27 px、RZ 43 px、QFT 36 px、QFT† 43 px） | 8,814,654 bytes（+706,165） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
+| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, P, RX, RY, RZ, QFT, QFT† が一致（内側の白画素: H 28 px、X 4 px、Y 14 px、Z 27 px、√X 38 px、S 29 px、S† 30 px、T 10 px、T† 11 px、P 32 px、RX 28 px、RY 27 px、RZ 43 px、QFT 36 px、QFT† 43 px）。Write / Measurement の数字は同じ digit0 / digit1 SDF を使い、回路実測で 0 が `8×14`、1 が `8×12` | 8,817,373 bytes（+708,884） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
 
 ## 採用しなかった案
 
@@ -43,7 +43,7 @@
 ## 採用実装
 
 - `scripts/extract-gate-svg.py`
-  - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `p.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg` を生成。
+  - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `p.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成。
   - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 256×256 px PNG も生成。
 - `apps/egui-web/build.rs`
   - `assets/icons/*.png` をビルド時に読み、256×256 px RGBA であることと可視画素があることを検査。
@@ -55,8 +55,10 @@
 - `apps/egui-web/src/icons/svg_icon.rs`
   - WebGPU が無い場合のみ RLE アルファを `ColorImage` に展開し、`Shape::image` で描く。
 - `apps/egui-web/src/icons/gate_glyphs.rs`
-  - H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / X（本体は Plus）を新方式へ切り替え。
+  - H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / X（本体は Plus）/ Write0 / Write1 を新方式へ切り替え。
   - 旧自作 SVG パーサと ear-clip コードは削除。
+- `apps/egui-web/src/gpu/digit_atlas.rs`
+  - `digit0.svg` / `digit1.svg` 由来の SDF を 1×2 atlas に詰め、Measurement の 0 / 1 も Write と同じ輪郭・サイズで描く。
 
 ## スクリーンショット
 

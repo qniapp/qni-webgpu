@@ -1,5 +1,6 @@
 use eframe::wgpu;
 
+use super::super::super::digit_atlas::DIGIT_ATLAS_SDF_PX_RANGE;
 use super::super::super::params::MeasurementDigitInstance;
 use super::super::super::shaders::MEASUREMENT_DIGIT_SHADER;
 
@@ -8,9 +9,13 @@ pub(super) fn build_pipeline(
     target_format: wgpu::TextureFormat,
     layout: &wgpu::BindGroupLayout,
 ) -> wgpu::RenderPipeline {
+    let shader_source = MEASUREMENT_DIGIT_SHADER.replace(
+        "DIGIT_SDF_PX_RANGE_PLACEHOLDER",
+        &format!("{DIGIT_ATLAS_SDF_PX_RANGE:.1}"),
+    );
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("measurement_digit"),
-        source: wgpu::ShaderSource::Wgsl(MEASUREMENT_DIGIT_SHADER.into()),
+        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
     });
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("measurement_digit_pipeline_layout"),

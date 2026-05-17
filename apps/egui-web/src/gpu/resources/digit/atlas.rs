@@ -1,7 +1,7 @@
 use eframe::wgpu;
 
 use super::super::super::digit_atlas::{
-    rasterize_digit_atlas, DIGIT_ATLAS_HEIGHT, DIGIT_ATLAS_WIDTH,
+    rasterize_digit_sdf_atlas, DIGIT_ATLAS_HEIGHT, DIGIT_ATLAS_WIDTH,
 };
 
 pub(super) struct DigitAtlas {
@@ -10,12 +10,12 @@ pub(super) struct DigitAtlas {
 }
 
 pub(super) fn create_digit_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> DigitAtlas {
-    let atlas_data = rasterize_digit_atlas();
+    let atlas_data = rasterize_digit_sdf_atlas();
     let texture = wgpu::util::DeviceExt::create_texture_with_data(
         device,
         queue,
         &wgpu::TextureDescriptor {
-            label: Some("measurement_digit_atlas"),
+            label: Some("measurement_digit_sdf_atlas"),
             size: wgpu::Extent3d {
                 width: DIGIT_ATLAS_WIDTH,
                 height: DIGIT_ATLAS_HEIGHT,

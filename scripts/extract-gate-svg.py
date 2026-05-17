@@ -9,10 +9,12 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 使い方:
     python3 scripts/extract-gate-svg.py H
     python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P RX RY RZ QFT QFT†
+    python3 scripts/extract-gate-svg.py 0 1
 
 設定:
     - 単一字ゲートは Geist Regular 400
     - "+" (X ゲートの本体) は Geist Medium 500
+    - Write / Measurement 用の 0 / 1 は Geist Mono Regular
     - √X は Geist Regular の √ と X を合成
     - S† / T† は Geist Regular の基底文字と † を合成
     - RX / RY / RZ は Geist Medium 500 の 2 文字を 0.46 倍で合成
@@ -49,6 +51,13 @@ DAGGER_INSET_Y = 0.22
 
 WEIGHT_FOR_CHAR = {
     "+": "Medium",
+    "0": "MonoRegular",
+    "1": "MonoRegular",
+}
+RATIO_FOR_CHAR = {
+    # SDF 化した Measurement digit と同じ 13 px 高に合わせる。
+    "0": 0.58,
+    "1": 0.58,
 }
 WEIGHT_FOR_TOKEN = {
     "RX": "Medium",
@@ -66,6 +75,8 @@ DEFAULT_WEIGHT = "Regular"
 
 FILENAME_FOR_TOKEN = {
     "+": "plus",
+    "0": "digit0",
+    "1": "digit1",
     "√X": "sqrtx",
     "S†": "sdagger",
     "T†": "tdagger",
@@ -104,6 +115,8 @@ def normalize_token(token: str) -> str:
 
 
 def font_for_weight(weight: str) -> TTFont:
+    if weight == "MonoRegular":
+        return TTFont(os.path.join(FONTS_DIR, "GeistMono-Regular.ttf"))
     return TTFont(os.path.join(FONTS_DIR, f"Geist-{weight}.ttf"))
 
 
@@ -155,7 +168,7 @@ def single_glyph_svg(char: str) -> str:
     # 過去版はグリフ外接矩形の高さを target_h に正規化していたため、'H' のように
     # キャップ高がフルの em の 71% 程度しかない文字でも viewBox 内で
     # GLYPH_RATIO ぶん占めてしまい、フォント描画より大きく見えていた。
-    scale = VIEWBOX * GLYPH_RATIO / font["head"].unitsPerEm
+    scale = VIEWBOX * RATIO_FOR_CHAR.get(char, GLYPH_RATIO) / font["head"].unitsPerEm
     target_w = (box.xMax - box.xMin) * scale
     target_h = (box.yMax - box.yMin) * scale
 
@@ -321,6 +334,8 @@ def weight_description(token: str) -> str:
         return "Geist Regular composite"
     if token in WEIGHT_FOR_TOKEN or token == "QFT†":
         return "Geist Medium composite"
+    if WEIGHT_FOR_CHAR.get(token) == "MonoRegular":
+        return "Geist Mono Regular"
     return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
 
 

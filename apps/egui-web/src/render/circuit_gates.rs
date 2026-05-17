@@ -254,11 +254,9 @@ impl QniApp {
                     gate_rect.center() + egui::vec2(0.0, MEASUREMENT_DIGIT_CENTER_Y_OFFSET);
                 Some(MeasurementDigitInstance {
                     center: [center.x, center.y],
-                    // Quad spans `2 * half_extent` px; matches the digit
-                    // atlas cell size in `gpu.rs::DIGIT_ATLAS_CELL` so a
-                    // glyph rasterised at the cell-pixel scale renders 1:1
-                    // and matches egui's `FontId::monospace(16.0)`.
-                    half_extent: 11.0,
+                    // Quad spans 32 px, matching the Write gate digit rect so
+                    // Measurement and Write share the same SVG/SDF digit size.
+                    half_extent: 16.0,
                     slot,
                 })
             })

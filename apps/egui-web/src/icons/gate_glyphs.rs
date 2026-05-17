@@ -48,8 +48,8 @@ pub(super) fn draw_gate_icon(
     colors: &Colors,
 ) -> bool {
     // H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT /
-    // QFT† / X (本体は "+" として描く) は
-    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,plus}.svg`
+    // QFT† / X (本体は "+" として描く) / Write の 0・1 は
+    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,plus,digit0,digit1}.svg`
     // を 1 ソースに、ビルド時に 256 px PNG から作った SDF テクスチャで
     // 描画する。パレットと回路のサブピクセル位置差で見かけの太さが揺れず、
     // 拡大時も輪郭をシェーダで再構成できるようにする。
@@ -96,22 +96,15 @@ pub(super) fn draw_gate_icon(
             painter.line_segment([p(6.0, 5.0), p(6.0, 43.0)], stroke);
             painter.line_segment([p(37.4516, 5.0), p(43.5, 24.0)], stroke);
             painter.line_segment([p(43.5, 24.0), p(37.4516, 43.0)], stroke);
-            let (digit, digit_color) = if kind == GateKind::Write0 {
-                ("0", colors.semantic_off)
+            let (glyph, digit_color) = if kind == GateKind::Write0 {
+                (super::svg_icon::GateGlyph::Digit0, colors.semantic_off)
             } else {
-                ("1", colors.semantic_on)
+                (super::svg_icon::GateGlyph::Digit1, colors.semantic_on)
             };
-            // Ket digit uses Geist Mono so the slashed "0" is
-            // unambiguously a zero rather than an "O". Size stays
-            // below the large single-letter gates so the digit sits
-            // cleanly between the bracket strokes.
-            painter.text(
-                rect.center(),
-                egui::Align2::CENTER_CENTER,
-                digit,
-                egui::FontId::new(rect.width() * 0.56, egui::FontFamily::Monospace),
-                digit_color,
-            );
+            // Ket digit uses Geist Mono from the shared SVG/SDF path so the
+            // slashed "0" stays unambiguous and the palette/circuit weight
+            // does not depend on egui text rasterization.
+            super::svg_icon::draw_glyph(painter, rect, digit_color, glyph);
             true
         }
         GateKind::Control => {

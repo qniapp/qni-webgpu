@@ -13,6 +13,8 @@ struct DigitParams {
 @group(0) @binding(2) var digit_atlas: texture_2d<f32>;
 @group(0) @binding(3) var digit_sampler: sampler;
 
+const DIGIT_SDF_PX_RANGE: f32 = DIGIT_SDF_PX_RANGE_PLACEHOLDER;
+
 struct VsIn {
   @location(0) corner: vec2<f32>,
   @location(1) center: vec2<f32>,
@@ -54,12 +56,21 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let cell_u = (input.local.x / input.half_extent) * 0.5 + 0.5;
   let cell_v = (input.local.y / input.half_extent) * 0.5 + 0.5;
   let row = select(0.0, 1.0, outcome >= 0.5);
-  let uv = vec2<f32>(cell_u, (cell_v + row) * 0.5);
-  let alpha = textureSample(digit_atlas, digit_sampler, uv).r;
-  let color = select(params.zero_color.rgb, params.one_color.rgb, outcome >= 0.5);
+  let cell_uv = vec2<f32>(cell_u, cell_v);
+  let uv = vec2<f32>(cell_uv.x, (cell_uv.y + row) * 0.5);
+  let distance = textureSample(digit_atlas, digit_sampler, uv).r;
+  let dims_u = textureDimensions(digit_atlas);
+  let dims = vec2<f32>(f32(dims_u.x), f32(dims_u.x));
+  let uv_delta = max(fwidth(cell_uv), vec2<f32>(1.0e-6));
+  let screen_tex_size = vec2<f32>(1.0) / uv_delta;
+  let unit_range = vec2<f32>(DIGIT_SDF_PX_RANGE) / dims;
+  let screen_px_range = max(0.5 * dot(unit_range, screen_tex_size), 1.0);
+  let screen_px_distance = screen_px_range * (distance - 0.5);
+  let alpha = clamp(screen_px_distance + 0.5, 0.0, 1.0);
   if (alpha < 1.0e-3) {
     discard;
   }
+  let color = select(params.zero_color.rgb, params.one_color.rgb, outcome >= 0.5);
   return vec4<f32>(color * alpha, alpha);
 }
 "#;
