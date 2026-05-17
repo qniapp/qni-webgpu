@@ -27,6 +27,25 @@ import {
   type Point,
 } from './support/egui-web-spec-helpers'
 
+test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const gateCenter = getPaletteGateCenter(box.width, 0)
+  await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
+  await page.waitForTimeout(50)
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverRing', x: gateCenter.x - 19, y: gateCenter.y }])
+
+  expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
+})
+
 test('palette panel keeps its corners and shadow while dragging', async ({ page }) => {
   await page.goto('/')
 

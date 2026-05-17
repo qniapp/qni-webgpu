@@ -20,6 +20,7 @@ pub(crate) struct Colors {
     pub(crate) box_fill: egui::Color32,
     pub(crate) drag_fill: egui::Color32,
     pub(crate) box_border: egui::Color32,
+    pub(crate) gate_hover_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
     pub(crate) text_strong: egui::Color32,
@@ -159,7 +160,8 @@ fn flexoki_light() -> Colors {
         line: ui_2,                        // qubit wires
         box_fill: cyan_400,                // unitary gate body
         drag_fill: purple_600,             // grabbed / preview body
-        box_border: ui,                    // hover outline
+        box_border: ui,                    // neutral card / tooltip outline
+        gate_hover_border: purple_400,     // gate hover outline (Flexoki purple-400)
         label: paper,                      // inverse label on filled gates
         text: tx_2,                        // body text
         text_strong: tx,                   // emphasized titles / data ink

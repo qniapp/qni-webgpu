@@ -48,7 +48,11 @@ impl QniApp {
             if self.hovered_palette_index == Some(index) {
                 let hover_outer = gate_rect.expand(4.0);
                 let hover_inner = gate_rect.expand(2.0);
-                painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+                painter.rect_filled(
+                    hover_outer,
+                    egui::CornerRadius::same(10),
+                    colors.gate_hover_border,
+                );
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.background);
             }
             draw_gate_body(painter, gate_rect, *gate, colors);

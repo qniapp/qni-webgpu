@@ -71,7 +71,11 @@ impl QniApp {
                 } else {
                     colors.background
                 };
-                painter.rect_filled(hover_outer, egui::CornerRadius::same(10), colors.box_border);
+                painter.rect_filled(
+                    hover_outer,
+                    egui::CornerRadius::same(10),
+                    colors.gate_hover_border,
+                );
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), hover_inner_fill);
             }
             if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
