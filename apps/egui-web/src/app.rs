@@ -27,9 +27,8 @@ use circuit_library::CircuitLibrary;
 use circuit_picker_state::PickerState;
 
 /// Named font family rendering the remaining heavyweight text labels — i.e.
-/// QFT / QFT† at body × 0.40 px. RX / RY / RZ intentionally use the
-/// registered Geist Medium family so their strokes read lighter next to the
-/// shared SVG/SDF gate icons.
+/// QFT / QFT† at body × 0.40 px. Large gate glyphs, including RX / RY / RZ,
+/// now use the shared SVG/SDF icon path.
 pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist".into()));
 

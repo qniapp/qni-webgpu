@@ -47,22 +47,22 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // H / Y / Z / √X / S / S† / T / T† / P / X (本体は "+" として描く) は
-    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,plus}.svg` を 1 ソースに、
-    // ビルド時に 256 px PNG から作った SDF テクスチャで描画する。パレットと
-    // 回路のサブピクセル位置差で見かけの太さが揺れず、拡大時も輪郭を
-    // シェーダで再構成できるようにする。
-    // 残りの文字系（RX / RY / RZ / QFT / QFT†）は引き続き Geist フォントを
-    // `painter.text` で描画する。
+    // H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / X
+    // (本体は "+" として描く) は
+    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,plus}.svg`
+    // を 1 ソースに、ビルド時に 256 px PNG から作った SDF テクスチャで
+    // 描画する。パレットと回路のサブピクセル位置差で見かけの太さが揺れず、
+    // 拡大時も輪郭をシェーダで再構成できるようにする。
+    // 残りの文字系（QFT / QFT†）は引き続き Geist フォントを `painter.text` で描画する。
     if let Some(glyph) = svg_glyph_for(kind) {
         super::svg_icon::draw_glyph(painter, rect, color, glyph);
         return true;
     }
 
-    // Remaining typographic gates (RX / RY / RZ / QFT / QFT†) are rendered
-    // as Geist text via `painter.text`. QFT† renders the base label centred
-    // and the † as a smaller mark in the top-right corner so the central
-    // glyph stays legible at 32 px.
+    // Remaining typographic gates (QFT / QFT†) are rendered as Geist text
+    // via `painter.text`. QFT† renders the base label centred and the † as
+    // a smaller mark in the top-right corner so the central glyph stays
+    // legible at 32 px.
     if let Some(label) = base_label_for(kind) {
         draw_text_label(painter, rect, kind, label, color);
         return true;
@@ -166,6 +166,9 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::T => GateGlyph::T,
         GateKind::TDagger => GateGlyph::TDagger,
         GateKind::Phase => GateGlyph::P,
+        GateKind::Rx => GateGlyph::Rx,
+        GateKind::Ry => GateGlyph::Ry,
+        GateKind::Rz => GateGlyph::Rz,
         // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
         // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
         // ここでは Plus を返す。
@@ -178,13 +181,6 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
 /// its body. SVG/SDF-backed glyphs are handled before this function.
 fn base_label_for(kind: GateKind) -> Option<&'static str> {
     Some(match kind {
-        // R-axis rotations: at GATE_SIZE 32 px a subscript x / y / z
-        // is sub-5 px and unreadable. `icons.rs`'s old hand-drawn
-        // glyphs already rendered the axis letter at the same height
-        // as R, so typeset as `RX` / `RY` / `RZ` to match.
-        GateKind::Rx => "RX",
-        GateKind::Ry => "RY",
-        GateKind::Rz => "RZ",
         GateKind::QftGate | GateKind::QftDaggerGate => "QFT",
         _ => return None,
     })
@@ -200,21 +196,10 @@ fn is_dagger_variant(kind: GateKind) -> bool {
 /// validated visually at 32 px against Geist's metrics.
 fn base_label_font_px(label: &str, body_px: f32) -> f32 {
     debug_assert!(label.chars().count() > 1);
-    // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
-    // two-glyph width inside the body. Bold is wide enough that
-    // going higher pushes "QFT" past the rounded body edge.
+    // QFT is a 3-char label that needs a smaller size to fit inside
+    // the body. Bold is wide enough that going higher pushes "QFT"
+    // past the rounded body edge.
     body_px * 0.40
-}
-
-fn text_label_family(kind: GateKind) -> egui::FontFamily {
-    if matches!(kind, GateKind::Rx | GateKind::Ry | GateKind::Rz) {
-        // Rotation labels looked heavier than the SDF-backed single-letter
-        // gates at the same 32px body size. Geist Medium 500 keeps RX/RY/RZ
-        // readable while matching H/S/T/P more closely than Bold 700.
-        egui::FontFamily::Name("geist-medium".into())
-    } else {
-        crate::app::GATE_LABEL_FAMILY.clone()
-    }
 }
 
 fn draw_text_label(
@@ -225,12 +210,11 @@ fn draw_text_label(
     color: egui::Color32,
 ) {
     let body_px = rect.width();
-    let family = text_label_family(kind);
+    let family = crate::app::GATE_LABEL_FAMILY.clone();
     let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
     // Vertical centring quirk: egui aligns text by the font's
-    // ascent/descent, not by the glyph's visual centre. For the remaining
-    // text labels (RX / RY / RZ / QFT), the ascent-to-baseline span already
-    // matches the body centre well.
+    // ascent/descent, not by the glyph's visual centre. For QFT, the
+    // ascent-to-baseline span already matches the body centre well.
     painter.text(
         rect.center(),
         egui::Align2::CENTER_CENTER,

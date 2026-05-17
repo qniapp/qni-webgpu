@@ -8,13 +8,14 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P
+    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P RX RY RZ
 
 設定:
     - 単一字ゲートは Geist Regular 400
     - "+" (X ゲートの本体) は Geist Medium 500
     - √X は Geist Regular の √ と X を合成
     - S† / T† は Geist Regular の基底文字と † を合成
+    - RX / RY / RZ は Geist Medium 500 の 2 文字を合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -36,6 +37,7 @@ OUT_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets/icons")
 VIEWBOX = 48.0
 RASTER_SIZE = 256
 GLYPH_RATIO = 0.62
+MULTI_GLYPH_RATIO = 0.40
 SQRTX_RADICAL_RATIO = 0.85
 SQRTX_RADICAL_LIFT = 0.05
 DAGGER_RATIO = 0.32
@@ -44,6 +46,11 @@ DAGGER_INSET_Y = 0.22
 
 WEIGHT_FOR_CHAR = {
     "+": "Medium",
+}
+WEIGHT_FOR_TOKEN = {
+    "RX": "Medium",
+    "RY": "Medium",
+    "RZ": "Medium",
 }
 DEFAULT_WEIGHT = "Regular"
 
@@ -57,6 +64,17 @@ FILENAME_FOR_TOKEN = {
 SQRTX_ALIASES = {"√X", "sqrtx", "SqrtX", "SQRTX", "X^½"}
 SDAGGER_ALIASES = {"S†", "sdagger", "SDagger", "SDAGGER"}
 TDAGGER_ALIASES = {"T†", "tdagger", "TDagger", "TDAGGER"}
+ROTATION_ALIASES = {
+    "RX": "RX",
+    "Rx": "RX",
+    "rx": "RX",
+    "RY": "RY",
+    "Ry": "RY",
+    "ry": "RY",
+    "RZ": "RZ",
+    "Rz": "RZ",
+    "rz": "RZ",
+}
 
 
 def normalize_token(token: str) -> str:
@@ -66,6 +84,8 @@ def normalize_token(token: str) -> str:
         return "S†"
     if token in TDAGGER_ALIASES:
         return "T†"
+    if token in ROTATION_ALIASES:
+        return ROTATION_ALIASES[token]
     return token
 
 
@@ -83,6 +103,13 @@ def glyph_path_and_box(char: str, weight: str):
     pen = SVGPathPen(glyph_set)
     glyph.draw(pen)
     return font, box, pen.getCommands()
+
+
+def glyph_advance(char: str, weight: str) -> int:
+    font = font_for_weight(weight)
+    glyph_name = font.getBestCmap()[ord(char)]
+    advance, _ = font["hmtx"].metrics[glyph_name]
+    return advance
 
 
 def transform_for_box(box, scale: float, left: float, top: float) -> str:
@@ -150,6 +177,42 @@ def sqrtx_svg() -> str:
     return svg_document(body)
 
 
+def multi_glyph_svg(text: str) -> str:
+    weight = WEIGHT_FOR_TOKEN[text]
+    font = font_for_weight(weight)
+    scale = VIEWBOX * MULTI_GLYPH_RATIO / font["head"].unitsPerEm
+    glyphs = []
+    cursor = 0
+    min_x = float("inf")
+    min_y = float("inf")
+    max_x = float("-inf")
+    max_y = float("-inf")
+    for char in text:
+        _, box, _ = glyph_path_and_box(char, weight)
+        glyphs.append((char, box, cursor))
+        min_x = min(min_x, cursor + box.xMin)
+        max_x = max(max_x, cursor + box.xMax)
+        min_y = min(min_y, box.yMin)
+        max_y = max(max_y, box.yMax)
+        cursor += glyph_advance(char, weight)
+
+    union_w = (max_x - min_x) * scale
+    union_h = (max_y - min_y) * scale
+    origin_x = (VIEWBOX - union_w) / 2.0 - min_x * scale
+    baseline_y = (VIEWBOX - union_h) / 2.0 + max_y * scale
+    body = "\n".join(
+        path_element(
+            char,
+            weight,
+            scale,
+            origin_x + (cursor + box.xMin) * scale,
+            baseline_y - box.yMax * scale,
+        )
+        for char, box, cursor in glyphs
+    )
+    return svg_document(body)
+
+
 def dagger_svg(base_char: str) -> str:
     weight = DEFAULT_WEIGHT
     font = font_for_weight(weight)
@@ -188,6 +251,8 @@ def extract(token: str) -> str:
         return dagger_svg("S")
     if token == "T†":
         return dagger_svg("T")
+    if token in WEIGHT_FOR_TOKEN:
+        return multi_glyph_svg(token)
     if len(token) == 1:
         return single_glyph_svg(token)
     raise ValueError(f"未対応トークン: {token!r}")
@@ -216,6 +281,8 @@ def render_png(svg_path: str, png_path: str) -> None:
 def weight_description(token: str) -> str:
     if token in {"√X", "S†", "T†"}:
         return "Geist Regular composite"
+    if token in WEIGHT_FOR_TOKEN:
+        return f"Geist {WEIGHT_FOR_TOKEN[token]} composite"
     return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
 
 

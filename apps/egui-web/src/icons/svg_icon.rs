@@ -1,6 +1,6 @@
 //! SVG 共有アセットから焼き付けた PNG を、単色アイコンとして描画する。
 //!
-//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger,t,tdagger,p}.svg` を正にし、
+//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz}.svg` を正にし、
 //! `scripts/extract-gate-svg.py` が同じ場所へ 256×256 px の PNG を生成する。
 //! WebGPU 経路では PNG アルファから生成した SDF（符号付き距離場）を
 //! `sdf_icon` のシェーダで描く。WebGPU が無い経路だけ、同じ PNG アルファの
@@ -28,10 +28,13 @@ pub(super) enum GateGlyph {
     T,
     TDagger,
     P,
+    Rx,
+    Ry,
+    Rz,
 }
 
 impl GateGlyph {
-    pub(super) const ALL: [Self; 11] = [
+    pub(super) const ALL: [Self; 14] = [
         Self::H,
         Self::X,
         Self::Y,
@@ -43,6 +46,9 @@ impl GateGlyph {
         Self::T,
         Self::TDagger,
         Self::P,
+        Self::Rx,
+        Self::Ry,
+        Self::Rz,
     ];
 }
 
@@ -63,6 +69,9 @@ fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::T => T_ALPHA_RLE,
         GateGlyph::TDagger => TDAGGER_ALPHA_RLE,
         GateGlyph::P => P_ALPHA_RLE,
+        GateGlyph::Rx => RX_ALPHA_RLE,
+        GateGlyph::Ry => RY_ALPHA_RLE,
+        GateGlyph::Rz => RZ_ALPHA_RLE,
     }
 }
 
@@ -79,6 +88,9 @@ pub(super) fn sdf_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::T => T_SDF_RLE,
         GateGlyph::TDagger => TDAGGER_SDF_RLE,
         GateGlyph::P => P_SDF_RLE,
+        GateGlyph::Rx => RX_SDF_RLE,
+        GateGlyph::Ry => RY_SDF_RLE,
+        GateGlyph::Rz => RZ_SDF_RLE,
     }
 }
 
@@ -95,6 +107,9 @@ fn texture_name(glyph: GateGlyph) -> &'static str {
         GateGlyph::T => "gate-icon-t-png-raster",
         GateGlyph::TDagger => "gate-icon-tdagger-png-raster",
         GateGlyph::P => "gate-icon-p-png-raster",
+        GateGlyph::Rx => "gate-icon-rx-png-raster",
+        GateGlyph::Ry => "gate-icon-ry-png-raster",
+        GateGlyph::Rz => "gate-icon-rz-png-raster",
     }
 }
 
