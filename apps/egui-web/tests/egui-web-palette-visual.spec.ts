@@ -47,6 +47,26 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
 
+test('palette measurement hover keeps the panel background inside the outline', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const measurementPaletteIndex = 19
+  const gateCenter = getPaletteGateCenter(box.width, measurementPaletteIndex)
+  await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
+  await page.waitForTimeout(50)
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverInner', x: gateCenter.x - 17, y: gateCenter.y }])
+
+  expect(pixelRgbDistance(pixels.hoverInner, [255, 252, 240, 255])).toBeLessThan(8)
+})
+
 test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async ({ page }) => {
   await page.setViewportSize({ width: 1001, height: 800 })
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†'], ['T'], ['T†'], ['P'], ['Rx'], ['Ry'], ['Rz'], ['QFT2'], ['QFT†2']] })))
