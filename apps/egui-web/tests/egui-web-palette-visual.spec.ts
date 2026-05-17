@@ -62,9 +62,59 @@ test('palette measurement hover keeps the panel background inside the outline', 
   const gateCenter = getPaletteGateCenter(box.width, measurementPaletteIndex)
   await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
   await page.waitForTimeout(50)
-  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverInner', x: gateCenter.x - 17, y: gateCenter.y }])
+  const EGUI_PANEL_MARGIN = 8
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverInner', x: gateCenter.x - 17, y: EGUI_PANEL_MARGIN + gateCenter.y }])
 
   expect(pixelRgbDistance(pixels.hoverInner, [255, 252, 240, 255])).toBeLessThan(8)
+})
+
+test('palette chance display preview uses four Gaussian rows', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const EGUI_PANEL_MARGIN = 8
+  const chancePaletteIndex = 20
+  const gateCenter = getPaletteGateCenter(box.width, chancePaletteIndex)
+  const left = gateCenter.x - UI_CONSTANTS.GATE_SIZE / 2
+  const top = EGUI_PANEL_MARGIN + gateCenter.y - UI_CONSTANTS.GATE_SIZE / 2
+  const samples: PixelSamplePoint[] = [
+    { name: 'row1Bar', x: left + 5, y: top + 4 },
+    { name: 'row1Tail', x: left + 12, y: top + 4 },
+    { name: 'row2Bar', x: left + 20, y: top + 12 },
+    { name: 'row2Tail', x: left + 26, y: top + 12 },
+    { name: 'row3Bar', x: left + 14, y: top + 20 },
+    { name: 'row3Tail', x: left + 20, y: top + 20 },
+    { name: 'row4Bar', x: left + 4, y: top + 28 },
+    { name: 'row4Tail', x: left + 9, y: top + 28 },
+    { name: 'divider1', x: left + 30, y: top + 8 },
+    { name: 'divider2', x: left + 30, y: top + 16 },
+    { name: 'divider3', x: left + 30, y: top + 24 },
+  ]
+  const pixels = await sampleCanvasPixels(page, canvas, samples)
+  const isBlue300 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [102, 160, 200, 255]) < 36
+  const isPaper = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [255, 252, 240, 255]) < 12
+  const isUi2 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [218, 216, 206, 255]) < 24
+
+  expect({
+    row1: [isBlue300(pixels.row1Bar), isPaper(pixels.row1Tail)],
+    row2: [isBlue300(pixels.row2Bar), isPaper(pixels.row2Tail)],
+    row3: [isBlue300(pixels.row3Bar), isPaper(pixels.row3Tail)],
+    row4: [isBlue300(pixels.row4Bar), isPaper(pixels.row4Tail)],
+    dividers: [isUi2(pixels.divider1), isUi2(pixels.divider2), isUi2(pixels.divider3)],
+  }).toEqual({
+    row1: [true, true],
+    row2: [true, true],
+    row3: [true, true],
+    row4: [true, true],
+    dividers: [true, true, true],
+  })
 })
 
 test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async ({ page }) => {

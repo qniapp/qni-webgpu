@@ -8,6 +8,8 @@ use crate::gates::GateKind;
 
 use super::gate_glyphs::draw_gate_icon;
 
+const CHANCE_PREVIEW_BAR_WIDTHS: [f32; 4] = [0.30, 0.75, 0.55, 0.20];
+
 pub(crate) fn draw_gate_body(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
@@ -116,25 +118,33 @@ fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &
     // Static mini-preview only. Live probabilities are drawn later by the
     // GPU Chance render callback, directly from `chance_probability_output`.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
-    let half_h = rect.height() * 0.5;
-    let top = egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * 0.34, half_h));
-    let bottom = egui::Rect::from_min_size(
-        egui::pos2(rect.left(), rect.top() + half_h),
-        egui::vec2(rect.width() * 0.78, half_h),
-    );
-    painter.rect_filled(top, egui::CornerRadius::ZERO, colors.state_fill);
-    painter.rect_filled(bottom, egui::CornerRadius::ZERO, colors.state_fill);
-    painter.line_segment(
-        [
-            egui::pos2(rect.left(), rect.center().y),
-            egui::pos2(rect.right(), rect.center().y),
-        ],
-        egui::Stroke::new(1.0, colors.line),
-    );
+
+    // `docs/chance-display-icon-options.html` の案 1。4 行のガウス風分布にして、
+    // 32 px パレット上でも「複数結果のヒストグラム」と分かるようにする。
+    let row_h = rect.height() / CHANCE_PREVIEW_BAR_WIDTHS.len() as f32;
+    for (row, &width_ratio) in CHANCE_PREVIEW_BAR_WIDTHS.iter().enumerate() {
+        let bar_y = rect.top() + row_h * row as f32;
+        let bar = egui::Rect::from_min_size(
+            egui::pos2(rect.left(), bar_y),
+            egui::vec2(rect.width() * width_ratio, row_h),
+        );
+        painter.rect_filled(bar, egui::CornerRadius::ZERO, colors.state_fill);
+    }
+    for row in 1..CHANCE_PREVIEW_BAR_WIDTHS.len() {
+        let y = rect.top() + row_h * row as f32;
+        painter.line_segment(
+            [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
+            egui::Stroke::new(1.0, colors.line),
+        );
+    }
+    // 回路側の chance display 外周 (`circuit_gates.rs:180` で `colors.line` =
+    // ui-2) と階調を合わせる。Quirk の `lightgray` (#D3D3D3) と同じ薄灰で
+    // 「データ領域の輪郭」だけを示し、ゲート本体の強調はバー (blue-300)
+    // に任せる。
     painter.rect_stroke(
         rect,
         egui::CornerRadius::ZERO,
-        egui::Stroke::new(1.0, colors.text_strong),
+        egui::Stroke::new(1.0, colors.line),
         egui::StrokeKind::Inside,
     );
 }
