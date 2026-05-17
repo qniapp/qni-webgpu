@@ -5,12 +5,12 @@ use crate::app::QniApp;
 use crate::constants::LINE_GAP;
 
 impl DragController {
-    pub(in crate::app) fn update_active_qft_resize(
+    pub(in crate::app) fn update_active_span_resize(
         app: &mut QniApp,
         pointer: DragPointer,
         ctx: &egui::Context,
     ) -> bool {
-        let Some(drag) = app.qft_resize_drag else {
+        let Some(drag) = app.span_resize_drag else {
             return false;
         };
         if pointer.down || pointer.released {
@@ -25,7 +25,11 @@ impl DragController {
                     .position(|gate| gate.id == drag.gate_id)
                 {
                     let capacity = app.exec_mode.qubit_capacity();
-                    let max_span = capacity.saturating_sub(app.placed_gates[index].wire).max(1);
+                    let remaining_wires =
+                        capacity.saturating_sub(app.placed_gates[index].wire).max(1);
+                    let max_span = app.placed_gates[index]
+                        .kind
+                        .max_resizable_span(remaining_wires);
                     let new_span =
                         (drag.start_span as i32 + span_delta).clamp(1, max_span as i32) as usize;
                     if app.placed_gates[index].span != new_span {
@@ -39,7 +43,7 @@ impl DragController {
             }
         }
         if pointer.released {
-            app.qft_resize_drag = None;
+            app.span_resize_drag = None;
             app.commit_current_circuit(ctx);
             reset_drag_frame_state(app);
         }

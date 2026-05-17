@@ -121,10 +121,11 @@ impl QniApp {
         self.update_qubit_count();
         self.dragging = None;
         self.drag_state_count = None;
-        self.qft_resize_drag = None;
+        self.span_resize_drag = None;
         self.hovered_gate_id = None;
+        self.hovered_chance_outcome = None;
         self.hovered_palette_index = None;
-        self.hovered_qft_resize_handle = None;
+        self.hovered_span_resize_handle = None;
         self.hovered_step = None;
         self.breakpoint_step = None;
         self.drag_cursor_pos = None;

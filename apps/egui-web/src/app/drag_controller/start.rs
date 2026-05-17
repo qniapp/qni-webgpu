@@ -1,14 +1,14 @@
 use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
-use crate::app::{DragState, PlacedGate, QftResizeDrag, QniApp};
+use crate::app::{DragState, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
 use crate::gates::PALETTE_GATES;
-use crate::layout::{gate_visible_rect, palette_hit_test, qft_resize_handle_rect};
+use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_rect};
 
 #[derive(Clone, Copy, Debug)]
 enum DragStartIntent {
-    QftResize(QftResizeDrag),
+    SpanResize(SpanResizeDrag),
     ExistingGate(DragState),
     PaletteGate {
         index: usize,
@@ -26,10 +26,11 @@ impl DragController {
         ctx: &egui::Context,
     ) -> bool {
         match start_intent(app, pointer, geometry) {
-            DragStartIntent::QftResize(resize) => {
+            DragStartIntent::SpanResize(resize) => {
                 app.begin_circuit_commit();
-                app.qft_resize_drag = Some(resize);
+                app.span_resize_drag = Some(resize);
                 app.hovered_gate_id = None;
+                app.hovered_chance_outcome = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -40,6 +41,7 @@ impl DragController {
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_gate_id = None;
+                app.hovered_chance_outcome = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -70,6 +72,7 @@ impl DragController {
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_palette_index = None;
                 app.hovered_gate_id = None;
+                app.hovered_chance_outcome = None;
                 ctx.request_repaint();
                 true
             }
@@ -95,8 +98,8 @@ fn start_intent(
         return DragStartIntent::None;
     };
 
-    // QFT resize handle takes priority over gate body for press events,
-    // so dragging the bottom-edge chevron resizes the span instead of
+    // Resizable-span handles take priority over gate bodies for press events,
+    // so dragging the bottom-edge affordance resizes the span instead of
     // picking up the whole gate.
     if let Some(resize) = app
         .placed_gates
@@ -107,15 +110,15 @@ fn start_intent(
                 return false;
             }
             let gate_rect = gate_visible_rect(gate, gate.pos);
-            qft_resize_handle_rect(gate_rect).contains(cursor)
+            span_resize_handle_rect(gate.kind, gate_rect).contains(cursor)
         })
-        .map(|gate| QftResizeDrag {
+        .map(|gate| SpanResizeDrag {
             gate_id: gate.id,
             start_pointer_y: cursor.y,
             start_span: gate.span.max(1),
         })
     {
-        return DragStartIntent::QftResize(resize);
+        return DragStartIntent::SpanResize(resize);
     }
 
     if let Some(drag) = app

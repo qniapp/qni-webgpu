@@ -13,6 +13,8 @@
 //!   (render). Both share the bloch output buffer.
 //! * [`measure`]— measurement reduce + collapse (compute only). Owns
 //!   `aux_buffer` consumed by `digit`.
+//! * [`chance`] — Chance probability marginalization (compute) +
+//!   GPU-rendered probability bars. Both share the Chance output buffer.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
@@ -22,12 +24,13 @@
 //!
 //! The pre-refactor `update_render_pipeline` only rebuilt the
 //! state-vector render pipeline on a surface-format change; the bloch
-//! overlay, measurement digit, and popup-value pipelines silently
+//! overlay, Chance bars, measurement digit, and popup-value pipelines silently
 //! stayed pinned to the original format. This module's
 //! [`StateVectorResources::update_target_format`] now fans the call
 //! out to every render-bearing subsystem.
 
 mod bloch;
+mod chance;
 mod common;
 mod digit;
 mod measure;
@@ -37,6 +40,7 @@ mod state;
 use eframe::wgpu;
 
 use self::bloch::BlochResources;
+use self::chance::ChanceResources;
 use self::common::Common;
 use self::digit::DigitResources;
 use self::measure::MeasureResources;
@@ -48,6 +52,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) state: StateResources,
     pub(crate) bloch: BlochResources,
     pub(crate) measure: MeasureResources,
+    pub(crate) chance: ChanceResources,
     pub(crate) digit: DigitResources,
     pub(crate) popup_value: PopupValueResources,
 
@@ -73,6 +78,7 @@ impl StateVectorResources {
         let state = StateResources::build(device, target_format, &common);
         let bloch = BlochResources::build(device, target_format, &common);
         let measure = MeasureResources::build(device, &common);
+        let chance = ChanceResources::build(device, target_format, &common);
         let digit = DigitResources::build(device, queue, target_format, &measure);
         let popup_value = PopupValueResources::build(device, queue, target_format, &common);
 
@@ -81,6 +87,7 @@ impl StateVectorResources {
             state,
             bloch,
             measure,
+            chance,
             digit,
             popup_value,
             target_format,
@@ -94,7 +101,7 @@ impl StateVectorResources {
     ///
     /// Pre-refactor name was `update_render_pipeline`, but it only
     /// rebuilt one pipeline. Now genuine — touches `state`, `bloch`,
-    /// `digit`, and `popup_value`.
+    /// `chance`, `digit`, and `popup_value`.
     pub(crate) fn update_target_format(
         &mut self,
         device: &wgpu::Device,
@@ -105,6 +112,7 @@ impl StateVectorResources {
         }
         self.state.update_target_format(device, target_format);
         self.bloch.update_target_format(device, target_format);
+        self.chance.update_target_format(device, target_format);
         self.digit.update_target_format(device, target_format);
         self.popup_value.update_target_format(device, target_format);
         self.target_format = target_format;

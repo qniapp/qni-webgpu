@@ -34,10 +34,11 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::Write1
         | GateKind::BlochDisplay
         | GateKind::Measurement
+        | GateKind::ChanceDisplay
         | GateKind::Spacer
         | GateKind::QftGate
         | GateKind::QftDaggerGate => GateMatrix {
-            // BlochDisplay / Measurement / QFT are handled by dedicated GPU
+            // BlochDisplay / Measurement / Chance / QFT are handled by dedicated GPU
             // orchestration paths instead of this 2x2 matrix helper. Write0 /
             // Write1 are mode-driven on the GPU. Matrix is unused for these
             // variants but filled with identity for safety.

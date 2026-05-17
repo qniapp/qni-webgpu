@@ -36,6 +36,9 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if kind == GateKind::ChanceDisplay {
+        draw_chance_preview_body(painter, gate_rect, colors);
+        return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
         // Ø glyph centred inside) so the angle label has somewhere
@@ -108,4 +111,31 @@ fn draw_gate_body_with_fill(
             colors.label,
         );
     }
+}
+
+fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    // Static mini-preview only. Live probabilities are drawn later by the
+    // GPU Chance render callback, directly from `chance_probability_output`.
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
+    let half_h = rect.height() * 0.5;
+    let top = egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * 0.34, half_h));
+    let bottom = egui::Rect::from_min_size(
+        egui::pos2(rect.left(), rect.top() + half_h),
+        egui::vec2(rect.width() * 0.78, half_h),
+    );
+    painter.rect_filled(top, egui::CornerRadius::ZERO, colors.state_fill);
+    painter.rect_filled(bottom, egui::CornerRadius::ZERO, colors.state_fill);
+    painter.line_segment(
+        [
+            egui::pos2(rect.left(), rect.center().y),
+            egui::pos2(rect.right(), rect.center().y),
+        ],
+        egui::Stroke::new(1.0, colors.line),
+    );
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::ZERO,
+        egui::Stroke::new(1.0, colors.text_strong),
+        egui::StrokeKind::Inside,
+    );
 }

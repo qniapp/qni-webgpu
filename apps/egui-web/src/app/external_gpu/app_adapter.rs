@@ -100,6 +100,7 @@ impl QniApp {
                 GateKind::AntiControl => Some("Anti-control"),
                 GateKind::BlochDisplay => Some("Bloch"),
                 GateKind::Measurement => Some("Measurement"),
+                GateKind::ChanceDisplay => Some("Chance"),
                 GateKind::Spacer => Some("Spacer"),
                 GateKind::Write0 => Some("|0⟩"),
                 GateKind::Write1 => Some("|1⟩"),

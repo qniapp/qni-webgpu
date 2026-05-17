@@ -8,6 +8,7 @@ type QniEguiWebModule = {
   circuit_library_save: (name: string, circuitJson: string) => string
   read_state_vector: () => Promise<ArrayLike<number>>
   read_bloch_vectors: () => Promise<ArrayLike<number>>
+  read_chance_probabilities: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
   start: (canvasId: string) => Promise<void>
 }
@@ -18,6 +19,7 @@ declare global {
     __eguiReady?: boolean
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
+    __eguiReadChanceProbabilities?: () => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
     __qniExecModeFocusRequested?: boolean
     __qniQiskitBackendUrl?: string
@@ -92,6 +94,7 @@ const run = async (): Promise<void> => {
       circuit_library_rename,
       circuit_library_save,
       read_bloch_vectors,
+      read_chance_probabilities,
       read_measurement_outcomes,
       read_state_vector,
       start,
@@ -114,6 +117,13 @@ const run = async (): Promise<void> => {
     window.__eguiReadMeasurementOutcomes = async () => {
       try {
         return Array.from(await read_measurement_outcomes())
+      } catch {
+        return []
+      }
+    }
+    window.__eguiReadChanceProbabilities = async () => {
+      try {
+        return Array.from(await read_chance_probabilities())
       } catch {
         return []
       }

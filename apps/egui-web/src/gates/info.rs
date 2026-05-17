@@ -372,6 +372,14 @@ impl GateKind {
                 paragraphs: &["Measures whether a qubit is ON or OFF."],
                 transitions: &[],
             },
+            GateKind::ChanceDisplay => GateInfo {
+                name: "Chance Display",
+                paragraphs: &[
+                    "Shows the probabilities for the spanned qubits.",
+                    "Resize after placing to inspect Chance2 through Chance16.",
+                ],
+                transitions: &[],
+            },
             GateKind::Spacer => GateInfo {
                 name: "Spacer Gate",
                 paragraphs: &["A gate with no effect."],

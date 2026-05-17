@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::QniApp;
-use crate::gpu::{MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
+use crate::gpu::{MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
 use crate::simulation_plan::{
     linearize_ops, validate_simulation_plan_capacity, SimulationPlanLimits,
 };
@@ -44,6 +44,7 @@ impl QniApp {
                         max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
                         max_bloch_slots: MAX_BLOCH_SLOTS,
                         max_measurement_slots: MAX_MEASUREMENT_SLOTS,
+                        max_chance_slots: MAX_CHANCE_SLOTS,
                     },
                 ) {
                     let message = error.to_string();

@@ -5,10 +5,11 @@ use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, QFT_RESIZE_HANDLE_HEIGHT,
     QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
 };
+use crate::gates::GateKind;
 
-/// Visible rect of a placed gate, accounting for the multi-qubit
-/// `span` of QFT-family gates. Single-qubit gates get `GATE_SIZE` ×
-/// `GATE_SIZE`; QFT extends downward to cover all wires in its span.
+/// Visible rect of a placed gate, accounting for the multi-qubit `span`
+/// of resizable-span gates. Single-qubit gates get `GATE_SIZE` ×
+/// `GATE_SIZE`; QFT / Chance extend downward to cover all wires in the span.
 /// `origin` is the top-left of the gate body (= rect.min + gate.pos
 /// in the circuit's local coordinate space).
 pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
@@ -37,6 +38,18 @@ pub(crate) fn qft_resize_handle_rect(gate_rect: egui::Rect) -> egui::Rect {
         egui::pos2(cx - half_w, top),
         egui::pos2(cx + half_w, top + QFT_RESIZE_HANDLE_HEIGHT),
     )
+}
+
+/// Resize-handle bounding box for any resizable-span gate. Chance uses the
+/// mock's compact pill (16×4 idle, 20×5 hover in draw code) with a larger
+/// hit area around it; QFT keeps the existing chevron strip.
+pub(crate) fn span_resize_handle_rect(kind: GateKind, gate_rect: egui::Rect) -> egui::Rect {
+    if kind != GateKind::ChanceDisplay {
+        return qft_resize_handle_rect(gate_rect);
+    }
+    let cx = gate_rect.center().x;
+    let cy = gate_rect.bottom() + 1.5;
+    egui::Rect::from_center_size(egui::pos2(cx, cy), egui::vec2(20.0, 8.0))
 }
 
 #[derive(Clone, Debug)]

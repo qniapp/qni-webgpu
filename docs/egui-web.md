@@ -153,8 +153,9 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 ### Production パスの GPU 常駐性
 
-- 状態ベクトル / Bloch / 測定の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
-- `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/egui-web/src/gpu/readback.rs`)。
+- 状態ベクトル / Bloch / 測定 / Chance 確率の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
+- Chance display は recompute 中の `CHANCE_REDUCE_SHADER` で contiguous span の marginal probability を `chance_probability_output` に書き、ゲート本体の bar は `CHANCE_RENDER_SHADER` がそのバッファを直接読む。palette / hover ポップアップのラベルは geometry 固定情報だけを CPU で描き、確率値は CPU に戻さない。
+- `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` / `read_chance_probabilities_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/egui-web/src/gpu/readback.rs`)。
 
 ### recompute あたりの GPU 往復
 
@@ -208,7 +209,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - ローカル手動確認は通常の Chrome で行う。`./scripts/open-egui-web.sh` も WebGPU 用の特別な起動フラグは付けない。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。
 - UI fonts are unified on Geist: `FontFamily::Proportional` starts with Geist Sans Regular, `FontFamily::Monospace` starts with Geist Mono Regular, `QniJapaneseFallback-Regular.otf` (CP932/JIS subset generated from Noto Sans CJK JP Regular, SIL OFL 1.1) provides Japanese fallback for circuit names, and Hack remains only as the final fallback for glyphs such as `⟨` / `⟩`.
-- GPU モードの toolbar は `docs/gpu-run-status-mock.html` に従い、左から edit utilities、▷ Run、status pill、Local/GPU toggle を並べる。Undo / Redo は Quirk `Revision` と同じく `startedWorkingOnCommit` 相当でドラッグ中の一時状態を履歴へ積まず、drop / clear / QFT resize release だけを 1 checkpoint として `{"cols":[...]}` JSON に commit する。Duplicate は `docs/toolbar-duplicate-mock.html` に従い trash の右、divider の左に置き、active 回路を直後へ複製して active を切り替える。Run は `window.__qniRunQiskitBackend()` 経由で `http://127.0.0.1:4184/run` へ histogram-only payload を送る。16量子ビット以下では、成功後に状態ベクトル panel を明示的に1回だけローカル WebGPU で再描画する。backend から全状態ベクトル / 全確率分布は受け取らない。17量子ビット以上の結果 panel 差し替えは後続作業。
+- GPU モードの toolbar は `docs/gpu-run-status-mock.html` に従い、左から edit utilities、▷ Run、status pill、Local/GPU toggle を並べる。Undo / Redo は Quirk `Revision` と同じく `startedWorkingOnCommit` 相当でドラッグ中の一時状態を履歴へ積まず、drop / clear / resizable-gate resize release だけを 1 checkpoint として `{"cols":[...]}` JSON に commit する。Duplicate は `docs/toolbar-duplicate-mock.html` に従い trash の右、divider の左に置き、active 回路を直後へ複製して active を切り替える。Run は `window.__qniRunQiskitBackend()` 経由で `http://127.0.0.1:4184/run` へ histogram-only payload を送る。16量子ビット以下では、成功後に状態ベクトル panel を明示的に1回だけローカル WebGPU で再描画する。backend から全状態ベクトル / 全確率分布は受け取らない。17量子ビット以上の結果 panel 差し替えは後続作業。
 - 名前付き回路のブラウザローカル保存は `apps/egui-web/src/circuit_library.rs` の `localStorage` レイヤーと toolbar の Circuit picker を接続する。保存 key は `qni.circuit_library.v1`。保存対象は URL と同じ canonical `{"cols":[...]}` JSON で、picker の select / create / rename / duplicate / move / delete / undo / redo / clear は active entry と URL hash を同期し、`list / save / load / rename / delete / clear` も wasm export する。新規 / URL 由来の未命名回路は `Circuit 1` から始まる番号付き default 名を使う。仕様は `docs/local-circuit-library-spec.html`。
 - Circuit picker の並び替えは `docs/circuit-picker-reorder-mock.html` に従う。行全体を mouse drag handle とし、kebab は submenu trigger のまま。dragged row 自身が Y 軸のみ追従し、他の行は live swap + FLIP で入れ替わる。dropdown は topbar 直下に隙間なく開く。submenu の Move up / Move down は 1 段ずつ動かす既存操作として残す。submenu は右側表示 / 左 flip とも親行の上辺 Y に揃える。picker dropdown / submenu 上の pointer は背後の circuit / palette hover を発火させない。同じ kebab trigger の再クリックは submenu を閉じる。
 - State vector panel の aspect dropdown は Circuit picker と同じ popover chrome (Flexoki bg / ui-2 border / rounded-xl / p-1.5 / shadow-popover) と 36px text-sm proportional row を使う。active row は paper bg + font-weight 500 のみで、hover だけ bg-2。dropdown は trigger 直下に開き、右端だけ state panel 右端に揃える。
@@ -243,7 +244,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは通常ゲートラベルと同じ Geist Bold 700。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
-- QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。
+- Chance / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。

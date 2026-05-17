@@ -9,6 +9,8 @@ use crate::gates::GateParams;
 ///     buffer (`MEASURE_REDUCE_SHADER`).
 ///   * `MeasureCollapse`: per-pair zero+normalize using the previously
 ///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
+///   * `CaptureChance`: marginalizes the live state into per-outcome
+///     probabilities for a Chance display (`CHANCE_REDUCE_SHADER`).
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SimulationOp {
     ApplyGate(GateParams),
@@ -25,5 +27,11 @@ pub(crate) enum SimulationOp {
     MeasureCollapse {
         qubit_bit: u32,
         aux_slot: u32,
+    },
+    CaptureChance {
+        gate_id: u32,
+        base_bit: u32,
+        span: u32,
+        output_slot: u32,
     },
 }

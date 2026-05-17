@@ -59,7 +59,7 @@ impl QniApp {
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
         if (pointer_over_picker || pointer_over_state_panel)
             && self.dragging.is_none()
-            && self.qft_resize_drag.is_none()
+            && self.span_resize_drag.is_none()
         {
             DragController::clear_idle_hover(self, ctx);
             return;
@@ -79,9 +79,9 @@ impl QniApp {
             return;
         }
 
-        // Active QFT resize → update span from total Δy and skip the
-        // rest of the input pipeline (gate drag, hover) for this frame.
-        if DragController::update_active_qft_resize(self, drag_pointer, ctx) {
+        // Active resizable-span drag → update span from total Δy and skip
+        // the rest of the input pipeline (gate drag, hover) for this frame.
+        if DragController::update_active_span_resize(self, drag_pointer, ctx) {
             return;
         }
 

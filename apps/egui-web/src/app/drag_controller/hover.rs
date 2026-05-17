@@ -2,12 +2,14 @@ use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
-use crate::layout::{gate_visible_rect, palette_hit_test, qft_resize_handle_rect};
+use crate::gates::GateKind;
+use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_rect};
 
 impl DragController {
     pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
         app.hovered_gate_id = None;
-        app.hovered_qft_resize_handle = None;
+        app.hovered_span_resize_handle = None;
+        app.hovered_chance_outcome = None;
         app.hovered_palette_index = None;
         if app.hovered_step.take().is_some() {
             app.gpu_plan.mark_dirty();
@@ -22,15 +24,17 @@ impl DragController {
         ctx: &egui::Context,
     ) {
         if let Some(cursor) = pointer.local_pos {
-            // Iterate top-of-stack first so the QFT resize handle wins
+            // Iterate top-of-stack first so a resizable-span handle wins
             // over the gate body when the cursor is on both (the handle
             // overhangs the gate's bottom edge).
+            let previous_chance_outcome = app.hovered_chance_outcome;
             let mut hovered_gate = None;
             let mut hovered_handle = None;
+            let mut hovered_chance_outcome = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
                 if gate.kind.is_resizable_span()
-                    && qft_resize_handle_rect(gate_rect).contains(cursor)
+                    && span_resize_handle_rect(gate.kind, gate_rect).contains(cursor)
                 {
                     hovered_handle = Some(gate.id);
                     hovered_gate = Some(gate.id);
@@ -38,11 +42,24 @@ impl DragController {
                 }
                 if gate_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);
+                    if gate.kind == GateKind::ChanceDisplay {
+                        let row_count = 1usize << gate.span.clamp(1, 16);
+                        let row_h = gate_rect.height() / row_count as f32;
+                        let row = ((cursor.y - gate_rect.top()) / row_h)
+                            .floor()
+                            .clamp(0.0, (row_count - 1) as f32)
+                            as u32;
+                        hovered_chance_outcome = Some((gate.id, row));
+                    }
                     break;
                 }
             }
             app.hovered_gate_id = hovered_gate;
-            app.hovered_qft_resize_handle = hovered_handle;
+            app.hovered_span_resize_handle = hovered_handle;
+            app.hovered_chance_outcome = hovered_chance_outcome;
+            if hovered_chance_outcome != previous_chance_outcome {
+                ctx.request_repaint();
+            }
 
             // Step preview: which column is the cursor on? Changes
             // trigger a recompute so the state-vector panel reflects
@@ -73,7 +90,7 @@ impl DragController {
     pub(in crate::app) fn set_cursor_icon(app: &QniApp, pointer: DragPointer, ctx: &egui::Context) {
         if app.dragging.is_some() && pointer.down {
             ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
-        } else if app.hovered_qft_resize_handle.is_some() {
+        } else if app.hovered_span_resize_handle.is_some() {
             ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
         } else if app.hovered_gate_id.is_some() || app.hovered_palette_index.is_some() {
             ctx.set_cursor_icon(egui::CursorIcon::Grab);

@@ -1,0 +1,389 @@
+//! Chance display probability reduce + gate-body render pipeline.
+//!
+//! The compute pass marginalizes the current state vector into a per-display
+//! probability buffer. The render pass samples that storage buffer directly to
+//! paint Quirk-style bars inside each placed Chance gate. No production
+//! GPU→CPU readback is involved.
+
+use eframe::wgpu;
+
+use super::super::params::{
+    ChanceInstance, ChanceReduceParams, ChanceRenderParams, MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS,
+    MAX_OPS_PER_RECOMPUTE,
+};
+use super::super::shaders::{CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER};
+use super::common::Common;
+
+pub(crate) struct ChanceResources {
+    pub reduce_pipeline: wgpu::ComputePipeline,
+    pub reduce_bind_groups: [wgpu::BindGroup; 2],
+    pub reduce_params_buffer: wgpu::Buffer,
+    pub reduce_params_staging_buffer: wgpu::Buffer,
+    pub output_buffer: wgpu::Buffer,
+
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub render_bind_group: wgpu::BindGroup,
+    pub render_bind_group_layout: wgpu::BindGroupLayout,
+    pub render_params_buffer: wgpu::Buffer,
+    pub render_instance_buffer: wgpu::Buffer,
+    pub last_render_params: Option<ChanceRenderParams>,
+}
+
+impl ChanceResources {
+    pub(super) fn build(
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+        common: &Common,
+    ) -> Self {
+        let output_buffer = create_output_buffer(device);
+        let reduce_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_reduce"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_REDUCE_SHADER.into()),
+        });
+        let reduce_layout = create_reduce_bind_group_layout(device);
+        let reduce_pipeline = create_reduce_pipeline(device, &reduce_shader, &reduce_layout);
+        let reduce_params_buffer = create_reduce_params_buffer(device);
+        let reduce_params_staging_buffer = create_reduce_params_staging_buffer(device);
+        let reduce_bind_groups = create_reduce_bind_groups(
+            device,
+            common,
+            &reduce_layout,
+            &reduce_params_buffer,
+            &output_buffer,
+        );
+
+        let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_render"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_RENDER_SHADER.into()),
+        });
+        let render_bind_group_layout = create_render_bind_group_layout(device);
+        let render_params_buffer = create_render_params_buffer(device);
+        let render_instance_buffer = create_render_instance_buffer(device);
+        let render_bind_group = create_render_bind_group(
+            device,
+            &render_bind_group_layout,
+            &output_buffer,
+            &render_params_buffer,
+        );
+        let render_pipeline = create_render_pipeline(
+            device,
+            target_format,
+            &render_shader,
+            &render_bind_group_layout,
+        );
+
+        Self {
+            reduce_pipeline,
+            reduce_bind_groups,
+            reduce_params_buffer,
+            reduce_params_staging_buffer,
+            output_buffer,
+            render_pipeline,
+            render_bind_group,
+            render_bind_group_layout,
+            render_params_buffer,
+            render_instance_buffer,
+            last_render_params: None,
+        }
+    }
+
+    pub(super) fn update_target_format(
+        &mut self,
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+    ) {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_render"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_RENDER_SHADER.into()),
+        });
+        self.render_pipeline = create_render_pipeline(
+            device,
+            target_format,
+            &shader,
+            &self.render_bind_group_layout,
+        );
+    }
+}
+
+fn create_output_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_probability_output"),
+        size: (MAX_CHANCE_SLOTS * MAX_CHANCE_OUTCOMES * std::mem::size_of::<f32>())
+            as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_reduce_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("chance_reduce_layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+fn create_reduce_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+) -> wgpu::ComputePipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("chance_reduce_pipeline_layout"),
+        bind_group_layouts: &[layout],
+        push_constant_ranges: &[],
+    });
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("chance_reduce_pipeline"),
+        layout: Some(&pipeline_layout),
+        module: shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    })
+}
+
+fn create_reduce_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_reduce_params"),
+        size: std::mem::size_of::<ChanceReduceParams>() as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::UNIFORM
+            | wgpu::BufferUsages::COPY_DST
+            | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_reduce_params_staging_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_reduce_params_staging"),
+        size: (MAX_OPS_PER_RECOMPUTE * std::mem::size_of::<ChanceReduceParams>())
+            as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_reduce_bind_groups(
+    device: &wgpu::Device,
+    common: &Common,
+    layout: &wgpu::BindGroupLayout,
+    params_buffer: &wgpu::Buffer,
+    output_buffer: &wgpu::Buffer,
+) -> [wgpu::BindGroup; 2] {
+    [
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("chance_reduce_read_a"),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: common.state_buffers[0].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: output_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params_buffer.as_entire_binding(),
+                },
+            ],
+        }),
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("chance_reduce_read_b"),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: common.state_buffers[1].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: output_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params_buffer.as_entire_binding(),
+                },
+            ],
+        }),
+    ]
+}
+
+fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("chance_render_layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+fn create_render_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_render_params"),
+        size: std::mem::size_of::<ChanceRenderParams>() as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_render_instances"),
+        size: (MAX_CHANCE_SLOTS * std::mem::size_of::<ChanceInstance>()) as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_render_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    output_buffer: &wgpu::Buffer,
+    params_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("chance_render_bind_group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buffer.as_entire_binding(),
+            },
+        ],
+    })
+}
+
+fn create_render_pipeline(
+    device: &wgpu::Device,
+    target_format: wgpu::TextureFormat,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+) -> wgpu::RenderPipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("chance_render_pipeline_layout"),
+        bind_group_layouts: &[layout],
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("chance_render_pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: &[
+                wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[wgpu::VertexAttribute {
+                        offset: 0,
+                        shader_location: 0,
+                        format: wgpu::VertexFormat::Float32x2,
+                    }],
+                },
+                wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<ChanceInstance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &[
+                        wgpu::VertexAttribute {
+                            offset: 0,
+                            shader_location: 1,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 8,
+                            shader_location: 2,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 16,
+                            shader_location: 3,
+                            format: wgpu::VertexFormat::Uint32,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 20,
+                            shader_location: 4,
+                            format: wgpu::VertexFormat::Uint32,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 24,
+                            shader_location: 5,
+                            format: wgpu::VertexFormat::Sint32,
+                        },
+                    ],
+                },
+            ],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: target_format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        }),
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}

@@ -55,13 +55,9 @@ pub(crate) fn state_grid_zoom_limits(natural_circle_size: f32) -> (f32, f32) {
 /// `--qni-component-resize-handle-width / -height` (= operation-base /
 /// operation-base-¾) — a square-ish purple button below the gate body
 /// the user grabs to change span.
-///   * MAX_SPAN: clamp the dragged span to the current execution-mode
-///     circuit capacity (Local = 16, GPU = 30) so Local never grows a
-///     17th live-sim wire.
 ///   * RESIZE_HANDLE_WIDTH: full gate width (= GATE_SIZE) so the
 ///     handle sits flush under the body.
 ///   * RESIZE_HANDLE_HEIGHT: 0.75 * GATE_SIZE (qni's `-¾` size).
-pub(crate) const QFT_MAX_SPAN: usize = GPU_MAX_QUBITS;
 pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = GATE_SIZE;
 pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = GATE_SIZE * 0.75;
 

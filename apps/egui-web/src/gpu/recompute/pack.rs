@@ -3,7 +3,9 @@ use eframe::wgpu;
 use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
-use super::super::params::{BlochParams, MeasureCollapseParams, MeasureReduceParams};
+use super::super::params::{
+    BlochParams, ChanceReduceParams, MeasureCollapseParams, MeasureReduceParams,
+};
 use super::super::resources::StateVectorResources;
 
 /// Per-variant params packed in the same order each op variant appears in the
@@ -14,6 +16,7 @@ pub(super) struct PackedRecomputeParams {
     bloch: Vec<BlochParams>,
     measure_reduce: Vec<MeasureReduceParams>,
     measure_collapse: Vec<MeasureCollapseParams>,
+    chance: Vec<ChanceReduceParams>,
 }
 
 impl PackedRecomputeParams {
@@ -23,6 +26,7 @@ impl PackedRecomputeParams {
             bloch: Vec::with_capacity(sim_ops.len()),
             measure_reduce: Vec::with_capacity(sim_ops.len()),
             measure_collapse: Vec::with_capacity(sim_ops.len()),
+            chance: Vec::with_capacity(sim_ops.len()),
         };
 
         for op in sim_ops {
@@ -62,6 +66,20 @@ impl PackedRecomputeParams {
                         _pad: 0,
                     });
                 }
+                SimulationOp::CaptureChance {
+                    base_bit,
+                    span,
+                    output_slot,
+                    ..
+                } => {
+                    let rest_count = (state_count as u32) >> *span;
+                    packed.chance.push(ChanceReduceParams {
+                        base_bit: *base_bit,
+                        span: *span,
+                        rest_count,
+                        output_slot: *output_slot,
+                    });
+                }
             }
         }
 
@@ -99,6 +117,13 @@ impl PackedRecomputeParams {
                 &resources.measure.collapse_params_staging_buffer,
                 0,
                 bytemuck::cast_slice(&self.measure_collapse),
+            );
+        }
+        if !self.chance.is_empty() {
+            queue.write_buffer(
+                &resources.chance.reduce_params_staging_buffer,
+                0,
+                bytemuck::cast_slice(&self.chance),
             );
         }
     }

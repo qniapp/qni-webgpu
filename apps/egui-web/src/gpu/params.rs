@@ -91,6 +91,12 @@ pub(crate) const MAX_BLOCH_SLOTS: usize = 64;
 /// `measurement_aux_buffer` (a vec4 per slot — pZero, r, outcome, √p_kept).
 pub(crate) const MAX_MEASUREMENT_SLOTS: usize = 64;
 
+/// Maximum Chance display slots whose probability distributions can be
+/// captured in a single recompute. Each slot reserves `2^16` f32 values so a
+/// Chance16 can render every outcome without reallocating GPU buffers.
+pub(crate) const MAX_CHANCE_SLOTS: usize = 32;
+pub(crate) const MAX_CHANCE_OUTCOMES: usize = 1 << 16;
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct BlochParams {
@@ -115,6 +121,39 @@ pub(crate) struct MeasureCollapseParams {
     pub(crate) qubit_bit: u32,
     pub(crate) state_count: u32,
     pub(crate) aux_slot: u32,
+    pub(crate) _pad: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ChanceReduceParams {
+    /// Lowest state-vector bit covered by the contiguous Chance span.
+    pub(crate) base_bit: u32,
+    pub(crate) span: u32,
+    pub(crate) rest_count: u32,
+    pub(crate) output_slot: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ChanceRenderParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    pub(crate) background: [f32; 4],
+    pub(crate) border: [f32; 4],
+    pub(crate) bar: [f32; 4],
+    pub(crate) bar_hover: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ChanceInstance {
+    pub(crate) rect_min: [f32; 2],
+    pub(crate) rect_size: [f32; 2],
+    pub(crate) slot: u32,
+    pub(crate) span: u32,
+    pub(crate) hovered_outcome: i32,
     pub(crate) _pad: u32,
 }
 

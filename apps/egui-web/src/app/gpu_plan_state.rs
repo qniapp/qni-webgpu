@@ -18,6 +18,8 @@ pub(crate) struct GpuPlanState {
     bloch_slots: HashMap<u32, u32>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
     measurement_slots: HashMap<u32, u32>,
+    /// Chance displays → `chance_probability_output` slot.
+    chance_slots: HashMap<u32, u32>,
     capacity_error: Option<String>,
 }
 
@@ -29,6 +31,7 @@ impl Default for GpuPlanState {
             sim_ops: Vec::new(),
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
+            chance_slots: HashMap::new(),
             capacity_error: None,
         }
     }
@@ -39,6 +42,7 @@ impl GpuPlanState {
         self.needs_recompute = true;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.chance_slots.clear();
         self.capacity_error = None;
     }
 
@@ -55,6 +59,7 @@ impl GpuPlanState {
         self.sim_ops.clear();
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.chance_slots.clear();
         self.capacity_error = None;
     }
 
@@ -62,6 +67,7 @@ impl GpuPlanState {
         self.sim_ops.clear();
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.chance_slots.clear();
         self.capacity_error = Some(message);
     }
 
@@ -95,9 +101,14 @@ impl GpuPlanState {
         self.measurement_slots.get(&gate_id).copied()
     }
 
+    pub(crate) fn chance_slot(&self, gate_id: u32) -> Option<u32> {
+        self.chance_slots.get(&gate_id).copied()
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.chance_slots.clear();
         for op in &self.sim_ops {
             match op {
                 SimulationOp::CaptureBloch {
@@ -113,6 +124,13 @@ impl GpuPlanState {
                     ..
                 } => {
                     self.measurement_slots.insert(*gate_id, *output_slot);
+                }
+                SimulationOp::CaptureChance {
+                    gate_id,
+                    output_slot,
+                    ..
+                } => {
+                    self.chance_slots.insert(*gate_id, *output_slot);
                 }
                 _ => {}
             }

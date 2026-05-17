@@ -11,6 +11,7 @@ declare global {
     __eguiError?: unknown
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
+    __eguiReadChanceProbabilities?: () => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
 }
@@ -45,7 +46,7 @@ const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 // qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
 const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
 const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_COUNT = 21
+const DEFAULT_PALETTE_COUNT = 24
 const DEFAULT_PALETTE_ROW1_COUNT = 13
 const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
@@ -167,6 +168,26 @@ export const readBlochVectors = async (page: Page): Promise<BlochEntry[]> => {
       x: flat[i + 1],
       y: flat[i + 2],
       z: flat[i + 3],
+    })
+  }
+  return entries
+}
+
+export type ChanceProbabilities = { gateId: number; probabilities: number[] }
+
+export const readChanceProbabilities = async (page: Page): Promise<ChanceProbabilities[]> => {
+  const flat = await evaluateWithRetry<number[]>(page, async () => {
+    if (!window.__eguiReadChanceProbabilities) {
+      return []
+    }
+    return await window.__eguiReadChanceProbabilities()
+  })
+  const valuesPerSlot = 65536
+  const entries: ChanceProbabilities[] = []
+  for (let i = 0; i + valuesPerSlot < flat.length; i += valuesPerSlot + 1) {
+    entries.push({
+      gateId: Math.round(flat[i]),
+      probabilities: flat.slice(i + 1, i + 1 + valuesPerSlot),
     })
   }
   return entries

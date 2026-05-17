@@ -48,7 +48,7 @@ pub(crate) static GATE_LABEL_LIGHT_FAMILY: LazyLock<egui::FontFamily> =
 pub(crate) static GATE_LABEL_PLUS_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist-medium".into()));
 
-pub(crate) use circuit_model::{DragState, PlacedGate, QftResizeDrag};
+pub(crate) use circuit_model::{DragState, PlacedGate, SpanResizeDrag};
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
 pub(crate) use gpu_plan_state::GpuPlanState;
@@ -75,12 +75,12 @@ pub(crate) struct QniApp {
     pub(crate) dragging: Option<DragState>,
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
-    /// Gate id whose QFT resize handle is currently hovered (drives
+    /// Gate id whose resizable-span handle is currently hovered (drives
     /// the handle's idle → hover color). `None` when no hand is on a
-    /// QFT bottom-edge handle.
-    pub(crate) hovered_qft_resize_handle: Option<u32>,
-    /// In-flight QFT span-resize drag (only one at a time).
-    pub(crate) qft_resize_drag: Option<QftResizeDrag>,
+    /// QFT / Chance bottom-edge handle.
+    pub(crate) hovered_span_resize_handle: Option<u32>,
+    /// In-flight resizable-span drag (only one at a time).
+    pub(crate) span_resize_drag: Option<SpanResizeDrag>,
     /// Column index the pointer is currently hovering over for the
     /// step-preview interaction. Drives the live "state-vector at step
     /// k" preview without committing — drops back to `breakpoint_step`
@@ -91,6 +91,9 @@ pub(crate) struct QniApp {
     /// is the default.
     pub(crate) breakpoint_step: Option<usize>,
     pub(crate) hovered_gate_id: Option<u32>,
+    /// `(gate_id, outcome)` for the Chance row under the pointer. The
+    /// outcome index is geometry-only; probability values remain GPU-only.
+    pub(crate) hovered_chance_outcome: Option<(u32, u32)>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
@@ -265,11 +268,12 @@ impl QniApp {
             dragging: None,
             drag_state_count: None,
             state_panel: StatePanelState::default(),
-            hovered_qft_resize_handle: None,
-            qft_resize_drag: None,
+            hovered_span_resize_handle: None,
+            span_resize_drag: None,
             hovered_step: None,
             breakpoint_step: None,
             hovered_gate_id: None,
+            hovered_chance_outcome: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
             exec_mode,

@@ -43,6 +43,7 @@ pub(crate) fn linearize_ops(
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut bloch_slot: u32 = 0;
     let mut measurement_slot: u32 = 0;
+    let mut chance_slot: u32 = 0;
     for column in analysis.columns() {
         let column_gates = column.gates();
         let mut control_mask = 0u32;
@@ -50,6 +51,7 @@ pub(crate) fn linearize_ops(
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
+        let mut chance_targets: Vec<&PlacedGate> = Vec::new();
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
@@ -70,6 +72,7 @@ pub(crate) fn linearize_ops(
                 }
                 GateKind::Measurement => measurement_targets.push(gate),
                 GateKind::BlochDisplay => bloch_targets.push(gate),
+                GateKind::ChanceDisplay => chance_targets.push(gate),
                 GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
@@ -174,6 +177,7 @@ pub(crate) fn linearize_ops(
             && qft_gates.is_empty()
             && measurement_targets.is_empty()
             && bloch_targets.is_empty()
+            && chance_targets.is_empty()
             && swap_targets.is_empty()
             && control_value.count_ones() >= 2
         {
@@ -231,6 +235,25 @@ pub(crate) fn linearize_ops(
                 output_slot: bloch_slot,
             });
             bloch_slot += 1;
+        }
+
+        // Chance displays are also read-only displays. They capture the
+        // current GPU state into a per-display probability buffer; rendering
+        // samples that buffer directly, no CPU-side probabilities.
+        chance_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        for display in &chance_targets {
+            if display.wire >= qubits {
+                continue;
+            }
+            let span = display.span.clamp(1, 16).min(qubits - display.wire);
+            let base_bit = (qubits - display.wire - span) as u32;
+            ops.push(SimulationOp::CaptureChance {
+                gate_id: display.id,
+                base_bit,
+                span: span as u32,
+                output_slot: chance_slot,
+            });
+            chance_slot += 1;
         }
     }
     ops

@@ -5,6 +5,10 @@ pub(crate) enum GateKind {
     AntiControl,
     BlochDisplay,
     Measurement,
+    /// Quirk-compatible probability display. It has no unitary effect;
+    /// a GPU compute pass marginalizes the live state vector into outcome
+    /// bars and a render shader paints them without CPU readback.
+    ChanceDisplay,
     Spacer,
     Write0,
     Write1,
@@ -46,7 +50,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 23] = [
+const GATE_SPECS: [GateSpec; 24] = [
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -76,6 +80,12 @@ const GATE_SPECS: [GateSpec; 23] = [
         label: "M",
         url_token: "Measure",
         resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::ChanceDisplay,
+        label: "Chance",
+        url_token: "Chance",
+        resizable_span: true,
     },
     GateSpec {
         kind: GateKind::Spacer,
@@ -191,7 +201,7 @@ const GATE_SPECS: [GateSpec; 23] = [
 // special-purpose gates. Indices remain flat so callers can look up a gate
 // without branching.
 pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 23] = [
+pub(crate) const PALETTE_GATES: [GateKind; 24] = [
     GateKind::H,
     GateKind::X,
     GateKind::Y,
@@ -212,6 +222,7 @@ pub(crate) const PALETTE_GATES: [GateKind; 23] = [
     GateKind::Write0,
     GateKind::Write1,
     GateKind::Measurement,
+    GateKind::ChanceDisplay,
     GateKind::Spacer,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
@@ -237,9 +248,20 @@ impl GateKind {
     }
 
     /// Is this a multi-qubit gate whose vertical span is user-controlled
-    /// via the hover-revealed resize handle? Right now QFT / QFT† are the
-    /// only such gates.
+    /// via the hover-revealed resize handle?
     pub(crate) fn is_resizable_span(self) -> bool {
         self.spec().resizable_span
+    }
+
+    /// Maximum user-resizable span for a gate in the current execution
+    /// capacity. Chance mirrors Quirk's `Chance`/`Chance2..16` family even
+    /// when the editor is in external-GPU mode; QFT follows the circuit
+    /// capacity.
+    pub(crate) fn max_resizable_span(self, qubit_capacity: usize) -> usize {
+        match self {
+            GateKind::ChanceDisplay => qubit_capacity.min(16),
+            _ => qubit_capacity,
+        }
+        .max(1)
     }
 }

@@ -22,14 +22,16 @@ mod resources;
 mod shaders;
 
 pub(crate) use callbacks::{
-    BlochOverlayCallback, MeasurementDigitCallback, PopupValueCallback, StateVectorCallback,
+    BlochOverlayCallback, ChanceDisplayCallback, MeasurementDigitCallback, PopupValueCallback,
+    StateVectorCallback,
 };
 pub(crate) use params::{
-    BlochOverlayInstance, MeasurementDigitInstance, RenderColors, RenderParams, MAX_BLOCH_SLOTS,
-    MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    BlochOverlayInstance, ChanceInstance, MeasurementDigitInstance, RenderColors, RenderParams,
+    MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
-    read_bloch_vectors_impl, read_measurement_outcomes_impl, read_state_vector_impl,
+    read_bloch_vectors_impl, read_chance_probabilities_impl, read_measurement_outcomes_impl,
+    read_state_vector_impl,
 };

@@ -436,7 +436,7 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
   const LINE_Y = 7.375 * REM
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
-  const spacerSource = getPaletteGateCenter(cssWidth, 20)
+  const spacerSource = getPaletteGateCenter(cssWidth, 21)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
   const targetX2 = targetX + SLOT_SPACING
   const targetY = LINE_Y

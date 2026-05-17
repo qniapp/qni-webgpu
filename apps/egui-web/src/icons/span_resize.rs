@@ -1,11 +1,27 @@
-//! QFT resize-handle drawing.
+//! Resizable-span handle drawing for QFT-family and Chance gates.
 //!
-//! The "QFT" / "QFT†" text label is rendered alongside every other
-//! typographic gate by `gate_glyphs::draw_gate_icon` (Geist Bold via
-//! `painter.text`), so this module is now down to the small chevron
-//! handle below the gate body.
+//! QFT / QFT† labels are rendered alongside every other typographic gate by
+//! `gate_glyphs::draw_gate_icon`; this module only owns the small bottom-edge
+//! resize affordances.
 
 use eframe::egui;
+
+/// Chance gate's compact bottom-edge pill. `rect` is the generous hit area;
+/// the visible pill matches the mock: 16×4 idle, 20×5 hover/drag.
+pub(crate) fn draw_chance_resize_handle(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    bg: egui::Color32,
+    active: bool,
+) {
+    let size = if active {
+        egui::vec2(20.0, 5.0)
+    } else {
+        egui::vec2(16.0, 4.0)
+    };
+    let visual = egui::Rect::from_center_size(rect.center(), size);
+    painter.rect_filled(visual, egui::CornerRadius::same(2), bg);
+}
 
 /// QFT gate's bottom-edge resize handle — a small horizontal chevron
 /// (▽/△ stacked) shown on hover. The `rect` is the handle's bounding

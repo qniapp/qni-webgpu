@@ -203,6 +203,14 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftGate, span.max(1), None));
     }
+    if let Some(rest) = token.strip_prefix("Chance") {
+        let span = if rest.is_empty() {
+            1
+        } else {
+            rest.parse().ok()?
+        };
+        return Some((GateKind::ChanceDisplay, span.clamp(1, 16), None));
+    }
     // Parametric `P(...)` / `Rx(...)` / `Ry(...)` / `Rz(...)` —
     // mirrors qni's `quantum-circuit-element.ts::angleParameter`:
     // strip the outer parens, trim, replace the first `_` with `/`

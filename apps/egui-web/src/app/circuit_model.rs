@@ -8,8 +8,7 @@ use eframe::egui;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, QFT_MAX_SPAN,
-    SLOT_SPACING,
+    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, SLOT_SPACING,
 };
 use crate::gates::GateKind;
 
@@ -29,8 +28,8 @@ pub(crate) struct PlacedGate {
     pub(crate) pos: egui::Pos2,
     pub(crate) wire: usize,
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
-    /// QFT / QFT† can be resized to span 2+ wires via the bottom-edge
-    /// resize handle that appears on hover.
+    /// resizable-span gates (Chance, QFT / QFT†) can grow via the
+    /// bottom-edge resize handle that appears on hover.
     pub(crate) span: usize,
     /// Angle string for parametric gates (currently only `GateKind::Phase`).
     /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
@@ -76,7 +75,8 @@ impl PlacedGate {
         if !self.kind.is_resizable_span() {
             return;
         }
-        let max_span = capacity.saturating_sub(self.wire).clamp(1, QFT_MAX_SPAN);
+        let remaining_wires = capacity.saturating_sub(self.wire).max(1);
+        let max_span = self.kind.max_resizable_span(remaining_wires);
         self.span = self.span.clamp(1, max_span);
     }
 }
@@ -90,11 +90,11 @@ pub(crate) struct DragState {
     pub(crate) original_column: Option<usize>,
 }
 
-/// In-flight resize of a QFT-family gate's vertical span. Tracks which gate's
-/// resize handle was grabbed and the start span so per-frame drag math derives
-/// the new span from the *total* cursor delta.
+/// In-flight resize of a resizable-span gate's vertical span. Tracks which
+/// gate's resize handle was grabbed and the start span so per-frame drag math
+/// derives the new span from the *total* cursor delta.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct QftResizeDrag {
+pub(crate) struct SpanResizeDrag {
     pub(crate) gate_id: u32,
     pub(crate) start_pointer_y: f32,
     pub(crate) start_span: usize,
