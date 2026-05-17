@@ -47,9 +47,9 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
 
-test('SVG SDF H, X, Y, Z, √X, S and S† keep palette and circuit glyph weight aligned', async ({ page }) => {
+test('SVG SDF H, X, Y, Z, √X, S, S†, T, T† and P keep palette and circuit glyph weight aligned', async ({ page }) => {
   await page.setViewportSize({ width: 1001, height: 800 })
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†']] })))
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†'], ['T'], ['T†'], ['P']] })))
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
@@ -70,6 +70,9 @@ test('SVG SDF H, X, Y, Z, √X, S and S† keep palette and circuit glyph weight
     { name: 'SqrtX', index: 4 },
     { name: 'S', index: 5 },
     { name: 'SDagger', index: 6 },
+    { name: 'T', index: 7 },
+    { name: 'TDagger', index: 8 },
+    { name: 'P', index: 9 },
   ] as const
   const centers = Object.fromEntries(labels.flatMap(({ name, index }) => {
     const paletteCenter = getPaletteGateCenter(box.width, index)
@@ -144,6 +147,12 @@ test('SVG SDF H, X, Y, Z, √X, S and S† keep palette and circuit glyph weight
     circuitS: { count: 29, width: 10, height: 14 },
     paletteSDagger: { count: 30, width: 16, height: 18 },
     circuitSDagger: { count: 30, width: 16, height: 18 },
+    paletteT: { count: 10, width: 10, height: 1 },
+    circuitT: { count: 10, width: 10, height: 1 },
+    paletteTDagger: { count: 11, width: 16, height: 5 },
+    circuitTDagger: { count: 11, width: 16, height: 5 },
+    paletteP: { count: 32, width: 10, height: 14 },
+    circuitP: { count: 32, width: 10, height: 14 },
   })
 })
 

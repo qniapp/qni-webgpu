@@ -26,27 +26,12 @@ use circuit_history::CircuitRevision;
 use circuit_library::CircuitLibrary;
 use circuit_picker_state::PickerState;
 
-/// Named font family rendering the heavyweight gate labels — i.e. the
-/// multi-char labels (RX / RY / RZ / QFT / QFT†) at body × 0.40 px.
-/// At that small size Geist Bold (700) is what reads as the "normal"
-/// weight; the larger remaining solo labels (T / P) below drop a notch
-/// lighter so the visual stroke matches.
+/// Named font family rendering the remaining heavyweight text labels — i.e.
+/// RX / RY / RZ / QFT / QFT† at body × 0.40 px. At that small size Geist
+/// Bold (700) is what reads as the "normal" weight. Large solo gate glyphs
+/// now use the shared SVG/SDF icon path.
 pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist".into()));
-
-/// Geist Regular (400) — used for the remaining solo gate letters
-/// (T / P and T†). Drops a weight relative to the Bold multi-char
-/// labels so the two rows sit at the same visual stroke thickness
-/// despite the size delta (~19.8 px vs ~12.8 px).
-pub(crate) static GATE_LABEL_LIGHT_FAMILY: LazyLock<egui::FontFamily> =
-    LazyLock::new(|| egui::FontFamily::Name("geist-regular".into()));
-
-/// Geist Medium (500) — only the `+` glyph rendered inside the X gate
-/// (CNOT target). Two orthogonal strokes read as thinner than letter
-/// forms at the same weight, so `+` lives one step heavier than the
-/// surrounding solo letters.
-pub(crate) static GATE_LABEL_PLUS_FAMILY: LazyLock<egui::FontFamily> =
-    LazyLock::new(|| egui::FontFamily::Name("geist-medium".into()));
 
 pub(crate) use circuit_model::{DragState, PlacedGate, SpanResizeDrag};
 pub(crate) use exec_mode::ExecMode;
@@ -209,11 +194,7 @@ impl QniApp {
             .families
             .insert(GATE_LABEL_FAMILY.clone(), vec!["geist_bold".to_owned()]);
         fonts.families.insert(
-            GATE_LABEL_LIGHT_FAMILY.clone(),
-            vec!["geist_regular".to_owned()],
-        );
-        fonts.families.insert(
-            GATE_LABEL_PLUS_FAMILY.clone(),
+            egui::FontFamily::Name("geist-medium".into()),
             vec!["geist_medium".to_owned()],
         );
         cc.egui_ctx.set_fonts(fonts);

@@ -47,22 +47,22 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // H / Y / Z / √X / S / S† / X (本体は "+" として描く) は
-    // `assets/icons/{h,y,z,sqrtx,s,sdagger,plus}.svg` を 1 ソースに、
+    // H / Y / Z / √X / S / S† / T / T† / P / X (本体は "+" として描く) は
+    // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,plus}.svg` を 1 ソースに、
     // ビルド時に 256 px PNG から作った SDF テクスチャで描画する。パレットと
     // 回路のサブピクセル位置差で見かけの太さが揺れず、拡大時も輪郭を
     // シェーダで再構成できるようにする。
-    // 残りの文字系（T / T† / P / RX / RY / RZ / QFT / QFT†）は
-    // 引き続き Geist フォントを `painter.text` で描画する。
+    // 残りの文字系（RX / RY / RZ / QFT / QFT†）は引き続き Geist フォントを
+    // `painter.text` で描画する。
     if let Some(glyph) = svg_glyph_for(kind) {
         super::svg_icon::draw_glyph(painter, rect, color, glyph);
         return true;
     }
 
-    // Typographic gates (T / T† / P / RX / RY / RZ / QFT / QFT†) are rendered
-    // as Geist text via `painter.text`. The dagger gates render
-    // the base letter centred and the † as a smaller mark in the top-right
-    // corner so the central glyph stays legible at 32 px.
+    // Remaining typographic gates (RX / RY / RZ / QFT / QFT†) are rendered
+    // as Geist text via `painter.text`. QFT† renders the base label centred
+    // and the † as a smaller mark in the top-right corner so the central
+    // glyph stays legible at 32 px.
     if let Some(label) = base_label_for(kind) {
         draw_text_label(painter, rect, kind, label, color);
         return true;
@@ -163,6 +163,9 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::SqrtX => GateGlyph::SqrtX,
         GateKind::S => GateGlyph::S,
         GateKind::SDagger => GateGlyph::SDagger,
+        GateKind::T => GateGlyph::T,
+        GateKind::TDagger => GateGlyph::TDagger,
+        GateKind::Phase => GateGlyph::P,
         // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
         // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
         // ここでは Plus を返す。
@@ -171,20 +174,10 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
     })
 }
 
-/// Map a `GateKind` to the base text label rendered at the centre of
-/// its body. Daggered variants share the same base letter as their
-/// non-daggered sibling; the dagger mark is added separately by
-/// `draw_text_label`.
+/// Map a `GateKind` to the remaining text label rendered at the centre of
+/// its body. SVG/SDF-backed glyphs are handled before this function.
 fn base_label_for(kind: GateKind) -> Option<&'static str> {
     Some(match kind {
-        GateKind::H => "H",
-        // qni renders the X gate body as a filled circle with a `+`
-        // glyph centred inside (CNOT-target convention). Keep that.
-        GateKind::X => "+",
-        GateKind::Y => "Y",
-        GateKind::Z => "Z",
-        GateKind::T | GateKind::TDagger => "T",
-        GateKind::Phase => "P",
         // R-axis rotations: at GATE_SIZE 32 px a subscript x / y / z
         // is sub-5 px and unreadable. `icons.rs`'s old hand-drawn
         // glyphs already rendered the axis letter at the same height
@@ -198,7 +191,7 @@ fn base_label_for(kind: GateKind) -> Option<&'static str> {
 }
 
 fn is_dagger_variant(kind: GateKind) -> bool {
-    matches!(kind, GateKind::TDagger | GateKind::QftDaggerGate)
+    matches!(kind, GateKind::QftDaggerGate)
 }
 
 /// Pixel font size for the base label, derived from the gate-body
@@ -206,35 +199,11 @@ fn is_dagger_variant(kind: GateKind) -> bool {
 /// across the 32 px palette and any future scale. Sizes were
 /// validated visually at 32 px against Geist's metrics.
 fn base_label_font_px(label: &str, body_px: f32) -> f32 {
-    let ratio = if label.chars().count() == 1 {
-        0.62
-    } else {
-        // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
-        // two-glyph width inside the body. Bold is wide enough that
-        // going higher pushes "QFT" past the rounded body edge.
-        0.40
-    };
-    body_px * ratio
-}
-
-/// Which Geist weight a given gate label is rendered in.
-///
-/// The size differential between solo (≈ 19.8 px) and multi-char
-/// (≈ 12.8 px) labels makes the same physical Bold 700 weight look
-/// noticeably *thinner* on the multi side. We compensate by routing
-/// the remaining bigger solo glyphs (T / P) to **Geist Regular 400** so their
-/// absolute stroke width lands close to Bold-at-12.8 px.
-/// `+` gets **Medium 500** — two orthogonal strokes read as lighter
-/// than letter forms at the same weight. The multi-char labels stay
-/// on **Bold 700**, which is the bedrock the others are matching.
-fn base_label_family(label: &str) -> egui::FontFamily {
-    if label == "+" {
-        crate::app::GATE_LABEL_PLUS_FAMILY.clone()
-    } else if label.chars().count() == 1 {
-        crate::app::GATE_LABEL_LIGHT_FAMILY.clone()
-    } else {
-        crate::app::GATE_LABEL_FAMILY.clone()
-    }
+    debug_assert!(label.chars().count() > 1);
+    // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
+    // two-glyph width inside the body. Bold is wide enough that
+    // going higher pushes "QFT" past the rounded body edge.
+    body_px * 0.40
 }
 
 fn draw_text_label(
@@ -245,18 +214,14 @@ fn draw_text_label(
     color: egui::Color32,
 ) {
     let body_px = rect.width();
-    let family = base_label_family(label);
+    let family = crate::app::GATE_LABEL_FAMILY.clone();
     let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
     // Vertical centring quirk: egui aligns text by the font's
-    // ascent/descent, not by the glyph's visual centre. For letters
-    // (T / P / RX / RY / RZ / QFT) the ascent-to-baseline span already
+    // ascent/descent, not by the glyph's visual centre. For the remaining
+    // text labels (RX / RY / RZ / QFT), the ascent-to-baseline span already
     // matches the body centre well.
-    // For `+`, the math axis sits roughly 5% of the em above the
-    // ascent/descent midpoint, so without a nudge the glyph reads as
-    // slightly low. Bias the `+` anchor up by `0.05 × body`.
-    let y_nudge = if label == "+" { -body_px * 0.05 } else { 0.0 };
     painter.text(
-        rect.center() + egui::vec2(0.0, y_nudge),
+        rect.center(),
         egui::Align2::CENTER_CENTER,
         label,
         font,
@@ -268,8 +233,7 @@ fn draw_text_label(
         // (0.17× / 0.22× instead of 0.13× / 0.18× from the mockup) so
         // the 10 px-tall glyph clears the cyan body's 6 px corner
         // radius and no longer clips the rounded top-right edge. The
-        // dagger follows the base label's weight so T† stays light alongside
-        // its solo letter, while QFT† stays on Bold.
+        // dagger follows the base label's weight, so QFT† stays on Bold.
         let dag_font = egui::FontId::new(body_px * 0.32, family.clone());
         let inset_x = body_px * 0.17;
         let inset_y = body_px * 0.22;

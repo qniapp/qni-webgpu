@@ -128,6 +128,9 @@ fn sdf_texture_name(glyph: GateGlyph) -> &'static str {
         GateGlyph::SqrtX => "gate-icon-sqrtx-sdf",
         GateGlyph::S => "gate-icon-s-sdf",
         GateGlyph::SDagger => "gate-icon-sdagger-sdf",
+        GateGlyph::T => "gate-icon-t-sdf",
+        GateGlyph::TDagger => "gate-icon-tdagger-sdf",
+        GateGlyph::P => "gate-icon-p-sdf",
     }
 }
 

@@ -8,14 +8,13 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z + √X S S†
+    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P
 
 設定:
-    - 単一字ゲートは Geist Regular 400 (gate_glyphs.rs の
-      `GATE_LABEL_LIGHT_FAMILY` 規約に合わせる)
+    - 単一字ゲートは Geist Regular 400
     - "+" (X ゲートの本体) は Geist Medium 500
-    - √X は旧 egui 描画と同じく Geist Regular の √ と X を合成
-    - S† は旧 egui 描画と同じく Geist Regular の S と † を合成
+    - √X は Geist Regular の √ と X を合成
+    - S† / T† は Geist Regular の基底文字と † を合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -52,10 +51,12 @@ FILENAME_FOR_TOKEN = {
     "+": "plus",
     "√X": "sqrtx",
     "S†": "sdagger",
+    "T†": "tdagger",
 }
 
 SQRTX_ALIASES = {"√X", "sqrtx", "SqrtX", "SQRTX", "X^½"}
 SDAGGER_ALIASES = {"S†", "sdagger", "SDagger", "SDAGGER"}
+TDAGGER_ALIASES = {"T†", "tdagger", "TDagger", "TDAGGER"}
 
 
 def normalize_token(token: str) -> str:
@@ -63,6 +64,8 @@ def normalize_token(token: str) -> str:
         return "√X"
     if token in SDAGGER_ALIASES:
         return "S†"
+    if token in TDAGGER_ALIASES:
+        return "T†"
     return token
 
 
@@ -106,8 +109,8 @@ def single_glyph_svg(char: str) -> str:
     font = font_for_weight(weight)
     _, box, _ = glyph_path_and_box(char, weight)
 
-    # egui の `painter.text(font_size = body_px * GLYPH_RATIO)` と同じスケール
-    # 関係になるよう、グリフのスケールは **em (1000 font units) を基準**にする。
+    # グリフのスケールは **em (1000 font units) を基準**にし、
+    # SDF 化しても 32px ゲート上の文字サイズが揃うようにする。
     # 過去版はグリフ外接矩形の高さを target_h に正規化していたため、'H' のように
     # キャップ高がフルの em の 71% 程度しかない文字でも viewBox 内で
     # GLYPH_RATIO ぶん占めてしまい、フォント描画より大きく見えていた。
@@ -183,6 +186,8 @@ def extract(token: str) -> str:
         return sqrtx_svg()
     if token == "S†":
         return dagger_svg("S")
+    if token == "T†":
+        return dagger_svg("T")
     if len(token) == 1:
         return single_glyph_svg(token)
     raise ValueError(f"未対応トークン: {token!r}")
@@ -209,7 +214,7 @@ def render_png(svg_path: str, png_path: str) -> None:
 
 
 def weight_description(token: str) -> str:
-    if token in {"√X", "S†"}:
+    if token in {"√X", "S†", "T†"}:
         return "Geist Regular composite"
     return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
 
