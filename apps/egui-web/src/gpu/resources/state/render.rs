@@ -6,7 +6,7 @@ use super::pipeline::build_render_pipeline;
 
 pub(super) struct RenderResources {
     pub(super) pipeline: wgpu::RenderPipeline,
-    pub(super) bind_groups: [wgpu::BindGroup; 2],
+    pub(super) bind_groups: [wgpu::BindGroup; 3],
     pub(super) bind_group_layout: wgpu::BindGroupLayout,
     pub(super) params_buffer: wgpu::Buffer,
 }
@@ -71,35 +71,26 @@ fn create_render_bind_groups(
     common: &Common,
     layout: &wgpu::BindGroupLayout,
     params_buffer: &wgpu::Buffer,
-) -> [wgpu::BindGroup; 2] {
+) -> [wgpu::BindGroup; 3] {
+    let create = |label: &'static str, buffer: &wgpu::Buffer| {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(label),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: params_buffer.as_entire_binding(),
+                },
+            ],
+        })
+    };
     [
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("state_vector_render_a"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: common.state_buffers[0].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: params_buffer.as_entire_binding(),
-                },
-            ],
-        }),
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("state_vector_render_b"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: common.state_buffers[1].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: params_buffer.as_entire_binding(),
-                },
-            ],
-        }),
+        create("state_vector_render_a", &common.state_buffers[0]),
+        create("state_vector_render_b", &common.state_buffers[1]),
+        create("state_vector_render_preview", &common.state_preview_buffer),
     ]
 }

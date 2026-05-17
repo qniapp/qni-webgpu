@@ -111,6 +111,7 @@ impl GpuPlanState {
         self.chance_slots.clear();
         for op in &self.sim_ops {
             match op {
+                SimulationOp::SnapshotState => {}
                 SimulationOp::CaptureBloch {
                     gate_id,
                     output_slot,

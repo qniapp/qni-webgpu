@@ -11,8 +11,12 @@ use crate::gates::GateParams;
 ///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
 ///   * `CaptureChance`: marginalizes the live state into per-outcome
 ///     probabilities for a Chance display (`CHANCE_REDUCE_SHADER`).
+///   * `SnapshotState`: copies the live state into the state-panel preview
+///     buffer, then later ops keep running so readout gates after the selected
+///     column still populate their GPU buffers.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SimulationOp {
+    SnapshotState,
     ApplyGate(GateParams),
     CaptureBloch {
         gate_id: u32,

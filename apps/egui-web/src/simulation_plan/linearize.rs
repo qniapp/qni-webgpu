@@ -19,10 +19,11 @@ use crate::gates::{
 /// Within each column the order is: column unitaries / writes → measurements
 /// (reduce-sample then collapse) → bloch captures, mirroring qni's
 /// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
-/// `step_limit`: inclusive column index up to which to apply gates.
-/// `None` = apply everything (= final state). `Some(k)` truncates the
-/// linearisation after column k, so the GPU only runs the dispatches
-/// for semantic columns `0..=k` — this powers the per-step state preview.
+/// `step_limit`: inclusive column index to snapshot for the state panel.
+/// `None` = render the final state. `Some(k)` inserts `SnapshotState` after
+/// semantic column `k` (or just before the first later column) so the state
+/// panel shows the selected step while the GPU still runs all later readouts
+/// (measurements / Bloch / Chance), matching qni's worker loop.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
@@ -34,17 +35,22 @@ pub(crate) fn linearize_ops(
     let state_count = 1u32 << qubits;
 
     let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
-        if gate.wire >= qubits || step_limit.is_some_and(|limit| gate.column > limit) {
+        if gate.wire >= qubits {
             return None;
         }
         Some(gate.column)
     });
 
     let mut ops: Vec<SimulationOp> = Vec::new();
+    let mut state_snapshot_inserted = false;
     let mut bloch_slot: u32 = 0;
     let mut measurement_slot: u32 = 0;
     let mut chance_slot: u32 = 0;
     for column in analysis.columns() {
+        if step_limit.is_some_and(|limit| column.slot > limit) && !state_snapshot_inserted {
+            ops.push(SimulationOp::SnapshotState);
+            state_snapshot_inserted = true;
+        }
         let column_gates = column.gates();
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
@@ -254,6 +260,11 @@ pub(crate) fn linearize_ops(
                 output_slot: chance_slot,
             });
             chance_slot += 1;
+        }
+
+        if step_limit == Some(column.slot) && !state_snapshot_inserted {
+            ops.push(SimulationOp::SnapshotState);
+            state_snapshot_inserted = true;
         }
     }
     ops

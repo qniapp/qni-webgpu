@@ -5,8 +5,8 @@
 //! reads the active `Common::state_buffers` directly and looks up
 //! glyphs in the baked popup atlas. No CPU readback.
 //!
-//! Two bind groups so we can pick the active ping-pong index when the
-//! popup paints (matches the state-render bind groups).
+//! Three bind groups so we can pick the active ping-pong index or the
+//! state-panel preview snapshot when the popup paints.
 
 mod atlas;
 mod bindings;
@@ -19,7 +19,7 @@ use super::common::Common;
 
 pub(crate) struct PopupValueResources {
     pub pipeline: wgpu::RenderPipeline,
-    pub bind_groups: [wgpu::BindGroup; 2],
+    pub bind_groups: [wgpu::BindGroup; 3],
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub params_buffer: wgpu::Buffer,
     pub last_params: Option<PopupValueParams>,

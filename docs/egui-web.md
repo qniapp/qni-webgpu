@@ -155,6 +155,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 - 状態ベクトル / Bloch / 測定 / Chance 確率の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
 - Chance display は recompute 中の `CHANCE_REDUCE_SHADER` で contiguous span の marginal probability を `chance_probability_output` に書き、ゲート本体の bar は `CHANCE_RENDER_SHADER` がそのバッファを直接読む。palette / hover ポップアップのラベルは geometry 固定情報だけを CPU で描き、確率値は CPU に戻さない。
+- 列セレクト中も GPU simulation は最後の列まで実行する。選択列の state panel だけは `SnapshotState` で GPU buffer にコピーし、後続の Measurement / Bloch / Chance readout はすべて通常どおり表示する (qni worker loop と同じ)。
 - `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` / `read_chance_probabilities_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/egui-web/src/gpu/readback.rs`)。
 
 ### recompute あたりの GPU 往復

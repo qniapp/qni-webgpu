@@ -1,7 +1,7 @@
 //! Test-only on-demand readback APIs.
 //!
 //! Production rendering never touches CPU readback — render shaders sample
-//! storage buffers directly. These three async functions exist solely so
+//! storage buffers directly. These async functions exist solely so
 //! the JS test harness (`read_state_vector` etc. in `lib.rs`) can verify
 //! GPU outputs after a recompute. Each issues a fresh staging buffer +
 //! `map_async` against the latest GPU handle that `StateVectorCallback::
@@ -22,7 +22,7 @@ use wasm_bindgen::JsValue;
 pub(crate) struct GpuReadbackState {
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
-    pub(crate) state_buffers: [wgpu::Buffer; 2],
+    pub(crate) state_buffers: [wgpu::Buffer; 3],
     pub(crate) state_count: usize,
     pub(crate) active_state: usize,
 }

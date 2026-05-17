@@ -34,8 +34,9 @@ impl QniApp {
             if recompute {
                 self.gpu_plan.mark_clean_for(state_count);
                 let qubits = self.state_qubits();
-                // Hovered wins over breakpoint (live preview); `None` for both
-                // = apply every column = final state.
+                // Hovered wins over breakpoint for the state-panel snapshot;
+                // the GPU still runs every column so later readout gates stay
+                // populated like qni's worker-loop simulation.
                 let step_limit = self.hovered_step.or(self.breakpoint_step);
                 let sim_ops = linearize_ops(&self.placed_gates, qubits, step_limit);
                 if let Err(error) = validate_simulation_plan_capacity(

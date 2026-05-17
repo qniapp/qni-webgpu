@@ -38,6 +38,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     let mut chance_ops = 0usize;
     for op in ops {
         match op {
+            SimulationOp::SnapshotState => {}
             SimulationOp::ApplyGate(_) => gate_ops += 1,
             SimulationOp::CaptureBloch { output_slot, .. } => {
                 bloch_ops += 1;

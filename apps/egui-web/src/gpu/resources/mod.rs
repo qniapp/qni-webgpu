@@ -63,8 +63,8 @@ pub(crate) struct StateVectorResources {
     /// here rather than inside a subsystem because every pipeline reads
     /// it indirectly.
     pub(crate) state_count: usize,
-    /// Index into `common.state_buffers` that holds the current state
-    /// vector. Flipped by the compute pass.
+    /// Index into state render/readback bind groups. 0/1 are the ping-pong
+    /// state buffers; 2 is the optional selected-step preview snapshot.
     pub(crate) active_state: usize,
 }
 

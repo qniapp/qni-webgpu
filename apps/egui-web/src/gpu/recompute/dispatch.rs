@@ -38,6 +38,9 @@ pub(super) fn encode_batched_recompute(
     let mut state = DispatchState::new(pair_count, dispatch_x);
     for op in sim_ops {
         match op {
+            SimulationOp::SnapshotState => {
+                state.encode_snapshot_state(&mut encoder, resources, state_count)
+            }
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
             SimulationOp::CaptureBloch { gate_id, .. } => {
                 state.encode_capture_bloch(&mut encoder, resources, *gate_id);
@@ -54,9 +57,11 @@ pub(super) fn encode_batched_recompute(
         }
     }
 
+    let active_state = state.render_state_index();
+
     EncodedRecompute {
         command_buffer: encoder.finish(),
-        active_state: state.in_index,
+        active_state,
         bloch_slot_to_gate_id: state.bloch_slot_to_gate_id,
         measurement_slot_to_gate_id: state.measurement_slot_to_gate_id,
         chance_slot_to_gate_id: state.chance_slot_to_gate_id,
@@ -65,6 +70,7 @@ pub(super) fn encode_batched_recompute(
 
 struct DispatchState {
     in_index: usize,
+    render_state_index: Option<usize>,
     pair_count: u32,
     dispatch_x: u32,
     gate_slot: u64,
@@ -81,6 +87,7 @@ impl DispatchState {
     fn new(pair_count: u32, dispatch_x: u32) -> Self {
         Self {
             in_index: 0,
+            render_state_index: None,
             pair_count,
             dispatch_x,
             gate_slot: 0,
@@ -92,6 +99,30 @@ impl DispatchState {
             measurement_slot_to_gate_id: Vec::with_capacity(MAX_MEASUREMENT_SLOTS),
             chance_slot_to_gate_id: Vec::with_capacity(MAX_CHANCE_SLOTS),
         }
+    }
+
+    fn render_state_index(&self) -> usize {
+        self.render_state_index.unwrap_or(self.in_index)
+    }
+
+    fn encode_snapshot_state(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &StateVectorResources,
+        state_count: usize,
+    ) {
+        let byte_len = (state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
+        if byte_len == 0 {
+            return;
+        }
+        encoder.copy_buffer_to_buffer(
+            &resources.common.state_buffers[self.in_index],
+            0,
+            &resources.common.state_preview_buffer,
+            0,
+            byte_len,
+        );
+        self.render_state_index = Some(2);
     }
 
     fn encode_apply_gate(

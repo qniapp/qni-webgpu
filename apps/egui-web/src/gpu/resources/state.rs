@@ -24,7 +24,7 @@ pub(crate) struct StateResources {
     pub compute_bind_groups: [wgpu::BindGroup; 2],
 
     pub render_pipeline: wgpu::RenderPipeline,
-    pub render_bind_groups: [wgpu::BindGroup; 2],
+    pub render_bind_groups: [wgpu::BindGroup; 3],
     pub render_bind_group_layout: wgpu::BindGroupLayout,
     pub render_params_buffer: wgpu::Buffer,
     pub last_render_params: Option<RenderParams>,

@@ -4,6 +4,8 @@ import {
   getPaletteGateCenter,
   pixelRgbDistance,
   readChanceProbabilities,
+  readMeasurementOutcomes,
+  readStateVector,
   sampleCanvasPixels,
   waitForStartupReady,
 } from './support/egui-web-spec-helpers'
@@ -40,6 +42,33 @@ const waitForChanceProbabilities = async (page: Parameters<typeof readChanceProb
     await page.waitForTimeout(50)
   }
   throw new Error('Chance probabilities did not become available')
+}
+
+const waitForHoveredStep = async (page: Parameters<typeof readChanceProbabilities>[0], step: number): Promise<void> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const snapshot = await page.evaluate(() => JSON.parse((window as any).__qniHoverSnapshotJson ?? '{}'))
+    if (snapshot.hoveredStep === step) return
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`hovered step did not become ${step}`)
+}
+
+const selectedColumnReadoutEvidence = async (page: Parameters<typeof readChanceProbabilities>[0]) => {
+  const [chanceEntries, measurementEntries, state] = await Promise.all([
+    readChanceProbabilities(page),
+    readMeasurementOutcomes(page),
+    readStateVector(page),
+  ])
+  const probs = chanceEntries[0]?.probabilities ?? []
+  return {
+    p0: Math.round((probs[0] ?? -1) * 1000) / 1000,
+    p1: Math.round((probs[1] ?? -1) * 1000) / 1000,
+    measurementCount: measurementEntries.length,
+    selectedState: [
+      Math.round(((state[0] as number | undefined) ?? -1) * 1000) / 1000,
+      Math.round(((state[2] as number | undefined) ?? -1) * 1000) / 1000,
+    ],
+  }
 }
 
 const waitForChanceBarPixels = async (
@@ -189,6 +218,25 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ outcome: 1, hoverBlue: true, popupText: true })
+})
+
+test('selected earlier column keeps later readouts populated', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Chance'], ['Measure']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.move(box.x + LINE_LEFT_OFFSET + GATE_SIZE, box.y + LINE_Y)
+  await waitForHoveredStep(page, 0)
+  await page.waitForTimeout(150)
+
+  expect(await selectedColumnReadoutEvidence(page)).toEqual({
+    p0: 0.5,
+    p1: 0.5,
+    measurementCount: 1,
+    selectedState: [0.707, 0.707],
+  })
 })
 
 test('Chance9 keeps tiny-row bars visible', async ({ page }) => {

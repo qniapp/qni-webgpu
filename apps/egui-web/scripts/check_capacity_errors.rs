@@ -2,6 +2,7 @@ mod simulation_plan {
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub(crate) enum SimulationOp {
+        SnapshotState,
         ApplyGate(()),
         CaptureBloch {
             gate_id: u32,

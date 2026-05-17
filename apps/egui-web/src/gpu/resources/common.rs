@@ -4,6 +4,9 @@
 //!   pipeline (compute, render, bloch, measure, popup-value) reads or
 //!   writes them, so they live here rather than inside any one
 //!   subsystem.
+//! * `state_preview_buffer` — optional state-panel snapshot used while a
+//!   circuit column is selected. The simulation still runs to the end so
+//!   readout gates after the selected column stay populated.
 //! * `state_seed_buffer` — 8-byte (1.0, 0.0) read-only seed copied
 //!   into `state_buffers[0]` at the start of every recompute to
 //!   initialise the state vector to `|0…0⟩` entirely on the GPU.
@@ -22,6 +25,7 @@ use crate::constants::MAX_STATE_COUNT;
 
 pub(crate) struct Common {
     pub state_buffers: [wgpu::Buffer; 2],
+    pub state_preview_buffer: wgpu::Buffer,
     pub state_seed_buffer: wgpu::Buffer,
     pub unit_quad_vertex_buffer: wgpu::Buffer,
     pub unit_quad_index_buffer: wgpu::Buffer,
@@ -50,6 +54,14 @@ impl Common {
                 mapped_at_creation: false,
             }),
         ];
+        let state_preview_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("state_vector_preview_buffer"),
+            size: state_buffer_size,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
 
         let state_seed_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("state_vector_ground_seed"),
@@ -77,6 +89,7 @@ impl Common {
 
         Self {
             state_buffers,
+            state_preview_buffer,
             state_seed_buffer,
             unit_quad_vertex_buffer,
             unit_quad_index_buffer,

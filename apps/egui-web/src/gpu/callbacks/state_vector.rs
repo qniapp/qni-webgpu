@@ -12,9 +12,9 @@ use super::super::recompute::recompute_state_vector;
 use super::super::resources::StateVectorResources;
 
 pub(crate) struct StateVectorCallback {
-    /// Linearised simulation ops for the GPU pipeline. Includes all four
-    /// op kinds: `ApplyGate`, `CaptureBloch`, `MeasureReduceSample`, and
-    /// `MeasureCollapse`. The GPU dispatches them in order; ping-pong of
+    /// Linearised simulation ops for the GPU pipeline. Includes gate
+    /// application, readout captures, measurement collapse, and optional
+    /// state-panel snapshots. The GPU dispatches them in order; ping-pong of
     /// the state buffers happens for any op that mutates state (gates and
     /// `MeasureCollapse`).
     pub(crate) sim_ops: Vec<SimulationOp>,
@@ -73,6 +73,7 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 state_buffers: [
                     resources.common.state_buffers[0].clone(),
                     resources.common.state_buffers[1].clone(),
+                    resources.common.state_preview_buffer.clone(),
                 ],
                 state_count: resources.state_count,
                 active_state: resources.active_state,

@@ -63,51 +63,37 @@ pub(super) fn create_bind_groups(
     layout: &wgpu::BindGroupLayout,
     params_buffer: &wgpu::Buffer,
     atlas: &PopupGlyphAtlas,
-) -> [wgpu::BindGroup; 2] {
+) -> [wgpu::BindGroup; 3] {
+    let create = |label: &'static str, buffer: &wgpu::Buffer| {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(label),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: params_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&atlas.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
+                },
+            ],
+        })
+    };
     [
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("popup_value_bind_group_0"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: common.state_buffers[0].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: params_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&atlas.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
-                },
-            ],
-        }),
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("popup_value_bind_group_1"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: common.state_buffers[1].as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: params_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&atlas.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
-                },
-            ],
-        }),
+        create("popup_value_bind_group_0", &common.state_buffers[0]),
+        create("popup_value_bind_group_1", &common.state_buffers[1]),
+        create(
+            "popup_value_bind_group_preview",
+            &common.state_preview_buffer,
+        ),
     ]
 }
