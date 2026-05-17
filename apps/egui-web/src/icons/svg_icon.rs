@@ -1,7 +1,7 @@
 //! SVG 共有アセットから焼き付けた PNG を、単色テクスチャとして描画する。
 //!
 //! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger}.svg` を正にし、
-//! `scripts/extract-gate-svg.py` が同じ場所へ 128×128 px の PNG を生成する。
+//! `scripts/extract-gate-svg.py` が同じ場所へ 256×256 px の PNG を生成する。
 //! ビルド時に PNG のアルファだけを RLE 化して
 //! wasm に埋め込み、初回描画時に egui テクスチャへ展開する。実行時の SVG パーサや PNG
 //! デコーダは不要。

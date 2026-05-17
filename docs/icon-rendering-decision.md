@@ -2,7 +2,7 @@
 
 ## 結論
 
-推奨は **案 C: ビルド時に SVG から 128×128 px PNG を焼き付け、Rust では PNG のアルファだけを RLE 化してテクスチャ化する方式**。
+推奨は **案 C: ビルド時に SVG から 256×256 px PNG を焼き付け、Rust では PNG のアルファだけを RLE 化してテクスチャ化する方式**。
 
 理由は次の通り。
 
@@ -27,7 +27,7 @@
 | --- | --- | --- | ---: | --- | --- | --- | --- |
 | A: `ttf-parser` でフォントから直接抽出 | `/tmp/qni-icon-a` で `ttf-parser = 0.25.1` を使い、Geist から輪郭を取り出してメッシュ描画 | H は描画できたが、最終描画はメッシュのまま。フォントヒンティング相当が無く、根本原因のサブピクセル細りを解かない | 8,349,058 bytes（+240,569） | フォント由来なので輪郭取得は容易。ただし塗りつぶし用の三角形分割は残る | Rust はフォント直、TypeScript は SVG になり、共有アセットの正が分かれる | 実行時コードが増える。Geist フォント依存が描画経路に残る | 不採用 |
 | B: `resvg` + 高解像度ラスタ化 | `resvg = 0.47.0`、`default-features = false` で初回描画時に SVG を 128×128 px テクスチャ化 | 高解像度テクスチャなので品質は案 C と同等 | 8,989,134 bytes（+880,645） | SVG を足すだけ | 維持できる | 実行時に SVG 解析器とラスタ化器を wasm に含める。サイズ増が大きい | 不採用 |
-| C: SVG → PNG 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファを RLE 化し、初回描画時に egui テクスチャ化 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S† が一致（内側の白画素: H 44 px、X 36 px、Y 34 px、Z 35 px、√X 63 px、S 44 px、S† 52 px） | 8,110,661 bytes（+2,172） | SVG 生成後に PNG も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
+| C: SVG → PNG 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファを RLE 化し、初回描画時に egui テクスチャ化 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S† が一致（内側の白画素: H 44 px、X 36 px、Y 38 px、Z 55 px、√X 70 px、S 53 px、S† 62 px） | 8,125,781 bytes（+17,292） | SVG 生成後に PNG も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
 
 ## 採用しなかった案
 
@@ -43,9 +43,9 @@
 
 - `scripts/extract-gate-svg.py`
   - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg` を生成。
-  - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 128×128 px PNG も生成。
+  - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 256×256 px PNG も生成。
 - `apps/egui-web/build.rs`
-  - `assets/icons/*.png` をビルド時に読み、128×128 px RGBA であることと可視画素があることを検査。
+  - `assets/icons/*.png` をビルド時に読み、256×256 px RGBA であることと可視画素があることを検査。
   - アルファだけを RLE 配列へ変換。
   - 実行時 wasm には PNG デコーダを含めない。
 - `apps/egui-web/src/icons/svg_icon.rs`

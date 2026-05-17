@@ -12,14 +12,16 @@ const ICONS: [(&str, &str); 8] = [
     ("S", "s.png"),
     ("SDAGGER", "sdagger.png"),
 ];
-const RASTER_SIZE: u32 = 128;
+const RASTER_SIZE: u32 = 256;
 
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("out dir"));
     let out_path = out_dir.join("gate_icon_alpha.rs");
     let mut generated = String::new();
-    generated.push_str("pub(super) const RASTER_SIZE: usize = 128;\n");
+    generated.push_str(&format!(
+        "pub(super) const RASTER_SIZE: usize = {RASTER_SIZE};\n"
+    ));
 
     for (symbol, file_name) in ICONS {
         let path = manifest_dir.join("assets/icons").join(file_name);
@@ -58,7 +60,7 @@ fn read_png_alpha(path: &Path) -> Vec<u8> {
             png::ColorType::Rgba,
             png::BitDepth::Eight
         ),
-        "{} must be a 128×128 8-bit RGBA PNG",
+        "{} must be a 256×256 8-bit RGBA PNG",
         path.display()
     );
     let alpha = buffer[..info.buffer_size()]
