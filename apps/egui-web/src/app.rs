@@ -27,9 +27,9 @@ use circuit_library::CircuitLibrary;
 use circuit_picker_state::PickerState;
 
 /// Named font family rendering the remaining heavyweight text labels — i.e.
-/// RX / RY / RZ / QFT / QFT† at body × 0.40 px. At that small size Geist
-/// Bold (700) is what reads as the "normal" weight. Large solo gate glyphs
-/// now use the shared SVG/SDF icon path.
+/// QFT / QFT† at body × 0.40 px. RX / RY / RZ intentionally use the
+/// registered Geist Medium family so their strokes read lighter next to the
+/// shared SVG/SDF gate icons.
 pub(crate) static GATE_LABEL_FAMILY: LazyLock<egui::FontFamily> =
     LazyLock::new(|| egui::FontFamily::Name("geist".into()));
 

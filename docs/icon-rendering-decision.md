@@ -28,7 +28,7 @@
 | --- | --- | --- | ---: | --- | --- | --- | --- |
 | A: `ttf-parser` でフォントから直接抽出 | `/tmp/qni-icon-a` で `ttf-parser = 0.25.1` を使い、Geist から輪郭を取り出してメッシュ描画 | H は描画できたが、最終描画はメッシュのまま。フォントヒンティング相当が無く、根本原因のサブピクセル細りを解かない | 8,349,058 bytes（+240,569） | フォント由来なので輪郭取得は容易。ただし塗りつぶし用の三角形分割は残る | Rust はフォント直、TypeScript は SVG になり、共有アセットの正が分かれる | 実行時コードが増える。Geist フォント依存が描画経路に残る | 不採用 |
 | B: `resvg` + 高解像度ラスタ化 | `resvg = 0.47.0`、`default-features = false` で初回描画時に SVG を 128×128 px テクスチャ化 | 通常表示は良いが、拡大時は通常のラスタ画像として階段状になりやすい | 8,989,134 bytes（+880,645） | SVG を足すだけ | 維持できる | 実行時に SVG 解析器とラスタ化器を wasm に含める。サイズ増が大きい | 不採用 |
-| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, P が一致（内側の白画素: H 28 px、X 4 px、Y 14 px、Z 27 px、√X 38 px、S 29 px、S† 30 px、T 10 px、T† 11 px、P 32 px） | 8,603,162 bytes（+494,673） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
+| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, P が一致（内側の白画素: H 28 px、X 4 px、Y 14 px、Z 27 px、√X 38 px、S 29 px、S† 30 px、T 10 px、T† 11 px、P 32 px） | 8,604,141 bytes（+495,652） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
 
 ## 採用しなかった案
 

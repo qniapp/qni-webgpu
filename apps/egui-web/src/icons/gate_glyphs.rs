@@ -206,6 +206,17 @@ fn base_label_font_px(label: &str, body_px: f32) -> f32 {
     body_px * 0.40
 }
 
+fn text_label_family(kind: GateKind) -> egui::FontFamily {
+    if matches!(kind, GateKind::Rx | GateKind::Ry | GateKind::Rz) {
+        // Rotation labels looked heavier than the SDF-backed single-letter
+        // gates at the same 32px body size. Geist Medium 500 keeps RX/RY/RZ
+        // readable while matching H/S/T/P more closely than Bold 700.
+        egui::FontFamily::Name("geist-medium".into())
+    } else {
+        crate::app::GATE_LABEL_FAMILY.clone()
+    }
+}
+
 fn draw_text_label(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -214,7 +225,7 @@ fn draw_text_label(
     color: egui::Color32,
 ) {
     let body_px = rect.width();
-    let family = crate::app::GATE_LABEL_FAMILY.clone();
+    let family = text_label_family(kind);
     let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
     // Vertical centring quirk: egui aligns text by the font's
     // ascent/descent, not by the glyph's visual centre. For the remaining
