@@ -47,7 +47,7 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
 
-test('PNG raster H, X, Y, Z, √X, S and S† keep palette and circuit glyph weight aligned', async ({ page }) => {
+test('SVG SDF H, X, Y, Z, √X, S and S† keep palette and circuit glyph weight aligned', async ({ page }) => {
   await page.setViewportSize({ width: 1001, height: 800 })
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†']] })))
 
@@ -130,20 +130,20 @@ test('PNG raster H, X, Y, Z, √X, S and S† keep palette and circuit glyph wei
   }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateSize, centers })
 
   expect(metrics).toEqual({
-    paletteH: { count: 44, width: 10, height: 14 },
-    circuitH: { count: 44, width: 10, height: 14 },
-    paletteX: { count: 36, width: 10, height: 10 },
-    circuitX: { count: 36, width: 10, height: 10 },
-    paletteY: { count: 38, width: 10, height: 14 },
-    circuitY: { count: 38, width: 10, height: 14 },
-    paletteZ: { count: 55, width: 10, height: 14 },
-    circuitZ: { count: 55, width: 10, height: 14 },
-    paletteSqrtX: { count: 70, width: 21, height: 16 },
-    circuitSqrtX: { count: 70, width: 21, height: 16 },
-    paletteS: { count: 53, width: 10, height: 14 },
-    circuitS: { count: 53, width: 10, height: 14 },
-    paletteSDagger: { count: 62, width: 17, height: 19 },
-    circuitSDagger: { count: 62, width: 17, height: 19 },
+    paletteH: { count: 28, width: 10, height: 14 },
+    circuitH: { count: 28, width: 10, height: 14 },
+    paletteX: { count: 4, width: 2, height: 2 },
+    circuitX: { count: 4, width: 2, height: 2 },
+    paletteY: { count: 14, width: 10, height: 8 },
+    circuitY: { count: 14, width: 10, height: 8 },
+    paletteZ: { count: 27, width: 8, height: 14 },
+    circuitZ: { count: 27, width: 8, height: 14 },
+    paletteSqrtX: { count: 38, width: 20, height: 16 },
+    circuitSqrtX: { count: 38, width: 20, height: 16 },
+    paletteS: { count: 29, width: 10, height: 14 },
+    circuitS: { count: 29, width: 10, height: 14 },
+    paletteSDagger: { count: 30, width: 16, height: 18 },
+    circuitSDagger: { count: 30, width: 16, height: 18 },
   })
 })
 

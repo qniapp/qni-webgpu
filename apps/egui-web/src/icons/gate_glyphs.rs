@@ -49,9 +49,9 @@ pub(super) fn draw_gate_icon(
 ) -> bool {
     // H / Y / Z / √X / S / S† / X (本体は "+" として描く) は
     // `assets/icons/{h,y,z,sqrtx,s,sdagger,plus}.svg` を 1 ソースに、
-    // 初回描画時に 128 px テクスチャへラスタライズして描画する。パレットと
-    // 回路のサブピクセル位置差で見かけの太さが揺れないよう、以後は同じ
-    // 高解像度テクスチャを縮小サンプリングする。
+    // ビルド時に 256 px PNG から作った SDF テクスチャで描画する。パレットと
+    // 回路のサブピクセル位置差で見かけの太さが揺れず、拡大時も輪郭を
+    // シェーダで再構成できるようにする。
     // 残りの文字系（T / T† / P / RX / RY / RZ / QFT / QFT†）は
     // 引き続き Geist フォントを `painter.text` で描画する。
     if let Some(glyph) = svg_glyph_for(kind) {

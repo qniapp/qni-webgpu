@@ -72,6 +72,9 @@ impl QniApp {
 
 impl eframe::App for QniApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        crate::icons::set_sdf_target_format(
+            frame.wgpu_render_state().map(|state| state.target_format),
+        );
         let frame_start = now_seconds();
         self.apply_pending_circuit_library_seed(ctx);
         self.apply_external_circuit_library_update(ctx);

@@ -1,10 +1,10 @@
-//! SVG 共有アセットから焼き付けた PNG を、単色テクスチャとして描画する。
+//! SVG 共有アセットから焼き付けた PNG を、単色アイコンとして描画する。
 //!
 //! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger}.svg` を正にし、
 //! `scripts/extract-gate-svg.py` が同じ場所へ 256×256 px の PNG を生成する。
-//! ビルド時に PNG のアルファだけを RLE 化して
-//! wasm に埋め込み、初回描画時に egui テクスチャへ展開する。実行時の SVG パーサや PNG
-//! デコーダは不要。
+//! WebGPU 経路では PNG アルファから生成した SDF（符号付き距離場）を
+//! `sdf_icon` のシェーダで描く。WebGPU が無い経路だけ、同じ PNG アルファの
+//! RLE から作った通常テクスチャへ戻す。
 
 use eframe::egui;
 use std::cell::RefCell;
@@ -18,7 +18,6 @@ pub(super) enum GateGlyph {
     H,
     /// 文字 X 用。Qni の X ゲート本体は Plus を描くため本番回路では未使用だが、
     /// 共有アセットとしてビルド時にラスタ化を検証する。
-    #[expect(dead_code, reason = "X SVG は共有デザインシステム用アセット")]
     X,
     Y,
     Z,
@@ -26,6 +25,19 @@ pub(super) enum GateGlyph {
     SqrtX,
     S,
     SDagger,
+}
+
+impl GateGlyph {
+    pub(super) const ALL: [Self; 8] = [
+        Self::H,
+        Self::X,
+        Self::Y,
+        Self::Z,
+        Self::Plus,
+        Self::SqrtX,
+        Self::S,
+        Self::SDagger,
+    ];
 }
 
 thread_local! {
@@ -42,6 +54,19 @@ fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
         GateGlyph::SqrtX => SQRTX_ALPHA_RLE,
         GateGlyph::S => S_ALPHA_RLE,
         GateGlyph::SDagger => SDAGGER_ALPHA_RLE,
+    }
+}
+
+pub(super) fn sdf_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
+    match glyph {
+        GateGlyph::H => H_SDF_RLE,
+        GateGlyph::X => X_SDF_RLE,
+        GateGlyph::Y => Y_SDF_RLE,
+        GateGlyph::Z => Z_SDF_RLE,
+        GateGlyph::Plus => PLUS_SDF_RLE,
+        GateGlyph::SqrtX => SQRTX_SDF_RLE,
+        GateGlyph::S => S_SDF_RLE,
+        GateGlyph::SDagger => SDAGGER_SDF_RLE,
     }
 }
 
@@ -93,6 +118,10 @@ pub(super) fn draw_glyph(
     color: egui::Color32,
     glyph: GateGlyph,
 ) {
+    if super::sdf_icon::draw_glyph(painter, rect, color, glyph) {
+        return;
+    }
+
     let uv = egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0));
     painter.add(egui::Shape::image(
         texture_id(painter.ctx(), glyph),
