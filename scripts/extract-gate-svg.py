@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Geist フォントから単一字ゲートのグリフアウトラインを抽出し、
-`apps/egui-web/assets/icons/<char>.svg` と同名 PNG に書き出す。
+"""Geist フォントからゲートのグリフアウトラインを抽出し、
+`apps/egui-web/assets/icons/<name>.svg` と同名 PNG に書き出す。
 
 design-system-architecture.html の Tier A 提案 (SVG アイコンを Rust と
 TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部分を
@@ -8,13 +8,15 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z   # 複数
+    python3 scripts/extract-gate-svg.py H X Y Z + √X
 
 設定:
     - 単一字ゲートは Geist Regular 400 (gate_glyphs.rs の
       `GATE_LABEL_LIGHT_FAMILY` 規約に合わせる)
+    - "+" (X ゲートの本体) は Geist Medium 500
+    - √X は旧 egui 描画と同じく Geist Regular の √ と X を合成
     - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
-    - グリフ高さは viewBox の 0.62 倍 (`base_label_font_px` の単一字レシオ)
+    - 単一字グリフ高さは viewBox の 0.62 倍
 
 依存:
     pip install --user --break-system-packages fonttools
@@ -25,71 +27,129 @@ import os
 import shutil
 import subprocess
 import sys
-from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.ttLib import TTFont
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FONTS_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets")
 OUT_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets/icons")
 VIEWBOX = 48.0
 RASTER_SIZE = 128
-GLYPH_RATIO = 0.62  # gate_glyphs.rs::base_label_font_px の単一字レシオと一致
+GLYPH_RATIO = 0.62
+SQRTX_RADICAL_RATIO = 0.85
+SQRTX_RADICAL_LIFT = 0.05
 
-# gate_glyphs.rs::base_label_family の規約に合わせる:
-#   - 単一字 (H / Y / Z / S / T) → Geist Regular 400
-#   - "+" (X ゲートの本体) → Geist Medium 500 (2 ストロークだけだと Regular だと細く見えるため)
-#   - 複数字 / 太字想定 → Geist Bold 700 (本スクリプトでは未対応)
 WEIGHT_FOR_CHAR = {
     "+": "Medium",
 }
 DEFAULT_WEIGHT = "Regular"
 
-# ファイル名に使えない文字をマップ。
-FILENAME_FOR_CHAR = {
+FILENAME_FOR_TOKEN = {
     "+": "plus",
+    "√X": "sqrtx",
 }
 
+SQRTX_ALIASES = {"√X", "sqrtx", "SqrtX", "SQRTX", "X^½"}
 
-def extract(char: str) -> str:
-    weight = WEIGHT_FOR_CHAR.get(char, DEFAULT_WEIGHT)
-    font_path = os.path.join(FONTS_DIR, f"Geist-{weight}.ttf")
-    font = TTFont(font_path)
+
+def normalize_token(token: str) -> str:
+    return "√X" if token in SQRTX_ALIASES else token
+
+
+def font_for_weight(weight: str) -> TTFont:
+    return TTFont(os.path.join(FONTS_DIR, f"Geist-{weight}.ttf"))
+
+
+def glyph_path_and_box(char: str, weight: str):
+    font = font_for_weight(weight)
     cmap = font.getBestCmap()
     glyph_name = cmap[ord(char)]
     glyph_set = font.getGlyphSet()
     glyph = glyph_set[glyph_name]
+    box = font["glyf"][glyph_name]
+    pen = SVGPathPen(glyph_set)
+    glyph.draw(pen)
+    return font, box, pen.getCommands()
 
-    bb = font["glyf"][glyph_name]
-    gw = bb.xMax - bb.xMin
-    gh = bb.yMax - bb.yMin
+
+def transform_for_box(box, scale: float, left: float, top: float) -> str:
+    ox = left - box.xMin * scale
+    oy = top + box.yMax * scale
+    return f"translate({ox:.3f} {oy:.3f}) scale({scale:.6f} {-scale:.6f})"
+
+
+def path_element(char: str, weight: str, scale: float, left: float, top: float) -> str:
+    _, box, path = glyph_path_and_box(char, weight)
+    transform = transform_for_box(box, scale, left, top)
+    return f'''  <g transform="{transform}">
+    <path d="{path}" fill="currentColor"/>
+  </g>'''
+
+
+def glyph_box_size(char: str, weight: str, scale: float):
+    _, box, _ = glyph_path_and_box(char, weight)
+    return (box.xMax - box.xMin) * scale, (box.yMax - box.yMin) * scale
+
+
+def single_glyph_svg(char: str) -> str:
+    weight = WEIGHT_FOR_CHAR.get(char, DEFAULT_WEIGHT)
+    font = font_for_weight(weight)
+    _, box, _ = glyph_path_and_box(char, weight)
 
     # egui の `painter.text(font_size = body_px * GLYPH_RATIO)` と同じスケール
     # 関係になるよう、グリフのスケールは **em (1000 font units) を基準**にする。
     # 過去版はグリフ外接矩形の高さを target_h に正規化していたため、'H' のように
     # キャップ高がフルの em の 71% 程度しかない文字でも viewBox 内で
     # GLYPH_RATIO ぶん占めてしまい、フォント描画より大きく見えていた。
-    upem = font["head"].unitsPerEm
-    font_size_in_viewbox = VIEWBOX * GLYPH_RATIO  # 1 em をビューボックス座標で何単位とするか
-    scale = font_size_in_viewbox / upem
-    target_w = gw * scale
-    target_h = gh * scale
+    scale = VIEWBOX * GLYPH_RATIO / font["head"].unitsPerEm
+    target_w = (box.xMax - box.xMin) * scale
+    target_h = (box.yMax - box.yMin) * scale
 
     # グリフ外接矩形の中心を viewBox 中心 (24, 24) に持っていく。
-    # SVG は y 下向きなので scale Y は反転、yMax は font 座標で上端。
-    ox = (VIEWBOX - target_w) / 2.0 - bb.xMin * scale
-    oy = (VIEWBOX - target_h) / 2.0 + bb.yMax * scale
+    left = (VIEWBOX - target_w) / 2.0
+    top = (VIEWBOX - target_h) / 2.0
+    body = path_element(char, weight, scale, left, top)
+    return svg_document(body)
 
-    pen = SVGPathPen(glyph_set)
-    glyph.draw(pen)
-    path = pen.getCommands()
 
-    transform = f"translate({ox:.3f} {oy:.3f}) scale({scale:.6f} {-scale:.6f})"
+def sqrtx_svg() -> str:
+    weight = DEFAULT_WEIGHT
+    font = font_for_weight(weight)
+    x_scale = VIEWBOX * GLYPH_RATIO / font["head"].unitsPerEm
+    radical_scale = x_scale * SQRTX_RADICAL_RATIO
+    radical_w, radical_h = glyph_box_size("√", weight, radical_scale)
+    x_w, x_h = glyph_box_size("X", weight, x_scale)
+
+    total_w = radical_w + x_w
+    left = VIEWBOX / 2.0 - total_w / 2.0
+    x_left = left + radical_w
+    x_top = VIEWBOX / 2.0 - x_h / 2.0
+    radical_left = left
+    radical_bottom = x_top + x_h - VIEWBOX * SQRTX_RADICAL_LIFT
+    radical_top = radical_bottom - radical_h
+
+    body = "\n".join(
+        [
+            path_element("√", weight, radical_scale, radical_left, radical_top),
+            path_element("X", weight, x_scale, x_left, x_top),
+        ]
+    )
+    return svg_document(body)
+
+
+def svg_document(body: str) -> str:
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {VIEWBOX:.0f} {VIEWBOX:.0f}">
-  <g transform="{transform}">
-    <path d="{path}" fill="currentColor"/>
-  </g>
+{body}
 </svg>
 '''
+
+
+def extract(token: str) -> str:
+    if token == "√X":
+        return sqrtx_svg()
+    if len(token) == 1:
+        return single_glyph_svg(token)
+    raise ValueError(f"未対応トークン: {token!r}")
 
 
 def render_png(svg_path: str, png_path: str) -> None:
@@ -112,26 +172,29 @@ def render_png(svg_path: str, png_path: str) -> None:
     raise SystemExit("PNG 生成には rsvg-convert または magick が必要です")
 
 
+def weight_description(token: str) -> str:
+    if token == "√X":
+        return "Geist Regular composite"
+    return f"Geist {WEIGHT_FOR_CHAR.get(token, DEFAULT_WEIGHT)}"
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
     os.makedirs(OUT_DIR, exist_ok=True)
-    for char in sys.argv[1:]:
-        if len(char) != 1:
-            print(f"skip {char!r}: 1 文字だけ指定可", file=sys.stderr)
-            continue
-        svg = extract(char)
-        filename = FILENAME_FOR_CHAR.get(char, char.lower())
+    for raw_token in sys.argv[1:]:
+        token = normalize_token(raw_token)
+        svg = extract(token)
+        filename = FILENAME_FOR_TOKEN.get(token, token.lower())
         out_path = os.path.join(OUT_DIR, f"{filename}.svg")
         with open(out_path, "w") as f:
             f.write(svg)
         png_path = os.path.join(OUT_DIR, f"{filename}.png")
         render_png(out_path, png_path)
-        weight = WEIGHT_FOR_CHAR.get(char, DEFAULT_WEIGHT)
         print(
             f"wrote {os.path.relpath(out_path, REPO_ROOT)} / "
-            f"{os.path.relpath(png_path, REPO_ROOT)}  (Geist {weight})"
+            f"{os.path.relpath(png_path, REPO_ROOT)}  ({weight_description(token)})"
         )
 
 

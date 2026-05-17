@@ -9,7 +9,7 @@ use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
 use crate::gates::PALETTE_GATES;
-use crate::layout::{palette_gate_local_pos, palette_layout};
+use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
 
 impl QniApp {
     /// Hover tooltip painted over the palette: a paper card with the
@@ -42,7 +42,7 @@ impl QniApp {
             return;
         };
 
-        let palette_start_x = rect.width() / 2.0 - palette_layout.total_width / 2.0;
+        let palette_start_x = palette_start_x(rect.width(), &palette_layout);
         let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
         let gate_rect = egui::Rect::from_min_size(
             palette_origin + local.to_vec2(),

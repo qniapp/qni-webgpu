@@ -460,7 +460,7 @@ export const getPaletteGateCenter = (
   const row1Width = row1Count > 0 ? row1Count * gateSize + (row1Count - 1) * gap : 0
   const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * gap : 0
   const totalWidth = Math.max(row1Width, row2Width)
-  const paletteStartX = cssWidth / 2 - totalWidth / 2
+  const paletteStartX = Math.round(cssWidth / 2 - totalWidth / 2)
 
   const row = gateIndex < row1Count ? 0 : 1
   const col = gateIndex < row1Count ? gateIndex : gateIndex - row1Count

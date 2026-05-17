@@ -28,6 +28,12 @@ pub(crate) fn palette_layout() -> PaletteLayout {
     }
 }
 
+pub(crate) fn palette_start_x(width: f32, layout: &PaletteLayout) -> f32 {
+    // Odd-width viewports would otherwise place the palette on a half pixel,
+    // making PNG glyph textures look thinner than the integer-aligned circuit.
+    (width / 2.0 - layout.total_width / 2.0).round()
+}
+
 fn palette_row_for_index(index: usize) -> Option<(usize, usize)> {
     if index < PALETTE_ROW1_COUNT {
         Some((0, index))

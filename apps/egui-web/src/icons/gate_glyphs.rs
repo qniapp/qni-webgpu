@@ -47,19 +47,20 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // H / Y / Z / X (本体は "+" として描く) は `assets/icons/{h,y,z,plus}.svg`
-    // を 1 ソースに、初回描画時に 128 px テクスチャへラスタライズして描画する。
-    // パレットと回路のサブピクセル位置差で見かけの太さが揺れないよう、
-    // 以後は同じ高解像度テクスチャを縮小サンプリングする。
-    // 残りの文字系（√X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†）は
+    // H / Y / Z / √X / X (本体は "+" として描く) は
+    // `assets/icons/{h,y,z,sqrtx,plus}.svg` を 1 ソースに、初回描画時に
+    // 128 px テクスチャへラスタライズして描画する。パレットと回路の
+    // サブピクセル位置差で見かけの太さが揺れないよう、以後は同じ
+    // 高解像度テクスチャを縮小サンプリングする。
+    // 残りの文字系（S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†）は
     // 引き続き Geist フォントを `painter.text` で描画する。
     if let Some(glyph) = svg_glyph_for(kind) {
         super::svg_icon::draw_glyph(painter, rect, color, glyph);
         return true;
     }
 
-    // Typographic gates (√X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†)
-    // are rendered as Geist text via `painter.text`. The dagger gates render
+    // Typographic gates (S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†) are
+    // rendered as Geist text via `painter.text`. The dagger gates render
     // the base letter centred and the † as a smaller mark in the top-right
     // corner so the central glyph stays legible at 32 px.
     if let Some(label) = base_label_for(kind) {
@@ -143,10 +144,9 @@ pub(super) fn draw_gate_icon(
             true
         }
         // Everything else (H / X-as-`+` / Y / Z / √X / S / S† / T /
-        // T† / P / RX / RY / RZ / QFT / QFT†) was already handled by
-        // `base_label_for` at the top via Geist Bold text. Anything that
-        // reaches here without matching is a non-typographic gate the
-        // body code knows how to fall back on with `kind.label()`.
+        // T† / P / RX / RY / RZ / QFT / QFT†) was already handled above.
+        // Anything that reaches here without matching is a non-typographic gate
+        // the body code knows how to fall back on with `kind.label()`.
         _ => false,
     }
 }
@@ -160,6 +160,7 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::H => GateGlyph::H,
         GateKind::Y => GateGlyph::Y,
         GateKind::Z => GateGlyph::Z,
+        GateKind::SqrtX => GateGlyph::SqrtX,
         // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
         // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
         // ここでは Plus を返す。
@@ -180,7 +181,6 @@ fn base_label_for(kind: GateKind) -> Option<&'static str> {
         GateKind::X => "+",
         GateKind::Y => "Y",
         GateKind::Z => "Z",
-        GateKind::SqrtX => "√X",
         GateKind::S | GateKind::SDagger => "S",
         GateKind::T | GateKind::TDagger => "T",
         GateKind::Phase => "P",
@@ -206,15 +206,9 @@ fn is_dagger_variant(kind: GateKind) -> bool {
 /// Pixel font size for the base label, derived from the gate-body
 /// width. Ratios picked on the gate-label mockup; stays consistent
 /// across the 32 px palette and any future scale. Sizes were
-/// validated visually at 32 px against Geist's metrics — going much
-/// above these starts clipping the round-cap descender on `Q` and the
-/// radical on `√X`.
+/// validated visually at 32 px against Geist's metrics.
 fn base_label_font_px(label: &str, body_px: f32) -> f32 {
-    let ratio = if label == "√X" {
-        // √X needs extra headroom — the radical extends above the X
-        // cap-height and clips the gate body if scaled like a single char.
-        0.50
-    } else if label.chars().count() == 1 {
+    let ratio = if label.chars().count() == 1 {
         0.62
     } else {
         // RX / RY / RZ / QFT — 2-3 chars need a smaller size to fit
@@ -230,15 +224,15 @@ fn base_label_font_px(label: &str, body_px: f32) -> f32 {
 /// The size differential between solo (≈ 19.8 px) and multi-char
 /// (≈ 12.8 px) labels makes the same physical Bold 700 weight look
 /// noticeably *thinner* on the multi side. We compensate by routing
-/// the bigger solo glyphs (H / Y / Z / S / T / √X) to **Geist Regular
-/// 400** so their absolute stroke width lands close to Bold-at-12.8 px.
+/// the bigger solo glyphs (S / T) to **Geist Regular 400** so their absolute
+/// stroke width lands close to Bold-at-12.8 px.
 /// `+` gets **Medium 500** — two orthogonal strokes read as lighter
 /// than letter forms at the same weight. The multi-char labels stay
 /// on **Bold 700**, which is the bedrock the others are matching.
 fn base_label_family(label: &str) -> egui::FontFamily {
     if label == "+" {
         crate::app::GATE_LABEL_PLUS_FAMILY.clone()
-    } else if label == "√X" || label.chars().count() == 1 {
+    } else if label.chars().count() == 1 {
         crate::app::GATE_LABEL_LIGHT_FAMILY.clone()
     } else {
         crate::app::GATE_LABEL_FAMILY.clone()
@@ -255,32 +249,6 @@ fn draw_text_label(
     let body_px = rect.width();
     let family = base_label_family(label);
     let font = egui::FontId::new(base_label_font_px(label, body_px), family.clone());
-    // `√X` is rendered as two galleys: a smaller `√` prefix (matches
-    // the mathematical convention — radical scales with the radicand,
-    // not bigger than it) and an `X` at the full single-letter size.
-    // The radical glyph is lifted so its bottom lands on the X's
-    // baseline, hiding Geist's `√` descender that would otherwise
-    // drop a hair below X if both shared one layout line.
-    if label == "√X" {
-        let x_font_px = base_label_font_px("X", body_px);
-        let radical_font_px = x_font_px * 0.85;
-        let x_font = egui::FontId::new(x_font_px, family.clone());
-        let radical_font = egui::FontId::new(radical_font_px, family.clone());
-        let radical = painter.layout_no_wrap("√".to_owned(), radical_font, color);
-        let x_g = painter.layout_no_wrap("X".to_owned(), x_font, color);
-        let radical_w = radical.size().x;
-        let radical_h = radical.size().y;
-        let x_h = x_g.size().y;
-        let total_w = radical_w + x_g.size().x;
-        let left = rect.center().x - total_w / 2.0;
-        let x_top = rect.center().y - x_h / 2.0;
-        // Lift √ so its layout-bottom lands 5% body above X's
-        // layout-bottom — empirically this hides Geist's descender.
-        let radical_top = x_top + (x_h - radical_h) - body_px * 0.05;
-        painter.galley(egui::pos2(left, radical_top), radical, color);
-        painter.galley(egui::pos2(left + radical_w, x_top), x_g, color);
-        return;
-    }
     // Vertical centring quirk: egui aligns text by the font's
     // ascent/descent, not by the glyph's visual centre. For letters
     // (H / X / Y / Z / S / T / P / RX / RY / RZ / QFT) the

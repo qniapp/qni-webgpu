@@ -47,8 +47,9 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
 
-test('PNG raster H keeps palette and circuit glyph weight aligned', async ({ page }) => {
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H']] })))
+test('PNG raster H, X, Y, Z and √X keep palette and circuit glyph weight aligned', async ({ page }) => {
+  await page.setViewportSize({ width: 1001, height: 800 })
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½']] })))
 
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
@@ -61,14 +62,23 @@ test('PNG raster H keeps palette and circuit glyph weight aligned', async ({ pag
 
   const EGUI_PANEL_MARGIN = 8
   const gateSize = UI_CONSTANTS.GATE_SIZE
-  const paletteCenter = getPaletteGateCenter(box.width, 0)
-  const centers = {
-    palette: { x: paletteCenter.x, y: EGUI_PANEL_MARGIN + paletteCenter.y },
-    circuit: {
-      x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-      y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
-    },
-  }
+  const labels = [
+    { name: 'H', index: 0 },
+    { name: 'X', index: 1 },
+    { name: 'Y', index: 2 },
+    { name: 'Z', index: 3 },
+    { name: 'SqrtX', index: 4 },
+  ] as const
+  const centers = Object.fromEntries(labels.flatMap(({ name, index }) => {
+    const paletteCenter = getPaletteGateCenter(box.width, index)
+    return [
+      [`palette${name}`, { x: paletteCenter.x, y: EGUI_PANEL_MARGIN + paletteCenter.y }],
+      [`circuit${name}`, {
+        x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * index,
+        y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+      }],
+    ]
+  }))
   const screenshot = await canvas.screenshot({ type: 'png' })
   const metrics = await page.evaluate<
     Record<string, { count: number; width: number; height: number }>,
@@ -118,8 +128,16 @@ test('PNG raster H keeps palette and circuit glyph weight aligned', async ({ pag
   }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateSize, centers })
 
   expect(metrics).toEqual({
-    palette: { count: 44, width: 10, height: 14 },
-    circuit: { count: 44, width: 10, height: 14 },
+    paletteH: { count: 44, width: 10, height: 14 },
+    circuitH: { count: 44, width: 10, height: 14 },
+    paletteX: { count: 36, width: 10, height: 10 },
+    circuitX: { count: 36, width: 10, height: 10 },
+    paletteY: { count: 34, width: 10, height: 14 },
+    circuitY: { count: 34, width: 10, height: 14 },
+    paletteZ: { count: 35, width: 10, height: 14 },
+    circuitZ: { count: 35, width: 10, height: 14 },
+    paletteSqrtX: { count: 62, width: 21, height: 16 },
+    circuitSqrtX: { count: 62, width: 21, height: 16 },
   })
 })
 

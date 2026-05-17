@@ -15,7 +15,8 @@ use eframe::egui;
 use super::QniApp;
 use crate::constants::{LINE_GAP, PALETTE_ROW_Y, SLOT_SPACING};
 use crate::layout::{
-    layout_metrics, nearest_slot_index, palette_layout, LayoutMetrics, PaletteLayout,
+    layout_metrics, nearest_slot_index, palette_layout, palette_start_x, LayoutMetrics,
+    PaletteLayout,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -43,7 +44,7 @@ impl CircuitInputGeometry {
         min_slots: usize,
     ) -> Self {
         let palette_layout = palette_layout();
-        let palette_start_x = screen_rect.width() / 2.0 - palette_layout.total_width / 2.0;
+        let palette_start_x = palette_start_x(screen_rect.width(), &palette_layout);
         let palette_origin = egui::pos2(
             screen_rect.min.x + palette_start_x,
             screen_rect.min.y + PALETTE_ROW_Y,

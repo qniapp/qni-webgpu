@@ -7,12 +7,12 @@ use crate::constants::{
 };
 use crate::gates::{GateKind, PALETTE_GATES};
 use crate::icons::{draw_bloch_vector, draw_gate_body};
-use crate::layout::{palette_gate_local_pos, palette_layout};
+use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
 
 impl QniApp {
     pub(crate) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
         let layout = palette_layout();
-        let palette_start_x = rect.width() / 2.0 - layout.total_width / 2.0;
+        let palette_start_x = palette_start_x(rect.width(), &layout);
         let palette_rect = egui::Rect::from_min_size(
             rect.min
                 + egui::vec2(
