@@ -1554,6 +1554,7 @@ dependencies = [
  "epaint_default_fonts",
  "futures-channel",
  "js-sys",
+ "png",
  "qni-egui-web-circuit-library-model",
  "qni-egui-web-external-gpu-model",
  "serde",

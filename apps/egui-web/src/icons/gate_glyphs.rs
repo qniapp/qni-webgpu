@@ -47,12 +47,21 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // Typographic gates (H / X-as-`+` / Y / Z / √X / S / S† / T / T† /
-    // P / RX / RY / RZ / QFT / QFT†) are rendered as Geist Bold text
-    // via `painter.text` instead of hand-extracted SVG strokes. The
-    // dagger gates render the base letter centred and the † as a
-    // smaller mark in the top-right corner so the central glyph stays
-    // legible at 32 px.
+    // H / Y / Z / X (本体は "+" として描く) は `assets/icons/{h,y,z,plus}.svg`
+    // を 1 ソースに、初回描画時に 128 px テクスチャへラスタライズして描画する。
+    // パレットと回路のサブピクセル位置差で見かけの太さが揺れないよう、
+    // 以後は同じ高解像度テクスチャを縮小サンプリングする。
+    // 残りの文字系（√X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†）は
+    // 引き続き Geist フォントを `painter.text` で描画する。
+    if let Some(glyph) = svg_glyph_for(kind) {
+        super::svg_icon::draw_glyph(painter, rect, color, glyph);
+        return true;
+    }
+
+    // Typographic gates (√X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†)
+    // are rendered as Geist text via `painter.text`. The dagger gates render
+    // the base letter centred and the † as a smaller mark in the top-right
+    // corner so the central glyph stays legible at 32 px.
     if let Some(label) = base_label_for(kind) {
         draw_text_label(painter, rect, kind, label, color);
         return true;
@@ -140,6 +149,23 @@ pub(super) fn draw_gate_icon(
         // body code knows how to fall back on with `kind.label()`.
         _ => false,
     }
+}
+
+/// SVG 起点でテクスチャ描画するゲートに対する `GateGlyph` への対応。
+/// ここに登録された GateKind は `painter.text` を介さず
+/// `assets/icons/*.svg` から作ったテクスチャで描く。
+fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
+    use super::svg_icon::GateGlyph;
+    Some(match kind {
+        GateKind::H => GateGlyph::H,
+        GateKind::Y => GateGlyph::Y,
+        GateKind::Z => GateGlyph::Z,
+        // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
+        // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
+        // ここでは Plus を返す。
+        GateKind::X => GateGlyph::Plus,
+        _ => return None,
+    })
 }
 
 /// Map a `GateKind` to the base text label rendered at the centre of

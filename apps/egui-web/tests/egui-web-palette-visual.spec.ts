@@ -15,6 +15,7 @@ import {
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
+  UI_CONSTANTS,
   waitForAppReady,
   waitForBlochVectorsApprox,
   waitForCanvasContent,
@@ -44,6 +45,82 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverRing', x: gateCenter.x - 19, y: gateCenter.y }])
 
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
+})
+
+test('PNG raster H keeps palette and circuit glyph weight aligned', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+
+  const EGUI_PANEL_MARGIN = 8
+  const gateSize = UI_CONSTANTS.GATE_SIZE
+  const paletteCenter = getPaletteGateCenter(box.width, 0)
+  const centers = {
+    palette: { x: paletteCenter.x, y: EGUI_PANEL_MARGIN + paletteCenter.y },
+    circuit: {
+      x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+      y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+    },
+  }
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  const metrics = await page.evaluate<
+    Record<string, { count: number; width: number; height: number }>,
+    { base64: string; cssWidth: number; cssHeight: number; gateSize: number; centers: Record<string, Point> }
+  >(async ({ base64, cssWidth, cssHeight, gateSize, centers }) => {
+    const img = new Image()
+    img.src = `data:image/png;base64,${base64}`
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve(null)
+      img.onerror = () => reject(new Error('Failed to decode screenshot'))
+    })
+
+    const probe = document.createElement('canvas')
+    probe.width = img.width
+    probe.height = img.height
+    const ctx = probe.getContext('2d')
+    if (!ctx) {
+      throw new Error('expected 2d context')
+    }
+    ctx.drawImage(img, 0, 0)
+    const scaleX = img.width / cssWidth
+    const scaleY = img.height / cssHeight
+    const measure = ({ x: cx, y: cy }: Point) => {
+      let minX = Number.POSITIVE_INFINITY
+      let minY = Number.POSITIVE_INFINITY
+      let maxX = Number.NEGATIVE_INFINITY
+      let maxY = Number.NEGATIVE_INFINITY
+      let count = 0
+      const left = cx - gateSize / 2
+      const top = cy - gateSize / 2
+      for (let y = 4; y < gateSize - 4; y += 1) {
+        for (let x = 4; x < gateSize - 4; x += 1) {
+          const [r, g, b, a] = ctx.getImageData(Math.floor((left + x) * scaleX), Math.floor((top + y) * scaleY), 1, 1).data
+          const isLabelInk = a > 128 && r > 248 && g > 246 && b > 235
+          if (isLabelInk) {
+            count += 1
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            maxX = Math.max(maxX, x)
+            maxY = Math.max(maxY, y)
+          }
+        }
+      }
+      return { count, width: maxX - minX + 1, height: maxY - minY + 1 }
+    }
+    return Object.fromEntries(Object.entries(centers).map(([name, center]) => [name, measure(center)]))
+  }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateSize, centers })
+
+  expect(metrics).toEqual({
+    palette: { count: 44, width: 10, height: 14 },
+    circuit: { count: 44, width: 10, height: 14 },
+  })
 })
 
 test('palette panel keeps its corners and shadow while dragging', async ({ page }) => {

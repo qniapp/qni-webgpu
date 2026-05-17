@@ -9,6 +9,7 @@ mod gate_body;
 mod gate_glyphs;
 mod span_resize;
 mod svg;
+mod svg_icon;
 
 const VIEWBOX: f32 = 48.0;
 
