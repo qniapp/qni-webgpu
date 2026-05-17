@@ -17,6 +17,7 @@ pub(crate) struct ChanceDisplayCallback {
     pub(crate) border: [f32; 4],
     pub(crate) bar: [f32; 4],
     pub(crate) bar_hover: [f32; 4],
+    pub(crate) text_color: [f32; 4],
 }
 
 impl egui_wgpu::CallbackTrait for ChanceDisplayCallback {
@@ -41,6 +42,7 @@ impl egui_wgpu::CallbackTrait for ChanceDisplayCallback {
             border: self.border,
             bar: self.bar,
             bar_hover: self.bar_hover,
+            text_color: self.text_color,
         };
         if resources.chance.last_render_params != Some(params) {
             queue.write_buffer(

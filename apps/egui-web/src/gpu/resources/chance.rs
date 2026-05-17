@@ -11,8 +11,16 @@ use super::super::params::{
     ChanceInstance, ChanceReduceParams, ChanceRenderParams, MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS,
     MAX_OPS_PER_RECOMPUTE,
 };
+use super::super::popup_glyph_atlas::{
+    rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
+};
 use super::super::shaders::{CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER};
 use super::common::Common;
+
+struct ChanceGlyphAtlas {
+    view: wgpu::TextureView,
+    sampler: wgpu::Sampler,
+}
 
 pub(crate) struct ChanceResources {
     pub reduce_pipeline: wgpu::ComputePipeline,
@@ -32,6 +40,7 @@ pub(crate) struct ChanceResources {
 impl ChanceResources {
     pub(super) fn build(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
         common: &Common,
     ) -> Self {
@@ -59,11 +68,13 @@ impl ChanceResources {
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_params_buffer = create_render_params_buffer(device);
         let render_instance_buffer = create_render_instance_buffer(device);
+        let glyph_atlas = create_glyph_atlas(device, queue);
         let render_bind_group = create_render_bind_group(
             device,
             &render_bind_group_layout,
             &output_buffer,
             &render_params_buffer,
+            &glyph_atlas,
         );
         let render_pipeline = create_render_pipeline(
             device,
@@ -265,6 +276,22 @@ fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayo
                 },
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
         ],
     })
 }
@@ -287,11 +314,44 @@ fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     })
 }
 
+fn create_glyph_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> ChanceGlyphAtlas {
+    let atlas_data = rasterize_popup_glyph_atlas();
+    let texture = wgpu::util::DeviceExt::create_texture_with_data(
+        device,
+        queue,
+        &wgpu::TextureDescriptor {
+            label: Some("chance_percent_glyph_atlas"),
+            size: wgpu::Extent3d {
+                width: POPUP_GLYPH_ATLAS_WIDTH,
+                height: POPUP_GLYPH_ATLAS_HEIGHT,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        wgpu::util::TextureDataOrder::default(),
+        &atlas_data,
+    );
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("chance_percent_glyph_atlas_sampler"),
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+    ChanceGlyphAtlas { view, sampler }
+}
+
 fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     output_buffer: &wgpu::Buffer,
     params_buffer: &wgpu::Buffer,
+    atlas: &ChanceGlyphAtlas,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("chance_render_bind_group"),
@@ -304,6 +364,14 @@ fn create_render_bind_group(
             wgpu::BindGroupEntry {
                 binding: 1,
                 resource: params_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&atlas.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::Sampler(&atlas.sampler),
             },
         ],
     })

@@ -180,6 +180,7 @@ impl QniApp {
                 border: colors.line.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
                 bar_hover: colors.semantic_on.to_normalized_gamma_f32(),
+                text_color: colors.text_strong.to_normalized_gamma_f32(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

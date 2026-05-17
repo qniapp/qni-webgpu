@@ -71,6 +71,52 @@ const selectedColumnReadoutEvidence = async (page: Parameters<typeof readChanceP
   }
 }
 
+const waitForChancePercentLabelPixels = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+  span: number,
+): Promise<number> => {
+  const gateLeft = LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = LINE_Y - GATE_SIZE / 2
+  const gateHeight = (span - 1) * LINE_GAP + GATE_SIZE
+  let last = 0
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    last = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, gateHeight }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return 0
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        let textPixels = 0
+        for (let y = Math.floor((gateTop + 4) * scaleY); y <= Math.floor((gateTop + gateHeight - 4) * scaleY); y += 1) {
+          for (let x = Math.floor((gateLeft + 8) * scaleX); x <= Math.floor((gateLeft + 31) * scaleX); x += 1) {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            if (r < 90 && g < 90 && b < 90) textPixels += 1
+          }
+        }
+        return textPixels
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, gateHeight },
+    )
+    if (last > 32) return last
+    await page.waitForTimeout(50)
+  }
+  return last
+}
+
 const waitForChanceBarPixels = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
@@ -272,6 +318,17 @@ test('Chance display renders GPU probabilities and serializes the Quirk token', 
     barIsBlue: true,
     emptyIsPaper: true,
   })
+})
+
+test('Chance4 displays GPU-rendered percentage labels', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 'H', 'H', 'H'], ['Chance4']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const textPixels = await waitForChancePercentLabelPixels(page, canvas, 4)
+
+  expect(textPixels > 32).toBe(true)
 })
 
 test('Chance hover highlights an outcome row and opens the popup', async ({ page }) => {

@@ -64,12 +64,22 @@ struct ChanceRenderParams {
   border: vec4<f32>,
   bar: vec4<f32>,
   bar_hover: vec4<f32>,
+  text_color: vec4<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> chance_data: array<f32>;
 @group(0) @binding(1) var<uniform> params: ChanceRenderParams;
+@group(0) @binding(2) var atlas: texture_2d<f32>;
+@group(0) @binding(3) var atlas_sampler: sampler;
 
 const MAX_CHANCE_OUTCOMES: u32 = 65536u;
+const GLYPH_COUNT: u32 = 16u;
+const GLYPH_DOT: u32 = 10u;
+const GLYPH_PERCENT: u32 = 14u;
+const GLYPH_BLANK: u32 = 0xFFFFu;
+const CHANCE_TEXT_CHARS: u32 = 6u;
+const CHANCE_TEXT_CHAR_W: f32 = 5.0;
+const CHANCE_TEXT_CHAR_H: f32 = 9.0;
 
 struct VsIn {
   @location(0) corner: vec2<f32>,
@@ -112,6 +122,48 @@ fn over(top: vec4<f32>, bottom: vec4<f32>) -> vec4<f32> {
   return top + bottom * (1.0 - top.a);
 }
 
+fn rounded_percent_tenths(prob_01: f32) -> u32 {
+  return min(u32(floor(clamp(prob_01, 0.0, 1.0) * 1000.0 + 0.5001)), 1000u);
+}
+
+fn glyph_chance_percent(idx: u32, prob_01: f32) -> u32 {
+  let tenths = rounded_percent_tenths(prob_01);
+  if (idx == 0u) {
+    if (tenths < 1000u) { return GLYPH_BLANK; }
+    return tenths / 1000u;
+  }
+  if (idx == 1u) {
+    if (tenths < 100u) { return GLYPH_BLANK; }
+    return (tenths / 100u) % 10u;
+  }
+  if (idx == 2u) { return (tenths / 10u) % 10u; }
+  if (idx == 3u) { return GLYPH_DOT; }
+  if (idx == 4u) { return tenths % 10u; }
+  if (idx == 5u) { return GLYPH_PERCENT; }
+  return GLYPH_BLANK;
+}
+
+fn chance_text_color(local: vec2<f32>, rect_size: vec2<f32>, row: u32, row_h: f32, prob: f32, base: vec4<f32>) -> vec4<f32> {
+  // Quirk と同じく、行が十分高い Chance1..4 だけパーセント文字を出す。
+  // Chance5+ は小さな行を読みやすく保つためバーのみ描く。
+  if (row_h <= 8.0) { return base; }
+  let text_w = f32(CHANCE_TEXT_CHARS) * CHANCE_TEXT_CHAR_W;
+  let text_left = rect_size.x - 2.0 - text_w;
+  let text_top = f32(row) * row_h + (row_h - CHANCE_TEXT_CHAR_H) * 0.5;
+  let p = local - vec2<f32>(text_left, text_top);
+  if (p.x < 0.0 || p.y < 0.0 || p.x >= text_w || p.y >= CHANCE_TEXT_CHAR_H) {
+    return base;
+  }
+  let char_index = u32(floor(p.x / CHANCE_TEXT_CHAR_W));
+  let glyph = glyph_chance_percent(char_index, prob);
+  if (glyph == GLYPH_BLANK) { return base; }
+  let cell_uv = vec2<f32>(fract(p.x / CHANCE_TEXT_CHAR_W), p.y / CHANCE_TEXT_CHAR_H);
+  let atlas_u = (f32(glyph) + cell_uv.x) / f32(GLYPH_COUNT);
+  let alpha = textureSampleLevel(atlas, atlas_sampler, vec2<f32>(atlas_u, cell_uv.y), 0.0).r;
+  if (alpha < 0.001) { return base; }
+  return over(vec4<f32>(params.text_color.rgb * alpha, alpha), base);
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
@@ -142,6 +194,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   if (on_border || on_separator) {
     color = params.border;
   }
-  return color;
+  return chance_text_color(input.local, input.rect_size, raw_row, row_h, prob, color);
 }
 "#;

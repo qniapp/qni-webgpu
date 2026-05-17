@@ -78,7 +78,7 @@ impl StateVectorResources {
         let state = StateResources::build(device, target_format, &common);
         let bloch = BlochResources::build(device, target_format, &common);
         let measure = MeasureResources::build(device, &common);
-        let chance = ChanceResources::build(device, target_format, &common);
+        let chance = ChanceResources::build(device, queue, target_format, &common);
         let digit = DigitResources::build(device, queue, target_format, &measure);
         let popup_value = PopupValueResources::build(device, queue, target_format, &common);
 

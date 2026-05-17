@@ -144,6 +144,7 @@ pub(crate) struct ChanceRenderParams {
     pub(crate) border: [f32; 4],
     pub(crate) bar: [f32; 4],
     pub(crate) bar_hover: [f32; 4],
+    pub(crate) text_color: [f32; 4],
 }
 
 #[repr(C)]
