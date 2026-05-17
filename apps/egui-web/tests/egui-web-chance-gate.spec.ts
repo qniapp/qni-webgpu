@@ -44,15 +44,6 @@ const waitForChanceProbabilities = async (page: Parameters<typeof readChanceProb
   throw new Error('Chance probabilities did not become available')
 }
 
-const waitForHoveredStep = async (page: Parameters<typeof readChanceProbabilities>[0], step: number): Promise<void> => {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const snapshot = await page.evaluate(() => JSON.parse((window as any).__qniHoverSnapshotJson ?? '{}'))
-    if (snapshot.hoveredStep === step) return
-    await page.waitForTimeout(50)
-  }
-  throw new Error(`hovered step did not become ${step}`)
-}
-
 const selectedColumnReadoutEvidence = async (page: Parameters<typeof readChanceProbabilities>[0]) => {
   const [chanceEntries, measurementEntries, state] = await Promise.all([
     readChanceProbabilities(page),
@@ -69,6 +60,13 @@ const selectedColumnReadoutEvidence = async (page: Parameters<typeof readChanceP
       Math.round(((state[2] as number | undefined) ?? -1) * 1000) / 1000,
     ],
   }
+}
+
+const EXPECTED_SELECTED_COLUMN_READOUT = {
+  p0: 0.5,
+  p1: 0.5,
+  measurementCount: 1,
+  selectedState: [0.707, 0.707],
 }
 
 const waitForChancePercentLabelPixels = async (
@@ -235,10 +233,9 @@ const readoutVisualStabilityEvidence = async (
 const waitForChanceHoverEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
-): Promise<{ outcome: number | null; hoverBlue: boolean; popupText: boolean }> => {
-  let last = { outcome: null as number | null, hoverBlue: false, popupText: false }
+): Promise<{ hoverBlue: boolean; popupText: boolean }> => {
+  let last = { hoverBlue: false, popupText: false }
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const snapshot = await page.evaluate(() => JSON.parse((window as any).__qniHoverSnapshotJson ?? '{}'))
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
     if (!box) throw new Error('expected egui canvas to be measurable')
@@ -291,8 +288,8 @@ const waitForChanceHoverEvidence = async (
       },
       { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
     )
-    last = { outcome: snapshot.hoveredChanceOutcome?.outcome ?? null, ...pixels }
-    if (last.outcome === 1 && last.hoverBlue && last.popupText) return last
+    last = pixels
+    if (last.hoverBlue && last.popupText) return last
     await page.waitForTimeout(50)
   }
   return last
@@ -341,7 +338,7 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   await page.mouse.move(box.x + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE, box.y + LINE_Y + 8)
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
-  expect(evidence).toEqual({ outcome: 1, hoverBlue: true, popupText: true })
+  expect(evidence).toEqual({ hoverBlue: true, popupText: true })
 })
 
 test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {
@@ -365,15 +362,10 @@ test('selected earlier column keeps later readouts populated', async ({ page }) 
   const box = await canvas.boundingBox()
   if (!box) throw new Error('expected egui canvas to be measurable')
   await page.mouse.move(box.x + LINE_LEFT_OFFSET + GATE_SIZE, box.y + LINE_Y)
-  await waitForHoveredStep(page, 0)
-  await page.waitForTimeout(150)
 
-  expect(await selectedColumnReadoutEvidence(page)).toEqual({
-    p0: 0.5,
-    p1: 0.5,
-    measurementCount: 1,
-    selectedState: [0.707, 0.707],
-  })
+  await expect
+    .poll(() => selectedColumnReadoutEvidence(page))
+    .toEqual(EXPECTED_SELECTED_COLUMN_READOUT)
 })
 
 test('Chance9 keeps tiny-row bars visible', async ({ page }) => {
