@@ -119,21 +119,32 @@ fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &
     // GPU Chance render callback, directly from `chance_probability_output`.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
 
-    // `docs/chance-display-icon-options.html` の案 1。4 行のガウス風分布にして、
-    // 32 px パレット上でも「複数結果のヒストグラム」と分かるようにする。
+    // docs/chance-display.html §02: 4 行のガウス風 mini preview。
+    // 本体と同じく blue-200 bar + blue-400 右端マーカー、区切り線は
+    // 隣接 2 行の広いバーの右端から右端までだけ引く。
     let row_h = rect.height() / CHANCE_PREVIEW_BAR_WIDTHS.len() as f32;
     for (row, &width_ratio) in CHANCE_PREVIEW_BAR_WIDTHS.iter().enumerate() {
         let bar_y = rect.top() + row_h * row as f32;
-        let bar = egui::Rect::from_min_size(
-            egui::pos2(rect.left(), bar_y),
-            egui::vec2(rect.width() * width_ratio, row_h),
-        );
+        let bar_w = rect.width() * width_ratio;
+        let bar =
+            egui::Rect::from_min_size(egui::pos2(rect.left(), bar_y), egui::vec2(bar_w, row_h));
         painter.rect_filled(bar, egui::CornerRadius::ZERO, colors.state_fill);
+        if bar_w > 0.0 {
+            let edge_x = rect.left() + bar_w;
+            painter.line_segment(
+                [egui::pos2(edge_x, bar_y), egui::pos2(edge_x, bar_y + row_h)],
+                egui::Stroke::new(1.0, colors.popup_icon),
+            );
+        }
     }
     for row in 1..CHANCE_PREVIEW_BAR_WIDTHS.len() {
         let y = rect.top() + row_h * row as f32;
+        let start_ratio = CHANCE_PREVIEW_BAR_WIDTHS[row - 1].max(CHANCE_PREVIEW_BAR_WIDTHS[row]);
         painter.line_segment(
-            [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
+            [
+                egui::pos2(rect.left() + rect.width() * start_ratio, y),
+                egui::pos2(rect.right(), y),
+            ],
             egui::Stroke::new(1.0, colors.line),
         );
     }

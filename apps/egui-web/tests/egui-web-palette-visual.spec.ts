@@ -91,32 +91,47 @@ test('palette chance display preview uses four Gaussian rows', async ({ page }) 
     { name: 'row1Bar', x: left + 5, y: top + 5 },
     { name: 'row1Tail', x: left + 15, y: top + 5 },
     { name: 'row2Bar', x: left + 20, y: top + 15 },
+    { name: 'row2EdgeA', x: left + 29, y: top + 15 },
+    { name: 'row2EdgeB', x: left + 30, y: top + 15 },
+    { name: 'row2EdgeC', x: left + 31, y: top + 15 },
     { name: 'row2Tail', x: left + 34, y: top + 15 },
     { name: 'row3Bar', x: left + 14, y: top + 25 },
     { name: 'row3Tail', x: left + 26, y: top + 25 },
     { name: 'row4Bar', x: left + 4, y: top + 35 },
     { name: 'row4Tail', x: left + 12, y: top + 35 },
+    { name: 'divider1InsideBar', x: left + 20, y: top + 10 },
     { name: 'divider1', x: left + 36, y: top + 10 },
     { name: 'divider2', x: left + 36, y: top + 20 },
     { name: 'divider3', x: left + 36, y: top + 30 },
   ]
   const pixels = await sampleCanvasPixels(page, canvas, samples)
   const isBlue200 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [146, 191, 219, 255]) < 36
+  const isBlue400 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [67, 133, 190, 255]) < 48
+  const isBarTone = (pixel: CanvasPixel) => isBlue200(pixel) || isBlue400(pixel)
   const isPaper = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [255, 252, 240, 255]) < 12
   const isUi2 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [218, 216, 206, 255]) < 24
 
   expect({
     row1: [isBlue200(pixels.row1Bar), isPaper(pixels.row1Tail)],
-    row2: [isBlue200(pixels.row2Bar), isPaper(pixels.row2Tail)],
+    row2: [
+      isBlue200(pixels.row2Bar),
+      [pixels.row2EdgeA, pixels.row2EdgeB, pixels.row2EdgeC].some(isBlue400),
+      isPaper(pixels.row2Tail),
+    ],
     row3: [isBlue200(pixels.row3Bar), isPaper(pixels.row3Tail)],
     row4: [isBlue200(pixels.row4Bar), isPaper(pixels.row4Tail)],
-    dividers: [isUi2(pixels.divider1), isUi2(pixels.divider2), isUi2(pixels.divider3)],
+    dividers: [
+      isBarTone(pixels.divider1InsideBar),
+      isUi2(pixels.divider1),
+      isUi2(pixels.divider2),
+      isUi2(pixels.divider3),
+    ],
   }).toEqual({
     row1: [true, true],
-    row2: [true, true],
+    row2: [true, true, true],
     row3: [true, true],
     row4: [true, true],
-    dividers: [true, true, true],
+    dividers: [true, true, true, true],
   })
 })
 
