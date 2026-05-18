@@ -2,6 +2,7 @@ use eframe::egui;
 
 use super::{reset_drag_frame_state, DragController, DragPointer};
 use crate::app::QniApp;
+use crate::app::SpanResizeEdge;
 use crate::constants::LINE_GAP;
 
 impl DragController {
@@ -25,16 +26,31 @@ impl DragController {
                     .position(|gate| gate.id == drag.gate_id)
                 {
                     let capacity = app.exec_mode.qubit_capacity();
-                    let remaining_wires =
-                        capacity.saturating_sub(app.placed_gates[index].wire).max(1);
-                    let max_span = app.placed_gates[index]
-                        .kind
-                        .max_resizable_span(remaining_wires);
-                    let new_span =
-                        (drag.start_span as i32 + span_delta).clamp(1, max_span as i32) as usize;
-                    if app.placed_gates[index].span != new_span {
-                        app.placed_gates[index].span = new_span;
-                        app.placed_gates[index].clamp_span_to_qubit_capacity(capacity);
+                    let gate = &mut app.placed_gates[index];
+                    let old_wire = gate.wire;
+                    let old_span = gate.span;
+                    match drag.edge {
+                        SpanResizeEdge::Bottom => {
+                            let remaining_wires = capacity.saturating_sub(gate.wire).max(1);
+                            let max_span = gate.kind.max_resizable_span(remaining_wires);
+                            gate.span = (drag.start_span as i32 + span_delta)
+                                .clamp(1, max_span as i32)
+                                as usize;
+                        }
+                        SpanResizeEdge::Top => {
+                            let bottom_wire = drag.start_wire + drag.start_span.saturating_sub(1);
+                            let max_span = gate.kind.max_resizable_span(bottom_wire + 1);
+                            let min_wire = bottom_wire + 1 - max_span;
+                            let new_wire = (drag.start_wire as i32 + span_delta)
+                                .clamp(min_wire as i32, bottom_wire as i32)
+                                as usize;
+                            gate.wire = new_wire;
+                            gate.span = bottom_wire - new_wire + 1;
+                            gate.sync_pos_from_grid();
+                        }
+                    }
+                    gate.clamp_span_to_qubit_capacity(capacity);
+                    if gate.wire != old_wire || gate.span != old_span {
                         app.update_qubit_count();
                         app.gpu_plan.mark_dirty();
                         ctx.request_repaint();

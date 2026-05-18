@@ -581,6 +581,87 @@ test('Chance9 keeps tiny-row bars visible', async ({ page }) => {
   }).toEqual({ p128: 0.5, barVisible: true })
 })
 
+const setupChance4ResizeHandleProbe = async (page: Parameters<typeof sampleCanvasPixels>[0]) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Chance4']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const gateHeight = (4 - 1) * LINE_GAP + GATE_SIZE
+  const centerX = gateLeft + GATE_SIZE / 2
+  await page.mouse.move(box.x + centerX, box.y + gateTop + GATE_SIZE / 2)
+  await page.waitForTimeout(350)
+  return { canvas, box, gateTop, gateHeight, centerX }
+}
+
+test('Chance resize handles show two visible pills', async ({ page }) => {
+  const { canvas, gateTop, gateHeight, centerX } = await setupChance4ResizeHandleProbe(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'topHandle', x: centerX, y: gateTop - 9 },
+    { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
+  ])
+  const visibleCount = [pixels.topHandle, pixels.bottomHandle]
+    .filter((pixel) => pixelRgbDistance(pixel, [139, 126, 200, 255]) < 56)
+    .length
+
+  expect(visibleCount).toBe(2)
+})
+
+test('Chance resize handles stay separated from the hover ring', async ({ page }) => {
+  const { canvas, gateTop, gateHeight, centerX } = await setupChance4ResizeHandleProbe(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'topGap', x: centerX, y: gateTop - 5 },
+    { name: 'bottomGap', x: centerX, y: gateTop + gateHeight + 5 },
+  ])
+  const separatedGapCount = [pixels.topGap, pixels.bottomGap]
+    .filter((pixel) => pixelRgbDistance(pixel, [242, 240, 229, 255]) < 24)
+    .length
+
+  expect(separatedGapCount).toBe(2)
+})
+
+test('Chance resize handle hover uses purple-600 on the hovered pill', async ({ page }) => {
+  const { canvas, box, gateTop, centerX } = await setupChance4ResizeHandleProbe(page)
+  await page.mouse.move(box.x + centerX, box.y + gateTop - 9)
+  await page.waitForTimeout(100)
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'topHandle', x: centerX, y: gateTop - 9 }])
+
+  expect(pixelRgbDistance(pixels.topHandle, [94, 64, 157, 255])).toBeLessThan(64)
+})
+
+test('Chance resize handle hover leaves the opposite pill visible', async ({ page }) => {
+  const { canvas, box, gateTop, gateHeight, centerX } = await setupChance4ResizeHandleProbe(page)
+  await page.mouse.move(box.x + centerX, box.y + gateTop - 9)
+  await page.waitForTimeout(100)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
+  ])
+
+  expect(pixelRgbDistance(pixels.bottomHandle, [139, 126, 200, 255])).toBeLessThan(56)
+})
+
+test('Chance top resize handle expands the span upward', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'Chance3']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y + LINE_GAP - GATE_SIZE / 2
+  const handle = { x: gateLeft + GATE_SIZE / 2, y: gateTop - 9 }
+  await page.mouse.move(box.x + handle.x, box.y + handle.y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + handle.x, box.y + handle.y - LINE_GAP, { steps: 8 })
+  await page.mouse.up()
+  await waitForHashCols(page, [['Chance4']])
+
+  expect(readCircuitColsFromHash(page.url())).toEqual([['Chance4']])
+})
+
 test('Chance palette drop can resize to Chance3', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -594,7 +675,10 @@ test('Chance palette drop can resize to Chance3', async ({ page }) => {
   await dragPointer(page, source, target)
   await waitForHashCols(page, [['Chance']])
 
-  const handle = { x: target.x, y: LINE_Y + GATE_SIZE / 2 + 10 }
+  const handle = {
+    x: EGUI_PANEL_MARGIN + target.x,
+    y: EGUI_PANEL_MARGIN + LINE_Y + GATE_SIZE / 2 + 9,
+  }
   await page.mouse.move(box.x + handle.x, box.y + handle.y)
   await page.mouse.down()
   await page.mouse.move(box.x + handle.x, box.y + handle.y + 2 * LINE_GAP, { steps: 8 })

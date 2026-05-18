@@ -2,8 +2,9 @@ use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
+use crate::app::SpanResizeHandle;
 use crate::gates::GateKind;
-use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_rect};
+use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_edge_at};
 
 impl DragController {
     pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
@@ -25,20 +26,23 @@ impl DragController {
     ) {
         if let Some(cursor) = pointer.local_pos {
             // Iterate top-of-stack first so a resizable-span handle wins
-            // over the gate body when the cursor is on both (the handle
-            // overhangs the gate's bottom edge).
+            // over the gate body when the cursor is on both (Chance handles
+            // overhang the top / bottom edges).
             let previous_chance_outcome = app.hovered_chance_outcome;
             let mut hovered_gate = None;
             let mut hovered_handle = None;
             let mut hovered_chance_outcome = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
-                if gate.kind.is_resizable_span()
-                    && span_resize_handle_rect(gate.kind, gate_rect).contains(cursor)
-                {
-                    hovered_handle = Some(gate.id);
-                    hovered_gate = Some(gate.id);
-                    break;
+                if gate.kind.is_resizable_span() {
+                    if let Some(edge) = span_resize_handle_edge_at(gate.kind, gate_rect, cursor) {
+                        hovered_handle = Some(SpanResizeHandle {
+                            gate_id: gate.id,
+                            edge,
+                        });
+                        hovered_gate = Some(gate.id);
+                        break;
+                    }
                 }
                 if gate_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);

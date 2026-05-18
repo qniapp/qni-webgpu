@@ -28,8 +28,8 @@ pub(crate) struct PlacedGate {
     pub(crate) pos: egui::Pos2,
     pub(crate) wire: usize,
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
-    /// resizable-span gates (Chance, QFT / QFT†) can grow via the
-    /// bottom-edge resize handle that appears on hover.
+    /// resizable-span gates (Chance, QFT / QFT†) can grow via hover-revealed
+    /// resize handles.
     pub(crate) span: usize,
     /// Angle string for parametric gates (currently only `GateKind::Phase`).
     /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
@@ -90,13 +90,29 @@ pub(crate) struct DragState {
     pub(crate) original_column: Option<usize>,
 }
 
+/// Which vertical edge of a span-resizable gate is being manipulated.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SpanResizeEdge {
+    Top,
+    Bottom,
+}
+
+/// A concrete resizable-span handle under the pointer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct SpanResizeHandle {
+    pub(crate) gate_id: u32,
+    pub(crate) edge: SpanResizeEdge,
+}
+
 /// In-flight resize of a resizable-span gate's vertical span. Tracks which
-/// gate's resize handle was grabbed and the start span so per-frame drag math
+/// handle was grabbed and the starting grid geometry so per-frame drag math
 /// derives the new span from the *total* cursor delta.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SpanResizeDrag {
     pub(crate) gate_id: u32,
+    pub(crate) edge: SpanResizeEdge,
     pub(crate) start_pointer_y: f32,
+    pub(crate) start_wire: usize,
     pub(crate) start_span: usize,
 }
 

@@ -4,7 +4,7 @@ use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{DragState, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
 use crate::gates::PALETTE_GATES;
-use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_rect};
+use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_edge_at};
 
 #[derive(Clone, Copy, Debug)]
 enum DragStartIntent {
@@ -99,24 +99,27 @@ fn start_intent(
     };
 
     // Resizable-span handles take priority over gate bodies for press events,
-    // so dragging the bottom-edge affordance resizes the span instead of
-    // picking up the whole gate.
+    // so dragging the affordance resizes the span instead of picking up the
+    // whole gate.
     if let Some(resize) = app
         .placed_gates
         .iter()
         .rev()
-        .find(|gate| {
+        .filter_map(|gate| {
             if !gate.kind.is_resizable_span() {
-                return false;
+                return None;
             }
             let gate_rect = gate_visible_rect(gate, gate.pos);
-            span_resize_handle_rect(gate.kind, gate_rect).contains(cursor)
+            let edge = span_resize_handle_edge_at(gate.kind, gate_rect, cursor)?;
+            Some(SpanResizeDrag {
+                gate_id: gate.id,
+                edge,
+                start_pointer_y: cursor.y,
+                start_wire: gate.wire,
+                start_span: gate.span.max(1),
+            })
         })
-        .map(|gate| SpanResizeDrag {
-            gate_id: gate.id,
-            start_pointer_y: cursor.y,
-            start_span: gate.span.max(1),
-        })
+        .next()
     {
         return DragStartIntent::SpanResize(resize);
     }

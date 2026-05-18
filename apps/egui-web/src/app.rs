@@ -24,7 +24,9 @@ use circuit_picker_state::PickerState;
 use eframe::egui;
 use std::collections::VecDeque;
 
-pub(crate) use circuit_model::{DragState, PlacedGate, SpanResizeDrag};
+pub(crate) use circuit_model::{
+    DragState, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
+};
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
 pub(crate) use gpu_plan_state::GpuPlanState;
@@ -51,10 +53,9 @@ pub(crate) struct QniApp {
     pub(crate) dragging: Option<DragState>,
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
-    /// Gate id whose resizable-span handle is currently hovered (drives
-    /// the handle's idle → hover color). `None` when no hand is on a
-    /// QFT / Chance bottom-edge handle.
-    pub(crate) hovered_span_resize_handle: Option<u32>,
+    /// Resizable-span handle currently hovered (drives idle → hover color).
+    /// `None` when no hand is on a QFT / Chance handle.
+    pub(crate) hovered_span_resize_handle: Option<SpanResizeHandle>,
     /// In-flight resizable-span drag (only one at a time).
     pub(crate) span_resize_drag: Option<SpanResizeDrag>,
     /// Column index the pointer is currently hovering over for the

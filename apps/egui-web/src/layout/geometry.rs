@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::PlacedGate;
+use crate::app::{PlacedGate, SpanResizeEdge};
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, QFT_RESIZE_HANDLE_HEIGHT,
     QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
@@ -40,16 +40,53 @@ pub(crate) fn qft_resize_handle_rect(gate_rect: egui::Rect) -> egui::Rect {
     )
 }
 
-/// Resize-handle bounding box for any resizable-span gate. Chance uses the
-/// mock's compact pill (16×4 idle, 20×5 hover in draw code) with a larger
-/// hit area around it; QFT keeps the existing chevron strip.
-pub(crate) fn span_resize_handle_rect(kind: GateKind, gate_rect: egui::Rect) -> egui::Rect {
+/// Resize-handle bounding box for any resizable-span gate edge. Chance uses
+/// two spec-sized pills (24×6 px) centred 9 px outside the top / bottom edge;
+/// QFT keeps the existing bottom chevron strip.
+pub(crate) fn span_resize_handle_rect(
+    kind: GateKind,
+    gate_rect: egui::Rect,
+    edge: SpanResizeEdge,
+) -> egui::Rect {
     if kind != GateKind::ChanceDisplay {
         return qft_resize_handle_rect(gate_rect);
     }
     let cx = gate_rect.center().x;
-    let cy = gate_rect.bottom() + 1.5;
-    egui::Rect::from_center_size(egui::pos2(cx, cy), egui::vec2(20.0, 8.0))
+    let cy = match edge {
+        SpanResizeEdge::Top => gate_rect.top() - 9.0,
+        SpanResizeEdge::Bottom => gate_rect.bottom() + 9.0,
+    };
+    egui::Rect::from_center_size(egui::pos2(cx, cy), egui::vec2(24.0, 6.0))
+}
+
+fn span_resize_handle_hit_rect(
+    kind: GateKind,
+    gate_rect: egui::Rect,
+    edge: SpanResizeEdge,
+) -> egui::Rect {
+    let rect = span_resize_handle_rect(kind, gate_rect, edge);
+    if kind == GateKind::ChanceDisplay {
+        // The visible Chance pill scales up to 1.25× while hovered/active;
+        // keep the pointer target matched to the largest visual state.
+        rect.expand2(egui::vec2(3.0, 1.0))
+    } else {
+        rect
+    }
+}
+
+pub(crate) fn span_resize_handle_edge_at(
+    kind: GateKind,
+    gate_rect: egui::Rect,
+    cursor: egui::Pos2,
+) -> Option<SpanResizeEdge> {
+    if kind != GateKind::ChanceDisplay {
+        return span_resize_handle_hit_rect(kind, gate_rect, SpanResizeEdge::Bottom)
+            .contains(cursor)
+            .then_some(SpanResizeEdge::Bottom);
+    }
+    [SpanResizeEdge::Top, SpanResizeEdge::Bottom]
+        .into_iter()
+        .find(|&edge| span_resize_handle_hit_rect(kind, gate_rect, edge).contains(cursor))
 }
 
 #[derive(Clone, Debug)]

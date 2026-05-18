@@ -3,7 +3,7 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::QniApp;
+use crate::app::{QniApp, SpanResizeEdge, SpanResizeHandle};
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
@@ -26,6 +26,15 @@ const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 // Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
+const CHANCE_RESIZE_HANDLE_EDGES: [SpanResizeEdge; 2] =
+    [SpanResizeEdge::Top, SpanResizeEdge::Bottom];
+
+fn chance_resize_ease_out_back(t: f32) -> f32 {
+    const C1: f32 = 1.56;
+    const C3: f32 = C1 + 1.0;
+    let u = t - 1.0;
+    1.0 + C3 * u * u * u + C1 * u * u
+}
 
 fn chance_hover_popup_ket(outcome: u32, span: usize) -> String {
     let width = span.clamp(1, 16);
@@ -101,25 +110,65 @@ impl QniApp {
             } else {
                 draw_gate_body(painter, gate_rect, gate.kind, colors);
             }
-            // Resizable-span gates: the bottom-edge resize handle appears
-            // on hover (or while actively being resized). Drawn on top of the body.
-            if gate.kind.is_resizable_span()
+            // Resizable-span gates: Chance follows docs/chance-display.html §11
+            // with top + bottom pills; QFT keeps its existing bottom chevron.
+            if gate.kind == GateKind::ChanceDisplay {
+                let visible = self.hovered_gate_id == Some(gate.id)
+                    || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
+                let visible_t = painter.ctx().animate_bool_with_time_and_easing(
+                    egui::Id::new(("chance_resize_handles", gate.id)),
+                    visible,
+                    0.25,
+                    chance_resize_ease_out_back,
+                );
+                if visible || visible_t > 0.01 {
+                    for edge in CHANCE_RESIZE_HANDLE_EDGES {
+                        let handle = SpanResizeHandle {
+                            gate_id: gate.id,
+                            edge,
+                        };
+                        let hovered = self.hovered_span_resize_handle == Some(handle);
+                        let active = self
+                            .span_resize_drag
+                            .is_some_and(|drag| drag.gate_id == gate.id && drag.edge == edge);
+                        let bg = if hovered || active {
+                            colors.span_resize_handle_bg_hover
+                        } else {
+                            colors.span_resize_handle_bg
+                        };
+                        let scale = if active {
+                            1.25
+                        } else if hovered {
+                            1.15
+                        } else {
+                            0.7 + 0.3 * visible_t
+                        };
+                        let alpha = if hovered || active { 1.0 } else { visible_t };
+                        draw_chance_resize_handle(
+                            painter,
+                            span_resize_handle_rect(gate.kind, gate_rect, edge),
+                            bg,
+                            scale,
+                            alpha,
+                        );
+                    }
+                }
+            } else if gate.kind.is_resizable_span()
                 && (self.hovered_gate_id == Some(gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id))
             {
-                let active = self.hovered_span_resize_handle == Some(gate.id)
+                let active = self
+                    .hovered_span_resize_handle
+                    .is_some_and(|handle| handle.gate_id == gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let bg = if active {
                     colors.span_resize_handle_bg_hover
                 } else {
                     colors.span_resize_handle_bg
                 };
-                let handle_rect = span_resize_handle_rect(gate.kind, gate_rect);
-                if gate.kind == GateKind::ChanceDisplay {
-                    draw_chance_resize_handle(painter, handle_rect, bg, active);
-                } else {
-                    draw_qft_resize_handle(painter, handle_rect, bg, colors.label);
-                }
+                let handle_rect =
+                    span_resize_handle_rect(gate.kind, gate_rect, SpanResizeEdge::Bottom);
+                draw_qft_resize_handle(painter, handle_rect, bg, colors.label);
             }
             if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
