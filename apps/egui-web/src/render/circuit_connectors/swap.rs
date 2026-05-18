@@ -9,6 +9,7 @@ use crate::layout::LayoutMetrics;
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
+use super::{CONNECTOR_STROKE_WIDTH, CONNECTOR_VISUAL_X_OFFSET};
 
 pub(super) fn draw_swap_connectors(
     app: &QniApp,
@@ -39,9 +40,16 @@ pub(super) fn draw_swap_connectors(
         ys.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         let top_y = *ys.first().unwrap();
         let bottom_y = *ys.last().unwrap();
-        // Slot-center anchored — same rationale as the control connector.
-        let x = circuit_origin.x + metrics.slot_centers[column.slot];
-        let swap_stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+        // Swap connectors visually join the swap symbols themselves. Use the
+        // actual rendered gate centres instead of the slot centre so the line
+        // stays centred in the transparent Swap body during hover / drag.
+        let x = gates
+            .iter()
+            .map(|gate| circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0)
+            .sum::<f32>()
+            / gates.len() as f32
+            + CONNECTOR_VISUAL_X_OFFSET;
+        let swap_stroke = egui::Stroke::new(CONNECTOR_STROKE_WIDTH, colors.box_fill);
         painter.line_segment([egui::pos2(x, top_y), egui::pos2(x, bottom_y)], swap_stroke);
     }
 }

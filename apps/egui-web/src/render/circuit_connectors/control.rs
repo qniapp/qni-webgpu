@@ -8,6 +8,7 @@ use crate::layout::LayoutMetrics;
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
+use super::{CONNECTOR_STROKE_WIDTH, CONNECTOR_VISUAL_X_OFFSET};
 
 pub(super) fn draw_control_connectors(
     app: &QniApp,
@@ -61,8 +62,8 @@ pub(super) fn draw_control_connectors(
         // slot midpoint even while it's inside `SNAP_DISTANCE`, and averaging
         // would pull the line off the column the snap is actually going to
         // commit to.
-        let x = circuit_origin.x + metrics.slot_centers[column.slot];
-        let stroke = egui::Stroke::new(GATE_SIZE / 12.0, colors.box_fill);
+        let x = circuit_origin.x + metrics.slot_centers[column.slot] + CONNECTOR_VISUAL_X_OFFSET;
+        let stroke = egui::Stroke::new(CONNECTOR_STROKE_WIDTH, colors.box_fill);
         painter.line_segment([egui::pos2(x, min_y), egui::pos2(x, max_y)], stroke);
     }
 }

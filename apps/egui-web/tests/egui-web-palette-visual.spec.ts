@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   chromium,
   dragPointer,
@@ -69,6 +69,55 @@ test('palette measurement hover keeps the panel background inside the outline', 
   const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'hoverInner', x: gateCenter.x - 17, y: EGUI_PANEL_MARGIN + gateCenter.y }])
 
   expect(pixelRgbDistance(pixels.hoverInner, [255, 252, 240, 255])).toBeLessThan(8)
+})
+
+const readCenteredConnectorStroke = async (page: Page): Promise<{ line: boolean[]; outside: boolean[] }> => {
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const panelMargin = 8
+  const connectorX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const connectorY = panelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP / 2
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'leftOutside', x: connectorX - 3, y: connectorY },
+    { name: 'leftInside', x: connectorX - 2, y: connectorY },
+    { name: 'rightInside', x: connectorX + 1, y: connectorY },
+    { name: 'rightOutside', x: connectorX + 2, y: connectorY },
+  ])
+  const isConnector = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [58, 169, 159, 255]) < 8
+  const isCircuitBg = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [242, 240, 229, 255]) < 8
+
+  return {
+    line: [isConnector(pixels.leftInside), isConnector(pixels.rightInside)],
+    outside: [isCircuitBg(pixels.leftOutside), isCircuitBg(pixels.rightOutside)],
+  }
+}
+
+test('CNOT connector is centered as an even-width vertical stroke', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['•', 'X']] })))
+
+  expect(await readCenteredConnectorStroke(page)).toEqual({
+    line: [true, true],
+    outside: [true, true],
+  })
+})
+
+test('connected swap connector is centered as an even-width vertical stroke', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Swap', 'Swap']] })))
+
+  expect(await readCenteredConnectorStroke(page)).toEqual({
+    line: [true, true],
+    outside: [true, true],
+  })
+})
+
+test('same-angle phase connector is centered as an even-width vertical stroke', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['P(π_4)', 'P(π_4)']] })))
+
+  expect(await readCenteredConnectorStroke(page)).toEqual({
+    line: [true, true],
+    outside: [true, true],
+  })
 })
 
 test('palette chance display preview uses four Gaussian rows', async ({ page }) => {
