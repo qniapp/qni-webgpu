@@ -12,10 +12,7 @@ use crate::gpu::{
     ChancePopupValueCallback, MeasurementDigitCallback, MeasurementDigitInstance,
     POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
-use crate::icons::{
-    draw_bloch_vector, draw_chance_resize_handle, draw_gate_body, draw_meter_icon,
-    draw_qft_resize_handle,
-};
+use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_span_resize_handle};
 use crate::layout::span_resize_handle_rect;
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
@@ -26,10 +23,9 @@ const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 // Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
-const CHANCE_RESIZE_HANDLE_EDGES: [SpanResizeEdge; 2] =
-    [SpanResizeEdge::Top, SpanResizeEdge::Bottom];
+const SPAN_RESIZE_HANDLE_EDGES: [SpanResizeEdge; 2] = [SpanResizeEdge::Top, SpanResizeEdge::Bottom];
 
-fn chance_resize_ease_out_back(t: f32) -> f32 {
+fn span_resize_ease_out_back(t: f32) -> f32 {
     const C1: f32 = 1.56;
     const C3: f32 = C1 + 1.0;
     let u = t - 1.0;
@@ -110,19 +106,19 @@ impl QniApp {
             } else {
                 draw_gate_body(painter, gate_rect, gate.kind, colors);
             }
-            // Resizable-span gates: Chance follows docs/chance-display.html §11
-            // with top + bottom pills; QFT keeps its existing bottom chevron.
-            if gate.kind == GateKind::ChanceDisplay {
+            // Resizable-span gates share docs/chance-display.html §11:
+            // top + bottom purple pills with hover/active scaling.
+            if gate.kind.is_resizable_span() {
                 let visible = self.hovered_gate_id == Some(gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(
-                    egui::Id::new(("chance_resize_handles", gate.id)),
+                    egui::Id::new(("span_resize_handles", gate.id)),
                     visible,
                     0.25,
-                    chance_resize_ease_out_back,
+                    span_resize_ease_out_back,
                 );
                 if visible || visible_t > 0.01 {
-                    for edge in CHANCE_RESIZE_HANDLE_EDGES {
+                    for edge in SPAN_RESIZE_HANDLE_EDGES {
                         let handle = SpanResizeHandle {
                             gate_id: gate.id,
                             edge,
@@ -144,31 +140,15 @@ impl QniApp {
                             0.7 + 0.3 * visible_t
                         };
                         let alpha = if hovered || active { 1.0 } else { visible_t };
-                        draw_chance_resize_handle(
+                        draw_span_resize_handle(
                             painter,
-                            span_resize_handle_rect(gate.kind, gate_rect, edge),
+                            span_resize_handle_rect(gate_rect, edge),
                             bg,
                             scale,
                             alpha,
                         );
                     }
                 }
-            } else if gate.kind.is_resizable_span()
-                && (self.hovered_gate_id == Some(gate.id)
-                    || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id))
-            {
-                let active = self
-                    .hovered_span_resize_handle
-                    .is_some_and(|handle| handle.gate_id == gate.id)
-                    || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
-                let bg = if active {
-                    colors.span_resize_handle_bg_hover
-                } else {
-                    colors.span_resize_handle_bg
-                };
-                let handle_rect =
-                    span_resize_handle_rect(gate.kind, gate_rect, SpanResizeEdge::Bottom);
-                draw_qft_resize_handle(painter, handle_rect, bg, colors.label);
             }
             if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,

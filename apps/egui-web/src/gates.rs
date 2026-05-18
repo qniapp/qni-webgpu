@@ -248,7 +248,7 @@ impl GateKind {
     }
 
     /// Is this a multi-qubit gate whose vertical span is user-controlled
-    /// via the hover-revealed resize handle?
+    /// via hover-revealed resize handles?
     pub(crate) fn is_resizable_span(self) -> bool {
         self.spec().resizable_span
     }

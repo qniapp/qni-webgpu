@@ -2,10 +2,8 @@ use eframe::egui;
 
 use crate::app::{PlacedGate, SpanResizeEdge};
 use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, QFT_RESIZE_HANDLE_HEIGHT,
-    QFT_RESIZE_HANDLE_WIDTH, SLOT_SPACING,
+    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
 };
-use crate::gates::GateKind;
 
 /// Visible rect of a placed gate, accounting for the multi-qubit `span`
 /// of resizable-span gates. Single-qubit gates get `GATE_SIZE` ×
@@ -22,35 +20,10 @@ pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::
     egui::Rect::from_min_size(origin, egui::vec2(GATE_SIZE, height))
 }
 
-/// QFT resize-handle bounding box — a square-ish purple button below
-/// the gate body, centred horizontally and offset slightly past the
-/// bottom edge so it visually reads as a separate affordance. Matches
-/// qni's `--qni-component-resize-handle-{width,height}` (= GATE_SIZE
-/// × 0.75·GATE_SIZE).
-pub(crate) fn qft_resize_handle_rect(gate_rect: egui::Rect) -> egui::Rect {
-    let cx = gate_rect.center().x;
-    let bottom = gate_rect.max.y;
-    let half_w = QFT_RESIZE_HANDLE_WIDTH * 0.5;
-    // Small overlap so the handle visually anchors to the body but
-    // mostly sits below it (matches qni's "overlap" margin pattern).
-    let top = bottom - QFT_RESIZE_HANDLE_HEIGHT * 0.25;
-    egui::Rect::from_min_max(
-        egui::pos2(cx - half_w, top),
-        egui::pos2(cx + half_w, top + QFT_RESIZE_HANDLE_HEIGHT),
-    )
-}
-
-/// Resize-handle bounding box for any resizable-span gate edge. Chance uses
-/// two spec-sized pills (24×6 px) centred 9 px outside the top / bottom edge;
-/// QFT keeps the existing bottom chevron strip.
-pub(crate) fn span_resize_handle_rect(
-    kind: GateKind,
-    gate_rect: egui::Rect,
-    edge: SpanResizeEdge,
-) -> egui::Rect {
-    if kind != GateKind::ChanceDisplay {
-        return qft_resize_handle_rect(gate_rect);
-    }
+/// Resize-handle bounding box for any resizable-span gate edge. All such
+/// gates use two spec-sized pills (24×6 px) centred 9 px outside the top /
+/// bottom edge.
+pub(crate) fn span_resize_handle_rect(gate_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
     let cx = gate_rect.center().x;
     let cy = match edge {
         SpanResizeEdge::Top => gate_rect.top() - 9.0,
@@ -59,19 +32,12 @@ pub(crate) fn span_resize_handle_rect(
     egui::Rect::from_center_size(egui::pos2(cx, cy), egui::vec2(24.0, 6.0))
 }
 
-fn span_resize_handle_hit_rect(
-    kind: GateKind,
-    gate_rect: egui::Rect,
-    edge: SpanResizeEdge,
-) -> egui::Rect {
-    let rect = span_resize_handle_rect(kind, gate_rect, edge);
-    if kind != GateKind::ChanceDisplay {
-        return rect;
-    }
-    // The visible Chance pill scales up to 1.25× while hovered/active;
-    // keep the pointer target matched to the largest visual state and extend
-    // it through the visual gap so the handle does not disappear while the
-    // pointer travels from the gate body to the pill.
+fn span_resize_handle_hit_rect(gate_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
+    let rect = span_resize_handle_rect(gate_rect, edge);
+    // The visible pill scales up to 1.25× while hovered/active; keep the
+    // pointer target matched to the largest visual state and extend it through
+    // the visual gap so the handle does not disappear while the pointer travels
+    // from the gate body to the pill.
     let expanded = rect.expand2(egui::vec2(3.0, 1.0));
     match edge {
         SpanResizeEdge::Top => {
@@ -84,18 +50,12 @@ fn span_resize_handle_hit_rect(
 }
 
 pub(crate) fn span_resize_handle_edge_at(
-    kind: GateKind,
     gate_rect: egui::Rect,
     cursor: egui::Pos2,
 ) -> Option<SpanResizeEdge> {
-    if kind != GateKind::ChanceDisplay {
-        return span_resize_handle_hit_rect(kind, gate_rect, SpanResizeEdge::Bottom)
-            .contains(cursor)
-            .then_some(SpanResizeEdge::Bottom);
-    }
     [SpanResizeEdge::Top, SpanResizeEdge::Bottom]
         .into_iter()
-        .find(|&edge| span_resize_handle_hit_rect(kind, gate_rect, edge).contains(cursor))
+        .find(|&edge| span_resize_handle_hit_rect(gate_rect, edge).contains(cursor))
 }
 
 #[derive(Clone, Debug)]

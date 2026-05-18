@@ -26,7 +26,7 @@ impl DragController {
     ) {
         if let Some(cursor) = pointer.local_pos {
             // Iterate top-of-stack first so a resizable-span handle wins
-            // over the gate body when the cursor is on both (Chance handles
+            // over the gate body when the cursor is on both (span handles
             // overhang the top / bottom edges).
             let previous_chance_outcome = app.hovered_chance_outcome;
             let mut hovered_gate = None;
@@ -35,7 +35,7 @@ impl DragController {
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
                 if gate.kind.is_resizable_span() {
-                    if let Some(edge) = span_resize_handle_edge_at(gate.kind, gate_rect, cursor) {
+                    if let Some(edge) = span_resize_handle_edge_at(gate_rect, cursor) {
                         hovered_handle = Some(SpanResizeHandle {
                             gate_id: gate.id,
                             edge,

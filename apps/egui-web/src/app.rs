@@ -54,7 +54,7 @@ pub(crate) struct QniApp {
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
     /// Resizable-span handle currently hovered (drives idle → hover color).
-    /// `None` when no hand is on a QFT / Chance handle.
+    /// `None` when no hand is on a resizable-span handle.
     pub(crate) hovered_span_resize_handle: Option<SpanResizeHandle>,
     /// In-flight resizable-span drag (only one at a time).
     pub(crate) span_resize_drag: Option<SpanResizeDrag>,

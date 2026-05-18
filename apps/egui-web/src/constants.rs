@@ -51,13 +51,6 @@ pub(crate) fn state_grid_zoom_limits(natural_circle_size: f32) -> (f32, f32) {
     )
 }
 
-/// QFT / QFT† resizable-span gate geometry. Width follows the 40 px gate
-/// body (Tailwind spacing-10). Height uses spacing-8 (32 px): close to qni's
-/// 0.75 ratio while staying on the 4 px spacing scale and keeping the handle
-/// easy to grab.
-pub(crate) const QFT_RESIZE_HANDLE_WIDTH: f32 = GATE_SIZE;
-pub(crate) const QFT_RESIZE_HANDLE_HEIGHT: f32 = 32.0;
-
 /// How much accumulated wheel scroll delta = one aspect-step on the
 /// dims text. A typical OS wheel notch is roughly 50–100 px of smooth
 /// scroll delta, so 180 makes ~2–4 notches per step — heavy enough

@@ -245,7 +245,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは Geist Mono Regular で、スラッシュ付きの `0` により `O` と見間違えにくくする。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
-- Chance / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。
+- Chance / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。

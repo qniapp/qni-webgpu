@@ -850,7 +850,7 @@ stroke()</pre>
   <h2>§ 11 リサイズハンドル</h2>
   <div class="card">
     <p>
-      span を 1〜16 でドラッグ変更するためのハンドル。<strong>ゲートの上下 2 ヶ所</strong>に出る
+      Chance は 1〜16、QFT / QFT† は現在の実行モード容量までの span をドラッグ変更するためのハンドル。<strong>ゲートの上下 2 ヶ所</strong>に出る
       <code>purple-400</code> ベースのピル形 (24 × 6 px)。
       通常は invisible で UI を圧迫せず、ゲートホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現。
       ホバー枠 (§ 09 の 4 px <code>purple-400</code> ring + 2 px paper gap) の<strong>さらに外側</strong>に
@@ -969,7 +969,7 @@ stroke()</pre>
 
     <h3 style="margin-top: 16px;">設計判断</h3>
     <ul>
-      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。Quirk の対角コーナーハンドルより、上下対称な配置のほうが Chance display の縦長レイアウトに合う</li>
+      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。Chance display / QFT / QFT† は同じ「縦方向に伸びるゲート」なので、上下対称な配置に統一する</li>
       <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: ホバー枠とハンドルはどちらも <code>purple-400</code> なので、隣接させると 1 つの大きな図形に見えてしまい「ring の一部?」と誤認される。2 px の paper gap で<strong>明確に別オブジェクト</strong>と分離</li>
       <li><strong>purple-400 → purple-600 で深さの変化</strong>: handle が「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い</li>
       <li><strong>バウンス easing</strong>: 線形 / ease-out だと「現れる」だけだが、オーバーシュート ease は「主張する」表現になる。ゲートに span を変える機能があることを目立たせるための<em>意図的な誇張</em></li>

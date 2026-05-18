@@ -110,7 +110,7 @@ fn start_intent(
                 return None;
             }
             let gate_rect = gate_visible_rect(gate, gate.pos);
-            let edge = span_resize_handle_edge_at(gate.kind, gate_rect, cursor)?;
+            let edge = span_resize_handle_edge_at(gate_rect, cursor)?;
             Some(SpanResizeDrag {
                 gate_id: gate.id,
                 edge,

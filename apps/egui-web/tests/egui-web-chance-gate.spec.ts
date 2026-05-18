@@ -718,6 +718,22 @@ const setupChance4ResizeHandleProbe = async (page: Parameters<typeof sampleCanva
   return { canvas, box, gateTop, gateHeight, centerX }
 }
 
+const setupQft4ResizeHandleProbe = async (page: Parameters<typeof sampleCanvasPixels>[0], token: 'QFT4' | 'QFT†4') => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[token]] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const gateHeight = (4 - 1) * LINE_GAP + GATE_SIZE
+  const centerX = gateLeft + GATE_SIZE / 2
+  await page.mouse.move(box.x + centerX, box.y + gateTop + GATE_SIZE / 2)
+  await page.waitForTimeout(350)
+  return { canvas, gateTop, gateHeight, centerX }
+}
+
 test('Chance resize handles stay visible while crossing the top gap', async ({ page }) => {
   const { canvas, box, gateTop, centerX } = await setupChance4ResizeHandleProbe(page)
   await page.mouse.move(box.x + centerX, box.y + gateTop - 5)
@@ -749,6 +765,26 @@ test('Chance resize handles show two visible pills', async ({ page }) => {
     .length
 
   expect(visibleCount).toBe(2)
+})
+
+test('QFT and QFT† resize handles show two shared span-resize pills', async ({ page }) => {
+  const qft = await setupQft4ResizeHandleProbe(page, 'QFT4')
+  const qftPixels = await sampleCanvasPixels(page, qft.canvas, [
+    { name: 'topHandle', x: qft.centerX, y: qft.gateTop - 9 },
+    { name: 'bottomHandle', x: qft.centerX, y: qft.gateTop + qft.gateHeight + 9 },
+  ])
+  const qftDagger = await setupQft4ResizeHandleProbe(page, 'QFT†4')
+  const qftDaggerPixels = await sampleCanvasPixels(page, qftDagger.canvas, [
+    { name: 'topHandle', x: qftDagger.centerX, y: qftDagger.gateTop - 9 },
+    { name: 'bottomHandle', x: qftDagger.centerX, y: qftDagger.gateTop + qftDagger.gateHeight + 9 },
+  ])
+  const visibleCounts = [qftPixels, qftDaggerPixels].map((pixels) =>
+    [pixels.topHandle, pixels.bottomHandle]
+      .filter((pixel) => pixelRgbDistance(pixel, [139, 126, 200, 255]) < 56)
+      .length,
+  )
+
+  expect(visibleCounts).toEqual([2, 2])
 })
 
 test('Chance resize handles stay separated from the hover ring', async ({ page }) => {
@@ -801,6 +837,25 @@ test('Chance top resize handle expands the span upward', async ({ page }) => {
   await waitForHashCols(page, [['Chance4']])
 
   expect(readCircuitColsFromHash(page.url())).toEqual([['Chance4']])
+})
+
+test('QFT top resize handle expands the span upward', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'QFT3']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y + LINE_GAP - GATE_SIZE / 2
+  const handle = { x: gateLeft + GATE_SIZE / 2, y: gateTop - 9 }
+  await page.mouse.move(box.x + handle.x, box.y + handle.y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + handle.x, box.y + handle.y - LINE_GAP, { steps: 8 })
+  await page.mouse.up()
+  await waitForHashCols(page, [['QFT4']])
+
+  expect(readCircuitColsFromHash(page.url())).toEqual([['QFT4']])
 })
 
 test('Chance palette drop can resize to Chance3', async ({ page }) => {
