@@ -543,6 +543,31 @@ test('anti-control gate uses the qni-style open circular dot', async ({ page }) 
   }).toEqual({ centerOpen: false, ringVisible: true, outside: [false, false] })
 })
 
+test('anti-control connector keeps the hollow center clear', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['◦', 'X']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const EGUI_PANEL_MARGIN = 8
+  const antiControlCenter = {
+    x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'center', x: antiControlCenter.x, y: antiControlCenter.y },
+    { name: 'connector-below', x: antiControlCenter.x, y: antiControlCenter.y + 16 },
+    { name: 'connector-mid', x: antiControlCenter.x, y: antiControlCenter.y + 24 },
+  ])
+
+  expect({
+    centerHasConnector: isRegularGateFill(pixels.center),
+    connectorStillVisible: ['connector-below', 'connector-mid'].map((name) => isRegularGateFill(pixels[name])),
+  }).toEqual({ centerHasConnector: false, connectorStillVisible: [true, true] })
+})
+
 test('control and anti-control have matching outer diameters', async ({ page }) => {
   await page.goto('/')
 
