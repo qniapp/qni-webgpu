@@ -38,8 +38,8 @@ pub(super) fn encode_batched_recompute(
     let mut state = DispatchState::new(pair_count, dispatch_x);
     for op in sim_ops {
         match op {
-            SimulationOp::SnapshotState => {
-                state.encode_snapshot_state(&mut encoder, resources, state_count)
+            SimulationOp::SnapshotState { output_slot } => {
+                state.encode_snapshot_state(&mut encoder, resources, state_count, *output_slot)
             }
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
             SimulationOp::CaptureBloch { gate_id, .. } => {
@@ -110,19 +110,20 @@ impl DispatchState {
         encoder: &mut wgpu::CommandEncoder,
         resources: &StateVectorResources,
         state_count: usize,
+        output_slot: u32,
     ) {
         let byte_len = (state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
         if byte_len == 0 {
             return;
         }
+        let dst_offset = resources.common.snapshot_cache_offset(output_slot as usize);
         encoder.copy_buffer_to_buffer(
             &resources.common.state_buffers[self.in_index],
             0,
-            &resources.common.state_preview_buffer,
-            0,
+            &resources.common.state_snapshot_cache_buffer,
+            dst_offset,
             byte_len,
         );
-        self.render_state_index = Some(2);
     }
 
     fn encode_apply_gate(

@@ -47,10 +47,14 @@ pub(super) fn paint_state_vector_gpu(
         outline_zero: render_colors.outline_zero,
         needle: render_colors.needle,
     };
+    let preview_step = app.hovered_step.or(app.breakpoint_step);
+    let snapshot_slot_count = app.step_snapshot_slot_count();
     let callback = StateVectorCallback {
         sim_ops,
         state_count: layout.state_count,
         recompute,
+        preview_step,
+        snapshot_slot_count,
         target_format,
         render_params,
     };

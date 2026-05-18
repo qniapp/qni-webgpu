@@ -63,9 +63,13 @@ pub(crate) struct StateVectorResources {
     /// here rather than inside a subsystem because every pipeline reads
     /// it indirectly.
     pub(crate) state_count: usize,
+    /// Final-state ping-pong buffer index (0/1) produced by the latest full
+    /// recompute. Used when no step preview is active.
+    pub(crate) final_state: usize,
     /// Index into state render/readback bind groups. 0/1 are the ping-pong
-    /// state buffers; 2 is the optional selected-step preview snapshot.
+    /// final-state buffers; 2 is the selected-step preview snapshot.
     pub(crate) active_state: usize,
+    pub(crate) last_preview_step: Option<usize>,
 }
 
 impl StateVectorResources {
@@ -92,7 +96,9 @@ impl StateVectorResources {
             popup_value,
             target_format,
             state_count: 0,
+            final_state: 0,
             active_state: 0,
+            last_preview_step: None,
         }
     }
 

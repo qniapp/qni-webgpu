@@ -111,6 +111,17 @@ test('GPU capacity overflow shows a visible error card instead of recomputing em
   await expect(await waitForCapacityErrorCardVisible(page)).toBe(true)
 })
 
+test('GPU capacity rejects sparse step snapshot caches before allocation', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page)
+  const columns: unknown[][] = Array.from({ length: 258 }, () => [])
+  columns[257] = ['H']
+  await seedActiveCircuit(page, JSON.stringify({ cols: columns }))
+  await page.waitForFunction(() => String((window as any).__qniGpuPlanCapacityError ?? '').includes('MAX_STEP_SNAPSHOT_SLOTS'))
+
+  await expect(await waitForCapacityErrorCardVisible(page)).toBe(true)
+})
+
 test('GPU capacity error hook clears after a valid recompute', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page)

@@ -19,15 +19,14 @@ use crate::gates::{
 /// Within each column the order is: column unitaries / writes → measurements
 /// (reduce-sample then collapse) → bloch captures, mirroring qni's
 /// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
-/// `step_limit`: inclusive column index to snapshot for the state panel.
-/// `None` = render the final state. `Some(k)` inserts `SnapshotState` after
-/// semantic column `k` (or just before the first later column) so the state
-/// panel shows the selected step while the GPU still runs all later readouts
-/// (measurements / Bloch / Chance), matching qni's worker loop.
+/// `snapshot_slot_count`: number of semantic step snapshots to cache for the
+/// state panel. Slot `k` stores the state after circuit step `k`; empty steps
+/// copy the previous state. Hovering later switches to the cached slot via GPU
+/// copy only, matching qni's worker-side per-step result cache.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: usize,
-    step_limit: Option<usize>,
+    snapshot_slot_count: usize,
 ) -> Vec<SimulationOp> {
     if qubits == 0 {
         return Vec::new();
@@ -42,14 +41,16 @@ pub(crate) fn linearize_ops(
     });
 
     let mut ops: Vec<SimulationOp> = Vec::new();
-    let mut state_snapshot_inserted = false;
+    let mut next_snapshot_slot = 0usize;
     let mut bloch_slot: u32 = 0;
     let mut measurement_slot: u32 = 0;
     let mut chance_slot: u32 = 0;
     for column in analysis.columns() {
-        if step_limit.is_some_and(|limit| column.slot > limit) && !state_snapshot_inserted {
-            ops.push(SimulationOp::SnapshotState);
-            state_snapshot_inserted = true;
+        while next_snapshot_slot < column.slot && next_snapshot_slot < snapshot_slot_count {
+            ops.push(SimulationOp::SnapshotState {
+                output_slot: next_snapshot_slot as u32,
+            });
+            next_snapshot_slot += 1;
         }
         let column_gates = column.gates();
         let mut control_mask = 0u32;
@@ -262,10 +263,18 @@ pub(crate) fn linearize_ops(
             chance_slot += 1;
         }
 
-        if step_limit == Some(column.slot) && !state_snapshot_inserted {
-            ops.push(SimulationOp::SnapshotState);
-            state_snapshot_inserted = true;
+        if next_snapshot_slot == column.slot && next_snapshot_slot < snapshot_slot_count {
+            ops.push(SimulationOp::SnapshotState {
+                output_slot: next_snapshot_slot as u32,
+            });
+            next_snapshot_slot += 1;
         }
+    }
+    while next_snapshot_slot < snapshot_slot_count {
+        ops.push(SimulationOp::SnapshotState {
+            output_slot: next_snapshot_slot as u32,
+        });
+        next_snapshot_slot += 1;
     }
     ops
 }

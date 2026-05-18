@@ -31,7 +31,7 @@ impl PackedRecomputeParams {
 
         for op in sim_ops {
             match op {
-                SimulationOp::SnapshotState => {}
+                SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::ApplyGate(params) => packed.gate.push(*params),
                 SimulationOp::CaptureBloch {
                     qubit_bit,

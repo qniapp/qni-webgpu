@@ -6,6 +6,7 @@ const path = require('node:path')
 const rootDir = path.join(__dirname, '..')
 const updateFlowPath = path.join(rootDir, 'src', 'app', 'update_flow.rs')
 const viewportPath = path.join(rootDir, 'src', 'app', 'state_panel', 'viewport.rs')
+const gpuPlanStatePath = path.join(rootDir, 'src', 'app', 'gpu_plan_state.rs')
 
 test('state panel overlay uses a layout refreshed after interactions', async () => {
   const source = await fs.readFile(updateFlowPath, 'utf8')
@@ -31,6 +32,16 @@ test('state panel overlay uses a layout refreshed after interactions', async () 
     hasRefreshedLayoutAfterInteractions: true,
     hasOverlayDrawAfterRefresh: true,
   })
+})
+
+test('circuit step preview hover keeps the cached GPU plan clean', async () => {
+  const source = await fs.readFile(gpuPlanStatePath, 'utf8')
+  const body = source.match(/pub\(crate\) fn mark_step_preview_dirty\(&mut self\) \{([\s\S]*?)\n    \}/)?.[1] ?? ''
+
+  assert.deepEqual({
+    hasCachedPlanComment: body.includes('must not dirty the simulation plan'),
+    avoidsRecomputeDirtyFlag: !/needs_recompute\s*=\s*true/.test(body),
+  }, { hasCachedPlanComment: true, avoidsRecomputeDirtyFlag: true })
 })
 
 test('state panel wheel zoom anchors against the zoomed layout origin', async () => {

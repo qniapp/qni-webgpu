@@ -80,6 +80,11 @@ pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
 /// `MAX_OPS_PER_RECOMPUTE` slots; capacity is validated before packing so
 /// release builds fail explicitly instead of truncating the plan.
 pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
+/// Maximum number of semantic step snapshots cached on the GPU for hover /
+/// breakpoint preview. `+ 1` lets the existing 257-gate capacity test report
+/// the gate-op limit first while still bounding sparse URL columns before any
+/// snapshot buffer allocation.
+pub(crate) const MAX_STEP_SNAPSHOT_SLOTS: usize = MAX_OPS_PER_RECOMPUTE + 1;
 
 /// Maximum number of Bloch displays whose vectors can be captured in a single
 /// recompute. Each placed `BlochDisplay` occupies one slot in the GPU's

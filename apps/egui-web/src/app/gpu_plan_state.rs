@@ -47,11 +47,9 @@ impl GpuPlanState {
     }
 
     pub(crate) fn mark_step_preview_dirty(&mut self) {
-        self.needs_recompute = true;
-        // Preserve existing readout slot maps until the next recompute finishes.
-        // Circuit gates are painted before GPU recompute in a frame; clearing
-        // here makes Chance / measurement displays fall back to their default
-        // egui bodies for one frame while hovering columns.
+        // Qni keeps per-step results cached and only switches the displayed
+        // snapshot on hover. Do the same: changing the active preview column
+        // must not dirty the simulation plan or rerun WebGPU compute.
         self.capacity_error = None;
     }
 
@@ -120,7 +118,7 @@ impl GpuPlanState {
         self.chance_slots.clear();
         for op in &self.sim_ops {
             match op {
-                SimulationOp::SnapshotState => {}
+                SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::CaptureBloch {
                     gate_id,
                     output_slot,
@@ -145,5 +143,19 @@ impl GpuPlanState {
                 _ => {}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GpuPlanState;
+
+    #[test]
+    fn step_preview_dirty_keeps_cached_gpu_plan_clean() {
+        let mut state = GpuPlanState::default();
+        state.mark_clean_for(4);
+        state.mark_step_preview_dirty();
+
+        assert!(!state.needs_recompute_for(4));
     }
 }

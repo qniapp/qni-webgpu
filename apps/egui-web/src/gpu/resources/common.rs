@@ -4,9 +4,11 @@
 //!   pipeline (compute, render, bloch, measure, popup-value) reads or
 //!   writes them, so they live here rather than inside any one
 //!   subsystem.
-//! * `state_preview_buffer` — optional state-panel snapshot used while a
-//!   circuit column is selected. The simulation still runs to the end so
-//!   readout gates after the selected column stay populated.
+//! * `state_preview_buffer` — state-panel snapshot currently selected by
+//!   hover / breakpoint. It is populated by GPU copy from the step cache.
+//! * `state_snapshot_cache_buffer` — GPU-resident per-column snapshots,
+//!   qni-style. Hovering a column copies one cached slot into
+//!   `state_preview_buffer` without rerunning the simulation.
 //! * `state_seed_buffer` — 8-byte (1.0, 0.0) read-only seed copied
 //!   into `state_buffers[0]` at the start of every recompute to
 //!   initialise the state vector to `|0…0⟩` entirely on the GPU.
@@ -26,6 +28,8 @@ use crate::constants::MAX_STATE_COUNT;
 pub(crate) struct Common {
     pub state_buffers: [wgpu::Buffer; 2],
     pub state_preview_buffer: wgpu::Buffer,
+    pub state_snapshot_cache_buffer: wgpu::Buffer,
+    snapshot_cache_slots: usize,
     pub state_seed_buffer: wgpu::Buffer,
     pub unit_quad_vertex_buffer: wgpu::Buffer,
     pub unit_quad_index_buffer: wgpu::Buffer,
@@ -62,6 +66,9 @@ impl Common {
                 | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+        let snapshot_cache_slots = 1;
+        let state_snapshot_cache_buffer =
+            Self::create_snapshot_cache_buffer(device, snapshot_cache_slots, state_buffer_size);
 
         let state_seed_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("state_vector_ground_seed"),
@@ -90,10 +97,47 @@ impl Common {
         Self {
             state_buffers,
             state_preview_buffer,
+            state_snapshot_cache_buffer,
+            snapshot_cache_slots,
             state_seed_buffer,
             unit_quad_vertex_buffer,
             unit_quad_index_buffer,
             unit_quad_index_count: index_data.len() as u32,
         }
+    }
+
+    pub(crate) fn snapshot_cache_offset(&self, slot: usize) -> wgpu::BufferAddress {
+        let state_buffer_size =
+            (MAX_STATE_COUNT * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
+        slot as wgpu::BufferAddress * state_buffer_size
+    }
+
+    pub(crate) fn snapshot_cache_slots(&self) -> usize {
+        self.snapshot_cache_slots
+    }
+
+    pub(crate) fn ensure_snapshot_cache_slots(&mut self, device: &wgpu::Device, slots: usize) {
+        let slots = slots.max(1);
+        if slots <= self.snapshot_cache_slots {
+            return;
+        }
+        let state_buffer_size =
+            (MAX_STATE_COUNT * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
+        self.state_snapshot_cache_buffer =
+            Self::create_snapshot_cache_buffer(device, slots, state_buffer_size);
+        self.snapshot_cache_slots = slots;
+    }
+
+    fn create_snapshot_cache_buffer(
+        device: &wgpu::Device,
+        slots: usize,
+        state_buffer_size: wgpu::BufferAddress,
+    ) -> wgpu::Buffer {
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("state_vector_snapshot_cache_buffer"),
+            size: state_buffer_size * slots.max(1) as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        })
     }
 }

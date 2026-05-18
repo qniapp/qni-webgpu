@@ -1,7 +1,10 @@
 use eframe::egui;
 
 use crate::app::QniApp;
-use crate::gpu::{MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE};
+use crate::gpu::{
+    MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MAX_STEP_SNAPSHOT_SLOTS,
+};
 use crate::simulation_plan::{
     linearize_ops, validate_simulation_plan_capacity, SimulationPlanLimits,
 };
@@ -34,15 +37,25 @@ impl QniApp {
             if recompute {
                 self.gpu_plan.mark_clean_for(state_count);
                 let qubits = self.state_qubits();
-                // Hovered wins over breakpoint for the state-panel snapshot;
-                // the GPU still runs every column so later readout gates stay
-                // populated like qni's worker-loop simulation.
-                let step_limit = self.hovered_step.or(self.breakpoint_step);
-                let sim_ops = linearize_ops(&self.placed_gates, qubits, step_limit);
+                // Cache every semantic step snapshot on the GPU, qni-style.
+                // Hover / breakpoint changes later select a cached slot via
+                // copy-only preview updates instead of rerunning simulation.
+                let snapshot_slot_count = self.step_snapshot_slot_count();
+                if snapshot_slot_count > MAX_STEP_SNAPSHOT_SLOTS {
+                    let message = format!(
+                        "step snapshot slot count {snapshot_slot_count} exceeds MAX_STEP_SNAPSHOT_SLOTS={MAX_STEP_SNAPSHOT_SLOTS}; reduce sparse columns or grow the GPU snapshot cache"
+                    );
+                    self.log_gpu_plan_capacity_error(&message);
+                    self.publish_gpu_plan_capacity_error(Some(&message));
+                    self.gpu_plan.set_capacity_error(message);
+                    return false;
+                }
+                let sim_ops = linearize_ops(&self.placed_gates, qubits, snapshot_slot_count);
                 if let Err(error) = validate_simulation_plan_capacity(
                     &sim_ops,
                     SimulationPlanLimits {
                         max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
+                        max_step_snapshot_slots: MAX_STEP_SNAPSHOT_SLOTS,
                         max_bloch_slots: MAX_BLOCH_SLOTS,
                         max_measurement_slots: MAX_MEASUREMENT_SLOTS,
                         max_chance_slots: MAX_CHANCE_SLOTS,

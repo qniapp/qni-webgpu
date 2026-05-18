@@ -117,6 +117,14 @@ impl QniApp {
             .unwrap_or(0)
     }
 
+    pub(crate) fn step_snapshot_slot_count(&self) -> usize {
+        self.placed_gates
+            .iter()
+            .map(|gate| gate.column + 1)
+            .max()
+            .unwrap_or(0)
+    }
+
     fn raw_required_qubit_count(&self) -> usize {
         self.placed_gates
             .iter()

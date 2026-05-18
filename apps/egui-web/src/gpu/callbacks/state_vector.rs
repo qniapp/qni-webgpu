@@ -3,7 +3,7 @@ use eframe::{egui_wgpu, wgpu};
 
 use crate::simulation_plan::SimulationOp;
 
-use super::super::params::RenderParams;
+use super::super::params::{RenderParams, MAX_STEP_SNAPSHOT_SLOTS};
 use super::super::readback::{
     BlochGpuHandle, ChanceGpuHandle, GpuReadbackState, MeasurementGpuHandle, BLOCH_GPU_HANDLE,
     CHANCE_GPU_HANDLE, GPU_READBACK, MEASUREMENT_GPU_HANDLE,
@@ -20,6 +20,8 @@ pub(crate) struct StateVectorCallback {
     pub(crate) sim_ops: Vec<SimulationOp>,
     pub(crate) state_count: usize,
     pub(crate) recompute: bool,
+    pub(crate) preview_step: Option<usize>,
+    pub(crate) snapshot_slot_count: usize,
     pub(crate) target_format: wgpu::TextureFormat,
     /// Pre-built render params describing the panel geometry, cell pitch,
     /// circle radii, and palette. Built by `render.rs` from
@@ -29,13 +31,52 @@ pub(crate) struct StateVectorCallback {
     pub(crate) render_params: RenderParams,
 }
 
+impl StateVectorCallback {
+    fn select_preview_state(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &mut StateVectorResources,
+    ) {
+        let available_snapshot_slots = self
+            .snapshot_slot_count
+            .min(MAX_STEP_SNAPSHOT_SLOTS)
+            .min(resources.common.snapshot_cache_slots());
+        let Some(step) = self
+            .preview_step
+            .filter(|step| *step < available_snapshot_slots)
+        else {
+            resources.active_state = resources.final_state;
+            resources.last_preview_step = None;
+            return;
+        };
+        if self.state_count == 0 {
+            resources.active_state = resources.final_state;
+            resources.last_preview_step = None;
+            return;
+        }
+        if resources.active_state != 2 || resources.last_preview_step != Some(step) {
+            let byte_len =
+                (self.state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
+            encoder.copy_buffer_to_buffer(
+                &resources.common.state_snapshot_cache_buffer,
+                resources.common.snapshot_cache_offset(step),
+                &resources.common.state_preview_buffer,
+                0,
+                byte_len,
+            );
+            resources.last_preview_step = Some(step);
+        }
+        resources.active_state = 2;
+    }
+}
+
 impl egui_wgpu::CallbackTrait for StateVectorCallback {
     fn prepare(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _egui_encoder: &mut wgpu::CommandEncoder,
+        egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         let resources = if callback_resources.contains::<StateVectorResources>() {
@@ -60,11 +101,24 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             resources.state.last_render_params = Some(self.render_params);
         }
 
-        if (self.recompute || resources.state_count != self.state_count)
+        let recomputed = self.recompute || resources.state_count != self.state_count;
+        if recomputed {
+            resources.common.ensure_snapshot_cache_slots(
+                device,
+                self.snapshot_slot_count.min(MAX_STEP_SNAPSHOT_SLOTS),
+            );
+        }
+        if recomputed
             && !recompute_state_vector(device, queue, resources, &self.sim_ops, self.state_count)
         {
             return Vec::new();
         }
+        if recomputed {
+            resources.final_state = resources.active_state;
+            resources.last_preview_step = None;
+        }
+
+        self.select_preview_state(egui_encoder, resources);
 
         GPU_READBACK.with(|slot| {
             *slot.borrow_mut() = Some(GpuReadbackState {

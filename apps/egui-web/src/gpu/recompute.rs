@@ -19,7 +19,7 @@ use self::dispatch::encode_batched_recompute;
 use self::pack::PackedRecomputeParams;
 use super::params::{
     MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
-    STATE_WORKGROUP_SIZE,
+    MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
 };
 use super::readback::{BLOCH_SLOT_MAP, CHANCE_SLOT_MAP, MEASUREMENT_SLOT_MAP};
 use super::resources::StateVectorResources;
@@ -48,6 +48,7 @@ pub(super) fn recompute_state_vector(
         sim_ops,
         SimulationPlanLimits {
             max_ops_per_variant: MAX_OPS_PER_RECOMPUTE,
+            max_step_snapshot_slots: MAX_STEP_SNAPSHOT_SLOTS,
             max_bloch_slots: MAX_BLOCH_SLOTS,
             max_measurement_slots: MAX_MEASUREMENT_SLOTS,
             max_chance_slots: MAX_CHANCE_SLOTS,

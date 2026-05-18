@@ -3,6 +3,7 @@ use super::SimulationOp;
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SimulationPlanLimits {
     pub(crate) max_ops_per_variant: usize,
+    pub(crate) max_step_snapshot_slots: usize,
     pub(crate) max_bloch_slots: usize,
     pub(crate) max_measurement_slots: usize,
     pub(crate) max_chance_slots: usize,
@@ -38,7 +39,15 @@ pub(crate) fn validate_simulation_plan_capacity(
     let mut chance_ops = 0usize;
     for op in ops {
         match op {
-            SimulationOp::SnapshotState => {}
+            SimulationOp::SnapshotState { output_slot } => {
+                let slot = *output_slot as usize;
+                if slot >= limits.max_step_snapshot_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "step snapshot slot {slot} exceeds MAX_STEP_SNAPSHOT_SLOTS={}; reduce sparse columns or grow the GPU snapshot cache",
+                        limits.max_step_snapshot_slots
+                    )));
+                }
+            }
             SimulationOp::ApplyGate(_) => gate_ops += 1,
             SimulationOp::CaptureBloch { output_slot, .. } => {
                 bloch_ops += 1;

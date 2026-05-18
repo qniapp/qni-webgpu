@@ -61,9 +61,9 @@ impl DragController {
                 ctx.request_repaint();
             }
 
-            // Step preview: which column is the cursor on? Changes
-            // trigger a recompute so the state-vector panel reflects
-            // the new step in real time.
+            // Step preview: which column is the cursor on? Changes select a
+            // cached GPU snapshot so the state-vector panel reflects the new
+            // step without rerunning simulation.
             let new_hovered_step = step_at_cursor(cursor, &geometry.metrics);
             if new_hovered_step != app.hovered_step {
                 app.hovered_step = new_hovered_step;

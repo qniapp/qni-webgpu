@@ -17,7 +17,7 @@ flowchart LR
   Circuit[CPU: semantic circuit<br/>column / wire / span] --> Plan[CPU: simulation_plan<br/>op stream + capacity validation]
   Plan --> Params[CPU: packed GPU params<br/>gate matrix / target / control metadata]
   Params --> Compute[GPU compute<br/>STATE / MEASURE / BLOCH shaders]
-  Compute --> Buffers[GPU storage buffers<br/>state / bloch / measurement aux]
+  Compute --> Buffers[GPU storage buffers<br/>state / step snapshots / bloch / measurement aux]
   Buffers --> Render[GPU render shaders<br/>state circles / bloch arrows / digits]
   Render --> Canvas[egui WebGPU canvas]
   Buffers -. test only .-> Readback[on-demand async readback]
@@ -49,6 +49,7 @@ flowchart LR
 - `StateVectorCallback` が render params（viewport / panel origin / cell pitch / colors など）だけを渡す。
 - 状態円の振幅・位相・確率表現は GPU shader が state buffer を直接参照して描く。
 - CPU は per-cell probability / phase / Bloch 値を作らない。
+- 回路列の hover / breakpoint 用プレビューは qni と同じく step ごとの結果をキャッシュする。ただし qni の worker CPU キャッシュではなく、WebGPU の `state_snapshot_cache_buffer` に列ごとの state buffer を copy して保持する。hover 中は該当 slot を `state_preview_buffer` へ GPU copy するだけで、compute shader は再実行しない。疎な URL 入力で巨大な空列キャッシュを作らないよう、snapshot slot は `MAX_STEP_SNAPSHOT_SLOTS` で明示的に上限管理する。
 
 ## CPU に残す処理
 
