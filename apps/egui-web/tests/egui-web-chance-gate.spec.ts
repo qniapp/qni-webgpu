@@ -314,6 +314,70 @@ const waitForChanceHoverEvidence = async (
   return last
 }
 
+const waitForScrolledChancePopupEvidence = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+): Promise<{ popupAbovePalette: boolean; popupValueText: boolean; ketCentered: boolean }> => {
+  let last = { popupAbovePalette: false, popupValueText: false, ketCentered: false }
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    last = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { popupAbovePalette: false, popupValueText: false, ketCentered: false }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const countMatching = (
+          x0Css: number,
+          x1Css: number,
+          y0Css: number,
+          y1Css: number,
+          matches: (rgb: [number, number, number]) => boolean,
+        ) => {
+          let count = 0
+          const x0 = Math.floor(x0Css * scaleX)
+          const x1 = Math.floor(x1Css * scaleX)
+          const y0 = Math.floor(y0Css * scaleY)
+          const y1 = Math.floor(y1Css * scaleY)
+          for (let y = y0; y <= y1; y += 1) {
+            for (let x = x0; x <= x1; x += 1) {
+              const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+              if (matches([r, g, b])) count += 1
+            }
+          }
+          return count
+        }
+        const dark = ([r, g, b]: [number, number, number]) => r < 95 && g < 95 && b < 95
+        const teal = ([r, g, b]: [number, number, number]) => Math.abs(r - 60) + Math.abs(g - 171) + Math.abs(b - 162) < 72
+        const paletteTealThroughPopup = countMatching(200, 386, 160, 196, teal)
+        const centeredKet = countMatching(280, 330, 168, 188, dark)
+        const leftKet = countMatching(212, 252, 168, 188, dark)
+        return {
+          popupAbovePalette: paletteTealThroughPopup < 8,
+          popupValueText: countMatching(262, 374, 230, 274, dark) > 24,
+          ketCentered: centeredKet > leftKet + 8,
+        }
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
+    )
+    if (last.popupAbovePalette && last.popupValueText && last.ketCentered) return last
+    await page.waitForTimeout(50)
+  }
+  return last
+}
+
 test('Chance display renders GPU probabilities and serializes the Quirk token', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Chance']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -385,6 +449,26 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ rowBorder: true, popupText: true, popupDivider: true })
+})
+
+test('Chance popup stays above the palette and keeps GPU values while scrolled', async ({ page }) => {
+  const lowerQubitPadding = Array(15).fill(1)
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Chance4', ...lowerQubitPadding], [...lowerQubitPadding, 'H']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.move(box.x + 400, box.y + 300)
+  await page.mouse.wheel(0, 94)
+  await page.waitForTimeout(300)
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 - 94
+  const rowH = ((4 - 1) * LINE_GAP + GATE_SIZE) / 16
+  await page.mouse.move(box.x + gateLeft + 20, box.y + gateTop + rowH * 5.5)
+  const evidence = await waitForScrolledChancePopupEvidence(page, canvas)
+
+  expect(evidence).toEqual({ popupAbovePalette: true, popupValueText: true, ketCentered: true })
 })
 
 test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {

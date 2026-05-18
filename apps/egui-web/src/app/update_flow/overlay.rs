@@ -57,6 +57,20 @@ impl QniApp {
                 self.circuit_scroll_x,
             );
         }
+        if let Some(content_rect) = circuit_frame.content_rect {
+            let circuit_origin = content_rect.min - egui::vec2(self.circuit_scroll_x, 0.0);
+            // Paint Chance popups in the foreground overlay so they sit above
+            // the palette. Use the full screen rect as the GPU value viewport:
+            // scrolled circuit content can have a negative rect origin, while
+            // egui clamps callback viewports to the visible screen.
+            self.draw_chance_hover_popup(
+                &overlay_painter,
+                screen_rect,
+                circuit_origin,
+                circuit_frame.dragging_gate_id,
+                colors,
+            );
+        }
 
         // Tooltip is drawn last so it sits on top of the drag preview / state
         // panel / everything else in the overlay layer.

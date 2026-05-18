@@ -288,11 +288,9 @@ impl QniApp {
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
         }
-
-        self.draw_chance_hover_popup(painter, rect, circuit_origin, dragging_gate_id, colors);
     }
 
-    fn draw_chance_hover_popup(
+    pub(crate) fn draw_chance_hover_popup(
         &self,
         painter: &egui::Painter,
         screen_rect: egui::Rect,
@@ -385,8 +383,11 @@ impl QniApp {
             egui::StrokeKind::Inside,
         );
 
-        let ket_pos = rect.min + egui::vec2(pad_x, pad_y);
-        let subtitle_pos = ket_pos + egui::vec2(0.0, ket_h + subtitle_gap);
+        let ket_pos = egui::pos2(
+            rect.center().x - ket_galley.size().x * 0.5,
+            rect.top() + pad_y,
+        );
+        let subtitle_pos = egui::pos2(rect.left() + pad_x, ket_pos.y + ket_h + subtitle_gap);
         let divider_y = subtitle_pos.y + subtitle_h + divider_gap;
         let raw_y = divider_y + 1.0 + divider_gap;
         let log_y = raw_y + value_pitch;
