@@ -630,7 +630,7 @@ lineTo(0, h)             // 左下に戻す
 stroke()</pre>
       </li>
       <li>線スタイル: <code>strokeStyle = ui-2</code> (#DAD8CE、Quirk の <code>'#CCC'</code> 相当の薄灰)、<code>lineWidth = 1</code></li>
-      <li><strong>Quirk 基準では per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。なお現行シェーダは <code>span ≥ 13</code> で水平接続を省いているため、§08.5 の性能見直し時に Quirk 基準へ戻す</li>
+      <li><strong>Quirk 基準では per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。現行シェーダは <code>span ≥ 13</code> でも、事前集約した隣接 y ピクセル同士を水平接続して Quirk 基準を保つ</li>
     </ul>
 
     <h3 style="margin-top: 16px;">tooltip の <code>log: ... dB</code> との違い (重要)</h3>
@@ -642,7 +642,7 @@ stroke()</pre>
       両者は計算式 (<code>ln</code> vs <code>log10</code>) も用途 (描画 vs テキスト表示) も別。
     </p>
 
-    <h3 style="margin-top: 16px;">qni-webgpu 現行実装 (性能見直し対象)</h3>
+    <h3 style="margin-top: 16px;">qni-webgpu 現行実装</h3>
     <ul>
       <li>Chance1〜Chance4 (<code>row_h &gt; 8 px</code> かつ <code>row_count ≤ 16</code>) は <code>XX.X%</code> ラベルのみ。対数ヒント線は描かない</li>
       <li>Chance5〜Chance16 は対数ヒント線のみ。<code>%</code> ラベルは出さない</li>
@@ -661,14 +661,11 @@ stroke()</pre>
       <li>
         <strong>span ≥ 13 (<code>row_count &gt; 4096</code>) の集約描画</strong>:
         Chance13 以降は 1 ピクセル内に複数 outcome が乗る (span 16 で <code>880/65536 ≈ 0.013 px/row</code>、1 px あたり ~74 outcome)。
-        現行シェーダは <code>pixel_h = max(fwidth(local_y), row_h)</code> を使い、
-        <code>row_lo = floor((local_y - pixel_h × 0.5) / row_h)</code> から
-        <code>row_hi = floor((local_y + pixel_h × 0.5) / row_h)</code> までの outcome を走査する。
-        そこで <code>p_max = max(p[row_lo..=row_hi])</code> を求め、ポリライン x 位置と線形バー幅
-        (<code>x_bar = w × p_max</code>) を <strong>max 集約</strong>で決める
-        (「そのピクセル列で最も右に達したバー / ヒント線が代表値」)。
-        ただし §08.5 の Quirk 調査により、このフラグメントごとの走査は Chance16 の FPS 低下要因として見直す。
-        後続作業では、GPU 上の事前集約・キャッシュへ置き換える。
+        <code>CHANCE_AGGREGATE_SHADER</code> が GPU 上で CSS y ピクセルごとの
+        <code>p_max = max(p[row_lo..=row_hi])</code> を <code>chance_aggregate_rows</code> に事前集約する。
+        フラグメントシェーダは <code>chance_aggregate_data[slot, floor(local_y)]</code> を読むだけで、
+        ピクセルごとの outcome 走査をしない。線形バー幅 (<code>x_bar = w × p_max</code>) と対数ヒント線の x 位置を
+        同じ代表値から決め、対数ヒント線は隣接 y ピクセルの代表値同士を水平接続する。
       </li>
       <li>docs / コード内コメントでは「縦線」と呼ばず<strong>「対数ヒント線」</strong>または<strong>「対数スケールの補助線」</strong>と呼称統一する</li>
     </ul>
@@ -726,7 +723,7 @@ stroke()</pre>
       </li>
     </ul>
 
-    <h3 style="margin-top: 16px;">qni-webgpu へ移すべき方針</h3>
+    <h3 style="margin-top: 16px;">qni-webgpu へ反映した方針</h3>
     <ul>
       <li>
         <strong>本番経路の GPU → CPU リードバックは引き続き禁止。</strong>
@@ -735,15 +732,13 @@ stroke()</pre>
       </li>
       <li>
         <strong>Chance16 をフラグメントシェーダのピクセルごとの集約で描き切らない。</strong>
-        現行方針の <code>span ≥ 13</code> フラグメントごとのループは、1 フラグメントあたり最大 ~74 outcome を読む。
-        ゲート面積ぶんこれが掛かるため、Quirk の <code>O(outcome)</code> Canvas パス構築より重くなりやすい。
-        代替は、コンピュートシェーダで「画面 y ピクセルごとの代表値」または「ポリライン頂点列」をキャッシュし、描画パスは
-        その小さいバッファ / テクスチャを読むだけにする。
+        <code>span ≥ 13</code> はコンピュートシェーダで「画面 y ピクセルごとの代表値」を作り、描画パスは
+        その小さいバッファを読むだけにした。これによりフラグメントごとの最大 ~74 outcome 走査を、ゲート高さぶんの事前集約へ移す。
       </li>
       <li>
-        <strong>ホバーは重ね描きだけ更新する。</strong>
-        ポインタが動いたときは、確率バッファ・対数ヒント線・バー本体を再生成せず、ホバー中 outcome とポップアップ値だけを更新する。
-        既存の step snapshot キャッシュと同じ発想で、Chance 本体の密な描画結果も circuit / slot / span / viewport 高さが変わるまで再利用する。
+        <strong>ホバー固有の更新を小さくする。</strong>
+        ポインタが動いても状態シミュレーションと <code>chance_probability_output</code> は再生成せず、ホバー中 outcome とポップアップ値だけを差し替える。
+        現時点では y ピクセル代表値の集約パスを各描画準備で軽量に実行する。将来さらに詰める場合は、既存の step snapshot キャッシュと同じ発想で、circuit / slot / span / viewport 高さが変わるまで代表値バッファも再利用する。
       </li>
       <li>
         <strong>密な区切り線や装飾は描かない。</strong>

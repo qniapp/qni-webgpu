@@ -56,6 +56,61 @@ fn main(
 }
 "#;
 
+pub(in crate::gpu) const CHANCE_AGGREGATE_SHADER: &str = r#"
+struct ChanceInstance {
+  rect_min: vec2<f32>,
+  rect_size: vec2<f32>,
+  slot: u32,
+  span: u32,
+  hovered_outcome: i32,
+  _pad: u32,
+};
+
+@group(0) @binding(0) var<storage, read> chance_data: array<f32>;
+@group(0) @binding(1) var<storage, read_write> aggregate_out: array<f32>;
+@group(0) @binding(2) var<storage, read> instances: array<ChanceInstance>;
+
+const MAX_CHANCE_OUTCOMES: u32 = 65536u;
+const MAX_CHANCE_AGGREGATE_ROWS: u32 = 1024u;
+const CHANCE_AGGREGATE_MIN_SPAN: u32 = 13u;
+
+fn chance_prob(slot: u32, row: u32) -> f32 {
+  return clamp(chance_data[slot * MAX_CHANCE_OUTCOMES + row], 0.0, 1.0);
+}
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let y = gid.x;
+  if (y >= MAX_CHANCE_AGGREGATE_ROWS) { return; }
+  let instance = instances[gid.y];
+  let out_index = instance.slot * MAX_CHANCE_AGGREGATE_ROWS + y;
+  let body_h = max(instance.rect_size.y, 1.0);
+  if (f32(y) >= body_h) {
+    aggregate_out[out_index] = 0.0;
+    return;
+  }
+  if (instance.span < CHANCE_AGGREGATE_MIN_SPAN) {
+    aggregate_out[out_index] = 0.0;
+    return;
+  }
+
+  let row_count = 1u << instance.span;
+  let row_h = body_h / f32(row_count);
+  let y0 = f32(y);
+  let y1 = min(y0 + 1.0, body_h);
+  let row_lo = u32(clamp(floor(y0 / row_h), 0.0, f32(row_count - 1u)));
+  let row_hi = u32(clamp(floor(y1 / row_h), 0.0, f32(row_count - 1u)));
+  var p_max = 0.0;
+  var row = row_lo;
+  loop {
+    p_max = max(p_max, chance_prob(instance.slot, row));
+    if (row >= row_hi) { break; }
+    row = row + 1u;
+  }
+  aggregate_out[out_index] = p_max;
+}
+"#;
+
 pub(in crate::gpu) const CHANCE_RENDER_SHADER: &str = r#"
 struct ChanceRenderParams {
   viewport_min: vec2<f32>,
@@ -72,8 +127,11 @@ struct ChanceRenderParams {
 @group(0) @binding(1) var<uniform> params: ChanceRenderParams;
 @group(0) @binding(2) var atlas: texture_2d<f32>;
 @group(0) @binding(3) var atlas_sampler: sampler;
+@group(0) @binding(4) var<storage, read> chance_aggregate_data: array<f32>;
 
 const MAX_CHANCE_OUTCOMES: u32 = 65536u;
+const MAX_CHANCE_AGGREGATE_ROWS: u32 = 1024u;
+const CHANCE_AGGREGATE_MIN_SPAN: u32 = 13u;
 const GLYPH_COUNT: u32 = 19u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PERCENT: u32 = 14u;
@@ -199,25 +257,29 @@ fn chance_log_hint_x(prob: f32, span: u32, width: f32) -> f32 {
   return clamp(1.0 + log(prob) * s, 0.0, 1.0) * width;
 }
 
-fn chance_aggregate_prob_for_pixel(slot: u32, span: u32, row_count: u32, row_h: f32, local_y: f32, fallback_row: u32) -> f32 {
-  let pixel_h = max(fwidth(local_y), row_h);
-  if (span < 13u) { return chance_prob(slot, fallback_row); }
-  let row_lo = u32(clamp(floor((local_y - pixel_h * 0.5) / row_h), 0.0, f32(row_count - 1u)));
-  let row_hi = u32(clamp(floor((local_y + pixel_h * 0.5) / row_h), 0.0, f32(row_count - 1u)));
-  var p_max = 0.0;
-  var row = row_lo;
-  loop {
-    p_max = max(p_max, chance_prob(slot, row));
-    if (row >= row_hi) { break; }
-    row = row + 1u;
-  }
-  return p_max;
+fn chance_aggregate_prob_at_y(slot: u32, y: u32) -> f32 {
+  return clamp(chance_aggregate_data[slot * MAX_CHANCE_AGGREGATE_ROWS + y], 0.0, 1.0);
+}
+
+fn chance_aggregate_y(local_y: f32) -> u32 {
+  return u32(clamp(floor(local_y), 0.0, f32(MAX_CHANCE_AGGREGATE_ROWS - 1u)));
+}
+
+fn chance_aggregate_prob_for_pixel(slot: u32, span: u32, local_y: f32, fallback_prob: f32) -> f32 {
+  if (span < CHANCE_AGGREGATE_MIN_SPAN) { return fallback_prob; }
+  return chance_aggregate_prob_at_y(slot, chance_aggregate_y(local_y));
 }
 
 fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32) -> bool {
   let hint_x = chance_log_hint_x(prob, span, width);
   if (abs(local_x - hint_x) < 0.5) { return true; }
-  if (span >= 13u || row == 0u) { return false; }
+  if (span >= CHANCE_AGGREGATE_MIN_SPAN) {
+    let y = chance_aggregate_y(local_y);
+    if (y == 0u) { return false; }
+    let prev_x = chance_log_hint_x(chance_aggregate_prob_at_y(slot, y - 1u), span, width);
+    return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
+  }
+  if (row == 0u) { return false; }
   let row_y = local_y - f32(row) * row_h;
   if (row_y >= 1.0) { return false; }
   let prev_x = chance_log_hint_x(chance_prob(slot, row - 1u), span, width);
@@ -253,7 +315,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_h = input.rect_size.y / f32(row_count);
   let raw_row = u32(clamp(floor(input.local.y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let prob = chance_prob(input.slot, raw_row);
-  let draw_prob = chance_aggregate_prob_for_pixel(input.slot, input.span, row_count, row_h, input.local.y, raw_row);
+  let draw_prob = chance_aggregate_prob_for_pixel(input.slot, input.span, input.local.y, prob);
   let bar_right = draw_prob * input.rect_size.x;
   let show_text = row_count <= 16u && row_h > 8.0;
 

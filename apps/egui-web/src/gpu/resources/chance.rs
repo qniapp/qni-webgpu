@@ -9,13 +9,13 @@ use eframe::wgpu;
 
 use super::super::params::{
     ChanceInstance, ChancePopupValueParams, ChanceReduceParams, ChanceRenderParams,
-    MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MAX_CHANCE_AGGREGATE_ROWS, MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS, MAX_OPS_PER_RECOMPUTE,
 };
 use super::super::popup_glyph_atlas::{
     rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
 };
 use super::super::shaders::{
-    CHANCE_POPUP_VALUE_SHADER, CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER,
+    CHANCE_AGGREGATE_SHADER, CHANCE_POPUP_VALUE_SHADER, CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER,
 };
 use super::common::Common;
 
@@ -30,6 +30,10 @@ pub(crate) struct ChanceResources {
     pub reduce_params_buffer: wgpu::Buffer,
     pub reduce_params_staging_buffer: wgpu::Buffer,
     pub output_buffer: wgpu::Buffer,
+
+    pub aggregate_pipeline: wgpu::ComputePipeline,
+    pub aggregate_bind_group: wgpu::BindGroup,
+    _aggregate_buffer: wgpu::Buffer,
 
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_bind_group: wgpu::BindGroup,
@@ -68,6 +72,10 @@ impl ChanceResources {
             &output_buffer,
         );
 
+        let aggregate_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_aggregate"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_AGGREGATE_SHADER.into()),
+        });
         let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("chance_render"),
             source: wgpu::ShaderSource::Wgsl(CHANCE_RENDER_SHADER.into()),
@@ -76,17 +84,29 @@ impl ChanceResources {
             label: Some("chance_popup_value"),
             source: wgpu::ShaderSource::Wgsl(CHANCE_POPUP_VALUE_SHADER.into()),
         });
+        let aggregate_layout = create_aggregate_bind_group_layout(device);
+        let aggregate_pipeline =
+            create_aggregate_pipeline(device, &aggregate_shader, &aggregate_layout);
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_params_buffer = create_render_params_buffer(device);
         let render_instance_buffer = create_render_instance_buffer(device);
+        let aggregate_buffer = create_aggregate_buffer(device);
         let popup_value_params_buffer = create_popup_value_params_buffer(device);
         let glyph_atlas = create_glyph_atlas(device, queue);
+        let aggregate_bind_group = create_aggregate_bind_group(
+            device,
+            &aggregate_layout,
+            &output_buffer,
+            &aggregate_buffer,
+            &render_instance_buffer,
+        );
         let render_bind_group = create_render_bind_group(
             device,
             &render_bind_group_layout,
             &output_buffer,
             &render_params_buffer,
             &glyph_atlas,
+            &aggregate_buffer,
         );
         let popup_value_bind_group = create_render_bind_group(
             device,
@@ -94,6 +114,7 @@ impl ChanceResources {
             &output_buffer,
             &popup_value_params_buffer,
             &glyph_atlas,
+            &aggregate_buffer,
         );
         let render_pipeline = create_render_pipeline(
             device,
@@ -114,6 +135,9 @@ impl ChanceResources {
             reduce_params_buffer,
             reduce_params_staging_buffer,
             output_buffer,
+            aggregate_pipeline,
+            aggregate_bind_group,
+            _aggregate_buffer: aggregate_buffer,
             render_pipeline,
             render_bind_group,
             render_bind_group_layout,
@@ -291,6 +315,101 @@ fn create_reduce_bind_groups(
     ]
 }
 
+fn create_aggregate_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_aggregate_rows"),
+        size: (MAX_CHANCE_SLOTS * MAX_CHANCE_AGGREGATE_ROWS * std::mem::size_of::<f32>())
+            as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_aggregate_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("chance_aggregate_layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+fn create_aggregate_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+) -> wgpu::ComputePipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("chance_aggregate_pipeline_layout"),
+        bind_group_layouts: &[layout],
+        push_constant_ranges: &[],
+    });
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("chance_aggregate_pipeline"),
+        layout: Some(&pipeline_layout),
+        module: shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    })
+}
+
+fn create_aggregate_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    output_buffer: &wgpu::Buffer,
+    aggregate_buffer: &wgpu::Buffer,
+    render_instance_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("chance_aggregate_bind_group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: aggregate_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: render_instance_buffer.as_entire_binding(),
+            },
+        ],
+    })
+}
+
 fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("chance_render_layout"),
@@ -331,6 +450,16 @@ fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayo
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ],
     })
 }
@@ -357,7 +486,9 @@ fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("chance_render_instances"),
         size: (MAX_CHANCE_SLOTS * std::mem::size_of::<ChanceInstance>()) as wgpu::BufferAddress,
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        usage: wgpu::BufferUsages::VERTEX
+            | wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
@@ -400,6 +531,7 @@ fn create_render_bind_group(
     output_buffer: &wgpu::Buffer,
     params_buffer: &wgpu::Buffer,
     atlas: &ChanceGlyphAtlas,
+    aggregate_buffer: &wgpu::Buffer,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("chance_render_bind_group"),
@@ -420,6 +552,10 @@ fn create_render_bind_group(
             wgpu::BindGroupEntry {
                 binding: 3,
                 resource: wgpu::BindingResource::Sampler(&atlas.sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: aggregate_buffer.as_entire_binding(),
             },
         ],
     })

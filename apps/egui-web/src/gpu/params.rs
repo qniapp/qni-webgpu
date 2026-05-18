@@ -101,6 +101,11 @@ pub(crate) const MAX_MEASUREMENT_SLOTS: usize = 64;
 /// Chance16 can render every outcome without reallocating GPU buffers.
 pub(crate) const MAX_CHANCE_SLOTS: usize = 32;
 pub(crate) const MAX_CHANCE_OUTCOMES: usize = 1 << 16;
+/// Maximum CSS-pixel height of a Chance display body. Chance16 is currently
+/// `(16 - 1) * LINE_GAP + GATE_SIZE = 880px`; 1024 leaves room for style
+/// tweaks while keeping the aggregate buffer small.
+pub(crate) const MAX_CHANCE_AGGREGATE_ROWS: usize = 1024;
+pub(crate) const CHANCE_AGGREGATE_MIN_SPAN: u32 = 13;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

@@ -12,7 +12,7 @@ mod popup_value;
 mod state;
 
 pub(super) use bloch::{BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER};
-pub(super) use chance::{CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER};
+pub(super) use chance::{CHANCE_AGGREGATE_SHADER, CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER};
 pub(super) use chance_popup_value::CHANCE_POPUP_VALUE_SHADER;
 pub(super) use digit::MEASUREMENT_DIGIT_SHADER;
 pub(super) use measure::{MEASURE_COLLAPSE_SHADER, MEASURE_REDUCE_SHADER};

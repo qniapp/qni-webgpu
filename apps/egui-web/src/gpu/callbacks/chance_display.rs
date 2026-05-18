@@ -3,7 +3,9 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use super::super::params::{ChanceInstance, ChanceRenderParams};
+use super::super::params::{
+    ChanceInstance, ChanceRenderParams, CHANCE_AGGREGATE_MIN_SPAN, MAX_CHANCE_AGGREGATE_ROWS,
+};
 use super::super::resources::StateVectorResources;
 
 /// Renders Chance display bars straight from the GPU probability buffer
@@ -27,7 +29,7 @@ impl egui_wgpu::CallbackTrait for ChanceDisplayCallback {
         _device: &wgpu::Device,
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _egui_encoder: &mut wgpu::CommandEncoder,
+        egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         let Some(resources) = callback_resources.get_mut::<StateVectorResources>() else {
@@ -59,6 +61,23 @@ impl egui_wgpu::CallbackTrait for ChanceDisplayCallback {
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
+        if self
+            .instances
+            .iter()
+            .any(|instance| instance.span >= CHANCE_AGGREGATE_MIN_SPAN)
+        {
+            let mut pass = egui_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("chance_aggregate_rows_pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&resources.chance.aggregate_pipeline);
+            pass.set_bind_group(0, &resources.chance.aggregate_bind_group, &[]);
+            pass.dispatch_workgroups(
+                (MAX_CHANCE_AGGREGATE_ROWS as u32).div_ceil(64),
+                self.instances.len() as u32,
+                1,
+            );
+        }
         Vec::new()
     }
 
