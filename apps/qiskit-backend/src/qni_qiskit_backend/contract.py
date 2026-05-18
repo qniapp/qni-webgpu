@@ -13,7 +13,7 @@ FORBIDDEN_OUTPUTS = {
     "fullProbabilities",
 }
 MAX_SHOTS = 100_000
-MAX_QUBITS = 30
+MAX_QUBITS = 32
 
 
 class ContractError(ValueError):

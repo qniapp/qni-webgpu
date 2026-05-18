@@ -148,6 +148,7 @@ fn flexoki_light() -> Colors {
     let red_600 = tone(0.686, 0.188, 0.161); // red-600 #AF3029
     let green_600 = tone(0.400, 0.502, 0.043); // green-600 #66800B
     let cyan_400 = tone(0.227, 0.663, 0.624); // cyan-400 #3AA99F
+    let blue_200 = tone(0.573, 0.749, 0.859); // blue-200 #92BFDB
     let blue_300 = tone(0.400, 0.627, 0.784); // blue-300 #66A0C8
     let blue_400 = tone(0.263, 0.522, 0.745); // blue-400 #4385BE
     let blue_600 = tone(0.125, 0.369, 0.651); // blue-600 #205EA6
@@ -165,7 +166,7 @@ fn flexoki_light() -> Colors {
         label: paper,                      // inverse label on filled gates
         text: tx_2,                        // body text
         text_strong: tx,                   // emphasized titles / data ink
-        state_fill: blue_300,              // amplitude disk
+        state_fill: blue_200,              // amplitude disk / Chance bar (Flexoki blue-200)
         state_outline: tx_2,               // non-zero amplitude outline
         state_outline_zero: ui_2,          // zero-amplitude outline
         state_needle: tx,                  // phase needle

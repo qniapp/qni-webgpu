@@ -125,7 +125,7 @@ pub(crate) const MIN_QUBITS: usize = 2;
 pub(crate) const LOCAL_MAX_QUBITS: usize = 16;
 /// External GPU editing capacity for the phase-1/2 UI path. Large execution
 /// result rendering is separate from the Local WebGPU state-vector panel.
-pub(crate) const GPU_MAX_QUBITS: usize = 30;
+pub(crate) const GPU_MAX_QUBITS: usize = 32;
 /// Backwards-compatible name for Local state-vector capacity.
 pub(crate) const MAX_QUBITS: usize = LOCAL_MAX_QUBITS;
 pub(crate) const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;

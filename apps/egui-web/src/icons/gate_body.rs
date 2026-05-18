@@ -139,7 +139,7 @@ fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &
     }
     // 回路側の chance display 外周 (`circuit_gates.rs:180` で `colors.line` =
     // ui-2) と階調を合わせる。Quirk の `lightgray` (#D3D3D3) と同じ薄灰で
-    // 「データ領域の輪郭」だけを示し、ゲート本体の強調はバー (blue-300)
+    // 「データ領域の輪郭」だけを示し、ゲート本体の強調はバー (blue-200)
     // に任せる。
     painter.rect_stroke(
         rect,

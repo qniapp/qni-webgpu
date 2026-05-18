@@ -15,6 +15,14 @@ class ContractTests(unittest.TestCase):
                 }
             )
 
+    def test_accepts_thirty_two_qubits(self):
+        request = parse_run_request({"qubits": 32, "columns": [], "shots": 12})
+        self.assertEqual(request.qubits, 32)
+
+    def test_rejects_more_than_thirty_two_qubits(self):
+        with self.assertRaises(ContractError):
+            parse_run_request({"qubits": 33, "columns": [], "shots": 12})
+
     def test_mock_runner_returns_histogram_only(self):
         request = parse_run_request({"qubits": 3, "columns": [], "shots": 12})
         response = MockRunner().run(request)

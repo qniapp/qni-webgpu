@@ -101,15 +101,15 @@ test('palette chance display preview uses four Gaussian rows', async ({ page }) 
     { name: 'divider3', x: left + 36, y: top + 30 },
   ]
   const pixels = await sampleCanvasPixels(page, canvas, samples)
-  const isBlue300 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [102, 160, 200, 255]) < 36
+  const isBlue200 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [146, 191, 219, 255]) < 36
   const isPaper = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [255, 252, 240, 255]) < 12
   const isUi2 = (pixel: CanvasPixel) => pixelRgbDistance(pixel, [218, 216, 206, 255]) < 24
 
   expect({
-    row1: [isBlue300(pixels.row1Bar), isPaper(pixels.row1Tail)],
-    row2: [isBlue300(pixels.row2Bar), isPaper(pixels.row2Tail)],
-    row3: [isBlue300(pixels.row3Bar), isPaper(pixels.row3Tail)],
-    row4: [isBlue300(pixels.row4Bar), isPaper(pixels.row4Tail)],
+    row1: [isBlue200(pixels.row1Bar), isPaper(pixels.row1Tail)],
+    row2: [isBlue200(pixels.row2Bar), isPaper(pixels.row2Tail)],
+    row3: [isBlue200(pixels.row3Bar), isPaper(pixels.row3Tail)],
+    row4: [isBlue200(pixels.row4Bar), isPaper(pixels.row4Tail)],
     dividers: [isUi2(pixels.divider1), isUi2(pixels.divider2), isUi2(pixels.divider3)],
   }).toEqual({
     row1: [true, true],

@@ -370,7 +370,7 @@
       </section>
 
       <section class="section" id="size" style="--i:3">
-        <div class="sec-head"><span class="sec-num">3</span><h2>状態ベクトルの大きさ — 30量子ビット近辺はブラウザへ送れない</h2></div>
+        <div class="sec-head"><span class="sec-num">3</span><h2>状態ベクトルの大きさ — 32量子ビット近辺はブラウザへ送れない</h2></div>
         <p class="note">1つの振幅は複素数。GPU 側の complex64 でも 8 byte、Qiskit / NumPy の complex128 なら 16 byte。JSON 化すると、文字列表現、配列、キーのぶんだけさらに膨らむ。</p>
         <div class="table-wrap"><div class="table-scroll">
           <table>
@@ -397,7 +397,7 @@
             <div class="label">廃止</div>
             <h3>全状態ベクトル表示</h3>
             <ul>
-              <li>振幅と位相を全基底状態ぶん描く表示は、30量子ビットでは意味的にも転送量的にも破綻する。</li>
+              <li>振幅と位相を全基底状態ぶん描く表示は、32量子ビットでは意味的にも転送量的にも破綻する。</li>
               <li>「見えている範囲だけ問い合わせる」方式も、状態ベクトル画面を残す限り期待値を誤解させる。</li>
             </ul>
           </article>
@@ -426,7 +426,7 @@
             <thead><tr><th>表示</th><th>既定にするか</th><th>理由</th></tr></thead>
             <tbody>
               <tr><td>状態ベクトル全体</td><td><span class="pill no">しない</span></td><td>振幅・位相が 2^N 件。転送も理解も破綻。</td></tr>
-              <tr><td>厳密な確率分布</td><td><span class="pill no">しない</span></td><td>確率だけでも 2^N 件。30量子ビットなら float32 生データで 4 GiB。</td></tr>
+              <tr><td>厳密な確率分布</td><td><span class="pill no">しない</span></td><td>確率だけでも 2^N 件。32量子ビットなら float32 生データで 16 GiB。</td></tr>
               <tr><td>試行結果から作るヒストグラム</td><td><span class="pill local">する</span></td><td>最大行数が試行回数で抑えられる。4096回なら JSON でも数百 KiB 程度。</td></tr>
               <tr><td>一部量子ビットの周辺分布</td><td><span class="pill local">する</span></td><td>表示対象を 1〜8量子ビット程度に絞れば、2^k 件で済む。</td></tr>
               <tr><td>指定した振幅</td><td><span class="pill remote">任意</span></td><td>デバッグ用途。状態番号を明示し、件数と返却サイズに上限を置く。</td></tr>
@@ -457,7 +457,7 @@
             <ul>
               <li><code>save_statevector</code> で状態ベクトル全体を結果へ保存している。</li>
               <li><code>dict(enumerate(amplitudes))</code> で全振幅を Python の辞書にしている。</li>
-              <li>その後に <code>amplitudeIndices</code> で絞り込む。30量子ビットではここで破綻する。</li>
+              <li>その後に <code>amplitudeIndices</code> で絞り込む。32量子ビットではここで破綻する。</li>
               <li>service worker が手元のシミュレータで状態ベクトルを複製する無駄もあり、qni-webgpu では禁止。</li>
             </ul>
           </article>

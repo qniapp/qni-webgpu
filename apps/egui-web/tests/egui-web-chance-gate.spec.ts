@@ -145,7 +145,7 @@ const waitForChanceBarPixels = async (
         for (let y = y0; y <= y1; y += 1) {
           for (let x = x0; x <= x1; x += 1) {
             const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-            if (Math.abs(r - 102) + Math.abs(g - 160) + Math.abs(b - 200) < 16) blue += 1
+            if (Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 16) blue += 1
             if (Math.abs(r - 255) + Math.abs(g - 252) + Math.abs(b - 240) < 16) paper += 1
           }
         }
@@ -200,7 +200,7 @@ const readoutVisualStabilityEvidence = async (
         }
         const dist = (rgb: [number, number, number], target: [number, number, number]) =>
           Math.abs(rgb[0] - target[0]) + Math.abs(rgb[1] - target[1]) + Math.abs(rgb[2] - target[2])
-        const chanceDefault = dist(px(chanceProbe.x, chanceProbe.y), [102, 160, 200]) < 48
+        const chanceDefault = dist(px(chanceProbe.x, chanceProbe.y), [146, 191, 219]) < 48
         let measurementDigitPixels = 0
         for (let y = measureCenter.y - 14; y <= measureCenter.y + 14; y += 1) {
           for (let x = measureCenter.x - 14; x <= measureCenter.x + 14; x += 1) {
@@ -392,7 +392,7 @@ test('Chance9 keeps tiny-row bars visible', async ({ page }) => {
 
   expect({
     p128: Math.round(probs[128] * 1000) / 1000,
-    barVisible: pixelRgbDistance(pixels.outcome128Bar, [102, 160, 200, 255]) < 64,
+    barVisible: pixelRgbDistance(pixels.outcome128Bar, [146, 191, 219, 255]) < 64,
   }).toEqual({ p128: 0.5, barVisible: true })
 })
 
