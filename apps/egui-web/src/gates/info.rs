@@ -373,10 +373,10 @@ impl GateKind {
                 transitions: &[],
             },
             GateKind::ChanceDisplay => GateInfo {
-                name: "Chance Display",
+                name: "Probability Display",
                 paragraphs: &[
-                    "Shows the probabilities for the spanned qubits.",
-                    "Resize after placing to inspect Chance2 through Chance16.",
+                    "Shows chances of outcomes if a measurement was performed.",
+                    "Use controls to see conditional probabilities.",
                 ],
                 transitions: &[],
             },
