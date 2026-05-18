@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chance display — 仕様</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --font-body: 'Geist', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:       #FFFCF0;
+      --bg-2:     #F2F0E5;
+      --ui:       #E6E4D9;
+      --ui-2:     #DAD8CE;
+      --tx-3:     #B7B5AC;
+      --tx-2:     #6F6E69;
+      --tx:       #100F0F;
+      --blue-200: #92BFDB;
+      --blue-300: #66A0C8;  /* Flexoki blue-300 — 旧 state_fill。比較用に保持 */
+      --blue-400: #4385BE;
+      --blue-600: #205EA6;
+      --purple-400: #8B7EC8;
+      --purple-600: #5E409D;  /* Flexoki purple-600 — handle active / hover の濃色 */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      color: var(--tx); font-family: var(--font-body);
+      font-size: 16px; line-height: 24px;
+      background: var(--bg-2); padding: 0 0 96px;
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3); }
+    h1.page-title { margin: 12px 0 8px; font-size: 30px; line-height: 36px; letter-spacing: -0.01em; font-weight: 700; }
+    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
+    p.page-lede code, .note code, p code, td code, li code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+    section.block > h2 { margin: 0 0 12px; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; }
+    .note { color: var(--tx-2); font-size: 14px; line-height: 1.7; max-width: 820px; margin: 0 0 16px; }
+
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+    .card p { margin: 0 0 8px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul { margin: 4px 0 8px; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+
+    table.spec {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px; margin-top: 4px;
+    }
+    table.spec th, table.spec td {
+      text-align: left; padding: 8px 12px 8px 0;
+      border-bottom: 1px solid var(--ui-2); vertical-align: top;
+    }
+    table.spec th {
+      color: var(--tx-3); font-weight: 500;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      width: 180px;
+    }
+    table.spec td.num { font-family: var(--font-mono); text-align: right; padding-right: 16px; }
+    table.spec td code, table.spec th code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 5px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 12px;
+    }
+
+    pre.code {
+      margin: 8px 0; padding: 12px 14px;
+      background: var(--ui); border-radius: 6px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.6; overflow-x: auto;
+      color: var(--tx);
+    }
+
+    /* ── Chance display 視覚スタイル (実コードと 1:1 で揃える) ───── */
+    .cd {
+      width: 40px;
+      background: var(--bg);
+      position: relative;
+      /* overflow: visible にしてリサイズハンドル (§ 11) が ±12 px はみ出せるようにする。
+         row 自体は .cd .row の overflow: hidden で個別にクリップしているので、ゲート内描画は崩れない */
+      overflow: visible;
+      flex-shrink: 0;
+    }
+    .cd::after {
+      content: '';
+      position: absolute; inset: 0;
+      border: 1px solid var(--ui-2);
+      pointer-events: none;
+    }
+    .cd .row {
+      position: absolute;
+      left: 0; right: 0;
+      overflow: hidden;
+    }
+    .cd .row .bar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--blue-200);   /* デザイン仕様: blue-200。実装側 colors.state_fill と同値 */
+      border-right: 1px solid var(--blue-400);   /* 右端マーカー: blue-200 から 2 tone 濃い blue-400 で「確率境界」を 1 px 強調 (Quirk の gray stroke 相当) */
+    }
+    .cd .row .label {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--tx);
+      pointer-events: none;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .cd .row .label .dot {
+      display: inline-block;
+      margin-left: -3px;
+      margin-right: -3px;
+    }
+    .cd .row .label .pct {
+      font-size: 12px;
+      vertical-align: baseline;
+    }
+    .cd .div {
+      position: absolute; right: 0;
+      height: 1px;
+      background: var(--ui-2);
+      pointer-events: none;
+    }
+    /* 対数ヒント線 (§ 08): row_h ≤ 8 px のとき連続ポリラインで描画。
+       Quirk の '#CCC' に対応する Flexoki ui-2 を流用。バーよりも下のレイヤに置く
+       (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — per-row
+       独立の縦線では Quirk の階段状シルエットが得られないので不可。 */
+    .cd .log-hint-svg {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .cd .row .bar-clip {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .cd .row .bar-clip .row-extent {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 40px;
+    }
+    .cd .row .bar-clip .label { color: var(--tx); }
+    /* ホバー: 外側のゲート枠 (purple-400 ring の 2 px 厚、paper の 2 px gap を挟む) */
+    .cd:hover {
+      box-shadow:
+        0 0 0 2px var(--bg),
+        0 0 0 4px var(--purple-400);
+    }
+    /* ホバー中の行に inset 2 px の purple-400 枠 */
+    .cd .row:hover::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--purple-400);
+      pointer-events: none;
+      z-index: 10;
+    }
+    /* アイコン: 行ホバーは無効、ゲート枠だけ受ける (静的プレビュー扱い) */
+    .cd.icon .row { pointer-events: none; }
+
+    /* ─── ポップアップ (行ホバー時) ───
+       Quirk の MathPainter.paintDeferredValueTooltip と同じ内容を、
+       Geist 系のタイポグラフィで再構成。ket を主、補足を従、ラベルを小、
+       数値を tabular-nums で揃える。サイズは Tailwind スケール (text-xs / text-sm)、
+       スペーシングは 4 px の倍数 (spacing-1 .. spacing-4)。 */
+    .cd-popup {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      z-index: 50;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 6px;       /* Qni のゲート本体 (CornerRadius::same(6)) と同じ角丸 */
+      padding: 12px 16px;       /* spacing-3 / spacing-4 */
+      font-family: 'Geist', sans-serif;
+      font-size: 12px;          /* text-xs */
+      line-height: 1.4;
+      color: var(--tx);
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
+    }
+    .cd-popup .cd-popup-ket {
+      font-family: var(--font-mono);
+      font-size: 14px;          /* text-sm */
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--tx);
+    }
+    .cd-popup .cd-popup-sub {
+      font-size: 12px;          /* text-xs */
+      margin-top: 4px;          /* spacing-1 */
+      color: var(--tx-2);       /* Flexoki tx-2 #6F6E69 — tx-3 だと薄すぎて読みにくい */
+    }
+    .cd-popup .cd-popup-divider {
+      height: 1px;
+      background: var(--ui-2);
+      margin: 12px 0;           /* spacing-3 */
+    }
+    .cd-popup .cd-popup-row {
+      display: flex;
+      gap: 16px;                /* spacing-4 */
+      align-items: baseline;
+      font-family: var(--font-mono);
+    }
+    .cd-popup .cd-popup-row + .cd-popup-row {
+      margin-top: 4px;          /* spacing-1 */
+    }
+    .cd-popup .cd-popup-label {
+      font-size: 12px;          /* text-xs */
+      color: var(--tx-2);       /* tx-3 だと薄すぎるので tx-2 (#6F6E69) */
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      min-width: 32px;          /* spacing-8 */
+    }
+    .cd-popup .cd-popup-value {
+      font-size: 14px;          /* text-sm */
+      color: var(--tx);
+      font-variant-numeric: tabular-nums;
+      margin-left: auto;
+    }
+    /* 仕様ページ用に常時表示する派生クラス。実際のホバー時挙動と同じ見た目を
+       静的に並べて Codex / 人間がスクロール一覧できるようにする。 */
+    .cd-popup.cd-popup--static {
+      display: inline-block;
+      position: static;
+      vertical-align: top;
+    }
+
+    /* ─── リサイズハンドル (§ 11) ───
+       span を 1〜16 で変更するための上下ドラッグハンドル。purple-400 ベース、
+       ホバー枠 (purple-400 4 px ring + 2 px paper gap) の <strong>さらに外側</strong>
+       にレイアウトし、2 px の paper gap で視覚的に分離する。
+       通常時は invisible、ゲート hover で「奥から飛び出してくる」マイクロ
+       インタラクション (フェードイン + 軽いバウンス) で出現、handle 個別 hover
+       で 1.15 × に拡大して purple-600 に深く、active drag で 1.25 × に固定。 */
+    .cd-handle {
+      position: absolute;
+      left: 50%;
+      width: 24px;
+      height: 6px;
+      background: var(--purple-400);
+      border-radius: 3px;
+      opacity: 0;
+      cursor: ns-resize;
+      pointer-events: auto;
+      z-index: 20;
+      transform: translateX(-50%) scale(0.7);
+      transition:
+        opacity 200ms ease-out,
+        transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        background 120ms ease-out;
+    }
+    .cd-handle--top    { top: -12px; }        /* 4 px ring 外側 + 2 px paper gap */
+    .cd-handle--bottom { bottom: -12px; }
+
+    /* visible 状態: ゲート hover で出現 / 仕様ページの強制表示クラスでも出現 */
+    .cd:hover .cd-handle,
+    .cd.cd--state-hover .cd-handle,
+    .cd-handle.cd-handle--state-visible,
+    .cd-handle.cd-handle--state-hover,
+    .cd-handle.cd-handle--state-active {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    /* handle 個別 hover: 拡大 + purple-600 */
+    .cd-handle:hover,
+    .cd-handle.cd-handle--state-hover {
+      background: var(--purple-600);
+      transform: translateX(-50%) scale(1.15);
+    }
+
+    /* active drag: さらに拡大、ドラッグ中はカーソルが ns-resize */
+    .cd-handle:active,
+    .cd-handle.cd-handle--state-active {
+      background: var(--purple-600);
+      transform: translateX(-50%) scale(1.25);
+    }
+
+    /* 仕様ページ用にゲートホバー枠を強制表示する派生クラス */
+    .cd.cd--state-hover {
+      box-shadow:
+        0 0 0 2px var(--bg),
+        0 0 0 4px var(--purple-400);
+    }
+
+    .stage {
+      display: flex; gap: 24px; align-items: flex-start;
+      flex-wrap: wrap; margin-top: 16px;
+    }
+    .stage .col {
+      display: flex; flex-direction: column; gap: 8px; align-items: center;
+      max-width: 120px; text-align: center;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--tx-3); line-height: 1.4;
+    }
+    .stage .actual { display: flex; align-items: center; justify-content: center; }
+    .stage .zoom {
+      width: 160px; height: 160px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stage .zoom .cd { transform: scale(4); transform-origin: center; }
+
+    .doc-foot {
+      max-width: 1100px; margin: 24px auto 0; padding: 32px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--tx-3); letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
+    .doc-foot a:hover { color: var(--blue-600); border-color: var(--blue-600); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · widget spec</p>
+  <h1 class="page-title">Chance display</h1>
+  <p class="page-lede">
+    任意の地点で span 内 qubit を測定した場合の各 outcome の確率を、
+    ゲート本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する display gate。
+    状態ベクトルには影響しない。<strong>span は 1〜16 qubit (上限 16)</strong>、
+    見た目は span 全体で同一視覚モデル。
+    本ドキュメントは描画仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
+  </p>
+</div>
+
+<!-- ─────── § 01 サイズ別の見た目 ─────── -->
+<section class="block">
+  <h2>§ 01 サイズ別の見た目 (1〜5, 16 qubit)</h2>
+  <div class="card">
+    <p>
+      span を実寸大で並べた参考レンダリング。span 1〜4 は <code>XX.X%</code> ラベル付き、
+      span 5 以上は対数ヒント線 (§ 08) を描く。確率分布は代表的なパターン (フル幅 <code>100%</code> 行を含む)。
+      マウスカーソルを乗せてホバー挙動も確認できる。
+    </p>
+
+    <h3 style="margin-top: 8px;">span 1〜5</h3>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">1 qubit<br>2 outcomes<br>40×40 px</div>
+        <div class="actual">
+          <div class="cd-host" data-height="40" data-probs="70,30"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">2 qubit<br>4 outcomes<br>40×96 px</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="60,30,100,15"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">3 qubit<br>8 outcomes<br>40×152 px</div>
+        <div class="actual">
+          <div class="cd-host" data-height="152" data-probs="10,40,80,100,75,50,25,5"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">4 qubit<br>16 outcomes<br>40×208 px</div>
+        <div class="actual">
+          <div class="cd-host" data-height="208" data-probs="5,15,30,60,80,95,100,90,70,50,35,20,10,5,2,0"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">5 qubit<br>32 outcomes · 40×264 px<br>(対数ヒント線)</div>
+        <div class="actual">
+          <div class="cd-host" data-height="264" data-probs="1,2,4,6,8,10,13,17,22,28,35,45,58,72,86,100,92,78,62,48,35,25,18,13,10,7,5,3,2,1,1,0"></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 24px;">span 16 (最大サイズ)</h3>
+    <p>
+      <strong>chance display の上限は 16 qubit</strong>。outcomes 数 = <code>2<sup>16</sup> = 65 536</code>、
+      高さ 880 px、行高 ≈ <code>0.013 px</code> (サブピクセル)。
+      行高が極小のため <code>XX.X%</code> ラベルは描かず、対数ヒント線 (§ 08) のみで分布の形を表現する。
+      確率分布は中心 <code>k = 32 768</code> に山を持つガウシアンプリセットで生成 (デモ用)。
+      実寸 40 × 880 px のため DOM 由来の 65 536 div を避け、<code>&lt;canvas&gt;</code> に直接描画している。
+    </p>
+    <div class="stage" style="gap: 32px;">
+      <div class="col" style="max-width: 200px;">
+        <div class="caption">16 qubit<br>65 536 outcomes · 40×880 px<br>(対数ヒント線のみ)</div>
+        <div class="actual">
+          <div class="cd-host" data-height="880" data-canvas="true" data-pattern="gaussian" data-n="65536"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 パレットアイコン ─────── -->
+<section class="block">
+  <h2>§ 02 パレットアイコン (mini preview)</h2>
+  <div class="card">
+    <p>
+      パレットに並ぶ <code>ChanceDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
+      Gaussian 風の 4 行プレビュー (<code>CHANCE_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>) で
+      「複数 outcome を持つ確率分布ゲート」を表す。バー / 区切り / 外枠は本体と同じルール
+      (区切り線はバー領域に引かない、外枠は <code>ui-2</code> 1 px、本体角ばり)。
+      ホバー時は外側のゲートホバー枠だけ表示 (行ホバー枠は出さない、静的なので行を選ぶ意味がない)。
+    </p>
+    <div class="stage" style="gap: 32px;">
+      <div class="col">
+        <div class="caption">実寸 40×40 px</div>
+        <div class="actual">
+          <div class="cd-host" data-icon="true" data-height="40" data-probs="30,75,55,20"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">4× zoom</div>
+        <div class="zoom">
+          <div class="cd-host" data-icon="true" data-height="40" data-probs="30,75,55,20"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 概要 ─────── -->
+<section class="block">
+  <h2>§ 03 概要</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>役割</th><td>確率分布を表示する display gate (状態に影響しない)</td></tr>
+        <tr><th>span</th><td><strong>1〜16 qubit (上限 16)</strong>、UI でリサイズハンドルから可変。16 を超える span は配置不可</td></tr>
+        <tr><th>outcomes</th><td>2<sup>span</sup> 行 (上から binary big-endian、<code>k = 0</code> = |0..0⟩、<code>k = 2<sup>span</sup>−1</code> = |1..1⟩)。最大 <code>2<sup>16</sup> = 65 536</code> 行</td></tr>
+        <tr><th>確率計算</th><td>GPU コンピュートシェーダで marginalize → <code>chance_probability_output</code> (= <code>resources.chance.output_buffer</code>、<code>chance_data</code> として shader バインド) に書き出す。CPU リードバックなし</td></tr>
+        <tr><th>シリアライズ ID</th><td>span 1 → <code>"Chance"</code>、span 2..16 → <code>"Chance2"</code>..<code>"Chance16"</code> (Quirk 互換)</td></tr>
+        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドル (§ 11) で span を 1..16 に変更 (QFT と同型)</td></tr>
+        <tr><th>nesting</th><td>禁止 (display gate の中に display gate は置けない、Quirk と同じ)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 04 ジオメトリ ─────── -->
+<section class="block">
+  <h2>§ 04 ジオメトリ</h2>
+  <div class="card">
+    <h3>本体寸法</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>幅</th><td><code>GATE_SIZE = 40 px</code> 固定 (span に依存しない)</td></tr>
+        <tr><th>高さ</th><td><code>(span − 1) × LINE_GAP + GATE_SIZE</code> = <code>56 × span − 16</code> px</td></tr>
+        <tr><th>行高</th><td>全体高 ÷ 2<sup>span</sup></td></tr>
+        <tr><th>外枠</th><td><code>ui-2</code> 1 px、角ばり (角丸ゼロ)</td></tr>
+      </tbody>
+    </table>
+    <h3 style="margin-top: 16px;">span 別の高さ / 行高</h3>
+    <table class="spec">
+      <thead>
+        <tr><th>span</th><th>outcomes</th><th style="text-align:right;">高さ (px)</th><th style="text-align:right;">行高 (px)</th><th>テキスト</th><th>対数ヒント線</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">2</td><td class="num">40</td><td class="num">20.0</td><td>あり</td><td>なし</td></tr>
+        <tr><td class="num">2</td><td class="num">4</td><td class="num">96</td><td class="num">24.0</td><td>あり</td><td>なし</td></tr>
+        <tr><td class="num">3</td><td class="num">8</td><td class="num">152</td><td class="num">19.0</td><td>あり</td><td>なし</td></tr>
+        <tr><td class="num">4</td><td class="num">16</td><td class="num">208</td><td class="num">13.0</td><td>あり</td><td>なし</td></tr>
+        <tr><td class="num">5</td><td class="num">32</td><td class="num">264</td><td class="num">8.25</td><td>なし</td><td>あり</td></tr>
+        <tr><td class="num">6</td><td class="num">64</td><td class="num">320</td><td class="num">5.0</td><td>なし</td><td>あり</td></tr>
+        <tr><td class="num">...</td><td class="num">...</td><td class="num">...</td><td class="num">...</td><td>なし</td><td>あり</td></tr>
+        <tr><td class="num">16</td><td class="num">65536</td><td class="num">880</td><td class="num">0.013</td><td>なし</td><td>あり</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      表示切替条件: <code>row_h &gt; 8 px</code> のとき <code>XX.X%</code> ラベルを描画 (span 1〜4)、
+      満たさないとき (span 5 以上) はラベルを出さず、対数スケールの補助線 (§ 08 対数ヒント線) を描画する。
+      線形バーは全 span で常に描く。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 05 配色 ─────── -->
+<section class="block">
+  <h2>§ 05 配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>要素</th><th>Flexoki トーン</th><th>hex</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>背景</td><td><code>paper</code></td><td>#FFFCF0</td><td>ゲート本体の塗りつぶし</td></tr>
+        <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。<strong>本仕様が正</strong>。現実装 <code>colors.state_fill</code> は blue-300 だが、本仕様に合わせて blue-200 に更新する (詳細は § 13 実装ファイル参照)</td></tr>
+        <tr><td>バー右端マーカー</td><td><code>blue-400</code></td><td>#4385BE</td><td>1 px の確率境界線 (Quirk の gray stroke 相当、blue-200 から 2 tone 濃い)</td></tr>
+        <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
+        <tr><td>対数ヒント線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>row_h ≤ 8 px のとき、各 outcome の log 位置に薄灰の補助線 (Quirk の <code>'#CCC'</code> 相当)</td></tr>
+        <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
+        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
+        <tr><td>リサイズハンドル (active)</td><td><code>purple-600</code></td><td>#5E409D</td><td>handle hover / active drag 時の濃色 (§ 11)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 06 タイポグラフィ ─────── -->
+<section class="block">
+  <h2>§ 06 タイポグラフィ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>フォントファミリ</th><td>Geist Mono</td></tr>
+        <tr><th>ウェイト</th><td>Light 300</td></tr>
+        <tr><th>数字</th><td>12 px、右詰め (<code>right: 2 px</code> マージン)、letter-spacing: −0.02 em</td></tr>
+        <tr><th>"."</th><td>12 px、左右 −3 px ずつのマージンで詰める ("100.0%" を 40 px 幅に収めるため。"." は元々細いドットなので隣接桁とぶつからない)</td></tr>
+        <tr><th>"%"</th><td>12 px、数字と同サイズ・同 baseline (vertical-align: baseline)</td></tr>
+        <tr><th>整数値の表現</th><td>常に <code>XX.X%</code> 形式 (整数値も <code>50.0%</code> / <code>100.0%</code> と書く、Quirk 互換)</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      実コード対応: digit atlas に <code>0..9</code> / <code>.</code> / <code>%</code> を Geist Mono Light 300 で
+      ラスタライズ。"." は他の glyph より advance 幅を −6 px 詰める cell スケールで描画する。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 07 視覚要素 ─────── -->
+<section class="block">
+  <h2>§ 07 視覚要素</h2>
+  <div class="card">
+    <h3>バー</h3>
+    <ul>
+      <li>左から <code>P(outcome k) × gate_w</code> の幅で <code>blue-200</code> を塗る</li>
+      <li>右端 1 px は <code>blue-400</code> の縦線で「確率境界」をマーク (Quirk と同じ流儀)</li>
+      <li>各行は同じ高さで分割される (= 全体高 ÷ 2<sup>span</sup>)</li>
+    </ul>
+    <h3 style="margin-top: 16px;">行区切り線</h3>
+    <ul>
+      <li>隣接 2 行のうち広いバーの右端から行右端まで <code>ui-2</code> 1 px を引く</li>
+      <li>バー領域では「色の境界」自体が区切りになるので線は引かない (Quirk と同じ流儀、視覚的に冗長な線を排除)</li>
+      <li>計算式: <code>x_start = rect.left() + rect.width() × max(prob[i−1], prob[i])</code>、<code>x_end = rect.right()</code></li>
+    </ul>
+    <h3 style="margin-top: 16px;">テキストラベル</h3>
+    <ul>
+      <li>各行の右端から 2 px 内側に右詰めで <code>XX.X%</code> を描画</li>
+      <li>バー領域に重なる場合もテキスト色は変えない (色境界 two-tone なし)。<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト</li>
+      <li>条件: <code>row_count ≤ 16 && row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 08 の対数ヒント線を描く)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 08 対数ヒント線 ─────── -->
+<section class="block">
+  <h2>§ 08 対数ヒント線 (logarithm hints)</h2>
+  <div class="card">
+    <p>
+      行高が小さい場合 (<code>row_h ≤ 8 px</code>、span 5 以上) は <code>XX.X%</code> ラベルを出せない。
+      代わりに各 outcome の確率を<strong>対数スケールの補助線</strong>として薄い灰色で描き、
+      線形バーでは見分けにくい <em>極めて小さい確率</em> の差を視覚的に残す。
+      Quirk の <code>_paintMultiProbabilityDisplay_logarithmHints</code> と同じ流儀。
+    </p>
+
+    <h3>発動条件</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>判定式 (qni-webgpu)</th><td>
+          <code>showText = row_count ≤ 16 &amp;&amp; row_h &gt; 8</code><br>
+          <span style="color:var(--tx-2)">Quirk は <code>textFits = row_h &gt; 8</code> のみ。Chance5 (40 px 化後 <code>row_h = 264/32 = 8.25</code>) は Quirk ルールだとテキスト表示になるが、qni-webgpu は <strong>9 px グリフより縦に詰まって読めない</strong>ため <code>row_count ≤ 16</code> も AND する。結果として Chance1〜4 のみテキスト、Chance5+ は対数ヒント線。</span>
+        </td></tr>
+        <tr><th><code>showText = true</code></th><td><code>XX.X%</code> ラベルを描画。対数ヒント線は描かない (Chance1〜4)</td></tr>
+        <tr><th><code>showText = false</code></th><td>テキストを描かず、対数ヒント線を描画 (Chance5〜16)</td></tr>
+        <tr><th>線形バーとの重ね順</th><td>対数ヒント線 → 線形バーの順で描き、バーの背後に補助線が残る (Quirk と同じ)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">横位置の計算</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>スケール係数</th><td><code>s = 1 / (4 + max(8, span))</code></td></tr>
+        <tr><th>横位置比</th><td><code>x_ratio = clamp(0, 1, 1 + ln(p) × s)</code> (<code>ln</code> は自然対数)</td></tr>
+        <tr><th>描画 x</th><td><code>px = rect.x + rect.w × x_ratio</code></td></tr>
+        <tr><th>境界挙動</th><td>
+          <code>p = 1</code> → <code>x_ratio = 1</code> (右端) /
+          <code>p</code> が小さいほど左へ寄る /
+          <code>p</code> が極小または <code>0</code> なら clamp により <code>x_ratio = 0</code> (左端) に潰れる
+        </td></tr>
+        <tr><th>span 依存性</th><td>
+          span が大きいほど <code>s</code> が小さくなり、<code>ln(p)</code> の効き目が緩やかになる
+          (span = 8 → <code>s = 1/12</code>、span = 16 → <code>s = 1/20</code>)
+        </td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">描画形状 (連続ポリライン、Quirk 準拠)</h3>
+    <ul>
+      <li>
+        <strong>1 本の連続ポリラインで描く</strong> (Quirk の <code>_paintMultiProbabilityDisplay_logarithmHints</code> と同じ)。
+        各行の縦線 (<code>px_i</code> で長さ <code>e = max(row_h, 1)</code>) を、行境界で水平な接続線 (<code>px_{i-1} → px_i</code>) で繋ぐ。
+        全体として <em>ECG / 階段</em>状のシルエットになり、隣接行の確率差も視覚化される。
+      </li>
+      <li>
+        Path の構築:
+        <pre class="code">beginPath()
+moveTo(0, 0)
+for i in 0..n:
+  px = w × clamp(0, 1, 1 + ln(p[i]) × s)
+  py = i × row_h
+  lineTo(px, py)          // 前行 (px[i-1], py[i-1]+e) からの水平接続
+  lineTo(px, py + e)      // 現行の縦線
+lineTo(0, h)             // 左下に戻す
+stroke()</pre>
+      </li>
+      <li>線スタイル: <code>strokeStyle = ui-2</code> (#DAD8CE、Quirk の <code>'#CCC'</code> 相当の薄灰)、<code>lineWidth = 1</code></li>
+      <li><strong>per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">tooltip の <code>log: ... dB</code> との違い (重要)</h3>
+    <p>
+      行ホバー時の tooltip に出る <code>log: (log10(p) × 10).toFixed(1) + " dB"</code> は<strong>別仕様</strong>。
+      tooltip は <em>常用対数</em> (底 10) × 10 倍の dB 表示で、ユーザーへの数値情報提供が目的。
+      対数ヒント線は <em>自然対数</em> ベースでスケールした<strong>視覚的な補助線</strong>で、
+      数値そのものではなく「小さい確率同士の相対関係」を伝える。
+      両者は計算式 (<code>ln</code> vs <code>log10</code>) も用途 (描画 vs テキスト表示) も別。
+    </p>
+
+    <h3 style="margin-top: 16px;">qni-webgpu 実装方針</h3>
+    <ul>
+      <li>Chance1〜Chance4 (<code>row_h &gt; 8 px</code> かつ <code>row_count ≤ 16</code>) は <code>XX.X%</code> ラベルのみ。対数ヒント線は描かない</li>
+      <li>Chance5〜Chance16 は対数ヒント線のみ。<code>%</code> ラベルは出さない</li>
+      <li>本番経路で GPU → CPU readback しない。<code>chance_probability_output</code> (= <code>resources.chance.output_buffer</code>) をフラグメントシェーダで <code>chance_data</code> としてバインドし、線形バーと対数ヒント線の両方を 1 パスで描く</li>
+      <li>シェーダ内で <code>natural_log(p)</code> と <code>clamp(1.0 + ln_p * s, 0.0, 1.0)</code> を計算 (<code>s = 1.0 / (4.0 + max(8.0, f32(span)))</code>)</li>
+      <li>
+        <strong>連続ポリラインの shader 描画方針</strong>: per-fragment 判定で
+        「現在ピクセル <code>(x, y)</code> が ポリライン上か」を決める。具体的には
+        <code>row = floor(y / row_h)</code>、<code>log_x_cur = w × clamp(0, 1, 1 + ln(p[row]) × s)</code>、
+        <code>log_x_prev = (row &gt; 0)</code> なら <code>w × clamp(0, 1, 1 + ln(p[row-1]) × s)</code> を求め、
+        (a) <strong>縦線</strong>: <code>|x - log_x_cur| &lt; 0.5 px</code> もしくは
+        (b) <strong>水平接続</strong>: 行境界 (<code>y_in_row &lt; 1 px</code>) かつ <code>x</code> が
+        <code>[min(log_x_prev, log_x_cur), max(log_x_prev, log_x_cur)]</code> の範囲内
+        の場合に <code>ui-2</code> を出力する。
+      </li>
+      <li>
+        <strong>span ≥ 13 (<code>row_count &gt; 4096</code>) の集約描画</strong>:
+        Chance13 以降は 1 ピクセル内に複数 outcome が乗る (span 16 で <code>880/65536 ≈ 0.013 px/row</code>、1 px あたり ~74 outcome)。
+        per-fragment ループで <code>row_lo = floor(y / row_h)</code> から <code>row_hi = floor((y + 1) / row_h)</code> までの
+        outcome を走査し、<code>p_max = max(p[row_lo..=row_hi])</code> を求めて
+        ポリライン x 位置と線形バー幅 (<code>x_bar = w × p_max</code>) を <strong>max 集約</strong>で決める
+        (「そのピクセル列で最も右に達したバー / ヒント線が代表値」)。
+        最大ループ上限はシェーダ static const で <code>MAX_AGG_ROWS = 128</code> (span 16 で 1 px あたり最大 ~74、安全マージン込みで 128) に固定する。
+        downsample 用 compute pass は導入しない (1 pass で描き切る方が GPU 状態管理がシンプル)。
+      </li>
+      <li>docs / コード内コメントでは「縦線」と呼ばず<strong>「対数ヒント線」</strong>または<strong>「対数スケールの補助線」</strong>と呼称統一する</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 09 ホバー挙動 ─────── -->
+<section class="block">
+  <h2>§ 09 ホバー挙動</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>ゲートホバー枠</th><td>ゲート外側 0..2 px = paper gap、2..4 px = <code>purple-400</code> ring (合計 4 px 厚)。<code>ChanceDisplay</code> は本体が角ばりなのでホバー枠も角ばり。既存のゲートホバー枠 (<code>circuit_gates.rs:67-91</code> / <code>circuit_palette/panel.rs:48-71</code>) と同寸・同色</td></tr>
+        <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk のオレンジ枠と同流儀</td></tr>
+        <tr><th>同時表示</th><td>ゲートホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
+        <tr><th>popup</th><td>
+          行ホバー時、ゲート右 8 px に popup が出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
+          <code>Chance if measured · k = N</code> (補足)、<code>raw: (p × 100).toFixed(4) %</code>、
+          <code>log: (log10(p) × 10).toFixed(1) dB</code> (<code>p = 0</code> なら <code>−∞ dB</code>)。
+          見た目は § 01 のモック参照 (Quirk のプレーンテキスト tooltip を Geist で再構成)
+        </td></tr>
+        <tr><th>popup タイポグラフィ</th><td>
+          ket = Geist Mono Regular 14 px (text-sm) / <code>tx</code>、
+          サブ = Geist Regular 12 px (text-xs) / <code>tx-2</code>、
+          ラベル (raw / log) = Geist Mono 12 px (text-xs) / <code>tx-2</code> / UPPERCASE / letter-spacing 0.12 em、
+          数値 = Geist Mono 14 px (text-sm) / <code>tx</code> / <code>tabular-nums</code>。
+          <code>tx-3</code> (#B7B5AC) はゲート背景の <code>paper</code> 上で薄すぎるため使わず、<code>tx-2</code> (#6F6E69) を二次テキスト色とする。
+          枠 = <code>paper</code> bg + <code>ui-2</code> 1 px、<code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)、shadow = <code>0 4px 12px rgba(16,15,15,0.06)</code>
+        </td></tr>
+        <tr><th>パレットアイコン</th><td>外側ゲートホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
+        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>purple-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。詳細は § 11 参照</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      popup 自体のデザイン仕様 (寸法 / 配色 / タイポグラフィ / 表示例 / 状態バリアント) は <strong>§ 10 ポップアップ仕様</strong>、
+      リサイズハンドルの仕様 (寸法 / 状態遷移 / マイクロインタラクション) は <strong>§ 11 リサイズハンドル</strong> を参照。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 10 ポップアップ仕様 ─────── -->
+<section class="block">
+  <h2>§ 10 ポップアップ仕様</h2>
+  <div class="card">
+    <p>
+      行ホバー時に出る popup の<strong>常時表示版</strong>。実装と同じ CSS / マークアップを
+      静的に並べ、状態バリアントとアナトミーを Codex / 人間がスクロールだけで確認できるようにする。
+      ホバーを必要としないので、スクリーンショットレビューや diff レビューで仕様逸脱を検出しやすい。
+    </p>
+
+    <h3 style="margin-top: 16px;">基本構造</h3>
+    <p>
+      DOM は 5 要素で構成: <code>.cd-popup-ket</code> (主見出し ket) /
+      <code>.cd-popup-sub</code> (補足: 自然文 + decimal k) /
+      <code>.cd-popup-divider</code> (1 px ui-2) /
+      <code>.cd-popup-row × 2</code> (raw / log)。
+      要素ごとにフォント・サイズ・色を分けて視覚階層を作る。
+    </p>
+    <table class="spec" style="margin-top: 8px;">
+      <thead>
+        <tr><th>要素</th><th>フォント</th><th>サイズ</th><th>色</th><th>追加</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ket (<code>|bin(k)⟩</code>)</td><td>Geist Mono Regular</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>letter-spacing 0.02 em</td></tr>
+        <tr><td>サブ (Chance if measured · k = N)</td><td>Geist Regular</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>margin-top 4 px (spacing-1)</td></tr>
+        <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
+        <tr><td>ラベル (RAW / LOG)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>UPPERCASE / letter-spacing 0.12 em / min-width 32 px (spacing-8)</td></tr>
+        <tr><td>数値 ((p × 100).toFixed(4) % / (log10(p) × 10).toFixed(1) dB)</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code> / 右寄せ (margin-left: auto)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">枠 / 影 / 配置</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>背景</th><td><code>paper</code> (#FFFCF0)</td></tr>
+        <tr><th>枠線</th><td><code>ui-2</code> 1 px (#DAD8CE)</td></tr>
+        <tr><th>角丸</th><td><code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)</td></tr>
+        <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
+        <tr><th>影</th><td><code>0 4px 12px rgba(16, 15, 15, 0.06)</code> — paper 背景に浮かせる軽い soft shadow</td></tr>
+        <tr><th>z-index</th><td>50 (ゲート本体・ホバー枠より上、ドキュメント全体の overlay 層)</td></tr>
+        <tr><th>アンカー</th><td>ゲート右辺 + 8 px、ホバー中の行の <code>top</code> に合わせる</td></tr>
+        <tr><th>pointer-events</th><td><code>none</code> (ホバー判定を妨げない)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
+    <p>
+      実コードと同じ <code>.cd-popup</code> マークアップに <code>.cd-popup--static</code> を付け、
+      <code>position: static; display: inline-block</code> で非ホバー時にも表示する。
+      代表的な確率値と span でレンダリングの違いを確認できる。
+    </p>
+    <div class="stage" style="gap: 24px; flex-wrap: wrap;">
+      <div class="col" style="max-width: 240px;">
+        <div class="caption">通常 (p = 50%)<br>4 qubit / k = 10</div>
+        <div class="cd-popup cd-popup--static">
+          <div class="cd-popup-ket">|1010⟩</div>
+          <div class="cd-popup-sub">Chance if measured · k = 10</div>
+          <div class="cd-popup-divider"></div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">raw</span>
+            <span class="cd-popup-value">50.0000%</span>
+          </div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">log</span>
+            <span class="cd-popup-value">−3.0 dB</span>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 240px;">
+        <div class="caption">満確率 (p = 100%)<br>3 qubit / k = 5</div>
+        <div class="cd-popup cd-popup--static">
+          <div class="cd-popup-ket">|101⟩</div>
+          <div class="cd-popup-sub">Chance if measured · k = 5</div>
+          <div class="cd-popup-divider"></div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">raw</span>
+            <span class="cd-popup-value">100.0000%</span>
+          </div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">log</span>
+            <span class="cd-popup-value">0.0 dB</span>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 240px;">
+        <div class="caption">小確率 (p ≈ 0.003%)<br>8 qubit / k = 42</div>
+        <div class="cd-popup cd-popup--static">
+          <div class="cd-popup-ket">|00101010⟩</div>
+          <div class="cd-popup-sub">Chance if measured · k = 42</div>
+          <div class="cd-popup-divider"></div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">raw</span>
+            <span class="cd-popup-value">0.0030%</span>
+          </div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">log</span>
+            <span class="cd-popup-value">−45.2 dB</span>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 280px;">
+        <div class="caption">ゼロ確率 (p = 0)<br>16 qubit / k = 65 535</div>
+        <div class="cd-popup cd-popup--static">
+          <div class="cd-popup-ket">|1111111111111111⟩</div>
+          <div class="cd-popup-sub">Chance if measured · k = 65535</div>
+          <div class="cd-popup-divider"></div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">raw</span>
+            <span class="cd-popup-value">0.0000%</span>
+          </div>
+          <div class="cd-popup-row">
+            <span class="cd-popup-label">log</span>
+            <span class="cd-popup-value">−∞ dB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 16px;">Quirk オリジナル文言との差分</h3>
+    <p>
+      Quirk は 1 行タイトル <code>Chance of |bin(k)⟩ (decimal k) if measured</code> 形式だが、
+      qni-webgpu はタイポグラフィ階層を活かして<strong>ket を主見出し、サブテキストに自然文 + decimal を畳む</strong>形に再構成。
+      <em>数値の意味 (raw % / log dB)・桁数 (4 桁 / 1 桁) は Quirk と完全互換</em>だが、文言レイアウトは Quirk オリジナルから意図的に分かれる。
+      Quirk URL から import した回路で popup を出した場合も、qni-webgpu 側の本仕様 (ket + サブ + raw / log) が常に勝つ。
+    </p>
+
+    <h3 style="margin-top: 16px;">設計判断</h3>
+    <ul>
+      <li><strong>ket を最大の主役にする</strong>: 「どの outcome の確率を見ているか」が popup の最重要情報。14 px Geist Mono Regular で視覚的に最も強い</li>
+      <li><strong>raw を 4 桁 / log を 1 桁にする</strong>: Quirk 互換 (<code>toFixed(4)</code> / <code>toFixed(1)</code>)。raw は微小確率の比較、log は dB スケールの大まかな桁感を伝える</li>
+      <li><strong>マイナス記号は U+2212 (<code>−</code>)</strong>: hyphen-minus (<code>-</code>) より幅が広く、tabular-nums と同じ字幅に揃う</li>
+      <li><strong>サブ・ラベルは tx-2</strong>: 当初 tx-3 を使ったが paper bg 上で読みにくかったため格上げ。tx-3 は popup 内では使わない</li>
+      <li><strong>角丸 6 px</strong>: Qni のゲート本体 (<code>CornerRadius::same(6)</code>) と同値にして UI 全体の調子を揃える。Chance display 本体は角ばりだが popup は別レイヤなので角丸でも齟齬なし</li>
+      <li><strong>枠 + soft shadow の二重表現</strong>: 枠 (<code>ui-2</code> 1 px) は paper bg との境界を明示、shadow は ≪浮いている≫ ことを示す。どちらか片方では弱い</li>
+      <li><strong>span 16 でも 1 行で収まる</strong>: 16 bit ket = 16 文字、補足 30 文字程度。<code>white-space: nowrap</code> で折り返しを防ぐ (最大幅は ~280 px)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 11 リサイズハンドル ─────── -->
+<section class="block">
+  <h2>§ 11 リサイズハンドル</h2>
+  <div class="card">
+    <p>
+      span を 1〜16 でドラッグ変更するためのハンドル。<strong>ゲートの上下 2 ヶ所</strong>に出る
+      <code>purple-400</code> ベースのピル形 (24 × 6 px)。
+      通常は invisible で UI を圧迫せず、ゲートホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現。
+      ホバー枠 (§ 09 の 4 px <code>purple-400</code> ring + 2 px paper gap) の<strong>さらに外側</strong>に
+      2 px の paper gap を挟んでレイアウトし、紫色を共有しながらも視覚的には明確に分離させる。
+    </p>
+
+    <h3 style="margin-top: 16px;">配置と寸法</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
+        <tr><th>形状</th><td>ピル (capsule) 24 × 6 px、<code>border-radius: 3 px</code></td></tr>
+        <tr><th>横位置</th><td>ゲート横中央 (<code>left: 50%; transform: translateX(-50%)</code>)</td></tr>
+        <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ゲート top edge から 12 px 外側)</td></tr>
+        <tr><th>縦位置 (bottom)</th><td><code>bottom: -12 px</code></td></tr>
+        <tr><th>カーソル</th><td><code>cursor: ns-resize</code> (上下リサイズを明示)</td></tr>
+        <tr><th>pointer-events</th><td><code>auto</code> — ハンドル単体は確実にクリック受付。ゲート本体は通常通り</td></tr>
+        <tr><th>z-index</th><td>20 — ホバー枠 (box-shadow) より手前、ポップアップ (z-index 50) より奥</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ホバー枠との位置関係 (干渉回避)</h3>
+    <p>
+      ゲート top edge を基準 (y = 0) に、ホバー枠は <code>y = -4 .. 0</code> に <code>purple-400</code> 2 px + paper 2 px を描く。
+      ハンドル top は <code>y = -12 .. -6</code> なので、ホバー枠の外端 (<code>y = -4</code>) との間に <strong>2 px の paper gap</strong> が確保される。
+      bottom 側も同様に対称。色族 (purple) は揃っているが空間的には独立した 2 オブジェクトとして読める。
+    </p>
+    <table class="spec" style="margin-top: 8px;">
+      <thead>
+        <tr><th>レイヤ</th><th>距離 (gate edge 基準、上方向)</th><th>色</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ゲート本体</td><td>0 (基準)</td><td><code>paper</code> + <code>ui-2</code> 1 px 枠</td></tr>
+        <tr><td>paper gap (内側)</td><td>0 .. 2 px 外側</td><td><code>paper</code> #FFFCF0</td></tr>
+        <tr><td>ホバー枠 (ring)</td><td>2 .. 4 px 外側</td><td><code>purple-400</code> #8B7EC8</td></tr>
+        <tr><td>paper gap (分離帯)</td><td>4 .. 6 px 外側</td><td><code>paper</code> (透過)</td></tr>
+        <tr><td>リサイズハンドル</td><td>6 .. 12 px 外側</td><td><code>purple-400</code> (default) / <code>purple-600</code> (hover/active)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">状態とマイクロインタラクション</h3>
+    <table class="spec">
+      <thead>
+        <tr><th>状態</th><th>opacity</th><th>transform</th><th>background</th><th>transition</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>default (gate not hovered)</td>
+          <td>0</td>
+          <td><code>scale(0.7)</code></td>
+          <td><code>purple-400</code></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>visible (gate hover)</td>
+          <td>1</td>
+          <td><code>scale(1.0)</code></td>
+          <td><code>purple-400</code></td>
+          <td>
+            opacity 200 ms ease-out /
+            transform 250 ms cubic-bezier(0.34, 1.56, 0.64, 1) <em>← 軽いオーバーシュート</em>
+          </td>
+        </tr>
+        <tr>
+          <td>hover (handle 個別)</td>
+          <td>1</td>
+          <td><code>scale(1.15)</code></td>
+          <td><code>purple-600</code></td>
+          <td>background 120 ms ease-out / transform 250 ms cubic-bezier(0.34, 1.56, 0.64, 1)</td>
+        </tr>
+        <tr>
+          <td>active (drag 中)</td>
+          <td>1</td>
+          <td><code>scale(1.25)</code></td>
+          <td><code>purple-600</code></td>
+          <td>同上</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <strong>バウンスの理由:</strong> cubic-bezier(0.34, 1.56, 0.64, 1) は最終値を 1.56 倍まで一瞬オーバーシュートする easing。
+      <code>scale(0.7) → scale(1.0)</code> の変化が「奥から飛び出してきて、ちょっと弾む」マイクロインタラクションとして読める。
+      気付きやすさ + ゲート操作の遊び心を狙う。
+    </p>
+
+    <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
+    <p>
+      4 状態を <code>data-cd-state</code> / <code>data-handle-state</code> で強制し、横並びで比較できるようにしたモック。
+      実コードと同じ CSS / マークアップ。ホバーしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 24px 0;">
+      <div class="col" style="max-width: 140px;">
+        <div class="caption">① default<br>(non-hover)<br>handle 非表示</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 140px;">
+        <div class="caption">② gate hover<br>handle がバウンスで出現<br>(両方とも visible)</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="visible"></div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 140px;">
+        <div class="caption">③ handle hover<br>top: scale 1.15 + purple-600<br>bottom: visible</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="hover"></div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 140px;">
+        <div class="caption">④ active drag<br>top: scale 1.25 + purple-600<br>cursor: ns-resize</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="active"></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 16px;">設計判断</h3>
+    <ul>
+      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。Quirk の対角コーナーハンドルより、上下対称な配置のほうが Chance display の縦長レイアウトに合う</li>
+      <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: ホバー枠とハンドルはどちらも <code>purple-400</code> なので、隣接させると 1 つの大きな図形に見えてしまい「ring の一部?」と誤認される。2 px の paper gap で<strong>明確に別オブジェクト</strong>と分離</li>
+      <li><strong>purple-400 → purple-600 で深さの変化</strong>: handle が「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い</li>
+      <li><strong>バウンス easing</strong>: 線形 / ease-out だと「現れる」だけだが、オーバーシュート ease は「主張する」表現になる。ゲートに span を変える機能があることを目立たせるための<em>意図的な誇張</em></li>
+      <li><strong>scale(0.7) → 1.0 → 1.15 → 1.25 の連続スケール</strong>: 1 軸の連続変化なので状態遷移が自然に読める。サイズ差は <strong>+15 %, +25 %</strong> と明確に体感できる程度。<em>10 % 以下だとほぼ気づかない</em></li>
+      <li><strong>形状はピル (capsule)</strong>: 矩形だと「点」、円だと「ボタン」、ピルだと「つまみ」に読める。span を <em>引き伸ばす</em>動作とピル形の<em>横長</em>が一致して、操作のメタファとして馴染む</li>
+      <li><strong>ハンドル width 24 px はゲート width 40 px より狭い</strong>: ゲート横中央に小さめに配置することで「ゲートの一部」感を出しつつ、左右にゲート edge が見える</li>
+      <li><strong>cursor: ns-resize</strong>: 「上下方向にドラッグできる」を OS のカーソル変化でも伝える (ハンドルの形だけに頼らない)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 12 URL シリアライズ ─────── -->
+<section class="block">
+  <h2>§ 12 URL シリアライズ (Quirk 互換)</h2>
+  <div class="card">
+    <p>
+      Chance display の <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する (Quirk URL インポート / 双方向の URL 共有のため)。
+      ただし<strong>下記の <code>#circuit=...</code> 形式は Quirk オリジナルの URL hash 構造</strong>であり、qni-webgpu 現行の URL 表現
+      (<code>/#&lt;percent-encoded JSON&gt;</code>) とは hash 内のキー名・構造が異なる。
+      本セクションは <em>Quirk URL の語彙互換性</em>を示すための参考であり、qni-webgpu 内部の URL 設計は別仕様 (TBD)。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>span</th><th>serialized id</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td><code>"Chance"</code></td></tr>
+        <tr><td class="num">2..16</td><td><code>"Chance2"</code> .. <code>"Chance16"</code></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top: 12px;">URL fragment 内では JSON 生のまま:</p>
+    <pre class="code">#circuit={"cols":[["Chance"]]}                 # span 1、q0 に 1 個
+#circuit={"cols":[["Chance3"]]}                # span 3、q0..q2 に
+#circuit={"cols":[[1,"Chance3"]]}              # span 3、q1 起点 (q0 placeholder)
+#circuit={"cols":[["H","H","H"],["Chance3"]]}  # H × 3 → Chance3</pre>
+    <p style="margin-top: 12px;">
+      percent-encode 済み (<code>%7B"cols"%3A%5B%5B"Chance"%5D%5D%7D</code>) も等価に parse できるようにする
+      (Quirk と同じ挙動)。Quirk 側ロジックは <code>ProbabilityDisplay.js:280, 294</code> 参照。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 13 GPU バックエンド経路 ─────── -->
+<section class="block">
+  <h2>§ 13 GPU バックエンド経路 (Chance 取得方針)</h2>
+  <div class="card">
+    <p>
+      qni-webgpu は 2 つの GPU バックエンドを持つ: ブラウザローカルの <strong>WebGPU</strong> と、リモートの <strong>Qiskit GPU</strong>。
+      Chance display の確率取得は backend ごとに別経路だが、<strong>本体描画 (§ 04〜§ 11) は完全に共通</strong>。
+      ここでは「描画シェーダに渡す <code>chance_data</code> をどう得るか」だけを backend 別に規定する。
+    </p>
+
+    <h3 style="margin-top: 16px;">backend 共通の制約</h3>
+    <ul>
+      <li><strong>span 上限 = 16</strong>。回路全体が 32 qubit であっても、1 つの Chance display が見る outcome は 2<sup>16</sup> = 65 536 が上限</li>
+      <li><strong>full statevector / full probabilities は受け取らない</strong>。32 qubit 回路で全状態 = 2<sup>32</sup> = 約 4.3 G outcomes を転送 / 保持しないため。Chance display は<strong>常に marginalize 済みの per-display probabilities のみ</strong>を扱う</li>
+      <li><strong>CPU リードバック不可 (WebGPU 経路)</strong>。Qiskit GPU 経路は性質上 JSON で返ってくるので CPU を経由するが、その場合も <code>chance_data</code> として GPU バッファに <em>1 回</em> アップロードしたあとは描画完結</li>
+      <li><strong>nesting 禁止</strong>: backend 種別に関わらず Chance の中に Chance は置けない (Quirk と同じ、§ 03 概要参照)</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">WebGPU ローカル backend</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>確率計算</th><td>各 Chance display ごとに <code>CHANCE_REDUCE_SHADER</code> (compute) を発行。state ベクタを span 内 qubit について marginalize</td></tr>
+        <tr><th>出力先</th><td><code>chance_probability_output</code> (<code>resources.chance.output_buffer</code>) の各 Chance スロット (<code>params.output_slot</code> 単位、<code>MAX_CHANCE_OUTCOMES = 65 536</code> ストライド)</td></tr>
+        <tr><th>描画</th><td>同じ buffer を <code>CHANCE_RENDER_SHADER</code> に <code>chance_data</code> として bind し、フラグメントシェーダで直接サンプル。CPU リードバックなし</td></tr>
+        <tr><th>同期</th><td>compute → render はキューレベルで in-order、明示的な fence 不要</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">Qiskit GPU backend (リモート)</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>確率計算</th><td>
+          回路送信時に各 Chance display の位置と span を解析し、Chance ごとに
+          <code>save_probabilities(qubits=[...], label="chance:&lt;gate_id&gt;")</code> または
+          <code>save_probabilities_dict(...)</code> を Qiskit circuit に挿入する。<br>
+          full statevector / full probabilities (<code>save_statevector</code> / <code>save_probabilities()</code> 引数なし) は<strong>挿入しない</strong>
+        </td></tr>
+        <tr><th>レスポンス形式</th><td>
+          backend は per-Chance の marginalized probabilities のみを返す:
+          <pre class="code">{
+  "chance": [
+    { "gate_id": "<id>", "span": 3, "probabilities": [p_0, p_1, ..., p_7] },
+    { "gate_id": "<id>", "span": 5, "probabilities": [p_0, ..., p_31] },
+    ...
+  ]
+}</pre>
+          <code>probabilities</code> 長は <code>2<sup>span</sup></code>、合計 ≤ 1.0、<code>p_k</code> は |bin(k)⟩ の確率。
+          big-endian order は WebGPU 経路と一致 (§ 03 outcomes 行参照)
+        </td></tr>
+        <tr><th>GPU アップロード</th><td>受信した各 <code>probabilities</code> 配列を <code>chance_probability_output</code> の対応スロットに 1 度 <code>queue.writeBuffer</code> でアップロード。以降の描画は WebGPU 経路と完全同一</td></tr>
+        <tr><th>更新タイミング</th><td>1 回路実行 = 1 レスポンス。Chance display の値はそのレスポンス到着時点でアトミックに全て更新される</td></tr>
+        <tr><th>未対応 / エラー</th><td>backend が古くて <code>save_probabilities</code> を返さない場合は Chance display 全行を NaN 扱いで描く (Quirk 互換、Quirk の <code>printParagraph("NaN", ...)</code> と同じ流儀)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">32 qubit 回路での挙動 (重要)</h3>
+    <ul>
+      <li>回路 qubit 数が 32 であっても、Chance display 1 個が見るのは<strong>最大 16 qubit</strong> (span ≤ 16)。残り 16 qubit は marginalize で消える</li>
+      <li>32 qubit 回路に Chance16 を 4 個並べることは可能。各 Chance は独立に 2<sup>16</sup> = 65 536 outcomes の probability vector を持つ</li>
+      <li>Qiskit backend に送るとき、<code>save_probabilities(qubits=[q_start..q_start+span-1])</code> として、Chance が span するレジスタだけ抜き出す</li>
+      <li>WebGPU backend で 32 qubit を扱う場合は、state ベクタが 2<sup>32</sup> 複素数 = 32 GiB となり通常端末では不可。32 qubit 級は Qiskit backend 限定 (これは Chance display 仕様外、回路全体の制約)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 14 実装ファイル / 参照 ─────── -->
+<section class="block">
+  <h2>§ 14 実装ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ファイル</th><th>役割</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>apps/egui-web/src/gpu/resources/chance.rs</code></td><td>WebGPU リソース (パイプライン、バッファ)</td></tr>
+        <tr><td><code>apps/egui-web/src/gpu/shaders/chance.rs</code></td><td>WGSL シェーダ (バー / divider / テキスト描画、ホバー枠分岐)</td></tr>
+        <tr><td><code>apps/egui-web/src/gpu/callbacks/chance_display.rs</code></td><td>egui_wgpu 描画コールバック (ChanceInstance、border 色等)</td></tr>
+        <tr><td><code>apps/egui-web/src/icons/gate_body.rs</code></td><td>パレットアイコン (<code>draw_chance_preview_body</code>)</td></tr>
+        <tr><td><code>apps/egui-web/src/render/circuit_gates.rs</code></td><td>回路上の配置 (gate_height 計算、hover 枠、リサイズハンドル)</td></tr>
+        <tr><td><code>apps/egui-web/src/gpu/digit_atlas.rs</code></td><td>テキスト用 digit atlas (0..9 / "." / "%" の Geist Mono Light グリフ)</td></tr>
+        <tr><td><code>apps/egui-web/src/colors.rs</code></td><td>配色定数。<code>state_fill</code> は <strong>blue-200 (#92BFDB)</strong> (§ 05 配色)。<code>gate_hover_border</code> = purple-400、リサイズハンドル active 色は <strong>purple-600 (#5E409D)</strong></td></tr>
+      </tbody>
+    </table>
+    <h3 style="margin-top: 16px;">参考</h3>
+    <ul>
+      <li>Quirk 原実装: <code>../oss/Quirk/src/gates/ProbabilityDisplay.js</code> + <code>draw/MathPainter.js:50</code></li>
+      <li>デザインシステム全体方針: <a href="design-system-architecture.html">design-system-architecture.html</a></li>
+      <li>過去のモック (Chance gate 仕様の経緯): <a href="chance-gate-mock.html">chance-gate-mock.html</a></li>
+      <li>サイズ移行の経緯: <a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a></li>
+    </ul>
+  </div>
+</section>
+
+<div class="doc-foot">
+  qni-webgpu · chance display widget spec · design system · 2026-05
+</div>
+
+<script>
+  // span ごとに .cd-host を埋める。
+  // 行区切り線は隣接 2 行のうち広いバーの右端から右端まで。
+  // テキストは row_count > 16 または row_h <= 8 で省略 (実 shader と同条件)。
+  // icon モードは行 hover を無効化 (静的プレビュー)。
+  function buildLabel(p) {
+    const [intPart, decPart] = p.toFixed(1).split('.');
+    return `${intPart}<span class="dot">.</span>${decPart}<span class="pct">%</span>`;
+  }
+  function buildCd(probs, totalH, opts = {}) {
+    const n = probs.length;
+    const rowH = totalH / n;
+    const showText = !opts.icon && n <= 16 && rowH > 8;
+    // テキストを出さない場合 (Chance5〜Chance16) は対数ヒント線を描く。
+    // アイコンは静的プレビューなので対数ヒント線も省略。
+    const showLogHints = !opts.icon && !showText;
+    const span = Math.log2(n);
+    const W = 40;
+    let html = '';
+
+    // 対数ヒント線: 1 本の SVG path で連続ポリライン (Quirk 準拠)。
+    // バーより下に置きたいので先に出力。各行 (px, py) → (px, py+e) の縦線を
+    // 行境界の水平接続で繋ぐ。
+    if (showLogHints) {
+      const s = 1 / (4 + Math.max(8, span));
+      const e = Math.max(rowH, 1);
+      let path = 'M 0 0';
+      for (let i = 0; i < n; i++) {
+        const p01 = probs[i] / 100;
+        const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
+        const px = (W * xRatio).toFixed(3);
+        const py = (rowH * i).toFixed(3);
+        const pyEnd = (rowH * i + e).toFixed(3);
+        path += ` L ${px} ${py} L ${px} ${pyEnd}`;
+      }
+      path += ` L 0 ${totalH}`;
+      html += `<svg class="log-hint-svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none"><path d="${path}" stroke="#DAD8CE" stroke-width="1" fill="none" shape-rendering="crispEdges"/></svg>`;
+    }
+
+    probs.forEach((p, i) => {
+      const top = i * rowH;
+      const w = p;
+      if (showText) {
+        const labelHtml = buildLabel(p);
+        html += `<div class="row" style="top:${top}px;height:${rowH}px;">
+          <div class="bar" style="width:${w}%"></div>
+          <div class="label">${labelHtml}</div>
+          <div class="bar-clip" style="width:${w}%"><div class="row-extent"><div class="label">${labelHtml}</div></div></div>
+        </div>`;
+      } else {
+        html += `<div class="row" style="top:${top}px;height:${rowH}px;">
+          <div class="bar" style="width:${w}%"></div>
+        </div>`;
+      }
+    });
+    for (let i = 1; i < n; i++) {
+      const start = Math.max(probs[i - 1], probs[i]);
+      html += `<div class="div" style="top:${i * rowH}px; left:${start}%;"></div>`;
+    }
+    // リサイズハンドル (上下)。アイコンは静的プレビューなので省略。
+    // handleState (visible / hover / active) は仕様ページ用の強制状態。
+    if (!opts.icon) {
+      const topMod = opts.handleState === 'hover' || opts.handleState === 'active'
+        ? `cd-handle--state-${opts.handleState}`
+        : (opts.handleState === 'visible' ? 'cd-handle--state-visible' : '');
+      const botMod = opts.handleState ? 'cd-handle--state-visible' : '';
+      html += `<div class="cd-handle cd-handle--top ${topMod}"></div>`;
+      html += `<div class="cd-handle cd-handle--bottom ${botMod}"></div>`;
+    }
+    const cdStateClass = opts.cdState === 'hover' ? ' cd--state-hover' : '';
+    return `<div class="cd${opts.icon ? ' icon' : ''}${cdStateClass}" style="height:${totalH}px;">${html}</div>`;
+  }
+  // 大きな span (16 qubit = 65 536 行) を DOM で表現すると数十 MB の HTML / 数万 div を
+  // 抱えることになるので、Canvas で直接描画する。線形バー + 対数ヒント線を
+  // § 08 と同じ式 (Math.log は自然対数) で描く。
+  function genPattern(name, n) {
+    if (name === 'gaussian') {
+      // 中心 k = n/2 に山を持つガウシアン。peak 80 %、sigma = n / 16。
+      // 端 (k = 0, n-1) は事実上 0 % に近づくが、対数ヒント線で位置を確認できる。
+      const center = n / 2;
+      const sigma = n / 16;
+      const out = new Float32Array(n);
+      for (let k = 0; k < n; k++) {
+        const d = (k - center) / sigma;
+        out[k] = 80 * Math.exp(-(d * d) / 2);
+      }
+      return out;
+    }
+    return new Float32Array(n);
+  }
+  function buildCdCanvas(probs, totalH, opts = {}) {
+    const n = probs.length;
+    const rowH = totalH / n;
+    const w = 40;
+    const h = totalH;
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    canvas.style.flexShrink = '0';
+    canvas.style.background = 'var(--bg)';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#FFFCF0'; // paper
+    ctx.fillRect(0, 0, w, h);
+
+    const showText = !opts.icon && n <= 16 && rowH > 8;
+    const showLogHints = !opts.icon && !showText;
+    const e = Math.max(rowH, 1);
+
+    // 対数ヒント線 (連続ポリライン、Quirk 準拠)。バーより下のレイヤなので先に描く。
+    // 各行の縦線 + 行境界で水平接続を 1 本の Path に積む。
+    if (showLogHints) {
+      const span = Math.log2(n);
+      const s = 1 / (4 + Math.max(8, span));
+      ctx.strokeStyle = '#DAD8CE'; // ui-2
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      for (let i = 0; i < n; i++) {
+        const p01 = probs[i] / 100;
+        const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
+        const px = w * xRatio;
+        const py = rowH * i;
+        ctx.lineTo(px, py);       // 前行の終端からの水平接続
+        ctx.lineTo(px, py + e);   // 現行の縦線
+      }
+      ctx.lineTo(0, h);
+      ctx.stroke();
+    }
+
+    // 線形バー (blue-200 fill + blue-400 右端 1 px)
+    ctx.fillStyle = '#92BFDB'; // blue-200
+    for (let i = 0; i < n; i++) {
+      const bw = (probs[i] / 100) * w;
+      ctx.fillRect(0, rowH * i, bw, e);
+    }
+    ctx.strokeStyle = '#4385BE'; // blue-400
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const bw = (probs[i] / 100) * w;
+      if (bw <= 0) continue;
+      const x = Math.round(bw) - 0.5;
+      const py = rowH * i;
+      ctx.moveTo(x, py);
+      ctx.lineTo(x, py + e);
+    }
+    ctx.stroke();
+
+    // 行区切り線 — row_h が 2 px 以下のときは重畳して塗りつぶしになるので省略
+    if (rowH > 2) {
+      ctx.strokeStyle = '#DAD8CE'; // ui-2
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i < n; i++) {
+        const start = (Math.max(probs[i - 1], probs[i]) / 100) * w;
+        const y = Math.round(rowH * i) + 0.5;
+        ctx.moveTo(start, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+    }
+
+    // 外枠 (ui-2 1 px、角ばり)
+    ctx.strokeStyle = '#DAD8CE';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    return canvas;
+  }
+  // 行 hover 時のポップアップ。Quirk の paintDeferredValueTooltip と同じ内容
+  // (ket / decimal / raw % / log dB) を Geist タイポグラフィで再構成。
+  // ket: 主、補足: 従、ラベル: 小キャップ、数値: tabular-nums。
+  function popupHtml(idx, p100, span) {
+    const bitWidth = Math.max(1, span);
+    const ket = idx.toString(2).padStart(bitWidth, '0');
+    const rawPct = p100.toFixed(4) + '%';
+    const dbValue = p100 > 0
+      ? (Math.log10(p100 / 100) * 10).toFixed(1) + ' dB'
+      : '−∞ dB';
+    const dbDisplay = dbValue.replace(/^-/, '−');
+    return `
+      <div class="cd-popup-ket">|${ket}⟩</div>
+      <div class="cd-popup-sub">Chance if measured · k = ${idx}</div>
+      <div class="cd-popup-divider"></div>
+      <div class="cd-popup-row">
+        <span class="cd-popup-label">raw</span>
+        <span class="cd-popup-value">${rawPct}</span>
+      </div>
+      <div class="cd-popup-row">
+        <span class="cd-popup-label">log</span>
+        <span class="cd-popup-value">${dbDisplay}</span>
+      </div>
+    `;
+  }
+  function attachPopup(host, cd, probs, totalH) {
+    const n = probs.length;
+    const rowH = totalH / n;
+    const span = Math.log2(n);
+    host.style.position = 'relative';
+    const popup = document.createElement('div');
+    popup.className = 'cd-popup';
+    host.appendChild(popup);
+    cd.addEventListener('mousemove', (e) => {
+      const rect = cd.getBoundingClientRect();
+      const idx = Math.floor((e.clientY - rect.top) / rowH);
+      if (idx < 0 || idx >= n) { popup.style.display = 'none'; return; }
+      popup.innerHTML = popupHtml(idx, probs[idx], span);
+      popup.style.left = (cd.offsetLeft + cd.offsetWidth + 8) + 'px';
+      popup.style.top = (cd.offsetTop + idx * rowH) + 'px';
+      popup.style.display = 'block';
+    });
+    cd.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
+  }
+  document.querySelectorAll('.cd-host').forEach(host => {
+    const totalH = Number(host.dataset.height);
+    const useCanvas = host.dataset.canvas === 'true';
+    const pattern = host.dataset.pattern;
+    const noPopup = host.dataset.noPopup === 'true';
+    const opts = {
+      icon: host.dataset.icon === 'true',
+      handleState: host.dataset.handleState,  // visible | hover | active
+      cdState: host.dataset.cdState,          // hover (ホバー枠を強制表示)
+    };
+    if (useCanvas) {
+      const n = host.dataset.n
+        ? Number(host.dataset.n)
+        : host.dataset.probs.split(',').length;
+      const probs = pattern ? genPattern(pattern, n) : host.dataset.probs.split(',').map(Number);
+      host.innerHTML = '';
+      const canvas = buildCdCanvas(probs, totalH, opts);
+      host.appendChild(canvas);
+      if (!opts.icon && !noPopup) attachPopup(host, canvas, probs, totalH);
+    } else {
+      const probs = host.dataset.probs.split(',').map(Number);
+      host.innerHTML = buildCd(probs, totalH, opts);
+      const cd = host.querySelector('.cd');
+      if (!opts.icon && !noPopup) attachPopup(host, cd, probs, totalH);
+    }
+  });
+</script>
+
+</body>
+</html>

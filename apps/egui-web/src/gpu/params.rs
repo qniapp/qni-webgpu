@@ -143,7 +143,8 @@ pub(crate) struct ChanceRenderParams {
     pub(crate) background: [f32; 4],
     pub(crate) border: [f32; 4],
     pub(crate) bar: [f32; 4],
-    pub(crate) bar_hover: [f32; 4],
+    pub(crate) bar_edge: [f32; 4],
+    pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
 }
 
@@ -156,6 +157,32 @@ pub(crate) struct ChanceInstance {
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
     pub(crate) _pad: u32,
+}
+
+/// Uniform for the Chance hover popup value text shader. The shader reads
+/// raw / log probability values directly from `chance_probability_output`.
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ChancePopupValueParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Top-left of the row-0 (`raw`) value text in egui pixels.
+    pub(crate) value_anchor: [f32; 2],
+    /// Vertical pitch between `raw` and `log` rows.
+    pub(crate) row_pitch: f32,
+    /// Pad to vec2 alignment.
+    pub(crate) _pad_row: f32,
+    /// Size of one atlas character cell on screen (egui pixels).
+    pub(crate) char_size: [f32; 2],
+    /// Padding before the next vec4-aligned field (`text_color`).
+    pub(crate) _pad_char: [f32; 2],
+    /// RGBA text colour (premultiplied at sample time).
+    pub(crate) text_color: [f32; 4],
+    /// Chance output slot and hovered outcome row.
+    pub(crate) slot: u32,
+    pub(crate) outcome: u32,
+    pub(crate) _pad: [u32; 2],
 }
 
 #[repr(C)]

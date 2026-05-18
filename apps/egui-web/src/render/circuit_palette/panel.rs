@@ -55,11 +55,7 @@ impl QniApp {
                 );
                 // ホバー枠の内側はパレット面と同じ色にし、Measurement / Spacer のような
                 // 本体 fill を持たないゲートでも背景が灰色へ変わらないようにする。
-                painter.rect_filled(
-                    hover_inner,
-                    egui::CornerRadius::same(8),
-                    colors.surface,
-                );
+                painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.surface);
             }
             draw_gate_body(painter, gate_rect, *gate, colors);
             if *gate == GateKind::BlochDisplay {

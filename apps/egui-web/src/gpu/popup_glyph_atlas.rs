@@ -9,10 +9,10 @@
 //! directly inside the popup's value rects.
 //!
 //! This module bakes that atlas: a 1-row strip of fixed-width cells
-//! holding the 16 glyphs needed to express any
-//! ±d.ddddd ±d.ddddd i / ±dd.dddd % / ±ddd.dd ° formatted value. The
-//! resulting greyscale buffer is uploaded to a GPU texture sampled by
-//! the popup-value fragment shader.
+//! holding the glyphs needed to express any
+//! ±d.ddddd ±d.ddddd i / ±dd.dddd % / ±ddd.dd ° formatted value, plus
+//! Chance popup raw/log values. The resulting greyscale buffer is uploaded
+//! to a GPU texture sampled by the popup-value fragment shaders.
 //!
 //! Sibling of `digit_atlas` (which handles the measurement-gate "0/1"
 //! glyphs) — same approach, larger glyph set.
@@ -21,10 +21,12 @@
 //!   index 0..=9   : '0' .. '9'
 //!   index 10      : '.'
 //!   index 11      : '+'
-//!   index 12      : '-'
+//!   index 12      : '−'  (U+2212 minus sign)
 //!   index 13      : 'i'  (imaginary suffix on amplitude)
 //!   index 14      : '%'  (probability suffix)
 //!   index 15      : '°'  (phase suffix)
+//!   index 16..=17 : 'd', 'B' (Chance log suffix)
+//!   index 18      : '∞'  (Chance log zero-probability value)
 
 use ab_glyph::{Font as _, ScaleFont as _};
 
@@ -38,13 +40,13 @@ pub(crate) const POPUP_GLYPH_CELL_W: u32 = 9;
 /// Height of one glyph cell in atlas pixels.
 pub(crate) const POPUP_GLYPH_CELL_H: u32 = 16;
 /// Number of cells in the atlas strip. Matches the glyph set below.
-pub(super) const POPUP_GLYPH_COUNT: u32 = 16;
+pub(super) const POPUP_GLYPH_COUNT: u32 = 19;
 pub(super) const POPUP_GLYPH_ATLAS_WIDTH: u32 = POPUP_GLYPH_CELL_W * POPUP_GLYPH_COUNT;
 pub(super) const POPUP_GLYPH_ATLAS_HEIGHT: u32 = POPUP_GLYPH_CELL_H;
 
 /// Glyphs in the order they appear in the atlas strip.
-pub(super) const POPUP_GLYPHS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', 'i', '%', '°',
+pub(super) const POPUP_GLYPHS: [char; 19] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '−', 'i', '%', '°', 'd', 'B', '∞',
 ];
 
 /// PxScale calibrated so the rasterised glyph height matches what egui

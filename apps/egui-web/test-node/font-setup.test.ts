@@ -136,7 +136,7 @@ test('Geist Mono asset is checked in and used for the popup glyph atlas', () => 
 })
 
 test('Geist Mono covers every shader-formatted popup value glyph', () => {
-  const glyphs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', 'i', '%', '°']
+  const glyphs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '−', 'i', '%', '°', 'd', 'B', '∞']
   assert.deepEqual(glyphs.filter((glyph) => !fontHasCodePoint(geistMonoBytes, glyph.codePointAt(0)!)), [])
 })
 

@@ -63,15 +63,15 @@ const EXPECTED_SELECTED_COLUMN_READOUT = {
   selectedState: [0.707, 0.707],
 }
 
-const waitForChancePercentLabelPixels = async (
+const waitForChancePercentLabelEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   span: number,
-): Promise<number> => {
+): Promise<{ textPixels: number; bboxHeight: number }> => {
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const gateHeight = (span - 1) * LINE_GAP + GATE_SIZE
-  let last = 0
+  let last = { textPixels: 0, bboxHeight: 0 }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
@@ -88,22 +88,31 @@ const waitForChancePercentLabelPixels = async (
         c.width = img.width
         c.height = img.height
         const ctx = c.getContext('2d', { willReadFrequently: true })
-        if (!ctx) return 0
+        if (!ctx) return { textPixels: 0, bboxHeight: 0 }
         ctx.drawImage(img, 0, 0)
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
         let textPixels = 0
+        let minY = Number.POSITIVE_INFINITY
+        let maxY = Number.NEGATIVE_INFINITY
         for (let y = Math.floor((gateTop + 4) * scaleY); y <= Math.floor((gateTop + gateHeight - 4) * scaleY); y += 1) {
           for (let x = Math.floor((gateLeft + 8) * scaleX); x <= Math.floor((gateLeft + 31) * scaleX); x += 1) {
             const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-            if (r < 90 && g < 90 && b < 90) textPixels += 1
+            if (r < 150 && g < 150 && b < 150) {
+              textPixels += 1
+              minY = Math.min(minY, y)
+              maxY = Math.max(maxY, y)
+            }
           }
         }
-        return textPixels
+        return {
+          textPixels,
+          bboxHeight: Number.isFinite(minY) ? Math.round((maxY - minY + 1) / scaleY) : 0,
+        }
       },
       { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, gateHeight },
     )
-    if (last > 32) return last
+    if (last.textPixels > 32) return last
     await page.waitForTimeout(50)
   }
   return last
@@ -112,10 +121,10 @@ const waitForChancePercentLabelPixels = async (
 const waitForChanceBarPixels = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
-): Promise<{ barIsBlue: boolean; emptyIsPaper: boolean }> => {
+): Promise<{ barIsBlue: boolean; edgeIsBlue400: boolean; emptyIsPaper: boolean }> => {
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
-  let last = { barIsBlue: false, emptyIsPaper: false }
+  let last = { barIsBlue: false, edgeIsBlue400: false, emptyIsPaper: false }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
@@ -132,7 +141,7 @@ const waitForChanceBarPixels = async (
         c.width = img.width
         c.height = img.height
         const ctx = c.getContext('2d', { willReadFrequently: true })
-        if (!ctx) return { barIsBlue: false, emptyIsPaper: false }
+        if (!ctx) return { barIsBlue: false, edgeIsBlue400: false, emptyIsPaper: false }
         ctx.drawImage(img, 0, 0)
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
@@ -141,19 +150,21 @@ const waitForChanceBarPixels = async (
         const y0 = Math.floor((gateTop + 2) * scaleY)
         const y1 = Math.floor((gateTop + 38) * scaleY)
         let blue = 0
+        let edge = 0
         let paper = 0
         for (let y = y0; y <= y1; y += 1) {
           for (let x = x0; x <= x1; x += 1) {
             const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
             if (Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 16) blue += 1
+            if (Math.abs(r - 67) + Math.abs(g - 133) + Math.abs(b - 190) < 32) edge += 1
             if (Math.abs(r - 255) + Math.abs(g - 252) + Math.abs(b - 240) < 16) paper += 1
           }
         }
-        return { barIsBlue: blue > 80, emptyIsPaper: paper > 80 }
+        return { barIsBlue: blue > 80, edgeIsBlue400: edge > 8, emptyIsPaper: paper > 80 }
       },
       { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop },
     )
-    if (last.barIsBlue && last.emptyIsPaper) return last
+    if (last.barIsBlue && last.edgeIsBlue400 && last.emptyIsPaper) return last
     await page.waitForTimeout(50)
   }
   return last
@@ -229,10 +240,10 @@ const readoutVisualStabilityEvidence = async (
 const waitForChanceHoverEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
-): Promise<{ hoverBlue: boolean; popupText: boolean }> => {
+): Promise<{ rowBorder: boolean; popupText: boolean; popupDivider: boolean }> => {
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const selectedRowTop = EGUI_PANEL_MARGIN + LINE_Y
-  let last = { hoverBlue: false, popupText: false }
+  let last = { rowBorder: false, popupText: false, popupDivider: false }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
@@ -249,7 +260,7 @@ const waitForChanceHoverEvidence = async (
         c.width = img.width
         c.height = img.height
         const ctx = c.getContext('2d', { willReadFrequently: true })
-        if (!ctx) return { hoverBlue: false, popupText: false }
+        if (!ctx) return { rowBorder: false, popupText: false, popupDivider: false }
         ctx.drawImage(img, 0, 0)
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
@@ -273,21 +284,31 @@ const waitForChanceHoverEvidence = async (
           }
           return count
         }
+        let dividerRowMax = 0
+        for (let y = Math.floor(250 * scaleY); y <= Math.floor(305 * scaleY); y += 1) {
+          let row = 0
+          for (let x = Math.floor(270 * scaleX); x <= Math.floor(430 * scaleX); x += 1) {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            if (Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 24) row += 1
+          }
+          dividerRowMax = Math.max(dividerRowMax, row)
+        }
         return {
-          hoverBlue: countMatching(
-            gateLeft + 2,
-            gateLeft + 38,
-            selectedRowTop + 2,
-            selectedRowTop + 18,
-            ([r, g, b]) => Math.abs(r - 32) + Math.abs(g - 94) + Math.abs(b - 166) < 24,
+          rowBorder: countMatching(
+            gateLeft,
+            gateLeft + 40,
+            selectedRowTop,
+            selectedRowTop + 20,
+            ([r, g, b]) => Math.abs(r - 139) + Math.abs(g - 126) + Math.abs(b - 200) < 48,
           ) > 40,
-          popupText: countMatching(226, 390, 216, 292, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
+          popupText: countMatching(226, 450, 208, 336, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
+          popupDivider: dividerRowMax > 64,
         }
       },
       { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, selectedRowTop },
     )
     last = pixels
-    if (last.hoverBlue && last.popupText) return last
+    if (last.rowBorder && last.popupText && last.popupDivider) return last
     await page.waitForTimeout(50)
   }
   return last
@@ -311,6 +332,7 @@ test('Chance display renders GPU probabilities and serializes the Quirk token', 
     p0: 0.5,
     p1: 0.5,
     barIsBlue: true,
+    edgeIsBlue400: true,
     emptyIsPaper: true,
   })
 })
@@ -321,9 +343,9 @@ test('Chance4 displays GPU-rendered percentage labels', async ({ page }) => {
   await waitForChanceProbabilities(page)
 
   const canvas = page.locator('#egui-canvas')
-  const textPixels = await waitForChancePercentLabelPixels(page, canvas, 4)
+  const evidence = await waitForChancePercentLabelEvidence(page, canvas, 4)
 
-  expect(textPixels > 32).toBe(true)
+  expect(evidence.bboxHeight).toBeGreaterThanOrEqual(11)
 })
 
 test('Chance5 keeps the Quirk-style bar-only display', async ({ page }) => {
@@ -332,9 +354,24 @@ test('Chance5 keeps the Quirk-style bar-only display', async ({ page }) => {
   await waitForChanceProbabilities(page)
 
   const canvas = page.locator('#egui-canvas')
-  const textPixels = await waitForChancePercentLabelPixels(page, canvas, 5)
+  const evidence = await waitForChancePercentLabelEvidence(page, canvas, 5)
 
-  expect(textPixels < 8).toBe(true)
+  expect(evidence.textPixels < 8).toBe(true)
+})
+
+test('Chance5 draws logarithm hints for bar-only rows', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 1, 1, 1, 1], ['Chance5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
+  const hintX = gateLeft + GATE_SIZE * (1 + Math.log(0.5) / 12)
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'halfProbabilityHint', x: hintX, y: gateTop + rowH * 16.5 }])
+
+  expect(pixelRgbDistance(pixels.halfProbabilityHint, [218, 216, 206, 255])).toBeLessThan(64)
 })
 
 test('Chance hover highlights an outcome row and opens the popup', async ({ page }) => {
@@ -347,7 +384,7 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   await page.mouse.move(box.x + EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE, box.y + EGUI_PANEL_MARGIN + LINE_Y + 8)
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
-  expect(evidence).toEqual({ hoverBlue: true, popupText: true })
+  expect(evidence).toEqual({ rowBorder: true, popupText: true, popupDivider: true })
 })
 
 test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {

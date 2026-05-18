@@ -9,7 +9,8 @@ use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
     BlochOverlayCallback, BlochOverlayInstance, ChanceDisplayCallback, ChanceInstance,
-    MeasurementDigitCallback, MeasurementDigitInstance,
+    ChancePopupValueCallback, MeasurementDigitCallback, MeasurementDigitInstance,
+    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
 use crate::icons::{
     draw_bloch_vector, draw_chance_resize_handle, draw_gate_body, draw_meter_icon,
@@ -25,6 +26,15 @@ const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 // Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
+
+fn chance_hover_popup_ket(outcome: u32, span: usize) -> String {
+    let width = span.clamp(1, 16);
+    format!("|{outcome:0width$b}⟩")
+}
+
+fn chance_hover_popup_subtitle(outcome: u32) -> String {
+    format!("Chance if measured · k = {outcome}")
+}
 
 impl QniApp {
     pub(super) fn draw_placed_circuit_gates(
@@ -179,7 +189,8 @@ impl QniApp {
                 background: colors.surface.to_normalized_gamma_f32(),
                 border: colors.line.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
-                bar_hover: colors.semantic_on.to_normalized_gamma_f32(),
+                bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
+                hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
@@ -278,12 +289,13 @@ impl QniApp {
             painter.add(egui::Shape::Callback(paint_callback));
         }
 
-        self.draw_chance_hover_popup(painter, circuit_origin, dragging_gate_id, colors);
+        self.draw_chance_hover_popup(painter, rect, circuit_origin, dragging_gate_id, colors);
     }
 
     fn draw_chance_hover_popup(
         &self,
         painter: &egui::Painter,
+        screen_rect: egui::Rect,
         circuit_origin: egui::Pos2,
         dragging_gate_id: Option<u32>,
         colors: &Colors,
@@ -310,17 +322,48 @@ impl QniApp {
         );
         let row_h = gate_rect.height() / row_count as f32;
         let row_top = gate_rect.top() + row_h * outcome as f32;
-        let binary = format!("{:0width$b}", outcome, width = span);
-        let title = format!("Chance of |{binary}⟩");
-        let subtitle = "GPU probability bar";
-        // text-xs = 12px / line-height 16px; spacing-2 = 8px padding.
-        let title_font = egui::FontId::proportional(12.0);
-        let subtitle_font = egui::FontId::monospace(12.0);
-        let title_galley = painter.layout_no_wrap(title, title_font, colors.text_strong);
-        let subtitle_galley =
-            painter.layout_no_wrap(subtitle.to_owned(), subtitle_font, colors.text);
-        let width = title_galley.size().x.max(subtitle_galley.size().x) + 16.0;
-        let height = 8.0 + 16.0 + 16.0 + 8.0;
+        let ket = chance_hover_popup_ket(outcome, span);
+        let subtitle = chance_hover_popup_subtitle(outcome);
+        let Some(slot) = self.gpu_plan.chance_slot(gate.id) else {
+            return;
+        };
+
+        // Popup typography follows docs/chance-display.html §10: text-sm ket,
+        // text-xs subtitle/labels, spacing on the Tailwind 4px scale.
+        let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
+        let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
+        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let ket_galley = painter.layout_no_wrap(ket, ket_font, colors.text_strong);
+        let subtitle_galley = painter.layout_no_wrap(subtitle, subtitle_font, colors.text);
+        let raw_label_galley =
+            painter.layout_no_wrap("RAW".to_owned(), label_font.clone(), colors.text);
+        let log_label_galley = painter.layout_no_wrap("LOG".to_owned(), label_font, colors.text);
+
+        let pad_x = 16.0; // spacing-4.
+        let pad_y = 12.0; // spacing-3.
+        let subtitle_gap = 4.0; // spacing-1.
+        let divider_gap = 12.0; // spacing-3.
+        let row_gap = 16.0; // spacing-4.
+        let value_chars = 12.0; // Fits raw percent and compact log dB rows.
+        let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
+        let value_h = POPUP_GLYPH_CELL_H as f32;
+        let value_pitch = 20.0; // text-sm default line-height = 20px.
+        let label_w = 32.0_f32.max(raw_label_galley.size().x.max(log_label_galley.size().x));
+        let row_w = label_w + row_gap + value_w;
+        let content_w = ket_galley.size().x.max(subtitle_galley.size().x).max(row_w);
+        let width = content_w + pad_x * 2.0;
+        let ket_h = ket_galley.size().y.max(16.0);
+        let subtitle_h = subtitle_galley.size().y.max(16.0);
+        let height = pad_y * 2.0
+            + ket_h
+            + subtitle_gap
+            + subtitle_h
+            + divider_gap
+            + 1.0
+            + divider_gap
+            + value_h
+            + 4.0
+            + value_h;
         let mut rect = egui::Rect::from_min_size(
             egui::pos2(gate_rect.right() + 8.0, row_top),
             egui::vec2(width, height),
@@ -328,8 +371,8 @@ impl QniApp {
         rect = rect.translate(egui::vec2(0.0, -rect.height() * 0.5 + row_h * 0.5));
         let corner = egui::CornerRadius::same(6);
         let shadow = egui::epaint::Shadow {
-            offset: [0, 6],
-            blur: 16,
+            offset: [0, 4],
+            blur: 12,
             spread: 0,
             color: colors.tooltip_shadow,
         };
@@ -341,15 +384,69 @@ impl QniApp {
             egui::Stroke::new(1.0, colors.line),
             egui::StrokeKind::Inside,
         );
+
+        let ket_pos = rect.min + egui::vec2(pad_x, pad_y);
+        let subtitle_pos = ket_pos + egui::vec2(0.0, ket_h + subtitle_gap);
+        let divider_y = subtitle_pos.y + subtitle_h + divider_gap;
+        let raw_y = divider_y + 1.0 + divider_gap;
+        let log_y = raw_y + value_pitch;
+        painter.galley(ket_pos, ket_galley, colors.text_strong);
+        painter.galley(subtitle_pos, subtitle_galley, colors.text);
+        painter.rect_filled(
+            egui::Rect::from_min_size(
+                egui::pos2(rect.left() + pad_x, divider_y),
+                egui::vec2(rect.width() - pad_x * 2.0, 1.0),
+            ),
+            egui::CornerRadius::ZERO,
+            colors.line,
+        );
+
+        let label_x = rect.left() + pad_x;
+        let value_x = rect.right() - pad_x - value_w;
         painter.galley(
-            rect.min + egui::vec2(8.0, 7.0),
-            title_galley,
-            colors.text_strong,
+            egui::pos2(label_x, raw_y + 2.0),
+            raw_label_galley,
+            colors.text,
         );
         painter.galley(
-            rect.min + egui::vec2(8.0, 23.0),
-            subtitle_galley,
+            egui::pos2(label_x, log_y + 2.0),
+            log_label_galley,
             colors.text,
+        );
+
+        // Raw/log values come from the GPU Chance probability buffer via a
+        // dedicated render pass. CPU paints only static labels; no readback.
+        let value_anchor = egui::pos2(value_x, raw_y);
+        let value_color = colors.text_strong.to_normalized_gamma_f32();
+        let callback = ChancePopupValueCallback {
+            viewport_min: [screen_rect.min.x, screen_rect.min.y],
+            viewport_size: [screen_rect.width(), screen_rect.height()],
+            value_anchor: [value_anchor.x, value_anchor.y],
+            row_pitch: value_pitch,
+            char_size: [POPUP_GLYPH_CELL_W as f32, value_h],
+            text_color: value_color,
+            slot,
+            outcome,
+        };
+        let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
+        let value_clip =
+            egui::Rect::from_min_size(value_anchor, egui::vec2(value_w, value_pitch + value_h));
+        painter
+            .with_clip_rect(value_clip.intersect(rect.shrink(4.0)))
+            .add(egui::Shape::Callback(paint_callback));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn chance_hover_popup_text_matches_chance_display_spec() {
+        assert_eq!(
+            (
+                super::chance_hover_popup_ket(3, 2),
+                super::chance_hover_popup_subtitle(3)
+            ),
+            ("|11⟩".to_owned(), "Chance if measured · k = 3".to_owned())
         );
     }
 }

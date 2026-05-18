@@ -8,13 +8,15 @@
 use eframe::wgpu;
 
 use super::super::params::{
-    ChanceInstance, ChanceReduceParams, ChanceRenderParams, MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS,
-    MAX_OPS_PER_RECOMPUTE,
+    ChanceInstance, ChancePopupValueParams, ChanceReduceParams, ChanceRenderParams,
+    MAX_CHANCE_OUTCOMES, MAX_CHANCE_SLOTS, MAX_OPS_PER_RECOMPUTE,
 };
 use super::super::popup_glyph_atlas::{
     rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
 };
-use super::super::shaders::{CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER};
+use super::super::shaders::{
+    CHANCE_POPUP_VALUE_SHADER, CHANCE_REDUCE_SHADER, CHANCE_RENDER_SHADER,
+};
 use super::common::Common;
 
 struct ChanceGlyphAtlas {
@@ -35,6 +37,11 @@ pub(crate) struct ChanceResources {
     pub render_params_buffer: wgpu::Buffer,
     pub render_instance_buffer: wgpu::Buffer,
     pub last_render_params: Option<ChanceRenderParams>,
+
+    pub popup_value_pipeline: wgpu::RenderPipeline,
+    pub popup_value_bind_group: wgpu::BindGroup,
+    pub popup_value_params_buffer: wgpu::Buffer,
+    pub last_popup_value_params: Option<ChancePopupValueParams>,
 }
 
 impl ChanceResources {
@@ -65,9 +72,14 @@ impl ChanceResources {
             label: Some("chance_render"),
             source: wgpu::ShaderSource::Wgsl(CHANCE_RENDER_SHADER.into()),
         });
+        let popup_value_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_popup_value"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_POPUP_VALUE_SHADER.into()),
+        });
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_params_buffer = create_render_params_buffer(device);
         let render_instance_buffer = create_render_instance_buffer(device);
+        let popup_value_params_buffer = create_popup_value_params_buffer(device);
         let glyph_atlas = create_glyph_atlas(device, queue);
         let render_bind_group = create_render_bind_group(
             device,
@@ -76,10 +88,23 @@ impl ChanceResources {
             &render_params_buffer,
             &glyph_atlas,
         );
+        let popup_value_bind_group = create_render_bind_group(
+            device,
+            &render_bind_group_layout,
+            &output_buffer,
+            &popup_value_params_buffer,
+            &glyph_atlas,
+        );
         let render_pipeline = create_render_pipeline(
             device,
             target_format,
             &render_shader,
+            &render_bind_group_layout,
+        );
+        let popup_value_pipeline = create_popup_value_pipeline(
+            device,
+            target_format,
+            &popup_value_shader,
             &render_bind_group_layout,
         );
 
@@ -95,6 +120,10 @@ impl ChanceResources {
             render_params_buffer,
             render_instance_buffer,
             last_render_params: None,
+            popup_value_pipeline,
+            popup_value_bind_group,
+            popup_value_params_buffer,
+            last_popup_value_params: None,
         }
     }
 
@@ -111,6 +140,16 @@ impl ChanceResources {
             device,
             target_format,
             &shader,
+            &self.render_bind_group_layout,
+        );
+        let popup_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("chance_popup_value"),
+            source: wgpu::ShaderSource::Wgsl(CHANCE_POPUP_VALUE_SHADER.into()),
+        });
+        self.popup_value_pipeline = create_popup_value_pipeline(
+            device,
+            target_format,
+            &popup_shader,
             &self.render_bind_group_layout,
         );
     }
@@ -305,6 +344,15 @@ fn create_render_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     })
 }
 
+fn create_popup_value_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("chance_popup_value_params"),
+        size: std::mem::size_of::<ChancePopupValueParams>() as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
 fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("chance_render_instances"),
@@ -436,6 +484,44 @@ fn create_render_pipeline(
                     ],
                 },
             ],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: target_format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        }),
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+fn create_popup_value_pipeline(
+    device: &wgpu::Device,
+    target_format: wgpu::TextureFormat,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+) -> wgpu::RenderPipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("chance_popup_value_pipeline_layout"),
+        bind_group_layouts: &[layout],
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("chance_popup_value_pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: &[],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {

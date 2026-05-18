@@ -22,8 +22,8 @@ mod resources;
 mod shaders;
 
 pub(crate) use callbacks::{
-    BlochOverlayCallback, ChanceDisplayCallback, MeasurementDigitCallback, PopupValueCallback,
-    StateVectorCallback,
+    BlochOverlayCallback, ChanceDisplayCallback, ChancePopupValueCallback,
+    MeasurementDigitCallback, PopupValueCallback, StateVectorCallback,
 };
 pub(crate) use params::{
     BlochOverlayInstance, ChanceInstance, MeasurementDigitInstance, RenderColors, RenderParams,
