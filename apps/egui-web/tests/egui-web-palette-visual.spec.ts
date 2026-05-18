@@ -120,6 +120,37 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   })
 })
 
+const readConnectorBelowHoveredTopGate = async (page: Page): Promise<CanvasPixel> => {
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const panelMargin = 8
+  const connectorX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const topGateY = panelMargin + UI_CONSTANTS.LINE_Y
+  await page.mouse.move(box.x + connectorX, box.y + topGateY)
+  await page.waitForTimeout(50)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'connectorBelowHoveredTopGate', x: connectorX, y: topGateY + 14 },
+  ])
+  return pixels.connectorBelowHoveredTopGate
+}
+
+test('CNOT connector stays visible while hovering the control gate', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['•', 'X']] })))
+
+  expect(pixelRgbDistance(await readConnectorBelowHoveredTopGate(page), [58, 169, 159, 255])).toBeLessThan(8)
+})
+
+test('connected swap connector stays visible while hovering the swap gate', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Swap', 'Swap']] })))
+
+  expect(pixelRgbDistance(await readConnectorBelowHoveredTopGate(page), [58, 169, 159, 255])).toBeLessThan(8)
+})
+
 test('palette chance display preview uses four Gaussian rows', async ({ page }) => {
   await page.goto('/')
 

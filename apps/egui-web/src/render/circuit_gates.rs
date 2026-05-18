@@ -80,18 +80,16 @@ impl QniApp {
             }
             if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = gate_rect.expand(4.0);
-                let hover_inner = gate_rect.expand(2.0);
-                let hover_inner_fill = if gate.kind == GateKind::Measurement {
-                    circuit_fill
-                } else {
-                    colors.background
-                };
-                painter.rect_filled(
+                // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
+                // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
+                // 透明なゲート内部を通る縦接続線まで消えてしまうため、
+                // 回路上のホバーは全ゲートで内部を塗らない線だけのリングにする。
+                painter.rect_stroke(
                     hover_outer,
                     egui::CornerRadius::same(10),
-                    colors.gate_hover_border,
+                    egui::Stroke::new(2.0, colors.gate_hover_border),
+                    egui::StrokeKind::Inside,
                 );
-                painter.rect_filled(hover_inner, egui::CornerRadius::same(8), hover_inner_fill);
             }
             if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
                 // Write gates have no fill, so the wire would otherwise show
