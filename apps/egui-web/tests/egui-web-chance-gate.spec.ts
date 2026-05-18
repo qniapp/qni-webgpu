@@ -317,8 +317,20 @@ const waitForChanceHoverEvidence = async (
 const waitForScrolledChancePopupEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
-): Promise<{ popupAbovePalette: boolean; popupValueText: boolean; ketCentered: boolean }> => {
-  let last = { popupAbovePalette: false, popupValueText: false, ketCentered: false }
+): Promise<{
+  popupAbovePalette: boolean
+  popupValueText: boolean
+  ketCentered: boolean
+  valuesRightAligned: boolean
+  rowsAligned: boolean
+}> => {
+  let last = {
+    popupAbovePalette: false,
+    popupValueText: false,
+    ketCentered: false,
+    valuesRightAligned: false,
+    rowsAligned: false,
+  }
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const screenshot = await canvas.screenshot({ type: 'png' })
     const box = await canvas.boundingBox()
@@ -335,7 +347,15 @@ const waitForScrolledChancePopupEvidence = async (
         c.width = img.width
         c.height = img.height
         const ctx = c.getContext('2d', { willReadFrequently: true })
-        if (!ctx) return { popupAbovePalette: false, popupValueText: false, ketCentered: false }
+        if (!ctx) {
+          return {
+            popupAbovePalette: false,
+            popupValueText: false,
+            ketCentered: false,
+            valuesRightAligned: false,
+            rowsAligned: false,
+          }
+        }
         ctx.drawImage(img, 0, 0)
         const scaleX = img.width / cssWidth
         const scaleY = img.height / cssHeight
@@ -361,18 +381,52 @@ const waitForScrolledChancePopupEvidence = async (
         }
         const dark = ([r, g, b]: [number, number, number]) => r < 95 && g < 95 && b < 95
         const teal = ([r, g, b]: [number, number, number]) => Math.abs(r - 60) + Math.abs(g - 171) + Math.abs(b - 162) < 72
-        const paletteTealThroughPopup = countMatching(200, 386, 160, 196, teal)
-        const centeredKet = countMatching(280, 330, 168, 188, dark)
-        const leftKet = countMatching(212, 252, 168, 188, dark)
+        const textInk = ([r, g, b]: [number, number, number]) => r < 150 && g < 150 && b < 150
+        const textBounds = (x0Css: number, x1Css: number, y0Css: number, y1Css: number) => {
+          let count = 0
+          let minX = Number.POSITIVE_INFINITY
+          let maxX = Number.NEGATIVE_INFINITY
+          let minY = Number.POSITIVE_INFINITY
+          let maxY = Number.NEGATIVE_INFINITY
+          const x0 = Math.floor(x0Css * scaleX)
+          const x1 = Math.floor(x1Css * scaleX)
+          const y0 = Math.floor(y0Css * scaleY)
+          const y1 = Math.floor(y1Css * scaleY)
+          for (let y = y0; y <= y1; y += 1) {
+            for (let x = x0; x <= x1; x += 1) {
+              const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+              if (!textInk([r, g, b])) continue
+              count += 1
+              minX = Math.min(minX, x / scaleX)
+              maxX = Math.max(maxX, x / scaleX)
+              minY = Math.min(minY, y / scaleY)
+              maxY = Math.max(maxY, y / scaleY)
+            }
+          }
+          return { count, minX, maxX, minY, maxY }
+        }
+        const hasBounds = (b: ReturnType<typeof textBounds>) => b.count > 4
+        const centerY = (b: ReturnType<typeof textBounds>) => (b.minY + b.maxY) / 2
+        const paletteTealThroughPopup = countMatching(270, 430, 150, 196, teal)
+        const centeredKet = countMatching(320, 380, 155, 180, dark)
+        const leftKet = countMatching(270, 315, 155, 180, dark)
+        const rawLabel = textBounds(270, 306, 220, 242)
+        const rawValue = textBounds(318, 430, 220, 242)
+        const logLabel = textBounds(270, 306, 240, 264)
+        const logValue = textBounds(318, 430, 240, 264)
         return {
           popupAbovePalette: paletteTealThroughPopup < 8,
-          popupValueText: countMatching(262, 374, 230, 274, dark) > 24,
+          popupValueText: rawValue.count + logValue.count > 24,
           ketCentered: centeredKet > leftKet + 8,
+          valuesRightAligned: hasBounds(rawValue) && hasBounds(logValue) && Math.abs(rawValue.maxX - logValue.maxX) <= 4,
+          rowsAligned: hasBounds(rawLabel) && hasBounds(rawValue) && hasBounds(logLabel) && hasBounds(logValue)
+            && Math.abs(centerY(rawLabel) - centerY(rawValue)) <= 4
+            && Math.abs(centerY(logLabel) - centerY(logValue)) <= 4,
         }
       },
       { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
     )
-    if (last.popupAbovePalette && last.popupValueText && last.ketCentered) return last
+    if (last.popupAbovePalette && last.popupValueText && last.ketCentered && last.valuesRightAligned && last.rowsAligned) return last
     await page.waitForTimeout(50)
   }
   return last
@@ -453,22 +507,32 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
 
 test('Chance popup stays above the palette and keeps GPU values while scrolled', async ({ page }) => {
   const lowerQubitPadding = Array(15).fill(1)
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Chance4', ...lowerQubitPadding], [...lowerQubitPadding, 'H']] })))
+  const lowerQubitPaddingAfterPair = Array(14).fill(1)
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({
+    cols: [['H', 'H', ...lowerQubitPaddingAfterPair], ['Chance4', ...lowerQubitPadding], [...lowerQubitPadding, 'H']],
+  })))
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
   if (!box) throw new Error('expected egui canvas to be measurable')
+  const scrollY = 44
   await page.mouse.move(box.x + 400, box.y + 300)
-  await page.mouse.wheel(0, 94)
+  await page.mouse.wheel(0, scrollY)
   await page.waitForTimeout(300)
-  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
-  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 - 94
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 - scrollY
   const rowH = ((4 - 1) * LINE_GAP + GATE_SIZE) / 16
-  await page.mouse.move(box.x + gateLeft + 20, box.y + gateTop + rowH * 5.5)
+  await page.mouse.move(box.x + gateLeft + 20, box.y + gateTop + rowH * 0.5)
   const evidence = await waitForScrolledChancePopupEvidence(page, canvas)
 
-  expect(evidence).toEqual({ popupAbovePalette: true, popupValueText: true, ketCentered: true })
+  expect(evidence).toEqual({
+    popupAbovePalette: true,
+    popupValueText: true,
+    ketCentered: true,
+    valuesRightAligned: true,
+    rowsAligned: true,
+  })
 })
 
 test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {

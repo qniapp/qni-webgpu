@@ -32,12 +32,10 @@ const GLYPH_B: u32 = 17u;
 const GLYPH_INFINITY: u32 = 18u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 
-const ROW_RAW_CHARS: u32 = 9u;   // ddd.dddd%
-const ROW_LOG_CHARS: u32 = 12u;  // keeps the log column width stable
+const VALUE_CHARS: u32 = 12u;  // fixed value column width; raw/log strings are right-aligned
 
-fn row_char_count(row: u32) -> u32 {
-  if (row == 0u) { return ROW_RAW_CHARS; }
-  return ROW_LOG_CHARS;
+fn row_char_count(_row: u32) -> u32 {
+  return VALUE_CHARS;
 }
 
 fn pow10_table(exp: i32) -> f32 {
@@ -72,58 +70,65 @@ fn round_to(value: f32, frac_digits: u32) -> f32 {
   return round(value * m) / m;
 }
 
-fn leading_blanks_3int(value_abs: f32) -> u32 {
-  if (value_abs >= 100.0) { return 0u; }
-  if (value_abs >= 10.0) { return 1u; }
-  return 2u;
+fn int_digit_count_3(value_abs: f32) -> u32 {
+  if (value_abs >= 100.0) { return 3u; }
+  if (value_abs >= 10.0) { return 2u; }
+  return 1u;
 }
 
 fn glyph_raw(idx: u32, prob_01: f32) -> u32 {
-  // Quirk: 'raw: ' + (p * 100).toFixed(4) + '%'
+  // Quirk: 'raw: ' + (p * 100).toFixed(4) + '%'. CSS spec uses
+  // margin-left:auto for the value span, so align the formatted text to the
+  // right edge of the fixed value column instead of padding after it.
   let pct = round_to(clamp(prob_01, 0.0, 1.0) * 100.0, 4u);
-  let orig_idx = idx + leading_blanks_3int(pct);
-  if (orig_idx <= 2u) { return digit_at(pct, 2 - i32(orig_idx)); }
-  if (orig_idx == 3u) { return GLYPH_DOT; }
-  if (orig_idx <= 7u) { return digit_at(pct, -(i32(orig_idx) - 3)); }
-  if (orig_idx == 8u) { return GLYPH_PERCENT; }
+  let int_digits = int_digit_count_3(pct);
+  let text_len = int_digits + 6u; // integer + '.' + four decimals + '%'
+  let start = VALUE_CHARS - text_len;
+  if (idx < start) { return GLYPH_BLANK; }
+  let local = idx - start;
+  if (local < int_digits) { return digit_at(pct, i32(int_digits - 1u - local)); }
+  if (local == int_digits) { return GLYPH_DOT; }
+  if (local <= int_digits + 4u) { return digit_at(pct, -i32(local - int_digits)); }
+  if (local == int_digits + 5u) { return GLYPH_PERCENT; }
   return GLYPH_BLANK;
 }
 
 fn glyph_negative_infinity(idx: u32) -> u32 {
   // Quirk's Math.log10(0).toFixed(1) yields '-Infinity'. In qni-webgpu,
   // render the same mathematical value in compact human-readable form: '-∞ dB'.
-  if (idx == 0u) { return GLYPH_MINUS; }
-  if (idx == 1u) { return GLYPH_INFINITY; }
-  if (idx == 3u) { return GLYPH_D; }
-  if (idx == 4u) { return GLYPH_B; }
+  let start = VALUE_CHARS - 5u;
+  if (idx < start) { return GLYPH_BLANK; }
+  let local = idx - start;
+  if (local == 0u) { return GLYPH_MINUS; }
+  if (local == 1u) { return GLYPH_INFINITY; }
+  if (local == 3u) { return GLYPH_D; }
+  if (local == 4u) { return GLYPH_B; }
   return GLYPH_BLANK;
 }
 
 fn glyph_log(idx: u32, prob_01: f32) -> u32 {
-  // Quirk: 'log: ' + (Math.log10(p) * 10).toFixed(1) + ' dB'
+  // Quirk: 'log: ' + (Math.log10(p) * 10).toFixed(1) + ' dB'. Keep the
+  // visible text right-aligned in the same value column as RAW.
   if (prob_01 <= 0.0) { return glyph_negative_infinity(idx); }
 
   let db = round_to(log(prob_01) * 4.342944819, 1u); // 10 / ln(10)
   let db_abs = abs(db);
-  let blanks = leading_blanks_3int(db_abs);
+  let int_digits = int_digit_count_3(db_abs);
+  let sign_chars = select(0u, 1u, db < 0.0);
+  let text_len = sign_chars + int_digits + 5u; // sign + integer + '.' + tenth + ' dB'
+  let start = VALUE_CHARS - text_len;
+  if (idx < start) { return GLYPH_BLANK; }
+  var local = idx - start;
 
   if (db < 0.0) {
-    let orig_idx = select(idx + blanks, 0u, idx == 0u);
-    if (orig_idx == 0u) { return GLYPH_MINUS; }
-    if (orig_idx >= 1u && orig_idx <= 3u) { return digit_at(db_abs, 3 - i32(orig_idx)); }
-    if (orig_idx == 4u) { return GLYPH_DOT; }
-    if (orig_idx == 5u) { return digit_at(db_abs, -1); }
-    if (orig_idx == 7u) { return GLYPH_D; }
-    if (orig_idx == 8u) { return GLYPH_B; }
-    return GLYPH_BLANK;
+    if (local == 0u) { return GLYPH_MINUS; }
+    local = local - 1u;
   }
-
-  let orig_idx = idx + blanks;
-  if (orig_idx <= 2u) { return digit_at(db_abs, 2 - i32(orig_idx)); }
-  if (orig_idx == 3u) { return GLYPH_DOT; }
-  if (orig_idx == 4u) { return digit_at(db_abs, -1); }
-  if (orig_idx == 6u) { return GLYPH_D; }
-  if (orig_idx == 7u) { return GLYPH_B; }
+  if (local < int_digits) { return digit_at(db_abs, i32(int_digits - 1u - local)); }
+  if (local == int_digits) { return GLYPH_DOT; }
+  if (local == int_digits + 1u) { return digit_at(db_abs, -1); }
+  if (local == int_digits + 3u) { return GLYPH_D; }
+  if (local == int_digits + 4u) { return GLYPH_B; }
   return GLYPH_BLANK;
 }
 
@@ -150,7 +155,7 @@ fn vs_main(
   let row = ii;
   let chars = row_char_count(row);
   let row_origin = vec2<f32>(
-    params.value_anchor.x + f32(ROW_LOG_CHARS - chars) * params.char_size.x,
+    params.value_anchor.x,
     params.value_anchor.y + f32(row) * params.row_pitch,
   );
   let row_size = vec2<f32>(

@@ -342,7 +342,7 @@ impl QniApp {
         let subtitle_gap = 4.0; // spacing-1.
         let divider_gap = 12.0; // spacing-3.
         let row_gap = 16.0; // spacing-4.
-        let value_chars = 12.0; // Fits raw percent and compact log dB rows.
+        let value_chars = 12.0; // Must match WGSL VALUE_CHARS; fits raw percent and compact log dB rows.
         let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
         let value_h = POPUP_GLYPH_CELL_H as f32;
         let value_pitch = 20.0; // text-sm default line-height = 20px.
@@ -417,7 +417,9 @@ impl QniApp {
 
         // Raw/log values come from the GPU Chance probability buffer via a
         // dedicated render pass. CPU paints only static labels; no readback.
-        let value_anchor = egui::pos2(value_x, raw_y);
+        // Align the GPU-rasterised 16px-tall value cells with the
+        // egui-painted RAW / LOG labels in the same popup rows.
+        let value_anchor = egui::pos2(value_x, raw_y + 2.0);
         let value_color = colors.text_strong.to_normalized_gamma_f32();
         let callback = ChancePopupValueCallback {
             viewport_min: [screen_rect.min.x, screen_rect.min.y],
