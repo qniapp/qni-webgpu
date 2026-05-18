@@ -139,7 +139,7 @@ mod wasm_debug {
                     .or_else(|| string_prop(&entry, "json"))?,
                 updated_at: number_prop(&entry, "updated_at")
                     .or_else(|| number_prop(&entry, "updatedAt"))
-                    .unwrap_or_else(super::super::now_millis),
+                    .unwrap_or_else(qni_egui_web_circuit_library_model::now_millis),
             });
         }
         let active_id = string_prop(&value, "active_id")

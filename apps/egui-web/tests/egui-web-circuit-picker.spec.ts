@@ -17,6 +17,8 @@ type Point = { x: number; y: number }
 const BELL_JSON = '{"cols":[["H"]]}'
 const GHZ_JSON = '{"cols":[["X"]]}'
 const QFT_JSON = '{"cols":[["QFT4"]]}'
+const LEGACY_BELL_SAMPLE_JSON = '{"cols":[["H"],["•","X"]]}'
+const LEGACY_GHZ_SAMPLE_JSON = '{"cols":[["H"],["•","X"],["•",1,"X"]]}'
 const GROVER_CHANCE_SLOTS = 5
 const GROVER_OUTCOME_COUNT = 32
 const GROVER_MARKED_OUTCOME = 27
@@ -89,6 +91,46 @@ const waitForSnapshot = async (
 const storedDocument = async (page: Page): Promise<any> =>
   page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), STORAGE_KEY)
 
+const legacySeedLibraryDocument = () => ({
+  version: 1,
+  activeId: 'ghz',
+  circuits: [
+    {
+      id: 'bell',
+      name: 'Bell state',
+      json: LEGACY_BELL_SAMPLE_JSON,
+      createdAt: 1,
+      updatedAt: 1,
+      meta: { qubits: 2, columns: 2, gateCount: 3 },
+    },
+    {
+      id: 'ghz',
+      name: 'GHZ state',
+      json: LEGACY_GHZ_SAMPLE_JSON,
+      createdAt: 2,
+      updatedAt: 2,
+      meta: { qubits: 3, columns: 3, gateCount: 5 },
+    },
+    {
+      id: 'qft-4',
+      name: 'QFT 4-qubit',
+      json: QFT_JSON,
+      createdAt: 3,
+      updatedAt: 3,
+      meta: { qubits: 4, columns: 1, gateCount: 1 },
+    },
+  ],
+})
+
+const waitForChanceEntries = async (page: Page, count: number) => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const entries = await readChanceProbabilities(page)
+    if (entries.length === count) return entries
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`timed out waiting for ${count} Chance entries`)
+}
+
 const seedLibrary = async (page: Page, activeId = 'bell'): Promise<void> => {
   const library = {
     entries: [
@@ -115,9 +157,13 @@ const clickCanvas = async (page: Page, point: Point): Promise<void> => {
   await page.mouse.click((box?.x ?? 0) + point.x, (box?.y ?? 0) + point.y)
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
   await page.goto('/')
-  await waitForStartupReady(page, { waitForStateVector: true })
+  const skipsStateVectorReady = [
+    'legacy seeded localStorage gains Grover Search on reload',
+    'deleted migrated Grover Search stays deleted after reload',
+  ].includes(testInfo.title)
+  await waitForStartupReady(page, skipsStateVectorReady ? undefined : { waitForStateVector: true })
 })
 
 test('startup current entry preserves the four seeded sample circuits', async ({ page }) => {
@@ -146,14 +192,74 @@ test('startup current entry preserves the four seeded sample circuits', async ({
   })
 })
 
+test('legacy seeded localStorage gains Grover Search on reload', async ({ page }) => {
+  await page.evaluate(({ key, document }) => {
+    localStorage.setItem(key, JSON.stringify(document))
+  }, { key: STORAGE_KEY, document: legacySeedLibraryDocument() })
+  await page.goto('/')
+  await waitForStartupReady(page)
+
+  const state = await waitForSnapshot(page, (next) =>
+    next.active_id === 'ghz'
+    && next.entries.some((entry) => entry.id === 'grover-search'), 'Grover Search migrated')
+  const stored = await storedDocument(page)
+  expect({
+    activeId: state.active_id,
+    grover: state.entries.find((entry) => entry.id === 'grover-search'),
+    storedGrover: stored.circuits.find((entry: { id: string }) => entry.id === 'grover-search'),
+  }).toMatchObject({
+    activeId: 'ghz',
+    grover: { name: 'Grover Search', circuit_json: GROVER_JSON },
+    storedGrover: { name: 'Grover Search', json: GROVER_JSON },
+  })
+})
+
+test('deleted migrated Grover Search stays deleted after reload', async ({ page }) => {
+  await page.evaluate(({ key, document }) => {
+    localStorage.setItem(key, JSON.stringify(document))
+  }, { key: STORAGE_KEY, document: legacySeedLibraryDocument() })
+  await page.goto('/')
+  await waitForStartupReady(page)
+  await waitForSnapshot(page, (next) =>
+    next.active_id === 'ghz'
+    && next.entries.some((entry) => entry.id === 'grover-search'), 'Grover Search migrated')
+  await page.evaluate(() => {
+    const remove = (window as any).__qniCircuitLibraryDelete
+    if (typeof remove !== 'function') throw new Error('__qniCircuitLibraryDelete hook missing')
+    remove('grover-search')
+  })
+  await waitForSnapshot(page, (next) =>
+    !next.entries.some((entry) => entry.id === 'grover-search'), 'Grover Search deleted before reload')
+
+  await page.goto('/')
+  await waitForStartupReady(page)
+  const stored = await storedDocument(page)
+  expect({
+    sampleVersion: stored.sampleVersion,
+    storedHasGrover: stored.circuits.some((entry: { id: string }) => entry.id === 'grover-search'),
+  }).toEqual({ sampleVersion: 2, storedHasGrover: false })
+})
+
 test('seeded Grover Search amplifies the Quirk marked outcome', async ({ page }) => {
   const state = await snapshot(page)
   const groverJson = state.entries.find((entry) => entry.id === 'grover-search')?.circuit_json
   if (!groverJson) throw new Error('Grover Search seed missing')
 
-  await page.goto('/?grover-seed=1#' + encodeURIComponent(groverJson))
-  await waitForStartupReady(page, { waitForStateVector: true })
-  const chanceEntries = await readChanceProbabilities(page)
+  await page.evaluate((circuitJson) => {
+    const seed = (window as any).__seedCircuits
+    if (typeof seed !== 'function') throw new Error('__seedCircuits hook missing')
+    seed(JSON.stringify({
+      entries: [{
+        id: 'grover-search',
+        name: 'Grover Search',
+        circuit_json: circuitJson,
+        updated_at: 1,
+      }],
+      active_id: 'grover-search',
+    }))
+  }, groverJson)
+  await waitForSnapshot(page, (next) => next.active_id === 'grover-search', 'Grover Search active')
+  const chanceEntries = await waitForChanceEntries(page, GROVER_CHANCE_SLOTS)
   const finalChance = chanceEntries.at(-1)?.probabilities ?? []
   const finalPeak = finalChance.slice(0, GROVER_OUTCOME_COUNT).reduce(
     (best, probability, outcome) =>

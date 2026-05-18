@@ -70,12 +70,7 @@ impl CircuitLibrary {
                 circuit_json: r#"{"cols":[["QFT4"]]}"#.to_owned(),
                 updated_at: now,
             },
-            CircuitEntry {
-                id: "grover-search".to_owned(),
-                name: "Grover Search".to_owned(),
-                circuit_json: GROVER_SEARCH_JSON.to_owned(),
-                updated_at: now,
-            },
+            grover_search_entry(now),
         ];
         Self {
             active_id: entries[0].id.clone(),
@@ -344,6 +339,15 @@ impl CircuitLibrary {
             }
             index += 1;
         }
+    }
+}
+
+fn grover_search_entry(updated_at: u64) -> CircuitEntry {
+    CircuitEntry {
+        id: "grover-search".to_owned(),
+        name: "Grover Search".to_owned(),
+        circuit_json: GROVER_SEARCH_JSON.to_owned(),
+        updated_at,
     }
 }
 

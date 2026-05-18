@@ -15,6 +15,7 @@ mod wasm {
 
     const STORAGE_KEY: &str = "qni.circuit_library.v1";
     const VERSION: f64 = 1.0;
+    const SAMPLE_VERSION: f64 = 2.0;
 
     thread_local! {
         static APP_LIBRARY_DIRTY: Cell<bool> = const { Cell::new(false) };
@@ -113,6 +114,11 @@ mod wasm {
         let document =
             js_sys::JSON::parse(&raw).map_err(|_| error("circuit library is corrupted"))?;
         validate_document(&document)?;
+        if migrate_document_samples(&document)? {
+            if let Err(error) = write_document(&document) {
+                tracing::warn!(?error, "failed to persist circuit library sample migration");
+            }
+        }
         document_to_app_library(&document)
     }
 
@@ -122,6 +128,7 @@ mod wasm {
             .as_ref()
             .and_then(|document| array_prop(document, "circuits").ok());
         let document = default_document();
+        set_number(document.as_ref(), "sampleVersion", SAMPLE_VERSION)?;
         let circuits = js_sys::Array::new();
         for entry in &library.entries {
             let summary = crate::url_circuit::summarize_circuit_json(&entry.circuit_json)
@@ -216,6 +223,44 @@ mod wasm {
             .and_then(|value| value.as_string())
             .unwrap_or_else(|| entries[0].id.clone());
         Ok(Some(CircuitLibrary::from_entries(entries, active_id)))
+    }
+
+    fn migrate_document_samples(document: &JsValue) -> Result<bool, JsValue> {
+        if number_prop(document, "sampleVersion").is_some_and(|version| version >= SAMPLE_VERSION) {
+            return Ok(false);
+        }
+        let circuits = array_prop(document, "circuits")?;
+        let has_grover = find_entry(&circuits, "grover-search").is_some();
+        let has_legacy_samples = ["bell", "ghz", "qft-4"]
+            .iter()
+            .all(|id| find_entry(&circuits, id).is_some());
+        if !has_legacy_samples {
+            return Ok(false);
+        }
+        set_number(document, "sampleVersion", SAMPLE_VERSION)?;
+        if !has_grover {
+            append_grover_sample(&circuits)?;
+        }
+        Ok(true)
+    }
+
+    fn append_grover_sample(circuits: &js_sys::Array) -> Result<(), JsValue> {
+        let sample = CircuitLibrary::seed()
+            .entries
+            .into_iter()
+            .find(|entry| entry.id == "grover-search")
+            .ok_or_else(|| error("Grover Search sample missing"))?;
+        let summary = crate::url_circuit::summarize_circuit_json(&sample.circuit_json)
+            .ok_or_else(|| error("invalid circuit json"))?;
+        let stored = js_sys::Object::new();
+        set_string(stored.as_ref(), "id", &sample.id)?;
+        set_string(stored.as_ref(), "name", &sample.name)?;
+        set_string(stored.as_ref(), "json", &sample.circuit_json)?;
+        set_number(stored.as_ref(), "createdAt", sample.updated_at as f64)?;
+        set_number(stored.as_ref(), "updatedAt", sample.updated_at as f64)?;
+        set_value(stored.as_ref(), "meta", &meta_object(summary)?)?;
+        circuits.push(stored.as_ref());
+        Ok(())
     }
 
     fn validate_document(document: &JsValue) -> Result<(), JsValue> {
