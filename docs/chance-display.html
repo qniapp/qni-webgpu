@@ -557,6 +557,7 @@
       <li>隣接 2 行のうち広いバーの右端から行右端まで <code>ui-2</code> 1 px を引く</li>
       <li>バー領域では「色の境界」自体が区切りになるので線は引かない (Quirk と同じ流儀、視覚的に冗長な線を排除)</li>
       <li>計算式: <code>x_start = rect.left() + rect.width() × max(prob[i−1], prob[i])</code>、<code>x_end = rect.right()</code></li>
+      <li>高密度表示では省略する。実装上は <code>row_h ≤ 2 px</code> のとき行区切り線を描かず、Quirk と同じくバー / 対数ヒント線 / ホバー位置だけを残す</li>
     </ul>
     <h3 style="margin-top: 16px;">テキストラベル</h3>
     <ul>
@@ -629,7 +630,7 @@ lineTo(0, h)             // 左下に戻す
 stroke()</pre>
       </li>
       <li>線スタイル: <code>strokeStyle = ui-2</code> (#DAD8CE、Quirk の <code>'#CCC'</code> 相当の薄灰)、<code>lineWidth = 1</code></li>
-      <li><strong>per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する</li>
+      <li><strong>Quirk 基準では per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。なお現行シェーダは <code>span ≥ 13</code> で水平接続を省いているため、§08.5 の性能見直し時に Quirk 基準へ戻す</li>
     </ul>
 
     <h3 style="margin-top: 16px;">tooltip の <code>log: ... dB</code> との違い (重要)</h3>
@@ -641,7 +642,7 @@ stroke()</pre>
       両者は計算式 (<code>ln</code> vs <code>log10</code>) も用途 (描画 vs テキスト表示) も別。
     </p>
 
-    <h3 style="margin-top: 16px;">qni-webgpu 実装方針</h3>
+    <h3 style="margin-top: 16px;">qni-webgpu 現行実装 (性能見直し対象)</h3>
     <ul>
       <li>Chance1〜Chance4 (<code>row_h &gt; 8 px</code> かつ <code>row_count ≤ 16</code>) は <code>XX.X%</code> ラベルのみ。対数ヒント線は描かない</li>
       <li>Chance5〜Chance16 は対数ヒント線のみ。<code>%</code> ラベルは出さない</li>
@@ -660,14 +661,95 @@ stroke()</pre>
       <li>
         <strong>span ≥ 13 (<code>row_count &gt; 4096</code>) の集約描画</strong>:
         Chance13 以降は 1 ピクセル内に複数 outcome が乗る (span 16 で <code>880/65536 ≈ 0.013 px/row</code>、1 px あたり ~74 outcome)。
-        per-fragment ループで <code>row_lo = floor(y / row_h)</code> から <code>row_hi = floor((y + 1) / row_h)</code> までの
-        outcome を走査し、<code>p_max = max(p[row_lo..=row_hi])</code> を求めて
-        ポリライン x 位置と線形バー幅 (<code>x_bar = w × p_max</code>) を <strong>max 集約</strong>で決める
+        現行シェーダは <code>pixel_h = max(fwidth(local_y), row_h)</code> を使い、
+        <code>row_lo = floor((local_y - pixel_h × 0.5) / row_h)</code> から
+        <code>row_hi = floor((local_y + pixel_h × 0.5) / row_h)</code> までの outcome を走査する。
+        そこで <code>p_max = max(p[row_lo..=row_hi])</code> を求め、ポリライン x 位置と線形バー幅
+        (<code>x_bar = w × p_max</code>) を <strong>max 集約</strong>で決める
         (「そのピクセル列で最も右に達したバー / ヒント線が代表値」)。
-        最大ループ上限はシェーダ static const で <code>MAX_AGG_ROWS = 128</code> (span 16 で 1 px あたり最大 ~74、安全マージン込みで 128) に固定する。
-        downsample 用 compute pass は導入しない (1 pass で描き切る方が GPU 状態管理がシンプル)。
+        ただし §08.5 の Quirk 調査により、このフラグメントごとの走査は Chance16 の FPS 低下要因として見直す。
+        後続作業では、GPU 上の事前集約・キャッシュへ置き換える。
       </li>
       <li>docs / コード内コメントでは「縦線」と呼ばず<strong>「対数ヒント線」</strong>または<strong>「対数スケールの補助線」</strong>と呼称統一する</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 08.5 Quirk 高速化メモ ─────── -->
+<section class="block">
+  <h2>§ 08.5 Quirk 高速化メモ</h2>
+  <div class="card">
+    <p class="note">
+      調査対象: <code>../oss/Quirk</code> @ <code>8833791294e642795c8717038e84940a74b19a64</code>。
+      16 qubit span の Chance display が高速に見える主因は、確率の算出とホバー描画を分離し、
+      ホバー中に重い確率計算やフラグメントごとの集約を繰り返さない構造にある。
+    </p>
+
+    <h3 style="margin-top: 16px;">Quirk の実装上の要点</h3>
+    <ul>
+      <li>
+        <strong>確率は表示ゲートの custom stat として一度だけ作る。</strong>
+        <code>ProbabilityDisplay.js:48-64</code> の <code>probabilityStatTexture</code> は
+        state texture を確率へ変換し、表示範囲の bit を寄せてから <code>sumFoldFloat</code> で対象外 bit を畳み込む。
+        <code>CircuitComputeUtil.js:125-145</code> では、列ごとに必要な表示ゲートだけ
+        <code>customStatTexturesMaker</code> を呼ぶ。つまり Chance16 の 65,536 個の確率は
+        「回路統計」の一部であり、ポインタホバーのたびに再計算しない。
+      </li>
+      <li>
+        <strong>安定回路の統計をキャッシュする。</strong>
+        <code>ui/sim.js:50-60</code> は回路定義が同じならキャッシュ済みの <code>CircuitStats</code> を返す。
+        ホバーは回路そのものを変えないので、<code>main.js:143</code> の <code>simulate(...)</code> は
+        既存統計を使い回す。再描画は起きても、状態シミュレーションと Chance 確率集計は走らない。
+      </li>
+      <li>
+        <strong>CPU 側の描画は outcome 数に対して各 1 本の Canvas パス構築。</strong>
+        <code>ProbabilityDisplay.js:146-170</code> のバー、<code>173-195</code> の対数ヒント線は、
+        65,536 outcome を <code>lineTo</code> でバー用パスと対数ヒント線用パスに積み、最後に <code>fill()</code> / <code>stroke()</code> する。
+        画面ピクセルごとに確率配列を走査しない。ブラウザの 2D Canvas ラスタライザに細い行の集約を任せる。
+      </li>
+      <li>
+        <strong>高密度グリッドは早期に省略する。</strong>
+        <code>ProbabilityDisplay.js:124-143</code> のグリッド描画は <code>d = h / n &lt; 1</code> のとき、
+        全区切り線を描かず薄い矩形塗りだけで戻る。Chance16 で 65,535 本の水平線を描かない。
+      </li>
+      <li>
+        <strong>ホバー固有の処理は 1 行分だけ。</strong>
+        <code>ProbabilityDisplay.js:198-217</code> はポインタ位置から <code>k = floor((pt.y - y) / d)</code> を出し、
+        その 1 outcome の <code>p</code> だけを読んで <code>strokeRect</code> と tooltip を描く。
+        マウス移動では全体の再描画自体は起きるが、重い確率統計はキャッシュ済みで、ホバー固有処理として全 outcome を走査しない。
+      </li>
+      <li>
+        <strong>再描画要求を束ねる。</strong>
+        <code>main.js:164-166</code> は再描画を <code>CooldownThrottle</code> に通し、
+        <code>base/CooldownThrottle.js:18-20</code> / <code>52-74</code> の仕組みで短時間の連続要求を 1 回にまとめる。
+        ただし高速化の中核は再描画の間引きではなく、上記の統計キャッシュと Canvas パス描画。
+      </li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">qni-webgpu へ移すべき方針</h3>
+    <ul>
+      <li>
+        <strong>本番経路の GPU → CPU リードバックは引き続き禁止。</strong>
+        Quirk は <code>CircuitStats.js:359-364</code> で custom stats を CPU に読み戻して Canvas 描画するが、
+        qni-webgpu ではこの形をそのまま採らない。移植すべきなのは「再利用する統計 / 描画入力を前段で作る」構造であり、リードバックではない。
+      </li>
+      <li>
+        <strong>Chance16 をフラグメントシェーダのピクセルごとの集約で描き切らない。</strong>
+        現行方針の <code>span ≥ 13</code> フラグメントごとのループは、1 フラグメントあたり最大 ~74 outcome を読む。
+        ゲート面積ぶんこれが掛かるため、Quirk の <code>O(outcome)</code> Canvas パス構築より重くなりやすい。
+        代替は、コンピュートシェーダで「画面 y ピクセルごとの代表値」または「ポリライン頂点列」をキャッシュし、描画パスは
+        その小さいバッファ / テクスチャを読むだけにする。
+      </li>
+      <li>
+        <strong>ホバーは重ね描きだけ更新する。</strong>
+        ポインタが動いたときは、確率バッファ・対数ヒント線・バー本体を再生成せず、ホバー中 outcome とポップアップ値だけを更新する。
+        既存の step snapshot キャッシュと同じ発想で、Chance 本体の密な描画結果も circuit / slot / span / viewport 高さが変わるまで再利用する。
+      </li>
+      <li>
+        <strong>密な区切り線や装飾は描かない。</strong>
+        Quirk と同様、<code>row_h &lt; 1</code> では行区切りを捨て、バー / 対数ヒント線 / ホバー位置だけを残す。
+        見た目の情報量を保ちながら、描画プリミティブ数とフラグメント処理を抑える。
+      </li>
     </ul>
   </div>
 </section>
