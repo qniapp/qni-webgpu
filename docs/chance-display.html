@@ -679,7 +679,7 @@ stroke()</pre>
     <table class="spec">
       <tbody>
         <tr><th>ゲートホバー枠</th><td>ゲート外側 0..2 px = paper gap、2..4 px = <code>purple-400</code> ring (合計 4 px 厚)。<code>ChanceDisplay</code> は本体が角ばりなのでホバー枠も角ばり。既存のゲートホバー枠 (<code>circuit_gates.rs:67-91</code> / <code>circuit_palette/panel.rs:48-71</code>) と同寸・同色</td></tr>
-        <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk のオレンジ枠と同流儀</td></tr>
+        <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk の <code>strokeRect(..., lineWidth = 2)</code> と同流儀。行高が 4 px 未満の高密度表示では、上下ストロークが重なった 2 px 相当の水平帯として描き、Chance16 でもホバーしている振幅の位置が消えないようにする</td></tr>
         <tr><th>同時表示</th><td>ゲートホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
         <tr><th>popup</th><td>
           行ホバー時、ゲート右 8 px に popup が出る。表示内容: ket <code>|bin(k)⟩</code> (主)、

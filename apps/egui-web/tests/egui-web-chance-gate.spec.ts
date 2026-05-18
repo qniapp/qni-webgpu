@@ -18,6 +18,7 @@ const LINE_Y = UI_CONSTANTS.LINE_Y
 const LINE_GAP = UI_CONSTANTS.LINE_GAP
 const EGUI_PANEL_MARGIN = 8
 const CHANCE_PALETTE_INDEX = 20
+const DENSE_CHANCE_HOVER_LINE_MIN_PIXELS = 40
 const readCircuitColsFromHash = (url: string): unknown[] => JSON.parse(decodeURIComponent(new URL(url).hash.slice(1))).cols
 
 const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number): Promise<void> }, expected: unknown[]): Promise<void> => {
@@ -361,6 +362,52 @@ const waitForChanceHoverEvidence = async (
   return last
 }
 
+const waitForDenseChanceHoverLinePixels = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+  localY: number,
+): Promise<number> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const hoverY = gateTop + localY
+  let last = 0
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    last = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, hoverY, gateSize }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return 0
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        let count = 0
+        for (let y = Math.floor((hoverY - 2) * scaleY); y <= Math.ceil((hoverY + 2) * scaleY); y += 1) {
+          for (let x = Math.floor((gateLeft + 4) * scaleX); x <= Math.ceil((gateLeft + gateSize - 4) * scaleX); x += 1) {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            if (Math.abs(r - 139) + Math.abs(g - 126) + Math.abs(b - 200) < 64) count += 1
+          }
+        }
+        return count
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, hoverY, gateSize: GATE_SIZE },
+    )
+    if (last > DENSE_CHANCE_HOVER_LINE_MIN_PIXELS) return last
+    await page.waitForTimeout(50)
+  }
+  return last
+}
+
 const waitForScrolledChancePopupEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
@@ -561,6 +608,22 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ rowBorder: true, popupText: true, popupDivider: true })
+})
+
+test('Chance16 hover keeps the Quirk-style row line visible', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Chance16']] })))
+  await waitForStartupReady(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const hoverLocalY = 280
+  await page.mouse.move(box.x + gateLeft + GATE_SIZE / 2, box.y + gateTop + hoverLocalY)
+  const hoverLinePixels = await waitForDenseChanceHoverLinePixels(page, canvas, hoverLocalY)
+
+  expect(hoverLinePixels).toBeGreaterThan(DENSE_CHANCE_HOVER_LINE_MIN_PIXELS)
 })
 
 test('Chance popup stays above the palette and keeps GPU values while scrolled', async ({ page }) => {

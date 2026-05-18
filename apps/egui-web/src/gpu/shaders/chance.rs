@@ -224,6 +224,29 @@ fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h
   return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
 }
 
+fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, raw_row: u32, row_h: f32, hovered_outcome: i32) -> bool {
+  if (hovered_outcome < 0) { return false; }
+
+  let hover_border_px = 2.0;
+  let hovered_row = u32(hovered_outcome);
+  if (row_h >= hover_border_px * 2.0) {
+    if (raw_row != hovered_row) { return false; }
+    let row_y = local.y - f32(raw_row) * row_h;
+    return local.x < hover_border_px ||
+      local.x >= rect_size.x - hover_border_px ||
+      row_y < hover_border_px ||
+      row_y >= row_h - hover_border_px;
+  }
+
+  // Quirk uses strokeRect(..., lineWidth=2) for the hovered row. In dense
+  // displays the top/bottom strokes merge into one visible band; draw that
+  // band explicitly so the selected outcome cannot fall between fragments.
+  let row_top = f32(hovered_row) * row_h;
+  let row_bottom = min(row_top + row_h, rect_size.y);
+  let half_stroke = hover_border_px * 0.5;
+  return local.y >= row_top - half_stroke && local.y <= row_bottom + half_stroke;
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
@@ -231,7 +254,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let raw_row = u32(clamp(floor(input.local.y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let prob = chance_prob(input.slot, raw_row);
   let draw_prob = chance_aggregate_prob_for_pixel(input.slot, input.span, row_count, row_h, input.local.y, raw_row);
-  let hover = i32(raw_row) == input.hovered_outcome;
   let bar_right = draw_prob * input.rect_size.x;
   let show_text = row_count <= 16u && row_h > 8.0;
 
@@ -264,15 +286,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     color = params.border;
   }
 
-  let row_y = input.local.y - f32(raw_row) * row_h;
-  let hover_border_px = 2.0;
-  let on_hover_border = hover && (
-    input.local.x < hover_border_px ||
-    input.local.x >= input.rect_size.x - hover_border_px ||
-    row_y < hover_border_px ||
-    row_y >= row_h - hover_border_px
-  );
-  if (on_hover_border) {
+  if (on_hover_highlight(input.local, input.rect_size, raw_row, row_h, input.hovered_outcome)) {
     color = params.hover_border;
   }
 
