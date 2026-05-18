@@ -65,12 +65,21 @@ fn span_resize_handle_hit_rect(
     edge: SpanResizeEdge,
 ) -> egui::Rect {
     let rect = span_resize_handle_rect(kind, gate_rect, edge);
-    if kind == GateKind::ChanceDisplay {
-        // The visible Chance pill scales up to 1.25× while hovered/active;
-        // keep the pointer target matched to the largest visual state.
-        rect.expand2(egui::vec2(3.0, 1.0))
-    } else {
-        rect
+    if kind != GateKind::ChanceDisplay {
+        return rect;
+    }
+    // The visible Chance pill scales up to 1.25× while hovered/active;
+    // keep the pointer target matched to the largest visual state and extend
+    // it through the visual gap so the handle does not disappear while the
+    // pointer travels from the gate body to the pill.
+    let expanded = rect.expand2(egui::vec2(3.0, 1.0));
+    match edge {
+        SpanResizeEdge::Top => {
+            egui::Rect::from_min_max(expanded.min, egui::pos2(expanded.max.x, gate_rect.top()))
+        }
+        SpanResizeEdge::Bottom => {
+            egui::Rect::from_min_max(egui::pos2(expanded.min.x, gate_rect.bottom()), expanded.max)
+        }
     }
 }
 

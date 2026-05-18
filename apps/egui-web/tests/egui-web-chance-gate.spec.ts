@@ -655,6 +655,26 @@ const setupChance4ResizeHandleProbe = async (page: Parameters<typeof sampleCanva
   return { canvas, box, gateTop, gateHeight, centerX }
 }
 
+test('Chance resize handles stay visible while crossing the top gap', async ({ page }) => {
+  const { canvas, box, gateTop, centerX } = await setupChance4ResizeHandleProbe(page)
+  await page.mouse.move(box.x + centerX, box.y + gateTop - 5)
+  await page.waitForTimeout(350)
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'topHandle', x: centerX, y: gateTop - 9 }])
+
+  expect(pixelRgbDistance(pixels.topHandle, [94, 64, 157, 255])).toBeLessThan(64)
+})
+
+test('Chance resize handles stay visible while crossing the bottom gap', async ({ page }) => {
+  const { canvas, box, gateTop, gateHeight, centerX } = await setupChance4ResizeHandleProbe(page)
+  await page.mouse.move(box.x + centerX, box.y + gateTop + gateHeight + 5)
+  await page.waitForTimeout(350)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
+  ])
+
+  expect(pixelRgbDistance(pixels.bottomHandle, [94, 64, 157, 255])).toBeLessThan(64)
+})
+
 test('Chance resize handles show two visible pills', async ({ page }) => {
   const { canvas, gateTop, gateHeight, centerX } = await setupChance4ResizeHandleProbe(page)
   const pixels = await sampleCanvasPixels(page, canvas, [
