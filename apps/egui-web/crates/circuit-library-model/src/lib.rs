@@ -3,6 +3,15 @@
 use serde::{Deserialize, Serialize};
 
 pub const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
+const GROVER_SEARCH_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["X","X","X","X","X"],["H","H","H","H","H"],["Chance5"],"#,
+    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Chance5"],"#,
+    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Chance5"],"#,
+    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Chance5"],"#,
+    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Chance5"]"#,
+    r#"]}"#,
+);
 
 pub type CircuitId = String;
 
@@ -59,6 +68,12 @@ impl CircuitLibrary {
                 id: "qft-4".to_owned(),
                 name: "QFT 4-qubit".to_owned(),
                 circuit_json: r#"{"cols":[["QFT4"]]}"#.to_owned(),
+                updated_at: now,
+            },
+            CircuitEntry {
+                id: "grover-search".to_owned(),
+                name: "Grover Search".to_owned(),
+                circuit_json: GROVER_SEARCH_JSON.to_owned(),
                 updated_at: now,
             },
         ];

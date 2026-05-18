@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   pixelRgbDistance,
+  readChanceProbabilities,
   sampleCanvasPixels,
   waitForStartupReady,
   type CanvasPixel,
@@ -16,6 +17,28 @@ type Point = { x: number; y: number }
 const BELL_JSON = '{"cols":[["H"]]}'
 const GHZ_JSON = '{"cols":[["X"]]}'
 const QFT_JSON = '{"cols":[["QFT4"]]}'
+const GROVER_CHANCE_SLOTS = 5
+const GROVER_OUTCOME_COUNT = 32
+const GROVER_MARKED_OUTCOME = 27
+const GROVER_SUCCESS_THRESHOLD = 0.99
+const GROVER_ORACLE_COL = ['Z', '•', '◦', '•', '•']
+const GROVER_DIFFUSER_COLS = [
+  ['H', 'H', 'H', 'H', 1],
+  ['•', '•', '•', '•', 'X'],
+  ['H', 'H', 'H', 'H', 1],
+]
+const GROVER_ITERATION_COLS = [GROVER_ORACLE_COL, ...GROVER_DIFFUSER_COLS, ['Chance5']]
+const GROVER_JSON = JSON.stringify({
+  cols: [
+    ['X', 'X', 'X', 'X', 'X'],
+    ['H', 'H', 'H', 'H', 'H'],
+    ['Chance5'],
+    ...GROVER_ITERATION_COLS,
+    ...GROVER_ITERATION_COLS,
+    ...GROVER_ITERATION_COLS,
+    ...GROVER_ITERATION_COLS,
+  ],
+})
 const STORAGE_KEY = 'qni.circuit_library.v1'
 
 const TRIGGER: Point = { x: 80, y: 22 }
@@ -97,7 +120,7 @@ test.beforeEach(async ({ page }) => {
   await waitForStartupReady(page, { waitForStateVector: true })
 })
 
-test('startup current entry preserves the three seeded sample circuits', async ({ page }) => {
+test('startup current entry preserves the four seeded sample circuits', async ({ page }) => {
   const state = await snapshot(page)
 
   expect({
@@ -106,6 +129,10 @@ test('startup current entry preserves the three seeded sample circuits', async (
     bell: state.entries.find((entry) => entry.id === 'bell'),
     ghzName: state.entries.find((entry) => entry.id === 'ghz')?.name,
     qftName: state.entries.find((entry) => entry.id === 'qft-4')?.name,
+    grover: state.entries.find((entry) => entry.id === 'grover-search'),
+    groverHasCustomGateSection: state.entries
+      .find((entry) => entry.id === 'grover-search')
+      ?.circuit_json.includes('"gates"'),
     hashCols: readCircuitColsFromHash(page.url()),
   }).toMatchObject({
     activeId: 'current',
@@ -113,7 +140,35 @@ test('startup current entry preserves the three seeded sample circuits', async (
     bell: { name: 'Bell state', circuit_json: '{"cols":[["H"],["•","X"]]}' },
     ghzName: 'GHZ state',
     qftName: 'QFT 4-qubit',
+    grover: { name: 'Grover Search', circuit_json: GROVER_JSON },
+    groverHasCustomGateSection: false,
     hashCols: [],
+  })
+})
+
+test('seeded Grover Search amplifies the Quirk marked outcome', async ({ page }) => {
+  const state = await snapshot(page)
+  const groverJson = state.entries.find((entry) => entry.id === 'grover-search')?.circuit_json
+  if (!groverJson) throw new Error('Grover Search seed missing')
+
+  await page.goto('/?grover-seed=1#' + encodeURIComponent(groverJson))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const chanceEntries = await readChanceProbabilities(page)
+  const finalChance = chanceEntries.at(-1)?.probabilities ?? []
+  const finalPeak = finalChance.slice(0, GROVER_OUTCOME_COUNT).reduce(
+    (best, probability, outcome) =>
+      probability > best.probability ? { outcome, probability } : best,
+    { outcome: -1, probability: -1 },
+  )
+
+  expect({
+    chanceSlots: chanceEntries.length,
+    finalArgMax: finalPeak.outcome,
+    finalPeakOver99Percent: finalPeak.probability > GROVER_SUCCESS_THRESHOLD,
+  }).toEqual({
+    chanceSlots: GROVER_CHANCE_SLOTS,
+    finalArgMax: GROVER_MARKED_OUTCOME,
+    finalPeakOver99Percent: true,
   })
 })
 

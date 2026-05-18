@@ -1,7 +1,7 @@
-use super::{CircuitEntry, CircuitLibrary, EMPTY_CIRCUIT_JSON};
+use super::{CircuitEntry, CircuitLibrary, EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON};
 
 #[test]
-fn seed_contains_three_named_samples() {
+fn seed_contains_quirk_named_samples() {
     let library = CircuitLibrary::seed();
 
     assert_eq!(
@@ -11,8 +11,30 @@ fn seed_contains_three_named_samples() {
             library.entries[0].name.as_str(),
             library.entries[1].name.as_str(),
             library.entries[2].name.as_str(),
+            library.entries[3].name.as_str(),
         ),
-        (3, "bell", "Bell state", "GHZ state", "QFT 4-qubit")
+        (
+            4,
+            "bell",
+            "Bell state",
+            "GHZ state",
+            "QFT 4-qubit",
+            "Grover Search"
+        )
+    );
+}
+
+#[test]
+fn grover_seed_uses_expanded_quirk_json() {
+    let library = CircuitLibrary::seed();
+    let grover = library
+        .entries
+        .iter()
+        .find(|entry| entry.id == "grover-search");
+
+    assert_eq!(
+        grover.map(|entry| entry.circuit_json.as_str()),
+        Some(GROVER_SEARCH_JSON)
     );
 }
 
@@ -133,7 +155,7 @@ fn duplicate_move_and_delete_preserve_active_invariant() {
             duplicated.id.as_str(),
             duplicated.id.as_str(),
             "bell",
-            3,
+            4,
         )
     );
 }
@@ -211,7 +233,7 @@ fn reorder_moves_by_insertion_index_and_preserves_active_id() {
     let mut library = CircuitLibrary::seed();
     library.set_active("ghz".to_owned());
 
-    library.reorder(0, 3);
+    library.reorder(0, 4);
 
     assert_eq!(
         (
@@ -222,7 +244,7 @@ fn reorder_moves_by_insertion_index_and_preserves_active_id() {
                 .collect::<Vec<_>>(),
             library.active_id.as_str(),
         ),
-        (vec!["ghz", "qft-4", "bell"], "ghz")
+        (vec!["ghz", "qft-4", "grover-search", "bell"], "ghz")
     );
 }
 
@@ -264,6 +286,6 @@ fn swap_adjacent_swaps_without_touching_active_timestamp() {
             library.active_id.as_str(),
             library.active().updated_at,
         ),
-        (vec!["bell", "qft-4", "ghz"], "ghz", 0)
+        (vec!["bell", "qft-4", "ghz", "grover-search"], "ghz", 0)
     );
 }
