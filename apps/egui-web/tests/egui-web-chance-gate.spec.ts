@@ -118,6 +118,53 @@ const waitForChancePercentLabelEvidence = async (
   return last
 }
 
+const waitForChanceDecimalPointEvidence = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+): Promise<{ decimalPixels: number }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  let last = { decimalPixels: 0 }
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    last = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { decimalPixels: 0 }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        let decimalPixels = 0
+        for (let y = Math.floor((gateTop + 8) * scaleY); y <= Math.floor((gateTop + 19) * scaleY); y += 1) {
+          // 50.0% text is right-aligned; with the spec 3px dot width, the
+          // decimal cell sits at gateLeft+21..24. Keep the probe inside that
+          // cell so the following 0 glyph cannot satisfy this check.
+          for (let x = Math.floor((gateLeft + 22.0) * scaleX); x <= Math.floor((gateLeft + 23.8) * scaleX); x += 1) {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            if (r < 120 && g < 120 && b < 120) decimalPixels += 1
+          }
+        }
+        return { decimalPixels }
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop },
+    )
+    if (last.decimalPixels > 0) return last
+    await page.waitForTimeout(50)
+  }
+  return last
+}
+
 const waitForChanceBarPixels = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
@@ -464,6 +511,17 @@ test('Chance4 displays GPU-rendered percentage labels', async ({ page }) => {
   const evidence = await waitForChancePercentLabelEvidence(page, canvas, 4)
 
   expect(evidence.bboxHeight).toBeGreaterThanOrEqual(11)
+})
+
+test('Chance labels render decimal points for integer percentages', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Chance']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const evidence = await waitForChanceDecimalPointEvidence(page, canvas)
+
+  expect(evidence.decimalPixels).toBeGreaterThan(0)
 })
 
 test('Chance5 keeps the Quirk-style bar-only display', async ({ page }) => {
