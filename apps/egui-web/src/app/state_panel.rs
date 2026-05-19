@@ -40,6 +40,9 @@ impl QniApp {
         ctx: &egui::Context,
         screen_rect: egui::Rect,
     ) -> bool {
+        if !self.state_panel_visible() {
+            return false;
+        }
         if self.state_panel.drag.is_some() || self.state_panel.resize_drag.is_some() {
             return true;
         }

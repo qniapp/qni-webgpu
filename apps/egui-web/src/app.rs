@@ -277,6 +277,10 @@ impl QniApp {
         self.exec_mode == ExecMode::Local && self.required_qubit_count() <= LOCAL_MAX_QUBITS
     }
 
+    pub(crate) fn state_panel_visible(&self) -> bool {
+        self.local_state_vector_active()
+    }
+
     pub(crate) fn local_exec_mode_available(&self) -> bool {
         self.required_qubit_count() <= LOCAL_MAX_QUBITS
     }

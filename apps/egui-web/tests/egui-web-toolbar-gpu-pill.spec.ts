@@ -17,6 +17,7 @@ const FLEXOKI_RED_600: CanvasPixel = [175, 48, 41, 255] // Flexoki red-600 #AF30
 const FLEXOKI_GREEN_600: CanvasPixel = [102, 128, 11, 255] // Flexoki green-600 #66800B
 const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
 
+const STATE_PANEL_HEADER_PROBE: PixelSamplePoint = { name: 'statePanelHeader', x: 500, y: 560 }
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
 const TOOLBAR_PROBES: PixelSamplePoint[] = [
   { name: 'undoIcon', x: 24 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 16 },
@@ -37,6 +38,21 @@ const switchToGpu = async (page: Page): Promise<void> => {
     throw new Error('expected egui canvas to be measurable')
   }
   await page.mouse.click((box?.x ?? 0) + (box?.width ?? 1000) - 30, (box?.y ?? 0) + 23)
+}
+
+const waitForGpuModePaint = async (page: Page): Promise<void> => {
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const probe = { name: 'gpu', x: box.width - 30, y: 23 }
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const pixels = await sampleCanvasPixels(page, canvas, [probe])
+    if (pixelRgbDistance(pixels.gpu, FLEXOKI_BLUE_600) < 36) return
+    await page.waitForTimeout(50)
+  }
+  throw new Error('GPU mode did not reach expected fill')
 }
 
 const setExternalGpuStatus = async (
@@ -107,6 +123,22 @@ test('Local mode keeps edit utilities but hides the GPU run cluster', async ({ p
     paletteCircuitGapBg: true,
     eguiError: null,
   })
+})
+
+test('GPU mode hides the state-vector panel', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  const localPixels = await sampleCanvasPixels(page, canvas, [STATE_PANEL_HEADER_PROBE])
+
+  await switchToGpu(page)
+  await waitForGpuModePaint(page)
+  const gpuPixels = await sampleCanvasPixels(page, canvas, [STATE_PANEL_HEADER_PROBE])
+
+  expect({
+    localHeaderVisible: pixelRgbDistance(localPixels.statePanelHeader, FLEXOKI_BLUE_600) < 36,
+    gpuHeaderHidden: pixelRgbDistance(gpuPixels.statePanelHeader, FLEXOKI_BLUE_600) > 90,
+  }).toEqual({ localHeaderVisible: true, gpuHeaderHidden: true })
 })
 
 test('Local and GPU mouse toggles do not leave a blue focus outline around the segment', async ({ page }) => {

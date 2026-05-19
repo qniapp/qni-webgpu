@@ -133,7 +133,7 @@ test('empty hash checkpoint overrides a stale qni path payload on load', async (
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })
 
-test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', async ({ page }) => {
+test('Run GPU submits small GPU-mode circuits without using the local panel', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -195,7 +195,6 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
     await page.waitForTimeout(50)
   }
   await page.mouse.click((box?.x ?? 0) + RUN_GPU_BUTTON_POINT.x, (box?.y ?? 0) + RUN_GPU_BUTTON_POINT.y)
-  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, Math.SQRT1_2, 0])
 
   let qiskitStatus: string | undefined
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -347,7 +346,7 @@ test('17-qubit GPU circuit keeps Local mode unavailable', async ({ page }) => {
   col0[16] = 'X'
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
 
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page)
 
   const canvas = page.locator('#egui-canvas')
   await canvas.waitFor({ state: 'visible' })

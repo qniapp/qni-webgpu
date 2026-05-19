@@ -28,22 +28,24 @@ impl QniApp {
         );
 
         self.draw_palette(&overlay_painter, screen_rect, colors);
-        let svp_t0 = now_seconds();
-        self.draw_state_vector(
-            &overlay_painter,
-            colors,
-            &state_frame.layout,
-            self.state_panel.offset,
-            state_frame.layout.handle_height,
-            screen_rect,
-            recompute,
-            target_format,
-        );
-        if self.fps_hud_visible {
-            let svp_secs = (now_seconds() - svp_t0).max(0.0) as f32;
-            self.fps_hud_svp_history.push_back(svp_secs);
-            while self.fps_hud_svp_history.len() > 120 {
-                self.fps_hud_svp_history.pop_front();
+        if self.state_panel_visible() {
+            let svp_t0 = now_seconds();
+            self.draw_state_vector(
+                &overlay_painter,
+                colors,
+                &state_frame.layout,
+                self.state_panel.offset,
+                state_frame.layout.handle_height,
+                screen_rect,
+                recompute,
+                target_format,
+            );
+            if self.fps_hud_visible {
+                let svp_secs = (now_seconds() - svp_t0).max(0.0) as f32;
+                self.fps_hud_svp_history.push_back(svp_secs);
+                while self.fps_hud_svp_history.len() > 120 {
+                    self.fps_hud_svp_history.pop_front();
+                }
             }
         }
         if let (Some(content_rect), Some(dragging_gate_id)) =

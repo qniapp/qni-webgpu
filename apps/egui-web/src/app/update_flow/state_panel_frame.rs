@@ -56,6 +56,14 @@ impl QniApp {
         screen_rect: egui::Rect,
         state_frame: &StatePanelFrameState,
     ) {
+        if !self.state_panel_visible() {
+            self.state_panel.drag = None;
+            self.state_panel.resize_drag = None;
+            self.state_panel.hovered_resize_corner = None;
+            self.state_panel.hovered_cell = None;
+            self.state_panel.aspect_popover_open = false;
+            return;
+        }
         let state_rect = state_frame
             .layout
             .state_rect
