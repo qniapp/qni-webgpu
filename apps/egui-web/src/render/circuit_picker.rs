@@ -136,11 +136,11 @@ impl QniApp {
         let submenu_index = self.picker.submenu_index();
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
         let max_items_height = picker_max_items_height(&display_rows, ctx.content_rect().height());
-        let drag_min_scroll_offset = picker_drag_min_scroll_offset(&display_rows);
         self.picker.clamp_items_height(max_items_height);
         let mut actions = Vec::new();
         let mut row_rects = vec![None; entries.len()];
         let mut kebab_rects = vec![None; entries.len()];
+        let mut sample_row_rects = Vec::new();
         let mut user_row_rects = Vec::new();
         let area = egui::Area::new(egui::Id::new("circuit-picker-dropdown"))
             .order(egui::Order::Tooltip)
@@ -190,13 +190,27 @@ impl QniApp {
                                     );
                                     row_rects[index] = Some(rects.row);
                                     kebab_rects[index] = Some(rects.kebab);
-                                    if entry.is_user() {
+                                    if entry.is_sample() {
+                                        sample_row_rects.push((index, rects.row));
+                                    } else if entry.is_user() {
                                         user_row_rects.push((index, rects.row));
                                     }
                                 }
                             }
                         }
-                        self.update_picker_drag(ctx, &user_row_rects);
+                        let drag_row_rects = self
+                            .picker
+                            .drag_source_index()
+                            .and_then(|index| entries.get(index))
+                            .map(|entry| {
+                                if entry.is_sample() {
+                                    sample_row_rects.as_slice()
+                                } else {
+                                    user_row_rects.as_slice()
+                                }
+                            })
+                            .unwrap_or(&[]);
+                        self.update_picker_drag(ctx, drag_row_rects);
                         self.paint_picker_dragged_row(
                             ui,
                             colors,
@@ -207,12 +221,19 @@ impl QniApp {
                     });
                     ui.set_style(previous_style);
                     ctx.set_style(previous_context_style);
+                    let (drag_min_scroll_offset, drag_max_scroll_offset) =
+                        picker_drag_scroll_bounds(
+                            &display_rows,
+                            &entries,
+                            self.picker.drag_source_index(),
+                        );
                     self.update_picker_drag_auto_scroll(
                         ctx,
                         scroll_output.inner_rect,
                         scroll_output.content_size.y,
                         scroll_output.state.offset.y,
                         drag_min_scroll_offset,
+                        drag_max_scroll_offset,
                     );
                     ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
@@ -355,7 +376,7 @@ impl QniApp {
                 suppress_click: submenu_open,
             });
         }
-        if entry.is_user()
+        if (entry.is_user() || entry.is_sample())
             && response.is_pointer_button_down_on()
             && !self.picker_drag_suppressed_until_release
             && !kebab.hovered()
@@ -446,10 +467,10 @@ impl QniApp {
             right
         };
         let entry = self.library.entries.get(index)?;
-        let user_slot = self.library.user_slot_for_index(index);
-        let user_len = self.library.user_indices().len();
-        let can_up = user_slot.is_some_and(|slot| slot > 0);
-        let can_down = user_slot.is_some_and(|slot| slot + 1 < user_len);
+        let section_slot = self.library.section_slot_for_index(index);
+        let section_len = entry_section_len(entry, &self.library.entries);
+        let can_up = section_slot.is_some_and(|(_, slot)| slot > 0);
+        let can_down = section_slot.is_some_and(|(_, slot)| slot + 1 < section_len);
         let can_rename = entry.is_user() && !entry.locked();
         let can_delete = entry.is_user() && !entry.locked() && self.library.entries.len() > 1;
         let area = egui::Area::new(egui::Id::new("circuit-picker-submenu"))
@@ -465,7 +486,7 @@ impl QniApp {
                     if submenu_item(ui, colors, "Duplicate", true, false).clicked() {
                         actions.push(PickerAction::Duplicate(index));
                     }
-                    if entry.is_user() {
+                    if entry.is_user() || entry.is_sample() {
                         if submenu_item(ui, colors, "Move up", can_up, false).clicked() {
                             actions.push(PickerAction::MoveUp(index));
                         }
@@ -639,20 +660,45 @@ fn picker_display_rows(entries: &[CircuitEntry]) -> Vec<PickerDisplayRow> {
     rows
 }
 
-fn picker_drag_min_scroll_offset(rows: &[PickerDisplayRow]) -> f32 {
+fn entry_section_len(entry: &CircuitEntry, entries: &[CircuitEntry]) -> usize {
+    entries
+        .iter()
+        .filter(|candidate| candidate.kind() == entry.kind())
+        .count()
+}
+
+fn picker_drag_scroll_bounds(
+    rows: &[PickerDisplayRow],
+    entries: &[CircuitEntry],
+    dragged_index: Option<usize>,
+) -> (f32, Option<f32>) {
+    let Some(entry) = dragged_index.and_then(|index| entries.get(index)) else {
+        return (0.0, None);
+    };
+    let my_section_offset = picker_my_section_scroll_offset(rows);
+    if entry.is_sample() {
+        (0.0, my_section_offset)
+    } else {
+        (my_section_offset.unwrap_or(0.0), None)
+    }
+}
+
+fn picker_my_section_scroll_offset(rows: &[PickerDisplayRow]) -> Option<f32> {
     let mut offset = ITEMS_CONTENT_PADDING_Y;
     for row in rows {
         match *row {
             PickerDisplayRow::Header { label, top_margin } if label == MY_CIRCUITS_LABEL => {
                 if offset <= ITEMS_CONTENT_PADDING_Y && !top_margin {
-                    return 0.0;
+                    return Some(0.0);
                 }
-                return offset
-                    + if top_margin {
-                        SECTION_HEADER_TOP_MARGIN
-                    } else {
-                        0.0
-                    };
+                return Some(
+                    offset
+                        + if top_margin {
+                            SECTION_HEADER_TOP_MARGIN
+                        } else {
+                            0.0
+                        },
+                );
             }
             PickerDisplayRow::Header { top_margin, .. } => {
                 offset += SECTION_HEADER_HEIGHT
@@ -667,7 +713,7 @@ fn picker_drag_min_scroll_offset(rows: &[PickerDisplayRow]) -> f32 {
             }
         }
     }
-    0.0
+    None
 }
 
 fn picker_max_items_height(rows: &[PickerDisplayRow], viewport_height: f32) -> f32 {

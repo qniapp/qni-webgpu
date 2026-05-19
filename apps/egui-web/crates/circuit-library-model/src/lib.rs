@@ -230,23 +230,23 @@ impl CircuitLibrary {
     }
 
     pub fn move_up(&mut self, index: usize) {
-        let Some(slot) = self.user_slot_for_index(index) else {
+        let Some((kind, slot)) = self.section_slot_for_index(index) else {
             return;
         };
         if slot == 0 {
             return;
         }
-        self.move_user_to_slot(index, slot - 1);
+        self.move_section_entry_to_slot(index, slot - 1, kind);
     }
 
     pub fn move_down(&mut self, index: usize) {
-        let Some(slot) = self.user_slot_for_index(index) else {
+        let Some((kind, slot)) = self.section_slot_for_index(index) else {
             return;
         };
-        if slot + 1 >= self.user_indices().len() {
+        if slot + 1 >= self.section_indices(kind).len() {
             return;
         }
-        self.move_user_to_slot(index, slot + 1);
+        self.move_section_entry_to_slot(index, slot + 1, kind);
     }
 
     #[allow(dead_code)]
@@ -261,43 +261,22 @@ impl CircuitLibrary {
     }
 
     pub fn move_to_slot(&mut self, src: usize, slot: usize) {
-        let Some(source_user_slot) = self.user_slot_for_index(src) else {
+        let Some((kind, source_slot)) = self.section_slot_for_index(src) else {
             return;
         };
-        let user_len = self.user_indices().len();
-        if slot >= self.entries.len() || src == slot || user_len == 0 {
+        let section_len = self.section_indices(kind).len();
+        if slot >= self.entries.len() || src == slot || section_len == 0 {
             return;
         }
-        let target_user_slot = self
-            .user_slot_for_index(slot)
-            .unwrap_or_else(|| source_user_slot.min(user_len.saturating_sub(1)));
-        self.move_user_to_slot(src, target_user_slot);
+        let target_slot = self
+            .section_slot_for_index(slot)
+            .and_then(|(target_kind, target_slot)| (target_kind == kind).then_some(target_slot))
+            .unwrap_or_else(|| source_slot.min(section_len.saturating_sub(1)));
+        self.move_section_entry_to_slot(src, target_slot, kind);
     }
 
     pub fn move_user_to_slot(&mut self, src_index: usize, target_user_slot: usize) {
-        let user_indices = self.user_indices();
-        let Some(source_user_slot) = user_indices.iter().position(|index| *index == src_index)
-        else {
-            return;
-        };
-        if target_user_slot >= user_indices.len() || source_user_slot == target_user_slot {
-            return;
-        }
-        let source_id = self.entries[src_index].id.clone();
-        let mut users = self
-            .entries
-            .iter()
-            .filter(|entry| entry.is_user())
-            .cloned()
-            .collect::<Vec<_>>();
-        let moved = users.remove(source_user_slot);
-        users.insert(target_user_slot, moved);
-        self.rebuild_with_users(users);
-        self.active_id = if self.entries.iter().any(|entry| entry.id == self.active_id) {
-            self.active_id.clone()
-        } else {
-            source_id
-        };
+        self.move_section_entry_to_slot(src_index, target_user_slot, CircuitKind::My);
     }
 
     pub fn swap_adjacent(&mut self, a: usize, b: usize) {
@@ -447,6 +426,14 @@ impl CircuitLibrary {
             .position(|user_index| *user_index == index)
     }
 
+    pub fn section_slot_for_index(&self, index: usize) -> Option<(CircuitKind, usize)> {
+        let kind = self.entries.get(index)?.kind();
+        self.section_indices(kind)
+            .iter()
+            .position(|entry_index| *entry_index == index)
+            .map(|slot| (kind, slot))
+    }
+
     pub fn to_test_json(&self) -> String {
         let entries = self
             .entries
@@ -572,29 +559,49 @@ impl CircuitLibrary {
     }
 
     fn normalize_sample_user_order(&mut self) {
-        let samples = self
-            .entries
-            .iter()
-            .filter(|entry| entry.is_sample())
-            .cloned()
-            .collect::<Vec<_>>();
-        let users = self
-            .entries
-            .iter()
-            .filter(|entry| entry.is_user())
-            .cloned()
-            .collect::<Vec<_>>();
+        let samples = self.section_entries(CircuitKind::Example);
+        let users = self.section_entries(CircuitKind::My);
         self.entries = samples.into_iter().chain(users).collect();
     }
 
-    fn rebuild_with_users(&mut self, users: Vec<CircuitEntry>) {
-        let samples = self
-            .entries
-            .iter()
-            .filter(|entry| entry.is_sample())
-            .cloned()
-            .collect::<Vec<_>>();
+    fn move_section_entry_to_slot(
+        &mut self,
+        src_index: usize,
+        target_slot: usize,
+        kind: CircuitKind,
+    ) {
+        let section_indices = self.section_indices(kind);
+        let Some(source_slot) = section_indices.iter().position(|index| *index == src_index) else {
+            return;
+        };
+        if target_slot >= section_indices.len() || source_slot == target_slot {
+            return;
+        }
+        let mut samples = self.section_entries(CircuitKind::Example);
+        let mut users = self.section_entries(CircuitKind::My);
+        let section = match kind {
+            CircuitKind::Example => &mut samples,
+            CircuitKind::My => &mut users,
+        };
+        let moved = section.remove(source_slot);
+        section.insert(target_slot, moved);
         self.entries = samples.into_iter().chain(users).collect();
+    }
+
+    fn section_indices(&self, kind: CircuitKind) -> Vec<usize> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| (entry.kind() == kind).then_some(index))
+            .collect()
+    }
+
+    fn section_entries(&self, kind: CircuitKind) -> Vec<CircuitEntry> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.kind() == kind)
+            .cloned()
+            .collect()
     }
 }
 

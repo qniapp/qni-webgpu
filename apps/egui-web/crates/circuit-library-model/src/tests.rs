@@ -253,6 +253,25 @@ fn move_to_slot_reorders_only_user_entries() {
 }
 
 #[test]
+fn move_to_slot_reorders_only_sample_entries() {
+    let mut library = CircuitLibrary::seed();
+    library.create_new();
+
+    library.move_to_slot(0, 2);
+
+    assert_eq!(
+        (
+            library.entries[0].id.as_str(),
+            library.entries[1].id.as_str(),
+            library.entries[2].id.as_str(),
+            library.entries[3].id.as_str(),
+            library.entries[4].kind(),
+        ),
+        ("ghz", "qft-4", "bell", "grover-search", CircuitKind::My)
+    );
+}
+
+#[test]
 fn delete_locked_entry_is_ignored() {
     let mut library = CircuitLibrary::from_entries(
         vec![

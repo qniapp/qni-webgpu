@@ -79,6 +79,7 @@ impl QniApp {
         content_height: f32,
         current_offset: f32,
         min_scroll_offset: f32,
+        max_scroll_offset: Option<f32>,
     ) {
         if self.picker.dragged_row().is_none() {
             self.picker.clear_pending_scroll_offset();
@@ -99,7 +100,12 @@ impl QniApp {
             return;
         }
         let clamped_min_scroll_offset = min_scroll_offset.min(max_offset);
+        let clamped_max_scroll_offset = max_scroll_offset.unwrap_or(max_offset).min(max_offset);
         if speed < 0.0 && current_offset <= clamped_min_scroll_offset {
+            self.picker.clear_pending_scroll_offset();
+            return;
+        }
+        if speed > 0.0 && current_offset >= clamped_max_scroll_offset {
             self.picker.clear_pending_scroll_offset();
             return;
         }
@@ -107,6 +113,11 @@ impl QniApp {
             clamped_min_scroll_offset
         } else {
             0.0
+        };
+        let max_offset = if speed > 0.0 {
+            clamped_max_scroll_offset
+        } else {
+            max_offset
         };
         let next_offset = (current_offset + speed).clamp(min_offset, max_offset);
         if (next_offset - current_offset).abs() <= f32::EPSILON {
