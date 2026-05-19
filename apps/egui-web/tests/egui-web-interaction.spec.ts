@@ -575,6 +575,30 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await waitForStateVectorLength(page, 16)
 })
 
+test('dropping within the 40px sticky snap range commits to the nearest slot', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const targetX = UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const verticalOffsetInside40pxSnap = 26
+  await dragPointer(page, hSource, { x: targetX, y: TEST_CIRCUIT_LINE_Y + verticalOffsetInside40pxSnap })
+
+  await waitForHashCols(page, [['H']])
+  expect(readCircuitColsFromHash(page.url())).toEqual([['H']])
+})
+
 test('dropping between existing columns inserts a new column', async ({ page }) => {
   await page.goto('/')
 
