@@ -10,6 +10,10 @@ use super::constants::{
     SECTION_HEADER_HEIGHT, SECTION_HEADER_TOP_MARGIN,
 };
 
+const ROW_ICON_SIZE: f32 = 14.0; // mock row icon box = 14px.
+const ROW_ICON_GAP: f32 = 8.0; // gap-2 = 8px.
+const ROW_TEXT_OFFSET: f32 = ITEM_PAD_X + ROW_ICON_SIZE + ROW_ICON_GAP;
+
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
         inner_margin: egui::Margin::same(6),         // p-1.5 = 6px.
@@ -193,16 +197,18 @@ pub(super) fn paint_picker_item_text(
     alpha: u8,
 ) {
     let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
-    let icon_slot_w = 18.0; // spacing aligned: 14px icon + 4px gap.
     let name_rect = egui::Rect::from_min_max(
-        egui::pos2(rect.left() + ITEM_PAD_X + icon_slot_w, rect.top()), // px-2.5 + reserved icon slot.
-        egui::pos2(kebab_rect.left() - 8.0, rect.bottom()),             // spacing-2.
+        egui::pos2(rect.left() + ROW_TEXT_OFFSET, rect.top()), // px-2.5 + 14px icon + gap-2.
+        egui::pos2(kebab_rect.left() - 8.0, rect.bottom()),    // spacing-2.
     );
     let color = with_alpha(colors.text_strong, alpha);
     if entry.locked() {
         paint_row_lock(
             ui.painter(),
-            egui::pos2(rect.left() + ITEM_PAD_X + 7.0, rect.center().y),
+            egui::pos2(
+                rect.left() + ITEM_PAD_X + ROW_ICON_SIZE / 2.0,
+                rect.center().y,
+            ),
             with_alpha(colors.toolbar_icon_disabled, alpha),
         );
     }
@@ -248,14 +254,14 @@ pub(super) fn paint_section_header(
         color,
     );
     let text_pos = egui::pos2(
-        rect.left() + ITEM_PAD_X,
+        rect.left() + ROW_TEXT_OFFSET,
         rect.center().y - galley.size().y / 2.0,
     );
     let line_y = rect.center().y;
     ui.painter().line_segment(
         [
-            egui::pos2(rect.left() + 4.0, line_y),
-            egui::pos2(text_pos.x - 6.0, line_y),
+            egui::pos2(rect.left() + ITEM_PAD_X, line_y),
+            egui::pos2(rect.left() + ITEM_PAD_X + ROW_ICON_SIZE, line_y),
         ],
         egui::Stroke::new(1.0, colors.line), // Flexoki ui-2.
     );
@@ -289,7 +295,7 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
     );
     ui.painter().galley(
         egui::pos2(
-            rect.left() + ITEM_PAD_X,
+            rect.left() + ROW_TEXT_OFFSET,
             rect.center().y - galley.size().y / 2.0,
         ),
         galley,
@@ -297,7 +303,10 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
     );
     paint_plus(
         ui.painter(),
-        egui::pos2(rect.right() - ITEM_PAD_X - 7.0, rect.center().y),
+        egui::pos2(
+            rect.left() + ITEM_PAD_X + ROW_ICON_SIZE / 2.0,
+            rect.center().y,
+        ),
         color,
     );
     (response, rect)

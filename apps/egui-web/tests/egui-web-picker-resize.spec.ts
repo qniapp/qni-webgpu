@@ -32,6 +32,7 @@ type DropdownGeometry = {
 const TRIGGER: Point = { x: 40, y: 22 }
 const EMPTY_JSON = '{"cols":[]}'
 const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255]
+const FLEXOKI_UI_2: CanvasPixel = [218, 216, 206, 255]
 const FLEXOKI_PAPER: CanvasPixel = [255, 252, 240, 255]
 // Flexoki tx-3 #B7B5AC at 60% alpha over bg #FFFCF0.
 const SCROLLBAR_IDLE_ON_PAPER: CanvasPixel = [212, 209, 199, 255]
@@ -149,18 +150,23 @@ const itemsCenter = (geometry: ResizeGeometry): Point => ({
 })
 
 const rowLabelSample = (geometry: ResizeGeometry): Point => ({
-  x: geometry.handle_left + 32,
-  y: geometry.first_row_top + 13,
+  x: geometry.handle_left + 43,
+  y: geometry.first_row_top + 16,
 })
 
 const footerLabelSample = (geometry: ResizeGeometry): Point => ({
-  x: geometry.handle_left + 14,
-  y: footerCenter(geometry).y - 5,
+  x: geometry.handle_left + 43,
+  y: footerCenter(geometry).y - 1,
 })
 
 const footerPlusSample = (geometry: ResizeGeometry): Point => ({
-  x: geometry.handle_right - 17,
+  x: geometry.handle_left + 16,
   y: footerCenter(geometry).y - 1,
+})
+
+const sectionLeadLineSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_left + 13,
+  y: geometry.items_top + 19,
 })
 
 const scrollbarThumbSample = (geometry: ResizeGeometry): Point => ({
@@ -278,6 +284,15 @@ test('circuit picker resize handle hover paints the separator in Flexoki blue-60
   ])
 
   expect(pixelRgbDistance(pixels['handle-line'], FLEXOKI_BLUE_600) < 80).toBe(true)
+})
+
+test('circuit picker section header draws a left divider before the label', async ({ page }) => {
+  const geometry = await openPicker(page, 3)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'section-lead-line', ...sectionLeadLineSample(geometry) },
+  ])
+
+  expect(pixelRgbDistance(pixels['section-lead-line'], FLEXOKI_UI_2)).toBeLessThan(20)
 })
 
 test('circuit picker footer label matches the item label color', async ({ page }) => {
