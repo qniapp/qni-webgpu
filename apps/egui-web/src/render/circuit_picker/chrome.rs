@@ -239,7 +239,7 @@ pub(super) fn paint_section_header(
     colors: &Colors,
     label: &'static str,
     top_margin: bool,
-) {
+) -> egui::Rect {
     if top_margin {
         ui.add_space(SECTION_HEADER_TOP_MARGIN); // mt-1.5 = 6px.
     }
@@ -273,6 +273,7 @@ pub(super) fn paint_section_header(
         ],
         egui::Stroke::new(1.0, colors.line), // Flexoki ui-2.
     );
+    rect
 }
 
 pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egui::Rect) {

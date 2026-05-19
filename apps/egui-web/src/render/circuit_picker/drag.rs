@@ -100,7 +100,10 @@ impl QniApp {
             return;
         }
         let clamped_min_scroll_offset = min_scroll_offset.min(max_offset);
-        let clamped_max_scroll_offset = max_scroll_offset.unwrap_or(max_offset).min(max_offset);
+        let clamped_max_scroll_offset = max_scroll_offset
+            .map(|boundary| (boundary - pane_rect.height()).max(0.0))
+            .unwrap_or(max_offset)
+            .min(max_offset);
         if speed < 0.0 && current_offset <= clamped_min_scroll_offset {
             self.picker.clear_pending_scroll_offset();
             return;
@@ -158,6 +161,7 @@ impl QniApp {
         colors: &Colors,
         entries: &[CircuitEntry],
         pane_rect: egui::Rect,
+        sample_drag_max_bottom_y: Option<f32>,
     ) {
         let Some((index, source_row_left, row_width, pointer_offset_y, pinned_top)) =
             self.picker.drag_paint_row()
@@ -170,7 +174,13 @@ impl QniApp {
         let Some(entry) = entries.get(index) else {
             return;
         };
-        let max_top = (pane_rect.bottom() - ITEM_HEIGHT).max(pane_rect.top());
+        let mut max_top = (pane_rect.bottom() - ITEM_HEIGHT).max(pane_rect.top());
+        if entry.is_sample() {
+            if let Some(max_bottom_y) = sample_drag_max_bottom_y {
+                max_top = max_top.min(max_bottom_y - ITEM_HEIGHT);
+            }
+        }
+        let max_top = max_top.max(pane_rect.top());
         let wanted_top = pinned_top
             .unwrap_or(pointer_pos.y - pointer_offset_y)
             .clamp(pane_rect.top(), max_top);

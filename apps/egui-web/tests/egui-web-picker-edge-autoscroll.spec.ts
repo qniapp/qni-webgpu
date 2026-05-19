@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
-import { waitForStartupReady } from './support/egui-web-spec-helpers'
+import {
+  pixelRgbDistance,
+  sampleCanvasPixels,
+  waitForStartupReady,
+  type CanvasPixel,
+} from './support/egui-web-spec-helpers'
 
 type Point = { x: number; y: number }
 type ResizeGeometry = {
@@ -21,8 +26,15 @@ const ITEMS_CONTENT_PADDING_Y = 6
 const SECTION_HEADER_HEIGHT = 26
 const SECTION_HEADER_TOP_MARGIN = 6
 const ITEM_HEIGHT = 36
+const FLEXOKI_UI: CanvasPixel = [230, 228, 217, 255]
 const mySectionScrollOffset = (sampleCount: number): number =>
   ITEMS_CONTENT_PADDING_Y + SECTION_HEADER_HEIGHT + sampleCount * ITEM_HEIGHT + SECTION_HEADER_TOP_MARGIN
+const mySectionDividerLineOffset = (sampleCount: number): number =>
+  mySectionScrollOffset(sampleCount) + SECTION_HEADER_HEIGHT / 2
+const exampleMaxScrollOffset = (geometry: ResizeGeometry, sampleCount: number): number =>
+  Math.max(0, mySectionDividerLineOffset(sampleCount) - (geometry.items_bottom - geometry.items_top))
+const mySectionDividerScreenY = (geometry: ResizeGeometry, sampleCount: number): number =>
+  geometry.items_top + mySectionDividerLineOffset(sampleCount) - geometry.scroll_offset_y
 
 test.describe.configure({ mode: 'serial' })
 
@@ -222,14 +234,28 @@ test('example drag-to-reorder bottom edge auto-scroll stops at the My Circuits d
   await moveHeldPointer(page, { x: before.handle_left + 64, y: before.items_bottom - 8 })
   await waitForResizeGeometry(
     page,
-    (geometry) => Math.abs(geometry.scroll_offset_y - mySectionScrollOffset(8)) <= 1,
+    (geometry) => Math.abs(geometry.scroll_offset_y - exampleMaxScrollOffset(before, 8)) <= 1,
     'bottom edge auto-scroll reaches the My divider',
   )
   await page.waitForTimeout(300)
   const after = await waitForResizeGeometry(page)
   await page.mouse.up()
 
-  expect(Math.abs(after.scroll_offset_y - mySectionScrollOffset(8)) <= 1).toBe(true)
+  expect(Math.abs(after.scroll_offset_y - exampleMaxScrollOffset(before, 8)) <= 1).toBe(true)
+})
+
+test('example dragged row stays above the My Circuits divider', async ({ page }) => {
+  const before = await openPickerWithExamples(page, 3, 3)
+  const dividerY = mySectionDividerScreenY(before, 3)
+  await beginItemDrag(page, firstRowDragStart(before))
+  await moveHeldPointer(page, { x: before.handle_left + 64, y: dividerY + 40 })
+  await page.waitForTimeout(200)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'below-divider', x: before.handle_left + 160, y: dividerY + 30 },
+  ])
+  await page.mouse.up()
+
+  expect(pixelRgbDistance(pixels['below-divider'], FLEXOKI_UI) > 45).toBe(true)
 })
 
 test('drag-to-reorder commits an auto-scrolled slot on mouseup', async ({ page }) => {

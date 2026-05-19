@@ -170,10 +170,15 @@ impl QniApp {
                         ui.set_style(previous_style.clone());
                         ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
                         ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
+                        let mut my_section_divider_y = None;
                         for row in &display_rows {
                             match *row {
                                 PickerDisplayRow::Header { label, top_margin } => {
-                                    paint_section_header(ui, colors, label, top_margin);
+                                    let header_rect =
+                                        paint_section_header(ui, colors, label, top_margin);
+                                    if label == MY_CIRCUITS_LABEL {
+                                        my_section_divider_y = Some(header_rect.center().y);
+                                    }
                                 }
                                 PickerDisplayRow::Entry(index) => {
                                     let entry = &entries[index];
@@ -216,6 +221,7 @@ impl QniApp {
                             colors,
                             &self.library.entries,
                             ui.clip_rect(),
+                            my_section_divider_y,
                         );
                         ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
                     });
@@ -677,7 +683,10 @@ fn picker_drag_scroll_bounds(
     };
     let my_section_offset = picker_my_section_scroll_offset(rows);
     if entry.is_sample() {
-        (0.0, my_section_offset)
+        (
+            0.0,
+            my_section_offset.map(|offset| offset + SECTION_HEADER_HEIGHT / 2.0),
+        )
     } else {
         (my_section_offset.unwrap_or(0.0), None)
     }
