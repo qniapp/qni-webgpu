@@ -9,7 +9,7 @@ use crate::layout::LayoutMetrics;
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::{CONNECTOR_STROKE_WIDTH, CONNECTOR_VISUAL_X_OFFSET};
+use super::draw_vertical_connector;
 
 pub(super) fn draw_swap_connectors(
     app: &QniApp,
@@ -47,9 +47,7 @@ pub(super) fn draw_swap_connectors(
             .iter()
             .map(|gate| circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0)
             .sum::<f32>()
-            / gates.len() as f32
-            + CONNECTOR_VISUAL_X_OFFSET;
-        let swap_stroke = egui::Stroke::new(CONNECTOR_STROKE_WIDTH, colors.box_fill);
-        painter.line_segment([egui::pos2(x, top_y), egui::pos2(x, bottom_y)], swap_stroke);
+            / gates.len() as f32;
+        draw_vertical_connector(painter, x, top_y, bottom_y, colors.box_fill);
     }
 }

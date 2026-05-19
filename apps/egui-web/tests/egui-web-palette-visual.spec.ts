@@ -120,6 +120,33 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   })
 })
 
+test('dragged insert preview does not pull a connector off the gate center', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 'X']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+
+  const panelMargin = 8
+  const controlPaletteIndex = 14
+  const controlStart = getPaletteGateCenter(box.width, controlPaletteIndex)
+  const slot0CenterX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const insertPreviewX = slot0CenterX + UI_CONSTANTS.SLOT_SPACING / 2
+  const wire0CenterY = panelMargin + UI_CONSTANTS.LINE_Y
+  await dragPointer(page, { x: controlStart.x, y: panelMargin + controlStart.y }, { x: insertPreviewX, y: wire0CenterY }, 10, false)
+  await page.waitForTimeout(50)
+
+  const connectorY = wire0CenterY + UI_CONSTANTS.LINE_GAP / 2
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'connectorAtOccupiedSlot', x: slot0CenterX, y: connectorY }])
+  await releasePointer(page, { x: insertPreviewX, y: wire0CenterY })
+
+  expect(isRegularGateFill(pixels.connectorAtOccupiedSlot)).toBe(false)
+})
+
 const readConnectorBelowHoveredTopGate = async (page: Page): Promise<CanvasPixel> => {
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')

@@ -5,8 +5,10 @@ use eframe::egui;
 
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
-use crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, REM, SNAP_DISTANCE};
+use crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, REM};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
+
+const SLOT_CENTER_EPSILON: f32 = 0.5;
 
 pub(super) fn gate_slot_index_for_render(
     gate: &PlacedGate,
@@ -14,14 +16,15 @@ pub(super) fn gate_slot_index_for_render(
     dragging_gate_id: Option<u32>,
 ) -> Option<usize> {
     if dragging_gate_id == Some(gate.id) {
+        // A dragged gate can snap to an insert preview halfway between real
+        // slots. Do not coerce that preview back to the nearest slot for
+        // connector drawing; otherwise a vertical connector is pulled away
+        // from the gate center until drop shifts the grid.
         let center_x = gate.pos.x + GATE_SIZE / 2.0;
         let (slot_index, distance) = nearest_slot_index(center_x, &metrics.slot_centers)?;
-        (distance <= SNAP_DISTANCE).then_some(slot_index)
-    } else if gate.column < metrics.slot_centers.len() {
-        Some(gate.column)
-    } else {
-        None
+        return (distance <= SLOT_CENTER_EPSILON).then_some(slot_index);
     }
+    (gate.column < metrics.slot_centers.len()).then_some(gate.column)
 }
 
 impl QniApp {
@@ -116,5 +119,35 @@ impl QniApp {
                 colors.text,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::app::PlacedGate;
+    use crate::constants::SLOT_SPACING;
+    use crate::gates::GateKind;
+    use crate::layout::layout_metrics;
+
+    #[test]
+    fn dragged_insert_preview_does_not_join_slot_connector() {
+        let metrics = layout_metrics(600.0, 2, 3);
+        let mut gate = PlacedGate::new(1, GateKind::Control, 0, 0, 1, None);
+        gate.pos.x =
+            metrics.slot_centers[0] + SLOT_SPACING * 0.5 - crate::constants::GATE_SIZE * 0.5;
+
+        let slot = super::gate_slot_index_for_render(&gate, &metrics, Some(gate.id));
+
+        assert_eq!(slot, None);
+    }
+
+    #[test]
+    fn dragged_slot_preview_joins_that_slot_connector() {
+        let metrics = layout_metrics(600.0, 2, 3);
+        let gate = PlacedGate::new(1, GateKind::Control, 0, 0, 1, None);
+
+        let slot = super::gate_slot_index_for_render(&gate, &metrics, Some(gate.id));
+
+        assert_eq!(slot, Some(0));
     }
 }

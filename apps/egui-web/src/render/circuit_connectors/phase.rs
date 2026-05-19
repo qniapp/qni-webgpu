@@ -9,7 +9,7 @@ use crate::layout::LayoutMetrics;
 use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::{CONNECTOR_STROKE_WIDTH, CONNECTOR_VISUAL_X_OFFSET};
+use super::draw_vertical_connector;
 
 pub(super) fn draw_phase_connectors_and_labels(
     app: &QniApp,
@@ -84,10 +84,8 @@ fn draw_phase_phase_connectors(
                 max_y = max_y.max(point.y);
             }
             // Slot-center anchored — same rationale as the control connectors.
-            let x =
-                circuit_origin.x + metrics.slot_centers[column.slot] + CONNECTOR_VISUAL_X_OFFSET;
-            let stroke = egui::Stroke::new(CONNECTOR_STROKE_WIDTH, colors.box_fill);
-            painter.line_segment([egui::pos2(x, min_y), egui::pos2(x, max_y)], stroke);
+            let x = circuit_origin.x + metrics.slot_centers[column.slot];
+            draw_vertical_connector(painter, x, min_y, max_y, colors.box_fill);
         }
     }
 }

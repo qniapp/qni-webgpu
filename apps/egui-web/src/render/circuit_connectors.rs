@@ -13,14 +13,33 @@ use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::layout::LayoutMetrics;
 
-// Tailwind spacing-1 = 4px. Use the same even-width stroke for all vertical
-// gate connectors (Control / Swap / same-angle Phase) so the line has no
-// one-pixel left/right bias on the even-sized 40px gate grid.
+// Tailwind spacing-1 = 4px. Use the same even-width body for all vertical
+// gate connectors (Control / Swap / same-angle Phase) so the connector shares
+// the exact same center coordinate as the 40px gate grid.
 pub(super) const CONNECTOR_STROKE_WIDTH: f32 = 4.0;
-// The 40px gate centre lands on an integer canvas coordinate. Egui's line
-// rasterization looks visually centred over the even-sized icons when vertical
-// connectors are nudged by half a pixel.
-pub(super) const CONNECTOR_VISUAL_X_OFFSET: f32 = -0.5;
+
+pub(super) fn draw_vertical_connector(
+    painter: &egui::Painter,
+    x: f32,
+    start_y: f32,
+    end_y: f32,
+    color: egui::Color32,
+) {
+    let (top, bottom) = if start_y <= end_y {
+        (start_y, end_y)
+    } else {
+        (end_y, start_y)
+    };
+    let half_width = CONNECTOR_STROKE_WIDTH * 0.5;
+    painter.rect_filled(
+        egui::Rect::from_min_max(
+            egui::pos2(x - half_width, top),
+            egui::pos2(x + half_width, bottom),
+        ),
+        egui::CornerRadius::ZERO,
+        color,
+    );
+}
 
 impl QniApp {
     pub(super) fn draw_circuit_connectors(

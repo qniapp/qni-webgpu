@@ -8,7 +8,7 @@ use crate::layout::LayoutMetrics;
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::{CONNECTOR_STROKE_WIDTH, CONNECTOR_VISUAL_X_OFFSET};
+use super::draw_vertical_connector;
 
 // The anti-control icon is a hollow 40px-gate glyph; split the vertical
 // connector through its hollow center while leaving the line visible between
@@ -66,15 +66,13 @@ pub(super) fn draw_control_connectors(
             min_y = min_y.min(point.y);
             max_y = max_y.max(point.y);
         }
-        // Anchor the line at the *slot center*, not the mean of the gate
-        // centers — during a drag the moving gate may sit a few pixels off the
-        // slot midpoint even while it's inside `SNAP_DISTANCE`, and averaging
-        // would pull the line off the column the snap is actually going to
-        // commit to.
-        let x = circuit_origin.x + metrics.slot_centers[column.slot] + CONNECTOR_VISUAL_X_OFFSET;
-        let stroke = egui::Stroke::new(CONNECTOR_STROKE_WIDTH, colors.box_fill);
+        // Anchor the line at the shared slot center. Dragged gates only join
+        // this render column after their preview center is on the real slot;
+        // insert previews stay out so the connector never drifts away from a
+        // transparent Control / AntiControl body.
+        let x = circuit_origin.x + metrics.slot_centers[column.slot];
         for (start_y, end_y) in connector_segments(min_y, max_y, &anti_control_gaps) {
-            painter.line_segment([egui::pos2(x, start_y), egui::pos2(x, end_y)], stroke);
+            draw_vertical_connector(painter, x, start_y, end_y, colors.box_fill);
         }
     }
 }
