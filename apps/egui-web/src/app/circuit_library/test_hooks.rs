@@ -11,13 +11,15 @@ mod wasm_debug {
 
     use super::super::{CircuitEntry, CircuitLibrary};
     use crate::test_hooks::{
-        set_property, QNI_CIRCUIT_LIBRARY_DELETE, QNI_CIRCUIT_LIBRARY_LOAD,
+        set_property, QNI_APPLY_URL_PAYLOAD, QNI_CIRCUIT_LIBRARY_DELETE, QNI_CIRCUIT_LIBRARY_LOAD,
         QNI_CIRCUIT_LIBRARY_RENAME, QNI_CIRCUIT_LIBRARY_SAVE, QNI_CIRCUIT_PICKER_SNAPSHOT,
         QNI_SEED_CIRCUITS,
     };
+    use qni_egui_web_circuit_library_model::CircuitOrigin;
 
     thread_local! {
         static PENDING_LIBRARY_SEED: RefCell<Option<CircuitLibrary>> = const { RefCell::new(None) };
+        static PENDING_URL_PAYLOAD: RefCell<Option<String>> = const { RefCell::new(None) };
         static LIBRARY_SNAPSHOT: RefCell<String> = RefCell::new(CircuitLibrary::seed().to_test_json());
     }
 
@@ -56,6 +58,26 @@ mod wasm_debug {
             snapshot.as_ref().unchecked_ref(),
         );
         snapshot.forget();
+
+        let apply_ctx = ctx.clone();
+        let apply =
+            wasm_bindgen::closure::Closure::wrap(Box::new(move |value: wasm_bindgen::JsValue| {
+                if let Some(payload) = value.as_string() {
+                    PENDING_URL_PAYLOAD.with(|slot| {
+                        *slot.borrow_mut() = Some(payload);
+                    });
+                    apply_ctx.request_repaint();
+                } else {
+                    tracing::warn!("ignored invalid __qniApplyUrlPayload payload");
+                }
+            })
+                as Box<dyn FnMut(wasm_bindgen::JsValue)>);
+        set_property(
+            window.as_ref(),
+            QNI_APPLY_URL_PAYLOAD,
+            apply.as_ref().unchecked_ref(),
+        );
+        apply.forget();
 
         wrap_library_mutation_hooks(window.as_ref(), ctx.clone());
     }
@@ -111,6 +133,10 @@ mod wasm_debug {
         PENDING_LIBRARY_SEED.with(|slot| slot.borrow_mut().take())
     }
 
+    pub(super) fn take_pending_url_payload() -> Option<String> {
+        PENDING_URL_PAYLOAD.with(|slot| slot.borrow_mut().take())
+    }
+
     pub(super) fn publish_snapshot(library: &CircuitLibrary) {
         LIBRARY_SNAPSHOT.with(|snapshot| {
             *snapshot.borrow_mut() = library.to_test_json();
@@ -140,6 +166,9 @@ mod wasm_debug {
                 updated_at: number_prop(&entry, "updated_at")
                     .or_else(|| number_prop(&entry, "updatedAt"))
                     .unwrap_or_else(qni_egui_web_circuit_library_model::now_millis),
+                origin: origin_prop(&entry).unwrap_or(CircuitOrigin::User {
+                    locked: bool_prop(&entry, "locked").unwrap_or(false),
+                }),
             });
         }
         let active_id = string_prop(&value, "active_id")
@@ -161,6 +190,23 @@ mod wasm_debug {
             .and_then(|value| value.as_f64())
             .map(|n| n as u64)
     }
+
+    fn bool_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<bool> {
+        prop(value, name).and_then(|value| value.as_bool())
+    }
+
+    fn origin_prop(value: &wasm_bindgen::JsValue) -> Option<CircuitOrigin> {
+        let origin = prop(value, "origin")?;
+        match string_prop(&origin, "kind")?.as_str() {
+            "sample" => Some(CircuitOrigin::Sample {
+                origin_id: string_prop(&origin, "origin_id")?,
+            }),
+            "user" => Some(CircuitOrigin::User {
+                locked: bool_prop(&origin, "locked")?,
+            }),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
@@ -169,6 +215,11 @@ pub(crate) use wasm_debug::wire as wire_test_hooks;
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 pub(super) fn take_seeded_library() -> Option<CircuitLibrary> {
     wasm_debug::take_seeded_library()
+}
+
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+pub(super) fn take_pending_url_payload() -> Option<String> {
+    wasm_debug::take_pending_url_payload()
 }
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
@@ -181,6 +232,11 @@ pub(crate) fn wire_test_hooks(_ctx: &eframe::egui::Context) {}
 
 #[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
 pub(super) fn take_seeded_library() -> Option<CircuitLibrary> {
+    None
+}
+
+#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+pub(super) fn take_pending_url_payload() -> Option<String> {
     None
 }
 

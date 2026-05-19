@@ -1,0 +1,7 @@
+error[E0559]: variant `CircuitOrigin::Sample` has no field named `locked`
+ --> tests/compile_fail/sample_origin_locked.rs:6:9
+  |
+6 |         locked: false,
+  |         ^^^^^^ `CircuitOrigin::Sample` does not have this field
+  |
+  = note: all struct fields are already assigned

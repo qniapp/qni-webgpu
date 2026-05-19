@@ -75,43 +75,80 @@ impl CircuitRevision {
 
 impl QniApp {
     pub(crate) fn begin_circuit_commit(&mut self) {
-        self.circuit_revision.started_working_on_commit();
+        if !self.library.active_locked() {
+            self.circuit_revision.started_working_on_commit();
+        }
     }
 
     pub(crate) fn commit_current_circuit(&mut self, ctx: &egui::Context) {
+        if self.library.active_locked() {
+            return;
+        }
+        self.commit_current_circuit_unchecked(ctx);
+    }
+
+    pub(crate) fn commit_current_circuit_unchecked(&mut self, ctx: &egui::Context) {
         let json = self.current_circuit_json();
         self.circuit_revision.commit(json.clone());
-        self.library.update_active(json.clone());
+        self.library.update_active_unchecked(json.clone());
         persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(&json);
         ctx.request_repaint();
     }
 
     pub(crate) fn can_undo_circuit(&self) -> bool {
-        !self.circuit_revision.is_at_beginning_of_history()
+        !self.library.active_locked() && !self.circuit_revision.is_at_beginning_of_history()
     }
 
     pub(crate) fn can_redo_circuit(&self) -> bool {
-        !self.circuit_revision.is_at_end_of_history()
+        !self.library.active_locked() && !self.circuit_revision.is_at_end_of_history()
     }
 
     pub(crate) fn undo_circuit(&mut self, ctx: &egui::Context) {
+        if self.library.active_locked() {
+            return;
+        }
         if let Some(json) = self.circuit_revision.undo() {
-            self.apply_circuit_json(&json, ctx);
+            self.replace_active_circuit_json_unchecked(&json, ctx);
         }
     }
 
     pub(crate) fn redo_circuit(&mut self, ctx: &egui::Context) {
-        if let Some(json) = self.circuit_revision.redo() {
-            self.apply_circuit_json(&json, ctx);
+        if self.library.active_locked() {
+            return;
         }
+        if let Some(json) = self.circuit_revision.redo() {
+            self.replace_active_circuit_json_unchecked(&json, ctx);
+        }
+    }
+
+    pub(crate) fn apply_url_payload(&mut self, json: String, ctx: &egui::Context) -> bool {
+        if self.library.active_locked() {
+            crate::url_circuit::write_circuit_to_url(&self.library.active().circuit_json);
+            return false;
+        }
+        self.circuit_revision = CircuitRevision::starting_at(json.clone());
+        self.replace_active_circuit_json_unchecked(&json, ctx);
+        true
     }
 
     fn current_circuit_json(&self) -> String {
         crate::url_circuit::circuit_to_json(&self.placed_gates, self.qubit_count)
     }
 
-    pub(crate) fn apply_circuit_json(&mut self, json: &str, ctx: &egui::Context) {
+    pub(crate) fn replace_active_circuit_json_unchecked(
+        &mut self,
+        json: &str,
+        ctx: &egui::Context,
+    ) {
+        self.load_circuit_json_into_editor(json, ctx);
+        self.library.update_active_unchecked(json.to_owned());
+        persist_library(&self.library);
+        crate::url_circuit::write_circuit_to_url(json);
+        ctx.request_repaint();
+    }
+
+    pub(crate) fn load_circuit_json_into_editor(&mut self, json: &str, ctx: &egui::Context) {
         let (gates, next_gate_id) = crate::url_circuit::parse_circuit_json(json);
         self.placed_gates = gates;
         self.next_gate_id = next_gate_id;
@@ -136,9 +173,6 @@ impl QniApp {
         self.external_gpu_state_refresh_pending = false;
         self.gpu_plan.mark_dirty();
         self.clear_gpu_plan_capacity_error();
-        self.library.update_active(json.to_owned());
-        persist_library(&self.library);
-        crate::url_circuit::write_circuit_to_url(json);
         ctx.request_repaint();
     }
 }

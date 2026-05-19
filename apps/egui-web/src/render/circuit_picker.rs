@@ -14,7 +14,7 @@ mod rename;
 use action::PickerAction;
 use chrome::{
     apply_items_scrollbar_style, footer, paint_chevron, paint_divider, paint_kebab,
-    paint_picker_item_text, paint_resize_separator, popover_frame,
+    paint_picker_item_text, paint_resize_separator, paint_section_header, popover_frame,
     publish_picker_dropdown_geometry_json, publish_picker_resize_geometry_json,
     publish_picker_submenu_geometry_json, submenu_item,
 };
@@ -122,6 +122,7 @@ impl QniApp {
         // The trigger sits inside the toolbar's py-1.5 (6px) vertical padding.
         let pos = trigger_rect.left_bottom() + egui::vec2(0.0, TOPBAR_BOTTOM_OFFSET);
         let entries = self.library.entries.clone();
+        let display_rows = picker_display_rows(&entries);
         let active_id = self.library.active_id.clone();
         let focused_index = if self.picker.focus_visible() {
             self.picker.focused_index()
@@ -130,11 +131,12 @@ impl QniApp {
         };
         let submenu_index = self.picker.submenu_index();
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
-        let max_items_height = picker_max_items_height(entries.len(), ctx.content_rect().height());
+        let max_items_height = picker_max_items_height(&display_rows, ctx.content_rect().height());
         self.picker.clamp_items_height(max_items_height);
         let mut actions = Vec::new();
-        let mut row_rects = Vec::with_capacity(entries.len());
-        let mut kebab_rects = Vec::with_capacity(entries.len());
+        let mut row_rects = vec![None; entries.len()];
+        let mut kebab_rects = vec![None; entries.len()];
+        let mut user_row_rects = Vec::new();
         let area = egui::Area::new(egui::Id::new("circuit-picker-dropdown"))
             .order(egui::Order::Tooltip)
             .fixed_pos(pos)
@@ -163,22 +165,33 @@ impl QniApp {
                         ui.set_style(previous_style.clone());
                         ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
                         ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
-                        for (index, entry) in entries.iter().enumerate() {
-                            let rects = self.show_picker_item(
-                                ui,
-                                colors,
-                                entry,
-                                index,
-                                entry.id == active_id,
-                                focused_index == Some(index),
-                                submenu_index == Some(index),
-                                renaming_id.as_deref() == Some(entry.id.as_str()),
-                                &mut actions,
-                            );
-                            row_rects.push(rects.row);
-                            kebab_rects.push(rects.kebab);
+                        for row in &display_rows {
+                            match *row {
+                                PickerDisplayRow::Header { label, top_margin } => {
+                                    paint_section_header(ui, colors, label, top_margin);
+                                }
+                                PickerDisplayRow::Entry(index) => {
+                                    let entry = &entries[index];
+                                    let rects = self.show_picker_item(
+                                        ui,
+                                        colors,
+                                        entry,
+                                        index,
+                                        entry.id == active_id,
+                                        focused_index == Some(index),
+                                        submenu_index == Some(index),
+                                        renaming_id.as_deref() == Some(entry.id.as_str()),
+                                        &mut actions,
+                                    );
+                                    row_rects[index] = Some(rects.row);
+                                    kebab_rects[index] = Some(rects.kebab);
+                                    if entry.is_user() {
+                                        user_row_rects.push((index, rects.row));
+                                    }
+                                }
+                            }
                         }
-                        self.update_picker_drag(ctx, &row_rects);
+                        self.update_picker_drag(ctx, &user_row_rects);
                         self.paint_picker_dragged_row(
                             ui,
                             colors,
@@ -241,8 +254,8 @@ impl QniApp {
                         scroll_output.inner_rect,
                         handle_rect,
                         footer_rect,
-                        row_rects.first().copied(),
-                        row_rects.last().copied(),
+                        row_rects.iter().flatten().next().copied(),
+                        row_rects.iter().flatten().next_back().copied(),
                         scroll_output.state.offset.y,
                         handle_response.hovered(),
                         self.picker.resize_drag_active(),
@@ -272,8 +285,8 @@ impl QniApp {
             .and_then(|index| {
                 kebab_rects
                     .get(index)
-                    .copied()
-                    .zip(row_rects.get(index).copied())
+                    .and_then(|rect| *rect)
+                    .zip(row_rects.get(index).and_then(|rect| *rect))
                     .map(|(anchor, parent_row)| (index, anchor, parent_row))
             })
             .and_then(|(index, anchor, parent_row)| {
@@ -336,7 +349,8 @@ impl QniApp {
                 suppress_click: submenu_open,
             });
         }
-        if response.is_pointer_button_down_on()
+        if entry.is_user()
+            && response.is_pointer_button_down_on()
             && !self.picker_drag_suppressed_until_release
             && !kebab.hovered()
             && !kebab.is_pointer_button_down_on()
@@ -364,6 +378,8 @@ impl QniApp {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         } else if self.picker.drag_in_progress() {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grabbing);
+        } else if pointer_hovered && entry.is_sample() {
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         } else if pointer_hovered {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         }
@@ -423,9 +439,13 @@ impl QniApp {
         } else {
             right
         };
-        let can_up = index > 0;
-        let can_down = index + 1 < self.library.entries.len();
-        let can_delete = self.library.entries.len() > 1;
+        let entry = self.library.entries.get(index)?;
+        let user_slot = self.library.user_slot_for_index(index);
+        let user_len = self.library.user_indices().len();
+        let can_up = user_slot.is_some_and(|slot| slot > 0);
+        let can_down = user_slot.is_some_and(|slot| slot + 1 < user_len);
+        let can_rename = entry.is_user() && !entry.locked();
+        let can_delete = entry.is_user() && !entry.locked() && self.library.entries.len() > 1;
         let area = egui::Area::new(egui::Id::new("circuit-picker-submenu"))
             .order(egui::Order::Tooltip)
             .fixed_pos(pos)
@@ -433,17 +453,19 @@ impl QniApp {
                 popover_frame(colors).show(ui, |ui| {
                     ui.set_min_width(SUBMENU_WIDTH - 12.0);
                     ui.set_max_width(SUBMENU_WIDTH - 12.0);
-                    if submenu_item(ui, colors, "Rename", true, false).clicked() {
+                    if submenu_item(ui, colors, "Rename", can_rename, false).clicked() {
                         actions.push(PickerAction::StartRename(index));
                     }
                     if submenu_item(ui, colors, "Duplicate", true, false).clicked() {
                         actions.push(PickerAction::Duplicate(index));
                     }
-                    if submenu_item(ui, colors, "Move up", can_up, false).clicked() {
-                        actions.push(PickerAction::MoveUp(index));
-                    }
-                    if submenu_item(ui, colors, "Move down", can_down, false).clicked() {
-                        actions.push(PickerAction::MoveDown(index));
+                    if entry.is_user() {
+                        if submenu_item(ui, colors, "Move up", can_up, false).clicked() {
+                            actions.push(PickerAction::MoveUp(index));
+                        }
+                        if submenu_item(ui, colors, "Move down", can_down, false).clicked() {
+                            actions.push(PickerAction::MoveDown(index));
+                        }
                     }
                     paint_divider(ui, colors);
                     if submenu_item(ui, colors, "Delete", can_delete, true).clicked() {
@@ -573,8 +595,60 @@ impl QniApp {
     }
 }
 
-fn picker_max_items_height(entries_len: usize, viewport_height: f32) -> f32 {
-    let content_cap = entries_len as f32 * ITEM_HEIGHT + ITEMS_CONTENT_EXTRA;
+#[derive(Clone, Copy, Debug)]
+enum PickerDisplayRow {
+    Header {
+        label: &'static str,
+        top_margin: bool,
+    },
+    Entry(usize),
+}
+
+fn picker_display_rows(entries: &[CircuitEntry]) -> Vec<PickerDisplayRow> {
+    let examples = entries
+        .iter()
+        .enumerate()
+        .filter_map(|(index, entry)| entry.is_sample().then_some(index))
+        .collect::<Vec<_>>();
+    let users = entries
+        .iter()
+        .enumerate()
+        .filter_map(|(index, entry)| entry.is_user().then_some(index))
+        .collect::<Vec<_>>();
+    let mut rows = Vec::with_capacity(entries.len() + 2);
+    if !examples.is_empty() {
+        rows.push(PickerDisplayRow::Header {
+            label: "Example Circuits",
+            top_margin: false,
+        });
+        rows.extend(examples.into_iter().map(PickerDisplayRow::Entry));
+    }
+    if !users.is_empty() {
+        rows.push(PickerDisplayRow::Header {
+            label: "My Circuits",
+            top_margin: !rows.is_empty(),
+        });
+        rows.extend(users.into_iter().map(PickerDisplayRow::Entry));
+    }
+    rows
+}
+
+fn picker_max_items_height(rows: &[PickerDisplayRow], viewport_height: f32) -> f32 {
+    let content_rows_height = rows.iter().fold(0.0, |height, row| {
+        height
+            + match row {
+                PickerDisplayRow::Header { top_margin, .. } => {
+                    SECTION_HEADER_HEIGHT
+                        + if *top_margin {
+                            SECTION_HEADER_TOP_MARGIN
+                        } else {
+                            0.0
+                        }
+                }
+                PickerDisplayRow::Entry(_) => ITEM_HEIGHT,
+            }
+    });
+    let content_cap = content_rows_height + ITEMS_CONTENT_EXTRA;
     let viewport_cap = (viewport_height - ITEMS_VIEWPORT_CAP_MARGIN).max(MIN_ITEMS_HEIGHT);
     content_cap.min(viewport_cap).max(MIN_ITEMS_HEIGHT)
 }

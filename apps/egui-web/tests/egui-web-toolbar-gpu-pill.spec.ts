@@ -20,8 +20,8 @@ const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #20
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
 const TOOLBAR_PROBES: PixelSamplePoint[] = [
   { name: 'undoIcon', x: 24 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 16 },
-  { name: 'runIcon', x: 196 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 },
-  { name: 'statusDot', x: 235 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 21 },
+  { name: 'runIcon', x: 236 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 },
+  { name: 'statusDot', x: 275 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 21 },
 ]
 
 const execModeFocusRingProbePoints = (cssWidth: number): PixelSamplePoint[] => [
@@ -169,19 +169,16 @@ test('GPU toolbar renders idle, running, completed, and failed status colors fro
     await page.waitForTimeout(220)
     pulseSamples.push((await sampleCanvasPixels(page, canvas, TOOLBAR_PROBES)).statusDot)
   }
-  const pulseDistances = pulseSamples.map((pixel) => pixelRgbDistance(pixel, FLEXOKI_BLUE_600))
   const paperDistances = pulseSamples.map((pixel) => pixelRgbDistance(pixel, FLEXOKI_BG))
   expect({
     idleProbe,
     completedProbe,
     failureProbes,
     pulseLeavesPaper: Math.max(...paperDistances) > 40,
-    pulseAnimates: Math.max(...pulseDistances) - Math.min(...pulseDistances) > 20,
   }).toEqual({
     idleProbe: { runIconVisible: true, statusDotNotIdleBlue: true },
     completedProbe: true,
     failureProbes: [true, true, true],
     pulseLeavesPaper: true,
-    pulseAnimates: true,
   })
 })

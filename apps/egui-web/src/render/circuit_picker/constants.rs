@@ -24,6 +24,8 @@ pub(super) const ITEMS_SCROLLBAR_IDLE_ALPHA: u8 = 153; // 60% alpha.
 pub(super) const ITEMS_SCROLLBAR_HOVER_ALPHA: u8 = 179; // 70% alpha.
 pub(super) const ITEMS_SCROLLBAR_FADE_SECONDS: f32 = 0.15; // 150ms opacity transition.
 pub(super) const SUBMENU_WIDTH: f32 = 160.0;
+pub(super) const SECTION_HEADER_HEIGHT: f32 = 26.0; // text-xs line-height 16px + py-1.25 ≈ 26px.
+pub(super) const SECTION_HEADER_TOP_MARGIN: f32 = 6.0; // mt-1.5 = 6px between sections.
 pub(super) const ITEM_HEIGHT: f32 = 36.0;
 pub(super) const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.
 pub(super) const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.

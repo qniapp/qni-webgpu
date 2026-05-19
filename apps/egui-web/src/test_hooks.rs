@@ -8,6 +8,7 @@
 use wasm_bindgen::JsValue;
 
 pub(crate) const QNI_ASPECT_POPOVER_GEOMETRY_JSON: &str = "__qniAspectPopoverGeometryJson";
+pub(crate) const QNI_APPLY_URL_PAYLOAD: &str = "__qniApplyUrlPayload";
 pub(crate) const QNI_CIRCUIT_LIBRARY_DELETE: &str = "__qniCircuitLibraryDelete";
 pub(crate) const QNI_CIRCUIT_LIBRARY_LOAD: &str = "__qniCircuitLibraryLoad";
 pub(crate) const QNI_CIRCUIT_LIBRARY_RENAME: &str = "__qniCircuitLibraryRename";
@@ -23,6 +24,7 @@ pub(crate) const QNI_HOVER_SNAPSHOT_JSON: &str = "__qniHoverSnapshotJson";
 pub(crate) const QNI_SEED_CIRCUITS: &str = "__seedCircuits";
 pub(crate) const QNI_SET_EXTERNAL_GPU_STATUS: &str = "__setExternalGpuStatus";
 pub(crate) const QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON: &str = "__qniToolbarDuplicateGeometryJson";
+pub(crate) const QNI_TOOLBAR_LOCK_GEOMETRY_JSON: &str = "__qniToolbarLockGeometryJson";
 pub(crate) const QNI_TOOLBAR_TOOLTIP_TEXT: &str = "__qniToolbarTooltipText";
 
 #[cfg(target_arch = "wasm32")]

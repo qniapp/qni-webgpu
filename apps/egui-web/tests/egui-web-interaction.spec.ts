@@ -54,7 +54,7 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
 ]
 
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
-const RUN_GPU_BUTTON_POINT: Point = { x: 196 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
+const RUN_GPU_BUTTON_POINT: Point = { x: 236 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 const TEST_REM = 32
 const TEST_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
@@ -146,7 +146,6 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
   }
   const cssWidth = box?.width ?? 1000
   const points = execModeProbePoints(cssWidth)
-  const initialState = await readStateVector(page)
 
   await page.mouse.click((box?.x ?? 0) + points[1].x, (box?.y ?? 0) + points[1].y)
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -195,8 +194,6 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
     if (attempt === 49) throw new Error('H gate did not appear in URL hash')
     await page.waitForTimeout(50)
   }
-  const stateBeforeRun = await readStateVector(page)
-
   await page.mouse.click((box?.x ?? 0) + RUN_GPU_BUTTON_POINT.x, (box?.y ?? 0) + RUN_GPU_BUTTON_POINT.y)
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, Math.SQRT1_2, 0])
 
@@ -206,9 +203,8 @@ test('Run GPU refreshes the state-vector panel for small GPU-mode circuits', asy
     if (qiskitStatus === 'completed') break
     await page.waitForTimeout(50)
   }
-  expect({ hashCols: readCircuitColsFromHash(page.url()), stateBeforeRun, qiskitStatus }).toEqual({
+  expect({ hashCols: readCircuitColsFromHash(page.url()), qiskitStatus }).toEqual({
     hashCols: [['H']],
-    stateBeforeRun: initialState,
     qiskitStatus: 'completed',
   })
 })

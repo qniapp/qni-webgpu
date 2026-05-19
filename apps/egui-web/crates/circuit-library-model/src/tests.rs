@@ -1,4 +1,11 @@
-use super::{CircuitEntry, CircuitLibrary, EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON};
+use super::{
+    CircuitEntry, CircuitKind, CircuitLibrary, CircuitOrigin, EMPTY_CIRCUIT_JSON,
+    GROVER_SEARCH_JSON,
+};
+
+fn user(id: &str, name: &str, json: &str, locked: bool) -> CircuitEntry {
+    CircuitEntry::user(id.to_owned(), name.to_owned(), json.to_owned(), 0, locked)
+}
 
 #[test]
 fn seed_contains_quirk_named_samples() {
@@ -12,6 +19,7 @@ fn seed_contains_quirk_named_samples() {
             library.entries[1].name.as_str(),
             library.entries[2].name.as_str(),
             library.entries[3].name.as_str(),
+            library.entries.iter().all(CircuitEntry::locked),
         ),
         (
             4,
@@ -19,7 +27,8 @@ fn seed_contains_quirk_named_samples() {
             "Bell state",
             "GHZ state",
             "QFT 4-qubit",
-            "Grover Search"
+            "Grover Search",
+            true,
         )
     );
 }
@@ -66,24 +75,9 @@ fn current_and_new_circuits_use_incrementing_default_names() {
 fn legacy_auto_untitled_entries_migrate_to_numbered_circuits() {
     let mut library = CircuitLibrary::from_entries(
         vec![
-            CircuitEntry {
-                id: "current".to_owned(),
-                name: "Untitled".to_owned(),
-                circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-                updated_at: 0,
-            },
-            CircuitEntry {
-                id: "circuit-8".to_owned(),
-                name: "Untitled".to_owned(),
-                circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-                updated_at: 0,
-            },
-            CircuitEntry {
-                id: "ckt_saved".to_owned(),
-                name: "Untitled".to_owned(),
-                circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-                updated_at: 0,
-            },
+            user("current", "Untitled", EMPTY_CIRCUIT_JSON, false),
+            user("circuit-8", "Untitled", EMPTY_CIRCUIT_JSON, false),
+            user("ckt_saved", "Untitled", EMPTY_CIRCUIT_JSON, false),
         ],
         "current".to_owned(),
     );
@@ -101,8 +95,11 @@ fn legacy_auto_untitled_entries_migrate_to_numbered_circuits() {
 }
 
 #[test]
-fn update_and_set_active_keep_canonical_json() {
-    let mut library = CircuitLibrary::seed();
+fn update_and_set_active_keep_canonical_json_for_unlocked_user() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("ghz", "GHZ state", r#"{"cols":[["X"]]}"#, false)],
+        "ghz".to_owned(),
+    );
 
     library.set_active("ghz".to_owned());
     library.update_active(EMPTY_CIRCUIT_JSON.to_owned());
@@ -117,175 +114,263 @@ fn update_and_set_active_keep_canonical_json() {
 }
 
 #[test]
-fn duplicate_move_and_delete_preserve_active_invariant() {
-    let mut library = CircuitLibrary::seed();
-
-    let Some(duplicated) = library.duplicate(1).cloned() else {
-        panic!("duplicate entry should be created");
-    };
-    let after_duplicate = (
-        duplicated.name.clone(),
-        duplicated.updated_at != 0,
-        library.active_id.clone(),
-        library.entries[2].id.clone(),
+fn locked_active_update_is_ignored() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("locked", "Locked", r#"{"cols":[["X"]]}"#, true)],
+        "locked".to_owned(),
     );
 
-    library.move_up(2);
-    let after_move_up_id = library.entries[1].id.clone();
-    library.move_down(1);
-    let after_move_down_id = library.entries[2].id.clone();
+    library.update_active(EMPTY_CIRCUIT_JSON.to_owned());
 
-    library.delete(2);
     assert_eq!(
-        (
-            after_duplicate.0.as_str(),
-            after_duplicate.1,
-            after_duplicate.2.as_str(),
-            after_duplicate.3.as_str(),
-            after_move_up_id.as_str(),
-            after_move_down_id.as_str(),
-            library.active_id.as_str(),
-            library.entries.len(),
-        ),
-        (
-            "GHZ state (copy)",
-            true,
-            duplicated.id.as_str(),
-            duplicated.id.as_str(),
-            duplicated.id.as_str(),
-            duplicated.id.as_str(),
-            "bell",
-            4,
-        )
+        library.active().circuit_json.as_str(),
+        r#"{"cols":[["X"]]}"#
     );
 }
 
 #[test]
-fn duplicate_active_inserts_after_active_and_numbers_copy_names() {
+fn duplicate_sample_creates_unlocked_user() {
+    let mut library = CircuitLibrary::seed();
+
+    let id = library.duplicate_active();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id == id)
+            .map(CircuitEntry::locked),
+        Some(false)
+    );
+}
+
+#[test]
+fn duplicate_locked_user_creates_unlocked_user() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("locked", "Locked", EMPTY_CIRCUIT_JSON, true)],
+        "locked".to_owned(),
+    );
+
+    let id = library.duplicate_active();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id == id)
+            .map(CircuitEntry::locked),
+        Some(false)
+    );
+}
+
+#[test]
+fn duplicate_unlocked_user_creates_unlocked_user() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("open", "Open", EMPTY_CIRCUIT_JSON, false)],
+        "open".to_owned(),
+    );
+
+    let id = library.duplicate_active();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id == id)
+            .map(CircuitEntry::locked),
+        Some(false)
+    );
+}
+
+#[test]
+fn duplicate_active_inserts_into_my_section_and_numbers_copy_names() {
     let mut library = CircuitLibrary::seed();
     library.set_active("bell".to_owned());
-    if let Some(entry) = library.entries.iter_mut().find(|entry| entry.id == "bell") {
-        entry.updated_at = 0;
-    }
 
     let first_id = library.duplicate_active();
-    let first_snapshot = (
-        library.entries[1].id.clone(),
-        library.active_id.clone(),
-        library.entries[1].name.clone(),
-        library.entries[1].circuit_json.clone(),
-        library.entries[0].circuit_json.clone(),
-        library.active().updated_at != 0,
-    );
-
     let second_id = library.duplicate_active();
-    let second_snapshot = (
-        library.entries[2].id.clone(),
-        library.entries[2].name.clone(),
-    );
-
     let third_id = library.duplicate_active();
+
     assert_eq!(
         (
-            first_snapshot.0.as_str(),
-            first_snapshot.1.as_str(),
-            first_snapshot.2.as_str(),
-            first_snapshot.3.as_str(),
-            first_snapshot.4.as_str(),
-            first_snapshot.5,
-            second_snapshot.0.as_str(),
-            second_snapshot.1.as_str(),
-            library.entries[3].id.as_str(),
-            library.entries[3].name.as_str(),
+            library.entries[4].id.as_str(),
+            library.entries[4].name.as_str(),
+            library.entries[5].id.as_str(),
+            library.entries[5].name.as_str(),
+            library.entries[6].id.as_str(),
+            library.entries[6].name.as_str(),
+            library.active_id.as_str(),
         ),
         (
             first_id.as_str(),
-            first_id.as_str(),
             "Bell state (copy)",
-            first_snapshot.4.as_str(),
-            first_snapshot.4.as_str(),
-            true,
             second_id.as_str(),
             "Bell state (copy 2)",
             third_id.as_str(),
             "Bell state (copy 3)",
+            third_id.as_str(),
         )
     );
 }
 
 #[test]
 fn duplicate_active_skips_existing_copy_name_collisions() {
-    let mut library = CircuitLibrary::seed();
-    library.entries[1].name = "Bell state (copy)".to_owned();
-    library.entries[2].name = "Bell state (copy 2)".to_owned();
-    library.set_active("bell".to_owned());
+    let mut library = CircuitLibrary::from_entries(
+        vec![
+            user("bell", "Bell state", EMPTY_CIRCUIT_JSON, false),
+            user("copy-1", "Bell state (copy)", EMPTY_CIRCUIT_JSON, false),
+            user("copy-2", "Bell state (copy 2)", EMPTY_CIRCUIT_JSON, false),
+        ],
+        "bell".to_owned(),
+    );
 
     let id = library.duplicate_active();
 
     assert_eq!(
-        (library.active_id.as_str(), library.entries[1].name.as_str()),
+        (library.active_id.as_str(), library.active().name.as_str()),
         (id.as_str(), "Bell state (copy 3)")
     );
 }
 
 #[test]
-fn reorder_moves_by_insertion_index_and_preserves_active_id() {
+fn move_to_slot_reorders_only_user_entries() {
     let mut library = CircuitLibrary::seed();
-    library.set_active("ghz".to_owned());
+    library.create_new();
+    let second_id = library.create_new().id.clone();
 
-    library.reorder(0, 4);
+    library.move_to_slot(5, 4);
 
     assert_eq!(
         (
-            library
-                .entries
-                .iter()
-                .map(|entry| entry.id.as_str())
-                .collect::<Vec<_>>(),
-            library.active_id.as_str(),
+            library.entries[0].id.as_str(),
+            library.entries[1].id.as_str(),
+            library.entries[2].id.as_str(),
+            library.entries[3].id.as_str(),
+            library.entries[4].id.as_str(),
         ),
-        (vec!["ghz", "qft-4", "grover-search", "bell"], "ghz")
+        ("bell", "ghz", "qft-4", "grover-search", second_id.as_str())
     );
 }
 
 #[test]
-fn reorder_ignores_no_ops_and_out_of_bounds_source() {
-    let mut library = CircuitLibrary::seed();
-    let original = library.clone();
+fn delete_locked_entry_is_ignored() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![
+            user("open", "Open", EMPTY_CIRCUIT_JSON, false),
+            user("locked", "Locked", EMPTY_CIRCUIT_JSON, true),
+        ],
+        "open".to_owned(),
+    );
 
-    library.reorder(2, 2);
-    let after_same_index = library.clone();
+    library.delete_by_id("locked");
 
-    library.reorder(2, 3);
-    let after_endpoint_noop = library.clone();
-
-    library.reorder(99, 0);
     assert_eq!(
-        (after_same_index, after_endpoint_noop, library),
-        (original.clone(), original.clone(), original)
+        library.entries.iter().any(|entry| entry.id == "locked"),
+        true
     );
 }
 
 #[test]
-fn swap_adjacent_swaps_without_touching_active_timestamp() {
-    let mut library = CircuitLibrary::seed();
-    library.set_active("ghz".to_owned());
-    if let Some(entry) = library.entries.iter_mut().find(|entry| entry.id == "ghz") {
-        entry.updated_at = 0;
-    }
+fn rename_locked_entry_is_ignored() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("locked", "Locked", EMPTY_CIRCUIT_JSON, true)],
+        "locked".to_owned(),
+    );
 
-    library.swap_adjacent(1, 2);
+    library.rename("locked", "Renamed");
+
+    assert_eq!(library.active().name.as_str(), "Locked");
+}
+
+#[test]
+fn toggle_active_lock_flips_only_user_entries() {
+    let mut library = CircuitLibrary::from_entries(
+        vec![user("open", "Open", EMPTY_CIRCUIT_JSON, false)],
+        "open".to_owned(),
+    );
+
+    library.toggle_active_lock();
+
+    assert_eq!(library.active_locked(), true);
+}
+
+#[test]
+fn toggle_active_lock_ignores_samples() {
+    let mut library = CircuitLibrary::seed();
+
+    let changed = library.toggle_active_lock();
+
+    assert_eq!(changed, false);
+}
+
+#[test]
+fn v1_migration_keeps_untouched_seed_count() {
+    let seed = CircuitLibrary::seed();
+
+    let migrated = CircuitLibrary::migrate_v1_entries(seed.entries, Some("bell".to_owned()));
+
+    assert_eq!(migrated.entries.len(), 4);
+}
+
+#[test]
+fn v1_migration_escapes_edited_seed_id() {
+    let edited = CircuitEntry::user(
+        "bell".to_owned(),
+        "Bell state".to_owned(),
+        EMPTY_CIRCUIT_JSON.to_owned(),
+        0,
+        false,
+    );
+
+    let migrated = CircuitLibrary::migrate_v1_entries(vec![edited], Some("bell".to_owned()));
+
+    assert_eq!(migrated.active_id.as_str(), "bell-user-edit");
+}
+
+#[test]
+fn v1_migration_marks_user_entry_unlocked() {
+    let migrated = CircuitLibrary::migrate_v1_entries(
+        vec![user("mine", "Mine", EMPTY_CIRCUIT_JSON, false)],
+        Some("mine".to_owned()),
+    );
 
     assert_eq!(
-        (
-            library
-                .entries
-                .iter()
-                .map(|entry| entry.id.as_str())
-                .collect::<Vec<_>>(),
-            library.active_id.as_str(),
-            library.active().updated_at,
-        ),
-        (vec!["bell", "qft-4", "ghz", "grover-search"], "ghz", 0)
+        migrated.active().origin,
+        CircuitOrigin::User { locked: false }
     );
+}
+
+#[test]
+fn startup_url_selects_canonical_sample() {
+    let mut library = CircuitLibrary::seed();
+    library.set_active_current_circuit(EMPTY_CIRCUIT_JSON.to_owned());
+
+    library.resolve_startup_url_payload(r#"{"cols":[["H"],["•","X"]]}"#.to_owned());
+
+    assert_eq!(library.active_id.as_str(), "bell");
+}
+
+#[test]
+fn startup_url_preserves_locked_current_by_creating_fresh_entry() {
+    let mut library = CircuitLibrary::seed();
+    library.set_active_current_circuit(EMPTY_CIRCUIT_JSON.to_owned());
+    library.toggle_active_lock();
+
+    library.resolve_startup_url_payload(r#"{"cols":[["X"]]}"#.to_owned());
+
+    assert_eq!(library.active_id.as_str(), "current-6");
+}
+
+#[test]
+fn active_kind_reports_example_for_sample() {
+    let library = CircuitLibrary::seed();
+
+    assert_eq!(library.active_kind(), CircuitKind::Example);
+}
+
+#[test]
+fn sample_origin_rejects_locked_field_at_compile_time() {
+    let tests = trybuild::TestCases::new();
+
+    tests.compile_fail("tests/compile_fail/sample_origin_locked.rs");
 }

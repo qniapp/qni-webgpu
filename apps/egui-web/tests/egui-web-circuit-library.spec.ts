@@ -1,18 +1,20 @@
 import { expect, test, type Page } from '@playwright/test'
 import { waitForStartupReady } from './support/egui-web-spec-helpers'
 
-const STORAGE_KEY = 'qni.circuit_library.v1'
+const STORAGE_KEY = 'qni.circuit_library.v2'
+
+test.describe.configure({ mode: 'serial' })
 
 type LibraryDocument = {
   version: number
-  activeId: string | null
-  circuits: Array<{
+  active_id: string | null
+  entries: Array<{
     id: string
     name: string
-    json: string
-    createdAt: number
-    updatedAt: number
-    meta: { qubits: number; columns: number; gateCount: number }
+    circuit_json: string
+    updated_at: number
+    locked?: boolean
+    origin: { kind: 'sample'; origin_id: string } | { kind: 'user'; locked: boolean }
   }>
 }
 
@@ -75,7 +77,7 @@ const libraryClear = async (page: Page): Promise<void> =>
 const waitForEmptyLibrary = async (page: Page): Promise<LibraryDocument> => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const document = await libraryList(page)
-    if (document.activeId === null && document.circuits.length === 0) return document
+    if (document.active_id === null && document.entries.length === 0) return document
     await page.waitForTimeout(50)
   }
   throw new Error('localStorage circuit library did not become empty')
@@ -85,7 +87,7 @@ const clearLibraryUntilEmpty = async (page: Page): Promise<LibraryDocument> => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     await libraryClear(page)
     const document = await libraryList(page)
-    if (document.activeId === null && document.circuits.length === 0) return document
+    if (document.active_id === null && document.entries.length === 0) return document
     await page.waitForTimeout(50)
   }
   throw new Error('localStorage circuit library cleanup did not settle')
@@ -106,25 +108,25 @@ test.beforeEach(async ({ page }) => {
   await clearLibraryUntilEmpty(page)
 })
 
-test('localStorage circuit library supports save, list, load, rename, and delete without UI coupling', async ({ page }) => {
+test('localStorage v2 circuit library supports save, list, load, rename, and delete without UI coupling', async ({ page }) => {
   const initial = await waitForEmptyLibrary(page)
 
   const circuitJson = '{"cols":[["H"],["•","X"]]}'
   const id = await librarySave(page, '  Bell state  ', circuitJson)
   let document = await libraryList(page)
-  const savedActiveId = document.activeId
-  const saved = document.circuits[0]
+  const savedActiveId = document.active_id
+  const saved = document.entries[0]
   const loadedJson = await libraryLoad(page, id)
   const afterLoad = await libraryList(page)
 
   await libraryRename(page, id, '  Renamed Bell  ')
   document = await libraryList(page)
-  const renamed = document.circuits[0]
+  const renamed = document.entries[0]
 
   const qftJson = '{"cols":[["QFT3"]]}'
   const qftId = await librarySave(page, 'QFT span', qftJson)
   document = await libraryList(page)
-  const qft = document.circuits[0]
+  const qft = document.entries[0]
 
   await libraryDelete(page, qftId)
   await libraryDelete(page, id)
@@ -135,25 +137,24 @@ test('localStorage circuit library supports save, list, load, rename, and delete
     idMatches: /^ckt_\d+_[0-9a-f]{6}$/.test(id),
     savedActiveId,
     saved,
-    savedTimestampOk: saved ? saved.updatedAt >= saved.createdAt : false,
+    savedTimestampOk: saved ? saved.updated_at > 0 : false,
     loadedJson,
-    activeIdAfterLoad: afterLoad.activeId,
+    activeIdAfterLoad: afterLoad.active_id,
     renamedName: renamed?.name,
-    renamedTimestampOk: renamed ? renamed.updatedAt >= renamed.createdAt : false,
-    qftActiveId: qft ? document.activeId : null,
+    renamedTimestampOk: renamed ? renamed.updated_at > 0 : false,
+    qftActiveId: qft ? document.active_id : null,
     qft,
     final,
   }).toEqual({
-    initial: { version: 1, activeId: null, circuits: [] },
+    initial: { version: 2, active_id: null, entries: [] },
     idMatches: true,
     savedActiveId: id,
     saved: {
       id,
       name: 'Bell state',
-      json: circuitJson,
-      createdAt: saved?.createdAt,
-      updatedAt: saved?.updatedAt,
-      meta: { qubits: 2, columns: 2, gateCount: 3 },
+      circuit_json: circuitJson,
+      updated_at: saved?.updated_at,
+      origin: { kind: 'user', locked: false },
     },
     savedTimestampOk: true,
     loadedJson: circuitJson,
@@ -164,16 +165,15 @@ test('localStorage circuit library supports save, list, load, rename, and delete
     qft: {
       id: qftId,
       name: 'QFT span',
-      json: qftJson,
-      createdAt: qft?.createdAt,
-      updatedAt: qft?.updatedAt,
-      meta: { qubits: 3, columns: 1, gateCount: 1 },
+      circuit_json: qftJson,
+      updated_at: qft?.updated_at,
+      origin: { kind: 'user', locked: false },
     },
-    final: { version: 1, activeId: null, circuits: [] },
+    final: { version: 2, active_id: null, entries: [] },
   })
 })
 
-test('localStorage circuit library rejects invalid names, invalid circuits, and corrupted documents', async ({ page }) => {
+test('localStorage v2 circuit library rejects invalid names, invalid circuits, and corrupted documents', async ({ page }) => {
   const messages = [
     await errorMessage(() => librarySave(page, '   ', '{"cols":[]}')),
     await errorMessage(() => librarySave(page, 'Bad circuit', '{"bad":[]}')),
@@ -184,20 +184,38 @@ test('localStorage circuit library rejects invalid names, invalid circuits, and 
   await page.evaluate((key) => localStorage.setItem(key, '{not json'), STORAGE_KEY)
   messages.push(await errorMessage(() => libraryList(page)))
 
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 2, circuits: [] })), STORAGE_KEY)
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 99, active_id: null, entries: [] })), STORAGE_KEY)
   messages.push(await errorMessage(() => libraryList(page)))
 
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 1, activeId: null })), STORAGE_KEY)
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 2, active_id: null })), STORAGE_KEY)
   messages.push(await errorMessage(() => libraryList(page)))
 
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 1, activeId: 'missing', circuits: [] })), STORAGE_KEY)
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 2, active_id: 'missing', entries: [] })), STORAGE_KEY)
   messages.push(await errorMessage(() => libraryList(page)))
 
   await page.evaluate((key) => {
     localStorage.setItem(key, JSON.stringify({
-      version: 1,
-      activeId: null,
-      circuits: [{ id: 'ckt_bad', name: 'Bad', json: '{"cols":[]}', createdAt: 1, updatedAt: 1 }],
+      version: 2,
+      active_id: null,
+      entries: [{ id: 'bad', name: 'Bad', circuit_json: '{"cols":[]}', updated_at: 1 }],
+    }))
+  }, STORAGE_KEY)
+  messages.push(await errorMessage(() => libraryList(page)))
+
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      version: 2,
+      active_id: null,
+      entries: [{ id: 'bad', name: 'Bad', circuit_json: '{"cols":[]}', updated_at: 1, origin: { kind: 'sample', origin_id: 'bad', locked: true } }],
+    }))
+  }, STORAGE_KEY)
+  messages.push(await errorMessage(() => libraryList(page)))
+
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      version: 2,
+      active_id: null,
+      entries: [{ id: 'bad', name: 'Bad', circuit_json: '{"cols":[]}', updated_at: 1, origin: { kind: 'user', locked: false, origin_id: 'bad' } }],
     }))
   }, STORAGE_KEY)
   messages.push(await errorMessage(() => libraryList(page)))
@@ -212,10 +230,12 @@ test('localStorage circuit library rejects invalid names, invalid circuits, and 
     'circuit library is corrupted',
     'circuit library is corrupted',
     'circuit library is corrupted',
+    'circuit library is corrupted',
+    'circuit library is corrupted',
   ])
 })
 
-test('localStorage circuit library reports quota errors without mutating the document', async ({ page }) => {
+test('localStorage v2 circuit library reports quota errors without mutating the document', async ({ page }) => {
   await page.evaluate((key) => {
     const originalSetItem = Storage.prototype.setItem
     ;(window as any).__restoreQniStorageSetItem = () => {
@@ -241,6 +261,6 @@ test('localStorage circuit library reports quota errors without mutating the doc
     document: await waitForEmptyLibrary(page),
   }).toEqual({
     quotaError: true,
-    document: { version: 1, activeId: null, circuits: [] },
+    document: { version: 2, active_id: null, entries: [] },
   })
 })

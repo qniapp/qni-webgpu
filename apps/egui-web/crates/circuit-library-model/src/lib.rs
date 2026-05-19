@@ -18,22 +18,90 @@ pub type CircuitId = String;
 const DEFAULT_CIRCUIT_NAME_PREFIX: &str = "Circuit ";
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct CircuitEntry {
     pub id: CircuitId,
     pub name: String,
     pub circuit_json: String,
     pub updated_at: u64,
+    pub origin: CircuitOrigin,
 }
 
 impl Default for CircuitEntry {
     fn default() -> Self {
+        Self::user(
+            String::new(),
+            String::new(),
+            EMPTY_CIRCUIT_JSON.to_owned(),
+            0,
+            false,
+        )
+    }
+}
+
+impl CircuitEntry {
+    pub fn sample(id: &str, name: &str, circuit_json: &str, updated_at: u64) -> Self {
         Self {
-            id: String::new(),
-            name: String::new(),
-            circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-            updated_at: 0,
+            id: id.to_owned(),
+            name: name.to_owned(),
+            circuit_json: circuit_json.to_owned(),
+            updated_at,
+            origin: CircuitOrigin::Sample {
+                origin_id: id.to_owned(),
+            },
         }
     }
+
+    pub fn user(
+        id: CircuitId,
+        name: String,
+        circuit_json: String,
+        updated_at: u64,
+        locked: bool,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            circuit_json,
+            updated_at,
+            origin: CircuitOrigin::User { locked },
+        }
+    }
+
+    pub fn kind(&self) -> CircuitKind {
+        match self.origin {
+            CircuitOrigin::Sample { .. } => CircuitKind::Example,
+            CircuitOrigin::User { .. } => CircuitKind::My,
+        }
+    }
+
+    pub fn locked(&self) -> bool {
+        match self.origin {
+            CircuitOrigin::Sample { .. } => true,
+            CircuitOrigin::User { locked } => locked,
+        }
+    }
+
+    pub fn is_sample(&self) -> bool {
+        matches!(self.origin, CircuitOrigin::Sample { .. })
+    }
+
+    pub fn is_user(&self) -> bool {
+        matches!(self.origin, CircuitOrigin::User { .. })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CircuitOrigin {
+    Sample { origin_id: String },
+    User { locked: bool },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CircuitKind {
+    Example,
+    My,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -50,28 +118,7 @@ impl Default for CircuitLibrary {
 
 impl CircuitLibrary {
     pub fn seed() -> Self {
-        let now = now_millis();
-        let entries = vec![
-            CircuitEntry {
-                id: "bell".to_owned(),
-                name: "Bell state".to_owned(),
-                circuit_json: r#"{"cols":[["H"],["•","X"]]}"#.to_owned(),
-                updated_at: now,
-            },
-            CircuitEntry {
-                id: "ghz".to_owned(),
-                name: "GHZ state".to_owned(),
-                circuit_json: r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#.to_owned(),
-                updated_at: now,
-            },
-            CircuitEntry {
-                id: "qft-4".to_owned(),
-                name: "QFT 4-qubit".to_owned(),
-                circuit_json: r#"{"cols":[["QFT4"]]}"#.to_owned(),
-                updated_at: now,
-            },
-            grover_search_entry(now),
-        ];
+        let entries = sample_entries(now_millis());
         Self {
             active_id: entries[0].id.clone(),
             entries,
@@ -91,6 +138,10 @@ impl CircuitLibrary {
         library
     }
 
+    pub fn migrate_v1_entries(entries: Vec<CircuitEntry>, active_id: Option<CircuitId>) -> Self {
+        migrate_v1_entries(entries, active_id)
+    }
+
     pub fn active_index(&self) -> usize {
         self.entries
             .iter()
@@ -102,7 +153,29 @@ impl CircuitLibrary {
         &self.entries[self.active_index()]
     }
 
+    pub fn active_kind(&self) -> CircuitKind {
+        self.active().kind()
+    }
+
+    pub fn active_locked(&self) -> bool {
+        self.active().locked()
+    }
+
+    pub fn entry_locked_by_id(&self, id: &str) -> bool {
+        self.entries
+            .iter()
+            .find(|entry| entry.id == id)
+            .is_some_and(CircuitEntry::locked)
+    }
+
     pub fn update_active(&mut self, circuit_json: String) {
+        if self.active_locked() {
+            return;
+        }
+        self.update_active_unchecked(circuit_json);
+    }
+
+    pub fn update_active_unchecked(&mut self, circuit_json: String) {
         let active_id = self.active_id.clone();
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
             entry.circuit_json = circuit_json;
@@ -125,6 +198,13 @@ impl CircuitLibrary {
     }
 
     pub fn rename(&mut self, id: &str, name: &str) {
+        if self.entry_locked_by_id(id) {
+            return;
+        }
+        self.rename_unchecked(id, name);
+    }
+
+    pub fn rename_unchecked(&mut self, id: &str, name: &str) {
         let trimmed = name.trim();
         if trimmed.is_empty() {
             return;
@@ -140,9 +220,9 @@ impl CircuitLibrary {
         Some(self.active())
     }
 
-    /// Insert a copy of the active entry right after it; switch active to the
-    /// new entry and bump its timestamp. Copy names follow the picker/toolbar
-    /// contract: "Name (copy)", then "Name (copy 2)", "Name (copy 3)", …
+    /// Insert a copy of the active entry into the My section; switch active to
+    /// the new unlocked User entry and bump its timestamp. Copy names follow
+    /// the picker/toolbar contract: "Name (copy)", then "Name (copy 2)", …
     pub fn duplicate_active(&mut self) -> CircuitId {
         let index = self.active_index();
         self.duplicate_at_index(index)
@@ -150,15 +230,23 @@ impl CircuitLibrary {
     }
 
     pub fn move_up(&mut self, index: usize) {
-        if index > 0 && index < self.entries.len() {
-            self.entries.swap(index - 1, index);
+        let Some(slot) = self.user_slot_for_index(index) else {
+            return;
+        };
+        if slot == 0 {
+            return;
         }
+        self.move_user_to_slot(index, slot - 1);
     }
 
     pub fn move_down(&mut self, index: usize) {
-        if index + 1 < self.entries.len() {
-            self.entries.swap(index, index + 1);
+        let Some(slot) = self.user_slot_for_index(index) else {
+            return;
+        };
+        if slot + 1 >= self.user_indices().len() {
+            return;
         }
+        self.move_user_to_slot(index, slot + 1);
     }
 
     #[allow(dead_code)]
@@ -173,16 +261,53 @@ impl CircuitLibrary {
     }
 
     pub fn move_to_slot(&mut self, src: usize, slot: usize) {
-        if src >= self.entries.len() || slot >= self.entries.len() || src == slot {
+        let Some(source_user_slot) = self.user_slot_for_index(src) else {
+            return;
+        };
+        let user_len = self.user_indices().len();
+        if slot >= self.entries.len() || src == slot || user_len == 0 {
             return;
         }
-        let entry = self.entries.remove(src);
-        self.entries.insert(slot, entry);
+        let target_user_slot = self
+            .user_slot_for_index(slot)
+            .unwrap_or_else(|| source_user_slot.min(user_len.saturating_sub(1)));
+        self.move_user_to_slot(src, target_user_slot);
+    }
+
+    pub fn move_user_to_slot(&mut self, src_index: usize, target_user_slot: usize) {
+        let user_indices = self.user_indices();
+        let Some(source_user_slot) = user_indices.iter().position(|index| *index == src_index)
+        else {
+            return;
+        };
+        if target_user_slot >= user_indices.len() || source_user_slot == target_user_slot {
+            return;
+        }
+        let source_id = self.entries[src_index].id.clone();
+        let mut users = self
+            .entries
+            .iter()
+            .filter(|entry| entry.is_user())
+            .cloned()
+            .collect::<Vec<_>>();
+        let moved = users.remove(source_user_slot);
+        users.insert(target_user_slot, moved);
+        self.rebuild_with_users(users);
+        self.active_id = if self.entries.iter().any(|entry| entry.id == self.active_id) {
+            self.active_id.clone()
+        } else {
+            source_id
+        };
     }
 
     pub fn swap_adjacent(&mut self, a: usize, b: usize) {
         debug_assert!(a.abs_diff(b) == 1);
-        if a < self.entries.len() && b < self.entries.len() && a.abs_diff(b) == 1 {
+        if a < self.entries.len()
+            && b < self.entries.len()
+            && a.abs_diff(b) == 1
+            && self.entries[a].is_user()
+            && self.entries[b].is_user()
+        {
             self.entries.swap(a, b);
         }
     }
@@ -195,50 +320,67 @@ impl CircuitLibrary {
     }
 
     pub fn delete(&mut self, index: usize) -> Option<&CircuitEntry> {
-        if self.entries.len() <= 1 || index >= self.entries.len() {
+        let id = self.entries.get(index)?.id.clone();
+        self.delete_by_id(&id)
+    }
+
+    pub fn delete_by_id(&mut self, id: &str) -> Option<&CircuitEntry> {
+        if self.entries.len() <= 1 || self.entry_locked_by_id(id) {
             return None;
         }
-        let removed_id = self.entries[index].id.clone();
+        let index = self.entries.iter().position(|entry| entry.id == id)?;
         self.entries.remove(index);
-        if self.active_id == removed_id {
-            self.active_id = self.entries[0].id.clone();
+        if self.active_id == id {
+            self.active_id = self
+                .entries
+                .iter()
+                .find(|entry| entry.is_user())
+                .or_else(|| self.entries.first())
+                .map(|entry| entry.id.clone())
+                .unwrap_or_default();
         }
         Some(self.active())
     }
 
     pub fn create_new(&mut self) -> &CircuitEntry {
-        let entry = CircuitEntry {
-            id: self.fresh_id("circuit"),
-            name: self.next_default_circuit_name(None),
-            circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-            updated_at: now_millis(),
-        };
+        let entry = CircuitEntry::user(
+            self.fresh_id("circuit"),
+            self.next_default_circuit_name(None),
+            EMPTY_CIRCUIT_JSON.to_owned(),
+            now_millis(),
+            false,
+        );
         let id = entry.id.clone();
         self.entries.push(entry);
         self.set_active(id)
     }
 
     pub fn set_active_current_circuit(&mut self, circuit_json: String) {
-        let id = "current".to_owned();
-        let entry = CircuitEntry {
-            id: id.clone(),
-            name: self.next_default_circuit_name(Some(&id)),
-            circuit_json,
-            updated_at: now_millis(),
-        };
-        if let Some(existing) = self.entries.iter_mut().find(|entry| entry.id == id) {
-            *existing = entry;
-        } else {
-            self.entries.insert(0, entry);
+        self.set_active_current_circuit_with_lock_policy(circuit_json, false);
+    }
+
+    pub fn set_active_current_circuit_preserving_locked(&mut self, circuit_json: String) {
+        self.set_active_current_circuit_with_lock_policy(circuit_json, true);
+    }
+
+    pub fn toggle_active_lock(&mut self) -> bool {
+        let active_id = self.active_id.clone();
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
+            if let CircuitOrigin::User { locked } = &mut entry.origin {
+                *locked = !*locked;
+                entry.updated_at = now_millis();
+                return true;
+            }
         }
-        self.active_id = id;
+        false
     }
 
     pub fn migrate_legacy_default_names(&mut self) -> bool {
         let mut changed = false;
         let now = now_millis();
         for index in 0..self.entries.len() {
-            if self.entries[index].name == "Untitled"
+            if self.entries[index].is_user()
+                && self.entries[index].name == "Untitled"
                 && is_auto_generated_circuit_id(&self.entries[index].id)
             {
                 let id = self.entries[index].id.clone();
@@ -250,39 +392,101 @@ impl CircuitLibrary {
         changed
     }
 
+    pub fn resolve_startup_url_payload(&mut self, url_json: String) -> bool {
+        if self.active().circuit_json == url_json {
+            return false;
+        }
+        if let Some(sample_id) = self.find_canonical_sample(&url_json) {
+            let changed = self.active_id != sample_id;
+            self.active_id = sample_id;
+            return changed;
+        }
+        if let Some(user_id) = self.find_user_entry_with_json(&url_json) {
+            let changed = self.active_id != user_id;
+            self.active_id = user_id;
+            return changed;
+        }
+        let old_active = self.active_id.clone();
+        self.set_active_current_circuit_preserving_locked(url_json);
+        self.active_id != old_active
+    }
+
+    pub fn find_canonical_sample(&self, circuit_json: &str) -> Option<CircuitId> {
+        sample_entries(0)
+            .into_iter()
+            .find(|entry| entry.circuit_json == circuit_json)
+            .map(|entry| entry.id)
+    }
+
+    pub fn find_user_entry_with_json(&self, circuit_json: &str) -> Option<CircuitId> {
+        self.entries
+            .iter()
+            .find(|entry| entry.is_user() && entry.circuit_json == circuit_json)
+            .map(|entry| entry.id.clone())
+    }
+
+    pub fn user_indices(&self) -> Vec<usize> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| entry.is_user().then_some(index))
+            .collect()
+    }
+
+    pub fn sample_indices(&self) -> Vec<usize> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| entry.is_sample().then_some(index))
+            .collect()
+    }
+
+    pub fn user_slot_for_index(&self, index: usize) -> Option<usize> {
+        self.user_indices()
+            .iter()
+            .position(|user_index| *user_index == index)
+    }
+
     pub fn to_test_json(&self) -> String {
         let entries = self
             .entries
             .iter()
             .map(|entry| {
                 format!(
-                    r#"{{"id":"{}","name":"{}","circuit_json":"{}","updated_at":{}}}"#,
+                    r#"{{"id":"{}","name":"{}","circuit_json":"{}","updated_at":{},"locked":{},"origin":{}}}"#,
                     json_escape(&entry.id),
                     json_escape(&entry.name),
                     json_escape(&entry.circuit_json),
-                    entry.updated_at
+                    entry.updated_at,
+                    entry.locked(),
+                    origin_test_json(&entry.origin),
                 )
             })
             .collect::<Vec<_>>()
             .join(",");
         format!(
-            r#"{{"entries":[{}],"active_id":"{}"}}"#,
+            r#"{{"entries":[{}],"active_id":"{}","active_locked":{},"active_kind":"{}"}}"#,
             entries,
-            json_escape(&self.active_id)
+            json_escape(&self.active_id),
+            self.active_locked(),
+            match self.active_kind() {
+                CircuitKind::Example => "example",
+                CircuitKind::My => "my",
+            },
         )
     }
 
     fn duplicate_at_index(&mut self, index: usize) -> Option<CircuitId> {
         let source = self.entries.get(index)?.clone();
-        let entry = CircuitEntry {
-            id: self.fresh_id("circuit"),
-            name: self.unique_copy_name(&source.name),
-            circuit_json: source.circuit_json,
-            updated_at: now_millis(),
-        };
+        let entry = CircuitEntry::user(
+            self.fresh_id("circuit"),
+            self.unique_copy_name(&source.name),
+            source.circuit_json,
+            now_millis(),
+            false,
+        );
         let id = entry.id.clone();
-        self.entries
-            .insert((index + 1).min(self.entries.len()), entry);
+        self.entries.push(entry);
         self.active_id = id.clone();
         self.bump_updated_at();
         Some(id)
@@ -306,12 +510,13 @@ impl CircuitLibrary {
 
     fn ensure_non_empty(&mut self) {
         if self.entries.is_empty() {
-            self.entries.push(CircuitEntry {
-                id: "circuit-1".to_owned(),
-                name: "Circuit 1".to_owned(),
-                circuit_json: EMPTY_CIRCUIT_JSON.to_owned(),
-                updated_at: now_millis(),
-            });
+            self.entries.push(CircuitEntry::user(
+                "circuit-1".to_owned(),
+                "Circuit 1".to_owned(),
+                EMPTY_CIRCUIT_JSON.to_owned(),
+                now_millis(),
+                false,
+            ));
         }
         if self.active_id.is_empty() {
             self.active_id = self.entries[0].id.clone();
@@ -340,14 +545,160 @@ impl CircuitLibrary {
             index += 1;
         }
     }
+
+    fn set_active_current_circuit_with_lock_policy(
+        &mut self,
+        circuit_json: String,
+        preserve_locked_current: bool,
+    ) {
+        let mut id = "current".to_owned();
+        if preserve_locked_current && self.entry_locked_by_id(&id) {
+            id = self.fresh_id("current");
+        }
+        let entry = CircuitEntry::user(
+            id.clone(),
+            self.next_default_circuit_name(Some(&id)),
+            circuit_json,
+            now_millis(),
+            false,
+        );
+        if let Some(existing) = self.entries.iter_mut().find(|entry| entry.id == id) {
+            *existing = entry;
+        } else {
+            self.entries.push(entry);
+        }
+        self.active_id = id;
+        self.normalize_sample_user_order();
+    }
+
+    fn normalize_sample_user_order(&mut self) {
+        let samples = self
+            .entries
+            .iter()
+            .filter(|entry| entry.is_sample())
+            .cloned()
+            .collect::<Vec<_>>();
+        let users = self
+            .entries
+            .iter()
+            .filter(|entry| entry.is_user())
+            .cloned()
+            .collect::<Vec<_>>();
+        self.entries = samples.into_iter().chain(users).collect();
+    }
+
+    fn rebuild_with_users(&mut self, users: Vec<CircuitEntry>) {
+        let samples = self
+            .entries
+            .iter()
+            .filter(|entry| entry.is_sample())
+            .cloned()
+            .collect::<Vec<_>>();
+        self.entries = samples.into_iter().chain(users).collect();
+    }
+}
+
+fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
+    vec![
+        CircuitEntry::sample(
+            "bell",
+            "Bell state",
+            r#"{"cols":[["H"],["•","X"]]}"#,
+            updated_at,
+        ),
+        CircuitEntry::sample(
+            "ghz",
+            "GHZ state",
+            r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#,
+            updated_at,
+        ),
+        CircuitEntry::sample("qft-4", "QFT 4-qubit", r#"{"cols":[["QFT4"]]}"#, updated_at),
+        grover_search_entry(updated_at),
+    ]
 }
 
 fn grover_search_entry(updated_at: u64) -> CircuitEntry {
-    CircuitEntry {
-        id: "grover-search".to_owned(),
-        name: "Grover Search".to_owned(),
-        circuit_json: GROVER_SEARCH_JSON.to_owned(),
+    CircuitEntry::sample(
+        "grover-search",
+        "Grover Search",
+        GROVER_SEARCH_JSON,
         updated_at,
+    )
+}
+
+fn migrate_v1_entries(entries: Vec<CircuitEntry>, active_id: Option<CircuitId>) -> CircuitLibrary {
+    let mut migrated = CircuitLibrary::seed();
+    let mut active_remap = Vec::<(CircuitId, CircuitId)>::new();
+    let samples = sample_entries(0);
+    for entry in entries {
+        if let Some(sample) = samples.iter().find(|sample| sample.id == entry.id) {
+            if sample.name == entry.name && sample.circuit_json == entry.circuit_json {
+                active_remap.push((entry.id.clone(), sample.id.clone()));
+                continue;
+            }
+            let next_id = unique_id(&migrated.entries, &format!("{}-user-edit", entry.id), "-");
+            let next_name = unique_edited_name(&migrated.entries, &entry.name);
+            active_remap.push((entry.id.clone(), next_id.clone()));
+            migrated.entries.push(CircuitEntry::user(
+                next_id,
+                next_name,
+                entry.circuit_json,
+                entry.updated_at,
+                false,
+            ));
+        } else {
+            let next_id = unique_id(&migrated.entries, &entry.id, "-");
+            active_remap.push((entry.id.clone(), next_id.clone()));
+            migrated.entries.push(CircuitEntry::user(
+                next_id,
+                entry.name,
+                entry.circuit_json,
+                entry.updated_at,
+                false,
+            ));
+        }
+    }
+    if let Some(active_id) = active_id {
+        if let Some((_, remapped)) = active_remap.iter().find(|(old, _)| old == &active_id) {
+            migrated.active_id = remapped.clone();
+        }
+    }
+    if !migrated
+        .entries
+        .iter()
+        .any(|entry| entry.id == migrated.active_id)
+    {
+        migrated.active_id = migrated.entries[0].id.clone();
+    }
+    migrated
+}
+
+fn unique_id(entries: &[CircuitEntry], preferred: &str, separator: &str) -> String {
+    if !entries.iter().any(|entry| entry.id == preferred) {
+        return preferred.to_owned();
+    }
+    let mut suffix = 2;
+    loop {
+        let candidate = format!("{preferred}{separator}{suffix}");
+        if !entries.iter().any(|entry| entry.id == candidate) {
+            return candidate;
+        }
+        suffix += 1;
+    }
+}
+
+fn unique_edited_name(entries: &[CircuitEntry], name: &str) -> String {
+    let first = format!("{name} (edited)");
+    if !entries.iter().any(|entry| entry.name == first) {
+        return first;
+    }
+    let mut suffix = 2;
+    loop {
+        let candidate = format!("{name} (edited {suffix})");
+        if !entries.iter().any(|entry| entry.name == candidate) {
+            return candidate;
+        }
+        suffix += 1;
     }
 }
 
@@ -382,6 +733,16 @@ fn copy_name_root(name: &str) -> &str {
         }
     }
     name
+}
+
+fn origin_test_json(origin: &CircuitOrigin) -> String {
+    match origin {
+        CircuitOrigin::Sample { origin_id } => format!(
+            r#"{{"kind":"sample","origin_id":"{}"}}"#,
+            json_escape(origin_id)
+        ),
+        CircuitOrigin::User { locked } => format!(r#"{{"kind":"user","locked":{locked}}}"#),
+    }
 }
 
 fn json_escape(input: &str) -> String {

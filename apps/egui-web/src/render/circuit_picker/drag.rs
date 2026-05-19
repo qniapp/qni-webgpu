@@ -53,7 +53,11 @@ impl QniApp {
         }
     }
 
-    pub(super) fn update_picker_drag(&mut self, ctx: &egui::Context, row_rects: &[egui::Rect]) {
+    pub(super) fn update_picker_drag(
+        &mut self,
+        ctx: &egui::Context,
+        row_rects: &[(usize, egui::Rect)],
+    ) {
         if !self.picker.drag_in_progress() {
             return;
         }
@@ -102,7 +106,11 @@ impl QniApp {
         ctx.request_repaint();
     }
 
-    fn update_picker_drag_slot(&mut self, pointer_pos: egui::Pos2, row_rects: &[egui::Rect]) {
+    fn update_picker_drag_slot(
+        &mut self,
+        pointer_pos: egui::Pos2,
+        row_rects: &[(usize, egui::Rect)],
+    ) {
         if self.picker.dragged_row().is_none() {
             return;
         }
@@ -165,10 +173,15 @@ fn picker_pointer_pos(ctx: &egui::Context) -> Option<egui::Pos2> {
     })
 }
 
-fn target_slot_from_pointer(pointer_y: f32, row_rects: &[egui::Rect]) -> Option<usize> {
-    let first = row_rects.first()?;
-    let slot = ((pointer_y - first.top()) / ITEM_HEIGHT).floor() as isize;
-    Some(slot.clamp(0, row_rects.len().saturating_sub(1) as isize) as usize)
+fn target_slot_from_pointer(pointer_y: f32, row_rects: &[(usize, egui::Rect)]) -> Option<usize> {
+    let mut slot = 0;
+    for (index, (_, rect)) in row_rects.iter().enumerate() {
+        if pointer_y < rect.center().y {
+            break;
+        }
+        slot = index;
+    }
+    row_rects.get(slot).map(|(entry_index, _)| *entry_index)
 }
 
 fn edge_auto_scroll_speed(pointer_y: f32, pane_rect: egui::Rect) -> f32 {

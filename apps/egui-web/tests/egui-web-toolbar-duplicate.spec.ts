@@ -14,7 +14,7 @@ type ToolbarDuplicateGeometry = {
   hovered: boolean
 }
 
-const STORAGE_KEY = 'qni.circuit_library.v1'
+const STORAGE_KEY = 'qni.circuit_library.v2'
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   const raw = await page.evaluate(() => {
@@ -92,11 +92,11 @@ test('toolbar Duplicate inserts a copy right after the active circuit and activa
   const after = await waitForSnapshot(page, (state) => state.entries.length === before.entries.length + 1, 'duplicate inserted')
   const inserted = after.entries[activeIndex + 1]
   const stored = await storedDocument(page)
-  expect({ inserted, activeId: after.active_id, storedActiveId: stored.activeId, storedInserted: stored.circuits[activeIndex + 1] }).toMatchObject({
+  expect({ inserted, activeId: after.active_id, storedActiveId: stored.active_id, storedInserted: stored.entries.find((entry: { id: string }) => entry.id === inserted.id) }).toMatchObject({
     inserted: { name: `${active.name} (copy)`, circuit_json: active.circuit_json },
     activeId: inserted.id,
     storedActiveId: inserted.id,
-    storedInserted: { id: inserted.id, name: `${active.name} (copy)`, json: active.circuit_json },
+    storedInserted: { id: inserted.id, name: `${active.name} (copy)`, circuit_json: active.circuit_json, origin: { kind: 'user', locked: false } },
   })
 })
 
@@ -111,9 +111,10 @@ test('toolbar Duplicate increments copy suffixes on consecutive clicks', async (
     )
   }
 
-  expect({ names: state.entries.slice(0, 4).map((entry) => entry.name), activeId: state.active_id }).toEqual({
+  const myNames = state.entries.filter((entry) => entry.name.startsWith('Circuit 1')).map((entry) => entry.name)
+  expect({ names: myNames, activeId: state.active_id }).toEqual({
     names: ['Circuit 1', 'Circuit 1 (copy)', 'Circuit 1 (copy 2)', 'Circuit 1 (copy 3)'],
-    activeId: state.entries[3].id,
+    activeId: state.entries.at(-1)?.id,
   })
 })
 

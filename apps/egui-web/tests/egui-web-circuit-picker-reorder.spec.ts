@@ -33,19 +33,19 @@ type SubmenuGeometry = {
 const ONE_JSON = '{"cols":[["H"]]}'
 const TWO_JSON = '{"cols":[["X"]]}'
 const THREE_JSON = '{"cols":[["QFT4"]]}'
-const STORAGE_KEY = 'qni.circuit_library.v1'
+const STORAGE_KEY = 'qni.circuit_library.v2'
 const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255]
 const FLEXOKI_BG_2: CanvasPixel = [242, 240, 229, 255]
 const FLEXOKI_UI: CanvasPixel = [230, 228, 217, 255]
 const FLEXOKI_TX: CanvasPixel = [16, 15, 15, 255]
 
 const TRIGGER: Point = { x: 40, y: 22 }
-const ROW_1: Point = { x: 80, y: 74 }
-const ROW_2: Point = { x: 80, y: 110 }
-const ROW_3: Point = { x: 80, y: 146 }
+const ROW_1: Point = { x: 80, y: 100 }
+const ROW_2: Point = { x: 80, y: 136 }
+const ROW_3: Point = { x: 80, y: 172 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
-const MOVE_DOWN_Y = 202
+const MOVE_DOWN_Y = 208
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   const raw = await page.evaluate(() => {
@@ -139,7 +139,7 @@ const submenuGeometry = async (page: Page): Promise<SubmenuGeometry | null> =>
 const storedEntryIds = async (page: Page): Promise<string[]> =>
   page.evaluate((key) => {
     const stored = JSON.parse(localStorage.getItem(key) ?? 'null')
-    return stored?.circuits?.map((entry: { id: string }) => entry.id) ?? []
+    return stored?.entries?.map((entry: { id: string }) => entry.id) ?? []
   }, STORAGE_KEY)
 
 test.beforeEach(async ({ page }) => {

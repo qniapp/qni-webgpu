@@ -16,29 +16,16 @@ pub(crate) fn for_startup(url_json: String, url_has_payload: bool) -> (CircuitLi
         changed = true;
     }
     let active_json = if url_has_payload {
-        if library.active().circuit_json == url_json {
-            // Preserve the persisted active entry when the URL hash mirrors it.
-            // Duplicates can intentionally share identical circuit JSON.
-        } else if let Some(entry) = library
-            .entries
-            .iter()
-            .find(|entry| entry.circuit_json == url_json)
-        {
-            if library.active_id != entry.id {
-                library.active_id = entry.id.clone();
-                changed = true;
-            }
-        } else {
-            library.set_active_current_circuit(url_json.clone());
+        if library.resolve_startup_url_payload(url_json.clone()) {
             changed = true;
         }
-        url_json
+        library.active().circuit_json.clone()
     } else if loaded {
         library.active().circuit_json.clone()
     } else {
         library.set_active_current_circuit(url_json.clone());
         changed = true;
-        url_json
+        library.active().circuit_json.clone()
     };
     if can_persist && changed {
         persist_library(&library);

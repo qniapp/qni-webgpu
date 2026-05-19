@@ -27,6 +27,9 @@ impl DragController {
     ) -> bool {
         match start_intent(app, pointer, geometry) {
             DragStartIntent::SpanResize(resize) => {
+                if app.library.active_locked() {
+                    return false;
+                }
                 app.begin_circuit_commit();
                 app.span_resize_drag = Some(resize);
                 app.hovered_gate_id = None;
@@ -36,6 +39,9 @@ impl DragController {
                 true
             }
             DragStartIntent::ExistingGate(drag) => {
+                if app.library.active_locked() {
+                    return false;
+                }
                 app.begin_circuit_commit();
                 app.dragging = Some(drag);
                 app.drag_state_count = Some(app.state_count());
@@ -47,6 +53,9 @@ impl DragController {
                 true
             }
             DragStartIntent::PaletteGate { index, preview_pos } => {
+                if app.library.active_locked() {
+                    return false;
+                }
                 app.begin_circuit_commit();
                 let new_id = app.next_gate_id;
                 let mut new_gate = PlacedGate::new(

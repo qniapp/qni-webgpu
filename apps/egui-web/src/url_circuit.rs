@@ -54,7 +54,7 @@ pub(crate) const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 
 pub(crate) use decode::{
     current_url_has_circuit_payload, parse_circuit_from_url, parse_circuit_json,
-    qubit_count_from_gates, summarize_circuit_json, CircuitJsonSummary,
+    qubit_count_from_gates, summarize_circuit_json,
 };
 pub(crate) use encode::{circuit_columns_to_json, circuit_to_json};
 pub(crate) use history::write_circuit_to_url;

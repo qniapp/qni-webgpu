@@ -7,6 +7,7 @@ use super::constants::{
     ITEMS_SCROLLBAR_HOVER_ALPHA, ITEMS_SCROLLBAR_IDLE_ALPHA, ITEMS_SCROLLBAR_OUTER_MARGIN,
     ITEMS_SCROLLBAR_THUMB_RADIUS, ITEMS_SCROLLBAR_W, ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS,
     RESIZE_HANDLE_ACTIVE_STROKE, RESIZE_HANDLE_IDLE_STROKE, RESIZE_HANDLE_LINE_INSET_X,
+    SECTION_HEADER_HEIGHT, SECTION_HEADER_TOP_MARGIN,
 };
 
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
@@ -192,11 +193,19 @@ pub(super) fn paint_picker_item_text(
     alpha: u8,
 ) {
     let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
+    let icon_slot_w = 18.0; // spacing aligned: 14px icon + 4px gap.
     let name_rect = egui::Rect::from_min_max(
-        egui::pos2(rect.left() + ITEM_PAD_X, rect.top()), // px-2.5 = 10px.
-        egui::pos2(kebab_rect.left() - 8.0, rect.bottom()), // spacing-2.
+        egui::pos2(rect.left() + ITEM_PAD_X + icon_slot_w, rect.top()), // px-2.5 + reserved icon slot.
+        egui::pos2(kebab_rect.left() - 8.0, rect.bottom()),             // spacing-2.
     );
     let color = with_alpha(colors.text_strong, alpha);
+    if entry.locked() {
+        paint_row_lock(
+            ui.painter(),
+            egui::pos2(rect.left() + ITEM_PAD_X + 7.0, rect.center().y),
+            with_alpha(colors.toolbar_icon_disabled, alpha),
+        );
+    }
     let mut text = egui::RichText::new(entry.name.clone())
         .font(font.clone())
         .color(color);
@@ -216,6 +225,47 @@ pub(super) fn paint_picker_item_text(
         ),
         galley,
         color,
+    );
+}
+
+pub(super) fn paint_section_header(
+    ui: &mut egui::Ui,
+    colors: &Colors,
+    label: &'static str,
+    top_margin: bool,
+) {
+    if top_margin {
+        ui.add_space(SECTION_HEADER_TOP_MARGIN); // mt-1.5 = 6px.
+    }
+    let (rect, _) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), SECTION_HEADER_HEIGHT),
+        egui::Sense::hover(),
+    );
+    let color = colors.toolbar_icon_disabled; // Flexoki tx-3.
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        egui::FontId::new(12.0, egui::FontFamily::Proportional), // text-xs = 12px.
+        color,
+    );
+    let text_pos = egui::pos2(
+        rect.left() + ITEM_PAD_X,
+        rect.center().y - galley.size().y / 2.0,
+    );
+    let line_y = rect.center().y;
+    ui.painter().line_segment(
+        [
+            egui::pos2(rect.left() + 4.0, line_y),
+            egui::pos2(text_pos.x - 6.0, line_y),
+        ],
+        egui::Stroke::new(1.0, colors.line), // Flexoki ui-2.
+    );
+    ui.painter().galley(text_pos, galley.clone(), color);
+    ui.painter().line_segment(
+        [
+            egui::pos2(text_pos.x + galley.size().x + 6.0, line_y),
+            egui::pos2(rect.right() - 4.0, line_y),
+        ],
+        egui::Stroke::new(1.0, colors.line), // Flexoki ui-2.
     );
 }
 
@@ -375,6 +425,27 @@ fn paint_plus(painter: &egui::Painter, center: egui::Pos2, color: egui::Color32)
         ],
         stroke,
     );
+}
+
+fn paint_row_lock(painter: &egui::Painter, center: egui::Pos2, color: egui::Color32) {
+    let stroke = egui::Stroke::new(1.2, color);
+    let body = egui::Rect::from_center_size(center + egui::vec2(0.0, 2.0), egui::vec2(10.0, 8.0));
+    painter.rect_stroke(
+        body,
+        egui::CornerRadius::same(2),
+        stroke,
+        egui::StrokeKind::Middle,
+    );
+    let shackle = vec![
+        center + egui::vec2(-3.0, -1.0),
+        center + egui::vec2(-3.0, -4.0),
+        center + egui::vec2(0.0, -6.0),
+        center + egui::vec2(3.0, -4.0),
+        center + egui::vec2(3.0, -1.0),
+    ];
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        shackle, stroke,
+    )));
 }
 
 fn rotate(point: egui::Vec2, angle: f32) -> egui::Vec2 {

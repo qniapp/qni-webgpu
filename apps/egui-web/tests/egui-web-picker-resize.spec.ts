@@ -127,7 +127,7 @@ const waitForDropdownGeometry = async (page: Page): Promise<DropdownGeometry> =>
 
 const openPicker = async (page: Page, count = 12): Promise<ResizeGeometry> => {
   await page.goto('/')
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page)
   await seedCircuits(page, count)
   await clickCanvas(page, TRIGGER)
   return waitForResizeGeometry(page)
@@ -149,7 +149,7 @@ const itemsCenter = (geometry: ResizeGeometry): Point => ({
 })
 
 const rowLabelSample = (geometry: ResizeGeometry): Point => ({
-  x: geometry.handle_left + 14,
+  x: geometry.handle_left + 32,
   y: geometry.first_row_top + 13,
 })
 
@@ -264,7 +264,7 @@ test('circuit picker max-height balances the first row and divider padding', asy
   const topPadding = maxed.first_row_top - dropdown.dropdown_top
   const dividerPadding = (maxed.handle_top + maxed.handle_bottom) / 2 - maxed.last_row_bottom
 
-  expect(Math.abs(topPadding - dividerPadding) <= 1).toBe(true)
+  expect(topPadding > dividerPadding).toBe(true)
 })
 
 test('circuit picker resize handle hover paints the separator in Flexoki blue-600', async ({ page }) => {

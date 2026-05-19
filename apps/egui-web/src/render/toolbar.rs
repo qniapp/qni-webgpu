@@ -14,6 +14,8 @@ enum ToolbarIcon {
     Redo,
     Trash,
     Copy,
+    Lock,
+    LockOpen,
     Play,
 }
 
@@ -46,11 +48,15 @@ impl QniApp {
     }
 
     fn show_edit_utilities(&mut self, ui: &mut egui::Ui, colors: &Colors, ctx: &egui::Context) {
+        let edit_allowed = !self.library.active_locked();
         if icon_button(
             ui,
             colors,
             ToolbarIcon::Undo,
-            self.can_undo_circuit(),
+            ButtonState {
+                enabled: edit_allowed && self.can_undo_circuit(),
+                toggle_on: false,
+            },
             "Undo",
         )
         .clicked()
@@ -61,22 +67,73 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Redo,
-            self.can_redo_circuit(),
+            ButtonState {
+                enabled: edit_allowed && self.can_redo_circuit(),
+                toggle_on: false,
+            },
             "Redo",
         )
         .clicked()
         {
             self.redo_circuit(ctx);
         }
-        if icon_button(ui, colors, ToolbarIcon::Trash, true, "Clear circuit").clicked() {
+        if icon_button(
+            ui,
+            colors,
+            ToolbarIcon::Trash,
+            ButtonState {
+                enabled: edit_allowed,
+                toggle_on: false,
+            },
+            "Clear circuit",
+        )
+        .clicked()
+        {
             self.placed_gates.clear();
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
             self.external_gpu_status = ExternalGpuStatus::Idle;
             self.commit_current_circuit(ctx);
         }
-        if icon_button(ui, colors, ToolbarIcon::Copy, true, "Duplicate circuit").clicked() {
+        if icon_button(
+            ui,
+            colors,
+            ToolbarIcon::Copy,
+            ButtonState {
+                enabled: true,
+                toggle_on: false,
+            },
+            "Duplicate circuit",
+        )
+        .clicked()
+        {
             self.duplicate_active_circuit(ctx);
+        }
+        let locked = self.library.active_locked();
+        let example = matches!(
+            self.library.active_kind(),
+            qni_egui_web_circuit_library_model::CircuitKind::Example
+        );
+        let (icon, tooltip) = if example {
+            (ToolbarIcon::Lock, "Locked (sample) — duplicate to edit")
+        } else if locked {
+            (ToolbarIcon::Lock, "Unlock circuit")
+        } else {
+            (ToolbarIcon::LockOpen, "Lock circuit")
+        };
+        if icon_button(
+            ui,
+            colors,
+            icon,
+            ButtonState {
+                enabled: !example,
+                toggle_on: locked,
+            },
+            tooltip,
+        )
+        .clicked()
+        {
+            self.toggle_circuit_lock();
         }
     }
 
@@ -87,7 +144,16 @@ impl QniApp {
         ctx: &egui::Context,
     ) {
         let running = self.external_gpu_status().is_running();
-        let run = icon_button(ui, colors, ToolbarIcon::Play, !running, "Run on GPU");
+        let run = icon_button(
+            ui,
+            colors,
+            ToolbarIcon::Play,
+            ButtonState {
+                enabled: !running,
+                toggle_on: false,
+            },
+            "Run on GPU",
+        );
         if running && run.hovered() {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::NotAllowed);
         }
@@ -114,26 +180,42 @@ fn toolbar_frame(colors: &Colors) -> egui::Frame {
     }
 }
 
+#[derive(Clone, Copy)]
+struct ButtonState {
+    enabled: bool,
+    toggle_on: bool,
+}
+
 fn icon_button(
     ui: &mut egui::Ui,
     colors: &Colors,
     icon: ToolbarIcon,
-    enabled: bool,
+    state: ButtonState,
     tooltip: &'static str,
 ) -> egui::Response {
-    let sense = if enabled {
+    let sense = if state.enabled {
         egui::Sense::click()
     } else {
         egui::Sense::hover()
     };
     let (rect, response) = ui.allocate_exact_size(TOOL_SIZE, sense);
     let response = response.on_hover_text(tooltip);
-    let hovered = response.hovered() && enabled;
+    let hovered = response.hovered() && state.enabled;
     publish_toolbar_button_debug_json(tooltip, rect, hovered);
     let hover_t = ui
         .ctx()
         .animate_bool_with_time(response.id.with("hover"), hovered, 0.12);
-    if hover_t > 0.0 {
+    if state.toggle_on && state.enabled {
+        ui.painter().rect_filled(
+            rect,
+            egui::CornerRadius::same(6), // rounded-md = 6px.
+            if hovered {
+                colors.line // Flexoki ui-2.
+            } else {
+                colors.toolbar_hover_bg // Flexoki ui.
+            },
+        );
+    } else if hover_t > 0.0 {
         ui.painter().rect_filled(
             rect,
             egui::CornerRadius::same(6), // rounded-md = 6px.
@@ -141,7 +223,7 @@ fn icon_button(
         );
     }
 
-    let color = if enabled {
+    let color = if state.enabled {
         if hovered {
             colors.toolbar_icon_hover // Flexoki tx.
         } else {
@@ -150,27 +232,44 @@ fn icon_button(
     } else {
         colors.toolbar_icon_disabled // Flexoki tx-3.
     };
+    response.widget_info(|| {
+        if matches!(icon, ToolbarIcon::Lock | ToolbarIcon::LockOpen) {
+            egui::WidgetInfo::selected(
+                egui::WidgetType::Checkbox,
+                state.enabled,
+                state.toggle_on,
+                tooltip,
+            )
+        } else {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, state.enabled, tooltip)
+        }
+    });
     paint_icon(ui.painter(), rect, icon, color);
     response
 }
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: bool) {
-    if tooltip != "Duplicate circuit" {
+    let target = match tooltip {
+        "Duplicate circuit" => Some(crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON),
+        "Lock circuit" | "Unlock circuit" | "Locked (sample) — duplicate to edit" => {
+            Some(crate::test_hooks::QNI_TOOLBAR_LOCK_GEOMETRY_JSON)
+        }
+        _ => None,
+    };
+    let Some(target) = target else {
         return;
-    }
+    };
     let json = format!(
-        "{{\"left\":{:.3},\"right\":{:.3},\"top\":{:.3},\"bottom\":{:.3},\"hovered\":{}}}",
+        "{{\"left\":{:.3},\"right\":{:.3},\"top\":{:.3},\"bottom\":{:.3},\"hovered\":{},\"tooltip\":\"{}\"}}",
         rect.left(),
         rect.right(),
         rect.top(),
         rect.bottom(),
         hovered,
+        tooltip.replace('"', "\\\""),
     );
-    crate::test_hooks::set_window_value(
-        crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON,
-        &wasm_bindgen::JsValue::from_str(&json),
-    );
+    crate::test_hooks::set_window_value(target, &wasm_bindgen::JsValue::from_str(&json));
     if hovered {
         crate::test_hooks::set_window_value(
             crate::test_hooks::QNI_TOOLBAR_TOOLTIP_TEXT,
@@ -288,6 +387,14 @@ fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, colo
             paint_icon_rect_outline(painter, icon_rect, 9.0, 9.0, 13.0, 13.0, 2.0, stroke);
             paint_copy_back_path(painter, icon_rect, stroke);
         }
+        ToolbarIcon::Lock => {
+            paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
+            paint_shackle_closed(painter, icon_rect, stroke);
+        }
+        ToolbarIcon::LockOpen => {
+            paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
+            paint_shackle_open(painter, icon_rect, stroke);
+        }
         ToolbarIcon::Play => {
             paint_path(
                 painter,
@@ -341,6 +448,27 @@ fn paint_copy_back_path(painter: &egui::Painter, icon_rect: egui::Rect, stroke: 
     )));
 }
 
+fn paint_shackle_closed(painter: &egui::Painter, icon_rect: egui::Rect, stroke: egui::Stroke) {
+    let mut points = Vec::with_capacity(10);
+    points.push(icon_point(icon_rect, 7.0, 11.0));
+    points.push(icon_point(icon_rect, 7.0, 7.0));
+    append_icon_arc(&mut points, icon_rect, (12.0, 7.0), 5.0, 180.0, 360.0);
+    points.push(icon_point(icon_rect, 17.0, 11.0));
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        points, stroke,
+    )));
+}
+
+fn paint_shackle_open(painter: &egui::Painter, icon_rect: egui::Rect, stroke: egui::Stroke) {
+    let mut points = Vec::with_capacity(9);
+    points.push(icon_point(icon_rect, 7.0, 11.0));
+    points.push(icon_point(icon_rect, 7.0, 7.0));
+    append_icon_arc(&mut points, icon_rect, (12.0, 7.0), 5.0, 180.0, 348.0);
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        points, stroke,
+    )));
+}
+
 fn append_icon_arc(
     points: &mut Vec<egui::Pos2>,
     icon_rect: egui::Rect,
@@ -349,7 +477,7 @@ fn append_icon_arc(
     start_degrees: f32,
     end_degrees: f32,
 ) {
-    const STEPS: usize = 4;
+    const STEPS: usize = 6;
     for step in 1..=STEPS {
         let t = step as f32 / STEPS as f32;
         let degrees = start_degrees + (end_degrees - start_degrees) * t;

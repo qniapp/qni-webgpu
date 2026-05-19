@@ -8,7 +8,7 @@ import {
 } from './support/egui-web-spec-helpers'
 
 type CircuitLibrarySnapshot = {
-  entries: Array<{ id: string; name: string; circuit_json: string; updated_at: number }>
+  entries: Array<{ id: string; name: string; circuit_json: string; updated_at: number; locked?: boolean; origin?: { kind: string; locked?: boolean; origin_id?: string } }>
   active_id: string
 }
 
@@ -41,17 +41,18 @@ const GROVER_JSON = JSON.stringify({
     ...GROVER_ITERATION_COLS,
   ],
 })
-const STORAGE_KEY = 'qni.circuit_library.v1'
+const STORAGE_KEY = 'qni.circuit_library.v2'
+const LEGACY_STORAGE_KEY = 'qni.circuit_library.v1'
 
 const TRIGGER: Point = { x: 80, y: 22 }
-const ROW_1: Point = { x: 80, y: 74 }
-const ROW_2: Point = { x: 80, y: 110 }
-const FOOTER: Point = { x: 90, y: 223 }
-const ROW_3: Point = { x: 80, y: 146 }
-const ROW_4: Point = { x: 80, y: 182 }
+const ROW_1: Point = { x: 80, y: 100 }
+const ROW_2: Point = { x: 80, y: 136 }
+const FOOTER: Point = { x: 90, y: 249 }
+const ROW_3: Point = { x: 80, y: 172 }
+const ROW_4: Point = { x: 80, y: 208 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
-const MOVE_UP_SUBMENU_Y = 232
+const MOVE_UP_SUBMENU_Y = 244
 const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
@@ -161,7 +162,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   await page.goto('/')
   const skipsStateVectorReady = [
     'legacy seeded localStorage gains Grover Search on reload',
-    'deleted migrated Grover Search stays deleted after reload',
+    'migrated Grover Search remains locked against low-level deletion',
   ].includes(testInfo.title)
   await waitForStartupReady(page, skipsStateVectorReady ? undefined : { waitForStateVector: true })
 })
@@ -193,9 +194,10 @@ test('startup current entry preserves the four seeded sample circuits', async ({
 })
 
 test('legacy seeded localStorage gains Grover Search on reload', async ({ page }) => {
-  await page.evaluate(({ key, document }) => {
+  await page.evaluate(({ key, v2Key, document }) => {
+    localStorage.removeItem(v2Key)
     localStorage.setItem(key, JSON.stringify(document))
-  }, { key: STORAGE_KEY, document: legacySeedLibraryDocument() })
+  }, { key: LEGACY_STORAGE_KEY, v2Key: STORAGE_KEY, document: legacySeedLibraryDocument() })
   await page.goto('/')
   await waitForStartupReady(page)
 
@@ -206,18 +208,19 @@ test('legacy seeded localStorage gains Grover Search on reload', async ({ page }
   expect({
     activeId: state.active_id,
     grover: state.entries.find((entry) => entry.id === 'grover-search'),
-    storedGrover: stored.circuits.find((entry: { id: string }) => entry.id === 'grover-search'),
+    storedGrover: stored.entries.find((entry: { id: string }) => entry.id === 'grover-search'),
   }).toMatchObject({
     activeId: 'ghz',
     grover: { name: 'Grover Search', circuit_json: GROVER_JSON },
-    storedGrover: { name: 'Grover Search', json: GROVER_JSON },
+    storedGrover: { name: 'Grover Search', circuit_json: GROVER_JSON, origin: { kind: 'sample', origin_id: 'grover-search' } },
   })
 })
 
-test('deleted migrated Grover Search stays deleted after reload', async ({ page }) => {
-  await page.evaluate(({ key, document }) => {
+test('migrated Grover Search remains locked against low-level deletion', async ({ page }) => {
+  await page.evaluate(({ key, v2Key, document }) => {
+    localStorage.removeItem(v2Key)
     localStorage.setItem(key, JSON.stringify(document))
-  }, { key: STORAGE_KEY, document: legacySeedLibraryDocument() })
+  }, { key: LEGACY_STORAGE_KEY, v2Key: STORAGE_KEY, document: legacySeedLibraryDocument() })
   await page.goto('/')
   await waitForStartupReady(page)
   await waitForSnapshot(page, (next) =>
@@ -226,18 +229,11 @@ test('deleted migrated Grover Search stays deleted after reload', async ({ page 
   await page.evaluate(() => {
     const remove = (window as any).__qniCircuitLibraryDelete
     if (typeof remove !== 'function') throw new Error('__qniCircuitLibraryDelete hook missing')
-    remove('grover-search')
+    try { remove('grover-search') } catch {}
   })
-  await waitForSnapshot(page, (next) =>
-    !next.entries.some((entry) => entry.id === 'grover-search'), 'Grover Search deleted before reload')
 
-  await page.goto('/')
-  await waitForStartupReady(page)
   const stored = await storedDocument(page)
-  expect({
-    sampleVersion: stored.sampleVersion,
-    storedHasGrover: stored.circuits.some((entry: { id: string }) => entry.id === 'grover-search'),
-  }).toEqual({ sampleVersion: 2, storedHasGrover: false })
+  expect(stored.entries.some((entry: { id: string }) => entry.id === 'grover-search')).toBe(true)
 })
 
 test('seeded Grover Search amplifies the Quirk marked outcome', async ({ page }) => {
@@ -279,7 +275,8 @@ test('seeded Grover Search amplifies the Quirk marked outcome', async ({ page })
 })
 
 test('localStorage active circuit hydrates the picker and URL on reload', async ({ page }) => {
-  await page.evaluate((key) => {
+  await page.evaluate(({ key, v2Key }) => {
+    localStorage.removeItem(v2Key)
     localStorage.setItem(key, JSON.stringify({
       version: 1,
       activeId: 'stored-x',
@@ -292,12 +289,12 @@ test('localStorage active circuit hydrates the picker and URL on reload', async 
         meta: { qubits: 1, columns: 1, gateCount: 1 },
       }],
     }))
-  }, STORAGE_KEY)
+  }, { key: LEGACY_STORAGE_KEY, v2Key: STORAGE_KEY })
   await page.goto('/')
   await waitForStartupReady(page)
 
   const state = await waitForSnapshot(page, (next) => next.active_id === 'stored-x', 'stored circuit active')
-  expect({ entry: state.entries[0], hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
+  expect({ entry: state.entries.find((entry) => entry.id === 'stored-x'), hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
     entry: { name: 'Stored X', circuit_json: '{"cols":[["X"]]}' },
     hashCols: [['X']],
   })
@@ -305,16 +302,17 @@ test('localStorage active circuit hydrates the picker and URL on reload', async 
 
 test('startup does not overwrite unsupported localStorage documents', async ({ page }) => {
   await page.evaluate((key) => {
-    localStorage.setItem(key, JSON.stringify({ version: 2, activeId: null, circuits: [] }))
+    localStorage.setItem(key, JSON.stringify({ version: 99, active_id: null, entries: [] }))
   }, STORAGE_KEY)
   await page.goto('/')
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page)
 
-  expect(await storedDocument(page)).toEqual({ version: 2, activeId: null, circuits: [] })
+  expect(await storedDocument(page)).toEqual({ version: 99, active_id: null, entries: [] })
 })
 
 test('URL payload wins over a different persisted active circuit', async ({ page }) => {
-  await page.evaluate((key) => {
+  await page.evaluate(({ key, v2Key }) => {
+    localStorage.removeItem(v2Key)
     localStorage.setItem(key, JSON.stringify({
       version: 1,
       activeId: 'stored-x',
@@ -327,7 +325,7 @@ test('URL payload wins over a different persisted active circuit', async ({ page
         meta: { qubits: 1, columns: 1, gateCount: 1 },
       }],
     }))
-  }, STORAGE_KEY)
+  }, { key: LEGACY_STORAGE_KEY, v2Key: STORAGE_KEY })
   await page.goto('/#' + encodeURIComponent('{"cols":[["H"]]}'))
   await waitForStartupReady(page, { waitForStateVector: true })
 
@@ -346,7 +344,7 @@ test('low-level localStorage save hook refreshes the live picker', async ({ page
   })
 
   const state = await waitForSnapshot(page, (next) => next.active_id === id, 'saved circuit active')
-  expect({ entry: state.entries[0], hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
+  expect({ entry: state.entries.find((entry) => entry.id === id), hashCols: readCircuitColsFromHash(page.url()) }).toMatchObject({
     entry: { id, name: 'Saved X', circuit_json: '{"cols":[["X"]]}' },
     hashCols: [['X']],
   })
@@ -386,14 +384,14 @@ test('Create new circuit adds an empty numbered Circuit entry and makes it activ
     lastEntry,
     activeId: state.active_id,
     hashCols: readCircuitColsFromHash(page.url()),
-    storedActiveId: stored.activeId,
-    storedLast: stored.circuits.at(-1),
+    storedActiveId: stored.active_id,
+    storedLast: stored.entries.find((entry: { id: string }) => entry.id === lastEntry?.id),
   }).toMatchObject({
     lastEntry: { name: 'Circuit 1', circuit_json: '{"cols":[]}' },
     activeId: lastEntry?.id,
     hashCols: [],
     storedActiveId: lastEntry?.id,
-    storedLast: { name: 'Circuit 1', json: '{"cols":[]}' },
+    storedLast: { name: 'Circuit 1', circuit_json: '{"cols":[]}' },
   })
 })
 
@@ -404,7 +402,7 @@ test('Rename action turns the item into an inline editor and commits on Enter', 
   await page.waitForTimeout(300)
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
   await page.waitForTimeout(300)
-  await clickCanvas(page, { x: SUBMENU_X, y: 88 })
+  await clickCanvas(page, { x: SUBMENU_X, y: 100 })
   await page.waitForTimeout(300)
   await page.keyboard.type('Renamed Bell')
   await page.keyboard.press('Enter')
@@ -419,7 +417,7 @@ test('Rename action accepts Japanese circuit names', async ({ page }) => {
   await page.waitForTimeout(300)
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
   await page.waitForTimeout(300)
-  await clickCanvas(page, { x: SUBMENU_X, y: 88 })
+  await clickCanvas(page, { x: SUBMENU_X, y: 100 })
   await page.waitForTimeout(300)
   await page.keyboard.type('量子回路')
   await page.keyboard.press('Enter')

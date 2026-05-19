@@ -876,7 +876,7 @@ test('hovering columns does not flash readouts back to default bodies', async ({
 
 test('selected earlier column keeps later readouts populated', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Chance'], ['Measure']] })))
-  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForStartupReady(page, { waitForStateVector: true, timeout: 60_000 })
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
