@@ -78,6 +78,7 @@ impl QniApp {
         pane_rect: egui::Rect,
         content_height: f32,
         current_offset: f32,
+        min_scroll_offset: f32,
     ) {
         if self.picker.dragged_row().is_none() {
             self.picker.clear_pending_scroll_offset();
@@ -97,7 +98,17 @@ impl QniApp {
             self.picker.clear_pending_scroll_offset();
             return;
         }
-        let next_offset = (current_offset + speed).clamp(0.0, max_offset);
+        let clamped_min_scroll_offset = min_scroll_offset.min(max_offset);
+        if speed < 0.0 && current_offset <= clamped_min_scroll_offset {
+            self.picker.clear_pending_scroll_offset();
+            return;
+        }
+        let min_offset = if speed < 0.0 {
+            clamped_min_scroll_offset
+        } else {
+            0.0
+        };
+        let next_offset = (current_offset + speed).clamp(min_offset, max_offset);
         if (next_offset - current_offset).abs() <= f32::EPSILON {
             self.picker.clear_pending_scroll_offset();
             return;

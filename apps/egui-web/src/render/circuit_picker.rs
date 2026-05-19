@@ -19,6 +19,10 @@ use chrome::{
     publish_picker_submenu_geometry_json, submenu_item,
 };
 use constants::*;
+
+const EXAMPLE_CIRCUITS_LABEL: &str = "Example Circuits";
+const MY_CIRCUITS_LABEL: &str = "My Circuits";
+
 impl QniApp {
     pub(crate) fn show_circuit_picker(
         &mut self,
@@ -132,6 +136,7 @@ impl QniApp {
         let submenu_index = self.picker.submenu_index();
         let renaming_id = self.picker.renaming_id().map(str::to_owned);
         let max_items_height = picker_max_items_height(&display_rows, ctx.content_rect().height());
+        let drag_min_scroll_offset = picker_drag_min_scroll_offset(&display_rows);
         self.picker.clamp_items_height(max_items_height);
         let mut actions = Vec::new();
         let mut row_rects = vec![None; entries.len()];
@@ -207,6 +212,7 @@ impl QniApp {
                         scroll_output.inner_rect,
                         scroll_output.content_size.y,
                         scroll_output.state.offset.y,
+                        drag_min_scroll_offset,
                     );
                     ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
@@ -618,19 +624,50 @@ fn picker_display_rows(entries: &[CircuitEntry]) -> Vec<PickerDisplayRow> {
     let mut rows = Vec::with_capacity(entries.len() + 2);
     if !examples.is_empty() {
         rows.push(PickerDisplayRow::Header {
-            label: "Example Circuits",
+            label: EXAMPLE_CIRCUITS_LABEL,
             top_margin: false,
         });
         rows.extend(examples.into_iter().map(PickerDisplayRow::Entry));
     }
     if !users.is_empty() {
         rows.push(PickerDisplayRow::Header {
-            label: "My Circuits",
+            label: MY_CIRCUITS_LABEL,
             top_margin: !rows.is_empty(),
         });
         rows.extend(users.into_iter().map(PickerDisplayRow::Entry));
     }
     rows
+}
+
+fn picker_drag_min_scroll_offset(rows: &[PickerDisplayRow]) -> f32 {
+    let mut offset = ITEMS_CONTENT_PADDING_Y;
+    for row in rows {
+        match *row {
+            PickerDisplayRow::Header { label, top_margin } if label == MY_CIRCUITS_LABEL => {
+                if offset <= ITEMS_CONTENT_PADDING_Y && !top_margin {
+                    return 0.0;
+                }
+                return offset
+                    + if top_margin {
+                        SECTION_HEADER_TOP_MARGIN
+                    } else {
+                        0.0
+                    };
+            }
+            PickerDisplayRow::Header { top_margin, .. } => {
+                offset += SECTION_HEADER_HEIGHT
+                    + if top_margin {
+                        SECTION_HEADER_TOP_MARGIN
+                    } else {
+                        0.0
+                    };
+            }
+            PickerDisplayRow::Entry(_) => {
+                offset += ITEM_HEIGHT;
+            }
+        }
+    }
+    0.0
 }
 
 fn picker_max_items_height(rows: &[PickerDisplayRow], viewport_height: f32) -> f32 {

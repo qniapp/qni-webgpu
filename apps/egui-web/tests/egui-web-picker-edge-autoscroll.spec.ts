@@ -17,6 +17,7 @@ type CircuitLibrarySnapshot = {
 
 const TRIGGER: Point = { x: 40, y: 22 }
 const EMPTY_JSON = '{"cols":[]}'
+const MY_SECTION_MIN_SCROLL_OFFSET = 74
 
 test.describe.configure({ mode: 'serial' })
 
@@ -58,6 +59,30 @@ const seedCircuits = async (page: Page, count: number): Promise<void> => {
   }, entries)
 }
 
+const seedExampleAndUserCircuits = async (page: Page, userCount: number): Promise<void> => {
+  await waitForCondition(page, async () => page.evaluate(() => typeof (window as any).__seedCircuits === 'function'), 'seed hook')
+  const entries = [
+    {
+      id: 'sample-1',
+      name: 'Sample 1',
+      circuit_json: EMPTY_JSON,
+      updated_at: 1,
+      origin: { kind: 'sample', origin_id: 'sample-1' },
+    },
+    ...Array.from({ length: userCount }, (_, index) => ({
+      id: `circuit-${index + 1}`,
+      name: `Circuit ${index + 1}`,
+      circuit_json: EMPTY_JSON,
+      updated_at: index + 2,
+      origin: { kind: 'user', locked: false },
+    })),
+  ]
+  await page.evaluate((payload) => {
+    const seed = (window as any).__seedCircuits
+    seed(JSON.stringify({ entries: payload, active_id: 'circuit-1' }))
+  }, entries)
+}
+
 const resizeGeometry = async (page: Page): Promise<ResizeGeometry | null> =>
   page.evaluate(() => {
     const raw = (window as any).__qniCircuitPickerResizeGeometryJson
@@ -93,6 +118,14 @@ const openPicker = async (page: Page, count = 16): Promise<ResizeGeometry> => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
   await seedCircuits(page, count)
+  await clickCanvas(page, TRIGGER)
+  return waitForResizeGeometry(page)
+}
+
+const openPickerWithExample = async (page: Page, userCount = 16): Promise<ResizeGeometry> => {
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await seedExampleAndUserCircuits(page, userCount)
   await clickCanvas(page, TRIGGER)
   return waitForResizeGeometry(page)
 }
@@ -141,6 +174,24 @@ test('drag-to-reorder top edge auto-scroll decreases the items pane offset', asy
   await page.mouse.up()
 
   expect(after.scroll_offset_y < before.scroll_offset_y).toBe(true)
+})
+
+test('drag-to-reorder top edge auto-scroll stops at the My Circuits divider', async ({ page }) => {
+  const opened = await openPickerWithExample(page, 18)
+  await wheelCanvas(page, itemsCenter(opened), 360)
+  const before = await waitForResizeGeometry(page, (geometry) => geometry.scroll_offset_y > MY_SECTION_MIN_SCROLL_OFFSET + 80, 'pre-scrolled My pane')
+  await beginItemDrag(page, visibleDragStart(before))
+  await moveHeldPointer(page, { x: before.handle_left + 64, y: before.items_top + 8 })
+  await waitForResizeGeometry(
+    page,
+    (geometry) => Math.abs(geometry.scroll_offset_y - MY_SECTION_MIN_SCROLL_OFFSET) <= 1,
+    'top edge auto-scroll reaches the My divider',
+  )
+  await page.waitForTimeout(300)
+  const after = await waitForResizeGeometry(page)
+  await page.mouse.up()
+
+  expect(Math.abs(after.scroll_offset_y - MY_SECTION_MIN_SCROLL_OFFSET) <= 1).toBe(true)
 })
 
 test('drag-to-reorder bottom edge auto-scroll increases the items pane offset', async ({ page }) => {
