@@ -209,7 +209,7 @@ pub(super) fn paint_picker_item_text(
                 rect.left() + ITEM_PAD_X + ROW_ICON_SIZE / 2.0,
                 rect.center().y,
             ),
-            with_alpha(colors.toolbar_icon_disabled, alpha),
+            with_alpha(colors.text_strong, alpha),
         );
     }
     let mut text = egui::RichText::new(entry.name.clone())

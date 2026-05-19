@@ -161,7 +161,7 @@ impl QniApp {
         colors: &Colors,
         entries: &[CircuitEntry],
         pane_rect: egui::Rect,
-        sample_drag_max_bottom_y: Option<f32>,
+        section_divider_y: Option<f32>,
     ) {
         let Some((index, source_row_left, row_width, pointer_offset_y, pinned_top)) =
             self.picker.drag_paint_row()
@@ -174,16 +174,20 @@ impl QniApp {
         let Some(entry) = entries.get(index) else {
             return;
         };
+        let mut min_top = pane_rect.top();
         let mut max_top = (pane_rect.bottom() - ITEM_HEIGHT).max(pane_rect.top());
-        if entry.is_sample() {
-            if let Some(max_bottom_y) = sample_drag_max_bottom_y {
-                max_top = max_top.min(max_bottom_y - ITEM_HEIGHT);
+        if let Some(divider_y) = section_divider_y {
+            if entry.is_sample() {
+                max_top = max_top.min(divider_y - ITEM_HEIGHT);
+            } else if entry.is_user() {
+                min_top = min_top.max(divider_y);
             }
         }
         let max_top = max_top.max(pane_rect.top());
+        let min_top = min_top.min(max_top);
         let wanted_top = pinned_top
             .unwrap_or(pointer_pos.y - pointer_offset_y)
-            .clamp(pane_rect.top(), max_top);
+            .clamp(min_top, max_top);
         let rect = egui::Rect::from_min_size(
             egui::pos2(source_row_left, wanted_top),
             egui::vec2(row_width, ITEM_HEIGHT),

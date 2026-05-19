@@ -12,6 +12,8 @@ type ResizeGeometry = {
   items_bottom: number
   handle_left: number
   handle_right: number
+  footer_top: number
+  footer_bottom: number
   first_row_top: number
   scroll_offset_y: number
 }
@@ -174,6 +176,26 @@ const firstRowDragStart = (geometry: ResizeGeometry): Point => ({
   y: geometry.first_row_top + 18,
 })
 
+const firstMyRowDragStart = (geometry: ResizeGeometry, sampleCount: number): Point => ({
+  x: geometry.handle_left + 64,
+  y:
+    geometry.items_top
+    + mySectionScrollOffset(sampleCount)
+    + SECTION_HEADER_HEIGHT
+    + ITEM_HEIGHT / 2
+    - geometry.scroll_offset_y,
+})
+
+const footerPlusSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_left + 16,
+  y: (geometry.footer_top + geometry.footer_bottom) / 2 - 1,
+})
+
+const lockedRowIconSample = (geometry: ResizeGeometry): Point => ({
+  x: geometry.handle_left + 16,
+  y: geometry.first_row_top + 24,
+})
+
 const beginItemDrag = async (page: Page, point: Point): Promise<void> => {
   const box = await canvasBox(page)
   await page.mouse.move(box.x + point.x, box.y + point.y)
@@ -256,6 +278,30 @@ test('example dragged row stays above the My Circuits divider', async ({ page })
   await page.mouse.up()
 
   expect(pixelRgbDistance(pixels['below-divider'], FLEXOKI_UI) > 45).toBe(true)
+})
+
+test('my dragged row stays below the My Circuits divider', async ({ page }) => {
+  const before = await openPickerWithExamples(page, 3, 3)
+  const dividerY = mySectionDividerScreenY(before, 3)
+  await beginItemDrag(page, firstMyRowDragStart(before, 3))
+  await moveHeldPointer(page, { x: before.handle_left + 64, y: dividerY - 40 })
+  await page.waitForTimeout(200)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'above-divider', x: before.handle_left + 160, y: dividerY - 40 },
+  ])
+  await page.mouse.up()
+
+  expect(pixelRgbDistance(pixels['above-divider'], FLEXOKI_UI) > 45).toBe(true)
+})
+
+test('picker locked row icon matches the footer plus color', async ({ page }) => {
+  const geometry = await openPickerWithExamples(page, 1, 1)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'lock-icon', ...lockedRowIconSample(geometry) },
+    { name: 'footer-plus', ...footerPlusSample(geometry) },
+  ])
+
+  expect(pixelRgbDistance(pixels['lock-icon'], pixels['footer-plus'])).toBeLessThan(35)
 })
 
 test('drag-to-reorder commits an auto-scrolled slot on mouseup', async ({ page }) => {

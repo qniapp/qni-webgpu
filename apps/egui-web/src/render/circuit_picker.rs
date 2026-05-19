@@ -20,8 +20,8 @@ use chrome::{
 };
 use constants::*;
 
-const EXAMPLE_CIRCUITS_LABEL: &str = "Example Circuits";
-const MY_CIRCUITS_LABEL: &str = "My Circuits";
+const EXAMPLE_CIRCUITS_LABEL: &str = "EXAMPLE CIRCUITS";
+const MY_CIRCUITS_LABEL: &str = "MY CIRCUITS";
 
 impl QniApp {
     pub(crate) fn show_circuit_picker(
