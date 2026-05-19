@@ -31,6 +31,12 @@ test('dense Chance rendering dispatches the aggregate pass', async () => {
   assert.equal(callback.includes('chance_aggregate_rows_pass'), true)
 })
 
+test('Chance hover outline snaps fractional rows to a pixel-aligned box', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(renderShader, /let row_top = clamp\(floor\(raw_row_top \+ 0\.5\)[\s\S]*let row_bottom = clamp\(floor\(raw_row_bottom \+ 0\.5\)[\s\S]*local\.y < row_top/)
+})
+
 test('dense Chance rendering avoids fragment-row scans', async () => {
   const renderShader = await readRenderShader()
 

@@ -286,27 +286,35 @@ fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h
   return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
 }
 
-fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, raw_row: u32, row_h: f32, hovered_outcome: i32) -> bool {
+fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovered_outcome: i32) -> bool {
   if (hovered_outcome < 0) { return false; }
 
   let hover_border_px = 2.0;
   let hovered_row = u32(hovered_outcome);
+  let raw_row_top = f32(hovered_row) * row_h;
+  let raw_row_bottom = min(raw_row_top + row_h, rect_size.y);
   if (row_h >= hover_border_px * 2.0) {
-    if (raw_row != hovered_row) { return false; }
-    let row_y = local.y - f32(raw_row) * row_h;
+    // Chance5 rows are 8.25px tall: if the row membership is decided from
+    // the interpolated raw row per fragment, one side of the vertical border
+    // can claim the row a pixel earlier than the horizontal border. Snap the
+    // hover chrome to a single pixel-aligned row box so the purple outline is
+    // rectangular even when the probability rows themselves are fractional.
+    let row_top = clamp(floor(raw_row_top + 0.5), 0.0, rect_size.y);
+    let row_bottom = clamp(floor(raw_row_bottom + 0.5), row_top + 1.0, rect_size.y);
+    if (local.y < row_top || local.y >= row_bottom) { return false; }
+    let row_y = local.y - row_top;
+    let pixel_row_h = row_bottom - row_top;
     return local.x < hover_border_px ||
       local.x >= rect_size.x - hover_border_px ||
       row_y < hover_border_px ||
-      row_y >= row_h - hover_border_px;
+      row_y >= pixel_row_h - hover_border_px;
   }
 
   // Quirk uses strokeRect(..., lineWidth=2) for the hovered row. In dense
   // displays the top/bottom strokes merge into one visible band; draw that
   // band explicitly so the selected outcome cannot fall between fragments.
-  let row_top = f32(hovered_row) * row_h;
-  let row_bottom = min(row_top + row_h, rect_size.y);
   let half_stroke = hover_border_px * 0.5;
-  return local.y >= row_top - half_stroke && local.y <= row_bottom + half_stroke;
+  return local.y >= raw_row_top - half_stroke && local.y <= raw_row_bottom + half_stroke;
 }
 
 @fragment
@@ -348,7 +356,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     color = params.border;
   }
 
-  if (on_hover_highlight(input.local, input.rect_size, raw_row, row_h, input.hovered_outcome)) {
+  if (on_hover_highlight(input.local, input.rect_size, row_h, input.hovered_outcome)) {
     color = params.hover_border;
   }
 

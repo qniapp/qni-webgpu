@@ -64,6 +64,23 @@ const EXPECTED_SELECTED_COLUMN_READOUT = {
   selectedState: [0.707, 0.707],
 }
 
+const GROVER_ORACLE_COL = ['Z', '•', '◦', '•', '•']
+const GROVER_DIFFUSER_COLS = [
+  ['H', 'H', 'H', 'H', 1],
+  ['•', '•', '•', '•', 'X'],
+  ['H', 'H', 'H', 'H', 1],
+]
+const GROVER_ITERATION_COLS = [GROVER_ORACLE_COL, ...GROVER_DIFFUSER_COLS, ['Chance5']]
+const GROVER_COLS = [
+  ['X', 'X', 'X', 'X', 'X'],
+  ['H', 'H', 'H', 'H', 'H'],
+  ['Chance5'],
+  ...GROVER_ITERATION_COLS,
+  ...GROVER_ITERATION_COLS,
+  ...GROVER_ITERATION_COLS,
+  ...GROVER_ITERATION_COLS,
+]
+
 const waitForChancePercentLabelEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
@@ -608,6 +625,76 @@ test('Chance hover highlights an outcome row and opens the popup', async ({ page
   const evidence = await waitForChanceHoverEvidence(page, canvas)
 
   expect(evidence).toEqual({ rowBorder: true, popupText: true, popupDivider: true })
+})
+
+test('Chance5 hover outline keeps the right edge inside the pixel-aligned row', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 })
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: GROVER_COLS })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const chanceColumns = GROVER_COLS.flatMap((col, index) => col[0] === 'Chance5' ? [index] : [])
+  const chanceColumn = chanceColumns[chanceColumns.length - 2]
+  const hoveredOutcome = 27
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * chanceColumn - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
+  const rowH = gateHeight / 32
+  await page.mouse.move(box.x + gateLeft + GATE_SIZE / 2, box.y + gateTop + (hoveredOutcome + 0.5) * rowH)
+  await page.waitForTimeout(80)
+
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  const evidence = await page.evaluate(
+    async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, gateHeight, row, gateSize }) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${base64}`
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(null)
+        img.onerror = () => reject(new Error('Failed to decode screenshot'))
+      })
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return { topEdgeContinuous: false, rightEdgeDoesNotProtrude: false }
+      ctx.drawImage(img, 0, 0)
+      const scaleX = img.width / cssWidth
+      const scaleY = img.height / cssHeight
+      const rowH = gateHeight / 32
+      const topCss = Math.round(gateTop + row * rowH)
+      const isPurple = (x: number, y: number): boolean => {
+        const [r, g, b] = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
+        return Math.abs(r - 139) + Math.abs(g - 126) + Math.abs(b - 200) < 64
+      }
+      let topEdgePixels = 0
+      for (let x = gateLeft + 2; x <= gateLeft + gateSize - 3; x += 1) {
+        if (isPurple(x, topCss)) topEdgePixels += 1
+      }
+      let protrudingRightPixels = 0
+      for (let x = gateLeft + gateSize - 2; x <= gateLeft + gateSize - 1; x += 1) {
+        if (isPurple(x, topCss - 1)) protrudingRightPixels += 1
+      }
+      return {
+        topEdgeContinuous: topEdgePixels >= gateSize - 5,
+        rightEdgeDoesNotProtrude: protrudingRightPixels === 0,
+      }
+    },
+    {
+      base64: screenshot.toString('base64'),
+      cssWidth: box.width,
+      cssHeight: box.height,
+      gateLeft,
+      gateTop,
+      gateHeight,
+      row: hoveredOutcome,
+      gateSize: GATE_SIZE,
+    },
+  )
+
+  expect(evidence).toEqual({ topEdgeContinuous: true, rightEdgeDoesNotProtrude: true })
 })
 
 test('Chance16 hover keeps the Quirk-style row line visible', async ({ page }) => {
