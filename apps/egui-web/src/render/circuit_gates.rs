@@ -389,11 +389,7 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let mut rect = egui::Rect::from_min_size(
-            egui::pos2(gate_rect.right() + 8.0, row_top),
-            egui::vec2(width, height),
-        );
-        rect = rect.translate(egui::vec2(0.0, -rect.height() * 0.5 + row_h * 0.5));
+        let rect = chance_hover_popup_rect(gate_rect, row_top, row_h, width, height, screen_rect);
         let corner = egui::CornerRadius::same(6);
         let shadow = egui::epaint::Shadow {
             offset: [0, 4],
@@ -467,8 +463,46 @@ impl QniApp {
     }
 }
 
+fn chance_hover_popup_rect(
+    gate_rect: egui::Rect,
+    row_top: f32,
+    row_h: f32,
+    width: f32,
+    height: f32,
+    screen_rect: egui::Rect,
+) -> egui::Rect {
+    let side_gap = 8.0; // spacing-2.
+    let size = egui::vec2(width, height);
+    let y_offset = -height * 0.5 + row_h * 0.5;
+    let right_rect =
+        egui::Rect::from_min_size(egui::pos2(gate_rect.right() + side_gap, row_top), size)
+            .translate(egui::vec2(0.0, y_offset));
+    let mut rect = if right_rect.right() <= screen_rect.right() {
+        right_rect
+    } else {
+        egui::Rect::from_min_size(
+            egui::pos2(gate_rect.left() - side_gap - width, row_top),
+            size,
+        )
+        .translate(egui::vec2(0.0, y_offset))
+    };
+
+    let viewport_pad = 8.0; // spacing-2.
+    let min_left = screen_rect.left() + viewport_pad;
+    let max_left = screen_rect.right() - viewport_pad - rect.width();
+    let target_left = if max_left >= min_left {
+        rect.left().clamp(min_left, max_left)
+    } else {
+        min_left
+    };
+    rect = rect.translate(egui::vec2(target_left - rect.left(), 0.0));
+    rect
+}
+
 #[cfg(test)]
 mod tests {
+    use eframe::egui;
+
     #[test]
     fn chance_hover_popup_text_matches_chance_display_spec() {
         assert_eq!(
@@ -478,5 +512,25 @@ mod tests {
             ),
             ("|11⟩".to_owned(), "Chance if measured · k = 3".to_owned())
         );
+    }
+
+    #[test]
+    fn chance_hover_popup_flips_left_near_viewport_right_edge() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(200.0, 40.0), egui::vec2(40.0, 96.0));
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(260.0, 180.0));
+
+        let rect = super::chance_hover_popup_rect(gate_rect, 64.0, 24.0, 80.0, 60.0, screen_rect);
+
+        assert_eq!((rect.left(), rect.right()), (112.0, 192.0));
+    }
+
+    #[test]
+    fn chance_hover_popup_clamps_inside_viewport_left_edge() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(64.0, 40.0), egui::vec2(40.0, 96.0));
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 180.0));
+
+        let rect = super::chance_hover_popup_rect(gate_rect, 64.0, 24.0, 140.0, 60.0, screen_rect);
+
+        assert_eq!(rect.left(), 8.0);
     }
 }

@@ -656,6 +656,63 @@ test('Chance popup stays above the palette and keeps GPU values while scrolled',
   })
 })
 
+test('Chance popup flips left near the browser right edge', async ({ page }) => {
+  const filler = Array.from({ length: 11 }, () => ['H', 1, 1, 1, 1])
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [...filler, ['Chance5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const chanceColumn = filler.length
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * chanceColumn - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  await page.mouse.move(box.x + gateLeft + GATE_SIZE / 2, box.y + gateTop + 132)
+
+  let leftPopupText = false
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const canvasBox = await canvas.boundingBox()
+    if (!canvasBox) throw new Error('expected egui canvas to be measurable')
+    leftPopupText = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return false
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        let darkTextPixels = 0
+        const x0 = Math.floor((gateLeft - 260) * scaleX)
+        const x1 = Math.floor((gateLeft - 16) * scaleX)
+        const y0 = Math.floor((gateTop + 70) * scaleY)
+        const y1 = Math.floor((gateTop + 190) * scaleY)
+        for (let y = y0; y <= y1; y += 1) {
+          for (let x = x0; x <= x1; x += 1) {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            if (r < 100 && g < 100 && b < 100) darkTextPixels += 1
+          }
+        }
+        return darkTextPixels > 40
+      },
+      { base64: screenshot.toString('base64'), cssWidth: canvasBox.width, cssHeight: canvasBox.height, gateLeft, gateTop },
+    )
+    if (leftPopupText) break
+    await page.waitForTimeout(50)
+  }
+
+  expect(leftPopupText).toBe(true)
+})
+
 test('hovering columns does not flash readouts back to default bodies', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 'X'], ['Chance5'], [1, 1, 1, 1, 'Measure']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
