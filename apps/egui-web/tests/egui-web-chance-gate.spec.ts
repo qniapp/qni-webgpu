@@ -697,6 +697,67 @@ test('Chance5 hover outline keeps the right edge inside the pixel-aligned row', 
   expect(evidence).toEqual({ topEdgeContinuous: true, rightEdgeDoesNotProtrude: true })
 })
 
+test('Chance5 logarithm hints do not thicken row separators', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 })
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: GROVER_COLS })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForChanceProbabilities(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const chanceColumns = GROVER_COLS.flatMap((col, index) => col[0] === 'Chance5' ? [index] : [])
+  const chanceColumn = chanceColumns[chanceColumns.length - 2]
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * chanceColumn - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  const maxAboveSeparatorRightPixels = await page.evaluate(
+    async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, gateHeight, gateSize }) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${base64}`
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(null)
+        img.onerror = () => reject(new Error('Failed to decode screenshot'))
+      })
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return 0
+      ctx.drawImage(img, 0, 0)
+      const scaleX = img.width / cssWidth
+      const scaleY = img.height / cssHeight
+      const rowH = gateHeight / 32
+      const isUi2 = (x: number, y: number): boolean => {
+        const [r, g, b] = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
+        return Math.abs(r - 218) + Math.abs(g - 216) + Math.abs(b - 206) < 48
+      }
+      let maxPixels = 0
+      for (let row = 1; row < 32; row += 1) {
+        const separatorY = Math.round(gateTop + row * rowH)
+        let abovePixels = 0
+        for (let x = gateLeft + gateSize * 0.60; x <= gateLeft + gateSize - 3; x += 1) {
+          if (isUi2(x, separatorY - 1)) abovePixels += 1
+        }
+        maxPixels = Math.max(maxPixels, abovePixels)
+      }
+      return maxPixels
+    },
+    {
+      base64: screenshot.toString('base64'),
+      cssWidth: box.width,
+      cssHeight: box.height,
+      gateLeft,
+      gateTop,
+      gateHeight,
+      gateSize: GATE_SIZE,
+    },
+  )
+
+  expect(maxAboveSeparatorRightPixels).toBeLessThanOrEqual(2)
+})
+
 test('Chance16 hover keeps the Quirk-style row line visible', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Chance16']] })))
   await waitForStartupReady(page)

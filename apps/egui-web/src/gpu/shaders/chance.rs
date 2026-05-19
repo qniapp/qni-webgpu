@@ -270,7 +270,11 @@ fn chance_aggregate_prob_for_pixel(slot: u32, span: u32, local_y: f32, fallback_
   return chance_aggregate_prob_at_y(slot, chance_aggregate_y(local_y));
 }
 
-fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32) -> bool {
+fn pixel_row_top(row: u32, row_h: f32, height: f32) -> f32 {
+  return clamp(floor(f32(row) * row_h + 0.5), 0.0, height);
+}
+
+fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32, height: f32) -> bool {
   let hint_x = chance_log_hint_x(prob, span, width);
   if (abs(local_x - hint_x) < 0.5) { return true; }
   if (span >= CHANCE_AGGREGATE_MIN_SPAN) {
@@ -280,8 +284,8 @@ fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h
     return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
   }
   if (row == 0u) { return false; }
-  let row_y = local_y - f32(row) * row_h;
-  if (row_y >= 1.0) { return false; }
+  let row_top = pixel_row_top(row, row_h, height);
+  if (local_y < row_top || local_y >= row_top + 1.0) { return false; }
   let prev_x = chance_log_hint_x(chance_prob(slot, row - 1u), span, width);
   return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
 }
@@ -299,7 +303,7 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
     // can claim the row a pixel earlier than the horizontal border. Snap the
     // hover chrome to a single pixel-aligned row box so the purple outline is
     // rectangular even when the probability rows themselves are fractional.
-    let row_top = clamp(floor(raw_row_top + 0.5), 0.0, rect_size.y);
+    let row_top = pixel_row_top(hovered_row, row_h, rect_size.y);
     let row_bottom = clamp(floor(raw_row_bottom + 0.5), row_top + 1.0, rect_size.y);
     if (local.y < row_top || local.y >= row_bottom) { return false; }
     let row_y = local.y - row_top;
@@ -328,7 +332,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let show_text = row_count <= 16u && row_h > 8.0;
 
   var color = params.background;
-  if (!show_text && on_log_hint(input.local.x, input.local.y, input.slot, input.span, raw_row, row_h, draw_prob, input.rect_size.x)) {
+  if (!show_text && on_log_hint(input.local.x, input.local.y, input.slot, input.span, raw_row, row_h, draw_prob, input.rect_size.x, input.rect_size.y)) {
     color = params.border;
   }
   if (input.local.x <= bar_right) {
@@ -347,7 +351,8 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_pos = input.local.y / max(row_h, 1.0e-6);
   let row_frac = fract(row_pos);
   var on_separator = false;
-  if (row_h > border_px * 2.0 && row_count > 1u && raw_row > 0u && row_frac * row_h < border_px) {
+  let separator_y = pixel_row_top(raw_row, row_h, input.rect_size.y);
+  if (row_h > border_px * 2.0 && row_count > 1u && raw_row > 0u && input.local.y >= separator_y && input.local.y < separator_y + border_px) {
     let prev_prob = clamp(chance_data[input.slot * MAX_CHANCE_OUTCOMES + raw_row - 1u], 0.0, 1.0);
     let separator_x = max(prev_prob, prob) * input.rect_size.x;
     on_separator = input.local.x >= separator_x;
