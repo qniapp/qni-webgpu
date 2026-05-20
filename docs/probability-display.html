@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Probability display — 仕様</title>
+  <title>確率表示ブロック — 仕様</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -90,7 +90,7 @@
       color: var(--tx);
     }
 
-    /* ── Probability display 視覚スタイル (実コードと 1:1 で揃える) ───── */
+    /* ── 確率表示ブロック視覚スタイル (実コードと 1:1 で揃える) ───── */
     .cd {
       width: 40px;
       background: var(--bg);
@@ -146,8 +146,8 @@
     }
     /* 対数ヒント線 (§ 08): row_h ≤ 8 px のとき連続ポリラインで描画。
        視認性確保のため Flexoki tx-3 (#B7B5AC) を使う。バーよりも下のレイヤに置く
-       (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — per-row
-       独立の縦線では Quirk の階段状シルエットが得られないので不可。 */
+       (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — 行ごとに
+       独立した縦線では Quirk の階段状シルエットが得られないので不可。 */
     .cd .log-hint-svg {
       position: absolute;
       top: 0; left: 0;
@@ -257,9 +257,9 @@
        span を 1〜16 で変更するための上下ドラッグハンドル。purple-400 ベース、
        ホバー枠 (purple-400 4 px ring + 2 px paper gap) の <strong>さらに外側</strong>
        にレイアウトし、2 px の paper gap で視覚的に分離する。
-       通常時は invisible、ゲート hover で「奥から飛び出してくる」マイクロ
-       インタラクション (フェードイン + 軽いバウンス) で出現、handle 個別 hover
-       で 1.15 × に拡大して purple-600 に深く、active drag で 1.25 × に固定。 */
+       通常時は非表示、ゲートホバーで「奥から飛び出してくる」マイクロ
+       インタラクション (フェードイン + 軽いバウンス) で出現、ハンドル単独ホバー
+       で 1.15 × に拡大して purple-600 に深く、ドラッグ中は 1.25 × に固定。 */
     .cd-handle {
       position: absolute;
       left: 50%;
@@ -273,9 +273,8 @@
       z-index: 20;
       transform: translateX(-50%) scale(0.7);
       transition:
-        opacity 200ms ease-out,
-        transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
-        background 120ms ease-out;
+        opacity 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .cd-handle--top    { top: -12px; }        /* 4 px ring 外側 + 2 px paper gap */
     .cd-handle--bottom { bottom: -12px; }
@@ -290,18 +289,20 @@
       transform: translateX(-50%) scale(1);
     }
 
-    /* handle 個別 hover: 拡大 + purple-600 */
+    /* handle 個別 hover: 拡大 + purple-600 (実装は分岐で即時切替するため transition なし) */
     .cd-handle:hover,
     .cd-handle.cd-handle--state-hover {
       background: var(--purple-600);
       transform: translateX(-50%) scale(1.15);
+      transition: none;
     }
 
-    /* active drag: さらに拡大、ドラッグ中はカーソルが ns-resize */
+    /* active drag: さらに拡大、ドラッグ中はカーソルが ns-resize (同じく即時) */
     .cd-handle:active,
     .cd-handle.cd-handle--state-active {
       background: var(--purple-600);
       transform: translateX(-50%) scale(1.25);
+      transition: none;
     }
 
     /* 仕様ページ用にゲートホバー枠を強制表示する派生クラス */
@@ -343,12 +344,11 @@
 
 <div class="page">
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
-  <h1 class="page-title">Probability display</h1>
+  <h1 class="page-title">確率表示ブロック</h1>
   <p class="page-lede">
-    任意の地点で span 内 qubit を測定した場合の各 outcome の確率を、
-    ゲート本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する display gate。
-    状態ベクトルには影響しない。<strong>span は 1〜16 qubit (上限 16)</strong>、
-    見た目は span 全体で同一視覚モデル。
+    任意の地点で span 内 qubit を測定した場合の各測定結果の確率を、
+    本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する確率表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    状態ベクトルには影響しない。<strong>span は 1〜16 qubit (上限 16)</strong>、見た目は span 全体で同一視覚モデル。
     本ドキュメントは描画仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
   </p>
 </div>
@@ -366,31 +366,31 @@
     <h3 style="margin-top: 8px;">span 1〜5</h3>
     <div class="stage">
       <div class="col">
-        <div class="caption">1 qubit<br>2 outcomes<br>40×40 px</div>
+        <div class="caption">1 qubit<br>測定結果 2 通り<br>40×40 px</div>
         <div class="actual">
           <div class="cd-host" data-height="40" data-probs="70,30"></div>
         </div>
       </div>
       <div class="col">
-        <div class="caption">2 qubit<br>4 outcomes<br>40×96 px</div>
+        <div class="caption">2 qubit<br>測定結果 4 通り<br>40×96 px</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15"></div>
         </div>
       </div>
       <div class="col">
-        <div class="caption">3 qubit<br>8 outcomes<br>40×152 px</div>
+        <div class="caption">3 qubit<br>測定結果 8 通り<br>40×152 px</div>
         <div class="actual">
           <div class="cd-host" data-height="152" data-probs="10,40,80,100,75,50,25,5"></div>
         </div>
       </div>
       <div class="col">
-        <div class="caption">4 qubit<br>16 outcomes<br>40×208 px</div>
+        <div class="caption">4 qubit<br>測定結果 16 通り<br>40×208 px</div>
         <div class="actual">
           <div class="cd-host" data-height="208" data-probs="5,15,30,60,80,95,100,90,70,50,35,20,10,5,2,0"></div>
         </div>
       </div>
       <div class="col">
-        <div class="caption">5 qubit<br>32 outcomes · 40×264 px<br>(対数ヒント線)</div>
+        <div class="caption">5 qubit<br>測定結果 32 通り · 40×264 px<br>(対数ヒント線)</div>
         <div class="actual">
           <div class="cd-host" data-height="264" data-probs="1,2,4,6,8,10,13,17,22,28,35,45,58,72,86,100,92,78,62,48,35,25,18,13,10,7,5,3,2,1,1,0"></div>
         </div>
@@ -399,7 +399,7 @@
 
     <h3 style="margin-top: 24px;">span 16 (最大サイズ)</h3>
     <p>
-      <strong>probability display の上限は 16 qubit</strong>。outcomes 数 = <code>2<sup>16</sup> = 65 536</code>、
+      <strong>確率表示ブロックの上限は 16 qubit</strong>。測定結果の数 = <code>2<sup>16</sup> = 65 536</code>、
       高さ 880 px、行高 ≈ <code>0.013 px</code> (サブピクセル)。
       行高が極小のため <code>XX.X%</code> ラベルは描かず、対数ヒント線 (§ 08) のみで分布の形を表現する。
       確率分布は中心 <code>k = 32 768</code> に山を持つガウシアンプリセットで生成 (デモ用)。
@@ -407,7 +407,7 @@
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 200px;">
-        <div class="caption">16 qubit<br>65 536 outcomes · 40×880 px<br>(対数ヒント線のみ)</div>
+        <div class="caption">16 qubit<br>測定結果 65 536 通り · 40×880 px<br>(対数ヒント線のみ)</div>
         <div class="actual">
           <div class="cd-host" data-height="880" data-canvas="true" data-pattern="gaussian" data-n="65536"></div>
         </div>
@@ -418,12 +418,12 @@
 
 <!-- ─────── § 02 パレットアイコン ─────── -->
 <section class="block">
-  <h2>§ 02 パレットアイコン (mini preview)</h2>
+  <h2>§ 02 パレットアイコン (ミニプレビュー)</h2>
   <div class="card">
     <p>
-      パレットに並ぶ <code>ProbabilityDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
-      Gaussian 風の 4 行プレビュー (<code>PROBABILITY_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>) で
-      「複数 outcome を持つ確率分布ゲート」を表す。バー / 区切り / 外枠は本体と同じルール
+      パレットに並ぶ <code>ProbabilityDisplay</code> アイコンは 40 × 40 px の静的なミニプレビュー。
+      ガウシアン風の 4 行プレビュー (<code>PROBABILITY_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>) で
+      「複数の測定結果を持つ確率分布ゲート」を表す。バー / 区切り / 外枠は本体と同じルール
       (区切り線はバー領域に引かない、外枠は <code>ui-2</code> 1 px、本体角ばり)。
       ホバー時は外側のゲートホバー枠だけ表示 (行ホバー枠は出さない、静的なので行を選ぶ意味がない)。
     </p>
@@ -450,13 +450,13 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>確率分布を表示する display gate (状態に影響しない)</td></tr>
+        <tr><th>役割</th><td>確率分布を可視化する表示ブロック (状態に影響しない)</td></tr>
         <tr><th>span</th><td><strong>1〜16 qubit (上限 16)</strong>、UI でリサイズハンドルから可変。16 を超える span は配置不可</td></tr>
-        <tr><th>outcomes</th><td>2<sup>span</sup> 行 (上から binary big-endian、<code>k = 0</code> = |0..0⟩、<code>k = 2<sup>span</sup>−1</code> = |1..1⟩)。最大 <code>2<sup>16</sup> = 65 536</code> 行</td></tr>
-        <tr><th>確率計算</th><td>GPU コンピュートシェーダで marginalize → <code>probability_output</code> (= <code>resources.probability.output_buffer</code>、<code>probability_data</code> として shader バインド) に書き出す。CPU リードバックなし</td></tr>
+        <tr><th>測定結果</th><td>2<sup>span</sup> 行 (上から binary big-endian、<code>k = 0</code> = |0..0⟩、<code>k = 2<sup>span</sup>−1</code> = |1..1⟩)。最大 <code>2<sup>16</sup> = 65 536</code> 行</td></tr>
+        <tr><th>確率計算</th><td>GPU コンピュートシェーダで marginalize → <code>probability_output</code> (= <code>resources.probability.output_buffer</code>、<code>probability_data</code> としてシェーダにバインド) に書き出す。CPU リードバックなし</td></tr>
         <tr><th>シリアライズ ID</th><td>span 1 → <code>"Probability"</code>、span 2..16 → <code>"Probability2"</code>..<code>"Probability16"</code> (Quirk 互換)</td></tr>
-        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドル (§ 11) で span を 1..16 に変更 (QFT と同型)</td></tr>
-        <tr><th>nesting</th><td>禁止 (display gate の中に display gate は置けない、Quirk と同じ)</td></tr>
+        <tr><th>配置</th><td>パレットのアイコン 1 個からドラッグアンドドロップ。配置後に上下のリサイズハンドル (§ 11) で span を 1..16 に変更 (QFT と同型)</td></tr>
+        <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ)</td></tr>
       </tbody>
     </table>
   </div>
@@ -478,7 +478,7 @@
     <h3 style="margin-top: 16px;">span 別の高さ / 行高</h3>
     <table class="spec">
       <thead>
-        <tr><th>span</th><th>outcomes</th><th style="text-align:right;">高さ (px)</th><th style="text-align:right;">行高 (px)</th><th>テキスト</th><th>対数ヒント線</th></tr>
+        <tr><th>span</th><th>測定結果</th><th style="text-align:right;">高さ (px)</th><th style="text-align:right;">行高 (px)</th><th>テキスト</th><th>対数ヒント線</th></tr>
       </thead>
       <tbody>
         <tr><td class="num">1</td><td class="num">2</td><td class="num">40</td><td class="num">20.0</td><td>あり</td><td>なし</td></tr>
@@ -512,10 +512,10 @@
         <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。<strong>本仕様が正</strong>。現実装 <code>colors.state_fill</code> は blue-300 だが、本仕様に合わせて blue-200 に更新する (詳細は § 13 実装ファイル参照)</td></tr>
         <tr><td>バー右端マーカー</td><td><code>blue-400</code></td><td>#4385BE</td><td>1 px の確率境界線 (Quirk の gray stroke 相当、blue-200 から 2 tone 濃い)</td></tr>
         <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
-        <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各 outcome の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
+        <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各測定結果の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
         <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
-        <tr><td>リサイズハンドル (active)</td><td><code>purple-600</code></td><td>#5E409D</td><td>handle hover / active drag 時の濃色 (§ 11)</td></tr>
+        <tr><td>リサイズハンドル (active)</td><td><code>purple-600</code></td><td>#5E409D</td><td>ハンドル単独ホバー / ドラッグ中の濃色 (§ 11)</td></tr>
       </tbody>
     </table>
   </div>
@@ -537,7 +537,7 @@
     </table>
     <p class="note" style="margin-top: 12px;">
       実コード対応: digit atlas に <code>0..9</code> / <code>.</code> / <code>%</code> を Geist Mono Light 300 で
-      ラスタライズ。"." は他の glyph より advance 幅を −6 px 詰める cell スケールで描画する。
+      ラスタライズ。"." は他のグリフより advance 幅を −6 px 詰める cell スケールで描画する。
     </p>
   </div>
 </section>
@@ -574,7 +574,7 @@
   <div class="card">
     <p>
       行高が小さい場合 (<code>row_h ≤ 8 px</code>、span 5 以上) は <code>XX.X%</code> ラベルを出せない。
-      代わりに各 outcome の確率を<strong>対数スケールの補助線</strong>として薄い灰色で描き、
+      代わりに各測定結果の確率を<strong>対数スケールの補助線</strong>として薄い灰色で描き、
       線形バーでは見分けにくい <em>極めて小さい確率</em> の差を視覚的に残す。
       Quirk の <code>_paintMultiProbabilityDisplay_logarithmHints</code> と同じ流儀。
     </p>
@@ -630,7 +630,7 @@ lineTo(0, h)             // 左下に戻す
 stroke()</pre>
       </li>
       <li>線スタイル: <code>strokeStyle = tx-3</code> (#B7B5AC、視認性を確保するため Quirk の <code>'#CCC'</code> より濃い)、<code>lineWidth = 1</code></li>
-      <li><strong>Quirk 基準では per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。現行シェーダは <code>span ≥ 13</code> でも、事前集約した隣接 y ピクセル同士を水平接続して Quirk 基準を保つ</li>
+      <li><strong>Quirk 基準では行ごとに独立した縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。現行シェーダは <code>span ≥ 13</code> でも、事前集約した隣接 y ピクセル同士を水平接続して Quirk 基準を保つ</li>
     </ul>
 
     <h3 style="margin-top: 16px;">tooltip の <code>log: ... dB</code> との違い (重要)</h3>
@@ -649,7 +649,7 @@ stroke()</pre>
       <li>本番経路で GPU → CPU readback しない。<code>probability_output</code> (= <code>resources.probability.output_buffer</code>) をフラグメントシェーダで <code>probability_data</code> としてバインドし、線形バーと対数ヒント線の両方を 1 パスで描く</li>
       <li>シェーダ内で <code>natural_log(p)</code> と <code>clamp(1.0 + ln_p * s, 0.0, 1.0)</code> を計算 (<code>s = 1.0 / (4.0 + max(8.0, f32(span)))</code>)</li>
       <li>
-        <strong>連続ポリラインの shader 描画方針</strong>: per-fragment 判定で
+        <strong>連続ポリラインのシェーダ描画方針</strong>: フラグメントごとの判定で
         「現在ピクセル <code>(x, y)</code> が ポリライン上か」を決める。具体的には
         <code>row = floor(y / row_h)</code>、<code>log_x_cur = w × clamp(0, 1, 1 + ln(p[row]) × s)</code>、
         <code>log_x_prev = (row &gt; 0)</code> なら <code>w × clamp(0, 1, 1 + ln(p[row-1]) × s)</code> を求め、
@@ -660,11 +660,11 @@ stroke()</pre>
       </li>
       <li>
         <strong>span ≥ 13 (<code>row_count &gt; 4096</code>) の集約描画</strong>:
-        Probability13 以降は 1 ピクセル内に複数 outcome が乗る (span 16 で <code>880/65536 ≈ 0.013 px/row</code>、1 px あたり ~74 outcome)。
+        Probability13 以降は 1 ピクセル内に複数の測定結果が乗る (span 16 で <code>880/65536 ≈ 0.013 px/row</code>、1 px あたり ~74 個の測定結果)。
         <code>PROBABILITY_AGGREGATE_SHADER</code> が GPU 上で CSS y ピクセルごとの
         <code>p_max = max(p[row_lo..=row_hi])</code> を <code>probability_aggregate_rows</code> に事前集約する。
         フラグメントシェーダは <code>probability_aggregate_data[slot, floor(local_y)]</code> を読むだけで、
-        ピクセルごとの outcome 走査をしない。線形バー幅 (<code>x_bar = w × p_max</code>) と対数ヒント線の x 位置を
+        ピクセルごとの測定結果走査をしない。線形バー幅 (<code>x_bar = w × p_max</code>) と対数ヒント線の x 位置を
         同じ代表値から決め、対数ヒント線は隣接 y ピクセルの代表値同士を水平接続する。
       </li>
       <li>docs / コード内コメントでは「縦線」と呼ばず<strong>「対数ヒント線」</strong>または<strong>「対数スケールの補助線」</strong>と呼称統一する</li>
@@ -678,17 +678,17 @@ stroke()</pre>
   <div class="card">
     <p class="note">
       調査対象: <code>../oss/Quirk</code> @ <code>8833791294e642795c8717038e84940a74b19a64</code>。
-      16 qubit span の Probability display が高速に見える主因は、確率の算出とホバー描画を分離し、
+      16 qubit span の確率表示ブロックが高速に見える主因は、確率の算出とホバー描画を分離し、
       ホバー中に重い確率計算やフラグメントごとの集約を繰り返さない構造にある。
     </p>
 
     <h3 style="margin-top: 16px;">Quirk の実装上の要点</h3>
     <ul>
       <li>
-        <strong>確率は表示ゲートの custom stat として一度だけ作る。</strong>
+        <strong>確率は表示ブロックの custom stat として一度だけ作る。</strong>
         <code>ProbabilityDisplay.js:48-64</code> の <code>probabilityStatTexture</code> は
-        state texture を確率へ変換し、表示範囲の bit を寄せてから <code>sumFoldFloat</code> で対象外 bit を畳み込む。
-        <code>CircuitComputeUtil.js:125-145</code> では、列ごとに必要な表示ゲートだけ
+        state texture を確率へ変換し、表示範囲のビットを寄せてから <code>sumFoldFloat</code> で対象外のビットを畳み込む。
+        <code>CircuitComputeUtil.js:125-145</code> では、列ごとに必要な表示ブロックだけ
         <code>customStatTexturesMaker</code> を呼ぶ。つまり Probability16 の 65,536 個の確率は
         「回路統計」の一部であり、ポインタホバーのたびに再計算しない。
       </li>
@@ -699,9 +699,9 @@ stroke()</pre>
         既存統計を使い回す。再描画は起きても、状態シミュレーションと Probability 確率集計は走らない。
       </li>
       <li>
-        <strong>CPU 側の描画は outcome 数に対して各 1 本の Canvas パス構築。</strong>
+        <strong>CPU 側の描画は測定結果数に対して各 1 本の Canvas パス構築。</strong>
         <code>ProbabilityDisplay.js:146-170</code> のバー、<code>173-195</code> の対数ヒント線は、
-        65,536 outcome を <code>lineTo</code> でバー用パスと対数ヒント線用パスに積み、最後に <code>fill()</code> / <code>stroke()</code> する。
+        65,536 個の測定結果を <code>lineTo</code> でバー用パスと対数ヒント線用パスに積み、最後に <code>fill()</code> / <code>stroke()</code> する。
         画面ピクセルごとに確率配列を走査しない。ブラウザの 2D Canvas ラスタライザに細い行の集約を任せる。
       </li>
       <li>
@@ -712,8 +712,8 @@ stroke()</pre>
       <li>
         <strong>ホバー固有の処理は 1 行分だけ。</strong>
         <code>ProbabilityDisplay.js:198-217</code> はポインタ位置から <code>k = floor((pt.y - y) / d)</code> を出し、
-        その 1 outcome の <code>p</code> だけを読んで <code>strokeRect</code> と tooltip を描く。
-        マウス移動では全体の再描画自体は起きるが、重い確率統計はキャッシュ済みで、ホバー固有処理として全 outcome を走査しない。
+        その 1 つの測定結果の <code>p</code> だけを読んで <code>strokeRect</code> と tooltip を描く。
+        マウス移動では全体の再描画自体は起きるが、重い確率統計はキャッシュ済みで、ホバー固有処理として全測定結果を走査しない。
       </li>
       <li>
         <strong>再描画要求を束ねる。</strong>
@@ -733,11 +733,11 @@ stroke()</pre>
       <li>
         <strong>Probability16 をフラグメントシェーダのピクセルごとの集約で描き切らない。</strong>
         <code>span ≥ 13</code> はコンピュートシェーダで「画面 y ピクセルごとの代表値」を作り、描画パスは
-        その小さいバッファを読むだけにした。これによりフラグメントごとの最大 ~74 outcome 走査を、ゲート高さぶんの事前集約へ移す。
+        その小さいバッファを読むだけにした。これによりフラグメントごとの最大 ~74 個の測定結果走査を、ゲート高さぶんの事前集約へ移す。
       </li>
       <li>
         <strong>ホバー固有の更新を小さくする。</strong>
-        ポインタが動いても状態シミュレーションと <code>probability_output</code> は再生成せず、ホバー中 outcome とポップアップ値だけを差し替える。
+        ポインタが動いても状態シミュレーションと <code>probability_output</code> は再生成せず、ホバー中の測定結果とポップアップ値だけを差し替える。
         現時点では y ピクセル代表値の集約パスを各描画準備で軽量に実行する。将来さらに詰める場合は、既存の step snapshot キャッシュと同じ発想で、circuit / slot / span / viewport 高さが変わるまで代表値バッファも再利用する。
       </li>
       <li>
@@ -758,13 +758,13 @@ stroke()</pre>
         <tr><th>ゲートホバー枠</th><td>ゲート外側 0..2 px = paper gap、2..4 px = <code>purple-400</code> ring (合計 4 px 厚)。<code>ProbabilityDisplay</code> は本体が角ばりなのでホバー枠も角ばり。既存のゲートホバー枠 (<code>circuit_gates.rs:67-91</code> / <code>circuit_palette/panel.rs:48-71</code>) と同寸・同色</td></tr>
         <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk の <code>strokeRect(..., lineWidth = 2)</code> と同流儀。行高が 4 px 未満の高密度表示では、上下ストロークが重なった 2 px 相当の水平帯として描き、Probability16 でもホバーしている振幅の位置が消えないようにする</td></tr>
         <tr><th>同時表示</th><td>ゲートホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
-        <tr><th>popup</th><td>
-          行ホバー時、ゲート右 8 px に popup が出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
+        <tr><th>ポップアップ</th><td>
+          行ホバー時、ゲートの右 8 px にポップアップが出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
           <code>Probability if measured · k = N</code> (補足)、<code>raw: (p × 100).toFixed(4) %</code>、
           <code>log: (log10(p) × 10).toFixed(1) dB</code> (<code>p = 0</code> なら <code>−∞ dB</code>)。
           見た目は § 01 のモック参照 (Quirk のプレーンテキスト tooltip を Geist で再構成)
         </td></tr>
-        <tr><th>popup タイポグラフィ</th><td>
+        <tr><th>ポップアップのタイポグラフィ</th><td>
           ket = Geist Mono Regular 14 px (text-sm) / <code>tx</code>、
           サブ = Geist Regular 12 px (text-xs) / <code>tx-2</code>、
           ラベル (raw / log) = Geist Mono 12 px (text-xs) / <code>tx-2</code> / UPPERCASE / letter-spacing 0.12 em、
@@ -777,7 +777,7 @@ stroke()</pre>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      popup 自体のデザイン仕様 (寸法 / 配色 / タイポグラフィ / 表示例 / 状態バリアント) は <strong>§ 10 ポップアップ仕様</strong>、
+      ポップアップ自体のデザイン仕様 (寸法 / 配色 / タイポグラフィ / 表示例 / 状態バリアント) は <strong>§ 10 ポップアップ仕様</strong>、
       リサイズハンドルの仕様 (寸法 / 状態遷移 / マイクロインタラクション) は <strong>§ 11 リサイズハンドル</strong> を参照。
     </p>
   </div>
@@ -788,7 +788,7 @@ stroke()</pre>
   <h2>§ 10 ポップアップ仕様</h2>
   <div class="card">
     <p>
-      行ホバー時に出る popup の<strong>常時表示版</strong>。実装と同じ CSS / マークアップを
+      行ホバー時に出るポップアップの<strong>常時表示版</strong>。実装と同じ CSS / マークアップを
       静的に並べ、状態バリアントとアナトミーを Codex / 人間がスクロールだけで確認できるようにする。
       ホバーを必要としないので、スクリーンショットレビューや diff レビューで仕様逸脱を検出しやすい。
     </p>
@@ -906,16 +906,16 @@ stroke()</pre>
       Quirk は 1 行タイトル <code>Probability of |bin(k)⟩ (decimal k) if measured</code> 形式だが、
       qni-webgpu はタイポグラフィ階層を活かして<strong>ket を主見出し、サブテキストに自然文 + decimal を畳む</strong>形に再構成。
       <em>数値の意味 (raw % / log dB)・桁数 (4 桁 / 1 桁) は Quirk と完全互換</em>だが、文言レイアウトは Quirk オリジナルから意図的に分かれる。
-      Quirk URL から import した回路で popup を出した場合も、qni-webgpu 側の本仕様 (ket + サブ + raw / log) が常に勝つ。
+      Quirk URL から import した回路でポップアップを出した場合も、qni-webgpu 側の本仕様 (ket + サブ + raw / log) が常に勝つ。
     </p>
 
     <h3 style="margin-top: 16px;">設計判断</h3>
     <ul>
-      <li><strong>ket を最大の主役にする</strong>: 「どの outcome の確率を見ているか」が popup の最重要情報。14 px Geist Mono Regular で視覚的に最も強い</li>
+      <li><strong>ket を最大の主役にする</strong>: 「どの測定結果の確率を見ているか」がポップアップの最重要情報。14 px Geist Mono Regular で視覚的に最も強い</li>
       <li><strong>raw を 4 桁 / log を 1 桁にする</strong>: Quirk 互換 (<code>toFixed(4)</code> / <code>toFixed(1)</code>)。raw は微小確率の比較、log は dB スケールの大まかな桁感を伝える</li>
       <li><strong>マイナス記号は U+2212 (<code>−</code>)</strong>: hyphen-minus (<code>-</code>) より幅が広く、tabular-nums と同じ字幅に揃う</li>
-      <li><strong>サブ・ラベルは tx-2</strong>: 当初 tx-3 を使ったが paper bg 上で読みにくかったため格上げ。tx-3 は popup 内では使わない</li>
-      <li><strong>角丸 6 px</strong>: Qni のゲート本体 (<code>CornerRadius::same(6)</code>) と同値にして UI 全体の調子を揃える。Probability display 本体は角ばりだが popup は別レイヤなので角丸でも齟齬なし</li>
+      <li><strong>サブ・ラベルは tx-2</strong>: 当初 tx-3 を使ったが paper bg 上で読みにくかったため格上げ。tx-3 はポップアップ内では使わない</li>
+      <li><strong>角丸 6 px</strong>: Qni のゲート本体 (<code>CornerRadius::same(6)</code>) と同値にして UI 全体の調子を揃える。確率表示ブロックの本体は角ばりだがポップアップは別レイヤなので角丸でも齟齬なし</li>
       <li><strong>枠 + soft shadow の二重表現</strong>: 枠 (<code>ui-2</code> 1 px) は paper bg との境界を明示、shadow は ≪浮いている≫ ことを示す。どちらか片方では弱い</li>
       <li><strong>span 16 でも 1 行で収まる</strong>: 16 bit ket = 16 文字、補足 30 文字程度。<code>white-space: nowrap</code> で折り返しを防ぐ (最大幅は ~280 px)</li>
     </ul>
@@ -929,7 +929,7 @@ stroke()</pre>
     <p>
       Probability は 1〜16、QFT / QFT† は現在の実行モード容量までの span をドラッグ変更するためのハンドル。<strong>ゲートの上下 2 ヶ所</strong>に出る
       <code>purple-400</code> ベースのピル形 (24 × 6 px)。
-      通常は invisible で UI を圧迫せず、ゲートホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現。
+      通常は非表示で UI を圧迫せず、ゲートホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現。
       ホバー枠 (§ 09 の 4 px <code>purple-400</code> ring + 2 px paper gap) の<strong>さらに外側</strong>に
       2 px の paper gap を挟んでレイアウトし、紫色を共有しながらも視覚的には明確に分離させる。
     </p>
@@ -940,7 +940,7 @@ stroke()</pre>
         <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
         <tr><th>形状</th><td>ピル (capsule) 24 × 6 px、<code>border-radius: 3 px</code></td></tr>
         <tr><th>横位置</th><td>ゲート横中央 (<code>left: 50%; transform: translateX(-50%)</code>)</td></tr>
-        <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ゲート top edge から 12 px 外側)</td></tr>
+        <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ゲート上辺から 12 px 外側)</td></tr>
         <tr><th>縦位置 (bottom)</th><td><code>bottom: -12 px</code></td></tr>
         <tr><th>カーソル</th><td><code>cursor: ns-resize</code> (上下リサイズを明示)</td></tr>
         <tr><th>pointer-events</th><td><code>auto</code> — ハンドル単体は確実にクリック受付。ゲート本体は通常通り</td></tr>
@@ -950,7 +950,7 @@ stroke()</pre>
 
     <h3 style="margin-top: 16px;">ホバー枠との位置関係 (干渉回避)</h3>
     <p>
-      ゲート top edge を基準 (y = 0) に、ホバー枠は <code>y = -4 .. 0</code> に <code>purple-400</code> 2 px + paper 2 px を描く。
+      ゲート上辺を基準 (y = 0) に、ホバー枠は <code>y = -4 .. 0</code> に <code>purple-400</code> 2 px + paper 2 px を描く。
       ハンドル top は <code>y = -12 .. -6</code> なので、ホバー枠の外端 (<code>y = -4</code>) との間に <strong>2 px の paper gap</strong> が確保される。
       bottom 側も同様に対称。色族 (purple) は揃っているが空間的には独立した 2 オブジェクトとして読める。
     </p>
@@ -974,40 +974,40 @@ stroke()</pre>
       </thead>
       <tbody>
         <tr>
-          <td>default (gate not hovered)</td>
+          <td>default (ゲート非ホバー時)</td>
           <td>0</td>
           <td><code>scale(0.7)</code></td>
           <td><code>purple-400</code></td>
           <td>—</td>
         </tr>
         <tr>
-          <td>visible (gate hover)</td>
+          <td>visible (ゲートホバー時)</td>
           <td>1</td>
           <td><code>scale(1.0)</code></td>
           <td><code>purple-400</code></td>
           <td>
-            opacity 200 ms ease-out /
-            transform 250 ms cubic-bezier(0.34, 1.56, 0.64, 1) <em>← 軽いオーバーシュート</em>
+            opacity / transform を共通の 250 ms cubic-bezier(0.34, 1.56, 0.64, 1) <em>← 軽いオーバーシュート</em>。
+            実装側は単一の <code>visible_t</code> で opacity と scale を同時に駆動する
           </td>
         </tr>
         <tr>
-          <td>hover (handle 個別)</td>
+          <td>hover (ハンドル単独ホバー)</td>
           <td>1</td>
           <td><code>scale(1.15)</code></td>
           <td><code>purple-600</code></td>
-          <td>background 120 ms ease-out / transform 250 ms cubic-bezier(0.34, 1.56, 0.64, 1)</td>
+          <td>即時切替 (transition なし)。実装は <code>visible_t</code> を経由せず分岐で scale / 色を決めるため</td>
         </tr>
         <tr>
-          <td>active (drag 中)</td>
+          <td>active (ドラッグ中)</td>
           <td>1</td>
           <td><code>scale(1.25)</code></td>
           <td><code>purple-600</code></td>
-          <td>同上</td>
+          <td>即時切替 (transition なし)</td>
         </tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      <strong>バウンスの理由:</strong> cubic-bezier(0.34, 1.56, 0.64, 1) は最終値を 1.56 倍まで一瞬オーバーシュートする easing。
+      <strong>バウンスの理由:</strong> cubic-bezier(0.34, 1.56, 0.64, 1) は最終値を 1.56 倍まで一瞬オーバーシュートするイージング。
       <code>scale(0.7) → scale(1.0)</code> の変化が「奥から飛び出してきて、ちょっと弾む」マイクロインタラクションとして読める。
       気付きやすさ + ゲート操作の遊び心を狙う。
     </p>
@@ -1019,13 +1019,13 @@ stroke()</pre>
     </p>
     <div class="stage" style="gap: 56px; padding: 24px 0;">
       <div class="col" style="max-width: 140px;">
-        <div class="caption">① default<br>(non-hover)<br>handle 非表示</div>
+        <div class="caption">① default<br>(non-hover)<br>ハンドル非表示</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true"></div>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">② gate hover<br>handle がバウンスで出現<br>(両方とも visible)</div>
+        <div class="caption">② gate hover<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="visible"></div>
         </div>
@@ -1046,13 +1046,13 @@ stroke()</pre>
 
     <h3 style="margin-top: 16px;">設計判断</h3>
     <ul>
-      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。Probability display / QFT / QFT† は同じ「縦方向に伸びるゲート」なので、上下対称な配置に統一する</li>
-      <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: ホバー枠とハンドルはどちらも <code>purple-400</code> なので、隣接させると 1 つの大きな図形に見えてしまい「ring の一部?」と誤認される。2 px の paper gap で<strong>明確に別オブジェクト</strong>と分離</li>
-      <li><strong>purple-400 → purple-600 で深さの変化</strong>: handle が「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い</li>
-      <li><strong>バウンス easing</strong>: 線形 / ease-out だと「現れる」だけだが、オーバーシュート ease は「主張する」表現になる。ゲートに span を変える機能があることを目立たせるための<em>意図的な誇張</em></li>
+      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。確率表示ブロック / QFT / QFT† は同じ「縦方向に伸びる回路要素」なので、上下対称な配置に統一する</li>
+      <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: ホバー枠とハンドルはどちらも <code>purple-400</code> なので、隣接させると 1 つの大きな図形に見えてしまい「リングの一部?」と誤認される。2 px の paper gap で<strong>明確に別オブジェクト</strong>と分離</li>
+      <li><strong>purple-400 → purple-600 で深さの変化</strong>: ハンドルが「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い</li>
+      <li><strong>バウンスするイージング</strong>: 線形 / ease-out だと「現れる」だけだが、オーバーシュートを伴うイージングは「主張する」表現になる。ゲートに span を変える機能があることを目立たせるための<em>意図的な誇張</em></li>
       <li><strong>scale(0.7) → 1.0 → 1.15 → 1.25 の連続スケール</strong>: 1 軸の連続変化なので状態遷移が自然に読める。サイズ差は <strong>+15 %, +25 %</strong> と明確に体感できる程度。<em>10 % 以下だとほぼ気づかない</em></li>
       <li><strong>形状はピル (capsule)</strong>: 矩形だと「点」、円だと「ボタン」、ピルだと「つまみ」に読める。span を <em>引き伸ばす</em>動作とピル形の<em>横長</em>が一致して、操作のメタファとして馴染む</li>
-      <li><strong>ハンドル width 24 px はゲート width 40 px より狭い</strong>: ゲート横中央に小さめに配置することで「ゲートの一部」感を出しつつ、左右にゲート edge が見える</li>
+      <li><strong>ハンドル幅 24 px はゲート幅 40 px より狭い</strong>: ゲート横中央に小さめに配置することで「ゲートの一部」感を出しつつ、左右にゲートの縁が見える</li>
       <li><strong>cursor: ns-resize</strong>: 「上下方向にドラッグできる」を OS のカーソル変化でも伝える (ハンドルの形だけに頼らない)</li>
     </ul>
   </div>
@@ -1063,7 +1063,7 @@ stroke()</pre>
   <h2>§ 12 URL シリアライズ (Quirk 互換)</h2>
   <div class="card">
     <p>
-      Probability display の <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する (Quirk URL インポート / 双方向の URL 共有のため)。
+      確率表示ブロックの <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する (Quirk URL インポート / 双方向の URL 共有のため)。
       ただし<strong>下記の <code>#circuit=...</code> 形式は Quirk オリジナルの URL hash 構造</strong>であり、qni-webgpu 現行の URL 表現
       (<code>/#&lt;percent-encoded JSON&gt;</code>) とは hash 内のキー名・構造が異なる。
       本セクションは <em>Quirk URL の語彙互換性</em>を示すための参考であり、qni-webgpu 内部の URL 設計は別仕様 (TBD)。
@@ -1091,43 +1091,43 @@ stroke()</pre>
 
 <!-- ─────── § 13 GPU バックエンド経路 ─────── -->
 <section class="block">
-  <h2>§ 13 GPU バックエンド経路 (Probability 取得方針)</h2>
+  <h2>§ 13 GPU バックエンド経路</h2>
   <div class="card">
     <p>
       qni-webgpu は 2 つの GPU バックエンドを持つ: ブラウザローカルの <strong>WebGPU</strong> と、リモートの <strong>Qiskit GPU</strong>。
-      Probability display の確率取得は backend ごとに別経路だが、<strong>本体描画 (§ 04〜§ 11) は完全に共通</strong>。
-      ここでは「描画シェーダに渡す <code>probability_data</code> をどう得るか」だけを backend 別に規定する。
+      確率表示ブロックの確率取得はバックエンドごとに別経路だが、<strong>本体描画 (§ 04〜§ 11) は完全に共通</strong>。
+      ここでは「描画シェーダに渡す <code>probability_data</code> をどう得るか」だけをバックエンド別に規定する。
     </p>
 
-    <h3 style="margin-top: 16px;">backend 共通の制約</h3>
+    <h3 style="margin-top: 16px;">バックエンド共通の制約</h3>
     <ul>
-      <li><strong>span 上限 = 16</strong>。回路全体が 32 qubit であっても、1 つの Probability display が見る outcome は 2<sup>16</sup> = 65 536 が上限</li>
-      <li><strong>full statevector / full probabilities は受け取らない</strong>。32 qubit 回路で全状態 = 2<sup>32</sup> = 約 4.3 G outcomes を転送 / 保持しないため。Probability display は<strong>常に marginalize 済みの per-display probabilities のみ</strong>を扱う</li>
+      <li><strong>span 上限 = 16</strong>。回路全体が 32 qubit であっても、1 つの確率表示ブロックが見る測定結果は 2<sup>16</sup> = 65 536 が上限</li>
+      <li><strong>full statevector / full probabilities は受け取らない</strong>。32 qubit 回路で全状態 = 2<sup>32</sup> = 約 4.3 G 個の測定結果を転送 / 保持しないため。確率表示ブロックは<strong>常に marginalize 済みの表示ブロックごとの probabilities のみ</strong>を扱う</li>
       <li><strong>CPU リードバック不可 (WebGPU 経路)</strong>。Qiskit GPU 経路は性質上 JSON で返ってくるので CPU を経由するが、その場合も <code>probability_data</code> として GPU バッファに <em>1 回</em> アップロードしたあとは描画完結</li>
-      <li><strong>nesting 禁止</strong>: backend 種別に関わらず Probability の中に Probability は置けない (Quirk と同じ、§ 03 概要参照)</li>
+      <li><strong>nesting 禁止</strong>: バックエンド種別に関わらず Probability の中に Probability は置けない (Quirk と同じ、§ 03 概要参照)</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">WebGPU ローカル backend</h3>
+    <h3 style="margin-top: 16px;">WebGPU ローカルバックエンド</h3>
     <table class="spec">
       <tbody>
-        <tr><th>確率計算</th><td>各 Probability display ごとに <code>PROBABILITY_REDUCE_SHADER</code> (compute) を発行。state ベクタを span 内 qubit について marginalize</td></tr>
+        <tr><th>確率計算</th><td>各確率表示ブロックごとに <code>PROBABILITY_REDUCE_SHADER</code> (compute) を発行。状態ベクトルを span 内 qubit について marginalize</td></tr>
         <tr><th>出力先</th><td><code>probability_output</code> (<code>resources.probability.output_buffer</code>) の各 Probability スロット (<code>params.output_slot</code> 単位、<code>MAX_PROBABILITY_OUTCOMES = 65 536</code> ストライド)</td></tr>
-        <tr><th>描画</th><td>同じ buffer を <code>PROBABILITY_RENDER_SHADER</code> に <code>probability_data</code> として bind し、フラグメントシェーダで直接サンプル。CPU リードバックなし</td></tr>
-        <tr><th>同期</th><td>compute → render はキューレベルで in-order、明示的な fence 不要</td></tr>
+        <tr><th>描画</th><td>同じバッファを <code>PROBABILITY_RENDER_SHADER</code> に <code>probability_data</code> としてバインドし、フラグメントシェーダで直接サンプル。CPU リードバックなし</td></tr>
+        <tr><th>同期</th><td>compute → render はキューレベルで順序通り、明示的な fence は不要</td></tr>
       </tbody>
     </table>
 
-    <h3 style="margin-top: 16px;">Qiskit GPU backend (リモート)</h3>
+    <h3 style="margin-top: 16px;">Qiskit GPU バックエンド (リモート)</h3>
     <table class="spec">
       <tbody>
         <tr><th>確率計算</th><td>
-          回路送信時に各 Probability display の位置と span を解析し、Probability ごとに
+          回路送信時に各確率表示ブロックの位置と span を解析し、確率表示ブロックごとに
           <code>save_probabilities(qubits=[...], label="probability:&lt;gate_id&gt;")</code> または
           <code>save_probabilities_dict(...)</code> を Qiskit circuit に挿入する。<br>
           full statevector / full probabilities (<code>save_statevector</code> / <code>save_probabilities()</code> 引数なし) は<strong>挿入しない</strong>
         </td></tr>
         <tr><th>レスポンス形式</th><td>
-          backend は per-Probability の marginalized probabilities のみを返す:
+          バックエンドは確率表示ブロックごとの marginalized probabilities のみを返す:
           <pre class="code">{
   "probability": [
     { "gate_id": "<id>", "span": 3, "probabilities": [p_0, p_1, ..., p_7] },
@@ -1136,20 +1136,20 @@ stroke()</pre>
   ]
 }</pre>
           <code>probabilities</code> 長は <code>2<sup>span</sup></code>、合計 ≤ 1.0、<code>p_k</code> は |bin(k)⟩ の確率。
-          big-endian order は WebGPU 経路と一致 (§ 03 outcomes 行参照)
+          big-endian order は WebGPU 経路と一致 (§ 03 「測定結果」行参照)
         </td></tr>
         <tr><th>GPU アップロード</th><td>受信した各 <code>probabilities</code> 配列を <code>probability_output</code> の対応スロットに 1 度 <code>queue.writeBuffer</code> でアップロード。以降の描画は WebGPU 経路と完全同一</td></tr>
-        <tr><th>更新タイミング</th><td>1 回路実行 = 1 レスポンス。Probability display の値はそのレスポンス到着時点でアトミックに全て更新される</td></tr>
-        <tr><th>未対応 / エラー</th><td>backend が古くて <code>save_probabilities</code> を返さない場合は Probability display 全行を NaN 扱いで描く (Quirk 互換、Quirk の <code>printParagraph("NaN", ...)</code> と同じ流儀)</td></tr>
+        <tr><th>更新タイミング</th><td>1 回路実行 = 1 レスポンス。確率表示ブロックの値はそのレスポンス到着時点でアトミックに全て更新される</td></tr>
+        <tr><th>未対応 / エラー</th><td>バックエンドが古くて <code>save_probabilities</code> を返さない場合は確率表示ブロック全行を NaN 扱いで描く (Quirk 互換、Quirk の <code>printParagraph("NaN", ...)</code> と同じ流儀)</td></tr>
       </tbody>
     </table>
 
     <h3 style="margin-top: 16px;">32 qubit 回路での挙動 (重要)</h3>
     <ul>
-      <li>回路 qubit 数が 32 であっても、Probability display 1 個が見るのは<strong>最大 16 qubit</strong> (span ≤ 16)。残り 16 qubit は marginalize で消える</li>
-      <li>32 qubit 回路に Probability16 を 4 個並べることは可能。各 Probability は独立に 2<sup>16</sup> = 65 536 outcomes の probability vector を持つ</li>
-      <li>Qiskit backend に送るとき、<code>save_probabilities(qubits=[q_start..q_start+span-1])</code> として、Probability が span するレジスタだけ抜き出す</li>
-      <li>WebGPU backend で 32 qubit を扱う場合は、state ベクタが 2<sup>32</sup> 複素数 = 32 GiB となり通常端末では不可。32 qubit 級は Qiskit backend 限定 (これは Probability display 仕様外、回路全体の制約)</li>
+      <li>回路 qubit 数が 32 であっても、確率表示ブロック 1 個が見るのは<strong>最大 16 qubit</strong> (span ≤ 16)。残り 16 qubit は marginalize で消える</li>
+      <li>32 qubit 回路に Probability16 を 4 個並べることは可能。各 Probability は独立に 2<sup>16</sup> = 65 536 個の測定結果の probability vector を持つ</li>
+      <li>Qiskit バックエンドに送るとき、<code>save_probabilities(qubits=[q_start..q_start+span-1])</code> として、Probability が span するレジスタだけ抜き出す</li>
+      <li>WebGPU バックエンドで 32 qubit を扱う場合は、状態ベクトルが 2<sup>32</sup> 複素数 = 32 GiB となり通常端末では不可。32 qubit 級は Qiskit バックエンド限定 (これは確率表示ブロック仕様外、回路全体の制約)</li>
     </ul>
   </div>
 </section>
@@ -1182,7 +1182,7 @@ stroke()</pre>
 </section>
 
 <div class="doc-foot">
-  qni-webgpu · probability display widget spec · design system · 2026-05
+  qni-webgpu · 確率表示ブロック仕様 · design system · 2026-05
 </div>
 
 <script>
