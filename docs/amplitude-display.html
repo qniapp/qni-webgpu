@@ -3,94 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Amplitude display — 仕様</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@300;400;500;700&display=swap"
-    rel="stylesheet"
-  />
+  <title>振幅表示ブロック — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
   <style>
-    :root {
-      color-scheme: light;
-      --font-body: 'Geist', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif;
-      --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
-      --bg:        #FFFCF0;
-      --bg-2:      #F2F0E5;
-      --ui:        #E6E4D9;
-      --ui-2:      #DAD8CE;
-      --tx-3:      #B7B5AC;
-      --tx-2:      #6F6E69;
-      --tx:        #100F0F;
-      --blue-200:  #92BFDB;   /* amplitude disk fill — state vector panel と完全に揃える (state_fill) */
-      --blue-400:  #4385BE;
-      --blue-600:  #205EA6;
-      --red-600:   #AF3029;
-      --purple-400: #8B7EC8;
-      --purple-600: #5E409D;   /* handle hover / active drag の濃色 */
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh;
-      color: var(--tx); font-family: var(--font-body);
-      font-size: 16px; line-height: 24px;
-      background: var(--bg-2); padding: 0 0 96px;
-    }
-    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
-    .eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3); }
-    h1.page-title { margin: 12px 0 8px; font-size: 30px; line-height: 36px; letter-spacing: -0.01em; font-weight: 700; }
-    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
-    p.page-lede code, .note code, p code, td code, li code {
-      background: var(--ui); border: 1px solid var(--ui-2);
-      padding: 1px 6px; border-radius: 4px;
-      font-family: var(--font-mono); font-size: 12px;
-    }
-    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
-    section.block > h2 { margin: 0 0 12px; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; }
-    .note { color: var(--tx-2); font-size: 14px; line-height: 20px; max-width: 820px; margin: 0 0 16px; }
 
-    .card {
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 14px;
-      padding: 20px 24px;
-      margin-bottom: 16px;
-    }
-    .card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
-    .card p { margin: 0 0 8px; color: var(--tx-2); font-size: 14px; line-height: 20px; }
-    .card p:last-child { margin-bottom: 0; }
-    .card ul { margin: 4px 0 8px; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px; }
-
-    table.spec {
-      width: 100%; border-collapse: collapse;
-      font-size: 12px; margin-top: 4px;
-    }
-    table.spec th, table.spec td {
-      text-align: left; padding: 8px 12px 8px 0;
-      border-bottom: 1px solid var(--ui-2); vertical-align: top;
-    }
-    table.spec th {
-      color: var(--tx-3); font-weight: 500;
-      font-family: var(--font-mono); font-size: 12px;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      width: 180px;
-    }
-    table.spec td.num { font-family: var(--font-mono); text-align: right; padding-right: 16px; }
-    table.spec td code, table.spec th code {
-      background: var(--ui); border: 1px solid var(--ui-2);
-      padding: 1px 5px; border-radius: 4px;
-      font-family: var(--font-mono); font-size: 12px;
-    }
-
-    pre.code {
-      margin: 8px 0; padding: 12px 14px;
-      background: var(--ui); border-radius: 6px;
-      font-family: var(--font-mono); font-size: 12px;
-      line-height: 16px; overflow-x: auto;
-      color: var(--tx);
-    }
-
-    /* ── Amplitude display 視覚スタイル ─────────────────────────
+    /* ── 振幅表示ブロック視覚スタイル ─────────────────────────
        state vector panel (apps/web/src/gpu/shaders/state.rs) の 3 層モデルに揃える。
        Quirk の確率正方形・対数円は冗長なので不採用、振幅は disk 半径 (mag) と needle 方向 (phase) で表現する。
        各セルは正方形 grid に配置し、内部に下記のレイヤを描く:
@@ -117,15 +34,18 @@
 
     /* ─── リサイズハンドル ───
        span を 1〜16 で変更するための上下ドラッグハンドル。probability-display.html と同じ
-       仕様: purple-400 ベース、hover 枠 (purple-400 4 px ring + 2 px paper gap) の
+       chrome 仕様: purple-400 ベース、hover 枠 (purple-400 4 px ring + 2 px paper gap) の
        <strong>さらに外側</strong>にレイアウト。通常時は invisible、ゲート hover で
        「奥から飛び出してくる」マイクロインタラクション (フェードイン + 軽いバウンス)
        で出現、handle 個別 hover で 1.15 × に拡大して purple-600 に深く、active drag
-       で 1.25 × に固定。 */
+       で 1.25 × に固定。
+       <strong>幅は JS で canvas 幅の 60% に動的にスケール</strong>させて、span が大きい (gate が広い)
+       ほど掴みやすくする (min 24 px、確率表示ブロックと同じ下限)。CSS の <code>width: 24px</code> は
+       JS で上書きされない場合の fallback。 */
     .ad-handle {
       position: absolute;
       left: 50%;
-      width: 24px;
+      width: 24px;            /* JS が canvas 幅 × 0.6 で上書き、これは fallback */
       height: 6px;
       background: var(--purple-400);
       border-radius: 3px;
@@ -240,14 +160,6 @@
     }
     .stage .zoom .ad-host { transform: scale(4); transform-origin: center; }
 
-    .doc-foot {
-      max-width: 1100px; margin: 24px auto 0; padding: 32px;
-      font-family: var(--font-mono); font-size: 12px;
-      color: var(--tx-3); letter-spacing: 0.16em; text-transform: uppercase;
-    }
-    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
-    .doc-foot a:hover { color: var(--blue-600); border-color: var(--blue-600); }
-
     .legend {
       display: grid;
       grid-template-columns: auto 1fr;
@@ -270,14 +182,23 @@
 </head>
 <body>
 
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">表示ブロック</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">振幅表示ブロック</span>
+</nav>
+
 <div class="page">
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
-  <h1 class="page-title">Amplitude display</h1>
+  <h1 class="page-title">振幅表示ブロック</h1>
   <p class="page-lede">
-    span 内 qubit を測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する display gate。
-    probability display が <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本 display は <code>α = re + i·im</code> を
+    span 内 量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    確率表示ブロックが <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本表示ブロックは <code>α = re + i·im</code> を
     <strong>outline 円 + 振幅 disk + 位相 needle</strong> の 3 層で描く。
-    <strong>span 上限は 16 qubit</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。
+    <strong>span 上限は 16 量子ビット</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。
     <strong>配色 (blue-200 fill / tx-2 outline / tx needle) は状態ベクトルパネルと完全に揃える</strong> (<code>state.rs</code> の <code>cell_contribution</code>)。
     Quirk の <code>AmplitudeDisplayFamily</code> (<code>src/gates/AmplitudeDisplay.js</code>) を Flexoki + WebGPU へ移植する仕様書。
   </p>
@@ -285,7 +206,7 @@
 
 <!-- ─────── § 01 サイズ別の見た目 + 動くモック ─────── -->
 <section class="block">
-  <h2>§ 01 サイズ別の見た目 (1〜16 qubit、動くモック)</h2>
+  <h2>§ 01 サイズ別の見た目 (1〜16 量子ビット、動くモック)</h2>
   <div class="card">
     <p>
       span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。outcome 数 <code>n = 2<sup>span</sup></code> を
@@ -298,45 +219,45 @@
 
     <h3 style="margin-top: 12px;">mock span 1〜4 (mock cellPx ≥ 38、full detail)</h3>
     <div class="stage">
-      <div class="col"><div class="caption">1 qubit · 2 outcomes<br>2×1 grid</div><div class="actual"><div class="ad-host" data-span="1" data-state="hadamard1"></div></div></div>
-      <div class="col"><div class="caption">2 qubit · 4 outcomes<br>2×2 grid</div><div class="actual"><div class="ad-host" data-span="2" data-state="mixed2"></div></div></div>
-      <div class="col"><div class="caption">3 qubit · 8 outcomes<br>2×4 grid</div><div class="actual"><div class="ad-host" data-span="3" data-state="qft3"></div></div></div>
-      <div class="col"><div class="caption">4 qubit · 16 outcomes<br>4×4 grid</div><div class="actual"><div class="ad-host" data-span="4" data-state="peak4"></div></div></div>
+      <div class="col"><div class="caption">1 量子ビット · 2 outcomes<br>2×1 grid</div><div class="actual"><div class="ad-host" data-span="1" data-state="hadamard1"></div></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4 outcomes<br>2×2 grid</div><div class="actual"><div class="ad-host" data-span="2" data-state="mixed2"></div></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8 outcomes<br>2×4 grid</div><div class="actual"><div class="ad-host" data-span="3" data-state="qft3"></div></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16 outcomes<br>4×4 grid</div><div class="actual"><div class="ad-host" data-span="4" data-state="peak4"></div></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">mock span 5〜8 (mock cellPx ≥ 13、needle 残る)</h3>
     <div class="stage">
-      <div class="col"><div class="caption">5 qubit · 32 outcomes<br>4×8 grid</div><div class="actual"><div class="ad-host" data-span="5" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">6 qubit · 64 outcomes<br>8×8 grid</div><div class="actual"><div class="ad-host" data-span="6" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">7 qubit · 128 outcomes<br>8×16 grid</div><div class="actual"><div class="ad-host" data-span="7" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">8 qubit · 256 outcomes<br>16×16 grid</div><div class="actual"><div class="ad-host" data-span="8" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">5 量子ビット · 32 outcomes<br>4×8 grid</div><div class="actual"><div class="ad-host" data-span="5" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">6 量子ビット · 64 outcomes<br>8×8 grid</div><div class="actual"><div class="ad-host" data-span="6" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">7 量子ビット · 128 outcomes<br>8×16 grid</div><div class="actual"><div class="ad-host" data-span="7" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">8 量子ビット · 256 outcomes<br>16×16 grid</div><div class="actual"><div class="ad-host" data-span="8" data-state="demo"></div></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">mock span 9〜12 (mock cellPx ∈ [5, 12)、needle 省略、outline + disk)</h3>
     <div class="stage">
-      <div class="col"><div class="caption">9 qubit · 512 outcomes<br>16×32 grid</div><div class="actual"><div class="ad-host" data-span="9" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">10 qubit · 1024 outcomes<br>32×32 grid</div><div class="actual"><div class="ad-host" data-span="10" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">11 qubit · 2048 outcomes<br>32×64 grid</div><div class="actual"><div class="ad-host" data-span="11" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">12 qubit · 4096 outcomes<br>64×64 grid</div><div class="actual"><div class="ad-host" data-span="12" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">9 量子ビット · 512 outcomes<br>16×32 grid</div><div class="actual"><div class="ad-host" data-span="9" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">10 量子ビット · 1024 outcomes<br>32×32 grid</div><div class="actual"><div class="ad-host" data-span="10" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">11 量子ビット · 2048 outcomes<br>32×64 grid</div><div class="actual"><div class="ad-host" data-span="11" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">12 量子ビット · 4096 outcomes<br>64×64 grid</div><div class="actual"><div class="ad-host" data-span="12" data-state="demo"></div></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">mock span 13〜16 (mock cellPx ≤ 2、heatmap、alpha = √(mag/max_mag)) — mock 限定の rendering</h3>
     <div class="stage">
-      <div class="col"><div class="caption">13 qubit · 8192 outcomes<br>64×128 grid</div><div class="actual"><div class="ad-host" data-span="13" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">14 qubit · 16384 outcomes<br>128×128 grid</div><div class="actual"><div class="ad-host" data-span="14" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">15 qubit · 32768 outcomes<br>128×256 grid</div><div class="actual"><div class="ad-host" data-span="15" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">16 qubit · 65536 outcomes (上限)<br>256×256 grid</div><div class="actual"><div class="ad-host" data-span="16" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">13 量子ビット · 8192 outcomes<br>64×128 grid</div><div class="actual"><div class="ad-host" data-span="13" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">14 量子ビット · 16384 outcomes<br>128×128 grid</div><div class="actual"><div class="ad-host" data-span="14" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">15 量子ビット · 32768 outcomes<br>128×256 grid</div><div class="actual"><div class="ad-host" data-span="15" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">16 量子ビット · 65536 outcomes (上限)<br>256×256 grid</div><div class="actual"><div class="ad-host" data-span="16" data-state="demo"></div></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">incoherent state (entangled)</h3>
     <p>
-      span 内 qubit が span 外と entangled していて<strong>振幅が定義できない</strong>とき
+      span 内 量子ビットが span 外と entangled していて<strong>振幅が定義できない</strong>とき
       (Quirk では <code>quality &lt; 0.99</code> で判定)、振幅レイヤ (needle) を抑制して
       代わりに密度行列由来の <code>sqrt(prob)</code> を <strong>alpha 0.45 で薄塗り</strong>し、ゲート下に "incoherent" を赤テキストで表示する。
     </p>
     <div class="stage">
       <div class="col" style="max-width: 240px;">
-        <div class="caption">2 qubit · entangled span<br>disk を 0.45 alpha で薄塗り · needle なし</div>
+        <div class="caption">2 量子ビット · entangled span<br>disk を 0.45 alpha で薄塗り · needle なし</div>
         <div class="actual">
           <div class="ad-host" data-span="2" data-state="incoherent2" data-incoherent="true"></div>
         </div>
@@ -353,6 +274,7 @@
       パレットに並ぶ <code>AmplitudeDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
       <strong>単一 cell (1×1)</strong> に <code>mag² ≈ 50%</code> の disk + 右下向き needle (<code>phase = 5π/4</code>) で
       <strong>Qni の "Q" 風シルエット</strong>を作る (円胴 + 右下に伸びるテール)。
+      matrix の四角い外枠は描かず、円胴 + 右下テールだけを表示する。
       ホバー時は外側のゲートホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
@@ -378,14 +300,14 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>span 内 qubit の <strong>複素振幅</strong> を可視化する display gate (状態に影響しない)。位相情報を保持する点が probability display との大きな差</td></tr>
-        <tr><th>span</th><td>1〜16 qubit (Quirk の <code>Gate.buildFamily(1, 16, ...)</code> と一致)。UI でリサイズハンドルから可変</td></tr>
+        <tr><th>役割</th><td>span 内 量子ビットの <strong>複素振幅</strong> を可視化する表示ブロック (状態に影響しない)。位相情報を保持する点が確率表示ブロックとの大きな差</td></tr>
+        <tr><th>span</th><td>1〜16 量子ビット (Quirk の <code>Gate.buildFamily(1, 16, ...)</code> と一致)。UI でリサイズハンドルから可変</td></tr>
         <tr><th>outcomes</th><td><code>2<sup>span</sup></code> 個。上から binary big-endian、<code>k = 0</code> = <code>|0…0⟩</code></td></tr>
         <tr><th>計算内容</th><td>span に対応する subspace を control 条件で射影し、<strong>正規化複素ベクトル ket</strong> + coherence 指標 <code>quality</code> + phase-lock index を返す。CPU リードバックなし</td></tr>
         <tr><th>シリアライズ ID</th><td><code>"Amps1"</code>..<code>"Amps16"</code> (Quirk の <code>setSerializedId("Amps" + span)</code> と同じ。span 1 も <code>"Amps1"</code>、<code>"Amps"</code> 単独は使わない)</td></tr>
         <tr><th>palette symbol</th><td><code>"Amps"</code> (Quirk <code>setSymbol("Amps")</code> に対応)</td></tr>
         <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..16 に変更</td></tr>
-        <tr><th>nesting</th><td>禁止 (display gate の中に display gate は置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
+        <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
         <tr><th>measure column</th><td>qni の lowering は measurement collapse の<strong>後</strong>に display capture するため、Quirk の "deferred measurement" 表示とは値が異なる (Quirk は collapse 前の純粋振幅、qni は collapse 後の古典化状態)。仕様としては<strong>「post-measure state を表示」</strong>と明示し、ゲート下の補助テキストは出さない。Quirk と再現性を取る場合は別途 capture 順序の入れ替えが必要 (本仕様では未採用)</td></tr>
       </tbody>
     </table>
@@ -401,7 +323,7 @@
       <tbody>
         <tr><th>幅 (gate columns)</th><td><code>span === 1 ? 2 : span % 2 === 0 ? span : ceil(span/2)</code> 列。Quirk と同じ計算式</td></tr>
         <tr><th>幅 (px)</th><td><code>(cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code> (垂直公式と対称、slot pitch 56 px に整数倍で揃う)</td></tr>
-        <tr><th>高さ (px)</th><td><code>(span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (probability display と同じ)</td></tr>
+        <tr><th>高さ (px)</th><td><code>(span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (確率表示ブロックと同じ)</td></tr>
         <tr><th>matrix 内 grid</th><td><code>w_grid × h_grid</code> (<code>w_grid = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>, <code>h_grid = n / w_grid</code>)。セルは常に正方形</td></tr>
         <tr><th>cell size</th><td><code>diam = min(width_px / w_grid, height_px / h_grid)</code>。drawArea を <code>diam × w_grid, diam × h_grid</code> に縮めて中央寄せ (cols / span ではなく <strong>matrix grid 寸法</strong> を使う点に注意)</td></tr>
         <tr><th>外枠</th><td><code>ui-2</code> 1 px、角ばり</td></tr>
@@ -440,11 +362,11 @@
 
     <h3 style="margin-top: 16px;">可変幅 (<code>56 × cols − 16</code> px) 採用に伴う実装タスク</h3>
     <p>
-      現行 qni-webgpu のゲートは <strong>resizable span でも幅 40 px 固定</strong> (例: probability display も 40 px)。本仕様の amplitude display は 2D 行列の縦横バランスを保つため <strong>span に応じた可変幅</strong> (cols = 2〜16、<strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>、96 〜 880 px) を採用する。
+      現行 qni-webgpu のゲートは <strong>resizable span でも幅 40 px 固定</strong> (例: 確率表示ブロックも 40 px)。本仕様の振幅表示ブロックは 2D 行列の縦横バランスを保つため <strong>span に応じた可変幅</strong> (cols = 2〜16、<strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>、96 〜 880 px) を採用する。
       これは現行 <code>gate_visible_rect()</code> / hit-test / drag-drop / hover ring と整合しないので、以下を併せて実装する:
     </p>
     <ul>
-      <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。amplitude display 以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
+      <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。振幅表示ブロック以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
       <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、probability / QFT の resizable と同じセマンティクス)。</li>
       <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drag 中の matrix 背景は他ゲートの drag preview と同じ <code>purple-600</code> にするが、outline 円の内側の白地は <code>bg</code> のまま残し、振幅 disk / outline / needle の色も通常時のまま変えない。回路 slot に snap して GPU の live 値が出る前も、palette から出した Amps1 は同じ GPU 表示シェーダの強制ゼロ描画インスタンスとして <code>mag = 0</code> の空セル 2 つを描く。drop target highlight も同寸。</li>
       <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 outcome の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
@@ -465,14 +387,14 @@
           <li>shift / 圧縮なし。slot index がそのまま JSON col index になる</li>
         </ol>
         <strong>衝突検出</strong>は decode/encode の責務ではなく、placement 時に幾何的に行う (次項)。</li>
-      <li><strong>水平 slot 占有モデル</strong> — qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code> (probability display と同じ。<code>40 px</code> ではない)。amplitude の幾何幅は垂直の <code>(span − 1) × LINE_GAP + GATE_SIZE</code> と対称に
+      <li><strong>水平 slot 占有モデル</strong> — qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code> (確率表示ブロックと同じ。<code>40 px</code> ではない)。amplitude の幾何幅は垂直の <code>(span − 1) × LINE_GAP + GATE_SIZE</code> と対称に
         <strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>。slot 構造としては 1 列消費 (上記 decode/encode と一致)、視覚的には <code>cols</code> slot 分の幅を覆う。
       </li>
       <li><strong>placement / 衝突検出 (幾何ベース)</strong> — slot index の比較ではなく、<strong>gate_rect の幾何交差</strong>で判定する: 新規 gate を slot N に置くとき、その <code>gate_rect (x_left..x_left + width_px, y_top..y_top + height_px)</code> と既存 gate の rect が交差していたら drop 拒否。amplitude の場合 width が広いので、右側 <code>cols − 1</code> 個分の slot 範囲に既存 gate があれば交差で検出される。<br />
         この方式なら cols 可変 × cols=1 ゲート混在も、矩形交差だけで一貫して扱える。逆に slot index 単純比較は wide gate に対して破綻するので採用しない。</li>
     </ul>
     <p class="note">
-      上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (probability display と同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
+      上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (確率表示ブロックと同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
     </p>
   </div>
 </section>
@@ -500,7 +422,7 @@
       </div>
       <div><b>(3) 振幅 disk</b> — 中心 = セル中心、半径 <code>r = mag × inner_radius</code> (= <code>mag × (cellPx/2 − stroke)</code>、<code>mag = 1</code> で outline の<strong>内側ギリギリ</strong>まで広がる)。
         <code>blue-200</code> fill (state panel の <code>state_fill</code>、Quirk <code>#8FF</code> と等価)。
-        加えて <code>blue-400</code> (probability display のバー右端と同じ) で<strong>inset の 1 px 境界線</strong>を引く: ① 半径 <code>r</code> で fill ② 半径 <code>r − 0.5</code> で stroke。stroke の外端が <code>r</code> に一致するので<strong>視認性は上がるが disk 面積は変わらない</strong>。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加</div>
+        加えて <code>blue-400</code> (確率表示ブロックのバー右端と同じ) で<strong>inset の 1 px 境界線</strong>を引く: ① 半径 <code>r</code> で fill ② 半径 <code>r − 0.5</code> で stroke。stroke の外端が <code>r</code> に一致するので<strong>視認性は上がるが disk 面積は変わらない</strong>。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#100F0F" stroke-width="2" stroke-linecap="round"><line x1="12" y1="12" x2="22" y2="6"/></svg>
       </div>
@@ -520,7 +442,7 @@
     <ul>
       <li>cell を<strong>矩形 grid で密に並べる</strong> (state panel は cell 間に 3 px gap あり)</li>
       <li>disk に <strong>blue-400 の inset 境界線 (1 px)</strong> を追加 (state panel は disk fill のみ、境界線なし)</li>
-      <li>outline 表示条件: <strong><code>mag &gt; 1e-6</code></strong> で <code>tx-2</code> / <code>≈ 0</code> で <code>ui-2</code>。10 qubit 一様振幅 (<code>prob = 1/1024</code>) のような小さいが非ゼロの振幅も non-zero outline として扱う</li>
+      <li>outline 表示条件: <strong><code>mag &gt; 1e-6</code></strong> で <code>tx-2</code> / <code>≈ 0</code> で <code>ui-2</code>。10 量子ビット 一様振幅 (<code>prob = 1/1024</code>) のような小さいが非ゼロの振幅も non-zero outline として扱う</li>
       <li>layer 合成順序: 本仕様は <em>frame → outline → disk → needle</em> (state panel は <em>fill → needle → outline</em> 合成)。cell 間の区切り線は描かない</li>
       <li>phase lock cell の別マーカーは引かない (state panel は phase lock 概念がない、本仕様も Quirk の赤マーカーを不採用)</li>
     </ul>
@@ -569,12 +491,12 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <em>needle が真上 (位相 0) を向いている cell</em> を見れば自然に lock 位置がわかる、というのが基本方針。
       Quirk 原版の赤い水平線 + <code>'fixed'</code> ラベルは <em>(a) needle 方向との視覚的衝突</em>
       (Quirk は phase 0 = 右、本仕様は phase 0 = 上)、<em>(b) state panel に同等マーカーが無いため UI が分散する</em>、の 2 点で不採用。
-      <strong><code>span == 回路全体の qubit 数</code> のときだけは phase lock を無効にする</strong> (「全体相」を持つ意味がないため、Quirk 同挙動)。
+      <strong><code>span == 回路全体の 量子ビット数</code> のときだけは phase lock を無効にする</strong> (「全体相」を持つ意味がないため、Quirk 同挙動)。
       実装は <code>AmplitudeCapture</code> uniform の <code>phase_lock_enabled</code> flag で制御する: <code>ColumnAnalysis</code> が <code>span == total_qubits</code> を検出して <code>phase_lock_enabled = 0</code> に set し、shader 側は <code>phase_lock_index = sentinel</code> を書き、stage 8 で <code>θ = 0</code> 扱い (正規化のみで位相回転なし)。詳細は § 08 stage 7/8 参照。
     </p>
     <h3 style="margin-top: 16px;">incoherent state — entangled で振幅未定義</h3>
     <p>
-      span 内 qubit が span 外と entangled しているとき、<strong>純粋状態としての振幅は定義できない</strong> (reduced density matrix のみ計算可能)。
+      span 内 量子ビットが span 外と entangled しているとき、<strong>純粋状態としての振幅は定義できない</strong> (reduced density matrix のみ計算可能)。
       Quirk は coherence 指標 <code>quality = denormalizedQuality / unity / incoherentUnity</code> を計算し、
       <code>quality &lt; 0.99</code> で incoherent と判定する。
     </p>
@@ -590,8 +512,8 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <strong>qni と Quirk で capture 順序が異なる</strong>:
     </p>
     <ul>
-      <li><strong>Quirk</strong>: 列処理の<em>前</em>に display capture → measure された qubit があっても collapse 前の純粋振幅を表示。「deferred measurement」の解釈で、ゲート下に <code>"(w/ measure defer)"</code> / <code>"(assuming measurement deferred)"</code> を <code>red-600</code> でフェードイン。</li>
-      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureProbability</code> と同じパス) → measure された qubit は collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある outcome に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一 outcome になる)。</li>
+      <li><strong>Quirk</strong>: 列処理の<em>前</em>に display capture → measure された 量子ビットがあっても collapse 前の純粋振幅を表示。「deferred measurement」の解釈で、ゲート下に <code>"(w/ measure defer)"</code> / <code>"(assuming measurement deferred)"</code> を <code>red-600</code> でフェードイン。</li>
+      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureProbability</code> と同じパス) → measure された 量子ビットは collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある outcome に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一 outcome になる)。</li>
     </ul>
     <p>
       本仕様では「<strong>post-measure state を素直に表示する</strong>」を採用。ゲート下の "incoherent" 以外の補足テキストは出さない (Quirk の "(w/ measure defer)" 系を真似ない)。Quirk と数値再現性を取る場合は別途 capture 順序の入れ替え (lowering で display を column 先頭に移動) が必要だが、本仕様では未採用。
@@ -658,14 +580,14 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       Amplitude では Quirk と同じ control-conditional 表示を行うため、capture uniform を拡張する:
     </p>
     <pre class="code">struct AmplitudeCapture {
-    base_bit:           u32,   // span 内 qubit の起点 (CaptureProbability と同じ)
+    base_bit:           u32,   // span 内 量子ビットの起点 (CaptureProbability と同じ)
     span:               u32,   // 1..=16
     output_slot:        u32,   // 結果 buffer の書き込み slot
     control_mask:       u32,   // どの state_index bit が control 条件の対象か
     control_value:      u32,   // 期待値 (該当 bit が 1 なら |1⟩ 期待、0 なら |0⟩ 期待)
     phase_lock_enabled: u32,   // 0 = 無効 (θ=0、回転なし) / 1 = 有効 (Quirk 互換、決定論的 max)
-    total_qubits:       u32,   // 回路全体の qubit 数。span == total_qubits なら ColumnAnalysis で
-                                // 自動的に phase_lock_enabled = 0 にセット (§ 06 「span == 全 qubit」例外)
+    total_qubits:       u32,   // 回路全体の 量子ビット数。span == total_qubits なら ColumnAnalysis で
+                                // 自動的に phase_lock_enabled = 0 にセット (§ 06 「span == 全量子ビット」例外)
 };</pre>
     <p>
       <strong>bit 順序</strong>: <code>control_mask</code> / <code>control_value</code> は<strong>qubit_bit (= state_index の bit position)</strong> 単位で指定。
@@ -683,7 +605,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
 //   control_value |= 0 &lt;&lt; 3;   // (= no-op)、|0⟩ 期待</pre>
     <p>
       shader 内では既存 <code>base_bit</code> と同じセマンティクスで <code>(state_index &amp; control_mask) == control_value</code> な要素のみを集約対象とする。
-      <code>control_mask = 0</code> なら無条件 (現行 probability display 同等)。controls 統合はこの uniform 1 つで完結する。
+      <code>control_mask = 0</code> なら無条件 (現行 確率表示ブロック同等)。controls 統合はこの uniform 1 つで完結する。
     </p>
 
     <h3 style="margin-top: 16px;">compute pipeline (10 stage、すべて GPU storage 内で完結)</h3>
@@ -700,7 +622,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
         <tr><td class="num">6</td><td><strong>Unity 計算</strong> — <code>unity = Σ|raw_ket|²</code> を reduce で計算</td><td><code>unity: f32</code></td></tr>
         <tr><td class="num">7</td><td><strong>phaseLockIndex search (決定論的最大)</strong> — <code>phase_lock_enabled == 1</code> のときだけ <code>raw_ket</code> を逐次走査 (Quirk と同じ workgroup_size=1 の serial reduce)、<code>m &gt; best × 10000</code> な「桁違いに大きい時だけ更新」探索で安定 index を選ぶ。<code>== 0</code> のときは <code>phase_lock_index = 0xffffffff (sentinel)</code> を書き、stage 8 で θ=0 として扱う</td><td><code>phase_lock_index: u32</code> (有効なら index、無効なら sentinel)</td></tr>
         <tr><td class="num">8</td><td><strong>正規化 + 位相回転</strong> — <code>phase_lock_index != sentinel</code> なら位相 θ = <code>atan2(raw_ket[index].im, raw_ket[index].re)</code>、それ以外は <code>θ = 0</code>。<code>ket[k] = (raw_ket[k] / √unity) × e^(−iθ)</code> を全 k 並列に書き込む (sentinel 時は正規化のみ、位相回転なし)</td><td><code>ket: vec2&lt;f32&gt;[2^span]</code> (正規化 + 必要なら phase-locked)</td></tr>
-        <tr><td class="num">9</td><td><strong>parallel: incoherent ket</strong> — probability display と同じ <code>probabilityStatTexture</code> で marginal probability、reduce で <code>incoherentUnity</code>、<code>incoherent_ket[k] = √(p_k / incoherentUnity)</code></td><td><code>incoherent_ket: f32[2^span]</code></td></tr>
+        <tr><td class="num">9</td><td><strong>parallel: incoherent ket</strong> — 確率表示ブロックと同じ <code>probabilityStatTexture</code> で marginal probability、reduce で <code>incoherentUnity</code>、<code>incoherent_ket[k] = √(p_k / incoherentUnity)</code></td><td><code>incoherent_ket: f32[2^span]</code></td></tr>
         <tr><td class="num">10</td><td><strong>合成 (render shader 用 layout)</strong> — <code>ket / incoherent_ket / quality / phase_lock_index</code> を 1 つの storage struct にまとめる。render shader はこれを直接 sample</td><td><code>amplitude_result: AmplitudeRenderInput</code></td></tr>
       </tbody>
     </table>
@@ -722,7 +644,7 @@ for (k = 0u; k &lt; n; k++) {
 
     <h3 style="margin-top: 16px;">Render shader (毎フレーム描画、readback 無し)</h3>
     <p>
-      矩形 cell grid を fragment shader で描く (probability display の <code>STATE_RENDER_SHADER</code> と同じパターン)。
+      矩形 cell grid を fragment shader で描く (確率表示ブロックの <code>STATE_RENDER_SHADER</code> と同じパターン)。
       入力 storage buffer (<code>ket / incoherent_ket / quality / phaseLockIndex</code>) を直接 sample。
       <strong>quality &lt; 0.99 の判定も fragment shader 内で行う</strong> (incoherent fallback 切替) — CPU 分岐ではない。
       needle 線・matrix 外枠・outline 円・disk・disk 境界線はすべて<strong>1 dispatch の draw call</strong> で出す:
@@ -739,12 +661,12 @@ for (k = 0u; k &lt; n; k++) {
     <h3 style="margin-top: 16px;">Popup の値も GPU 描画 (readback 無し、glyph atlas + overlay shader)</h3>
     <p>
       ホバー popup の数値 (coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行) は<strong>本番 UI 経路</strong>なので、GPU-only ルールに従い<strong>readback しない</strong>。
-      代わりに <em>glyph atlas + overlay render pass</em> で GPU 上で文字を直接合成する (Probability display popup と同じ方針)。
+      代わりに <em>glyph atlas + overlay render pass</em> で GPU 上で文字を直接合成する (確率表示ブロックのポップアップと同じ方針)。
       coherent / incoherent の分岐は overlay fragment shader 内で <code>quality &lt; 0.99</code> を判定して切り替える (擬似コードは下記)。
     </p>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">必要なリソース</h4>
     <ul>
-      <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>Probability popup と完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
+      <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>確率表示ブロックのポップアップと完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
       <li><strong><code>amplitude_result</code></strong> — § 08 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む</li>
       <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — hovered cell の index <code>hovered_k: u32</code>、popup screen 位置 <code>popup_pos: vec2&lt;f32&gt;</code>、表示 / 非表示 flag</li>
     </ul>
@@ -781,24 +703,24 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
 }</pre>
     <p>
       <code>compute_glyph_uv_coherent</code> / <code>compute_glyph_uv_incoherent</code> は同じ glyph atlas を sample するが、
-      ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは Probability popup と<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
-    <h4 style="margin: 12px 0 6px; font-size: 14px;">Probability popup との共有</h4>
+      ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは 確率表示ブロックのポップアップと<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">確率表示ブロックのポップアップとの共有</h4>
     <p>
-      Probability display popup の既存 <strong>glyph atlas + format callback</strong> パターンを再利用する:
+      確率表示ブロックのポップアップの既存 <strong>glyph atlas + format callback</strong> パターンを再利用する:
     </p>
     <ul>
-      <li><strong>glyph atlas 本体</strong> — 既に Probability popup で実装済み (<code>shaders/glyph_atlas.wgsl</code>)。ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
-      <li><strong>format helper</strong> — Probability popup で <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> 等が既にある。Amplitude は <strong>新規に</strong> 以下を追加:
+      <li><strong>glyph atlas 本体</strong> — 既に 確率表示ブロックのポップアップで実装済み (<code>shaders/glyph_atlas.wgsl</code>)。ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
+      <li><strong>format helper</strong> — 確率表示ブロックのポップアップで <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> 等が既にある。Amplitude は <strong>新規に</strong> 以下を追加:
         <ul>
           <li><code>format_complex(re, im, decimals)</code> — <code>"0.50000 + 0.30000i"</code> 形式。sign / 整数桁 / 小数桁 / "i" 記号 を順に glyph に逆引き。</li>
           <li><code>format_signed_deg(deg, decimals)</code> — <code>"+30.96°"</code> 形式。<code>format_percent</code> に sign prefix を足したものと同等構造。</li>
         </ul>
       </li>
-      <li><strong>log10 の WGSL fallback</strong> — WGSL には <code>log10</code> が無いので <code>log10(x) = log(x) / log(10.0)</code> (= <code>log(x) * 0.4342945</code>) を <code>glyph_format.wgsl</code> 内に inline 定義。Probability popup の dB 表示でも同じ式が必要なので、Probability/Amplitude 共有 helper として置く。</li>
+      <li><strong>log10 の WGSL fallback</strong> — WGSL には <code>log10</code> が無いので <code>log10(x) = log(x) / log(10.0)</code> (= <code>log(x) * 0.4342945</code>) を <code>glyph_format.wgsl</code> 内に inline 定義。確率表示ブロックのポップアップの dB 表示でも同じ式が必要なので、Probability/Amplitude 共有 helper として置く。</li>
       <li><strong><code>atan2</code></strong> は WGSL builtin なので追加実装不要。</li>
     </ul>
     <p class="note" style="margin-top: 8px;">
-      Probability popup が既に動いていれば、Amplitude popup の glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」だけ</strong>で済む見込み。 fragment shader 内で完全な printf を実装するわけではなく、Probability ポップアップの既存パイプラインに乗せる前提。
+      確率表示ブロックのポップアップが既に動いていれば、振幅表示ブロックのポップアップの glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」だけ</strong>で済む見込み。 fragment shader 内で完全な printf を実装するわけではなく、確率表示ブロックのポップアップの既存パイプラインに乗せる前提。
     </p>
     <p class="note" style="margin-top: 12px;">
       <strong>readback はテスト専用 API に限定:</strong>
@@ -821,8 +743,8 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       <tbody>
         <tr>
           <td><strong>span 上限</strong></td>
-          <td><code>16</code> qubit</td>
-          <td>Quirk と同じ。probability display も 16 なのでパレット内で揃う。<code>2<sup>16</sup> = 65 536</code> 振幅 (vec2&lt;f32&gt; で 512 KB) は WebGPU storage の許容範囲内</td>
+          <td><code>16</code> 量子ビット</td>
+          <td>Quirk と同じ。確率表示ブロックも 16 なのでパレット内で揃う。<code>2<sup>16</sup> = 65 536</code> 振幅 (vec2&lt;f32&gt; で 512 KB) は WebGPU storage の許容範囲内</td>
         </tr>
         <tr>
           <td><strong>位相エンコーディング</strong></td>
@@ -847,7 +769,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>shader 構造</strong></td>
           <td>段階的 reduce (Quirk の 6 stage を 10 compute pass に分解; § 08 参照)</td>
-          <td>probability display と同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
+          <td>確率表示ブロックと同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
         </tr>
         <tr>
           <td><strong>layer 合成順序</strong></td>
@@ -857,7 +779,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>disk 境界線</strong></td>
           <td><code>blue-400</code> inset 1 px stroke</td>
-          <td>probability display のバー右端と同じ濃さ。inset で disk 面積は変わらない</td>
+          <td>確率表示ブロックのバー右端と同じ濃さ。inset で disk 面積は変わらない</td>
         </tr>
         <tr>
           <td><strong>palette icon</strong></td>
@@ -877,7 +799,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>controls 統合</strong></td>
           <td><code>AmplitudeCapture</code> uniform に <code>control_mask / control_value</code> を追加</td>
-          <td>1 uniform で完結、probability display が将来 controls 対応する場合の参考実装にもなる (§ 08 参照)</td>
+          <td>1 uniform で完結、確率表示ブロックが将来 controls 対応する場合の参考実装にもなる (§ 08 参照)</td>
         </tr>
       </tbody>
     </table>
@@ -905,11 +827,11 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       </li>
       <li><strong>known-state amplitude (GPU compute 正しさ)</strong> (Rust + GPU snapshot, <code>#[test]</code> × N):
         <ol>
-          <li><strong>H q0 / 2 qubit 回路、span 1 amplitude on q0</strong> (<code>total_qubits = 2 &gt; span = 1</code> なので phase lock 有効) → ket = [1/√2, 1/√2]、quality ≈ 1.0、phaseLockIndex = 0</li>
-          <li><strong>QFT q0..q2 を <code>|001⟩</code> に適用 / 4 qubit 回路、span 3 amplitude on q0..q2</strong> (<code>total_qubits = 4 &gt; span = 3</code>) → raw ket[k] = (1/√8) e<sup>iπk/4</sup> (位相が 8 方向にランプ、全 mag² = 1/8 で等振幅)。<strong>phase lock は全成分を実数化しない</strong>: <code>m &gt; best × 10000</code> な決定論的最大は等振幅では更新条件を満たさず、<code>phaseLockIndex = 0</code> で確定する (k=0 の <code>θ_lock = 0</code>、他は元の位相のまま)。quality ≈ 1.0 を assert</li>
+          <li><strong>H q0 / 2 量子ビット 回路、span 1 amplitude on q0</strong> (<code>total_qubits = 2 &gt; span = 1</code> なので phase lock 有効) → ket = [1/√2, 1/√2]、quality ≈ 1.0、phaseLockIndex = 0</li>
+          <li><strong>QFT q0..q2 を <code>|001⟩</code> に適用 / 4 量子ビット 回路、span 3 amplitude on q0..q2</strong> (<code>total_qubits = 4 &gt; span = 3</code>) → raw ket[k] = (1/√8) e<sup>iπk/4</sup> (位相が 8 方向にランプ、全 mag² = 1/8 で等振幅)。<strong>phase lock は全成分を実数化しない</strong>: <code>m &gt; best × 10000</code> な決定論的最大は等振幅では更新条件を満たさず、<code>phaseLockIndex = 0</code> で確定する (k=0 の <code>θ_lock = 0</code>、他は元の位相のまま)。quality ≈ 1.0 を assert</li>
           <li><strong>非 0 lock の確認</strong> (Rust, <code>#[test]</code>) — k=2 の振幅だけを圧倒的最大にした state (例: <code>|010⟩</code> 単独基底状態) を作り、<code>phaseLockIndex = 2</code> が選ばれて θ_lock = (k=2 の位相) で全成分が回転されることを assert</li>
           <li><em>注</em>: <code>QFT|0⟩</code> は全成分が実数一様 (= (1/√8, 1/√8, …))、位相ランプは出ない。位相ランプを観測するには <code>|001⟩</code> 等の非基底零状態を入力にする (Quirk と同じ定義)</li>
-          <li><strong>span == total_qubits、phase lock 無効</strong> (例: 1 qubit 回路に H q0、span 1) → <code>phase_lock_enabled = 0</code>、<code>phaseLockIndex = 0xffffffff (sentinel)</code>、ket は正規化のみ (位相回転なし)、quality ≈ 1.0</li>
+          <li><strong>span == total_qubits、phase lock 無効</strong> (例: 1 量子ビット 回路に H q0、span 1) → <code>phase_lock_enabled = 0</code>、<code>phaseLockIndex = 0xffffffff (sentinel)</code>、ket は正規化のみ (位相回転なし)、quality ≈ 1.0</li>
           <li><strong>entangled (Bell state、span 1 だけ覗く)</strong> → <code>quality &lt; 0.99</code>、<code>incoherent_ket = sqrt(reduced diag)</code> を assert</li>
         </ol>
         各シナリオで読み出し API (<code>read_amplitude_cell</code>) を呼んで個別 outcome を assert。
@@ -941,22 +863,20 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   </div>
 </section>
 
-<div class="doc-foot">
-  <a href="./probability-display.html">← probability-display</a> ·
-  <a href="./bloch-display.html">bloch-display</a> ·
-  <a href="./design-system.html">design-system</a>
-  · widget spec · 2026-05
-</div>
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 振幅表示ブロック仕様 · 2026-05</p>
+</footer>
 
 <script>
-  /* ─── Amplitude display canvas renderer + cell tooltip ───
+  /* ─── 振幅表示ブロックの canvas renderer + cell tooltip ───
      Quirk の MathPainter.paintMatrix を 1:1 で写したシンプルな実装。
      入力: state = Float32Array (re, im, re, im, ...)、長さ 2*n。
      w_grid × h_grid に配置、cell = diam × diam。 */
 
   const BG          = '#FFFCF0';
   const BLUE_200    = '#92BFDB';  /* amplitude disk fill = state_fill */
-  const BLUE_400    = '#4385BE';  /* amplitude disk border (probability display bar 右端と同じ濃さ) */
+  const BLUE_400    = '#4385BE';  /* amplitude disk border (確率表示ブロック bar 右端と同じ濃さ) */
   const UI_2        = '#DAD8CE';  /* zero-amp outline (state_outline_zero) */
   const TX_2        = '#6F6E69';  /* non-zero outline (state_outline) */
   const TX          = '#100F0F';  /* phase needle (state_needle) */
@@ -970,7 +890,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       buf[0] = v; buf[1] = 0;
       buf[2] = v; buf[3] = 0;
     } else if (name === 'mixed2') {
-      // 任意の 2 qubit superposition (|0.4|² + |0.5+0.3i|² + |0.3-0.4i|² + |0.5|² = 1.0)
+      // 任意の 2 量子ビット superposition (|0.4|² + |0.5+0.3i|² + |0.3-0.4i|² + |0.5|² = 1.0)
       buf[0] = 0.4;  buf[1] = 0.0;
       buf[2] = 0.5;  buf[3] = 0.3;
       buf[4] = 0.3;  buf[5] = -0.4;
@@ -1145,9 +1065,12 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     const useHeatmap  = cellPx < 3;
 
     // (5) frame (先に下に敷く)。cell 間の区切り線は描かず、matrix 外枠だけを描く。
-    ctx.strokeStyle = UI_2;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, Math.max(0, W - 1), Math.max(0, H - 1));
+    // パレットアイコンだけは小さな四角枠を省き、Q 風シルエットを優先する。
+    if (!isIcon) {
+      ctx.strokeStyle = UI_2;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, Math.max(0, W - 1), Math.max(0, H - 1));
+    }
 
     // (2) outline 円 — state panel と同じ: prob > 0 で tx-2、≈ 0 で ui-2
     if (showOutline) {
@@ -1182,7 +1105,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       });
     } else if (!incoherent) {
       const r_base = showOutline ? inner_radius : Math.max(0.5, cellPx / 2 - 0.5);
-      // probability display のバー右端と同じ濃さの blue-400 を「inset border」として描く。
+      // 確率表示ブロックのバー右端と同じ濃さの blue-400 を「inset border」として描く。
       // ① 半径 r で fill ② 半径 r - 0.5 で 1 px stroke → stroke の外側 = r、面積は変わらない
       cellsForEach((re, im, x, y) => {
         const mag = Math.sqrt(re*re + im*im);
@@ -1311,13 +1234,18 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     const info = buildAdCanvas(host);
     host.appendChild(info.canvas);
     if (host.dataset.noPopup !== 'true') attachPopup(host, info);
-    // リサイズハンドル: icon mode 以外で追加。probability-display.html と同じ仕様。
+    // リサイズハンドル: icon mode 以外で追加。probability-display.html と同じ chrome 仕様だが、
+    // 振幅表示ブロックは span が大きいほど本体幅が広くなる (最大 ~320 px in mock、~880 px in production) ため、
+    // ハンドル幅も canvas 幅の 60% に比例させて掴みやすくする (min 24 px、確率表示ブロックと同じ最小値)。
     if (!host.classList.contains('icon')) {
+      const handleWidth = Math.max(24, Math.round(info.canvas.width * 0.6));
       const top = document.createElement('div');
       top.className = 'ad-handle ad-handle--top';
+      top.style.width = handleWidth + 'px';
       top.setAttribute('aria-hidden', 'true');
       const bottom = document.createElement('div');
       bottom.className = 'ad-handle ad-handle--bottom';
+      bottom.style.width = handleWidth + 'px';
       bottom.setAttribute('aria-hidden', 'true');
       host.appendChild(top);
       host.appendChild(bottom);

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qni-webgpu デザインシステム — インデックス</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+    /* index 固有スタイル (spec-grid / spec-card / pill / link-list / legend)。
+       共通スタイル (body / .page / section.block / .card / table.spec / pre.code 等) は
+       design-system.css にある。 */
+
+    /* ── 仕様カードグリッド ─────────────────────── */
+    .spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .spec-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 16px 20px; /* spacing-4 / spacing-5 */
+      display: flex; flex-direction: column; gap: 8px; /* spacing-2 */
+      text-decoration: none; color: inherit;
+      transition: border-color .12s ease, transform .12s ease, box-shadow .12s ease;
+    }
+    .spec-card[href]:hover {
+      border-color: var(--blue-400);
+      box-shadow: 0 4px 14px rgba(32, 94, 166, 0.08);
+      transform: translateY(-1px);
+    }
+    .spec-card.dim {
+      background: transparent;
+      border-style: dashed;
+      border-color: var(--ui-2);
+      cursor: default;
+    }
+    .spec-card .row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+    }
+    .spec-card .name {
+      font-weight: 600; font-size: 14px; line-height: 20px; /* text-sm */
+      color: var(--tx); letter-spacing: -0.005em;
+    }
+    .spec-card.dim .name { color: var(--tx-3); }
+    .spec-card .desc {
+      margin: 0; color: var(--tx-2);
+      font-size: 12px; line-height: 16px; /* text-xs */
+    }
+    .spec-card.dim .desc { color: var(--tx-3); }
+    .spec-card .meta {
+      font-family: var(--font-mono);
+      font-size: 12px; line-height: 16px; /* text-xs */
+      letter-spacing: 0.04em; color: var(--tx-3);
+    }
+    .spec-card .meta code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 12px; /* text-xs */
+      color: var(--tx-2);
+    }
+
+    /* ── ステータス pill ────────────────────────── */
+    .pill {
+      display: inline-flex; align-items: center;
+      font-family: var(--font-mono);
+      font-size: 12px; line-height: 16px; /* text-xs */
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0 8px; border-radius: 999px; /* spacing-2 */
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .pill.done   { color: var(--green-600);  border-color: rgba(102, 128, 11, 0.32);  background: rgba(102, 128, 11, 0.08); }
+    .pill.draft  { color: var(--orange-400); border-color: rgba(218, 112, 44, 0.32);  background: rgba(218, 112, 44, 0.08); }
+    .pill.todo   { color: var(--tx-3);       border-color: var(--ui-2);              background: var(--bg-2); }
+    .pill.ref    { color: var(--blue-600);   border-color: rgba(32, 94, 166, 0.28);  background: rgba(32, 94, 166, 0.06); }
+
+    /* ── 関連ドキュメント (シンプルなリンクリスト) ───── */
+    ul.link-list {
+      list-style: none; padding: 0; margin: 0;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 8px 24px; /* spacing-2 / spacing-6 */
+    }
+    ul.link-list li {
+      padding: 8px 0; /* spacing-2 */
+      color: var(--tx-2);
+      font-size: 14px; line-height: 20px; /* text-sm */
+      border-bottom: 1px solid var(--ui-2);
+      display: flex; gap: 8px; align-items: baseline;
+    }
+    ul.link-list a {
+      color: var(--tx); text-decoration: none;
+      border-bottom: 1px dotted var(--tx-3);
+    }
+    ul.link-list a:hover { color: var(--blue-600); border-color: var(--blue-600); }
+    ul.link-list .kind {
+      font-family: var(--font-mono);
+      font-size: 12px; line-height: 16px; /* text-xs */
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--tx-3); min-width: 56px;
+    }
+
+    /* ── 凡例 ──────────────────────────────── */
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 8px 20px; /* spacing-2 / spacing-5 */
+      font-size: 14px; line-height: 20px; /* text-sm */
+      color: var(--tx-2);
+      align-items: center;
+    }
+    .legend .item { display: inline-flex; align-items: center; gap: 8px; }
+
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · index</p>
+  <h1 class="page-title">デザインシステム</h1>
+  <p class="page-lede">
+    qni-webgpu の UI コンポーネント仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 つにまとめたインデックス。
+    各カードは個別の仕様ドキュメント (<code>docs/&lt;component&gt;.html</code>) にリンクしており、
+    <a href="probability-display.html">probability-display.html</a> をテンプレートとして同じ構造で増やしていく。
+    配色は <strong>Flexoki Light</strong>、タイポ / 余白は <strong>Tailwind デフォルトスケール</strong>に厳密に合わせる。
+  </p>
+
+  <p class="note" style="margin-top: 16px;">
+    <span class="legend">
+      <span class="item"><span class="pill done">spec</span><span>仕様ドキュメント済</span></span>
+      <span class="item"><span class="pill draft">draft</span><span>モック / 検討中</span></span>
+      <span class="item"><span class="pill todo">todo</span><span>未着手 (今後追加)</span></span>
+      <span class="item"><span class="pill ref">ref</span><span>横断的な参照ドキュメント</span></span>
+    </span>
+  </p>
+</div>
+
+<!-- ─────── § 01 表示ブロック (Display blocks) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>表示ブロック (Display blocks)</h2>
+  <p class="note">
+    回路上に「読み取り」だけを行う要素群。ユニタリ変換ではないので厳密にはゲートではなく、`表示ブロック` と呼ぶ。状態ベクトルに影響を与えず、span 内 量子ビットの確率や ブロッホベクトル等を可視化する。
+  </p>
+  <div class="spec-grid">
+
+    <a class="spec-card" href="probability-display.html">
+      <div class="row">
+        <span class="name">確率表示ブロック</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">span 内 量子ビットを測定した場合の outcome 確率を可視化。span 1〜4 は横バー + <code>XX.X%</code> ラベル、span 5〜16 はバー主体 (省ラベル + 対数ヒント線)。ホバー時に raw / log 詳細をポップアップ表示。</p>
+      <div class="meta"><code>Probability</code> · <code>probability.rs</code></div>
+    </a>
+
+    <a class="spec-card" href="bloch-display.html">
+      <div class="row">
+        <span class="name">ブロッホ球表示ブロック</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">単一 量子ビットの ブロッホベクトル (x, y, z) を透視投影 + 矢印で可視化。span 1 固定、GPU reduce → overlay でリードバックなし。</p>
+      <div class="meta"><code>Bloch</code> · <code>bloch.rs</code></div>
+    </a>
+
+    <a class="spec-card" href="amplitude-display.html">
+      <div class="row">
+        <span class="name">振幅表示ブロック</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">span 内 量子ビットの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する表示ブロック。state panel と同じ 3 層 (outline 円 + blue-200 disk + tx needle) を 1〜16 量子ビット grid に並べる。位相 0 = 真上。Quirk <code>AmplitudeDisplayFamily</code> の WebGPU 移植仕様。</p>
+      <div class="meta"><code>Amps</code> · <code>amplitude.rs</code></div>
+    </a>
+
+    <div class="spec-card dim">
+      <div class="row">
+        <span class="name">密度行列表示ブロック</span>
+        <span class="pill todo">todo</span>
+      </div>
+      <p class="desc">部分系の密度行列をヒートマップとして表示する表示ブロック。</p>
+      <div class="meta"><code>Density</code></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 02 量子ゲート (Operation gates) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>量子ゲート (Operation gates)</h2>
+  <p class="note">
+    状態ベクトルを変化させる単項 / 二項 / 制御ゲート群。すべて <strong>40px ゲート本体 + 56px ピッチ</strong>
+    (<code>GATE_SIZE = 40</code>, <code>LINE_GAP = SLOT_SPACING = 56</code>) に揃え、共通の hover / drag 挙動を持つ。
+    サイズ統一の経緯は <a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a> 参照。
+  </p>
+  <div class="spec-grid">
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Hadamard (H)</span><span class="pill todo">todo</span></div>
+      <p class="desc">1 量子ビット H ゲート。グリフ "H" を中央に描画。</p>
+      <div class="meta"><code>H</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Pauli (X / Y / Z)</span><span class="pill todo">todo</span></div>
+      <p class="desc">基本 1 量子ビット ゲート群。X は ⊕ 記号、Y / Z はグリフ表記。</p>
+      <div class="meta"><code>X</code> · <code>Y</code> · <code>Z</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Phase (S / T)</span><span class="pill todo">todo</span></div>
+      <p class="desc">位相ゲート S / T とその逆。</p>
+      <div class="meta"><code>S</code> · <code>T</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Control / Anti-control</span><span class="pill todo">todo</span></div>
+      <p class="desc">制御量子ビットマーカ。配線 (connector) と組で描画する。</p>
+      <div class="meta"><code>•</code> · <code>circuit_connectors.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Swap</span><span class="pill todo">todo</span></div>
+      <p class="desc">2 量子ビットの swap マーカ (× 記号) と接続線。</p>
+      <div class="meta"><code>Swap</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Measure</span><span class="pill todo">todo</span></div>
+      <p class="desc">射影測定ゲート。実装は <code>measure.rs</code>。</p>
+      <div class="meta"><code>Measure</code> · <code>measure.rs</code></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 03 回路エディタ (Circuit editor) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>回路エディタ (Circuit editor)</h2>
+  <p class="note">
+    ゲートを配置・編集する作業領域。グリッド、配線、ドラッグ / リサイズ操作、ホバー挙動などの仕様をまとめる。
+  </p>
+  <div class="spec-grid">
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Circuit grid</span><span class="pill todo">todo</span></div>
+      <p class="desc">回路本体のグリッド + 量子ビットワイヤ。40px ゲート本体を 56px ピッチで並べる。</p>
+      <div class="meta"><code>circuit.rs</code> · <code>circuit_gates.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Connectors</span><span class="pill todo">todo</span></div>
+      <p class="desc">制御線 / swap 線 / span 結合線などのコネクタ描画。</p>
+      <div class="meta"><code>circuit_connectors.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Gate hover feedback</span><span class="pill draft">draft</span></div>
+      <p class="desc">ゲートホバー時の枠 / ハイライト挙動 (purple-400)。</p>
+      <div class="meta"><a href="gate-hover-feedback-options.html"><code>gate-hover-feedback-options.html</code></a></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Gate drag &amp; drop</span><span class="pill draft">draft</span></div>
+      <p class="desc">パレット / 回路間のドラッグ &amp; ドロップ、配置プレビュー。</p>
+      <div class="meta"><a href="egui-web-drag-optimization-plan.md"><code>egui-web-drag-optimization-plan.md</code></a></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Resize handle</span><span class="pill draft">draft</span></div>
+      <p class="desc">span を持つゲートのリサイズハンドルと挙動。</p>
+      <div class="meta"><a href="circuit-picker.html"><code>circuit-picker.html</code></a></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 04 パレット / ピッカー / ツールバー ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>パレット / ピッカー / ツールバー</h2>
+  <p class="note">
+    回路の周辺 UI。ゲートパレット、回路ピッカー、ツールバー、ステータス表示など。
+  </p>
+  <div class="spec-grid">
+
+    <a class="spec-card" href="gate-palette.html">
+      <div class="row">
+        <span class="name">Gate palette</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">上部中央 2 行 (13 + 12 個) のゲートパレット。40 × 40 px アイコンの drag source。hover ring と tooltip、Spacer による視覚的区切りを 1 仕様書にまとめる。</p>
+      <div class="meta"><code>circuit_palette/</code></div>
+    </a>
+
+    <a class="spec-card" href="circuit-picker.html">
+      <div class="row">
+        <span class="name">Circuit picker</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">複数回路を切り替える / 並び替える / リサイズするピッカー。drag-to-reorder + separator resize を 1 仕様書に統合。</p>
+      <div class="meta"><code>circuit_picker.rs</code></div>
+    </a>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">Toolbar</span><span class="pill draft">draft</span></div>
+      <p class="desc">回路上部の操作ツールバー。複製・削除・undo/redo など。</p>
+      <div class="meta"><a href="toolbar-duplicate-mock.html"><code>toolbar-duplicate-mock.html</code></a> · <code>toolbar.rs</code></div>
+    </div>
+
+    <a class="spec-card" href="lock-button.html">
+      <div class="row">
+        <span class="name">Lock / Unlock button</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">ツールバー右端のロックトグル。Lucide <code>lock-open</code> / <code>lock</code> を 18px 表示。locked (My) は <code>ui</code> 背景ピル、locked (Example) は <code>tx-3</code> disabled 固定。Example Circuits の保護とユーザ回路の意図的ロックを 1 ボタンで扱う。</p>
+      <div class="meta"><code>ToolbarIcon::Lock</code> · <code>toolbar.rs</code></div>
+    </a>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">GPU status pill</span><span class="pill draft">draft</span></div>
+      <p class="desc">GPU 実行状態 / フレームレートを示す右上の status pill。</p>
+      <div class="meta"><a href="gpu-run-status-mock.html"><code>gpu-run-status-mock.html</code></a> · <code>gpu_status_pill.rs</code></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 05 状態パネル (State panel) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>状態パネル (State panel)</h2>
+  <p class="note">
+    回路実行後の状態ベクトル / 確率分布などを表示する右側パネル。レイアウト、ポップアップ、クロムなどを別仕様としてまとめる予定。
+  </p>
+  <div class="spec-grid">
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">State panel layout</span><span class="pill todo">todo</span></div>
+      <p class="desc">パネルのチャネル / 行 / ピッチなど寸法仕様。</p>
+      <div class="meta"><code>state_panel_layout.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">State panel draw</span><span class="pill todo">todo</span></div>
+      <p class="desc">GPU 直接描画 (リードバックなし) の描画パスとシェーダ。</p>
+      <div class="meta"><code>state_panel_draw.rs</code> · <code>state.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">State panel popup</span><span class="pill todo">todo</span></div>
+      <p class="desc">状態セルホバー時に出る詳細ポップアップ (確率 / 振幅)。</p>
+      <div class="meta"><code>state_panel_popup.rs</code> · <code>popup_value.rs</code></div>
+    </div>
+
+    <div class="spec-card dim">
+      <div class="row"><span class="name">State panel chrome</span><span class="pill todo">todo</span></div>
+      <p class="desc">パネル枠 / ヘッダ / フッタなどの装飾要素。</p>
+      <div class="meta"><code>state_panel_chrome.rs</code></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 06 関連ドキュメント (横断的な参照) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>関連ドキュメント</h2>
+  <p class="note">
+    特定のコンポーネント仕様ではないが、デザインシステム全体方針や移行計画、過去のモックなど、参照頻度の高いドキュメントをまとめる。
+  </p>
+  <div class="card">
+    <ul class="link-list">
+      <li><span class="kind">arch</span><a href="design-system-architecture.html">design-system-architecture.html</a></li>
+      <li><span class="kind">arch</span><a href="project-overview.html">project-overview.html</a></li>
+      <li><span class="kind">migr</span><a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a></li>
+      <li><span class="kind">mock</span><a href="probability-display-mock.html">probability-display-mock.html</a></li>
+      <li><span class="kind">mock</span><a href="probability-display-corner-options.html">probability-display-corner-options.html</a></li>
+      <li><span class="kind">spec</span><a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a></li>
+      <li><span class="kind">plan</span><a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a></li>
+      <li><span class="kind">mock</span><a href="large-gpu-mode-ui-mock.html">large-gpu-mode-ui-mock.html</a></li>
+      <li><span class="kind">audit</span><a href="egui-web-perf-audit.html">egui-web-perf-audit.html</a></li>
+      <li><span class="kind">plan</span><a href="refactor-candidates.html">refactor-candidates.html</a></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 07 新しい仕様ドキュメントの追加手順 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span>仕様ドキュメントの追加手順</h2>
+  <div class="card">
+    <p>新しいコンポーネントの仕様を増やすときは、以下の順で進める。</p>
+    <ol style="margin: 4px 0 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7;">
+      <li><a href="probability-display.html"><code>docs/probability-display.html</code></a> をコピーし <code>docs/&lt;component&gt;.html</code> として保存する。</li>
+      <li>セクション構成 (寸法 / 配色 / 挙動 / 実装参照) は維持し、実コードの値と <strong>1:1</strong> で揃える。</li>
+      <li>配色は Flexoki Light のみ、フォントサイズ / 余白は Tailwind デフォルトスケールから選ぶ (<a href="../AGENTS.md">AGENTS.md</a> 参照)。</li>
+      <li>ASCII アートは使わず、図は HTML/CSS または Mermaid / インライン SVG で描く。</li>
+      <li>本ファイル (<code>docs/design-system.html</code>) の該当カテゴリにカードを追加し、ステータスを <code>spec</code> に上げる。</li>
+    </ol>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="meta">qni-webgpu · design system · index · 2026-05</p>
+</footer>
+
+</body>
+</html>

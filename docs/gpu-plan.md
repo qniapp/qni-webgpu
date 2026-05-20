@@ -5,7 +5,7 @@
 ## 現在の方針
 
 - 量子状態の更新は WebGPU compute shader のみで行う。
-- CPU は state vector / 密度行列 / 測定確率 / Bloch ベクトルを計算しない。
+- CPU は state vector / 密度行列 / 測定確率 / ブロッホベクトルを計算しない。
 - CPU は semantic circuit から GPU dispatch 用の plan / params を作るだけ。
 - 状態ベクトル円、Bloch overlay、measurement digit は GPU storage buffer を render shader が直接 sample する。
 - `read_state_vector` / `read_bloch_vectors` / `read_measurement_outcomes` は Playwright などテスト用の on-demand readback。production render path では使わない。
@@ -38,9 +38,9 @@ flowchart LR
 - `MEASURE_COLLAPSE_SHADER` が選ばれた基底へ射影し、GPU 上で正規化する。
 - outcome は `measurement_aux_buffer` に残り、`MEASUREMENT_DIGIT_SHADER` が直接 sample して 0/1 を描画する。
 
-### Bloch display
+### ブロッホ球表示ブロック
 
-- `BLOCH_REDUCE_SHADER` が state buffer から per-qubit Bloch vector を計算する。
+- `BLOCH_REDUCE_SHADER` が state buffer から量子ビットごとのブロッホベクトルを計算する。
 - `BLOCH_OVERLAY_SHADER` が `bloch_output_buffer` を直接 sample し、矢印と tip dot を描く。
 - Bell など maximally mixed な局所状態のゼロベクトル表示も shader-side の値で決まる。
 
@@ -48,7 +48,7 @@ flowchart LR
 
 - `StateVectorCallback` が render params（viewport / panel origin / cell pitch / colors など）だけを渡す。
 - 状態円の振幅・位相・確率表現は GPU shader が state buffer を直接参照して描く。
-- CPU は per-cell probability / phase / Bloch 値を作らない。
+- CPU は per-cell probability / phase / ブロッホ値を作らない。
 - 回路列の hover / breakpoint 用プレビューは qni と同じく step ごとの結果をキャッシュする。ただし qni の worker CPU キャッシュではなく、WebGPU の `state_snapshot_cache_buffer` に列ごとの state buffer を copy して保持する。hover 中は該当 slot を `state_preview_buffer` へ GPU copy するだけで、compute shader は再実行しない。疎な URL 入力で巨大な空列キャッシュを作らないよう、snapshot slot は `MAX_STEP_SNAPSHOT_SLOTS` で明示的に上限管理する。
 
 ## CPU に残す処理

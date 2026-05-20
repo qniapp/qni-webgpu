@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>確率表示ブロックの角丸案</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    /* Option レイアウト: 左に mock、右に解説 */
+    .option-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+    .option-stage {
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      height: 200px;
+      position: relative;
+    }
+    .option-stage .label {
+      position: absolute; left: 8px; top: 6px;
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+      color: var(--tx-3); text-transform: uppercase;
+    }
+
+    /* 4× にスケール表示するためのコンテナ。32 px ベース → 128 px。 */
+    .hover-frame {
+      width: 128px; height: 128px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    /* ホバー枠: 実装と同じ Flexoki purple-400 (#8B7EC8)。10/8 px → 4× で 40/32 px。 */
+    .hover-frame::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 40px;
+      background: var(--purple-400);
+    }
+    .hover-frame::after {
+      content: '';
+      position: absolute; inset: 8px;
+      border-radius: 32px;
+      background: var(--bg);
+    }
+    .hover-frame .gate {
+      position: relative; z-index: 1;
+      width: 32px; height: 32px;
+      transform: scale(4);
+      transform-origin: center;
+    }
+    /* 非ホバー版（比較用 stage）。枠なし、4× ゲート単体。 */
+    .plain-stage .gate {
+      width: 32px; height: 32px;
+      transform: scale(4);
+      transform-origin: center;
+    }
+
+    /* 確率表示ブロック共通スタイル。
+       本物は drawn-on-canvas だが、見た目を完全に再現するため CSS で 1:1 模倣。
+       実コード (apps/egui-web/src/icons/gate_body.rs:116-141) と数値を揃える: */
+    .cd-base {
+      width: 32px; height: 32px;
+      background: var(--bg);         /* surface / paper */
+      position: relative;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .cd-base .cd-bar {
+      flex: 1 1 0;
+      background: var(--blue-300);
+      transition: width 120ms ease;
+    }
+    .cd-base .cd-top { width: 34%; }
+    .cd-base .cd-bot { width: 78%; }
+    .cd-base .cd-divider {
+      position: absolute; left: 0; right: 0; top: 50%;
+      height: 1px; background: var(--ui-2); transform: translateY(-50%);
+    }
+    .cd-base .cd-stroke {
+      position: absolute; inset: 0;
+      border: 1px solid var(--tx); pointer-events: none;
+    }
+
+    /* ── 案 A: 角丸 + バーを内側に inset ── */
+    .cd-A { border-radius: 6px; }
+    .cd-A .cd-stroke { border-radius: 6px; }
+    /* バーは外枠から 2 px 内側で start。「100% = 28 px」になる。 */
+    .cd-A .cd-fill {
+      position: absolute; inset: 2px;
+      display: flex; flex-direction: column;
+    }
+    .cd-A .cd-fill .cd-bar { background: var(--blue-300); }
+    .cd-A .cd-fill .cd-top { width: 30%; }
+    .cd-A .cd-fill .cd-bot { width: 72%; }
+
+    /* ── 案 B: 現状角ばり維持 + ホバー枠も角ばりに ── */
+    .cd-B { /* デフォの cd-base そのまま、角丸ゼロ */ }
+    .hover-frame.sharp::before { border-radius: 12px; }
+    .hover-frame.sharp::after { border-radius: 4px; }
+
+    /* ── 案 C: 角丸 + バーを角丸に追従させてクリップ ── */
+    .cd-C {
+      border-radius: 6px;
+    }
+    .cd-C .cd-stroke { border-radius: 6px; }
+    /* overflow:hidden + border-radius でバーが自動的に丸まる */
+    .cd-C .cd-bar.cd-top { width: 34%; }
+    .cd-C .cd-bar.cd-bot { width: 78%; }
+
+    /* ── 案 D: 外側に角丸チップ + 中に sharp なグリッドカード ── */
+    .cd-D {
+      width: 32px; height: 32px;
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 3px;
+      display: flex; align-items: stretch; justify-content: stretch;
+      position: relative;
+    }
+    .cd-D .cd-stroke-outer {
+      position: absolute; inset: 0;
+      border: 1px solid var(--ui-2);
+      border-radius: 6px; pointer-events: none;
+    }
+    .cd-D .cd-inner {
+      flex: 1;
+      display: flex; flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+    .cd-D .cd-inner .cd-bar { flex: 1 1 0; background: var(--blue-300); }
+    .cd-D .cd-inner .cd-top { width: 34%; }
+    .cd-D .cd-inner .cd-bot { width: 78%; }
+    .cd-D .cd-inner .cd-divider {
+      position: absolute; left: 0; right: 0; top: 50%;
+      height: 1px; background: var(--ui-2); transform: translateY(-50%);
+    }
+    .cd-D .cd-inner .cd-stroke {
+      position: absolute; inset: 0;
+      border: 1px solid var(--tx); pointer-events: none;
+    }
+
+    /* 評価表 */
+    table.tradeoff {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      margin-top: 12px;
+    }
+    table.tradeoff th, table.tradeoff td {
+      text-align: left; padding: 8px 12px 8px 0;
+      border-bottom: 1px solid var(--ui-2); vertical-align: top;
+    }
+    table.tradeoff th {
+      color: var(--tx-3); font-weight: 500;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      width: 160px;
+    }
+    table.tradeoff .yes  { color: #66800B; font-weight: 500; }    /* Flexoki green-600 */
+    table.tradeoff .no   { color: #AF3029; font-weight: 500; }    /* red-600 */
+    table.tradeoff .meh  { color: #BC5215; font-weight: 500; }    /* orange-600 */
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">表示ブロック</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">確率表示ブロック 角丸オプション</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design discussion</p>
+  <h1 class="page-title">確率表示ブロックの角丸案</h1>
+  <p class="page-lede">
+    現状 <code>ProbabilityDisplay</code> ゲートだけは本体が<strong>角ばり (border-radius: 0)</strong>
+    で描画されている。他の unitary 系ゲート（H / X / Y / Z 等）は 6 px の角丸付きだが、
+    確率表示ブロックだけ角ばりなのは「角丸 + <code>overflow: hidden</code> だと上下行のバーが
+    角でクリップされる」という設計判断の結果。
+    一方でパレットのホバー枠は内側角丸 8 px。角ばりの 確率表示ブロックがその枠に乗ると
+    <strong>外枠の角丸 / 中身の直角</strong>が不揃いで違和感が出る。
+    どう揃えるかの案をいくつか提示する。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span> 現状と問題</h2>
+  <div class="card">
+    <h3>実コード</h3>
+    <ul>
+      <li><code>apps/egui-web/src/icons/gate_body.rs:84</code> — 通常 unitary 系は <code>CornerRadius::same(6)</code></li>
+      <li><code>apps/egui-web/src/icons/gate_body.rs:119</code> — Probability preview は <code>CornerRadius::ZERO</code></li>
+      <li><code>apps/egui-web/src/render/circuit_palette/panel.rs:51-56</code> — ホバー枠は外 10 px / 内 8 px の角丸</li>
+    </ul>
+    <p>
+      角ばりにしている根拠 (<code>docs/probability-display-mock.html</code>):
+      「角丸を付けると上下行のバーが角でクリップされ、Quirk と同じ sharp 矩形が崩れる」。
+      Quirk 互換と「100% = 端まで塗りつぶし」を保つ判断だった。
+    </p>
+  </div>
+</section>
+
+<!-- ───────────── 案 A ───────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> 案 A — 外枠は角丸 + バーを 2 px インセット</h2>
+  <div class="card">
+    <div class="option-grid">
+      <div class="option-stage">
+        <span class="label">A · hover frame</span>
+        <div class="hover-frame">
+          <div class="gate">
+            <div class="cd-base cd-A">
+              <div class="cd-fill">
+                <div class="cd-bar cd-top"></div>
+                <div class="cd-bar cd-bot"></div>
+              </div>
+              <div class="cd-divider"></div>
+              <div class="cd-stroke"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p>
+          ゲート本体に他の unitary と同じ <code>border-radius: 6 px</code> を入れ、
+          中のバーは外枠から <strong>2 px 内側</strong>に詰める。バーは角丸領域を踏まないので
+          クリップ不要。
+        </p>
+        <p>
+          「100% = 32 px 端まで」が「100% = 28 px」になり、視覚的に端まで塗らない
+          バーが出る。ただし行間の divider 線は引き続き本体内に収まる。
+        </p>
+        <table class="tradeoff">
+          <tbody>
+            <tr><th>ホバー枠と揃う</th><td class="yes">○ 6 px の角丸が外枠と無理なく接続</td></tr>
+            <tr><th>「端まで = 100%」の意味</th><td class="meh">△ 2 px ぶん詰まる（バー領域 28 px ÷ ゲート 32 px = 87.5%）</td></tr>
+            <tr><th>Quirk 互換性</th><td class="no">× Quirk は端まで塗る方式</td></tr>
+            <tr><th>実装コスト</th><td class="yes">○ <code>rect_filled</code> の corner_radius + 内側矩形 <code>shrink2</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 案 B ───────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> 案 B — 現状の角ばりを維持 + ホバー枠を角ばりに合わせる</h2>
+  <div class="card">
+    <div class="option-grid">
+      <div class="option-stage">
+        <span class="label">B · sharp hover frame</span>
+        <div class="hover-frame sharp">
+          <div class="gate">
+            <div class="cd-base cd-B">
+              <div class="cd-bar cd-top"></div>
+              <div class="cd-bar cd-bot"></div>
+              <div class="cd-divider"></div>
+              <div class="cd-stroke"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p>
+          確率表示ブロック 本体は今まで通り角ばり。代わりに<strong>ホバー枠の方を Probability
+          だけ角ばり寄り</strong>（例: 外 3 px / 内 1 px）に切り替えて、中身と外枠の
+          角度感を揃える。
+        </p>
+        <p>
+          ホバー枠が gate kind 依存のコンテキストロジックになるが、現状でも
+          <code>gate_body</code> 内で kind 別分岐があるので相性は悪くない。
+        </p>
+        <table class="tradeoff">
+          <tbody>
+            <tr><th>ホバー枠と揃う</th><td class="yes">○ 角ばり同士で違和感なし</td></tr>
+            <tr><th>「端まで = 100%」の意味</th><td class="yes">○ 維持</td></tr>
+            <tr><th>Quirk 互換性</th><td class="yes">○ 本体は不変</td></tr>
+            <tr><th>実装コスト</th><td class="meh">△ <code>panel.rs</code> のホバー枠描画に kind 別分岐が必要</td></tr>
+            <tr><th>他ゲートとの整合</th><td class="no">× 確率表示ブロックのホバー枠だけ角ばり、という別ルールができる</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 案 C ───────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> 案 C — 角丸 + バーを角丸に追従させてクリップ</h2>
+  <div class="card">
+    <div class="option-grid">
+      <div class="option-stage">
+        <span class="label">C · rounded clip</span>
+        <div class="hover-frame">
+          <div class="gate">
+            <div class="cd-base cd-C">
+              <div class="cd-bar cd-top"></div>
+              <div class="cd-bar cd-bot"></div>
+              <div class="cd-divider"></div>
+              <div class="cd-stroke"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p>
+          外枠 6 px 角丸 + <code>overflow: hidden</code> でバーが自動的に角に追従して
+          クリップされる方式。チェイス ゲートモック §03 で「クリップが起きるからやめた」
+          としたパターンを、あえて受け入れる選択。
+        </p>
+        <p>
+          バーが角でわずかに削れて見える（特に最上行 / 最下行が 100% に近いとき）。
+          実用上は 6 px の削れなので「角がほんのり丸い」程度で、Quirk より気持ち柔らかい
+          見た目になる。
+        </p>
+        <table class="tradeoff">
+          <tbody>
+            <tr><th>ホバー枠と揃う</th><td class="yes">○ 角丸同士で完全に揃う</td></tr>
+            <tr><th>「端まで = 100%」の意味</th><td class="meh">△ 視覚的にはほぼ端まで（角ぶん 1–2 px 欠ける）</td></tr>
+            <tr><th>Quirk 互換性</th><td class="meh">△ Quirk は sharp、こちらは柔らかい</td></tr>
+            <tr><th>実装コスト</th><td class="yes">○ 既存 <code>rect_filled</code> に <code>CornerRadius::same(6)</code> を渡すだけ</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 案 D ───────────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span> 案 D — 角丸チップの中に角ばりの「データカード」を入れる</h2>
+  <div class="card">
+    <div class="option-grid">
+      <div class="option-stage">
+        <span class="label">D · card-in-chip</span>
+        <div class="hover-frame">
+          <div class="gate">
+            <div class="cd-D">
+              <div class="cd-inner">
+                <div class="cd-bar cd-top"></div>
+                <div class="cd-bar cd-bot"></div>
+                <div class="cd-divider"></div>
+                <div class="cd-stroke"></div>
+              </div>
+              <div class="cd-stroke-outer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p>
+          外側は他ゲート同様 6 px 角丸のチップ。中身は<strong>3 px 余白を取って、その中に
+          sharp なバー / 枠</strong>を描く。「角丸チップ = ゲート枠」「中の sharp 矩形 =
+          データ可視化エリア」というメタ的な分離。
+        </p>
+        <p>
+          バー領域は 26 × 26 に縮むので、確率表示ブロック 本来の情報密度は落ちる。
+          別ゲートと並べたときの「確率表示ブロックだけ余白が多い」感が出るかも。
+        </p>
+        <table class="tradeoff">
+          <tbody>
+            <tr><th>ホバー枠と揃う</th><td class="yes">○ 外チップが角丸で揃う</td></tr>
+            <tr><th>「端まで = 100%」の意味</th><td class="meh">△ チップ内の sharp 矩形では「端まで」だが、ゲート全体としては余白あり</td></tr>
+            <tr><th>Quirk 互換性</th><td class="meh">△ 内側 sharp は維持、ただし外側に余白フレームが乗る</td></tr>
+            <tr><th>実装コスト</th><td class="meh">△ 描画レイヤが 1 つ増える (外枠 + 内枠 + バー)</td></tr>
+            <tr><th>他ゲートとの整合</th><td class="meh">△ 「確率表示ブロックだけ二重枠」が意図的にデザイン言語として通用するか要レビュー</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 推奨 ───────────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span> 推奨</h2>
+  <div class="card">
+    <p>
+      推奨は <strong>案 C</strong>（角丸 + バー追従クリップ）。理由：
+    </p>
+    <ul>
+      <li>実装コストが最小（既存の <code>rect_filled</code> の <code>CornerRadius</code> を
+        <code>ZERO</code> → <code>same(6)</code> に変えるだけ）</li>
+      <li>ホバー枠との段差が完全に解消</li>
+      <li>バーの角クリップは「6 px 半径 × 数 px の欠け」なので<strong>視覚的にはほぼ気にならない</strong>。
+        Quirk の sharp と比べてもむしろ柔らかく現代的に見える</li>
+      <li>「端まで = 100%」の意味が大きく崩れない（案 A / D のような明確な内側余白がない）</li>
+    </ul>
+    <p>
+      次点は <strong>案 A</strong>。Quirk の sharp バーを維持しつつホバー枠と揃えたい場合の選択。
+      ただし 87.5% しか塗らない「100%」は perceptual には小さい嘘なので、Quirk 互換を
+      捨ててでも案 C のほうがすっきりすると判断。
+    </p>
+    <p>
+      <strong>案 B</strong> は「確率表示ブロックのホバー枠だけ別ルール」を持ち込むコストが情報量に対して
+      高く、却下。<strong>案 D</strong> は二重枠のデザイン言語を新規導入する判断が要るため、
+      まずは案 C で十分。
+    </p>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 確率表示ブロック角丸オプション · 2026-05</p>
+</footer>
+
+</body>
+</html>

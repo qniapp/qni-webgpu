@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate palette — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
+    .gp-stage {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 32px 24px;
+      display: flex; justify-content: center; align-items: center;
+      overflow-x: auto;
+      isolation: isolate;                  /* hover ring が stage 内で閉じる */
+    }
+    .gp-palette {
+      /* PALETTE_PADDING_X = 16, PALETTE_PADDING_Y = 20 */
+      padding: 20px 16px;
+      border-radius: 12px;                 /* PALETTE_CORNER_RADIUS = 12 */
+      background: var(--bg);               /* surface (paper) */
+      /* palette_shadow = tx @ 25% (offset 0, 6 / blur 16) */
+      box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
+      display: inline-block;
+      position: relative;
+      isolation: isolate;
+    }
+    .gp-row {
+      display: flex;
+      gap: 8px;                            /* PALETTE_GAP */
+    }
+    .gp-row + .gp-row {
+      margin-top: 8px;                     /* PALETTE_ROW_GAP */
+    }
+    .gp-gate {
+      width: 40px; height: 40px;           /* PALETTE_SIZE = GATE_SIZE = 40 */
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      border-radius: 8px;
+    }
+    .gp-gate svg { display: block; }
+
+    /* hover ring (panel.rs:59-69) — outer = +4 / corner 10 purple-400, inner = +2 / corner 8 paper */
+    .gp-gate:hover::before {
+      content: ''; position: absolute;
+      inset: -4px; border-radius: 10px;
+      background: var(--purple-400);
+      z-index: -2;
+    }
+    .gp-gate:hover::after {
+      content: ''; position: absolute;
+      inset: -2px; border-radius: 8px;
+      background: var(--bg);
+      z-index: -1;
+    }
+    .gp-gate[data-tip]:hover .tip { display: block; }
+    .gp-gate .tip {
+      display: none;
+      position: absolute;
+      top: 100%; left: 50%;
+      transform: translate(-50%, 12px);
+      background: var(--bg); color: var(--tx);
+      border: 1px solid var(--ui-2); border-radius: 6px;
+      padding: 6px 10px;
+      font-family: var(--font-body); font-size: 12px; line-height: 16px;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.10);
+      z-index: 20;
+    }
+
+    .gate-zoo {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .gate-zoo .item {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px; line-height: 16px;
+      color: var(--tx-2);
+    }
+    .gate-zoo .gp-gate { cursor: default; }
+    .gate-zoo .gp-gate:hover::before, .gate-zoo .gp-gate:hover::after { content: none; }
+    .gate-zoo .gp-gate .tip { display: none !important; }
+    .gate-zoo .item .label { display: flex; flex-direction: column; gap: 2px; }
+    .gate-zoo .item .label .name { color: var(--tx); font-weight: 700; font-family: var(--font-body); font-size: 13px; }
+
+    /* ─── palette を Gates / Display の 2 section に分割 (layout/palette.rs) ─── */
+    .gp-palette--split {
+      display: flex;
+      align-items: stretch;
+      /* PALETTE_SECTION_GAP = 8 px (左右両側) */
+      gap: 8px;
+    }
+    .gp-section { display: flex; flex-direction: column; gap: 8px; }
+    .gp-sep {
+      /* PALETTE_SEPARATOR_WIDTH = 1 px、2 行高フル */
+      width: 1px; align-self: stretch;
+      background: var(--ui-2);
+    }
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">周辺 UI</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ゲートパレット</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · widget spec</p>
+  <h1 class="page-title">Gate palette</h1>
+  <p class="page-lede">
+    回路エディタ上部中央に常駐する 2 行のゲートパレット。各セル 40 × 40 px のアイコンを drag source として、回路グリッドへゲートを drop して配置する。
+    実装: <code>apps/web/src/render/circuit_palette/</code> + <code>src/icons/gate_body.rs</code> + <code>src/icons/gate_glyphs.rs</code> + <code>src/gates.rs</code> (3 配列 <code>PALETTE_GATES_ROW1 / PALETTE_GATES_ROW2 / PALETTE_DISPLAY_GATES</code> に分割) + <code>src/layout/palette.rs</code> (section ベースの hit_test)。
+  </p>
+</div>
+
+<!--
+  共通 SVG シンボル定義 — 全シンボルを viewBox="0 0 48 48" で統一。
+  実装は assets/icons/*.svg (viewBox 48) を 256 px PNG → SDF テクスチャに焼いて 40 px cell へ描画。
+  ここでは同じ SVG path を直接埋め込むことで、文字グリフ (Geist) の太さと配置を実装と完全一致させる。
+  Body の corner radius / 円半径 / ブロッホ軸 / Probability bar / Amps Q ロゴなどの primitive も
+  「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
+    body corner radius 6 px → rx 7.2、stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
+-->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <!-- ─ Unitary square body (corner radius 6 px = rx 7.2 viewbox) + Geist glyph from assets/icons/*.svg ─ -->
+    <symbol id="g-H" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g transform="translate(13.391 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M92 0V710H178V399H535V710H621V0H535V315H178V0Z"/>
+      </g>
+    </symbol>
+    <symbol id="g-Y" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g transform="translate(15.429 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M245 0V290L-6 710H96L288 378L480 710H582L331 290V0Z"/>
+      </g>
+    </symbol>
+    <symbol id="g-Z" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g transform="translate(15.905 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M28 0V88L408 626H41V710H506V622L126 84H516V0Z"/>
+      </g>
+    </symbol>
+    <symbol id="g-SqrtX" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(7.081 28.370) scale(0.025296 -0.025296)">
+          <path d="M153 -150 22 336H102L199 -28L358 710H638V636H422L252 -150Z"/>
+        </g>
+        <g transform="translate(22.774 34.565) scale(0.029760 -0.029760)">
+          <path d="M15 0 248 356 17 710H119L304 424L487 710H587L356 358L591 0H489L302 290L115 0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-S" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g transform="translate(14.477 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M336 -16Q254 -16 193.0 15.0Q132 46 96.5 100.5Q61 155 55 227L145 233Q156 154 204.5 111.0Q253 68 338 68Q412 68 453.5 96.5Q495 125 495 180Q495 213 479.5 238.5Q464 264 420.5 285.5Q377 307 292 328Q210 349 161.5 374.0Q113 399 91.5 435.0Q70 471 70 524Q70 584 98.5 629.5Q127 675 180.0 700.5Q233 726 306 726Q384 726 440.0 696.5Q496 667 529.0 616.0Q562 565 570 500L480 494Q471 559 427.5 600.5Q384 642 304 642Q238 642 199.0 610.5Q160 579 160 528Q160 495 175.5 473.5Q191 452 231.0 435.5Q271 419 346 400Q435 378 487.5 347.5Q540 317 562.5 277.0Q585 237 585 186Q585 124 553.0 78.5Q521 33 465.0 8.5Q409 -16 336 -16Z"/>
+      </g>
+    </symbol>
+    <symbol id="g-SDagger" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(14.477 34.565) scale(0.029760 -0.029760)">
+          <path d="M336 -16Q254 -16 193.0 15.0Q132 46 96.5 100.5Q61 155 55 227L145 233Q156 154 204.5 111.0Q253 68 338 68Q412 68 453.5 96.5Q495 125 495 180Q495 213 479.5 238.5Q464 264 420.5 285.5Q377 307 292 328Q210 349 161.5 374.0Q113 399 91.5 435.0Q70 471 70 524Q70 584 98.5 629.5Q127 675 180.0 700.5Q233 726 306 726Q384 726 440.0 696.5Q496 667 529.0 616.0Q562 565 570 500L480 494Q471 559 427.5 600.5Q384 642 304 642Q238 642 199.0 610.5Q160 579 160 528Q160 495 175.5 473.5Q191 452 231.0 435.5Q271 419 346 400Q435 378 487.5 347.5Q540 317 562.5 277.0Q585 237 585 186Q585 124 553.0 78.5Q521 33 465.0 8.5Q409 -16 336 -16Z"/>
+        </g>
+        <g transform="translate(35.355 16.013) scale(0.015360 -0.015360)">
+          <path d="M252 0V454H92V530H252V710H332V530H492V454H332V0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-T" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g transform="translate(15.786 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M233 0V626H12V710H540V626H319V0Z"/>
+      </g>
+    </symbol>
+    <symbol id="g-TDagger" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(15.786 34.565) scale(0.029760 -0.029760)">
+          <path d="M233 0V626H12V710H540V626H319V0Z"/>
+        </g>
+        <g transform="translate(35.355 16.013) scale(0.015360 -0.015360)">
+          <path d="M252 0V454H92V530H252V710H332V530H492V454H332V0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-Rx" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(8.710 31.838) scale(0.022080 -0.022080)">
+          <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
+        </g>
+        <g transform="translate(23.724 31.838) scale(0.022080 -0.022080)">
+          <path d="M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-Ry" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(8.908 31.838) scale(0.022080 -0.022080)">
+          <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
+        </g>
+        <g transform="translate(23.923 31.838) scale(0.022080 -0.022080)">
+          <path d="M243 0V285L-6 710H118L297 393L477 710H601L351 285V0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-Rz" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(9.659 31.838) scale(0.022080 -0.022080)">
+          <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
+        </g>
+        <g transform="translate(24.673 31.838) scale(0.022080 -0.022080)">
+          <path d="M28 0V100L394 611H42V710H522V610L154 99H533V0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-Qft" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(2.582 31.275) scale(0.022080 -0.022080)">
+          <path d="M554 -67 497 7Q473 -4 440.5 -10.0Q408 -16 372 -16Q269 -16 195.5 33.0Q122 82 83.0 165.5Q44 249 44 354Q44 458 82.0 542.5Q120 627 193.5 676.5Q267 726 372 726Q479 726 552.0 676.5Q625 627 663.0 542.5Q701 458 701 354Q701 256 666.5 176.0Q632 96 567 46L657 -67ZM372 83Q391 83 406.5 85.0Q422 87 433 92L332 219H435L503 129Q589 201 589 354Q589 428 565.5 490.0Q542 552 494.0 589.5Q446 627 372 627Q299 627 251.0 589.5Q203 552 179.5 490.0Q156 428 156 354Q156 281 180.0 219.0Q204 157 252.0 120.0Q300 83 372 83Z"/>
+        </g>
+        <g transform="translate(19.032 31.275) scale(0.022080 -0.022080)">
+          <path d="M86 0V710H547V611H194V395H529V299H194V0Z"/>
+        </g>
+        <g transform="translate(32.170 31.275) scale(0.022080 -0.022080)">
+          <path d="M230 0V611H12V710H556V611H338V0Z"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="g-QftDagger" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
+      <g fill="#FFFCF0">
+        <g transform="translate(2.582 31.275) scale(0.022080 -0.022080)">
+          <path d="M554 -67 497 7Q473 -4 440.5 -10.0Q408 -16 372 -16Q269 -16 195.5 33.0Q122 82 83.0 165.5Q44 249 44 354Q44 458 82.0 542.5Q120 627 193.5 676.5Q267 726 372 726Q479 726 552.0 676.5Q625 627 663.0 542.5Q701 458 701 354Q701 256 666.5 176.0Q632 96 567 46L657 -67ZM372 83Q391 83 406.5 85.0Q422 87 433 92L332 219H435L503 129Q589 201 589 354Q589 428 565.5 490.0Q542 552 494.0 589.5Q446 627 372 627Q299 627 251.0 589.5Q203 552 179.5 490.0Q156 428 156 354Q156 281 180.0 219.0Q204 157 252.0 120.0Q300 83 372 83Z"/>
+        </g>
+        <g transform="translate(19.032 31.275) scale(0.022080 -0.022080)">
+          <path d="M86 0V710H547V611H194V395H529V299H194V0Z"/>
+        </g>
+        <g transform="translate(32.170 31.275) scale(0.022080 -0.022080)">
+          <path d="M230 0V611H12V710H556V611H338V0Z"/>
+        </g>
+        <g transform="translate(35.347 16.013) scale(0.015360 -0.015360)">
+          <path d="M242 0V443H86V532H242V710H342V532H499V443H342V0Z"/>
+        </g>
+      </g>
+    </symbol>
+
+    <!-- ─ X (circle body radius 24 viewbox = 20 display + Plus glyph from plus.svg) ─ -->
+    <symbol id="g-X" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="24" fill="#3AA99F"/>
+      <g transform="translate(15.637 32.690) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
+      </g>
+    </symbol>
+
+    <!-- ─ Phase (circle body + P glyph from p.svg) ─ -->
+    <symbol id="g-Phase" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="24" fill="#3AA99F"/>
+      <g transform="translate(13.733 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
+        <path d="M92 0V710H347Q466 710 532.0 653.0Q598 596 598 495Q598 392 532.0 334.0Q466 276 347 276H178V0ZM178 360H347Q508 360 508 495Q508 626 347 626H178Z"/>
+      </g>
+    </symbol>
+
+    <!-- ─ Swap — cyan-400 × · stroke 4 (gate_glyphs.rs:123-128) ─ -->
+    <symbol id="g-Swap" viewBox="0 0 48 48">
+      <line x1="12" y1="36" x2="36" y2="12" stroke="#3AA99F" stroke-width="4"/>
+      <line x1="12" y1="12" x2="36" y2="36" stroke="#3AA99F" stroke-width="4"/>
+    </symbol>
+
+    <!-- ─ Control — cyan-400 filled dot r=8 at (24, 24) (gate_glyphs.rs:110-112) ─ -->
+    <symbol id="g-Control" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="8" fill="#3AA99F"/>
+    </symbol>
+
+    <!-- ─ AntiControl — cyan-400 stroked circle r=5 stroke=3 (gate_glyphs.rs:114-121) ─ -->
+    <symbol id="g-AntiControl" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="5" fill="none" stroke="#3AA99F" stroke-width="3"/>
+    </symbol>
+
+    <!--
+      ─ Bloch sphere ─
+        body: bloch_sphere_bg (bg-2) fill + 1.5 px bloch_sphere_lines (tx-3) stroke, radius (width/2 - 1) display
+              = 19 display = 22.8 viewbox
+        軸: bloch_sphere_lines (tx-3), 1 px stroke = 1.2 viewbox
+          - 横線: (-r, 0)..(r, 0) → (1.2, 24)..(46.8, 24)
+          - 縦線: (0, -r)..(0, r) → (24, 1.2)..(24, 46.8)
+          - NE-SW 対角 (diag = 0.3 * 19 = 5.7 display = 6.84 viewbox)
+          - 縦楕円: rx=0.36 r = 6.84 display = 8.208 viewbox / ry=22.8
+          - 横楕円: rx=22.8 / ry=8.208
+        中央 dot: bloch_vector_zero = blue-600, radius 3 display = 3.6 viewbox
+    -->
+    <symbol id="g-Bloch" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="22.8" fill="#F2F0E5" stroke="#B7B5AC" stroke-width="1.8"/>
+      <line x1="1.2" y1="24" x2="46.8" y2="24" stroke="#B7B5AC" stroke-width="1.2"/>
+      <line x1="24" y1="1.2" x2="24" y2="46.8" stroke="#B7B5AC" stroke-width="1.2"/>
+      <line x1="17.16" y1="30.84" x2="30.84" y2="17.16" stroke="#B7B5AC" stroke-width="1.2"/>
+      <ellipse cx="24" cy="24" rx="8.208" ry="22.8" fill="none" stroke="#B7B5AC" stroke-width="1.2"/>
+      <ellipse cx="24" cy="24" rx="22.8" ry="8.208" fill="none" stroke="#B7B5AC" stroke-width="1.2"/>
+      <circle cx="24" cy="24" r="3.6" fill="#205EA6"/>
+    </symbol>
+
+    <!--
+      ─ Write0 — gray bracket | ⟩ + red 0 (digit0.svg を埋め込み) ─
+      bracket lines from gate_glyphs.rs:96-98 (in viewBox 48):
+        (6, 5)..(6, 43) / (37.4516, 5)..(43.5, 24) / (43.5, 24)..(37.4516, 43), stroke 2
+      digit: digit0.svg の path を currentColor → red-600 で
+    -->
+    <symbol id="g-Write0" viewBox="0 0 48 48">
+      <line x1="6" y1="5" x2="6" y2="43" stroke="#6F6E69" stroke-width="2"/>
+      <line x1="37.4516" y1="5" x2="43.5" y2="24" stroke="#6F6E69" stroke-width="2"/>
+      <line x1="43.5" y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
+      <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#AF3029">
+        <path d="M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354Q50 469 80.0 552.0Q110 635 166.5 680.5Q223 726 300 726Q378 726 434.0 680.5Q490 635 520.0 552.0Q550 469 550 354Q550 240 520.0 157.0Q490 74 434.0 29.0Q378 -16 300 -16ZM140 354Q140 254 165 184L393 599Q354 642 300 642Q226 642 183.0 564.5Q140 487 140 354ZM300 68Q374 68 417.0 145.5Q460 223 460 354Q460 455 435 525L207 111Q246 68 300 68Z"/>
+      </g>
+    </symbol>
+
+    <!-- ─ Write1 — gray bracket | ⟩ + blue 1 (digit1.svg) ─ -->
+    <symbol id="g-Write1" viewBox="0 0 48 48">
+      <line x1="6" y1="5" x2="6" y2="43" stroke="#6F6E69" stroke-width="2"/>
+      <line x1="37.4516" y1="5" x2="43.5" y2="24" stroke="#6F6E69" stroke-width="2"/>
+      <line x1="43.5" y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
+      <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#205EA6">
+        <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z"/>
+      </g>
+    </symbol>
+
+    <!--
+      ─ Measurement — purple-600 メーター (gate_glyphs.rs:18-41) ─
+      上半円 (cx=24, cy=36, r=20)、針 (24.625, 33.5)..(37.75, 11)、ピボット円 r=3.5
+      stroke 2 (= 2 * scale 計算後、SVG viewBox 48 では 2 のまま)
+    -->
+    <symbol id="g-Measurement" viewBox="0 0 48 48">
+      <path d="M 4 36 A 20 20 0 0 1 44 36" fill="none" stroke="#5E409D" stroke-width="2"/>
+      <line x1="24.625" y1="33.5" x2="37.75" y2="11" stroke="#5E409D" stroke-width="2"/>
+      <circle cx="24.625" cy="33.5" r="3.5" fill="#5E409D"/>
+    </symbol>
+
+    <!-- ─ Spacer — 3 個の 6×6 squares at x=9, 21, 33 / y=21-27, tx 色 (gate_glyphs.rs:80-93) ─ -->
+    <symbol id="g-Spacer" viewBox="0 0 48 48">
+      <rect x="9"  y="21" width="6" height="6" fill="#100F0F"/>
+      <rect x="21" y="21" width="6" height="6" fill="#100F0F"/>
+      <rect x="33" y="21" width="6" height="6" fill="#100F0F"/>
+    </symbol>
+
+    <!--
+      ─ Probability preview (gate_body.rs:167-211) ─
+      4 horizontal bars, widths = [0.30, 0.75, 0.55, 0.20] of cell width
+      row height = 40/4 = 10 display = 12 viewbox
+      bar widths in viewbox: 14.4 / 36 / 26.4 / 9.6
+      blue-400 1 px right edge marker on each bar (1 display = 1.2 viewbox)
+      ui-2 divider from max(prev, this) width to right edge between adjacent rows
+      ui-2 1 px outline inside (stroke center at 0.6 viewbox, inset)
+    -->
+    <symbol id="g-Probability" viewBox="0 0 48 48">
+      <rect width="48" height="48" fill="#FFFCF0"/>
+      <rect x="0" y="0"  width="14.4" height="12" fill="#92BFDB"/>
+      <line x1="14.4" y1="0" x2="14.4" y2="12" stroke="#4385BE" stroke-width="1.2"/>
+      <rect x="0" y="12" width="36"   height="12" fill="#92BFDB"/>
+      <line x1="36" y1="12" x2="36" y2="24" stroke="#4385BE" stroke-width="1.2"/>
+      <rect x="0" y="24" width="26.4" height="12" fill="#92BFDB"/>
+      <line x1="26.4" y1="24" x2="26.4" y2="36" stroke="#4385BE" stroke-width="1.2"/>
+      <rect x="0" y="36" width="9.6"  height="12" fill="#92BFDB"/>
+      <line x1="9.6" y1="36" x2="9.6" y2="48" stroke="#4385BE" stroke-width="1.2"/>
+      <!-- dividers: from max(prev, this) right edge to outer right -->
+      <line x1="36"   y1="12" x2="48" y2="12" stroke="#DAD8CE" stroke-width="1.2"/>
+      <line x1="36"   y1="24" x2="48" y2="24" stroke="#DAD8CE" stroke-width="1.2"/>
+      <line x1="26.4" y1="36" x2="48" y2="36" stroke="#DAD8CE" stroke-width="1.2"/>
+      <rect x="0.6" y="0.6" width="46.8" height="46.8" fill="none" stroke="#DAD8CE" stroke-width="1.2"/>
+    </symbol>
+
+    <!--
+      ─ Amplitude palette icon (gate_body.rs:138-165) ─ Q ロゴ風
+        outline circle: state_outline (tx-2) stroke 2 display = 2.4 viewbox, r=18 display=21.6
+        disk:    state_fill (blue-200), r = (outline_r - 0.5 stroke) * 1/√2 ≈ 12.7 display = 15.24
+        inset border: popup_icon (blue-400) stroke 1 = 1.2, r ≈ 12.2 display = 14.64
+        needle:  state_needle (tx) stroke 2 = 2.4, from (24, 24) to (24 + inner_r * 1/√2, 24 + ...)
+                 inner_r * 1/√2 = (18-1) * 0.7071 ≈ 12.0 display → 14.4 viewbox → (38.4, 38.4)
+    -->
+    <symbol id="g-Amps" viewBox="0 0 48 48">
+      <rect width="48" height="48" fill="#FFFCF0"/>
+      <circle cx="24" cy="24" r="21.6" fill="none" stroke="#6F6E69" stroke-width="2.4"/>
+      <circle cx="24" cy="24" r="15.24" fill="#92BFDB"/>
+      <circle cx="24" cy="24" r="14.64" fill="none" stroke="#4385BE" stroke-width="1.2"/>
+      <line x1="24" y1="24" x2="38.4" y2="38.4" stroke="#100F0F" stroke-width="2.4"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ─────── § 01 動くモック ─────── -->
+<section class="block">
+  <h2>§ 01 動くモック</h2>
+  <div class="card">
+    <p>
+      実コードの寸法 (40 × 40 アイコン / 8 px gap / 16 × 20 padding / 12 px corner radius / paper bg + 25 % alpha shadow) と
+      各 gate の SVG icon 形状 (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>) を 1:1 で再現。
+      palette は <strong>Gates section (左)</strong> + <strong>1 px ui-2 縦セパレーター (2 行高)</strong> + <strong>Display section (右 2 × 2)</strong> に分割。
+      アイコンに hover すると <code>purple-400</code> 外枠 (4 px 拡張 / corner 10) + <code>paper</code> 内枠 (2 px 拡張 / corner 8) の ring が出る。
+      Display section 右下は常時空白 (hit_test 対象外)。
+    </p>
+    <div class="gp-stage">
+      <div class="gp-palette gp-palette--split">
+        <!-- Gates section -->
+        <div class="gp-section">
+          <div class="gp-row">
+            <div class="gp-gate" data-tip="H · Hadamard"><svg width="40" height="40"><use href="#g-H"/></svg><span class="tip">H · Hadamard</span></div>
+            <div class="gp-gate" data-tip="X · Pauli-X (NOT, +)"><svg width="40" height="40"><use href="#g-X"/></svg><span class="tip">X · Pauli-X (NOT)</span></div>
+            <div class="gp-gate" data-tip="Y · Pauli-Y"><svg width="40" height="40"><use href="#g-Y"/></svg><span class="tip">Y · Pauli-Y</span></div>
+            <div class="gp-gate" data-tip="Z · Pauli-Z"><svg width="40" height="40"><use href="#g-Z"/></svg><span class="tip">Z · Pauli-Z</span></div>
+            <div class="gp-gate" data-tip="√X · √NOT"><svg width="40" height="40"><use href="#g-SqrtX"/></svg><span class="tip">√X · square-root NOT</span></div>
+            <div class="gp-gate" data-tip="S · phase π/2"><svg width="40" height="40"><use href="#g-S"/></svg><span class="tip">S · phase π/2</span></div>
+            <div class="gp-gate" data-tip="S† · phase −π/2"><svg width="40" height="40"><use href="#g-SDagger"/></svg><span class="tip">S† · phase −π/2</span></div>
+            <div class="gp-gate" data-tip="T · phase π/4"><svg width="40" height="40"><use href="#g-T"/></svg><span class="tip">T · phase π/4</span></div>
+            <div class="gp-gate" data-tip="T† · phase −π/4"><svg width="40" height="40"><use href="#g-TDagger"/></svg><span class="tip">T† · phase −π/4</span></div>
+            <div class="gp-gate" data-tip="P · phase θ"><svg width="40" height="40"><use href="#g-Phase"/></svg><span class="tip">P · parameterized phase θ</span></div>
+            <div class="gp-gate" data-tip="RX · X-axis rotation"><svg width="40" height="40"><use href="#g-Rx"/></svg><span class="tip">RX · X-axis rotation</span></div>
+            <div class="gp-gate" data-tip="RY · Y-axis rotation"><svg width="40" height="40"><use href="#g-Ry"/></svg><span class="tip">RY · Y-axis rotation</span></div>
+            <div class="gp-gate" data-tip="RZ · Z-axis rotation"><svg width="40" height="40"><use href="#g-Rz"/></svg><span class="tip">RZ · Z-axis rotation</span></div>
+          </div>
+          <div class="gp-row">
+            <div class="gp-gate" data-tip="Swap"><svg width="40" height="40"><use href="#g-Swap"/></svg><span class="tip">Swap</span></div>
+            <div class="gp-gate" data-tip="Control · |1⟩"><svg width="40" height="40"><use href="#g-Control"/></svg><span class="tip">Control · |1⟩</span></div>
+            <div class="gp-gate" data-tip="Anti-control · |0⟩"><svg width="40" height="40"><use href="#g-AntiControl"/></svg><span class="tip">Anti-control · |0⟩</span></div>
+            <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><svg width="40" height="40"><use href="#g-Write0"/></svg><span class="tip">|0⟩ · reset</span></div>
+            <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><svg width="40" height="40"><use href="#g-Write1"/></svg><span class="tip">|1⟩ · reset</span></div>
+            <div class="gp-gate" data-tip="Measurement · Z-basis"><svg width="40" height="40"><use href="#g-Measurement"/></svg><span class="tip">Z-basis measurement</span></div>
+            <div class="gp-gate" data-tip="QFT · Quantum Fourier Transform"><svg width="40" height="40"><use href="#g-Qft"/></svg><span class="tip">QFT (span 1〜16)</span></div>
+            <div class="gp-gate" data-tip="QFT† · inverse QFT"><svg width="40" height="40"><use href="#g-QftDagger"/></svg><span class="tip">QFT† (span 1〜16)</span></div>
+            <div class="gp-gate" data-tip="Spacer · 回路の空きスロット"><svg width="40" height="40"><use href="#g-Spacer"/></svg><span class="tip">Spacer · 回路の空きスロット</span></div>
+          </div>
+        </div>
+        <!-- 2 行高の縦セパレーター -->
+        <div class="gp-sep"></div>
+        <!-- Display section (2 × 2 grid; 右下は意図的に空白) -->
+        <div class="gp-section">
+          <div class="gp-row">
+            <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><svg width="40" height="40"><use href="#g-Bloch"/></svg><span class="tip">ブロッホ球表示ブロック</span></div>
+            <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><svg width="40" height="40"><use href="#g-Probability"/></svg><span class="tip">確率表示ブロック (resizable)</span></div>
+          </div>
+          <div class="gp-row">
+            <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><svg width="40" height="40"><use href="#g-Amps"/></svg><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行うが、このモックでは静的 SVG <code>&lt;path&gt;</code> 要素 (assets/icons/*.svg から取り込み) で近似 (字形の細部や aliasing は実装と完全一致しない)。
+      レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 02 レイアウト ─────── -->
+<section class="block">
+  <h2>§ 02 レイアウト</h2>
+  <div class="card">
+    <h3>寸法 (<code>constants.rs:157-178</code>)</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>cell size</th><td><code>PALETTE_SIZE = GATE_SIZE = 40.0 px</code> — アイコン 1 個の幅と高さ、回路グリッドの slot pitch と統一</td></tr>
+        <tr><th>gap (横)</th><td><code>PALETTE_GAP = 8.0 px</code> — section 内のアイコン間</td></tr>
+        <tr><th>gap (縦)</th><td><code>PALETTE_ROW_GAP = 8.0 px</code></td></tr>
+        <tr><th>section gap</th><td><code>PALETTE_SECTION_GAP = 8.0 px</code> — Gates section と separator、separator と Display section の隙間 (左右両側)</td></tr>
+        <tr><th>separator</th><td><code>PALETTE_SEPARATOR_WIDTH = 1.0 px</code> · fill = <code>colors.line</code> (ui-2)、palette content 全高 (= 2 行高) を縦に走る</td></tr>
+        <tr><th>Display section</th><td><code>PALETTE_DISPLAY_COLUMNS = 2</code> × <code>PALETTE_DISPLAY_ROWS = 2</code> grid。右下の slot (index = COLUMNS × ROWS − 1 = 3) は常時空白 (描画 / hit_test とも対象外)</td></tr>
+        <tr><th>padding</th><td>水平 <code>PALETTE_PADDING_X = 16.0 px</code> / 垂直 <code>PALETTE_PADDING_Y = 20.0 px</code></td></tr>
+        <tr><th>corner radius</th><td><code>PALETTE_CORNER_RADIUS = 12 px</code></td></tr>
+        <tr><th>背景</th><td><code>colors.surface</code> = Flexoki <code>bg</code> = #FFFCF0 (paper)</td></tr>
+        <tr><th>shadow</th><td><code>palette_shadow</code> = <code>tx</code> @ 25% alpha · offset (0, 6) · blur 16 · spread 0</td></tr>
+        <tr><th>位置</th><td>画面上部中央、<code>PALETTE_ROW_Y = 2.5 REM = 80 px</code> から配置 (toolbar 44 px + egui top margin 8 px + 余白)。常駐</td></tr>
+        <tr><th>ゲート総数</th><td>Gates section 22 個 (row 1 = 13、row 2 = 9) + Display section 3 個 = 計 25 個 (フラットインデックスは旧 25 entry と互換)</td></tr>
+        <tr><th>Gates section 幅</th><td>max(row 1, row 2) = <code>13 × 40 + 12 × 8 = 616 px</code></td></tr>
+        <tr><th>Display section 幅</th><td><code>2 × 40 + 1 × 8 = 88 px</code></td></tr>
+        <tr><th>palette 幅</th><td><code>16 + 616 + 8 + 1 + 8 + 88 + 16 = 753 px</code></td></tr>
+        <tr><th>palette 高さ</th><td><code>20 + 2 × 40 + 8 + 20 = 128 px</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 03 ゲート一覧 ─────── -->
+<section class="block">
+  <h2>§ 03 ゲート一覧 (<code>gates.rs:213-248</code>)</h2>
+  <div class="card">
+    <p>
+      ゲートは <strong>3 つの配列</strong>に分かれて定義: <code>PALETTE_GATES_ROW1: [GateKind; 13]</code>、<code>PALETTE_GATES_ROW2: [GateKind; 9]</code>、<code>PALETTE_DISPLAY_GATES: [GateKind; 3]</code>。
+      フラットインデックス (0〜24) は<strong>分割前と互換</strong>に保たれており、<code>PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 22, 23, 21]</code> と
+      <code>PALETTE_DISPLAY_INDICES = [16, 20, 24]</code> がそれぞれの slot 順から旧 ID へマップする。<code>palette_gate_kind(index)</code> がこのマップを使って GateKind を解決。
+    </p>
+
+    <h3 style="margin-top: 16px;">Gates section · row 1 — unitary 1 量子ビット gates (13 個 / indices 0〜12)</h3>
+    <div class="gate-zoo">
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-H"/></svg></div><div class="label"><span class="name">H</span><span>Hadamard</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-X"/></svg></div><div class="label"><span class="name">X</span><span>Pauli-X / NOT (Plus glyph)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Y"/></svg></div><div class="label"><span class="name">Y</span><span>Pauli-Y</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Z"/></svg></div><div class="label"><span class="name">Z</span><span>Pauli-Z</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-SqrtX"/></svg></div><div class="label"><span class="name">√X</span><span>X<sup>1/2</sup></span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-S"/></svg></div><div class="label"><span class="name">S</span><span>phase π/2</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-SDagger"/></svg></div><div class="label"><span class="name">S†</span><span>phase −π/2</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-T"/></svg></div><div class="label"><span class="name">T</span><span>phase π/4</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-TDagger"/></svg></div><div class="label"><span class="name">T†</span><span>phase −π/4</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Phase"/></svg></div><div class="label"><span class="name">P</span><span>parameterized phase θ (円形 body)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Rx"/></svg></div><div class="label"><span class="name">RX</span><span>X-axis rotation</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Ry"/></svg></div><div class="label"><span class="name">RY</span><span>Y-axis rotation</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Rz"/></svg></div><div class="label"><span class="name">RZ</span><span>Z-axis rotation</span></div></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">Gates section · row 2 — 制御 / リセット / 計測 / 多量子ビット unitary (9 個 / indices 13, 14, 15, 17, 18, 19, 22, 23, 21)</h3>
+    <div class="gate-zoo">
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Swap"/></svg></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Control"/></svg></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-AntiControl"/></svg></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write0"/></svg></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write1"/></svg></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Measurement"/></svg></div><div class="label"><span class="name">Measurement</span><span>Z-basis 測定 (purple meter)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Qft"/></svg></div><div class="label"><span class="name">QFT</span><span>Quantum Fourier Transform (resizable)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-QftDagger"/></svg></div><div class="label"><span class="name">QFT†</span><span>inverse QFT (resizable)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Spacer"/></svg></div><div class="label"><span class="name">Spacer</span><span>回路の空きスロット (drag 可能、placement 後は何も作用しない)</span></div></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (3 個 / indices 16, 20, 24)</h3>
+    <div class="gate-zoo">
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Bloch"/></svg></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Probability"/></svg></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
+      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Amps"/></svg></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
+    </div>
+
+    <p class="note" style="margin-top: 16px;">
+      <strong>grouping</strong>: Gates section = 回路への作用 / 視覚装飾、Display section = 観測ウィジェット (可視化用)。Display 2 × 2 の右下 (slot 3) は<strong>常時空白</strong>で、将来 display を追加すれば自然に収まる枠。
+      <strong>Spacer</strong> は Gates section row 2 末尾に配置、drop 時は<strong>空きスロット (作用なし)</strong> として回路上に置かれる。全ゲートが hover ring・tooltip・drag に対応 (Display section 右下の空白だけは hit_test 対象外)。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 04 描画タイプ ─────── -->
+<section class="block">
+  <h2>§ 04 描画タイプ (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>)</h2>
+  <div class="card">
+    <p>
+      <code>draw_gate_body()</code> (idle = <code>box_fill</code>) / <code>draw_drag_gate_body()</code> (drag = <code>drag_fill</code>) で本体を描き、その上に <code>draw_gate_icon()</code> がアイコン (SDF テクスチャ or primitive 描画) を載せる。
+      色は idle = <code>cyan-400</code> (#3AA99F)、drag 中 = <code>purple-600</code> (#5E409D)。
+    </p>
+    <h3>本体 (body) の形</h3>
+    <table class="spec">
+      <thead><tr><th>タイプ</th><th>該当 gate</th><th>描き方</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>rounded square</strong></td>
+          <td>H / Y / Z / √X / S / S† / T / T† / RX / RY / RZ / QFT / QFT†</td>
+          <td><code>rect_filled(rect, CornerRadius::same(6), fill)</code> — 40 × 40 / corner radius 6</td>
+        </tr>
+        <tr>
+          <td><strong>circle</strong></td>
+          <td>X / Phase (P)</td>
+          <td><code>circle_filled(center, width/2, fill)</code> — 半径 20</td>
+        </tr>
+        <tr>
+          <td><strong>Bloch circle</strong></td>
+          <td>BlochDisplay</td>
+          <td>半径 <code>width/2 − 1</code> の円、<code>bloch_sphere_bg</code> (bg-2) fill + 1.5 px <code>bloch_sphere_lines</code> (tx-3) stroke</td>
+        </tr>
+        <tr>
+          <td><strong>Probability preview</strong></td>
+          <td>ProbabilityDisplay</td>
+          <td>surface fill + 4 行ミニ確率バー (widths = [0.30, 0.75, 0.55, 0.20]) を <code>state_fill</code> (blue-200) で、各バー右端に <code>popup_icon</code> (blue-400) 1 px、行間に <code>line</code> (ui-2) divider、外周に <code>line</code> 1 px stroke</td>
+        </tr>
+        <tr>
+          <td><strong>Amplitude preview</strong></td>
+          <td>AmplitudeDisplay</td>
+          <td>surface fill + 外輪 <code>state_outline</code> (tx-2) stroke 2 px + 内側に <code>state_fill</code> (blue-200) disk (r = inner_r × 1/√2) + 1 px <code>popup_icon</code> (blue-400) 内枠 + 中央 → 右下 2 px <code>state_needle</code> (tx) 針 (mag² ≈ 50 % / phase = 5π/4 を Q ロゴ風に静的描画)</td>
+        </tr>
+        <tr>
+          <td><strong>no body</strong></td>
+          <td>Control / AntiControl / Swap / Measurement / Spacer / Write0 / Write1</td>
+          <td>本体描画なし、アイコンだけ直接描く</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">アイコン (glyph) の描画</h3>
+    <table class="spec">
+      <thead><tr><th>gate</th><th>描画</th><th>色</th></tr></thead>
+      <tbody>
+        <tr><td>H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†</td><td><code>assets/icons/*.svg</code> から焼いた SDF テクスチャ (<code>svg_icon.rs</code> / <code>sdf_icon.rs</code>) を <code>draw_glyph()</code> で中央配置</td><td><code>label</code> = paper (bg = #FFFCF0)</td></tr>
+        <tr><td>X</td><td>同じく SDF だが、glyph は <code>Plus</code> (太い "+" — CNOT ターゲット記号と統一)</td><td><code>label</code> = paper</td></tr>
+        <tr><td>Control</td><td><code>circle_filled(center, CONTROL_RADIUS=8, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 (idle) / purple-600 (drag)</td></tr>
+        <tr><td>AntiControl</td><td><code>circle_stroke(center, r=5, stroke=3, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 / purple-600</td></tr>
+        <tr><td>Swap</td><td>diagonal line 2 本: (12, 36)→(36, 12) と (12, 12)→(36, 36)、stroke 4 px · viewbox 48</td><td><code>fill</code> = cyan-400 / purple-600</td></tr>
+        <tr><td>Measurement</td><td><code>draw_meter_icon</code>: 24 点上半円弧 (cx=24, cy=36, r=20) + 針 (24.625, 33.5)→(37.75, 11.0) + ピボット円 r=3.5 · viewbox 48</td><td><code>semantic_intermediate</code> = purple-600</td></tr>
+        <tr><td>Spacer</td><td>3 個の 6 × 6 正方形 at x=9, 21, 33 / y=21–27 · viewbox 48</td><td><code>spacer_dots</code> = tx (#100F0F)</td></tr>
+        <tr><td>Write0 / Write1</td><td>ket bracket: 縦 (6, 5)→(6, 43) + 右上斜 (37.45, 5)→(43.5, 24) + 右下斜 (43.5, 24)→(37.45, 43)、stroke 2 px。中央に <code>Digit0</code> / <code>Digit1</code> SDF glyph</td><td>bracket: <code>semantic_disabled</code> = tx-2、digit 0: <code>semantic_off</code> = red-600、digit 1: <code>semantic_on</code> = blue-600</td></tr>
+        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = blue-600</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 05 ホバー / ツールチップ ─────── -->
+<section class="block">
+  <h2>§ 05 ホバー / ツールチップ</h2>
+  <div class="card">
+    <h3>hover ring (<code>panel.rs:59-69</code>)</h3>
+    <ul>
+      <li><strong>外枠 (outer)</strong>: <code>gate_rect.expand(4.0)</code> · <code>CornerRadius::same(10)</code> · fill = <code>gate_hover_border</code> = purple-400</li>
+      <li><strong>内枠 (inner)</strong>: <code>gate_rect.expand(2.0)</code> · <code>CornerRadius::same(8)</code> · fill = <code>surface</code> (paper)</li>
+      <li>差分 = 2 px の <code>purple-400</code> ring が gate 周囲に出る。内側を paper で塗り直すのは <strong>Measurement / Spacer のような本体 fill を持たないゲートでも背景が灰色 (palette bg) に変わらないため</strong></li>
+      <li>その上に <code>draw_gate_body()</code> が gate body と icon を重ねる</li>
+      <li>Spacer 含む全 25 ゲートに対して<strong>同じロジック</strong>で hover ring が出る (<code>palette_hit_test()</code> は Spacer を除外しない)</li>
+    </ul>
+    <h3 style="margin-top: 16px;">ツールチップ (<code>tooltip.rs</code>)</h3>
+    <ul>
+      <li>表示条件: hover 中 かつ drag 未開始 (drag 開始で即非表示)</li>
+      <li>位置: gate body の下、12 px 余白</li>
+      <li>内容: <strong>gate 名</strong> (太字) + <strong>説明文</strong> + 一部 gate は<strong>変換図</strong> (行列表記 / ブロッホ球での変換イメージ)</li>
+      <li>背景: <code>surface</code> + <code>line</code> (ui-2) 1 px border + soft shadow</li>
+      <li>サブモジュール: <code>tooltip/layout.rs</code> / <code>tooltip/text.rs</code> / <code>tooltip/amplitude.rs</code> / <code>tooltip/diagram.rs</code></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 06 ドラッグ挙動 ─────── -->
+<section class="block">
+  <h2>§ 06 ドラッグ挙動</h2>
+  <div class="card">
+    <h3>ドラッグ開始</h3>
+    <ul>
+      <li>パレットアイコンに <strong>mousedown</strong> したとき、<code>palette_hit_test()</code> (<code>layout/palette.rs</code>) で hit 判定</li>
+      <li>hit したらすぐ <code>DragStartIntent::PaletteGate</code> を発行、<strong>新規 <code>PlacedGate</code></strong> を生成 (mouse 位置を中心に <code>preview_pos = mouse_pos − (GATE_SIZE/2, GATE_SIZE/2)</code>)</li>
+      <li>drag threshold (移動距離) は<strong>無し</strong>: mousedown と同時にドラッグ開始 (palette → circuit は新規配置なので閾値不要)</li>
+      <li>Spacer も同じパス: drop すると回路上で空きスロット (作用なしの placeholder) として配置される</li>
+    </ul>
+    <h3 style="margin-top: 16px;">ドラッグ中</h3>
+    <ul>
+      <li>パレットアイコン<strong>自身は残り続ける</strong> (source は消えない)。同じパレットから何度でも drop 可能</li>
+      <li>カーソル下に preview gate が浮く: <code>render/circuit_palette/drag_preview.rs</code> で<strong>専用 overlay 描画</strong> (回路グリッド上の他 gate と z-order が独立)</li>
+      <li>preview 本体色は <code>drag_fill</code> = purple-600 (idle の cyan-400 と区別)</li>
+      <li>cursor は <code>grabbing</code></li>
+    </ul>
+    <h3 style="margin-top: 16px;">drop</h3>
+    <ul>
+      <li>drop 位置の slot index を計算 (mouse_pos → grid 座標変換)</li>
+      <li>既存配置 logic と同じ placement: snap / column insertion / 衝突検出</li>
+      <li>drop 不可な位置 (他 gate と衝突 / 範囲外) では snap back (preview が消えて何も配置されない)</li>
+      <li>drop 成功時は <code>placed_gates</code> に新 entry 追加、<code>gpu_plan.mark_dirty()</code>、<code>commit_current_circuit(ctx)</code></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 07 関連定数とファイル ─────── -->
+<section class="block">
+  <h2>§ 07 関連定数とファイル</h2>
+  <div class="card">
+    <h3>定数 (<code>apps/web/src/constants.rs</code> / <code>gates.rs</code>)</h3>
+    <table class="spec">
+      <thead><tr><th>定数</th><th>値</th><th>ファイル</th></tr></thead>
+      <tbody>
+        <tr><td><code>PALETTE_SIZE</code></td><td class="num">40.0</td><td><code>constants.rs:157</code></td></tr>
+        <tr><td><code>PALETTE_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:162</code></td></tr>
+        <tr><td><code>PALETTE_ROW_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:163</code></td></tr>
+        <tr><td><code>PALETTE_SECTION_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:165</code></td></tr>
+        <tr><td><code>PALETTE_SEPARATOR_WIDTH</code></td><td class="num">1.0</td><td><code>constants.rs:167</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_COLUMNS</code></td><td class="num">2</td><td><code>constants.rs:168</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_ROWS</code></td><td class="num">2</td><td><code>constants.rs:169</code></td></tr>
+        <tr><td><code>PALETTE_PADDING_X</code></td><td class="num">16.0</td><td><code>constants.rs:170</code></td></tr>
+        <tr><td><code>PALETTE_PADDING_Y</code></td><td class="num">20.0</td><td><code>constants.rs:171</code></td></tr>
+        <tr><td><code>PALETTE_CORNER_RADIUS</code></td><td class="num">12</td><td><code>constants.rs:172</code></td></tr>
+        <tr><td><code>PALETTE_ROW_Y</code></td><td><code>2.5 × REM = 80 px</code></td><td><code>constants.rs:178</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW1</code></td><td>13 entries</td><td><code>gates.rs:213</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW2</code></td><td>9 entries</td><td><code>gates.rs:228</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_GATES</code></td><td>3 entries</td><td><code>gates.rs:239</code></td></tr>
+        <tr><td><code>PALETTE_GATE_COUNT</code></td><td class="num">25</td><td><code>gates.rs:244</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW2_INDICES</code></td><td>[13,14,15,17,18,19,22,23,21]</td><td><code>gates.rs:247</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_INDICES</code></td><td>[16, 20, 24]</td><td><code>gates.rs:248</code></td></tr>
+        <tr><td><code>CONTROL_RADIUS</code></td><td class="num">8.0</td><td><code>icons/gate_glyphs.rs:12</code></td></tr>
+        <tr><td><code>ANTI_CONTROL_STROKE_WIDTH</code></td><td class="num">3.0</td><td><code>icons/gate_glyphs.rs:13</code></td></tr>
+        <tr><td><code>ANTI_CONTROL_RADIUS</code></td><td class="num">5.0</td><td><code>icons/gate_glyphs.rs:14</code></td></tr>
+        <tr><td><code>PROBABILITY_PREVIEW_BAR_WIDTHS</code></td><td>[0.30, 0.75, 0.55, 0.20]</td><td><code>icons/gate_body.rs:11</code></td></tr>
+      </tbody>
+    </table>
+    <h3 style="margin-top: 16px;">関連ソースファイル (<code>apps/web/src/</code>)</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>panel.rs</th><td><code>render/circuit_palette/panel.rs</code> — palette 全体の描画、shadow、separator、hover ring、各 gate body</td></tr>
+        <tr><th>tooltip.rs</th><td><code>render/circuit_palette/tooltip.rs</code> — hover ツールチップ (4 サブモジュール)</td></tr>
+        <tr><th>drag_preview.rs</th><td><code>render/circuit_palette/drag_preview.rs</code> — drag 中の preview overlay</td></tr>
+        <tr><th>palette.rs</th><td><code>layout/palette.rs</code> — <code>palette_layout / palette_start_x / palette_gate_local_pos / palette_hit_test</code> — section ベースの hit test と座標計算</td></tr>
+        <tr><th>start.rs</th><td><code>app/drag_controller/start.rs</code> — <code>DragStartIntent::PaletteGate</code> の処理</td></tr>
+        <tr><th>gate_body.rs</th><td><code>icons/gate_body.rs</code> — <code>draw_gate_body</code> / <code>draw_drag_gate_body</code> + Probability / Amplitude preview</td></tr>
+        <tr><th>gate_glyphs.rs</th><td><code>icons/gate_glyphs.rs</code> — meter / spacer / swap / control / anti / write の primitive 描画 + SDF テクスチャへの dispatch</td></tr>
+        <tr><th>bloch.rs</th><td><code>icons/bloch.rs</code> — Bloch sphere の軸描画 + Bloch vector の射影描画</td></tr>
+        <tr><th>svg_icon.rs / sdf_icon.rs</th><td><code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code> — <code>assets/icons/*.svg</code> から焼いた SDF テクスチャでアルファベットを描画</td></tr>
+        <tr><th>gates.rs</th><td><code>gates.rs</code> — 3 配列 (ROW1 / ROW2 / DISPLAY) + indices マップ + <code>palette_gate_kind(index)</code> + <code>GateSpec</code> 構造体</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 08 実装状況と TODO ─────── -->
+<section class="block">
+  <h2>§ 08 実装状況と TODO</h2>
+  <div class="card">
+    <h3>完全実装済み</h3>
+    <ul>
+      <li>2 section レイアウト: Gates section (2 行 × 22 個) + 1 px ui-2 縦セパレーター + Display section (2 × 2 grid、右下空白)</li>
+      <li>section ベースの <code>palette_hit_test</code> (gates / display それぞれ別経路 + separator / inter-section gap / display 空きスロットを除外)、フラット index は旧 25 entry と互換</li>
+      <li>各 gate のアイコン描画 (rounded square / circle body / Bloch circle / Probability preview / Amplitude preview / no body の 6 タイプ)</li>
+      <li>SDF テクスチャ経由の文字描画 (<code>assets/icons/*.svg</code> → 256 px PNG → SDF)</li>
+      <li>hover ring (purple-400 4 px expand / radius 10 + paper 2 px expand / radius 8) — Display section 右下の空白を除く全 24 ゲート対応</li>
+      <li>ツールチップ (gate 名 + 説明 + 変換図)</li>
+      <li>drag source (mousedown 即開始、新規 <code>PlacedGate</code> 生成、purple-600 preview overlay) — Spacer 含む全 24 ゲートに対応</li>
+      <li>Spacer は Gates section row 2 末尾、drop すると回路上の<strong>空きスロット</strong>として配置</li>
+    </ul>
+    <h3 style="margin-top: 16px;">未実装 / TODO</h3>
+    <ul>
+      <li><strong>パレット上ゲートの再配置 (reordering)</strong> — ユーザがパレット内のゲート順を入れ替える UI なし</li>
+      <li><strong>非表示制御 (hide / show)</strong> — 特定の gate を非表示にする設定なし (現状は 3 配列で全部表示)</li>
+      <li><strong>multi-select drag</strong> — 複数 gate を同時に drag する UI なし</li>
+      <li><strong>カスタム gate</strong> — ユーザ定義の gate を palette に追加する仕組みなし</li>
+      <li><strong>Display section 右下スロットの拡張</strong> — 4 つ目の display を追加すれば 2 × 2 が埋まる (例: density matrix display など)</li>
+      <li><strong>parameterized gate の値入力</strong> — P / Rx / Ry / Rz は placement 後に値を編集する UI が必要だが palette 側からは設定できない</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · ゲートパレット仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

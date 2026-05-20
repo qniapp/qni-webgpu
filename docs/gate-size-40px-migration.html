@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GATE_SIZE 40 px 化の影響整理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --font-body: 'Geist', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:       #FFFCF0;
+      --bg-2:     #F2F0E5;
+      --ui:       #E6E4D9;
+      --ui-2:     #DAD8CE;
+      --tx-3:     #B7B5AC;
+      --tx-2:     #6F6E69;
+      --tx:       #100F0F;
+      --blue-300: #66A0C8;
+      --blue-600: #205EA6;
+      --green-600:#66800B;
+      --red-600:  #AF3029;
+      --orange-600:#BC5215;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      color: var(--tx); font-family: var(--font-body);
+      font-size: 16px; line-height: 24px;
+      background: var(--bg-2); padding: 0 0 96px;
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3); }
+    h1.page-title { margin: 12px 0 8px; font-size: 30px; line-height: 36px; letter-spacing: -0.01em; font-weight: 700; }
+    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
+    p.page-lede code, p code, td code, li code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+    section.block > h2 { margin: 0 0 12px; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; }
+    .note { color: var(--tx-2); font-size: 14px; line-height: 20px; max-width: 820px; margin: 0 0 16px; }
+
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+    .card p { margin: 0 0 8px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul { margin: 4px 0 8px; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+
+    table.spec {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    table.spec th, table.spec td {
+      text-align: left;
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid var(--ui-2);
+      vertical-align: top;
+    }
+    table.spec th {
+      color: var(--tx-3);
+      font-weight: 500;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    table.spec td.num { font-family: var(--font-mono); text-align: right; padding-right: 16px; }
+    table.spec td.tag { font-family: var(--font-mono); font-size: 12px; }
+    .ok   { color: var(--green-600); font-weight: 500; }
+    .warn { color: var(--orange-600); font-weight: 500; }
+    .ng   { color: var(--red-600); font-weight: 500; }
+
+    .doc-foot {
+      max-width: 1100px; margin: 24px auto 0; padding: 32px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--tx-3); letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
+    .doc-foot a:hover { color: var(--blue-600); border-color: var(--blue-600); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · sizing change</p>
+  <h1 class="page-title">GATE_SIZE 40 px 化の影響整理</h1>
+  <p class="page-lede">
+    確率表示ブロックの各行に <code>XX.X%</code> のラベルを描画したいが、現状の
+    <code>GATE_SIZE = 32 px</code> では行高が小さく文字が読めない。
+    Quirk と同じ <strong>40 × 40 px (= Tailwind <code>spacing-10</code>)</strong>
+    に上げる前提で、関連する寸法定数をどう変えるか整理する。
+    主対象ファイル: <code>apps/egui-web/src/constants.rs</code>。固定 32 px 前提の描画・テストも併せて点検する。
+  </p>
+</div>
+
+<!-- ─────── § 01 現状の寸法 ─────── -->
+<section class="block">
+  <h2>§ 01 現状の主要寸法 (REM = 32 起点)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>定数</th><th>計算式</th><th style="text-align:right;">値 (px)</th><th>Tailwind</th><th>役割</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>REM</code></td><td>base</td><td class="num">32</td><td class="tag">spacing-8</td><td>派生定数の基準</td></tr>
+        <tr><td><code>GATE_SIZE</code></td><td><code>1.0 × REM</code></td><td class="num">32</td><td class="tag">spacing-8</td><td>ゲート本体の辺長 (= パレット = 回路)</td></tr>
+        <tr><td><code>LINE_GAP</code></td><td><code>1.5 × REM</code></td><td class="num">48</td><td class="tag">spacing-12</td><td>隣接ワイヤ間の縦ピッチ</td></tr>
+        <tr><td><code>SLOT_SPACING</code></td><td><code>GATE_SIZE × 1.5</code></td><td class="num">48</td><td class="tag">spacing-12</td><td>横方向の slot ピッチ</td></tr>
+        <tr><td><code>PALETTE_SIZE</code></td><td><code>= GATE_SIZE</code></td><td class="num">32</td><td class="tag">spacing-8</td><td>パレット内のゲート箱サイズ</td></tr>
+        <tr><td><code>QFT_RESIZE_HANDLE_WIDTH</code></td><td><code>= GATE_SIZE</code></td><td class="num">32</td><td class="tag">spacing-8</td><td>span リサイズハンドル幅</td></tr>
+        <tr><td><code>QFT_RESIZE_HANDLE_HEIGHT</code></td><td><code>GATE_SIZE × 0.75</code></td><td class="num">24</td><td class="tag">spacing-6</td><td>同高さ</td></tr>
+        <tr><td><code>SNAP_DISTANCE</code></td><td><code>0.5625 × REM</code></td><td class="num">18</td><td class="tag warn">非 Tailwind</td><td>ドラッグスナップ閾値</td></tr>
+        <tr><td><code>CIRCUIT_PADDING</code></td><td><code>2.0 × REM</code></td><td class="num">64</td><td class="tag">spacing-16</td><td>キャンバス左右余白</td></tr>
+        <tr><td><code>QUBIT_LABEL_GAP</code></td><td><code>0.5 × REM</code></td><td class="num">16</td><td class="tag">spacing-4</td><td>"qN:" とワイヤの間隔</td></tr>
+        <tr><td><code>STATE_CIRCLE_BOTTOM_MARGIN</code></td><td><code>2.0 × REM</code></td><td class="num">64</td><td class="tag">spacing-16</td><td>回路と state panel の間</td></tr>
+        <tr><td><code>PALETTE_ROW_Y</code></td><td><code>2.5 × REM</code></td><td class="num">80</td><td class="tag">spacing-20</td><td>パレット 1 行目の y 位置</td></tr>
+        <tr><td><code>PALETTE_CIRCUIT_GAP</code></td><td>固定値</td><td class="num">48</td><td class="tag">spacing-12</td><td>パレット下端と最初のワイヤの間</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 02 まず捨てる案: REM 自体を 40 へ ─────── -->
+<section class="block">
+  <h2>§ 02 採用しない案: <code>REM</code> 自体を 40 に上げる</h2>
+  <div class="card">
+    <p>
+      一番素直に見える「<code>REM</code> を 32 → 40 (= 1.25 倍) にして全派生を比例拡大」は
+      却下する。理由は派生定数が一気に Tailwind スケール外へ流出するため。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>定数</th><th>新値 (px)</th><th>Tailwind</th><th>判定</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>LINE_GAP</code></td><td class="num">60</td><td class="tag">なし (56 と 64 の間)</td><td><span class="ng">×</span></td></tr>
+        <tr><td><code>SLOT_SPACING</code></td><td class="num">60</td><td class="tag">なし</td><td><span class="ng">×</span></td></tr>
+        <tr><td><code>QFT_RESIZE_HANDLE_HEIGHT</code></td><td class="num">30</td><td class="tag">なし</td><td><span class="ng">×</span></td></tr>
+        <tr><td><code>SNAP_DISTANCE</code></td><td class="num">22.5</td><td class="tag">4 px 倍数でない</td><td><span class="ng">×</span></td></tr>
+        <tr><td><code>PALETTE_ROW_Y</code></td><td class="num">100</td><td class="tag">なし</td><td><span class="ng">×</span></td></tr>
+      </tbody>
+    </table>
+    <p>
+      また、ページレイアウト系の <code>CIRCUIT_PADDING</code> や
+      <code>STATE_CIRCLE_BOTTOM_MARGIN</code> はゲートの大きさと無関係に
+      「キャンバスの余白」「セクション間の余白」を意味するので、ゲート寸法に
+      連動させる必然性がない。<strong>ゲート寸法とページ余白を別々に扱う</strong>
+      ほうが意味論的にも正しい。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 03 推奨案 ─────── -->
+<section class="block">
+  <h2>§ 03 推奨案: ゲート直結寸法だけ変更</h2>
+  <div class="card">
+    <p>
+      <strong>「ゲートに直接ぶら下がっている寸法だけ更新し、ページレイアウト系は
+      据え置く」</strong>方針。<code>LINE_GAP</code> は「ゲート間の縦空き」を
+      現状と同じ 16 px に保ちたいので <strong>56 px (spacing-14)</strong> を採用。
+    </p>
+    <p>
+      根拠: <code>LINE_GAP − GATE_SIZE</code> = 隣接ワイヤ上のゲート間の縦空き。
+      現状 48 − 32 = 16 px。新値 56 − 40 = 16 px で<strong>視覚密度が完全に維持</strong>される。
+    </p>
+
+    <table class="spec">
+      <thead>
+        <tr><th>定数</th><th>現状 (px)</th><th>新値 (px)</th><th>Tailwind</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>GATE_SIZE</code></td>
+          <td class="num">32</td>
+          <td class="num">40</td>
+          <td class="tag">spacing-10</td>
+          <td><span class="ok">変更</span> Quirk と一致</td>
+        </tr>
+        <tr>
+          <td><code>LINE_GAP</code></td>
+          <td class="num">48</td>
+          <td class="num">56</td>
+          <td class="tag">spacing-14</td>
+          <td><span class="ok">変更</span> 隣接ゲート間の 16 px 空きを維持</td>
+        </tr>
+        <tr>
+          <td><code>SLOT_SPACING</code></td>
+          <td class="num">48</td>
+          <td class="num">60 → <strong>56</strong></td>
+          <td class="tag">spacing-14</td>
+          <td><span class="ok">変更</span> 計算式 <code>GATE_SIZE × 1.5</code> をやめて固定 56 (= <code>LINE_GAP</code> と同じ)</td>
+        </tr>
+        <tr>
+          <td><code>PALETTE_SIZE</code></td>
+          <td class="num">32</td>
+          <td class="num">40</td>
+          <td class="tag">spacing-10</td>
+          <td><span class="ok">変更</span> 定義 <code>= GATE_SIZE</code> なので自動追従</td>
+        </tr>
+        <tr>
+          <td><code>QFT_RESIZE_HANDLE_WIDTH</code></td>
+          <td class="num">32</td>
+          <td class="num">40</td>
+          <td class="tag">spacing-10</td>
+          <td><span class="ok">変更</span> 定義 <code>= GATE_SIZE</code> で自動追従</td>
+        </tr>
+        <tr>
+          <td><code>QFT_RESIZE_HANDLE_HEIGHT</code></td>
+          <td class="num">24</td>
+          <td class="num">30 → <strong>28</strong> または <strong>32</strong></td>
+          <td class="tag">spacing-7 or spacing-8</td>
+          <td><span class="warn">要判断</span> qni の 0.75 比率そのままなら 30 だが Tailwind 外。厳密スケール優先なら 28、掴みやすさ優先なら 32</td>
+        </tr>
+        <tr>
+          <td><code>SNAP_DISTANCE</code></td>
+          <td class="num">18</td>
+          <td class="num">22.5 → <strong>20</strong></td>
+          <td class="tag">spacing-5</td>
+          <td><span class="ok">変更</span> 計算式 <code>0.5625 × REM</code> をやめて固定 20 (= 40 px ゲート幅の 1/2)。旧比率維持なら 24 も比較候補</td>
+        </tr>
+        <tr><td colspan="5" style="padding-top:14px; color:var(--tx-3); font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em;">以下、ページレイアウト系。据え置き ↓</td></tr>
+        <tr>
+          <td><code>REM</code></td>
+          <td class="num">32</td>
+          <td class="num">32</td>
+          <td class="tag">spacing-8</td>
+          <td><span class="ok">据置</span> 「派生計算用の base」としては引き続き 32 を使う</td>
+        </tr>
+        <tr>
+          <td><code>CIRCUIT_PADDING</code></td>
+          <td class="num">64</td>
+          <td class="num">64</td>
+          <td class="tag">spacing-16</td>
+          <td><span class="ok">据置</span> キャンバス余白なのでゲート寸法と独立</td>
+        </tr>
+        <tr>
+          <td><code>QUBIT_LABEL_GAP</code></td>
+          <td class="num">16</td>
+          <td class="num">16</td>
+          <td class="tag">spacing-4</td>
+          <td><span class="ok">据置</span> ラベル↔ワイヤの細かい余白</td>
+        </tr>
+        <tr>
+          <td><code>STATE_CIRCLE_BOTTOM_MARGIN</code></td>
+          <td class="num">64</td>
+          <td class="num">64</td>
+          <td class="tag">spacing-16</td>
+          <td><span class="ok">据置</span> 回路↔状態パネルの余白</td>
+        </tr>
+        <tr>
+          <td><code>PALETTE_ROW_Y</code></td>
+          <td class="num">80</td>
+          <td class="num">80</td>
+          <td class="tag">spacing-20</td>
+          <td><span class="ok">据置</span> ツールバー下の 24 px ギャップを保つキャリブレーション値</td>
+        </tr>
+        <tr>
+          <td><code>PALETTE_CIRCUIT_GAP</code></td>
+          <td class="num">48</td>
+          <td class="num">48</td>
+          <td class="tag">spacing-12</td>
+          <td><span class="ok">据置</span> パレットと最初のワイヤの間隔</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 04 副次影響: 確率表示ブロック 行高 ─────── -->
+<section class="block">
+  <h2>§ 04 確率表示ブロックの span 別行高 (本来の目的)</h2>
+  <div class="card">
+    <p>
+      確率表示ブロックの高さは <code>(span − 1) × LINE_GAP + GATE_SIZE</code>、
+      行高は <code>height ÷ 2<sup>span</sup></code>。
+      シェーダは Quirk に合わせて Probability1〜Probability4 だけ文字を出す。
+      実際のグリフ高さは <code>PROBABILITY_TEXT_CHAR_H = 9.0</code> なので、
+      40 px 化後も Probability5 以降はバーのみで表示する。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>span</th><th>outcome 数</th><th>現状 高さ / 行高 (px)</th><th>新値 高さ / 行高 (px)</th><th>テキスト可否</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td class="num">2</td><td class="num">32 / 16.0</td><td class="num">40 / 20.0</td><td><span class="ok">○ 余裕</span></td></tr>
+        <tr><td>2</td><td class="num">4</td><td class="num">80 / 20.0</td><td class="num">96 / 24.0</td><td><span class="ok">○ 余裕</span></td></tr>
+        <tr><td>3</td><td class="num">8</td><td class="num">128 / 16.0</td><td class="num">152 / 19.0</td><td><span class="ok">○ 余裕</span></td></tr>
+        <tr><td>4</td><td class="num">16</td><td class="num">176 / 11.0</td><td class="num">208 / 13.0</td><td><span class="ok">○ 読める</span></td></tr>
+        <tr><td>5</td><td class="num">32</td><td class="num">224 / 7.0</td><td class="num">264 / 8.25</td><td><span class="warn">バーのみ</span> 9 px グリフより低い</td></tr>
+        <tr><td>6</td><td class="num">64</td><td class="num">272 / 4.25</td><td class="num">320 / 5.0</td><td><span class="warn">△ バーのみ</span> (log-hint は未実装)</td></tr>
+        <tr><td>...</td><td>...</td><td>...</td><td>...</td><td></td></tr>
+      </tbody>
+    </table>
+    <p>
+      40 px 化 + <code>LINE_GAP = 56</code> でも、span 5 の 8.25 px 行高は
+      9 px グリフより低い。Quirk と同じ挙動を優先し、Probability5 以降は
+      パーセント文字を出さずバーのみ表示する。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 05 その他の影響と要確認箇所 ─────── -->
+<section class="block">
+  <h2>§ 05 その他の影響箇所と要確認事項</h2>
+  <div class="card">
+    <h3>自動追従する箇所 / 固定値として残す箇所</h3>
+    <ul>
+      <li>SVG 座標系アイコンは <code>viewBox = 48</code> 固定で、実描画は
+        <code>rect.width()</code> に比例。Control / Swap などのストローク幅も自動でスケールする</li>
+      <li>SDF テクスチャ系アイコンも、ターゲット矩形のサイズで自動スケールする</li>
+      <li>ホバー枠の <code>expand(4) / expand(2)</code> はゲートサイズに比例しない
+        「絶対 px のリング厚み」なので据え置きでよい</li>
+      <li>ゲート本体角丸 <code>CornerRadius::same(6)</code> も絶対値として据え置く。
+        40 px ゲートでは相対的に少し角が立つため、目視で違和感があれば 8 px も比較する</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>目視確認したい箇所</h3>
+    <ul>
+      <li><strong>パレットの幅</strong>: 現行は 24 個横一列ではなく 13 + 11 の 2 行。
+        内容幅は 512 → 616 px、左右余白込みのパネル幅は 544 → 648 px。
+        影響は +104 px なので大きな問題ではなさそう。将来 24 個一列にする場合だけ
+        952 → 1144 px になり、レスポンシブ対応が必要</li>
+      <li><strong>ツールバー (上端の取り消し/ゴミ箱等) との視覚バランス</strong>:
+        ゲートだけ 25 % 大きくなるので、ツールバーアイコンとの相対感が変わる</li>
+      <li><strong>状態パネルの振幅円盤サイズ感</strong>: パネルは据え置きだが、
+        ゲートが大きくなることで「ゲート vs 振幅円」の比率が変わる</li>
+      <li><strong>Bloch sphere</strong>: GPU 側の半径計算は
+        <code>gate_rect.width().min(gate_rect.height()) × 0.5 − 1.0</code> なので自動拡大。
+        視覚密度は OK のはず</li>
+      <li><strong>Measurement の発火後 0/1 オーバーレイ</strong>: <code>MeasurementDigitInstance::half_extent</code>
+        は <code>GATE_SIZE * 0.5</code> に変更し、40 px ゲートへ追従させる。Write0 / Write1 の SDF 数字と同じサイズで表示する</li>
+      <li><strong>Measurement の wire clearance</strong> (<code>circuit_gates.rs</code> の
+        <code>MEASUREMENT_WIRE_CLEARANCE = 4.0</code>): 絶対値、据置で OK</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 06 移行手順 ─────── -->
+<section class="block">
+  <h2>§ 06 段階的移行手順</h2>
+  <div class="card">
+    <h3>Step 1 — 寸法定数と固定 32 px 参照を更新する</h3>
+    <p>まず <code>apps/egui-web/src/constants.rs</code> のゲート直結定数を更新する:</p>
+    <ul>
+      <li><code>GATE_SIZE</code>: <code>1.0 × REM</code> → 直接 <code>40.0</code></li>
+      <li><code>LINE_GAP</code>: <code>1.5 × REM</code> → 直接 <code>56.0</code> (可読性優先なら 64.0 も比較)</li>
+      <li><code>SLOT_SPACING</code>: <code>GATE_SIZE × 1.5</code> → 直接 <code>56.0</code></li>
+      <li><code>QFT_RESIZE_HANDLE_HEIGHT</code>: <code>GATE_SIZE × 0.75</code> → <code>28.0</code> または <code>32.0</code> を選んでコメントに理由を書く</li>
+      <li><code>SNAP_DISTANCE</code>: <code>0.5625 × REM</code> → 直接 <code>20.0</code> (旧比率維持なら 24.0)</li>
+      <li><code>PALETTE_SIZE</code>, <code>QFT_RESIZE_HANDLE_WIDTH</code> は <code>= GATE_SIZE</code> で自動追従</li>
+    </ul>
+    <p>
+      <code>REM</code> 自体は触らない (他の REM 派生の意味論を保つため)。
+      続けて <code>MeasurementDigitInstance::half_extent = 16.0</code> など固定 32 px 前提の描画値を点検し、
+      40 px ゲートへ揃えるものは <code>GATE_SIZE</code> 由来へ置き換える。
+      意図を反映してコメントも書き換える。
+    </p>
+  </div>
+  <div class="card">
+    <h3>Step 2 — trunk serve + 外部 Chrome / Playwright で見た目を確認</h3>
+    <ul>
+      <li><code>docs/egui-web.md</code> の手順で外部 Chrome / Playwright を使い、
+        パレット幅・ゲートの大きさ・ホバー枠の位置がずれていないかを目視</li>
+      <li>確率表示ブロックを span 1..5 で並べた URL で、span 1..4 のテキストと span 5 のバー表示を確認:
+        <code>#{"cols":[["Probability"],["Probability2"],["Probability3"]]}</code> 等</li>
+      <li>span 5 は 8.25 px 行高なので、パーセント文字が出ずバーのみになることを拡大スクリーンショットで確認</li>
+      <li>Measurement の発火後数字、状態パネルと回路の境界が違和感ないかを確認</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Step 3 — insta スナップショットを更新</h3>
+    <p>
+      ゲートサイズ変更により多数の視覚スナップショットが変わる。
+      <code>cargo insta test</code> → <code>cargo insta review</code> で
+      新スナップショットを全件確認のうえ承認。
+    </p>
+  </div>
+  <div class="card">
+    <h3>Step 4 — Playwright テストの座標定数を更新する</h3>
+    <p>
+      座標ベースのテストは実在するため、32 / 48 px 前提の定数を新しい
+      <code>GATE_SIZE</code> / <code>LINE_GAP</code> / <code>SLOT_SPACING</code> に合わせる。
+    </p>
+    <ul>
+      <li><code>apps/egui-web/tests/egui-web-probability-display.spec.ts</code></li>
+      <li><code>apps/egui-web/tests/egui-web-drag-visual.spec.ts</code></li>
+      <li><code>apps/egui-web/tests/egui-web-gpu.spec.ts</code></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 07 実装時の決定事項 ─────── -->
+<section class="block">
+  <h2>§ 07 実装時の決定事項</h2>
+  <div class="card">
+    <ul>
+      <li><strong>LINE_GAP</strong>: 56 px を採用。隣接ゲートの空き 16 px を維持し、Probability5 以降は Quirk と同じくバーのみ表示にする。</li>
+      <li><strong>SLOT_SPACING</strong>: 56 px を採用。縦横の視覚リズムを揃える。</li>
+      <li><strong>QFT リサイズハンドルの高さ</strong>: 32 px を採用。Tailwind spacing-8 に合わせ、つかみやすさを優先する。</li>
+      <li><strong>SNAP_DISTANCE</strong>: 20 px を採用。40 px ゲート幅の半分に合わせる。</li>
+      <li><strong>Measurement の発火後数字</strong>: <code>GATE_SIZE * 0.5</code> の 40 px quad へ拡大し、Write0 / Write1 と同じ digit0 / digit1 SDF サイズに揃える。</li>
+      <li><strong>パレット幅</strong>: 現行 2 行ならパネル幅は 648 px 程度で収まる。将来 24 ゲート横一列へ変える場合だけ 1144 px になり、折り返しや折り畳みが必要。</li>
+    </ul>
+  </div>
+</section>
+
+<div class="doc-foot">
+  関連:
+  <a href="probability-display-corner-options.html">probability-display-corner-options.html</a> ·
+  <a href="probability-display-mock.html">probability-display-mock.html</a>
+  · 設計レビュー用 · 2026-05
+</div>
+
+</body>
+</html>

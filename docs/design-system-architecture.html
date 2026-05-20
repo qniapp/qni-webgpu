@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>デザインシステム — アーキテクチャ提案</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      color-scheme: light;
+      --font-body: 'Geist', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
+      --bg:       #FFFCF0;
+      --bg-2:     #F2F0E5;
+      --ui:       #E6E4D9;
+      --ui-2:     #DAD8CE;
+      --tx-3:     #B7B5AC;
+      --tx-2:     #6F6E69;
+      --tx:       #100F0F;
+      --blue-300: #66A0C8;
+      --blue-600: #205EA6;
+      --green-600:#66800B;
+      --red-600:  #AF3029;
+      --purple-400:#8B7EC8;
+      --shadow-popover: 0 12px 32px rgba(16, 15, 15, 0.10);
+      --shadow-panel:   0 16px 40px rgba(16, 15, 15, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      color: var(--tx); font-family: var(--font-body);
+      font-size: 16px; line-height: 24px;
+      background: var(--bg-2); padding: 0 0 96px;
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 56px 32px 24px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3); }
+    h1.page-title { margin: 12px 0 8px; font-size: 32px; line-height: 40px; letter-spacing: -0.01em; font-weight: 700; }
+    p.page-lede { margin: 0 0 8px; color: var(--tx-2); max-width: 760px; }
+    p.page-lede code, .note code, p code {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+    section.block { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+    section.block > h2 { margin: 0 0 8px; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 12px; }
+    section.block > h2 .num { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.2em; color: var(--tx-3); font-weight: 500; }
+    section.block > p.note { margin: 0 0 20px; color: var(--tx-2); max-width: 820px; }
+
+    .card {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+      margin-bottom: 16px;
+    }
+    .card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .card p { margin: 0 0 12px; color: var(--tx-2); font-size: 14px; line-height: 1.65; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul, .card ol { color: var(--tx-2); font-size: 14px; line-height: 1.65; margin: 0 0 12px; padding-left: 20px; }
+    .card ul li, .card ol li { margin-bottom: 4px; }
+    .card code {
+      font-family: var(--font-mono); font-size: 13px;
+      background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx);
+    }
+    .card pre {
+      margin: 12px 0; padding: 14px 16px;
+      background: var(--ui); border-radius: 6px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.6; overflow-x: auto;
+      color: var(--tx);
+    }
+    .card pre.lang-html { background: #FAEEC6; }
+    .card pre.lang-ts   { background: #E1ECEB; }
+    .card pre.lang-rust { background: #FFE7CE; }
+    .card .lang-tag {
+      display: inline-block;
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--tx-3);
+      margin: 12px 0 -8px;
+    }
+
+    table.spec {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px; margin-top: 12px;
+    }
+    table.spec th, table.spec td {
+      text-align: left; padding: 8px 12px 8px 0;
+      border-bottom: 1px solid var(--ui-2); vertical-align: top;
+    }
+    table.spec th {
+      color: var(--tx-3); font-weight: 500;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      width: 180px;
+    }
+    table.spec td code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--ui); padding: 1px 5px; border-radius: 4px;
+    }
+
+    .pill {
+      display: inline-block;
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 99px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .pill.tier-a { background: #E1ECEB; color: var(--blue-600); border: 1px solid #C6DDE8; }
+    .pill.tier-b { background: #FFE7CE; color: #71320D; border: 1px solid #FED3AF; }
+
+    /* アーキテクチャ図 — HTML/CSS の枠でフロー表現
+       (ASCII アートは AGENTS.md の規約で禁止) */
+    .arch {
+      display: flex; flex-direction: column;
+      gap: 12px;
+      margin: 8px 0 4px;
+    }
+    .arch-card {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .arch-card .arch-title {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx); font-weight: 600;
+      margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .arch-card .arch-sub {
+      font-size: 12px; color: var(--tx-2);
+      margin-bottom: 10px;
+    }
+    .arch-card pre {
+      margin: 10px 0 0;
+      background: var(--ui); border-radius: 4px;
+      padding: 10px 12px;
+      font-family: var(--font-mono); font-size: 11px;
+      line-height: 1.6;
+      white-space: pre; overflow-x: auto;
+      color: var(--tx);
+    }
+    .arch-card .arch-list {
+      list-style: none; padding: 0; margin: 0;
+      font-size: 13px; color: var(--tx-2);
+      line-height: 1.8;
+    }
+    .arch-card .arch-list li::before {
+      content: "・"; color: var(--tx-3);
+    }
+    .arch-card .arch-list code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--ui); padding: 1px 5px; border-radius: 4px; color: var(--tx);
+    }
+    .arch-flow-pair {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-3);
+      text-align: center;
+    }
+    .arch-flow-pair .arrow {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px;
+    }
+    .arch-flow-pair .arrow .head {
+      font-size: 18px; line-height: 1;
+    }
+    .arch-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .arch-shared {
+      text-align: center;
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-2);
+      background: var(--bg-2);
+      border: 1px dashed var(--ui-2);
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-top: 4px;
+    }
+    .arch-shared code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--tx);
+    }
+
+    .doc-foot {
+      max-width: 1100px; margin: 24px auto 0; padding: 32px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--tx-3); letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .doc-foot a { color: var(--tx-2); text-decoration: none; border-bottom: 1px dotted var(--tx-3); }
+    .doc-foot a:hover { color: var(--blue-600); border-color: var(--blue-600); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · アーキテクチャ提案</p>
+  <h1 class="page-title">デザインシステムのアーキテクチャ</h1>
+  <p class="page-lede">
+    Claude / Codex が Playwright で<strong>本物の見た目をピクセル単位で忠実に
+    検証</strong>できるよう、qni-webgpu のウィジェットを普通の HTML から
+    <strong>カスタム要素として埋め込める</strong>仕組みを作る。
+    qni (<code>../qni</code>) のチュートリアル HTML と同じ流儀
+    (= <code>&lt;h-gate&gt;</code> タグを HTML に書くだけ) で qni-webgpu の
+    ウィジェットが呼び出せるようにし、デザインシステムページとチュートリアルの両方を
+    同じ部品で書ける状態にする。
+  </p>
+</div>
+
+<!-- ───────────────── 1. なぜこれが必要か ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> なぜデザインシステムが必要か</h2>
+
+  <div class="card">
+    <h3>現状の問題</h3>
+    <ul>
+      <li><code>docs/*-mock.html</code> は HTML/CSS/SVG/JS でウィジェットの見た目を
+        <strong>近似</strong>している。フォントメトリクス・グリフアトラス・シェーダによる
+        グラデーションの差分が残り、「モックでは合っているが実装で違って見える」が常につきまとう。</li>
+      <li>Claude / Codex がレビュー時に見るのはモック。実装直後の本物との見た目の乖離を
+        Playwright で検証する手段がない (本物の wasm アプリは重く、特定ウィジェットだけを
+        切り出して比較する仕組みがない)。</li>
+      <li>同じウィジェット仕様をモックと Rust 実装で<strong>二重に書く</strong>羽目になり、
+        食い違いが生じる。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>解決ゴール</h3>
+    <ol>
+      <li><strong>1 ソース原則</strong>: ウィジェットの見た目は qni-webgpu 内に 1 箇所だけ
+        実装し、デザインシステム / チュートリアル / 本番アプリで同じコードが描画される。</li>
+      <li><strong>埋め込みやすさ</strong>: <code>&lt;h-gate&gt;</code> 1 行で
+        普通の HTML に挿せる (Qni のチュートリアル HTML と同じ書き味)。</li>
+      <li><strong>Playwright 検証可能</strong>: デザインシステムページを開いて任意の
+        ウィジェットのスクリーンショットを取れば、本番アプリとピクセル単位で一致する。</li>
+      <li><strong>段階的に拡張</strong>: 最初は静的 SVG アイコンから、シェーダ依存の
+        重いウィジェットは順次 wasm + キャンバス方式へ移行し、増やしていける。</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Qni の手法を参考にする ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> 参考: Qni のチュートリアル埋め込み</h2>
+  <p class="note">
+    <code>../qni/html/h_gate.html</code> 等のチュートリアル HTML では、普通の
+    HTML に Qni 部品がカスタム要素として埋め込まれている。文中インラインに
+    アイコンを置く軽い使い方から、全機能入りのミニシミュレータまで同じパターン。
+  </p>
+
+  <div class="card">
+    <h3>使われ方の例 (qni チュートリアル本文より抜粋)</h3>
+    <span class="lang-tag">html</span>
+    <pre class="lang-html">&lt;!-- 文中インラインに H ゲートアイコン --&gt;
+&lt;p&gt;
+  &lt;h-gate class="qpu-operation-xs"&gt;&lt;/h-gate&gt; を |0⟩ に適用すると...
+&lt;/p&gt;
+
+&lt;!-- ブロックレベルに mini simulator --&gt;
+&lt;quantum-simulator&gt;
+  &lt;circuit-editor&gt;
+    &lt;palette-dropzone&gt;
+      &lt;h-gate data-hoverable&gt;&lt;/h-gate&gt;
+      &lt;x-gate data-hoverable&gt;&lt;/x-gate&gt;
+    &lt;/palette-dropzone&gt;
+    &lt;quantum-circuit data-json='{"cols":[["|0&gt;"]]}'&gt;&lt;/quantum-circuit&gt;
+    &lt;circle-notation&gt;&lt;/circle-notation&gt;
+  &lt;/circuit-editor&gt;
+&lt;/quantum-simulator&gt;</pre>
+  </div>
+
+  <div class="card">
+    <h3>実装側の構造</h3>
+    <ul>
+      <li>TypeScript で <code>HTMLElement</code> を継承したクラス
+        (<code>packages/elements/src/h-gate-element.ts</code> 等)</li>
+      <li>中身は Shadow DOM + SVG アイコン (<code>import hGateIcon from '../icon/h-gate.svg'</code>)</li>
+      <li>単一の <code>application.js</code> が <code>@qni/elements</code> を読み込み、
+        各要素の <code>@controller</code> で登録</li>
+      <li>ページは <code>&lt;script src="./application.js"&gt;</code> を 1 つ読むだけで
+        全部品が使える</li>
+    </ul>
+    <p>
+      qni-webgpu はレンダリング方式が SVG ではなく WebGPU/egui である点が違うので、カスタム要素の<strong>中身</strong>は別実装になるが、<strong>外向き API
+      (タグ名 + 属性)</strong> は qni の流儀に揃えるとチュートリアルの著者体験が共通化する。
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────── 3. アーキテクチャ概要 ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> アーキテクチャ概要 — 2 階層のカスタム要素</h2>
+
+  <p class="note">
+    カスタム要素の中身を「軽い <span class="pill tier-a">Tier A: 静的 SVG</span>」と
+    「重い <span class="pill tier-b">Tier B: wasm + キャンバス</span>」の 2 階層に分け、
+    用途に応じて使い分ける。同じウィジェットが両方を持つこともある (= SVG 版で軽量に
+    埋め込みつつ、必要なときだけ wasm 版に格上げ)。
+  </p>
+
+  <div class="arch">
+    <!-- 上段: 利用側 (デザインシステムページ) -->
+    <div class="arch-card">
+      <div class="arch-title">design-system.html （リポジトリ直下）</div>
+      <div class="arch-sub">ふつうの HTML、Geist フォント、カスタム要素を散りばめる</div>
+<pre>&lt;h-gate&gt;&lt;/h-gate&gt;                       ← Tier A (SVG)
+&lt;probability-display span="3"                   ← Tier B (wasm + canvas)
+             probs="0.5,0,0,0,0,0,0,0.5"&gt;
+&lt;/probability-display&gt;</pre>
+    </div>
+
+    <!-- 2 系統への分岐 -->
+    <div class="arch-flow-pair">
+      <div class="arrow"><span>Tier A</span><span class="head">↓</span></div>
+      <div class="arrow"><span>Tier B</span><span class="head">↓</span></div>
+    </div>
+
+    <!-- 下段: 2 系統の実装側 -->
+    <div class="arch-row">
+      <div class="arch-card">
+        <div class="arch-title">
+          packages/elements/
+          <span class="pill tier-a">Tier A</span>
+        </div>
+        <div class="arch-sub">新規 TypeScript パッケージ（qni と同じく <code>packages/</code> 直下）</div>
+        <ul class="arch-list">
+          <li><code>h-gate</code>, <code>x-gate</code>, ... のカスタム要素</li>
+          <li>Shadow DOM + 共有 SVG アイコン</li>
+          <li>状態なし / GPU 不要 / 軽量</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <div class="arch-title">
+          qni-webgpu ウィジェット専用モード
+          <span class="pill tier-b">Tier B</span>
+        </div>
+        <div class="arch-sub">既存 wasm の別入口（リポジトリ直下の Rust クレート）</div>
+        <ul class="arch-list">
+          <li>1 キャンバスに 1 ウィジェット</li>
+          <li>属性で状態を受け取る</li>
+          <li>本番と同じ描画関数を呼ぶ（完全一致）</li>
+        </ul>
+<pre>start({
+  widget: 'probability-display',
+  span: 3,
+  probs: [0.5, 0, ...],
+});</pre>
+      </div>
+    </div>
+
+    <!-- 共有リソース -->
+    <div class="arch-shared">
+      両者は <code>assets/icons/*.svg</code> と
+      <code>src/shaders/*.wgsl</code> を 1 ソースで共有
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 4. Tier A: 静的 SVG ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> Tier A: 静的 SVG ベースのカスタム要素</h2>
+  <p class="note">
+    状態を持たない / アニメーションしない / GPU 計算を要しないウィジェットは
+    <strong>SVG をそのまま Shadow DOM に流し込む薄いカスタム要素</strong>
+    にする。qni のゲートアイコンと同じ作り。最も軽く、文中インラインに散りばめる
+    用途で最強。
+  </p>
+
+  <div class="card">
+    <h3>対象ウィジェットの例</h3>
+    <ul>
+      <li>パレット用ゲートアイコン: <code>&lt;h-gate&gt;</code>, <code>&lt;x-gate&gt;</code>,
+        <code>&lt;cnot&gt;</code>, <code>&lt;probability-icon&gt;</code></li>
+      <li>状態を持たない、非インタラクティブな回路サムネイル</li>
+      <li>チュートリアル本文に挿す説明用ゲート列挙</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>HTML 利用例</h3>
+    <span class="lang-tag">html</span>
+    <pre class="lang-html">&lt;script type="module" src="/elements.js"&gt;&lt;/script&gt;
+
+&lt;!-- インライン --&gt;
+&lt;p&gt;
+  H ゲート &lt;h-gate size="sm"&gt;&lt;/h-gate&gt; を |0⟩ に適用すると
+  重ね合わせ状態が得られます。
+&lt;/p&gt;
+
+&lt;!-- 並べて表示 --&gt;
+&lt;div&gt;
+  &lt;h-gate&gt;&lt;/h-gate&gt;
+  &lt;x-gate&gt;&lt;/x-gate&gt;
+  &lt;y-gate&gt;&lt;/y-gate&gt;
+  &lt;z-gate&gt;&lt;/z-gate&gt;
+&lt;/div&gt;</pre>
+  </div>
+
+  <div class="card">
+    <h3>実装 (TypeScript)</h3>
+    <span class="lang-tag">ts</span>
+    <pre class="lang-ts">// packages/elements/src/h-gate-element.ts
+import hGateIcon from '../../../assets/icons/h-gate.svg?raw';
+
+export class HGateElement extends HTMLElement {
+  connectedCallback() {
+    if (this.shadowRoot) return;
+    this.attachShadow({ mode: 'open' });
+    this.shadowRoot!.innerHTML = `
+      &lt;style&gt;
+        :host { display: inline-block; width: 32px; height: 32px; }
+        :host([size="sm"]) { width: 20px; height: 20px; }
+        svg { width: 100%; height: 100%; display: block; }
+      &lt;/style&gt;
+      ${hGateIcon}
+    `;
+  }
+}
+customElements.define('h-gate', HGateElement);</pre>
+  </div>
+
+  <div class="card">
+    <h3>SVG アイコンソース</h3>
+    <p>
+      アイコン SVG は <strong>本番アプリと同じ 1 ソース</strong>を共有する。
+      配置と参照方法は §06 の「SVG ソース管理」に集約し、ここでは意図だけを示す。
+      アイコンの変更は 1 ファイルの編集で両方に反映される。
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────── 5. Tier B: wasm + キャンバス ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span> Tier B: wasm + キャンバスベースのカスタム要素</h2>
+  <p class="note">
+    GPU 計算を伴う、シェーダで描く、インタラクションがあるウィジェットは
+    <strong>カスタム要素がキャンバスを作り、その上で qni-webgpu の wasm を
+    ウィジェット専用モードで起動する</strong>。本番と完全同一の描画コードが走るので
+    忠実度は構造的に 100 %。
+  </p>
+
+  <div class="card">
+    <h3>対象ウィジェットの例</h3>
+    <ul>
+      <li>Probability ゲート (コンピュートシェーダで周辺化)</li>
+      <li>ブロッホ球 (3D + 動く位相ニードル)</li>
+      <li>振幅ディスク (状態ベクトル可視化)</li>
+      <li>ミニ回路エディタ (ドラッグ＆ドロップ操作が必要)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>HTML 利用例</h3>
+    <span class="lang-tag">html</span>
+    <pre class="lang-html">&lt;probability-display
+  span="3"
+  probs="0.5,0,0,0,0,0,0,0.5"
+  width="32"
+&gt;&lt;/probability-display&gt;
+
+&lt;bloch-sphere theta="1.57" phi="0"&gt;&lt;/bloch-sphere&gt;
+
+&lt;mini-circuit data-json='{"cols":[["H"],["Probability"]]}'&gt;
+&lt;/mini-circuit&gt;</pre>
+  </div>
+
+  <div class="card">
+    <h3>実装 (TypeScript) — 共通基底クラス</h3>
+    <span class="lang-tag">ts</span>
+    <pre class="lang-ts">// packages/elements/src/wasm-widget-base.ts
+import init, { start_widget } from '/widget.js';   // wasm-bindgen 出力（trunk dist から）
+
+let wasmReady: Promise&lt;void&gt; | null = null;
+function ensureWasm() {
+  return wasmReady ??= init();
+}
+
+export abstract class WasmWidgetElement extends HTMLElement {
+  protected canvas!: HTMLCanvasElement;
+
+  abstract get widgetSpec(): {
+    kind: string;
+    width: number;
+    height: number;
+    params: Record&lt;string, unknown&gt;;
+  };
+
+  async connectedCallback() {
+    if (this.canvas) return;
+    this.canvas = document.createElement('canvas');
+    this.canvas.style.display = 'block';
+    this.appendChild(this.canvas);
+
+    await ensureWasm();
+    const { kind, width, height, params } = this.widgetSpec;
+    this.canvas.width = width * devicePixelRatio;
+    this.canvas.height = height * devicePixelRatio;
+    this.canvas.style.width = width + 'px';
+    this.canvas.style.height = height + 'px';
+    start_widget(this.canvas, kind, params);
+  }
+}</pre>
+    <span class="lang-tag">ts</span>
+    <pre class="lang-ts">// packages/elements/src/probability-display-element.ts
+import { WasmWidgetElement } from './wasm-widget-base';
+
+export class ProbabilityGateElement extends WasmWidgetElement {
+  get widgetSpec() {
+    const span = Number(this.getAttribute('span') ?? '1');
+    const probs = (this.getAttribute('probs') ?? '')
+      .split(',').map(s =&gt; Number(s.trim())).filter(n =&gt; !Number.isNaN(n));
+    const width = Number(this.getAttribute('width') ?? '32');
+    const height = span * 32 + (span - 1) * 20;          // = 52*span − 20
+    return { kind: 'probability-display', width, height, params: { span, probs } };
+  }
+}
+customElements.define('probability-display', ProbabilityGateElement);</pre>
+  </div>
+
+  <div class="card">
+    <h3>Rust 側: ウィジェット専用モードの入口</h3>
+    <span class="lang-tag">rust</span>
+    <pre class="lang-rust">// src/widget_entry.rs（配置は §06 を参照）
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn start_widget(
+    canvas: web_sys::HtmlCanvasElement,
+    kind: &amp;str,
+    params: JsValue,
+) -&gt; Result&lt;(), JsValue&gt; {
+    let spec: WidgetSpec = serde_wasm_bindgen::from_value(params)?;
+    let renderer = match kind {
+        "probability-display" =&gt; ProbabilityGateWidget::new(spec),
+        "bloch-sphere" =&gt; BlochSphereWidget::new(spec),
+        // ...
+        _ =&gt; return Err(JsError::new(&amp;format!("unknown widget: {kind}")).into()),
+    };
+    // 通常の eframe::start_web ではなく、ウィジェットだけを描く軽い egui ループを起動する。
+    spawn_widget_loop(canvas, renderer);
+    Ok(())
+}</pre>
+    <p>
+      本番アプリの eframe 入口 (<code>main()</code>) と <strong>同じ描画関数</strong>
+      (例: <code>draw_probability_display(ui, &amp;state)</code>) を呼ぶ。違うのは「アプリ全体の
+      クロムを描かず指定ウィジェットだけ描く」点と「シミュレーションは走らせず、属性から
+      渡された状態をそのまま使う」点だけ。
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────── 6. パッケージ構成 ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span> パッケージ / ファイル構成</h2>
+
+  <p class="note">
+    前提: 将来の整理（<code>apps/tui/</code> を別リポジトリへ分離、<code>qni-mcp</code>
+    を削除、<code>apps/egui-web/</code> をリポジトリ直下に昇格して
+    <strong>qni-webgpu</strong> として一本化）が済んだ後の構成。
+    Rust クレートが 1 個だけになるので <code>apps/</code> 階層を外し、qni 本家と
+    同じく <code>packages/</code> 直下に TypeScript パッケージを置く。
+  </p>
+
+  <div class="card">
+    <span class="lang-tag">tree</span>
+    <pre>qni-webgpu/                            (リポジトリ直下に Rust クレート)
+├── Cargo.toml
+├── Trunk.toml                         (修正: design-system.html もコピー)
+├── index.html                         (既存: 本番アプリ入口)
+├── design-system.html                 (新規: デザインシステムページ)
+├── src/
+│   ├── main.rs                        (既存: eframe アプリ入口)
+│   ├── widget_entry.rs                (新規: wasm-bindgen で start_widget を公開)
+│   ├── widgets/                       (新規: ウィジェット専用モード用の描画器)
+│   │   ├── probability_display.rs
+│   │   ├── bloch_sphere.rs
+│   │   └── ...
+│   ├── shaders/*.wgsl                 (既存: 共有シェーダ)
+│   └── ...
+├── assets/icons/                      (新規 / 既存: 共有 SVG アイコン)
+│   ├── h-gate.svg
+│   ├── x-gate.svg
+│   └── ...
+└── packages/
+    └── elements/                      (新規 TS パッケージ、qni 流儀)
+        ├── package.json
+        ├── vite.config.ts             (ビルドして elements.js を出力)
+        └── src/
+            ├── index.ts               (全要素を登録する入口)
+            ├── wasm-widget-base.ts    (Tier B 共通基底)
+            ├── h-gate-element.ts      (Tier A)
+            ├── x-gate-element.ts      (Tier A)
+            ├── probability-display-element.ts (Tier B)
+            ├── bloch-sphere-element.ts(Tier B)
+            └── ...</pre>
+  </div>
+
+  <table class="spec">
+    <tbody>
+      <tr><th>SVG ソース管理</th><td><code>assets/icons/*.svg</code> を唯一の正にする。Rust 側は <code>include_bytes!</code>、<code>packages/elements/</code> は Vite で <code>?raw</code> インポートで共有。</td></tr>
+      <tr><th>シェーダソース</th><td>同じく <code>src/shaders/*.wgsl</code> を Rust 側で <code>include_str!</code>。ウィジェット専用モードで起動したウィジェットも同じシェーダを使うので自動共有。</td></tr>
+      <tr><th>配色 / 間隔の定数</th><td>Rust 側の <code>src/colors.rs</code> が唯一の正。<code>packages/elements/</code> 側で Tier A の SVG を書く際は、SVG 内に直接 16 進カラー値を埋め込む (Flexoki カラーをコメントで明記)。食い違いの検出は CI で <code>src/colors.rs</code> と SVG 内の 16 進カラー値を grep/diff で比較。</td></tr>
+      <tr><th>命名規則</th><td>qni 本家と<strong>同じタグ名</strong>を採用 (<code>&lt;h-gate&gt;</code>, <code>&lt;x-gate&gt;</code>, <code>&lt;probability-display&gt;</code> 等)。qni のチュートリアル HTML をそのまま移植・流用しやすくする狙い。qni-webgpu は qni の後継として位置づけられているので、同一ページに qni と qni-webgpu の両方を混在させる運用は想定しない。</td></tr>
+      <tr><th>npm パッケージ名</th><td><code>@qni-webgpu/elements</code> または単に <code>elements</code>（モノレポ内で完結するので scope は任意）。ビルド成果物は <code>elements.js</code> を trunk dist 経由で <code>/elements.js</code> として配信。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────────── 7. design-system.html の中身 ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span> design-system.html の中身イメージ</h2>
+  <p class="note">
+    <code>http://127.0.0.1:4174/design-system.html</code> で開く。trunk が
+    <code>design-system.html</code> を dist にコピーする。
+  </p>
+
+  <div class="card">
+    <span class="lang-tag">html</span>
+    <pre class="lang-html">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8" /&gt;
+  &lt;title&gt;qni-webgpu · design system&lt;/title&gt;
+  &lt;link rel="stylesheet" href="/design-system.css" /&gt;
+  &lt;script type="module" src="/elements.js"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;qni-webgpu design system&lt;/h1&gt;
+
+  &lt;section&gt;
+    &lt;h2&gt;Single-qubit gates&lt;/h2&gt;
+    &lt;h-gate&gt;&lt;/h-gate&gt;
+    &lt;x-gate&gt;&lt;/x-gate&gt;
+    &lt;y-gate&gt;&lt;/y-gate&gt;
+    &lt;z-gate&gt;&lt;/z-gate&gt;
+  &lt;/section&gt;
+
+  &lt;section&gt;
+    &lt;h2&gt;確率表示ブロック — span 1..5&lt;/h2&gt;
+    &lt;probability-display span="1" probs="0.5, 0.5"&gt;&lt;/probability-display&gt;
+    &lt;probability-display span="2" probs="0.5, 0, 0, 0.5"&gt;&lt;/probability-display&gt;
+    &lt;probability-display span="3" probs="0.5, 0, 0, 0, 0, 0, 0, 0.5"&gt;&lt;/probability-display&gt;
+  &lt;/section&gt;
+
+  &lt;section&gt;
+    &lt;h2&gt;Bloch sphere — at |0&gt;, |1&gt;, |+&gt;, |i&gt;&lt;/h2&gt;
+    &lt;bloch-sphere theta="0" phi="0"&gt;&lt;/bloch-sphere&gt;
+    &lt;bloch-sphere theta="3.14" phi="0"&gt;&lt;/bloch-sphere&gt;
+    &lt;bloch-sphere theta="1.57" phi="0"&gt;&lt;/bloch-sphere&gt;
+    &lt;bloch-sphere theta="1.57" phi="1.57"&gt;&lt;/bloch-sphere&gt;
+  &lt;/section&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+  </div>
+</section>
+
+<!-- ───────────────── 8. ロードマップ ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 08</span> 段階的ロードマップ</h2>
+
+  <div class="card">
+    <h3>第 1 段階 — Tier A の最小スケルトン (H ゲートから)</h3>
+    <ol>
+      <li><code>packages/elements/</code> パッケージを新規作成 (Vite + TypeScript)</li>
+      <li><code>&lt;h-gate&gt;</code> を SVG ベースの Tier A 実装で 1 個作る</li>
+      <li><code>design-system.html</code> をリポジトリ直下に作り、
+        Trunk.toml でコピー対象に追加。<code>http://127.0.0.1:4174/design-system.html</code>
+        で開けるところまで</li>
+      <li>Playwright で「ページを開いて <code>&lt;h-gate&gt;</code> の
+        スクリーンショットが取れる」テストを 1 本</li>
+      <li>このタイミングで <code>packages/elements/</code> のビルド配管 / trunk への組み込み /
+        SVG インポートのパターンを確立する</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>第 2 段階 — Tier A を残りのゲートアイコンに展開</h3>
+    <ol>
+      <li>X / Y / Z / S / T / measurement / control / spacer などの SVG アイコンを
+        <code>assets/icons/</code> に揃える（本番 Rust 側も同 SVG を使うように移行）</li>
+      <li><code>&lt;x-gate&gt;</code>, <code>&lt;y-gate&gt;</code>, ... を順次追加</li>
+      <li>design-system.html にゲートアイコンのカタログを追加</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>第 3 段階 — Tier B 第 1 号 (ブロッホ球)</h3>
+    <ol>
+      <li><code>src/widget_entry.rs</code> を新規作成、
+        <code>start_widget(canvas, kind, params)</code> を wasm-bindgen で公開</li>
+      <li>Rust 側のブロッホ球の描画関数を「本番アプリから呼ぶ」「ウィジェット専用モード
+        から呼ぶ」両方で使えるように切り出し</li>
+      <li><code>packages/elements/</code> 側に <code>WasmWidgetElement</code> 基底クラスと
+        <code>&lt;bloch-sphere&gt;</code> を実装</li>
+      <li>Playwright で「theta/phi 属性を変えると ブロッホベクトルが対応する向きに描かれる」</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>第 4 段階 — Probability ゲート / 振幅ディスク / ミニ回路</h3>
+    <p>第 3 段階で Tier B のパターンが固まったら、Probability ゲート (コンピュートシェーダ経由)、
+      振幅ディスク、ミニ回路エディタを順次追加。</p>
+  </div>
+
+  <div class="card">
+    <h3>第 5 段階 — チュートリアル / ドキュメントへの展開</h3>
+    <p>同じ部品を使って <code>docs/</code> 配下のチュートリアル HTML や、
+      将来的に学習教材的なページが書ける状態にする。Qni のチュートリアルから
+      移植・参考にできる構成になる。</p>
+  </div>
+</section>
+
+<!-- ───────────────── 9. オープン課題 ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 09</span> 残っている設計判断</h2>
+
+  <div class="card">
+    <ul>
+      <li>
+        <strong>Tier B の wasm バンドルの重さ</strong>:
+        <code>start_widget</code> 経由でも本番 wasm 全体が読み込まれるので 1 ページに
+        多数の Tier B を置くと重い。代替案:
+        <ul>
+          <li>(a) ウィジェット専用に小さい wasm を切り出す (バイナリを分ける)</li>
+          <li>(b) 同一ページ内では wasm を 1 度だけ初期化し、各キャンバスは同一インスタンス
+            から多重描画する</li>
+        </ul>
+        第 3 段階で 1 個動かしてから判断する。
+      </li>
+      <li>
+        <strong>egui の「1 アプリ = 1 キャンバス」制約</strong>:
+        eframe は通常 1 キャンバスに 1 アプリ。複数キャンバスを同一 wasm から駆動するには
+        eframe を介さず直接 wgpu の Surface を扱う必要があるかもしれない。
+        第 3 段階で検証する。
+      </li>
+      <li>
+        <strong>属性から状態への対応付けスキーマ</strong>:
+        <code>probs="0.5,0,0,0,..."</code> のような CSV / JSON / base64 /
+        Quirk URL 形式の 4 案。CSV が一番読みやすいがウィジェットが増えると
+        厳しくなるかもしれない。<code>data-json='...'</code> 形式 (qni と同じ) も併用するのが
+        無難そう。
+      </li>
+      <li>
+        <strong>素のカスタム要素を使うか、Lit / Stencil などのフレームワークを入れるか</strong>:
+        素のカスタム要素で書くか、Lit の薄いヘルパーを入れるか。qni は
+        <code>@github/catalyst</code> を使っているが、qni-webgpu 側は依存を増やさず
+        素のカスタム要素で十分な気がする。
+      </li>
+      <li>
+        <strong>本番アプリのアイコンを SVG に切り替えるか</strong>:
+        現状の本番アプリは egui の painter でゲートアイコンを描いている。
+        Tier A の SVG 化で <strong>本番側も SVG アイコンに統一</strong>するのが
+        理想 (1 ソース化のため)。これは大きめのリファクタリングだが第 2 段階で扱う候補。
+      </li>
+    </ul>
+  </div>
+</section>
+
+<div class="doc-foot">
+  関連:
+  <a href="probability-display-mock.html">probability-display-mock.html</a> ·
+  <a href="circuit-picker.html">circuit-picker.html</a> ·
+  <a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a>
+  · アーキテクチャ提案 · 設計レビュー用 · 2026-05
+</div>
+
+</body>
+</html>

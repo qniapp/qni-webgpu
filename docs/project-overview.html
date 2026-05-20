@@ -596,7 +596,7 @@
     <div class="card">
       <div class="n">02</div>
       <h3>状態ベクトルは GPU 完結</h3>
-      <p>ゲート適用・Bloch 球縮約・測定崩壊・popup の数値表示まで WGSL の compute / fragment で完結。production 経路で <code>map_async</code> readback はしない。</p>
+      <p>ゲート適用・ブロッホ球縮約・測定崩壊・popup の数値表示まで WGSL の compute / fragment で完結。production 経路で <code>map_async</code> readback はしない。</p>
     </div>
     <div class="card">
       <div class="n">03</div>
@@ -642,7 +642,7 @@
       <div class="what">WGSL — 5 module<br><code>state / bloch / measure / digit / popup_value</code></div>
       <div class="note">
         <p><b>WGSL</b> (<em>WebGPU Shading Language</em>) — WebGPU 用の shader 言語。GLSL や HLSL に相当するが、よりモダンで型に厳しい。GPU 上で動く小さなプログラムを書く。種類は (a) <em>compute shader</em> (汎用並列計算)、(b) <em>vertex / fragment shader</em> (描画) の 2 系統。</p>
-        <p>このプロジェクトの shader は <code>gpu/shaders/</code> 配下に <code>&amp;'static str</code> として埋め込まれており、起動時に wgpu がコンパイルする。compute 側はゲートの状態ベクトル適用 / Bloch 球縮約 / 測定崩壊を、fragment 側は状態ベクトル円・Bloch 矢印・測定 0/1・popup 数値の描画を担当する。</p>
+        <p>このプロジェクトの shader は <code>gpu/shaders/</code> 配下に <code>&amp;'static str</code> として埋め込まれており、起動時に wgpu がコンパイルする。compute 側はゲートの状態ベクトル適用 / ブロッホ球縮約 / 測定崩壊を、fragment 側は状態ベクトル円・ブロッホ矢印・測定 0/1・popup 数値の描画を担当する。</p>
       </div>
     </div>
 
@@ -730,7 +730,7 @@
       </div>
       <div class="box">
         <div class="name">gpu/shaders/ <span class="mod">state · bloch · measure · probability · digit · popup_value</span></div>
-        <div class="role">WGSL ソース。compute = ゲート適用 / Bloch / 測定。render = 状態円 / Bloch 矢印 / 測定 0/1 / popup 数値、すべて storage buffer を直接 sample する。</div>
+        <div class="role">WGSL ソース。compute = ゲート適用 / Bloch / 測定。render = 状態円 / ブロッホ矢印 / 測定 0/1 / popup 数値、すべて storage buffer を直接 sample する。</div>
       </div>
       <div class="box">
         <div class="name">gpu/readback.rs <b>· test only</b></div>
@@ -815,7 +815,7 @@
         <dt>UI</dt>
         <dd>egui immediate-mode を 1 つの <code>&lt;canvas&gt;</code> に。DOM は wasm + 1 status div だけ</dd>
         <dt>シミュレーション</dt>
-        <dd>WGSL compute shader。16 qubit (state-vector 65,536 振幅) を 1 dispatch で並列適用</dd>
+        <dd>WGSL compute shader。16 量子ビット (state-vector 65,536 振幅) を 1 dispatch で並列適用</dd>
         <dt>状態表示</dt>
         <dd>1 quad の fragment shader が cell 数だけ判定して全部塗る。位相針もシェーダ内</dd>
         <dt>レイアウト</dt>
@@ -864,7 +864,7 @@
     <div class="item">
       <div class="id">— principle E</div>
       <h3>render shader が storage buffer を直接 sample</h3>
-      <p>state 円 / Bloch 矢印 / 測定 0/1 / popup 数値はすべて <em>同じ</em> GPU 上の値を fragment shader から直接読む。CPU 経由しないので 1 frame 遅れも staging 割り当ても発生しない。値の表示が常に最新フレームの計算結果と同一であることが保証される。</p>
+      <p>state 円 / ブロッホ矢印 / 測定 0/1 / popup 数値はすべて <em>同じ</em> GPU 上の値を fragment shader から直接読む。CPU 経由しないので 1 frame 遅れも staging 割り当ても発生しない。値の表示が常に最新フレームの計算結果と同一であることが保証される。</p>
       <p class="meta">gpu/shaders/{state,bloch,digit,popup_value}.rs</p>
     </div>
     <div class="item">
@@ -881,8 +881,8 @@
     </div>
     <div class="item">
       <div class="id">— principle H</div>
-      <h3>16 qubit cap (1 dispatch で並列)</h3>
-      <p>state-vector アプローチで現実的に動く上限を 16 qubit (= 2¹⁶ = 65,536 振幅) に絞る。それ以上は将来 qiskit + GPU backend にまわす設計判断。1 ゲート = <code>state_count / 2</code> 並列を 1 dispatch で消化できる。</p>
+      <h3>16 量子ビット cap (1 dispatch で並列)</h3>
+      <p>state-vector アプローチで現実的に動く上限を 16 量子ビット (= 2¹⁶ = 65,536 振幅) に絞る。それ以上は将来 qiskit + GPU backend にまわす設計判断。1 ゲート = <code>state_count / 2</code> 並列を 1 dispatch で消化できる。</p>
       <p class="meta">constants.rs · MAX_STATE_COUNT</p>
     </div>
   </div>
