@@ -3,7 +3,7 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::{QniApp, SpanResizeEdge, SpanResizeHandle};
+use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
@@ -13,10 +13,9 @@ use crate::gpu::{
     ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
     POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
-use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_span_resize_handle};
-use crate::layout::{
-    amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect, span_resize_handle_rect,
-};
+use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
+use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
+use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
@@ -26,15 +25,6 @@ const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 // Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
-const SPAN_RESIZE_HANDLE_EDGES: [SpanResizeEdge; 2] = [SpanResizeEdge::Top, SpanResizeEdge::Bottom];
-
-fn span_resize_ease_out_back(t: f32) -> f32 {
-    const C1: f32 = 1.56;
-    const C3: f32 = C1 + 1.0;
-    let u = t - 1.0;
-    1.0 + C3 * u * u * u + C1 * u * u
-}
-
 fn probability_hover_popup_ket(outcome: u32, span: usize) -> String {
     let width = span.clamp(1, 16);
     format!("|{outcome:0width$b}⟩")
@@ -72,18 +62,11 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
             }
-            // Resizable-span gates are multi-qubit bodies. Amplitude display
-            // is also variable-width, so use the shared geometry helper.
             let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
-            // docs/amplitude-display.html §04: the display footprint follows
+            // docs/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
-            // draw area. For Amps1 this is 80×40 inside the 96×40 footprint,
-            // matching Quirk's drawRect and avoiding internal side padding.
-            let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
-                amplitude_grid_rect(gate_rect, gate.span)
-            } else {
-                gate_rect
-            };
+            // draw area. The shared span-resize component uses that same body.
+            let body_rect = span_resize_body_rect(gate.kind, gate.span, gate_rect);
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
             let circuit_fill = colors.background;
@@ -125,10 +108,10 @@ impl QniApp {
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
             }
-            // Resizable-span gates share docs/probability-display.html §11:
-            // top + bottom purple pills with hover/active scaling. Amplitude
-            // passes its matrix body so the handle width follows that body.
-            if gate.kind.is_resizable_span() {
+            // Resizable-span gates use one shared handle component: top +
+            // bottom purple pills with hover/active scaling. Amplitude's
+            // component body is its centred matrix, so width follows the body.
+            if let Some(handles) = SpanResizeHandles::for_gate_at(gate, gate_rect) {
                 let visible = self.hovered_gate_id == Some(gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(
@@ -138,36 +121,13 @@ impl QniApp {
                     span_resize_ease_out_back,
                 );
                 if visible || visible_t > 0.01 {
-                    for edge in SPAN_RESIZE_HANDLE_EDGES {
-                        let handle = SpanResizeHandle {
-                            gate_id: gate.id,
-                            edge,
-                        };
-                        let hovered = self.hovered_span_resize_handle == Some(handle);
-                        let active = self
-                            .span_resize_drag
-                            .is_some_and(|drag| drag.gate_id == gate.id && drag.edge == edge);
-                        let bg = if hovered || active {
-                            colors.span_resize_handle_bg_hover
-                        } else {
-                            colors.span_resize_handle_bg
-                        };
-                        let scale = if active {
-                            1.25
-                        } else if hovered {
-                            1.15
-                        } else {
-                            0.7 + 0.3 * visible_t
-                        };
-                        let alpha = if hovered || active { 1.0 } else { visible_t };
-                        draw_span_resize_handle(
-                            painter,
-                            span_resize_handle_rect(body_rect, edge),
-                            bg,
-                            scale,
-                            alpha,
-                        );
-                    }
+                    handles.paint(
+                        painter,
+                        colors,
+                        self.hovered_span_resize_handle,
+                        self.span_resize_drag,
+                        visible_t,
+                    );
                 }
             }
             if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {

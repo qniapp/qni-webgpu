@@ -6,6 +6,7 @@ const path = require('node:path')
 const rootDir = path.join(__dirname, '..')
 const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude.rs')
 const circuitGatesPath = path.join(rootDir, 'src', 'render', 'circuit_gates.rs')
+const spanResizePath = path.join(rootDir, 'src', 'span_resize.rs')
 const dragPreviewPath = path.join(rootDir, 'src', 'render', 'circuit_palette', 'drag_preview.rs')
 const gateBodyPath = path.join(rootDir, 'src', 'icons', 'gate_body.rs')
 const paramsPath = path.join(rootDir, 'src', 'gpu', 'params.rs')
@@ -59,10 +60,16 @@ test('Amplitude rendering keeps outlines enabled for 15-qubit-sized cells', asyn
   assert.match(renderShader, /if \(cell >= 3\.0\) \{[\s\S]*var outline = select\(params\.outline_zero, params\.outline, mag > 0\.000001\)/)
 })
 
-test('Amplitude circuit rendering uses the matrix draw area as the visible body', async () => {
+test('Amplitude circuit rendering delegates visible body selection to span resize', async () => {
   const circuitGates = await fs.readFile(circuitGatesPath, 'utf8')
 
-  assert.match(circuitGates, /let body_rect = if gate\.kind == GateKind::AmplitudeDisplay \{[\s\S]*amplitude_grid_rect\(gate_rect, gate\.span\)[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
+  assert.match(circuitGates, /let body_rect = span_resize_body_rect\(gate\.kind, gate\.span, gate_rect\);[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
+})
+
+test('Amplitude span resize body selection uses the matrix draw area', async () => {
+  const spanResize = await fs.readFile(spanResizePath, 'utf8')
+
+  assert.match(spanResize, /if kind == GateKind::AmplitudeDisplay \{\s*amplitude_grid_rect\(gate_rect, span\)/)
 })
 
 test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', async () => {

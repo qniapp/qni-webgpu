@@ -2,12 +2,9 @@ use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
-use crate::app::SpanResizeHandle;
 use crate::gates::GateKind;
-use crate::layout::{
-    amplitude_cell_index_at, amplitude_grid_rect, gate_visible_rect, palette_hit_test,
-    span_resize_handle_edge_at,
-};
+use crate::layout::{amplitude_cell_index_at, gate_visible_rect, palette_hit_test};
+use crate::span_resize::{span_resize_body_rect, SpanResizeHandles};
 
 impl DragController {
     pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
@@ -40,17 +37,13 @@ impl DragController {
             let mut hovered_amplitude_outcome = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
-                let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
-                    amplitude_grid_rect(gate_rect, gate.span)
-                } else {
-                    gate_rect
-                };
-                if gate.kind.is_resizable_span() {
-                    if let Some(edge) = span_resize_handle_edge_at(body_rect, cursor) {
-                        hovered_handle = Some(SpanResizeHandle {
-                            gate_id: gate.id,
-                            edge,
-                        });
+                let resize_handles = SpanResizeHandles::for_gate(gate);
+                let body_rect = resize_handles
+                    .map(SpanResizeHandles::body_rect)
+                    .unwrap_or_else(|| span_resize_body_rect(gate.kind, gate.span, gate_rect));
+                if let Some(handles) = resize_handles {
+                    if let Some(edge) = handles.edge_at(cursor) {
+                        hovered_handle = Some(handles.handle(edge));
                         hovered_gate = Some(gate.id);
                         break;
                     }
