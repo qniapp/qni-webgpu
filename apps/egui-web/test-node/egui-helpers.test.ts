@@ -417,7 +417,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
     dragFillPoint: probe.dragFillPoint,
     sourceFillPoint: probe.sourceFillPoint,
   }, {
-    source: { x: 212, y: 100 },
+    source: { x: 160, y: 100 },
     handleBelowSource: true,
     dragFillPoint: { name: 'fill', x: probe.handleCenter.x + 14, y: probe.handleCenter.y + 14 },
     sourceFillPoint: { name: 'sourceFill', x: probe.source.x + 14, y: probe.source.y + 14 },

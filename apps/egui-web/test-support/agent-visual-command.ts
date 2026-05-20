@@ -8,9 +8,11 @@ type DragOperationInput = {
   gateSize?: number
   paletteGap?: number
   paletteRowY?: number
-  paletteCount?: number
   paletteRow1Count?: number
   paletteRowGap?: number
+  paletteSectionGap?: number
+  paletteSeparatorWidth?: number
+  paletteDisplayColumns?: number
   circuitPadding?: number
   qubitLabelWidth?: number
   qubitLabelGap?: number
@@ -35,9 +37,13 @@ type ParsedOperation = {
 const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
 const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_COUNT = 21
 const DEFAULT_PALETTE_ROW1_COUNT = 13
 const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
+const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
+const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
+const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
+const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 22, 23, 21]
+const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24]
 const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
 const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
 const DEFAULT_QUBIT_LABEL_GAP = UI_CONSTANTS.QUBIT_LABEL_GAP
@@ -102,10 +108,27 @@ const GATE_ALIASES = new Map([
   ['measure', 19],
   ['measurement', 19],
   ['meter', 19],
-  ['spacer', 20],
-  ['…', 20],
-  ['...', 20],
-  ['nop', 20],
+  ['chance', 20],
+  ['chance-display', 20],
+  ['chancedisplay', 20],
+  ['chance_display', 20],
+  ['probability', 20],
+  ['probability-display', 20],
+  ['probability_display', 20],
+  ['spacer', 21],
+  ['…', 21],
+  ['...', 21],
+  ['nop', 21],
+  ['qft', 22],
+  ['qft†', 23],
+  ['qftdagger', 23],
+  ['qft-dagger', 23],
+  ['qft_dagger', 23],
+  ['amps', 24],
+  ['amplitude', 24],
+  ['amplitude-display', 24],
+  ['amplitudedisplay', 24],
+  ['amplitude_display', 24],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()
@@ -164,9 +187,11 @@ export const buildDragOperation = ({
   gateSize = DEFAULT_GATE_SIZE,
   paletteGap = DEFAULT_PALETTE_GAP,
   paletteRowY = DEFAULT_PALETTE_ROW_Y,
-  paletteCount = DEFAULT_PALETTE_COUNT,
   paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
   paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
+  paletteSectionGap = DEFAULT_PALETTE_SECTION_GAP,
+  paletteSeparatorWidth = DEFAULT_PALETTE_SEPARATOR_WIDTH,
+  paletteDisplayColumns = DEFAULT_PALETTE_DISPLAY_COLUMNS,
   circuitPadding = DEFAULT_CIRCUIT_PADDING,
   qubitLabelWidth = DEFAULT_QUBIT_LABEL_WIDTH,
   qubitLabelGap = DEFAULT_QUBIT_LABEL_GAP,
@@ -178,13 +203,31 @@ export const buildDragOperation = ({
   const gateIndex = getGateIndex(gate)
   const wireIndex = parseWire(wire)
   const slotIndex = parseSlot(slot)
-  const row2Count = Math.max(paletteCount - paletteRow1Count, 0)
   const row1Width = paletteRow1Count > 0 ? paletteRow1Count * gateSize + (paletteRow1Count - 1) * paletteGap : 0
+  const row2Count = DEFAULT_PALETTE_GATES_ROW2_INDICES.length
   const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * paletteGap : 0
-  const totalWidth = Math.max(row1Width, row2Width)
-  const paletteStartX = cssWidth / 2 - totalWidth / 2
-  const row = gateIndex < paletteRow1Count ? 0 : 1
-  const col = gateIndex < paletteRow1Count ? gateIndex : gateIndex - paletteRow1Count
+  const gatesWidth = Math.max(row1Width, row2Width)
+  const displayWidth = paletteDisplayColumns * gateSize + (paletteDisplayColumns - 1) * paletteGap
+  const displayX = gatesWidth + paletteSectionGap + paletteSeparatorWidth + paletteSectionGap
+  const totalWidth = displayX + displayWidth
+  const paletteStartX = Math.round(cssWidth / 2 - totalWidth / 2)
+  const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
+  const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
+  const paletteLocal = (() => {
+    if (gateIndex < paletteRow1Count) {
+      return { x: gateIndex * (gateSize + paletteGap), y: 0 }
+    }
+    if (row2Col >= 0) {
+      return { x: row2Col * (gateSize + paletteGap), y: gateSize + paletteRowGap }
+    }
+    if (displaySlot >= 0) {
+      return {
+        x: displayX + (displaySlot % paletteDisplayColumns) * (gateSize + paletteGap),
+        y: Math.floor(displaySlot / paletteDisplayColumns) * (gateSize + paletteRowGap),
+      }
+    }
+    throw new Error(`Unknown palette gate index: ${gateIndex}`)
+  })()
   const lineLeftOffset = circuitPadding + qubitLabelWidth + qubitLabelGap
 
   return {
@@ -193,9 +236,8 @@ export const buildDragOperation = ({
     wire: wireIndex,
     slot: slotIndex,
     from: {
-      // Both rows are left-aligned to match qni's `flex flex-row` layout.
-      x: paletteStartX + col * (gateSize + paletteGap) + gateSize / 2,
-      y: paletteRowY + row * (gateSize + paletteRowGap) + gateSize / 2 + verticalOffset,
+      x: paletteStartX + paletteLocal.x + gateSize / 2,
+      y: paletteRowY + paletteLocal.y + gateSize / 2 + verticalOffset,
     },
     to: {
       x: lineLeftOffset + gateSize + slotIndex * slotSpacing,

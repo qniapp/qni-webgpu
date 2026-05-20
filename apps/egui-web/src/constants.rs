@@ -161,6 +161,12 @@ pub(crate) const PALETTE_SIZE: f32 = GATE_SIZE;
 //   rounded-xl            → 0.75rem (12px) border radius
 pub(crate) const PALETTE_GAP: f32 = 8.0;
 pub(crate) const PALETTE_ROW_GAP: f32 = 8.0;
+// spacing-2 = 8px on both sides of the Display-section separator.
+pub(crate) const PALETTE_SECTION_GAP: f32 = 8.0;
+// 1px ui-2 vertical separator spanning the full two-row palette height.
+pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = 1.0;
+pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 2;
+pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;
 pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
 pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
 pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;

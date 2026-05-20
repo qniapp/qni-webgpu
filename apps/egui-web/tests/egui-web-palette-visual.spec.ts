@@ -28,6 +28,16 @@ import {
   type Point,
 } from './support/egui-web-spec-helpers'
 
+type HoverSnapshot = { hoveredPaletteIndex: number | null }
+
+const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> => {
+  const snapshot = await page.evaluate(() => (window as any).__qniHoverSnapshotJson ?? null)
+  if (snapshot === null) {
+    throw new Error('hover snapshot hook missing')
+  }
+  return JSON.parse(snapshot)
+}
+
 test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   await page.goto('/')
 
@@ -48,6 +58,44 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   ])
 
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
+})
+
+test('Display section Chance slot preserves its palette hover index', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const chanceCenter = getPaletteGateCenter(box.width, 20)
+  await page.mouse.move(box.x + chanceCenter.x, box.y + chanceCenter.y)
+
+  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(20)
+})
+
+test('Display section empty slot does not hover a palette gate', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const chanceCenter = getPaletteGateCenter(box.width, 20)
+  const emptySlotCenter = {
+    x: chanceCenter.x,
+    y: chanceCenter.y + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_ROW_GAP,
+  }
+  await page.mouse.move(box.x + emptySlotCenter.x, box.y + emptySlotCenter.y)
+
+  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBeNull()
 })
 
 test('palette measurement hover keeps the panel background inside the outline', async ({ page }) => {
@@ -393,15 +441,20 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
   const PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
   const PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
+  const PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
+  const PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
+  const PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
   const PALETTE_PADDING_X = UI_CONSTANTS.PALETTE_PADDING_X
   const PALETTE_PADDING_Y = UI_CONSTANTS.PALETTE_PADDING_Y
   const PALETTE_ROW1_COUNT = 13
-  const PALETTE_ROW2_COUNT = 8
+  const PALETTE_ROW2_COUNT = 9
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
   const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
-  const paletteWidth = Math.max(row1Width, row2Width)
+  const gatesWidth = Math.max(row1Width, row2Width)
+  const displayWidth = PALETTE_DISPLAY_COLUMNS * PALETTE_SIZE + (PALETTE_DISPLAY_COLUMNS - 1) * PALETTE_GAP
+  const paletteWidth = gatesWidth + PALETTE_SECTION_GAP + PALETTE_SEPARATOR_WIDTH + PALETTE_SECTION_GAP + displayWidth
   const paletteHeight = 2 * PALETTE_SIZE + PALETTE_ROW_GAP
-  const paletteStartX = cssWidth / 2 - paletteWidth / 2
+  const paletteStartX = Math.round(cssWidth / 2 - paletteWidth / 2)
   const paletteRect = {
     x: paletteStartX - PALETTE_PADDING_X,
     y: PALETTE_ROW_Y - PALETTE_PADDING_Y,

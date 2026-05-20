@@ -206,11 +206,11 @@ const GATE_SPECS: [GateSpec; 25] = [
     },
 ];
 
-// Two-row palette layout. Row 1 holds unitary single-qubit gates; row 2 holds
-// special-purpose gates. Indices remain flat so callers can look up a gate
-// without branching.
-pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 25] = [
+// Split palette layout. The left Gates section keeps draggable operations and
+// placeholders; the right Display section is a 2×2 grid for visualization
+// widgets. Flat indices intentionally keep the pre-split IDs so hover, drag,
+// tooltip tests, and serialized UI helpers can keep addressing the same gate.
+pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::H,
     GateKind::X,
     GateKind::Y,
@@ -224,19 +224,44 @@ pub(crate) const PALETTE_GATES: [GateKind; 25] = [
     GateKind::Rx,
     GateKind::Ry,
     GateKind::Rz,
+];
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 9] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
-    GateKind::BlochDisplay,
     GateKind::Write0,
     GateKind::Write1,
     GateKind::Measurement,
-    GateKind::ChanceDisplay,
-    GateKind::Spacer,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
+    GateKind::Spacer,
+];
+pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 3] = [
+    GateKind::BlochDisplay,
+    GateKind::ChanceDisplay,
     GateKind::AmplitudeDisplay,
 ];
+pub(crate) const PALETTE_GATE_COUNT: usize =
+    PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
+pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 9] = [13, 14, 15, 17, 18, 19, 22, 23, 21];
+pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 3] = [16, 20, 24];
+
+pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
+    if index < PALETTE_ROW1_COUNT {
+        return Some(PALETTE_GATES_ROW1[index]);
+    }
+    if let Some(pos) = PALETTE_GATES_ROW2_INDICES
+        .iter()
+        .position(|candidate| *candidate == index)
+    {
+        return Some(PALETTE_GATES_ROW2[pos]);
+    }
+    PALETTE_DISPLAY_INDICES
+        .iter()
+        .position(|candidate| *candidate == index)
+        .map(|pos| PALETTE_DISPLAY_GATES[pos])
+}
 
 impl GateKind {
     pub(crate) fn spec(self) -> &'static GateSpec {

@@ -8,7 +8,7 @@ mod text;
 use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
-use crate::gates::PALETTE_GATES;
+use crate::gates::palette_gate_kind;
 use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
 
 impl QniApp {
@@ -34,7 +34,7 @@ impl QniApp {
         if self.dragging.is_some() {
             return;
         }
-        let Some(&gate) = PALETTE_GATES.get(index) else {
+        let Some(gate) = palette_gate_kind(index) else {
             return;
         };
         let palette_layout = palette_layout();
