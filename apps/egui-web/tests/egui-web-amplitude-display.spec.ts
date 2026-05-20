@@ -18,6 +18,7 @@ const AMPLITUDE_DISK: [number, number, number, number] = [146, 191, 219, 255]
 const AMPLITUDE_HOVER_RING: [number, number, number, number] = [139, 126, 200, 255]
 const AMPLITUDE_ICON_NEEDLE: [number, number, number, number] = [16, 15, 15, 255]
 const AMPLITUDE_NONZERO_OUTLINE: [number, number, number, number] = [111, 110, 105, 255]
+const EGUI_PANEL_MARGIN = 8
 const amplitudeFirstCellCenterX = (column: number): number =>
   LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * column + (UI_CONSTANTS.SLOT_SPACING - GATE_SIZE) / 2
 const amplitudeCellCenterX = (column: number, cell: number): number =>
@@ -118,6 +119,28 @@ test.describe('Amplitude Display', () => {
     await page.mouse.up()
 
     expect(pixelRgbDistance(samples.stationaryDisk, AMPLITUDE_DISK)).toBeLessThanOrEqual(90)
+  })
+
+  test('resizing Amps3 to Amps4 shifts the right display past the grown footprint', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H'], ['Amps3'], [1], ['Amps2']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const gateHeight = (3 - 1) * UI_CONSTANTS.LINE_GAP + GATE_SIZE
+    const gateWidth = UI_CONSTANTS.SLOT_SPACING + GATE_SIZE
+    const handle = {
+      x: EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING - GATE_SIZE / 2 + gateWidth / 2,
+      y: EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 + gateHeight + 9,
+    }
+    await page.mouse.move(box.x + handle.x, box.y + handle.y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + handle.x, box.y + handle.y + UI_CONSTANTS.LINE_GAP, { steps: 8 })
+    await page.mouse.up()
+    await waitForHashCols(page, [['H'], ['Amps4'], [1], [1], [1], ['Amps2']])
+
+    expect(readCircuitColsFromHash(page.url())).toEqual([['H'], ['Amps4'], [1], [1], [1], ['Amps2']])
   })
 
   test('Amps1 captures coherent GPU amplitudes after H', async ({ page }) => {

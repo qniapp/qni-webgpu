@@ -204,10 +204,39 @@ impl QniApp {
         }
     }
 
-    /// Insert the dragged gate into a qni-style shadow step. The insert index
-    /// is expressed against the columns visible while dragging; if moving an
-    /// existing gate leaves its source column empty, that source step is first
-    /// removed just like qni's post-drop `resize()`.
+    /// After a resizable gate changes horizontal footprint, move every gate
+    /// that starts at or after the old right edge by the width delta so the
+    /// grown display does not overlap later columns.
+    pub(crate) fn shift_trailing_gates_after_width_change(
+        &mut self,
+        gate_id: u32,
+        column: usize,
+        old_width: usize,
+        new_width: usize,
+    ) {
+        if old_width == new_width {
+            return;
+        }
+        let boundary = column + old_width;
+        if new_width > old_width {
+            let delta = new_width - old_width;
+            for gate in &mut self.placed_gates {
+                if gate.id != gate_id && gate.column >= boundary {
+                    gate.column += delta;
+                    gate.sync_pos_from_grid();
+                }
+            }
+        } else {
+            let delta = old_width - new_width;
+            for gate in &mut self.placed_gates {
+                if gate.id != gate_id && gate.column >= boundary {
+                    gate.column = gate.column.saturating_sub(delta);
+                    gate.sync_pos_from_grid();
+                }
+            }
+        }
+    }
+
     pub(crate) fn insert_gate_at_column(
         &mut self,
         gate_id: u32,

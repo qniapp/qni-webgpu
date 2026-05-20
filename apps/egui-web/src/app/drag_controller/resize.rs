@@ -4,6 +4,7 @@ use super::{reset_drag_frame_state, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::app::SpanResizeEdge;
 use crate::constants::LINE_GAP;
+use crate::layout::gate_width_cols;
 
 impl DragController {
     pub(in crate::app) fn update_active_span_resize(
@@ -27,8 +28,12 @@ impl DragController {
                 {
                     let capacity = app.exec_mode.qubit_capacity();
                     let gate = &mut app.placed_gates[index];
+                    let gate_id = gate.id;
+                    let gate_kind = gate.kind;
+                    let gate_column = gate.column;
                     let old_wire = gate.wire;
                     let old_span = gate.span;
+                    let old_width = gate_width_cols(gate_kind, old_span);
                     match drag.edge {
                         SpanResizeEdge::Bottom => {
                             let remaining_wires = capacity.saturating_sub(gate.wire).max(1);
@@ -50,7 +55,17 @@ impl DragController {
                         }
                     }
                     gate.clamp_span_to_qubit_capacity(capacity);
-                    if gate.wire != old_wire || gate.span != old_span {
+                    let new_wire = gate.wire;
+                    let new_span = gate.span;
+                    let new_width = gate_width_cols(gate_kind, new_span);
+                    let changed = new_wire != old_wire || new_span != old_span;
+                    if changed {
+                        app.shift_trailing_gates_after_width_change(
+                            gate_id,
+                            gate_column,
+                            old_width,
+                            new_width,
+                        );
                         app.update_qubit_count();
                         app.gpu_plan.mark_dirty();
                         ctx.request_repaint();

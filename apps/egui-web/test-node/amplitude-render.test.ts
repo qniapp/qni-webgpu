@@ -15,7 +15,7 @@ const readRenderShader = async () => {
 test('Amplitude rendering anti-aliases circle SDF edges with derivatives', async () => {
   const renderShader = await readRenderShader()
 
-  assert.match(renderShader, /let aa_edge = length\(fwidth\(in\.local\)\);[\s\S]*let edge = aa_edge;[\s\S]*smoothstep\(radius - edge, radius \+ edge, centered_len\)/)
+  assert.match(renderShader, /let aa_edge = length\(fwidth\(in\.local\)\);[\s\S]*let edge = max\(0\.5, aa_edge \* 0\.65\);[\s\S]*smoothstep\(radius - edge, radius \+ edge, centered_len\)/)
 })
 
 test('Amplitude circle radius leaves slack inside the matrix frame', async () => {

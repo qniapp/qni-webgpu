@@ -18,7 +18,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 ## 開発フロー
 
 - 開発はテスト駆動で進める。
-- 実装後は、コミット前に必ず現在の差分へ並列レビューをかける。観点は correctness（正しさ）、test coverage（テスト網羅性）、unnecessary complexity（不要な複雑さ）。所見は重大度別に要約し、適用価値のある修正だけを反映してからコミットする。
+- 何かひとまとまりのコーディング作業を終えたら、コミットの有無にかかわらず、必ず現在の差分へ並列レビューをかける。観点は correctness（正しさ）、test coverage（テスト網羅性）、unnecessary complexity（不要な複雑さ）。所見は重大度別に要約し、適用価値のある修正だけを反映する。コミットする場合はレビュー対応後に行う。
 - このプロジェクトでは後方互換レイヤーや旧名 wrapper は残さない。名前変更時は旧入口を削除し、新しい名前へ移行する。
 - 変更フローは「変更 → テスト → pending snapshots 確認 → review → accept/reject → CI 検証」を遵守する。
 

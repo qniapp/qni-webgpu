@@ -286,7 +286,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let outline_radius = max(0.0, cell * 0.5 - stroke);
         let inner_radius = max(0.0, outline_radius - half_stroke);
         let centered_len = length(cell_centered);
-        let edge = aa_edge;
+        // Keep derivative-based SDF AA, but tighten the transition for the
+        // circuit body so placed Amplitude circles read sharper than the
+        // palette icon while still avoiding hard jaggies.
+        let edge = max(0.5, aa_edge * 0.65);
 
         if (cell >= 3.0) {
             let outline_inner = 1.0 - smoothstep(
