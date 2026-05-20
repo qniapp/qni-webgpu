@@ -36,6 +36,18 @@ test('Amplitude rendering treats tiny non-zero amplitudes as non-zero outlines',
   assert.match(renderShader, /select\(params\.outline_zero, params\.outline, mag > 0\.000001\)/)
 })
 
+test('Amplitude rendering uses purple background only for dragged instances', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(renderShader, /if \(in\.use_drag_background == 1u\) \{\s*color = params\.drag_background;/)
+})
+
+test('Amplitude dragged background preserves the circle interior background', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(renderShader, /var circle_background = params\.background;[\s\S]*color = blend_over\(color, circle_background\);/)
+})
+
 test('Amplitude rendering keeps outlines enabled for 15-qubit-sized cells', async () => {
   const renderShader = await readRenderShader()
 

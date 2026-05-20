@@ -273,7 +273,9 @@ impl QniApp {
                     slot,
                     span,
                     hovered_outcome,
-                    _pad: 0,
+                    use_drag_background: u32::from(
+                        self.dragging.is_some_and(|drag| drag.id == gate.id),
+                    ),
                 })
             })
             .collect();
@@ -283,6 +285,7 @@ impl QniApp {
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
+                drag_background: colors.drag_fill.to_normalized_gamma_f32(),
                 border: colors.line.to_normalized_gamma_f32(),
                 disk: colors.state_fill.to_normalized_gamma_f32(),
                 outline: colors.state_outline.to_normalized_gamma_f32(),

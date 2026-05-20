@@ -446,7 +446,7 @@
     <ul>
       <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。amplitude display 以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
       <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、chance / QFT の resizable と同じセマンティクス)。</li>
-      <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drop target highlight も同寸。</li>
+      <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drag 中の matrix 背景は他ゲートの drag preview と同じ <code>purple-600</code> にするが、outline 円の内側の白地は <code>bg</code> のまま残し、振幅 disk / outline / needle の色も通常時のまま変えない。drop target highlight も同寸。</li>
       <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 outcome の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
       <li><strong>resize handle</strong> — 上下のみ (height = span を変える)、左右の幅は span の関数なので separate な width handle は不要。</li>
       <li><strong>列衝突検出</strong> — gate の<strong>右端</strong>列まで衝突判定を広げる。<code>width_px</code> 範囲内の他ゲートと <code>gate_rect ∩ gate_rect</code> 幾何交差で重ならない位置にのみ配置可。</li>
@@ -489,7 +489,7 @@
     </p>
     <div class="legend">
       <div class="swatch" style="background: var(--bg);"></div>
-      <div><b>(1) back fill</b> — セル背景。<code>bg</code> (#FFFCF0)。常に塗る</div>
+      <div><b>(1) back fill</b> — セル背景。通常時は <code>bg</code> (#FFFCF0)。drag preview 中だけ円の外側を <code>purple-600</code> (#5E409D) に差し替え、outline 円の内側の白地と disk / outline / needle 色は維持する</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#6F6E69" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
       </div>

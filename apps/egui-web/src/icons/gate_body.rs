@@ -16,7 +16,7 @@ pub(crate) fn draw_gate_body(
     kind: GateKind,
     colors: &Colors,
 ) {
-    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill);
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
 pub(crate) fn draw_drag_gate_body(
@@ -25,7 +25,7 @@ pub(crate) fn draw_drag_gate_body(
     kind: GateKind,
     colors: &Colors,
 ) {
-    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.drag_fill);
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.drag_fill, true);
 }
 
 fn draw_gate_body_with_fill(
@@ -34,6 +34,7 @@ fn draw_gate_body_with_fill(
     kind: GateKind,
     colors: &Colors,
     fill: egui::Color32,
+    dragging: bool,
 ) {
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
@@ -42,7 +43,8 @@ fn draw_gate_body_with_fill(
         draw_chance_preview_body(painter, gate_rect, colors);
         return;
     } else if kind == GateKind::AmplitudeDisplay {
-        draw_amplitude_preview_body(painter, gate_rect, colors);
+        let background = if dragging { fill } else { colors.surface };
+        draw_amplitude_preview_body(painter, gate_rect, colors, background);
         return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
@@ -117,10 +119,15 @@ fn draw_gate_body_with_fill(
     }
 }
 
-fn draw_amplitude_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+fn draw_amplitude_preview_body(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    colors: &Colors,
+    background: egui::Color32,
+) {
     // Static placeholder only. Live complex amplitudes are captured and
     // rendered by WebGPU; the CPU draws no amplitude values.
-    painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
 
     if rect.width() <= GATE_SIZE + 1.0 && rect.height() <= GATE_SIZE + 1.0 {
         draw_amplitude_palette_icon(painter, rect, colors);
@@ -151,6 +158,7 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
         egui::Stroke::new(1.0, colors.line),
         egui::StrokeKind::Inside,
     );
+    painter.circle_filled(center, outline_radius - half_stroke, colors.surface);
     painter.circle_stroke(
         center,
         outline_radius,

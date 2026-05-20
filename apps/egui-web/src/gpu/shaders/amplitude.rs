@@ -168,6 +168,7 @@ struct RenderParams {
     viewport_min: vec2<f32>,
     viewport_size: vec2<f32>,
     background: vec4<f32>,
+    drag_background: vec4<f32>,
     border: vec4<f32>,
     disk: vec4<f32>,
     outline: vec4<f32>,
@@ -184,6 +185,7 @@ struct VertexOut {
     @location(3) @interpolate(flat) slot: u32,
     @location(4) @interpolate(flat) span: u32,
     @location(5) @interpolate(flat) hovered_outcome: i32,
+    @location(6) @interpolate(flat) use_drag_background: u32,
 };
 
 @group(0) @binding(0) var<storage, read> amplitude_data: array<f32>;
@@ -216,6 +218,7 @@ fn vs_main(
     @location(3) slot: u32,
     @location(4) span: u32,
     @location(5) hovered_outcome: i32,
+    @location(6) use_drag_background: u32,
 ) -> VertexOut {
     let pixel = rect_min + (unit * 0.5 + vec2<f32>(0.5)) * rect_size;
     let ndc = ((pixel - params.viewport_min) / params.viewport_size) * 2.0 - vec2<f32>(1.0, 1.0);
@@ -227,6 +230,7 @@ fn vs_main(
     out.slot = slot;
     out.span = span;
     out.hovered_outcome = hovered_outcome;
+    out.use_drag_background = use_drag_background;
     return out;
 }
 
@@ -234,6 +238,9 @@ fn vs_main(
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let body_border = 1.0;
     var color = params.background;
+    if (in.use_drag_background == 1u) {
+        color = params.drag_background;
+    }
     let aa_edge = length(fwidth(in.local));
 
     let outer_p = in.local - in.rect_size * 0.5;
@@ -291,12 +298,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         // palette icon while still avoiding hard jaggies.
         let edge = max(0.5, aa_edge * 0.65);
 
+        let circle_inner_alpha = 1.0 - smoothstep(
+            outline_radius - half_stroke - edge,
+            outline_radius - half_stroke + edge,
+            centered_len
+        );
+        if (in.use_drag_background == 1u && circle_inner_alpha > 0.001) {
+            var circle_background = params.background;
+            circle_background.a = circle_background.a * circle_inner_alpha;
+            color = blend_over(color, circle_background);
+        }
+
         if (cell >= 3.0) {
-            let outline_inner = 1.0 - smoothstep(
-                outline_radius - half_stroke - edge,
-                outline_radius - half_stroke + edge,
-                centered_len
-            );
+            let outline_inner = circle_inner_alpha;
             let outline_outer = 1.0 - smoothstep(
                 outline_radius + half_stroke - edge,
                 outline_radius + half_stroke + edge,

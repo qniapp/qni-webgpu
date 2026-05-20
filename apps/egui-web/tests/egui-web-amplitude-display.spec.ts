@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
+  DRAG_PREVIEW_FILL,
   dragPointer,
   getPaletteGateCenter,
   pixelRgbDistance,
@@ -23,6 +24,8 @@ const amplitudeFirstCellCenterX = (column: number): number =>
   LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * column + (UI_CONSTANTS.SLOT_SPACING - GATE_SIZE) / 2
 const amplitudeCellCenterX = (column: number, cell: number): number =>
   amplitudeFirstCellCenterX(column) + GATE_SIZE * cell
+const amplitudeCircleBackgroundProbeXs = (column: number): number[] =>
+  Array.from({ length: 9 }, (_, index) => amplitudeFirstCellCenterX(column) + GATE_SIZE * 0.6 + index)
 const AMPLITUDE_ZERO_OUTLINE: [number, number, number, number] = [218, 216, 206, 255]
 const circuitHash = (cols: unknown[]): string => encodeURIComponent(JSON.stringify({ cols }))
 const readCircuitColsFromHash = (url: string): unknown[] => JSON.parse(decodeURIComponent(new URL(url).hash.slice(1))).cols
@@ -164,6 +167,47 @@ test.describe('Amplitude Display', () => {
     await page.mouse.up()
 
     expect(pixelRgbDistance(samples.liveDisk, AMPLITUDE_DISK)).toBeLessThanOrEqual(90)
+  })
+
+  test('snapped dragged Amps1 paints the gap around circles purple', async ({ page }) => {
+    await page.goto('/')
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const source = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+    await dragPointer(page, source, { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }, 6, false)
+    await waitForAmplitudeCell(page, 1, 0)
+    const samples = await sampleCanvasPixels(
+      page,
+      canvas,
+      amplitudeCircleBackgroundProbeXs(0).map((x, index) => ({ name: `circleGap${index}`, x, y: LINE_Y })),
+    )
+    await page.mouse.up()
+    const purpleSampleCount = Object.values(samples).filter(
+      (sample) => pixelRgbDistance(sample, DRAG_PREVIEW_FILL) <= 90,
+    ).length
+
+    expect(purpleSampleCount).toBeGreaterThan(0)
+  })
+
+  test('snapped dragged Amps1 keeps the empty circle interior white', async ({ page }) => {
+    await page.goto('/')
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const source = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+    await dragPointer(page, source, { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }, 6, false)
+    await waitForAmplitudeCell(page, 1, 1)
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'emptyCircleInterior', x: amplitudeCellCenterX(0, 1), y: LINE_Y },
+    ])
+    await page.mouse.up()
+
+    expect(pixelRgbDistance(samples.emptyCircleInterior, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(60)
   })
 
   test('snapped drag keeps a stationary Amps1 display rendered', async ({ page }) => {

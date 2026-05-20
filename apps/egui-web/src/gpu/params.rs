@@ -172,6 +172,8 @@ pub(crate) struct AmplitudeRenderParams {
     pub(crate) viewport_size: [f32; 2],
     /// Flexoki bg / paper #FFFCF0 cell background.
     pub(crate) background: [f32; 4],
+    /// Flexoki purple-600 #5E409D dragged cell background.
+    pub(crate) drag_background: [f32; 4],
     /// Flexoki ui-2 #DAD8CE grid / outer border.
     pub(crate) border: [f32; 4],
     /// Flexoki blue-200 #92BFDB amplitude disk.
@@ -194,7 +196,7 @@ pub(crate) struct AmplitudeInstance {
     pub(crate) slot: u32,
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
-    pub(crate) _pad: u32,
+    pub(crate) use_drag_background: u32,
 }
 
 /// Uniform for the Amplitude hover popup value text shader. The shader reads
