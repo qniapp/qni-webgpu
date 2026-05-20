@@ -125,7 +125,8 @@ impl QniApp {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
             }
             // Resizable-span gates share docs/chance-display.html §11:
-            // top + bottom purple pills with hover/active scaling.
+            // top + bottom purple pills with hover/active scaling. Amplitude
+            // passes its matrix body so the handle width follows that body.
             if gate.kind.is_resizable_span() {
                 let visible = self.hovered_gate_id == Some(gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);

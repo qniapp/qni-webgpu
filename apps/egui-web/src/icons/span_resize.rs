@@ -1,10 +1,10 @@
-//! Resizable-span handle drawing for Chance / QFT / QFT† gates.
+//! Resizable-span handle drawing for Chance / QFT / QFT† / Amplitude gates.
 
 use eframe::egui;
 
 /// Top / bottom resize pill shared by all resizable-span gates. `rect` is
-/// the spec-sized 24×6 px handle box; scale / alpha model
-/// docs/chance-display.html §11 states.
+/// the unscaled handle box (24 px minimum, wider for Amplitude display); the
+/// scale / alpha model from docs/chance-display.html §11 stays unchanged.
 pub(crate) fn draw_span_resize_handle(
     painter: &egui::Painter,
     rect: egui::Rect,

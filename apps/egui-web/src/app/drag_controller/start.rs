@@ -3,8 +3,10 @@ use eframe::egui;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{DragState, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
-use crate::gates::PALETTE_GATES;
-use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_edge_at};
+use crate::gates::{GateKind, PALETTE_GATES};
+use crate::layout::{
+    amplitude_grid_rect, gate_visible_rect, palette_hit_test, span_resize_handle_edge_at,
+};
 
 #[derive(Clone, Copy, Debug)]
 enum DragStartIntent {
@@ -124,7 +126,12 @@ fn start_intent(
                 return None;
             }
             let gate_rect = gate_visible_rect(gate, gate.pos);
-            let edge = span_resize_handle_edge_at(gate_rect, cursor)?;
+            let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
+                amplitude_grid_rect(gate_rect, gate.span)
+            } else {
+                gate_rect
+            };
+            let edge = span_resize_handle_edge_at(body_rect, cursor)?;
             Some(SpanResizeDrag {
                 gate_id: gate.id,
                 edge,

@@ -6,6 +6,11 @@ use crate::constants::{
 };
 use crate::gates::GateKind;
 
+const SPAN_RESIZE_HANDLE_MIN_WIDTH: f32 = 24.0;
+const SPAN_RESIZE_HANDLE_WIDTH_RATIO: f32 = 0.6;
+const SPAN_RESIZE_HANDLE_HEIGHT: f32 = 6.0;
+const SPAN_RESIZE_HANDLE_MAX_SCALE_PAD_RATIO: f32 = 0.125;
+
 pub(crate) fn amplitude_display_width_cols(span: usize) -> usize {
     let span = span.clamp(1, 16);
     if span == 1 {
@@ -91,42 +96,51 @@ pub(crate) fn amplitude_cell_index_at(
     Some((row * cols + col) as u32)
 }
 
-/// Resize-handle bounding box for any resizable-span gate edge. All such
-/// gates use two spec-sized pills (24×6 px) centred 9 px outside the top /
-/// bottom edge.
-pub(crate) fn span_resize_handle_rect(gate_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
-    let cx = gate_rect.center().x;
+/// Resize-handle bounding box for any resizable-span gate edge. The 6 px-tall
+/// pill keeps the Chance-display 24 px minimum, then scales to 60% of the
+/// supplied body width for wide Amplitude displays.
+pub(crate) fn span_resize_handle_rect(body_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
+    let cx = body_rect.center().x;
     let cy = match edge {
-        SpanResizeEdge::Top => gate_rect.top() - 9.0,
-        SpanResizeEdge::Bottom => gate_rect.bottom() + 9.0,
+        SpanResizeEdge::Top => body_rect.top() - 9.0,
+        SpanResizeEdge::Bottom => body_rect.bottom() + 9.0,
     };
-    egui::Rect::from_center_size(egui::pos2(cx, cy), egui::vec2(24.0, 6.0))
+    let width = (body_rect.width() * SPAN_RESIZE_HANDLE_WIDTH_RATIO)
+        .round()
+        .max(SPAN_RESIZE_HANDLE_MIN_WIDTH);
+    egui::Rect::from_center_size(
+        egui::pos2(cx, cy),
+        egui::vec2(width, SPAN_RESIZE_HANDLE_HEIGHT),
+    )
 }
 
-fn span_resize_handle_hit_rect(gate_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
-    let rect = span_resize_handle_rect(gate_rect, edge);
+fn span_resize_handle_hit_rect(body_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
+    let rect = span_resize_handle_rect(body_rect, edge);
     // The visible pill scales up to 1.25× while hovered/active; keep the
-    // pointer target matched to the largest visual state and extend it through
-    // the visual gap so the handle does not disappear while the pointer travels
-    // from the gate body to the pill.
-    let expanded = rect.expand2(egui::vec2(3.0, 1.0));
+    // pointer target matched to the largest visual state. Horizontal padding
+    // is `(1.25 - 1.0) / 2` of the unscaled width, with the old 24 px handle's
+    // 3 px padding retained as a floor.
+    let expanded = rect.expand2(egui::vec2(
+        (rect.width() * SPAN_RESIZE_HANDLE_MAX_SCALE_PAD_RATIO).max(3.0),
+        1.0,
+    ));
     match edge {
         SpanResizeEdge::Top => {
-            egui::Rect::from_min_max(expanded.min, egui::pos2(expanded.max.x, gate_rect.top()))
+            egui::Rect::from_min_max(expanded.min, egui::pos2(expanded.max.x, body_rect.top()))
         }
         SpanResizeEdge::Bottom => {
-            egui::Rect::from_min_max(egui::pos2(expanded.min.x, gate_rect.bottom()), expanded.max)
+            egui::Rect::from_min_max(egui::pos2(expanded.min.x, body_rect.bottom()), expanded.max)
         }
     }
 }
 
 pub(crate) fn span_resize_handle_edge_at(
-    gate_rect: egui::Rect,
+    body_rect: egui::Rect,
     cursor: egui::Pos2,
 ) -> Option<SpanResizeEdge> {
     [SpanResizeEdge::Top, SpanResizeEdge::Bottom]
         .into_iter()
-        .find(|&edge| span_resize_handle_hit_rect(gate_rect, edge).contains(cursor))
+        .find(|&edge| span_resize_handle_hit_rect(body_rect, edge).contains(cursor))
 }
 
 #[derive(Clone, Debug)]
@@ -240,5 +254,45 @@ mod tests {
     #[test]
     fn amplitude_span_three_grid_is_two_by_four() {
         assert_eq!(amplitude_grid_dims(3), (2, 4));
+    }
+
+    #[test]
+    fn span_resize_handle_width_keeps_chance_display_minimum() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(GATE_SIZE, GATE_SIZE));
+
+        assert_eq!(
+            span_resize_handle_rect(rect, SpanResizeEdge::Top).width(),
+            24.0
+        );
+    }
+
+    #[test]
+    fn span_resize_handle_width_matches_mock_span_one_body() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(80.0, GATE_SIZE));
+
+        assert_eq!(
+            span_resize_handle_rect(rect, SpanResizeEdge::Top).width(),
+            48.0
+        );
+    }
+
+    #[test]
+    fn span_resize_handle_width_matches_mock_span_four_body() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(208.0, 208.0));
+
+        assert_eq!(
+            span_resize_handle_rect(rect, SpanResizeEdge::Top).width(),
+            125.0
+        );
+    }
+
+    #[test]
+    fn span_resize_handle_width_matches_mock_span_six_bottom_body() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 320.0));
+
+        assert_eq!(
+            span_resize_handle_rect(rect, SpanResizeEdge::Bottom).width(),
+            192.0
+        );
     }
 }

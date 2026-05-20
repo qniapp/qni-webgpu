@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   dragPointer,
   getPaletteGateCenter,
@@ -49,6 +49,58 @@ const waitForAmplitudeCell = async (
   throw new Error(`Amplitude cell ${gateId}:${outcome} did not become available`)
 }
 
+const measureColorRunWidthAtY = async (
+  page: Page,
+  locator: Locator,
+  y: number,
+  target: readonly [number, number, number, number],
+): Promise<number> => {
+  const screenshot = await locator.screenshot({ type: 'png' })
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  return page.evaluate(
+    async ({ base64, cssWidth, cssHeight, target, y }) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${base64}`
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(null)
+        img.onerror = () => reject(new Error('Failed to decode screenshot'))
+      })
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return 0
+      ctx.drawImage(img, 0, 0)
+      const scaleX = img.width / cssWidth
+      const scaleY = img.height / cssHeight
+      const row = Math.max(0, Math.min(img.height - 1, Math.floor(y * scaleY)))
+      let first = Number.POSITIVE_INFINITY
+      let last = Number.NEGATIVE_INFINITY
+      const rowPixels = ctx.getImageData(0, row, img.width, 1).data
+      for (let x = 0; x < img.width; x += 1) {
+        const offset = x * 4
+        const distance =
+          Math.abs(rowPixels[offset] - target[0]) +
+          Math.abs(rowPixels[offset + 1] - target[1]) +
+          Math.abs(rowPixels[offset + 2] - target[2])
+        if (distance <= 40) {
+          first = Math.min(first, x)
+          last = Math.max(last, x)
+        }
+      }
+      return last >= first ? Math.round((last - first + 1) / scaleX) : 0
+    },
+    {
+      base64: screenshot.toString('base64'),
+      cssWidth: box.width,
+      cssHeight: box.height,
+      target,
+      y,
+    },
+  )
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Amplitude Display', () => {
@@ -79,6 +131,21 @@ test.describe('Amplitude Display', () => {
     ])
 
     expect(pixelRgbDistance(samples.tail, AMPLITUDE_ICON_NEEDLE)).toBeLessThanOrEqual(90)
+  })
+
+  test('palette Amps icon omits the square matrix frame', async ({ page }) => {
+    await page.goto('/')
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const center = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'corner', x: center.x - 19, y: center.y - 19 },
+    ])
+
+    expect(pixelRgbDistance(samples.corner, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(48)
   })
 
   test('snapped dragged Amps1 renders live GPU circles before drop', async ({ page }) => {
@@ -141,6 +208,31 @@ test.describe('Amplitude Display', () => {
     await waitForHashCols(page, [['H'], ['Amps4'], [1], [1], [1], ['Amps2']])
 
     expect(readCircuitColsFromHash(page.url())).toEqual([['H'], ['Amps4'], [1], [1], [1], ['Amps2']])
+  })
+
+  test('Amps4 bottom handle renders at 60 percent of the body width', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['Amps4']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 1, 0)
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const gateHeight = (4 - 1) * UI_CONSTANTS.LINE_GAP + GATE_SIZE
+    const gateWidth = (4 - 1) * UI_CONSTANTS.SLOT_SPACING + GATE_SIZE
+    await page.mouse.move(
+      box.x + EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2 + gateWidth / 2,
+      box.y + EGUI_PANEL_MARGIN + LINE_Y,
+    )
+    await page.waitForTimeout(300)
+    const width = await measureColorRunWidthAtY(
+      page,
+      canvas,
+      EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 + gateHeight + 9,
+      AMPLITUDE_HOVER_RING,
+    )
+
+    expect(width).toBe(125)
   })
 
   test('Amps1 captures coherent GPU amplitudes after H', async ({ page }) => {
