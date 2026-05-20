@@ -4,8 +4,9 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    BlochParams, ChanceReduceParams, MeasureCollapseParams, MeasureReduceParams, MAX_BLOCH_SLOTS,
-    MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS,
+    AmplitudeCaptureParams, BlochParams, ChanceReduceParams, MeasureCollapseParams,
+    MeasureReduceParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS,
+    MAX_MEASUREMENT_SLOTS,
 };
 use super::super::resources::StateVectorResources;
 use super::clear::encode_ground_state_init;
@@ -16,6 +17,7 @@ pub(super) struct EncodedRecompute {
     pub(super) bloch_slot_to_gate_id: Vec<u32>,
     pub(super) measurement_slot_to_gate_id: Vec<u32>,
     pub(super) chance_slot_to_gate_id: Vec<u32>,
+    pub(super) amplitude_slot_to_gate_id: Vec<u32>,
 }
 
 /// Encode one batched recompute command buffer. Each per-op param update is an
@@ -54,6 +56,9 @@ pub(super) fn encode_batched_recompute(
             SimulationOp::CaptureChance { gate_id, span, .. } => {
                 state.encode_capture_chance(&mut encoder, resources, *gate_id, *span);
             }
+            SimulationOp::CaptureAmplitude { gate_id, .. } => {
+                state.encode_capture_amplitude(&mut encoder, resources, *gate_id);
+            }
         }
     }
 
@@ -65,6 +70,7 @@ pub(super) fn encode_batched_recompute(
         bloch_slot_to_gate_id: state.bloch_slot_to_gate_id,
         measurement_slot_to_gate_id: state.measurement_slot_to_gate_id,
         chance_slot_to_gate_id: state.chance_slot_to_gate_id,
+        amplitude_slot_to_gate_id: state.amplitude_slot_to_gate_id,
     }
 }
 
@@ -78,9 +84,11 @@ struct DispatchState {
     measure_reduce_slot: u64,
     measure_collapse_slot: u64,
     chance_slot: u64,
+    amplitude_slot: u64,
     bloch_slot_to_gate_id: Vec<u32>,
     measurement_slot_to_gate_id: Vec<u32>,
     chance_slot_to_gate_id: Vec<u32>,
+    amplitude_slot_to_gate_id: Vec<u32>,
 }
 
 impl DispatchState {
@@ -95,9 +103,11 @@ impl DispatchState {
             measure_reduce_slot: 0,
             measure_collapse_slot: 0,
             chance_slot: 0,
+            amplitude_slot: 0,
             bloch_slot_to_gate_id: Vec::with_capacity(MAX_BLOCH_SLOTS),
             measurement_slot_to_gate_id: Vec::with_capacity(MAX_MEASUREMENT_SLOTS),
             chance_slot_to_gate_id: Vec::with_capacity(MAX_CHANCE_SLOTS),
+            amplitude_slot_to_gate_id: Vec::with_capacity(MAX_AMPLITUDE_SLOTS),
         }
     }
 
@@ -273,5 +283,36 @@ impl DispatchState {
         }
         self.chance_slot += 1;
         self.chance_slot_to_gate_id.push(gate_id);
+    }
+
+    fn encode_capture_amplitude(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &StateVectorResources,
+        gate_id: u32,
+    ) {
+        let size = std::mem::size_of::<AmplitudeCaptureParams>() as wgpu::BufferAddress;
+        encoder.copy_buffer_to_buffer(
+            &resources.amplitude.capture_params_staging_buffer,
+            self.amplitude_slot * size,
+            &resources.amplitude.capture_params_buffer,
+            0,
+            size,
+        );
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("amplitude_capture_pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&resources.amplitude.capture_pipeline);
+            pass.set_bind_group(
+                0,
+                &resources.amplitude.capture_bind_groups[self.in_index],
+                &[],
+            );
+            pass.dispatch_workgroups(1, 1, 1);
+        }
+        self.amplitude_slot += 1;
+        self.amplitude_slot_to_gate_id.push(gate_id);
     }
 }

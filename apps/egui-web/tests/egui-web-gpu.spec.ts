@@ -10,6 +10,7 @@ import {
   isGateBodyFill,
   isRegularGateFill,
   pixelRgbDistance,
+  readBlochVectors,
   readEguiError,
   readMeasurementOutcomes,
   readStateVector,
@@ -233,6 +234,95 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
     [1, 0, 0],
     [0, 0, -1],
   ])
+})
+
+test('GPU bloch reduction follows snapped drag placement before drop', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Bloch']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForBlochVectorsApprox(page, [[1, 0, 0]])
+
+  const source = {
+    x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING,
+    y: UI_CONSTANTS.LINE_Y,
+  }
+  await dragPointer(
+    page,
+    source,
+    { x: source.x, y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP },
+    6,
+    false,
+  )
+  let vector: { x: number; y: number; z: number } | undefined
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const [entry] = await readBlochVectors(page)
+    if (entry && Math.abs(entry.z - 1) < 1e-3) {
+      vector = entry
+      break
+    }
+    await page.waitForTimeout(50)
+  }
+  if (!vector) throw new Error('dragged Bloch vector did not update before drop')
+  const canvas = page.locator('#egui-canvas')
+  const eguiPanelMargin = 8
+  const liveX = eguiPanelMargin + source.x
+  const liveY = eguiPanelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP - 21
+  const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveTip', x: liveX, y: liveY }])
+  await page.mouse.up()
+
+  const rounded = (value: number): number => {
+    const v = Math.round(value * 1000) / 1000
+    return Math.abs(v) < 0.001 ? 0 : v
+  }
+  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
+  expect({
+    x: rounded(vector.x),
+    y: rounded(vector.y),
+    z: rounded(vector.z),
+    liveTipRed: isBlochRed(samples.liveTip),
+  }).toEqual({ x: 0, y: 0, z: 1, liveTipRed: true })
+})
+
+test('GPU measurement digit follows snapped drag placement before drop', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'X'], ['Measure']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  let initialOutcomeReady = false
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const [entry] = await readMeasurementOutcomes(page)
+    if (entry?.outcome === 0) {
+      initialOutcomeReady = true
+      break
+    }
+    await page.waitForTimeout(50)
+  }
+  if (!initialOutcomeReady) throw new Error('measurement outcome did not initialize before drag')
+  const source = {
+    x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING,
+    y: UI_CONSTANTS.LINE_Y,
+  }
+  await dragPointer(page, source, { x: source.x, y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP }, 6, false)
+  let outcome: number | undefined
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const [entry] = await readMeasurementOutcomes(page)
+    if (entry?.outcome === 1) {
+      outcome = entry.outcome
+      break
+    }
+    await page.waitForTimeout(50)
+  }
+  if (outcome !== 1) throw new Error('dragged measurement outcome did not update before drop')
+  const canvas = page.locator('#egui-canvas')
+  const eguiPanelMargin = 8
+  const liveX = eguiPanelMargin + source.x
+  const liveY = eguiPanelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP
+  const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveDigit', x: liveX, y: liveY }])
+  await page.mouse.up()
+
+  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
+  expect({ outcome, liveDigitBlue: isOutcomeBlue(samples.liveDigit) }).toEqual({
+    outcome: 1,
+    liveDigitBlue: true,
+  })
 })
 
 test('GPU circuit overlays stay optically anchored to measurement and Bloch bodies', async ({ page }) => {

@@ -51,6 +51,7 @@ pub(crate) struct QniApp {
     /// `[0, max(0, line_right - canvas_width)]` post-update.
     pub(crate) circuit_scroll_x: f32,
     pub(crate) dragging: Option<DragState>,
+    pub(crate) dragging_live_display_snap: bool,
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
     /// Resizable-span handle currently hovered (drives idle → hover color).
@@ -71,6 +72,9 @@ pub(crate) struct QniApp {
     /// `(gate_id, outcome)` for the Chance row under the pointer. The
     /// outcome index is geometry-only; probability values remain GPU-only.
     pub(crate) hovered_chance_outcome: Option<(u32, u32)>,
+    /// `(gate_id, outcome)` for the Amplitude cell under the pointer. The
+    /// cell index is geometry-only; complex values remain GPU-only.
+    pub(crate) hovered_amplitude_outcome: Option<(u32, u32)>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
@@ -231,6 +235,7 @@ impl QniApp {
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
             dragging: None,
+            dragging_live_display_snap: false,
             drag_state_count: None,
             state_panel: StatePanelState::default(),
             hovered_span_resize_handle: None,
@@ -239,6 +244,7 @@ impl QniApp {
             breakpoint_step: None,
             hovered_gate_id: None,
             hovered_chance_outcome: None,
+            hovered_amplitude_outcome: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
             exec_mode,

@@ -107,6 +107,13 @@ pub(crate) const MAX_CHANCE_OUTCOMES: usize = 1 << 16;
 pub(crate) const MAX_CHANCE_AGGREGATE_ROWS: usize = 1024;
 pub(crate) const CHANCE_AGGREGATE_MIN_SPAN: u32 = 13;
 
+/// Maximum Amplitude display slots whose complex matrices can be captured in
+/// a single recompute. Each slot reserves coherent (re/im) and incoherent
+/// magnitude values for `2^16` outcomes.
+pub(crate) const MAX_AMPLITUDE_SLOTS: usize = 32;
+pub(crate) const MAX_AMPLITUDE_OUTCOMES: usize = 1 << 16;
+pub(crate) const AMPLITUDE_VALUES_PER_SLOT: usize = MAX_AMPLITUDE_OUTCOMES * 3;
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct BlochParams {
@@ -142,6 +149,76 @@ pub(crate) struct ChanceReduceParams {
     pub(crate) span: u32,
     pub(crate) rest_count: u32,
     pub(crate) output_slot: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct AmplitudeCaptureParams {
+    pub(crate) base_bit: u32,
+    pub(crate) span: u32,
+    pub(crate) output_slot: u32,
+    pub(crate) state_count: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) phase_lock_enabled: u32,
+    pub(crate) total_qubits: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct AmplitudeRenderParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Flexoki bg / paper #FFFCF0 cell background.
+    pub(crate) background: [f32; 4],
+    /// Flexoki ui-2 #DAD8CE grid / outer border.
+    pub(crate) border: [f32; 4],
+    /// Flexoki blue-200 #92BFDB amplitude disk.
+    pub(crate) disk: [f32; 4],
+    /// Flexoki tx-2 #6F6E69 coherent non-zero outline.
+    pub(crate) outline: [f32; 4],
+    /// Flexoki ui-2 #DAD8CE zero outline.
+    pub(crate) outline_zero: [f32; 4],
+    /// Flexoki tx #100F0F phase needle.
+    pub(crate) needle: [f32; 4],
+    /// Flexoki purple-400 #8B7EC8 hovered cell outline.
+    pub(crate) hover_border: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct AmplitudeInstance {
+    pub(crate) rect_min: [f32; 2],
+    pub(crate) rect_size: [f32; 2],
+    pub(crate) slot: u32,
+    pub(crate) span: u32,
+    pub(crate) hovered_outcome: i32,
+    pub(crate) _pad: u32,
+}
+
+/// Uniform for the Amplitude hover popup value text shader. The shader reads
+/// coherent/incoherent values directly from the Amplitude storage buffers.
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct AmplitudePopupValueParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Top-left of the row-0 value text in egui pixels.
+    pub(crate) value_anchor: [f32; 2],
+    /// Vertical pitch between value rows.
+    pub(crate) row_pitch: f32,
+    pub(crate) _pad_row: f32,
+    /// Size of one atlas character cell on screen (egui pixels).
+    pub(crate) char_size: [f32; 2],
+    pub(crate) _pad_char: [f32; 2],
+    /// RGBA text colour (premultiplied at sample time).
+    pub(crate) text_color: [f32; 4],
+    /// Amplitude output slot and hovered outcome cell.
+    pub(crate) slot: u32,
+    pub(crate) outcome: u32,
+    pub(crate) _pad: [u32; 2],
 }
 
 #[repr(C)]

@@ -15,6 +15,7 @@
 //!   `aux_buffer` consumed by `digit`.
 //! * [`chance`] — Chance probability marginalization (compute) +
 //!   GPU-rendered probability bars. Both share the Chance output buffer.
+//! * [`amplitude`] — Amplitude display capture + GPU-rendered grid / popup.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
@@ -29,6 +30,7 @@
 //! [`StateVectorResources::update_target_format`] now fans the call
 //! out to every render-bearing subsystem.
 
+mod amplitude;
 mod bloch;
 mod chance;
 mod common;
@@ -39,6 +41,7 @@ mod state;
 
 use eframe::wgpu;
 
+use self::amplitude::AmplitudeResources;
 use self::bloch::BlochResources;
 use self::chance::ChanceResources;
 use self::common::Common;
@@ -53,6 +56,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) bloch: BlochResources,
     pub(crate) measure: MeasureResources,
     pub(crate) chance: ChanceResources,
+    pub(crate) amplitude: AmplitudeResources,
     pub(crate) digit: DigitResources,
     pub(crate) popup_value: PopupValueResources,
 
@@ -83,6 +87,7 @@ impl StateVectorResources {
         let bloch = BlochResources::build(device, target_format, &common);
         let measure = MeasureResources::build(device, &common);
         let chance = ChanceResources::build(device, queue, target_format, &common);
+        let amplitude = AmplitudeResources::build(device, queue, target_format, &common);
         let digit = DigitResources::build(device, queue, target_format, &measure);
         let popup_value = PopupValueResources::build(device, queue, target_format, &common);
 
@@ -92,6 +97,7 @@ impl StateVectorResources {
             bloch,
             measure,
             chance,
+            amplitude,
             digit,
             popup_value,
             target_format,
@@ -119,6 +125,7 @@ impl StateVectorResources {
         self.state.update_target_format(device, target_format);
         self.bloch.update_target_format(device, target_format);
         self.chance.update_target_format(device, target_format);
+        self.amplitude.update_target_format(device, target_format);
         self.digit.update_target_format(device, target_format);
         self.popup_value.update_target_format(device, target_format);
         self.target_format = target_format;

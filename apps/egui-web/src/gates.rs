@@ -9,6 +9,9 @@ pub(crate) enum GateKind {
     /// a GPU compute pass marginalizes the live state vector into outcome
     /// bars and a render shader paints them without CPU readback.
     ChanceDisplay,
+    /// Quirk-compatible amplitude display. It captures a span-local complex
+    /// amplitude matrix into GPU storage and renders it without CPU readback.
+    AmplitudeDisplay,
     Spacer,
     Write0,
     Write1,
@@ -50,7 +53,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 24] = [
+const GATE_SPECS: [GateSpec; 25] = [
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -85,6 +88,12 @@ const GATE_SPECS: [GateSpec; 24] = [
         kind: GateKind::ChanceDisplay,
         label: "Chance",
         url_token: "Chance",
+        resizable_span: true,
+    },
+    GateSpec {
+        kind: GateKind::AmplitudeDisplay,
+        label: "Amps",
+        url_token: "Amps",
         resizable_span: true,
     },
     GateSpec {
@@ -201,7 +210,7 @@ const GATE_SPECS: [GateSpec; 24] = [
 // special-purpose gates. Indices remain flat so callers can look up a gate
 // without branching.
 pub(crate) const PALETTE_ROW1_COUNT: usize = 13;
-pub(crate) const PALETTE_GATES: [GateKind; 24] = [
+pub(crate) const PALETTE_GATES: [GateKind; 25] = [
     GateKind::H,
     GateKind::X,
     GateKind::Y,
@@ -226,6 +235,7 @@ pub(crate) const PALETTE_GATES: [GateKind; 24] = [
     GateKind::Spacer,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
+    GateKind::AmplitudeDisplay,
 ];
 
 impl GateKind {
@@ -259,7 +269,7 @@ impl GateKind {
     /// capacity.
     pub(crate) fn max_resizable_span(self, qubit_capacity: usize) -> usize {
         match self {
-            GateKind::ChanceDisplay => qubit_capacity.min(16),
+            GateKind::ChanceDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
             _ => qubit_capacity,
         }
         .max(1)

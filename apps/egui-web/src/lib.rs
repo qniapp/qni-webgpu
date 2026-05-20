@@ -74,6 +74,17 @@ pub async fn read_chance_probabilities() -> Result<js_sys::Float32Array, wasm_bi
     gpu::read_chance_probabilities_impl().await
 }
 
+/// Test-only on-demand readback for one Amplitude display cell. Returns
+/// `[gate_id, outcome, re, im, incoherent, quality, phaseLockIndex, span]`.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn read_amplitude_cell(
+    gate_id: u32,
+    outcome: u32,
+) -> Result<js_sys::Float64Array, wasm_bindgen::JsValue> {
+    gpu::read_amplitude_cell_impl(gate_id, outcome).await
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn circuit_library_list() -> Result<String, wasm_bindgen::JsValue> {

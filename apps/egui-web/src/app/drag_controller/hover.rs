@@ -4,13 +4,17 @@ use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::app::SpanResizeHandle;
 use crate::gates::GateKind;
-use crate::layout::{gate_visible_rect, palette_hit_test, span_resize_handle_edge_at};
+use crate::layout::{
+    amplitude_cell_index_at, amplitude_grid_rect, gate_visible_rect, palette_hit_test,
+    span_resize_handle_edge_at,
+};
 
 impl DragController {
     pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
         app.hovered_gate_id = None;
         app.hovered_span_resize_handle = None;
         app.hovered_chance_outcome = None;
+        app.hovered_amplitude_outcome = None;
         app.hovered_palette_index = None;
         if app.hovered_step.take().is_some() {
             app.gpu_plan.mark_step_preview_dirty();
@@ -29,13 +33,20 @@ impl DragController {
             // over the gate body when the cursor is on both (span handles
             // overhang the top / bottom edges).
             let previous_chance_outcome = app.hovered_chance_outcome;
+            let previous_amplitude_outcome = app.hovered_amplitude_outcome;
             let mut hovered_gate = None;
             let mut hovered_handle = None;
             let mut hovered_chance_outcome = None;
+            let mut hovered_amplitude_outcome = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
+                let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
+                    amplitude_grid_rect(gate_rect, gate.span)
+                } else {
+                    gate_rect
+                };
                 if gate.kind.is_resizable_span() {
-                    if let Some(edge) = span_resize_handle_edge_at(gate_rect, cursor) {
+                    if let Some(edge) = span_resize_handle_edge_at(body_rect, cursor) {
                         hovered_handle = Some(SpanResizeHandle {
                             gate_id: gate.id,
                             edge,
@@ -44,7 +55,7 @@ impl DragController {
                         break;
                     }
                 }
-                if gate_rect.contains(cursor) {
+                if body_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);
                     if gate.kind == GateKind::ChanceDisplay {
                         let row_count = 1usize << gate.span.clamp(1, 16);
@@ -54,6 +65,10 @@ impl DragController {
                             .clamp(0.0, (row_count - 1) as f32)
                             as u32;
                         hovered_chance_outcome = Some((gate.id, row));
+                    } else if gate.kind == GateKind::AmplitudeDisplay {
+                        hovered_amplitude_outcome =
+                            amplitude_cell_index_at(gate_rect, gate.span, cursor)
+                                .map(|outcome| (gate.id, outcome));
                     }
                     break;
                 }
@@ -61,7 +76,10 @@ impl DragController {
             app.hovered_gate_id = hovered_gate;
             app.hovered_span_resize_handle = hovered_handle;
             app.hovered_chance_outcome = hovered_chance_outcome;
-            if hovered_chance_outcome != previous_chance_outcome {
+            app.hovered_amplitude_outcome = hovered_amplitude_outcome;
+            if hovered_chance_outcome != previous_chance_outcome
+                || hovered_amplitude_outcome != previous_amplitude_outcome
+            {
                 ctx.request_repaint();
             }
 

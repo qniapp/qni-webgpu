@@ -157,10 +157,12 @@ impl QniApp {
         }
         self.update_qubit_count();
         self.dragging = None;
+        self.dragging_live_display_snap = false;
         self.drag_state_count = None;
         self.span_resize_drag = None;
         self.hovered_gate_id = None;
         self.hovered_chance_outcome = None;
+        self.hovered_amplitude_outcome = None;
         self.hovered_palette_index = None;
         self.hovered_span_resize_handle = None;
         self.hovered_step = None;

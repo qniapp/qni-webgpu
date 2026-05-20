@@ -11,6 +11,8 @@ use crate::gates::GateParams;
 ///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
 ///   * `CaptureChance`: marginalizes the live state into per-outcome
 ///     probabilities for a Chance display (`CHANCE_REDUCE_SHADER`).
+///   * `CaptureAmplitude`: captures coherent amplitudes, incoherent
+///     magnitudes, quality, and phase-lock metadata for an Amplitude display.
 ///   * `SnapshotState`: copies the live state into a GPU-resident step-cache
 ///     slot. Hovering a circuit column later copies the cached slot into the
 ///     preview buffer without rerunning the simulation.
@@ -39,5 +41,13 @@ pub(crate) enum SimulationOp {
         base_bit: u32,
         span: u32,
         output_slot: u32,
+    },
+    CaptureAmplitude {
+        gate_id: u32,
+        base_bit: u32,
+        span: u32,
+        output_slot: u32,
+        control_mask: u32,
+        control_value: u32,
     },
 }

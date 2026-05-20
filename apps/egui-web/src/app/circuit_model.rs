@@ -7,6 +7,8 @@
 use eframe::egui;
 use std::collections::{BTreeSet, HashMap};
 
+use crate::layout::gate_width_cols;
+
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, SLOT_SPACING,
 };
@@ -128,7 +130,7 @@ impl QniApp {
     pub(super) fn min_circuit_slots(&self) -> usize {
         self.placed_gates
             .iter()
-            .map(|gate| gate.column + 2)
+            .map(|gate| gate.column + gate_width_cols(gate.kind, gate.span) + 1)
             .max()
             .unwrap_or(0)
     }
@@ -178,7 +180,11 @@ impl QniApp {
         if self.placed_gates.is_empty() {
             return;
         }
-        let occupied: BTreeSet<usize> = self.placed_gates.iter().map(|gate| gate.column).collect();
+        let occupied: BTreeSet<usize> = self
+            .placed_gates
+            .iter()
+            .flat_map(|gate| gate.column..gate.column + gate_width_cols(gate.kind, gate.span))
+            .collect();
         let already_compact = occupied
             .iter()
             .enumerate()
@@ -213,8 +219,13 @@ impl QniApp {
             return;
         };
 
+        let moving_width = gate_width_cols(
+            self.placed_gates[gate_index].kind,
+            self.placed_gates[gate_index].span,
+        );
         let mut adjusted_insert = insert_index;
         if let Some(old_column) = original_column {
+            let old_width = moving_width;
             let old_column_still_occupied = self
                 .placed_gates
                 .iter()
@@ -222,18 +233,18 @@ impl QniApp {
             if !old_column_still_occupied {
                 for gate in &mut self.placed_gates {
                     if gate.id != gate_id && gate.column > old_column {
-                        gate.column -= 1;
+                        gate.column = gate.column.saturating_sub(old_width);
                     }
                 }
                 if old_column < adjusted_insert {
-                    adjusted_insert -= 1;
+                    adjusted_insert = adjusted_insert.saturating_sub(old_width);
                 }
             }
         }
 
         for gate in &mut self.placed_gates {
             if gate.id != gate_id && gate.column >= adjusted_insert {
-                gate.column += 1;
+                gate.column += moving_width;
             }
         }
 

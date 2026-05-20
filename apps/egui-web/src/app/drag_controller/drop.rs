@@ -25,6 +25,7 @@ impl DragController {
                 let snapped = nearest_circuit_snap(
                     center_x,
                     line_index,
+                    &app.placed_gates[index],
                     Some(gate_id),
                     &app.placed_gates,
                     &metrics.slot_centers,
@@ -68,6 +69,7 @@ impl DragController {
                 app.commit_current_circuit(ctx);
             }
         }
+        app.dragging_live_display_snap = false;
         app.drag_state_count = None;
         reset_drag_frame_state(app);
         app.drag_cursor_pos = None;

@@ -33,12 +33,13 @@
 //!   …            — spacer ellipsis
 //!   Chance       — 1-qubit Chance probability display
 //!   Chance<n>    — n-qubit Chance display, n = 2..16
+//!   Amps<n>      — n-qubit Amplitude display, n = 1..16 (no bare Amps token)
 //!   QFT<n>       — n-qubit QFT (span suffix)
 //!   QFT†<n>      — n-qubit inverse QFT
 //!
 //! Multi-qubit gates (CNOT, swap, controls) are split per wire across
 //! the same column; the wire's array index is its qubit number. The
-//! resizable-span gates (Chance, QFT / QFT†) emit their token only at
+//! resizable-span gates (Chance, Amplitude, QFT / QFT†) emit their token only at
 //! the top wire of the span; the lower wires within the span are left
 //! as `1` (the empty marker) — matching qni / Quirk display-gate style,
 //! where the element owns just the top dropzone.

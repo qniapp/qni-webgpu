@@ -5,8 +5,9 @@ use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{RenderParams, MAX_STEP_SNAPSHOT_SLOTS};
 use super::super::readback::{
-    BlochGpuHandle, ChanceGpuHandle, GpuReadbackState, MeasurementGpuHandle, BLOCH_GPU_HANDLE,
-    CHANCE_GPU_HANDLE, GPU_READBACK, MEASUREMENT_GPU_HANDLE,
+    AmplitudeGpuHandle, BlochGpuHandle, ChanceGpuHandle, GpuReadbackState, MeasurementGpuHandle,
+    AMPLITUDE_GPU_HANDLE, BLOCH_GPU_HANDLE, CHANCE_GPU_HANDLE, GPU_READBACK,
+    MEASUREMENT_GPU_HANDLE,
 };
 use super::super::recompute::recompute_state_vector;
 use super::super::resources::StateVectorResources;
@@ -152,6 +153,14 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 device: device.clone(),
                 queue: queue.clone(),
                 output_buffer: resources.chance.output_buffer.clone(),
+            });
+        });
+        AMPLITUDE_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(AmplitudeGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                output_buffer: resources.amplitude.output_buffer.clone(),
+                meta_buffer: resources.amplitude.meta_buffer.clone(),
             });
         });
 

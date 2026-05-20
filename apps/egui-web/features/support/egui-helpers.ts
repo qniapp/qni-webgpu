@@ -12,6 +12,7 @@ declare global {
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
     __eguiReadChanceProbabilities?: () => Promise<number[]>
+    __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
 }
@@ -46,7 +47,7 @@ const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 // qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
 const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
 const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_COUNT = 24
+const DEFAULT_PALETTE_COUNT = 25
 const DEFAULT_PALETTE_ROW1_COUNT = 13
 const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
@@ -191,6 +192,39 @@ export const readChanceProbabilities = async (page: Page): Promise<ChanceProbabi
     })
   }
   return entries
+}
+
+export type AmplitudeCell = {
+  gateId: number
+  outcome: number
+  re: number
+  im: number
+  incoherent: number
+  quality: number
+  phaseLockIndex: number
+  span: number
+}
+
+export const readAmplitudeCell = async (page: Page, gateId: number, outcome: number): Promise<AmplitudeCell | null> => {
+  const flat = await evaluateWithRetry<number[], { gateId: number; outcome: number }>(page, async ({ gateId, outcome }) => {
+    if (!window.__eguiReadAmplitudeCell) {
+      return []
+    }
+    return await window.__eguiReadAmplitudeCell(gateId, outcome)
+  }, { gateId, outcome })
+  if (flat.length < 8) {
+    return null
+  }
+  return {
+    gateId: Math.round(flat[0]),
+    outcome: Math.round(flat[1]),
+    re: flat[2],
+    im: flat[3],
+    incoherent: flat[4],
+    quality: flat[5],
+    phaseLockIndex: Math.round(flat[6]),
+    span: Math.round(flat[7]),
+  }
 }
 
 export type MeasurementOutcome = { gateId: number; outcome: number }

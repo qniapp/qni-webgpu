@@ -57,6 +57,7 @@ impl QniApp {
                 colors,
                 dragging_gate_id,
                 self.circuit_scroll_x,
+                circuit_frame.live_drag_gpu_overlay_ready,
             );
         }
         if let Some(content_rect) = circuit_frame.content_rect {
@@ -66,6 +67,13 @@ impl QniApp {
             // scrolled circuit content can have a negative rect origin, while
             // egui clamps callback viewports to the visible screen.
             self.draw_chance_hover_popup(
+                &overlay_painter,
+                screen_rect,
+                circuit_origin,
+                circuit_frame.dragging_gate_id,
+                colors,
+            );
+            self.draw_amplitude_hover_popup(
                 &overlay_painter,
                 screen_rect,
                 circuit_origin,

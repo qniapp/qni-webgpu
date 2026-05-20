@@ -5,6 +5,8 @@
 //! Production rendering stays GPU-resident; readback handles exposed here are
 //! updated only so test-only wasm APIs can read on demand.
 
+mod amplitude_display;
+mod amplitude_popup_value;
 mod bloch_overlay;
 mod chance_display;
 mod chance_popup_value;
@@ -12,6 +14,8 @@ mod measurement_digit;
 mod popup_value;
 mod state_vector;
 
+pub(crate) use amplitude_display::AmplitudeDisplayCallback;
+pub(crate) use amplitude_popup_value::AmplitudePopupValueCallback;
 pub(crate) use bloch_overlay::BlochOverlayCallback;
 pub(crate) use chance_display::ChanceDisplayCallback;
 pub(crate) use chance_popup_value::ChancePopupValueCallback;

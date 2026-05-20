@@ -8,12 +8,14 @@ use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
-    BlochOverlayCallback, BlochOverlayInstance, ChanceDisplayCallback, ChanceInstance,
-    ChancePopupValueCallback, MeasurementDigitCallback, MeasurementDigitInstance,
-    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
+    AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
+    BlochOverlayInstance, ChanceDisplayCallback, ChanceInstance, ChancePopupValueCallback,
+    MeasurementDigitCallback, MeasurementDigitInstance, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_span_resize_handle};
-use crate::layout::span_resize_handle_rect;
+use crate::layout::{
+    amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect, span_resize_handle_rect,
+};
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
@@ -41,6 +43,15 @@ fn chance_hover_popup_subtitle(outcome: u32) -> String {
     format!("Chance if measured · k = {outcome}")
 }
 
+fn amplitude_hover_popup_ket(outcome: u32, span: usize) -> String {
+    let width = span.clamp(1, 16);
+    format!("|{outcome:0width$b}⟩")
+}
+
+fn amplitude_hover_popup_subtitle(outcome: u32) -> String {
+    format!("Amplitude · k = {outcome}")
+}
+
 impl QniApp {
     pub(super) fn draw_placed_circuit_gates(
         &self,
@@ -51,22 +62,27 @@ impl QniApp {
         dragging_gate_id: Option<u32>,
     ) {
         for gate in &self.placed_gates {
-            if dragging_gate_id == Some(gate.id) {
+            let live_dragging_gate = dragging_gate_id == Some(gate.id)
+                && self.dragging_live_display_snap
+                && ((gate.kind == GateKind::BlochDisplay
+                    && self.gpu_plan.bloch_slot(gate.id).is_some())
+                    || (gate.kind == GateKind::Measurement
+                        && self.gpu_plan.has_measurement_slot(gate.id)));
+            if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
             }
-            // Resizable-span gates are multi-qubit bodies — they extend
-            // downward to cover `span` wires. Other gates stay single-
-            // qubit (GATE_SIZE × GATE_SIZE).
-            let gate_height = if gate.kind.is_resizable_span() {
-                let span = gate.span.max(1);
-                (span - 1) as f32 * LINE_GAP + GATE_SIZE
+            // Resizable-span gates are multi-qubit bodies. Amplitude display
+            // is also variable-width, so use the shared geometry helper.
+            let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+            // docs/amplitude-display.html §04: the display footprint follows
+            // slot spacing, but the visible matrix body is the square-cell
+            // draw area. For Amps1 this is 80×40 inside the 96×40 footprint,
+            // matching Quirk's drawRect and avoiding internal side padding.
+            let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
+                amplitude_grid_rect(gate_rect, gate.span)
             } else {
-                GATE_SIZE
+                gate_rect
             };
-            let gate_rect = egui::Rect::from_min_size(
-                circuit_origin + gate.pos.to_vec2(),
-                egui::vec2(GATE_SIZE, gate_height),
-            );
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
             let circuit_fill = colors.background;
@@ -78,8 +94,12 @@ impl QniApp {
                 let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
-            if !fast_drag && self.hovered_gate_id == Some(gate.id) {
-                let hover_outer = gate_rect.expand(4.0);
+            let amplitude_cell_hovered = gate.kind == GateKind::AmplitudeDisplay
+                && self
+                    .hovered_amplitude_outcome
+                    .is_some_and(|(id, _)| id == gate.id);
+            if !fast_drag && self.hovered_gate_id == Some(gate.id) && !amplitude_cell_hovered {
+                let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
                 // 透明なゲート内部を通る縦接続線まで消えてしまうため、
@@ -102,7 +122,7 @@ impl QniApp {
                 // neutral) so anti-aliased edges do not leak the palette colour.
                 draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
             } else {
-                draw_gate_body(painter, gate_rect, gate.kind, colors);
+                draw_gate_body(painter, body_rect, gate.kind, colors);
             }
             // Resizable-span gates share docs/chance-display.html §11:
             // top + bottom purple pills with hover/active scaling.
@@ -140,7 +160,7 @@ impl QniApp {
                         let alpha = if hovered || active { 1.0 } else { visible_t };
                         draw_span_resize_handle(
                             painter,
-                            span_resize_handle_rect(gate_rect, edge),
+                            span_resize_handle_rect(body_rect, edge),
                             bg,
                             scale,
                             alpha,
@@ -224,10 +244,60 @@ impl QniApp {
             painter.add(egui::Shape::Callback(paint_callback));
         }
 
+        let live_dragging_amplitude_id =
+            dragging_gate_id.filter(|_| self.dragging_live_display_snap);
+        let amplitude_instances: Vec<AmplitudeInstance> = self
+            .placed_gates
+            .iter()
+            .filter_map(|gate| {
+                if gate.kind != GateKind::AmplitudeDisplay {
+                    return None;
+                }
+                if dragging_gate_id == Some(gate.id) && live_dragging_amplitude_id != Some(gate.id)
+                {
+                    return None;
+                }
+                let slot = self.gpu_plan.amplitude_slot(gate.id)?;
+                let span = gate.span.clamp(1, 16) as u32;
+                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let body_rect = amplitude_grid_rect(gate_rect, gate.span);
+                let hovered_outcome = self
+                    .hovered_amplitude_outcome
+                    .filter(|(id, _)| *id == gate.id)
+                    .map(|(_, outcome)| outcome as i32)
+                    .unwrap_or(-1);
+                Some(AmplitudeInstance {
+                    rect_min: [body_rect.min.x, body_rect.min.y],
+                    rect_size: [body_rect.width(), body_rect.height()],
+                    slot,
+                    span,
+                    hovered_outcome,
+                    _pad: 0,
+                })
+            })
+            .collect();
+        if !amplitude_instances.is_empty() {
+            let callback = AmplitudeDisplayCallback {
+                instances: amplitude_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                background: colors.surface.to_normalized_gamma_f32(),
+                border: colors.line.to_normalized_gamma_f32(),
+                disk: colors.state_fill.to_normalized_gamma_f32(),
+                outline: colors.state_outline.to_normalized_gamma_f32(),
+                outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
+                needle: colors.state_needle.to_normalized_gamma_f32(),
+                hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+            };
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
+            painter.add(egui::Shape::Callback(paint_callback));
+        }
+
         // GPU overlay: draws the dynamic arrow + tip dot for every placed
         // BlochDisplay whose values are live in `bloch_output_buffer`. No
         // CPU readback — the fragment shader samples the storage buffer
         // directly.
+        let live_dragging_bloch_id = dragging_gate_id.filter(|_| self.dragging_live_display_snap);
         let bloch_overlay_instances: Vec<BlochOverlayInstance> = self
             .placed_gates
             .iter()
@@ -235,7 +305,7 @@ impl QniApp {
                 if gate.kind != GateKind::BlochDisplay {
                     return None;
                 }
-                if dragging_gate_id == Some(gate.id) {
+                if dragging_gate_id == Some(gate.id) && live_dragging_bloch_id != Some(gate.id) {
                     return None;
                 }
                 let slot = self.gpu_plan.bloch_slot(gate.id)?;
@@ -273,6 +343,8 @@ impl QniApp {
         // GPU overlay: 0/1 digit per measurement, sourced directly from
         // `measurement_aux_buffer.z`. Half extent is roughly digit-bounding
         // box + AA fringe.
+        let live_dragging_measurement_id =
+            dragging_gate_id.filter(|_| self.dragging_live_display_snap);
         let measurement_digit_instances: Vec<MeasurementDigitInstance> = self
             .placed_gates
             .iter()
@@ -280,7 +352,9 @@ impl QniApp {
                 if gate.kind != GateKind::Measurement {
                     return None;
                 }
-                if dragging_gate_id == Some(gate.id) {
+                if dragging_gate_id == Some(gate.id)
+                    && live_dragging_measurement_id != Some(gate.id)
+                {
                     return None;
                 }
                 let slot = self.gpu_plan.measurement_slot(gate.id)?;
@@ -315,6 +389,164 @@ impl QniApp {
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
         }
+    }
+
+    pub(crate) fn draw_amplitude_hover_popup(
+        &self,
+        painter: &egui::Painter,
+        screen_rect: egui::Rect,
+        circuit_origin: egui::Pos2,
+        dragging_gate_id: Option<u32>,
+        colors: &Colors,
+    ) {
+        let Some((gate_id, outcome)) = self.hovered_amplitude_outcome else {
+            return;
+        };
+        if dragging_gate_id == Some(gate_id) {
+            return;
+        }
+        let Some(gate) = self
+            .placed_gates
+            .iter()
+            .find(|gate| gate.id == gate_id && gate.kind == GateKind::AmplitudeDisplay)
+        else {
+            return;
+        };
+        let Some(slot) = self.gpu_plan.amplitude_slot(gate.id) else {
+            return;
+        };
+        let span = gate.span.clamp(1, 16);
+        let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let grid_rect = amplitude_grid_rect(gate_rect, span);
+        let (cols, rows) = amplitude_grid_dims(span);
+        let cell = grid_rect.width() / cols as f32;
+        let outcome_usize = outcome as usize;
+        if outcome_usize >= cols * rows {
+            return;
+        }
+        let row = outcome_usize / cols;
+        let row_top = grid_rect.top() + row as f32 * cell;
+        let ket = amplitude_hover_popup_ket(outcome, span);
+        let subtitle = amplitude_hover_popup_subtitle(outcome);
+
+        // Popup typography follows docs/amplitude-display.html §09:
+        // text-sm ket, text-xs subtitle/labels, Tailwind 4px spacing scale.
+        let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
+        let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
+        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let ket_galley = painter.layout_no_wrap(ket, ket_font, colors.text_strong);
+        let subtitle_galley = painter.layout_no_wrap(subtitle, subtitle_font, colors.text);
+        let val_label_galley =
+            painter.layout_no_wrap("VAL".to_owned(), label_font.clone(), colors.text);
+        let mag_label_galley =
+            painter.layout_no_wrap("MAG²".to_owned(), label_font.clone(), colors.text);
+        let phase_label_galley =
+            painter.layout_no_wrap("PHASE".to_owned(), label_font, colors.text);
+
+        let pad_x = 16.0; // spacing-4.
+        let pad_y = 12.0; // spacing-3.
+        let subtitle_gap = 4.0; // spacing-1.
+        let divider_gap = 12.0; // spacing-3.
+        let row_gap = 16.0; // spacing-4.
+        let value_chars = 18.0; // Matches WGSL CHARS_PER_ROW.
+        let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
+        let value_h = POPUP_GLYPH_CELL_H as f32;
+        let value_pitch = 20.0; // text-sm default line-height = 20px.
+        let label_w = 44.0_f32
+            .max(val_label_galley.size().x)
+            .max(mag_label_galley.size().x)
+            .max(phase_label_galley.size().x);
+        let row_w = label_w + row_gap + value_w;
+        let content_w = ket_galley.size().x.max(subtitle_galley.size().x).max(row_w);
+        let width = content_w + pad_x * 2.0;
+        let ket_h = ket_galley.size().y.max(16.0);
+        let subtitle_h = subtitle_galley.size().y.max(16.0);
+        let height = pad_y * 2.0
+            + ket_h
+            + subtitle_gap
+            + subtitle_h
+            + divider_gap
+            + 1.0
+            + divider_gap
+            + value_h
+            + 4.0
+            + value_h
+            + 4.0
+            + value_h;
+        let rect = chance_hover_popup_rect(gate_rect, row_top, cell, width, height, screen_rect);
+        let corner = egui::CornerRadius::same(6);
+        let shadow = egui::epaint::Shadow {
+            offset: [0, 4],
+            blur: 12,
+            spread: 0,
+            color: colors.tooltip_shadow,
+        };
+        painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
+        painter.rect_filled(rect, corner, colors.surface);
+        painter.rect_stroke(
+            rect,
+            corner,
+            egui::Stroke::new(1.0, colors.line),
+            egui::StrokeKind::Inside,
+        );
+
+        let ket_pos = egui::pos2(
+            rect.center().x - ket_galley.size().x * 0.5,
+            rect.top() + pad_y,
+        );
+        let subtitle_pos = egui::pos2(rect.left() + pad_x, ket_pos.y + ket_h + subtitle_gap);
+        let divider_y = subtitle_pos.y + subtitle_h + divider_gap;
+        let row0_y = divider_y + 1.0 + divider_gap;
+        let row1_y = row0_y + value_pitch;
+        let row2_y = row1_y + value_pitch;
+        painter.galley(ket_pos, ket_galley, colors.text_strong);
+        painter.galley(subtitle_pos, subtitle_galley, colors.text);
+        painter.rect_filled(
+            egui::Rect::from_min_size(
+                egui::pos2(rect.left() + pad_x, divider_y),
+                egui::vec2(rect.width() - pad_x * 2.0, 1.0),
+            ),
+            egui::CornerRadius::ZERO,
+            colors.line,
+        );
+
+        let label_x = rect.left() + pad_x;
+        let value_x = rect.right() - pad_x - value_w;
+        painter.galley(
+            egui::pos2(label_x, row0_y + 2.0),
+            val_label_galley,
+            colors.text,
+        );
+        painter.galley(
+            egui::pos2(label_x, row1_y + 2.0),
+            mag_label_galley,
+            colors.text,
+        );
+        painter.galley(
+            egui::pos2(label_x, row2_y + 2.0),
+            phase_label_galley,
+            colors.text,
+        );
+
+        let value_anchor = egui::pos2(value_x, row0_y + 2.0);
+        let callback = AmplitudePopupValueCallback {
+            viewport_min: [screen_rect.min.x, screen_rect.min.y],
+            viewport_size: [screen_rect.width(), screen_rect.height()],
+            value_anchor: [value_anchor.x, value_anchor.y],
+            row_pitch: value_pitch,
+            char_size: [POPUP_GLYPH_CELL_W as f32, value_h],
+            text_color: colors.text_strong.to_normalized_gamma_f32(),
+            slot,
+            outcome,
+        };
+        let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
+        let value_clip = egui::Rect::from_min_size(
+            value_anchor,
+            egui::vec2(value_w, value_pitch * 2.0 + value_h),
+        );
+        painter
+            .with_clip_rect(value_clip.intersect(rect.shrink(4.0)))
+            .add(egui::Shape::Callback(paint_callback));
     }
 
     pub(crate) fn draw_chance_hover_popup(

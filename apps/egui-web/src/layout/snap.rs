@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use super::geometry::{gate_rect_at_grid, gate_width_cols};
 use crate::app::PlacedGate;
 use crate::constants::SLOT_SPACING;
 
@@ -49,28 +50,74 @@ impl CircuitSnap {
     }
 }
 
+fn candidate_intersects_gate(
+    moving_gate: &PlacedGate,
+    candidate_column: usize,
+    candidate_wire: usize,
+    existing_gate: &PlacedGate,
+    existing_column: usize,
+) -> bool {
+    let candidate_rect = gate_rect_at_grid(
+        moving_gate.kind,
+        candidate_column,
+        candidate_wire,
+        moving_gate.span,
+    );
+    let existing_rect = gate_rect_at_grid(
+        existing_gate.kind,
+        existing_column,
+        existing_gate.wire,
+        existing_gate.span,
+    );
+    candidate_rect.intersects(existing_rect)
+}
+
+fn candidate_available_at_slot(
+    moving_gate: &PlacedGate,
+    column: usize,
+    wire_index: usize,
+    ignore_id: Option<u32>,
+    gates: &[PlacedGate],
+) -> bool {
+    gates.iter().all(|gate| {
+        ignore_id == Some(gate.id)
+            || !candidate_intersects_gate(moving_gate, column, wire_index, gate, gate.column)
+    })
+}
+
+fn candidate_available_after_insert(
+    moving_gate: &PlacedGate,
+    insert_index: usize,
+    wire_index: usize,
+    ignore_id: Option<u32>,
+    gates: &[PlacedGate],
+) -> bool {
+    let moving_width = gate_width_cols(moving_gate.kind, moving_gate.span);
+    gates.iter().all(|gate| {
+        if ignore_id == Some(gate.id) {
+            return true;
+        }
+        let shifted_column = if gate.column >= insert_index {
+            gate.column + moving_width
+        } else {
+            gate.column
+        };
+        !candidate_intersects_gate(moving_gate, insert_index, wire_index, gate, shifted_column)
+    })
+}
+
 fn nearest_available_slot(
     x: f32,
     wire_index: usize,
+    moving_gate: &PlacedGate,
     ignore_id: Option<u32>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
 ) -> Option<SlotSnap> {
-    let mut occupied_columns = Vec::new();
-    for gate in gates {
-        if gate.wire != wire_index {
-            continue;
-        }
-        if ignore_id == Some(gate.id) {
-            continue;
-        }
-        occupied_columns.push(gate.column);
-    }
-
     let mut nearest = None;
     let mut nearest_distance = f32::MAX;
     for (index, &center) in slot_centers.iter().enumerate() {
-        if occupied_columns.contains(&index) {
+        if !candidate_available_at_slot(moving_gate, index, wire_index, ignore_id, gates) {
             continue;
         }
         let distance = (x - center).abs();
@@ -88,6 +135,8 @@ fn nearest_available_slot(
 
 fn nearest_insert_slot(
     x: f32,
+    wire_index: usize,
+    moving_gate: &PlacedGate,
     ignore_id: Option<u32>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
@@ -114,6 +163,9 @@ fn nearest_insert_slot(
     let mut nearest = None;
     let mut nearest_distance = f32::MAX;
     for index in insert_indices {
+        if !candidate_available_after_insert(moving_gate, index, wire_index, ignore_id, gates) {
+            continue;
+        }
         let center = if index == 0 {
             slot_centers[0] - SLOT_SPACING * 0.5
         } else if index - 1 < slot_centers.len() {
@@ -137,13 +189,15 @@ fn nearest_insert_slot(
 pub(crate) fn nearest_circuit_snap(
     x: f32,
     wire_index: usize,
+    moving_gate: &PlacedGate,
     ignore_id: Option<u32>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
 ) -> Option<CircuitSnap> {
-    let slot = nearest_available_slot(x, wire_index, ignore_id, gates, slot_centers)
+    let slot = nearest_available_slot(x, wire_index, moving_gate, ignore_id, gates, slot_centers)
         .map(CircuitSnap::Slot);
-    let insert = nearest_insert_slot(x, ignore_id, gates, slot_centers).map(CircuitSnap::Insert);
+    let insert = nearest_insert_slot(x, wire_index, moving_gate, ignore_id, gates, slot_centers)
+        .map(CircuitSnap::Insert);
     match (slot, insert) {
         (Some(slot), Some(insert)) => {
             if slot.distance() <= insert.distance() {
@@ -155,5 +209,27 @@ pub(crate) fn nearest_circuit_snap(
         (Some(slot), None) => Some(slot),
         (None, Some(insert)) => Some(insert),
         (None, None) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gates::GateKind;
+
+    #[test]
+    fn amplitude_slot_snap_skips_intersecting_neighbor_column() {
+        let existing = PlacedGate::new(1, GateKind::H, 1, 0, 1, None);
+        let moving = PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 0, 3, None);
+        let snap = nearest_circuit_snap(
+            126.0,
+            0,
+            &moving,
+            Some(2),
+            &[existing, moving.clone()],
+            &[126.0, 182.0, 238.0],
+        );
+
+        assert!(!matches!(snap, Some(CircuitSnap::Slot(slot)) if slot.index == 0));
     }
 }

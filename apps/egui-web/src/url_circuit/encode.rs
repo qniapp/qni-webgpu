@@ -94,6 +94,7 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
                 format!("{}{}", spec.url_token, span)
             }
         }
+        GateKind::AmplitudeDisplay => format!("{}{}", spec.url_token, span.clamp(1, 16)),
         _ => spec.url_token.to_string(),
     };
     Some(s)
@@ -124,4 +125,24 @@ fn json_escape(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::PlacedGate;
+
+    #[test]
+    fn amplitude_span_one_serializes_with_suffix() {
+        let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Amps1"]]}"#);
+    }
+
+    #[test]
+    fn amplitude_span_sixteen_serializes_with_suffix() {
+        let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 16, None);
+
+        assert_eq!(circuit_to_json(&[gate], 16), r#"{"cols":[["Amps16"]]}"#);
+    }
 }

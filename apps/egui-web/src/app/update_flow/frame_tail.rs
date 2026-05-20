@@ -29,6 +29,7 @@ impl QniApp {
             self.hovered_gate_id,
             self.hovered_palette_index,
             self.hovered_chance_outcome,
+            self.hovered_amplitude_outcome,
             self.hovered_step,
         );
     }
@@ -53,6 +54,7 @@ fn publish_hover_snapshot(
     hovered_gate_id: Option<u32>,
     hovered_palette_index: Option<usize>,
     hovered_chance_outcome: Option<(u32, u32)>,
+    hovered_amplitude_outcome: Option<(u32, u32)>,
     hovered_step: Option<usize>,
 ) {
     let gate = hovered_gate_id
@@ -64,11 +66,14 @@ fn publish_hover_snapshot(
     let chance = hovered_chance_outcome
         .map(|(gate_id, outcome)| format!("{{\"gateId\":{gate_id},\"outcome\":{outcome}}}"))
         .unwrap_or_else(|| "null".to_owned());
+    let amplitude = hovered_amplitude_outcome
+        .map(|(gate_id, outcome)| format!("{{\"gateId\":{gate_id},\"outcome\":{outcome}}}"))
+        .unwrap_or_else(|| "null".to_owned());
     let step = hovered_step
         .map(|index| index.to_string())
         .unwrap_or_else(|| "null".to_owned());
     let snapshot = format!(
-        "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredChanceOutcome\":{chance},\"hoveredStep\":{step}}}"
+        "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredChanceOutcome\":{chance},\"hoveredAmplitudeOutcome\":{amplitude},\"hoveredStep\":{step}}}"
     );
     crate::test_hooks::set_window_value(
         crate::test_hooks::QNI_HOVER_SNAPSHOT_JSON,
@@ -81,6 +86,7 @@ fn publish_hover_snapshot(
     _hovered_gate_id: Option<u32>,
     _hovered_palette_index: Option<usize>,
     _hovered_chance_outcome: Option<(u32, u32)>,
+    _hovered_amplitude_outcome: Option<(u32, u32)>,
     _hovered_step: Option<usize>,
 ) {
 }

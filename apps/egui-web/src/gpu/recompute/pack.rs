@@ -4,7 +4,8 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    BlochParams, ChanceReduceParams, MeasureCollapseParams, MeasureReduceParams,
+    AmplitudeCaptureParams, BlochParams, ChanceReduceParams, MeasureCollapseParams,
+    MeasureReduceParams,
 };
 use super::super::resources::StateVectorResources;
 
@@ -17,6 +18,7 @@ pub(super) struct PackedRecomputeParams {
     measure_reduce: Vec<MeasureReduceParams>,
     measure_collapse: Vec<MeasureCollapseParams>,
     chance: Vec<ChanceReduceParams>,
+    amplitude: Vec<AmplitudeCaptureParams>,
 }
 
 impl PackedRecomputeParams {
@@ -27,6 +29,7 @@ impl PackedRecomputeParams {
             measure_reduce: Vec::with_capacity(sim_ops.len()),
             measure_collapse: Vec::with_capacity(sim_ops.len()),
             chance: Vec::with_capacity(sim_ops.len()),
+            amplitude: Vec::with_capacity(sim_ops.len()),
         };
 
         for op in sim_ops {
@@ -81,6 +84,26 @@ impl PackedRecomputeParams {
                         output_slot: *output_slot,
                     });
                 }
+                SimulationOp::CaptureAmplitude {
+                    base_bit,
+                    span,
+                    output_slot,
+                    control_mask,
+                    control_value,
+                    ..
+                } => {
+                    let total_qubits = usize::BITS - state_count.leading_zeros() - 1;
+                    packed.amplitude.push(AmplitudeCaptureParams {
+                        base_bit: *base_bit,
+                        span: *span,
+                        output_slot: *output_slot,
+                        state_count: state_count as u32,
+                        control_mask: *control_mask,
+                        control_value: *control_value,
+                        phase_lock_enabled: u32::from(*span != total_qubits),
+                        total_qubits,
+                    });
+                }
             }
         }
 
@@ -125,6 +148,13 @@ impl PackedRecomputeParams {
                 &resources.chance.reduce_params_staging_buffer,
                 0,
                 bytemuck::cast_slice(&self.chance),
+            );
+        }
+        if !self.amplitude.is_empty() {
+            queue.write_buffer(
+                &resources.amplitude.capture_params_staging_buffer,
+                0,
+                bytemuck::cast_slice(&self.amplitude),
             );
         }
     }

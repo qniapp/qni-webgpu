@@ -11,7 +11,7 @@ use std::cell::RefCell;
 
 use eframe::wgpu;
 
-use super::params::MAX_CHANCE_OUTCOMES;
+use super::params::{AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES, MAX_CHANCE_OUTCOMES};
 
 #[cfg(target_arch = "wasm32")]
 use futures_channel::oneshot;
@@ -48,6 +48,14 @@ pub(crate) struct ChanceGpuHandle {
     pub(crate) output_buffer: wgpu::Buffer,
 }
 
+#[derive(Clone)]
+pub(crate) struct AmplitudeGpuHandle {
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) output_buffer: wgpu::Buffer,
+    pub(crate) meta_buffer: wgpu::Buffer,
+}
+
 thread_local! {
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
     /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
@@ -70,6 +78,11 @@ thread_local! {
     pub(crate) static CHANCE_GPU_HANDLE: RefCell<Option<ChanceGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static CHANCE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    /// Same pattern for Amplitude displays. Production shaders sample
+    /// `amplitude_output` + `amplitude_meta`; tests can ask for one cell.
+    pub(crate) static AMPLITUDE_GPU_HANDLE: RefCell<Option<AmplitudeGpuHandle>> =
+        const { RefCell::new(None) };
+    pub(crate) static AMPLITUDE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -281,6 +294,91 @@ pub(crate) async fn read_chance_probabilities_impl() -> Result<js_sys::Float32Ar
             output.set_index((out_base + 1 + i) as u32, floats[in_base + i]);
         }
     }
+    drop(data);
+    staging.unmap();
+    Ok(output)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_amplitude_cell_impl(
+    gate_id: u32,
+    outcome: u32,
+) -> Result<js_sys::Float64Array, JsValue> {
+    let Some(handle) = AMPLITUDE_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    };
+    let slot_map = AMPLITUDE_SLOT_MAP.with(|cell| cell.borrow().clone());
+    let Some(slot) = slot_map.iter().position(|id| *id == gate_id) else {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    };
+    if outcome as usize >= MAX_AMPLITUDE_OUTCOMES {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    }
+
+    let data_base = slot * AMPLITUDE_VALUES_PER_SLOT;
+    let reim_offset = (data_base + outcome as usize * 2) * std::mem::size_of::<f32>();
+    let incoherent_offset =
+        (data_base + 2 * MAX_AMPLITUDE_OUTCOMES + outcome as usize) * std::mem::size_of::<f32>();
+    let meta_offset = slot * std::mem::size_of::<[f32; 4]>();
+    let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("amplitude_cell_readback"),
+        size: 32,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("amplitude_cell_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &handle.output_buffer,
+        reim_offset as wgpu::BufferAddress,
+        &staging,
+        0,
+        8,
+    );
+    encoder.copy_buffer_to_buffer(
+        &handle.output_buffer,
+        incoherent_offset as wgpu::BufferAddress,
+        &staging,
+        8,
+        4,
+    );
+    encoder.copy_buffer_to_buffer(
+        &handle.meta_buffer,
+        meta_offset as wgpu::BufferAddress,
+        &staging,
+        16,
+        16,
+    );
+    handle.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let floats: &[f32] = bytemuck::cast_slice(&data);
+    let phase = if floats[5] < 0.0 {
+        u32::MAX as f64
+    } else {
+        f64::from(floats[5])
+    };
+    let output = js_sys::Float64Array::new_with_length(8);
+    output.set_index(0, f64::from(gate_id));
+    output.set_index(1, f64::from(outcome));
+    output.set_index(2, f64::from(floats[0]));
+    output.set_index(3, f64::from(floats[1]));
+    output.set_index(4, f64::from(floats[2]));
+    output.set_index(5, f64::from(floats[4]));
+    output.set_index(6, phase);
+    output.set_index(7, f64::from(floats[6]));
     drop(data);
     staging.unmap();
     Ok(output)

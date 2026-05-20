@@ -2,7 +2,9 @@ mod simulation_plan {
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub(crate) enum SimulationOp {
-        SnapshotState,
+        SnapshotState {
+            output_slot: u32,
+        },
         ApplyGate(()),
         CaptureBloch {
             gate_id: u32,
@@ -24,6 +26,14 @@ mod simulation_plan {
             span: u32,
             output_slot: u32,
         },
+        CaptureAmplitude {
+            gate_id: u32,
+            base_bit: u32,
+            span: u32,
+            output_slot: u32,
+            control_mask: u32,
+            control_value: u32,
+        },
     }
 
     pub(crate) mod capacity {
@@ -37,9 +47,11 @@ use simulation_plan::SimulationOp;
 fn tiny_limits() -> SimulationPlanLimits {
     SimulationPlanLimits {
         max_ops_per_variant: 1,
+        max_step_snapshot_slots: 1,
         max_bloch_slots: 1,
         max_measurement_slots: 1,
         max_chance_slots: 1,
+        max_amplitude_slots: 1,
     }
 }
 
@@ -93,9 +105,27 @@ fn chance_slot_limit_reports_buffer_capacity() {
     );
 }
 
+fn amplitude_slot_limit_reports_buffer_capacity() {
+    let ops = vec![SimulationOp::CaptureAmplitude {
+        gate_id: 1,
+        base_bit: 0,
+        span: 1,
+        output_slot: 1,
+        control_mask: 0,
+        control_value: 0,
+    }];
+
+    let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "Amplitude slot 1 exceeds MAX_AMPLITUDE_SLOTS=1; reduce Amplitude displays or grow the GPU buffer",
+    );
+}
+
 fn main() {
     gate_op_limit_reports_staging_capacity();
     bloch_slot_limit_reports_buffer_capacity();
     measurement_slot_limit_reports_buffer_capacity();
     chance_slot_limit_reports_buffer_capacity();
+    amplitude_slot_limit_reports_buffer_capacity();
 }

@@ -41,6 +41,9 @@ fn draw_gate_body_with_fill(
     } else if kind == GateKind::ChanceDisplay {
         draw_chance_preview_body(painter, gate_rect, colors);
         return;
+    } else if kind == GateKind::AmplitudeDisplay {
+        draw_amplitude_preview_body(painter, gate_rect, colors);
+        return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
         // SDF-backed `P` glyph centred inside) so the angle label has
@@ -112,6 +115,59 @@ fn draw_gate_body_with_fill(
             colors.label,
         );
     }
+}
+
+fn draw_amplitude_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    // Static placeholder only. Live complex amplitudes are captured and
+    // rendered by WebGPU; the CPU draws no amplitude values.
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
+
+    if rect.width() <= GATE_SIZE + 1.0 && rect.height() <= GATE_SIZE + 1.0 {
+        draw_amplitude_palette_icon(painter, rect, colors);
+        return;
+    }
+
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::ZERO,
+        egui::Stroke::new(1.0, colors.line),
+        egui::StrokeKind::Inside,
+    );
+}
+
+fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    // docs/amplitude-display.html §02: 40×40 mini preview, one cell with
+    // mag²≈50% and phase=5π/4, producing a Q-like lower-right tail.
+    let center = rect.center();
+    let stroke_width = 2.0;
+    let half_stroke = stroke_width * 0.5;
+    let outline_radius = (rect.width().min(rect.height()) * 0.5 - stroke_width).max(0.0);
+    let inner_radius = (outline_radius - half_stroke).max(0.0);
+    let disk_radius = inner_radius * std::f32::consts::FRAC_1_SQRT_2;
+
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::ZERO,
+        egui::Stroke::new(1.0, colors.line),
+        egui::StrokeKind::Inside,
+    );
+    painter.circle_stroke(
+        center,
+        outline_radius,
+        egui::Stroke::new(stroke_width, colors.state_outline),
+    );
+    painter.circle_filled(center, disk_radius, colors.state_fill);
+    // Flexoki blue-400: state_fill disk inset border, matching the spec mock.
+    painter.circle_stroke(
+        center,
+        (disk_radius - 0.5).max(0.0),
+        egui::Stroke::new(1.0, colors.popup_icon),
+    );
+    let tail = egui::vec2(inner_radius, inner_radius) * std::f32::consts::FRAC_1_SQRT_2;
+    painter.line_segment(
+        [center, center + tail],
+        egui::Stroke::new(stroke_width, colors.state_needle),
+    );
 }
 
 fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {

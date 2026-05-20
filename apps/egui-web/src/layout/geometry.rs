@@ -4,20 +4,91 @@ use crate::app::{PlacedGate, SpanResizeEdge};
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
 };
+use crate::gates::GateKind;
 
-/// Visible rect of a placed gate, accounting for the multi-qubit `span`
-/// of resizable-span gates. Single-qubit gates get `GATE_SIZE` ×
-/// `GATE_SIZE`; QFT / Chance extend downward to cover all wires in the span.
-/// `origin` is the top-left of the gate body (= rect.min + gate.pos
-/// in the circuit's local coordinate space).
-pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
-    let height = if gate.kind.is_resizable_span() {
-        let span = gate.span.max(1);
+pub(crate) fn amplitude_display_width_cols(span: usize) -> usize {
+    let span = span.clamp(1, 16);
+    if span == 1 {
+        2
+    } else if span.is_multiple_of(2) {
+        span
+    } else {
+        span.div_ceil(2)
+    }
+}
+
+pub(crate) fn amplitude_grid_dims(span: usize) -> (usize, usize) {
+    let span = span.clamp(1, 16);
+    let outcomes = 1usize << span;
+    let width = if outcomes == 2 {
+        2
+    } else {
+        1usize << (span / 2)
+    };
+    (width, outcomes / width)
+}
+
+pub(crate) fn gate_width_cols(kind: GateKind, span: usize) -> usize {
+    match kind {
+        GateKind::AmplitudeDisplay => amplitude_display_width_cols(span),
+        _ => 1,
+    }
+}
+
+pub(crate) fn gate_size(kind: GateKind, span: usize) -> egui::Vec2 {
+    let width_cols = gate_width_cols(kind, span).max(1);
+    let width = (width_cols - 1) as f32 * SLOT_SPACING + GATE_SIZE;
+    let height = if kind.is_resizable_span() {
+        let span = span.max(1);
         (span - 1) as f32 * LINE_GAP + GATE_SIZE
     } else {
         GATE_SIZE
     };
-    egui::Rect::from_min_size(origin, egui::vec2(GATE_SIZE, height))
+    egui::vec2(width, height)
+}
+
+pub(crate) fn gate_rect_at_grid(
+    kind: GateKind,
+    column: usize,
+    wire: usize,
+    span: usize,
+) -> egui::Rect {
+    egui::Rect::from_min_size(PlacedGate::grid_pos(column, wire), gate_size(kind, span))
+}
+
+/// Visible rect of a placed gate, accounting for the multi-qubit `span`
+/// of resizable-span gates and the variable-width Amplitude display body.
+/// `origin` is the top-left of the gate body (= rect.min + gate.pos
+/// in the circuit's local coordinate space).
+pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
+    egui::Rect::from_min_size(origin, gate_size(gate.kind, gate.span))
+}
+
+pub(crate) fn amplitude_grid_rect(gate_rect: egui::Rect, span: usize) -> egui::Rect {
+    let (cols, rows) = amplitude_grid_dims(span);
+    let cell = (gate_rect.width() / cols as f32).min(gate_rect.height() / rows as f32);
+    let size = egui::vec2(cell * cols as f32, cell * rows as f32);
+    egui::Rect::from_center_size(gate_rect.center(), size)
+}
+
+pub(crate) fn amplitude_cell_index_at(
+    gate_rect: egui::Rect,
+    span: usize,
+    cursor: egui::Pos2,
+) -> Option<u32> {
+    let grid_rect = amplitude_grid_rect(gate_rect, span);
+    if !grid_rect.contains(cursor) {
+        return None;
+    }
+    let (cols, rows) = amplitude_grid_dims(span);
+    let cell = grid_rect.width() / cols as f32;
+    let col = ((cursor.x - grid_rect.left()) / cell)
+        .floor()
+        .clamp(0.0, (cols - 1) as f32) as usize;
+    let row = ((cursor.y - grid_rect.top()) / cell)
+        .floor()
+        .clamp(0.0, (rows - 1) as f32) as usize;
+    Some((row * cols + col) as u32)
 }
 
 /// Resize-handle bounding box for any resizable-span gate edge. All such
@@ -141,4 +212,33 @@ pub(crate) fn nearest_line(y: f32, line_ys: &[f32]) -> (f32, f32, usize) {
         }
     }
     (nearest, nearest_distance, nearest_index)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn amplitude_width_cols_follow_spec() {
+        let widths = (1..=5)
+            .map(amplitude_display_width_cols)
+            .collect::<Vec<_>>();
+
+        assert_eq!(widths, vec![2, 2, 2, 4, 3]);
+    }
+
+    #[test]
+    fn amplitude_span_five_size_is_three_columns_by_five_wires() {
+        let size = gate_size(GateKind::AmplitudeDisplay, 5);
+
+        assert_eq!(
+            (size.x, size.y),
+            (GATE_SIZE + SLOT_SPACING * 2.0, GATE_SIZE + LINE_GAP * 4.0)
+        );
+    }
+
+    #[test]
+    fn amplitude_span_three_grid_is_two_by_four() {
+        assert_eq!(amplitude_grid_dims(3), (2, 4));
+    }
 }

@@ -20,6 +20,8 @@ pub(crate) struct GpuPlanState {
     measurement_slots: HashMap<u32, u32>,
     /// Chance displays → `chance_probability_output` slot.
     chance_slots: HashMap<u32, u32>,
+    /// Amplitude displays → `amplitude_output` slot.
+    amplitude_slots: HashMap<u32, u32>,
     capacity_error: Option<String>,
 }
 
@@ -32,6 +34,7 @@ impl Default for GpuPlanState {
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
             chance_slots: HashMap::new(),
+            amplitude_slots: HashMap::new(),
             capacity_error: None,
         }
     }
@@ -43,6 +46,7 @@ impl GpuPlanState {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.chance_slots.clear();
+        self.amplitude_slots.clear();
         self.capacity_error = None;
     }
 
@@ -67,6 +71,7 @@ impl GpuPlanState {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.chance_slots.clear();
+        self.amplitude_slots.clear();
         self.capacity_error = None;
     }
 
@@ -75,6 +80,7 @@ impl GpuPlanState {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.chance_slots.clear();
+        self.amplitude_slots.clear();
         self.capacity_error = Some(message);
     }
 
@@ -112,10 +118,15 @@ impl GpuPlanState {
         self.chance_slots.get(&gate_id).copied()
     }
 
+    pub(crate) fn amplitude_slot(&self, gate_id: u32) -> Option<u32> {
+        self.amplitude_slots.get(&gate_id).copied()
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.chance_slots.clear();
+        self.amplitude_slots.clear();
         for op in &self.sim_ops {
             match op {
                 SimulationOp::SnapshotState { .. } => {}
@@ -139,6 +150,13 @@ impl GpuPlanState {
                     ..
                 } => {
                     self.chance_slots.insert(*gate_id, *output_slot);
+                }
+                SimulationOp::CaptureAmplitude {
+                    gate_id,
+                    output_slot,
+                    ..
+                } => {
+                    self.amplitude_slots.insert(*gate_id, *output_slot);
                 }
                 _ => {}
             }

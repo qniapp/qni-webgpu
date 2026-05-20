@@ -380,6 +380,14 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::AmplitudeDisplay => GateInfo {
+                name: "Amplitude Display",
+                paragraphs: &[
+                    "Shows complex amplitudes for a span of qubits.",
+                    "Use controls to see conditional amplitudes.",
+                ],
+                transitions: &[],
+            },
             GateKind::Spacer => GateInfo {
                 name: "Spacer Gate",
                 paragraphs: &["A gate with no effect."],

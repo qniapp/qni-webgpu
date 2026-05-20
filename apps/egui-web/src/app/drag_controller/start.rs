@@ -34,6 +34,7 @@ impl DragController {
                 app.span_resize_drag = Some(resize);
                 app.hovered_gate_id = None;
                 app.hovered_chance_outcome = None;
+                app.hovered_amplitude_outcome = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -44,10 +45,12 @@ impl DragController {
                 }
                 app.begin_circuit_commit();
                 app.dragging = Some(drag);
+                app.dragging_live_display_snap = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_gate_id = None;
                 app.hovered_chance_outcome = None;
+                app.hovered_amplitude_outcome = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -77,11 +80,13 @@ impl DragController {
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
                     original_column: None,
                 });
+                app.dragging_live_display_snap = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_palette_index = None;
                 app.hovered_gate_id = None;
                 app.hovered_chance_outcome = None;
+                app.hovered_amplitude_outcome = None;
                 ctx.request_repaint();
                 true
             }

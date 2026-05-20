@@ -45,6 +45,7 @@ pub(crate) fn linearize_ops(
     let mut bloch_slot: u32 = 0;
     let mut measurement_slot: u32 = 0;
     let mut chance_slot: u32 = 0;
+    let mut amplitude_slot: u32 = 0;
     for column in analysis.columns() {
         while next_snapshot_slot < column.slot && next_snapshot_slot < snapshot_slot_count {
             ops.push(SimulationOp::SnapshotState {
@@ -59,6 +60,7 @@ pub(crate) fn linearize_ops(
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
         let mut chance_targets: Vec<&PlacedGate> = Vec::new();
+        let mut amplitude_targets: Vec<&PlacedGate> = Vec::new();
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
@@ -80,6 +82,7 @@ pub(crate) fn linearize_ops(
                 GateKind::Measurement => measurement_targets.push(gate),
                 GateKind::BlochDisplay => bloch_targets.push(gate),
                 GateKind::ChanceDisplay => chance_targets.push(gate),
+                GateKind::AmplitudeDisplay => amplitude_targets.push(gate),
                 GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
@@ -185,6 +188,7 @@ pub(crate) fn linearize_ops(
             && measurement_targets.is_empty()
             && bloch_targets.is_empty()
             && chance_targets.is_empty()
+            && amplitude_targets.is_empty()
             && swap_targets.is_empty()
             && control_value.count_ones() >= 2
         {
@@ -261,6 +265,24 @@ pub(crate) fn linearize_ops(
                 output_slot: chance_slot,
             });
             chance_slot += 1;
+        }
+
+        amplitude_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        for display in &amplitude_targets {
+            if display.wire >= qubits {
+                continue;
+            }
+            let span = display.span.clamp(1, 16).min(qubits - display.wire);
+            let base_bit = (qubits - display.wire - span) as u32;
+            ops.push(SimulationOp::CaptureAmplitude {
+                gate_id: display.id,
+                base_bit,
+                span: span as u32,
+                output_slot: amplitude_slot,
+                control_mask,
+                control_value,
+            });
+            amplitude_slot += 1;
         }
 
         if next_snapshot_slot == column.slot && next_snapshot_slot < snapshot_slot_count {

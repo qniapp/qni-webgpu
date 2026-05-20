@@ -7,6 +7,7 @@ pub(crate) struct SimulationPlanLimits {
     pub(crate) max_bloch_slots: usize,
     pub(crate) max_measurement_slots: usize,
     pub(crate) max_chance_slots: usize,
+    pub(crate) max_amplitude_slots: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,6 +38,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     let mut measure_reduce_ops = 0usize;
     let mut measure_collapse_ops = 0usize;
     let mut chance_ops = 0usize;
+    let mut amplitude_ops = 0usize;
     for op in ops {
         match op {
             SimulationOp::SnapshotState { output_slot } => {
@@ -89,6 +91,16 @@ pub(crate) fn validate_simulation_plan_capacity(
                     )));
                 }
             }
+            SimulationOp::CaptureAmplitude { output_slot, .. } => {
+                amplitude_ops += 1;
+                let slot = *output_slot as usize;
+                if slot >= limits.max_amplitude_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "Amplitude slot {slot} exceeds MAX_AMPLITUDE_SLOTS={}; reduce Amplitude displays or grow the GPU buffer",
+                        limits.max_amplitude_slots
+                    )));
+                }
+            }
         }
     }
     for (label, count) in [
@@ -97,6 +109,7 @@ pub(crate) fn validate_simulation_plan_capacity(
         ("measure_reduce", measure_reduce_ops),
         ("measure_collapse", measure_collapse_ops),
         ("chance", chance_ops),
+        ("amplitude", amplitude_ops),
     ] {
         if count > limits.max_ops_per_variant {
             return Err(SimulationPlanCapacityError::new(format!(

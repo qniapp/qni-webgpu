@@ -211,6 +211,13 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         };
         return Some((GateKind::ChanceDisplay, span.clamp(1, 16), None));
     }
+    if let Some(rest) = token.strip_prefix("Amps") {
+        let span: usize = rest.parse().ok()?;
+        if !(1..=16).contains(&span) {
+            return None;
+        }
+        return Some((GateKind::AmplitudeDisplay, span, None));
+    }
     // Parametric `P(...)` / `Rx(...)` / `Ry(...)` / `Rz(...)` —
     // mirrors qni's `quantum-circuit-element.ts::angleParameter`:
     // strip the outer parens, trim, replace the first `_` with `/`
@@ -249,4 +256,39 @@ fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, u32) {
         next += 1;
     }
     (gates, next)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn amplitude_span_sixteen_decodes() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps16"]]}"#);
+
+        assert_eq!(
+            gates.first().map(|gate| (gate.kind, gate.span)),
+            Some((GateKind::AmplitudeDisplay, 16))
+        );
+    }
+
+    #[test]
+    fn amplitude_decode_preserves_column_index() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["H"],["Amps3"]]}"#);
+
+        assert_eq!(
+            gates
+                .iter()
+                .find(|gate| gate.kind == GateKind::AmplitudeDisplay)
+                .map(|gate| gate.column),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn bare_amplitude_token_is_ignored() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
 }

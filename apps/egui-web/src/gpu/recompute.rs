@@ -18,10 +18,10 @@ use crate::simulation_plan::{
 use self::dispatch::encode_batched_recompute;
 use self::pack::PackedRecomputeParams;
 use super::params::{
-    MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
-    MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
+    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
 };
-use super::readback::{BLOCH_SLOT_MAP, CHANCE_SLOT_MAP, MEASUREMENT_SLOT_MAP};
+use super::readback::{AMPLITUDE_SLOT_MAP, BLOCH_SLOT_MAP, CHANCE_SLOT_MAP, MEASUREMENT_SLOT_MAP};
 use super::resources::StateVectorResources;
 
 pub(super) fn recompute_state_vector(
@@ -52,6 +52,7 @@ pub(super) fn recompute_state_vector(
             max_bloch_slots: MAX_BLOCH_SLOTS,
             max_measurement_slots: MAX_MEASUREMENT_SLOTS,
             max_chance_slots: MAX_CHANCE_SLOTS,
+            max_amplitude_slots: MAX_AMPLITUDE_SLOTS,
         },
     )
     .is_err()
@@ -84,6 +85,9 @@ pub(super) fn recompute_state_vector(
     });
     CHANCE_SLOT_MAP.with(|cell| {
         *cell.borrow_mut() = encoded.chance_slot_to_gate_id;
+    });
+    AMPLITUDE_SLOT_MAP.with(|cell| {
+        *cell.borrow_mut() = encoded.amplitude_slot_to_gate_id;
     });
 
     true
