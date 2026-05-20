@@ -254,8 +254,8 @@ impl QniApp {
                 if gate.kind != GateKind::AmplitudeDisplay {
                     return None;
                 }
-                if dragging_gate_id == Some(gate.id) && live_dragging_amplitude_id != Some(gate.id)
-                {
+                let dragging_this_gate = dragging_gate_id == Some(gate.id);
+                if dragging_this_gate && live_dragging_amplitude_id != Some(gate.id) {
                     return None;
                 }
                 let slot = self.gpu_plan.amplitude_slot(gate.id)?;
@@ -273,15 +273,15 @@ impl QniApp {
                     slot,
                     span,
                     hovered_outcome,
-                    use_drag_background: u32::from(
-                        self.dragging.is_some_and(|drag| drag.id == gate.id),
-                    ),
+                    use_drag_background: u32::from(dragging_this_gate),
+                    force_zero_amplitude: 0,
                 })
             })
             .collect();
         if !amplitude_instances.is_empty() {
             let callback = AmplitudeDisplayCallback {
                 instances: amplitude_instances.into(),
+                use_drag_preview_buffer: false,
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),

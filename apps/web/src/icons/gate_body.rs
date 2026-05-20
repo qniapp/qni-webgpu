@@ -16,25 +16,16 @@ pub(crate) fn draw_gate_body(
     kind: GateKind,
     colors: &Colors,
 ) {
-    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill, false, 1);
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
 pub(crate) fn draw_drag_gate_body(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
     kind: GateKind,
-    span: usize,
     colors: &Colors,
 ) {
-    draw_gate_body_with_fill(
-        painter,
-        gate_rect,
-        kind,
-        colors,
-        colors.drag_fill,
-        true,
-        span,
-    );
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.drag_fill, true);
 }
 
 fn draw_gate_body_with_fill(
@@ -44,7 +35,6 @@ fn draw_gate_body_with_fill(
     colors: &Colors,
     fill: egui::Color32,
     dragging: bool,
-    span: usize,
 ) {
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
@@ -54,13 +44,7 @@ fn draw_gate_body_with_fill(
         return;
     } else if kind == GateKind::AmplitudeDisplay {
         let background = if dragging { fill } else { colors.surface };
-        draw_amplitude_preview_body(
-            painter,
-            gate_rect,
-            colors,
-            background,
-            dragging.then_some(span),
-        );
+        draw_amplitude_preview_body(painter, gate_rect, colors, background);
         return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
@@ -140,7 +124,6 @@ fn draw_amplitude_preview_body(
     rect: egui::Rect,
     colors: &Colors,
     background: egui::Color32,
-    empty_span: Option<usize>,
 ) {
     // Static placeholder only. Live complex amplitudes are captured and
     // rendered by WebGPU; the CPU draws no amplitude values.
@@ -157,40 +140,6 @@ fn draw_amplitude_preview_body(
         egui::Stroke::new(1.0, colors.line),
         egui::StrokeKind::Inside,
     );
-    if let Some(span) = empty_span {
-        draw_empty_amplitude_cells(painter, rect, colors, span);
-    }
-}
-
-fn draw_empty_amplitude_cells(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    colors: &Colors,
-    span: usize,
-) {
-    if span != 1 {
-        return;
-    }
-    let cols = 2;
-    let cell = (rect.width() / cols as f32).min(rect.height());
-    if cell < 3.0 {
-        return;
-    }
-    let grid_size = egui::vec2(cell * cols as f32, cell);
-    let grid_origin = rect.min + (rect.size() - grid_size) * 0.5;
-    let stroke = if cell >= 24.0 { 2.0 } else { 1.0 };
-    let half_stroke = stroke * 0.5;
-    let outline_radius = (cell * 0.5 - stroke).max(0.0);
-    let inner_radius = (outline_radius - half_stroke).max(0.0);
-    for col in 0..cols {
-        let center = grid_origin + egui::vec2((col as f32 + 0.5) * cell, cell * 0.5);
-        painter.circle_filled(center, inner_radius, colors.surface);
-        painter.circle_stroke(
-            center,
-            outline_radius,
-            egui::Stroke::new(stroke, colors.state_outline_zero),
-        );
-    }
 }
 
 fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {

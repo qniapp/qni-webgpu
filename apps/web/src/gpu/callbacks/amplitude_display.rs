@@ -10,6 +10,7 @@ use super::super::resources::StateVectorResources;
 /// The CPU supplies only geometry, colours, and hovered cell index.
 pub(crate) struct AmplitudeDisplayCallback {
     pub(crate) instances: Arc<[AmplitudeInstance]>,
+    pub(crate) use_drag_preview_buffer: bool,
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
@@ -49,7 +50,13 @@ impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
             needle: self.needle,
             hover_border: self.hover_border,
         };
-        if resources.amplitude.last_render_params != Some(params) {
+        if self.use_drag_preview_buffer {
+            queue.write_buffer(
+                &resources.amplitude.render_drag_params_buffer,
+                0,
+                bytemuck::bytes_of(&params),
+            );
+        } else if resources.amplitude.last_render_params != Some(params) {
             queue.write_buffer(
                 &resources.amplitude.render_params_buffer,
                 0,
@@ -57,8 +64,13 @@ impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
             );
             resources.amplitude.last_render_params = Some(params);
         }
+        let instance_buffer = if self.use_drag_preview_buffer {
+            &resources.amplitude.render_drag_instance_buffer
+        } else {
+            &resources.amplitude.render_instance_buffer
+        };
         queue.write_buffer(
-            &resources.amplitude.render_instance_buffer,
+            instance_buffer,
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
@@ -78,9 +90,19 @@ impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
             return;
         }
         render_pass.set_pipeline(&resources.amplitude.render_pipeline);
-        render_pass.set_bind_group(0, &resources.amplitude.render_bind_group, &[]);
+        let bind_group = if self.use_drag_preview_buffer {
+            &resources.amplitude.render_drag_bind_group
+        } else {
+            &resources.amplitude.render_bind_group
+        };
+        render_pass.set_bind_group(0, bind_group, &[]);
+        let instance_buffer = if self.use_drag_preview_buffer {
+            &resources.amplitude.render_drag_instance_buffer
+        } else {
+            &resources.amplitude.render_instance_buffer
+        };
         render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.amplitude.render_instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
         render_pass.set_index_buffer(
             resources.common.unit_quad_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,

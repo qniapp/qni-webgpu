@@ -33,9 +33,12 @@ pub(crate) struct AmplitudeResources {
 
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_bind_group: wgpu::BindGroup,
+    pub render_drag_bind_group: wgpu::BindGroup,
     pub render_bind_group_layout: wgpu::BindGroupLayout,
     pub render_params_buffer: wgpu::Buffer,
+    pub render_drag_params_buffer: wgpu::Buffer,
     pub render_instance_buffer: wgpu::Buffer,
+    pub render_drag_instance_buffer: wgpu::Buffer,
     pub last_render_params: Option<AmplitudeRenderParams>,
 
     pub popup_value_pipeline: wgpu::RenderPipeline,
@@ -83,7 +86,9 @@ impl AmplitudeResources {
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let popup_value_bind_group_layout = create_popup_value_bind_group_layout(device);
         let render_params_buffer = create_render_params_buffer(device);
+        let render_drag_params_buffer = create_render_drag_params_buffer(device);
         let render_instance_buffer = create_render_instance_buffer(device);
+        let render_drag_instance_buffer = create_render_drag_instance_buffer(device);
         let popup_value_params_buffer = create_popup_value_params_buffer(device);
         let glyph_atlas = create_glyph_atlas(device, queue);
         let render_bind_group = create_render_bind_group(
@@ -92,6 +97,13 @@ impl AmplitudeResources {
             &output_buffer,
             &meta_buffer,
             &render_params_buffer,
+        );
+        let render_drag_bind_group = create_render_bind_group(
+            device,
+            &render_bind_group_layout,
+            &output_buffer,
+            &meta_buffer,
+            &render_drag_params_buffer,
         );
         let popup_value_bind_group = create_popup_value_bind_group(
             device,
@@ -123,9 +135,12 @@ impl AmplitudeResources {
             meta_buffer,
             render_pipeline,
             render_bind_group,
+            render_drag_bind_group,
             render_bind_group_layout,
             render_params_buffer,
+            render_drag_params_buffer,
             render_instance_buffer,
+            render_drag_instance_buffer,
             last_render_params: None,
             popup_value_pipeline,
             popup_value_bind_group,
@@ -403,8 +418,16 @@ fn storage_entry(
 }
 
 fn create_render_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    create_named_render_params_buffer(device, "amplitude_render_params")
+}
+
+fn create_render_drag_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    create_named_render_params_buffer(device, "amplitude_render_drag_params")
+}
+
+fn create_named_render_params_buffer(device: &wgpu::Device, label: &'static str) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("amplitude_render_params"),
+        label: Some(label),
         size: std::mem::size_of::<AmplitudeRenderParams>() as wgpu::BufferAddress,
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
@@ -416,6 +439,15 @@ fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         label: Some("amplitude_render_instances"),
         size: (MAX_AMPLITUDE_SLOTS * std::mem::size_of::<AmplitudeInstance>())
             as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_render_drag_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("amplitude_render_drag_instance"),
+        size: std::mem::size_of::<AmplitudeInstance>() as wgpu::BufferAddress,
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
@@ -584,6 +616,12 @@ fn create_render_pipeline(
                         wgpu::VertexAttribute {
                             offset: 28,
                             shader_location: 6,
+                            format: wgpu::VertexFormat::Uint32,
+                        },
+                        // AmplitudeInstance::force_zero_amplitude at byte 32.
+                        wgpu::VertexAttribute {
+                            offset: 32,
+                            shader_location: 7,
                             format: wgpu::VertexFormat::Uint32,
                         },
                     ],

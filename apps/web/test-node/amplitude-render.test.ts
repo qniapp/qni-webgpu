@@ -8,6 +8,9 @@ const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude.rs')
 const circuitGatesPath = path.join(rootDir, 'src', 'render', 'circuit_gates.rs')
 const dragPreviewPath = path.join(rootDir, 'src', 'render', 'circuit_palette', 'drag_preview.rs')
 const gateBodyPath = path.join(rootDir, 'src', 'icons', 'gate_body.rs')
+const paramsPath = path.join(rootDir, 'src', 'gpu', 'params.rs')
+const amplitudeResourcesPath = path.join(rootDir, 'src', 'gpu', 'resources', 'amplitude.rs')
+const amplitudeCallbackPath = path.join(rootDir, 'src', 'gpu', 'callbacks', 'amplitude_display.rs')
 
 const readRenderShader = async () => {
   const shader = await fs.readFile(shaderPath, 'utf8')
@@ -62,34 +65,52 @@ test('Amplitude circuit rendering uses the matrix draw area as the visible body'
   assert.match(circuitGates, /let body_rect = if gate\.kind == GateKind::AmplitudeDisplay \{[\s\S]*amplitude_grid_rect\(gate_rect, gate\.span\)[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
 })
 
-test('Amplitude drag preview passes the palette gate span into the body icon', async () => {
+test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', async () => {
   const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
 
-  assert.match(dragPreview, /draw_drag_gate_body\(\s*painter,\s*body_rect,\s*gate\.kind,\s*gate\.span,\s*colors/)
+  assert.match(dragPreview, /if gate\.kind == GateKind::AmplitudeDisplay && gate\.span == 1 \{\s*draw_zero_amplitude_drag_preview\(painter, body_rect, colors\);/)
 })
 
-test('Amplitude drag placeholder receives the dragged span', async () => {
-  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+test('Amplitude unsnapped Amps1 drag preview uses a force-zero GPU instance', async () => {
+  const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
 
-  assert.equal(gateBody.includes('dragging.then_some(span)'), true)
+  assert.match(dragPreview, /use_drag_background: 1,[\s\S]*force_zero_amplitude: 1/)
 })
 
-test('Amplitude drag placeholder keeps empty interiors on the surface color', async () => {
-  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+test('Amplitude force-zero shader bypasses captured amplitude values', async () => {
+  const renderShader = await readRenderShader()
 
-  assert.equal(gateBody.includes('painter.circle_filled(center, inner_radius, colors.surface);'), true)
+  assert.match(renderShader, /var mag = 0\.0;\s*if \(in\.force_zero_amplitude == 0u\) \{[\s\S]*amplitude_data\[base \+ 2u \* outcome\]/)
 })
 
-test('Amplitude drag placeholder uses the zero-amplitude outline', async () => {
-  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+test('Amplitude force-zero flag is part of the GPU instance layout', async () => {
+  const params = await fs.readFile(paramsPath, 'utf8')
 
-  assert.equal(gateBody.includes('colors.state_outline_zero'), true)
+  assert.match(params, /pub\(crate\) force_zero_amplitude: u32/)
 })
 
-test('Amplitude drag placeholder avoids drawing high-span CPU cell grids', async () => {
-  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+test('Amplitude force-zero flag is wired to vertex location 7', async () => {
+  const resources = await fs.readFile(amplitudeResourcesPath, 'utf8')
 
-  assert.match(gateBody, /fn draw_empty_amplitude_cells[\s\S]*if span != 1 \{\s*return;/)
+  assert.match(resources, /offset: 32,[\s\S]*shader_location: 7,[\s\S]*format: wgpu::VertexFormat::Uint32/)
+})
+
+test('Amplitude foreground drag preview uses a separate GPU instance buffer', async () => {
+  const callback = await fs.readFile(amplitudeCallbackPath, 'utf8')
+
+  assert.match(callback, /if self\.use_drag_preview_buffer \{[\s\S]*render_drag_instance_buffer[\s\S]*\} else \{[\s\S]*render_instance_buffer/)
+})
+
+test('Amplitude foreground drag preview uses a separate GPU params buffer', async () => {
+  const callback = await fs.readFile(amplitudeCallbackPath, 'utf8')
+
+  assert.match(callback, /if self\.use_drag_preview_buffer \{[\s\S]*render_drag_params_buffer[\s\S]*\} else if resources\.amplitude\.last_render_params/)
+})
+
+test('Amplitude foreground drag preview uses a separate GPU bind group', async () => {
+  const callback = await fs.readFile(amplitudeCallbackPath, 'utf8')
+
+  assert.match(callback, /if self\.use_drag_preview_buffer \{[\s\S]*render_drag_bind_group[\s\S]*\} else \{[\s\S]*render_bind_group/)
 })
 
 export {}

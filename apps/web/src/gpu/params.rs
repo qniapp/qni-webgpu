@@ -197,6 +197,10 @@ pub(crate) struct AmplitudeInstance {
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
     pub(crate) use_drag_background: u32,
+    /// Draw the exact Amplitude display chrome with zero amplitudes instead
+    /// of sampling a captured slot. Used only for the unsnapped Amps1 drag
+    /// preview so it matches the live GPU display without CPU amplitude math.
+    pub(crate) force_zero_amplitude: u32,
 }
 
 /// Uniform for the Amplitude hover popup value text shader. The shader reads

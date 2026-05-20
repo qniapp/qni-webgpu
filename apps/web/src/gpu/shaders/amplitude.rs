@@ -186,6 +186,7 @@ struct VertexOut {
     @location(4) @interpolate(flat) span: u32,
     @location(5) @interpolate(flat) hovered_outcome: i32,
     @location(6) @interpolate(flat) use_drag_background: u32,
+    @location(7) @interpolate(flat) force_zero_amplitude: u32,
 };
 
 @group(0) @binding(0) var<storage, read> amplitude_data: array<f32>;
@@ -219,6 +220,7 @@ fn vs_main(
     @location(4) span: u32,
     @location(5) hovered_outcome: i32,
     @location(6) use_drag_background: u32,
+    @location(7) force_zero_amplitude: u32,
 ) -> VertexOut {
     let pixel = rect_min + (unit * 0.5 + vec2<f32>(0.5)) * rect_size;
     let ndc = ((pixel - params.viewport_min) / params.viewport_size) * 2.0 - vec2<f32>(1.0, 1.0);
@@ -231,6 +233,7 @@ fn vs_main(
     out.span = span;
     out.hovered_outcome = hovered_outcome;
     out.use_drag_background = use_drag_background;
+    out.force_zero_amplitude = force_zero_amplitude;
     return out;
 }
 
@@ -269,16 +272,21 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let cell_local = grid_local - vec2<f32>(f32(col), f32(row)) * cell;
     let cell_centered = cell_local - vec2<f32>(cell * 0.5);
     let base = in.slot * VALUES_PER_SLOT;
-    let amp_meta = amplitude_meta[in.slot];
-    let incoherent = amp_meta.x < 0.99;
-
-    var re = amplitude_data[base + 2u * outcome];
-    var im = amplitude_data[base + 2u * outcome + 1u];
-    var mag = sqrt(max(re * re + im * im, 0.0));
-    if (incoherent) {
-        mag = amplitude_data[base + 2u * MAX_OUTCOMES + outcome];
-        re = mag;
-        im = 0.0;
+    var incoherent = false;
+    var re = 0.0;
+    var im = 0.0;
+    var mag = 0.0;
+    if (in.force_zero_amplitude == 0u) {
+        let amp_meta = amplitude_meta[in.slot];
+        incoherent = amp_meta.x < 0.99;
+        re = amplitude_data[base + 2u * outcome];
+        im = amplitude_data[base + 2u * outcome + 1u];
+        mag = sqrt(max(re * re + im * im, 0.0));
+        if (incoherent) {
+            mag = amplitude_data[base + 2u * MAX_OUTCOMES + outcome];
+            re = mag;
+            im = 0.0;
+        }
     }
 
     if (cell < 3.0) {
