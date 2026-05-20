@@ -25,6 +25,7 @@ pub(crate) struct Colors {
     pub(crate) text: egui::Color32,
     pub(crate) text_strong: egui::Color32,
     pub(crate) state_fill: egui::Color32,
+    pub(crate) amplitude_disk_border: egui::Color32,
     pub(crate) state_outline: egui::Color32,
     pub(crate) state_outline_zero: egui::Color32,
     pub(crate) state_needle: egui::Color32,
@@ -168,6 +169,7 @@ fn flexoki_light() -> Colors {
         text: tx_2,                        // body text
         text_strong: tx,                   // emphasized titles / data ink
         state_fill: blue_200,              // amplitude disk / Probability bar (Flexoki blue-200)
+        amplitude_disk_border: blue_400,   // amplitude disk inset border (Flexoki blue-400)
         state_outline: tx_2,               // non-zero amplitude outline
         state_outline_zero: ui_2,          // zero-amplitude outline
         state_needle: tx,                  // phase needle

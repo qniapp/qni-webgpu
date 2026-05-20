@@ -178,6 +178,8 @@ pub(crate) struct AmplitudeRenderParams {
     pub(crate) border: [f32; 4],
     /// Flexoki blue-200 #92BFDB amplitude disk.
     pub(crate) disk: [f32; 4],
+    /// Flexoki blue-400 #4385BE amplitude disk inset border.
+    pub(crate) disk_border: [f32; 4],
     /// Flexoki tx-2 #6F6E69 coherent non-zero outline.
     pub(crate) outline: [f32; 4],
     /// Flexoki ui-2 #DAD8CE zero outline.

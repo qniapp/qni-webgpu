@@ -171,6 +171,7 @@ struct RenderParams {
     drag_background: vec4<f32>,
     border: vec4<f32>,
     disk: vec4<f32>,
+    disk_border: vec4<f32>,
     outline: vec4<f32>,
     outline_zero: vec4<f32>,
     needle: vec4<f32>,
@@ -339,6 +340,29 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                 var disk = params.disk;
                 disk.a = disk.a * disk_alpha * select(1.0, 0.45, incoherent);
                 color = blend_over(color, disk);
+            }
+            if (radius >= 1.5) {
+                // docs/amplitude-display.html §05: draw the blue-400 disk
+                // border as an inset 1px stroke. Its outer edge is clamped to
+                // the filled disk radius, so the probability area does not
+                // grow when the darker rim is added.
+                let disk_border_radius = radius - 0.5;
+                let disk_border_inner = 1.0 - smoothstep(
+                    disk_border_radius - 0.5 - edge,
+                    disk_border_radius - 0.5 + edge,
+                    centered_len
+                );
+                let disk_border_outer = 1.0 - smoothstep(
+                    disk_border_radius + 0.5 - edge,
+                    disk_border_radius + 0.5 + edge,
+                    centered_len
+                );
+                let disk_border_alpha = min(max(0.0, disk_border_outer - disk_border_inner), disk_alpha);
+                if (disk_border_alpha > 0.001) {
+                    var disk_border = params.disk_border;
+                    disk_border.a = disk_border.a * disk_border_alpha;
+                    color = blend_over(color, disk_border);
+                }
             }
         }
 

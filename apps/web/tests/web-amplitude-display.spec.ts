@@ -16,6 +16,7 @@ const LINE_Y = UI_CONSTANTS.LINE_Y
 const AMPLITUDE_PALETTE_INDEX = 24
 const AMPLITUDE_SURFACE: [number, number, number, number] = [255, 252, 240, 255]
 const AMPLITUDE_DISK: [number, number, number, number] = [146, 191, 219, 255]
+const AMPLITUDE_DISK_BORDER: [number, number, number, number] = [67, 133, 190, 255]
 const AMPLITUDE_HOVER_RING: [number, number, number, number] = [139, 126, 200, 255]
 const AMPLITUDE_ICON_NEEDLE: [number, number, number, number] = [16, 15, 15, 255]
 const AMPLITUDE_NONZERO_OUTLINE: [number, number, number, number] = [111, 110, 105, 255]
@@ -427,6 +428,30 @@ test.describe('Amplitude Display', () => {
     ])
 
     expect(pixelRgbDistance(samples.zeroOutline, AMPLITUDE_ZERO_OUTLINE)).toBeLessThanOrEqual(90)
+  })
+
+  test('Amps1 draws the probability disk inset border in dark blue', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 1, 0)
+
+    const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+      { name: 'diskBorder', x: EGUI_PANEL_MARGIN + amplitudeCellCenterX(0, 0) + 16, y: LINE_Y + 6 },
+    ])
+
+    expect(pixelRgbDistance(samples.diskBorder, AMPLITUDE_DISK_BORDER)).toBeLessThanOrEqual(90)
+  })
+
+  test('Amps1 leaves the non-zero outline outside the disk border', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 1, 0)
+
+    const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+      { name: 'nonZeroOutline', x: EGUI_PANEL_MARGIN + amplitudeCellCenterX(0, 0) + 17, y: LINE_Y + 6 },
+    ])
+
+    expect(pixelRgbDistance(samples.nonZeroOutline, AMPLITUDE_NONZERO_OUTLINE)).toBeLessThanOrEqual(90)
   })
 
   test('Amps1 keeps non-zero circle outline inside the matrix frame', async ({ page }) => {

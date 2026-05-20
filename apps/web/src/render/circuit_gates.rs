@@ -250,6 +250,7 @@ impl QniApp {
                 drag_background: colors.drag_fill.to_normalized_gamma_f32(),
                 border: colors.line.to_normalized_gamma_f32(),
                 disk: colors.state_fill.to_normalized_gamma_f32(),
+                disk_border: colors.amplitude_disk_border.to_normalized_gamma_f32(),
                 outline: colors.state_outline.to_normalized_gamma_f32(),
                 outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
                 needle: colors.state_needle.to_normalized_gamma_f32(),
