@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate Hover Feedback Options — egui-web</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+    /* Flexoki Light — kepano/flexoki named tones only. */
+    /* 共有 Flexoki vars / Geist フォントは design-system.css 側にある。
+       ここはこのページ固有の追加トークン (Flexoki にない blue-50 / ui-3 と独自 shadow / teal) のみ。 */
+    :root {
+      --blue-50: #E1ECEB;
+      --ui-3: #CECDC3;
+      --teal: #33A6A0;
+      --shadow-popover: 0 16px 40px rgba(16, 15, 15, 0.10);
+      --shadow-card: 0 8px 24px rgba(16, 15, 15, 0.07);
+      --shadow-hover-blue: 0 0 0 4px rgba(32, 94, 166, 0.14);
+    }
+
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 56px 32px 96px; /* Tailwind spacing-14 / spacing-8 / spacing-24 */
+    }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px; /* Tailwind text-xs = 12px */
+      line-height: 16px;
+      color: var(--tx-3);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 12px 0 8px; /* spacing-3 / spacing-2 */
+      font-size: 32px;
+      line-height: 40px;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      max-width: 820px;
+      margin: 0 0 24px; /* spacing-6 */
+      color: var(--tx-2);
+    }
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px; /* spacing-4 */
+      margin: 24px 0 32px; /* spacing-6 / spacing-8 */
+    }
+    .rule {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px; /* rounded-2xl */
+      padding: 16px; /* spacing-4 */
+      box-shadow: var(--shadow-card);
+    }
+    .rule strong {
+      display: block;
+      font-size: 14px; /* Tailwind text-sm */
+      line-height: 20px;
+      margin-bottom: 4px; /* spacing-1 */
+    }
+    .rule span {
+      display: block;
+      color: var(--tx-2);
+      font-size: 14px; /* Tailwind text-sm */
+      line-height: 20px;
+    }
+    .option-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px; /* spacing-6 */
+    }
+    .option {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 20px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .option-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px; /* spacing-4 */
+      padding: 16px 20px; /* spacing-4 / spacing-5 */
+      border-bottom: 1px solid var(--ui-2);
+      background: rgba(255, 252, 240, 0.72);
+    }
+    .option-title {
+      margin: 0;
+      font-size: 20px; /* Tailwind text-xl */
+      line-height: 28px;
+      letter-spacing: -0.01em;
+    }
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--blue-600);
+      background: var(--blue-100);
+      border: 1px solid rgba(32, 94, 166, 0.24);
+      border-radius: 999px;
+      padding: 4px 8px; /* spacing-1 / spacing-2 */
+      white-space: nowrap;
+    }
+    .scene {
+      background: var(--bg-2);
+      padding: 32px 24px; /* spacing-8 / spacing-6 */
+      min-height: 264px;
+      position: relative;
+    }
+    .palette {
+      display: inline-flex;
+      gap: 8px; /* spacing-2 */
+      align-items: center;
+      padding: 12px 16px; /* spacing-3 / spacing-4 */
+      background: var(--bg);
+      border-radius: 14px;
+      box-shadow: var(--shadow-popover);
+    }
+    .gate-row {
+      margin-top: 56px; /* spacing-14 */
+      display: flex;
+      gap: 16px; /* spacing-4 */
+      align-items: center;
+      color: var(--tx-2);
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+    }
+    .wire {
+      flex: 1;
+      height: 1px;
+      background: var(--ui-2);
+      position: relative;
+    }
+    .wire::before,
+    .wire::after {
+      content: '';
+      position: absolute;
+      top: -24px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--teal);
+      color: white;
+    }
+    .wire .placed {
+      position: absolute;
+      top: -24px;
+      left: 116px;
+    }
+    .gate {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: inline-grid;
+      place-items: center;
+      background: var(--teal);
+      color: white;
+      font-size: 18px;
+      line-height: 28px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+    .gate.round { border-radius: 999px; }
+    .gate.measure {
+      background: var(--bg);
+      color: var(--red-600);
+      border: 1px solid var(--ui-3);
+      font-size: 18px;
+    }
+    .gate.probability {
+      background: var(--bg);
+      border: 1px solid var(--tx);
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .gate.probability::before,
+    .gate.probability::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      height: 15px;
+      background: #66A0C8; /* Flexoki blue-300 used by current Probability bars */
+    }
+    .gate.probability::before { top: 0; width: 12px; border-bottom: 1px solid var(--ui-2); }
+    .gate.probability::after { bottom: 0; width: 24px; }
+    .tooltip {
+      position: absolute;
+      top: 88px;
+      left: 24px;
+      padding: 8px 12px; /* spacing-2 / spacing-3 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      box-shadow: var(--shadow-card);
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+      color: var(--tx);
+    }
+    .tooltip span {
+      display: block;
+      color: var(--tx-2);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      margin-top: 2px;
+    }
+    .notes {
+      padding: 16px 20px 20px; /* spacing-4 / spacing-5 */
+      color: var(--tx-2);
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+    }
+    .notes ul {
+      margin: 8px 0 0; /* spacing-2 */
+      padding-left: 20px; /* spacing-5 */
+    }
+    .notes li + li { margin-top: 4px; /* spacing-1 */ }
+    code {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    /* Option A: high-contrast square ring outside the body. */
+    .option-a .hovered::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border: 2px solid var(--blue-600); /* Flexoki blue-600 */
+      border-radius: 12px;
+      box-shadow: var(--shadow-hover-blue);
+      pointer-events: none;
+    }
+    .option-a .hovered::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 9px;
+      background: var(--blue-100); /* Flexoki blue-100 */
+      opacity: 0.42;
+      z-index: -1;
+    }
+
+    /* Option B: warm paper pad + crisp blue inner stroke. */
+    .option-b .hovered::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border: 2px solid var(--blue-600); /* Flexoki blue-600 */
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 5px var(--bg),
+        0 8px 20px rgba(16, 15, 15, 0.10);
+      pointer-events: none;
+    }
+    .option-b .hovered::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border: 1px solid var(--bg);
+      border-radius: 9px;
+      pointer-events: none;
+    }
+
+    /* Option C: corner brackets. No full box across dense gates. */
+    .option-c .hovered::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 12px;
+      background:
+        linear-gradient(var(--blue-600), var(--blue-600)) left top / 12px 2px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) left top / 2px 12px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) right top / 12px 2px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) right top / 2px 12px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) left bottom / 12px 2px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) left bottom / 2px 12px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) right bottom / 12px 2px no-repeat,
+        linear-gradient(var(--blue-600), var(--blue-600)) right bottom / 2px 12px no-repeat;
+      box-shadow: 0 0 0 4px rgba(32, 94, 166, 0.08);
+      pointer-events: none;
+    }
+
+    /* Option D: selected-column style with side rail. */
+    .option-d .hovered::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border: 2px solid var(--blue-400); /* Flexoki blue-400 */
+      border-radius: 12px;
+      background: rgba(198, 221, 232, 0.22); /* Flexoki blue-100 alpha */
+      box-shadow: 0 0 0 1px var(--bg), 0 10px 24px rgba(16, 15, 15, 0.09);
+      z-index: -1;
+    }
+    .option-d .hovered .rail {
+      position: absolute;
+      left: -9px;
+      top: -3px;
+      bottom: -3px;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--blue-600); /* Flexoki blue-600 */
+    }
+
+    /* Option E: keyboard-focus compatible dual ring. */
+    .option-e .hovered::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border: 2px solid var(--purple-600); /* Flexoki purple-600 */
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 2px var(--bg),
+        0 0 0 6px rgba(94, 64, 157, 0.16);
+      pointer-events: none;
+    }
+
+    .matrix {
+      margin-top: 32px; /* spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 20px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .matrix h2 {
+      margin: 0;
+      padding: 20px 24px 8px; /* spacing-5 / spacing-6 / spacing-2 */
+      font-size: 24px;
+      line-height: 32px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px 16px; /* spacing-3 / spacing-4 */
+      border-top: 1px solid var(--ui-2);
+    }
+    th { color: var(--tx); font-weight: 700; }
+    td { color: var(--tx-2); }
+    .rating { color: var(--green-600); font-family: var(--font-mono); }
+
+    @media (max-width: 900px) {
+      .rules, .option-grid { grid-template-columns: 1fr; }
+      .page { padding: 40px 20px 80px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">回路エディタ</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ホバーフィードバック検討</span>
+</nav>
+
+  <main class="page">
+    <div class="eyebrow">egui-web hover feedback design</div>
+    <h1>ゲート hover の四角フィードバック案</h1>
+    <p class="lede">
+      現状の薄いグレー枠は Flexoki の <code>ui-2</code> 近辺で、背景 <code>bg-2</code> と近すぎるため認知しづらい。
+      ここでは「ゲート本体の色や意味論を壊さない」「Probability / Measurement の GPU readout を覆わない」ことを条件に、四角い hover 表現を比較する。
+    </p>
+
+    <div class="rules">
+      <div class="rule">
+        <strong>1. 内容の上に描かない</strong>
+        <span>Probability bar / 測定桁 / ブロッホ矢印は GPU overlay の情報。hover は本体外側、または本体背面へ。</span>
+      </div>
+      <div class="rule">
+        <strong>2. 青系を主アクセント</strong>
+        <span>Flexoki Light の <code>blue-600</code> を使い、既存の step-preview や state panel と関係づける。</span>
+      </div>
+      <div class="rule">
+        <strong>3. 32px ゲートで判別可能</strong>
+        <span>2px stroke + 4px outer halo 以上。1px の <code>ui-2</code> 枠だけにはしない。</span>
+      </div>
+    </div>
+
+    <section class="option-grid" aria-label="hover feedback options">
+      <article class="option option-a">
+        <div class="option-head">
+          <h2 class="option-title">案 A — Blue ring + soft halo</h2>
+          <span class="badge">推奨</span>
+        </div>
+        <div class="scene">
+          <div class="palette">
+            <span class="gate hovered">H</span>
+            <span class="gate round">＋</span>
+            <span class="gate">Y</span>
+            <span class="gate">Z</span>
+            <span class="gate probability"></span>
+            <span class="gate measure">0</span>
+          </div>
+          <div class="tooltip">Hadamard<span>Creates simple superposition</span></div>
+          <div class="gate-row"><span>q0:</span><div class="wire"><span class="gate placed hovered">H</span></div></div>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>外側 2px <code>blue-600</code> + 4px の淡い halo。小さくても一目で分かる。</li>
+            <li>本体外側に出すので、Probability bars / measurement digit を遮らない。</li>
+            <li>実装は今の hover rect を <code>box_border</code> ではなく専用 role へ差し替えるだけで済む。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option option-b">
+        <div class="option-head">
+          <h2 class="option-title">案 B — Paper pad</h2>
+          <span class="badge">見やすさ強</span>
+        </div>
+        <div class="scene">
+          <div class="palette">
+            <span class="gate hovered">H</span>
+            <span class="gate round">＋</span>
+            <span class="gate">Y</span>
+            <span class="gate">Z</span>
+            <span class="gate probability"></span>
+            <span class="gate measure">1</span>
+          </div>
+          <div class="tooltip">Hadamard<span>Creates simple superposition</span></div>
+          <div class="gate-row"><span>q0:</span><div class="wire"><span class="gate placed hovered">H</span></div></div>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>ゲートの背面に <code>bg</code> の紙パッドを敷き、境界を <code>blue-600</code> にする。</li>
+            <li>パレットの白い popover 上でも回路背景上でも安定して見える。</li>
+            <li>少し強め。ドラッグ開始前の「掴める」感を出したい場合に向く。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option option-c">
+        <div class="option-head">
+          <h2 class="option-title">案 C — Corner brackets</h2>
+          <span class="badge">密集向け</span>
+        </div>
+        <div class="scene">
+          <div class="palette">
+            <span class="gate hovered">H</span>
+            <span class="gate round">＋</span>
+            <span class="gate">Y</span>
+            <span class="gate">Z</span>
+            <span class="gate probability"></span>
+            <span class="gate measure">0</span>
+          </div>
+          <div class="tooltip">Hadamard<span>Creates simple superposition</span></div>
+          <div class="gate-row"><span>q0:</span><div class="wire"><span class="gate placed hovered">H</span></div></div>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>四隅だけを <code>blue-600</code> で示す。全周 box より軽く、隣接ゲートと干渉しにくい。</li>
+            <li>Probability5 など縦長ゲートでも、角が目印になる。</li>
+            <li>ただし tooltip と同時に出ると少し装飾的で、アクセシビリティ上は案 A より弱い。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option option-d">
+        <div class="option-head">
+          <h2 class="option-title">案 D — Step rail hybrid</h2>
+          <span class="badge">列 hover と統一</span>
+        </div>
+        <div class="scene">
+          <div class="palette">
+            <span class="gate hovered"><span class="rail"></span>H</span>
+            <span class="gate round">＋</span>
+            <span class="gate">Y</span>
+            <span class="gate">Z</span>
+            <span class="gate probability"></span>
+            <span class="gate measure">1</span>
+          </div>
+          <div class="tooltip">Hadamard<span>Creates simple superposition</span></div>
+          <div class="gate-row"><span>q0:</span><div class="wire"><span class="gate placed hovered"><span class="rail"></span>H</span></div></div>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>矩形に加えて左側 3px の rail を置き、step-preview の青い縦線と意味を揃える。</li>
+            <li>回路上では「このゲート列を見ている」感が強い。</li>
+            <li>パレットでは rail の意味が弱いので、回路上限定の変種として使う案。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option option-e">
+        <div class="option-head">
+          <h2 class="option-title">案 E — Purple dual ring</h2>
+          <span class="badge">focus 共用</span>
+        </div>
+        <div class="scene">
+          <div class="palette">
+            <span class="gate hovered">H</span>
+            <span class="gate round">＋</span>
+            <span class="gate">Y</span>
+            <span class="gate">Z</span>
+            <span class="gate probability"></span>
+            <span class="gate measure">0</span>
+          </div>
+          <div class="tooltip">Hadamard<span>Creates simple superposition</span></div>
+          <div class="gate-row"><span>q0:</span><div class="wire"><span class="gate placed hovered">H</span></div></div>
+        </div>
+        <div class="notes">
+          <ul>
+            <li><code>purple-600</code> ring + <code>bg</code> gap。keyboard focus と hover を同じ視覚言語にできる。</li>
+            <li>現在の drag / semantic intermediate が purple 系なので、操作系の色として自然。</li>
+            <li>step-preview の青と役割が分かれる一方、hover と focus の区別は別途必要。</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="matrix" aria-label="comparison">
+      <h2>比較と推奨</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>案</th>
+            <th>視認性</th>
+            <th>情報を覆わないか</th>
+            <th>実装メモ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>案 A</th>
+            <td><span class="rating">high</span> — 32px でも明確</td>
+            <td>外側 ring なので安全</td>
+            <td><code>gate_hover_ring</code> / <code>gate_hover_halo</code> role を追加し、既存 hover rect を置換。</td>
+          </tr>
+          <tr>
+            <th>案 B</th>
+            <td><span class="rating">very high</span> — 最も強い</td>
+            <td>背面 pad なので安全</td>
+            <td>tooltip と重なると紙面が増える。パレット hover にはよい。</td>
+          </tr>
+          <tr>
+            <th>案 C</th>
+            <td><span class="rating">medium</span> — 密集時に軽い</td>
+            <td>角だけなので安全</td>
+            <td>長い Probability / QFT の角にも自然。ただし実装は線分 8 本。</td>
+          </tr>
+          <tr>
+            <th>案 D</th>
+            <td><span class="rating">high</span> — 列選択と連動</td>
+            <td>外側 ring + rail なので安全</td>
+            <td>回路上限定ならよい。パレットでは rail の意味が薄い。</td>
+          </tr>
+          <tr>
+            <th>案 E</th>
+            <td><span class="rating">high</span> — 色差が大きい</td>
+            <td>外側 ring なので安全</td>
+            <td>keyboard focus と共用しやすいが、drag 色と意味が近い。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · ホバーフィードバック検討 · 2026-05</p>
+</footer>
+
+</body>
+</html>

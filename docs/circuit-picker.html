@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Circuit picker — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    /* ───── Dropdown — resizable items area + pinned footer ───── */
+    .picker-dropdown {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      box-shadow: var(--shadow-popover);
+      padding: 6px;
+      width: 240px;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    .picker-items {
+      /* JS sets the height inline. Default fits ~6 rows. */
+      height: 216px;        /* 6 rows × 36 px = 216 */
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;   /* establishes offsetParent so row.offsetTop is
+                               measured relative to the items pane. The
+                               drag math depends on this. */
+      /* Floating overlay scrollbar — no gutter reserved, thumb fades
+         in only when the panel is hovered. 6 px constant width so
+         there's no jarring resize on hover.
+
+         NOTE: `scrollbar-width: thin` (Firefox spec, now also Chrome 121+)
+         intentionally NOT set — on modern Chromium it activates a
+         native thin scrollbar with arrow buttons that overrides the
+         `::-webkit-scrollbar-*` rules below. WebKit pseudo-elements
+         alone give the cleanest result for our Chromium-based dev
+         target. Firefox falls back to its native bar, which is
+         acceptable for the mock; the real egui app uses egui's own
+         scrollbar styled via `style.spacing.scroll`. */
+    }
+    /* WebKit (Chrome / Safari / Edge) — thumb opacity-based fade.
+       Arrow buttons at the track ends are collapsed to zero size
+       (using `display: none` instead made the whole scrollbar
+       disappear on some Chromium builds; `width/height: 0` is the
+       safe standard pattern). */
+    .picker-items::-webkit-scrollbar { width: 6px; }
+    .picker-items::-webkit-scrollbar-track { background: transparent; }
+    .picker-items::-webkit-scrollbar-button { width: 0; height: 0; }
+    .picker-items::-webkit-scrollbar-thumb {
+      background-color: transparent;
+      border-radius: 3px;
+      transition: background-color 150ms ease;
+    }
+    .picker-items:hover::-webkit-scrollbar-thumb {
+      background-color: rgba(183, 181, 172, 0.6);    /* tx-3 @ 60% */
+    }
+    .picker-items::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(111, 110, 105, 0.7);    /* tx-2 @ 70% — grab cue via colour only */
+    }
+
+    .picker-item {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; height: 36px; padding: 0 10px;
+      border-radius: 6px;
+      color: var(--tx); cursor: grab;
+      transition: transform 80ms ease;        /* FLIP for non-dragged rows */
+    }
+    .picker-item:hover { background: var(--bg-2); }
+    .picker-item.is-active { font-weight: 500; }
+    /* § 02 dragged 行の描画と一致: bg = ui グレー塗りのみ、elevated shadow 無し */
+    .picker-item.is-dragging {
+      background: var(--ui);
+      cursor: grabbing;
+      z-index: 5;
+      position: relative;
+      transition: none;                       /* dragged row follows cursor 1:1 */
+    }
+    .picker-item.is-dragging:hover { background: var(--ui); }
+    .picker-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    body.is-item-dragging,
+    body.is-item-dragging * { cursor: grabbing !important; }
+
+    /* ───── Resize separator — draggable handle between items + footer ───── */
+    .picker-resize {
+      flex-shrink: 0;
+      position: relative;
+      height: 9px;          /* hit area; visual line is centred 1 px */
+      margin: 2px 4px;
+      cursor: ns-resize;
+    }
+    .picker-resize::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--ui-2);
+      transition: background 80ms ease, height 80ms ease, transform 80ms ease;
+      transform: translateY(-50%);
+    }
+    .picker-resize:hover::before,
+    .picker-resize.is-dragging::before {
+      height: 2px;
+      background: var(--blue-600);
+    }
+
+    .picker-footer {
+      flex-shrink: 0;
+      display: flex; align-items: center;
+      gap: 8px; height: 36px; padding: 0 10px;
+      border-radius: 6px; color: var(--tx-2);
+      cursor: pointer;
+    }
+    .picker-footer:hover { background: var(--bg-2); color: var(--tx); }
+    .picker-footer svg { width: 14px; height: 14px; color: var(--tx-3); }
+    .picker-footer:hover svg { color: var(--tx); }
+
+    /* Body cursor lock during drag so the cursor stays ns-resize even
+       when the pointer leaves the handle. */
+    body.is-resize-dragging { cursor: ns-resize; }
+    body.is-resize-dragging * { cursor: ns-resize !important; }
+
+    /* ───── App frame / stage ───── */
+    .app-frame {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .app-frame .scene-label {
+      background: var(--bg);
+      border-bottom: 1px solid var(--ui-2);
+      padding: 10px 20px;
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.16em; color: var(--tx-3); text-transform: uppercase;
+    }
+    .app-body { padding: 28px 32px; background: var(--bg-2); }
+
+    /* ───── Gallery / state stage (reorder の 3 状態) ───── */
+    .stage {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 28px 32px;
+      display: flex;
+      gap: 36px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    .stage .col { display: flex; flex-direction: column; gap: 8px; }
+    .stage .col .label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+    }
+
+    /* ───── Anatomy + impl spec ───── */
+    .anatomy {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 28px 32px;
+      display: flex; gap: 32px; align-items: flex-start;
+    }
+    .anatomy .target { flex-shrink: 0; }
+    .anatomy table { flex: 1; border-collapse: collapse; font-size: 13px; }
+    .anatomy th, .anatomy td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--ui-2); vertical-align: top; }
+    .anatomy th { color: var(--tx-3); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; width: 160px; }
+    .anatomy td code { font-family: var(--font-mono); font-size: 12px; background: var(--ui); padding: 1px 5px; border-radius: 4px; }
+
+    .impl-spec {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+    }
+    .impl-spec h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .impl-spec ol { margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec ol code {
+      font-family: var(--font-mono); font-size: 13px;
+      background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx);
+    }
+    .impl-spec pre {
+      margin: 8px 0; padding: 10px 14px;
+      background: var(--ui); border-radius: 6px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.55; overflow-x: auto;
+    }
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">周辺 UI</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">回路ピッカー</span>
+</nav>
+
+<svg style="position:absolute; width:0; height:0" aria-hidden="true">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · widget spec</p>
+  <h1 class="page-title">Circuit picker</h1>
+  <p class="page-lede">
+    回路ピッカーの 2 つの drag 操作をまとめて扱う:<br />
+    ・<strong>drag-to-reorder</strong> — 行をマウスで掴んで上下にドラッグして並び替える。
+      ハンドル無し、whole-row live reorder。submenu の Move up / Move down は据置 (キーボード代替)。<br />
+    ・<strong>separator resize</strong> — 上 (回路名リスト) / 下 (Create new circuit) 2 ペイン構成にして、
+      境界のセパレータをドラッグして items ペインの高さを可変にする。上ペインだけが独立スクロール、
+      下の Create new circuit は常に底に pinned で残る。<br />
+    両者は連動する: items ペインが overflow している状態で行をドラッグして上端 / 下端付近に持っていくと、
+    ペインが <strong>edge auto-scroll</strong> して隠れている行を引き出せる。
+  </p>
+</div>
+
+<!-- ───────────────── 1. Anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> 構造 — 2 ペイン構成</h2>
+  <p class="note">
+    paper bg + ui-2 hairline + shadow-popover の panel chrome は既存ピッカーと
+    pixel-by-pixel で一致。中身は 3 要素:<br />
+    ・<strong>items pane (上)</strong> — 高さ可変、内容が多ければ独立スクロール<br />
+    ・<strong>resize handle</strong> — separator、ドラッグで上下に動く<br />
+    ・<strong>footer (下)</strong> — Create new circuit、常に固定で見えている
+  </p>
+
+  <div class="anatomy">
+    <div class="target">
+      <div class="picker-dropdown" style="height: auto;">
+        <div class="picker-items" style="height: 144px;">
+          <div class="picker-item is-active"><span class="name">Bell state</span></div>
+          <div class="picker-item"><span class="name">GHZ state</span></div>
+          <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+          <div class="picker-item"><span class="name">Grover (3 qubits)</span></div>
+          <div class="picker-item"><span class="name">Quantum teleport</span></div>
+          <div class="picker-item"><span class="name">Untitled 6</span></div>
+          <div class="picker-item"><span class="name">Untitled 7</span></div>
+        </div>
+        <div class="picker-resize" aria-hidden="true"></div>
+        <div class="picker-footer">
+          <svg aria-hidden="true"><use href="#i-plus"/></svg>
+          <span>Create new circuit</span>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>part</th><th>spec</th></tr></thead>
+      <tbody>
+        <tr><th>panel</th><td>既存通り — paper bg / ui-2 1 px / radius 12 / shadow-popover / inner padding 6 / width 240</td></tr>
+        <tr><th>items pane</th><td>height は JS state で管理 (default ≈ 6 row = 216 px)。<code>overflow-y: auto</code>。</td></tr>
+        <tr>
+          <th>scrollbar</th>
+          <td>
+            <strong>floating overlay</strong> ─ 通常は完全透明でガターも予約しない。<br />
+            ・幅: 6 px 固定 (ホバーで太くしない、ガタつき防止)<br />
+            ・thumb idle (panel hover 中): <code>tx-3</code> @ 60% alpha<br />
+            ・thumb hover (バー直接): <code>tx-2</code> @ 70% alpha<br />
+            ・遷移: <code>background-color 150 ms ease</code>。幅は変えず色のみフェード。<br />
+            ・track: 終始透明 (枠を描かない)<br />
+            content が pane 高さ以下のときは thumb 自体出ない。
+          </td>
+        </tr>
+        <tr><th>resize handle</th><td>hit area 9 px × 全幅 (内マージン 4 px)、視覚は 1 px の <code>ui-2</code> 横線。hover / ドラッグで <strong>2 px の <code>blue-600</code></strong> に強調するだけ。<code>cursor: ns-resize</code> がアフォーダンスの主役。</td></tr>
+        <tr><th>footer</th><td>h 36 / px 10 / radius 6 / pinned。Create new circuit + + アイコン。ホバーで <code>bg-2</code>。</td></tr>
+        <tr><th>min items height</th><td>72 px (= 2 row)。これより縮めようとしても止まる。</td></tr>
+        <tr><th>max items height</th><td><code>min(content × 36 + 12, viewport_height - 240)</code>。entries 全部 visible になる以上には伸ばさない、かつビューポートを超えない。</td></tr>
+        <tr>
+          <th>edge auto-scroll</th>
+          <td>
+            アイテムを drag-to-reorder している間、カーソルが items ペインの
+            <strong>上端 / 下端から 36 px 圏内</strong>に入るとその方向へペインが
+            自動スクロールする。速度はゾーンへの侵入深度に対して<strong>線形</strong>
+            (一番奥で <code>12 px / frame</code>、ゾーン境界で 0)。
+            スクロール中もライブ入れ替えは継続し、現れた新しい行とカーソルが交差したら
+            その都度入れ替わる。ペインが既に上端 / 下端まで到達済みのときは止まる。
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Drag-to-reorder anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> ドラッグ並び替えの解剖</h2>
+  <p class="note">
+    Idle (普通) → Hover (掴める合図 = <code>cursor: grab</code>) → Dragging
+    (掴んだ行そのものが pointer に追従、他の行は live-reorder で隣接 slot に瞬時に移動)。
+    <strong>ゴーストも drop indicator も elevated shadow も無し</strong>。
+    dragged 行は Flexoki <code>ui</code> グレーだけで示し、他の行は live-reorder されたあとの位置で静止する。
+  </p>
+
+  <div class="stage">
+    <div class="col">
+      <span class="label">idle</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2);">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item is-active"><span class="name">GHZ state</span></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <span class="label">hover · 掴める</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2);">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item is-active" style="background: var(--bg-2); cursor: grab;"><span class="name">GHZ state</span></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <span class="label">dragging · 行の途中</span>
+      <div class="picker-dropdown" style="margin: 0; box-shadow: none; border: 1px solid var(--ui-2); position: relative; height: 124px;">
+        <div class="picker-item"><span class="name">Bell state</span></div>
+        <div class="picker-item"><span class="name">QFT 4-qubit</span></div>
+        <div class="picker-item is-dragging is-active" style="position: absolute; top: 22px; left: 6px; right: 6px; width: auto;"><span class="name">GHZ state</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top: 16px;">
+    右端の例: GHZ state が「上に向かって動いてる途中」のスナップショット。
+    Bell state と QFT 4-量子ビットは既に live-reorder で位置が確定済み (QFT が 2 番目に上がっている)。
+    GHZ 行は <code>ui</code> グレーのまま pointer に追従。release した時点でその index が確定される。
+  </p>
+
+  <div class="anatomy" style="margin-top: 24px;">
+    <table>
+      <thead><tr><th>part</th><th>挙動 / トークン</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>drag start</th>
+          <td>行の <code>mousedown</code> + 移動距離 ≥ <strong>4 px</strong> で drag 開始 (egui だと <code>response.drag_started()</code> 相当)。閾値以下のクリックは選択 / kebab open など本来の挙動。</td>
+        </tr>
+        <tr>
+          <th>cursor</th>
+          <td>行 hover で <code>grab</code>、drag 中は <code>grabbing</code>。kebab hover では <code>pointer</code>。</td>
+        </tr>
+        <tr>
+          <th>dragged 行の描画</th>
+          <td>
+            <strong>その行自身</strong>に <code>translateY()</code> を当てて pointer に追従させる。
+            <code>background: var(--ui)</code> + <code>z-index: 5</code> で「これがいま掴まれている行」を示す。
+            elevated shadow は付けない、ゴーストクローンは作らない。<br />
+            <strong>動きは Y 軸のみ</strong>: <code>translateX</code> は常に 0。<br />
+            <strong>Y はドロップダウン内側にクランプ</strong>: pointer が dropdown の外に行っても
+            行は <code>[panel_pad, dropdown_height - panel_pad - row_height]</code> の範囲内に止まる。
+          </td>
+        </tr>
+        <tr>
+          <th>他の行</th>
+          <td>
+            drag 中は<strong>非 dragged 行はすべて paper bg</strong>。アイテムの bg は基本「ホバー時 = <code>bg-2</code>」
+            「ドラッグ中 = <code>ui</code>」の<strong>イベント由来の変化のみ</strong>で、
+            アクティブ行も resting state では bg を持たない (font-weight 500 だけで「いま編集中」を示唆)。
+            これで dragged 行のグレーが視覚的に唯一のアクセントになる。
+          </td>
+        </tr>
+        <tr>
+          <th>live swap</th>
+          <td>
+            毎 mousemove で dragged 行の visual center を計算し、
+            <strong>1 つ上 / 1 つ下の行の center を跨いだら</strong> <code>entries</code> 配列で隣同士を swap し
+            再 render する。swap の瞬間に natural top が <code>ROW_H</code> ずれるが、
+            translateY を再計算して visual position は連続。
+          </td>
+        </tr>
+        <tr>
+          <th>他の行 (FLIP)</th>
+          <td>live swap で押し出される行は <strong>FLIP アニメーション</strong>で
+            旧位置から新位置へ <strong>80 ms ease</strong> でスライドする。単純な snap だと「いま何が動いたか」が読みづらい。
+            FLIP: swap 前に rect を記録 (<strong>First</strong>) → swap + 再 render (<strong>Last</strong>) →
+            旧位置との差を <code>translateY</code> で打ち消す (<strong>Invert</strong>) →
+            次フレームで <code>transition</code> 有効 + transform 解除でアニメーション (<strong>Play</strong>)。
+            dragged 行は除外 (cursor 追従が遅延するため <code>transition: none</code>)。
+          </td>
+        </tr>
+        <tr>
+          <th>kebab 除外</th>
+          <td>kebab 上の <code>mousedown</code> は drag を開始しない (event を kebab handler に渡す)。kebab は drag handle ではなく submenu trigger。</td>
+        </tr>
+        <tr>
+          <th>release</th>
+          <td>data は drag 中に live swap で既に並び替え済み。<code>mouseup</code> では transform をクリアして <code>state.drag = null</code> するだけ。<code>active_id</code> は id で保持してるので index ズレなし。</td>
+        </tr>
+        <tr>
+          <th>Esc cancel</th>
+          <td>drag 開始時に <code>state.entries</code> を snapshot し、Esc 押下で復元 + <code>state.drag = null</code> + 再 render。</td>
+        </tr>
+        <tr>
+          <th>submenu との両立</th>
+          <td>submenu の Move up / Move down は据置 (キーボード代替 / 1 段ずつ動かしたい時用)。drag は飛ばし移動の primary path。
+            別行の drag が始まったら開いている submenu は閉じる。同じ kebab trigger を再クリックしたときも閉じる。</td>
+        </tr>
+        <tr>
+          <th>auto scroll</th>
+          <td>items ペインが overflow しているとき、カーソルが上端 / 下端 <code>EDGE_ZONE = 36 px</code> 圏内に入るとその方向に自動スクロール。
+            速度はゾーン深度に線形 (一番奥で <code>12 px / frame</code>、ゾーン境界で 0)。
+            スクロール中も live-swap は継続、ペインが上端 / 下端まで到達済みのときは止まる。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 3. Interactive prototype ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> 実装プロトタイプ — 並び替え + リサイズ</h2>
+  <p class="note">
+    実際に separator (薄い水平線) をマウスで掴んで上下に動かせます。
+    items ペインの高さが変動し、内容が多ければペイン内で<strong>独立スクロール</strong>。
+    Create new circuit は底に pinned で常時見える。<br />
+    カーソルは handle hover / drag 中は <code>ns-resize</code>。drag 中は document 全体に
+    強制するのでマウスがハンドルから外れてもカーソルは変わらない。<br /><br />
+    アイテム自体も <strong>drag-to-reorder</strong> 可能。さらにペインの高さを縮めて
+    リストが overflow している状態で、ドラッグ中のアイテムをペインの<strong>上端 / 下端
+    36 px 圏内</strong>に近づけると、その方向へ自動的にスクロールします
+    (edge auto-scroll, 速度はゾーン深度に比例)。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · circuit picker · resizable</div>
+    <div class="app-body">
+      <div class="picker-dropdown" id="proto-dropdown">
+        <div class="picker-items" id="proto-items"></div>
+        <div class="picker-resize" id="proto-resize" aria-hidden="true" role="separator" aria-orientation="horizontal"></div>
+        <div class="picker-footer">
+          <svg aria-hidden="true"><use href="#i-plus"/></svg>
+          <span>Create new circuit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top: 18px;">
+    <strong>現在の items pane 高さ</strong>:
+    <code id="proto-readout" style="font-family: var(--font-mono); font-size: 12px;"></code>
+  </p>
+</section>
+
+<!-- ───────────────── 4. Impl spec ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> 実装仕様 (Codex 用リファレンス)</h2>
+
+  <div class="impl-spec">
+    <h3>差分は picker 描画と state に絞る。永続化は別 PR。</h3>
+    <ol>
+      <li>
+        <strong>state</strong> ─ <code>PickerState::Open</code> に resize と reorder それぞれの drag sub-state を追加:
+        <pre>pub(crate) struct PickerOpen {
+    // ... existing fields ...
+    pub items_height: f32,    // px, default = 216 (6 rows)
+    pub resize_drag_start: Option&lt;{ pointer_y: f32, base_height: f32 }&gt;,
+    pub drag: DragState,
+}
+
+pub(crate) enum DragState {
+    Idle,
+    Pending { entry_index: usize, started_pos: Pos2 },
+    Active  {
+        entry_index: usize,         // dragged 行の現在の data index (live swap で変わる)
+        pointer_offset_y: f32,      // pointer.y - row.top at drag start
+        original_entries: Vec&lt;CircuitEntry&gt;,  // Esc cancel 用の snapshot
+    },
+}</pre>
+        <code>items_height</code> default は <code>216</code> (= 6 row)。永続化は別 Codex (<code>localStorage</code> 層) で restore できるよう、field は <code>#[serde]</code> で skip しない。
+        <code>DragState::Pending → Active</code> への昇格は pointer 移動距離 ≥ <strong>4 px</strong>。
+        Pending 中に mouseup なら通常の click (select) として扱う。
+      </li>
+      <li>
+        <strong>panel 描画</strong> ─ 既存の <code>circuit_picker_dropdown.rs</code> で:<br />
+        ・items ペインを <code>egui::ScrollArea::vertical().max_height(items_height)</code> 内に描く<br />
+        ・separator (9 px の <code>Sense::click_and_drag()</code> rect) を描く<br />
+        ・footer (Create new circuit、固定高 36 px) を描く<br />
+        順番は items → separator → footer。フッタは ScrollArea の<strong>外</strong>に置く。
+      </li>
+      <li>
+        <strong>resize handle 描画</strong>:<br />
+        ・idle: 1 px <code>ui-2</code> 横線、handle rect 中央<br />
+        ・hover / drag: 2 px <code>blue-600</code> 横線に強調 (装飾なし、シンプル)<br />
+        ・cursor: <code>ui.output_mut(|o| o.cursor_icon = CursorIcon::ResizeRow)</code> を handle hover / drag 中に毎フレーム設定
+      </li>
+      <li>
+        <strong>drag ロジック</strong>:
+        <pre>let response = ui.allocate_rect(handle_rect, Sense::click_and_drag());
+if response.drag_started() {
+    state.resize_drag_start = Some({
+        pointer_y: pointer.y,
+        base_height: state.items_height,
+    });
+}
+if let Some(start) = state.resize_drag_start {
+    let delta = pointer.y - start.pointer_y;
+    state.items_height = (start.base_height + delta)
+        .max(MIN_ITEMS_HEIGHT)   // 72 px
+        .min(max_items_height(entries.len(), viewport_height));
+}
+if response.drag_released() {
+    state.resize_drag_start = None;
+    // bump_updated_at は不要 (高さは UI state、永続化レイヤーが別途 watch する)
+}</pre>
+      </li>
+      <li>
+        <strong>reorder drag — 各 row の sense</strong> ─ 各 item 行を <code>egui::Sense::click_and_drag()</code> で確保し、
+        <code>response.drag_started()</code> で <code>DragState::Pending</code>。
+        <code>response.drag_delta().length_sq() &gt; 16.0</code> (= 4 px 移動) で <code>Active</code> に昇格 (このとき <code>entries</code> を snapshot)。
+        <code>response.drag_released()</code> で <code>Idle</code> へ戻すだけ — data は live swap で確定済み。
+        <code>ui.input(|i| i.key_pressed(Key::Escape))</code> で cancel (snapshot から復元)。
+        kebab 用の inner <code>Response</code> は <code>Sense::click()</code> のままにし、その上のクリックは行の drag を起こさない (egui は inner widget のクリックを優先する)。
+      </li>
+      <li>
+        <strong>dragged 行の描画</strong> ─ <code>active.entry_index</code> の行を描くとき:<br />
+        ・<code>natural_top = row_rects[idx].top()</code><br />
+        ・<code>wanted_top = clamp(pointer.y - pointer_offset_y, dropdown.inner_top, dropdown.inner_bottom - row_h)</code>
+          で<strong>ドロップダウン内側にクランプ</strong><br />
+        ・差を <code>translateY</code> 相当で吸収して描画。
+        egui では行の draw 時に <code>ui.allocate_space</code> を natural rect で取った後、
+        <code>painter.add(Shape::translate(...))</code> で natural rect の中身を <code>wanted_top - natural_top</code> px Y シフトして描く方式、
+        またはその行だけ別 <code>Area</code> で描く (<code>Area::new(...).order(Order::Foreground).fixed_pos(...)</code>) 方式のどちらか。<br />
+        <strong>X 軸はロック</strong>: <code>translateX</code> は常に 0、pointer.x は無視。
+        <strong>背景は <code>ui</code> グレー</strong>: dragged 行だけ <code>Frame.fill = colors.toolbar_hover_bg</code>、他の行は <code>colors.surface</code> のまま。elevated shadow は付けない。<br />
+        <strong>他の行は全部 paper bg</strong>: drag 中は他の行の hover bg を transparent に抑制するだけ (active styling は font-weight 500 のみで触らない)。
+        egui だと <code>if drag_active &amp;&amp; !is_dragged { skip hover_bg paint }</code> の 1 行で実現。
+      </li>
+      <li>
+        <strong>FLIP swap アニメーション</strong> ─ live swap で押し出される側の行を即 snap せず、
+        <strong>80 ms ease</strong> で旧位置から新位置にスライドさせる。egui だと
+        <code>ctx.animate_value_with_time(row_id, target_y, 0.08)</code> を行ごとに動かす方式:<br />
+        ・swap 直前に <code>old_y[entry_id] = row_rect.top</code> を記録<br />
+        ・swap 後の<strong>新</strong>位置を <code>target_y</code> として登録<br />
+        ・描画時に <code>current_y = animate_value_with_time(target_y)</code> を使って
+          <code>target_y - current_y</code> 分の <code>translateY</code> シフトで描く<br />
+        ・dragged 行はこの animation 系から<strong>除外</strong> (cursor 追従が遅れないように)
+      </li>
+      <li>
+        <strong>live swap ロジック</strong> ─ 各フレームで dragged 行の visual center が隣接行の center を跨いだら
+        <code>entries</code> 内で隣同士を swap し、<code>active.entry_index</code> を ±1 する:
+        <pre>let visual_center = wanted_top + row_height / 2.0;
+let idx = active.entry_index;
+
+if idx &gt; 0 {
+    let above_center = row_rects[idx - 1].top() + row_height / 2.0;
+    if visual_center &lt; above_center {
+        library.entries.swap(idx - 1, idx);
+        active.entry_index -= 1;
+    }
+}
+if idx &lt; entries.len() - 1 {
+    let below_center = row_rects[idx + 1].top() + row_height / 2.0;
+    if visual_center &gt; below_center {
+        library.entries.swap(idx, idx + 1);
+        active.entry_index += 1;
+    }
+}</pre>
+        基本は 1 swap / frame。高速 flick で複数 swap が必要なら <code>while</code> ループ版に。
+      </li>
+      <li>
+        <strong>release / Esc cancel</strong> ─
+        <code>drag_released()</code> で <code>DragState::Idle</code> + <code>library.bump_updated_at()</code> を 1 回呼ぶ。
+        data は live swap で最終状態なので追加の reorder 処理は不要。<code>active_id</code> は id で保持してるので変わらない。
+        <code>Active</code> 中の Esc キーで <code>library.entries = original_entries.clone()</code> + <code>Idle</code> へ。dragged 行が元位置に jump で戻る。<code>bump_updated_at()</code> は呼ばない (実質変更なし)。
+      </li>
+      <li>
+        <strong>submenu との両立</strong> ─ submenu の Move up / Move down は<strong>据置</strong> (キーボード代替 / 1 段ずつ動かしたい時用)。drag は飛ばし移動の primary path。
+        別行の drag を開始したら開いている submenu は閉じる。同じ kebab を再クリックしても閉じる。
+      </li>
+      <li>
+        <strong>cursor アイコン</strong>:<br />
+        ・行 hover → <code>CursorIcon::Grab</code><br />
+        ・<code>DragState::Pending</code> / <code>Active</code> 中 → <code>CursorIcon::Grabbing</code><br />
+        ・kebab hover → <code>CursorIcon::PointingHand</code><br />
+        <code>ui.output_mut(|o| o.cursor_icon = ...)</code> で設定。
+      </li>
+      <li>
+        <strong>min / max 制約</strong>:<br />
+        ・<code>MIN_ITEMS_HEIGHT = 72.0</code> (= 2 row)<br />
+        ・<code>max_items_height = ((entries.len() as f32) * 36.0 + 12.0).min(viewport_height - 240.0)</code><br />
+        (= 全部見える分 cap + ビューポート内に収まる cap。240 は trigger / picker chrome / フッタの余白合算の概算)
+      </li>
+      <li>
+        <strong>独立スクロール</strong>:<br />
+        items ペイン内は <code>ScrollArea::vertical()</code> で完結。dropdown 全体は<strong>スクロール対象にしない</strong>。
+        Create new circuit フッタは <code>ScrollArea</code> 外なので常時ビューポートの底に見える。
+        マウスホイールが items ペイン内ならペインだけスクロール、外 (footer / separator / 隙間) なら何も起きない。
+      </li>
+      <li>
+        <strong>scrollbar style (floating overlay)</strong> ─ egui の <code>ctx.style_mut(|s| ...)</code> で
+        この <code>ScrollArea</code> 用に下記の調整を入れる:
+        <pre>style.spacing.scroll.floating = true;            // overlay 化 (gutter 予約しない)
+style.spacing.scroll.bar_width = 6.0;            // 常時 6 px (ホバーで太らせない)
+style.spacing.scroll.floating_width = 6.0;
+style.spacing.scroll.floating_allocated_width = 0.0;
+style.spacing.scroll.handle_min_length = 12.0;</pre>
+        thumb の色は <code>style.visuals.widgets.{inactive,hovered,active}.bg_fill</code> で:
+        ・idle (panel hover 中): <code>tx-3</code> @ alpha 0.6<br />
+        ・hovered (バー直接): <code>tx-2</code> @ alpha 0.7<br />
+        ・active (drag 中): <code>tx-2</code> @ alpha 0.8<br />
+        track は<strong>描かない</strong> (egui のデフォルトは透明)。
+        フェードイン / アウトは egui が <code>floating = true</code> + 内部 animate_value_with_time で自動的にやる。
+      </li>
+      <li>
+        <strong>tests</strong>:<br />
+        ・<code>tests/egui-web-picker-resize.spec.ts</code> 新規 — セパレータを 60 px 下にドラッグ → items_height が 60 px 増える / 上に大きくドラッグ → MIN (72 px) で停止 / 下に大きくドラッグ → MAX (viewport 制約) で停止 / 10 件 seed → items ペイン内でホイールスクロール、フッタは動かない<br />
+        ・<code>tests/egui-web-circuit-picker-reorder.spec.ts</code> 新規 — 3 件目を 1 件目の上にドラッグ → 順序が <code>[3, 1, 2]</code> に / 1 件目を末尾にドラッグ → 順序が <code>[2, 3, 1]</code> に / drag 中 Esc → 順序維持 / kebab クリックは drag を起こさず submenu を開く / 同じ kebab を再クリック → submenu が閉じる / submenu open 中に別行 drag を開始 → submenu が閉じる<br />
+        Playwright の <code>mouse.down()</code> / <code>mouse.move()</code> / <code>mouse.up()</code> で本物のマウス操作を実行。
+        スナップショットは drag 中の中間 frame をキャプチャしない (flaky 防止) ─ before / after だけ。
+      </li>
+      <li>
+        <strong>edge auto-scroll (ドラッグ並び替えと組み合わせ)</strong> ─
+        items ペインが overflow している状態でアイテムをドラッグ中、カーソルがペインの
+        上端 / 下端 <code>EDGE_ZONE = 36 px</code> 圏内に入ったらその方向へ自動スクロール。
+        <pre>const EDGE_ZONE: f32 = 36.0;
+const MAX_SCROLL_PX_PER_FRAME: f32 = 12.0;
+
+// items_rect = ScrollArea の inner rect (screen coords)
+let speed = 0.0;
+if pointer.y &lt; items_rect.top() + EDGE_ZONE {
+    let depth = (items_rect.top() + EDGE_ZONE - pointer.y).clamp(0.0, EDGE_ZONE);
+    speed = -(depth / EDGE_ZONE) * MAX_SCROLL_PX_PER_FRAME;
+} else if pointer.y &gt; items_rect.bottom() - EDGE_ZONE {
+    let depth = (pointer.y - (items_rect.bottom() - EDGE_ZONE)).clamp(0.0, EDGE_ZONE);
+    speed =  (depth / EDGE_ZONE) * MAX_SCROLL_PX_PER_FRAME;
+}
+if speed != 0.0 {
+    // ScrollArea::show_rows / show_viewport は egui 側の API で
+    // offset を毎フレーム動かす。egui の ScrollArea state を取り出して
+    // `state.offset.y += speed` で進め、次フレーム ctx.request_repaint()。
+    ui.ctx().request_repaint();
+}</pre>
+        スクロール中も live-swap (ドラッグ並び替えの入れ替え) は継続するように、
+        毎フレーム pointer.y と各 row の rect から target インデックスを再計算する。
+        ペインが上端 / 下端に到達済み (clamped offset が動かない) ときは何もしない。
+      </li>
+      <li>
+        <strong>localStorage 永続化は別 Codex 案件</strong>。本 PR では state.items_height は in-memory のみ。
+        picker 閉じて開き直すと default (216) に戻って構わない。
+      </li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance — resize</h3>
+    <ol>
+      <li>セパレータをマウスで掴んで上下にドラッグでき、items ペインの高さが連動して変動する。</li>
+      <li>セパレータの hover / drag 中、line が 1 → 2 px に太くなり <code>blue-600</code> 色に変わる。カーソルが <code>ns-resize</code>。</li>
+      <li>items_height は 72 px (2 row) を下回らない。entries 全部見える以上 / ビューポートを超える以上に伸ばせない。</li>
+      <li>items 件数が pane 高さを超えるとき、items ペインだけ独立スクロール。footer (Create new circuit) は常時底に固定。</li>
+      <li>マウスホイールをフッタの上で回しても何も起きない。items ペインの上で回せばペインだけスクロール。</li>
+      <li>drag 中はマウスがハンドルから外れても <code>ns-resize</code> カーソルを維持。</li>
+      <li>items ペインが overflow している状態でアイテムをドラッグして上端 / 下端から 36 px 圏内に持っていくと、ペインがその方向に自動スクロールする。ゾーン中央 (深度ゼロ) ではスクロールしない。ペインがすでに上 / 下まで到達済みのときは止まる。</li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance — reorder</h3>
+    <ol>
+      <li>行を mouse で掴んで上下にドラッグできる。<strong>dragged 行そのもの</strong>が cursor に追従し (<code>ui</code> グレー塗りのみ)、ゴーストや drop indicator や elevated shadow は出さない。</li>
+      <li>dragged 行は <strong>Y 軸のみ追従</strong>。カーソルが横に動いても dropdown 列から外れない。</li>
+      <li>dragged 行は <strong>ドロップダウン内側にクランプ</strong>。pointer が外に出ても row は panel 内に止まる。</li>
+      <li>アイテムの bg が色付くのは <strong>hover 時 (<code>bg-2</code>) と drag 中 (<code>ui</code>)</strong> の 2 イベントだけ。active 行も resting state では paper のまま、font-weight 500 だけで識別。drag 中は他の行の hover も抑制され、dragged グレーが唯一のアクセント。</li>
+      <li>dragged 行の center が隣接行の center を跨ぐと、押し出される行が <strong>80 ms ease で FLIP スライド</strong>。dragged 行はこの animation から除外で cursor を 1:1 追従。</li>
+      <li>release は単に drag state クリア (data は live swap で確定済み)。active な entry の id は変わらない。</li>
+      <li>Esc で drag をキャンセル、順序維持。</li>
+      <li>kebab をクリックしても drag は始まらず、submenu が開く。同じ kebab を再クリックで閉じる。</li>
+      <li>submenu が開いている状態で別行の drag を始めたら submenu は閉じる。</li>
+      <li>submenu の Move up / Move down は引き続き動く。</li>
+      <li>cursor が行 hover で <code>grab</code>、drag 中で <code>grabbing</code>。kebab hover では <code>pointer</code>。</li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance — 共通</h3>
+    <ol>
+      <li>dropdown は topbar 直下に隙間なく開く (state vector aspect dropdown と同じ接続感)。</li>
+      <li>snapshot tests は drag 中の中間 frame をキャプチャしない (flaky 防止) ─ before / after だけ。</li>
+      <li><code>cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings</code> 通過、<code>cargo fmt --check</code> クリーン、<code>cargo insta test</code> → review で全 snapshot accept。</li>
+    </ol>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 回路ピッカー仕様 · 2026-05</p>
+</footer>
+
+<script>
+  (function () {
+    const dropdown = document.getElementById('proto-dropdown');
+    const items = document.getElementById('proto-items');
+    const handle = document.getElementById('proto-resize');
+    const readout = document.getElementById('proto-readout');
+    if (!dropdown || !items || !handle) return;
+
+    const ROW_H = 36;
+    const MIN_ITEMS_H = 72;   // 2 rows
+    const DEFAULT_H = 216;    // 6 rows
+
+    // Edge auto-scroll tuning.
+    const EDGE_ZONE = 36;     // px from top/bottom of pane that triggers auto-scroll
+    const MAX_SCROLL_PX = 12; // px / frame at the very edge (linear ramp to 0 at zone inner)
+
+    // Seed enough circuits to make scrolling meaningful.
+    const data = [
+      'Bell state', 'GHZ state', 'QFT 4-qubit', 'Grover (3 qubits)',
+      'Quantum teleportation', 'Phase kickback', 'W state',
+      'Deutsch-Jozsa', 'Untitled 9', 'Untitled 10', 'Untitled 11', 'Untitled 12',
+    ];
+    const activeName = data[0];        // active row stays "active" regardless of position
+
+    function renderRows() {
+      items.innerHTML = data.map(name =>
+        `<div class="picker-item${name === activeName ? ' is-active' : ''}"><span class="name">${name}</span></div>`
+      ).join('');
+    }
+    renderRows();
+
+    let itemsHeight = DEFAULT_H;
+
+    function maxItemsHeight() {
+      const contentMax = data.length * ROW_H + 12;
+      const viewport = window.innerHeight - 240; // chrome + footer rough cap
+      return Math.min(contentMax, Math.max(MIN_ITEMS_H, viewport));
+    }
+
+    function apply() {
+      const h = Math.max(MIN_ITEMS_H, Math.min(itemsHeight, maxItemsHeight()));
+      items.style.height = h + 'px';
+      readout.textContent = `items_height = ${Math.round(h)} px (min ${MIN_ITEMS_H}, max ${Math.round(maxItemsHeight())})`;
+    }
+    apply();
+
+    /* ─────────── resize separator ─────────── */
+    let resizeDrag = null;
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      resizeDrag = { startY: e.clientY, baseHeight: itemsHeight };
+      handle.classList.add('is-dragging');
+      document.body.classList.add('is-resize-dragging');
+      function onMove(ev) {
+        const dy = ev.clientY - resizeDrag.startY;
+        itemsHeight = resizeDrag.baseHeight + dy;
+        apply();
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        handle.classList.remove('is-dragging');
+        document.body.classList.remove('is-resize-dragging');
+        resizeDrag = null;
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    window.addEventListener('resize', apply);
+
+    /* ─────────── drag-to-reorder + edge auto-scroll ───────────
+
+       Slot-based reorder:
+         ・During drag we do NOT mutate the DOM. The dragged row gets a
+           translateY transform that tracks the cursor. Non-dragged rows
+           get a uniform ±ROW_H shift, depending on whether the dragged
+           slot has moved past them. CSS `transition: transform 80 ms`
+           on .picker-item gives one smooth slide per row per slot
+           crossing.
+         ・On drop, we splice the data array and re-render once. No
+           per-frame DOM churn means no FLIP cascade and no jitter
+           during auto-scroll. */
+    let itemDrag = null;          // { el, startClientY, startScrollTop, pointerY, origIndex, currentSlot }
+    let autoScrollRaf = null;
+    let autoScrollSpeed = 0;      // px / frame, signed (+ = down, − = up)
+
+    items.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const row = e.target.closest('.picker-item');
+      if (!row) return;
+      e.preventDefault();
+      const rows = Array.from(items.querySelectorAll('.picker-item'));
+      const origIndex = rows.indexOf(row);
+      itemDrag = {
+        el: row,
+        startClientY: e.clientY,
+        startScrollTop: items.scrollTop,
+        pointerY: e.clientY,
+        origIndex,
+        currentSlot: origIndex,
+      };
+      row.classList.add('is-dragging');
+      document.body.classList.add('is-item-dragging');
+      updateDraggedTransform();
+      document.addEventListener('mousemove', onItemMove);
+      document.addEventListener('mouseup', onItemUp);
+    });
+
+    function onItemMove(ev) {
+      if (!itemDrag) return;
+      itemDrag.pointerY = ev.clientY;
+      updateSlot();
+      updateDraggedTransform();
+      updateAutoScroll();
+    }
+
+    function onItemUp() {
+      if (!itemDrag) return;
+      const { origIndex, currentSlot } = itemDrag;
+      document.body.classList.remove('is-item-dragging');
+      document.removeEventListener('mousemove', onItemMove);
+      document.removeEventListener('mouseup', onItemUp);
+      stopAutoScroll();
+
+      if (currentSlot !== origIndex) {
+        const [moved] = data.splice(origIndex, 1);
+        data.splice(currentSlot, 0, moved);
+        itemDrag = null;
+        renderRows();           // fresh DOM clears all transforms / classes
+      } else {
+        Array.from(items.querySelectorAll('.picker-item')).forEach(r => {
+          r.style.transform = '';
+        });
+        itemDrag.el.classList.remove('is-dragging');
+        itemDrag = null;
+      }
+    }
+
+    /* Map cursor screen-Y to a slot index in items-internal coordinates
+       (taking scrollTop into account). Slot changes trigger a one-time
+       transform update on non-dragged rows. */
+    function updateSlot() {
+      if (!itemDrag) return;
+      const itemsRect = items.getBoundingClientRect();
+      const yInItems = itemDrag.pointerY - itemsRect.top + items.scrollTop;
+      let slot = Math.floor(yInItems / ROW_H);
+      slot = Math.max(0, Math.min(data.length - 1, slot));
+      if (slot !== itemDrag.currentSlot) {
+        itemDrag.currentSlot = slot;
+        applyVisualOrder();
+      }
+    }
+
+    /* Non-dragged rows shift by exactly ±ROW_H depending on which side
+       of origIndex the dragged slot currently is. Rows outside the range
+       between origIndex and currentSlot get transform reset. */
+    function applyVisualOrder() {
+      if (!itemDrag) return;
+      const { el, origIndex, currentSlot } = itemDrag;
+      const rows = items.querySelectorAll('.picker-item');
+      rows.forEach((row, i) => {
+        if (row === el) return;
+        let shift = 0;
+        if (currentSlot > origIndex && i > origIndex && i <= currentSlot) shift = -ROW_H;
+        if (currentSlot < origIndex && i >= currentSlot && i < origIndex) shift = ROW_H;
+        row.style.transform = shift === 0 ? '' : `translateY(${shift}px)`;
+      });
+    }
+
+    /* Dragged row visually tracks the cursor. Translation includes a
+       Δscroll correction so the row stays under the cursor in screen
+       space regardless of auto-scrolling. Clamped to keep the row
+       inside the items pane viewport. */
+    function updateDraggedTransform() {
+      if (!itemDrag) return;
+      const { el, startClientY, startScrollTop, pointerY } = itemDrag;
+      const rawDy = (pointerY - startClientY) + (items.scrollTop - startScrollTop);
+      const elTop = el.offsetTop;        // relative to .picker-items (it has position: relative)
+      const minDy = items.scrollTop - elTop;
+      const maxDy = items.scrollTop - elTop + items.clientHeight - el.offsetHeight;
+      const dy = Math.max(minDy, Math.min(maxDy, rawDy));
+      el.style.transform = `translateY(${dy}px)`;
+    }
+
+    /* Edge auto-scroll: while dragging, if the cursor sits in the top or
+       bottom EDGE_ZONE of the items pane, scroll the pane in that
+       direction at a speed proportional to how deep into the zone the
+       cursor is (linear ramp). */
+    function updateAutoScroll() {
+      if (!itemDrag) return;
+      const rect = items.getBoundingClientRect();
+      let speed = 0;
+      if (itemDrag.pointerY < rect.top + EDGE_ZONE) {
+        const depth = Math.min(EDGE_ZONE, (rect.top + EDGE_ZONE) - itemDrag.pointerY);
+        speed = -(depth / EDGE_ZONE) * MAX_SCROLL_PX;
+      } else if (itemDrag.pointerY > rect.bottom - EDGE_ZONE) {
+        const depth = Math.min(EDGE_ZONE, itemDrag.pointerY - (rect.bottom - EDGE_ZONE));
+        speed = (depth / EDGE_ZONE) * MAX_SCROLL_PX;
+      }
+      autoScrollSpeed = speed;
+      if (speed !== 0 && autoScrollRaf == null) {
+        autoScrollRaf = requestAnimationFrame(autoScrollTick);
+      } else if (speed === 0) {
+        stopAutoScroll();
+      }
+    }
+
+    function autoScrollTick() {
+      autoScrollRaf = null;
+      if (!itemDrag || autoScrollSpeed === 0) return;
+      const before = items.scrollTop;
+      items.scrollTop = before + autoScrollSpeed;
+      if (items.scrollTop === before) return;     // hit edge — stop
+      updateSlot();
+      updateDraggedTransform();
+      autoScrollRaf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function stopAutoScroll() {
+      if (autoScrollRaf != null) cancelAnimationFrame(autoScrollRaf);
+      autoScrollRaf = null;
+      autoScrollSpeed = 0;
+    }
+  })();
+</script>
+
+</body>
+</html>

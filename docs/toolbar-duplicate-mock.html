@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toolbar — Duplicate icon — UI モック</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    /* ───── App frame + toolbar ───── */
+    .app-frame {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .app-frame .scene-label {
+      background: var(--bg);
+      border-bottom: 1px solid var(--ui-2);
+      padding: 10px 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--tx-3);
+      text-transform: uppercase;
+    }
+    .app-body { padding: 0; background: var(--bg-2); min-height: 220px; position: relative; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg);
+      border: none;
+      border-radius: 0;
+      box-shadow: var(--shadow-card);
+      min-height: 32px;
+    }
+    .toolbar .spacer { flex: 1; }
+
+    .picker-trigger {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 8px 0 10px;
+      border-radius: 6px; border: none;
+      background: transparent;
+      color: var(--tx);
+      cursor: pointer;
+      font-family: var(--font-body); font-size: 14px;
+      font-weight: 500; line-height: 20px;
+      transition: background 120ms ease;
+      white-space: nowrap;
+    }
+    .picker-trigger:hover { background: var(--ui); }
+    .picker-trigger .chevron { width: 14px; height: 14px; color: var(--tx-2); }
+
+    .tool {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      padding: 0; border-radius: 6px;
+      background: transparent; border: none;
+      color: var(--tx-2);
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .tool:hover { background: var(--ui); color: var(--tx); }
+    .tool[disabled] { color: var(--tx-3); cursor: not-allowed; }
+    .tool svg { width: 18px; height: 18px; }
+
+    .tool-divider {
+      width: 1px; height: 18px;
+      background: var(--ui-2); margin: 0 2px;
+    }
+
+    .seg {
+      display: inline-flex; gap: 0;
+      padding: 2px;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      font-family: var(--font-mono); font-size: 13px;
+    }
+    .seg .opt {
+      padding: 4px 12px; border-radius: 6px;
+      color: var(--tx-2); letter-spacing: 0.04em;
+    }
+    .seg .opt.active.local { color: var(--bg); background: var(--tx-2); font-weight: 600; }
+
+    /* ───── Anatomy callout ───── */
+    .anatomy {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 28px 32px;
+      display: flex; gap: 32px; align-items: flex-start;
+    }
+    .anatomy table { flex: 1; border-collapse: collapse; font-size: 13px; }
+    .anatomy th, .anatomy td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--ui-2); vertical-align: top; }
+    .anatomy th { color: var(--tx-3); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; width: 140px; }
+    .anatomy td code { font-family: var(--font-mono); font-size: 12px; background: var(--ui); padding: 1px 5px; border-radius: 4px; }
+    .icon-spotlight {
+      flex-shrink: 0;
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+    }
+    .icon-spotlight svg { width: 48px; height: 48px; color: var(--tx); }
+
+    /* ───── Impl spec ───── */
+    .impl-spec {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+    }
+    .impl-spec h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .impl-spec ol { margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec ol code {
+      font-family: var(--font-mono); font-size: 13px;
+      background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx);
+    }
+    .impl-spec pre {
+      margin: 8px 0;
+      padding: 10px 14px;
+      background: var(--ui); border-radius: 6px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.55; overflow-x: auto;
+    }
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">周辺 UI</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">複製ボタンモック</span>
+</nav>
+
+<!-- Reusable icon defs — Lucide-style line icons, 24×24, stroke 2. -->
+<svg style="position:absolute; width:0; height:0" aria-hidden="true">
+  <defs>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/>
+    </symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="6 4 20 12 6 20"/>
+    </symbol>
+    <!-- Lucide "copy": two overlapping rounded rectangles. -->
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · ui mock</p>
+  <h1 class="page-title">Toolbar — Duplicate icon</h1>
+  <p class="page-lede">
+    上部ツールバーのゴミ箱の右隣に <strong>Duplicate (Lucide <code>copy</code>) アイコン</strong>を追加する。
+    アクティブな回路の複製を作って active を切り替える ─ circuit ピッカーのサブメニューにある
+    Duplicate と同じ動作を top-level でショートカット化する位置づけ。
+  </p>
+</div>
+
+<!-- ───────────────── 1. Toolbar with duplicate ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> ツールバーの位置 — ゴミ箱の右</h2>
+  <p class="note">
+    並びは <code>picker → undo → redo → trash → <strong>duplicate</strong> → divider → run → spacer → Local|GPU</code>。
+    Duplicate はゴミ箱と同じ「アクティブ回路に対する操作」グループに属するので、divider の<strong>左</strong>に置いて
+    実行 cluster とは分離する。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web ·上部 toolbar · Duplicate 追加後</div>
+    <div class="app-body">
+      <div class="toolbar">
+        <button class="picker-trigger" type="button">
+          <span class="name">Bell state</span>
+          <svg class="chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </button>
+        <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+        <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+        <button class="tool" aria-label="Clear circuit"><svg><use href="#i-trash"/></svg></button>
+        <button class="tool" aria-label="Duplicate circuit"><svg><use href="#i-copy"/></svg></button>
+        <span class="tool-divider"></span>
+        <button class="tool" aria-label="Run on GPU"><svg><use href="#i-play"/></svg></button>
+        <span class="spacer"></span>
+        <div class="seg">
+          <span class="opt active local">Local</span>
+          <span class="opt">GPU</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Icon anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span> アイコンの解剖</h2>
+  <p class="note">
+    Lucide <code>copy</code> ─ 2 つの角丸矩形が部分的に重なる line-art。<strong>背景の矩形 (左上)</strong> +
+    <strong>前面の矩形 (右下、塗り抜き) </strong>で構成され、「もう 1 つ作る」のメタファーが明快。
+    Geist の他のアイコン (undo / redo / trash / play) と同じ 24×24 viewBox / stroke-2 / linecap & linejoin: round
+    なので weight が完全に揃う。
+  </p>
+
+  <div class="anatomy">
+    <div class="icon-spotlight">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+    </div>
+
+    <table>
+      <thead><tr><th>part</th><th>spec</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>source</th>
+          <td>Lucide <code>copy</code> (<a href="https://lucide.dev/icons/copy" style="color:var(--blue-600); text-decoration:none">lucide.dev/icons/copy</a>)。Lucide は ISC ライセンスでそのままパス座標を写してよい。</td>
+        </tr>
+        <tr>
+          <th>viewBox</th>
+          <td><code>0 0 24 24</code> (他の toolbar アイコンと同じスケール)</td>
+        </tr>
+        <tr>
+          <th>shape 1 (前面)</th>
+          <td><code>&lt;rect x="9" y="9" width="13" height="13" rx="2" ry="2"/&gt;</code></td>
+        </tr>
+        <tr>
+          <th>shape 2 (背面の L 字)</th>
+          <td><code>&lt;path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/&gt;</code></td>
+        </tr>
+        <tr>
+          <th>描画</th>
+          <td>fill <code>none</code>、stroke <code>currentColor</code>、stroke-width <code>2</code>、linecap / linejoin <code>round</code>。
+            ボタン内では 18×18 px で描く (他の tool アイコンと同じ)。</td>
+        </tr>
+        <tr>
+          <th>tooltip / a11y</th>
+          <td><code>response.on_hover_text("Duplicate circuit")</code> を付ける。Cmd/Ctrl+D は<strong>本 PR では割り当てない</strong> (将来別 PR で hotkey の検討)。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 3. Impl spec ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> 実装仕様 (Codex 用リファレンス)</h2>
+
+  <div class="impl-spec">
+    <h3>差分は <code>render/toolbar.rs</code> と <code>app/circuit_library.rs</code> のみ。</h3>
+    <ol>
+      <li>
+        <strong>新規 <code>ToolbarIcon::Copy</code></strong> を <code>render/toolbar.rs</code> の
+        <code>ToolbarIcon</code> enum に追加。<code>paint_icon</code> の match 腕に <code>Lucide copy</code>
+        のパス 2 本 (<code>Rect (9,9)→(22,22) radius 2</code> と上 §02 の L 字 path) を <code>paint_path</code> で
+        順に描く。
+      </li>
+      <li>
+        <strong><code>show_edit_utilities</code> でゴミ箱と divider の間に挿入</strong>:
+        <pre>if icon_button(ui, colors, ToolbarIcon::Trash, true, "Clear circuit").clicked() {
+    // ... existing ...
+}
+if icon_button(ui, colors, ToolbarIcon::Copy, true, "Duplicate circuit").clicked() {
+    self.duplicate_active_circuit();
+    ctx.request_repaint();
+}</pre>
+      </li>
+      <li>
+        <strong>action: <code>QniApp::duplicate_active_circuit()</code></strong> を新規 (or 既存の
+        <code>CircuitLibrary::duplicate</code> を呼ぶ薄いラッパー)。実装はサブメニューの Duplicate と同等:
+        <pre>impl CircuitLibrary {
+    /// Insert a copy of the active entry right after it, with name
+    /// suffix " (copy)" (or numbered " (copy 2)" / " (copy 3)" if a
+    /// "(copy)" sibling already exists), and switch active to the
+    /// new entry. Triggers `bump_updated_at()`.
+    pub(crate) fn duplicate_active(&mut self) -> CircuitId { ... }
+}</pre>
+        既に submenu 用に同等のロジックが居れば、それを共有する形で OK。
+      </li>
+      <li>
+        <strong>サイズ / 色</strong> は他の <code>tool</code> ボタンと完全に同じ:
+        32×32 px ボタン、18×18 px icon、stroke 2、tx-2 idle、tx hover、tx-3 disabled。
+        hover bg = ui。kebab style の "color だけ濃く" は<strong>適用しない</strong>
+        (これは行内の kebab 専用ルール、ツールバーの通常 tool は bg + color 両方変える)。
+      </li>
+      <li>
+        <strong>disabled 条件</strong>: 通常時は always enabled (active 回路は常に存在するので)。
+        将来 active が null になるエッジケースが出てきたら disable する想定だが、本 PR では考慮不要。
+      </li>
+      <li>
+        <strong>テスト</strong>: <code>tests/egui-web-toolbar-duplicate.spec.ts</code> を新規:<br />
+        ・Duplicate ボタンクリック → 新 entry が active 直後に追加され active が切り替わる<br />
+        ・連続クリックで <code>... (copy) → (copy 2) → (copy 3)</code> のように suffix が増える<br />
+        ・既存 snapshot は toolbar アイコンが 1 個増えるので diff → <code>cargo insta review</code> で accept
+      </li>
+    </ol>
+
+    <h3 style="margin-top: 24px;">Acceptance</h3>
+    <ol>
+      <li>ツールバーのゴミ箱の右隣に Lucide <code>copy</code> アイコンが追加され、サイズ / 色 / hover 挙動が他の tool ボタンと一致。</li>
+      <li>クリックで active 回路の複製が picker entries の active 直後に挿入され、新 entry が active になる。</li>
+      <li>複製の名前は <code>"{元} (copy)"</code>、すでに同名がいるなら <code>(copy 2)</code> など連番。</li>
+      <li>tooltip <code>"Duplicate circuit"</code> がホバーで出る。</li>
+      <li>divider は引き続き trash <strong>と</strong> Duplicate の<strong>右</strong>に置く (= edit cluster と execute cluster の境界は変わらない)。</li>
+      <li><code>cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings</code> 通過、<code>cargo fmt --check</code> クリーン、<code>cargo insta test</code> → review で accept。</li>
+    </ol>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 複製ボタンモック · 2026-05</p>
+</footer>
+
+</body>
+</html>

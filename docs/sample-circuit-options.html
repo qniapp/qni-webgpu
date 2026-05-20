@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>サンプル回路の区別・保護オプション</title>
+<link rel="stylesheet" href="design-system.css" />
+<style>
+/* Flexoki Light: bg/bg-2/ui/ui-2/tx-3/tx-2/tx + named accents. Typography/spacing follows Tailwind default scale. */
+:root{--shadow-card:0 8px 24px rgba(16,15,15,.06);--shadow-panel:0 20px 48px rgba(16,15,15,.10)}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--tx);font-family:var(--font-body);font-size:16px;line-height:24px;background:var(--bg-2);background-image:radial-gradient(circle at 12% 4%,rgba(32,94,166,.10),transparent 30%),radial-gradient(circle at 88% 12%,rgba(102,128,11,.10),transparent 26%),linear-gradient(90deg,rgba(218,216,206,.55) 1px,transparent 1px),linear-gradient(180deg,rgba(218,216,206,.55) 1px,transparent 1px);background-size:auto,auto,32px 32px,32px 32px;padding:0 0 96px}
+.wrap{width:min(1320px,calc(100% - 64px));margin:0 auto;display:grid;grid-template-columns:208px minmax(0,1fr);gap:0 40px}
+.main{min-width:0;padding-top:56px}
+.toc{position:sticky;top:24px;align-self:start;grid-row:1/-1;max-height:calc(100dvh - 48px);overflow-y:auto;padding:16px 0}
+.toc-title{font:700 12px/16px var(--font-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--tx-3);border-bottom:1px solid var(--ui-2);padding-bottom:8px;margin-bottom:8px}
+.toc a{display:block;color:var(--tx-2);text-decoration:none;font-size:14px;line-height:20px;padding:6px 8px;border-left:2px solid transparent;border-radius:6px;transition:120ms}
+.toc a:hover,.toc a.active{background:var(--bg);color:var(--tx)}
+.toc a.active{border-left-color:var(--blue-600)}
+.eyebrow{color:var(--blue-600);font:700 12px/16px var(--font-mono);letter-spacing:.18em;text-transform:uppercase}
+h1{margin:12px 0;font-size:40px;line-height:48px;letter-spacing:-.02em;max-width:920px}
+.lede{max-width:880px;color:var(--tx-2);font-size:18px;line-height:28px;margin:0}
+.section{margin-top:56px;scroll-margin-top:24px}
+.section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.section-num{color:var(--tx-3);font:12px/16px var(--font-mono);letter-spacing:.16em}
+h2{margin:0;font-size:28px;line-height:36px;letter-spacing:-.01em}
+h3{margin:0;font-size:18px;line-height:28px;letter-spacing:-.01em}
+.section-note{max-width:860px;color:var(--tx-2);margin:0 0 24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{background:var(--bg);border:1px solid var(--ui-2);border-radius:16px;box-shadow:var(--shadow-card);padding:24px;min-width:0}
+.label{display:flex;align-items:center;gap:8px;color:var(--tx-2);font:700 12px/16px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px}
+.label:before{content:'';width:8px;height:8px;border-radius:999px;background:currentColor}
+.blue{color:var(--blue-600)}.green{color:var(--green-600)}.orange{color:var(--orange-600)}.purple{color:var(--purple-600)}.red{color:var(--red-600)}.cyan{color:var(--cyan-600)}
+.kpi{background:var(--bg-2);border:1px solid var(--ui-2);border-radius:12px;padding:16px}
+.kpi .num{font:700 24px/32px var(--font-mono);color:var(--blue-600)}
+.kpi .cap{color:var(--tx-2);font-size:14px;line-height:20px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.risk-list{display:grid;gap:12px}
+.risk{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:14px 16px;border:1px solid var(--ui-2);border-radius:12px;background:var(--bg)}
+.risk .badge{font:700 12px/16px var(--font-mono);color:var(--orange-600)}
+.risk p{margin:0;color:var(--tx-2)}
+.risk b{color:var(--tx)}
+table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid var(--ui-2);border-radius:14px;background:var(--bg)}
+th,td{text-align:left;vertical-align:top;padding:14px 16px;border-bottom:1px solid var(--ui-2);font-size:14px;line-height:20px}
+th{color:var(--tx);background:var(--ui);font:700 12px/16px var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border:1px solid var(--ui-2);border-radius:5px;padding:1px 5px;color:var(--tx)}
+.status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 8px;font:12px/16px var(--font-mono)}
+.status:before{content:'';width:6px;height:6px;border-radius:999px;background:currentColor}
+.ok{color:var(--green-600);background:rgba(102,128,11,.10)}
+.warn{color:var(--yellow-600);background:rgba(173,131,1,.10)}
+.stop{color:var(--red-600);background:rgba(175,48,41,.10)}
+.code-block{margin:0;background:var(--tx);color:var(--bg);border-radius:12px;padding:16px;overflow-x:auto;white-space:pre-wrap;font:13px/20px var(--font-mono)}
+.callout{border-left:4px solid var(--blue-600);background:color-mix(in srgb,var(--blue-600) 7%,var(--bg));padding:16px 20px;border-radius:12px;color:var(--tx-2)}
+.callout strong{color:var(--tx)}
+.callout.warn-c{border-left-color:var(--orange-600);background:color-mix(in srgb,var(--orange-600) 7%,var(--bg))}
+.callout.green-c{border-left-color:var(--green-600);background:color-mix(in srgb,var(--green-600) 7%,var(--bg))}
+.option-head{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.option-tag{font:700 12px/16px var(--font-mono);letter-spacing:.12em;color:var(--blue-600);padding:2px 8px;border-radius:999px;background:rgba(32,94,166,.10)}
+.option-tag.b{color:var(--green-600);background:rgba(102,128,11,.10)}
+.option-tag.c{color:var(--purple-600);background:rgba(94,64,157,.10)}
+.option-tag.d{color:var(--cyan-600);background:rgba(36,131,123,.10)}
+.option-tag.e{color:var(--orange-600);background:rgba(188,82,21,.10)}
+.option-tag.rec{color:var(--bg);background:var(--green-600)}
+.option-meta{color:var(--tx-3);font:12px/16px var(--font-mono);letter-spacing:.08em}
+.mock{background:var(--bg);border:1px solid var(--ui-2);border-radius:14px;padding:16px;display:flex;justify-content:center;align-items:flex-start;min-height:280px}
+.dropdown{width:264px;background:var(--bg);border:1px solid var(--ui-2);border-radius:12px;box-shadow:var(--shadow-panel);padding:6px;font:14px/20px var(--font-body)}
+.trigger{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:8px;background:var(--bg-2);margin-bottom:6px;color:var(--tx);font:700 14px/20px var(--font-body)}
+.trigger .chev{color:var(--tx-3);font:13px/20px var(--font-mono)}
+.section-label{padding:6px 10px 4px;color:var(--tx-3);font:700 11px/16px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.section-label .line{flex:1;height:1px;background:var(--ui-2)}
+.row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;color:var(--tx);font-size:14px;line-height:20px;cursor:default;position:relative}
+.row.active{background:var(--bg-2)}
+.row.hover{background:var(--ui)}
+.row .name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .kebab{color:var(--tx-3);font:700 14px/14px var(--font-mono);letter-spacing:.05em}
+.row .leading{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;color:var(--blue-600);font:700 11px/14px var(--font-mono)}
+.row .leading.sample{color:var(--purple-600)}
+.badge-mini{font:700 9px/12px var(--font-mono);letter-spacing:.06em;color:var(--tx-2);background:var(--ui);border:1px solid var(--ui-2);border-radius:4px;padding:0 4px;text-transform:uppercase}
+.badge-mini.sample{color:var(--purple-600);background:color-mix(in srgb,var(--purple-600) 8%,var(--bg));border-color:color-mix(in srgb,var(--purple-600) 24%,var(--ui-2))}
+.badge-mini.edited{color:var(--orange-600);background:color-mix(in srgb,var(--orange-600) 8%,var(--bg));border-color:color-mix(in srgb,var(--orange-600) 24%,var(--ui-2))}
+.footer-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--ui-2);margin-top:6px;color:var(--tx-2);font-size:14px;line-height:20px}
+.footer-row.plus{color:var(--blue-600)}
+.divider-row{height:1px;background:var(--ui-2);margin:6px 8px}
+.modal-mock{width:312px;background:var(--bg);border:1px solid var(--ui-2);border-radius:14px;box-shadow:var(--shadow-panel);padding:18px;font:14px/20px var(--font-body)}
+.modal-mock h4{margin:0 0 6px;font-size:16px;line-height:24px}
+.modal-mock p{margin:0 0 16px;color:var(--tx-2);font-size:13px;line-height:18px}
+.modal-mock .btns{display:flex;gap:8px;justify-content:flex-end}
+.btn{font:700 13px/20px var(--font-body);padding:6px 12px;border-radius:8px;border:1px solid var(--ui-2);background:var(--bg-2);color:var(--tx);cursor:default}
+.btn.primary{background:var(--blue-600);color:var(--bg);border-color:var(--blue-600)}
+.compare-row{display:grid;grid-template-columns:160px repeat(5,minmax(0,1fr));gap:0;background:var(--bg);border:1px solid var(--ui-2);border-radius:14px;overflow:hidden}
+.compare-row > div{padding:12px 14px;border-bottom:1px solid var(--ui-2);font-size:13px;line-height:18px}
+.compare-row > div:not(:last-child){border-right:1px solid var(--ui-2)}
+.compare-row.head > div{background:var(--ui);font:700 11px/16px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+.compare-row.foot > div{border-bottom:0}
+.compare-row .axis{background:var(--bg-2);color:var(--tx);font:700 12px/16px var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
+.cell-good{color:var(--green-600);font:700 12px/16px var(--font-mono)}
+.cell-warn{color:var(--orange-600);font:700 12px/16px var(--font-mono)}
+.cell-bad{color:var(--red-600);font:700 12px/16px var(--font-mono)}
+.cell-na{color:var(--tx-3);font:700 12px/16px var(--font-mono)}
+.footer-note{margin-top:56px;padding:24px;border:1px dashed var(--ui-2);border-radius:16px;color:var(--tx-2);background:rgba(255,252,240,.66)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card,table,.footer-note,.compare-row,.mock{animation:fadeUp 420ms ease-out both}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(max-width:1080px){.wrap{width:min(100% - 32px,920px);grid-template-columns:1fr}.toc{position:sticky;top:0;z-index:20;display:flex;gap:4px;align-items:center;max-height:none;overflow-x:auto;overflow-y:hidden;background:var(--bg-2);border-bottom:1px solid var(--ui-2);padding:10px 16px;margin:0 -16px}.toc-title{display:none}.toc a{white-space:nowrap;border-left:0;border-bottom:2px solid transparent;flex-shrink:0}.toc a.active{border-bottom-color:var(--blue-600)}.main{padding-top:32px}.grid-2,.grid-3{grid-template-columns:1fr}.compare-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">周辺 UI</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">サンプル回路選択</span>
+</nav>
+
+<div class="wrap">
+<nav class="toc" id="toc" aria-label="sample circuit option sections">
+  <div class="toc-title">Contents</div>
+  <a href="#overview" class="active">Overview</a>
+  <a href="#problem">Problem</a>
+  <a href="#axes">Axes</a>
+  <a href="#option-a">A · バッジ+確認</a>
+  <a href="#option-b">B · 2 セクション</a>
+  <a href="#option-c">C · ギャラリー分離</a>
+  <a href="#option-d">D · Copy on Edit</a>
+  <a href="#option-e">E · Origin タグ+Reset</a>
+  <a href="#compare">比較表</a>
+  <a href="#recommendation">推奨</a>
+</nav>
+<main class="main">
+<div class="eyebrow">QNI WebGPU · Circuit picker / Sample circuits</div>
+<h1>サンプル回路をユーザ回路と区別し、誤編集から守るための UI 案</h1>
+<p class="lede">Bell / GHZ / QFT-4 / Grover Search のような同梱サンプルを circuit picker に並べると、ユーザが作った回路と見分けがつかず、サンプルを編集して元に戻せなくなる。この文書では 5 つの案 (A〜E) を提案し、トレードオフを比較する。</p>
+
+<section class="section" id="overview">
+  <div class="section-head"><span class="section-num">00</span><h2>背景</h2></div>
+  <p class="section-note">現在の実装では、起動時に <code class="code-inline">CircuitLibrary::seed()</code> がサンプル 4 件を生成し、ユーザが新規作成した回路と同じ <code class="code-inline">qni.circuit_library.v1</code> に同居する。両者は <code class="code-inline">CircuitEntry</code> 構造が同一で、ドロップダウンに区別表示はない。サンプルを編集すると JSON が上書きされ、元の定義に戻す手段がない。</p>
+  <div class="kpis">
+    <div class="kpi"><div class="num">4</div><div class="cap">同梱サンプル件数 (今後増える前提)</div></div>
+    <div class="kpi"><div class="num">同居</div><div class="cap">サンプルとユーザ回路は同一 localStorage キー</div></div>
+    <div class="kpi"><div class="num">無印</div><div class="cap">ドロップダウンにバッジ・セクション無し</div></div>
+  </div>
+</section>
+
+<section class="section" id="problem">
+  <div class="section-head"><span class="section-num">01</span><h2>解決したい 3 つの摩擦</h2></div>
+  <p class="section-note">サンプルをライブラリに同居させる以上、以下の摩擦が常に発生する。案ごとにどれを解消し、どれを残すかを明示する。</p>
+  <div class="grid-3">
+    <div class="card"><div class="label red">P1</div><h3 style="margin-bottom:8px">区別不能</h3><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:20px">サンプルかユーザ回路かが視覚的にわからない。「Grover Search」を消していいのか迷う。</p></div>
+    <div class="card"><div class="label orange">P2</div><h3 style="margin-bottom:8px">破壊的編集</h3><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:20px">サンプルを開いて少し試した結果が元の定義を上書きする。初期状態に戻す導線がない。</p></div>
+    <div class="card"><div class="label yellow">P3</div><h3 style="margin-bottom:8px">追加・更新の衝突</h3><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:20px">アプリ更新でサンプルを増やす / 内容を直すとき、ユーザの編集済みインスタンスをどう扱うか方針がない。</p></div>
+  </div>
+</section>
+
+<section class="section" id="axes">
+  <div class="section-head"><span class="section-num">02</span><h2>設計軸</h2></div>
+  <p class="section-note">案の差異は次の 4 軸に集約される。比較表 (§08) はこの軸でスコアする。</p>
+  <table>
+    <thead><tr><th>軸</th><th>選択肢</th><th>含意</th></tr></thead>
+    <tbody>
+      <tr><td><b>視覚区別</b></td><td>無印 / バッジ / セクション / 別 UI</td><td>P1 の解像度。バッジは省スペース、セクションは明確、別 UI は最強だが導線が遠い。</td></tr>
+      <tr><td><b>編集ポリシー</b></td><td>そのまま許可 / 自動フォーク / 編集禁止 / 確認</td><td>P2 の解。サンプルを mutable にするほど自由、immutable にするほど安全。</td></tr>
+      <tr><td><b>storage</b></td><td>同居 / origin タグ / 別キー</td><td>サンプル更新時の merge ロジックの複雑さに直結する。</td></tr>
+      <tr><td><b>導線コスト</b></td><td>1 クリック / 2 クリック / メニュー奥</td><td>新規ユーザがサンプルから入る経路の摩擦。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section" id="option-a">
+  <div class="section-head"><span class="section-num">03</span><h2>案 A · バッジ + 編集前ダイアログ</h2></div>
+  <div class="option-head"><span class="option-tag">OPTION A</span><span class="option-meta">最小実装 · 既存ドロップダウン据え置き</span></div>
+  <p class="section-note">サンプルにだけ「SAMPLE」バッジを付与し、編集が始まる瞬間に「複製して編集しますか？ / そのまま編集しますか？」を確認する。同居・編集許可のまま、視覚と確認だけ追加する案。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label purple">UI mock</div>
+      <div class="mock">
+        <div class="dropdown">
+          <div class="trigger"><span>Grover Search</span><span class="chev">▾</span></div>
+          <div class="row"><span class="name">Bell state</span><span class="badge-mini sample">Sample</span></div>
+          <div class="row"><span class="name">GHZ state</span><span class="badge-mini sample">Sample</span></div>
+          <div class="row"><span class="name">QFT 4-qubit</span><span class="badge-mini sample">Sample</span></div>
+          <div class="row active"><span class="name">Grover Search</span><span class="badge-mini sample">Sample</span><span class="badge-mini edited">Edited</span></div>
+          <div class="row"><span class="name">Circuit 1</span></div>
+          <div class="row"><span class="name">my-experiment</span></div>
+          <div class="footer-row plus"><span>+ New circuit</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label blue">編集前確認 (mock)</div>
+      <div class="mock">
+        <div class="modal-mock">
+          <h4>サンプル回路を編集</h4>
+          <p><b>Grover Search</b> はサンプルです。複製して編集することをおすすめします。</p>
+          <div class="btns">
+            <span class="btn">そのまま編集</span>
+            <span class="btn primary">複製して編集</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>UI 構造を変えない。</li><li>「Edited」バッジで P3 (更新衝突) も部分的に可視化。</li><li>確認は初回 + opt-out 可。</li></ul></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>ダイアログ疲れ。</li><li>サンプル削除可否が曖昧なまま。</li><li>サンプルが増えると一覧で目立たない。</li></ul></div>
+    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin: Sample|User</code> を追加。<code class="code-inline">paint_picker_item_text</code> でバッジ描画。<code class="code-inline">update_active</code> の前でダイアログを挟む。</p></div>
+  </div>
+</section>
+
+<section class="section" id="option-b">
+  <div class="section-head"><span class="section-num">04</span><h2>案 B · ドロップダウン内 2 セクション</h2></div>
+  <div class="option-head"><span class="option-tag b">OPTION B</span><span class="option-meta">中庸案 · セクション見出しで明確に区切る</span></div>
+  <p class="section-note">「サンプル」と「マイ回路」を見出しで分け、サンプルをクリックすると自動的に「マイ回路」へ複製して、複製先をアクティブにする。サンプルそのものは常に原型のまま残る (実質 read-only)。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label purple">UI mock</div>
+      <div class="mock">
+        <div class="dropdown">
+          <div class="trigger"><span>Grover Search (copy)</span><span class="chev">▾</span></div>
+          <div class="section-label"><span>Samples</span><span class="line"></span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">Bell state</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">GHZ state</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">QFT 4-qubit</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">Grover Search</span></div>
+          <div class="section-label" style="margin-top:6px"><span>My circuits</span><span class="line"></span></div>
+          <div class="row active"><span class="name">Grover Search (copy)</span></div>
+          <div class="row"><span class="name">Circuit 1</span></div>
+          <div class="row"><span class="name">my-experiment</span></div>
+          <div class="footer-row plus"><span>+ New circuit</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label cyan">動作モデル</div>
+      <table>
+        <thead><tr><th>操作</th><th>サンプル行</th><th>マイ回路行</th></tr></thead>
+        <tbody>
+          <tr><td>クリック</td><td>マイ回路に複製してアクティブ化</td><td>そのままアクティブ化</td></tr>
+          <tr><td>Kebab</td><td>Duplicate のみ</td><td>Rename / Duplicate / Delete</td></tr>
+          <tr><td>Drag reorder</td><td>サンプル内のみで並べ替え</td><td>マイ回路内のみで並べ替え</td></tr>
+          <tr><td>Delete</td><td>不可 (kebab に項目を出さない)</td><td>可</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>P1・P2 を同時に解決。</li><li>サンプルは常に原型保証。アプリ更新で安全に内容更新できる。</li><li>「マイ回路」概念がユーザに明示される。</li></ul></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>クリックで毎回複製されるためノイズが増える。</li><li>「サンプルを 1 度だけ閲覧」したいユースケースに摩擦。</li><li>ドロップダウンが縦に長くなる。</li></ul></div>
+    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプルを別 const 配列に分離し、<code class="code-inline">entries</code> 描画ループでセクション見出しを挿入。サンプル行の <code class="code-inline">Select</code> action は <code class="code-inline">Duplicate</code> へ rewire。</p></div>
+  </div>
+</section>
+
+<section class="section" id="option-c">
+  <div class="section-head"><span class="section-num">05</span><h2>案 C · サンプルをギャラリーに分離</h2></div>
+  <div class="option-head"><span class="option-tag c">OPTION C</span><span class="option-meta">大胆案 · ドロップダウンには「マイ回路」だけ</span></div>
+  <p class="section-note">サンプルはピッカーから完全に外し、「<b>+ New</b>」の隣に「<b>+ From example…</b>」エントリを置く。クリックでサンプルギャラリー (sub-popover or modal) を出し、選んだ瞬間にマイ回路へインポートする。ピッカー本体はユーザ回路だけになる。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label purple">Picker (mock)</div>
+      <div class="mock">
+        <div class="dropdown">
+          <div class="trigger"><span>Circuit 1</span><span class="chev">▾</span></div>
+          <div class="row active"><span class="name">Circuit 1</span></div>
+          <div class="row"><span class="name">my-experiment</span></div>
+          <div class="row"><span class="name">Grover Search (copy)</span></div>
+          <div class="footer-row plus"><span>+ New circuit</span></div>
+          <div class="footer-row plus"><span>+ From example…</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label blue">Gallery (mock)</div>
+      <div class="mock">
+        <div class="dropdown" style="width:280px">
+          <div class="trigger" style="margin-bottom:8px"><span>Insert example</span><span class="chev">▾</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">Bell state</span><span class="badge-mini">2 量子ビット</span></div>
+          <div class="row hover"><span class="leading sample">★</span><span class="name">GHZ state</span><span class="badge-mini">3 量子ビット</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">QFT 4-qubit</span><span class="badge-mini">4 量子ビット</span></div>
+          <div class="row"><span class="leading sample">★</span><span class="name">Grover Search</span><span class="badge-mini">5 量子ビット</span></div>
+          <div class="footer-row" style="color:var(--tx-3);font-size:12px">挿入すると「マイ回路」に追加されます。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>ピッカーがいつでもユーザの作業空間として綺麗。</li><li>サンプル増加に強い (ギャラリーで分類・検索可)。</li><li>P1・P2・P3 すべて解決。</li></ul></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>新規ユーザがサンプルに 1 クリックで触れない (発見性低下)。</li><li>初回起動時に何を表示するか考える必要がある (空 + CTA)。</li><li>実装範囲が広い (gallery popover が増える)。</li></ul></div>
+    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプル定義を <code class="code-inline">samples.rs</code> に隔離、<code class="code-inline">seed()</code> から外す。新規 sub-popover (gallery) を <code class="code-inline">render/circuit_picker/gallery.rs</code> として追加。</p></div>
+  </div>
+</section>
+
+<section class="section" id="option-d">
+  <div class="section-head"><span class="section-num">06</span><h2>案 D · Copy on Edit (見えないフォーク)</h2></div>
+  <div class="option-head"><span class="option-tag d">OPTION D</span><span class="option-meta">魔法案 · ユーザに意識させずサンプルを守る</span></div>
+  <p class="section-note">サンプルは常に read-only にマークする。ユーザが編集操作 (ゲートを置く / 消す / 量子ビット数変更) を始めた瞬間に、自動的にマイ回路へ複製してアクティブを切り替え、編集はその複製に当てる。元のサンプルは触られない。VS Code が読み取り専用ファイルを開いて編集すると「Copy to writable」を促す挙動に近いが、こちらはサイレントに行う。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label purple">UI mock (編集中)</div>
+      <div class="mock">
+        <div class="dropdown">
+          <div class="trigger"><span>Grover Search (working copy)</span><span class="chev">▾</span></div>
+          <div class="section-label"><span>Samples · 読み取り専用</span><span class="line"></span></div>
+          <div class="row"><span class="leading sample">🔒</span><span class="name">Bell state</span></div>
+          <div class="row"><span class="leading sample">🔒</span><span class="name">GHZ state</span></div>
+          <div class="row"><span class="leading sample">🔒</span><span class="name">QFT 4-qubit</span></div>
+          <div class="row"><span class="leading sample">🔒</span><span class="name">Grover Search</span></div>
+          <div class="section-label" style="margin-top:6px"><span>My circuits</span><span class="line"></span></div>
+          <div class="row active"><span class="name">Grover Search (working copy)</span><span class="badge-mini edited">Forked</span></div>
+          <div class="footer-row plus"><span>+ New circuit</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label cyan">タイミング</div>
+      <table>
+        <thead><tr><th>イベント</th><th>挙動</th></tr></thead>
+        <tbody>
+          <tr><td>サンプル選択</td><td>read-only としてエディタに表示。ツールバーに <span class="status warn">read-only</span> 表示。</td></tr>
+          <tr><td>最初の編集操作</td><td>auto-fork してマイ回路にコピー。トースト「Forked to My circuits」。</td></tr>
+          <tr><td>Undo で fork 自体を戻す</td><td>fork 作成 → 編集 → undo 3 回でサンプル選択前の状態。</td></tr>
+          <tr><td>Save / URL 共有</td><td>fork した working copy を保存・共有。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>サンプルは原型保証 + 1 クリックで触れる発見性も維持。</li><li>「複製してから編集」を意識させない。</li><li>P1・P2・P3 すべて解決。</li></ul></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>暗黙のフォークは「いつの間にか別物を編集している」混乱を生み得る。</li><li>read-only 中の URL 共有・undo 仕様の設計が必要。</li><li>fork 検出を「編集操作」フックに正確に置く実装難易度。</li></ul></div>
+    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry.origin</code> + <code class="code-inline">editor_lock</code> 状態追加。<code class="code-inline">apply_gate_edit</code> / <code class="code-inline">set_qubits</code> など mutation 経路の入口で「サンプルなら先に複製」を共通化。</p></div>
+  </div>
+</section>
+
+<section class="section" id="option-e">
+  <div class="section-head"><span class="section-num">07</span><h2>案 E · Origin タグ + Reset to default</h2></div>
+  <div class="option-head"><span class="option-tag e">OPTION E</span><span class="option-meta">寛容案 · 編集は許可、いつでも巻き戻せる</span></div>
+  <p class="section-note">サンプルもユーザと同じく自由に編集できるが、<code class="code-inline">origin</code> タグを持たせ、kebab メニューに「Reset to default」を出す。サンプルの canonical JSON はコード側 const から常に参照可能。「Reset」で初期値に戻す。アプリ更新でサンプル定義が変わったら、未編集のサンプルだけ自動同期する。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label purple">Kebab submenu (mock)</div>
+      <div class="mock">
+        <div class="dropdown" style="width:208px">
+          <div class="row"><span class="name">Rename</span></div>
+          <div class="row"><span class="name">Duplicate</span></div>
+          <div class="row"><span class="name">Move up</span></div>
+          <div class="row"><span class="name">Move down</span></div>
+          <div class="divider-row"></div>
+          <div class="row hover" style="color:var(--blue-600)"><span class="name">Reset to default</span></div>
+          <div class="row" style="color:var(--red-600)"><span class="name">Delete</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label cyan">Origin 状態遷移</div>
+      <table>
+        <thead><tr><th>状態</th><th>表示</th><th>挙動</th></tr></thead>
+        <tbody>
+          <tr><td>Sample, untouched</td><td><span class="badge-mini sample">Sample</span></td><td>アプリ更新時に自動で最新定義へ同期。</td></tr>
+          <tr><td>Sample, edited</td><td><span class="badge-mini sample">Sample</span> <span class="badge-mini edited">Edited</span></td><td>Reset でいつでも初期値へ。自動同期しない。</td></tr>
+          <tr><td>User</td><td>—</td><td>Reset 項目は出さない。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>編集の自由度を奪わない。</li><li>サンプル定義の更新を自動反映する道が開ける。</li><li>UI 変更が小さい (バッジと 1 メニュー項目)。</li></ul></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>「Reset」項目に気付かないと P2 は解決しない。</li><li>ユーザの編集を一発で失う破壊的操作になりうる (要確認ダイアログ)。</li><li>P1 はバッジ依存。</li></ul></div>
+    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry.origin</code> + <code class="code-inline">origin_id</code> 追加。サンプルの canonical map を <code class="code-inline">circuit-library-model</code> に保持。kebab に <code class="code-inline">Reset</code> action 追加。</p></div>
+  </div>
+</section>
+
+<section class="section" id="compare">
+  <div class="section-head"><span class="section-num">08</span><h2>比較表</h2></div>
+  <p class="section-note">各案を §02 の 4 軸 + 解決度 + 実装規模で並べる。<span class="cell-good">◎</span> 解決, <span class="cell-warn">○</span> 部分解決, <span class="cell-bad">×</span> 未解決, <span class="cell-na">—</span> 該当なし。</p>
+  <div class="compare-row head">
+    <div></div><div>A · バッジ+確認</div><div>B · 2 セクション</div><div>C · ギャラリー分離</div><div>D · Copy on Edit</div><div>E · Origin+Reset</div>
+  </div>
+  <div class="compare-row">
+    <div class="axis">P1 区別</div>
+    <div><span class="cell-warn">○</span> バッジで識別</div>
+    <div><span class="cell-good">◎</span> 見出しで分離</div>
+    <div><span class="cell-good">◎</span> 別 UI</div>
+    <div><span class="cell-good">◎</span> 見出し + 鍵アイコン</div>
+    <div><span class="cell-warn">○</span> バッジで識別</div>
+  </div>
+  <div class="compare-row">
+    <div class="axis">P2 破壊防止</div>
+    <div><span class="cell-warn">○</span> 編集前ダイアログ</div>
+    <div><span class="cell-good">◎</span> 自動複製</div>
+    <div><span class="cell-good">◎</span> 挿入時のみ複製</div>
+    <div><span class="cell-good">◎</span> auto-fork</div>
+    <div><span class="cell-warn">○</span> Reset で復元可</div>
+  </div>
+  <div class="compare-row">
+    <div class="axis">P3 更新衝突</div>
+    <div><span class="cell-bad">×</span> 方針なし</div>
+    <div><span class="cell-good">◎</span> サンプルは別管理</div>
+    <div><span class="cell-good">◎</span> サンプルは別管理</div>
+    <div><span class="cell-good">◎</span> サンプルは別管理</div>
+    <div><span class="cell-warn">○</span> 未編集のみ同期</div>
+  </div>
+  <div class="compare-row">
+    <div class="axis">導線コスト</div>
+    <div>1 クリック</div>
+    <div>1 クリック</div>
+    <div>2 クリック</div>
+    <div>1 クリック</div>
+    <div>1 クリック</div>
+  </div>
+  <div class="compare-row">
+    <div class="axis">学習コスト</div>
+    <div>低</div>
+    <div>低</div>
+    <div>中</div>
+    <div>中 (auto-fork)</div>
+    <div>低</div>
+  </div>
+  <div class="compare-row foot">
+    <div class="axis">実装規模</div>
+    <div>小</div>
+    <div>中</div>
+    <div>大</div>
+    <div>中〜大</div>
+    <div>小〜中</div>
+  </div>
+</section>
+
+<section class="section" id="recommendation">
+  <div class="section-head"><span class="section-num">09</span><h2>推奨と段階導入</h2></div>
+  <p class="section-note">単独採用なら <b>案 B (2 セクション + 自動複製)</b> が UI の素直さと安全性のバランスがよい。長期的には <b>案 D (Copy on Edit)</b> に拡張する余地がある。</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="label green">Phase 1 · まず案 B</div>
+      <ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px">
+        <li><code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin: Sample | User</code> を追加。</li>
+        <li>サンプル const を <code class="code-inline">circuit-library-model</code> に分離。<code class="code-inline">seed()</code> はサンプル + 空 User 1 件で開始。</li>
+        <li>ピッカー描画ループでセクション見出しを挟む。</li>
+        <li>サンプル行の <code class="code-inline">Select</code> action を「複製 → アクティブ化」に書き換え。</li>
+        <li>サンプル行の kebab を <code class="code-inline">Duplicate</code> のみに制限。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="label blue">Phase 2 · 必要なら案 D</div>
+      <ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px">
+        <li>サンプル「閲覧」モードを足す: クリック直後はコピーせず read-only で開く。</li>
+        <li>編集 mutation の共通入口に「Sample なら fork してから適用」を挿入。</li>
+        <li>fork 直後に toast 表示 (「Forked to My circuits」)。</li>
+        <li>read-only 中はツールバーから保存・URL share を抑止 (or 自動 fork)。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout warn-c" style="margin-top:24px"><strong>避けたい組み合わせ:</strong> 案 A 単独。P3 (更新衝突) の方針がないまま編集を許可するとアプリ更新時にユーザのサンプル定義と新定義の差分処理が破綻する。案 A を採るなら最低でも <code class="code-inline">origin</code> タグ + 案 E の Reset を併用する。</div>
+  <div class="callout green-c" style="margin-top:16px"><strong>共通の前提:</strong> どの案でも <code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin</code> (<code class="code-inline">Sample { origin_id }</code> | <code class="code-inline">User</code>) を導入する価値がある。これがあるだけで「サンプル削除を許可するか」「アプリ更新時にどう merge するか」を後から自由に決められる。</div>
+</section>
+
+<div class="footer-note"><strong>次の一歩:</strong> Phase 1 (案 B) のうち、まず <code class="code-inline">CircuitEntry.origin</code> 導入とサンプル const 分離を独立 PR にする。UI のセクション見出し追加は別 PR で、スナップショットテストで visual diff を確認する。Phase 2 への移行余地を残すため、サンプル選択時の挙動 (「即複製」か「read-only で開く」か) は app 層の 1 関数に集約しておく。</div>
+</main></div>
+<script>(function(){const toc=document.getElementById('toc');if(!toc)return;const links=[...toc.querySelectorAll('a')];const sections=links.map(link=>({link,el:document.getElementById(link.getAttribute('href').slice(1))})).filter(x=>x.el);const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;links.forEach(l=>l.classList.remove('active'));const match=sections.find(x=>x.el===entry.target);if(match){match.link.classList.add('active');if(window.innerWidth<=1080)match.link.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}})},{rootMargin:'-10% 0px -78% 0px'});sections.forEach(x=>observer.observe(x.el));links.forEach(link=>link.addEventListener('click',e=>{e.preventDefault();const el=document.getElementById(link.getAttribute('href').slice(1));if(el){el.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'','#'+el.id);}}));})();</script>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · サンプル回路選択検討 · 2026-05</p>
+</footer>
+
+</body>
+</html>

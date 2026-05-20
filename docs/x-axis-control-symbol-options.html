@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X 軸制御 / Y 軸制御 — 記号デザイン候補</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+    .page-title { font-size: 32px; line-height: 1.1; margin: 8px 0 24px; font-weight: 600; letter-spacing: -0.01em; }
+    .block { max-width: 1100px; margin: 32px auto 0; padding: 0 32px; }
+    .block > h2 { margin: 0 0 12px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    code, .code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 3px;
+    }
+
+    /* ─── 候補グリッド ─── */
+    .options {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px; margin-top: 16px;
+    }
+    .opt {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 6px; padding: 16px;
+    }
+    .opt h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+    .opt .opt-sub { font-family: var(--font-mono); font-size: 11px; color: var(--tx-2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+    .opt .demo {
+      display: flex; gap: 16px; align-items: center; justify-content: center;
+      padding: 16px 0; margin: 8px 0;
+      background: var(--bg);
+      border-top: 1px solid var(--ui-2);
+      border-bottom: 1px solid var(--ui-2);
+    }
+    .opt .demo .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .opt .demo .cell .label { font-family: var(--font-mono); font-size: 10px; color: var(--tx-3); letter-spacing: 0.08em; text-transform: uppercase; }
+
+    /* ─── ゲートと wire を絵にする ─── */
+    .gate {
+      width: 40px; height: 40px;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gate.zoom4 { transform: scale(4); transform-origin: center; }
+    .gate .wire {
+      position: absolute; top: 50%; left: -8px; right: -8px;
+      height: 1px; background: var(--tx-3);
+    }
+    .gate svg { position: relative; z-index: 1; display: block; }
+
+    /* ───────── Option A: Quirk (⊕) ───────── */
+    /* Option B: 円に X 文字 */
+    /* Option C: H サンドイッチショート */
+    /* Option D: 色で基底分離 */
+    /* Option E: 上付き X ラベル */
+    /* Option F: 菱形 + 内部記号 */
+    /* (SVG 単位は 40×40 viewBox、cx/cy は 20、制御点は半径 5 px) */
+
+    .pros { color: var(--tx); font-size: 13px; line-height: 1.6; margin: 8px 0; }
+    .pros li { color: var(--tx); }
+    .cons { color: var(--tx); font-size: 13px; line-height: 1.6; margin: 8px 0; }
+    .cons li::marker { color: var(--red-600); }
+
+    .verdict {
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid var(--ui-2);
+      font-size: 13px;
+    }
+    .verdict strong { color: var(--tx); }
+
+    .pill {
+      display: inline-block; padding: 2px 8px;
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      border-radius: 999px;
+    }
+    .pill--rec { background: var(--green-400); color: white; }
+    .pill--alt { background: var(--blue-200); color: var(--tx); }
+    .pill--no  { background: var(--ui-2); color: var(--tx-2); }
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">X 軸 / Control 記号検討</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate symbol exploration</p>
+  <h1 class="page-title">X 軸制御 / Y 軸制御 — 記号デザイン候補</h1>
+  <p class="page-lede">
+    Quirk には <strong>X 軸制御</strong> (制御 量子ビットが <code>|+⟩</code> のとき発火) と <strong>Y 軸制御</strong>
+    (<code>|i⟩</code> のとき発火) があり、それぞれ <code>⊕</code> / <code>⊗</code> という独自記号で描画される。
+    一方<strong>世間一般の量子回路には専用記号が存在しない</strong>: 教科書 / 論文 / IBM Quantum / Azure Quantum
+    は全て <code>─H─•─H─</code> の Hadamard サンドイッチ展開で書く。
+    qni-webgpu に同様のゲートを入れるなら記号を 1 から設計する必要があるので、
+    候補を 6 案並べて Pros / Cons を比較する。
+  </p>
+</div>
+
+<!-- ─────── § 01 背景 ─────── -->
+<section class="block">
+  <h2>§ 01 背景: なぜ専用記号が要るのか</h2>
+  <div class="card">
+    <p>
+      X 軸制御は本質的に「制御 量子ビットを <code>H</code> で挟んだ Z 制御」と等価。展開して描けば既存記号だけで足りる
+      ので、わざわざ専用記号を導入するコストは高い。一方 Quirk のように<strong>1 記号で表す</strong>と次の利点がある:
+    </p>
+    <ul>
+      <li>列内の制御を 1 セルに収められる (展開すると <code>H</code> ゲート 2 個 + 制御 1 個 = 3 セル使う)</li>
+      <li>制御 / アンチ制御のペアと並列に並ぶ → ツールバーの「control 系」グルーピングが自然</li>
+      <li>URL 互換: Quirk 回路を import するなら何らかの記号が要る</li>
+    </ul>
+    <p>
+      欠点は<strong>業界標準ではない</strong>こと。学習者は「<code>⊕</code> って何?」となり、毎回 tooltip を読まされる。
+      qni-webgpu は教育用途も意識するので、記号デザインで<em>「H サンドイッチを思い出させる」</em>方向にすると親切。
+    </p>
+    <h3>採用しない選択肢も検討</h3>
+    <ul>
+      <li><strong>採用しない</strong>: ユーザに <code>H · • · H</code> を毎回書いてもらう。教科書と一致、教育効果 ◎、UI の複雑度を増やさない</li>
+      <li><strong>採用するが本ページの記号案を使う</strong>: 利便性 ◎、要記号デザイン</li>
+    </ul>
+    <p>
+      以下は「採用する」を前提とした記号デザイン候補。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 02 記号候補 ─────── -->
+<section class="block">
+  <h2>§ 02 記号デザイン候補 (X 軸制御版)</h2>
+  <div class="card">
+    <p>
+      全候補とも <strong>40 × 40 px ゲートセル</strong>の中央に 1 つのコントロール印を描く。実寸 (1×) と 4× zoom を併記。
+      アンチ制御版 (<code>|−⟩</code> で発火) も右に並べて対称性を確認できるようにした。
+    </p>
+
+    <div class="options">
+
+      <!-- ───── Option A: Quirk 互換 ⊕ ───── -->
+      <div class="opt">
+        <h3>A. Quirk 互換 (⊕)</h3>
+        <div class="opt-sub">cross-in-circle</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#100F0F" stroke="none"/>
+                <line x1="20" y1="14" x2="20" y2="26" stroke="#FFFCF0" stroke-width="1.2"/>
+                <line x1="14" y1="20" x2="26" y2="20" stroke="#FFFCF0" stroke-width="1.2"/>
+              </svg>
+            </div>
+            <span class="label">control</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.2"/>
+                <line x1="14" y1="20" x2="26" y2="20" stroke="#100F0F" stroke-width="1.2"/>
+              </svg>
+            </div>
+            <span class="label">anti-control</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#100F0F"/>
+                <line x1="20" y1="14" x2="20" y2="26" stroke="#FFFCF0" stroke-width="1.2"/>
+                <line x1="14" y1="20" x2="26" y2="20" stroke="#FFFCF0" stroke-width="1.2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ul class="pros">
+          <li>Quirk URL を import したときに記号が同じ</li>
+          <li>シンプル幾何 (円 + 直線 2 本) で 1 px グリッドに乗る</li>
+        </ul>
+        <ul class="cons">
+          <li>業界標準じゃない記号を qni-webgpu でも踏襲する形 → 学習負荷は据え置き</li>
+          <li>「<code>⊕</code> = X 軸」が直感的じゃない (XOR や Pauli X と混同しやすい)</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--alt">代替案</span> Quirk URL 互換性を最優先するなら採用。</div>
+      </div>
+
+      <!-- ───── Option B: X 文字入り円 ───── -->
+      <div class="opt">
+        <h3>B. 円に X 文字</h3>
+        <div class="opt-sub">letter-in-dot</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="7" fill="#100F0F"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="9" font-weight="500" text-anchor="middle" fill="#FFFCF0">X</text>
+              </svg>
+            </div>
+            <span class="label">control</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="7" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.2"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="9" font-weight="500" text-anchor="middle" fill="#100F0F">X</text>
+              </svg>
+            </div>
+            <span class="label">anti-control</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="7" fill="#100F0F"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="9" font-weight="500" text-anchor="middle" fill="#FFFCF0">X</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ul class="pros">
+          <li>「X 軸」が文字で明示される → 業界外の人にも読める</li>
+          <li>Y 軸版は同じパターンで「Y 文字」、拡張一貫</li>
+          <li>•/○ の通常制御と並べても族として読める (黒丸 / 中に文字)</li>
+        </ul>
+        <ul class="cons">
+          <li>円が大きくなる (r=7) ので通常制御 (r=5) より重く見える</li>
+          <li>1× だと X が判読しにくい (Geist Mono 9 px はギリギリ)</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--rec">推奨</span> 初学者にも読める。Quirk URL は serialize 時にマッピングで対応。</div>
+      </div>
+
+      <!-- ───── Option C: H サンドイッチショート ───── -->
+      <div class="opt">
+        <h3>C. H サンドイッチ表記</h3>
+        <div class="opt-sub">hadamard-bracketed</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <text x="20" y="11" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+                <circle cx="20" cy="20" r="5" fill="#100F0F"/>
+                <text x="20" y="34" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+              </svg>
+            </div>
+            <span class="label">control</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <text x="20" y="11" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+                <circle cx="20" cy="20" r="5" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.2"/>
+                <text x="20" y="34" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+              </svg>
+            </div>
+            <span class="label">anti-control</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <text x="20" y="11" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+                <circle cx="20" cy="20" r="5" fill="#100F0F"/>
+                <text x="20" y="34" font-family="Geist Mono" font-size="7" font-weight="600" text-anchor="middle" fill="#6F6E69">H</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ul class="pros">
+          <li>「H で挟まれた制御 = X 基底制御」の物理を<strong>そのまま視覚化</strong> — 教育効果が一番強い</li>
+          <li>記号を覚える必要なく、量子計算の知識から直接読める</li>
+          <li>Y 軸版なら H の代わりに <code>S†</code> / <code>S</code> など、対応するベース変換ゲートを書く</li>
+        </ul>
+        <ul class="cons">
+          <li>記号が縦に間延びする (上下に小文字 H)</li>
+          <li>Y 軸版は <code>S†·•·S</code> 風になり、対称性が崩れて読みにくい (S と S† は別記号)</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--alt">代替案</span> 教育用途を最大化したいとき。ツールバー的には大きい。</div>
+      </div>
+
+      <!-- ───── Option D: 色で基底分離 ───── -->
+      <div class="opt">
+        <h3>D. 色で基底を分離</h3>
+        <div class="opt-sub">basis-as-color</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#4385BE" stroke="#205EA6" stroke-width="1"/>
+              </svg>
+            </div>
+            <span class="label">X control (blue)</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#FFFCF0" stroke="#4385BE" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <span class="label">X anti (blue, hollow)</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="5" fill="#4385BE" stroke="#205EA6" stroke-width="1"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top:8px; font-size:13px;">
+          別基底用の色割り当て (案): Z = 黒 (現状) / X = blue-400 / Y = red-400 (orange / green も可)
+        </p>
+        <ul class="pros">
+          <li>形が完全に統一 (●/○) — 認知負荷が低い、グリッドに乗る</li>
+          <li>色で基底を一瞬で識別、横並びの control 列が美しい</li>
+        </ul>
+        <ul class="cons">
+          <li><strong>色覚多様性の問題</strong>: 緑赤色弱・青黄色弱だと判別不能、AAA 非対応</li>
+          <li>白黒印刷で消える</li>
+          <li>「基底 = 色」のマッピングを覚えなくちゃいけない → tooltip 必須</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--no">非推奨</span> 色覚アクセシビリティの観点で単独採用は不可。形 + 色の併用ならアリ。</div>
+      </div>
+
+      <!-- ───── Option E: 上付き X ラベル ───── -->
+      <div class="opt">
+        <h3>E. ●ˣ (上付きラベル)</h3>
+        <div class="opt-sub">dot-with-superscript</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="22" r="5" fill="#100F0F"/>
+                <text x="27" y="16" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#100F0F">X</text>
+              </svg>
+            </div>
+            <span class="label">control</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="22" r="5" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.2"/>
+                <text x="27" y="16" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#100F0F">X</text>
+              </svg>
+            </div>
+            <span class="label">anti-control</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <circle cx="20" cy="22" r="5" fill="#100F0F"/>
+                <text x="27" y="16" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#100F0F">X</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ul class="pros">
+          <li>「通常制御 = ●」に基底文字をラベルとして付け足す形 — 既存知識との連続性が高い</li>
+          <li>1 ピクセル単位で軽量 (Option B より小さい円)</li>
+        </ul>
+        <ul class="cons">
+          <li>上付きが小さくて 1× だと <code>X</code> がほぼ点にしか見えない (Geist Mono 8 px)</li>
+          <li>SVG ラスタライズでアンチエイリアシングがにじむと文字が崩れる (egui rasterize で要検証)</li>
+          <li>「●ˣ vs ●ʸ」のラベル切替だけだと、列を縮めたとき判別困難</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--no">非推奨</span> 縦長レイアウトに合わない。zoom しないと読めない。</div>
+      </div>
+
+      <!-- ───── Option F: 菱形 + 内部記号 ───── -->
+      <div class="opt">
+        <h3>F. 菱形 ◇ + 内部記号</h3>
+        <div class="opt-sub">diamond-frame</div>
+        <div class="demo">
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <polygon points="20,12 28,20 20,28 12,20" fill="#100F0F"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#FFFCF0">X</text>
+              </svg>
+            </div>
+            <span class="label">control</span>
+          </div>
+          <div class="cell">
+            <div class="gate">
+              <div class="wire"></div>
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <polygon points="20,12 28,20 20,28 12,20" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.2"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#100F0F">X</text>
+              </svg>
+            </div>
+            <span class="label">anti-control</span>
+          </div>
+          <div class="cell">
+            <div class="gate zoom4" style="margin-left: 32px;">
+              <svg width="40" height="40" viewBox="0 0 40 40">
+                <polygon points="20,12 28,20 20,28 12,20" fill="#100F0F"/>
+                <text x="20" y="23" font-family="Geist Mono" font-size="8" font-weight="500" text-anchor="middle" fill="#FFFCF0">X</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ul class="pros">
+          <li>通常制御 (円) と<strong>形そのものが違う</strong> → 一瞬で「これは別物」と判別できる</li>
+          <li>菱形は量子情報界で他のゲートとぶつからない (回路図で頻出しない形)</li>
+        </ul>
+        <ul class="cons">
+          <li>新規形状の導入 — 学習負荷が増える (3 つ目の形を覚える)</li>
+          <li>1 px グリッドに乗らない斜辺、レンダリングがにじみやすい</li>
+          <li>「●/○/◆/◇」と並べると形が増えて雑然</li>
+        </ul>
+        <div class="verdict"><span class="pill pill--no">非推奨</span> 形を増やすと control 系の見た目が壊れる。</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 比較表 ─────── -->
+<section class="block">
+  <h2>§ 03 候補比較</h2>
+  <div class="card">
+    <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr style="text-align: left; border-bottom: 1px solid var(--ui-2);">
+          <th style="padding: 8px;">候補</th>
+          <th style="padding: 8px;">直感性</th>
+          <th style="padding: 8px;">教育効果</th>
+          <th style="padding: 8px;">Quirk 互換</th>
+          <th style="padding: 8px;">省スペース</th>
+          <th style="padding: 8px;">A11y</th>
+          <th style="padding: 8px;">総合</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--ui-2);">
+          <td style="padding: 8px;">A. Quirk ⊕</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">◎</td>
+          <td style="padding: 8px;">◎</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">代替案</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--ui-2);">
+          <td style="padding: 8px;">B. 円に X 文字</td>
+          <td style="padding: 8px;">◎</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">△ (マップ要)</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;"><strong>推奨</strong></td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--ui-2);">
+          <td style="padding: 8px;">C. H サンドイッチ</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">◎</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">代替案</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--ui-2);">
+          <td style="padding: 8px;">D. 色で基底分離</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">◎</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">非推奨</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--ui-2);">
+          <td style="padding: 8px;">E. 上付き X ラベル</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">非推奨</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px;">F. 菱形 + X</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">△</td>
+          <td style="padding: 8px;">×</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">○</td>
+          <td style="padding: 8px;">非推奨</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 04 推奨案 ─────── -->
+<section class="block">
+  <h2>§ 04 推奨と次のステップ</h2>
+  <div class="card">
+    <p>
+      <strong>第一候補: B. 円に X 文字</strong>
+    </p>
+    <ul>
+      <li>「●/○ の制御族」と一貫した円形を保ちつつ、中に基底ラベル <code>X</code> / <code>Y</code> を入れる</li>
+      <li>業界外の人にも「X 軸に関する制御」が読める (Quirk の <code>⊕</code> より直感的)</li>
+      <li>Quirk URL 互換: Quirk の <code>⊕</code>/<code>⊗</code> serialized id とは内部マッピングで対応 (UI 上は B 形式、URL は <code>⊕</code>)</li>
+    </ul>
+    <p>
+      <strong>第二候補: C. H サンドイッチ表記</strong> — 教育効果を最重視する場合。チュートリアルモードでだけ C 表記、通常編集モードは B 表記、のような切替も検討に値する。
+    </p>
+    <p>
+      <strong>採用しない選択肢</strong>も忘れず: 専用ゲートを入れない場合、ユーザは <code>H</code> + <code>•</code> + <code>H</code> を手で書く。
+      qni-webgpu はまず<strong>採用するか / しないかの判断</strong>からユーザに確認すべき。
+    </p>
+
+    <h3>採用後にやること</h3>
+    <ul>
+      <li>ゲート定義に <code>GateKind::XControl</code> / <code>GateKind::XAntiControl</code> / 同 Y 版を追加</li>
+      <li>icon rasterize (`icons/gate_body.rs` 系) で SVG 経路をリファレンスに描画</li>
+      <li>WGSL shader への影響 (制御解釈): 既存の Z 制御を「H サンドイッチで包む」操作を回路コンパイル側で挿入する</li>
+      <li>URL シリアライズ: Quirk 互換のため <code>⊕</code> / <code>⊖</code> / <code>⊗</code> / <code>(/)</code> を保持 (UI 描画とは分離)</li>
+      <li>tooltip: 「X 軸制御 — 制御 量子ビットが <code>|+⟩</code> 状態のとき発火 (Hadamard 基底)」のような短い説明を必ず添える</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · X 軸 / Control 記号検討 · 2026-05</p>
+</footer>
+
+</body>
+</html>

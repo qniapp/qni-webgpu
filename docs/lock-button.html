@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lock / Unlock button — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    .stage {
+      display: flex; gap: 24px; align-items: flex-start;
+      flex-wrap: wrap; margin-top: 16px;
+    }
+    .stage .col {
+      display: flex; flex-direction: column; gap: 8px; align-items: center;
+      text-align: center;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-3); line-height: 1.4;
+    }
+
+    /* ── トップバー再現 (apps/egui-web/src/render/toolbar.rs と 1:1) ────── */
+    .toolbar {
+      display: inline-flex; align-items: center;
+      gap: 8px;                            /* gap-2 = 8 px */
+      background: var(--bg);
+      padding: 6px 12px;                   /* px-3 py-1.5 */
+      box-shadow: 0 4px 24px rgba(16, 15, 15, 0.06);
+      border-radius: 0;                    /* full-width header strip: square corners */
+    }
+    .picker {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: 6px;
+      font-family: var(--font-body); font-size: 14px; font-weight: 600;
+      color: var(--tx); cursor: pointer; user-select: none;
+      transition: background 120ms ease-out;
+      position: relative;
+    }
+    .picker:hover, .picker.open { background: var(--ui); }
+    .picker .chev {
+      width: 12px; height: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--tx-3);
+      transition: transform 160ms ease-out;
+    }
+    .picker.open .chev { transform: rotate(180deg); color: var(--tx-2); }
+    .tool-btn {
+      width: 32px; height: 32px;
+      border: 0; padding: 0; background: transparent; border-radius: 6px;
+      color: var(--tx-2);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background 120ms ease-out, color 120ms ease-out;
+      position: relative;
+    }
+    .tool-btn:hover {
+      background: var(--ui);
+      color: var(--tx);
+    }
+    .tool-btn:disabled,
+    .tool-btn.disabled {
+      color: var(--tx-3);
+      cursor: not-allowed;
+    }
+    .tool-btn:disabled:hover,
+    .tool-btn.disabled:hover {
+      background: transparent;
+      color: var(--tx-3);
+    }
+    /* toggle-on (locked / My) は背景ピル。
+       icon 色は tx-2 のまま、常時 ui 背景を敷いて「押し込まれたトグル」感を出す。
+       hover で背景を ui-2 に深め、icon 色は tx へ。新色トークンは導入しない */
+    .tool-btn.toggle-on { color: var(--tx-2); background: var(--ui); }
+    .tool-btn.toggle-on:hover { background: var(--ui-2); color: var(--tx); }
+    .tool-btn svg {
+      width: 18px; height: 18px; display: block;
+      fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ── 回路ピッカー (circuit-picker.html と同じ実装) ──────────────────
+       2 ペイン構成: 上の items pane (overflow-y: auto, 独立スクロール) +
+       resize 区切り線 + 下の footer (Create new circuit, 常時 pinned)。
+       drag-to-reorder + separator resize の挙動も同じ。
+       lock-button.html 固有の追加: items 内に Example / My の section header と、
+       locked 行 (Example 全件 + 自分でロックした My) の先頭に lock 小アイコン (tx-3 統一)。 */
+    .picker-host { position: relative; display: inline-block; }
+    .picker-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      width: 240px;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(16, 15, 15, 0.10);
+      padding: 6px;
+      z-index: 30;
+      font-size: 14px;
+      display: none;
+      flex-direction: column;
+      user-select: none;
+    }
+    .picker-dropdown.open { display: flex; }
+    .picker-items {
+      height: 216px;                 /* JS で可変 (default 6 rows + 2 headers) */
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+    .picker-items::-webkit-scrollbar { width: 6px; }
+    .picker-items::-webkit-scrollbar-track { background: transparent; }
+    .picker-items::-webkit-scrollbar-button { width: 0; height: 0; }
+    .picker-items::-webkit-scrollbar-thumb {
+      background-color: transparent;
+      border-radius: 3px;
+      transition: background-color 150ms ease;
+    }
+    .picker-items:hover::-webkit-scrollbar-thumb { background-color: rgba(183, 181, 172, 0.6); }
+    .picker-items::-webkit-scrollbar-thumb:hover { background-color: rgba(111, 110, 105, 0.7); }
+    .picker-section {
+      padding: 6px 10px 4px;
+      color: var(--tx-3);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: flex; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .picker-section .line { height: 1px; background: var(--ui-2); }
+    .picker-section .line.lead { width: 14px; flex-shrink: 0; }  /* row-icon 列と同じ幅で text を items 名と揃える */
+    .picker-section .line.fill { flex: 1; }
+    .picker-item {
+      display: flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 10px;
+      border-radius: 6px;
+      color: var(--tx); cursor: grab;
+      transition: transform 80ms ease;       /* FLIP for non-dragged rows */
+    }
+    /* Example 行は reorder 不可。click select は通常通り */
+    .picker-item[data-kind="example"] { cursor: pointer; }
+    .picker-item:hover { background: var(--bg-2); }
+    .picker-item.is-active { font-weight: 500; }  /* circuit-picker.html と揃え: 太字のみで active を示す */
+    /* circuit-picker.html § 02 と一致: bg = ui グレー塗りのみ、elevated shadow は付けない */
+    .picker-item.is-dragging {
+      background: var(--ui);
+      cursor: grabbing;
+      z-index: 5;
+      position: relative;
+      transition: none;
+    }
+    .picker-item.is-dragging:hover { background: var(--ui); }
+    .picker-item .row-icon {
+      width: 14px; height: 14px;
+      color: var(--tx-3);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .picker-item .row-icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .picker-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    body.is-item-dragging,
+    body.is-item-dragging * { cursor: grabbing !important; }
+
+    /* ── Resize separator (items pane と footer の境界) ── */
+    .picker-resize {
+      flex-shrink: 0;
+      position: relative;
+      height: 9px;
+      margin: 2px 4px;
+      cursor: ns-resize;
+    }
+    .picker-resize::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--ui-2);
+      transition: background 80ms ease, height 80ms ease, transform 80ms ease;
+      transform: translateY(-50%);
+    }
+    .picker-resize:hover::before,
+    .picker-resize.is-dragging::before {
+      height: 2px;
+      background: var(--blue-600);
+    }
+    body.is-resize-dragging { cursor: ns-resize; }
+    body.is-resize-dragging * { cursor: ns-resize !important; }
+
+    /* ── Pinned footer (Create new circuit) ── */
+    .picker-footer {
+      flex-shrink: 0;
+      display: flex; align-items: center;
+      gap: 8px; height: 36px; padding: 0 10px;
+      border-radius: 6px; color: var(--tx-2);
+      cursor: pointer;
+    }
+    .picker-footer:hover { background: var(--bg-2); color: var(--tx); }
+    .picker-footer svg { width: 14px; height: 14px; color: var(--tx-3); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .picker-footer:hover svg { color: var(--tx); }
+
+    /* ── ツールチップ (hover で出る) ──────────────────────── */
+    .tool-btn[data-tip] { }
+    .tool-btn[data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      top: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--tx); color: var(--bg);
+      font-family: var(--font-body); font-size: 12px; line-height: 16px;
+      padding: 4px 8px; border-radius: 4px;
+      white-space: nowrap; pointer-events: none;
+      z-index: 40;
+    }
+    .picker[data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      top: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--tx); color: var(--bg);
+      font-family: var(--font-body); font-size: 12px; line-height: 16px;
+      padding: 4px 8px; border-radius: 4px;
+      white-space: nowrap; pointer-events: none;
+      z-index: 40;
+    }
+
+    /* ── アイコン拡大プレビュー (§ 02) ────────────────────── */
+    .swatch {
+      width: 96px; height: 96px;
+      background: var(--bg-2); border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .swatch svg { width: 56px; height: 56px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .swatch.gray   { color: var(--tx-2); }
+    .swatch.pill   { color: var(--tx-2); background: var(--ui); }
+    .swatch.muted  { color: var(--tx-3); }
+
+    /* ── 状態ステータスバッジ (§ 03) ─────────────────────── */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      background: var(--bg-2); color: var(--tx-2);
+      border: 1px solid var(--ui-2);
+    }
+    .status-pill::before {
+      content: ''; width: 6px; height: 6px; border-radius: 999px;
+      background: var(--tx-3);
+    }
+    .status-pill.unlocked::before { background: var(--tx-2); }
+    .status-pill.locked-my::before { background: var(--tx); }
+    .status-pill.locked-ex::before { background: var(--tx-3); }
+    .status-pill.locked-my { color: var(--tx); background: var(--ui); border-color: var(--ui-2); }
+
+    /* ── 動くモック用カード (full width) ─────────────────── */
+    .demo-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+      display: flex; flex-direction: column; gap: 16px;
+      align-items: stretch;
+    }
+    .demo-row {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      background: var(--bg-2);
+      border: 1px dashed var(--ui-2);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+    }
+    .demo-row .demo-toolbar-wrap {
+      flex: 1; min-width: 480px;
+      display: flex; align-items: center;
+    }
+    .demo-side {
+      flex: 0 0 auto;
+      display: flex; flex-direction: column; gap: 6px;
+      align-items: flex-start;
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-2);
+    }
+    .demo-side .kbd {
+      background: var(--ui); border: 1px solid var(--ui-2);
+      padding: 1px 6px; border-radius: 4px;
+    }
+    .demo-hint {
+      font-family: var(--font-mono); font-size: 12px; color: var(--tx-3);
+      letter-spacing: 0.04em; text-align: center; margin-top: 4px;
+    }
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">周辺 UI</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ロックボタン</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · widget spec</p>
+  <h1 class="page-title">Lock / Unlock ボタン</h1>
+  <p class="page-lede">
+    回路ピッカーを <strong>Example Circuits</strong> と <strong>My Circuits</strong> の 2 セクションに分ける際に必要な
+    「現在の回路が編集可能か」を示すトグルボタン。複製アイコンの直右に追加し、
+    Lucide <code>lock</code> / <code>lock-open</code> を outline で 24×24 → 18 px に描画する。
+    既存トップバー (<code>apps/egui-web/src/render/toolbar.rs</code>) の規格と完全に揃える。
+  </p>
+  <p class="page-lede" style="margin-top: 12px;">
+    <strong>方針 (案 B の改訂):</strong>
+    <a href="./sample-circuit-options.html">sample-circuit-options.html</a> 案 B の「Example 選択時に自動で My Circuits へ複製してアクティブ化」は、
+    <em>サイレントなフォークでユーザが知らぬ間に別物を編集している</em>混乱を生むため採用しない。
+    本仕様では Example は<strong>直接アクティブ化</strong>し、トップバーの lock ボタンを
+    <code>tx-3</code> disabled で固定表示することで「これは編集できない、Duplicate して編集」を明示的に伝える。
+    Duplicate を明示的に押した時だけ My Circuits にコピーが作られる。
+  </p>
+</div>
+
+<!-- ─────── § 01 動くモック ─────── -->
+<section class="block">
+  <h2>§ 01 動くモック</h2>
+  <div class="demo-card" id="demo-root">
+    <p class="note" style="margin: 0;">
+      実物相当のトップバーと回路ピッカー。回路名をクリックすると Example Circuits / My Circuits のドロップダウンが開く。
+      <strong>Example を選ぶと lock は固定 (tx-3 disabled)</strong>、
+      <strong>My を選ぶと lock がトグル可能</strong> (unlocked: 透明背景 / locked: <code>ui</code> 背景ピル)。
+      ロックボタンにマウスを乗せるとツールチップが状態に応じて切り替わる。
+    </p>
+    <div class="demo-row">
+      <div class="demo-toolbar-wrap">
+        <div class="toolbar" role="toolbar" aria-label="Circuit toolbar mock">
+          <div class="picker-host">
+            <div class="picker" id="picker-trigger" data-tip="Switch circuit">
+              <span id="picker-label">Bell state</span>
+              <span class="chev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+            </div>
+            <div class="picker-dropdown" id="picker-dropdown">
+              <div class="picker-items" id="picker-items"><!-- JS が描画 --></div>
+              <div class="picker-resize" id="picker-resize" aria-hidden="true" role="separator" aria-orientation="horizontal"></div>
+              <div class="picker-footer" id="picker-footer">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Create new circuit</span>
+              </div>
+            </div>
+          </div>
+          <button class="tool-btn" id="undo-btn" data-tip="Undo" aria-label="Undo">
+            <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11l4 2v4l-2 3-3 1"/></svg>
+          </button>
+          <button class="tool-btn" id="redo-btn" data-tip="Redo" aria-label="Redo">
+            <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9l-4 2v4l2 3 3 1"/></svg>
+          </button>
+          <button class="tool-btn" id="trash-btn" data-tip="Clear circuit" aria-label="Clear">
+            <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/></svg>
+          </button>
+          <button class="tool-btn" data-tip="Duplicate circuit" aria-label="Duplicate">
+            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <button class="tool-btn" id="lock-btn" data-tip="Lock circuit" aria-label="Lock circuit" aria-pressed="false">
+            <svg id="lock-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="demo-side">
+        <span>state: <span id="state-pill" class="status-pill unlocked">unlocked</span></span>
+        <span>kind: <span id="kind-label">my</span></span>
+        <span>tooltip: <span class="kbd" id="tip-label">Lock circuit</span></span>
+      </div>
+    </div>
+    <div class="demo-hint">
+      ↑ <strong>Bell state</strong> をクリック → Example で lock が固定。<strong>Circuit 1</strong> をクリック → lock がトグル可能。
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 アイコン ─────── -->
+<section class="block">
+  <h2>§ 02 アイコン (Lucide)</h2>
+  <div class="card">
+    <p>
+      Lucide の <code>lock-open</code> と <code>lock</code> を 24×24 viewBox / stroke 2 / 18 px 表示で使う。
+      本体 (rect <code>x=3 y=11 w=18 h=11 rx=2</code>) は両者共通、シャックル (上の弧) だけが違う。
+      unlocked はシャックルの右端が外れた形、locked は閉じた形。
+    </p>
+    <div class="stage" style="margin-top: 16px;">
+      <div class="col">
+        <div class="swatch gray">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+        </div>
+        <div class="caption"><code>lock-open</code><br>unlocked 用<br>color: tx-2</div>
+      </div>
+      <div class="col">
+        <div class="swatch pill">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="caption"><code>lock</code><br>locked (My) 用<br>color: tx-2 / bg: ui</div>
+      </div>
+      <div class="col">
+        <div class="swatch muted">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="caption"><code>lock</code> (disabled)<br>locked (Example) 用<br>color: tx-3</div>
+      </div>
+    </div>
+    <table class="spec" style="margin-top: 24px;">
+      <thead>
+        <tr><th>項目</th><th>値</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>viewBox</th><td><code>0 0 24 24</code></td></tr>
+        <tr><th>本体 rect</th><td><code>x=3 y=11 w=18 h=11 rx=2</code></td></tr>
+        <tr><th>シャックル (unlocked)</th><td><code>M7 11 V7 a5 5 0 0 1 9.9 -1</code></td></tr>
+        <tr><th>シャックル (locked)</th><td><code>M7 11 V7 a5 5 0 0 1 10 0 v4</code></td></tr>
+        <tr><th>stroke</th><td><code>2 px</code> / round / round</td></tr>
+        <tr><th>描画スケール</th><td>18 px (24 → 18 = 0.75×)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 03 3 つの状態 ─────── -->
+<section class="block">
+  <h2>§ 03 3 つの状態</h2>
+  <div class="card">
+    <p>
+      「現在の回路の origin」と「lock フラグ」の組合せで決まる 3 状態。
+      アイコン形 (open ↔ closed) と背景 (透明 / <code>ui</code> ピル / 透明 + disabled 色) の 2 系統で区別する。
+      色が判別できない環境でも形だけで unlocked / locked が伝わる。
+    </p>
+    <div class="stage" style="margin-top: 16px; gap: 32px;">
+      <div class="col">
+        <div class="toolbar">
+          <button class="tool-btn" aria-label="Lock circuit"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
+        </div>
+        <div class="caption"><span class="status-pill unlocked">unlocked (my)</span><br>color: tx-2 → tx<br>cursor: pointer</div>
+      </div>
+      <div class="col">
+        <div class="toolbar">
+          <button class="tool-btn toggle-on" aria-label="Unlock circuit" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+        </div>
+        <div class="caption"><span class="status-pill locked-my">locked (my)</span><br>color: tx-2 / bg: ui<br>cursor: pointer</div>
+      </div>
+      <div class="col">
+        <div class="toolbar">
+          <button class="tool-btn disabled" aria-disabled="true" aria-label="Locked (sample)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+        </div>
+        <div class="caption"><span class="status-pill locked-ex">locked (example)</span><br>color: tx-3<br>cursor: not-allowed</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 04 編集禁止の不変条件 ─────── -->
+<section class="block">
+  <h2>§ 04 編集禁止の不変条件</h2>
+  <div class="card">
+    <p>
+      <code>locked</code> = 「<strong>その entry の中身を書き換える mutation を一切受け付けない</strong>」。
+      Example Circuits は常時 locked、My Circuits はユーザが lock ボタンで明示的に切り替え可能。
+      locked は entry の <code>circuit_json</code> と <code>name</code> の両方を凍結する
+      (ゲート編集 / ゲート配置 / Clear / Undo/Redo / 実行中の URL hash 適用 / Rename / Delete を抑止)。
+      一方、<strong><code>circuit_json</code> / <code>name</code> を書き換えない操作、または unlock のためのメタ情報更新</strong>は locked でも通す:
+      <em>Select (active 切替)</em> / <em>Duplicate</em> / <em>Create new circuit</em> / <em>My 内 reorder (順序は別管理)</em> /
+      <em>locked My の lock toggle (<code>origin.User.locked</code> のメタ情報更新で unlock 経路)</em>。
+    </p>
+    <table class="spec" style="width: 100%;">
+      <thead>
+        <tr><th>操作</th><th>unlocked (My)</th><th>locked (My)</th><th>locked (Example)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ゲート配置 / 移動 / 削除</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>Clear (trash)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>Undo / Redo</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>URL hash → 適用 (実行中)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>起動時 URL 解決 (boot_circuit)</td><td><code>✓</code></td><td><code>✓</code> (上書きせず select / fresh id)</td><td><code>✓</code> (Sample select のみ)</td></tr>
+        <tr><td>Rename (picker)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>Delete (picker submenu)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>Lock toggle (toolbar)</td><td><code>✓</code> (→ locked)</td><td><code>✓</code> (→ unlocked)</td><td><code>✗</code> (固定)</td></tr>
+        <tr><td>Duplicate (toolbar)</td><td><code>✓</code></td><td><code>✓</code></td><td><code>✓</code> (escape hatch)</td></tr>
+        <tr><td>Reorder (picker drag)</td><td><code>✓</code> (My 内)</td><td><code>✓</code> (My 内)</td><td><code>✗</code> (sample 順固定)</td></tr>
+        <tr><td>Move up / down (submenu)</td><td><code>✓</code> (My 内)</td><td><code>✓</code> (My 内)</td><td><code>✗</code></td></tr>
+        <tr><td>Select (picker click)</td><td><code>✓</code></td><td><code>✓</code></td><td><code>✓</code></td></tr>
+        <tr><td>Create new circuit (footer)</td><td><code>✓</code></td><td><code>✓</code></td><td><code>✓</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 16px;">
+      <strong>Create new circuit</strong> は <em>active が何であっても</em>常に許可する (<code>origin: User { locked: false }</code> の新 entry を末尾に追加して active 化、上書き mutation ではない)。
+      <strong>Lock toggle</strong> は localStorage に永続化するが <em>undo history には積まない</em> (履歴は circuit の編集を扱う単位で、メタ状態は別)。
+    </p>
+    <p class="note" style="margin-top: 12px;">
+      実装ガード: ガード対象は <strong>active 編集系</strong>と <strong>picker 行操作</strong>で対象 entry が異なる。
+    </p>
+    <ul style="margin: 0 0 12px 18px; padding: 0; color: var(--tx-2); font-size: 14px; line-height: 22px;">
+      <li><strong>active 編集系</strong> (active entry の <code>circuit_json</code> を書き換える):
+        <code>place_gate</code> / <code>remove_gate</code> / <code>clear_circuit</code> /
+        <code>undo_circuit</code> / <code>redo_circuit</code> / <code>apply_url_payload</code> →
+        入口で <code>self.library.active_locked()</code> を確認、true なら早期 return。
+        副作用としてトップバー側の Undo / Redo / Trash ボタンも disabled 表示。
+      </li>
+      <li><strong>picker 行操作</strong> (任意 entry の <code>name</code> / 存在を変える):
+        <code>rename(entry_id, new_name)</code> / <code>delete(entry_id)</code> →
+        入口で <code>self.library.entry_locked_by_id(entry_id)</code> (= origin が Sample または User { locked: true }) を確認、true なら早期 return。
+        <strong>active が unlocked My でも、対象行が locked My / Sample なら拒否されるのが正しい挙動</strong>。
+        submenu 表示時の disabled 判定とは別に、commit / delete の API 側でも必ず再チェックする (UI 競合や直接呼び出し対策)。
+      </li>
+    </ul>
+    <p class="note" style="margin-top: 0;">
+      <strong>ガード対象外</strong> (locked でも通す):
+      <em>toggle_circuit_lock</em> (メタ情報 <code>origin.User.locked</code> のみ更新。
+      <strong>active が Sample の場合は API 側で no-op</strong>: Sample variant に <code>locked</code> フィールドが無いのでトグル対象が存在しない) /
+      <em>move_up</em> / <em>move_down</em> / <em>reorder</em> (順序は別管理、entry の中身は触らない) /
+      <em>duplicate</em> / <em>select</em> / <em>create_new</em> (新 entry または active 切替で escape hatch)。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 05 既存スペックとの整合 ─────── -->
+<section class="block">
+  <h2>§ 05 既存トップバーのスペック</h2>
+  <div class="card">
+    <p>
+      出典: <code>apps/egui-web/src/render/toolbar.rs</code>。
+      新ボタンも以下の規格に揃え、他 4 アイコン (Undo / Redo / Trash / Copy) と寸法・色・ホバー挙動を完全一致させる。
+    </p>
+    <table class="spec" style="margin-top: 8px;">
+      <tbody>
+        <tr><th>ボタン寸法</th><td>32 × 32 px (<code>TOOL_SIZE</code>, w-8/h-8)</td></tr>
+        <tr><th>アイコン寸法</th><td>18 × 18 px (<code>ICON_SIZE</code>, Lucide 24×24 → 18 px)</td></tr>
+        <tr><th>ストローク</th><td>2.0 px (<code>stroke-2</code>)</td></tr>
+        <tr><th>idle 色</th><td><code>tx-2</code> = #6F6E69 (<code>colors.toolbar_icon</code>)</td></tr>
+        <tr><th>hover 色</th><td><code>tx</code> = #100F0F (<code>colors.toolbar_icon_hover</code>)</td></tr>
+        <tr><th>disabled 色</th><td><code>tx-3</code> = #B7B5AC (<code>colors.toolbar_icon_disabled</code>)</td></tr>
+        <tr><th>toggle-on 背景</th><td><code>ui</code> = #E6E4D9 を常時敷く (アイコン色は <code>tx-2</code> のまま、新色トークン不要)</td></tr>
+        <tr><th>hover 背景</th><td><code>ui</code> = #E6E4D9、角丸 6 px、120 ms フェード</td></tr>
+        <tr><th>ボタン間隔</th><td>8 px (<code>gap-2</code>)</td></tr>
+        <tr><th>並び順</th><td>Picker → Undo → Redo → Trash → Copy → <strong>Lock</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 06 Tooltip / a11y ─────── -->
+<section class="block">
+  <h2>§ 06 Tooltip / アクセシビリティ</h2>
+  <div class="card">
+    <p>
+      tooltip は既存ボタンと同じ <code>.on_hover_text()</code> を使い、文字列は英語に統一する (既存 Undo / Redo / Clear circuit / Duplicate circuit に揃える)。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>状態</th><th>tooltip</th><th>意味 (AccessKit role / state)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>unlocked (my)</code></td><td><code>Lock circuit</code></td><td>ToggleButton, <code>Toggled::False</code></td></tr>
+        <tr><td><code>locked (my)</code></td><td><code>Unlock circuit</code></td><td>ToggleButton, <code>Toggled::True</code></td></tr>
+        <tr><td><code>locked (example)</code></td><td><code>Locked (sample) — duplicate to edit</code></td><td>ToggleButton, <code>Toggled::True</code> + <code>Disabled</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 16px;">
+      <strong>注意:</strong> § 01 のモック (DOM) では <code>aria-pressed</code> / <code>aria-disabled</code> 属性を直接付けているが、
+      実 egui アプリは canvas 描画なので DOM の aria-* は使えない。
+      実装は egui の AccessKit 統合 (<code>WidgetInfo::new_toggle_button</code> 等) で
+      <code>Role::ToggleButton</code> と <code>Toggled</code> / <code>Disabled</code> を expose する。
+      モック上の aria は HTML レビュー用の補助表記として扱う。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 07 実装メモ ─────── -->
+<section class="block">
+  <h2>§ 07 実装メモ</h2>
+  <div class="card">
+    <h3>ToolbarIcon 拡張</h3>
+    <pre class="code">// apps/egui-web/src/render/toolbar.rs
+enum ToolbarIcon {
+    Undo, Redo, Trash, Copy, Play,
+    Lock,      // Lucide "lock"
+    LockOpen,  // Lucide "lock-open"
+}</pre>
+
+    <h3 style="margin-top: 16px;">paint_icon に枝を追加</h3>
+    <pre class="code">ToolbarIcon::LockOpen =&gt; {
+    paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
+    // M7 11 V7 a5 5 0 0 1 9.9 -1
+    paint_shackle_open(painter, icon_rect, stroke);
+}
+ToolbarIcon::Lock =&gt; {
+    paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
+    // M7 11 V7 a5 5 0 0 1 10 0 v4
+    paint_shackle_closed(painter, icon_rect, stroke);
+}</pre>
+
+    <h3 style="margin-top: 16px;">CircuitEntry スキーマ拡張</h3>
+    <p>
+      現行の <code>CircuitEntry</code> は <code>id / name / circuit_json / updated_at</code> のみ。
+      lock 仕様には <code>origin</code> (Sample 由来か User か) と
+      User の場合の <code>locked</code> 状態が必要。
+      <strong>Sample variant は <code>locked</code> フィールドを持たない</strong>ことで
+      「Sample + 非 locked」という不正状態を型レベルで表現不能にする。
+    </p>
+    <pre class="code">// apps/egui-web/crates/circuit-library-model/src/lib.rs
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CircuitEntry {
+    pub id: CircuitId,
+    pub name: String,
+    pub circuit_json: String,
+    pub updated_at: u64,
+    pub origin: CircuitOrigin,   // 新規
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CircuitOrigin {
+    Sample { origin_id: String },   // 常時 locked (locked フィールド無し)
+    User   { locked: bool },         // ユーザがトグルで切り替え
+}</pre>
+    <p>
+      <code>tag = "kind"</code> + <code>rename_all = "snake_case"</code> で JSON 上は <code>{"kind":"sample", "origin_id":"bell"}</code> / <code>{"kind":"user", "locked":true}</code> の internally-tagged 形式。
+      <code>deny_unknown_fields</code> で<strong>未知フィールドを silently 受理しない</strong>(例: 破損データで Sample variant に <code>locked</code> が混入していたら deserialize エラー)。
+      これで「Sample + locked」が保存形式レベルでも表現不能 = 起動時に detect 可能。
+    </p>
+    <p>
+      <strong>付随する書き換え:</strong> <code>CircuitEntry</code> のフィールドが増えるので、シリアライズ経路を網羅的に更新する。
+    </p>
+    <ul>
+      <li><code>circuit_library.rs</code> の <code>localStorage</code> read/write (JSON serde で <code>origin</code> も入出力)。</li>
+      <li><code>CircuitLibrary::to_test_json()</code> も <code>origin</code> / <code>locked</code> をエクスポート (snapshot test の比較対象に含める)。</li>
+      <li><code>test_hooks.rs</code> 経由で JS から見るデバッグ JSON も <code>origin</code> を含める (Playwright 側で `entry.origin.kind === "sample"` などで判定可能に)。</li>
+      <li>seed の hard-coded const に <code>origin: CircuitOrigin::Sample { origin_id: id.to_owned() }</code> を付与。</li>
+    </ul>
+    <p>
+      <strong>派生 helper:</strong>
+    </p>
+    <pre class="code">impl CircuitLibrary {
+    pub fn active_kind(&amp;self) -&gt; CircuitKind {
+        match &amp;self.active().origin {
+            CircuitOrigin::Sample { .. } =&gt; CircuitKind::Example,
+            CircuitOrigin::User { .. }   =&gt; CircuitKind::My,
+        }
+    }
+    /// Sample なら常に true。壊れた保存データで Sample + 非 locked になることはない。
+    pub fn active_locked(&amp;self) -&gt; bool {
+        match &amp;self.active().origin {
+            CircuitOrigin::Sample { .. } =&gt; true,
+            CircuitOrigin::User { locked } =&gt; *locked,
+        }
+    }
+}
+
+pub enum CircuitKind { Example, My }</pre>
+
+    <h3 style="margin-top: 16px;">localStorage 移行 (v1 → v2)</h3>
+    <p>
+      <strong>v1 では seed sample もユーザが編集できた</strong>ので、id だけで「Sample 確定」と判定するのは危険
+      (編集済みのユーザ回路を読み取り専用に閉じ込めてしまう)。
+      v2 では「公式 sample は const から再生成」「v1 entry が公式 sample の <code>id</code> を持っていても、
+      内容 (canonical JSON + name) が一致しなければ User コピーへ退避」を行う。
+    </p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">保存形式 (v2 document JSON)</h4>
+    <pre class="code">{
+  "version": 2,
+  "active_id": "ckt_20260518_my-experiment",
+  "entries": [
+    {
+      "id": "bell",
+      "name": "Bell state",
+      "circuit_json": "{\"cols\":[[\"H\"],[\"•\",\"X\"]]}",
+      "updated_at": 1778727600000,
+      "origin": { "kind": "sample", "origin_id": "bell" }
+    },
+    {
+      "id": "ckt_20260518_my-experiment",
+      "name": "my-experiment",
+      "circuit_json": "{...}",
+      "updated_at": 1778740000000,
+      "origin": { "kind": "user", "locked": true }
+    }
+  ]
+}</pre>
+    <p>
+      <code>origin</code> は <code>{ kind: "sample", origin_id }</code> | <code>{ kind: "user", locked }</code> の internally-tagged 形式 (Rust <code>#[serde(tag = "kind", rename_all = "snake_case")]</code>)。
+      Sample variant に <code>locked</code> フィールドを持たせないことで、保存形式レベルでも「Sample + 非 locked」が表現不能。
+    </p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">移行手順 (<code>migrate_v1_to_v2()</code>)</h4>
+    <ol>
+      <li>キーは <code>qni.circuit_library.v2</code> に bump。古い <code>qni.circuit_library.v1</code> は<strong>v2 validate 成功まで残す</strong>(復旧余地)。
+        <ul>
+          <li>初回起動: v2 が無い → v1 を読んで migration → v2 を書き込んで <strong>validate (parse round-trip + schema 確認)</strong>。validate 成功するまで v1 は<strong>削除しない</strong>。</li>
+          <li>2 回目以降: v2 を読む。<strong>v2 read / validate に失敗</strong>かつ v1 が残っていれば、v2 を退避 (<code>qni.circuit_library.v2.broken-{ts}</code>) して<strong>v1 から再 migration</strong> + v2 書き直し。tracing で警告。</li>
+          <li>v2 validate 成功した次回起動で初めて <code>localStorage.removeItem("qni.circuit_library.v1")</code> を実行。</li>
+        </ul>
+      </li>
+      <li>v2 seed: <code>CircuitLibrary::seed()</code> が hard-coded const から Sample entries (bell / ghz / qft-4 / grover-search) を生成、常に含める。</li>
+      <li>v1 entries を 1 件ずつ処理:
+        <ul>
+          <li>id が seed sample ID と一致し、<code>circuit_json</code> と <code>name</code> が canonical 定義と<strong>完全一致</strong> → 廃棄 (v2 seed と重複)</li>
+          <li>id が seed sample ID と一致するが内容が違う → <strong>User コピーへ退避</strong>:
+            <ul>
+              <li>新 id = <code>format!("{old_id}-user-edit")</code>。これも既存と衝突するなら <code>-2</code>, <code>-3</code> ... と採番</li>
+              <li>name = <code>format!("{old_name} (edited)")</code>。これも衝突なら <code>(edited 2)</code> 採番</li>
+              <li><code>origin: User { locked: false }</code> で保存 (ユーザ編集物は最初は unlocked が安全)</li>
+            </ul>
+          </li>
+          <li>id が seed sample ID と一致しない (純粋なユーザ作成) → そのまま <code>origin: User { locked: false }</code> で保存</li>
+        </ul>
+      </li>
+      <li><code>active_id</code> の再写像: v1 の active_id が seed と完全一致なら seed 側の id へ、退避された場合は新 id へ、見つからなければ先頭 entry へ fallback。</li>
+      <li>migration log を <code>tracing::info!</code> で残す (削除件数 / 退避件数 / active 再写像)。</li>
+    </ol>
+
+    <h3 style="margin-top: 16px;">起動時の URL hash 経路 (実行中 apply と分離)</h3>
+    <p>
+      実行中の URL hash 適用は §「Select と Apply を別 API として分離」のとおり <code>active_locked()</code> でガードするが、
+      <strong>起動時 (<code>main.rs</code> / <code>startup.rs</code>)</strong> は「URL に乗せた回路をアプリ起動と同時に開く」共有 URL の主用途を壊さないため、<em>locked guard を通さない別経路</em>として扱う。
+      ただし「locked My を URL 再読込で事実上上書きできる」抜け穴を塞ぐため、解決の優先順序を 4 段階で固定する。
+    </p>
+    <pre class="code">// startup.rs (pseudo)
+fn boot_circuit(library: &amp;mut CircuitLibrary, url_hash: Option&lt;UrlPayload&gt;) {
+    let Some(payload) = url_hash else {
+        // hash 無し → 最後に active だった entry を select
+        return library.set_active(library.last_active_id());
+    };
+
+    // (1) URL payload が persisted active entry と完全一致なら active を維持。
+    //     ページリロードで意図せず別 entry に切り替わらないため。
+    if library.active_circuit_json() == payload.circuit_json {
+        return; // 何もしない (active は既に正しい)
+    }
+
+    // (2) canonical sample と一致 → その Sample を select。新 entry は作らない。
+    if let Some(sample_id) = library.find_canonical_sample(&amp;payload.circuit_json) {
+        return library.set_active(sample_id);
+    }
+
+    // (3) 既存 User entry のいずれかと完全一致 → その entry を select。
+    //     User の locked / unlocked は問わず select 自体は guard 不要。
+    //     これで locked My を URL から再読込しても entry の中身は触らず active 切替だけになる。
+    if let Some(existing_id) = library.find_user_entry_with_json(&amp;payload.circuit_json) {
+        return library.set_active(existing_id);
+    }
+
+    // (4) どれにも一致しない URL → "current" 用 unlocked User entry を作成 / 上書きして active 化。
+    //     ただし既存 "current" が locked になっているなら、それを保護して新 id を採番する。
+    if library.entry_locked_by_id("current") {
+        let fresh_id = library.fresh_id("current");
+        library.create_user_entry(fresh_id.clone(), payload.circuit_json, /*locked=*/ false);
+        library.set_active(fresh_id); // ← 作成と active 化は別ステップ。明示する。
+    } else {
+        library.set_active_current_circuit(payload.circuit_json);
+        // ↑ 既存実装。origin: User { locked: false } の "current" entry を作る (or 上書き) + active 化を一括で行う。
+    }
+}</pre>
+    <ul>
+      <li><strong>(1) active 維持:</strong> ページリロードで URL hash がそのまま残るので、同じ payload + 同じ active なら no-op にする。これで「locked My を見ていたユーザがリロードしたら別 entry に切り替わってしまう」事故を防ぐ。</li>
+      <li><strong>(2) Sample 一致:</strong> 共有 URL の典型 (「友人が Bell state を共有」) は Sample select のみ、新 User を増やさない。</li>
+      <li><strong>(3) User 一致:</strong> 「自分の locked 回路の URL を再共有 / 再読込」は、その entry の中身は触らず active 切替だけ。locked guard 不要、上書きも起きない。</li>
+      <li><strong>(4) 新規 URL:</strong> どれにも一致しない場合のみ <code>current</code> 用の unlocked User を作る。既存 <code>current</code> が locked なら上書きせず<strong>新 id を採番</strong>して別 entry を作成 (locked 保護)。</li>
+      <li>起動時の boot_circuit から呼ぶ helper は<strong>guard 不要</strong>、それ以外の経路から呼ぶ apply は<strong>必ず guard あり</strong>。</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">複製 (Duplicate) のルール</h3>
+    <ul>
+      <li>Sample / User どちらを複製しても、新 entry は <code>origin: User { locked: false }</code> で作成。lock は継承しない (新コピーは編集可能であるべき)。</li>
+      <li>name は既存ルール (「Name (copy)」→「Name (copy 2)」…) を踏襲。</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">「Select」と「Apply」を別 API として分離</h3>
+    <p>
+      現行は picker の select も URL hash の load も <code>replace_editor_circuit()</code> / <code>apply_circuit_json()</code> 経由でまとめて active entry の中身を書き換えている。
+      ここに単純な <code>locked</code> guard を入れると Example の select 自体が壊れる、入れないと URL から locked entry を上書きされる。
+      <strong>「editor へ読み込む helper」と「active entry を変更する guarded helper」を分けて、guard を後者にだけ付ける。</strong>
+    </p>
+    <pre class="code">impl QniApp {
+    // ─── editor 読み込み helper (mutation 無し、guard 無し) ───
+    /// 指定 entry の circuit_json から placed_gates / qubit_count を再構築するだけ。
+    /// entry 自体は触らない。Example / locked My でも安全に呼べる。
+    fn load_into_editor(&amp;mut self, entry: &amp;CircuitEntry, ctx: &amp;egui::Context) { ... }
+
+    // ─── active 切替 (entry の中身は触らない) ───
+    /// picker からの select / 起動時 restore など。
+    /// active_id を変更し、対象 entry を load_into_editor() で読み込む。
+    /// entry の json を書き換えないので locked guard 不要。
+    fn select_circuit_entry(&amp;mut self, id: &amp;CircuitId, ctx: &amp;egui::Context) {
+        self.library.set_active(id.clone());
+        self.load_into_editor(self.library.active(), ctx);
+    }
+
+    // ─── active entry を更新する guarded helper ───
+    /// editor の現在状態を active entry に commit。locked なら abort。
+    /// 既存 commit_current_circuit() の guarded wrapper として配置。
+    fn commit_active_if_unlocked(&amp;mut self, ctx: &amp;egui::Context) -&gt; Result&lt;()&gt; {
+        if self.library.active_locked() { return Err(LockedError); }
+        self.commit_current_circuit_unchecked(ctx);
+        Ok(())
+    }
+
+    /// URL hash や外部からの JSON を active entry へ適用 (実行中)。
+    /// = circuit_json を上書きする mutation。locked なら abort + URL hash 巻き戻し。
+    /// 起動時の経路は別 (§ 「起動時の URL hash 経路」)、ここを通さない。
+    fn apply_url_payload(&amp;mut self, json: String, ctx: &amp;egui::Context) -&gt; Result&lt;()&gt; {
+        if self.library.active_locked() { return Err(LockedError); }
+        self.replace_active_circuit_json_unchecked(json, ctx);
+        Ok(())
+    }
+}</pre>
+    <p>
+      <strong>命名規約:</strong> mutation を起こす内部 helper には <code>_unchecked</code> 接尾辞を付け、外向き API は必ず guarded wrapper を経由させる。
+      <code>commit_current_circuit()</code> / <code>replace_active_circuit_json()</code> など既存呼び出しは <code>commit_active_if_unlocked()</code> / <code>apply_url_payload()</code> 経由に書き換える。
+    </p>
+    <p>
+      編集経路の guard 対象 entry は 2 種類ある (§ 04 実装ガードと対応):
+    </p>
+    <pre class="code">// active 編集系: active entry を guard
+fn place_gate(&amp;mut self, ...)        { if self.library.active_locked() { return; } ... }
+fn remove_gate(&amp;mut self, ...)       { if self.library.active_locked() { return; } ... }
+fn clear_circuit(&amp;mut self, ...)     { if self.library.active_locked() { return; } ... }
+fn undo_circuit(&amp;mut self, ...)      { if self.library.active_locked() { return; } ... }
+fn redo_circuit(&amp;mut self, ...)      { if self.library.active_locked() { return; } ... }
+fn apply_url_payload(&amp;mut self, ...) { if self.library.active_locked() { return Err(...); } ... }
+
+// picker 行操作: 対象 entry id で guard (active と一致しないことがある)
+fn rename(&amp;mut self, entry_id: &amp;CircuitId, new_name: &amp;str) {
+    if self.library.entry_locked_by_id(entry_id) { return; }
+    self.library.rename_unchecked(entry_id, new_name);
+}
+fn delete(&amp;mut self, entry_id: &amp;CircuitId) {
+    if self.library.entry_locked_by_id(entry_id) { return; }
+    self.library.delete_unchecked(entry_id);
+}
+
+impl CircuitLibrary {
+    pub fn entry_locked_by_id(&amp;self, id: &amp;CircuitId) -&gt; bool {
+        self.entries.iter().find(|e| &amp;e.id == id).is_some_and(|e| match &amp;e.origin {
+            CircuitOrigin::Sample { .. } =&gt; true,
+            CircuitOrigin::User { locked } =&gt; *locked,
+        })
+    }
+}</pre>
+    <p>
+      submenu の Rename / Delete 項目を disabled 表示するだけでは不十分: <strong>UI race / 直接呼び出し (test / keyboard 操作) でも防ぐため、commit/delete API 側で必ず再チェック</strong>する。
+      <code>duplicate</code> / <code>select</code> / <code>create_new</code> / <code>move_up</code> / <code>move_down</code> / <code>reorder</code> / <code>toggle_circuit_lock</code> はガード対象外 (§ 04 参照)。
+      ただし <code>toggle_circuit_lock</code> は active が Sample のとき<strong>API 側で no-op</strong> (match で <code>Sample =&gt; return</code>)。
+    </p>
+
+    <h3 style="margin-top: 16px;">icon_button() の API 拡張</h3>
+    <p>
+      現行 <code>icon_button(ui, colors, icon, enabled, tooltip)</code> に toggle 状態を渡すため、
+      <code>ButtonState</code> 構造体を導入して引数を統合する。
+    </p>
+    <pre class="code">pub(crate) struct ButtonState {
+    pub enabled: bool,
+    pub toggle_on: bool,   // active な toggle (例: lock が掛かっている)
+}
+
+fn icon_button(
+    ui: &amp;mut egui::Ui,
+    colors: &amp;Colors,
+    icon: ToolbarIcon,
+    state: ButtonState,
+    tooltip: &amp;'static str,
+) -&gt; egui::Response { ... }</pre>
+
+    <h3 style="margin-top: 16px;">show_edit_utilities 配置</h3>
+    <p>
+      Undo / Redo はもともと <code>can_undo_circuit()</code> / <code>can_redo_circuit()</code> で履歴有無を見ていた。
+      ここに「<code>edit_allowed</code> (= Example でない、かつ locked でない)」を AND 合成する。
+      Trash は履歴条件無しで <code>edit_allowed</code> のみ。Duplicate はガード対象外。
+    </p>
+    <pre class="code">// after Copy
+let kind = self.library.active_kind();
+let locked = self.library.active_locked();
+let example = matches!(kind, CircuitKind::Example);
+let edit_allowed = !example &amp;&amp; !locked;
+
+// Example または locked My では編集系を disable (§ 04 参照)。
+// Undo / Redo は履歴条件と AND 合成。
+icon_button(ui, colors, Undo,
+    ButtonState { enabled: edit_allowed &amp;&amp; self.can_undo_circuit(), toggle_on: false },
+    "Undo");
+icon_button(ui, colors, Redo,
+    ButtonState { enabled: edit_allowed &amp;&amp; self.can_redo_circuit(), toggle_on: false },
+    "Redo");
+icon_button(ui, colors, Trash,
+    ButtonState { enabled: edit_allowed, toggle_on: false },
+    "Clear circuit");
+
+// Duplicate は常時 enabled (escape hatch)。
+icon_button(ui, colors, Copy,
+    ButtonState { enabled: true, toggle_on: false },
+    "Duplicate circuit");
+
+// Lock toggle。Example は固定 disabled、My は toggle_on で背景ピル。
+let (icon, tooltip) = match (kind, locked) {
+    (CircuitKind::My,      false) =&gt; (LockOpen, "Lock circuit"),
+    (CircuitKind::My,      true)  =&gt; (Lock,     "Unlock circuit"),
+    (CircuitKind::Example, _)     =&gt; (Lock,     "Locked (sample) — duplicate to edit"),
+};
+let lock_state = ButtonState { enabled: !example, toggle_on: locked };
+if icon_button(ui, colors, icon, lock_state, tooltip).clicked() {
+    self.toggle_circuit_lock(ctx);
+}</pre>
+
+    <h3 style="margin-top: 16px;">toggle-on の背景ピル</h3>
+    <p>
+      <code>icon_button()</code> に「toggle-on かつ enabled なら背景を常時 <code>colors.toolbar_hover_bg</code> (= Flexoki <code>ui</code>) で塗る」分岐を足す。
+      アイコン色は <code>tx-2</code> のまま、hover 時のみ背景を 1 段深い <code>ui-2</code> に切り替え、icon を <code>tx</code> に。
+      新しい色トークン (accent_strong など) は導入しない。
+    </p>
+    <pre class="code">// icon_button() 抜粋 (toggle-on のとき)
+if toggle_on &amp;&amp; enabled {
+    ui.painter().rect_filled(
+        rect,
+        egui::CornerRadius::same(6),
+        if hovered { colors.line } else { colors.toolbar_hover_bg }, // ui-2 ↔ ui
+    );
+}
+// icon 色は通常通り tx-2 → tx (hover)</pre>
+
+    <h3 style="margin-top: 16px;">シャックル弧の描画</h3>
+    <p>
+      既存 <code>append_icon_arc()</code> は 4 ステップで弧を近似する。
+      Lucide のシャックルは半径 5 / 約 180°〜270° の弧なので、ステップ数を 5〜6 に上げるかどうかは
+      スナップショットテストで判断する。
+      <code>paint_shackle_open</code> は polyline (7,11)→(7,7) のあと半円弧 → 終端 (16.9, 6) で停止、
+      <code>paint_shackle_closed</code> は polyline + 半円弧 + 終端 (17, 7) → (17, 11) で閉じる。
+    </p>
+
+    <h3 style="margin-top: 16px;">Picker の section 化 (circuit_picker モジュール)</h3>
+    <p>
+      <code>circuit_picker</code> は現在 <code>entries.iter().enumerate()</code> の<strong>平坦 index</strong>で
+      drag / submenu / keyboard focus を扱っているが、Example / My の 2 セクションを描画するには
+      表示行モデルを section-aware に拡張する必要がある。
+    </p>
+    <pre class="code">enum DisplayRow {
+    Header(SectionId),
+    Entry { section: SectionId, entry_index: usize },
+}
+enum SectionId { Example, My }
+
+fn build_display_rows(library: &amp;CircuitLibrary) -&gt; Vec&lt;DisplayRow&gt; {
+    let mut rows = Vec::new();
+    let examples = library.entries.iter().enumerate()
+        .filter(|(_, e)| matches!(e.origin, CircuitOrigin::Sample { .. }));
+    let users = library.entries.iter().enumerate()
+        .filter(|(_, e)| matches!(e.origin, CircuitOrigin::User));
+    // examples 先頭 → Header(Example) + Entry...
+    // users 後 → Header(My) + Entry...
+}</pre>
+    <p>
+      <strong>置換手順 (flat index → section-aware):</strong>
+    </p>
+    <ol>
+      <li>状態キーを <code>usize</code> 平坦 index から <code>(SectionId, CircuitId)</code> に置換。 <code>DragState</code> / <code>PickerState::focused</code> / <code>submenu_index</code> もこの組で持つ。<code>build_display_rows()</code> の <code>Vec&lt;DisplayRow&gt;</code> は描画専用に毎フレーム作る。</li>
+      <li>drag 開始: <code>DisplayRow::Entry { section, .. }</code> の section が <code>Example</code> なら drag 開始しない。<code>My</code> のときだけ <code>sameKindRows</code> を <code>section == My</code> の Entry に限定して slot 計算 / splice。</li>
+      <li>slot 計算と<code>Y</code>クランプは Header の bounding rect を<strong>除外</strong>して My subset の Entry rect だけで行う (§ 01 のモック JS と同じ)。</li>
+      <li>keyboard: ArrowUp/Down は <code>DisplayRow::Header</code> をスキップして前後の Entry へ。Home/End は active section の先頭/末尾 Entry。Tab は section 跨ぎ可。focused が Example だったとき lock toggle のキーは無視 (ToggleButton が Disabled なので Space/Enter で発火しない)。</li>
+      <li>submenu: <code>Move up</code> / <code>Move down</code> は<strong>同じ section の subset 内 index</strong> で動く。My subset の先頭にいるなら <code>Move up</code> は disabled、末尾なら <code>Move down</code> は disabled。Example のときは Move up/down 項目自体を出さない。</li>
+      <li><code>delete()</code> / <code>rename()</code> など既存の usize index を取る API は <code>CircuitId</code> 引数版に書き換える。flat index は描画ヒットテストでのみ局所的に使う。</li>
+    </ol>
+    <p>
+      <strong>submenu 項目の有効性:</strong>
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>項目</th><th>Example</th><th>My (unlocked)</th><th>My (locked)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Rename</td><td><code>✗</code> (sample 名固定)</td><td><code>✓</code></td><td><code>✗</code> (要 unlock)</td></tr>
+        <tr><td>Duplicate</td><td><code>✓</code></td><td><code>✓</code></td><td><code>✓</code></td></tr>
+        <tr><td>Move up</td><td><code>✗</code></td><td><code>✓</code> (My 内、先頭なら disabled)</td><td><code>✓</code> (My 内、先頭なら disabled)</td></tr>
+        <tr><td>Move down</td><td><code>✗</code></td><td><code>✓</code> (My 内、末尾なら disabled)</td><td><code>✓</code> (My 内、末尾なら disabled)</td></tr>
+        <tr><td>Delete</td><td><code>✗</code></td><td><code>✓</code></td><td><code>✗</code> (要 unlock)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">テスト計画 (受け入れ条件)</h3>
+    <p>
+      本 PR でカバーすべき自動テストの最小セット。受け入れ条件として CI に組み込む。
+      <strong>AGENTS.md の「1 テスト 1 アサーション」規約に従い</strong>、下記の各箇条書きは「観点 / シナリオの大分類」を示すもので、
+      実装時には <strong>1 ケース 1 <code>assert_*</code></strong> に分割すること (例: migration の 4 ケースは 4 つの <code>#[test]</code> 関数、
+      Playwright も <code>test()</code> 単位に 1 <code>expect</code> ずつ)。
+    </p>
+    <ul>
+      <li><strong>migration unit tests</strong> (Rust, <code>#[test]</code> × 4 + v2 fallback 1 = 5):
+        <ol>
+          <li>untouched seed 4 件のみ → v2 entries.len() == 4 を assert</li>
+          <li>seed の 1 件を編集済み → 退避 entry の id が <code>{seed_id}-user-edit</code> であることを assert</li>
+          <li>ユーザ作成 entry 1 件 → その entry の origin が <code>User { locked: false }</code> であることを assert</li>
+          <li>v1 read 失敗 (壊れた JSON) → seed のみで初期化されたことを assert</li>
+        </ol>
+        v2 read/validate 失敗時の v1 fallback も別 <code>#[test]</code> として追加。
+      </li>
+      <li><strong>active_locked() 型不変条件</strong> (Rust, <code>tests/compile_fail/</code>) — <code>CircuitOrigin::Sample { locked: false }</code> という直接構築がコンパイルエラーになることを <code>trybuild</code> で検証 (1 ファイル 1 case)。</li>
+      <li><strong>Duplicate は常に unlocked</strong> (Rust, <code>#[test]</code> × 3) — Sample / locked My / unlocked My を duplicate した直後の新 entry を 1 アサーションずつ確認。</li>
+      <li><strong>locked 中の編集拒否 (active 編集系)</strong> (Rust, <code>#[test]</code> × 6) — <code>place_gate</code> / <code>remove_gate</code> / <code>clear_circuit</code> / <code>undo_circuit</code> / <code>redo_circuit</code> / <code>apply_url_payload</code> をそれぞれ別テストで呼び、locked active entry の <code>circuit_json</code> が変わらないことを 1 つずつ assert (undo/redo は事前に履歴を積む setup を共有 fixture で)。</li>
+      <li><strong>locked 中の編集拒否 (picker 行操作)</strong> (Rust, <code>#[test]</code> × 4) — <strong>active は unlocked My だが対象行は locked My / Sample</strong>のケースを含めて:
+        <ol>
+          <li><code>rename(locked_my_id, "new")</code> → 対象 entry の name が変わらない</li>
+          <li><code>rename(sample_id, "new")</code> → 対象 entry の name が変わらない</li>
+          <li><code>delete(locked_my_id)</code> → 対象 entry が残っている</li>
+          <li><code>delete(sample_id)</code> → 対象 entry が残っている</li>
+        </ol>
+      </li>
+      <li><strong>起動時 URL 経路の 4 段階</strong> (Rust + Playwright, 4 case) — Rust 側は <code>#[test]</code>、Playwright 側は <code>test()</code>。payload と library 状態の組合せ別に: (1) active 維持 / (2) Sample select / (3) 既存 User select / (4) 新 current 作成 + locked current 保護のとき新 id 採番。それぞれ 1 case 1 assertion (1 <code>expect</code>)。</li>
+      <li><strong>実行中 URL apply の guard</strong> (Playwright, 1 case) — locked My を active にして URL apply を試行 → active の circuit_json が変わらないことを 1 expect。</li>
+      <li><strong>picker section reorder</strong> (Playwright, 3 case に分割):
+        <ol>
+          <li>My 内の drag → 順序が変わったことを 1 expect</li>
+          <li>Example 行を drag 試行 → 順序不変を 1 expect</li>
+          <li>My から Example へ cross-section drag 試行 → 順序不変を 1 expect</li>
+        </ol>
+      </li>
+      <li><strong>toolbar 3 状態の visual snapshot</strong> (insta, <code>#[test]</code> × 3) — unlocked My / locked My / locked Example のフレームを別テストで snapshot。<code>assert_snapshot!</code> 1 つずつ。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · ロックボタン仕様 · 2026-05</p>
+</footer>
+
+<script>
+  // ── 動くモック (§ 01) のロジック ───────────────────────────
+  // 回路リスト + 現在の選択状態を保持し、picker / lock-btn のイベントで UI を更新。
+  // id は実装の CircuitLibrary::seed() (apps/egui-web/crates/circuit-library-model/src/lib.rs) と一致させる。
+  const circuits = [
+    { id: 'bell',          name: 'Bell state',           kind: 'example' },
+    { id: 'ghz',           name: 'GHZ state',            kind: 'example' },
+    { id: 'qft-4',         name: 'QFT 4-qubit',          kind: 'example' },
+    { id: 'grover-search', name: 'Grover Search',        kind: 'example' },
+    { id: 'my1',           name: 'Circuit 1',            kind: 'my' },
+    { id: 'my2',           name: 'my-experiment',        kind: 'my' },
+    { id: 'my3',           name: 'Grover Search (copy)', kind: 'my' },
+  ];
+  // 各回路の lock 状態を保持。example は常に true 固定。
+  // my は default false だが、デモのため my-experiment は最初からロック済みにする
+  // (My Circuits も自分でロックできる、というのを picker 一覧の見た目で示す)。
+  const lockState = Object.fromEntries(
+    circuits.map(c => [c.id, c.kind === 'example' || c.id === 'my2'])
+  );
+  let activeId = 'bell';
+
+  const trigger = document.getElementById('picker-trigger');
+  const dropdown = document.getElementById('picker-dropdown');
+  const items = document.getElementById('picker-items');
+  const resize = document.getElementById('picker-resize');
+  const label = document.getElementById('picker-label');
+  const lockBtn = document.getElementById('lock-btn');
+  const lockSvg = document.getElementById('lock-svg');
+  const statePill = document.getElementById('state-pill');
+  const kindLabel = document.getElementById('kind-label');
+  const tipLabel = document.getElementById('tip-label');
+
+  const LOCK_OPEN_PATH = 'M7 11V7a5 5 0 0 1 9.9-1';
+  const LOCK_PATH = 'M7 11V7a5 5 0 0 1 10 0v4';
+  const ROW_LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="' + LOCK_PATH + '"/></svg>';
+
+  // ピッカー寸法 (circuit-picker.html と同じ定数)
+  const ROW_H = 36;
+  const MIN_ITEMS_H = 72;     // 2 rows
+  const DEFAULT_H = 216;      // 6 rows
+  const EDGE_ZONE = 36;
+  const MAX_SCROLL_PX = 12;
+  const DRAG_THRESHOLD = 4;   // px before mousedown becomes a drag instead of a click
+
+  let itemsHeight = DEFAULT_H;
+
+  function activeCircuit() {
+    return circuits.find(c => c.id === activeId);
+  }
+
+  function renderRows() {
+    const examples = circuits.filter(c => c.kind === 'example');
+    const my = circuits.filter(c => c.kind === 'my');
+    // 全行で row-icon スロットを常に確保し、ロック有無で名前位置がずれないようにする
+    // (アイコン無しでも 14 px 空ける)。
+    function renderItem(c, extraClass) {
+      const locked = lockState[c.id];
+      const icon = locked
+        ? '<span class="row-icon">' + ROW_LOCK_SVG + '</span>'
+        : '<span class="row-icon" aria-hidden="true"></span>';
+      return '<div class="picker-item' + (extraClass ? ' ' + extraClass : '')
+           + (c.id === activeId ? ' is-active' : '')
+           + '" data-id="' + c.id + '" data-kind="' + c.kind + '">'
+           + icon
+           + '<span class="name">' + c.name + '</span>'
+           + '</div>';
+    }
+    let html = '';
+    if (examples.length) {
+      html += '<div class="picker-section"><span class="line lead"></span><span>Example Circuits</span><span class="line fill"></span></div>';
+      examples.forEach(c => { html += renderItem(c, 'example'); });
+    }
+    if (my.length) {
+      html += '<div class="picker-section" style="margin-top:6px"><span class="line lead"></span><span>My Circuits</span><span class="line fill"></span></div>';
+      my.forEach(c => { html += renderItem(c, ''); });
+    }
+    items.innerHTML = html;
+  }
+
+  function maxItemsHeight() {
+    // examples + my + 2 section headers (≈ 26 px each)
+    const contentMax = circuits.length * ROW_H + 56;
+    const viewport = window.innerHeight - 240;
+    return Math.min(contentMax, Math.max(MIN_ITEMS_H, viewport));
+  }
+
+  function applyItemsHeight() {
+    const h = Math.max(MIN_ITEMS_H, Math.min(itemsHeight, maxItemsHeight()));
+    items.style.height = h + 'px';
+  }
+
+  function render() {
+    const c = activeCircuit();
+    const locked = lockState[c.id];
+    const isExample = c.kind === 'example';
+
+    label.textContent = c.name;
+
+    // Example または locked My は編集系 (Undo / Redo / Trash) を disabled。
+    // Duplicate だけは「複製して編集」の escape hatch として有効のまま残す。
+    const editDisabled = isExample || locked;
+    ['undo-btn', 'redo-btn', 'trash-btn'].forEach(id => {
+      const btn = document.getElementById(id);
+      btn.classList.toggle('disabled', editDisabled);
+      if (editDisabled) btn.setAttribute('aria-disabled', 'true');
+      else btn.removeAttribute('aria-disabled');
+    });
+
+    lockSvg.innerHTML =
+      '<rect x="3" y="11" width="18" height="11" rx="2"/>' +
+      '<path d="' + (locked ? LOCK_PATH : LOCK_OPEN_PATH) + '"/>';
+
+    lockBtn.classList.remove('toggle-on', 'disabled');
+    lockBtn.removeAttribute('aria-disabled');
+    if (isExample) {
+      lockBtn.classList.add('disabled');
+      lockBtn.setAttribute('aria-disabled', 'true');
+      lockBtn.setAttribute('aria-pressed', 'true');
+      lockBtn.dataset.tip = 'Locked (sample) — duplicate to edit';
+    } else if (locked) {
+      lockBtn.classList.add('toggle-on');
+      lockBtn.setAttribute('aria-pressed', 'true');
+      lockBtn.dataset.tip = 'Unlock circuit';
+    } else {
+      lockBtn.setAttribute('aria-pressed', 'false');
+      lockBtn.dataset.tip = 'Lock circuit';
+    }
+
+    statePill.classList.remove('unlocked', 'locked-my', 'locked-ex');
+    if (c.kind === 'example') {
+      statePill.classList.add('locked-ex');
+      statePill.textContent = 'locked (example)';
+    } else if (locked) {
+      statePill.classList.add('locked-my');
+      statePill.textContent = 'locked (my)';
+    } else {
+      statePill.classList.add('unlocked');
+      statePill.textContent = 'unlocked';
+    }
+    kindLabel.textContent = c.kind;
+    tipLabel.textContent = lockBtn.dataset.tip;
+
+    renderRows();
+  }
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = !dropdown.classList.contains('open');
+    dropdown.classList.toggle('open', willOpen);
+    trigger.classList.toggle('open', willOpen);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && e.target !== trigger
+        && !trigger.contains(e.target)) {
+      dropdown.classList.remove('open');
+      trigger.classList.remove('open');
+    }
+  });
+
+  lockBtn.addEventListener('click', () => {
+    const c = activeCircuit();
+    if (c.kind === 'example') return; // disabled
+    lockState[c.id] = !lockState[c.id];
+    render();
+  });
+
+  /* ─────────── Create new circuit (footer)
+     active が何であっても (locked Example でも locked My でも) 新 User entry を末尾に追加して active 化。
+     上書き mutation ではないので guard 不要 (§ 04 表参照)。 */
+  const footer = document.getElementById('picker-footer');
+  if (footer) {
+    footer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const usedNumbers = circuits
+        .filter(c => c.kind === 'my')
+        .map(c => {
+          const m = c.name.match(/^Circuit (\d+)$/);
+          return m ? Number(m[1]) : 0;
+        });
+      const next = (Math.max(0, ...usedNumbers) || 0) + 1;
+      const fresh = 'circuit-' + Date.now().toString(36);
+      circuits.push({ id: fresh, name: 'Circuit ' + next, kind: 'my' });
+      lockState[fresh] = false;
+      activeId = fresh;
+      dropdown.classList.remove('open');
+      trigger.classList.remove('open');
+      render();
+    });
+  }
+
+  /* ─────────── resize separator (circuit-picker.html と同じ) ─────────── */
+  let resizeDrag = null;
+  resize.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeDrag = { startY: e.clientY, baseHeight: itemsHeight };
+    resize.classList.add('is-dragging');
+    document.body.classList.add('is-resize-dragging');
+    function onMove(ev) {
+      const dy = ev.clientY - resizeDrag.startY;
+      itemsHeight = resizeDrag.baseHeight + dy;
+      applyItemsHeight();
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      resize.classList.remove('is-dragging');
+      document.body.classList.remove('is-resize-dragging');
+      resizeDrag = null;
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  window.addEventListener('resize', applyItemsHeight);
+
+  /* ─────────── drag-to-reorder + edge auto-scroll (同 kind 内のみ) ─────────── */
+  let itemDrag = null;
+  let autoScrollRaf = null;
+  let autoScrollSpeed = 0;
+
+  items.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const row = e.target.closest('.picker-item');
+    if (!row) return;
+    e.preventDefault();
+    const kind = row.dataset.kind;
+    // Example 行は reorder 不可: drag 開始しない (click select は mouseup で処理)
+    const draggable = kind !== 'example';
+    const sameKindRows = draggable
+      ? Array.from(items.querySelectorAll('.picker-item[data-kind="' + kind + '"]'))
+      : [];
+    const origIndex = draggable ? sameKindRows.indexOf(row) : 0;
+    itemDrag = {
+      el: row,
+      kind, sameKindRows, draggable,
+      startClientY: e.clientY,
+      startScrollTop: items.scrollTop,
+      pointerY: e.clientY,
+      origIndex,
+      currentSlot: origIndex,
+      hasMoved: false,
+    };
+    document.addEventListener('mousemove', onItemMove);
+    document.addEventListener('mouseup', onItemUp);
+  });
+
+  function onItemMove(ev) {
+    if (!itemDrag) return;
+    itemDrag.pointerY = ev.clientY;
+    // draggable=false (Example) は drag に昇格させない: mouseup で click select として処理
+    if (!itemDrag.draggable) return;
+    if (!itemDrag.hasMoved) {
+      if (Math.abs(ev.clientY - itemDrag.startClientY) < DRAG_THRESHOLD) return;
+      itemDrag.hasMoved = true;
+      itemDrag.el.classList.add('is-dragging');
+      document.body.classList.add('is-item-dragging');
+    }
+    updateSlot();
+    updateDraggedTransform();
+    updateAutoScroll();
+  }
+
+  function onItemUp() {
+    if (!itemDrag) return;
+    const { el, kind, origIndex, currentSlot, hasMoved } = itemDrag;
+    document.removeEventListener('mousemove', onItemMove);
+    document.removeEventListener('mouseup', onItemUp);
+    stopAutoScroll();
+
+    if (!hasMoved) {
+      // クリックとして扱う → select
+      activeId = el.dataset.id;
+      dropdown.classList.remove('open');
+      trigger.classList.remove('open');
+      itemDrag = null;
+      render();
+      return;
+    }
+
+    document.body.classList.remove('is-item-dragging');
+
+    if (currentSlot !== origIndex) {
+      // 同 kind 内で順序を入れ替え
+      const sameKindCircuits = circuits.filter(c => c.kind === kind);
+      const otherCircuits = circuits.filter(c => c.kind !== kind);
+      const moved = sameKindCircuits.splice(origIndex, 1)[0];
+      sameKindCircuits.splice(currentSlot, 0, moved);
+      // global 配列を rebuild (Example が先、My が後)
+      const examples = (kind === 'example') ? sameKindCircuits : otherCircuits.filter(c => c.kind === 'example');
+      const my       = (kind === 'my')      ? sameKindCircuits : otherCircuits.filter(c => c.kind === 'my');
+      circuits.length = 0;
+      circuits.push(...examples, ...my);
+      itemDrag = null;
+      render();
+    } else {
+      Array.from(items.querySelectorAll('.picker-item')).forEach(r => { r.style.transform = ''; });
+      el.classList.remove('is-dragging');
+      itemDrag = null;
+    }
+  }
+
+  function updateSlot() {
+    if (!itemDrag) return;
+    const rows = itemDrag.sameKindRows;
+    let slot = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect();
+      if (itemDrag.pointerY < r.top + r.height / 2) break;
+      slot = i + 1;
+    }
+    slot = Math.max(0, Math.min(rows.length - 1, slot));
+    if (slot !== itemDrag.currentSlot) {
+      itemDrag.currentSlot = slot;
+      applyVisualOrder();
+    }
+  }
+
+  function applyVisualOrder() {
+    if (!itemDrag) return;
+    const { el, origIndex, currentSlot, sameKindRows } = itemDrag;
+    sameKindRows.forEach((row, i) => {
+      if (row === el) return;
+      let shift = 0;
+      if (currentSlot > origIndex && i > origIndex && i <= currentSlot) shift = -ROW_H;
+      if (currentSlot < origIndex && i >= currentSlot && i < origIndex) shift = ROW_H;
+      row.style.transform = shift === 0 ? '' : 'translateY(' + shift + 'px)';
+    });
+  }
+
+  function updateDraggedTransform() {
+    if (!itemDrag) return;
+    const { el, startClientY, startScrollTop, pointerY, sameKindRows } = itemDrag;
+    const rawDy = (pointerY - startClientY) + (items.scrollTop - startScrollTop);
+    const elTop = el.offsetTop;
+    // visual を同 kind セクションの上下端にクランプ (Example と My の境界を越えさせない)。
+    const sectionTop = sameKindRows[0].offsetTop;
+    const lastRow = sameKindRows[sameKindRows.length - 1];
+    const sectionBottom = lastRow.offsetTop + lastRow.offsetHeight;
+    const minDy = sectionTop - elTop;
+    const maxDy = sectionBottom - el.offsetHeight - elTop;
+    const dy = Math.max(minDy, Math.min(maxDy, rawDy));
+    el.style.transform = 'translateY(' + dy + 'px)';
+  }
+
+  function updateAutoScroll() {
+    if (!itemDrag) return;
+    const rect = items.getBoundingClientRect();
+    let speed = 0;
+    if (itemDrag.pointerY < rect.top + EDGE_ZONE) {
+      const depth = Math.min(EDGE_ZONE, (rect.top + EDGE_ZONE) - itemDrag.pointerY);
+      speed = -(depth / EDGE_ZONE) * MAX_SCROLL_PX;
+    } else if (itemDrag.pointerY > rect.bottom - EDGE_ZONE) {
+      const depth = Math.min(EDGE_ZONE, itemDrag.pointerY - (rect.bottom - EDGE_ZONE));
+      speed = (depth / EDGE_ZONE) * MAX_SCROLL_PX;
+    }
+    autoScrollSpeed = speed;
+    if (speed !== 0 && autoScrollRaf == null) {
+      autoScrollRaf = requestAnimationFrame(autoScrollTick);
+    } else if (speed === 0) {
+      stopAutoScroll();
+    }
+  }
+
+  function autoScrollTick() {
+    autoScrollRaf = null;
+    if (!itemDrag || autoScrollSpeed === 0) return;
+    const before = items.scrollTop;
+    items.scrollTop = before + autoScrollSpeed;
+    if (items.scrollTop === before) return; // hit edge
+    updateSlot();
+    updateDraggedTransform();
+    autoScrollRaf = requestAnimationFrame(autoScrollTick);
+  }
+
+  function stopAutoScroll() {
+    if (autoScrollRaf != null) cancelAnimationFrame(autoScrollRaf);
+    autoScrollRaf = null;
+    autoScrollSpeed = 0;
+  }
+
+  applyItemsHeight();
+  render();
+</script>
+
+</body>
+</html>

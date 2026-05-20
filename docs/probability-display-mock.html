@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Probability display — UI モック</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <style>
+
+    /* ───── App frame / stage chrome ───── */
+    .app-frame {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .app-frame .scene-label {
+      background: var(--bg);
+      border-bottom: 1px solid var(--ui-2);
+      padding: 10px 20px;
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.16em; color: var(--tx-3); text-transform: uppercase;
+    }
+    .app-body { padding: 28px 32px; background: var(--bg-2); }
+
+    /* ───── Probability display visual primitive ─────
+       A Probability display is a "display" gate: it renders the probability that
+       the spanned qubits would be measured in each computational-basis
+       outcome. All variants use the same encoding: 2^span horizontal
+       bars stacked vertically, each row = P(outcome k). Span 1 is just
+       the n=1 case (2 rows: |0⟩ and |1⟩) — no special vertical-fill
+       form, so the visual model stays uniform across spans. */
+    .probability-display {
+      width: 32px;             /* matches existing 1-qubit gate footprint */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      /* No border-radius — overflow: hidden + rounded corners would clip
+         the top/bottom rows' bars at the corners. Display gate is a
+         sharp rectangle (matches Quirk). */
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex; flex-direction: column;
+    }
+    .probability-row {
+      flex: 1 1 0;
+      position: relative;
+      border-top: 1px solid var(--ui-2);
+      overflow: hidden;
+    }
+    .probability-row:first-child { border-top: 0; }
+    .probability-row .bar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--blue-300);
+      transition: width 120ms ease;
+    }
+    .probability-row .label {
+      position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+      font-family: var(--font-mono); font-size: 8px; font-weight: 500;
+      color: var(--tx);
+      pointer-events: none;
+      letter-spacing: -0.02em;
+    }
+    /* Tiny rows (< 8 px) — text doesn't fit, fall back to log-hint
+       (a thin marker line) so vanishingly small probabilities still
+       have a visible cue. */
+    .probability-row.is-tiny .label { display: none; }
+    .probability-row.is-tiny .log-hint {
+      position: absolute; top: 0; bottom: 0;
+      width: 1px;
+      background: var(--tx-3);
+      opacity: 0.7;
+    }
+    /* NaN state — diagonal stripe + red text. */
+    .probability-display.is-nan .probability-row .bar { background: transparent; }
+    .probability-display.is-nan::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        repeating-linear-gradient(45deg,
+          transparent, transparent 4px,
+          rgba(175, 48, 41, 0.15) 4px, rgba(175, 48, 41, 0.15) 8px);
+    }
+    .probability-display.is-nan .probability-row .label { color: var(--red-600); }
+
+    /* Hovered row — change the row bg + bar saturation instead of an
+       outline. Outline would steal 2 px on each side and visually clip
+       the bar, while a bg + colour shift conveys focus without
+       intruding into the data area.
+         row bg:  paper → bg-2  (subtle warm shift)
+         bar:     blue-300 → blue-600  (saturated accent) */
+    .probability-row.is-focus { background: var(--bg-2); }
+    .probability-row.is-focus .bar { background: var(--blue-600); }
+
+    /* ───── Resize handle (= shared resizable-span handle) ─────
+       Probability Displayの下端に小さな purple グリップを出し、上下にドラッグして
+       span (= 縦に伸びる 量子ビット数) を 1..16 で変更できる。色は既存 colors.rs
+       の `span_resize_handle_bg` / `span_resize_handle_bg_hover` と一致:
+         idle:  purple-400 (#8B7EC8)
+         hover/drag: purple-600 (#5E409D) */
+    .probability-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .probability-resize-handle {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: -6px;          /* sits half-outside the gate so it's grabbable */
+      height: 10px;          /* hit area; visual pill is centred inside */
+      cursor: ns-resize;
+      z-index: 4;
+    }
+    .probability-resize-handle::before {
+      content: '';
+      position: absolute;
+      left: 50%; top: 3px;
+      transform: translateX(-50%);
+      width: 16px; height: 4px;
+      background: #8B7EC8;   /* purple-400 */
+      border-radius: 2px;
+      transition: background 80ms ease, width 80ms ease, height 80ms ease;
+    }
+    .probability-resize-handle:hover::before,
+    .probability-resize-handle.is-dragging::before {
+      background: #5E409D;   /* purple-600 */
+      width: 20px; height: 5px;
+    }
+    body.is-probability-resize-dragging,
+    body.is-probability-resize-dragging * { cursor: ns-resize !important; }
+
+    /* ───── Hover tooltip (Quirk-style probability popup) ─────
+       Shown when a probability-row is hovered. Anchored to the right edge of
+       the gate, vertically aligned with the hovered row. Content:
+         title:  "Probability of |bin⟩ (decimal k) if measured"
+         raw:    "raw: XX.XXXX%"
+         log:    "log: XX.X dB"            */
+    .probability-tip {
+      position: fixed;
+      z-index: 100;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 6px;
+      box-shadow: var(--shadow-popover);
+      padding: 8px 12px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 18px;
+      color: var(--tx);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 80ms ease;
+      max-width: 280px;
+    }
+    .probability-tip.is-visible { opacity: 1; }
+    .probability-tip .title { font-weight: 500; }
+    .probability-tip .stat { font-family: var(--font-mono); font-size: 12px; color: var(--tx-2); margin-top: 2px; }
+
+    /* ───── Anatomy section layout ───── */
+    .anatomy {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 28px 32px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .anatomy .target {
+      display: flex; flex-direction: column; gap: 24px; align-items: flex-start;
+    }
+    .anatomy .target-row { display: flex; gap: 24px; align-items: center; }
+    .anatomy .target-row .label {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--tx-3);
+    }
+    .anatomy table { border-collapse: collapse; font-size: 13px; width: 100%; }
+    .anatomy th, .anatomy td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--ui-2); vertical-align: top; }
+    .anatomy th { color: var(--tx-3); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; width: 140px; }
+    .anatomy td code { font-family: var(--font-mono); font-size: 12px; background: var(--ui); padding: 1px 5px; border-radius: 4px; }
+
+    /* Scaled preview — for showing the gate at 4× so details are legible. */
+    .scaled-preview {
+      display: flex; align-items: center; gap: 28px;
+      margin-bottom: 24px;
+    }
+    .scaled-preview .scale-stage {
+      transform: scale(4);
+      transform-origin: top left;
+      width: 32px;
+      flex-shrink: 0;
+    }
+    .scaled-preview .scale-stage.is-multi-2 { width: 32px; }
+    .scaled-preview .scale-pad {
+      width: 128px;     /* 32 × 4 */
+    }
+    .scaled-preview .scale-pad.is-h-2 { height: 256px; }   /* 32 × 4 × 2 */
+    .scaled-preview .scale-pad.is-h-3 { height: 384px; }
+    .scaled-preview .scale-pad.is-h-4 { height: 512px; }
+    .scaled-preview .info { color: var(--tx-2); font-size: 13px; }
+    .scaled-preview .info b { color: var(--tx); }
+
+    /* Controls (slider + preset buttons). */
+    .controls {
+      display: flex; flex-direction: column; gap: 16px;
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 12px; padding: 20px 24px;
+      margin-top: 16px;
+    }
+    .controls .row { display: flex; align-items: center; gap: 16px; }
+    .controls .row .lbl {
+      width: 120px; font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-2); letter-spacing: 0.04em;
+    }
+    .controls input[type="range"] {
+      flex: 1; accent-color: var(--blue-600);
+    }
+    .controls .readout {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx); min-width: 76px; text-align: right;
+    }
+    .controls .preset-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .controls .preset-btns button {
+      font-family: var(--font-body); font-size: 13px;
+      color: var(--tx-2); background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 6px; padding: 4px 12px; cursor: pointer;
+      transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+    }
+    .controls .preset-btns button:hover { background: var(--bg-2); color: var(--tx); }
+    .controls .preset-btns button.is-active {
+      background: var(--blue-600); border-color: var(--blue-600); color: var(--bg);
+    }
+
+    /* Side-by-side prototype layout. */
+    .proto-row {
+      display: grid; grid-template-columns: minmax(240px, 320px) 1fr;
+      gap: 32px; align-items: start;
+    }
+
+    /* In-circuit illustration — fake wires + gates. */
+    .fake-circuit {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 32px 40px;
+      display: flex; align-items: stretch;
+      gap: 24px;
+      overflow-x: auto;
+    }
+    .fake-circuit .wires {
+      position: relative;
+      display: flex; flex-direction: column;
+      gap: 20px;       /* qubit row pitch = 32 (gate) + 20 (gap) → 52 px per row */
+    }
+    .fake-circuit .wire {
+      height: 32px;
+      display: flex; align-items: center;
+      gap: 14px;
+      position: relative;
+    }
+    .fake-circuit .wire::before {
+      content: '';
+      position: absolute; left: 36px; right: 0; top: 50%;
+      height: 1px; background: var(--ui-2);
+      z-index: 0;
+    }
+    .fake-circuit .wire .qlabel {
+      font-family: var(--font-mono); font-size: 12px; color: var(--tx-2);
+      width: 22px; text-align: right;
+      position: relative; z-index: 1;
+    }
+    .fake-circuit .gate {
+      width: 32px; height: 32px;
+      background: var(--ui);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+      color: var(--tx);
+      position: relative; z-index: 1;
+      flex-shrink: 0;
+    }
+    .fake-circuit .gate.is-unitary {
+      background: #3AA99F;  /* Flexoki cyan-400 — matches box_fill */
+      color: var(--bg);
+    }
+    .fake-circuit .gate.is-spacer { background: transparent; }
+    .fake-circuit .col {
+      display: flex; flex-direction: column;
+      gap: 20px;
+      position: relative; z-index: 1;
+    }
+    .fake-circuit .probability-stack {
+      /* Multi-qubit Probability display that spans rows — height = span * (32 + 20) − 20. */
+      position: relative; z-index: 1;
+      flex-shrink: 0;
+    }
+    .fake-circuit .probability-stack.is-span-2 { height: 84px; }   /* 32 + 20 + 32 */
+    .fake-circuit .probability-stack.is-span-3 { height: 136px; }  /* 32 + 20 + 32 + 20 + 32 */
+
+    /* Impl spec section. */
+    .impl-spec {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+    }
+    .impl-spec h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+    .impl-spec ol { margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+    .impl-spec ol code {
+      font-family: var(--font-mono); font-size: 13px;
+      background: var(--ui); padding: 1px 6px; border-radius: 4px; color: var(--tx);
+    }
+    .impl-spec pre {
+      margin: 8px 0; padding: 10px 14px;
+      background: var(--ui); border-radius: 6px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.55; overflow-x: auto;
+    }
+
+  </style>
+</head>
+<body>
+
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">表示ブロック</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">確率表示ブロックモック</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · ui mock</p>
+  <h1 class="page-title">Probability display</h1>
+  <p class="page-lede">
+    Quirk の <code>Probability</code> / <code>Probability2…16</code> 相当の<strong>確率表示
+    ゲート</strong>。回路の任意の地点に置くと、その時点で span 内 量子ビットを測定した
+    場合の各 outcome 確率を、ゲート本体の中で<strong>横バー+%</strong>として可視化
+    する。状態ベクトルには影響しない (display gate)。span 1..16、いずれも
+    <strong>2<sup>span</sup> 行の横バー</strong>という同じ視覚モデルで統一
+    (Quirk の span 1 thermometer 形は採用せず、span 1 = 2 行に正規化)。
+  </p>
+</div>
+
+<!-- ───────────────── 1. Anatomy ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span> 構造 — span 1..16 まで同一視覚モデル</h2>
+  <p class="note">
+    paper bg + ui-2 1 px のシンプルなボックス。中身は <strong>blue-300</strong>
+    の確率バー + Mono の %。<strong>span 1 (= 2 行)、span n (= 2<sup>n</sup> 行)
+    どちらも横バーを縦に stack</strong> する同じ形式。Quirk は span 1 を縦
+    thermometer にする特例があるが、qni-webgpu では軸の向きを変えない方が
+    認知負荷が低いと判断して span ぶん 2<sup>span</sup> 行に統一する。span が
+    大きく行が 8 px を切る場合は % を省略して log ヒント線にフォールバック
+    (Quirk 互換)。NaN は赤の斜線パターン。
+  </p>
+
+  <div class="anatomy">
+    <div class="target">
+      <div class="target-row">
+        <div class="label">span 1<br>[P(|0⟩), P(|1⟩)]<br>= [27, 73] %</div>
+        <div class="probability-display" style="height: 32px; transform: scale(2); transform-origin: top left;">
+          <div class="probability-row"><div class="bar" style="width: 27%"></div><div class="label">27%</div></div>
+          <div class="probability-row"><div class="bar" style="width: 73%"></div><div class="label">73%</div></div>
+        </div>
+        <div style="width: 32px"></div>
+      </div>
+      <div class="target-row">
+        <div class="label">span 2<br>[50, 0, 0, 50] %</div>
+        <div class="probability-display" style="height: 64px; transform: scale(2); transform-origin: top left;">
+          <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+          <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+          <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+          <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+        </div>
+        <div style="width: 32px"></div>
+      </div>
+    </div>
+
+    <table>
+      <tbody>
+        <tr><th>footprint</th><td><strong>span n</strong>: 32×(n × 32 + (n − 1) × wire_gap)。既存ゲートと同じ列幅、span ぶんだけ縦に伸びる。span 1 は 32×32。</td></tr>
+        <tr><th>box chrome</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ゲートは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
+        <tr><th>fill bar</th><td><code>blue-300</code> (#66A0C8 — Flexoki <code>state_fill</code> と同じトーン)。各行左から右へ <code>P(outcome k) × gate_w</code> の幅で塗る。<code>transition: 120 ms ease</code> で値変化を補間。</td></tr>
+        <tr><th>row order</th><td>上から <code>k = 0</code> (= |0..0⟩) → 下が <code>k = 2<sup>span</sup> − 1</code> (= |1..1⟩)。binary big-endian。</td></tr>
+        <tr><th>label</th><td>Geist Mono Medium。8 px / 右寄せ / 色は <code>tx</code> (黒)。</td></tr>
+        <tr><th>row height ≥ 8 px</th><td>% テキストを描く。</td></tr>
+        <tr><th>row height &lt; 8 px</th><td>テキストは省略 (読めないため)。代わりに <code>tx-3 @ 70%</code> の縦 1 px 線で対数スケール位置を hint (Quirk の <code>_paintMultiProbabilityDisplay_logarithmHints</code> と同じ趣旨)。</td></tr>
+        <tr><th>NaN</th><td>赤の 45° 斜線ストライプ + <code>red-600</code> の "NaN" テキスト。確率が computable でない (state 未定義 / 0 ノルム) ときに表示。</td></tr>
+        <tr><th>focus / hover</th><td>focus 中の row に <code>orange</code> 2 px outline + 横にツールチップ (`Probability of |bin⟩ if measured`、raw % と log dB)。</td></tr>
+        <tr><th>controls</th><td>circuit の制御ワイヤを尊重する — 制御条件が真の sub-population のみ集計して確率を出す (Quirk と同じ)。</td></tr>
+        <tr><th>nesting</th><td>禁止 (Quirk: <code>setExtraDisableReasonFinder</code>)。表示ゲートの中に表示ゲートは置けない。</td></tr>
+        <tr><th>resize handle</th><td>ゲート本体下端中央の <strong>16×4 px の purple-400 pill</strong> (hover/ドラッグで 20×5 + purple-600)。上下ドラッグで span 1 → 16 を変更し、行数 2<sup>span</sup> が自動追従。色は既存 <code>span_resize_handle_bg</code> / <code>_hover</code> と一致 (= resizable-span ハンドルと同型)。詳細は § 02 d。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────── 2. Interactive prototype — single ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02 a</span> プロトタイプ — span 1 (|0⟩ と |1⟩ の 2 行)</h2>
+  <p class="note">
+    スライダで P(|1⟩) を 0 〜 100 % まで連続的に動かしてみてください。下段
+    (= |1⟩ 行) のバーが伸び、上段 (= |0⟩ 行) は <code>1 − P(|1⟩)</code> で
+    補完されます。NaN チェックをオンにすると赤い斜線パターンに切り替わります。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · probability display · span 1</div>
+    <div class="app-body">
+      <div class="proto-row">
+        <div class="scaled-preview">
+          <div class="scale-stage">
+            <div class="probability-display" id="single-gate" style="height: 32px;">
+              <div class="probability-row" data-k="0">
+                <div class="bar" style="width: 50%"></div>
+                <div class="label">50%</div>
+              </div>
+              <div class="probability-row" data-k="1">
+                <div class="bar" style="width: 50%"></div>
+                <div class="label">50%</div>
+              </div>
+            </div>
+          </div>
+          <div class="scale-pad" style="height: 128px;"></div>
+        </div>
+        <div>
+          <div class="controls">
+            <div class="row">
+              <span class="lbl">P(|1⟩)</span>
+              <input type="range" min="0" max="100" value="50" id="single-slider" />
+              <span class="readout" id="single-readout">50.0 %</span>
+            </div>
+            <div class="row">
+              <span class="lbl">NaN</span>
+              <input type="checkbox" id="single-nan" />
+              <span class="readout">&nbsp;</span>
+            </div>
+          </div>
+          <p class="note" style="margin: 16px 0 0;">
+            実描画 (回路上では 32×32 px) と同じ形状を <strong>4 ×</strong> に
+            拡大しています。span 1 は 2 行で各行 16 px、% テキスト (8 px) が
+            余裕で収まる。span が増えるほど 1 行が狭くなる (§ 02 b / c で確認)。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2 b. Multi-qubit ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02 b</span> プロトタイプ — multi qubit (span 3)</h2>
+  <p class="note">
+    span 3 の Probability Display (= 8 outcome) で代表的な分布をプリセットから選んで、
+    バーと % が一斉に更新されるのを確認できます。<br />
+    プリセット: Uniform / |000⟩ / Bell-like (|000⟩+|111⟩) / W state / Random / NaN。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · probability display · multi qubit (span 3)</div>
+    <div class="app-body">
+      <div class="proto-row">
+        <div class="scaled-preview">
+          <div class="scale-stage">
+            <div class="probability-display is-multi" id="multi-gate" style="height: 96px;">
+              <!-- 8 rows seeded by JS -->
+            </div>
+          </div>
+          <div class="scale-pad" style="height: 384px;"></div>
+        </div>
+        <div>
+          <div class="controls">
+            <div class="row">
+              <span class="lbl">preset</span>
+              <div class="preset-btns" id="multi-presets">
+                <button data-preset="uniform" class="is-active">Uniform</button>
+                <button data-preset="zero">|000⟩</button>
+                <button data-preset="bell">|000⟩+|111⟩</button>
+                <button data-preset="w">W state</button>
+                <button data-preset="random">Random</button>
+                <button data-preset="nan">NaN</button>
+              </div>
+            </div>
+            <div class="row" style="flex-wrap: wrap; gap: 8px;">
+              <span class="lbl">distribution</span>
+              <code id="multi-readout" style="font-family: var(--font-mono); font-size: 12px; color: var(--tx); background: var(--ui); padding: 4px 8px; border-radius: 4px;"></code>
+            </div>
+          </div>
+          <p class="note" style="margin: 16px 0 0;">
+            実描画は <strong>32 × 96 px</strong> (3 量子ビットを vertical span)。
+            行高 = 96 / 8 = 12 px なので % テキスト (8 px) が読める。
+            span を増やして行高が 8 px を切ると下記のように log ヒント線フォールバックします:
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2 c. Span 5 — tiny row fallback ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02 c</span> プロトタイプ — span 5 (tiny-row fallback)</h2>
+  <p class="note">
+    span 5 = 32 outcome。実描画の高さは 32 × 5 + gap × 4 = 240 px、
+    1 行あたり 240 / 32 = 7.5 px なので % テキストは省略し、Quirk の
+    <code>_paintMultiProbabilityDisplay_logarithmHints</code> 相当の
+    対数スケール位置線 (tx-3 @ 70%) でフォールバックします。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · probability display · multi qubit (span 5)</div>
+    <div class="app-body">
+      <div class="proto-row">
+        <div class="scaled-preview">
+          <div class="scale-stage">
+            <div class="probability-display is-multi" id="span5-gate" style="height: 240px;">
+              <!-- 32 rows seeded by JS -->
+            </div>
+          </div>
+          <div class="scale-pad" style="height: 960px;"></div>
+        </div>
+        <div>
+          <div class="controls">
+            <div class="row">
+              <span class="lbl">preset</span>
+              <div class="preset-btns" id="span5-presets">
+                <button data-preset="uniform" class="is-active">Uniform</button>
+                <button data-preset="exp">Exponential</button>
+                <button data-preset="sparse">Sparse</button>
+                <button data-preset="random">Random</button>
+              </div>
+            </div>
+          </div>
+          <p class="note" style="margin: 16px 0 0;">
+            span が大きい (量子ビット数が増える) ほど outcome 数は指数的に増え、
+            個別の確率を読むより<strong>分布の形</strong>を一目で把握する用途に
+            向きます。サンプル数が増えるとバー 1 本ずつの幅は読み取れなくなるので、
+            ピーク位置を log スケールでも示すのが Quirk 流。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 2 d. Resize handle (= resizable-span) ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 02 d</span> プロトタイプ — drag to resize span (= resizable-span handle)</h2>
+  <p class="note">
+    ゲート下端の <strong>紫のグリップ</strong>を上下にドラッグすると、span
+    (= 縦に伸びる 量子ビット数) が 1 → 2 → 3 → 4 → 5 と変わります。
+    integer span にスナップ。Quirk のように <code>Probability</code> / <code>Probability2..16</code>
+    を別アイコンとしてパレットに並べるのではなく、<strong>パレットには mini gate
+    プレビューの 1 アイコンだけ</strong>を出し、配置後にこのハンドルで span を調整
+    する UX (= resizable-span ゲートと同じ仕組み)。span 変化に合わせて行数 = 2<sup>span</sup>
+    も自動更新されます (uniform distribution で seed)。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · probability display · resize handle</div>
+    <div class="app-body">
+      <div class="proto-row">
+        <div style="display: flex; gap: 28px; align-items: flex-start;">
+          <div class="probability-wrap" id="resize-wrap" style="width: 64px;">
+            <div class="probability-display" id="resize-gate" style="width: 64px; height: 64px;">
+              <!-- rows seeded by JS -->
+            </div>
+            <div class="probability-resize-handle" id="resize-handle" role="separator" aria-orientation="horizontal" title="Drag to resize span"></div>
+          </div>
+          <div style="min-width: 24px"></div>
+        </div>
+        <div>
+          <div class="controls">
+            <div class="row">
+              <span class="lbl">current</span>
+              <code id="resize-readout" style="font-family: var(--font-mono); font-size: 12px; color: var(--tx); background: var(--ui); padding: 4px 8px; border-radius: 4px;"></code>
+            </div>
+            <div class="row">
+              <span class="lbl">range</span>
+              <span style="color: var(--tx-2); font-size: 13px;">
+                span 1..5 (実装では Probability2..16 まで)
+              </span>
+            </div>
+          </div>
+          <p class="note" style="margin: 16px 0 0;">
+            ハンドルの色: idle <code>purple-400</code> (#8B7EC8) → hover/drag
+            <code>purple-600</code> (#5E409D)。既存の <code>span_resize_handle_bg</code> /
+            <code>span_resize_handle_bg_hover</code> と完全一致。<br />
+            このプロトタイプは <strong>2 ×</strong> 表示 (gate width 64 px) で、
+            1 量子ビット 増えるごとに <strong>104 px</strong> 縦に伸びる。実描画
+            (32 px 幅) では 1 量子ビット = <strong>52 px</strong>。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 3. Circuit context ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span> 回路上での見え方</h2>
+  <p class="note">
+    Probability Displayを他の (unitary) ゲートと並べて配置したときの相対サイズ。
+    表示ゲートは薄い背景 + 色付きバーで、cyan-400 塗りの unitary ゲートとは
+    パッと見で区別できる。span 1 は通常ゲートと同じ 32×32、span ≥ 2 は
+    span 行分の縦長になる。
+  </p>
+
+  <div class="app-frame">
+    <div class="scene-label">egui-web · circuit canvas excerpt</div>
+    <div class="app-body">
+      <div class="fake-circuit">
+        <div class="wires">
+          <div class="wire"><span class="qlabel">q0</span></div>
+          <div class="wire"><span class="qlabel">q1</span></div>
+          <div class="wire"><span class="qlabel">q2</span></div>
+        </div>
+
+        <!-- col 1: H gates -->
+        <div class="col">
+          <div class="gate is-unitary">H</div>
+          <div class="gate is-unitary">H</div>
+          <div class="gate is-unitary">H</div>
+        </div>
+
+        <!-- col 2: span 1 Probability on q0 -->
+        <div class="col">
+          <div class="probability-display" style="height: 32px;">
+            <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+            <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+          </div>
+          <div class="gate is-spacer"></div>
+          <div class="gate is-spacer"></div>
+        </div>
+
+        <!-- col 3: span 2 Probability on q1, q2 -->
+        <div class="col">
+          <div class="gate is-spacer"></div>
+          <div class="probability-stack is-span-2">
+            <div class="probability-display is-multi" style="height: 84px;">
+              <div class="probability-row"><div class="bar" style="width: 25%"></div><div class="label">25%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 25%"></div><div class="label">25%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 25%"></div><div class="label">25%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 25%"></div><div class="label">25%</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- col 4: more unitary -->
+        <div class="col">
+          <div class="gate is-unitary">X</div>
+          <div class="gate is-unitary">Z</div>
+          <div class="gate is-unitary">Y</div>
+        </div>
+
+        <!-- col 5: span 3 Probability covering all 3 wires -->
+        <div class="col">
+          <div class="probability-stack is-span-3">
+            <div class="probability-display is-multi" style="height: 136px;">
+              <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>
+              <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── 4. Impl spec ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span> 実装仕様 (Codex 用リファレンス、暫定)</h2>
+
+  <div class="impl-spec">
+    <h3>パイプラインの大枠</h3>
+    <ol>
+      <li>
+        <strong>compute shader (probability marginalize)</strong> ─
+        既存の <code>STATE</code> storage buffer (vec2 amplitudes) を入力に、
+        <pre>// 1) amp → prob with control mask
+prob[k] = dot(amp[k], amp[k]) * control_mask[k];
+
+// 2) cycle bits so the spanned range starts at bit 0
+prob = cycle_bits(prob, -range_offset);
+
+// 3) sum-fold from n_total down to span: log2(register_size) − span 回
+//    の half-and-sum を回して、後ろの bit を marginalize
+while (n > span) { prob = sum_fold(prob); n -= 1; }
+
+// 4) result: 2^span 要素の確率テクスチャ / storage buffer</pre>
+        Quirk の <code>probabilityStatTexture</code> を WebGPU コンピュートシェーダに翻訳。
+        <strong>CPU 側に readback しない</strong> (CLAUDE.md 制約)。結果は
+        <code>STATE_PROB_BUFFER</code> 的なストレージバッファに書き出す。
+      </li>
+      <li>
+        <strong>render shader (gate body)</strong> ─ 既存の <code>STATE_RENDER_SHADER</code>
+        パターンと同じく、フラグメントシェーダ内で probability バッファを直接 sample して
+        バーと矩形を描画する。digit overlay (<code>measure/digit.rs</code>) と同じ要領で
+        % テキストは <code>digit_atlas</code> を sample する別 pass で重ねる。
+        text 描画も GPU 完結 (CPU 側で text rasterize しない)。
+      </li>
+      <li>
+        <strong>per-row layout</strong>:<br />
+        ・bar の高さ = <code>gate_h / 2^span</code><br />
+        ・bar の幅 = <code>prob[k] * gate_w</code><br />
+        ・行高 ≥ 8 px なら digit アトラスで <code>"XX.X%"</code> を右詰めで描画<br />
+        ・行高 &lt; 8 px なら % は描画せず、<code>tx-3 @ 70%</code> の縦 1 px 線を
+        <code>x = (1 + log(prob) / log_scale) * gate_w</code> の位置に置く
+      </li>
+      <li>
+        <strong>state representation</strong> ─ <code>GateKind::ProbabilityDisplay { span: u8 }</code>。
+        既存の display 系 (ブロッホ表示等) と同じ trait に乗せる。<code>has_no_unitary_effect = true</code>
+        相当のフラグ立ててシミュレータは skip。
+      </li>
+      <li>
+        <strong>URL serialization (Quirk 互換)</strong> ─ serialized id は Quirk
+        と同じ語彙を採用 (将来の Quirk URL インポートを素直に取るため):<br />
+        ・<code>"Probability"</code> (span 1)<br />
+        ・<code>"Probability2"</code>, <code>"Probability3"</code>, ..., <code>"Probability16"</code> (span 2..16)<br />
+        URL fragment (<code>#circuit=...</code>) 内では JSON がそのまま生で入る
+        (fragment 内は <code>{}[]":,</code> がエンコード不要):
+        <pre># span 1、q0 に 1 個
+#circuit={"cols":[["Probability"]]}
+
+# span 3、q0..q2 に
+#circuit={"cols":[["Probability3"]]}
+
+# span 3、q1..q3 に (q0 を skip するため数値 1 を placeholder)
+#circuit={"cols":[[1,"Probability3"]]}
+
+# H × 3 → Probability3 で末尾の測定確率を見る回路
+#circuit={"cols":[["H","H","H"],["Probability3"]]}</pre>
+        ブラウザコピー時に percent-encode された
+        <code>%7B"cols"%3A%5B%5B"Probability"%5D%5D%7D</code> 形式も等価に parse
+        できるようにする (Quirk と同じ挙動)。<br />
+        Quirk の <code>setSerializedId</code> 該当ロジックは
+        <code>ProbabilityDisplay.js:280 / 294</code> (single = <code>"Probability"</code>、
+        multi = <code>"Probability" + span</code>) を参照。
+      </li>
+      <li>
+        <strong>placement</strong> ─ パレットには <strong>mini gate プレビューの
+        1 アイコンだけ</strong>を出し、配置後に <strong>resize ハンドルで span を
+        1..16 に変更</strong> (§ 02 d の挙動)。Quirk 風に Probability / Probability2..16 を
+        パレットに並べるよりアイコン数が削れ、UX も既存 resizable-span ゲートと一貫する。
+        ハンドルはゲート本体の下端中央に 16×4 px の purple-400 pill、hover/ドラッグで
+        purple-600 + 20×5 px に拡大。ドラッグは cursor 縦移動 ÷ <code>wire_pitch</code>
+        (= 52 px / 量子ビット) で integer span にスナップ。配置直後は span 1 で開始。
+      </li>
+      <li>
+        <strong>tests</strong>:<br />
+        ・compute shader unit test ─ 既知の state (H|0⟩, Bell, GHZ) で結果が解析解と一致すること。<br />
+        ・visual snapshot ─ insta で span 1 / span 3 / span 5 の見た目を固定。<br />
+        ・Playwright ─ パレットから Probability Display を drop → 回路上で表示される → ゲートを動かすと値が更新される。
+      </li>
+    </ol>
+    <p style="margin: 16px 0 0; color: var(--tx-2); font-size: 13px;">
+      ※ 数値 (gate footprint, バー色, テキストサイズ) は本モック上の値が "見た目の正解"。
+      Codex 向けプロンプトは別途このページを参照する形で発行します。
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────── 5. Palette icon ───────────────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span> ゲートパレット用アイコン</h2>
+  <p class="note">
+    パレット (gate toolbox) 上で他のゲートと並べて表示するアイコン。
+    <strong>ゲート本体のミニチュア (Quirk 流儀)</strong> を採用 — 2 行 × 横バーで
+    「これは確率表示ゲートだ」が palette サイズでも瞬時に伝わる。
+    左 = 28 px (実寸)、右 = 96 px (拡大)。ストロークは <code>tx</code> (#100F0F)、
+    塗りは <code>blue-300</code> (#66A0C8 — gate 本体のバー色と同じ)、背景透過。
+  </p>
+
+  <style>
+    .icon-grid {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+      display: grid; gap: 16px;
+      grid-template-columns: 1fr;
+    }
+    .icon-card {
+      display: grid;
+      grid-template-columns: 56px 144px 1fr;
+      gap: 24px; align-items: center;
+      padding: 16px;
+      background: var(--bg-2);
+      border-radius: 10px;
+    }
+    .icon-card .small {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 4px;
+    }
+    .icon-card .large {
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 6px;
+    }
+    .icon-card .meta { color: var(--tx-2); font-size: 13px; }
+    .icon-card .meta h4 { margin: 0 0 4px; font-size: 14px; color: var(--tx); font-weight: 600; }
+    .icon-card .meta p { margin: 0; font-size: 13px; line-height: 1.5; }
+    .icon-svg { display: block; }
+  </style>
+
+  <div class="icon-grid">
+
+    <!-- Mini gate preview (mirrors the actual probability display look). -->
+    <div class="icon-card">
+      <div class="small">
+        <svg class="icon-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" fill="none" stroke="#100F0F" stroke-width="1.4"/>
+          <rect x="3" y="4"  width="6"  height="8" fill="#66A0C8"/>
+          <rect x="3" y="12" width="14" height="8" fill="#66A0C8"/>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="#100F0F" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="large">
+        <svg class="icon-svg" viewBox="0 0 24 24" width="80" height="80" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" fill="none" stroke="#100F0F" stroke-width="1.4"/>
+          <rect x="3" y="4"  width="6"  height="8" fill="#66A0C8"/>
+          <rect x="3" y="12" width="14" height="8" fill="#66A0C8"/>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="#100F0F" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="meta">
+        <h4>Mini gate preview (= ゲート本体ミニチュア)</h4>
+        <p>24×24 viewBox 内に <code>(3, 4) → (21, 20)</code> = 18×16 の外枠 (stroke
+          <code>tx</code> #100F0F、1.4 px)、中央水平線 (1 px、行区切り) で 2 行に分割。
+          上段 = 1/3 長の bar、下段 = 7/9 長の bar (= 例示として「分布が偏っている」
+          見た目)。fill は <code>blue-300</code> (#66A0C8) で gate 本体と完全一致。
+          実装は <code>apps/egui-web/src/icons/</code> 配下に Lucide 風 SVG として
+          配置 (既存のゲートアイコンと同じ階層)。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="note" style="margin: 20px 0 0;">
+    span が 1 でも 5 でも、palette アイコンは <strong>同じ 2 行 mini preview</strong>
+    で OK (Quirk と同じ)。span 別の visual variant は不要 — パレット上では
+    「Probability Display 系ゲート」がひと目で識別できれば十分で、span は配置後のゲート本体が span 数を物理的に示すので。
+  </p>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 確率表示ブロックモック · 2026-05</p>
+</footer>
+
+<script>
+  /* ─── Quirk-style hover tooltip on probability-row ───
+     Single global tip element; row hover fills + positions it. Probs are
+     derived from the DOM (bar widths) so dynamic gates work without any
+     extra wiring — they update DOM as usual, the tip re-reads on each
+     hover. */
+  window.bindProbabilityTooltip = (function () {
+    const tip = document.createElement('div');
+    tip.className = 'probability-tip';
+    tip.innerHTML = `
+      <div class="title"></div>
+      <div class="stat raw"></div>
+      <div class="stat log"></div>`;
+    document.body.appendChild(tip);
+    const titleEl = tip.querySelector('.title');
+    const rawEl = tip.querySelector('.raw');
+    const logEl = tip.querySelector('.log');
+
+    function bin(k, span) { return k.toString(2).padStart(span, '0'); }
+
+    function parseProbs(gate) {
+      if (gate.classList.contains('is-nan')) return null;
+      return Array.from(gate.querySelectorAll('.probability-row .bar')).map(b => {
+        const w = parseFloat(b.style.width);
+        return isFinite(w) ? w / 100 : 0;
+      });
+    }
+
+    function spanOf(gate) {
+      const n = gate.querySelectorAll('.probability-row').length;
+      return Math.round(Math.log2(n));
+    }
+
+    function showFor(gate, rowEl) {
+      const rows = Array.from(gate.querySelectorAll('.probability-row'));
+      const k = rows.indexOf(rowEl);
+      const span = spanOf(gate);
+      const probs = parseProbs(gate);
+      const p = probs == null ? NaN : probs[k];
+
+      titleEl.textContent = `Probability of |${bin(k, span)}⟩ (decimal ${k}) if measured`;
+      if (isNaN(p)) {
+        rawEl.textContent = 'raw: NaN';
+        logEl.textContent = 'log: NaN';
+      } else {
+        rawEl.textContent = 'raw: ' + (p * 100).toFixed(4) + '%';
+        logEl.textContent = 'log: ' + (Math.log10(Math.max(p, 1e-12)) * 10).toFixed(1) + ' dB';
+      }
+
+      const gateRect = gate.getBoundingClientRect();
+      const rowRect = rowEl.getBoundingClientRect();
+      tip.style.left = (gateRect.right + 8) + 'px';
+      tip.style.top  = rowRect.top + 'px';
+      tip.classList.add('is-visible');
+
+      gate.querySelectorAll('.probability-row.is-focus').forEach(r => r.classList.remove('is-focus'));
+      rowEl.classList.add('is-focus');
+    }
+
+    function hide(gate) {
+      tip.classList.remove('is-visible');
+      gate.querySelectorAll('.probability-row.is-focus').forEach(r => r.classList.remove('is-focus'));
+    }
+
+    return function bind(gate) {
+      gate.addEventListener('mouseover', (e) => {
+        const row = e.target.closest('.probability-row');
+        if (!row || !gate.contains(row)) return;
+        showFor(gate, row);
+      });
+      gate.addEventListener('mouseleave', () => hide(gate));
+    };
+  })();
+
+  /* ─── span 1 (2 rows: |0⟩ top, |1⟩ bottom) ─── */
+  (function () {
+    const gate = document.getElementById('single-gate');
+    const slider = document.getElementById('single-slider');
+    const readout = document.getElementById('single-readout');
+    const nanBox = document.getElementById('single-nan');
+    if (!gate || !slider) return;
+
+    const row0 = gate.querySelector('[data-k="0"]');
+    const row1 = gate.querySelector('[data-k="1"]');
+    const bar0 = row0.querySelector('.bar');
+    const bar1 = row1.querySelector('.bar');
+    const lbl0 = row0.querySelector('.label');
+    const lbl1 = row1.querySelector('.label');
+
+    function fmt(p100) {
+      if (p100 === 0) return '0%';
+      if (p100 === 100) return '100%';
+      return p100.toFixed(1) + '%';
+    }
+
+    function apply() {
+      const isNaN = nanBox.checked;
+      gate.classList.toggle('is-nan', isNaN);
+      if (isNaN) {
+        bar0.style.width = '0%'; bar1.style.width = '0%';
+        lbl0.textContent = ''; lbl1.textContent = '';
+        readout.textContent = 'NaN';
+        return;
+      }
+      const p1 = Number(slider.value);   // P(|1⟩) in percent
+      const p0 = 100 - p1;
+      bar0.style.width = p0 + '%';
+      bar1.style.width = p1 + '%';
+      lbl0.textContent = fmt(p0);
+      lbl1.textContent = fmt(p1);
+      readout.textContent = p1.toFixed(1) + ' %';
+    }
+    slider.addEventListener('input', apply);
+    nanBox.addEventListener('change', apply);
+    apply();
+  })();
+
+  /* ─── Multi qubit (span 3) ─── */
+  (function () {
+    const gate = document.getElementById('multi-gate');
+    const readout = document.getElementById('multi-readout');
+    const btns = document.getElementById('multi-presets');
+    if (!gate || !btns) return;
+
+    const N = 8;        // 2^3
+    const labels = ['000', '001', '010', '011', '100', '101', '110', '111'];
+
+    // Build the 8 rows once.
+    gate.innerHTML = labels.map(_ =>
+      `<div class="probability-row"><div class="bar" style="width: 0%"></div><div class="label">0%</div></div>`
+    ).join('');
+    const rows = Array.from(gate.querySelectorAll('.probability-row'));
+
+    const presets = {
+      uniform: () => Array(N).fill(1 / N),
+      zero:    () => { const a = Array(N).fill(0); a[0] = 1; return a; },
+      bell:    () => { const a = Array(N).fill(0); a[0] = 0.5; a[7] = 0.5; return a; },
+      w:       () => { const a = Array(N).fill(0); a[1] = a[2] = a[4] = 1 / 3; return a; },
+      random:  () => {
+        const xs = Array.from({length: N}, () => Math.random());
+        const s = xs.reduce((a, b) => a + b, 0);
+        return xs.map(x => x / s);
+      },
+      nan: () => null,
+    };
+
+    function apply(name) {
+      const probs = presets[name]();
+      const isNaN = probs == null;
+      gate.classList.toggle('is-nan', isNaN);
+      rows.forEach((row, i) => {
+        const bar = row.querySelector('.bar');
+        const lbl = row.querySelector('.label');
+        if (isNaN) {
+          bar.style.width = '0%';
+          lbl.textContent = '';
+        } else {
+          const p = probs[i];
+          bar.style.width = (p * 100) + '%';
+          let s;
+          if (p === 0) s = '0%';
+          else if (p === 1) s = '100%';
+          else s = (p * 100).toFixed(1) + '%';
+          lbl.textContent = s;
+        }
+      });
+      readout.textContent = isNaN
+        ? 'NaN'
+        : '[' + probs.map(p => (p * 100).toFixed(1)).join(', ') + '] %';
+    }
+
+    btns.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      btns.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === btn));
+      apply(btn.dataset.preset);
+    });
+    apply('uniform');
+  })();
+
+  /* ─── Multi qubit (span 5) — tiny rows + log hint fallback ─── */
+  (function () {
+    const gate = document.getElementById('span5-gate');
+    const btns = document.getElementById('span5-presets');
+    if (!gate || !btns) return;
+
+    const N = 32;        // 2^5
+    gate.innerHTML = Array.from({length: N}, () =>
+      `<div class="probability-row is-tiny"><div class="bar" style="width: 0%"></div><div class="log-hint" style="left: 0%"></div></div>`
+    ).join('');
+    const rows = Array.from(gate.querySelectorAll('.probability-row'));
+
+    const presets = {
+      uniform: () => Array(N).fill(1 / N),
+      exp:     () => {
+        const xs = Array.from({length: N}, (_, i) => Math.exp(-i * 0.15));
+        const s = xs.reduce((a, b) => a + b, 0);
+        return xs.map(x => x / s);
+      },
+      sparse:  () => {
+        const a = Array(N).fill(0);
+        [0, 5, 12, 19, 27, 31].forEach(i => { a[i] = 1; });
+        const s = a.reduce((x, y) => x + y, 0);
+        return a.map(x => x / s);
+      },
+      random:  () => {
+        const xs = Array.from({length: N}, () => Math.random());
+        const s = xs.reduce((a, b) => a + b, 0);
+        return xs.map(x => x / s);
+      },
+    };
+
+    function apply(name) {
+      const probs = presets[name]();
+      // log scaling for hint line: x = (1 + log(p) * s) * width
+      const s = 1 / (4 + Math.max(8, 5));   // matches Quirk: 1/(4 + max(8, span))
+      rows.forEach((row, i) => {
+        const bar = row.querySelector('.bar');
+        const hint = row.querySelector('.log-hint');
+        const p = probs[i];
+        bar.style.width = (p * 100) + '%';
+        const x = p > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p) * s)) : 0;
+        hint.style.left = (x * 100) + '%';
+        hint.style.opacity = p > 0 ? '0.7' : '0';
+      });
+    }
+
+    btns.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      btns.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === btn));
+      apply(btn.dataset.preset);
+    });
+    apply('uniform');
+  })();
+
+  /* ─── Resize handle (= resizable-span): drag to change span 1..5 ─── */
+  (function () {
+    const gate = document.getElementById('resize-gate');
+    const handle = document.getElementById('resize-handle');
+    const readout = document.getElementById('resize-readout');
+    if (!gate || !handle) return;
+
+    // 2× scaled prototype.
+    //   span 1 = 64 px (= STEP − 40)
+    //   each extra qubit adds 104 px
+    //   formula: h(span) = 104 * span − 40
+    const STEP = 104;
+    const MIN_SPAN = 1;
+    const MAX_SPAN = 5;
+    const heightForSpan = (s) => STEP * s - 40;
+    const spanForHeight = (h) =>
+      Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.round((h + 40) / STEP)));
+
+    let currentSpan = 0;        // sentinel — setSpan(1) will trigger first render
+
+    function setSpan(s) {
+      if (s === currentSpan) return;
+      currentSpan = s;
+      gate.style.height = heightForSpan(s) + 'px';
+      const N = 1 << s;
+      const rowH = heightForSpan(s) / N;
+      // Row text becomes unreadable when row height < 16 px (2× scale of the
+      // real-display 8 px threshold). Switch to log-hint fallback.
+      const tiny = rowH < 16;
+      const p = 1 / N;
+      const pct = (p * 100).toFixed(N <= 2 ? 0 : 1);
+      gate.innerHTML = Array.from({length: N}, () => tiny
+        ? `<div class="probability-row is-tiny">
+             <div class="bar" style="width: ${(p * 100).toFixed(1)}%"></div>
+             <div class="log-hint" style="left: 0%; opacity: 0.6;"></div>
+           </div>`
+        : `<div class="probability-row">
+             <div class="bar" style="width: ${(p * 100).toFixed(1)}%"></div>
+             <div class="label">${pct}%</div>
+           </div>`
+      ).join('');
+      readout.textContent =
+        `span = ${s}  ·  ${N} outcome${N > 1 ? 's' : ''}  ·  row h ≈ ${rowH.toFixed(1)} px${tiny ? '  (log-hint mode)' : ''}`;
+    }
+
+    setSpan(1);
+
+    let drag = null;
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      drag = { startY: e.clientY, baseSpan: currentSpan };
+      handle.classList.add('is-dragging');
+      document.body.classList.add('is-probability-resize-dragging');
+      function onMove(ev) {
+        const dy = ev.clientY - drag.startY;
+        const targetH = heightForSpan(drag.baseSpan) + dy;
+        const newSpan = spanForHeight(targetH);
+        if (newSpan !== currentSpan) setSpan(newSpan);
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        handle.classList.remove('is-dragging');
+        document.body.classList.remove('is-probability-resize-dragging');
+        drag = null;
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  })();
+
+  /* ─── Bind hover tooltip on every .probability-display (anatomy, prototypes,
+     circuit context, resize) ─── */
+  document.querySelectorAll('.probability-display').forEach(g => window.bindProbabilityTooltip(g));
+</script>
+
+</body>
+</html>
