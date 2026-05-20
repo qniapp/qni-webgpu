@@ -161,7 +161,7 @@ impl QniApp {
         self.drag_state_count = None;
         self.span_resize_drag = None;
         self.hovered_gate_id = None;
-        self.hovered_chance_outcome = None;
+        self.hovered_probability_outcome = None;
         self.hovered_amplitude_outcome = None;
         self.hovered_palette_index = None;
         self.hovered_span_resize_handle = None;

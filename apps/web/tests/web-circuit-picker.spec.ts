@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   pixelRgbDistance,
-  readChanceProbabilities,
+  readProbabilityDistributions,
   sampleCanvasPixels,
   waitForStartupReady,
   type CanvasPixel,
@@ -19,7 +19,7 @@ const GHZ_JSON = '{"cols":[["X"]]}'
 const QFT_JSON = '{"cols":[["QFT4"]]}'
 const LEGACY_BELL_SAMPLE_JSON = '{"cols":[["H"],["•","X"]]}'
 const LEGACY_GHZ_SAMPLE_JSON = '{"cols":[["H"],["•","X"],["•",1,"X"]]}'
-const GROVER_CHANCE_SLOTS = 5
+const GROVER_PROBABILITY_SLOTS = 5
 const GROVER_OUTCOME_COUNT = 32
 const GROVER_MARKED_OUTCOME = 27
 const GROVER_SUCCESS_THRESHOLD = 0.99
@@ -29,12 +29,12 @@ const GROVER_DIFFUSER_COLS = [
   ['•', '•', '•', '•', 'X'],
   ['H', 'H', 'H', 'H', 1],
 ]
-const GROVER_ITERATION_COLS = [GROVER_ORACLE_COL, ...GROVER_DIFFUSER_COLS, ['Chance5']]
+const GROVER_ITERATION_COLS = [GROVER_ORACLE_COL, ...GROVER_DIFFUSER_COLS, ['Probability5']]
 const GROVER_JSON = JSON.stringify({
   cols: [
     ['X', 'X', 'X', 'X', 'X'],
     ['H', 'H', 'H', 'H', 'H'],
-    ['Chance5'],
+    ['Probability5'],
     ...GROVER_ITERATION_COLS,
     ...GROVER_ITERATION_COLS,
     ...GROVER_ITERATION_COLS,
@@ -123,13 +123,13 @@ const legacySeedLibraryDocument = () => ({
   ],
 })
 
-const waitForChanceEntries = async (page: Page, count: number) => {
+const waitForProbabilityEntries = async (page: Page, count: number) => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const entries = await readChanceProbabilities(page)
+    const entries = await readProbabilityDistributions(page)
     if (entries.length === count) return entries
     await page.waitForTimeout(50)
   }
-  throw new Error(`timed out waiting for ${count} Chance entries`)
+  throw new Error(`timed out waiting for ${count} Probability entries`)
 }
 
 const seedLibrary = async (page: Page, activeId = 'bell'): Promise<void> => {
@@ -255,20 +255,20 @@ test('seeded Grover Search amplifies the Quirk marked outcome', async ({ page })
     }))
   }, groverJson)
   await waitForSnapshot(page, (next) => next.active_id === 'grover-search', 'Grover Search active')
-  const chanceEntries = await waitForChanceEntries(page, GROVER_CHANCE_SLOTS)
-  const finalChance = chanceEntries.at(-1)?.probabilities ?? []
-  const finalPeak = finalChance.slice(0, GROVER_OUTCOME_COUNT).reduce(
+  const probabilityEntries = await waitForProbabilityEntries(page, GROVER_PROBABILITY_SLOTS)
+  const finalProbability = probabilityEntries.at(-1)?.probabilities ?? []
+  const finalPeak = finalProbability.slice(0, GROVER_OUTCOME_COUNT).reduce(
     (best, probability, outcome) =>
       probability > best.probability ? { outcome, probability } : best,
     { outcome: -1, probability: -1 },
   )
 
   expect({
-    chanceSlots: chanceEntries.length,
+    probabilitySlots: probabilityEntries.length,
     finalArgMax: finalPeak.outcome,
     finalPeakOver99Percent: finalPeak.probability > GROVER_SUCCESS_THRESHOLD,
   }).toEqual({
-    chanceSlots: GROVER_CHANCE_SLOTS,
+    probabilitySlots: GROVER_PROBABILITY_SLOTS,
     finalArgMax: GROVER_MARKED_OUTCOME,
     finalPeakOver99Percent: true,
   })

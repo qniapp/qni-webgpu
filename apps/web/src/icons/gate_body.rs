@@ -8,7 +8,7 @@ use crate::gates::GateKind;
 
 use super::gate_glyphs::draw_gate_icon;
 
-const CHANCE_PREVIEW_BAR_WIDTHS: [f32; 4] = [0.30, 0.75, 0.55, 0.20];
+const PROBABILITY_PREVIEW_BAR_WIDTHS: [f32; 4] = [0.30, 0.75, 0.55, 0.20];
 
 pub(crate) fn draw_gate_body(
     painter: &egui::Painter,
@@ -39,8 +39,8 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
-    } else if kind == GateKind::ChanceDisplay {
-        draw_chance_preview_body(painter, gate_rect, colors);
+    } else if kind == GateKind::ProbabilityDisplay {
+        draw_probability_preview_body(painter, gate_rect, colors);
         return;
     } else if kind == GateKind::AmplitudeDisplay {
         let background = if dragging { fill } else { colors.surface };
@@ -178,16 +178,16 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
     );
 }
 
-fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
     // Static mini-preview only. Live probabilities are drawn later by the
-    // GPU Chance render callback, directly from `chance_probability_output`.
+    // GPU Probability render callback, directly from `probability_output`.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
 
-    // docs/chance-display.html §02: 4 行のガウス風 mini preview。
+    // docs/probability-display.html §02: 4 行のガウス風 mini preview。
     // 本体と同じく blue-200 bar + blue-400 右端マーカー、区切り線は
     // 隣接 2 行の広いバーの右端から右端までだけ引く。
-    let row_h = rect.height() / CHANCE_PREVIEW_BAR_WIDTHS.len() as f32;
-    for (row, &width_ratio) in CHANCE_PREVIEW_BAR_WIDTHS.iter().enumerate() {
+    let row_h = rect.height() / PROBABILITY_PREVIEW_BAR_WIDTHS.len() as f32;
+    for (row, &width_ratio) in PROBABILITY_PREVIEW_BAR_WIDTHS.iter().enumerate() {
         let bar_y = rect.top() + row_h * row as f32;
         let bar_w = rect.width() * width_ratio;
         let bar =
@@ -201,9 +201,10 @@ fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &
             );
         }
     }
-    for row in 1..CHANCE_PREVIEW_BAR_WIDTHS.len() {
+    for row in 1..PROBABILITY_PREVIEW_BAR_WIDTHS.len() {
         let y = rect.top() + row_h * row as f32;
-        let start_ratio = CHANCE_PREVIEW_BAR_WIDTHS[row - 1].max(CHANCE_PREVIEW_BAR_WIDTHS[row]);
+        let start_ratio =
+            PROBABILITY_PREVIEW_BAR_WIDTHS[row - 1].max(PROBABILITY_PREVIEW_BAR_WIDTHS[row]);
         painter.line_segment(
             [
                 egui::pos2(rect.left() + rect.width() * start_ratio, y),
@@ -212,7 +213,7 @@ fn draw_chance_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &
             egui::Stroke::new(1.0, colors.line),
         );
     }
-    // 回路側の chance display 外周 (`circuit_gates.rs:180` で `colors.line` =
+    // 回路側の probability display 外周 (`circuit_gates.rs:180` で `colors.line` =
     // ui-2) と階調を合わせる。Quirk の `lightgray` (#D3D3D3) と同じ薄灰で
     // 「データ領域の輪郭」だけを示し、ゲート本体の強調はバー (blue-200)
     // に任せる。

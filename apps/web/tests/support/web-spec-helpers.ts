@@ -7,7 +7,7 @@ import {
   getPaletteGateCenter,
   readAmplitudeCell,
   readBlochVectors,
-  readChanceProbabilities,
+  readProbabilityDistributions,
   readEguiError,
   readMeasurementOutcomes,
   readStateVector,
@@ -17,7 +17,7 @@ import {
   waitForCanvasContent,
   waitForStartupReady,
 } from '../../features/support/egui-helpers'
-import type { AmplitudeCell, BlochEntry, ChanceProbabilities } from '../../features/support/egui-helpers'
+import type { AmplitudeCell, BlochEntry, ProbabilityDistributions } from '../../features/support/egui-helpers'
 import type { CanvasPixel, PixelSamplePoint, Point } from '../../features/support/support-types'
 import { getPlainChromiumLaunchOptions } from '../../test-support/browser-launch'
 import { UI_CONSTANTS } from '../../test-support/generated-ui-constants'
@@ -33,7 +33,7 @@ export {
   getWebServerConfig,
   readAmplitudeCell,
   readBlochVectors,
-  readChanceProbabilities,
+  readProbabilityDistributions,
   readEguiError,
   readMeasurementOutcomes,
   readStateVector,
@@ -44,7 +44,7 @@ export {
   waitForStartupReady,
   UI_CONSTANTS,
 }
-export type { AmplitudeCell, CanvasPixel, ChanceProbabilities, PixelSamplePoint, Point }
+export type { AmplitudeCell, CanvasPixel, ProbabilityDistributions, PixelSamplePoint, Point }
 
 export type CircularBodySignature = {
   count: number

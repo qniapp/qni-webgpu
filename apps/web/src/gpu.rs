@@ -23,17 +23,17 @@ mod shaders;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
-    ChanceDisplayCallback, ChancePopupValueCallback, MeasurementDigitCallback, PopupValueCallback,
-    StateVectorCallback,
+    MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
+    ProbabilityPopupValueCallback, StateVectorCallback,
 };
 pub(crate) use params::{
-    AmplitudeInstance, BlochOverlayInstance, ChanceInstance, MeasurementDigitInstance,
-    RenderColors, RenderParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS,
-    MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE, MAX_STEP_SNAPSHOT_SLOTS,
+    AmplitudeInstance, BlochOverlayInstance, MeasurementDigitInstance, ProbabilityInstance,
+    RenderColors, RenderParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
-    read_amplitude_cell_impl, read_bloch_vectors_impl, read_chance_probabilities_impl,
-    read_measurement_outcomes_impl, read_state_vector_impl,
+    read_amplitude_cell_impl, read_bloch_vectors_impl, read_measurement_outcomes_impl,
+    read_probability_distributions_impl, read_state_vector_impl,
 };

@@ -153,10 +153,10 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 ### Production パスの GPU 常駐性
 
-- 状態ベクトル / Bloch / 測定 / Chance 確率の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
-- Chance display は recompute 中の `CHANCE_REDUCE_SHADER` で contiguous span の marginal probability を `chance_probability_output` に書き、ゲート本体の bar は `CHANCE_RENDER_SHADER` がそのバッファを直接読む。palette / hover ポップアップのラベルは geometry 固定情報だけを CPU で描き、確率値は CPU に戻さない。
-- 列セレクト中も GPU simulation は最後の列まで実行する。選択列の state panel だけは `SnapshotState` で GPU buffer にコピーし、後続の Measurement / Bloch / Chance readout はすべて通常どおり表示する (qni worker loop と同じ)。hover による step-preview recompute 待ちの間は既存の readout slot map を保持し、Quirk の `CircuitStats.customStatsForSlot` と同様に前フレームの readout を描き続けてデフォルト body への 1-frame flicker を避ける。
-- `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` / `read_chance_probabilities_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/web/src/gpu/readback.rs`)。
+- 状態ベクトル / Bloch / 測定 / Probability 確率の値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
+- Probability display は recompute 中の `PROBABILITY_REDUCE_SHADER` で contiguous span の marginal probability を `probability_output` に書き、ゲート本体の bar は `PROBABILITY_RENDER_SHADER` がそのバッファを直接読む。palette / hover ポップアップのラベルは geometry 固定情報だけを CPU で描き、確率値は CPU に戻さない。
+- 列セレクト中も GPU simulation は最後の列まで実行する。選択列の state panel だけは `SnapshotState` で GPU buffer にコピーし、後続の Measurement / Bloch / Probability readout はすべて通常どおり表示する (qni worker loop と同じ)。hover による step-preview recompute 待ちの間は既存の readout slot map を保持し、Quirk の `CircuitStats.customStatsForSlot` と同様に前フレームの readout を描き続けてデフォルト body への 1-frame flicker を避ける。
+- `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` / `read_probability_distributions_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/web/src/gpu/readback.rs`)。
 
 ### recompute あたりの GPU 往復
 
@@ -246,7 +246,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは Geist Mono Regular で、スラッシュ付きの `0` により `O` と見間違えにくくする。
 - CNOT is expressed by placing a control gate (C) and an X gate in the same column.
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
-- Chance / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
+- Probability / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。

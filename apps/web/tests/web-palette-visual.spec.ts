@@ -60,7 +60,7 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
 })
 
-test('Display section Chance slot preserves its palette hover index', async ({ page }) => {
+test('Display section Probability slot preserves its palette hover index', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -71,8 +71,8 @@ test('Display section Chance slot preserves its palette hover index', async ({ p
   if (!box) {
     throw new Error('expected egui canvas to be measurable')
   }
-  const chanceCenter = getPaletteGateCenter(box.width, 20)
-  await page.mouse.move(box.x + chanceCenter.x, box.y + chanceCenter.y)
+  const probabilityCenter = getPaletteGateCenter(box.width, 20)
+  await page.mouse.move(box.x + probabilityCenter.x, box.y + probabilityCenter.y)
 
   await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(20)
 })
@@ -88,10 +88,10 @@ test('Display section empty slot does not hover a palette gate', async ({ page }
   if (!box) {
     throw new Error('expected egui canvas to be measurable')
   }
-  const chanceCenter = getPaletteGateCenter(box.width, 20)
+  const probabilityCenter = getPaletteGateCenter(box.width, 20)
   const emptySlotCenter = {
-    x: chanceCenter.x,
-    y: chanceCenter.y + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_ROW_GAP,
+    x: probabilityCenter.x,
+    y: probabilityCenter.y + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_ROW_GAP,
   }
   await page.mouse.move(box.x + emptySlotCenter.x, box.y + emptySlotCenter.y)
 
@@ -226,7 +226,7 @@ test('connected swap connector stays visible while hovering the swap gate', asyn
   expect(pixelRgbDistance(await readConnectorBelowHoveredTopGate(page), [58, 169, 159, 255])).toBeLessThan(8)
 })
 
-test('palette chance display preview uses four Gaussian rows', async ({ page }) => {
+test('palette probability display preview uses four Gaussian rows', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -238,8 +238,8 @@ test('palette chance display preview uses four Gaussian rows', async ({ page }) 
     throw new Error('expected egui canvas to be measurable')
   }
   const EGUI_PANEL_MARGIN = 8
-  const chancePaletteIndex = 20
-  const gateCenter = getPaletteGateCenter(box.width, chancePaletteIndex)
+  const probabilityPaletteIndex = 20
+  const gateCenter = getPaletteGateCenter(box.width, probabilityPaletteIndex)
   const left = gateCenter.x - UI_CONSTANTS.GATE_SIZE / 2
   const top = EGUI_PANEL_MARGIN + gateCenter.y - UI_CONSTANTS.GATE_SIZE / 2
   const samples: PixelSamplePoint[] = [

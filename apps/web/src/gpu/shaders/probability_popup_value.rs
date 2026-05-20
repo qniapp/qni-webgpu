@@ -1,7 +1,7 @@
-//! Chance hover popup raw/log value text WGSL source.
+//! Probability hover popup raw/log value text WGSL source.
 
-pub(in crate::gpu) const CHANCE_POPUP_VALUE_SHADER: &str = r#"
-struct ChancePopupParams {
+pub(in crate::gpu) const PROBABILITY_POPUP_VALUE_SHADER: &str = r#"
+struct ProbabilityPopupParams {
   // Egui callback viewport in CSS pixels.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
@@ -17,12 +17,12 @@ struct ChancePopupParams {
   _pad: vec2<u32>,
 };
 
-@group(0) @binding(0) var<storage, read> chance_data: array<f32>;
-@group(0) @binding(1) var<uniform> params: ChancePopupParams;
+@group(0) @binding(0) var<storage, read> probability_data: array<f32>;
+@group(0) @binding(1) var<uniform> params: ProbabilityPopupParams;
 @group(0) @binding(2) var atlas: texture_2d<f32>;
 @group(0) @binding(3) var atlas_sampler: sampler;
 
-const MAX_CHANCE_OUTCOMES: u32 = 65536u;
+const MAX_PROBABILITY_OUTCOMES: u32 = 65536u;
 const GLYPH_COUNT: u32 = 19u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_MINUS: u32 = 12u;
@@ -179,7 +179,7 @@ fn vs_main(
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let char_index = u32(floor(input.cell_uv.x));
   let cell_local = vec2<f32>(fract(input.cell_uv.x), input.cell_uv.y);
-  let prob = clamp(chance_data[params.slot * MAX_CHANCE_OUTCOMES + params.outcome], 0.0, 1.0);
+  let prob = clamp(probability_data[params.slot * MAX_PROBABILITY_OUTCOMES + params.outcome], 0.0, 1.0);
 
   var glyph: u32 = GLYPH_BLANK;
   if (input.row == 0u) {

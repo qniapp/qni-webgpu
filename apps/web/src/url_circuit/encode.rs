@@ -86,7 +86,7 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
         GateKind::QftGate | GateKind::QftDaggerGate => {
             format!("{}{}", spec.url_token, span.max(1))
         }
-        GateKind::ChanceDisplay => {
+        GateKind::ProbabilityDisplay => {
             let span = span.clamp(1, 16);
             if span == 1 {
                 spec.url_token.to_string()

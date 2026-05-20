@@ -16,7 +16,7 @@ const repoRoot = path.join(rootDir, '..', '..')
 const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
-  const aliases = ['H', 'X', 'sqrtx', 's†', 'tdagger', 'swap', 'control', 'anti-control', '◦', 'bloch', 'sphere', '|0>', '|0⟩', 'write0', '|1>', 'write1', 'measure', 'm', 'chance', 'spacer', '…', 'qft', 'qft†', 'amps']
+  const aliases = ['H', 'X', 'sqrtx', 's†', 'tdagger', 'swap', 'control', 'anti-control', '◦', 'bloch', 'sphere', '|0>', '|0⟩', 'write0', '|1>', 'write1', 'measure', 'm', 'probability', 'spacer', '…', 'qft', 'qft†', 'amps']
   assert.deepEqual(aliases.map(getGateIndex), [0, 1, 4, 6, 8, 13, 14, 15, 15, 16, 16, 17, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 23, 24])
 })
 
@@ -56,7 +56,7 @@ test('agent visual command builds row-two coordinates after display gates move o
 test('agent visual command builds Display section coordinates', () => {
   const operation = buildDragOperation({
     cssWidth: 1000,
-    gate: 'chance',
+    gate: 'probability',
     wire: 'q0',
     slot: 0,
   })

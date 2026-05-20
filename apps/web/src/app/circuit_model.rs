@@ -30,7 +30,7 @@ pub(crate) struct PlacedGate {
     pub(crate) pos: egui::Pos2,
     pub(crate) wire: usize,
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
-    /// resizable-span gates (Chance, QFT / QFT†) can grow via hover-revealed
+    /// resizable-span gates (Probability, QFT / QFT†) can grow via hover-revealed
     /// resize handles.
     pub(crate) span: usize,
     /// Angle string for parametric gates (currently only `GateKind::Phase`).

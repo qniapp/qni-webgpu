@@ -203,13 +203,13 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftGate, span.max(1), None));
     }
-    if let Some(rest) = token.strip_prefix("Chance") {
+    if let Some(rest) = token.strip_prefix("Probability") {
         let span = if rest.is_empty() {
             1
         } else {
             rest.parse().ok()?
         };
-        return Some((GateKind::ChanceDisplay, span.clamp(1, 16), None));
+        return Some((GateKind::ProbabilityDisplay, span.clamp(1, 16), None));
     }
     if let Some(rest) = token.strip_prefix("Amps") {
         let span: usize = rest.parse().ok()?;

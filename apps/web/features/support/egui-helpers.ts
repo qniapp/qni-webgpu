@@ -11,7 +11,7 @@ declare global {
     __eguiError?: unknown
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
-    __eguiReadChanceProbabilities?: () => Promise<number[]>
+    __eguiReadProbabilityDistributions?: () => Promise<number[]>
     __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
@@ -180,17 +180,17 @@ export const readBlochVectors = async (page: Page): Promise<BlochEntry[]> => {
   return entries
 }
 
-export type ChanceProbabilities = { gateId: number; probabilities: number[] }
+export type ProbabilityDistributions = { gateId: number; probabilities: number[] }
 
-export const readChanceProbabilities = async (page: Page): Promise<ChanceProbabilities[]> => {
+export const readProbabilityDistributions = async (page: Page): Promise<ProbabilityDistributions[]> => {
   const flat = await evaluateWithRetry<number[]>(page, async () => {
-    if (!window.__eguiReadChanceProbabilities) {
+    if (!window.__eguiReadProbabilityDistributions) {
       return []
     }
-    return await window.__eguiReadChanceProbabilities()
+    return await window.__eguiReadProbabilityDistributions()
   })
   const valuesPerSlot = 65536
-  const entries: ChanceProbabilities[] = []
+  const entries: ProbabilityDistributions[] = []
   for (let i = 0; i + valuesPerSlot < flat.length; i += valuesPerSlot + 1) {
     entries.push({
       gateId: Math.round(flat[i]),

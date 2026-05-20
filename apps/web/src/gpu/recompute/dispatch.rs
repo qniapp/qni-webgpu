@@ -4,9 +4,9 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    AmplitudeCaptureParams, BlochParams, ChanceReduceParams, MeasureCollapseParams,
-    MeasureReduceParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_CHANCE_SLOTS,
-    MAX_MEASUREMENT_SLOTS,
+    AmplitudeCaptureParams, BlochParams, MeasureCollapseParams, MeasureReduceParams,
+    ProbabilityReduceParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_PROBABILITY_SLOTS,
 };
 use super::super::resources::StateVectorResources;
 use super::clear::encode_ground_state_init;
@@ -16,7 +16,7 @@ pub(super) struct EncodedRecompute {
     pub(super) active_state: usize,
     pub(super) bloch_slot_to_gate_id: Vec<u32>,
     pub(super) measurement_slot_to_gate_id: Vec<u32>,
-    pub(super) chance_slot_to_gate_id: Vec<u32>,
+    pub(super) probability_slot_to_gate_id: Vec<u32>,
     pub(super) amplitude_slot_to_gate_id: Vec<u32>,
 }
 
@@ -53,8 +53,8 @@ pub(super) fn encode_batched_recompute(
             SimulationOp::MeasureCollapse { .. } => {
                 state.encode_measure_collapse(&mut encoder, resources);
             }
-            SimulationOp::CaptureChance { gate_id, span, .. } => {
-                state.encode_capture_chance(&mut encoder, resources, *gate_id, *span);
+            SimulationOp::CaptureProbability { gate_id, span, .. } => {
+                state.encode_capture_probability(&mut encoder, resources, *gate_id, *span);
             }
             SimulationOp::CaptureAmplitude { gate_id, .. } => {
                 state.encode_capture_amplitude(&mut encoder, resources, *gate_id);
@@ -69,7 +69,7 @@ pub(super) fn encode_batched_recompute(
         active_state,
         bloch_slot_to_gate_id: state.bloch_slot_to_gate_id,
         measurement_slot_to_gate_id: state.measurement_slot_to_gate_id,
-        chance_slot_to_gate_id: state.chance_slot_to_gate_id,
+        probability_slot_to_gate_id: state.probability_slot_to_gate_id,
         amplitude_slot_to_gate_id: state.amplitude_slot_to_gate_id,
     }
 }
@@ -83,11 +83,11 @@ struct DispatchState {
     bloch_slot: u64,
     measure_reduce_slot: u64,
     measure_collapse_slot: u64,
-    chance_slot: u64,
+    probability_slot: u64,
     amplitude_slot: u64,
     bloch_slot_to_gate_id: Vec<u32>,
     measurement_slot_to_gate_id: Vec<u32>,
-    chance_slot_to_gate_id: Vec<u32>,
+    probability_slot_to_gate_id: Vec<u32>,
     amplitude_slot_to_gate_id: Vec<u32>,
 }
 
@@ -102,11 +102,11 @@ impl DispatchState {
             bloch_slot: 0,
             measure_reduce_slot: 0,
             measure_collapse_slot: 0,
-            chance_slot: 0,
+            probability_slot: 0,
             amplitude_slot: 0,
             bloch_slot_to_gate_id: Vec::with_capacity(MAX_BLOCH_SLOTS),
             measurement_slot_to_gate_id: Vec::with_capacity(MAX_MEASUREMENT_SLOTS),
-            chance_slot_to_gate_id: Vec::with_capacity(MAX_CHANCE_SLOTS),
+            probability_slot_to_gate_id: Vec::with_capacity(MAX_PROBABILITY_SLOTS),
             amplitude_slot_to_gate_id: Vec::with_capacity(MAX_AMPLITUDE_SLOTS),
         }
     }
@@ -254,35 +254,39 @@ impl DispatchState {
         self.in_index = 1 - self.in_index;
     }
 
-    fn encode_capture_chance(
+    fn encode_capture_probability(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         resources: &StateVectorResources,
         gate_id: u32,
         span: u32,
     ) {
-        let size = std::mem::size_of::<ChanceReduceParams>() as wgpu::BufferAddress;
+        let size = std::mem::size_of::<ProbabilityReduceParams>() as wgpu::BufferAddress;
         encoder.copy_buffer_to_buffer(
-            &resources.chance.reduce_params_staging_buffer,
-            self.chance_slot * size,
-            &resources.chance.reduce_params_buffer,
+            &resources.probability.reduce_params_staging_buffer,
+            self.probability_slot * size,
+            &resources.probability.reduce_params_buffer,
             0,
             size,
         );
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("chance_reduce_pass"),
+                label: Some("probability_reduce_pass"),
                 timestamp_writes: None,
             });
-            pass.set_pipeline(&resources.chance.reduce_pipeline);
-            pass.set_bind_group(0, &resources.chance.reduce_bind_groups[self.in_index], &[]);
+            pass.set_pipeline(&resources.probability.reduce_pipeline);
+            pass.set_bind_group(
+                0,
+                &resources.probability.reduce_bind_groups[self.in_index],
+                &[],
+            );
             let outcomes = 1u32 << span;
             let dispatch_x = outcomes.min(256);
             let dispatch_y = outcomes.div_ceil(dispatch_x);
             pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         }
-        self.chance_slot += 1;
-        self.chance_slot_to_gate_id.push(gate_id);
+        self.probability_slot += 1;
+        self.probability_slot_to_gate_id.push(gate_id);
     }
 
     fn encode_capture_amplitude(

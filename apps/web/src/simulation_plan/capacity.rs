@@ -6,7 +6,7 @@ pub(crate) struct SimulationPlanLimits {
     pub(crate) max_step_snapshot_slots: usize,
     pub(crate) max_bloch_slots: usize,
     pub(crate) max_measurement_slots: usize,
-    pub(crate) max_chance_slots: usize,
+    pub(crate) max_probability_slots: usize,
     pub(crate) max_amplitude_slots: usize,
 }
 
@@ -37,7 +37,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     let mut bloch_ops = 0usize;
     let mut measure_reduce_ops = 0usize;
     let mut measure_collapse_ops = 0usize;
-    let mut chance_ops = 0usize;
+    let mut probability_ops = 0usize;
     let mut amplitude_ops = 0usize;
     for op in ops {
         match op {
@@ -81,13 +81,13 @@ pub(crate) fn validate_simulation_plan_capacity(
                     )));
                 }
             }
-            SimulationOp::CaptureChance { output_slot, .. } => {
-                chance_ops += 1;
+            SimulationOp::CaptureProbability { output_slot, .. } => {
+                probability_ops += 1;
                 let slot = *output_slot as usize;
-                if slot >= limits.max_chance_slots {
+                if slot >= limits.max_probability_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
-                        "Chance slot {slot} exceeds MAX_CHANCE_SLOTS={}; reduce Chance displays or grow the GPU buffer",
-                        limits.max_chance_slots
+                        "Probability slot {slot} exceeds MAX_PROBABILITY_SLOTS={}; reduce Probability displays or grow the GPU buffer",
+                        limits.max_probability_slots
                     )));
                 }
             }
@@ -108,7 +108,7 @@ pub(crate) fn validate_simulation_plan_capacity(
         ("bloch", bloch_ops),
         ("measure_reduce", measure_reduce_ops),
         ("measure_collapse", measure_collapse_ops),
-        ("chance", chance_ops),
+        ("probability", probability_ops),
         ("amplitude", amplitude_ops),
     ] {
         if count > limits.max_ops_per_variant {

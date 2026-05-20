@@ -11,7 +11,7 @@
 //! This module bakes that atlas: a 1-row strip of fixed-width cells
 //! holding the glyphs needed to express any
 //! ±d.ddddd ±d.ddddd i / ±dd.dddd % / ±ddd.dd ° formatted value, plus
-//! Chance popup raw/log values. The resulting greyscale buffer is uploaded
+//! Probability popup raw/log values. The resulting greyscale buffer is uploaded
 //! to a GPU texture sampled by the popup-value fragment shaders.
 //!
 //! Sibling of `digit_atlas` (which handles the measurement-gate "0/1"
@@ -25,8 +25,8 @@
 //!   index 13      : 'i'  (imaginary suffix on amplitude)
 //!   index 14      : '%'  (probability suffix)
 //!   index 15      : '°'  (phase suffix)
-//!   index 16..=17 : 'd', 'B' (Chance log suffix)
-//!   index 18      : '∞'  (Chance log zero-probability value)
+//!   index 16..=17 : 'd', 'B' (Probability log suffix)
+//!   index 18      : '∞'  (Probability log zero-probability value)
 
 use ab_glyph::{Font as _, ScaleFont as _};
 

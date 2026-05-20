@@ -9,7 +9,7 @@ type QniWebModule = {
   read_state_vector: () => Promise<ArrayLike<number>>
   read_bloch_vectors: () => Promise<ArrayLike<number>>
   read_amplitude_cell: (gateId: number, outcome: number) => Promise<ArrayLike<number>>
-  read_chance_probabilities: () => Promise<ArrayLike<number>>
+  read_probability_distributions: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
   start: (canvasId: string) => Promise<void>
 }
@@ -20,7 +20,7 @@ declare global {
     __eguiReady?: boolean
     __eguiReadStateVector?: () => unknown[] | Promise<unknown[]>
     __eguiReadBlochVectors?: () => Promise<number[]>
-    __eguiReadChanceProbabilities?: () => Promise<number[]>
+    __eguiReadProbabilityDistributions?: () => Promise<number[]>
     __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
     __qniExecModeFocusRequested?: boolean
@@ -96,7 +96,7 @@ const run = async (): Promise<void> => {
       circuit_library_save,
       read_amplitude_cell,
       read_bloch_vectors,
-      read_chance_probabilities,
+      read_probability_distributions,
       read_measurement_outcomes,
       read_state_vector,
       start,
@@ -123,9 +123,9 @@ const run = async (): Promise<void> => {
         return []
       }
     }
-    window.__eguiReadChanceProbabilities = async () => {
+    window.__eguiReadProbabilityDistributions = async () => {
       try {
-        return Array.from(await read_chance_probabilities())
+        return Array.from(await read_probability_distributions())
       } catch {
         return []
       }

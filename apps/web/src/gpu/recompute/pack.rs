@@ -4,8 +4,8 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    AmplitudeCaptureParams, BlochParams, ChanceReduceParams, MeasureCollapseParams,
-    MeasureReduceParams,
+    AmplitudeCaptureParams, BlochParams, MeasureCollapseParams, MeasureReduceParams,
+    ProbabilityReduceParams,
 };
 use super::super::resources::StateVectorResources;
 
@@ -17,7 +17,7 @@ pub(super) struct PackedRecomputeParams {
     bloch: Vec<BlochParams>,
     measure_reduce: Vec<MeasureReduceParams>,
     measure_collapse: Vec<MeasureCollapseParams>,
-    chance: Vec<ChanceReduceParams>,
+    probability: Vec<ProbabilityReduceParams>,
     amplitude: Vec<AmplitudeCaptureParams>,
 }
 
@@ -28,7 +28,7 @@ impl PackedRecomputeParams {
             bloch: Vec::with_capacity(sim_ops.len()),
             measure_reduce: Vec::with_capacity(sim_ops.len()),
             measure_collapse: Vec::with_capacity(sim_ops.len()),
-            chance: Vec::with_capacity(sim_ops.len()),
+            probability: Vec::with_capacity(sim_ops.len()),
             amplitude: Vec::with_capacity(sim_ops.len()),
         };
 
@@ -70,14 +70,14 @@ impl PackedRecomputeParams {
                         _pad: 0,
                     });
                 }
-                SimulationOp::CaptureChance {
+                SimulationOp::CaptureProbability {
                     base_bit,
                     span,
                     output_slot,
                     ..
                 } => {
                     let rest_count = (state_count as u32) >> *span;
-                    packed.chance.push(ChanceReduceParams {
+                    packed.probability.push(ProbabilityReduceParams {
                         base_bit: *base_bit,
                         span: *span,
                         rest_count,
@@ -143,11 +143,11 @@ impl PackedRecomputeParams {
                 bytemuck::cast_slice(&self.measure_collapse),
             );
         }
-        if !self.chance.is_empty() {
+        if !self.probability.is_empty() {
             queue.write_buffer(
-                &resources.chance.reduce_params_staging_buffer,
+                &resources.probability.reduce_params_staging_buffer,
                 0,
-                bytemuck::cast_slice(&self.chance),
+                bytemuck::cast_slice(&self.probability),
             );
         }
         if !self.amplitude.is_empty() {

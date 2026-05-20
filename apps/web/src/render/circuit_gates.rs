@@ -9,8 +9,9 @@ use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
-    BlochOverlayInstance, ChanceDisplayCallback, ChanceInstance, ChancePopupValueCallback,
-    MeasurementDigitCallback, MeasurementDigitInstance, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
+    BlochOverlayInstance, MeasurementDigitCallback, MeasurementDigitInstance,
+    ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
+    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
 };
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon, draw_span_resize_handle};
 use crate::layout::{
@@ -34,13 +35,13 @@ fn span_resize_ease_out_back(t: f32) -> f32 {
     1.0 + C3 * u * u * u + C1 * u * u
 }
 
-fn chance_hover_popup_ket(outcome: u32, span: usize) -> String {
+fn probability_hover_popup_ket(outcome: u32, span: usize) -> String {
     let width = span.clamp(1, 16);
     format!("|{outcome:0width$b}⟩")
 }
 
-fn chance_hover_popup_subtitle(outcome: u32) -> String {
-    format!("Chance if measured · k = {outcome}")
+fn probability_hover_popup_subtitle(outcome: u32) -> String {
+    format!("Probability if measured · k = {outcome}")
 }
 
 fn amplitude_hover_popup_ket(outcome: u32, span: usize) -> String {
@@ -124,7 +125,7 @@ impl QniApp {
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
             }
-            // Resizable-span gates share docs/chance-display.html §11:
+            // Resizable-span gates share docs/probability-display.html §11:
             // top + bottom purple pills with hover/active scaling. Amplitude
             // passes its matrix body so the handle width follows that body.
             if gate.kind.is_resizable_span() {
@@ -195,19 +196,19 @@ impl QniApp {
             return;
         }
 
-        // GPU overlay: draw Chance probability bars from the GPU-side
+        // GPU overlay: draw Probability bars from the GPU-side
         // marginalization buffer. CPU supplies only geometry + hover row.
-        let chance_instances: Vec<ChanceInstance> = self
+        let probability_instances: Vec<ProbabilityInstance> = self
             .placed_gates
             .iter()
             .filter_map(|gate| {
-                if gate.kind != GateKind::ChanceDisplay {
+                if gate.kind != GateKind::ProbabilityDisplay {
                     return None;
                 }
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
-                let slot = self.gpu_plan.chance_slot(gate.id)?;
+                let slot = self.gpu_plan.probability_slot(gate.id)?;
                 let span = gate.span.clamp(1, 16) as u32;
                 let gate_height = (span.saturating_sub(1)) as f32 * LINE_GAP + GATE_SIZE;
                 let gate_rect = egui::Rect::from_min_size(
@@ -215,11 +216,11 @@ impl QniApp {
                     egui::vec2(GATE_SIZE, gate_height),
                 );
                 let hovered_outcome = self
-                    .hovered_chance_outcome
+                    .hovered_probability_outcome
                     .filter(|(id, _)| *id == gate.id)
                     .map(|(_, outcome)| outcome as i32)
                     .unwrap_or(-1);
-                Some(ChanceInstance {
+                Some(ProbabilityInstance {
                     rect_min: [gate_rect.min.x, gate_rect.min.y],
                     rect_size: [gate_rect.width(), gate_rect.height()],
                     slot,
@@ -229,9 +230,9 @@ impl QniApp {
                 })
             })
             .collect();
-        if !chance_instances.is_empty() {
-            let callback = ChanceDisplayCallback {
-                instances: chance_instances.into(),
+        if !probability_instances.is_empty() {
+            let callback = ProbabilityDisplayCallback {
+                instances: probability_instances.into(),
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
@@ -477,7 +478,8 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let rect = chance_hover_popup_rect(gate_rect, row_top, cell, width, height, screen_rect);
+        let rect =
+            probability_hover_popup_rect(gate_rect, row_top, cell, width, height, screen_rect);
         let corner = egui::CornerRadius::same(6);
         let shadow = egui::epaint::Shadow {
             offset: [0, 4],
@@ -553,7 +555,7 @@ impl QniApp {
             .add(egui::Shape::Callback(paint_callback));
     }
 
-    pub(crate) fn draw_chance_hover_popup(
+    pub(crate) fn draw_probability_hover_popup(
         &self,
         painter: &egui::Painter,
         screen_rect: egui::Rect,
@@ -561,7 +563,7 @@ impl QniApp {
         dragging_gate_id: Option<u32>,
         colors: &Colors,
     ) {
-        let Some((gate_id, outcome)) = self.hovered_chance_outcome else {
+        let Some((gate_id, outcome)) = self.hovered_probability_outcome else {
             return;
         };
         if dragging_gate_id == Some(gate_id) {
@@ -570,7 +572,7 @@ impl QniApp {
         let Some(gate) = self
             .placed_gates
             .iter()
-            .find(|gate| gate.id == gate_id && gate.kind == GateKind::ChanceDisplay)
+            .find(|gate| gate.id == gate_id && gate.kind == GateKind::ProbabilityDisplay)
         else {
             return;
         };
@@ -583,13 +585,13 @@ impl QniApp {
         );
         let row_h = gate_rect.height() / row_count as f32;
         let row_top = gate_rect.top() + row_h * outcome as f32;
-        let ket = chance_hover_popup_ket(outcome, span);
-        let subtitle = chance_hover_popup_subtitle(outcome);
-        let Some(slot) = self.gpu_plan.chance_slot(gate.id) else {
+        let ket = probability_hover_popup_ket(outcome, span);
+        let subtitle = probability_hover_popup_subtitle(outcome);
+        let Some(slot) = self.gpu_plan.probability_slot(gate.id) else {
             return;
         };
 
-        // Popup typography follows docs/chance-display.html §10: text-sm ket,
+        // Popup typography follows docs/probability-display.html §10: text-sm ket,
         // text-xs subtitle/labels, spacing on the Tailwind 4px scale.
         let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
         let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
@@ -625,7 +627,8 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let rect = chance_hover_popup_rect(gate_rect, row_top, row_h, width, height, screen_rect);
+        let rect =
+            probability_hover_popup_rect(gate_rect, row_top, row_h, width, height, screen_rect);
         let corner = egui::CornerRadius::same(6);
         let shadow = egui::epaint::Shadow {
             offset: [0, 4],
@@ -674,13 +677,13 @@ impl QniApp {
             colors.text,
         );
 
-        // Raw/log values come from the GPU Chance probability buffer via a
+        // Raw/log values come from the GPU Probability buffer via a
         // dedicated render pass. CPU paints only static labels; no readback.
         // Align the GPU-rasterised 16px-tall value cells with the
         // egui-painted RAW / LOG labels in the same popup rows.
         let value_anchor = egui::pos2(value_x, raw_y + 2.0);
         let value_color = colors.text_strong.to_normalized_gamma_f32();
-        let callback = ChancePopupValueCallback {
+        let callback = ProbabilityPopupValueCallback {
             viewport_min: [screen_rect.min.x, screen_rect.min.y],
             viewport_size: [screen_rect.width(), screen_rect.height()],
             value_anchor: [value_anchor.x, value_anchor.y],
@@ -699,7 +702,7 @@ impl QniApp {
     }
 }
 
-fn chance_hover_popup_rect(
+fn probability_hover_popup_rect(
     gate_rect: egui::Rect,
     row_top: f32,
     row_h: f32,
@@ -740,32 +743,37 @@ mod tests {
     use eframe::egui;
 
     #[test]
-    fn chance_hover_popup_text_matches_chance_display_spec() {
+    fn probability_hover_popup_text_matches_probability_display_spec() {
         assert_eq!(
             (
-                super::chance_hover_popup_ket(3, 2),
-                super::chance_hover_popup_subtitle(3)
+                super::probability_hover_popup_ket(3, 2),
+                super::probability_hover_popup_subtitle(3)
             ),
-            ("|11⟩".to_owned(), "Chance if measured · k = 3".to_owned())
+            (
+                "|11⟩".to_owned(),
+                "Probability if measured · k = 3".to_owned()
+            )
         );
     }
 
     #[test]
-    fn chance_hover_popup_flips_left_near_viewport_right_edge() {
+    fn probability_hover_popup_flips_left_near_viewport_right_edge() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(200.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(260.0, 180.0));
 
-        let rect = super::chance_hover_popup_rect(gate_rect, 64.0, 24.0, 80.0, 60.0, screen_rect);
+        let rect =
+            super::probability_hover_popup_rect(gate_rect, 64.0, 24.0, 80.0, 60.0, screen_rect);
 
         assert_eq!((rect.left(), rect.right()), (112.0, 192.0));
     }
 
     #[test]
-    fn chance_hover_popup_clamps_inside_viewport_left_edge() {
+    fn probability_hover_popup_clamps_inside_viewport_left_edge() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(64.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 180.0));
 
-        let rect = super::chance_hover_popup_rect(gate_rect, 64.0, 24.0, 140.0, 60.0, screen_rect);
+        let rect =
+            super::probability_hover_popup_rect(gate_rect, 64.0, 24.0, 140.0, 60.0, screen_rect);
 
         assert_eq!(rect.left(), 8.0);
     }

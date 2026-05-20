@@ -13,7 +13,7 @@ impl DragController {
     pub(in crate::app) fn clear_idle_hover(app: &mut QniApp, ctx: &egui::Context) {
         app.hovered_gate_id = None;
         app.hovered_span_resize_handle = None;
-        app.hovered_chance_outcome = None;
+        app.hovered_probability_outcome = None;
         app.hovered_amplitude_outcome = None;
         app.hovered_palette_index = None;
         if app.hovered_step.take().is_some() {
@@ -32,11 +32,11 @@ impl DragController {
             // Iterate top-of-stack first so a resizable-span handle wins
             // over the gate body when the cursor is on both (span handles
             // overhang the top / bottom edges).
-            let previous_chance_outcome = app.hovered_chance_outcome;
+            let previous_probability_outcome = app.hovered_probability_outcome;
             let previous_amplitude_outcome = app.hovered_amplitude_outcome;
             let mut hovered_gate = None;
             let mut hovered_handle = None;
-            let mut hovered_chance_outcome = None;
+            let mut hovered_probability_outcome = None;
             let mut hovered_amplitude_outcome = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
@@ -57,14 +57,14 @@ impl DragController {
                 }
                 if body_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);
-                    if gate.kind == GateKind::ChanceDisplay {
+                    if gate.kind == GateKind::ProbabilityDisplay {
                         let row_count = 1usize << gate.span.clamp(1, 16);
                         let row_h = gate_rect.height() / row_count as f32;
                         let row = ((cursor.y - gate_rect.top()) / row_h)
                             .floor()
                             .clamp(0.0, (row_count - 1) as f32)
                             as u32;
-                        hovered_chance_outcome = Some((gate.id, row));
+                        hovered_probability_outcome = Some((gate.id, row));
                     } else if gate.kind == GateKind::AmplitudeDisplay {
                         hovered_amplitude_outcome =
                             amplitude_cell_index_at(gate_rect, gate.span, cursor)
@@ -75,9 +75,9 @@ impl DragController {
             }
             app.hovered_gate_id = hovered_gate;
             app.hovered_span_resize_handle = hovered_handle;
-            app.hovered_chance_outcome = hovered_chance_outcome;
+            app.hovered_probability_outcome = hovered_probability_outcome;
             app.hovered_amplitude_outcome = hovered_amplitude_outcome;
-            if hovered_chance_outcome != previous_chance_outcome
+            if hovered_probability_outcome != previous_probability_outcome
                 || hovered_amplitude_outcome != previous_amplitude_outcome
             {
                 ctx.request_repaint();

@@ -69,9 +69,9 @@ pub(crate) struct QniApp {
     /// is the default.
     pub(crate) breakpoint_step: Option<usize>,
     pub(crate) hovered_gate_id: Option<u32>,
-    /// `(gate_id, outcome)` for the Chance row under the pointer. The
+    /// `(gate_id, outcome)` for the Probability row under the pointer. The
     /// outcome index is geometry-only; probability values remain GPU-only.
-    pub(crate) hovered_chance_outcome: Option<(u32, u32)>,
+    pub(crate) hovered_probability_outcome: Option<(u32, u32)>,
     /// `(gate_id, outcome)` for the Amplitude cell under the pointer. The
     /// cell index is geometry-only; complex values remain GPU-only.
     pub(crate) hovered_amplitude_outcome: Option<(u32, u32)>,
@@ -243,7 +243,7 @@ impl QniApp {
             hovered_step: None,
             breakpoint_step: None,
             hovered_gate_id: None,
-            hovered_chance_outcome: None,
+            hovered_probability_outcome: None,
             hovered_amplitude_outcome: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,

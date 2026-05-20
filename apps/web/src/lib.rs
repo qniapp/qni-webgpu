@@ -66,12 +66,13 @@ pub async fn read_measurement_outcomes() -> Result<js_sys::Float32Array, wasm_bi
     gpu::read_measurement_outcomes_impl().await
 }
 
-/// Test-only on-demand readback for Chance display probabilities. Returns
-/// `[gate_id, p0, p1, ..., p65535, ...]` for each live Chance slot.
+/// Test-only on-demand readback for Probability display probabilities. Returns
+/// `[gate_id, p0, p1, ..., p65535, ...]` for each live Probability slot.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn read_chance_probabilities() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
-    gpu::read_chance_probabilities_impl().await
+pub async fn read_probability_distributions() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue>
+{
+    gpu::read_probability_distributions_impl().await
 }
 
 /// Test-only on-demand readback for one Amplitude display cell. Returns

@@ -97,7 +97,7 @@ pub(crate) fn amplitude_cell_index_at(
 }
 
 /// Resize-handle bounding box for any resizable-span gate edge. The 6 px-tall
-/// pill keeps the Chance-display 24 px minimum, then scales to 60% of the
+/// pill keeps the Probability-display 24 px minimum, then scales to 60% of the
 /// supplied body width for wide Amplitude displays.
 pub(crate) fn span_resize_handle_rect(body_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
     let cx = body_rect.center().x;
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn span_resize_handle_width_keeps_chance_display_minimum() {
+    fn span_resize_handle_width_keeps_probability_display_minimum() {
         let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(GATE_SIZE, GATE_SIZE));
 
         assert_eq!(

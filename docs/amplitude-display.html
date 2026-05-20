@@ -116,7 +116,7 @@
     .ad-host.icon canvas { cursor: default; }
 
     /* ─── リサイズハンドル ───
-       span を 1〜16 で変更するための上下ドラッグハンドル。chance-display.html と同じ
+       span を 1〜16 で変更するための上下ドラッグハンドル。probability-display.html と同じ
        仕様: purple-400 ベース、hover 枠 (purple-400 4 px ring + 2 px paper gap) の
        <strong>さらに外側</strong>にレイアウト。通常時は invisible、ゲート hover で
        「奥から飛び出してくる」マイクロインタラクション (フェードイン + 軽いバウンス)
@@ -275,7 +275,7 @@
   <h1 class="page-title">Amplitude display</h1>
   <p class="page-lede">
     span 内 qubit を測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する display gate。
-    chance display が <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本 display は <code>α = re + i·im</code> を
+    probability display が <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本 display は <code>α = re + i·im</code> を
     <strong>outline 円 + 振幅 disk + 位相 needle</strong> の 3 層で描く。
     <strong>span 上限は 16 qubit</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。
     <strong>配色 (blue-200 fill / tx-2 outline / tx needle) は状態ベクトルパネルと完全に揃える</strong> (<code>state.rs</code> の <code>cell_contribution</code>)。
@@ -378,7 +378,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>span 内 qubit の <strong>複素振幅</strong> を可視化する display gate (状態に影響しない)。位相情報を保持する点が chance display との大きな差</td></tr>
+        <tr><th>役割</th><td>span 内 qubit の <strong>複素振幅</strong> を可視化する display gate (状態に影響しない)。位相情報を保持する点が probability display との大きな差</td></tr>
         <tr><th>span</th><td>1〜16 qubit (Quirk の <code>Gate.buildFamily(1, 16, ...)</code> と一致)。UI でリサイズハンドルから可変</td></tr>
         <tr><th>outcomes</th><td><code>2<sup>span</sup></code> 個。上から binary big-endian、<code>k = 0</code> = <code>|0…0⟩</code></td></tr>
         <tr><th>計算内容</th><td>span に対応する subspace を control 条件で射影し、<strong>正規化複素ベクトル ket</strong> + coherence 指標 <code>quality</code> + phase-lock index を返す。CPU リードバックなし</td></tr>
@@ -401,7 +401,7 @@
       <tbody>
         <tr><th>幅 (gate columns)</th><td><code>span === 1 ? 2 : span % 2 === 0 ? span : ceil(span/2)</code> 列。Quirk と同じ計算式</td></tr>
         <tr><th>幅 (px)</th><td><code>(cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code> (垂直公式と対称、slot pitch 56 px に整数倍で揃う)</td></tr>
-        <tr><th>高さ (px)</th><td><code>(span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (chance display と同じ)</td></tr>
+        <tr><th>高さ (px)</th><td><code>(span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (probability display と同じ)</td></tr>
         <tr><th>matrix 内 grid</th><td><code>w_grid × h_grid</code> (<code>w_grid = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>, <code>h_grid = n / w_grid</code>)。セルは常に正方形</td></tr>
         <tr><th>cell size</th><td><code>diam = min(width_px / w_grid, height_px / h_grid)</code>。drawArea を <code>diam × w_grid, diam × h_grid</code> に縮めて中央寄せ (cols / span ではなく <strong>matrix grid 寸法</strong> を使う点に注意)</td></tr>
         <tr><th>外枠</th><td><code>ui-2</code> 1 px、角ばり</td></tr>
@@ -440,12 +440,12 @@
 
     <h3 style="margin-top: 16px;">可変幅 (<code>56 × cols − 16</code> px) 採用に伴う実装タスク</h3>
     <p>
-      現行 qni-webgpu のゲートは <strong>resizable span でも幅 40 px 固定</strong> (例: chance display も 40 px)。本仕様の amplitude display は 2D 行列の縦横バランスを保つため <strong>span に応じた可変幅</strong> (cols = 2〜16、<strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>、96 〜 880 px) を採用する。
+      現行 qni-webgpu のゲートは <strong>resizable span でも幅 40 px 固定</strong> (例: probability display も 40 px)。本仕様の amplitude display は 2D 行列の縦横バランスを保つため <strong>span に応じた可変幅</strong> (cols = 2〜16、<strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>、96 〜 880 px) を採用する。
       これは現行 <code>gate_visible_rect()</code> / hit-test / drag-drop / hover ring と整合しないので、以下を併せて実装する:
     </p>
     <ul>
       <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。amplitude display 以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
-      <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、chance / QFT の resizable と同じセマンティクス)。</li>
+      <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、probability / QFT の resizable と同じセマンティクス)。</li>
       <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drag 中の matrix 背景は他ゲートの drag preview と同じ <code>purple-600</code> にするが、outline 円の内側の白地は <code>bg</code> のまま残し、振幅 disk / outline / needle の色も通常時のまま変えない。回路 slot に snap して GPU の live 値が出る前も、palette から出した Amps1 は同じ GPU 表示シェーダの強制ゼロ描画インスタンスとして <code>mag = 0</code> の空セル 2 つを描く。drop target highlight も同寸。</li>
       <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 outcome の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
       <li><strong>resize handle</strong> — 上下のみ (height = span を変える)、左右の幅は span の関数なので separate な width handle は不要。</li>
@@ -465,14 +465,14 @@
           <li>shift / 圧縮なし。slot index がそのまま JSON col index になる</li>
         </ol>
         <strong>衝突検出</strong>は decode/encode の責務ではなく、placement 時に幾何的に行う (次項)。</li>
-      <li><strong>水平 slot 占有モデル</strong> — qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code> (chance display と同じ。<code>40 px</code> ではない)。amplitude の幾何幅は垂直の <code>(span − 1) × LINE_GAP + GATE_SIZE</code> と対称に
+      <li><strong>水平 slot 占有モデル</strong> — qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code> (probability display と同じ。<code>40 px</code> ではない)。amplitude の幾何幅は垂直の <code>(span − 1) × LINE_GAP + GATE_SIZE</code> と対称に
         <strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>。slot 構造としては 1 列消費 (上記 decode/encode と一致)、視覚的には <code>cols</code> slot 分の幅を覆う。
       </li>
       <li><strong>placement / 衝突検出 (幾何ベース)</strong> — slot index の比較ではなく、<strong>gate_rect の幾何交差</strong>で判定する: 新規 gate を slot N に置くとき、その <code>gate_rect (x_left..x_left + width_px, y_top..y_top + height_px)</code> と既存 gate の rect が交差していたら drop 拒否。amplitude の場合 width が広いので、右側 <code>cols − 1</code> 個分の slot 範囲に既存 gate があれば交差で検出される。<br />
         この方式なら cols 可変 × cols=1 ゲート混在も、矩形交差だけで一貫して扱える。逆に slot index 単純比較は wide gate に対して破綻するので採用しない。</li>
     </ul>
     <p class="note">
-      上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (chance display と同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
+      上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (probability display と同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
     </p>
   </div>
 </section>
@@ -500,7 +500,7 @@
       </div>
       <div><b>(3) 振幅 disk</b> — 中心 = セル中心、半径 <code>r = mag × inner_radius</code> (= <code>mag × (cellPx/2 − stroke)</code>、<code>mag = 1</code> で outline の<strong>内側ギリギリ</strong>まで広がる)。
         <code>blue-200</code> fill (state panel の <code>state_fill</code>、Quirk <code>#8FF</code> と等価)。
-        加えて <code>blue-400</code> (chance display のバー右端と同じ) で<strong>inset の 1 px 境界線</strong>を引く: ① 半径 <code>r</code> で fill ② 半径 <code>r − 0.5</code> で stroke。stroke の外端が <code>r</code> に一致するので<strong>視認性は上がるが disk 面積は変わらない</strong>。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加</div>
+        加えて <code>blue-400</code> (probability display のバー右端と同じ) で<strong>inset の 1 px 境界線</strong>を引く: ① 半径 <code>r</code> で fill ② 半径 <code>r − 0.5</code> で stroke。stroke の外端が <code>r</code> に一致するので<strong>視認性は上がるが disk 面積は変わらない</strong>。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#100F0F" stroke-width="2" stroke-linecap="round"><line x1="12" y1="12" x2="22" y2="6"/></svg>
       </div>
@@ -583,7 +583,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <li>outline 円は通常通り描く (情報量を保持)、disk は <strong>alpha 0.45 で薄塗り</strong>「振幅未定義 / 確率のみ」を示す</li>
       <li>phase needle は描かない (虚部が無いので位相は 0、線が意味を持たない)</li>
       <li>ゲート下に "incoherent" を <code>red-600</code> でフェードイン (<code>1 − indicatorAlpha</code> 透明度)</li>
-      <li>ホバー popup は <code>"Chance of |ket⟩ [entangled with other qubits]"</code> と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
+      <li>ホバー popup は <code>"Probability of |ket⟩ [entangled with other qubits]"</code> と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
     </ul>
     <h3 style="margin-top: 16px;">measure 済み列での挙動 (Quirk と仕様が異なる)</h3>
     <p>
@@ -591,7 +591,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     </p>
     <ul>
       <li><strong>Quirk</strong>: 列処理の<em>前</em>に display capture → measure された qubit があっても collapse 前の純粋振幅を表示。「deferred measurement」の解釈で、ゲート下に <code>"(w/ measure defer)"</code> / <code>"(assuming measurement deferred)"</code> を <code>red-600</code> でフェードイン。</li>
-      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureChance</code> と同じパス) → measure された qubit は collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある outcome に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一 outcome になる)。</li>
+      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureProbability</code> と同じパス) → measure された qubit は collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある outcome に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一 outcome になる)。</li>
     </ul>
     <p>
       本仕様では「<strong>post-measure state を素直に表示する</strong>」を採用。ゲート下の "incoherent" 以外の補足テキストは出さない (Quirk の "(w/ measure defer)" 系を真似ない)。Quirk と数値再現性を取る場合は別途 capture 順序の入れ替え (lowering で display を column 先頭に移動) が必要だが、本仕様では未採用。
@@ -627,7 +627,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     <h3 style="margin-top: 16px;">incoherent state</h3>
     <div class="ad-popup" style="display: inline-block; position: static;">
       <div class="ad-popup-ket">|01⟩</div>
-      <div class="ad-popup-sub">Chance · decimal 1 · [entangled with other qubits]</div>
+      <div class="ad-popup-sub">Probability · decimal 1 · [entangled with other qubits]</div>
       <div class="ad-popup-divider"></div>
       <div class="ad-popup-row">
         <span class="ad-popup-label">raw</span>
@@ -652,13 +652,13 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       出力: <strong>すべて GPU storage buffer に書き込み</strong>、render shader が直接 sample する。
     </p>
 
-    <h3 style="margin-top: 12px;">capture uniform (CaptureChance の amplitude 版)</h3>
+    <h3 style="margin-top: 12px;">capture uniform (CaptureProbability の amplitude 版)</h3>
     <p>
-      現行 <code>CaptureChance</code> は <code>base_bit / span / output_slot</code> のみで control 情報を持たない。
+      現行 <code>CaptureProbability</code> は <code>base_bit / span / output_slot</code> のみで control 情報を持たない。
       Amplitude では Quirk と同じ control-conditional 表示を行うため、capture uniform を拡張する:
     </p>
     <pre class="code">struct AmplitudeCapture {
-    base_bit:           u32,   // span 内 qubit の起点 (CaptureChance と同じ)
+    base_bit:           u32,   // span 内 qubit の起点 (CaptureProbability と同じ)
     span:               u32,   // 1..=16
     output_slot:        u32,   // 結果 buffer の書き込み slot
     control_mask:       u32,   // どの state_index bit が control 条件の対象か
@@ -683,7 +683,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
 //   control_value |= 0 &lt;&lt; 3;   // (= no-op)、|0⟩ 期待</pre>
     <p>
       shader 内では既存 <code>base_bit</code> と同じセマンティクスで <code>(state_index &amp; control_mask) == control_value</code> な要素のみを集約対象とする。
-      <code>control_mask = 0</code> なら無条件 (現行 chance display 同等)。controls 統合はこの uniform 1 つで完結する。
+      <code>control_mask = 0</code> なら無条件 (現行 probability display 同等)。controls 統合はこの uniform 1 つで完結する。
     </p>
 
     <h3 style="margin-top: 16px;">compute pipeline (10 stage、すべて GPU storage 内で完結)</h3>
@@ -700,7 +700,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
         <tr><td class="num">6</td><td><strong>Unity 計算</strong> — <code>unity = Σ|raw_ket|²</code> を reduce で計算</td><td><code>unity: f32</code></td></tr>
         <tr><td class="num">7</td><td><strong>phaseLockIndex search (決定論的最大)</strong> — <code>phase_lock_enabled == 1</code> のときだけ <code>raw_ket</code> を逐次走査 (Quirk と同じ workgroup_size=1 の serial reduce)、<code>m &gt; best × 10000</code> な「桁違いに大きい時だけ更新」探索で安定 index を選ぶ。<code>== 0</code> のときは <code>phase_lock_index = 0xffffffff (sentinel)</code> を書き、stage 8 で θ=0 として扱う</td><td><code>phase_lock_index: u32</code> (有効なら index、無効なら sentinel)</td></tr>
         <tr><td class="num">8</td><td><strong>正規化 + 位相回転</strong> — <code>phase_lock_index != sentinel</code> なら位相 θ = <code>atan2(raw_ket[index].im, raw_ket[index].re)</code>、それ以外は <code>θ = 0</code>。<code>ket[k] = (raw_ket[k] / √unity) × e^(−iθ)</code> を全 k 並列に書き込む (sentinel 時は正規化のみ、位相回転なし)</td><td><code>ket: vec2&lt;f32&gt;[2^span]</code> (正規化 + 必要なら phase-locked)</td></tr>
-        <tr><td class="num">9</td><td><strong>parallel: incoherent ket</strong> — chance display と同じ <code>probabilityStatTexture</code> で marginal probability、reduce で <code>incoherentUnity</code>、<code>incoherent_ket[k] = √(p_k / incoherentUnity)</code></td><td><code>incoherent_ket: f32[2^span]</code></td></tr>
+        <tr><td class="num">9</td><td><strong>parallel: incoherent ket</strong> — probability display と同じ <code>probabilityStatTexture</code> で marginal probability、reduce で <code>incoherentUnity</code>、<code>incoherent_ket[k] = √(p_k / incoherentUnity)</code></td><td><code>incoherent_ket: f32[2^span]</code></td></tr>
         <tr><td class="num">10</td><td><strong>合成 (render shader 用 layout)</strong> — <code>ket / incoherent_ket / quality / phase_lock_index</code> を 1 つの storage struct にまとめる。render shader はこれを直接 sample</td><td><code>amplitude_result: AmplitudeRenderInput</code></td></tr>
       </tbody>
     </table>
@@ -722,7 +722,7 @@ for (k = 0u; k &lt; n; k++) {
 
     <h3 style="margin-top: 16px;">Render shader (毎フレーム描画、readback 無し)</h3>
     <p>
-      矩形 cell grid を fragment shader で描く (chance display の <code>STATE_RENDER_SHADER</code> と同じパターン)。
+      矩形 cell grid を fragment shader で描く (probability display の <code>STATE_RENDER_SHADER</code> と同じパターン)。
       入力 storage buffer (<code>ket / incoherent_ket / quality / phaseLockIndex</code>) を直接 sample。
       <strong>quality &lt; 0.99 の判定も fragment shader 内で行う</strong> (incoherent fallback 切替) — CPU 分岐ではない。
       needle 線・matrix 外枠・outline 円・disk・disk 境界線はすべて<strong>1 dispatch の draw call</strong> で出す:
@@ -739,12 +739,12 @@ for (k = 0u; k &lt; n; k++) {
     <h3 style="margin-top: 16px;">Popup の値も GPU 描画 (readback 無し、glyph atlas + overlay shader)</h3>
     <p>
       ホバー popup の数値 (coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行) は<strong>本番 UI 経路</strong>なので、GPU-only ルールに従い<strong>readback しない</strong>。
-      代わりに <em>glyph atlas + overlay render pass</em> で GPU 上で文字を直接合成する (Chance display popup と同じ方針)。
+      代わりに <em>glyph atlas + overlay render pass</em> で GPU 上で文字を直接合成する (Probability display popup と同じ方針)。
       coherent / incoherent の分岐は overlay fragment shader 内で <code>quality &lt; 0.99</code> を判定して切り替える (擬似コードは下記)。
     </p>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">必要なリソース</h4>
     <ul>
-      <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>Chance popup と完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
+      <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>Probability popup と完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
       <li><strong><code>amplitude_result</code></strong> — § 08 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む</li>
       <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — hovered cell の index <code>hovered_k: u32</code>、popup screen 位置 <code>popup_pos: vec2&lt;f32&gt;</code>、表示 / 非表示 flag</li>
     </ul>
@@ -781,24 +781,24 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
 }</pre>
     <p>
       <code>compute_glyph_uv_coherent</code> / <code>compute_glyph_uv_incoherent</code> は同じ glyph atlas を sample するが、
-      ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは Chance popup と<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
-    <h4 style="margin: 12px 0 6px; font-size: 14px;">Chance popup との共有</h4>
+      ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは Probability popup と<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">Probability popup との共有</h4>
     <p>
-      Chance display popup の既存 <strong>glyph atlas + format callback</strong> パターンを再利用する:
+      Probability display popup の既存 <strong>glyph atlas + format callback</strong> パターンを再利用する:
     </p>
     <ul>
-      <li><strong>glyph atlas 本体</strong> — 既に Chance popup で実装済み (<code>shaders/glyph_atlas.wgsl</code>)。ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
-      <li><strong>format helper</strong> — Chance popup で <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> 等が既にある。Amplitude は <strong>新規に</strong> 以下を追加:
+      <li><strong>glyph atlas 本体</strong> — 既に Probability popup で実装済み (<code>shaders/glyph_atlas.wgsl</code>)。ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
+      <li><strong>format helper</strong> — Probability popup で <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> 等が既にある。Amplitude は <strong>新規に</strong> 以下を追加:
         <ul>
           <li><code>format_complex(re, im, decimals)</code> — <code>"0.50000 + 0.30000i"</code> 形式。sign / 整数桁 / 小数桁 / "i" 記号 を順に glyph に逆引き。</li>
           <li><code>format_signed_deg(deg, decimals)</code> — <code>"+30.96°"</code> 形式。<code>format_percent</code> に sign prefix を足したものと同等構造。</li>
         </ul>
       </li>
-      <li><strong>log10 の WGSL fallback</strong> — WGSL には <code>log10</code> が無いので <code>log10(x) = log(x) / log(10.0)</code> (= <code>log(x) * 0.4342945</code>) を <code>glyph_format.wgsl</code> 内に inline 定義。Chance popup の dB 表示でも同じ式が必要なので、Chance/Amplitude 共有 helper として置く。</li>
+      <li><strong>log10 の WGSL fallback</strong> — WGSL には <code>log10</code> が無いので <code>log10(x) = log(x) / log(10.0)</code> (= <code>log(x) * 0.4342945</code>) を <code>glyph_format.wgsl</code> 内に inline 定義。Probability popup の dB 表示でも同じ式が必要なので、Probability/Amplitude 共有 helper として置く。</li>
       <li><strong><code>atan2</code></strong> は WGSL builtin なので追加実装不要。</li>
     </ul>
     <p class="note" style="margin-top: 8px;">
-      Chance popup が既に動いていれば、Amplitude popup の glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」だけ</strong>で済む見込み。 fragment shader 内で完全な printf を実装するわけではなく、Chance ポップアップの既存パイプラインに乗せる前提。
+      Probability popup が既に動いていれば、Amplitude popup の glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」だけ</strong>で済む見込み。 fragment shader 内で完全な printf を実装するわけではなく、Probability ポップアップの既存パイプラインに乗せる前提。
     </p>
     <p class="note" style="margin-top: 12px;">
       <strong>readback はテスト専用 API に限定:</strong>
@@ -822,7 +822,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>span 上限</strong></td>
           <td><code>16</code> qubit</td>
-          <td>Quirk と同じ。chance display も 16 なのでパレット内で揃う。<code>2<sup>16</sup> = 65 536</code> 振幅 (vec2&lt;f32&gt; で 512 KB) は WebGPU storage の許容範囲内</td>
+          <td>Quirk と同じ。probability display も 16 なのでパレット内で揃う。<code>2<sup>16</sup> = 65 536</code> 振幅 (vec2&lt;f32&gt; で 512 KB) は WebGPU storage の許容範囲内</td>
         </tr>
         <tr>
           <td><strong>位相エンコーディング</strong></td>
@@ -847,7 +847,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>shader 構造</strong></td>
           <td>段階的 reduce (Quirk の 6 stage を 10 compute pass に分解; § 08 参照)</td>
-          <td>chance display と同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
+          <td>probability display と同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
         </tr>
         <tr>
           <td><strong>layer 合成順序</strong></td>
@@ -857,7 +857,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>disk 境界線</strong></td>
           <td><code>blue-400</code> inset 1 px stroke</td>
-          <td>chance display のバー右端と同じ濃さ。inset で disk 面積は変わらない</td>
+          <td>probability display のバー右端と同じ濃さ。inset で disk 面積は変わらない</td>
         </tr>
         <tr>
           <td><strong>palette icon</strong></td>
@@ -877,7 +877,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>controls 統合</strong></td>
           <td><code>AmplitudeCapture</code> uniform に <code>control_mask / control_value</code> を追加</td>
-          <td>1 uniform で完結、chance display が将来 controls 対応する場合の参考実装にもなる (§ 08 参照)</td>
+          <td>1 uniform で完結、probability display が将来 controls 対応する場合の参考実装にもなる (§ 08 参照)</td>
         </tr>
       </tbody>
     </table>
@@ -942,7 +942,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
 </section>
 
 <div class="doc-foot">
-  <a href="./chance-display.html">← chance-display</a> ·
+  <a href="./probability-display.html">← probability-display</a> ·
   <a href="./bloch-display.html">bloch-display</a> ·
   <a href="./design-system.html">design-system</a>
   · widget spec · 2026-05
@@ -956,7 +956,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
 
   const BG          = '#FFFCF0';
   const BLUE_200    = '#92BFDB';  /* amplitude disk fill = state_fill */
-  const BLUE_400    = '#4385BE';  /* amplitude disk border (chance display bar 右端と同じ濃さ) */
+  const BLUE_400    = '#4385BE';  /* amplitude disk border (probability display bar 右端と同じ濃さ) */
   const UI_2        = '#DAD8CE';  /* zero-amp outline (state_outline_zero) */
   const TX_2        = '#6F6E69';  /* non-zero outline (state_outline) */
   const TX          = '#100F0F';  /* phase needle (state_needle) */
@@ -1182,7 +1182,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       });
     } else if (!incoherent) {
       const r_base = showOutline ? inner_radius : Math.max(0.5, cellPx / 2 - 0.5);
-      // chance display のバー右端と同じ濃さの blue-400 を「inset border」として描く。
+      // probability display のバー右端と同じ濃さの blue-400 を「inset border」として描く。
       // ① 半径 r で fill ② 半径 r - 0.5 で 1 px stroke → stroke の外側 = r、面積は変わらない
       cellsForEach((re, im, x, y) => {
         const mag = Math.sqrt(re*re + im*im);
@@ -1263,7 +1263,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       const db = mag2 > 0 ? (Math.log10(mag2 / 100) * 10).toFixed(1) + ' dB' : '−∞ dB';
       return `
         <div class="ad-popup-ket">|${ket}⟩</div>
-        <div class="ad-popup-sub">Chance · decimal ${idx} · [entangled with other qubits]</div>
+        <div class="ad-popup-sub">Probability · decimal ${idx} · [entangled with other qubits]</div>
         <div class="ad-popup-divider"></div>
         <div class="ad-popup-row"><span class="ad-popup-label">raw</span><span class="ad-popup-value">${mag2.toFixed(4)}%</span></div>
         <div class="ad-popup-row"><span class="ad-popup-label">log</span><span class="ad-popup-value">${db.replace(/^-/, '−')}</span></div>
@@ -1311,7 +1311,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     const info = buildAdCanvas(host);
     host.appendChild(info.canvas);
     if (host.dataset.noPopup !== 'true') attachPopup(host, info);
-    // リサイズハンドル: icon mode 以外で追加。chance-display.html と同じ仕様。
+    // リサイズハンドル: icon mode 以外で追加。probability-display.html と同じ仕様。
     if (!host.classList.contains('icon')) {
       const top = document.createElement('div');
       top.className = 'ad-handle ad-handle--top';

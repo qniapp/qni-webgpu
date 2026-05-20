@@ -8,7 +8,7 @@ pub(crate) enum GateKind {
     /// Quirk-compatible probability display. It has no unitary effect;
     /// a GPU compute pass marginalizes the live state vector into outcome
     /// bars and a render shader paints them without CPU readback.
-    ChanceDisplay,
+    ProbabilityDisplay,
     /// Quirk-compatible amplitude display. It captures a span-local complex
     /// amplitude matrix into GPU storage and renders it without CPU readback.
     AmplitudeDisplay,
@@ -85,9 +85,9 @@ const GATE_SPECS: [GateSpec; 25] = [
         resizable_span: false,
     },
     GateSpec {
-        kind: GateKind::ChanceDisplay,
-        label: "Chance",
-        url_token: "Chance",
+        kind: GateKind::ProbabilityDisplay,
+        label: "Probability",
+        url_token: "Probability",
         resizable_span: true,
     },
     GateSpec {
@@ -238,7 +238,7 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 9] = [
 ];
 pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 3] = [
     GateKind::BlochDisplay,
-    GateKind::ChanceDisplay,
+    GateKind::ProbabilityDisplay,
     GateKind::AmplitudeDisplay,
 ];
 pub(crate) const PALETTE_GATE_COUNT: usize =
@@ -289,12 +289,12 @@ impl GateKind {
     }
 
     /// Maximum user-resizable span for a gate in the current execution
-    /// capacity. Chance mirrors Quirk's `Chance`/`Chance2..16` family even
+    /// capacity. Probability mirrors Quirk's `Probability`/`Probability2..16` family even
     /// when the editor is in external-GPU mode; QFT follows the circuit
     /// capacity.
     pub(crate) fn max_resizable_span(self, qubit_capacity: usize) -> usize {
         match self {
-            GateKind::ChanceDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
+            GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
             _ => qubit_capacity,
         }
         .max(1)

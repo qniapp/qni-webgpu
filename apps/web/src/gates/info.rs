@@ -372,10 +372,10 @@ impl GateKind {
                 paragraphs: &["Measures whether a qubit is ON or OFF."],
                 transitions: &[],
             },
-            GateKind::ChanceDisplay => GateInfo {
+            GateKind::ProbabilityDisplay => GateInfo {
                 name: "Probability Display",
                 paragraphs: &[
-                    "Shows chances of outcomes if a measurement was performed.",
+                    "Shows probabilities of outcomes if a measurement was performed.",
                     "Use controls to see conditional probabilities.",
                 ],
                 transitions: &[],

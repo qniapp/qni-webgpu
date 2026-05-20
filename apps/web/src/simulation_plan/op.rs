@@ -9,8 +9,8 @@ use crate::gates::GateParams;
 ///     buffer (`MEASURE_REDUCE_SHADER`).
 ///   * `MeasureCollapse`: per-pair zero+normalize using the previously
 ///     written aux slot (`MEASURE_COLLAPSE_SHADER`).
-///   * `CaptureChance`: marginalizes the live state into per-outcome
-///     probabilities for a Chance display (`CHANCE_REDUCE_SHADER`).
+///   * `CaptureProbability`: marginalizes the live state into per-outcome
+///     probabilities for a Probability display (`PROBABILITY_REDUCE_SHADER`).
 ///   * `CaptureAmplitude`: captures coherent amplitudes, incoherent
 ///     magnitudes, quality, and phase-lock metadata for an Amplitude display.
 ///   * `SnapshotState`: copies the live state into a GPU-resident step-cache
@@ -36,7 +36,7 @@ pub(crate) enum SimulationOp {
         qubit_bit: u32,
         aux_slot: u32,
     },
-    CaptureChance {
+    CaptureProbability {
         gate_id: u32,
         base_bit: u32,
         span: u32,

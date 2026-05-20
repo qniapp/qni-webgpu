@@ -96,16 +96,16 @@ pub(crate) const MAX_BLOCH_SLOTS: usize = 64;
 /// `measurement_aux_buffer` (a vec4 per slot — pZero, r, outcome, √p_kept).
 pub(crate) const MAX_MEASUREMENT_SLOTS: usize = 64;
 
-/// Maximum Chance display slots whose probability distributions can be
+/// Maximum Probability display slots whose probability distributions can be
 /// captured in a single recompute. Each slot reserves `2^16` f32 values so a
-/// Chance16 can render every outcome without reallocating GPU buffers.
-pub(crate) const MAX_CHANCE_SLOTS: usize = 32;
-pub(crate) const MAX_CHANCE_OUTCOMES: usize = 1 << 16;
-/// Maximum CSS-pixel height of a Chance display body. Chance16 is currently
+/// Probability16 can render every outcome without reallocating GPU buffers.
+pub(crate) const MAX_PROBABILITY_SLOTS: usize = 32;
+pub(crate) const MAX_PROBABILITY_OUTCOMES: usize = 1 << 16;
+/// Maximum CSS-pixel height of a Probability display body. Probability16 is currently
 /// `(16 - 1) * LINE_GAP + GATE_SIZE = 880px`; 1024 leaves room for style
 /// tweaks while keeping the aggregate buffer small.
-pub(crate) const MAX_CHANCE_AGGREGATE_ROWS: usize = 1024;
-pub(crate) const CHANCE_AGGREGATE_MIN_SPAN: u32 = 13;
+pub(crate) const MAX_PROBABILITY_AGGREGATE_ROWS: usize = 1024;
+pub(crate) const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13;
 
 /// Maximum Amplitude display slots whose complex matrices can be captured in
 /// a single recompute. Each slot reserves coherent (re/im) and incoherent
@@ -143,8 +143,8 @@ pub(crate) struct MeasureCollapseParams {
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct ChanceReduceParams {
-    /// Lowest state-vector bit covered by the contiguous Chance span.
+pub(crate) struct ProbabilityReduceParams {
+    /// Lowest state-vector bit covered by the contiguous Probability span.
     pub(crate) base_bit: u32,
     pub(crate) span: u32,
     pub(crate) rest_count: u32,
@@ -229,7 +229,7 @@ pub(crate) struct AmplitudePopupValueParams {
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct ChanceRenderParams {
+pub(crate) struct ProbabilityRenderParams {
     /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
@@ -243,7 +243,7 @@ pub(crate) struct ChanceRenderParams {
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct ChanceInstance {
+pub(crate) struct ProbabilityInstance {
     pub(crate) rect_min: [f32; 2],
     pub(crate) rect_size: [f32; 2],
     pub(crate) slot: u32,
@@ -252,11 +252,11 @@ pub(crate) struct ChanceInstance {
     pub(crate) _pad: u32,
 }
 
-/// Uniform for the Chance hover popup value text shader. The shader reads
-/// raw / log probability values directly from `chance_probability_output`.
+/// Uniform for the Probability hover popup value text shader. The shader reads
+/// raw / log probability values directly from `probability_output`.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct ChancePopupValueParams {
+pub(crate) struct ProbabilityPopupValueParams {
     /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
@@ -272,7 +272,7 @@ pub(crate) struct ChancePopupValueParams {
     pub(crate) _pad_char: [f32; 2],
     /// RGBA text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// Chance output slot and hovered outcome row.
+    /// Probability output slot and hovered outcome row.
     pub(crate) slot: u32,
     pub(crate) outcome: u32,
     pub(crate) _pad: [u32; 2],

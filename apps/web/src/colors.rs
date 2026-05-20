@@ -166,7 +166,7 @@ fn flexoki_light() -> Colors {
         label: paper,                      // inverse label on filled gates
         text: tx_2,                        // body text
         text_strong: tx,                   // emphasized titles / data ink
-        state_fill: blue_200,              // amplitude disk / Chance bar (Flexoki blue-200)
+        state_fill: blue_200,              // amplitude disk / Probability bar (Flexoki blue-200)
         state_outline: tx_2,               // non-zero amplitude outline
         state_outline_zero: ui_2,          // zero-amplitude outline
         state_needle: tx,                  // phase needle

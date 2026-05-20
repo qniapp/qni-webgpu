@@ -11,7 +11,7 @@ use std::cell::RefCell;
 
 use eframe::wgpu;
 
-use super::params::{AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES, MAX_CHANCE_OUTCOMES};
+use super::params::{AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES, MAX_PROBABILITY_OUTCOMES};
 
 #[cfg(target_arch = "wasm32")]
 use futures_channel::oneshot;
@@ -42,7 +42,7 @@ pub(crate) struct MeasurementGpuHandle {
 }
 
 #[derive(Clone)]
-pub(crate) struct ChanceGpuHandle {
+pub(crate) struct ProbabilityGpuHandle {
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
     pub(crate) output_buffer: wgpu::Buffer,
@@ -72,12 +72,12 @@ thread_local! {
     pub(crate) static MEASUREMENT_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    /// Same pattern for Chance displays. Test-only APIs may read this on
-    /// demand; production rendering samples `chance_probability_output` in a
+    /// Same pattern for Probability displays. Test-only APIs may read this on
+    /// demand; production rendering samples `probability_output` in a
     /// fragment shader.
-    pub(crate) static CHANCE_GPU_HANDLE: RefCell<Option<ChanceGpuHandle>> =
+    pub(crate) static PROBABILITY_GPU_HANDLE: RefCell<Option<ProbabilityGpuHandle>> =
         const { RefCell::new(None) };
-    pub(crate) static CHANCE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    pub(crate) static PROBABILITY_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     /// Same pattern for Amplitude displays. Production shaders sample
     /// `amplitude_output` + `amplitude_meta`; tests can ask for one cell.
     pub(crate) static AMPLITUDE_GPU_HANDLE: RefCell<Option<AmplitudeGpuHandle>> =
@@ -243,18 +243,18 @@ pub(crate) async fn read_measurement_outcomes_impl() -> Result<js_sys::Float32Ar
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) async fn read_chance_probabilities_impl() -> Result<js_sys::Float32Array, JsValue> {
-    let Some(handle) = CHANCE_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+pub(crate) async fn read_probability_distributions_impl() -> Result<js_sys::Float32Array, JsValue> {
+    let Some(handle) = PROBABILITY_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
         return Ok(js_sys::Float32Array::new_with_length(0));
     };
-    let slot_map = CHANCE_SLOT_MAP.with(|cell| cell.borrow().clone());
+    let slot_map = PROBABILITY_SLOT_MAP.with(|cell| cell.borrow().clone());
     if slot_map.is_empty() {
         return Ok(js_sys::Float32Array::new_with_length(0));
     }
-    let values_per_slot = MAX_CHANCE_OUTCOMES;
+    let values_per_slot = MAX_PROBABILITY_OUTCOMES;
     let copy_bytes = slot_map.len() * values_per_slot * std::mem::size_of::<f32>();
     let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("chance_readback"),
+        label: Some("probability_readback"),
         size: copy_bytes as wgpu::BufferAddress,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
@@ -262,7 +262,7 @@ pub(crate) async fn read_chance_probabilities_impl() -> Result<js_sys::Float32Ar
     let mut encoder = handle
         .device
         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("chance_readback_encoder"),
+            label: Some("probability_readback_encoder"),
         });
     encoder.copy_buffer_to_buffer(
         &handle.output_buffer,
