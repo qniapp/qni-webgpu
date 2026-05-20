@@ -6,6 +6,8 @@ const path = require('node:path')
 const rootDir = path.join(__dirname, '..')
 const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude.rs')
 const circuitGatesPath = path.join(rootDir, 'src', 'render', 'circuit_gates.rs')
+const dragPreviewPath = path.join(rootDir, 'src', 'render', 'circuit_palette', 'drag_preview.rs')
+const gateBodyPath = path.join(rootDir, 'src', 'icons', 'gate_body.rs')
 
 const readRenderShader = async () => {
   const shader = await fs.readFile(shaderPath, 'utf8')
@@ -58,6 +60,36 @@ test('Amplitude circuit rendering uses the matrix draw area as the visible body'
   const circuitGates = await fs.readFile(circuitGatesPath, 'utf8')
 
   assert.match(circuitGates, /let body_rect = if gate\.kind == GateKind::AmplitudeDisplay \{[\s\S]*amplitude_grid_rect\(gate_rect, gate\.span\)[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
+})
+
+test('Amplitude drag preview passes the palette gate span into the body icon', async () => {
+  const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
+
+  assert.match(dragPreview, /draw_drag_gate_body\(\s*painter,\s*body_rect,\s*gate\.kind,\s*gate\.span,\s*colors/)
+})
+
+test('Amplitude drag placeholder receives the dragged span', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+
+  assert.equal(gateBody.includes('dragging.then_some(span)'), true)
+})
+
+test('Amplitude drag placeholder keeps empty interiors on the surface color', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+
+  assert.equal(gateBody.includes('painter.circle_filled(center, inner_radius, colors.surface);'), true)
+})
+
+test('Amplitude drag placeholder uses the zero-amplitude outline', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+
+  assert.equal(gateBody.includes('colors.state_outline_zero'), true)
+})
+
+test('Amplitude drag placeholder avoids drawing high-span CPU cell grids', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+
+  assert.match(gateBody, /fn draw_empty_amplitude_cells[\s\S]*if span != 1 \{\s*return;/)
 })
 
 export {}

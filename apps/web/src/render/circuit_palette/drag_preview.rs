@@ -41,7 +41,7 @@ impl QniApp {
             // overwrite each other's geometry.
             return;
         }
-        draw_drag_gate_body(painter, body_rect, gate.kind, colors);
+        draw_drag_gate_body(painter, body_rect, gate.kind, gate.span, colors);
         if gate.kind == GateKind::BlochDisplay {
             // While dragging the gate isn't snapped, so we can't compute a
             // Bloch vector. Render the qni d=0 blue dot at the sphere center.

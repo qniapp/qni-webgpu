@@ -52,6 +52,24 @@ const waitForAmplitudeCell = async (
   throw new Error(`Amplitude cell ${gateId}:${outcome} did not become available`)
 }
 
+const sampleUnsnappedAmps1DragPixel = async (page: Page, offset: { x: number; y: number }) => {
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const source = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+  const target = { x: source.x - 120, y: source.y + 60 }
+  await dragPointer(page, source, target, 6, false)
+  const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'probe', x: target.x + offset.x, y: target.y + offset.y },
+  ])
+  await page.mouse.up()
+
+  return samples.probe
+}
+
 const measureColorRunWidthAtY = async (
   page: Page,
   locator: Locator,
@@ -149,6 +167,24 @@ test.describe('Amplitude Display', () => {
     ])
 
     expect(pixelRgbDistance(samples.corner, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(48)
+  })
+
+  test('unsnapped dragged Amps1 keeps the left empty circle interior white', async ({ page }) => {
+    const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 8, y: 0 })
+
+    expect(pixelRgbDistance(pixel, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(60)
+  })
+
+  test('unsnapped dragged Amps1 keeps the right empty circle interior white', async ({ page }) => {
+    const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 48, y: 0 })
+
+    expect(pixelRgbDistance(pixel, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(60)
+  })
+
+  test('unsnapped dragged Amps1 keeps the matrix background purple outside circles', async ({ page }) => {
+    const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 28, y: -16 })
+
+    expect(pixelRgbDistance(pixel, DRAG_PREVIEW_FILL)).toBeLessThanOrEqual(90)
   })
 
   test('snapped dragged Amps1 renders live GPU circles before drop', async ({ page }) => {
