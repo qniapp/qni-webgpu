@@ -53,7 +53,7 @@ The script outputs `METRIC ...` lines for the projected CI wall time and local c
 
 ## What's Been Tried
 - Baseline success run `25151678429`: 18m53s total, with setup dominating more than app checks.
-- CI flake fixes for egui-web Cucumber were completed before this session; this lane is now focused on runtime only.
+- CI flake fixes for web Cucumber were completed before this session; this lane is now focused on runtime only.
 - Baseline proxy measurement on the current single-job workflow: `projected_ci_s=956.375`.
 - Winning experiment so far: split `.github/workflows/ci.yml` into parallel `web`, `mcp`, and `tui` jobs while preserving the exact validation commands and enabling `setup-node` pnpm cache + `pnpm install --frozen-lockfile` in the Node jobs.
   - Initial proxy result: `projected_ci_s=486.499`.

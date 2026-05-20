@@ -16,8 +16,8 @@
 
 | 項目 | 値 |
 | --- | ---: |
-| 基準コマンド | `pnpm -C apps/egui-web exec trunk build --release` |
-| 基準 wasm | `apps/egui-web/dist/qni-egui-web_bg.wasm` |
+| 基準コマンド | `pnpm -C apps/web exec trunk build --release` |
+| 基準 wasm | `apps/web/dist/qni-web_bg.wasm` |
 | 自作 SVG パーサ基準 | 8,108,489 bytes |
 | 画面確認 | `http://127.0.0.1:4180/#%7B%22cols%22%3A%5B%5B%22H%22%5D%2C%5B%22X%22%5D%2C%5B%22Y%22%5D%2C%5B%22Z%22%5D%2C%5B%22X%5E%C2%BD%22%5D%2C%5B%22S%22%5D%2C%5B%22S%E2%80%A0%22%5D%2C%5B%22T%22%5D%2C%5B%22T%E2%80%A0%22%5D%2C%5B%22P%22%5D%2C%5B%22Rx%22%5D%2C%5B%22Ry%22%5D%2C%5B%22Rz%22%5D%2C%5B%22QFT2%22%5D%2C%5B%22QFT%E2%80%A02%22%5D%5D%7D` / `http://127.0.0.1:4180/#%7B%22cols%22%3A%5B%5B%22%7C0%3E%22%2C%22%7C1%3E%22%5D%2C%5B%22Measure%22%2C%22Measure%22%5D%5D%7D` |
 | After スクリーンショット | `h-palette-vs-circuit.png` |
@@ -45,19 +45,19 @@
 - `scripts/extract-gate-svg.py`
   - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `p.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成。
   - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 256×256 px PNG も生成。
-- `apps/egui-web/build.rs`
+- `apps/web/build.rs`
   - `assets/icons/*.png` をビルド時に読み、256×256 px RGBA であることと可視画素があることを検査。
   - アルファを RLE 配列へ変換し、WebGPU が無い経路のフォールバックに使う。
   - アルファから SDF を生成し、SDF も RLE 配列へ変換する。
   - 実行時 wasm には PNG デコーダを含めない。
-- `apps/egui-web/src/icons/sdf_icon.rs`
+- `apps/web/src/icons/sdf_icon.rs`
   - RLE SDF を `R8Unorm` テクスチャに展開し、WebGPU シェーダで `colors.label` の単色輪郭として描く。
-- `apps/egui-web/src/icons/svg_icon.rs`
+- `apps/web/src/icons/svg_icon.rs`
   - WebGPU が無い場合のみ RLE アルファを `ColorImage` に展開し、`Shape::image` で描く。
-- `apps/egui-web/src/icons/gate_glyphs.rs`
+- `apps/web/src/icons/gate_glyphs.rs`
   - H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / X（本体は Plus）/ Write0 / Write1 を新方式へ切り替え。
   - 旧自作 SVG パーサと ear-clip コードは削除。
-- `apps/egui-web/src/gpu/digit_atlas.rs`
+- `apps/web/src/gpu/digit_atlas.rs`
   - `digit0.svg` / `digit1.svg` 由来の SDF を 1×2 atlas に詰め、Measurement の 0 / 1 も Write と同じ輪郭・サイズで描く。
 
 ## スクリーンショット
@@ -74,9 +74,9 @@
 
 | 検証 | 結果 |
 | --- | --- |
-| `cargo check --manifest-path apps/egui-web/Cargo.toml --target wasm32-unknown-unknown` | 通過 |
-| `cargo fmt --manifest-path apps/egui-web/Cargo.toml --check` | 通過 |
-| `cargo clippy --manifest-path apps/egui-web/Cargo.toml --target wasm32-unknown-unknown --all-targets -- -D warnings` | 通過 |
-| `pnpm -C apps/egui-web exec tsc --noEmit` | 通過 |
+| `cargo check --manifest-path apps/web/Cargo.toml --target wasm32-unknown-unknown` | 通過 |
+| `cargo fmt --manifest-path apps/web/Cargo.toml --check` | 通過 |
+| `cargo clippy --manifest-path apps/web/Cargo.toml --target wasm32-unknown-unknown --all-targets -- -D warnings` | 通過 |
+| `pnpm -C apps/web exec tsc --noEmit` | 通過 |
 | `python3 -m py_compile scripts/extract-gate-svg.py` | 通過 |
-| `QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4180 pnpm -C apps/egui-web exec playwright test tests/egui-web-palette-visual.spec.ts --grep "SVG SDF gate labels" --workers=1` | 通過 |
+| `QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4180 pnpm -C apps/web exec playwright test tests/web-palette-visual.spec.ts --grep "SVG SDF gate labels" --workers=1` | 通過 |

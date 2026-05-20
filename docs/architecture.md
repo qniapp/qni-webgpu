@@ -4,7 +4,7 @@
 
 ## 全体構成（何がどこにあるか）
 
-- Monorepo 構成で、WebGPU PoC は `apps/egui-web` に集約されている。
+- Monorepo 構成で、WebGPU PoC は `apps/web` に集約されている。
 - 端末向けの最小 PoC は `apps/tui` に置き、Rust + ratatui で Web 版に触れずに動作確認できる。
 - MCP サーバ `apps/mcp-qni` から回路編集と実行を行う。
 - Web UI は Rust（egui/eframe）で構築し、Wasm として動く。
@@ -14,7 +14,7 @@
 ```mermaid
 flowchart LR
   subgraph repo[リポジトリ]
-    web[apps/egui-web<br/>egui WebGPU PoC]
+    web[apps/web<br/>web app]
     tui[apps/tui<br/>TUI PoC]
     mcp[apps/mcp-qni<br/>MCP Qni]
     docs[docs<br/>設計・決定事項]
@@ -91,8 +91,8 @@ sequenceDiagram
 
 ## 主要ファイル
 
-- `apps/egui-web/src/lib.rs`: egui UI と GPU 状態ベクトル計算/描画
-- `apps/egui-web/index.html`: キャンバス配置と Trunk 設定
-- `apps/egui-web/bootstrap.ts`: Wasm 初期化とテスト用フック（Trunk hook で `bootstrap.js` を生成）
-- `apps/egui-web/tests/egui-web.spec.ts`: Playwright テスト
+- `apps/web/src/lib.rs`: egui UI と GPU 状態ベクトル計算/描画
+- `apps/web/index.html`: キャンバス配置と Trunk 設定
+- `apps/web/bootstrap.ts`: Wasm 初期化とテスト用フック（Trunk hook で `bootstrap.js` を生成）
+- `apps/web/tests/web.spec.ts`: Playwright テスト
 - `docs/decisions.md`: PoC の仕様・決定事項

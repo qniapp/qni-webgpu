@@ -19,7 +19,7 @@ flowchart LR
   Params --> Compute[GPU compute<br/>STATE / MEASURE / BLOCH shaders]
   Compute --> Buffers[GPU storage buffers<br/>state / step snapshots / bloch / measurement aux]
   Buffers --> Render[GPU render shaders<br/>state circles / bloch arrows / digits]
-  Render --> Canvas[egui WebGPU canvas]
+  Render --> Canvas[WebGPU canvas]
   Buffers -. test only .-> Readback[on-demand async readback]
 ```
 
@@ -83,7 +83,7 @@ flowchart LR
 
 - Playwright は test-only readback API で state vector / Bloch / measurement outcome を検証する。
 - Production path の正しさは、readback ではなく shader が同じ GPU storage buffer を直接 sample する構造で担保する。
-- UI 変更時は visual / drag specs を通し、GPU path 変更時は `egui-web-gpu.spec.ts` と state semantics specs を通す。
+- UI 変更時は visual / drag specs を通し、GPU path 変更時は `web-gpu.spec.ts` と state semantics specs を通す。
 - repo root の `./scripts/check-all.sh` を最終 gate とする。
 
 ## リスク

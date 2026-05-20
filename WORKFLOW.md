@@ -25,8 +25,8 @@ hooks:
       cp -R /home/yasuhito/Work/oss/symphony/.codex .codex
     fi
     if command -v pnpm >/dev/null 2>&1; then
-      if [ -f apps/egui-web/package.json ]; then
-        pnpm -C apps/egui-web install
+      if [ -f apps/web/package.json ]; then
+        pnpm -C apps/web install
       fi
       if [ -f apps/mcp-qni/package.json ]; then
         pnpm -C apps/mcp-qni install
@@ -85,15 +85,15 @@ qni-webgpu project rules:
 - Keep debugging until the correct rendering/behavior is confirmed when the issue is UI or rendering related.
 - Update docs alongside behavior changes when relevant.
 - Avoid `println!`; use existing logging patterns when debug output is needed.
-- For `apps/egui-web`, do not use native-only Rust validation as the primary gate. Use `cargo check --target wasm32-unknown-unknown -p qni-egui-web`.
+- For `apps/web`, do not use native-only Rust validation as the primary gate. Use `cargo check --target wasm32-unknown-unknown -p qni-web`.
 
 qni-webgpu validation policy:
 - Start with the smallest targeted checks that prove the changed behavior.
-- For `apps/egui-web` UI/runtime work, prefer some combination of:
-  - `cargo check --target wasm32-unknown-unknown -p qni-egui-web`
-  - `pnpm -C apps/egui-web run test:preflight`
-  - `pnpm -C apps/egui-web run test:bdd`
-  - `pnpm -C apps/egui-web run test:pw-legacy`
+- For `apps/web` UI/runtime work, prefer some combination of:
+  - `cargo check --target wasm32-unknown-unknown -p qni-web`
+  - `pnpm -C apps/web run test:preflight`
+  - `pnpm -C apps/web run test:bdd`
+  - `pnpm -C apps/web run test:pw-legacy`
 - When CI/workflow code changes, run the closest fresh local equivalent such as `bash scripts/check-all.sh`.
 - Before commit/push/PR/handoff, run a fresh validation set for the current scope and record exact commands/results in the workpad.
 - Never claim validation from stale runs.
@@ -175,7 +175,7 @@ This workflow intentionally runs Codex with full access inside the isolated issu
 2. Implement against the checklist and update the workpad after each meaningful milestone.
 3. Keep changes narrow and preserve existing architecture unless the issue explicitly requires refactoring.
 4. If the change is UI-facing, include a UI walkthrough acceptance item and verify the affected interaction path.
-5. If the issue touches `apps/egui-web` rendering or interaction:
+5. If the issue touches `apps/web` rendering or interaction:
    - verify the visual/problem signal before fixing
    - keep palette, placed-gate, and drag-preview behavior consistent unless the ticket requires a difference
 6. Run targeted validation as you go.
@@ -209,7 +209,7 @@ Run this protocol after validation is green and before creating or updating a PR
 2. Compare the diff against the Linear issue description, acceptance criteria, and the current workpad checklist.
 3. Check for common workflow regressions:
    - missing reproduction evidence or weakened test coverage;
-   - native-only Rust validation used as the primary gate for `apps/egui-web` work;
+   - native-only Rust validation used as the primary gate for `apps/web` work;
    - unintended rendering, palette, placed-gate, or drag-preview behavior changes;
    - missing docs, UI walkthrough, or validation notes required by the ticket;
    - generated files, logs, `.codex/**`, temp files, or other workspace noise;

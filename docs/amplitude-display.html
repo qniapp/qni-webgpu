@@ -91,7 +91,7 @@
     }
 
     /* ── Amplitude display 視覚スタイル ─────────────────────────
-       state vector panel (apps/egui-web/src/gpu/shaders/state.rs) の 3 層モデルに揃える。
+       state vector panel (apps/web/src/gpu/shaders/state.rs) の 3 層モデルに揃える。
        Quirk の確率正方形・対数円は冗長なので不採用、振幅は disk 半径 (mag) と needle 方向 (phase) で表現する。
        各セルは正方形 grid に配置し、内部に下記のレイヤを描く:
          1. back   (cell 背景) = bg
@@ -482,7 +482,7 @@
   <h2>§ 05 セル描画モデル (state panel と同じ 3 層)</h2>
   <div class="card">
     <p>
-      qni-webgpu の<strong>状態ベクトルパネル</strong> (<code>apps/egui-web/src/gpu/shaders/state.rs</code>) と
+      qni-webgpu の<strong>状態ベクトルパネル</strong> (<code>apps/web/src/gpu/shaders/state.rs</code>) と
       <strong>同じ 3 層モデル</strong>を 1:1 で踏襲する: <em>outline 円 + 振幅 disk + 位相 needle</em>。
       Quirk の確率正方形 / 対数円は冗長 (disk の半径 = <code>mag</code>、面積 ∝ <code>mag²</code> で確率値も読める) なので不採用。
       <code>α = re + i·im</code>, <code>mag = |α| = √prob</code>。

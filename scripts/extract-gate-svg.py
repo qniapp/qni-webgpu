@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Geist フォントからゲートのグリフアウトラインを抽出し、
-`apps/egui-web/assets/icons/<name>.svg` と同名 PNG に書き出す。
+`apps/web/assets/icons/<name>.svg` と同名 PNG に書き出す。
 
 design-system-architecture.html の Tier A 提案 (SVG アイコンを Rust と
 TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部分を
@@ -19,7 +19,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
     - S† / T† は Geist Regular の基底文字と † を合成
     - RX / RY / RZ は Geist Medium 500 の 2 文字を 0.46 倍で合成
     - QFT / QFT† は Geist Medium 500 の 3 文字を 0.46 倍で合成
-    - viewBox は 48×48 (apps/egui-web/src/icons.rs の VIEWBOX)
+    - viewBox は 48×48 (apps/web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
 依存:
@@ -35,8 +35,8 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import TTFont
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-FONTS_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets")
-OUT_DIR = os.path.join(REPO_ROOT, "apps/egui-web/assets/icons")
+FONTS_DIR = os.path.join(REPO_ROOT, "apps/web/assets")
+OUT_DIR = os.path.join(REPO_ROOT, "apps/web/assets/icons")
 VIEWBOX = 48.0
 RASTER_SIZE = 256
 GLYPH_RATIO = 0.62

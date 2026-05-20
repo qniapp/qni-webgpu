@@ -24,14 +24,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
+        working-directory: apps/web
 
       - name: Web preflight
-        run: pnpm -C apps/egui-web run test:preflight
+        run: pnpm -C apps/web run test:preflight
 
   web:
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: apps/egui-web/pnpm-lock.yaml
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
@@ -61,7 +61,7 @@ jobs:
           cache-bin: "true"
           cache-all-crates: "true"
           workspaces: |
-            apps/egui-web
+            apps/web
 
       - name: Install trunk and cargo-insta
         uses: taiki-e/install-action@v2
@@ -70,18 +70,18 @@ jobs:
 
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
-        working-directory: apps/egui-web
+        working-directory: apps/web
 
       - name: Web Rust check
-        run: apps/egui-web/scripts/check-rust.sh
+        run: apps/web/scripts/check-rust.sh
 
       - name: Web trunk build
         run: env -u NO_COLOR TRUNK_COLOR=never trunk build
-        working-directory: apps/egui-web
+        working-directory: apps/web
 
       - name: Web Cucumber BDD (static dist)
         run: |
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-server.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/web-bdd-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           python3 - <<'PY'
@@ -98,14 +98,14 @@ jobs:
               except Exception:
                   time.sleep(0.25)
           else:
-              raise SystemExit('Timed out waiting for static egui-web server')
+              raise SystemExit('Timed out waiting for static web server')
           PY
-          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
-        working-directory: apps/egui-web
+          QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
+        working-directory: apps/web
 
       - name: Web Playwright legacy (static dist)
         run: |
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-server.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/web-legacy-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           python3 - <<'PY'
@@ -122,10 +122,10 @@ jobs:
               except Exception:
                   time.sleep(0.25)
           else:
-              raise SystemExit('Timed out waiting for static egui-web server')
+              raise SystemExit('Timed out waiting for static web server')
           PY
-          QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy
-        working-directory: apps/egui-web
+          QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy
+        working-directory: apps/web
 
   mcp:
     runs-on: ubuntu-latest

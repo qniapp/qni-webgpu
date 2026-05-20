@@ -780,7 +780,7 @@
             <h3>古いコメント / docs の GPU 方針ズレを修正</h3>
             <p>「CPU side collapse」「QFT simulation deferred」など、現実と逆の説明が残る。新規作業者を誤誘導する。<strong>進捗:</strong> <code>docs/gpu-plan.md</code> を現状の GPU-only production path / test-only readback / shader direct sample 方針へ更新済み。</p>
             <ul><li>Web 本番は GPU-only と明記</li><li>test-only readback を明記</li><li>historical note は削除か隔離</li></ul>
-            <div class="file-list"><span class="file-chip">docs/egui-web.md</span><span class="file-chip">docs/gpu-plan.md</span><span class="file-chip">gates.rs</span><span class="file-chip">gpu/shaders.rs</span></div>
+            <div class="file-list"><span class="file-chip">docs/web.md</span><span class="file-chip">docs/gpu-plan.md</span><span class="file-chip">gates.rs</span><span class="file-chip">gpu/shaders.rs</span></div>
           </article>
 
           <article class="candidate medium">
@@ -834,15 +834,15 @@
           <article class="candidate low">
             <div class="topline"><span class="rank">C-10</span><span class="badge">P3 tests</span></div>
             <h3>巨大 Playwright spec と helper を整理</h3>
-            <p><code>egui-web.spec.ts</code> が 1400行超だった。<strong>進捗:</strong> smoke / interaction / palette visual / drag visual / state semantics / GPU / error spec と shared helper に分割済み。</p>
+            <p><code>web.spec.ts</code> が 1400行超だった。<strong>進捗:</strong> smoke / interaction / palette visual / drag visual / state semantics / GPU / error spec と shared helper に分割済み。</p>
             <ul><li>visual specs</li><li>simulation specs</li><li>shared fixtures</li><li>残: URL/import 専用 spec は対象テスト追加時に分離</li></ul>
-            <div class="file-list"><span class="file-chip">tests/egui-web.spec.ts</span><span class="file-chip">features/support/*</span></div>
+            <div class="file-list"><span class="file-chip">tests/web.spec.ts</span><span class="file-chip">features/support/*</span></div>
           </article>
 
           <article class="candidate low">
             <div class="topline"><span class="rank">C-11</span><span class="badge">P3 docs</span></div>
             <h3>docs の現状 / 決定 / 手順を再編</h3>
-            <p>機能追加メモが <code>docs/egui-web.md</code> に集中。Read when 付きの短い設計ノートへ分ける。</p>
+            <p>機能追加メモが <code>docs/web.md</code> に集中。Read when 付きの短い設計ノートへ分ける。</p>
             <ul><li>GPU policy</li><li>visual workflow</li><li>gate semantics</li><li>style guide</li></ul>
             <div class="file-list"><span class="file-chip">docs/*.md</span><span class="file-chip">AGENTS.md</span></div>
           </article>
@@ -871,7 +871,7 @@
                 <tr><td>C-08 TUI split</td><td><span class="status p2">P2</span></td><td>500行超ファイル複数</td><td>renderer/model/tests 分割</td><td>snapshot 差分</td><td>cargo test + insta review</td></tr>
                 <tr><td>C-09 style tokens</td><td><span class="status p2">P2</span></td><td>hardcoded RGB / scale外サイズ</td><td>Flexoki + Tailwind constants</td><td>見た目の微差</td><td>visual screenshot + clippy禁止API</td></tr>
                 <tr><td>C-10 tests split</td><td><span class="status p3">P3</span></td><td>巨大 spec</td><td>観点別 spec + shared helper に分割済み</td><td>テスト起動時間の変動</td><td>pnpm test:preflight / bdd / pw-legacy</td></tr>
-                <tr><td>C-11 docs split</td><td><span class="status p3">P3</span></td><td>egui-web.md に集中</td><td>Read when 付き短文書へ</td><td>リンク切れ</td><td>docs:list + link check</td></tr>
+                <tr><td>C-11 docs split</td><td><span class="status p3">P3</span></td><td>web.md に集中</td><td>Read when 付き短文書へ</td><td>リンク切れ</td><td>docs:list + link check</td></tr>
               </tbody>
             </table>
           </div>
@@ -979,9 +979,9 @@
             <summary>軽量チェック</summary>
             <div class="details-body">
               <ul>
-                <li><code>cd apps/egui-web &amp;&amp; cargo check --target wasm32-unknown-unknown</code></li>
-                <li><code>cd apps/egui-web &amp;&amp; cargo clippy --target wasm32-unknown-unknown -- -D warnings</code></li>
-                <li><code>cd apps/egui-web &amp;&amp; pnpm run typecheck</code></li>
+                <li><code>cd apps/web &amp;&amp; cargo check --target wasm32-unknown-unknown</code></li>
+                <li><code>cd apps/web &amp;&amp; cargo clippy --target wasm32-unknown-unknown -- -D warnings</code></li>
+                <li><code>cd apps/web &amp;&amp; pnpm run typecheck</code></li>
                 <li><code>cd apps/tui &amp;&amp; cargo check</code> / <code>cargo clippy -- -D warnings</code></li>
                 <li><code>cd apps/mcp-qni &amp;&amp; pnpm run typecheck</code> / <code>pnpm run lint</code></li>
               </ul>
@@ -1003,7 +1003,7 @@
       </section>
 
       <div class="footer-note">
-        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、egui-web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller/*</code> / <code>app/state_panel/*</code> / <code>render/state_panel_layout/*</code> / <code>render/state_panel_popup/*</code> / <code>app/state_panel_state.rs</code> / <code>app/gpu_plan_state.rs</code> / <code>app/update_flow.rs</code> / <code>simulation_plan/*</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag start-resize-preview-hover-drop state machine / state panel drag-viewport-aspect-resize interactions / state panel geometry-aspect-hit rect-clamp layout / popup cell-aspect-icon drawing / state panel state / GPU plan state / update coordinator / GPU plan lowering / icon drawing / URL codec responsibilities を分離。<code>docs/gpu-plan.md</code> は GPU-only production path と test-only readback 方針へ更新。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
+        Source snapshot: 監査後の実装パスで C-01 / C-02 / C-03 / C-04 / C-05 / C-06 / C-10 に着手し、web の Rust / Playwright specs / docs を更新した。直近で <code>app/drag_controller/*</code> / <code>app/state_panel/*</code> / <code>render/state_panel_layout/*</code> / <code>render/state_panel_popup/*</code> / <code>app/state_panel_state.rs</code> / <code>app/gpu_plan_state.rs</code> / <code>app/update_flow.rs</code> / <code>simulation_plan/*</code> / <code>icons/*</code> / <code>url_circuit/*</code> を追加し、pointer adapter / drag start-resize-preview-hover-drop state machine / state panel drag-viewport-aspect-resize interactions / state panel geometry-aspect-hit rect-clamp layout / popup cell-aspect-icon drawing / state panel state / GPU plan state / update coordinator / GPU plan lowering / icon drawing / URL codec responsibilities を分離。<code>docs/gpu-plan.md</code> は GPU-only production path と test-only readback 方針へ更新。Qni reference: 指定パス <code>../oss/qni</code> は存在せず、<code>../qni</code>（commit <code>7656800f</code>）を参照。
       </div>
     </main>
   </div>

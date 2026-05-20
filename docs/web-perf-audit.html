@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Performance Audit — apps/web</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b11;
+    --bg-deep:   #06060a;
+    --surface:   #14141d;
+    --surface-2: #1c1c27;
+    --line:      #262633;
+    --text:      #ece8de;
+    --text-mid:  #a8a3b3;
+    --text-dim:  #6e6a7a;
+    --high:      #ff4a30;
+    --med:       #f5b942;
+    --low:       #5fc4d3;
+    --good:      #79d27c;
+    --serif:     'Fraunces', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --mono:      'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(255,74,48,0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(95,196,211,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 0 0 120px 0;
+  }
+
+  /* film grain via subtle noise pattern */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    z-index: 0;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+  /* Hero */
+  .hero {
+    padding: 96px 0 64px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 56px;
+  }
+  .hero .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+  .hero .eyebrow span { color: var(--high); }
+  .hero h1 {
+    font-family: var(--serif);
+    font-weight: 800;
+    font-size: clamp(44px, 7vw, 88px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 28px 0;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--text-mid);
+  }
+  .hero .meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    color: var(--text-mid);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+  .hero .meta span b { color: var(--text); font-weight: 500; }
+
+  /* Section heading */
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 80px 0 24px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* Status banner */
+  .status {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--good);
+    background: linear-gradient(90deg, rgba(121,210,124,0.05) 0%, transparent 60%);
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .status .check {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid var(--good);
+    display: grid; place-items: center;
+    color: var(--good);
+    font-size: 22px;
+  }
+  .status .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--good);
+    margin-bottom: 4px;
+  }
+  .status p {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .status code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--text-mid);
+  }
+
+  /* Severity legend */
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin: 24px 0 40px 0;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .legend .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .legend .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+  }
+  .legend .dot.high { background: var(--high); }
+  .legend .dot.med  { background: var(--med); }
+  .legend .dot.low  { background: var(--low); }
+
+  /* Issue cards */
+  .issues {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+  }
+  .issue {
+    grid-column: span 6;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 28px;
+    position: relative;
+    transition: border-color 0.2s ease, transform 0.4s ease;
+  }
+  .issue:hover { border-color: var(--text-dim); }
+  .issue.high { grid-column: span 12; }
+  .issue.high .id-letter { color: var(--high); }
+  .issue.med .id-letter  { color: var(--med); }
+  .issue.low .id-letter  { color: var(--low); }
+  .issue::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .issue.high::before { background: var(--high); }
+  .issue.med::before  { background: var(--med); }
+  .issue.low::before  { background: var(--low); }
+
+  .issue header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 18px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 14px;
+  }
+  .id-letter {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 56px;
+    font-weight: 400;
+    line-height: 0.8;
+  }
+  .severity-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+  }
+  .high .severity-tag { color: var(--high); }
+  .med  .severity-tag { color: var(--med); }
+  .low  .severity-tag { color: var(--low); }
+
+  .issue h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0 0 12px 0;
+    color: var(--text);
+    line-height: 1.25;
+  }
+  .issue .loc {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    word-break: break-all;
+  }
+  .issue .loc a {
+    color: var(--text-mid);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .issue .loc a:hover { border-color: var(--text-mid); }
+  .issue p {
+    color: var(--text-mid);
+    margin: 0 0 14px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .issue p strong { color: var(--text); font-weight: 500; }
+  .issue .fix {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--text);
+  }
+  .issue .fix b {
+    display: block;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  /* Frame timeline */
+  .figure {
+    margin: 40px 0 24px 0;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .figure-caption {
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--bg-deep);
+    font-size: 12px;
+    color: var(--text-mid);
+  }
+  .figure-caption b { color: var(--text); }
+  .figure svg { display: block; width: 100%; height: auto; }
+
+  /* Recommended order */
+  .priority {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 32px 36px;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 32px;
+  }
+  .priority h3 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    margin: 0;
+    color: var(--text);
+  }
+  .priority ol {
+    margin: 0; padding: 0;
+    list-style: none;
+    counter-reset: prio;
+  }
+  .priority li {
+    counter-increment: prio;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--line);
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+  }
+  .priority li:last-child { border-bottom: none; }
+  .priority li::before {
+    content: counter(prio, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+  .priority li b {
+    font-family: var(--serif);
+    font-weight: 600;
+    color: var(--text);
+    font-size: 16px;
+  }
+  .priority li span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* Code inline */
+  code, .mono {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  @media (max-width: 760px) {
+    main { padding: 0 20px; }
+    .issue, .issue.high { grid-column: span 12; }
+    .priority { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="hero">
+    <div class="eyebrow">/docs &nbsp;·&nbsp; web &nbsp;·&nbsp; <span>perf audit</span></div>
+    <h1>WebGPU の<br>恩恵を、<em>取りこぼさない</em>。</h1>
+    <div class="meta">
+      <span><b>scope</b> &nbsp; apps/web/src/{gpu,render,app}.rs</span>
+      <span><b>lines</b> &nbsp; 5,051</span>
+      <span><b>date</b> &nbsp; 2026-05-09</span>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="num">§01</span> CPU リードバック</h2>
+    <div class="status">
+      <div class="check">✓</div>
+      <div>
+        <div class="label">Verified — Production paths are GPU-resident</div>
+        <p>
+          CPU リードバックを伴う関数は <code>read_state_vector_impl</code> /
+          <code>read_bloch_vectors_impl</code> /
+          <code>read_measurement_outcomes_impl</code> の 3 つのみ。すべて
+          <code>#[wasm_bindgen]</code> 経由で JS テストハーネスに露出するだけで、
+          描画経路 (<code>CallbackTrait::prepare</code> /
+          <code>paint</code>) からは呼ばれていない。Storage buffer は render
+          shader が直接 sample する <code>STATE_RENDER_SHADER</code> パターンを遵守。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§02</span> 性能上の懸念点</h2>
+
+    <div class="legend">
+      <span class="pill"><span class="dot high"></span> High &nbsp;&nbsp; 体感差大</span>
+      <span class="pill"><span class="dot med"></span> Medium &nbsp;&nbsp; 改善余地あり</span>
+      <span class="pill"><span class="dot low"></span> Low &nbsp;&nbsp; 細部 / コード健全性</span>
+    </div>
+
+    <div class="issues">
+
+      <article class="issue high" style="opacity:0.78;">
+        <header>
+          <div class="id-letter" style="color:var(--good);text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.4);">A</div>
+          <div class="severity-tag" style="color:var(--good);border-color:var(--good);">✅ Resolved · 2026-05-09</div>
+        </header>
+        <h3 style="text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.5);">Gate ごとの <span class="mono">queue.submit</span> — encoder が分裂</h3>
+        <div class="loc">apps/web/src/gpu.rs:2126–2289 &nbsp;(<code>StateVectorCallback::prepare</code>, recompute branch)</div>
+        <p>
+          <strong>SimulationOp</strong> の各 <code>ApplyGate</code> /
+          <code>CaptureBloch</code> / <code>MeasureReduceSample</code> /
+          <code>MeasureCollapse</code> ごとに
+          <code>create_command_encoder</code> →
+          <code>begin_compute_pass</code> →
+          <code>dispatch_workgroups</code> →
+          <code>queue.submit(Some(encoder.finish()))</code>
+          を独立に発行。N gate なら N 回 submit となり、CPU↔GPU の IPC ラウンドトリップが N 倍になる。
+        </p>
+        <p>
+          書き戻しが必要な依存があるわけではなく、同一 encoder 内なら順序は保たれる。1 個の encoder にバッチして 1 回 submit すれば、IPC コストは N → 1 に縮む。深い回路ほど効く。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          ループ外で encoder を 1 つ生成し、各 gate の compute pass を順に追記。
+          <code>queue.write_buffer</code> も <code>StagingBelt</code> あるいは ring buffer に置き換えると、各 gate の params 更新が encoder 内 copy として畳み込める。最後にまとめて <code>queue.submit</code>。
+        </div>
+      </article>
+
+      <article class="issue med" style="opacity:0.78;">
+        <header>
+          <div class="id-letter" style="color:var(--good);text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.4);">B</div>
+          <div class="severity-tag" style="color:var(--good);border-color:var(--good);">✅ Resolved · 2026-05-09</div>
+        </header>
+        <h3 style="text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.5);">毎フレームの params write_buffer — dirty flag 不在</h3>
+        <div class="loc">gpu.rs:2092 (state) · 1929/1934 (bloch) · 2000/2005 (measurement)</div>
+        <p>
+          <code>render_params_buffer</code> / <code>bloch_overlay_params_buffer</code> /
+          <code>measurement_digit_params_buffer</code> を毎フレーム
+          <code>queue.write_buffer</code>。<strong>viewport / colors</strong> はフレーム間で変わらないことが大半。
+        </p>
+        <p>
+          <code>instance_buffer</code> 側は <code>instances_dirty</code> で守られているが、params 側には dirty flag が無い。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          直近書いた <code>RenderParams</code> を構造体内に保持し、変化があった場合のみ upload。
+        </div>
+      </article>
+
+      <article class="issue med" style="opacity:0.78;">
+        <header>
+          <div class="id-letter" style="color:var(--good);text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.4);">C</div>
+          <div class="severity-tag" style="color:var(--good);border-color:var(--good);">✅ Resolved · 2026-05-09</div>
+        </header>
+        <h3 style="text-decoration:line-through;text-decoration-color:rgba(121,210,124,0.5);">|0…0⟩ 初期化を CPU で確保 → upload</h3>
+        <div class="loc">gpu.rs:2111</div>
+        <p>
+          recompute のたびに
+          <code class="mono">vec![[0.0f32, 0.0f32]; state_count]</code>
+          を CPU で確保し、<code>state_buffers[0]</code> に
+          <code>queue.write_buffer</code>。Qubit 数 N のとき
+          <strong>2<sup>N</sup>·8 byte</strong> を毎回 PCIe / IPC 越しに転送。
+        </p>
+        <p>
+          GPU 上で完結させるべき値 (CLAUDE.md §1)。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          専用の compute shader で <code>state_buffers[0]</code> をゼロ初期化し、index 0 のみ <code>(1.0, 0.0)</code> を書く dispatch を 1 回行う。CPU 確保もアップロードも消える。
+        </div>
+      </article>
+
+      <article class="issue low">
+        <header>
+          <div class="id-letter">D</div>
+          <div class="severity-tag">Low</div>
+        </header>
+        <h3><span class="mono">Vec::new()</span> capacity 0 — 再確保</h3>
+        <div class="loc">gpu.rs:2123–2125</div>
+        <p>
+          <code>bloch_slot_to_gate_id</code> /
+          <code>measurement_slot_to_gate_id</code> を
+          <code>Vec::new()</code> で開始。push のたびに growth 再確保。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          <code class="mono">Vec::with_capacity(MAX_BLOCH_SLOTS)</code> /
+          <code class="mono">MAX_MEASUREMENT_SLOTS</code> で先取り。
+        </div>
+      </article>
+
+      <article class="issue low">
+        <header>
+          <div class="id-letter">E</div>
+          <div class="severity-tag">Low</div>
+        </header>
+        <h3>sim_ops.clone() — 値渡しのコピー</h3>
+        <div class="loc">apps/web/src/render.rs:588–592</div>
+        <p>
+          <code>recompute</code> のとき <code>self.sim_ops.clone()</code> で
+          <code>Vec&lt;SimulationOp&gt;</code> を丸ごと複製。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          <code class="mono">Arc&lt;[SimulationOp]&gt;</code> 化して clone を Arc bump に変える。
+        </div>
+      </article>
+
+      <article class="issue low">
+        <header>
+          <div class="id-letter">F</div>
+          <div class="severity-tag">Low</div>
+        </header>
+        <h3>Stale なコメント — measurement collapse は GPU 化済</h3>
+        <div class="loc">render.rs:584–586</div>
+        <p>
+          「<em>measurement collapse still runs on the CPU</em>」という記述は古い。
+          <code>gpu.rs:2248</code> の <code>SimulationOp::MeasureCollapse</code> はすでに
+          <code>measure_collapse_pipeline</code> で GPU 実行されている。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          コメントを削除 or 「GPU 経路で完結」に更新。
+        </div>
+      </article>
+
+      <article class="issue low">
+        <header>
+          <div class="id-letter">G</div>
+          <div class="severity-tag">Low</div>
+        </header>
+        <h3>Overlay instance を毎フレーム再構築</h3>
+        <div class="loc">render.rs:203–272 周辺</div>
+        <p>
+          <code>bloch_overlay_instances</code> /
+          <code>measurement_digit_instances</code> を毎フレーム
+          <code>Vec</code> で組み立て。<code>StateInstanceCache</code> は cache されているが overlay 側は未対応。
+        </p>
+        <div class="fix">
+          <b>Fix</b>
+          State instances と同じ cache 構造を持たせ、<code>instances_dirty</code> がない限り再利用。
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§03</span> Per-frame パイプライン</h2>
+    <div class="figure">
+      <svg viewBox="0 0 1100 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StateVectorCallback::prepare の 1 フレーム内シーケンス">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e6a7a"/>
+          </marker>
+          <marker id="arrow-high" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4a30"/>
+          </marker>
+        </defs>
+
+        <!-- baseline frame line -->
+        <line x1="40" y1="60" x2="1060" y2="60" stroke="#262633" stroke-width="1"/>
+        <text x="40" y="44" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">FRAME N · prepare()</text>
+
+        <!-- 1. update_render_pipeline -->
+        <rect x="60" y="80" width="160" height="56" fill="#14141d" stroke="#79d27c" stroke-width="1"/>
+        <text x="140" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">update_render_</text>
+        <text x="140" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">pipeline()</text>
+        <text x="140" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#79d27c">EARLY-RETURN ✓</text>
+
+        <!-- 2. write params -->
+        <rect x="240" y="80" width="200" height="56" fill="#14141d" stroke="#f5b942" stroke-width="1"/>
+        <text x="340" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">queue.write_buffer</text>
+        <text x="340" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">render_params</text>
+        <text x="340" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#f5b942">⚠ B  EVERY FRAME</text>
+
+        <!-- 3. write instances -->
+        <rect x="460" y="80" width="200" height="56" fill="#14141d" stroke="#79d27c" stroke-width="1"/>
+        <text x="560" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">queue.write_buffer</text>
+        <text x="560" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">instances (dirty)</text>
+        <text x="560" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#79d27c">DIRTY-GUARDED ✓</text>
+
+        <!-- 4. recompute branch -->
+        <rect x="680" y="80" width="380" height="240" fill="#1c1c27" stroke="#ff4a30" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <text x="700" y="100" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.5" fill="#ff4a30">if recompute { for op in sim_ops {</text>
+
+        <!-- per-gate sub-blocks -->
+        <g font-family="JetBrains Mono, monospace" font-size="10" fill="#ece8de">
+          <rect x="700" y="118" width="340" height="32" fill="#0b0b11" stroke="#262633"/>
+          <text x="715" y="138">queue.write_buffer(gate_params)</text>
+
+          <rect x="700" y="156" width="340" height="32" fill="#0b0b11" stroke="#262633"/>
+          <text x="715" y="176">create_command_encoder()</text>
+
+          <rect x="700" y="194" width="340" height="32" fill="#0b0b11" stroke="#262633"/>
+          <text x="715" y="214">begin_compute_pass · dispatch · end</text>
+
+          <rect x="700" y="232" width="340" height="32" fill="#0b0b11" stroke="#ff4a30" stroke-width="1.4"/>
+          <text x="715" y="252" fill="#ff4a30">queue.submit(encoder.finish())</text>
+        </g>
+
+        <text x="700" y="290" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1" fill="#ff4a30">⚠ A  N gates → N submits</text>
+        <text x="700" y="306" font-family="JetBrains Mono, monospace" font-size="9" fill="#a8a3b3">→ batch into 1 encoder, 1 submit</text>
+
+        <text x="1040" y="100" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.5" fill="#ff4a30">} }</text>
+
+        <!-- arrows -->
+        <line x1="220" y1="108" x2="240" y2="108" stroke="#6e6a7a" marker-end="url(#arrow)"/>
+        <line x1="440" y1="108" x2="460" y2="108" stroke="#6e6a7a" marker-end="url(#arrow)"/>
+        <line x1="660" y1="108" x2="680" y2="108" stroke="#ff4a30" marker-end="url(#arrow-high)"/>
+
+        <!-- legend bottom -->
+        <text x="40" y="350" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">
+          frame budget impact (estimated)
+        </text>
+        <rect x="40" y="358" width="200" height="6" fill="#262633"/>
+        <rect x="40" y="358" width="120" height="6" fill="#ff4a30"/>
+        <text x="248" y="364" font-family="JetBrains Mono, monospace" font-size="10" fill="#ff4a30">~60% of recompute time</text>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 1</b> &nbsp; <code>StateVectorCallback::prepare</code> の 1 フレーム内シーケンス。
+        recompute 分岐内で gate ごとに submit する点 (A) が最大の改善余地。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§04</span> データ常駐マップ</h2>
+    <div class="figure">
+      <svg viewBox="0 0 1100 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GPU 常駐 vs テスト用 readback 経路">
+        <defs>
+          <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#79d27c"/>
+          </marker>
+          <marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6e6a7a"/>
+          </marker>
+        </defs>
+
+        <!-- top label -->
+        <text x="40" y="40" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">PRODUCTION  ·  GPU-RESIDENT</text>
+        <line x1="40" y1="50" x2="1060" y2="50" stroke="#262633"/>
+
+        <!-- production chain -->
+        <g>
+          <rect x="60"  y="80" width="180" height="80" fill="#14141d" stroke="#79d27c"/>
+          <text x="150" y="108" text-anchor="middle" font-family="Fraunces, serif" font-size="14" fill="#ece8de">compute shader</text>
+          <text x="150" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">apply_gate</text>
+          <text x="150" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">bloch_reduce</text>
+
+          <rect x="300" y="80" width="200" height="80" fill="#14141d" stroke="#79d27c"/>
+          <text x="400" y="108" text-anchor="middle" font-family="Fraunces, serif" font-size="14" fill="#ece8de">storage buffers</text>
+          <text x="400" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">state_buffers[2]</text>
+          <text x="400" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">bloch_output_buffer</text>
+
+          <rect x="560" y="80" width="200" height="80" fill="#14141d" stroke="#79d27c"/>
+          <text x="660" y="108" text-anchor="middle" font-family="Fraunces, serif" font-size="14" fill="#ece8de">render shader</text>
+          <text x="660" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">samples directly</text>
+          <text x="660" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">(no readback)</text>
+
+          <rect x="820" y="80" width="200" height="80" fill="#14141d" stroke="#79d27c"/>
+          <text x="920" y="108" text-anchor="middle" font-family="Fraunces, serif" font-size="14" fill="#ece8de">canvas</text>
+          <text x="920" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">surface</text>
+
+          <line x1="240" y1="120" x2="300" y2="120" stroke="#79d27c" stroke-width="1.5" marker-end="url(#arrow2)"/>
+          <line x1="500" y1="120" x2="560" y2="120" stroke="#79d27c" stroke-width="1.5" marker-end="url(#arrow2)"/>
+          <line x1="760" y1="120" x2="820" y2="120" stroke="#79d27c" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+          <text x="540" y="180" text-anchor="middle" font-family="Fraunces, serif" font-style="italic" font-size="13" fill="#79d27c">STATE_RENDER_SHADER pattern  ✓</text>
+        </g>
+
+        <!-- divider -->
+        <text x="40" y="230" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">TEST ONLY  ·  #[wasm_bindgen]  ·  on-demand</text>
+        <line x1="40" y1="240" x2="1060" y2="240" stroke="#262633" stroke-dasharray="4 3"/>
+
+        <!-- test chain -->
+        <g opacity="0.85">
+          <rect x="300" y="270" width="200" height="60" fill="#14141d" stroke="#6e6a7a" stroke-dasharray="3 3"/>
+          <text x="400" y="294" text-anchor="middle" font-family="Fraunces, serif" font-size="13" fill="#a8a3b3">storage buffer</text>
+          <text x="400" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">state / bloch / measure</text>
+
+          <rect x="560" y="270" width="200" height="60" fill="#14141d" stroke="#6e6a7a" stroke-dasharray="3 3"/>
+          <text x="660" y="294" text-anchor="middle" font-family="Fraunces, serif" font-size="13" fill="#a8a3b3">staging (MAP_READ)</text>
+          <text x="660" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">map_async + get_mapped_range</text>
+
+          <rect x="820" y="270" width="200" height="60" fill="#14141d" stroke="#6e6a7a" stroke-dasharray="3 3"/>
+          <text x="920" y="294" text-anchor="middle" font-family="Fraunces, serif" font-size="13" fill="#a8a3b3">JS Float32Array</text>
+          <text x="920" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">test harness only</text>
+
+          <line x1="500" y1="300" x2="560" y2="300" stroke="#6e6a7a" stroke-dasharray="3 3" marker-end="url(#arrow-dim)"/>
+          <line x1="760" y1="300" x2="820" y2="300" stroke="#6e6a7a" stroke-dasharray="3 3" marker-end="url(#arrow-dim)"/>
+        </g>
+      </svg>
+      <div class="figure-caption">
+        <b>Fig. 2</b> &nbsp; 上段が production 経路、下段が test-only readback 経路。
+        production では GPU 内に閉じており、CPU を介さず render shader が storage buffer を直接 sample する。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">§05</span> 推奨対応順</h2>
+    <div class="priority">
+      <h3>体感差の大きい順に。<br>A → C は同一スプリントで。</h3>
+      <ol>
+        <li><b>A — Submit を 1 回にバッチ</b><span>gpu.rs:2126–2289</span></li>
+        <li><b>C — |0…0⟩ 初期化を compute shader 化</b><span>gpu.rs:2111</span></li>
+        <li><b>B — params に dirty flag 導入</b><span>gpu.rs:2092 / 1929 / 2000</span></li>
+        <li><b>G — overlay instance cache</b><span>render.rs:203–272</span></li>
+        <li><b>E — sim_ops を Arc 化</b><span>render.rs:588–592</span></li>
+        <li><b>D — Vec::with_capacity</b><span>gpu.rs:2123–2125</span></li>
+        <li><b>F — stale コメント削除</b><span>render.rs:584–586</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <span>qni-webgpu / docs / web-perf-audit.html</span>
+    <span>Audited 2026-05-09 · Yasuhito Takamiya</span>
+  </footer>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,33 @@
+[package]
+name = "qni-web"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[workspace]
+members = ["crates/circuit-library-model", "crates/external-gpu-model"]
+resolver = "2"
+
+[dependencies]
+eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+# Used to rasterize the measurement gate digits ("0" / "1") into a GPU
+# texture so the WGSL fragment shader can sample the same Geist Bold glyphs
+# egui paints for |0> / |1>. Done once at startup (no per-frame readback).
+ab_glyph = "0.2"
+epaint_default_fonts = "0.33.3"
+qni-web-circuit-library-model = { path = "crates/circuit-library-model" }
+qni-web-external-gpu-model = { path = "crates/external-gpu-model" }
+bytemuck = { version = "1.14", features = ["derive"] }
+futures-channel = "0.3"
+js-sys = "0.3"
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+wgpu = { version = "27.0.1", default-features = false, features = ["webgpu"] }
+web-sys = { version = "0.3", features = ["console", "Document", "HtmlCanvasElement", "History", "Location", "Storage", "Window"] }
+
+[build-dependencies]
+png = "0.18"

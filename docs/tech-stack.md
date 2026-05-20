@@ -17,7 +17,7 @@
 
 ## アプリごとの技術スタック
 
-### 1. `apps/egui-web` — Web フロントエンド
+### 1. `apps/web` — Web フロントエンド
 
 ブラウザで動く WebGPU PoC です。
 
@@ -107,7 +107,7 @@ GitHub Actions では以下を使って検証します。
 
 ## 実際のビルド/実行単位
 
-- Web UI を動かす: `apps/egui-web`
+- Web UI を動かす: `apps/web`
 - TUI を動かす: `apps/tui`
 - MCP サーバを動かす: `apps/mcp-qni`
 - 全体チェック: `./scripts/check-all.sh`

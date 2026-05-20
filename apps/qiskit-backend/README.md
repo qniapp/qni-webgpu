@@ -1,6 +1,6 @@
 # qni Qiskit backend
 
-Local development backend for the egui-web external GPU execution path.
+Local development backend for the web external GPU execution path.
 
 ## Runners
 
@@ -8,7 +8,7 @@ Local development backend for the egui-web external GPU execution path.
 - `qiskit-cpu-dev`: explicit local Qiskit CPU runner for checking the Qiskit circuit path on machines without CUDA. This is not a WebGPU fallback and must not be used as the production execution path.
 - `qiskit-gpu`: Qiskit Aer statevector runner with `device="GPU"` and `cuStateVec_enable=True`. No CPU fallback.
 
-All runners return bounded histogram output only. The API accepts 1–32 qubits and rejects full statevector / full probability requests. The egui-web state-vector panel, when refreshed for <=16-qubit GPU-mode runs, is recomputed locally in WebGPU after a successful run rather than transferred from this backend.
+All runners return bounded histogram output only. The API accepts 1–32 qubits and rejects full statevector / full probability requests. The web state-vector panel, when refreshed for <=16-qubit GPU-mode runs, is recomputed locally in WebGPU after a successful run rather than transferred from this backend.
 
 ## Run
 

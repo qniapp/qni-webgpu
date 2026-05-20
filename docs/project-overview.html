@@ -633,7 +633,7 @@
       <div class="what"><code>wgpu 27</code> (WebGPU backend)</div>
       <div class="note">
         <p><b>WebGPU</b> — WebGL の後継となる、ブラウザから GPU を直接叩くための新しい標準。WebGL に無かった <em>compute shader</em> (汎用 GPU 計算) が使えるのが最大の差。Chrome / Edge では既定で有効、他ブラウザは flag 有効化が必要な段階。</p>
-        <p><b>wgpu</b> — Rust 製の WebGPU 仕様実装。ブラウザでは WebGPU、ネイティブでは Vulkan / Metal / D3D12 / OpenGL のいずれかに自動 fallback する <em>クロスプラットフォーム GPU 抽象</em> を提供する。同じ shader / pipeline 定義が `apps/egui-web` (wasm) でも将来の native ビルドでも動く。本プロジェクトでは依存量を削るため <code>features = ["webgpu"]</code> だけを有効化し、他 backend は切り落としている。</p>
+        <p><b>wgpu</b> — Rust 製の WebGPU 仕様実装。ブラウザでは WebGPU、ネイティブでは Vulkan / Metal / D3D12 / OpenGL のいずれかに自動 fallback する <em>クロスプラットフォーム GPU 抽象</em> を提供する。同じ shader / pipeline 定義が `apps/web` (wasm) でも将来の native ビルドでも動く。本プロジェクトでは依存量を削るため <code>features = ["webgpu"]</code> だけを有効化し、他 backend は切り落としている。</p>
       </div>
     </div>
 
@@ -670,7 +670,7 @@
       <div class="what">Playwright + Chromium<br>Node test runner</div>
       <div class="note">
         <p><b>Playwright</b> — Microsoft 製のブラウザ自動操作フレームワーク (Cypress や Selenium と同じ系統)。Node.js から Chromium / Firefox / WebKit を起動して、クリック / ドラッグ / スクリーンショット撮影 / コンソール検査 ができる。本プロジェクトでは <em>実 WebGPU を有効化した Chromium</em> を使うので、shader / wasm の挙動を実機相当で検証できる。</p>
-        <p>spec は <code>apps/egui-web/tests/egui-web-*.spec.ts</code> に機能別 (drag / error / gpu / interaction / palette / state-semantics) に分かれている。GPU 上の状態ベクトルを取り出すために、wasm から `window.__eguiReadStateVector()` という on-demand readback API だけ公開している。これが production-readback ルールの唯一の例外。</p>
+        <p>spec は <code>apps/web/tests/web-*.spec.ts</code> に機能別 (drag / error / gpu / interaction / palette / state-semantics) に分かれている。GPU 上の状態ベクトルを取り出すために、wasm から `window.__eguiReadStateVector()` という on-demand readback API だけ公開している。これが production-readback ルールの唯一の例外。</p>
       </div>
     </div>
 
@@ -832,7 +832,7 @@
 
   <!-- ───────────── PERFORMANCE PRINCIPLES ───────────── -->
   <h2><span class="num">§ 05</span> Performance principles</h2>
-  <p class="lede">「とりあえず動く」と「ドラッグしてもガタつかない」は別物。<code>docs/egui-web-perf-audit.html</code> の Issue A〜G が原則の出どころで、A〜C は既に潰してある。</p>
+  <p class="lede">「とりあえず動く」と「ドラッグしてもガタつかない」は別物。<code>docs/web-perf-audit.html</code> の Issue A〜G が原則の出どころで、A〜C は既に潰してある。</p>
   <div class="perf">
     <div class="item">
       <span class="badge">resolved</span>
@@ -980,7 +980,7 @@
     </div>
   </div>
   <p class="lede" style="margin-top:24px;">
-    実測のプロファイル詳細は <code>docs/egui-web-drag-profiling.md</code>。perf-audit の Issue D〜G (Vec::new 容量 / sim_ops.clone / stale comment / overlay 毎フレーム再構築) はまだ open。
+    実測のプロファイル詳細は <code>docs/web-drag-profiling.md</code>。perf-audit の Issue D〜G (Vec::new 容量 / sim_ops.clone / stale comment / overlay 毎フレーム再構築) はまだ open。
   </p>
 
   <!-- ───────────── READING ORDER ───────────── -->
@@ -1019,14 +1019,14 @@
     </div>
     <div class="step">07</div>
     <div class="what">
-      <b>テスト経路</b> · <code>apps/egui-web/tests/egui-web-*.spec.ts</code> + <code>src/gpu/readback.rs</code>
+      <b>テスト経路</b> · <code>apps/web/tests/web-*.spec.ts</code> + <code>src/gpu/readback.rs</code>
       <span class="why">機能ごとに分割された Playwright spec と、JS から呼べる on-demand readback。CI で実 WebGPU が回るのを担保する。</span>
     </div>
   </div>
 
   <!-- ───────────── FOOTER ───────────── -->
   <div class="end">
-    docs/project-overview.html · 関連: architecture.md / tech-stack.md / egui-web-perf-audit.html / egui-web-drag-profiling.md · 最終更新 2026-05-12
+    docs/project-overview.html · 関連: architecture.md / tech-stack.md / web-perf-audit.html / web-drag-profiling.md · 最終更新 2026-05-12
   </div>
 
 </main>

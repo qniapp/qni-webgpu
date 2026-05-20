@@ -2,7 +2,7 @@
 
 このドキュメントは、**このプロジェクトが何であり、誰のための何か**を、現時点の実装と既存ドキュメントからプロダクト視点で整理したものです。
 
-技術の詳細は `docs/tech-stack.md`、構成の詳細は `docs/architecture.md`、個別仕様は `docs/decisions.md` / `docs/egui-web.md` / `docs/tui.md` / `docs/mcp-qni.md` を参照してください。
+技術の詳細は `docs/tech-stack.md`、構成の詳細は `docs/architecture.md`、個別仕様は `docs/decisions.md` / `docs/web.md` / `docs/tui.md` / `docs/mcp-qni.md` を参照してください。
 
 ## ひとことで言うと
 
@@ -85,7 +85,7 @@ Web と TUI と MCP という複数の入口がありますが、いずれも「
 
 ## 現在の 3 つの入口
 
-### Web PoC (`apps/egui-web`)
+### Web PoC (`apps/web`)
 
 学習者にとって最も中心に近い体験です。
 

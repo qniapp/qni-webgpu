@@ -12,8 +12,8 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 ## 実描画確認
 
 - 実際の描画を確認できる環境をセットアップする。
-- 何か実装したときは、作業完了前に必ず `apps/egui-web` の開発サーバを (再) 起動し、ユーザーが通常のブラウザで `http://127.0.0.1:4174/` を開いて確認できる状態にする。
-- エージェントで egui WebGPU の見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/egui-web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
+- 何か実装したときは、作業完了前に必ず `apps/web` の開発サーバを (再) 起動し、ユーザーが通常のブラウザで `http://127.0.0.1:4174/` を開いて確認できる状態にする。
+- エージェントで Web アプリの見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
 - 正しい描画が確認できるまでデバッグを継続する。
 
 ## 開発フロー

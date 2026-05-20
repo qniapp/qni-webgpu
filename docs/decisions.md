@@ -5,7 +5,7 @@
 - 回路フォーマットはWeb/TUIで相互にやり取りできる形にする（TUI→Web／Web→TUI）。
 - 回路の共有フォーマット: YAML（人間が読みやすく、機械は必要に応じてJSONへ変換）。
 - 回路YAMLにはバージョン番号を含め、将来の互換性を確保する。
-- リポジトリ構成: monorepo（apps/egui-web, apps/tui, apps/mcp-qni）。
+- リポジトリ構成: monorepo（apps/web, apps/tui, apps/mcp-qni）。
 - Webのパッケージマネージャ: pnpm（monorepo運用に適していて現在も活発）。
 - Web UI: egui（eframe）。
 - PoC UI: 起動時は回路を空のままにし、状態ベクトルは `|00>` とする。

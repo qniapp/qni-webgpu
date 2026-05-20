@@ -459,7 +459,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · 上部 toolbar · GPU モード</div>
+    <div class="scene-label">web · 上部 toolbar · GPU モード</div>
     <div class="app-body gallery">
 
       <div class="row">
@@ -694,7 +694,7 @@
   </p>
 
   <div class="proto">
-    <div class="scene">egui-web · 上部 toolbar (interactive)</div>
+    <div class="scene">web · 上部 toolbar (interactive)</div>
     <div class="toolbar" id="proto-toolbar">
       <button class="tool" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
       <button class="tool" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
@@ -725,7 +725,7 @@
     <h3>差分は toolbar だけ。結果 panel・banner は別 PR。</h3>
     <ol>
       <li>
-        <strong>状態 enum</strong> ─ <code>apps/egui-web/src/app/external_gpu.rs</code> に 1 本化:<br />
+        <strong>状態 enum</strong> ─ <code>apps/web/src/app/external_gpu.rs</code> に 1 本化:<br />
         <code>enum ExternalGpuStatus { Idle, Running, Completed { duration: Duration }, Failed(GpuFailure) }</code><br />
         <code>enum GpuFailure { BackendOffline, UnsupportedGate(String), Http(u16), Other(&amp;'static str) }</code><br />
         既存の <code>completed: bool</code> / <code>error: Option&lt;String&gt;</code> は廃止 (後方互換レイヤーは残さない)。
@@ -798,7 +798,7 @@
         <code>stroke: Stroke::new(2.0, color)</code> / <code>linejoin: round</code> 相当 (<code>PathShape::stroke</code> + <code>closed: true</code>)。
       </li>
       <li>
-        <strong>Status pill</strong> ─ 新規 <code>apps/egui-web/src/render/gpu_status_pill.rs</code>。
+        <strong>Status pill</strong> ─ 新規 <code>apps/web/src/render/gpu_status_pill.rs</code>。
         signature: <code>pub fn gpu_status_pill(ui: &amp;mut Ui, status: &amp;ExternalGpuStatus) -&gt; Option&lt;Response&gt;</code>。
         <code>Idle</code> は <code>None</code> を返して呼び出し側で <code>ui.add</code> をスキップ。<br />
         構造: <code>● dot (6 px circle) + label (text-sm) + (option) " · " + code (text-sm mono)</code> を
@@ -820,7 +820,7 @@
       </li>
       <li>
         <strong>Snapshot / interaction tests</strong> ─
-        <code>apps/egui-web/tests/egui-web-toolbar-gpu-pill.spec.ts</code> を新規。
+        <code>apps/web/tests/web-toolbar-gpu-pill.spec.ts</code> を新規。
         test-only hook を <code>QniApp::wire_test_hooks()</code> から生やす:
         <code>window.__setExternalGpuStatus = (json) =&gt; { app.borrow_mut().exec.status = ... }</code>。
         Playwright で 4 状態 + 3 failure variant を直接挿し、palette 領域含めた canvas pixel を比較。

@@ -74,16 +74,16 @@ print(f"{statistics.median(results):.3f}")
 PY
 }
 
-WEB_PREFLIGHT_S=$(measure_median_seconds web-preflight 3 pnpm -C "$ROOT_DIR/apps/egui-web" run test:preflight)
-WEB_TRUNK_BUILD_S=$(measure_median_seconds web-trunk-build 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
-WEB_TRUNK_BUILD_COLD_S=$(measure_median_seconds web-trunk-build-cold 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
-WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_median_seconds web-trunk-build-cold-system-wasm-bindgen 3 bash -lc "cd '$ROOT_DIR/apps/egui-web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
+WEB_PREFLIGHT_S=$(measure_median_seconds web-preflight 3 pnpm -C "$ROOT_DIR/apps/web" run test:preflight)
+WEB_TRUNK_BUILD_S=$(measure_median_seconds web-trunk-build 3 bash -lc "cd '$ROOT_DIR/apps/web' && env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_TRUNK_BUILD_COLD_S=$(measure_median_seconds web-trunk-build-cold 3 bash -lc "cd '$ROOT_DIR/apps/web' && tmp_cache=\$(mktemp -d) && trap 'rm -rf \"\$tmp_cache\"' EXIT && XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build")
+WEB_TRUNK_BUILD_COLD_SYSTEM_WASM_BINDGEN_S=$(measure_median_seconds web-trunk-build-cold-system-wasm-bindgen 3 bash -lc "cd '$ROOT_DIR/apps/web' && tmp_cache=\$(mktemp -d) && candidate_dir=\$(python - <<'PY'
 from pathlib import Path
 matches = sorted(Path.home().glob('.cache/trunk/wasm-bindgen-*/wasm-bindgen'))
 print(matches[-1].parent if matches else '')
 PY
 ) && trap 'rm -rf \"\$tmp_cache\"' EXIT && if [ -n \"\$candidate_dir\" ]; then PATH=\"\$candidate_dir:\$PATH\" XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; else XDG_CACHE_HOME=\$tmp_cache env -u NO_COLOR TRUNK_COLOR=never trunk build; fi")
-WEB_BDD_S=$(measure_median_seconds web-bdd 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+WEB_BDD_S=$(measure_median_seconds web-bdd 3 bash -lc "cd '$ROOT_DIR/apps/web'
 port=\$(python - <<'PY'
 import socket
 sock = socket.socket()
@@ -92,15 +92,15 @@ print(sock.getsockname()[1])
 sock.close()
 PY
 )
-python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-bdd-benchmark.log 2>&1 &
+python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/web-bdd-benchmark.log 2>&1 &
 server_pid=\$!
 trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
-QNI_EGUI_WEB_PORT=\$port python3 - <<'PY'
+QNI_WEB_PORT=\$port python3 - <<'PY'
 import os
 import time
 import urllib.request
 
-url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+url = f"http://127.0.0.1:{os.environ['QNI_WEB_PORT']}/"
 deadline = time.time() + 20
 while time.time() < deadline:
     try:
@@ -110,10 +110,10 @@ while time.time() < deadline:
     except Exception:
         time.sleep(0.25)
 else:
-    raise SystemExit('Timed out waiting for static egui-web server')
+    raise SystemExit('Timed out waiting for static web server')
 PY
-CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd")
-WEB_LEGACY_S=$(measure_median_seconds web-legacy 3 bash -lc "cd '$ROOT_DIR/apps/egui-web'
+CI=1 QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:bdd")
+WEB_LEGACY_S=$(measure_median_seconds web-legacy 3 bash -lc "cd '$ROOT_DIR/apps/web'
 port=\$(python - <<'PY'
 import socket
 sock = socket.socket()
@@ -122,15 +122,15 @@ print(sock.getsockname()[1])
 sock.close()
 PY
 )
-python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/egui-web-legacy-benchmark.log 2>&1 &
+python3 -m http.server \"\$port\" --bind 127.0.0.1 --directory dist >/tmp/web-legacy-benchmark.log 2>&1 &
 server_pid=\$!
 trap 'kill \"\$server_pid\" 2>/dev/null || true' EXIT
-QNI_EGUI_WEB_PORT=\$port python3 - <<'PY'
+QNI_WEB_PORT=\$port python3 - <<'PY'
 import os
 import time
 import urllib.request
 
-url = f"http://127.0.0.1:{os.environ['QNI_EGUI_WEB_PORT']}/"
+url = f"http://127.0.0.1:{os.environ['QNI_WEB_PORT']}/"
 deadline = time.time() + 20
 while time.time() < deadline:
     try:
@@ -140,9 +140,9 @@ while time.time() < deadline:
     except Exception:
         time.sleep(0.25)
 else:
-    raise SystemExit('Timed out waiting for static egui-web server')
+    raise SystemExit('Timed out waiting for static web server')
 PY
-CI=1 QNI_EGUI_WEB_EXTERNAL_SERVER=1 QNI_EGUI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
+CI=1 QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:\$port pnpm run test:pw-legacy")
 MCP_CHECK_S=$(measure_median_seconds mcp-check 3 pnpm -C "$ROOT_DIR/apps/mcp-qni" check)
 TUI_CHECK_S=$(measure_median_seconds tui-check 3 make -C "$ROOT_DIR" check)
 
@@ -168,7 +168,7 @@ workflow_match_pathspecs = [
 run_runtime_match_pathspecs = [
   'Makefile',
   'scripts/check-all.sh',
-  'apps/egui-web',
+  'apps/web',
   'apps/mcp-qni',
   'apps/tui',
 ]
@@ -200,9 +200,9 @@ web_bundle = web_preflight_s.to_f + web_bdd_s.to_f + web_legacy_s.to_f
 full_bundle = web_bundle + mcp_check_s.to_f + tui_check_s.to_f
 
 command_cost_s = {
-  'pnpm -C apps/egui-web run test:preflight' => web_preflight_s.to_f,
-  'pnpm -C apps/egui-web run test:bdd' => web_bdd_s.to_f,
-  'pnpm -C apps/egui-web run test:pw-legacy' => web_legacy_s.to_f,
+  'pnpm -C apps/web run test:preflight' => web_preflight_s.to_f,
+  'pnpm -C apps/web run test:bdd' => web_bdd_s.to_f,
+  'pnpm -C apps/web run test:pw-legacy' => web_legacy_s.to_f,
   'pnpm -C apps/mcp-qni check' => mcp_check_s.to_f,
   'make -C . check' => tui_check_s.to_f,
 }
@@ -485,9 +485,9 @@ normalize_run = lambda do |job_name, step_name, run_text, working_directory|
   end
 
   return web_preflight_s.to_f if text.include?('test:preflight')
-  return web_trunk_model_s if wd.include?('apps/egui-web') && text == 'env -u NO_COLOR TRUNK_COLOR=never trunk build'
+  return web_trunk_model_s if wd.include?('apps/web') && text == 'env -u NO_COLOR TRUNK_COLOR=never trunk build'
   return web_bdd_s.to_f if text.include?('test:bdd')
-  return web_legacy_s.to_f if text.include?('test:pw-legacy') || (wd.include?('apps/egui-web') && text == 'playwright test')
+  return web_legacy_s.to_f if text.include?('test:pw-legacy') || (wd.include?('apps/web') && text == 'playwright test')
   return mcp_check_s.to_f if text.include?('apps/mcp-qni') && text.include?('check')
   return mcp_check_s.to_f if wd.include?('apps/mcp-qni') && text == 'pnpm check'
   return tui_check_s.to_f if text.include?('make -C') && text.include?('check')

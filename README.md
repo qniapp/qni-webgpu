@@ -54,12 +54,12 @@ cargo deny check --config ../../deny.toml
 make check
 ```
 
-## Rust (egui) WebGPU PoC（ローカル）
+## Web アプリ（Rust / WebGPU、ローカル）
 
 まずサーバを起動する:
 
 ```
-cd apps/egui-web
+cd apps/web
 trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 
@@ -67,42 +67,42 @@ trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 リポジトリルートから helper script を使ってもよい:
 
 ```
-./scripts/open-egui-web.sh
+./scripts/open-web.sh
 ```
 
 この helper は `google-chrome-stable` を優先し、見つからない場合のみ Chromium 系へ fallback する。WebGPU 用の特別な起動フラグは付けない。
 
-詳細は `docs/egui-web.md` を参照。
+詳細は `docs/web.md` を参照。
 
 ## Playwright での確認（任意）
 WebGPU の描画を読み戻して検証する。
 
 ### Playwright を準備
 ```
-cd apps/egui-web
+cd apps/web
 pnpm install
 pnpm exec playwright install chromium
 ```
 
 ### xvfb でテスト実行（Linux）
 ```
-cd apps/egui-web
+cd apps/web
 xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
 ```
 
 ## GitHub Actions での CI
 
 GitHub Actions では `./scripts/check-all.sh` 経由で staged rollout の Web gate を通す。
-`apps/egui-web` では `pnpm run test:preflight` → `pnpm run test:bdd` → `pnpm run test:pw-legacy` の順で実行し、
-legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.ts` の Playwright 設定を呼ぶ。
+`apps/web` では `pnpm run test:preflight` → `pnpm run test:bdd` → `pnpm run test:pw-legacy` の順で実行し、
+legacy 側の `test:pw-legacy` が `apps/web/playwright.config.ts` の Playwright 設定を呼ぶ。
 ローカルでは `playwright.config.ts` も `google-chrome-stable` を優先し、
 未インストール時のみ Playwright 同梱 Chromium へ fallback する。CI/headless の安定化用に Playwright 側では WebGPU 起動設定を持つ。Linux 環境では `xvfb-run` を併用できる。
 
 ワークフロー例: `.github/workflows/ci.yml`
 
 出力される画像:
-- `/tmp/qni-egui-webgpu-initial.png`
-- `/tmp/qni-egui-webgpu-after.png`
+- `/tmp/qni-webgpu-initial.png`
+- `/tmp/qni-webgpu-after.png`
 
 ## まとめてチェック（トップディレクトリ）
 ```
@@ -110,9 +110,9 @@ legacy 側の `test:pw-legacy` が `apps/egui-web/playwright.config.ts` の Play
 ```
 
 内部で以下を実行する:
-- `apps/egui-web` で `pnpm run test:preflight`（Chrome 優先解決の browser preflight）
-- `apps/egui-web` で `pnpm run test:bdd`（Cucumber BDD）
-- `apps/egui-web` で `pnpm run test:pw-legacy`（legacy Playwright）
+- `apps/web` で `pnpm run test:preflight`（Chrome 優先解決の browser preflight）
+- `apps/web` で `pnpm run test:bdd`（Cucumber BDD）
+- `apps/web` で `pnpm run test:pw-legacy`（legacy Playwright）
 - `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI fmt / clippy / test / snapshot / audit / deny）
 
