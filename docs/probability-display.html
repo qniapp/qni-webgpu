@@ -145,7 +145,7 @@
       pointer-events: none;
     }
     /* 対数ヒント線 (§ 08): row_h ≤ 8 px のとき連続ポリラインで描画。
-       Quirk の '#CCC' に対応する Flexoki ui-2 を流用。バーよりも下のレイヤに置く
+       視認性確保のため Flexoki tx-3 (#B7B5AC) を使う。バーよりも下のレイヤに置く
        (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — per-row
        独立の縦線では Quirk の階段状シルエットが得られないので不可。 */
     .cd .log-hint-svg {
@@ -512,7 +512,7 @@
         <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。<strong>本仕様が正</strong>。現実装 <code>colors.state_fill</code> は blue-300 だが、本仕様に合わせて blue-200 に更新する (詳細は § 13 実装ファイル参照)</td></tr>
         <tr><td>バー右端マーカー</td><td><code>blue-400</code></td><td>#4385BE</td><td>1 px の確率境界線 (Quirk の gray stroke 相当、blue-200 から 2 tone 濃い)</td></tr>
         <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
-        <tr><td>対数ヒント線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>row_h ≤ 8 px のとき、各 outcome の log 位置に薄灰の補助線 (Quirk の <code>'#CCC'</code> 相当)</td></tr>
+        <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各 outcome の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
         <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
         <tr><td>リサイズハンドル (active)</td><td><code>purple-600</code></td><td>#5E409D</td><td>handle hover / active drag 時の濃色 (§ 11)</td></tr>
@@ -629,7 +629,7 @@ for i in 0..n:
 lineTo(0, h)             // 左下に戻す
 stroke()</pre>
       </li>
-      <li>線スタイル: <code>strokeStyle = ui-2</code> (#DAD8CE、Quirk の <code>'#CCC'</code> 相当の薄灰)、<code>lineWidth = 1</code></li>
+      <li>線スタイル: <code>strokeStyle = tx-3</code> (#B7B5AC、視認性を確保するため Quirk の <code>'#CCC'</code> より濃い)、<code>lineWidth = 1</code></li>
       <li><strong>Quirk 基準では per-row 独立の縦線は不可</strong>。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなり、Quirk の見た目から逸脱する。現行シェーダは <code>span ≥ 13</code> でも、事前集約した隣接 y ピクセル同士を水平接続して Quirk 基準を保つ</li>
     </ul>
 
@@ -656,7 +656,7 @@ stroke()</pre>
         (a) <strong>縦線</strong>: <code>|x - log_x_cur| &lt; 0.5 px</code> もしくは
         (b) <strong>水平接続</strong>: 行境界 (<code>y_in_row &lt; 1 px</code>) かつ <code>x</code> が
         <code>[min(log_x_prev, log_x_cur), max(log_x_prev, log_x_cur)]</code> の範囲内
-        の場合に <code>ui-2</code> を出力する。
+        の場合に <code>tx-3</code> を出力する。
       </li>
       <li>
         <strong>span ≥ 13 (<code>row_count &gt; 4096</code>) の集約描画</strong>:
@@ -1221,7 +1221,7 @@ stroke()</pre>
         path += ` L ${px} ${py} L ${px} ${pyEnd}`;
       }
       path += ` L 0 ${totalH}`;
-      html += `<svg class="log-hint-svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none"><path d="${path}" stroke="#DAD8CE" stroke-width="1" fill="none" shape-rendering="crispEdges"/></svg>`;
+      html += `<svg class="log-hint-svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none"><path d="${path}" stroke="#B7B5AC" stroke-width="1" fill="none" shape-rendering="crispEdges"/></svg>`;
     }
 
     probs.forEach((p, i) => {
@@ -1302,7 +1302,7 @@ stroke()</pre>
     if (showLogHints) {
       const span = Math.log2(n);
       const s = 1 / (4 + Math.max(8, span));
-      ctx.strokeStyle = '#DAD8CE'; // ui-2
+      ctx.strokeStyle = '#B7B5AC'; // tx-3
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, 0);

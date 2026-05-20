@@ -19,6 +19,7 @@ const LINE_GAP = UI_CONSTANTS.LINE_GAP
 const EGUI_PANEL_MARGIN = 8
 const PROBABILITY_PALETTE_INDEX = 20
 const DENSE_PROBABILITY_HOVER_LINE_MIN_PIXELS = 40
+const FLEXOKI_TX_3: [number, number, number, number] = [183, 181, 172, 255]
 const readCircuitColsFromHash = (url: string): unknown[] => JSON.parse(decodeURIComponent(new URL(url).hash.slice(1))).cols
 
 const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number): Promise<void> }, expected: unknown[]): Promise<void> => {
@@ -611,7 +612,7 @@ test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) =>
   const hintX = gateLeft + GATE_SIZE * (1 + Math.log(0.5) / 12)
   const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'halfProbabilityHint', x: hintX, y: gateTop + rowH * 16.5 }])
 
-  expect(pixelRgbDistance(pixels.halfProbabilityHint, [218, 216, 206, 255])).toBeLessThan(64)
+  expect(pixelRgbDistance(pixels.halfProbabilityHint, FLEXOKI_TX_3)).toBeLessThan(64)
 })
 
 test('Probability hover highlights an outcome row and opens the popup', async ({ page }) => {

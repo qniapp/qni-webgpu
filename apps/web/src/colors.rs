@@ -28,6 +28,7 @@ pub(crate) struct Colors {
     pub(crate) state_outline: egui::Color32,
     pub(crate) state_outline_zero: egui::Color32,
     pub(crate) state_needle: egui::Color32,
+    pub(crate) probability_log_hint: egui::Color32,
     pub(crate) semantic_off: egui::Color32,
     pub(crate) semantic_on: egui::Color32,
     pub(crate) semantic_intermediate: egui::Color32,
@@ -170,6 +171,7 @@ fn flexoki_light() -> Colors {
         state_outline: tx_2,               // non-zero amplitude outline
         state_outline_zero: ui_2,          // zero-amplitude outline
         state_needle: tx,                  // phase needle
+        probability_log_hint: tx_3,        // Probability logarithm hints (Flexoki tx-3 #B7B5AC)
         semantic_off: red_600,             // |0⟩ digit / measurement 0
         semantic_on: blue_600,             // |1⟩ digit / measurement 1
         semantic_intermediate: purple_600, // measurement idle / drag ghost

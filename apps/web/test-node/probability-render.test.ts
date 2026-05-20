@@ -37,6 +37,18 @@ test('Probability hover outline snaps fractional rows to a pixel-aligned box', a
   assert.match(renderShader, /fn pixel_row_top[\s\S]*let row_top = pixel_row_top\(hovered_row, row_h, rect_size\.y\)[\s\S]*local\.y < row_top/)
 })
 
+test('Probability logarithm hints use their dedicated tx-3 color uniform', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.equal(renderShader.includes('color = params.log_hint;'), true)
+})
+
+test('Probability borders and row separators keep the border color uniform', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(renderShader, /if \(on_border \|\| on_separator\) \{\s*color = params\.border;/)
+})
+
 test('dense Probability rendering avoids fragment-row scans', async () => {
   const renderShader = await readRenderShader()
 

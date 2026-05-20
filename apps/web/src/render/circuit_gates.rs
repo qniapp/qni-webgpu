@@ -237,6 +237,7 @@ impl QniApp {
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
                 border: colors.line.to_normalized_gamma_f32(),
+                log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),

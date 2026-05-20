@@ -234,7 +234,10 @@ pub(crate) struct ProbabilityRenderParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
+    /// Flexoki ui-2 #DAD8CE outer border / row separators.
     pub(crate) border: [f32; 4],
+    /// Flexoki tx-3 #B7B5AC logarithm hints for Probability5..16.
+    pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],

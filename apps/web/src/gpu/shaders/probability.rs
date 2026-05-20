@@ -117,6 +117,7 @@ struct ProbabilityRenderParams {
   viewport_size: vec2<f32>,
   background: vec4<f32>,
   border: vec4<f32>,
+  log_hint: vec4<f32>,
   bar: vec4<f32>,
   bar_edge: vec4<f32>,
   hover_border: vec4<f32>,
@@ -333,7 +334,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
   var color = params.background;
   if (!show_text && on_log_hint(input.local.x, input.local.y, input.slot, input.span, raw_row, row_h, draw_prob, input.rect_size.x, input.rect_size.y)) {
-    color = params.border;
+    color = params.log_hint;
   }
   if (input.local.x <= bar_right) {
     color = params.bar;
