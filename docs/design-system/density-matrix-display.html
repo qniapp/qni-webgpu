@@ -261,10 +261,10 @@
         <tr><th>役割</th><td>span 内の量子ビットの<strong>局所的な混合状態</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する表示ブロック (状態に影響しない)。純粋状態 / 混合状態の判別と、span 内外の entanglement の有無を 1 つの widget で読める点が振幅表示ブロックとの差。Quirk の <code>Density Matrix Display</code> と同じ意味</td></tr>
         <tr><th>span</th><td>1〜8 量子ビット (Quirk の <code>Gate.buildFamily(1, 8, ...)</code> と一致)。<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> 複素成分を扱う上限</td></tr>
         <tr><th>matrix 寸法</th><td><code>n × n</code> (<code>n = 2<sup>span</sup></code>)、row / col とも binary big-endian (row 0 = <code>|0…0⟩</code>、col 0 = <code>⟨0…0|</code>)。<code>ρ<sub>ii</sub></code> が対角 = 確率、<code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>) が非対角 = coupling</td></tr>
-        <tr><th>計算内容</th><td>span に対応する subspace の<strong>縮約密度行列</strong>を control 条件で射影して返す。<strong>本番経路で GPU → CPU リードバックなし</strong>。外部 Qiskit Aer 経路ではバックエンド側で <code>save_density_matrix(qubits=[…])</code> を呼び、JSON を web に返してから GPU buffer に upload する (§ 09)</td></tr>
+        <tr><th>計算内容</th><td>span に対応する subspace の<strong>縮約密度行列</strong>を control 条件で射影して返す。<strong>本番経路で GPU → CPU リードバックなし</strong>。外部 Qiskit Aer 経路ではバックエンド側で <code>save_density_matrix(qubits=[…])</code> を呼び、JSON を web に返してから GPU buffer に upload する (§ 10)</td></tr>
         <tr><th>シリアライズ ID</th><td><code>"Density"</code> (span 1)、<code>"Density2"</code>..<code>"Density8"</code> (span 2..8)。Quirk の <code>setSerializedId("Density" + span)</code> と一致、span 1 だけ接尾辞なしの "Density" になるのも同じ</td></tr>
         <tr><th>palette symbol</th><td><code>"Density"</code> (Quirk <code>setSymbol("Density")</code> に対応)</td></tr>
-        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..8 に変更 (§ 08)</td></tr>
+        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..8 に変更 (§ 09)</td></tr>
         <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
         <tr><th>measure column</th><td>Quirk と同じく、<strong>列処理の後に display capture</strong>。span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される (Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じ挙動)。詳細は § 05 参照</td></tr>
         <tr><th>NaN handling</th><td>正規化 (<code>unity = Σ ρ<sub>ii</sub></code>) が 0 や NaN になる pathological ケース (controls が満たされない / 入力が崩れる) では <code>ρ = NaN</code> として中央に "NaN" を描く。Quirk の <code>densityPixelsToMatrix</code> と <code>paintDensityMatrix</code> の hasNaN 分岐に揃える</td></tr>
@@ -321,7 +321,7 @@
     <ul>
       <li><strong>URL round-trip (Quirk 互換)</strong> — JSON は <code>{"cols":[["Density3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は表示列幅であり JSON 上の列消費ではない。decode 時に <code>"Density&lt;span&gt;"</code> を正規表現で読み、内部 slot index 1 つ分を占有するエントリとして登録 (shift / reserve なし)</li>
       <li><strong>placement / 衝突検出</strong> — 振幅表示ブロックと同じく<strong>gate_rect の幾何交差</strong>で判定: 新規 density を slot N に置くとき、<code>gate_rect</code> (<code>x..x + size_px</code>, <code>y..y + size_px</code>) が既存 gate と交差するなら drop 拒否</li>
-      <li><strong>resize handle</strong> — 上下のみ (span を変える)。幅は span の関数なので separate な width handle は不要 (§ 08)</li>
+      <li><strong>resize handle</strong> — 上下のみ (span を変える)。幅は span の関数なので separate な width handle は不要 (§ 09)</li>
       <li><strong>drag / drop preview</strong> — drag 中は他ゲートと同じく <code>purple-600</code> を背景に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま維持する</li>
     </ul>
   </div>
@@ -373,7 +373,7 @@
 
     <p class="note" style="margin-top: 12px;">
       <strong>Quirk との差分:</strong> Quirk は対角に塗りバー (<code>_traceProbabilitySquare</code>) を採用しているが、本仕様は<strong>対角も非対角と同じ disk 表現</strong>に統一する。理由は (a) 1 つの行列内に「塗りバー + 円」の 2 種類の見た目が並ぶと視線が分散する、(b) 振幅表示ブロック / 状態ベクトルパネルが既に「disk = 確率の大きさ、needle = 位相」の語彙を確立しているので、密度行列もそれに乗せたほうが学習コストが低い、(c) 対角は実数なので needle を省くだけで「確率 = 円」と「coupling = 円 + needle」の差が自然に出る。
-      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調は tooltip の <code>log: ... dB</code> 数値に集約する (§ 07)。
+      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調は tooltip の <code>log: ... dB</code> 数値に集約する (§ 08)。
     </p>
 
     <h3 style="margin-top: 16px;">heatmap モード (<code>cellPx &lt; 3</code>、span 7〜8)</h3>
@@ -433,7 +433,7 @@ for row in 0..n:
       <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · 実行前 (背景 + 外枠のみ)</div><div class="actual"><div class="dm-host" data-span="8" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 09) の <code>DensityInstance.render_mode</code> に
+      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 10) の <code>DensityInstance.render_mode</code> に
       <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で「placeholder ならプレースホルダ層 (purple-100 背景 + 外枠)、それ以外は通常の probability + disk + needle」へ分岐する。
       CPU から空の行列値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
       placeholder は全 span で背景の薄紫一色 + 外枠だけになる。
@@ -441,9 +441,9 @@ for row in 0..n:
   </div>
 </section>
 
-<!-- ─────── § 07 ホバー / ポップアップ ─────── -->
+<!-- ─────── § 08 ホバー / ポップアップ ─────── -->
 <section class="block">
-  <h2>§ 07 ホバー / ポップアップ</h2>
+  <h2>§ 08 ホバー / ポップアップ</h2>
   <div class="card">
     <p>
       Quirk の <code>MathPainter.paintMatrixTooltip</code> + <code>paintDensityMatrix</code> の文言を Geist タイポグラフィへ移植。
@@ -500,9 +500,9 @@ for row in 0..n:
   </div>
 </section>
 
-<!-- ─────── § 08 リサイズハンドル ─────── -->
+<!-- ─────── § 09 リサイズハンドル ─────── -->
 <section class="block">
-  <h2>§ 08 リサイズハンドル (span 1〜8)</h2>
+  <h2>§ 09 リサイズハンドル (span 1〜8)</h2>
   <div class="card">
     <p>
       振幅表示ブロック / 確率表示ブロックの上下ハンドルと chrome 仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 04</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 11</a> 参照)。
@@ -521,9 +521,9 @@ for row in 0..n:
   </div>
 </section>
 
-<!-- ─────── § 09 Qiskit / GPU 実装メモ ─────── -->
+<!-- ─────── § 10 Qiskit / GPU 実装メモ ─────── -->
 <section class="block">
-  <h2>§ 09 Qiskit / GPU 実装メモ (二系統経路)</h2>
+  <h2>§ 10 Qiskit / GPU 実装メモ (二系統経路)</h2>
   <div class="card">
     <p>
       密度行列表示ブロックは <strong>2 つの計算経路</strong>を持つ:
@@ -575,9 +575,9 @@ for row in 0..n:
   </div>
 </section>
 
-<!-- ─────── § 10 実装参照ファイル / 受け入れ条件 ─────── -->
+<!-- ─────── § 11 実装参照ファイル / 受け入れ条件 ─────── -->
 <section class="block">
-  <h2>§ 10 実装参照ファイル / 受け入れ条件</h2>
+  <h2>§ 11 実装参照ファイル / 受け入れ条件</h2>
   <div class="card">
     <h3>主な参照ファイル</h3>
     <table class="spec">
