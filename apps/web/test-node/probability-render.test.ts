@@ -4,7 +4,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
-const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'probability.rs')
+const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'probability_display.rs')
 const callbackPath = path.join(rootDir, 'src', 'gpu', 'callbacks', 'probability_display.rs')
 
 const readProbabilityShader = async () => fs.readFile(shaderPath, 'utf8')

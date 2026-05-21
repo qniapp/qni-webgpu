@@ -13,8 +13,8 @@
 //!   (render). Both share the bloch output buffer.
 //! * [`measure`]— measurement reduce + collapse (compute only). Owns
 //!   `aux_buffer` consumed by `digit`.
-//! * [`probability`] — Probability marginalization (compute) +
-//!   GPU-rendered probability bars. Both share the Probability output buffer.
+//! * [`probability_display`] — Probability Display marginalization (compute) +
+//!   GPU-rendered bars. Both share the Probability output buffer.
 //! * [`amplitude`] — Amplitude display capture + GPU-rendered grid / popup.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
 //!   `measure::aux_buffer`.
@@ -36,7 +36,7 @@ mod common;
 mod digit;
 mod measure;
 mod popup_value;
-mod probability;
+mod probability_display;
 mod state;
 
 use eframe::wgpu;
@@ -47,7 +47,7 @@ use self::common::Common;
 use self::digit::DigitResources;
 use self::measure::MeasureResources;
 use self::popup_value::PopupValueResources;
-use self::probability::ProbabilityResources;
+use self::probability_display::ProbabilityResources;
 use self::state::StateResources;
 
 pub(crate) struct StateVectorResources {
