@@ -64,6 +64,7 @@ impl QniApp {
             colors,
         });
         if self.exec_mode != previous_mode {
+            crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
             self.update_qubit_count();
             if self.exec_mode == ExecMode::Local {
                 self.external_gpu_state_refresh_pending = false;

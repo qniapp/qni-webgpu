@@ -159,11 +159,15 @@ impl QniApp {
     }
 
     pub(crate) fn load_circuit_json_into_editor(&mut self, json: &str, ctx: &egui::Context) {
+        let previous_exec_mode = self.exec_mode;
         let (gates, next_gate_id) = crate::url_circuit::parse_circuit_json(json);
         self.placed_gates = gates;
         self.next_gate_id = next_gate_id;
         if self.required_qubit_count() > self.exec_mode.qubit_capacity() {
             self.exec_mode = ExecMode::Gpu;
+        }
+        if self.exec_mode != previous_exec_mode {
+            crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
         }
         self.update_qubit_count();
         self.dragging = None;

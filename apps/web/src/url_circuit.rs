@@ -16,8 +16,9 @@
 //! We keep Quirk's "raw JSON in the hash" idea but drop the `circuit=`
 //! prefix — this project never plans to layer other key-value params
 //! into the hash, so the bare `#{"cols":[...]}` form is shorter and
-//! parses unambiguously. (Importing a Quirk URL needs the `circuit=`
-//! prefix stripped first; doable but not a workflow we ship today.)
+//! parses unambiguously. Execution mode is the one URL option and lives in
+//! the query string (`?mode=gpu`) so browser reloads and shared links keep
+//! GPU mode without making the circuit JSON parser accept extra fields.
 //!
 //! Token vocabulary (must match qni's `Serialized*Type` constants):
 //!   H X Y Z S T  — text-book single-qubit gates
@@ -58,4 +59,4 @@ pub(crate) use decode::{
     qubit_count_from_gates, summarize_circuit_json,
 };
 pub(crate) use encode::{circuit_columns_to_json, circuit_to_json};
-pub(crate) use history::write_circuit_to_url;
+pub(crate) use history::{parse_exec_mode_from_url, write_circuit_to_url, write_exec_mode_to_url};

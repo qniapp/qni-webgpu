@@ -206,11 +206,12 @@ impl QniApp {
         // exists, keep the seeded samples and a separate "Circuit 1" current
         // entry so examples are not overwritten by the empty editor.
         let (url_gates, url_next_gate_id) = crate::url_circuit::parse_circuit_from_url();
+        let requested_exec_mode = crate::url_circuit::parse_exec_mode_from_url();
         let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);
         let url_exec_mode = if url_required_qubits > LOCAL_MAX_QUBITS {
             ExecMode::Gpu
         } else {
-            ExecMode::default()
+            requested_exec_mode.unwrap_or_default()
         };
         let url_qubit_count = url_required_qubits.clamp(MIN_QUBITS, url_exec_mode.qubit_capacity());
         let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_qubit_count);
@@ -227,12 +228,13 @@ impl QniApp {
         let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
             ExecMode::Gpu
         } else {
-            ExecMode::default()
+            requested_exec_mode.unwrap_or_default()
         };
         let initial_qubit_count =
             initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
         let initial_json = crate::url_circuit::circuit_to_json(&initial_gates, initial_qubit_count);
         crate::url_circuit::write_circuit_to_url(&initial_json);
+        crate::url_circuit::write_exec_mode_to_url(exec_mode);
         Self {
             theme: theme.kind,
             circuit_revision: CircuitRevision::starting_at(initial_json),
