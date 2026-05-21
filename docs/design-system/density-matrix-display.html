@@ -25,7 +25,7 @@
          4. needle (非対角のみ、center → edge) = tx stroke
          5. matrix 外枠 = ui-2 1 px (cell 間の縦横区切り線は描かない)
        Quirk のロガリズム円 (small-mag 強調用の補助円) は disk と冗長なので不採用。
-       cell 寸法が小さいときは needle / outline をレイヤ抑制する (§ 05)。 */
+       cell 寸法が小さいときは needle / outline をレイヤ抑制する (§ 06)。 */
     .dm-host {
       position: relative;
       display: inline-flex;
@@ -180,7 +180,7 @@
     <p>
       span 1〜8 の代表的な reduced density matrix を並べた参考レンダリング。matrix 寸法は <code>n × n</code> (<code>n = 2<sup>span</sup></code>) の正方行列、本体寸法は <strong><code>size_px = 56 × span − 16</code></strong> px の正方形 (確率表示ブロックの<em>高さ</em>公式と一致、振幅表示ブロックの幅 / 高さ公式とも対称)。
       cell 寸法 (<code>cellPx = size_px / n</code>) は span が増えるごとに半減する: span 1 で 20 px、span 4 で 13 px、span 5 で 8.25 px、span 7 で 2.94 px、span 8 で 1.69 px。
-      cellPx に応じてレイヤを段階的に省略する (§ 05): <strong><code>cellPx ≥ 12</code> = outline + disk + needle / <code>cellPx ∈ [3, 12)</code> = outline + disk (needle 省略) / <code>cellPx &lt; 3</code> = heatmap (mag を alpha に潰す dense mode)</strong>。
+      cellPx に応じてレイヤを段階的に省略する (§ 06): <strong><code>cellPx ≥ 12</code> = outline + disk + needle / <code>cellPx ∈ [3, 12)</code> = outline + disk (needle 省略) / <code>cellPx &lt; 3</code> = heatmap (mag を alpha に潰す dense mode)</strong>。
       対角 / 非対角ともに <em>outline 円 + magnitude disk</em> で描き、disk 半径は対角なら <code>ρ<sub>ii</sub></code> (= 確率)、非対角なら <code>|ρ<sub>ij</sub>|</code>。対角は実数 (位相 0) なので needle のみ省略する。
       各セルにマウスを乗せると Quirk と同じ tooltip 内容 (対角は <code>Probability of |k⟩</code> / 非対角は <code>Coupling of |row⟩ to ⟨col|</code>) をポップアップ表示する。
     </p>
@@ -224,9 +224,9 @@
   </div>
 </section>
 
-<!-- ─────── § 02 パレットアイコン ─────── -->
+<!-- ─────── § 03 パレットアイコン ─────── -->
 <section class="block">
-  <h2>§ 02 パレットアイコン (mini preview)</h2>
+  <h2>§ 03 パレットアイコン (mini preview)</h2>
   <div class="card">
     <p>
       パレットに並ぶ <code>DensityMatrixDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
@@ -252,9 +252,9 @@
   </div>
 </section>
 
-<!-- ─────── § 03 概要 ─────── -->
+<!-- ─────── § 04 概要 ─────── -->
 <section class="block">
-  <h2>§ 03 概要</h2>
+  <h2>§ 04 概要</h2>
   <div class="card">
     <table class="spec">
       <tbody>
@@ -266,16 +266,16 @@
         <tr><th>palette symbol</th><td><code>"Density"</code> (Quirk <code>setSymbol("Density")</code> に対応)</td></tr>
         <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..8 に変更 (§ 09)</td></tr>
         <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
-        <tr><th>measure column</th><td>Quirk と同じく、<strong>列処理の後に display capture</strong>。span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される (Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じ挙動)。詳細は § 05 参照</td></tr>
+        <tr><th>measure column</th><td>Quirk と同じく、<strong>列処理の後に display capture</strong>。span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される (Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じ挙動)。詳細は § 06 参照</td></tr>
         <tr><th>NaN handling</th><td>正規化 (<code>unity = Σ ρ<sub>ii</sub></code>) が 0 や NaN になる pathological ケース (controls が満たされない / 入力が崩れる) では <code>ρ = NaN</code> として中央に "NaN" を描く。Quirk の <code>densityPixelsToMatrix</code> と <code>paintDensityMatrix</code> の hasNaN 分岐に揃える</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 04 ジオメトリ ─────── -->
+<!-- ─────── § 05 ジオメトリ ─────── -->
 <section class="block">
-  <h2>§ 04 ジオメトリ</h2>
+  <h2>§ 05 ジオメトリ</h2>
   <div class="card">
     <h3>本体寸法 (qni-webgpu 規格)</h3>
     <table class="spec">
@@ -305,7 +305,7 @@
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 05):
+      レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 06):
       <code>cellPx ≥ 12</code> なら needle 描画、<code>cellPx ≥ 3</code> なら outline + disk、それ未満は heatmap。
       cell 間の grid 線はどの span でも描かない。
       production の最小 cellPx は span 8 で <strong>1.69 px</strong>、これは振幅表示ブロックの mock 限定 heatmap と異なり<em>production の標準描画として heatmap が必要</em>な点に注意。
@@ -316,7 +316,7 @@
       qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code>。密度行列表示ブロックは正方形なので
       <code>width_px = size_px = (span − 1) × SLOT_SPACING + GATE_SIZE = 56 × span − 16</code> となり、
       span 8 で 432 px (= 8 slot 分の幅を覆う) になる。slot 構造としては<strong>1 列消費</strong>、視覚的には <code>span</code> slot 分の幅をはみ出す
-      (振幅表示ブロックの可変幅モデルと同じ採用。詳細は <a href="amplitude-display.html">amplitude-display.html § 04</a> 参照)。
+      (振幅表示ブロックの可変幅モデルと同じ採用。詳細は <a href="amplitude-display.html">amplitude-display.html § 05</a> 参照)。
     </p>
     <ul>
       <li><strong>URL round-trip (Quirk 互換)</strong> — JSON は <code>{"cols":[["Density3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は表示列幅であり JSON 上の列消費ではない。decode 時に <code>"Density&lt;span&gt;"</code> を正規表現で読み、内部 slot index 1 つ分を占有するエントリとして登録 (shift / reserve なし)</li>
@@ -327,9 +327,9 @@
   </div>
 </section>
 
-<!-- ─────── § 05 セル描画モデル ─────── -->
+<!-- ─────── § 06 セル描画モデル ─────── -->
 <section class="block">
-  <h2>§ 05 セル描画モデル (全セル統一、対角は needle のみ省略)</h2>
+  <h2>§ 06 セル描画モデル (全セル統一、対角は needle のみ省略)</h2>
   <div class="card">
     <p>
       Quirk の <code>paintDensityMatrix</code> (<code>src/draw/MathPainter.js</code>) を Flexoki + 振幅表示ブロックの視覚言語へ移植する。
@@ -344,7 +344,7 @@
         振幅表示ブロックと同じ <em>outline 円 + magnitude disk + disk 境界線 + phase needle</em> の 4 層で描く。
         <code>mag = |ρ<sub>ij</sub>|</code>、<code>phase = arg(ρ<sub>ij</sub>)</code>。
         disk 半径 = <code>mag × inner_radius</code>、needle 方向 = <code>(−sin(phase), −cos(phase))</code> で<strong>真上が phase 0</strong>。
-        境界線 / 配色は振幅表示ブロックの規約に従う (<a href="amplitude-display.html">amplitude-display.html § 05</a> と完全共有)。</li>
+        境界線 / 配色は振幅表示ブロックの規約に従う (<a href="amplitude-display.html">amplitude-display.html § 06</a> と完全共有)。</li>
       <li><strong>Hermitian 性</strong> — 密度行列は <code>ρ<sub>ij</sub> = conj(ρ<sub>ji</sub>)</code> なので、上三角と下三角は<strong>位相が反転した対称</strong>。表示としても自動的に左下と右上の needle が鏡像になるため、ユーザーは行列の片側を読むだけで全体が読める (Quirk と同じ視覚言語)。対角は実数 (虚部 0) なので Hermitian 性も自動的に満たされる。</li>
     </ul>
 
@@ -401,14 +401,14 @@ for row in 0..n:
       rho[row, col] = 0  // 位相 coherence が古典化で失われる</pre>
     <p>
       視覚的には、measured wire 由来の非対角列 / 行が消えて、対角の塊が残る。これは「測定後の古典化された状態」と「未測定の量子重ね合わせ」の境界を hover 抜きで見分ける手がかりになる。
-      qni 側の lowering 順序は<strong>列処理の後に display capture</strong>なので、measure される直前の純粋振幅ではなく <em>collapse 後の混合状態</em> が表示される (振幅表示ブロックの § 06 と同じ仕様判断)。
+      qni 側の lowering 順序は<strong>列処理の後に display capture</strong>なので、measure される直前の純粋振幅ではなく <em>collapse 後の混合状態</em> が表示される (振幅表示ブロックの § 07 と同じ仕様判断)。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 06 実行前プレースホルダ ─────── -->
+<!-- ─────── § 07 実行前プレースホルダ ─────── -->
 <section class="block">
-  <h2>§ 06 実行前プレースホルダ (シミュレーション未実行の状態)</h2>
+  <h2>§ 07 実行前プレースホルダ (シミュレーション未実行の状態)</h2>
   <div class="card">
     <p>
       回路に密度行列表示ブロックを配置しただけで、まだシミュレーション (▶ Run) を実行していない段階で表示する仮の見た目。
@@ -505,7 +505,7 @@ for row in 0..n:
   <h2>§ 09 リサイズハンドル (span 1〜8)</h2>
   <div class="card">
     <p>
-      振幅表示ブロック / 確率表示ブロックの上下ハンドルと chrome 仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 04</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 11</a> 参照)。
+      振幅表示ブロック / 確率表示ブロックの上下ハンドルと chrome 仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 05</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 11</a> 参照)。
       ハンドル単独の挙動だけ要点を再掲する:
     </p>
     <ul>
@@ -737,7 +737,7 @@ for row in 0..n:
   function buildDmCanvas(host) {
     const span = Number(host.dataset.span);
     const n = 1 << span;
-    /* size_px は仕様 (§ 04) と同じ式: 56 * span − 16。
+    /* size_px は仕様 (§ 05) と同じ式: 56 * span − 16。
        ただし span 1 はパレットアイコン専用で 40 px、それ以外は size_px。 */
     const sizePx = 56 * span - 16;
     const cellPx = sizePx / n;
