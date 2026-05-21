@@ -137,10 +137,9 @@
   <p class="eyebrow">qni-webgpu · design system · index</p>
   <h1 class="page-title">デザインシステム</h1>
   <p class="page-lede">
-    qni-webgpu の UI コンポーネント仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 つにまとめたインデックス。
-    各カードは個別の仕様ドキュメント (<code>docs/&lt;component&gt;.html</code>) にリンクしており、
-    <a href="design-system/probability-display.html">probability-display.html</a> をテンプレートとして同じ構造で増やしていく。
-    配色は <strong>Flexoki Light</strong>、タイポ / 余白は <strong>Tailwind デフォルトスケール</strong>に厳密に合わせる。
+    qni-webgpu の UI を貫く共通ルールと、画面に現れるコンポーネント仕様を一望するインデックス。
+    基礎トークン (配色 / タイポグラフィ / 余白) から表示ブロック、量子ゲート、回路エディタ、状態パネルまで、
+    寸法・色・挙動を 1 つの基準にそろえる。
   </p>
 
   <p class="note" style="margin-top: 16px;">
@@ -158,7 +157,6 @@
   <h2><span class="num">§ 01</span>基礎トークン (Foundations)</h2>
   <p class="note">
     すべてのコンポーネントが共有する横断トークン (配色 / タイポグラフィ / 余白)。
-    実装側は <code>apps/web/src/colors.rs</code> と Tailwind デフォルトスケールに紐付く。
   </p>
   <div class="spec-grid">
 
