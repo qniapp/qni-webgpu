@@ -110,8 +110,8 @@
     }
     .gp-section { display: flex; flex-direction: column; gap: 8px; }
     .gp-sep {
-      /* PALETTE_SEPARATOR_WIDTH = 1 px、2 行高フル */
-      width: 1px; align-self: stretch;
+      /* PALETTE_SEPARATOR_WIDTH = 2 px、2 行高フル */
+      width: 2px; align-self: stretch;
       background: var(--ui-2);
     }
 
@@ -438,7 +438,7 @@
     <p>
       実コードの寸法 (40 × 40 アイコン / 8 px gap / 16 × 20 padding / 12 px corner radius / paper bg + 25 % alpha shadow) と
       各 gate の SVG icon 形状 (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>) を 1:1 で再現。
-      palette は <strong>Gates section (左)</strong> + <strong>1 px ui-2 縦セパレーター (2 行高)</strong> + <strong>Display section (右 2 × 2)</strong> に分割。
+      palette は <strong>Gates section (左)</strong> + <strong>2 px ui-2 縦セパレーター (2 行高)</strong> + <strong>Display section (右 2 × 2)</strong> に分割。
       アイコンに hover すると <code>purple-400</code> 外枠 (4 px 拡張 / corner 10) + <code>paper</code> 内枠 (2 px 拡張 / corner 8) の ring が出る。
       Display section 右下は常時空白 (hit_test 対象外)。
     </p>
@@ -505,7 +505,7 @@
         <tr><th>gap (横)</th><td><code>PALETTE_GAP = 8.0 px</code> — section 内のアイコン間</td></tr>
         <tr><th>gap (縦)</th><td><code>PALETTE_ROW_GAP = 8.0 px</code></td></tr>
         <tr><th>section gap</th><td><code>PALETTE_SECTION_GAP = 8.0 px</code> — Gates section と separator、separator と Display section の隙間 (左右両側)</td></tr>
-        <tr><th>separator</th><td><code>PALETTE_SEPARATOR_WIDTH = 1.0 px</code> · fill = <code>colors.line</code> (ui-2)、palette content 全高 (= 2 行高) を縦に走る</td></tr>
+        <tr><th>separator</th><td><code>PALETTE_SEPARATOR_WIDTH = 2.0 px</code> · fill = <code>colors.line</code> (ui-2)、palette content 全高 (= 2 行高) を縦に走る</td></tr>
         <tr><th>Display section</th><td><code>PALETTE_DISPLAY_COLUMNS = 2</code> × <code>PALETTE_DISPLAY_ROWS = 2</code> grid。右下の slot (index = COLUMNS × ROWS − 1 = 3) は常時空白 (描画 / hit_test とも対象外)</td></tr>
         <tr><th>padding</th><td>水平 <code>PALETTE_PADDING_X = 16.0 px</code> / 垂直 <code>PALETTE_PADDING_Y = 20.0 px</code></td></tr>
         <tr><th>corner radius</th><td><code>PALETTE_CORNER_RADIUS = 12 px</code></td></tr>
@@ -515,7 +515,7 @@
         <tr><th>ゲート総数</th><td>Gates section 22 個 (row 1 = 13、row 2 = 9) + Display section 3 個 = 計 25 個 (フラットインデックスは旧 25 entry と互換)</td></tr>
         <tr><th>Gates section 幅</th><td>max(row 1, row 2) = <code>13 × 40 + 12 × 8 = 616 px</code></td></tr>
         <tr><th>Display section 幅</th><td><code>2 × 40 + 1 × 8 = 88 px</code></td></tr>
-        <tr><th>palette 幅</th><td><code>16 + 616 + 8 + 1 + 8 + 88 + 16 = 753 px</code></td></tr>
+        <tr><th>palette 幅</th><td><code>16 + 616 + 8 + 2 + 8 + 88 + 16 = 754 px</code></td></tr>
         <tr><th>palette 高さ</th><td><code>20 + 2 × 40 + 8 + 20 = 128 px</code></td></tr>
       </tbody>
     </table>
@@ -745,7 +745,7 @@
   <div class="card">
     <h3>完全実装済み</h3>
     <ul>
-      <li>2 section レイアウト: Gates section (2 行 × 22 個) + 1 px ui-2 縦セパレーター + Display section (2 × 2 grid、右下空白)</li>
+      <li>2 section レイアウト: Gates section (2 行 × 22 個) + 2 px ui-2 縦セパレーター + Display section (2 × 2 grid、右下空白)</li>
       <li>section ベースの <code>palette_hit_test</code> (gates / display それぞれ別経路 + separator / inter-section gap / display 空きスロットを除外)、フラット index は旧 25 entry と互換</li>
       <li>各 gate のアイコン描画 (rounded square / circle body / Bloch circle / Probability preview / Amplitude preview / no body の 6 タイプ)</li>
       <li>SDF テクスチャ経由の文字描画 (<code>assets/icons/*.svg</code> → 256 px PNG → SDF)</li>
