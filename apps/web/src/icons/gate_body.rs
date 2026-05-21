@@ -152,12 +152,6 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
     let inner_radius = (outline_radius - half_stroke).max(0.0);
     let disk_radius = inner_radius * std::f32::consts::FRAC_1_SQRT_2;
 
-    painter.rect_stroke(
-        rect,
-        egui::CornerRadius::ZERO,
-        egui::Stroke::new(1.0, colors.line),
-        egui::StrokeKind::Inside,
-    );
     painter.circle_filled(center, outline_radius - half_stroke, colors.surface);
     painter.circle_stroke(
         center,

@@ -72,6 +72,14 @@ test('Amplitude span resize body selection uses the matrix draw area', async () 
   assert.match(spanResize, /if kind == GateKind::AmplitudeDisplay \{\s*amplitude_grid_rect\(gate_rect, span\)/)
 })
 
+test('Amplitude palette icon omits the square matrix frame', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+  const afterIcon = gateBody.split('fn draw_amplitude_palette_icon')[1] ?? ''
+  const iconBody = afterIcon.split(/fn draw_(density|probability)_preview_body/)[0] ?? ''
+
+  assert.equal(iconBody.includes('rect_stroke'), false)
+})
+
 test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', async () => {
   const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
 
