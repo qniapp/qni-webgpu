@@ -35,12 +35,13 @@ pub(crate) struct RenderParams {
     pub(crate) qubits: u32,
     /// Cell display-index (= `row * cols + col`) the pointer is currently
     /// hovering over, or `-1` for "no hover". The fragment shader
-    /// multiplies fill / needle / outline RGB by 0.9 on the matching cell
-    /// — qni's `:host(:hover) #border { filter: brightness(0.9) }` style
-    /// extended to all three layers.
+    /// multiplies fill / disk border / needle / outline RGB by 0.9 on the
+    /// matching cell — qni's `:host(:hover) #border { filter: brightness(0.9) }`
+    /// style extended to all four state-circle layers.
     pub(crate) hovered_cell: i32,
     pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
+    pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
@@ -50,6 +51,7 @@ pub(crate) struct RenderParams {
 pub(crate) struct RenderColors {
     pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
+    pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
@@ -65,6 +67,7 @@ impl RenderColors {
         Self {
             surface: colors.surface.to_normalized_gamma_f32(),
             fill: colors.state_fill.to_normalized_gamma_f32(),
+            disk_border: colors.amplitude_disk_border.to_normalized_gamma_f32(),
             outline: colors.state_outline.to_normalized_gamma_f32(),
             outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
             needle: colors.state_needle.to_normalized_gamma_f32(),

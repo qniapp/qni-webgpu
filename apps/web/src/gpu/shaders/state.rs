@@ -90,6 +90,7 @@ struct RenderParams {
   hovered_cell: i32,
   surface: vec4<f32>,
   fill: vec4<f32>,
+  disk_border: vec4<f32>,
   outline: vec4<f32>,
   outline_zero: vec4<f32>,
   needle: vec4<f32>,
@@ -169,6 +170,25 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   let fill_radius = params.inner_radius * sqrt(prob);
   let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
   var color = vec4<f32>(params.fill.rgb * hover_mult * fill_alpha, fill_alpha);
+  if (fill_radius >= 1.5) {
+    // Match Amplitude / Density Display: blue-400 1px inset rim whose
+    // outer edge is clamped to the fill radius, so the probability area
+    // does not grow when the darker rim is added.
+    let disk_border_radius = fill_radius - 0.5;
+    let disk_border_inner = 1.0 - smoothstep(
+      disk_border_radius - 0.5 - edge,
+      disk_border_radius - 0.5 + edge,
+      dist
+    );
+    let disk_border_outer = 1.0 - smoothstep(
+      disk_border_radius + 0.5 - edge,
+      disk_border_radius + 0.5 + edge,
+      dist
+    );
+    let disk_border_alpha = min(max(0.0, disk_border_outer - disk_border_inner), fill_alpha);
+    let disk_border_pre = vec4<f32>(params.disk_border.rgb * hover_mult * disk_border_alpha, disk_border_alpha);
+    color = disk_border_pre + color * (1.0 - disk_border_pre.a);
+  }
 
   // Layer 2: phase needle (only when prob > 0).
   if (prob > 0.0) {
@@ -214,8 +234,10 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   //
   // `edge` is computed once here in uniform control flow and passed down
   // to `cell_contribution`; the per-cell function must not call fwidth
-  // itself because the bounds-check below would break uniform flow.
-  let edge = length(fwidth(input.panel_local));
+  // itself because the bounds-check below would break uniform flow. Match
+  // Amplitude / Density Display's tightened SDF AA width so the state panel
+  // circles read with the same sharpness.
+  let edge = max(0.5, length(fwidth(input.panel_local)) * 0.65);
   let half_gap = (params.cell_pitch - 2.0 * params.radius) * 0.5;
   let col_f = floor((input.panel_local.x + half_gap) / params.cell_pitch);
   let row_f = floor((input.panel_local.y + half_gap) / params.cell_pitch);

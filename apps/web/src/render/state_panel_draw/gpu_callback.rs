@@ -43,6 +43,7 @@ pub(super) fn paint_state_vector_gpu(
         hovered_cell: app.state_panel.hovered_cell.map_or(-1, |c| c as i32),
         surface: render_colors.surface,
         fill: render_colors.fill,
+        disk_border: render_colors.disk_border,
         outline: render_colors.outline,
         outline_zero: render_colors.outline_zero,
         needle: render_colors.needle,
