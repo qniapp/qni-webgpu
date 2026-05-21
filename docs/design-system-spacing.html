@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>スペーシング — デザインシステム</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ── スペーシング スケール (横棒) ─────────────────── */
+    .space-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;                /* spacing-1 */
+      margin-top: 4px;
+    }
+    .space-row {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 8px;
+      padding: 12px 16px;      /* spacing-3 / spacing-4 */
+      display: grid;
+      grid-template-columns: 120px 80px 1fr auto;
+      gap: 16px;               /* spacing-4 */
+      align-items: center;
+    }
+    .space-row code.token {
+      font-family: var(--font-mono);
+      font-size: 14px;         /* text-sm */
+      font-weight: 500;
+      color: var(--tx);
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      justify-self: start;
+    }
+    .space-row .px {
+      font-family: var(--font-mono);
+      font-size: 12px;         /* text-xs */
+      color: var(--tx-2);
+      letter-spacing: 0.04em;
+    }
+    .space-row .bar {
+      height: 16px;            /* spacing-4 */
+      background: var(--blue-200);
+      border-radius: 2px;
+    }
+    .space-row .role {
+      font-size: 12px;         /* text-xs */
+      line-height: 16px;
+      color: var(--tx-3);
+      margin: 0;
+      text-align: right;
+    }
+
+    /* ── 用途別マッピング ───────────────────────────── */
+    .space-categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;               /* spacing-3 */
+      margin-top: 4px;
+    }
+    .space-category {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 16px 20px;      /* spacing-4 / spacing-5 */
+    }
+    .space-category h3 {
+      margin: 0 0 8px;         /* spacing-2 */
+      font-size: 14px;         /* text-sm */
+      font-weight: 600;
+      color: var(--tx);
+    }
+    .space-category ul {
+      margin: 0; padding: 0; list-style: none;
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 12px;         /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .space-category ul li {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .space-category ul li code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--tx);
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 0 4px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── プレビュー (design-system.html サムネ用) ───── */
+    #preview .space-strip {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 8px 12px;
+    }
+    #preview .space-strip .bar {
+      background: var(--blue-200);
+      border: 1px solid var(--blue-400);
+      border-radius: 2px;
+      height: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode のとき #preview だけ表示) -->
+<div id="preview">
+  <div class="space-strip">
+    <span class="bar" style="width: 4px;"></span>
+    <span class="bar" style="width: 8px;"></span>
+    <span class="bar" style="width: 12px;"></span>
+    <span class="bar" style="width: 16px;"></span>
+    <span class="bar" style="width: 20px;"></span>
+    <span class="bar" style="width: 24px;"></span>
+    <span class="bar" style="width: 32px;"></span>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">基礎</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">スペーシング</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · foundations · spacing</p>
+  <h1 class="page-title">スペーシング</h1>
+  <p class="page-lede">
+    余白 (padding / margin / gap / row pitch) と border-radius はすべて
+    <a href="https://tailwindcss.com/docs/customizing-spacing" target="_blank" rel="noopener">Tailwind 4px 倍数スケール</a>
+    に揃える。<code>px-3.5</code> (14px) などスケール外サイズや、<code>5px</code> / <code>10px</code> のような独自値は
+    <strong>使わない</strong>。スケールに馴染まないときはコンポーネント側の設計を見直す。
+  </p>
+</div>
+
+<!-- ─────── § 01 4px 倍数スケール ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>4px 倍数スケール</h2>
+  <p class="note">
+    実際にこのドキュメントセットで使う段階を列挙。バーは実寸 (1px = 1px) で描いている。
+    Tailwind には間の階調 (<code>spacing-1.5</code> = 6 / <code>spacing-2.5</code> = 10 / <code>spacing-7</code> = 28 など)
+    もあるが、qni-webgpu では基本 4px / 8px / 12px / 16px / 20px / 24px / 32px / 40px / 48px / 56px / 64px / 96px を
+    使い、間の階調は採用しない。
+  </p>
+  <div class="space-grid">
+    <div class="space-row">
+      <code class="token">spacing-1</code>
+      <span class="px">4 px</span>
+      <span class="bar" style="width: 4px;"></span>
+      <p class="role">最小単位 (text-xs 内段間 / pill 縦寄せ)</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-2</code>
+      <span class="px">8 px</span>
+      <span class="bar" style="width: 8px;"></span>
+      <p class="role">card 内段間 / 段落 margin / spec-card 内 gap</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-3</code>
+      <span class="px">12 px</span>
+      <span class="bar" style="width: 12px;"></span>
+      <p class="role">spec-card grid gap / h2 下 margin / breadcrumb 隣接間隔</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-4</code>
+      <span class="px">16 px</span>
+      <span class="bar" style="width: 16px;"></span>
+      <p class="role">spec-card padding (vertical) / footer 内段間 / note 下 margin</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-5</code>
+      <span class="px">20 px</span>
+      <span class="bar" style="width: 20px;"></span>
+      <p class="role">spec-card padding (horizontal) / card 内 padding</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-6</code>
+      <span class="px">24 px</span>
+      <span class="bar" style="width: 24px;"></span>
+      <p class="role">section.block padding (vertical) / card padding (horizontal) / footer padding</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-8</code>
+      <span class="px">32 px</span>
+      <span class="bar" style="width: 32px;"></span>
+      <p class="role">.page / section.block 左右 padding / breadcrumb 左右 padding</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-10</code>
+      <span class="px">40 px</span>
+      <span class="bar" style="width: 40px;"></span>
+      <p class="role">ゲート本体 (GATE_SIZE) / card 大きめ余白</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-12</code>
+      <span class="px">48 px</span>
+      <span class="bar" style="width: 48px;"></span>
+      <p class="role">セクション間の大ブレイク</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-14</code>
+      <span class="px">56 px</span>
+      <span class="bar" style="width: 56px;"></span>
+      <p class="role">.page top padding / 量子ビットピッチ (LINE_GAP / SLOT_SPACING) / footer top margin</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-16</code>
+      <span class="px">64 px</span>
+      <span class="bar" style="width: 64px;"></span>
+      <p class="role">大型カード height / 画像レール height</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-18</code>
+      <span class="px">72 px</span>
+      <span class="bar" style="width: 72px;"></span>
+      <p class="role">.spec-card .preview height (サムネ枠)</p>
+    </div>
+    <div class="space-row">
+      <code class="token">spacing-24</code>
+      <span class="px">96 px</span>
+      <span class="bar" style="width: 96px;"></span>
+      <p class="role">body bottom padding (フッタ下余白)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 用途別カテゴリ ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>用途別カテゴリ</h2>
+  <p class="note">
+    同じ 4px スケールでも、padding / gap / margin / border-radius によって採用しやすい値が変わる。
+    新規セレクタを追加するときは、まず近い用途のカテゴリを見て既存値を再利用する。
+  </p>
+  <div class="space-categories">
+    <div class="space-category">
+      <h3>padding (内側余白)</h3>
+      <ul>
+        <li><code>1px 6px</code> インラインコード <code>code</code></li>
+        <li><code>0 8px</code> pill</li>
+        <li><code>12px 16px</code> .space-row / .cd-popup</li>
+        <li><code>16px 20px</code> .spec-card / .card</li>
+        <li><code>20px 24px</code> .card 内寄り / 大カード</li>
+        <li><code>24px 32px</code> section.block / footer / breadcrumb</li>
+        <li><code>56px 32px</code> .page top padding</li>
+      </ul>
+    </div>
+    <div class="space-category">
+      <h3>gap (要素間隔)</h3>
+      <ul>
+        <li><code>4px</code> 行内ラベル / mono pill</li>
+        <li><code>8px</code> .spec-card 内段 / breadcrumb / legend</li>
+        <li><code>12px</code> .spec-grid / h2 内番号</li>
+        <li><code>16px</code> .swatch / .type-spec / footer</li>
+        <li><code>24px</code> .stage / link-list 列</li>
+      </ul>
+    </div>
+    <div class="space-category">
+      <h3>margin (外側余白)</h3>
+      <ul>
+        <li><code>0 0 8px</code> .page-lede / 段落の下</li>
+        <li><code>0 0 12px</code> .card h3 / section.block &gt; h2</li>
+        <li><code>0 0 16px</code> .card / .note 下</li>
+        <li><code>12px 0 8px</code> page-title 上下</li>
+        <li><code>56px auto 0</code> footer top</li>
+      </ul>
+    </div>
+    <div class="space-category">
+      <h3>border-radius (角丸)</h3>
+      <ul>
+        <li><code>2px</code> .space-row .bar</li>
+        <li><code>4px</code> インラインコード / table セル</li>
+        <li><code>6px</code> pre.code / lock-button</li>
+        <li><code>8px</code> .preview / .space-row</li>
+        <li><code>12px</code> .spec-card / .card</li>
+        <li><code>14px</code> .card (汎用)</li>
+        <li><code>999px</code> pill (完全な楕円)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 アプリ側スペーシング (実装定数) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>アプリ側スペーシング (実装定数)</h2>
+  <p class="note">
+    回路エディタ本体は CSS を持たないが、Rust 側で <code>spacing-N</code> に対応する定数を定義し、
+    回路グリッド / ゲートサイズ / 余白を 4px 倍数に揃えている。<code>apps/web/src/constants.rs</code> 参照。
+  </p>
+  <table class="spec">
+    <thead>
+      <tr><th>定数</th><th>値</th><th>Tailwind 名</th><th>使い所</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>GATE_SIZE</code></td><td>40 px</td><td><code>spacing-10</code></td><td>ゲート本体 (1 量子ビット セル)</td></tr>
+      <tr><td><code>LINE_GAP</code></td><td>56 px</td><td><code>spacing-14</code></td><td>量子ビット行間 (回路上下のピッチ)</td></tr>
+      <tr><td><code>SLOT_SPACING</code></td><td>56 px</td><td><code>spacing-14</code></td><td>ゲート列ピッチ (回路左右の刻み)</td></tr>
+      <tr><td><code>LINE_LEFT_OFFSET</code> / <code>LINE_RIGHT_OFFSET</code></td><td>—</td><td>—</td><td>左右のワイヤ余白 (詳細は constants.rs)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────── § 04 参照 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>参照</h2>
+  <div class="card">
+    <ul style="margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px;">
+      <li><a href="https://tailwindcss.com/docs/customizing-spacing" target="_blank" rel="noopener">Tailwind CSS — Customizing Spacing</a> — spacing-* スケールの公式定義</li>
+      <li><code>docs/design-system.css</code> — 本ページのカテゴリ → 値 マッピングが住む共有 CSS</li>
+      <li><code>apps/web/src/constants.rs</code> — 回路エディタの寸法定数 (GATE_SIZE / LINE_GAP など)</li>
+      <li><a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a> — 40px ゲートへの移行記録 (32→40 / 48→56 ピッチの経緯)</li>
+      <li><a href="../AGENTS.md">AGENTS.md</a> — UI / スタイルガイド (スケール外余白の禁止)</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · スペーシング仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>振幅表示ブロック — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
   <style>
 
     /* ── 振幅表示ブロック視覚スタイル ─────────────────────────
@@ -182,6 +189,12 @@
 </head>
 <body>
 
+
+
+<div id="preview">
+  <!-- 1 量子ビット (2 outcomes、2×1 grid) がもっともシンプルな代表例 -->
+  <div class="ad-host" data-span="1" data-state="hadamard1"></div>
+</div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
   <a href="design-system.html">デザインシステム</a>

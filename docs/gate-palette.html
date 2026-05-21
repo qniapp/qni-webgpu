@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gate palette — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -112,6 +119,20 @@
 </head>
 <body>
 
+
+
+<div id="preview">
+  <!-- Gates row の代表的な 5 個 -->
+  <div class="gp-stage" style="padding: 0; background: transparent; border: none; min-height: auto;">
+    <div class="gp-row" style="margin: 0;">
+      <div class="gp-gate"><div class="gate-body"><span class="g-letter">H</span></div></div>
+      <div class="gp-gate"><div class="gate-body"><span class="g-letter">X</span></div></div>
+      <div class="gp-gate"><div class="gate-body"><span class="g-letter">Y</span></div></div>
+      <div class="gp-gate"><div class="gate-body"><span class="g-letter">Z</span></div></div>
+      <div class="gp-gate"><div class="gate-body"><span class="g-letter">S</span></div></div>
+    </div>
+  </div>
+</div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
   <a href="design-system.html">デザインシステム</a>

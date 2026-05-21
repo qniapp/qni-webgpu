@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ブロッホ球表示ブロック — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
   <style>
 
     /* ── ブロッホ球表示ブロック 視覚スタイル (実コードと 1:1 で揃える) ───── */
@@ -141,6 +148,23 @@
 </head>
 <body>
 
+
+
+<div id="preview">
+  <!-- |+⟩ 状態の Bloch 球 (ベクトルが赤道上を指す代表例) -->
+  <div class="bd">
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <circle class="sphere" cx="20" cy="20" r="19" />
+      <line class="axis" x1="1" y1="20" x2="39" y2="20" />
+      <line class="axis" x1="20" y1="1" x2="20" y2="39" />
+      <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
+      <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
+      <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
+      <line class="vec" x1="20" y1="20" x2="13.67" y2="26.33" />
+      <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
+    </svg>
+  </div>
+</div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
   <a href="design-system.html">デザインシステム</a>

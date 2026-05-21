@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>配色 — デザインシステム</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ── 配色スウォッチグリッド ───────────────────── */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;             /* spacing-3 */
+      margin-top: 4px;
+    }
+    .swatch {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 12px;          /* spacing-3 */
+      display: flex; flex-direction: column; gap: 8px; /* spacing-2 */
+    }
+    .swatch .chip {
+      height: 64px;           /* spacing-16 */
+      border-radius: 8px;
+      border: 1px solid var(--ui-2);
+    }
+    .swatch .meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .swatch .meta .token {
+      font-family: var(--font-mono);
+      font-size: 14px;        /* text-sm */
+      line-height: 20px;
+      font-weight: 500;
+      color: var(--tx);
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+    .swatch .meta .hex {
+      font-family: var(--font-mono);
+      font-size: 12px;        /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+      letter-spacing: 0.04em;
+    }
+    .swatch .meta .role {
+      font-size: 12px;        /* text-xs */
+      line-height: 16px;
+      color: var(--tx-3);
+      margin: 0;
+    }
+
+    /* ── プレビュー (design-system.html サムネ用、9 色サンプル) ─── */
+    #preview .palette-strip {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 4px;
+      width: 220px;
+    }
+    #preview .palette-strip > span {
+      display: block;
+      height: 40px;
+      border-radius: 6px;
+      border: 1px solid var(--ui-2);
+    }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode のとき #preview だけ表示) -->
+<div id="preview">
+  <div class="palette-strip">
+    <span style="background: #FFFCF0"></span>
+    <span style="background: #DAD8CE"></span>
+    <span style="background: #6F6E69"></span>
+    <span style="background: #100F0F"></span>
+    <span style="background: #92BFDB"></span>
+    <span style="background: #205EA6"></span>
+    <span style="background: #66800B"></span>
+    <span style="background: #AF3029"></span>
+    <span style="background: #8B7EC8"></span>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">基礎</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">配色</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · foundations · colors</p>
+  <h1 class="page-title">配色</h1>
+  <p class="page-lede">
+    qni-webgpu は <a href="https://github.com/kepano/flexoki" target="_blank" rel="noopener">Flexoki Light</a>
+    (Steph Ango / kepano) のパレットだけを使う。Tailwind 等の独自色 (sky-500 / zinc-600 / emerald-500 など) は
+    使わず、必ず Flexoki の名前付きトーンにマップする。実装側の名→トーン対応は
+    <code>apps/web/src/colors.rs</code> の <code>flexoki_light()</code> が単一の出典。
+  </p>
+</div>
+
+<!-- ─────── § 01 中性色 (Neutrals) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>中性色 (Neutrals)</h2>
+  <p class="note">
+    背景 / 枠線 / テキストの 3 役を担うグレースケール 7 段階。Flexoki <code>base</code> 系の派生で、
+    背景は paper (<code>bg</code>) と base-50 (<code>bg-2</code>) の 2 段だけ、それ以外は枠 / テキストに割り当てる。
+  </p>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="chip" style="background: #FFFCF0;"></div>
+      <div class="meta">
+        <code class="token">--bg</code>
+        <span class="hex">#FFFCF0 · paper</span>
+        <p class="role">サーフェス (パレット / カード / 状態パネル本体)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #F2F0E5;"></div>
+      <div class="meta">
+        <code class="token">--bg-2</code>
+        <span class="hex">#F2F0E5 · base-50</span>
+        <p class="role">ページ背景 / 回路パネル背景</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #E6E4D9;"></div>
+      <div class="meta">
+        <code class="token">--ui</code>
+        <span class="hex">#E6E4D9 · base-100</span>
+        <p class="role">中立カード枠 / tooltip 枠 / ツールバーホバー背景</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #DAD8CE;"></div>
+      <div class="meta">
+        <code class="token">--ui-2</code>
+        <span class="hex">#DAD8CE · base-150</span>
+        <p class="role">量子ビットワイヤ / グリッド / ゲート外周 / 行区切り</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #B7B5AC;"></div>
+      <div class="meta">
+        <code class="token">--tx-3</code>
+        <span class="hex">#B7B5AC · base-300</span>
+        <p class="role">ラベル / ブロッホ球 軸 / 対数ヒント線 / 三次テキスト</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #6F6E69;"></div>
+      <div class="meta">
+        <code class="token">--tx-2</code>
+        <span class="hex">#6F6E69 · base-600</span>
+        <p class="role">本文テキスト / 二次グリフ / ツールバーアイコン</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #100F0F;"></div>
+      <div class="meta">
+        <code class="token">--tx</code>
+        <span class="hex">#100F0F · black</span>
+        <p class="role">強調テキスト / データインク / 位相 needle</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 アクセント色 (Accents) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>アクセント色 (Accents)</h2>
+  <p class="note">
+    用途別の色相群。<strong>Blue</strong> は状態 / 振幅 / ステップ、<strong>Purple</strong> はインタラクション
+    (hover / drag)、<strong>Red / Green</strong> は意味論 (|0⟩ / |1⟩ / completed / failed) に紐づく。
+    Yellow / Cyan / Orange は補助ドキュメント (サンプル回路選択ページなど) で使う。
+  </p>
+
+  <h3 style="margin: 16px 0 4px;">Blue (状態 / 振幅 / ステップ)</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="chip" style="background: #C6DDE8;"></div>
+      <div class="meta">
+        <code class="token">--blue-100</code>
+        <span class="hex">#C6DDE8</span>
+        <p class="role">薄い blue tint (補助カード背景など)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #92BFDB;"></div>
+      <div class="meta">
+        <code class="token">--blue-200</code>
+        <span class="hex">#92BFDB</span>
+        <p class="role">振幅ディスク fill / 確率バー fill (<code>state_fill</code>)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #66A0C8;"></div>
+      <div class="meta">
+        <code class="token">--blue-300</code>
+        <span class="hex">#66A0C8</span>
+        <p class="role">FPS HUD CPU プロット線</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #4385BE;"></div>
+      <div class="meta">
+        <code class="token">--blue-400</code>
+        <span class="hex">#4385BE</span>
+        <p class="role">振幅ディスク内枠 / 確率バー右端マーカー / ポップアップアイコン</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #205EA6;"></div>
+      <div class="meta">
+        <code class="token">--blue-600</code>
+        <span class="hex">#205EA6</span>
+        <p class="role">|1⟩ digit / 測定 1 / step preview / GPU 実行中 status / リンク色</p>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin: 16px 0 4px;">Purple (インタラクション)</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="chip" style="background: #8B7EC8;"></div>
+      <div class="meta">
+        <code class="token">--purple-400</code>
+        <span class="hex">#8B7EC8</span>
+        <p class="role">ゲートホバー枠 / リサイズハンドル default / FPS HUD total 線</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #5E409D;"></div>
+      <div class="meta">
+        <code class="token">--purple-600</code>
+        <span class="hex">#5E409D</span>
+        <p class="role">ドラッグ中ゲート fill / リサイズハンドル hover/active / 測定 idle / drag ghost</p>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin: 16px 0 4px;">Semantic (意味付き)</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="chip" style="background: #AF3029;"></div>
+      <div class="meta">
+        <code class="token">--red-600</code>
+        <span class="hex">#AF3029</span>
+        <p class="role">|0⟩ digit / 測定 0 / ブロッホ tip (z=+1) / GPU failed</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #66800B;"></div>
+      <div class="meta">
+        <code class="token">--green-600</code>
+        <span class="hex">#66800B</span>
+        <p class="role">GPU completed / done pill / FPS plot</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #DA702C;"></div>
+      <div class="meta">
+        <code class="token">--orange-400</code>
+        <span class="hex">#DA702C</span>
+        <p class="role">draft pill</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #BC5215;"></div>
+      <div class="meta">
+        <code class="token">--orange-600</code>
+        <span class="hex">#BC5215</span>
+        <p class="role">サンプル回路選択 (callout / option-tag)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #AD8301;"></div>
+      <div class="meta">
+        <code class="token">--yellow-600</code>
+        <span class="hex">#AD8301</span>
+        <p class="role">サンプル回路選択 (warn 状態)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #24837B;"></div>
+      <div class="meta">
+        <code class="token">--cyan-600</code>
+        <span class="hex">#24837B</span>
+        <p class="role">サンプル回路選択 (情報 / 補助ラベル)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #3AA99F;"></div>
+      <div class="meta">
+        <code class="token">--cyan-400</code>
+        <span class="hex">#3AA99F</span>
+        <p class="role">ユニタリゲート本体 fill (<code>box_fill</code>) / FPS svp 線</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 意味別マッピング (Semantic mapping) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>意味別マッピング</h2>
+  <p class="note">
+    <code>apps/web/src/colors.rs</code> の <code>flexoki_light()</code> で定義される
+    役割 → トーン の単一マップ。コードは tone を直接参照せず、<code>Colors</code> 構造体の役割名
+    (<code>state_fill</code> / <code>gate_hover_border</code> など) で参照する。新規ロールを追加するときは、
+    必ずここを通って Flexoki の名前付きトーンに紐付ける。
+  </p>
+  <table class="spec">
+    <thead>
+      <tr><th>役割</th><th>トーン</th><th>使い所</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>background</code></td><td><code>bg-2</code></td><td>ページ / 回路パネル背景</td></tr>
+      <tr><td><code>surface</code></td><td><code>bg</code> (paper)</td><td>パレット / カード / 状態パネル本体</td></tr>
+      <tr><td><code>line</code></td><td><code>ui-2</code></td><td>量子ビットワイヤ</td></tr>
+      <tr><td><code>box_fill</code></td><td><code>cyan-400</code></td><td>ユニタリゲート本体</td></tr>
+      <tr><td><code>drag_fill</code></td><td><code>purple-600</code></td><td>ドラッグ中 / preview ゲート本体</td></tr>
+      <tr><td><code>box_border</code></td><td><code>ui</code></td><td>中立カード / tooltip 枠</td></tr>
+      <tr><td><code>gate_hover_border</code></td><td><code>purple-400</code></td><td>ゲートホバー外枠 (4 px ring)</td></tr>
+      <tr><td><code>text</code></td><td><code>tx-2</code></td><td>本文テキスト</td></tr>
+      <tr><td><code>text_strong</code></td><td><code>tx</code></td><td>強調タイトル / データインク</td></tr>
+      <tr><td><code>state_fill</code></td><td><code>blue-200</code></td><td>振幅ディスク / 確率バー fill</td></tr>
+      <tr><td><code>amplitude_disk_border</code></td><td><code>blue-400</code></td><td>振幅ディスク 内枠 (inset)</td></tr>
+      <tr><td><code>state_outline</code></td><td><code>tx-2</code></td><td>非ゼロ振幅 outline</td></tr>
+      <tr><td><code>state_outline_zero</code></td><td><code>ui-2</code></td><td>ゼロ振幅 outline</td></tr>
+      <tr><td><code>state_needle</code></td><td><code>tx</code></td><td>位相 needle</td></tr>
+      <tr><td><code>probability_log_hint</code></td><td><code>tx-3</code></td><td>確率表示 対数ヒント線</td></tr>
+      <tr><td><code>semantic_off</code></td><td><code>red-600</code></td><td>|0⟩ digit / 測定 0</td></tr>
+      <tr><td><code>semantic_on</code></td><td><code>blue-600</code></td><td>|1⟩ digit / 測定 1</td></tr>
+      <tr><td><code>semantic_intermediate</code></td><td><code>purple-600</code></td><td>測定 idle / drag ghost</td></tr>
+      <tr><td><code>semantic_disabled</code></td><td><code>tx-2</code></td><td>無効 / ブラケット chrome</td></tr>
+      <tr><td><code>span_resize_handle_bg</code></td><td><code>purple-400</code></td><td>リサイズハンドル default 色</td></tr>
+      <tr><td><code>span_resize_handle_bg_hover</code></td><td><code>purple-600</code></td><td>リサイズハンドル hover / active 色</td></tr>
+      <tr><td><code>bloch_sphere_lines</code></td><td><code>tx-3</code></td><td>ブロッホ球 軸 / 緯線 / 経線</td></tr>
+      <tr><td><code>bloch_vector_tip</code></td><td><code>red-600</code></td><td>ブロッホ tip (z=+1 側、reduced は equator gradient)</td></tr>
+      <tr><td><code>bloch_vector_zero</code></td><td><code>blue-600</code></td><td>ブロッホ |v|=0 中心ドット</td></tr>
+      <tr><td><code>gpu_status_running</code></td><td><code>blue-600</code></td><td>GPU 実行中 status</td></tr>
+      <tr><td><code>gpu_status_completed</code></td><td><code>green-600</code></td><td>GPU 完了 status</td></tr>
+      <tr><td><code>gpu_status_failed</code></td><td><code>red-600</code></td><td>GPU 失敗 status</td></tr>
+      <tr><td><code>toolbar_hover_bg</code></td><td><code>ui</code></td><td>ツールバーアイコン hover 背景</td></tr>
+      <tr><td><code>toolbar_icon</code></td><td><code>tx-2</code></td><td>ツールバーアイコン (idle)</td></tr>
+      <tr><td><code>toolbar_icon_hover</code></td><td><code>tx</code></td><td>ツールバーアイコン (hover)</td></tr>
+      <tr><td><code>toolbar_icon_disabled</code></td><td><code>tx-3</code></td><td>ツールバーアイコン (disabled / Example lock)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────── § 04 ステータス pill ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>ステータス pill (デザインシステム index 用)</h2>
+  <p class="note">
+    インデックスページ (<a href="design-system.html">design-system.html</a>) のカードに表示する状態ラベル。
+    <code>color</code> + 透過 <code>border</code> / <code>background</code> の 3 層で構成。
+  </p>
+  <table class="spec">
+    <thead>
+      <tr><th>pill</th><th>色</th><th>用途</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>spec</code></td><td><code>green-600</code></td><td>仕様ドキュメント済</td></tr>
+      <tr><td><code>draft</code></td><td><code>orange-400</code></td><td>モック / 検討中</td></tr>
+      <tr><td><code>todo</code></td><td><code>tx-3</code></td><td>未着手 (今後追加)</td></tr>
+      <tr><td><code>ref</code></td><td><code>blue-600</code></td><td>横断的な参照ドキュメント</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────── § 05 参照 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>参照</h2>
+  <div class="card">
+    <ul style="margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px;">
+      <li><a href="https://github.com/kepano/flexoki" target="_blank" rel="noopener">kepano/flexoki</a> — Flexoki オリジナル仕様 (Steph Ango)</li>
+      <li><code>apps/web/src/colors.rs</code> — 実装側 <code>flexoki_light()</code> と <code>Colors</code> 役割定義</li>
+      <li><code>docs/design-system.css</code> — ドキュメント側の <code>:root</code> CSS 変数 (本ページのトーンと 1:1)</li>
+      <li><a href="../AGENTS.md">AGENTS.md</a> — UI / スタイルガイド (Flexoki 厳守ルール、disallowed-methods 検知)</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 配色仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

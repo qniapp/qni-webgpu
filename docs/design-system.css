@@ -231,6 +231,29 @@ pre.code {
   color: var(--tx);
 }
 
+/* ── preview-mode ─────────────────────────────────────
+   各 spec ページが design-system.html のサムネ用 iframe (src="page.html?preview")
+   から呼ばれたときに使う。<script> で documentElement に `preview-mode` クラスを
+   付与し、#preview 以外を隠す。本来のページ表示時は #preview 自体を非表示にして
+   左上にゴーストが出るのを防ぐ。 */
+#preview { display: none; }
+
+html.preview-mode body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-2);
+  min-height: 0;
+}
+html.preview-mode body > *:not(#preview) { display: none !important; }
+html.preview-mode #preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72px;
+  padding: 8px;
+  overflow: hidden;
+}
+
 /* ── フッタ (← 戻る + メタ) ───────────────────────────── */
 footer.doc-foot {
   max-width: 1100px;

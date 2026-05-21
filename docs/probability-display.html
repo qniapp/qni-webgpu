@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>確率表示ブロック — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
        table.spec / pre.code / nav.breadcrumb / footer.doc-foot 等) は
@@ -254,6 +261,12 @@
   </style>
 </head>
 <body>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode のとき #preview だけ表示)。
+     1 量子ビット (測定結果 2 通り、40 × 40 px) がもっともシンプルな代表例。 -->
+<div id="preview">
+  <div class="cd-host" data-height="40" data-probs="70,30" data-no-popup="true"></div>
+</div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
   <a href="design-system.html">デザインシステム</a>

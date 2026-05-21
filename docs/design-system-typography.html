@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タイポグラフィ — デザインシステム</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ── サイズスケール スペシメン ─────────────────── */
+    .type-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;                /* spacing-2 */
+      margin-top: 4px;
+    }
+    .type-spec {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 16px 20px;      /* spacing-4 / spacing-5 */
+      display: grid;
+      grid-template-columns: minmax(160px, auto) 1fr;
+      gap: 16px;               /* spacing-4 */
+      align-items: baseline;
+    }
+    .type-spec .meta { display: flex; flex-direction: column; gap: 4px; }
+    .type-spec .meta .token {
+      font-family: var(--font-mono);
+      font-size: 14px;         /* text-sm */
+      line-height: 20px;
+      font-weight: 500;
+      color: var(--tx);
+      background: var(--ui);
+      border: 1px solid var(--ui-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+    .type-spec .meta .props {
+      font-family: var(--font-mono);
+      font-size: 12px;         /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+      letter-spacing: 0.04em;
+    }
+    .type-spec .meta .role {
+      font-size: 12px;         /* text-xs */
+      line-height: 16px;
+      color: var(--tx-3);
+      margin: 0;
+    }
+    .type-spec .sample {
+      margin: 0;
+      color: var(--tx);
+    }
+    .type-spec .sample.mono { font-family: var(--font-mono); }
+
+    /* ── フォントファミリー比較 ─────────────────────── */
+    .font-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;               /* spacing-3 */
+      margin-top: 4px;
+    }
+    .font-card {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 16px 20px;      /* spacing-4 / spacing-5 */
+    }
+    .font-card .name {
+      font-family: var(--font-mono);
+      font-size: 12px;         /* text-xs */
+      line-height: 16px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tx-3);
+      margin-bottom: 8px;
+    }
+    .font-card .specimen {
+      font-size: 32px;
+      line-height: 40px;
+      margin: 0;
+      color: var(--tx);
+      letter-spacing: -0.01em;
+    }
+    .font-card .specimen.mono { font-family: var(--font-mono); }
+    .font-card .weights {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;               /* spacing-4 */
+      margin-top: 12px;
+      font-size: 16px;         /* text-base */
+      line-height: 24px;
+      color: var(--tx-2);
+    }
+    .font-card .weights.mono { font-family: var(--font-mono); }
+    .font-card .weights span { display: inline-flex; align-items: baseline; gap: 4px; }
+    .font-card .weights span small {
+      font-family: var(--font-mono);
+      font-size: 12px;         /* text-xs */
+      color: var(--tx-3);
+    }
+    .font-card p.note { margin: 12px 0 0; }
+
+    /* ── プレビュー (design-system.html サムネ用) ───── */
+    #preview .type-strip {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 8px 12px;
+    }
+    #preview .type-strip span { color: var(--tx); }
+    #preview .type-strip .xl { font-size: 32px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; }
+    #preview .type-strip .md { font-size: 18px; line-height: 18px; font-weight: 500; color: var(--tx-2); }
+    #preview .type-strip .sm { font-size: 14px; line-height: 14px; color: var(--tx-3); }
+    #preview .type-strip .mono { font-family: var(--font-mono); font-size: 14px; line-height: 14px; color: var(--tx-2); }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode のとき #preview だけ表示) -->
+<div id="preview">
+  <div class="type-strip">
+    <span class="xl">Aa</span>
+    <span class="md">Aa</span>
+    <span class="sm">Aa</span>
+    <span class="mono">Aa</span>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">基礎</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">タイポグラフィ</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · foundations · typography</p>
+  <h1 class="page-title">タイポグラフィ</h1>
+  <p class="page-lede">
+    フォントは <strong>Geist</strong> (本文) と <strong>Geist Mono</strong> (コード / 数値 / ラベル) の 2 系のみ。
+    日本語は <code>Hiragino Kaku Gothic ProN</code> / <code>Yu Gothic</code> / system-ui にフォールバック。
+    サイズは <a href="https://tailwindcss.com/docs/font-size" target="_blank" rel="noopener">Tailwind text-* スケール</a>
+    (text-xs 12 / text-sm 14 / text-base 16 / text-lg 18 / text-xl 20 / text-2xl 24 / text-3xl 30) のみ使う。
+    13px / 11px / 9px などスケール外サイズは <strong>使わない</strong>。
+  </p>
+</div>
+
+<!-- ─────── § 01 フォントファミリー ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>フォントファミリー</h2>
+  <p class="note">
+    本文系 / 等幅系の 2 系で完結させる。等幅系は数値・ラベル・<code>code</code> 要素 / シリアル ID など、
+    桁揃え (<code>tabular-nums</code>) や ASCII の比率を保ちたい用途に限定する。
+  </p>
+  <div class="font-grid">
+    <div class="font-card">
+      <div class="name">Geist (sans)</div>
+      <p class="specimen">qni-webgpu — Aa あ 0123</p>
+      <div class="weights">
+        <span style="font-weight: 400;">Regular <small>400</small></span>
+        <span style="font-weight: 500;">Medium <small>500</small></span>
+        <span style="font-weight: 600;">Semibold <small>600</small></span>
+        <span style="font-weight: 700;">Bold <small>700</small></span>
+      </div>
+      <p class="note">
+        ページタイトル / 本文 / リード文 / カード名など UI の主役テキストすべて。
+        日本語はシステムフォントへフォールバック。
+      </p>
+    </div>
+    <div class="font-card">
+      <div class="name">Geist Mono</div>
+      <p class="specimen mono">qni-webgpu — Aa 0123</p>
+      <div class="weights mono">
+        <span style="font-weight: 400;">Regular <small>400</small></span>
+        <span style="font-weight: 500;">Medium <small>500</small></span>
+        <span style="font-weight: 600;">Semibold <small>600</small></span>
+        <span style="font-weight: 700;">Bold <small>700</small></span>
+      </div>
+      <p class="note">
+        コードリテラル (<code>code</code>) / 数値 (確率 % / Bloch 座標) / eyebrow ラベル /
+        meta テキスト / 状態 pill / table 見出しなど。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 サイズスケール ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>サイズスケール (Tailwind text-*)</h2>
+  <p class="note">
+    実際にこのドキュメントセットで使うサイズだけ列挙。サンプルはそのサイズ・行間で表示。
+    line-height は対応する Tailwind 既定 (text-xs → 16 / text-sm → 20 / text-base → 24 / text-2xl → 32 / text-3xl → 36) を使う。
+  </p>
+  <div class="type-grid">
+
+    <div class="type-spec">
+      <div class="meta">
+        <code class="token">text-3xl</code>
+        <span class="props">30px / 36px / 700</span>
+        <p class="role">ページタイトル (<code>h1.page-title</code>)</p>
+      </div>
+      <p class="sample" style="font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -0.01em;">デザインシステム</p>
+    </div>
+
+    <div class="type-spec">
+      <div class="meta">
+        <code class="token">text-2xl</code>
+        <span class="props">24px / 32px / 400</span>
+        <p class="role">セクション見出し (<code>section.block &gt; h2</code>)</p>
+      </div>
+      <p class="sample" style="font-size: 24px; line-height: 32px; letter-spacing: -0.01em;">表示ブロック (Display blocks)</p>
+    </div>
+
+    <div class="type-spec">
+      <div class="meta">
+        <code class="token">text-base</code>
+        <span class="props">16px / 24px / 400</span>
+        <p class="role">本文・リード文 (<code>body</code> / <code>p.page-lede</code> / <code>.card h3</code> は 600)</p>
+      </div>
+      <p class="sample" style="font-size: 16px; line-height: 24px;">qni-webgpu の UI コンポーネント仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 つにまとめたインデックス。</p>
+    </div>
+
+    <div class="type-spec">
+      <div class="meta">
+        <code class="token">text-sm</code>
+        <span class="props">14px / 20px / 400</span>
+        <p class="role">説明文 (<code>.note</code> / カード <code>.desc</code> / リンクリスト)</p>
+      </div>
+      <p class="sample" style="font-size: 14px; line-height: 20px;">span 内 量子ビットを測定したときの outcome 確率を横バーで可視化する表示ブロック。</p>
+    </div>
+
+    <div class="type-spec">
+      <div class="meta">
+        <code class="token">text-xs</code>
+        <span class="props">12px / 16px / 400-500</span>
+        <p class="role">eyebrow / pill / meta / table 見出し / インラインコード</p>
+      </div>
+      <p class="sample mono" style="font-size: 12px; line-height: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3);">qni-webgpu · design system · foundations</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────── § 03 役割別マッピング ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>役割別マッピング</h2>
+  <p class="note">
+    <code>docs/design-system.css</code> の各セレクタが採用するフォント・サイズ・ウェイトの一覧。
+    新規ロールを追加するときは、必ずここに既存トークンを再利用 (新サイズを作らない)。
+  </p>
+  <table class="spec">
+    <thead>
+      <tr><th>セレクタ / 役割</th><th>フォント</th><th>サイズ / 行間</th><th>ウェイト</th><th>備考</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>h1.page-title</code></td><td>Geist</td><td>30 / 36</td><td>700</td><td>letter-spacing: -0.01em</td></tr>
+      <tr><td><code>section.block &gt; h2</code></td><td>Geist</td><td>24 / 32</td><td>400</td><td>letter-spacing: -0.01em / num 子要素は mono 12 / 500</td></tr>
+      <tr><td><code>body</code></td><td>Geist</td><td>16 / 24</td><td>400</td><td>—</td></tr>
+      <tr><td><code>p.page-lede</code></td><td>Geist</td><td>16 / 24</td><td>400</td><td>max-width 760px / color tx-2</td></tr>
+      <tr><td><code>.note</code></td><td>Geist</td><td>14 / 20</td><td>400</td><td>color tx-2 / max-width 820px</td></tr>
+      <tr><td><code>.card h3</code></td><td>Geist</td><td>16 / —</td><td>600</td><td>カード見出し</td></tr>
+      <tr><td><code>.card p</code></td><td>Geist</td><td>14 / 20</td><td>400</td><td>color tx-2</td></tr>
+      <tr><td><code>.spec-card .name</code></td><td>Geist</td><td>14 / 20</td><td>600</td><td>letter-spacing -0.005em</td></tr>
+      <tr><td><code>.spec-card .desc</code></td><td>Geist</td><td>12 / 16</td><td>400</td><td>color tx-2 (dim カードは tx-3)</td></tr>
+      <tr><td><code>.eyebrow</code></td><td>Geist Mono</td><td>12 / 16</td><td>400</td><td>letter-spacing 0.18em / UPPERCASE / color tx-3</td></tr>
+      <tr><td><code>nav.breadcrumb</code></td><td>Geist Mono</td><td>12 / 16</td><td>400-500</td><td>letter-spacing 0.06em / current は 500</td></tr>
+      <tr><td><code>.pill</code></td><td>Geist Mono</td><td>12 / 16</td><td>400</td><td>letter-spacing 0.1em / UPPERCASE</td></tr>
+      <tr><td><code>table.spec th</code></td><td>Geist Mono</td><td>12 / —</td><td>500</td><td>letter-spacing 0.14em / UPPERCASE / color tx-3 / width 180</td></tr>
+      <tr><td><code>table.spec td</code></td><td>Geist</td><td>14 / —</td><td>400</td><td>—</td></tr>
+      <tr><td><code>p code, td code, …</code></td><td>Geist Mono</td><td>12 / —</td><td>400</td><td>ui bg + ui-2 1px border + 4px rounded</td></tr>
+      <tr><td><code>pre.code</code></td><td>Geist Mono</td><td>12 / 20</td><td>400</td><td>ui bg / 6px rounded / overflow-x: auto</td></tr>
+      <tr><td><code>footer.doc-foot .meta</code></td><td>Geist Mono</td><td>12 / 16</td><td>400</td><td>letter-spacing 0.16em / UPPERCASE / color tx-3</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────── § 04 参照 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>参照</h2>
+  <div class="card">
+    <ul style="margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px;">
+      <li><a href="https://tailwindcss.com/docs/font-size" target="_blank" rel="noopener">Tailwind CSS — Font Size</a> — text-* スケールの公式定義</li>
+      <li><a href="https://vercel.com/font" target="_blank" rel="noopener">Geist (Vercel)</a> — Geist / Geist Mono の出典</li>
+      <li><code>docs/design-system.css</code> — 本ページの 役割 → サイズ マッピングが住む共有 CSS</li>
+      <li><a href="../AGENTS.md">AGENTS.md</a> — UI / スタイルガイド (スケール外サイズの禁止)</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · タイポグラフィ仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

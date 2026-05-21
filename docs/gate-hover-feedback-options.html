@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gate Hover Feedback Options — egui-web</title>
   <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
   <style>
     /* Flexoki Light — kepano/flexoki named tones only. */
     /* 共有 Flexoki vars / Geist フォントは design-system.css 側にある。
@@ -361,6 +368,17 @@
   </style>
 </head>
 <body>
+
+
+<div id="preview">
+  <!-- 案 A (推奨案、blue ring + halo) のホバー中ゲート -->
+  <div class="palette" style="padding: 12px; gap: 10px;">
+    <span class="gate hovered">H</span>
+    <span class="gate">X</span>
+    <span class="gate">Y</span>
+    <span class="gate">Z</span>
+  </div>
+</div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
   <a href="design-system.html">デザインシステム</a>
