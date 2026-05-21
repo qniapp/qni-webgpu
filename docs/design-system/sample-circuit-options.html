@@ -109,7 +109,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
 <body>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
-  <a href="design-system.html">デザインシステム</a>
+  <a href="../design-system.html">デザインシステム</a>
   <span class="sep">/</span>
   <span class="parent">周辺 UI</span>
   <span class="sep">/</span>
@@ -460,7 +460,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
 <script>(function(){const toc=document.getElementById('toc');if(!toc)return;const links=[...toc.querySelectorAll('a')];const sections=links.map(link=>({link,el:document.getElementById(link.getAttribute('href').slice(1))})).filter(x=>x.el);const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;links.forEach(l=>l.classList.remove('active'));const match=sections.find(x=>x.el===entry.target);if(match){match.link.classList.add('active');if(window.innerWidth<=1080)match.link.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}})},{rootMargin:'-10% 0px -78% 0px'});sections.forEach(x=>observer.observe(x.el));links.forEach(link=>link.addEventListener('click',e=>{e.preventDefault();const el=document.getElementById(link.getAttribute('href').slice(1));if(el){el.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'','#'+el.id);}}));})();</script>
 
 <footer class="doc-foot">
-  <p class="back"><a href="design-system.html">← デザインシステムに戻る</a></p>
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
   <p class="meta">qni-webgpu · サンプル回路選択検討 · 2026-05</p>
 </footer>
 

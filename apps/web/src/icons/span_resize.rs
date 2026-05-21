@@ -4,7 +4,7 @@ use eframe::egui;
 
 /// Top / bottom resize pill shared by all resizable-span gates. `rect` is
 /// the unscaled handle box (24 px minimum, wider for Amplitude display); the
-/// scale / alpha model from docs/probability-display.html §11 stays unchanged.
+/// scale / alpha model from docs/design-system/probability-display.html §11 stays unchanged.
 pub(crate) fn draw_span_resize_handle(
     painter: &egui::Painter,
     rect: egui::Rect,

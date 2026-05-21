@@ -63,7 +63,7 @@ impl QniApp {
                 continue;
             }
             let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
-            // docs/amplitude-display.html §04: Amplitude's footprint follows
+            // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
             // draw area. The shared span-resize component uses that same body.
             let body_rect = span_resize_body_rect(gate.kind, gate.span, gate_rect);
@@ -396,7 +396,7 @@ impl QniApp {
         let ket = amplitude_hover_popup_ket(outcome, span);
         let subtitle = amplitude_hover_popup_subtitle(outcome);
 
-        // Popup typography follows docs/amplitude-display.html §09:
+        // Popup typography follows docs/design-system/amplitude-display.html §09:
         // text-sm ket, text-xs subtitle/labels, Tailwind 4px spacing scale.
         let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
         let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
@@ -553,7 +553,7 @@ impl QniApp {
             return;
         };
 
-        // Popup typography follows docs/probability-display.html §10: text-sm ket,
+        // Popup typography follows docs/design-system/probability-display.html §10: text-sm ket,
         // text-xs subtitle/labels, spacing on the Tailwind 4px scale.
         let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
         let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.

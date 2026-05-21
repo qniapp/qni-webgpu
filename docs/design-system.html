@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>qni-webgpu デザインシステム — インデックス</title>
-  <link rel="stylesheet" href="design-system.css" />
+  <link rel="stylesheet" href="design-system/design-system.css" />
   <style>
     /* index 固有スタイル (spec-grid / spec-card / preview / pill / link-list / legend)。
        共通スタイル (body / .page / section.block / .card / table.spec / pre.code 等) は
@@ -134,7 +134,7 @@
   <p class="page-lede">
     qni-webgpu の UI コンポーネント仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 つにまとめたインデックス。
     各カードは個別の仕様ドキュメント (<code>docs/&lt;component&gt;.html</code>) にリンクしており、
-    <a href="probability-display.html">probability-display.html</a> をテンプレートとして同じ構造で増やしていく。
+    <a href="design-system/probability-display.html">probability-display.html</a> をテンプレートとして同じ構造で増やしていく。
     配色は <strong>Flexoki Light</strong>、タイポ / 余白は <strong>Tailwind デフォルトスケール</strong>に厳密に合わせる。
   </p>
 
@@ -157,9 +157,9 @@
   </p>
   <div class="spec-grid">
 
-    <a class="spec-card" href="design-system-colors.html">
+    <a class="spec-card" href="design-system/design-system-colors.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system-colors.html?preview" loading="lazy" scrolling="no" title="配色 preview"></iframe>
+        <iframe src="design-system/design-system-colors.html?preview" loading="lazy" scrolling="no" title="配色 preview"></iframe>
       </div>
       <div class="row">
         <span class="name">配色</span>
@@ -168,9 +168,9 @@
       <p class="desc">Flexoki Light の中性色 + アクセント色一覧と、実装側 <code>colors.rs</code> の意味別マッピング。</p>
     </a>
 
-    <a class="spec-card" href="design-system-typography.html">
+    <a class="spec-card" href="design-system/design-system-typography.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system-typography.html?preview" loading="lazy" scrolling="no" title="タイポグラフィ preview"></iframe>
+        <iframe src="design-system/design-system-typography.html?preview" loading="lazy" scrolling="no" title="タイポグラフィ preview"></iframe>
       </div>
       <div class="row">
         <span class="name">タイポグラフィ</span>
@@ -179,9 +179,9 @@
       <p class="desc">Geist / Geist Mono と Tailwind text-xs / text-sm / text-base スケールの使い分け。</p>
     </a>
 
-    <a class="spec-card" href="design-system-spacing.html">
+    <a class="spec-card" href="design-system/design-system-spacing.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system-spacing.html?preview" loading="lazy" scrolling="no" title="スペーシング preview"></iframe>
+        <iframe src="design-system/design-system-spacing.html?preview" loading="lazy" scrolling="no" title="スペーシング preview"></iframe>
       </div>
       <div class="row">
         <span class="name">スペーシング</span>
@@ -201,9 +201,9 @@
   </p>
   <div class="spec-grid">
 
-    <a class="spec-card" href="probability-display.html">
+    <a class="spec-card" href="design-system/probability-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="probability-display.html?preview" loading="lazy" scrolling="no" title="確率表示ブロック preview"></iframe>
+        <iframe src="design-system/probability-display.html?preview" loading="lazy" scrolling="no" title="確率表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">確率表示ブロック</span>
@@ -212,9 +212,9 @@
       <p class="desc">span 内 量子ビットを測定したときの outcome 確率を横バーで可視化する表示ブロック。</p>
     </a>
 
-    <a class="spec-card" href="bloch-display.html">
+    <a class="spec-card" href="design-system/bloch-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="bloch-display.html?preview" loading="lazy" scrolling="no" title="ブロッホ球表示ブロック preview"></iframe>
+        <iframe src="design-system/bloch-display.html?preview" loading="lazy" scrolling="no" title="ブロッホ球表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">ブロッホ球表示ブロック</span>
@@ -223,9 +223,9 @@
       <p class="desc">単一量子ビットのブロッホベクトル (x, y, z) を透視投影 + 矢印で可視化する表示ブロック。</p>
     </a>
 
-    <a class="spec-card" href="amplitude-display.html">
+    <a class="spec-card" href="design-system/amplitude-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="amplitude-display.html?preview" loading="lazy" scrolling="no" title="振幅表示ブロック preview"></iframe>
+        <iframe src="design-system/amplitude-display.html?preview" loading="lazy" scrolling="no" title="振幅表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">振幅表示ブロック</span>
@@ -415,9 +415,9 @@
       <p class="desc">制御線 / swap 線 / span 結合線などのコネクタ描画。</p>
     </div>
 
-    <a class="spec-card" href="gate-hover-feedback-options.html">
+    <a class="spec-card" href="design-system/gate-hover-feedback-options.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="gate-hover-feedback-options.html?preview" loading="lazy" scrolling="no" title="Gate hover feedback preview"></iframe>
+        <iframe src="design-system/gate-hover-feedback-options.html?preview" loading="lazy" scrolling="no" title="Gate hover feedback preview"></iframe>
       </div>
       <div class="row"><span class="name">Gate hover feedback</span><span class="pill draft">draft</span></div>
       <p class="desc">ゲートホバー時の枠 / ハイライト挙動 (purple-400 ring + paper gap)。</p>
@@ -460,9 +460,9 @@
   </p>
   <div class="spec-grid">
 
-    <a class="spec-card" href="gate-palette.html">
+    <a class="spec-card" href="design-system/gate-palette.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="gate-palette.html?preview" loading="lazy" scrolling="no" title="Gate palette preview"></iframe>
+        <iframe src="design-system/gate-palette.html?preview" loading="lazy" scrolling="no" title="Gate palette preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Gate palette</span>
@@ -471,9 +471,9 @@
       <p class="desc">回路エディタ上部の 2 行ゲートパレット (40 × 40 px アイコンの drag source)。</p>
     </a>
 
-    <a class="spec-card" href="circuit-picker.html">
+    <a class="spec-card" href="design-system/circuit-picker.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="circuit-picker.html?preview" loading="lazy" scrolling="no" title="Circuit picker preview"></iframe>
+        <iframe src="design-system/circuit-picker.html?preview" loading="lazy" scrolling="no" title="Circuit picker preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Circuit picker</span>
@@ -482,17 +482,17 @@
       <p class="desc">複数回路を切り替える / 並び替える / リサイズするドロップダウン式ピッカー。</p>
     </a>
 
-    <a class="spec-card" href="toolbar-duplicate-mock.html">
+    <a class="spec-card" href="design-system/toolbar-duplicate-mock.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="toolbar-duplicate-mock.html?preview" loading="lazy" scrolling="no" title="Toolbar preview"></iframe>
+        <iframe src="design-system/toolbar-duplicate-mock.html?preview" loading="lazy" scrolling="no" title="Toolbar preview"></iframe>
       </div>
       <div class="row"><span class="name">Toolbar</span><span class="pill draft">draft</span></div>
       <p class="desc">回路上部の操作ツールバー (undo / redo / trash / duplicate / run など)。</p>
     </a>
 
-    <a class="spec-card" href="lock-button.html">
+    <a class="spec-card" href="design-system/lock-button.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="lock-button.html?preview" loading="lazy" scrolling="no" title="Lock / Unlock button preview"></iframe>
+        <iframe src="design-system/lock-button.html?preview" loading="lazy" scrolling="no" title="Lock / Unlock button preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Lock / Unlock button</span>
@@ -501,7 +501,7 @@
       <p class="desc">ツールバー右端のロックトグル。Example 回路の保護とユーザ意図的ロックを 1 ボタンで扱う。</p>
     </a>
 
-    <a class="spec-card" href="gpu-run-status-mock.html">
+    <a class="spec-card" href="design-system/gpu-run-status-mock.html">
       <div class="preview" aria-hidden="true">
         <svg viewBox="0 0 132 56" width="132" height="56" xmlns="http://www.w3.org/2000/svg">
           <rect x="18" y="20" width="96" height="16" rx="8" fill="#FFFCF0" stroke="#DAD8CE"/>
@@ -610,8 +610,8 @@
       <li><span class="kind">arch</span><a href="design-system-architecture.html">design-system-architecture.html</a></li>
       <li><span class="kind">arch</span><a href="project-overview.html">project-overview.html</a></li>
       <li><span class="kind">migr</span><a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a></li>
-      <li><span class="kind">mock</span><a href="probability-display-mock.html">probability-display-mock.html</a></li>
-      <li><span class="kind">mock</span><a href="probability-display-corner-options.html">probability-display-corner-options.html</a></li>
+      <li><span class="kind">mock</span><a href="design-system/probability-display-mock.html">probability-display-mock.html</a></li>
+      <li><span class="kind">mock</span><a href="design-system/probability-display-corner-options.html">probability-display-corner-options.html</a></li>
       <li><span class="kind">spec</span><a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a></li>
       <li><span class="kind">plan</span><a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a></li>
       <li><span class="kind">mock</span><a href="large-gpu-mode-ui-mock.html">large-gpu-mode-ui-mock.html</a></li>
@@ -627,7 +627,7 @@
   <div class="card">
     <p>新しいコンポーネントの仕様を増やすときは、以下の順で進める。</p>
     <ol style="margin: 4px 0 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7;">
-      <li><a href="probability-display.html"><code>docs/probability-display.html</code></a> をコピーし <code>docs/&lt;component&gt;.html</code> として保存する。</li>
+      <li><a href="design-system/probability-display.html"><code>docs/probability-display.html</code></a> をコピーし <code>docs/&lt;component&gt;.html</code> として保存する。</li>
       <li>セクション構成 (寸法 / 配色 / 挙動 / 実装参照) は維持し、実コードの値と <strong>1:1</strong> で揃える。</li>
       <li>配色は Flexoki Light のみ、フォントサイズ / 余白は Tailwind デフォルトスケールから選ぶ (<a href="../AGENTS.md">AGENTS.md</a> 参照)。</li>
       <li>ASCII アートは使わず、図は HTML/CSS または Mermaid / インライン SVG で描く。</li>

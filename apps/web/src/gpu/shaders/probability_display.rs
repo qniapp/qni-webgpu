@@ -139,7 +139,7 @@ const GLYPH_PERCENT: u32 = 14u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 const PROBABILITY_TEXT_CHARS: u32 = 6u;
 const PROBABILITY_TEXT_DIGIT_W: f32 = 7.0;
-// docs/probability-display.html §06: Geist Mono dot uses the normal 9px cell
+// docs/design-system/probability-display.html §06: Geist Mono dot uses the normal 9px cell
 // squeezed by −3px side margins, so it still gets a centre sample column.
 const PROBABILITY_TEXT_DOT_W: f32 = 3.0;
 const PROBABILITY_TEXT_CHAR_H: f32 = 16.0;

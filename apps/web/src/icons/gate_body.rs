@@ -143,7 +143,7 @@ fn draw_amplitude_preview_body(
 }
 
 fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
-    // docs/amplitude-display.html §02: 40×40 mini preview, one cell with
+    // docs/design-system/amplitude-display.html §02: 40×40 mini preview, one cell with
     // mag²≈50% and phase=5π/4, producing a Q-like lower-right tail.
     let center = rect.center();
     let stroke_width = 2.0;
@@ -183,7 +183,7 @@ fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colo
     // GPU Probability render callback, directly from `probability_output`.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
 
-    // docs/probability-display.html §02: 4 行のガウス風 mini preview。
+    // docs/design-system/probability-display.html §02: 4 行のガウス風 mini preview。
     // 本体と同じく blue-200 bar + blue-400 右端マーカー、区切り線は
     // 隣接 2 行の広いバーの右端から右端までだけ引く。
     let row_h = rect.height() / PROBABILITY_PREVIEW_BAR_WIDTHS.len() as f32;

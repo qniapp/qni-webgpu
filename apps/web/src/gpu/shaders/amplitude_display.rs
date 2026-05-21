@@ -296,7 +296,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     } else {
         let stroke = select(1.0, 2.0, cell >= 24.0);
         let half_stroke = stroke * 0.5;
-        // docs/amplitude-display.html §05 pseudocode: r_outline =
+        // docs/design-system/amplitude-display.html §05 pseudocode: r_outline =
         // cell_size / 2 - stroke. The 1px slack keeps the circle stroke
         // inside the rectangular matrix frame instead of sharing its edge.
         let outline_radius = max(0.0, cell * 0.5 - stroke);
@@ -342,7 +342,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                 color = blend_over(color, disk);
             }
             if (radius >= 1.5) {
-                // docs/amplitude-display.html §05: draw the blue-400 disk
+                // docs/design-system/amplitude-display.html §05: draw the blue-400 disk
                 // border as an inset 1px stroke. Its outer edge is clamped to
                 // the filled disk radius, so the probability area does not
                 // grow when the darker rim is added.
