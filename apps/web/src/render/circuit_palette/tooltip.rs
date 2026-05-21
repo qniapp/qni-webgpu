@@ -1,6 +1,6 @@
 use eframe::egui;
 
-mod amplitude;
+mod amplitude_display;
 mod diagram;
 mod layout;
 mod text;

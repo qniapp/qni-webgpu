@@ -3,8 +3,8 @@
 //! Keep the public surface as constants so resource builders can import
 //! shader sources without knowing which file owns each WGSL program.
 
-mod amplitude;
-mod amplitude_popup_value;
+mod amplitude_display;
+mod amplitude_display_popup_value;
 mod bloch_display;
 mod digit;
 mod measure;
@@ -13,8 +13,8 @@ mod probability_display;
 mod probability_display_popup_value;
 mod state;
 
-pub(super) use amplitude::{AMPLITUDE_CAPTURE_SHADER, AMPLITUDE_RENDER_SHADER};
-pub(super) use amplitude_popup_value::AMPLITUDE_POPUP_VALUE_SHADER;
+pub(super) use amplitude_display::{AMPLITUDE_CAPTURE_SHADER, AMPLITUDE_RENDER_SHADER};
+pub(super) use amplitude_display_popup_value::AMPLITUDE_POPUP_VALUE_SHADER;
 pub(super) use bloch_display::{BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER};
 pub(super) use digit::MEASUREMENT_DIGIT_SHADER;
 pub(super) use measure::{MEASURE_COLLAPSE_SHADER, MEASURE_REDUCE_SHADER};

@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use super::amplitude::{draw_tooltip_amps, CIRCLE, CIRCLE_GAP};
+use super::amplitude_display::{draw_tooltip_amps, CIRCLE, CIRCLE_GAP};
 use super::text::{DIAGRAM_GAP, PARA_GAP};
 use crate::colors::Colors;
 use crate::gates::{GateInfo, GateKind};

@@ -4,13 +4,13 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
-const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude.rs')
+const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude_display.rs')
 const circuitGatesPath = path.join(rootDir, 'src', 'render', 'circuit_gates.rs')
 const spanResizePath = path.join(rootDir, 'src', 'span_resize.rs')
 const dragPreviewPath = path.join(rootDir, 'src', 'render', 'circuit_palette', 'drag_preview.rs')
 const gateBodyPath = path.join(rootDir, 'src', 'icons', 'gate_body.rs')
 const paramsPath = path.join(rootDir, 'src', 'gpu', 'params.rs')
-const amplitudeResourcesPath = path.join(rootDir, 'src', 'gpu', 'resources', 'amplitude.rs')
+const amplitudeResourcesPath = path.join(rootDir, 'src', 'gpu', 'resources', 'amplitude_display.rs')
 const amplitudeCallbackPath = path.join(rootDir, 'src', 'gpu', 'callbacks', 'amplitude_display.rs')
 
 const readRenderShader = async () => {

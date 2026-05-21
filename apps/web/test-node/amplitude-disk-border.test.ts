@@ -4,7 +4,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
-const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude.rs')
+const shaderPath = path.join(rootDir, 'src', 'gpu', 'shaders', 'amplitude_display.rs')
 const paramsPath = path.join(rootDir, 'src', 'gpu', 'params.rs')
 const colorsPath = path.join(rootDir, 'src', 'colors.rs')
 const circuitGatesPath = path.join(rootDir, 'src', 'render', 'circuit_gates.rs')

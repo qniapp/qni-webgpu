@@ -6,7 +6,7 @@
 //! updated only so test-only wasm APIs can read on demand.
 
 mod amplitude_display;
-mod amplitude_popup_value;
+mod amplitude_display_popup_value;
 mod bloch_display_overlay;
 mod measurement_digit;
 mod popup_value;
@@ -15,7 +15,7 @@ mod probability_display_popup_value;
 mod state_vector;
 
 pub(crate) use amplitude_display::AmplitudeDisplayCallback;
-pub(crate) use amplitude_popup_value::AmplitudePopupValueCallback;
+pub(crate) use amplitude_display_popup_value::AmplitudePopupValueCallback;
 pub(crate) use bloch_display_overlay::BlochOverlayCallback;
 pub(crate) use measurement_digit::MeasurementDigitCallback;
 pub(crate) use popup_value::PopupValueCallback;

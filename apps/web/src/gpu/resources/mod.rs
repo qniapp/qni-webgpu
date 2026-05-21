@@ -15,7 +15,7 @@
 //!   `aux_buffer` consumed by `digit`.
 //! * [`probability_display`] — Probability Display marginalization (compute) +
 //!   GPU-rendered bars. Both share the Probability output buffer.
-//! * [`amplitude`] — Amplitude display capture + GPU-rendered grid / popup.
+//! * [`amplitude_display`] — Amplitude Display capture + GPU-rendered grid / popup.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
@@ -30,7 +30,7 @@
 //! [`StateVectorResources::update_target_format`] now fans the call
 //! out to every render-bearing subsystem.
 
-mod amplitude;
+mod amplitude_display;
 mod bloch_display;
 mod common;
 mod digit;
@@ -41,7 +41,7 @@ mod state;
 
 use eframe::wgpu;
 
-use self::amplitude::AmplitudeResources;
+use self::amplitude_display::AmplitudeResources;
 use self::bloch_display::BlochResources;
 use self::common::Common;
 use self::digit::DigitResources;
