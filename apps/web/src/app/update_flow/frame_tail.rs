@@ -30,6 +30,7 @@ impl QniApp {
             self.hovered_palette_index,
             self.hovered_probability_outcome,
             self.hovered_amplitude_outcome,
+            self.hovered_density_cell,
             self.hovered_step,
         );
     }
@@ -55,6 +56,7 @@ fn publish_hover_snapshot(
     hovered_palette_index: Option<usize>,
     hovered_probability_outcome: Option<(u32, u32)>,
     hovered_amplitude_outcome: Option<(u32, u32)>,
+    hovered_density_cell: Option<(u32, u32)>,
     hovered_step: Option<usize>,
 ) {
     let gate = hovered_gate_id
@@ -69,11 +71,14 @@ fn publish_hover_snapshot(
     let amplitude = hovered_amplitude_outcome
         .map(|(gate_id, outcome)| format!("{{\"gateId\":{gate_id},\"outcome\":{outcome}}}"))
         .unwrap_or_else(|| "null".to_owned());
+    let density = hovered_density_cell
+        .map(|(gate_id, cell)| format!("{{\"gateId\":{gate_id},\"cell\":{cell}}}"))
+        .unwrap_or_else(|| "null".to_owned());
     let step = hovered_step
         .map(|index| index.to_string())
         .unwrap_or_else(|| "null".to_owned());
     let snapshot = format!(
-        "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredProbabilityOutcome\":{probability},\"hoveredAmplitudeOutcome\":{amplitude},\"hoveredStep\":{step}}}"
+        "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredProbabilityOutcome\":{probability},\"hoveredAmplitudeOutcome\":{amplitude},\"hoveredDensityCell\":{density},\"hoveredStep\":{step}}}"
     );
     crate::test_hooks::set_window_value(
         crate::test_hooks::QNI_HOVER_SNAPSHOT_JSON,
@@ -87,6 +92,7 @@ fn publish_hover_snapshot(
     _hovered_palette_index: Option<usize>,
     _hovered_probability_outcome: Option<(u32, u32)>,
     _hovered_amplitude_outcome: Option<(u32, u32)>,
+    _hovered_density_cell: Option<(u32, u32)>,
     _hovered_step: Option<usize>,
 ) {
 }

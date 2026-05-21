@@ -111,6 +111,21 @@
     /* アイコン: 行ホバーは無効、ゲート枠だけ受ける (静的プレビュー扱い) */
     .cd.icon .row { pointer-events: none; }
 
+    /* ─── 実行前プレースホルダ ───
+       シミュレーション (▶ Run) 未実行で確率値がまだ無い状態。
+       背景を Flexoki purple-100 の薄紫に差し替え、行構造を ui-2 のグレーで示す。
+       バー / ラベル / 対数ヒント線は描かない (まだ値が無いため)。
+       配色判断は振幅表示ブロックの「実行前プレースホルダ」(amplitude-display.html § 01) と同じ
+       コンベンションに従い、紫系統で「未確定 / 結果待ち」を一貫して表現する。 */
+    .cd.cd--placeholder { background: var(--purple-100); }
+    .cd.cd--placeholder .cd-ph-row {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: var(--ui-2);
+      pointer-events: none;
+    }
+
     /* ─── ポップアップ (行ホバー時) ───
        Quirk の MathPainter.paintDeferredValueTooltip と同じ内容を、
        Geist 系のタイポグラフィで再構成。ket を主、補足を従、ラベルを小、
@@ -180,60 +195,14 @@
       vertical-align: top;
     }
 
-    /* ─── リサイズハンドル (§ 11) ───
-       span を 1〜16 で変更するための上下ドラッグハンドル。purple-400 ベース、
-       ホバー枠 (purple-400 4 px ring + 2 px paper gap) の <strong>さらに外側</strong>
-       にレイアウトし、2 px の paper gap で視覚的に分離する。
-       通常時は非表示、ゲートホバーで「奥から飛び出してくる」マイクロ
-       インタラクション (フェードイン + 軽いバウンス) で出現、ハンドル単独ホバー
-       で 1.15 × に拡大して purple-600 に深く、ドラッグ中は 1.25 × に固定。 */
-    .cd-handle {
-      position: absolute;
-      left: 50%;
-      width: 24px;
-      height: 6px;
-      background: var(--purple-400);
-      border-radius: 3px;
-      opacity: 0;
-      cursor: ns-resize;
-      pointer-events: auto;
-      z-index: 20;
-      transform: translateX(-50%) scale(0.7);
-      transition:
-        opacity 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
-        transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .cd-handle--top    { top: -12px; }        /* 4 px ring 外側 + 2 px paper gap */
-    .cd-handle--bottom { bottom: -12px; }
+    /* リサイズハンドルの chrome は primitive として design-system.css の .resize-handle に集約済み。
+       仕様: docs/design-system/resize-handle.html。確率表示ブロックは本体幅が span に依存せず
+       40 px 固定なので、widthMode: 'fixed' (= 24 px 固定) を使う。
+       data-cd-state="hover" は仕様ページ用にホバー枠を強制表示する確率表示ブロック側の状態属性で、
+       これに連動してハンドルを visible にする (シナリオ別モックで「ゲート hover + ハンドル状態 X」を再現)。 */
 
-    /* visible 状態: ゲート hover で出現 / 仕様ページの強制表示クラスでも出現 */
-    .cd:hover .cd-handle,
-    .cd.cd--state-hover .cd-handle,
-    .cd-handle.cd-handle--state-visible,
-    .cd-handle.cd-handle--state-hover,
-    .cd-handle.cd-handle--state-active {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-    }
-
-    /* handle 個別 hover: 拡大 + purple-600 (実装は分岐で即時切替するため transition なし) */
-    .cd-handle:hover,
-    .cd-handle.cd-handle--state-hover {
-      background: var(--purple-600);
-      transform: translateX(-50%) scale(1.15);
-      transition: none;
-    }
-
-    /* active drag: さらに拡大、ドラッグ中はカーソルが ns-resize (同じく即時) */
-    .cd-handle:active,
-    .cd-handle.cd-handle--state-active {
-      background: var(--purple-600);
-      transform: translateX(-50%) scale(1.25);
-      transition: none;
-    }
-
-    /* 仕様ページ用にゲートホバー枠を強制表示する派生クラス */
-    .cd.cd--state-hover {
+    /* 仕様ページ用にゲートホバー枠を強制表示する data 属性 (確率表示ブロック固有) */
+    .cd[data-cd-state="hover"] {
       box-shadow:
         0 0 0 2px var(--bg),
         0 0 0 4px var(--purple-400);
@@ -257,6 +226,55 @@
       display: flex; align-items: center; justify-content: center;
     }
     .stage .zoom .cd { transform: scale(4); transform-origin: center; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使う。
+       ".note" (tx-2 のグレー段落) とは別レイヤとして読めるようにし、
+       「仕様」と「レビューコメント」を一目で識別できるようにする。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
 
   </style>
 </head>
@@ -286,6 +304,36 @@
     本ドキュメントは描画仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
   </p>
 </div>
+
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">仕様ページが「視覚仕様」と「実装仕様」の二重責任を負っている</div>
+    <p class="critique-body">
+      Flexoki Light に厳密に従い、配色判断 1 つひとつに根拠が書かれている網羅性は高い。
+      しかし § 01 から § 14 まで均等な情報密度で、視覚デザイン仕様 (§ 04〜§ 07)・
+      GPU 描画最適化メモ (§ 08.5)・URL シリアライズ (§ 12) が同じ階層で並ぶ。
+      読者は (a) Quirk から移行した量子計算の学習者と
+      (b) このページを実装根拠にする Codex / 人間の二者が混在しており、
+      前者向けの <strong>Quick Reference カード</strong>
+      (寸法式 / 配色 6 色 / 上限 16 / ホバー時挙動) を冒頭に置くと、
+      14 セクション全部読まなくても主要な情報にアクセスできる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>リサイズハンドルを別色族に振る</strong> — <s>現状 hover ring と完全同色の <code>purple-400</code>。</s> <strong>適用済 (2026-05-22):</strong> <code>cyan-400 / cyan-600</code> に変更し、<code>2 px paper gap</code> は breathing room として残す形に整理 (§ 11 参照)。</li>
+      <li><strong>仕様ページ冒頭に Quick Reference カードを置く</strong> — 寸法式 <code>56 × span − 16 px</code> / 配色 6 色 / 上限 / ホバー時挙動 を 1 ブロックで提示。</li>
+      <li><strong>パレットアイコンを span 1 の 2 行表示に統一</strong> — 現状 4 行ガウシアン風プレビューは「span 2 のゲート」と誤読される (§ 02 参照)。</li>
+      <li><strong>シミュレーション結果到着時のマイクロインタラクションを設計</strong> — placeholder → 結果のクロスフェードを「各バーが左から伸びる + subtle flash」に拡張 (§ 01 参照)。</li>
+      <li><strong>ポップアップのサブ行を整理</strong> — 「Probability if measured · k = N」は ket から導出可能 (§ 10 参照)。</li>
+    </ol>
+  </aside>
+</section>
 
 <!-- ─────── § 01 サイズ別の見た目 ─────── -->
 <section class="block">
@@ -347,6 +395,112 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 01 span 16 のユーザ体験">
+      <div class="critique-label">★ 批評 · § 01 span 16 のユーザ体験</div>
+      <div class="critique-title">span 16 は実行後でも「ぼんやりした模様」しか見えない</div>
+      <p class="critique-body">
+        65 536 行を高さ 880 px に詰めると行高 <code>≈ 0.013 px</code>。
+        対数ヒント線で分布の形は伝わるが、後述の placeholder (薄紫一色 + 外枠) と
+        <strong>実行後の見た目が大して変わらない</strong>。
+        「測定結果の分布を一目で伝える教育的ツール」という本来の目的が、
+        ここで実質的に達成されていない。
+        <em>ホバー追従の拡大ビュー</em>
+        (カーソル位置の 64 行を縦 160 px の拡大版として右側にポップアップ表示) や、
+        ピーク自動検出による <em>top-K ラベル付け</em> など、
+        span 16 専用のフォーカスメカニズムを検討する余地がある。
+      </p>
+    </aside>
+
+    <h3 style="margin-top: 24px;">実行前プレースホルダ (シミュレーション未実行の状態)</h3>
+    <p>
+      回路に確率表示ブロックを配置しただけで、まだシミュレーション (▶ Run) を実行していない段階で表示する仮の見た目。
+      <strong>GPU 経路の <code>probability_output</code> storage buffer がまだ書き込まれていない</strong>ので各測定結果の確率値が無く、
+      従来の実装ではバー領域が <code>bg</code> (#FFFCF0) で抜けて見えていた (背景 <code>bg-2</code> と隣接して「壊れているのか配置できていないのか」が判別しにくい問題)。
+      この空白を<strong>「実行待ちであることを伝えるプレースホルダ」</strong>として明示的にデザインする。
+      振幅表示ブロックの「実行前プレースホルダ」(<a href="amplitude-display.html">amplitude-display.html § 01</a>) と<strong>同じ配色コンベンション</strong>に従う。
+    </p>
+    <ul>
+      <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で塗る。
+        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、
+        実行前の確率値も <strong>0 (赤系) と 1 (青系) の中間に位置する未確定な値</strong>として同じ紫系統で表す。
+        色相は drag/hover で使う濃い紫よりさらに淡くして、「進行中アクション」と「結果待ちの静止状態」を区別する。</li>
+      <li><strong>行構造ガイド</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレーで行境界の水平線を <code>2<sup>span</sup> − 1</code> 本引く (既存の行区切り線と同色)。
+        振幅表示ブロックの「outline 円」と同じ役割で、<strong>これから何行の確率値が並ぶか</strong>をプレースホルダ段階で示す。
+        <code>rowH ≤ 2 px</code> (span 8+) では線が重畳するので省略 (通常時の行区切り線と同じ閾値)。</li>
+      <li><strong>バー / ラベル / 対数ヒント線</strong> — 描かない。確率値そのものを持たないので、バー (幅) もラベル (数値) も対数ヒント線 (補助) も意味を持たない。</li>
+      <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 11) は通常時と同じく出す。</li>
+      <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー行ガイド) を 150 ms ease-out でフェードアウトしつつ、通常の バー + ラベル / 対数ヒント線 描画にクロスフェードする。</li>
+    </ul>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">1 量子ビット<br>測定結果 2 通り<br>40×40 px · 実行前</div>
+        <div class="actual">
+          <div class="cd-host" data-height="40" data-probs="0,0" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">2 量子ビット<br>測定結果 4 通り<br>40×96 px · 実行前</div>
+        <div class="actual">
+          <div class="cd-host" data-height="96" data-probs="0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">3 量子ビット<br>測定結果 8 通り<br>40×152 px · 実行前</div>
+        <div class="actual">
+          <div class="cd-host" data-height="152" data-probs="0,0,0,0,0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">4 量子ビット<br>測定結果 16 通り<br>40×208 px · 実行前</div>
+        <div class="actual">
+          <div class="cd-host" data-height="208" data-probs="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">5 量子ビット<br>測定結果 32 通り · 40×264 px<br>実行前 (行ガイド線まで)</div>
+        <div class="actual">
+          <div class="cd-host" data-height="264" data-canvas="true" data-n="32" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 200px;">
+        <div class="caption">16 量子ビット (最大)<br>測定結果 65 536 通り · 40×880 px<br>実行前 (背景 + 外枠のみ)</div>
+        <div class="actual">
+          <div class="cd-host" data-height="880" data-canvas="true" data-n="65536" data-placeholder="true" data-no-popup="true"></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 07) の <code>ProbabilityInstance.render_mode</code> に
+      <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で「placeholder なら placeholder layer (purple-100 背景 + ui-2 行ガイド線 + 外枠)、それ以外は通常のバー + ラベル / 対数ヒント線」へ分岐する。
+      CPU から空の確率値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
+      span ≥ 8 (<code>rowH ≤ 2 px</code> 帯) では通常時と同じく行ガイド線も省略し、背景 + 外枠だけが残る。span 16 は最終的に背景の薄紫一色 + 外枠 だけになる。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 01 placeholder トークン化と遷移演出">
+      <div class="critique-label">★ 批評 · § 01 placeholder トークン化と遷移演出</div>
+      <div class="critique-title">「振幅表示ブロックと同コンベンション」が遠隔参照になっている</div>
+      <p class="critique-body">
+        <code>purple-100</code> で「未確定 / 結果待ち」を表現する語彙は良い設計判断
+        (drag = <code>purple-600</code> / hover = <code>purple-400</code> /
+        placeholder = <code>purple-100</code> という<strong>濃度で進行度合いを表現する語彙</strong>が
+        成立している)。
+        ただし振幅表示ブロックと確率表示ブロックで値が重複ハードコードされており、
+        共通トークン化されていない。<code>design-system.css</code> に
+        <code>--placeholder-bg: var(--purple-100)</code> として取り出し、
+        両ページから参照する形に整える余地がある。
+      </p>
+      <p class="critique-body">
+        <strong>「結果が来た」マイクロインタラクションの機会逃し:</strong>
+        仕様は「150 ms ease-out クロスフェード」とだけ書くが、
+        GPU 非同期実行という qni-webgpu の特性を考えると、
+        ここは<strong>シミュレーション完了の瞬間</strong>として最も重要な視覚的
+        フィードバック点。「各バーが左から <code>width: 0 → p</code> に伸びる」
+        「結果到着時の subtle flash」など、達成感を返す演出を設計する機会がある。
+        Quirk は同期計算なのでこれをやらない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -375,6 +529,20 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 02 アイコンと本体の乖離">
+      <div class="critique-label">★ 批評 · § 02 アイコンと本体の乖離</div>
+      <div class="critique-title">4 行ガウシアンプレビューは「span 2 のゲート」と誤読される</div>
+      <p class="critique-body">
+        パレットアイコンは <code>PROBABILITY_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>
+        の 4 行固定。だが初回ドラッグ時のデフォルト span は 1 (= 2 行) のはず。
+        アイコンと配置後の初期状態が一致しないと、
+        「<em>これは 2 量子ビットのゲート</em>」とユーザは認識し、
+        リサイズで span を変えるという正しいメンタルモデルへの導線が弱まる。
+        <em>2 行の典型分布</em> (例: <code>[0.7, 0.3]</code>) に揃え、
+        「ドラッグ後にリサイズで伸ばす」というインタラクションを視覚で誘導する方が一貫する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -430,6 +598,27 @@
       満たさないとき (span 5 以上) はラベルを出さず、対数スケールの補助線 (§ 08 対数ヒント線) を描画する。
       線形バーは全 span で常に描く。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 04 閾値判定と角丸">
+      <div class="critique-label">★ 批評 · § 04 閾値判定と角丸</div>
+      <div class="critique-title">「全か無か」のテキスト表示判定が急峻すぎる</div>
+      <p class="critique-body">
+        span 5 で <code>row_h = 264 / 32 = 8.25 px</code> は <code>row_h &gt; 8</code> 閾値の
+        ぎりぎり。「9 px グリフより詰まって読めない」と<strong>全行のテキストを切り捨てる</strong>
+        消極的判断になっている。span 5 だけ「16 行のうち上位 K 行はラベル付き、
+        残りは対数ヒント線のみ」のような<strong>ハイブリッド表示</strong>が
+        検討された形跡が無い。「全か無か」は実装は簡単だが UX には急峻すぎる。
+      </p>
+      <p class="critique-body">
+        <strong>角丸の不統一に根拠が無い:</strong>
+        本体 = 角ばり (<code>border-radius: 0</code>)、
+        ポップアップ = <code>6 px</code> (「Qni のゲート本体と統一」と書かれる)、
+        ハンドル = <code>3 px</code> ピル、placeholder = 角ばり。
+        <em>ポップアップだけ「6 px は本体と統一」と書きつつ、当の本体は 0 px</em>
+        という矛盾。Quirk が <code>ProbabilityDisplay</code> を角ばりで描いている踏襲だと
+        推測できるが、§ 設計判断レベルで明示すべき。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -442,14 +631,16 @@
         <tr><th>要素</th><th>Flexoki トーン</th><th>hex</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td>背景</td><td><code>paper</code></td><td>#FFFCF0</td><td>ゲート本体の塗りつぶし</td></tr>
-        <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。<strong>本仕様が正</strong>。現実装 <code>colors.state_fill</code> は blue-300 だが、本仕様に合わせて blue-200 に更新する (詳細は § 13 実装ファイル参照)</td></tr>
+        <tr><td>背景</td><td><code>paper</code></td><td>#FFFCF0</td><td>ゲート本体の塗りつぶし (実行後)</td></tr>
+        <tr><td>背景 (実行前プレースホルダ)</td><td><code>purple-100</code></td><td>#ECE1F3</td><td>シミュレーション未実行で確率値がまだ無いときの背景。紫系統で「未確定 / 結果待ち」を表現 (§ 01「実行前プレースホルダ」、振幅表示ブロックと同コンベンション)。実行後は <code>paper</code> へクロスフェード</td></tr>
+        <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。現実装の <code>colors.state_fill</code> と同じ blue-200 を使う (詳細は § 13 実装ファイル参照)</td></tr>
         <tr><td>バー右端マーカー</td><td><code>blue-400</code></td><td>#4385BE</td><td>1 px の確率境界線 (Quirk の gray stroke 相当、blue-200 から 2 tone 濃い)</td></tr>
         <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
         <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各測定結果の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
         <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
-        <tr><td>リサイズハンドル (active)</td><td><code>purple-600</code></td><td>#5E409D</td><td>ハンドル単独ホバー / ドラッグ中の濃色 (§ 11)</td></tr>
+        <tr><td>リサイズハンドル (default)</td><td><code>cyan-400</code></td><td>#3AA99F</td><td>ピル形ハンドルのデフォルト色。ホバー枠 (<code>purple-400</code>) と<strong>別色族</strong>にして「リングの突起 ?」誤認を回避 (§ 11 参照)</td></tr>
+        <tr><td>リサイズハンドル (active)</td><td><code>cyan-600</code></td><td>#24837B</td><td>ハンドル単独ホバー / ドラッグ中の濃色。<code>cyan-400 → cyan-600</code> の濃度遷移で「触れる対象 → 操作対象」を示す (§ 11)</td></tr>
       </tbody>
     </table>
   </div>
@@ -473,6 +664,21 @@
       実コード対応: digit atlas に <code>0..9</code> / <code>.</code> / <code>%</code> を Geist Mono Light 300 で
       ラスタライズ。"." は他のグリフより advance 幅を −6 px 詰める cell スケールで描画する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 ウェイトの選定">
+      <div class="critique-label">★ 批評 · § 06 ウェイトの選定</div>
+      <div class="critique-title">Light 300 はバー上のラベルとして弱い</div>
+      <p class="critique-body">
+        確率ラベル <code>XX.X%</code> は 12 px Geist Mono Light 300。
+        <code>blue-200</code> バーと <code>paper</code> の境界をまたいで描かれる文字としては、
+        ストローク厚が細すぎて視認性のマージンが小さい。§ 07 で
+        「<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト」と断言しているが、
+        <strong>コントラストはあってもストローク重量が足りていない</strong>。
+        Regular 400 に変えて本文 (Geist Regular) との読みやすさを確保するか、
+        サイズは text-xs (12 px) を維持しつつウェイトだけ Regular に上げることで、
+        コントラストとストローク重量の両方を満たす選択肢を検討すべき。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -499,6 +705,28 @@
       <li>バー領域に重なる場合もテキスト色は変えない (色境界 two-tone なし)。<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト</li>
       <li>条件: <code>row_count ≤ 16 &amp;&amp; row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 08 の対数ヒント線を描く)</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 マーカーと意味的階層">
+      <div class="critique-label">★ 批評 · § 07 マーカーと意味的階層</div>
+      <div class="critique-title">バー右端マーカーが span 5+ でノイズになる</div>
+      <p class="critique-body">
+        <code>blue-200</code> バーの右端に <code>blue-400 1 px</code> で「確率境界」を引く
+        (Quirk 互換)。だが span 5 以上で対数ヒント線 (<code>tx-3 1 px 縦線</code>) と
+        併存すると、似た位置に同じ太さの縦線が 2 本走る。色を変えても 1 px 単位では
+        知覚的に同じノイズになり、§ 08 で説明する「ECG / 階段状のシルエット」がぼやける。
+        Quirk 互換性を最優先するなら残してよいが、<code>row_h ≤ 8 px</code> 帯では
+        <code>blue-400</code> マーカーを省略する条件分岐があってもよい。
+      </p>
+      <p class="critique-body">
+        <strong><code>100.0%</code> と <code>0.0030%</code> の視覚差がない:</strong>
+        すべての確率値が同じウェイト / 同じサイズ / 同じ色で描かれる。
+        Quirk 互換の「整数も <code>XX.X%</code>」は良いが、
+        <strong>確率の意味的重要度</strong> (「測定で起きやすい結果はどれか」)
+        が視覚に反映されていない。<code>p ≥ 50%</code> の行はバー色を <code>blue-400</code>
+        (1 段濃く)、極小確率はラベルを <code>tx-2</code> に薄くする<em>意味駆動の段階表現</em>で
+        「目を引く行」を作る機会がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -707,7 +935,7 @@ stroke()</pre>
           枠 = <code>paper</code> bg + <code>ui-2</code> 1 px、<code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)、shadow = <code>0 4px 12px rgba(16,15,15,0.06)</code>
         </td></tr>
         <tr><th>パレットアイコン</th><td>外側ゲートホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
-        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>purple-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。詳細は § 11 参照</td></tr>
+        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 11 参照</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
@@ -853,103 +1081,51 @@ stroke()</pre>
       <li><strong>枠 + soft shadow の二重表現</strong>: 枠 (<code>ui-2</code> 1 px) は paper bg との境界を明示、shadow は ≪浮いている≫ ことを示す。どちらか片方では弱い</li>
       <li><strong>span 16 でも 1 行で収まる</strong>: 16 bit ket = 16 文字、補足 30 文字程度。<code>white-space: nowrap</code> で折り返しを防ぐ (最大幅は ~280 px)</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 10 ポップアップの情報密度">
+      <div class="critique-label">★ 批評 · § 10 ポップアップの情報密度</div>
+      <div class="critique-title">サブ行「Probability if measured · k = N」が冗長</div>
+      <p class="critique-body">
+        ket <code>|1010⟩</code> が見えれば k = 10 は導出可能。「Probability if measured」は
+        表示ブロックの定義上自明。決定的に有益なのは raw と log の値だけで、
+        <strong>サブ行が ket と数値の対比を奪っている</strong>。
+        サブ行を <code>tx-3</code> に薄く下げて背景化するか、削除して <code>divider</code>
+        の直前に「k = 10」だけを小さく置く方が、情報密度に対する効果比が高い。
+      </p>
+      <p class="critique-body">
+        <strong>pin / freeze の余地:</strong>
+        <code>pointer-events: none</code> は Quirk から継承された制約だが、
+        研究用途では「ホバーから離れてもポップアップを残したい」要求があるはず。
+        Quirk 互換を破る決断ができれば、qni-webgpu 独自の価値になり得る。
+      </p>
+    </aside>
   </div>
 </section>
 
-<!-- ─────── § 11 リサイズハンドル ─────── -->
+<!-- ─────── § 11 リサイズハンドル (policy 差分) ─────── -->
 <section class="block">
-  <h2>§ 11 リサイズハンドル</h2>
+  <h2>§ 11 リサイズハンドル (policy 差分)</h2>
   <div class="card">
     <p>
-      Probability は 1〜16、QFT / QFT† は現在の実行モード容量までの span をドラッグ変更するためのハンドル。<strong>ゲートの上下 2 ヶ所</strong>に出る
-      <code>purple-400</code> ベースのピル形 (24 × 6 px)。
-      通常は非表示で UI を圧迫せず、ゲートホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現。
-      ホバー枠 (§ 09 の 4 px <code>purple-400</code> ring + 2 px paper gap) の<strong>さらに外側</strong>に
-      2 px の paper gap を挟んでレイアウトし、紫色を共有しながらも視覚的には明確に分離させる。
+      上下ドラッグハンドルの chrome (色 / 寸法 / state machine / マイクロインタラクション) は
+      primitive として <a href="resize-handle.html"><strong>resize-handle.html</strong></a> に集約してある。
+      本ページはそれを使う側として、確率表示ブロック固有の <strong>policy 差分</strong>だけを定義する。
     </p>
-
-    <h3 style="margin-top: 16px;">配置と寸法</h3>
     <table class="spec">
       <tbody>
-        <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
-        <tr><th>形状</th><td>ピル (capsule) 24 × 6 px、<code>border-radius: 3 px</code></td></tr>
-        <tr><th>横位置</th><td>ゲート横中央 (<code>left: 50%; transform: translateX(-50%)</code>)</td></tr>
-        <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ゲート上辺から 12 px 外側)</td></tr>
-        <tr><th>縦位置 (bottom)</th><td><code>bottom: -12 px</code></td></tr>
-        <tr><th>カーソル</th><td><code>cursor: ns-resize</code> (上下リサイズを明示)</td></tr>
-        <tr><th>pointer-events</th><td><code>auto</code> — ハンドル単体は確実にクリック受付。ゲート本体は通常通り</td></tr>
-        <tr><th>z-index</th><td>20 — ホバー枠 (box-shadow) より手前、ポップアップ (z-index 50) より奥</td></tr>
+        <tr><th>span 上限</th><td>1〜16 (ドラッグで変化可能、上限 16 で stop)</td></tr>
+        <tr><th>widthMode</th><td><code>'fixed'</code> — 本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
+        <tr><th>JS 呼び出し</th><td><code>attachResizeHandles(cd, { widthMode: 'fixed', handleState: opts.handleState })</code></td></tr>
+        <tr><th>ホスト要素</th><td>buildCd が生成する <code>.cd</code> div。<code>.resize-handle-host</code> マーカークラスを併記する</td></tr>
+        <tr><th>連動 state</th><td><code>data-cd-state="hover"</code> をホストに付けると、確率表示ブロック側の hover ring (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
       </tbody>
     </table>
-
-    <h3 style="margin-top: 16px;">ホバー枠との位置関係 (干渉回避)</h3>
-    <p>
-      ゲート上辺を基準 (y = 0) に、ホバー枠は <code>y = -4 .. 0</code> に <code>purple-400</code> 2 px + paper 2 px を描く。
-      ハンドル top は <code>y = -12 .. -6</code> なので、ホバー枠の外端 (<code>y = -4</code>) との間に <strong>2 px の paper gap</strong> が確保される。
-      bottom 側も同様に対称。色族 (purple) は揃っているが空間的には独立した 2 オブジェクトとして読める。
-    </p>
-    <table class="spec" style="margin-top: 8px;">
-      <thead>
-        <tr><th>レイヤ</th><th>距離 (gate edge 基準、上方向)</th><th>色</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>ゲート本体</td><td>0 (基準)</td><td><code>paper</code> + <code>ui-2</code> 1 px 枠</td></tr>
-        <tr><td>paper gap (内側)</td><td>0 .. 2 px 外側</td><td><code>paper</code> #FFFCF0</td></tr>
-        <tr><td>ホバー枠 (ring)</td><td>2 .. 4 px 外側</td><td><code>purple-400</code> #8B7EC8</td></tr>
-        <tr><td>paper gap (分離帯)</td><td>4 .. 6 px 外側</td><td><code>paper</code> (透過)</td></tr>
-        <tr><td>リサイズハンドル</td><td>6 .. 12 px 外側</td><td><code>purple-400</code> (default) / <code>purple-600</code> (hover/active)</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">状態とマイクロインタラクション</h3>
-    <table class="spec">
-      <thead>
-        <tr><th>状態</th><th>opacity</th><th>transform</th><th>background</th><th>transition</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>default (ゲート非ホバー時)</td>
-          <td>0</td>
-          <td><code>scale(0.7)</code></td>
-          <td><code>purple-400</code></td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td>visible (ゲートホバー時)</td>
-          <td>1</td>
-          <td><code>scale(1.0)</code></td>
-          <td><code>purple-400</code></td>
-          <td>
-            opacity / transform を共通の 250 ms cubic-bezier(0.34, 1.56, 0.64, 1) <em>← 軽いオーバーシュート</em>。
-            実装側は単一の <code>visible_t</code> で opacity と scale を同時に駆動する
-          </td>
-        </tr>
-        <tr>
-          <td>hover (ハンドル単独ホバー)</td>
-          <td>1</td>
-          <td><code>scale(1.15)</code></td>
-          <td><code>purple-600</code></td>
-          <td>即時切替 (transition なし)。実装は <code>visible_t</code> を経由せず分岐で scale / 色を決めるため</td>
-        </tr>
-        <tr>
-          <td>active (ドラッグ中)</td>
-          <td>1</td>
-          <td><code>scale(1.25)</code></td>
-          <td><code>purple-600</code></td>
-          <td>即時切替 (transition なし)</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      <strong>バウンスの理由:</strong> cubic-bezier(0.34, 1.56, 0.64, 1) は最終値を 1.56 倍まで一瞬オーバーシュートするイージング。
-      <code>scale(0.7) → scale(1.0)</code> の変化が「奥から飛び出してきて、ちょっと弾む」マイクロインタラクションとして読める。
-      気付きやすさ + ゲート操作の遊び心を狙う。
-    </p>
 
     <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
     <p>
-      4 状態を <code>data-cd-state</code> / <code>data-handle-state</code> で強制し、横並びで比較できるようにしたモック。
-      実コードと同じ CSS / マークアップ。ホバーしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
+      ゲート本体 + ホバー枠 + ハンドルの 3 層がそろった状態を確率表示ブロックのコンテキストで並べたモック。
+      ハンドル単独の chrome 比較は <a href="resize-handle.html#05">resize-handle.html § 05</a> 参照。
+      ここでは「確率表示ブロックに span = 2 を配置したときの上下ハンドル」を 4 状態で見せる。
     </p>
     <div class="stage" style="gap: 56px; padding: 24px 0;">
       <div class="col" style="max-width: 140px;">
@@ -965,30 +1141,41 @@ stroke()</pre>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">③ handle hover<br>top: scale 1.15 + purple-600<br>bottom: visible</div>
+        <div class="caption">③ handle hover<br>top: scale 1.15 + cyan-600<br>bottom: visible</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="hover"></div>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">④ active drag<br>top: scale 1.25 + purple-600<br>cursor: ns-resize</div>
+        <div class="caption">④ active drag<br>top: scale 1.25 + cyan-600<br>cursor: ns-resize</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="active"></div>
         </div>
       </div>
     </div>
 
-    <h3 style="margin-top: 16px;">設計判断</h3>
-    <ul>
-      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。確率表示ブロック / QFT / QFT† は同じ「縦方向に伸びる回路要素」なので、上下対称な配置に統一する</li>
-      <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: ホバー枠とハンドルはどちらも <code>purple-400</code> なので、隣接させると 1 つの大きな図形に見えてしまい「リングの一部?」と誤認される。2 px の paper gap で<strong>明確に別オブジェクト</strong>と分離</li>
-      <li><strong>purple-400 → purple-600 で深さの変化</strong>: ハンドルが「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い</li>
-      <li><strong>バウンスするイージング</strong>: 線形 / ease-out だと「現れる」だけだが、オーバーシュートを伴うイージングは「主張する」表現になる。ゲートに span を変える機能があることを目立たせるための<em>意図的な誇張</em></li>
-      <li><strong>scale(0.7) → 1.0 → 1.15 → 1.25 の連続スケール</strong>: 1 軸の連続変化なので状態遷移が自然に読める。サイズ差は <strong>+15 %, +25 %</strong> と明確に体感できる程度。<em>10 % 以下だとほぼ気づかない</em></li>
-      <li><strong>形状はピル (capsule)</strong>: 矩形だと「点」、円だと「ボタン」、ピルだと「つまみ」に読める。span を <em>引き伸ばす</em>動作とピル形の<em>横長</em>が一致して、操作のメタファとして馴染む</li>
-      <li><strong>ハンドル幅 24 px はゲート幅 40 px より狭い</strong>: ゲート横中央に小さめに配置することで「ゲートの一部」感を出しつつ、左右にゲートの縁が見える</li>
-      <li><strong>cursor: ns-resize</strong>: 「上下方向にドラッグできる」を OS のカーソル変化でも伝える (ハンドルの形だけに頼らない)</li>
-    </ul>
+    <aside class="critique" aria-label="批評 · § 11 ハンドル色衝突と state 命名 (Resolved + Extracted)">
+      <div class="critique-label">★ 批評 · § 11 ハンドル色衝突と state 命名 — Resolved + Extracted</div>
+      <div class="critique-title">primitive として <code>resize-handle.html</code> に抽出済み (2026-05-22)</div>
+      <p class="critique-body">
+        <strong>適用済み:</strong>
+        色衝突 (<code>purple-400</code>) と state 命名混在 (BEM 風 / JS 文字列 / data 属性の 3 重管理) を
+        <code>cyan-400 / cyan-600</code> と <code>data-handle-state</code> 単一属性に整理。
+      </p>
+      <p class="critique-body">
+        <strong>更に primitive 化:</strong>
+        ハンドルは 3 コンポーネント (確率 / 振幅 / 密度行列) と将来の QFT が共有することが判明したため、
+        chrome を <a href="resize-handle.html"><code>resize-handle.html</code></a> に抽出し、
+        共有 CSS (<code>design-system.css</code> の <code>.resize-handle</code> ルール) と
+        共有 JS (<code>resize-handle.js</code> の <code>attachResizeHandles</code>) に集約。
+        本ページの § 11 はコンポーネント固有の policy 差分 (<code>widthMode: 'fixed'</code> / span 1〜16) だけを残す形に再編成。
+      </p>
+      <p class="critique-body" style="color: var(--tx-3);">
+        <em>波及範囲:</em> 本ページの inline <code>.cd-handle</code> CSS を削除、buildCd のハンドル HTML 生成を撤廃し
+        <code>attachResizeHandles</code> 呼び出しに置換。振幅表示ブロック / 密度行列表示ブロックも同様に primitive 経路へ移行。
+        Rust 実装側 (<code>apps/web/src/colors.rs</code> / <code>circuit_gates.rs</code>) の整理は別タスク。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -1103,7 +1290,7 @@ stroke()</pre>
         <tr><td><code>apps/web/src/icons/gate_body.rs</code></td><td>パレットアイコン (<code>draw_probability_preview_body</code>)</td></tr>
         <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>回路上の配置 (gate_height 計算、hover 枠、リサイズハンドル)</td></tr>
         <tr><td><code>apps/web/src/gpu/digit_atlas.rs</code></td><td>テキスト用 digit atlas (0..9 / "." / "%" の Geist Mono Light グリフ)</td></tr>
-        <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。<code>state_fill</code> は <strong>blue-200 (#92BFDB)</strong> (§ 05 配色)。<code>gate_hover_border</code> = purple-400、リサイズハンドル active 色は <strong>purple-600 (#5E409D)</strong></td></tr>
+        <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。<code>state_fill</code> は <strong>blue-200 (#92BFDB)</strong> (§ 05 配色)。<code>gate_hover_border</code> = <code>purple-400</code>、リサイズハンドル default 色は <strong>cyan-400 (#3AA99F)</strong>、active 色は <strong>cyan-600 (#24837B)</strong>。<em>Rust 実装側への反映は別タスク</em></td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
@@ -1120,6 +1307,7 @@ stroke()</pre>
   <p class="meta">qni-webgpu · 確率表示ブロック仕様 · 2026-05</p>
 </footer>
 
+<script src="resize-handle.js"></script>
 <script>
   // span ごとに .cd-host を埋める。
   // 行区切り線は隣接 2 行のうち広いバーの右端から右端まで。
@@ -1132,6 +1320,21 @@ stroke()</pre>
   function buildCd(probs, totalH, opts = {}) {
     const n = probs.length;
     const rowH = totalH / n;
+    // 実行前プレースホルダ: 背景 purple-100 + 行境界の ui-2 ライン + 外枠 のみ。
+    // バー / ラベル / 対数ヒント線は描かない (値が無いため)。
+    if (opts.placeholder) {
+      let phHtml = '';
+      if (rowH > 2) {
+        for (let i = 1; i < n; i++) {
+          phHtml += `<div class="cd-ph-row" style="top:${(i * rowH).toFixed(3)}px;"></div>`;
+        }
+      }
+      // ハンドルは buildCd の外で attachResizeHandles を呼んで appendChild する (共有 primitive)。
+      // ここでは .cd に resize-handle-host マーカーを付けるだけ。
+      const cdStateAttr = opts.cdState === 'hover' ? ' data-cd-state="hover"' : '';
+      const hostClass = opts.icon ? ' icon' : ' resize-handle-host';
+      return `<div class="cd cd--placeholder${hostClass}"${cdStateAttr} style="height:${totalH}px;">${phHtml}</div>`;
+    }
     const showText = !opts.icon && n <= 16 && rowH > 8;
     // テキストを出さない場合 (Probability5〜Probability16) は対数ヒント線を描く。
     // アイコンは静的プレビューなので対数ヒント線も省略。
@@ -1179,18 +1382,11 @@ stroke()</pre>
       const start = Math.max(probs[i - 1], probs[i]);
       html += `<div class="div" style="top:${i * rowH}px; left:${start}%;"></div>`;
     }
-    // リサイズハンドル (上下)。アイコンは静的プレビューなので省略。
-    // handleState (visible / hover / active) は仕様ページ用の強制状態。
-    if (!opts.icon) {
-      const topMod = opts.handleState === 'hover' || opts.handleState === 'active'
-        ? `cd-handle--state-${opts.handleState}`
-        : (opts.handleState === 'visible' ? 'cd-handle--state-visible' : '');
-      const botMod = opts.handleState ? 'cd-handle--state-visible' : '';
-      html += `<div class="cd-handle cd-handle--top ${topMod}"></div>`;
-      html += `<div class="cd-handle cd-handle--bottom ${botMod}"></div>`;
-    }
-    const cdStateClass = opts.cdState === 'hover' ? ' cd--state-hover' : '';
-    return `<div class="cd${opts.icon ? ' icon' : ''}${cdStateClass}" style="height:${totalH}px;">${html}</div>`;
+    // ハンドルは buildCd の外で attachResizeHandles を呼んで appendChild する (共有 primitive)。
+    // ここでは .cd に resize-handle-host マーカーを付けるだけ。
+    const cdStateAttr = opts.cdState === 'hover' ? ' data-cd-state="hover"' : '';
+    const hostClass = opts.icon ? ' icon' : ' resize-handle-host';
+    return `<div class="cd${hostClass}"${cdStateAttr} style="height:${totalH}px;">${html}</div>`;
   }
   // 大きな span (16 量子ビット = 65 536 行) を DOM で表現すると数十 MB の HTML / 数万 div を
   // 抱えることになるので、Canvas で直接描画する。線形バー + 対数ヒント線を
@@ -1225,6 +1421,27 @@ stroke()</pre>
     canvas.style.background = 'var(--bg)';
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
+    // 実行前プレースホルダ: 背景 purple-100 + (rowH > 2 のみ) 行境界 ui-2 + 外枠。
+    // バー / 対数ヒント線 / 行区切り / ラベルは描かない。
+    if (opts.placeholder) {
+      ctx.fillStyle = '#ECE1F3'; // purple-100 (Flexoki Light、未確定/結果待ち)
+      ctx.fillRect(0, 0, w, h);
+      if (rowH > 2) {
+        ctx.strokeStyle = '#DAD8CE'; // ui-2
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 1; i < n; i++) {
+          const y = Math.round(rowH * i) + 0.5;
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#DAD8CE';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+      return canvas;
+    }
     ctx.fillStyle = '#FFFCF0'; // paper
     ctx.fillRect(0, 0, w, h);
 
@@ -1341,25 +1558,39 @@ stroke()</pre>
     const useCanvas = host.dataset.canvas === 'true';
     const pattern = host.dataset.pattern;
     const noPopup = host.dataset.noPopup === 'true';
+    const placeholder = host.dataset.placeholder === 'true';
     const opts = {
       icon: host.dataset.icon === 'true',
       handleState: host.dataset.handleState,  // visible | hover | active
       cdState: host.dataset.cdState,          // hover (ホバー枠を強制表示)
+      placeholder,                            // 実行前プレースホルダ (purple-100 背景)
     };
     if (useCanvas) {
       const n = host.dataset.n
         ? Number(host.dataset.n)
-        : host.dataset.probs.split(',').length;
-      const probs = pattern ? genPattern(pattern, n) : host.dataset.probs.split(',').map(Number);
+        : host.dataset.probs
+          ? host.dataset.probs.split(',').length
+          : 1 << Number(host.dataset.span || 1);
+      const probs = placeholder
+        ? new Float32Array(n)
+        : pattern
+          ? genPattern(pattern, n)
+          : host.dataset.probs.split(',').map(Number);
       host.innerHTML = '';
       const canvas = buildCdCanvas(probs, totalH, opts);
       host.appendChild(canvas);
-      if (!opts.icon && !noPopup) attachPopup(host, canvas, probs, totalH);
+      if (!opts.icon && !noPopup && !placeholder) attachPopup(host, canvas, probs, totalH);
     } else {
-      const probs = host.dataset.probs.split(',').map(Number);
+      const probs = placeholder
+        ? new Array(host.dataset.n ? Number(host.dataset.n) : host.dataset.probs.split(',').length).fill(0)
+        : host.dataset.probs.split(',').map(Number);
       host.innerHTML = buildCd(probs, totalH, opts);
       const cd = host.querySelector('.cd');
-      if (!opts.icon && !noPopup) attachPopup(host, cd, probs, totalH);
+      if (!opts.icon && !noPopup && !placeholder) attachPopup(host, cd, probs, totalH);
+      // リサイズハンドルは共有 primitive (resize-handle.js)。確率表示ブロックは本体幅 40 px 固定なので fixed。
+      if (!opts.icon) {
+        attachResizeHandles(cd, { widthMode: 'fixed', handleState: opts.handleState });
+      }
     }
   });
 </script>

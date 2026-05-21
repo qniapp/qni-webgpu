@@ -20,15 +20,7 @@ pub(super) fn paint_state_panel_overlays(
     state_panel_chrome::draw_state_minimap(painter, colors, layout, viewport_rect, grid_origin);
     paint_aspect_popover(app, painter, colors, layout, _offset, state_rect);
     paint_resize_handles(app, painter, colors, state_rect);
-    paint_cell_popup(
-        app,
-        painter,
-        colors,
-        layout,
-        viewport_rect,
-        grid_origin,
-        screen_rect,
-    );
+    paint_cell_popup(app, painter, colors, layout, grid_origin, screen_rect);
 }
 
 fn paint_aspect_popover(
@@ -98,7 +90,6 @@ fn paint_cell_popup(
     painter: &egui::Painter,
     colors: &Colors,
     layout: &StatePanelLayout,
-    viewport_rect: egui::Rect,
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
 ) {
@@ -115,7 +106,6 @@ fn paint_cell_popup(
             colors,
             layout,
             grid_origin,
-            viewport_rect,
             screen_rect,
             cell,
         );

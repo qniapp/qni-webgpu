@@ -9,10 +9,11 @@ use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
-    BlochOverlayInstance, MeasurementDigitCallback, MeasurementDigitInstance,
-    ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
-    AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
-    PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
+    BlochOverlayInstance, DensityInstance, DensityMatrixDisplayCallback, MeasurementDigitCallback,
+    MeasurementDigitInstance, ProbabilityDisplayCallback, ProbabilityInstance,
+    ProbabilityPopupValueCallback, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER,
+    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, POPUP_GLYPH_CELL_H,
+    POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
@@ -76,6 +77,18 @@ impl QniApp {
         }
     }
 
+    fn density_display_slot(&self, gate_id: u32) -> Option<u32> {
+        let external_slot = self
+            .external_gpu_density_uploads
+            .as_ref()
+            .and_then(|batch| batch.slot_for_gate(gate_id));
+        if self.external_gpu_display_placeholders_active() {
+            external_slot
+        } else {
+            external_slot.or_else(|| self.gpu_plan.density_slot(gate_id))
+        }
+    }
+
     pub(super) fn draw_placed_circuit_gates(
         &self,
         painter: &egui::Painter,
@@ -115,7 +128,16 @@ impl QniApp {
                 && self
                     .hovered_amplitude_outcome
                     .is_some_and(|(id, _)| id == gate.id);
-            if !fast_drag && self.hovered_gate_id == Some(gate.id) && !amplitude_cell_hovered {
+            let density_cell_hovered = gate.kind == GateKind::DensityMatrixDisplay
+                && self.density_display_slot(gate.id).is_some()
+                && self
+                    .hovered_density_cell
+                    .is_some_and(|(id, _)| id == gate.id);
+            if !fast_drag
+                && self.hovered_gate_id == Some(gate.id)
+                && !amplitude_cell_hovered
+                && !density_cell_hovered
+            {
                 let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
@@ -334,6 +356,77 @@ impl QniApp {
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu_amplitude_uploads.clone(),
+            };
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
+            painter.add(egui::Shape::Callback(paint_callback));
+        }
+
+        let live_dragging_density_id = dragging_gate_id.filter(|_| self.dragging_live_display_snap);
+        let mut next_density_placeholder_slot = self
+            .external_gpu_density_uploads
+            .as_ref()
+            .map(|batch| batch.slot_to_gate_id.len() as u32)
+            .unwrap_or(0);
+        let density_instances: Vec<DensityInstance> = self
+            .placed_gates
+            .iter()
+            .filter_map(|gate| {
+                if gate.kind != GateKind::DensityMatrixDisplay {
+                    return None;
+                }
+                let dragging_this_gate = dragging_gate_id == Some(gate.id);
+                if dragging_this_gate && live_dragging_density_id != Some(gate.id) {
+                    return None;
+                }
+                let (slot, render_mode) = if let Some(slot) = self.density_display_slot(gate.id) {
+                    (slot, DENSITY_RENDER_MODE_SAMPLE)
+                } else if self.external_gpu_display_placeholders_active()
+                    && (next_density_placeholder_slot as usize) < crate::gpu::MAX_DENSITY_SLOTS
+                {
+                    let slot = next_density_placeholder_slot;
+                    next_density_placeholder_slot += 1;
+                    (slot, DENSITY_RENDER_MODE_PLACEHOLDER)
+                } else {
+                    return None;
+                };
+                let span = gate.span.clamp(1, 8) as u32;
+                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let hovered_cell = self
+                    .hovered_density_cell
+                    .filter(|(id, _)| *id == gate.id)
+                    .map(|(_, cell)| cell as i32)
+                    .unwrap_or(-1);
+                Some(DensityInstance {
+                    rect_min: [gate_rect.min.x, gate_rect.min.y],
+                    rect_size: [gate_rect.width(), gate_rect.height()],
+                    slot,
+                    span,
+                    hovered_cell: if render_mode == DENSITY_RENDER_MODE_PLACEHOLDER {
+                        -1
+                    } else {
+                        hovered_cell
+                    },
+                    use_drag_background: u32::from(dragging_this_gate),
+                    render_mode,
+                })
+            })
+            .collect();
+        if !density_instances.is_empty() {
+            let callback = DensityMatrixDisplayCallback {
+                instances: density_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                background: colors.surface.to_normalized_gamma_f32(),
+                drag_background: colors.drag_fill.to_normalized_gamma_f32(),
+                border: colors.line.to_normalized_gamma_f32(),
+                disk: colors.state_fill.to_normalized_gamma_f32(),
+                disk_border: colors.amplitude_disk_border.to_normalized_gamma_f32(),
+                outline: colors.state_outline.to_normalized_gamma_f32(),
+                outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
+                needle: colors.state_needle.to_normalized_gamma_f32(),
+                hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+                placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
+                external_uploads: self.external_gpu_density_uploads.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

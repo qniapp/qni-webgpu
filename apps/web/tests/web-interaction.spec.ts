@@ -30,6 +30,7 @@ import {
 
 const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
 const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+const STATE_POPUP_SURFACE: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -69,6 +70,77 @@ const TEST_CIRCUIT_LINE_Y =
   TEST_PALETTE_CIRCUIT_GAP +
   TEST_GATE_SIZE / 2
 const TEST_CIRCUIT_LINE_GAP = UI_CONSTANTS.LINE_GAP
+
+type StatePopupProbeGeometry = {
+  cellCenter: Point
+  popupTop: number
+  popupHeight: number
+  popupFill: PixelSamplePoint
+  nearbyBackground: PixelSamplePoint
+  popupValueAnchor: Point
+}
+
+const defaultStateCircleLayout = (qubits: number): { cols: number; rows: number; size: number; gap: number } => {
+  const cols = qubits === 1 ? 2 : qubits <= 3 ? 2 ** qubits : qubits <= 4 ? 8 : qubits <= 6 ? 16 : 32
+  const rows = 2 ** qubits / cols
+  const size = qubits <= 3 ? 64 : qubits === 4 ? 48 : qubits <= 6 ? 32 : 16
+  const lineWidth = qubits <= 6 ? 2 : 1
+  return { cols, rows, size, gap: lineWidth + 1 }
+}
+
+const defaultStatePopupProbeGeometry = (
+  cssWidth: number,
+  cssHeight: number,
+  qubits = 1,
+  displayIndex = 0,
+  panX = 0,
+): StatePopupProbeGeometry => {
+  const EGUI_PANEL_MARGIN = 8
+  const STATE_PANEL_WIDTH = UI_CONSTANTS.STATE_VIEWPORT_DEFAULT_WIDTH
+  const STATE_VIEWPORT_HEIGHT = UI_CONSTANTS.STATE_VIEWPORT_DEFAULT_HEIGHT
+  const STATE_HANDLE_HEIGHT = UI_CONSTANTS.STATE_HANDLE_HEIGHT
+  const STATE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
+  const innerWidth = cssWidth - EGUI_PANEL_MARGIN * 2
+  const innerHeight = cssHeight - EGUI_PANEL_MARGIN * 2
+  const stateRectMinX = EGUI_PANEL_MARGIN + innerWidth / 2 - STATE_PANEL_WIDTH / 2
+  const stateRectMinY =
+    EGUI_PANEL_MARGIN + innerHeight - STATE_BOTTOM_MARGIN - STATE_VIEWPORT_HEIGHT - STATE_HANDLE_HEIGHT
+  const viewportMinY = stateRectMinY + STATE_HANDLE_HEIGHT
+  const circle = defaultStateCircleLayout(qubits)
+  const gridWidth = circle.size * circle.cols + circle.gap * (circle.cols - 1)
+  const gridHeight = circle.size * circle.rows + circle.gap * (circle.rows - 1)
+  const gridOriginX = gridWidth <= STATE_PANEL_WIDTH
+    ? Math.max(stateRectMinX, Math.min(stateRectMinX + STATE_PANEL_WIDTH - gridWidth, stateRectMinX + (STATE_PANEL_WIDTH - gridWidth) / 2 + panX))
+    : Math.max(stateRectMinX + STATE_PANEL_WIDTH - gridWidth, Math.min(stateRectMinX, stateRectMinX + panX))
+  const gridOriginY =
+    gridHeight <= STATE_VIEWPORT_HEIGHT ? viewportMinY + (STATE_VIEWPORT_HEIGHT - gridHeight) / 2 : viewportMinY
+  const col = displayIndex % circle.cols
+  const row = Math.floor(displayIndex / circle.cols)
+  const cellCenter = {
+    x: gridOriginX + col * (circle.size + circle.gap) + circle.size / 2,
+    y: gridOriginY + row * (circle.size + circle.gap) + circle.size / 2,
+  }
+  const popupHeight = 108
+  const popupTop = cellCenter.y - circle.size / 2 - 4 - 8 - popupHeight
+  const POPUP_WIDTH = 296
+  const POPUP_PAD_X = 16
+  const POPUP_HEADER_TEXT_H = 20
+  const POPUP_HEADER_GAP = 8
+  const POPUP_ICON_SIZE = 16
+  const POPUP_ICON_TEXT_GAP = 8
+  const POPUP_VALUE_X_OFFSET = POPUP_ICON_SIZE + POPUP_ICON_TEXT_GAP + 96
+  return {
+    cellCenter,
+    popupTop,
+    popupHeight,
+    popupFill: { name: 'popupFill', x: cellCenter.x, y: popupTop + 16 },
+    nearbyBackground: { name: 'nearbyBackground', x: cellCenter.x, y: popupTop - 12 },
+    popupValueAnchor: {
+      x: cellCenter.x - POPUP_WIDTH / 2 + POPUP_PAD_X + POPUP_VALUE_X_OFFSET,
+      y: popupTop + 12 + POPUP_HEADER_TEXT_H + POPUP_HEADER_GAP - 2,
+    },
+  }
+}
 
 test('execution mode toggle switches visually without recomputing state', async ({ page }) => {
   await page.goto('/')
@@ -434,6 +506,113 @@ test('state panel hover does not drive circuit step preview', async ({ page }) =
   }
 })
 
+test('state cell popup tail joins the body without a hairline seam', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? 1000
+  const cssHeight = box?.height ?? 800
+
+  const geometry = defaultStatePopupProbeGeometry(cssWidth, cssHeight)
+  const popupContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, geometry.nearbyBackground])
+    return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
+  }
+
+  await page.mouse.move((box?.x ?? 0) + geometry.cellCenter.x, (box?.y ?? 0) + geometry.cellCenter.y)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await popupContrast()) > 20) break
+    if (attempt === 49) throw new Error('state-cell popup did not become visible')
+    await page.waitForTimeout(50)
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'tailJoin', x: geometry.cellCenter.x, y: geometry.popupTop + geometry.popupHeight - 1 },
+  ])
+
+  expect(pixelRgbDistance(pixels.tailJoin, STATE_POPUP_SURFACE)).toBeLessThanOrEqual(45)
+})
+
+test('state cell popup body shifts under the tail near the left panel edge', async ({ page }) => {
+  const col0: Array<string | number> = Array(7).fill(1)
+  col0[6] = 'H'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? 1000
+  const cssHeight = box?.height ?? 800
+  const geometry = defaultStatePopupProbeGeometry(cssWidth, cssHeight, 7)
+  const popupContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, geometry.nearbyBackground])
+    return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
+  }
+
+  await page.mouse.move((box?.x ?? 0) + geometry.cellCenter.x, (box?.y ?? 0) + geometry.cellCenter.y)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await popupContrast()) > 20) break
+    if (attempt === 49) throw new Error('state-cell popup did not become visible')
+    await page.waitForTimeout(50)
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'tailBaseUnderBody', x: geometry.cellCenter.x - 6, y: geometry.popupTop + geometry.popupHeight - 4 },
+  ])
+
+  expect(pixelRgbDistance(pixels.tailBaseUnderBody, STATE_POPUP_SURFACE)).toBeLessThanOrEqual(45)
+})
+
+test('state cell popup body shifts under the tail near the right panel edge', async ({ page }) => {
+  const col0: Array<string | number> = Array(7).fill(1)
+  col0[6] = 'H'
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? 1000
+  const cssHeight = box?.height ?? 800
+  const firstCell = defaultStatePopupProbeGeometry(cssWidth, cssHeight, 7)
+  await dragPointer(
+    page,
+    { x: cssWidth / 2, y: firstCell.cellCenter.y },
+    { x: cssWidth / 2 - 40, y: firstCell.cellCenter.y },
+  )
+  const geometry = defaultStatePopupProbeGeometry(cssWidth, cssHeight, 7, 31, -14)
+  const popupContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, geometry.nearbyBackground])
+    return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
+  }
+
+  await page.mouse.move((box?.x ?? 0) + geometry.cellCenter.x, (box?.y ?? 0) + geometry.cellCenter.y)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await popupContrast()) > 20) break
+    if (attempt === 49) throw new Error('state-cell popup did not become visible')
+    await page.waitForTimeout(50)
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'tailBaseUnderBody', x: geometry.cellCenter.x + 6, y: geometry.popupTop + geometry.popupHeight - 4 },
+  ])
+
+  expect(pixelRgbDistance(pixels.tailBaseUnderBody, STATE_POPUP_SURFACE)).toBeLessThanOrEqual(45)
+})
+
 test('state cell popup hides while dragging over the state panel', async ({ page }) => {
   await page.goto('/')
 
@@ -448,44 +627,13 @@ test('state cell popup hides while dragging over the state panel', async ({ page
   const cssWidth = box?.width ?? 1000
   const cssHeight = box?.height ?? 800
 
-  const EGUI_PANEL_MARGIN = 8
-  const STATE_PANEL_WIDTH = 560
-  const STATE_VIEWPORT_HEIGHT = 160
-  const STATE_HANDLE_HEIGHT = 32
-  const STATE_BOTTOM_MARGIN = 64
-  const STATE_CELL_SIZE = 64
-  const STATE_CELL_GAP = 3
-  const innerWidth = cssWidth - EGUI_PANEL_MARGIN * 2
-  const innerHeight = cssHeight - EGUI_PANEL_MARGIN * 2
-  const stateRectMinX = EGUI_PANEL_MARGIN + innerWidth / 2 - STATE_PANEL_WIDTH / 2
-  const stateRectMinY =
-    EGUI_PANEL_MARGIN + innerHeight - STATE_BOTTOM_MARGIN - STATE_VIEWPORT_HEIGHT - STATE_HANDLE_HEIGHT
-  const viewportMinY = stateRectMinY + STATE_HANDLE_HEIGHT
-  const gridWidth = STATE_CELL_SIZE * 2 + STATE_CELL_GAP
-  const cellCenter = {
-    x: stateRectMinX + (STATE_PANEL_WIDTH - gridWidth) / 2 + STATE_CELL_SIZE / 2,
-    y: viewportMinY + (STATE_VIEWPORT_HEIGHT - STATE_CELL_SIZE) / 2 + STATE_CELL_SIZE / 2,
-  }
-  const popupHeight = 108
-  const popupTop = cellCenter.y - STATE_CELL_SIZE / 2 - 4 - 8 - popupHeight
-  const popupFill = { name: 'popupFill', x: cellCenter.x, y: popupTop + 16 }
-  const nearbyBackground = { name: 'nearbyBackground', x: cellCenter.x, y: popupTop - 12 }
+  const geometry = defaultStatePopupProbeGeometry(cssWidth, cssHeight)
   const popupContrast = async (): Promise<number> => {
-    const pixels = await sampleCanvasPixels(page, canvas, [popupFill, nearbyBackground])
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, geometry.nearbyBackground])
     return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
   }
 
-  const POPUP_WIDTH = 296
-  const POPUP_PAD_X = 16
-  const POPUP_HEADER_TEXT_H = 20
-  const POPUP_HEADER_GAP = 8
-  const POPUP_ICON_SIZE = 16
-  const POPUP_ICON_TEXT_GAP = 8
-  const POPUP_VALUE_X_OFFSET = POPUP_ICON_SIZE + POPUP_ICON_TEXT_GAP + 96
-  const popupValueAnchor = {
-    x: cellCenter.x - POPUP_WIDTH / 2 + POPUP_PAD_X + POPUP_VALUE_X_OFFSET,
-    y: popupTop + 12 + POPUP_HEADER_TEXT_H + POPUP_HEADER_GAP - 2,
-  }
+  const popupValueAnchor = geometry.popupValueAnchor
   const popupValuePoints: PixelSamplePoint[] = []
   for (let y = popupValueAnchor.y; y <= popupValueAnchor.y + 56; y += 4) {
     for (let x = popupValueAnchor.x; x <= popupValueAnchor.x + 148; x += 6) {
@@ -493,13 +641,13 @@ test('state cell popup hides while dragging over the state panel', async ({ page
     }
   }
   const popupValueInkCount = async (): Promise<number> => {
-    const pixels = await sampleCanvasPixels(page, canvas, [popupFill, ...popupValuePoints])
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, ...popupValuePoints])
     return popupValuePoints.filter(
       (point) => pixelRgbDistance(pixels[point.name], pixels.popupFill) > 80
     ).length
   }
 
-  await page.mouse.move((box?.x ?? 0) + cellCenter.x, (box?.y ?? 0) + cellCenter.y)
+  await page.mouse.move((box?.x ?? 0) + geometry.cellCenter.x, (box?.y ?? 0) + geometry.cellCenter.y)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if ((await popupContrast()) > 20 && (await popupValueInkCount()) > 10) break
     if (attempt === 49) throw new Error('state-cell popup did not become visible')
@@ -507,7 +655,7 @@ test('state cell popup hides while dragging over the state panel', async ({ page
   }
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
-  await dragPointer(page, hSource, cellCenter, 8, false)
+  await dragPointer(page, hSource, geometry.cellCenter, 8, false)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (await popupContrast() < 15) break
     if (attempt === 49) throw new Error('state-cell popup did not hide during drag')

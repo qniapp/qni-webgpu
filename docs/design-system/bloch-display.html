@@ -14,6 +14,12 @@
   </script>
   <style>
 
+    /* equator tip 色 (赤道、|+⟩ / |−⟩ / |±i⟩、z = 0) =
+       red-600 (#AF3029) と blue-600 (#205EA6) の sRGB 数学的中点。
+       Flexoki 名前付きトーンには存在しないが、§ 05 / § 06 で説明する gradient の
+       中点として必要なため例外的に定義する。WGSL 側の mix(blue, red, t=0.5) と同値。 */
+    :root { --tip-equator: #684768; }
+
     /* ── ブロッホ球表示ブロック 視覚スタイル (実コードと 1:1 で揃える) ───── */
     /* SVG は viewBox 0 0 40 40 (= GATE_SIZE 40 px) で描く。
        sphere_radius = 19, outer = 23, line_half = 0.75, tip_radius = 3。
@@ -144,6 +150,56 @@
     .stage .zoom .bd .axis  { stroke-width: 0.25; }
     .stage .zoom .bd .vec   { stroke-width: 0.375; }
 
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使う。
+       ".note" (tx-2 のグレー段落) とは別レイヤとして読めるようにし、
+       「仕様」と「レビューコメント」を一目で識別できるようにする。
+       probability-display.html の .critique と同じパターン。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
+
   </style>
 </head>
 <body>
@@ -186,6 +242,33 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">仕様が緻密だが「読む順序」と「再利用」の設計が弱い</div>
+    <p class="critique-body">
+      Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
+      しかし読者の動線は (a) 13 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
+      <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 07 投影)</strong> が中盤に埋もれる。
+      また 1183 行のうち大部分は<strong>同一 SVG マークアップ × 9 個</strong>と<strong>同一 popup マークアップ × 5 個</strong>の複製で、視覚仕様そのものではない。
+      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば 400 行台に縮約でき、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>未定義 CSS 変数 <code>--tip-equator</code> を解消する</strong> — § 01 のモック 5 個 + 4× zoom 2 個で参照されているが宣言が無いため、equator 状態 (|+⟩ / |−⟩ / |±i⟩) の tip ドットが<strong>仕様外の黒</strong>で描画されている。仕様文 § 05 と実画の乖離が一目で出る最大の execution bug (§ 01 参照)。</li>
+      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の short use で同等のレンダリングが得られ、ファイル全体が 1183 行 → 400 行台に縮む (§ 01 参照)。</li>
+      <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 03 概要 / § 07 投影 / § 08 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 07 投影は § 04 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 07 参照)。</li>
+      <li><strong>§ 05 配色テーブルと § 06 gradient 説明を統合する</strong> — 現状は § 05 が「red / blue / 中点」の 3 行を並べ、§ 06 が「sRGB lerp で連続補間」と書く。読者は § 05 だけ読むと離散 3 色だと誤解する。テーブル側に「gradient (z で連続補間、§ 06 参照)」を入れて統合表現にすべき (§ 05 / § 06 参照)。</li>
+      <li><strong>§ 11 描画パイプラインから line-number 付きファイル参照を抜く</strong> — <code>gpu/shaders/bloch_display.rs:81-190</code> のような行番号は確実に rot する。§ 13 実装ファイル表が既に同じ情報を持っているので、§ 11 は「stage 1 / 2 / 3 が何をするか」だけに絞り、ファイル名は § 13 に集約する (§ 11 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 標準状態の見た目 ─────── -->
 <section class="block">
   <h2>§ 01 標準状態の見た目 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合)</h2>
@@ -202,6 +285,31 @@
       hover 枠 / popup ともに実装済み (2026-05-18)。
       モックは「実装済み挙動の常時表示プレビュー」として読む。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 --tip-equator 未定義 / SVG 重複">
+      <div class="critique-label">★ 批評 · § 01 仕様と描画の乖離 + SVG 重複</div>
+      <div class="critique-title">equator 状態の tip ドットが「仕様外の黒」でレンダリングされる</div>
+      <p class="critique-body">
+        |+⟩ / |−⟩ / |+i⟩ / |−i⟩ の 4 セルと 4× zoom 2 セルの <code>circle.tip</code> はすべて <code>style="fill: var(--tip-equator);"</code> を指定しているが、
+        <strong><code>--tip-equator</code> はこの HTML にも design-system.css にも宣言が無い</strong>。
+        ブラウザは未定義 var を <code>initial</code> (= <code>fill: black</code>) で解決するため、
+        equator 状態の tip が仕様文 § 05 / § 06 で謳う <code>#684768</code> ではなく真っ黒で出る。
+        仕様の最大の主張 (z gradient で 0 = 赤 / 1 = 青 / 中間 = lerp) が、ページ自身のモックで反証されている状態。
+      </p>
+      <p class="critique-body">
+        <strong>対応案</strong>: ページ冒頭の <code>&lt;style&gt;</code> 先頭に <code>:root { --tip-equator: #684768; }</code> を 1 行宣言する。
+        さらに将来的には gradient を CSS 側で計算 (HSL 補間でも sRGB <code>color-mix(in srgb, var(--red-600), var(--blue-600))</code> でも) して、
+        モック生成時に z 値 → 色を CSS 変数で導出できるようにすると、§ 06 の gradient narrative とモックが本当に同期する。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">同じ wireframe SVG が 9 個重複している</div>
+      <p class="critique-body">
+        球本体 + 水平軸 + 垂直軸 + 対角 + 細楕円 ×2 の 6 要素は<strong>すべてのモックで完全に同じ座標</strong> (cx=20 cy=20 r=19 等) なのに、
+        § 01 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
+        <code>&lt;defs&gt;&lt;symbol id="bloch-frame"&gt; ... &lt;/symbol&gt;&lt;/defs&gt;</code> を 1 度宣言して各モックで <code>&lt;use href="#bloch-frame"/&gt;</code> + 矢印 + tip だけ書けば、
+        モックあたり 10 行 → 3 行に縮む。1183 行のページ全体で <strong>~150 行</strong> 削減できる。
+        重複の真の害は行数ではなく<strong>ドリフト</strong>: 別の作業で軸 stroke 太さを変えるとき 9 箇所すべてを正確に更新する保証が無い (textlint / html-validate も拾えない)。
+      </p>
+    </aside>
     <div class="stage">
       <!-- |0⟩: bloch = (0, 0, +1) → screen (0, -19) -->
       <div class="col">
@@ -638,6 +746,26 @@
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
       </tbody>
     </table>
+
+    <aside class="critique" aria-label="批評 · § 05 配色テーブルと gradient narrative の不整合">
+      <div class="critique-label">★ 批評 · § 05 / § 06 一貫性</div>
+      <div class="critique-title">テーブルは「3 つの離散色」、本文は「連続 gradient」</div>
+      <p class="critique-body">
+        § 05 配色テーブルは tip 色を「<code>z = +1 寄り = red-600</code> / <code>z = −1 寄り = blue-600</code> / <code>equator = #684768</code>」の 3 行で並べている。
+        この見た目だと「離散 3 色」と読める。実際は § 06 が示すとおり <code>mix(blue, red, t)</code> の連続 sRGB lerp で、z = 0.7 のような中間値も補間色が出る。
+        § 05 だけ読んだ読者は z = 0.5 のとき何色か即答できない。
+      </p>
+      <p class="critique-body">
+        <strong>対応案</strong>: テーブルを 1 行に統合 (<em>「先端ドット (active) = z gradient (red-600 ⇄ blue-600 sRGB lerp、equator midpoint <code>#684768</code>) — 連続補間、§ 06 参照」</em>) するか、テーブル直下に gradient swatch (横長の <code>linear-gradient(to right, blue-600, #684768, red-600)</code> 帯) を 1 つ置いて視覚的に「連続だ」と一目で伝える。
+        後者なら 7 行のテーブル + 24 px の swatch で離散 / 連続の両方を提示できる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「Flexoki 外」を justify せずに通している</div>
+      <p class="critique-body">
+        <code>#684768</code> は表内で「(Flexoki 外: lerp 中点)」と注記されているが、CLAUDE.md の「新規 / 変更色は必ず Flexoki の名前付きトーンにマップ」原則からの例外。
+        現状は<em>事実だけ告知して根拠を書かない</em>姿勢で、なぜ <code>purple-600</code> (#5E409D) のような既存トーンではダメだったのか読み取れない。
+        例外を残すなら「red-600 ⇄ blue-600 の数学的中点である必要があり、Flexoki の <code>purple-600</code> は色相がずれて gradient が破綻するため」など根拠 1 行を添えるべき。さもなければ Flexoki 純粋運用へ戻す決断を促すべき。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -775,6 +903,23 @@ sy = py + factor · (y_3d − py)</pre>
       <code>gpu/shaders/bloch_display.rs:130-141</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
       数値の一致は egui 上の暫定描画と GPU overlay の見た目を完全に揃えるため。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 07 投影が中盤に埋もれている">
+      <div class="critique-label">★ 批評 · § 07 セクション順序</div>
+      <div class="critique-title">「なぜ |+⟩ が左下に出るか」は最初の質問なのに 7 番目に置かれている</div>
+      <p class="critique-body">
+        § 01 のモックを見て読者が最初に抱く疑問は<em>「|0⟩ が真上はわかる。じゃあ |+⟩ がなぜ画面の左下に出るのか」</em>。
+        その答え (<code>perspective-origin: top right</code> で +x 軸が画面手前に倒れる) は § 07 の中盤、6 セクション越しに登場する。
+        その間に挟まる § 02〜§ 06 (パレットアイコン / 概要 / ジオメトリ / 配色 / 視覚要素) は<em>「すでに見たことを後から確認する」内容</em>で、第 1 質問の解消には貢献しない。
+      </p>
+      <p class="critique-body">
+        <strong>対応案 A (順序入れ替え)</strong>: § 07 投影を § 04 ジオメトリの直後に持ってくる。
+        論理順は「占有矩形 → ジオメトリ → 投影 (= 見え方の根拠) → 配色 / 視覚要素 (= 細部) → GPU パイプライン → 実装」の方が滑らかで、第 1 質問への到達距離が 6 → 2 セクションに短縮される。
+      </p>
+      <p class="critique-body">
+        <strong>対応案 B (Quick Reference カード)</strong>: § 01 の直後に「観測者は右上、+x は画面手前 → 左下、+y は右、+z は上」を 1 行で伝える図 (3 軸を矢印で示すだけのミニ SVG、40×40 px) を置く。順序入れ替えなしで読者の見当を即座に揃えられる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -1030,6 +1175,26 @@ z =  ρ_00 − ρ_11</pre>
       </div>
     </div>
 
+    <aside class="critique" aria-label="批評 · § 10 popup mocks 重複">
+      <div class="critique-label">★ 批評 · § 10 mock 重複</div>
+      <div class="critique-title">5 個の popup mock がほぼ同じマークアップを再宣言している</div>
+      <p class="critique-body">
+        5 つの状態バリアント (|0⟩ / |1⟩-近傍 / |+⟩ / 傾いた混合 / 完全混合) はそれぞれ <code>.bd-popup-title</code> + divider + 2 row × 3 cell の<strong>同一構造</strong>を持ち、差分は<em>数値だけ</em>。
+        しかし HTML 上は毎回約 13 行 (title + divider + 6 cell) を書き直しており、計 65 行が値テーブルとして再利用できない形で展開されている。
+        さらにタイトル文 "Bloch sphere representation of local state" は 5 個すべてで同じ — 5 回見せても情報量は増えない。
+      </p>
+      <p class="critique-body">
+        <strong>対応案</strong>: タイトル行 + アンカー位置 + 余白の <em>anatomy diagram</em> を 1 個だけ大きく示し、
+        その下に <code>&lt;table class="spec"&gt;</code> で「状態名 / r / ϕ / θ / x / y / z」を 5 行並べる。
+        anatomy で構造を教え、テーブルで値の振れ幅を提示する 2 役分担。65 行 → ~25 行に縮み、値テーブルとして比較もしやすくなる。
+      </p>
+      <p class="critique-body">
+        <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 01 にはモックだけ、§ 10 には popup だけ)。
+        傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 01 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
+        anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;use href="#bloch-frame"/&gt;</code> + tip + needle) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
+      </p>
+    </aside>
+
     <h3 style="margin-top: 24px;">参考: Quirk オリジナルとの差分</h3>
     <table class="spec">
       <thead>
@@ -1099,6 +1264,25 @@ z =  ρ_00 − ρ_11</pre>
       <li>制約理由: external GPU 経路は ρ → (x, y, z) の reduce + GPU フラグメントへの直結という本仕様の経路を持たないため。
         将来対応するなら <code>BLOCH_REDUCE_SHADER</code> 相当の reduce を external 側にも追加する</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 11 line-number rot">
+      <div class="critique-label">★ 批評 · § 11 / § 13 重複 + 行番号 rot</div>
+      <div class="critique-title">行番号付きファイル参照 (<code>:3-80</code> 等) が確実に陳腐化する</div>
+      <p class="critique-body">
+        § 11 描画パイプラインの 3 段の各説明に <code>gpu/shaders/bloch_display.rs:3-80</code> / <code>:81-190</code> / <code>:130-141</code> のような行番号レンジが埋め込まれている。
+        ファイルへの編集が入った瞬間にこの数字は嘘になる (textlint / html-validate でも検出されない静的腐敗)。
+        さらに § 13 実装ファイル表が<em>同じ情報</em>を行番号なしで保持しているため、内容としては重複している。
+      </p>
+      <p class="critique-body">
+        <strong>対応案</strong>: § 11 はパイプライン<em>そのもの</em>を語る (input → reduce → overlay → callback の責任分担、binding 表) に絞り、
+        ファイル参照は <code>(<a href="#section-13">§ 13 参照</a>)</code> 1 つで § 13 へ送る。
+        どうしても § 11 内に出したいなら、行番号無しの相対パス (<code>gpu/shaders/bloch_display.rs</code>) + 関数名 (<code>fs_main</code>) を組合せる方が grep で見つかり腐敗もしにくい。
+      </p>
+      <p class="critique-body">
+        <strong>類似事例</strong>: § 06 / § 07 / § 09 / § 13 にも <code>bloch_display.rs:130-141</code>、<code>circuit_palette/panel.rs:73-75</code>、<code>circuit_gates.rs:73-91</code> 等が散在する。
+        spec 内のファイル参照は <strong>§ 13 の 1 テーブルに集約</strong>するルールにすれば、コードベース側のリファクタで spec を 1 ヶ所だけ追跡すれば済む。
+      </p>
+    </aside>
   </div>
 </section>
 

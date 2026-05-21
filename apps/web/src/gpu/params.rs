@@ -143,6 +143,37 @@ pub(crate) const MAX_AMPLITUDE_SLOTS: usize = 32;
 pub(crate) const MAX_AMPLITUDE_OUTCOMES: usize = 1 << 16;
 pub(crate) const AMPLITUDE_VALUES_PER_SLOT: usize = MAX_AMPLITUDE_OUTCOMES * 3;
 
+/// Maximum Density Matrix displays captured in one recompute. Quirk's
+/// DensityMatrixDisplay family is 1..=8 qubits, so each slot reserves
+/// `(2^8 × 2^8)` complex cells.
+pub(crate) const MAX_DENSITY_SLOTS: usize = 16;
+pub(crate) const MAX_DENSITY_SPAN: usize = 8;
+pub(crate) const MAX_DENSITY_DIM: usize = 1 << MAX_DENSITY_SPAN;
+pub(crate) const DENSITY_VALUES_PER_SLOT: usize = MAX_DENSITY_DIM * MAX_DENSITY_DIM;
+
+#[derive(Clone)]
+pub(crate) struct ExternalDensityUpload {
+    pub(crate) slot: u32,
+    pub(crate) cells: Arc<[f32]>,
+    pub(crate) meta: [f32; 4],
+}
+
+#[derive(Clone)]
+pub(crate) struct ExternalDensityUploadBatch {
+    pub(crate) generation: u64,
+    pub(crate) slot_to_gate_id: Arc<[u32]>,
+    pub(crate) uploads: Arc<[ExternalDensityUpload]>,
+}
+
+impl ExternalDensityUploadBatch {
+    pub(crate) fn slot_for_gate(&self, gate_id: u32) -> Option<u32> {
+        self.slot_to_gate_id
+            .iter()
+            .position(|id| *id == gate_id)
+            .map(|slot| slot as u32)
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct ExternalBlochUpload {
     pub(crate) slot: u32,
@@ -237,6 +268,52 @@ pub(crate) struct AmplitudeCaptureParams {
     pub(crate) control_value: u32,
     pub(crate) phase_lock_enabled: u32,
     pub(crate) total_qubits: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct DensityCaptureParams {
+    pub(crate) base_bit: u32,
+    pub(crate) span: u32,
+    pub(crate) output_slot: u32,
+    pub(crate) state_count: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct DensityRenderParams {
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    pub(crate) background: [f32; 4],
+    pub(crate) drag_background: [f32; 4],
+    pub(crate) border: [f32; 4],
+    pub(crate) disk: [f32; 4],
+    pub(crate) disk_border: [f32; 4],
+    pub(crate) outline: [f32; 4],
+    pub(crate) outline_zero: [f32; 4],
+    pub(crate) needle: [f32; 4],
+    pub(crate) hover_border: [f32; 4],
+    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
+    pub(crate) placeholder_background: [f32; 4],
+}
+
+pub(crate) const DENSITY_RENDER_MODE_SAMPLE: u32 = 0;
+pub(crate) const DENSITY_RENDER_MODE_PLACEHOLDER: u32 = 1;
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct DensityInstance {
+    pub(crate) rect_min: [f32; 2],
+    pub(crate) rect_size: [f32; 2],
+    pub(crate) slot: u32,
+    pub(crate) span: u32,
+    pub(crate) hovered_cell: i32,
+    pub(crate) use_drag_background: u32,
+    /// 0 = sample captured density buffer, 1 = pre-run placeholder.
+    pub(crate) render_mode: u32,
 }
 
 #[repr(C)]

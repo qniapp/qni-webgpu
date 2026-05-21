@@ -16,8 +16,8 @@ const repoRoot = path.join(rootDir, '..', '..')
 const readText = (filePath: string) => fs.readFile(filePath, 'utf8')
 
 test('agent visual command resolves palette gate aliases', () => {
-  const aliases = ['H', 'X', 'sqrtx', 's†', 'tdagger', 'swap', 'control', 'anti-control', '◦', 'bloch', 'sphere', '|0>', '|0⟩', 'write0', '|1>', 'write1', 'measure', 'm', 'probability', 'spacer', '…', 'qft', 'qft†', 'amps']
-  assert.deepEqual(aliases.map(getGateIndex), [0, 1, 4, 6, 8, 13, 14, 15, 15, 16, 16, 17, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 23, 24])
+  const aliases = ['H', 'X', 'sqrtx', 's†', 'tdagger', 'swap', 'control', 'anti-control', '◦', 'bloch', 'sphere', '|0>', '|0⟩', 'write0', '|1>', 'write1', 'measure', 'm', 'probability', 'spacer', '…', 'qft', 'qft†', 'amps', 'density']
+  assert.deepEqual(aliases.map(getGateIndex), [0, 1, 4, 6, 8, 13, 14, 15, 15, 16, 16, 17, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 23, 24, 25])
 })
 
 test('agent visual command parses q-prefixed and numeric wires', () => {
@@ -37,7 +37,7 @@ test('agent visual command builds drag coordinates from semantic gate placement'
     gateIndex: 1,
     wire: 1,
     slot: 2,
-    from: { x: 208, y: 100 },
+    from: { x: 207, y: 100 },
     to: { x: 274, y: 312 },
   })
 })
@@ -50,7 +50,7 @@ test('agent visual command builds row-two coordinates after display gates move o
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 448, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 447, y: 148 } })
 })
 
 test('agent visual command builds Display section coordinates', () => {
@@ -62,6 +62,18 @@ test('agent visual command builds Display section coordinates', () => {
   })
 
   assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 20, from: { x: 841, y: 100 } })
+})
+
+
+test('agent visual command builds Density Display section coordinates', () => {
+  const operation = buildDragOperation({
+    cssWidth: 1000,
+    gate: 'density',
+    wire: 'q0',
+    slot: 0,
+  })
+
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 25, from: { x: 841, y: 148 } })
 })
 
 test('agent visual command supports egui content vertical offset', () => {

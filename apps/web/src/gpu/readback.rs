@@ -11,7 +11,10 @@ use std::cell::RefCell;
 
 use eframe::wgpu;
 
-use super::params::{AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES, MAX_PROBABILITY_OUTCOMES};
+use super::params::{
+    AMPLITUDE_VALUES_PER_SLOT, DENSITY_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES,
+    MAX_PROBABILITY_OUTCOMES,
+};
 
 #[cfg(target_arch = "wasm32")]
 use futures_channel::oneshot;
@@ -56,6 +59,14 @@ pub(crate) struct AmplitudeGpuHandle {
     pub(crate) meta_buffer: wgpu::Buffer,
 }
 
+#[derive(Clone)]
+pub(crate) struct DensityGpuHandle {
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
+    pub(crate) output_buffer: wgpu::Buffer,
+    pub(crate) meta_buffer: wgpu::Buffer,
+}
+
 thread_local! {
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
     /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
@@ -83,6 +94,11 @@ thread_local! {
     pub(crate) static AMPLITUDE_GPU_HANDLE: RefCell<Option<AmplitudeGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static AMPLITUDE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    /// Same pattern for Density Matrix displays. Production shaders sample
+    /// `density_output` + `density_meta`; tests can ask for one cell.
+    pub(crate) static DENSITY_GPU_HANDLE: RefCell<Option<DensityGpuHandle>> =
+        const { RefCell::new(None) };
+    pub(crate) static DENSITY_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -381,5 +397,113 @@ pub(crate) async fn read_amplitude_cell_impl(
     output.set_index(7, f64::from(floats[6]));
     drop(data);
     staging.unmap();
+    Ok(output)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_density_matrix_cell_impl(
+    gate_id: u32,
+    row: u32,
+    col: u32,
+) -> Result<js_sys::Float64Array, JsValue> {
+    let Some(handle) = DENSITY_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    };
+    let slot_map = DENSITY_SLOT_MAP.with(|cell| cell.borrow().clone());
+    let Some(slot) = slot_map.iter().position(|id| *id == gate_id) else {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    };
+
+    let meta_offset = slot * std::mem::size_of::<[f32; 4]>();
+    let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("density_cell_readback"),
+        size: 24,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("density_cell_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &handle.meta_buffer,
+        meta_offset as wgpu::BufferAddress,
+        &staging,
+        8,
+        16,
+    );
+    handle.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let meta_floats: &[f32] = bytemuck::cast_slice(&data[8..24]);
+    let span = meta_floats[1].max(0.0) as u32;
+    let dim = if span < usize::BITS {
+        1usize << span
+    } else {
+        0
+    };
+    let unity = meta_floats[0].max(1.0e-12);
+    drop(data);
+    staging.unmap();
+
+    if dim == 0 || row as usize >= dim || col as usize >= dim {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    }
+    let cell = row as usize * dim + col as usize;
+    if cell >= DENSITY_VALUES_PER_SLOT {
+        return Ok(js_sys::Float64Array::new_with_length(0));
+    }
+    let value_offset = (slot * DENSITY_VALUES_PER_SLOT + cell) * std::mem::size_of::<[f32; 2]>();
+    let value_staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("density_value_readback"),
+        size: 8,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut value_encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("density_value_readback_encoder"),
+        });
+    value_encoder.copy_buffer_to_buffer(
+        &handle.output_buffer,
+        value_offset as wgpu::BufferAddress,
+        &value_staging,
+        0,
+        8,
+    );
+    handle.queue.submit(Some(value_encoder.finish()));
+
+    let value_slice = value_staging.slice(..);
+    let (value_sender, value_receiver) = oneshot::channel();
+    value_slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = value_sender.send(result);
+    });
+    value_receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let value_data = value_slice.get_mapped_range();
+    let value_floats: &[f32] = bytemuck::cast_slice(&value_data);
+    let output = js_sys::Float64Array::new_with_length(7);
+    output.set_index(0, f64::from(gate_id));
+    output.set_index(1, f64::from(row));
+    output.set_index(2, f64::from(col));
+    output.set_index(3, f64::from(value_floats[0] / unity));
+    output.set_index(4, f64::from(value_floats[1] / unity));
+    output.set_index(5, f64::from(unity));
+    output.set_index(6, f64::from(span));
+    drop(value_data);
+    value_staging.unmap();
     Ok(output)
 }

@@ -12,6 +12,9 @@ pub(crate) enum GateKind {
     /// Quirk-compatible amplitude display. It captures a span-local complex
     /// amplitude matrix into GPU storage and renders it without CPU readback.
     AmplitudeDisplay,
+    /// Quirk-compatible density matrix display. It captures a span-local
+    /// reduced density matrix into GPU storage and renders it without CPU readback.
+    DensityMatrixDisplay,
     Spacer,
     Write0,
     Write1,
@@ -53,7 +56,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 25] = [
+const GATE_SPECS: [GateSpec; 26] = [
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -94,6 +97,12 @@ const GATE_SPECS: [GateSpec; 25] = [
         kind: GateKind::AmplitudeDisplay,
         label: "Amps",
         url_token: "Amps",
+        resizable_span: true,
+    },
+    GateSpec {
+        kind: GateKind::DensityMatrixDisplay,
+        label: "Density",
+        url_token: "Density",
         resizable_span: true,
     },
     GateSpec {
@@ -236,16 +245,17 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 9] = [
     GateKind::QftDaggerGate,
     GateKind::Spacer,
 ];
-pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 3] = [
+pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
     GateKind::BlochDisplay,
     GateKind::ProbabilityDisplay,
     GateKind::AmplitudeDisplay,
+    GateKind::DensityMatrixDisplay,
 ];
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
 pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 9] = [13, 14, 15, 17, 18, 19, 22, 23, 21];
-pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 3] = [16, 20, 24];
+pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
 pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
     if index < PALETTE_ROW1_COUNT {
@@ -295,6 +305,7 @@ impl GateKind {
     pub(crate) fn max_resizable_span(self, qubit_capacity: usize) -> usize {
         match self {
             GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
+            GateKind::DensityMatrixDisplay => qubit_capacity.min(8),
             _ => qubit_capacity,
         }
         .max(1)

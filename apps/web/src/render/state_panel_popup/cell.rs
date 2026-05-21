@@ -21,12 +21,11 @@ pub(crate) fn draw_state_cell_popup(
     colors: &Colors,
     layout: &StatePanelLayout,
     grid_origin: egui::Pos2,
-    viewport_rect: egui::Rect,
     screen_rect: egui::Rect,
     display_index: u32,
 ) {
     let qubits = layout.qubits.max(1) as u32;
-    let popup = geometry::layout_popup(layout, grid_origin, viewport_rect, display_index);
+    let popup = geometry::layout_popup(layout, grid_origin, screen_rect, display_index);
 
     chrome::paint_popup_chrome(painter, colors, &popup);
     rows::paint_popup_rows(painter, colors, &popup, display_index, qubits);

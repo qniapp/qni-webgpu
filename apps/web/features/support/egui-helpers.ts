@@ -13,6 +13,7 @@ declare global {
     __eguiReadBlochVectors?: () => Promise<number[]>
     __eguiReadProbabilityDistributions?: () => Promise<number[]>
     __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
+    __eguiReadDensityMatrixCell?: (gateId: number, row: number, col: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
   }
 }
@@ -55,7 +56,7 @@ const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
 const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
 const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 22, 23, 21]
-const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24]
+const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24, 25]
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
 const DEFAULT_STATE_COUNT = 4
 
@@ -230,6 +231,37 @@ export const readAmplitudeCell = async (page: Page, gateId: number, outcome: num
     quality: flat[5],
     phaseLockIndex: Math.round(flat[6]),
     span: Math.round(flat[7]),
+  }
+}
+
+export type DensityMatrixCell = {
+  gateId: number
+  row: number
+  col: number
+  re: number
+  im: number
+  unity: number
+  span: number
+}
+
+export const readDensityMatrixCell = async (page: Page, gateId: number, row: number, col: number): Promise<DensityMatrixCell | null> => {
+  const flat = await evaluateWithRetry<number[], { gateId: number; row: number; col: number }>(page, async ({ gateId, row, col }) => {
+    if (!window.__eguiReadDensityMatrixCell) {
+      return []
+    }
+    return await window.__eguiReadDensityMatrixCell(gateId, row, col)
+  }, { gateId, row, col })
+  if (flat.length < 7) {
+    return null
+  }
+  return {
+    gateId: Math.round(flat[0]),
+    row: Math.round(flat[1]),
+    col: Math.round(flat[2]),
+    re: flat[3],
+    im: flat[4],
+    unity: flat[5],
+    span: Math.round(flat[6]),
   }
 }
 

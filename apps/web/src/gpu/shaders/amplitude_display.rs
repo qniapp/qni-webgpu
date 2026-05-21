@@ -298,7 +298,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     if (placeholder) {
         let stroke = select(1.0, 2.0, cell >= 24.0);
         let half_stroke = stroke * 0.5;
-        let outline_radius = max(0.0, cell * 0.5 - stroke);
+        let outline_clearance = 1.5;
+        let outline_radius = max(0.0, cell * 0.5 - half_stroke - outline_clearance);
         let centered_len = length(cell_centered);
         let edge = max(0.5, aa_edge * 0.65);
         let outline_inner = 1.0 - smoothstep(
@@ -327,9 +328,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let stroke = select(1.0, 2.0, cell >= 24.0);
         let half_stroke = stroke * 0.5;
         // docs/design-system/amplitude-display.html §05 pseudocode: r_outline =
-        // cell_size / 2 - stroke. The 1px slack keeps the circle stroke
-        // inside the rectangular matrix frame instead of sharing its edge.
-        let outline_radius = max(0.0, cell * 0.5 - stroke);
+        // cell_size / 2 - stroke / 2 - clearance. The clearance keeps the
+        // circle stroke from touching the rectangular matrix frame.
+        let outline_clearance = 1.5;
+        let outline_radius = max(0.0, cell * 0.5 - half_stroke - outline_clearance);
         let inner_radius = max(0.0, outline_radius - half_stroke);
         let centered_len = length(cell_centered);
         // Keep derivative-based SDF AA, but tighten the transition for the

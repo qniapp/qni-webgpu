@@ -16,6 +16,7 @@
 //! * [`probability_display`] — Probability Display marginalization (compute) +
 //!   GPU-rendered bars. Both share the Probability output buffer.
 //! * [`amplitude_display`] — Amplitude Display capture + GPU-rendered grid / popup.
+//! * [`density_matrix_display`] — Density Matrix Display capture + GPU-rendered grid.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
@@ -33,6 +34,7 @@
 mod amplitude_display;
 mod bloch_display;
 mod common;
+mod density_matrix_display;
 mod digit;
 mod measure;
 mod popup_value;
@@ -44,6 +46,7 @@ use eframe::wgpu;
 use self::amplitude_display::AmplitudeResources;
 use self::bloch_display::BlochResources;
 use self::common::Common;
+use self::density_matrix_display::DensityResources;
 use self::digit::DigitResources;
 use self::measure::MeasureResources;
 use self::popup_value::PopupValueResources;
@@ -57,6 +60,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) measure: MeasureResources,
     pub(crate) probability: ProbabilityResources,
     pub(crate) amplitude: AmplitudeResources,
+    pub(crate) density: DensityResources,
     pub(crate) digit: DigitResources,
     pub(crate) popup_value: PopupValueResources,
 
@@ -88,6 +92,7 @@ impl StateVectorResources {
         let measure = MeasureResources::build(device, &common);
         let probability = ProbabilityResources::build(device, queue, target_format, &common);
         let amplitude = AmplitudeResources::build(device, queue, target_format, &common);
+        let density = DensityResources::build(device, target_format, &common);
         let digit = DigitResources::build(device, queue, target_format, &measure);
         let popup_value = PopupValueResources::build(device, queue, target_format, &common);
 
@@ -98,6 +103,7 @@ impl StateVectorResources {
             measure,
             probability,
             amplitude,
+            density,
             digit,
             popup_value,
             target_format,
@@ -113,7 +119,7 @@ impl StateVectorResources {
     ///
     /// Pre-refactor name was `update_render_pipeline`, but it only
     /// rebuilt one pipeline. Now genuine — touches `state`, `bloch`,
-    /// `probability`, `digit`, and `popup_value`.
+    /// `probability`, `amplitude`, `density`, `digit`, and `popup_value`.
     pub(crate) fn update_target_format(
         &mut self,
         device: &wgpu::Device,
@@ -126,6 +132,7 @@ impl StateVectorResources {
         self.bloch.update_target_format(device, target_format);
         self.probability.update_target_format(device, target_format);
         self.amplitude.update_target_format(device, target_format);
+        self.density.update_target_format(device, target_format);
         self.digit.update_target_format(device, target_format);
         self.popup_value.update_target_format(device, target_format);
         self.target_format = target_format;

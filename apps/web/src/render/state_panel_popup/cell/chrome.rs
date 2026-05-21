@@ -3,6 +3,10 @@ use eframe::egui;
 use super::geometry::PopupGeometry;
 use crate::colors::Colors;
 
+const TAIL_SEAM_CARD_OVERLAP: f32 = 2.0;
+const TAIL_SEAM_TAIL_OVERLAP: f32 = 0.5;
+const TAIL_SEAM_X_PAD: f32 = 0.75;
+
 pub(super) fn paint_popup_chrome(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
     paint_card(painter, colors, popup.rect);
     paint_tail(painter, colors, popup);
@@ -40,17 +44,27 @@ fn paint_tail(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
         colors.surface,
         egui::Stroke::NONE,
     ));
+
+    // The card border is painted before the tail. Cover the border segment
+    // hidden by the tail with a tiny surface patch that overlaps the card and
+    // tail; a 1px line at the exact base can miss the anti-aliased inside
+    // stroke and leave a hairline seam.
+    let base_y = base_l.y;
+    let cover_y = if apex.y > base_y {
+        (base_y - TAIL_SEAM_CARD_OVERLAP)..=(base_y + TAIL_SEAM_TAIL_OVERLAP)
+    } else {
+        (base_y - TAIL_SEAM_TAIL_OVERLAP)..=(base_y + TAIL_SEAM_CARD_OVERLAP)
+    };
+    painter.rect_filled(
+        egui::Rect::from_min_max(
+            egui::pos2(base_l.x - TAIL_SEAM_X_PAD, *cover_y.start()),
+            egui::pos2(base_r.x + TAIL_SEAM_X_PAD, *cover_y.end()),
+        ),
+        egui::CornerRadius::ZERO,
+        colors.surface,
+    );
+
     let border_stroke = egui::Stroke::new(1.0, colors.state_outline_zero);
     painter.line_segment([base_l, apex], border_stroke);
     painter.line_segment([apex, base_r], border_stroke);
-
-    // Repaint the popup-body edge between the tail bases so the border doesn't
-    // show through under the tail.
-    painter.line_segment(
-        [
-            egui::pos2(base_l.x + 0.5, base_l.y),
-            egui::pos2(base_r.x - 0.5, base_r.y),
-        ],
-        egui::Stroke::new(1.0, colors.surface),
-    );
 }

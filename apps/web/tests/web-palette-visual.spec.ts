@@ -77,7 +77,7 @@ test('Display section Probability slot preserves its palette hover index', async
   await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(20)
 })
 
-test('Display section empty slot does not hover a palette gate', async ({ page }) => {
+test('Display section Density slot preserves its palette hover index', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -88,14 +88,36 @@ test('Display section empty slot does not hover a palette gate', async ({ page }
   if (!box) {
     throw new Error('expected egui canvas to be measurable')
   }
-  const probabilityCenter = getPaletteGateCenter(box.width, 20)
-  const emptySlotCenter = {
-    x: probabilityCenter.x,
-    y: probabilityCenter.y + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_ROW_GAP,
-  }
-  await page.mouse.move(box.x + emptySlotCenter.x, box.y + emptySlotCenter.y)
+  const densityCenter = getPaletteGateCenter(box.width, 25)
+  await page.mouse.move(box.x + densityCenter.x, box.y + densityCenter.y)
 
-  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBeNull()
+  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(25)
+})
+
+test('Density palette icon maximizes circle outlines without touching the hover frame', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const densityCenter = getPaletteGateCenter(box.width, 25)
+  await page.mouse.move(box.x + densityCenter.x, box.y + densityCenter.y)
+  await page.waitForTimeout(50)
+  const EGUI_PANEL_MARGIN = 8
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'frameEdge', x: densityCenter.x - UI_CONSTANTS.GATE_SIZE / 2, y: EGUI_PANEL_MARGIN + densityCenter.y - UI_CONSTANTS.GATE_SIZE / 4 },
+    { name: 'nearCircle', x: densityCenter.x - UI_CONSTANTS.GATE_SIZE / 2 + 1, y: EGUI_PANEL_MARGIN + densityCenter.y - UI_CONSTANTS.GATE_SIZE / 4 },
+  ])
+
+  expect({
+    frameEdgeClear: pixelRgbDistance(pixels.frameEdge, [255, 252, 240, 255]) < 48,
+    nearCircleVisible: pixelRgbDistance(pixels.nearCircle, [255, 252, 240, 255]) > 80,
+  }).toEqual({ frameEdgeClear: true, nearCircleVisible: true })
 })
 
 test('palette measurement hover keeps the panel background inside the outline', async ({ page }) => {

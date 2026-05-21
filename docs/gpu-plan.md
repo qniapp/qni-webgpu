@@ -7,8 +7,8 @@
 - 量子状態の更新は WebGPU compute shader のみで行う。
 - CPU は state vector / 密度行列 / 測定確率 / ブロッホベクトルを計算しない。
 - CPU は semantic circuit から GPU dispatch 用の plan / params を作るだけ。
-- 状態ベクトル円、Bloch overlay、measurement digit は GPU storage バッファを render shader が直接 sample する。
-- `read_state_vector` / `read_bloch_vectors` / `read_measurement_outcomes` は Playwright などテスト用の on-demand readback。production render path では使わない。
+- 状態ベクトル円、ブロッホ球表示、測定値、確率表示、振幅表示、密度行列表示は GPU storage バッファを描画シェーダが直接 sample する。
+- `read_state_vector` / `read_bloch_vectors` / `read_measurement_outcomes` / `read_probability_distributions` / `read_amplitude_cell` / `read_density_matrix_cell` は Playwright などテスト用の on-demand readback。production 描画経路では使わない。
 
 ## 現在のデータフロー
 
@@ -17,8 +17,8 @@ flowchart LR
   Circuit[CPU: semantic circuit<br/>column / wire / span] --> Plan[CPU: simulation_plan<br/>op stream + capacity validation]
   Plan --> Params[CPU: packed GPU params<br/>gate matrix / target / control metadata]
   Params --> Compute[GPU compute<br/>STATE / MEASURE / BLOCH shaders]
-  Compute --> Buffers[GPU storage buffers<br/>state / step snapshots / bloch / measurement aux]
-  Buffers --> Render[GPU render shaders<br/>state circles / bloch arrows / digits]
+  Compute --> Buffers[GPU storage buffers<br/>state / step snapshots / bloch / measurement aux / probability / amplitude / density]
+  Buffers --> Render[GPU render shaders<br/>state circles / bloch arrows / digits / probability bars / amplitude cells / density cells]
   Render --> Canvas[WebGPU canvas]
   Buffers -. test only .-> Readback[on-demand async readback]
 ```
@@ -43,6 +43,14 @@ flowchart LR
 - `BLOCH_REDUCE_SHADER` が state buffer から量子ビットごとのブロッホベクトルを計算する。
 - `BLOCH_OVERLAY_SHADER` が `bloch_output_buffer` を直接 sample し、矢印と tip dot を描く。
 - Bell など maximally mixed な局所状態のゼロベクトル表示も shader-side の値で決まる。
+
+### 確率・振幅・密度行列表示ブロック
+
+- `PROBABILITY_REDUCE_SHADER` が表示対象 span の周辺確率を GPU 上で集計し、`PROBABILITY_RENDER_SHADER` が棒を描画する。
+- `AMPLITUDE_CAPTURE_SHADER` が表示対象 span の複素振幅と混合状態用の大きさを GPU バッファへ保存し、`AMPLITUDE_RENDER_SHADER` が円盤・輪郭・位相針を描画する。
+- `DENSITY_CAPTURE_SHADER` が Quirk 互換の `Density`〜`Density8` 用に縮約密度行列を GPU 上で計算し、`DENSITY_RENDER_SHADER` が同じ storage バッファを直接読んでセルを描画する。
+- 外部 GPU 実行では Qiskit backend が Probability / Amplitude / Bloch / Density Matrix の表示値を返し、Web 側は対応する GPU storage バッファへ一括転送する。転送後の描画はローカル実行と同じ render shader が担当し、本番経路で読み戻しはしない。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約へ `control_mask` / `control_value` を追加するまで外部 GPU 実行では拒否する。
+- CPU は表示値、測定確率、ブロッホベクトル、密度行列要素を計算しない。ホバー中のセル番号など、描画値ではない幾何情報だけを渡す。
 
 ### State-vector panel
 
@@ -81,8 +89,8 @@ flowchart LR
 
 ## テスト戦略
 
-- Playwright は test-only readback API で state vector / Bloch / measurement 測定結果を検証する。
-- Production path の正しさは、readback ではなく shader が同じ GPU storage バッファを直接 sample する構造で担保する。
+- Playwright は test-only readback API で state vector / Bloch / measurement 測定結果 / Probability / Amplitude / Density Matrix を検証する。
+- Production path の正しさは、readback ではなく描画シェーダが同じ GPU storage バッファを直接 sample する構造で担保する。
 - UI 変更時は visual / drag specs を通し、GPU path 変更時は `web-gpu.spec.ts` と state semantics specs を通す。
 - repo root の `./scripts/check-all.sh` を最終 gate とする。
 

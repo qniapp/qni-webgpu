@@ -33,12 +33,14 @@
   --blue-300:   #66A0C8; /* blue-300         */
   --blue-400:   #4385BE; /* blue-400         */
   --blue-600:   #205EA6; /* blue-600         */
+  --cyan-400:   #3AA99F; /* cyan-400         */
   --cyan-600:   #24837B; /* cyan-600         */
   --green-600:  #66800B; /* green-600        */
   --yellow-600: #AD8301; /* yellow-600       */
   --orange-400: #DA702C; /* orange-400       */
   --orange-600: #BC5215; /* orange-600       */
   --red-600:    #AF3029; /* red-600          */
+  --purple-100: #ECE1F3; /* purple-100       */
   --purple-400: #8B7EC8; /* purple-400       */
   --purple-600: #5E409D; /* purple-600       */
 }
@@ -229,6 +231,57 @@ pre.code {
   line-height: 20px;        /* spacing-5 */
   overflow-x: auto;
   color: var(--tx);
+}
+
+/* ── リサイズハンドル (primitive) ──────────────────────
+   span を持つ表示ブロック / QFT などが共有する「上下ドラッグハンドル」。
+   仕様: docs/design-system/resize-handle.html。
+   chrome (色 / 寸法 / state machine / マイクロインタラクション) はここに 1 箇所だけ定義し、
+   各コンポーネント側のホスト要素 (.cd-host / .ad-host / .dm-host 等) は
+   <strong>.resize-handle-host</strong> マーカークラスを併記して .resize-handle 要素を appendChild する。
+   state は .resize-handle[data-handle-state="visible | hover | active"] という
+   data 属性に集約する (spec ページの常時表示モック用)。 */
+.resize-handle {
+  position: absolute;
+  left: 50%;
+  width: 24px;                          /* JS で widthMode='canvas60' なら canvas 幅 × 0.6 で上書き */
+  height: 6px;
+  background: var(--cyan-400);          /* default。hover ring (purple-400) と別色族 */
+  border-radius: 3px;
+  opacity: 0;
+  cursor: ns-resize;
+  pointer-events: auto;
+  z-index: 20;
+  transform: translateX(-50%) scale(0.7);
+  transition:
+    opacity 200ms ease-out,
+    transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),  /* バウンス: 奥から飛び出す表現 */
+    background 120ms ease-out;
+}
+.resize-handle--top    { top: -12px; }    /* 4 px ring 外側 + 2 px paper gap (breathing room) */
+.resize-handle--bottom { bottom: -12px; }
+
+/* ホスト hover で visible / spec ページの data-handle-state でも visible */
+.resize-handle-host:hover .resize-handle,
+.resize-handle[data-handle-state="visible"],
+.resize-handle[data-handle-state="hover"],
+.resize-handle[data-handle-state="active"] {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+/* 個別 hover: 拡大 + cyan-600 (即時切替) */
+.resize-handle:hover,
+.resize-handle[data-handle-state="hover"] {
+  background: var(--cyan-600);
+  transform: translateX(-50%) scale(1.15);
+  transition: none;
+}
+/* active drag: さらに拡大 (即時切替) */
+.resize-handle:active,
+.resize-handle[data-handle-state="active"] {
+  background: var(--cyan-600);
+  transform: translateX(-50%) scale(1.25);
+  transition: none;
 }
 
 /* ── preview-mode ─────────────────────────────────────

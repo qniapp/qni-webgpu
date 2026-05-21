@@ -10,6 +10,7 @@ ANTI_CONTROL_TOKENS = {"○", "anti", "Anti"}
 EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
+DENSITY_DISPLAY_RE = re.compile(r"^Density(?:[1-8])?$")
 DISPLAY_TOKENS = {"Bloch"}
 
 
@@ -89,6 +90,7 @@ def is_readonly_display_token(token: str) -> bool:
         token in DISPLAY_TOKENS
         or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
         or bool(PROBABILITY_DISPLAY_RE.fullmatch(token))
+        or bool(DENSITY_DISPLAY_RE.fullmatch(token))
     )
 
 

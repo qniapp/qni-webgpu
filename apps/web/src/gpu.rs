@@ -23,21 +23,24 @@ mod shaders;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
-    MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
-    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorResourceBootstrapCallback,
+    DensityMatrixDisplayCallback, MeasurementDigitCallback, PopupValueCallback,
+    ProbabilityDisplayCallback, ProbabilityPopupValueCallback, StateVectorCallback,
+    StateVectorResourceBootstrapCallback,
 };
 pub(crate) use params::{
-    AmplitudeInstance, BlochOverlayInstance, ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch,
-    ExternalBlochUpload, ExternalBlochUploadBatch, ExternalProbabilityUpload,
+    AmplitudeInstance, BlochOverlayInstance, DensityInstance, ExternalAmplitudeUpload,
+    ExternalAmplitudeUploadBatch, ExternalBlochUpload, ExternalBlochUploadBatch,
+    ExternalDensityUpload, ExternalDensityUploadBatch, ExternalProbabilityUpload,
     ExternalProbabilityUploadBatch, MeasurementDigitInstance, ProbabilityInstance, RenderColors,
     RenderParams, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, AMPLITUDE_FORCE_ZERO,
-    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, MAX_AMPLITUDE_SLOTS,
+    MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
     MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, PROBABILITY_RENDER_MODE_PLACEHOLDER,
     PROBABILITY_RENDER_MODE_SAMPLE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
-    read_amplitude_cell_impl, read_bloch_vectors_impl, read_measurement_outcomes_impl,
-    read_probability_distributions_impl, read_state_vector_impl,
+    read_amplitude_cell_impl, read_bloch_vectors_impl, read_density_matrix_cell_impl,
+    read_measurement_outcomes_impl, read_probability_distributions_impl, read_state_vector_impl,
 };

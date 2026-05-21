@@ -82,7 +82,7 @@ fn palette_display_local_pos(index: usize, layout: &PaletteLayout) -> Option<egu
 
 /// Returns gate top-left position relative to the palette panel top-left.
 /// Gates stay in the left section; Display widgets occupy a 2×2 grid on the
-/// right, leaving the bottom-right slot intentionally empty and non-hoverable.
+/// right.
 pub(crate) fn palette_gate_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
     if index >= PALETTE_GATE_COUNT {
         return None;
@@ -173,14 +173,11 @@ mod tests {
     }
 
     #[test]
-    fn palette_hit_test_ignores_display_empty_slot() {
+    fn palette_hit_test_finds_density_display_slot() {
         let layout = palette_layout();
-        let local = egui::pos2(
-            layout.display_x + PALETTE_SIZE + PALETTE_GAP + PALETTE_SIZE / 2.0,
-            PALETTE_SIZE + PALETTE_ROW_GAP + PALETTE_SIZE / 2.0,
-        );
+        let local = palette_gate_local_pos(25, &layout).unwrap() + egui::vec2(20.0, 20.0);
 
-        assert_eq!(palette_hit_test(local, &layout), None);
+        assert_eq!(palette_hit_test(local, &layout), Some(25));
     }
 
     #[test]

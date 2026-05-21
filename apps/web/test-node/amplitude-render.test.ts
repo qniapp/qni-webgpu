@@ -24,10 +24,10 @@ test('Amplitude rendering anti-aliases circle SDF edges with derivatives', async
   assert.match(renderShader, /let aa_edge = length\(fwidth\(in\.local\)\);[\s\S]*let edge = max\(0\.5, aa_edge \* 0\.65\);[\s\S]*smoothstep\(radius - edge, radius \+ edge, centered_len\)/)
 })
 
-test('Amplitude circle radius leaves slack inside the matrix frame', async () => {
+test('Amplitude circle radius maximizes without touching the matrix frame', async () => {
   const renderShader = await readRenderShader()
 
-  assert.match(renderShader, /let outline_radius = max\(0\.0, cell \* 0\.5 - stroke\);/)
+  assert.match(renderShader, /let outline_clearance = 1\.5;[\s\S]*let outline_radius = max\(0\.0, cell \* 0\.5 - half_stroke - outline_clearance\);/)
 })
 
 test('Amplitude rendering does not draw internal grid separators', async () => {
@@ -78,6 +78,14 @@ test('Amplitude palette icon omits the square matrix frame', async () => {
   const iconBody = afterIcon.split(/fn draw_(density|probability)_preview_body/)[0] ?? ''
 
   assert.equal(iconBody.includes('rect_stroke'), false)
+})
+
+test('Amplitude palette icon maximizes without touching the frame', async () => {
+  const gateBody = await fs.readFile(gateBodyPath, 'utf8')
+  const afterIcon = gateBody.split('fn draw_amplitude_palette_icon')[1] ?? ''
+  const iconBody = afterIcon.split(/fn draw_(density|probability)_preview_body/)[0] ?? ''
+
+  assert.match(iconBody, /let outline_clearance = 1\.5;[\s\S]*let outline_radius =\s*\(rect\.width\(\)\.min\(rect\.height\(\)\) \* 0\.5 - half_stroke - outline_clearance\)\.max\(0\.0\);/)
 })
 
 test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', async () => {

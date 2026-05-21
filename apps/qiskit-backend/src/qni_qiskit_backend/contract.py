@@ -18,6 +18,8 @@ MAX_EXACT_AMPLITUDE_QUBITS = 16
 MAX_AMPLITUDE_OUTPUTS = 32
 MAX_BLOCH_OUTPUTS = 64
 MAX_PROBABILITY_OUTPUTS = 32
+MAX_DENSITY_OUTPUTS = 16
+MAX_DENSITY_SPAN = 8
 
 
 class ContractError(ValueError):
@@ -51,6 +53,14 @@ class ProbabilityOutputRequest:
 
 
 @dataclass(frozen=True)
+class DensityOutputRequest:
+    gate_id: int
+    column: int
+    span: int
+    base_bit: int
+
+
+@dataclass(frozen=True)
 class RunRequest:
     runner: str
     qubits: int
@@ -60,6 +70,7 @@ class RunRequest:
     amplitude_outputs: list[AmplitudeOutputRequest]
     bloch_outputs: list[BlochOutputRequest]
     probability_outputs: list[ProbabilityOutputRequest]
+    density_outputs: list[DensityOutputRequest]
 
 
 def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> RunRequest:
@@ -96,6 +107,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
     amplitude_outputs = parse_amplitude_outputs(outputs, columns, qubits)
     bloch_outputs = parse_bloch_outputs(outputs, columns, qubits)
     probability_outputs = parse_probability_outputs(outputs, columns, qubits)
+    density_outputs = parse_density_outputs(outputs, columns, qubits)
 
     runner = payload.get("runner", default_runner)
     if runner not in {"mock", "qiskit-cpu-dev", "qiskit-gpu"}:
@@ -110,6 +122,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
         amplitude_outputs=amplitude_outputs,
         bloch_outputs=bloch_outputs,
         probability_outputs=probability_outputs,
+        density_outputs=density_outputs,
     )
 
 
@@ -229,6 +242,44 @@ def parse_probability_output(
     if not 0 <= base_bit or base_bit + span > qubits:
         raise ContractError("probability bit range is out of range")
     return ProbabilityOutputRequest(
+        gate_id=gate_id,
+        column=column,
+        span=span,
+        base_bit=base_bit,
+    )
+
+
+def parse_density_outputs(
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+) -> list[DensityOutputRequest]:
+    raw_outputs = outputs.get("densities", [])
+    if raw_outputs in (None, False):
+        return []
+    if not isinstance(raw_outputs, list):
+        raise ContractError("outputs.densities must be an array")
+    if len(raw_outputs) > MAX_DENSITY_OUTPUTS:
+        raise ContractError(f"at most {MAX_DENSITY_OUTPUTS} density outputs are supported")
+    return [parse_density_output(raw, columns, qubits) for raw in raw_outputs]
+
+
+def parse_density_output(
+    raw: Any, columns: list[list[Any]], qubits: int
+) -> DensityOutputRequest:
+    if not isinstance(raw, dict):
+        raise ContractError("each density output must be an object")
+    gate_id = required_int(raw, "gate_id", "density")
+    column = required_int(raw, "column", "density")
+    span = required_int(raw, "span", "density")
+    base_bit = required_int(raw, "base_bit", "density")
+    if gate_id < 0:
+        raise ContractError("density gate_id must be non-negative")
+    if not 0 <= column < len(columns):
+        raise ContractError("density column is out of range")
+    if not 1 <= span <= MAX_DENSITY_SPAN:
+        raise ContractError(f"density span must be in [1, {MAX_DENSITY_SPAN}]")
+    if not 0 <= base_bit or base_bit + span > qubits:
+        raise ContractError("density bit range is out of range")
+    return DensityOutputRequest(
         gate_id=gate_id,
         column=column,
         span=span,

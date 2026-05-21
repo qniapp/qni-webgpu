@@ -64,7 +64,10 @@ impl DragController {
         };
         let live_display_kind = matches!(
             gate_kind,
-            GateKind::AmplitudeDisplay | GateKind::BlochDisplay | GateKind::Measurement
+            GateKind::AmplitudeDisplay
+                | GateKind::DensityMatrixDisplay
+                | GateKind::BlochDisplay
+                | GateKind::Measurement
         );
         app.dragging_live_display_snap = live_display_kind && snapped_to_live_display_slot;
         let state_count_changed = if app.dragging_live_display_snap {

@@ -196,9 +196,32 @@
   </div>
 </section>
 
-<!-- ─────── § 02 表示ブロック (Display blocks) ─────── -->
+<!-- ─────── § 02 Primitives (横断 UI 部品) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 02</span>表示ブロック (Display blocks)</h2>
+  <h2><span class="num">§ 02</span>Primitives (横断 UI 部品)</h2>
+  <p class="note">
+    複数のコンポーネントが共有する小さな UI 部品 (primitive)。基礎トークンが「値」なら primitive は「部品」。
+    chrome (色 / 寸法 / state machine / マイクロインタラクション) を 1 箇所に集約し、各コンポーネント側は policy (使い方の差分) だけを定義する。
+  </p>
+  <div class="spec-grid">
+
+    <a class="spec-card" href="design-system/resize-handle.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/resize-handle.html?preview" loading="lazy" title="リサイズハンドル preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">リサイズハンドル</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">span を持つ表示ブロック / QFT が共有する上下ドラッグハンドル。cyan-400 ピル形 + バウンス出現。</p>
+    </a>
+
+  </div>
+</section>
+
+<!-- ─────── § 03 表示ブロック (Display blocks) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>表示ブロック (Display blocks)</h2>
   <p class="note">
     回路上に「読み取り」だけを行う要素群。ユニタリ変換ではないので厳密にはゲートではなく、`表示ブロック` と呼ぶ。状態ベクトルに影響を与えず、span 内の量子ビットの確率や ブロッホベクトル等を可視化する。
   </p>
@@ -237,42 +260,23 @@
       <p class="desc">span 内の量子ビットの複素振幅 (大きさ + 位相) を 1〜16 量子ビット grid で可視化する表示ブロック。</p>
     </a>
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/density-matrix-display.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <g stroke="#DAD8CE" fill="#92BFDB">
-            <rect x="2"  y="2"  width="12" height="12" opacity="0.9"/>
-            <rect x="16" y="2"  width="12" height="12" opacity="0.4"/>
-            <rect x="30" y="2"  width="12" height="12" opacity="0.2"/>
-            <rect x="44" y="2"  width="10" height="12" opacity="0.15"/>
-            <rect x="2"  y="16" width="12" height="12" opacity="0.4"/>
-            <rect x="16" y="16" width="12" height="12" opacity="0.9"/>
-            <rect x="30" y="16" width="12" height="12" opacity="0.3"/>
-            <rect x="44" y="16" width="10" height="12" opacity="0.2"/>
-            <rect x="2"  y="30" width="12" height="12" opacity="0.2"/>
-            <rect x="16" y="30" width="12" height="12" opacity="0.3"/>
-            <rect x="30" y="30" width="12" height="12" opacity="0.9"/>
-            <rect x="44" y="30" width="10" height="12" opacity="0.4"/>
-            <rect x="2"  y="44" width="12" height="10" opacity="0.15"/>
-            <rect x="16" y="44" width="12" height="10" opacity="0.2"/>
-            <rect x="30" y="44" width="12" height="10" opacity="0.4"/>
-            <rect x="44" y="44" width="10" height="10" opacity="0.9"/>
-          </g>
-        </svg>
+        <iframe src="design-system/density-matrix-display.html?preview" loading="lazy" title="密度行列表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">密度行列表示ブロック</span>
-        <span class="pill todo">todo</span>
+        <span class="pill done">spec</span>
       </div>
-      <p class="desc">部分系の密度行列をヒートマップで可視化する表示ブロック。</p>
-    </div>
+      <p class="desc">span 内の量子ビットの局所的な混合状態 (縮約密度行列) を、対角 = 確率 + 非対角 = coupling として 2<sup>span</sup> × 2<sup>span</sup> 行列で可視化する表示ブロック。</p>
+    </a>
 
   </div>
 </section>
 
-<!-- ─────── § 03 量子ゲート (Operation gates) ─────── -->
+<!-- ─────── § 04 量子ゲート (Operation gates) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 03</span>量子ゲート (Operation gates)</h2>
+  <h2><span class="num">§ 04</span>量子ゲート (Operation gates)</h2>
   <p class="note">
     状態ベクトルを変化させる単項 / 二項 / 制御ゲート群。すべて <strong>40px ゲート本体 + 56px ピッチ</strong>
     (<code>GATE_SIZE = 40</code>, <code>LINE_GAP = SLOT_SPACING = 56</code>) に揃え、共通の hover / drag 挙動を持つ。
@@ -370,9 +374,9 @@
   </div>
 </section>
 
-<!-- ─────── § 04 回路エディタ (Circuit editor) ─────── -->
+<!-- ─────── § 05 回路エディタ (Circuit editor) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 04</span>回路エディタ (Circuit editor)</h2>
+  <h2><span class="num">§ 05</span>回路エディタ (Circuit editor)</h2>
   <p class="note">
     ゲートを配置・編集する作業領域。グリッド、配線、ドラッグ / リサイズ操作、ホバー挙動などの仕様をまとめる。
   </p>
@@ -455,9 +459,9 @@
   </div>
 </section>
 
-<!-- ─────── § 05 パレット / ピッカー / ツールバー ─────── -->
+<!-- ─────── § 06 パレット / ピッカー / ツールバー ─────── -->
 <section class="block">
-  <h2><span class="num">§ 05</span>パレット / ピッカー / ツールバー</h2>
+  <h2><span class="num">§ 06</span>パレット / ピッカー / ツールバー</h2>
   <p class="note">
     回路の周辺 UI。ゲートパレット、回路ピッカー、ツールバー、ステータス表示など。
   </p>
@@ -519,9 +523,9 @@
   </div>
 </section>
 
-<!-- ─────── § 06 状態パネル (State panel) ─────── -->
+<!-- ─────── § 07 状態パネル (State panel) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>状態パネル (State panel)</h2>
+  <h2><span class="num">§ 07</span>状態パネル (State panel)</h2>
   <p class="note">
     回路実行後の状態ベクトル / 確率分布などを表示する右側パネル。レイアウト、ポップアップ、クロムなどを別仕様としてまとめる予定。
   </p>
@@ -602,9 +606,9 @@
   </div>
 </section>
 
-<!-- ─────── § 07 関連ドキュメント (横断的な参照) ─────── -->
+<!-- ─────── § 08 関連ドキュメント (横断的な参照) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>関連ドキュメント</h2>
+  <h2><span class="num">§ 08</span>関連ドキュメント</h2>
   <p class="note">
     特定のコンポーネント仕様ではないが、デザインシステム全体方針や移行計画、過去のモックなど、参照頻度の高いドキュメントをまとめる。
   </p>
@@ -624,9 +628,9 @@
   </div>
 </section>
 
-<!-- ─────── § 08 新しい仕様ドキュメントの追加手順 ─────── -->
+<!-- ─────── § 09 新しい仕様ドキュメントの追加手順 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>仕様ドキュメントの追加手順</h2>
+  <h2><span class="num">§ 09</span>仕様ドキュメントの追加手順</h2>
   <div class="card">
     <p>新しいコンポーネントの仕様を増やすときは、以下の順で進める。</p>
     <ol style="margin: 4px 0 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7;">

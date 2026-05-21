@@ -3,7 +3,9 @@ use eframe::egui;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::gates::GateKind;
-use crate::layout::{amplitude_cell_index_at, gate_visible_rect, palette_hit_test};
+use crate::layout::{
+    amplitude_cell_index_at, density_matrix_cell_index_at, gate_visible_rect, palette_hit_test,
+};
 use crate::span_resize::{span_resize_body_rect, SpanResizeHandles};
 
 impl DragController {
@@ -12,6 +14,7 @@ impl DragController {
         app.hovered_span_resize_handle = None;
         app.hovered_probability_outcome = None;
         app.hovered_amplitude_outcome = None;
+        app.hovered_density_cell = None;
         app.hovered_palette_index = None;
         if app.hovered_step.take().is_some() {
             app.gpu_plan.mark_step_preview_dirty();
@@ -31,10 +34,12 @@ impl DragController {
             // overhang the top / bottom edges).
             let previous_probability_outcome = app.hovered_probability_outcome;
             let previous_amplitude_outcome = app.hovered_amplitude_outcome;
+            let previous_density_cell = app.hovered_density_cell;
             let mut hovered_gate = None;
             let mut hovered_handle = None;
             let mut hovered_probability_outcome = None;
             let mut hovered_amplitude_outcome = None;
+            let mut hovered_density_cell = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
                 let resize_handles = SpanResizeHandles::for_gate(gate);
@@ -62,6 +67,10 @@ impl DragController {
                         hovered_amplitude_outcome =
                             amplitude_cell_index_at(gate_rect, gate.span, cursor)
                                 .map(|outcome| (gate.id, outcome));
+                    } else if gate.kind == GateKind::DensityMatrixDisplay {
+                        hovered_density_cell =
+                            density_matrix_cell_index_at(gate_rect, gate.span, cursor)
+                                .map(|cell| (gate.id, cell));
                     }
                     break;
                 }
@@ -70,8 +79,10 @@ impl DragController {
             app.hovered_span_resize_handle = hovered_handle;
             app.hovered_probability_outcome = hovered_probability_outcome;
             app.hovered_amplitude_outcome = hovered_amplitude_outcome;
+            app.hovered_density_cell = hovered_density_cell;
             if hovered_probability_outcome != previous_probability_outcome
                 || hovered_amplitude_outcome != previous_amplitude_outcome
+                || hovered_density_cell != previous_density_cell
             {
                 ctx.request_repaint();
             }

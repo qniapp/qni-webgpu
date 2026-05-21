@@ -4,9 +4,9 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    AmplitudeCaptureParams, BlochParams, MeasureCollapseParams, MeasureReduceParams,
-    ProbabilityReduceParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS,
-    MAX_PROBABILITY_SLOTS,
+    AmplitudeCaptureParams, BlochParams, DensityCaptureParams, MeasureCollapseParams,
+    MeasureReduceParams, ProbabilityReduceParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS,
+    MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_PROBABILITY_SLOTS,
 };
 use super::super::resources::StateVectorResources;
 use super::clear::encode_ground_state_init;
@@ -18,6 +18,7 @@ pub(super) struct EncodedRecompute {
     pub(super) measurement_slot_to_gate_id: Vec<u32>,
     pub(super) probability_slot_to_gate_id: Vec<u32>,
     pub(super) amplitude_slot_to_gate_id: Vec<u32>,
+    pub(super) density_slot_to_gate_id: Vec<u32>,
 }
 
 /// Encode one batched recompute command buffer. Each per-op param update is an
@@ -59,6 +60,9 @@ pub(super) fn encode_batched_recompute(
             SimulationOp::CaptureAmplitude { gate_id, .. } => {
                 state.encode_capture_amplitude(&mut encoder, resources, *gate_id);
             }
+            SimulationOp::CaptureDensity { gate_id, span, .. } => {
+                state.encode_capture_density(&mut encoder, resources, *gate_id, *span);
+            }
         }
     }
 
@@ -71,6 +75,7 @@ pub(super) fn encode_batched_recompute(
         measurement_slot_to_gate_id: state.measurement_slot_to_gate_id,
         probability_slot_to_gate_id: state.probability_slot_to_gate_id,
         amplitude_slot_to_gate_id: state.amplitude_slot_to_gate_id,
+        density_slot_to_gate_id: state.density_slot_to_gate_id,
     }
 }
 
@@ -85,10 +90,12 @@ struct DispatchState {
     measure_collapse_slot: u64,
     probability_slot: u64,
     amplitude_slot: u64,
+    density_slot: u64,
     bloch_slot_to_gate_id: Vec<u32>,
     measurement_slot_to_gate_id: Vec<u32>,
     probability_slot_to_gate_id: Vec<u32>,
     amplitude_slot_to_gate_id: Vec<u32>,
+    density_slot_to_gate_id: Vec<u32>,
 }
 
 impl DispatchState {
@@ -104,10 +111,12 @@ impl DispatchState {
             measure_collapse_slot: 0,
             probability_slot: 0,
             amplitude_slot: 0,
+            density_slot: 0,
             bloch_slot_to_gate_id: Vec::with_capacity(MAX_BLOCH_SLOTS),
             measurement_slot_to_gate_id: Vec::with_capacity(MAX_MEASUREMENT_SLOTS),
             probability_slot_to_gate_id: Vec::with_capacity(MAX_PROBABILITY_SLOTS),
             amplitude_slot_to_gate_id: Vec::with_capacity(MAX_AMPLITUDE_SLOTS),
+            density_slot_to_gate_id: Vec::with_capacity(MAX_DENSITY_SLOTS),
         }
     }
 
@@ -318,5 +327,38 @@ impl DispatchState {
         }
         self.amplitude_slot += 1;
         self.amplitude_slot_to_gate_id.push(gate_id);
+    }
+
+    fn encode_capture_density(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &StateVectorResources,
+        gate_id: u32,
+        span: u32,
+    ) {
+        let size = std::mem::size_of::<DensityCaptureParams>() as wgpu::BufferAddress;
+        encoder.copy_buffer_to_buffer(
+            &resources.density.capture_params_staging_buffer,
+            self.density_slot * size,
+            &resources.density.capture_params_buffer,
+            0,
+            size,
+        );
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("density_capture_pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&resources.density.capture_pipeline);
+            pass.set_bind_group(
+                0,
+                &resources.density.capture_bind_groups[self.in_index],
+                &[],
+            );
+            let cells = 1u32 << (span * 2);
+            pass.dispatch_workgroups(cells.div_ceil(64), 1, 1);
+        }
+        self.density_slot += 1;
+        self.density_slot_to_gate_id.push(gate_id);
     }
 }

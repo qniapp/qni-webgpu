@@ -174,6 +174,64 @@ test.describe('Amplitude Display', () => {
     expect(pixelRgbDistance(samples.corner, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(48)
   })
 
+  test('palette Amps icon keeps the frame edge clear', async ({ page }) => {
+    await page.goto('/')
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const center = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'frameEdge', x: center.x - 20, y: center.y },
+    ])
+
+    expect(pixelRgbDistance(samples.frameEdge, AMPLITUDE_SURFACE)).toBeLessThan(48)
+  })
+
+  test('palette Amps icon keeps the circle near the frame', async ({ page }) => {
+    await page.goto('/')
+    await waitForStartupReady(page, { waitForStateVector: true })
+
+    const canvas = page.locator('#egui-canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const center = getPaletteGateCenter(box.width, AMPLITUDE_PALETTE_INDEX)
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'nearCircle', x: center.x - 18, y: center.y },
+    ])
+
+    expect(pixelRgbDistance(samples.nearCircle, AMPLITUDE_SURFACE)).toBeGreaterThan(80)
+  })
+
+  test('placed Amps1 keeps the matrix frame edge clear', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 2, 0)
+
+    const canvas = page.locator('#egui-canvas')
+    const left = EGUI_PANEL_MARGIN + amplitudeFirstCellCenterX(1) - GATE_SIZE / 2
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'frameEdge', x: left, y: LINE_Y },
+    ])
+
+    expect(pixelRgbDistance(samples.frameEdge, AMPLITUDE_ZERO_OUTLINE)).toBeLessThan(48)
+  })
+
+  test('placed Amps1 keeps the circle near the matrix frame', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 2, 0)
+
+    const canvas = page.locator('#egui-canvas')
+    const left = EGUI_PANEL_MARGIN + amplitudeFirstCellCenterX(1) - GATE_SIZE / 2
+    const samples = await sampleCanvasPixels(page, canvas, [
+      { name: 'nearCircle', x: left + 3, y: LINE_Y },
+    ])
+
+    expect(pixelRgbDistance(samples.nearCircle, AMPLITUDE_SURFACE)).toBeGreaterThan(80)
+  })
+
   test('unsnapped dragged Amps1 keeps the left empty circle interior white', async ({ page }) => {
     const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 8, y: 0 })
 
@@ -193,7 +251,7 @@ test.describe('Amplitude Display', () => {
   })
 
   test('unsnapped dragged Amps1 draws the live-display zero outline', async ({ page }) => {
-    const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 30, y: 4 })
+    const pixel = await sampleUnsnappedAmps1DragPixel(page, { x: 30, y: 2 })
 
     expect(pixelRgbDistance(pixel, AMPLITUDE_ZERO_OUTLINE)).toBeLessThanOrEqual(40)
   })
@@ -511,7 +569,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 11, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'tinyNonzeroOutline', x: 214, y: 244 },
+      { name: 'tinyNonzeroOutline', x: 218, y: 247 },
     ])
 
     expect(pixelRgbDistance(samples.tinyNonzeroOutline, AMPLITUDE_NONZERO_OUTLINE)).toBeLessThanOrEqual(130)

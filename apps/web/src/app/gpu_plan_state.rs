@@ -22,6 +22,8 @@ pub(crate) struct GpuPlanState {
     probability_slots: HashMap<u32, u32>,
     /// Amplitude displays → `amplitude_output` slot.
     amplitude_slots: HashMap<u32, u32>,
+    /// Density Matrix displays → `density_output` slot.
+    density_slots: HashMap<u32, u32>,
     capacity_error: Option<String>,
 }
 
@@ -35,6 +37,7 @@ impl Default for GpuPlanState {
             measurement_slots: HashMap::new(),
             probability_slots: HashMap::new(),
             amplitude_slots: HashMap::new(),
+            density_slots: HashMap::new(),
             capacity_error: None,
         }
     }
@@ -47,6 +50,7 @@ impl GpuPlanState {
         self.measurement_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
+        self.density_slots.clear();
         self.capacity_error = None;
     }
 
@@ -72,6 +76,7 @@ impl GpuPlanState {
         self.measurement_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
+        self.density_slots.clear();
         self.capacity_error = None;
     }
 
@@ -81,6 +86,7 @@ impl GpuPlanState {
         self.measurement_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
+        self.density_slots.clear();
         self.capacity_error = Some(message);
     }
 
@@ -99,6 +105,7 @@ impl GpuPlanState {
         amplitude_slot_to_gate_id: &[u32],
         bloch_slot_to_gate_id: &[u32],
         probability_slot_to_gate_id: &[u32],
+        density_slot_to_gate_id: &[u32],
         state_count: usize,
     ) {
         self.needs_recompute = false;
@@ -108,6 +115,7 @@ impl GpuPlanState {
         self.measurement_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
+        self.density_slots.clear();
         self.capacity_error = None;
         for (slot, gate_id) in amplitude_slot_to_gate_id.iter().enumerate() {
             self.amplitude_slots.insert(*gate_id, slot as u32);
@@ -117,6 +125,9 @@ impl GpuPlanState {
         }
         for (slot, gate_id) in probability_slot_to_gate_id.iter().enumerate() {
             self.probability_slots.insert(*gate_id, slot as u32);
+        }
+        for (slot, gate_id) in density_slot_to_gate_id.iter().enumerate() {
+            self.density_slots.insert(*gate_id, slot as u32);
         }
     }
 
@@ -148,11 +159,16 @@ impl GpuPlanState {
         self.amplitude_slots.get(&gate_id).copied()
     }
 
+    pub(crate) fn density_slot(&self, gate_id: u32) -> Option<u32> {
+        self.density_slots.get(&gate_id).copied()
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
+        self.density_slots.clear();
         for op in &self.sim_ops {
             match op {
                 SimulationOp::SnapshotState { .. } => {}
@@ -183,6 +199,13 @@ impl GpuPlanState {
                     ..
                 } => {
                     self.amplitude_slots.insert(*gate_id, *output_slot);
+                }
+                SimulationOp::CaptureDensity {
+                    gate_id,
+                    output_slot,
+                    ..
+                } => {
+                    self.density_slots.insert(*gate_id, *output_slot);
                 }
                 _ => {}
             }

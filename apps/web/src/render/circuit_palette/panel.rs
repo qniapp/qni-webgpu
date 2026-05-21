@@ -7,7 +7,7 @@ use crate::constants::{
     PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
 use crate::gates::{palette_gate_kind, GateKind, PALETTE_GATE_COUNT};
-use crate::icons::{draw_bloch_vector, draw_gate_body};
+use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
 use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
 
 impl QniApp {
@@ -68,7 +68,11 @@ impl QniApp {
                 // 本体 fill を持たないゲートでも背景が灰色へ変わらないようにする。
                 painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.surface);
             }
-            draw_gate_body(painter, gate_rect, gate, colors);
+            if gate == GateKind::DensityMatrixDisplay {
+                draw_density_palette_icon(painter, gate_rect, colors);
+            } else {
+                draw_gate_body(painter, gate_rect, gate, colors);
+            }
             if gate == GateKind::BlochDisplay {
                 // Palette has no associated state: render qni's d=0 blue center dot.
                 draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);

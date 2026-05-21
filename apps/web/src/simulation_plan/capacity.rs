@@ -8,6 +8,7 @@ pub(crate) struct SimulationPlanLimits {
     pub(crate) max_measurement_slots: usize,
     pub(crate) max_probability_slots: usize,
     pub(crate) max_amplitude_slots: usize,
+    pub(crate) max_density_slots: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,6 +40,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     let mut measure_collapse_ops = 0usize;
     let mut probability_ops = 0usize;
     let mut amplitude_ops = 0usize;
+    let mut density_ops = 0usize;
     for op in ops {
         match op {
             SimulationOp::SnapshotState { output_slot } => {
@@ -101,6 +103,16 @@ pub(crate) fn validate_simulation_plan_capacity(
                     )));
                 }
             }
+            SimulationOp::CaptureDensity { output_slot, .. } => {
+                density_ops += 1;
+                let slot = *output_slot as usize;
+                if slot >= limits.max_density_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "Density slot {slot} exceeds MAX_DENSITY_SLOTS={}; reduce Density displays or grow the GPU buffer",
+                        limits.max_density_slots
+                    )));
+                }
+            }
         }
     }
     for (label, count) in [
@@ -110,6 +122,7 @@ pub(crate) fn validate_simulation_plan_capacity(
         ("measure_collapse", measure_collapse_ops),
         ("probability", probability_ops),
         ("amplitude", amplitude_ops),
+        ("density", density_ops),
     ] {
         if count > limits.max_ops_per_variant {
             return Err(SimulationPlanCapacityError::new(format!(

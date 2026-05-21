@@ -388,6 +388,14 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::DensityMatrixDisplay => GateInfo {
+                name: "Density Matrix Display",
+                paragraphs: &[
+                    "Shows the reduced density matrix for a span of qubits.",
+                    "Use controls to see conditional local mixed states.",
+                ],
+                transitions: &[],
+            },
             GateKind::Spacer => GateInfo {
                 name: "Spacer Gate",
                 paragraphs: &["A gate with no effect."],

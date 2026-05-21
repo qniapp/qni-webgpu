@@ -6,8 +6,10 @@ from qni_qiskit_backend.runners import (
     MockRunner,
     QiskitRunner,
     add_display_saves,
+    add_qiskit_density,
     add_qiskit_probability,
     amplitude_display_response,
+    density_qargs,
     normalize_qiskit_counts,
     probability_qargs,
     select_runner,
@@ -164,6 +166,32 @@ class ContractTests(unittest.TestCase):
                 }
             )
 
+    def test_contract_accepts_density_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["H", "H"], ["Density2"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [{"gate_id": 2, "column": 1, "span": 2, "base_bit": 0}],
+                },
+            }
+        )
+        self.assertEqual(request.density_outputs[0].gate_id, 2)
+
+    def test_contract_rejects_density_span_above_quirk_limit(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 9,
+                    "columns": [["Density9"]],
+                    "outputs": {
+                        "histogram": True,
+                        "densities": [{"gate_id": 1, "column": 0, "span": 9, "base_bit": 0}],
+                    },
+                }
+            )
+
     def test_qiskit_builder_ignores_amplitude_display_tokens(self):
         class FakeCircuit:
             def __init__(self):
@@ -191,6 +219,15 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["Probability2"]], 2)
         self.assertEqual(fake.ops, [])
 
+    def test_qiskit_builder_ignores_density_display_tokens(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Density2"]], 2)
+        self.assertEqual(fake.ops, [])
+
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:
             def __init__(self):
@@ -213,6 +250,28 @@ class ContractTests(unittest.TestCase):
         labels = add_display_saves(fake, request, lambda axis: axis)
         self.assertEqual((fake.saved, labels[2]), ([([1, 0], "probability:1")], {1: "probability:1"}))
 
+    def test_qiskit_display_saves_density_with_web_order_qargs(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.saved = []
+
+            def save_density_matrix(self, qubits, label):
+                self.saved.append((qubits, label))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Density2"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [{"gate_id": 1, "column": 0, "span": 2, "base_bit": 0}],
+                },
+            }
+        )
+        labels = add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual((fake.saved, labels[3]), ([([1, 0], "density:1")], {1: "density:1"}))
+
     def test_qiskit_probability_response_uses_saved_data(self):
         request = parse_run_request(
             {
@@ -228,6 +287,21 @@ class ContractTests(unittest.TestCase):
         add_qiskit_probability(response, request, {"probability:1": [0.25, 0.75]}, {1: "probability:1"})
         self.assertEqual(response["probability"][0]["probabilities"][1], 0.75)
 
+    def test_qiskit_density_response_uses_saved_data(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Density"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_density(response, request, {"density:1": [[0.5, 0.25j], [-0.25j, 0.5]]}, {1: "density:1"})
+        self.assertEqual(response["densities"][0]["cells"][1], [0.0, 0.25])
+
     def test_probability_qargs_match_web_outcome_order(self):
         request = parse_run_request(
             {
@@ -240,6 +314,19 @@ class ContractTests(unittest.TestCase):
             }
         )
         self.assertEqual(probability_qargs(request.probability_outputs[0], 2), [1, 0])
+
+    def test_density_qargs_match_web_outcome_order(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Density2"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [{"gate_id": 1, "column": 0, "span": 2, "base_bit": 0}],
+                },
+            }
+        )
+        self.assertEqual(density_qargs(request.density_outputs[0], 2), [1, 0])
 
     def test_mock_runner_returns_fixed_probability_outputs(self):
         request = parse_run_request(
@@ -268,6 +355,20 @@ class ContractTests(unittest.TestCase):
         )
         response = MockRunner().run(request)
         self.assertEqual(response["bloch"][0]["vector"], [0.0, 0.0, 1.0])
+
+    def test_mock_runner_returns_fixed_density_outputs(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Density"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        response = MockRunner().run(request)
+        self.assertEqual(response["densities"][0]["cells"][0], [1.0, 0.0])
 
     def test_mock_runner_returns_fixed_amplitude_outputs(self):
         request = parse_run_request(

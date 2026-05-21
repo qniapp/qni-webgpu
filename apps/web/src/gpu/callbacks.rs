@@ -8,6 +8,7 @@
 mod amplitude_display;
 mod amplitude_display_popup_value;
 mod bloch_display_overlay;
+mod density_matrix_display;
 mod measurement_digit;
 mod popup_value;
 mod probability_display;
@@ -17,6 +18,7 @@ mod state_vector;
 pub(crate) use amplitude_display::AmplitudeDisplayCallback;
 pub(crate) use amplitude_display_popup_value::AmplitudePopupValueCallback;
 pub(crate) use bloch_display_overlay::BlochOverlayCallback;
+pub(crate) use density_matrix_display::DensityMatrixDisplayCallback;
 pub(crate) use measurement_digit::MeasurementDigitCallback;
 pub(crate) use popup_value::PopupValueCallback;
 pub(crate) use probability_display::ProbabilityDisplayCallback;

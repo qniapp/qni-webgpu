@@ -46,7 +46,7 @@ impl GpuFailure {
 }
 
 pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: usize) -> String {
-    qiskit_run_payload_with_display_outputs(qubits, columns_json, shots, "[]", "[]", "[]")
+    qiskit_run_payload_with_display_outputs(qubits, columns_json, shots, "[]", "[]", "[]", "[]")
 }
 
 pub fn qiskit_run_payload_with_display_outputs(
@@ -56,12 +56,14 @@ pub fn qiskit_run_payload_with_display_outputs(
     amplitudes_json: &str,
     bloch_json: &str,
     probability_json: &str,
+    densities_json: &str,
 ) -> String {
     let amplitudes = optional_output_json("amplitudes", amplitudes_json);
     let bloch = optional_output_json("bloch", bloch_json);
     let probability = optional_output_json("probability", probability_json);
+    let densities = optional_output_json("densities", densities_json);
     format!(
-        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true{amplitudes}{bloch}{probability}}}}}"#
+        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true{amplitudes}{bloch}{probability}{densities}}}}}"#
     )
 }
 
@@ -106,6 +108,7 @@ fn normalize_gate_name(token: &str) -> String {
         "Bloch" => "Bloch".to_owned(),
         other if other.starts_with("Amps") => "Amplitude".to_owned(),
         other if other.starts_with("Probability") => "Probability".to_owned(),
+        other if other.starts_with("Density") => "Density Matrix".to_owned(),
         other => other.to_owned(),
     }
 }
@@ -154,6 +157,7 @@ mod tests {
             r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]"#,
             "[]",
             "[]",
+            "[]",
         );
         assert_eq!(
             payload.as_str(),
@@ -169,6 +173,7 @@ mod tests {
             256,
             "[]",
             r#"[{"gate_id":2,"column":1,"wire":0}]"#,
+            "[]",
             "[]",
         );
         assert_eq!(
@@ -186,10 +191,28 @@ mod tests {
             "[]",
             "[]",
             r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0}]"#,
+            "[]",
         );
         assert_eq!(
             payload.as_str(),
             r#"{"qubits":1,"columns":[["H"],["Probability"]],"shots":256,"outputs":{"histogram":true,"probability":[{"gate_id":2,"column":1,"span":1,"base_bit":0}]}}"#,
+        );
+    }
+
+    #[test]
+    fn payload_can_request_density_display_outputs() {
+        let payload = qiskit_run_payload_with_display_outputs(
+            1,
+            r#"[["H"],["Density"]]"#,
+            256,
+            "[]",
+            "[]",
+            "[]",
+            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0}]"#,
+        );
+        assert_eq!(
+            payload.as_str(),
+            r#"{"qubits":1,"columns":[["H"],["Density"]],"shots":256,"outputs":{"histogram":true,"densities":[{"gate_id":2,"column":1,"span":1,"base_bit":0}]}}"#,
         );
     }
 
@@ -234,6 +257,14 @@ mod tests {
         assert_eq!(
             unsupported_gate_from_message("unsupported gate token: Probability2"),
             Some("Probability".to_owned()),
+        );
+    }
+
+    #[test]
+    fn unsupported_gate_token_message_maps_density() {
+        assert_eq!(
+            unsupported_gate_from_message("unsupported gate token: Density2"),
+            Some("Density Matrix".to_owned()),
         );
     }
 }

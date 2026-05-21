@@ -18,11 +18,12 @@ use crate::simulation_plan::{
 use self::dispatch::encode_batched_recompute;
 use self::pack::PackedRecomputeParams;
 use super::params::{
-    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
-    MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
+    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
 };
 use super::readback::{
-    AMPLITUDE_SLOT_MAP, BLOCH_SLOT_MAP, MEASUREMENT_SLOT_MAP, PROBABILITY_SLOT_MAP,
+    AMPLITUDE_SLOT_MAP, BLOCH_SLOT_MAP, DENSITY_SLOT_MAP, MEASUREMENT_SLOT_MAP,
+    PROBABILITY_SLOT_MAP,
 };
 use super::resources::StateVectorResources;
 
@@ -55,6 +56,7 @@ pub(super) fn recompute_state_vector(
             max_measurement_slots: MAX_MEASUREMENT_SLOTS,
             max_probability_slots: MAX_PROBABILITY_SLOTS,
             max_amplitude_slots: MAX_AMPLITUDE_SLOTS,
+            max_density_slots: MAX_DENSITY_SLOTS,
         },
     )
     .is_err()
@@ -90,6 +92,9 @@ pub(super) fn recompute_state_vector(
     });
     AMPLITUDE_SLOT_MAP.with(|cell| {
         *cell.borrow_mut() = encoded.amplitude_slot_to_gate_id;
+    });
+    DENSITY_SLOT_MAP.with(|cell| {
+        *cell.borrow_mut() = encoded.density_slot_to_gate_id;
     });
 
     true

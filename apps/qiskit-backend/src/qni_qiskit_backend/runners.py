@@ -10,6 +10,7 @@ from .circuit import apply_column_to_qiskit
 from .contract import (
     AmplitudeOutputRequest,
     BlochOutputRequest,
+    DensityOutputRequest,
     ProbabilityOutputRequest,
     RunRequest,
 )
@@ -41,6 +42,7 @@ class MockRunner:
         add_mock_amplitudes(response, request)
         add_mock_bloch(response, request)
         add_mock_probability(response, request)
+        add_mock_density(response, request)
         return response
 
 
@@ -61,7 +63,7 @@ class QiskitRunner:
             ) from exc
 
         qc = QuantumCircuit(request.qubits, request.qubits)
-        amplitude_labels, bloch_labels, probability_labels = add_display_saves(qc, request, Pauli)
+        amplitude_labels, bloch_labels, probability_labels, density_labels = add_display_saves(qc, request, Pauli)
         for wire in range(request.qubits):
             qc.measure(wire, wire)
 
@@ -90,6 +92,7 @@ class QiskitRunner:
         add_qiskit_amplitudes(response, request, data, amplitude_labels)
         add_qiskit_bloch(response, request, data, bloch_labels)
         add_qiskit_probability(response, request, data, probability_labels)
+        add_qiskit_density(response, request, data, density_labels)
         return response
 
 
@@ -105,19 +108,23 @@ def select_runner(name: str) -> Runner:
 
 def add_display_saves(
     qc: Any, request: RunRequest, pauli_type: Any
-) -> tuple[dict[int, str], dict[int, dict[str, str]], dict[int, str]]:
+) -> tuple[dict[int, str], dict[int, dict[str, str]], dict[int, str], dict[int, str]]:
     amplitudes_by_column: dict[int, list[AmplitudeOutputRequest]] = defaultdict(list)
     bloch_by_column: dict[int, list[BlochOutputRequest]] = defaultdict(list)
     probability_by_column: dict[int, list[ProbabilityOutputRequest]] = defaultdict(list)
+    density_by_column: dict[int, list[DensityOutputRequest]] = defaultdict(list)
     for amplitude in request.amplitude_outputs:
         amplitudes_by_column[amplitude.column].append(amplitude)
     for bloch in request.bloch_outputs:
         bloch_by_column[bloch.column].append(bloch)
     for probability in request.probability_outputs:
         probability_by_column[probability.column].append(probability)
+    for density in request.density_outputs:
+        density_by_column[density.column].append(density)
     amplitude_labels: dict[int, str] = {}
     bloch_labels: dict[int, dict[str, str]] = {}
     probability_labels: dict[int, str] = {}
+    density_labels: dict[int, str] = {}
     basis = qiskit_basis_order(request.qubits)
     for column_index, column in enumerate(request.columns):
         apply_column_to_qiskit(qc, column, request.qubits)
@@ -136,7 +143,11 @@ def add_display_saves(
             label = f"probability:{probability.gate_id}"
             qc.save_probabilities(probability_qargs(probability, request.qubits), label=label)
             probability_labels[probability.gate_id] = label
-    return amplitude_labels, bloch_labels, probability_labels
+        for density in density_by_column.get(column_index, []):
+            label = f"density:{density.gate_id}"
+            qc.save_density_matrix(density_qargs(density, request.qubits), label=label)
+            density_labels[density.gate_id] = label
+    return amplitude_labels, bloch_labels, probability_labels, density_labels
 
 
 def add_qiskit_amplitudes(
@@ -195,6 +206,23 @@ def add_qiskit_probability(
     ]
 
 
+def add_qiskit_density(
+    response: dict[str, Any],
+    request: RunRequest,
+    data: dict[str, Any],
+    labels: dict[int, str],
+) -> None:
+    if not request.density_outputs:
+        return
+    response["densities"] = [
+        density_display_response(
+            density,
+            qiskit_saved_density_matrix(data[labels[density.gate_id]]),
+        )
+        for density in request.density_outputs
+    ]
+
+
 def add_mock_amplitudes(response: dict[str, Any], request: RunRequest) -> None:
     if not request.amplitude_outputs:
         return
@@ -228,6 +256,18 @@ def add_mock_probability(response: dict[str, Any], request: RunRequest) -> None:
     ]
 
 
+def add_mock_density(response: dict[str, Any], request: RunRequest) -> None:
+    if not request.density_outputs:
+        return
+    response["densities"] = [
+        density_display_response(
+            density,
+            ground_density_matrix(density.span),
+        )
+        for density in request.density_outputs
+    ]
+
+
 def bloch_display_response(request: BlochOutputRequest, vector: Sequence[float]) -> dict[str, Any]:
     return {"gate_id": request.gate_id, "vector": [float(value) for value in vector[:3]]}
 
@@ -243,7 +283,30 @@ def probability_display_response(
     }
 
 
+def density_display_response(
+    request: DensityOutputRequest, matrix: Sequence[Sequence[complex]]
+) -> dict[str, Any]:
+    dim = 1 << request.span
+    cells: list[list[float]] = []
+    for row in range(dim):
+        for col in range(dim):
+            value = complex(matrix[row][col])
+            cells.append([float(value.real), float(value.imag)])
+    return {"gate_id": request.gate_id, "span": request.span, "cells": cells, "unity": 1.0}
+
+
+def ground_density_matrix(span: int) -> list[list[complex]]:
+    dim = 1 << span
+    matrix = [[0j for _ in range(dim)] for _ in range(dim)]
+    matrix[0][0] = 1 + 0j
+    return matrix
+
+
 def probability_qargs(request: ProbabilityOutputRequest, qubits: int) -> list[int]:
+    return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
+
+
+def density_qargs(request: DensityOutputRequest, qubits: int) -> list[int]:
     return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
 
 
@@ -257,6 +320,12 @@ def qiskit_saved_amplitudes(saved: Any) -> list[complex]:
 
 def qiskit_saved_probabilities(saved: Any) -> list[float]:
     return [float(value) for value in list(saved)]
+
+
+def qiskit_saved_density_matrix(saved: Any) -> list[list[complex]]:
+    raw = saved.data if hasattr(saved, "data") else saved
+    rows = raw.tolist() if hasattr(raw, "tolist") else list(raw)
+    return [[complex(value) for value in row] for row in rows]
 
 
 def qiskit_basis_order(qubits: int) -> list[int]:

@@ -13,6 +13,8 @@ use crate::gates::GateParams;
 ///     probabilities for a Probability display (`PROBABILITY_REDUCE_SHADER`).
 ///   * `CaptureAmplitude`: captures coherent amplitudes, incoherent
 ///     magnitudes, quality, and phase-lock metadata for an Amplitude display.
+///   * `CaptureDensity`: captures a reduced density matrix for a Density
+///     Matrix display.
 ///   * `SnapshotState`: copies the live state into a GPU-resident step-cache
 ///     slot. Hovering a circuit column later copies the cached slot into the
 ///     preview buffer without rerunning the simulation.
@@ -43,6 +45,14 @@ pub(crate) enum SimulationOp {
         output_slot: u32,
     },
     CaptureAmplitude {
+        gate_id: u32,
+        base_bit: u32,
+        span: u32,
+        output_slot: u32,
+        control_mask: u32,
+        control_value: u32,
+    },
+    CaptureDensity {
         gate_id: u32,
         base_bit: u32,
         span: u32,

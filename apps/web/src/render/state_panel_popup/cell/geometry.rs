@@ -34,6 +34,7 @@ const VALUE_X_OFFSET: f32 = LABEL_X_OFFSET + 96.0;
 pub(super) struct PopupGeometry {
     pub(super) rect: egui::Rect,
     cell_center: egui::Pos2,
+    tail_base_center_x: f32,
     tail_apex_y: f32,
     tail_base_y: f32,
 }
@@ -44,11 +45,11 @@ impl PopupGeometry {
     }
 
     pub(super) fn tail_base_l(&self) -> egui::Pos2 {
-        egui::pos2(self.cell_center.x - TAIL_HALF_W, self.tail_base_y)
+        egui::pos2(self.tail_base_center_x - TAIL_HALF_W, self.tail_base_y)
     }
 
     pub(super) fn tail_base_r(&self) -> egui::Pos2 {
-        egui::pos2(self.cell_center.x + TAIL_HALF_W, self.tail_base_y)
+        egui::pos2(self.tail_base_center_x + TAIL_HALF_W, self.tail_base_y)
     }
 
     pub(super) fn header_y(&self) -> f32 {
@@ -106,7 +107,7 @@ impl PopupGeometry {
 pub(super) fn layout_popup(
     layout: &StatePanelLayout,
     grid_origin: egui::Pos2,
-    viewport_rect: egui::Rect,
+    bounds_rect: egui::Rect,
     display_index: u32,
 ) -> PopupGeometry {
     let cell_center = cell_center_for(layout, grid_origin, display_index);
@@ -132,9 +133,15 @@ pub(super) fn layout_popup(
         (rect, rect.min.y - TAIL_H, rect.min.y)
     };
 
+    let rect = clamp_horizontally_to_bounds(popup_rect, bounds_rect);
+    let tail_base_center_x = cell_center
+        .x
+        .clamp(rect.min.x + TAIL_HALF_W, rect.max.x - TAIL_HALF_W);
+
     PopupGeometry {
-        rect: clamp_horizontally_to_viewport(popup_rect, viewport_rect),
+        rect,
         cell_center,
+        tail_base_center_x,
         tail_apex_y,
         tail_base_y,
     }
@@ -159,12 +166,12 @@ fn popup_height() -> f32 {
     POPUP_PAD_Y * 2.0 + HEADER_TEXT_H + HEADER_GAP + ROW_H * (ROWS as f32 - 1.0) + BODY_TEXT_H
 }
 
-fn clamp_horizontally_to_viewport(mut rect: egui::Rect, viewport_rect: egui::Rect) -> egui::Rect {
-    if rect.min.x < viewport_rect.min.x + 4.0 {
-        let dx = viewport_rect.min.x + 4.0 - rect.min.x;
+fn clamp_horizontally_to_bounds(mut rect: egui::Rect, bounds_rect: egui::Rect) -> egui::Rect {
+    if rect.min.x < bounds_rect.min.x + 4.0 {
+        let dx = bounds_rect.min.x + 4.0 - rect.min.x;
         rect = rect.translate(egui::vec2(dx, 0.0));
-    } else if rect.max.x > viewport_rect.max.x - 4.0 {
-        let dx = viewport_rect.max.x - 4.0 - rect.max.x;
+    } else if rect.max.x > bounds_rect.max.x - 4.0 {
+        let dx = bounds_rect.max.x - 4.0 - rect.max.x;
         rect = rect.translate(egui::vec2(dx, 0.0));
     }
     rect
@@ -172,4 +179,80 @@ fn clamp_horizontally_to_viewport(mut rect: egui::Rect, viewport_rect: egui::Rec
 
 pub(super) fn popup_glyph_char_size() -> [f32; 2] {
     [POPUP_GLYPH_CELL_W as f32, POPUP_GLYPH_CELL_H as f32]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_layout() -> StatePanelLayout {
+        StatePanelLayout {
+            state_count: 1,
+            qubits: 1,
+            columns: 1,
+            size: 64.0,
+            gap: 3.0,
+            radius: 32.0,
+            stroke: 2.0,
+            inner_radius: 31.0,
+            grid_size: egui::vec2(64.0, 64.0),
+            viewport_rect: egui::Rect::from_min_size(
+                egui::pos2(300.0, 300.0),
+                egui::vec2(560.0, 160.0),
+            ),
+            state_rect: egui::Rect::from_min_size(
+                egui::pos2(300.0, 268.0),
+                egui::vec2(560.0, 192.0),
+            ),
+            handle_height: 32.0,
+        }
+    }
+
+    #[test]
+    fn left_edge_popup_body_stays_under_tail_base() {
+        let popup = layout_popup(
+            &test_layout(),
+            egui::pos2(0.0, 240.0),
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0)),
+            0,
+        );
+
+        assert!(popup.rect.min.x <= popup.tail_base_l().x);
+    }
+
+    #[test]
+    fn right_edge_popup_body_stays_under_tail_base() {
+        let popup = layout_popup(
+            &test_layout(),
+            egui::pos2(736.0, 240.0),
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0)),
+            0,
+        );
+
+        assert!(popup.rect.max.x >= popup.tail_base_r().x);
+    }
+
+    #[test]
+    fn screen_left_edge_tail_base_clamps_to_body() {
+        let popup = layout_popup(
+            &test_layout(),
+            egui::pos2(-24.0, 240.0),
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0)),
+            0,
+        );
+
+        assert!((popup.tail_base_l().x - popup.rect.min.x).abs() < 0.001);
+    }
+
+    #[test]
+    fn screen_right_edge_tail_base_clamps_to_body() {
+        let popup = layout_popup(
+            &test_layout(),
+            egui::pos2(760.0, 240.0),
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0)),
+            0,
+        );
+
+        assert!((popup.tail_base_r().x - popup.rect.max.x).abs() < 0.001);
+    }
 }

@@ -28,9 +28,14 @@ pub(crate) fn amplitude_grid_dims(span: usize) -> (usize, usize) {
     (width, outcomes / width)
 }
 
+pub(crate) fn density_matrix_width_cols(span: usize) -> usize {
+    span.clamp(1, 8)
+}
+
 pub(crate) fn gate_width_cols(kind: GateKind, span: usize) -> usize {
     match kind {
         GateKind::AmplitudeDisplay => amplitude_display_width_cols(span),
+        GateKind::DensityMatrixDisplay => density_matrix_width_cols(span),
         _ => 1,
     }
 }
@@ -89,6 +94,33 @@ pub(crate) fn amplitude_cell_index_at(
         .floor()
         .clamp(0.0, (rows - 1) as f32) as usize;
     Some((row * cols + col) as u32)
+}
+
+fn density_matrix_grid_rect(gate_rect: egui::Rect, span: usize) -> egui::Rect {
+    let dim = 1usize << span.clamp(1, 8);
+    let cell = gate_rect.width().min(gate_rect.height()) / dim as f32;
+    let size = egui::vec2(cell * dim as f32, cell * dim as f32);
+    egui::Rect::from_min_size(gate_rect.min + (gate_rect.size() - size) * 0.5, size)
+}
+
+pub(crate) fn density_matrix_cell_index_at(
+    gate_rect: egui::Rect,
+    span: usize,
+    cursor: egui::Pos2,
+) -> Option<u32> {
+    let grid_rect = density_matrix_grid_rect(gate_rect, span);
+    if !grid_rect.contains(cursor) {
+        return None;
+    }
+    let dim = 1usize << span.clamp(1, 8);
+    let cell = grid_rect.width() / dim as f32;
+    let col = ((cursor.x - grid_rect.left()) / cell)
+        .floor()
+        .clamp(0.0, (dim - 1) as f32) as usize;
+    let row = ((cursor.y - grid_rect.top()) / cell)
+        .floor()
+        .clamp(0.0, (dim - 1) as f32) as usize;
+    Some((row * dim + col) as u32)
 }
 
 #[derive(Clone, Debug)]
@@ -202,5 +234,15 @@ mod tests {
     #[test]
     fn amplitude_span_three_grid_is_two_by_four() {
         assert_eq!(amplitude_grid_dims(3), (2, 4));
+    }
+
+    #[test]
+    fn density_span_eight_size_is_eight_columns_by_eight_wires() {
+        let size = gate_size(GateKind::DensityMatrixDisplay, 8);
+
+        assert_eq!(
+            (size.x, size.y),
+            (GATE_SIZE + SLOT_SPACING * 7.0, GATE_SIZE + LINE_GAP * 7.0)
+        );
     }
 }

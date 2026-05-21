@@ -9,6 +9,7 @@ type QniWebModule = {
   read_state_vector: () => Promise<ArrayLike<number>>
   read_bloch_vectors: () => Promise<ArrayLike<number>>
   read_amplitude_cell: (gateId: number, outcome: number) => Promise<ArrayLike<number>>
+  read_density_matrix_cell: (gateId: number, row: number, col: number) => Promise<ArrayLike<number>>
   read_probability_distributions: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
   start: (canvasId: string) => Promise<void>
@@ -22,6 +23,7 @@ declare global {
     __eguiReadBlochVectors?: () => Promise<number[]>
     __eguiReadProbabilityDistributions?: () => Promise<number[]>
     __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
+    __eguiReadDensityMatrixCell?: (gateId: number, row: number, col: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
     __qniExecModeFocusRequested?: boolean
     __qniQiskitBackendUrl?: string
@@ -95,6 +97,7 @@ const run = async (): Promise<void> => {
       circuit_library_rename,
       circuit_library_save,
       read_amplitude_cell,
+      read_density_matrix_cell,
       read_bloch_vectors,
       read_probability_distributions,
       read_measurement_outcomes,
@@ -133,6 +136,13 @@ const run = async (): Promise<void> => {
     window.__eguiReadAmplitudeCell = async (gateId: number, outcome: number) => {
       try {
         return Array.from(await read_amplitude_cell(gateId, outcome))
+      } catch {
+        return []
+      }
+    }
+    window.__eguiReadDensityMatrixCell = async (gateId: number, row: number, col: number) => {
+      try {
+        return Array.from(await read_density_matrix_cell(gateId, row, col))
       } catch {
         return []
       }

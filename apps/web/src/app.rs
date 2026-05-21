@@ -19,7 +19,8 @@ use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::gates::GateKind;
 use crate::gpu::{
-    ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalProbabilityUploadBatch,
+    ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalDensityUploadBatch,
+    ExternalProbabilityUploadBatch,
 };
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
@@ -79,6 +80,9 @@ pub(crate) struct QniApp {
     /// `(gate_id, outcome)` for the Amplitude cell under the pointer. The
     /// cell index is geometry-only; complex values remain GPU-only.
     pub(crate) hovered_amplitude_outcome: Option<(u32, u32)>,
+    /// `(gate_id, cell)` for the Density Matrix cell under the pointer. The
+    /// cell index is row-major; density values remain GPU-only.
+    pub(crate) hovered_density_cell: Option<(u32, u32)>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
@@ -92,10 +96,12 @@ pub(crate) struct QniApp {
     pub(crate) external_gpu_amplitude_uploads: Option<ExternalAmplitudeUploadBatch>,
     pub(crate) external_gpu_bloch_uploads: Option<ExternalBlochUploadBatch>,
     pub(crate) external_gpu_probability_uploads: Option<ExternalProbabilityUploadBatch>,
+    pub(crate) external_gpu_density_uploads: Option<ExternalDensityUploadBatch>,
     pub(crate) external_gpu_display_generation: u64,
     pub(crate) pending_external_amplitude_slots: Vec<u32>,
     pub(crate) pending_external_bloch_slots: Vec<u32>,
     pub(crate) pending_external_probability_slots: Vec<u32>,
+    pub(crate) pending_external_density_slots: Vec<u32>,
     pub(crate) pending_external_gpu_run_id: Option<u64>,
     pub(crate) gpu_plan: GpuPlanState,
     last_content_rect: Option<egui::Rect>,
@@ -259,6 +265,7 @@ impl QniApp {
             hovered_gate_id: None,
             hovered_probability_outcome: None,
             hovered_amplitude_outcome: None,
+            hovered_density_cell: None,
             hovered_palette_index: None,
             qubit_count: initial_qubit_count,
             exec_mode,
@@ -269,10 +276,12 @@ impl QniApp {
             external_gpu_amplitude_uploads: None,
             external_gpu_bloch_uploads: None,
             external_gpu_probability_uploads: None,
+            external_gpu_density_uploads: None,
             external_gpu_display_generation: 0,
             pending_external_amplitude_slots: Vec::new(),
             pending_external_bloch_slots: Vec::new(),
             pending_external_probability_slots: Vec::new(),
+            pending_external_density_slots: Vec::new(),
             pending_external_gpu_run_id: None,
             gpu_plan: GpuPlanState::default(),
             last_content_rect: None,
@@ -321,6 +330,7 @@ impl QniApp {
                     GateKind::AmplitudeDisplay
                         | GateKind::BlochDisplay
                         | GateKind::ProbabilityDisplay
+                        | GateKind::DensityMatrixDisplay
                 )
             })
     }

@@ -15,12 +15,12 @@
   <style>
 
     /* ── 振幅表示ブロック視覚スタイル ─────────────────────────
-       state vector panel (apps/web/src/gpu/shaders/state.rs) の 3 層モデルに揃える。
+       state vector panel (apps/web/src/gpu/shaders/state.rs) の 4 層モデルに揃える。
        Quirk の確率正方形・対数円は冗長なので不採用、振幅は disk 半径 (mag) と needle 方向 (phase) で表現する。
        各セルは正方形 grid に配置し、内部に下記のレイヤを描く:
          1. back   (cell 背景) = bg
          2. outline (cell 中央に常時表示の枠線円) = stroke tx-2 (prob &gt; 0) / ui-2 (prob ≈ 0)
-         3. disk    (振幅大きさ、半径 ∝ mag = √prob) = blue-200 fill (= state panel state_fill)
+         3. disk    (振幅大きさ、半径 ∝ mag = √prob) = blue-200 fill + blue-400 inset border
          4. needle  (位相方向、center → edge の線分) = tx stroke
          5. frame   (matrix 外枠のみ。cell 間の区切り線は描かない) = ui-2
        phase lock の別マーカーは引かない (needle 真上 = 位相 0 の cell を見れば自然にわかる)。 */
@@ -39,52 +39,11 @@
     /* 静的アイコン (パレット mini preview)。hover の枠だけ強制表示するためのクラス */
     .ad-host.icon canvas { cursor: default; }
 
-    /* ─── リサイズハンドル ───
-       span を 1〜16 で変更するための上下ドラッグハンドル。probability-display.html と同じ
-       chrome 仕様: purple-400 ベース、hover 枠 (purple-400 4 px ring + 2 px paper gap) の
-       <strong>さらに外側</strong>にレイアウト。通常時は invisible、ゲート hover で
-       「奥から飛び出してくる」マイクロインタラクション (フェードイン + 軽いバウンス)
-       で出現、handle 個別 hover で 1.15 × に拡大して purple-600 に深く、active drag
-       で 1.25 × に固定。
-       <strong>幅は JS で canvas 幅の 60% に動的にスケール</strong>させて、span が大きい (gate が広い)
-       ほど掴みやすくする (min 24 px、確率表示ブロックと同じ下限)。CSS の <code>width: 24px</code> は
-       JS で上書きされない場合の fallback。 */
-    .ad-handle {
-      position: absolute;
-      left: 50%;
-      width: 24px;            /* JS が canvas 幅 × 0.6 で上書き、これは fallback */
-      height: 6px;
-      background: var(--purple-400);
-      border-radius: 3px;
-      opacity: 0;
-      cursor: ns-resize;
-      pointer-events: auto;
-      z-index: 20;
-      transform: translateX(-50%) scale(0.7);
-      transition:
-        opacity 200ms ease-out,
-        transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
-        background 120ms ease-out;
-    }
-    .ad-handle--top    { top: -12px; }       /* 4 px ring 外側 + 2 px paper gap */
-    .ad-handle--bottom { bottom: -12px; }
-    /* visible 状態: ゲート hover で出現 */
-    .ad-host:hover .ad-handle {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-    }
-    /* handle 個別 hover: 拡大 + purple-600 */
-    .ad-handle:hover {
-      background: var(--purple-600);
-      transform: translateX(-50%) scale(1.15);
-    }
-    /* active drag: さらに拡大 */
-    .ad-handle:active {
-      background: var(--purple-600);
-      transform: translateX(-50%) scale(1.25);
-    }
-    /* icon mode (palette mini preview) では handle を出さない */
-    .ad-host.icon .ad-handle { display: none; }
+    /* リサイズハンドルの chrome (色 / 寸法 / state machine / マイクロインタラクション) は
+       primitive として design-system.css の .resize-handle ルールに集約済み。
+       仕様: docs/design-system/resize-handle.html。
+       本ページは「振幅表示ブロックは canvas 幅 × 0.6 で追従させる (min 24 px)」という
+       <strong>policy 差分</strong>だけを <script> 内で widthMode: 'canvas60' として指定する。 */
 
     /* ─── ホバー popup (cell 単位) ───
        Quirk の paintMatrixTooltip と同じ内容を Geist タイポグラフィで再構成。 */
@@ -210,24 +169,48 @@
   <p class="page-lede">
     span 内の量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
     確率表示ブロックが <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本表示ブロックは <code>α = re + i·im</code> を
-    <strong>outline 円 + 振幅 disk + 位相 needle</strong> の 3 層で描く。
+    <strong>outline 円 + 振幅 disk + disk 境界線 + 位相 needle</strong> の 4 層で描く。
     <strong>span 上限は 16 量子ビット</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。
-    <strong>配色 (blue-200 fill / tx-2 outline / tx needle) は状態ベクトルパネルと完全に揃える</strong> (<code>state.rs</code> の <code>cell_contribution</code>)。
+    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は状態ベクトルパネルと完全に揃える</strong> (<code>state.rs</code> の <code>cell_contribution</code>)。
     Quirk の <code>AmplitudeDisplayFamily</code> (<code>src/gates/AmplitudeDisplay.js</code>) を Flexoki + WebGPU へ移植する仕様書。
   </p>
 </div>
 
-<!-- ─────── § 01 サイズ別の見た目 + 動くモック ─────── -->
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
-  <h2>§ 01 サイズ別の見た目 (1〜16 量子ビット、動くモック)</h2>
+  <h2>§ 01 概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      span 内の量子ビットの<strong>複素振幅 (大きさ + 位相)</strong>を、各測定結果 1 セルの円 + 矢印 (needle) で可視化する表示ブロック。状態ベクトルには影響しない。
+      下のモックで「シンプルな span 1」と「典型的な span 2」の見た目を確認できる。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 1<br>Hadamard 後 <code>|+⟩</code><br>2×1 grid</div>
+        <div class="actual"><div class="ad-host" data-span="1" data-state="hadamard1"></div></div>
+      </div>
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 2<br>混合 4 state<br>2×2 grid</div>
+        <div class="actual"><div class="ad-host" data-span="2" data-state="mixed2"></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      全 span (1〜16) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / 投影 / GPU パイプライン等の詳細は § 04 以降を参照。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 02 サイズ別の見た目 + 動くモック ─────── -->
+<section class="block">
+  <h2>§ 02 サイズ別の見た目 (1〜16 量子ビット、動くモック)</h2>
   <div class="card">
     <p>
       span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。測定結果数 <code>n = 2<sup>span</sup></code> を
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
       各セルにマウスを乗せると、Quirk と同じ tooltip 内容 (ket、val、mag² と phase) をポップアップ表示する。
-      cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 05 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
-      production の cellPx は § 04 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない。下のモックは表示の都合で 320 px に scale down しているので、mock では span 13〜16 が cellPx ≤ 2 となり heatmap mode に入る。
+      cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
+      production の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない。下のモックは表示の都合で 320 px に scale down しているので、mock では span 13〜16 が cellPx ≤ 2 となり heatmap mode に入る。
     </p>
 
     <h3 style="margin-top: 12px;">mock span 1〜4 (mock cellPx ≥ 38、full detail)</h3>
@@ -276,12 +259,45 @@
         </div>
       </div>
     </div>
+
+    <h3 style="margin-top: 24px;">実行前プレースホルダ (シミュレーション未実行の状態)</h3>
+    <p>
+      回路に振幅表示ブロックを配置しただけで、まだシミュレーション (▶ Run) を実行していない段階で表示する仮の見た目。
+      <strong>GPU 経路の <code>amplitude_result</code> storage buffer がまだ書き込まれていない</strong>ので振幅値は存在せず、
+      従来の実装ではセル領域が真っ白の四角で抜けて見えていた (背景 <code>bg-2</code> と同色になり「壊れているのか配置できていないのか」が判別できない問題)。
+      この空白を<strong>「実行待ちであることを伝えるプレースホルダ」</strong>として明示的にデザインする。
+    </p>
+    <ul>
+      <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で塗る。
+        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、
+        実行前の振幅も <strong>0 (赤系) と 1 (青系) の中間に位置する未確定な値</strong>として同じ紫系統で表す。
+        色相は drag/hover で使う濃い紫よりさらに淡くして、「進行中アクション」と「結果待ちの静止状態」を区別する。</li>
+      <li><strong>outline 円</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレー。<em>これは「振幅 ≈ 0」のときの既存配色 (state panel <code>state_outline_zero</code>) と同じ token を流用する</em>ので、追加の色定義は不要。stroke 太さ・半径は通常時と同じルール (<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>)。</li>
+      <li><strong>disk / needle</strong> — 描かない。振幅値そのものを持たないので、disk (大きさ) も needle (位相) も意味を持たない。</li>
+      <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
+      <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー outline) を 150 ms ease-out でフェードアウトしつつ、通常の disk + needle 描画にクロスフェードする。フェード中は cellPx の判定 (§ 06) も通常通り適用する。</li>
+    </ul>
+    <div class="stage">
+      <div class="col"><div class="caption">1 量子ビット · 2 outcomes<br>2×1 grid · 実行前</div><div class="actual"><div class="ad-host" data-span="1" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4 outcomes<br>2×2 grid · 実行前</div><div class="actual"><div class="ad-host" data-span="2" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8 outcomes<br>2×4 grid · 実行前</div><div class="actual"><div class="ad-host" data-span="3" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16 outcomes<br>4×4 grid · 実行前</div><div class="actual"><div class="ad-host" data-span="4" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 09) の <code>amplitude_result</code> storage buffer に
+      <em>「初期化済み / 未初期化」フラグ</em> (例: <code>quality</code> に sentinel <code>-1.0</code> を書く) を持たせ、
+      fragment shader 側で「sentinel なら placeholder layer (purple-100 背景 + ui-2 outline のみ)、それ以外は通常の outline + disk + needle」へ分岐する。
+      CPU から空の振幅値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
+      span ≥ 13 (mock 上 heatmap モードに入る帯) でも、placeholder は <strong>常に outline 円を描く</strong> 方針で
+      heatmap への切替は適用しない (実行前にセル数で見た目が変わるのは混乱を招くため)。
+    </p>
   </div>
 </section>
 
-<!-- ─────── § 02 パレットアイコン ─────── -->
+<!-- ─────── § 03 パレットアイコン ─────── -->
 <section class="block">
-  <h2>§ 02 パレットアイコン (mini preview)</h2>
+  <h2>§ 03 パレットアイコン (mini preview)</h2>
   <div class="card">
     <p>
       パレットに並ぶ <code>AmplitudeDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
@@ -307,9 +323,9 @@
   </div>
 </section>
 
-<!-- ─────── § 03 概要 ─────── -->
+<!-- ─────── § 04 概要 ─────── -->
 <section class="block">
-  <h2>§ 03 概要</h2>
+  <h2>§ 04 概要</h2>
   <div class="card">
     <table class="spec">
       <tbody>
@@ -327,9 +343,9 @@
   </div>
 </section>
 
-<!-- ─────── § 04 ジオメトリ ─────── -->
+<!-- ─────── § 05 ジオメトリ ─────── -->
 <section class="block">
-  <h2>§ 04 ジオメトリ</h2>
+  <h2>§ 05 ジオメトリ</h2>
   <div class="card">
     <h3>本体寸法 (qni-webgpu 規格)</h3>
     <table class="spec">
@@ -367,7 +383,7 @@
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 05 参照):
+      レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 06 参照):
       <code>cellPx ≥ 12</code> なら needle 描画、<code>cellPx ≥ 3</code> なら outline 描画、それ未満は heatmap。
       production の cellPx 値は上記表のとおり (span 16 で 3 px が最小)、heatmap 描画への切替は production では発生しない (mock では scale down 都合で発生)。
       cell が小さい span 11+ では SDF per-pixel render が前提 (egui shape ではなく WebGPU fragment shader で直接合成)。
@@ -412,13 +428,13 @@
   </div>
 </section>
 
-<!-- ─────── § 05 セル描画モデル ─────── -->
+<!-- ─────── § 06 セル描画モデル ─────── -->
 <section class="block">
-  <h2>§ 05 セル描画モデル (state panel と同じ 3 層)</h2>
+  <h2>§ 06 セル描画モデル (state panel と同じ 4 層)</h2>
   <div class="card">
     <p>
       qni-webgpu の<strong>状態ベクトルパネル</strong> (<code>apps/web/src/gpu/shaders/state.rs</code>) と
-      <strong>同じ 3 層モデル</strong>を 1:1 で踏襲する: <em>outline 円 + 振幅 disk + 位相 needle</em>。
+      <strong>同じ 4 層モデル</strong>を 1:1 で踏襲する: <em>outline 円 + 振幅 disk + disk 境界線 + 位相 needle</em>。
       Quirk の確率正方形 / 対数円は冗長 (disk の半径 = <code>mag</code>、面積 ∝ <code>mag²</code> で確率値も読める) なので不採用。
       <code>α = re + i·im</code>, <code>mag = |α| = √prob</code>。
     </p>
@@ -428,12 +444,12 @@
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#6F6E69" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
       </div>
-      <div><b>(2) outline 円</b> — セル中央、半径 = <code>cellPx/2 − stroke</code> (matrix 外枠へ食い込まないよう 1px slack を取る)。stroke は <code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。
+      <div><b>(2) outline 円</b> — セル中央、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code> (matrix 外枠へ触れない範囲で最大化する)。stroke は <code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。
         <code>mag &gt; 1e-6</code> なら <code>tx-2</code> (state panel の <code>state_outline</code>)、≈ 0 なら <code>ui-2</code> (<code>state_outline_zero</code>)。cell hover 時は正方形枠ではなく、この outline 円周を <code>purple-400</code> で上書きする。</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" fill="#92BFDB"/></svg>
       </div>
-      <div><b>(3) 振幅 disk</b> — 中心 = セル中心、半径 <code>r = mag × inner_radius</code> (= <code>mag × (cellPx/2 − stroke)</code>、<code>mag = 1</code> で outline の<strong>内側ギリギリ</strong>まで広がる)。
+      <div><b>(3) 振幅 disk</b> — 中心 = セル中心、半径 <code>r = mag × inner_radius</code> (= <code>mag × (outline_radius − stroke/2)</code>、<code>mag = 1</code> で outline の<strong>内側ギリギリ</strong>まで広がる)。
         <code>blue-200</code> fill (state panel の <code>state_fill</code>、Quirk <code>#8FF</code> と等価)。
         加えて <code>blue-400</code> (確率表示ブロックのバー右端と同じ) で<strong>inset の 1 px 境界線</strong>を引く: ① 半径 <code>r</code> で fill ② 半径 <code>r − 0.5</code> で stroke。stroke の外端が <code>r</code> に一致するので<strong>視認性は上がるが disk 面積は変わらない</strong>。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
@@ -450,13 +466,12 @@
       <div><b>(5) frame</b> — matrix 全体の外枠だけを <code>ui-2</code> 1 px で描く。cell 間の区切り線は描かない (円と円の間は <code>bg</code> のまま)</div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      <strong>state panel との差分:</strong> 色トークン (blue-200 fill / tx-2 outline / tx needle) と disk 半径計算式 (<code>mag × inner_radius</code>) は <code>state.rs</code> の <code>cell_contribution()</code> と同一。ただし以下の点で<em>異なる</em>:
+      <strong>state panel との差分:</strong> 色トークン (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) と disk 半径計算式 (<code>mag × inner_radius</code>) は <code>state.rs</code> の <code>cell_contribution()</code> と同一。ただし以下の点で<em>異なる</em>:
     </p>
     <ul>
       <li>cell を<strong>矩形 grid で密に並べる</strong> (state panel は cell 間に 3 px gap あり)</li>
-      <li>disk に <strong>blue-400 の inset 境界線 (1 px)</strong> を追加 (state panel は disk fill のみ、境界線なし)</li>
       <li>outline 表示条件: <strong><code>mag &gt; 1e-6</code></strong> で <code>tx-2</code> / <code>≈ 0</code> で <code>ui-2</code>。10 量子ビット 一様振幅 (<code>prob = 1/1024</code>) のような小さいが非ゼロの振幅も non-zero outline として扱う</li>
-      <li>layer 合成順序: 本仕様は <em>frame → outline → disk → needle</em> (state panel は <em>fill → needle → outline</em> 合成)。cell 間の区切り線は描かない</li>
+      <li>layer 合成順序: 本仕様は <em>frame → outline → disk → disk border → needle</em> (state panel は <em>fill → disk border → needle → outline</em> 合成)。cell 間の区切り線は描かない</li>
       <li>phase lock cell の別マーカーは引かない (state panel は phase lock 概念がない、本仕様も Quirk の赤マーカーを不採用)</li>
     </ul>
     <h3 style="margin-top: 16px;">擬似コード (Rust + wgsl 構造)</h3>
@@ -466,7 +481,8 @@ const half_stroke: f32 = STROKE / 2.0;
 fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt; vec4&lt;f32&gt; {
     let mag = sqrt(re*re + im*im);
     let p   = re*re + im*im;
-    let r_outline = cell_size / 2.0 - 2.0;
+    let outline_clearance = 1.5;
+    let r_outline = cell_size / 2.0 - half_stroke - outline_clearance;
     let r_inner   = r_outline - half_stroke;
     let r_cell    = distance(cell_uv * cell_size, vec2(cell_size/2.0));
     var col = BG;                                                      // (1) back
@@ -476,11 +492,16 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     if (abs(r_cell - r_outline) &lt; half_stroke) { col = outline_color; }
 
     // (3) disk (mag &gt; threshold なら塗る)
-    if (mag * r_inner &gt; 0.5 &amp;&amp; r_cell &lt;= mag * r_inner) {
+    let r_disk = mag * r_inner;
+    if (r_disk &gt; 0.3 &amp;&amp; r_cell &lt;= r_disk) {
         col = BLUE_200;
     }
+    // (3.5) disk border — 半径 r_disk - 0.5 の 1 px stroke。外端は disk 外周と一致。
+    if (r_disk &gt;= 1.5 &amp;&amp; abs(r_cell - (r_disk - 0.5)) &lt;= 0.5) {
+        col = BLUE_400;
+    }
     // (4) needle: 同じ fragment shader 内で SDF。cell center から (-sin(phase), -cos(phase)) × inner_radius
-    //     への線分との signed distance を計算、stroke 幅以下なら TX で塗る (§ 08 参照)。
+    //     への線分との signed distance を計算、stroke 幅以下なら TX で塗る (§ 09 参照)。
     // (5) frame: matrix 全体の外枠だけを ui-2 1 px で塗る。cell 間の区切り線は描かない。
     //     全レイヤ CPU vertex buffer は不要、すべて fragment shader 完結。
     return vec4(col, 1.0);
@@ -488,13 +509,13 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   </div>
 </section>
 
-<!-- ─────── § 06 phase lock + incoherent state ─────── -->
+<!-- ─────── § 07 phase lock + incoherent state ─────── -->
 <section class="block">
-  <h2>§ 06 phase lock + incoherent state</h2>
+  <h2>§ 07 phase lock + incoherent state</h2>
   <div class="card">
     <h3>phase lock — 主要振幅を位相基準に</h3>
     <p>
-      GPU パイプライン (§ 08) は最大振幅を持つ測定結果の index (<code>phaseLockIndex</code>) を返す。
+      GPU パイプライン (§ 09) は最大振幅を持つ測定結果の index (<code>phaseLockIndex</code>) を返す。
       その index の振幅の位相 <code>θ = atan2(im, re)</code> を全 ket から <code>e<sup>−iθ</sup></code> で打ち消し、
       phase lock 後の振幅は<strong>実数正 + 虚部ゼロ</strong>に正規化される。これで「全体に同じ位相を掛けたとき見た目が変わらない」
       = 量子状態の物理的等価性を視覚化に反映する。
@@ -505,7 +526,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       Quirk 原版の赤い水平線 + <code>'fixed'</code> ラベルは <em>(a) needle 方向との視覚的衝突</em>
       (Quirk は phase 0 = 右、本仕様は phase 0 = 上)、<em>(b) state panel に同等マーカーが無いため UI が分散する</em>、の 2 点で不採用。
       <strong><code>span == 回路全体の量子ビット数</code> のときだけは phase lock を無効にする</strong> (「全体相」を持つ意味がないため、Quirk 同挙動)。
-      実装は <code>AmplitudeCapture</code> uniform の <code>phase_lock_enabled</code> flag で制御する: <code>ColumnAnalysis</code> が <code>span == total_qubits</code> を検出して <code>phase_lock_enabled = 0</code> に set し、shader 側は <code>phase_lock_index = sentinel</code> を書き、stage 8 で <code>θ = 0</code> 扱い (正規化のみで位相回転なし)。詳細は § 08 stage 7/8 参照。
+      実装は <code>AmplitudeCapture</code> uniform の <code>phase_lock_enabled</code> flag で制御する: <code>ColumnAnalysis</code> が <code>span == total_qubits</code> を検出して <code>phase_lock_enabled = 0</code> に set し、shader 側は <code>phase_lock_index = sentinel</code> を書き、stage 8 で <code>θ = 0</code> 扱い (正規化のみで位相回転なし)。詳細は § 09 stage 7/8 参照。
     </p>
     <h3 style="margin-top: 16px;">incoherent state — entangled で振幅未定義</h3>
     <p>
@@ -534,9 +555,9 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   </div>
 </section>
 
-<!-- ─────── § 07 ホバーポップアップ ─────── -->
+<!-- ─────── § 08 ホバーポップアップ ─────── -->
 <section class="block">
-  <h2>§ 07 ホバー時ポップアップ</h2>
+  <h2>§ 08 ホバー時ポップアップ</h2>
   <div class="card">
     <p>
       Quirk の <code>MathPainter.paintMatrixTooltip</code> と同じ 3 行構成。Geist タイポグラフィへ写像する。
@@ -576,9 +597,9 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   </div>
 </section>
 
-<!-- ─────── § 08 GPU パイプライン ─────── -->
+<!-- ─────── § 09 GPU パイプライン ─────── -->
 <section class="block">
-  <h2>§ 08 GPU パイプライン (GPU-only、毎フレーム readback 無し)</h2>
+  <h2>§ 09 GPU パイプライン (GPU-only、毎フレーム readback 無し)</h2>
   <div class="card">
     <p>
       Quirk の <code>amplitudeDisplayStatTextures()</code> + JS 側 <code>processOutputs()</code> を
@@ -600,7 +621,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     control_value:      u32,   // 期待値 (該当 bit が 1 なら |1⟩ 期待、0 なら |0⟩ 期待)
     phase_lock_enabled: u32,   // 0 = 無効 (θ=0、回転なし) / 1 = 有効 (Quirk 互換、決定論的 max)
     total_qubits:       u32,   // 回路全体の量子ビット数。span == total_qubits なら ColumnAnalysis で
-                                // 自動的に phase_lock_enabled = 0 にセット (§ 06 「span == 全量子ビット」例外)
+                                // 自動的に phase_lock_enabled = 0 にセット (§ 07 「span == 全量子ビット」例外)
 };</pre>
     <p>
       <strong>bit 順序</strong>: <code>control_mask</code> / <code>control_value</code> は<strong>qubit_bit (= state_index の bit position)</strong> 単位で指定。
@@ -680,7 +701,7 @@ for (k = 0u; k &lt; n; k++) {
     <h4 style="margin: 12px 0 6px; font-size: 14px;">必要なリソース</h4>
     <ul>
       <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>確率表示ブロックのポップアップと完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
-      <li><strong><code>amplitude_result</code></strong> — § 08 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む</li>
+      <li><strong><code>amplitude_result</code></strong> — § 09 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む</li>
       <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — hovered cell の index <code>hovered_k: u32</code>、popup screen 位置 <code>popup_pos: vec2&lt;f32&gt;</code>、表示 / 非表示 flag</li>
     </ul>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">overlay render pass</h4>
@@ -744,9 +765,9 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   </div>
 </section>
 
-<!-- ─────── § 09 決定事項 ─────── -->
+<!-- ─────── § 10 決定事項 ─────── -->
 <section class="block">
-  <h2>§ 09 決定事項 (実装前の固定値)</h2>
+  <h2>§ 10 決定事項 (実装前の固定値)</h2>
   <div class="card">
     <p>仕様策定中に検討した分岐は以下のとおり<strong>事前に決定</strong>済み。実装時はこの値で進める。</p>
     <table class="spec">
@@ -776,17 +797,17 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         </tr>
         <tr>
           <td><strong>phaseLockIndex の選び方</strong></td>
-          <td>Quirk 互換「決定論的最大」 (<code>m &gt; best × 10000</code>)。<strong><code>span == total_qubits</code> のときは <code>phase_lock_enabled = 0</code> で disable し、sentinel <code>0xffffffff</code> を書いて θ=0 扱い</strong> (§ 06 / § 08 参照)</td>
+          <td>Quirk 互換「決定論的最大」 (<code>m &gt; best × 10000</code>)。<strong><code>span == total_qubits</code> のときは <code>phase_lock_enabled = 0</code> で disable し、sentinel <code>0xffffffff</code> を書いて θ=0 扱い</strong> (§ 07 / § 09 参照)</td>
           <td>真の argmax は使わない (拮抗時に lock 先がチラつくため)、Quirk の安定化トリックをそのまま流用</td>
         </tr>
         <tr>
           <td><strong>shader 構造</strong></td>
-          <td>段階的 reduce (Quirk の 6 stage を 10 compute pass に分解; § 08 参照)</td>
+          <td>段階的 reduce (Quirk の 6 stage を 10 compute pass に分解; § 09 参照)</td>
           <td>確率表示ブロックと同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
         </tr>
         <tr>
           <td><strong>layer 合成順序</strong></td>
-          <td>frame → outline → disk → needle (cell ごとに上層が下層を覆う)</td>
+          <td>frame → outline → disk → disk border → needle (cell ごとに上層が下層を覆う)</td>
           <td>state panel の合成順序と同等の視覚結果。cell 間の区切り線は描かず、needle が最上層</td>
         </tr>
         <tr>
@@ -802,26 +823,31 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>幅</strong></td>
           <td>可変 (<code>(cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code> px、垂直公式と対称)</td>
-          <td>2D matrix の縦横バランス維持のため。fallback (40 px 固定 + 1 列縦並び) は採用しない (§ 04 参照)</td>
+          <td>2D matrix の縦横バランス維持のため。fallback (40 px 固定 + 1 列縦並び) は採用しない (§ 05 参照)</td>
         </tr>
         <tr>
           <td><strong>measure 列の挙動</strong></td>
           <td>post-measure 振幅をそのまま表示</td>
-          <td>qni の lowering 順序に合わせる。Quirk の "deferred measurement" 風表示は再現しない (§ 06 参照)</td>
+          <td>qni の lowering 順序に合わせる。Quirk の "deferred measurement" 風表示は再現しない (§ 07 参照)</td>
         </tr>
         <tr>
           <td><strong>controls 統合</strong></td>
           <td><code>AmplitudeCapture</code> uniform に <code>control_mask / control_value</code> を追加</td>
-          <td>1 uniform で完結、確率表示ブロックが将来 controls 対応する場合の参考実装にもなる (§ 08 参照)</td>
+          <td>1 uniform で完結、確率表示ブロックが将来 controls 対応する場合の参考実装にもなる (§ 09 参照)</td>
+        </tr>
+        <tr>
+          <td><strong>実行前プレースホルダ</strong></td>
+          <td>背景 <code>purple-100</code> (#ECE1F3) + outline 円 <code>ui-2</code> (#DAD8CE)。disk / needle は描かず外枠は通常通り。Run 直後に 150 ms ease-out でクロスフェード (§ 02「実行前プレースホルダ」参照)</td>
+          <td>紫系統で「未確定 / 結果待ち」を表現するデザインコンベンション (drag = <code>purple-600</code>、hover = <code>purple-400</code>) と整合。outline には既存 <code>state_outline_zero</code> token を流用し新規色は背景の 1 token のみ。実行前に真っ白の四角が出る既存挙動を解消する</td>
         </tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 10 テスト計画 ─────── -->
+<!-- ─────── § 11 テスト計画 ─────── -->
 <section class="block">
-  <h2>§ 10 テスト計画 (受け入れ条件)</h2>
+  <h2>§ 11 テスト計画 (受け入れ条件)</h2>
   <div class="card">
     <p>
       本 PR でカバーすべき自動テストの最小セット。AGENTS.md の「1 テスト 1 アサーション」規約に従い、各箇条書きは観点であり、
@@ -862,7 +888,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
           <li><code>|0⟩</code> anti-control で control_value bit が 0 の state_index のみ採用</li>
         </ol>
       </li>
-      <li><strong>post-measure 挙動 (qni 仕様、Quirk と異なる)</strong> (Rust, <code>#[test]</code>) — span 内に measured wire を含む列で、display capture が collapse 後の古典化 amplitude を返すことを assert (Quirk の "deferred measurement" とは値が異なる、§ 06 で決定)。</li>
+      <li><strong>post-measure 挙動 (qni 仕様、Quirk と異なる)</strong> (Rust, <code>#[test]</code>) — span 内に measured wire を含む列で、display capture が collapse 後の古典化 amplitude を返すことを assert (Quirk の "deferred measurement" とは値が異なる、§ 07 で決定)。</li>
       <li><strong>incoherent state 検出</strong> (Rust, <code>#[test]</code>) — span 外と entangled な span を仕掛けて、<code>quality &lt; 0.99</code> を assert、render shader が incoherent ket fallback を選ぶことを GPU snapshot で確認。</li>
       <li><strong>GPU-only popup (readback 無し)</strong> (Playwright):
         <ol>
@@ -881,6 +907,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   <p class="meta">qni-webgpu · 振幅表示ブロック仕様 · 2026-05</p>
 </footer>
 
+<script src="resize-handle.js"></script>
 <script>
   /* ─── 振幅表示ブロックの canvas renderer + cell tooltip ───
      Quirk の MathPainter.paintMatrix を 1:1 で写したシンプルな実装。
@@ -893,6 +920,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   const UI_2        = '#DAD8CE';  /* zero-amp outline (state_outline_zero) */
   const TX_2        = '#6F6E69';  /* non-zero outline (state_outline) */
   const TX          = '#100F0F';  /* phase needle (state_needle) */
+  const PURPLE_100  = '#ECE1F3';  /* 実行前プレースホルダ背景 (Flexoki purple-100、未確定/結果待ち) */
 
   /* サンプル state vector (各値は normalize 済) */
   function buildState(name, n) {
@@ -958,6 +986,9 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         const u = 1 / Math.sqrt(unity);
         for (let k = 0; k < n * 2; k++) buf[k] *= u;
       }
+    } else if (name === 'placeholder') {
+      // 実行前プレースホルダ: 振幅値は未定義。outline 円だけ描くため、振幅は全て 0 を返す。
+      // (renderer 側で data-placeholder="true" を見て placeholder 専用パスへ分岐する)
     } else if (name === 'icon') {
       // パレットアイコン (Qni の "Q" 風シルエット):
       //   単一 cell (1×1)、mag = 1/√2 → mag² = 50%、
@@ -1001,7 +1032,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   }
   function cellPxForGrid(w_grid, h_grid, cols, span, hint) {
     if (hint && Number.isFinite(hint)) return hint;
-    // 仕様 (§ 04) と同じ式: width_px = 56*cols - 16, height_px = 56*span - 16。
+    // 仕様 (§ 05) と同じ式: width_px = 56*cols - 16, height_px = 56*span - 16。
     // cell_diam = min(width/w_grid, height/h_grid) で正方 cell。
     // モック表示用に最大寸法 320 px へ scale down (実装は scale なし)。
     const specW = 56 * cols - 16;
@@ -1040,13 +1071,35 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
+    const placeholder = host.dataset.placeholder === 'true';
     const rawState = buildState(stateName, n);
-    const lockIndex = (incoherent || isIcon) ? null : pickPhaseLockIndex(rawState, n);
+    const lockIndex = (incoherent || isIcon || placeholder) ? null : pickPhaseLockIndex(rawState, n);
     const state = lockIndex === null ? rawState : applyPhaseLock(rawState, n, lockIndex);
 
-    // (1) back
-    ctx.fillStyle = BG;
+    // (1) back — 通常は paper、実行前プレースホルダだけ purple-100 (未確定/結果待ち)
+    ctx.fillStyle = placeholder ? PURPLE_100 : BG;
     ctx.fillRect(0, 0, W, H);
+
+    // 実行前プレースホルダ: outline 円 (ui-2) + matrix 外枠 だけを描いて早期 return。
+    // disk / needle / heatmap は振幅値が無いので一切描かない (§ 02「実行前プレースホルダ」参照)。
+    if (placeholder) {
+      const stroke_ph = cellPx >= 24 ? 2 : 1;
+      const half_stroke_ph = stroke_ph / 2;
+      const outline_clearance = 1.5;
+      const r_ph = Math.max(0, cellPx / 2 - half_stroke_ph - outline_clearance);
+      ctx.strokeStyle = UI_2;
+      ctx.lineWidth = stroke_ph;
+      for (let row = 0; row < h_grid; row++) {
+        for (let col = 0; col < w_grid; col++) {
+          ctx.beginPath();
+          ctx.arc(col * cellPx + cellPx/2, row * cellPx + cellPx/2, r_ph, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, Math.max(0, W - 1), Math.max(0, H - 1));
+      return { canvas, state, w_grid, h_grid, cellPx, lockIndex: null, incoherent: false };
+    }
 
     const cellsForEach = (fn) => {
       for (let row = 0; row < h_grid; row++) {
@@ -1065,13 +1118,15 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     //   cellPx <  3       : heatmap (alpha = √(mag/max_mag) のセル塗り) — mock 限定
     //                       (production の最小 cellPx は span 16 で ~3.4 px、heatmap 経路に入らない)
     // state.rs の cell_contribution() と同じ半径計算:
-    //   outline_radius = cellPx/2 − stroke  (outline stroke が matrix 外枠へ食い込まない 1px slack)
+    //   outline_radius = cellPx/2 − stroke/2 − 1.5px
+    //                    (outline stroke が matrix 外枠へ触れない範囲で最大化)
     //   inner_radius   = outline_radius − half_stroke  (disk が outline の<strong>内側</strong>ぎりぎりに収まる)
     // cellPx >= 24 (span 1〜6) は stroke 2 px、それより小さい (span 7+) は 1 px:
     // 細い線にしないと outline と needle が cell サイズに対して太すぎて潰れる。
     const stroke = cellPx >= 24 ? 2 : 1;
     const half_stroke = stroke / 2;
-    const outline_radius = Math.max(0, cellPx / 2 - stroke);
+    const outline_clearance = 1.5;
+    const outline_radius = Math.max(0, cellPx / 2 - half_stroke - outline_clearance);
     const inner_radius = Math.max(0, outline_radius - half_stroke);
     const showOutline = cellPx >= 3;
     const showNeedle  = cellPx >= 12 && !incoherent;
@@ -1247,21 +1302,11 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     const info = buildAdCanvas(host);
     host.appendChild(info.canvas);
     if (host.dataset.noPopup !== 'true') attachPopup(host, info);
-    // リサイズハンドル: icon mode 以外で追加。probability-display.html と同じ chrome 仕様だが、
-    // 振幅表示ブロックは span が大きいほど本体幅が広くなる (最大 ~320 px in mock、~880 px in production) ため、
-    // ハンドル幅も canvas 幅の 60% に比例させて掴みやすくする (min 24 px、確率表示ブロックと同じ最小値)。
+    // リサイズハンドルは共有 primitive (resize-handle.js の attachResizeHandles)。
+    // 振幅表示ブロックは span が大きいほど本体が広くなるので canvas 幅 × 0.6 で追従させる (min 24 px)。
     if (!host.classList.contains('icon')) {
-      const handleWidth = Math.max(24, Math.round(info.canvas.width * 0.6));
-      const top = document.createElement('div');
-      top.className = 'ad-handle ad-handle--top';
-      top.style.width = handleWidth + 'px';
-      top.setAttribute('aria-hidden', 'true');
-      const bottom = document.createElement('div');
-      bottom.className = 'ad-handle ad-handle--bottom';
-      bottom.style.width = handleWidth + 'px';
-      bottom.setAttribute('aria-hidden', 'true');
-      host.appendChild(top);
-      host.appendChild(bottom);
+      host.classList.add('resize-handle-host');  // hover 連動の契約
+      attachResizeHandles(host, { widthMode: 'canvas60' });
     }
   });
 </script>

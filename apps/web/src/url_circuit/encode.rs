@@ -95,6 +95,14 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
             }
         }
         GateKind::AmplitudeDisplay => format!("{}{}", spec.url_token, span.clamp(1, 16)),
+        GateKind::DensityMatrixDisplay => {
+            let span = span.clamp(1, 8);
+            if span == 1 {
+                spec.url_token.to_string()
+            } else {
+                format!("{}{}", spec.url_token, span)
+            }
+        }
         _ => spec.url_token.to_string(),
     };
     Some(s)
@@ -144,5 +152,19 @@ mod tests {
         let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 16, None);
 
         assert_eq!(circuit_to_json(&[gate], 16), r#"{"cols":[["Amps16"]]}"#);
+    }
+
+    #[test]
+    fn density_span_one_serializes_without_suffix() {
+        let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Density"]]}"#);
+    }
+
+    #[test]
+    fn density_span_eight_serializes_with_suffix() {
+        let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 8, None);
+
+        assert_eq!(circuit_to_json(&[gate], 8), r#"{"cols":[["Density8"]]}"#);
     }
 }

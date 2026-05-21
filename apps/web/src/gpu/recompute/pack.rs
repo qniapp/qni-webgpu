@@ -4,8 +4,8 @@ use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{
-    AmplitudeCaptureParams, BlochParams, MeasureCollapseParams, MeasureReduceParams,
-    ProbabilityReduceParams,
+    AmplitudeCaptureParams, BlochParams, DensityCaptureParams, MeasureCollapseParams,
+    MeasureReduceParams, ProbabilityReduceParams,
 };
 use super::super::resources::StateVectorResources;
 
@@ -19,6 +19,7 @@ pub(super) struct PackedRecomputeParams {
     measure_collapse: Vec<MeasureCollapseParams>,
     probability: Vec<ProbabilityReduceParams>,
     amplitude: Vec<AmplitudeCaptureParams>,
+    density: Vec<DensityCaptureParams>,
 }
 
 impl PackedRecomputeParams {
@@ -30,6 +31,7 @@ impl PackedRecomputeParams {
             measure_collapse: Vec::with_capacity(sim_ops.len()),
             probability: Vec::with_capacity(sim_ops.len()),
             amplitude: Vec::with_capacity(sim_ops.len()),
+            density: Vec::with_capacity(sim_ops.len()),
         };
 
         for op in sim_ops {
@@ -104,6 +106,24 @@ impl PackedRecomputeParams {
                         total_qubits,
                     });
                 }
+                SimulationOp::CaptureDensity {
+                    base_bit,
+                    span,
+                    output_slot,
+                    control_mask,
+                    control_value,
+                    ..
+                } => {
+                    packed.density.push(DensityCaptureParams {
+                        base_bit: *base_bit,
+                        span: *span,
+                        output_slot: *output_slot,
+                        state_count: state_count as u32,
+                        control_mask: *control_mask,
+                        control_value: *control_value,
+                        _pad: [0; 2],
+                    });
+                }
             }
         }
 
@@ -155,6 +175,13 @@ impl PackedRecomputeParams {
                 &resources.amplitude.capture_params_staging_buffer,
                 0,
                 bytemuck::cast_slice(&self.amplitude),
+            );
+        }
+        if !self.density.is_empty() {
+            queue.write_buffer(
+                &resources.density.capture_params_staging_buffer,
+                0,
+                bytemuck::cast_slice(&self.density),
             );
         }
     }

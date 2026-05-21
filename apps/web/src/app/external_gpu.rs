@@ -2,6 +2,7 @@ mod amplitude;
 mod app_adapter;
 mod bloch;
 mod client;
+mod density;
 mod probability;
 mod test_hooks;
 

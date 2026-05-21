@@ -46,6 +46,10 @@ fn draw_gate_body_with_fill(
         let background = if dragging { fill } else { colors.surface };
         draw_amplitude_preview_body(painter, gate_rect, colors, background);
         return;
+    } else if kind == GateKind::DensityMatrixDisplay {
+        let background = if dragging { fill } else { colors.surface };
+        draw_density_preview_body(painter, gate_rect, colors, background);
+        return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
         // SDF-backed `P` glyph centred inside) so the angle label has
@@ -148,7 +152,9 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
     let center = rect.center();
     let stroke_width = 2.0;
     let half_stroke = stroke_width * 0.5;
-    let outline_radius = (rect.width().min(rect.height()) * 0.5 - stroke_width).max(0.0);
+    let outline_clearance = 1.5;
+    let outline_radius =
+        (rect.width().min(rect.height()) * 0.5 - half_stroke - outline_clearance).max(0.0);
     let inner_radius = (outline_radius - half_stroke).max(0.0);
     let disk_radius = inner_radius * std::f32::consts::FRAC_1_SQRT_2;
 
@@ -170,6 +176,65 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
         [center, center + tail],
         egui::Stroke::new(stroke_width, colors.state_needle),
     );
+}
+
+fn draw_density_preview_body(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    colors: &Colors,
+    background: egui::Color32,
+) {
+    // Static placeholder only. Live density values are captured and rendered
+    // by WebGPU; the CPU draws no density matrix entries. Unlike the palette
+    // icon, placed/dragged placeholders keep the matrix outer frame.
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::ZERO,
+        egui::Stroke::new(1.0, colors.line),
+        egui::StrokeKind::Inside,
+    );
+}
+
+pub(crate) fn draw_density_palette_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    colors: &Colors,
+) {
+    // docs/design-system/density-matrix-display.html §02: compact 2×2
+    // density preview. Diagonal cells omit the phase needle; off-diagonal
+    // cells keep the same outline + disk grammar with a phase needle.
+    let cell = rect.width().min(rect.height()) * 0.5;
+    for row in 0..2 {
+        for col in 0..2 {
+            let center = egui::pos2(
+                rect.left() + (col as f32 + 0.5) * cell,
+                rect.top() + (row as f32 + 0.5) * cell,
+            );
+            let outline_stroke = 1.25;
+            let outline_clearance = 1.5;
+            let outline_radius = (cell * 0.5 - outline_stroke * 0.5 - outline_clearance).max(0.0);
+            let disk_radius = outline_radius * 0.5;
+            painter.circle_filled(center, outline_radius, colors.surface);
+            painter.circle_stroke(
+                center,
+                outline_radius,
+                egui::Stroke::new(outline_stroke, colors.state_outline),
+            );
+            painter.circle_filled(center, disk_radius, colors.state_fill);
+            painter.circle_stroke(
+                center,
+                (disk_radius - 0.5).max(0.0),
+                egui::Stroke::new(1.0, colors.popup_icon),
+            );
+            if row != col {
+                painter.line_segment(
+                    [center, center + egui::vec2(0.0, -outline_radius)],
+                    egui::Stroke::new(1.25, colors.state_needle),
+                );
+            }
+        }
+    }
 }
 
 fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {

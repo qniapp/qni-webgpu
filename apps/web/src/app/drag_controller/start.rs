@@ -36,6 +36,7 @@ impl DragController {
                 app.hovered_gate_id = None;
                 app.hovered_probability_outcome = None;
                 app.hovered_amplitude_outcome = None;
+                app.hovered_density_cell = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -52,6 +53,7 @@ impl DragController {
                 app.hovered_gate_id = None;
                 app.hovered_probability_outcome = None;
                 app.hovered_amplitude_outcome = None;
+                app.hovered_density_cell = None;
                 app.hovered_palette_index = None;
                 ctx.request_repaint();
                 true
@@ -87,6 +89,7 @@ impl DragController {
                 app.hovered_gate_id = None;
                 app.hovered_probability_outcome = None;
                 app.hovered_amplitude_outcome = None;
+                app.hovered_density_cell = None;
                 ctx.request_repaint();
                 true
             }

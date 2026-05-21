@@ -218,6 +218,17 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         }
         return Some((GateKind::AmplitudeDisplay, span, None));
     }
+    if let Some(rest) = token.strip_prefix("Density") {
+        let span = if rest.is_empty() {
+            1
+        } else {
+            rest.parse().ok()?
+        };
+        if !(1..=8).contains(&span) {
+            return None;
+        }
+        return Some((GateKind::DensityMatrixDisplay, span, None));
+    }
     // Parametric `P(...)` / `Rx(...)` / `Ry(...)` / `Rz(...)` —
     // mirrors qni's `quantum-circuit-element.ts::angleParameter`:
     // strip the outer parens, trim, replace the first `_` with `/`
@@ -288,6 +299,23 @@ mod tests {
     #[test]
     fn bare_amplitude_token_is_ignored() {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn density_span_eight_decodes() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Density8"]]}"#);
+
+        assert_eq!(
+            gates.first().map(|gate| (gate.kind, gate.span)),
+            Some((GateKind::DensityMatrixDisplay, 8))
+        );
+    }
+
+    #[test]
+    fn density_span_nine_is_ignored() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Density9"]]}"#);
 
         assert_eq!(gates.len(), 0);
     }

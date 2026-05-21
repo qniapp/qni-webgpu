@@ -1,4 +1,4 @@
-//! Shared resizable-span handle component for Probability / QFT / QFT† / Amplitude gates.
+//! Shared resizable-span handle component for Probability / QFT / QFT† / Amplitude / Density gates.
 //!
 //! This module owns the small cyan top/bottom handles as one component:
 //! body selection, hit testing, drag construction, animation easing, and paint.
@@ -27,7 +27,8 @@ pub(crate) fn span_resize_ease_out_back(t: f32) -> f32 {
 }
 
 /// The visual body that owns the resize handles. Amplitude uses the centred
-/// matrix body; every other resizable-span gate uses its whole visible rect.
+/// matrix draw area; Density uses its square canvas (the whole visible rect),
+/// and fixed-width gates clamp the 60% policy to the 24 px minimum.
 pub(crate) fn span_resize_body_rect(
     kind: GateKind,
     span: usize,
@@ -42,7 +43,7 @@ pub(crate) fn span_resize_body_rect(
 
 /// Resize-handle bounding box for any resizable-span gate edge. The 6 px-tall
 /// pill keeps the Probability-display 24 px minimum, then scales to 60% of the
-/// supplied body width for wide Amplitude displays.
+/// supplied body width for wide Amplitude / Density displays.
 fn span_resize_handle_rect(body_rect: egui::Rect, edge: SpanResizeEdge) -> egui::Rect {
     let cx = body_rect.center().x;
     let cy = match edge {

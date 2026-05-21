@@ -87,6 +87,18 @@ pub async fn read_amplitude_cell(
     gpu::read_amplitude_cell_impl(gate_id, outcome).await
 }
 
+/// Test-only on-demand readback for one Density Matrix display cell. Returns
+/// `[gate_id, row, col, re, im, unity, span]` with `re`/`im` normalized by trace.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn read_density_matrix_cell(
+    gate_id: u32,
+    row: u32,
+    col: u32,
+) -> Result<js_sys::Float64Array, wasm_bindgen::JsValue> {
+    gpu::read_density_matrix_cell_impl(gate_id, row, col).await
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn circuit_library_list() -> Result<String, wasm_bindgen::JsValue> {

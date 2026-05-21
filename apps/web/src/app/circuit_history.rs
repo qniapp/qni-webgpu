@@ -99,9 +99,11 @@ impl QniApp {
         self.external_gpu_amplitude_uploads = None;
         self.external_gpu_bloch_uploads = None;
         self.external_gpu_probability_uploads = None;
+        self.external_gpu_density_uploads = None;
         self.pending_external_amplitude_slots.clear();
         self.pending_external_bloch_slots.clear();
         self.pending_external_probability_slots.clear();
+        self.pending_external_density_slots.clear();
         self.pending_external_gpu_run_id = None;
         ctx.request_repaint();
     }
@@ -177,6 +179,7 @@ impl QniApp {
         self.hovered_gate_id = None;
         self.hovered_probability_outcome = None;
         self.hovered_amplitude_outcome = None;
+        self.hovered_density_cell = None;
         self.hovered_palette_index = None;
         self.hovered_span_resize_handle = None;
         self.hovered_step = None;
@@ -190,9 +193,11 @@ impl QniApp {
         self.external_gpu_amplitude_uploads = None;
         self.external_gpu_bloch_uploads = None;
         self.external_gpu_probability_uploads = None;
+        self.external_gpu_density_uploads = None;
         self.pending_external_amplitude_slots.clear();
         self.pending_external_bloch_slots.clear();
         self.pending_external_probability_slots.clear();
+        self.pending_external_density_slots.clear();
         self.pending_external_gpu_run_id = None;
         self.gpu_plan.mark_dirty();
         self.clear_gpu_plan_capacity_error();

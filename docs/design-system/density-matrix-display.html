@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>密度行列表示ブロック — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+
+    /* ── 密度行列表示ブロック視覚スタイル ─────────────────────────
+       state vector panel (apps/web/src/gpu/shaders/state.rs) / 振幅表示ブロックの 4 層モデルに揃える。
+       対角 / 非対角ともに magnitude disk + outline 円 で表現し、対角は実数 (位相 0) なので
+       needle のみ省略する。半径は対角なら ρ_ii (= 確率) の絶対値、非対角なら |ρ_ij|。
+       各セルは正方形 grid に配置し、内部に下記のレイヤを描く:
+         1. back   (cell 背景) = bg
+         2. outline 円 (全セル、cell 中央) = tx-2 (mag > 1e-6) / ui-2 (≈ 0)
+         3. magnitude disk (全セル、半径 ∝ |ρ_{ij}|) = blue-200 fill + blue-400 inset 1 px
+         4. needle (非対角のみ、center → edge) = tx stroke
+         5. matrix 外枠 = ui-2 1 px (cell 間の縦横区切り線は描かない)
+       Quirk のロガリズム円 (small-mag 強調用の補助円) は disk と冗長なので不採用。
+       cell 寸法が小さいときは needle / outline をレイヤ抑制する (§ 05)。 */
+    .dm-host {
+      position: relative;
+      display: inline-flex;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+    .dm-host canvas { display: block; cursor: crosshair; }
+    .dm-host:hover canvas {
+      box-shadow:
+        0 0 0 2px var(--bg),
+        0 0 0 4px var(--purple-400);
+    }
+    /* 静的アイコン (パレット mini preview)。hover の枠を強制表示するための個別クラス */
+    .dm-host.icon canvas { cursor: default; }
+
+    /* リサイズハンドルの chrome は primitive として design-system.css の .resize-handle に集約済み。
+       仕様: docs/design-system/resize-handle.html。
+       密度行列表示ブロックは span が大きいほど本体が広くなるので、widthMode: 'canvas60' を渡して
+       canvas 幅 × 0.6 (min 24 px) で追従させる。span 上限は 8 (matrix サイズの現実的限界)。 */
+
+    /* ─── ホバー popup (cell 単位) ───
+       Quirk の paintMatrixTooltip + paintDensityMatrix の文言を Geist タイポグラフィへ移植。
+       対角 / 非対角でラベル文面と数値整形を切り替える。 */
+    .dm-popup {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      z-index: 50;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      line-height: 16px;
+      color: var(--tx);
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
+    }
+    .dm-popup .dm-popup-ket {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--tx);
+      text-align: center;
+    }
+    .dm-popup .dm-popup-sub {
+      font-size: 12px;
+      margin-top: 4px;
+      color: var(--tx-2);
+    }
+    .dm-popup .dm-popup-divider {
+      height: 1px;
+      background: var(--ui-2);
+      margin: 12px 0;
+    }
+    .dm-popup .dm-popup-row {
+      display: flex;
+      gap: 16px;
+      align-items: baseline;
+      font-family: var(--font-mono);
+    }
+    .dm-popup .dm-popup-row + .dm-popup-row { margin-top: 4px; }
+    .dm-popup .dm-popup-label {
+      font-size: 12px;
+      color: var(--tx-2);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      min-width: 40px;
+    }
+    .dm-popup .dm-popup-value {
+      font-size: 14px;
+      color: var(--tx);
+      font-variant-numeric: tabular-nums;
+      margin-left: auto;
+    }
+
+    .stage {
+      display: flex; gap: 24px; align-items: flex-start;
+      flex-wrap: wrap; margin-top: 16px;
+    }
+    .stage .col {
+      display: flex; flex-direction: column; gap: 8px; align-items: center;
+      text-align: center;
+      flex: 0 0 auto;
+      max-width: 100%;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--tx-3); line-height: 16px;
+    }
+    .stage .actual { display: flex; align-items: center; justify-content: center; }
+    .stage .zoom {
+      width: 160px; height: 160px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stage .zoom .dm-host { transform: scale(4); transform-origin: center; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 16px;
+      align-items: center;
+      font-size: 14px;
+      line-height: 20px;
+      color: var(--tx-2);
+      margin: 8px 0;
+    }
+    .legend .swatch {
+      width: 32px; height: 32px;
+      border: 1px solid var(--ui-2);
+      border-radius: 4px;
+      background: var(--bg);
+      position: relative;
+    }
+    .legend .swatch canvas { width: 32px; height: 32px; display: block; }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <!-- 1 量子ビット (2×2、|+⟩⟨+|) がもっともシンプルな代表例。サムネ iframe で使う -->
+  <div class="dm-host" data-span="1" data-state="plus1"></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">表示ブロック</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">密度行列表示ブロック</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · widget spec</p>
+  <h1 class="page-title">密度行列表示ブロック</h1>
+  <p class="page-lede">
+    span 内の量子ビットを測定せずに、<strong>局所的な混合状態 (reduced density matrix)</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する密度行列表示ブロック (<code>表示ブロック</code> の定義は AGENTS.md 用語集と design-system §01 参照)。
+    振幅表示ブロックが <code>α = re + i·im</code> 1 本を <code>2<sup>span</sup></code> セルで描くのに対し、本表示ブロックは <code>ρ<sub>ij</sub></code> の <strong>2<sup>span</sup> × 2<sup>span</sup> 全成分</strong> を行列状に描く。
+    対角成分は <strong>各測定結果の確率 <code>P(|i⟩) = ρ<sub>ii</sub></code></strong>、非対角成分は <strong>coupling / coherence <code>ρ<sub>ij</sub></code></strong> (絶対値 = 大きさ、偏角 = 相対位相)。
+    <strong>span 上限は 8 量子ビット</strong> (Quirk <code>DensityMatrixDisplay</code> と同じ。<code>2<sup>16</sup> = 65 536</code> セルの正方行列、<code>vec2&lt;f32&gt;</code> で 512 KB を GPU storage で扱う上限)。
+    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は振幅表示ブロック / 状態ベクトルパネルと完全に揃える</strong> (Quirk の <code>#3F3 / #040</code> 緑系は Flexoki に馴染まないため不採用)。
+    Quirk の <code>DensityMatrixDisplayFamily</code> (<code>src/gates/DensityMatrixDisplay.js</code>) と <code>MathPainter.paintDensityMatrix</code> を Flexoki + WebGPU + Qiskit Aer 二系統経路へ移植する仕様書。
+  </p>
+</div>
+
+<!-- ─────── § 01 サイズ別の見た目 + 動くモック ─────── -->
+<section class="block">
+  <h2>§ 01 サイズ別の見た目 (1〜8 量子ビット、動くモック)</h2>
+  <div class="card">
+    <p>
+      span 1〜8 の代表的な reduced density matrix を並べた参考レンダリング。matrix 寸法は <code>n × n</code> (<code>n = 2<sup>span</sup></code>) の正方行列、本体寸法は <strong><code>size_px = 56 × span − 16</code></strong> px の正方形 (確率表示ブロックの<em>高さ</em>公式と一致、振幅表示ブロックの幅 / 高さ公式とも対称)。
+      cell 寸法 (<code>cellPx = size_px / n</code>) は span が増えるごとに半減する: span 1 で 20 px、span 4 で 13 px、span 5 で 8.25 px、span 7 で 2.94 px、span 8 で 1.69 px。
+      cellPx に応じてレイヤを段階的に省略する (§ 05): <strong><code>cellPx ≥ 12</code> = outline + disk + needle / <code>cellPx ∈ [3, 12)</code> = outline + disk (needle 省略) / <code>cellPx &lt; 3</code> = heatmap (mag を alpha に潰す dense mode)</strong>。
+      対角 / 非対角ともに <em>outline 円 + magnitude disk</em> で描き、disk 半径は対角なら <code>ρ<sub>ii</sub></code> (= 確率)、非対角なら <code>|ρ<sub>ij</sub>|</code>。対角は実数 (位相 0) なので needle のみ省略する。
+      各セルにマウスを乗せると Quirk と同じ tooltip 内容 (対角は <code>Probability of |k⟩</code> / 非対角は <code>Coupling of |row⟩ to ⟨col|</code>) をポップアップ表示する。
+    </p>
+
+    <h3 style="margin-top: 12px;">span 1〜4 (full detail、cellPx ≥ 13)</h3>
+    <div class="stage">
+      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · cellPx = 20</div><div class="actual"><div class="dm-host" data-span="1" data-state="plus1"></div></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · cellPx = 24</div><div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · cellPx = 19</div><div class="actual"><div class="dm-host" data-span="3" data-state="ghz3"></div></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · cellPx = 13</div><div class="actual"><div class="dm-host" data-span="4" data-state="demo4"></div></div></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">span 5〜6 (needle 省略、outline + disk)</h3>
+    <div class="stage">
+      <div class="col"><div class="caption">5 量子ビット · 32×32 行列<br>264 px · cellPx = 8.25</div><div class="actual"><div class="dm-host" data-span="5" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">6 量子ビット · 64×64 行列<br>320 px · cellPx = 5.0</div><div class="actual"><div class="dm-host" data-span="6" data-state="demo"></div></div></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">span 7〜8 (heatmap / dense mode、cellPx &lt; 3)</h3>
+    <p>
+      cellPx が 3 px を下回ると outline 円と disk が視覚的に潰れるので、
+      <strong>各セルを単一の塗りつぶし矩形にして <code>alpha = √(|ρ<sub>ij</sub>|)</code> で濃淡を出す</strong>
+      heatmap モードへ切替える。対角と非対角の区別は薄れるが、行列全体の構造 (diagonal の山 / off-diagonal の coupling 縞) は保持される。
+      Quirk は同じ条件 (<code>d ≤ 2</code>) で matrix 全面を <code>lightgray</code> の半透明塗りに潰すフォールバックを採用しており、本仕様もそれを <code>blue-200</code> の濃淡として踏襲する。
+    </p>
+    <div class="stage">
+      <div class="col"><div class="caption">7 量子ビット · 128×128 行列<br>376 px · cellPx = 2.94</div><div class="actual"><div class="dm-host" data-span="7" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · cellPx = 1.69</div><div class="actual"><div class="dm-host" data-span="8" data-state="demo"></div></div></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">純粋状態 vs 混合状態の見た目の違い</h3>
+    <p>
+      span 2 の例で、<strong>純粋状態</strong> (Bell <code>|Φ⁺⟩⟨Φ⁺|</code>、ランク 1) と <strong>最大混合状態</strong> (<code>I/4</code>、ランク 4) を並べる。
+      純粋状態は対角と非対角の両方に値が並び、<em>coupling が明確に見える</em>。
+      最大混合状態は対角のみに <code>0.25</code> 半径の小さな disk が均等に並び、非対角は全て 0 → <em>off-diagonal が空になり対角の小さな円だけが残る</em> 見た目になる。これが「混合度の視覚的指標」になる。
+    </p>
+    <div class="stage">
+      <div class="col"><div class="caption">純粋状態<br>Bell <code>|Φ⁺⟩</code></div><div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div></div>
+      <div class="col"><div class="caption">最大混合状態<br><code>I/4</code> (= 完全に entangled で外と切り離された場合)</div><div class="actual"><div class="dm-host" data-span="2" data-state="maxmix2"></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 パレットアイコン ─────── -->
+<section class="block">
+  <h2>§ 02 パレットアイコン (mini preview)</h2>
+  <div class="card">
+    <p>
+      パレットに並ぶ <code>DensityMatrixDisplay</code> アイコンは 40 × 40 px の静的 mini preview。
+      <strong>2×2 行列 (= span 1)</strong> を <em>純粋 |+⟩⟨+| の密度行列</em> として描く: 4 セルすべてに <code>0.5</code> 半径の magnitude disk + outline 円、非対角 2 セルだけは追加で真上 needle (実数なので位相 0 = 真上)。
+      <em>「対角 / 非対角ともに disk、非対角だけ needle が立つ」</em>という本表示ブロックの統一されたセル描画を 1 アイコン内で提示し、密度行列特有の<em>行列 (matrix) 形状</em>を視認させる。
+      アイコン自体の外側に四角枠は描かず、4 つの円だけで密度行列表示ブロックだと分かるようにする。円周の外端はセル境界から 1.5 px だけ内側に置き、hover 枠と重ならない範囲で最大化する。
+      ホバー時は外側のゲートホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+    </p>
+    <div class="stage" style="gap: 32px;">
+      <div class="col">
+        <div class="caption">実寸 40×40 px</div>
+        <div class="actual">
+          <div class="dm-host icon" data-span="1" data-state="icon" data-no-popup="true"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">4× zoom</div>
+        <div class="zoom">
+          <div class="dm-host icon" data-span="1" data-state="icon" data-no-popup="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 概要 ─────── -->
+<section class="block">
+  <h2>§ 03 概要</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>役割</th><td>span 内の量子ビットの<strong>局所的な混合状態</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する表示ブロック (状態に影響しない)。純粋状態 / 混合状態の判別と、span 内外の entanglement の有無を 1 つの widget で読める点が振幅表示ブロックとの差。Quirk の <code>Density Matrix Display</code> と同じ意味</td></tr>
+        <tr><th>span</th><td>1〜8 量子ビット (Quirk の <code>Gate.buildFamily(1, 8, ...)</code> と一致)。<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> 複素成分を扱う上限</td></tr>
+        <tr><th>matrix 寸法</th><td><code>n × n</code> (<code>n = 2<sup>span</sup></code>)、row / col とも binary big-endian (row 0 = <code>|0…0⟩</code>、col 0 = <code>⟨0…0|</code>)。<code>ρ<sub>ii</sub></code> が対角 = 確率、<code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>) が非対角 = coupling</td></tr>
+        <tr><th>計算内容</th><td>span に対応する subspace の<strong>縮約密度行列</strong>を control 条件で射影して返す。<strong>本番経路で GPU → CPU リードバックなし</strong>。外部 Qiskit Aer 経路ではバックエンド側で <code>save_density_matrix(qubits=[…])</code> を呼び、JSON を web に返してから GPU buffer に upload する (§ 09)</td></tr>
+        <tr><th>シリアライズ ID</th><td><code>"Density"</code> (span 1)、<code>"Density2"</code>..<code>"Density8"</code> (span 2..8)。Quirk の <code>setSerializedId("Density" + span)</code> と一致、span 1 だけ接尾辞なしの "Density" になるのも同じ</td></tr>
+        <tr><th>palette symbol</th><td><code>"Density"</code> (Quirk <code>setSymbol("Density")</code> に対応)</td></tr>
+        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..8 に変更 (§ 08)</td></tr>
+        <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
+        <tr><th>measure column</th><td>Quirk と同じく、<strong>列処理の後に display capture</strong>。span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される (Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じ挙動)。詳細は § 05 参照</td></tr>
+        <tr><th>NaN handling</th><td>正規化 (<code>unity = Σ ρ<sub>ii</sub></code>) が 0 や NaN になる pathological ケース (controls が満たされない / 入力が崩れる) では <code>ρ = NaN</code> として中央に "NaN" を描く。Quirk の <code>densityPixelsToMatrix</code> と <code>paintDensityMatrix</code> の hasNaN 分岐に揃える</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 04 ジオメトリ ─────── -->
+<section class="block">
+  <h2>§ 04 ジオメトリ</h2>
+  <div class="card">
+    <h3>本体寸法 (qni-webgpu 規格)</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>幅 = 高さ (px)</th><td><code>size_px = (span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (正方形、確率表示ブロックの高さ公式と同じ)</td></tr>
+        <tr><th>幅 (gate columns)</th><td><code>cols = (span === 1 ? 1 : span)</code> で振幅表示ブロックと同じ「正方になるように cols = span」を採用 (Quirk の <code>setWidth(span)</code> 相当)。span 1 だけは <code>cols = 1</code> で 40 × 40 px に収まる</td></tr>
+        <tr><th>matrix 内セル</th><td><code>n × n</code> (<code>n = 2<sup>span</sup></code>)、cell は必ず正方形 (<code>cellPx = size_px / n</code>)</td></tr>
+        <tr><th>外枠</th><td><code>ui-2</code> 1 px、角ばり (角丸ゼロ)</td></tr>
+        <tr><th>cell 間の区切り</th><td>描かない。振幅表示ブロックと同じく、円どうしの余白だけでセル境界を読ませる</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">span 別の本体寸法 / cell 寸法 / 描画モード</h3>
+    <table class="spec">
+      <thead>
+        <tr><th>span</th><th>n (= 2<sup>span</sup>)</th><th style="text-align:right;">size_px</th><th style="text-align:right;">セル数</th><th style="text-align:right;">cellPx</th><th>描画モード</th><th>needle</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">2</td><td class="num">40</td><td class="num">4</td><td class="num">20.0</td><td>full</td><td>あり</td></tr>
+        <tr><td class="num">2</td><td class="num">4</td><td class="num">96</td><td class="num">16</td><td class="num">24.0</td><td>full</td><td>あり</td></tr>
+        <tr><td class="num">3</td><td class="num">8</td><td class="num">152</td><td class="num">64</td><td class="num">19.0</td><td>full</td><td>あり</td></tr>
+        <tr><td class="num">4</td><td class="num">16</td><td class="num">208</td><td class="num">256</td><td class="num">13.0</td><td>full</td><td>あり</td></tr>
+        <tr><td class="num">5</td><td class="num">32</td><td class="num">264</td><td class="num">1024</td><td class="num">8.25</td><td>outline + disk</td><td>省略</td></tr>
+        <tr><td class="num">6</td><td class="num">64</td><td class="num">320</td><td class="num">4096</td><td class="num">5.0</td><td>outline + disk</td><td>省略</td></tr>
+        <tr><td class="num">7</td><td class="num">128</td><td class="num">376</td><td class="num">16384</td><td class="num">2.94</td><td>heatmap</td><td>省略</td></tr>
+        <tr><td class="num">8</td><td class="num">256</td><td class="num">432</td><td class="num">65536</td><td class="num">1.69</td><td>heatmap</td><td>省略</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 05):
+      <code>cellPx ≥ 12</code> なら needle 描画、<code>cellPx ≥ 3</code> なら outline + disk、それ未満は heatmap。
+      cell 間の grid 線はどの span でも描かない。
+      production の最小 cellPx は span 8 で <strong>1.69 px</strong>、これは振幅表示ブロックの mock 限定 heatmap と異なり<em>production の標準描画として heatmap が必要</em>な点に注意。
+    </p>
+
+    <h3 style="margin-top: 16px;">水平 slot 占有 (振幅表示ブロックと同モデル)</h3>
+    <p>
+      qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code>。密度行列表示ブロックは正方形なので
+      <code>width_px = size_px = (span − 1) × SLOT_SPACING + GATE_SIZE = 56 × span − 16</code> となり、
+      span 8 で 432 px (= 8 slot 分の幅を覆う) になる。slot 構造としては<strong>1 列消費</strong>、視覚的には <code>span</code> slot 分の幅をはみ出す
+      (振幅表示ブロックの可変幅モデルと同じ採用。詳細は <a href="amplitude-display.html">amplitude-display.html § 04</a> 参照)。
+    </p>
+    <ul>
+      <li><strong>URL round-trip (Quirk 互換)</strong> — JSON は <code>{"cols":[["Density3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は表示列幅であり JSON 上の列消費ではない。decode 時に <code>"Density&lt;span&gt;"</code> を正規表現で読み、内部 slot index 1 つ分を占有するエントリとして登録 (shift / reserve なし)</li>
+      <li><strong>placement / 衝突検出</strong> — 振幅表示ブロックと同じく<strong>gate_rect の幾何交差</strong>で判定: 新規 density を slot N に置くとき、<code>gate_rect</code> (<code>x..x + size_px</code>, <code>y..y + size_px</code>) が既存 gate と交差するなら drop 拒否</li>
+      <li><strong>resize handle</strong> — 上下のみ (span を変える)。幅は span の関数なので separate な width handle は不要 (§ 08)</li>
+      <li><strong>drag / drop preview</strong> — drag 中は他ゲートと同じく <code>purple-600</code> を背景に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま維持する</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 05 セル描画モデル ─────── -->
+<section class="block">
+  <h2>§ 05 セル描画モデル (全セル統一、対角は needle のみ省略)</h2>
+  <div class="card">
+    <p>
+      Quirk の <code>paintDensityMatrix</code> (<code>src/draw/MathPainter.js</code>) を Flexoki + 振幅表示ブロックの視覚言語へ移植する。
+      <strong>対角 / 非対角ともに同じ「outline 円 + magnitude disk」レイヤで描き、対角だけ needle を省く</strong>のがポイント。これにより:
+    </p>
+    <ul>
+      <li><strong>対角セル <code>ρ<sub>ii</sub></code></strong> = <strong>実数の確率 <code>P(|i⟩) ∈ [0, 1]</code></strong>。
+        <em>outline 円 + magnitude disk</em> の 2 層で描く。
+        disk 半径 = <code>ρ<sub>ii</sub> × inner_radius</code> (= <code>P × inner_radius</code>)、半径ゼロ (P = 0) なら disk を描かない。
+        <strong>needle は描かない</strong>: 対角は常に実数 (位相 0) なので needle が真上を向くだけになり情報量を持たず、視覚的ノイズになる。Quirk の Probability square (下から上に伸びる塗りバー) は採用せず、非対角と同じ disk 表現で統一する (確率の値は disk の<em>面積</em>として読める)。</li>
+      <li><strong>非対角セル <code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>)</strong> = <strong>複素数の coupling</strong>。
+        振幅表示ブロックと同じ <em>outline 円 + magnitude disk + disk 境界線 + phase needle</em> の 4 層で描く。
+        <code>mag = |ρ<sub>ij</sub>|</code>、<code>phase = arg(ρ<sub>ij</sub>)</code>。
+        disk 半径 = <code>mag × inner_radius</code>、needle 方向 = <code>(−sin(phase), −cos(phase))</code> で<strong>真上が phase 0</strong>。
+        境界線 / 配色は振幅表示ブロックの規約に従う (<a href="amplitude-display.html">amplitude-display.html § 05</a> と完全共有)。</li>
+      <li><strong>Hermitian 性</strong> — 密度行列は <code>ρ<sub>ij</sub> = conj(ρ<sub>ji</sub>)</code> なので、上三角と下三角は<strong>位相が反転した対称</strong>。表示としても自動的に左下と右上の needle が鏡像になるため、ユーザーは行列の片側を読むだけで全体が読める (Quirk と同じ視覚言語)。対角は実数 (虚部 0) なので Hermitian 性も自動的に満たされる。</li>
+    </ul>
+
+    <div class="legend">
+      <div class="swatch" style="background: var(--bg);"></div>
+      <div><b>(1) back fill</b> — セル背景。通常時は <code>bg</code> (#FFFCF0)。drag preview 中は matrix 外周のみ <code>purple-600</code> に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま</div>
+
+      <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
+        <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#6F6E69" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+      </div>
+      <div><b>(2) outline 円 (全セル)</b> — セル中央、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>。stroke は振幅表示ブロックに合わせ、<code>cellPx &gt; 24</code> で 2 px、それ以下で 1 px。円周 stroke の外端をセル境界から 1.5 px 内側に置き、matrix 外枠と重ならない範囲で最大化する。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。<code>mag &gt; 1e-6</code> なら <code>tx-2</code>、≈ 0 なら <code>ui-2</code>。cell hover 時は outline 円を <code>purple-400</code> に置き換える (振幅表示ブロックと同様)</div>
+
+      <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
+        <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" fill="#92BFDB"/></svg>
+      </div>
+      <div><b>(3) magnitude disk (全セル)</b> — 中心 = セル中心、半径 = <code>|ρ<sub>ij</sub>| × inner_radius</code>。fill = <code>blue-200</code> + inset 1 px <code>blue-400</code> 境界線。閾値: <code>r &gt; 0.3</code> で fill、<code>r ≥ 1.5</code> で stroke も追加。対角は実部 = 確率 = 半径として描かれる</div>
+
+      <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
+        <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#100F0F" stroke-width="2" stroke-linecap="round"><line x1="12" y1="12" x2="22" y2="6"/></svg>
+      </div>
+      <div><b>(4) phase needle (非対角のみ)</b> — セル中心から方向 <code>(−sin(phase), −cos(phase))</code> へ <code>inner_radius</code> の線分。<code>tx</code> stroke。<strong>描画条件: <code>cellPx ≥ 12</code> かつ <code>i ≠ j</code></strong>。対角は実数で位相 0 なので常に省略</div>
+
+      <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;"></div>
+      <div><b>(5) 外枠</b> — matrix 全体の外枠だけを <code>ui-2</code> 1 px で描く。cell 間の縦横区切り線は描かず、振幅表示ブロックと同じ円の余白でセル境界を読ませる</div>
+    </div>
+
+    <p class="note" style="margin-top: 12px;">
+      <strong>Quirk との差分:</strong> Quirk は対角に塗りバー (<code>_traceProbabilitySquare</code>) を採用しているが、本仕様は<strong>対角も非対角と同じ disk 表現</strong>に統一する。理由は (a) 1 つの行列内に「塗りバー + 円」の 2 種類の見た目が並ぶと視線が分散する、(b) 振幅表示ブロック / 状態ベクトルパネルが既に「disk = 確率の大きさ、needle = 位相」の語彙を確立しているので、密度行列もそれに乗せたほうが学習コストが低い、(c) 対角は実数なので needle を省くだけで「確率 = 円」と「coupling = 円 + needle」の差が自然に出る。
+      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調は tooltip の <code>log: ... dB</code> 数値に集約する (§ 07)。
+    </p>
+
+    <h3 style="margin-top: 16px;">heatmap モード (<code>cellPx &lt; 3</code>、span 7〜8)</h3>
+    <p>
+      cellPx が 3 px 未満では outline 円 / disk / needle が視覚的に潰れる。
+      <strong>各セルを 1 つの矩形塗りに潰し</strong>、<code>alpha = √(|ρ<sub>ij</sub>| / max|ρ|)</code> で濃淡を出す:
+    </p>
+    <ul>
+      <li>対角 / 非対角の区別はせず、全セルに <code>blue-200</code> を <em>√スケール</em> alpha で塗る (Quirk の <code>d ≤ 2</code> フォールバックと同じ、<code>lightgray</code> → <code>blue-200</code> へ色のみ差し替え)</li>
+      <li>matrix 全体の外枠だけは <code>ui-2</code> 1 px で残す。cell 間 grid は描かない</li>
+      <li>cell hover は引き続き有効: <code>purple-400</code> 2 px の<strong>正方形ringを描く</strong> (heatmap では outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなく cell rect の purple ring を採用)</li>
+      <li>位相情報は heatmap では消える: span 7〜8 では tooltip だけが phase の供給源になる (cell hover 必須)</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">measure 済み量子ビットの decoherence</h3>
+    <p>
+      span 内に measure 済み wire が含まれる列では、Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じく
+      <strong>measured bit が異なる <code>(row, col)</code> ペアの非対角成分を 0 に潰す</strong>:
+    </p>
+    <pre class="code">// row / col の measured bit pattern が一致しない非対角を 0 化。
+// (Quirk DensityMatrixDisplay.js:107-124 と等価、qni 内部で GPU compute pass として組む)
+for row in 0..n:
+  for col in 0..n:
+    if ((row ^ col) &amp; is_measured_mask) != 0:
+      rho[row, col] = 0  // 位相 coherence が古典化で失われる</pre>
+    <p>
+      視覚的には、measured wire 由来の非対角列 / 行が消えて、対角の塊が残る。これは「測定後の古典化された状態」と「未測定の量子重ね合わせ」の境界を hover 抜きで見分ける手がかりになる。
+      qni 側の lowering 順序は<strong>列処理の後に display capture</strong>なので、measure される直前の純粋振幅ではなく <em>collapse 後の混合状態</em> が表示される (振幅表示ブロックの § 06 と同じ仕様判断)。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 06 実行前プレースホルダ ─────── -->
+<section class="block">
+  <h2>§ 06 実行前プレースホルダ (シミュレーション未実行の状態)</h2>
+  <div class="card">
+    <p>
+      回路に密度行列表示ブロックを配置しただけで、まだシミュレーション (▶ Run) を実行していない段階で表示する仮の見た目。
+      <strong>GPU 経路の <code>density_output</code> / <code>density_meta</code> バッファがまだ書き込まれていない</strong>ので行列値は存在せず、
+      従来の素朴な実装ではセル領域が真っ白に抜けて見え「壊れているのか配置できていないのか」が判別できない問題が出る。
+      この空白を <strong>「実行待ちであることを伝えるプレースホルダ」</strong> として明示的にデザインする。
+      振幅表示ブロック (<a href="amplitude-display.html">amplitude-display.html § 01</a>) / 確率表示ブロック (<a href="probability-display.html">probability-display.html § 01</a>) と<strong>同じ配色コンベンション</strong>に従う。
+    </p>
+    <ul>
+      <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で matrix 全体を塗る。本デザインシステムでは紫を「未確定 / 進行中」に充てており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、実行前の <code>ρ</code> も<em>「0 (赤系) と 1 (青系) の中間に位置する未確定な値」</em>として同じ紫系統で表す。色相は drag/hover で使う濃い紫よりさらに淡くし、「進行中アクション」と「結果待ち静止状態」を区別する</li>
+      <li><strong>cell 構造ガイド</strong> — cell 間の grid は引かない。通常時と同じく、matrix 外枠だけで表示ブロックの領域を示す</li>
+      <li><strong>outline 円 / disk / needle</strong> — 描かない。<code>ρ</code> の値が無いので「対角の確率」も「非対角の coupling」も意味を持たない</li>
+      <li><strong>外枠</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く</li>
+      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
+      <li><strong>遷移</strong> — 現行実装は Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
+    </ul>
+    <div class="stage">
+      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · 実行前</div><div class="actual"><div class="dm-host" data-span="1" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · 実行前</div><div class="actual"><div class="dm-host" data-span="2" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · 実行前</div><div class="actual"><div class="dm-host" data-span="3" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · 実行前</div><div class="actual"><div class="dm-host" data-span="4" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · 実行前 (背景 + 外枠のみ)</div><div class="actual"><div class="dm-host" data-span="8" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 09) の <code>DensityInstance.render_mode</code> に
+      <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で「placeholder ならプレースホルダ層 (purple-100 背景 + 外枠)、それ以外は通常の probability + disk + needle」へ分岐する。
+      CPU から空の行列値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
+      placeholder は全 span で背景の薄紫一色 + 外枠だけになる。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 07 ホバー / ポップアップ ─────── -->
+<section class="block">
+  <h2>§ 07 ホバー / ポップアップ</h2>
+  <div class="card">
+    <p>
+      Quirk の <code>MathPainter.paintMatrixTooltip</code> + <code>paintDensityMatrix</code> の文言を Geist タイポグラフィへ移植。
+      <strong>対角 / 非対角でラベル文面と数値整形を切り替える</strong> (Quirk と同じ振り分け)。
+    </p>
+
+    <h3 style="margin-top: 8px;">対角セル (<code>i = j</code>) — 確率</h3>
+    <div class="dm-popup" style="display: inline-block; position: static;">
+      <div class="dm-popup-ket">Probability of |011⟩</div>
+      <div class="dm-popup-sub">diagonal · decimal 3</div>
+      <div class="dm-popup-divider"></div>
+      <div class="dm-popup-row">
+        <span class="dm-popup-label">P</span>
+        <span class="dm-popup-value">12.5000%</span>
+      </div>
+      <div class="dm-popup-row">
+        <span class="dm-popup-label">log</span>
+        <span class="dm-popup-value">−9.0 dB</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 8px;">
+      Quirk タイトル: <code>Probability of |011⟩ (decimal 3)</code>、値: <code>(ρ<sub>ii</sub>.real * 100).toFixed(4) + "%"</code>。
+      ket は qni の binary big-endian 表記、<code>log</code> 行は確率表示ブロックの popup と同じ <code>(log10(P) × 10).toFixed(1) + " dB"</code>。
+    </p>
+
+    <h3 style="margin-top: 16px;">非対角セル (<code>i ≠ j</code>) — coupling</h3>
+    <div class="dm-popup" style="display: inline-block; position: static;">
+      <div class="dm-popup-ket">Coupling of |001⟩ to ⟨011|</div>
+      <div class="dm-popup-sub">off-diagonal · decimal 1 to 3</div>
+      <div class="dm-popup-divider"></div>
+      <div class="dm-popup-row">
+        <span class="dm-popup-label">val</span>
+        <span class="dm-popup-value">−0.000000 −0.005874i</span>
+      </div>
+      <div class="dm-popup-row">
+        <span class="dm-popup-label">mag</span>
+        <span class="dm-popup-value">0.005874</span>
+      </div>
+      <div class="dm-popup-row">
+        <span class="dm-popup-label">phase</span>
+        <span class="dm-popup-value">−90.00°</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 8px;">
+      Quirk タイトル: <code>Coupling of |001⟩ to ⟨011| (decimal 1 to 3)</code>、値: <code>ρ<sub>ij</sub>.toString(Format(false, 0, 6, ", "))</code>。
+      qni 側では振幅表示ブロックと同じく 3 行 (val / mag / phase) に分解して表示する。Quirk の 1 行表記 (実部 + 虚部) は val 行に集約。
+    </p>
+
+    <h3 style="margin-top: 16px;">cell hover 時の枠</h3>
+    <ul>
+      <li><strong>full / outline + disk モード</strong> — 対象 cell の <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える (対角 / 非対角ともに同じ outline 円を持つので扱いが統一される)。matrix 全体の hover ring は cell hover 中は消す (振幅表示ブロックの方針と同じ)</li>
+      <li><strong>heatmap モード</strong> — cell が小さすぎて outline 円が無いので、cell 領域の<strong>正方形 ring</strong>を <code>purple-400</code> 2 px で囲む (Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置、色だけ Flexoki へ置換)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 08 リサイズハンドル ─────── -->
+<section class="block">
+  <h2>§ 08 リサイズハンドル (span 1〜8)</h2>
+  <div class="card">
+    <p>
+      振幅表示ブロック / 確率表示ブロックの上下ハンドルと chrome 仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 04</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 11</a> 参照)。
+      ハンドル単独の挙動だけ要点を再掲する:
+    </p>
+    <ul>
+      <li><strong>配置</strong> — matrix の上下中央に 1 つずつ。<code>top / bottom: −12 px</code> (4 px hover ring + 2 px paper gap + 6 px height の合計 12 px 外側)</li>
+      <li><strong>幅</strong> — JS で canvas 幅 (<code>size_px</code>) の 60% に動的にスケール、min 24 px (上限なし、span 8 = 432 px なら handle 幅 ≈ 259 px)</li>
+      <li><strong>初期状態</strong> — <code>opacity: 0</code>、ゲート hover で<strong>奥から飛び出してくる</strong>マイクロインタラクション (フェードイン + 軽いバウンス: <code>scale(0.7) → scale(1)</code> in 250 ms cubic-bezier(0.34, 1.56, 0.64, 1))</li>
+      <li><strong>default</strong> — <code>cyan-400</code> ベース (ホバー枠 <code>purple-400</code> と別色族で「リングの突起 ?」誤認を回避)</li>
+      <li><strong>個別 hover</strong> — <code>cyan-600</code> + <code>scale(1.15)</code>、cursor は <code>ns-resize</code></li>
+      <li><strong>active drag</strong> — <code>cyan-600</code> + <code>scale(1.25)</code>、固定</li>
+      <li><strong>span clamp</strong> — drag の上限は span 8 (Quirk と同じ)、下限は span 1。span 1 から上方向 / span 8 から下方向にドラッグしても止まる</li>
+      <li><strong>左右ハンドルなし</strong> — width は span の関数 (<code>56 × span − 16</code>) なので独立した width handle は不要。高さハンドルの変更で同時に幅も変わる正方形リサイズ</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 09 Qiskit / GPU 実装メモ ─────── -->
+<section class="block">
+  <h2>§ 09 Qiskit / GPU 実装メモ (二系統経路)</h2>
+  <div class="card">
+    <p>
+      密度行列表示ブロックは <strong>2 つの計算経路</strong>を持つ:
+      <em>(a) WebGPU 内部実行</em> (qni 単体で動く既存経路、振幅 / 確率表示ブロックと同じ scheme) と
+      <em>(b) 外部 Qiskit Aer 経路</em> (qiskit-backend からの結果を受け取る経路、apps/qiskit-backend と統合)。
+      どちらも<strong>本番 UI 経路では GPU → CPU readback しない</strong>規約に従い、結果を GPU storage buffer に置いて render shader が直接 sample する。
+    </p>
+
+    <h3 style="margin-top: 8px;">(a) WebGPU 内部実行 (qni 単体、振幅表示ブロックと同パイプライン)</h3>
+    <p>
+      Quirk の <code>densityDisplayStatTexture</code> (<code>DensityMatrixDisplay.js:44-71</code>) を WebGPU compute pass 列へ移植:
+    </p>
+    <ol>
+      <li><strong>Control select + cycle</strong> — controls を満たす要素だけ詰めて span subspace を head に持ってくる (Quirk <code>CircuitShaders.controlSelect</code> + <code>cycleAllBits</code>)</li>
+      <li><strong>amplitudes → couplings</strong> — Quirk <code>AMPLITUDES_TO_DENSITIES_SHADER</code> と等価な compute kernel: <code>ρ<sub>ij</sub>(rest) = ψ<sub>i,rest</sub> · conj(ψ<sub>j,rest</sub>)</code> を各 rest 値ごとに計算し、出力 buffer に <code>vec2&lt;f32&gt;</code> で書き込む。要素数 = <code>2<sup>rest</sup> × 2<sup>span</sup> × 2<sup>span</sup></code></li>
+      <li><strong>Partial trace (sum-fold)</strong> — rest 量子ビットについて <code>sumFold</code> で畳み込み、最終的に <code>ρ: vec2&lt;f32&gt;[2<sup>span</sup> × 2<sup>span</sup>]</code> の縮約密度行列が得られる</li>
+      <li><strong>unity 正規化</strong> — <code>unity = Σ ρ<sub>ii</sub>.real</code> を reduce、<code>ρ /= unity</code> を全要素並列で適用 (Quirk <code>densityPixelsToMatrix</code> と等価)</li>
+      <li><strong>measured-bit decoherence</strong> — controls / lowering で得た <code>is_measured_mask</code> を渡して、<code>(row ^ col) &amp; mask != 0</code> な非対角を 0 に潰す compute pass (Quirk <code>decohereMeasuredBitsInDensityMatrix</code> と等価)</li>
+      <li><strong>render shader</strong> — 出力 storage バッファを fragment shader が直接 sample。outline / disk / needle / 外枠はすべて fragment shader 内の SDF で描く (振幅表示ブロックの <code>amplitude_result</code> シェーダと同型)</li>
+    </ol>
+
+    <h3 style="margin-top: 16px;">(b) 外部 Qiskit Aer 経路 (apps/qiskit-backend、実装済み)</h3>
+    <p>
+      外部 GPU 実行では、Web 側が配置済み Density Matrix 表示ブロックを <code>outputs.densities</code> に列挙し、qiskit-backend が <code>QuantumCircuit.save_density_matrix(qubits, label=...)</code> で縮約密度行列を保存する。応答は <code>densities</code> 配列で返り、各項目は <code>gate_id</code> / <code>span</code> / <code>cells</code> / <code>unity</code> を持つ。<code>cells</code> は行優先の <code>[re, im]</code> 配列で、サイズは <code>2<sup>span</sup> × 2<sup>span</sup></code> 複素数。
+    </p>
+    <ul>
+      <li><strong>バックエンド側</strong> — <code>contract.py</code> が <code>outputs.densities</code> を検証し、span 1〜8 / 最大 16 件を受け付ける。<code>runners.py</code> は各列のゲート適用直後に <code>save_density_matrix</code> を挿入し、<code>densities[].cells</code> へ変換する</li>
+      <li><strong>Web 側要求</strong> — <code>apps/web/src/app/external_gpu/density.rs</code> が <code>{"gate_id", "column", "span", "base_bit"}</code> を生成する。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約へ <code>control_mask</code> / <code>control_value</code> を追加するまで拒否する</li>
+      <li><strong>Web 側描画</strong> — 応答 JSON を <code>Float32Array</code> 相当の連続値へ平坦化し、<code>DensityMatrixDisplayCallback</code> が <code>density_output</code> / <code>density_meta</code> GPU バッファへ <code>queue.write_buffer</code> で転送する。転送後の描画は (a) と同じ <code>DENSITY_RENDER_SHADER</code> が担当する</li>
+      <li><strong>測定済み wire の注意</strong> — 現在の外部経路は Aer の保存結果をそのまま表示する。測定済み wire の非対角を WebGPU 内部実行と完全一致させるための追加 decoherence pass は今後の改善候補</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">経路 (a) と (b) のスイッチ</h3>
+    <table class="spec">
+      <thead><tr><th>項目</th><th>(a) WebGPU 内部</th><th>(b) 外部 Qiskit Aer</th></tr></thead>
+      <tbody>
+        <tr><th>span 上限</th><td>8 (256 × 256 = 65 536 セル)</td><td>8 (Aer の <code>save_density_matrix</code> 制限と一致)</td></tr>
+        <tr><th>partial trace</th><td>qni の compute pass 列で自前計算</td><td>Aer 内部で完結 (qni 側 trace 不要)</td></tr>
+        <tr><th>decoherence (measured bit)</th><td>qni の compute pass</td><td>今後の改善候補。現状は Aer の保存結果をそのまま表示</td></tr>
+        <tr><th>readback</th><td>なし (storage buffer のまま render)</td><td>backend → JSON → web の 1 度だけ、その後は GPU バッファに転送して render</td></tr>
+        <tr><th>レイテンシ</th><td>1 frame 内 (compute pass がフレーム内で完結)</td><td>backend RTT 依存 (典型 100ms〜数秒)</td></tr>
+        <tr><th>推奨用途</th><td>span ≤ 6 のリアルタイム表示 (drag / resize 中も再計算)</td><td>span 7〜8 や複雑回路の精密検証 (再計算頻度が低くてよい)</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      二系統は同じ render シェーダを共有するので、UI 側の見た目に差分は出ない。スイッチは <code>ExecMode</code>
+      (apps/web/src/app/exec_mode.rs) の <code>Local</code> / <code>Gpu</code> 設定 (既存の振幅 / 確率表示ブロックが従う設定) と一致させる。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 10 実装参照ファイル / 受け入れ条件 ─────── -->
+<section class="block">
+  <h2>§ 10 実装参照ファイル / 受け入れ条件</h2>
+  <div class="card">
+    <h3>主な参照ファイル</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>Quirk オリジナル</th><td><code>../oss/Quirk/src/gates/DensityMatrixDisplay.js</code> (Gate 定義 + GPU compute), <code>../oss/Quirk/src/draw/MathPainter.js</code> (<code>paintDensityMatrix</code>, <code>paintMatrixTooltip</code>, <code>_traceProbabilitySquare</code>, <code>_traceAmplitudeProbabilityCircle</code>, <code>_traceAmplitudePhaseDirection</code>)</td></tr>
+        <tr><th>qni-webgpu 参考</th><td><code>docs/design-system/amplitude-display.html</code> (cell 描画モデル / GPU パイプライン / placeholder の親仕様、outline + disk + needle の語彙を 1:1 で踏襲), <code>docs/design-system/probability-display.html</code> (popup の <code>raw / log dB</code> 整形ロジックを対角 cell の popup と共有)</td></tr>
+        <tr><th>qni 既存パイプライン</th><td><code>apps/web/src/gpu/shaders/state.rs</code> (<code>cell_contribution</code> の disk + needle ロジック), <code>apps/web/src/gpu/resources/</code> (storage buffer + compute pass の組み立てパターン)</td></tr>
+        <tr><th>Qiskit backend</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/circuit.py</code> (capture 追加箇所), <code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code> (JSON 契約スキーマ), <code>apps/qiskit-backend/src/qni_qiskit_backend/runners.py</code> (Aer の <code>save_density_matrix(qubits=[...])</code> 呼び出し)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">受け入れ条件 (最小テストセット、1 ケース 1 アサーション規約)</h3>
+    <ol>
+      <li><strong>URL round-trip (Density, Density2..Density8)</strong> (Rust, <code>#[test]</code> × 8) — span 1〜8 の各 token について encode → decode → encode が原文に一致することを 1 case 1 <code>assert_eq!</code></li>
+      <li><strong>wide gate decode 後の slot index 不変</strong> (Rust, <code>#[test]</code> × 3) — span 2 / 4 / 8 を含む 2 列 JSON を decode したとき density の slot index = 0、後続 gate の slot index = 1 (shift / 予約なし)</li>
+      <li><strong>placement 幾何衝突</strong> (Rust + Playwright, テスト × 4):
+        <ol>
+          <li>span 3 density を slot 0 に配置済み (gate_rect 152 × 152 px)、slot 1 への drop → 矩形交差で<strong>拒否</strong></li>
+          <li>同じ状況で slot 3 への drop は<strong>許可</strong></li>
+          <li>span 8 density を slot 0 に配置済み (gate_rect 432 × 432 px)、slot 7 への drop → 拒否</li>
+          <li>span 8 density、slot 8 への drop → 許可</li>
+        </ol>
+      </li>
+      <li><strong>known-state density (GPU compute 正しさ)</strong> (Rust + GPU snapshot, <code>#[test]</code> × N):
+        <ol>
+          <li><strong>1 量子ビット 回路、H q0、span 1 density on q0</strong> → <code>ρ = 0.5 * [[1, 1], [1, 1]]</code> (純粋 |+⟩⟨+|)、<code>Tr(ρ) = 1</code>、<code>Tr(ρ²) ≈ 1</code> を assert</li>
+          <li><strong>Bell state、span 2 density on q0,q1</strong> → <code>ρ<sub>00</sub> = ρ<sub>33</sub> = ρ<sub>03</sub> = ρ<sub>30</sub> = 0.5</code>、それ以外 0、<code>Tr(ρ²) ≈ 1</code></li>
+          <li><strong>Bell state、span 1 density on q0 だけ (= 部分トレース)</strong> → <code>ρ = I/2</code> (最大混合、<code>Tr(ρ²) = 0.5</code>)</li>
+          <li><strong>measure q1 直後の Bell state、span 2 density</strong> → 非対角 (<code>ρ<sub>03</sub></code>, <code>ρ<sub>30</sub></code>) が 0 化されていることを assert</li>
+        </ol>
+        各シナリオで read API (<code>read_density_cell(gate_id, row, col)</code>、Playwright テスト専用 async wasm_bindgen) を呼んで個別セル値を assert
+      </li>
+      <li><strong>Hermitian 性</strong> (Rust, <code>#[test]</code> × 1) — 上記 known-state すべてで <code>ρ[i][j] == conj(ρ[j][i])</code> を全成分にわたって assert</li>
+      <li><strong>外部 Qiskit Aer 経路</strong> (Python unittest + Playwright):
+        <ol>
+          <li><code>add_display_saves</code> が <code>save_density_matrix</code> を対象 qubit 順で呼ぶことを assert</li>
+          <li>Bell 回路などの縮約密度行列が応答 JSON の <code>densities[].cells</code> 形式で返ることを assert</li>
+          <li>Web 側で <code>outputs.densities</code> を payload に含め、応答を <code>density_output</code> / <code>density_meta</code> GPU バッファへ転送して <code>read_density_matrix_cell</code> テスト API で確認できることを assert</li>
+          <li>Control と同じ列に置いた Density Matrix 表示ブロックは、外部 GPU 実行で backend に送らず unsupported として拒否することを assert</li>
+        </ol>
+      </li>
+      <li><strong>visual snapshot (production 描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — production cellPx を反映して span 1 (full) / span 4 (full、cellPx ~13) / span 6 (outline + disk、cellPx 5) / span 8 (heatmap、cellPx 1.69) の各フレームを 1 枚ずつ snapshot</li>
+      <li><strong>GPU-only popup (readback 無し)</strong> (Playwright):
+        <ol>
+          <li>本番経路でホバーすると glyph overlay が表示されることを 1 expect</li>
+          <li>frame ごとに <code>read_density_cell</code> が呼ばれていないことを mock spy で 1 assert</li>
+          <li>テスト専用 API <code>read_density_cell(gate_id, row, col)</code> は async で動き、known-state で正しい値を返すことを 1 expect</li>
+        </ol>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 密度行列表示ブロック仕様 · 2026-05</p>
+</footer>
+
+<script src="resize-handle.js"></script>
+<script>
+  /* ─── 密度行列表示ブロックの canvas renderer + cell tooltip ───
+     Quirk の MathPainter.paintDensityMatrix を 1:1 で写したシンプルな実装。
+     入力: rho = Float32Array (re, im, re, im, ...)、長さ 2 * n * n。
+     n × n に配置、cell = diam × diam (cellPx)。 */
+
+  const BG          = '#FFFCF0';
+  const BLUE_200    = '#92BFDB';  /* magnitude disk fill = state_fill (全セル) */
+  const BLUE_400    = '#4385BE';  /* disk inset border (確率表示ブロックの bar 右端と同濃さ) */
+  const UI_2        = '#DAD8CE';  /* zero-amp outline + 外枠 */
+  const TX_2        = '#6F6E69';  /* non-zero outline */
+  const TX          = '#100F0F';  /* phase needle */
+  const PURPLE_100  = '#ECE1F3';  /* 実行前プレースホルダ背景 (Flexoki purple-100、未確定/結果待ち) */
+
+  /* サンプル密度行列 (各値は Hermitian + Tr(ρ) = 1 を満たすよう作る) */
+  function buildRho(name, n) {
+    const buf = new Float32Array(n * n * 2);
+    const set = (r, c, re, im) => {
+      buf[(r * n + c) * 2]     = re;
+      buf[(r * n + c) * 2 + 1] = im;
+    };
+    if (name === 'plus1') {
+      // |+⟩⟨+| = 0.5 * [[1, 1], [1, 1]]
+      set(0, 0, 0.5, 0); set(0, 1, 0.5, 0);
+      set(1, 0, 0.5, 0); set(1, 1, 0.5, 0);
+    } else if (name === 'bell2') {
+      // |Φ⁺⟩⟨Φ⁺| = 0.5 * (|00⟩⟨00| + |00⟩⟨11| + |11⟩⟨00| + |11⟩⟨11|)
+      set(0, 0, 0.5, 0); set(0, 3, 0.5, 0);
+      set(3, 0, 0.5, 0); set(3, 3, 0.5, 0);
+    } else if (name === 'maxmix2') {
+      // I / 4: 対角だけ 0.25、非対角 0
+      for (let k = 0; k < 4; k++) set(k, k, 0.25, 0);
+    } else if (name === 'ghz3') {
+      // |GHZ⟩⟨GHZ| = 0.5 * (|000⟩⟨000| + |000⟩⟨111| + |111⟩⟨000| + |111⟩⟨111|)
+      set(0, 0, 0.5, 0); set(0, 7, 0.5, 0);
+      set(7, 0, 0.5, 0); set(7, 7, 0.5, 0);
+    } else if (name === 'demo4') {
+      // 16×16 用、ガウシアン peak (k = 0) の純粋状態
+      // ρ = |ψ⟩⟨ψ|、ψ_k = a * exp(−k * 0.4) * e^(i * k * π / 4)
+      const psi = new Float32Array(n * 2);
+      let unity = 0;
+      for (let k = 0; k < n; k++) {
+        const mag = Math.exp(-k * 0.4);
+        const ph = k * Math.PI / 4;
+        const re = mag * Math.cos(ph);
+        const im = mag * Math.sin(ph);
+        psi[k * 2] = re; psi[k * 2 + 1] = im;
+        unity += re * re + im * im;
+      }
+      const u = 1 / Math.sqrt(unity);
+      for (let k = 0; k < n * 2; k++) psi[k] *= u;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          // ρ_{rc} = ψ_r * conj(ψ_c)
+          const a = psi[r * 2], b = psi[r * 2 + 1];
+          const x = psi[c * 2], y = psi[c * 2 + 1];
+          set(r, c, a * x + b * y, b * x - a * y);
+        }
+      }
+    } else if (name === 'demo') {
+      // span 5+ 用の汎用パターン: 中心 k = n/4 にガウシアン peak、位相は k に比例。
+      // ρ = |ψ⟩⟨ψ| + ε * I で純粋 + 少しの混合を作る (0.85 純粋 + 0.15 mix)
+      const psi = new Float32Array(n * 2);
+      const center = n / 4;
+      const sigma = Math.max(2, n / 8);
+      let unity = 0;
+      for (let k = 0; k < n; k++) {
+        const d = (k - center) / sigma;
+        const mag = Math.exp(-(d * d) / 2);
+        const ph = (2 * Math.PI * k) / Math.min(n, 32);
+        const re = mag * Math.cos(ph);
+        const im = mag * Math.sin(ph);
+        psi[k * 2] = re; psi[k * 2 + 1] = im;
+        unity += re * re + im * im;
+      }
+      if (unity > 0) {
+        const u = 1 / Math.sqrt(unity);
+        for (let k = 0; k < n * 2; k++) psi[k] *= u;
+      }
+      const pure = 0.85, mix = 0.15;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const a = psi[r * 2], b = psi[r * 2 + 1];
+          const x = psi[c * 2], y = psi[c * 2 + 1];
+          const re = pure * (a * x + b * y) + (r === c ? mix / n : 0);
+          const im = pure * (b * x - a * y);
+          set(r, c, re, im);
+        }
+      }
+    } else if (name === 'icon') {
+      // パレットアイコン: 2×2 の |+⟩⟨+| を使う (対角 + 非対角の両方が見える)
+      set(0, 0, 0.5, 0); set(0, 1, 0.5, 0);
+      set(1, 0, 0.5, 0); set(1, 1, 0.5, 0);
+    }
+    return buf;
+  }
+
+  function buildDmCanvas(host) {
+    const span = Number(host.dataset.span);
+    const n = 1 << span;
+    /* size_px は仕様 (§ 04) と同じ式: 56 * span − 16。
+       ただし span 1 はパレットアイコン専用で 40 px、それ以外は size_px。 */
+    const sizePx = 56 * span - 16;
+    const cellPx = sizePx / n;
+    const stateName = host.dataset.state;
+    const placeholder = host.dataset.placeholder === 'true';
+    const isIcon = host.classList.contains('icon');
+
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(sizePx * dpr);
+    canvas.height = Math.round(sizePx * dpr);
+    canvas.style.width = sizePx + 'px';
+    canvas.style.height = sizePx + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    /* (1) 背景 — 通常は paper、実行前プレースホルダだけ purple-100 */
+    ctx.fillStyle = placeholder ? PURPLE_100 : BG;
+    ctx.fillRect(0, 0, sizePx, sizePx);
+
+    /* 実行前プレースホルダ: 外枠だけ描いて早期 return */
+    if (placeholder) {
+      ctx.strokeStyle = UI_2;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
+      return { canvas, rho: null, n, cellPx, span, placeholder: true };
+    }
+
+    const rho = buildRho(stateName, n);
+    const stroke = cellPx > 24 ? 2 : 1;
+    const half_stroke = stroke / 2;
+    const outline_clearance = 1.5;
+    const outline_radius = Math.max(0, cellPx / 2 - half_stroke - outline_clearance);
+    const inner_radius = Math.max(0, outline_radius - half_stroke);
+    const showFull    = cellPx >= 12;        // probability + outline + disk + needle
+    const showOutline = cellPx >= 3;         // outline + disk (needle 抑制)
+    const useHeatmap  = cellPx < 3;
+
+    if (useHeatmap) {
+      /* heatmap mode: 各セルを alpha = √(|ρ_ij|) で塗る */
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const k = (r * n + c) * 2;
+          const re = rho[k], im = rho[k + 1];
+          const mag = Math.sqrt(re * re + im * im);
+          if (mag < 1e-6) continue;
+          const a = Math.sqrt(Math.min(1, mag));
+          ctx.fillStyle = `rgba(146, 191, 219, ${a})`;
+          ctx.fillRect(c * cellPx, r * cellPx, Math.ceil(cellPx) + 0.5, Math.ceil(cellPx) + 0.5);
+        }
+      }
+      /* 外枠だけ描いて return */
+      ctx.strokeStyle = UI_2;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
+      return { canvas, rho, n, cellPx, span, placeholder: false };
+    }
+
+    /* (2) outline 円 — 全セル (対角 / 非対角とも) */
+    if (showOutline) {
+      ctx.lineWidth = stroke;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const k = (r * n + c) * 2;
+          const re = rho[k], im = rho[k + 1];
+          const p = re * re + im * im;
+          ctx.strokeStyle = p > 0.001 ? TX_2 : UI_2;
+          ctx.beginPath();
+          ctx.arc(c * cellPx + cellPx / 2, r * cellPx + cellPx / 2, outline_radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    /* (3) magnitude disk — 全セル。半径 = |ρ_ij| × inner_radius
+       対角は ρ_ii (実数 = 確率) の絶対値、非対角は |ρ_ij| (複素絶対値) */
+    const r_base = showOutline ? inner_radius : Math.max(0.5, cellPx / 2 - 0.5);
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const k = (r * n + c) * 2;
+        const re = rho[k], im = rho[k + 1];
+        const mag = Math.sqrt(re * re + im * im);
+        const rr = mag * r_base;
+        if (rr < 0.3) continue;
+        const cx = c * cellPx + cellPx / 2;
+        const cy = r * cellPx + cellPx / 2;
+        ctx.fillStyle = BLUE_200;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+        ctx.fill();
+        if (rr >= 1.5) {
+          ctx.strokeStyle = BLUE_400;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rr - 0.5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    /* (4) phase needle — 非対角セルのみ、cellPx >= 12 のときだけ
+       (対角 ρ_ii は実数なので位相は常に 0、needle を描く意味がない) */
+    if (showFull) {
+      ctx.strokeStyle = TX;
+      ctx.lineWidth = stroke;
+      ctx.beginPath();
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (r === c) continue;
+          const k = (r * n + c) * 2;
+          const re = rho[k], im = rho[k + 1];
+          const mag = Math.sqrt(re * re + im * im);
+          if (mag < 0.001) continue;
+          const cx = c * cellPx + cellPx / 2;
+          const cy = r * cellPx + cellPx / 2;
+          const ux = -im / mag, uy = -re / mag;  // phase 0 = 真上
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + ux * inner_radius, cy + uy * inner_radius);
+        }
+      }
+      ctx.stroke();
+    }
+
+    /* (6) 外枠 — cell 間の縦横区切り線は描かない */
+    if (!isIcon) {
+      ctx.strokeStyle = UI_2;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
+    }
+
+    return { canvas, rho, n, cellPx, span, placeholder: false };
+  }
+
+  function bin(k, span) {
+    let s = k.toString(2);
+    while (s.length < span) s = '0' + s;
+    return s;
+  }
+
+  function popupHtml(row, col, rho, span) {
+    const n = 1 << span;
+    const k = (row * n + col) * 2;
+    const re = rho[k], im = rho[k + 1];
+    const isDiag = row === col;
+    if (isDiag) {
+      const p = re * 100;  // 対角の実部 = 確率
+      const db = p > 0 ? (Math.log10(p / 100) * 10).toFixed(1) + ' dB' : '−∞ dB';
+      return `
+        <div class="dm-popup-ket">Probability of |${bin(row, span)}⟩</div>
+        <div class="dm-popup-sub">diagonal · decimal ${row}</div>
+        <div class="dm-popup-divider"></div>
+        <div class="dm-popup-row"><span class="dm-popup-label">P</span><span class="dm-popup-value">${p.toFixed(4)}%</span></div>
+        <div class="dm-popup-row"><span class="dm-popup-label">log</span><span class="dm-popup-value">${db.replace(/^-/, '−')}</span></div>
+      `;
+    }
+    const mag = Math.sqrt(re * re + im * im);
+    const phase = Math.atan2(im, re) * 180 / Math.PI;
+    const phaseStr = (phase >= 0 ? '+' : '−') + Math.abs(phase).toFixed(2) + '°';
+    const sign = im >= 0 ? '+' : '−';
+    return `
+      <div class="dm-popup-ket">Coupling of |${bin(row, span)}⟩ to ⟨${bin(col, span)}|</div>
+      <div class="dm-popup-sub">off-diagonal · decimal ${row} to ${col}</div>
+      <div class="dm-popup-divider"></div>
+      <div class="dm-popup-row"><span class="dm-popup-label">val</span><span class="dm-popup-value">${re.toFixed(6)} ${sign} ${Math.abs(im).toFixed(6)}i</span></div>
+      <div class="dm-popup-row"><span class="dm-popup-label">mag</span><span class="dm-popup-value">${mag.toFixed(6)}</span></div>
+      <div class="dm-popup-row"><span class="dm-popup-label">phase</span><span class="dm-popup-value">${phaseStr}</span></div>
+    `;
+  }
+
+  function attachPopup(host, info) {
+    const popup = document.createElement('div');
+    popup.className = 'dm-popup';
+    host.style.position = 'relative';
+    host.appendChild(popup);
+    const { canvas, rho, n, cellPx, span } = info;
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const col = Math.floor((e.clientX - rect.left) / cellPx);
+      const row = Math.floor((e.clientY - rect.top) / cellPx);
+      if (col < 0 || col >= n || row < 0 || row >= n) {
+        popup.style.display = 'none';
+        return;
+      }
+      popup.innerHTML = popupHtml(row, col, rho, span);
+      popup.style.left = (canvas.offsetLeft + canvas.offsetWidth + 8) + 'px';
+      popup.style.top = (canvas.offsetTop + row * cellPx) + 'px';
+      popup.style.display = 'block';
+    });
+    canvas.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
+  }
+
+  document.querySelectorAll('.dm-host').forEach(host => {
+    const info = buildDmCanvas(host);
+    host.appendChild(info.canvas);
+    if (!info.placeholder && host.dataset.noPopup !== 'true') attachPopup(host, info);
+    // リサイズハンドルは共有 primitive (resize-handle.js)。placeholder でも出す。
+    if (!host.classList.contains('icon')) {
+      host.classList.add('resize-handle-host');
+      attachResizeHandles(host, { widthMode: 'canvas60' });
+    }
+  });
+</script>
+
+</body>
+</html>
