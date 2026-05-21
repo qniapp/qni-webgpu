@@ -173,9 +173,9 @@
   </p>
 </div>
 
-<!-- ─────── § 01 サイズ別の見た目 + 動くモック ─────── -->
+<!-- ─────── § 02 サイズ別の見た目 + 動くモック ─────── -->
 <section class="block">
-  <h2>§ 01 サイズ別の見た目 (1〜8 量子ビット、動くモック)</h2>
+  <h2>§ 02 サイズ別の見た目 (1〜8 量子ビット、動くモック)</h2>
   <div class="card">
     <p>
       span 1〜8 の代表的な reduced density matrix を並べた参考レンダリング。matrix 寸法は <code>n × n</code> (<code>n = 2<sup>span</sup></code>) の正方行列、本体寸法は <strong><code>size_px = 56 × span − 16</code></strong> px の正方形 (確率表示ブロックの<em>高さ</em>公式と一致、振幅表示ブロックの幅 / 高さ公式とも対称)。
@@ -415,7 +415,7 @@ for row in 0..n:
       <strong>GPU 経路の <code>density_output</code> / <code>density_meta</code> バッファがまだ書き込まれていない</strong>ので行列値は存在せず、
       従来の素朴な実装ではセル領域が真っ白に抜けて見え「壊れているのか配置できていないのか」が判別できない問題が出る。
       この空白を <strong>「実行待ちであることを伝えるプレースホルダ」</strong> として明示的にデザインする。
-      振幅表示ブロック (<a href="amplitude-display.html">amplitude-display.html § 01</a>) / 確率表示ブロック (<a href="probability-display.html">probability-display.html § 01</a>) と<strong>同じ配色コンベンション</strong>に従う。
+      振幅表示ブロック (<a href="amplitude-display.html">amplitude-display.html § 02</a>) / 確率表示ブロック (<a href="probability-display.html">probability-display.html § 02</a>) と<strong>同じ配色コンベンション</strong>に従う。
     </p>
     <ul>
       <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で matrix 全体を塗る。本デザインシステムでは紫を「未確定 / 進行中」に充てており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、実行前の <code>ρ</code> も<em>「0 (赤系) と 1 (青系) の中間に位置する未確定な値」</em>として同じ紫系統で表す。色相は drag/hover で使う濃い紫よりさらに淡くし、「進行中アクション」と「結果待ち静止状態」を区別する</li>
