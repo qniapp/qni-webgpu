@@ -57,7 +57,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;borde
 let storage = window.local_storage()?.ok_or(...)?;
 storage.set_item(
   "qni.circuit_library.v1",
-  &library_json,
+  &amp;library_json,
 )?;</code></pre></div></div></section>
 
 <div class="footer-note"><strong>結論:</strong> <code class="code-inline">localStorage</code> で MVP は十分。この文書は保存 API とデータ境界だけを定義する。URL は共有、localStorage は個人ライブラリ、将来の大規模化だけ IndexedDB / export-import に逃がす。</div>

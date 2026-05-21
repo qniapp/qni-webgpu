@@ -1,6 +1,7 @@
 # web `constants.rs` 抽出設計（thin-entry 次パス）
 
 ## 背景
+
 - `apps/web/src/lib.rs` は `shared.rs` pass 完了後、91 LOC まで縮小した。
 - 現在の `lib.rs` に残る主責務は次の 4 系統である。
   - 共有定数
@@ -11,11 +12,13 @@
 - ユーザーは次パスとして **A: constants pass** を選択し、さらに **A1: `constants.rs` 1 ファイルにまとめる**方針を選択した。
 
 ## 目的
+
 - `lib.rs` に残っている共有定数と `PALETTE_GATES` を `apps/web/src/constants.rs` へ安全に抽出し、crate root をさらに thin-entry 化する。
 - 定数利用側を `crate::constants::...` の直接参照に揃え、root alias 依存を取り除く。
 - 挙動変更なしの code motion に徹し、既存 UI / WebGPU / drag / wasm export の振る舞いを一切変えない。
 
 ## 非目的
+
 - wasm export（`start`, `read_state_vector`）の移動や公開面変更。
 - `gates.rs` / `colors.rs` / `shared.rs` / `app.rs` / `render.rs` / `gpu.rs` / `layout.rs` の責務再編。
 - 定数の責務別細分化（`layout_constants.rs` / `state_constants.rs` など）。
@@ -26,9 +29,11 @@
 - repo-wide CI 相当 aggregate check の導入。
 
 ## 採用方針
+
 この pass では **`constants.rs` を 1 ファイル追加し、`lib.rs` の定数群と `PALETTE_GATES` を pure extraction する**。
 
 移動対象:
+
 - `REM`
 - `STATE_CIRCLE_SIZE`
 - `STATE_CIRCLE_GAP`
@@ -59,6 +64,7 @@
 `constants.rs` では `PALETTE_GATES` の型定義に必要なため、`crate::gates::GateKind` だけを参照してよい。
 
 この pass では次の「ついで変更」は行わない。
+
 - 定数を複数 module に再分割する。
 - `constants.rs` を public API や root re-export の受け皿にする。
 - `PALETTE_GATES` を `gates.rs` に寄せる。
@@ -68,6 +74,7 @@
 ## 比較した案
 
 ### 案A: `constants.rs` 1 ファイルに pure extraction（採用）
+
 - `apps/web/src/constants.rs` に定数群と `PALETTE_GATES` を集約する。
 - 利点:
   - 今回のユーザー選択 A1 と一致する。
@@ -78,6 +85,7 @@
   - 将来さらに責務別に分けたくなる余地は残る。
 
 ### 案B: layout / state / drag など責務ごとに 2〜3 module に分割する
+
 - 利点:
   - conceptual grouping はより自然になる。
 - 欠点:
@@ -85,6 +93,7 @@
   - 移動量・import 更新・検証面が増え、pure extraction の安全性が下がる。
 
 ### 案C: 定数の一部だけを関連 module へ個別再配置する
+
 - 例: `MAX_STATE_COUNT` を `gpu.rs` 側、layout 定数を `layout.rs` 側へ寄せる。
 - 利点:
   - 各 module の self-contained 性は上がりうる。
@@ -95,30 +104,38 @@
 ## この pass のモジュール境界
 
 ### 新規追加: `apps/web/src/constants.rs`
+
 ここには、crate 内で横断利用される共有定数と palette contents を移す。
 
 対象:
+
 - layout / state / drag / palette / qubit 上限系の定数
 - `PALETTE_GATES`
 
 意図:
+
 - `lib.rs` から internal implementation detail を取り除く。
 - `app.rs` / `render.rs` / `layout.rs` / `gpu.rs` の参照先を明示化する。
 - constants ownership を 1 箇所に固定する。
 
 ### `apps/web/src/lib.rs` に残すもの
+
 対象:
+
 - module wiring（`mod app; mod colors; mod constants; mod gates; mod gpu; mod icons; mod layout; mod render; mod shared;`）
 - wasm export（`start`, `read_state_vector`）
 
 意図:
+
 - `lib.rs` を crate root / thin-entry として保つ。
 - 今回は exports と root wiring だけを `lib.rs` に残し、constants 自体は root から退避する。
 
 ## 依存関係の方針
+
 この pass の主目的は、**定数の実装位置を root から internal module へ移し、利用側を direct module path に揃えること**である。
 
 想定する依存:
+
 - `app.rs` → `crate::constants::{DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR, GATE_SIZE, MAX_QUBITS, MIN_QUBITS, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, SNAP_DISTANCE}`
 - `render.rs` → `crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, PALETTE_GAP, PALETTE_GATES, PALETTE_ROW_Y, PALETTE_SIZE, REM, SNAP_DISTANCE, STATE_CIRCLE_BOTTOM_MARGIN, STATE_CIRCLE_GAP, STATE_CIRCLE_SIZE, STATE_CIRCLE_STROKE}`
 - `layout.rs` → `crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING}`
@@ -127,6 +144,7 @@
 - `lib.rs` → `constants.rs`（module declaration のみ）
 
 方針:
+
 - `crate::REM` / `crate::GATE_SIZE` / `crate::MAX_STATE_COUNT` / `crate::PALETTE_GATES` などの old root path は残さない。
 - `use crate::{...moved constants...}` の grouped root import も残さない。
 - `use constants::*;` / `use crate::constants::*;` のような convenience alias も追加しない。
@@ -135,6 +153,7 @@
 - `colors.rs` / `shared.rs` / `gates.rs` / `icons.rs` は原則無変更とする。
 
 ## 可視性の方針
+
 - 外部公開（`pub`）は追加しない。
 - `constants.rs` に移す定数と `PALETTE_GATES` は、crate 内利用に必要な最小限として **`pub(crate) const`** にする。
 - `constants.rs` 内で新しい helper や re-export は追加しない。
@@ -142,14 +161,17 @@
 - `PALETTE_GATES` の型は `pub(crate) const PALETTE_GATES: [GateKind; 15]` とし、element 値は現状維持する。
 
 ## `start` / `read_state_vector` の扱い
+
 wasm export の公開面は動かさない。
 
 採用方針:
+
 - `#[wasm_bindgen] pub async fn start(...)` は `lib.rs` に残す。
 - `#[wasm_bindgen] pub async fn read_state_vector(...)` は `lib.rs` に残す。
 - 関数名・シグネチャ・公開位置は維持する。
 
 ## 実装ガードレール
+
 - 移動対象定数と `PALETTE_GATES` 本体は、module path と visibility 調整を除き原則そのまま移す。
 - 値変更・命名変更・式変更はしない。
 - `constants.rs` は internal module に留め、public API としない。
@@ -162,6 +184,7 @@ wasm export の公開面は動かさない。
 - `colors.rs` / `shared.rs` / `gates.rs` / `icons.rs` の不要変更はしない。
 
 ## 実装手順
+
 1. `apps/web/src/constants.rs` を追加し、`lib.rs` に `mod constants;` を宣言する。
 2. `lib.rs` から定数群と `PALETTE_GATES` を `constants.rs` へ移す。
 3. `app.rs` / `render.rs` / `layout.rs` / `gpu.rs` の import / 参照を `crate::constants::...` 前提に更新する。
@@ -170,6 +193,7 @@ wasm export の公開面は動かさない。
 6. 最後に symbol move / direct module use / no-root-reexport / no-old-root-path / remains / tests unchanged / LOC を確認する。
 
 ## 受け入れ条件
+
 - `apps/web/src/constants.rs` が追加されている。
 - `lib.rs` から以下の定数と `PALETTE_GATES` が移っている。
   - `REM`
@@ -210,6 +234,7 @@ wasm export の公開面は動かさない。
 - `lib.rs` の LOC が shared pass 完了時の baseline **91 LOC** よりさらに減っている。
 
 ## 検証
+
 実装後は少なくとも以下を再実行する。
 
 ```bash
@@ -294,6 +319,7 @@ PY
 ```
 
 期待値:
+
 - `ok`
 
 追加で、利用側が agreed mapping どおり `crate::constants::...` を使い、grouped root import や wildcard alias が残っていないことを確認する。
@@ -325,6 +351,7 @@ PY
 ```
 
 期待値:
+
 - `ok`
 
 追加で、root re-export・old root path・grouped root import・wildcard alias・`super::` / `self::` 経由の迂回参照が残っていないことを確認する。
@@ -349,6 +376,7 @@ PY
 ```
 
 期待値:
+
 - `ok`
 
 追加で、`lib.rs` に残すべきものが残っており、wasm export 属性とシグネチャが維持されていることを確認する。
@@ -378,6 +406,7 @@ PY
 ```
 
 期待値:
+
 - `ok`
 
 追加で、`constants.rs` の依存が allowlist 内に収まり、`GateKind` 以外への親参照や `super::` / `self::` 迂回がないことを確認する。
@@ -400,6 +429,7 @@ PY
 ```
 
 期待値:
+
 - `ok`
 
 追加で、repo-wide changed-file allowlist・tests 未変更・LOC baseline を確認する。
@@ -433,10 +463,13 @@ if loc >= 91:
 print('ok')
 PY
 ```
+
 期待値:
+
 - `ok`
 
 ## リスクと対策
+
 - import 漏れ / visibility 漏れ
   - 対策: 早い段階で wasm `cargo check` を回し、task を細かく切り分ける。
 - old root path の取り残し
@@ -449,6 +482,7 @@ PY
   - 対策: remains check を受け入れ条件に含める。
 
 ## 完了時の期待状態
+
 - `lib.rs` は module wiring + wasm exports を中心とした thin-entry に一段近づく。
 - 共有定数と `PALETTE_GATES` は `constants.rs` にまとまり、利用側は `crate::constants::...` を直接参照する。
 - 挙動変更なしのまま、将来の crate root 整理を続けやすい状態になる。

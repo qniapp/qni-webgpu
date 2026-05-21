@@ -1,45 +1,56 @@
 # web app (Rust)
 
 ## Prerequisites
+
 - `rustup target add wasm32-unknown-unknown`
 - `cargo install trunk`
 
 ## Run (local)
+
 まずサーバを起動する。
+
 ```
 cd apps/web
 trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
+
 Open: `http://127.0.0.1:4174/`
 
 ローカル開発では通常の Chrome で上記 URL を開く。WebGPU 用の特別な起動フラグは不要。
 リポジトリルートから helper script を使う場合も、通常起動の Chrome を開くだけにする。
+
 ```
 ./scripts/open-web.sh
 ```
+
 この script は `google-chrome-stable` を最優先で探し、見つからない場合のみ Chromium 系へ fallback する。
 
 明示的にブラウザを固定したい場合の例:
+
 ```
 QNI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-web.sh
 ```
 
 環境変数:
+
 - `QNI_WEB_BROWSER`: 使用する Chromium 系ブラウザを明示
 - `QNI_WEB_PORT`: 接続先ポートを変更
 - `QNI_WEB_URL`: 接続先 URL を直接指定
 
 ## Agent browser / visual workflow
+
 アプリ内ブラウザは `http://127.0.0.1:4174/` を開ける。
 WebGPU の実描画確認では、通常の外部 Chrome か Playwright 経路を使う。
 
 基本の手順:
+
 ```
 cd apps/web
 trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 
 別ターミナルで外部 Chrome を開く:
+
 ```
 cd /home/yasuhito/Work/qni-webgpu
 ./scripts/open-web.sh
@@ -47,6 +58,7 @@ cd /home/yasuhito/Work/qni-webgpu
 
 エージェントからスクリーンショットや操作込みで確認する場合は、既存サーバを使って headed Playwright を走らせる。
 この経路は CI/headless 安定化用に `test-support/browser-launch.ts` の Playwright 起動設定を使う。
+
 ```
 cd apps/web
 QNI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'web canvas renders content' --workers=1
@@ -55,6 +67,7 @@ QNI_WEB_EXTERNAL_SERVER=1 HEADLESS=0 pnpm exec playwright test --grep 'web canva
 エージェントからゲートを意味ベースでドラッグアンドドロップする場合は、専用 CLI を使う。
 この CLI は Playwright で Chrome を起動し、`H:q0:0` のような指定を palette gate → circuit slot のドラッグへ変換する。
 目視確認用にページ全体 screenshot を保存し、`window.__eguiReadStateVector()` も JSON で出力する。
+
 ```
 cd apps/web
 QNI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-visual.ts drag \
@@ -65,12 +78,14 @@ QNI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-
   --ops H:q0:0,C:q0:1,X:q1:1 \
   --out output/playwright/agent-visual/bell.png
 ```
+
 Anti-control は `anti-control:q0:0` / `anti:q0:0` / `◦:q0:0` で指定できる。
 |0⟩ / |1⟩ は `|0>:q0:0` / `write0:q0:0` / `|1>:q0:0` / `write1:q0:0` などで指定できる。
 
 `scripts/agent-visual.ts` は通常の `@playwright/test` 用 SwiftShader launch ではなく、screenshot が黒くならない agent visual launch を使う。
 現状の egui content margin に合わせて drop 座標に `--vertical-offset 8` を既定で加える。
 UI の外枠や egui panel margin を変えた場合は、この値を一時的に上書きして確認する。
+
 ```
 QNI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-visual.ts drag \
   --gate X --wire q1 --slot 2 \
@@ -79,6 +94,7 @@ QNI_WEB_EXTERNAL_SERVER=1 node -r ts-node/register/transpile-only scripts/agent-
 
 手動デバッグで DevTools/CDP 接続が必要なときだけ、専用 profile と remote debugging port を使って Chrome を起動する。
 WebGPU 用の特別なフラグは付けない。
+
 ```
 /usr/bin/google-chrome-stable \
   --user-data-dir=/tmp/qni-webgpu-chrome-agent-verify \
@@ -90,6 +106,7 @@ WebGPU 用の特別なフラグは付けない。
 ```
 
 確認すること:
+
 - `navigator.gpu` が `true`
 - `[data-testid="webgpu-error"]` が非表示
 - `await window.__eguiReadStateVector()` が非空の配列を返す
@@ -100,6 +117,7 @@ WebGPU 用の特別なフラグは付けない。
 OS 全体のスクリーンショットが取れない環境では、Playwright の `page.screenshot()` / `locator('#egui-canvas').screenshot()` を使う。
 
 ## Playwright / Cucumber rollout
+
 ```
 cd apps/web
 pnpm install
@@ -108,6 +126,7 @@ pnpm run test:preflight
 pnpm run test:bdd
 pnpm run test:pw-legacy
 ```
+
 初回導入では Cucumber の Markdown Gherkin (`.feature.md`) を staged rollout で追加している。
 `features/**/*.feature.md` は `@cucumber/cucumber` で実行し、`pnpm run test:bdd` がその入口になる。
 一方で既存の `@playwright/test` suite はまだ正本として残しており、`pnpm run test:pw-legacy` と `pnpm test` はどちらも `playwright test` を実行する。
@@ -122,6 +141,7 @@ TS 化済み browser bootstrap / support module / CLI / config / suite / Node pr
 `bootstrap.ts` は Trunk の `pre_build` hook で `.trunk-generated/bootstrap.js` へ emit し、`index.html` はその生成物を `bootstrap.js` として copy する。
 
 BDD 化したのは最初の 3 scenario のみ:
+
 - `startup-success.feature.md`
 - `plain-chromium-error.feature.md`
 - `drag-preview-z-order.feature.md`
@@ -130,10 +150,12 @@ MCP から Playwright を使う場合は、helper の `scripts/playwright-mcp.sh
 `.playwright-mcp/config.json` を自動検出しつつ `--isolated` 付きで起動できる。
 （このプロジェクトの `.mcp.json` でも同等の設定を直接記述している。）
 WebGPU は X がないと adapter が取れないため、Xvfb を挟んで実行する。
+
 ```
 cd apps/web
 xvfb-run -a -s "-screen 0 1920x1080x24" pnpm run test:pw-legacy
 ```
+
 `@playwright/test` の headless shell だと SRI mismatch が起きるため、
 `playwright.config.ts` は Playwright 同梱ブラウザよりも先に `google-chrome-stable` を優先し、
 見つからない場合のみ `chromium.executablePath()` に fallback する。
@@ -167,6 +189,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 | アイドルフレームの params `queue.write_buffer` | 3 / frame | **0** (dirty flag) |
 
 設計のキモ:
+
 - 全 gate / Bloch capture / 測定 dispatch を **1 つの encoder** にまとめる。各 op の params は recompute 開始時に staging buffer へ一括 upload しておき、ループ内で `copy_buffer_to_buffer` から個別に取り出す (`gpu/callbacks.rs` の `StateVectorCallback::prepare`)。
 - 「encoder を外に出すだけ」では `queue.write_buffer` が submit 前にまとめて実行される仕様で壊れるため、staging + intra-encoder copy を採用 (動的 uniform offset でも実現可能だが bind group layout 変更が増えるので未採用)。
 - params 用の `Option<*Params>` を `StateVectorResources` に保持し、`prepare()` で前フレームと等しいときは `queue.write_buffer` を skip する。viewport / colors はほとんど変化しないので、idle frame では params 系は完全に無 upload。
@@ -197,6 +220,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` / `|1⟩` の wire mask も同じ `background` を使うため、ゲート背面だけ別色の矩形に見えてはいけない。
 
 新しい theme を足す場合は:
+
 1. `ThemeKind` に variant を追加
 2. `Colors::for_theme` に role mapping を追加
 3. `Theme::apply_to_context` で egui `Visuals` を同じ role から設定
@@ -205,6 +229,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 影・minimap・FPS HUD・hover outline などの半透明色も theme role 化済み。alpha 違いは `with_alpha(theme_tone, alpha)` で作る。
 
 ## Notes
+
 - `apps/web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
 - 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
 - ローカル手動確認は通常の Chrome で行う。`./scripts/open-web.sh` も WebGPU 用の特別な起動フラグは付けない。

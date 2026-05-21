@@ -1,10 +1,12 @@
 # web Drag Profiling
 
 ## Summary (2026-01-23)
+
 - 手法: Playwright + CDP `Profiler.start/stop` でドラッグ中の CPU プロファイルを取得（headless Chromium）。
 - 対象: パレットからゲートを配置し、配置済みゲートを上下に高速ドラッグ（5 往復）。
 
 ## CPU Profile (Self time, top)
+
 ```
 CPU profile top (ms):
 - (idle)                                   2263.694
@@ -22,6 +24,7 @@ CPU profile top (ms):
 ```
 
 ## CPU Profile (Fast drag simplification, Self time, top)
+
 ```
 CPU profile top (ms):
 - (idle)                                   2354.511
@@ -39,16 +42,20 @@ CPU profile top (ms):
 ```
 
 ## Observations
+
 - 簡略描画後は `epaint::tessellator` の自己時間が大きく低下。
 - `Vec::extend_from_slice` / `copy_nonoverlapping` の比率が減り、**インスタンス生成/一時バッファの負荷が改善**。
 - `createCommandEncoder` / `submit` が上位に戻るため、**WebGPU 送出コストは残る**。
 
 ## Bottleneck Hypothesis
+
 ドラッグ中の毎フレーム描画で、  
+
 1) WebGPU コマンドの作成/送出、  
 2) UI テッセレーション（簡略化後でも残る部分）、  
 が主な CPU ホットスポットになっている。
 
 ## Notes
+
 - headless Chromium のため SwiftShader 依存。実機 GPU では絶対値が変わる点に注意。
 - `idle` が大部分を占めるため、上記は「非 idle の中での相対比較」として扱う。

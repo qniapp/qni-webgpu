@@ -7,7 +7,7 @@
 - 量子状態の更新は WebGPU compute shader のみで行う。
 - CPU は state vector / 密度行列 / 測定確率 / ブロッホベクトルを計算しない。
 - CPU は semantic circuit から GPU dispatch 用の plan / params を作るだけ。
-- 状態ベクトル円、Bloch overlay、measurement digit は GPU storage buffer を render shader が直接 sample する。
+- 状態ベクトル円、Bloch overlay、measurement digit は GPU storage バッファを render shader が直接 sample する。
 - `read_state_vector` / `read_bloch_vectors` / `read_measurement_outcomes` は Playwright などテスト用の on-demand readback。production render path では使わない。
 
 ## 現在のデータフロー
@@ -34,9 +34,9 @@ flowchart LR
 
 ### Measurement
 
-- `MEASURE_REDUCE_SHADER` が `pZero` を GPU reduction し、gate id ベースの決定論的 RNG で outcome を sample する。
+- `MEASURE_REDUCE_SHADER` が `pZero` を GPU reduction し、gate id ベースの決定論的 RNG で測定結果を sample する。
 - `MEASURE_COLLAPSE_SHADER` が選ばれた基底へ射影し、GPU 上で正規化する。
-- outcome は `measurement_aux_buffer` に残り、`MEASUREMENT_DIGIT_SHADER` が直接 sample して 0/1 を描画する。
+- 測定結果は `measurement_aux_buffer` に残り、`MEASUREMENT_DIGIT_SHADER` が直接 sample して 0/1 を描画する。
 
 ### ブロッホ球表示ブロック
 
@@ -47,9 +47,9 @@ flowchart LR
 ### State-vector panel
 
 - `StateVectorCallback` が render params（viewport / panel origin / cell pitch / colors など）だけを渡す。
-- 状態円の振幅・位相・確率表現は GPU shader が state buffer を直接参照して描く。
+- 状態円の振幅・位相・確率表現は GPU shader が state バッファを直接参照して描く。
 - CPU は per-cell probability / phase / ブロッホ値を作らない。
-- 回路列の hover / breakpoint 用プレビューは qni と同じく step ごとの結果をキャッシュする。ただし qni の worker CPU キャッシュではなく、WebGPU の `state_snapshot_cache_buffer` に列ごとの state buffer を copy して保持する。hover 中は該当 slot を `state_preview_buffer` へ GPU copy するだけで、compute shader は再実行しない。疎な URL 入力で巨大な空列キャッシュを作らないよう、snapshot slot は `MAX_STEP_SNAPSHOT_SLOTS` で明示的に上限管理する。
+- 回路列の hover / breakpoint 用プレビューは qni と同じく step ごとの結果をキャッシュする。ただし qni の worker CPU キャッシュではなく、WebGPU の `state_snapshot_cache_buffer` に列ごとの state バッファを copy して保持する。hover 中は該当 slot を `state_preview_buffer` へ GPU copy するだけで、compute shader は再実行しない。疎な URL 入力で巨大な空列キャッシュを作らないよう、snapshot slot は `MAX_STEP_SNAPSHOT_SLOTS` で明示的に上限管理する。
 
 ## CPU に残す処理
 
@@ -64,13 +64,13 @@ flowchart LR
 ### 1. 回路図ジオメトリの GPU 化
 
 - 現状: 回路線・ゲート枠・ラベルの多くは egui painter が描く。
-- 候補: line / rect / glyph instance buffer を作り、GPU render pass へ寄せる。
+- 候補: line / rect / glyph instance バッファを作り、GPU render pass へ寄せる。
 - 注意: UI テキストや hit-test は egui と密接なので、全面移行より hot path から段階的に行う。
 
 ### 2. Dynamic GPU capacity
 
 - 現状: `MAX_OPS_PER_RECOMPUTE` / `MAX_BLOCH_SLOTS` / `MAX_MEASUREMENT_SLOTS` を capacity validation で守る。
-- 候補: 回路規模に応じて storage / staging buffer を grow する。
+- 候補: 回路規模に応じて storage / staging バッファを grow する。
 - 注意: release build で silent skip しない。capacity 超過は明示エラーか buffer resize にする。
 
 ### 3. Debug / profiling
@@ -81,8 +81,8 @@ flowchart LR
 
 ## テスト戦略
 
-- Playwright は test-only readback API で state vector / Bloch / measurement outcome を検証する。
-- Production path の正しさは、readback ではなく shader が同じ GPU storage buffer を直接 sample する構造で担保する。
+- Playwright は test-only readback API で state vector / Bloch / measurement 測定結果を検証する。
+- Production path の正しさは、readback ではなく shader が同じ GPU storage バッファを直接 sample する構造で担保する。
 - UI 変更時は visual / drag specs を通し、GPU path 変更時は `web-gpu.spec.ts` と state semantics specs を通す。
 - repo root の `./scripts/check-all.sh` を最終 gate とする。
 

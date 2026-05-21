@@ -144,10 +144,10 @@
   <!-- ツールバー (undo / redo / trash / duplicate / divider / run) の代表的並び -->
   <div class="toolbar" style="margin: 0;">
     <div class="picker"><span class="picker-label">Bell state</span></div>
-    <button class="tb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11l4 2v4l-2 3-3 1"/></svg></button>
-    <button class="tb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9l-4 2v4l2 3 3 1"/></svg></button>
-    <button class="tb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/></svg></button>
-    <button class="tb-icon active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+    <button class="tb-icon" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11l4 2v4l-2 3-3 1"/></svg></button>
+    <button class="tb-icon" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9l-4 2v4l2 3 3 1"/></svg></button>
+    <button class="tb-icon" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/></svg></button>
+    <button class="tb-icon active" aria-label="Duplicate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
   </div>
 </div>
 
@@ -234,7 +234,7 @@
   <p class="note">
     Lucide <code>copy</code> ─ 2 つの角丸矩形が部分的に重なる line-art。<strong>背景の矩形 (左上)</strong> +
     <strong>前面の矩形 (右下、塗り抜き) </strong>で構成され、「もう 1 つ作る」のメタファーが明快。
-    Geist の他のアイコン (undo / redo / trash / play) と同じ 24×24 viewBox / stroke-2 / linecap & linejoin: round
+    Geist の他のアイコン (undo / redo / trash / play) と同じ 24×24 viewBox / stroke-2 / linecap &amp; linejoin: round
     なので weight が完全に揃う。
   </p>
 
@@ -310,7 +310,7 @@ if icon_button(ui, colors, ToolbarIcon::Copy, true, "Duplicate circuit").clicked
     /// suffix " (copy)" (or numbered " (copy 2)" / " (copy 3)" if a
     /// "(copy)" sibling already exists), and switch active to the
     /// new entry. Triggers `bump_updated_at()`.
-    pub(crate) fn duplicate_active(&mut self) -> CircuitId { ... }
+    pub(crate) fn duplicate_active(&amp;mut self) -&gt; CircuitId { ... }
 }</pre>
         既に submenu 用に同等のロジックが居れば、それを共有する形で OK。
       </li>

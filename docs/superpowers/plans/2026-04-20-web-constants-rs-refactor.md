@@ -80,6 +80,7 @@
 ### Task 0: isolated worktree を準備する
 
 **Files:**
+
 - Modify: none
 - Reference: `docs/superpowers/specs/2026-04-20-web-constants-rs-refactor-design.md`
 - Reference: `docs/superpowers/plans/2026-04-20-web-constants-rs-refactor.md`
@@ -87,45 +88,58 @@
 - [ ] **Step 1: clean な親 working tree を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git status --short
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 2: 既存 worktree / branch が衝突しないことを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git worktree list
 cd /home/yasuhito/Work/qni-webgpu && git branch --list refactor/egui-constants-pass
 ```
+
 Expected:
+
 - `git worktree list` に `egui-constants-pass` が出ない
 - `git branch --list refactor/egui-constants-pass` が no output
 
 - [ ] **Step 3: worktree と branch を作成する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git worktree add ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass -b refactor/egui-constants-pass master
 ```
+
 Expected:
+
 - `~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass` が作成される
 - branch `refactor/egui-constants-pass` が作成される
 
 - [ ] **Step 4: worktree 側で clean 状態を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && git status --short
 ```
+
 Expected:
+
 - no output
 
 ### Task 1: `constants.rs` を追加し、共有定数と `PALETTE_GATES` を純粋抽出する
 
 **Files:**
+
 - Create: `apps/web/src/constants.rs`
 - Modify: `apps/web/src/lib.rs`
 - Modify: `apps/web/src/app.rs`
@@ -137,11 +151,14 @@ Expected:
 - [ ] **Step 1: 抽出前ベースラインを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && pnpm exec playwright test --grep 'web canvas renders content|H on q0 and q1 yields uniform superposition|palette panel keeps its corners and shadow while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - wasm `cargo check` が success
 - 指定した focused Playwright がすべて pass
 
@@ -150,6 +167,7 @@ Expected:
 `apps/web/src/constants.rs` を作成し、`apps/web/src/lib.rs` に `mod constants;` を追加する。
 
 `lib.rs` から次を移す。
+
 - `REM`
 - `STATE_CIRCLE_SIZE`
 - `STATE_CIRCLE_GAP`
@@ -178,12 +196,14 @@ Expected:
 - `PALETTE_GATES`
 
 方針:
+
 - moved constants と `PALETTE_GATES` は **`pub(crate) const`** にする
 - `constants.rs` では `use crate::gates::GateKind;` だけを許可する
 - 定数値・式・コメント・`PALETTE_GATES` 並び順はそのまま移す
 - `lib.rs` からは定義のみを消し、wasm export 本体は触らない
 
 初期 shape 例:
+
 ```rust
 use crate::gates::GateKind;
 
@@ -200,6 +220,7 @@ pub(crate) const PALETTE_GATES: [GateKind; 15] = [
 - [ ] **Step 3: moved constants 利用側を `crate::constants::...` 前提に更新する**
 
 更新対象:
+
 - `apps/web/src/app.rs`
 - `apps/web/src/render.rs`
 - `apps/web/src/layout.rs`
@@ -207,6 +228,7 @@ pub(crate) const PALETTE_GATES: [GateKind; 15] = [
 - `apps/web/src/lib.rs`
 
 確認観点:
+
 - `app.rs` は drag / palette / qubit / size 系定数を `crate::constants` から解決する
 - `render.rs` は layout / palette / state circle 系定数を `crate::constants` から解決する
 - `layout.rs` は layout 定数を `crate::constants` から解決する
@@ -218,24 +240,31 @@ pub(crate) const PALETTE_GATES: [GateKind; 15] = [
 - [ ] **Step 4: 抽出直後にコンパイルして import / visibility 崩れを切り分ける**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 ```
+
 Expected:
+
 - module / import / visibility 周りの error がなく success
 
 - [ ] **Step 5: focused 回帰を回す**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && pnpm exec playwright test --grep 'web canvas renders content|H on q0 and q1 yields uniform superposition|palette panel keeps its corners and shadow while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - 一致したテストがすべて pass
 
 ### Task 2: pass 全体を検証し、mechanical check を完了する
 
 **Files:**
+
 - Modify: none required unless review で修正が入る
 - Reference: `apps/web/src/constants.rs`
 - Reference: `apps/web/src/lib.rs`
@@ -248,26 +277,33 @@ Expected:
 - [ ] **Step 1: pass 全体の完全検証を実行する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && pnpm exec playwright test
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass/apps/web && env PATH="$HOME/.cargo/bin:$PATH" trunk build
 ```
+
 Expected:
+
 - 3 コマンドすべて success
 
 - [ ] **Step 2: patch hygiene を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && git diff --check
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 3: constant move と pure extraction（値・式不変、`constants.rs` 内順序維持）を機械的に確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -374,12 +410,15 @@ if entries != expected_palette:
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 4: 利用側が `crate::constants::...` を直接使い、grouped root import / wildcard alias が残っていないことを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -405,12 +444,15 @@ for path, symbols in checks.items():
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 5: root re-export・old path・`super::` / `self::` 迂回参照がないことを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -432,12 +474,15 @@ for path in Path('apps/web/src').glob('*.rs'):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 6: `lib.rs` remains check と wasm export 属性/シグネチャ維持を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -461,12 +506,15 @@ for pattern in [
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 7: `constants.rs` の依存と可視性を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -493,12 +541,15 @@ if re.search(r'\bpub const\b', text):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 8: repo-wide changed-file allowlist・tests 未変更・LOC baseline を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && python - <<'PY'
 from pathlib import Path
@@ -531,30 +582,39 @@ if loc >= 91:
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 9: LOC を記録し、次候補を明確化する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && wc -l apps/web/src/lib.rs apps/web/src/constants.rs apps/web/src/app.rs apps/web/src/render.rs apps/web/src/layout.rs apps/web/src/gpu.rs
 ```
+
 Expected:
+
 - `lib.rs` が baseline 91 LOC より減っている
 - `constants.rs` 追加後も責務線が明確である
 
 記録内容:
+
 - `lib.rs` / `constants.rs` の LOC
 - 次候補（例: lib.rs lane 完了扱い、または plain Chrome 差分調査への復帰）
 
 - [ ] **Step 10: review 用の前提を満たした状態で commit する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && git add apps/web/src/constants.rs apps/web/src/lib.rs apps/web/src/app.rs apps/web/src/render.rs apps/web/src/layout.rs apps/web/src/gpu.rs
 cd ~/.config/superpowers/worktrees/qni-webgpu/egui-constants-pass && git commit -m "refactor: extract web constants"
 ```
+
 Expected:
+
 - review 前の clean commit が作成される
 - 以後の spec compliance / code quality review はこの commit を対象に行える

@@ -128,6 +128,11 @@
 </head>
 <body>
 
+<!-- 各 spec-card は <a> の中に preview <iframe> を入れる「クリック可能なサムネ + テキスト」UX。
+     HTML5 的には interactive 要素のネストになるが、デザインの中心なので
+     element-permitted-content を本ファイルでのみ無効化する。 -->
+<!-- [html-validate-disable element-permitted-content] -->
+
 <div class="page">
   <p class="eyebrow">qni-webgpu · design system · index</p>
   <h1 class="page-title">デザインシステム</h1>
@@ -159,7 +164,7 @@
 
     <a class="spec-card" href="design-system/design-system-colors.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/design-system-colors.html?preview" loading="lazy" scrolling="no" title="配色 preview"></iframe>
+        <iframe src="design-system/design-system-colors.html?preview" loading="lazy" title="配色 preview"></iframe>
       </div>
       <div class="row">
         <span class="name">配色</span>
@@ -170,7 +175,7 @@
 
     <a class="spec-card" href="design-system/design-system-typography.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/design-system-typography.html?preview" loading="lazy" scrolling="no" title="タイポグラフィ preview"></iframe>
+        <iframe src="design-system/design-system-typography.html?preview" loading="lazy" title="タイポグラフィ preview"></iframe>
       </div>
       <div class="row">
         <span class="name">タイポグラフィ</span>
@@ -181,7 +186,7 @@
 
     <a class="spec-card" href="design-system/design-system-spacing.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/design-system-spacing.html?preview" loading="lazy" scrolling="no" title="スペーシング preview"></iframe>
+        <iframe src="design-system/design-system-spacing.html?preview" loading="lazy" title="スペーシング preview"></iframe>
       </div>
       <div class="row">
         <span class="name">スペーシング</span>
@@ -197,24 +202,24 @@
 <section class="block">
   <h2><span class="num">§ 02</span>表示ブロック (Display blocks)</h2>
   <p class="note">
-    回路上に「読み取り」だけを行う要素群。ユニタリ変換ではないので厳密にはゲートではなく、`表示ブロック` と呼ぶ。状態ベクトルに影響を与えず、span 内 量子ビットの確率や ブロッホベクトル等を可視化する。
+    回路上に「読み取り」だけを行う要素群。ユニタリ変換ではないので厳密にはゲートではなく、`表示ブロック` と呼ぶ。状態ベクトルに影響を与えず、span 内の量子ビットの確率や ブロッホベクトル等を可視化する。
   </p>
   <div class="spec-grid">
 
     <a class="spec-card" href="design-system/probability-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/probability-display.html?preview" loading="lazy" scrolling="no" title="確率表示ブロック preview"></iframe>
+        <iframe src="design-system/probability-display.html?preview" loading="lazy" title="確率表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">確率表示ブロック</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">span 内 量子ビットを測定したときの outcome 確率を横バーで可視化する表示ブロック。</p>
+      <p class="desc">span 内の量子ビットを測定したときの outcome 確率を横バーで可視化する表示ブロック。</p>
     </a>
 
     <a class="spec-card" href="design-system/bloch-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/bloch-display.html?preview" loading="lazy" scrolling="no" title="ブロッホ球表示ブロック preview"></iframe>
+        <iframe src="design-system/bloch-display.html?preview" loading="lazy" title="ブロッホ球表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">ブロッホ球表示ブロック</span>
@@ -225,13 +230,13 @@
 
     <a class="spec-card" href="design-system/amplitude-display.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/amplitude-display.html?preview" loading="lazy" scrolling="no" title="振幅表示ブロック preview"></iframe>
+        <iframe src="design-system/amplitude-display.html?preview" loading="lazy" title="振幅表示ブロック preview"></iframe>
       </div>
       <div class="row">
         <span class="name">振幅表示ブロック</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">span 内 量子ビットの複素振幅 (大きさ + 位相) を 1〜16 量子ビット grid で可視化する表示ブロック。</p>
+      <p class="desc">span 内の量子ビットの複素振幅 (大きさ + 位相) を 1〜16 量子ビット grid で可視化する表示ブロック。</p>
     </a>
 
     <div class="spec-card dim">
@@ -417,7 +422,7 @@
 
     <a class="spec-card" href="design-system/gate-hover-feedback-options.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/gate-hover-feedback-options.html?preview" loading="lazy" scrolling="no" title="Gate hover feedback preview"></iframe>
+        <iframe src="design-system/gate-hover-feedback-options.html?preview" loading="lazy" title="Gate hover feedback preview"></iframe>
       </div>
       <div class="row"><span class="name">Gate hover feedback</span><span class="pill draft">draft</span></div>
       <p class="desc">ゲートホバー時の枠 / ハイライト挙動 (purple-400 ring + paper gap)。</p>
@@ -462,7 +467,7 @@
 
     <a class="spec-card" href="design-system/gate-palette.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/gate-palette.html?preview" loading="lazy" scrolling="no" title="Gate palette preview"></iframe>
+        <iframe src="design-system/gate-palette.html?preview" loading="lazy" title="Gate palette preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Gate palette</span>
@@ -473,7 +478,7 @@
 
     <a class="spec-card" href="design-system/circuit-picker.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/circuit-picker.html?preview" loading="lazy" scrolling="no" title="Circuit picker preview"></iframe>
+        <iframe src="design-system/circuit-picker.html?preview" loading="lazy" title="Circuit picker preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Circuit picker</span>
@@ -484,7 +489,7 @@
 
     <a class="spec-card" href="design-system/toolbar-duplicate-mock.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/toolbar-duplicate-mock.html?preview" loading="lazy" scrolling="no" title="Toolbar preview"></iframe>
+        <iframe src="design-system/toolbar-duplicate-mock.html?preview" loading="lazy" title="Toolbar preview"></iframe>
       </div>
       <div class="row"><span class="name">Toolbar</span><span class="pill draft">draft</span></div>
       <p class="desc">回路上部の操作ツールバー (undo / redo / trash / duplicate / run など)。</p>
@@ -492,7 +497,7 @@
 
     <a class="spec-card" href="design-system/lock-button.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/lock-button.html?preview" loading="lazy" scrolling="no" title="Lock / Unlock button preview"></iframe>
+        <iframe src="design-system/lock-button.html?preview" loading="lazy" title="Lock / Unlock button preview"></iframe>
       </div>
       <div class="row">
         <span class="name">Lock / Unlock button</span>

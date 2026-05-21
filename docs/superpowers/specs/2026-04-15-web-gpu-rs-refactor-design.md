@@ -1,6 +1,7 @@
 # web `gpu.rs` 分割設計（第2パス）
 
 ## 背景
+
 - `apps/web/src/lib.rs` は pass 1（`layout.rs` / `icons.rs` 抽出）後でも 2151 LOC あり、依然として大きい。
 - pass 1 の最終レビューでは、残存責務の中で最もまとまりがあり、次に切り出す自然な候補として **GPU / shader / readback** が推奨された。
 - 現在の `lib.rs` には、UI/drag/app state と並んで以下の GPU 責務がまとまって残っている。
@@ -11,11 +12,13 @@
 - ユーザーはこの pass 2 について、**A: 純粋抽出のみ** を選択した。つまり、挙動変更や積極的な再編は行わず、既存の GPU 塊を安全に `gpu.rs` へ移すことを優先する。
 
 ## 目的
+
 - `lib.rs` から GPU / shader / readback の責務を `apps/web/src/gpu.rs` に安全に分離する。
 - 挙動変更なしの code motion に徹し、将来の `render.rs` / `app.rs` 分割に向けて `lib.rs` の責務境界をさらに見やすくする。
 - wasm export と既存 Playwright / trunk / WebGPU 動作確認フローを壊さない。
 
 ## 非目的
+
 - shader ロジックや buffer 初期化順の変更。
 - `QniApp` や input / drag / palette / circuit 描画の再設計。
 - `GateParams` / `gate_params` / `gate_params_controlled` / `gate_matrix` の責務移動。
@@ -24,6 +27,7 @@
 - この pass だけで全ファイルを 500 LOC 以下にすること。
 
 ## 採用方針
+
 第2パスでは **GPU 実装に閉じた責務のみを `gpu.rs` に移す**。ユーザー選択どおり、純粋抽出のみを採用し、次のような「ついで変更」は行わない。
 
 - visibility の積極的整理
@@ -37,6 +41,7 @@
 ## 比較した案
 
 ### 案A: 純粋抽出のみ（採用）
+
 - `gpu.rs` を追加し、shader / resources / callback / readback をそのまま移す。
 - `lib.rs` には `QniApp`、state panel、gate パラメータ生成、UI 入力処理を残す。
 - `#[wasm_bindgen] pub async fn read_state_vector()` は `lib.rs` に薄い wrapper を残し、実処理を `gpu.rs` に委譲する。
@@ -49,6 +54,7 @@
   - きれいな最終形ではなく、中間段階としての抽出になる。
 
 ### 案B: 純粋抽出 + 軽い境界整理
+
 - 案Aに加えて visibility や helper 配置を少し整える。
 - 利点:
   - モジュール境界がやや明瞭になる。
@@ -57,6 +63,7 @@
   - A に比べて挙動変更混入リスクが上がる。
 
 ### 案C: shader / GPU 補助型まで積極再編
+
 - shader 定数の分離や `GateParams` / `StateInstanceCache` まで見直す。
 - 利点:
   - 将来の最終形に近づけやすい。
@@ -67,9 +74,11 @@
 ## 第2パスのモジュール境界
 
 ### 新規追加: `apps/web/src/gpu.rs`
+
 ここには、**GPU 実装そのものに閉じた責務**を移す。
 
 対象:
+
 - `StateInstance`
 - `RenderParams`
 - `RenderColors`
@@ -83,11 +92,14 @@
 - `read_state_vector` の内部実装本体（wrapper ではない実処理）
 
 意図:
+
 - shader / pipeline / callback / readback を 1 モジュールに閉じ込める。
 - `lib.rs` から WebGPU 詳細を追い出し、アプリの流れを読みやすくする。
 
 ### `apps/web/src/lib.rs` に残すもの
+
 対象:
+
 - `QniApp`
 - `StatePanelLayout`
 - `StateInstanceCache`
@@ -101,18 +113,22 @@
 - wasm export の公開面 (`start`, `read_state_vector` wrapper)
 
 意図:
+
 - `lib.rs` には「アプリが何を描き、どんな入力を GPU に渡すか」を残す。
 - GPU モジュールに、量子回路の業務ロジックまで背負わせない。
 
 ## 依存関係の方針
+
 この pass で目指す主方向は **`lib.rs` → `gpu.rs`** である。ただし純粋抽出を成立させるため、pass 2 では以下の **例外的な親参照だけを明示許可** する。
 
 許可する `gpu.rs` → `crate::...` 参照:
+
 - `crate::Colors`
 - `crate::GateParams`
 - `crate::MAX_STATE_COUNT`
 
 想定される依存:
+
 - `gpu.rs` → `crate::Colors`
 - `gpu.rs` → `crate::GateParams`
 - `gpu.rs` → `crate::MAX_STATE_COUNT`
@@ -125,17 +141,21 @@
 この pass では依存を完全にきれいにすることよりも、**責務の大きな塊を安全に外へ出すこと**を優先する。
 
 ## `read_state_vector` の扱い
+
 `read_state_vector` は wasm から呼ばれる公開エントリポイントなので、公開面を不必要に動かさない。
 
 採用方針:
+
 - `#[wasm_bindgen] pub async fn read_state_vector()` は `lib.rs` に残す。
 - 実際の readback 本体は `gpu.rs` に移し、`lib.rs` の export 関数は薄い委譲 wrapper にする。
 
 意図:
+
 - wasm export の位置変更による余計なリスクを避ける。
 - 一方で readback の実装詳細は `gpu.rs` に閉じる。
 
 ## 実装ガードレール
+
 この pass は挙動変更なしの抽出に限定し、以下を原則とする。
 
 - 移動対象の関数/impl/定数本体は、import 解決と最小限の可視性調整を除いて原則そのまま移す。
@@ -150,6 +170,7 @@
 - 命名変更、最適化、整理、コメント追加などの「ついで変更」はしない。
 
 ## 実装手順
+
 1. `apps/web/src/gpu.rs` を追加し、`lib.rs` に `mod gpu;` を宣言する。
 2. `StateInstance`, `RenderParams`, `RenderColors`, shader 定数を `gpu.rs` に移す。
 3. `StateVectorResources` とその `impl` を `gpu.rs` に移す。
@@ -162,6 +183,7 @@
 10. 最後に symbol move と LOC を確認し、pass 3 候補を見直す。
 
 ## 受け入れ条件
+
 - `apps/web/src/gpu.rs` が追加されている。
 - `lib.rs` から以下の定義が `gpu.rs` へ移っている。
   - `StateInstance`
@@ -182,6 +204,7 @@
 - pass 3 候補（`render.rs` or `app.rs`）を判断しやすくなっている。
 
 ## 検証
+
 第2パス実装後は少なくとも以下を再実行する。
 
 ```bash
@@ -200,6 +223,7 @@ cd /home/yasuhito/Work/qni-webgpu && rg -n '^(pub\(crate\) )?(struct StateInstan
 ```
 
 期待値:
+
 - 列挙した GPU シンボルは `gpu.rs` のみにある
 - `lib.rs` にはそれらの定義が残っていない
 
@@ -210,6 +234,7 @@ cd /home/yasuhito/Work/qni-webgpu && wc -l apps/web/src/lib.rs apps/web/src/gpu.
 ```
 
 ## 第3パスの判断基準
+
 この pass 2 の完了後、残る大きな責務は主に次の2つに寄る想定である。
 
 - circuit / palette / state panel の描画

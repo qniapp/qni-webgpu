@@ -1,6 +1,7 @@
 # web `render.rs` 分割設計（第3パス）
 
 ## 背景
+
 - `apps/web/src/lib.rs` は pass 1（`layout.rs` / `icons.rs`）と pass 2（`gpu.rs`）の抽出後でも 1353 LOC あり、まだ責務が大きく残っている。
 - pass 2 完了後の最終レビューでは、残存責務の中で最もまとまりがあり、次に切り出す自然な候補として **render.rs** が推奨された。
 - 現在の `lib.rs` には、主に次の 2 系統が残っている。
@@ -10,11 +11,13 @@
 - ユーザーはこの pass 3 について、**A: 純粋抽出のみ** を選択した。したがって、今回は render helper 群を安全に `render.rs` へ移すことを優先し、挙動変更や境界の積極的整理は行わない。
 
 ## 目的
+
 - `lib.rs` から描画と state panel 表示まわりの責務を `apps/web/src/render.rs` に安全に分離する。
 - 挙動変更なしの code motion に徹し、`lib.rs` を「app state / input / update / wasm export」中心のファイルへ近づける。
 - 将来の `app.rs` あるいはさらなる分割判断をしやすくする。
 
 ## 非目的
+
 - `QniApp` 自体を `app.rs` に移すこと。
 - input / drag / drop 制御の再設計。
 - `Colors` の別モジュール化。
@@ -24,6 +27,7 @@
 - この pass だけで全ファイルを 500 LOC 以下にすること。
 
 ## 採用方針
+
 第3パスでは **rendering に閉じた責務のみを `render.rs` に移す**。ユーザー選択どおり、純粋抽出のみを採用し、次のような「ついで変更」は行わない。
 
 - `QniApp` field の再編
@@ -39,6 +43,7 @@
 ## 比較した案
 
 ### 案A: 純粋抽出のみ（採用）
+
 - `render.rs` を追加し、circuit / palette / state panel の描画 helper と state panel 用 layout/cache 型をそのまま移す。
 - `lib.rs` には `QniApp`、input/drag、update loop、gate parameter generation、wasm export を残す。
 - 利点:
@@ -50,6 +55,7 @@
   - 最終形としてはまだ `app.rs` との分離が残る。
 
 ### 案B: 純粋抽出 + 軽い境界整理
+
 - 案Aに加えて helper visibility や import を積極的に整理する。
 - 利点:
   - モジュール境界がやや明確になる。
@@ -58,6 +64,7 @@
   - 今回のユーザー選択 A より変更面積が増える。
 
 ### 案C: render と app を同時再編
+
 - `render.rs` 抽出に加えて `QniApp` や `update` も再配置する。
 - 利点:
   - 一気に最終形へ近づける可能性がある。
@@ -68,9 +75,11 @@
 ## 第3パスのモジュール境界
 
 ### 新規追加: `apps/web/src/render.rs`
+
 ここには、**描画そのものと、その表示を支える layout/cache 責務**を移す。
 
 対象:
+
 - `circuit_content_height`
 - `draw_circuit`
 - `draw_palette`
@@ -83,12 +92,15 @@
 - `StateInstanceCache`
 
 意図:
+
 - circuit / palette / state panel の描画責務を 1 モジュールに閉じ込める。
 - `lib.rs` から「どう描くか」の詳細を追い出し、`update` の流れを読みやすくする。
 - `gpu.rs`・`icons.rs`・`layout.rs` を使う上位の描画モジュールとして整理する。
 
 ### `apps/web/src/lib.rs` に残すもの
+
 対象:
+
 - `QniApp`
 - `handle_input`
 - `schedule_drag_repaint`
@@ -99,13 +111,16 @@
 - wasm export の公開面 (`start`, `read_state_vector`)
 
 意図:
+
 - `lib.rs` には「状態を持ち、入力を処理し、描画を呼び出す app の流れ」を残す。
 - render モジュールに、入力制御や wasm 公開面まで背負わせない。
 
 ## 依存関係の方針
+
 この pass で目指す主方向は **`lib.rs` → `render.rs`** である。ただし純粋抽出を成立させるため、pass 3 では `render.rs` から既存の親シンボルを参照することを許容する。
 
 許可する依存の種類:
+
 - app/domain 側シンボル
   - `crate::QniApp`
   - `crate::Colors`
@@ -131,23 +146,28 @@
   - その他、今回移動する描画本体が既に参照している描画定数
 
 方針:
+
 - 今回は **依存の完全整理より、安全な抽出を優先** する。
 - 新たに業務ロジックを `render.rs` に増やさず、既存描画本体が必要とする参照だけを持ち込む。
 - `render.rs` から `crate::gpu`, `crate::icons`, `crate::layout` を使う構造は、この pass では許容する。
 
 ## `update` の扱い
+
 `eframe::App for QniApp` の `update` は、アプリの制御フローの中心なので今回は `lib.rs` に残す。
 
 採用方針:
+
 - `update` 本体は `lib.rs` に残す。
 - その中で呼ばれる render helper だけを `render.rs` に移す。
 - state panel drag ハンドル処理や recompute の意思決定も、`update` に残す。
 
 意図:
+
 - app loop と render helper を分離しつつ、公開/制御フローは動かさない。
 - 次パスで `app.rs` を検討する余地を残す。
 
 ## 実装ガードレール
+
 この pass は挙動変更なしの抽出に限定し、以下を原則とする。
 
 - 移動対象の関数/impl/struct 本体は、import 解決と最小限の可視性調整を除いて原則そのまま移す。
@@ -166,6 +186,7 @@
 - 命名変更、最適化、コメント整理などの「ついで変更」はしない。
 
 ## 実装手順
+
 1. `apps/web/src/render.rs` を追加し、`lib.rs` に `mod render;` を宣言する。
 2. `StatePanelLayout`, `StateInstanceKey`, `StateInstanceCache` を `render.rs` に移す。
 3. `circuit_content_height`, `draw_circuit`, `draw_palette` を `render.rs` へ移す。
@@ -176,6 +197,7 @@
 8. 最後に full verification と symbol move / tests unchanged / LOC 確認を行い、pass 4 候補を見直す。
 
 ## 受け入れ条件
+
 - `apps/web/src/render.rs` が追加されている。
 - `lib.rs` から以下の定義が `render.rs` へ移っている。
   - `circuit_content_height`
@@ -195,6 +217,7 @@
 - `lib.rs` の LOC が pass 2 完了時より減っている。
 
 ## 検証
+
 第3パス実装後は少なくとも以下を再実行する。
 
 ```bash
@@ -214,6 +237,7 @@ cd /home/yasuhito/Work/qni-webgpu && rg -n 'fn circuit_content_height|fn draw_ci
 ```
 
 期待値:
+
 - 列挙した render シンボルは `render.rs` 側にある
 - `lib.rs` にはそれらの定義が残っていない
 - method の場合は `impl QniApp` 内にあるためインデント有無に依存しない grep として扱う
@@ -225,6 +249,7 @@ cd /home/yasuhito/Work/qni-webgpu && rg -n 'impl eframe::App for QniApp|pub asyn
 ```
 
 期待値:
+
 - `impl eframe::App for QniApp` は `lib.rs` のみにある
 - `pub async fn start` と `pub async fn read_state_vector` は `lib.rs` のみにある
 
@@ -235,6 +260,7 @@ cd /home/yasuhito/Work/qni-webgpu && git diff --name-only -- apps/web/tests/web.
 ```
 
 期待値:
+
 - no output
 
 LOC 確認として以下も実行する。
@@ -244,6 +270,7 @@ cd /home/yasuhito/Work/qni-webgpu && wc -l apps/web/src/lib.rs apps/web/src/rend
 ```
 
 ## 第4パスの判断基準
+
 この pass 3 の完了後、残る大きな責務は主に次の 2 つに寄る想定である。
 
 - `QniApp` の状態管理 / input / drag / update loop

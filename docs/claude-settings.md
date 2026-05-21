@@ -135,6 +135,7 @@ Claude Code の公式プラグインを無効化するには、`enabledPlugins` 
 ```
 
 **よくある間違い:**
+
 ```json
 {
   "enabledPlugins": {
@@ -152,6 +153,7 @@ cat ~/.claude/settings.json | jq '.enabledPlugins'
 ```
 
 出力例：
+
 ```json
 {
   "playwright@claude-plugins-official": true,
@@ -188,6 +190,7 @@ claude mcp list
 ```
 
 期待される出力（公式プラグインが無効化されている場合の一例）：
+
 ```
 playwright: xvfb-run -d -s -screen 0 1920x1080x24 npx @playwright/mcp@latest --isolated --config /home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json - ✓ Connected
 qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js - ✓ Connected
@@ -202,6 +205,7 @@ qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js - ✓ Co
 **原因:** 公式 Playwright プラグインが有効になっている
 
 **解決:**
+
 1. `.claude/settings.local.json` で `"playwright@claude-plugins-official": false` を設定
 2. Claude をリスタート
 3. `claude mcp list` で Playwright が1つだけか確認
@@ -209,6 +213,7 @@ qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js - ✓ Co
 ### MCP サーバーが接続されない
 
 **確認事項:**
+
 1. `.mcp.json` のパスが正しいか
 2. `enableAllProjectMcpServers: true` または `enabledMcpjsonServers` にサーバー名があるか
 3. コマンドが正しくインストールされているか

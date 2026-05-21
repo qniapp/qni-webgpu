@@ -171,14 +171,14 @@
   <span class="sep">/</span>
   <span class="parent">表示ブロック</span>
   <span class="sep">/</span>
-  <span class="current" aria-current="page">Bloch 球表示ブロック</span>
+  <span class="current" aria-current="page">ブロッホ球表示ブロック</span>
 </nav>
 
 <div class="page">
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">ブロッホ球表示ブロック</h1>
   <p class="page-lede">
-    単一 量子ビットの換算密度行列から求めた <strong>ブロッホベクトル (x, y, z)</strong> を、
+    単一の量子ビットの換算密度行列から求めた <strong>ブロッホベクトル (x, y, z)</strong> を、
     本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
     状態ベクトルには影響しない。<strong>span は 1 量子ビット 固定</strong>でリサイズ不可。
     密度行列の縮約 (reduce) → 矢印描画 (overlay) まで GPU パイプライン内で完結し、
@@ -195,10 +195,10 @@
       ゲート本体は <strong>半径 19 px の円</strong> (内塗り <code>bg-2</code>、外周 1.5 px <code>tx-3</code>) で、
       その上に軸線 / 細楕円の wireframe (1 px <code>tx-3</code>) を重ねる。
       透視投影は <code>perspective-origin = top-right</code>、<code>p = 4</code> (§ 07 投影)。
-      矢印は中心から ブロッホベクトルの先端へ伸び、先端には半径 3 px の色付き丸を置く。
+      矢印は中心からブロッホベクトルの先端へ伸び、先端には半径 3 px の色付き丸を置く。
       先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-600</code>、<code>|1⟩</code> (z = -1) = <code>blue-600</code>、equator (z = 0) は中点 <code>#684768</code>。
       ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) のみを描く。
-      マウスカーソルを乗せると、ゲート右 +8 px の位置に ブロッホベクトル詳細 popup が出る (§ 10 ポップアップ仕様)。
+      マウスカーソルを乗せると、ゲート右 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 10 ポップアップ仕様)。
       hover 枠 / popup ともに実装済み (2026-05-18)。
       モックは「実装済み挙動の常時表示プレビュー」として読む。
     </p>
@@ -571,12 +571,12 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>単一 量子ビットの ブロッホベクトル (x, y, z) を可視化する表示ブロック (状態に影響しない)</td></tr>
+        <tr><th>役割</th><td>単一の量子ビットのブロッホベクトル (x, y, z) を可視化する表示ブロック (状態に影響しない)</td></tr>
         <tr><th>span</th><td><strong>1 量子ビット 固定</strong> (<code>resizable_span: false</code>)。リサイズハンドルなし、QFT / Probability のような可変 span はない</td></tr>
         <tr><th>出力</th><td>ブロッホベクトル (x, y, z) ∈ [−1, 1]<sup>3</sup>。長さ |v| ≤ 1 (純粋状態 |v| = 1、完全混合 |v| = 0)</td></tr>
         <tr><th>算出</th><td>1 量子ビット 換算密度行列 ρ から GPU コンピュートシェーダで計算 → <code>bloch_output_buffer</code> に書き出す。CPU リードバックなし</td></tr>
         <tr><th>表示式</th><td><code>x = 2·Re(ρ<sub>01</sub>)</code>、<code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code> (qni convention)</td></tr>
-        <tr><th>シリアライズ ID</th><td><code>"Bloch"</code> (Quirk の "Bloch sphere display" と互換)</td></tr>
+        <tr><th>シリアライズ ID</th><td><code>"Bloch"</code> (Quirk の "ブロッホ球表示ブロック" と互換)</td></tr>
         <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置直後 (GPU dispatch 前) は <code>|v|=0</code> 状態のグレードットを egui で暫定描画 (§ 09)</td></tr>
         <tr><th>nesting</th><td>禁止 (表示ブロックを表示ブロックの中には置けない、Quirk と同じ)</td></tr>
       </tbody>
@@ -746,7 +746,7 @@ z_3d =  bloch.x      // CSS Z (out of screen)</pre>
 
     <h3 style="margin-top: 16px;">2. ピンホール透視</h3>
     <p>カメラを <code>p = 4</code> (radius 単位)、viewing origin を球の右上 <code>(px, py) = (1, −1)</code> に置いた透視投影:</p>
-    <pre class="code">factor = p / (p − z_3d)            // z_3d > 0 で拡大、z_3d &lt; 0 で縮小
+    <pre class="code">factor = p / (p − z_3d)            // z_3d &gt; 0 で拡大、z_3d &lt; 0 で縮小
 sx = px + factor · (x_3d − px)
 sy = py + factor · (y_3d − py)</pre>
     <p>
@@ -848,7 +848,7 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 16px;">ポップアップ</h3>
     <ul>
-      <li>ゲート hover で右側 +8 px の位置に ブロッホベクトル詳細 popup が出る (§ 10 ポップアップ仕様)</li>
+      <li>ゲート hover で右側 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 10 ポップアップ仕様)</li>
       <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
       <li>Quirk の <code>BlochSphereDisplay.js:31-58</code> <code>paintDeferredValueTooltip</code> と同等の情報量を、
         probability-display popup と同じ Geist 系のタイポグラフィで再構成</li>
@@ -871,7 +871,7 @@ z =  ρ_00 − ρ_11</pre>
   <h2>§ 10 ポップアップ仕様</h2>
   <div class="card">
     <p>
-      ゲートホバー時に出る ブロッホベクトル詳細 popup の<strong>常時表示版</strong>。
+      ゲートホバー時に出るブロッホベクトル詳細 popup の<strong>常時表示版</strong>。
       実装と同じ CSS / マークアップを静的に並べ、状態バリアントとアナトミーを
       Codex / 人間がスクロールだけで確認できるようにする。
       Quirk オリジナル (<code>../oss/Quirk/src/gates/BlochSphereDisplay.js:31-58</code>) と同じ情報を、
@@ -936,7 +936,7 @@ z =  ρ_00 − ρ_11</pre>
     <p>
       実コードと同じ <code>.bd-popup</code> マークアップに <code>.bd-popup--static</code> を付け、
       <code>position: static; display: inline-block</code> で非ホバー時にも表示する。
-      代表的な ブロッホ状態でレンダリングを確認できる。
+      代表的なブロッホ状態でレンダリングを確認できる。
     </p>
     <div class="stage" style="gap: 24px; flex-wrap: wrap;">
       <div class="col" style="max-width: 280px;">
@@ -1145,7 +1145,7 @@ z =  ρ_00 − ρ_11</pre>
         <tr><td><code>apps/web/src/gpu/shaders/bloch_display.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/overlay.rs</code></td><td>render パイプライン構築 (頂点 / インスタンス layout、blend state)</td></tr>
-        <tr><td><code>apps/web/src/gpu/resources/bloch_display.rs</code></td><td>モジュールファサード (<code>BlochResources</code> 構造体、reduce / overlay 両 pipeline を保持)</td></tr>
+        <tr><td><code>apps/web/src/gpu/resources/bloch_display.rs</code></td><td>モジュールファサード (<code>BlochResources</code> 構造体、reduce / overlay 両 パイプラインを保持)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/pipeline.rs</code></td><td>overlay render pipeline 構築 (<code>build_overlay_pipeline</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/recompute/dispatch.rs</code></td><td>reduce + overlay の毎フレーム dispatch オーケストレーション (<code>SimulationOp::CaptureBloch</code> → <code>encode_capture_bloch</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/params.rs</code></td><td><code>BlochParams</code> uniform + <code>BlochOverlayInstance</code></td></tr>
@@ -1176,7 +1176,7 @@ z =  ρ_00 − ρ_11</pre>
 
 <footer class="doc-foot">
   <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
-  <p class="meta">qni-webgpu · Bloch 球表示ブロック仕様 · 2026-05</p>
+  <p class="meta">qni-webgpu · ブロッホ球表示ブロック仕様 · 2026-05</p>
 </footer>
 
 </body>

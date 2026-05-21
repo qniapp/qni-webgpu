@@ -1,6 +1,7 @@
 # web `app.rs` 分割設計（第4パス）
 
 ## 背景
+
 - `apps/web/src/lib.rs` は pass 1（`layout.rs` / `icons.rs`）、pass 2（`gpu.rs`）、pass 3（`render.rs`）の抽出後でも 906 LOC あり、まだ複数の責務を抱えている。
 - pass 3 完了後の最終レビューでは、残存責務の中で最もまとまりがあり、次に切り出す自然な候補として **`QniApp` の状態管理 / input / update loop** が推奨された。
 - 現在の `lib.rs` には、主に次の 2 系統が残っている。
@@ -13,11 +14,13 @@
 - したがって今回は、`QniApp` 責務塊を安全に `app.rs` へ移すことを優先し、挙動変更や domain/helper の積極再編は行わない。
 
 ## 目的
+
 - `lib.rs` から `QniApp` の状態管理 / input / update loop を `apps/web/src/app.rs` に安全に分離する。
 - 挙動変更なしの code motion に徹し、`lib.rs` から「アプリ本体の制御フロー」を追い出して責務境界をさらに見やすくする。
 - `render.rs` / `gpu.rs` / `layout.rs` / `icons.rs` に続く第4段階として、将来の domain/helper 整理判断をしやすくする。
 
 ## 非目的
+
 - `Colors` の別モジュール化。
 - `GateKind` / `GateMatrix` / `GateParams` の再配置。
 - `gate_matrix` / `gate_params` / `gate_params_controlled` の責務移動。
@@ -28,6 +31,7 @@
 - この pass だけで全ファイルを 500 LOC 以下にすること。
 
 ## 採用方針
+
 第4パスでは **`QniApp` に閉じた責務のみを `app.rs` に移す**。ユーザー選択どおり、純粋抽出のみを採用し、次のような「ついで変更」は行わない。
 
 - `Colors` の移動
@@ -43,6 +47,7 @@
 ## 比較した案
 
 ### 案A: 純粋抽出のみ（採用）
+
 - `app.rs` を追加し、`PlacedGate` / `DragState` / `QniApp` / `impl QniApp` / `impl eframe::App for QniApp` をそのまま移す。
 - `lib.rs` には gate/domain helper、共有定数、`Colors`、wasm export を残す。
 - 利点:
@@ -54,6 +59,7 @@
   - 最終形としてはまだ domain/helper の整理が残る。
 
 ### 案B: 純粋抽出 + `Colors` を app 側へ移す
+
 - 案Aに加えて `Colors` も `app.rs` に寄せる。
 - 利点:
   - app loop 周辺の補助型を app 側に寄せられる。
@@ -63,6 +69,7 @@
   - 純粋抽出より一段リスクが上がる。
 
 ### 案C: `app.rs` と同時に helper まで再編する
+
 - 案Aに加えて gate/domain helper や共有型の再配置も進める。
 - 利点:
   - `lib.rs` を大きく薄くできる。
@@ -73,9 +80,11 @@
 ## 第4パスのモジュール境界
 
 ### 新規追加: `apps/web/src/app.rs`
+
 ここには、**アプリ本体の状態管理 / input / update loop に閉じた責務**を移す。
 
 対象:
+
 - `PlacedGate`
 - `DragState`
 - `QniApp`
@@ -91,12 +100,15 @@
 - `impl eframe::App for QniApp`
 
 意図:
+
 - `QniApp` の状態と制御フローを 1 モジュールに閉じ込める。
 - `lib.rs` から app loop の詳細を追い出し、共有型 / helper / wasm export を見やすくする。
 - 既存の `render.rs` / `gpu.rs` を使う app モジュールとして責務を整理する。
 
 ### `apps/web/src/lib.rs` に残すもの
+
 対象:
+
 - gate/domain helper
   - `GateKind`
   - `GateMatrix`
@@ -114,24 +126,29 @@
 - wasm export の公開面 (`start`, `read_state_vector`)
 
 意図:
+
 - `lib.rs` には「共有型・補助関数・wasm の入口」を残す。
 - 今回は `lib.rs` の薄い最終形を目指さず、中間段階として許容する。
 
 ## 依存関係の方針
+
 この pass の主目的は **`lib.rs` から `app.rs` へ `QniApp` 責務塊を移すこと**である。ただし純粋抽出を成立させるため、pass 4 では一時的な相互参照を許容する。
 
 想定する中間段階の依存:
+
 - `lib.rs` → `app.rs`（`start(...)` から `app::QniApp::new(...)` を呼ぶ）
 - `app.rs` → `crate::...` helper / 定数 / 既存 submodule
 - `render.rs` / `layout.rs` → `crate::app::{QniApp, PlacedGate}`
 
 方針:
+
 - 今回は **依存の完全整理より、安全な抽出を優先** する。
 - `QniApp` / `PlacedGate` を使う既存 sibling module は、root re-export ではなく **`crate::app::{...}` を明示 import する方針を採用** する。
 - 新たに業務ロジックを `app.rs` に増やさず、既存 `QniApp` 本体が必要とする参照だけを持ち込む。
 - `app.rs` から `render.rs` / `gpu.rs` / `layout.rs` を使う構造は、この pass では許容する。
 
 ### 許可する `app.rs` → `crate::...` 参照の種類
+
 - app/domain 側シンボル
   - `crate::GateKind`
   - `crate::GateParams`
@@ -162,6 +179,7 @@
   - その他、`QniApp` 実装が既に参照している app loop 用定数
 
 ## 可視性の方針
+
 - `QniApp` は `lib.rs` の `start(...)` から `app::QniApp::new(...)` を呼べるよう、**必要最小限で `pub(crate)`** とすることを許容する。
 - `QniApp::new(...)` も `lib.rs` から呼べる最小限の visibility を持たせる。想定は **`pub(crate)`**。
 - `PlacedGate` は `render.rs` と `layout.rs` から型参照され、かつ field を直接読まれているため、**型は `pub(crate)`、field は cross-module access に必要な最小限だけ `pub(crate)`** とする。
@@ -178,19 +196,23 @@
 - **新しい外部 `pub` API を増やさない**。この pass で移す型 (`QniApp`, `PlacedGate`, `DragState`) は crate 内 visibility に留める。
 
 ## `start` / `read_state_vector` の扱い
+
 wasm export の公開面は不必要に動かさない。
 
 採用方針:
+
 - `#[wasm_bindgen] pub async fn start(...)` は `lib.rs` に残す。
 - `start(...)` は `app::QniApp::new(...)` を呼ぶ薄いエントリポイントに保つ。
 - `#[wasm_bindgen] pub async fn read_state_vector(...)` は `lib.rs` に残す。
 - `read_state_vector(...)` の責務や公開位置は変えない。
 
 意図:
+
 - wasm export の位置変更による余計なリスクを避ける。
 - 一方で app 本体の実装詳細は `app.rs` に閉じる。
 
 ## 実装ガードレール
+
 この pass は挙動変更なしの抽出に限定し、以下を原則とする。
 
 - 移動対象の struct / impl / method 本体は、import 解決と最小限の可視性調整を除いて原則そのまま移す。
@@ -205,6 +227,7 @@ wasm export の公開面は不必要に動かさない。
 - 命名変更、最適化、コメント整理などの「ついで変更」はしない。
 
 ## 実装手順
+
 1. `apps/web/src/app.rs` を追加し、`lib.rs` に `mod app;` を宣言する。
 2. `PlacedGate`, `DragState`, `QniApp` を `app.rs` に移す。
 3. `impl QniApp` を `app.rs` に移す。
@@ -216,6 +239,7 @@ wasm export の公開面は不必要に動かさない。
 9. 最後に symbol move / remains check / tests unchanged / LOC / public-surface check を行い、pass 5 候補を見直す。
 
 ## 受け入れ条件
+
 - `apps/web/src/app.rs` が追加されている。
 - `lib.rs` から以下の定義が `app.rs` へ移っている。
   - `PlacedGate`
@@ -233,6 +257,7 @@ wasm export の公開面は不必要に動かさない。
 - `lib.rs` の LOC が pass 3 完了時より減っている。
 
 ## 検証
+
 第4パス実装後は少なくとも以下を再実行する。
 
 ```bash
@@ -252,6 +277,7 @@ cd /home/yasuhito/Work/qni-webgpu && rg -n 'struct PlacedGate|struct DragState|s
 ```
 
 期待値:
+
 - 列挙した app シンボルは `app.rs` 側にある
 - `lib.rs` にはそれらの定義が残っていない
 - `impl` の確認は method-safe な文字列一致で行う
@@ -286,6 +312,7 @@ PY
 ```
 
 期待値:
+
 - `render.rs` は `QniApp` / `PlacedGate` を `crate::app` から import している
 - `layout.rs` は `PlacedGate` を `crate::app` から import している
 - multi-line import を含め、旧 root import / root path 参照は残っていない
@@ -297,6 +324,7 @@ cd /home/yasuhito/Work/qni-webgpu && rg -n 'enum GateKind|struct GateMatrix|stru
 ```
 
 期待値:
+
 - 列挙した gate/domain helper、`Colors`、wasm export は `lib.rs` のみにある
 - `app.rs` 側にはそれらの定義が増えていない
 
@@ -324,6 +352,7 @@ PY
 ```
 
 期待値:
+
 - `start` / `read_state_vector` を除き、新しい外部 `pub` が増えていない
 - `pub use app::...` だけでなく `pub use self::app::...`, `pub(crate) use app::...`, `pub(crate) use crate::app::...`, `pub(super) use ...` も追加されていない
 
@@ -361,6 +390,7 @@ PY
 ```
 
 期待値:
+
 - `pub(crate)` 化は承認済みの最小限に収まっている
 - 追加の field / method / re-export widening は発生していない
 
@@ -371,6 +401,7 @@ cd /home/yasuhito/Work/qni-webgpu && git diff --name-only -- apps/web/tests/web.
 ```
 
 期待値:
+
 - no output
 
 LOC 確認として以下も実行する。
@@ -380,6 +411,7 @@ cd /home/yasuhito/Work/qni-webgpu && wc -l apps/web/src/lib.rs apps/web/src/app.
 ```
 
 ## 第5パスの判断基準
+
 この pass 4 の完了後、残る大きな責務は主に次の 2 つに寄る想定である。
 
 - gate/domain helper と共有型

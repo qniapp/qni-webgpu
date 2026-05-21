@@ -101,6 +101,7 @@ GitHub Actions では以下を使って検証します。
 - **Playwright Chromium**
 
 補足:
+
 - ローカル手動起動は通常の Chrome で行う。WebGPU 用の特別な起動フラグは不要
 - ローカル Linux や Playwright MCP の運用では **xvfb-run** を使うことがある
 - CI/headless の Playwright 経路では安定化用の Chromium 起動設定を使う

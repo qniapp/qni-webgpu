@@ -88,6 +88,7 @@
 ### Task 0: isolated worktree を準備する
 
 **Files:**
+
 - Modify: none
 - Reference: `docs/superpowers/specs/2026-04-20-web-cucumber-feature-md-design.md`
 - Reference: `docs/superpowers/plans/2026-04-20-web-cucumber-feature-md.md`
@@ -95,26 +96,33 @@
 - [ ] **Step 1: 親 working tree が clean であることを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git status --short
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 2: 既存 worktree / branch が衝突しないことを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git worktree list
 cd /home/yasuhito/Work/qni-webgpu && git branch --list feat/web-cucumber-feature-md
 ```
+
 Expected:
+
 - `git worktree list` に `web-cucumber-feature-md` がない
 - `git branch --list ...` が no output
 
 - [ ] **Step 3: base branch と worktree root を portable に解決する**
 
 Run:
+
 ```bash
 REPO=/home/yasuhito/Work/qni-webgpu
 WORKTREE_ROOT="${QNI_WORKTREE_ROOT:-$HOME/.config/superpowers/worktrees/qni-webgpu}"
@@ -126,7 +134,9 @@ mkdir -p "$WORKTREE_ROOT"
 git -C "$REPO" rev-parse --verify "$BASE_BRANCH"
 printf 'BASE_BRANCH=%s\nWORKTREE_ROOT=%s\n' "$BASE_BRANCH" "$WORKTREE_ROOT"
 ```
+
 Expected:
+
 - `BASE_BRANCH` が空でない
 - `WORKTREE_ROOT` が作成される
 - `git rev-parse --verify "$BASE_BRANCH"` が success
@@ -134,6 +144,7 @@ Expected:
 - [ ] **Step 4: worktree と branch を作成する**
 
 Run:
+
 ```bash
 REPO=/home/yasuhito/Work/qni-webgpu
 WORKTREE_ROOT="${QNI_WORKTREE_ROOT:-$HOME/.config/superpowers/worktrees/qni-webgpu}"
@@ -143,23 +154,29 @@ if [ -z "$BASE_BRANCH" ]; then
 fi
 git -C "$REPO" worktree add "$WORKTREE_ROOT/web-cucumber-feature-md" -b feat/web-cucumber-feature-md "$BASE_BRANCH"
 ```
+
 Expected:
+
 - worktree directory が作成される
 - branch `feat/web-cucumber-feature-md` が作成される
 
 - [ ] **Step 5: worktree 側で clean 状態を確認する**
 
 Run:
+
 ```bash
 WORKTREE_ROOT="${QNI_WORKTREE_ROOT:-$HOME/.config/superpowers/worktrees/qni-webgpu}"
 cd "$WORKTREE_ROOT/web-cucumber-feature-md" && git status --short
 ```
+
 Expected:
+
 - no output
 
 ### Task 1: shared browser/server policy を先に切り出し、legacy Playwright を壊さずに共有化する
 
 **Files:**
+
 - Create: `apps/web/test-support/browser-launch.cjs`
 - Create: `apps/web/test-support/web-server.cjs`
 - Create: `apps/web/test-node/browser-launch.test.cjs`
@@ -173,12 +190,14 @@ Expected:
 - [ ] **Step 1: shared policy 用 node test を先に追加する**
 
 追加する test の意図:
+
 - browser launch policy が `PLAYWRIGHT_CHROMIUM_PATH` override と system Chrome 優先を維持する
 - flagged WebGPU browser 用 args が shared source of truth になる
 - plain chromium error-path 用 mode が shared source of truth になる
 - web server policy が `command` / `url` / `timeout` / `reuseExistingServer` を保持する
 
 例:
+
 ```js
 const test = require('node:test')
 const assert = require('node:assert/strict')
@@ -196,15 +215,19 @@ test('shared web server config preserves trunk serve contract', () => {
 - [ ] **Step 2: test を実行して RED を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && node --test test-node/browser-launch.test.cjs test-node/web-server.test.cjs
 ```
+
 Expected:
+
 - module not found または export 不足で fail
 
 - [ ] **Step 3: shared policy module を実装する**
 
 実装方針:
+
 - `test-support/browser-launch.cjs`
   - `resolvePlaywrightBrowserExecutable(...)` を shared source of truth にする
   - `getStandardWebGpuLaunchOptions(...)` を用意する
@@ -213,6 +236,7 @@ Expected:
   - `getWebServerConfig()` を export する
 
 shape 例:
+
 ```js
 function getWebServerConfig() {
   return {
@@ -227,34 +251,43 @@ function getWebServerConfig() {
 - [ ] **Step 4: legacy Playwright 側を shared policy 利用へ切り替える**
 
 更新対象:
+
 - `playwright-browser.cjs` は shared launcher の thin wrapper または互換 export にする
 - `playwright.config.cjs` は `launchOptions` と `webServer` を shared module から構成する
 
 確認観点:
+
 - 現行 flags を落とさない
 - 現行 `4174` / `--no-autoreload` / `180_000` / `reuseExistingServer: true` を維持する
 
 - [ ] **Step 5: node preflight を再実行して GREEN を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:preflight
 ```
+
 Expected:
+
 - shared policy test を含めて pass
 
 - [ ] **Step 6: legacy Playwright の focused baseline を再確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec playwright test --grep 'web canvas renders content|default chromium shows a visible WebGPU error instead of a blank page|dragged palette gate stays above the state panel overlay'
 ```
+
 Expected:
+
 - 3 tests すべて pass
 
 - [ ] **Step 7: Task 1 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/test-support/browser-launch.cjs \
@@ -268,12 +301,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: share web browser and server policy"
 ```
+
 Expected:
+
 - shared policy commit が作成される
 
 ### Task 2: Cucumber runner と support 基盤を追加する
 
 **Files:**
+
 - Create: `apps/web/cucumber.cjs`
 - Create: `apps/web/features/support/world.cjs`
 - Create: `apps/web/features/support/hooks.cjs`
@@ -290,11 +326,13 @@ Expected:
 - [ ] **Step 1: config / script contract の failing test を先に追加する**
 
 `test-node/cucumber-config.test.cjs` は **必須** とし、少なくとも以下を固定する。
+
 - `package.json` に `test:bdd` と `test:pw-legacy` がある
 - `test` は初回導入では Playwright のまま維持される
 - `cucumber.cjs` が `.feature.md` glob と support/step definitions を読む
 
 例:
+
 ```js
 test('package scripts add bdd and keep legacy primary test', async () => {
   const path = require('node:path')
@@ -308,17 +346,22 @@ test('package scripts add bdd and keep legacy primary test', async () => {
 - [ ] **Step 2: test を実行して RED を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && node --test test-node/cucumber-config.test.cjs
 ```
+
 Expected:
+
 - script / config 未実装で fail
 
 - [ ] **Step 3: `package.json` と `cucumber.cjs` を追加する**
 
 実装方針:
+
 - `@cucumber/cucumber` を devDependencies に追加
 - script を追加:
+
 ```json
 {
   "scripts": {
@@ -329,9 +372,11 @@ Expected:
   }
 }
 ```
+
 - `cucumber.cjs` は `.feature.md` のみを拾う
 
 shape 例:
+
 ```js
 module.exports = {
   paths: ['features/**/*.feature.md'],
@@ -344,16 +389,20 @@ module.exports = {
 - [ ] **Step 4: dependency を install して lockfile を更新する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm install
 ```
+
 Expected:
+
 - `@cucumber/cucumber` を含む install が成功する
 - `pnpm-lock.yaml` が更新される
 
 - [ ] **Step 5: support skeleton を追加する**
 
 役割:
+
 - `world.cjs`: browser/context/page/error buffer
 - `browser.cjs`: shared browser-launch adapter
 - `server.cjs`: shared web-server adapter
@@ -365,15 +414,19 @@ Expected:
 - [ ] **Step 6: node config test を再実行して GREEN にする**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:preflight
 ```
+
 Expected:
+
 - Cucumber config を含む node tests が pass
 
 - [ ] **Step 7: temp smoke feature で runner/config/support load を deterministic に確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web
 TMPDIR="$(mktemp -d)"
@@ -389,7 +442,9 @@ EOF
 pnpm exec cucumber-js --config cucumber.cjs --dry-run --require "$TMPDIR/smoke.steps.cjs" "$TMPDIR/smoke.feature.md"
 rm -rf "$TMPDIR"
 ```
+
 Expected:
+
 - exit 0
 - 1 scenario が検出される
 - config parse error / support load error が出ない
@@ -397,6 +452,7 @@ Expected:
 - [ ] **Step 8: Task 2 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/package.json \
@@ -411,12 +467,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: add web cucumber runner scaffolding"
 ```
+
 Expected:
+
 - Cucumber scaffolding commit が作成される
 
 ### Task 3: startup success scenario を `.feature.md` へ移植する
 
 **Files:**
+
 - Create: `apps/web/features/startup-success.feature.md`
 - Create: `apps/web/features/step_definitions/startup-success.steps.cjs`
 - Modify: `apps/web/features/support/egui-helpers.cjs`
@@ -425,10 +484,12 @@ Expected:
 - [ ] **Step 1: `.feature.md` と step file を先に追加する**
 
 内容:
+
 - 1 scenario のみ
 - flagged WebGPU browser で open → initialize → visible canvas → error absent → initial state vector 確認
 
 例:
+
 ```md
 Feature: web startup success
 
@@ -447,45 +508,57 @@ Feature: web startup success
 - [ ] **Step 2: focused BDD を実行して RED を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/startup-success.feature.md
 ```
+
 Expected:
+
 - undefined step または helper 未実装で fail
 
 - [ ] **Step 3: 必要な helper / step を最小実装する**
 
 抽出候補:
+
 - `readStateVector(...)`
 - app ready wait
 - `#egui-canvas` 可視確認
 - `window.__eguiError` 取得
 
 方針:
+
 - 既存 `web.spec.js` の処理を runner 非依存 helper として移す
 - `@playwright/test` の `expect.poll` に依存しない retry helper を使う
 
 - [ ] **Step 4: focused BDD を再実行して GREEN を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/startup-success.feature.md
 ```
+
 Expected:
+
 - 1 scenario pass
 
 - [ ] **Step 5: legacy Playwright の同等 scenario が壊れていないことを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec playwright test --grep 'web canvas renders content'
 ```
+
 Expected:
+
 - pass
 
 - [ ] **Step 6: Task 3 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/features/startup-success.feature.md \
@@ -494,12 +567,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: add web startup bdd scenario"
 ```
+
 Expected:
+
 - startup success BDD commit が作成される
 
 ### Task 4: plain chromium visible error scenario を移植する
 
 **Files:**
+
 - Create: `apps/web/features/plain-chromium-error.feature.md`
 - Create: `apps/web/features/step_definitions/plain-chromium-error.steps.cjs`
 - Modify: `apps/web/features/support/browser.cjs`
@@ -509,6 +585,7 @@ Expected:
 - [ ] **Step 1: 1 scenario だけの `.feature.md` を追加する**
 
 例:
+
 ```md
 Feature: web plain chromium error
 
@@ -521,15 +598,19 @@ Feature: web plain chromium error
 - [ ] **Step 2: focused BDD を実行して RED を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/plain-chromium-error.feature.md
 ```
+
 Expected:
+
 - plain chromium mode の step / helper 不足で fail
 
 - [ ] **Step 3: plain chromium launch path と visible error assertion を最小実装する**
 
 確認観点:
+
 - shared launcher policy の plain chromium mode を使う
 - `window.__eguiError` または visible error DOM を使って白画面回避仕様を検証する
 - launch args を step 側に複製しない
@@ -537,24 +618,31 @@ Expected:
 - [ ] **Step 4: focused BDD を再実行して GREEN を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/plain-chromium-error.feature.md
 ```
+
 Expected:
+
 - 1 scenario pass
 
 - [ ] **Step 5: legacy Playwright の同等 scenario が壊れていないことを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec playwright test --grep 'default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - pass
 
 - [ ] **Step 6: Task 4 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/features/plain-chromium-error.feature.md \
@@ -564,12 +652,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: add web plain chromium error bdd scenario"
 ```
+
 Expected:
+
 - plain chromium BDD commit が作成される
 
 ### Task 5: drag preview z-order scenario を移植する
 
 **Files:**
+
 - Create: `apps/web/features/drag-preview-z-order.feature.md`
 - Create: `apps/web/features/step_definitions/drag-preview-z-order.steps.cjs`
 - Modify: `apps/web/features/support/egui-helpers.cjs`
@@ -579,6 +670,7 @@ Expected:
 - [ ] **Step 1: 1 scenario だけの `.feature.md` を追加する**
 
 例:
+
 ```md
 Feature: web drag preview z-order
 
@@ -592,21 +684,26 @@ Feature: web drag preview z-order
 - [ ] **Step 2: focused BDD を実行して RED を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/drag-preview-z-order.feature.md
 ```
+
 Expected:
+
 - drag / pixel sampling / assertion 未実装で fail
 
 - [ ] **Step 3: drag helper と pixel assertion を最小実装する**
 
 抽出候補:
+
 - `dragPointer(...)`
 - screenshot retry helper
 - `sampleCanvasPixels(...)`
 - state panel overlay との前後比較 helper
 
 方針:
+
 - 既存 Playwright test の座標/比較ロジックを `egui-helpers.cjs` に寄せる
 - 既存仕様を変えない
 - BDD scenario のために drag semantics を外へ露出しすぎない
@@ -614,24 +711,31 @@ Expected:
 - [ ] **Step 4: focused BDD を再実行して GREEN を確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec cucumber-js --config cucumber.cjs features/drag-preview-z-order.feature.md
 ```
+
 Expected:
+
 - 1 scenario pass
 
 - [ ] **Step 5: legacy Playwright の同等 scenario が壊れていないことを確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm exec playwright test --grep 'dragged palette gate stays above the state panel overlay'
 ```
+
 Expected:
+
 - pass
 
 - [ ] **Step 6: Task 5 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/features/drag-preview-z-order.feature.md \
@@ -641,12 +745,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: add web drag preview bdd scenario"
 ```
+
 Expected:
+
 - drag preview BDD commit が作成される
 
 ### Task 6: staged rollout を package/docs/check-all に配線する
 
 **Files:**
+
 - Modify: `apps/web/package.json`
 - Modify: `docs/web.md`
 - Modify: `scripts/check-all.sh`
@@ -655,6 +762,7 @@ Expected:
 - [ ] **Step 1: rollout contract を先に書く**
 
 追記内容:
+
 - `test:bdd` の目的
 - `test:pw-legacy` を残す理由
 - 初回導入では `test` を切り替えないこと
@@ -663,6 +771,7 @@ Expected:
 - [ ] **Step 2: `check-all.sh` を staged rollout に合わせて更新する**
 
 形の例:
+
 ```bash
 echo "==> Web: Playwright preflight (browser resolution)"
 pnpm -C "$ROOT_DIR/apps/web" run test:preflight
@@ -677,6 +786,7 @@ pnpm -C "$ROOT_DIR/apps/web" run test:pw-legacy
 - [ ] **Step 3: docs を更新する**
 
 `docs/web.md` に追記する内容:
+
 - `.feature.md` が初回導入されたこと
 - BDD path と legacy path の使い分け
 - 初回導入では 3 scenario のみが BDD 化されていること
@@ -685,18 +795,22 @@ pnpm -C "$ROOT_DIR/apps/web" run test:pw-legacy
 - [ ] **Step 4: shell / node / focused BDD + legacy をまとめて確認する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md && bash -n scripts/check-all.sh
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:preflight
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:bdd
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:pw-legacy
 ```
+
 Expected:
+
 - 4 コマンドすべて success
 
 - [ ] **Step 5: Task 6 を commit する**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
   apps/web/package.json \
@@ -705,12 +819,15 @@ git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md add \
 
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md commit -m "test: wire web bdd rollout"
 ```
+
 Expected:
+
 - rollout wiring commit が作成される
 
 ### Task 7: full verification / mechanical checks / review-ready 状態にする
 
 **Files:**
+
 - Modify: none unless fixes are required
 - Reference: `apps/web/**`
 - Reference: `scripts/check-all.sh`
@@ -719,6 +836,7 @@ Expected:
 - [ ] **Step 1: full verification を実行する**
 
 Run:
+
 ```bash
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:preflight
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && pnpm run test:bdd
@@ -726,12 +844,15 @@ cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web &
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md/apps/web && env PATH="$HOME/.cargo/bin:$PATH" trunk build
 cd ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md && git diff --check
 ```
+
 Expected:
+
 - 5 コマンドすべて success
 
 - [ ] **Step 2: scenario scope / anti-drift / unchanged-surface を機械確認する**
 
 Run:
+
 ```bash
 python - <<'PY'
 from pathlib import Path
@@ -756,12 +877,15 @@ assert 'test-support/web-server.cjs' in hooks
 print('BDD_PLAN_MECHANICAL_OK')
 PY
 ```
+
 Expected:
+
 - `BDD_PLAN_MECHANICAL_OK`
 
 - [ ] **Step 3: review 用 summary を整える**
 
 まとめるべき内容:
+
 - shared policy module 追加
 - 3 `.feature.md` / 3 scenario 導入
 - legacy Playwright retention
@@ -772,15 +896,19 @@ Expected:
 - [ ] **Step 4: Task 7 を commit する（修正がある場合のみ）**
 
 Run:
+
 ```bash
 git -C ~/.config/superpowers/worktrees/qni-webgpu/web-cucumber-feature-md status --short
 ```
+
 Expected:
+
 - clean、または review fix がある場合のみ追加 commit を作る
 
 ## 実行後レビュー観点
 
 reviewer には少なくとも以下を確認してもらう。
+
 - 初回導入が 3 scenario total に厳密に収まっているか
 - legacy Playwright と Cucumber が shared browser/server policy を実際に共有しているか
 - browser flag drift / server lifecycle drift がないか

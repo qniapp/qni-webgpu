@@ -160,6 +160,7 @@ cargo test --test e2e
 ```
 
 補足:
+
 - `ratatui-testlib` は `apps/tui/vendor/ratatui-testlib` にローカルパッチを当てている
 
 ## 描画の実装メモ（現行）

@@ -58,6 +58,7 @@
 ### Task 1: `gates.rs` を追加し、gate/domain helper を先に抽出する
 
 **Files:**
+
 - Create: `apps/web/src/gates.rs`
 - Modify: `apps/web/src/lib.rs`
 - Modify: `apps/web/src/app.rs`
@@ -69,11 +70,14 @@
 - [ ] **Step 1: gate/domain 抽出前のベースラインを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'H on q0 and q1 yields uniform superposition|CNOT with control on q1 yields bell state|Control does not affect gates in other columns|placed circuit gate keeps its visual while dragging another gate'
 ```
+
 Expected:
+
 - `cargo check --target wasm32-unknown-unknown` が success
 - grep で一致した Playwright がすべて pass
 
@@ -82,6 +86,7 @@ Expected:
 `apps/web/src/gates.rs` を作成し、`apps/web/src/lib.rs` に `mod gates;` を追加する。
 
 `lib.rs` から次を移す。
+
 - `GateKind`
 - `GateMatrix`
 - `GateParams`
@@ -90,11 +95,13 @@ Expected:
 - `gate_params_controlled`
 
 方針:
+
 - `GateKind`, `GateParams`, `gate_params`, `gate_params_controlled`, `GateKind::label` は **`pub(crate)`** にする
 - `GateMatrix` と `gate_matrix` は `gates.rs` 内で閉じられるなら private のままにする
 - 本体は import 解決と最小限の visibility 解決以外そのまま移す
 
 初期 import 例:
+
 ```rust
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -107,6 +114,7 @@ pub(crate) enum GateKind { /* moved as-is */ }
 - [ ] **Step 3: moved symbol 利用側の import を `crate::gates` 前提に更新する**
 
 更新対象:
+
 - `apps/web/src/lib.rs`
 - `apps/web/src/app.rs`
 - `apps/web/src/render.rs`
@@ -114,6 +122,7 @@ pub(crate) enum GateKind { /* moved as-is */ }
 - `apps/web/src/icons.rs`
 
 確認観点:
+
 - `PALETTE_GATES` は `lib.rs` に残すが、型は `gates::GateKind` を使う
 - `app.rs` は `GateKind`, `GateParams`, `gate_params`, `gate_params_controlled` を `crate::gates` から読む
 - `render.rs` / `icons.rs` は `GateKind` を `crate::gates` から読む
@@ -123,24 +132,31 @@ pub(crate) enum GateKind { /* moved as-is */ }
 - [ ] **Step 4: gate/domain 抽出後にコンパイルする**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 ```
+
 Expected:
+
 - module / import / visibility 周りの error がなく success
 
 - [ ] **Step 5: gate/domain 抽出後の focused 回帰を回す**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'H on q0 and q1 yields uniform superposition|CNOT with control on q1 yields bell state|Control does not affect gates in other columns|placed circuit gate keeps its visual while dragging another gate'
 ```
+
 Expected:
+
 - 一致したテストがすべて pass
 
 - [ ] **Step 6: gate/domain 抽出を commit する**
 
 Run:
+
 ```bash
 git add /home/yasuhito/Work/qni-webgpu/apps/web/src/gates.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/lib.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/app.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/render.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/gpu.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/icons.rs
 git commit -m "refactor: extract web gate domain helpers"
@@ -149,6 +165,7 @@ git commit -m "refactor: extract web gate domain helpers"
 ### Task 2: `colors.rs` を追加し、`Colors` を抽出する
 
 **Files:**
+
 - Create: `apps/web/src/colors.rs`
 - Modify: `apps/web/src/lib.rs`
 - Modify: `apps/web/src/app.rs`
@@ -160,10 +177,13 @@ git commit -m "refactor: extract web gate domain helpers"
 - [ ] **Step 1: `Colors` 抽出前のベースラインを再確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'web canvas renders content|palette panel keeps its corners and shadow while dragging|palette control gate keeps its icon while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - 一致したテストがすべて pass
 
 - [ ] **Step 2: `colors.rs` を作成し、`Colors` を移す**
@@ -171,10 +191,12 @@ Expected:
 `apps/web/src/colors.rs` を作成し、`apps/web/src/lib.rs` に `mod colors;` を追加する。
 
 `lib.rs` から次を移す。
+
 - `Colors`
 - `impl Colors`
 
 方針:
+
 - `Colors` と `Colors::new` は **`pub(crate)`** にする
 - cross-module で直接読まれる field だけ **`pub(crate)`** にする
 - 本体は import 解決と最小限の visibility 解決以外そのまま移す
@@ -182,6 +204,7 @@ Expected:
 - [ ] **Step 3: moved symbol 利用側の import を `crate::colors` 前提に更新する**
 
 更新対象:
+
 - `apps/web/src/lib.rs`
 - `apps/web/src/app.rs`
 - `apps/web/src/render.rs`
@@ -189,6 +212,7 @@ Expected:
 - `apps/web/src/icons.rs`
 
 確認観点:
+
 - `app.rs` の `Colors::new()` 呼び出しが `crate::colors::Colors` で解決すること
 - `render.rs` / `gpu.rs` / `icons.rs` の `&Colors` と field access が `crate::colors::Colors` で成立すること
 - `crate::Colors` の root 参照を残さないこと
@@ -196,24 +220,31 @@ Expected:
 - [ ] **Step 4: `Colors` 抽出後にコンパイルする**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 ```
+
 Expected:
+
 - import / visibility / field access 周りの error がなく success
 
 - [ ] **Step 5: `Colors` 抽出後の focused 回帰を回す**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'web canvas renders content|palette panel keeps its corners and shadow while dragging|palette control gate keeps its icon while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - 一致したテストがすべて pass
 
 - [ ] **Step 6: `Colors` 抽出を commit する**
 
 Run:
+
 ```bash
 git add /home/yasuhito/Work/qni-webgpu/apps/web/src/colors.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/lib.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/app.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/render.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/gpu.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/icons.rs
 git commit -m "refactor: extract web colors"
@@ -222,6 +253,7 @@ git commit -m "refactor: extract web colors"
 ### Task 3: thin-entry pass 全体を検証し、次候補を決める
 
 **Files:**
+
 - Modify: none required unless review で修正が入る
 - Reference: `apps/web/src/lib.rs`
 - Reference: `apps/web/src/gates.rs`
@@ -231,30 +263,39 @@ git commit -m "refactor: extract web colors"
 - [ ] **Step 1: pass 全体の完全検証を実行する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test
 cd /home/yasuhito/Work/qni-webgpu/apps/web && trunk build
 ```
+
 Expected:
+
 - 3 コマンドすべて success
 
 - [ ] **Step 2: patch hygiene を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git diff --check
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 3: gate/theme symbol move を機械的に確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && rg -n 'enum GateKind|struct GateMatrix|struct GateParams|fn gate_matrix|fn gate_params\(|fn gate_params_controlled|struct Colors' apps/web/src/lib.rs apps/web/src/gates.rs apps/web/src/colors.rs
 ```
+
 Expected:
+
 - gate/domain helper は `gates.rs` 側にある
 - `Colors` は `colors.rs` 側にある
 - `lib.rs` にはそれらの定義が残っていない
@@ -262,16 +303,20 @@ Expected:
 - [ ] **Step 4: moved symbol 利用側が `crate::gates` / `crate::colors` を直接参照していることを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && rg -n 'crate::gates::|crate::colors::|use crate::gates::|use crate::colors::' apps/web/src/app.rs apps/web/src/render.rs apps/web/src/gpu.rs apps/web/src/icons.rs apps/web/src/lib.rs
 ```
+
 Expected:
+
 - `app.rs` / `render.rs` / `gpu.rs` / `icons.rs` / `lib.rs` は `gates.rs` / `colors.rs` を直接参照している
 - root alias ではなく direct module path になっている
 
 - [ ] **Step 5: root re-export がないことを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -283,12 +328,15 @@ for path in Path('apps/web/src').glob('*.rs'):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 6: forbidden root alias / root path reference が残っていないことを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -302,46 +350,59 @@ for path in Path('apps/web/src').glob('*.rs'):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 - grouped import を含め、forbidden root alias / root path reference は残っていない
 
 - [ ] **Step 7: `lib.rs` に残すべき定数と wasm export が残っていることを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && rg -n 'const REM\b|const STATE_CIRCLE_SIZE\b|const MIN_QUBITS\b|const MAX_QUBITS\b|const MAX_STATE_COUNT\b|const LINE_Y\b|const GATE_SIZE\b|const SNAP_DISTANCE\b|const PALETTE_GAP\b|const PALETTE_ROW_Y\b|pub async fn start\b|pub async fn read_state_vector\b' apps/web/src/lib.rs apps/web/src/gates.rs apps/web/src/colors.rs
 ```
+
 Expected:
+
 - 列挙した共有定数と `start` / `read_state_vector` は `lib.rs` のみにある
 - `gates.rs` / `colors.rs` 側にはそれらの定義が現れない
 
 - [ ] **Step 8: テストファイルが変更されていないことを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git diff --name-only -- apps/web/tests apps/web/test-node
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 9: LOC を測り、次の候補を決める**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && wc -l apps/web/src/lib.rs apps/web/src/gates.rs apps/web/src/colors.rs apps/web/src/app.rs apps/web/src/render.rs apps/web/src/gpu.rs apps/web/src/layout.rs apps/web/src/icons.rs
 ```
+
 Expected:
+
 - `lib.rs` が pass 4 完了時より小さい
 - 結果をレビュー依頼に添える
 
 次候補の判断ルール:
+
 - 共有 helper がまだ大きいなら → shared utility module への抽出
 - crate root が十分薄くなったなら → 分割シリーズ完了
 
 - [ ] **Step 10: reviewer に thin-entry pass のレビューを依頼する**
 
 レビュー対象:
+
 - `apps/web/src/lib.rs`
 - `apps/web/src/gates.rs`
 - `apps/web/src/colors.rs`
@@ -350,6 +411,7 @@ Expected:
 - symbol move / no-root-alias / LOC
 
 レビュー観点:
+
 - 純粋抽出を守れているか
 - visibility が最小限に収まっているか
 - `lib.rs` に shared helper / 定数 / wasm export が残っているか
@@ -360,6 +422,7 @@ Expected:
 
 もし reviewer 指摘があれば、必要最小限だけ修正して focused な commit を切る。
 その後、次をまとめる:
+
 - `gates.rs` に移したもの
 - `colors.rs` に移したもの
 - `lib.rs` に残したもの

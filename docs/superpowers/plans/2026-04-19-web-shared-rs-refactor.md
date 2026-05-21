@@ -52,6 +52,7 @@
 ### Task 1: `shared.rs` を追加し、shared helper を純粋抽出する
 
 **Files:**
+
 - Create: `apps/web/src/shared.rs`
 - Modify: `apps/web/src/lib.rs`
 - Modify: `apps/web/src/app.rs`
@@ -62,11 +63,14 @@
 - [ ] **Step 1: 抽出前のベースラインを確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'web canvas renders content|H on q0 and q1 yields uniform superposition|palette panel keeps its corners and shadow while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - wasm `cargo check` が success
 - 指定した focused Playwright がすべて pass
 
@@ -75,17 +79,20 @@ Expected:
 `apps/web/src/shared.rs` を作成し、`apps/web/src/lib.rs` に `mod shared;` を追加する。
 
 `lib.rs` から次を移す。
+
 - `now_seconds`
 - `display_index_to_state_index`
 - `amplitude_qubits`
 - `color_rgba`
 
 方針:
+
 - helper 本体は import 解決と visibility 調整以外そのまま移す
 - helper は **`pub(crate)`** にする
 - `shared.rs` に新規 helper や定数は足さない
 
 初期 shape 例:
+
 ```rust
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn now_seconds() -> f64 { /* moved as-is */ }
@@ -96,12 +103,14 @@ pub(crate) fn amplitude_qubits(len: usize) -> usize { /* moved as-is */ }
 - [ ] **Step 3: 利用側を `crate::shared::...` 前提に更新する**
 
 更新対象:
+
 - `apps/web/src/app.rs`
 - `apps/web/src/render.rs`
 - `apps/web/src/colors.rs`
 - `apps/web/src/lib.rs`
 
 確認観点:
+
 - `app.rs` は `now_seconds` を `crate::shared` から解決する
 - `render.rs` は `amplitude_qubits` / `display_index_to_state_index` を `crate::shared` から解決する
 - `colors.rs` は `color_rgba` を `crate::shared` から解決する
@@ -111,24 +120,31 @@ pub(crate) fn amplitude_qubits(len: usize) -> usize { /* moved as-is */ }
 - [ ] **Step 4: 抽出直後にコンパイルして import / visibility 崩れを切り分ける**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 ```
+
 Expected:
+
 - module / import / visibility 周りの error がなく success
 
 - [ ] **Step 5: focused 回帰を回す**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test --grep 'web canvas renders content|H on q0 and q1 yields uniform superposition|palette panel keeps its corners and shadow while dragging|default chromium shows a visible WebGPU error instead of a blank page'
 ```
+
 Expected:
+
 - 一致したテストがすべて pass
 
 - [ ] **Step 6: shared helper 抽出を commit する**
 
 Run:
+
 ```bash
 git add /home/yasuhito/Work/qni-webgpu/apps/web/src/shared.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/lib.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/app.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/render.rs /home/yasuhito/Work/qni-webgpu/apps/web/src/colors.rs
 git commit -m "refactor: extract web shared helpers"
@@ -137,6 +153,7 @@ git commit -m "refactor: extract web shared helpers"
 ### Task 2: pass 全体を検証し、mechanical check を完了する
 
 **Files:**
+
 - Modify: none required unless review で修正が入る
 - Reference: `apps/web/src/lib.rs`
 - Reference: `apps/web/src/shared.rs`
@@ -148,26 +165,33 @@ git commit -m "refactor: extract web shared helpers"
 - [ ] **Step 1: pass 全体の完全検証を実行する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu/apps/web && env PATH="$HOME/.cargo/bin:$PATH" cargo check --target wasm32-unknown-unknown
 cd /home/yasuhito/Work/qni-webgpu/apps/web && pnpm exec playwright test
 cd /home/yasuhito/Work/qni-webgpu/apps/web && trunk build
 ```
+
 Expected:
+
 - 3 コマンドすべて success
 
 - [ ] **Step 2: patch hygiene を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git diff --check
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 3: helper move を機械的に確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -187,12 +211,15 @@ for pattern in [
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 4: agreed direct-user mapping を spec どおり機械的に確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -215,12 +242,15 @@ for path, needles in checks.items():
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 5: `shared.rs` の helper visibility を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -240,12 +270,15 @@ if re.search(r'\bpub fn\b', text):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 6: no-root-reexport と old root path 不在を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -259,12 +292,15 @@ for path in Path('apps/web/src').glob('*.rs'):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 7: `lib.rs` remains check を行う**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && python - <<'PY'
 from pathlib import Path
@@ -311,28 +347,37 @@ if re.search(r'^const\s+', shared, re.M):
 print('ok')
 PY
 ```
+
 Expected:
+
 - `ok`
 
 - [ ] **Step 8: tests 未変更を確認する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && git status --short --untracked-files=all -- apps/web/tests apps/web/test-node
 ```
+
 Expected:
+
 - no output
 
 - [ ] **Step 9: LOC を記録し、次候補を明確化する**
 
 Run:
+
 ```bash
 cd /home/yasuhito/Work/qni-webgpu && wc -l apps/web/src/lib.rs apps/web/src/shared.rs apps/web/src/app.rs apps/web/src/render.rs apps/web/src/colors.rs
 ```
+
 Expected:
+
 - `lib.rs` が current head（140 LOC）より減っている
 - `shared.rs` の追加後も責務線が明確である
 
 記録内容:
+
 - `lib.rs` / `shared.rs` の LOC
 - 次候補が残るなら、その候補（例: constants を含まないさらに小さな root cleanup ではなく、現時点では thin-entry pass 完了扱いかどうか）を明記する

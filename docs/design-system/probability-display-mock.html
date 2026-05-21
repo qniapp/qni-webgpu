@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Probability display — UI モック</title>
+  <title>確率表示ブロック — UI モック</title>
   <link rel="stylesheet" href="design-system.css" />
   <style>
 
@@ -96,7 +96,7 @@
 
     /* ───── Resize handle (= shared resizable-span handle) ─────
        Probability Displayの下端に小さな purple グリップを出し、上下にドラッグして
-       span (= 縦に伸びる 量子ビット数) を 1..16 で変更できる。色は既存 colors.rs
+       span (= 縦に伸びる量子ビット数) を 1..16 で変更できる。色は既存 colors.rs
        の `span_resize_handle_bg` / `span_resize_handle_bg_hover` と一致:
          idle:  purple-400 (#8B7EC8)
          hover/drag: purple-600 (#5E409D) */
@@ -315,6 +315,38 @@
       line-height: 1.55; overflow-x: auto;
     }
 
+    /* § 05 ゲートパレットアイコン (旧 inline style) */
+    .icon-grid {
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 14px; padding: 24px 28px;
+      display: grid; gap: 16px;
+      grid-template-columns: 1fr;
+    }
+    .icon-card {
+      display: grid;
+      grid-template-columns: 56px 144px 1fr;
+      gap: 24px; align-items: center;
+      padding: 16px;
+      background: var(--bg-2);
+      border-radius: 10px;
+    }
+    .icon-card .small {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 4px;
+    }
+    .icon-card .large {
+      width: 96px; height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--ui-2);
+      border-radius: 6px;
+    }
+    .icon-card .meta { color: var(--tx-2); font-size: 13px; }
+    .icon-card .meta h4 { margin: 0 0 4px; font-size: 14px; color: var(--tx); font-weight: 600; }
+    .icon-card .meta p { margin: 0; font-size: 13px; line-height: 1.5; }
+    .icon-svg { display: block; }
+
   </style>
 </head>
 <body>
@@ -330,12 +362,12 @@
 
 <div class="page">
   <p class="eyebrow">qni-webgpu · ui mock</p>
-  <h1 class="page-title">Probability display</h1>
+  <h1 class="page-title">確率表示ブロック</h1>
   <p class="page-lede">
     Quirk の <code>Probability</code> / <code>Probability2…16</code> 相当の<strong>確率表示
-    ゲート</strong>。回路の任意の地点に置くと、その時点で span 内 量子ビットを測定した
-    場合の各 outcome 確率を、ゲート本体の中で<strong>横バー+%</strong>として可視化
-    する。状態ベクトルには影響しない (display gate)。span 1..16、いずれも
+    ゲート</strong>。回路の任意の地点に置くと、その時点で span 内の量子ビットを測定した
+    場合の各測定結果 確率を、ゲート本体の中で<strong>横バー+%</strong>として可視化
+    する。状態ベクトルには影響しない (表示ブロック)。span 1..16、いずれも
     <strong>2<sup>span</sup> 行の横バー</strong>という同じ視覚モデルで統一
     (Quirk の span 1 thermometer 形は採用せず、span 1 = 2 行に正規化)。
   </p>
@@ -379,7 +411,7 @@
     <table>
       <tbody>
         <tr><th>footprint</th><td><strong>span n</strong>: 32×(n × 32 + (n − 1) × wire_gap)。既存ゲートと同じ列幅、span ぶんだけ縦に伸びる。span 1 は 32×32。</td></tr>
-        <tr><th>box chrome</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ゲートは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
+        <tr><th>box chrome</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ブロックは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
         <tr><th>fill bar</th><td><code>blue-300</code> (#66A0C8 — Flexoki <code>state_fill</code> と同じトーン)。各行左から右へ <code>P(outcome k) × gate_w</code> の幅で塗る。<code>transition: 120 ms ease</code> で値変化を補間。</td></tr>
         <tr><th>row order</th><td>上から <code>k = 0</code> (= |0..0⟩) → 下が <code>k = 2<sup>span</sup> − 1</code> (= |1..1⟩)。binary big-endian。</td></tr>
         <tr><th>label</th><td>Geist Mono Medium。8 px / 右寄せ / 色は <code>tx</code> (黒)。</td></tr>
@@ -388,7 +420,7 @@
         <tr><th>NaN</th><td>赤の 45° 斜線ストライプ + <code>red-600</code> の "NaN" テキスト。確率が computable でない (state 未定義 / 0 ノルム) ときに表示。</td></tr>
         <tr><th>focus / hover</th><td>focus 中の row に <code>orange</code> 2 px outline + 横にツールチップ (`Probability of |bin⟩ if measured`、raw % と log dB)。</td></tr>
         <tr><th>controls</th><td>circuit の制御ワイヤを尊重する — 制御条件が真の sub-population のみ集計して確率を出す (Quirk と同じ)。</td></tr>
-        <tr><th>nesting</th><td>禁止 (Quirk: <code>setExtraDisableReasonFinder</code>)。表示ゲートの中に表示ゲートは置けない。</td></tr>
+        <tr><th>nesting</th><td>禁止 (Quirk: <code>setExtraDisableReasonFinder</code>)。表示ブロックの中に表示ブロックは置けない。</td></tr>
         <tr><th>resize handle</th><td>ゲート本体下端中央の <strong>16×4 px の purple-400 pill</strong> (hover/ドラッグで 20×5 + purple-600)。上下ドラッグで span 1 → 16 を変更し、行数 2<sup>span</sup> が自動追従。色は既存 <code>span_resize_handle_bg</code> / <code>_hover</code> と一致 (= resizable-span ハンドルと同型)。詳細は § 02 d。</td></tr>
       </tbody>
     </table>
@@ -405,7 +437,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · probability display · span 1</div>
+    <div class="scene-label">egui-web · 確率表示ブロック · span 1</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -457,7 +489,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · probability display · multi qubit (span 3)</div>
+    <div class="scene-label">egui-web · 確率表示ブロック · multi qubit (span 3)</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -508,7 +540,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · probability display · multi qubit (span 5)</div>
+    <div class="scene-label">egui-web · 確率表示ブロック · multi qubit (span 5)</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -532,7 +564,7 @@
             </div>
           </div>
           <p class="note" style="margin: 16px 0 0;">
-            span が大きい (量子ビット数が増える) ほど outcome 数は指数的に増え、
+            span が大きい (量子ビット数が増える) ほど測定結果数は指数的に増え、
             個別の確率を読むより<strong>分布の形</strong>を一目で把握する用途に
             向きます。サンプル数が増えるとバー 1 本ずつの幅は読み取れなくなるので、
             ピーク位置を log スケールでも示すのが Quirk 流。
@@ -548,7 +580,7 @@
   <h2><span class="num">§ 02 d</span> プロトタイプ — drag to resize span (= resizable-span handle)</h2>
   <p class="note">
     ゲート下端の <strong>紫のグリップ</strong>を上下にドラッグすると、span
-    (= 縦に伸びる 量子ビット数) が 1 → 2 → 3 → 4 → 5 と変わります。
+    (= 縦に伸びる量子ビット数) が 1 → 2 → 3 → 4 → 5 と変わります。
     integer span にスナップ。Quirk のように <code>Probability</code> / <code>Probability2..16</code>
     を別アイコンとしてパレットに並べるのではなく、<strong>パレットには mini gate
     プレビューの 1 アイコンだけ</strong>を出し、配置後にこのハンドルで span を調整
@@ -557,7 +589,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · probability display · resize handle</div>
+    <div class="scene-label">egui-web · 確率表示ブロック · resize handle</div>
     <div class="app-body">
       <div class="proto-row">
         <div style="display: flex; gap: 28px; align-items: flex-start;">
@@ -601,7 +633,7 @@
   <h2><span class="num">§ 03</span> 回路上での見え方</h2>
   <p class="note">
     Probability Displayを他の (unitary) ゲートと並べて配置したときの相対サイズ。
-    表示ゲートは薄い背景 + 色付きバーで、cyan-400 塗りの unitary ゲートとは
+    表示ブロックは薄い背景 + 色付きバーで、cyan-400 塗りの unitary ゲートとは
     パッと見で区別できる。span 1 は通常ゲートと同じ 32×32、span ≥ 2 は
     span 行分の縦長になる。
   </p>
@@ -691,7 +723,7 @@ prob = cycle_bits(prob, -range_offset);
 
 // 3) sum-fold from n_total down to span: log2(register_size) − span 回
 //    の half-and-sum を回して、後ろの bit を marginalize
-while (n > span) { prob = sum_fold(prob); n -= 1; }
+while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
 
 // 4) result: 2^span 要素の確率テクスチャ / storage buffer</pre>
         Quirk の <code>probabilityStatTexture</code> を WebGPU コンピュートシェーダに翻訳。
@@ -772,43 +804,10 @@ while (n > span) { prob = sum_fold(prob); n -= 1; }
   <p class="note">
     パレット (gate toolbox) 上で他のゲートと並べて表示するアイコン。
     <strong>ゲート本体のミニチュア (Quirk 流儀)</strong> を採用 — 2 行 × 横バーで
-    「これは確率表示ゲートだ」が palette サイズでも瞬時に伝わる。
+    「これは確率表示ブロックだ」が palette サイズでも瞬時に伝わる。
     左 = 28 px (実寸)、右 = 96 px (拡大)。ストロークは <code>tx</code> (#100F0F)、
     塗りは <code>blue-300</code> (#66A0C8 — gate 本体のバー色と同じ)、背景透過。
   </p>
-
-  <style>
-    .icon-grid {
-      background: var(--bg); border: 1px solid var(--ui-2);
-      border-radius: 14px; padding: 24px 28px;
-      display: grid; gap: 16px;
-      grid-template-columns: 1fr;
-    }
-    .icon-card {
-      display: grid;
-      grid-template-columns: 56px 144px 1fr;
-      gap: 24px; align-items: center;
-      padding: 16px;
-      background: var(--bg-2);
-      border-radius: 10px;
-    }
-    .icon-card .small {
-      width: 28px; height: 28px;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--bg); border: 1px solid var(--ui-2);
-      border-radius: 4px;
-    }
-    .icon-card .large {
-      width: 96px; height: 96px;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--bg); border: 1px solid var(--ui-2);
-      border-radius: 6px;
-    }
-    .icon-card .meta { color: var(--tx-2); font-size: 13px; }
-    .icon-card .meta h4 { margin: 0 0 4px; font-size: 14px; color: var(--tx); font-weight: 600; }
-    .icon-card .meta p { margin: 0; font-size: 13px; line-height: 1.5; }
-    .icon-svg { display: block; }
-  </style>
 
   <div class="icon-grid">
 

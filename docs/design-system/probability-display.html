@@ -280,7 +280,7 @@
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">確率表示ブロック</h1>
   <p class="page-lede">
-    任意の地点で span 内 量子ビットを測定した場合の各測定結果の確率を、
+    任意の地点で span 内の量子ビットを測定した場合の各測定結果の確率を、
     本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する確率表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
     状態ベクトルには影響しない。<strong>span は 1〜16 量子ビット (上限 16)</strong>、見た目は span 全体で同一視覚モデル。
     本ドキュメントは描画仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
@@ -497,7 +497,7 @@
     <ul>
       <li>各行の右端から 2 px 内側に右詰めで <code>XX.X%</code> を描画</li>
       <li>バー領域に重なる場合もテキスト色は変えない (色境界 two-tone なし)。<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト</li>
-      <li>条件: <code>row_count ≤ 16 && row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 08 の対数ヒント線を描く)</li>
+      <li>条件: <code>row_count ≤ 16 &amp;&amp; row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 08 の対数ヒント線を描く)</li>
     </ul>
   </div>
 </section>
@@ -1044,7 +1044,7 @@ stroke()</pre>
     <h3 style="margin-top: 16px;">WebGPU ローカルバックエンド</h3>
     <table class="spec">
       <tbody>
-        <tr><th>確率計算</th><td>各確率表示ブロックごとに <code>PROBABILITY_REDUCE_SHADER</code> (compute) を発行。状態ベクトルを span 内 量子ビットについて marginalize</td></tr>
+        <tr><th>確率計算</th><td>各確率表示ブロックごとに <code>PROBABILITY_REDUCE_SHADER</code> (compute) を発行。状態ベクトルを span 内の量子ビットについて marginalize</td></tr>
         <tr><th>出力先</th><td><code>probability_output</code> (<code>resources.probability.output_buffer</code>) の各 Probability スロット (<code>params.output_slot</code> 単位、<code>MAX_PROBABILITY_OUTCOMES = 65 536</code> ストライド)</td></tr>
         <tr><th>描画</th><td>同じバッファを <code>PROBABILITY_RENDER_SHADER</code> に <code>probability_data</code> としてバインドし、フラグメントシェーダで直接サンプル。CPU リードバックなし</td></tr>
         <tr><th>同期</th><td>compute → render はキューレベルで順序通り、明示的な fence は不要</td></tr>
@@ -1064,8 +1064,8 @@ stroke()</pre>
           バックエンドは確率表示ブロックごとの marginalized probabilities のみを返す:
           <pre class="code">{
   "probability": [
-    { "gate_id": "<id>", "span": 3, "probabilities": [p_0, p_1, ..., p_7] },
-    { "gate_id": "<id>", "span": 5, "probabilities": [p_0, ..., p_31] },
+    { "gate_id": "&lt;id&gt;", "span": 3, "probabilities": [p_0, p_1, ..., p_7] },
+    { "gate_id": "&lt;id&gt;", "span": 5, "probabilities": [p_0, ..., p_31] },
     ...
   ]
 }</pre>

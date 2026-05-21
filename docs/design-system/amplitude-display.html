@@ -208,7 +208,7 @@
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">振幅表示ブロック</h1>
   <p class="page-lede">
-    span 内 量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    span 内の量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
     確率表示ブロックが <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本表示ブロックは <code>α = re + i·im</code> を
     <strong>outline 円 + 振幅 disk + 位相 needle</strong> の 3 層で描く。
     <strong>span 上限は 16 量子ビット</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。
@@ -222,7 +222,7 @@
   <h2>§ 01 サイズ別の見た目 (1〜16 量子ビット、動くモック)</h2>
   <div class="card">
     <p>
-      span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。outcome 数 <code>n = 2<sup>span</sup></code> を
+      span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。測定結果数 <code>n = 2<sup>span</sup></code> を
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
       各セルにマウスを乗せると、Quirk と同じ tooltip 内容 (ket、val、mag² と phase) をポップアップ表示する。
@@ -264,7 +264,7 @@
 
     <h3 style="margin-top: 24px;">incoherent state (entangled)</h3>
     <p>
-      span 内 量子ビットが span 外と entangled していて<strong>振幅が定義できない</strong>とき
+      span 内の量子ビットが span 外と entangled していて<strong>振幅が定義できない</strong>とき
       (Quirk では <code>quality &lt; 0.99</code> で判定)、振幅レイヤ (needle) を抑制して
       代わりに密度行列由来の <code>sqrt(prob)</code> を <strong>alpha 0.45 で薄塗り</strong>し、ゲート下に "incoherent" を赤テキストで表示する。
     </p>
@@ -313,7 +313,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>span 内 量子ビットの <strong>複素振幅</strong> を可視化する表示ブロック (状態に影響しない)。位相情報を保持する点が確率表示ブロックとの大きな差</td></tr>
+        <tr><th>役割</th><td>span 内の量子ビットの <strong>複素振幅</strong> を可視化する表示ブロック (状態に影響しない)。位相情報を保持する点が確率表示ブロックとの大きな差</td></tr>
         <tr><th>span</th><td>1〜16 量子ビット (Quirk の <code>Gate.buildFamily(1, 16, ...)</code> と一致)。UI でリサイズハンドルから可変</td></tr>
         <tr><th>outcomes</th><td><code>2<sup>span</sup></code> 個。上から binary big-endian、<code>k = 0</code> = <code>|0…0⟩</code></td></tr>
         <tr><th>計算内容</th><td>span に対応する subspace を control 条件で射影し、<strong>正規化複素ベクトル ket</strong> + coherence 指標 <code>quality</code> + phase-lock index を返す。CPU リードバックなし</td></tr>
@@ -382,7 +382,7 @@
       <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。振幅表示ブロック以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
       <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、probability / QFT の resizable と同じセマンティクス)。</li>
       <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drag 中の matrix 背景は他ゲートの drag preview と同じ <code>purple-600</code> にするが、outline 円の内側の白地は <code>bg</code> のまま残し、振幅 disk / outline / needle の色も通常時のまま変えない。回路 slot に snap して GPU の live 値が出る前も、palette から出した Amps1 は同じ GPU 表示シェーダの強制ゼロ描画インスタンスとして <code>mag = 0</code> の空セル 2 つを描く。drop target highlight も同寸。</li>
-      <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 outcome の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
+      <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 測定結果の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
       <li><strong>resize handle</strong> — 上下のみ (height = span を変える)、左右の幅は span の関数なので separate な width handle は不要。</li>
       <li><strong>列衝突検出</strong> — gate の<strong>右端</strong>列まで衝突判定を広げる。<code>width_px</code> 範囲内の他ゲートと <code>gate_rect ∩ gate_rect</code> 幾何交差で重ならない位置にのみ配置可。</li>
       <li><strong>URL round-trip (Quirk 互換)</strong> — JSON は <code>{"cols":[["Amps3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は<em>表示列幅</em>であって JSON 上の列消費ではない。
@@ -494,7 +494,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   <div class="card">
     <h3>phase lock — 主要振幅を位相基準に</h3>
     <p>
-      GPU パイプライン (§ 08) は最大振幅を持つ outcome の index (<code>phaseLockIndex</code>) を返す。
+      GPU パイプライン (§ 08) は最大振幅を持つ測定結果の index (<code>phaseLockIndex</code>) を返す。
       その index の振幅の位相 <code>θ = atan2(im, re)</code> を全 ket から <code>e<sup>−iθ</sup></code> で打ち消し、
       phase lock 後の振幅は<strong>実数正 + 虚部ゼロ</strong>に正規化される。これで「全体に同じ位相を掛けたとき見た目が変わらない」
       = 量子状態の物理的等価性を視覚化に反映する。
@@ -504,12 +504,12 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <em>needle が真上 (位相 0) を向いている cell</em> を見れば自然に lock 位置がわかる、というのが基本方針。
       Quirk 原版の赤い水平線 + <code>'fixed'</code> ラベルは <em>(a) needle 方向との視覚的衝突</em>
       (Quirk は phase 0 = 右、本仕様は phase 0 = 上)、<em>(b) state panel に同等マーカーが無いため UI が分散する</em>、の 2 点で不採用。
-      <strong><code>span == 回路全体の 量子ビット数</code> のときだけは phase lock を無効にする</strong> (「全体相」を持つ意味がないため、Quirk 同挙動)。
+      <strong><code>span == 回路全体の量子ビット数</code> のときだけは phase lock を無効にする</strong> (「全体相」を持つ意味がないため、Quirk 同挙動)。
       実装は <code>AmplitudeCapture</code> uniform の <code>phase_lock_enabled</code> flag で制御する: <code>ColumnAnalysis</code> が <code>span == total_qubits</code> を検出して <code>phase_lock_enabled = 0</code> に set し、shader 側は <code>phase_lock_index = sentinel</code> を書き、stage 8 で <code>θ = 0</code> 扱い (正規化のみで位相回転なし)。詳細は § 08 stage 7/8 参照。
     </p>
     <h3 style="margin-top: 16px;">incoherent state — entangled で振幅未定義</h3>
     <p>
-      span 内 量子ビットが span 外と entangled しているとき、<strong>純粋状態としての振幅は定義できない</strong> (reduced density matrix のみ計算可能)。
+      span 内の量子ビットが span 外と entangled しているとき、<strong>純粋状態としての振幅は定義できない</strong> (reduced density matrix のみ計算可能)。
       Quirk は coherence 指標 <code>quality = denormalizedQuality / unity / incoherentUnity</code> を計算し、
       <code>quality &lt; 0.99</code> で incoherent と判定する。
     </p>
@@ -525,8 +525,8 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <strong>qni と Quirk で capture 順序が異なる</strong>:
     </p>
     <ul>
-      <li><strong>Quirk</strong>: 列処理の<em>前</em>に display capture → measure された 量子ビットがあっても collapse 前の純粋振幅を表示。「deferred measurement」の解釈で、ゲート下に <code>"(w/ measure defer)"</code> / <code>"(assuming measurement deferred)"</code> を <code>red-600</code> でフェードイン。</li>
-      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureProbability</code> と同じパス) → measure された 量子ビットは collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある outcome に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一 outcome になる)。</li>
+      <li><strong>Quirk</strong>: 列処理の<em>前</em>に display capture → measure された量子ビットがあっても collapse 前の純粋振幅を表示。「deferred measurement」の解釈で、ゲート下に <code>"(w/ measure defer)"</code> / <code>"(assuming measurement deferred)"</code> を <code>red-600</code> でフェードイン。</li>
+      <li><strong>qni</strong>: 列処理の<em>後</em>に display capture (既存 <code>CaptureProbability</code> と同じパス) → measure された量子ビットは collapse 後の古典状態として扱われる。表示される ket は post-measure 状態の振幅 (=ある測定結果に collapse した後の確定状態、span 内に measured wire があれば確率 1 の単一の測定結果になる)。</li>
     </ul>
     <p>
       本仕様では「<strong>post-measure state を素直に表示する</strong>」を採用。ゲート下の "incoherent" 以外の補足テキストは出さない (Quirk の "(w/ measure defer)" 系を真似ない)。Quirk と数値再現性を取る場合は別途 capture 順序の入れ替え (lowering で display を column 先頭に移動) が必要だが、本仕様では未採用。
@@ -593,13 +593,13 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       Amplitude では Quirk と同じ control-conditional 表示を行うため、capture uniform を拡張する:
     </p>
     <pre class="code">struct AmplitudeCapture {
-    base_bit:           u32,   // span 内 量子ビットの起点 (CaptureProbability と同じ)
+    base_bit:           u32,   // span 内の量子ビットの起点 (CaptureProbability と同じ)
     span:               u32,   // 1..=16
     output_slot:        u32,   // 結果 buffer の書き込み slot
     control_mask:       u32,   // どの state_index bit が control 条件の対象か
     control_value:      u32,   // 期待値 (該当 bit が 1 なら |1⟩ 期待、0 なら |0⟩ 期待)
     phase_lock_enabled: u32,   // 0 = 無効 (θ=0、回転なし) / 1 = 有効 (Quirk 互換、決定論的 max)
-    total_qubits:       u32,   // 回路全体の 量子ビット数。span == total_qubits なら ColumnAnalysis で
+    total_qubits:       u32,   // 回路全体の量子ビット数。span == total_qubits なら ColumnAnalysis で
                                 // 自動的に phase_lock_enabled = 0 にセット (§ 06 「span == 全量子ビット」例外)
 };</pre>
     <p>
@@ -668,7 +668,7 @@ for (k = 0u; k &lt; n; k++) {
       <li><strong>needle</strong>: <strong>fragment shader 内で SDF</strong> で描く。各 fragment で「自分が属する cell の amp = (re, im) を <code>amplitude_result.ket[k]</code> から sample」→「needle 線分 (center → <code>(-sin(phase), -cos(phase)) × inner_radius</code>) との signed distance を計算」→ stroke 幅以下なら <code>TX</code> 色で塗る。<strong>専用 vertex buffer は持たない</strong> ので、振幅 / 位相が変わるたび rebuild する必要がない (毎 recompute で amplitude_result が更新されれば、render shader が自動的に新しい needle を描く)。</li>
     </ul>
     <p>
-      <strong>CPU は vertex buffer を作らない</strong>。ゲート配置 (cell サイズ) が変わったときに更新する vertex は <em>cell quad の四隅と uv だけ</em> (各セル fragment shader が cell index を知るための instance buffer 相当)。これは ゲート placement / resize 時だけ rebuild。
+      <strong>CPU は vertex バッファを作らない</strong>。ゲート配置 (cell サイズ) が変わったときに更新する vertex は <em>cell quad の四隅と uv だけ</em> (各セル fragment shader が cell index を知るための instance buffer 相当)。これは ゲート placement / resize 時だけ rebuild。
     </p>
 
     <h3 style="margin-top: 16px;">Popup の値も GPU 描画 (readback 無し、glyph atlas + overlay shader)</h3>
@@ -847,7 +847,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
           <li><strong>span == total_qubits、phase lock 無効</strong> (例: 1 量子ビット 回路に H q0、span 1) → <code>phase_lock_enabled = 0</code>、<code>phaseLockIndex = 0xffffffff (sentinel)</code>、ket は正規化のみ (位相回転なし)、quality ≈ 1.0</li>
           <li><strong>entangled (Bell state、span 1 だけ覗く)</strong> → <code>quality &lt; 0.99</code>、<code>incoherent_ket = sqrt(reduced diag)</code> を assert</li>
         </ol>
-        各シナリオで読み出し API (<code>read_amplitude_cell</code>) を呼んで個別 outcome を assert。
+        各シナリオで読み出し API (<code>read_amplitude_cell</code>) を呼んで個別 測定結果を assert。
       </li>
       <li><strong>phase lock 無効ケース (span == total_qubits)</strong> (Rust, <code>#[test]</code> × 2):
         <ol>

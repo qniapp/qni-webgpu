@@ -722,7 +722,7 @@
       <h3>GPU lane <b>· src/gpu</b></h3>
       <div class="box">
         <div class="name">gpu/resources/ <span class="mod">common · state · bloch · measure · probability · digit · popup_value</span></div>
-        <div class="role">subsystem 毎に pipeline + bind group + params buffer をオーナーシップ。state buffers は ping-pong で gate ごとに in/out 反転。</div>
+        <div class="role">subsystem 毎に pipeline + bind group + params バッファをオーナーシップ。state buffers は ping-pong で gate ごとに in/out 反転。</div>
       </div>
       <div class="box">
         <div class="name">gpu/recompute.rs</div>
@@ -730,7 +730,7 @@
       </div>
       <div class="box">
         <div class="name">gpu/shaders/ <span class="mod">state · bloch · measure · probability · digit · popup_value</span></div>
-        <div class="role">WGSL ソース。compute = ゲート適用 / Bloch / 測定。render = 状態円 / ブロッホ矢印 / 測定 0/1 / popup 数値、すべて storage buffer を直接 sample する。</div>
+        <div class="role">WGSL ソース。compute = ゲート適用 / Bloch / 測定。render = 状態円 / ブロッホ矢印 / 測定 0/1 / popup 数値、すべて storage バッファを直接 sample する。</div>
       </div>
       <div class="box">
         <div class="name">gpu/readback.rs <b>· test only</b></div>
@@ -739,7 +739,7 @@
     </div>
   </div>
   <p class="lede" style="margin-top:24px;">
-    線形化された <code>sim_ops</code> がレーンの唯一の API。CPU 側は完了した <em>circuit description</em> を渡し、GPU 側は state buffer を更新してそのまま render に流す。間に CPU を経由する数値は本番では一切ない。
+    線形化された <code>sim_ops</code> がレーンの唯一の API。CPU 側は完了した <em>circuit description</em> を渡し、GPU 側は state バッファを更新してそのまま render に流す。間に CPU を経由する数値は本番では一切ない。
   </p>
 
   <!-- ───────────── MODULE MAP ───────────── -->
@@ -863,7 +863,7 @@
     </div>
     <div class="item">
       <div class="id">— principle E</div>
-      <h3>render shader が storage buffer を直接 sample</h3>
+      <h3>render shader が storage バッファを直接 sample</h3>
       <p>state 円 / ブロッホ矢印 / 測定 0/1 / popup 数値はすべて <em>同じ</em> GPU 上の値を fragment shader から直接読む。CPU 経由しないので 1 frame 遅れも staging 割り当ても発生しない。値の表示が常に最新フレームの計算結果と同一であることが保証される。</p>
       <p class="meta">gpu/shaders/{state,bloch,digit,popup_value}.rs</p>
     </div>
