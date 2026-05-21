@@ -494,7 +494,7 @@
     <p>
       パレットの <code>BlochDisplay</code> アイコンは 40 × 40 px の静的 wireframe sphere +
       <strong>中央の <code>|v|=0</code> グレードット</strong> (非アクティブ表示)。
-      まず <code>icons/bloch.rs</code> の <code>draw_bloch_sphere</code> で軸線・対角・楕円を
+      まず <code>icons/bloch_display.rs</code> の <code>draw_bloch_sphere</code> で軸線・対角・楕円を
       <code>tx-3</code> 1 px で描き、続いて
       <code>circuit_palette/panel.rs:73-75</code> が <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び出して
       中心に <code>tx-3</code> 半径 3 px のドットを置く。
@@ -747,8 +747,8 @@ sy = py + factor · (y_3d − py)</pre>
       </tbody>
     </table>
     <p class="note" style="margin-top: 8px;">
-      実装: <code>icons/bloch.rs:17-32</code> (egui プレビュー用) と
-      <code>gpu/shaders/bloch.rs:130-141</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
+      実装: <code>icons/bloch_display.rs:17-32</code> (egui プレビュー用) と
+      <code>gpu/shaders/bloch_display.rs:130-141</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
       数値の一致は egui 上の暫定描画と GPU overlay の見た目を完全に揃えるため。
     </p>
   </div>
@@ -759,7 +759,7 @@ sy = py + factor · (y_3d − py)</pre>
   <h2>§ 08 ブロッホベクトル算出 (GPU compute)</h2>
   <div class="card">
     <p>
-      <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch.rs:3-80</code>)
+      <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs:3-80</code>)
       は対象量子ビット <code>qubit_bit</code> を消去した
       1 量子ビット 換算密度行列 ρ の 3 成分を計算し、<code>bloch_output_buffer</code> の
       <code>output_slot</code> に <code>vec4&lt;f32&gt;(x, y, z, 0)</code> として書き出す。
@@ -828,8 +828,7 @@ z =  ρ_00 − ρ_11</pre>
       <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
       <li>Quirk の <code>BlochSphereDisplay.js:31-58</code> <code>paintDeferredValueTooltip</code> と同等の情報量を、
         probability-display popup と同じ Geist 系のタイポグラフィで再構成</li>
-      <li>実装ステータス: <strong>実装済み (2026-05-18)</strong>。
-        <code>callbacks/bloch_popup_value.rs</code> が値部分を GPU で描画する</li>
+      <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。popup の値表示は別作業で整理する</li>
     </ul>
 
     <h3 style="margin-top: 16px;">暫定描画 (snap 前 / GPU dispatch 前)</h3>
@@ -1035,8 +1034,8 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 8px;">Stage 1: Reduce (compute)</h3>
     <ul>
-      <li>shader: <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch.rs:3-80</code>)</li>
-      <li>pipeline: <code>gpu/resources/bloch/reduce.rs</code></li>
+      <li>shader: <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs:3-80</code>)</li>
+      <li>pipeline: <code>gpu/resources/bloch_display/reduce.rs</code></li>
       <li>workgroup: 64 スレッド、ツリー縮約 (workgroupBarrier 付き)</li>
       <li>入力 binding: 状態ベクトル (storage, read) + <code>BlochParams</code> uniform</li>
       <li>出力 binding: <code>bloch_output_buffer</code> (storage, read_write)、各 BlochDisplay に <code>output_slot</code> を割り当て</li>
@@ -1044,8 +1043,8 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 16px;">Stage 2: Overlay (render)</h3>
     <ul>
-      <li>shader: <code>BLOCH_OVERLAY_SHADER</code> (<code>gpu/shaders/bloch.rs:81-190</code>)</li>
-      <li>pipeline: <code>gpu/resources/bloch/overlay.rs</code></li>
+      <li>shader: <code>BLOCH_OVERLAY_SHADER</code> (<code>gpu/shaders/bloch_display.rs:81-190</code>)</li>
+      <li>pipeline: <code>gpu/resources/bloch_display/overlay.rs</code></li>
       <li>頂点: <code>common.unit_quad_vertex_buffer</code> (Probability / その他と共有の単位 quad)</li>
       <li>インスタンス: <code>BlochOverlayInstance { center, radius, outer, slot }</code></li>
       <li>fragment: <code>bloch_data[slot]</code> から (x, y, z) を直接サンプル → <code>bloch_project</code> → SDF で線とドットを描く</li>
@@ -1054,7 +1053,7 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 16px;">Stage 3: egui callback</h3>
     <ul>
-      <li>callback: <code>gpu/callbacks/bloch_overlay.rs</code> (<code>BlochOverlayCallback</code>)</li>
+      <li>callback: <code>gpu/callbacks/bloch_display_overlay.rs</code> (<code>BlochOverlayCallback</code>)</li>
       <li>prepare: パラメータ / インスタンスを GPU バッファに書き込む (CPU → GPU)</li>
       <li>paint: pipeline + bind group をバインドし <code>draw_indexed(0..6, 0, 0..N)</code></li>
       <li>呼び出し元: <code>render/circuit_gates.rs:210-249</code> (placed_gates から BlochDisplay を抽出してインスタンス化)</li>
@@ -1118,24 +1117,21 @@ z =  ρ_00 − ρ_11</pre>
         <tr><th>ファイル</th><th>役割</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>apps/egui-web/src/gates.rs:73-77</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/shaders/bloch.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/shaders/bloch_popup_value.rs</code></td><td>ホバー popup の値テキスト WGSL シェーダ (r / ϕ / θ / x / y / z の GPU 計算 + SDF glyph sampling)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/resources/bloch/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/resources/bloch/overlay.rs</code></td><td>render パイプライン構築 (頂点 / インスタンス layout、blend state)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/resources/bloch/popup.rs</code></td><td>popup 値表示パイプライン / glyph atlas / bind group 構築</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/resources/bloch.rs</code></td><td>モジュールファサード (<code>BlochResources</code> 構造体、reduce / overlay 両 pipeline を保持)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/resources/bloch/pipeline.rs</code></td><td>overlay render pipeline 構築 (<code>build_overlay_pipeline</code>)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/recompute/dispatch.rs</code></td><td>reduce + overlay の毎フレーム dispatch オーケストレーション (<code>SimulationOp::CaptureBloch</code> → <code>encode_capture_bloch</code>)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/params.rs</code></td><td><code>BlochParams</code> uniform + <code>BlochOverlayInstance</code> + <code>BlochPopupValueParams</code></td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/callbacks/bloch_overlay.rs</code></td><td>egui_wgpu 描画コールバック (prepare / paint)</td></tr>
-        <tr><td><code>apps/egui-web/src/gpu/callbacks/bloch_popup_value.rs</code></td><td>ホバー時 popup の値表示 (r / ϕ / θ / x / y / z)。<code>probability_popup_value.rs</code> と同じ SDF テキスト描画パターンで GPU から直接描画する</td></tr>
+        <tr><td><code>apps/web/src/gates.rs:73-77</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
+        <tr><td><code>apps/web/src/gpu/shaders/bloch_display.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
+        <tr><td><code>apps/web/src/gpu/resources/bloch_display/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
+        <tr><td><code>apps/web/src/gpu/resources/bloch_display/overlay.rs</code></td><td>render パイプライン構築 (頂点 / インスタンス layout、blend state)</td></tr>
+        <tr><td><code>apps/web/src/gpu/resources/bloch_display.rs</code></td><td>モジュールファサード (<code>BlochResources</code> 構造体、reduce / overlay 両 pipeline を保持)</td></tr>
+        <tr><td><code>apps/web/src/gpu/resources/bloch_display/pipeline.rs</code></td><td>overlay render pipeline 構築 (<code>build_overlay_pipeline</code>)</td></tr>
+        <tr><td><code>apps/web/src/gpu/recompute/dispatch.rs</code></td><td>reduce + overlay の毎フレーム dispatch オーケストレーション (<code>SimulationOp::CaptureBloch</code> → <code>encode_capture_bloch</code>)</td></tr>
+        <tr><td><code>apps/web/src/gpu/params.rs</code></td><td><code>BlochParams</code> uniform + <code>BlochOverlayInstance</code></td></tr>
+        <tr><td><code>apps/web/src/gpu/callbacks/bloch_display_overlay.rs</code></td><td>egui_wgpu 描画コールバック (prepare / paint)</td></tr>
         <tr><td><code>apps/web/src/icons/gate_body.rs:67-76</code></td><td>外周の円本体 (<code>circle_filled</code> + <code>circle_stroke</code>) — ブロッホ球表示ブロック専用の例外的な本体形状</td></tr>
-        <tr><td><code>apps/egui-web/src/icons/bloch.rs</code></td><td>内側 wireframe (<code>draw_bloch_sphere</code>) と暫定矢印 (<code>draw_bloch_vector</code>)、透視投影式 <code>bloch_project</code></td></tr>
-        <tr><td><code>apps/egui-web/src/render/circuit_gates.rs:73-91, 126-130, 210-249</code></td><td>ホバー枠 (73-91) / 暫定描画 (126-130) / GPU overlay インスタンス化 (210-249)</td></tr>
-        <tr><td><code>apps/egui-web/src/simulation_plan/op.rs</code></td><td><code>SimulationOp::CaptureBloch</code> (シミュレーションプランへの組み込み)</td></tr>
-        <tr><td><code>apps/egui-web/src/app/gpu_plan_state.rs</code></td><td><code>bloch_slot(gate_id)</code> のスロット割り当てルックアップ</td></tr>
-        <tr><td><code>apps/egui-web/src/colors.rs</code></td><td>Flexoki マッピング:
+        <tr><td><code>apps/web/src/icons/bloch_display.rs</code></td><td>内側 wireframe (<code>draw_bloch_sphere</code>) と暫定矢印 (<code>draw_bloch_vector</code>)、透視投影式 <code>bloch_project</code></td></tr>
+        <tr><td><code>apps/web/src/render/circuit_gates.rs:73-91, 126-130, 210-249</code></td><td>ホバー枠 (73-91) / 暫定描画 (126-130) / GPU overlay インスタンス化 (210-249)</td></tr>
+        <tr><td><code>apps/web/src/simulation_plan/op.rs</code></td><td><code>SimulationOp::CaptureBloch</code> (シミュレーションプランへの組み込み)</td></tr>
+        <tr><td><code>apps/web/src/app/gpu_plan_state.rs</code></td><td><code>bloch_slot(gate_id)</code> のスロット割り当てルックアップ</td></tr>
+        <tr><td><code>apps/web/src/colors.rs</code></td><td>Flexoki マッピング:
           <code>bloch_sphere_bg</code> (= bg-2) / <code>bloch_sphere_lines</code> (= tx-3) / <code>bloch_vector_line</code> (= tx) /
           <strong>新仕様:</strong> <code>bloch_vector_tip_0</code> (= <code>semantic_off</code> = red-600) /
           <code>bloch_vector_tip_1</code> (= <code>semantic_on</code> = blue-600) /

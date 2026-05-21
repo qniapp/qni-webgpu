@@ -5,7 +5,7 @@ use eframe::egui;
 use crate::colors::Colors;
 use crate::gates::GateKind;
 
-use super::bloch::draw_bloch_sphere;
+use super::bloch_display::draw_bloch_sphere;
 use super::svg::{map_svg_point_in_rect, SvgPoint};
 use super::VIEWBOX;
 

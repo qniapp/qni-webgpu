@@ -9,7 +9,7 @@
 //!   seed + the `[-1, 1]²` unit quad used by every render pipeline.
 //! * [`state`]  — state-vector compute (gate dispatch) + render
 //!   (state-panel grid).
-//! * [`bloch`]  — bloch reduce (compute) + bloch arrow overlay
+//! * [`bloch_display`] — Bloch Display reduce (compute) + arrow overlay
 //!   (render). Both share the bloch output buffer.
 //! * [`measure`]— measurement reduce + collapse (compute only). Owns
 //!   `aux_buffer` consumed by `digit`.
@@ -31,7 +31,7 @@
 //! out to every render-bearing subsystem.
 
 mod amplitude;
-mod bloch;
+mod bloch_display;
 mod common;
 mod digit;
 mod measure;
@@ -42,7 +42,7 @@ mod state;
 use eframe::wgpu;
 
 use self::amplitude::AmplitudeResources;
-use self::bloch::BlochResources;
+use self::bloch_display::BlochResources;
 use self::common::Common;
 use self::digit::DigitResources;
 use self::measure::MeasureResources;
