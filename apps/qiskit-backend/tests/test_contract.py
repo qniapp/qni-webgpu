@@ -5,8 +5,11 @@ from qni_qiskit_backend.contract import ContractError, parse_run_request
 from qni_qiskit_backend.runners import (
     MockRunner,
     QiskitRunner,
+    add_display_saves,
+    add_qiskit_probability,
     amplitude_display_response,
     normalize_qiskit_counts,
+    probability_qargs,
     select_runner,
 )
 
@@ -134,6 +137,33 @@ class ContractTests(unittest.TestCase):
                 }
             )
 
+    def test_contract_accepts_probability_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["H"], ["Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 2, "column": 1, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        self.assertEqual(request.probability_outputs[0].gate_id, 2)
+
+    def test_contract_rejects_too_many_probability_outputs(self):
+        probability = [
+            {"gate_id": index, "column": 0, "span": 1, "base_bit": 0}
+            for index in range(33)
+        ]
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 1,
+                    "columns": [["Probability"]],
+                    "outputs": {"histogram": True, "probability": probability},
+                }
+            )
+
     def test_qiskit_builder_ignores_amplitude_display_tokens(self):
         class FakeCircuit:
             def __init__(self):
@@ -151,6 +181,79 @@ class ContractTests(unittest.TestCase):
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["Bloch"]], 1)
         self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_ignores_probability_display_tokens(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Probability2"]], 2)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_display_saves_probability_with_web_order_qargs(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.saved = []
+
+            def save_probabilities(self, qubits, label):
+                self.saved.append((qubits, label))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Probability2"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 2, "base_bit": 0}],
+                },
+            }
+        )
+        labels = add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual((fake.saved, labels[2]), ([([1, 0], "probability:1")], {1: "probability:1"}))
+
+    def test_qiskit_probability_response_uses_saved_data(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_probability(response, request, {"probability:1": [0.25, 0.75]}, {1: "probability:1"})
+        self.assertEqual(response["probability"][0]["probabilities"][1], 0.75)
+
+    def test_probability_qargs_match_web_outcome_order(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Probability2"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 2, "base_bit": 0}],
+                },
+            }
+        )
+        self.assertEqual(probability_qargs(request.probability_outputs[0], 2), [1, 0])
+
+    def test_mock_runner_returns_fixed_probability_outputs(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        response = MockRunner().run(request)
+        self.assertEqual(response["probability"][0]["probabilities"], [1.0, 0.0])
 
     def test_mock_runner_returns_fixed_bloch_outputs(self):
         request = parse_run_request(

@@ -4,9 +4,10 @@ use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
 use super::super::params::{
-    ProbabilityInstance, ProbabilityRenderParams, MAX_PROBABILITY_AGGREGATE_ROWS,
-    PROBABILITY_AGGREGATE_MIN_SPAN,
+    ExternalProbabilityUploadBatch, ProbabilityInstance, ProbabilityRenderParams,
+    MAX_PROBABILITY_AGGREGATE_ROWS, MAX_PROBABILITY_OUTCOMES, PROBABILITY_AGGREGATE_MIN_SPAN,
 };
+use super::super::readback::{ProbabilityGpuHandle, PROBABILITY_GPU_HANDLE, PROBABILITY_SLOT_MAP};
 use super::super::resources::StateVectorResources;
 
 /// Renders Probability display bars straight from the GPU probability buffer
@@ -23,12 +24,49 @@ pub(crate) struct ProbabilityDisplayCallback {
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
+    pub(crate) external_uploads: Option<ExternalProbabilityUploadBatch>,
+}
+
+impl ProbabilityDisplayCallback {
+    fn upload_external_probabilities(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        resources: &mut StateVectorResources,
+    ) {
+        let Some(batch) = &self.external_uploads else {
+            return;
+        };
+        if resources.probability.last_external_upload_generation == Some(batch.generation) {
+            return;
+        }
+        for upload in batch.uploads.iter() {
+            let offset =
+                upload.slot as usize * MAX_PROBABILITY_OUTCOMES * std::mem::size_of::<f32>();
+            queue.write_buffer(
+                &resources.probability.output_buffer,
+                offset as wgpu::BufferAddress,
+                bytemuck::cast_slice(upload.probabilities.as_ref()),
+            );
+        }
+        resources.probability.last_external_upload_generation = Some(batch.generation);
+        PROBABILITY_SLOT_MAP.with(|cell| {
+            *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
+        });
+        PROBABILITY_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(ProbabilityGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                output_buffer: resources.probability.output_buffer.clone(),
+            });
+        });
+    }
 }
 
 impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
     fn prepare(
         &self,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         egui_encoder: &mut wgpu::CommandEncoder,
@@ -40,6 +78,7 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
+        self.upload_external_probabilities(device, queue, resources);
         let params = ProbabilityRenderParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,

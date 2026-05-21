@@ -48,6 +48,7 @@ pub(crate) struct ProbabilityResources {
     pub popup_value_bind_group: wgpu::BindGroup,
     pub popup_value_params_buffer: wgpu::Buffer,
     pub last_popup_value_params: Option<ProbabilityPopupValueParams>,
+    pub last_external_upload_generation: Option<u64>,
 }
 
 impl ProbabilityResources {
@@ -150,6 +151,7 @@ impl ProbabilityResources {
             popup_value_bind_group,
             popup_value_params_buffer,
             last_popup_value_params: None,
+            last_external_upload_generation: None,
         }
     }
 
@@ -186,7 +188,9 @@ fn create_output_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         label: Some("probability_output"),
         size: (MAX_PROBABILITY_SLOTS * MAX_PROBABILITY_OUTCOMES * std::mem::size_of::<f32>())
             as wgpu::BufferAddress,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_SRC
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }

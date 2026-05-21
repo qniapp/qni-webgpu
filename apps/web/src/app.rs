@@ -17,7 +17,9 @@ mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
-use crate::gpu::{ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch};
+use crate::gpu::{
+    ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalProbabilityUploadBatch,
+};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
 use circuit_library::CircuitLibrary;
@@ -88,9 +90,11 @@ pub(crate) struct QniApp {
     pub(crate) external_gpu_state_refresh_pending: bool,
     pub(crate) external_gpu_amplitude_uploads: Option<ExternalAmplitudeUploadBatch>,
     pub(crate) external_gpu_bloch_uploads: Option<ExternalBlochUploadBatch>,
+    pub(crate) external_gpu_probability_uploads: Option<ExternalProbabilityUploadBatch>,
     pub(crate) external_gpu_display_generation: u64,
     pub(crate) pending_external_amplitude_slots: Vec<u32>,
     pub(crate) pending_external_bloch_slots: Vec<u32>,
+    pub(crate) pending_external_probability_slots: Vec<u32>,
     pub(crate) pending_external_gpu_run_id: Option<u64>,
     pub(crate) gpu_plan: GpuPlanState,
     last_content_rect: Option<egui::Rect>,
@@ -261,9 +265,11 @@ impl QniApp {
             external_gpu_state_refresh_pending: false,
             external_gpu_amplitude_uploads: None,
             external_gpu_bloch_uploads: None,
+            external_gpu_probability_uploads: None,
             external_gpu_display_generation: 0,
             pending_external_amplitude_slots: Vec::new(),
             pending_external_bloch_slots: Vec::new(),
+            pending_external_probability_slots: Vec::new(),
             pending_external_gpu_run_id: None,
             gpu_plan: GpuPlanState::default(),
             last_content_rect: None,

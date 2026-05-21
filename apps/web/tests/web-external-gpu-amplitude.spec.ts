@@ -3,6 +3,7 @@ import {
   pixelRgbDistance,
   readAmplitudeCell,
   readBlochVectors,
+  readProbabilityDistributions,
   sampleCanvasPixels,
   type CanvasPixel,
   type PixelSamplePoint,
@@ -56,6 +57,21 @@ const waitForExternalBlochVector = async (page: Page, gateId: number, expectedX 
   throw new Error(`External Bloch vector ${gateId} did not become available`)
 }
 
+const waitForExternalProbability = async (
+  page: Page,
+  gateId: number,
+  outcome: number,
+  expectedProbability: number,
+) => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const entry = (await readProbabilityDistributions(page)).find((item) => item.gateId === gateId)
+    const value = entry?.probabilities[outcome]
+    if (value !== undefined && Math.round(value * 100) / 100 === expectedProbability) return value
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`External Probability value ${gateId}:${outcome} did not become available`)
+}
+
 test('Run GPU uploads Qiskit Amplitude results into the display buffer', async ({ page }) => {
   await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -98,8 +114,8 @@ test('Run GPU uploads Qiskit Amplitude results into the display buffer', async (
   expect(Math.round(cell.re * 100) / 100).toBe(0.75)
 })
 
-test('Run GPU uploads combined Qiskit display results into GPU buffers', async ({ page }) => {
-  await page.goto(`/#${circuitHash([['H', 1], ['Amps1', 'Bloch']])}`)
+test('Run GPU uploads Qiskit Probability results into the display buffer', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })
   await switchToGpuMode(page)
   await page.waitForTimeout(100)
@@ -112,7 +128,40 @@ test('Run GPU uploads combined Qiskit display results into GPU buffers', async (
         runner: 'test',
         qubits: payload.qubits,
         shots: payload.shots,
-        histogram: { '00': 512, '10': 512 },
+        histogram: { '0': 512, '1': 512 },
+        probability: [{ gate_id: 2, span: 1, probabilities: [0.25, 0.75] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  const probability = await waitForExternalProbability(page, 2, 1, 0.75)
+
+  expect(Math.round(probability * 100) / 100).toBe(0.75)
+})
+
+test('Run GPU uploads combined Qiskit display results into GPU buffers', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H', 1, 1], ['Amps1', 'Bloch', 'Probability']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '000': 512, '100': 512 },
         amplitudes: [
           {
             gate_id: 2,
@@ -124,6 +173,7 @@ test('Run GPU uploads combined Qiskit display results into GPU buffers', async (
           },
         ],
         bloch: [{ gate_id: 3, vector: [0.4, 0.2, -0.4] }],
+        probability: [{ gate_id: 4, span: 1, probabilities: [0.7, 0.3] }],
         truncated: false,
       }
       ;(window as any).__qniLastQiskitResult = result
@@ -138,11 +188,13 @@ test('Run GPU uploads combined Qiskit display results into GPU buffers', async (
   await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
   const cell = await waitForExternalAmplitudeCell(page, 2, 1, 0.6)
   const vector = await waitForExternalBlochVector(page, 3, 0.4)
+  const probability = await waitForExternalProbability(page, 4, 1, 0.3)
 
-  expect({ re: Math.round(cell.re * 100) / 100, x: Math.round(vector.x * 100) / 100 }).toEqual({
-    re: 0.6,
-    x: 0.4,
-  })
+  expect({
+    re: Math.round(cell.re * 100) / 100,
+    x: Math.round(vector.x * 100) / 100,
+    p: Math.round(probability * 100) / 100,
+  }).toEqual({ re: 0.6, x: 0.4, p: 0.3 })
 })
 
 test('Run GPU uploads Qiskit Bloch results into the display buffer', async ({ page }) => {

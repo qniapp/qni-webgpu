@@ -9,6 +9,7 @@ CONTROL_TOKENS = {"•", "●", "control", "Control"}
 ANTI_CONTROL_TOKENS = {"○", "anti", "Anti"}
 EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
+PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
 DISPLAY_TOKENS = {"Bloch"}
 
 
@@ -84,7 +85,11 @@ def apply_column_to_qiskit(qc: Any, column: list[Any], qubits: int) -> None:
 
 
 def is_readonly_display_token(token: str) -> bool:
-    return token in DISPLAY_TOKENS or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
+    return (
+        token in DISPLAY_TOKENS
+        or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
+        or bool(PROBABILITY_DISPLAY_RE.fullmatch(token))
+    )
 
 
 def apply_gate(qc: Any, wire: int, token: str, controls: list[int], qubits: int) -> None:

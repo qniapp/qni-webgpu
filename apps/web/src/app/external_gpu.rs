@@ -2,6 +2,7 @@ mod amplitude;
 mod app_adapter;
 mod bloch;
 mod client;
+mod probability;
 mod test_hooks;
 
 pub(crate) use qni_web_external_gpu_model::{

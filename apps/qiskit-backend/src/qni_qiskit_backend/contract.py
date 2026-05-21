@@ -17,6 +17,7 @@ MAX_QUBITS = 32
 MAX_EXACT_AMPLITUDE_QUBITS = 16
 MAX_AMPLITUDE_OUTPUTS = 32
 MAX_BLOCH_OUTPUTS = 64
+MAX_PROBABILITY_OUTPUTS = 32
 
 
 class ContractError(ValueError):
@@ -42,6 +43,14 @@ class BlochOutputRequest:
 
 
 @dataclass(frozen=True)
+class ProbabilityOutputRequest:
+    gate_id: int
+    column: int
+    span: int
+    base_bit: int
+
+
+@dataclass(frozen=True)
 class RunRequest:
     runner: str
     qubits: int
@@ -50,6 +59,7 @@ class RunRequest:
     seed: int | None
     amplitude_outputs: list[AmplitudeOutputRequest]
     bloch_outputs: list[BlochOutputRequest]
+    probability_outputs: list[ProbabilityOutputRequest]
 
 
 def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> RunRequest:
@@ -85,6 +95,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
 
     amplitude_outputs = parse_amplitude_outputs(outputs, columns, qubits)
     bloch_outputs = parse_bloch_outputs(outputs, columns, qubits)
+    probability_outputs = parse_probability_outputs(outputs, columns, qubits)
 
     runner = payload.get("runner", default_runner)
     if runner not in {"mock", "qiskit-cpu-dev", "qiskit-gpu"}:
@@ -98,6 +109,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
         seed=seed,
         amplitude_outputs=amplitude_outputs,
         bloch_outputs=bloch_outputs,
+        probability_outputs=probability_outputs,
     )
 
 
@@ -184,6 +196,44 @@ def parse_bloch_output(raw: Any, columns: list[list[Any]], qubits: int) -> Bloch
     if not 0 <= wire < qubits:
         raise ContractError("bloch wire is out of range")
     return BlochOutputRequest(gate_id=gate_id, column=column, wire=wire)
+
+
+def parse_probability_outputs(
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+) -> list[ProbabilityOutputRequest]:
+    raw_outputs = outputs.get("probability", [])
+    if raw_outputs in (None, False):
+        return []
+    if not isinstance(raw_outputs, list):
+        raise ContractError("outputs.probability must be an array")
+    if len(raw_outputs) > MAX_PROBABILITY_OUTPUTS:
+        raise ContractError(f"at most {MAX_PROBABILITY_OUTPUTS} probability outputs are supported")
+    return [parse_probability_output(raw, columns, qubits) for raw in raw_outputs]
+
+
+def parse_probability_output(
+    raw: Any, columns: list[list[Any]], qubits: int
+) -> ProbabilityOutputRequest:
+    if not isinstance(raw, dict):
+        raise ContractError("each probability output must be an object")
+    gate_id = required_int(raw, "gate_id", "probability")
+    column = required_int(raw, "column", "probability")
+    span = required_int(raw, "span", "probability")
+    base_bit = required_int(raw, "base_bit", "probability")
+    if gate_id < 0:
+        raise ContractError("probability gate_id must be non-negative")
+    if not 0 <= column < len(columns):
+        raise ContractError("probability column is out of range")
+    if not 1 <= span <= 16:
+        raise ContractError("probability span must be in [1, 16]")
+    if not 0 <= base_bit or base_bit + span > qubits:
+        raise ContractError("probability bit range is out of range")
+    return ProbabilityOutputRequest(
+        gate_id=gate_id,
+        column=column,
+        span=span,
+        base_bit=base_bit,
+    )
 
 
 def required_int(raw: dict[str, Any], key: str, subject: str) -> int:

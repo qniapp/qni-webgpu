@@ -109,6 +109,28 @@ pub(crate) const MAX_PROBABILITY_OUTCOMES: usize = 1 << 16;
 pub(crate) const MAX_PROBABILITY_AGGREGATE_ROWS: usize = 1024;
 pub(crate) const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13;
 
+#[derive(Clone)]
+pub(crate) struct ExternalProbabilityUpload {
+    pub(crate) slot: u32,
+    pub(crate) probabilities: Arc<[f32]>,
+}
+
+#[derive(Clone)]
+pub(crate) struct ExternalProbabilityUploadBatch {
+    pub(crate) generation: u64,
+    pub(crate) slot_to_gate_id: Arc<[u32]>,
+    pub(crate) uploads: Arc<[ExternalProbabilityUpload]>,
+}
+
+impl ExternalProbabilityUploadBatch {
+    pub(crate) fn slot_for_gate(&self, gate_id: u32) -> Option<u32> {
+        self.slot_to_gate_id
+            .iter()
+            .position(|id| *id == gate_id)
+            .map(|slot| slot as u32)
+    }
+}
+
 /// Maximum Amplitude display slots whose complex matrices can be captured in
 /// a single recompute. Each slot reserves coherent (re/im) and incoherent
 /// magnitude values for `2^16` outcomes.

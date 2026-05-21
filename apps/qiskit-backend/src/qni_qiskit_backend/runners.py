@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 from .circuit import apply_column_to_qiskit
-from .contract import AmplitudeOutputRequest, BlochOutputRequest, RunRequest
+from .contract import (
+    AmplitudeOutputRequest,
+    BlochOutputRequest,
+    ProbabilityOutputRequest,
+    RunRequest,
+)
 
 
 class RunnerUnavailable(RuntimeError):
@@ -35,6 +40,7 @@ class MockRunner:
         )
         add_mock_amplitudes(response, request)
         add_mock_bloch(response, request)
+        add_mock_probability(response, request)
         return response
 
 
@@ -55,7 +61,7 @@ class QiskitRunner:
             ) from exc
 
         qc = QuantumCircuit(request.qubits, request.qubits)
-        amplitude_labels, bloch_labels = add_display_saves(qc, request, Pauli)
+        amplitude_labels, bloch_labels, probability_labels = add_display_saves(qc, request, Pauli)
         for wire in range(request.qubits):
             qc.measure(wire, wire)
 
@@ -83,6 +89,7 @@ class QiskitRunner:
         data = result.data(0)
         add_qiskit_amplitudes(response, request, data, amplitude_labels)
         add_qiskit_bloch(response, request, data, bloch_labels)
+        add_qiskit_probability(response, request, data, probability_labels)
         return response
 
 
@@ -98,15 +105,19 @@ def select_runner(name: str) -> Runner:
 
 def add_display_saves(
     qc: Any, request: RunRequest, pauli_type: Any
-) -> tuple[dict[int, str], dict[int, dict[str, str]]]:
+) -> tuple[dict[int, str], dict[int, dict[str, str]], dict[int, str]]:
     amplitudes_by_column: dict[int, list[AmplitudeOutputRequest]] = defaultdict(list)
     bloch_by_column: dict[int, list[BlochOutputRequest]] = defaultdict(list)
+    probability_by_column: dict[int, list[ProbabilityOutputRequest]] = defaultdict(list)
     for amplitude in request.amplitude_outputs:
         amplitudes_by_column[amplitude.column].append(amplitude)
     for bloch in request.bloch_outputs:
         bloch_by_column[bloch.column].append(bloch)
+    for probability in request.probability_outputs:
+        probability_by_column[probability.column].append(probability)
     amplitude_labels: dict[int, str] = {}
     bloch_labels: dict[int, dict[str, str]] = {}
+    probability_labels: dict[int, str] = {}
     basis = qiskit_basis_order(request.qubits)
     for column_index, column in enumerate(request.columns):
         apply_column_to_qiskit(qc, column, request.qubits)
@@ -121,7 +132,11 @@ def add_display_saves(
                 qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
                 axis_labels[axis] = label
             bloch_labels[bloch.gate_id] = axis_labels
-    return amplitude_labels, bloch_labels
+        for probability in probability_by_column.get(column_index, []):
+            label = f"probability:{probability.gate_id}"
+            qc.save_probabilities(probability_qargs(probability, request.qubits), label=label)
+            probability_labels[probability.gate_id] = label
+    return amplitude_labels, bloch_labels, probability_labels
 
 
 def add_qiskit_amplitudes(
@@ -163,6 +178,23 @@ def add_qiskit_bloch(
     ]
 
 
+def add_qiskit_probability(
+    response: dict[str, Any],
+    request: RunRequest,
+    data: dict[str, Any],
+    labels: dict[int, str],
+) -> None:
+    if not request.probability_outputs:
+        return
+    response["probability"] = [
+        probability_display_response(
+            probability,
+            qiskit_saved_probabilities(data[labels[probability.gate_id]]),
+        )
+        for probability in request.probability_outputs
+    ]
+
+
 def add_mock_amplitudes(response: dict[str, Any], request: RunRequest) -> None:
     if not request.amplitude_outputs:
         return
@@ -184,8 +216,35 @@ def add_mock_bloch(response: dict[str, Any], request: RunRequest) -> None:
     ]
 
 
+def add_mock_probability(response: dict[str, Any], request: RunRequest) -> None:
+    if not request.probability_outputs:
+        return
+    response["probability"] = [
+        probability_display_response(
+            probability,
+            [1.0] + [0.0] * ((1 << probability.span) - 1),
+        )
+        for probability in request.probability_outputs
+    ]
+
+
 def bloch_display_response(request: BlochOutputRequest, vector: Sequence[float]) -> dict[str, Any]:
     return {"gate_id": request.gate_id, "vector": [float(value) for value in vector[:3]]}
+
+
+def probability_display_response(
+    request: ProbabilityOutputRequest, probabilities: Sequence[float]
+) -> dict[str, Any]:
+    outcomes = 1 << request.span
+    return {
+        "gate_id": request.gate_id,
+        "span": request.span,
+        "probabilities": [float(value) for value in probabilities[:outcomes]],
+    }
+
+
+def probability_qargs(request: ProbabilityOutputRequest, qubits: int) -> list[int]:
+    return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
 
 
 def saved_float(value: Any) -> float:
@@ -194,6 +253,10 @@ def saved_float(value: Any) -> float:
 
 def qiskit_saved_amplitudes(saved: Any) -> list[complex]:
     return [complex(value) for value in list(saved)]
+
+
+def qiskit_saved_probabilities(saved: Any) -> list[float]:
+    return [float(value) for value in list(saved)]
 
 
 def qiskit_basis_order(qubits: int) -> list[int]:

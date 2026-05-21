@@ -69,8 +69,10 @@ impl QniApp {
                 self.external_gpu_state_refresh_pending = false;
                 self.external_gpu_amplitude_uploads = None;
                 self.external_gpu_bloch_uploads = None;
+                self.external_gpu_probability_uploads = None;
                 self.pending_external_amplitude_slots.clear();
                 self.pending_external_bloch_slots.clear();
+                self.pending_external_probability_slots.clear();
                 self.pending_external_gpu_run_id = None;
             }
             self.gpu_plan.mark_dirty();
