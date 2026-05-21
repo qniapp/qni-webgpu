@@ -3,7 +3,8 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use super::super::params::{BlochOverlayInstance, BlochOverlayParams};
+use super::super::params::{BlochOverlayInstance, BlochOverlayParams, ExternalBlochUploadBatch};
+use super::super::readback::{BlochGpuHandle, BLOCH_GPU_HANDLE, BLOCH_SLOT_MAP};
 use super::super::resources::StateVectorResources;
 
 /// Renders the dynamic Bloch arrow + tip dot for every placed Bloch display
@@ -21,12 +22,48 @@ pub(crate) struct BlochOverlayCallback {
     pub(crate) line_color: [f32; 4],
     pub(crate) tip_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
+    pub(crate) external_uploads: Option<ExternalBlochUploadBatch>,
+}
+
+impl BlochOverlayCallback {
+    fn upload_external_bloch(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        resources: &mut StateVectorResources,
+    ) {
+        let Some(batch) = &self.external_uploads else {
+            return;
+        };
+        if resources.bloch.last_external_upload_generation == Some(batch.generation) {
+            return;
+        }
+        for upload in batch.uploads.iter() {
+            let offset = upload.slot as usize * std::mem::size_of::<[f32; 4]>();
+            queue.write_buffer(
+                &resources.bloch.output_buffer,
+                offset as wgpu::BufferAddress,
+                bytemuck::bytes_of(&upload.vector),
+            );
+        }
+        resources.bloch.last_external_upload_generation = Some(batch.generation);
+        BLOCH_SLOT_MAP.with(|cell| {
+            *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
+        });
+        BLOCH_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(BlochGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                output_buffer: resources.bloch.output_buffer.clone(),
+            });
+        });
+    }
 }
 
 impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
     fn prepare(
         &self,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
@@ -38,6 +75,7 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
+        self.upload_external_bloch(device, queue, resources);
         let params = BlochOverlayParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,

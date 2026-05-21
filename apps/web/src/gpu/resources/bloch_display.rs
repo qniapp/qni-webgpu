@@ -43,6 +43,7 @@ pub(crate) struct BlochResources {
     pub overlay_params_buffer: wgpu::Buffer,
     pub overlay_instance_buffer: wgpu::Buffer,
     pub last_overlay_params: Option<BlochOverlayParams>,
+    pub last_external_upload_generation: Option<u64>,
 }
 
 impl BlochResources {
@@ -66,6 +67,7 @@ impl BlochResources {
             overlay_params_buffer: overlay.params_buffer,
             overlay_instance_buffer: overlay.instance_buffer,
             last_overlay_params: None,
+            last_external_upload_generation: None,
         }
     }
 

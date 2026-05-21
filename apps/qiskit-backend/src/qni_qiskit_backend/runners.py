@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 from .circuit import apply_column_to_qiskit
-from .contract import AmplitudeOutputRequest, RunRequest
+from .contract import AmplitudeOutputRequest, BlochOutputRequest, RunRequest
 
 
 class RunnerUnavailable(RuntimeError):
@@ -34,6 +34,7 @@ class MockRunner:
             histogram={key: request.shots},
         )
         add_mock_amplitudes(response, request)
+        add_mock_bloch(response, request)
         return response
 
 
@@ -46,6 +47,7 @@ class QiskitRunner:
     def run(self, request: RunRequest) -> dict[str, Any]:
         try:
             from qiskit import QuantumCircuit, transpile
+            from qiskit.quantum_info import Pauli
             from qiskit_aer import AerSimulator
         except Exception as exc:  # pragma: no cover - depends on local env
             raise RunnerUnavailable(
@@ -53,7 +55,7 @@ class QiskitRunner:
             ) from exc
 
         qc = QuantumCircuit(request.qubits, request.qubits)
-        amplitude_labels = add_amplitude_saves(qc, request)
+        amplitude_labels, bloch_labels = add_display_saves(qc, request, Pauli)
         for wire in range(request.qubits):
             qc.measure(wire, wire)
 
@@ -78,7 +80,9 @@ class QiskitRunner:
             shots=request.shots,
             histogram=counts,
         )
-        add_qiskit_amplitudes(response, request, result.data(0), amplitude_labels)
+        data = result.data(0)
+        add_qiskit_amplitudes(response, request, data, amplitude_labels)
+        add_qiskit_bloch(response, request, data, bloch_labels)
         return response
 
 
@@ -92,19 +96,32 @@ def select_runner(name: str) -> Runner:
     raise ValueError(f"unknown runner: {name}")
 
 
-def add_amplitude_saves(qc: Any, request: RunRequest) -> dict[int, str]:
-    requests_by_column: dict[int, list[AmplitudeOutputRequest]] = defaultdict(list)
+def add_display_saves(
+    qc: Any, request: RunRequest, pauli_type: Any
+) -> tuple[dict[int, str], dict[int, dict[str, str]]]:
+    amplitudes_by_column: dict[int, list[AmplitudeOutputRequest]] = defaultdict(list)
+    bloch_by_column: dict[int, list[BlochOutputRequest]] = defaultdict(list)
     for amplitude in request.amplitude_outputs:
-        requests_by_column[amplitude.column].append(amplitude)
-    labels: dict[int, str] = {}
+        amplitudes_by_column[amplitude.column].append(amplitude)
+    for bloch in request.bloch_outputs:
+        bloch_by_column[bloch.column].append(bloch)
+    amplitude_labels: dict[int, str] = {}
+    bloch_labels: dict[int, dict[str, str]] = {}
     basis = qiskit_basis_order(request.qubits)
     for column_index, column in enumerate(request.columns):
         apply_column_to_qiskit(qc, column, request.qubits)
-        for amplitude in requests_by_column.get(column_index, []):
+        for amplitude in amplitudes_by_column.get(column_index, []):
             label = f"amplitude:{amplitude.gate_id}"
             qc.save_amplitudes(basis, label=label)
-            labels[amplitude.gate_id] = label
-    return labels
+            amplitude_labels[amplitude.gate_id] = label
+        for bloch in bloch_by_column.get(column_index, []):
+            axis_labels: dict[str, str] = {}
+            for axis in ("X", "Y", "Z"):
+                label = f"bloch:{bloch.gate_id}:{axis.lower()}"
+                qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
+                axis_labels[axis] = label
+            bloch_labels[bloch.gate_id] = axis_labels
+    return amplitude_labels, bloch_labels
 
 
 def add_qiskit_amplitudes(
@@ -125,6 +142,27 @@ def add_qiskit_amplitudes(
     ]
 
 
+def add_qiskit_bloch(
+    response: dict[str, Any],
+    request: RunRequest,
+    data: dict[str, Any],
+    labels: dict[int, dict[str, str]],
+) -> None:
+    if not request.bloch_outputs:
+        return
+    response["bloch"] = [
+        bloch_display_response(
+            bloch,
+            [
+                saved_float(data[labels[bloch.gate_id]["X"]]),
+                saved_float(data[labels[bloch.gate_id]["Y"]]),
+                saved_float(data[labels[bloch.gate_id]["Z"]]),
+            ],
+        )
+        for bloch in request.bloch_outputs
+    ]
+
+
 def add_mock_amplitudes(response: dict[str, Any], request: RunRequest) -> None:
     if not request.amplitude_outputs:
         return
@@ -135,6 +173,23 @@ def add_mock_amplitudes(response: dict[str, Any], request: RunRequest) -> None:
         amplitude_display_response(amplitude, ground_state, request.qubits)
         for amplitude in request.amplitude_outputs
     ]
+
+
+def add_mock_bloch(response: dict[str, Any], request: RunRequest) -> None:
+    if not request.bloch_outputs:
+        return
+    response["bloch"] = [
+        bloch_display_response(bloch, [0.0, 0.0, 1.0])
+        for bloch in request.bloch_outputs
+    ]
+
+
+def bloch_display_response(request: BlochOutputRequest, vector: Sequence[float]) -> dict[str, Any]:
+    return {"gate_id": request.gate_id, "vector": [float(value) for value in vector[:3]]}
+
+
+def saved_float(value: Any) -> float:
+    return float(complex(value).real)
 
 
 def qiskit_saved_amplitudes(saved: Any) -> list[complex]:

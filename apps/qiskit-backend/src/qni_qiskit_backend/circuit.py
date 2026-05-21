@@ -9,6 +9,7 @@ CONTROL_TOKENS = {"•", "●", "control", "Control"}
 ANTI_CONTROL_TOKENS = {"○", "anti", "Anti"}
 EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
+DISPLAY_TOKENS = {"Bloch"}
 
 
 class CircuitBuildError(ValueError):
@@ -75,15 +76,15 @@ def apply_column_to_qiskit(qc: Any, column: list[Any], qubits: int) -> None:
             continue
         if token in ANTI_CONTROL_TOKENS:
             raise CircuitBuildError("anti-control is not supported by the dev Qiskit runner yet")
-        if is_amplitude_display_token(token):
+        if is_readonly_display_token(token):
             continue
         deferred.append((wire, token))
     for wire, token in deferred:
         apply_gate(qc, wire, token, controls, qubits)
 
 
-def is_amplitude_display_token(token: str) -> bool:
-    return bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
+def is_readonly_display_token(token: str) -> bool:
+    return token in DISPLAY_TOKENS or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
 
 
 def apply_gate(qc: Any, wire: int, token: str, controls: list[int], qubits: int) -> None:

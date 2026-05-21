@@ -16,6 +16,7 @@ MAX_SHOTS = 100_000
 MAX_QUBITS = 32
 MAX_EXACT_AMPLITUDE_QUBITS = 16
 MAX_AMPLITUDE_OUTPUTS = 32
+MAX_BLOCH_OUTPUTS = 64
 
 
 class ContractError(ValueError):
@@ -34,6 +35,13 @@ class AmplitudeOutputRequest:
 
 
 @dataclass(frozen=True)
+class BlochOutputRequest:
+    gate_id: int
+    column: int
+    wire: int
+
+
+@dataclass(frozen=True)
 class RunRequest:
     runner: str
     qubits: int
@@ -41,6 +49,7 @@ class RunRequest:
     shots: int
     seed: int | None
     amplitude_outputs: list[AmplitudeOutputRequest]
+    bloch_outputs: list[BlochOutputRequest]
 
 
 def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> RunRequest:
@@ -75,6 +84,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
         raise ContractError("seed must be an integer when provided")
 
     amplitude_outputs = parse_amplitude_outputs(outputs, columns, qubits)
+    bloch_outputs = parse_bloch_outputs(outputs, columns, qubits)
 
     runner = payload.get("runner", default_runner)
     if runner not in {"mock", "qiskit-cpu-dev", "qiskit-gpu"}:
@@ -87,6 +97,7 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
         shots=shots,
         seed=seed,
         amplitude_outputs=amplitude_outputs,
+        bloch_outputs=bloch_outputs,
     )
 
 
@@ -112,12 +123,12 @@ def parse_amplitude_output(
 ) -> AmplitudeOutputRequest:
     if not isinstance(raw, dict):
         raise ContractError("each amplitude output must be an object")
-    gate_id = required_int(raw, "gate_id")
-    column = required_int(raw, "column")
-    span = required_int(raw, "span")
-    base_bit = required_int(raw, "base_bit")
-    control_mask = required_int(raw, "control_mask")
-    control_value = required_int(raw, "control_value")
+    gate_id = required_int(raw, "gate_id", "amplitude")
+    column = required_int(raw, "column", "amplitude")
+    span = required_int(raw, "span", "amplitude")
+    base_bit = required_int(raw, "base_bit", "amplitude")
+    control_mask = required_int(raw, "control_mask", "amplitude")
+    control_value = required_int(raw, "control_value", "amplitude")
     phase_lock_enabled = raw.get("phase_lock_enabled")
     if not isinstance(phase_lock_enabled, bool):
         raise ContractError("amplitude phase_lock_enabled must be a boolean")
@@ -147,8 +158,36 @@ def parse_amplitude_output(
     )
 
 
-def required_int(raw: dict[str, Any], key: str) -> int:
+def parse_bloch_outputs(
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+) -> list[BlochOutputRequest]:
+    raw_outputs = outputs.get("bloch", [])
+    if raw_outputs in (None, False):
+        return []
+    if not isinstance(raw_outputs, list):
+        raise ContractError("outputs.bloch must be an array")
+    if len(raw_outputs) > MAX_BLOCH_OUTPUTS:
+        raise ContractError(f"at most {MAX_BLOCH_OUTPUTS} bloch outputs are supported")
+    return [parse_bloch_output(raw, columns, qubits) for raw in raw_outputs]
+
+
+def parse_bloch_output(raw: Any, columns: list[list[Any]], qubits: int) -> BlochOutputRequest:
+    if not isinstance(raw, dict):
+        raise ContractError("each bloch output must be an object")
+    gate_id = required_int(raw, "gate_id", "bloch")
+    column = required_int(raw, "column", "bloch")
+    wire = required_int(raw, "wire", "bloch")
+    if gate_id < 0:
+        raise ContractError("bloch gate_id must be non-negative")
+    if not 0 <= column < len(columns):
+        raise ContractError("bloch column is out of range")
+    if not 0 <= wire < qubits:
+        raise ContractError("bloch wire is out of range")
+    return BlochOutputRequest(gate_id=gate_id, column=column, wire=wire)
+
+
+def required_int(raw: dict[str, Any], key: str, subject: str) -> int:
     value = raw.get(key)
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ContractError(f"amplitude {key} must be an integer")
+        raise ContractError(f"{subject} {key} must be an integer")
     return value

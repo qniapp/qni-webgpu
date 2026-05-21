@@ -28,9 +28,9 @@ pub(crate) use callbacks::{
 };
 pub(crate) use params::{
     AmplitudeInstance, BlochOverlayInstance, ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch,
-    MeasurementDigitInstance, ProbabilityInstance, RenderColors, RenderParams, MAX_AMPLITUDE_SLOTS,
-    MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS,
-    MAX_STEP_SNAPSHOT_SLOTS,
+    ExternalBlochUpload, ExternalBlochUploadBatch, MeasurementDigitInstance, ProbabilityInstance,
+    RenderColors, RenderParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]

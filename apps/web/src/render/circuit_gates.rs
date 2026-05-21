@@ -51,6 +51,13 @@ impl QniApp {
             .or_else(|| self.gpu_plan.amplitude_slot(gate_id))
     }
 
+    fn bloch_display_slot(&self, gate_id: u32) -> Option<u32> {
+        self.external_gpu_bloch_uploads
+            .as_ref()
+            .and_then(|batch| batch.slot_for_gate(gate_id))
+            .or_else(|| self.gpu_plan.bloch_slot(gate_id))
+    }
+
     pub(super) fn draw_placed_circuit_gates(
         &self,
         painter: &egui::Painter,
@@ -63,7 +70,7 @@ impl QniApp {
             let live_dragging_gate = dragging_gate_id == Some(gate.id)
                 && self.dragging_live_display_snap
                 && ((gate.kind == GateKind::BlochDisplay
-                    && self.gpu_plan.bloch_slot(gate.id).is_some())
+                    && self.bloch_display_slot(gate.id).is_some())
                     || (gate.kind == GateKind::Measurement
                         && self.gpu_plan.has_measurement_slot(gate.id)));
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
@@ -137,7 +144,7 @@ impl QniApp {
                     );
                 }
             }
-            if gate.kind == GateKind::BlochDisplay && self.gpu_plan.bloch_slot(gate.id).is_none() {
+            if gate.kind == GateKind::BlochDisplay && self.bloch_display_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
                 // or before the first frame's GPU dispatch). Show qni's
                 // d=0 blue dot via egui until the GPU overlay takes over.
@@ -283,7 +290,7 @@ impl QniApp {
                 if dragging_gate_id == Some(gate.id) && live_dragging_bloch_id != Some(gate.id) {
                     return None;
                 }
-                let slot = self.gpu_plan.bloch_slot(gate.id)?;
+                let slot = self.bloch_display_slot(gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
                     circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
@@ -310,6 +317,7 @@ impl QniApp {
                 line_color: colors.bloch_vector_line.to_normalized_gamma_f32(),
                 tip_color: colors.bloch_vector_tip.to_normalized_gamma_f32(),
                 zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
+                external_uploads: self.external_gpu_bloch_uploads.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

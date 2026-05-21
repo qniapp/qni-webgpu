@@ -110,6 +110,30 @@ class ContractTests(unittest.TestCase):
                 }
             )
 
+    def test_contract_accepts_bloch_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["H"], ["Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [{"gate_id": 2, "column": 1, "wire": 0}],
+                },
+            }
+        )
+        self.assertEqual(request.bloch_outputs[0].gate_id, 2)
+
+    def test_contract_rejects_too_many_bloch_outputs(self):
+        bloch = [{"gate_id": index, "column": 0, "wire": 0} for index in range(65)]
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 1,
+                    "columns": [["Bloch"]],
+                    "outputs": {"histogram": True, "bloch": bloch},
+                }
+            )
+
     def test_qiskit_builder_ignores_amplitude_display_tokens(self):
         class FakeCircuit:
             def __init__(self):
@@ -118,6 +142,29 @@ class ContractTests(unittest.TestCase):
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["Amps1"]], 1)
         self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_ignores_bloch_display_tokens(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Bloch"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_mock_runner_returns_fixed_bloch_outputs(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [{"gate_id": 1, "column": 0, "wire": 0}],
+                },
+            }
+        )
+        response = MockRunner().run(request)
+        self.assertEqual(response["bloch"][0]["vector"], [0.0, 0.0, 1.0])
 
     def test_mock_runner_returns_fixed_amplitude_outputs(self):
         request = parse_run_request(

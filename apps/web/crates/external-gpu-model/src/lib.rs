@@ -46,23 +46,29 @@ impl GpuFailure {
 }
 
 pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: usize) -> String {
-    qiskit_run_payload_with_amplitudes(qubits, columns_json, shots, "[]")
+    qiskit_run_payload_with_display_outputs(qubits, columns_json, shots, "[]", "[]")
 }
 
-pub fn qiskit_run_payload_with_amplitudes(
+pub fn qiskit_run_payload_with_display_outputs(
     qubits: usize,
     columns_json: &str,
     shots: usize,
     amplitudes_json: &str,
+    bloch_json: &str,
 ) -> String {
-    let amplitudes = if amplitudes_json.trim() == "[]" {
+    let amplitudes = optional_output_json("amplitudes", amplitudes_json);
+    let bloch = optional_output_json("bloch", bloch_json);
+    format!(
+        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true{amplitudes}{bloch}}}}}"#
+    )
+}
+
+fn optional_output_json(name: &str, value_json: &str) -> String {
+    if value_json.trim() == "[]" {
         String::new()
     } else {
-        format!(r#","amplitudes":{amplitudes_json}"#)
-    };
-    format!(
-        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true{amplitudes}}}}}"#
-    )
+        format!(r#","{name}":{value_json}"#)
+    }
 }
 
 pub fn format_gpu_duration(duration: Duration) -> String {
@@ -117,7 +123,7 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_amplitudes,
+        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs,
         unsupported_gate_from_message,
     };
 
@@ -138,15 +144,31 @@ mod tests {
 
     #[test]
     fn payload_can_request_amplitude_display_outputs() {
-        let payload = qiskit_run_payload_with_amplitudes(
+        let payload = qiskit_run_payload_with_display_outputs(
             1,
             r#"[["H"],["Amps1"]]"#,
             256,
             r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]"#,
+            "[]",
         );
         assert_eq!(
             payload.as_str(),
             r#"{"qubits":1,"columns":[["H"],["Amps1"]],"shots":256,"outputs":{"histogram":true,"amplitudes":[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]}}"#,
+        );
+    }
+
+    #[test]
+    fn payload_can_request_bloch_display_outputs() {
+        let payload = qiskit_run_payload_with_display_outputs(
+            1,
+            r#"[["H"],["Bloch"]]"#,
+            256,
+            "[]",
+            r#"[{"gate_id":2,"column":1,"wire":0}]"#,
+        );
+        assert_eq!(
+            payload.as_str(),
+            r#"{"qubits":1,"columns":[["H"],["Bloch"]],"shots":256,"outputs":{"histogram":true,"bloch":[{"gate_id":2,"column":1,"wire":0}]}}"#,
         );
     }
 

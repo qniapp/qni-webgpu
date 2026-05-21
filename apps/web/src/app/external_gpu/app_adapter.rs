@@ -6,18 +6,22 @@ use super::amplitude::{
     amplitude_requests_json, amplitude_slot_to_gate_id, collect_amplitude_requests,
     parse_amplitude_upload_batch,
 };
+use super::bloch::{
+    bloch_requests_json, bloch_slot_to_gate_id, collect_bloch_requests, parse_bloch_upload_batch,
+};
 use super::client::{start_qiskit_run, take_qiskit_run_result};
 use super::test_hooks::{take_external_gpu_status_override, wire_external_gpu_test_hooks};
-use super::{qiskit_run_payload_with_amplitudes, ExternalGpuStatus, GpuFailure};
+use super::{qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure};
 use super::{ExecMode, QniApp};
 use crate::app::circuit_library;
 use crate::gates::GateKind;
-use crate::gpu::MAX_AMPLITUDE_SLOTS;
+use crate::gpu::{MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS};
 use crate::shared::now_seconds;
 
 struct ExternalGpuRunRequest {
     payload: String,
     amplitude_slot_to_gate_id: Vec<u32>,
+    bloch_slot_to_gate_id: Vec<u32>,
 }
 
 impl QniApp {
@@ -39,6 +43,7 @@ impl QniApp {
                 Err(failure) => {
                     self.external_gpu_started_at = None;
                     self.pending_external_amplitude_slots.clear();
+                    self.pending_external_bloch_slots.clear();
                     ExternalGpuStatus::Failed(failure)
                 }
             };
@@ -58,7 +63,9 @@ impl QniApp {
             }
             ExternalGpuStatus::Completed { .. } => {
                 self.external_gpu_started_at = None;
-                if self.external_gpu_amplitude_uploads.is_none() {
+                if self.external_gpu_amplitude_uploads.is_none()
+                    && self.external_gpu_bloch_uploads.is_none()
+                {
                     self.request_external_gpu_state_panel_refresh();
                 }
             }
@@ -91,6 +98,8 @@ impl QniApp {
         }
         if let Some(gate_name) = self.unsupported_external_gpu_gate() {
             self.pending_external_gpu_run_id = None;
+            self.pending_external_amplitude_slots.clear();
+            self.pending_external_bloch_slots.clear();
             self.external_gpu_status =
                 ExternalGpuStatus::Failed(GpuFailure::UnsupportedGate(gate_name.to_owned()));
             ctx.request_repaint();
@@ -100,14 +109,28 @@ impl QniApp {
         let request = self.external_gpu_run_request();
         if request.amplitude_slot_to_gate_id.len() > MAX_AMPLITUDE_SLOTS {
             self.pending_external_gpu_run_id = None;
+            self.pending_external_amplitude_slots.clear();
+            self.pending_external_bloch_slots.clear();
             self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
                 "at most {MAX_AMPLITUDE_SLOTS} Amplitude displays"
             )));
             ctx.request_repaint();
             return;
         }
+        if request.bloch_slot_to_gate_id.len() > MAX_BLOCH_SLOTS {
+            self.pending_external_gpu_run_id = None;
+            self.pending_external_amplitude_slots.clear();
+            self.pending_external_bloch_slots.clear();
+            self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
+                "at most {MAX_BLOCH_SLOTS} Bloch displays"
+            )));
+            ctx.request_repaint();
+            return;
+        }
         self.pending_external_amplitude_slots = request.amplitude_slot_to_gate_id;
+        self.pending_external_bloch_slots = request.bloch_slot_to_gate_id;
         self.external_gpu_amplitude_uploads = None;
+        self.external_gpu_bloch_uploads = None;
         self.external_gpu_started_at = Some(now_seconds());
         match start_qiskit_run(request.payload, ctx.clone()) {
             Ok(run_id) => {
@@ -117,6 +140,7 @@ impl QniApp {
             Err(failure) => {
                 self.external_gpu_started_at = None;
                 self.pending_external_amplitude_slots.clear();
+                self.pending_external_bloch_slots.clear();
                 self.pending_external_gpu_run_id = None;
                 self.external_gpu_status = ExternalGpuStatus::Failed(failure);
             }
@@ -128,7 +152,7 @@ impl QniApp {
         for gate in &self.placed_gates {
             let name = match gate.kind {
                 GateKind::AntiControl => Some("Anti-control"),
-                GateKind::BlochDisplay => Some("Bloch"),
+                GateKind::BlochDisplay => None,
                 GateKind::Measurement => Some("Measurement"),
                 GateKind::ProbabilityDisplay => Some("Probability"),
                 GateKind::AmplitudeDisplay => None,
@@ -149,7 +173,7 @@ impl QniApp {
         for column in 0..=max_column {
             let mut has_control = false;
             let mut has_x_target = false;
-            let mut has_amplitude_display = false;
+            let mut has_readonly_display = false;
             let mut non_x_target = None;
             for gate in self
                 .placed_gates
@@ -160,8 +184,11 @@ impl QniApp {
                     has_control = true;
                 } else if gate.kind == GateKind::X {
                     has_x_target = true;
-                } else if gate.kind == GateKind::AmplitudeDisplay {
-                    has_amplitude_display = true;
+                } else if matches!(
+                    gate.kind,
+                    GateKind::AmplitudeDisplay | GateKind::BlochDisplay
+                ) {
+                    has_readonly_display = true;
                 } else if !matches!(gate.kind, GateKind::Spacer) {
                     non_x_target = Some(gate.kind.label());
                 }
@@ -170,7 +197,7 @@ impl QniApp {
                 if let Some(label) = non_x_target {
                     return Some(label);
                 }
-                if !has_x_target && !has_amplitude_display {
+                if !has_x_target && !has_readonly_display {
                     return Some("Control");
                 }
             }
@@ -180,25 +207,54 @@ impl QniApp {
 
     fn complete_external_gpu_run(&mut self, message: &str) -> ExternalGpuStatus {
         let duration = self.take_external_gpu_duration();
-        if !self.pending_external_amplitude_slots.is_empty() {
-            self.external_gpu_amplitude_generation += 1;
+        let has_display_outputs = !self.pending_external_amplitude_slots.is_empty()
+            || !self.pending_external_bloch_slots.is_empty();
+        if has_display_outputs {
+            self.external_gpu_display_generation += 1;
+        }
+        let amplitude_batch = if self.pending_external_amplitude_slots.is_empty() {
+            None
+        } else {
             let Some(batch) = parse_amplitude_upload_batch(
                 message,
-                self.external_gpu_amplitude_generation,
+                self.external_gpu_display_generation,
                 &self.pending_external_amplitude_slots,
             ) else {
                 self.pending_external_amplitude_slots.clear();
+                self.pending_external_bloch_slots.clear();
                 return ExternalGpuStatus::Failed(GpuFailure::Other(
                     "Amplitude result missing".to_owned(),
                 ));
             };
-            self.gpu_plan.replace_external_amplitude_slots(
+            Some(batch)
+        };
+        let bloch_batch = if self.pending_external_bloch_slots.is_empty() {
+            None
+        } else {
+            let Some(batch) = parse_bloch_upload_batch(
+                message,
+                self.external_gpu_display_generation,
+                &self.pending_external_bloch_slots,
+            ) else {
+                self.pending_external_amplitude_slots.clear();
+                self.pending_external_bloch_slots.clear();
+                return ExternalGpuStatus::Failed(GpuFailure::Other(
+                    "Bloch result missing".to_owned(),
+                ));
+            };
+            Some(batch)
+        };
+        self.external_gpu_amplitude_uploads = amplitude_batch;
+        self.external_gpu_bloch_uploads = bloch_batch;
+        if has_display_outputs {
+            self.gpu_plan.replace_external_display_slots(
+                &self.pending_external_bloch_slots,
                 &self.pending_external_amplitude_slots,
                 self.state_count(),
             );
-            self.external_gpu_amplitude_uploads = Some(batch);
-            self.pending_external_amplitude_slots.clear();
         }
+        self.pending_external_amplitude_slots.clear();
+        self.pending_external_bloch_slots.clear();
         ExternalGpuStatus::Completed { duration }
     }
 
@@ -206,15 +262,19 @@ impl QniApp {
         let qubits = self.external_execution_qubits();
         let columns_json = crate::url_circuit::circuit_columns_to_json(&self.placed_gates, qubits);
         let amplitude_requests = collect_amplitude_requests(&self.placed_gates, qubits);
+        let bloch_requests = collect_bloch_requests(&self.placed_gates, qubits);
         let amplitudes_json = amplitude_requests_json(&amplitude_requests);
+        let bloch_json = bloch_requests_json(&bloch_requests);
         ExternalGpuRunRequest {
-            payload: qiskit_run_payload_with_amplitudes(
+            payload: qiskit_run_payload_with_display_outputs(
                 qubits,
                 &columns_json,
                 1024,
                 &amplitudes_json,
+                &bloch_json,
             ),
             amplitude_slot_to_gate_id: amplitude_slot_to_gate_id(&amplitude_requests),
+            bloch_slot_to_gate_id: bloch_slot_to_gate_id(&bloch_requests),
         }
     }
 

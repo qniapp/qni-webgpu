@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   pixelRgbDistance,
   readAmplitudeCell,
+  readBlochVectors,
   sampleCanvasPixels,
   type CanvasPixel,
   type PixelSamplePoint,
@@ -32,13 +33,27 @@ const switchToGpuMode = async (page: Page): Promise<void> => {
   throw new Error('GPU mode did not reach expected fill')
 }
 
-const waitForExternalAmplitudeCell = async (page: Page, gateId: number, outcome: number) => {
+const waitForExternalAmplitudeCell = async (
+  page: Page,
+  gateId: number,
+  outcome: number,
+  expectedRe = 0.75,
+) => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const cell = await readAmplitudeCell(page, gateId, outcome)
-    if (cell && Math.round(cell.re * 100) / 100 === 0.75) return cell
+    if (cell && Math.round(cell.re * 100) / 100 === expectedRe) return cell
     await page.waitForTimeout(50)
   }
   throw new Error(`External Amplitude cell ${gateId}:${outcome} did not become available`)
+}
+
+const waitForExternalBlochVector = async (page: Page, gateId: number, expectedX = 0.5) => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const vector = (await readBlochVectors(page)).find((entry) => entry.gateId === gateId)
+    if (vector && Math.round(vector.x * 100) / 100 === expectedX) return vector
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`External Bloch vector ${gateId} did not become available`)
 }
 
 test('Run GPU uploads Qiskit Amplitude results into the display buffer', async ({ page }) => {
@@ -81,4 +96,84 @@ test('Run GPU uploads Qiskit Amplitude results into the display buffer', async (
   const cell = await waitForExternalAmplitudeCell(page, 2, 1)
 
   expect(Math.round(cell.re * 100) / 100).toBe(0.75)
+})
+
+test('Run GPU uploads combined Qiskit display results into GPU buffers', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H', 1], ['Amps1', 'Bloch']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '00': 512, '10': 512 },
+        amplitudes: [
+          {
+            gate_id: 2,
+            span: 1,
+            ket: [[0.4, 0], [0.6, 0]],
+            incoherent: [0.4, 0.6],
+            quality: 1,
+            phase_lock_index: -1,
+          },
+        ],
+        bloch: [{ gate_id: 3, vector: [0.4, 0.2, -0.4] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  const cell = await waitForExternalAmplitudeCell(page, 2, 1, 0.6)
+  const vector = await waitForExternalBlochVector(page, 3, 0.4)
+
+  expect({ re: Math.round(cell.re * 100) / 100, x: Math.round(vector.x * 100) / 100 }).toEqual({
+    re: 0.6,
+    x: 0.4,
+  })
+})
+
+test('Run GPU uploads Qiskit Bloch results into the display buffer', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Bloch']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '0': 512, '1': 512 },
+        bloch: [{ gate_id: 2, vector: [0.5, 0.25, -0.5] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  const vector = await waitForExternalBlochVector(page, 2)
+
+  expect(Math.round(vector.x * 100) / 100).toBe(0.5)
 })
