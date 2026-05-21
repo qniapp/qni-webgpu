@@ -163,6 +163,9 @@ fn main() {
 pub(in crate::gpu) const AMPLITUDE_RENDER_SHADER: &str = r#"
 const MAX_OUTCOMES: u32 = 65536u;
 const VALUES_PER_SLOT: u32 = MAX_OUTCOMES * 3u;
+const AMPLITUDE_MODE_SAMPLE: u32 = 0u;
+const AMPLITUDE_MODE_ZERO: u32 = 1u;
+const AMPLITUDE_MODE_PLACEHOLDER: u32 = 2u;
 
 struct RenderParams {
     viewport_min: vec2<f32>,
@@ -176,6 +179,7 @@ struct RenderParams {
     outline_zero: vec4<f32>,
     needle: vec4<f32>,
     hover_border: vec4<f32>,
+    placeholder_background: vec4<f32>,
 };
 
 struct VertexOut {
@@ -241,8 +245,9 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let body_border = 1.0;
-    var color = params.background;
-    if (in.use_drag_background == 1u) {
+    let placeholder = in.force_zero_amplitude == AMPLITUDE_MODE_PLACEHOLDER;
+    var color = select(params.background, params.placeholder_background, placeholder);
+    if (!placeholder && in.use_drag_background == 1u) {
         color = params.drag_background;
     }
     let aa_edge = length(fwidth(in.local));
@@ -277,8 +282,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var re = 0.0;
     var im = 0.0;
     var mag = 0.0;
-    if (in.force_zero_amplitude == 0u) {
-        let amp_meta = amplitude_meta[in.slot];
+    let amp_meta = amplitude_meta[in.slot];
+    if (in.force_zero_amplitude == AMPLITUDE_MODE_SAMPLE) {
         incoherent = amp_meta.x < 0.99;
         re = amplitude_data[base + 2u * outcome];
         im = amplitude_data[base + 2u * outcome + 1u];
@@ -288,6 +293,31 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             re = mag;
             im = 0.0;
         }
+    }
+
+    if (placeholder) {
+        let stroke = select(1.0, 2.0, cell >= 24.0);
+        let half_stroke = stroke * 0.5;
+        let outline_radius = max(0.0, cell * 0.5 - stroke);
+        let centered_len = length(cell_centered);
+        let edge = max(0.5, aa_edge * 0.65);
+        let outline_inner = 1.0 - smoothstep(
+            outline_radius - half_stroke - edge,
+            outline_radius - half_stroke + edge,
+            centered_len
+        );
+        let outline_outer = 1.0 - smoothstep(
+            outline_radius + half_stroke - edge,
+            outline_radius + half_stroke + edge,
+            centered_len
+        );
+        let outline_alpha = max(0.0, outline_outer - outline_inner);
+        if (outline_alpha > 0.001) {
+            var outline = params.outline_zero;
+            outline.a = outline.a * outline_alpha;
+            color = blend_over(color, outline);
+        }
+        return color;
     }
 
     if (cell < 3.0) {

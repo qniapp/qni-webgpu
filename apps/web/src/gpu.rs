@@ -24,14 +24,16 @@ mod shaders;
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
     MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
-    ProbabilityPopupValueCallback, StateVectorCallback,
+    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorResourceBootstrapCallback,
 };
 pub(crate) use params::{
     AmplitudeInstance, BlochOverlayInstance, ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch,
     ExternalBlochUpload, ExternalBlochUploadBatch, ExternalProbabilityUpload,
     ExternalProbabilityUploadBatch, MeasurementDigitInstance, ProbabilityInstance, RenderColors,
-    RenderParams, MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS,
-    MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
+    RenderParams, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, AMPLITUDE_FORCE_ZERO,
+    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
+    MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, PROBABILITY_RENDER_MODE_PLACEHOLDER,
+    PROBABILITY_RENDER_MODE_SAMPLE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 #[cfg(target_arch = "wasm32")]

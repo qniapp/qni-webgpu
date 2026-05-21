@@ -12,6 +12,42 @@ use super::super::readback::{
 use super::super::recompute::recompute_state_vector;
 use super::super::resources::StateVectorResources;
 
+pub(crate) struct StateVectorResourceBootstrapCallback {
+    pub(crate) target_format: wgpu::TextureFormat,
+}
+
+impl egui_wgpu::CallbackTrait for StateVectorResourceBootstrapCallback {
+    fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        _egui_encoder: &mut wgpu::CommandEncoder,
+        callback_resources: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        let resources = if callback_resources.contains::<StateVectorResources>() {
+            callback_resources
+                .get_mut::<StateVectorResources>()
+                .expect("StateVectorResources missing")
+        } else {
+            callback_resources.insert(StateVectorResources::new(device, queue, self.target_format));
+            callback_resources
+                .get_mut::<StateVectorResources>()
+                .expect("StateVectorResources just inserted")
+        };
+        resources.update_target_format(device, self.target_format);
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        _render_pass: &mut wgpu::RenderPass<'static>,
+        _callback_resources: &egui_wgpu::CallbackResources,
+    ) {
+    }
+}
+
 pub(crate) struct StateVectorCallback {
     /// Linearised simulation ops for the GPU pipeline. Includes gate
     /// application, readout captures, measurement collapse, and optional

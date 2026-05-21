@@ -42,10 +42,10 @@ test('Amplitude rendering treats tiny non-zero amplitudes as non-zero outlines',
   assert.match(renderShader, /select\(params\.outline_zero, params\.outline, mag > 0\.000001\)/)
 })
 
-test('Amplitude rendering uses purple background only for dragged instances', async () => {
+test('Amplitude rendering uses purple background only for dragged non-placeholder instances', async () => {
   const renderShader = await readRenderShader()
 
-  assert.match(renderShader, /if \(in\.use_drag_background == 1u\) \{\s*color = params\.drag_background;/)
+  assert.match(renderShader, /if \(!placeholder && in\.use_drag_background == 1u\) \{\s*color = params\.drag_background;/)
 })
 
 test('Amplitude dragged background preserves the circle interior background', async () => {
@@ -81,13 +81,13 @@ test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', as
 test('Amplitude unsnapped Amps1 drag preview uses a force-zero GPU instance', async () => {
   const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
 
-  assert.match(dragPreview, /use_drag_background: 1,[\s\S]*force_zero_amplitude: 1/)
+  assert.match(dragPreview, /use_drag_background: 1,[\s\S]*force_zero_amplitude: AMPLITUDE_FORCE_ZERO/)
 })
 
 test('Amplitude force-zero shader bypasses captured amplitude values', async () => {
   const renderShader = await readRenderShader()
 
-  assert.match(renderShader, /var mag = 0\.0;\s*if \(in\.force_zero_amplitude == 0u\) \{[\s\S]*amplitude_data\[base \+ 2u \* outcome\]/)
+  assert.match(renderShader, /var mag = 0\.0;[\s\S]*if \(in\.force_zero_amplitude == AMPLITUDE_MODE_SAMPLE\) \{[\s\S]*amplitude_data\[base \+ 2u \* outcome\]/)
 })
 
 test('Amplitude force-zero flag is part of the GPU instance layout', async () => {

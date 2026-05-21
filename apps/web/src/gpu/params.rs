@@ -108,6 +108,8 @@ pub(crate) const MAX_PROBABILITY_OUTCOMES: usize = 1 << 16;
 /// tweaks while keeping the aggregate buffer small.
 pub(crate) const MAX_PROBABILITY_AGGREGATE_ROWS: usize = 1024;
 pub(crate) const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13;
+pub(crate) const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0;
+pub(crate) const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1;
 
 #[derive(Clone)]
 pub(crate) struct ExternalProbabilityUpload {
@@ -258,7 +260,13 @@ pub(crate) struct AmplitudeRenderParams {
     pub(crate) needle: [f32; 4],
     /// Flexoki purple-400 #8B7EC8 hovered cell outline.
     pub(crate) hover_border: [f32; 4],
+    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
+    pub(crate) placeholder_background: [f32; 4],
 }
+
+pub(crate) const AMPLITUDE_FORCE_NONE: u32 = 0;
+pub(crate) const AMPLITUDE_FORCE_ZERO: u32 = 1;
+pub(crate) const AMPLITUDE_FORCE_PLACEHOLDER: u32 = 2;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -269,9 +277,8 @@ pub(crate) struct AmplitudeInstance {
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
     pub(crate) use_drag_background: u32,
-    /// Draw the exact Amplitude display chrome with zero amplitudes instead
-    /// of sampling a captured slot. Used only for the unsnapped Amps1 drag
-    /// preview so it matches the live GPU display without CPU amplitude math.
+    /// Amplitude render mode. 0 = sample captured slot, 1 = force zero
+    /// amplitudes for the Amps1 drag preview, 2 = pre-run placeholder.
     pub(crate) force_zero_amplitude: u32,
 }
 
@@ -306,6 +313,8 @@ pub(crate) struct ProbabilityRenderParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
+    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
+    pub(crate) placeholder_background: [f32; 4],
     /// Flexoki ui-2 #DAD8CE outer border / row separators.
     pub(crate) border: [f32; 4],
     /// Flexoki tx-3 #B7B5AC logarithm hints for Probability5..16.
@@ -324,7 +333,8 @@ pub(crate) struct ProbabilityInstance {
     pub(crate) slot: u32,
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
-    pub(crate) _pad: u32,
+    /// 0 = sample probability buffer, 1 = pre-run placeholder.
+    pub(crate) render_mode: u32,
 }
 
 /// Uniform for the Probability hover popup value text shader. The shader reads

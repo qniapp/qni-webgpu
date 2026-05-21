@@ -10,9 +10,10 @@ mod gpu_frame;
 mod overlay;
 mod state_panel_frame;
 
-use eframe::egui;
+use eframe::{egui, egui_wgpu};
 
 use super::QniApp;
+use crate::gpu::StateVectorResourceBootstrapCallback;
 use crate::render::StatePanelLayout;
 use crate::shared::now_seconds;
 
@@ -44,6 +45,14 @@ impl QniApp {
         // ScrollArea's page-scroll. If pointer is on the state panel (or its
         // popover), route wheel to our aspect / zoom handlers instead.
         let pointer_over_state_panel = self.compute_state_panel_input_gate(ctx, screen_rect);
+
+        if let Some(target_format) = frame.wgpu_render_state().map(|state| state.target_format) {
+            if self.external_gpu_display_resources_needed() {
+                let callback = StateVectorResourceBootstrapCallback { target_format };
+                let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
+                ui.painter().add(egui::Shape::Callback(paint_callback));
+            }
+        }
 
         let circuit_frame = self.show_circuit_scroll_area(
             ctx,

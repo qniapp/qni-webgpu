@@ -17,6 +17,7 @@ mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
+use crate::gates::GateKind;
 use crate::gpu::{
     ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalProbabilityUploadBatch,
 };
@@ -304,6 +305,22 @@ impl QniApp {
 
     pub(crate) fn state_panel_visible(&self) -> bool {
         self.local_state_vector_active()
+    }
+
+    pub(crate) fn external_gpu_display_placeholders_active(&self) -> bool {
+        self.exec_mode == ExecMode::Gpu
+    }
+
+    pub(crate) fn external_gpu_display_resources_needed(&self) -> bool {
+        self.exec_mode == ExecMode::Gpu
+            && self.placed_gates.iter().any(|gate| {
+                matches!(
+                    gate.kind,
+                    GateKind::AmplitudeDisplay
+                        | GateKind::BlochDisplay
+                        | GateKind::ProbabilityDisplay
+                )
+            })
     }
 
     pub(crate) fn local_exec_mode_available(&self) -> bool {

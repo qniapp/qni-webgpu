@@ -63,7 +63,7 @@ struct ProbabilityInstance {
   slot: u32,
   span: u32,
   hovered_outcome: i32,
-  _pad: u32,
+  render_mode: u32,
 };
 
 @group(0) @binding(0) var<storage, read> probability_data: array<f32>;
@@ -73,6 +73,8 @@ struct ProbabilityInstance {
 const MAX_PROBABILITY_OUTCOMES: u32 = 65536u;
 const MAX_PROBABILITY_AGGREGATE_ROWS: u32 = 1024u;
 const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13u;
+const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0u;
+const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1u;
 
 fn probability_prob(slot: u32, row: u32) -> f32 {
   return clamp(probability_data[slot * MAX_PROBABILITY_OUTCOMES + row], 0.0, 1.0);
@@ -85,6 +87,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let instance = instances[gid.y];
   let out_index = instance.slot * MAX_PROBABILITY_AGGREGATE_ROWS + y;
   let body_h = max(instance.rect_size.y, 1.0);
+  if (instance.render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER) {
+    aggregate_out[out_index] = 0.0;
+    return;
+  }
   if (f32(y) >= body_h) {
     aggregate_out[out_index] = 0.0;
     return;
@@ -116,6 +122,7 @@ struct ProbabilityRenderParams {
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
   background: vec4<f32>,
+  placeholder_background: vec4<f32>,
   border: vec4<f32>,
   log_hint: vec4<f32>,
   bar: vec4<f32>,
@@ -133,6 +140,8 @@ struct ProbabilityRenderParams {
 const MAX_PROBABILITY_OUTCOMES: u32 = 65536u;
 const MAX_PROBABILITY_AGGREGATE_ROWS: u32 = 1024u;
 const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13u;
+const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0u;
+const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1u;
 const GLYPH_COUNT: u32 = 19u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PERCENT: u32 = 14u;
@@ -151,6 +160,7 @@ struct VsIn {
   @location(3) slot: u32,
   @location(4) span: u32,
   @location(5) hovered_outcome: i32,
+  @location(6) render_mode: u32,
 };
 
 struct VsOut {
@@ -160,6 +170,7 @@ struct VsOut {
   @location(2) @interpolate(flat) slot: u32,
   @location(3) @interpolate(flat) span: u32,
   @location(4) @interpolate(flat) hovered_outcome: i32,
+  @location(5) @interpolate(flat) render_mode: u32,
 };
 
 @vertex
@@ -178,6 +189,7 @@ fn vs_main(input: VsIn) -> VsOut {
   out.slot = input.slot;
   out.span = input.span;
   out.hovered_outcome = input.hovered_outcome;
+  out.render_mode = input.render_mode;
   return out;
 }
 
@@ -327,6 +339,26 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
   let row_h = input.rect_size.y / f32(row_count);
   let raw_row = u32(clamp(floor(input.local.y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
+  let border_px = 1.0;
+  if (input.render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER) {
+    var placeholder_color = params.placeholder_background;
+    let on_border =
+      input.local.x < border_px ||
+      input.local.y < border_px ||
+      input.local.x >= input.rect_size.x - border_px ||
+      input.local.y >= input.rect_size.y - border_px;
+    let separator_y = pixel_row_top(raw_row, row_h, input.rect_size.y);
+    let on_separator =
+      row_h > border_px * 2.0 &&
+      row_count > 1u &&
+      raw_row > 0u &&
+      input.local.y >= separator_y &&
+      input.local.y < separator_y + border_px;
+    if (on_border || on_separator) {
+      placeholder_color = params.border;
+    }
+    return placeholder_color;
+  }
   let prob = probability_prob(input.slot, raw_row);
   let draw_prob = probability_aggregate_prob_for_pixel(input.slot, input.span, input.local.y, prob);
   let bar_right = draw_prob * input.rect_size.x;
@@ -343,7 +375,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     color = params.bar_edge;
   }
 
-  let border_px = 1.0;
   let on_border =
     input.local.x < border_px ||
     input.local.y < border_px ||

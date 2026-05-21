@@ -624,6 +624,11 @@ fn create_render_pipeline(
                             shader_location: 5,
                             format: wgpu::VertexFormat::Sint32,
                         },
+                        wgpu::VertexAttribute {
+                            offset: 28,
+                            shader_location: 6,
+                            format: wgpu::VertexFormat::Uint32,
+                        },
                     ],
                 },
             ],

@@ -6,6 +6,7 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::{
     ExternalProbabilityUploadBatch, ProbabilityInstance, ProbabilityRenderParams,
     MAX_PROBABILITY_AGGREGATE_ROWS, MAX_PROBABILITY_OUTCOMES, PROBABILITY_AGGREGATE_MIN_SPAN,
+    PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use super::super::readback::{ProbabilityGpuHandle, PROBABILITY_GPU_HANDLE, PROBABILITY_SLOT_MAP};
 use super::super::resources::StateVectorResources;
@@ -18,6 +19,7 @@ pub(crate) struct ProbabilityDisplayCallback {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
+    pub(crate) placeholder_background: [f32; 4],
     pub(crate) border: [f32; 4],
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
@@ -83,6 +85,7 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
             background: self.background,
+            placeholder_background: self.placeholder_background,
             border: self.border,
             log_hint: self.log_hint,
             bar: self.bar,
@@ -103,11 +106,10 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
-        if self
-            .instances
-            .iter()
-            .any(|instance| instance.span >= PROBABILITY_AGGREGATE_MIN_SPAN)
-        {
+        if self.instances.iter().any(|instance| {
+            instance.render_mode == PROBABILITY_RENDER_MODE_SAMPLE
+                && instance.span >= PROBABILITY_AGGREGATE_MIN_SPAN
+        }) {
             let mut pass = egui_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("probability_aggregate_rows_pass"),
                 timestamp_writes: None,

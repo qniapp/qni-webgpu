@@ -3,7 +3,7 @@ use eframe::{egui, egui_wgpu};
 use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::gates::GateKind;
-use crate::gpu::{AmplitudeDisplayCallback, AmplitudeInstance};
+use crate::gpu::{AmplitudeDisplayCallback, AmplitudeInstance, AMPLITUDE_FORCE_ZERO};
 use crate::icons::{draw_bloch_vector, draw_drag_gate_body};
 use crate::layout::{amplitude_grid_rect, gate_visible_rect};
 
@@ -87,7 +87,7 @@ fn draw_zero_amplitude_drag_preview(
             span: 1,
             hovered_outcome: -1,
             use_drag_background: 1,
-            force_zero_amplitude: 1,
+            force_zero_amplitude: AMPLITUDE_FORCE_ZERO,
         }]
         .into(),
         use_drag_preview_buffer: true,
@@ -102,6 +102,7 @@ fn draw_zero_amplitude_drag_preview(
         outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
         needle: colors.state_needle.to_normalized_gamma_f32(),
         hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+        placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
         external_uploads: None,
     };
     let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);

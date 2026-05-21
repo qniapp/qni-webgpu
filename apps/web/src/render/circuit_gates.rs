@@ -11,7 +11,8 @@ use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
     BlochOverlayInstance, MeasurementDigitCallback, MeasurementDigitInstance,
     ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
-    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
+    AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
+    PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
@@ -45,10 +46,15 @@ fn amplitude_hover_popup_subtitle(outcome: u32) -> String {
 
 impl QniApp {
     fn amplitude_display_slot(&self, gate_id: u32) -> Option<u32> {
-        self.external_gpu_amplitude_uploads
+        let external_slot = self
+            .external_gpu_amplitude_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id))
-            .or_else(|| self.gpu_plan.amplitude_slot(gate_id))
+            .and_then(|batch| batch.slot_for_gate(gate_id));
+        if self.external_gpu_display_placeholders_active() {
+            external_slot
+        } else {
+            external_slot.or_else(|| self.gpu_plan.amplitude_slot(gate_id))
+        }
     }
 
     fn bloch_display_slot(&self, gate_id: u32) -> Option<u32> {
@@ -59,10 +65,15 @@ impl QniApp {
     }
 
     fn probability_display_slot(&self, gate_id: u32) -> Option<u32> {
-        self.external_gpu_probability_uploads
+        let external_slot = self
+            .external_gpu_probability_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id))
-            .or_else(|| self.gpu_plan.probability_slot(gate_id))
+            .and_then(|batch| batch.slot_for_gate(gate_id));
+        if self.external_gpu_display_placeholders_active() {
+            external_slot
+        } else {
+            external_slot.or_else(|| self.gpu_plan.probability_slot(gate_id))
+        }
     }
 
     pub(super) fn draw_placed_circuit_gates(
@@ -100,6 +111,7 @@ impl QniApp {
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
             let amplitude_cell_hovered = gate.kind == GateKind::AmplitudeDisplay
+                && self.amplitude_display_slot(gate.id).is_some()
                 && self
                     .hovered_amplitude_outcome
                     .is_some_and(|(id, _)| id == gate.id);
@@ -179,6 +191,11 @@ impl QniApp {
 
         // GPU overlay: draw Probability bars from the GPU-side
         // marginalization buffer. CPU supplies only geometry + hover row.
+        let mut next_probability_placeholder_slot = self
+            .external_gpu_probability_uploads
+            .as_ref()
+            .map(|batch| batch.slot_to_gate_id.len() as u32)
+            .unwrap_or(0);
         let probability_instances: Vec<ProbabilityInstance> = self
             .placed_gates
             .iter()
@@ -189,8 +206,20 @@ impl QniApp {
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
-                let slot = self.probability_display_slot(gate.id)?;
                 let span = gate.span.clamp(1, 16) as u32;
+                let (slot, render_mode) = if let Some(slot) = self.probability_display_slot(gate.id)
+                {
+                    (slot, PROBABILITY_RENDER_MODE_SAMPLE)
+                } else if self.external_gpu_display_placeholders_active()
+                    && (next_probability_placeholder_slot as usize)
+                        < crate::gpu::MAX_PROBABILITY_SLOTS
+                {
+                    let slot = next_probability_placeholder_slot;
+                    next_probability_placeholder_slot += 1;
+                    (slot, PROBABILITY_RENDER_MODE_PLACEHOLDER)
+                } else {
+                    return None;
+                };
                 let gate_height = (span.saturating_sub(1)) as f32 * LINE_GAP + GATE_SIZE;
                 let gate_rect = egui::Rect::from_min_size(
                     circuit_origin + gate.pos.to_vec2(),
@@ -206,8 +235,12 @@ impl QniApp {
                     rect_size: [gate_rect.width(), gate_rect.height()],
                     slot,
                     span,
-                    hovered_outcome,
-                    _pad: 0,
+                    hovered_outcome: if render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER {
+                        -1
+                    } else {
+                        hovered_outcome
+                    },
+                    render_mode,
                 })
             })
             .collect();
@@ -217,6 +250,7 @@ impl QniApp {
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
+                placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
                 border: colors.line.to_normalized_gamma_f32(),
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
@@ -231,6 +265,11 @@ impl QniApp {
 
         let live_dragging_amplitude_id =
             dragging_gate_id.filter(|_| self.dragging_live_display_snap);
+        let mut next_amplitude_placeholder_slot = self
+            .external_gpu_amplitude_uploads
+            .as_ref()
+            .map(|batch| batch.slot_to_gate_id.len() as u32)
+            .unwrap_or(0);
         let amplitude_instances: Vec<AmplitudeInstance> = self
             .placed_gates
             .iter()
@@ -242,8 +281,20 @@ impl QniApp {
                 if dragging_this_gate && live_dragging_amplitude_id != Some(gate.id) {
                     return None;
                 }
-                let slot = self.amplitude_display_slot(gate.id)?;
                 let span = gate.span.clamp(1, 16) as u32;
+                let (slot, force_zero_amplitude) = if let Some(slot) =
+                    self.amplitude_display_slot(gate.id)
+                {
+                    (slot, AMPLITUDE_FORCE_NONE)
+                } else if self.external_gpu_display_placeholders_active()
+                    && (next_amplitude_placeholder_slot as usize) < crate::gpu::MAX_AMPLITUDE_SLOTS
+                {
+                    let slot = next_amplitude_placeholder_slot;
+                    next_amplitude_placeholder_slot += 1;
+                    (slot, AMPLITUDE_FORCE_PLACEHOLDER)
+                } else {
+                    return None;
+                };
                 let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
                 let body_rect = amplitude_grid_rect(gate_rect, gate.span);
                 let hovered_outcome = self
@@ -256,9 +307,13 @@ impl QniApp {
                     rect_size: [body_rect.width(), body_rect.height()],
                     slot,
                     span,
-                    hovered_outcome,
+                    hovered_outcome: if force_zero_amplitude == AMPLITUDE_FORCE_PLACEHOLDER {
+                        -1
+                    } else {
+                        hovered_outcome
+                    },
                     use_drag_background: u32::from(dragging_this_gate),
-                    force_zero_amplitude: 0,
+                    force_zero_amplitude,
                 })
             })
             .collect();
@@ -277,6 +332,7 @@ impl QniApp {
                 outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
                 needle: colors.state_needle.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+                placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu_amplitude_uploads.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);

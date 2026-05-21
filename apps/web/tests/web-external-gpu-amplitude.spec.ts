@@ -8,12 +8,28 @@ import {
   type CanvasPixel,
   type PixelSamplePoint,
   type Point,
+  UI_CONSTANTS,
   waitForStartupReady,
 } from './support/web-spec-helpers'
 
 const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+const DISPLAY_PLACEHOLDER_FILL: CanvasPixel = [236, 225, 243, 255] // Flexoki purple-100 #ECE1F3
+const DISPLAY_PLACEHOLDER_GUIDE: CanvasPixel = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE
 const RUN_GPU_BUTTON_POINT: Point = { x: 334, y: 22 }
 const circuitHash = (cols: unknown[]): string => encodeURIComponent(JSON.stringify({ cols }))
+
+const amplitudeFirstCellCenterX = (column: number): number =>
+  UI_CONSTANTS.LINE_LEFT_OFFSET +
+  UI_CONSTANTS.GATE_SIZE +
+  UI_CONSTANTS.SLOT_SPACING * column +
+  (UI_CONSTANTS.SLOT_SPACING - UI_CONSTANTS.GATE_SIZE) / 2
+const amplitudeCellCenterX = (column: number, cell: number): number =>
+  amplitudeFirstCellCenterX(column) + UI_CONSTANTS.GATE_SIZE * cell
+const probabilityRowCenterY = (span: number, outcome: number): number => {
+  const gateHeight = (span - 1) * UI_CONSTANTS.LINE_GAP + UI_CONSTANTS.GATE_SIZE
+  const rowHeight = gateHeight / (1 << span)
+  return UI_CONSTANTS.LINE_Y - UI_CONSTANTS.GATE_SIZE / 2 + rowHeight * (outcome + 0.5)
+}
 
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
   { name: 'local', x: cssWidth - 100, y: 23 },
@@ -72,6 +88,71 @@ const waitForExternalProbability = async (
   throw new Error(`External Probability value ${gateId}:${outcome} did not become available`)
 }
 
+test('GPU mode shows pre-run Amplitude placeholder before Qiskit results', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const pixel = await sampleCanvasPixels(page, canvas, [
+    {
+      name: 'placeholder',
+      x: amplitudeFirstCellCenterX(1),
+      y: UI_CONSTANTS.LINE_Y,
+    },
+  ])
+
+  expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
+})
+
+test('GPU mode cold-start shows Amplitude placeholder without local state resources', async ({ page }) => {
+  const farQubitColumn = Array.from({ length: 17 }, (_, index) => (index === 16 ? 'H' : 1))
+  await page.goto(`/#${circuitHash([farQubitColumn, ['Amps1']])}`)
+  await waitForStartupReady(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y },
+  ])
+
+  expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
+})
+
+test('GPU mode shows pre-run Probability placeholder before Qiskit results', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 0) },
+  ])
+
+  expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
+})
+
+test('GPU mode Probability placeholder shows row guide lines', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'guide', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y + 8 },
+  ])
+
+  expect(pixelRgbDistance(pixel.guide, DISPLAY_PLACEHOLDER_GUIDE)).toBeLessThan(36)
+})
+
+test('GPU mode cold-start shows Probability placeholder without local state resources', async ({ page }) => {
+  const farQubitColumn = Array.from({ length: 17 }, (_, index) => (index === 16 ? 'H' : 1))
+  await page.goto(`/#${circuitHash([farQubitColumn, ['Probability']])}`)
+  await waitForStartupReady(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 0) },
+  ])
+
+  expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
+})
+
 test('Run GPU uploads Qiskit Amplitude results into the display buffer', async ({ page }) => {
   await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -114,6 +195,50 @@ test('Run GPU uploads Qiskit Amplitude results into the display buffer', async (
   expect(Math.round(cell.re * 100) / 100).toBe(0.75)
 })
 
+test('Run GPU replaces the Amplitude placeholder with Qiskit-rendered data', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '0': 512, '1': 512 },
+        amplitudes: [
+          {
+            gate_id: 2,
+            span: 1,
+            ket: [[0.25, 0], [0.75, 0]],
+            incoherent: [0.25, 0.75],
+            quality: 1,
+            phase_lock_index: -1,
+          },
+        ],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  await waitForExternalAmplitudeCell(page, 2, 1)
+  const pixel = await sampleCanvasPixels(page, canvas, [
+    { name: 'result', x: amplitudeCellCenterX(1, 1), y: UI_CONSTANTS.LINE_Y },
+  ])
+
+  expect(pixelRgbDistance(pixel.result, DISPLAY_PLACEHOLDER_FILL)).toBeGreaterThan(64)
+})
+
 test('Run GPU uploads Qiskit Probability results into the display buffer', async ({ page }) => {
   await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -145,6 +270,41 @@ test('Run GPU uploads Qiskit Probability results into the display buffer', async
   const probability = await waitForExternalProbability(page, 2, 1, 0.75)
 
   expect(Math.round(probability * 100) / 100).toBe(0.75)
+})
+
+test('Run GPU replaces the Probability placeholder with Qiskit-rendered data', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '0': 512, '1': 512 },
+        probability: [{ gate_id: 2, span: 1, probabilities: [0.25, 0.75] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  await waitForExternalProbability(page, 2, 1, 0.75)
+  const pixel = await sampleCanvasPixels(page, canvas, [
+    { name: 'result', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 1) },
+  ])
+
+  expect(pixelRgbDistance(pixel.result, DISPLAY_PLACEHOLDER_FILL)).toBeGreaterThan(64)
 })
 
 test('Run GPU uploads combined Qiskit display results into GPU buffers', async ({ page }) => {

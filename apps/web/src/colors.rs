@@ -26,6 +26,7 @@ pub(crate) struct Colors {
     pub(crate) text_strong: egui::Color32,
     pub(crate) state_fill: egui::Color32,
     pub(crate) amplitude_disk_border: egui::Color32,
+    pub(crate) display_placeholder_fill: egui::Color32,
     pub(crate) state_outline: egui::Color32,
     pub(crate) state_outline_zero: egui::Color32,
     pub(crate) state_needle: egui::Color32,
@@ -154,31 +155,33 @@ fn flexoki_light() -> Colors {
     let blue_300 = tone(0.400, 0.627, 0.784); // blue-300 #66A0C8
     let blue_400 = tone(0.263, 0.522, 0.745); // blue-400 #4385BE
     let blue_600 = tone(0.125, 0.369, 0.651); // blue-600 #205EA6
+    let purple_100 = tone(0.925, 0.882, 0.953); // purple-100 #ECE1F3
     let purple_400 = tone(0.545, 0.494, 0.784); // purple-400 #8B7EC8
     let purple_600 = tone(0.369, 0.251, 0.616); // purple-600 #5E409D
 
     Colors {
-        background: bg_2,                  // page / circuit panel
-        surface: paper,                    // palette / cards / state panel
-        line: ui_2,                        // qubit wires
-        box_fill: cyan_400,                // unitary gate body
-        drag_fill: purple_600,             // grabbed / preview body
-        box_border: ui,                    // neutral card / tooltip outline
-        gate_hover_border: purple_400,     // gate hover outline (Flexoki purple-400)
-        label: paper,                      // inverse label on filled gates
-        text: tx_2,                        // body text
-        text_strong: tx,                   // emphasized titles / data ink
-        state_fill: blue_200,              // amplitude disk / Probability bar (Flexoki blue-200)
-        amplitude_disk_border: blue_400,   // amplitude disk inset border (Flexoki blue-400)
-        state_outline: tx_2,               // non-zero amplitude outline
-        state_outline_zero: ui_2,          // zero-amplitude outline
-        state_needle: tx,                  // phase needle
-        probability_log_hint: tx_3,        // Probability logarithm hints (Flexoki tx-3 #B7B5AC)
-        semantic_off: red_600,             // |0⟩ digit / measurement 0
-        semantic_on: blue_600,             // |1⟩ digit / measurement 1
-        semantic_intermediate: purple_600, // measurement idle / drag ghost
-        semantic_disabled: tx_2,           // disabled / bracket chrome
-        state_handle_bg: blue_600,         // state panel header
+        background: bg_2,                     // page / circuit panel
+        surface: paper,                       // palette / cards / state panel
+        line: ui_2,                           // qubit wires
+        box_fill: cyan_400,                   // unitary gate body
+        drag_fill: purple_600,                // grabbed / preview body
+        box_border: ui,                       // neutral card / tooltip outline
+        gate_hover_border: purple_400,        // gate hover outline (Flexoki purple-400)
+        label: paper,                         // inverse label on filled gates
+        text: tx_2,                           // body text
+        text_strong: tx,                      // emphasized titles / data ink
+        state_fill: blue_200,                 // amplitude disk / Probability bar (Flexoki blue-200)
+        amplitude_disk_border: blue_400,      // amplitude disk inset border (Flexoki blue-400)
+        display_placeholder_fill: purple_100, // Display pre-run placeholder (Flexoki purple-100)
+        state_outline: tx_2,                  // non-zero amplitude outline
+        state_outline_zero: ui_2,             // zero-amplitude outline
+        state_needle: tx,                     // phase needle
+        probability_log_hint: tx_3,           // Probability logarithm hints (Flexoki tx-3 #B7B5AC)
+        semantic_off: red_600,                // |0⟩ digit / measurement 0
+        semantic_on: blue_600,                // |1⟩ digit / measurement 1
+        semantic_intermediate: purple_600,    // measurement idle / drag ghost
+        semantic_disabled: tx_2,              // disabled / bracket chrome
+        state_handle_bg: blue_600,            // state panel header
         state_resize_handle_top_idle: blue_400,
         state_resize_handle_top_drag: paper,
         state_resize_handle_bottom_idle: ui_2,

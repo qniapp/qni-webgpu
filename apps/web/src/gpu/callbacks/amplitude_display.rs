@@ -26,6 +26,7 @@ pub(crate) struct AmplitudeDisplayCallback {
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
     pub(crate) hover_border: [f32; 4],
+    pub(crate) placeholder_background: [f32; 4],
     pub(crate) external_uploads: Option<ExternalAmplitudeUploadBatch>,
 }
 
@@ -107,6 +108,7 @@ impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
             outline_zero: self.outline_zero,
             needle: self.needle,
             hover_border: self.hover_border,
+            placeholder_background: self.placeholder_background,
         };
         if self.use_drag_preview_buffer {
             queue.write_buffer(
