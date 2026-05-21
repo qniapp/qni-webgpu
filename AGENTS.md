@@ -13,6 +13,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 - 実際の描画を確認できる環境をセットアップする。
 - 何か実装したときは、作業完了前に必ず `apps/web` の開発サーバを (再) 起動し、ユーザーが通常のブラウザで `http://127.0.0.1:4174/` を開いて確認できる状態にする。
+- 外部 GPU 実行の Qiskit 連携またはその API 経路に関わる実装を変更したときは、`apps/qiskit-backend` のバックエンドサーバも (再) 起動し、`http://127.0.0.1:4184/health` と Web UI から動作確認できる状態にする。
 - エージェントで Web アプリの見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
 - 正しい描画が確認できるまでデバッグを継続する。
 
