@@ -173,6 +173,30 @@
   </p>
 </div>
 
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
+<section class="block">
+  <h2>§ 01 概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      span 内の量子ビットの<strong>縮約密度行列 <code>ρ</code></strong> (対角 = 確率 / 非対角 = coupling) を 2<sup>span</sup> × 2<sup>span</sup> 行列で可視化する表示ブロック。混合状態 / もつれの度合いを 1 枚で読み取れる。
+      下のモックで「シンプルな span 1」と「典型的な span 2 (Bell)」の見た目を確認できる。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 1<br><code>|+⟩</code> 純粋状態<br>2×2 行列</div>
+        <div class="actual"><div class="dm-host" data-span="1" data-state="plus1"></div></div>
+      </div>
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 2<br>Bell <code>|Φ⁺⟩</code><br>4×4 行列</div>
+        <div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      全 span (1〜8) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / リサイズハンドル / 実装メモ等の詳細は § 04 以降を参照。
+    </p>
+  </div>
+</section>
+
 <!-- ─────── § 02 サイズ別の見た目 + 動くモック ─────── -->
 <section class="block">
   <h2>§ 02 サイズ別の見た目 (1〜8 量子ビット、動くモック)</h2>
