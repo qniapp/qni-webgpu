@@ -44,6 +44,13 @@ fn amplitude_hover_popup_subtitle(outcome: u32) -> String {
 }
 
 impl QniApp {
+    fn amplitude_display_slot(&self, gate_id: u32) -> Option<u32> {
+        self.external_gpu_amplitude_uploads
+            .as_ref()
+            .and_then(|batch| batch.slot_for_gate(gate_id))
+            .or_else(|| self.gpu_plan.amplitude_slot(gate_id))
+    }
+
     pub(super) fn draw_placed_circuit_gates(
         &self,
         painter: &egui::Painter,
@@ -220,7 +227,7 @@ impl QniApp {
                 if dragging_this_gate && live_dragging_amplitude_id != Some(gate.id) {
                     return None;
                 }
-                let slot = self.gpu_plan.amplitude_slot(gate.id)?;
+                let slot = self.amplitude_display_slot(gate.id)?;
                 let span = gate.span.clamp(1, 16) as u32;
                 let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
                 let body_rect = amplitude_grid_rect(gate_rect, gate.span);
@@ -255,6 +262,7 @@ impl QniApp {
                 outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
                 needle: colors.state_needle.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+                external_uploads: self.external_gpu_amplitude_uploads.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
@@ -379,7 +387,7 @@ impl QniApp {
         else {
             return;
         };
-        let Some(slot) = self.gpu_plan.amplitude_slot(gate.id) else {
+        let Some(slot) = self.amplitude_display_slot(gate.id) else {
             return;
         };
         let span = gate.span.clamp(1, 16);

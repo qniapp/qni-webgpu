@@ -102,6 +102,7 @@ fn draw_zero_amplitude_drag_preview(
         outline_zero: colors.state_outline_zero.to_normalized_gamma_f32(),
         needle: colors.state_needle.to_normalized_gamma_f32(),
         hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+        external_uploads: None,
     };
     let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
     painter.add(egui::Shape::Callback(paint_callback));

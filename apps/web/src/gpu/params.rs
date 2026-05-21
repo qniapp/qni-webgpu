@@ -5,6 +5,8 @@
 //! here. No shader strings, no buffer creation, no render logic — just
 //! the data shapes shared across `resources.rs` and `callbacks.rs`.
 
+use std::sync::Arc;
+
 use crate::colors::Colors;
 
 #[repr(C)]
@@ -113,6 +115,30 @@ pub(crate) const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13;
 pub(crate) const MAX_AMPLITUDE_SLOTS: usize = 32;
 pub(crate) const MAX_AMPLITUDE_OUTCOMES: usize = 1 << 16;
 pub(crate) const AMPLITUDE_VALUES_PER_SLOT: usize = MAX_AMPLITUDE_OUTCOMES * 3;
+
+#[derive(Clone)]
+pub(crate) struct ExternalAmplitudeUpload {
+    pub(crate) slot: u32,
+    pub(crate) coherent: Arc<[f32]>,
+    pub(crate) incoherent: Arc<[f32]>,
+    pub(crate) meta: [f32; 4],
+}
+
+#[derive(Clone)]
+pub(crate) struct ExternalAmplitudeUploadBatch {
+    pub(crate) generation: u64,
+    pub(crate) slot_to_gate_id: Arc<[u32]>,
+    pub(crate) uploads: Arc<[ExternalAmplitudeUpload]>,
+}
+
+impl ExternalAmplitudeUploadBatch {
+    pub(crate) fn slot_for_gate(&self, gate_id: u32) -> Option<u32> {
+        self.slot_to_gate_id
+            .iter()
+            .position(|id| *id == gate_id)
+            .map(|slot| slot as u32)
+    }
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

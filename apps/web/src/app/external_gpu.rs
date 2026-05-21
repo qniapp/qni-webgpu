@@ -1,10 +1,11 @@
+mod amplitude;
 mod app_adapter;
 mod client;
 mod test_hooks;
 
 pub(crate) use qni_web_external_gpu_model::{
-    format_gpu_duration, qiskit_run_payload, short_failure_label, unsupported_gate_from_message,
-    ExternalGpuStatus, GpuFailure,
+    format_gpu_duration, qiskit_run_payload_with_amplitudes, short_failure_label,
+    unsupported_gate_from_message, ExternalGpuStatus, GpuFailure,
 };
 
 use super::{ExecMode, QniApp};

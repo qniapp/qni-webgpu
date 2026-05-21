@@ -46,8 +46,22 @@ impl GpuFailure {
 }
 
 pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: usize) -> String {
+    qiskit_run_payload_with_amplitudes(qubits, columns_json, shots, "[]")
+}
+
+pub fn qiskit_run_payload_with_amplitudes(
+    qubits: usize,
+    columns_json: &str,
+    shots: usize,
+    amplitudes_json: &str,
+) -> String {
+    let amplitudes = if amplitudes_json.trim() == "[]" {
+        String::new()
+    } else {
+        format!(r#","amplitudes":{amplitudes_json}"#)
+    };
     format!(
-        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true}}}}"#
+        r#"{{"qubits":{qubits},"columns":{columns_json},"shots":{shots},"outputs":{{"histogram":true{amplitudes}}}}}"#
     )
 }
 
@@ -82,6 +96,7 @@ fn normalize_gate_name(token: &str) -> String {
         "…" => "Spacer".to_owned(),
         "Measure" => "Measurement".to_owned(),
         "Bloch" => "Bloch".to_owned(),
+        other if other.starts_with("Amps") => "Amplitude".to_owned(),
         other => other.to_owned(),
     }
 }
@@ -101,7 +116,10 @@ pub fn short_failure_label(message: &str) -> String {
 mod tests {
     use std::time::Duration;
 
-    use super::{format_gpu_duration, qiskit_run_payload, unsupported_gate_from_message};
+    use super::{
+        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_amplitudes,
+        unsupported_gate_from_message,
+    };
 
     #[test]
     fn payload_requests_histogram() {
@@ -116,6 +134,20 @@ mod tests {
     fn payload_omits_full_vector_outputs() {
         let payload = qiskit_run_payload(2, r#"[["H",1]]"#, 256);
         assert!(!(payload.contains("statevector") || payload.contains("probabilities")));
+    }
+
+    #[test]
+    fn payload_can_request_amplitude_display_outputs() {
+        let payload = qiskit_run_payload_with_amplitudes(
+            1,
+            r#"[["H"],["Amps1"]]"#,
+            256,
+            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]"#,
+        );
+        assert_eq!(
+            payload.as_str(),
+            r#"{"qubits":1,"columns":[["H"],["Amps1"]],"shots":256,"outputs":{"histogram":true,"amplitudes":[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]}}"#,
+        );
     }
 
     #[test]
@@ -143,6 +175,14 @@ mod tests {
                 "QFT tokens are not supported by the dev Qiskit runner yet"
             ),
             Some("QFT".to_owned()),
+        );
+    }
+
+    #[test]
+    fn unsupported_gate_token_message_maps_amplitude() {
+        assert_eq!(
+            unsupported_gate_from_message("unsupported gate token: Amps1"),
+            Some("Amplitude".to_owned()),
         );
     }
 }

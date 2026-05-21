@@ -1,7 +1,14 @@
 import unittest
 
+from qni_qiskit_backend.circuit import apply_columns_to_qiskit
 from qni_qiskit_backend.contract import ContractError, parse_run_request
-from qni_qiskit_backend.runners import MockRunner, QiskitRunner, normalize_qiskit_counts, select_runner
+from qni_qiskit_backend.runners import (
+    MockRunner,
+    QiskitRunner,
+    amplitude_display_response,
+    normalize_qiskit_counts,
+    select_runner,
+)
 
 
 class ContractTests(unittest.TestCase):
@@ -23,7 +30,7 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             parse_run_request({"qubits": 33, "columns": [], "shots": 12})
 
-    def test_mock_runner_returns_histogram_only(self):
+    def test_mock_runner_returns_histogram_only_without_amplitude_requests(self):
         request = parse_run_request({"qubits": 3, "columns": [], "shots": 12})
         response = MockRunner().run(request)
         self.assertEqual(
@@ -34,6 +41,131 @@ class ContractTests(unittest.TestCase):
             },
             {"histogram": {"000": 12}, "has_statevector": False, "has_probabilities": False},
         )
+
+    def test_contract_accepts_amplitude_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["H"], ["Amps1"]],
+                "outputs": {
+                    "histogram": True,
+                    "amplitudes": [
+                        {
+                            "gate_id": 2,
+                            "column": 1,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 0,
+                            "control_value": 0,
+                            "phase_lock_enabled": False,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(request.amplitude_outputs[0].gate_id, 2)
+
+    def test_contract_rejects_large_exact_amplitude_outputs(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 17,
+                    "columns": [["Amps1"]],
+                    "outputs": {
+                        "histogram": True,
+                        "amplitudes": [
+                            {
+                                "gate_id": 1,
+                                "column": 0,
+                                "span": 1,
+                                "base_bit": 0,
+                                "control_mask": 0,
+                                "control_value": 0,
+                                "phase_lock_enabled": True,
+                            }
+                        ],
+                    },
+                }
+            )
+
+    def test_contract_rejects_too_many_amplitude_outputs(self):
+        amplitudes = [
+            {
+                "gate_id": index,
+                "column": 0,
+                "span": 1,
+                "base_bit": 0,
+                "control_mask": 0,
+                "control_value": 0,
+                "phase_lock_enabled": False,
+            }
+            for index in range(33)
+        ]
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 1,
+                    "columns": [["Amps1"]],
+                    "outputs": {"histogram": True, "amplitudes": amplitudes},
+                }
+            )
+
+    def test_qiskit_builder_ignores_amplitude_display_tokens(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Amps1"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_mock_runner_returns_fixed_amplitude_outputs(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Amps1"]],
+                "outputs": {
+                    "histogram": True,
+                    "amplitudes": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 0,
+                            "control_value": 0,
+                            "phase_lock_enabled": False,
+                        }
+                    ],
+                },
+            }
+        )
+        response = MockRunner().run(request)
+        self.assertEqual(response["amplitudes"][0]["ket"], [[1.0, 0.0], [0.0, 0.0]])
+
+    def test_amplitude_response_matches_h_state(self):
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Amps1"]],
+                "outputs": {
+                    "histogram": True,
+                    "amplitudes": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 0,
+                            "control_value": 0,
+                            "phase_lock_enabled": False,
+                        }
+                    ],
+                },
+            }
+        )
+        response = amplitude_display_response(request.amplitude_outputs[0], [2**-0.5, 2**-0.5], 1)
+        self.assertEqual(round(response["ket"][1][0], 3), 0.707)
 
     def test_cpu_dev_runner_is_explicit_not_fallback(self):
         runner = select_runner("qiskit-cpu-dev")

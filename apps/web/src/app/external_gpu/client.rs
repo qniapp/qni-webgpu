@@ -6,11 +6,12 @@ use super::{short_failure_label, unsupported_gate_from_message, GpuFailure};
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {
-    static QISKIT_RUN_RESULT: RefCell<Option<Result<String, GpuFailure>>> = const { RefCell::new(None) };
+    static NEXT_QISKIT_RUN_ID: std::cell::Cell<u64> = const { std::cell::Cell::new(1) };
+    static QISKIT_RUN_RESULTS: RefCell<Vec<(u64, Result<String, GpuFailure>)>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(super) fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<(), GpuFailure> {
+pub(super) fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<u64, GpuFailure> {
     use wasm_bindgen::JsCast;
 
     let window = web_sys::window().ok_or_else(|| GpuFailure::Other("window not found".into()))?;
@@ -31,33 +32,46 @@ pub(super) fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<()
         .dyn_into::<js_sys::Promise>()
         .map_err(|_| GpuFailure::Other("backend helper did not return a Promise".into()))?;
 
+    let run_id = NEXT_QISKIT_RUN_ID.with(|next| {
+        let run_id = next.get();
+        next.set(run_id.saturating_add(1));
+        run_id
+    });
+
     wasm_bindgen_futures::spawn_local(async move {
         let result = wasm_bindgen_futures::JsFuture::from(promise)
             .await
             .map(|value| js_json_string(&value))
             .map_err(|err| js_gpu_failure(&err, &endpoint));
-        QISKIT_RUN_RESULT.with(|slot| {
-            *slot.borrow_mut() = Some(result);
+        QISKIT_RUN_RESULTS.with(|slot| {
+            slot.borrow_mut().push((run_id, result));
         });
         ctx.request_repaint();
     });
-    Ok(())
+    Ok(run_id)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn start_qiskit_run(_payload: String, _ctx: egui::Context) -> Result<(), GpuFailure> {
+pub(super) fn start_qiskit_run(_payload: String, _ctx: egui::Context) -> Result<u64, GpuFailure> {
     Err(GpuFailure::Other(
         "Qiskit backend fetch is only available in wasm".into(),
     ))
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(super) fn take_qiskit_run_result() -> Option<Result<String, GpuFailure>> {
-    QISKIT_RUN_RESULT.with(|slot| slot.borrow_mut().take())
+pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
+    QISKIT_RUN_RESULTS.with(|slot| {
+        let mut results = slot.borrow_mut();
+        if results.is_empty() {
+            None
+        } else {
+            Some(results.remove(0))
+        }
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn take_qiskit_run_result() -> Option<Result<String, GpuFailure>> {
+pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
     None
 }
 

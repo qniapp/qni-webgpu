@@ -8,6 +8,7 @@ from typing import Any
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
 ANTI_CONTROL_TOKENS = {"○", "anti", "Anti"}
 EMPTY_TOKENS = {None, 1, "1", ""}
+AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 
 
 class CircuitBuildError(ValueError):
@@ -59,20 +60,30 @@ def split_parametric(token: str) -> tuple[str, str | None]:
 
 def apply_columns_to_qiskit(qc: Any, columns: list[list[Any]], qubits: int) -> None:
     for column in columns:
-        controls: list[int] = []
-        deferred: list[tuple[int, str]] = []
-        for wire, raw in enumerate(column):
-            token = token_text(raw)
-            if token is None:
-                continue
-            if token in CONTROL_TOKENS:
-                controls.append(wire)
-                continue
-            if token in ANTI_CONTROL_TOKENS:
-                raise CircuitBuildError("anti-control is not supported by the dev Qiskit runner yet")
-            deferred.append((wire, token))
-        for wire, token in deferred:
-            apply_gate(qc, wire, token, controls, qubits)
+        apply_column_to_qiskit(qc, column, qubits)
+
+
+def apply_column_to_qiskit(qc: Any, column: list[Any], qubits: int) -> None:
+    controls: list[int] = []
+    deferred: list[tuple[int, str]] = []
+    for wire, raw in enumerate(column):
+        token = token_text(raw)
+        if token is None:
+            continue
+        if token in CONTROL_TOKENS:
+            controls.append(wire)
+            continue
+        if token in ANTI_CONTROL_TOKENS:
+            raise CircuitBuildError("anti-control is not supported by the dev Qiskit runner yet")
+        if is_amplitude_display_token(token):
+            continue
+        deferred.append((wire, token))
+    for wire, token in deferred:
+        apply_gate(qc, wire, token, controls, qubits)
+
+
+def is_amplitude_display_token(token: str) -> bool:
+    return bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
 
 
 def apply_gate(qc: Any, wire: int, token: str, controls: list[int], qubits: int) -> None:

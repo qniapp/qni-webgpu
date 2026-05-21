@@ -94,6 +94,24 @@ impl GpuPlanState {
         self.rebuild_slot_maps();
     }
 
+    pub(crate) fn replace_external_amplitude_slots(
+        &mut self,
+        slot_to_gate_id: &[u32],
+        state_count: usize,
+    ) {
+        self.needs_recompute = false;
+        self.last_state_count = state_count;
+        self.sim_ops.clear();
+        self.bloch_slots.clear();
+        self.measurement_slots.clear();
+        self.probability_slots.clear();
+        self.amplitude_slots.clear();
+        self.capacity_error = None;
+        for (slot, gate_id) in slot_to_gate_id.iter().enumerate() {
+            self.amplitude_slots.insert(*gate_id, slot as u32);
+        }
+    }
+
     pub(crate) fn sim_ops_for_callback(&self, recompute: bool) -> Vec<SimulationOp> {
         if recompute {
             self.sim_ops.clone()

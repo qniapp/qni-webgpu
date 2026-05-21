@@ -3,7 +3,11 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use super::super::params::{AmplitudeInstance, AmplitudeRenderParams};
+use super::super::params::{
+    AmplitudeInstance, AmplitudeRenderParams, ExternalAmplitudeUploadBatch,
+    AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES,
+};
+use super::super::readback::{AmplitudeGpuHandle, AMPLITUDE_GPU_HANDLE, AMPLITUDE_SLOT_MAP};
 use super::super::resources::StateVectorResources;
 
 /// Renders Amplitude display cells straight from GPU amplitude buffers.
@@ -22,12 +26,63 @@ pub(crate) struct AmplitudeDisplayCallback {
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
     pub(crate) hover_border: [f32; 4],
+    pub(crate) external_uploads: Option<ExternalAmplitudeUploadBatch>,
+}
+
+impl AmplitudeDisplayCallback {
+    fn upload_external_amplitudes(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        resources: &mut StateVectorResources,
+    ) {
+        let Some(batch) = &self.external_uploads else {
+            return;
+        };
+        if resources.amplitude.last_external_upload_generation == Some(batch.generation) {
+            return;
+        }
+        for upload in batch.uploads.iter() {
+            let slot_base = upload.slot as usize * AMPLITUDE_VALUES_PER_SLOT;
+            let coherent_offset = slot_base * std::mem::size_of::<f32>();
+            let incoherent_offset =
+                (slot_base + 2 * MAX_AMPLITUDE_OUTCOMES) * std::mem::size_of::<f32>();
+            let meta_offset = upload.slot as usize * std::mem::size_of::<[f32; 4]>();
+            queue.write_buffer(
+                &resources.amplitude.output_buffer,
+                coherent_offset as wgpu::BufferAddress,
+                bytemuck::cast_slice(upload.coherent.as_ref()),
+            );
+            queue.write_buffer(
+                &resources.amplitude.output_buffer,
+                incoherent_offset as wgpu::BufferAddress,
+                bytemuck::cast_slice(upload.incoherent.as_ref()),
+            );
+            queue.write_buffer(
+                &resources.amplitude.meta_buffer,
+                meta_offset as wgpu::BufferAddress,
+                bytemuck::bytes_of(&upload.meta),
+            );
+        }
+        resources.amplitude.last_external_upload_generation = Some(batch.generation);
+        AMPLITUDE_SLOT_MAP.with(|cell| {
+            *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
+        });
+        AMPLITUDE_GPU_HANDLE.with(|slot| {
+            *slot.borrow_mut() = Some(AmplitudeGpuHandle {
+                device: device.clone(),
+                queue: queue.clone(),
+                output_buffer: resources.amplitude.output_buffer.clone(),
+                meta_buffer: resources.amplitude.meta_buffer.clone(),
+            });
+        });
+    }
 }
 
 impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
     fn prepare(
         &self,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         _screen_descriptor: &egui_wgpu::ScreenDescriptor,
         _egui_encoder: &mut wgpu::CommandEncoder,
@@ -39,6 +94,7 @@ impl egui_wgpu::CallbackTrait for AmplitudeDisplayCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
+        self.upload_external_amplitudes(device, queue, resources);
         let params = AmplitudeRenderParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,

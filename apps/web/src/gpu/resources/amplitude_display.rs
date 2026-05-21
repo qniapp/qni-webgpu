@@ -46,6 +46,7 @@ pub(crate) struct AmplitudeResources {
     pub popup_value_bind_group_layout: wgpu::BindGroupLayout,
     pub popup_value_params_buffer: wgpu::Buffer,
     pub last_popup_value_params: Option<AmplitudePopupValueParams>,
+    pub last_external_upload_generation: Option<u64>,
 }
 
 impl AmplitudeResources {
@@ -147,6 +148,7 @@ impl AmplitudeResources {
             popup_value_bind_group_layout,
             popup_value_params_buffer,
             last_popup_value_params: None,
+            last_external_upload_generation: None,
         }
     }
 
@@ -183,7 +185,9 @@ fn create_output_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         label: Some("amplitude_output"),
         size: (MAX_AMPLITUDE_SLOTS * AMPLITUDE_VALUES_PER_SLOT * std::mem::size_of::<f32>())
             as wgpu::BufferAddress,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_SRC
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
@@ -192,7 +196,9 @@ fn create_meta_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("amplitude_meta"),
         size: (MAX_AMPLITUDE_SLOTS * std::mem::size_of::<[f32; 4]>()) as wgpu::BufferAddress,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_SRC
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
