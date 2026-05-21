@@ -1,0 +1,116 @@
+version: 1
+
+# AGENTS.md の用語集と過去のルー語修正パターンを prh ルールとして管理する。
+# 新しい用語の方針が決まったらこの prh.yml に追記し、`docs/` 側もこのルールに従って統一する。
+#
+# rule の書き方:
+#   - expected: 望ましい表記
+#     patterns: [一致させたい表記の正規表現]
+#   - 正規表現は HTML/Markdown 抽出後のテキストに対して評価される。
+#     コード識別子・CSS クラス・URL トークンに偶発マッチしないよう、
+#     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
+
+rules:
+  # ── 表示ブロック (Display blocks) 用語統一 ──
+  - expected: 確率表示ブロック
+    patterns:
+      - /Probability display/
+      - /probability display/
+      - /確率表示ゲート/
+
+  - expected: ブロッホ球表示ブロック
+    patterns:
+      - /Bloch Sphere display/
+      - /Bloch sphere display/
+      - /Bloch Display/
+      - /Bloch display/
+      - /bloch display/
+
+  - expected: 振幅表示ブロック
+    patterns:
+      - /Amplitude Display/
+      - /Amplitude display/
+      - /amplitude display/
+
+  - expected: 表示ブロック
+    patterns:
+      - /display gate/
+      - /表示ゲート/
+
+  # ── ブロッホ + 和語 ──
+  - expected: ブロッホ球
+    pattern: /Bloch 球/
+  - expected: ブロッホベクトル
+    pattern: /Bloch ベクトル/
+  - expected: ブロッホ矢印
+    pattern: /Bloch 矢印/
+  - expected: ブロッホ軸
+    pattern: /Bloch 軸/
+  - expected: ブロッホ長
+    pattern: /Bloch 長/
+  - expected: ブロッホ状態
+    pattern: /Bloch 状態/
+  - expected: ブロッホ表示
+    pattern: /Bloch 表示/
+  - expected: ブロッホ値
+    pattern: /Bloch 値/
+
+  # ── qubit → 量子ビット (助詞付き narrative のみ; 識別子は誤検出しない) ──
+  - expected: 量子ビットを
+    pattern: /qubit を/
+  - expected: 量子ビットの
+    pattern: /qubit の/
+  - expected: 量子ビットは
+    pattern: /qubit は/
+  - expected: 量子ビットが
+    pattern: /qubit が/
+  - expected: 量子ビットに
+    pattern: /qubit に/
+  - expected: 量子ビットで
+    pattern: /qubit で/
+  - expected: 量子ビットと
+    pattern: /qubit と/
+  - expected: 量子ビットも
+    pattern: /qubit も/
+  - expected: 量子ビットから
+    pattern: /qubit から/
+  - expected: 量子ビットごと
+    pattern: /qubit ごと/
+  - expected: 量子ビット数
+    pattern: /qubit 数/
+  - expected: 量子ビットワイヤ
+    pattern: /qubit ワイヤ/
+  - expected: 量子ビットマーカ
+    pattern: /qubit マーカ/
+
+  # ── outcome → 測定結果 (Japanese 助詞 / 接頭辞付き narrative のみ) ──
+  - expected: 各測定結果
+    pattern: /各 outcome/
+  - expected: 全測定結果
+    pattern: /全 outcome/
+  - expected: 測定結果を
+    pattern: /outcome を/
+  - expected: 測定結果の
+    pattern: /outcome の/
+  - expected: 測定結果が
+    pattern: /outcome が/
+  - expected: 測定結果は
+    pattern: /outcome は/
+  - expected: 測定結果に
+    pattern: /outcome に/
+  - expected: 測定結果数
+    pattern: /outcome 数/
+
+  # ── ルー語の典型パターン (日本語+英語+助詞) ──
+  - expected: シェーダを
+    pattern: /shader を/
+  - expected: バッファを
+    pattern: /buffer を/
+  - expected: バインドし
+    pattern: /bind し/
+  - expected: パイプラインを
+    pattern: /pipeline を/
+  - expected: イージング
+    pattern: /easing/
+  - expected: ハンドルが
+    pattern: /handle が/

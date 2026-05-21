@@ -6,8 +6,8 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 ## 最重要ルール: GPU-only
 
-- 量子状態のシミュレーションは **GPU (WebGPU compute shader) でのみ** 行う。CPU 側で state vector / 密度行列 / 測定確率 / ブロッホベクトルなどを計算してはならない。「とりあえず CPU で動かしておく」「fallback として残す」も禁止。GPU で書きにくい場合は GPU shader を直すか、ユーザーに止めて相談する。
-- **本番経路で GPU → CPU リードバックを発生させてはならない**。ブロッホベクトル / 測定結果 / 状態ベクトルなど GPU 上の値は、視覚化も含めてすべて GPU shader 内で完結させる (storage buffer を render shader で直接 sample する `STATE_RENDER_SHADER` パターン)。`map_async` であっても per-frame の staging buffer 割り当て / IPC coordination / 1-frame 遅延が発生するため避ける。テストハーネス向けの on-demand readback (`read_state_vector` のように JS から async で呼ばれるもの) は例外として OK。
+- 量子状態のシミュレーションは **GPU (WebGPU compute shader) でのみ** 行う。CPU 側で state vector / 密度行列 / 測定確率 / ブロッホベクトルなどを計算してはならない。「とりあえず CPU で動かしておく」「fallback として残す」も禁止。GPU で書きにくい場合は GPU シェーダを直すか、ユーザーに止めて相談する。
+- **本番経路で GPU → CPU リードバックを発生させてはならない**。ブロッホベクトル / 測定結果 / 状態ベクトルなど GPU 上の値は、視覚化も含めてすべて GPU シェーダ内で完結させる (storage バッファをレンダーシェーダで直接 sample する `STATE_RENDER_SHADER` パターン)。`map_async` であっても per-frame の staging buffer 割り当て / IPC coordination / 1-frame 遅延が発生するため避ける。テストハーネス向けの on-demand readback (`read_state_vector` のように JS から async で呼ばれるもの) は例外として OK。
 
 ## 実描画確認
 
@@ -23,6 +23,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
   - **コード変更**: correctness（正しさ）/ test coverage（テスト網羅性）/ unnecessary complexity（不要な複雑さ）
   - **ドキュメント変更**: correctness（記述と実装の整合、リンク切れ、構文崩れ、用語の意味的誤り）/ clarity（想定読者への読みやすさ、見出し階層と情報構造の整合、不明瞭な指示語や未定義略語、**ルー語 = 日本語文中の不自然な英日混在の混入**）/ unnecessary complexity（冗長表現、重複説明、過剰訳、空白ノイズ、本筋と無関係な情報）
 - 所見は重大度別に要約し、適用価値のある修正だけを反映する。コミットする場合はレビュー対応後に行う。
+- `*.html` / `*.md` / `AGENTS.md` を編集したら、コミット前に必ず `scripts/lint-docs.sh` を実行して通過させる。これは用語ゆれ・ルー語 (textlint + prh、用語集は `tools/docs-lint/prh.yml`) / HTML 構造 (html-validate) / Markdown スタイル (markdownlint-cli2) の 3 つを一括で走らせる。新しい用語の方針が決まったら `prh.yml` にも追記し、検出ルールとして残す。
 - コミットしたら必ず直後に `git push` し、ローカルだけにコミットを残さない。
 - このプロジェクトでは後方互換レイヤーや旧名 wrapper は残さない。名前変更時は旧入口を削除し、新しい名前へ移行する。
 - 変更フローは「変更 → テスト → pending snapshots 確認 → review → accept/reject → CI 検証」を遵守する。
@@ -65,6 +66,6 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 ドキュメント内で使う日本語表記とコード識別子の対応をここで一元管理する。新しい用語の方針が決まったら必ずここに追記し、`docs/*` 側もこの表に従って統一する。
 
-- **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素 (Bloch Sphere Display / Probability Display / Amplitude Display の総称)。ユニタリ変換を行わないため厳密にはゲートではない。
+- **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。

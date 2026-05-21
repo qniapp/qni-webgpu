@@ -1,0 +1,16 @@
+{
+  "default": true,
+  "line-length": false,
+  "no-inline-html": false,
+  "no-bare-urls": false,
+  "no-trailing-punctuation": false,
+  "single-h1": false,
+  "first-line-heading": false,
+  "no-duplicate-heading": false,
+  "no-multiple-blanks": { "maximum": 2 },
+  "fenced-code-language": false,
+  "code-block-style": false,
+  "ul-style": false,
+  "emphasis-style": false,
+  "strong-style": false
+}
