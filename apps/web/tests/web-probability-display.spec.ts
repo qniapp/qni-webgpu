@@ -946,7 +946,7 @@ test('Probability resize handles stay visible while crossing the top gap', async
   await page.waitForTimeout(350)
   const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'topHandle', x: centerX, y: gateTop - 9 }])
 
-  expect(pixelRgbDistance(pixels.topHandle, [94, 64, 157, 255])).toBeLessThan(64)
+  expect(pixelRgbDistance(pixels.topHandle, [36, 131, 123, 255])).toBeLessThan(64)
 })
 
 test('Probability resize handles stay visible while crossing the bottom gap', async ({ page }) => {
@@ -957,7 +957,7 @@ test('Probability resize handles stay visible while crossing the bottom gap', as
     { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
   ])
 
-  expect(pixelRgbDistance(pixels.bottomHandle, [94, 64, 157, 255])).toBeLessThan(64)
+  expect(pixelRgbDistance(pixels.bottomHandle, [36, 131, 123, 255])).toBeLessThan(64)
 })
 
 test('Probability resize handles show two visible pills', async ({ page }) => {
@@ -967,7 +967,7 @@ test('Probability resize handles show two visible pills', async ({ page }) => {
     { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
   ])
   const visibleCount = [pixels.topHandle, pixels.bottomHandle]
-    .filter((pixel) => pixelRgbDistance(pixel, [139, 126, 200, 255]) < 56)
+    .filter((pixel) => pixelRgbDistance(pixel, [58, 169, 159, 255]) < 56)
     .length
 
   expect(visibleCount).toBe(2)
@@ -986,7 +986,7 @@ test('QFT and QFT† resize handles show two shared span-resize pills', async ({
   ])
   const visibleCounts = [qftPixels, qftDaggerPixels].map((pixels) =>
     [pixels.topHandle, pixels.bottomHandle]
-      .filter((pixel) => pixelRgbDistance(pixel, [139, 126, 200, 255]) < 56)
+      .filter((pixel) => pixelRgbDistance(pixel, [58, 169, 159, 255]) < 56)
       .length,
   )
 
@@ -1006,13 +1006,13 @@ test('Probability resize handles stay separated from the hover ring', async ({ p
   expect(separatedGapCount).toBe(2)
 })
 
-test('Probability resize handle hover uses purple-600 on the hovered pill', async ({ page }) => {
+test('Probability resize handle hover uses cyan-600 on the hovered pill', async ({ page }) => {
   const { canvas, box, gateTop, centerX } = await setupProbability4ResizeHandleProbe(page)
   await page.mouse.move(box.x + centerX, box.y + gateTop - 9)
   await page.waitForTimeout(100)
   const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'topHandle', x: centerX, y: gateTop - 9 }])
 
-  expect(pixelRgbDistance(pixels.topHandle, [94, 64, 157, 255])).toBeLessThan(64)
+  expect(pixelRgbDistance(pixels.topHandle, [36, 131, 123, 255])).toBeLessThan(64)
 })
 
 test('Probability resize handle hover leaves the opposite pill visible', async ({ page }) => {
@@ -1023,7 +1023,7 @@ test('Probability resize handle hover leaves the opposite pill visible', async (
     { name: 'bottomHandle', x: centerX, y: gateTop + gateHeight + 9 },
   ])
 
-  expect(pixelRgbDistance(pixels.bottomHandle, [139, 126, 200, 255])).toBeLessThan(56)
+  expect(pixelRgbDistance(pixels.bottomHandle, [58, 169, 159, 255])).toBeLessThan(56)
 })
 
 test('Probability top resize handle expands the span upward', async ({ page }) => {

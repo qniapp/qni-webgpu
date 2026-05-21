@@ -1,6 +1,6 @@
 //! Shared resizable-span handle component for Probability / QFT / QFT† / Amplitude gates.
 //!
-//! This module owns the small purple top/bottom handles as one component:
+//! This module owns the small cyan top/bottom handles as one component:
 //! body selection, hit testing, drag construction, animation easing, and paint.
 //! Gate-specific code only decides whether a gate is resizable and how far the
 //! span may grow.

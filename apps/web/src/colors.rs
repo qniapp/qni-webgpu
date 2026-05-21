@@ -151,6 +151,7 @@ fn flexoki_light() -> Colors {
     let red_600 = tone(0.686, 0.188, 0.161); // red-600 #AF3029
     let green_600 = tone(0.400, 0.502, 0.043); // green-600 #66800B
     let cyan_400 = tone(0.227, 0.663, 0.624); // cyan-400 #3AA99F
+    let cyan_600 = tone(0.141, 0.514, 0.482); // cyan-600 #24837B
     let blue_200 = tone(0.573, 0.749, 0.859); // blue-200 #92BFDB
     let blue_300 = tone(0.400, 0.627, 0.784); // blue-300 #66A0C8
     let blue_400 = tone(0.263, 0.522, 0.745); // blue-400 #4385BE
@@ -186,8 +187,8 @@ fn flexoki_light() -> Colors {
         state_resize_handle_top_drag: paper,
         state_resize_handle_bottom_idle: ui_2,
         state_resize_handle_bottom_drag: tx_2,
-        span_resize_handle_bg: purple_400,
-        span_resize_handle_bg_hover: purple_600,
+        span_resize_handle_bg: cyan_400, // Resize handle default (Flexoki cyan-400)
+        span_resize_handle_bg_hover: cyan_600, // Resize handle hover / active (Flexoki cyan-600)
         popup_icon: blue_400,
         popup_icon_chrome: tx_3,
         bloch_sphere_bg: bg_2,
@@ -226,5 +227,26 @@ fn flexoki_light() -> Colors {
         gpu_status_completed: green_600,    // Flexoki green-600 #66800B
         gpu_status_failed: red_600,         // Flexoki red-600 #AF3029
         gpu_status_separator: tx_3,         // Flexoki tx-3 #B7B5AC
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn span_resize_handle_default_uses_flexoki_cyan_400() {
+        assert_eq!(
+            Colors::new().span_resize_handle_bg,
+            egui::Color32::from_rgb(0x3A, 0xA9, 0x9F)
+        );
+    }
+
+    #[test]
+    fn span_resize_handle_hover_uses_flexoki_cyan_600() {
+        assert_eq!(
+            Colors::new().span_resize_handle_bg_hover,
+            egui::Color32::from_rgb(0x24, 0x83, 0x7B)
+        );
     }
 }

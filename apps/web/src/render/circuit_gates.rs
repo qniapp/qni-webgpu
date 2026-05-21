@@ -142,7 +142,7 @@ impl QniApp {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
             }
             // Resizable-span gates use one shared handle component: top +
-            // bottom purple pills with hover/active scaling. Amplitude's
+            // bottom cyan pills with hover/active scaling. Amplitude's
             // component body is its centred matrix, so width follows the body.
             if let Some(handles) = SpanResizeHandles::for_gate_at(gate, gate_rect) {
                 let visible = self.hovered_gate_id == Some(gate.id)
