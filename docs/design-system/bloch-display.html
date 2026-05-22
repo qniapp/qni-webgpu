@@ -260,8 +260,8 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>未定義 CSS 変数 <code>--tip-equator</code> を解消する</strong> — § 01 のモック 5 個 + 4× zoom 2 個で参照されているが宣言が無いため、equator 状態 (|+⟩ / |−⟩ / |±i⟩) の tip ドットが<strong>仕様外の黒</strong>で描画されている。仕様文 § 06 と実画の乖離が一目で出る最大の execution bug (§ 01 参照)。</li>
-      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の short use で同等のレンダリングが得られ、ファイル全体が 1183 行 → 400 行台に縮む (§ 01 参照)。</li>
+      <li><strong>未定義 CSS 変数 <code>--tip-equator</code> を解消する</strong> — § 02 のモック 5 個 + 4× zoom 2 個で参照されているが宣言が無いため、equator 状態 (|+⟩ / |−⟩ / |±i⟩) の tip ドットが<strong>仕様外の黒</strong>で描画されている。仕様文 § 06 と実画の乖離が一目で出る最大の execution bug (§ 02 参照)。</li>
+      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の short use で同等のレンダリングが得られ、ファイル全体が 1183 行 → 400 行台に縮む (§ 02 参照)。</li>
       <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
       <li><strong>§ 06 配色テーブルと § 07 gradient 説明を統合する</strong> — 現状は § 06 が「red / blue / 中点」の 3 行を並べ、§ 07 が「sRGB lerp で連続補間」と書く。読者は § 06 だけ読むと離散 3 色だと誤解する。テーブル側に「gradient (z で連続補間、§ 07 参照)」を入れて統合表現にすべき (§ 06 / § 07 参照)。</li>
       <li><strong>§ 12 描画パイプラインから line-number 付きファイル参照を抜く</strong> — <code>gpu/shaders/bloch_display.rs:81-190</code> のような行番号は確実に rot する。§ 14 実装ファイル表が既に同じ情報を持っているので、§ 12 は「stage 1 / 2 / 3 が何をするか」だけに絞り、ファイル名は § 14 に集約する (§ 12 参照)。</li>
@@ -269,9 +269,60 @@
   </aside>
 </section>
 
-<!-- ─────── § 01 標準状態の見た目 ─────── -->
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
-  <h2>§ 01 標準状態の見た目 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合)</h2>
+  <h2>§ 01 概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      1 量子ビット の局所状態を<strong>ブロッホベクトル <code>(x, y, z)</code></strong>として透視投影 + 矢印 + 先端ドットで可視化する表示ブロック。
+      ドットの色は z 成分による gradient (<code>|0⟩</code> = red-600、<code>|1⟩</code> = blue-600、equator は中点)。span は常に 1。
+      下のモックで南北極の代表 2 状態の見た目を確認できる。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col" style="max-width: 160px;">
+        <div class="caption"><code>|0⟩</code><br>(0, 0, +1)<br>北極 → red tip</div>
+        <div class="actual">
+          <div class="bd">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <circle class="sphere" cx="20" cy="20" r="19" />
+              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
+              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
+              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
+              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
+              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
+              <line class="vec" x1="20" y1="20" x2="20" y2="1" />
+              <circle class="tip" cx="20" cy="1" r="3" />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="max-width: 160px;">
+        <div class="caption"><code>|1⟩</code><br>(0, 0, −1)<br>南極 → blue tip</div>
+        <div class="actual">
+          <div class="bd">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <circle class="sphere" cx="20" cy="20" r="19" />
+              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
+              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
+              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
+              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
+              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
+              <line class="vec" x1="20" y1="20" x2="20" y2="39" />
+              <circle class="tip" cx="20" cy="39" r="3" style="fill: var(--blue-600);" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップアップ等の詳細は § 04 以降を参照。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 02 標準状態の見た目 ─────── -->
+<section class="block">
+  <h2>§ 02 標準状態の見た目 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合)</h2>
   <div class="card">
     <p>
       代表的な 1 量子ビット 状態を実寸 (40 × 40 px) で並べた参考レンダリング。
@@ -286,8 +337,8 @@
       モックは「実装済み挙動の常時表示プレビュー」として読む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 01 --tip-equator 未定義 / SVG 重複">
-      <div class="critique-label">★ 批評 · § 01 仕様と描画の乖離 + SVG 重複</div>
+    <aside class="critique" aria-label="批評 · § 02 --tip-equator 未定義 / SVG 重複">
+      <div class="critique-label">★ 批評 · § 02 仕様と描画の乖離 + SVG 重複</div>
       <div class="critique-title">equator 状態の tip ドットが「仕様外の黒」でレンダリングされる</div>
       <p class="critique-body">
         |+⟩ / |−⟩ / |+i⟩ / |−i⟩ の 4 セルと 4× zoom 2 セルの <code>circle.tip</code> はすべて <code>style="fill: var(--tip-equator);"</code> を指定しているが、
@@ -304,7 +355,7 @@
       <div class="critique-title" style="margin-top: 12px;">同じ wireframe SVG が 9 個重複している</div>
       <p class="critique-body">
         球本体 + 水平軸 + 垂直軸 + 対角 + 細楕円 ×2 の 6 要素は<strong>すべてのモックで完全に同じ座標</strong> (cx=20 cy=20 r=19 等) なのに、
-        § 01 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
+        § 02 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
         <code>&lt;defs&gt;&lt;symbol id="bloch-frame"&gt; ... &lt;/symbol&gt;&lt;/defs&gt;</code> を 1 度宣言して各モックで <code>&lt;use href="#bloch-frame"/&gt;</code> + 矢印 + tip だけ書けば、
         モックあたり 10 行 → 3 行に縮む。1183 行のページ全体で <strong>~150 行</strong> 削減できる。
         重複の真の害は行数ではなく<strong>ドリフト</strong>: 別の作業で軸 stroke 太さを変えるとき 9 箇所すべてを正確に更新する保証が無い (textlint / html-validate も拾えない)。
@@ -908,7 +959,7 @@ sy = py + factor · (y_3d − py)</pre>
       <div class="critique-label">★ 批評 · § 08 セクション順序</div>
       <div class="critique-title">「なぜ |+⟩ が左下に出るか」は最初の質問なのに 7 番目に置かれている</div>
       <p class="critique-body">
-        § 01 のモックを見て読者が最初に抱く疑問は<em>「|0⟩ が真上はわかる。じゃあ |+⟩ がなぜ画面の左下に出るのか」</em>。
+        § 02 のモックを見て読者が最初に抱く疑問は<em>「|0⟩ が真上はわかる。じゃあ |+⟩ がなぜ画面の左下に出るのか」</em>。
         その答え (<code>perspective-origin: top right</code> で +x 軸が画面手前に倒れる) は § 08 の中盤、6 セクション越しに登場する。
         その間に挟まる § 03〜§ 07 (パレットアイコン / 概要 / ジオメトリ / 配色 / 視覚要素) は<em>「すでに見たことを後から確認する」内容</em>で、第 1 質問の解消には貢献しない。
       </p>
@@ -917,7 +968,7 @@ sy = py + factor · (y_3d − py)</pre>
         論理順は「占有矩形 → ジオメトリ → 投影 (= 見え方の根拠) → 配色 / 視覚要素 (= 細部) → GPU パイプライン → 実装」の方が滑らかで、第 1 質問への到達距離が 6 → 2 セクションに短縮される。
       </p>
       <p class="critique-body">
-        <strong>対応案 B (Quick Reference カード)</strong>: § 01 の直後に「観測者は右上、+x は画面手前 → 左下、+y は右、+z は上」を 1 行で伝える図 (3 軸を矢印で示すだけのミニ SVG、40×40 px) を置く。順序入れ替えなしで読者の見当を即座に揃えられる。
+        <strong>対応案 B (Quick Reference カード)</strong>: § 02 の直後に「観測者は右上、+x は画面手前 → 左下、+y は右、+z は上」を 1 行で伝える図 (3 軸を矢印で示すだけのミニ SVG、40×40 px) を置く。順序入れ替えなしで読者の見当を即座に揃えられる。
       </p>
     </aside>
   </div>
@@ -1189,8 +1240,8 @@ z =  ρ_00 − ρ_11</pre>
         anatomy で構造を教え、テーブルで値の振れ幅を提示する 2 役分担。65 行 → ~25 行に縮み、値テーブルとして比較もしやすくなる。
       </p>
       <p class="critique-body">
-        <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 01 にはモックだけ、§ 11 には popup だけ)。
-        傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 01 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
+        <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 02 にはモックだけ、§ 11 には popup だけ)。
+        傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 02 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
         anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;use href="#bloch-frame"/&gt;</code> + tip + needle) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
       </p>
     </aside>

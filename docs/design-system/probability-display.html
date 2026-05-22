@@ -22,7 +22,7 @@
       width: 40px;
       background: var(--bg);
       position: relative;
-      /* overflow: visible にしてリサイズハンドル (§ 11) が ±12 px はみ出せるようにする。
+      /* overflow: visible にしてリサイズハンドル (§ 12) が ±12 px はみ出せるようにする。
          row 自体は .cd .row の overflow: hidden で個別にクリップしているので、ゲート内描画は崩れない */
       overflow: visible;
       flex-shrink: 0;
@@ -71,7 +71,7 @@
       background: var(--ui-2);
       pointer-events: none;
     }
-    /* 対数ヒント線 (§ 08): row_h ≤ 8 px のとき連続ポリラインで描画。
+    /* 対数ヒント線 (§ 09): row_h ≤ 8 px のとき連続ポリラインで描画。
        視認性確保のため Flexoki tx-3 (#B7B5AC) を使う。バーよりも下のレイヤに置く
        (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — 行ごとに
        独立した縦線では Quirk の階段状シルエットが得られないので不可。 */
@@ -115,7 +115,7 @@
        シミュレーション (▶ Run) 未実行で確率値がまだ無い状態。
        背景を Flexoki purple-100 の薄紫に差し替え、行構造を ui-2 のグレーで示す。
        バー / ラベル / 対数ヒント線は描かない (まだ値が無いため)。
-       配色判断は振幅表示ブロックの「実行前プレースホルダ」(amplitude-display.html § 01) と同じ
+       配色判断は振幅表示ブロックの「実行前プレースホルダ」(amplitude-display.html § 02) と同じ
        コンベンションに従い、紫系統で「未確定 / 結果待ち」を一貫して表現する。 */
     .cd.cd--placeholder { background: var(--purple-100); }
     .cd.cd--placeholder .cd-ph-row {
@@ -312,8 +312,8 @@
     <div class="critique-title">仕様ページが「視覚仕様」と「実装仕様」の二重責任を負っている</div>
     <p class="critique-body">
       Flexoki Light に厳密に従い、配色判断 1 つひとつに根拠が書かれている網羅性は高い。
-      しかし § 01 から § 14 まで均等な情報密度で、視覚デザイン仕様 (§ 04〜§ 07)・
-      GPU 描画最適化メモ (§ 08.5)・URL シリアライズ (§ 12) が同じ階層で並ぶ。
+      しかし § 02 から § 15 まで均等な情報密度で、視覚デザイン仕様 (§ 05〜§ 08)・
+      GPU 描画最適化メモ (§ 09.5)・URL シリアライズ (§ 13) が同じ階層で並ぶ。
       読者は (a) Quirk から移行した量子計算の学習者と
       (b) このページを実装根拠にする Codex / 人間の二者が混在しており、
       前者向けの <strong>Quick Reference カード</strong>
@@ -326,22 +326,46 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>リサイズハンドルを別色族に振る</strong> — <s>現状 hover ring と完全同色の <code>purple-400</code>。</s> <strong>適用済 (2026-05-22):</strong> <code>cyan-400 / cyan-600</code> に変更し、<code>2 px paper gap</code> は breathing room として残す形に整理 (§ 11 参照)。</li>
+      <li><strong>リサイズハンドルを別色族に振る</strong> — <s>現状 hover ring と完全同色の <code>purple-400</code>。</s> <strong>適用済 (2026-05-22):</strong> <code>cyan-400 / cyan-600</code> に変更し、<code>2 px paper gap</code> は breathing room として残す形に整理 (§ 12 参照)。</li>
       <li><strong>仕様ページ冒頭に Quick Reference カードを置く</strong> — 寸法式 <code>56 × span − 16 px</code> / 配色 6 色 / 上限 / ホバー時挙動 を 1 ブロックで提示。</li>
-      <li><strong>パレットアイコンを span 1 の 2 行表示に統一</strong> — 現状 4 行ガウシアン風プレビューは「span 2 のゲート」と誤読される (§ 02 参照)。</li>
-      <li><strong>シミュレーション結果到着時のマイクロインタラクションを設計</strong> — placeholder → 結果のクロスフェードを「各バーが左から伸びる + subtle flash」に拡張 (§ 01 参照)。</li>
-      <li><strong>ポップアップのサブ行を整理</strong> — 「Probability if measured · k = N」は ket から導出可能 (§ 10 参照)。</li>
+      <li><strong>パレットアイコンを span 1 の 2 行表示に統一</strong> — 現状 4 行ガウシアン風プレビューは「span 2 のゲート」と誤読される (§ 03 参照)。</li>
+      <li><strong>シミュレーション結果到着時のマイクロインタラクションを設計</strong> — placeholder → 結果のクロスフェードを「各バーが左から伸びる + subtle flash」に拡張 (§ 02 参照)。</li>
+      <li><strong>ポップアップのサブ行を整理</strong> — 「Probability if measured · k = N」は ket から導出可能 (§ 11 参照)。</li>
     </ol>
   </aside>
 </section>
 
-<!-- ─────── § 01 サイズ別の見た目 ─────── -->
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
-  <h2>§ 01 サイズ別の見た目 (1〜5, 16 量子ビット)</h2>
+  <h2>§ 01 概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      span 内の量子ビットを測定したときの<strong>各測定結果の確率</strong>を、<code>XX.X%</code> ラベル付きの横バーで可視化する表示ブロック。状態ベクトルには影響しない。
+      下のモックで「シンプルな span 1」と「典型的な span 2」の見た目を確認できる。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 1<br>(2 outcomes)<br>40 × 40 px</div>
+        <div class="actual"><div class="cd-host" data-height="40" data-probs="70,30" data-no-popup="true"></div></div>
+      </div>
+      <div class="col" style="max-width: 160px;">
+        <div class="caption">span 2<br>(4 outcomes)<br>40 × 96 px</div>
+        <div class="actual"><div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true"></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      全 span (1〜16) の一覧 + 実行前プレースホルダは <strong>§ 02 サイズ別の見た目</strong>、配色 / 対数ヒント線 / ポップアップ / リサイズハンドル等の詳細は § 04 以降を参照。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 02 サイズ別の見た目 ─────── -->
+<section class="block">
+  <h2>§ 02 サイズ別の見た目 (1〜5, 16 量子ビット)</h2>
   <div class="card">
     <p>
       span を実寸大で並べた参考レンダリング。span 1〜4 は <code>XX.X%</code> ラベル付き、
-      span 5 以上は対数ヒント線 (§ 08) を描く。確率分布は代表的なパターン (フル幅 <code>100%</code> 行を含む)。
+      span 5 以上は対数ヒント線 (§ 09) を描く。確率分布は代表的なパターン (フル幅 <code>100%</code> 行を含む)。
       マウスカーソルを乗せてホバー挙動も確認できる。
     </p>
 
@@ -383,7 +407,7 @@
     <p>
       <strong>確率表示ブロックの上限は 16 量子ビット</strong>。測定結果の数 = <code>2<sup>16</sup> = 65 536</code>、
       高さ 880 px、行高 ≈ <code>0.013 px</code> (サブピクセル)。
-      行高が極小のため <code>XX.X%</code> ラベルは描かず、対数ヒント線 (§ 08) のみで分布の形を表現する。
+      行高が極小のため <code>XX.X%</code> ラベルは描かず、対数ヒント線 (§ 09) のみで分布の形を表現する。
       確率分布は中心 <code>k = 32 768</code> に山を持つガウシアンプリセットで生成 (デモ用)。
       実寸 40 × 880 px のため DOM 由来の 65 536 div を避け、<code>&lt;canvas&gt;</code> に直接描画している。
     </p>
@@ -396,8 +420,8 @@
       </div>
     </div>
 
-    <aside class="critique" aria-label="批評 · § 01 span 16 のユーザ体験">
-      <div class="critique-label">★ 批評 · § 01 span 16 のユーザ体験</div>
+    <aside class="critique" aria-label="批評 · § 02 span 16 のユーザ体験">
+      <div class="critique-label">★ 批評 · § 02 span 16 のユーザ体験</div>
       <div class="critique-title">span 16 は実行後でも「ぼんやりした模様」しか見えない</div>
       <p class="critique-body">
         65 536 行を高さ 880 px に詰めると行高 <code>≈ 0.013 px</code>。
@@ -418,7 +442,7 @@
       <strong>GPU 経路の <code>probability_output</code> storage buffer がまだ書き込まれていない</strong>ので各測定結果の確率値が無く、
       従来の実装ではバー領域が <code>bg</code> (#FFFCF0) で抜けて見えていた (背景 <code>bg-2</code> と隣接して「壊れているのか配置できていないのか」が判別しにくい問題)。
       この空白を<strong>「実行待ちであることを伝えるプレースホルダ」</strong>として明示的にデザインする。
-      振幅表示ブロックの「実行前プレースホルダ」(<a href="amplitude-display.html">amplitude-display.html § 01</a>) と<strong>同じ配色コンベンション</strong>に従う。
+      振幅表示ブロックの「実行前プレースホルダ」(<a href="amplitude-display.html">amplitude-display.html § 02</a>) と<strong>同じ配色コンベンション</strong>に従う。
     </p>
     <ul>
       <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で塗る。
@@ -430,7 +454,7 @@
         <code>rowH ≤ 2 px</code> (span 8+) では線が重畳するので省略 (通常時の行区切り線と同じ閾値)。</li>
       <li><strong>バー / ラベル / 対数ヒント線</strong> — 描かない。確率値そのものを持たないので、バー (幅) もラベル (数値) も対数ヒント線 (補助) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 11) は通常時と同じく出す。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 12) は通常時と同じく出す。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー行ガイド) を 150 ms ease-out でフェードアウトしつつ、通常の バー + ラベル / 対数ヒント線 描画にクロスフェードする。</li>
     </ul>
     <div class="stage">
@@ -472,14 +496,14 @@
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 07) の <code>ProbabilityInstance.render_mode</code> に
+      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 08) の <code>ProbabilityInstance.render_mode</code> に
       <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で「placeholder なら placeholder layer (purple-100 背景 + ui-2 行ガイド線 + 外枠)、それ以外は通常のバー + ラベル / 対数ヒント線」へ分岐する。
       CPU から空の確率値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
       span ≥ 8 (<code>rowH ≤ 2 px</code> 帯) では通常時と同じく行ガイド線も省略し、背景 + 外枠だけが残る。span 16 は最終的に背景の薄紫一色 + 外枠 だけになる。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 01 placeholder トークン化と遷移演出">
-      <div class="critique-label">★ 批評 · § 01 placeholder トークン化と遷移演出</div>
+    <aside class="critique" aria-label="批評 · § 02 placeholder トークン化と遷移演出">
+      <div class="critique-label">★ 批評 · § 02 placeholder トークン化と遷移演出</div>
       <div class="critique-title">「振幅表示ブロックと同コンベンション」が遠隔参照になっている</div>
       <p class="critique-body">
         <code>purple-100</code> で「未確定 / 結果待ち」を表現する語彙は良い設計判断
@@ -504,9 +528,9 @@
   </div>
 </section>
 
-<!-- ─────── § 02 パレットアイコン ─────── -->
+<!-- ─────── § 03 パレットアイコン ─────── -->
 <section class="block">
-  <h2>§ 02 パレットアイコン (ミニプレビュー)</h2>
+  <h2>§ 03 パレットアイコン (ミニプレビュー)</h2>
   <div class="card">
     <p>
       パレットに並ぶ <code>ProbabilityDisplay</code> アイコンは 40 × 40 px の静的なミニプレビュー。
@@ -530,8 +554,8 @@
       </div>
     </div>
 
-    <aside class="critique" aria-label="批評 · § 02 アイコンと本体の乖離">
-      <div class="critique-label">★ 批評 · § 02 アイコンと本体の乖離</div>
+    <aside class="critique" aria-label="批評 · § 03 アイコンと本体の乖離">
+      <div class="critique-label">★ 批評 · § 03 アイコンと本体の乖離</div>
       <div class="critique-title">4 行ガウシアンプレビューは「span 2 のゲート」と誤読される</div>
       <p class="critique-body">
         パレットアイコンは <code>PROBABILITY_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>
@@ -546,9 +570,9 @@
   </div>
 </section>
 
-<!-- ─────── § 03 概要 ─────── -->
+<!-- ─────── § 04 概要 ─────── -->
 <section class="block">
-  <h2>§ 03 概要</h2>
+  <h2>§ 04 概要</h2>
   <div class="card">
     <table class="spec">
       <tbody>
@@ -557,16 +581,16 @@
         <tr><th>測定結果</th><td>2<sup>span</sup> 行 (上から binary big-endian、<code>k = 0</code> = |0..0⟩、<code>k = 2<sup>span</sup>−1</code> = |1..1⟩)。最大 <code>2<sup>16</sup> = 65 536</code> 行</td></tr>
         <tr><th>確率計算</th><td>GPU コンピュートシェーダで marginalize → <code>probability_output</code> (= <code>resources.probability.output_buffer</code>、<code>probability_data</code> としてシェーダにバインド) に書き出す。CPU リードバックなし</td></tr>
         <tr><th>シリアライズ ID</th><td>span 1 → <code>"Probability"</code>、span 2..16 → <code>"Probability2"</code>..<code>"Probability16"</code> (Quirk 互換)</td></tr>
-        <tr><th>配置</th><td>パレットのアイコン 1 個からドラッグアンドドロップ。配置後に上下のリサイズハンドル (§ 11) で span を 1..16 に変更 (QFT と同型)</td></tr>
+        <tr><th>配置</th><td>パレットのアイコン 1 個からドラッグアンドドロップ。配置後に上下のリサイズハンドル (§ 12) で span を 1..16 に変更 (QFT と同型)</td></tr>
         <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ)</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 04 ジオメトリ ─────── -->
+<!-- ─────── § 05 ジオメトリ ─────── -->
 <section class="block">
-  <h2>§ 04 ジオメトリ</h2>
+  <h2>§ 05 ジオメトリ</h2>
   <div class="card">
     <h3>本体寸法</h3>
     <table class="spec">
@@ -595,12 +619,12 @@
     </table>
     <p class="note" style="margin-top: 12px;">
       表示切替条件: <code>row_h &gt; 8 px</code> のとき <code>XX.X%</code> ラベルを描画 (span 1〜4)、
-      満たさないとき (span 5 以上) はラベルを出さず、対数スケールの補助線 (§ 08 対数ヒント線) を描画する。
+      満たさないとき (span 5 以上) はラベルを出さず、対数スケールの補助線 (§ 09 対数ヒント線) を描画する。
       線形バーは全 span で常に描く。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 04 閾値判定と角丸">
-      <div class="critique-label">★ 批評 · § 04 閾値判定と角丸</div>
+    <aside class="critique" aria-label="批評 · § 05 閾値判定と角丸">
+      <div class="critique-label">★ 批評 · § 05 閾値判定と角丸</div>
       <div class="critique-title">「全か無か」のテキスト表示判定が急峻すぎる</div>
       <p class="critique-body">
         span 5 で <code>row_h = 264 / 32 = 8.25 px</code> は <code>row_h &gt; 8</code> 閾値の
@@ -622,9 +646,9 @@
   </div>
 </section>
 
-<!-- ─────── § 05 配色 ─────── -->
+<!-- ─────── § 06 配色 ─────── -->
 <section class="block">
-  <h2>§ 05 配色 (Flexoki Light)</h2>
+  <h2>§ 06 配色 (Flexoki Light)</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -632,23 +656,23 @@
       </thead>
       <tbody>
         <tr><td>背景</td><td><code>paper</code></td><td>#FFFCF0</td><td>ゲート本体の塗りつぶし (実行後)</td></tr>
-        <tr><td>背景 (実行前プレースホルダ)</td><td><code>purple-100</code></td><td>#ECE1F3</td><td>シミュレーション未実行で確率値がまだ無いときの背景。紫系統で「未確定 / 結果待ち」を表現 (§ 01「実行前プレースホルダ」、振幅表示ブロックと同コンベンション)。実行後は <code>paper</code> へクロスフェード</td></tr>
-        <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。現実装の <code>colors.state_fill</code> と同じ blue-200 を使う (詳細は § 13 実装ファイル参照)</td></tr>
+        <tr><td>背景 (実行前プレースホルダ)</td><td><code>purple-100</code></td><td>#ECE1F3</td><td>シミュレーション未実行で確率値がまだ無いときの背景。紫系統で「未確定 / 結果待ち」を表現 (§ 02「実行前プレースホルダ」、振幅表示ブロックと同コンベンション)。実行後は <code>paper</code> へクロスフェード</td></tr>
+        <tr><td>バー fill</td><td><code>blue-200</code></td><td>#92BFDB</td><td>確率に比例した横バー。現実装の <code>colors.state_fill</code> と同じ blue-200 を使う (詳細は § 14 実装ファイル参照)</td></tr>
         <tr><td>バー右端マーカー</td><td><code>blue-400</code></td><td>#4385BE</td><td>1 px の確率境界線 (Quirk の gray stroke 相当、blue-200 から 2 tone 濃い)</td></tr>
         <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
         <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各測定結果の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
         <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
-        <tr><td>リサイズハンドル (default)</td><td><code>cyan-400</code></td><td>#3AA99F</td><td>ピル形ハンドルのデフォルト色。ホバー枠 (<code>purple-400</code>) と<strong>別色族</strong>にして「リングの突起 ?」誤認を回避 (§ 11 参照)</td></tr>
-        <tr><td>リサイズハンドル (active)</td><td><code>cyan-600</code></td><td>#24837B</td><td>ハンドル単独ホバー / ドラッグ中の濃色。<code>cyan-400 → cyan-600</code> の濃度遷移で「触れる対象 → 操作対象」を示す (§ 11)</td></tr>
+        <tr><td>リサイズハンドル (default)</td><td><code>cyan-400</code></td><td>#3AA99F</td><td>ピル形ハンドルのデフォルト色。ホバー枠 (<code>purple-400</code>) と<strong>別色族</strong>にして「リングの突起 ?」誤認を回避 (§ 12 参照)</td></tr>
+        <tr><td>リサイズハンドル (active)</td><td><code>cyan-600</code></td><td>#24837B</td><td>ハンドル単独ホバー / ドラッグ中の濃色。<code>cyan-400 → cyan-600</code> の濃度遷移で「触れる対象 → 操作対象」を示す (§ 12)</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 06 タイポグラフィ ─────── -->
+<!-- ─────── § 07 タイポグラフィ ─────── -->
 <section class="block">
-  <h2>§ 06 タイポグラフィ</h2>
+  <h2>§ 07 タイポグラフィ</h2>
   <div class="card">
     <table class="spec">
       <tbody>
@@ -665,13 +689,13 @@
       ラスタライズ。"." は他のグリフより advance 幅を −6 px 詰める cell スケールで描画する。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 06 ウェイトの選定">
-      <div class="critique-label">★ 批評 · § 06 ウェイトの選定</div>
+    <aside class="critique" aria-label="批評 · § 07 ウェイトの選定">
+      <div class="critique-label">★ 批評 · § 07 ウェイトの選定</div>
       <div class="critique-title">Light 300 はバー上のラベルとして弱い</div>
       <p class="critique-body">
         確率ラベル <code>XX.X%</code> は 12 px Geist Mono Light 300。
         <code>blue-200</code> バーと <code>paper</code> の境界をまたいで描かれる文字としては、
-        ストローク厚が細すぎて視認性のマージンが小さい。§ 07 で
+        ストローク厚が細すぎて視認性のマージンが小さい。§ 08 で
         「<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト」と断言しているが、
         <strong>コントラストはあってもストローク重量が足りていない</strong>。
         Regular 400 に変えて本文 (Geist Regular) との読みやすさを確保するか、
@@ -682,9 +706,9 @@
   </div>
 </section>
 
-<!-- ─────── § 07 視覚要素 ─────── -->
+<!-- ─────── § 08 視覚要素 ─────── -->
 <section class="block">
-  <h2>§ 07 視覚要素</h2>
+  <h2>§ 08 視覚要素</h2>
   <div class="card">
     <h3>バー</h3>
     <ul>
@@ -703,17 +727,17 @@
     <ul>
       <li>各行の右端から 2 px 内側に右詰めで <code>XX.X%</code> を描画</li>
       <li>バー領域に重なる場合もテキスト色は変えない (色境界 two-tone なし)。<code>blue-200</code> 上の <code>tx</code> 黒で十分なコントラスト</li>
-      <li>条件: <code>row_count ≤ 16 &amp;&amp; row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 08 の対数ヒント線を描く)</li>
+      <li>条件: <code>row_count ≤ 16 &amp;&amp; row_h &gt; 8.0</code>。満たさないときは描かない (代わりに § 09 の対数ヒント線を描く)</li>
     </ul>
 
-    <aside class="critique" aria-label="批評 · § 07 マーカーと意味的階層">
-      <div class="critique-label">★ 批評 · § 07 マーカーと意味的階層</div>
+    <aside class="critique" aria-label="批評 · § 08 マーカーと意味的階層">
+      <div class="critique-label">★ 批評 · § 08 マーカーと意味的階層</div>
       <div class="critique-title">バー右端マーカーが span 5+ でノイズになる</div>
       <p class="critique-body">
         <code>blue-200</code> バーの右端に <code>blue-400 1 px</code> で「確率境界」を引く
         (Quirk 互換)。だが span 5 以上で対数ヒント線 (<code>tx-3 1 px 縦線</code>) と
         併存すると、似た位置に同じ太さの縦線が 2 本走る。色を変えても 1 px 単位では
-        知覚的に同じノイズになり、§ 08 で説明する「ECG / 階段状のシルエット」がぼやける。
+        知覚的に同じノイズになり、§ 09 で説明する「ECG / 階段状のシルエット」がぼやける。
         Quirk 互換性を最優先するなら残してよいが、<code>row_h ≤ 8 px</code> 帯では
         <code>blue-400</code> マーカーを省略する条件分岐があってもよい。
       </p>
@@ -730,9 +754,9 @@
   </div>
 </section>
 
-<!-- ─────── § 08 対数ヒント線 ─────── -->
+<!-- ─────── § 09 対数ヒント線 ─────── -->
 <section class="block">
-  <h2>§ 08 対数ヒント線 (logarithm hints)</h2>
+  <h2>§ 09 対数ヒント線 (logarithm hints)</h2>
   <div class="card">
     <p>
       行高が小さい場合 (<code>row_h ≤ 8 px</code>、span 5 以上) は <code>XX.X%</code> ラベルを出せない。
@@ -834,9 +858,9 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 08.5 Quirk 高速化メモ ─────── -->
+<!-- ─────── § 09.5 Quirk 高速化メモ ─────── -->
 <section class="block">
-  <h2>§ 08.5 Quirk 高速化メモ</h2>
+  <h2>§ 09.5 Quirk 高速化メモ</h2>
   <div class="card">
     <p class="note">
       調査対象: <code>../oss/Quirk</code> @ <code>8833791294e642795c8717038e84940a74b19a64</code>。
@@ -911,9 +935,9 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 09 ホバー挙動 ─────── -->
+<!-- ─────── § 10 ホバー挙動 ─────── -->
 <section class="block">
-  <h2>§ 09 ホバー挙動</h2>
+  <h2>§ 10 ホバー挙動</h2>
   <div class="card">
     <table class="spec">
       <tbody>
@@ -924,7 +948,7 @@ stroke()</pre>
           行ホバー時、ゲートの右 8 px にポップアップが出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
           <code>Probability if measured · k = N</code> (補足)、<code>raw: (p × 100).toFixed(4) %</code>、
           <code>log: (log10(p) × 10).toFixed(1) dB</code> (<code>p = 0</code> なら <code>−∞ dB</code>)。
-          見た目は § 01 のモック参照 (Quirk のプレーンテキスト tooltip を Geist で再構成)
+          見た目は § 02 のモック参照 (Quirk のプレーンテキスト tooltip を Geist で再構成)
         </td></tr>
         <tr><th>ポップアップのタイポグラフィ</th><td>
           ket = Geist Mono Regular 14 px (text-sm) / <code>tx</code>、
@@ -935,19 +959,19 @@ stroke()</pre>
           枠 = <code>paper</code> bg + <code>ui-2</code> 1 px、<code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)、shadow = <code>0 4px 12px rgba(16,15,15,0.06)</code>
         </td></tr>
         <tr><th>パレットアイコン</th><td>外側ゲートホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
-        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 11 参照</td></tr>
+        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      ポップアップ自体のデザイン仕様 (寸法 / 配色 / タイポグラフィ / 表示例 / 状態バリアント) は <strong>§ 10 ポップアップ仕様</strong>、
-      リサイズハンドルの仕様 (寸法 / 状態遷移 / マイクロインタラクション) は <strong>§ 11 リサイズハンドル</strong> を参照。
+      ポップアップ自体のデザイン仕様 (寸法 / 配色 / タイポグラフィ / 表示例 / 状態バリアント) は <strong>§ 11 ポップアップ仕様</strong>、
+      リサイズハンドルの仕様 (寸法 / 状態遷移 / マイクロインタラクション) は <strong>§ 12 リサイズハンドル</strong> を参照。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 10 ポップアップ仕様 ─────── -->
+<!-- ─────── § 11 ポップアップ仕様 ─────── -->
 <section class="block">
-  <h2>§ 10 ポップアップ仕様</h2>
+  <h2>§ 11 ポップアップ仕様</h2>
   <div class="card">
     <p>
       行ホバー時に出るポップアップの<strong>常時表示版</strong>。実装と同じ CSS / マークアップを
@@ -1082,8 +1106,8 @@ stroke()</pre>
       <li><strong>span 16 でも 1 行で収まる</strong>: 16 bit ket = 16 文字、補足 30 文字程度。<code>white-space: nowrap</code> で折り返しを防ぐ (最大幅は ~280 px)</li>
     </ul>
 
-    <aside class="critique" aria-label="批評 · § 10 ポップアップの情報密度">
-      <div class="critique-label">★ 批評 · § 10 ポップアップの情報密度</div>
+    <aside class="critique" aria-label="批評 · § 11 ポップアップの情報密度">
+      <div class="critique-label">★ 批評 · § 11 ポップアップの情報密度</div>
       <div class="critique-title">サブ行「Probability if measured · k = N」が冗長</div>
       <p class="critique-body">
         ket <code>|1010⟩</code> が見えれば k = 10 は導出可能。「Probability if measured」は
@@ -1102,9 +1126,9 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 11 リサイズハンドル (policy 差分) ─────── -->
+<!-- ─────── § 12 リサイズハンドル (policy 差分) ─────── -->
 <section class="block">
-  <h2>§ 11 リサイズハンドル (policy 差分)</h2>
+  <h2>§ 12 リサイズハンドル (policy 差分)</h2>
   <div class="card">
     <p>
       上下ドラッグハンドルの chrome (色 / 寸法 / state machine / マイクロインタラクション) は
@@ -1124,7 +1148,7 @@ stroke()</pre>
     <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
     <p>
       ゲート本体 + ホバー枠 + ハンドルの 3 層がそろった状態を確率表示ブロックのコンテキストで並べたモック。
-      ハンドル単独の chrome 比較は <a href="resize-handle.html#05">resize-handle.html § 05</a> 参照。
+      ハンドル単独の chrome 比較は <a href="resize-handle.html#05">resize-handle.html § 06</a> 参照。
       ここでは「確率表示ブロックに span = 2 を配置したときの上下ハンドル」を 4 状態で見せる。
     </p>
     <div class="stage" style="gap: 56px; padding: 24px 0;">
@@ -1154,8 +1178,8 @@ stroke()</pre>
       </div>
     </div>
 
-    <aside class="critique" aria-label="批評 · § 11 ハンドル色衝突と state 命名 (Resolved + Extracted)">
-      <div class="critique-label">★ 批評 · § 11 ハンドル色衝突と state 命名 — Resolved + Extracted</div>
+    <aside class="critique" aria-label="批評 · § 12 ハンドル色衝突と state 命名 (Resolved + Extracted)">
+      <div class="critique-label">★ 批評 · § 12 ハンドル色衝突と state 命名 — Resolved + Extracted</div>
       <div class="critique-title">primitive として <code>resize-handle.html</code> に抽出済み (2026-05-22)</div>
       <p class="critique-body">
         <strong>適用済み:</strong>
@@ -1168,7 +1192,7 @@ stroke()</pre>
         chrome を <a href="resize-handle.html"><code>resize-handle.html</code></a> に抽出し、
         共有 CSS (<code>design-system.css</code> の <code>.resize-handle</code> ルール) と
         共有 JS (<code>resize-handle.js</code> の <code>attachResizeHandles</code>) に集約。
-        本ページの § 11 はコンポーネント固有の policy 差分 (<code>widthMode: 'fixed'</code> / span 1〜16) だけを残す形に再編成。
+        本ページの § 12 はコンポーネント固有の policy 差分 (<code>widthMode: 'fixed'</code> / span 1〜16) だけを残す形に再編成。
       </p>
       <p class="critique-body" style="color: var(--tx-3);">
         <em>波及範囲:</em> 本ページの inline <code>.cd-handle</code> CSS を削除、buildCd のハンドル HTML 生成を撤廃し
@@ -1179,9 +1203,9 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 12 URL シリアライズ ─────── -->
+<!-- ─────── § 13 URL シリアライズ ─────── -->
 <section class="block">
-  <h2>§ 12 URL シリアライズ (Quirk 互換)</h2>
+  <h2>§ 13 URL シリアライズ (Quirk 互換)</h2>
   <div class="card">
     <p>
       確率表示ブロックの <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する (Quirk URL インポート / 双方向の URL 共有のため)。
@@ -1210,13 +1234,13 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 13 GPU バックエンド経路 ─────── -->
+<!-- ─────── § 14 GPU バックエンド経路 ─────── -->
 <section class="block">
-  <h2>§ 13 GPU バックエンド経路</h2>
+  <h2>§ 14 GPU バックエンド経路</h2>
   <div class="card">
     <p>
       qni-webgpu は 2 つの GPU バックエンドを持つ: ブラウザローカルの <strong>WebGPU</strong> と、リモートの <strong>Qiskit GPU</strong>。
-      確率表示ブロックの確率取得はバックエンドごとに別経路だが、<strong>本体描画 (§ 04〜§ 11) は完全に共通</strong>。
+      確率表示ブロックの確率取得はバックエンドごとに別経路だが、<strong>本体描画 (§ 05〜§ 12) は完全に共通</strong>。
       ここでは「描画シェーダに渡す <code>probability_data</code> をどう得るか」だけをバックエンド別に規定する。
     </p>
 
@@ -1225,7 +1249,7 @@ stroke()</pre>
       <li><strong>span 上限 = 16</strong>。回路全体が 32 量子ビットであっても、1 つの確率表示ブロックが見る測定結果は 2<sup>16</sup> = 65 536 が上限</li>
       <li><strong>full statevector / full probabilities は受け取らない</strong>。32 量子ビット 回路で全状態 = 2<sup>32</sup> = 約 4.3 G 個の測定結果を転送 / 保持しないため。確率表示ブロックは<strong>常に marginalize 済みの表示ブロックごとの probabilities のみ</strong>を扱う</li>
       <li><strong>CPU リードバック不可 (WebGPU 経路)</strong>。Qiskit GPU 経路は性質上 JSON で返ってくるので CPU を経由するが、その場合も <code>probability_data</code> として GPU バッファに <em>1 回</em> アップロードしたあとは描画完結</li>
-      <li><strong>nesting 禁止</strong>: バックエンド種別に関わらず Probability の中に Probability は置けない (Quirk と同じ、§ 03 概要参照)</li>
+      <li><strong>nesting 禁止</strong>: バックエンド種別に関わらず Probability の中に Probability は置けない (Quirk と同じ、§ 04 概要参照)</li>
     </ul>
 
     <h3 style="margin-top: 16px;">WebGPU ローカルバックエンド</h3>
@@ -1257,7 +1281,7 @@ stroke()</pre>
   ]
 }</pre>
           <code>probabilities</code> 長は <code>2<sup>span</sup></code>、合計 ≤ 1.0、<code>p_k</code> は |bin(k)⟩ の確率。
-          big-endian order は WebGPU 経路と一致 (§ 03 「測定結果」行参照)
+          big-endian order は WebGPU 経路と一致 (§ 04 「測定結果」行参照)
         </td></tr>
         <tr><th>GPU アップロード</th><td>受信した各 <code>probabilities</code> 配列を <code>probability_output</code> の対応スロットに 1 度 <code>queue.writeBuffer</code> でアップロード。以降の描画は WebGPU 経路と完全同一</td></tr>
         <tr><th>更新タイミング</th><td>1 回路実行 = 1 レスポンス。確率表示ブロックの値はそのレスポンス到着時点でアトミックに全て更新される</td></tr>
@@ -1275,9 +1299,9 @@ stroke()</pre>
   </div>
 </section>
 
-<!-- ─────── § 14 実装ファイル / 参照 ─────── -->
+<!-- ─────── § 15 実装ファイル / 参照 ─────── -->
 <section class="block">
-  <h2>§ 14 実装ファイル</h2>
+  <h2>§ 15 実装ファイル</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -1290,7 +1314,7 @@ stroke()</pre>
         <tr><td><code>apps/web/src/icons/gate_body.rs</code></td><td>パレットアイコン (<code>draw_probability_preview_body</code>)</td></tr>
         <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>回路上の配置 (gate_height 計算、hover 枠、リサイズハンドル)</td></tr>
         <tr><td><code>apps/web/src/gpu/digit_atlas.rs</code></td><td>テキスト用 digit atlas (0..9 / "." / "%" の Geist Mono Light グリフ)</td></tr>
-        <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。<code>state_fill</code> は <strong>blue-200 (#92BFDB)</strong> (§ 05 配色)。<code>gate_hover_border</code> = <code>purple-400</code>、リサイズハンドル default 色は <strong>cyan-400 (#3AA99F)</strong>、active 色は <strong>cyan-600 (#24837B)</strong>。<em>Rust 実装側への反映は別タスク</em></td></tr>
+        <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。<code>state_fill</code> は <strong>blue-200 (#92BFDB)</strong> (§ 06 配色)。<code>gate_hover_border</code> = <code>purple-400</code>、リサイズハンドル default 色は <strong>cyan-400 (#3AA99F)</strong>、active 色は <strong>cyan-600 (#24837B)</strong>。<em>Rust 実装側への反映は別タスク</em></td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
@@ -1390,7 +1414,7 @@ stroke()</pre>
   }
   // 大きな span (16 量子ビット = 65 536 行) を DOM で表現すると数十 MB の HTML / 数万 div を
   // 抱えることになるので、Canvas で直接描画する。線形バー + 対数ヒント線を
-  // § 08 と同じ式 (Math.log は自然対数) で描く。
+  // § 09 と同じ式 (Math.log は自然対数) で描く。
   function genPattern(name, n) {
     if (name === 'gaussian') {
       // 中心 k = n/2 に山を持つガウシアン。peak 80 %、sigma = n / 16。
