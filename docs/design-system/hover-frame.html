@@ -272,7 +272,6 @@
     <ol class="critique-list">
       <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
       <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
-      <li><s><strong>§ 01 の 3 つの demo のマークアップを統一する</strong></s> — <strong>適用済 (2026-05-23):</strong> Swap ゲート canonical な <code>&lt;swap-gate&gt;</code> Web Component を新設し、例 3 を <code>&lt;hover-frame variant="stroke"&gt;&lt;swap-gate&gt;&lt;/swap-gate&gt;&lt;/hover-frame&gt;</code> に書き換えて 3 例同じ呼び出し規約に統一した (§ 01 参照)。</li>
       <li><strong>§ 02 レイヤ図の dashed 外枠を再設計</strong> — 紫枠 (48 × 48 px) と dashed 外形 (48 × 48 px) が完全に同じ矩形に重なっており、4 レイヤのうち 1 つが視覚的に冗長 (§ 02 参照)。</li>
       <li><strong>§ 04 描き分けに「表示ブロック内セル」の visual mock を追加</strong> — 回路上 / パレットは § 01 で実物が見えるが、表示ブロック内セルだけ文章しかなく、形状の違い (確率 / 振幅 / 密度行列) が本ページから読み取れない (§ 04 参照)。</li>
     </ol>
@@ -302,26 +301,6 @@
         <div class="hf-caption">透明なゲート<br>接続線を消さない</div>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 01 例 3 つのマークアップ非統一">
-      <div class="critique-label">★ 批評 · § 01 見た目</div>
-      <div class="critique-title">3 つの demo のマークアップ非統一は <code>&lt;swap-gate&gt;</code> 新設で解消 (適用済み)</div>
-      <p class="critique-body">
-        <s>例 1 (回路上) と例 2 (パレット) は <code>&lt;hover-frame variant="stroke"&gt;&lt;h-gate&gt;&lt;/h-gate&gt;&lt;/hover-frame&gt;</code> の形で
-        canonical な Web Component を介して描かれている。一方、例 3 (透明なゲート) だけは
-        <code>&lt;div class="hf-gate-wrap hover-frame-host"&gt;…&lt;/div&gt;</code>
-        と生の CSS class を直接組み立てており、「<code>&lt;hover-frame&gt;</code> が canonical」という § 01 の主張がここで崩れていた。
-        原因は、透明なゲート (AntiControl / Swap / Phase など) が <code>&lt;h-gate&gt;</code> 相当の Web Component をまだ持たず、
-        任意の子要素を slot で受ける <code>&lt;hover-frame&gt;</code> の利点を活かせていなかったこと。</s>
-      </p>
-      <p class="critique-body">
-        <strong>適用済 (2026-05-23):</strong> Swap ゲート canonical な <code>&lt;swap-gate&gt;</code> Web Component
-        (<code>components/swap-gate.js</code>) を新設し、例 3 を <code>&lt;hover-frame variant="stroke"&gt;&lt;swap-gate&gt;&lt;/swap-gate&gt;&lt;/hover-frame&gt;</code> に書き換えた。
-        3 例すべてが「<code>&lt;hover-frame variant=...&gt;</code> + ゲート Web Component」の同じ組み立て規約に揃い、dead になった
-        <code>.hf-gate</code> / <code>.hf-gate--transparent</code> CSS も削除している。
-        × の SVG line は swap-gate.html § 03 / gate-palette.html <code>&lt;symbol id="g-Swap"&gt;</code> と完全一致。
-      </p>
-    </aside>
   </div>
 </section>
 
