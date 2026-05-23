@@ -218,10 +218,13 @@
   <h2>§ 02 寸法</h2>
   <div class="card">
     <table class="spec">
+      <thead>
+        <tr><th></th><th>角丸の対象矩形</th><th>直角の対象矩形</th></tr>
+      </thead>
       <tbody>
-        <tr><th>内側の空き</th><td><code>2 px</code> (対象矩形と紫枠の間)</td></tr>
-        <tr><th>線幅</th><td><code>2 px</code></td></tr>
-        <tr><th>角丸</th><td><code>10 px</code></td></tr>
+        <tr><th>内側の空き</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
+        <tr><th>線幅</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
+        <tr><th>角丸</th><td>対象の角丸 + <code>4 px</code><br>(例: ゲート <code>6 px</code> → ホバー枠 <code>10 px</code>)</td><td><code>4 px</code><br>(例: 確率表示ブロック等)</td></tr>
       </tbody>
     </table>
 
