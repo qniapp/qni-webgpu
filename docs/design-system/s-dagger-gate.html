@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S† ゲート (位相 −π/2) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
+    /* ── S† ゲート本体 ─────────────────────────────
+       gate-palette.html の基準 <symbol id="g-SDagger"> と一致。
+       本体は角丸正方形 (Flexoki cyan-400 = box_fill ロール)。
+       width / height は Tailwind spacing-10 = 40 px、角丸は rounded-md = 6 px。 */
+    .s-dagger-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
+      border-radius: 6px;                   /* rounded-md */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bg);                     /* Flexoki paper / 字形 */
+      user-select: none;
+      cursor: grab;
+      position: relative;
+      transition: background 120ms ease-out;
+    }
+    .s-dagger-gate > svg {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      pointer-events: none;
+    }
+
+    /* ホバー枠 (hover-frame.html と同じ幾何)
+       box-shadow 内側から Flexoki bg 2 px → purple-400 の枠 2 px。 */
+    .s-dagger-gate[data-state="hover"],
+    .s-dagger-gate:not([data-state]):hover {
+      box-shadow:
+        0 0 0 2px var(--bg),                /* Flexoki bg */
+        0 0 0 4px var(--purple-400);        /* Flexoki purple-400 / gate_hover_border */
+    }
+
+    /* ドラッグプレビュー = Flexoki purple-600 / semantic_intermediate。 */
+    .s-dagger-gate[data-state="drag"] {
+      background: var(--purple-600);
+      cursor: grabbing;
+    }
+    /* ゴースト = 元位置に残るシルエット。 */
+    .s-dagger-gate[data-state="ghost"] {
+      background: transparent;
+      border: 1px dashed var(--ui-2);       /* Flexoki ui-2 */
+      color: var(--tx-3);                   /* Flexoki tx-3 */
+    }
+
+    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 160px;
+      text-align: center;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .s-dagger-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .slot-mock {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .slot-mock .wire {
+      position: relative;
+      height: 56px;
+      width: 280px;                         /* 5 slots × 56 px */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
+
+    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .matrix-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .matrix-card .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .matrix-card .mini strong { color: var(--tx); }
+
+    /* ── S vs S† 比較 (§ 04) ──────────────────────── */
+    .compare {
+      display: flex;
+      align-items: center;
+      gap: 24px;                            /* spacing-6 */
+      flex-wrap: wrap;
+      padding: 16px 0;                      /* spacing-4 */
+    }
+    .compare .col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;                             /* spacing-2 */
+    }
+    .compare .col .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;
+      color: var(--tx-3);
+    }
+    .compare .col .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .compare .col .zoom .s-dagger-gate { transform: scale(3); transform-origin: center; }
+    .compare .col .zoom .s-gate-ref     { transform: scale(3); transform-origin: center; }
+    /* S 単独 (比較用) — S† と同じ chrome を字形だけ差し替える */
+    .s-gate-ref {
+      width: 40px; height: 40px;
+      background: var(--cyan-400);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--bg);
+    }
+    .s-gate-ref > svg { display: block; width: 40px; height: 40px; }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: 実装 (apps/web/assets/icons/sdagger.svg) と完全一致する S† 字形を
+     <symbol id="g-SDagger"> として定義する。S 字形 + 右上の小さな † グリフから成る合成字形。
+     字形色は currentColor で .s-dagger-gate から継承する。
+     比較用に S 単独の <symbol id="g-S"> も定義する。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-S" viewBox="0 0 48 48">
+    <g transform="translate(14.477 34.565) scale(0.029760 -0.029760)">
+      <path d="M336 -16Q254 -16 193.0 15.0Q132 46 96.5 100.5Q61 155 55 227L145 233Q156 154 204.5 111.0Q253 68 338 68Q412 68 453.5 96.5Q495 125 495 180Q495 213 479.5 238.5Q464 264 420.5 285.5Q377 307 292 328Q210 349 161.5 374.0Q113 399 91.5 435.0Q70 471 70 524Q70 584 98.5 629.5Q127 675 180.0 700.5Q233 726 306 726Q384 726 440.0 696.5Q496 667 529.0 616.0Q562 565 570 500L480 494Q471 559 427.5 600.5Q384 642 304 642Q238 642 199.0 610.5Q160 579 160 528Q160 495 175.5 473.5Q191 452 231.0 435.5Q271 419 346 400Q435 378 487.5 347.5Q540 317 562.5 277.0Q585 237 585 186Q585 124 553.0 78.5Q521 33 465.0 8.5Q409 -16 336 -16Z" fill="currentColor"/>
+    </g>
+  </symbol>
+  <symbol id="g-SDagger" viewBox="0 0 48 48">
+    <g fill="currentColor">
+      <g transform="translate(14.477 34.565) scale(0.029760 -0.029760)">
+        <path d="M336 -16Q254 -16 193.0 15.0Q132 46 96.5 100.5Q61 155 55 227L145 233Q156 154 204.5 111.0Q253 68 338 68Q412 68 453.5 96.5Q495 125 495 180Q495 213 479.5 238.5Q464 264 420.5 285.5Q377 307 292 328Q210 349 161.5 374.0Q113 399 91.5 435.0Q70 471 70 524Q70 584 98.5 629.5Q127 675 180.0 700.5Q233 726 306 726Q384 726 440.0 696.5Q496 667 529.0 616.0Q562 565 570 500L480 494Q471 559 427.5 600.5Q384 642 304 642Q238 642 199.0 610.5Q160 579 160 528Q160 495 175.5 473.5Q191 452 231.0 435.5Q271 419 346 400Q435 378 487.5 347.5Q540 317 562.5 277.0Q585 237 585 186Q585 124 553.0 78.5Q521 33 465.0 8.5Q409 -16 336 -16Z"/>
+      </g>
+      <g transform="translate(35.355 16.013) scale(0.015360 -0.015360)">
+        <path d="M252 0V454H92V530H252V710H332V530H492V454H332V0Z"/>
+      </g>
+    </g>
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">S† ゲート (位相 −π/2)</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · ゲート仕様</p>
+  <h1 class="page-title">S† ゲート (位相 −π/2)</h1>
+  <p class="page-lede">
+    単一量子ビットへ <code>diag(1, -i)</code> を適用する逆位相ゲート (S の Hermite 共役)。回路エディタ上では
+    <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の字形 "S" + 右上の小さな † (dagger) グリフを中央配置する。
+    本体の色やサイズは S と完全に共有し、<strong>字形だけが S と異なる</strong>「順 / 逆」のペア表現を採用する。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      S† は <code>|1⟩</code> 成分にだけ位相 <code>-i</code> (= e<sup>-iπ/2</sup>) を加える基本ゲートで、Z 軸まわりの −π/2 回転に対応する。
+      <code>S†·S = I</code> という関係から、S が進めた位相を巻き戻す「逆向き S」として使う。
+      見た目では「順 / 逆」を別色で表現せず、<strong>cyan-400 = ユニタリ操作ゲート</strong>という既存の色対応を守り、
+      字形 "S" の右上に小さな † を重ねることで S との違いを示す。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">既定<br>(rest)</div>
+        <div class="actual"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
+        <div class="actual"><div class="s-dagger-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      4 状態 (既定 / ホバー / ドラッグ / ゴースト) の比較は <strong>§ 05 状態バリアント</strong>、
+      ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>本体 fill (既定)</td>
+          <td><code>cyan-400</code></td>
+          <td>#3AA99F</td>
+          <td><code>box_fill</code> ロール。H / X / Y / Z / S / T と共通の操作ゲート色</td>
+        </tr>
+        <tr>
+          <td>字形 "S" + "†"</td>
+          <td><code>paper</code> (<code>bg</code>)</td>
+          <td>#FFFCF0</td>
+          <td>cyan-400 上で相対輝度比 ≈ 3.4。stroke なしの塗りつぶし。S と † は同じ <code>currentColor</code> 系列</td>
+        </tr>
+        <tr>
+          <td>ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
+        </tr>
+        <tr>
+          <td>本体 fill (ドラッグ)</td>
+          <td><code>purple-600</code></td>
+          <td>#5E409D</td>
+          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
+        </tr>
+        <tr>
+          <td>ゴースト</td>
+          <td><code>ui-2</code> (枠)、<code>tx-3</code> (字形)</td>
+          <td>#DAD8CE / #B7B5AC</td>
+          <td>ドラッグ元に残す 1 px 破線シルエット</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      S† は −π/2 の逆位相回転を担うが、回転の向きを色で表現しない。
+      色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定し、
+      S との違いは字形 (右上の †) だけで示す。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
+        <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
+        <tr><th>stroke</th><td>なし。本体色のみ。<a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-SDagger</code> と一致</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
+        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y / Z / S / T など他の 1 量子ビットゲートと共通)</td></tr>
+        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
+        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
+        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
+        <rect x="0" y="0" width="40" height="40" rx="6" fill="#3AA99F"/>
+        <!-- S 字形: viewBox 48 → 本体 40 px へ縮める (scale 0.029760 * 40/48 = 0.02480) -->
+        <g transform="translate(12.064 28.804) scale(0.02480 -0.02480)" fill="#FFFCF0">
+          <path d="M336 -16Q254 -16 193.0 15.0Q132 46 96.5 100.5Q61 155 55 227L145 233Q156 154 204.5 111.0Q253 68 338 68Q412 68 453.5 96.5Q495 125 495 180Q495 213 479.5 238.5Q464 264 420.5 285.5Q377 307 292 328Q210 349 161.5 374.0Q113 399 91.5 435.0Q70 471 70 524Q70 584 98.5 629.5Q127 675 180.0 700.5Q233 726 306 726Q384 726 440.0 696.5Q496 667 529.0 616.0Q562 565 570 500L480 494Q471 559 427.5 600.5Q384 642 304 642Q238 642 199.0 610.5Q160 579 160 528Q160 495 175.5 473.5Q191 452 231.0 435.5Q271 419 346 400Q435 378 487.5 347.5Q540 317 562.5 277.0Q585 237 585 186Q585 124 553.0 78.5Q521 33 465.0 8.5Q409 -16 336 -16Z"/>
+        </g>
+        <!-- † 字形: 右上に小さく重ねる (scale 0.015360 * 40/48 = 0.0128) -->
+        <g transform="translate(29.463 13.344) scale(0.0128 -0.0128)" fill="#FFFCF0">
+          <path d="M252 0V454H92V530H252V710H332V530H492V454H332V0Z"/>
+        </g>
+        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px body</text>
+        </g>
+        <g stroke="#B7B5AC" stroke-width="0.4">
+          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
+          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
+          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
+          <line x1="0" y1="48" x2="40" y2="48"/>
+          <line x1="0" y1="47" x2="0" y2="49"/>
+          <line x1="40" y1="47" x2="40" y2="49"/>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 本体 (<code>GATE_SIZE</code>)</p>
+        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>6 px</strong> · 角丸半径 (<code>rounded-md</code>)</p>
+        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
+        <p><strong>S グリフ</strong> · 本体中心 (光学中心)</p>
+        <p><strong>† グリフ</strong> · 右上 (おおよそ 23 × 20 px 起点)</p>
+      </div>
+    </div>
+
+    <p class="note">
+      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
+      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>字形 (S + †)</h2>
+  <div class="card">
+    <p>
+      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-SDagger</code> と同じ SVG パス (S グリフ + † グリフの 2 path 構成) を使う。
+      CSS のテキスト描画ではなく、<code>apps/web/assets/icons/sdagger.svg</code> 由来のベクタ字形を 40 px 本体へ重ねる。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>形式</th><td>ベクタパス 2 個 (<code>&lt;symbol id="g-SDagger"&gt;</code> と 1:1)</td></tr>
+        <tr><th>S グリフ変換</th><td><code>translate(14.477 34.565) scale(0.029760 -0.029760)</code> (viewBox 48 への正規化、S 単独と同じ位置)</td></tr>
+        <tr><th>† グリフ変換</th><td><code>translate(35.355 16.013) scale(0.015360 -0.015360)</code> (S グリフより小さい縮尺で右上に配置)</td></tr>
+        <tr><th>S グリフ外形</th><td>viewBox 上で約 <code>15.8 × 22.1</code>。40 px 本体では約 <strong>13.1 × 18.4 px</strong></td></tr>
+        <tr><th>† グリフ外形</th><td>viewBox 上で約 <code>6.1 × 10.9</code>。40 px 本体では約 <strong>5.1 × 9.1 px</strong> (S グリフの 52 % 縮尺)</td></tr>
+        <tr><th>† 配置</th><td>S グリフ右上に重なる superscript 位置。本体右辺から内側 5 px、上辺から内側 5 px を起点</td></tr>
+        <tr><th>色</th><td>2 path とも <code>paper</code> (#FFFCF0)。stroke なしの塗りつぶし。<code>currentColor</code> 経由で本体から継承</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">3× zoom (字形の位置確認)</h3>
+    <div class="stage" style="gap: 32px;">
+      <div class="col" style="max-width: 224px;">
+        <div class="caption">既定 · 3× zoom</div>
+        <div class="zoom"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+      <div class="col" style="max-width: 224px;">
+        <div class="caption">ホバー · 3× zoom<br>(角丸枠 + 背景の空き)</div>
+        <div class="zoom"><div class="s-dagger-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 24px;">S との比較 (3× zoom)</h3>
+    <div class="compare">
+      <div class="col">
+        <div class="caption">S</div>
+        <div class="zoom"><div class="s-gate-ref"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-S"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">S†</div>
+        <div class="zoom"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      本体色 (cyan-400) と S グリフの位置は完全に同じ。差分は <strong>右上に重なる † グリフ 1 個だけ</strong>。
+      順 / 逆を字形差で示す方式は T / T†、QFT / QFT† とも共通の規約。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
+  <div class="card">
+    <p>
+      4 状態を <code>data-state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
+        <div class="actual"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
+        <div class="actual"><div class="s-dagger-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ ドラッグ<br>purple-600 本体</div>
+        <div class="actual"><div class="s-dagger-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ ゴースト<br>ui-2 破線 + tx-3 字形</div>
+        <div class="actual"><div class="s-dagger-gate" data-state="ghost"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      ③ と ④ は同時に発生する組 (ドラッグ元 = ゴースト、カーソル下 = ドラッグプレビュー)。
+      S† は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      S† ゲートは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
+      本体 40 px は中央配置で上下左右に 8 px の余白を持つ。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire">
+        <div class="slot"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="s-dagger-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
+      隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <div class="card">
+    <div class="matrix-card">
+      <div class="mini"><strong>行列</strong><br /><code>S† = [[1, 0], [0, -i]]</code></div>
+      <div class="mini"><strong>基底状態</strong><br /><code>S†|0⟩ = |0⟩</code><br /><code>S†|1⟩ = -i|1⟩</code></div>
+      <div class="mini"><strong>ブロッホ球</strong><br />Z 軸まわりの −π/2 (−90°) 回転。S と逆向きに相対位相を巻き戻す。</div>
+      <div class="mini"><strong>関係</strong><br /><code>S†·S = I</code> / <code>(S†)<sup>2</sup> = Z</code> / <code>(S†)<sup>4</sup> = I</code> / <code>S† = S<sup>3</sup></code>。Clifford ゲートの一種。</div>
+    </div>
+    <ul>
+      <li><strong>S と本体を共有して字形差で順 / 逆を示す</strong>: S (順 π/2) と S† (逆 −π/2) は数学的には別の作用だが、ユーザにとっては「S の打ち消し」として理解される。色 / サイズ / 角丸を完全に揃え、右上の † グリフだけで差分を示す</li>
+      <li><strong>逆回転を色で表現しない</strong>: 「順 / 逆」を別色にすると、ホバー / ドラッグなどの状態色と衝突する。順 / 逆の識別は字形 († の有無) とヘルプ文に閉じる</li>
+      <li><strong>† を superscript 位置に置く</strong>: 数式 S<sup>†</sup> の組版に倣い、S グリフの右上に小さく配置 (S の 52 % 縮尺)。S 字形の重心を本体中央に保ち、見た目の重心が右にずれないようにする</li>
+      <li><strong>RZ(-π/2) と混同させない</strong>: S† は固定角 −π/2 の位相、RZ(θ) は任意角の回転ゲート。S† は文字 + † グリフ、RZ は 2 文字グリフで描き分ける</li>
+      <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
+      <li><strong>span = 1 固定</strong>: S† は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 08 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="s-gate.html">S ゲート (位相 π/2)</a></td>
+          <td>順回転の対。本体・配色・ジオメトリは完全共有。S† は S グリフに † を重ねるだけの差分</td>
+        </tr>
+        <tr>
+          <td><a href="t-gate.html">T ゲート (位相 π/4)</a></td>
+          <td>同じ位相系列の固定角ゲート。<code>T<sup>2</sup> = S</code> という関係から、<code>(S†)·T<sup>2</sup> = I</code></td>
+        </tr>
+        <tr>
+          <td><a href="z-gate.html">Z ゲート (Pauli-Z)</a></td>
+          <td>Z 軸まわりの π 位相回転。<code>(S†)<sup>2</sup> = Z</code> という関係を持つ位相系列の親</td>
+        </tr>
+        <tr>
+          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
+          <td>角丸正方形 + 文字グリフの基本仕様。S† は同じ chrome を継承し、字形だけが合成 (S + †)</td>
+        </tr>
+        <tr>
+          <td><a href="y-gate.html">Y ゲート (Pauli-Y)</a></td>
+          <td>1 量子ビット文字グリフゲートのもう 1 例。S† と同じ chrome を共有する</td>
+        </tr>
+        <tr>
+          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
+          <td>1 量子ビットゲートのうち、X だけが円形 + Plus グリフを採用する理由を定義する</td>
+        </tr>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>パレット上の S† ゲートの基準 SVG <code>g-SDagger</code> を定義する。S の右に隣接配置されるペア</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 + 背景の空き のホバー枠 primitive。S† は角丸正方形版を使う</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · S† ゲート (位相 −π/2) · 2026-05</p>
+</footer>
+
+</body>
+</html>
