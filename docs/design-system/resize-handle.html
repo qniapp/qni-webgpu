@@ -18,7 +18,7 @@
        host 矩形 (ゲート本体に相当) をプレビュー用のシンプルな枠として描く。 */
 
     /* mock host (ゲート本体を模した最小プレビュー)。実コンポーネントの代わりに矩形を置き、
-       ハンドルの位置関係 (ring 外側 + paper gap + handle) だけを見せる。 */
+       ハンドルの位置関係 (ホバー枠外側 + 背景の空き + ハンドル) だけを見せる。 */
     .rh-mock {
       position: relative;
       width: 40px;
@@ -32,7 +32,7 @@
       border: 1px solid var(--ui-2);
       pointer-events: none;
     }
-    /* ゲート hover 枠 (purple-400 ring) を強制表示する派生クラス。
+    /* ホバー枠 (purple-400 の枠) を強制表示する派生クラス。
        実コンポーネントでは [data-cd-state="hover"] 等が同じ挙動を持つが、本ページ用の代表として
        .rh-mock--ring-on を用意する。 */
     .rh-mock--ring-on {
@@ -135,8 +135,8 @@
     span を持つ表示ブロック (確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT / QFT† 等)
     が共有する「上下ドラッグハンドル」 primitive。ゲートの上下 2 ヶ所に出る <code>cyan-400</code> ピル形 (24 × 6 px)
     で、ホスト ホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現する。
-    chrome (色 / 寸法 / state machine / マイクロインタラクション) は本ページ + <code>design-system.css</code>
-    に集約し、各コンポーネントは <strong>policy (幅算出 / span 上限 / 配置 owner)</strong> だけを定義する。
+    chrome (色 / 寸法 / 状態遷移 / マイクロインタラクション) は本ページ + <code>design-system.css</code>
+    に集約し、各コンポーネントは <strong>ポリシー (幅算出 / span 上限 / 配置主体)</strong> だけを定義する。
   </p>
 </div>
 
@@ -147,7 +147,7 @@
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
       <li><strong>§ 04 にカーブ図 + on-page demo</strong> — <code>60 × 60 px</code> の SVG で <code>cubic-bezier(0.34, 1.56, 0.64, 1)</code> を描き、その横にホスト hover で発火する live demo を置く。「動きを規定する仕様が動かない」状態を解消 (§ 04 参照)。</li>
-      <li><strong>§ 03 にレイヤ側面図</strong> — ホスト本体 → paper gap → ホバー枠 → paper gap → ハンドルの 5 層を縦に並べた annotated cross-section。表は数値リファレンスに格下げ (§ 03 参照)。</li>
+      <li><strong>§ 03 にレイヤ側面図</strong> — ホスト本体 → 背景の空き → ホバー枠 → 背景の空き → ハンドルの 5 層を縦に並べた注釈付き側面図。表は数値リファレンスに格下げ (§ 03 参照)。</li>
       <li><strong>§ 01 を lede 1 文に縮約 (もしくは § 05 を冒頭直後に上げる)</strong> — breadcrumb + eyebrow + h1 + lede + § 01 と「これは何か」を 5 段で繰り返している。preamble を 2 段に (§ 01 参照)。</li>
       <li><strong>default モックに "invisible by design" の affordance</strong> — 薄破線 outline + <code>opacity 0</code> 注釈、もしくはゴーストハンドル (<code>opacity 0.15</code>)。「未実装の placeholder」「描画失敗」に読まれない (§ 05 参照)。</li>
     </ol>
@@ -179,14 +179,14 @@
     </div>
     <p class="note" style="margin-top: 16px;">
       4 状態 (default / visible / hover / active) の比較は <strong>§ 05 状態バリアント</strong>、
-      配色 / 寸法 / state machine / マイクロインタラクションの詳細は § 02 以降を参照。
+      配色 / 寸法 / 状態遷移 / マイクロインタラクションの詳細は § 02 以降を参照。
     </p>
 
     <aside class="critique" aria-label="批評 · § 01 § 05 との機能重複">
       <div class="critique-label">★ 批評 · § 01 § 05 との機能重複</div>
       <div class="critique-title">「概要」と「状態バリアント」が同じ default モックを 2 回見せている</div>
       <p class="critique-body">
-        § 01 は 2-state 比較 (default / hover)、§ 05 は 4-state 比較。両者は同じ
+        § 01 は 2 状態比較 (default / hover)、§ 05 は 4 状態比較。両者は同じ
         <code>.rh-mock data-mock="default"</code> をそれぞれ描く。
         breadcrumb + eyebrow + h1 + lede + § 01 と「これは何か」を 5 段で繰り返したあとで、
         § 05 で改めて 4 状態を見せる構造は、<strong>情報密度の階段がない</strong>。
@@ -194,7 +194,7 @@
       <p class="critique-body">
         対案: (a) § 01 を 1 文の lede だけにして mocks を § 05 に統合する。
         (b) § 05 を冒頭直後に上げ、<strong>「結論を最初に見せる」</strong>順序に変える。
-        spec ページの読者は「正解の絵」を最初に見たい。
+        仕様ページの読者は「正解の絵」を最初に見たい。
       </p>
     </aside>
   </div>
@@ -217,8 +217,8 @@
     <p class="note" style="margin-top: 12px;">
       <strong>色族の選定根拠:</strong>
       qni-webgpu のホバー枠 / 行ホバー枠 / drag preview は <code>purple-400</code> / <code>purple-600</code> を使う。
-      ハンドルも同じ purple 系統にすると <em>2 px paper gap</em> という防御策で「リングの突起 ?」誤認を回避する必要があった (当初設計)。
-      <strong>別色族 (<code>cyan</code>)</strong> にすると隣接していても 2 オブジェクトとして読めるので、gap は<em>視覚的な breathing room</em>として残すだけで十分。
+      ハンドルも同じ purple 系統にすると <em>2 px 背景の空き</em> という防御策で「リングの突起 ?」誤認を回避する必要があった (当初設計)。
+      <strong>別色族 (<code>cyan</code>)</strong> にすると隣接していても 2 オブジェクトとして読めるので、空きは<em>視覚的な余白</em>として残すだけで十分。
       <code>cyan-400</code> は Flexoki Light で blue (確率バー) / purple (hover) のどちらとも干渉せず、ハンドルが「操作可能な別物」だと一目で分かる。
     </p>
 
@@ -234,7 +234,7 @@
         <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
         <tr><th>形状</th><td>ピル (capsule)、<code>border-radius: 3 px</code></td></tr>
         <tr><th>幅 (default)</th><td><code>24 px</code> 固定 (確率表示ブロックなど幅が変わらないコンポーネント)</td></tr>
-        <tr><th>幅 (canvas60)</th><td>canvas 幅 × 0.6 (min 24 px)。振幅表示ブロック / 密度行列表示ブロックのように span が大きいほど本体が広くなる場合に使う。<strong>幅 policy はコンポーネント側の責務</strong>で、JS ヘルパに <code>widthMode: 'canvas60'</code> を渡すと自動算出</td></tr>
+        <tr><th>幅 (可変)</th><td>canvas 幅 × 0.6 (min 24 px)。振幅表示ブロック / 密度行列表示ブロックのように span が大きいほど本体が広くなる場合に使う。<strong>幅ポリシーはコンポーネント側の責務</strong>で、本仕様では chrome の幅算出ルールだけを定義する</td></tr>
         <tr><th>高さ</th><td><code>6 px</code> 固定</td></tr>
         <tr><th>横位置</th><td>ホスト横中央 (<code>left: 50%; transform: translateX(-50%) scale(...)</code>)</td></tr>
         <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ホスト上辺から 12 px 外側)</td></tr>
@@ -248,9 +248,9 @@
     <h3 style="margin-top: 16px;">ホバー枠との位置関係</h3>
     <p>
       ホスト上辺を基準 (y = 0) に、ホバー枠は <code>y = -4 .. 0</code> に <code>purple-400</code> 2 px + paper 2 px を描く。
-      ハンドル top は <code>y = -12 .. -6</code> なので、ホバー枠の外端 (<code>y = -4</code>) との間に <strong>2 px の paper gap</strong> が確保される。
-      bottom 側も同様に対称。色族が異なる (<code>purple</code> ring / <code>cyan</code> handle) ため隣接していても誤認されないが、
-      gap は<em>視覚的な breathing room</em>として残す (色族分離だけでなく、ハンドルがホスト本体から「浮いて」見える効果も狙う)。
+      ハンドル top は <code>y = -12 .. -6</code> なので、ホバー枠の外端 (<code>y = -4</code>) との間に <strong>2 px の背景の空き</strong> が確保される。
+      bottom 側も同様に対称。色族が異なる (<code>purple</code> ホバー枠 / <code>cyan</code> ハンドル) ため隣接していても誤認されないが、
+      空きは<em>視覚的な余白</em>として残す (色族分離だけでなく、ハンドルがホスト本体から「浮いて」見える効果も狙う)。
     </p>
     <table class="spec" style="margin-top: 8px;">
       <thead>
@@ -258,9 +258,9 @@
       </thead>
       <tbody>
         <tr><td>ホスト本体</td><td>0 (基準)</td><td><code>paper</code> + <code>ui-2</code> 1 px 枠</td></tr>
-        <tr><td>paper gap (内側)</td><td>0 .. 2 px 外側</td><td><code>paper</code> #FFFCF0</td></tr>
-        <tr><td>ホバー枠 (ring)</td><td>2 .. 4 px 外側</td><td><code>purple-400</code> #8B7EC8</td></tr>
-        <tr><td>paper gap (breathing room)</td><td>4 .. 6 px 外側</td><td><code>paper</code> (透過)</td></tr>
+        <tr><td>背景の空き (内側)</td><td>0 .. 2 px 外側</td><td><code>paper</code> #FFFCF0</td></tr>
+        <tr><td>ホバー枠</td><td>2 .. 4 px 外側</td><td><code>purple-400</code> #8B7EC8</td></tr>
+        <tr><td>背景の空き (余白)</td><td>4 .. 6 px 外側</td><td><code>paper</code> (透過)</td></tr>
         <tr><td>リサイズハンドル</td><td>6 .. 12 px 外側</td><td><code>cyan-400</code> #3AA99F (default) / <code>cyan-600</code> #24837B (hover/active)</td></tr>
       </tbody>
     </table>
@@ -269,7 +269,7 @@
       <div class="critique-label">★ 批評 · § 03 レイヤ図がない</div>
       <div class="critique-title">5 層の積層を表だけで伝えている</div>
       <p class="critique-body">
-        「ホスト本体 → paper gap → ホバー枠 → paper gap → リサイズハンドル」と y 軸方向に 5 層が積層する話は、
+        「ホスト本体 → 背景の空き → ホバー枠 → 背景の空き → リサイズハンドル」と y 軸方向に 5 層が積層する話は、
         表で読むと毎行 <code>0..2 px 外側</code> / <code>2..4 px 外側</code> を暗算で繋ぐ必要があり、
         頭の中で図を再構成しないと位置関係が掴めない。
       </p>
@@ -299,7 +299,7 @@
           <td>—</td>
         </tr>
         <tr>
-          <td>visible (ホスト hover、<code>[data-handle-state="visible"]</code> でも強制可)</td>
+          <td>visible (ホスト hover、モックでは常時表示)</td>
           <td>1</td>
           <td><code>scale(1.0)</code></td>
           <td><code>cyan-400</code></td>
@@ -308,14 +308,14 @@
           </td>
         </tr>
         <tr>
-          <td>hover (ハンドル単独 hover、<code>[data-handle-state="hover"]</code>)</td>
+          <td>hover (ハンドル単独 hover)</td>
           <td>1</td>
           <td><code>scale(1.15)</code></td>
           <td><code>cyan-600</code></td>
           <td>即時切替 (<code>transition: none</code>)</td>
         </tr>
         <tr>
-          <td>active (ドラッグ中、<code>[data-handle-state="active"]</code>)</td>
+          <td>active (ドラッグ中)</td>
           <td>1</td>
           <td><code>scale(1.25)</code></td>
           <td><code>cyan-600</code></td>
@@ -352,9 +352,9 @@
   <h2>§ 05 状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      4 状態を <code>data-handle-state</code> 属性で強制したモック。実コードと同じ CSS / マークアップで、
-      ホバーしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
-      ホスト矩形 (40 × 96 px の <code>.rh-mock</code>) はゲート本体の代用で、③・④ は hover ring (<code>purple-400</code>)
+      4 状態を常時表示したモック。実コードと同じ CSS / マークアップで、
+      ホバーしなくても状態が確認できるので Codex / 人間がスクロールで差分レビューしやすい。
+      ホスト矩形 (40 × 96 px の <code>.rh-mock</code>) はゲート本体の代用で、③・④ は ホバー枠 (<code>purple-400</code>)
       も強制表示している。
     </p>
     <div class="stage">
@@ -365,7 +365,7 @@
         </div>
       </div>
       <div class="col">
-        <div class="caption">② host hover<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
+        <div class="caption">② ホストホバー<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
         <div class="actual">
           <div class="rh-mock resize-handle-host rh-mock--ring-on" data-mock="visible"></div>
         </div>
@@ -388,11 +388,11 @@
     <p>
       実寸では細かい変化が見えにくいので、② → ③ → ④ を 3 倍に拡大して並べたビュー。
       <code>cyan-400 → cyan-600</code> の濃度差、<code>scale 1.0 → 1.15 → 1.25</code> の連続的な拡大量、
-      breathing room の paper gap がはっきり読める。
+      余白としての背景の空きがはっきり読める。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 220px;">
-        <div class="caption">② host hover · 3× zoom<br>top / bottom: scale 1.0 + cyan-400</div>
+        <div class="caption">② ホストホバー · 3× zoom<br>top / bottom: scale 1.0 + cyan-400</div>
         <div class="zoom">
           <div class="rh-mock resize-handle-host rh-mock--ring-on" data-mock="visible"></div>
         </div>
@@ -429,83 +429,20 @@
   </div>
 </section>
 
-<!-- ─────── § 06 JS API (共有ヘルパ) ─────── -->
+<!-- ─────── § 06 設計判断 ─────── -->
 <section class="block">
-  <h2>§ 06 JS API (共有ヘルパ)</h2>
-  <div class="card">
-    <p>
-      モック / 仕様ページが DOM 上にハンドルを生成するための共有ヘルパ <code>resize-handle.js</code>。
-      ホスト要素を渡すと <code>.resize-handle.resize-handle--top</code> と <code>.resize-handle.resize-handle--bottom</code>
-      を appendChild する。spec ページで状態を強制したいときは <code>handleState</code> オプションを渡す。
-    </p>
-    <pre class="code">// 1. CSS と JS を読み込む
-&lt;link rel="stylesheet" href="design-system.css" /&gt;
-&lt;script src="resize-handle.js"&gt;&lt;/script&gt;
-
-// 2. ホスト要素に .resize-handle-host を付け、attachResizeHandles を呼ぶ
-const host = document.querySelector('.cd-host');
-host.classList.add('resize-handle-host');     // hover 連動の契約
-attachResizeHandles(host, { widthMode: 'fixed' });
-
-// 3. canvas 幅に追従させたいときは widthMode: 'canvas60' (min 24 px)
-const adHost = document.querySelector('.ad-host');
-adHost.classList.add('resize-handle-host');
-attachResizeHandles(adHost, { widthMode: 'canvas60' });
-
-// 4. spec ページの常時表示モック (実体のホバーを発生させずに状態を強制)
-attachResizeHandles(host, { handleState: 'visible' });  // 両方 visible
-attachResizeHandles(host, { handleState: 'hover' });    // top: hover, bottom: visible
-attachResizeHandles(host, { handleState: 'active' });   // top: active, bottom: visible</pre>
-    <table class="spec" style="margin-top: 12px;">
-      <thead>
-        <tr><th>option</th><th>型</th><th>default</th><th>用途</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>widthMode</code></td><td><code>'fixed' | 'canvas60'</code></td><td><code>'fixed'</code></td><td>幅算出ポリシー。<code>fixed</code> = 24 px 固定、<code>canvas60</code> = host 内の <code>&lt;canvas&gt;.width × 0.6</code> (min 24)</td></tr>
-        <tr><td><code>handleState</code></td><td><code>'visible' | 'hover' | 'active'</code></td><td>(unset)</td><td>spec ページの常時表示モック用。top に渡した state、bottom は visible 固定</td></tr>
-        <tr><td><code>canvasWidth</code></td><td><code>number</code></td><td>host 内の canvas</td><td><code>canvas60</code> モードで使う基準幅を明示指定したいとき (canvas を持たないモックなど)</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- ─────── § 07 data 属性 API ─────── -->
-<section class="block">
-  <h2>§ 07 data 属性 API</h2>
-  <div class="card">
-    <p>
-      状態は <code>data-handle-state</code> 属性に集約する。CSS はこれを属性セレクタで分岐し、
-      BEM 風の派生クラス (<code>.resize-handle--state-*</code>) は使わない。
-      HTML / CSS / JavaScript の 3 箇所で同じ state 概念が重複していた当初実装を、1 箇所 (data 属性) に統一する。
-    </p>
-    <table class="spec">
-      <thead>
-        <tr><th>属性 / 値</th><th>適用先</th><th>意味</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>data-handle-state="visible"</code></td><td><code>.resize-handle</code></td><td>ホスト hover していなくても visible 表示を強制 (spec モック用)</td></tr>
-        <tr><td><code>data-handle-state="hover"</code></td><td><code>.resize-handle</code></td><td>個別 hover (拡大 + cyan-600) を強制</td></tr>
-        <tr><td><code>data-handle-state="active"</code></td><td><code>.resize-handle</code></td><td>ドラッグ中 (さらに拡大 + cyan-600) を強制</td></tr>
-        <tr><td><code>.resize-handle-host</code> クラス</td><td>ホスト要素</td><td>hover で配下のハンドルを visible にする契約。付けないとホスト hover とハンドル可視化が連動しない</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- ─────── § 08 設計判断 ─────── -->
-<section class="block">
-  <h2>§ 08 設計判断</h2>
+  <h2>§ 06 設計判断</h2>
   <div class="card">
     <h3>色</h3>
     <ul>
-      <li><strong>ホバー枠 (<code>purple</code>) と別色族 (<code>cyan</code>) にする</strong>: 同色族にすると <em>2 px paper gap</em> という防御策で「リングの一部 ?」誤認を回避する必要があった。別色族なら隣接していても 2 オブジェクトとして読めるので、gap は<strong>視覚的な breathing room</strong>として残すだけで十分。<code>cyan-400</code> は Flexoki Light で blue / purple のどちらとも干渉せず、ハンドルが「操作可能な別物」だと一目で分かる</li>
-      <li><strong><code>cyan-400 → cyan-600</code> で深さの変化</strong>: ハンドルが「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い。同色族での <code>400 → 600</code> という濃度遷移パターンは hover ring (<code>purple-400</code>) / drag preview (<code>purple-600</code>) と同じ規則性</li>
+      <li><strong>ホバー枠 (<code>purple</code>) と別色族 (<code>cyan</code>) にする</strong>: 同色族にすると <em>2 px 背景の空き</em> という防御策で「リングの一部 ?」誤認を回避する必要があった。別色族なら隣接していても 2 オブジェクトとして読めるので、空きは<strong>視覚的な余白</strong>として残すだけで十分。<code>cyan-400</code> は Flexoki Light で blue / purple のどちらとも干渉せず、ハンドルが「操作可能な別物」だと一目で分かる</li>
+      <li><strong><code>cyan-400 → cyan-600</code> で深さの変化</strong>: ハンドルが「触れる対象 → 操作対象」に遷移したことを色濃度で示す。彩度ではなく明度の変化なので、認知負荷が低い。同色族での <code>400 → 600</code> という濃度遷移パターンはホバー枠 (<code>purple-400</code>) / ドラッグプレビュー (<code>purple-600</code>) と同じ規則性</li>
     </ul>
 
     <h3 style="margin-top: 16px;">形状とジオメトリ</h3>
     <ul>
       <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT は同じ「縦方向に伸びる回路要素」なので、上下対称な配置に統一する</li>
-      <li><strong>4 px ring の外側 + 2 px gap で配置</strong>: gap は色族分離の防御ではなく、ハンドルがゲート本体から「浮いて」見える効果を狙う。色族分離があるので gap を更に詰めることも可能だが、視覚的な余白として 2 px (spacing-0.5) を保つ</li>
+      <li><strong>4 px ホバー枠の外側 + 2 px の空きで配置</strong>: 空きは色族分離の防御ではなく、ハンドルがゲート本体から「浮いて」見える効果を狙う。色族分離があるので空きを更に詰めることも可能だが、視覚的な余白として 2 px (spacing-0.5) を保つ</li>
       <li><strong>形状はピル (capsule)</strong>: 矩形だと「点」、円だと「ボタン」、ピルだと「つまみ」に読める。span を <em>引き伸ばす</em>動作とピル形の<em>横長</em>が一致して、操作のメタファとして馴染む</li>
     </ul>
 
@@ -515,41 +452,36 @@ attachResizeHandles(host, { handleState: 'active' });   // top: active, bottom: 
       <li><strong>scale(0.7) → 1.0 → 1.15 → 1.25 の連続スケール</strong>: 1 軸の連続変化なので状態遷移が自然に読める。サイズ差は <strong>+15 %, +25 %</strong> と明確に体感できる程度。<em>10 % 以下だとほぼ気づかない</em></li>
     </ul>
 
-    <h3 style="margin-top: 16px;">state API</h3>
+    <h3 style="margin-top: 16px;">アフォーダンスとポリシー分離</h3>
     <ul>
-      <li><strong>state は <code>data-*</code> 属性に集約</strong>: <code>data-handle-state="visible | hover | active"</code> を唯一の真実とし、CSS は属性セレクタで分岐。BEM 風の派生クラス (<code>.resize-handle--state-*</code>) は使わない。HTML / CSS / JavaScript の 3 箇所で同じ state 概念が重複していた状態を解消</li>
-    </ul>
-
-    <h3 style="margin-top: 16px;">アフォーダンスと policy 分離</h3>
-    <ul>
-      <li><strong>幅 policy は呼び出し側に委ねる</strong>: 確率表示ブロックは本体幅 40 px 固定なのでハンドル幅も固定 24 px。振幅 / 密度行列は span が大きいほど本体が広くなるので canvas × 0.6 で追従。<code>widthMode</code> オプション 1 つで切り替え、デフォルトは安全側の <code>fixed</code></li>
+      <li><strong>幅ポリシーは呼び出し側に委ねる</strong>: 確率表示ブロックは本体幅 40 px 固定なのでハンドル幅も固定 24 px。振幅 / 密度行列は span が大きいほど本体が広くなるので canvas × 0.6 で追従する</li>
       <li><strong><code>cursor: ns-resize</code></strong>: 「上下方向にドラッグできる」を OS のカーソル変化でも伝える (ハンドルの形だけに頼らない)</li>
     </ul>
 
   </div>
 </section>
 
-<!-- ─────── § 09 利用箇所 ─────── -->
+<!-- ─────── § 07 利用箇所 ─────── -->
 <section class="block">
-  <h2>§ 09 利用箇所</h2>
+  <h2>§ 07 利用箇所</h2>
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>コンポーネント</th><th>span 上限</th><th>widthMode</th><th>備考</th></tr>
+        <tr><th>コンポーネント</th><th>span 上限</th><th>ハンドル幅</th><th>備考</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="probability-display.html">確率表示ブロック</a></td><td>16</td><td><code>fixed</code></td><td>本体幅が span に関係なく 40 px なのでハンドル幅も 24 px 固定</td></tr>
-        <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>16</td><td><code>canvas60</code></td><td>span が大きいほど本体が広くなるので canvas × 0.6 で追従</td></tr>
-        <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>8</td><td><code>canvas60</code></td><td>同上。span 上限は密度行列の <code>2<sup>span</sup> × 2<sup>span</sup></code> サイズが現実的に扱える範囲で 8</td></tr>
-        <tr><td>QFT / QFT†</td><td>実行モード容量</td><td>—</td><td>計画中。確率表示ブロックと同じ <code>fixed</code> ポリシーになる見込み</td></tr>
+        <tr><td><a href="probability-display.html">確率表示ブロック</a></td><td>16</td><td>24 px 固定</td><td>本体幅が span に関係なく 40 px なのでハンドル幅も固定</td></tr>
+        <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>16</td><td>canvas 幅 × 0.6</td><td>span が大きいほど本体が広くなるので本体幅に追従</td></tr>
+        <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>8</td><td>canvas 幅 × 0.6</td><td>同上。span 上限は密度行列の <code>2<sup>span</sup> × 2<sup>span</sup></code> サイズが現実的に扱える範囲で 8</td></tr>
+        <tr><td>QFT / QFT†</td><td>実行モード容量</td><td>未定</td><td>計画中。確率表示ブロックと同じ 24 px 固定になる見込み</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 10 実装ファイル ─────── -->
+<!-- ─────── § 08 実装ファイル ─────── -->
 <section class="block">
-  <h2>§ 10 実装ファイル</h2>
+  <h2>§ 08 実装ファイル</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -557,8 +489,8 @@ attachResizeHandles(host, { handleState: 'active' });   // top: active, bottom: 
       </thead>
       <tbody>
         <tr><td><code>docs/design-system/design-system.css</code></td><td><code>.resize-handle</code> / <code>.resize-handle--top|bottom</code> / <code>.resize-handle-host</code> の chrome 定義 (本仕様の唯一の真実)</td></tr>
-        <tr><td><code>docs/design-system/resize-handle.js</code></td><td><code>attachResizeHandles(host, opts)</code> ヘルパ。各 spec ページから <code>&lt;script src="resize-handle.js"&gt;</code> で読み込む</td></tr>
-        <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>Rust 側のハンドル描画 / state 管理。<em>本 primitive 化に合わせた整理は別タスク</em></td></tr>
+        <tr><td><code>docs/design-system/resize-handle.js</code></td><td>仕様ページのモックで <code>.resize-handle</code> 要素を生成する補助。設計判断の対象ではないため、本ページ本文では使い方を説明しない</td></tr>
+        <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>Rust 側のハンドル描画 / 状態管理。<em>本 primitive 化に合わせた整理は別タスク</em></td></tr>
         <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。default = <strong>cyan-400 (#3AA99F)</strong>、active = <strong>cyan-600 (#24837B)</strong></td></tr>
       </tbody>
     </table>
@@ -577,7 +509,7 @@ attachResizeHandles(host, { handleState: 'active' });   // top: active, bottom: 
 
 <script src="resize-handle.js"></script>
 <script>
-  // 各モックホストに attachResizeHandles を呼ぶ。data-mock 属性で state を切り替える。
+  // 各モックホストに attachResizeHandles を呼ぶ。data-mock 属性で状態を切り替える。
   document.querySelectorAll('.rh-mock').forEach(host => {
     const mode = host.dataset.mock;  // default | visible | hover | active
     const opts = { widthMode: 'fixed' };
