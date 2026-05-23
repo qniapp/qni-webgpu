@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>|1⟩ オペレーション (Reset to |1⟩) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
+
+    /* ── |1⟩ オペレーション本体 ──────────────────────
+       gate-palette.html の基準 <symbol id="g-Write1"> と字形 path / stroke が一致。
+       H / Y / Z / S / T / Rz のような cyan-400 角丸正方形は持たず、
+       透明な 40 × 40 の hit / hover 領域の中に、tx-2 のケット括弧 (3 strokes) と
+       中央の blue-600 のディジット "1" だけを置く。 */
+    .write1-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      background: transparent;              /* 本体 fill なし */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: grab;
+      position: relative;
+    }
+    .write1-gate > svg {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* ホバー枠
+       本体に塗りがないので、Swap / Control と同じく外側に直接 purple-400 枠を出す。
+       角丸正方形ゲート (H / Rz など) と違って box-shadow の 2 重 (paper + purple) は使わない。
+       内側の bg ギャップを開けると括弧が枠に飲まれて読み辛くなるため。 */
+    .write1-gate[data-state="hover"],
+    .write1-gate:not([data-state]):hover {
+      box-shadow: 0 0 0 2px var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
+      border-radius: 8px;                   /* rounded-md - 2 */
+    }
+
+    /* drag は本体 fill を持たない |1⟩ では色を変えず、cursor だけ grabbing にする。
+       (cyan-400 → purple-600 の入れ替えがない。chrome の差は § 05 を参照。) */
+    .write1-gate[data-state="drag"] {
+      cursor: grabbing;
+    }
+
+    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 160px;
+      text-align: center;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .write1-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .slot-mock {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .slot-mock .wire {
+      position: relative;
+      height: 56px;
+      width: 280px;                         /* 5 slots × 56 px */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
+
+    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .matrix-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .matrix-card .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .matrix-card .mini strong { color: var(--tx); }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: gate-palette.html の <symbol id="g-Write1"> と完全一致するケット記号 +
+     ディジット字形をローカル symbol として定義する。本体 rect は持たない。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-Write1" viewBox="0 0 48 48">
+    <!-- ケット括弧 |⟩ — Flexoki tx-2 (#6F6E69) / semantic_disabled ロール -->
+    <line x1="6"       y1="5"  x2="6"       y2="43" stroke="#6F6E69" stroke-width="2"/>
+    <line x1="37.4516" y1="5"  x2="43.5"    y2="24" stroke="#6F6E69" stroke-width="2"/>
+    <line x1="43.5"    y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
+    <!-- ディジット "1" — Flexoki blue-600 (#205EA6) / semantic_on ロール
+         path は qni 由来の Geist Mono ベース SDF "1" (フォント差で字形が変わらないようベクタで保持) -->
+    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#205EA6">
+      <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z"/>
+    </g>
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">|1⟩ オペレーション (Reset to |1⟩)</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <h1 class="page-title">|1⟩ オペレーション (Reset to |1⟩)</h1>
+  <p class="page-lede">
+    対象量子ビットを <strong>状態 <code>|1⟩</code> に強制的に再初期化する非ユニタリ操作</strong>。
+    H / X / Rz のような操作ゲートとは違い、cyan-400 角丸正方形の本体を持たず、
+    <strong>透明な 40 × 40 の hit 領域に tx-2 のケット括弧 <code>|⟩</code> と中央の blue-600 のディジット "1"</strong>
+    だけを描く。同色対の <a href="write0-gate.html">|0⟩ オペレーション</a> と陣形を共有する。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      |1⟩ オペレーションは、入力状態に関わらず対象量子ビットを <code>|1⟩</code> に置き換える
+      <strong>状態準備 (state preparation) ゲート</strong>。
+      ユニタリ変換ではないため、厳密には「ゲート」ではなく <em>operation</em> に分類する。
+      コード上の識別子は <code>Write1</code>、シリアライズ ID は Quirk 互換の <code>"|1&gt;"</code>。
+      H / X / Y / Z / Rz など状態を回転させる cyan-400 ゲートと混同しないよう、
+      <strong>本体 fill を持たない透明マーカ</strong> + ケット記号で「読み書き系」であることを示す。
+      色配分は <code>tx-2</code> = chrome (括弧)、<code>blue-600</code> = データインク (ディジット) の 2 段だけで、
+      意味は「<code>|1⟩</code> の 1 = on ビット」を <code>semantic_on</code> ロールにマップして伝える。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">既定<br>(rest)</div>
+        <div class="actual"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br>purple-400 の枠</div>
+        <div class="actual"><div class="write1-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
+      ジオメトリ / 配色 / 字形 / 意味論の詳細は § 02 以降を参照。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>本体 fill</td>
+          <td>—</td>
+          <td>transparent</td>
+          <td>cyan-400 角丸正方形は持たない。背景 (<code>bg</code> または回路セル) がそのまま透けて見える</td>
+        </tr>
+        <tr>
+          <td>ケット括弧 <code>|⟩</code> (3 strokes)</td>
+          <td><code>tx-2</code></td>
+          <td>#6F6E69</td>
+          <td><code>semantic_disabled</code> ロール。括弧自体は意味を持たない chrome なので、低コントラストの中性トーンで描く</td>
+        </tr>
+        <tr>
+          <td>中央ディジット "1"</td>
+          <td><code>blue-600</code></td>
+          <td>#205EA6</td>
+          <td><code>semantic_on</code> ロール。Probability / Measurement で「<code>|1⟩</code> = on ビット」を示す青と共通</td>
+        </tr>
+        <tr>
+          <td>ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code> ロール。本体 fill がないため、cyan ゲート (H / Rz) のような内側 bg ギャップは取らず、外側 2 px の純粋な縁取りだけにする</td>
+        </tr>
+        <tr>
+          <td>ドラッグ時の色変化</td>
+          <td>—</td>
+          <td>—</td>
+          <td>本体 fill を持たないため、cyan-400 → purple-600 の差し替えは起こさない。drag は cursor とホバー枠だけで示す (§ 05)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      色の <em>意味</em> は <code>red-600</code> = "0" / off と <code>blue-600</code> = "1" / on の対だけに留め、
+      括弧 (chrome) は中性。同じ red/blue 対は <a href="probability-display.html">確率表示ブロック</a> や
+      Measurement の結果ディジットでも使われ、状態 |0⟩/|1⟩ の表示が UI 全体で 1 つの色対に揃う。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>) — 透明な hit 領域</td></tr>
+        <tr><th>形状</th><td>fill なし。ベクタ stroke 3 本 + ベクタ glyph 1 個だけ</td></tr>
+        <tr><th>ケット縦線 <code>|</code></th><td>viewBox 48 上で <code>(6, 5) → (6, 43)</code>、stroke 2 px (= 表示時 1.67 px)</td></tr>
+        <tr><th>右斜め上線</th><td>viewBox 48 上で <code>(37.4516, 5) → (43.5, 24)</code>、stroke 2 px</td></tr>
+        <tr><th>右斜め下線</th><td>viewBox 48 上で <code>(43.5, 24) → (37.4516, 43)</code>、stroke 2 px (上線と尖端 <code>(43.5, 24)</code> で交わる ⟩ 字形)</td></tr>
+        <tr><th>ディジット "1" 配置</th><td>viewBox 48 上で <code>translate(15.648 33.883) scale(0.027840 -0.027840)</code>。"0" と同じ transform を共有し、括弧の内側中央に揃える</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。マーカは中央配置で上下左右に 8 px の余白</td></tr>
+        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (他の 1 量子ビットゲートと共通)</td></tr>
+        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
+        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- Flexoki ui-2 = #DAD8CE / tx-2 = #6F6E69 / blue-600 = #205EA6 / tx-3 = #B7B5AC -->
+        <!-- slot 56 px (rest of the diagram is the same convention as write0-gate.html) -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
+        <!-- body 40 px (透明、点線で領域だけ示す) -->
+        <rect x="0" y="0" width="40" height="40" fill="none" stroke="#DAD8CE" stroke-dasharray="3,3" opacity="0.6"/>
+        <!-- ケット括弧: viewBox 48 → 40 へ × 40/48 = 0.8333 リスケール
+             縦:    (6, 5)..(6, 43)             → (5, 4.167)..(5, 35.833)
+             上斜め: (37.4516, 5)..(43.5, 24)   → (31.21, 4.167)..(36.25, 20)
+             下斜め: (43.5, 24)..(37.4516, 43)  → (36.25, 20)..(31.21, 35.833)
+             stroke 2 × 0.8333 ≈ 1.667 -->
+        <g stroke="#6F6E69" stroke-width="1.667">
+          <line x1="5" y1="4.167" x2="5" y2="35.833"/>
+          <line x1="31.21" y1="4.167" x2="36.25" y2="20"/>
+          <line x1="36.25" y1="20" x2="31.21" y2="35.833"/>
+        </g>
+        <!-- ディジット "1" -->
+        <g transform="translate(13.04 28.236) scale(0.02320 -0.02320)" fill="#205EA6">
+          <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z"/>
+        </g>
+        <!-- 寸法ラベル -->
+        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px hit area</text>
+        </g>
+        <g stroke="#B7B5AC" stroke-width="0.4">
+          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
+          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
+          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
+          <line x1="0" y1="48" x2="40" y2="48"/>
+          <line x1="0" y1="47" x2="0" y2="49"/>
+          <line x1="40" y1="47" x2="40" y2="49"/>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · hit / hover 領域 (<code>GATE_SIZE</code>)</p>
+        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>2 px</strong> · 括弧 stroke (viewBox 48 上)</p>
+        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
+      </div>
+    </div>
+
+    <p class="note">
+      40 px → 56 px の関係は qni-webgpu 全ゲート共通。本体 fill を持たないだけで、
+      hit 領域と占有スロットのサイズは H / Rz と完全に同じ。詳細な経緯は
+      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>字形 (ケット <code>|1⟩</code>)</h2>
+  <div class="card">
+    <p>
+      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Write1</code> と
+      同じ stroke / path / transform を使う。CSS のテキスト描画ではなく、
+      <strong>3 本の stroke (ケット括弧) と 1 個のベクタ glyph (ディジット "1")</strong> をそのまま 40 px hit 領域に重ねる。
+      フォントレンダラに依存しないため、ブラウザ / Wasm canvas / SVG プレビューのいずれでも字形が破綻せず、
+      上向きセリフ + 平らな foot を持つ Geist Mono の "1" がそのまま再現される。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>形式</th><td>stroke × 3 + ベクタ path × 1 (<code>&lt;symbol id="g-Write1"&gt;</code> と 1:1)</td></tr>
+        <tr><th>"1" path</th><td><code>M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z</code> (Geist Mono の "1" ベクタ。横長 foot + 左上セリフ + 縦ステム。foot は x = 60 〜 540 の幅で左右に張り出す)</td></tr>
+        <tr><th>"1" 変換</th><td><code>translate(15.648 33.883) scale(0.027840 -0.027840)</code> ("0" と同じ transform を共有することで字形のベースライン / 中心が揃う)</td></tr>
+        <tr><th>外形サイズ</th><td>viewBox 上で "1" 単体が約 <code>13.4 × 19.8</code>。40 px 領域では約 <strong>11.1 × 16.5 px</strong> ("0" よりわずかに細く高さも低い)</td></tr>
+        <tr><th>配置</th><td>"1" の bbox 幾何中心を、括弧 <code>|⟩</code> の内側中央 (viewBox 上 (22.6, 24)) に揃える。"0" と完全に同じ origin を使うため、|0⟩ ↔ |1⟩ の差し替えでベースラインが動かない</td></tr>
+        <tr><th>括弧色</th><td><code>tx-2</code> (#6F6E69) — chrome として中性 (|0⟩ と共通)</td></tr>
+        <tr><th>ディジット色</th><td><code>blue-600</code> (#205EA6) — <code>semantic_on</code> ロール (|1⟩ = on ビット)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">3× zoom (字形の位置確認)</h3>
+    <div class="stage" style="gap: 32px;">
+      <div class="col" style="max-width: 224px;">
+        <div class="caption">既定 · 3× zoom</div>
+        <div class="zoom"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+      <div class="col" style="max-width: 224px;">
+        <div class="caption">ホバー · 3× zoom<br>(外側 purple-400 枠)</div>
+        <div class="zoom"><div class="write1-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
+  <div class="card">
+    <p>
+      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。
+      |1⟩ オペレーションは本体 fill を持たないため、ドラッグ時も括弧とディジットの色は変えない。
+      ドラッグ状態の識別は cursor (<code>grabbing</code>) と、回路セル外でドラッグカーソル下に出る
+      ホバー枠だけが担う点が、cyan-400 系のゲート (H / Rz など) との大きな違い。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>tx-2 ケット +<br>blue-600 ディジット</div>
+        <div class="actual"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② ホバー<br>外側 purple-400 枠<br>(2 px)</div>
+        <div class="actual"><div class="write1-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ ドラッグ<br>色は不変<br>(cursor: grabbing)</div>
+        <div class="actual"><div class="write1-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI では同時にホバー枠も伴って出るため、
+      実質「② + cursor: grabbing」が drag preview の見た目になる。
+      |1⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
+      パラメタを持たないため、Rz / P のようなポップオーバ編集 UI も無い。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      |1⟩ オペレーションは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
+      hit 領域 40 px は中央配置で上下左右に 8 px の余白を持つ。
+      回路頭 (列 = 0) に置けば <code>|1⟩</code> での初期化 (X ゲートと等価だが意味的に「強制書込み」を明示)、
+      途中に置けば <code>|1⟩</code> への部分リセットを表す。
+      非ユニタリ操作なので、コンパイル時には measurement + 条件付き X を組み合わせた
+      動的回路にしか写像されない (純粋にユニタリな回路シミュレータでは別経路で実装される) ことに注意。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire">
+        <div class="slot"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="write1-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
+      隣接スロットへ連続配置しても、hit 領域同士には 16 px の余白が残り、ホバー枠同士が重ならない。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <div class="card">
+    <div class="matrix-card">
+      <div class="mini">
+        <strong>作用</strong><br />
+        <code>|ψ⟩ ↦ |1⟩</code> (任意の入力状態を <code>|1⟩</code> に置き換える)
+      </div>
+      <div class="mini">
+        <strong>ユニタリ性</strong><br />
+        <strong>非ユニタリ</strong>。Kraus 表現では
+        <code>K<sub>0</sub> = |1⟩⟨0|</code> +
+        <code>K<sub>1</sub> = |1⟩⟨1|</code> の和で表される
+        (∑ K<sub>i</sub><sup>†</sup>K<sub>i</sub> = I を満たす)。
+        実装は測定 + 条件付き X として分解される。
+      </div>
+      <div class="mini">
+        <strong>ブロッホ球</strong><br />
+        任意のベクトルを <strong>南極 <code>−ẑ</code></strong> へ強制移動する。
+        他のゲートのような「ベクトル回転」ではなく、純粋状態の collapse + flip。
+      </div>
+      <div class="mini">
+        <strong>対関係</strong><br />
+        <a href="write0-gate.html">|0⟩ オペレーション</a> と完全な対。
+        ディジットと色だけが <code>red-600</code> → <code>blue-600</code> に入れ替わる。
+      </div>
+    </div>
+    <ul>
+      <li><strong>cyan-400 角丸正方形を使わない</strong>: H / X / Y / Z / Rz と同じ chrome を流用すると「ユニタリ回転」と誤解される。状態を回す操作ではなく「強制的に書き込む」操作なので、ケット括弧 + ディジットという「状態ラベルそのもの」を見せる字形を採用する。|0⟩ オペレーションと同じ陣形を共有することで、palette 内で「状態書込み系」として隣接配置できる</li>
+      <li><strong>ケット括弧を tx-2 にする</strong>: 括弧自体は意味を持たないただの chrome (区切り記号)。tx-2 で目立たせず、データインクであるディジットを際立たせる。X ゲートの "+" や Rz の文字グリフが <code>paper</code> = #FFFCF0 で本体上にコントラスト 3.4 で乗るのと違い、|1⟩ は背景 (paper) に乗るので、stroke 色は paper にできず、可読な中性トーン tx-2 を選ぶ</li>
+      <li><strong>ディジット "1" を blue-600 にする</strong>: 色対 <code>red-600</code> = 0 / off と <code>blue-600</code> = 1 / on を UI 全体 (確率表示 / Measurement / |0⟩/|1⟩ operation) で 1 つに固定する。緑 / 紫 / 黒など他の色を試すと、「on/off の対」という意味が崩れる。blue-600 は WCAG コントラスト比 6.8 で paper に乗り、red-600 と同等の視認性を保つ</li>
+      <li><strong>ホバー枠を内側 bg ギャップなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の 2 重 box-shadow を使うが、本体が透明な |1⟩ では内側ギャップを取ると ket 括弧と枠の間に余計な隙間が生まれ、可読性が落ちる。純粋な外側 purple-400 単線にする (|0⟩ オペレーションと共通)</li>
+      <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |1⟩ ではこの方法が使えない。代わりに cursor: grabbing + 既定のホバー枠で識別する。色を変えない代わりに、drag preview がうっすらしか目立たないため、配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
+      <li><strong>X ゲートと分けて持つ</strong>: 「<code>|0⟩</code> から <code>|1⟩</code> へ反転する <em>ユニタリ</em>」が X ゲート、「任意状態を <code>|1⟩</code> に <em>強制書込み</em> する非ユニタリ」が |1⟩ オペレーション。回路頭での見た目は同じ結果になるが、回路の途中での挙動と量子情報的意味 (情報の破棄を伴うかどうか) が違うため、別ゲートで明示する</li>
+      <li><strong>パラメタを持たない</strong>: Rz / P のような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write0-gate.html">|0⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
+      <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |1⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 08 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="write0-gate.html">|0⟩ オペレーション</a></td>
+          <td>同じ括弧字形 + ディジットを <code>blue-600</code> → <code>red-600</code> に入れ替えただけの対。chrome / 寸法 / 状態挙動はすべて共通</td>
+        </tr>
+        <tr>
+          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
+          <td>「<code>|0⟩</code> から <code>|1⟩</code> へ反転」はユニタリな X、「任意状態を <code>|0⟩</code> / <code>|1⟩</code> に強制書込み」は非ユニタリな |0⟩ / |1⟩ オペレーション。役割の違いを別ゲートで明示する</td>
+        </tr>
+        <tr>
+          <td><a href="control-gate.html">制御ゲート</a></td>
+          <td>同様に「cyan-400 角丸正方形を持たない透明マーカ + 外側 purple-400 枠だけのホバー」chrome を共有する。ただし制御ゲートはユニタリ操作の補助、|1⟩ オペレーションは非ユニタリな単独操作という意味の違いがある</td>
+        </tr>
+        <tr>
+          <td><a href="probability-display.html">確率表示ブロック</a></td>
+          <td>同じ <code>red-600</code> / <code>blue-600</code> 色対で 0 / 1 の測定結果を表示する。|0⟩ / |1⟩ オペレーションのディジット色と一貫させ、UI 全体で「0 = red, 1 = blue」のルールを保つ</td>
+        </tr>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>パレット上の |1⟩ オペレーション (ドラッグ元) の基準 SVG <code>g-Write1</code> を定義する。|0⟩ も <code>g-Write0</code> として隣接配置</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 のホバー枠 primitive。|1⟩ は本体 fill を持たないため、内側 bg ギャップを取らない単線バリアントを使う</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>semantic_on</code> = blue-600、<code>semantic_disabled</code> = tx-2、<code>gate_hover_border</code> = purple-400 などのロール → トーン対応</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · |1⟩ オペレーション · 2026-05</p>
+</footer>
+
+</body>
+</html>
