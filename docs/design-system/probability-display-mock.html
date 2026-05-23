@@ -411,7 +411,7 @@
     <table>
       <tbody>
         <tr><th>footprint</th><td><strong>span n</strong>: 32×(n × 32 + (n − 1) × wire_gap)。既存ゲートと同じ列幅、span ぶんだけ縦に伸びる。span 1 は 32×32。</td></tr>
-        <tr><th>box chrome</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ブロックは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
+        <tr><th>ボックスクロム</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ブロックは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
         <tr><th>fill bar</th><td><code>blue-300</code> (#66A0C8 — Flexoki <code>state_fill</code> と同じトーン)。各行左から右へ <code>P(outcome k) × gate_w</code> の幅で塗る。<code>transition: 120 ms ease</code> で値変化を補間。</td></tr>
         <tr><th>row order</th><td>上から <code>k = 0</code> (= |0..0⟩) → 下が <code>k = 2<sup>span</sup> − 1</code> (= |1..1⟩)。binary big-endian。</td></tr>
         <tr><th>label</th><td>Geist Mono Medium。8 px / 右寄せ / 色は <code>tx</code> (黒)。</td></tr>

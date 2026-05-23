@@ -16,6 +16,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 - 外部 GPU 実行の Qiskit 連携またはその API 経路に関わる実装を変更したときは、`apps/qiskit-backend` のバックエンドサーバも (再) 起動し、`http://127.0.0.1:4184/health` と Web UI から動作確認できる状態にする。
 - エージェントで Web アプリの見た目を確認するときは、アプリ内ブラウザだけに頼らず `docs/web.md` の agent browser workflow に従い、通常の外部 Chrome / Playwright で実描画を確認する。
 - **デザインを修正したあとは必ず Playwright で実際の見た目を確認する**。対象は `apps/web` の UI だけでなく、`docs/design-system/*.html` の仕様ページや mock も含む。lint (`scripts/lint-docs.sh`) や型チェックは「コードの正しさ」を見るだけで「デザインの正しさ」は検証しないため、ルーラ / 仕様ページのプレビューサムネ / mock の各 state バリアント / コンポーネントを使う各ページのレンダリングを Playwright (`mcp__playwright__browser_navigate` + `browser_take_screenshot`) で実際に開いて目視し、意図したとおりに描画されているか確認する。`file://` は MCP からブロックされるので `python3 -m http.server` などで HTTP サーバを立てて `http://127.0.0.1:<port>/...` 経由でアクセスする。
+- 動作確認が終わったスクリーンショットはリポジトリに残さず、確認後すぐに `gio trash` で削除する。
 - 正しい描画が確認できるまでデバッグを継続する。
 
 ## 開発フロー

@@ -263,7 +263,7 @@
     <p class="critique-body">
       <code>H ページの全体所見と同じ</code>く、本仕様は配色・寸法・字形を Flexoki Light に厳密に従って網羅している。
       <a href="write0-gate.html">|0⟩ オペレーション</a> と sibling 関係にあり、本文中でも「<code>red-600</code> → <code>blue-600</code>」と
-      ディジット 1 文字 + 色 1 つの差分しかないことが明示されている。chrome / 寸法 / 状態挙動はすべて共通で、
+      ディジット 1 文字 + 色 1 つの差分しかないことが明示されている。クロム / 寸法 / 状態挙動はすべて共通で、
       実際 § 02 / § 03 / § 04 のテーブルは |0⟩ ページとほぼ 1:1。
     </p>
     <p class="critique-body">
@@ -299,7 +299,7 @@
       コード上の識別子は <code>Write1</code>、シリアライズ ID は Quirk 互換の <code>"|1&gt;"</code>。
       H / X / Y / Z / Rz など状態を回転させる cyan-400 ゲートと混同しないよう、
       <strong>本体 fill を持たない透明マーカ</strong> + ケット記号で「読み書き系」であることを示す。
-      色配分は <code>tx-2</code> = chrome (括弧)、<code>blue-600</code> = データインク (ディジット) の 2 段だけで、
+      色配分は <code>tx-2</code> = クロム (括弧)、<code>blue-600</code> = データインク (ディジット) の 2 段だけで、
       意味は「<code>|1⟩</code> の 1 = on ビット」を <code>semantic_on</code> ロールにマップして伝える。
     </p>
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
@@ -353,7 +353,7 @@
           <td>ケット括弧 <code>|⟩</code> (3 strokes)</td>
           <td><code>tx-2</code></td>
           <td>#6F6E69</td>
-          <td><code>semantic_disabled</code> ロール。括弧自体は意味を持たない chrome なので、低コントラストの中性トーンで描く</td>
+          <td><code>semantic_disabled</code> ロール。括弧自体は意味を持たないクロムなので、低コントラストの中性トーンで描く</td>
         </tr>
         <tr>
           <td>中央ディジット "1"</td>
@@ -377,7 +377,7 @@
     </table>
     <p class="note" style="margin-top: 12px;">
       色の <em>意味</em> は <code>red-600</code> = "0" / off と <code>blue-600</code> = "1" / on の対だけに留め、
-      括弧 (chrome) は中性。同じ red/blue 対は <a href="probability-display.html">確率表示ブロック</a> や
+      括弧 (クロム) は中性。同じ red/blue 対は <a href="probability-display.html">確率表示ブロック</a> や
       Measurement の結果ディジットでも使われ、状態 |0⟩/|1⟩ の表示が UI 全体で 1 つの色対に揃う。
     </p>
 
@@ -511,7 +511,7 @@
         <tr><th>"1" 変換</th><td><code>translate(15.648 33.883) scale(0.027840 -0.027840)</code> ("0" と同じ transform を共有することで字形のベースライン / 中心が揃う)</td></tr>
         <tr><th>外形サイズ</th><td>viewBox 上で "1" 単体が約 <code>13.4 × 19.8</code>。40 px 領域では約 <strong>11.1 × 16.5 px</strong> ("0" よりわずかに細く高さも低い)</td></tr>
         <tr><th>配置</th><td>"1" の bbox 幾何中心を、括弧 <code>|⟩</code> の内側中央 (viewBox 上 (22.6, 24)) に揃える。"0" と完全に同じ origin を使うため、|0⟩ ↔ |1⟩ の差し替えでベースラインが動かない</td></tr>
-        <tr><th>括弧色</th><td><code>tx-2</code> (#6F6E69) — chrome として中性 (|0⟩ と共通)</td></tr>
+        <tr><th>括弧色</th><td><code>tx-2</code> (#6F6E69) — クロムとして中性 (|0⟩ と共通)</td></tr>
         <tr><th>ディジット色</th><td><code>blue-600</code> (#205EA6) — <code>semantic_on</code> ロール (|1⟩ = on ビット)</td></tr>
       </tbody>
     </table>
@@ -677,8 +677,8 @@
       </div>
     </div>
     <ul>
-      <li><strong>cyan-400 角丸正方形を使わない</strong>: H / X / Y / Z / Rz と同じ chrome を流用すると「ユニタリ回転」と誤解される。状態を回す操作ではなく「強制的に書き込む」操作なので、ケット括弧 + ディジットという「状態ラベルそのもの」を見せる字形を採用する。|0⟩ オペレーションと同じ陣形を共有することで、palette 内で「状態書込み系」として隣接配置できる</li>
-      <li><strong>ケット括弧を tx-2 にする</strong>: 括弧自体は意味を持たないただの chrome (区切り記号)。tx-2 で目立たせず、データインクであるディジットを際立たせる。X ゲートの "+" や Rz の文字グリフが <code>paper</code> = #FFFCF0 で本体上にコントラスト 3.4 で乗るのと違い、|1⟩ は背景 (paper) に乗るので、stroke 色は paper にできず、可読な中性トーン tx-2 を選ぶ</li>
+      <li><strong>cyan-400 角丸正方形を使わない</strong>: H / X / Y / Z / Rz と同じクロムを流用すると「ユニタリ回転」と誤解される。状態を回す操作ではなく「強制的に書き込む」操作なので、ケット括弧 + ディジットという「状態ラベルそのもの」を見せる字形を採用する。|0⟩ オペレーションと同じ陣形を共有することで、palette 内で「状態書込み系」として隣接配置できる</li>
+      <li><strong>ケット括弧を tx-2 にする</strong>: 括弧自体は意味を持たないただのクロム (区切り記号)。tx-2 で目立たせず、データインクであるディジットを際立たせる。X ゲートの "+" や Rz の文字グリフが <code>paper</code> = #FFFCF0 で本体上にコントラスト 3.4 で乗るのと違い、|1⟩ は背景 (paper) に乗るので、stroke 色は paper にできず、可読な中性トーン tx-2 を選ぶ</li>
       <li><strong>ディジット "1" を blue-600 にする</strong>: 色対 <code>red-600</code> = 0 / off と <code>blue-600</code> = 1 / on を UI 全体 (確率表示 / Measurement / |0⟩/|1⟩ operation) で 1 つに固定する。緑 / 紫 / 黒など他の色を試すと、「on/off の対」という意味が崩れる。blue-600 は WCAG コントラスト比 6.8 で paper に乗り、red-600 と同等の視認性を保つ</li>
       <li><strong>ホバー枠を内側 bg ギャップなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の 2 重 box-shadow を使うが、本体が透明な |1⟩ では内側ギャップを取ると ket 括弧と枠の間に余計な隙間が生まれ、可読性が落ちる。純粋な外側 purple-400 単線にする (|0⟩ オペレーションと共通)</li>
       <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |1⟩ ではこの方法が使えない。代わりに cursor: grabbing + 既定のホバー枠で識別する。色を変えない代わりに、drag preview がうっすらしか目立たないため、配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
@@ -722,7 +722,7 @@
       <tbody>
         <tr>
           <td><a href="write0-gate.html">|0⟩ オペレーション</a></td>
-          <td>同じ括弧字形 + ディジットを <code>blue-600</code> → <code>red-600</code> に入れ替えただけの対。chrome / 寸法 / 状態挙動はすべて共通</td>
+          <td>同じ括弧字形 + ディジットを <code>blue-600</code> → <code>red-600</code> に入れ替えただけの対。クロム / 寸法 / 状態挙動はすべて共通</td>
         </tr>
         <tr>
           <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
@@ -730,7 +730,7 @@
         </tr>
         <tr>
           <td><a href="control-gate.html">制御ゲート</a></td>
-          <td>同様に「cyan-400 角丸正方形を持たない透明マーカ + 外側 purple-400 枠だけのホバー」chrome を共有する。ただし制御ゲートはユニタリ操作の補助、|1⟩ オペレーションは非ユニタリな単独操作という意味の違いがある</td>
+          <td>同様に「cyan-400 角丸正方形を持たない透明マーカ + 外側 purple-400 枠だけのホバー」クロムを共有する。ただし制御ゲートはユニタリ操作の補助、|1⟩ オペレーションは非ユニタリな単独操作という意味の違いがある</td>
         </tr>
         <tr>
           <td><a href="probability-display.html">確率表示ブロック</a></td>

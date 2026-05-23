@@ -19,7 +19,7 @@
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       H ゲート本体 (cyan-400 + paper グリフ + ホバー枠 + drag preview) の chrome は
+       H ゲート本体 (cyan-400 + paper グリフ + ホバー枠 + drag preview) のクロムは
        components/h-gate.js が Web Component <h-gate> として提供する。
        本ファイルでは stage / zoom / slot-mock などレイアウト側の CSS だけを定義する。 */
 
@@ -186,7 +186,7 @@
 
 <!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。
      プレビュー枠は 72 px なので 40 × 40 の本体を 1 つ中央に置く。
-     <h-gate> の chrome / グリフ outline は components/h-gate.js が canonical に提供する。 -->
+     <h-gate> のクロム / グリフ outline は components/h-gate.js が canonical に提供する。 -->
 <div id="preview">
   <h-gate></h-gate>
 </div>
@@ -223,7 +223,7 @@
       X / Y / Z / S / T のページが今後できると<strong>同じ内容が 6 ページに重複</strong>することになる。
     </p>
     <p class="critique-body">
-      アーキテクチャ的には「ユニタリゲート chrome の親仕様 (例: <code>unitary-gates.html</code>)」を抽出し、
+      アーキテクチャ的には「ユニタリゲートクロムの親仕様 (例: <code>unitary-gates.html</code>)」を抽出し、
       本ページは <strong>H 固有の判断</strong> (グリフ "H" の選定、Hadamard の semantics、コントラスト比 3.4 の妥協、Hadamard 特有のユースケース) に集中するほうが、
       変更時のコストが下がり、ページ間 diff レビューの負荷も減る。現状の構成は「親仕様がまだない」ことの仮置きと割り切るなら可だが、
       その場合はその設計意図を <strong>§ 00 (前文)</strong> として書いておくと、本ページを参考に X/Y/Z 仕様を書く Codex がコピペで済まないことを認識できる。
@@ -234,7 +234,7 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>ユニタリゲート chrome の親仕様を抽出</strong> — § 02 / § 03 / § 06 を <code>unitary-gates.html</code> (仮) に集約。本ページは「H 固有の判断」だけに絞る (全体所見参照)。</li>
+      <li><strong>ユニタリゲートクロムの親仕様を抽出</strong> — § 02 / § 03 / § 06 を <code>unitary-gates.html</code> (仮) に集約。本ページは「H 固有の判断」だけに絞る (全体所見参照)。</li>
       <li><strong>§ 01 概要と § 05 状態バリアントの状態モックを統合</strong> — § 01 で default / hover の 2 状態、§ 05 で drag 状態を含む 3 状態という二重展開は、読者に「どちらを正として読むか」を迷わせる (§ 01 / § 05 参照)。</li>
       <li><strong>§ 02 配色テーブルを「ロール × 状態」の 2 次元に整理</strong> — 現状は「用途」列に <code>box_fill (default)</code> と <code>box_fill (drag)</code> が独立行で並び、状態 (state) とロール (role) が 1 列に圧縮されている (§ 02 参照)。</li>
       <li><s><strong>§ 04 の 3× zoom を「実装 SDF outline と CSS Geist Bold の比較スクショ」に差し替え</strong></s> — <strong>適用済 (2026-05-23):</strong> 本仕様ページのグリフを実装の <code>apps/web/assets/icons/h.svg</code> から <code>&lt;use href="#g-H"/&gt;</code> で直接埋め込む形に変更。CSS Geist 代用が消えたため SDF vs CSS の比較の意義そのものが消えた (§ 04 参照)。3× zoom 単体の情報価値が低い件は残課題。</li>
@@ -503,7 +503,7 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      default に加え、hover / drag 状態を <code>data-state</code> 属性で強制したモック。実コードと同じ chrome / マークアップで、
+      default に加え、hover / drag 状態を <code>data-state</code> 属性で強制したモック。実コードと同じクロム / マークアップで、
       ホバーやドラッグ操作をしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
     </p>
     <div class="stage">
@@ -602,10 +602,10 @@
   <h2><span class="num">§ 07</span>設計判断</h2>
   <div class="card">
     <ul>
-      <li><strong>グリフだけで識別する</strong>: H / X / Y / Z / S / T は本体色 / 形 / サイズがすべて同じで、グリフだけが違う。これは Quirk から踏襲した「同じ族のゲートは同じ chrome」原則。色で差別化すると<em>色を覚える</em>負荷が発生し、Pauli ゲート以外で意味のある対応関係が壊れる</li>
+      <li><strong>グリフだけで識別する</strong>: H / X / Y / Z / S / T は本体色 / 形 / サイズがすべて同じで、グリフだけが違う。これは Quirk から踏襲した「同じ族のゲートは同じクロム」原則。色で差別化すると<em>色を覚える</em>負荷が発生し、Pauli ゲート以外で意味のある対応関係が壊れる</li>
       <li><strong>stroke を持たない</strong>: gate-palette.html canonical svg と一致。本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) とじゅうぶん区別できるため、stroke を足すと「ボタン感」が出すぎる。design-system.html の index カードに stroke が描かれているのは illustrative な簡略表現で、本仕様が canonical</li>
       <li><strong>角丸 6 px</strong>: 40 px 本体に対し 15 % の corner radius。角を立てた矩形は機械的・無機質に、円に寄せすぎるとボタンに見える。15 % は「素早く識別できるアイコン形状」と「操作可能な要素であるという親しみやすさ」のバランス点</li>
-      <li><strong>グリフ 22 px (本体の 55 %)</strong>: 1 文字グリフは大きすぎると角丸の内側 padding を侵食し、小さすぎると遠目に判別しにくい。Geist 700 で 22 / 40 ≈ 0.55 が「本体 chrome を残しつつ可読」のスイートスポット。H 以外のグリフ (X / Y / Z など) も同じスケール</li>
+      <li><strong>グリフ 22 px (本体の 55 %)</strong>: 1 文字グリフは大きすぎると角丸の内側 padding を侵食し、小さすぎると遠目に判別しにくい。Geist 700 で 22 / 40 ≈ 0.55 が「本体クロムを残しつつ可読」のスイートスポット。H 以外のグリフ (X / Y / Z など) も同じスケール</li>
       <li><strong>paper グリフ</strong>: cyan-400 + paper のコントラスト比は 3.4 で WCAG AA の大文字テキストを満たす。tx (#100F0F) を使うと黒すぎてゲートが「ボタン」に寄り、回路上の操作要素という抽象度が損なわれる</li>
       <li><strong>ホバー枠は本体外側 4 px + 背景の空き 2 px</strong>: hover-frame.html と共通。本仕様で独自に決めず、横断方針を継承する</li>
       <li><strong>drag preview を <code>purple-600</code></strong>: drag_fill / semantic_intermediate ロール。本体色を一時的に置き換えて「仮配置」と「確定配置」を一目で識別。半透明にすると wire や他ゲートと色が混ざって読みにくいため、不透明色での置換にする</li>
@@ -655,7 +655,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の H ゲート (drag source) の chrome を canonical に定義。本仕様の本体 / グリフは palette spec と 1:1</td>
+          <td>パレット上の H ゲート (drag source) のクロムを canonical に定義。本仕様の本体 / グリフは palette spec と 1:1</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>

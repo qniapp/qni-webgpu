@@ -331,7 +331,7 @@
   <p class="page-lede">
     単一量子ビットへ <code>e<sup>−iθY/2</sup></code> を適用する <strong>Y 軸まわりのパラメタ可変回転ゲート</strong>。
     回路エディタ上では <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の 2 文字グリフ "Ry" を中央配置する。
-    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では H / Y / Z / S / T / Rx と同じ 1 量子ビットゲートの chrome を継承する。
+    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では H / Y / Z / S / T / Rx と同じ 1 量子ビットゲートのクロムを継承する。
   </p>
 </div>
 
@@ -365,7 +365,7 @@
       <li><strong>Rotation 族の親仕様を抽出</strong> — 「字形が 2 文字」「θ パラメタを持つ」「色は θ で変えない」「ポップオーバを共有」は Rx / Ry / Rz 共通。<code>rotation-gates.html</code> (仮) に切り出して、Ry ページは「Y 軸固有の判断 (実係数行列 / ansatz 用途 / H とは別物)」だけに絞ると、本ページの密度が上がる (全体所見参照)。</li>
       <li><strong>§ 01 に「Ry(π/2) vs H」の小型比較を置く</strong> — Ry の差別化ポイントは「実係数だけで振幅を回す」「<code>H = X · Ry(π/2)</code> で H とは別物」の 2 点。冒頭の式 <code>e<sup>−iθY/2</sup></code> だけでは伝わらないので、§ 07 関係欄に埋もれている内容を § 01 に格上げする (§ 01 参照)。</li>
       <li><strong>§ 04 の x オフセット差分 (Rx 23.724 / Ry 23.923 / Rz 24.673) を Rotation 族ページに集約</strong> — Ry ページに 3 種の比較が出てくる現状は「Ry を見ているのに Rx / Rz の話に飛ばされる」二重責任の典型。Rotation 族親仕様で 1 度だけ表にまとめ、本ページからリンクするほうが視線移動が減る (§ 04 参照)。</li>
-      <li><strong>θ パラメタ編集ポップオーバの primitive 仕様を別ページに切り出す</strong> — § 06 後半が「Rx / Ry / Rz / P で共有」と明示しているのに、ポップオーバ chrome (枠 / 影 / 角丸) のモックがここで初めて登場する。<code>parameter-popover.html</code> (仮) を切ると、Rx / Ry / Rz / P が同じ図を参照できる (§ 06 参照)。</li>
+      <li><strong>θ パラメタ編集ポップオーバの primitive 仕様を別ページに切り出す</strong> — § 06 後半が「Rx / Ry / Rz / P で共有」と明示しているのに、ポップオーバクロム (枠 / 影 / 角丸) のモックがここで初めて登場する。<code>parameter-popover.html</code> (仮) を切ると、Rx / Ry / Rz / P が同じ図を参照できる (§ 06 参照)。</li>
       <li><strong>§ 07 行列カードと bullet list の責務重複を解消</strong> — <code>.matrix-card</code> 内に「行列 / 基底状態 / ブロッホ球 / 関係」の 4 ミニカードがあるが、<code>Ry(π) = −iY</code> / <code>H = X · Ry(π/2)</code> は bullet list でも繰り返されている。matrix-card は数式、bullet list は設計判断、と役割を分けるか、どちらかへ寄せる (§ 07 参照)。</li>
     </ol>
   </aside>
@@ -465,14 +465,14 @@
       <p class="critique-body">
         配色テーブル本体 (4 行 × 4 列) は <a href="h-gate.html">h-gate.html § 02</a> と
         cyan-400 / paper / purple-400 / purple-600 を含めてほぼ完全に同じ内容で、H ページの「ロール × 状態の軸圧縮」批評と
-        同じ問題を抱えている。これは Rotation 族親仕様 (rotation-gates.html 仮) または<strong>ユニタリゲート chrome 親仕様</strong>に
+        同じ問題を抱えている。これは Rotation 族親仕様 (rotation-gates.html 仮) または<strong>ユニタリゲートクロム親仕様</strong>に
         集約するのが筋で、Ry ページでは差分だけ示せばよい。
       </p>
       <p class="critique-body">
         一方、テーブル直下の note にある<strong>「Ry の回転角 θ は色に持たせない」「θ = π と θ = π + 0.001 が同色」</strong>
         という判断は H には存在しない Rotation 族固有の重要論点。色軸を θ で乱さない、というのは <code>cyan-400</code> = 操作ゲート
         という色辞書を守る上で根本的な決定で、本来は § 07 設計判断にも昇格させる価値がある (現状は重複あり)。
-        加えて、ハードコード角 (S = Rz(π/2) / T = Rz(π/4)) が S / T として別 chrome を持つことと、
+        加えて、ハードコード角 (S = Rz(π/2) / T = Rz(π/4)) が S / T として別クロムを持つことと、
         Rotation 族では θ を色に出さないことの<strong>対比</strong>が note に書かれていないので、読者は「なら S と Rz(π/2) は
         なぜ別色 (実は同 cyan-400 だが) ?」と一瞬迷う。
       </p>
@@ -546,7 +546,7 @@
       <p class="critique-body">
         ジオメトリ表 (本体 40 px / 角丸 6 px / スロット 56 px / span 1 / z-index 10) は <a href="h-gate.html">h-gate.html § 03</a>
         と<strong>完全に同一</strong>で、Ry 固有の判断は何も含まれない。「他の 1 量子ビットゲートと共通」と本文でも明記されているので、
-        Rotation 族親仕様または<strong>ユニタリゲート chrome 親仕様</strong>へ移し、本ページからはリンクで参照したい。
+        Rotation 族親仕様または<strong>ユニタリゲートクロム親仕様</strong>へ移し、本ページからはリンクで参照したい。
       </p>
       <p class="critique-body">
         図 (<code>.geo-diagram</code>) は H ページの SVG をベースに字形 path を Ry 用に差し替えたコピー。<code>font-size="4"</code>
@@ -713,7 +713,7 @@
       </div>
     </div>
     <p class="note">
-      ポップオーバ自体の chrome (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
+      ポップオーバ自体のクロム (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
       (別仕様で定義)。Rx / Rz / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
       とプリセット集合のみが差分。
     </p>
@@ -814,7 +814,7 @@
       <tbody>
         <tr>
           <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>角丸正方形 + 文字グリフの基本仕様。Ry は同じ chrome を 2 文字グリフ版で継承する。<code>H = X · Ry(π/2)</code> で大域位相を含めても等価ではない</td>
+          <td>角丸正方形 + 文字グリフの基本仕様。Ry は同じクロムを 2 文字グリフ版で継承する。<code>H = X · Ry(π/2)</code> で大域位相を含めても等価ではない</td>
         </tr>
         <tr>
           <td><a href="y-gate.html">Y ゲート (Pauli-Y)</a></td>

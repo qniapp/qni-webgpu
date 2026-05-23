@@ -250,7 +250,7 @@
 <section class="block">
   <h2><span class="num">§ 01</span> 構造 — 2 ペイン構成</h2>
   <p class="note">
-    paper bg + ui-2 hairline + shadow-popover の panel chrome は既存ピッカーと
+    paper bg + ui-2 hairline + shadow-popover の panel クロムは既存ピッカーと
     pixel-by-pixel で一致。中身は 3 要素:<br />
     ・<strong>items pane (上)</strong> — 高さ可変、内容が多ければ独立スクロール<br />
     ・<strong>resize handle</strong> — separator、ドラッグで上下に動く<br />
@@ -610,7 +610,7 @@ if idx &lt; entries.len() - 1 {
         <strong>min / max 制約</strong>:<br />
         ・<code>MIN_ITEMS_HEIGHT = 72.0</code> (= 2 row)<br />
         ・<code>max_items_height = ((entries.len() as f32) * 36.0 + 12.0).min(viewport_height - 240.0)</code><br />
-        (= 全部見える分 cap + ビューポート内に収まる cap。240 は trigger / picker chrome / フッタの余白合算の概算)
+        (= 全部見える分 cap + ビューポート内に収まる cap。240 は trigger / picker クロム / フッタの余白合算の概算)
       </li>
       <li>
         <strong>独立スクロール</strong>:<br />

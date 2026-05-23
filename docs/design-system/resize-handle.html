@@ -135,7 +135,7 @@
     span を持つ表示ブロック (確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT / QFT† 等)
     が共有する「上下ドラッグハンドル」 primitive。ゲートの上下 2 ヶ所に出る <code>cyan-400</code> ピル形 (24 × 6 px)
     で、ホスト ホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現する。
-    chrome (色 / 寸法 / 状態遷移 / マイクロインタラクション) は本ページ + <code>design-system.css</code>
+    クロム (色 / 寸法 / 状態遷移 / マイクロインタラクション) は本ページ + <code>design-system.css</code>
     に集約し、各コンポーネントは <strong>ポリシー (幅算出 / span 上限 / 配置主体)</strong> だけを定義する。
   </p>
 </div>
@@ -234,7 +234,7 @@
         <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
         <tr><th>形状</th><td>ピル (capsule)、<code>border-radius: 3 px</code></td></tr>
         <tr><th>幅 (default)</th><td><code>24 px</code> 固定 (確率表示ブロックなど幅が変わらないコンポーネント)</td></tr>
-        <tr><th>幅 (可変)</th><td>canvas 幅 × 0.6 (min 24 px)。振幅表示ブロック / 密度行列表示ブロックのように span が大きいほど本体が広くなる場合に使う。<strong>幅ポリシーはコンポーネント側の責務</strong>で、本仕様では chrome の幅算出ルールだけを定義する</td></tr>
+        <tr><th>幅 (可変)</th><td>canvas 幅 × 0.6 (min 24 px)。振幅表示ブロック / 密度行列表示ブロックのように span が大きいほど本体が広くなる場合に使う。<strong>幅ポリシーはコンポーネント側の責務</strong>で、本仕様ではクロムの幅算出ルールだけを定義する</td></tr>
         <tr><th>高さ</th><td><code>6 px</code> 固定</td></tr>
         <tr><th>横位置</th><td>ホスト横中央 (<code>left: 50%; transform: translateX(-50%) scale(...)</code>)</td></tr>
         <tr><th>縦位置 (top)</th><td><code>top: -12 px</code> (ホスト上辺から 12 px 外側)</td></tr>
@@ -384,7 +384,7 @@
       </div>
     </div>
 
-    <h3 style="margin-top: 24px;">3× zoom (chrome 詳細確認)</h3>
+    <h3 style="margin-top: 24px;">3× zoom (クロム詳細確認)</h3>
     <p>
       実寸では細かい変化が見えにくいので、② → ③ → ④ を 3 倍に拡大して並べたビュー。
       <code>cyan-400 → cyan-600</code> の濃度差、<code>scale 1.0 → 1.15 → 1.25</code> の連続的な拡大量、
@@ -488,7 +488,7 @@
         <tr><th>ファイル</th><th>役割</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>docs/design-system/design-system.css</code></td><td><code>.resize-handle</code> / <code>.resize-handle--top|bottom</code> / <code>.resize-handle-host</code> の chrome 定義 (本仕様の唯一の真実)</td></tr>
+        <tr><td><code>docs/design-system/design-system.css</code></td><td><code>.resize-handle</code> / <code>.resize-handle--top|bottom</code> / <code>.resize-handle-host</code> のクロム定義 (本仕様の唯一の真実)</td></tr>
         <tr><td><code>docs/design-system/resize-handle.js</code></td><td>仕様ページのモックで <code>.resize-handle</code> 要素を生成する補助。設計判断の対象ではないため、本ページ本文では使い方を説明しない</td></tr>
         <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>Rust 側のハンドル描画 / 状態管理。<em>本 primitive 化に合わせた整理は別タスク</em></td></tr>
         <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。default = <strong>cyan-400 (#3AA99F)</strong>、active = <strong>cyan-600 (#24837B)</strong></td></tr>
@@ -496,7 +496,7 @@
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
     <ul>
-      <li>歴史的経緯: 元は probability-display.html § 12 に同梱されていた仕様を、3 コンポーネント (確率 / 振幅 / 密度行列) が同じ chrome を共有することが判明したため独立 primitive として抽出 (2026-05-22)</li>
+      <li>歴史的経緯: 元は probability-display.html § 12 に同梱されていた仕様を、3 コンポーネント (確率 / 振幅 / 密度行列) が同じクロムを共有することが判明したため独立 primitive として抽出 (2026-05-22)</li>
       <li>当初は <code>purple-400</code> ベースだったが、ホバー枠と同色衝突する問題を design critique で指摘されて <code>cyan-400</code> に移行 (probability-display.html § 12 の Resolved 批評参照)</li>
     </ul>
   </div>

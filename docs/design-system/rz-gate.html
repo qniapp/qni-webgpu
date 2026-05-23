@@ -331,7 +331,7 @@
   <p class="page-lede">
     単一量子ビットへ <code>e<sup>−iθZ/2</sup></code> を適用する <strong>Z 軸まわりのパラメタ可変回転ゲート</strong>。
     回路エディタ上では <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の 2 文字グリフ "Rz" を中央配置する。
-    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では Rx / Ry と同じ 1 量子ビット回転ゲートの chrome を継承する。
+    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では Rx / Ry と同じ 1 量子ビット回転ゲートのクロムを継承する。
   </p>
 </div>
 
@@ -365,7 +365,7 @@
       <li><strong>Rz と P の「同位相 / 別位相」対比を § 07 から § 01 へ昇格</strong> — 現状は § 07 bullet 6 に深く埋もれているが、Rz と P は数学的にはほぼ同じで、差は<strong>位相の置き方 (対称 vs 非対称)</strong> だけ。これは palette で Rz と P が並んだとき<em>「なぜ 2 つあるの?」</em>と直感的に疑問になる箇所で、概要に出す価値が高い (§ 01 / § 07 参照)。</li>
       <li><strong>Rotation 族共通の論点は <a href="ry-gate.html">ry-gate.html</a> へ集約</strong> — 字形 2 文字グリフ / θ ポップオーバ primitive / 「θ を色に持たせない」判断 / Rotation 族親仕様化は Rz でも該当するが、本ページでは Ry を canonical として参照に留める (§ 02 / § 04 / § 06 参照)。</li>
       <li><strong>preset 集合 <code>0 / π/4 / π/2 / π / 3π/2</code> は Rz では特に S / T と直結</strong> — Rz の preset chip <code>π/4</code> を選ぶと事実上「T を θ で指定」しているのと同じ。chip に「= T」「= S」のラベルや tooltip を付けると、Rz 固有の決定樹に直接接続できる (§ 06 参照)。</li>
-      <li><strong>§ 08 関連欄が長くなり scan しにくい</strong> — Rz は 8 つの関連仕様 (Rx / Z / S / S† / T / T† / P / H / palette / hover-frame / colors / migration) を持ち、Ry (8) や Rx (8) より多い。関連の<strong>密度</strong>を「数学的等価」「視覚 chrome 共有」「primitive 継承」に分類すると navigability が上がる (§ 08 参照)。</li>
+      <li><strong>§ 08 関連欄が長くなり scan しにくい</strong> — Rz は 8 つの関連仕様 (Rx / Z / S / S† / T / T† / P / H / palette / hover-frame / colors / migration) を持ち、Ry (8) や Rx (8) より多い。関連の<strong>密度</strong>を「数学的等価」「視覚クロム共有」「primitive 継承」に分類すると navigability が上がる (§ 08 参照)。</li>
     </ol>
   </aside>
 </section>
@@ -664,7 +664,7 @@
       </div>
     </div>
     <p class="note">
-      ポップオーバ自体の chrome (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
+      ポップオーバ自体のクロム (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
       (別仕様で定義)。Rx / Ry / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
       とプリセット集合のみが差分。
     </p>
@@ -715,7 +715,7 @@
       </div>
     </div>
     <ul>
-      <li><strong>Rx / Ry と同じ角丸正方形にする</strong>: Rz は文字グリフで識別する通常の 1 量子ビット回転ゲート。X 系 (X / Rx の塗りつぶし円) ではなく Z 系 (cyan-400 角丸正方形) の chrome を継承する</li>
+      <li><strong>Rx / Ry と同じ角丸正方形にする</strong>: Rz は文字グリフで識別する通常の 1 量子ビット回転ゲート。X 系 (X / Rx の塗りつぶし円) ではなく Z 系 (cyan-400 角丸正方形) のクロムを継承する</li>
       <li><strong>2 文字グリフ "Rz" を採用する</strong>: 大文字 R で「Rotation」、小文字 z で「軸ラベル」を表す。Qiskit / Cirq / Quirk と一致するアカデミック表記。すべて大文字 "RZ" は palette の他のゲート (H / Y / Z / S / T) と並べたとき視覚的に重く、字形バランスが崩れる</li>
       <li><strong>回転角 θ を色で表現しない</strong>: θ は連続パラメタなので色相 / 明度マッピングは不安定 (θ = π と θ = π + 0.001 が同色)。θ の現在値はセル下の数値ラベルとポップオーバ (§ 06) に閉じる</li>
       <li><strong>Rz(π) と Z を別カードとして残す</strong>: 数学的には大域位相を除いて等価だが、ハードウェア / 教育文脈では「Z = 固定 π 位相反転」「Rz = 連続パラメタ」と役割が違うため、palette でも UI でも別ゲートとして並べる</li>
@@ -764,7 +764,7 @@
       <tbody>
         <tr>
           <td><a href="rx-gate.html">Rx ゲート (X 軸回転 θ)</a></td>
-          <td>X 軸まわりの連続回転。Rz と同じ chrome / 2 文字グリフ規約を共有する</td>
+          <td>X 軸まわりの連続回転。Rz と同じクロム / 2 文字グリフ規約を共有する</td>
         </tr>
         <tr>
           <td><a href="z-gate.html">Z ゲート (Pauli-Z)</a></td>
@@ -792,7 +792,7 @@
         </tr>
         <tr>
           <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>角丸正方形 + 文字グリフの基本仕様。Rz は同じ chrome を 2 文字グリフ版で継承する</td>
+          <td>角丸正方形 + 文字グリフの基本仕様。Rz は同じクロムを 2 文字グリフ版で継承する</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>

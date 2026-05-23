@@ -1131,7 +1131,7 @@ stroke()</pre>
   <h2>§ 12 リサイズハンドル (policy 差分)</h2>
   <div class="card">
     <p>
-      上下ドラッグハンドルの chrome (色 / 寸法 / state machine / マイクロインタラクション) は
+      上下ドラッグハンドルのクロム (色 / 寸法 / state machine / マイクロインタラクション) は
       primitive として <a href="resize-handle.html"><strong>resize-handle.html</strong></a> に集約してある。
       本ページはそれを使う側として、確率表示ブロック固有の <strong>policy 差分</strong>だけを定義する。
     </p>
@@ -1148,7 +1148,7 @@ stroke()</pre>
     <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
     <p>
       ゲート本体 + ホバー枠 + ハンドルの 3 層がそろった状態を確率表示ブロックのコンテキストで並べたモック。
-      ハンドル単独の chrome 比較は <a href="resize-handle.html#05">resize-handle.html § 06</a> 参照。
+      ハンドル単独のクロム比較は <a href="resize-handle.html#05">resize-handle.html § 06</a> 参照。
       ここでは「確率表示ブロックに span = 2 を配置したときの上下ハンドル」を 4 状態で見せる。
     </p>
     <div class="stage" style="gap: 56px; padding: 24px 0;">
@@ -1189,7 +1189,7 @@ stroke()</pre>
       <p class="critique-body">
         <strong>更に primitive 化:</strong>
         ハンドルは 3 コンポーネント (確率 / 振幅 / 密度行列) と将来の QFT が共有することが判明したため、
-        chrome を <a href="resize-handle.html"><code>resize-handle.html</code></a> に抽出し、
+        クロムを <a href="resize-handle.html"><code>resize-handle.html</code></a> に抽出し、
         共有 CSS (<code>design-system.css</code> の <code>.resize-handle</code> ルール) と
         共有 JS (<code>resize-handle.js</code> の <code>attachResizeHandles</code>) に集約。
         本ページの § 12 はコンポーネント固有の policy 差分 (<code>widthMode: 'fixed'</code> / span 1〜16) だけを残す形に再編成。

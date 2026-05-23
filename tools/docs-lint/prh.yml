@@ -114,3 +114,9 @@ rules:
     pattern: /easing/
   - expected: ハンドルが
     pattern: /handle が/
+
+  # ── chrome → クロム (UI 用語: グリフを除いたゲート / コンポーネントの視覚的外殻)
+  #    Browser 製品名の "Chrome" (大文字) と コード識別子 (例: state_panel_chrome.rs)
+  #    は対象外。lookbehind / lookahead で前後に `_` / 英数字 / `-` がある場合は除外。
+  - expected: クロム
+    pattern: /(?<![\w-])chrome(?![\w-])/
