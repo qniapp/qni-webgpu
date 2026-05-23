@@ -216,6 +216,17 @@
       <p class="desc">ゲートパレットの操作ゲート群と表示ブロック群を分ける、ui-2 の 2 px 縦区切り線。</p>
     </a>
 
+    <a class="spec-card" href="design-system/hover-frame.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/hover-frame.html?preview" loading="lazy" title="ホバー枠 preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">ホバー枠</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">対象要素に重なる purple-400 の 2px 枠。外側ホスト枠と表示セル内枠で共有。</p>
+    </a>
+
     <a class="spec-card" href="design-system/resize-handle.html">
       <div class="preview" aria-hidden="true">
         <iframe src="design-system/resize-handle.html?preview" loading="lazy" title="リサイズハンドル preview"></iframe>
@@ -610,18 +621,6 @@
       <p class="desc">パレット / 回路間のドラッグ &amp; ドロップと配置プレビュー。</p>
     </div>
 
-    <div class="spec-card dim">
-      <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <rect x="16" y="14" width="24" height="28" rx="3" fill="#FFFCF0" stroke="#DAD8CE"/>
-          <rect x="20" y="4"  width="16" height="4"  rx="2" fill="#8B7EC8"/>
-          <rect x="20" y="48" width="16" height="4"  rx="2" fill="#8B7EC8"/>
-        </svg>
-      </div>
-      <div class="row"><span class="name">Resize handle</span><span class="pill draft">draft</span></div>
-      <p class="desc">span を持つゲートのリサイズハンドル (purple-400 ピル) と挙動。</p>
-    </div>
-
   </div>
 </section>
 
@@ -788,7 +787,7 @@
       <li><span class="kind">spec</span><a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a></li>
       <li><span class="kind">plan</span><a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a></li>
       <li><span class="kind">mock</span><a href="large-gpu-mode-ui-mock.html">large-gpu-mode-ui-mock.html</a></li>
-      <li><span class="kind">audit</span><a href="egui-web-perf-audit.html">egui-web-perf-audit.html</a></li>
+      <li><span class="kind">audit</span><a href="web-perf-audit.html">web-perf-audit.html</a></li>
       <li><span class="kind">plan</span><a href="refactor-candidates.html">refactor-candidates.html</a></li>
     </ul>
   </div>
@@ -800,7 +799,7 @@
   <div class="card">
     <p>新しいコンポーネントの仕様を増やすときは、以下の順で進める。</p>
     <ol style="margin: 4px 0 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7;">
-      <li><a href="design-system/probability-display.html"><code>docs/probability-display.html</code></a> をコピーし <code>docs/&lt;component&gt;.html</code> として保存する。</li>
+      <li><a href="design-system/probability-display.html"><code>docs/design-system/probability-display.html</code></a> をコピーし <code>docs/design-system/&lt;component&gt;.html</code> として保存する。</li>
       <li>セクション構成 (寸法 / 配色 / 挙動 / 実装参照) は維持し、実コードの値と <strong>1:1</strong> で揃える。</li>
       <li>配色は Flexoki Light のみ、フォントサイズ / 余白は Tailwind デフォルトスケールから選ぶ (<a href="../AGENTS.md">AGENTS.md</a> 参照)。</li>
       <li>ASCII アートは使わず、図は HTML/CSS または Mermaid / インライン SVG で描く。</li>
