@@ -337,13 +337,24 @@
           </g>
           <g font-family="Geist, sans-serif" font-weight="700" font-size="16" fill="#100F0F" text-anchor="middle">
             <text x="20" y="33">S</text>
-            <text x="60" y="33">T</text>
+            <text x="60" y="33">T†</text>
           </g>
         </svg>
       </div>
-      <div class="row"><span class="name">Phase (S / T)</span><span class="pill todo">todo</span></div>
-      <p class="desc">位相を回す 1 量子ビット ゲート (S = π/2、T = π/4) と逆ゲート S† / T†。</p>
+      <div class="row"><span class="name">Phase (S / T†)</span><span class="pill todo">todo</span></div>
+      <p class="desc">残りの位相系列 1 量子ビットゲート (S = π/2、T† = −π/4)。T と同じ chrome を字形だけ差し替えて再利用予定。</p>
     </div>
+
+    <a class="spec-card" href="design-system/t-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/t-gate.html?preview" loading="lazy" title="T ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Phase π/4 (T)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの位相 π/4 ゲート。H / Y / Z と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T"。Clifford + T で universal。</p>
+    </a>
 
     <a class="spec-card" href="design-system/s-dagger-gate.html">
       <div class="preview" aria-hidden="true">
