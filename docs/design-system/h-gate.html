@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>H ゲート (Hadamard) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       本ページは「H ゲート」の常時表示モックを並べる役割なので、ゲート本体の chrome
+       (cyan-400 本体 + Geist 700 グリフ + ホバー枠) を CSS で再現する。 */
+
+    /* ── H ゲート本体 ──────────────────────────────
+       gate-palette.html canonical svg (viewBox 48、rx 7.2 = 40 × 40 換算で rx 6) と一致。
+       fill = cyan-400 (box_fill ロール、design-system-colors.html § 03)、stroke なし。
+       グリフは実装 (apps/web/assets/icons/h.svg) の SVG outline を直接埋め込む。
+       fill="currentColor" の path に対し、ここで color = paper (bg = #FFFCF0) を指定し
+       paper 色のグリフを描く。サイズ・ウェイトは SVG viewBox 内の transform で確定済み。 */
+    .h-gate {
+      width: 40px;                          /* GATE_SIZE */
+      height: 40px;
+      background: var(--cyan-400);          /* box_fill */
+      border-radius: 6px;                   /* CornerRadius::same(6) と同じ */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bg);                     /* paper グリフ (SVG path の currentColor) */
+      user-select: none;
+      cursor: grab;
+      position: relative;
+      transition: background 120ms ease-out;
+    }
+    .h-gate > svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* ホバー枠 (hover-frame.html と一致)
+       outer = -4 / corner 10 / purple-400 (gate_hover_border)
+       inner = -2 / corner 8 / paper (バンドを 2 px の背景の空き で本体から離す) */
+    .h-gate[data-state="hover"]::before,
+    .h-gate:not([data-state]):hover::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 10px;
+      background: var(--purple-400);
+      z-index: -2;
+    }
+    .h-gate[data-state="hover"]::after,
+    .h-gate:not([data-state]):hover::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 8px;
+      background: var(--bg);
+      z-index: -1;
+    }
+
+    /* drag preview (drag_fill = purple-600 / semantic_intermediate)
+       paletteから掴んで回路グリッド上を動いている最中、もしくは drop 候補位置に出るプレビュー。
+       本体色を purple-600 に置換することで「これは仮配置」だと一目で識別させる。 */
+    .h-gate[data-state="drag"] {
+      background: var(--purple-600);
+      cursor: grabbing;
+    }
+    /* ghost (元位置に残るシルエット): 半透明 paper、border 破線 ui-2 */
+    .h-gate[data-state="ghost"] {
+      background: transparent;
+      border: 1px dashed var(--ui-2);
+      color: var(--tx-3);
+    }
+
+    /* ホバー枠を強制表示する mock 用クラス。実際は :hover で発火するが、
+       spec ページの常時表示モックでは data-state="hover" を直接付ける。 */
+
+    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      padding: 24px 0;
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      max-width: 160px;
+      text-align: center;
+    }
+    .stage .col .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      color: var(--tx-3);
+      line-height: 16px;
+    }
+    /* hover 状態は 枠が見えるよう、本体周辺に 8 px の余裕を確保 */
+    .stage .actual {
+      width: 56px;
+      height: 56px;                         /* SLOT_SPACING と同寸 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 200px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .h-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 回路スロット モック (§ 06) ─────────────────
+       40 × 40 の本体を 56 × 56 のスロット枠に置いて、上下に 8 px 余白が生じることを
+       1:1 で示す。隣接スロットは 56 px ピッチ。 */
+    .slot-mock {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 24px 32px;
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .slot-mock .wire {
+      position: relative;
+      height: 56px;
+      width: 280px;                         /* 5 slots × 56 px */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      /* 量子ビットワイヤ = ui-2 1 px (line ロール) */
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    /* スロット境界をうっすら可視化する補助線。実 UI には描かれない (説明用)。 */
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui);
+    }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
+
+    .slot-mock .pitch-label {
+      position: absolute;
+      bottom: -20px;
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      color: var(--tx-3);
+      line-height: 16px;
+    }
+
+    /* ── ピクセル内訳図 (§ 03 寸法) ──────────────────
+       本体 40 px + corner radius 6 px の関係を annotated diagram で見せる。 */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      padding: 24px 0;
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      color: var(--tx-2);
+      line-height: 20px;
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       probability-display.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: 実装 (apps/web/assets/icons/h.svg) と完全一致する H グリフを
+     <symbol id="g-H"> として 1 度だけ定義し、各モックは <use href="#g-H"/> で参照する。
+     gate-palette.html § canonical svg と同じ symbol 定義なので、本ページのレンダリングは
+     パレットアイコン / 回路上ゲート / 実装 SDF 描画と outline レベルで 1:1 になる。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-H" viewBox="0 0 48 48">
+    <!-- Geist 700 の "H" outline (path d は apps/web/assets/icons/h.svg と完全一致) -->
+    <g transform="translate(13.391 34.565) scale(0.029760 -0.029760)">
+      <path d="M92 0V710H178V399H535V710H621V0H535V315H178V0Z" fill="currentColor"/>
+    </g>
+  </symbol>
+</svg>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。
+     プレビュー枠は 72 px なので 40 × 40 の本体を 1 つ中央に置く。 -->
+<div id="preview">
+  <div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">H ゲート (Hadamard)</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <h1 class="page-title">H ゲート (Hadamard)</h1>
+  <p class="page-lede">
+    単一量子ビットを <code>|0⟩ / |1⟩</code> 基底から <code>|+⟩ / |−⟩</code> 基底へ変換するアダマールゲート。
+    回路エディタ上では <strong>40 × 40 px の角丸矩形</strong>に Geist 700 outline をベクタ化した
+    グリフ "H" (実装は <code>apps/web/assets/icons/h.svg</code>) を中央配置した、
+    もっとも基本的な 1 量子ビットの操作ゲートとして描画する。寸法 / 配色 / タイポグラフィは Pauli (X / Y / Z) や
+    Phase (S / T) と完全に共通で、<strong>40 px ゲート本体 + 56 px ピッチ</strong>のグリッドにそのまま乗る。
+  </p>
+</div>
+
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">仕様ページが「H 単体仕様」と「ユニタリゲート族共通仕様」の二重責任を負っている</div>
+    <p class="critique-body">
+      Flexoki Light に厳密に従い、配色・寸法・タイポグラフィの判断 1 つひとつに根拠が書かれている網羅性は probability-display.html と同等で、
+      H ゲート単体の仕様ページとしての完成度は高い。一方で <strong>§ 02 配色 / § 03 ジオメトリ / § 06 グリッド配置はすべて Pauli (X/Y/Z) と Phase (S/T) と完全に共通</strong>で、
+      実際に本文中でも「他の 1 量子ビットゲートと共通」と何度も明記されている。にもかかわらず、これらが H ゲート単体の仕様としてフル展開されており、
+      X / Y / Z / S / T のページが今後できると<strong>同じ内容が 6 ページに重複</strong>することになる。
+    </p>
+    <p class="critique-body">
+      アーキテクチャ的には「ユニタリゲート chrome の親仕様 (例: <code>unitary-gates.html</code>)」を抽出し、
+      本ページは <strong>H 固有の判断</strong> (グリフ "H" の選定、Hadamard の semantics、コントラスト比 3.4 の妥協、Hadamard 特有のユースケース) に集中するほうが、
+      変更時のコストが下がり、ページ間 diff レビューの負荷も減る。現状の構成は「親仕様がまだない」ことの仮置きと割り切るなら可だが、
+      その場合はその設計意図を <strong>§ 00 (前文)</strong> として書いておくと、本ページを参考に X/Y/Z 仕様を書く Codex がコピペで済まないことを認識できる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>ユニタリゲート chrome の親仕様を抽出</strong> — § 02 / § 03 / § 06 を <code>unitary-gates.html</code> (仮) に集約。本ページは「H 固有の判断」だけに絞る (全体所見参照)。</li>
+      <li><strong>§ 01 概要と § 05 状態バリアントの状態モックを統合</strong> — § 01 で default / hover の 2 状態、§ 05 で 4 状態という二重展開は、読者に「どちらを正として読むか」を迷わせる (§ 01 / § 05 参照)。</li>
+      <li><strong>§ 02 配色テーブルを「ロール × 状態」の 2 次元に整理</strong> — 現状は「用途」列に <code>box_fill (default)</code> と <code>box_fill (drag)</code> が独立行で並び、状態 (state) とロール (role) が 1 列に圧縮されている (§ 02 参照)。</li>
+      <li><s><strong>§ 04 の 3× zoom を「実装 SDF outline と CSS Geist Bold の比較スクショ」に差し替え</strong></s> — <strong>適用済 (2026-05-23):</strong> 本仕様ページのグリフを実装の <code>apps/web/assets/icons/h.svg</code> から <code>&lt;use href="#g-H"/&gt;</code> で直接埋め込む形に変更。CSS Geist 代用が消えたため SDF vs CSS の比較の意義そのものが消えた (§ 04 参照)。3× zoom 単体の情報価値が低い件は残課題。</li>
+      <li><strong>cyan-400 + paper グリフのコントラスト比 3.4 の妥協を § 07 に明示</strong> — WCAG AA 大文字テキスト基準 (3.0) はかろうじて満たすが、汎用テキスト基準 (4.5) は満たさない。「ボタン感を避ける」という主張と「コントラスト比 3.4 で十分」という主張は別軸の話で、現状は前者にまとめられている (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      Hadamard ゲートは「重ね合わせをつくる」もっとも基本的なゲートで、Quirk / Qni の例題回路でも
+      ほぼ必ず先頭に登場する。デザイン上は <em>個性のないただの 1 量子ビットゲート</em>であることが重要で、
+      ほかの 1 量子ビット操作ゲート (X / Y / Z / S / T) と並んだとき、グリフだけが違って見えるようにそろえる。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">default<br>(rest)</div>
+        <div class="actual"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
+        <div class="actual"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      4 状態 (default / hover / drag / ghost) の比較は <strong>§ 05 状態バリアント</strong>、
+      ジオメトリ / 配色 / グリフの詳細は § 02 以降を参照。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 01 視覚的同質性と機能的特異性の trade-off">
+      <div class="critique-label">★ 批評 · § 01 視覚的同質性 vs 機能的特異性</div>
+      <div class="critique-title">「個性のないただの 1 量子ビットゲート」という設計判断の trade-off が言語化されていない</div>
+      <p class="critique-body">
+        本文では <em>個性のないただの 1 量子ビットゲート</em>であることが重要、と書かれている。
+        これは Quirk 由来の<strong>「同族同色」原則</strong> (色を覚える負荷を消す) を踏襲したもので、
+        回路エディタとしての視覚的一貫性のためには確かに合理的。一方で、Hadamard ゲートは機能的には
+        <strong>「重ね合わせを作る最初のゲート」</strong>という Pauli (X/Y/Z) とは質的に異なる役割を持ち、
+        Qni / Quirk の例題回路でほぼ必ず最初に登場する。「視覚的に同じ・機能的に特異」という非対称が、
+        初学者にとって認知負荷の起点になることもある (「H と X は似てるのに、なんで H から始まるの?」)。
+      </p>
+      <p class="critique-body">
+        現状は「同族同色は良いこと」という前提に立っているが、この判断には <em>同族の色を覚えなくて良い</em>というメリットと、
+        <em>機能の違いが色では伝わらない</em>というデメリットの両方がある。仕様ページとしては「我々はメリットを優先する」と
+        明示的に書いておくと、X / Y / Z ページを書く Codex / 人間が「H ページの前例に従う」だけでなく「なぜそうするか」を理解できる。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 02 配色 (Flexoki Light) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>本体 fill (default)</td>
+          <td><code>cyan-400</code></td>
+          <td>#3AA99F</td>
+          <td><code>box_fill</code> ロール (<a href="design-system-colors.html">design-system-colors.html § 03</a>)。すべてのユニタリゲート本体で共通</td>
+        </tr>
+        <tr>
+          <td>グリフ "H"</td>
+          <td><code>paper</code> (<code>bg</code>)</td>
+          <td>#FFFCF0</td>
+          <td>cyan-400 上でじゅうぶんなコントラストを確保 (相対輝度比 ≈ 3.4)。グリフは塗りつぶしのみで stroke なし</td>
+        </tr>
+        <tr>
+          <td>ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code> ロール。本体外側 4 px、本体との間に 2 px の背景の空き (<a href="hover-frame.html">hover-frame.html</a> 参照)</td>
+        </tr>
+        <tr>
+          <td>本体 fill (drag preview)</td>
+          <td><code>purple-600</code></td>
+          <td>#5E409D</td>
+          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。「仮配置中」のあいだだけ本体色を置き換える</td>
+        </tr>
+        <tr>
+          <td>ghost (元位置)</td>
+          <td><code>ui-2</code> (枠)、<code>tx-3</code> (グリフ)</td>
+          <td>#DAD8CE / #B7B5AC</td>
+          <td>ドラッグ中に元位置へ残すシルエット。1 px 破線 + 薄いグリフで「ここから動いた」を示す</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <strong>色族の選定根拠:</strong> ユニタリゲートは回路上の主役なので、wire (<code>ui-2</code>) や背景 (<code>bg-2</code>)
+      とはっきり別の色族で塗りつぶす必要がある。<code>cyan-400</code> は Flexoki Light の中で blue (確率バー) / purple
+      (ホバー枠) / green (GPU 完了 status) のどれとも干渉せず、「操作」専用の色として利用箇所がはっきり切り分けられている。
+      stroke を持たないのは、本体色がじゅうぶん濃く wire と区別できるため (枠を足すと「ボタン感」が出すぎる)。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色テーブルの軸圧縮">
+      <div class="critique-label">★ 批評 · § 02 配色テーブル</div>
+      <div class="critique-title">「ロール」と「状態」が「用途」列に圧縮されている</div>
+      <p class="critique-body">
+        現状のテーブルは「用途 / Flexoki トーン / hex / 備考」の 4 列構成だが、<code>本体 fill (default)</code> と
+        <code>本体 fill (drag preview)</code> が独立した行として並んでおり、これは<strong>「ロール (box_fill / drag_fill / gate_hover_border / ghost_border / ghost_glyph)」と「対応する状態 (default / hover / drag / ghost)」が同じ列に詰め込まれている</strong>状態。
+        デザイントークン由来の「ロール」と動的に切り替わる「状態」は別軸なので、この圧縮は次の 2 つの場面で読みにくさを生む:
+      </p>
+      <ul class="critique-list">
+        <li><strong>「default 状態の見た目を作る」視点</strong>では、box_fill + glyph fill + (wire との関係) を 1 列に縦読みしたい。現状は「本体 fill (default)」「グリフ "H"」の 2 行に分かれていて、間に hover / drag の行が挟まる。</li>
+        <li><strong>「box_fill ロールがどの状態でどう変わるか」視点</strong>では、default → drag preview の遷移を読みたいが、現状は 1 行目と 4 行目に離散している。</li>
+      </ul>
+      <p class="critique-body">
+        列を「ロール / 状態 / Flexoki トーン / hex / 備考」の 5 列に再構成すれば、両方の視点でソート / 縦読みできる。
+        Ghost 行も現状は「枠」「グリフ」を 1 行に同居させているが、ロール軸で分けるとそれぞれ独立行として書ける。
+        この再構成は probability-display.html § 06 配色のテーブルと同じ思想で、ユニタリゲート族で共通化する価値がある。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 03 ジオメトリ ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
+        <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code>)</td></tr>
+        <tr><th>stroke</th><td>なし (本体色のみ。<a href="gate-palette.html">gate-palette.html</a> canonical svg と一致)</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
+        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (ほかの 1 量子ビットゲートとも共通)</td></tr>
+        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
+        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
+        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- スロット境界 (説明用) -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
+        <!-- 本体 -->
+        <rect x="0" y="0" width="40" height="40" rx="6" fill="#3AA99F"/>
+        <!-- グリフ "H" -->
+        <text x="20" y="28" text-anchor="middle"
+              font-family="Geist, sans-serif" font-weight="700" font-size="22" fill="#FFFCF0">H</text>
+        <!-- 寸法注記 -->
+        <g font-family="Geist Mono, monospace" font-size="3.6" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px (スロット)</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px (本体)</text>
+        </g>
+        <g stroke="#B7B5AC" stroke-width="0.4">
+          <!-- 56 px 横ガイド -->
+          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
+          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
+          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
+          <!-- 40 px 横ガイド -->
+          <line x1="0" y1="48" x2="40" y2="48"/>
+          <line x1="0" y1="47" x2="0" y2="49"/>
+          <line x1="40" y1="47" x2="40" y2="49"/>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 本体 (<code>GATE_SIZE</code>)</p>
+        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>6 px</strong> · 角丸半径</p>
+        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
+      </div>
+    </div>
+
+    <p class="note">
+      40 px → 56 px の関係は qni-webgpu 全ゲート共通で、本仕様で独自に決めるわけではない。詳細な経緯は
+      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ SVG の寸法注記">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ図</div>
+      <div class="critique-title">SVG 内テキスト 3.6 px は実表示倍率では判読困難</div>
+      <p class="critique-body">
+        <code>geo-diagram</code> の SVG は <code>viewBox="-12 -12 80 80"</code> を 240 × 240 px に投影しているので、
+        <code>font-size="3.6"</code> の寸法注記 (「56 px (スロット)」「40 px (本体)」) は
+        実表示で <strong>約 10.8 px</strong>に相当する。これは Tailwind スケール外で、本ドキュメントが § 04 で禁じている
+        「13 / 11 / 9 px のようなスケール外サイズ」と実質同類。SVG 内 mono フォントは可読性が落ちるため、
+        実表示 10.8 px は <strong>scan しにくい</strong>。
+      </p>
+      <p class="critique-body">
+        改善案は 2 つ: (a) <strong>SVG 外の凡例に統合する</strong> — 既に右側に <code>.legend</code> ブロックが
+        「40 px · 本体 (GATE_SIZE)」「56 px · スロット (SLOT_SPACING)」を text-xs (12 px) で並べている。
+        SVG 内の寸法テキストはここに含まれているので、重複を解消する。
+        (b) <strong>SVG 内テキストを text-xs 相当 (viewBox 換算で 4.5〜5)</strong>に上げる。
+        どちらにせよ、現状の 3.6 は意図的というより「SVG の見栄えで詰めた結果」感が強く、
+        Tailwind スペーシング厳守の本プロジェクトの方針と一貫しない。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 04 タイポグラフィ (グリフ "H") ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>タイポグラフィ (グリフ "H")</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>書体</th><td><code>Geist</code> sans-serif (700 / Bold の "H" outline をベクタ化)</td></tr>
+        <tr><th>実体</th><td><code>apps/web/assets/icons/h.svg</code> の SVG path (本仕様ページも <code>&lt;use href="#g-H"/&gt;</code> で同一 path を埋め込み)</td></tr>
+        <tr><th>SVG path</th><td><code>M92 0V710H178V399H535V710H621V0H535V315H178V0Z</code> (Geist font 座標系、advance ≈ 627 / ヘッダ高 710)</td></tr>
+        <tr><th>viewBox</th><td><code>0 0 48 48</code> (40 px セル + 上下左右 4 px の光学パディング)</td></tr>
+        <tr><th>transform</th><td><code>translate(13.391 34.565) scale(0.029760 -0.029760)</code> — Y 軸反転は SVG (Y 下方向) と font (Y 上方向) 座標系の差</td></tr>
+        <tr><th>実視覚高</th><td>約 <code>21 px</code> (710 × 0.029760 ≈ 21.13、本体高 40 px の約 <strong>53 %</strong>)</td></tr>
+        <tr><th>align</th><td>水平・垂直ともに光学センター (transform の <code>translate</code> で確定済み、CSS 側の中央寄せは不要)</td></tr>
+        <tr><th>color</th><td><code>paper</code> (#FFFCF0)。path の <code>fill="currentColor"</code> に CSS の <code>color: var(--bg)</code> が伝搬。stroke なし</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      実装と本仕様ページのレンダリングはどちらも <code>apps/web/assets/icons/h.svg</code> の同一 path をソースに描く。
+      実装側 (apps/web) はビルド時にこの SVG を 256 px PNG にラスタ化 → Signed Distance Field (SDF) テクスチャに変換し、
+      WebGPU シェーダ (<code>apps/web/src/icons/sdf_icon.rs</code>) で輪郭を実時間再構成する。
+      本仕様ページは raw SVG をそのまま <code>&lt;use&gt;</code> で埋め込んでいる。レンダリングサイズが 40〜120 px の範囲なら
+      SDF と raw SVG はピクセルレベルでほぼ同一の見た目になるため、本ページのスクショは実装のキャプチャと
+      <strong>outline レベルで 1:1</strong> として扱える。
+    </p>
+
+    <h3 style="margin-top: 16px;">3× zoom (グリフの位置確認)</h3>
+    <p class="note">
+      実寸の <code>40 × 40</code> ではグリフのセンタリングと色のコントラストを目視確認しにくいので、
+      3 倍に拡大したビューを並べる。<code>21 px / 40 px ≈ 0.53</code> という比率は H / X / Y / Z / S / T で共通。
+      SVG outline をそのまま拡大しているので、輪郭は本体サイズに依らずシャープに保たれる。
+    </p>
+    <div class="stage" style="gap: 32px;">
+      <div class="col" style="max-width: 220px;">
+        <div class="caption">default · 3× zoom</div>
+        <div class="zoom"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+      <div class="col" style="max-width: 220px;">
+        <div class="caption">ホバー · 3× zoom<br>(枠と 背景の空き)</div>
+        <div class="zoom"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+    </div>
+
+    <aside class="critique" aria-label="批評 · § 04 3× zoom の必要性">
+      <div class="critique-label">★ 批評 · § 04 タイポグラフィ</div>
+      <div class="critique-title">3× zoom 単体の情報価値は低い (一方、CSS Geist 代用 → 実装 SVG outline への移行は適用済み)</div>
+      <p class="critique-body">
+        本文では「実寸の 40 × 40 ではグリフのセンタリングと色のコントラストを目視確認しにくい」と
+        3× zoom の根拠が書かれているが、現代の 96 ppi 以上のディスプレイで 40 × 40 px は<strong>十分目視判読可能</strong>。
+        実際 § 01 / § 05 / § 06 はすべて実寸モックで「グリフのセンタリングと色のコントラスト」を確認できている。
+        3× zoom は紙の仕様書 (印刷時のドット精度確認) や Figma の inspect 画面の代替として有用だったが、
+        本プロジェクトは Playwright スクショ + ブラウザの devtools ズームでレビューする運用なので、
+        3× zoom 単体の情報価値は低い。
+      </p>
+      <p class="critique-body">
+        <s>本仕様ページは CSS の <code>font-family: Geist</code> で代用しており、実装 (SDF) との
+        ピクセルレベルでの差が見えない問題があった。</s>
+        <strong>適用済 (2026-05-23):</strong> 本仕様ページのグリフを実装の <code>apps/web/assets/icons/h.svg</code> から
+        直接 <code>&lt;use href="#g-H"/&gt;</code> で埋め込む形に変更し、CSS Geist 代用を撤廃した。
+        実装 (raw SVG → SDF テクスチャ → GPU シェーダ) と本仕様 (raw SVG → ブラウザ render) はソース path が同一なので、
+        本ページの 3× zoom がそのまま実装の outline 検証として機能する。仕様と実装が乖離する余地が消えたため、
+        この章の元々の懸念 (「CSS の見た目」と「実 GPU 描画」が違う) は構造的に解消されている。
+      </p>
+      <p class="critique-body">
+        補足: 旧版にあった <code>letter-spacing: -0.01em</code> は単一文字グリフに対して effective ではなかったうえ、
+        SVG 化された今は <code>letter-spacing</code> / <code>font-*</code> 系プロパティ自体が <code>.h-gate</code> から
+        不要になった。CSS の責務が「箱 (本体色 + 角丸 + 余白) を作る」ことに絞られ、グリフ outline は SVG に寄った。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
+  <div class="card">
+    <p>
+      4 状態を <code>data-state</code> 属性で強制したモック。実コードと同じ chrome / マークアップで、
+      ホバーしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① default<br>(rest)<br>cyan-400 本体</div>
+        <div class="actual"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② ホバー<br>purple-400 の枠 +<br>2 px 背景の空き</div>
+        <div class="actual"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ drag preview<br>purple-600 本体<br>(仮配置中)</div>
+        <div class="actual"><div class="h-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ ghost<br>(元位置のシルエット)<br>ui-2 破線 + tx-3 グリフ</div>
+        <div class="actual"><div class="h-gate" data-state="ghost"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      ③ と ④ は同時に発生する組 (ドラッグ元 = ghost、ドラッグ中のカーソル下 = drag preview)。
+      ホバー枠とドラッグの相互作用や drop preview 等の詳細は <em>Gate drag &amp; drop</em> 仕様 (draft) を参照。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 05 § 01 との重複">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">§ 01 と § 05 の状態モックが二重で展開されている</div>
+      <p class="critique-body">
+        § 01 概要では default + hover の 2 状態を実寸モックで見せ、§ 05 では default + hover + drag + ghost の
+        4 状態を実寸モックで見せている。<strong>§ 01 の 2 状態は § 05 のサブセット</strong>なので、
+        読者は「同じ図を 2 回見る」ことになるうえ、caption の文言も微妙に異なる (§ 01: 「purple-400 の枠 + 背景の空き」、
+        § 05: 「purple-400 の枠 + 2 px 背景の空き」) ので、「§ 01 と § 05 は別物? 同じ物?」と一瞬迷う。
+      </p>
+      <p class="critique-body">
+        統合案: § 01 ではモックを <strong>default 1 状態だけ</strong>に絞り (「これが H ゲートです」と一目で伝える)、
+        § 05 を canonical な「4 状態の比較」にする。§ 01 の文末から § 05 へリンクするだけで、
+        「default の見た目を知りたい → § 01」「全状態を比較したい → § 05」の動線が明確になる。
+        現状の構成は probability-display.html § 01 + § 02 と同じパターンだが、確率表示ブロックの場合は
+        「§ 02 サイズ別の見た目」が span 1〜5 + 16 を並べる質的に異なる情報なので重複ではない。
+        H ゲートは状態 4 つしかなく、span のような次元軸もないので、§ 01 のモックは省略しても情報量を失わない。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      H ゲートは 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。スロットは
+      <code>56 × 56 px</code> 等間隔で並び、本体 40 px は各スロットの中央に来る (上下左右に 8 px の余白)。
+      これは Pauli / Phase など他の 1 量子ビット操作ゲートと完全に共通。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire">
+        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      上のモックは <code>56 × 5 = 280 px</code> の量子ビットワイヤ (<code>ui-2</code> 1 px) に、3 個の H を
+      1 スロットおきに並べたもの。<em>うっすら入っているスロット境界の <code>ui</code> 線は説明用</em>で、
+      実 UI には描画されない。
+    </p>
+
+    <h3 style="margin-top: 16px;">隣接ゲートとの余白</h3>
+    <p>
+      ピッチ 56 px に対し本体 40 px なので、隣接スロットに置かれたゲートとの間には <strong>16 px の余白</strong>
+      が常に確保される。これはホバー枠 (本体外側 4 px) + 背景の空き (2 px) + 反対側の枠 (4 px) + 反対側の背景の空き
+      (2 px) を合計 12 px、さらに視覚的な余白 4 px を含む値。<em>連続するゲートでも枠が重ならない</em>
+      よう余裕を持って設計されている。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 06 隣接ゲート余白の図がない">
+      <div class="critique-label">★ 批評 · § 06 隣接ゲートとの余白</div>
+      <div class="critique-title">「16 px の内訳 (4 + 2 + 2 + 4 + 4)」が文章だけで図解されていない</div>
+      <p class="critique-body">
+        「16 px = 枠 (4) + 背景の空き (2) + 反対側の背景の空き (2) + 反対側の枠 (4) + 視覚的な余白 (4)」という
+        積み上げ計算は本仕様で初めて言語化される情報で、ここが本ページの hover/drag 余白政策の<strong>定量根拠</strong>になっている。
+        にもかかわらず、その内訳は文章でだけ説明され、隣接ゲート 2 つの間に各レイヤがどう配置されるかの
+        annotated diagram がない。読者は文章を読みつつ <code>4 + 2 + 2 + 4 + 4 = 16</code> を脳内で組み立てる必要がある。
+      </p>
+      <p class="critique-body">
+        改善案: § 03 の <code>geo-diagram</code> と同じ形式で、隣接スロット 2 つを横並びに置き、間の 16 px を
+        色レイヤで分解した SVG を追加する (例: 本体 40 px の右端 → 4 px 枠 → 2 px 背景の空き → 4 px 視覚的な余白 →
+        2 px 背景の空き → 4 px 枠 → 本体 40 px の左端)。これがあれば「hover を 2 つ同時に出した時に 枠が
+        重ならない」という主張が一目で検証でき、将来 枠幅 / 背景の空き を変えた場合の影響も visual diff で読める。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 07 設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span>設計判断</h2>
+  <div class="card">
+    <ul>
+      <li><strong>グリフだけで識別する</strong>: H / X / Y / Z / S / T は本体色 / 形 / サイズがすべて同じで、グリフだけが違う。これは Quirk から踏襲した「同じ族のゲートは同じ chrome」原則。色で差別化すると<em>色を覚える</em>負荷が発生し、Pauli ゲート以外で意味のある対応関係が壊れる</li>
+      <li><strong>stroke を持たない</strong>: gate-palette.html canonical svg と一致。本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) とじゅうぶん区別できるため、stroke を足すと「ボタン感」が出すぎる。design-system.html の index カードに stroke が描かれているのは illustrative な簡略表現で、本仕様が canonical</li>
+      <li><strong>角丸 6 px</strong>: 40 px 本体に対し 15 % の corner radius。角を立てた矩形は機械的・無機質に、円に寄せすぎるとボタンに見える。15 % は「素早く識別できるアイコン形状」と「操作可能な要素であるという親しみやすさ」のバランス点</li>
+      <li><strong>グリフ 22 px (本体の 55 %)</strong>: 1 文字グリフは大きすぎると角丸の内側 padding を侵食し、小さすぎると遠目に判別しにくい。Geist 700 で 22 / 40 ≈ 0.55 が「本体 chrome を残しつつ可読」のスイートスポット。H 以外のグリフ (X / Y / Z など) も同じスケール</li>
+      <li><strong>paper グリフ</strong>: cyan-400 + paper のコントラスト比は 3.4 で WCAG AA の大文字テキストを満たす。tx (#100F0F) を使うと黒すぎてゲートが「ボタン」に寄り、回路上の操作要素という抽象度が損なわれる</li>
+      <li><strong>ホバー枠は本体外側 4 px + 背景の空き 2 px</strong>: hover-frame.html と共通。本仕様で独自に決めず、横断方針を継承する</li>
+      <li><strong>drag preview を <code>purple-600</code></strong>: drag_fill / semantic_intermediate ロール。本体色を一時的に置き換えて「仮配置」と「確定配置」を一目で識別。半透明にすると wire や他ゲートと色が混ざって読みにくいため、不透明色での置換にする</li>
+      <li><strong>span = 1 固定 (リサイズハンドルなし)</strong>: H は単一量子ビットに作用するゲートなので、表示ブロック (確率 / 振幅 / 密度行列) や QFT のように span を変える概念がない。<a href="resize-handle.html">resize-handle.html</a> primitive は使わない</li>
+    </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 設計判断の階層化と妥協の明示">
+      <div class="critique-label">★ 批評 · § 07 設計判断</div>
+      <div class="critique-title">8 項目が平等に並んでおり、「継承」「H 固有」「妥協」が混在している</div>
+      <p class="critique-body">
+        現状の 8 項目は性質が次の 3 種類に分かれるが、リスト上は平等に並んでいる。これを階層化すると、
+        変更時に「これは親仕様 (ユニタリゲート族) も巻き込む大きい話」「ここは H ローカルで決めて OK」が明確になる:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) ユニタリゲート族共通 (親仕様から継承)</strong>: グリフだけで識別する / stroke を持たない / 角丸 6 px / ホバー枠 4+2 / drag preview purple-600。これらは H 単体で決める話ではなく、X/Y/Z/S/T すべてに同じ判断が適用される。</li>
+        <li><strong>(b) 1 量子ビットゲート族共通</strong>: span = 1 固定。これは Pauli / Phase / Hadamard 全てに共通だが、CNOT / SWAP / QFT には適用されない。</li>
+        <li><strong>(c) H 単独の判断</strong>: グリフ 22 px (本体の 55 %) / paper グリフ。グリフサイズと paper 色は族全体に効くので厳密には共通だが、Hadamard で初めて確立されたなら H ページが canonical。</li>
+      </ul>
+      <p class="critique-body">
+        さらに、<strong>「paper グリフ」項目は妥協を含む</strong>のに、現状はメリットだけが書かれている。
+        cyan-400 + paper のコントラスト比 3.4 は <a href="https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html">WCAG 2.1 AA</a> の
+        大文字テキスト基準 (3.0) はかろうじて満たすが、汎用テキスト基準 (4.5) は満たさない。
+        22 px は border-line で大文字基準の対象になるかどうかも実装依存 (英語圏では 18 pt = 24 px が境界)。
+        「tx を使うと黒すぎてゲートが『ボタン』に寄る」というデザイン判断は妥当だが、その代償として
+        <strong>低視力ユーザや色覚多様性のあるユーザにはグリフが読みにくい場面がある</strong>ことは明示しておくと、
+        将来「ハイコントラストモード」を実装する根拠になる。
+      </p>
+      <p class="critique-body">
+        補足: 「角丸 6 px は 40 px 本体に対し 15 %」と書かれているが、これは Tailwind の
+        <code>rounded-md</code> (= 6 px) に対応し、本プロジェクトが厳守すべき Tailwind スケール内の値。
+        「15 %」という分母比較は印象論で、Tailwind トークンとの一致のほうが <strong>変更不可な根拠</strong>になる。
+        コメント側 (h-gate.html line 29) では <code>CornerRadius::same(6)</code> と同じ、と実装側の定数を引いているが、
+        ここでも Tailwind トークン名 (<code>rounded-md</code>) を併記すると、デザイントークン軸での妥当性が伝わる。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 08 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>パレット上の H ゲート (drag source) の chrome を canonical に定義。本仕様の本体 / グリフは palette spec と 1:1</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>ホバー枠 (purple-400 + bg gap) の方針。H ゲート単独では再定義せず、本仕様を継承する</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。H グリフは Geist 700 22 px (本仕様で個別指定)</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-spacing.html">スペーシング</a></td>
+          <td>本体 40 px / スロット 56 px は Tailwind の <code>spacing-10</code> / <code>spacing-14</code> と一致</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · H ゲート (Hadamard) · 2026-05</p>
+</footer>
+
+</body>
+</html>
