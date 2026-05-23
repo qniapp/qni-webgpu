@@ -21,65 +21,10 @@
        本ページは「X ゲート」の常時表示モックを並べる役割なので、ゲート本体の見た目
        (cyan-400 塗りつぶし円 + paper Plus グリフ + ホバー枠) を CSS + inline SVG で再現する。 */
 
-    /* ── X ゲート本体 ──────────────────────────────
-       gate-palette.html canonical <symbol id="g-X" viewBox="0 0 48 48"> と一致。
-       本体は塗りつぶし円 (cyan-400 = box_fill ロール、design-system-colors.html § 03)、
-       border-radius: 50% で 40 × 40 px の真円にする。stroke はなし。
-       Plus グリフは内側に inline SVG で重ねる (font ではなくベクタパス)。 */
-    .x-gate {
-      width: 40px;                          /* GATE_SIZE */
-      height: 40px;
-      background: var(--cyan-400);          /* box_fill */
-      color: var(--bg);                     /* paper Plus グリフ (currentColor 経由で <symbol> に継承) */
-      border-radius: 50%;                   /* 真円: H/Y/Z の border-radius 6 と対比 */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      transition: background 120ms ease-out;
-    }
-    /* Plus グリフ: gate-palette.html canonical svg と完全に同じパス。
-       viewBox 48 × 48 上で Plus パスは中心 (24, 24) に対して 14.34 viewBox 単位 (≈ 12 px)
-       で広がる。display は 40 × 40 px なので、Plus は約 12 px 角に見える。
-       インスタンス本体では <symbol id="g-X-plus"> を <use> で呼び、fill="currentColor" で
-       親 .x-gate の color プロパティを継承する (CSS class セレクタは <use> 影 DOM を超えないため)。 */
-    .x-gate > svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
+    /* X ゲート本体 (cyan-400 真円 + paper Plus グリフ + ホバー枠 + drag preview) の
+       クロムは components/x-gate.js が Web Component <x-gate> として提供する。
+       本ファイルでは stage / zoom / slot-mock などレイアウト側の CSS だけを定義する。 */
 
-    /* ホバー枠 (hover-frame.html と一致)
-       outer = -4 / 背景の空き、inner = -2 / paper、最終的に purple-400 リング 2 px が
-       本体外側に出る。本体が真円なので、枠の border-radius も完全な丸にして同心円にする。 */
-    .x-gate[data-state="hover"]::before,
-    .x-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;                  /* 同心円: 本体 40 → 枠外径 48 */
-      background: var(--purple-400);
-      z-index: -2;
-    }
-    .x-gate[data-state="hover"]::after,
-    .x-gate:not([data-state]):hover::after {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: 50%;
-      background: var(--bg);
-      z-index: -1;
-    }
-
-    /* drag preview (drag_fill = purple-600 / semantic_intermediate)
-       本体色を purple-600 に置換することで「これは仮配置」だと一目で識別させる。
-       Plus グリフ色は変えない (paper のまま) — drag 中も glyph はゲートの id として残す。 */
-    .x-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
@@ -251,20 +196,8 @@
 </head>
 <body>
 
-<!-- 共有 Plus グリフ シンボル定義 (gate-palette.html canonical <symbol id="g-X"> の Plus 部分と 1:1)。
-     fill="currentColor" にしておくと各インスタンスの親 .x-gate が持つ color を継承する。 -->
-<svg width="0" height="0" style="position: absolute" aria-hidden="true">
-  <symbol id="g-X-plus" viewBox="0 0 48 48">
-    <g transform="translate(15.637 32.690) scale(0.029760 -0.029760)" fill="currentColor">
-      <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
-    </g>
-  </symbol>
-</svg>
-
 <!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。
-     preview-mode は body 直下を display: none にするので ↑の <symbol> コンテナも隠れる。
-     <use> が display: none の参照先を解決できないブラウザがあるため、ここは Plus パスを
-     インライン展開してサムネを確実に描画する。 -->
+     <x-gate> Web Component が canonical な X ゲートを Shadow DOM 内で描画する。 -->
 <div id="preview">
   <x-gate></x-gate>
 </div>

@@ -238,27 +238,8 @@
       overflow-x: auto;
     }
 
-    .target-gate {
-      width: 40px;                          /* GATE_SIZE */
-      height: 40px;
-      border-radius: 999px;
-      background: var(--cyan-400);          /* X ゲート本体 / box_fill */
-      position: relative;
-    }
-    .target-gate::before,
-    .target-gate::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 20px;                          /* spacing-5 */
-      height: 4px;                          /* Plus glyph stroke */
-      background: var(--bg);                /* paper / 字形 */
-      transform: translate(-50%, -50%);
-    }
-    .target-gate::after {
-      transform: translate(-50%, -50%) rotate(90deg);
-    }
+    /* アンチコントロール CNOT のターゲット (X ゲート本体) のクロムは
+       <x-gate> Web Component が提供する。 */
 
     .geo-diagram {
       display: flex;
