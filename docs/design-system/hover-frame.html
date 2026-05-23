@@ -112,8 +112,7 @@
     }
     .hf-layer-body,
     .hf-layer-inner-gap,
-    .hf-layer-frame,
-    .hf-layer-outer-gap {
+    .hf-layer-frame {
       position: absolute;
       top: 12px;
       bottom: 12px;
@@ -137,12 +136,6 @@
       background: var(--purple-400);
       z-index: 2;
       border-radius: 10px;
-    }
-    .hf-layer-outer-gap {
-      left: 60px;
-      width: 48px;
-      border: 1px dashed var(--tx-3);
-      z-index: 5;
     }
     .hf-layer-labels {
       display: grid;
@@ -272,7 +265,6 @@
     <ol class="critique-list">
       <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
       <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
-      <li><strong>§ 02 レイヤ図の dashed 外枠を再設計</strong> — 紫枠 (48 × 48 px) と dashed 外形 (48 × 48 px) が完全に同じ矩形に重なっており、4 レイヤのうち 1 つが視覚的に冗長 (§ 02 参照)。</li>
       <li><strong>§ 04 描き分けに「表示ブロック内セル」の visual mock を追加</strong> — 回路上 / パレットは § 01 で実物が見えるが、表示ブロック内セルだけ文章しかなく、形状の違い (確率 / 振幅 / 密度行列) が本ページから読み取れない (§ 04 参照)。</li>
     </ol>
   </aside>
@@ -310,7 +302,7 @@
     <table class="spec">
       <tbody>
         <tr><th>対象矩形</th><td>ホバー対象の表示矩形。通常ゲートは <code>40 × 40 px</code>、span 付き表示ブロックは実際に見えている本体矩形</td></tr>
-        <tr><th>外側への拡張</th><td><code>4 px</code>。実装では <code>body_rect.expand(4.0)</code> または <code>gate_rect.expand(4.0)</code></td></tr>
+        <tr><th>外側への拡張</th><td><code>4 px</code> (内側の空き <code>2 px</code> + 線幅 <code>2 px</code> の積算)。実装では <code>body_rect.expand(4.0)</code> または <code>gate_rect.expand(4.0)</code></td></tr>
         <tr><th>線幅</th><td><code>2 px</code>。外側 4 px のうち外寄り 2 px が <code>purple-400</code></td></tr>
         <tr><th>内側の空き</th><td><code>2 px</code>。対象要素と紫枠の間に背景色の隙間を残す</td></tr>
         <tr><th>角丸</th><td><code>10 px</code>。40 px 通常ゲート本体の <code>6 px</code> 角丸より 4 px 大きい</td></tr>
@@ -321,7 +313,6 @@
 
     <div class="hf-layer-stack" role="img" aria-label="ホバー枠のレイヤ図">
       <div class="hf-layer-visual">
-        <div class="hf-layer-outer-gap"></div>
         <div class="hf-layer-frame"></div>
         <div class="hf-layer-inner-gap"></div>
         <div class="hf-layer-body"></div>
@@ -330,30 +321,9 @@
         <span><i class="hf-swatch" style="background: var(--cyan-400);"></i>本体 40 px</span>
         <span><i class="hf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
         <span><i class="hf-swatch" style="background: var(--purple-400);"></i>ホバー枠 2 px</span>
-        <span><i class="hf-swatch" style="background: transparent;"></i>ホバー枠外形 48 px</span>
       </div>
     </div>
 
-    <aside class="critique" aria-label="批評 · § 02 レイヤ図の冗長性">
-      <div class="critique-label">★ 批評 · § 02 寸法</div>
-      <div class="critique-title">レイヤ図の dashed 外枠と紫枠が同じ 48 × 48 px 矩形に重なっており、4 レイヤのうち 1 つが冗長</div>
-      <p class="critique-body">
-        レイヤ図は本体 (cyan 40 px) → 内側の空き (bg-2 44 px) → ホバー枠 (purple 48 px) → 外形 (dashed 48 px) の 4 層を z-index で重ねて見せる構造だが、
-        <code>hf-layer-frame</code> (purple 48 px、z=2) と <code>hf-layer-outer-gap</code> (dashed 48 px、z=5) が<strong>完全に同じ矩形</strong>を占めている。
-        dashed 線は最前面に重なって紫の上を走るだけになり、「外形 = ホバー枠の外辺」という同義反復しか伝わらず、レイヤ図の主役 (4 つの層が積み重なっている事実) を弱める。
-      </p>
-      <p class="critique-body">
-        改善案は 2 通り:
-      </p>
-      <ul class="critique-list">
-        <li><strong>(a) dashed 外枠を 50 × 50 px に拡張する</strong> — 紫枠の<em>外側</em>の余白を示す形にし、隣接ゲートとの余白を理解する文脈で機能させる (h-gate.html § 06 の「16 px = 4 + 2 + 2 + 4 + 4」と連動)。</li>
-        <li><strong>(b) dashed 外枠を削除し 3 レイヤに絞る</strong> — 凡例の「ホバー枠外形 48 px」は § 03 の表に既出。「視覚的にはレイヤ数を 4 に見せたいが実体は 3 つ」という違和感が解消される。</li>
-      </ul>
-      <p class="critique-body">
-        補足: 表の「外側への拡張 4 px」「線幅 2 px」「内側の空き 2 px」の関係が <strong>4 px = 内側の空き 2 px + 線幅 2 px</strong> という積算であることが表中に明示されていない。
-        この式を表に書いておけば、レイヤ図は「式 → 視覚化」の順で読めて、図と表が同じ情報を別表現で繰り返しているのでなく、内訳の段階的理解になる。
-      </p>
-    </aside>
   </div>
 </section>
 
