@@ -12,6 +12,8 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- CNOT ターゲット (X ゲート本体) は canonical な <x-gate> Web Component を埋め込む。 -->
+  <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
        table.spec / pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
@@ -133,7 +135,7 @@
       background: var(--cyan-400);
     }
     .control-column .control-gate,
-    .control-column .target-gate {
+    .control-column x-gate {
       z-index: 1;
     }
 
@@ -335,7 +337,7 @@
         <div class="caption">CNOT<br>制御 + X</div>
         <div class="control-column">
           <div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
-          <div class="target-gate" aria-hidden="true"><svg viewBox="0 0 48 48"><use href="#g-Plus" /></svg></div>
+          <x-gate></x-gate>
         </div>
       </div>
       <div class="col">
@@ -516,7 +518,7 @@
         <div class="diagram-caption">Control + X<br>CNOT</div>
         <div class="wide-column"><div class="control-column">
           <div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
-          <div class="target-gate" aria-hidden="true"><svg viewBox="0 0 48 48"><use href="#g-Plus" /></svg></div>
+          <x-gate></x-gate>
         </div></div>
       </div>
     </div>

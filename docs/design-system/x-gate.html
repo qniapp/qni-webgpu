@@ -12,6 +12,9 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- canonical な X ゲート (Pauli-X / NOT) を Web Component <x-gate> として埋め込む。
+       本ページの全モック (#preview / § 各セクション) で同じ Shadow DOM 実装を共有する。 -->
+  <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
@@ -114,7 +117,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .x-gate {
+    .stage .zoom x-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -263,13 +266,7 @@
      <use> が display: none の参照先を解決できないブラウザがあるため、ここは Plus パスを
      インライン展開してサムネを確実に描画する。 -->
 <div id="preview">
-  <div class="x-gate">
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <g transform="translate(15.637 32.690) scale(0.029760 -0.029760)" fill="currentColor">
-        <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
-      </g>
-    </svg>
-  </div>
+  <x-gate></x-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -336,17 +333,13 @@
       <div class="col">
         <div class="caption">default<br>(rest)</div>
         <div class="actual">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き (同心円)</div>
         <div class="actual">
-          <div class="x-gate" data-state="hover">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate state="hover"></x-gate>
         </div>
       </div>
     </div>
@@ -559,17 +552,13 @@
       <div class="col" style="max-width: 220px;">
         <div class="caption">default · 3× zoom</div>
         <div class="zoom">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
       </div>
       <div class="col" style="max-width: 220px;">
         <div class="caption">ホバー · 3× zoom<br>(同心円 枠 + 背景の空き)</div>
         <div class="zoom">
-          <div class="x-gate" data-state="hover">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate state="hover"></x-gate>
         </div>
       </div>
     </div>
@@ -606,25 +595,19 @@
       <div class="col">
         <div class="caption">① default<br>(rest)<br>cyan-400 円</div>
         <div class="actual">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>purple-400 同心円 +<br>2 px 背景の空き</div>
         <div class="actual">
-          <div class="x-gate" data-state="hover">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate state="hover"></x-gate>
         </div>
       </div>
       <div class="col">
         <div class="caption">③ drag preview<br>purple-600 本体<br>(仮配置中)</div>
         <div class="actual">
-          <div class="x-gate" data-state="drag">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate state="drag"></x-gate>
         </div>
       </div>
     </div>
@@ -648,21 +631,15 @@
     <div class="slot-mock with-grid">
       <div class="wire">
         <div class="slot">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
         <div class="slot"></div>
         <div class="slot">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
         <div class="slot"></div>
         <div class="slot">
-          <div class="x-gate">
-            <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-X-plus"/></svg>
-          </div>
+          <x-gate></x-gate>
         </div>
       </div>
     </div>

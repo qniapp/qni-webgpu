@@ -12,6 +12,8 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- アンチコントロール CNOT ターゲット (X ゲート本体) は canonical な <x-gate> Web Component を埋め込む。 -->
+  <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。
        本ページは AntiControl の透明な 40 px 領域、cyan-400 の空円、
@@ -207,7 +209,7 @@
       height: 112px;
     }
     .column-mock .ac-gate,
-    .column-mock .target-gate,
+    .column-mock x-gate,
     .column-mock .ctl-gate {
       z-index: 1;
     }
@@ -435,7 +437,7 @@
         <div class="caption">0 条件 CNOT<br>AntiControl + X</div>
         <div class="column-mock column-mock--2 column-mock--anti-top">
           <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
-          <div class="target-gate" aria-hidden="true"></div>
+          <x-gate></x-gate>
         </div>
       </div>
     </div>
@@ -646,7 +648,7 @@
         <div class="wide-column">
           <div class="column-mock column-mock--2 column-mock--anti-top">
             <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
-            <div class="target-gate" aria-hidden="true"></div>
+            <x-gate></x-gate>
           </div>
         </div>
       </div>
@@ -656,7 +658,7 @@
           <div class="column-mock column-mock--3 column-mock--anti-middle">
             <div class="ctl-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
             <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
-            <div class="target-gate" aria-hidden="true"></div>
+            <x-gate></x-gate>
           </div>
         </div>
       </div>
