@@ -202,6 +202,55 @@
       text-align: center;
     }
     .cnot-compare svg { display: block; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使い、
+       .note (tx-2 のグレー段落) とは別レイヤとして読めるようにする。
+       probability-display.html § 批評 と同じ語彙 / レイアウト。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -250,6 +299,38 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「H からのテンプレ流用」が X 固有の発見を薄めている</div>
+    <p class="critique-body">
+      章構成 (§ 01〜§ 08) を h-gate.html と並行に揃えたため、章ごとの分量も H と均等になりがち。
+      しかし X の核心は <strong>「Pauli 族で唯一円形である」</strong> と <strong>「CNOT ターゲットと見た目を共有する」</strong>
+      の 2 点に尽きる。現状は § 01 で前者を伝えるが、後者を支える CNOT 比較図は § 04 内 h3 サブセクションまで
+      読まないと出てこない。初見の読者は「X が ⊕ である理由」を一読では取れず、§ 04 で初めて腑に落ちる。
+    </p>
+    <p class="critique-body">
+      もうひとつ: X ゲートそのものの視覚デザインに関する判断 (Plus が本体直径 30 % で控えめ、円形は wire に
+      溶け込みやすい、ghost の dashed 円の品質問題など) が <em>spec の体裁の中に紛れて</em>、設計判断として
+      議論されていない。spec 内に <code>aside.critique</code> として明示的に立てて「ここは未決」と残す方が
+      後続の Y/Z/S/T 仕様策定にも知見が引き継ぎやすい。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>CNOT 一致を § 01 のヒーローに昇格</strong> — § 04 内 h3 にある CNOT 比較図を § 01 概要に引き上げ、「X = 単独で立つゲートではなく CNOT の構成要素」というメンタルモデルを最初に植える。</li>
+      <li><strong>ジオメトリ図 (§ 03) を canonical viewBox 48 系に統一</strong> — 現状は display 40 系の transform <code>translate(13.031 27.242)</code> と canonical <code>translate(15.637 32.690)</code> が併存し、読者に「どちらの値を覚えればいいか」を考えさせる。</li>
+      <li><strong>ghost の "dashed 円" 品質問題を § 07 に組み入れる</strong> — レビュー過程で削除した「<code>border-radius: 50%</code> + <code>border-style: dashed</code> はブラウザ依存」の註は実装の現実なので、spec 内に「SVG <code>stroke-dasharray</code> を必要に応じて検討」と残す方が安全。</li>
+      <li><strong>Plus の視覚的存在感を実機 H/X/Y/Z 横並び画像で検証</strong> — Plus 30 % / H 文字 55 % の比率差は、回路上で並べたとき X が「薄く」見える可能性がある。canonical を維持しつつ Plus 腕厚を 6 % → 8 % に調整する余地は要検証。</li>
+      <li><strong>「Plus = ビット反転」の学習者向け補強</strong> — 初見では「⊕ = XOR」と読まれがち。ツールチップや初回 hover アニメーションで補強する設計余地を § 07 に明文化する。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -282,6 +363,21 @@
       4 状態 (default / hover / drag / ghost) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / グリフの詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 CNOT 一致の位置取り">
+      <div class="critique-label">★ 批評 · § 01 CNOT 一致の位置取り</div>
+      <div class="critique-title">X の核心が「本体形状の違い」止まりで、CNOT 一致が伏線化している</div>
+      <p class="critique-body">
+        § 01 本文は「H / Y / Z と本体形状が違う」と「CNOT のターゲットと同じ ⊕ を踏襲」の 2 点を語るが、
+        後者は補足の括弧書きにとどまる。実際の CNOT 比較図は § 04 のサブセクションまで読まないと出てこない。
+        読者の理解の流れは <em>「形が違う → なぜ? → CNOT と統一するため → CNOT 比較を見たい」</em>となるので、
+        CNOT 比較図のサムネを § 01 概要に置き、詳細を § 04 にリンクする構造の方が情報密度が高い。
+      </p>
+      <p class="critique-body">
+        現状の概要バリアント (default / hover の 2 状態) を 1 つ削り、CNOT 比較の小型版に置き換えるのが
+        最小コストの改善案。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -393,6 +489,22 @@
       40 px → 56 px の関係は qni-webgpu 全ゲート共通で、本仕様で独自に決めるわけではない。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ図の座標系">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ図の座標系</div>
+      <div class="critique-title">canonical (viewBox 48) と display (40 px) の二重表記が読者に二度手間を強いる</div>
+      <p class="critique-body">
+        「形状」行は <code>&lt;circle r="24"&gt; on viewBox 48</code> を canonical として示すが、すぐ下のピクセル
+        内訳図 (1× 図解) は <code>viewBox -12 -12 80 80</code> 上で <code>circle r="20"</code> (display 40 px 直径)
+        を使い、Plus も canonical <code>scale(0.02976)</code> を display 系に再計算した <code>scale(0.02480)</code> で
+        配置している。canonical と display の二重表記は読者に「どちらの値を覚えればいいか」を考えさせ、
+        gate-palette.html 側 (canonical) との対応を追うコストが上がる。
+      </p>
+      <p class="critique-body">
+        修正案: 図も canonical (viewBox 48 そのまま) で描き、display 40 px への線形スケーリングは注記 1 行
+        (<code>40 / 48 = 0.833</code>) で済ませる。サイズ感を直感させる狙いなら別途「実寸プレビュー」(<a href="#"><code>56 × 56</code> スロット内に 1 つ置く</a>) を 1 個追加する方が「ピクセル単位の妥当性」を伝えやすい。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -480,6 +592,24 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 Plus の視覚的存在感と CNOT 比較図のスケール">
+      <div class="critique-label">★ 批評 · § 04 Plus の視覚的存在感 + CNOT 比較図</div>
+      <div class="critique-title">「外形 ≈ 12 × 12 px / 腕の太さ ≈ 2.3 px」は X が H より薄く見える根源</div>
+      <p class="critique-body">
+        表によれば Plus は本体直径の <strong>30 %</strong>、腕の太さは <strong>6 %</strong>。これは H 文字グリフ
+        (本体高の 55 %, ストローク厚 ≈ 4 px) と比べると視覚的占有が小さく、cyan-400 円 + paper Plus の組み合わせは
+        「H ほど目に飛び込んでこない」可能性が高い。<code>bearing</code> の補正で同等の占有感とする説明はあるが、
+        実機で H / X / Y / Z を <em>横並びにした検証スクリーンショット</em>が添付されていないため検証可能性が低い。
+        canonical を維持しつつ Plus 腕厚を 6 % → 8 % (≈ 3 px) に太らせる余地があるかは別途検証したい。
+      </p>
+      <p class="critique-body">
+        <strong>CNOT 比較図のスケール不整合:</strong> 単独 X (viewBox <code>48 × 56</code>, width <code>64</code>) と
+        CNOT (viewBox <code>48 × 100</code>, width <code>64</code>) で display 幅を揃えたため、CNOT 側は viewBox が
+        縦に長い分だけ全体が圧縮されて表示される。「寸法が完全一致」と謳うなら両図とも canonical 単位
+        (たとえば 1 vbu = 2 display px) に揃えて、円の物理サイズを目視で確認できる方が説得力が出る。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -529,6 +659,28 @@
       ③ と ④ は同時に発生する組 (ドラッグ元 = ghost、ドラッグ中のカーソル下 = drag preview)。
       ホバー枠とドラッグの相互作用や drop preview 等の詳細は <em>Gate drag &amp; drop</em> 仕様 (draft) を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 ghost 状態の表記と品質">
+      <div class="critique-label">★ 批評 · § 05 ghost 状態</div>
+      <div class="critique-title">「半透明 paper」の CSS コメントと実装 (transparent) が乖離している</div>
+      <p class="critique-body">
+        line 80 の CSS コメントは <code>/* ghost ... 半透明 paper、border 破線 ui-2 */</code> と書くが、実 CSS は
+        <code>background: transparent</code> (完全透明)。表記の不整合を解消するか、本当に半透明にするなら
+        <code>rgba(255, 252, 240, 0.5)</code> 等を採用するかの判断が要る。h-gate.html 側でも同じ食い違いが
+        ある場合は両ページを同時修正したい。
+      </p>
+      <p class="critique-body">
+        <strong>削除した註記の復活:</strong> レビュー過程で「<code>border-radius: 50%</code> + <code>border-style: dashed</code>
+        はブラウザによって曲率が荒く見える」を「実装側 TODO であり spec ではない」として削除したが、本仕様は
+        実装の判断材料となる canonical なので、品質問題が起きる可能性は § 07 設計判断に <em>「dashed 円の代替実装
+        (SVG <code>stroke-dasharray</code> on circle) を必要に応じて検討」</em>として残しておく方が安全。
+      </p>
+      <p class="critique-body">
+        <strong>視認性:</strong> 56 × 56 ミニ表示で ghost の Plus (<code>tx-3</code>) はほぼ視認できない。spec 上の
+        意図 (「ここから動いた」を示す薄いシルエット) は満たすが、実回路で複数 ghost が並んだとき X だけが
+        消えるように見える可能性があり、Y / Z (角丸正方形破線 + tx-3 文字) と並べた検証が要る。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -592,6 +744,38 @@
       <li><strong>Plus グリフは文字ではなくベクタパス</strong>: 文字 "+" を font で描くと、Geist の "+" は記号バランスが細く、CNOT の太い ⊕ と一致しない。<a href="gate-palette.html">gate-palette.html</a> canonical の <code>g-X</code> シンボル (Plus パス) を 1:1 で使うことで、SDF テクスチャ焼き込みとも整合性をとる</li>
       <li><strong>ホバー枠は同心円</strong>: 本体が真円なので、枠も <code>border-radius: 50%</code> で同心円にする。これは H ゲートの角丸枠と<em>形状だけ違って論理は同じ</em>: 本体外側 4 px の purple-400 + 2 px 背景の空き という幾何関係は完全に共通</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 設計判断の構造">
+      <div class="critique-label">★ 批評 · § 07 設計判断の構造</div>
+      <div class="critique-title">bullet 1 が 3 トピックを 1 文に圧縮し、優先順位が読み取れない</div>
+      <p class="critique-body">
+        現在の bullet 1 は (a) NOT の ⊕ 慣習 / (b) CNOT ターゲットと統一 / (c) Y / Z との形状区別の 3 つを
+        1 文で語る。読者が設計判断を引用したいとき、どれが「本質的理由」でどれが「副次的利点」かが取りにくい。
+        本質 (a + b) と 副次 (c) を 2 bullet に分割すれば、後続の Y / Z / S / T 仕様で「我々も形状で識別すべきか?」
+        を判断する際の論拠が明確になる。
+      </p>
+    </aside>
+
+    <aside class="critique" aria-label="批評 · X ゲート視覚デザインへの所見">
+      <div class="critique-label">★ 批評 · X ゲート視覚デザインそのもの (spec とは別軸)</div>
+      <div class="critique-title">canonical 一致と「ゲートとしての存在感」のトレードオフが議論されていない</div>
+      <p class="critique-body">
+        以下は spec ページの体裁ではなく、X ゲートの<strong>視覚デザインそのもの</strong>への批評。canonical
+        (gate-palette.html § g-X) を 1:1 で踏襲する方針自体は妥当だが、その結果として X が回路上で持つ
+        プレゼンスについて、設計判断の中で議論されていない論点がいくつかある:
+      </p>
+      <ol class="critique-list">
+        <li><strong>視覚的存在感の弱さ</strong>: Plus が本体直径の 30 % (H 文字は 55 %)、腕の太さは 6 % (H ストロークは ≈ 10 %)。H / X / Y / Z を並べると X だけが「やや薄く」見える可能性がある。Quirk もこの傾向を持つが、qni-webgpu として canonical を見直す判断を放棄するかどうかは未明示。</li>
+        <li><strong>円形は wire に溶け込む</strong>: H / Y / Z の角丸正方形は wire (水平線) と直交して「ここに操作が立っている」シグナルを出すが、円は wire と接線で交わるため柔らかく溶け込む。エレガントだが、初学者には「ゲートが置かれている」アフォーダンスが弱まる。</li>
+        <li><strong>「Plus = ビット反転」の学習コスト</strong>: 専門家には自然な慣習だが、初見では「⊕ = XOR」と読まれがち。spec は「Quirk 由来の方針」と書くが、qni-webgpu として補強する設計余地 (ツールチップ / 初回 hover 時の bit-flip アニメーション / 隣接 wire への shimmer など) は明文化されていない。</li>
+        <li><strong>ghost / dashed 円の品質</strong>: § 05 critique にも書いたが、円の dashed border はブラウザによってジャギーが出る。SVG <code>stroke-dasharray</code> で再描画する代替案を spec 内で保留にすべき。</li>
+      </ol>
+      <p class="critique-body">
+        これらは「canonical に従えば OK」で済む問題ではなく、Pauli 族の中で X だけが視覚的に特殊扱いされている
+        ことの帰結。spec 策定の段階で「ここは現状維持」「ここは検証が必要」を明示しておくと、後続の検証や
+        改修サイクルでブレない。
+      </p>
+    </aside>
   </div>
 </section>
 
