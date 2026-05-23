@@ -265,7 +265,6 @@
     <ol class="critique-list">
       <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
       <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
-      <li><strong>§ 04 描き分けに「表示ブロック内セル」の visual mock を追加</strong> — 回路上 / パレットは § 01 で実物が見えるが、表示ブロック内セルだけ文章しかなく、形状の違い (確率 / 振幅 / 密度行列) が本ページから読み取れない (§ 04 参照)。</li>
     </ol>
   </aside>
 </section>
@@ -358,40 +357,22 @@
       <tbody>
         <tr>
           <td>回路上</td>
-          <td><code>rect_stroke</code> で線だけを描く。内側を塗らない</td>
+          <td>線だけを描き、内側は塗らない</td>
           <td>Control / AntiControl / Swap / Phase など、透明なゲート内部を通る接続線を消さないため</td>
         </tr>
         <tr>
           <td>ゲートパレット</td>
-          <td>外側を <code>purple-400</code> で塗り、内側を <code>colors.surface</code> (= <code>bg</code> / paper) で抜く</td>
+          <td>外側を <code>purple-400</code> で塗り、内側を <code>bg</code> (paper) で抜く</td>
           <td>パレット面は常に paper なので、Measurement / Spacer など本体塗りを持たないゲートでも背景色が変わらない</td>
         </tr>
         <tr>
           <td>表示ブロック内セル</td>
-          <td>GPU シェーダへ <code>hover_border</code> として渡し、行 / セル単位の境界を描く</td>
+          <td>行 / セル単位の境界を描く (具体形状は <a href="probability-display.html">確率</a> / <a href="amplitude-display.html">振幅</a> / <a href="density-matrix-display.html">密度行列</a> 各表示ブロック仕様を参照)</td>
           <td>同じ色ロールを使う表示ブロック固有の派生表現として扱う</td>
         </tr>
       </tbody>
     </table>
 
-    <aside class="critique" aria-label="批評 · § 04 表示ブロック内セルの visual がない">
-      <div class="critique-label">★ 批評 · § 04 描き分け</div>
-      <div class="critique-title">「表示ブロック内セル」だけ visual mock がなく、文章中の GPU 識別子 (<code>hover_border</code>) に頼って描画イメージを伝えている</div>
-      <p class="critique-body">
-        回路上 / パレットの 2 ケースは § 01 で実寸 mock があるのに対し、3 つめの「表示ブロック内セル」は表の文章でしか描かれない。
-        確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロックの hover frame は形状が異なる (横一列セル / 単一の測定結果 / 行・列セルなど) ので、
-        <strong>「表示ブロックごとにホバーの単位が違う」</strong>ことが本ページからは読み取れず、読者は probability-display.html / amplitude-display.html を引かないと実態をつかめない。
-      </p>
-      <p class="critique-body">
-        改善案: § 01 と同じ <code>hf-stage</code> に「確率表示ブロックの 1 セルが hover した状態」「振幅表示ブロックの 1 つの測定結果が hover した状態」を縮小 mock で追加する。
-        あるいは § 04 表中の各行に probability-display.html / amplitude-display.html / density-matrix.html へのアンカーリンクを張り、詳細はそちらに委ねる。
-        後者なら本ページの長さは増えず、各表示ブロック仕様が canonical という依存方向も保てる。
-      </p>
-      <p class="critique-body">
-        別件: 「GPU シェーダへ <code>hover_border</code> として渡し」は<strong>実装側の識別子</strong> (apps/web シェーダの引数名) で、デザインシステム側が言及する必要のない情報。
-        「同じ色ロールを使う表示ブロック固有の派生表現として扱う」の一文で十分で、<code>hover_border</code> という識別子は落とせる (依存方向は実装 → デザインシステム)。
-      </p>
-    </aside>
   </div>
 </section>
 
