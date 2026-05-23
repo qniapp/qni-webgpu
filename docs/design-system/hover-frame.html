@@ -95,56 +95,78 @@
       box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
     }
 
-    .hf-layer-stack {
+    /* ── 角詳細 (右上角の実寸描画 × 2 ケース) ──
+       対象矩形の角丸の有無で外側ホバー枠の見え方がどう変わるかを、
+       1:1 スケールで右上角だけ切り出して示す。 */
+    .hf-corner-grid {
       display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 16px; /* spacing-4 */
-      align-items: center;
-      margin-top: 12px;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px; /* spacing-8 */
+      margin-top: 16px; /* spacing-4 */
+      justify-items: center;
     }
-    .hf-layer-visual {
+    .hf-corner-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px; /* spacing-2 */
+    }
+    .hf-corner-caption {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs = 12px */
+      line-height: 16px;
+      color: var(--tx-2);
+      text-align: center;
+    }
+    .hf-corner-detail {
       position: relative;
-      height: 64px; /* spacing-16 */
+      width: 48px;
+      height: 48px;
       background: var(--bg-2);
       border: 1px solid var(--ui-2);
-      border-radius: 10px;
       overflow: hidden;
     }
-    .hf-layer-body,
-    .hf-layer-inner-gap,
-    .hf-layer-frame {
+    .hf-corner-body,
+    .hf-corner-gap,
+    .hf-corner-frame {
       position: absolute;
-      top: 12px;
-      bottom: 12px;
-      border-radius: 6px;
+      width: 80px; /* 対象矩形が容器外まで伸びるよう十分大きく取る (実寸はそのまま) */
+      height: 80px;
     }
-    .hf-layer-body {
-      left: 64px;
-      width: 40px;
+    .hf-corner-body {
+      top: 14px;
+      right: 14px;
       background: var(--cyan-400);
-      z-index: 4;
-    }
-    .hf-layer-inner-gap {
-      left: 62px;
-      width: 44px;
-      background: var(--bg-2);
       z-index: 3;
     }
-    .hf-layer-frame {
-      left: 60px;
-      width: 48px;
-      background: var(--purple-400);
+    .hf-corner-gap {
+      top: 12px;
+      right: 12px;
+      background: var(--bg-2);
       z-index: 2;
-      border-radius: 10px;
     }
-    .hf-layer-labels {
-      display: grid;
-      gap: 4px; /* spacing-1 */
+    .hf-corner-frame {
+      top: 10px;
+      right: 10px;
+      background: var(--purple-400);
+      z-index: 1;
+    }
+    .hf-corner-detail--rounded .hf-corner-body  { border-radius: 6px; }
+    .hf-corner-detail--rounded .hf-corner-gap   { border-radius: 8px; }
+    .hf-corner-detail--rounded .hf-corner-frame { border-radius: 10px; }
+    /* .hf-corner-detail--square: 角丸なし (border-radius は既定の 0 のまま) */
+
+    .hf-corner-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px; /* spacing-4 */
+      justify-content: center;
+      margin-top: 16px;
       font-size: 12px; /* text-xs = 12px */
       line-height: 16px;
       color: var(--tx-2);
     }
-    .hf-layer-labels span {
+    .hf-corner-legend span {
       display: inline-flex;
       align-items: center;
       gap: 8px; /* spacing-2 */
@@ -219,26 +241,37 @@
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th></th><th>角丸の対象矩形</th><th>直角の対象矩形</th></tr>
+        <tr><th></th><th>角丸ゲート</th><th>角ばり表示ブロック</th></tr>
       </thead>
       <tbody>
         <tr><th>内側の空き</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
         <tr><th>線幅</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
-        <tr><th>角丸</th><td>対象の角丸 + <code>4 px</code><br>(例: ゲート <code>6 px</code> → ホバー枠 <code>10 px</code>)</td><td><code>4 px</code><br>(例: 確率表示ブロック等)</td></tr>
+        <tr><th>角丸</th><td>対象の角丸 + <code>4 px</code><br>(例: ゲート <code>6 px</code> → ホバー枠 <code>10 px</code>)</td><td><code>0 px</code> (90 度)<br>(確率・振幅・密度行列表示ブロック)</td></tr>
       </tbody>
     </table>
 
-    <div class="hf-layer-stack" role="img" aria-label="ホバー枠のレイヤ図">
-      <div class="hf-layer-visual">
-        <div class="hf-layer-frame"></div>
-        <div class="hf-layer-inner-gap"></div>
-        <div class="hf-layer-body"></div>
+    <div class="hf-corner-grid" role="img" aria-label="ホバー枠 右上角の実寸詳細 (角丸ゲート / 角ばり表示ブロック)">
+      <div class="hf-corner-col">
+        <div class="hf-corner-caption">角丸ゲート</div>
+        <div class="hf-corner-detail hf-corner-detail--rounded">
+          <div class="hf-corner-frame"></div>
+          <div class="hf-corner-gap"></div>
+          <div class="hf-corner-body"></div>
+        </div>
       </div>
-      <div class="hf-layer-labels">
-        <span><i class="hf-swatch" style="background: var(--cyan-400);"></i>対象矩形</span>
-        <span><i class="hf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
-        <span><i class="hf-swatch" style="background: var(--purple-400);"></i>ホバー枠 2 px</span>
+      <div class="hf-corner-col">
+        <div class="hf-corner-caption">角ばり表示ブロック</div>
+        <div class="hf-corner-detail hf-corner-detail--square">
+          <div class="hf-corner-frame"></div>
+          <div class="hf-corner-gap"></div>
+          <div class="hf-corner-body"></div>
+        </div>
       </div>
+    </div>
+    <div class="hf-corner-legend">
+      <span><i class="hf-swatch" style="background: var(--cyan-400);"></i>対象矩形</span>
+      <span><i class="hf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
+      <span><i class="hf-swatch" style="background: var(--purple-400);"></i>ホバー枠 2 px</span>
     </div>
 
   </div>
@@ -323,7 +356,7 @@
 
     <h3>不変条件</h3>
     <ul>
-      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / 角丸 <code>10 px</code> / <code>purple-400</code> を変えない。</li>
+      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / <code>purple-400</code> を変えない。角丸は本体形状に合わせ、角丸ゲートは <code>10 px</code>、角ばり表示ブロックは <code>0 px</code> にする。</li>
       <li>行 / セルの内側ホバー枠は、各表示ブロック仕様の形状に従う。色は <code>purple-400</code> でそろえる。</li>
     </ul>
   </div>
