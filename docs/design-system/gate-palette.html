@@ -22,7 +22,7 @@
       padding: 32px 24px;
       display: flex; justify-content: center; align-items: center;
       overflow-x: auto;
-      isolation: isolate;                  /* ホバー枠 が stage 内で閉じる */
+      isolation: isolate;                  /* ホバー枠が stage 内で閉じる */
     }
     .gp-palette {
       /* PALETTE_PADDING_X = 16, PALETTE_PADDING_Y = 20 */
@@ -108,7 +108,7 @@
       /* PALETTE_SECTION_GAP = 8 px (左右両側) */
       gap: 8px;
     }
-    .gp-section { display: flex; flex-direction: column; gap: 8px; }
+    .gp-section { display: flex; flex-direction: column; }
     .gp-sep {
       /* 垂直ディバイダ primitive。PALETTE_SEPARATOR_WIDTH = 2 px、2 行高フル。 */
       align-self: stretch;
@@ -471,7 +471,7 @@
       実コードの寸法 (40 × 40 アイコン / 8 px gap / 16 × 20 padding / 12 px corner radius / paper bg + 25 % alpha shadow) と
       各 gate の SVG icon 形状 (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>) を 1:1 で再現。
       palette は <strong>Gates section (左)</strong> + <strong><a href="vertical-divider.html">2 px ui-2 垂直ディバイダ</a> (2 行高)</strong> + <strong>Display section (右 2 × 2)</strong> に分割。
-      アイコンに hover すると <code>purple-400</code> 外枠 (4 px 拡張 / corner 10) + <code>paper</code> 内枠 (2 px 拡張 / corner 8) の 枠が出る。
+      アイコンに hover すると <code>purple-400</code> 外枠 (4 px 拡張 / corner 10) + <code>paper</code> 内枠 (2 px 拡張 / corner 8) の枠が出る。
       Display section は 2 × 2 の 4 スロットすべてを使う。
     </p>
     <div class="gp-stage">
@@ -506,7 +506,7 @@
           </div>
         </div>
         <!-- 2 行高の垂直ディバイダ -->
-        <div class="gp-sep vertical-divider"></div>
+        <div class="gp-sep vertical-divider" aria-hidden="true"></div>
         <!-- Display section (2 × 2 grid; 4 slots) -->
         <div class="gp-section">
           <div class="gp-row">
@@ -531,7 +531,7 @@
 <section class="block">
   <h2>§ 02 レイアウト</h2>
   <div class="card">
-    <h3>寸法 (<code>constants.rs:157-178</code>)</h3>
+    <h3>寸法 (<code>constants.rs</code>)</h3>
     <table class="spec">
       <tbody>
         <tr><th>cell size</th><td><code>PALETTE_SIZE = GATE_SIZE = 40.0 px</code> — アイコン 1 個の幅と高さ、回路グリッドの slot pitch と統一</td></tr>
@@ -557,7 +557,7 @@
 
 <!-- ─────── § 03 ゲート一覧 ─────── -->
 <section class="block">
-  <h2>§ 03 ゲート一覧 (<code>gates.rs:213-248</code>)</h2>
+  <h2>§ 03 ゲート一覧 (<code>gates.rs</code>)</h2>
   <div class="card">
     <p>
       ゲートは <strong>3 つの配列</strong>に分かれて定義: <code>PALETTE_GATES_ROW1: [GateKind; 13]</code>、<code>PALETTE_GATES_ROW2: [GateKind; 9]</code>、<code>PALETTE_DISPLAY_GATES: [GateKind; 4]</code>。
@@ -605,7 +605,7 @@
 
     <p class="note" style="margin-top: 16px;">
       <strong>grouping</strong>: Gates section = 回路への作用 / 視覚装飾、Display section = 観測ウィジェット (可視化用)。Display 2 × 2 は 4 つの表示ブロックで埋まり、垂直ディバイダの右側にまとまる。
-      <strong>Spacer</strong> は Gates section row 2 末尾に配置、drop 時は<strong>空きスロット (作用なし)</strong> として回路上に置かれる。全ゲートが ホバー枠・tooltip・drag に対応する。
+      <strong>Spacer</strong> は Gates section row 2 末尾に配置、drop 時は<strong>空きスロット (作用なし)</strong> として回路上に置かれる。全ゲートがホバー枠・tooltip・drag に対応する。
     </p>
   </div>
 </section>
@@ -689,7 +689,7 @@
       <li><strong>内枠 (inner)</strong>: <code>gate_rect.expand(2.0)</code> · <code>CornerRadius::same(8)</code> · fill = <code>surface</code> (paper)</li>
       <li>差分 = 2 px の <code>purple-400</code> 枠が gate 周囲に出る。内側を paper で塗り直すのは <strong>Measurement / Spacer のような本体 fill を持たないゲートでも背景が灰色 (palette bg) に変わらないため</strong></li>
       <li>その上に <code>draw_gate_body()</code> が gate body と icon を重ねる</li>
-      <li>Spacer 含む全 26 ゲートに対して<strong>同じロジック</strong>で ホバー枠 が出る (<code>palette_hit_test()</code> は Spacer を除外しない)</li>
+      <li>Spacer 含む全 26 ゲートに対して<strong>同じロジック</strong>でホバー枠が出る (<code>palette_hit_test()</code> は Spacer を除外しない)</li>
     </ul>
     <h3 style="margin-top: 16px;">ツールチップ (<code>tooltip.rs</code>)</h3>
     <ul>
@@ -738,27 +738,27 @@
     <table class="spec">
       <thead><tr><th>定数</th><th>値</th><th>ファイル</th></tr></thead>
       <tbody>
-        <tr><td><code>PALETTE_SIZE</code></td><td class="num">40.0</td><td><code>constants.rs:157</code></td></tr>
-        <tr><td><code>PALETTE_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:162</code></td></tr>
-        <tr><td><code>PALETTE_ROW_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:163</code></td></tr>
-        <tr><td><code>PALETTE_SECTION_GAP</code></td><td class="num">8.0</td><td><code>constants.rs:165</code></td></tr>
-        <tr><td><code>PALETTE_SEPARATOR_WIDTH</code></td><td class="num">2.0</td><td><code>constants.rs:167</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_COLUMNS</code></td><td class="num">2</td><td><code>constants.rs:168</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_ROWS</code></td><td class="num">2</td><td><code>constants.rs:169</code></td></tr>
-        <tr><td><code>PALETTE_PADDING_X</code></td><td class="num">16.0</td><td><code>constants.rs:170</code></td></tr>
-        <tr><td><code>PALETTE_PADDING_Y</code></td><td class="num">20.0</td><td><code>constants.rs:171</code></td></tr>
-        <tr><td><code>PALETTE_CORNER_RADIUS</code></td><td class="num">12</td><td><code>constants.rs:172</code></td></tr>
-        <tr><td><code>PALETTE_ROW_Y</code></td><td><code>2.5 × REM = 80 px</code></td><td><code>constants.rs:178</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW1</code></td><td>13 entries</td><td><code>gates.rs:213</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW2</code></td><td>9 entries</td><td><code>gates.rs:228</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_GATES</code></td><td>4 entries</td><td><code>gates.rs:239</code></td></tr>
-        <tr><td><code>PALETTE_GATE_COUNT</code></td><td class="num">26</td><td><code>gates.rs:244</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW2_INDICES</code></td><td>[13,14,15,17,18,19,22,23,21]</td><td><code>gates.rs:247</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_INDICES</code></td><td>[16, 20, 24, 25]</td><td><code>gates.rs:248</code></td></tr>
-        <tr><td><code>CONTROL_RADIUS</code></td><td class="num">8.0</td><td><code>icons/gate_glyphs.rs:12</code></td></tr>
-        <tr><td><code>ANTI_CONTROL_STROKE_WIDTH</code></td><td class="num">3.0</td><td><code>icons/gate_glyphs.rs:13</code></td></tr>
-        <tr><td><code>ANTI_CONTROL_RADIUS</code></td><td class="num">5.0</td><td><code>icons/gate_glyphs.rs:14</code></td></tr>
-        <tr><td><code>PROBABILITY_PREVIEW_BAR_WIDTHS</code></td><td>[0.30, 0.75, 0.55, 0.20]</td><td><code>icons/gate_body.rs:11</code></td></tr>
+        <tr><td><code>PALETTE_SIZE</code></td><td class="num">40.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_ROW_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_SECTION_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_SEPARATOR_WIDTH</code></td><td class="num">2.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_COLUMNS</code></td><td class="num">2</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_ROWS</code></td><td class="num">2</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_PADDING_X</code></td><td class="num">16.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_PADDING_Y</code></td><td class="num">20.0</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_CORNER_RADIUS</code></td><td class="num">12</td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_ROW_Y</code></td><td><code>2.5 × REM = 80 px</code></td><td><code>constants.rs</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW1</code></td><td>13 entries</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW2</code></td><td>9 entries</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_GATES</code></td><td>4 entries</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>PALETTE_GATE_COUNT</code></td><td class="num">26</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>PALETTE_GATES_ROW2_INDICES</code></td><td>[13,14,15,17,18,19,22,23,21]</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>PALETTE_DISPLAY_INDICES</code></td><td>[16, 20, 24, 25]</td><td><code>gates.rs</code></td></tr>
+        <tr><td><code>CONTROL_RADIUS</code></td><td class="num">8.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
+        <tr><td><code>ANTI_CONTROL_STROKE_WIDTH</code></td><td class="num">3.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
+        <tr><td><code>ANTI_CONTROL_RADIUS</code></td><td class="num">5.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
+        <tr><td><code>PROBABILITY_PREVIEW_BAR_WIDTHS</code></td><td>[0.30, 0.75, 0.55, 0.20]</td><td><code>icons/gate_body.rs</code></td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">関連ソースファイル (<code>apps/web/src/</code>)</h3>

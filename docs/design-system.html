@@ -295,16 +295,16 @@
   </p>
   <div class="spec-grid">
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/h-gate.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <rect x="8" y="8" width="40" height="40" rx="6" fill="#33A6A0" stroke="#6F6E69"/>
-          <text x="28" y="36" text-anchor="middle" font-family="Geist, sans-serif" font-weight="700" font-size="22" fill="#100F0F">H</text>
-        </svg>
+        <iframe src="design-system/h-gate.html?preview" loading="lazy" title="H ゲート preview"></iframe>
       </div>
-      <div class="row"><span class="name">Hadamard (H)</span><span class="pill todo">todo</span></div>
-      <p class="desc">1 量子ビット H ゲート。グリフ "H" を中央に描画。</p>
-    </div>
+      <div class="row">
+        <span class="name">Hadamard (H)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビット H ゲート。cyan-400 本体 + Geist 700 グリフ "H" を中央配置した、もっとも基本的な操作ゲート。</p>
+    </a>
 
     <a class="spec-card" href="design-system/x-gate.html">
       <div class="preview" aria-hidden="true">
@@ -328,43 +328,37 @@
       <p class="desc">1 量子ビット Y ゲート。H / Z と同じ cyan-400 角丸正方形 + Geist 700 グリフ "Y"。ブロッホ球上では Y 軸まわりの 180° 回転に対応する。</p>
     </a>
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/z-gate.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <rect x="8" y="8" width="40" height="40" rx="6" fill="#3AA99F"/>
-          <text x="28" y="35" text-anchor="middle" font-family="Geist, sans-serif" font-weight="700" font-size="22" fill="#FFFCF0">Z</text>
-        </svg>
-      </div>
-      <div class="row"><span class="name">Pauli-Z (Z)</span><span class="pill todo">todo</span></div>
-      <p class="desc">1 量子ビット位相反転ゲート。H / Y と同じ角丸正方形 + 文字グリフの見た目を共有する。</p>
-    </div>
-
-    <div class="spec-card dim">
-      <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 80 56" width="80" height="56" xmlns="http://www.w3.org/2000/svg">
-          <g fill="#33A6A0" stroke="#6F6E69">
-            <rect x="6"  y="14" width="28" height="28" rx="5"/>
-            <rect x="46" y="14" width="28" height="28" rx="5"/>
-          </g>
-          <g font-family="Geist, sans-serif" font-weight="700" font-size="16" fill="#100F0F" text-anchor="middle">
-            <text x="20" y="33">S</text>
-            <text x="60" y="33">T†</text>
-          </g>
-        </svg>
-      </div>
-      <div class="row"><span class="name">Phase (S / T†)</span><span class="pill todo">todo</span></div>
-      <p class="desc">残りの位相系列 1 量子ビットゲート (S = π/2、T† = −π/4)。T と同じ chrome を字形だけ差し替えて再利用予定。</p>
-    </div>
-
-    <a class="spec-card" href="design-system/t-gate.html">
-      <div class="preview" aria-hidden="true">
-        <iframe src="design-system/t-gate.html?preview" loading="lazy" title="T ゲート プレビュー"></iframe>
+        <iframe src="design-system/z-gate.html?preview" loading="lazy" title="Z ゲート プレビュー"></iframe>
       </div>
       <div class="row">
-        <span class="name">Phase π/4 (T)</span>
+        <span class="name">Pauli-Z (Z)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの位相 π/4 ゲート。H / Y / Z と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T"。Clifford + T で universal。</p>
+      <p class="desc">1 量子ビットの位相反転ゲート。H / Y と同じ cyan-400 角丸正方形 + Geist 700 グリフ "Z" で、Z 軸 π 回転を表す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/sqrtx-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/sqrtx-gate.html?preview" loading="lazy" title="√X ゲート preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Square-root X (√X)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの平方根 NOT ゲート。H / Y / Z / S / T と同じ cyan-400 角丸正方形に、√ と X の合成字形を中央配置する。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/s-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/s-gate.html?preview" loading="lazy" title="S ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">S ゲート (位相 π/2)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの位相 π/2 ゲート。H / Y / Z / T と同じ cyan-400 角丸正方形 + Geist 700 グリフ "S"。Z 軸 90° 回転を表す。</p>
     </a>
 
     <a class="spec-card" href="design-system/s-dagger-gate.html">
@@ -378,6 +372,61 @@
       <p class="desc">S の Hermite 共役 (位相 −π/2)。S と同じ cyan-400 角丸正方形 + Geist 700 グリフ "S" の右上に小さな † を重ねて順 / 逆を字形差で示す。</p>
     </a>
 
+    <a class="spec-card" href="design-system/t-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/t-gate.html?preview" loading="lazy" title="T ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Phase π/4 (T)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの位相 π/4 ゲート。H / Y / Z / S と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T"。Clifford + T で universal。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/t-dagger-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/t-dagger-gate.html?preview" loading="lazy" title="T† ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Phase −π/4 (T†)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">T のエルミート共役 (位相 −π/4)。T と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T" の右上に小さな † を重ねて順 / 逆を字形差で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/p-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/p-gate.html?preview" loading="lazy" title="P ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Phase θ (P)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パラメトリック位相ゲート。<code>P(π/2) = S</code> / <code>P(π/4) = T</code> / <code>P(π) = Z</code> を 1 つの汎用形にまとめた位相系列の親。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/rx-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/rx-gate.html?preview" loading="lazy" title="Rx ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">X-axis rotation (Rx)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの X 軸回転 (連続角 θ)。H / Y / Z / S / T と同じ cyan-400 角丸正方形 + 2 文字グリフ "Rx"。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/ry-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/ry-gate.html?preview" loading="lazy" title="Ry ゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Y-axis rotation (Ry)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">1 量子ビットの Y 軸回転 (連続角 θ)。Rx と同じ cyan-400 角丸正方形 + 2 文字グリフ "Ry"。</p>
+    </a>
+
     <a class="spec-card" href="design-system/rz-gate.html">
       <div class="preview" aria-hidden="true">
         <iframe src="design-system/rz-gate.html?preview" loading="lazy" title="Rz ゲート プレビュー"></iframe>
@@ -386,20 +435,19 @@
         <span class="name">Z-axis rotation (Rz)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの Z 軸回転 (連続角 θ)。H / Y / Z / S / T と同じ cyan-400 角丸正方形 + 2 文字グリフ "Rz"。計算基底の確率を変えず相対位相だけを θ 回す、S / T / Z / P の連続版。θ は配置後にポップオーバで編集する。</p>
+      <p class="desc">1 量子ビットの Z 軸回転 (連続角 θ)。Rx / Ry と同じ cyan-400 角丸正方形 + 2 文字グリフ "Rz"。</p>
     </a>
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/control-gate.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <line x1="28" y1="6"  x2="28" y2="50" stroke="#6F6E69" stroke-width="1.5"/>
-          <circle cx="28" cy="16" r="5" fill="#100F0F"/>
-          <circle cx="28" cy="40" r="5" fill="#FFFCF0" stroke="#100F0F" stroke-width="1.5"/>
-        </svg>
+        <iframe src="design-system/control-gate.html?preview" loading="lazy" title="制御ゲート プレビュー"></iframe>
       </div>
-      <div class="row"><span class="name">Control / Anti-control</span><span class="pill todo">todo</span></div>
-      <p class="desc">制御量子ビットマーカと配線 (connector) を組で描画。</p>
-    </div>
+      <div class="row">
+        <span class="name">Control (|1⟩ 条件)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">同じ列の対象ゲートを |1⟩ 条件にする透明な制御マーカ。cyan-400 の塗りつぶし円と 4px 縦コネクタで多量子ビット操作を示す。</p>
+    </a>
 
     <a class="spec-card" href="design-system/anti-control-gate.html">
       <div class="preview" aria-hidden="true">
@@ -412,21 +460,16 @@
       <p class="desc">Control のペア。透明な 40px 領域 + cyan-400 の空円 (r=5 / stroke=3) で |0⟩ 条件を示し、縦コネクタは空円中心 ±6px の隙間付きで分割描画する。</p>
     </a>
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/swap-gate.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <line x1="28" y1="6" x2="28" y2="50" stroke="#6F6E69" stroke-width="1.5"/>
-          <g stroke="#100F0F" stroke-width="2" stroke-linecap="round">
-            <line x1="20" y1="10" x2="36" y2="22"/>
-            <line x1="36" y1="10" x2="20" y2="22"/>
-            <line x1="20" y1="34" x2="36" y2="46"/>
-            <line x1="36" y1="34" x2="20" y2="46"/>
-          </g>
-        </svg>
+        <iframe src="design-system/swap-gate.html?preview" loading="lazy" title="Swap ゲート プレビュー"></iframe>
       </div>
-      <div class="row"><span class="name">Swap</span><span class="pill todo">todo</span></div>
-      <p class="desc">2 量子ビット swap マーカ (× 記号) と接続線。</p>
-    </div>
+      <div class="row">
+        <span class="name">Swap</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">透明な領域に描いた 2 つの × マーカを cyan-400 の 4px 縦コネクタで結び、2 量子ビットの値を交換する操作ゲート。</p>
+    </a>
 
     <a class="spec-card" href="design-system/qft-gate.html">
       <div class="preview" aria-hidden="true">
@@ -436,7 +479,7 @@
         <span class="name">QFT (量子フーリエ変換)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">span 内の量子ビットへ離散フーリエ変換のユニタリ版を適用する操作ゲート。40 × (56·span − 16) px の cyan-400 角丸矩形 + Geist 700 グリフ "QFT" を中央配置し、resize-handle で span を伸縮する span を持つ唯一の操作ゲート。</p>
+      <p class="desc">span 内の量子ビットへ離散フーリエ変換のユニタリ版を適用する操作ゲート。40 × (56·span − 16) px の縦長本体を持つ。</p>
     </a>
 
     <a class="spec-card" href="design-system/qft-dagger-gate.html">
@@ -447,7 +490,7 @@
         <span class="name">QFT† (逆量子フーリエ変換)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">QFT のエルミート共役。本体寸法・配色・span 範囲は QFT と完全共有し、"QFT" 字形の右上に小さな † を重ねるだけの差分。位相推定 / Shor の最終段で <code>QFT†</code> として頻出する。</p>
+      <p class="desc">QFT のエルミート共役。本体寸法・配色・span 範囲は QFT と共有し、"QFT" 字形の右上に小さな † を重ねる。</p>
     </a>
 
     <a class="spec-card" href="design-system/write0-gate.html">
@@ -458,7 +501,7 @@
         <span class="name">|0⟩ オペレーション (Reset to |0⟩)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。cyan-400 角丸正方形は持たず、tx-2 のケット括弧 <code>|⟩</code> + 中央 red-600 のディジット "0" だけで描く。</p>
+      <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。tx-2 のケット括弧 <code>|⟩</code> + 中央 red-600 のディジット "0" だけで描く。</p>
     </a>
 
     <a class="spec-card" href="design-system/write1-gate.html">
@@ -469,7 +512,7 @@
         <span class="name">|1⟩ オペレーション (Reset to |1⟩)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">対象量子ビットを <code>|1⟩</code> に強制再初期化する非ユニタリ操作。|0⟩ オペレーションと同じ陣形で、ディジットを <code>red-600</code> "0" → <code>blue-600</code> "1" に入れ替えただけの対。</p>
+      <p class="desc">対象量子ビットを <code>|1⟩</code> に強制再初期化する非ユニタリ操作。|0⟩ オペレーションと同じ陣形で、ディジットを blue-600 "1" に入れ替える。</p>
     </a>
 
     <a class="spec-card" href="design-system/measurement-gate.html">

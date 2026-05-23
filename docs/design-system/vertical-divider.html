@@ -306,6 +306,7 @@
         <tr><th>カーソル</th><td>なし。ディバイダ上ではゲートの <code>grab</code> カーソルを出さない</td></tr>
         <tr><th>ツールチップ</th><td>なし。説明対象は左右のアイコンであり、ディバイダ自体ではない</td></tr>
         <tr><th>ドラッグ開始</th><td>不可。マウス位置がディバイダまたは左右余白にある場合、パレットからのドラッグを開始しない</td></tr>
+        <tr><th>支援技術</th><td>装飾要素なので <code>aria-hidden="true"</code> を付け、読み上げ対象にしない</td></tr>
         <tr><th>アニメーション</th><td>なし。セクション構造を示す静的な線として扱う</td></tr>
       </tbody>
     </table>
@@ -339,6 +340,7 @@ painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);</pre
       <li>密度の違うセクションを、同じパレット面の中で分けるときだけ使う。</li>
       <li>幅 <code>2 px</code> / 色 <code>ui-2</code> / 左右余白 <code>8 px</code> を変えない。</li>
       <li>線は内容領域の高さに合わせる。パネル padding いっぱいには伸ばさない。</li>
+      <li>実マークアップでは <code>aria-hidden="true"</code> を付け、装飾要素として扱う。</li>
       <li>一時状態、選択状態、ドラッグ状態の表現には使わない。</li>
       <li>区切り線が操作できるように見える場合は、角丸や濃色を避け、<code>ui-2</code> に戻す。</li>
     </ul>
