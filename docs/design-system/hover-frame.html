@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ホバー枠 (primitive) — 仕様</title>
+  <title>ホバー枠 (基本部品) — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
   <script>
     // design-system.html のサムネ iframe (?preview) から読まれたときは
@@ -12,10 +12,10 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- ホバー枠 (canonical な <hover-frame variant="stroke|surface-gap">) と
-       ゲート本体 (<h-gate> / <swap-gate>) の組み合わせで demo を構成する。
-       hover-frame は本ページの canonical primitive、ゲート Web Component は
-       各仕様ページ (h-gate.html / swap-gate.html) canonical を共有。 -->
+  <!-- ホバー枠 (正式な <hover-frame variant="stroke|surface-gap" shape="rounded|square">) と
+       ゲート本体 (<h-gate> / <swap-gate>) の組み合わせで例を構成する。
+       hover-frame は本ページの正式な基本部品、ゲート Web Component は
+       各仕様ページ (h-gate.html / swap-gate.html) の正式定義を共有。 -->
   <script src="components/hover-frame.js"></script>
   <script src="components/h-gate.js"></script>
   <script src="components/swap-gate.js"></script>
@@ -214,6 +214,15 @@
         </div>
         <div class="hf-caption">透明なゲート<br>接続線を消さない</div>
       </div>
+      <div class="hf-example">
+        <div class="hf-palette-pad">
+          <div class="hf-gate-wrap hover-frame-host hover-frame-host--square">
+            <span class="hover-frame hover-frame--surface-gap"></span>
+            <div class="hf-blank"></div>
+          </div>
+        </div>
+        <div class="hf-caption">角ばり表示ブロック<br>90 度のホバー枠</div>
+      </div>
     </div>
   </div>
 </section>
@@ -337,7 +346,7 @@
 
     <h3>不変条件</h3>
     <ul>
-      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / <code>purple-400</code> を変えない。角丸は本体形状に合わせ、角丸ゲートは <code>10 px</code>、角ばり表示ブロックは <code>0 px</code> にする。</li>
+      <li>外側ホバー枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / <code>purple-400</code> を変えない。角丸は本体形状に合わせ、角丸ゲートは <code>10 px</code>、角ばり表示ブロックは <code>0 px</code> にする。</li>
       <li>行 / セルの内側ホバー枠は、各表示ブロック仕様の形状に従う。色は <code>purple-400</code> でそろえる。</li>
     </ul>
   </div>

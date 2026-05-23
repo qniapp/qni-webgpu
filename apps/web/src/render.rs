@@ -13,6 +13,7 @@ mod circuit_gates;
 mod circuit_palette;
 mod circuit_picker;
 mod gpu_status_pill;
+mod hover_frame;
 mod state_panel_chrome;
 mod state_panel_draw;
 mod state_panel_layout;

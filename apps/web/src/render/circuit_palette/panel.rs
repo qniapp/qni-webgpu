@@ -10,6 +10,8 @@ use crate::gates::{palette_gate_kind, GateKind, PALETTE_GATE_COUNT};
 use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
 use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
 
+use super::super::hover_frame::{hover_frame_corner_radius, hover_frame_inner_corner_radius};
+
 impl QniApp {
     pub(crate) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
         let layout = palette_layout();
@@ -61,12 +63,17 @@ impl QniApp {
                 let hover_inner = gate_rect.expand(2.0);
                 painter.rect_filled(
                     hover_outer,
-                    egui::CornerRadius::same(10),
+                    hover_frame_corner_radius(gate),
                     colors.gate_hover_border,
                 );
                 // ホバー枠の内側はパレット面と同じ色にし、Measurement / Spacer のような
                 // 本体 fill を持たないゲートでも背景が灰色へ変わらないようにする。
-                painter.rect_filled(hover_inner, egui::CornerRadius::same(8), colors.surface);
+                // 角ばり表示ブロックは内側の抜きも角丸ゼロにして、90° の枠を保つ。
+                painter.rect_filled(
+                    hover_inner,
+                    hover_frame_inner_corner_radius(gate),
+                    colors.surface,
+                );
             }
             if gate == GateKind::DensityMatrixDisplay {
                 draw_density_palette_icon(painter, gate_rect, colors);

@@ -1032,10 +1032,10 @@ z =  ρ_00 − ρ_11</pre>
     <ul>
       <li>実装: <code>body_rect.expand(4.0)</code> に対して <strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の
         <strong>2 px stroke</strong> を <code>Inside</code> で描く。
-        内側 2 px (gate edge から外 2 px) は塗らず、背景の paper / 配線がそのまま透ける</li>
+        内側 2 px (gate edge から外 2 px) は塗らず、ステージ背景 / 配線がそのまま透ける</li>
       <li>本体は円だが、外側ホバー枠は他のゲートと統一して<strong>角丸矩形</strong>。
         内容 (球) とホバー枠を分離する設計で、利用者はホバー時の見せ方を 1 つだけ覚えればよい</li>
-      <li>確率表示ブロックは本体が角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> の規則「対象の角丸 + 4 px」より外側ホバー枠の角丸は 4 px (Bloch とは別値)。行ホバー枠だけは表示ブロック固有の内側枠として扱う</li>
+      <li>確率 / 振幅 / 密度行列表示ブロックは本体が角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> に従い、外側ホバー枠の角丸は <code>0 px</code> (90 度) にする。行 / セルホバー枠は表示ブロック固有の内側枠として扱う</li>
       <li>確率表示ブロックと異なり <strong>行ホバー枠は存在しない</strong> (描画要素が単一なので行の概念がない)</li>
       <li>リサイズハンドルなし (<code>resizable_span: false</code>)。span を変える UI は出さない</li>
     </ul>

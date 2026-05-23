@@ -19,6 +19,8 @@ use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
+use super::hover_frame::hover_frame_corner_radius;
+
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
 // Font-rasterisation baseline correction for the GPU atlas: keep the visible
@@ -145,7 +147,7 @@ impl QniApp {
                 // 回路上のホバーは全ゲートで内部を塗らない線だけのリングにする。
                 painter.rect_stroke(
                     hover_outer,
-                    egui::CornerRadius::same(10),
+                    hover_frame_corner_radius(gate.kind),
                     egui::Stroke::new(2.0, colors.gate_hover_border),
                     egui::StrokeKind::Inside,
                 );

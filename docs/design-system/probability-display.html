@@ -941,7 +941,7 @@ stroke()</pre>
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>外側ホバー枠</th><td>ゲート外側 0..2 px = 背景の空き、2..4 px = <code>purple-400</code> の枠 (合計 4 px 厚)。確率表示ブロック本体は角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> の規則「対象の角丸 + <code>4 px</code>」より、外側ホスト枠の角丸は <code>0 + 4 = 4 px</code></td></tr>
+        <tr><th>外側ホバー枠</th><td>ゲート外側 0..2 px = 背景の空き、2..4 px = <code>purple-400</code> の枠 (合計 4 px 厚)。確率表示ブロック本体は角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> に従い、外側ホバー枠の角丸も <code>0 px</code> (90 度) にする</td></tr>
         <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk の <code>strokeRect(..., lineWidth = 2)</code> と同流儀。行高が 4 px 未満の高密度表示では、上下ストロークが重なった 2 px 相当の水平帯として描き、Probability16 でもホバーしている振幅の位置が消えないようにする</td></tr>
         <tr><th>同時表示</th><td>ホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
         <tr><th>ポップアップ</th><td>
