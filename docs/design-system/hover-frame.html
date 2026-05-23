@@ -97,27 +97,9 @@
 
     /* ── 角詳細 (右上角の実寸描画 × 2 ケース) ──
        対象矩形の角丸の有無で外側ホバー枠の見え方がどう変わるかを、
-       1:1 スケールで右上角だけ切り出して示す。 */
-    .hf-corner-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 32px; /* spacing-8 */
-      margin-top: 16px; /* spacing-4 */
-      justify-items: center;
-    }
-    .hf-corner-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px; /* spacing-2 */
-    }
-    .hf-corner-caption {
-      font-family: var(--font-mono);
-      font-size: 12px; /* text-xs = 12px */
-      line-height: 16px;
-      color: var(--tx-2);
-      text-align: center;
-    }
+       1:1 スケールで右上角だけ切り出して示す。表の「右上角 (実寸)」行
+       にそのまま埋め込み、列見出し (角丸ゲート / 角ばり表示ブロック) と
+       自動的に揃える。 */
     .hf-corner-detail {
       position: relative;
       width: 48px;
@@ -247,27 +229,26 @@
         <tr><th>内側の空き</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
         <tr><th>線幅</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
         <tr><th>角丸</th><td>対象の角丸 + <code>4 px</code><br>(例: ゲート <code>6 px</code> → ホバー枠 <code>10 px</code>)</td><td><code>0 px</code> (90 度)<br>(確率・振幅・密度行列表示ブロック)</td></tr>
+        <tr>
+          <th>右上角 (実寸)</th>
+          <td>
+            <div class="hf-corner-detail hf-corner-detail--rounded" role="img" aria-label="角丸ゲートの右上角">
+              <div class="hf-corner-frame"></div>
+              <div class="hf-corner-gap"></div>
+              <div class="hf-corner-body"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hf-corner-detail hf-corner-detail--square" role="img" aria-label="角ばり表示ブロックの右上角">
+              <div class="hf-corner-frame"></div>
+              <div class="hf-corner-gap"></div>
+              <div class="hf-corner-body"></div>
+            </div>
+          </td>
+        </tr>
       </tbody>
     </table>
 
-    <div class="hf-corner-grid" role="img" aria-label="ホバー枠 右上角の実寸詳細 (角丸ゲート / 角ばり表示ブロック)">
-      <div class="hf-corner-col">
-        <div class="hf-corner-caption">角丸ゲート</div>
-        <div class="hf-corner-detail hf-corner-detail--rounded">
-          <div class="hf-corner-frame"></div>
-          <div class="hf-corner-gap"></div>
-          <div class="hf-corner-body"></div>
-        </div>
-      </div>
-      <div class="hf-corner-col">
-        <div class="hf-corner-caption">角ばり表示ブロック</div>
-        <div class="hf-corner-detail hf-corner-detail--square">
-          <div class="hf-corner-frame"></div>
-          <div class="hf-corner-gap"></div>
-          <div class="hf-corner-body"></div>
-        </div>
-      </div>
-    </div>
     <div class="hf-corner-legend">
       <span><i class="hf-swatch" style="background: var(--cyan-400);"></i>対象矩形</span>
       <span><i class="hf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
