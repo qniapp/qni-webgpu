@@ -269,13 +269,13 @@
     </p>
     <ul>
       <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で塗る。
-        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、
+        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、ホバー枠 = <code>purple-400</code>)、
         実行前の振幅も <strong>0 (赤系) と 1 (青系) の中間に位置する未確定な値</strong>として同じ紫系統で表す。
         色相は drag/hover で使う濃い紫よりさらに淡くして、「進行中アクション」と「結果待ちの静止状態」を区別する。</li>
       <li><strong>outline 円</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレー。<em>これは「振幅 ≈ 0」のときの既存配色 (state panel <code>state_outline_zero</code>) と同じ token を流用する</em>ので、追加の色定義は不要。stroke 太さ・半径は通常時と同じルール (<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>)。</li>
       <li><strong>disk / needle</strong> — 描かない。振幅値そのものを持たないので、disk (大きさ) も needle (位相) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー outline) を 150 ms ease-out でフェードアウトしつつ、通常の disk + needle 描画にクロスフェードする。フェード中は cellPx の判定 (§ 06) も通常通り適用する。</li>
     </ul>
     <div class="stage">
@@ -304,7 +304,7 @@
       <strong>単一 cell (1×1)</strong> に <code>mag² ≈ 50%</code> の disk + 右下向き needle (<code>phase = 5π/4</code>) で
       <strong>Qni の "Q" 風シルエット</strong>を作る (円胴 + 右下に伸びるテール)。
       matrix の四角い外枠は描かず、円胴 + 右下テールだけを表示する。
-      ホバー時は外側のゲートホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -392,13 +392,13 @@
     <h3 style="margin-top: 16px;">可変幅 (<code>56 × cols − 16</code> px) 採用に伴う実装タスク</h3>
     <p>
       現行 qni-webgpu のゲートは <strong>resizable span でも幅 40 px 固定</strong> (例: 確率表示ブロックも 40 px)。本仕様の振幅表示ブロックは 2D 行列の縦横バランスを保つため <strong>span に応じた可変幅</strong> (cols = 2〜16、<strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>、96 〜 880 px) を採用する。
-      これは現行 <code>gate_visible_rect()</code> / hit-test / drag-drop / hover ring と整合しないので、以下を併せて実装する:
+      これは現行 <code>gate_visible_rect()</code> / hit-test / drag-drop / ホバー枠 と整合しないので、以下を併せて実装する:
     </p>
     <ul>
       <li><strong>gate_visible_rect()</strong> — gate の <code>width_cols</code> を返すよう拡張、<code>x..x + width_px</code> を bounding rect とする (<code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE</code>)。振幅表示ブロック以外は <code>cols = 1</code> を返して既存挙動 (<code>width_px = GATE_SIZE = 40</code>) を維持。</li>
       <li><strong>hit-test (palette → circuit drop)</strong> — drop 時に新規 amplitude の <code>gate_rect</code> (width = <code>56 × cols − 16</code>) と既存 gate rect が幾何交差しないかを確認、交差なら drop 拒否 (詳細は下の「placement / 衝突検出」参照、probability / QFT の resizable と同じセマンティクス)。</li>
       <li><strong>drag / drop preview</strong> — drag 中の影 / プレビューも <code>width_px × height_px</code> で描く。drag 中の matrix 背景は他ゲートの drag preview と同じ <code>purple-600</code> にするが、outline 円の内側の白地は <code>bg</code> のまま残し、振幅 disk / outline / needle の色も通常時のまま変えない。回路 slot に snap して GPU の live 値が出る前も、palette から出した Amps1 は同じ GPU 表示シェーダの強制ゼロ描画インスタンスとして <code>mag = 0</code> の空セル 2 つを描く。drop target highlight も同寸。</li>
-      <li><strong>hover 表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 測定結果の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形 hover ring は cell hover 中には出さない。</li>
+      <li><strong>ホバー表示</strong> — Amplitude の cell hover は正方形枠を描かず、対象 測定結果の <strong>outline 円周だけ</strong>を <code>purple-400</code> に置き換える。ゲート全体の矩形ホバー枠は cell hover 中には出さない。</li>
       <li><strong>resize handle</strong> — 上下のみ (height = span を変える)、左右の幅は span の関数なので separate な width handle は不要。</li>
       <li><strong>列衝突検出</strong> — gate の<strong>右端</strong>列まで衝突判定を広げる。<code>width_px</code> 範囲内の他ゲートと <code>gate_rect ∩ gate_rect</code> 幾何交差で重ならない位置にのみ配置可。</li>
       <li><strong>URL round-trip (Quirk 互換)</strong> — JSON は <code>{"cols":[["Amps3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は<em>表示列幅</em>であって JSON 上の列消費ではない。

@@ -2,6 +2,7 @@ use eframe::egui;
 
 use crate::app::{ExecMode, ExternalGpuStatus, QniApp};
 use crate::colors::{with_alpha, Colors};
+use crate::constants::PALETTE_SEPARATOR_WIDTH;
 
 use super::gpu_status_pill::gpu_status_pill;
 
@@ -283,17 +284,16 @@ fn publish_toolbar_button_debug_json(_tooltip: &str, _rect: egui::Rect, _hovered
 
 fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
     let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(5.0, 24.0), // 1px line + mx-0.5 = 2px each side.
+        egui::vec2(PALETTE_SEPARATOR_WIDTH + 4.0, 24.0), // 2px divider + mx-0.5 = 2px each side.
         egui::Sense::hover(),
     );
-    let center_x = rect.center().x;
-    ui.painter().line_segment(
-        [
-            egui::pos2(center_x, rect.center().y - 9.0),
-            egui::pos2(center_x, rect.center().y + 9.0),
-        ],
-        egui::Stroke::new(1.0, colors.line), // Flexoki ui-2.
+    let divider_rect = egui::Rect::from_center_size(
+        rect.center(),
+        egui::vec2(PALETTE_SEPARATOR_WIDTH, rect.height()),
     );
+    // Match the gate-palette section separator: 2px Flexoki ui-2 solid rect.
+    ui.painter()
+        .rect_filled(divider_rect, egui::CornerRadius::ZERO, colors.line);
 }
 
 fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, color: egui::Color32) {

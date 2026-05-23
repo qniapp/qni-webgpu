@@ -93,7 +93,7 @@
       width: 40px;
     }
     .cd .row .bar-clip .label { color: var(--tx); }
-    /* ホバー: 外側のゲート枠 (purple-400 ring の 2 px 厚、paper の 2 px gap を挟む) */
+    /* ホバー: 外側のゲート枠 (purple-400 の枠 の 2 px 厚、paper の 2 px gap を挟む) */
     .cd:hover {
       box-shadow:
         0 0 0 2px var(--bg),
@@ -199,9 +199,9 @@
        仕様: docs/design-system/resize-handle.html。確率表示ブロックは本体幅が span に依存せず
        40 px 固定なので、widthMode: 'fixed' (= 24 px 固定) を使う。
        data-cd-state="hover" は仕様ページ用にホバー枠を強制表示する確率表示ブロック側の状態属性で、
-       これに連動してハンドルを visible にする (シナリオ別モックで「ゲート hover + ハンドル状態 X」を再現)。 */
+       これに連動してハンドルを visible にする (シナリオ別モックで「ホストホバー + ハンドル状態 X」を再現)。 */
 
-    /* 仕様ページ用にゲートホバー枠を強制表示する data 属性 (確率表示ブロック固有) */
+    /* 仕様ページ用にホバー枠を強制表示する data 属性 (確率表示ブロック固有) */
     .cd[data-cd-state="hover"] {
       box-shadow:
         0 0 0 2px var(--bg),
@@ -326,7 +326,7 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>リサイズハンドルを別色族に振る</strong> — <s>現状 hover ring と完全同色の <code>purple-400</code>。</s> <strong>適用済 (2026-05-22):</strong> <code>cyan-400 / cyan-600</code> に変更し、<code>2 px paper gap</code> は breathing room として残す形に整理 (§ 12 参照)。</li>
+      <li><strong>リサイズハンドルを別色族に振る</strong> — <s>現状はホバー枠と完全同色の <code>purple-400</code>。</s> <strong>適用済 (2026-05-22):</strong> <code>cyan-400 / cyan-600</code> に変更し、<code>2 px</code> の背景の空きは視覚的な余白として残す形に整理 (§ 12 参照)。</li>
       <li><strong>仕様ページ冒頭に Quick Reference カードを置く</strong> — 寸法式 <code>56 × span − 16 px</code> / 配色 6 色 / 上限 / ホバー時挙動 を 1 ブロックで提示。</li>
       <li><strong>パレットアイコンを span 1 の 2 行表示に統一</strong> — 現状 4 行ガウシアン風プレビューは「span 2 のゲート」と誤読される (§ 03 参照)。</li>
       <li><strong>シミュレーション結果到着時のマイクロインタラクションを設計</strong> — placeholder → 結果のクロスフェードを「各バーが左から伸びる + subtle flash」に拡張 (§ 02 参照)。</li>
@@ -446,7 +446,7 @@
     </p>
     <ul>
       <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で塗る。
-        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、
+        本デザインシステムでは「未確定 / 進行中」を表現する色として紫を採用しており (drag preview = <code>purple-600</code>、ホバー枠 = <code>purple-400</code>)、
         実行前の確率値も <strong>0 (赤系) と 1 (青系) の中間に位置する未確定な値</strong>として同じ紫系統で表す。
         色相は drag/hover で使う濃い紫よりさらに淡くして、「進行中アクション」と「結果待ちの静止状態」を区別する。</li>
       <li><strong>行構造ガイド</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレーで行境界の水平線を <code>2<sup>span</sup> − 1</code> 本引く (既存の行区切り線と同色)。
@@ -454,7 +454,7 @@
         <code>rowH ≤ 2 px</code> (span 8+) では線が重畳するので省略 (通常時の行区切り線と同じ閾値)。</li>
       <li><strong>バー / ラベル / 対数ヒント線</strong> — 描かない。確率値そのものを持たないので、バー (幅) もラベル (数値) も対数ヒント線 (補助) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 12) は通常時と同じく出す。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 12) は通常時と同じく出す。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー行ガイド) を 150 ms ease-out でフェードアウトしつつ、通常の バー + ラベル / 対数ヒント線 描画にクロスフェードする。</li>
     </ul>
     <div class="stage">
@@ -537,7 +537,7 @@
       ガウシアン風の 4 行プレビュー (<code>PROBABILITY_PREVIEW_BAR_WIDTHS = [0.30, 0.75, 0.55, 0.20]</code>) で
       「複数の測定結果を持つ確率分布ゲート」を表す。バー / 区切り / 外枠は本体と同じルール
       (区切り線はバー領域に引かない、外枠は <code>ui-2</code> 1 px、本体角ばり)。
-      ホバー時は外側のゲートホバー枠だけ表示 (行ホバー枠は出さない、静的なので行を選ぶ意味がない)。
+      ホバー時は外側のホバー枠だけ表示 (行ホバー枠は出さない、静的なので行を選ぶ意味がない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -662,7 +662,7 @@
         <tr><td>外枠 / 行区切り線</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ゲート外周 1 px、バー外側の区切り 1 px</td></tr>
         <tr><td>対数ヒント線</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>row_h ≤ 8 px のとき、各測定結果の log 位置に補助線。視認性を確保するため Quirk の <code>'#CCC'</code> より濃い tx-3 を採用</td></tr>
         <tr><td>テキスト</td><td><code>tx</code></td><td>#100F0F</td><td><code>XX.X%</code> ラベル (色境界 two-tone なし)</td></tr>
-        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ゲートホバー外枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
+        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>外側ホバー枠 / 行ホバー内枠 (qni-webgpu の <code>gate_hover_border</code> と同色)</td></tr>
         <tr><td>リサイズハンドル (default)</td><td><code>cyan-400</code></td><td>#3AA99F</td><td>ピル形ハンドルのデフォルト色。ホバー枠 (<code>purple-400</code>) と<strong>別色族</strong>にして「リングの突起 ?」誤認を回避 (§ 12 参照)</td></tr>
         <tr><td>リサイズハンドル (active)</td><td><code>cyan-600</code></td><td>#24837B</td><td>ハンドル単独ホバー / ドラッグ中の濃色。<code>cyan-400 → cyan-600</code> の濃度遷移で「触れる対象 → 操作対象」を示す (§ 12)</td></tr>
       </tbody>
@@ -941,9 +941,9 @@ stroke()</pre>
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>ゲートホバー枠</th><td>ゲート外側 0..2 px = paper gap、2..4 px = <code>purple-400</code> ring (合計 4 px 厚)。<code>ProbabilityDisplay</code> は本体が角ばりなのでホバー枠も角ばり。既存のゲートホバー枠 (<code>circuit_gates.rs:67-91</code> / <code>circuit_palette/panel.rs:48-71</code>) と同寸・同色</td></tr>
+        <tr><th>外側ホバー枠</th><td>ゲート外側 0..2 px = 背景の空き、2..4 px = <code>purple-400</code> の枠 (合計 4 px 厚)。配置済みの <code>ProbabilityDisplay</code> も、外側ホスト枠は共通の角丸 10 px。既存のホバー枠 (<code>circuit_gates.rs</code> / <code>circuit_palette/panel.rs</code>) と同寸・同色</td></tr>
         <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk の <code>strokeRect(..., lineWidth = 2)</code> と同流儀。行高が 4 px 未満の高密度表示では、上下ストロークが重なった 2 px 相当の水平帯として描き、Probability16 でもホバーしている振幅の位置が消えないようにする</td></tr>
-        <tr><th>同時表示</th><td>ゲートホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
+        <tr><th>同時表示</th><td>ホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
         <tr><th>ポップアップ</th><td>
           行ホバー時、ゲートの右 8 px にポップアップが出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
           <code>Probability if measured · k = N</code> (補足)、<code>raw: (p × 100).toFixed(4) %</code>、
@@ -958,8 +958,8 @@ stroke()</pre>
           <code>tx-3</code> (#B7B5AC) はゲート背景の <code>paper</code> 上で薄すぎるため使わず、<code>tx-2</code> (#6F6E69) を二次テキスト色とする。
           枠 = <code>paper</code> bg + <code>ui-2</code> 1 px、<code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)、shadow = <code>0 4px 12px rgba(16,15,15,0.06)</code>
         </td></tr>
-        <tr><th>パレットアイコン</th><td>外側ゲートホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
-        <tr><th>リサイズハンドル</th><td>ゲートホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
+        <tr><th>パレットアイコン</th><td>外側ホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
+        <tr><th>リサイズハンドル</th><td>ホストホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
@@ -1141,7 +1141,7 @@ stroke()</pre>
         <tr><th>widthMode</th><td><code>'fixed'</code> — 本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
         <tr><th>JS 呼び出し</th><td><code>attachResizeHandles(cd, { widthMode: 'fixed', handleState: opts.handleState })</code></td></tr>
         <tr><th>ホスト要素</th><td>buildCd が生成する <code>.cd</code> div。<code>.resize-handle-host</code> マーカークラスを併記する</td></tr>
-        <tr><th>連動 state</th><td><code>data-cd-state="hover"</code> をホストに付けると、確率表示ブロック側の hover ring (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
+        <tr><th>連動 state</th><td><code>data-cd-state="hover"</code> をホストに付けると、確率表示ブロック側のホバー枠 (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
       </tbody>
     </table>
 
@@ -1159,7 +1159,7 @@ stroke()</pre>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">② gate hover<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
+        <div class="caption">② ホストホバー<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
         <div class="actual">
           <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="visible"></div>
         </div>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ホバー枠 (primitive) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       nav.breadcrumb / footer.doc-foot / .hover-frame) は design-system.css にある。 */
+
+    .hf-stage {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 32px 24px; /* spacing-8 / spacing-6 */
+      display: flex;
+      gap: 56px; /* spacing-14 */
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      overflow: hidden;
+    }
+    .hf-example {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px; /* spacing-3 */
+      min-width: 160px;
+    }
+    .hf-caption {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs = 12px */
+      line-height: 16px;
+      color: var(--tx-3);
+      text-align: center;
+    }
+    .hf-circuit {
+      position: relative;
+      width: 152px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+    }
+    .hf-circuit::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--ui-2);
+      transform: translateY(-0.5px);
+    }
+    .hf-gate-wrap {
+      position: relative;
+      width: 40px;  /* GATE_SIZE = 40 px = spacing-10 */
+      height: 40px; /* GATE_SIZE = 40 px = spacing-10 */
+      display: grid;
+      place-items: center;
+    }
+    .hf-gate {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      background: var(--cyan-400);
+      color: var(--bg);
+      display: grid;
+      place-items: center;
+      font-size: 20px; /* text-xl = 20px */
+      line-height: 28px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+    .hf-gate--transparent {
+      background: transparent;
+      color: var(--tx);
+      border-radius: 999px;
+      font-size: 30px; /* text-3xl = 30px */
+      line-height: 36px;
+    }
+    /* サムネ専用の中立ホスト。具体的なゲートではなく「囲まれる任意の要素」を
+       示すための白い 40 × 40 矩形 (resize-handle.html の .rh-mock と同形)。 */
+    .hf-blank {
+      position: relative;
+      width: 40px;  /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      background: var(--bg);
+      z-index: 1;
+    }
+    .hf-blank::after {
+      content: '';
+      position: absolute; inset: 0;
+      border: 1px solid var(--ui-2);
+      pointer-events: none;
+    }
+    .hf-palette-pad {
+      padding: 20px 16px; /* PALETTE_PADDING_Y / PALETTE_PADDING_X */
+      border-radius: 12px;
+      background: var(--bg);
+      box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
+    }
+
+    .hf-layer-stack {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 16px; /* spacing-4 */
+      align-items: center;
+      margin-top: 12px;
+    }
+    .hf-layer-visual {
+      position: relative;
+      height: 64px; /* spacing-16 */
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .hf-layer-body,
+    .hf-layer-inner-gap,
+    .hf-layer-frame,
+    .hf-layer-outer-gap {
+      position: absolute;
+      top: 12px;
+      bottom: 12px;
+      border-radius: 6px;
+    }
+    .hf-layer-body {
+      left: 64px;
+      width: 40px;
+      background: var(--cyan-400);
+      z-index: 4;
+    }
+    .hf-layer-inner-gap {
+      left: 62px;
+      width: 44px;
+      background: var(--bg-2);
+      z-index: 3;
+    }
+    .hf-layer-frame {
+      left: 60px;
+      width: 48px;
+      background: var(--purple-400);
+      z-index: 2;
+      border-radius: 10px;
+    }
+    .hf-layer-outer-gap {
+      left: 60px;
+      width: 48px;
+      border: 1px dashed var(--tx-3);
+      z-index: 5;
+    }
+    .hf-layer-labels {
+      display: grid;
+      gap: 4px; /* spacing-1 */
+      font-size: 12px; /* text-xs = 12px */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .hf-layer-labels span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px; /* spacing-2 */
+    }
+    .hf-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid var(--ui-2);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー。40 × 40 px の中立ホスト + 外側 4 px のホバー枠。
+     主役は「枠」なので、ホスト側は具体的なゲートではなく白い矩形に置く。 -->
+<div id="preview">
+  <div class="hf-gate-wrap hover-frame-host" aria-hidden="true">
+    <span class="hover-frame hover-frame--surface-gap"></span>
+    <div class="hf-blank"></div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">Primitives</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ホバー枠</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
+  <h1 class="page-title">ホバー枠</h1>
+  <p class="page-lede">
+    対象要素にポインタが重なったとき、外側または内側境界に出る <code>purple-400</code> の 2 px 枠。
+    外側ホスト枠 (ゲート / パレット項目) と内側セル枠 (表示ブロック内セル) で、同じ名前・同じ色を使う横断 UI 部品。
+    実装上の色ロールは現状 <code>colors.gate_hover_border</code> と GPU 側の <code>hover_border</code>。
+    ホバー対象の状態は <code>hovered_gate_id</code> / <code>hovered_palette_index</code> /
+    <code>hovered_probability_outcome</code> などで管理する。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 見た目</h2>
+  <div class="card">
+    <div class="hf-stage">
+      <div class="hf-example">
+        <div class="hf-circuit">
+          <div class="hf-gate-wrap hover-frame-host">
+            <span class="hover-frame hover-frame--stroke"></span>
+            <div class="hf-gate">H</div>
+          </div>
+        </div>
+        <div class="hf-caption">回路上<br>線だけのホバー枠</div>
+      </div>
+      <div class="hf-example">
+        <div class="hf-palette-pad">
+          <div class="hf-gate-wrap hover-frame-host">
+            <span class="hover-frame hover-frame--surface-gap"></span>
+            <div class="hf-gate">H</div>
+          </div>
+        </div>
+        <div class="hf-caption">ゲートパレット<br>内側を bg で抜く</div>
+      </div>
+      <div class="hf-example">
+        <div class="hf-circuit">
+          <div class="hf-gate-wrap hover-frame-host">
+            <span class="hover-frame hover-frame--stroke"></span>
+            <div class="hf-gate hf-gate--transparent">×</div>
+          </div>
+        </div>
+        <div class="hf-caption">透明なゲート<br>接続線を消さない</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 寸法</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>対象矩形</th><td>ホバー対象の表示矩形。通常ゲートは <code>40 × 40 px</code>、span 付き表示ブロックは実際に見えている本体矩形</td></tr>
+        <tr><th>外側への拡張</th><td><code>4 px</code>。実装では <code>body_rect.expand(4.0)</code> または <code>gate_rect.expand(4.0)</code></td></tr>
+        <tr><th>線幅</th><td><code>2 px</code>。外側 4 px のうち外寄り 2 px が <code>purple-400</code></td></tr>
+        <tr><th>内側の空き</th><td><code>2 px</code>。対象要素と紫枠の間に背景色の隙間を残す</td></tr>
+        <tr><th>角丸</th><td><code>10 px</code>。40 px 通常ゲート本体の <code>6 px</code> 角丸より 4 px 大きい</td></tr>
+        <tr><th>40 px ゲート時</th><td>ホバー枠の外形は <code>48 × 48 px</code>。本体 <code>40 × 40 px</code> の外側に 4 px ずつ広がる</td></tr>
+        <tr><th>影</th><td>なし。ホバー枠は位置を示す操作フィードバックであり、浮上表現にはしない</td></tr>
+      </tbody>
+    </table>
+
+    <div class="hf-layer-stack" role="img" aria-label="ホバー枠のレイヤ図">
+      <div class="hf-layer-visual">
+        <div class="hf-layer-outer-gap"></div>
+        <div class="hf-layer-frame"></div>
+        <div class="hf-layer-inner-gap"></div>
+        <div class="hf-layer-body"></div>
+      </div>
+      <div class="hf-layer-labels">
+        <span><i class="hf-swatch" style="background: var(--cyan-400);"></i>本体 40 px</span>
+        <span><i class="hf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
+        <span><i class="hf-swatch" style="background: var(--purple-400);"></i>ホバー枠 2 px</span>
+        <span><i class="hf-swatch" style="background: transparent;"></i>ホバー枠外形 48 px</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配色</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ロール</th><th>Flexoki トーン</th><th>hex</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>gate_hover_border</code> / <code>hover_border</code></td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ホバー枠。回路上 / パレット / 表示セルで共有</td></tr>
+        <tr><td>内側の空き</td><td><code>bg</code> または <code>bg-2</code></td><td>#FFFCF0 / #F2F0E5</td><td>対象要素と紫枠の間の 2 px。描画面に合わせて背景が見える。パレットでは <code>bg</code> (paper) で抜く</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <code>purple-400</code> は「ポインタが重なっている」ことを示す色。
+      ドラッグ中の本体色 <code>drag_fill</code> は <code>purple-600</code> で、ホバーより濃い紫にして状態を分ける。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 描き分け</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>場所</th><th>描き方</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>回路上</td>
+          <td><code>rect_stroke</code> で線だけを描く。内側を塗らない</td>
+          <td>Control / AntiControl / Swap / Phase など、透明なゲート内部を通る接続線を消さないため</td>
+        </tr>
+        <tr>
+          <td>ゲートパレット</td>
+          <td>外側を <code>purple-400</code> で塗り、内側を <code>colors.surface</code> (= <code>bg</code> / paper) で抜く</td>
+          <td>パレット面は常に paper なので、Measurement / Spacer など本体塗りを持たないゲートでも背景色が変わらない</td>
+        </tr>
+        <tr>
+          <td>表示ブロック内セル</td>
+          <td>GPU シェーダへ <code>hover_border</code> として渡し、行 / セル単位の境界を描く</td>
+          <td>同じ色ロールを使う表示ブロック固有の派生表現として扱う</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 状態と操作</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>出現条件</th><td>ポインタが対象矩形に重なり、ドラッグ中でないこと</td></tr>
+        <tr><th>回路上のゲート状態</th><td><code>hovered_gate_id == Some(gate.id)</code></td></tr>
+        <tr><th>パレット項目の状態</th><td><code>hovered_palette_index == Some(index)</code></td></tr>
+        <tr><th>表示セルの状態</th><td><code>hovered_probability_outcome</code> / <code>hovered_amplitude_outcome</code> / <code>hovered_density_cell</code></td></tr>
+        <tr><th>カーソル</th><td>ホバー中は <code>egui::CursorIcon::Grab</code>。リサイズハンドル上では <code>ResizeVertical</code> が優先</td></tr>
+        <tr><th>非表示条件</th><td>ドラッグ中、ポインタが領域外、または振幅 / 密度行列表示ブロックのセルホバーが優先される場合</td></tr>
+        <tr><th>アニメーション</th><td>なし。ホバー枠は即時表示。動きはリサイズハンドルなど別部品へ集約する</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 実装参照</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>色ロール</th><td><code>apps/web/src/colors.rs</code> — <code>gate_hover_border: purple_400</code></td></tr>
+        <tr><th>回路上の描画</th><td><code>apps/web/src/render/circuit_gates.rs</code> — <code>body_rect.expand(4.0)</code> + <code>Stroke::new(2.0, colors.gate_hover_border)</code></td></tr>
+        <tr><th>パレットの描画</th><td><code>apps/web/src/render/circuit_palette/panel.rs</code> — <code>gate_rect.expand(4.0)</code> / <code>gate_rect.expand(2.0)</code> の 2 層塗り</td></tr>
+        <tr><th>ホバー判定</th><td><code>apps/web/src/app/drag_controller/hover.rs</code> — <code>hovered_gate_id</code> / <code>hovered_palette_index</code> を更新</td></tr>
+        <tr><th>GPU 派生</th><td><code>apps/web/src/render/circuit_gates.rs</code> — <code>hover_border: colors.gate_hover_border.to_normalized_gamma_f32()</code></td></tr>
+      </tbody>
+    </table>
+
+    <pre class="code">// 回路上: 線だけのホバー枠
+let hover_outer = body_rect.expand(4.0);
+painter.rect_stroke(
+    hover_outer,
+    egui::CornerRadius::same(10),
+    egui::Stroke::new(2.0, colors.gate_hover_border),
+    egui::StrokeKind::Inside,
+);</pre>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 07 使用ルール</h2>
+  <div class="card">
+    <ul>
+      <li>選択状態、エラー状態、実行状態には使わない。ホバー枠はポインタホバーだけを表す。</li>
+      <li>回路上では内側を塗らない。透明ゲートと接続線の可読性を優先する。</li>
+      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / 角丸 <code>10 px</code> / <code>purple-400</code> を変えない。</li>
+      <li>行 / セルの内側ホバー枠は、各表示ブロック仕様の形状に従う。色は <code>purple-400</code> でそろえる。</li>
+      <li>リサイズハンドルは <code>cyan-400</code> 系で描き、ホバー枠とは色族を分ける。</li>
+      <li>検討履歴は <a href="gate-hover-feedback-options.html">ホバー枠の検討履歴</a> を参照。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムへ戻る</a></p>
+  <p class="meta">qni-webgpu · ホバー枠 · 2026-05</p>
+</footer>
+
+</body>
+</html>

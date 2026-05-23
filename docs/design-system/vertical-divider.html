@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>垂直ディバイダ (primitive) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       nav.breadcrumb / footer.doc-foot / .vertical-divider) は design-system.css にある。 */
+
+    .vd-stage {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 32px 24px; /* spacing-8 / spacing-6 */
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .vd-palette {
+      padding: 20px 16px; /* PALETTE_PADDING_Y / PALETTE_PADDING_X */
+      border-radius: 12px;
+      background: var(--bg); /* Flexoki bg / paper */
+      box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
+      display: flex;
+      gap: 8px; /* PALETTE_SECTION_GAP = spacing-2 */
+      align-items: stretch;
+    }
+    .vd-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px; /* PALETTE_ROW_GAP = spacing-2 */
+    }
+    .vd-row {
+      display: flex;
+      gap: 8px; /* PALETTE_GAP = spacing-2 */
+    }
+    .vd-cell {
+      width: 40px; /* PALETTE_SIZE = spacing-10 */
+      height: 40px;
+      border-radius: 6px;
+      background: var(--cyan-400); /* Flexoki cyan-400 */
+      color: var(--bg);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+      letter-spacing: -0.02em;
+    }
+    .vd-cell--display {
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      color: var(--tx-2);
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+    }
+    .vd-cell--bloch {
+      border-radius: 999px;
+      background: var(--bg-2);
+      color: var(--blue-600);
+    }
+    .vd-cell--matrix {
+      display: grid;
+      grid-template-columns: repeat(2, 10px);
+      grid-template-rows: repeat(2, 10px);
+      gap: 4px; /* spacing-1 */
+      padding: 6px;
+    }
+    .vd-dot {
+      border-radius: 999px;
+      border: 1px solid var(--tx-2);
+      background: var(--blue-200);
+      box-shadow: inset 0 0 0 1px var(--blue-400);
+    }
+    .vd-preview-strip {
+      display: flex;
+      align-items: stretch;
+      gap: 8px; /* spacing-2 */
+      height: 48px; /* spacing-12 */
+      padding: 4px 8px; /* spacing-1 / spacing-2 */
+      border-radius: 10px;
+      background: var(--bg);
+      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.12);
+    }
+    .vd-preview-mini {
+      width: 32px; /* spacing-8 */
+      height: 32px;
+      border-radius: 6px;
+      background: var(--cyan-400);
+      color: var(--bg);
+      display: grid;
+      place-items: center;
+      align-self: center;
+      font-weight: 700;
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+    }
+    .vd-preview-mini--display {
+      background: var(--bg-2);
+      color: var(--blue-600);
+      border: 1px solid var(--ui-2);
+      border-radius: 999px;
+    }
+    .vd-callout {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) 1fr;
+      gap: 16px; /* spacing-4 */
+      align-items: center;
+      margin-top: 16px; /* spacing-4 */
+    }
+    .vd-measure {
+      position: relative;
+      height: 136px;
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      display: flex;
+      justify-content: center;
+      padding: 24px; /* spacing-6 */
+    }
+    .vd-measure .vertical-divider {
+      height: 88px;
+    }
+    .vd-measure-label {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .vd-measure-label--top { top: 4px; }
+    .vd-measure-label--bottom { bottom: 4px; }
+    .vd-measure-line {
+      position: absolute;
+      left: 50%;
+      width: 32px; /* spacing-8 */
+      height: 1px;
+      background: var(--tx-3);
+      transform: translateX(-50%);
+    }
+    .vd-measure-line--top { top: 24px; }
+    .vd-measure-line--bottom { bottom: 24px; }
+    .vd-legend {
+      display: grid;
+      gap: 8px; /* spacing-2 */
+      color: var(--tx-2);
+      font-size: 14px; /* text-sm */
+      line-height: 20px;
+    }
+    .vd-legend span {
+      display: flex;
+      align-items: center;
+      gap: 8px; /* spacing-2 */
+    }
+    .vd-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid var(--ui-2);
+      flex: 0 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="vd-preview-strip" aria-hidden="true">
+    <div class="vd-preview-mini">RY</div>
+    <div class="vd-preview-mini">RZ</div>
+    <div class="vertical-divider"></div>
+    <div class="vd-preview-mini vd-preview-mini--display">B</div>
+    <div class="vd-preview-mini vd-preview-mini--display">ρ</div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">Primitives</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">垂直ディバイダ</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
+  <h1 class="page-title">垂直ディバイダ</h1>
+  <p class="page-lede">
+    ゲートパレット内で、左側の操作ゲート群と右側の表示ブロック群を分ける 2 px の縦区切り線。
+    線そのものは操作対象ではなく、セクションのまとまりだけを示す。現行の実装では
+    <code>PALETTE_SEPARATOR_WIDTH</code> と <code>colors.line</code> で描画する。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 見た目</h2>
+  <div class="card">
+    <p>
+      ディバイダはパレット面の上に、2 行のアイコン高と同じ高さで置く。
+      左右にはそれぞれ 8 px の余白を取り、操作ゲート群 / 表示ブロック群のどちらにも属さない中立な境界として読む。
+    </p>
+    <div class="vd-stage" aria-label="ゲートパレット内の垂直ディバイダ例">
+      <div class="vd-palette">
+        <div class="vd-section" aria-label="操作ゲート群">
+          <div class="vd-row">
+            <div class="vd-cell">H</div>
+            <div class="vd-cell">X</div>
+            <div class="vd-cell">Y</div>
+            <div class="vd-cell">Z</div>
+            <div class="vd-cell">RX</div>
+            <div class="vd-cell">RY</div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-cell">SW</div>
+            <div class="vd-cell">●</div>
+            <div class="vd-cell">○</div>
+            <div class="vd-cell">QFT</div>
+          </div>
+        </div>
+        <div class="vertical-divider" aria-hidden="true"></div>
+        <div class="vd-section" aria-label="表示ブロック群">
+          <div class="vd-row">
+            <div class="vd-cell vd-cell--display vd-cell--bloch">B</div>
+            <div class="vd-cell vd-cell--display">P</div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-cell vd-cell--display">A</div>
+            <div class="vd-cell vd-cell--display vd-cell--matrix" aria-label="密度行列">
+              <span class="vd-dot"></span><span class="vd-dot"></span>
+              <span class="vd-dot"></span><span class="vd-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 寸法と配置</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>幅</th><td><code>2 px</code>。実装値は <code>PALETTE_SEPARATOR_WIDTH = 2.0</code></td></tr>
+        <tr><th>高さ</th><td><code>88 px</code>。<code>2 × 40 px</code> のアイコン高 + 行間 <code>8 px</code> に一致させる</td></tr>
+        <tr><th>縦位置</th><td>パレット内容領域の上端に揃える。上下の <code>20 px</code> padding までは伸ばさない</td></tr>
+        <tr><th>横位置</th><td><code>gates_width + PALETTE_SECTION_GAP</code>。現行値は <code>616 + 8 = 624 px</code></td></tr>
+        <tr><th>左右余白</th><td>左 8 px / 右 8 px。どちらも <code>PALETTE_SECTION_GAP</code></td></tr>
+        <tr><th>角丸</th><td>なし (<code>CornerRadius::ZERO</code>)。細い線として扱い、ピルやハンドルには見せない</td></tr>
+        <tr><th>影</th><td>なし。パレットの影は面全体だけに付ける</td></tr>
+        <tr><th>ヒット判定</th><td>なし。<code>palette_hit_test()</code> はディバイダと左右余白を <code>None</code> として扱う</td></tr>
+      </tbody>
+    </table>
+
+    <div class="vd-callout">
+      <div class="vd-measure" role="img" aria-label="垂直ディバイダの 88 px 高さ図">
+        <div class="vd-measure-line vd-measure-line--top"></div>
+        <div class="vertical-divider"></div>
+        <div class="vd-measure-line vd-measure-line--bottom"></div>
+        <span class="vd-measure-label vd-measure-label--top">top = content top</span>
+        <span class="vd-measure-label vd-measure-label--bottom">height = 88 px</span>
+      </div>
+      <div class="vd-legend">
+        <span><i class="vd-swatch" style="background: var(--ui-2);"></i>ディバイダ本体: Flexoki <code>ui-2</code></span>
+        <span><i class="vd-swatch" style="background: var(--bg);"></i>パレット面: Flexoki <code>bg</code></span>
+        <span><i class="vd-swatch" style="background: var(--bg-2);"></i>ページ背景: Flexoki <code>bg-2</code></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配色</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ロール</th><th>Flexoki トーン</th><th>hex</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>colors.line</code></td><td><code>ui-2</code></td><td>#DAD8CE</td><td>ディバイダ本体。ワイヤ / カード枠と同じ中立線</td></tr>
+        <tr><td>背景</td><td><code>bg</code></td><td>#FFFCF0</td><td>パレット面。ディバイダの左右 8 px 余白として見える</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <code>ui-2</code> は主張しすぎない境界色。<code>tx-3</code> 以上に濃くすると、表示ブロック群が別パネルのように見え、
+      <code>ui</code> 以下に薄くすると 40 px アイコンの密度に埋もれる。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 挙動</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>状態</th><td>常時表示。ホバー / ドラッグ / 選択で色や幅を変えない</td></tr>
+        <tr><th>カーソル</th><td>なし。ディバイダ上ではゲートの <code>grab</code> カーソルを出さない</td></tr>
+        <tr><th>ツールチップ</th><td>なし。説明対象は左右のアイコンであり、ディバイダ自体ではない</td></tr>
+        <tr><th>ドラッグ開始</th><td>不可。マウス位置がディバイダまたは左右余白にある場合、パレットからのドラッグを開始しない</td></tr>
+        <tr><th>アニメーション</th><td>なし。セクション構造を示す静的な線として扱う</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 実装参照</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>寸法定数</th><td><code>apps/web/src/constants.rs</code> — <code>PALETTE_SEPARATOR_WIDTH = 2.0</code>、<code>PALETTE_SECTION_GAP = 8.0</code></td></tr>
+        <tr><th>配置計算</th><td><code>apps/web/src/layout/palette.rs</code> — <code>separator_x</code> / <code>display_x</code> を算出</td></tr>
+        <tr><th>描画</th><td><code>apps/web/src/render/circuit_palette/panel.rs</code> — <code>separator_rect</code> を <code>colors.line</code> で塗る</td></tr>
+        <tr><th>仕様内 CSS</th><td><code>docs/design-system/design-system.css</code> — <code>.vertical-divider</code></td></tr>
+      </tbody>
+    </table>
+
+    <pre class="code">let separator_rect = egui::Rect::from_min_size(
+    palette_origin + egui::vec2(layout.separator_x, 0.0),
+    egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
+);
+painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);</pre>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 使用ルール</h2>
+  <div class="card">
+    <ul>
+      <li>密度の違うセクションを、同じパレット面の中で分けるときだけ使う。</li>
+      <li>幅 <code>2 px</code> / 色 <code>ui-2</code> / 左右余白 <code>8 px</code> を変えない。</li>
+      <li>線は内容領域の高さに合わせる。パネル padding いっぱいには伸ばさない。</li>
+      <li>一時状態、選択状態、ドラッグ状態の表現には使わない。</li>
+      <li>区切り線が操作できるように見える場合は、角丸や濃色を避け、<code>ui-2</code> に戻す。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムへ戻る</a></p>
+  <p class="meta">qni-webgpu · 垂直ディバイダ primitive · 2026-05</p>
+</footer>
+
+</body>
+</html>

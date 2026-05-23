@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gate Hover Feedback Options — egui-web</title>
+  <title>ホバー枠の検討履歴 — egui-web</title>
   <link rel="stylesheet" href="design-system.css" />
   <script>
     // design-system.html のサムネ iframe (?preview) から読まれたときは
@@ -237,7 +237,7 @@
       padding: 1px 4px;
     }
 
-    /* Option A: high-contrast square ring outside the body. */
+    /* Option A: high-contrast square frame outside the body. */
     .option-a .hovered::after {
       content: '';
       position: absolute;
@@ -318,7 +318,7 @@
       background: var(--blue-600); /* Flexoki blue-600 */
     }
 
-    /* Option E: keyboard-focus compatible dual ring. */
+    /* Option E: keyboard-focus compatible dual frame. */
     .option-e .hovered::after {
       content: '';
       position: absolute;
@@ -371,7 +371,7 @@
 
 
 <div id="preview">
-  <!-- 案 A (推奨案、blue ring + halo) のホバー中ゲート -->
+  <!-- 案 A (推奨案、blue frame + halo) のホバー中ゲート -->
   <div class="palette" style="padding: 12px; gap: 10px;">
     <span class="gate hovered">H</span>
     <span class="gate">X</span>
@@ -385,15 +385,15 @@
   <span class="sep">/</span>
   <span class="parent">回路エディタ</span>
   <span class="sep">/</span>
-  <span class="current" aria-current="page">ホバーフィードバック検討</span>
+  <span class="current" aria-current="page">ホバー枠の検討履歴</span>
 </nav>
 
   <main class="page">
-    <div class="eyebrow">egui-web hover feedback design</div>
-    <h1>ゲート hover の四角フィードバック案</h1>
+    <div class="eyebrow">qni-webgpu · ホバー枠 · 検討履歴</div>
+    <h1>ホバー枠の四角フィードバック案</h1>
     <p class="lede">
       現状の薄いグレー枠は Flexoki の <code>ui-2</code> 近辺で、背景 <code>bg-2</code> と近すぎるため認知しづらい。
-      ここでは「ゲート本体の色や意味論を壊さない」「Probability / Measurement の GPU readout を覆わない」ことを条件に、四角い hover 表現を比較する。
+      ここでは「ゲート本体の色や意味論を壊さない」「Probability / Measurement の GPU readout を覆わない」ことを条件に、四角いホバー表現を比較する。
     </p>
 
     <div class="rules">
@@ -414,7 +414,7 @@
     <section class="option-grid" aria-label="hover feedback options">
       <article class="option option-a">
         <div class="option-head">
-          <h2 class="option-title">案 A — Blue ring + soft halo</h2>
+          <h2 class="option-title">案 A — Blue frame + soft halo</h2>
           <span class="badge">推奨</span>
         </div>
         <div class="scene">
@@ -518,7 +518,7 @@
 
       <article class="option option-e">
         <div class="option-head">
-          <h2 class="option-title">案 E — Purple dual ring</h2>
+          <h2 class="option-title">案 E — Purple dual frame</h2>
           <span class="badge">focus 共用</span>
         </div>
         <div class="scene">
@@ -535,7 +535,7 @@
         </div>
         <div class="notes">
           <ul>
-            <li><code>purple-600</code> ring + <code>bg</code> gap。keyboard focus と hover を同じ視覚言語にできる。</li>
+            <li><code>purple-600</code> の枠 + <code>bg</code> の空き。keyboard focus と hover を同じ視覚言語にできる。</li>
             <li>現在の drag / semantic intermediate が purple 系なので、操作系の色として自然。</li>
             <li>step-preview の青と役割が分かれる一方、hover と focus の区別は別途必要。</li>
           </ul>
@@ -558,8 +558,8 @@
           <tr>
             <th>案 A</th>
             <td><span class="rating">high</span> — 32px でも明確</td>
-            <td>外側 ring なので安全</td>
-            <td><code>gate_hover_ring</code> / <code>gate_hover_halo</code> role を追加し、既存 hover rect を置換。</td>
+            <td>外側の枠なので安全</td>
+            <td><code>hover_frame_border</code> / <code>hover_frame_halo</code> role を追加し、既存 hover rect を置換。</td>
           </tr>
           <tr>
             <th>案 B</th>
@@ -576,13 +576,13 @@
           <tr>
             <th>案 D</th>
             <td><span class="rating">high</span> — 列選択と連動</td>
-            <td>外側 ring + rail なので安全</td>
+            <td>外側の枠 + rail なので安全</td>
             <td>回路上限定ならよい。パレットでは rail の意味が薄い。</td>
           </tr>
           <tr>
             <th>案 E</th>
             <td><span class="rating">high</span> — 色差が大きい</td>
-            <td>外側 ring なので安全</td>
+            <td>外側の枠なので安全</td>
             <td>keyboard focus と共用しやすいが、drag 色と意味が近い。</td>
           </tr>
         </tbody>
@@ -592,7 +592,7 @@
 
 <footer class="doc-foot">
   <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
-  <p class="meta">qni-webgpu · ホバーフィードバック検討 · 2026-05</p>
+  <p class="meta">qni-webgpu · ホバー枠の検討履歴 · 2026-05</p>
 </footer>
 
 </body>

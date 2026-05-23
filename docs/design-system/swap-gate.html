@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Swap ゲート — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
+       table.spec / pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       本ページは「Swap ゲート」の透明な 40px マーカ、4px 縦コネクタ、ホバー枠を
+       CSS + inline SVG で再現する。 */
+
+    /* ── Swap マーカ ────────────────────────────────
+       gate-palette.html の基準 <symbol id="g-Swap" viewBox="0 0 48 48"> と一致。
+       本体の塗りは持たず、40 × 40 px の透明な hit / hover 領域の中央に
+       cyan-400 の × を描く。線は viewBox 48 上の stroke 4 px。 */
+    .swap-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      color: var(--cyan-400);               /* Flexoki cyan-400 / box_fill */
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: grab;
+      position: relative;
+    }
+    .swap-gate > svg {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* 回路上のホバー枠。
+       実装側は transparent な Swap 内部を塗らず、body_rect.expand(4) に
+       purple-400 の 2px 線だけを描く。コネクタがマーカ内部で消えないようにするため。 */
+    .swap-gate[data-state="hover"]::before,
+    .swap-gate:not([data-state]):hover::before {
+      content: '';
+      position: absolute;
+      inset: -4px;                          /* body_rect.expand(4.0) */
+      border: 2px solid var(--purple-400);  /* Flexoki purple-400 / gate_hover_border */
+      border-radius: 10px;
+      pointer-events: none;
+    }
+    .swap-gate[data-state="drag"] {
+      color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
+      cursor: grabbing;
+    }
+
+    /* パレット上のホバー枠。palette panel は purple-400 の外側面 + surface の内側面を
+       一度描いてから透明な Swap マーカを重ねる。 */
+    .palette-hover-host {
+      width: 48px;                          /* 40 + 4px × 2 */
+      height: 48px;
+      border-radius: 10px;
+      background: var(--purple-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px;
+    }
+    .palette-hover-host .palette-hover-inner {
+      width: 44px;                          /* 40 + 2px × 2 */
+      height: 44px;
+      border-radius: 8px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── ステージ / ペア図 ─────────────────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 192px;                     /* spacing-48 */
+      text-align: center;
+    }
+    .stage .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .swap-pair {
+      position: relative;
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 112px;                        /* 2 × LINE_GAP = spacing-28 */
+      display: grid;
+      grid-template-rows: repeat(2, 56px);  /* 2 × LINE_GAP */
+      place-items: center;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat;
+    }
+    .swap-pair::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      width: 4px;                           /* CONNECTOR_STROKE_WIDTH = spacing-1 */
+      height: 56px;                         /* LINE_GAP = spacing-14 */
+      transform: translateX(-50%);
+      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
+    }
+    .swap-pair .swap-gate {
+      z-index: 1;
+    }
+
+    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .matrix-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .matrix-card .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .matrix-card .mini strong { color: var(--tx); }
+
+    .slot-mock {
+      display: grid;
+      grid-template-columns: repeat(3, 56px); /* 3 × SLOT_SPACING */
+      grid-template-rows: repeat(2, 56px);    /* 2 × LINE_GAP */
+      padding: 24px 32px;                     /* spacing-6 / spacing-8 */
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) 32px 52px / 168px 1px no-repeat,
+        linear-gradient(var(--ui-2), var(--ui-2)) 32px 108px / 168px 1px no-repeat,
+        var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+      position: relative;
+      width: max-content;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset -1px 0 0 var(--ui);
+    }
+    .slot-mock .slot:nth-child(3n) { box-shadow: none; }
+    .slot-mock .connector {
+      position: absolute;
+      left: 116px;                          /* padding 32 + slot 1 center 84 */
+      top: 52px;                            /* row 0 center */
+      width: 4px;                           /* CONNECTOR_STROKE_WIDTH */
+      height: 56px;                         /* LINE_GAP */
+      background: var(--cyan-400);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .slot-mock .slot > .swap-gate { z-index: 1; }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: gate-palette.html の <symbol id="g-Swap"> と同じ座標。
+     色は currentColor にし、既定 / ドラッグで CSS から cyan-400 / purple-600 を切り替える。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-Swap" viewBox="0 0 48 48">
+    <line x1="12" y1="36" x2="36" y2="12" stroke="currentColor" stroke-width="4" stroke-linecap="butt" />
+    <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="4" stroke-linecap="butt" />
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="swap-gate" aria-hidden="true"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">Swap ゲート</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <h1 class="page-title">Swap ゲート</h1>
+  <p class="page-lede">
+    2 本の量子ビットワイヤに置いた 2 つの <code>Swap</code> マーカを 1 組として、2 量子ビットの値を交換するゲート。
+    回路エディタ上では <strong>40 × 40 px の透明な領域</strong>に cyan-400 の × 記号を描き、同じ列にある 2 つの
+    マーカ中心を <strong>4 px 幅の縦コネクタ</strong>で結ぶ。X / P のような塗りつぶし円ではなく、記号と線だけで
+    「入れ替えの端点」を示す。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      Swap は <code>|ab⟩ → |ba⟩</code> の 2 量子ビット操作を表す。視覚的には、同じ列に並ぶ 2 つの × が
+      「交換する 2 端点」であり、縦コネクタが「この 2 端点が 1 つの操作である」ことを示す。
+      本体の塗りを持たないため、通常の 1 量子ビットゲートよりもワイヤと一体に見える。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">単体マーカ<br>(透明な 40px 領域 + ×)</div>
+        <div class="actual"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">2 端点<br>(同じ列で縦接続)</div>
+        <div class="swap-pair">
+          <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+          <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br>線だけの紫枠</div>
+        <div class="actual"><div class="swap-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      Swap は <strong>2 つで 1 つ</strong>の操作として読む。単体の <code>Swap</code> マーカや、同じ列に 3 つ以上置かれた状態は
+      正規の交換操作として扱わない。実装のシミュレーション計画も、列内の Swap がちょうど 2 つのときだけ 3 つの CNOT に分解する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>× 記号 (既定)</td>
+          <td><code>cyan-400</code></td>
+          <td>#3AA99F</td>
+          <td><code>box_fill</code> ロール。Control / AntiControl / 同角 Phase コネクタと同じ操作色</td>
+        </tr>
+        <tr>
+          <td>縦コネクタ</td>
+          <td><code>cyan-400</code></td>
+          <td>#3AA99F</td>
+          <td>× 記号と同色・同じ 4 px 幅で、2 端点を 1 つの操作として読む手がかりにする</td>
+        </tr>
+        <tr>
+          <td>ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code> ロール。回路上では透明内部を塗らない、線だけの枠</td>
+        </tr>
+        <tr>
+          <td>× 記号 (ドラッグ)</td>
+          <td><code>purple-600</code></td>
+          <td>#5E409D</td>
+          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ記号色を置き換える</td>
+        </tr>
+        <tr>
+          <td>ワイヤ</td>
+          <td><code>ui-2</code></td>
+          <td>#DAD8CE</td>
+          <td>Swap 自体に背景塗りがないため、ワイヤは × の背面にそのまま見える</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      Swap は「操作ゲート」だが、色面ではなく線で表現する。cyan-400 は H / X / P と同じ操作色として使い、
+      塗りつぶし面を持たないことで、Control / AntiControl と同じ「回路構造をつなぐ記号」寄りの見た目にする。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)。見た目は透明だが、ホバー / ドラッグ / 当たり判定はこの領域で持つ</td></tr>
+        <tr><th>表示記号</th><td>× 記号。viewBox 48 上で 2 本の対角線 <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code></td></tr>
+        <tr><th>線幅</th><td>× 記号は基準 SVG の viewBox 48 上で <code>4 px</code> (40 px 表示では約 <code>3.33 px</code>)。縦コネクタは実寸 <code>4 px</code> (<code>CONNECTOR_STROKE_WIDTH</code>)</td></tr>
+        <tr><th>本体 fill</th><td>なし。<code>GateKind::Swap</code> は <code>draw_gate_body_with_fill</code> で矩形 / 円を描かない</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。40 px 領域はスロット中央に置く</td></tr>
+        <tr><th>縦コネクタ</th><td>同じ列にある Swap マーカの中心 y どうしを、中心 x に揃えた 4 px 幅の矩形で結ぶ</td></tr>
+        <tr><th>span</th><td>高さ方向の占有量 (<code>span</code>) は <code>1</code> のマーカを 2 個組み合わせる。表示ブロックのような高さリサイズは持たない</td></tr>
+        <tr><th>z-index</th><td>コネクタを先に描き、その上に × 記号を描く。ホバー枠は × / コネクタの前面に出るが、内部は塗らない</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2" />
+        <rect x="0" y="0" width="40" height="40" fill="none" stroke="#B7B5AC" stroke-dasharray="2,2" />
+        <line x1="10" y1="30" x2="30" y2="10" stroke="#3AA99F" stroke-width="3.333" />
+        <line x1="10" y1="10" x2="30" y2="30" stroke="#3AA99F" stroke-width="3.333" />
+        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px スロット</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px 当たり判定領域</text>
+        </g>
+        <g stroke="#B7B5AC" stroke-width="0.4">
+          <line x1="-8" y1="-6.5" x2="48" y2="-6.5" />
+          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5" />
+          <line x1="48" y1="-7.5" x2="48" y2="-5.5" />
+          <line x1="0" y1="48" x2="40" y2="48" />
+          <line x1="0" y1="47" x2="0" y2="49" />
+          <line x1="40" y1="47" x2="40" y2="49" />
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 透明な当たり判定領域 (<code>GATE_SIZE</code>)</p>
+        <p><strong>56 px</strong> · スロット / ワイヤ間隔 (<code>SLOT_SPACING</code> / <code>LINE_GAP</code>)</p>
+        <p><strong>4 px</strong> · viewBox 48 上の × 記号の線幅 (表示 40 px では約 3.33 px)</p>
+        <p><strong>0 px</strong> · 本体の塗り / 枠線はなし</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>状態バリアント (常時表示モック)</h2>
+  <div class="card">
+    <p>
+      既定 / ホバー / ドラッグ / パレットホバーを並べる。Swap は本体面を持たないため、状態差は記号色と周囲の枠で表す。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>cyan-400 ×</div>
+        <div class="actual"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② 回路ホバー<br>purple-400 線だけ</div>
+        <div class="actual"><div class="swap-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ ドラッグ<br>purple-600 ×</div>
+        <div class="actual"><div class="swap-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ パレットホバー<br>内側に背景色の空きあり</div>
+        <div class="actual">
+          <div class="palette-hover-host">
+            <div class="palette-hover-inner">
+              <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      回路上のホバーは、パレットホバーと違って内側を背景色で塗らない。透明な Swap / Control / AntiControl の内部を通る
+      縦コネクタが消えないようにするため。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 05</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      2 つの Swap マーカは同じ列の別ワイヤに置く。列が一致しているときだけ縦コネクタが出る。
+      下のモックでは中央列が有効な Swap ペアで、左右列は空スロットを示す説明用グリッド。
+    </p>
+    <div class="slot-mock" aria-hidden="true">
+      <span class="connector"></span>
+      <div class="slot"></div>
+      <div class="slot"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      <div class="slot"></div>
+      <div class="slot"></div>
+      <div class="slot"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      <div class="slot"></div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      実 UI ではスロット境界の縦線は描かれない。Swap コネクタはワイヤと同じ列の中心にあり、
+      × 記号の背面を通って上下の中心を結ぶ。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 06</span>意味論と設計判断</h2>
+  <div class="card">
+    <div class="matrix-card">
+      <div class="mini"><strong>作用</strong><br /><code>Swap |ab⟩ = |ba⟩</code>。<code>|01⟩</code> と <code>|10⟩</code> だけが入れ替わる。</div>
+      <div class="mini"><strong>行列</strong><br /><code>[[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]]</code></div>
+      <div class="mini"><strong>分解</strong><br />GPU 実行計画では <code>CX(a→b)</code> → <code>CX(b→a)</code> → <code>CX(a→b)</code> の 3 手に展開する。</div>
+      <div class="mini"><strong>制約</strong><br />列内に <code>Swap</code> がちょうど 2 個ある場合だけ交換操作として扱う。単体・3 個以上は避ける。</div>
+    </div>
+    <ul>
+      <li><strong>透明な本体を採用する</strong>: Swap の主役は「端点」と「結びつき」なので、塗りつぶし面ではなく線だけで示す。これにより X / P の円形ゲートと混同しない</li>
+      <li><strong>× と縦線を同色にする</strong>: 端点と接続を分けず、1 つの交換操作として読めるようにする</li>
+      <li><strong>コネクタを背面に置く</strong>: 縦線が × の中央を貫くが、× 記号を後から描くため端点の記号性は失われない</li>
+      <li><strong>ホバーで内部を塗らない</strong>: コネクタが通る透明ゲートの内部を背景色でマスクしない。紫枠だけを足す</li>
+      <li><strong>リサイズを持たない</strong>: 2 端点の組で距離を表すため、表示ブロックの高さ指定 (<code>span</code>) 用ハンドルとは別の操作モデルにする</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 07</span>実装参照</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ファイル</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>apps/web/src/icons/gate_body.rs</code></td>
+          <td><code>GateKind::Swap</code> では矩形 / 円の本体を描かず、<code>draw_gate_icon</code> へ渡す色だけを <code>box_fill</code> / <code>drag_fill</code> に切り替える</td>
+        </tr>
+        <tr>
+          <td><code>apps/web/src/icons/gate_glyphs.rs</code></td>
+          <td>× 記号の 2 本線を <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code>、線幅 <code>4.0 * scale</code> で描く</td>
+        </tr>
+        <tr>
+          <td><code>apps/web/src/render/circuit_connectors/swap.rs</code></td>
+          <td>同じ列の Swap マーカを集め、中心 x / 最上端 y / 最下端 y から縦コネクタを描く</td>
+        </tr>
+        <tr>
+          <td><code>apps/web/src/render/circuit_connectors.rs</code></td>
+          <td><code>CONNECTOR_STROKE_WIDTH = 4.0</code> を Control / Swap / 同角 Phase で共有する</td>
+        </tr>
+        <tr>
+          <td><code>apps/web/src/simulation_plan/linearize.rs</code></td>
+          <td>列内の Swap が 2 個のときだけ 3 つの CNOT に分解する</td>
+        </tr>
+        <tr>
+          <td><a href="gate-palette.html">gate-palette.html</a></td>
+          <td>パレットの基準 SVG <code>g-Swap</code> と、全ゲート一覧内の線幅・色の参照元</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>Swap のパレット表示と <code>g-Swap</code> 基準 SVG</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 のホバー枠の基礎仕様。Swap は回路上で線だけの版を使う</td>
+        </tr>
+        <tr>
+          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
+          <td>記号が似て読まれやすいが、X は塗りつぶし円 + Plus、Swap は透明領域 + × + 縦コネクタ</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 のロール対応</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>ゲート本体 40 px / スロット 56 px に統一した経緯</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · Swap ゲート · 2026-05</p>
+</footer>
+
+</body>
+</html>

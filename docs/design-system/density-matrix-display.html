@@ -257,7 +257,7 @@
       <strong>2×2 行列 (= span 1)</strong> を <em>純粋 |+⟩⟨+| の密度行列</em> として描く: 4 セルすべてに <code>0.5</code> 半径の magnitude disk + outline 円、非対角 2 セルだけは追加で真上 needle (実数なので位相 0 = 真上)。
       <em>「対角 / 非対角ともに disk、非対角だけ needle が立つ」</em>という本表示ブロックの統一されたセル描画を 1 アイコン内で提示し、密度行列特有の<em>行列 (matrix) 形状</em>を視認させる。
       アイコン自体の外側に四角枠は描かず、4 つの円だけで密度行列表示ブロックだと分かるようにする。円周の外端はセル境界から 1.5 px だけ内側に置き、hover 枠と重ならない範囲で最大化する。
-      ホバー時は外側のゲートホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -408,7 +408,7 @@
     <ul>
       <li>対角 / 非対角の区別はせず、全セルに <code>blue-200</code> を <em>√スケール</em> alpha で塗る (Quirk の <code>d ≤ 2</code> フォールバックと同じ、<code>lightgray</code> → <code>blue-200</code> へ色のみ差し替え)</li>
       <li>matrix 全体の外枠だけは <code>ui-2</code> 1 px で残す。cell 間 grid は描かない</li>
-      <li>cell hover は引き続き有効: <code>purple-400</code> 2 px の<strong>正方形ringを描く</strong> (heatmap では outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなく cell rect の purple ring を採用)</li>
+      <li>cell hover は引き続き有効: <code>purple-400</code> 2 px の<strong>正方形の枠を描く</strong> (heatmap では outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなく cell rect の purple の枠 を採用)</li>
       <li>位相情報は heatmap では消える: span 7〜8 では tooltip だけが phase の供給源になる (cell hover 必須)</li>
     </ul>
 
@@ -442,11 +442,11 @@ for row in 0..n:
       振幅表示ブロック (<a href="amplitude-display.html">amplitude-display.html § 02</a>) / 確率表示ブロック (<a href="probability-display.html">probability-display.html § 02</a>) と<strong>同じ配色コンベンション</strong>に従う。
     </p>
     <ul>
-      <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で matrix 全体を塗る。本デザインシステムでは紫を「未確定 / 進行中」に充てており (drag preview = <code>purple-600</code>、hover ring = <code>purple-400</code>)、実行前の <code>ρ</code> も<em>「0 (赤系) と 1 (青系) の中間に位置する未確定な値」</em>として同じ紫系統で表す。色相は drag/hover で使う濃い紫よりさらに淡くし、「進行中アクション」と「結果待ち静止状態」を区別する</li>
+      <li><strong>背景 (placeholder fill)</strong> — <code>purple-100</code> (#ECE1F3) の薄い紫で matrix 全体を塗る。本デザインシステムでは紫を「未確定 / 進行中」に充てており (drag preview = <code>purple-600</code>、ホバー枠 = <code>purple-400</code>)、実行前の <code>ρ</code> も<em>「0 (赤系) と 1 (青系) の中間に位置する未確定な値」</em>として同じ紫系統で表す。色相は drag/hover で使う濃い紫よりさらに淡くし、「進行中アクション」と「結果待ち静止状態」を区別する</li>
       <li><strong>cell 構造ガイド</strong> — cell 間の grid は引かない。通常時と同じく、matrix 外枠だけで表示ブロックの領域を示す</li>
       <li><strong>outline 円 / disk / needle</strong> — 描かない。<code>ρ</code> の値が無いので「対角の確率」も「非対角の coupling」も意味を持たない</li>
       <li><strong>外枠</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く</li>
-      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体の hover ring (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
+      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
       <li><strong>遷移</strong> — 現行実装は Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
     </ul>
     <div class="stage">
@@ -518,8 +518,8 @@ for row in 0..n:
 
     <h3 style="margin-top: 16px;">cell hover 時の枠</h3>
     <ul>
-      <li><strong>full / outline + disk モード</strong> — 対象 cell の <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える (対角 / 非対角ともに同じ outline 円を持つので扱いが統一される)。matrix 全体の hover ring は cell hover 中は消す (振幅表示ブロックの方針と同じ)</li>
-      <li><strong>heatmap モード</strong> — cell が小さすぎて outline 円が無いので、cell 領域の<strong>正方形 ring</strong>を <code>purple-400</code> 2 px で囲む (Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置、色だけ Flexoki へ置換)</li>
+      <li><strong>full / outline + disk モード</strong> — 対象 cell の <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える (対角 / 非対角ともに同じ outline 円を持つので扱いが統一される)。matrix 全体のホバー枠は cell hover 中は消す (振幅表示ブロックの方針と同じ)</li>
+      <li><strong>heatmap モード</strong> — cell が小さすぎて outline 円が無いので、cell 領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む (Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置、色だけ Flexoki へ置換)</li>
     </ul>
   </div>
 </section>
@@ -533,9 +533,9 @@ for row in 0..n:
       ハンドル単独の挙動だけ要点を再掲する:
     </p>
     <ul>
-      <li><strong>配置</strong> — matrix の上下中央に 1 つずつ。<code>top / bottom: −12 px</code> (4 px hover ring + 2 px paper gap + 6 px height の合計 12 px 外側)</li>
+      <li><strong>配置</strong> — matrix の上下中央に 1 つずつ。<code>top / bottom: −12 px</code> (4 px ホバー枠 + 2 px の背景の空き + 6 px 高さ の合計 12 px 外側)</li>
       <li><strong>幅</strong> — JS で canvas 幅 (<code>size_px</code>) の 60% に動的にスケール、min 24 px (上限なし、span 8 = 432 px なら handle 幅 ≈ 259 px)</li>
-      <li><strong>初期状態</strong> — <code>opacity: 0</code>、ゲート hover で<strong>奥から飛び出してくる</strong>マイクロインタラクション (フェードイン + 軽いバウンス: <code>scale(0.7) → scale(1)</code> in 250 ms cubic-bezier(0.34, 1.56, 0.64, 1))</li>
+      <li><strong>初期状態</strong> — <code>opacity: 0</code>、ホストホバーで<strong>奥から飛び出してくる</strong>マイクロインタラクション (フェードイン + 軽いバウンス: <code>scale(0.7) → scale(1)</code> in 250 ms cubic-bezier(0.34, 1.56, 0.64, 1))</li>
       <li><strong>default</strong> — <code>cyan-400</code> ベース (ホバー枠 <code>purple-400</code> と別色族で「リングの突起 ?」誤認を回避)</li>
       <li><strong>個別 hover</strong> — <code>cyan-600</code> + <code>scale(1.15)</code>、cursor は <code>ns-resize</code></li>
       <li><strong>active drag</strong> — <code>cyan-600</code> + <code>scale(1.25)</code>、固定</li>
