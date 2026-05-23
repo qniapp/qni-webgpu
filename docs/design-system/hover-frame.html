@@ -237,38 +237,6 @@
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">横断 primitive としての網羅性は高いが、デザインシステム → 実装参照禁止のルールに違反する記述が複数ある</div>
-    <p class="critique-body">
-      ホバー枠はゲート / パレット / 表示ブロック内セルという<strong>3 つのレイヤを横断する primitive</strong>で、
-      色 (<code>purple-400</code>) / 拡張 (外側 4 px) / 線幅 (2 px) / 内側の空き (2 px) / 角丸 (10 px) を共通化することで「ポインタが乗った」状態が
-      ユーザに 1 つの語彙として届くようにしている。canonical primitive としての構造は h-gate.html と同等の網羅性で、
-      § 04 描き分けに「3 つの描画場所をどう書き分けるか」を 1 表に集約している点は本仕様の固有の価値。
-    </p>
-    <p class="critique-body">
-      一方で <strong>§ 05 状態と操作</strong> に <code>hovered_gate_id</code>、<code>egui::CursorIcon::Grab</code> といった<strong>実装側の Rust 識別子</strong>が残っている。
-      これは本プロジェクトの規約 (依存方向は実装 → デザインシステムのみ、デザインシステム側からの実装参照は禁止) に反する。
-      実装側がこのページを canonical として読み、本ページは「対象矩形 / 現在のホバー対象」など実装非依存の語彙だけで書くべき。
-    </p>
-    <p class="critique-body">
-      <strong>適用済 (2026-05-23):</strong> § 06 実装参照セクション (5 つの <code>.rs</code> ファイルパス参照 + Rust の caller 側コード掲載) は本批評を受けて丸ごと削除した。
-      寸法 / 色 / 描き分けは § 02 / § 03 / § 04 が canonical なので情報損失はなし。残る違反は § 05 の識別子混入のみ。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
-      <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
-    </ol>
-  </aside>
-</section>
-
 <section class="block">
   <h2>§ 01 見た目</h2>
   <div class="card">
@@ -382,39 +350,15 @@
     <table class="spec">
       <tbody>
         <tr><th>出現条件</th><td>ポインタが対象矩形に重なり、ドラッグ中でないこと</td></tr>
-        <tr><th>回路上のゲート状態</th><td><code>hovered_gate_id == Some(gate.id)</code></td></tr>
-        <tr><th>パレット項目の状態</th><td><code>hovered_palette_index == Some(index)</code></td></tr>
-        <tr><th>表示セルの状態</th><td><code>hovered_probability_outcome</code> / <code>hovered_amplitude_outcome</code> / <code>hovered_density_cell</code></td></tr>
-        <tr><th>カーソル</th><td>ホバー中は <code>egui::CursorIcon::Grab</code>。リサイズハンドル上では <code>ResizeVertical</code> が優先</td></tr>
+        <tr><th>回路上のゲート</th><td>対象のゲートが現在のホバー対象であるとき</td></tr>
+        <tr><th>パレット項目</th><td>パレット項目が現在のホバー対象であるとき</td></tr>
+        <tr><th>表示ブロック内セル</th><td>セル / 測定結果が現在のホバー対象であるとき</td></tr>
+        <tr><th>カーソル</th><td>ホバー中はカーソル形状を「つかむ手 (grab)」にする。リサイズハンドル上では縦方向リサイズカーソルが優先</td></tr>
         <tr><th>非表示条件</th><td>ドラッグ中、ポインタが領域外、または振幅 / 密度行列表示ブロックのセルホバーが優先される場合</td></tr>
         <tr><th>アニメーション</th><td>なし。ホバー枠は即時表示。動きはリサイズハンドルなど別部品へ集約する</td></tr>
       </tbody>
     </table>
 
-    <aside class="critique" aria-label="批評 · § 05 実装識別子の混入">
-      <div class="critique-label">★ 批評 · § 05 状態と操作</div>
-      <div class="critique-title">実装側の Rust / egui 識別子が状態説明に混入している (デザインシステム → 実装参照ルール違反)</div>
-      <p class="critique-body">
-        「<code>hovered_gate_id == Some(gate.id)</code>」「<code>hovered_palette_index == Some(index)</code>」
-        「<code>hovered_probability_outcome</code> / <code>hovered_amplitude_outcome</code> / <code>hovered_density_cell</code>」
-        「<code>egui::CursorIcon::Grab</code>」「<code>ResizeVertical</code>」は、いずれも実装フレームワーク (Rust + egui) に固有の識別子。
-        デザインシステム側の振る舞い説明にこれらが混じると、<strong>(a) 依存方向ルール違反</strong> (実装 → デザインシステムが正)、
-        <strong>(b) 実装フレームワーク差し替え時に仕様が腐る</strong> (将来 WebGPU 直書きや別 GUI 化したとき識別子が古くなる) の 2 つの問題が起きる。
-      </p>
-      <p class="critique-body">
-        改善案: 振る舞いの語彙に書き換える。
-      </p>
-      <ul class="critique-list">
-        <li>「<code>hovered_gate_id == Some(gate.id)</code>」 → 「対象のゲートが現在のホバー対象である」</li>
-        <li>「<code>hovered_palette_index == Some(index)</code>」 → 「パレット項目が現在のホバー対象である」</li>
-        <li>「<code>hovered_probability_outcome</code> ほか」 → 「表示ブロック内セル / 測定結果が現在のホバー対象である」</li>
-        <li>「<code>egui::CursorIcon::Grab</code>」 → 「カーソル形状: つかむ手 (grab)」</li>
-        <li>「<code>ResizeVertical</code>」 → 「リサイズハンドル上では縦方向リサイズカーソル」</li>
-      </ul>
-      <p class="critique-body">
-        実装側の変数名と仕様側の語彙を 1:1 対応で残したい場合は、resize-handle.html の方式 (本文は振る舞い、別表で「実装ヒント」として一覧) を踏襲する手もある。
-      </p>
-    </aside>
   </div>
 </section>
 
