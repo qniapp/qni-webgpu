@@ -276,10 +276,13 @@
       § 04 描き分けに「3 つの描画場所をどう書き分けるか」を 1 表に集約している点は本仕様の固有の価値。
     </p>
     <p class="critique-body">
-      一方で <strong>§ 05 状態と操作 / § 06 実装参照</strong> が <code>apps/web/src/colors.rs</code>、<code>apps/web/src/render/circuit_gates.rs</code>、
-      <code>hovered_gate_id</code>、<code>egui::CursorIcon::Grab</code> といった<strong>実装側の Rust 識別子・ファイルパス</strong>を直接参照している。
-      これは本プロジェクトの規約 (依存方向は実装 → デザインシステムのみ、デザインシステム側からの実装参照は禁止) に正面から反する。
+      一方で <strong>§ 05 状態と操作</strong> に <code>hovered_gate_id</code>、<code>egui::CursorIcon::Grab</code> といった<strong>実装側の Rust 識別子</strong>が残っている。
+      これは本プロジェクトの規約 (依存方向は実装 → デザインシステムのみ、デザインシステム側からの実装参照は禁止) に反する。
       実装側がこのページを canonical として読み、本ページは「対象矩形 / 現在のホバー対象」など実装非依存の語彙だけで書くべき。
+    </p>
+    <p class="critique-body">
+      <strong>適用済 (2026-05-23):</strong> § 06 実装参照セクション (5 つの <code>.rs</code> ファイルパス参照 + Rust の caller 側コード掲載) は本批評を受けて丸ごと削除した。
+      寸法 / 色 / 描き分けは § 02 / § 03 / § 04 が canonical なので情報損失はなし。残る違反は § 05 の識別子混入のみ。
     </p>
   </aside>
 
@@ -287,7 +290,7 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>§ 06 実装参照セクションを削除する</strong> — デザインシステム → 実装 参照禁止ルールへの正面違反。実装側からこの仕様を参照させる依存方向に揃え、本ページから <code>.rs</code> ファイルへのリンクをすべて落とす (§ 06 参照)。</li>
+      <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
       <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
       <li><strong>§ 01 の 3 つの demo のマークアップを統一する</strong> — 例 1 / 2 は <code>&lt;hover-frame variant=...&gt;</code> Web Component、例 3 は <code>.hover-frame</code> CSS class を直接組み立てており、コンポーネントの利用方法が読者に揺れて伝わる (§ 01 参照)。</li>
       <li><strong>§ 02 レイヤ図の dashed 外枠を再設計</strong> — 紫枠 (48 × 48 px) と dashed 外形 (48 × 48 px) が完全に同じ矩形に重なっており、4 レイヤのうち 1 つが視覚的に冗長 (§ 02 参照)。</li>
@@ -528,54 +531,7 @@
 </section>
 
 <section class="block">
-  <h2>§ 06 実装参照</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>色ロール</th><td><code>apps/web/src/colors.rs</code> — <code>gate_hover_border: purple_400</code></td></tr>
-        <tr><th>回路上の描画</th><td><code>apps/web/src/render/circuit_gates.rs</code> — <code>body_rect.expand(4.0)</code> + <code>Stroke::new(2.0, colors.gate_hover_border)</code></td></tr>
-        <tr><th>パレットの描画</th><td><code>apps/web/src/render/circuit_palette/panel.rs</code> — <code>gate_rect.expand(4.0)</code> / <code>gate_rect.expand(2.0)</code> の 2 層塗り</td></tr>
-        <tr><th>ホバー判定</th><td><code>apps/web/src/app/drag_controller/hover.rs</code> — <code>hovered_gate_id</code> / <code>hovered_palette_index</code> を更新</td></tr>
-        <tr><th>GPU 派生</th><td><code>apps/web/src/render/circuit_gates.rs</code> — <code>hover_border: colors.gate_hover_border.to_normalized_gamma_f32()</code></td></tr>
-      </tbody>
-    </table>
-
-    <pre class="code">// 回路上: 線だけのホバー枠
-let hover_outer = body_rect.expand(4.0);
-painter.rect_stroke(
-    hover_outer,
-    egui::CornerRadius::same(10),
-    egui::Stroke::new(2.0, colors.gate_hover_border),
-    egui::StrokeKind::Inside,
-);</pre>
-
-    <aside class="critique" aria-label="批評 · § 06 セクション全体が依存方向ルール違反">
-      <div class="critique-label">★ 批評 · § 06 実装参照</div>
-      <div class="critique-title">セクション全体が「デザインシステム → 実装 参照禁止」ルールに正面から違反している</div>
-      <p class="critique-body">
-        本プロジェクトの規約は <strong>「依存方向は実装 → デザインシステムのみ」</strong>。
-        デザインシステム側は実装非依存の canonical な仕様を提供し、実装側 (apps/web) がそれを参照する。
-        § 06 はそれを逆方向で実行しており、5 行すべてが <code>apps/web/src/...</code> の <code>.rs</code> ファイルパスへの参照になっている。
-        これは grep / IDE 検索で 1 秒で見つかる情報を仕様側に持つ意義を弱めるだけでなく、<strong>ファイル移動 / 関数リネーム時に仕様が腐る</strong>原因にもなる。
-      </p>
-      <p class="critique-body">
-        さらに末尾の <code>&lt;pre class="code"&gt;</code> ブロックで Rust の caller 側コード (<code>body_rect.expand(4.0)</code> / <code>egui::Stroke::new(2.0, ...)</code> / <code>StrokeKind::Inside</code>) を直接掲載しているのも同様で、
-        実装が egui の API に依存していることを仕様側が知っている形になり、依存方向が反転している。
-      </p>
-      <p class="critique-body">
-        改善案: セクションを丸ごと削除し、必要であれば「実装側コメントから本仕様 (hover-frame.html § 02 / § 03 / § 04) を参照すること」と一行だけ残す。
-        寸法は § 02 が canonical、色は § 03 が canonical、描き分けは § 04 が canonical なので、本セクションが新規に提供している情報は<strong>ゼロ</strong>。
-      </p>
-      <p class="critique-body">
-        補足: h-gate.html § 04 の <code>apps/web/assets/icons/h.svg</code> 参照は <strong>SVG asset が canonical source</strong> という意味で別性質 (asset は仕様側の「種」で、design system の SVG ライブラリと同列)。
-        本ページの § 06 は asset でなく実装コードへのインデックスなので、同じ正当化は使えない。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2>§ 07 使用ルール</h2>
+  <h2>§ 06 使用ルール</h2>
   <div class="card">
     <ul>
       <li>選択状態、エラー状態、実行状態には使わない。ホバー枠はポインタホバーだけを表す。</li>
@@ -586,8 +542,8 @@ painter.rect_stroke(
       <li>検討履歴は <a href="gate-hover-feedback-options.html">ホバー枠の検討履歴</a> を参照。</li>
     </ul>
 
-    <aside class="critique" aria-label="批評 · § 07 使用ルールの混在">
-      <div class="critique-label">★ 批評 · § 07 使用ルール</div>
+    <aside class="critique" aria-label="批評 · § 06 使用ルールの混在">
+      <div class="critique-label">★ 批評 · § 06 使用ルール</div>
       <div class="critique-title">6 項目が「禁止 / 不変条件 / 他 primitive との関係 / 参照リンク」の 4 種混在で、性質の違うものが平坦にリストされている</div>
       <p class="critique-body">
         現状の 6 項目は次のように性質が異なるが、リスト上は <code>&lt;ul&gt;</code> で平等に並んでいる:
