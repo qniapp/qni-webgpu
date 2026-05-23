@@ -782,18 +782,18 @@
     </p>
     <table class="spec">
       <thead>
-        <tr><th>要素</th><th>Flexoki トーン</th><th>hex</th><th>用途</th></tr>
+        <tr><th>要素</th><th>Flexoki トーン</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>#F2F0E5</td><td>外周内の円形背景 (paper よりわずかに濃い)。<code>bloch_sphere_bg</code></td></tr>
-        <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px。<code>bloch_sphere_lines</code></td></tr>
-        <tr><td>ベクトル線</td><td><code>tx</code></td><td>#100F0F</td><td>中心から先端への矢印 (1.5 px stroke)。<code>bloch_vector_line</code></td></tr>
-        <tr><td>先端ドット (<code>z = +1</code> 寄り)</td><td><code>red-600</code> = <code>semantic_off</code></td><td>#AF3029</td><td><code>|0⟩</code> 側の先端色。Write0 / ket digit "0" / measurement 0 と統一</td></tr>
-        <tr><td>先端ドット (<code>z = −1</code> 寄り)</td><td><code>blue-600</code> = <code>semantic_on</code></td><td>#205EA6</td><td><code>|1⟩</code> 側の先端色。Write1 / ket digit "1" / measurement 1 と統一</td></tr>
-        <tr><td>先端ドット (equator)</td><td>(Flexoki 外: lerp 中点)</td><td>#684768</td><td><code>z = 0</code> (赤道、|+⟩ / |−⟩ / |±i⟩) の先端色。<code>red-600 ⇄ blue-600</code> の sRGB lerp 中点</td></tr>
-        <tr><td>非アクティブドット</td><td><code>tx-3</code></td><td>#B7B5AC</td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆 (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
-        <tr><td>外側余白</td><td><code>paper</code></td><td>#FFFCF0</td><td>占有矩形の四隅 (円の外側)。ゲート本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
-        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td>外側ホバー枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
+        <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>外周内の円形背景 (paper よりわずかに濃い)。<code>bloch_sphere_bg</code></td></tr>
+        <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px。<code>bloch_sphere_lines</code></td></tr>
+        <tr><td>ベクトル線</td><td><code>tx</code></td><td>中心から先端への矢印 (1.5 px stroke)。<code>bloch_vector_line</code></td></tr>
+        <tr><td>先端ドット (<code>z = +1</code> 寄り)</td><td><code>red-600</code> = <code>semantic_off</code></td><td><code>|0⟩</code> 側の先端色。Write0 / ket digit "0" / measurement 0 と統一</td></tr>
+        <tr><td>先端ドット (<code>z = −1</code> 寄り)</td><td><code>blue-600</code> = <code>semantic_on</code></td><td><code>|1⟩</code> 側の先端色。Write1 / ket digit "1" / measurement 1 と統一</td></tr>
+        <tr><td>先端ドット (equator)</td><td>(Flexoki 外: lerp 中点)</td><td><code>z = 0</code> (赤道、|+⟩ / |−⟩ / |±i⟩) の先端色。<code>red-600 ⇄ blue-600</code> の sRGB lerp 中点</td></tr>
+        <tr><td>非アクティブドット</td><td><code>tx-3</code></td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆 (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
+        <tr><td>外側余白</td><td><code>paper</code></td><td>占有矩形の四隅 (円の外側)。ゲート本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
+        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>外側ホバー枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
       </tbody>
     </table>
 
@@ -890,7 +890,7 @@ let tip_rgb: vec3&lt;f32&gt; = select(active_rgb, params.inactive_color.rgb, mag
     </p>
     <table class="spec">
       <thead>
-        <tr><th>状態</th><th>z</th><th>tip 色</th><th>hex</th></tr>
+        <tr><th>状態</th><th>z</th><th>tip 色</th></tr>
       </thead>
       <tbody>
         <tr><td>|0⟩</td><td class="num">+1.00</td><td><code>red-600</code></td><td><code>#AF3029</code></td></tr>

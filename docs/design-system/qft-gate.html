@@ -460,43 +460,37 @@
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
       </thead>
       <tbody>
         <tr>
           <td>本体 fill (既定)</td>
           <td><code>cyan-400</code></td>
-          <td>#3AA99F</td>
           <td><code>box_fill</code> ロール。H / X / Y / Z / S / T / Rx / Ry / Rz と共通の操作ゲート色</td>
         </tr>
         <tr>
           <td>字形 "QFT"</td>
           <td><code>paper</code> (<code>bg</code>)</td>
-          <td>#FFFCF0</td>
           <td>cyan-400 上で相対輝度比 ≈ 2.8。stroke なしの塗りつぶし。<code>currentColor</code> を本体から継承</td>
         </tr>
         <tr>
           <td>ホバー枠</td>
           <td><code>purple-400</code></td>
-          <td>#8B7EC8</td>
           <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
         </tr>
         <tr>
           <td>本体 fill (ドラッグ)</td>
           <td><code>purple-600</code></td>
-          <td>#5E409D</td>
           <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
         </tr>
         <tr>
           <td>resize-handle (default / visible)</td>
           <td><code>cyan-400</code></td>
-          <td>#3AA99F</td>
           <td>本体と同色ピル。色族は本体と揃えるが、上下 12 px の空き + ピル形状で別オブジェクトとして読める。<a href="resize-handle.html">resize-handle.html</a> § 02 参照</td>
         </tr>
         <tr>
           <td>resize-handle (hover / active)</td>
           <td><code>cyan-600</code></td>
-          <td>#24837B</td>
           <td>ハンドル単独 hover / ドラッグ中の濃色。本体色は変えず、ハンドルだけが濃淡で「触れる対象 → 操作対象」を示す</td>
         </tr>
       </tbody>
