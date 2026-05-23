@@ -13,10 +13,12 @@
     }
   </script>
   <!-- ホバー枠 (canonical な <hover-frame variant="stroke|surface-gap">) と
-       H ゲート本体 (<h-gate>) の組み合わせで demo を構成する。
-       hover-frame は本ページの canonical primitive、h-gate は h-gate.html canonical を共有。 -->
+       ゲート本体 (<h-gate> / <swap-gate>) の組み合わせで demo を構成する。
+       hover-frame は本ページの canonical primitive、ゲート Web Component は
+       各仕様ページ (h-gate.html / swap-gate.html) canonical を共有。 -->
   <script src="components/hover-frame.js"></script>
   <script src="components/h-gate.js"></script>
+  <script src="components/swap-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot / .hover-frame) は design-system.css にある。 */
@@ -70,27 +72,6 @@
       height: 40px; /* GATE_SIZE = 40 px = spacing-10 */
       display: grid;
       place-items: center;
-    }
-    .hf-gate {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
-      background: var(--cyan-400);
-      color: var(--bg);
-      display: grid;
-      place-items: center;
-      font-size: 20px; /* text-xl = 20px */
-      line-height: 28px;
-      font-weight: 700;
-      position: relative;
-      z-index: 1;
-    }
-    .hf-gate--transparent {
-      background: transparent;
-      color: var(--tx);
-      border-radius: 999px;
-      font-size: 30px; /* text-3xl = 30px */
-      line-height: 36px;
     }
     /* サムネ専用の中立ホスト。具体的なゲートではなく「囲まれる任意の要素」を
        示すための白い 40 × 40 矩形 (resize-handle.html の .rh-mock と同形)。 */
@@ -291,7 +272,7 @@
     <ol class="critique-list">
       <li><s><strong>§ 06 実装参照セクションを削除する</strong></s> — <strong>適用済 (2026-05-23):</strong> § 06 (5 つの <code>.rs</code> ファイルパス参照 + Rust caller 側コード) を丸ごと削除。実装側コメントから本仕様 (§ 02 / § 03 / § 04) を参照させる依存方向へ揃えた。これに伴い旧 § 07 使用ルールが § 06 に繰り上がっている。</li>
       <li><strong>§ 05 から実装識別子を撤去</strong> — <code>hovered_gate_id</code> / <code>egui::CursorIcon::Grab</code> / <code>ResizeVertical</code> など egui (実装フレームワーク) 由来の識別子を、振る舞いの語彙に書き換える (§ 05 参照)。</li>
-      <li><strong>§ 01 の 3 つの demo のマークアップを統一する</strong> — 例 1 / 2 は <code>&lt;hover-frame variant=...&gt;</code> Web Component、例 3 は <code>.hover-frame</code> CSS class を直接組み立てており、コンポーネントの利用方法が読者に揺れて伝わる (§ 01 参照)。</li>
+      <li><s><strong>§ 01 の 3 つの demo のマークアップを統一する</strong></s> — <strong>適用済 (2026-05-23):</strong> Swap ゲート canonical な <code>&lt;swap-gate&gt;</code> Web Component を新設し、例 3 を <code>&lt;hover-frame variant="stroke"&gt;&lt;swap-gate&gt;&lt;/swap-gate&gt;&lt;/hover-frame&gt;</code> に書き換えて 3 例同じ呼び出し規約に統一した (§ 01 参照)。</li>
       <li><strong>§ 02 レイヤ図の dashed 外枠を再設計</strong> — 紫枠 (48 × 48 px) と dashed 外形 (48 × 48 px) が完全に同じ矩形に重なっており、4 レイヤのうち 1 つが視覚的に冗長 (§ 02 参照)。</li>
       <li><strong>§ 04 描き分けに「表示ブロック内セル」の visual mock を追加</strong> — 回路上 / パレットは § 01 で実物が見えるが、表示ブロック内セルだけ文章しかなく、形状の違い (確率 / 振幅 / 密度行列) が本ページから読み取れない (§ 04 参照)。</li>
     </ol>
@@ -316,10 +297,7 @@
       </div>
       <div class="hf-example">
         <div class="hf-circuit">
-          <div class="hf-gate-wrap hover-frame-host">
-            <span class="hover-frame hover-frame--stroke"></span>
-            <div class="hf-gate hf-gate--transparent">×</div>
-          </div>
+          <hover-frame variant="stroke"><swap-gate></swap-gate></hover-frame>
         </div>
         <div class="hf-caption">透明なゲート<br>接続線を消さない</div>
       </div>
@@ -327,22 +305,26 @@
 
     <aside class="critique" aria-label="批評 · § 01 例 3 つのマークアップ非統一">
       <div class="critique-label">★ 批評 · § 01 見た目</div>
-      <div class="critique-title">3 つの demo のうち 2 つは <code>&lt;hover-frame&gt;</code> Web Component、1 つは生の CSS class 直書きで、canonical な利用方法が読者に揺れて伝わる</div>
+      <div class="critique-title">3 つの demo のマークアップ非統一は <code>&lt;swap-gate&gt;</code> 新設で解消 (適用済み)</div>
       <p class="critique-body">
-        例 1 (回路上) と例 2 (パレット) は <code>&lt;hover-frame variant="stroke"&gt;&lt;h-gate&gt;&lt;/h-gate&gt;&lt;/hover-frame&gt;</code> の形で
+        <s>例 1 (回路上) と例 2 (パレット) は <code>&lt;hover-frame variant="stroke"&gt;&lt;h-gate&gt;&lt;/h-gate&gt;&lt;/hover-frame&gt;</code> の形で
         canonical な Web Component を介して描かれている。一方、例 3 (透明なゲート) だけは
-        <code>&lt;div class="hf-gate-wrap hover-frame-host"&gt;&lt;span class="hover-frame hover-frame--stroke"&gt;&lt;/span&gt;…&lt;/div&gt;</code>
-        と生の CSS class を直接組み立てており、<strong>「<code>&lt;hover-frame&gt;</code> が canonical」という § 01 の主張がここで崩れる</strong>。
-        読者は「自分のページでホバー枠を使うときどちらを真似ればよいか」を判定できない。
+        <code>&lt;div class="hf-gate-wrap hover-frame-host"&gt;…&lt;/div&gt;</code>
+        と生の CSS class を直接組み立てており、「<code>&lt;hover-frame&gt;</code> が canonical」という § 01 の主張がここで崩れていた。
+        原因は、透明なゲート (AntiControl / Swap / Phase など) が <code>&lt;h-gate&gt;</code> 相当の Web Component をまだ持たず、
+        任意の子要素を slot で受ける <code>&lt;hover-frame&gt;</code> の利点を活かせていなかったこと。</s>
       </p>
       <p class="critique-body">
-        原因はおそらく、透明なゲート (AntiControl / Swap / Phase など) が <code>&lt;h-gate&gt;</code> 相当の Web Component をまだ持たず、
-        任意の子要素を slot で受ける <code>&lt;hover-frame&gt;</code> の利点を活かせていないこと。改善案は 2 通り:
+        <strong>適用済 (2026-05-23):</strong> Swap ゲート canonical な <code>&lt;swap-gate&gt;</code> Web Component
+        (<code>components/swap-gate.js</code>) を新設し、例 3 を <code>&lt;hover-frame variant="stroke"&gt;&lt;swap-gate&gt;&lt;/swap-gate&gt;&lt;/hover-frame&gt;</code> に書き換えた。
+        3 例すべてが「<code>&lt;hover-frame variant=...&gt;</code> + ゲート Web Component」の同じ組み立て規約に揃い、dead になった
+        <code>.hf-gate</code> / <code>.hf-gate--transparent</code> CSS も削除している。
+        × の SVG line は swap-gate.html § 03 / gate-palette.html <code>&lt;symbol id="g-Swap"&gt;</code> と完全一致。
       </p>
-      <ul class="critique-list">
-        <li><strong>(a) <code>&lt;hover-frame&gt;</code> がどんな子でも受けることをここで示す</strong> — 例 3 を <code>&lt;hover-frame variant="stroke"&gt;&lt;span class="hf-gate hf-gate--transparent"&gt;×&lt;/span&gt;&lt;/hover-frame&gt;</code> に書き換え、Web Component の slot 経由でラップする。これなら 3 例すべてが同じ呼び出し規約で並ぶ。</li>
-        <li><strong>(b) 例 3 を「variant 選定ガイド」として位置づける</strong> — キャプションを「透明なゲート (Anti-control など本体 fill を持たないゲート) には <code>variant="stroke"</code>」と書き換え、なぜ stroke 派生になるかを明示する。</li>
-      </ul>
+      <p class="critique-body">
+        残課題: AntiControl / Phase など他の「本体 fill を持たないゲート」も同様に Web Component を切り出せば、
+        透明なゲート全体で canonical な書き方が揃う。
+      </p>
     </aside>
   </div>
 </section>
