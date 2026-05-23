@@ -256,11 +256,10 @@
   <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
   <h1 class="page-title">ホバー枠</h1>
   <p class="page-lede">
-    対象要素にポインタが重なったとき、外側または内側境界に出る <code>purple-400</code> の 2 px 枠。
-    外側ホスト枠 (ゲート / パレット項目) と内側セル枠 (表示ブロック内セル) で、同じ名前・同じ色を使う横断 UI 部品。
-    実装上の色ロールは現状 <code>colors.gate_hover_border</code> と GPU 側の <code>hover_border</code>。
-    ホバー対象の状態は <code>hovered_gate_id</code> / <code>hovered_palette_index</code> /
-    <code>hovered_probability_outcome</code> などで管理する。
+    対象要素にポインタが重なったことを示すために、その輪郭に沿って描かれる枠線。
+    ゲート (回路上 / パレット) と表示ブロック内セルという 3 つの場所を横断する共通 UI 部品で、
+    どこで出ても「いまここに乗っている」が 1 つの語彙でユーザに伝わるように設計されている。
+    寸法は § 02、配色は § 03、場所ごとの描き分けは § 04 を参照。
   </p>
 </div>
 
