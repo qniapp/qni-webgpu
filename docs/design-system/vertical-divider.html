@@ -208,9 +208,9 @@
       ディバイダはパレット面の上に、2 行のアイコン高と同じ高さで置く。
       左右にはそれぞれ 8 px の余白を取り、操作ゲート群 / 表示ブロック群のどちらにも属さない中立な境界として読む。
     </p>
-    <div class="vd-stage" aria-label="ゲートパレット内の垂直ディバイダ例">
+    <div class="vd-stage" role="group" aria-label="ゲートパレット内の垂直ディバイダ例">
       <div class="vd-palette">
-        <div class="vd-section" aria-label="操作ゲート群">
+        <div class="vd-section" role="group" aria-label="操作ゲート群">
           <div class="vd-row">
             <div class="vd-cell">H</div>
             <div class="vd-cell">X</div>
@@ -227,14 +227,14 @@
           </div>
         </div>
         <div class="vertical-divider" aria-hidden="true"></div>
-        <div class="vd-section" aria-label="表示ブロック群">
+        <div class="vd-section" role="group" aria-label="表示ブロック群">
           <div class="vd-row">
             <div class="vd-cell vd-cell--display vd-cell--bloch">B</div>
             <div class="vd-cell vd-cell--display">P</div>
           </div>
           <div class="vd-row">
             <div class="vd-cell vd-cell--display">A</div>
-            <div class="vd-cell vd-cell--display vd-cell--matrix" aria-label="密度行列">
+            <div class="vd-cell vd-cell--display vd-cell--matrix" role="img" aria-label="密度行列">
               <span class="vd-dot"></span><span class="vd-dot"></span>
               <span class="vd-dot"></span><span class="vd-dot"></span>
             </div>
