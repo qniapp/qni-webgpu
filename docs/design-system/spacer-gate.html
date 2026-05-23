@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spacer ゲート (空きスロット) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
+
+    /* ── Spacer ゲート本体 ──────────────────────────
+       実装: apps/web/src/icons/gate_glyphs.rs の GateKind::Spacer 分岐。
+       40 × 40 px の透明な当たり判定領域に、Flexoki tx の 3 点だけを描く。
+       cyan-400 の角丸正方形は持たない。 */
+    .spacer-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      background: transparent;              /* 本体 fill なし */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: grab;
+      position: relative;
+      isolation: isolate;
+      color: var(--tx);                     /* spacer_dots = Flexoki tx */
+    }
+    .spacer-gate > svg {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* 回路上のホバー枠。
+       実装は body_rect.expand(4) + 2 px stroke。透明ゲートなので、内側を背景で塗る
+       二重枠ではなく、purple-400 の線だけを外側に重ねる。 */
+    .spacer-gate[data-state="hover"]::before,
+    .spacer-gate:not([data-state]):not([data-frame="palette"]):hover::before {
+      content: '';
+      position: absolute;
+      inset: -4px;                          /* spacing-1 */
+      border: 2px solid var(--purple-400);  /* gate_hover_border */
+      border-radius: 10px;
+      pointer-events: none;
+    }
+
+    /* パレット上のホバー枠。
+       gate-palette.html と同じく、outer = purple-400 / inner = paper。
+       Measurement / Spacer のような本体 fill を持たないゲートでも、パレット面が
+       bg-2 に透けず paper のまま保たれる。 */
+    .spacer-gate[data-frame="palette"]::before {
+      content: '';
+      position: absolute;
+      inset: -4px;                          /* spacing-1 */
+      border-radius: 10px;
+      background: var(--purple-400);        /* gate_hover_border */
+      z-index: -2;
+      pointer-events: none;
+    }
+    .spacer-gate[data-frame="palette"]::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 8px;
+      background: var(--bg);                /* palette surface = paper */
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* drag preview でも本体 fill は無い。draw_drag_gate_body は呼ばれるが、Spacer の
+       icon color は spacer_dots のままなので、見た目はカーソル状態だけが変わる。 */
+    .spacer-gate[data-state="drag"] { cursor: grabbing; }
+
+    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 168px;
+      text-align: center;
+    }
+    .stage .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .spacer-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 回路スロット モック ─────────────────────── */
+    .slot-mock {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .slot-mock .wire {
+      position: relative;
+      height: 56px;
+      width: 336px;                         /* 6 slots × 56 px */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
+
+    /* ── ピクセル内訳図 ─────────────────────────── */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .semantic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .semantic-grid .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .semantic-grid .mini strong { color: var(--tx); }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: gate-palette.html の <symbol id="g-Spacer"> と完全一致する 3 点。
+     viewBox は 48。実表示は 40 px なので各 6 × 6 viewBox 正方形は 5 × 5 px になる。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-Spacer" viewBox="0 0 48 48">
+    <rect x="9"  y="21" width="6" height="6" fill="currentColor" />
+    <rect x="21" y="21" width="6" height="6" fill="currentColor" />
+    <rect x="33" y="21" width="6" height="6" fill="currentColor" />
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">Spacer ゲート (空きスロット)</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <h1 class="page-title">Spacer ゲート (空きスロット)</h1>
+  <p class="page-lede">
+    回路上に<strong>何も作用しない空きスロット</strong>を明示的に置くためのプレースホルダ。
+    見た目は <strong>40 × 40 px の透明な当たり判定領域 + tx の 3 点</strong>だけで、
+    cyan-400 の角丸本体も、行列変換も、測定も持たない。列の間隔や例題回路の読みやすさを保つための視覚的な区切りとして扱う。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      Spacer は <code>GateKind::Spacer</code>、シリアライズ ID は Quirk 互換の <code>"…"</code> (三点リーダー 1 文字)。
+      パレットでは Gates section の 2 行目末尾に置かれ、ドラッグするとほかのゲートと同じ 56 px ピッチのスロットへ配置できる。
+      ただし、状態ベクトルには一切作用しないため、回路の意味論としては「列を占有する空白」に近い。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">既定<br>透明領域 + 3 点</div>
+        <div class="actual"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">回路ホバー<br>purple-400 の線</div>
+        <div class="actual"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">パレットホバー<br>purple-400 + paper</div>
+        <div class="actual"><div class="spacer-gate" data-frame="palette"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ドラッグ<br>色変化なし</div>
+        <div class="actual"><div class="spacer-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      Spacer の役割は「見える空白」。通常の空セルは何も描かれず選択もできないが、Spacer は 3 点で存在を示し、ドラッグ / ホバー / 削除などの編集操作を受け付ける。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>実装ロール / 備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>本体 fill</td>
+          <td>—</td>
+          <td>transparent</td>
+          <td>操作ゲートの <code>box_fill</code> (cyan-400) は使わない。背景と wire がそのまま見える</td>
+        </tr>
+        <tr>
+          <td>3 点</td>
+          <td><code>tx</code></td>
+          <td>#100F0F</td>
+          <td><code>spacer_dots</code> ロール。空白マーカなので、文字と同じ濃い中性色で最小限に主張させる</td>
+        </tr>
+        <tr>
+          <td>回路ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code>。透明ゲートでは内側を塗らず、2 px の線だけを描く</td>
+        </tr>
+        <tr>
+          <td>パレットホバー内側</td>
+          <td><code>bg</code> (paper)</td>
+          <td>#FFFCF0</td>
+          <td>パレット面と同じ色。<a href="gate-palette.html">Gate palette</a> の共通ホバー枠に従う</td>
+        </tr>
+        <tr>
+          <td>ドラッグ中</td>
+          <td>—</td>
+          <td>変化なし</td>
+          <td>本体 fill が無いため <code>drag_fill</code> (purple-600) へ置き換えない。3 点は <code>tx</code> のまま</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>当たり判定領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)。本体 fill は transparent</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。中央配置で上下左右 8 px の余白</td></tr>
+        <tr><th>SVG viewBox</th><td><code>0 0 48 48</code>。実表示 40 px へ縮小して描く</td></tr>
+        <tr><th>点の形</th><td>viewBox 上で <code>6 × 6</code> の塗りつぶし正方形。40 px 表示時は <code>5 × 5 px</code></td></tr>
+        <tr><th>点の座標</th><td><code>x = 9 / 21 / 33</code>、<code>y = 21</code>、<code>width = height = 6</code>。中心は viewBox の <code>(12,24)</code> / <code>(24,24)</code> / <code>(36,24)</code></td></tr>
+        <tr><th>wire との関係</th><td>点の中心がゲート中心線上にあり、wire は 3 点の背面を通る。Measurement / Write と違い wire マスクは行わない</td></tr>
+        <tr><th>span</th><td><code>1</code> 固定。リサイズハンドルなし</td></tr>
+        <tr><th>描画順</th><td>wire → 回路ホバー枠 → 3 点の順に描く。数値の z-index は持たない</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- Flexoki ui-2 = #DAD8CE / tx = #100F0F / purple-400 = #8B7EC8 / tx-2 = #6F6E69 -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2" />
+        <line x1="-8" y1="20" x2="48" y2="20" stroke="#DAD8CE" stroke-width="1" />
+        <rect x="0" y="0" width="40" height="40" fill="none" stroke="#8B7EC8" stroke-width="0.8" stroke-dasharray="2,2" />
+        <svg x="0" y="0" width="40" height="40" viewBox="0 0 48 48">
+          <rect x="9"  y="21" width="6" height="6" fill="#100F0F" />
+          <rect x="21" y="21" width="6" height="6" fill="#100F0F" />
+          <rect x="33" y="21" width="6" height="6" fill="#100F0F" />
+        </svg>
+        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px hit area</text>
+          <text x="44" y="22" text-anchor="start">wire</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 透明な当たり判定領域</p>
+        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>5 px</strong> · 実表示時の各点サイズ</p>
+        <p><strong>3 点</strong> · viewBox 中心 <code>y = 24</code> に水平整列</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>状態バリアント</h2>
+  <div class="card">
+    <p>
+      Spacer は本体色を持たないため、状態差はホバー枠とカーソルだけで伝える。
+      ドラッグ中も 3 点の色は変えず、「仮配置中」の紫色本体を出さない。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>tx の 3 点</div>
+        <div class="actual"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② 回路ホバー<br>2 px stroke</div>
+        <div class="actual"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ パレットホバー<br>内側の空き</div>
+        <div class="actual"><div class="spacer-gate" data-frame="palette"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ ドラッグ<br>色変化なし</div>
+        <div class="actual"><div class="spacer-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      パレット上だけ内側を paper で塗る。回路上で同じ処理をすると、透明ゲートの内部を通る wire や制御線を消してしまうため、回路上は線だけのホバー枠に統一する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 05</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      Spacer は 1 本の量子ビットワイヤ上の単一スロットを占有する。空セルとは違い、3 点が表示されるため、列幅の確保や例題回路の視線誘導に使える。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire">
+        <div class="slot"></div>
+        <div class="slot"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      うっすら入っている縦線は説明用のスロット境界。実 UI では wire と 3 点だけが見える。単独の Spacer はコネクタを作らず、span も伸びない。同じ列に Control / Anti-control がある場合は描画上の対象として縦コネクタに含まれるが、状態変化はない。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 06</span>意味論と実装契約</h2>
+  <div class="card">
+    <div class="semantic-grid">
+      <div class="mini"><strong>状態変化</strong><br />ローカル WebGPU 実行では <code>linearize_ops</code> が <code>GateKind::Spacer</code> を捨て、dispatch を発行しない。</div>
+      <div class="mini"><strong>編集操作</strong><br />配置・選択・削除・ドラッグは通常ゲートと同じ。空セルではなく、編集可能なプレースホルダとして扱う。</div>
+      <div class="mini"><strong>外部 GPU 実行</strong><br />現状の Qiskit バックエンド経路では <code>Unsupported gate · Spacer</code> として停止する。</div>
+    </div>
+    <ul>
+      <li><strong>3 点だけで描く</strong>: 空白を示す記号なので、操作ゲートの cyan-400 本体や枠線を足さない。</li>
+      <li><strong>tx を使う</strong>: <code>tx-2</code> では wire 上で弱すぎ、<code>tx</code> なら小さな 5 px 点でも見失わない。</li>
+      <li><strong>wire マスクをしない</strong>: Spacer は回路の流れを止めない。wire が連続していることを保ち、点だけが上に乗る。</li>
+      <li><strong>ドラッグ中に紫化しない</strong>: 本体 fill が無いゲートに purple-600 の仮本体を出すと、Spacer が操作ゲートに見えるため避ける。</li>
+      <li><strong>span = 1 固定</strong>: 列を占有するだけで、複数量子ビットの領域を持たない。リサイズハンドルは出さない。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 07</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>パレット上の <code>g-Spacer</code> と、Measurement / Spacer 用の paper 内側ホバー枠を定義する</td>
+        </tr>
+        <tr>
+          <td><a href="measurement-gate.html">測定ゲート</a></td>
+          <td>cyan-400 本体を持たない透明ゲートの仲間。ただし測定ゲートは wire マスクと結果描画を持つ</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 の 2 px 枠。Spacer は回路上では線のみ、パレット上では内側の空き版を使う</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>spacer_dots</code> = tx、<code>gate_hover_border</code> = purple-400 の対応</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>40 px ゲート本体と 56 px ピッチに統一した経緯</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · Spacer ゲート · 2026-05</p>
+</footer>
+
+</body>
+</html>
