@@ -12,6 +12,9 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- H ゲートの本体描画は <h-gate> Web Component に任せる (h-gate.html § canonical)。
+       gp-gate ラップ側は palette 専用のクロム (hover frame / tooltip / grab cursor) を提供する。 -->
+  <script src="components/h-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -124,7 +127,7 @@
   <!-- Gates row の代表的な 5 個 -->
   <div class="gp-stage" style="padding: 0; background: transparent; border: none; min-height: auto;">
     <div class="gp-row" style="margin: 0;">
-      <div class="gp-gate"><div class="gate-body"><span class="g-letter">H</span></div></div>
+      <div class="gp-gate"><h-gate></h-gate></div>
       <div class="gp-gate"><div class="gate-body"><span class="g-letter">X</span></div></div>
       <div class="gp-gate"><div class="gate-body"><span class="g-letter">Y</span></div></div>
       <div class="gp-gate"><div class="gate-body"><span class="g-letter">Z</span></div></div>
@@ -567,7 +570,7 @@
 
     <h3 style="margin-top: 16px;">Gates section · row 1 — unitary 1 量子ビット gates (13 個 / indices 0〜12)</h3>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-H"/></svg></div><div class="label"><span class="name">H</span><span>Hadamard</span></div></div>
+      <div class="item"><div class="gp-gate"><h-gate></h-gate></div><div class="label"><span class="name">H</span><span>Hadamard</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-X"/></svg></div><div class="label"><span class="name">X</span><span>Pauli-X / NOT (Plus glyph)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Y"/></svg></div><div class="label"><span class="name">Y</span><span>Pauli-Y</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Z"/></svg></div><div class="label"><span class="name">Z</span><span>Pauli-Z</span></div></div>

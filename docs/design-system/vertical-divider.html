@@ -12,6 +12,10 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- H ゲートは canonical な <h-gate> Web Component で描画する (h-gate.html § canonical)。
+       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○) は component 化が済むまで
+       .vd-cell の色付きラベルで暫定表示する。 -->
+  <script src="components/h-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot / .vertical-divider) は design-system.css にある。 */
@@ -212,7 +216,7 @@
       <div class="vd-palette">
         <div class="vd-section" role="group" aria-label="操作ゲート群">
           <div class="vd-row">
-            <div class="vd-cell">H</div>
+            <h-gate></h-gate>
             <div class="vd-cell">X</div>
             <div class="vd-cell">Y</div>
             <div class="vd-cell">Z</div>

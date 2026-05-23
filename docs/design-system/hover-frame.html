@@ -12,6 +12,11 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- ホバー枠 (canonical な <hover-frame variant="stroke|surface-gap">) と
+       H ゲート本体 (<h-gate>) の組み合わせで demo を構成する。
+       hover-frame は本ページの canonical primitive、h-gate は h-gate.html canonical を共有。 -->
+  <script src="components/hover-frame.js"></script>
+  <script src="components/h-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot / .hover-frame) は design-system.css にある。 */
@@ -216,19 +221,13 @@
     <div class="hf-stage">
       <div class="hf-example">
         <div class="hf-circuit">
-          <div class="hf-gate-wrap hover-frame-host">
-            <span class="hover-frame hover-frame--stroke"></span>
-            <div class="hf-gate">H</div>
-          </div>
+          <hover-frame variant="stroke"><h-gate></h-gate></hover-frame>
         </div>
         <div class="hf-caption">回路上<br>線だけのホバー枠</div>
       </div>
       <div class="hf-example">
         <div class="hf-palette-pad">
-          <div class="hf-gate-wrap hover-frame-host">
-            <span class="hover-frame hover-frame--surface-gap"></span>
-            <div class="hf-gate">H</div>
-          </div>
+          <hover-frame variant="surface-gap"><h-gate></h-gate></hover-frame>
         </div>
         <div class="hf-caption">ゲートパレット<br>内側を bg で抜く</div>
       </div>
