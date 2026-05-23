@@ -156,55 +156,6 @@
       border: 1px solid var(--ui-2);
       flex-shrink: 0;
     }
-
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html / probability-display.html と同じスタイル (sibling 仕様として一貫させる)。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
@@ -365,38 +316,17 @@
 <section class="block">
   <h2>§ 06 使用ルール</h2>
   <div class="card">
+    <h3>禁止事項</h3>
     <ul>
       <li>選択状態、エラー状態、実行状態には使わない。ホバー枠はポインタホバーだけを表す。</li>
       <li>回路上では内側を塗らない。透明ゲートと接続線の可読性を優先する。</li>
-      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / 角丸 <code>10 px</code> / <code>purple-400</code> を変えない。</li>
-      <li>行 / セルの内側ホバー枠は、各表示ブロック仕様の形状に従う。色は <code>purple-400</code> でそろえる。</li>
-      <li>リサイズハンドルは <code>cyan-400</code> 系で描き、ホバー枠とは色族を分ける。</li>
-      <li>検討履歴は <a href="gate-hover-feedback-options.html">ホバー枠の検討履歴</a> を参照。</li>
     </ul>
 
-    <aside class="critique" aria-label="批評 · § 06 使用ルールの混在">
-      <div class="critique-label">★ 批評 · § 06 使用ルール</div>
-      <div class="critique-title">6 項目が「禁止 / 不変条件 / 他 primitive との関係 / 参照リンク」の 4 種混在で、性質の違うものが平坦にリストされている</div>
-      <p class="critique-body">
-        現状の 6 項目は次のように性質が異なるが、リスト上は <code>&lt;ul&gt;</code> で平等に並んでいる:
-      </p>
-      <ul class="critique-list">
-        <li><strong>(a) 禁止</strong>: 「選択 / エラー / 実行状態には使わない」「回路上では内側を塗らない」</li>
-        <li><strong>(b) 不変条件 (固定値)</strong>: 「外側拡張 4 px / 線幅 2 px / 角丸 10 px / <code>purple-400</code> を変えない」「行 / セルの色は <code>purple-400</code> でそろえる」</li>
-        <li><strong>(c) 他 primitive との関係</strong>: 「リサイズハンドルは cyan-400 系で色族を分ける」</li>
-        <li><strong>(d) ナビゲーション</strong>: 「検討履歴は gate-hover-feedback-options.html」</li>
-      </ul>
-      <p class="critique-body">
-        階層化案: (a) 禁止事項 / (b) 不変条件 / (c) 関連 primitive / (d) 参考リンク、の 4 サブセクションに分ける。
-        h-gate.html § 07 の Top Opportunities で提案された「(親仕様から) 継承 / (本仕様で) 確定 / 妥協 / 参考」のラベル化と同じ思想で、
-        本ページを参考に新しいホバー対象を追加する Codex / 人間が <strong>「変更してよい / よくない」を判定できる</strong>ようにする。
-      </p>
-      <p class="critique-body">
-        補足: 「リサイズハンドルは cyan-400 系で色族を分ける」は <code>cyan-400</code> がゲート本体 (<code>box_fill</code>) と同色なので、
-        正確には「リサイズハンドルは<strong>ゲート本体と同じ cyan 系</strong>で描き、ホバー枠 (purple-400) / ドラッグ (purple-600) の<em>紫族</em>と分ける」と書くとロール意図が伝わる。
-        現状の表現は「ホバー枠 = purple、ハンドル = cyan」と読めるが、cyan-400 がゲート本体色でもあることが書かれていないため、読者が新しい操作色を足すときに <code>cyan</code> を「ハンドル専用色」と誤解しうる。
-      </p>
-    </aside>
+    <h3>不変条件</h3>
+    <ul>
+      <li>外側ホスト枠を使う新しいホバー対象では、外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / 角丸 <code>10 px</code> / <code>purple-400</code> を変えない。</li>
+      <li>行 / セルの内側ホバー枠は、各表示ブロック仕様の形状に従う。色は <code>purple-400</code> でそろえる。</li>
+    </ul>
   </div>
 </section>
 
