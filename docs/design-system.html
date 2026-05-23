@@ -428,17 +428,16 @@
       <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。cyan-400 角丸正方形は持たず、tx-2 のケット括弧 <code>|⟩</code> + 中央 red-600 のディジット "0" だけで描く。</p>
     </a>
 
-    <div class="spec-card dim">
+    <a class="spec-card" href="design-system/measurement-gate.html">
       <div class="preview" aria-hidden="true">
-        <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
-          <rect x="8" y="8" width="40" height="40" rx="6" fill="#33A6A0" stroke="#6F6E69"/>
-          <path d="M 16 34 A 12 12 0 0 1 40 34" fill="none" stroke="#100F0F" stroke-width="2"/>
-          <line x1="28" y1="34" x2="38" y2="18" stroke="#100F0F" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <iframe src="design-system/measurement-gate.html?preview" loading="lazy" title="測定ゲート プレビュー"></iframe>
       </div>
-      <div class="row"><span class="name">Measure</span><span class="pill todo">todo</span></div>
-      <p class="desc">射影測定ゲート。測定結果をビットとして取り出す。</p>
-    </div>
+      <div class="row">
+        <span class="name">測定ゲート (Measurement)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">Z 基底で 1 量子ビットを射影測定し、GPU 上の結果 0 / 1 を red-600 / blue-600 のディジットで重ねる非ユニタリ操作。</p>
+    </a>
 
   </div>
 </section>

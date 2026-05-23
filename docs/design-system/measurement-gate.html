@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>測定ゲート (Measurement) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
+
+    /* ── 測定ゲート本体 ────────────────────────────
+       実装: apps/web/src/icons/gate_glyphs.rs:draw_meter_icon。
+       40 × 40 px の透明な当たり判定領域に、Flexoki purple-600 のメーターを描く。
+       cyan-400 の角丸正方形は持たない。 */
+    .measurement-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: grab;
+      position: relative;
+      color: var(--purple-600);             /* semantic_intermediate */
+    }
+    .measurement-gate > svg,
+    .measurement-gate .digit-layer {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      pointer-events: none;
+      overflow: visible;
+    }
+    /* 回路上のホバー枠。実装は body_rect.expand(4) + 2 px stroke。
+       40 px 本体の外側 4 px に 48 × 48 px のリングを置き、内側 2 px は背景の空きとして残す。 */
+    .measurement-gate[data-state="hover"]::before,
+    .measurement-gate:not([data-state]):hover::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 2px solid var(--purple-400); /* gate_hover_border */
+      border-radius: 10px;
+      pointer-events: none;
+    }
+    .measurement-gate[data-state="drag"] {
+      cursor: grabbing;
+    }
+
+    /* 測定済み状態。メーターは wire と同じ ui-2、結果ディジットだけが赤 / 青。 */
+    .measurement-gate[data-outcome] {
+      color: var(--ui-2);                   /* measurement_fired_icon */
+    }
+    .measurement-gate .digit-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      transform: translateY(1px);           /* MEASUREMENT_DIGIT_CENTER_Y_OFFSET */
+    }
+    .measurement-gate .digit-layer.digit-zero { color: var(--red-600); fill: var(--red-600); }  /* semantic_off */
+    .measurement-gate .digit-layer.digit-one  { color: var(--blue-600); fill: var(--blue-600); } /* semantic_on */
+
+    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 168px;
+      text-align: center;
+    }
+    .stage .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .measurement-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 回路スロット モック ─────────────────────── */
+    .slot-mock {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    .slot-mock .wire {
+      position: relative;
+      height: 56px;
+      width: 336px;                         /* 6 slots × 56 px */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+    }
+    .slot-mock .slot {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
+    .slot-mock .wire-mask {
+      position: absolute;
+      left: 4px;                            /* 56px slot 内の 8px 余白 - clearance 4px */
+      right: 4px;
+      top: 8px;
+      bottom: 8px;
+      background: var(--bg);
+      pointer-events: none;
+    }
+
+    /* ── ピクセル内訳図 ─────────────────────────── */
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .semantic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .semantic-grid .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .semantic-grid .mini strong { color: var(--tx); }
+  </style>
+</head>
+<body>
+
+<!-- SVG sprite: 実装の draw_meter_icon と shared digit atlas に合わせる。
+     viewBox は 48。ページ内では width/height 40 px に縮小して表示する。 -->
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-MeasurementMeter" viewBox="0 0 48 48">
+    <path d="M 4 36 A 20 20 0 0 1 44 36" fill="none" stroke="currentColor" stroke-width="2" />
+    <line x1="24.625" y1="33.5" x2="37.75" y2="11" stroke="currentColor" stroke-width="2" />
+    <circle cx="24.625" cy="33.5" r="3.5" fill="currentColor" />
+  </symbol>
+  <symbol id="g-Digit0" viewBox="0 0 48 48">
+    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="currentColor">
+      <path d="M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354Q50 469 80.0 552.0Q110 635 166.5 680.5Q223 726 300 726Q378 726 434.0 680.5Q490 635 520.0 552.0Q550 469 550 354Q550 240 520.0 157.0Q490 74 434.0 29.0Q378 -16 300 -16ZM140 354Q140 254 165 184L393 599Q354 642 300 642Q226 642 183.0 564.5Q140 487 140 354ZM300 68Q374 68 417.0 145.5Q460 223 460 354Q460 455 435 525L207 111Q246 68 300 68Z" />
+    </g>
+  </symbol>
+  <symbol id="g-Digit1" viewBox="0 0 48 48">
+    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="currentColor">
+      <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z" />
+    </g>
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">測定ゲート (Measurement)</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <h1 class="page-title">測定ゲート (Measurement)</h1>
+  <p class="page-lede">
+    量子ビットを <strong>Z 基底で射影測定し、結果に応じて状態ベクトルを収縮させる非ユニタリ操作</strong>。
+    見た目は cyan-400 のゲート本体を持たない <strong>透明な 40 × 40 px 領域 + purple-600 のメーター</strong>。
+    測定後はメーターを wire と同じ ui-2 に落とし、GPU が直接描く <strong>red-600 の 0 / blue-600 の 1</strong> だけを重ねる。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      測定ゲートは、回路の途中で量子ビットを古典ビットへ読み出す操作。コード上の識別子は
+      <code>GateKind::Measurement</code>、URL 用トークンは <code>"Measure"</code>。H / X / Rz のような可逆な回転ではなく、
+      サンプル結果 <code>0</code> または <code>1</code> を選び、その基底へ状態を射影して後続列へ渡す。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">既定<br>purple-600 メーター</div>
+        <div class="actual"><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br>purple-400 の枠</div>
+        <div class="actual"><div class="measurement-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">測定済み 0<br>ui-2 + red-600</div>
+        <div class="actual"><div class="measurement-gate" data-outcome="0"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-zero" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit0" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">測定済み 1<br>ui-2 + blue-600</div>
+        <div class="actual"><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      パレット上と未計算の回路上では purple-600。測定結果が GPU の <code>measurement_aux_buffer</code> に入った後だけ、
+      メーターを ui-2 にして結果ディジットを強調する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>実装ロール / 備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>未測定メーター</td>
+          <td><code>purple-600</code></td>
+          <td>#5E409D</td>
+          <td><code>semantic_intermediate</code>。まだ 0 / 1 に定まっていない中間状態を示す</td>
+        </tr>
+        <tr>
+          <td>測定後メーター</td>
+          <td><code>ui-2</code></td>
+          <td>#DAD8CE</td>
+          <td><code>measurement_fired_icon</code>。wire と同じ中性色へ退かせ、結果ディジットを主役にする</td>
+        </tr>
+        <tr>
+          <td>結果 <code>0</code></td>
+          <td><code>red-600</code></td>
+          <td>#AF3029</td>
+          <td><code>semantic_off</code>。<code>|0⟩</code> / off ビットを表す赤</td>
+        </tr>
+        <tr>
+          <td>結果 <code>1</code></td>
+          <td><code>blue-600</code></td>
+          <td>#205EA6</td>
+          <td><code>semantic_on</code>。<code>|1⟩</code> / on ビットを表す青</td>
+        </tr>
+        <tr>
+          <td>ホバー枠</td>
+          <td><code>purple-400</code></td>
+          <td>#8B7EC8</td>
+          <td><code>gate_hover_border</code>。回路上では 2 px の線だけ。パレット上は <a href="gate-palette.html">Gate palette</a> の共通ホバー枠に従う</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>当たり判定領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)。本体 fill は transparent</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。ゲートは中央配置で上下左右 8 px の余白</td></tr>
+        <tr><th>メーター弧</th><td>viewBox 48 上で <code>M 4 36 A 20 20 0 0 1 44 36</code>、stroke 2 px</td></tr>
+        <tr><th>針</th><td><code>(24.625, 33.5) → (37.75, 11)</code>、stroke 2 px</td></tr>
+        <tr><th>ピボット</th><td><code>(24.625, 33.5)</code> に半径 3.5 の塗りつぶし円</td></tr>
+        <tr><th>wire マスク</th><td>回路上ではゲート rect を左右 4 px 拡張して背景で塗り、メーターの中を wire が貫通しないようにする</td></tr>
+        <tr><th>結果ディジット</th><td>40 × 40 px の digit atlas をゲート中心から下へ 1 px ずらして重ねる (<code>MEASUREMENT_DIGIT_CENTER_Y_OFFSET = 1</code>)</td></tr>
+        <tr><th>span</th><td><code>1</code> 固定。リサイズハンドルなし</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <!-- Flexoki ui-2 = #DAD8CE / purple-600 = #5E409D / purple-400 = #8B7EC8 / tx-3 = #B7B5AC -->
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2" />
+        <rect x="-4" y="0" width="48" height="40" fill="#FFFCF0" stroke="#B7B5AC" stroke-dasharray="3,3" opacity="0.7" />
+        <line x1="-8" y1="20" x2="48" y2="20" stroke="#DAD8CE" stroke-width="1" />
+        <rect x="0" y="0" width="40" height="40" fill="none" stroke="#8B7EC8" stroke-width="0.8" stroke-dasharray="2,2" />
+        <path d="M 3.333 30 A 16.667 16.667 0 0 1 36.667 30" fill="none" stroke="#5E409D" stroke-width="1.667" />
+        <line x1="20.521" y1="27.917" x2="31.458" y2="9.167" stroke="#5E409D" stroke-width="1.667" />
+        <circle cx="20.521" cy="27.917" r="2.917" fill="#5E409D" />
+        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
+          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px hit area</text>
+          <text x="44" y="22" text-anchor="start">wire mask +4 px</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 透明な当たり判定領域</p>
+        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>4 px</strong> · wire を切る左右マスク幅</p>
+        <p><strong>1 px</strong> · 結果ディジットの下方向補正</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>状態バリアント</h2>
+  <div class="card">
+    <p>
+      測定ゲートは、本体色をドラッグ中に変えない。透明領域 + メーターという形を保ち、意味色は「未測定 purple」「測定後 red / blue」に限定する。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>未測定</div>
+        <div class="actual"><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② ホバー<br>2 px stroke</div>
+        <div class="actual"><div class="measurement-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ ドラッグ<br>色変化なし</div>
+        <div class="actual"><div class="measurement-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ 測定後<br>結果を重ねる</div>
+        <div class="actual"><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      パレットのホバーは外側 purple-400 + 内側 paper の二重枠、回路上のホバーは本体外側 4 px に置く 2 px の線だけ。
+      回路上で内側を塗るとコネクタや wire を消すため、透明ゲートでは線だけに統一する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 05</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      スロット中心に 40 px のメーターを置き、wire はゲート直下だけ背景で短く切る。結果ディジットは GPU の描画コールバックで後から重ねる。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire">
+        <div class="slot"></div>
+        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate" data-outcome="0"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-zero" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit0" /></svg></div></div>
+        <div class="slot"></div>
+        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      うっすら入っている縦線は説明用のスロット境界。実 UI では wire とゲートだけが見える。
+      測定後もゲート位置は変えず、結果だけを重ねるため、後続列との読み順が安定する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 06</span>意味論と実装契約</h2>
+  <div class="card">
+    <div class="semantic-grid">
+      <div class="mini"><strong>計算</strong><br />列ごとに <code>pZero</code> を GPU で求め、決定論的乱数で 0 / 1 をサンプルする。</div>
+      <div class="mini"><strong>収縮</strong><br />選ばれた基底へ状態を射影し、<code>√p</code> で再正規化して後続列へ渡す。</div>
+      <div class="mini"><strong>描画</strong><br />本番経路で CPU 読み戻ししない。結果ディジットは <code>measurement_aux_buffer.z</code> を GPU が読む。</div>
+    </div>
+    <ul>
+      <li><strong>角丸本体を持たない</strong>: 回転ゲートではなく読み取り操作なので、cyan-400 の塗りつぶしゲートと視覚的に分ける。</li>
+      <li><strong>未測定色は purple-600</strong>: 0 / 1 のどちらにも属さない中間状態として扱い、結果の赤 / 青と衝突させない。</li>
+      <li><strong>測定後メーターを中性化する</strong>: 読み取るべき情報はディジットなので、メーターは wire と同じ ui-2 へ退かせる。</li>
+      <li><strong>wire を短く切る</strong>: メーターの内部を横線が通ると針と競合するため、左右 4 px だけ広く背景でマスクする。</li>
+      <li><strong>span = 1 固定</strong>: 1 つの測定ゲートは 1 量子ビットだけを測定する。複数量子ビット測定は各 wire に 1 個ずつ置く。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 07</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="gate-palette.html">Gate palette</a></td>
+          <td>パレット上の測定ゲート <code>g-Measurement</code> とホバー枠を定義する</td>
+        </tr>
+        <tr>
+          <td><a href="write0-gate.html">|0⟩ オペレーション</a></td>
+          <td>結果ディジットの red-600 / blue-600 色対と、透明な 40 px 領域の考え方を共有する</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 の 2 px 枠。測定ゲートは回路上で線だけのバリアントを使う</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>semantic_intermediate</code> / <code>measurement_fired_icon</code> / <code>semantic_off</code> / <code>semantic_on</code> のロール対応</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>40 px ゲート本体と 56 px ピッチに統一した経緯</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 測定ゲート (Measurement) · 2026-05</p>
+</footer>
+
+</body>
+</html>
