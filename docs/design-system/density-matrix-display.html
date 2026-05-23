@@ -143,6 +143,56 @@
       position: relative;
     }
     .legend .swatch canvas { width: 32px; height: 32px; display: block; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       probability-display.html / amplitude-display.html / bloch-display.html の .critique と
+       同じスタイル (表示ブロックの sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -173,6 +223,38 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「N×N 行列を 1 widget に詰める」根本的なスケーラビリティ問題が § 05 表に押し込まれている</div>
+    <p class="critique-body">
+      Flexoki Light 準拠、振幅表示ブロックとのセル描画統一、二系統経路 (WebGPU 内部 + Qiskit Aer) を併記した網羅性は probability-display.html / amplitude-display.html と同等で、仕様としての完成度は高い。
+      ただし本表示ブロックの<strong>固有の難しさ</strong>は <em>「セル数が <code>2<sup>2 × span</sup></code> = (振幅表示ブロックの 2 乗) で爆発する」</em>こと。
+      span 1 で 4 セル、span 2 で 16 セル、span 4 で 256 セル、span 8 で <strong>65 536 セル</strong>。同じ span でも振幅表示ブロックは 2<sup>span</sup> セルなので、密度行列表示ブロックは <em>常に振幅表示ブロックの 2 乗倍のセル</em>を持つ。
+      これが「span 上限 8」(振幅は 16) の根本理由だが、§ 05 ジオメトリ表に <code>cellPx = 1.69 px</code> と数値だけが並んでおり、<strong>「N × N matrix を視覚化することそのものの限界」</strong>がフレーミングされていない。span 8 の 65 536 セルを <code>432 × 432 px</code> 正方形に詰めた heatmap は production の標準描画だが、<em>視認できる構造は対角ピーク 1 つだけ</em>になり、もはや「行列」と呼べない情報密度になる。
+    </p>
+    <p class="critique-body">
+      <strong>「対角 = 確率、非対角 = coherence」という 2 つの異なる意味を同じセル形状で描く判断</strong>も本表示ブロックの固有問題で、§ 06 で
+      「対角も非対角も outline 円 + magnitude disk、対角だけ needle 省略」と統一されている。
+      これは振幅表示ブロックとの語彙統一として優れているが、<em>対角の <code>ρ<sub>ii</sub> = 確率</code> と非対角の <code>ρ<sub>ij</sub> = coupling</code> は物理的に別の量</em> (確率は <code>[0, 1]</code>、coupling は複素数で大きさ <code>≤ 0.5</code>) で、同じ「半径 = mag」表現にすると<em>対角の disk は最大 1 まで膨らみ、非対角は最大 0.5 まで</em>と<strong>視覚的スケールが構造的に対角優位</strong>になる。Quirk は対角を probability bar、非対角を disk と<em>形を変えて</em>区別していたが、本仕様はこれを統一する選択をしている。利点 (sibling との学習コスト低減) は明示されているが、欠点 (対角 = 大きい disk が視覚的に支配し非対角の coherence が脇に追いやられる) は仕様内に書かれていない。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>span 7〜8 の「heatmap が production 標準になる」事実をフレーミング</strong> — 振幅表示ブロックでは mock 限定だった heatmap が、本表示ブロックでは production 標準。「行列ではなく濃淡で全体像を見るモード」と明示し、cellPx ≥ 3 の outline + disk モードと意味的に区別する (§ 02 / § 05 / § 06 参照)。</li>
+      <li><strong>対角 vs 非対角の視覚スケール不均衡を明示</strong> — 対角 disk は半径 ∝ <code>ρ<sub>ii</sub> ∈ [0, 1]</code>、非対角は <code>|ρ<sub>ij</sub>| ≤ 0.5</code>。同じ表現に統一する trade-off (Quirk は形を変えて区別していた) を § 06 冒頭で言語化 (全体所見 / § 06 参照)。</li>
+      <li><strong>純粋状態 vs 混合状態の判別を 1 セクションに格上げ</strong> — § 02 末尾の見本 2 つ (Bell / I/4) だけでは「rank=1 = 純粋、rank&gt;1 = 混合」の構造が伝わらない。<code>Tr(ρ²)</code> = purity を tooltip / 補助テキストに出す機会がある (§ 02 / § 08 参照)。</li>
+      <li><strong>operation 前後の diff 表示の余地</strong> — 量子操作後の <code>ρ</code> の変化 (どの coupling が増減したか) は単一スナップショットでは読めない。「直前の ρ との差分表示モード」が将来 価値を持つ可能性 (§ 06 後半 / § 11 参照)。</li>
+      <li><strong>§ 05 / amplitude-display.html § 05 の placement モデル共有化</strong> — wide gate (cols &gt; 1) の placement / URL round-trip / 幾何交差判定は両仕様で 1:1 同型。共通仕様 <code>wide-gate-placement.html</code> へ抽出する余地 (§ 05 参照)。</li>
+      <li><strong>二系統経路 (WebGPU 内部 / Qiskit Aer) のスイッチ UI 仕様が無い</strong> — § 10 表に推奨用途が書かれているが、<em>ユーザが UI で経路を選ぶ手段</em>が定義されていない。<code>ExecMode</code> 設定との連動 (§ 10 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2>§ 01 概要 (見た目と用途)</h2>
@@ -194,6 +276,22 @@
     <p class="note" style="margin-top: 16px;">
       全 span (1〜8) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / リサイズハンドル / 実装メモ等の詳細は § 04 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 表示ブロック族での位置づけ">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「振幅表示ブロックとの差別化」が「行列か否か」だけに集約されている</div>
+      <p class="critique-body">
+        lede と § 01 で「振幅表示ブロックが <code>2<sup>span</sup></code> セル、本表示ブロックが <code>2<sup>span</sup> × 2<sup>span</sup></code> セル」と数値的差分が示されるが、
+        <em>「なぜユーザが密度行列表示ブロックを必要とするか」</em>が「混合状態 / もつれを 1 枚で読み取れる」の 1 行に圧縮されている。
+        実際の使い分け軸は <strong>(a) span 内が span 外と entangled かを判別したい</strong> (純粋状態なら振幅表示ブロックで十分、混合状態なら密度行列表示ブロックが必要)、
+        <strong>(b) coupling (非対角) のパターンから entanglement の構造を見たい</strong> (例: Bell の <code>ρ<sub>03</sub>, ρ<sub>30</sub> = 0.5</code> という対角四隅パターンが entanglement の特徴)、
+        <strong>(c) <code>Tr(ρ²)</code> = purity で混合度を定量化したい</strong> の 3 点。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 末尾に <em>「振幅表示ブロックでは見えない情報 = 何か」</em>を 1 表で示す。Bell state を例に「振幅表示ブロック on q0 = |+⟩ に見える / 密度行列表示ブロック on q0 = <code>I/2</code> (最大混合) と見える」の対比を入れると、両表示ブロックの使い分けが学習者に明確に伝わる。
+        Quirk は両 display を並べて見比べることを暗黙に推奨しているが、qni-webgpu の本仕様で<em>明示的に</em>定義する価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -245,6 +343,33 @@
       <div class="col"><div class="caption">純粋状態<br>Bell <code>|Φ⁺⟩</code></div><div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div></div>
       <div class="col"><div class="caption">最大混合状態<br><code>I/4</code> (= 完全に entangled で外と切り離された場合)</div><div class="actual"><div class="dm-host" data-span="2" data-state="maxmix2"></div></div></div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 02 heatmap が production 標準になる + 純粋/混合の判別">
+      <div class="critique-label">★ 批評 · § 02 サイズ別の見た目</div>
+      <div class="critique-title">span 7〜8 の heatmap モードが「production の標準描画」だと強調されていない</div>
+      <p class="critique-body">
+        § 02 で span 7 (cellPx 2.94) と span 8 (cellPx 1.69) は heatmap モードへ切り替わる、と書かれているが、
+        <em>「production の標準描画として heatmap が必要」</em>と注記で済まされている (§ 05 表に同じ注記)。
+        これは振幅表示ブロック (mock 限定 heatmap) との<strong>決定的な差</strong>で、
+        本表示ブロックの span 7〜8 を選んだユーザは<em>「行列を 1 枚で見る」</em>という当初の期待 (§ 01) を heatmap では満たせない (outline 円 / disk / needle がすべて消え、濃淡だけが残る)。
+      </p>
+      <p class="critique-body">
+        改善案: § 02 の見出しレベルで「<em>span 1〜6 (matrix モード) と span 7〜8 (heatmap モード)</em>」と並列の章立てにし、heatmap を <em>「行列ではなく濃淡で全体像を見るモード」</em>として明確に別 widget 扱いにする。
+        現状の構成は「同じ密度行列表示ブロックが、span が大きくなったら自動でモード切替する」だが、ユーザは span を 6 → 7 に上げたとき<em>本体の見た目が断絶する</em>。これは UX 上「壊れた」と誤解されやすい。
+        Quirk も同じ behavior だが、ユーザに「これは設計判断」と伝えるドキュメントが本仕様の役目。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「純粋状態 vs 混合状態」の見た目セクションが Bell と I/4 だけで構造が伝わらない</div>
+      <p class="critique-body">
+        本セクションは <em>純粋 (Bell)</em> と <em>最大混合 (I/4)</em> の 2 例を並べているが、これらは両極端で<strong>「中間の混合状態」</strong>が示されていない。
+        実回路では <em>3/4 純粋 + 1/4 混合</em> のような中間状態が頻出し、ユーザは「対角と非対角の disk 大きさの比」から混合度を読み取る必要がある。
+        改善案: <em>(a) 純粋 (Bell) / (b) 50% 混合 / (c) 最大混合 (I/4)</em> の 3 段階を並べ、各 widget の下に <code>Tr(ρ²) = purity</code> の数値を補助テキストで併記する (1.0 / 0.625 / 0.25 のように単調減少が見えると教育的)。
+      </p>
+      <p class="critique-body">
+        <strong>純粋状態の判別: rank=1 という構造が視覚化されていない</strong>。
+        純粋状態 <code>|ψ⟩⟨ψ|</code> は rank 1、混合状態は rank &gt; 1 という代数的事実は密度行列表示ブロックの主要な情報量だが、本仕様の disk 表現ではこの構造を直接読めない (rank は固有値分解しないと出てこない)。
+        Quirk と同じ制約だが、qni-webgpu 独自の改善案として「<em>純粋なら disk pattern が 1 つの outer product (列ベクトル × 行ベクトル) で書ける</em>」という構造を hover で示唆する余地がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -273,6 +398,20 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 03 アイコンと密度行列の象徴">
+      <div class="critique-label">★ 批評 · § 03 パレットアイコン</div>
+      <div class="critique-title">「2×2 の |+⟩⟨+|」は density matrix を直感させるが、span 8 の現実とは乖離する</div>
+      <p class="critique-body">
+        本表示ブロックのアイコンは <strong>2×2 行列 (span 1 の |+⟩⟨+|)</strong> で 4 つの disk を並べ、密度行列特有の<em>行列形状</em>を最初から提示する。
+        これは振幅表示ブロック (1 セル) や確率表示ブロック (4 行ガウシアン) より<em>意図が明確</em>で、設計判断として優れている (probability-display.html / amplitude-display.html § 03 の批評で「アイコンと配置後の形状ジャンプ」を問題視したのと対照的)。
+      </p>
+      <p class="critique-body">
+        一方で、本表示ブロックの<em>本質的な力</em>は span 4〜6 の <code>16×16 / 64×64</code> 行列で <em>off-diagonal coupling パターン</em>を visualize することにあり、span 1 の 2×2 はもっとも単純な例にすぎない。
+        アイコンが span 1 (4 セル) なので、ユーザは「2×2 程度の小さい行列を見るゲート」と最初に学習し、span 4 まで上げる動機が弱い。
+        改善案: アイコンを <strong>4×4 (span 2 の Bell)</strong> にして、対角四隅 + 中央 4 セルの<em>coupling pattern</em>を初期表現にする。span 4 で見える coupling 縞を span 2 のレベルで予告すると、ユーザの mental model が「行列のパターン認識」に寄る。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -348,6 +487,34 @@
       <li><strong>resize handle</strong> — 上下のみ (span を変える)。幅は span の関数なので separate な width handle は不要 (§ 09)</li>
       <li><strong>drag / drop preview</strong> — drag 中は他ゲートと同じく <code>purple-600</code> を背景に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま維持する</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 05 cellPx の急激な減衰と wide gate placement の重複">
+      <div class="critique-label">★ 批評 · § 05 ジオメトリ</div>
+      <div class="critique-title">cellPx が span ごとに約 0.5 倍ずつ縮む「指数的なスケール崩壊」が表面化していない</div>
+      <p class="critique-body">
+        span 別表で cellPx は <code>20 → 24 → 19 → 13 → 8.25 → 5.0 → 2.94 → 1.69</code> と推移する。
+        これは <code>size_px = 56 × span − 16</code> が <em>線形</em>なのに対し、セル数 <code>n × n = 4<sup>span</sup></code> が <em>指数</em>で増えるため、
+        cellPx ∝ <code>(56 × span − 16) / 2<sup>span</sup></code> となり<strong>span ごとに約 0.5 倍ずつ縮む</strong>性質を持つ。
+        この指数的減衰のため span 1 → span 4 で cellPx が 20 px → 13 px (65 %) なのに対し、span 5 → span 8 で 8.25 px → 1.69 px (20 %) と<em>後半で急激に潰れる</em>。
+        本仕様は cellPx 値を表で並べるだけで、<em>この性質自体</em>を言語化していない。読者は「span を 1 上げれば本体が <em>少し</em>大きくなる」という線形直感で操作するが、実際はセル数が 4 倍ずつ増えるので、span 5 → 6 でも本体が 264 → 320 px と<strong>56 px (= 1 slot)</strong>しか増えないのに<em>セル数は 1024 → 4096 と 4 倍</em>になる。
+      </p>
+      <p class="critique-body">
+        改善案: § 05 表に「cellPx 比 (前 span 比)」列を追加し、減衰率 (0.83, 0.79, 0.68, 0.63, 0.61, 0.59, 0.57) を並べると指数的減衰が一目で読める。
+        または § 02 末尾に「cellPx は span ごとに約半減する」と<em>operational な事実</em>として明記する。これがあれば span 上限 8 が「<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> セルだから」ではなく「<em>span 8 で cellPx ≈ 2 px が視覚的限界だから</em>」と理解される。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">amplitude-display.html § 05 と placement / 衝突検出が 1:1 重複</div>
+      <p class="critique-body">
+        「水平 slot 占有」「placement / 衝突検出」「URL round-trip」は <a href="amplitude-display.html">amplitude-display.html § 05</a> と 1:1 同型 (「振幅 → 密度行列」「Amps → Density」「cols 算出式の差」だけが違う)。
+        amplitude-display.html § 05 の批評と同じく、<em>wide gate (cols &gt; 1)</em> の placement 仕様を <code>wide-gate-placement.html</code> (仮) に共通化する余地が大きい。
+        現状の構造だと、placement バグを修正するとき本仕様と amplitude-display.html の<strong>両方</strong>を編集する必要があり、片方を忘れるリスクがある。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「cols = (span === 1 ? 1 : span)」が振幅表示ブロックと異なる根拠が無い</div>
+      <p class="critique-body">
+        本表示ブロックは <code>cols = (span === 1 ? 1 : span)</code> (正方形を作るため span = span)、振幅表示ブロックは <code>cols = (span === 1 ? 2 : span % 2 === 0 ? span : ceil(span/2))</code> (2D matrix の縦横バランス) と異なる cols 式を使う。
+        本仕様は「振幅表示ブロックと同じ <em>正方になるように cols = span</em> を採用」と書いているが、これは振幅表示ブロックの<em>実際の cols 式</em>と一致していない。実は密度行列だけが正方形 (n × n) なので cols = span で正方が成立するが、振幅 (w_grid × h_grid) は奇数 span だと長方形になる。
+        この差異の根拠 (密度行列は本質的に正方行列、振幅は 1D ベクトルを 2D に配置する任意性がある) を § 05 で明示すると、両仕様の差が「設計判断」だと伝わる。現状は「振幅と同じ」と書きながら式が違うので、Codex / 人間が「どっちが正?」と迷う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -427,6 +594,44 @@ for row in 0..n:
       視覚的には、measured wire 由来の非対角列 / 行が消えて、対角の塊が残る。これは「測定後の古典化された状態」と「未測定の量子重ね合わせ」の境界を hover 抜きで見分ける手がかりになる。
       qni 側の lowering 順序は<strong>列処理の後に display capture</strong>なので、measure される直前の純粋振幅ではなく <em>collapse 後の混合状態</em> が表示される (振幅表示ブロックの § 07 と同じ仕様判断)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 対角と非対角の意味的差分">
+      <div class="critique-label">★ 批評 · § 06 セル描画モデル</div>
+      <div class="critique-title">「対角 = 確率」「非対角 = coupling」が物理的に別の量なのに、視覚スケールが対角優位に固定される</div>
+      <p class="critique-body">
+        本仕様は対角も非対角も<em>「outline 円 + magnitude disk」</em>で統一し、disk 半径は対角なら <code>ρ<sub>ii</sub> = P</code>、非対角なら <code>|ρ<sub>ij</sub>|</code>。
+        この統一は振幅表示ブロック / state panel との<em>語彙共有</em>として優れているが、物理的には:
+      </p>
+      <ul class="critique-list">
+        <li><strong>対角 <code>ρ<sub>ii</sub></code></strong>: 値域 <code>[0, 1]</code>。1 つの測定結果の発生確率。総和 <code>Σ ρ<sub>ii</sub> = 1</code> なので、対角 disk の<em>面積総和</em>は常に <code>π × inner_radius²</code> 相当。</li>
+        <li><strong>非対角 <code>ρ<sub>ij</sub></code></strong>: 値域 <code>|ρ<sub>ij</sub>| ≤ √(ρ<sub>ii</sub> × ρ<sub>jj</sub>) ≤ 0.5</code>。coherence。pure state では <code>ρ<sub>ij</sub> = ψ<sub>i</sub> conj(ψ<sub>j</sub>)</code>、混合では小さくなる。</li>
+      </ul>
+      <p class="critique-body">
+        統一表現の<strong>副作用</strong>: 対角 disk は最大半径 (= inner_radius) まで膨らみ、非対角は最大でも 0.5 × inner_radius。
+        例えば pure |0...0⟩ では <code>ρ<sub>00</sub> = 1</code> で対角 (0, 0) だけが full disk、他は全て 0 で空セル。<em>視覚的に「左上のセル 1 つだけが目立つ」</em>状態になり、行列構造が伝わらない。
+        Quirk は対角を <em>probability bar</em> (下から上に伸びる塗り)、非対角を <em>disk</em> と<strong>形を変えて</strong>区別していた。本仕様は「sibling との学習コスト低減」を優先してこれを退けているが、<em>対角と非対角の同 disk 表現の trade-off</em> (sibling 一貫性 vs 対角優位の視覚バイアス) は § 06 冒頭で言語化しておく価値がある。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">Hermitian 性で上三角と下三角が「鏡像」になる冗長表示が情報量を 2 倍に膨らませている</div>
+      <p class="critique-body">
+        本文は「Hermitian 性 → 上三角と下三角は位相が反転した対称、ユーザは片側を読むだけで全体が読める」と述べる。
+        これは正しいが、<strong>視覚的には全 n² セルが描かれている</strong>ので情報密度に対するセル数は<em>実質 n(n+1)/2</em>。
+        span 5 で 1024 セル描いて実質 528 セル、span 8 で 65 536 セル描いて実質 32 896 セル。<em>cellPx を 2 倍にできる空間が浪費されている</em>。
+        改善案: 「<em>下三角だけ描画し、対角と上三角を空にする (または薄く描く)</em>」というモードを設ければ、同じ本体寸法で cellPx を ~1.4 倍にでき、span 6〜8 の視認性が劇的に上がる。Quirk は対称描画を採用しているが、qni-webgpu 独自の改善余地。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">heatmap モードで位相情報が完全に消えるのに、本仕様で軽く扱われている</div>
+      <p class="critique-body">
+        § 06 の heatmap モード説明で「位相情報は heatmap では消える: span 7〜8 では tooltip だけが phase の供給源になる (cell hover 必須)」と 1 行で済まされているが、
+        これは本表示ブロックの「coherence を見る」という本来の目的が span 7〜8 で<strong>視覚的には消失する</strong>ことを意味する。
+        production 標準の描画 (span 7〜8 = heatmap) で位相が読めないなら、密度行列表示ブロックは span 6 までが事実上の上限とも言える。
+        改善案: <em>(a) heatmap でも phase を hue で出す</em> (HSV 表現、Flexoki に馴染まないが span 7+ 限定で example) / <em>(b) span 7+ では tooltip 必須を UI で明示</em> (本体の周囲に「Hover for phase」と注記を出す)。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">operation 前後の差分表示が将来 価値を持つ余地</div>
+      <p class="critique-body">
+        密度行列は量子操作 (gate 適用、measurement) で <em>どう変化するか</em>が本質的な情報。
+        現状の本仕様はスナップショット (操作直後の <code>ρ</code>) しか描かず、ユーザは複数の widget を並べて<em>目で diff を取る</em>必要がある。
+        将来の改善余地として「<em>直前の slot との差分モード</em>」 (各セルに <code>Δρ<sub>ij</sub></code> を描く)、「<em>純粋からの距離</em>」 (<code>√(1 − Tr(ρ²))</code> を補助テキストで出す) などが考えられる。Quirk には無い機能で、qni-webgpu 独自の教育的価値を作れる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -462,6 +667,28 @@ for row in 0..n:
       CPU から空の行列値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
       placeholder は全 span で背景の薄紫一色 + 外枠だけになる。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 07 placeholder の情報量と他表示ブロックとの差">
+      <div class="critique-label">★ 批評 · § 07 実行前プレースホルダ</div>
+      <div class="critique-title">amplitude/probability の placeholder と異なり「outline 円すら描かない」のは情報量を犠牲にしすぎ</div>
+      <p class="critique-body">
+        本仕様の placeholder は <em>「背景 <code>purple-100</code> + matrix 外枠」のみ</em>で、cell ガイドを描かない。
+        amplitude-display.html § 02 は「placeholder でも outline 円を全セルに描く」(これから何セルが並ぶかを示す)、probability-display.html § 02 は「行ガイド線を <code>2<sup>span</sup> − 1</code> 本引く」(これから何行が並ぶかを示す) と決めている。
+        本表示ブロックだけが<strong>「matrix サイズすら placeholder で示さない」</strong>選択をしており、ユーザは Run 前に「これは 2×2 行列? 16×16 行列?」を判別できない。
+      </p>
+      <p class="critique-body">
+        本仕様は理由を「<em>placeholder は全 span で背景の薄紫一色 + 外枠だけになる</em>」と書くが、根拠は説明されていない。
+        想像できる理由は <strong>(a) 65 536 セルの outline 円を描くのは GPU 負荷が大きい</strong>、<strong>(b) cell 間の grid 線を描かない方針 (§ 05) と整合させる</strong> の 2 点だが、(a) は heatmap モード (span 7〜8) でも GPU で問題なく描画している以上説得力が弱く、(b) は cell 描画と placeholder ガイドを別 layer として扱える。
+        改善案: <em>span 1〜4 (full モード) では outline 円を描く / span 5+ では空</em> のように cellPx 帯で判断する。これで「placeholder でも matrix のおおよその density が分かる」という情報量が span 4 までは保てる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">遷移演出が「即時切替」と書かれているのに、振幅/確率は 150 ms クロスフェード</div>
+      <p class="critique-body">
+        本文に「現行実装は Run 結果が届いたフレームでプレースホルダ層から通常の描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補」と書かれている。
+        sibling の amplitude-display.html § 02 / probability-display.html § 02 は「150 ms ease-out クロスフェード」を採用済みで、<strong>本表示ブロックだけが即時切替</strong>と不揃い。
+        これは表示ブロック族の<em>マイクロインタラクション一貫性</em>を破る決定で、ユーザは「結果が来た瞬間」の視覚フィードバックを表示ブロックごとに別形式で受け取ることになる。
+        将来の改善候補として残されているが、優先度は高い (sibling と揃えるだけで unified UX になる)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -521,6 +748,27 @@ for row in 0..n:
       <li><strong>full / outline + disk モード</strong> — 対象 cell の <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える (対角 / 非対角ともに同じ outline 円を持つので扱いが統一される)。matrix 全体のホバー枠は cell hover 中は消す (振幅表示ブロックの方針と同じ)</li>
       <li><strong>heatmap モード</strong> — cell が小さすぎて outline 円が無いので、cell 領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む (Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置、色だけ Flexoki へ置換)</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 08 ポップアップの対角/非対角分岐と purity の欠如">
+      <div class="critique-label">★ 批評 · § 08 ホバー / ポップアップ</div>
+      <div class="critique-title">対角 (2 行) と非対角 (3 行) で popup 高さが変わる sibling 共通の問題</div>
+      <p class="critique-body">
+        対角は <code>P / log</code> の 2 行、非対角は <code>val / mag / phase</code> の 3 行と<em>異なる構造</em>。
+        amplitude-display.html § 08 で指摘されているのと同じ「popup の高さが状態依存で変動する」問題が本表示ブロックでも発生する (cell hover で対角 → 非対角に移ると popup が成長する)。
+        改善案: 対角でも 3 行構造にして <code>P / phase = 0° / mag = √P</code> と書く (情報量は重複するが popup レイアウトが固定される)、または非対角でも 2 行に圧縮 (<code>val / phase</code> のみ、mag は val から導出可能)。
+      </p>
+      <p class="critique-body">
+        <strong>対角の log dB と確率表示ブロックの log dB の<em>意味</em>が違う</strong>: 確率表示ブロックの popup の <code>log = (log10(p) × 10).toFixed(1) dB</code> は<em>線形バー上の確率</em>の dB 表現。
+        密度行列表示ブロック対角の同じ <code>log dB</code> は<em>密度行列の対角要素</em>の dB だが、<em>これは部分トレース後の確率</em>であり、確率表示ブロックの値と<strong>意味的に異なる場面がある</strong> (確率表示ブロックは marginalize 後の確率、密度行列対角は reduced density matrix の対角)。同じラベル <code>log</code> でも、span 内が span 外と entangled かどうかで意味が変わる。
+        改善案: 対角の popup ラベルを <code>log P</code> と明示する / 「<em>reduced (span 内のみ)</em>」を補足表記に入れる、など意味の違いをユーザに伝える。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;"><code>Tr(ρ²)</code> = purity が popup / 補助テキストに出てこない</div>
+      <p class="critique-body">
+        本表示ブロックの<em>本質的な情報量</em>は <strong>純粋度 (purity) = <code>Tr(ρ²) ∈ [1/n, 1]</code></strong>。1 なら純粋、1/n なら最大混合。
+        現状の cell hover popup は<em>個別 cell の値</em>しか出さず、行列全体の purity / entropy / rank などの<em>aggregate な指標</em>が見えない。
+        改善案: matrix 全体に hover した時 (cell に当たっていない時) に widget 下部に <code>Tr(ρ²) = 0.625</code> のような<em>scalar summary</em>を出す、または常時 widget 下の補助テキストに表示する。Quirk は <code>printParagraph</code> でこれを下に表示しており、qni-webgpu でも採用する価値が高い。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -542,6 +790,25 @@ for row in 0..n:
       <li><strong>span clamp</strong> — drag の上限は span 8 (Quirk と同じ)、下限は span 1。span 1 から上方向 / span 8 から下方向にドラッグしても止まる</li>
       <li><strong>左右ハンドルなし</strong> — width は span の関数 (<code>56 × span − 16</code>) なので独立した width handle は不要。高さハンドルの変更で同時に幅も変わる正方形リサイズ</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 09 span 上限 8 とリサイズの正方形連動">
+      <div class="critique-label">★ 批評 · § 09 リサイズハンドル</div>
+      <div class="critique-title">span 上限 8 が「Quirk と同じ」だけで根拠が薄い (cellPx 1.69 px は本当に視認可能か)</div>
+      <p class="critique-body">
+        span 上限 8 は § 04 で「Quirk <code>Gate.buildFamily(1, 8, ...)</code> と一致、<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> 複素成分を扱う上限」と書かれている。
+        この根拠は<em>「GPU storage で扱える上限」</em>であり、<strong>「視覚的に意味のある上限」</strong>とは別。
+        § 05 表で span 8 は cellPx = 1.69 px、heatmap モードで「<em>位相情報は heatmap では消える</em>」とまで書かれている。
+        <em>位相が消えた密度行列は本表示ブロックの価値の半分を失う</em>ので、span 8 を許可する根拠はもっぱら「Quirk 互換」だけになる。
+        改善案: span 6 (cellPx 5.0、outline + disk が見える) を実用上限とし、span 7〜8 は「<em>heatmap モード専用</em>」として警告を出す。または span 8 のリサイズで widget を <code>~3 倍</code> (cellPx ~5) にスケールするオプションを用意する (本体寸法を 1080 px に伸ばすトレードオフ)。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「上下ハンドルだけ = 正方形維持」が他表示ブロックと違うハンドル動作</div>
+      <p class="critique-body">
+        確率表示ブロック / 振幅表示ブロックの上下ハンドルは「span を変える = 高さだけ変える」だが、本表示ブロックは「span を変える = 高さと幅<em>両方</em>が変わる」(正方形維持)。
+        ユーザは sibling のハンドル動作を学習しているので、本表示ブロックで上下ドラッグして<em>左右にも本体が広がる</em>のは予想外の動きになる。
+        改善案: 上下ハンドルだけでなく <strong>4 隅 (上下左右) すべてにハンドルを置く</strong>。正方形維持の制約は保ちつつ、「どの隅をつかんでもサイズが変わる」と<em>形状が正方形だと最初から伝わる</em>。
+        または現状の上下ハンドルの形を「正方形を示すアイコン (□)」に変えて、視覚的に「これは正方形リサイズ」と予告する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -596,6 +863,32 @@ for row in 0..n:
       二系統は同じ render シェーダを共有するので、UI 側の見た目に差分は出ない。スイッチは <code>ExecMode</code>
       (apps/web/src/app/exec_mode.rs) の <code>Local</code> / <code>Gpu</code> 設定 (既存の振幅 / 確率表示ブロックが従う設定) と一致させる。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 10 二系統経路のスイッチ UI と decoherence の非同期">
+      <div class="critique-label">★ 批評 · § 10 Qiskit / GPU 実装メモ</div>
+      <div class="critique-title">経路 (a) / (b) のスイッチ UI 仕様が無く、ユーザが「どっちで動いているか」を知る術がない</div>
+      <p class="critique-body">
+        経路 (a) WebGPU 内部と (b) 外部 Qiskit Aer は推奨用途 (span ≤ 6 リアルタイム vs span 7〜8 精密検証) が異なるが、
+        <em>ユーザが UI でどちらを選ぶか</em>の仕様が本セクションに無い。
+        「スイッチは <code>ExecMode</code> 設定と一致させる」と書かれているが、ExecMode の UI 表現や、密度行列表示ブロック側の<em>「今 a / b どっちで描画しているか」を伝える視覚指標</em>が定義されていない。
+        改善案: widget の右下に小さな <em>(a) / (b) badge</em> を表示する (例: 文字 "L" = Local WebGPU / "Q" = Qiskit、Flexoki <code>tx-3</code> で控えめに)。
+        ユーザが span 6 を超えて (b) の方が安定だと知ったとき、UI から経路を切り替える導線が必要。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">経路 (b) の decoherence 未実装が「今後の改善候補」のまま放置</div>
+      <p class="critique-body">
+        本文に「測定済み wire の注意 — 現在の外部経路は Aer の保存結果をそのまま表示する。測定済み wire の非対角を WebGPU 内部実行と完全一致させるための追加 decoherence pass は今後の改善候補」と書かれているが、
+        <strong>これは経路 (a) と (b) で<em>同じ回路に対して異なる行列が表示される</em></strong>ことを意味する。
+        ユーザは「同じ Bell state なのに、Local モードと Qiskit モードで非対角の値が違う」という<em>再現性の破れ</em>に遭遇する可能性がある。
+        改善案: (1) 経路 (b) でも qni 側で post-process decoherence を適用する compute pass を追加する、または (2) 本仕様に「<strong>measured wire を含む場合は経路 (a) のみサポート</strong>」と明示制約を入れて経路 (b) で reject する。
+        現状の「今後の改善候補」は決定保留であり、ユーザに混乱が生じる前に方針を固める価値がある。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">レイテンシ「backend RTT 依存 (典型 100 ms〜数秒)」の UX 影響が定量化されていない</div>
+      <p class="critique-body">
+        § 10 表に「(b) レイテンシ: backend RTT 依存 (典型 100 ms〜数秒)」とあるが、density 表示ブロックが drag / resize 中にこのレイテンシで動くと<em>「ハンドル動かしてから数秒後に描画が更新される」</em>という体験になる。
+        振幅 / 確率表示ブロックの (a) WebGPU 経路は frame 内 (16 ms 程度) で完結するので、表示ブロック族全体の<em>体感速度</em>が経路選択で激変する。
+        改善案: drag / resize 中は強制的に経路 (a) (= placeholder + 暫定描画) を使い、操作完了後に (b) で精密な値を取り直す、という<em>hybrid モード</em>を仕様化する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -652,6 +945,27 @@ for row in 0..n:
         </ol>
       </li>
     </ol>
+
+    <aside class="critique" aria-label="批評 · § 11 二系統経路の整合性テストが薄い">
+      <div class="critique-label">★ 批評 · § 11 受け入れ条件</div>
+      <div class="critique-title">「経路 (a) と (b) が同じ回路で同じ結果を返す」整合性テストが定義されていない</div>
+      <p class="critique-body">
+        受け入れ条件は経路 (a) の known-state assert (項目 4) と経路 (b) の Aer API 確認 (項目 6) を独立に並べているが、
+        <strong>「同じ回路を (a) と (b) で実行して結果が一致する」整合性テスト</strong>が無い。
+        § 10 で「経路 (b) の measured wire decoherence は今後の改善候補」と認めている以上、現時点でも (a) と (b) で<em>異なる行列が返る</em>ことが既知の状態。
+        これをテストで明示的に「<em>measured wire を含まない回路では (a) と (b) が一致する</em>」「<em>measured wire を含む回路では (a) のみ採用</em>」と仕様化しないと、回帰検出のフックが弱い。
+      </p>
+      <p class="critique-body">
+        改善案: 受け入れ条件に「<em>(a) (b) 整合性</em>」項目を追加し、(1) Bell state, span 2 (measured wire なし) → (a) と (b) の cells 配列がいずれの成分も <code>|Δ| &lt; 1e-3</code>、(2) measured Bell state → (a) のみ採用 (= (b) は reject) を assert する。
+        テスト粒度として「1 ケース 1 assertion」を守りつつ、(a)(b) 整合性は独立した観点なので別 case として分離する。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">visual snapshot が span 1 / 4 / 6 / 8 の 4 枚で「対角と非対角」「pure と mixed」の網羅が不足</div>
+      <p class="critique-body">
+        項目 7 の visual snapshot は cellPx 帯別 (full / outline+disk / heatmap) の代表 4 枚を撮るが、
+        本表示ブロックの<strong>固有の論点</strong>である「対角 vs 非対角の disk スケール」「pure vs mixed の判別」「Bell の対角四隅パターン」が snapshot として明示されていない。
+        改善案: span 2 の Bell (純粋) / span 2 の I/4 (最大混合) / span 4 の 50% 混合 / span 6 の random circuit state の 4 枚を「<em>state 種別による snapshot</em>」として追加する。これで cellPx と state の <strong>2 軸の回帰検出</strong>が機能する。
+      </p>
+    </aside>
   </div>
 </section>
 

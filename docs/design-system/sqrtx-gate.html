@@ -166,6 +166,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (Pauli / sqrt-X 兄弟ページとして一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -221,6 +270,40 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「multi-character 字形」を採用する初のゲートとしての特殊性が議論されていない</div>
+    <p class="critique-body">
+      ユニタリゲート chrome (40 px 本体 + 56 px ピッチ + cyan-400 + paper グリフ + drag preview = purple-600) は
+      <a href="h-gate.html">h-gate.html</a> の全体所見と同じ批判 (ページ間で内容が重複し、親仕様の抽出が望ましい) がそのまま当てはまる。
+      ここでは √X 固有の論点に絞ると、本ページは <strong>H / X / Y / Z が「単文字グリフ」で揃う Pauli 族の中で初めて
+      multi-character (√ と X の合成) 字形を採用する</strong>ゲート。これは仕様横断で 1 つの転換点であり、後続の RX / RY / RZ / QFT
+      など複数文字グリフのゲート群が続く道筋を作る重要な決断にあたる。
+    </p>
+    <p class="critique-body">
+      にもかかわらず、本ページは「H / Y / Z / S / T と同じ角丸正方形を継承する」という<em>同族感</em>の強調で議論を閉じており、
+      multi-character がもたらすトレードオフ (字形バウンディング外形サイズが H の約 1.7 倍、可読 vs 占有のバランス、
+      paper 部分の占有率が大きく見えてゲートが薄く見える可能性) を明示的に取り上げていない。
+      字形外形 <code>≈ 27.3 × 20.1 px</code> は本体 40 × 40 の <strong>約 68 % × 50 %</strong>と、H の単文字 (≈ 55 %) と
+      X の Plus (≈ 30 %) の中間ではなく、横方向では H を上回る占有になる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>multi-character 字形の設計判断を § 04 で明示</strong> — 現状は「√ と X を合成した字形」とだけ書かれ、なぜ "√X" を 1 グリフとして合成するのか (Geist テキスト描画の <code>"√X"</code> 文字列で済まないのか) の根拠が薄い。SDF テクスチャ焼き込みの単位、Quirk 互換性、advance / kerning の問題などを言語化する (§ 04 参照)。</li>
+      <li><strong>H / X / √X の横並び比較画像を § 01 か § 04 に追加</strong> — 単文字 (H) / Plus (X) / 合成 (√X) の 3 つを 1 枚に並べ、視覚的占有量とゲートとしての「重さ」を 1 目で比較できるようにする。これは sqrt-X が「Pauli 族のはみ出し者」かどうかの判断根拠になる (§ 01 / § 04 参照)。</li>
+      <li><strong>§ 02 配色表の「内側 2 px は下地を見せる」と「内側を <code>surface</code> で抜く」が同じセルに混在</strong> — 回路上とパレット上で異なる実装方針を 1 つの備考欄に詰め込んでおり、読者には文脈が伝わりにくい。行を 2 つに分けるか、別表として外に出す (§ 02 参照)。</li>
+      <li><strong>§ 07 の「(√X)² = X」を ブロッホ球図に紐づける</strong> — 行列 1/2 [[1+i, 1−i], [1−i, 1+i]] は記号としては書かれているが、「2 回適用すると |0⟩ → |1⟩ に反転する」という直感的な振る舞いをブロッホ球図 (X 軸 90° → 180° の二段アニメ) で示すと、初学者の理解が深まる (§ 07 参照)。</li>
+      <li><strong>Quirk 互換の字形表記 ("√X" vs "X<sup>1/2</sup>" vs "&radic;X")</strong> — Quirk は HTML エンティティ <code>&amp;radic;X</code> で表示する。本仕様は SVG path での字形合成だが、論文表記との対応 (<code>X^(1/2)</code> や <code>X^{1/2}</code>) が説明されていない。コード識別子 (<code>GateKind::SqrtX</code> 等) との対応も含めて明文化する。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -243,6 +326,22 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 √X と X の見た目関係が説明不足">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「X の平方根」という意味論と、見た目が X (円) と一致しない設計判断のトレードオフが言語化されていない</div>
+      <p class="critique-body">
+        本文は「√X 固有情報は字形そのものと説明文に閉じ、X ゲートの円形ターゲット記号とは混同させない」と<em>結論</em>を書くが、
+        その<strong>判断の根拠</strong>は読者が § 02 配色や § 07 設計判断まで読まないと拾えない。
+        √X は X の平方根 (2 回かけると X になる) という強い意味論的つながりを持ちながら、見た目では完全に X と分離している。
+        この設計の妥当性 (CNOT ターゲットとの混同回避 vs 意味論の視覚化) は本ページの最初の問いであり、§ 01 で明示すべき。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 の最初の段落で「X = 円形 + Plus、√X = 角丸正方形 + √X 字形」という対比を <em>横並び画像</em>で先に示し、
+        その後に「なぜ X と同形にしないか」(円形 = CNOT ターゲット予約、√X は CNOT 半分操作ではないので別形状) を 1 段落で述べる。
+        現状の構成は意味論 (「X 軸まわりの π/2 回転」) → 色対応 → X との切り分け の順で、設計の核心が最後に来ている。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -284,6 +383,28 @@
       √X は「X の平方根」という特別な関係を持つが、色で X と結びつけない。
       X だけは円形 + Plus でビット反転ターゲットを表し、√X は通常の角丸正方形 + 字形で操作ゲート族に残す。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色表のホバー枠記述が回路 / パレットで二重">
+      <div class="critique-label">★ 批評 · § 02 配色 / ホバー枠の二重記述</div>
+      <div class="critique-title">「回路上は本体外側 4 px の外枠に 2 px 線」と「パレット上は内側を <code>surface</code> で抜く」が 1 セルに混在</div>
+      <p class="critique-body">
+        ホバー枠の備考列は「回路上は本体外側 4 px の外枠に 2 px 線だけを描き、内側 2 px は下地を見せる。パレット上は内側を <code>surface</code> で抜く」と、
+        <strong>2 つの異なる文脈 (回路 vs パレット) を 1 つの備考に圧縮</strong>している。h-gate.html / y-gate.html / z-gate.html の配色表は
+        「本体外側 4 px、内側に 2 px の背景の空き」と単一記述で済んでおり、本ページだけが二重記述を持つ。
+      </p>
+      <p class="critique-body">
+        実装の事実として、回路 (canvas) では rect_stroke の線だけが描かれ、内側 2 px の下地は wire や背景が透ける。
+        一方パレット (HTML) では <code>surface</code> 色で内側を塗り潰す。この差は <a href="hover-frame.html">hover-frame.html</a> primitive に
+        集約されるべき情報であり、本ページの配色表は「ホバー枠 = purple-400 + 4+2 幾何」と書くだけで、
+        詳細を hover-frame.html に委ねたほうが読みやすい。
+      </p>
+      <p class="critique-body">
+        さらに、本ページの CSS は <code>box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--purple-400)</code> で実装している。
+        これは「内側 2 px を bg で塗る」方式で、回路実装の「内側 2 px は下地を見せる」とは厳密には異なる
+        (下地 = bg であれば視覚は同じ)。本仕様ページが「回路実装」と「パレット実装」のどちらを再現しているかは
+        本文に書かれておらず、これも読者には判断できない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -374,6 +495,32 @@
         <div class="zoom"><div class="sqrtx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SqrtXGlyph"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 multi-character 字形と Pauli 族の単文字原則">
+      <div class="critique-label">★ 批評 · § 04 字形 (√X)</div>
+      <div class="critique-title">Pauli 族の単文字原則を初めて破る √X 字形の設計判断が「合成」とだけ語られている</div>
+      <p class="critique-body">
+        H / X / Y / Z の Pauli 族は <strong>1 グリフ = 1 文字 (または 1 記号)</strong> という原則で揃っており、本仕様の表でも
+        H は単文字 viewBox <code>0 0 48 48</code> 内 <code>scale(0.029760)</code>、Y / Z も同じスケールで配置される。
+        √X は初めてこの原則を破り、<strong>2 つの SVG <code>&lt;g&gt;</code> ブロック (√ と X) を別々の transform で合成</strong>している。
+        √ は <code>scale(0.025296)</code>、X は <code>scale(0.029760)</code> と、スケールも一致しない
+        (√ のほうがやや小さく、X は H / Y / Z と同じ単文字スケール)。
+      </p>
+      <p class="critique-body">
+        この実装方針は妥当だが、本表の「形式」「√ の変換」「X の変換」と分けて並べるだけで、<em>なぜこの方式か</em>の根拠が薄い。
+        代替案は (a) Geist テキスト描画の <code>"&radic;X"</code> 文字列で描く (font kerning に任せる)、
+        (b) "√X" を 1 つの合成グリフとして外部ツールで作り、SVG path に焼き込む、(c) 現状の SVG <code>&lt;g&gt;</code> 2 層合成。
+        (a) は font の <code>√</code> グリフがゲートチップの中で細く見えがち、(b) はメンテコスト高、(c) は実装/設計コスト中だが、
+        Geist の <code>√</code> と <code>X</code> の本来サイズ比をそのまま使えるので採用された、と推測できる。
+        本表に判断軸を 1 段落加えると、RX / RY / RZ など他の multi-character ゲートを実装するときの参考になる。
+      </p>
+      <p class="critique-body">
+        補足: 字形外形 <code>≈ 27.3 × 20.1 px</code> は本体 40 × 40 の<strong>横方向 68 %、縦方向 50 %</strong>。
+        単文字 H が <strong>横 24 % × 縦 53 %</strong>、X の Plus が <strong>横縦とも 30 %</strong>と比べると、横方向の
+        占有率が突出している。これは "√" の腕が左に伸び、"X" が右に置かれる合成幾何の必然だが、回路上で √X が他のゲートより
+        「重く」見える可能性は要検証 (Top Opportunities の H / X / √X 横並び比較で検証可能)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -446,6 +593,33 @@
       <li><strong>X ゲートとの関係を明示する</strong>: <code>(√X)<sup>2</sup> = X</code> がもっとも重要な意味論。見た目は X と同色だが、円形 + Plus にはしないことで CNOT ターゲットとの混同を避ける</li>
       <li><strong>span = 1 固定</strong>: √X は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 (√X)² = X のブロッホ球視覚化が欠けている">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「(√X)² = X」の意味論はカードに書かれているが、ブロッホ球図がない</div>
+      <p class="critique-body">
+        <code>matrix-card</code> の「ブロッホ球」カードには「X 軸まわりの π/2 (90°) 回転。Z 軸上の |0⟩ / |1⟩ を ±Y 方向へ移す」
+        と書かれており、これは √X の本質を端的に示している。一方で、<strong>2 回適用すると |0⟩ → |1⟩ になる</strong>
+        (X 軸 90° + 90° = 180° 回転) という連鎖の図示はない。これは √X が <em>X の平方根である</em>ことを視覚化する最短経路で、
+        「行列を 2 回かけたら X 行列になる」と書くより直感的に伝わる。
+      </p>
+      <p class="critique-body">
+        bullet 4「X ゲートとの関係を明示する」は重要な判断だが、「見た目は X と同色だが、円形 + Plus にはしない」とだけ述べる現状は、
+        本ページの最初の問い (なぜ X と同形にしないか) への答えとしては薄い。同色 (cyan-400) を共有しているのに形だけ違うのは、
+        Pauli 族で唯一 X が <strong>形 (円) で機能を表す例外</strong>であり、√X は X の半分操作だが「CNOT のターゲット予約」を
+        奪うほどの単独存在感はないから、と書くと根拠が明確になる。
+      </p>
+      <p class="critique-body">
+        bullet 3「平方根を色や半透明で表現しない」は良い判断だが、半透明 (opacity) を捨てた理由を 1 行加えると、後続の S<sup>†</sup> /
+        T<sup>†</sup> / SqrtX<sup>†</sup> など <em>逆ゲート</em>仕様での「dagger をどう視覚化するか」の議論につながる。
+        Quirk は逆ゲートを字形に小さな † を加えて表現する方針で、qni-webgpu も同じ路線なら明文化する余地がある。
+      </p>
+      <p class="critique-body">
+        補足 (字形と意味論の対応): <code>matrix-card</code> 4 つのカードはすばらしいテンプレートで、Y / Z ページにも同じ構造がある。
+        √X / Y / Z で共通テンプレートを切り出し「unitary-gate-semantics.html」のような親仕様にすれば、X (Plus / 円形) も
+        同じ意味論カードを使って統一できる (X ページは現在意味論カードを持たない)。
+      </p>
+    </aside>
   </div>
 </section>
 

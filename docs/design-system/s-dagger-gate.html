@@ -200,6 +200,55 @@
       color: var(--bg);
     }
     .s-gate-ref > svg { display: block; width: 40px; height: 40px; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -247,6 +296,42 @@
     本体の色やサイズは S と完全に共有し、<strong>字形だけが S と異なる</strong>「順 / 逆」のペア表現を採用する。
   </p>
 </div>
+
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">S と S† の差分が「右上の 5 × 9 px の † グリフ 1 個」だけに集約されている</div>
+    <p class="critique-body">
+      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、角丸 6 px、
+      drag preview = purple-600 は <a href="h-gate.html">h-gate.html</a> 全体所見と共通で、S† にも同じ批判が当てはまる。
+      S† ページ固有の核心は <strong>「S との見分けが † グリフだけに頼っている」</strong>こと。
+      § 04 の S vs S† 比較セクションが示すとおり、両者は本体色 (cyan-400) / 形状 (角丸正方形) / 中央字形 ("S") を
+      完全に共有し、唯一の差分は本体右上に重なる <strong>約 5 × 9 px の小さな † グリフ 1 個</strong>。
+      これは順 / 逆を <code>S†·S = I</code> という<em>意味的には正反対</em>の作用を持つペアの識別差としては
+      情報量が著しく少なく、設計判断としての強さに対して責任が重い。
+    </p>
+    <p class="critique-body">
+      Phase 族 (S / T / S† / T†) では同じ「字形差で順 / 逆を示す」設計が採用されており、S† ページはこの
+      <strong>dagger 表記の親仕様</strong>になる立場。dagger の組版 (superscript 位置 / 縮尺 52 % / 起点座標) を
+      ここで決め、t-dagger-gate.html / qft-dagger-gate.html が継承する形にすると、設計の一貫性が担保できる。
+      逆に、現状の S vs S† 比較図は「同じに見える」ことを<em>確認する</em>用途で配置されており、
+      「同じに見えてしまうことが問題か / 問題でないか」を判断する論拠は読者任せになっている。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>dagger 表記の親仕様を抽出</strong> — 「右上 superscript」「S グリフの 52 % 縮尺」「起点 (35.355, 16.013)」「色は S と同じ paper」などの規約を <code>dagger-glyph.html</code> (仮) に集約し、s-dagger-gate.html / t-dagger-gate.html / qft-dagger-gate.html がここから継承する形にする (全体所見参照)。</li>
+      <li><strong>§ 02 配色テーブルの相対輝度比 2.8 vs 3.4 の矛盾</strong> — § 02 は「cyan-400 上で相対輝度比 ≈ 3.4」と書くが、s-gate.html § 02 では同じ色対で「≈ 2.8」と書かれている。輝度比は色対だけで決まる物理量なので、両ページで割れているのは矛盾 (§ 02 参照)。</li>
+      <li><strong>† グリフの実視覚サイズ約 5 × 9 px を低視力 / 遠目シナリオで検証</strong> — § 03 のジオメトリ表は「† グリフ 約 5.1 × 9.1 px」と数値だけ書く。これは Tailwind <code>text-xs</code> (12 px) よりも小さく、本プロジェクトの「スケール内サイズ厳守」とも整合しない。低視力ユーザや遠目で S と S† を見分けられるか、Playwright + ズーム解除でスナップショット検証する余地がある (§ 03 参照)。</li>
+      <li><strong>§ 04 の S vs S† 比較に「失敗ケース」も含める</strong> — 現状の比較は「3 倍拡大すれば † が見える」ことを示すが、本来検証したいのは「実寸 (1 倍) で誰でも見分けられるか」。1 倍 + 隣接配置 (パレット上の実シナリオ) のモックも追加し、判別性の限界を可視化する (§ 04 参照)。</li>
+      <li><strong>hover 時に dagger を強調する選択肢を § 07 で議論</strong> — 「順 / 逆を字形差で示す」設計判断が抱える代償 (判別困難) を、ホバー時に † グリフを 1.3 倍にスケールアップする / † 周辺だけハイライトリングを足すなどの強調策で緩和する余地がある。採否は別として、選択肢が存在することを明示しておくと、ハイコントラストモードや A11y 改善の設計議論に直結する (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
 
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -313,6 +398,24 @@
       色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定し、
       S との違いは字形 (右上の †) だけで示す。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 相対輝度比の表記揺れ">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">「相対輝度比 ≈ 3.4」は s-gate.html § 02 の「≈ 2.8」と矛盾している</div>
+      <p class="critique-body">
+        § 02 の「字形 "S" + "†" 行」には <code>cyan-400 上で相対輝度比 ≈ 3.4</code> と書かれているが、
+        <a href="s-gate.html">s-gate.html</a> § 02 では同じ cyan-400 (#3AA99F) + paper (#FFFCF0) の対について
+        <code>≈ 2.8</code> と書かれている。色対だけで決まる物理量なので、両ページで割れているのは
+        どちらかが誤計算もしくは表記揺れ。h-gate.html / x-gate.html では <code>≈ 3.4</code> なので、
+        h-gate.html 系列が正であれば s-gate.html を 3.4 に揃える必要がある。
+      </p>
+      <p class="critique-body">
+        Phase 族 5 ページ (S / T / S† / T† / P) で同じ色対の輝度比が一致していないことは、設計トークンの
+        単一情報源 (<a href="design-system-colors.html">design-system-colors.html</a>) が機能していないことを示唆する。
+        輝度比は色対だけで計算できるので、配色ページ側で 1 回だけ算出し、各ゲートページからは
+        「<code>design-system-colors.html § 03 box_fill / paper の組</code>」として参照するほうがメンテナンスコストが下がる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -373,6 +476,25 @@
       40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 † グリフ実寸の Tailwind スケール外">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">† グリフの実視覚高 9.1 px は Tailwind タイポスケール外で、判読困難の領域</div>
+      <p class="critique-body">
+        † グリフは「40 px 本体では約 <strong>5.1 × 9.1 px</strong> (S グリフの 52 % 縮尺)」とジオメトリ表に明記されている。
+        9.1 px の高さは Tailwind のフォントスケール (<code>text-xs</code> = 12 px が最小) を下回り、
+        本プロジェクトの方針 (<a href="../../CLAUDE.md">CLAUDE.md</a> の「タイポグラフィ / スペーシングは Tailwind のデフォルトスケールに揃える」)
+        と矛盾する。これは Geist フォントの † グリフ自体ではなく、ベースの S グリフが 17.6 px なのに対して
+        † を 52 % 縮尺にした<strong>設計上の選択</strong>の結果。
+      </p>
+      <p class="critique-body">
+        改善案: † グリフの縮尺を 52 % → 65〜70 % に上げ、実視覚高を約 12〜13 px (text-xs 相当) まで持ち上げる。
+        ただし、† が大きくなると本体右上の余白が圧迫され、ホバー枠との干渉が増える。Phase 族 (S† / T† / QFT†) で
+        共通化される dagger 表記の根拠として、ここで縮尺の選定をブロッホ球やパレット並列展示でスナップショット
+        検証する余地がある。「現状の 52 % は判読性ぎりぎり」と明示しておくと、後続のハイコントラスト対応や
+        フォントウェイト調整の根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -422,6 +544,23 @@
       本体色 (cyan-400) と S グリフの位置は完全に同じ。差分は <strong>右上に重なる † グリフ 1 個だけ</strong>。
       順 / 逆を字形差で示す方式は T / T†、QFT / QFT† とも共通の規約。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 04 比較が 3 倍拡大止まりで実寸の判別性が検証されていない">
+      <div class="critique-label">★ 批評 · § 04 S との比較</div>
+      <div class="critique-title">3 倍拡大の S vs S† は「同じに見える」ことを示すが、実寸 (1 倍) の判別性は別問題</div>
+      <p class="critique-body">
+        S vs S† 比較セクションは 192 × 192 px の 3 倍拡大ビューで「差分は † グリフだけ」と示すが、
+        ユーザが実際に見るのは <strong>40 × 40 px の実寸</strong>で、しかもパレットや回路上では S と S† が
+        隣接配置される (gate-palette.html 参照)。3 倍拡大で † が判別できることと、実寸で判別できることは別問題で、
+        この比較セクションは後者の検証になっていない。
+      </p>
+      <p class="critique-body">
+        改善案: 比較ビューに「① 3 倍拡大 (現状)」「② 実寸 + パレット隣接配置 (S → S† を 56 px ピッチで並べる)」
+        「③ 実寸 + 回路上で離散配置 (5 量子ビットワイヤ上に S と S† を交互に配置)」の 3 段階を並べ、
+        どの距離 / シナリオで判別可能 / 困難かを視覚的に示す。判別困難な状況が確認できれば、それが
+        ハイコントラストモードやツールチップ強調の設計根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -495,6 +634,24 @@
       <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: S† は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 hover 強調策とハイコントラストモードの言及不足">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「字形差で順 / 逆を示す」設計判断の代償が議論されておらず、改善余地が閉ざされている</div>
+      <p class="critique-body">
+        § 07 のリスト 6 項目はすべて「採用した判断とその理由」を述べるが、<strong>判断の代償</strong>
+        (S と S† の見分けにくさ、低視力 / 遠目での判別困難、† グリフ 5.1 × 9.1 px の極小サイズ) には触れない。
+        ペア表現 (S/S†, T/T†, QFT/QFT†) を字形差だけで実現するという設計判断は、Phase 族全体に効く根本判断なので、
+        本ページでは代償もセットで明示しておくと、後続ページの議論が継承しやすい。
+      </p>
+      <p class="critique-body">
+        改善余地として議論されていない選択肢: (a) <strong>ホバー時に † グリフを 1.3 倍にスケールアップ</strong> —
+        通常時の chrome は維持しつつ、識別が必要な瞬間だけ † を強調する。(b) <strong>† 周辺だけ追加のハイライトリング</strong> —
+        ホバー枠とは別の small ring で † の位置を示す。(c) <strong>キーボード操作時のフォーカスインジケータで dagger を明示</strong> —
+        Tab で focus した時に「S†」とテキストラベルを <code>aria-label</code> + ツールチップで表示。
+        いずれも採否は別問題だが、選択肢があることを明示しておくことで、A11y 改善時の起点になる。
+      </p>
+    </aside>
   </div>
 </section>
 

@@ -252,6 +252,55 @@
       justify-content: center;
     }
     .compare .col .zoom .qft-gate { transform: scale(2); transform-origin: center; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / probability-display.html と同じスタイル。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -319,6 +368,40 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「QFT は span を持つ唯一の操作ゲート」という二重特異性が情報設計の核に据えられていない</div>
+    <p class="critique-body">
+      ユニタリゲート族の chrome (cyan-400 / paper グリフ / 角丸 6 px / ホバー枠 4+2 / drag = purple-600) は H ページの全体所見と同じく
+      X / Y / Z / S / T / Rx / Ry / Rz とすべて共通で、ここで再展開する必要はない。本ページの本質的な特異性は次の 2 軸が直交していること:
+      (a) <strong>span を持つ操作ゲート</strong>であること (他の操作ゲートはすべて単一 qubit / 固定 span)、
+      (b) <strong>内部が複合 (H + 制御 R<sub>k</sub> + SWAP) のまま 1 ブロックに抽象化されている</strong>こと。
+      § 08 設計判断の冒頭 1 項目に「span を伸縮できる唯一の操作ゲート」と書かれているが、これがそのままページ全体の編集軸ではない。
+    </p>
+    <p class="critique-body">
+      § 03 ジオメトリと § 06 サイズ別の見た目に <strong>span 軸の情報が分散</strong>している (span ごとの本体高さ表 + 図解 + 6 サイズ並列)。
+      これらを「§ QFT 固有: span を持つ操作ゲート」のような章に統合し、表示ブロックとの違い (<code>widthMode: 'fixed'</code> vs <code>'canvas60'</code>) と
+      H/Pauli 系 (span 固定) との違いを 1 か所で示すと、QFT ページを読む読者の主な疑問 (= なぜ span を伸縮できる操作ゲートとして設計したのか) に直接答えられる。
+      現状は span に関する情報がジオメトリ・サイズ・設計判断の 3 章に薄く塗られている。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>「複合ゲートを 1 ブロックに抽象化した」設計判断を独立章で明示</strong> — QFT の内部は H + 制御 R<sub>k</sub> + SWAP の合成だが、本仕様では一切触れていない。初学者は「中身が見えない」ことに困惑する可能性がある (§ 01 / § 08 参照)。</li>
+      <li><strong>「QFT は span を持つ唯一の操作ゲート」を § 01 か独立章で前置き</strong> — 現状は § 08 設計判断の冒頭 1 項目に埋もれている。これはページ全体の編集軸 (全体所見参照)。</li>
+      <li><strong>span = 1 縮退 (QFT(1) ≡ H) の UX 上の扱いを補強</strong> — § 03 / § 06 / § 08 で「H と等価だが別 kind」と 3 回繰り返されるが、なぜ Quirk に倣って span = 1 を「禁止せず非推奨」にしたのかの根拠が手薄 (§ 06 / § 08 参照)。</li>
+      <li><strong>§ 02 配色テーブルの「相対輝度比 ≈ 2.8」が WCAG AA 3.0 を満たさない件の明示</strong> — H ページでは 3.4 と表記されていたが、本ページは 2.8 と書かれている。同じ paper / cyan-400 の組合せで値が違うのは計算根拠の差か、もし 2.8 が正なら AA 大文字基準 (3.0) も満たさず、設計判断の根拠とすり合わせる必要がある (§ 02 参照)。</li>
+      <li><strong>§ 04 字形の「3 文字を 40 × 40 viewBox に詰める」根拠を補強</strong> — Q/F/T が約 36 × 14.6 px に収まる結果として「実視覚高 ≈ 14.6 px / 本体幅 40 px = 36 %」となるが、H の 22 px (本体 40 px の 55 %) と比較して文字が小さい (§ 04 参照)。</li>
+      <li><strong>§ 07 配置モックの slot 配置に slot--qft padding-top の補助線を追加</strong> — 「span 非依存に top = 8 px」という幾何の根拠 (= wire0 中心 28 − 20) が CSS コメントにしかなく、本文の図解では読み取れない (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -350,6 +433,24 @@
       span 1〜6 の見た目は <strong>§ 06 サイズ別の見た目</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 複合ゲートの抽象化が無言で前提化されている">
+      <div class="critique-label">★ 批評 · § 01 複合ゲートの抽象化</div>
+      <div class="critique-title">QFT が「H + 制御 R<sub>k</sub> + SWAP」の合成であることが一度も言及されない</div>
+      <p class="critique-body">
+        本文は「DFT の量子版」「Shor / 位相推定 / amplitude estimation の中核」と <strong>機能的役割</strong>だけで説明している。
+        しかし QFT は内部的には複数のクリフォード + 非クリフォードゲートの合成で、Quirk のドキュメントや教科書 (Nielsen &amp; Chuang) では
+        必ず「H と制御位相と SWAP に分解できる」という構造が併記される。本仕様はこの抽象化を意図的に隠す (1 ブロックとして見せる) 方針を取っているが、
+        その方針自体が読者に明示されていない。
+      </p>
+      <p class="critique-body">
+        初学者は「H や CNOT は中身が見えるのに、なぜ QFT は中身が見えないのか?」と困惑する可能性がある。
+        改善案は次の 2 つ: (a) 「QFT は内部的に O(span<sup>2</sup>) の H / 制御 R<sub>k</sub> / SWAP の合成だが、本デザインシステムでは
+        <strong>1 ブロックの抽象として描画する</strong>」と明示する。Quirk と同じ意図であることも併記する。
+        (b) 将来 expand モード (内部展開表示) を実装する余地を § 08 設計判断で残しておく。
+        どちらも「中身が見えないこと」を意図的な設計判断として言語化する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -406,6 +507,25 @@
       色を別系統 (例えば orange / red) にすると操作ゲートのトーンと衝突する。
       <code>cyan-400</code> = ユニタリ操作ゲートという既存のロールを守り、識別は <strong>字形と span 軸の縦長プロポーション</strong>で行う。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 コントラスト比 2.8 と H ページ 3.4 の不一致">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">「cyan-400 + paper の相対輝度比 ≈ 2.8」は H ページの 3.4 と食い違い、いずれにせよ WCAG AA 大文字基準 (3.0) のボーダーライン</div>
+      <p class="critique-body">
+        字形 "QFT" の行に「cyan-400 上で相対輝度比 ≈ 2.8」と書かれているが、<a href="h-gate.html">H ページ § 02</a> では
+        同じ cyan-400 + paper の組合せに対して「相対輝度比 ≈ 3.4」と表記されている。<strong>同じ配色の輝度比が page によって異なる</strong>のは
+        計算根拠の差 (sRGB 線形変換 / 補正 / 周辺光適応のどれを使ったか) か、単純な転記ミスのどちらか。仕様間で値を統一する必要がある。
+      </p>
+      <p class="critique-body">
+        実値は WCAG 2.1 公式式 (sRGB → 相対輝度) で約 <code>3.4:1</code> が正 (cyan-400 #3AA99F の相対輝度 ≈ 0.339、paper #FFFCF0 の相対輝度 ≈ 0.985)。
+        本ページの 2.8 は誤記の可能性が高い。いずれにせよ AA 大文字テキスト基準 (3.0) はかろうじて満たすが、汎用基準 (4.5) は満たさないため、
+        H ページの § 07 で議論されている「ボタン感を避けるための妥協」と同じ立場を本ページでも明示すべき。
+      </p>
+      <p class="critique-body">
+        さらに、Q/F/T の <strong>字形高 ≈ 14.6 px</strong> は WCAG の大文字基準 (18 pt = 24 px) を満たさないため、厳密には汎用テキスト基準 (4.5) の対象。
+        本ページは表示サイズの観点でも H ページよりコントラスト要求が厳しい。この事情を § 02 か § 08 に明記しておくと、将来「ハイコントラストモード」を実装する根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -495,6 +615,24 @@
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
       span 軸の伸縮挙動は <a href="resize-handle.html">resize-handle.html</a> 参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ図と表の冗長 / SVG 内テキストのスケール外サイズ">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">geo-diagram SVG 内テキスト 5.5 / 5 は Tailwind スケール外、かつ table と legend に同じ情報が 3 重</div>
+      <p class="critique-body">
+        <code>geo-diagram</code> SVG は <code>viewBox="-24 -48 152 264"</code> を 240 × 416 px に投影する (スケール係数 ≈ 1.58)。
+        <code>font-size="5.5"</code> は実表示で <strong>約 8.7 px</strong>、<code>font-size="5"</code> は約 <strong>7.9 px</strong> に相当する。
+        いずれも Tailwind の text-xs (12 px) を下回り、CLAUDE.md が禁じる「13 / 11 / 9 px のようなスケール外サイズ」と同類。
+        本プロジェクトのスペーシング厳守方針と一貫しない。
+      </p>
+      <p class="critique-body">
+        さらに、上の table.spec で「本体幅 40 px」「本体高さ 56·span − 16 px」「占有列幅 56 px」「6 px 角丸」「8 px 列内余白」「20 px ±」
+        が網羅的に記述されており、SVG 右側の <code>.legend</code> ブロックでも 7 項目が再掲され、SVG 内テキストにも「40 px」「56 px」「152 px」「y=0」「y=56」「y=112」が描かれている。
+        <strong>同じ寸法情報が 3 重に書かれる</strong>状態で、読者は「どこを正として読むか」を迷う。改善案: SVG 内寸法テキストを削除し
+        (図形 + 補助線だけ残す)、寸法説明はすべて <code>.legend</code> ブロックに集約する。table は意味論的な定義 (式・上限・z-index) を担当し、
+        図形 SVG は視覚的な位置関係を担当する、と役割を分離する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -549,6 +687,29 @@
       本体色 (cyan-400) と "QFT" 字形の位置は完全に同じ。差分は <strong>右上に重なる † グリフ 1 個だけ</strong>。
       順 / 逆を字形差で示す方式は <a href="s-dagger-gate.html">S / S†</a>、<a href="t-dagger-gate.html">T / T†</a> と共通の規約。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 04 字形が H と比較して小さい / 字形 span 連動が議論されていない">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">3 文字を 40 × 40 viewBox に詰めた結果、可読密度が H ゲートより低くなっている</div>
+      <p class="critique-body">
+        H ゲートの字形 "H" は本体 40 px に対し実視覚高 ≈ 21 px (53 %) で、はっきりした密度を持つ。
+        本ページの "QFT" は 3 文字を 40 px 幅に詰めた結果、<strong>1 文字あたりの高さ ≈ 14.6 px (本体幅の 36 %)</strong>と、H の約 2/3 の密度になっている。
+        実装の SDF レンダリング (apps/web 側) でこの密度が遠目に潰れないかは、設計判断として明示しておくべき情報。
+        多文字グリフを使う 1 ブロック設計の宿命だが、現状は letter-spacing や文字ごとの位置補正値が transform 列で個別表示されているだけで、
+        「なぜ Geist 700 でこのサイズに収めたか」「Q と F の間 16.45 px / F と T の間 13.14 px のような不均等カーニング」のような意図が読めない。
+      </p>
+      <p class="critique-body">
+        さらに、本仕様は「span が伸びても glyph サイズは変わらず、字形は常に本体の幾何中心 (光学中心) に揃う」と書いているが、
+        <strong>span = 6 (320 px) の縦長矩形に 14.6 px 字形 1 個だけ</strong>は、視覚的にスカスカに見える。
+        Quirk も同じ規約 (字形 1 個) だが、span が大きい時に字形を拡大するか、span 中央 wire の前後数本だけに小さく繰り返すか、
+        などの代替案を「<em>検討したが却下した</em>」根拠として書いておくと、本仕様の判断の妥当性が伝わる。
+        現状は「字形を繰り返さない (§ 08)」とだけ書かれており、「字形を span に応じて拡大しない」根拠は手薄。
+      </p>
+      <p class="critique-body">
+        補足: § 04 の table.spec の最終行「† グリフ (QFT†)」は QFT 仕様ページの段で言及するより、<a href="qft-dagger-gate.html">QFT† ページ</a> § 04 に
+        canonical に置き、本ページからはリンクで参照する方が責務分担が明確。本ページの本文は「QFT vs QFT† の比較」だけに絞る (compare zoom 部分はその位置づけ)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -587,6 +748,22 @@
       ドラッグ中は span を変更できないので、resize-handle は再び非表示になる。
       handle の 4 状態 (default / visible / hover / active) は <a href="resize-handle.html">resize-handle.html § 05</a> 参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 状態軸と span 軸の交差が表現されない">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">3 状態 × span 6 サイズ = 18 マスのうち 3 マス (span = 2 の default/hover/drag) しか描かれない</div>
+      <p class="critique-body">
+        H ゲートは状態 3 つで span 軸がないので 3 マスを並べれば網羅できるが、QFT は <strong>状態 × span の 2 次元軸</strong>がある。
+        現状は § 05 で span = 2 の 3 状態、§ 06 で span 1〜6 の default 1 状態を並べているが、これは <strong>2 軸を 2 つの 1 次元 slice</strong>に分解した形。
+        読者は「span = 5 の hover ってどう見える?」「span = 6 のドラッグプレビューは画面に収まる?」のような疑問を脳内で合成する必要がある。
+      </p>
+      <p class="critique-body">
+        改善案は次の 2 つ: (a) § 05 と § 06 を <strong>「状態 × span のマトリクス」として統合</strong>する (横軸 span 1/3/6、縦軸 default/hover/drag の 3 × 3 = 9 マス)。
+        マス数が増えるが、span に依存する状態 (例: span = 6 hover 時の resize-handle 位置) と span 非依存な状態 (drag preview の本体色置換) の違いが visual diff で読める。
+        (b) § 05 を span = 2 のままで残し、「span に依存しない状態」「span に依存する状態」のどちらかを章末に明示する。
+        ホバー枠の位置はおそらく span 非依存だが、resize-handle 出現位置は span 依存なので、その差を 1 行注記するだけでも読者の合成負荷が下がる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -631,6 +808,25 @@
       実行モード容量を超える span (現状 24 量子ビット超) は配置時点で拒否し、サイズ別レンダリングの対象外とする。
       span = 1 は H で代替できるため UI 上は強く推奨しないが、Quirk と同じく禁止もしない (列内で並べたときの視覚的均質性を保つため)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 span = 1 縮退の UX 判断と span 範囲 1〜6 の代表性">
+      <div class="critique-label">★ 批評 · § 06 サイズ別の見た目</div>
+      <div class="critique-title">span 1〜6 の選定根拠と span = 1 (≡ H) を「非推奨だが禁止しない」とした UX 判断が手薄</div>
+      <p class="critique-body">
+        実行モード容量上限は 24 量子ビットと書かれているが、本ページのサイズ別 grid では span 1〜6 だけを並べる。
+        <strong>span 7〜24 を省略した根拠</strong>が明示されていないため、読者は「span 12 や 24 は実際どう描かれるのか」を想像で補う必要がある。
+        改善案: (a) 章タイトルに「(span 7 以上は線形に伸びる)」と明記する、または (b) span = 6 の右に「... span = 24 (1304 px)」を text-only で 1 マス追加して、
+        サイズ感の上限を読者に伝える (実体は描けないので caption だけ)。
+      </p>
+      <p class="critique-body">
+        さらに、span = 1 の caption に「<em>QFT(1) ≡ H</em>」と書かれているが、これは <strong>UI 上は強く推奨しないが禁止もしない</strong>という Quirk 由来の判断。
+        ところがその判断根拠は本文末尾の <code>.note</code> に「列内で並べたときの視覚的均質性を保つため」と 1 行だけ書かれており、
+        ユーザストーリー (例: 「教育用に QFT(1) を意図的に並べたい」「Hadamard より QFT と書きたい意図的なケース」) が示されていない。
+        span = 1 は実コードでも別 kind として保存されるため、URL シリアライズや回路解析にも影響する。
+        この設計判断は § 08 設計判断にも書かれているので重複しているが、本章 § 06 でも「なぜ degenerate ケースを保持するか」を一言で要約しておくと、
+        サイズ grid の最左マスの存在理由が読者に伝わる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -669,6 +865,28 @@
       span を変更すると本体高さが変わるが、本体の縦方向中心は最上 wire 中心と最下 wire 中心の中点で再計算されるため、
       字形位置はリサイズ中も中央を維持する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 07 slot--qft padding-top の幾何根拠が CSS にしかない">
+      <div class="critique-label">★ 批評 · § 07 回路グリッド上の配置</div>
+      <div class="critique-title">「slot 内 padding-top: 8 px」の幾何根拠 (= wire0 中心 28 − 20) が本文ではなく CSS コメントにだけ書かれている</div>
+      <p class="critique-body">
+        本文では「本体上下端は wire 中心の ±20 px だけ外側へ広がる」「最上 = 28 px から最下 = 140 px までの 112 px を本体中央が占有」と
+        本体側の幾何だけが書かれているが、<strong>slot DOM が padding-top: 8 px を持つ</strong>のは表示モックの実装詳細で、
+        その値 8 px の出所は <code>.slot-mock .lanes .slot--qft</code> の CSS コメント (line 167-169) にしかない。
+        本文を読んで「8 px ってどこから来た?」と思った読者は CSS を読みに行く必要がある。
+      </p>
+      <p class="critique-body">
+        改善案: § 03 で導入した「最上 wire 中心 −20 px = 本体上端」を § 07 でも数値展開する。
+        wire0 中心 = 28 px (lanes の縦方向で 1 本目の wire 位置)、本体上端 = wire0 中心 − 20 = 8 px。
+        この 1 行を追加するだけで、本文と CSS の幾何が整合する。
+        将来 LINE_GAP や GATE_SIZE が変わった時に、CSS コメントだけ変更されて本文が古いまま、という不整合も防げる。
+      </p>
+      <p class="critique-body">
+        補足: 「QFT 本体は同じ列の他ゲートと共存できない」「異なる列には任意のゲートを置ける」というルールは <strong>span 持ちゲート共通の制約</strong>
+        (確率 / 振幅 / 密度行列 / QFT / QFT†) なので、本仕様で個別に書くのではなく、別ドキュメント (例: <code>multi-qubit-placement.html</code> 仮称) に切り出して
+        本ページからは参照する形が望ましい。「ユニタリゲート chrome の親仕様」と同じ抽象階層の話。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -691,6 +909,30 @@
       <li><strong>span 上限は実行モード容量に従う</strong>: 表示ブロック (確率 16 / 振幅 16 / 密度行列 8) は描画コストで上限が決まるが、QFT は<em>シミュレーションコスト</em>で決まるため、実行モード (local-webgpu / large-gpu / external) の容量と一致する。詳細は <a href="../large-gpu-mode-design.html">large-gpu-mode-design.html</a> 参照</li>
       <li><strong>resize-handle のハンドル幅は 24 px 固定</strong>: 本体幅が span 非依存に 40 px なので、ハンドル幅も追従させない (<a href="probability-display.html">確率表示ブロック</a>と同じ <code>widthMode: 'fixed'</code>)</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 08 設計判断の階層化と複合ゲート抽象化の明示">
+      <div class="critique-label">★ 批評 · § 08 設計判断</div>
+      <div class="critique-title">7 項目が平等に並んでおり「QFT 固有」「span 持ちゲート共通」「複合ゲート抽象化」が混在</div>
+      <p class="critique-body">
+        現状の 7 項目は性質が次の 3 種類に分かれるが、リスト上は平等に並んでいる。階層化すると、変更時に「これは QFT 固有」「ここは span 持ちゲート共通の話」が明確になる:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) QFT / QFT† 固有 (本ページが canonical)</strong>: span を伸縮できる唯一の操作ゲート / QFT と H を別ゲートとして区別する / † を字形差で示す / 複合ゲート (H+CR<sub>k</sub>+SWAP) を 1 ブロックに抽象化する</li>
+        <li><strong>(b) span 持ちゲート共通 (確率 / 振幅 / 密度行列 / QFT / QFT†)</strong>: 本体幅は span 非依存に 40 px 固定 / 字形は 1 個だけ / span 上限は実行モード容量に従う / resize-handle 24 px 固定。これらは別ドキュメント (例: <code>multi-qubit-placement.html</code>) に切り出して横断方針として記述するほうが、QFT / QFT† / 表示ブロック 5 ページで重複が消える</li>
+        <li><strong>(c) 上記から派生する個別判断</strong>: 逆変換を色で表現しない (これは QFT/QFT† 固有 + S/S†・T/T† と共通の dagger 規約)</li>
+      </ul>
+      <p class="critique-body">
+        さらに、<strong>「複合ゲート (H + 制御 R<sub>k</sub> + SWAP) を 1 ブロックに抽象化する」という設計判断が明示されていない</strong>。
+        § 01 概要批評で指摘した「中身が見えない」問題は本来この § 08 で言語化されるべき内容で、現状は「字形を繰り返さない」「本体幅 span 非依存」のように
+        <em>レイアウトの判断</em>として書かれているが、より根源的な「<em>複合ゲートを単一ユニタリ箱として見せる</em>」という抽象化判断が抜け落ちている。
+        これは Quirk と同じ抽象だが、本デザインシステムが採用する独自判断でもあるので、Quirk 互換性と並んで明示する価値がある。
+      </p>
+      <p class="critique-body">
+        補足: 「QFT<sup>4</sup> = I」「QFT† · QFT = I」「QFT† = QFT<sup>3</sup>」のような<strong>関係式は数学的事実</strong>で、デザイン判断ではない。
+        matrix-card に置く位置は適切だが、§ 08 「意味論と設計判断」の中で <em>意味論</em>と <em>設計判断</em>の境界が曖昧。
+        章を「§ 08a 意味論 (数式)」「§ 08b 設計判断 (UX)」に分割するか、matrix-card の見出しを「数学的性質」、ul の見出しを「設計判断」と分けると読み分けやすい。
+      </p>
+    </aside>
   </div>
 </section>
 

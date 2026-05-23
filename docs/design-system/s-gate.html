@@ -161,6 +161,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -197,6 +246,42 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「位相族の代表」としての責務が S ページに振られているが、機能の意味論が字形 "S" に乗っていない</div>
+    <p class="critique-body">
+      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、角丸 6 px、
+      drag preview = purple-600 といったユニタリゲート chrome に関する論点は <a href="h-gate.html">h-gate.html</a>
+      の全体所見で展開済みで、S ページにも同じ批判 (ユニタリゲート族の親仕様がなく 6 ページが重複する) が当てはまる。
+      S ページ固有の核心は <strong>「Phase 族 (S / T / P / S† / T†) の代表として位相という機能の意味論を伝える責任」</strong>を
+      負っていることだが、現状の本文は H / X / Y / Z と並ぶ「同族の 1 ゲート」として均質に書かれ、
+      位相族の親としての視点が薄い。
+    </p>
+    <p class="critique-body">
+      機能面では、S は <code>diag(1, e<sup>iπ/2</sup>)</code> という<strong>対角行列で複素位相を進めるゲート</strong>だが、
+      字形 "S" にはその意味が一切乗っていない。"S" は Geist 700 の単なる文字グリフで、Pauli (X / Y / Z) や
+      Hadamard (H) と本質的に区別がつかない。Quirk の歴史的経緯で確立した文字グリフ表記を踏襲しているとはいえ、
+      <em>「視覚的に同族 / 機能的に独自」</em>の隔たりが Phase 族全体に通底する論点として S ページに残されている。
+      ここを「字形が機能を表していない」という Phase 族共通の課題として明示しておくと、T / S† / T† / P 各ページが
+      参照できる根拠になる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>Phase 族 (S / T / P / S† / T†) の親仕様を抽出</strong> — 「位相とは何か」「字形で位相量を区別する規約」「dagger 表記の組版」「色を位相量に使わない」など Phase 族共通の判断を <code>phase-gates.html</code> (仮) に集約し、S ページは「S 固有 = 位相 π/2 / Clifford 階層の中核 / <code>S<sup>2</sup> = Z</code> という代数関係」だけに絞る (全体所見参照)。</li>
+      <li><strong>§ 02 配色テーブルに記載された相対輝度比 2.8 を見直す</strong> — § 02 は「cyan-400 上で相対輝度比 ≈ 2.8」と書くが、h-gate.html や x-gate.html では「≈ 3.4」と書かれている。同じ cyan-400 + paper の組み合わせなのに数値が割れているのは矛盾で、どちらかが誤り (§ 02 参照)。</li>
+      <li><strong>§ 04 の 3 倍拡大が「位相を進める」という機能の伝達に貢献していない</strong> — 字形 "S" を 3 倍に拡大しても、見えるのは「より大きな S」だけで、π/2 位相という本質は読み取れない。ブロッホ球上の Z 軸 π/2 回転のミニ図解を併置するほうが、字形拡大より情報価値が高い (§ 04 参照)。</li>
+      <li><strong>§ 07 の <code>S<sup>2</sup> = Z</code> / <code>T<sup>2</sup> = S</code> を視覚化</strong> — 現状はリンク先テキストとして書かれているが、Phase 族のメンバ関係 (Z = π → S = π/2 → T = π/4) を 1 つの数直線 / 階段図にすると、ユーザが「どの位相量を選ぶか」を直感で決められる (§ 07 参照)。</li>
+      <li><strong>S と S† の見分けの困難さを Phase 族の課題として明示</strong> — S と S† は字形 (右上の †) のみで区別される。40 px の本体上で † グリフは約 5 × 9 px と小さく、低視力ユーザや遠目では判別困難。「dagger ペアの判別可能性」は s-dagger-gate.html で深掘りされるが、本ページの § 07 にも「順 / 逆を字形差で示す」設計判断の代償として一言残しておくと、設計責任が明確になる (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -219,6 +304,24 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 字形 'S' に位相の意味論が乗らない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「同族感」優先の判断が、π/2 位相という機能の唯一性を消している</div>
+      <p class="critique-body">
+        本文は「H / Y / Z / T と横並びに置いたときの同族感を優先する」と書くが、これは Quirk 由来の同族同色原則を
+        踏襲した結果であり、S の機能 (Z 軸 π/2 回転) を字形 "S" が表現しているわけではない。
+        ユーザにとって "S" という記号は「Pauli の続きにある文字」程度の意味しか持たず、
+        <code>diag(1, i)</code> という対角行列との対応はヘルプ文か量子計算の知識に依存する。
+        この trade-off は本文でも <em>「同族感を優先」</em>とだけ書かれ、<strong>代償が何かは明示されていない</strong>。
+      </p>
+      <p class="critique-body">
+        同族感の対案として、たとえば本体内に微小な位相インジケータ (Z 軸を中心とした扇形の角度マーカ) を
+        重ねる選択肢もあり得る。これは Phase 族 (S / T / P) で「位相量を視覚化する小さな chrome」を
+        共有する設計余地として残してよい。本ページでは採用しないが、「採用しなかった理由」を § 07 に
+        書いておくと、後続の P ページ (パラメトリック角度) でも判断の根拠を再利用できる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -260,6 +363,24 @@
       S は π/2 の固定位相回転を担うが、位相量を色で表現しない。
       色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 相対輝度比 2.8 vs 3.4 の矛盾">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">「相対輝度比 ≈ 2.8」は h-gate.html / x-gate.html の「≈ 3.4」と矛盾している</div>
+      <p class="critique-body">
+        § 02 の「字形 "S" + paper」行には <code>cyan-400 上で相対輝度比 ≈ 2.8</code> と書かれているが、
+        cyan-400 (#3AA99F) + paper (#FFFCF0) という<strong>まったく同じ前景・背景の組み合わせ</strong>に対し
+        <a href="h-gate.html">h-gate.html</a> § 02 と <a href="x-gate.html">x-gate.html</a> § 02 では
+        <code>≈ 3.4</code> と記載されている。物理的に同じ色対の輝度比が 2.8 と 3.4 で割れているのは矛盾で、
+        どちらかが誤計算 (もしくは異なる仕様での測定値の流用)。
+      </p>
+      <p class="critique-body">
+        本プロジェクトは WCAG AA を意識した配色設計が前提なので、輝度比は 1 か所で計算し、
+        全ゲート仕様で同じ数値を参照する <code>design-system-colors.html</code> に一元化したい。
+        現状の数値ばらつきは「各ページが独立して計算した結果」を示唆するが、それなら h-gate.html / x-gate.html /
+        s-gate.html の 3 ページで値が違うこと自体がドキュメント品質の品質指標として黄信号。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -344,6 +465,23 @@
         <div class="zoom"><div class="s-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-S"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形拡大は機能を伝えない">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">3 倍拡大では位相 π/2 という機能の意味が読み取れない</div>
+      <p class="critique-body">
+        本セクションは字形 "S" を 3 倍拡大して<em>「字形の位置確認」</em>を行うが、見えるのは
+        <strong>「より大きな S 文字」</strong>だけで、S ゲートの本質である「Z 軸 π/2 回転 = <code>|1⟩</code> に位相 i を加える」
+        という機能はまったく伝わらない。これは h-gate.html § 04 の批評 (「3× zoom 単体の情報価値は低い」) と
+        構造的に同じ問題で、Phase 族全体に共通する。
+      </p>
+      <p class="critique-body">
+        改善案: 拡大字形の隣にミニブロッホ球図 (Z 軸まわりの π/2 円弧 + |+⟩ → |+i⟩ への矢印) を併置し、
+        「S は文字 S だが、機能は Z 軸 π/2 回転」という対応関係を 1 つの図で見せる。
+        ブロッホ球は <a href="bloch-display.html">bloch-display.html</a> の表示ブロックと同じ SVG プリミティブを
+        流用できるので、設計コストは小さい。同じ手法は T (π/4) / S† (−π/2) / T† (−π/4) でも再利用できる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -417,6 +555,24 @@
       <li><strong>枠線を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: S は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 Phase 族関係の視覚化と判別性">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「Z = S<sup>2</sup>」「T<sup>2</sup> = S」を文字情報だけで提示しており、Phase 族の階層構造が見えない</div>
+      <p class="critique-body">
+        matrix-card 内に <code>S<sup>2</sup> = Z</code> / <code>T<sup>2</sup> = S</code> / <code>S<sup>4</sup> = I</code>
+        が列挙されているが、これらは Phase 族の<strong>階層構造</strong> (π → π/2 → π/4 → ... を 2 で割っていく系列) を
+        示すもっとも重要な関係。文字列で並べるよりも、Z 軸まわりの単位円を 4 等分した図 (Z=π / S=π/2 / T=π/4) で
+        見せたほうが「S は Z の半分」「T は S の半分」が一目で伝わる。Clifford 階層を初めて学ぶユーザにとって、
+        この階層図は記号操作より遥かに認識負荷が低い。
+      </p>
+      <p class="critique-body">
+        さらに、§ 07 のリストには <strong>「S と S† の判別性」</strong>への言及がない。S と S† はパレット上で隣接配置され、
+        chrome (cyan-400 / 角丸正方形 / 文字 "S") を共有し、差分は右上の小さな † グリフだけ。これは Phase 族で
+        繰り返される設計判断 (T / T† でも同じ) で、s-gate.html / t-gate.html の両方で「字形差で順 / 逆を示す」
+        ことの代償 (低視力 / 遠目での判別困難) を明示しておくと、ハイコントラストモードや拡大鏡支援の根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 

@@ -166,6 +166,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (Pauli 兄弟ページとして一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -202,6 +251,38 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「測定基底を変えない唯一の Pauli」という Z 固有の機能が前面に出ていない</div>
+    <p class="critique-body">
+      ユニタリゲート chrome (40 px 本体 + 56 px ピッチ + cyan-400 + paper グリフ + 4+2 のホバー枠 + drag preview = purple-600) は
+      <a href="h-gate.html">h-gate.html</a> の全体所見と同じ批判 (ページ間で内容が重複し、親仕様の抽出が望ましい) がそのまま当てはまる。
+      ここでは Z 固有の論点に絞ると、本ページの最大の特色は <strong>Pauli-Z 行列 <code>diag(1, -1)</code> が対角行列であり、
+      計算基底 |0⟩ / |1⟩ の確率分布を一切変えず位相だけを反転する</strong>こと。これは X / Y にはない、Z 固有の機能で、
+      「測定結果からは Z が置かれたかどうか直接見えない」という非自明な振る舞いをもたらす。
+    </p>
+    <p class="critique-body">
+      にもかかわらず、§ 01 では「位相反転ゲート」と書くだけで、「測定では見えない」という特徴は § 07 の <code>matrix-card</code>
+      の <code>Z|0⟩ = |0⟩ / Z|1⟩ = -|1⟩</code> から読者が自分で気づくしかない。Z を初めて学ぶ読者には
+      「同じ見た目の H / Y と何が違うのか」が、本文中で明示的に述べられていない。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>§ 01 で「測定基底を変えない」特性を 1 段落で明示</strong> — Z は確率分布を変えず、Z|0⟩ = |0⟩ / Z|1⟩ = -|1⟩ という対角行列の特異性を前文に置く。現状は § 07 の <code>matrix-card</code> でしか伝わらず、H / Y と並べたときに「何が違うか」が初見では分かりにくい (§ 01 / § 07 参照)。</li>
+      <li><strong>§ 03 SVG の text-anchor 注記が英語 ("56 px slot" / "40 px body") のまま</strong> — 兄弟ページ (h-gate.html / y-gate.html) は「56 px スロット」「40 px 本体」のように日本語化済み。本ページだけ英語表記が残り、表記揺れになっている (§ 03 参照)。</li>
+      <li><strong>§ 04 の見出し「3倍拡大」と本文中の「3× zoom」表記揺れ</strong> — h3 は「3倍拡大」、本ページ中の他の表記 (キャプションなど) は「3倍拡大」「3× zoom」混在の可能性がある。兄弟ページは「3× zoom」で統一されており、表記をどちらかに寄せる (§ 04 参照)。</li>
+      <li><strong>cyan-400 + paper のコントラスト比 2.78 が WCAG AA 大文字基準 (3.0) 未満</strong> — § 02 配色表は数値を出すが、§ 07 の設計判断では妥協が議論されていない。「色を意味に使わない」設計の代償として明示する (§ 02 / § 07 参照)。</li>
+      <li><strong>「ホバー枠の幾何が H / X と微妙に違う」可能性</strong> — 本ページの <code>.z-gate::before</code> は <code>border: 2px solid + inset: -4px</code> の実装で、H / X の <code>::before + ::after</code> 2 層構造と異なる。視覚結果は近いが、purple-400 線と paper 抜きの幾何が完全に一致するか要検証 (§ 02 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -224,6 +305,21 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 Z 固有の機能の表現不足">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">Z の核心 (測定基底を変えない / 対角行列) が前文に出てこない</div>
+      <p class="critique-body">
+        本文は「<code>|1⟩</code> 成分の符号だけを反転し、確率を変えずに相対位相を変える」と書いており、
+        ここに <strong>Z 固有の特異性</strong>が凝縮されている。だがすぐ次の段で「<em>cyan-400 = ユニタリ操作ゲートという既存の色対応を守る</em>」
+        という見た目の話に移ってしまい、機能と意味論を読者が掴む前に視覚同族論で覆ってしまう。
+      </p>
+      <p class="critique-body">
+        Z は X / Y と違って「ビット反転を起こさない」唯一の Pauli であり、量子コンピュータ初学者にとっては
+        <em>「何をするゲートか」が直感的に分かりにくい</em>代表格。「Z|0⟩ = |0⟩、Z|1⟩ = -|1⟩ なので、Z の前後で測定確率は変わらない」
+        という具体的な振る舞いを 1 段落で示すと、本ページ単独でも Z の存在意義が掴める。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -265,6 +361,25 @@
       Z は位相反転を担うが、位相の種類を色で表現しない。色に意味を持たせる範囲は
       <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 ホバー枠の実装が H と異なる">
+      <div class="critique-label">★ 批評 · § 02 配色 / ホバー枠の幾何</div>
+      <div class="critique-title">本ページのホバー枠は <code>border + inset: -4px</code> 単層構造で、H ページの <code>::before + ::after</code> 2 層と異なる</div>
+      <p class="critique-body">
+        本ページの CSS は <code>.z-gate::before { border: 2px solid var(--purple-400); inset: -4px; }</code> という<strong>単層実装</strong>。
+        一方 <a href="h-gate.html">h-gate.html</a> は <code>::before</code> で purple-400 を <code>inset: -4px</code> の塗りに、
+        <code>::after</code> で paper を <code>inset: -2px</code> の塗りに重ね、結果として 2 px 線を「中抜き」する 2 層構造になっている。
+        視覚的にはどちらも「本体から 2 px 離れた位置に 2 px 紫線」に見えるが、<em>2 層方式は背景色が paper でないときも正しく抜ける</em>
+        のに対し、本ページの単層 <code>border</code> 方式は本体外側 2〜4 px の領域 (4 px 枠の内側 2 px) に何も描かないため、
+        親要素の背景がそのまま透けて見える。回路の背景が常に paper (bg) なら結果は同じだが、
+        将来 dark mode や card 上に Z ゲートを配置するときに見え方が変わる。
+      </p>
+      <p class="critique-body">
+        配色表の備考列には「本体外側 4 px、内側に 2 px の背景の空き」とだけ書かれており、実装方式の差は隠れている。
+        <a href="hover-frame.html">hover-frame.html</a> primitive の canonical 実装がどちらかを 1 か所で決め、
+        各ゲート仕様はそれを継承する形に統一すると、ホバー枠の振る舞いがゲート間で揃う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -318,6 +433,23 @@
       40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 SVG 内テキストが英語表記のまま">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ図</div>
+      <div class="critique-title">SVG 内寸法注記が "56 px slot" / "40 px body" と英語表記</div>
+      <p class="critique-body">
+        <code>geo-diagram</code> の SVG 内 <code>&lt;text&gt;</code> は <code>"56 px slot"</code> / <code>"40 px body"</code>
+        と英語のまま。兄弟ページ (<a href="y-gate.html">y-gate.html</a> / <a href="h-gate.html">h-gate.html</a>) は
+        「56 px スロット」「40 px 本体」と日本語化されており、本ページだけ英語が残るのは表記揺れ。
+        本文 / 凡例はすべて日本語なので、ここも日本語化すべき。
+      </p>
+      <p class="critique-body">
+        さらに、<code>font-size="4"</code> は viewBox 80 × 80 を 240 × 240 px に投影しているため、実表示で約 12 px に相当する。
+        h-gate.html の批評 (§ 03) では <code>font-size="3.6"</code> ≈ 10.8 px が読みづらいと指摘されていたが、
+        本ページは 4 に上げてあり改善されている。ただし「凡例ブロックと SVG 内テキストで同じ情報を 2 回出している」
+        重複は残るので、SVG 内テキストを撤去して凡例だけに寄せる選択肢もある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -350,6 +482,27 @@
         <div class="zoom"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形 Z の意味論的中立性と表記揺れ">
+      <div class="critique-label">★ 批評 · § 04 字形 (Z)</div>
+      <div class="critique-title">字形 "Z" は意味論的に中立で、対角行列の特異性を伝える視覚要素を持たない</div>
+      <p class="critique-body">
+        Pauli-Z 行列は <code>diag(1, -1)</code> という単純な対角行列で、<strong>計算基底ベクトル <code>|0⟩</code> / <code>|1⟩</code>
+        を不変方向 (固有ベクトル) として持つ</strong>。これは X / Y が固有ベクトルを <code>|+⟩, |-⟩</code> や <code>|+i⟩, |-i⟩</code>
+        という<em>重ね合わせ状態</em>に持つのと対照的で、Z だけが「計算基底と直接対応する Pauli」となる。
+      </p>
+      <p class="critique-body">
+        字形 "Z" 単独ではこの「対角性」「計算基底との一致」は伝わらず、たとえば対角線を強調した独自字形
+        (例: 太い斜線で対角行列を暗示) を採用する余地もあった。しかし本仕様は H / Y / √X / S / T と一貫させるため
+        Geist Bold の "Z" を踏襲しており、その判断自体は妥当。<em>視覚情報量 vs 同族感</em>のトレードオフが
+        意識的になされていることを § 07 設計判断に追記すると、後続ゲートの字形選定時の議論基盤になる。
+      </p>
+      <p class="critique-body">
+        補足 (表記揺れ): h3 見出しは「3倍拡大」、本ページ § 03 凡例は日本語、SVG 内テキストは英語と、3 つの表記スタイルが混在している。
+        兄弟ページ (h / x / y / √X) はすべて「3× zoom」を採用しており、本ページの「3倍拡大」だけが異質。
+        どちらかに統一する (「3× zoom」推奨) ことで Pauli 4 ページ + sqrt-X が揃う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -421,6 +574,33 @@
       <li><strong>枠線を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: Z は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 Z 固有の意味論が S / T と区別されていない">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「Z は π 位相反転」と「S / T は π/2 / π/4 位相回転」の連続性が示されていない</div>
+      <p class="critique-body">
+        現状の bullet は Z と RZ の混同回避のみを扱うが、本ページが触れていない重要な関係として
+        <strong>Z = S<sup>2</sup> = T<sup>4</sup></strong> がある。S は π/2 位相回転、T は π/4 位相回転、
+        Z は π 位相回転で、3 つは「位相回転の階段」を形成している。Pauli-Z 単独で見ると「位相を π だけ回す離散ゲート」だが、
+        S / T と並べると「Z は位相回転族の最大角バージョン」という連続軸が見える。
+      </p>
+      <p class="critique-body">
+        bullet 3「RZ と混同させない」は単独で正しいが、S / T との関係を 1 行加えれば、Z が固定角 (π) の操作で、
+        RZ が任意角 (θ) の操作で、S / T はその中間の固定刻みという階層構造が一目で伝わる。
+        後続の S / T ページが揃ったタイミングで「位相回転族」セクションを 3 ページ横断で作る価値がある。
+      </p>
+      <p class="critique-body">
+        コントラスト面: § 02 配色表で cyan-400 + paper のコントラスト比を <code>≈ 2.78</code> と書いており、これは WCAG AA 大文字テキスト基準
+        (3.0) を下回る。§ 07 設計判断には妥協が明示されていないため、「色を意味に使わない」設計の代償として
+        色覚アクセシビリティが落ちる点を 1 行加えると、将来「ハイコントラストモード」の根拠になる。
+      </p>
+      <p class="critique-body">
+        補足: 用語ゆれ — § 03 のジオメトリ表で「枠線」と「stroke」が混在している (本ページの設計判断は「枠線を持たない」、
+        H / Y ページは「stroke を持たない」)。仕様横断で日本語 (「枠線」) に寄せるか、原文 (「stroke」) を統一するかを
+        decide すべき。<a href="../../CLAUDE.md">CLAUDE.md</a> のルー語ルールでは「stroke なし」「枠線なし」のどちらも許容されているため、
+        プロジェクト全体で 1 つに決めて prh.yml に追加するのが堅い。
+      </p>
+    </aside>
   </div>
 </section>
 

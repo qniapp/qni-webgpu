@@ -261,6 +261,55 @@
       color: var(--bg);
     }
     .qft-gate-ref > svg { display: block; width: 40px; height: 40px; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / qft-gate.html と同じスタイル。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -329,6 +378,39 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">QFT ページとの diff が「字形に † を 1 個足した」だけなのに、ページ全体が複製されている</div>
+    <p class="critique-body">
+      ユニタリゲート族の chrome (cyan-400 / paper グリフ / 角丸 6 px / ホバー枠 4+2 / drag = purple-600) は H ページの全体所見と同じく
+      X / Y / Z / S / T / Rx / Ry / Rz とすべて共通で、ここで再展開する必要はない。
+      さらに本ページは <a href="qft-gate.html">QFT ページ</a> と比べても、<strong>本質的な差分は「字形 path に † を 1 個追加」「自己エルミート H と等価」「逆変換の意味論」の 3 点だけ</strong>。
+      ところが § 02 配色 / § 03 ジオメトリ / § 05 状態バリアント / § 06 サイズ別の見た目 / § 07 配置 はほぼ完全にコピペで、
+      <strong>9 章のうち 5 章が QFT ページのコピー</strong>になっている。S / T と S† / T† 仕様の関係を将来作るときも同じ問題が起きる。
+    </p>
+    <p class="critique-body">
+      これは「dagger ゲート全体に通底する課題」で、本ページ単体で解決すべきではないが、設計判断として認識を共有しておくべき。
+      アーキテクチャ的には「QFT base 仕様 (本体・配色・ジオメトリ・配置・サイズ)」と「QFT† delta 仕様 († の追加 / 意味論 / H 自己エルミート)」を分離するか、
+      または QFT ページに「QFT† との差分は § 04 字形だけ」と書いて本ページを実質「§ 04 + § 08」だけのリダイレクトに近づける。
+      現状の本ページは S†, T†, QFT† で同じ「順 / 逆ペアの差分は字形 1 個」というパターンが繰り返されることに気付かせない構成になっている。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>dagger ペア仕様の親仕様を抽出</strong> — 「順 / 逆を字形差で示す」「自己エルミート H に span=1 で縮退」「色 / サイズ / 角丸 / span 範囲を共有」は S/S†・T/T†・QFT/QFT† で共通。dagger ペア共通仕様を別ドキュメントに切り出すと、本ページは "QFT 固有 + † delta" だけに集中できる (全体所見参照)。</li>
+      <li><strong>QFT との重複セクションを削減</strong> — § 02 / § 03 / § 05 / § 06 / § 07 は QFT ページとほぼ同一。各章末に「QFT ページ § XX と完全同一。差分なし」と明示するか、章自体を QFT ページへのリンクに置き換える (§ 02 / § 03 / § 05 参照)。</li>
+      <li><strong>§ 04 字形を「† delta」だけに絞る</strong> — Q / F / T の 3 path は QFT と同一なので、本ページの table.spec で再掲する必要はない。<strong>† の位置 / サイズ / scale (0.015360) / superscript ロジック</strong>だけを独立して詳述する (§ 04 参照)。</li>
+      <li><strong>QFT†(1) ≡ H (自己エルミート) の物理的意味の説明補強</strong> — § 03 / § 06 / § 08 で「H† = H なので QFT†(1) ≡ H」と 3 回繰り返されるが、自己エルミート (self-adjoint) という性質の説明がない。QFT(1) ≡ H とは別の論理 (Hadamard が自己エルミート) で同じ結果になるので、QFT ページのコピペで済まない点 (§ 06 / § 08 参照)。</li>
+      <li><strong>§ 07 「QFT → 制御位相 → QFT†」対パターンを 1 章昇格</strong> — § 07 本文に 1 行だけ「位相推定のメイン構成」と書かれているが、これが QFT† の最大ユースケースで、本仕様の存在理由そのもの。配置モックの spread を 5 slots に増やして QFT / 中間 / QFT† の対構造を明示する (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -361,6 +443,26 @@
       span 1〜6 の見た目は <strong>§ 06 サイズ別の見た目</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 QFT との対関係が冒頭 1 行で済んでいない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">QFT との関係が page-lede と本文の両方に分散しており、対パターン (位相推定の終端) も後ろに埋まる</div>
+      <p class="critique-body">
+        page-lede では「QFT のエルミート共役」「QFT と並んで span を伸縮できる操作ゲート」と書かれ、§ 01 本文では「位相推定の末尾や Shor の周期抽出など
+        <em>周波数情報を計算基底に取り出す</em>場面で QFT と対で使う」と再掲されている。<strong>「QFT との対で使う」という最重要事実が 2 か所で別表現で書かれて</strong>いて、
+        本ページの存在理由 (= 対パターンの逆向きを担う) が読者にすぐ伝わらない。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 冒頭に「<strong>QFT† は QFT の逆変換で、ほぼ常に「QFT → 中間処理 → QFT†」の対で使う</strong>」を 1 行で書く。
+        その後で「本体・配色・ジオメトリは QFT と完全に同じ。差分は字形右上の † 1 個だけ。詳細は § 04 字形 / § 08 設計判断を参照」と続け、
+        § 02 / § 03 / § 05 / § 06 / § 07 をスキップしやすい構成にする。読者の主な動線 (「QFT との差分を知りたい」) が短くなる。
+      </p>
+      <p class="critique-body">
+        さらに、§ 01 のモックは QFT ページと完全に同じ「default + hover」の 2 状態を span = 3 で並べているだけ。
+        本ページ固有の情報を出すなら、<strong>QFT と QFT† を横並びで対比した「対パターン」モック</strong> (例: span = 3 の QFT 1 個 → wire pass-through → QFT† 1 個) を § 01 冒頭に置くと、
+        本ページが「QFT 単体ではなく QFT との対で意味を持つ」ことが一目で伝わる。compare zoom は § 04 にあるが、それは字形だけの比較で、回路上の位置関係は示さない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -417,6 +519,22 @@
       <code>cyan-400</code> = ユニタリ操作ゲートという既存のロールを守り、QFT との違いは <strong>右上の † グリフ 1 個だけ</strong>で示す。
       S / S†、T / T† と完全に同じ規約。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色表が QFT と完全コピペ">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">配色テーブル 6 行が QFT ページと完全一致しており、本ページで再展開する意味がない</div>
+      <p class="critique-body">
+        本章の table.spec 6 行 (本体 fill / 字形 / ホバー枠 / drag fill / handle default / handle hover) は <a href="qft-gate.html">QFT ページ § 02</a> と
+        <strong>1 文字も差がない</strong>。唯一の違いは「字形 "QFT"」の行が「字形 "QFT" + "†"」となっている文字列だけで、配色そのものは差がない。
+        QFT ページの「相対輝度比 ≈ 2.8」も本ページに同じ値で複製されている (本来は 3.4 が正しい可能性が高い件は QFT ページの批評参照)。
+      </p>
+      <p class="critique-body">
+        改善案: 本章を「QFT ページ § 02 配色と完全同一。差分なし」と 1 行で済ませ、table.spec を削除する。
+        または table.spec の代わりに「<strong>QFT ページ § 02 を参照</strong>。本ページで追加 / 変更される配色はない」とだけ書く。
+        現状の構成は「ページの自己完結性」を優先しているが、その代償として「QFT を変更したときに本ページも同期更新する必要がある」という
+        メンテナンス負債を生む (実際、相対輝度比 2.8 が QFT ページからそのままコピーされている)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -507,6 +625,26 @@
       span 軸の伸縮挙動は <a href="resize-handle.html">resize-handle.html</a> 参照。
       QFT と幾何は同一なので、本図は <a href="qft-gate.html#geo">qft-gate.html § 03</a> と読み替え可能 (字形だけが異なる)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリも QFT 完全コピペ / リンクアンカーが壊れている">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">本文と SVG が QFT ページと完全同一、かつ <code>qft-gate.html#geo</code> のアンカーが実在しない</div>
+      <p class="critique-body">
+        table.spec の 10 行は QFT ページとほぼ完全一致 (span = 1 縮退の文言が「H と等価」「H と等価 (Hadamard は自己エルミート)」と微差があるだけ)。
+        geo-diagram SVG も同じ 240 × 416 px サイズで、本体 / 字形 / handle / 寸法注釈がすべて QFT 版と一致する (字形 use 先が g-Qft-glyph → g-QftDagger-glyph の差だけ)。
+        本仕様ページが「QFT と幾何は同一」と <code>.note</code> 末尾で自認しているなら、<strong>section を丸ごと QFT へのリンクに置き換える</strong>ほうが一貫している。
+      </p>
+      <p class="critique-body">
+        さらに、本文末尾の「<code>qft-gate.html#geo</code> と読み替え可能」というリンクは、<a href="qft-gate.html">qft-gate.html</a> の § 03 に
+        <strong><code>id="geo"</code> が存在しない</strong> (qft-gate.html line 412-499 で確認: section.block も h2 も id を持たない)。
+        リンク切れになっており、クリックしても § 03 にジャンプしない。改善案: (a) qft-gate.html 側の <code>&lt;section class="block"&gt;</code> に
+        <code>id="sec-03-geometry"</code> のような明示的 id を付ける、または (b) 本ページのリンクから <code>#geo</code> を削除して
+        単に <code>qft-gate.html</code> へリンクする。
+      </p>
+      <p class="critique-body">
+        補足: SVG 内テキスト 5.5 / 5 が Tailwind スケール外という問題は QFT ページの批評と同じ。本ページの SVG は QFT のコピペなので問題も継承している。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -563,6 +701,29 @@
       本体色 (cyan-400) と "QFT" 字形の位置は完全に同じ。差分は <strong>右上に重なる † グリフ 1 個だけ</strong>。
       順 / 逆を字形差で示す方式は <a href="s-dagger-gate.html">S / S†</a>、<a href="t-dagger-gate.html">T / T†</a> と共通の規約。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 04 字形の表で Q/F/T 3 行が QFT のコピー / † 識別性が議論されていない">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">Q/F/T の transform 値 3 行は QFT と同じ。† の識別性 (52 % 縮尺 / 5.1 × 9.1 px) の妥当性検証が不在</div>
+      <p class="critique-body">
+        table.spec の Q/F/T グリフ変換 3 行は QFT ページと同じ値を再掲しているが、本ページの本質は <strong>「† グリフを追加する」差分</strong>だけなので、
+        Q/F/T の transform を再掲する代わりに「Q/F/T は <a href="qft-gate.html#glyph">QFT ページ § 04</a> と完全同一。本ページでは † のみを定義する」と
+        書いて、table から Q/F/T 3 行を削除すれば、本ページが「† delta だけを担当する」というアーキテクチャが明確になる。
+      </p>
+      <p class="critique-body">
+        さらに、† グリフの<strong>識別性についての設計判断が手薄</strong>。table.spec によると † は 40 px 本体上で約 5.1 × 9.1 px、
+        Q/F/T 文字高 14.6 px の <strong>~52 % 縮尺</strong>。これは S/T の † と同じ scale (0.015360) を流用したものだが、
+        本ページのコンテキスト (3 文字 + † の合計 4 グリフが詰まる) では、S/T (1 文字 + †) より † が小さく見える可能性がある。
+        T の右上 (3 文字横並びの右端) に重ねる位置で、視覚的に「ノイズ」と区別できる density が確保されているか、ハーフライト下や 80% zoom で潰れないか、
+        などの検証は本ページの責務として書いておくべき。S/T の批評として書くと該当ページが見つけにくくなる。
+      </p>
+      <p class="critique-body">
+        本質的論点: <strong>「QFT vs QFT† の差が † 1 個だけ」</strong>は dagger ゲート全体に通底する課題。S と S† の見分けがつかないという classical 課題が
+        QFT / QFT† でも起きるが、span が大きい分まだマシ (本体高 96 〜 320 px の縦長矩形の右上に 9 px 字形があるかないか、を判別する場面)。
+        ただし span = 1 (40 px) では H ゲートと同じプロポーションになり、† の有無が極めて分かりにくい。
+        この問題は § 06 サイズ別 (span = 1 の縮退) の判断とも関連するので、両章を相互参照する形で記述すると良い。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -601,6 +762,23 @@
       ドラッグ中は span を変更できないので、resize-handle は再び非表示になる。
       handle の 4 状態 (default / visible / hover / active) は <a href="resize-handle.html">resize-handle.html § 05</a> 参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 状態モックが QFT と同形">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">3 状態モックが QFT ページと同じ span = 2 + 同じ caption 文言で複製されている</div>
+      <p class="critique-body">
+        本章の stage 3 マス (① 既定 / ② ホバー / ③ ドラッグ) は <a href="qft-gate.html">QFT ページ § 05</a> と <strong>caption も寸法も完全に同じ</strong>で、
+        字形 use 先が g-QftDagger-glyph になっているだけ。状態軸のバリアントは QFT と QFT† で<strong>確実に同じ</strong>なので
+        (本体色 / ホバー枠 / drag preview / resize-handle 出現はすべて chrome の話で字形に依存しない)、本章を「QFT § 05 と同一」として
+        丸ごと削除しても情報損失はない。
+      </p>
+      <p class="critique-body">
+        本ページで意味がある状態モックがあるとすれば、<strong>「QFT と QFT† を 並べたときに † の有無で状態が混同されないか」</strong>の検証。
+        例えば「QFT default (① 既定)」と「QFT† default (① 既定)」を横並びで見たとき、ぱっと見の区別がつくか?
+        この比較は § 04 字形末尾の compare zoom (2 × zoom で並べる) がカバーしているが、状態バリアントごとに比較する観点 (drag 状態同士、hover 状態同士) は欠けている。
+        QFT が purple-600 (drag) になったときに † が見えにくくならないか、purple-600 + paper の輝度比は cyan-400 + paper より低いので、識別性が落ちる可能性がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -645,6 +823,27 @@
       実行モード容量を超える span (現状 24 量子ビット超) は配置時点で拒否し、サイズ別レンダリングの対象外とする。
       span = 1 は H で代替できるため UI 上は強く推奨しないが、Quirk と同じく禁止もしない (列内で並べたときの視覚的均質性を保つため)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 自己エルミート H の説明と span=1 縮退の論理">
+      <div class="critique-label">★ 批評 · § 06 サイズ別の見た目</div>
+      <div class="critique-title">「QFT†(1) ≡ H」の論理は QFT(1) ≡ H と異なる (Hadamard 自己エルミート) が、その違いが言語化されていない</div>
+      <p class="critique-body">
+        本ページの span = 1 caption に「<em>QFT†(1) ≡ H</em>」と書かれ、本文には「Hadamard は自己エルミート <code>H† = H</code>」と一言だけ補足されている。
+        しかし、QFT(1) ≡ H の論理 (= 1 量子ビット DFT が Hadamard そのもの) と、QFT†(1) ≡ H の論理 (= Hadamard が自己エルミートなので H† = H) は
+        <strong>別の数学的事実</strong>で、両方が成立するから「順 / 逆どちらも span = 1 で H に縮退する」という対称な結果になる。
+        本ページのコピペ起点である QFT ページの注記をそのまま再利用すると、この対称性が <em>偶然</em>のように見えるが、実は <em>2 つの独立した事実の組</em>。
+      </p>
+      <p class="critique-body">
+        改善案: § 06 か § 08 で「自己エルミート」という概念を 2 行で説明し、なぜ Hadamard だけがこの特殊性 (H = H†) を持つかを補足する。
+        Pauli (X = X†, Y = Y†, Z = Z†) も自己エルミートだが、QFT は span = 1 で <em>H</em> に縮退するのが特徴。S や T は自己エルミートではない (S† ≠ S)。
+        この説明があると、QFT/QFT† と S/S†・T/T† の違い (前者は span=1 で対称、後者は常に非対称) が読者に伝わる。
+      </p>
+      <p class="critique-body">
+        さらに、本ページの「span = 1 は H で代替できるため UI 上は強く推奨しない」は <strong>QFT ページからのコピペ</strong>だが、
+        QFT†(1) は QFT(1) と同じ H に縮退するので、本ページの文脈で言い換えれば「QFT†(1) ≡ QFT(1) ≡ H」の三重等価。
+        これは「ペアゲートの自己エルミート点」として概念化すべき特異な性質なので、ユーザストーリー (なぜ degenerate を保持するか) を本ページで補強する価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -686,6 +885,28 @@
       span を変更すると本体高さが変わるが、本体の縦方向中心は最上 wire 中心と最下 wire 中心の中点で再計算されるため、
       字形位置はリサイズ中も中央を維持する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 07 対パターン (QFT → 中間 → QFT†) が 1 行で済まされている">
+      <div class="critique-label">★ 批評 · § 07 回路グリッド上の配置</div>
+      <div class="critique-title">「QFT → 制御位相 → QFT†」の対パターンが本仕様の最大ユースケースなのに、本文 1 行と モック 5 スロットに埋もれている</div>
+      <p class="critique-body">
+        本文に「典型的な『<code>QFT → 制御位相 → QFT†</code>』の対パターン (位相推定のメイン構成) では、列を 1 つあけて QFT と QFT† を並べる」と
+        1 行だけ書かれている。これは <strong>QFT† の存在理由そのもの</strong>で、本ページの読者の大半は「QFT との対をどう描くか」を知りたいはず。
+        ところが slot-mock は 5 スロットのうち <code>QFT (span=3) / 空 / QFT† (span=3) / 空 / QFT† (span=2)</code> の構成で、
+        対パターンとしては最初の 3 スロット (QFT / 空 / QFT†) で完結しており、4 〜 5 スロット目 (空 + 別 span の QFT†) は対パターンと無関係。
+      </p>
+      <p class="critique-body">
+        改善案: (a) slot-mock を「QFT → 制御位相プレースホルダ → QFT†」の 3 スロットに絞り、中間スロットに「制御位相」のラベル (テキストだけ) を入れる。
+        対パターンであることを 視覚的に強調する。(b) または別途「位相推定の対パターン」用のモックを 1 章追加し、現状の slot-mock は「異なる span の QFT†」用に残す。
+        本仕様の存在理由を可視化する責任は、本章 § 07 (配置) と § 08 (設計判断) のどちらかで担うべき。
+      </p>
+      <p class="critique-body">
+        さらに、対パターンを使う実際のユースケース (Shor の周期抽出 / 量子位相推定 / amplitude estimation) はすべて page-lede で名前だけ列挙され、
+        本文では具体的な回路構成 (例: 「QFT で重ね合わせ → 制御 U の累乗 → QFT† で測定基底に戻す」) に踏み込まない。
+        デザインシステム仕様としては数式まで踏み込まなくていいが、対パターンの「外形」(= 2 つの QFT 系ブロックが対称的に配置される) だけは visual に示すと、
+        ユーザが「ああ、これがあの教科書の図か」と直感的に理解できる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -709,6 +930,35 @@
       <li><strong>span 上限は実行モード容量に従う</strong>: 表示ブロック (確率 16 / 振幅 16 / 密度行列 8) は描画コストで上限が決まるが、QFT† は<em>シミュレーションコスト</em>で決まるため、実行モード (local-webgpu / large-gpu / external) の容量と一致する。詳細は <a href="../large-gpu-mode-design.html">large-gpu-mode-design.html</a> 参照</li>
       <li><strong>resize-handle のハンドル幅は 24 px 固定</strong>: 本体幅が span 非依存に 40 px なので、ハンドル幅も追従させない (<a href="probability-display.html">確率表示ブロック</a> / <a href="qft-gate.html">QFT</a> と同じ <code>widthMode: 'fixed'</code>)</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 08 設計判断の半分が QFT ページのコピー / dagger 規約共通項目の重複">
+      <div class="critique-label">★ 批評 · § 08 意味論と設計判断</div>
+      <div class="critique-title">8 項目のうち 5 項目が QFT ページとほぼ同一、† 固有判断は 3 項目だけ</div>
+      <p class="critique-body">
+        現状の 8 項目を QFT ページ § 08 (7 項目) と比較すると、次のように分解できる:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) QFT/QFT† 共通 (QFT ページからほぼコピー)</strong>: 本体幅 40 px 固定 / 字形 1 個だけ / QFT/QFT† と H を別ゲートとして区別 / span 上限は実行モード容量 / resize-handle 24 px 固定 — 5 項目</li>
+        <li><strong>(b) QFT† 固有 (dagger 規約)</strong>: QFT と本体を共有して字形差で順 / 逆を示す / 逆変換を色で表現しない / † を superscript 位置に置く — 3 項目</li>
+      </ul>
+      <p class="critique-body">
+        (a) は QFT ページに canonical があり、本ページでは再展開せず参照に置き換えるべき。(b) は本ページ固有なので残すべきだが、
+        これらは <strong>「dagger ペア共通の規約」</strong>として S/S† / T/T† と完全に共有する。前述の全体所見で提案した「dagger ペア親仕様」を抽出すれば、
+        本ページ § 08 は「QFT 固有 + dagger 規約の override (なし)」だけに絞れる。
+      </p>
+      <p class="critique-body">
+        さらに、matrix-card の「行列 (span = k)」「基底状態」「span = 1 の縮退」「関係」の 4 mini は<strong>意味論</strong>で、ul の 8 項目は<strong>設計判断</strong>。
+        本章タイトル「意味論と設計判断」は両者を含意するが、QFT ページの批評と同様、「§ 08a 意味論」「§ 08b 設計判断」に分けて
+        matrix-card と ul の役割を明示する方が読み分けやすい。
+        加えて、QFT† 固有の意味論として<strong>「QFT† は QFT のエルミート共役」</strong>「<strong>(QFT†)<sup>4</sup> = I</strong>」が
+        matrix-card にあるが、これらは QFT の数学的性質から導かれる結果で、設計判断ではない。
+      </p>
+      <p class="critique-body">
+        補足: 「<code>QFT† = QFT<sup>3</sup></code>」は QFT ページの matrix-card にも書かれている同じ式。本ページでは
+        「QFT† は QFT を 3 回適用するのと同等」という別表現も追記すると、なぜわざわざ QFT† を別ゲートとして提供するか
+        (= 3 回適用より直接 QFT† を 1 つ置く方が回路が短く、シミュレーションも 3 倍速い) という設計判断につながる。
+      </p>
+    </aside>
   </div>
 </section>
 

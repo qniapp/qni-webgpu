@@ -163,6 +163,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / probability-display.html と同じスタイル (sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -206,6 +255,40 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「ゲート」と呼びながら唯一非ユニタリな operation の特異性が、仕様ページの構造から伝わりにくい</div>
+    <p class="critique-body">
+      本仕様は <code>H ページの全体所見と同じ</code>く Flexoki に厳密で、寸法 / 配色 / 字形が根拠付きで網羅されている。
+      cyan-400 角丸正方形を持たないことや、ホバー枠を内側 bg ギャップなしの単線にする判断は、
+      <a href="write1-gate.html">|1⟩</a> / <a href="measurement-gate.html">測定</a> / <a href="spacer-gate.html">Spacer</a> /
+      <a href="control-gate.html">制御</a> と共通の「透明マーカ系」chrome として整理されている点もよい。
+    </p>
+    <p class="critique-body">
+      一方で、本ゲートは <strong>qni-webgpu のゲート群で唯一 (|1⟩ と並んで)「ユニタリでない単独操作」</strong>という大きな特異性を持つ。
+      § 01 と § 07 で <em>operation</em> や非ユニタリと明言してはいるが、§ 03 ジオメトリ / § 04 字形 / § 06 配置までは
+      H / Rz と同じ「ゲート」template を素直に流用しており、<strong>「状態を壊して書き込む」という意味論の重さが視覚的に表れていない</strong>。
+      仕様ページの構造として「§ 00 前文 — このページはユニタリゲートと異なる operation を扱う」を明示するか、
+      非ユニタリ専用の template (例: <code>state-prep-operations.html</code> を親に持つ) を別系統で持つほうが、
+      X / Reset / Measurement と並んだときの誤読が減る。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>「ゲート」呼称と「operation」呼称の使い分けを § 01 で確定</strong> — page-title は「オペレーション」だが breadcrumb の親は「量子ゲート」、本文では「ゲート」「operation」が混在する (§ 01 参照)。</li>
+      <li><strong>red-600 のディジット色と「semantic_off」ロールの含意を明文化</strong> — Probability / Measurement / Write0 で同色を使うことの一貫性は書かれているが、「<em>red = エラー / 危険</em> という UI 一般の慣習」とぶつかる懸念に触れていない (§ 02 参照)。</li>
+      <li><strong>§ 03 / § 04 のジオメトリ・字形は |0⟩ / |1⟩ で完全に共通</strong> — 同じ "ケット括弧 + ディジット" template を 2 ページに重複展開している。ディジット差分以外は <code>ket-operations.html</code> (仮) に集約する余地がある (§ 03 / § 04 参照)。</li>
+      <li><strong>§ 06 「コンパイル時には measurement + 条件付き X」の動的回路要件を仕様レイヤで切り出す</strong> — UI 描画仕様と「実行時にどう実現されるか」が同じ段落に混在しており、デザイン仕様としての焦点がぼやける (§ 06 参照)。</li>
+      <li><strong>§ 07 「X ゲートと分けて持つ」根拠が semantics だけで、UX 観点が弱い</strong> — 初学者が「X と Write1 の見た目の違い」を即座に判別できるか (字形 vs 角丸本体) の説明が薄い (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -233,6 +316,24 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形 / 意味論の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 「ゲート」「operation」呼称の揺れ">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「ゲート」「オペレーション」「operation」の呼び分けが揺れている</div>
+      <p class="critique-body">
+        page-title は「|0⟩ オペレーション」、breadcrumb の親は「量子ゲート」、本文中では
+        <strong>「状態準備 (state preparation) ゲート」「<em>operation</em>」「|0⟩ オペレーション」</strong>が同じ段落内で混在する。
+        さらに § 06 では「非ユニタリ操作」、§ 07 では「ゲート」「オペレーション」の両方が出る。
+        これは「Quirk 互換 ID は <code>"|0&gt;"</code> でゲート扱い、qni 用語では operation」という二重性に由来するが、
+        読者にとっては「本仕様は何を <em>非ユニタリゲート</em>と呼ぶのか」が一読では掴みにくい。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 冒頭で「<strong>本仕様では UI 上の表記を「|0⟩ オペレーション」、コード識別子を <code>Write0</code>、回路意味論の分類を「非ユニタリ operation」に固定する</strong>」と
+        宣言する 1 文を入れる。これがあれば、以降の本文 / 関連仕様 / breadcrumb との照合が一発でできる。
+        現状の「ゲート」呼称は H / Rz の template から流用された残り香に見え、|1⟩ / 測定 と並べたときの
+        分類軸の根拠が弱い。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -281,6 +382,29 @@
       括弧 (chrome) は中性。同じ red/blue 対は <a href="probability-display.html">確率表示ブロック</a> や
       Measurement の結果ディジットでも使われ、状態 |0⟩/|1⟩ の表示が UI 全体で 1 つの色対に揃う。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 red-600 と UI 一般の慣習">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">red-600 を <code>semantic_off</code> に使うが、UI 一般の「red = エラー / 危険」と衝突しないか</div>
+      <p class="critique-body">
+        本仕様は <code>red-600</code> = 0 / off、<code>blue-600</code> = 1 / on を qni-webgpu の UI 全体で固定する方針で、
+        確率表示 / 測定 / Write0 で一貫させる根拠は強い。しかし red は世間一般の UI で
+        <strong>エラー / 警告 / 破壊操作</strong>を示す色として強く期待されている (Material / iOS / Bootstrap いずれも
+        destructive = red)。「|0⟩ にリセットする」はユーザにとって <em>状態を破壊する</em>操作なので、
+        red が「リセット = 危険」と誤読される余地が残る (実際の意味は「これは 0 ですよ」というラベル)。
+      </p>
+      <p class="critique-body">
+        現状はメリット (color pair の一貫性) だけが書かれているが、デメリット (「破壊的操作の red」との衝突可能性) は
+        本ページ単独で意識される必要がある。<strong>「Quirk 由来の配色を維持するために UI 一般の慣習を意図的に踏み越える」</strong>
+        と書いておくと、将来「リセット系操作の色を変えよう」という議論が出たときの判断軸になる。
+      </p>
+      <p class="critique-body">
+        補足: テーブルの「用途」列に <code>本体 fill (transparent)</code> と <code>ドラッグ時の色変化 (—)</code> という
+        <em>「色を持たない」行</em>が 2 つあり、これは <code>h-gate.html § 02</code> の批評で指摘された
+        「ロール / 状態の軸圧縮」と同じ問題を別角度で抱えている。「色のないものを色テーブルに書く」設計は、
+        透明マーカ系のゲート全体で見直す価値がある (空欄行に意味があるなら、その意味を列で表現する)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -351,6 +475,25 @@
       hit 領域と占有スロットのサイズは H / Rz と完全に同じ。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ表記のスケール二重化">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">「viewBox 48 上の値」と「実表示 px」が同じ表に混在し、読者が暗算を強いられる</div>
+      <p class="critique-body">
+        テーブル中で「stroke 2 px (= 表示時 1.67 px)」「viewBox 48 上で <code>(6, 5) → (6, 43)</code>」のように
+        <strong>viewBox 系の値と実表示 px の値を併記している箇所</strong>と、座標系を明示せずに数値だけ書いている箇所
+        (「ディジット "0" 配置 <code>translate(15.648 33.883)</code>」) が混在している。
+        スケール係数 (40 / 48 ≈ 0.833) を読者が暗算する必要があり、§ 04 の「外形サイズ viewBox 上で 13.9 × 20.7 → 実 11.6 × 17.2 px」も
+        同じ二重化を抱えている。
+      </p>
+      <p class="critique-body">
+        改善案: 表のラベルを <strong>「viewBox 48 系の値」「実表示 (40 px) 換算」の 2 列に明示分離する</strong>か、
+        該当する数値の単位接尾辞を <code>px@48</code> / <code>px@40</code> のように記号化する。
+        現状は「読者が SVG 内部実装を理解している前提」で書かれており、デザイン仕様としては前提が重い。
+        加えて SVG 内の <code>font-size="4"</code> 寸法ラベル (実表示 ≈ 12 px) は legend ブロックと内容重複しており、
+        h-gate.html § 03 の批評と同じく「SVG 内テキストを legend に統合」が応用できる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -387,6 +530,24 @@
         <div class="zoom"><div class="write0-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形仕様の重複と Geist Mono 数字の選択">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">|0⟩ と |1⟩ で字形仕様が二重に展開され、Geist Mono の "0" を選んだ根拠が薄い</div>
+      <p class="critique-body">
+        本ページの § 04 は <strong>"ケット括弧 + ディジット 0"</strong> の字形仕様を全て展開しているが、
+        括弧部分の path / transform / 色は <a href="write1-gate.html">|1⟩ オペレーション</a>と完全に同一で、差分はディジット 1 文字だけ。
+        2 ページに同じ字形仕様 (stroke 座標、viewBox、scale 係数) を重複展開するのは <code>h-gate.html § 02 全体所見</code>と
+        同じ "重複展開" の問題で、<code>ket-operations.html</code> (仮) を親仕様として抽出し、各ページはディジット差分だけに集中するほうが
+        変更時のコストが下がる。
+      </p>
+      <p class="critique-body">
+        加えて、"0" を <strong>Geist Mono</strong> のベクタで描く判断についての根拠が薄い。本文には「フォントレンダラに依存しないため」
+        「<em>slashed zero</em> 防止のためベクタで保持」と書かれているが、Geist (Mono でない通常版) で書かれた他のゲートグリフ
+        (H / X / Y / Z 等は Geist 700) と並んだ時のタイポグラフィ統一性についての説明はない。実装側で Geist と Geist Mono を併用するなら、
+        その理由 (「数字は Mono のほうが幾何的に均整がとれる」など) を明文化しておくとよい。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -420,6 +581,23 @@
       |0⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       パラメタを持たないため、Rz / P のようなポップオーバ編集 UI も無い。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 ドラッグ状態の視認性">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">ドラッグ状態が「② ホバー + cursor」と区別不能で、UI 的フィードバックが弱い</div>
+      <p class="critique-body">
+        本仕様では cyan-400 系ゲートが <code>cyan-400 → purple-600</code> の本体色入れ替えで「仮配置中」を強く伝えるのに対し、
+        |0⟩ オペレーションは本体 fill が無いため、ドラッグ中の視覚フィードバックが <strong>cursor 変化 + ホバー枠</strong>だけになる。
+        本文も認めているように、これは「うっすらしか目立たない」状態で、ユーザは「ちゃんと掴めたのか?」が
+        cyan-400 系ゲートに比べて分かりにくい。
+      </p>
+      <p class="critique-body">
+        改善案: ドラッグ中の |0⟩ では <strong>ケット括弧の色を tx-2 → purple-600 に置き換える</strong>
+        (ディジット "0" の red-600 は維持し、chrome 部分だけ "ドラッグ中色" に変える) などの代替案を検討する価値がある。
+        現状は「色を変えない代わりに、配置先候補スロットのハイライトで位置を伝える」と書かれているが、
+        その候補スロットハイライト仕様が本ページからリンクされていないため、読者が「ドラッグの見た目はどこで完結するのか」を追えない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -447,6 +625,24 @@
       うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
       隣接スロットへ連続配置しても、hit 領域同士には 16 px の余白が残り、ホバー枠同士が重ならない。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 動的回路要件と UI 仕様の混在">
+      <div class="critique-label">★ 批評 · § 06 回路グリッド配置</div>
+      <div class="critique-title">UI 描画仕様の章に「コンパイル時の measurement + 条件付き X 分解」が混入している</div>
+      <p class="critique-body">
+        本章は「§ 06 回路グリッド上の配置」というデザイン仕様の章だが、本文最後で
+        「<strong>非ユニタリ操作なので、コンパイル時には measurement + 条件付き X を組み合わせた動的回路にしか写像されない</strong>」と
+        実行時の回路分解について踏み込んでいる。これは § 07 「意味論と設計判断」の "ユニタリ性" カードに既に書かれており重複している上、
+        本来「グリッド上の配置 = 寸法 / 余白 / 隣接ゲートとの関係」という UI レイヤと、
+        「コンパイラ / シミュレータでどう実行されるか」という意味論レイヤを混ぜている。
+      </p>
+      <p class="critique-body">
+        改善案: § 06 からは「コンパイル時には...」の段落を削除し、§ 07 だけにまとめる。
+        または、§ 06 が <strong>「配置の意味」 (回路頭 = 初期化, 途中 = 部分リセット) </strong>を伝える役割を担うなら、
+        その部分は残して「動的回路への分解」だけを § 07 へ移す。デザイン仕様の章境界が曖昧だと、
+        本仕様を見て実装する Codex が「UI のサイズ仕様」と「実行時の回路要件」のどちらを優先するかで迷う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -487,6 +683,30 @@
       <li><strong>パラメタを持たない</strong>: Rz / P のような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write1-gate.html">|1⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
       <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |0⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 設計判断と X ゲート差別化の UX">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「X ゲートと分けて持つ」根拠が semantics 中心で、UX (即座の判別性) が薄い</div>
+      <p class="critique-body">
+        本章の matrix-card で「Kraus 表現」「ブロッホ球北極への強制移動」と semantics が丁寧に書かれている一方、
+        <strong>初学者の UX 観点</strong> — つまり「画面で X と |0⟩ オペレーションがどう違って見えるか」「どちらが ユニタリ / 非ユニタリかを一目で判別できるか」が薄い。
+        X ゲートは <em>cyan-400 角丸正方形 + paper グリフ "X"</em>、|0⟩ は <em>透明 + tx-2 括弧 + red-600 "0"</em>で、
+        chrome 自体は確かに別物だが、Quirk ユーザは「X = bit flip」「|0⟩ = リセット」を経験で覚えているだけで、
+        本仕様だけ読んで <em>非ユニタリだから分けた</em>と理解できる読者は少ない。
+      </p>
+      <p class="critique-body">
+        改善案: § 07 末尾に <strong>「X ゲートと |0⟩/|1⟩ オペレーションの並列比較ダイアグラム」</strong>を追加する
+        (1 つのスロット内に X と |0⟩ を並べ、「左 = ユニタリ / 右 = 非ユニタリ」を chrome の違いと一緒に見せる)。
+        h-gate.html § 02 全体所見が指摘した「ユニタリゲート族の親仕様」と相補的に、
+        「非ユニタリ operation 族の親仕様」(write0 / write1 / measurement) を持つほうがよい議論にもつながる。
+      </p>
+      <p class="critique-body">
+        補足: 7 項目が平等に並んでいる構造は h-gate.html § 07 と同じ問題を抱えており、
+        (a) 透明マーカ系で共通 (cyan-400 を使わない / ホバー枠単線 / ドラッグ色変えない) と
+        (b) Write0 単独 (ディジット "0" = red-600 / 北極へ強制移動) を階層化したほうが、
+        将来 Write1 / Measurement を編集するときに「どこが共通で、どこが個別か」が分かる。
+      </p>
+    </aside>
   </div>
 </section>
 

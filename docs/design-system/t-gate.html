@@ -161,6 +161,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -197,6 +246,40 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「非 Clifford = universal の鍵」という T 固有の重みが本文構成に反映されていない</div>
+    <p class="critique-body">
+      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、角丸 6 px、
+      drag preview = purple-600 はユニタリゲート chrome の共通論点で、<a href="h-gate.html">h-gate.html</a> 全体所見と
+      同じ批判 (族の親仕様がなく 6 ページが重複する) が T ページにも当てはまる。位相量を字形で区別する規約や
+      色を意味に使わない方針も <a href="s-gate.html">s-gate.html</a> 全体所見で論じたとおりで、T 固有ではない。
+    </p>
+    <p class="critique-body">
+      T 固有の核心は <strong>「Clifford + T で universal な量子計算が表現できる」</strong>という非 Clifford ゲート族のメンバ性。
+      page-lede と § 01 では「Clifford ゲート群に T を加えると universal」と一行触れているが、ページ全体の
+      情報構造 (§ 02 配色 / § 03 ジオメトリ / § 04 字形 / § 05 状態) は H / S と完全に並列で、T の唯一の特異性
+      (universal の鍵 / 表面符号や Magic State Distillation での T カウント最小化の対象) が伝わってこない。
+      仕様ページとしての網羅性は高いが、<em>「なぜ T はこれだけ独立したゲートとして残されているのか」</em>の
+      根拠が薄く、結果として「S の半分の角度版」というだけの印象に閉じてしまう。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>T の non-Clifford 性 を § 01 のヒーロー情報に昇格</strong> — page-lede と § 01 の本文に分散している「Clifford + T で universal」を、図解 (Clifford 階層 + 連続化の樹形図) として § 01 概要に置き、T の独自性を最初に植える (§ 01 参照)。</li>
+      <li><strong>Phase 族 (S / T / S† / T† / P) の親仕様を抽出</strong> — h-gate.html 全体所見と同じく、Phase 族で 5 ページに重複している配色 / ジオメトリ / 字形ロジックを <code>phase-gates.html</code> (仮) に集約 (全体所見参照)。</li>
+      <li><strong>§ 04 の 3× zoom を「位相 π/4 のブロッホ球図解」に差し替え</strong> — s-gate.html § 04 と同じ批判が当てはまる。字形 "T" を拡大しても π/4 という位相は伝わらない。ブロッホ球での Z 軸 π/4 回転図のほうが情報価値が高い (§ 04 参照)。</li>
+      <li><strong>§ 07 の <code>T<sup>2</sup> = S</code> / <code>T<sup>4</sup> = Z</code> を数直線で視覚化</strong> — Clifford 階層 (π / π/2 / π/4) と T の位置づけを 1 つの数直線で示す (§ 07 参照)。</li>
+      <li><strong>T と T† の判別困難さを Phase 族の課題として § 07 に明示</strong> — T と T† の差分は右上の小さな † グリフだけで、低視力 / 遠目では判別困難。<a href="s-dagger-gate.html">s-dagger-gate.html</a> Top Opportunities と同じ論点が T / T† にも当てはまる (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -220,6 +303,24 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 non-Clifford 性が埋もれている">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「Clifford + T で universal」が 1 行で流され、T の唯一性が伝わらない</div>
+      <p class="critique-body">
+        本文は「T は π/4 を加える基本ゲート / Clifford ゲート群に T を加えると universal / 量子コンパイラの基底ゲート」
+        という T 固有の重要情報を <strong>1 段落の中に 3 つ並列で詰め込んでいる</strong>。これらは性質が異なる:
+        <em>(a) 数学的定義 (位相 π/4)</em>、<em>(b) 計算複雑性上の位置づけ (Clifford + T → universal)</em>、
+        <em>(c) 実装上の重要性 (T カウントの最小化対象)</em>。並列に書くことで読み流されやすく、結果として
+        「位相系列の最小角」という浅い理解で読者が § 02 へ進んでしまう。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 を 3 つの subsection に分け、最初に non-Clifford 性 (T だけが特別な理由) を視覚的に示す
+        (Clifford 階層 vs T の位置づけ図)。あるいは「§ 01 概要」を「§ 01 universal の鍵としての T」と
+        改題して、T の重みを構造的に強調する。Phase 族の中で T だけが non-Clifford である事実は、
+        他のメンバ (S / S† / T† / P) との横並びでは伝わらない情報なので、ここで明示しないと永久に伝わらない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -346,6 +447,24 @@
         <div class="zoom"><div class="t-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-T"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形拡大は π/4 という機能を伝えない">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">3× zoom は字形の位置確認には足りるが、π/4 位相の意味は読み取れない</div>
+      <p class="critique-body">
+        s-gate.html § 04 と同じ批評が当てはまる。字形 "T" を 3 倍に拡大しても、見えるのは
+        <strong>「より大きな T 文字」</strong>だけで、T ゲートの本質である「Z 軸 π/4 回転 / Clifford + T で universal」
+        という機能はまったく伝わらない。3× zoom は字形のセンタリング検証としては有用だが、Phase 族
+        共通の弱点 (機能と外見の隔たり) を補強するセクションとしては機能していない。
+      </p>
+      <p class="critique-body">
+        改善案: T 固有の意味論として「ブロッホ球 Z 軸 π/4 回転」を字形拡大の隣に併置するのに加え、
+        「<code>T<sup>2</sup> = S</code> / <code>T<sup>4</sup> = Z</code> / <code>T<sup>8</sup> = I</code>」
+        を 8 等分した円周上の角度マーカで見せる図を入れる。これにより「T は最小角」「8 回かけると 1 周」が
+        図解で伝わる。ブロッホ球の単位円ベースの図解は <a href="bloch-display.html">bloch-display.html</a> から
+        primitive を流用できるので、設計コストは小さい。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -419,6 +538,29 @@
       <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: T は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 non-Clifford 性と T/T† 判別性の言及不足">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">matrix-card に「Clifford + T で universal」と書くだけでは、T の重みが他の Phase メンバと差が出ない</div>
+      <p class="critique-body">
+        matrix-card の「関係」セルには <code>T<sup>2</sup> = S</code> / <code>T<sup>4</sup> = Z</code> /
+        <code>T<sup>8</sup> = I</code> / <code>Clifford + T で universal</code> が 1 セルに詰め込まれている。
+        この最後の項目は他のメンバ (S / Z / S† / T†) が持たない<strong>T 固有の決定的な性質</strong>だが、
+        他の代数関係と同じ重みで扱われている。matrix-card の構成上、T の universal 性は数式と並列に列挙されるだけで、
+        設計判断 (なぜ T が Phase 族の中で別格扱いされるべきか) には接続されていない。
+      </p>
+      <p class="critique-body">
+        改善案 1: <strong>matrix-card に「universal の鍵」セルを独立で立てる</strong> — 「特殊化」「関係」とは別に
+        「universal 性 (Clifford + T)」「実装上の重要性 (T カウント最小化が表面符号の量子優位を決める)」
+        を独立カードで配置し、T が他の Phase メンバと差別化されるべき理由を視覚的に伝える。
+      </p>
+      <p class="critique-body">
+        改善案 2: <strong>T と T† の判別性問題を明示する</strong> — § 07 のリスト 6 項目は <a href="s-gate.html">s-gate.html</a> §
+        07 とほぼ同じで、「T† は別カード」と一言触れる程度。T と T† は dagger ペアとして判別困難になる
+        (右上の小さな † グリフだけが差分) が、本ページでは代償が議論されていない。<a href="s-dagger-gate.html">s-dagger-gate.html</a>
+        Top Opportunities と同じ論点が T / T† にも当てはまることを明示しておくと、A11y 改善時の起点になる。
+      </p>
+    </aside>
   </div>
 </section>
 

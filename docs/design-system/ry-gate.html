@@ -231,6 +231,55 @@
       padding: 24px 0;                      /* spacing-6 */
       flex-wrap: wrap;
     }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / x-gate.html と同じスタイル (Rotation 族 sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -286,6 +335,42 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ───────
+     Rotation 家系 (Rx / Ry / Rz) で共通する論点は本ページ (Ry) に集約し、
+     rx-gate.html / rz-gate.html からは「Ry ページの該当 § を参照」で再展開しない方針。 -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">Ry 単体仕様と Rotation 族 (Rx / Ry / Rz) 共通仕様の二重責任、および「H と等価ではない」周辺の啓蒙ボリュームの偏り</div>
+    <p class="critique-body">
+      ページ全体は <a href="h-gate.html">h-gate.html</a> の体裁を踏襲し、配色 (§ 02) / ジオメトリ (§ 03) / グリッド配置 (§ 06 前半)
+      は H と完全に共通。これらが Ry ページに再展開されていること自体は親仕様未整備の暫定としては理解できるが、
+      <strong>Rotation 族 (Rx / Ry / Rz) で「字形が 2 文字である」「θ パラメタを持つ」という 2 つの共通論点</strong>は
+      H とは独立の軸で、本ページに Rotation 族の代表として書く価値がある。現状は § 04 字形と § 06 後半 (θ ポップオーバ) が
+      その役割を担うが、見出しが「字形 (Ry)」「θ パラメタ編集ポップオーバ」と Ry 個別の体裁で書かれており、
+      <em>「ここを読めば Rx / Rz の判断も追える」</em>という Rotation 族 canonical としての位置取りが弱い。
+    </p>
+    <p class="critique-body">
+      また § 07 で「<code>Ry(π/2)</code> と H を『等価』と書かない」という啓蒙が箇条書きの 1 項目に埋もれている。
+      これは ansatz 系の文献 (Ry-only ansatz / EfficientSU2) を読むときに初学者がもっとも引っかかる点で、
+      Ry ページの差別化ポイントになる情報。<strong>§ 01 概要に小型の比較図 (Ry(π/2)|0⟩ と H|0⟩ の振幅) を置く</strong>ほうが
+      <code>e<sup>−iθY/2</sup></code> という冒頭の式以上に「Ry とは何か」が伝わる。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>Rotation 族の親仕様を抽出</strong> — 「字形が 2 文字」「θ パラメタを持つ」「色は θ で変えない」「ポップオーバを共有」は Rx / Ry / Rz 共通。<code>rotation-gates.html</code> (仮) に切り出して、Ry ページは「Y 軸固有の判断 (実係数行列 / ansatz 用途 / H とは別物)」だけに絞ると、本ページの密度が上がる (全体所見参照)。</li>
+      <li><strong>§ 01 に「Ry(π/2) vs H」の小型比較を置く</strong> — Ry の差別化ポイントは「実係数だけで振幅を回す」「<code>H = X · Ry(π/2)</code> で H とは別物」の 2 点。冒頭の式 <code>e<sup>−iθY/2</sup></code> だけでは伝わらないので、§ 07 関係欄に埋もれている内容を § 01 に格上げする (§ 01 参照)。</li>
+      <li><strong>§ 04 の x オフセット差分 (Rx 23.724 / Ry 23.923 / Rz 24.673) を Rotation 族ページに集約</strong> — Ry ページに 3 種の比較が出てくる現状は「Ry を見ているのに Rx / Rz の話に飛ばされる」二重責任の典型。Rotation 族親仕様で 1 度だけ表にまとめ、本ページからリンクするほうが視線移動が減る (§ 04 参照)。</li>
+      <li><strong>θ パラメタ編集ポップオーバの primitive 仕様を別ページに切り出す</strong> — § 06 後半が「Rx / Ry / Rz / P で共有」と明示しているのに、ポップオーバ chrome (枠 / 影 / 角丸) のモックがここで初めて登場する。<code>parameter-popover.html</code> (仮) を切ると、Rx / Ry / Rz / P が同じ図を参照できる (§ 06 参照)。</li>
+      <li><strong>§ 07 行列カードと bullet list の責務重複を解消</strong> — <code>.matrix-card</code> 内に「行列 / 基底状態 / ブロッホ球 / 関係」の 4 ミニカードがあるが、<code>Ry(π) = −iY</code> / <code>H = X · Ry(π/2)</code> は bullet list でも繰り返されている。matrix-card は数式、bullet list は設計判断、と役割を分けるか、どちらかへ寄せる (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -311,6 +396,25 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形 / θ パラメタ編集の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 Ry の差別化要素が冒頭に出ていない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「実係数行列」「ansatz 用途」「H とは別物」という Ry の差別化要素が § 07 まで埋もれている</div>
+      <p class="critique-body">
+        § 01 本文は <em>Y 軸まわりの回転</em>と <em>cyan-400 = ユニタリ操作ゲート</em>の 2 点を語るが、Ry がほかの 1 量子ビットゲートと
+        並べたときの<strong>固有の差別化要素</strong>は次の 3 つで、いずれも本文には書かれていない:
+      </p>
+      <ul class="critique-list">
+        <li>行列要素がすべて<strong>実数</strong> (Rx / Rz と違い <code>i</code> を含まない)。これは § 07 の matrix-card に書かれているが、概要レベルの判断材料として § 01 に出すべき情報。</li>
+        <li><strong>ansatz の variational layer / 状態準備</strong>で多用される (実係数だけで振幅を回せるため)。本文に半端に書かれているが「なぜ ansatz に重宝されるか」の理由 (= 実係数) と直接結びつけられていない。</li>
+        <li><code>Ry(π/2)</code> は <strong>H と等価ではない</strong> (<code>H = X · Ry(π/2)</code>)。§ 07 の最後の bullet と関連仕様で言及はあるが、ansatz 文献を読む読者がもっとも引っかかる箇所なので、概要に図解で出す価値が高い。</li>
+      </ul>
+      <p class="critique-body">
+        現状の概要バリアント (既定 / ホバー の 2 状態) は § 05 と冗長 (h-gate.html § 01 と同じ問題)。
+        ホバーの mock を 1 つ減らし、代わりに <code>Ry(π/2)|0⟩</code> と <code>H|0⟩</code> の振幅を並べた小型比較を置けば、
+        Ry の差別化が一目で伝わる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -354,6 +458,25 @@
       色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、
       <code>purple-600</code> = ドラッグに限定する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色 H ページとの完全重複と θ を色に持たせない判断の根拠">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">テーブル自体は H ページとほぼ完全重複、一方で「θ を色に持たせない」判断は Rotation 族固有で価値が高い</div>
+      <p class="critique-body">
+        配色テーブル本体 (4 行 × 4 列) は <a href="h-gate.html">h-gate.html § 02</a> と
+        cyan-400 / paper / purple-400 / purple-600 を含めてほぼ完全に同じ内容で、H ページの「ロール × 状態の軸圧縮」批評と
+        同じ問題を抱えている。これは Rotation 族親仕様 (rotation-gates.html 仮) または<strong>ユニタリゲート chrome 親仕様</strong>に
+        集約するのが筋で、Ry ページでは差分だけ示せばよい。
+      </p>
+      <p class="critique-body">
+        一方、テーブル直下の note にある<strong>「Ry の回転角 θ は色に持たせない」「θ = π と θ = π + 0.001 が同色」</strong>
+        という判断は H には存在しない Rotation 族固有の重要論点。色軸を θ で乱さない、というのは <code>cyan-400</code> = 操作ゲート
+        という色辞書を守る上で根本的な決定で、本来は § 07 設計判断にも昇格させる価値がある (現状は重複あり)。
+        加えて、ハードコード角 (S = Rz(π/2) / T = Rz(π/4)) が S / T として別 chrome を持つことと、
+        Rotation 族では θ を色に出さないことの<strong>対比</strong>が note に書かれていないので、読者は「なら S と Rz(π/2) は
+        なぜ別色 (実は同 cyan-400 だが) ?」と一瞬迷う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -416,6 +539,23 @@
       40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ表と図の H ページとの重複">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">本体サイズ / 形状 / span は H ページと完全同一、一方で図の SVG 内寸法注記の Tailwind スケール外問題は継承している</div>
+      <p class="critique-body">
+        ジオメトリ表 (本体 40 px / 角丸 6 px / スロット 56 px / span 1 / z-index 10) は <a href="h-gate.html">h-gate.html § 03</a>
+        と<strong>完全に同一</strong>で、Ry 固有の判断は何も含まれない。「他の 1 量子ビットゲートと共通」と本文でも明記されているので、
+        Rotation 族親仕様または<strong>ユニタリゲート chrome 親仕様</strong>へ移し、本ページからはリンクで参照したい。
+      </p>
+      <p class="critique-body">
+        図 (<code>.geo-diagram</code>) は H ページの SVG をベースに字形 path を Ry 用に差し替えたコピー。<code>font-size="4"</code>
+        の寸法注記 ("56 px slot" / "40 px body") は <code>viewBox 80</code> × 240 px 投影 = 実表示 12 px 相当で、
+        h-gate.html (3.6 = 10.8 px) よりは改善されているが、SVG 内 mono フォントなので可読性は依然低い。
+        さらに同じ情報が右側 <code>.legend</code> に <code>text-xs</code> = 12 px で並んでいるため、
+        <strong>SVG 内テキストは凡例と完全に重複</strong>。SVG 内寸法注記を削り、凡例だけに任せれば情報量を失わずに密度が上がる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -453,6 +593,29 @@
         <div class="zoom"><div class="ry-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Ry-glyph"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形 Rotation 族で共通の論点">
+      <div class="critique-label">★ 批評 · § 04 字形 (Rotation 族 canonical)</div>
+      <div class="critique-title">2 文字グリフは Rotation 族最大の固有論点だが、H / Pauli との視覚バランス検証と "y" descender 議論が中途半端</div>
+      <p class="critique-body">
+        Ry の字形は本仕様で最も Ry 固有性が高い情報。<strong>「2 文字グリフを 40 px 本体に収める」</strong>という課題は H / X / Y / Z / S / T の単一文字
+        と質的に異なり、Rotation 族 (Rx / Ry / Rz) 全体で共通する論点なので、本章は実質「Rotation 族字形 canonical」として機能する。
+        にもかかわらず、見出しが「字形 (Ry)」になっており、Rx / Rz の対応表 (x オフセット <code>23.724 / 23.923 / 24.673</code>)
+        が本文中の補足扱いで埋もれている。Rotation 族親仕様に切り出して<strong>3 種の対比表</strong>を 1 度だけ書くほうが、
+        変更時の差分管理コストが下がる (全体所見 / Top Opportunities 参照)。
+      </p>
+      <ul class="critique-list">
+        <li><strong>外形 23.3 × 13.3 px = 高さ約 33 %</strong> — H ページの単一文字 "H" は 21 / 40 ≈ 53 % なので、Ry は H より<strong>視覚的に約 20 % 低い</strong>。本文では「H / Y / Z と同じ視覚高さで揃う」と書いているが、実寸比は別。同じ高さに見えるなら良いが、その<strong>検証スクショ (H と Ry を並べた実寸 / 3× zoom)</strong>がない。</li>
+        <li><strong>"y" の descender 議論</strong> — <em>Geist Bold の path は y=0 (ベースライン) より下に伸びる descender を持たず、uppercase Y 形状を縮小した姿</em>と書かれている。これは「学術記法は小文字 y だが実装は大文字 Y を縮小」という巧妙な妥協で、論点として重要なのに本文 1 文に圧縮されている。spec として「なぜ descender を諦めたか」「真の小文字 y にすると 40 px box から食み出すのか」を別途検証する余地がある。</li>
+        <li><strong>"Rx" の "x" と "Ry" の "y" は対称性が違う</strong> — "x" は upper / lower でほぼ同じ形だが "y" は (本実装では Y を流用しているため) より uppercase 寄り。Rx / Ry を並べたとき、"Rx" と "RY" 風の混在が読者にどう見えるかは Rotation 族親仕様で検証すべき。</li>
+        <li><strong>kerning 値 <code>23.923</code> は Geist Bold 由来</strong> — Geist Bold の R-y ペアの advance を palette が引いているので、ここを「Rotation 族で揃えた値」と書くのは正しくない (実際は Rx / Ry / Rz でそれぞれ違う)。「同 letter-spacing を継承」と「フォント由来の advance を継承」は別物で、note の文言が曖昧。</li>
+      </ul>
+      <p class="critique-body">
+        補足: 3× zoom は h-gate.html § 04 と同じ「3× zoom 単体の情報価値は低い」批評がそのまま該当する。
+        2 文字グリフの位置確認のためには 3× zoom のほうが 1× より圧倒的に分かりやすいので、こちらは H ページよりも
+        正当化しやすい。<strong>むしろ Rx / Ry / Rz の 3× zoom を 1 つのコマに並べた比較</strong>のほうが情報量が大きい。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -482,6 +645,23 @@
       Ry は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       θ パラメタ編集ポップオーバ (§ 06) は ① 既定状態のセルを再クリック / 長押しで開く。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 状態バリアント Rotation 族には『θ 編集中』の第 4 状態が必要">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">3 状態 (既定 / ホバー / ドラッグ) では Rotation 族の『θ 編集中』が抜けている</div>
+      <p class="critique-body">
+        H ページの 3 状態モデル (既定 / ホバー / ドラッグ) をそのまま流用しているが、Rotation 族には<strong>第 4 の状態
+        「θ 編集ポップオーバ open 中」</strong>がある。この状態でゲート本体がどう見えるか (本文は <em>本体の色 / サイズは変えず</em> と書くが、
+        focus ring / highlight の有無は不明) が § 05 にない。§ 06 のポップオーバモックでは <code>data-state="hover"</code> を流用しているが、
+        これは「ホバー中にポップオーバが出ている」という別の状態で、編集 active 状態とは異なる。
+      </p>
+      <p class="critique-body">
+        改善案: ④ <strong>θ 編集中 (popover open / selected)</strong> を 1 列追加して、cyan-400 本体 + 細い focus ring (purple-400 を内側に持つ?
+        cyan-400 をやや濃くする? が未定) で見せる。Rx / Rz / P でも共通する状態なので、Rotation 族親仕様で 1 度だけ定義する価値が高い。
+        現状は h-gate.html § 05 と § 01 の二重展開という同じ問題も継承しているが、Rotation 族では第 4 状態を加えれば
+        § 01 のホバー 1 列を削った上で § 05 が「全 4 状態の canonical」となり、二重展開が解消される。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -537,6 +717,24 @@
       (別仕様で定義)。Rx / Rz / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
       とプリセット集合のみが差分。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 θ ポップオーバの primitive 化と回路セルの θ ラベル位置">
+      <div class="critique-label">★ 批評 · § 06 θ パラメタ編集ポップオーバ</div>
+      <div class="critique-title">「Rx / Rz / P で共有する」と書きつつ primitive 仕様が未定義、回路セル下の θ ラベル仕様も未着手</div>
+      <p class="critique-body">
+        本仕様で <strong>θ ポップオーバが Rotation 族 + Phase で共有される primitive</strong>であることを 2 度明記している
+        (本文末尾 note と § 07 内の preset 設計判断) にもかかわらず、その primitive 仕様自体は<em>「別仕様で定義」</em>
+        と先送りされている。これは Top Opportunities にも書いたとおり、<code>parameter-popover.html</code> (仮) として
+        本ページとは独立に切り出すべき内容。現状は Ry ページが暫定 canonical の役割を持つので、
+        後から primitive 仕様を作ると本ページとの整合 (枠 / 影 / 角丸 / preset chip スタイル / focus order) を取り直す必要が出る。
+      </p>
+      <ul class="critique-list">
+        <li><strong>「セル下に数値ラベル (例: <code>π/2</code>)」</strong> — 本文に登場するが、モック / 仕様が一切ない。セルは 40 × 40 px で下に 8 px の余白しかないため、テキストラベルは隣接ワイヤとの距離 (56 - 40 - 8 = 8 px) と衝突するリスクが高い。位置 (下? 右下? 上?)・字種 (Geist Mono?)・色 (tx-2?)・最大文字数 (<code>3π/2</code> で 4 文字) を spec する必要がある。</li>
+        <li><strong>preset chip の active state が cyan-400 + bg</strong> — chip 自体が <code>border-radius: 999px</code> の pill 形で、cyan-400 で塗ると<strong>パレット上の X ゲート (cyan-400 円形 + paper plus)</strong> と一瞬同じに見える。色族の衝突。<code>blue-100</code> (確率バー系) / <code>tx</code> (中立 active) など別トーンを検討する余地がある。</li>
+        <li><strong>preset 集合 <code>0 / π/4 / π/2 / π / 3π/2</code> に <code>−π/2</code> / <code>−π/4</code> がない</strong> — Rz / Rx / Ry の負角 (Hermite 共役相当) は ansatz / inverse 回路で頻出。<code>−π/4</code> は T† に、<code>−π/2</code> は S† に対応する。preset を <code>±π/4 / ±π/2 / ±π</code> 対称にしないと、エディタとして「inverse は手入力で書け」という非対称が残る。</li>
+        <li><strong>popover の `cell の右下から 8 px のオフセット` という配置仕様</strong> — 右下固定だと回路の右端 / 下端のセルでは popover が画面外にはみ出す。<code>placement: "auto"</code> (floating-ui 等の auto flip) を明示しないと、エッジケースの仕様が未定義のまま実装に降りる。</li>
+      </ul>
+    </aside>
   </div>
 </section>
 
@@ -577,6 +775,31 @@
       <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: Ry は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 意味論と設計判断">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">matrix-card と bullet list が論点を二重化し、Y 軸固有の認知負荷が箇条書きで埋もれる</div>
+      <p class="critique-body">
+        <code>.matrix-card</code> (行列 / 基底状態 / ブロッホ球 / 関係) と bullet list で <code>Ry(π) = −iY</code> / <code>H = X · Ry(π/2)</code>
+        が二重に出現している。matrix-card は<strong>数学的事実</strong>、bullet list は<strong>UI 設計判断</strong>のはずだが、
+        後者の冒頭 5 項目 (角丸正方形 / 2 文字グリフ / x オフセット / θ 不表現 / Ry(π) ≠ Y) のうち、
+        2 つ (Ry(π) と Ry(π/2) の話) が数学的事実の言い換えになっている。役割の分離が曖昧。
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) ユニタリゲート族共通の判断 (継承)</strong>: 角丸正方形 / stroke なし / span = 1。h-gate.html の § 07 批評と同じく、これらは Ry 単独で決めることではない。</li>
+        <li><strong>(b) Rotation 族共通の判断</strong>: 2 文字グリフ "Ry" 採用 / θ を色で表現しない / Ry(π) と Y を別カード。Rx / Rz にも同じ判断が適用されるので、Rotation 族親仕様で 1 度書けば足りる。</li>
+        <li><strong>(c) Ry 単独の判断</strong>: "y" descender 問題 / x オフセット 23.923 の出所 / <code>Ry(π/2) ≠ H</code> の啓蒙 / 実係数行列の ansatz 用途。これらが本ページの本来の content。</li>
+      </ul>
+      <p class="critique-body">
+        現状の 9 項目は (a) と (b) が大部分を占め、(c) は <code>Ry(π/2) と H を「等価」と書かない</code> の 1 項目に圧縮されている。
+        ansatz の variational layer で Ry が頻出する話 (実係数行列の帰結) が § 07 にすら出てこないのは Ry ページとしては機会損失。
+        「Y 軸回転の Ry が ansatz の主役になる理由」を 1 項目立てると、Rotation 族の中で Ry の差別化が完成する。
+      </p>
+      <p class="critique-body">
+        補足: <code>Rx(π/2) ∝ √X</code> は Rx ページに、<code>Rz(π/2) ∝ S</code> は Rz ページにあるが、Ry には対応する固定角 (<code>Ry(π/2)</code>) のショートカット名が存在しない (√Y は palette にない)。
+        この<strong>「Ry だけ固定角の別名がない」非対称</strong>も Ry ページの特異点として明文化する余地がある。
+      </p>
+    </aside>
   </div>
 </section>
 

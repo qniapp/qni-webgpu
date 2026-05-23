@@ -201,6 +201,55 @@
       color: var(--bg);
     }
     .t-gate-ref > svg { display: block; width: 40px; height: 40px; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -249,6 +298,41 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「s-dagger-gate.html とほぼ同一の構成」が文体テンプレート流用の弊害を示している</div>
+    <p class="critique-body">
+      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、角丸 6 px、
+      drag preview = purple-600 はユニタリ共通論点で <a href="h-gate.html">h-gate.html</a> 全体所見の批判が当てはまる。
+      dagger 表記 (S† と共通) の議論は <a href="s-dagger-gate.html">s-dagger-gate.html</a> 全体所見 / Top
+      Opportunities で深掘り済みで、本ページにも同じ批判 (S† の親仕様化 / 5 × 9 px の判別性 / hover 強調策の議論不足) が当てはまる。
+    </p>
+    <p class="critique-body">
+      T† ページ固有の核心は <strong>「T† が non-Clifford ゲートのエルミート共役」</strong>であること。
+      § 07 の matrix-card に <code>(T†)<sup>2</sup> = S†</code> / <code>(T†)<sup>4</sup> = Z</code> /
+      <code>T† = T<sup>7</sup></code> / <code>非 Clifford ゲート</code>と書かれるが、これは T と同じ non-Clifford 性を引き継ぐ唯一の dagger という
+      重要な性質。一方で本ページの構成は <a href="s-dagger-gate.html">s-dagger-gate.html</a> をほぼテンプレート流用しており、
+      章ごとの内容も S† と均質。<strong>T† だけが non-Clifford である</strong>事実が page-lede や § 01 でも触れられず、
+      「位相系列の dagger ペアのうちの 1 つ」という同列扱いで終わっている。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>dagger 表記の親仕様を抽出 (s-dagger-gate.html 参照)</strong> — 右上 superscript / 52 % 縮尺 / 起点座標 / 色は paper など dagger の組版規約を <code>dagger-glyph.html</code> (仮) に集約し、本ページは T† 固有 (T と同じ non-Clifford 性) に絞る (全体所見参照)。</li>
+      <li><strong>non-Clifford 性を § 01 と § 07 で強調</strong> — Phase 族 5 ページ (S / T / S† / T† / P) のうち T と T† だけが non-Clifford で、これは「universal の鍵」「T カウント最小化の対象」という量子計算上の重要な性質。matrix-card の 1 セルに埋もれているのは情報構造として弱い (§ 07 参照)。</li>
+      <li><strong>§ 02 配色テーブルの相対輝度比 2.8 vs 3.4 の矛盾 (s-dagger-gate.html 参照)</strong> — 同じ cyan-400 + paper の対なのに、s-gate / s-dagger / h-gate / x-gate でばらつきがある (§ 02 参照)。</li>
+      <li><strong>§ 03 のジオメトリ表に書かれた † グリフ 5.1 × 9.1 px は Tailwind スケール外</strong> — text-xs (12 px) を下回り、本プロジェクトの方針と矛盾する。判別困難な領域 (§ 03 参照)。</li>
+      <li><strong>§ 04 の T vs T† 比較に実寸 / 隣接配置のシナリオを追加</strong> — 現状は 3 倍拡大止まり。パレットや回路上の実寸隣接で判別可能かを検証していない (§ 04 参照)。</li>
+      <li><strong>§ 06 の連続配置モックで T と T† を交互に並べる「混在シナリオ」モック</strong> — 現状は T† 3 個の連続配置だが、実際の量子コンパイラの出力では T と T† が交互に出てくる (位相補正パターン)。視認性を実シナリオで検証する余地がある (§ 06 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -272,6 +356,23 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 non-Clifford 性が page-lede / § 01 で言及されない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">T† が「non-Clifford ゲートの唯一の dagger」である事実が一切触れられない</div>
+      <p class="critique-body">
+        本文は「T が進めた位相を巻き戻す逆向き T」「色やサイズは T と完全に共有」と T との関係を述べるが、
+        Phase 族の中で T と T† だけが <strong>non-Clifford</strong>であるという量子計算上の重要な性質には触れない。
+        この性質は <a href="t-gate.html">t-gate.html</a> § 07 matrix-card の「Clifford + T で universal」と
+        対応するが、T† 単体ではエルミート共役として T と同じ非 Clifford 性を持ち続けることが量子コンパイラの
+        基底ゲート集合 (例: T と T† の両方を含む) の設計理由になっている。
+      </p>
+      <p class="critique-body">
+        改善案: page-lede か § 01 本文に「T† は T と同じく non-Clifford。Clifford + T 集合に必要な逆元」と
+        1 行追記し、T† の役割を読者に最初に植える。これがないと、「T† は T の逆」止まりで、なぜ Clifford 族 (S†)
+        とは別扱いされるのかが伝わらない。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -477,6 +578,22 @@
       うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
       隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 T と T† の混在モックが欠落している">
+      <div class="critique-label">★ 批評 · § 06 回路グリッド上の配置</div>
+      <div class="critique-title">「T† 3 個の連続配置」モックは実際の量子コンパイラ出力と乖離する</div>
+      <p class="critique-body">
+        現状のモックは T† を 1 つおきに 3 個並べる形だが、量子コンパイラの出力では <strong>T と T† が交互に出現する</strong>
+        パターン (例: 位相補正、CNOT の位相シフト分解) が典型的。実シナリオで T と T† が並んだとき、
+        ユーザが両者を判別できるか / † グリフが視認できるかは、本ページの設計判断 (「字形差で順 / 逆を示す」)
+        の妥当性を直接検証する場面なのに、ここでは検証されていない。
+      </p>
+      <p class="critique-body">
+        改善案: モックを 2 つに分け、(a) 現状の「T† 連続配置」(同種ゲートの繰り返し視認性検証) と
+        (b) 「T / T† 交互配置」(順 / 逆の混在シナリオでの判別性検証) を並べる。
+        後者で判別性が低いことが確認できれば、Top Opportunities #5 の hover 強調策やテキストラベルの根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -498,6 +615,23 @@
       <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: T† は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 non-Clifford 性が他の関係と並列の重みで列挙されている">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">matrix-card の「非 Clifford ゲート」が、代数関係と同じセル内に追記される構造になっている</div>
+      <p class="critique-body">
+        matrix-card 「関係」セルには <code>T†·T = I</code> / <code>(T†)<sup>2</sup> = S†</code> /
+        <code>(T†)<sup>4</sup> = Z</code> / <code>T† = T<sup>7</sup></code> / <code>非 Clifford ゲート</code>
+        が並列に詰め込まれている。最後の「非 Clifford」は代数関係ではなく <strong>計算複雑性上の分類</strong>で、
+        前の 4 つの代数関係とは性質が異なる。同じセルに混ぜると、ユーザは「非 Clifford」を「<code>T† = T<sup>7</sup></code> の
+        補足説明」のように読み流してしまう。これは <a href="t-gate.html">t-gate.html</a> § 07 でも同じ構造的弱点。
+      </p>
+      <p class="critique-body">
+        改善案: matrix-card に「分類」セルを独立で立てる (「非 Clifford / Phase 族 / dagger」)。
+        この分類軸は他の Phase メンバ (S / S† は Clifford / Phase 族 / dagger なし or あり、P は Clifford 階層の連続化)
+        との対比で T† の唯一性が浮かび上がる。matrix-card のレイアウト (4 列 grid) には追加 1 セル分の余裕がある。
+      </p>
+    </aside>
   </div>
 </section>
 

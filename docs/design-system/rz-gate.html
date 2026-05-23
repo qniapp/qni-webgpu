@@ -231,6 +231,55 @@
       padding: 24px 0;                      /* spacing-6 */
       flex-wrap: wrap;
     }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / x-gate.html / rx-gate.html / ry-gate.html と同じスタイル。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -286,6 +335,41 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ───────
+     Rotation 家系 (Rx / Ry / Rz) で共通する論点は ry-gate.html (中央のページ) に集約し、
+     本ページ (Rz) では Rz 固有 (Z / S / T / S† / T† との関係、P との対比) に絞る。 -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">Rz 固有性は「Z / S / T / S† / T† / P の 6 兄弟をまとめあげる中心点」、§ 07 の Rz vs P 議論が本ページの核</div>
+    <p class="critique-body">
+      配色 (§ 02) / ジオメトリ (§ 03) / グリッド配置 (§ 06 前半) は <a href="h-gate.html">h-gate.html</a> と完全に共通、
+      字形 2 文字グリフ (§ 04) / θ パラメタ編集 (§ 06 後半) は <a href="ry-gate.html">ry-gate.html</a> と共通の論点なので、
+      <strong>本ページの全体所見はそれらを参照</strong>するに留め、Rz 固有の論点だけを以下に展開する。
+    </p>
+    <p class="critique-body">
+      Rz の固有性は <strong>「Rotation 族で最も別名固定角が多い」</strong>こと: <code>Rz(π) ∝ Z</code> /
+      <code>Rz(π/2) ∝ S</code> / <code>Rz(−π/2) ∝ S†</code> / <code>Rz(π/4) ∝ T</code> / <code>Rz(−π/4) ∝ T†</code>。
+      これに加えて <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> という「<strong>大域位相だけ違う双子ゲート P</strong>」が
+      別 palette カードで存在する。Rx 族 (X / √X / Rx の 3 兄弟) / Ry 族 (Y / Ry の 2 兄弟) と比べて Rz 族は 7 兄弟と最大で、
+      ユーザーが「どれを置くか」の決定樹はもっとも複雑。これを § 07 の bullet 4 / 5 / 6 で 3 つに分けて書いているが、
+      <strong>関係図 (Venn / Tree / Matrix)</strong> として 1 枚にまとめる価値が高い。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (Rz 固有のものを中心に)</div>
+    <ol class="critique-list">
+      <li><strong>Z / S / T / S† / T† / P / Rz の 7 兄弟関係図を § 01 に置く</strong> — Rz 固有の認知負荷の根源。Rx 族 (3 兄弟) や Ry 族 (2 兄弟) とは桁違いの複雑さで、関係図がないと初学者は <code>Rz(π/4) ∝ T</code> 系の対応を覚えきれない (全体所見参照)。</li>
+      <li><strong>Rz と P の「同位相 / 別位相」対比を § 07 から § 01 へ昇格</strong> — 現状は § 07 bullet 6 に深く埋もれているが、Rz と P は数学的にはほぼ同じで、差は<strong>位相の置き方 (対称 vs 非対称)</strong> だけ。これは palette で Rz と P が並んだとき<em>「なぜ 2 つあるの?」</em>と直感的に疑問になる箇所で、概要に出す価値が高い (§ 01 / § 07 参照)。</li>
+      <li><strong>Rotation 族共通の論点は <a href="ry-gate.html">ry-gate.html</a> へ集約</strong> — 字形 2 文字グリフ / θ ポップオーバ primitive / 「θ を色に持たせない」判断 / Rotation 族親仕様化は Rz でも該当するが、本ページでは Ry を canonical として参照に留める (§ 02 / § 04 / § 06 参照)。</li>
+      <li><strong>preset 集合 <code>0 / π/4 / π/2 / π / 3π/2</code> は Rz では特に S / T と直結</strong> — Rz の preset chip <code>π/4</code> を選ぶと事実上「T を θ で指定」しているのと同じ。chip に「= T」「= S」のラベルや tooltip を付けると、Rz 固有の決定樹に直接接続できる (§ 06 参照)。</li>
+      <li><strong>§ 08 関連欄が長くなり scan しにくい</strong> — Rz は 8 つの関連仕様 (Rx / Z / S / S† / T / T† / P / H / palette / hover-frame / colors / migration) を持ち、Ry (8) や Rx (8) より多い。関連の<strong>密度</strong>を「数学的等価」「視覚 chrome 共有」「primitive 継承」に分類すると navigability が上がる (§ 08 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -312,6 +396,22 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形 / θ パラメタ編集の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 Z 系 6 兄弟の関係図がない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「Z / S / T / S† / T† / P / Rz の 7 兄弟」が文章でしか提示されていない</div>
+      <p class="critique-body">
+        概要 p 内に「<code>θ = π で Rz = −iZ、θ = π/2 で S、θ = π/4 で T</code>」と 3 つの対応が並んでいる。
+        これに加えて <code>Rz(−π/2) ∝ S†</code> / <code>Rz(−π/4) ∝ T†</code> / <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code>
+        があり、合計 <strong>7 ゲートが Rz を中心に同心円的に並ぶ</strong>。Rx の 3 兄弟 (X / √X / Rx) や
+        Ry の 2 兄弟 (Y / Ry) と比べて圧倒的に複雑で、文章だけでは関係を覚えきれない。
+      </p>
+      <p class="critique-body">
+        提案: § 01 末尾に小型の関係図 (Z 軸の dial 上に θ = 0 / π/4 / π/2 / π / −π/4 / −π/2 のマークを置き、それぞれに対応する
+        固定角ゲート名 I / T / S / Z / T† / S† をラベル) を置く。Rz は dial そのもの、P はラベルが半分ずれた版、として 1 枚で
+        全関係が見える。これは Rz ページ最大の差別化要素になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -355,6 +455,22 @@
       色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、
       <code>purple-600</code> = ドラッグに限定する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">テーブルは H ページ完全重複、Rz は S / T / S† / T† と全部同じ cyan-400 という色の責務過多</div>
+      <p class="critique-body">
+        配色テーブル (cyan-400 / paper / purple-400 / purple-600 の 4 行) は <a href="h-gate.html">h-gate.html § 02</a> と完全に同一。
+        Rotation 族共通の論点 (「θ を色に持たせない」判断、ロール × 状態の軸圧縮) は <a href="ry-gate.html">ry-gate.html § 02 の批評</a>を参照。
+      </p>
+      <p class="critique-body">
+        本ページ固有の論点: cyan-400 は <strong>Rz / S / T / S† / T† / P / Z の 7 ゲート</strong>すべてで使われる。
+        色族の責務が「ユニタリ操作」の一語に圧縮されているのは設計判断としては筋が良いが、ユーザーが palette を
+        scan するときに<strong>「位相系の中で何がハードコード固定で何がパラメトリックか」</strong>が色だけでは分からない。
+        Quirk は固定角 (S / T) と任意角 (Z^θ) を字形だけで区別しているのと同じ問題で、本仕様もこの選択を継承している。
+        この設計判断の<strong>代償</strong> (色での区別を諦めた) は § 07 で明示する価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -453,6 +569,21 @@
         <div class="zoom"><div class="rz-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rz-glyph"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形 Rz 固有">
+      <div class="critique-label">★ 批評 · § 04 字形 (Rz 固有)</div>
+      <div class="critique-title">2 文字グリフ全般の論点は <a href="ry-gate.html">ry-gate.html § 04</a> に集約、Rz 固有は「z は palette 上で唯一の対角字形」</div>
+      <p class="critique-body">
+        Rotation 族共通の論点 (字形高さが H の 53 % に対し 33 %、kerning の出所、3× zoom の必要性、Rotation 族親仕様化)
+        は ry-gate.html § 04 の批評を参照。本ページでは Rz 固有の論点だけ展開する。
+      </p>
+      <ul class="critique-list">
+        <li><strong>"z" path <code>M28 0V100L394 611H42V710H522V610L154 99H533V0Z</code> は対角線が支配する字形</strong> — H / X / Y / Z / S / T / Rx (R+x) / Ry (R+y) / Rz (R+z) と並べたとき、"z" の左上→右下の対角ストロークは <strong>palette 上で唯一</strong>。これは Rotation 族内の<strong>視覚的識別性</strong>に貢献するが、本仕様ではメリットとして言及されていない。</li>
+        <li><strong>"z" の x オフセット <code>24.673</code> は Rx (<code>23.724</code>) / Ry (<code>23.923</code>) より約 0.75〜0.95 大きい</strong> — 本文には書かれているが、これは "z" の左側余白が "x" / "y" より広い字形特性に起因する。<strong>視覚中心</strong> (グリフのインク重心) を本体中心に揃えた場合 "z" は右に寄るため、optical-center-aware なオフセットが Geist Bold で計算されている。これは「letter-spacing は族で揃えていない」という事実の言い換えで、Ry の批評で指摘した曖昧さがここでも露出している。</li>
+        <li><strong>note の "z の上端 / 下端は R の x-height とほぼ揃う"</strong> — § 04 表の最後の行に書かれているが、"x-height" はラテン文字組版用語で、x 字形の高さを指す。"R" は capital なので x-height ではなく cap-height が正確 (Geist Bold では x-height &lt; cap-height)。<strong>用語の誤用</strong>で、後で修正したほうがよい。</li>
+        <li><strong>note の "Rx (R→x: 15.014) / Ry (R→y: 15.015) と比較して Rz では 15.014 と同等"</strong> — 「同等」とあるが、Rz の R→z 間隔は実際には <code>24.673 - 9.659 = 15.014</code>、Rx は <code>23.724 - 8.710 = 15.014</code>、Ry は <code>23.923 - 8.908 = 15.015</code> なので<strong>本当にほぼ同等</strong>。一方で <strong>R の絶対 x オフセット</strong> (Rx: 8.710 / Ry: 8.908 / Rz: 9.659) は族で差があり、これは "R + 第二字形" の bbox の中心が本体中心と揃うように、R の左 padding を字形ごとに変えているため。この内訳が本文では片方しか書かれていない。</li>
+      </ul>
+    </aside>
   </div>
 </section>
 
@@ -537,6 +668,20 @@
       (別仕様で定義)。Rx / Ry / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
       とプリセット集合のみが差分。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 θ ポップオーバ Rz 固有">
+      <div class="critique-label">★ 批評 · § 06 θ パラメタ編集ポップオーバ</div>
+      <div class="critique-title">Rz では preset 集合がそのまま「S / T / Z / S† / T†」への招待状になる、ラベル化の価値が最も高い</div>
+      <p class="critique-body">
+        Rotation 族共通の論点 (primitive 切り出し / セル下 θ ラベル / preset chip active state / 負角 preset の欠落 / popover placement)
+        は ry-gate.html § 06 の批評を参照。本ページでは Rz 固有の論点だけ展開する。
+      </p>
+      <ul class="critique-list">
+        <li><strong>preset <code>π/4</code> = T、<code>π/2</code> = S、<code>π</code> = Z、<code>−π/4</code> = T†、<code>−π/2</code> = S†</strong> — Rz の preset 集合は<strong>すべて別 palette カードに対応する</strong>。Rx (π/2 = √X / π = X の 2 つ) や Ry (対応なし) と比べて、ラベル化のメリットがもっとも大きい。chip に <em>「π/2 (= S)」</em>と付けるか、tooltip で出すかを Rz ページが先に決めるべき。</li>
+        <li><strong>負角 preset の欠落 (Ry 批評と同論点)</strong> — Rz では特に <code>−π/2</code> / <code>−π/4</code> が S† / T† に直結するため、preset に <code>±π/4 / ±π/2 / ±π</code> 対称形を入れる価値が高い。「inverse は手入力」の現状仕様は Rz では特に不便で、ansatz / QFT 逆変換 / Quantum Phase Estimation などの実用回路で頻繁にひっかかる。</li>
+        <li><strong>popover ラベル "RZ · Z-AXIS ROTATION"</strong> — Rx / Ry / Rz の 3 つ全てが uppercase 表記なのに、すぐ隣の P (Phase) は palette 上で字形が大文字 "P" 単独。本ページの末尾 note でも "PHASE" と表記しているが、P ゲートは Phase の頭文字 1 字なので、popover ラベル規約と本体字形規約が「Rz: 2 文字略号」「P: 単語フル」と非対称になる。Rotation 族親仕様 + Phase 仕様の<strong>横断 popover ラベル規約</strong>で揃えるべき。</li>
+      </ul>
+    </aside>
   </div>
 </section>
 
@@ -579,6 +724,32 @@
       <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: Rz は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 設計判断 Rz 固有">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">Rz vs P の議論が bullet 6 に圧縮されており、Rz 最大の固有論点を捉えきれていない</div>
+      <p class="critique-body">
+        bullet 6 (<code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> で大域位相のみ違うが、P と Rz を別カードに残す) は Rz 最大の固有判断で、
+        <strong>Rotation 族で P と直接対応する唯一のゲートが Rz</strong>であることを定義している。
+        にもかかわらず、bullet として書かれていて他の汎用論点 (角丸正方形 / 2 文字グリフ / stroke なし) と平等に並んでおり、
+        Rz 固有性が埋もれている。
+      </p>
+      <ul class="critique-list">
+        <li><strong>P 行列: <code>diag(1, e<sup>iθ</sup>)</code></strong> — <code>|0⟩</code> は不変、<code>|1⟩</code> にだけ位相 <code>e<sup>iθ</sup></code> を乗せる「<strong>非対称</strong>形式」。教科書 / Qiskit / Quirk が採用。</li>
+        <li><strong>Rz 行列: <code>diag(e<sup>−iθ/2</sup>, e<sup>iθ/2</sup>)</code></strong> — <code>|0⟩</code> / <code>|1⟩</code> に対称に位相を分配する「<strong>対称</strong>形式」。生成子 <code>−Z/2</code> が物理的に明確。</li>
+        <li><strong>差: 大域位相 <code>e<sup>iθ/2</sup></code></strong> — 観測可能量は変わらないので、回路シミュレーションでは等価。ただし制御 (controlled-Rz / controlled-P) を作るときに<strong>結果が違う</strong> (controlled の場合、大域位相が相対位相になる) ため、UI 仕様としては別カードに残す価値がある。</li>
+      </ul>
+      <p class="critique-body">
+        bullet 6 末尾の<em>「X (固定円形) と Rx (角丸正方形) のような 2 系列を持たない P (固定円形) と Rz (角丸正方形) の対応」</em>
+        は本文として読みにくい (二重否定気味)。「P は X / √X のように固定角名で覚えるゲートで、Rz は連続パラメタ。
+        ただし P 自身は θ を取るので<strong>P は固定 + 連続のハイブリッド</strong>」という整理のほうが明快。
+      </p>
+      <p class="critique-body">
+        補足: bullet 1 / 7 / 8 (角丸正方形 / stroke なし / span = 1) はユニタリゲート族共通、bullet 2 / 3 (2 文字グリフ / θ 不表現) は
+        Rotation 族共通で、h-gate.html § 07 批評 / ry-gate.html § 07 批評と同じく「(a) 族共通 / (b) Rotation 共通 / (c) Rz 固有」の
+        階層化が必要。Rz 固有として残るのは bullet 4 / 5 / 6 (Z / S / T / P との関係) で、これが本ページの核。
+      </p>
+    </aside>
   </div>
 </section>
 

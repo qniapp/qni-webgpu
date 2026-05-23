@@ -195,6 +195,55 @@
       color: var(--tx-2);
     }
     .mini-grid .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / probability-display.html と同じスタイル。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -233,6 +282,42 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「単独マーカ仕様」と「列内集約仕様」の責任境界が曖昧</div>
+    <p class="critique-body">
+      Control は本体に塗りを持たない「修飾子」ゲートで、本仕様ページは <strong>40 × 40 px の単独マーカ</strong>と
+      <strong>列内に他のゲートと並んで初めて意味を持つ多量子ビット操作</strong>の両方を扱っている。
+      § 01 / § 04 が前者 (マーカ単体)、§ 05 が後者 (列内集約) を担当する構造は概ね合理的だが、
+      § 03 ジオメトリで言及される<strong>「縦コネクタ 4 px」「z-index = コネクタ→マーカ」</strong>はマーカ単体の話ではなく
+      <strong>列内集約レイヤの話</strong>で、章をまたいで論理が混在している。
+    </p>
+    <p class="critique-body">
+      理想的には、「マーカ仕様」と「コネクタ + 列集約仕様」を別ドキュメント (例:
+      <code>circuit-connectors.html</code>) に切り出し、本ページは <strong>Control 固有 = 塗りつぶし円 cy=24/r=8</strong> だけに集中するほうが、
+      <a href="anti-control-gate.html">AntiControl</a> / <a href="swap-gate.html">Swap</a> と縦コネクタ仕様を共有でき diff レビューの負荷も減る。
+      実装側の <code>apps/web/src/render/circuit_connectors.rs</code> が <code>CONNECTOR_STROKE_WIDTH = 4.0</code> を
+      Control / Swap / 同角 Phase で共有していることを§ 06 で言及している以上、仕様側でも共有層を切り出す価値がある。
+      ホバー枠 (purple-400 4 + 2 構成) / Tailwind スケール厳守 / drag preview = purple-600 の議論は
+      <a href="h-gate.html">H ページの全体所見</a>と同じため再展開しない。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>縦コネクタ仕様を <code>circuit-connectors.html</code> に抽出</strong> — Control / AntiControl / Swap が同じ 4 px 仕様を 3 ページで重複定義している (全体所見参照)。</li>
+      <li><strong>§ 02 配色テーブルに「制御マーカ」「縦コネクタ」を独立行で並べる冗長</strong> — 両者は同じ <code>cyan-400</code> / <code>box_fill</code> ロールで備考だけが違う。「ロール / 適用箇所 / 状態」を分けると共有関係が読める (§ 02 参照)。</li>
+      <li><strong>§ 03 SVG 寸法注記 <code>font-size="4"</code> が Tailwind スケール外</strong> — viewBox 80 を 240 px に投影しているので実表示 12 px だが、SVG mono は判読しにくい。h-gate と同じ論点だが本ページにも該当 (§ 03 参照)。</li>
+      <li><strong>§ 05 列内集約の「単独配置」「制御だけの列」の semantics が文章のみ</strong> — どの組み合わせが GPU op に展開され、どれが no-op か、表で並べたほうが Codex / 人間が一覧できる (§ 05 参照)。</li>
+      <li><strong>多重制御 (CCX = Toffoli) / 中間ワイヤを跨ぐ場合の縦コネクタ仕様が無い</strong> — 「制御 — 制御 — 対象」を 3 行に置いた場合、中間ワイヤ上で何が描かれるかが本仕様に書かれていない (§ 05 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -262,6 +347,24 @@
       縦コネクタは「この列に制御条件がある」ことを示す補助線。対象ゲートの本体を塗り替えず、
       同じ列にある制御マーカと対象の中心だけを接続する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 ペア仕様としての位置付け">
+      <div class="critique-label">★ 批評 · § 01 識別性</div>
+      <div class="critique-title">塗りつぶし円 cyan-400 が単独で何を意味するか、初見では伝わりにくい</div>
+      <p class="critique-body">
+        Quirk / 量子回路の慣習を知っている読者には <strong>塗りつぶし円 = control = |1⟩ 条件</strong>は自明だが、
+        本仕様だけ読む初学者には「色面のない 6.67 px の塗りつぶし円」は <em>circuit junction (回路の合流点)</em> や
+        <em>wire の中継点</em>とも区別がつきにくい。Hadamard / Pauli のような<strong>グリフを持つゲート</strong>は
+        本体色 + 文字で「何のゲートか」が即読みできるのに対し、Control は<strong>「形 = 意味」が完全に Quirk 慣習依存</strong>になる。
+        この前提を § 00 (前文 / page-lede) で明示しておくと、Codex が「なぜ円なのか」の判断軸を理解できる。
+      </p>
+      <p class="critique-body">
+        さらに、本 § ではモック横並びで「単体マーカ / CNOT / ホバー」を見せているが、
+        <strong>「単体マーカ = 操作なし (§ 05 参照)」</strong>という重要な意味論が caption に出ていない。
+        Control は対象ゲートと組み合わさって初めて意味を持つので、単体モックの caption は
+        「単体マーカ (操作なし、対象が必要)」のように<strong>セマンティクスも併記</strong>する価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -280,6 +383,23 @@
         <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>透明な 40px 領域の背面にそのまま見える</td></tr>
       </tbody>
     </table>
+
+    <aside class="critique" aria-label="批評 · § 02 配色テーブルの軸圧縮">
+      <div class="critique-label">★ 批評 · § 02 配色テーブル</div>
+      <div class="critique-title">「制御マーカ」と「縦コネクタ」が独立行で並ぶが、両者は同じ <code>box_fill</code> ロールで備考だけが違う</div>
+      <p class="critique-body">
+        現状のテーブルは 5 行構成だが、上 2 行 (<code>制御マーカ</code> / <code>縦コネクタ</code>) はどちらも
+        <code>cyan-400</code> = <code>box_fill</code> ロールで、適用箇所だけが違う。これは
+        <strong>「同じ Flexoki トーンが同じロールで複数箇所に適用される」</strong>パターンで、テーブルとしては
+        ロール → 適用箇所のツリーに展開するほうが、配色ロール (token) と描画要素 (instance) の関係が読める。
+      </p>
+      <p class="critique-body">
+        改善案: テーブルを「ロール / Flexoki トーン / hex / 適用箇所 / 状態」の 5 列に再構成すると、
+        <code>box_fill (cyan-400)</code> 行に「制御マーカ + 縦コネクタ」と複数適用箇所をまとめられる。
+        これは <a href="anti-control-gate.html">AntiControl</a> 仕様 § 02 や <a href="swap-gate.html">Swap</a> 仕様 § 02 と
+        同じ構造になり、Multi-qubit 家系での一貫性も上がる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -318,6 +438,25 @@
         <p><strong>4 px</strong> · Control / Swap / 同角 Phase で共有する縦コネクタ幅</p>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ SVG と寸法整合">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ図</div>
+      <div class="critique-title">SVG 内の <code>font-size="4"</code> は実表示 12 px だが本仕様の他章 (text-xs = 12 px) と書体が違う</div>
+      <p class="critique-body">
+        <code>geo-diagram</code> SVG は <code>viewBox="-12 -12 80 80"</code> を 240 × 240 px に投影しているので、
+        <code>font-size="4"</code> の寸法注記 (「56 px slot」「40 px hit area」) は実表示<strong>約 12 px</strong>に相当する。
+        Tailwind スケール (text-xs = 12 px) には乗っているが、SVG 内の Geist Mono は<strong>サブピクセルラスタライズが劣化</strong>するうえ、
+        右の <code>.legend</code> ブロックがすでに同じ情報を text-xs (12 px) で並べているため、SVG 内テキストは情報的に重複している。
+        h-gate.html § 03 と同根の論点 (h-gate は <code>font-size="3.6"</code> = 約 10.8 px とより小さく深刻)。
+      </p>
+      <p class="critique-body">
+        さらに、SVG 中の円は <code>cx="20" cy="20" r="6.67"</code> と <strong>40 px 実寸換算</strong>で描かれているが、
+        近接する viewBox 内の dashed rect (-8〜48 / 0〜40) は <strong>1 px = 1 SVG unit</strong> として描かれ、
+        スロット内の <strong>同じ図に 2 つのスケール軸が混在</strong>している (円: r=6.67 が viewBox 48 → 40px 表示の換算値、
+        矩形: 40 = 40 px 実寸)。「40 px hit area」のラベルと r=6.67 の円が同居しても、円が <strong>viewBox 上の r=8 を表示換算した値</strong>
+        だと初見では分かりにくい。SVG 凡例にこの混在を 1 行明示するか、両方とも viewBox 48 スケールで揃えると整理できる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -344,6 +483,24 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 ホバー枠 stroke-only vs surface gap">
+      <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
+      <div class="critique-title">「回路ホバー = stroke-only」「パレットホバー = surface gap」の使い分けの根拠が caption に出ていない</div>
+      <p class="critique-body">
+        ② と ④ は本仕様で唯一見た目が二分岐する設計判断 (回路上ではコネクタが透けるので内部をマスクしない、
+        パレット上はコネクタが無いので surface gap を入れる) だが、caption は「stroke-only」「surface gap あり」と
+        実装語彙で書かれているだけで、<strong>「なぜそうするか」</strong>は読者が § 03 / § 05 を読み解く必要がある。
+        <a href="h-gate.html">H ゲート</a>の hover は <code>4 px 枠 + 2 px 背景の空き</code>の 1 種類だけなので、
+        本仕様で初めて<strong>「ホバー枠は文脈で 2 種類」</strong>が登場することになる。caption に
+        「(コネクタが透けるため内部を塗らない)」「(パレットには対象がないため通常版)」のような根拠を 1 行添えるか、
+        § 末尾の note に集約すると、初見の Codex / 人間が判断軸を取り違えない。
+      </p>
+      <p class="critique-body">
+        補足: <a href="hover-frame.html">hover-frame.html</a> 仕様側で「Control / Swap / AntiControl は回路上のみ stroke-only」
+        という横断ルールを明示すれば、本ページの caption は実装語彙のままで済む。現状は仕様の所在が分散している。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -369,6 +526,33 @@
       <div class="mini"><strong>制御だけの列</strong><br />塗りつぶし制御が 2 個以上で対象がない列は、CZ / CCZ 系として扱う。</div>
       <div class="mini"><strong>Swap との関係</strong><br />Swap の縦線は専用コネクタで描く。制御付き Swap の条件は同じ列の制御条件を使う。</div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 05 列内集約の意味論">
+      <div class="critique-label">★ 批評 · § 05 列内集約</div>
+      <div class="critique-title">「制御だけの列」と「複数制御」の境界条件が曖昧、CCX / Toffoli の図解も欠落</div>
+      <p class="critique-body">
+        4 つの mini-card は重要な意味論を網羅しているが、「制御だけの列」は
+        <em>塗りつぶし制御が 2 個以上で対象がない列は CZ / CCZ 系として扱う</em>と書かれている一方、
+        「複数制御」では<em>同じ列に複数の制御マーカを置くと多重制御になる</em>と書かれており、
+        <strong>「対象がない CZ」と「対象がある多重制御」の境界</strong>が読者の頭の中で組み立てなければ繋がらない。
+        さらに <strong>CCX (Toffoli) のような 2 制御 + 1 対象</strong>は単独カードがなく、「複数制御」の文中で <em>多重制御</em> と
+        まとめられているだけ。Multi-qubit 家系で最も登場頻度の高いゲートの一つなので、図入りの単独カードがあると有用。
+      </p>
+      <p class="critique-body">
+        改善案: 縦軸に「制御の数 (1 / 2 / 3+)」、横軸に「対象ゲートの有無 (なし / X / Z / その他)」を取る
+        <strong>2 次元の組み合わせ表</strong>を入れると、CNOT / CZ / CCX / CCZ / CCCX の位置関係と GPU op
+        への展開が一覧できる。「制御だけの列」が CZ 系として扱われる条件 (= 対象ゲートが Z 相当の対角行列のとき集約可) も
+        ここに整理できる。<strong>「Swap との関係」</strong>は単独カードよりも§ 07 関連仕様の <a href="swap-gate.html">Swap ゲート</a>
+        リンクに集約したほうが本章の凝集度が上がる。
+      </p>
+      <p class="critique-body">
+        補足: <strong>中間ワイヤ上の縦コネクタ通過</strong>の仕様が本章にも§ 03 にも書かれていない。
+        制御を q0、対象を q3 に置いた場合、q1 / q2 の中間ワイヤ上を 4 px 縦コネクタが通過するが、
+        その時に <strong>中間ワイヤに置かれた別の 1 量子ビットゲート</strong> (例: H) と縦コネクタの z-index 関係や、
+        中間ワイヤとコネクタが交差する箇所の描画 (コネクタが上、ワイヤが背面 / どちらが上か) が未定義。
+        実 UI で描画される最頻パターンなので、本仕様 (§ 03 z-index か § 05) で言及する価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 

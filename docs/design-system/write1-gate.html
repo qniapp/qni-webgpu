@@ -163,6 +163,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html / probability-display.html と同じスタイル (sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -206,6 +255,40 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「|0⟩ オペレーションの 1 文字差分」というページとしての存在意義</div>
+    <p class="critique-body">
+      <code>H ページの全体所見と同じ</code>く、本仕様は配色・寸法・字形を Flexoki Light に厳密に従って網羅している。
+      <a href="write0-gate.html">|0⟩ オペレーション</a> と sibling 関係にあり、本文中でも「<code>red-600</code> → <code>blue-600</code>」と
+      ディジット 1 文字 + 色 1 つの差分しかないことが明示されている。chrome / 寸法 / 状態挙動はすべて共通で、
+      実際 § 02 / § 03 / § 04 のテーブルは |0⟩ ページとほぼ 1:1。
+    </p>
+    <p class="critique-body">
+      この構造は <strong>「sibling ページが同じ template の写経で 95 % 同一になる」</strong>問題を抱え、
+      h-gate.html § 02 全体所見が指摘した「ユニタリゲート族の親仕様を抽出すべき」議論と完全に並行する。
+      |0⟩ / |1⟩ は意味論的にも「on / off の対」として並んで初めて意味があるので、
+      <strong>1 ページ (例: <code>ket-operations.html</code>)</strong>に「|0⟩ と |1⟩ の差はディジットと色だけ」として並列に書くほうが、
+      template 重複を解消できる。本ページ単独で読むと「|0⟩ の文書を見なくても完結する」が、
+      その独立性が逆に「<em>差分が分かりにくい</em>」というデメリットを生む。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>|0⟩ / |1⟩ 統合ページ <code>ket-operations.html</code> の検討</strong> — 本仕様の 95 % は |0⟩ ページと重複する。差分 (ディジット + 色) だけを 1 ページにまとめれば、template 重複が解消する (全体所見参照)。</li>
+      <li><strong>blue-600 「semantic_on」と Probability / 制御 ゲートの色重複</strong> — blue-600 は確率表示 / Measurement / |1⟩ / 一部 GPU status (青系) で使われ、ロール衝突の確認が薄い (§ 02 参照)。</li>
+      <li><strong>X ゲートとの差別化が文章だけで、視覚比較がない</strong> — § 07 で「X ゲートと分けて持つ」根拠を semantics で語っているが、「画面で見たときの差」を見せる並列モックが存在しない (§ 07 参照)。</li>
+      <li><strong>§ 04 字形 "1" の Geist Mono セリフ / foot 仕様が <code>|0⟩</code> ページ "0" 仕様と微差で重複</strong> — 字形の bounding box が "0" 13.9 × 20.7 → "1" 13.4 × 19.8 と微妙に違うが、配置 transform は共有という設計判断の根拠が薄い (§ 04 参照)。</li>
+      <li><strong>§ 06 「<code>|1⟩</code> での初期化 (X ゲートと等価だが意味的に「強制書込み」を明示)」の論点が UI レイヤに紛れ込んでいる</strong> — 同じく § 06 末尾の「コンパイル時には measurement + 条件付き X」も UI 仕様から外したい (§ 06 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -233,6 +316,22 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形 / 意味論の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 |0⟩ ページとの呼称統一">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「ゲート」/「operation」/「オペレーション」の揺れが |0⟩ ページとそっくり同じ</div>
+      <p class="critique-body">
+        |0⟩ ページと同様、本文中で「状態準備 (state preparation) ゲート」「<em>operation</em>」「|1⟩ オペレーション」が
+        同じ段落内で並列に登場する。<strong>差分はディジット 1 文字</strong>のため、|0⟩ ページの呼称揺れ批評がそのまま当てはまる。
+        ペアで仕様を書いている以上、呼称ルールも 1 か所で確定 (例: <code>ket-operations.html</code> 親で定義) して、
+        sibling ページからは継承するだけにしたい。
+      </p>
+      <p class="critique-body">
+        補足: page-lede が「|0⟩ オペレーションと陣形を共有する」と書いている点は重要で、
+        この一文があるおかげで「<em>2 ページ並べて読まないと完結しない</em>」ことが暗黙に伝わっている。
+        だが、それなら最初から 1 ページに統合して両方を並列に並べたほうが、読み手の眼の往復を減らせる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -281,6 +380,30 @@
       括弧 (chrome) は中性。同じ red/blue 対は <a href="probability-display.html">確率表示ブロック</a> や
       Measurement の結果ディジットでも使われ、状態 |0⟩/|1⟩ の表示が UI 全体で 1 つの色対に揃う。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 blue-600 の semantic_on ロール衝突">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">blue-600 の用途 (semantic_on / control wire / qiskit status) が UI 内で重なるリスク</div>
+      <p class="critique-body">
+        <code>blue-600</code> (#205EA6) は本仕様の「ディジット <code>1</code>」「<code>semantic_on</code>」のほか、
+        <a href="probability-display.html">確率表示ブロック</a>のバーや、qiskit バックエンドの running 状態、
+        <a href="control-gate.html">制御ゲート</a>と量子ビット間のコネクタ線でも使われる可能性がある。
+        本仕様では「<em>red/blue 対の意味は 0/1 だけに留める</em>」と単一意味化を強調しているが、
+        UI 全体で <code>blue-600</code> 利用箇所のインベントリが取れていないと、
+        意図せず「ディジット 1 = control 線」のような視覚的混同が起きる。
+      </p>
+      <p class="critique-body">
+        改善案: <a href="design-system-colors.html">配色ページ</a> に
+        <strong>「blue-600 の現行利用箇所一覧」</strong>を集約し、本ページからリンクで参照させる。
+        現状は「Probability / Measurement / |0⟩ / |1⟩ で同色を使う」までしか書かれておらず、
+        他にも blue 系を使う UI 要素 (例: ホバーリンク / Bloch +x 軸など) と衝突しないかを本ページからは確認できない。
+      </p>
+      <p class="critique-body">
+        補足: 「blue-600 は WCAG コントラスト比 6.8 で paper に乗り、red-600 と同等の視認性を保つ」と
+        設計判断 § 07 にあるが、red-600 のコントラスト比 (実測値) と並べて書かれていないので、
+        「同等」の根拠が読者に渡らない。Probability ページの contrast 仕様を併記すると、UI 全体での読解性が増す。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -351,6 +474,23 @@
       hit 領域と占有スロットのサイズは H / Rz と完全に同じ。詳細な経緯は
       <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 03 ジオメトリ表記の |0⟩ 互換性">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">|0⟩ ページと同じテーブルが繰り返され、差分 (ディジット transform 共有) の説明が薄い</div>
+      <p class="critique-body">
+        テーブルの 8 行中 7 行が |0⟩ ページと文字単位で同一で、「ディジット "1" 配置」の行だけが微差
+        (本文に「"0" と同じ transform を共有」と書かれている)。これは <strong>"ディジットの transform を |0⟩ / |1⟩ で共有する"</strong>
+        という重要な設計判断 ("0" と "1" のベースライン / 幾何中心を一致させるために origin を同一にする) を含むが、
+        テーブル行の中で「他と同じ transform を共有する」とサラッと書かれているだけで、その重要性が伝わらない。
+      </p>
+      <p class="critique-body">
+        改善案: § 03 末尾に <strong>「|0⟩ / |1⟩ 字形 origin 共有の意義」</strong>という小見出しを設け、
+        「同じ origin を共有することで、UI 内で |0⟩ ↔ |1⟩ を切り替えてもディジットがピクセル単位で動かない (palette アニメや
+        sequence の差分プレビューでベースラインがずれない)」という仕様根拠を 1 段落で書く。
+        これは |0⟩ ページ § 03 にも欠けている論点で、ket-operations 親仕様を作るならその冒頭に置きたい。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -387,6 +527,30 @@
         <div class="zoom"><div class="write1-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write1"/></svg></div></div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 04 字形 1 のセリフと光学センター">
+      <div class="critique-label">★ 批評 · § 04 字形</div>
+      <div class="critique-title">Geist Mono "1" の左上セリフと横長 foot が、光学的中心と幾何中心をずらす</div>
+      <p class="critique-body">
+        本仕様は「<em>外形サイズ "1" 単体が約 13.4 × 19.8</em>」「"0" と同じ origin を使うため、|0⟩ ↔ |1⟩ の差し替えで
+        ベースラインが動かない」と書いている。しかし Geist Mono の "1" は <strong>左上セリフ + 横長 foot (x = 60 〜 540)</strong>を持つ字形で、
+        幾何中心 (bbox 中央) と光学中心 (人の目が "中心" と感じる位置) がずれやすい
+        ("1" は左上のセリフのせいで光学中心が幾何中心より右下にある)。
+      </p>
+      <p class="critique-body">
+        |0⟩ の "0" は左右対称な楕円形で幾何中心 ≒ 光学中心だが、"1" は非対称なので、
+        <strong>同じ origin に置くと "1" がやや左に寄って見える</strong>可能性がある。
+        本仕様の 3× zoom で目視するとこの差は微小だが、palette や複数の |1⟩ を縦に並べた回路では累積的に違和感を生む。
+        改善案: "1" だけ <code>translate</code> の x 成分を <strong>+0.5 〜 +1 px (viewBox 上)</strong> 程度オフセットして
+        光学センター補正をかける。これは Geist Mono の Type Specimen で公式に「foot の張り出しによる光学補正」が
+        言及されているなら、その値をそのまま借用するのが正当。
+      </p>
+      <p class="critique-body">
+        補足: |0⟩ ページの § 04 では「X は左括弧 (x=6) と右括弧の尖端 (x=43.5) の中点に近づくよう微オフセット」と書かれていたが、
+        |1⟩ ページにはこの「微オフセット」の根拠説明がなく、"0" と "1" で同じ transform を共有することの
+        副作用がそもそも意識されていない可能性がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -420,6 +584,23 @@
       |1⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       パラメタを持たないため、Rz / P のようなポップオーバ編集 UI も無い。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 |0⟩ ページとの差分なし">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">|0⟩ ページとの状態モック差分がディジットだけで、ページとしての固有情報がない</div>
+      <p class="critique-body">
+        本章は |0⟩ ページ § 05 と <strong>caption の文字列まで一致</strong>し、唯一の違いは "0" → "1" と
+        "red-600 ディジット" → "blue-600 ディジット" の 2 か所だけ。
+        状態バリアントの 3 状態 (既定 / ホバー / ドラッグ) はすべて |0⟩ と同じく cursor + ホバー枠だけで
+        フィードバックを伝えるので、|1⟩ ページ固有の判断は何もない。
+      </p>
+      <p class="critique-body">
+        改善案: |0⟩ / |1⟩ を統合した <code>ket-operations.html</code> では、
+        <strong>状態バリアントを「ディジット 0 / 1 の両方を並べた 6 マス表」</strong>として展開すれば、
+        状態 × ディジットの直交関係が一目で読める。本ページのように 1 ディジットだけ並べると、
+        「これは |0⟩ ページと何が違うんだ?」という認知負荷だけが残る。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -448,6 +629,22 @@
       うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
       隣接スロットへ連続配置しても、hit 領域同士には 16 px の余白が残り、ホバー枠同士が重ならない。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 06 X ゲートとの「意味的明示」が UI 仕様に混入">
+      <div class="critique-label">★ 批評 · § 06 回路グリッド配置</div>
+      <div class="critique-title">「X ゲートと等価だが意味的に「強制書込み」を明示」は UI 配置仕様の章で扱う論点ではない</div>
+      <p class="critique-body">
+        本文に <strong>「回路頭 (列 = 0) に置けば <code>|1⟩</code> での初期化 (X ゲートと等価だが意味的に「強制書込み」を明示)」</strong>と書かれているが、
+        これは「<em>UI 上の配置寸法仕様</em>」ではなく「<em>X と |1⟩ の意味論的差異</em>」の論点で、§ 07 「意味論と設計判断」で扱うべき内容。
+        加えて、|0⟩ ページの § 06 でも同じく「コンパイル時には measurement + 条件付き X」と書かれており、
+        2 ページとも UI 配置の章に semantics が混入している。
+      </p>
+      <p class="critique-body">
+        改善案: § 06 は <strong>「スロットに置くと何 px の余白が確保されるか」「隣接ゲートと枠が重ならないか」</strong>に集中させ、
+        意味論 (X ゲートとの等価性、コンパイル時の分解) は § 07 へ移す。
+        UI レイヤと意味論レイヤの章境界が曖昧だと、本仕様を実装する Codex が「<em>絵をどう描くか</em>」と「<em>動かしたらどうなるか</em>」のどちらの仕様を参照すべきか迷う。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -489,6 +686,28 @@
       <li><strong>パラメタを持たない</strong>: Rz / P のような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write0-gate.html">|0⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
       <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |1⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 X と |1⟩ の視覚比較がない">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">「X ゲートと分けて持つ」が文章だけで、視覚的並列比較がない</div>
+      <p class="critique-body">
+        本章 6 項目目の「X ゲートと分けて持つ」は、|1⟩ オペレーションの存在意義を語る最重要の論点
+        (回路頭での見た目は同じ結果になるが、回路の途中での挙動と量子情報的意味が違う)。
+        にもかかわらず<strong>並列比較ダイアグラムや配置例</strong>が一切なく、文章だけで X = ユニタリ反転 / |1⟩ = 強制書込み を区別している。
+        Qiskit / Cirq / Quirk の他の量子回路エディタを使ったことのある読者には自明だが、
+        本仕様だけ読む人にとっては「<em>なぜ X があるのに |1⟩ を別ゲートで持つ?</em>」が即座に理解できない。
+      </p>
+      <p class="critique-body">
+        改善案: § 07 末尾に <strong>「初期状態 |0⟩ → X」と「任意状態 → |1⟩」の 2 つの mini-circuit モック</strong>を並べる。
+        前者は単純な状態反転、後者は中間のもつれを破壊して |1⟩ に強制する操作で、回路として明らかに違う挙動を示すことが、
+        実際の SVG モックで一目で伝わる。これは |0⟩ ページの同じ位置にも同様に追加する価値がある共通課題。
+      </p>
+      <p class="critique-body">
+        補足: 8 項目が平等に並んでいる問題は |0⟩ ページ § 07 / h-gate.html § 07 と完全に並行する。
+        透明マーカ系 (cyan-400 を使わない / ホバー枠単線 / ドラッグ色変えない / ケット括弧 tx-2) は |0⟩ と共有、
+        Write1 単独は「ディジット "1" を blue-600 / 南極へ強制移動」だけ、と階層化したい。
+      </p>
+    </aside>
   </div>
 </section>
 

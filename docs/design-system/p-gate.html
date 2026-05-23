@@ -171,6 +171,55 @@
       color: var(--tx-2);
     }
     .matrix-card .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -209,6 +258,41 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「θ 可変パラメータ」というパラメトリックゲート性が本体の見た目に乗っていない</div>
+    <p class="critique-body">
+      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、
+      drag preview = purple-600 はユニタリ共通論点で、<a href="h-gate.html">h-gate.html</a> 全体所見と同じ批判が当てはまる。
+      円形ボディの選定根拠 (X との形状共有 + 字形差で識別) は <a href="x-gate.html">x-gate.html</a> 全体所見の
+      議論の延長線上にあり、本ページでは「X = Plus, P = 文字 P で識別できる」と簡潔に扱われている。
+    </p>
+    <p class="critique-body">
+      P ページ固有の核心は <strong>「パラメトリックゲート (θ 可変) の見た目をどう表現するか」</strong>。page-lede では
+      <em>「円形ボディ = 位相ホイールのメタファ」</em>とパラメトリック性を形状に込めようとしているが、
+      現状の <strong>静的な円形 + 字形 "P"</strong> は θ の値や可変性をまったく示していない。S (P(π/2)) / T (P(π/4)) /
+      Z (P(π)) と P(θ) を並べたとき、ユーザは「P は θ をいじれる」という機能を chrome から読み取れない。
+      § 02 / § 05 の本文に「θ の現在値はホバーポップアップやパレットの数値入力など別チャネルで提示する」と
+      書かれているが、それは <em>設計判断としては有効</em>でも <em>パラメトリック性の視覚的シグナルが本体にない</em>という
+      課題は残る。Phase 族 (S / T / S† / T†) と並んだとき、「P だけが特別」を伝える chrome 上の差別化が円形以外にない。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>パラメトリック性の視覚的シグナルを本体に追加する余地を検討</strong> — 円周上に微小な θ マーカ (時計の針 / 扇形の角度インジケータ) を重ねる、あるいは P 字形の右下にミニ角度バッジ (例: "π/4") を出すなど、θ の存在 / 現在値を本体に乗せる選択肢がある。採否は別だが、選択肢の検討が § 07 に含まれていない (全体所見 / § 07 参照)。</li>
+      <li><strong>X との形状衝突を緩和する設計余地を § 07 で明示</strong> — § 07 リスト 1 で「円形は X と共有するが、X = Plus / P = 文字 P で識別できる」と書くが、これは <strong>X (CNOT ターゲット) と P (パラメトリック位相) という意味的にまったく異なる 2 つのゲート</strong>に同じ形状を使う設計判断。 Plus とアルファベット P はパッと見ても識別性が低くないが、初心者にとって「丸 = CNOT のターゲット」と「丸 = パラメトリック位相」の二重対応は学習負荷になる (§ 07 参照)。</li>
+      <li><strong>§ 05 状態バリアントに「θ パラメータ編集 UI 開閉中」状態を追加</strong> — 現状は default / hover / drag の 3 状態だが、パラメトリックゲートには「θ 編集 popover が開いている状態」も実シナリオで存在する (P 固有の状態)。これを §05 で扱わないと「θ をどう編集するか」の動線が仕様ページに残らない (§ 05 参照)。</li>
+      <li><strong>§ 07 「S / T / Z と冗長させる」設計判断の代償が議論されていない</strong> — P(π/2) = S / P(π/4) = T / P(π) = Z と意味的に同じゲートを別々に提供することは、UI 上「同じことが 4 通りで実現できる」という冗長性を生む。利点 (短い字形で読みやすい) は書かれているが、代償 (新規ユーザの「どれを使えばいいか」の判断負荷) は触れない (§ 07 参照)。</li>
+      <li><strong>RZ / RX / RY との位置づけを matrix-card に追加</strong> — 「RZ(θ) と P(θ) は大域位相を除いて等価」「P は Z 軸のみ / RZ は Z 軸の物理回転 (大域位相込み)」など、回転ゲート族との関係が本ページではほとんど扱われていない。matrix-card に「回転族との関係」セルを追加すると、ユーザが「いつ P を使い、いつ RZ を使うか」を判断できる (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
@@ -233,6 +317,23 @@
       3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 「位相ホイール」メタファが視覚に乗っていない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「円形 = 位相ホイール」のメタファが page-lede の文字情報だけで、視覚に乗らない</div>
+      <p class="critique-body">
+        page-lede では「円形ボディを採用することで角度パラメータを持つ位相ホイールというメタファを字形と形状の両面で示す」と
+        書かれているが、実際の chrome は <strong>cyan-400 の塗りつぶし円 + 文字 "P"</strong>で、円周上に角度指標は何もない。
+        位相ホイールとはユーザの<em>連想に依存する</em>メタファで、円形ボディだけからホイール性を読み取るのは
+        量子計算の素養が要る (RZ 回転ゲートのブロッホ球上の動きを知っているユーザ向け)。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 概要のモックに「現在の θ 値を持つ P ゲート」のバリアントを追加し (例: 円周の一部に θ 角度マーカ、
+        または P 字形右下にミニ "π/4" バッジ)、位相ホイールという主張が単なる隠喩でなく視覚的シグナルとして
+        成立しうることを示す。採用しないとしても、「採用しなかった理由」を § 07 に明示しておくと、
+        後続の RX / RY / RZ ページがパラメトリックゲートの可視化を再検討するときの根拠になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -276,6 +377,18 @@
       <code>purple-600</code> = ドラッグに限定する。θ の現在値は本体の見た目ではなく、
       ホバーポップアップやパレットの数値入力など別チャネルで提示する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 相対輝度比 2.8 vs 3.4 の矛盾">
+      <div class="critique-label">★ 批評 · § 02 配色</div>
+      <div class="critique-title">「相対輝度比 ≈ 2.8」は h-gate.html / x-gate.html の「≈ 3.4」と矛盾</div>
+      <p class="critique-body">
+        § 02 の「字形 "P" + paper」行は <code>cyan-400 上で相対輝度比 ≈ 2.8</code> と書くが、cyan-400 (#3AA99F) + paper (#FFFCF0)
+        という同じ前景・背景の対について <a href="h-gate.html">h-gate.html</a> / <a href="x-gate.html">x-gate.html</a> は <code>≈ 3.4</code>
+        と記載している。Phase 族の s-gate.html と同じ表記揺れで、どちらかが誤計算。同じ色対の輝度比が
+        4 ページ (h / x / s / s-dagger / p) でばらつくのは、設計トークンの単一情報源
+        (<a href="design-system-colors.html">design-system-colors.html</a>) が機能していないことを示唆する (s-gate.html / s-dagger-gate.html § 02 批評と同じ論点)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -390,6 +503,23 @@
       P は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       θ パラメータの編集 UI (数値入力 / スライダ) はこの 3 状態とは別チャネルで提供される (未着手 / 別仕様)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 「θ 編集中」状態が状態バリアントから欠落している">
+      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
+      <div class="critique-title">「θ パラメータ編集 UI 開閉中」は P 固有の重要な状態だが、別仕様として外部化されている</div>
+      <p class="critique-body">
+        P はパラメトリックゲートで、ユーザは θ を編集するために必ず「編集モード」を経由する。これは
+        default / hover / drag と並ぶ <strong>P 固有の第 4 状態</strong>だが、本文末尾の note では
+        <em>「未着手 / 別仕様」</em>として外部化されている。仕様ページとしては「P の状態空間 = 3 つ (他のゲートと共通)」と
+        ミスリードしうる構成で、P 固有の重要性 (パラメトリック性) が § 05 から欠けている。
+      </p>
+      <p class="critique-body">
+        改善案: § 05 に「④ θ 編集 popover が開いた状態 (placeholder)」を追加し、本体の上に
+        小さな数値入力 + スライダの仮スケッチを乗せる (実装は未着手で問題ない)。これがあれば、
+        「P は他のゲートと違って 4 状態目を持つ」が仕様レベルで明示され、別仕様のリンク先 (未着手) が
+        いつまで未着手で残るかの責任も明確になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -435,6 +565,28 @@
       <li><strong>枠線を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
       <li><strong>span = 1 固定</strong>: P は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
     </ul>
+
+    <aside class="critique" aria-label="批評 · § 07 冗長性 / X 衝突 / RZ 関係の議論不足">
+      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
+      <div class="critique-title">3 つの設計判断 (冗長性 / X 形状衝突 / RZ との関係) が一面的にしか議論されていない</div>
+      <p class="critique-body">
+        <strong>(1) 「S / T / Z と冗長させる」判断の代償</strong>: リスト 4 項目では「P(π/2) = S と P(π/4) = T を別ゲートとして残す」
+        利点 (短い字形で読みやすい / 意図が見た目から分かる) だけが書かれ、代償 (新規ユーザの「どれを使えばいいか」の判断負荷、
+        パレット上の冗長配置による情報密度の低下) は触れない。Phase 族 5 ページが提示する選択肢 (P / S / T / S† / T†)
+        は実用上「ほとんど S と T で済む」ので、初心者には「なぜ P が独立して必要か」が伝わりにくい。
+      </p>
+      <p class="critique-body">
+        <strong>(2) X との形状衝突</strong>: リスト 1 では「円形は X と共有するが、X = Plus / P = 文字 P で識別できるため衝突しない」と
+        断定するが、これは <strong>初心者が「丸 = NOT」と「丸 = パラメトリック位相」の二重対応を学ぶ負荷</strong>を考慮していない。
+        実 UI で X と P が同じ wire 上に隣接配置されたとき、字形 (Plus vs P) の判別性は本ページではモック検証されていない。
+      </p>
+      <p class="critique-body">
+        <strong>(3) RZ / RX / RY との関係</strong>: matrix-card の「ブロッホ球」セルに「大域位相を除けば RZ(θ) と等価」と書かれるが、
+        これは P と回転族の関係を理解するうえで根本的な情報。リストには「パラメトリック回転 (RX / RY / RZ) とは違う見た目にする」と
+        あるが、「P と RZ(θ) は大域位相を除いて等価」が決定的な区別点。matrix-card に「回転族との関係」セルを独立で立てると、
+        ユーザは「P を使うべき場面」と「RZ を使うべき場面」(大域位相が観測に影響する場合) を判断できる。
+      </p>
+    </aside>
   </div>
 </section>
 

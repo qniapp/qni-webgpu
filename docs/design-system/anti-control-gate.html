@@ -15,12 +15,14 @@
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。
        本ページは AntiControl の透明な 40 px 領域、cyan-400 の空円、
-       4 px 縦コネクタ + ±6 px の中心隙間、ホバー枠を CSS + inline SVG で再現する。 */
+       空円内側の 8 px 背景マスク、4 px 縦コネクタ + ±6 px の中心隙間、
+       ホバー枠を CSS + inline SVG で再現する。 */
 
     /* ── アンチコントロールマーカ ─────────────────────
        Control と同じ box_fill ロール (cyan-400) を使い、字形だけが異なる「ペア表現」。
        viewBox 48 座標: cx=24, cy=24, r=5, stroke=3 の空円。
-       40 px 表示時の見た目は外径 ~5.4 px / 線幅 ~2.5 px。 */
+       40 px 表示時の見た目は外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px。
+       回路上では内側に 8 px (spacing-2) の bg-2 マスクを敷き、ワイヤを消す。 */
     .ac-gate {
       width: 40px;                          /* GATE_SIZE = spacing-10 */
       height: 40px;
@@ -33,16 +35,26 @@
       cursor: grab;
       position: relative;
     }
+    .ac-gate::before {
+      content: '';
+      position: absolute;
+      width: 8px;                           /* spacing-2 */
+      height: 8px;                          /* spacing-2 */
+      border-radius: 999px;
+      background: var(--ac-mask, transparent);
+    }
     .ac-gate > svg {
       display: block;
       width: 40px;                          /* spacing-10 */
       height: 40px;
       overflow: visible;
       pointer-events: none;
+      position: relative;
+      z-index: 1;
     }
 
-    /* 回路上のホバー枠。透明な内部を塗らず、purple-400 の 2 px 線だけを描く。
-       コネクタが AntiControl の中央を「またいで」通るため、surface gap でマスクしない。 */
+    /* 回路上のホバー枠。透明な内部全体を塗らず、purple-400 の 2 px 線だけを描く。
+       空円内側の小さなマスクだけでワイヤを消す。 */
     .ac-gate[data-state="hover"],
     .ac-gate:not([data-state]):hover {
       box-shadow: 0 0 0 2px var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
@@ -125,6 +137,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      --ac-mask: var(--bg-2);
       background: var(--bg-2);
     }
 
@@ -139,17 +152,21 @@
     .column-mock--2 {
       height: 112px;                        /* 2 × LINE_GAP */
       grid-template-rows: repeat(2, 56px);
+      --ac-mask: var(--bg-2);
       background:
         linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat,
+        var(--bg-2);
     }
     .column-mock--3 {
       height: 168px;                        /* 3 × LINE_GAP */
       grid-template-rows: repeat(3, 56px);
+      --ac-mask: var(--bg-2);
       background:
         linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
         linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat,
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 140px / 100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 140px / 100% 1px no-repeat,
+        var(--bg-2);
     }
 
     /* コネクタ: AntiControl が「途中ノード」にいる場合の ±6 px 隙間付き分割。
@@ -273,6 +290,55 @@
       color: var(--tx-2);
     }
     .mini-grid .mini strong { color: var(--tx); }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       h-gate.html と同じスタイル。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -307,10 +373,46 @@
     <code>AntiControl</code> は同じ列の対象ゲートを <code>|0⟩</code> 条件にする制御マーカ。
     回路エディタ上では <strong>40 × 40 px の透明な領域</strong>の中央に、
     cyan-400 の <strong>空円 (r=5, stroke=3)</strong> を描く。
+    空円の内側だけは bg-2 の小さな円でワイヤを隠し、マーカの穴に線が入らないようにする。
     塗りつぶし円で <code>|1⟩</code> 条件を示す <a href="control-gate.html">Control</a> と
     本体寸法 / 色 / 当たり判定をすべて共有し、<strong>「塗りか線か」だけで条件値の違いを示す</strong>ペア表現を採用する。
   </p>
 </div>
+
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">Control とのペア仕様だが、識別性 (塗り vs 線) の妥当性が「ペア表現を採用する」の一言で済まされている</div>
+    <p class="critique-body">
+      AntiControl は <a href="control-gate.html">Control</a> と寸法 / 色 / 当たり判定をすべて共有し、字形 (塗り / 線) だけで条件値の違いを示すペア表現。
+      この設計判断は <code>page-lede</code> で明示されており、本仕様は Control 仕様の sibling として一貫性が高い。
+      一方で <strong>「塗り vs 線」だけが唯一の識別軸</strong>という前提が、可読性 / アクセシビリティ / 視認性の観点から
+      じゅうぶん検証されていない。実表示 <strong>外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px</strong> の空円は、画素グリッドにきれいに乗らず、
+      高 DPI ディスプレイ以外では線の太さが安定しない (アンチエイリアスで滲む)。Control の塗りつぶし円
+      (外径 ~13 px) との<strong>絶対サイズ差</strong>も大きく、「ペア」と呼ぶには形状の重心がずれている。
+    </p>
+    <p class="critique-body">
+      ホバー枠 (purple-400 4 + 2 構成) / Tailwind スケール厳守 / drag preview = purple-600 の議論は
+      <a href="h-gate.html">H ページの全体所見</a>と同じため再展開しない。本仕様の固有論点は
+      <strong>(a)「線だけ」での識別性</strong>、<strong>(b) コネクタの ±6 px 隙間という空円特有の例外処理</strong>、
+      <strong>(c) Control と並んだ時の見分けやすさ</strong>の 3 つに集中している。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>Control と AntiControl の「直接比較」モックを § 01 or § 03 に追加</strong> — 現状は両者を並べて見せる図がなく、識別性 (空 vs 塗り) の妥当性を Codex / 人間が検証できない (§ 01 参照)。</li>
+      <li><strong>外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px が Tailwind スケール外</strong> — viewBox 48 → 40 px 表示の換算結果で、Tailwind の <code>spacing-*</code> や <code>border-*</code> スケールに乗らない非整数。実装側で固定化されているとはいえ、仕様で明示する妥協 (§ 02 / § 03 参照)。</li>
+      <li><strong>コネクタ ±6 px 隙間の根拠が「空円外半径 ~5.4 px を完全に避ける幅」だけ</strong> — なぜ 5 px / 7 px / 8 px ではなく 6 px か、視覚的な検証ロジックが弱い (§ 03 参照)。</li>
+      <li><strong>§ 05 column-mock--anti-middle の SVG / CSS 表現が見た目仕様 (実装) と乖離するリスク</strong> — CSS の <code>linear-gradient</code> 2 段重ねで隙間を表現しているが、これは実装 (Rust + WebGPU) の二本線描画と<strong>異なる表現手段</strong>。仕様ページの再現性として論点 (§ 05 参照)。</li>
+      <li><strong>多重制御 (CCCX 等) で Control / AntiControl が混在する場合のコネクタの色 / 太さの安定性</strong> — § 05 mini-card で言及はあるが、視覚図がない (§ 05 参照)。</li>
+      <li><strong>§ 04 hover の box-shadow による枠と Control の <code>::before</code> による枠が技法的に違う</strong> — 同じ「purple-400 stroke-only 2 px」枠なのに、Control 仕様は <code>::before + border</code>、本仕様は <code>box-shadow</code>。実装と仕様の差なのか、仕様内の表記揺れか (§ 04 参照)。</li>
+    </ol>
+  </aside>
+</section>
 
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -339,9 +441,31 @@
     </div>
     <p class="note" style="margin-top: 16px;">
       空円の中心はワイヤと縦コネクタの両方が通る位置にあるため、視覚を阻害しないよう
-      <strong>縦コネクタは空円の中心から上下 6 px を分割描画する</strong>。
+      <strong>横ワイヤは空円内側の bg-2 マスクで消し、縦コネクタは空円の中心から上下 6 px を分割描画する</strong>。
       Control (塗りつぶし円) ではコネクタが本体を貫通しても潰れないので、隙間は空けない。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 Control との直接比較が無い">
+      <div class="critique-label">★ 批評 · § 01 識別性</div>
+      <div class="critique-title">「ペア表現」と呼びながら Control の塗りつぶし円が並べられていない</div>
+      <p class="critique-body">
+        page-lede では <strong>「塗りか線かだけで条件値の違いを示すペア表現」</strong>を採用すると明言しているが、
+        § 01 のモック (既定 / 原寸 3 倍 / 0 条件 CNOT) は<strong>すべて AntiControl 単体</strong>で、
+        肝心の <em>Control (塗りつぶし円) と AntiControl (空円) の直接比較</em>が無い。<strong>ペアとして読ませたい設計判断</strong>と
+        <strong>ペアの片方しか見せない図解</strong>の間に明らかな乖離がある。
+      </p>
+      <p class="critique-body">
+        改善案: § 01 のステージ右端に「Control + AntiControl 並列 1 行」モックを追加 (例: 左から Control 1 つ → AntiControl 1 つ
+        → 同じ列の Control + AntiControl + X)。これがあれば、初学者でも「塗り vs 空」の識別軸が一目で理解できる。
+        外径 / 線幅 / 色がすべて共通であることも自明になり、本仕様が <a href="control-gate.html">Control 仕様</a>とペアであることが視覚的に伝わる。
+      </p>
+      <p class="critique-body">
+        補足: 原寸 3 倍 (zoom ×3) は <a href="h-gate.html">H ゲート § 04 の批評</a>と同じく、現代のディスプレイ + Playwright ワークフローでは
+        情報価値が低いが、本仕様の場合は <strong>「外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px」</strong>という非整数の小さい記号なので、
+        H ゲートの 22 px グリフよりは zoom の意義が残る。ただし zoom ×3 単体ではなく、Control の zoom ×3 と<strong>並列</strong>に
+        並べると識別性のチェックとして機能する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -354,17 +478,40 @@
       </thead>
       <tbody>
         <tr><td>空円のストローク</td><td><code>cyan-400</code></td><td>#3AA99F</td><td><code>box_fill</code> ロール。Control の塗りつぶしと同色で「ユニタリ操作ゲート族」の所属を共有する</td></tr>
-        <tr><td>空円の内側</td><td>透明</td><td>—</td><td>背面のワイヤ (<code>ui-2</code>) や bg (<code>--bg</code>) がそのまま見える</td></tr>
+        <tr><td>空円の内側</td><td><code>bg-2</code></td><td>#F2F0E5</td><td>8 px (spacing-2) の円で背面のワイヤ (<code>ui-2</code>) を隠す。40 px 領域全体は透明のままにする</td></tr>
         <tr><td>縦コネクタ</td><td><code>cyan-400</code></td><td>#3AA99F</td><td><code>CONNECTOR_STROKE_WIDTH = 4 px</code> の矩形。中心 ±6 px の隙間付きで分割描画する</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td><code>gate_hover_border</code> ロール。回路上では stroke-only</td></tr>
         <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td>#5E409D</td><td><code>drag_fill</code> ロール。空円のストロークだけを置き換える</td></tr>
-        <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>透明な 40 px 領域の背面にそのまま見える</td></tr>
+        <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>透明な 40 px 領域の背面に見える。ただし空円の穴の内側だけは bg-2 マスクで隠す</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
       条件値の <code>0</code> / <code>1</code> を別色で区別しない理由は、両者とも「ユニタリ操作の修飾子」という同一カテゴリで、
       cyan-400 = 操作ゲート族の色対応を崩したくないため。条件値の違いは <strong>字形 (塗り / 線)</strong> でのみ表現する。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 配色テーブルとマスク表現">
+      <div class="critique-label">★ 批評 · § 02 配色テーブル</div>
+      <div class="critique-title">「空円の内側 = bg-2」が配色行として並ぶが、実体は<strong>マスクのための背面色</strong>であり「色」ではない</div>
+      <p class="critique-body">
+        テーブルの 2 行目「空円の内側」は <code>bg-2</code> となっているが、これは<strong>「描く色」ではなく
+        「ワイヤを消すために重ねる背景マスクの色」</strong>で、概念的には他の行と性質が異なる (前景色 vs 背面マスク)。
+        他のゲート仕様 (Control / Swap) には「マスク色」という軸が存在しないので、本仕様だけ
+        <strong>配色ロールが 1 つ多い</strong>ことを明示しないと、Codex が「box_fill + bg-2 マスク」というパターンを
+        他ゲートにも適用してしまう懸念がある。
+      </p>
+      <p class="critique-body">
+        改善案: テーブルから「空円の内側」行を分離し、「<strong>視覚仕様: マスク / コネクタ隙間</strong>」のような
+        小節を独立させる (配色 vs 視覚処理を分ける)。または「ロール」列を追加して
+        <code>foreground (前景色)</code> / <code>mask (背面マスク)</code> / <code>connector</code> / <code>hover</code> / <code>drag</code> を明示する。
+        現状の表は「配色 = 色面」と読まれやすく、bg-2 マスクの存在が読み飛ばされやすい。
+      </p>
+      <p class="critique-body">
+        補足: <strong>条件値の 0 / 1 を別色で区別しない判断</strong>はじゅうぶん理にかなっているが、これに<strong>例外</strong>が無いことの根拠は薄い。
+        たとえば回路エディタの「条件値ハイライト」モード (シミュレーション中、現在の基底に含まれる条件のマーカだけ強調)
+        のような将来機能を考えると、今のうちに「色変化が許可される文脈はあるか」を 1 行明記しておくと、将来のドリフトを防げる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -373,11 +520,11 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>占有領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE</code>)。本体塗りはないが、ホバー / ドラッグ / 当たり判定はこの透明な領域で持つ</td></tr>
-        <tr><th>空円</th><td>viewBox 48 上の <code>cx=24, cy=24, r=5, stroke-width=3</code>。<code>fill=none</code> で内側は透明。40 px 表示時の見た目は外径 ~5.4 px / 線幅 ~2.5 px</td></tr>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE</code>)。本体塗りはないが、ホバー / ドラッグ / 当たり判定はこの透明な領域で持つ。空円の穴だけ 8 px の背景マスクを重ねる</td></tr>
+        <tr><th>空円</th><td>viewBox 48 上の <code>cx=24, cy=24, r=5, stroke-width=3</code>。SVG は <code>fill=none</code>、回路上では内側に 8 px (spacing-2) の bg-2 マスクを敷く。40 px 表示時の見た目は外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。40 px 領域はスロット中央に置く</td></tr>
         <tr><th>縦コネクタ</th><td>列の中心 x に <code>4 px</code> 幅の矩形。最上端の制御 / 対象中心から最下端の中心までを結ぶ</td></tr>
-        <tr><th>コネクタ隙間</th><td>AntiControl の中心 (cy) から上下 <code>6 px</code> を空けて分割描画する。空円の外径 ~5.4 px を完全に避ける幅</td></tr>
+        <tr><th>コネクタ隙間</th><td>AntiControl の中心 (cy) から上下 <code>6 px</code> を空けて分割描画する。空円の外半径 ~5.4 px を完全に避ける幅</td></tr>
         <tr><th>Control との寸法差</th><td>Control は r=8 塗りつぶし (外径 ~13 px) で内側まで埋まるためコネクタを貫通させる。AntiControl だけ隙間を入れる</td></tr>
       </tbody>
     </table>
@@ -406,6 +553,29 @@
         <p><strong>4 px</strong> · 制御 / Swap / 同角 Phase で共有する縦コネクタ幅</p>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 03 コネクタ隙間とサブピクセル">
+      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
+      <div class="critique-title">コネクタ ±6 px 隙間の根拠が「外半径 ~5.4 px を完全に避ける幅」だけで、上限の設計余裕が無い</div>
+      <p class="critique-body">
+        現状の根拠は「空円の外半径 ~5.4 px を完全に避ける」のみで、なぜ 6 px なのか (下限) は分かるが、なぜ 7 px / 8 px ではないのか (上限)
+        が示されていない。コネクタ隙間が大きすぎると<strong>「2 端点が同一操作である」という視覚的結びつきが弱まる</strong>。
+        たとえば隙間 8 px なら全コネクタ長 56 px のうち 16 px (28 %) が抜けることになり、AntiControl が「列の中間ノード」になる
+        ケースで上下のコネクタ片が「別の操作」のように見えてしまう。6 px は<strong>下限ぎりぎりの最小値で、設計余裕は片側 ~0.3 px</strong>に過ぎない。
+      </p>
+      <p class="critique-body">
+        さらに、空円の外半径 <code>~5.4 px</code> も<strong>viewBox 48 → 40 px 表示の換算 (5 + 1.5 → 6.5 / 48 × 40 ≈ 5.42)</strong> で
+        非整数になる。実装側で SDF / アンチエイリアスがどう描いても画素グリッド上では ±0.5 px の揺れが出るので、
+        厳密には 6 px の隙間も<strong>サブピクセル分のオーバーラップ余地</strong>を持つべき。
+        本仕様は「外半径 ~5.4 px / 隙間 6 px = 余裕 ~0.6 px」と書くと、将来 stroke-width / r を調整する際の根拠になる。
+      </p>
+      <p class="critique-body">
+        SVG 内 <code>font-size="4"</code> ≒ 実表示 12 px は Tailwind スケール内だが、SVG の Geist Mono は<strong>サブピクセルラスタライズが効きにくい</strong>。
+        h-gate.html § 03 / control-gate.html § 03 と同じ論点。同様に、SVG 中の空円が <code>cx="20" cy="20" r="5.4" stroke-width="2.5"</code> と
+        非整数ベースで描かれているため、SVG プレビューと実 GPU 描画 (SDF / outline) で見た目が微妙に異なるリスクがある。
+        Playwright スクショによる比較を別途仕様化しておくと安心。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -433,10 +603,32 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      ホバー枠は Control と同じ stroke-only (purple-400 / 2 px)。空円の内側が透明なので、
-      ホバー枠の内側に背面の bg / ワイヤがそのまま透ける。
+      ホバー枠は Control と同じ stroke-only (purple-400 / 2 px)。40 px 領域全体は透明なまま、
+      空円の内側だけ bg-2 の小円でワイヤを隠す。
       パレットホバーだけは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使い、外側 2 px の bg を挟む。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 04 ホバー枠の実装技法が Control と不一致">
+      <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
+      <div class="critique-title">CSS の hover 枠を <code>box-shadow</code> で描いており、Control の <code>::before + border</code> と技法が違う</div>
+      <p class="critique-body">
+        本ページの hover は <code>box-shadow: 0 0 0 2px var(--purple-400)</code> で描かれており、
+        <a href="control-gate.html">Control 仕様</a>の <code>::before { inset: -4px; border: 2px solid }</code> と
+        <strong>異なる CSS 技法</strong>を使っている。同じ「purple-400 stroke-only 2 px」の見た目を、片や box-shadow、片や擬似要素 + border で
+        描いており、<strong>仕様ページ間の一貫性が崩れている</strong>。
+      </p>
+      <p class="critique-body">
+        box-shadow と border は<strong>枠の位置 (本体外側 / 内側)</strong> が異なる: <code>box-shadow: 0 0 0 2px</code> は本体外周に密着して 2 px を足すため、
+        ホバー時に隣接スロットへ 2 px 食い込む。Control 仕様の <code>inset: -4px + border 2px</code> は本体から 4 px 離れて 2 px を描くため、
+        合計 6 px の hover halo になる。<strong>本仕様の hover は Control より枠の位置が違う可能性がある</strong>。
+        実装側 (gate-palette.html / hover-frame.html) と照合し、どちらが正しいかを統一すべき。
+      </p>
+      <p class="critique-body">
+        補足: 「回路ホバー = stroke-only / パレットホバー = surface gap」の使い分け根拠が caption に出ていない論点は、
+        <a href="control-gate.html">Control 仕様 § 04 の批評</a>と同じ。Control / AntiControl / Swap で共通の論点なので、
+        <a href="hover-frame.html">hover-frame.html</a> 側に横断仕様として記述するのが筋。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -475,6 +667,30 @@
       <div class="mini"><strong>制御との混在</strong><br />同じ列に Control と AntiControl を混ぜると、各ビットが対応する条件値のときだけ対象ゲートが作用する多重制御になる。</div>
       <div class="mini"><strong>Swap との関係</strong><br />Swap の縦線は専用コネクタで描く。反制御付き Swap の条件は同じ列の制御条件を共有する。</div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 05 中間ノードのコネクタ描画と CSS 表現">
+      <div class="critique-label">★ 批評 · § 05 列内集約</div>
+      <div class="critique-title">「中央が AntiControl」の CSS 表現が実装と乖離するリスク、CCCX 等の混在ケースの図解も欠落</div>
+      <p class="critique-body">
+        2 つ目のモック (Control + AntiControl + X 混在) は <code>.column-mock--anti-middle::after</code> の
+        <code>linear-gradient</code> 2 段重ねで「上半分 50 px → 12 px 空き → 下半分 50 px」を表現している。
+        これは CSS による<strong>視覚再現</strong>として有効だが、実装側は <code>apps/web/src/render/circuit_connectors/control.rs</code> で
+        <strong>個別の矩形ストロークを 2 つ描く</strong>はず。CSS の表現手段と実装の表現手段が違うので、
+        将来コネクタの隙間や色が変わったとき、<strong>本ページ側だけ古い CSS 値が残る</strong>リスクがある。
+      </p>
+      <p class="critique-body">
+        改善案: § 03 の geo-diagram と同じ inline SVG でコネクタ片 2 本を描くと、<strong>「viewBox / 矩形の位置とサイズ」</strong>という
+        実装と同じ語彙で描けるため、仕様 / 実装間のドリフトを検出しやすい。
+        本ページの <code>linear-gradient</code> の <code>0 0 / 100% 50px no-repeat, 0 62px / 100% 50px no-repeat</code> は
+        マジックナンバーが 2 箇所 (50 と 62) あり、<code>--connector-gap</code> 等の CSS 変数化もできていない。
+      </p>
+      <p class="critique-body">
+        さらに、<strong>3 量子ビット以上の混在ケース</strong> (例: Control × 2 + AntiControl × 1 + X = CC̄CX 相当) や、
+        <strong>AntiControl が両端と中間に同時にある</strong>ケース (例: AntiControl - X - AntiControl) で<strong>コネクタの隙間が
+        2 つ以上発生するパターン</strong>の図解が無い。実 UI で起きうる組み合わせなので、§ 05 で 1 行図示すると Codex が
+        コネクタ実装の境界条件を理解できる。
+      </p>
+    </aside>
   </div>
 </section>
 

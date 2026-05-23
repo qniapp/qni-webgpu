@@ -144,6 +144,56 @@
       position: relative;
     }
     .legend .swatch canvas { width: 32px; height: 32px; display: block; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
+       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
+       probability-display.html / bloch-display.html の .critique と同じスタイル
+       (表示ブロックの sibling として一貫させる)。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
   </style>
 </head>
 <body>
@@ -176,6 +226,42 @@
   </p>
 </div>
 
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 全体所見">
+    <div class="critique-label">★ 批評 · 全体所見</div>
+    <div class="critique-title">「振幅をどう描くか」の根本判断が § 06 まで遅延し、複素数表示の trade-off が言語化されていない</div>
+    <p class="critique-body">
+      Flexoki Light 準拠、cellPx 帯ごとのレイヤ抑制、GPU パイプラインの 10 stage まで網羅性は高く、
+      probability-display.html / bloch-display.html と同じ「視覚仕様 + 実装仕様」の二重責任を踏襲している (全体構造は probability-display.html § 全体所見と同じ問題)。
+      一方で本仕様<strong>固有</strong>の論点として、<em>「複素振幅 (実数 + 虚数の 2 自由度) を 2D 平面にどう写すか」</em>という根本判断が
+      § 06 のセル描画モデルまで持ち越されており、§ 01〜§ 05 では「disk + needle」が天下り的に登場する。
+      Quirk オリジナルは <em>確率正方形 + 対数強調円 + needle</em> の 3 表現を併用、本仕様は <em>outline 円 + 振幅 disk + 位相 needle</em> に統一しているが、
+      <strong>なぜこの統一が振幅表現として優れているか</strong> (極座標 [mag, phase] が直交座標 [re, im] より読みやすい理由 / phasor 表現の代替案を退けた根拠) が
+      明示されていない。state panel と揃えるという <em>系内一貫性</em>の根拠だけが書かれていて、表現選択そのものの妥当性は読者の信頼に依存する。
+    </p>
+    <p class="critique-body">
+      <strong>確率表示ブロックとの差別化が「位相情報の有無」だけに集約されている</strong>: lede / § 01 / § 04 で「確率表示ブロックは <code>|α|²</code>、本表示ブロックは <code>α</code>」と繰り返されるが、
+      <em>α を見れば |α|² も読める</em>(disk 面積 ∝ mag² = prob) のだから、振幅表示ブロックが存在する以上は「確率表示ブロックの上位互換」とも解釈できてしまう。
+      にもかかわらず両者が別表示ブロックとして並存している根拠 (大量 span での縦バー読みやすさ / hover popup の文言の違い / production cellPx 帯の限界) は仕様書全体で散発的に触れられているだけで、
+      <em>「いつ確率表示ブロックを、いつ振幅表示ブロックを選ぶか」</em>の意思決定ガイドが章として無い。これは Codex / 人間が両方の仕様ページを行き来する動機を弱める。
+    </p>
+  </aside>
+
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>複素振幅の視覚表現選定根拠を § 00 (前文) として独立</strong> — 極座標 (mag + phase) を直交座標 (re + im) より優先する根拠、phasor / arrow / heatmap 等を退けた理由を § 06 から前倒しする (全体所見 / § 06 参照)。</li>
+      <li><strong>確率表示ブロックとの使い分けガイドを § 01 末尾に明記</strong> — 「位相が見たい → 振幅表示ブロック」「測定結果を縦に多数並べたい → 確率表示ブロック」「span 16 を fit して全体形状を見たい → 確率表示ブロック」など decision matrix を 1 表で (全体所見 / § 01 参照)。</li>
+      <li><strong>§ 02 のサイズ別レンダリングを「production cellPx」と「mock cellPx」の 2 軸に分離</strong> — 現状は「mock span 13〜16 は heatmap」と注記があるが、production では heatmap が発生しないこと (cellPx 最小 3 px) が読み流されやすい (§ 02 参照)。</li>
+      <li><strong>§ 05 の placement / 衝突検出を amplitude / density で共有する独立仕様へ抽出</strong> — 同じ「JSON col index = qni 内部 slot index + 幾何交差」モデルが density-matrix-display.html にも展開されており、変更時の同期コストが高い (§ 05 参照)。</li>
+      <li><strong>§ 09 GPU パイプラインの 10 stage と § 10 決定事項の重複を整理</strong> — phase lock / quality / control_mask の決定値が両セクションに分散し、追跡が難しい (§ 09 / § 10 参照)。</li>
+      <li><strong>incoherent state の判定閾値 <code>quality &lt; 0.99</code> の根拠を補強</strong> — 「Quirk 互換」だけで根拠が止まっており、<code>f32</code> 丸め誤差で false-incoherent が出るリスクの定量評価がない (§ 07 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2>§ 01 概要 (見た目と用途)</h2>
@@ -197,6 +283,22 @@
     <p class="note" style="margin-top: 16px;">
       全 span (1〜16) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / 投影 / GPU パイプライン等の詳細は § 04 以降を参照。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 01 確率表示ブロックとの使い分けが書かれていない">
+      <div class="critique-label">★ 批評 · § 01 概要</div>
+      <div class="critique-title">「振幅表示ブロックがあれば確率表示ブロックは要らない」と誤読される設計提示</div>
+      <p class="critique-body">
+        本文は span 1 / span 2 の見本だけで本表示ブロックを「複素振幅を見せる」と紹介するが、
+        <em>振幅 disk の<strong>面積</strong> ∝ <code>mag² = 確率</code></em> なので、振幅表示ブロックは原理的に確率情報も内包する。
+        にもかかわらず確率表示ブロック (sibling) が独立して存在することは「単なる位相情報の有無」では正当化しきれない。
+        実際の使い分け軸は<strong>(a) span が大きい時の縦バーの読みやすさ</strong> (span 16 では 65 536 行を縦 880 px に詰める確率表示ブロックの線形バーが圧倒的に読みやすい)、
+        <strong>(b) 1 セルから何の量を読みたいか</strong> (確率は「ラベル数値」で正確に読む、振幅は「needle 方向で位相パターン」を視覚で読む) の 2 点。
+      </p>
+      <p class="critique-body">
+        この使い分けを § 01 末尾に「<em>位相を読みたい → 振幅表示ブロック</em> / <em>大きな span の確率分布形状を見たい → 確率表示ブロック</em>」の 1 表で示すと、
+        Quirk から移行した学習者が両表示ブロックを取り違える事故が減る。Quirk もこの decision matrix を持たないが、qni-webgpu は state panel + 3 表示ブロックを併用するので、本仕様が canonical な使い分けガイドの場として適する。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -292,6 +394,30 @@
       span ≥ 13 (mock 上 heatmap モードに入る帯) でも、placeholder は <strong>常に outline 円を描く</strong> 方針で
       heatmap への切替は適用しない (実行前にセル数で見た目が変わるのは混乱を招くため)。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 02 production と mock の cellPx 乖離">
+      <div class="critique-label">★ 批評 · § 02 production と mock の見た目が一致しない</div>
+      <div class="critique-title">「mock 限定の heatmap」がページの 1/4 を占めるのに、production では発生しない</div>
+      <p class="critique-body">
+        § 02 は「mock span 13〜16 (mock cellPx ≤ 2、heatmap、alpha = √(mag/max_mag)) — mock 限定の rendering」というセクションで 16 個中 4 個の見本を並べているが、
+        本文中に「production の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない」と注記されている。
+        これは <strong>仕様ページの 1/4 が production と一致しない見本に費やされている</strong>状態で、
+        実装根拠としてこのページを開いた読者は「heatmap モードは実装すべきか?」と判断に迷う。
+      </p>
+      <p class="critique-body">
+        改善案: (a) production / mock 両方の cellPx を表に追記する (§ 05 表に「production cellPx」「mock cellPx」の 2 列を作る) と、見本がどちらのスケールで描かれているかが章を跨いでも追跡できる。
+        (b) heatmap mock を「もし production cellPx が将来 3 px 未満になったらこう描く」という<em>仮想 fallback</em>として明示する 1 段落を入れる。
+        現状は「mock 限定」の注記が太字ではなく文末に押し込まれているので、最初の読み流しでは見落とされる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">2<sup>N</sup> セルの<em>面積</em>スケーラビリティが span 8 で破綻している</div>
+      <p class="critique-body">
+        確率表示ブロックは縦バーなので 65 536 行を縦 880 px に圧縮できる (行高 ≈ 0.013 px、対数ヒント線で形だけ伝える)。
+        振幅表示ブロックは <strong>2D matrix (w_grid × h_grid)</strong> なので 65 536 セルを正方形に並べ、本体寸法が 880 × 880 px まで膨らむ。
+        これは確率表示ブロックの 40 px 幅と比べて<strong>面積で 484 倍</strong>。回路エディタの 1 つのゲートとしては大きすぎ、ユーザーが span を 16 まで上げると画面の大半を占有する。
+        Quirk も同じ問題を持つが、qni-webgpu の Flexoki + WebGPU 描画では <em>本体が大きい = "高価な情報を持つ"</em>という錯覚が強まり、初学者は「振幅表示ブロックは高機能」と過大評価しがち。
+        § 01 の使い分けガイドに「span が大きい場合は確率表示ブロックを推奨」と書くと、この錯覚を初期段階で打ち消せる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -320,6 +446,24 @@
         </div>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 03 アイコンと本体の乖離">
+      <div class="critique-label">★ 批評 · § 03 パレットアイコン</div>
+      <div class="critique-title">「Q の右下テール」が本体 (matrix grid) と意味的に切れている</div>
+      <p class="critique-body">
+        パレットアイコンは <strong>単一セル (1×1) + 右下向き needle</strong> で <em>Qni の "Q" 風シルエット</em>を狙う、と本文に書かれている。
+        ブランディングとしては効くが、配置後の本体は最低でも <strong>2×1 grid (span 1)</strong>、典型的には <strong>2×2 grid (span 2)</strong>になる。
+        つまり<em>「アイコン = 1 セル / 配置後 = 複数セルの matrix」</em>という形状ジャンプが起きる。
+        これは sibling の probability-display.html § 03 で指摘されている「アイコンの 4 行 vs 配置後 span 1 の 2 行」と<strong>同じ構造の問題</strong>で、
+        ユーザは「振幅表示ブロック = 単一 cell のゲート」と最初に学習し、リサイズハンドルで広げるという正しい操作モデルに到達しにくい。
+      </p>
+      <p class="critique-body">
+        改善案: span 1 の初期状態 (2×1 grid に <code>|0⟩</code> と <code>|1⟩</code> の振幅 disk を 2 つ並べる) をアイコン化し、
+        2 セル + 中央分けの線で「複数測定結果を 2D matrix で見る」というメンタルモデルを最初から伝える。
+        "Q" 風シルエットの ブランディングは犠牲になるが、機能を優先する。
+        density-matrix-display.html § 03 はアイコンに <strong>2×2 grid (span 1 の |+⟩⟨+| を 4 セル)</strong>を採用しており、密度行列表示ブロックの形を最初から正しく示している。本表示ブロックも同じ哲学に揃える価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -425,6 +569,28 @@
     <p class="note">
       上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (確率表示ブロックと同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 05 placement / 衝突検出の重複">
+      <div class="critique-label">★ 批評 · § 05 ジオメトリと placement</div>
+      <div class="critique-title">「JSON col index = qni 内部 slot index + 幾何交差」モデルが density-matrix-display.html と重複している</div>
+      <p class="critique-body">
+        § 05 の「水平 slot 占有モデル」「placement / 衝突検出」「URL round-trip」は密度行列表示ブロック (<a href="density-matrix-display.html">density-matrix-display.html § 05</a>) に
+        ほぼ同一の説明が再掲されている (decode/encode の手順、矩形交差での placement 判定、shift / reserve しない方針)。
+        これは <em>wide gate (cols &gt; 1) の placement 仕様</em>として共通化できる論点で、将来 QFT / measurement-tomography のように cols &gt; 1 のゲートが増えると、同じ説明が 4 ページ目 / 5 ページ目に複製される。
+      </p>
+      <p class="critique-body">
+        改善案: <code>docs/design-system/wide-gate-placement.html</code> (仮) を作り、(a) cols 算出式 / (b) 幾何交差ベースの placement / (c) JSON ↔ slot index の対応 / (d) drag preview の幅 を一括定義する。
+        本仕様はそこから差分 (<code>cols = (span === 1 ? 2 : span % 2 === 0 ? span : ceil(span/2))</code> の式) だけを引用する形に薄くできる。
+        実装側でも <code>wide_gate_placement.rs</code> 1 ファイルに集約すれば、振幅 / 密度行列 / 将来の wide gate が同じヒットテスト関数を共有できる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">cols 算出式 <code>span === 1 ? 2 : (span % 2 === 0 ? span : ceil(span/2))</code> の根拠不明</div>
+      <p class="critique-body">
+        span 別表で cols = <code>2, 2, 2, 4, 3, 6, 4, 8, 5, 10, 6, 12, 7, 14, 8, 16</code> となるが、奇数 span (3, 5, 7, ...) が <code>ceil(span/2)</code> で偶数 span より<em>狭く</em>なる非単調性がある。
+        例: span 4 = cols 4 (208 px 幅)、span 5 = cols 3 (152 px 幅) と span が増えたのに幅が縮む。grid を正方形に近づける Quirk オリジナル式と一致するが、
+        <em>ユーザーが span を上げたら本体は単調に大きくなる</em>という期待と逆に動くので、リサイズ操作中に「ハンドル動かしてるのに本体が縮んだ?」という混乱を生む。
+        この非単調性が意図的 (matrix grid の縦横バランス優先) なら、リサイズハンドル仕様 (§ 09 相当) のところで「span を上げると幅が増えたり減ったりする」と明示する余地がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -506,6 +672,33 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     //     全レイヤ CPU vertex buffer は不要、すべて fragment shader 完結。
     return vec4(col, 1.0);
 }</pre>
+
+    <aside class="critique" aria-label="批評 · § 06 振幅表現の選定根拠">
+      <div class="critique-label">★ 批評 · § 06 セル描画モデル</div>
+      <div class="critique-title">極座標 (mag + phase) を採用した根拠が「state panel と統一」で止まっている</div>
+      <p class="critique-body">
+        本ページは複素振幅 <code>α = re + i·im</code> を <em>「disk 半径 = mag = √prob」「needle 方向 = phase」</em>の極座標で描く決定をしているが、
+        この decision の根拠は「state panel <code>cell_contribution()</code> と同じ語彙」「Quirk の確率正方形 / 対数円は冗長」とだけ書かれている。
+        <strong>振幅を 2D 平面に写す方法は他にもある</strong>:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(A) 直交座標</strong>: 2 つの bar (re と im) を縦に並べる。実部 / 虚部の符号と大きさが直接読める。位相回転による re ↔ im の swap が見える。</li>
+        <li><strong>(B) phasor (arrow)</strong>: 中心から <code>(re, im)</code> 方向へ長さ <code>mag</code> の矢印 1 本。極座標 (本仕様) は半径 + needle の 2 オブジェクトだが phasor は 1 オブジェクトに統合できる。</li>
+        <li><strong>(C) HSV / color wheel</strong>: 位相を色相に、大きさを彩度 / 明度にマッピング。1 cell が 1 つの色で済むので heatmap モードに自然移行できる (Quirk の oss/QuirkAlternate 拡張に類似)。</li>
+      </ul>
+      <p class="critique-body">
+        本仕様は (C) を「Flexoki トーンに馴染まない」(§ 10) と明示退ける一方、(A) (B) を退ける明示的な議論がない。
+        極座標 (mag + phase) の利点は<em>「needle が真上 = 位相 0」という幾何的アンカーを持ち、位相パターンを目で追える</em>こと、
+        欠点は<em>「mag = 0 のとき位相が定義できない」「needle と disk が cell 内で 2 オブジェクト = cellPx が小さい時に潰れる」</em>こと。
+        この trade-off を § 06 冒頭で 1 段落言語化すると、phasor (B) を採用しない理由 (mag が小さい時に矢印が見えない / 同心円的な disk のほうがスケール感を読みやすい) が明確になる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「mag &gt; 1e-6」と「r &gt; 0.3」「r ≥ 1.5」の閾値群がマジックナンバー</div>
+      <p class="critique-body">
+        outline の色切り替え (<code>mag &gt; 1e-6</code>) / disk fill (<code>r &gt; 0.3</code>) / disk border (<code>r ≥ 1.5</code>) と 3 つのマジックナンバーが本文中に散在する。
+        <code>1e-6</code> は f32 epsilon の経験値、<code>0.3 px</code> は anti-alias で sub-pixel 描画した時に視認できる最小半径、<code>1.5 px</code> は inset 1 px stroke が disk fill に潰されない最小半径、と<em>それぞれ異なる物理的根拠</em>を持つが、§ 06 ではフラットに並べられている。
+        コメントに「(a) f32 noise の閾値 / (b) sub-pixel 視認限界 / (c) inset border 視認限界」と分類して書くと、将来 cellPx を変えたり anti-alias を変更したりするときの再評価が容易になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -552,6 +745,32 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     <p>
       本仕様では「<strong>post-measure state を素直に表示する</strong>」を採用。ゲート下の "incoherent" 以外の補足テキストは出さない (Quirk の "(w/ measure defer)" 系を真似ない)。Quirk と数値再現性を取る場合は別途 capture 順序の入れ替え (lowering で display を column 先頭に移動) が必要だが、本仕様では未採用。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 07 coherence threshold と incoherent 表現">
+      <div class="critique-label">★ 批評 · § 07 phase lock + incoherent state</div>
+      <div class="critique-title"><code>quality &lt; 0.99</code> 閾値の根拠が Quirk 互換のみで、誤判定リスクが定量評価されていない</div>
+      <p class="critique-body">
+        本文は「<code>f32</code> 丸め誤差で false-incoherent は通常出ない」とだけ述べるが、
+        実際には <em>量子ビット数が増えると累積誤差が <code>1e-3</code> オーダーに達する</em>ことがあり、span 8 を超える pure state でも <code>quality = 0.98</code> 程度になり incoherent と誤判定される可能性がある。
+        Quirk は WebGL float32 で同じ閾値を使うが、qni-webgpu は WebGPU 経由でより数値安定な実装が可能 (compute shader で <code>f64</code> エミュレートも選択肢)。
+        単に Quirk と同じ <code>0.99</code> を継承するのではなく、<em>span × 回路深さ × Flexoki 表示でユーザに違和感を与えるしきい値</em>を実測した結果として閾値を採用するほうが防衛的。
+        最低限、「閾値は将来 <code>0.95</code> や <code>0.999</code> に変更する可能性がある」と注記すると、後続改良の自由度が確保される。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">incoherent 表示の alpha 0.45 が「振幅未定義」を直感的に伝えない</div>
+      <p class="critique-body">
+        incoherent 状態では disk を <code>alpha 0.45</code> で薄塗りし needle を消す、と仕様化されている。
+        しかし<em>「薄い = 確率が低い」</em>と読み取る初学者は多く、「薄い disk = 振幅が定義できない」という意図が伝わりにくい。
+        coherent state でも mag が小さい disk は薄く見える (anti-alias で sub-pixel 描画されるため) ので、alpha 半透明だけでは coherent と incoherent の区別がつかない場面が出る。
+        改善案: incoherent disk には disk 内側に <strong>diagonal hatch (45° の斜線パターン)</strong> を入れる / 色を <code>blue-200</code> から <code>purple-200</code> に変えて「位相情報が無い」ことを示す、など視覚的に異なる texture を採用する余地がある。
+        ゲート下の "incoherent" 赤テキストは補助だが、widget サイズが大きい (span 5+) と離れすぎて関連性が読みにくい。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">post-measure 挙動の Quirk 非互換が「決定事項」になっているが影響範囲が不明</div>
+      <p class="critique-body">
+        qni では「列処理の後に display capture」、Quirk では「列処理の前」と仕様が異なる、と決定事項として明記されている。
+        これは Quirk URL から import した回路で <em>振幅表示ブロックの値が Quirk と一致しない</em>という重大な互換性違反だが、本仕様では「Quirk と数値再現性を取る場合は別途 capture 順序の入れ替えが必要 (本仕様では未採用)」と 1 行で済まされている。
+        影響範囲 (measurement gate を含む Quirk 例題回路の何 % が再現不能か / ユーザがどんなケースで気付くか) の<strong>定量評価</strong>か、少なくとも「Quirk 互換性スコア」の現状値があると、将来 Quirk-compat モードを実装する判断材料になる。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -594,6 +813,29 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
         <span class="ad-popup-value">−6.0 dB</span>
       </div>
     </div>
+
+    <aside class="critique" aria-label="批評 · § 08 ポップアップの数値表現">
+      <div class="critique-label">★ 批評 · § 08 ホバーポップアップ</div>
+      <div class="critique-title">coherent / incoherent でラベル数 (3 行 / 2 行) が違い、popup の高さが変わる</div>
+      <p class="critique-body">
+        coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行と<em>表示する数値の種類自体が変わる</em>。
+        cell ホバーで popup を出すたび、状態に応じて popup の縦寸が <strong>~88 px</strong> と <strong>~64 px</strong> で <strong>24 px (3 spacing-6) 変動</strong>する。
+        ホバーで pointer が下方向にあるとき popup が cell の右に出る (アンカー = cell top) ので、popup 下端が画面外にはみ出す境界が状態依存になる。
+        改善案: incoherent でも 3 行構造を維持し、空行に <code>—</code> や「phase: undefined」を入れて popup 高さを固定する。
+        または incoherent と coherent で popup 自体のデザイン (背景 alpha / border 色) を変えて、ユーザに「振幅未定義」を視覚的に強調する。
+      </p>
+      <p class="critique-body">
+        <strong>incoherent 側の数値は確率表示ブロックのポップアップと完全同一</strong> (<code>raw % / log dB</code>)。
+        これは「振幅表示ブロック内で incoherent 状態に当たったときは、確率表示ブロックに切り替えるべき」というシグナルとも読める。
+        本仕様は § 09 の glyph 共有としてポジティブに扱っているが、UX 視点では「振幅表示ブロックがダウングレード表示する」より「確率表示ブロックへ切替を促す inline link」のほうが教育的かもしれない (Quirk と互換性は破るが)。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">サブ行 "Amplitude · decimal 1" / "Probability · decimal 1 · [entangled ...]" が冗長</div>
+      <p class="critique-body">
+        probability-display.html § 11 の批評で指摘されているとおり、ket <code>|01⟩</code> が見えれば <code>decimal 1</code> は導出可能。
+        本仕様は同じパターン (ket + サブ + raw/log) を継承しているので、<strong>同じ批評がそのまま適用される</strong>。
+        ここで個別に反論せず、確率表示ブロック側の改善が決まったらそのままミラーする (両仕様で popup フォーマットを揃え続ける) のが妥当な方針。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -762,6 +1004,30 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       (Playwright で <code>val / mag² / phase</code> の正しさを確認する用途)。本番 UI 経路からは一切呼ばれない。
       これは AGENTS.md の例外条項 (テストハーネス向けの on-demand readback) に該当。
     </p>
+
+    <aside class="critique" aria-label="批評 · § 09 GPU パイプラインの 10 stage">
+      <div class="critique-label">★ 批評 · § 09 GPU パイプライン</div>
+      <div class="critique-title">10 stage の compute pass が「視覚仕様」と同じ階層に並んでいる</div>
+      <p class="critique-body">
+        本セクションは <code>AmplitudeCapture</code> uniform 定義 + 10 stage の compute pass 一覧 + phaseLockIndex 探索ロジック + render shader + glyph atlas / popup 仕様 を 1 ブロックに詰め込んでおり、
+        確率表示ブロック (probability-display.html) で同じ問題が「視覚仕様と実装仕様の二重責任」として全体所見で指摘されている。
+        本ページもまったく同じ構造を継承しているので、別途 <code>docs/design-system-architecture.html</code> や <code>docs/gpu-pipeline.html</code> (仮) に
+        compute pass 列 / capture uniform / phaseLock の数値ロジックを括り出すと、本仕様は「振幅<em>視覚</em>仕様」だけに集中できる。
+      </p>
+      <p class="critique-body">
+        現状の 10 stage 一覧は実装計画書としては優れているが、デザインシステムの 1 ページとしては<strong>読み終わるまでに 20 分以上かかる</strong>。
+        Codex / 人間が「振幅 disk の色を変えたい」と本ページを開いたとき、§ 02〜§ 08 のあとに § 09 の compute pass を読む必要はない。
+        セクション順序を <em>視覚仕様 (§ 01〜§ 08) → 設計判断 (§ 10) → 実装メモ (§ 09 + § 11) → 関連仕様 (§ 12)</em> に並べ替えると、視覚デザイナと実装者の読路が分離する。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">phaseLockIndex の「10000 倍ジャンプ」探索が量子状態に対しては保守的すぎる可能性</div>
+      <p class="critique-body">
+        Quirk の探索ロジック <code>m &gt; best * 10000</code> は<em>「明らかに大きい測定結果だけ採用、拮抗時は index 0 を保つ」</em>。
+        これは振幅が小数点 4 桁オーダーで揺らぐ場合に lock 先が安定するメリットがある一方、span が大きいときに「実質的な最大値」を見逃すケースが出る。
+        例えば span 8 の <code>QFT|001⟩</code> では全 256 測定結果が <code>mag² = 1/256 ≈ 0.39%</code> で均等になり、<code>best × 10000</code> 条件を満たす測定結果は存在せず lock index = 0 で固定される。
+        これは「均等位相分布では位相回転をしない」という意味になるが、ユーザは「lock index が真に最大の測定結果を指している」と期待する。
+        テスト計画 § 11 にこのケースが含まれているのは良いが、本セクションでは Quirk 互換であるという根拠だけで採用されている。<em>qni-webgpu 独自の制約 (cellPx ≥ 12 で needle が見える span 1〜8)</em>に対して最適化された探索ロジックを検討する余地はある (例: <code>m &gt; best × 1.1</code> など 10 % 程度の差で更新)。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -842,6 +1108,31 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         </tr>
       </tbody>
     </table>
+
+    <aside class="critique" aria-label="批評 · § 10 決定事項の階層化と継承">
+      <div class="critique-label">★ 批評 · § 10 決定事項</div>
+      <div class="critique-title">13 項目が平等に並んでおり、「表示ブロック共通」と「振幅表示ブロック固有」が混在している</div>
+      <p class="critique-body">
+        h-gate.html § 07 の批評と同じ構造的問題が本ページにも当てはまる。13 項目は性質が次の 3 種類に分かれる:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) 表示ブロック共通 (probability / bloch / amplitude / density で同じ判断)</strong>: 実行前プレースホルダ (<code>purple-100</code>) / shader 構造 (段階的 reduce) / nesting 禁止 / span 上限値の根拠 (Quirk 互換 + WebGPU storage 制約) など。</li>
+        <li><strong>(b) coherent state 系表示ブロック共通 (amplitude / density)</strong>: 位相エンコーディング (needle) / 位相 0 の方向 (真上) / layer 合成順序 (frame → outline → disk → disk border → needle) / disk 境界線 (blue-400 inset)。</li>
+        <li><strong>(c) 振幅表示ブロック固有</strong>: phaseLockIndex の選び方 / coherence threshold (<code>quality &lt; 0.99</code>) / measure 列の挙動 / controls 統合の uniform 設計。</li>
+      </ul>
+      <p class="critique-body">
+        改善案: (a) は「<em>表示ブロック共通の決定 → <a href="../design-system-architecture.html">design-system-architecture.html</a> 参照</em>」で 1 行に圧縮、
+        (b) は「<em>coherent state 表示ブロックの決定 → coherent-state-displays.html (仮) 参照</em>」で同じく 1 行、
+        (c) だけを本ページに残す。これで「H ページ vs Pauli ページ」と同じ階層化問題が、表示ブロック族でも同様に解決できる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「決定事項」と「§ 02 / § 06 / § 07 / § 09 の本文」の二重メンテナンスが発生する</div>
+      <p class="critique-body">
+        例: 実行前プレースホルダの背景は § 02「実行前プレースホルダ」/ § 10「実行前プレースホルダ」/ コード内コメント (CSS の <code>PURPLE_100 = '#ECE1F3'</code>) の<strong>3 箇所</strong>に書かれている。
+        将来 <code>purple-100</code> を <code>purple-50</code> に変更したとき、3 箇所すべての更新を見落とすリスクがある。
+        改善案: § 10 を <em>「決定事項のショートカット参照表」</em>と位置付け、各セルに「§ 02 参照」「§ 06 参照」と本文へのリンクだけを置き、決定の<em>本文</em>は本文章 1 箇所だけに置く (「決定」と「説明」を分離)。
+        h-gate.html / probability-display.html も同じ構造の決定事項表を持つので、共通の改善方針として記録に残す価値がある。
+      </p>
+    </aside>
   </div>
 </section>
 
@@ -899,6 +1190,29 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       </li>
       <li><strong>visual snapshot (production の代表的描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — production cellPx を反映して: span 1 (full detail、cellPx ~ 40) / span 8 (needle 残る、cellPx ~ 27) / span 12 (needle 省略、outline + disk、cellPx ~ 10) / span 16 (disk only、cellPx ~ 3) の各フレームを 1 枚ずつ snapshot。回帰検出用 (heatmap モードは mock 限定なので production スナップショットでは扱わない)。</li>
     </ol>
+
+    <aside class="critique" aria-label="批評 · § 11 テスト計画の網羅性と粒度">
+      <div class="critique-label">★ 批評 · § 11 テスト計画</div>
+      <div class="critique-title">「視覚デザインの正しさ」を検証するテストが visual snapshot 1 種類だけ</div>
+      <p class="critique-body">
+        本仕様は GPU 計算の正しさ (known-state amplitude / Hermitian 性 / controls 統合 / phase lock 無効ケース) について豊富なテストを定義しているが、
+        <em>「振幅表示ブロックがデザイン仕様どおりに描かれているか」</em>を確認するテストは項目 10 の visual snapshot 4 枚だけ。
+        Flexoki Light 配色、cellPx 帯ごとのレイヤ抑制、incoherent 表現の alpha 0.45、phase 0 = 真上の方向、placeholder の <code>purple-100</code> 背景など、
+        本仕様の<em>視覚的</em>決定事項を直接テストする項目が無く、回帰検出が visual snapshot の人間レビューに依存している。
+      </p>
+      <p class="critique-body">
+        改善案: Playwright で本仕様ページ (<code>docs/design-system/amplitude-display.html</code>) 自体を開き、
+        モックの canvas をピクセル単位で読んで「指定 cell に <code>blue-200</code> (#92BFDB) が描かれている」「placeholder セルに <code>purple-100</code> (#ECE1F3) が描かれている」を assert するテストを追加する。
+        これは本仕様ページのモックが design-system.css / state.rs / amplitude-display.html の 3 者で一貫していることを継続的に検証する仕組みになる。
+        AGENTS.md にも「デザインを修正したあとは必ず Playwright で実際の見た目を確認する」とあるので、自動化された Playwright assertion で「視覚仕様」の回帰を検出するのは整合的。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「1 ケース 1 アサーション」規約に対して visual snapshot 4 枚は過剰圧縮</div>
+      <p class="critique-body">
+        項目 10 は <em>「span 1 / span 8 / span 12 / span 16」</em>の 4 cellPx 帯を <strong>4 個の <code>assert_snapshot!</code></strong> で並べているが、それぞれの snapshot は full / needle 省略 / outline + disk / heatmap の 4 異なる描画パスを 1 枚に統合する。
+        snapshot が失敗したとき、原因が「cellPx 帯判定のバグ」なのか「個別レイヤ (outline / disk / needle) のバグ」なのか追跡しづらい。
+        AGENTS.md の「1 テスト 1 アサーション」規約に厳密に従うなら、cellPx 帯ごとに「outline が描かれているか」「disk が描かれているか」「needle が描かれているか」を別 case に分割する。snapshot ベースでこれを実現するなら、span 別 + レイヤ別の 12 枚程度に増やすほうが回帰原因の切り分けが容易。
+      </p>
+    </aside>
   </div>
 </section>
 
