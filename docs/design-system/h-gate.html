@@ -12,70 +12,16 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- canonical な H ゲートを定義する Web Component。
+       本仕様ページの全モック (§01 / §04 / §05 / §06 / #preview) は <h-gate> を介して
+       同じ Shadow DOM 実装を共有し、他のデザインシステムページからもこのコンポーネントを参照する。 -->
+  <script src="components/h-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       本ページは「H ゲート」の常時表示モックを並べる役割なので、ゲート本体の chrome
-       (cyan-400 本体 + Geist 700 グリフ + ホバー枠) を CSS で再現する。 */
-
-    /* ── H ゲート本体 ──────────────────────────────
-       gate-palette.html canonical svg (viewBox 48、rx 7.2 = 40 × 40 換算で rx 6) と一致。
-       fill = cyan-400 (box_fill ロール、design-system-colors.html § 03)、stroke なし。
-       グリフは実装 (apps/web/assets/icons/h.svg) の SVG outline を直接埋め込む。
-       fill="currentColor" の path に対し、ここで color = paper (bg = #FFFCF0) を指定し
-       paper 色のグリフを描く。サイズ・ウェイトは SVG viewBox 内の transform で確定済み。 */
-    .h-gate {
-      width: 40px;                          /* GATE_SIZE */
-      height: 40px;
-      background: var(--cyan-400);          /* box_fill */
-      border-radius: 6px;                   /* CornerRadius::same(6) と同じ */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                     /* paper グリフ (SVG path の currentColor) */
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      transition: background 120ms ease-out;
-    }
-    .h-gate > svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-      pointer-events: none;
-    }
-
-    /* ホバー枠 (hover-frame.html と一致)
-       outer = -4 / corner 10 / purple-400 (gate_hover_border)
-       inner = -2 / corner 8 / paper (バンドを 2 px の背景の空き で本体から離す) */
-    .h-gate[data-state="hover"]::before,
-    .h-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 10px;
-      background: var(--purple-400);
-      z-index: -2;
-    }
-    .h-gate[data-state="hover"]::after,
-    .h-gate:not([data-state]):hover::after {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: 8px;
-      background: var(--bg);
-      z-index: -1;
-    }
-
-    /* drag preview (drag_fill = purple-600 / semantic_intermediate)
-       paletteから掴んで回路グリッド上を動いている最中、もしくは drop 候補位置に出るプレビュー。
-       本体色を purple-600 に置換することで「これは仮配置」だと一目で識別させる。 */
-    .h-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
-    /* ホバー枠を強制表示する mock 用指定。実際は :hover で発火するが、
-       spec ページの常時表示モックでは data-state="hover" を直接付ける。 */
+       H ゲート本体 (cyan-400 + paper グリフ + ホバー枠 + drag preview) の chrome は
+       components/h-gate.js が Web Component <h-gate> として提供する。
+       本ファイルでは stage / zoom / slot-mock などレイアウト側の CSS だけを定義する。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
@@ -115,7 +61,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .h-gate {
+    .stage .zoom h-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -238,23 +184,11 @@
 </head>
 <body>
 
-<!-- SVG sprite: 実装 (apps/web/assets/icons/h.svg) と完全一致する H グリフを
-     <symbol id="g-H"> として 1 度だけ定義し、各モックは <use href="#g-H"/> で参照する。
-     gate-palette.html § canonical svg と同じ symbol 定義なので、本ページのレンダリングは
-     パレットアイコン / 回路上ゲート / 実装 SDF 描画と outline レベルで 1:1 になる。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-H" viewBox="0 0 48 48">
-    <!-- Geist 700 の "H" outline (path d は apps/web/assets/icons/h.svg と完全一致) -->
-    <g transform="translate(13.391 34.565) scale(0.029760 -0.029760)">
-      <path d="M92 0V710H178V399H535V710H621V0H535V315H178V0Z" fill="currentColor"/>
-    </g>
-  </symbol>
-</svg>
-
 <!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。
-     プレビュー枠は 72 px なので 40 × 40 の本体を 1 つ中央に置く。 -->
+     プレビュー枠は 72 px なので 40 × 40 の本体を 1 つ中央に置く。
+     <h-gate> の chrome / グリフ outline は components/h-gate.js が canonical に提供する。 -->
 <div id="preview">
-  <div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div>
+  <h-gate></h-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -321,11 +255,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">default<br>(rest)</div>
-        <div class="actual"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="actual"><h-gate></h-gate></div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="actual"><h-gate state="hover"></h-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -527,11 +461,11 @@
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 220px;">
         <div class="caption">default · 3× zoom</div>
-        <div class="zoom"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="zoom"><h-gate></h-gate></div>
       </div>
       <div class="col" style="max-width: 220px;">
         <div class="caption">ホバー · 3× zoom<br>(枠と 背景の空き)</div>
-        <div class="zoom"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="zoom"><h-gate state="hover"></h-gate></div>
       </div>
     </div>
 
@@ -575,15 +509,15 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① default<br>(rest)<br>cyan-400 本体</div>
-        <div class="actual"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="actual"><h-gate></h-gate></div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>purple-400 の枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><div class="h-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="actual"><h-gate state="hover"></h-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ drag preview<br>purple-600 本体<br>(仮配置中)</div>
-        <div class="actual"><div class="h-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="actual"><h-gate state="drag"></h-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -623,11 +557,11 @@
     </p>
     <div class="slot-mock with-grid">
       <div class="wire">
-        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="slot"><h-gate></h-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="slot"><h-gate></h-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="h-gate"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
+        <div class="slot"><h-gate></h-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
