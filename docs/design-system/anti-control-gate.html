@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>アンチコントロールゲート (|0⟩ 条件) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。
+       本ページは AntiControl の透明な 40 px 領域、cyan-400 の空円、
+       4 px 縦コネクタ + ±6 px の中心隙間、ホバー枠を CSS + inline SVG で再現する。 */
+
+    /* ── アンチコントロールマーカ ─────────────────────
+       Control と同じ box_fill ロール (cyan-400) を使い、字形だけが異なる「ペア表現」。
+       viewBox 48 座標: cx=24, cy=24, r=5, stroke=3 の空円。
+       40 px 表示時の見た目は外径 ~5.4 px / 線幅 ~2.5 px。 */
+    .ac-gate {
+      width: 40px;                          /* GATE_SIZE = spacing-10 */
+      height: 40px;
+      color: var(--cyan-400);               /* Flexoki cyan-400 / box_fill */
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: grab;
+      position: relative;
+    }
+    .ac-gate > svg {
+      display: block;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    /* 回路上のホバー枠。透明な内部を塗らず、purple-400 の 2 px 線だけを描く。
+       コネクタが AntiControl の中央を「またいで」通るため、surface gap でマスクしない。 */
+    .ac-gate[data-state="hover"],
+    .ac-gate:not([data-state]):hover {
+      box-shadow: 0 0 0 2px var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
+      border-radius: 10px;
+    }
+    .ac-gate[data-state="drag"] {
+      color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
+      cursor: grabbing;
+    }
+
+    /* パレット上だけは hover-frame.html の surface gap 版を使う。 */
+    .palette-hover-host {
+      width: 48px;                          /* 40 + spacing-1 × 2 */
+      height: 48px;
+      border-radius: 10px;
+      background: var(--purple-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px;
+    }
+    .palette-hover-host .palette-hover-inner {
+      width: 44px;                          /* 40 + 2 px × 2 */
+      height: 44px;
+      border-radius: 8px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── ステージ / 図解 ─────────────────────────── */
+    .stage {
+      display: flex;
+      gap: 48px;                            /* spacing-12 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                     /* spacing-4 */
+      padding: 24px 0;                      /* spacing-6 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: center;
+      max-width: 192px;                     /* spacing-48 */
+      text-align: center;
+    }
+    .stage .caption,
+    .diagram-caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;                    /* text-xs default */
+      color: var(--tx-3);
+    }
+    .stage .actual {
+      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom {
+      width: 192px;                         /* spacing-48 */
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage .zoom .ac-gate {
+      transform: scale(3);
+      transform-origin: center;
+    }
+
+    /* ── 1 マーカのサムネ (?preview) ──────────────── */
+    .preview-solo {
+      width: 56px;                          /* SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 50% / 100% 1px no-repeat;
+    }
+
+    /* ── 列モック (反制御 + 対象 X、または 反制御 + 制御 + 対象) ─── */
+    .column-mock {
+      position: relative;
+      width: 56px;                          /* SLOT_SPACING */
+      display: grid;
+      align-items: center;
+      justify-items: center;
+    }
+    .column-mock--2 {
+      height: 112px;                        /* 2 × LINE_GAP */
+      grid-template-rows: repeat(2, 56px);
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat;
+    }
+    .column-mock--3 {
+      height: 168px;                        /* 3 × LINE_GAP */
+      grid-template-rows: repeat(3, 56px);
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px / 100% 1px no-repeat,
+        linear-gradient(var(--ui-2), var(--ui-2)) 0 140px / 100% 1px no-repeat;
+    }
+
+    /* コネクタ: AntiControl が「途中ノード」にいる場合の ±6 px 隙間付き分割。
+       column-mock--2: 28 px (上ワイヤ中心) → 84 px (下ワイヤ中心) を結ぶが、
+       AntiControl が上ノードのときは中心 (28 px) ±6 px を空ける = 34 px → 84 px に短縮。 */
+    .column-mock::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      width: 4px;                           /* CONNECTOR_STROKE_WIDTH = spacing-1 */
+      transform: translateX(-50%);
+      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
+    }
+    /* AntiControl が上ノード: 34 px → 84 px (50 px 長) */
+    .column-mock--anti-top::before {
+      top: 34px;
+      height: 50px;
+    }
+    /* Control が上ノード (= AntiControl の隙間なし): 28 px → 84 px (56 px 長) */
+    .column-mock--ctl-top::before {
+      top: 28px;
+      height: 56px;
+    }
+    /* 3 行で中央が AntiControl: 28 px → 78 px の上半分、90 px → 140 px の下半分。 */
+    .column-mock--anti-middle::before {
+      display: none;
+    }
+    .column-mock--anti-middle::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      width: 4px;
+      transform: translateX(-50%);
+      background:
+        linear-gradient(var(--cyan-400), var(--cyan-400)) 0 0 / 100% 50px no-repeat,
+        linear-gradient(var(--cyan-400), var(--cyan-400)) 0 62px / 100% 50px no-repeat;
+      top: 28px;
+      height: 112px;
+    }
+    .column-mock .ac-gate,
+    .column-mock .target-gate,
+    .column-mock .ctl-gate {
+      z-index: 1;
+    }
+
+    /* 同じ列に塗りつぶし制御 (Control) もモック描画したい場合の縮小版 */
+    .ctl-gate {
+      width: 40px;
+      height: 40px;
+      color: var(--cyan-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ctl-gate > svg {
+      width: 40px;
+      height: 40px;
+      pointer-events: none;
+    }
+
+    .wide-column {
+      width: max-content;
+      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+
+    .target-gate {
+      width: 40px;                          /* GATE_SIZE */
+      height: 40px;
+      border-radius: 999px;
+      background: var(--cyan-400);          /* X ゲート本体 / box_fill */
+      position: relative;
+    }
+    .target-gate::before,
+    .target-gate::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 20px;                          /* spacing-5 */
+      height: 4px;                          /* Plus glyph stroke */
+      background: var(--bg);                /* paper / 字形 */
+      transform: translate(-50%, -50%);
+    }
+    .target-gate::after {
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                            /* spacing-8 */
+      padding: 24px 0;                      /* spacing-6 */
+      flex-wrap: wrap;
+    }
+    .geo-diagram svg { display: block; }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+      gap: 12px;                            /* spacing-3 */
+      margin-top: 12px;                     /* spacing-3 */
+    }
+    .mini-grid .mini {
+      border: 1px solid var(--ui-2);
+      border-radius: 10px;
+      background: var(--bg-2);
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);
+    }
+    .mini-grid .mini strong { color: var(--tx); }
+  </style>
+</head>
+<body>
+
+<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+  <symbol id="g-Control" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="8" fill="currentColor" />
+  </symbol>
+  <symbol id="g-AntiControl" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="5" fill="none" stroke="currentColor" stroke-width="3" />
+  </symbol>
+</svg>
+
+<div id="preview">
+  <div class="preview-solo" aria-hidden="true">
+    <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">アンチコントロールゲート</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · ゲート仕様</p>
+  <h1 class="page-title">アンチコントロールゲート (|0⟩ 条件)</h1>
+  <p class="page-lede">
+    <code>AntiControl</code> は同じ列の対象ゲートを <code>|0⟩</code> 条件にする制御マーカ。
+    回路エディタ上では <strong>40 × 40 px の透明な領域</strong>の中央に、
+    cyan-400 の <strong>空円 (r=5, stroke=3)</strong> を描く。
+    塗りつぶし円で <code>|1⟩</code> 条件を示す <a href="control-gate.html">Control</a> と
+    本体寸法 / 色 / 当たり判定をすべて共有し、<strong>「塗りか線か」だけで条件値の違いを示す</strong>ペア表現を採用する。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
+  <div class="card">
+    <p>
+      AntiControl 自体は状態ベクトルを直接変えない。列内の対象ゲートに「対象ワイヤが <code>|0⟩</code> のときだけ作用する」条件を付ける修飾子として働く。
+      たとえば <code>AntiControl</code> と <code>X</code> を同じ列に置くと、対象ビットが <code>0</code> のときだけ X を適用する「0 条件 CNOT」になる。
+      塗りつぶし円の Control と空円の AntiControl は <strong>1 つの列内で混在させても良い</strong>。
+    </p>
+    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
+      <div class="col">
+        <div class="caption">既定<br>(rest)</div>
+        <div class="actual"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">原寸 3 倍<br>(zoom ×3)</div>
+        <div class="zoom"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">0 条件 CNOT<br>AntiControl + X</div>
+        <div class="column-mock column-mock--2 column-mock--anti-top">
+          <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+          <div class="target-gate" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      空円の中心はワイヤと縦コネクタの両方が通る位置にあるため、視覚を阻害しないよう
+      <strong>縦コネクタは空円の中心から上下 6 px を分割描画する</strong>。
+      Control (塗りつぶし円) ではコネクタが本体を貫通しても潰れないので、隙間は空けない。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>hex</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>空円のストローク</td><td><code>cyan-400</code></td><td>#3AA99F</td><td><code>box_fill</code> ロール。Control の塗りつぶしと同色で「ユニタリ操作ゲート族」の所属を共有する</td></tr>
+        <tr><td>空円の内側</td><td>透明</td><td>—</td><td>背面のワイヤ (<code>ui-2</code>) や bg (<code>--bg</code>) がそのまま見える</td></tr>
+        <tr><td>縦コネクタ</td><td><code>cyan-400</code></td><td>#3AA99F</td><td><code>CONNECTOR_STROKE_WIDTH = 4 px</code> の矩形。中心 ±6 px の隙間付きで分割描画する</td></tr>
+        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>#8B7EC8</td><td><code>gate_hover_border</code> ロール。回路上では stroke-only</td></tr>
+        <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td>#5E409D</td><td><code>drag_fill</code> ロール。空円のストロークだけを置き換える</td></tr>
+        <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>#DAD8CE</td><td>透明な 40 px 領域の背面にそのまま見える</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      条件値の <code>0</code> / <code>1</code> を別色で区別しない理由は、両者とも「ユニタリ操作の修飾子」という同一カテゴリで、
+      cyan-400 = 操作ゲート族の色対応を崩したくないため。条件値の違いは <strong>字形 (塗り / 線)</strong> でのみ表現する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 03</span>ジオメトリ</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE</code>)。本体塗りはないが、ホバー / ドラッグ / 当たり判定はこの透明な領域で持つ</td></tr>
+        <tr><th>空円</th><td>viewBox 48 上の <code>cx=24, cy=24, r=5, stroke-width=3</code>。<code>fill=none</code> で内側は透明。40 px 表示時の見た目は外径 ~5.4 px / 線幅 ~2.5 px</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。40 px 領域はスロット中央に置く</td></tr>
+        <tr><th>縦コネクタ</th><td>列の中心 x に <code>4 px</code> 幅の矩形。最上端の制御 / 対象中心から最下端の中心までを結ぶ</td></tr>
+        <tr><th>コネクタ隙間</th><td>AntiControl の中心 (cy) から上下 <code>6 px</code> を空けて分割描画する。空円の外径 ~5.4 px を完全に避ける幅</td></tr>
+        <tr><th>Control との寸法差</th><td>Control は r=8 塗りつぶし (外径 ~13 px) で内側まで埋まるためコネクタを貫通させる。AntiControl だけ隙間を入れる</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
+    <div class="geo-diagram">
+      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
+        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="var(--ui-2)" stroke-dasharray="2,2" />
+        <rect x="0" y="0" width="40" height="40" fill="none" stroke="var(--tx-3)" stroke-dasharray="2,2" />
+        <line x1="-8" y1="20" x2="48" y2="20" stroke="var(--ui-2)" />
+        <circle cx="20" cy="20" r="5.4" fill="none" stroke="var(--cyan-400)" stroke-width="2.5" />
+        <g font-family="Geist Mono, monospace" font-size="4" fill="var(--tx-2)">
+          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
+          <text x="20" y="50.5" text-anchor="middle">40 px hit area</text>
+        </g>
+        <g stroke="var(--tx-3)" stroke-width="0.4">
+          <line x1="-8" y1="-6.5" x2="48" y2="-6.5" />
+          <line x1="0" y1="48" x2="40" y2="48" />
+        </g>
+      </svg>
+      <div class="legend">
+        <p><strong>40 px</strong> · 透明な当たり判定領域 (<code>GATE_SIZE</code>)</p>
+        <p><strong>56 px</strong> · スロット / ワイヤ間隔 (<code>SLOT_SPACING</code> / <code>LINE_GAP</code>)</p>
+        <p><strong>r=5 / stroke=3</strong> · viewBox 48 上の空円</p>
+        <p><strong>±6 px</strong> · コネクタ分割の隙間幅 (空円中心から)</p>
+        <p><strong>4 px</strong> · 制御 / Swap / 同角 Phase で共有する縦コネクタ幅</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 04</span>状態バリアント (常時表示モック)</h2>
+  <div class="card">
+    <div class="stage">
+      <div class="col">
+        <div class="caption">① 既定<br>cyan-400 空円</div>
+        <div class="actual"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">② 回路ホバー<br>purple-400 線だけ</div>
+        <div class="actual"><div class="ac-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">③ ドラッグ<br>purple-600</div>
+        <div class="actual"><div class="ac-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">④ パレットホバー<br>surface gap あり</div>
+        <div class="actual">
+          <div class="palette-hover-host"><div class="palette-hover-inner"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      ホバー枠は Control と同じ stroke-only (purple-400 / 2 px)。空円の内側が透明なので、
+      ホバー枠の内側に背面の bg / ワイヤがそのまま透ける。
+      パレットホバーだけは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使い、外側 2 px の bg を挟む。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 05</span>列内の接続と意味論</h2>
+  <div class="card">
+    <p>
+      制御条件は列単位で集計する。AntiControl は <strong>条件マスクには立てるが、条件値は <code>0</code> のまま</strong>にする。
+      対象ゲートは「同じ列の制御マーカが全て条件を満たした基底成分」にだけ作用する。
+      塗りつぶし制御と反制御を同じ列に置くと、それぞれが <code>|1⟩</code> / <code>|0⟩</code> 条件として AND で組み合わさる。
+    </p>
+    <div class="stage" style="gap: 64px;">
+      <div class="col">
+        <div class="diagram-caption">AntiControl + X<br>0 条件 CNOT</div>
+        <div class="wide-column">
+          <div class="column-mock column-mock--2 column-mock--anti-top">
+            <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+            <div class="target-gate" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="diagram-caption">Control + AntiControl + X<br>混在多重制御</div>
+        <div class="wide-column">
+          <div class="column-mock column-mock--3 column-mock--anti-middle">
+            <div class="ctl-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
+            <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+            <div class="target-gate" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mini-grid">
+      <div class="mini"><strong>単独配置</strong><br />対象ゲートがない単独の反制御マーカは操作なし。視覚上の縦コネクタも出さない。</div>
+      <div class="mini"><strong>反制御だけの列</strong><br />対象ゲートがなく反制御だけが並ぶ列は意味のない操作になるため、回路コンパイル時に無視する。</div>
+      <div class="mini"><strong>制御との混在</strong><br />同じ列に Control と AntiControl を混ぜると、各ビットが対応する条件値のときだけ対象ゲートが作用する多重制御になる。</div>
+      <div class="mini"><strong>Swap との関係</strong><br />Swap の縦線は専用コネクタで描く。反制御付き Swap の条件は同じ列の制御条件を共有する。</div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 06</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ドキュメント</th><th>関係</th></tr></thead>
+      <tbody>
+        <tr><td><a href="control-gate.html">制御ゲート</a></td><td>本体寸法 / 色 / コネクタ幅を共有する「ペア」相手。塗りつぶし円で <code>|1⟩</code> 条件を示す</td></tr>
+        <tr><td><a href="x-gate.html">X ゲート</a></td><td>0 条件 CNOT の対象としてもっとも頻繁に組み合わせるゲート</td></tr>
+        <tr><td><a href="swap-gate.html">Swap ゲート</a></td><td>同じ 4 px 縦コネクタを使うが、Swap 端点だけを専用線で結ぶ</td></tr>
+        <tr><td><a href="gate-palette.html">Gate palette</a></td><td>パレット上の 40 px マーカと surface gap 版ホバー枠</td></tr>
+        <tr><td><a href="hover-frame.html">ホバー枠</a></td><td>回路上では stroke-only、パレット上では surface gap を使う</td></tr>
+        <tr><td><a href="design-system-colors.html">配色</a></td><td><code>box_fill</code> / <code>gate_hover_border</code> / <code>drag_fill</code> のロール対応</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · アンチコントロールゲート · 2026-05</p>
+</footer>
+
+</body>
+</html>

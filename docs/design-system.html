@@ -390,6 +390,17 @@
       <p class="desc">制御量子ビットマーカと配線 (connector) を組で描画。</p>
     </div>
 
+    <a class="spec-card" href="design-system/anti-control-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/anti-control-gate.html?preview" loading="lazy" title="アンチコントロールゲート プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Anti-control (|0⟩ 条件)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">Control のペア。透明な 40px 領域 + cyan-400 の空円 (r=5 / stroke=3) で |0⟩ 条件を示し、縦コネクタは空円中心 ±6px の隙間付きで分割描画する。</p>
+    </a>
+
     <div class="spec-card dim">
       <div class="preview" aria-hidden="true">
         <svg viewBox="0 0 56 56" width="56" height="56" xmlns="http://www.w3.org/2000/svg">
@@ -405,6 +416,17 @@
       <div class="row"><span class="name">Swap</span><span class="pill todo">todo</span></div>
       <p class="desc">2 量子ビット swap マーカ (× 記号) と接続線。</p>
     </div>
+
+    <a class="spec-card" href="design-system/write0-gate.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/write0-gate.html?preview" loading="lazy" title="|0⟩ オペレーション プレビュー"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">|0⟩ オペレーション (Reset to |0⟩)</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。cyan-400 角丸正方形は持たず、tx-2 のケット括弧 <code>|⟩</code> + 中央 red-600 のディジット "0" だけで描く。</p>
+    </a>
 
     <div class="spec-card dim">
       <div class="preview" aria-hidden="true">
