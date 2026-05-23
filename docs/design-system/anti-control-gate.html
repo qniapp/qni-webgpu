@@ -117,15 +117,15 @@
       transform-origin: center;
     }
 
-    /* ── 1 マーカのサムネ (?preview) ──────────────── */
+    /* ── 1 マーカのサムネ (?preview) ────────────────
+       design-system.html のカード上ではワイヤを描かず、AntiControl 単体の字形だけを見せる。 */
     .preview-solo {
       width: 56px;                          /* SLOT_SPACING */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background:
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 50% / 100% 1px no-repeat;
+      background: var(--bg-2);
     }
 
     /* ── 列モック (反制御 + 対象 X、または 反制御 + 制御 + 対象) ─── */
