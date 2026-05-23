@@ -320,7 +320,7 @@
   <p class="note">
     Idle (普通) → Hover (掴める合図 = <code>cursor: grab</code>) → Dragging
     (掴んだ行そのものが pointer に追従、他の行は live-reorder で隣接 slot に瞬時に移動)。
-    <strong>ゴーストも drop indicator も elevated shadow も無し</strong>。
+    <strong>複製行も drop indicator も elevated shadow も無し</strong>。
     dragged 行は Flexoki <code>ui</code> グレーだけで示し、他の行は live-reorder されたあとの位置で静止する。
   </p>
 
@@ -376,7 +376,7 @@
           <td>
             <strong>その行自身</strong>に <code>translateY()</code> を当てて pointer に追従させる。
             <code>background: var(--ui)</code> + <code>z-index: 5</code> で「これがいま掴まれている行」を示す。
-            elevated shadow は付けない、ゴーストクローンは作らない。<br />
+            elevated shadow は付けない、複製要素は作らない。<br />
             <strong>動きは Y 軸のみ</strong>: <code>translateX</code> は常に 0。<br />
             <strong>Y はドロップダウン内側にクランプ</strong>: pointer が dropdown の外に行っても
             行は <code>[panel_pad, dropdown_height - panel_pad - row_height]</code> の範囲内に止まる。
@@ -685,7 +685,7 @@ if speed != 0.0 {
 
     <h3 style="margin-top: 24px;">Acceptance — reorder</h3>
     <ol>
-      <li>行を mouse で掴んで上下にドラッグできる。<strong>dragged 行そのもの</strong>が cursor に追従し (<code>ui</code> グレー塗りのみ)、ゴーストや drop indicator や elevated shadow は出さない。</li>
+      <li>行を mouse で掴んで上下にドラッグできる。<strong>dragged 行そのもの</strong>が cursor に追従し (<code>ui</code> グレー塗りのみ)、複製行や drop indicator や elevated shadow は出さない。</li>
       <li>dragged 行は <strong>Y 軸のみ追従</strong>。カーソルが横に動いても dropdown 列から外れない。</li>
       <li>dragged 行は <strong>ドロップダウン内側にクランプ</strong>。pointer が外に出ても row は panel 内に止まる。</li>
       <li>アイテムの bg が色付くのは <strong>hover 時 (<code>bg-2</code>) と drag 中 (<code>ui</code>)</strong> の 2 イベントだけ。active 行も resting state では paper のまま、font-weight 500 だけで識別。drag 中は他の行の hover も抑制され、dragged グレーが唯一のアクセント。</li>

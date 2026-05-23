@@ -783,27 +783,6 @@
     .seg.pill { border-radius: 999px; padding: 3px; }
     .seg.pill .opt { border-radius: 999px; padding: 6px 16px; }
 
-    /* T-3: ghost (no track, active = underline only) */
-    .seg.ghost {
-      border: none;
-      background: transparent;
-      padding: 0;
-      gap: 4px;
-    }
-    .seg.ghost .opt {
-      padding: 6px 12px;
-      border-radius: 0;
-      border-bottom: 2px solid transparent;
-      color: var(--tx-2);
-    }
-    .seg.ghost .opt.active {
-      background: transparent;
-      color: var(--tx);
-      font-weight: 600;
-    }
-    .seg.ghost .opt.active.local { background: transparent; border-bottom-color: var(--tx-2); }
-    .seg.ghost .opt.active.gpu { background: transparent; border-bottom-color: var(--blue); }
-
     /* ───────────────── Toolbar variant gallery ───────────────── */
     .tb-gallery {
       display: grid;
@@ -1258,7 +1237,7 @@
       ツールバーの中央にあるセグメンテッドコントロール (Local | GPU) を実寸で並べて比較する。
       装飾的だったドットは外した (役割がなく情報が冗長になっていた)。
       アクティブ表現は「色面塗り + paper 文字 + 太字」の 3 要素が共通で、残るのは
-      <strong>角丸の強さ・トラックの見え方</strong>。3 案を見て T-1 を採用する。
+      <strong>角丸の強さ・トラックの見え方</strong>。2 案を見て T-1 を採用する。
     </p>
 
     <div class="toggle-gallery">
@@ -1305,28 +1284,6 @@
         </div>
         <p class="pros">switch / pill control 感が出てモード切替らしさが強まる。「ON/OFF」の比喩が分かりやすい。</p>
         <p class="cons">UI の他の要素 (gate body radius 6 / panel 14) と角丸スケールが揃わず、唯一だけ丸くて浮く。</p>
-      </div>
-
-      <div class="tg-card">
-        <div class="tg-card-head"><span>T-3 · トラックなし / 下線でアクティブ</span></div>
-        <div class="tg-stage">
-          <div class="tg-row">
-            <span class="seg ghost">
-              <span class="opt active local">Local</span>
-              <span class="opt">GPU</span>
-            </span>
-            <span class="tg-label-sm">Local 選択中</span>
-          </div>
-          <div class="tg-row">
-            <span class="seg ghost">
-              <span class="opt">Local</span>
-              <span class="opt active gpu">GPU</span>
-            </span>
-            <span class="tg-label-sm">GPU 選択中</span>
-          </div>
-        </div>
-        <p class="pros">最も静か。ツールバーが視覚的に重くならない。</p>
-        <p class="cons">「クリックできるコントロール」だと一目で分からない。ボタンより<strong>タブ</strong>に見えるので、モード切替の意味合いが弱まる。</p>
       </div>
 
     </div>

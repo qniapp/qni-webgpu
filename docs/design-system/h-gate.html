@@ -74,14 +74,7 @@
       background: var(--purple-600);
       cursor: grabbing;
     }
-    /* ghost (元位置に残るシルエット): 半透明 paper、border 破線 ui-2 */
-    .h-gate[data-state="ghost"] {
-      background: transparent;
-      border: 1px dashed var(--ui-2);
-      color: var(--tx-3);
-    }
-
-    /* ホバー枠を強制表示する mock 用クラス。実際は :hover で発火するが、
+    /* ホバー枠を強制表示する mock 用指定。実際は :hover で発火するが、
        spec ページの常時表示モックでは data-state="hover" を直接付ける。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
@@ -308,7 +301,7 @@
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
       <li><strong>ユニタリゲート chrome の親仕様を抽出</strong> — § 02 / § 03 / § 06 を <code>unitary-gates.html</code> (仮) に集約。本ページは「H 固有の判断」だけに絞る (全体所見参照)。</li>
-      <li><strong>§ 01 概要と § 05 状態バリアントの状態モックを統合</strong> — § 01 で default / hover の 2 状態、§ 05 で 4 状態という二重展開は、読者に「どちらを正として読むか」を迷わせる (§ 01 / § 05 参照)。</li>
+      <li><strong>§ 01 概要と § 05 状態バリアントの状態モックを統合</strong> — § 01 で default / hover の 2 状態、§ 05 で drag 状態を含む 3 状態という二重展開は、読者に「どちらを正として読むか」を迷わせる (§ 01 / § 05 参照)。</li>
       <li><strong>§ 02 配色テーブルを「ロール × 状態」の 2 次元に整理</strong> — 現状は「用途」列に <code>box_fill (default)</code> と <code>box_fill (drag)</code> が独立行で並び、状態 (state) とロール (role) が 1 列に圧縮されている (§ 02 参照)。</li>
       <li><s><strong>§ 04 の 3× zoom を「実装 SDF outline と CSS Geist Bold の比較スクショ」に差し替え</strong></s> — <strong>適用済 (2026-05-23):</strong> 本仕様ページのグリフを実装の <code>apps/web/assets/icons/h.svg</code> から <code>&lt;use href="#g-H"/&gt;</code> で直接埋め込む形に変更。CSS Geist 代用が消えたため SDF vs CSS の比較の意義そのものが消えた (§ 04 参照)。3× zoom 単体の情報価値が低い件は残課題。</li>
       <li><strong>cyan-400 + paper グリフのコントラスト比 3.4 の妥協を § 07 に明示</strong> — WCAG AA 大文字テキスト基準 (3.0) はかろうじて満たすが、汎用テキスト基準 (4.5) は満たさない。「ボタン感を避ける」という主張と「コントラスト比 3.4 で十分」という主張は別軸の話で、現状は前者にまとめられている (§ 07 参照)。</li>
@@ -336,7 +329,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      4 状態 (default / hover / drag / ghost) の比較は <strong>§ 05 状態バリアント</strong>、
+      3 状態 (default / hover / drag) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / グリフの詳細は § 02 以降を参照。
     </p>
 
@@ -393,12 +386,6 @@
           <td>#5E409D</td>
           <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。「仮配置中」のあいだだけ本体色を置き換える</td>
         </tr>
-        <tr>
-          <td>ghost (元位置)</td>
-          <td><code>ui-2</code> (枠)、<code>tx-3</code> (グリフ)</td>
-          <td>#DAD8CE / #B7B5AC</td>
-          <td>ドラッグ中に元位置へ残すシルエット。1 px 破線 + 薄いグリフで「ここから動いた」を示す</td>
-        </tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
@@ -413,7 +400,7 @@
       <div class="critique-title">「ロール」と「状態」が「用途」列に圧縮されている</div>
       <p class="critique-body">
         現状のテーブルは「用途 / Flexoki トーン / hex / 備考」の 4 列構成だが、<code>本体 fill (default)</code> と
-        <code>本体 fill (drag preview)</code> が独立した行として並んでおり、これは<strong>「ロール (box_fill / drag_fill / gate_hover_border / ghost_border / ghost_glyph)」と「対応する状態 (default / hover / drag / ghost)」が同じ列に詰め込まれている</strong>状態。
+        <code>本体 fill (drag preview)</code> が独立した行として並んでおり、これは<strong>「ロール (box_fill / drag_fill / gate_hover_border)」と「対応する状態 (default / hover / drag)」が同じ列に詰め込まれている</strong>状態。
         デザイントークン由来の「ロール」と動的に切り替わる「状態」は別軸なので、この圧縮は次の 2 つの場面で読みにくさを生む:
       </p>
       <ul class="critique-list">
@@ -422,7 +409,6 @@
       </ul>
       <p class="critique-body">
         列を「ロール / 状態 / Flexoki トーン / hex / 備考」の 5 列に再構成すれば、両方の視点でソート / 縦読みできる。
-        Ghost 行も現状は「枠」「グリフ」を 1 行に同居させているが、ロール軸で分けるとそれぞれ独立行として書ける。
         この再構成は probability-display.html § 06 配色のテーブルと同じ思想で、ユニタリゲート族で共通化する価値がある。
       </p>
     </aside>
@@ -583,8 +569,8 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      4 状態を <code>data-state</code> 属性で強制したモック。実コードと同じ chrome / マークアップで、
-      ホバーしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
+      default に加え、hover / drag 状態を <code>data-state</code> 属性で強制したモック。実コードと同じ chrome / マークアップで、
+      ホバーやドラッグ操作をしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
     </p>
     <div class="stage">
       <div class="col">
@@ -599,32 +585,28 @@
         <div class="caption">③ drag preview<br>purple-600 本体<br>(仮配置中)</div>
         <div class="actual"><div class="h-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
       </div>
-      <div class="col">
-        <div class="caption">④ ghost<br>(元位置のシルエット)<br>ui-2 破線 + tx-3 グリフ</div>
-        <div class="actual"><div class="h-gate" data-state="ghost"><svg viewBox="0 0 48 48"><use href="#g-H"/></svg></div></div>
-      </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      ③ と ④ は同時に発生する組 (ドラッグ元 = ghost、ドラッグ中のカーソル下 = drag preview)。
-      ホバー枠とドラッグの相互作用や drop preview 等の詳細は <em>Gate drag &amp; drop</em> 仕様 (draft) を参照。
+      ③ はドラッグ中のカーソル下に表示されるプレビュー。ホバー枠とドラッグの相互作用やドロップ時のプレビュー等の詳細は
+      <em>Gate drag &amp; drop</em> 仕様 (draft) を参照。
     </p>
 
     <aside class="critique" aria-label="批評 · § 05 § 01 との重複">
       <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
       <div class="critique-title">§ 01 と § 05 の状態モックが二重で展開されている</div>
       <p class="critique-body">
-        § 01 概要では default + hover の 2 状態を実寸モックで見せ、§ 05 では default + hover + drag + ghost の
-        4 状態を実寸モックで見せている。<strong>§ 01 の 2 状態は § 05 のサブセット</strong>なので、
+        § 01 概要では default + hover の 2 状態を実寸モックで見せ、§ 05 では default + hover + drag の
+        3 状態を実寸モックで見せている。<strong>§ 01 の 2 状態は § 05 のサブセット</strong>なので、
         読者は「同じ図を 2 回見る」ことになるうえ、caption の文言も微妙に異なる (§ 01: 「purple-400 の枠 + 背景の空き」、
         § 05: 「purple-400 の枠 + 2 px 背景の空き」) ので、「§ 01 と § 05 は別物? 同じ物?」と一瞬迷う。
       </p>
       <p class="critique-body">
         統合案: § 01 ではモックを <strong>default 1 状態だけ</strong>に絞り (「これが H ゲートです」と一目で伝える)、
-        § 05 を canonical な「4 状態の比較」にする。§ 01 の文末から § 05 へリンクするだけで、
+        § 05 を基準となる「3 状態の比較」にする。§ 01 の文末から § 05 へリンクするだけで、
         「default の見た目を知りたい → § 01」「全状態を比較したい → § 05」の動線が明確になる。
         現状の構成は probability-display.html § 01 + § 02 と同じパターンだが、確率表示ブロックの場合は
         「§ 02 サイズ別の見た目」が span 1〜5 + 16 を並べる質的に異なる情報なので重複ではない。
-        H ゲートは状態 4 つしかなく、span のような次元軸もないので、§ 01 のモックは省略しても情報量を失わない。
+        H ゲートは状態 3 つしかなく、span のような次元軸もないので、§ 01 のモックは省略しても情報量を失わない。
       </p>
     </aside>
   </div>

@@ -53,13 +53,6 @@
       background: var(--purple-600);
       cursor: grabbing;
     }
-    /* ゴースト = 元位置に残るシルエット。 */
-    .s-dagger-gate[data-state="ghost"] {
-      background: transparent;
-      border: 1px dashed var(--ui-2);       /* Flexoki ui-2 */
-      color: var(--tx-3);                   /* Flexoki tx-3 */
-    }
-
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
@@ -275,7 +268,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      4 状態 (既定 / ホバー / ドラッグ / ゴースト) の比較は <strong>§ 05 状態バリアント</strong>、
+      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
       ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
     </p>
   </div>
@@ -312,12 +305,6 @@
           <td><code>purple-600</code></td>
           <td>#5E409D</td>
           <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-        <tr>
-          <td>ゴースト</td>
-          <td><code>ui-2</code> (枠)、<code>tx-3</code> (字形)</td>
-          <td>#DAD8CE / #B7B5AC</td>
-          <td>ドラッグ元に残す 1 px 破線シルエット</td>
         </tr>
       </tbody>
     </table>
@@ -443,7 +430,7 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      4 状態を <code>data-state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
+      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。ホバーやドラッグ操作をしなくても状態差を確認できる。
     </p>
     <div class="stage">
       <div class="col">
@@ -458,13 +445,9 @@
         <div class="caption">③ ドラッグ<br>purple-600 本体</div>
         <div class="actual"><div class="s-dagger-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
       </div>
-      <div class="col">
-        <div class="caption">④ ゴースト<br>ui-2 破線 + tx-3 字形</div>
-        <div class="actual"><div class="s-dagger-gate" data-state="ghost"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-SDagger"/></svg></div></div>
-      </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      ③ と ④ は同時に発生する組 (ドラッグ元 = ゴースト、カーソル下 = ドラッグプレビュー)。
+      ③ はドラッグ中のカーソル下に表示されるプレビュー。
       S† は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
     </p>
   </div>

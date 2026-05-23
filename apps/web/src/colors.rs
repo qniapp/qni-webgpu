@@ -180,7 +180,7 @@ fn flexoki_light() -> Colors {
         probability_log_hint: tx_3,           // Probability logarithm hints (Flexoki tx-3 #B7B5AC)
         semantic_off: red_600,                // |0⟩ digit / measurement 0
         semantic_on: blue_600,                // |1⟩ digit / measurement 1
-        semantic_intermediate: purple_600,    // measurement idle / drag ghost
+        semantic_intermediate: purple_600,    // measurement idle
         semantic_disabled: tx_2,              // disabled / bracket chrome
         state_handle_bg: blue_600,            // state panel header
         state_resize_handle_top_idle: blue_400,

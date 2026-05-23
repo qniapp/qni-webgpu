@@ -288,7 +288,7 @@ pre.code {
    各 spec ページが design-system.html のサムネ用 iframe (src="page.html?preview")
    から呼ばれたときに使う。<script> で documentElement に `preview-mode` クラスを
    付与し、#preview 以外を隠す。本来のページ表示時は #preview 自体を非表示にして
-   左上にゴーストが出るのを防ぐ。 */
+   左上に不要なプレビューが出るのを防ぐ。 */
 #preview { display: none; }
 
 html.preview-mode body {
