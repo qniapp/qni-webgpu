@@ -336,7 +336,8 @@
       </thead>
       <tbody>
         <tr><td><code>gate_hover_border</code> / <code>hover_border</code></td><td><code>purple-400</code></td><td>#8B7EC8</td><td>ホバー枠。回路上 / パレット / 表示セルで共有</td></tr>
-        <tr><td>内側の空き</td><td><code>bg</code> または <code>bg-2</code></td><td>#FFFCF0 / #F2F0E5</td><td>対象要素と紫枠の間の 2 px。描画面に合わせて背景が見える。パレットでは <code>bg</code> (paper) で抜く</td></tr>
+        <tr><td>回路上の内側の空き</td><td><code>bg-2</code></td><td>#F2F0E5</td><td>対象要素と紫枠の間の 2 px。ステージ背景がそのまま見える</td></tr>
+        <tr><td>パレットの内側の空き</td><td><code>bg</code></td><td>#FFFCF0</td><td>対象要素と紫枠の間の 2 px。パレットでは paper で抜く</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
@@ -344,26 +345,6 @@
       ドラッグ中の本体色 <code>drag_fill</code> は <code>purple-600</code> で、ホバーより濃い紫にして状態を分ける。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 03 配色テーブルの 1 セル 2 値">
-      <div class="critique-label">★ 批評 · § 03 配色</div>
-      <div class="critique-title">「内側の空き」行が <code>bg</code> または <code>bg-2</code> の 2 値を 1 セルに圧縮している</div>
-      <p class="critique-body">
-        「内側の空き」行の Flexoki トーン列に <code>bg</code> または <code>bg-2</code>、hex 列に 2 つの値が並んでおり、
-        <strong>「1 つの色ロールに対し 1 セル 1 値」</strong>という配色表の前提が崩れている。
-        備考に「描画面に合わせて背景が見える。パレットでは <code>bg</code> (paper) で抜く」と書かれているが、
-        どちらが default でどちらが変則なのかを読み解くのに 1 ステップ余分にかかる。
-      </p>
-      <p class="critique-body">
-        改善案: 行を 2 つに分割する。
-      </p>
-      <ul class="critique-list">
-        <li><strong>回路上の内側の空き</strong> — <code>bg-2</code> (#F2F0E5、ステージ背景がそのまま見える)</li>
-        <li><strong>パレットの内側の空き</strong> — <code>bg</code> (#FFFCF0、paper で抜く)</li>
-      </ul>
-      <p class="critique-body">
-        これは § 04 描き分けの 3 行構造 (回路上 / パレット / 表示ブロック内セル) と平仄が合い、配色表と描き分け表が「場所軸」で 1:1 に対応する形になる。
-      </p>
-    </aside>
   </div>
 </section>
 
