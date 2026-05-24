@@ -115,47 +115,25 @@
       width: 16px;                       /* spacing-4 */
       height: 16px;
       flex: 0 0 auto;
-      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popup_icon_chrome */
-      border-radius: 9999px;
-      position: relative;
+      overflow: visible;
     }
-    .popover-icon::before,
-    .popover-icon::after {
-      content: '';
-      position: absolute;
-      background: var(--blue-400);       /* Flexoki blue-400 / popup_icon */
+    .popover-icon__chrome {
+      fill: none;
+      stroke: var(--tx-3);               /* Flexoki tx-3 / popup_icon_chrome */
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
-    .popover-icon--amplitude::before {
-      left: 3px;
-      top: 8px;
-      width: 10px;
-      height: 2px;
-      border-radius: 9999px;
-      transform: rotate(-35deg);
-      transform-origin: left center;
+    .popover-icon__chrome-fill {
+      fill: var(--tx-3);                 /* Flexoki tx-3 / popup_icon_chrome */
     }
-    .popover-icon--amplitude::after {
-      right: 2px;
-      top: 3px;
-      width: 0;
-      height: 0;
-      background: transparent;
-      border-left: 5px solid var(--blue-400); /* Flexoki blue-400 / popup_icon */
-      border-top: 3px solid transparent;
-      border-bottom: 3px solid transparent;
-      transform: rotate(-35deg);
+    .popover-icon__accent {
+      fill: none;
+      stroke: var(--blue-400);           /* Flexoki blue-400 / popup_icon */
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
-    .popover-icon--probability::after {
-      inset: 5px;
-      border-radius: 9999px;
-    }
-    .popover-icon--phase::after {
-      inset: 3px;
-      background: transparent;
-      border: 2px solid var(--blue-400); /* Flexoki blue-400 / popup_icon */
-      border-left-color: transparent;
-      border-bottom-color: transparent;
-      border-radius: 9999px;
+    .popover-icon__accent-fill {
+      fill: var(--blue-400);             /* Flexoki blue-400 / popup_icon */
     }
     .popover-label {
       width: 88px;                       /* 値列の開始位置を状態セル実装に近づける表示用幅 */
@@ -291,9 +269,29 @@
         <div class="popover">
           <div class="popover-title">|01⟩ decimal 1</div>
           <div class="popover-metrics">
-            <div class="popover-row"><span class="popover-icon popover-icon--amplitude" aria-hidden="true"></span><span class="popover-label">Amplitude:</span><span class="popover-value">+0.70711+0.00000i</span></div>
-            <div class="popover-row"><span class="popover-icon popover-icon--probability" aria-hidden="true"></span><span class="popover-label">Probability:</span><span class="popover-value">+50.0000%</span></div>
-            <div class="popover-row"><span class="popover-icon popover-icon--phase" aria-hidden="true"></span><span class="popover-label">Phase:</span><span class="popover-value">+0.00°</span></div>
+            <div class="popover-row">
+              <svg class="popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="popover-icon__chrome" d="M1 13 H15 M3 1 V15" stroke-width="1.2"></path>
+                <circle class="popover-icon__chrome-fill" cx="3" cy="13" r="1.4"></circle>
+                <path class="popover-icon__accent" d="M3 13 L10.61 5.39" stroke-width="2.2"></path>
+                <path class="popover-icon__accent-fill" d="M14 2 L7.92 3.27 L12.73 8.08 Z"></path>
+              </svg>
+              <span class="popover-label">Amplitude:</span><span class="popover-value">+0.70711+0.00000i</span>
+            </div>
+            <div class="popover-row">
+              <svg class="popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle class="popover-icon__chrome" cx="8" cy="8" r="6.4" stroke-width="2"></circle>
+                <circle class="popover-icon__accent-fill" cx="8" cy="8" r="4"></circle>
+              </svg>
+              <span class="popover-label">Probability:</span><span class="popover-value">+50.0000%</span>
+            </div>
+            <div class="popover-row">
+              <svg class="popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="popover-icon__chrome" d="M2.5 12.6 H14.2 M2.5 12.6 L10.23 3.09" stroke-width="1.6"></path>
+                <path class="popover-icon__accent" d="M6.02 8.95 L7.1 10.6 L7.9 12.95" stroke-width="2"></path>
+              </svg>
+              <span class="popover-label">Phase:</span><span class="popover-value">+0.00°</span>
+            </div>
           </div>
           <svg class="popover-tail popover-tail--bottom" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
             <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
@@ -376,6 +374,7 @@
       <tbody>
         <tr><th>規範範囲</th><td>本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで。見出し、行数、区切り線、ラベル文言、数値の桁数は各コンポーネント仕様が持つ。</td></tr>
         <tr><th>基準例</th><td>状態セルは <code>text-sm</code> (<code>14 px / 20 px</code>) の等幅見出しと、<code>text-xs</code> (<code>12 px</code>) の 3 行値一覧を使う。区切り線や補足行は持たない。</td></tr>
+        <tr><th>状態セルのアイコン</th><td><code>apps/web/src/render/state_panel_popup/icons.rs</code> を正とする。Amplitude は Re/Im 軸 + 斜め矢印、Probability は外輪 + 内側ディスク、Phase は底辺 + 斜辺 + 角度弧で描く。</td></tr>
         <tr><th>行ピッチ</th><td>値の行間は <code>20 px</code> を基準にする。ラベルと値の間は対象の最大文字数に合わせ、狭い表示で読みにくくしない。</td></tr>
         <tr><th>GPU 値</th><td>状態セル、確率表示ブロック、振幅表示ブロックなどの数値は GPU 上の値を直接描く経路を維持し、CPU へ読み戻さない。</td></tr>
       </tbody>
@@ -422,6 +421,7 @@
     <ul>
       <li><code>apps/web/src/render/popover.rs</code> — 共通外装の面、縁、影、tail 描画。</li>
       <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 状態ベクトルセル基準形の幅、余白、tail、画面端処理。</li>
+      <li><code>apps/web/src/render/state_panel_popup/icons.rs</code> — 状態ベクトルセルの Amplitude / Probability / Phase 行アイコン。</li>
       <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックのホバー表示。</li>
       <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の余白と配置。</li>
       <li><code>docs/design-system/probability-display.html</code> / <code>amplitude-display.html</code> / <code>bloch-display.html</code> — 表示ブロック側の内容仕様。</li>
