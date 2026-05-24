@@ -14,6 +14,7 @@ const EGUI_PANEL_MARGIN = 8
 const DENSITY_CELL_FILL = [146, 191, 219, 255] // Flexoki blue-200 #92BFDB.
 const DENSITY_CELL_BACKGROUND = [255, 252, 240, 255] // Flexoki bg #FFFCF0.
 const DENSITY_MATRIX_BORDER = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE.
+const DENSITY_HOVER_BORDER = [139, 126, 200, 255] // Flexoki purple-400 #8B7EC8.
 
 const rounded = (value: number): number => Math.round(value * 1_000) / 1_000
 
@@ -128,4 +129,21 @@ test('Density Matrix display maximizes circle outlines without touching the oute
       nearCircleVisible: pixelRgbDistance(pixels.nearCircle, DENSITY_CELL_BACKGROUND) > 48,
     }
   }).toEqual({ frameEdgeClear: true, nearCircleVisible: true })
+})
+
+test('hovering Density Matrix display shows the host hover frame', async ({ page }) => {
+  await openSpanTwoDensityCircuit(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('canvas not found')
+  const gate = spanTwoDensityGateOrigin()
+  await page.mouse.move(box.x + gate.x + 12, box.y + gate.y + 12)
+
+  await expect.poll(async () => {
+    const pixels = await sampleCanvasPixels(page, canvas, [
+      { name: 'hoverFrame', x: gate.x - 3, y: gate.y + UI_CONSTANTS.GATE_SIZE / 2 },
+    ])
+    return pixelRgbDistance(pixels.hoverFrame, DENSITY_HOVER_BORDER)
+  }).toBeLessThan(90)
 })
