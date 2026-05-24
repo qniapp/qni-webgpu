@@ -31,6 +31,7 @@
   <script src="components/anti-control-gate.js"></script>
   <script src="components/qft-gate.js"></script>
   <script src="components/qft-dagger-gate.js"></script>
+  <script src="components/write0-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -85,7 +86,8 @@
     .gp-gate > control-gate,
     .gp-gate > anti-control-gate,
     .gp-gate > qft-gate,
-    .gp-gate > qft-dagger-gate {
+    .gp-gate > qft-dagger-gate,
+    .gp-gate > write0-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -239,20 +241,6 @@
       <circle cx="24" cy="24" r="3.6" fill="#205EA6"/>
     </symbol>
 
-    <!--
-      ─ Write0 — gray bracket | ⟩ + red 0 (digit0.svg を埋め込み) ─
-      bracket lines from gate_glyphs.rs:96-98 (in viewBox 48):
-        (6, 5)..(6, 43) / (37.4516, 5)..(43.5, 24) / (43.5, 24)..(37.4516, 43), stroke 2
-      digit: digit0.svg の path を currentColor → red-600 で
-    -->
-    <symbol id="g-Write0" viewBox="0 0 48 48">
-      <line x1="6" y1="5" x2="6" y2="43" stroke="#6F6E69" stroke-width="2"/>
-      <line x1="37.4516" y1="5" x2="43.5" y2="24" stroke="#6F6E69" stroke-width="2"/>
-      <line x1="43.5" y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
-      <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#AF3029">
-        <path d="M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354Q50 469 80.0 552.0Q110 635 166.5 680.5Q223 726 300 726Q378 726 434.0 680.5Q490 635 520.0 552.0Q550 469 550 354Q550 240 520.0 157.0Q490 74 434.0 29.0Q378 -16 300 -16ZM140 354Q140 254 165 184L393 599Q354 642 300 642Q226 642 183.0 564.5Q140 487 140 354ZM300 68Q374 68 417.0 145.5Q460 223 460 354Q460 455 435 525L207 111Q246 68 300 68Z"/>
-      </g>
-    </symbol>
 
     <!-- ─ Write1 — gray bracket | ⟩ + blue 1 (digit1.svg) ─ -->
     <symbol id="g-Write1" viewBox="0 0 48 48">
@@ -393,7 +381,7 @@
             <div class="gp-gate" data-tip="Swap"><svg width="40" height="40"><use href="#g-Swap"/></svg><span class="tip">Swap</span></div>
             <div class="gp-gate" data-tip="Control · |1⟩"><control-gate></control-gate><span class="tip">Control · |1⟩</span></div>
             <div class="gp-gate" data-tip="Anti-control · |0⟩"><anti-control-gate></anti-control-gate><span class="tip">Anti-control · |0⟩</span></div>
-            <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><svg width="40" height="40"><use href="#g-Write0"/></svg><span class="tip">|0⟩ · reset</span></div>
+            <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><write0-gate></write0-gate><span class="tip">|0⟩ · reset</span></div>
             <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><svg width="40" height="40"><use href="#g-Write1"/></svg><span class="tip">|1⟩ · reset</span></div>
             <div class="gp-gate" data-tip="Measurement · Z-basis"><svg width="40" height="40"><use href="#g-Measurement"/></svg><span class="tip">Z-basis measurement</span></div>
             <div class="gp-gate" data-tip="QFT · Quantum Fourier Transform"><qft-gate></qft-gate><span class="tip">QFT (span 1〜16)</span></div>
@@ -483,7 +471,7 @@
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Swap"/></svg></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
       <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
       <div class="item"><div class="gp-gate"><anti-control-gate></anti-control-gate></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write0"/></svg></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
+      <div class="item"><div class="gp-gate"><write0-gate></write0-gate></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write1"/></svg></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Measurement"/></svg></div><div class="label"><span class="name">Measurement</span><span>Z-basis 測定 (purple meter)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-gate></qft-gate></div><div class="label"><span class="name">QFT</span><span>Quantum Fourier Transform (resizable)</span></div></div>
@@ -613,7 +601,7 @@
     <ul>
       <li>パレットアイコン<strong>自身は残り続ける</strong> (source は消えない)。同じパレットから何度でも drop 可能</li>
       <li>カーソル下に preview gate が浮く: <code>render/circuit_palette/drag_preview.rs</code> で<strong>専用 overlay 描画</strong> (回路グリッド上の他 gate と z-order が独立)</li>
-      <li>preview 本体色は <code>drag_fill</code> = purple-600 (idle の cyan-400 と区別)</li>
+      <li>本体色を持つゲートの preview 本体色は <code>drag_fill</code> = purple-600 (idle の cyan-400 と区別)。Write0 / Write1 / Measurement / Spacer など no-body 系は字形色や本体なしの見た目を維持する</li>
       <li>cursor は <code>grabbing</code></li>
     </ul>
     <h3 style="margin-top: 16px;">drop</h3>
@@ -687,7 +675,7 @@
       <li>SDF テクスチャ経由の文字描画 (<code>assets/icons/*.svg</code> → 256 px PNG → SDF)</li>
       <li>ホバー枠 (purple-400 4 px expand / radius 10 + paper 2 px expand / radius 8) — 全 26 ゲート対応</li>
       <li>ツールチップ (gate 名 + 説明 + 変換図)</li>
-      <li>drag source (mousedown 即開始、新規 <code>PlacedGate</code> 生成、purple-600 preview overlay) — Spacer 含む全 26 ゲートに対応</li>
+      <li>drag source (mousedown 即開始、新規 <code>PlacedGate</code> 生成、ドラッグプレビュー overlay) — Spacer 含む全 26 ゲートに対応。purple-600 の本体色は body ありゲートだけに適用する</li>
       <li>Spacer は Gates section row 2 末尾、drop すると回路上の<strong>空きスロット</strong>として配置</li>
     </ul>
     <h3 style="margin-top: 16px;">未実装 / TODO</h3>

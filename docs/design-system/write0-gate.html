@@ -12,48 +12,12 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- |0⟩ オペレーション本体は <write0-gate> カスタム要素で描画する。 -->
+  <script src="components/write0-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
 
-    /* ── |0⟩ オペレーション本体 ──────────────────────
-       gate-palette.html の基準 <symbol id="g-Write0"> と字形 path / stroke が一致。
-       H / Y / Z / S / T / Rz のような cyan-400 角丸正方形は持たず、
-       透明な 40 × 40 の hit / hover 領域の中に、tx-2 のケット括弧 (3 strokes) と
-       中央の red-600 のディジット "0" だけを置く。 */
-    .write0-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: transparent;              /* 本体 fill なし */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-    }
-    .write0-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-      overflow: visible;
-    }
-
-    /* ホバー枠
-       本体に塗りがないので、Swap / Control と同じく外側に直接 purple-400 枠を出す。
-       角丸正方形ゲート (H / Rz など) と違って box-shadow の 2 重 (paper + purple) は使わない。
-       内側の bg ギャップを開けると括弧が枠に飲まれて読み辛くなるため。 */
-    .write0-gate[data-state="hover"],
-    .write0-gate:not([data-state]):hover {
-      box-shadow: 0 0 0 2px var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 8px;                   /* rounded-md - 2 */
-    }
-
-    /* drag は本体 fill を持たない |0⟩ では色を変えず、cursor だけ grabbing にする。
-       (cyan-400 → purple-600 の入れ替えがない。chrome の差は § 05 を参照。) */
-    .write0-gate[data-state="drag"] {
-      cursor: grabbing;
-    }
+    /* |0⟩ 本体 / 字形 / ホバー枠は components/write0-gate.js の <write0-gate> に集約する。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
@@ -92,7 +56,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .write0-gate {
+    .stage .zoom write0-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -216,24 +180,9 @@
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Write0"> と完全一致するケット記号 +
-     ディジット字形をローカル symbol として定義する。本体 rect は持たない。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Write0" viewBox="0 0 48 48">
-    <!-- ケット括弧 |⟩ — Flexoki tx-2 (#6F6E69) / semantic_disabled ロール -->
-    <line x1="6"       y1="5"  x2="6"       y2="43" stroke="#6F6E69" stroke-width="2"/>
-    <line x1="37.4516" y1="5"  x2="43.5"    y2="24" stroke="#6F6E69" stroke-width="2"/>
-    <line x1="43.5"    y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
-    <!-- ディジット "0" — Flexoki red-600 (#AF3029) / semantic_off ロール
-         path は qni 由来の Geist Mono ベース SDF "0" (slashed-zero 防止のためベクタで保持) -->
-    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#AF3029">
-      <path d="M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354Q50 469 80.0 552.0Q110 635 166.5 680.5Q223 726 300 726Q378 726 434.0 680.5Q490 635 520.0 552.0Q550 469 550 354Q550 240 520.0 157.0Q490 74 434.0 29.0Q378 -16 300 -16ZM140 354Q140 254 165 184L393 599Q354 642 300 642Q226 642 183.0 564.5Q140 487 140 354ZM300 68Q374 68 417.0 145.5Q460 223 460 354Q460 455 435 525L207 111Q246 68 300 68Z"/>
-    </g>
-  </symbol>
-</svg>
 
 <div id="preview">
-  <div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div>
+  <write0-gate></write0-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -262,7 +211,7 @@
     <div class="critique-title">「ゲート」と呼びながら唯一非ユニタリな operation の特異性が、仕様ページの構造から伝わりにくい</div>
     <p class="critique-body">
       本仕様は <code>H ページの全体所見と同じ</code>く Flexoki に厳密で、寸法 / 配色 / 字形が根拠付きで網羅されている。
-      cyan-400 角丸正方形を持たないことや、ホバー枠を内側 bg ギャップなしの単線にする判断は、
+      cyan-400 角丸正方形を持たないことや、回路上のホバー枠を bg 塗りなしの単線にする判断は、
       <a href="write1-gate.html">|1⟩</a> / <a href="measurement-gate.html">測定</a> / <a href="spacer-gate.html">Spacer</a> /
       <a href="control-gate.html">制御</a> と共通の「透明マーカ系」クロムとして整理されている点もよい。
     </p>
@@ -305,11 +254,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="actual"><write0-gate></write0-gate></div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠</div>
-        <div class="actual"><div class="write0-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="actual"><write0-gate state="hover"></write0-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -364,13 +313,13 @@
         <tr>
           <td>ホバー枠</td>
           <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体 fill がないため、cyan ゲート (H / Rz) のような内側 bg ギャップは取らず、外側 2 px の純粋な縁取りだけにする</td>
+          <td><code>gate_hover_border</code> ロール。回路上では本体 fill がないため、cyan ゲート (H / Rz) のような内側 bg 塗りは置かず、40 px 領域から 4 px 外へ拡張した 2 px の単線枠にする。パレット上では親の <code>.gp-gate</code> が surface gap 枠を描く</td>
         </tr>
         <tr>
           <td>ドラッグ時の色変化</td>
           <td>—</td>
           <td>—</td>
-          <td>本体 fill を持たないため、cyan-400 → purple-600 の差し替えは起こさない。drag は cursor とホバー枠だけで示す (§ 05)</td>
+          <td>本体 fill を持たないため、cyan-400 → purple-600 の差し替えは起こさない。ドラッグ中は cursor と配置先候補スロットのハイライトで示す (§ 05)</td>
         </tr>
       </tbody>
     </table>
@@ -498,15 +447,15 @@
   <h2><span class="num">§ 04</span>字形 (ケット <code>|0⟩</code>)</h2>
   <div class="card">
     <p>
-      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Write0</code> と
-      同じ stroke / path / transform を使う。CSS のテキスト描画ではなく、
+      中央字形は <code>components/write0-gate.js</code> の <code>&lt;write0-gate&gt;</code> が提供する。
+      CSS のテキスト描画ではなく、
       <strong>3 本の stroke (ケット括弧) と 1 個のベクタ glyph (ディジット "0")</strong> をそのまま 40 px hit 領域に重ねる。
       フォントレンダラに依存しないため、ブラウザ / Wasm canvas / SVG プレビューのいずれでも字形が破綻せず、
       "slashed zero" のような書体差も起きない。
     </p>
     <table class="spec">
       <tbody>
-        <tr><th>形式</th><td>stroke × 3 + ベクタ path × 1 (<code>&lt;symbol id="g-Write0"&gt;</code> と 1:1)</td></tr>
+        <tr><th>形式</th><td>stroke × 3 + ベクタ path × 1 (<code>components/write0-gate.js</code> の Shadow DOM に集約)</td></tr>
         <tr><th>"0" path</th><td><code>M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354…</code> (Geist Mono の "0" ベクタ)</td></tr>
         <tr><th>"0" 変換</th><td><code>translate(15.648 33.883) scale(0.027840 -0.027840)</code> (viewBox 48 への正規化、Y 軸反転)</td></tr>
         <tr><th>外形サイズ</th><td>viewBox 上で "0" 単体が約 <code>13.9 × 20.7</code>。40 px 領域では約 <strong>11.6 × 17.2 px</strong> (括弧の内側にきっちり収まる)</td></tr>
@@ -520,11 +469,11 @@
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 224px;">
         <div class="caption">既定 · 3× zoom</div>
-        <div class="zoom"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="zoom"><write0-gate></write0-gate></div>
       </div>
       <div class="col" style="max-width: 224px;">
         <div class="caption">ホバー · 3× zoom<br>(外側 purple-400 枠)</div>
-        <div class="zoom"><div class="write0-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="zoom"><write0-gate state="hover"></write0-gate></div>
       </div>
     </div>
 
@@ -553,38 +502,38 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。
+      既定に加え、ホバー / ドラッグ状態を <code>state</code> 属性で強制したモック。
       |0⟩ オペレーションは本体 fill を持たないため、ドラッグ時も括弧とディジットの色は変えない。
-      ドラッグ状態の識別は cursor (<code>grabbing</code>) と、回路セル外でドラッグカーソル下に出る
-      ホバー枠だけが担う点が、cyan-400 系のゲート (H / Rz など) との大きな違い。
+      ドラッグ状態の識別は cursor (<code>grabbing</code>) が担う。回路セル外でドラッグカーソル下に出る
+      プレビューも色は変えず、配置先候補スロットのハイライトと組み合わせて位置を伝える点が、cyan-400 系のゲート (H / Rz など) との大きな違い。
     </p>
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>tx-2 ケット +<br>red-600 ディジット</div>
-        <div class="actual"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="actual"><write0-gate></write0-gate></div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>外側 purple-400 枠<br>(2 px)</div>
-        <div class="actual"><div class="write0-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="actual"><write0-gate state="hover"></write0-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>色は不変<br>(cursor: grabbing)</div>
-        <div class="actual"><div class="write0-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="actual"><write0-gate state="drag"></write0-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI では同時にホバー枠も伴って出るため、
-      実質「② + cursor: grabbing」が drag preview の見た目になる。
+      ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI ではホバー枠を重ねず、
+      字形そのものは既定と同じまま表示する。
       |0⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       パラメタを持たないため、Rz / P のようなポップオーバ編集 UI も無い。
     </p>
 
     <aside class="critique" aria-label="批評 · § 05 ドラッグ状態の視認性">
       <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
-      <div class="critique-title">ドラッグ状態が「② ホバー + cursor」と区別不能で、UI 的フィードバックが弱い</div>
+      <div class="critique-title">ドラッグ状態が既定表示とほぼ同じで、UI 的フィードバックが弱い</div>
       <p class="critique-body">
         本仕様では cyan-400 系ゲートが <code>cyan-400 → purple-600</code> の本体色入れ替えで「仮配置中」を強く伝えるのに対し、
-        |0⟩ オペレーションは本体 fill が無いため、ドラッグ中の視覚フィードバックが <strong>cursor 変化 + ホバー枠</strong>だけになる。
+        |0⟩ オペレーションは本体 fill が無いため、ドラッグ中の視覚フィードバックが <strong>cursor 変化と配置先候補スロットのハイライト</strong>に寄る。
         本文も認めているように、これは「うっすらしか目立たない」状態で、ユーザは「ちゃんと掴めたのか?」が
         cyan-400 系ゲートに比べて分かりにくい。
       </p>
@@ -611,11 +560,11 @@
     </p>
     <div class="slot-mock with-grid">
       <div class="wire">
-        <div class="slot"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="slot"><write0-gate></write0-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="slot"><write0-gate></write0-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="write0-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Write0"/></svg></div></div>
+        <div class="slot"><write0-gate></write0-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -675,8 +624,8 @@
       <li><strong>cyan-400 角丸正方形を使わない</strong>: H / X / Y / Z / Rz と同じクロムを流用すると「ユニタリ回転」と誤解される。状態を回す操作ではなく「強制的に書き込む」操作なので、ケット括弧 + ディジットという「状態ラベルそのもの」を見せる字形を採用する</li>
       <li><strong>ケット括弧を tx-2 にする</strong>: 括弧自体は意味を持たないただのクロム (区切り記号)。tx-2 で目立たせず、データインクであるディジットを際立たせる。X ゲートの "+" や Rz の文字グリフが <code>paper</code> = #FFFCF0 で本体上にコントラスト 3.4 で乗るのと違い、|0⟩ は背景 (paper) に乗るので、stroke 色は paper にできず、可読な中性トーン tx-2 を選ぶ</li>
       <li><strong>ディジット "0" を red-600 にする</strong>: 色対 <code>red-600</code> = 0 / off と <code>blue-600</code> = 1 / on を UI 全体 (確率表示 / Measurement / |0⟩/|1⟩ operation) で 1 つに固定する。緑 / 青 / 紫など他の色を試すと、「on/off の対」という意味が崩れる</li>
-      <li><strong>ホバー枠を内側 bg ギャップなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の 2 重 box-shadow を使うが、本体が透明な |0⟩ では内側ギャップを取ると ket 括弧と枠の間に余計な隙間が生まれ、可読性が落ちる。純粋な外側 purple-400 単線にする</li>
-      <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |0⟩ ではこの方法が使えない。代わりに cursor: grabbing + 既定のホバー枠で識別する。色を変えない代わりに、drag preview がうっすらしか目立たないため、配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
+      <li><strong>回路上のホバー枠を bg 塗りなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の二層枠を使うが、本体が透明な |0⟩ では内側を paper で塗るとケット括弧と枠の間に余計な色面が生まれ、可読性が落ちる。回路上では 40 px 領域から 4 px 外へ拡張した purple-400 の単線枠にし、パレット上では親の <code>.gp-gate</code> が surface gap 枠を描く</li>
+      <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |0⟩ ではこの方法が使えない。色を変えない代わりに、drag preview がうっすらしか目立たないため、cursor: grabbing と配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
       <li><strong>パラメタを持たない</strong>: Rz / P のような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write1-gate.html">|1⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
       <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |0⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
     </ul>
@@ -734,11 +683,11 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の |0⟩ オペレーション (ドラッグ元) の基準 SVG <code>g-Write0</code> を定義する。|1⟩ も <code>g-Write1</code> として隣接配置</td>
+          <td>パレット上の |0⟩ オペレーションでも <code>&lt;write0-gate&gt;</code> を参照する。|1⟩ と隣接配置</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 のホバー枠 primitive。|0⟩ は本体 fill を持たないため、内側 bg ギャップを取らない単線バリアントを使う</td>
+          <td>purple-400 のホバー枠 primitive。|0⟩ は回路上で本体 fill を持たないため bg 塗りなしの単線枠を使い、パレット上では <code>.gp-gate</code> の surface gap 枠を使う</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
