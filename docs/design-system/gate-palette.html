@@ -27,6 +27,7 @@
   <script src="components/ry-gate.js"></script>
   <script src="components/rz-gate.js"></script>
   <script src="components/p-gate.js"></script>
+  <script src="components/control-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -77,7 +78,8 @@
     .gp-gate > rx-gate,
     .gp-gate > ry-gate,
     .gp-gate > rz-gate,
-    .gp-gate > p-gate {
+    .gp-gate > p-gate,
+    .gp-gate > control-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -238,10 +240,6 @@
       <line x1="12" y1="12" x2="36" y2="36" stroke="#3AA99F" stroke-width="4"/>
     </symbol>
 
-    <!-- ─ Control — cyan-400 filled dot r=8 at (24, 24) (gate_glyphs.rs:110-112) ─ -->
-    <symbol id="g-Control" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="8" fill="#3AA99F"/>
-    </symbol>
 
     <!-- ─ AntiControl — cyan-400 stroked circle r=5 stroke=3 (gate_glyphs.rs:114-121) ─ -->
     <symbol id="g-AntiControl" viewBox="0 0 48 48">
@@ -422,7 +420,7 @@
           </div>
           <div class="gp-row">
             <div class="gp-gate" data-tip="Swap"><svg width="40" height="40"><use href="#g-Swap"/></svg><span class="tip">Swap</span></div>
-            <div class="gp-gate" data-tip="Control · |1⟩"><svg width="40" height="40"><use href="#g-Control"/></svg><span class="tip">Control · |1⟩</span></div>
+            <div class="gp-gate" data-tip="Control · |1⟩"><control-gate></control-gate><span class="tip">Control · |1⟩</span></div>
             <div class="gp-gate" data-tip="Anti-control · |0⟩"><svg width="40" height="40"><use href="#g-AntiControl"/></svg><span class="tip">Anti-control · |0⟩</span></div>
             <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><svg width="40" height="40"><use href="#g-Write0"/></svg><span class="tip">|0⟩ · reset</span></div>
             <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><svg width="40" height="40"><use href="#g-Write1"/></svg><span class="tip">|1⟩ · reset</span></div>
@@ -448,7 +446,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行うが、このモックでは静的 SVG <code>&lt;path&gt;</code> 要素 (assets/icons/*.svg から取り込み) で近似 (字形の細部や aliasing は実装と完全一致しない)。
+      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みゲートは各 <code>&lt;*-gate&gt;</code> が正規描画を共有し、未移行の表示ブロックは静的 SVG <code>&lt;path&gt;</code> 要素で近似する (字形の細部や aliasing は実装と完全一致しない)。
       レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
     </p>
   </div>
@@ -512,7 +510,7 @@
     <h3 style="margin-top: 24px;">Gates section · row 2 — 制御 / リセット / 計測 / 多量子ビット unitary (9 個 / indices 13, 14, 15, 17, 18, 19, 22, 23, 21)</h3>
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Swap"/></svg></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Control"/></svg></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
+      <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-AntiControl"/></svg></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write0"/></svg></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write1"/></svg></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
