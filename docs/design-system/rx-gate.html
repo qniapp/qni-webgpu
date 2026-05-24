@@ -12,47 +12,10 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- RX本体は <rx-gate> カスタム要素で描画する。 -->
+  <script src="components/rx-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
-    /* ── Rx ゲート本体 ──────────────────────────────
-       gate-palette.html の基準 <symbol id="g-Rx"> と字形 path / transform が一致。
-       本体は角丸正方形 (Flexoki cyan-400 = box_fill ロール)。
-       width / height は Tailwind spacing-10 = 40 px、角丸は rounded-md = 6 px。 */
-    .rx-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
-      border-radius: 6px;                   /* rounded-md */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                     /* Flexoki paper / 字形 */
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      transition: background 120ms ease-out;
-    }
-    .rx-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-    }
-
-    /* ホバー枠 (hover-frame.html と同じ幾何)
-       box-shadow 内側から Flexoki bg 2 px → purple-400 の枠 2 px。 */
-    .rx-gate[data-state="hover"],
-    .rx-gate:not([data-state]):hover {
-      box-shadow:
-        0 0 0 2px var(--bg),                /* Flexoki bg */
-        0 0 0 4px var(--purple-400);        /* Flexoki purple-400 / gate_hover_border */
-    }
-
-    /* drag preview = Flexoki purple-600 / semantic_intermediate。 */
-    .rx-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
@@ -90,7 +53,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .rx-gate {
+    .stage .zoom rx-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -284,37 +247,8 @@
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Rx"> と完全一致する Rx 字形を
-     ローカル symbol として定義する。字形色は currentColor ではなく明示的に paper を指定する
-     (palette 側と同じ "cyan-400 本体 + paper 字形" の組を 1 個の symbol で完結させる)。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Rx" viewBox="0 0 48 48">
-    <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
-    <g fill="#FFFCF0">
-      <g transform="translate(8.710 31.838) scale(0.022080 -0.022080)">
-        <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
-      </g>
-      <g transform="translate(23.724 31.838) scale(0.022080 -0.022080)">
-        <path d="M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z"/>
-      </g>
-    </g>
-  </symbol>
-  <!-- 字形だけ (本体 rect を除いた "Rx" グリフ) を別 symbol として用意し、
-       drag 状態のように本体色を CSS 側から書き換えるバリアントで使う。 -->
-  <symbol id="g-Rx-glyph" viewBox="0 0 48 48">
-    <g fill="currentColor">
-      <g transform="translate(8.710 31.838) scale(0.022080 -0.022080)">
-        <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
-      </g>
-      <g transform="translate(23.724 31.838) scale(0.022080 -0.022080)">
-        <path d="M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z"/>
-      </g>
-    </g>
-  </symbol>
-</svg>
-
 <div id="preview">
-  <div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div>
+  <rx-gate></rx-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -383,11 +317,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="actual"><rx-gate></rx-gate></div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="actual"><rx-gate state="hover"></rx-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -472,7 +406,7 @@
       <tbody>
         <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
         <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>stroke</th><td>なし。本体色のみ。<a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Rx</code> の字形 path / transform と一致 (palette 側は背景 <code>rect</code> も含む)</td></tr>
+        <tr><th>stroke</th><td>なし。本体色のみ。<code>components/rx-gate.js</code> の <code>&lt;rx-gate&gt;</code> の字形 path / transform と一致 (palette 側は背景 <code>rect</code> も含む)</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
         <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y / Z / S / T など他の 1 量子ビットゲートと共通)</td></tr>
         <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
@@ -531,14 +465,14 @@
   <h2><span class="num">§ 04</span>字形 (Rx)</h2>
   <div class="card">
     <p>
-      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Rx</code> と同じ path / transform を使う。
+      中央字形は <code>components/rx-gate.js</code> の <code>&lt;rx-gate&gt;</code> が提供する。
       CSS のテキスト描画ではなく、palette 側で定義された "R" + "x" の 2 つのベクタ字形を 40 px 本体へ重ねる。
       H / Y / Z / S / T が単一文字なのに対し、Rx は <strong>大文字 R + 小文字 x の 2 字形</strong>でひと組。
       Ry / Rz / 大文字 R 始まりのパラメタ可変ゲートと字形パターンを共有する。
     </p>
     <table class="spec">
       <tbody>
-        <tr><th>形式</th><td>ベクタパス × 2 個 (<code>&lt;symbol id="g-Rx"&gt;</code> と 1:1)</td></tr>
+        <tr><th>形式</th><td>ベクタパス × 2 個 (<code>components/rx-gate.js</code> の Shadow DOM に集約)</td></tr>
         <tr><th>"R" path</th><td><code>M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496…</code></td></tr>
         <tr><th>"x" path</th><td><code>M14 0 250 356 16 710H143L318 440L490 710H616…</code></td></tr>
         <tr><th>"R" 変換</th><td><code>translate(8.710 31.838) scale(0.022080 -0.022080)</code> (viewBox 48 への正規化)</td></tr>
@@ -553,11 +487,11 @@
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 224px;">
         <div class="caption">既定 · 3× zoom</div>
-        <div class="zoom"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="zoom"><rx-gate></rx-gate></div>
       </div>
       <div class="col" style="max-width: 224px;">
         <div class="caption">ホバー · 3× zoom<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="zoom"><rx-gate state="hover"></rx-gate></div>
       </div>
     </div>
 
@@ -582,20 +516,20 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。ホバーやドラッグ操作をしなくても状態差を確認できる。
+      既定に加え、ホバー / ドラッグ状態を <code>state</code> 属性で強制したモック。ホバーやドラッグ操作をしなくても状態差を確認できる。
     </p>
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
-        <div class="actual"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="actual"><rx-gate></rx-gate></div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="actual"><rx-gate state="hover"></rx-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><div class="rx-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="actual"><rx-gate state="drag"></rx-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -616,11 +550,11 @@
     </p>
     <div class="slot-mock with-grid">
       <div class="wire">
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="slot"><rx-gate></rx-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="slot"><rx-gate></rx-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="slot"><rx-gate></rx-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -636,7 +570,7 @@
     </p>
     <div class="popover-frame">
       <div class="actual" style="width: 56px; height: 56px;">
-        <div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div>
+        <rx-gate state="hover"></rx-gate>
       </div>
       <div class="theta-popover" role="group" aria-label="Rx θ パラメタ編集ポップオーバ (モック)">
         <span class="label">RX · X-AXIS ROTATION</span>
@@ -769,7 +703,7 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Rx ゲート (ドラッグ元) の基準 SVG <code>g-Rx</code> を定義する。Ry / Rz も <code>g-Ry</code> / <code>g-Rz</code> として隣接配置</td>
+          <td>パレット上の Rx ゲート (ドラッグ元) の <code>components/rx-gate.js</code> の <code>&lt;rx-gate&gt;</code> を定義する。Ry / Rz も <code>g-Ry</code> / <code>g-Rz</code> として隣接配置</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>
