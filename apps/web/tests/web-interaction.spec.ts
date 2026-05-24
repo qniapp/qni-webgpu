@@ -31,6 +31,7 @@ import {
 const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
 const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
 const STATE_POPUP_SURFACE: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
+const STATE_POPUP_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -537,6 +538,50 @@ test('state cell popup tail joins the body without a hairline seam', async ({ pa
   ])
 
   expect(pixelRgbDistance(pixels.tailJoin, STATE_POPUP_SURFACE)).toBeLessThanOrEqual(45)
+})
+
+test('state cell popup tail has a visible outline on its slanted sides', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? 1000
+  const cssHeight = box?.height ?? 800
+
+  const geometry = defaultStatePopupProbeGeometry(cssWidth, cssHeight)
+  const popupContrast = async (): Promise<number> => {
+    const pixels = await sampleCanvasPixels(page, canvas, [geometry.popupFill, geometry.nearbyBackground])
+    return pixelRgbDistance(pixels.popupFill, pixels.nearbyBackground)
+  }
+
+  await page.mouse.move((box?.x ?? 0) + geometry.cellCenter.x, (box?.y ?? 0) + geometry.cellCenter.y)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await popupContrast()) > 20) break
+    if (attempt === 49) throw new Error('state-cell popup did not become visible')
+    await page.waitForTimeout(50)
+  }
+  const tailTop = geometry.popupTop + geometry.popupHeight
+  const tailOutlineSamples: PixelSamplePoint[] = []
+  for (let y = 1; y <= 8; y += 1) {
+    for (let x = 1; x <= 9; x += 1) {
+      tailOutlineSamples.push({ name: `tailLeft${x}_${y}`, x: geometry.cellCenter.x - x, y: tailTop + y })
+      tailOutlineSamples.push({ name: `tailRight${x}_${y}`, x: geometry.cellCenter.x + x, y: tailTop + y })
+    }
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, tailOutlineSamples)
+  const isOutline = (pixel: CanvasPixel): boolean => pixelRgbDistance(pixel, STATE_POPUP_OUTLINE) <= 70
+  const outlineVisible = {
+    left: Object.entries(pixels).filter(([name, pixel]) => name.startsWith('tailLeft') && isOutline(pixel)).length >= 8,
+    right: Object.entries(pixels).filter(([name, pixel]) => name.startsWith('tailRight') && isOutline(pixel)).length >= 8,
+  }
+
+  expect(outlineVisible).toEqual({ left: true, right: true })
 })
 
 test('state cell popup body shifts under the tail near the left panel edge', async ({ page }) => {

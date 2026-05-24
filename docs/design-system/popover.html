@@ -68,18 +68,29 @@
       font-size: 12px;                   /* text-xs */
       line-height: 16px;                 /* text-xs default */
     }
-    .popover::after {
-      content: '';
+    .popover-tail {
       position: absolute;
-      left: 50%;
-      bottom: -8px;                      /* tail height */
       width: 16px;                       /* tail half width 8px × 2 */
-      height: 8px;
-      transform: translateX(-50%);
-      background: var(--bg);             /* Flexoki bg / paper */
-      clip-path: polygon(0 0, 100% 0, 50% 100%);
-      filter: drop-shadow(0 1px 0 var(--tx-3)); /* Flexoki tx-3 / tail outline */
+      height: 8px;                       /* tail height */
+      overflow: visible;
+      pointer-events: none;
       z-index: 2;
+    }
+    .popover-tail__fill {
+      fill: var(--bg);                   /* Flexoki bg / paper */
+    }
+    .popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);               /* Flexoki tx-3 / popover_outline */
+      stroke-width: 1.5px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .popover > .popover-tail--bottom {
+      left: 50%;
+      bottom: -8px;
+      transform: translateX(-50%);
     }
     .popover-title {
       font-family: var(--font-mono);
@@ -171,30 +182,21 @@
       justify-content: center;
       gap: 4px;                          /* spacing-1 */
     }
-    .popover-small::after {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 8px;
-      background: var(--bg);             /* Flexoki bg */
-      clip-path: polygon(0 0, 100% 0, 50% 100%);
-      filter: drop-shadow(0 1px 0 var(--tx-3));
-    }
-    .popover-small[data-tail="bottom"]::after {
+    .popover-small[data-tail="bottom"] > .popover-tail {
       left: 32px;                        /* spacing-8 */
       bottom: -8px;
     }
-    .popover-small[data-tail="top"]::after {
+    .popover-small[data-tail="top"] > .popover-tail {
       right: 32px;                       /* spacing-8 */
       top: -8px;
       transform: rotate(180deg);
     }
-    .popover-small[data-tail="left"]::after {
+    .popover-small[data-tail="left"] > .popover-tail {
       left: -12px;
       top: 24px;                         /* spacing-6 */
       transform: rotate(90deg);
     }
-    .popover-small[data-tail="right"]::after {
+    .popover-small[data-tail="right"] > .popover-tail {
       right: -12px;
       top: 24px;                         /* spacing-6 */
       transform: rotate(-90deg);
@@ -231,17 +233,10 @@
       background: var(--bg);             /* Flexoki bg */
       box-shadow: 0 10px 18px rgba(16, 15, 15, 0.12);
     }
-    #preview .mini-popover::after {
-      content: '';
-      position: absolute;
+    #preview .mini-popover > .popover-tail {
       left: 50%;
       bottom: -8px;
-      width: 16px;
-      height: 8px;
       transform: translateX(-50%);
-      background: var(--bg);             /* Flexoki bg */
-      clip-path: polygon(0 0, 100% 0, 50% 100%);
-      filter: drop-shadow(0 1px 0 var(--tx-3));
     }
     #preview .mini-line {
       position: absolute;
@@ -263,6 +258,10 @@
     <span class="mini-line"></span>
     <span class="mini-line"></span>
     <span class="mini-line"></span>
+    <svg class="popover-tail popover-tail--bottom" viewBox="0 0 16 8" focusable="false">
+      <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+      <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+    </svg>
   </div>
 </div>
 
@@ -296,6 +295,10 @@
             <div class="popover-row"><span class="popover-icon popover-icon--probability" aria-hidden="true"></span><span class="popover-label">Probability:</span><span class="popover-value">+50.0000%</span></div>
             <div class="popover-row"><span class="popover-icon popover-icon--phase" aria-hidden="true"></span><span class="popover-label">Phase:</span><span class="popover-value">+0.00°</span></div>
           </div>
+          <svg class="popover-tail popover-tail--bottom" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+            <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+            <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+          </svg>
         </div>
         <div class="anchor-cell" aria-hidden="true"></div>
       </div>
@@ -313,7 +316,7 @@
         <tr><th>radius</th><td><code>10 px</code>。状態セル実装の <code>CornerRadius::same(10)</code> を基準にし、ゲート本体の角丸とは連動させない。</td></tr>
         <tr><th>padding</th><td><code>12 px 16 px</code>。Tailwind <code>spacing-3</code> / <code>spacing-4</code>。</td></tr>
         <tr><th>shadow</th><td><code>offset [0, 10]</code>、<code>blur 28</code>、<code>spread 0</code>、Flexoki <code>tx</code> alpha。実装上は <code>colors.state_cell_popup_shadow</code> を基準にする。</td></tr>
-        <tr><th>tail</th><td>高さ <code>8 px</code>、半幅 <code>8 px</code> の三角形。面は <code>surface</code>、縁は <code>outline</code> と同じ色。</td></tr>
+        <tr><th>tail</th><td>高さ <code>8 px</code>、半幅 <code>8 px</code> の三角形。面は <code>surface</code>、対象へ向かう 2 本の斜辺だけを <code>outline</code> と同じ色の <code>1.5 px</code> 線幅で描く。本体との接合辺には線を引かない。</td></tr>
         <tr><th>anchor gap</th><td>対象要素と tail 先端の距離は <code>4 px</code>。Tailwind <code>spacing-1</code>。</td></tr>
         <tr><th>viewport pad</th><td>画面端との余白は少なくとも <code>4 px</code>。狭い画面では本体位置を優先して内側へ寄せる。</td></tr>
       </tbody>
@@ -333,18 +336,34 @@
       <div class="popover-small" data-tail="bottom">
         <span class="label">bottom tail</span>
         <span>対象の上に置く</span>
+        <svg class="popover-tail popover-tail--bottom" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+          <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       </div>
       <div class="popover-small" data-tail="top">
         <span class="label">top tail</span>
         <span>対象の下に置く</span>
+        <svg class="popover-tail popover-tail--top" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+          <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       </div>
       <div class="popover-small" data-tail="left">
         <span class="label">left tail</span>
         <span>対象の右に置く</span>
+        <svg class="popover-tail popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+          <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       </div>
       <div class="popover-small" data-tail="right">
         <span class="label">right tail</span>
         <span>対象の左に置く</span>
+        <svg class="popover-tail popover-tail--right" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+          <path class="popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       </div>
     </div>
   </div>

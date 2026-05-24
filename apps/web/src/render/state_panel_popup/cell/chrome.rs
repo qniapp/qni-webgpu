@@ -6,6 +6,7 @@ use crate::colors::Colors;
 const TAIL_SEAM_CARD_OVERLAP: f32 = 2.0;
 const TAIL_SEAM_TAIL_OVERLAP: f32 = 0.5;
 const TAIL_SEAM_X_PAD: f32 = 0.75;
+const TAIL_OUTLINE_WIDTH: f32 = 1.5;
 
 pub(super) fn paint_popup_chrome(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
     paint_card(painter, colors, popup.rect);
@@ -64,7 +65,7 @@ fn paint_tail(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
         colors.surface,
     );
 
-    let border_stroke = egui::Stroke::new(1.0, colors.popover_outline);
+    let border_stroke = egui::Stroke::new(TAIL_OUTLINE_WIDTH, colors.popover_outline);
     painter.line_segment([base_l, apex], border_stroke);
     painter.line_segment([apex, base_r], border_stroke);
 }
