@@ -763,6 +763,23 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
   await waitForStateVectorLength(page, 16)
 })
 
+test('dragging a placed gate left of the circuit removes it', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const placedGateCenterX = UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const outsideLeftSnapRadiusX = placedGateCenterX - UI_CONSTANTS.SNAP_DISTANCE - 1
+  await dragPointer(
+    page,
+    { x: placedGateCenterX, y: TEST_CIRCUIT_LINE_Y },
+    { x: outsideLeftSnapRadiusX, y: TEST_CIRCUIT_LINE_Y }
+  )
+
+  await waitForHashCols(page, [])
+  expect(readCircuitColsFromHash(page.url())).toEqual([])
+})
+
 test('dropping within the 40px sticky snap range commits to the nearest slot', async ({ page }) => {
   await page.goto('/')
 
