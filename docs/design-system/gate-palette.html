@@ -36,6 +36,7 @@
   <script src="components/write1-gate.js"></script>
   <script src="components/measurement-gate.js"></script>
   <script src="components/spacer-gate.js"></script>
+  <script src="components/probability-display.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -95,7 +96,8 @@
     .gp-gate > write0-gate,
     .gp-gate > write1-gate,
     .gp-gate > measurement-gate,
-    .gp-gate > spacer-gate {
+    .gp-gate > spacer-gate,
+    .gp-gate > probability-display {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -200,8 +202,8 @@
 
 <!--
   共通 SVG シンボル定義 — Web Component 化していない表示ブロックと、一部の既存プリミティブを viewBox="0 0 48 48" で統一。
-  ゲート本体は各 <*-gate> に集約し、ここへ同じ path を重複定義しない。
-  ブロッホ軸 / Probability bar / Amps Q ロゴなどの primitive は
+  ゲート本体と確率表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
+  ブロッホ軸 / Amps Q ロゴなどの primitive は
   「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
     stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
 -->
@@ -237,31 +239,6 @@
 
 
 
-    <!--
-      ─ Probability preview (gate_body.rs:167-211) ─
-      4 horizontal bars, widths = [0.30, 0.75, 0.55, 0.20] of cell width
-      row height = 40/4 = 10 display = 12 viewbox
-      bar widths in viewbox: 14.4 / 36 / 26.4 / 9.6
-      blue-400 1 px right edge marker on each bar (1 display = 1.2 viewbox)
-      ui-2 divider from max(prev, this) width to right edge between adjacent rows
-      ui-2 1 px outline inside (stroke center at 0.6 viewbox, inset)
-    -->
-    <symbol id="g-Probability" viewBox="0 0 48 48">
-      <rect width="48" height="48" fill="#FFFCF0"/>
-      <rect x="0" y="0"  width="14.4" height="12" fill="#92BFDB"/>
-      <line x1="14.4" y1="0" x2="14.4" y2="12" stroke="#4385BE" stroke-width="1.2"/>
-      <rect x="0" y="12" width="36"   height="12" fill="#92BFDB"/>
-      <line x1="36" y1="12" x2="36" y2="24" stroke="#4385BE" stroke-width="1.2"/>
-      <rect x="0" y="24" width="26.4" height="12" fill="#92BFDB"/>
-      <line x1="26.4" y1="24" x2="26.4" y2="36" stroke="#4385BE" stroke-width="1.2"/>
-      <rect x="0" y="36" width="9.6"  height="12" fill="#92BFDB"/>
-      <line x1="9.6" y1="36" x2="9.6" y2="48" stroke="#4385BE" stroke-width="1.2"/>
-      <!-- dividers: from max(prev, this) right edge to outer right -->
-      <line x1="36"   y1="12" x2="48" y2="12" stroke="#DAD8CE" stroke-width="1.2"/>
-      <line x1="36"   y1="24" x2="48" y2="24" stroke="#DAD8CE" stroke-width="1.2"/>
-      <line x1="26.4" y1="36" x2="48" y2="36" stroke="#DAD8CE" stroke-width="1.2"/>
-      <rect x="0.6" y="0.6" width="46.8" height="46.8" fill="none" stroke="#DAD8CE" stroke-width="1.2"/>
-    </symbol>
 
     <!--
       ─ Amplitude palette icon (gate_body.rs:138-165) ─ Q ロゴ風
@@ -362,7 +339,7 @@
         <div class="gp-section">
           <div class="gp-row">
             <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><svg width="40" height="40"><use href="#g-Bloch"/></svg><span class="tip">ブロッホ球表示ブロック</span></div>
-            <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><svg width="40" height="40"><use href="#g-Probability"/></svg><span class="tip">確率表示ブロック (resizable)</span></div>
+            <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
           </div>
           <div class="gp-row">
             <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><svg width="40" height="40"><use href="#g-Amps"/></svg><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
@@ -449,7 +426,7 @@
     <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (4 個 / indices 16, 20, 24, 25)</h3>
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Bloch"/></svg></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Probability"/></svg></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
+      <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Amps"/></svg></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Density"/></svg></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
     </div>
