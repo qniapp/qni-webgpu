@@ -12,119 +12,15 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- 確率表示ブロック本体は <probability-display> カスタム要素で描画する。 -->
+  <script src="components/probability-display.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
        table.spec / pre.code / nav.breadcrumb / footer.doc-foot 等) は
        design-system.css にある。 */
 
-    /* ── 確率表示ブロック視覚スタイル (実コードと 1:1 で揃える) ───── */
-    .cd {
-      width: 40px;
-      background: var(--bg);
-      position: relative;
-      /* overflow: visible にしてリサイズハンドル (§ 12) が ±12 px はみ出せるようにする。
-         row 自体は .cd .row の overflow: hidden で個別にクリップしているので、ゲート内描画は崩れない */
-      overflow: visible;
-      flex-shrink: 0;
-    }
-    .cd::after {
-      content: '';
-      position: absolute; inset: 0;
-      border: 1px solid var(--ui-2);
-      pointer-events: none;
-    }
-    .cd .row {
-      position: absolute;
-      left: 0; right: 0;
-      overflow: hidden;
-    }
-    .cd .row .bar {
-      position: absolute; left: 0; top: 0; bottom: 0;
-      background: var(--blue-200);   /* デザイン仕様: blue-200。実装側 colors.state_fill と同値 */
-      border-right: 1px solid var(--blue-400);   /* 右端マーカー: blue-200 から 2 tone 濃い blue-400 で「確率境界」を 1 px 強調 (Quirk の gray stroke 相当) */
-    }
-    .cd .row .label {
-      position: absolute;
-      right: 2px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 300;
-      color: var(--tx);
-      pointer-events: none;
-      letter-spacing: -0.02em;
-      white-space: nowrap;
-    }
-    .cd .row .label .dot {
-      display: inline-block;
-      margin-left: -3px;
-      margin-right: -3px;
-    }
-    .cd .row .label .pct {
-      font-size: 12px;
-      vertical-align: baseline;
-    }
-    .cd .div {
-      position: absolute; right: 0;
-      height: 1px;
-      background: var(--ui-2);
-      pointer-events: none;
-    }
-    /* 対数ヒント線 (§ 09): row_h ≤ 8 px のとき連続ポリラインで描画。
-       視認性確保のため Flexoki tx-3 (#B7B5AC) を使う。バーよりも下のレイヤに置く
-       (DOM 上で先に出す)。1 本の SVG <path> で各行の縦線 + 行境界の水平接続を表現 — 行ごとに
-       独立した縦線では Quirk の階段状シルエットが得られないので不可。 */
-    .cd .log-hint-svg {
-      position: absolute;
-      top: 0; left: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .cd .row .bar-clip {
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      overflow: hidden;
-      pointer-events: none;
-    }
-    .cd .row .bar-clip .row-extent {
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 40px;
-    }
-    .cd .row .bar-clip .label { color: var(--tx); }
-    /* ホバー: 外側のゲート枠 (purple-400 の枠 の 2 px 厚、paper の 2 px gap を挟む) */
-    .cd:hover {
-      box-shadow:
-        0 0 0 2px var(--bg),
-        0 0 0 4px var(--purple-400);
-    }
-    /* ホバー中の行に inset 2 px の purple-400 枠 */
-    .cd .row:hover::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border: 2px solid var(--purple-400);
-      pointer-events: none;
-      z-index: 10;
-    }
-    /* アイコン: 行ホバーは無効、ゲート枠だけ受ける (静的プレビュー扱い) */
-    .cd.icon .row { pointer-events: none; }
-
-    /* ─── 実行前プレースホルダ ───
-       シミュレーション (▶ Run) 未実行で確率値がまだ無い状態。
-       背景を Flexoki purple-100 の薄紫に差し替え、行構造を ui-2 のグレーで示す。
-       バー / ラベル / 対数ヒント線は描かない (まだ値が無いため)。
-       配色判断は振幅表示ブロックの「実行前プレースホルダ」(amplitude-display.html § 02) と同じ
-       コンベンションに従い、紫系統で「未確定 / 結果待ち」を一貫して表現する。 */
-    .cd.cd--placeholder { background: var(--purple-100); }
-    .cd.cd--placeholder .cd-ph-row {
-      position: absolute;
-      left: 0; right: 0;
-      height: 1px;
-      background: var(--ui-2);
-      pointer-events: none;
-    }
+    /* 確率表示ブロック本体 / 行 / バー / プレースホルダ / リサイズハンドルは
+       components/probability-display.js の <probability-display> に集約する。 */
 
     /* ─── ポップアップ (行ホバー時) ───
        Quirk の MathPainter.paintDeferredValueTooltip と同じ内容を、
@@ -195,18 +91,8 @@
       vertical-align: top;
     }
 
-    /* リサイズハンドルの chrome は primitive として design-system.css の .resize-handle に集約済み。
-       仕様: docs/design-system/resize-handle.html。確率表示ブロックは本体幅が span に依存せず
-       40 px 固定なので、widthMode: 'fixed' (= 24 px 固定) を使う。
-       data-cd-state="hover" は仕様ページ用にホバー枠を強制表示する確率表示ブロック側の状態属性で、
-       これに連動してハンドルを visible にする (シナリオ別モックで「ホストホバー + ハンドル状態 X」を再現)。 */
-
-    /* 仕様ページ用にホバー枠を強制表示する data 属性 (確率表示ブロック固有) */
-    .cd[data-cd-state="hover"] {
-      box-shadow:
-        0 0 0 2px var(--bg),
-        0 0 0 4px var(--purple-400);
-    }
+    /* 確率表示ブロック本体とリサイズハンドルは <probability-display> に集約する。
+       仕様ページ用のホバー枠強制は state="hover"、ハンドル状態は handle-state で表す。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -225,7 +111,7 @@
       width: 160px; height: 160px;
       display: flex; align-items: center; justify-content: center;
     }
-    .stage .zoom .cd { transform: scale(4); transform-origin: center; }
+    .stage .zoom probability-display { transform: scale(4); transform-origin: center; }
 
     /* ─── 批評コメント (Design Critique インライン挿入) ───
        通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使う。
@@ -283,7 +169,7 @@
 <!-- design-system.html サムネ用プレビュー (preview-mode のとき #preview だけ表示)。
      1 量子ビット (測定結果 2 通り、40 × 40 px) がもっともシンプルな代表例。 -->
 <div id="preview">
-  <div class="cd-host" data-height="40" data-probs="70,30" data-no-popup="true"></div>
+  <probability-display height="40" probs="70,30" no-popup></probability-display>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -346,11 +232,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col" style="max-width: 160px;">
         <div class="caption">span 1<br>(2 outcomes)<br>40 × 40 px</div>
-        <div class="actual"><div class="cd-host" data-height="40" data-probs="70,30" data-no-popup="true"></div></div>
+        <div class="actual"><probability-display height="40" probs="70,30" no-popup></probability-display></div>
       </div>
       <div class="col" style="max-width: 160px;">
         <div class="caption">span 2<br>(4 outcomes)<br>40 × 96 px</div>
-        <div class="actual"><div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true"></div></div>
+        <div class="actual"><probability-display height="96" probs="60,30,100,15" no-popup></probability-display></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -374,31 +260,31 @@
       <div class="col">
         <div class="caption">1 量子ビット<br>測定結果 2 通り<br>40×40 px</div>
         <div class="actual">
-          <div class="cd-host" data-height="40" data-probs="70,30"></div>
+          <probability-display height="40" probs="70,30"></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">2 量子ビット<br>測定結果 4 通り<br>40×96 px</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="60,30,100,15"></div>
+          <probability-display height="96" probs="60,30,100,15"></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">3 量子ビット<br>測定結果 8 通り<br>40×152 px</div>
         <div class="actual">
-          <div class="cd-host" data-height="152" data-probs="10,40,80,100,75,50,25,5"></div>
+          <probability-display height="152" probs="10,40,80,100,75,50,25,5"></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">4 量子ビット<br>測定結果 16 通り<br>40×208 px</div>
         <div class="actual">
-          <div class="cd-host" data-height="208" data-probs="5,15,30,60,80,95,100,90,70,50,35,20,10,5,2,0"></div>
+          <probability-display height="208" probs="5,15,30,60,80,95,100,90,70,50,35,20,10,5,2,0"></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">5 量子ビット<br>測定結果 32 通り · 40×264 px<br>(対数ヒント線)</div>
         <div class="actual">
-          <div class="cd-host" data-height="264" data-probs="1,2,4,6,8,10,13,17,22,28,35,45,58,72,86,100,92,78,62,48,35,25,18,13,10,7,5,3,2,1,1,0"></div>
+          <probability-display height="264" probs="1,2,4,6,8,10,13,17,22,28,35,45,58,72,86,100,92,78,62,48,35,25,18,13,10,7,5,3,2,1,1,0"></probability-display>
         </div>
       </div>
     </div>
@@ -415,7 +301,7 @@
       <div class="col" style="max-width: 200px;">
         <div class="caption">16 量子ビット<br>測定結果 65 536 通り · 40×880 px<br>(対数ヒント線のみ)</div>
         <div class="actual">
-          <div class="cd-host" data-height="880" data-canvas="true" data-pattern="gaussian" data-n="65536"></div>
+          <probability-display height="880" canvas pattern="gaussian" n="65536"></probability-display>
         </div>
       </div>
     </div>
@@ -461,37 +347,37 @@
       <div class="col">
         <div class="caption">1 量子ビット<br>測定結果 2 通り<br>40×40 px · 実行前</div>
         <div class="actual">
-          <div class="cd-host" data-height="40" data-probs="0,0" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="40" probs="0,0" placeholder no-popup></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">2 量子ビット<br>測定結果 4 通り<br>40×96 px · 実行前</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="96" probs="0,0,0,0" placeholder no-popup></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">3 量子ビット<br>測定結果 8 通り<br>40×152 px · 実行前</div>
         <div class="actual">
-          <div class="cd-host" data-height="152" data-probs="0,0,0,0,0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="152" probs="0,0,0,0,0,0,0,0" placeholder no-popup></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">4 量子ビット<br>測定結果 16 通り<br>40×208 px · 実行前</div>
         <div class="actual">
-          <div class="cd-host" data-height="208" data-probs="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="208" probs="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" placeholder no-popup></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">5 量子ビット<br>測定結果 32 通り · 40×264 px<br>実行前 (行ガイド線まで)</div>
         <div class="actual">
-          <div class="cd-host" data-height="264" data-canvas="true" data-n="32" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="264" canvas n="32" placeholder no-popup></probability-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">16 量子ビット (最大)<br>測定結果 65 536 通り · 40×880 px<br>実行前 (背景 + 外枠のみ)</div>
         <div class="actual">
-          <div class="cd-host" data-height="880" data-canvas="true" data-n="65536" data-placeholder="true" data-no-popup="true"></div>
+          <probability-display height="880" canvas n="65536" placeholder no-popup></probability-display>
         </div>
       </div>
     </div>
@@ -543,13 +429,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <div class="cd-host" data-icon="true" data-height="40" data-probs="30,75,55,20"></div>
+          <probability-display icon height="40" probs="30,75,55,20"></probability-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <div class="cd-host" data-icon="true" data-height="40" data-probs="30,75,55,20"></div>
+          <probability-display icon height="40" probs="30,75,55,20"></probability-display>
         </div>
       </div>
     </div>
@@ -1128,52 +1014,52 @@ stroke()</pre>
 
 <!-- ─────── § 12 リサイズハンドル (policy 差分) ─────── -->
 <section class="block">
-  <h2>§ 12 リサイズハンドル (policy 差分)</h2>
+  <h2>§ 12 リサイズハンドル (方針差分)</h2>
   <div class="card">
     <p>
-      上下ドラッグハンドルのクロム (色 / 寸法 / state machine / マイクロインタラクション) は
-      primitive として <a href="resize-handle.html"><strong>resize-handle.html</strong></a> に集約してある。
-      本ページはそれを使う側として、確率表示ブロック固有の <strong>policy 差分</strong>だけを定義する。
+      上下ドラッグハンドルのクロム (色 / 寸法 / 状態管理 / マイクロインタラクション) は
+      共通部品として <a href="resize-handle.html"><strong>resize-handle.html</strong></a> に集約してある。
+      本ページはそれを使う側として、確率表示ブロック固有の <strong>方針差分</strong>だけを定義する。
     </p>
     <table class="spec">
       <tbody>
-        <tr><th>span 上限</th><td>1〜16 (ドラッグで変化可能、上限 16 で stop)</td></tr>
-        <tr><th>widthMode</th><td><code>'fixed'</code> — 本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
-        <tr><th>JS 呼び出し</th><td><code>attachResizeHandles(cd, { widthMode: 'fixed', handleState: opts.handleState })</code></td></tr>
-        <tr><th>ホスト要素</th><td>buildCd が生成する <code>.cd</code> div。<code>.resize-handle-host</code> マーカークラスを併記する</td></tr>
-        <tr><th>連動 state</th><td><code>data-cd-state="hover"</code> をホストに付けると、確率表示ブロック側のホバー枠 (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
+        <tr><th>span 上限</th><td>1〜16 (ドラッグで変化可能、上限 16 で停止)</td></tr>
+        <tr><th>ハンドル幅</th><td>本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
+        <tr><th>カスタム要素</th><td><code>&lt;probability-display handle-state="visible"&gt;</code> のように状態を指定する</td></tr>
+        <tr><th>ホスト要素</th><td><code>&lt;probability-display&gt;</code>。本体とハンドルは <code>components/probability-display.js</code> の Shadow DOM に集約する</td></tr>
+        <tr><th>連動状態</th><td><code>state="hover"</code> をホストに付けると、確率表示ブロック側のホバー枠 (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
       </tbody>
     </table>
 
     <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
     <p>
       ゲート本体 + ホバー枠 + ハンドルの 3 層がそろった状態を確率表示ブロックのコンテキストで並べたモック。
-      ハンドル単独のクロム比較は <a href="resize-handle.html#05">resize-handle.html § 06</a> 参照。
+      ハンドル単独のクロム比較は <a href="resize-handle.html#s05">resize-handle.html § 05</a> 参照。
       ここでは「確率表示ブロックに span = 2 を配置したときの上下ハンドル」を 4 状態で見せる。
     </p>
     <div class="stage" style="gap: 56px; padding: 24px 0;">
       <div class="col" style="max-width: 140px;">
         <div class="caption">① default<br>(non-hover)<br>ハンドル非表示</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true"></div>
+          <probability-display height="96" probs="60,30,100,15" no-popup></probability-display>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
         <div class="caption">② ホストホバー<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="visible"></div>
+          <probability-display height="96" probs="60,30,100,15" no-popup state="hover" handle-state="visible"></probability-display>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">③ handle hover<br>top: scale 1.15 + cyan-600<br>bottom: visible</div>
+        <div class="caption">③ ハンドルホバー<br>top: scale 1.15 + cyan-600<br>bottom: visible</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="hover"></div>
+          <probability-display height="96" probs="60,30,100,15" no-popup state="hover" handle-state="hover"></probability-display>
         </div>
       </div>
       <div class="col" style="max-width: 140px;">
-        <div class="caption">④ active drag<br>top: scale 1.25 + cyan-600<br>cursor: ns-resize</div>
+        <div class="caption">④ ドラッグ中<br>top: scale 1.25 + cyan-600<br>cursor: ns-resize</div>
         <div class="actual">
-          <div class="cd-host" data-height="96" data-probs="60,30,100,15" data-no-popup="true" data-cd-state="hover" data-handle-state="active"></div>
+          <probability-display height="96" probs="60,30,100,15" no-popup state="hover" handle-state="active"></probability-display>
         </div>
       </div>
     </div>
@@ -1184,19 +1070,18 @@ stroke()</pre>
       <p class="critique-body">
         <strong>適用済み:</strong>
         色衝突 (<code>purple-400</code>) と state 命名混在 (BEM 風 / JS 文字列 / data 属性の 3 重管理) を
-        <code>cyan-400 / cyan-600</code> と <code>data-handle-state</code> 単一属性に整理。
+        <code>cyan-400 / cyan-600</code> と <code>handle-state</code> 単一属性に整理。
       </p>
       <p class="critique-body">
         <strong>更に primitive 化:</strong>
         ハンドルは 3 コンポーネント (確率 / 振幅 / 密度行列) と将来の QFT が共有することが判明したため、
         クロムを <a href="resize-handle.html"><code>resize-handle.html</code></a> に抽出し、
-        共有 CSS (<code>design-system.css</code> の <code>.resize-handle</code> ルール) と
-        共有 JS (<code>resize-handle.js</code> の <code>attachResizeHandles</code>) に集約。
-        本ページの § 12 はコンポーネント固有の policy 差分 (<code>widthMode: 'fixed'</code> / span 1〜16) だけを残す形に再編成。
+        共通仕様は <a href="resize-handle.html"><code>resize-handle.html</code></a> に集約し、
+        本ページの § 12 はコンポーネント固有の方針差分 (<code>handle-state</code> / span 1〜16) だけを残す形に再編成。
       </p>
       <p class="critique-body" style="color: var(--tx-3);">
-        <em>波及範囲:</em> 本ページの inline <code>.cd-handle</code> CSS を削除、buildCd のハンドル HTML 生成を撤廃し
-        <code>attachResizeHandles</code> 呼び出しに置換。振幅表示ブロック / 密度行列表示ブロックも同様に primitive 経路へ移行。
+        <em>波及範囲:</em> 本ページの描画 HTML 生成を <code>components/probability-display.js</code> の
+        <code>&lt;probability-display&gt;</code> に集約。振幅表示ブロック / 密度行列表示ブロックも同様にカスタム要素化できる余地がある。
         Rust 実装側 (<code>apps/web/src/colors.rs</code> / <code>circuit_gates.rs</code>) の整理は別タスク。
       </p>
     </aside>
@@ -1331,293 +1216,6 @@ stroke()</pre>
   <p class="meta">qni-webgpu · 確率表示ブロック仕様 · 2026-05</p>
 </footer>
 
-<script src="resize-handle.js"></script>
-<script>
-  // span ごとに .cd-host を埋める。
-  // 行区切り線は隣接 2 行のうち広いバーの右端から右端まで。
-  // テキストは row_count > 16 または row_h <= 8 で省略 (実 shader と同条件)。
-  // icon モードは行 hover を無効化 (静的プレビュー)。
-  function buildLabel(p) {
-    const [intPart, decPart] = p.toFixed(1).split('.');
-    return `${intPart}<span class="dot">.</span>${decPart}<span class="pct">%</span>`;
-  }
-  function buildCd(probs, totalH, opts = {}) {
-    const n = probs.length;
-    const rowH = totalH / n;
-    // 実行前プレースホルダ: 背景 purple-100 + 行境界の ui-2 ライン + 外枠 のみ。
-    // バー / ラベル / 対数ヒント線は描かない (値が無いため)。
-    if (opts.placeholder) {
-      let phHtml = '';
-      if (rowH > 2) {
-        for (let i = 1; i < n; i++) {
-          phHtml += `<div class="cd-ph-row" style="top:${(i * rowH).toFixed(3)}px;"></div>`;
-        }
-      }
-      // ハンドルは buildCd の外で attachResizeHandles を呼んで appendChild する (共有 primitive)。
-      // ここでは .cd に resize-handle-host マーカーを付けるだけ。
-      const cdStateAttr = opts.cdState === 'hover' ? ' data-cd-state="hover"' : '';
-      const hostClass = opts.icon ? ' icon' : ' resize-handle-host';
-      return `<div class="cd cd--placeholder${hostClass}"${cdStateAttr} style="height:${totalH}px;">${phHtml}</div>`;
-    }
-    const showText = !opts.icon && n <= 16 && rowH > 8;
-    // テキストを出さない場合 (Probability5〜Probability16) は対数ヒント線を描く。
-    // アイコンは静的プレビューなので対数ヒント線も省略。
-    const showLogHints = !opts.icon && !showText;
-    const span = Math.log2(n);
-    const W = 40;
-    let html = '';
-
-    // 対数ヒント線: 1 本の SVG path で連続ポリライン (Quirk 準拠)。
-    // バーより下に置きたいので先に出力。各行 (px, py) → (px, py+e) の縦線を
-    // 行境界の水平接続で繋ぐ。
-    if (showLogHints) {
-      const s = 1 / (4 + Math.max(8, span));
-      const e = Math.max(rowH, 1);
-      let path = 'M 0 0';
-      for (let i = 0; i < n; i++) {
-        const p01 = probs[i] / 100;
-        const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
-        const px = (W * xRatio).toFixed(3);
-        const py = (rowH * i).toFixed(3);
-        const pyEnd = (rowH * i + e).toFixed(3);
-        path += ` L ${px} ${py} L ${px} ${pyEnd}`;
-      }
-      path += ` L 0 ${totalH}`;
-      html += `<svg class="log-hint-svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none"><path d="${path}" stroke="#B7B5AC" stroke-width="1" fill="none" shape-rendering="crispEdges"/></svg>`;
-    }
-
-    probs.forEach((p, i) => {
-      const top = i * rowH;
-      const w = p;
-      if (showText) {
-        const labelHtml = buildLabel(p);
-        html += `<div class="row" style="top:${top}px;height:${rowH}px;">
-          <div class="bar" style="width:${w}%"></div>
-          <div class="label">${labelHtml}</div>
-          <div class="bar-clip" style="width:${w}%"><div class="row-extent"><div class="label">${labelHtml}</div></div></div>
-        </div>`;
-      } else {
-        html += `<div class="row" style="top:${top}px;height:${rowH}px;">
-          <div class="bar" style="width:${w}%"></div>
-        </div>`;
-      }
-    });
-    for (let i = 1; i < n; i++) {
-      const start = Math.max(probs[i - 1], probs[i]);
-      html += `<div class="div" style="top:${i * rowH}px; left:${start}%;"></div>`;
-    }
-    // ハンドルは buildCd の外で attachResizeHandles を呼んで appendChild する (共有 primitive)。
-    // ここでは .cd に resize-handle-host マーカーを付けるだけ。
-    const cdStateAttr = opts.cdState === 'hover' ? ' data-cd-state="hover"' : '';
-    const hostClass = opts.icon ? ' icon' : ' resize-handle-host';
-    return `<div class="cd${hostClass}"${cdStateAttr} style="height:${totalH}px;">${html}</div>`;
-  }
-  // 大きな span (16 量子ビット = 65 536 行) を DOM で表現すると数十 MB の HTML / 数万 div を
-  // 抱えることになるので、Canvas で直接描画する。線形バー + 対数ヒント線を
-  // § 09 と同じ式 (Math.log は自然対数) で描く。
-  function genPattern(name, n) {
-    if (name === 'gaussian') {
-      // 中心 k = n/2 に山を持つガウシアン。peak 80 %、sigma = n / 16。
-      // 端 (k = 0, n-1) は事実上 0 % に近づくが、対数ヒント線で位置を確認できる。
-      const center = n / 2;
-      const sigma = n / 16;
-      const out = new Float32Array(n);
-      for (let k = 0; k < n; k++) {
-        const d = (k - center) / sigma;
-        out[k] = 80 * Math.exp(-(d * d) / 2);
-      }
-      return out;
-    }
-    return new Float32Array(n);
-  }
-  function buildCdCanvas(probs, totalH, opts = {}) {
-    const n = probs.length;
-    const rowH = totalH / n;
-    const w = 40;
-    const h = totalH;
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    canvas.style.flexShrink = '0';
-    canvas.style.background = 'var(--bg)';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    // 実行前プレースホルダ: 背景 purple-100 + (rowH > 2 のみ) 行境界 ui-2 + 外枠。
-    // バー / 対数ヒント線 / 行区切り / ラベルは描かない。
-    if (opts.placeholder) {
-      ctx.fillStyle = '#ECE1F3'; // purple-100 (Flexoki Light、未確定/結果待ち)
-      ctx.fillRect(0, 0, w, h);
-      if (rowH > 2) {
-        ctx.strokeStyle = '#DAD8CE'; // ui-2
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let i = 1; i < n; i++) {
-          const y = Math.round(rowH * i) + 0.5;
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
-        }
-        ctx.stroke();
-      }
-      ctx.strokeStyle = '#DAD8CE';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-      return canvas;
-    }
-    ctx.fillStyle = '#FFFCF0'; // paper
-    ctx.fillRect(0, 0, w, h);
-
-    const showText = !opts.icon && n <= 16 && rowH > 8;
-    const showLogHints = !opts.icon && !showText;
-    const e = Math.max(rowH, 1);
-
-    // 対数ヒント線 (連続ポリライン、Quirk 準拠)。バーより下のレイヤなので先に描く。
-    // 各行の縦線 + 行境界で水平接続を 1 本の Path に積む。
-    if (showLogHints) {
-      const span = Math.log2(n);
-      const s = 1 / (4 + Math.max(8, span));
-      ctx.strokeStyle = '#B7B5AC'; // tx-3
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      for (let i = 0; i < n; i++) {
-        const p01 = probs[i] / 100;
-        const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
-        const px = w * xRatio;
-        const py = rowH * i;
-        ctx.lineTo(px, py);       // 前行の終端からの水平接続
-        ctx.lineTo(px, py + e);   // 現行の縦線
-      }
-      ctx.lineTo(0, h);
-      ctx.stroke();
-    }
-
-    // 線形バー (blue-200 fill + blue-400 右端 1 px)
-    ctx.fillStyle = '#92BFDB'; // blue-200
-    for (let i = 0; i < n; i++) {
-      const bw = (probs[i] / 100) * w;
-      ctx.fillRect(0, rowH * i, bw, e);
-    }
-    ctx.strokeStyle = '#4385BE'; // blue-400
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < n; i++) {
-      const bw = (probs[i] / 100) * w;
-      if (bw <= 0) continue;
-      const x = Math.round(bw) - 0.5;
-      const py = rowH * i;
-      ctx.moveTo(x, py);
-      ctx.lineTo(x, py + e);
-    }
-    ctx.stroke();
-
-    // 行区切り線 — row_h が 2 px 以下のときは重畳して塗りつぶしになるので省略
-    if (rowH > 2) {
-      ctx.strokeStyle = '#DAD8CE'; // ui-2
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 1; i < n; i++) {
-        const start = (Math.max(probs[i - 1], probs[i]) / 100) * w;
-        const y = Math.round(rowH * i) + 0.5;
-        ctx.moveTo(start, y);
-        ctx.lineTo(w, y);
-      }
-      ctx.stroke();
-    }
-
-    // 外枠 (ui-2 1 px、角ばり)
-    ctx.strokeStyle = '#DAD8CE';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-    return canvas;
-  }
-  // 行 hover 時のポップアップ。Quirk の paintDeferredValueTooltip と同じ内容
-  // (ket / decimal / raw % / log dB) を Geist タイポグラフィで再構成。
-  // ket: 主、補足: 従、ラベル: 小キャップ、数値: tabular-nums。
-  function popupHtml(idx, p100, span) {
-    const bitWidth = Math.max(1, span);
-    const ket = idx.toString(2).padStart(bitWidth, '0');
-    const rawPct = p100.toFixed(4) + '%';
-    const dbValue = p100 > 0
-      ? (Math.log10(p100 / 100) * 10).toFixed(1) + ' dB'
-      : '−∞ dB';
-    const dbDisplay = dbValue.replace(/^-/, '−');
-    return `
-      <div class="cd-popup-ket">|${ket}⟩</div>
-      <div class="cd-popup-sub">Probability if measured · k = ${idx}</div>
-      <div class="cd-popup-divider"></div>
-      <div class="cd-popup-row">
-        <span class="cd-popup-label">raw</span>
-        <span class="cd-popup-value">${rawPct}</span>
-      </div>
-      <div class="cd-popup-row">
-        <span class="cd-popup-label">log</span>
-        <span class="cd-popup-value">${dbDisplay}</span>
-      </div>
-    `;
-  }
-  function attachPopup(host, cd, probs, totalH) {
-    const n = probs.length;
-    const rowH = totalH / n;
-    const span = Math.log2(n);
-    host.style.position = 'relative';
-    const popup = document.createElement('div');
-    popup.className = 'cd-popup';
-    host.appendChild(popup);
-    cd.addEventListener('mousemove', (e) => {
-      const rect = cd.getBoundingClientRect();
-      const idx = Math.floor((e.clientY - rect.top) / rowH);
-      if (idx < 0 || idx >= n) { popup.style.display = 'none'; return; }
-      popup.innerHTML = popupHtml(idx, probs[idx], span);
-      popup.style.left = (cd.offsetLeft + cd.offsetWidth + 8) + 'px';
-      popup.style.top = (cd.offsetTop + idx * rowH) + 'px';
-      popup.style.display = 'block';
-    });
-    cd.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
-  }
-  document.querySelectorAll('.cd-host').forEach(host => {
-    const totalH = Number(host.dataset.height);
-    const useCanvas = host.dataset.canvas === 'true';
-    const pattern = host.dataset.pattern;
-    const noPopup = host.dataset.noPopup === 'true';
-    const placeholder = host.dataset.placeholder === 'true';
-    const opts = {
-      icon: host.dataset.icon === 'true',
-      handleState: host.dataset.handleState,  // visible | hover | active
-      cdState: host.dataset.cdState,          // hover (ホバー枠を強制表示)
-      placeholder,                            // 実行前プレースホルダ (purple-100 背景)
-    };
-    if (useCanvas) {
-      const n = host.dataset.n
-        ? Number(host.dataset.n)
-        : host.dataset.probs
-          ? host.dataset.probs.split(',').length
-          : 1 << Number(host.dataset.span || 1);
-      const probs = placeholder
-        ? new Float32Array(n)
-        : pattern
-          ? genPattern(pattern, n)
-          : host.dataset.probs.split(',').map(Number);
-      host.innerHTML = '';
-      const canvas = buildCdCanvas(probs, totalH, opts);
-      host.appendChild(canvas);
-      if (!opts.icon && !noPopup && !placeholder) attachPopup(host, canvas, probs, totalH);
-    } else {
-      const probs = placeholder
-        ? new Array(host.dataset.n ? Number(host.dataset.n) : host.dataset.probs.split(',').length).fill(0)
-        : host.dataset.probs.split(',').map(Number);
-      host.innerHTML = buildCd(probs, totalH, opts);
-      const cd = host.querySelector('.cd');
-      if (!opts.icon && !noPopup && !placeholder) attachPopup(host, cd, probs, totalH);
-      // リサイズハンドルは共有 primitive (resize-handle.js)。確率表示ブロックは本体幅 40 px 固定なので fixed。
-      if (!opts.icon) {
-        attachResizeHandles(cd, { widthMode: 'fixed', handleState: opts.handleState });
-      }
-    }
-  });
-</script>
 
 </body>
 </html>

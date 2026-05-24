@@ -10,9 +10,9 @@
  *   <link rel="stylesheet" href="design-system.css" />  // .resize-handle ルールを供給
  *   <script src="resize-handle.js"></script>            // window.attachResizeHandles を生やす
  *
- *   const host = document.querySelector('.cd-host');     // 任意のホスト
+ *   const host = document.querySelector('.ad-host');     // 任意のホスト
  *   host.classList.add('resize-handle-host');            // hover で visible になる契約
- *   attachResizeHandles(host, { widthMode: 'fixed' });   // probability は固定 24 px
+ *   attachResizeHandles(host, { widthMode: 'fixed' });   // 固定 24 px
  *
  *   const host2 = document.querySelector('.ad-host');
  *   host2.classList.add('resize-handle-host');
