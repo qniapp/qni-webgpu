@@ -34,6 +34,7 @@
   <script src="components/write0-gate.js"></script>
   <script src="components/write1-gate.js"></script>
   <script src="components/measurement-gate.js"></script>
+  <script src="components/spacer-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -91,7 +92,8 @@
     .gp-gate > qft-dagger-gate,
     .gp-gate > write0-gate,
     .gp-gate > write1-gate,
-    .gp-gate > measurement-gate {
+    .gp-gate > measurement-gate,
+    .gp-gate > spacer-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -248,12 +250,6 @@
 
 
 
-    <!-- ─ Spacer — 3 個の 6×6 squares at x=9, 21, 33 / y=21-27, tx 色 (gate_glyphs.rs:80-93) ─ -->
-    <symbol id="g-Spacer" viewBox="0 0 48 48">
-      <rect x="9"  y="21" width="6" height="6" fill="#100F0F"/>
-      <rect x="21" y="21" width="6" height="6" fill="#100F0F"/>
-      <rect x="33" y="21" width="6" height="6" fill="#100F0F"/>
-    </symbol>
 
     <!--
       ─ Probability preview (gate_body.rs:167-211) ─
@@ -371,7 +367,7 @@
             <div class="gp-gate" data-tip="Measurement · Z-basis"><measurement-gate></measurement-gate><span class="tip">Z-basis measurement</span></div>
             <div class="gp-gate" data-tip="QFT · Quantum Fourier Transform"><qft-gate></qft-gate><span class="tip">QFT (span 1〜16)</span></div>
             <div class="gp-gate" data-tip="QFT† · inverse QFT"><qft-dagger-gate></qft-dagger-gate><span class="tip">QFT† (span 1〜16)</span></div>
-            <div class="gp-gate" data-tip="Spacer · 回路の空きスロット"><svg width="40" height="40"><use href="#g-Spacer"/></svg><span class="tip">Spacer · 回路の空きスロット</span></div>
+            <div class="gp-gate" data-tip="Spacer · 回路の空きスロット"><spacer-gate></spacer-gate><span class="tip">Spacer · 回路の空きスロット</span></div>
           </div>
         </div>
         <!-- 2 行高の垂直ディバイダ -->
@@ -461,7 +457,7 @@
       <div class="item"><div class="gp-gate"><measurement-gate></measurement-gate></div><div class="label"><span class="name">Measurement</span><span>Z 基底測定 (purple-600 メーター)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-gate></qft-gate></div><div class="label"><span class="name">QFT</span><span>Quantum Fourier Transform (resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-dagger-gate></qft-dagger-gate></div><div class="label"><span class="name">QFT†</span><span>inverse QFT (resizable)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Spacer"/></svg></div><div class="label"><span class="name">Spacer</span><span>回路の空きスロット (drag 可能、placement 後は何も作用しない)</span></div></div>
+      <div class="item"><div class="gp-gate"><spacer-gate></spacer-gate></div><div class="label"><span class="name">Spacer</span><span>回路の空きスロット (ドラッグ可能、配置後は何も作用しない)</span></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (4 個 / indices 16, 20, 24, 25)</h3>
