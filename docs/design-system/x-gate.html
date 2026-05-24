@@ -346,7 +346,7 @@
       <tbody>
         <tr><th>本体サイズ</th><td><code>40 × 40 px</code> 直径 (<code>GATE_SIZE = 40</code>)</td></tr>
         <tr><th>形状</th><td>真円 (<code>border-radius: 50%</code> / SVG では <code>&lt;circle r="24"&gt;</code> on viewBox 48)</td></tr>
-        <tr><th>stroke</th><td>なし (本体色のみ。<a href="gate-palette.html">gate-palette.html</a> canonical <code>g-X</code> シンボルと一致)</td></tr>
+        <tr><th>stroke</th><td>なし (本体色のみ。<code>components/x-gate.js</code> の <code>&lt;x-gate&gt;</code> と一致)</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
         <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / Y / Z など他の 1 量子ビットゲートと共通)</td></tr>
         <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
@@ -363,7 +363,7 @@
         <!-- 本体: 円 (cx=20, cy=20, r=20) -->
         <circle cx="20" cy="20" r="20" fill="#3AA99F"/>
         <!-- Plus グリフ: viewBox 48 → 表示 40 へスケール = 40/48 = 0.833 を翻訳 + scale で適用 -->
-        <!-- gate-palette.html canonical: translate(15.637 32.690) scale(0.02976 -0.02976) on viewBox 48
+        <!-- apps/web/assets/icons/plus.svg canonical: translate(15.637 32.690) scale(0.02976 -0.02976) on viewBox 48
              40 px 表示では translate(13.031 27.242) scale(0.02480 -0.02480) -->
         <g transform="translate(13.031 27.242) scale(0.02480 -0.02480)" fill="#FFFCF0">
           <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
@@ -405,11 +405,11 @@
         内訳図 (1× 図解) は <code>viewBox -12 -12 80 80</code> 上で <code>circle r="20"</code> (display 40 px 直径)
         を使い、Plus も canonical <code>scale(0.02976)</code> を display 系に再計算した <code>scale(0.02480)</code> で
         配置している。canonical と display の二重表記は読者に「どちらの値を覚えればいいか」を考えさせ、
-        gate-palette.html 側 (canonical) との対応を追うコストが上がる。
+        <code>components/x-gate.js</code> 側 (実装) との対応を追うコストが上がる。
       </p>
       <p class="critique-body">
         修正案: 図も canonical (viewBox 48 そのまま) で描き、display 40 px への線形スケーリングは注記 1 行
-        (<code>40 / 48 = 0.833</code>) で済ませる。サイズ感を直感させる狙いなら別途「実寸プレビュー」(<a href="#"><code>56 × 56</code> スロット内に 1 つ置く</a>) を 1 個追加する方が「ピクセル単位の妥当性」を伝えやすい。
+        (<code>40 / 48 = 0.833</code>) で済ませる。サイズ感を直感させる狙いなら別途「実寸プレビュー」(<code>56 × 56</code> スロット内に 1 つ置く) を 1 個追加する方が「ピクセル単位の妥当性」を伝えやすい。
       </p>
     </aside>
   </div>
@@ -427,7 +427,7 @@
 
     <table class="spec">
       <tbody>
-        <tr><th>形式</th><td>ベクタパス (<a href="gate-palette.html">gate-palette.html</a> § canonical svg の <code>&lt;symbol id="g-X"&gt;</code> と 1:1)。フォント文字ではない</td></tr>
+        <tr><th>形式</th><td>ベクタパス (<code>components/x-gate.js</code> の Shadow DOM に集約)。フォント文字ではない</td></tr>
         <tr><th>パス座標</th><td><code>M235 51V246H40V338H235V533H327V338H522V246H327V51Z</code> (path 座標系)</td></tr>
         <tr><th>変換</th><td><code>translate(15.637 32.690) scale(0.02976 -0.02976)</code> (viewBox 48 への正規化)</td></tr>
         <tr><th>外形サイズ</th><td>viewBox 上で <code>14.34 × 14.34</code> (中心 24, 24)。40 px 本体では <strong>約 12 × 12 px</strong></td></tr>
@@ -451,7 +451,7 @@
     <div class="cnot-compare">
       <div class="col">
         <svg viewBox="0 0 48 56" width="64" height="74" aria-hidden="true">
-          <!-- 単独 X: 中央に Plus 付き円 (cy=28, r=24 = canonical g-X と同じ全径) -->
+          <!-- 単独 X: 中央に Plus 付き円 (cy=28, r=24 = canonical <x-gate> と同じ全径) -->
           <circle cx="24" cy="28" r="24" fill="#3AA99F"/>
           <g transform="translate(15.637 36.690) scale(0.02976 -0.02976)" fill="#FFFCF0">
             <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
@@ -603,7 +603,7 @@
     </p>
     <ul>
       <li><strong>X だけ円形にする理由</strong>: Pauli-X は古典 NOT に対応し、量子回路の慣習では ⊕ (Plus in circle) で描かれてきた。CNOT のターゲットも同じ ⊕ なので、単独 X と CNOT ターゲットで同じ見た目を共有することで「Plus = ビット反転」という視覚規約を統一できる。形状で X を識別させることで、Y / Z (文字グリフ) と一目で区別できる利点もある</li>
-      <li><strong>Plus グリフは文字ではなくベクタパス</strong>: 文字 "+" を font で描くと、Geist の "+" は記号バランスが細く、CNOT の太い ⊕ と一致しない。<a href="gate-palette.html">gate-palette.html</a> canonical の <code>g-X</code> シンボル (Plus パス) を 1:1 で使うことで、SDF テクスチャ焼き込みとも整合性をとる</li>
+      <li><strong>Plus グリフは文字ではなくベクタパス</strong>: 文字 "+" を font で描くと、Geist の "+" は記号バランスが細く、CNOT の太い ⊕ と一致しない。<code>components/x-gate.js</code> の Plus パスを 1:1 で使うことで、SDF テクスチャ焼き込みとも整合性をとる</li>
       <li><strong>ホバー枠は同心円</strong>: 本体が真円なので、枠も <code>border-radius: 50%</code> で同心円にする。これは H ゲートの角丸枠と<em>形状だけ違って論理は同じ</em>: 本体外側 4 px の purple-400 + 2 px 背景の空き という幾何関係は完全に共通</li>
     </ul>
 
@@ -623,7 +623,7 @@
       <div class="critique-title">canonical 一致と「ゲートとしての存在感」のトレードオフが議論されていない</div>
       <p class="critique-body">
         以下は spec ページの体裁ではなく、X ゲートの<strong>視覚デザインそのもの</strong>への批評。canonical
-        (gate-palette.html § g-X) を 1:1 で踏襲する方針自体は妥当だが、その結果として X が回路上で持つ
+        (<code>components/x-gate.js</code>) を 1:1 で踏襲する方針自体は妥当だが、その結果として X が回路上で持つ
         プレゼンスについて、設計判断の中で議論されていない論点がいくつかある:
       </p>
       <ol class="critique-list">

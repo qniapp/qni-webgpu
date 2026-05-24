@@ -19,7 +19,7 @@
  * - X (Pauli-X / NOT) ゲートは Quirk 慣例に従い真円本体に Plus グリフ。
  *   H / Y / Z などの角丸正方形 (border-radius 6 px) とは別形状で、グリフを覚えなくても
  *   形だけで「制御先 / Pauli-X」が判別できる
- * - SVG Plus path は gate-palette.html canonical <symbol id="g-X-plus"> と完全一致
+ * - SVG Plus path は apps/web/assets/icons/plus.svg と完全一致
  * - 本体が真円なのでホバー枠も同心円 (border-radius: 50%)。h-gate のような角丸 6 + 4 = 10
  *   の関係式は X には適用されない (常に真円)
  * - Flexoki の CSS 変数 (--cyan-400 / --bg / --purple-400 / --purple-600) は
@@ -87,8 +87,7 @@
 <div class="hover-frame"></div>
 <div class="hover-gap"></div>
 <div class="body">
-  <!-- Plus グリフ。path d / transform は x-gate.html § 03 / gate-palette.html
-       <symbol id="g-X-plus"> と完全一致。 -->
+  <!-- Plus グリフ。path d / transform は apps/web/assets/icons/plus.svg と完全一致。 -->
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <g transform="translate(15.637 32.690) scale(0.029760 -0.029760)" fill="currentColor">
       <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
