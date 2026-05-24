@@ -12,52 +12,10 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- Z ゲート本体は <z-gate> カスタム要素で描画する。 -->
+  <script src="components/z-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
-    /* ── Z ゲート本体 ──────────────────────────────
-       gate-palette.html の基準 <symbol id="g-Z"> と一致。
-       本体は角丸正方形 (Flexoki cyan-400 = box_fill ロール)。
-       width / height は Tailwind spacing-10 = 40 px、角丸は rounded-md = 6 px。 */
-    .z-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
-      border-radius: 6px;                   /* rounded-md */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                     /* Flexoki paper / 字形 */
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      isolation: isolate;
-      transition: background 120ms ease-out;
-    }
-    .z-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-    }
-
-    /* ホバー枠 (hover-frame.html と同じ幾何)
-       Flexoki purple-400 の 2 px 枠を本体外側 4 px に描き、間の 2 px は塗らない。 */
-    .z-gate[data-state="hover"]::before,
-    .z-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                          /* spacing-1 */
-      border: 2px solid var(--purple-400);  /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-
-    /* ドラッグプレビュー = Flexoki purple-600 / semantic_intermediate。 */
-    .z-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
-
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
@@ -95,7 +53,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .z-gate {
+    .stage .zoom z-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -219,18 +177,8 @@
 </head>
 <body>
 
-<!-- SVG sprite: 実装 (apps/web/assets/icons/z.svg) と完全一致する Z 字形を
-     <symbol id="g-Z"> として定義する。字形色は currentColor で .z-gate から継承する。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Z" viewBox="0 0 48 48">
-    <g transform="translate(15.905 34.565) scale(0.029760 -0.029760)">
-      <path d="M28 0V88L408 626H41V710H506V622L126 84H516V0Z" fill="currentColor"/>
-    </g>
-  </symbol>
-</svg>
-
 <div id="preview">
-  <div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div>
+  <z-gate></z-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -278,7 +226,7 @@
       <li><strong>§ 03 SVG の text-anchor 注記が英語 ("56 px slot" / "40 px body") のまま</strong> — 兄弟ページ (h-gate.html / y-gate.html) は「56 px スロット」「40 px 本体」のように日本語化済み。本ページだけ英語表記が残り、表記揺れになっている (§ 03 参照)。</li>
       <li><strong>§ 04 の見出し「3倍拡大」と本文中の「3× zoom」表記揺れ</strong> — h3 は「3倍拡大」、本ページ中の他の表記 (キャプションなど) は「3倍拡大」「3× zoom」混在の可能性がある。兄弟ページは「3× zoom」で統一されており、表記をどちらかに寄せる (§ 04 参照)。</li>
       <li><strong>cyan-400 + paper のコントラスト比 2.78 が WCAG AA 大文字基準 (3.0) 未満</strong> — § 02 配色表は数値を出すが、§ 07 の設計判断では妥協が議論されていない。「色を意味に使わない」設計の代償として明示する (§ 02 / § 07 参照)。</li>
-      <li><strong>「ホバー枠の幾何が H / X と微妙に違う」可能性</strong> — 本ページの <code>.z-gate::before</code> は <code>border: 2px solid + inset: -4px</code> の実装で、H / X の <code>::before + ::after</code> 2 層構造と異なる。視覚結果は近いが、purple-400 線と paper 抜きの幾何が完全に一致するか要検証 (§ 02 参照)。</li>
+      <li><strong>ホバー枠は <code>&lt;z-gate&gt;</code> に集約済み</strong> — 現在は <code>components/z-gate.js</code> の Shadow DOM で、purple-400 外枠と paper の空きを 2 層で描く。H / Y と同じ構造になったため、個別ページ側にホバー枠 CSS を重複させない (§ 02 参照)。</li>
     </ol>
   </aside>
 </section>
@@ -294,11 +242,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="actual"><z-gate></z-gate></div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="actual"><z-gate state="hover"></z-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -358,22 +306,19 @@
       <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定する。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 ホバー枠の実装が H と異なる">
+    <aside class="critique" aria-label="批評 · § 02 ホバー枠の実装重複は解消済み">
       <div class="critique-label">★ 批評 · § 02 配色 / ホバー枠の幾何</div>
-      <div class="critique-title">本ページのホバー枠は <code>border + inset: -4px</code> 単層構造で、H ページの <code>::before + ::after</code> 2 層と異なる</div>
+      <div class="critique-title">ホバー枠の描画は <code>&lt;z-gate&gt;</code> の Shadow DOM に移し、個別ページ側の重複 CSS を解消した</div>
       <p class="critique-body">
-        本ページの CSS は <code>.z-gate::before { border: 2px solid var(--purple-400); inset: -4px; }</code> という<strong>単層実装</strong>。
-        一方 <a href="h-gate.html">h-gate.html</a> は <code>::before</code> で purple-400 を <code>inset: -4px</code> の塗りに、
-        <code>::after</code> で paper を <code>inset: -2px</code> の塗りに重ね、結果として 2 px 線を「中抜き」する 2 層構造になっている。
-        視覚的にはどちらも「本体から 2 px 離れた位置に 2 px 紫線」に見えるが、<em>2 層方式は背景色が paper でないときも正しく抜ける</em>
-        のに対し、本ページの単層 <code>border</code> 方式は本体外側 2〜4 px の領域 (4 px 枠の内側 2 px) に何も描かないため、
-        親要素の背景がそのまま透けて見える。回路の背景が常に paper (bg) なら結果は同じだが、
-        将来 dark mode や card 上に Z ゲートを配置するときに見え方が変わる。
+        以前のページ内 CSS は <code>.z-gate::before</code> の単層実装で、H / Y の 2 層構造と揃っていなかった。
+        現在は <code>components/z-gate.js</code> が <code>.hover-frame</code> と <code>.hover-gap</code> を持ち、
+        purple-400 外枠と 2 px の paper 空きを Shadow DOM 内で描く。これにより Z 仕様ページ / ゲートパレット / サムネイルが
+        同じ <code>&lt;z-gate&gt;</code> 実装を参照し、ホバー枠の幾何が 1 か所に集約された。
       </p>
       <p class="critique-body">
-        配色表の備考列には「本体外側 4 px、内側に 2 px の背景の空き」とだけ書かれており、実装方式の差は隠れている。
-        <a href="hover-frame.html">hover-frame.html</a> primitive の canonical 実装がどちらかを 1 か所で決め、
-        各ゲート仕様はそれを継承する形に統一すると、ホバー枠の振る舞いがゲート間で揃う。
+        残る論点は、H / Y / Z 以外の 1 量子ビットゲートも同じ custom element 化を進め、
+        ページごとの本体 CSS と inline SVG を減らすこと。特に S / T / RZ は Z と同じ角丸正方形 + 文字グリフなので、
+        <code>&lt;z-gate&gt;</code> と同じ構造を再利用できる。
       </p>
     </aside>
   </div>
@@ -386,7 +331,7 @@
       <tbody>
         <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
         <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>枠線</th><td>なし。本体色のみ。<a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-Z</code> と一致</td></tr>
+        <tr><th>枠線</th><td>なし。本体色のみ。<code>components/z-gate.js</code> の <code>&lt;z-gate&gt;</code> と一致</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
         <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y など他の 1 量子ビットゲートと共通)</td></tr>
         <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
@@ -453,12 +398,12 @@
   <h2><span class="num">§ 04</span>字形 (Z)</h2>
   <div class="card">
     <p>
-      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-Z</code> と同じ SVG パスを使う。
+      中央字形は <code>components/z-gate.js</code> の <code>&lt;z-gate&gt;</code> が提供する。
       CSS のテキスト描画ではなく、<code>apps/web/assets/icons/z.svg</code> 由来のベクタ字形を 40 px 本体へ重ねる。
     </p>
     <table class="spec">
       <tbody>
-        <tr><th>形式</th><td>ベクタパス (<code>&lt;symbol id="g-Z"&gt;</code> と 1:1)</td></tr>
+        <tr><th>形式</th><td>ベクタパス (<code>components/z-gate.js</code> の Shadow DOM に集約)</td></tr>
         <tr><th>パス座標</th><td><code>M28 0V88L408 626H41V710H506V622L126 84H516V0Z</code></td></tr>
         <tr><th>変換</th><td><code>translate(15.905 34.565) scale(0.029760 -0.029760)</code> (viewBox 48 への正規化)</td></tr>
         <tr><th>外形サイズ</th><td>viewBox 上で約 <code>14.5 × 21.1</code>。40 px 本体では約 <strong>12.1 × 17.6 px</strong></td></tr>
@@ -471,11 +416,11 @@
     <div class="stage" style="gap: 32px;">
       <div class="col" style="max-width: 224px;">
         <div class="caption">既定 · 3倍拡大</div>
-        <div class="zoom"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="zoom"><z-gate></z-gate></div>
       </div>
       <div class="col" style="max-width: 224px;">
         <div class="caption">ホバー · 3倍拡大<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="zoom"><z-gate state="hover"></z-gate></div>
       </div>
     </div>
 
@@ -507,20 +452,20 @@
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      3 状態を <code>data-state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
+      3 状態を <code>state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
     </p>
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
-        <div class="actual"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="actual"><z-gate></z-gate></div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="actual"><z-gate state="hover"></z-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><div class="z-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="actual"><z-gate state="drag"></z-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -540,11 +485,11 @@
     </p>
     <div class="slot-mock with-grid">
       <div class="wire">
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="slot"><z-gate></z-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="slot"><z-gate></z-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="slot"><z-gate></z-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -593,7 +538,7 @@
       <p class="critique-body">
         補足: 用語ゆれ — § 03 のジオメトリ表で「枠線」と「stroke」が混在している (本ページの設計判断は「枠線を持たない」、
         H / Y ページは「stroke を持たない」)。仕様横断で日本語 (「枠線」) に寄せるか、原文 (「stroke」) を統一するかを
-        decide すべき。<a href="../../CLAUDE.md">CLAUDE.md</a> のルー語ルールでは「stroke なし」「枠線なし」のどちらも許容されているため、
+        決めるべき。<a href="../../CLAUDE.md">CLAUDE.md</a> のルー語ルールでは「stroke なし」「枠線なし」のどちらも許容されているため、
         プロジェクト全体で 1 つに決めて prh.yml に追加するのが堅い。
       </p>
     </aside>
@@ -623,7 +568,7 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Z ゲート (ドラッグ元) の基準 SVG <code>g-Z</code> を定義する</td>
+          <td>パレット上の Z ゲート (ドラッグ元) でも <code>&lt;z-gate&gt;</code> を参照する</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>
