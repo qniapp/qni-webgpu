@@ -12,53 +12,14 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- CNOT ターゲット (X ゲート本体) は canonical な <x-gate> Web Component を埋め込む。 -->
+  <!-- 制御マーカは <control-gate>、CNOT ターゲットは <x-gate> カスタム要素で描画する。 -->
+  <script src="components/control-gate.js"></script>
   <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
        table.spec / pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
        本ページは GateKind::Control の透明な 40px 領域、中央の塗りつぶし円、
-       4px 縦コネクタ、ホバー枠を CSS + inline SVG で再現する。 */
-
-    /* ── 制御マーカ ──────────────────────────────
-       gate_glyphs.rs の viewBox 48 座標と一致。
-       Control: cx=24, cy=24, r=8 の塗りつぶし円。
-       40px 表示時は viewBox→表示倍率 40/48 で、見た目の半径は約 6.67px。 */
-    .control-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      color: var(--cyan-400);               /* Flexoki cyan-400 / box_fill */
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-    }
-    .control-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      overflow: visible;
-      pointer-events: none;
-    }
-
-    /* 回路上のホバー枠。透明な内部を塗らず、purple-400 の 2px 線だけを描く。
-       コネクタが透明な Control 本体の中央を通るため、surface gap でマスクしない。 */
-    .control-gate[data-state="hover"]::before,
-    .control-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                           /* body_rect.expand(4.0) */
-      border: 2px solid var(--purple-400);   /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-    .control-gate[data-state="drag"] {
-      color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
-      cursor: grabbing;
-    }
+       ホバー枠を <control-gate> で描画し、4px 縦コネクタをページ側で再現する。 */
 
     /* パレット上だけは hover-frame.html の surface gap 版を使う。 */
     .palette-hover-host {
@@ -134,7 +95,7 @@
       transform: translateX(-50%);
       background: var(--cyan-400);
     }
-    .control-column .control-gate,
+    .control-column control-gate,
     .control-column x-gate {
       z-index: 1;
     }
@@ -235,14 +196,8 @@
 </head>
 <body>
 
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Control" viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="8" fill="currentColor" />
-  </symbol>
-</svg>
-
 <div id="preview">
-  <div class="control-gate" aria-hidden="true"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
+  <control-gate aria-hidden="true"></control-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -311,18 +266,18 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">単体マーカ<br><code>|1⟩</code> 条件</div>
-        <div class="actual"><div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div>
+        <div class="actual"><control-gate></control-gate></div>
       </div>
       <div class="col">
         <div class="caption">CNOT<br>制御 + X</div>
         <div class="control-column">
-          <div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
+          <control-gate></control-gate>
           <x-gate></x-gate>
         </div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>stroke-only の紫枠</div>
-        <div class="actual"><div class="control-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div>
+        <div class="actual"><control-gate state="hover"></control-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -448,20 +403,20 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>cyan-400 塗りつぶし円</div>
-        <div class="actual"><div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div>
+        <div class="actual"><control-gate></control-gate></div>
       </div>
       <div class="col">
         <div class="caption">② 回路ホバー<br>purple-400 線だけ</div>
-        <div class="actual"><div class="control-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div>
+        <div class="actual"><control-gate state="hover"></control-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>purple-600</div>
-        <div class="actual"><div class="control-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div>
+        <div class="actual"><control-gate state="drag"></control-gate></div>
       </div>
       <div class="col">
         <div class="caption">④ パレットホバー<br>surface gap あり</div>
         <div class="actual">
-          <div class="palette-hover-host"><div class="palette-hover-inner"><div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div></div></div>
+          <div class="palette-hover-host"><div class="palette-hover-inner"><control-gate></control-gate></div></div>
         </div>
       </div>
     </div>
@@ -497,7 +452,7 @@
       <div class="col">
         <div class="diagram-caption">Control + X<br>CNOT</div>
         <div class="wide-column"><div class="control-column">
-          <div class="control-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
+          <control-gate></control-gate>
           <x-gate></x-gate>
         </div></div>
       </div>
@@ -549,7 +504,8 @@
         <tr><td><code>apps/web/src/render/circuit_connectors/control.rs</code></td><td>列内の制御 / 対象中心を集め、Control では隙間なしの縦コネクタを描く</td></tr>
         <tr><td><code>apps/web/src/render/circuit_connectors.rs</code></td><td><code>CONNECTOR_STROKE_WIDTH = 4.0</code> を Control / Swap / 同角 Phase で共有する</td></tr>
         <tr><td><code>apps/web/src/simulation_plan/linearize.rs</code></td><td>列単位で <code>control_mask</code> / <code>control_value</code> を作り、対象ゲートの GPU op に <code>|1⟩</code> 条件を付ける</td></tr>
-        <tr><td><a href="gate-palette.html">gate-palette.html</a></td><td>パレットの <code>g-Control</code> 基準 SVG と、全ゲート一覧内の表示参照</td></tr>
+        <tr><td><code>docs/design-system/components/control-gate.js</code></td><td><code>&lt;control-gate&gt;</code> の塗りつぶし円と状態差分を定義する</td></tr>
+        <tr><td><a href="gate-palette.html">gate-palette.html</a></td><td>パレット上の制御マーカでも <code>&lt;control-gate&gt;</code> を参照する</td></tr>
       </tbody>
     </table>
   </div>
