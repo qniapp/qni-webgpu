@@ -20,6 +20,7 @@ use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect}
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
 use super::hover_frame::hover_frame_corner_radius;
+use super::popover::{self, PopoverPlacement, PopoverTail};
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
@@ -612,23 +613,10 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let rect =
-            probability_hover_popup_rect(gate_rect, row_top, cell, width, height, screen_rect);
-        let corner = egui::CornerRadius::same(6);
-        let shadow = egui::epaint::Shadow {
-            offset: [0, 4],
-            blur: 12,
-            spread: 0,
-            color: colors.tooltip_shadow,
-        };
-        painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
-        painter.rect_filled(rect, corner, colors.surface);
-        painter.rect_stroke(
-            rect,
-            corner,
-            egui::Stroke::new(1.0, colors.line),
-            egui::StrokeKind::Inside,
-        );
+        let placement =
+            probability_hover_popup_placement(gate_rect, row_top, cell, width, height, screen_rect);
+        let rect = placement.rect;
+        popover::paint_popover(painter, colors, placement);
 
         let ket_pos = egui::pos2(
             rect.center().x - ket_galley.size().x * 0.5,
@@ -761,23 +749,16 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let rect =
-            probability_hover_popup_rect(gate_rect, row_top, row_h, width, height, screen_rect);
-        let corner = egui::CornerRadius::same(6);
-        let shadow = egui::epaint::Shadow {
-            offset: [0, 4],
-            blur: 12,
-            spread: 0,
-            color: colors.tooltip_shadow,
-        };
-        painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
-        painter.rect_filled(rect, corner, colors.surface);
-        painter.rect_stroke(
-            rect,
-            corner,
-            egui::Stroke::new(1.0, colors.line),
-            egui::StrokeKind::Inside,
+        let placement = probability_hover_popup_placement(
+            gate_rect,
+            row_top,
+            row_h,
+            width,
+            height,
+            screen_rect,
         );
+        let rect = placement.rect;
+        popover::paint_popover(painter, colors, placement);
 
         let ket_pos = egui::pos2(
             rect.center().x - ket_galley.size().x * 0.5,
@@ -836,40 +817,55 @@ impl QniApp {
     }
 }
 
-fn probability_hover_popup_rect(
+fn probability_hover_popup_placement(
     gate_rect: egui::Rect,
     row_top: f32,
     row_h: f32,
     width: f32,
     height: f32,
     screen_rect: egui::Rect,
-) -> egui::Rect {
-    let side_gap = 8.0; // spacing-2.
+) -> PopoverPlacement {
+    let side_gap = popover::ANCHOR_GAP + popover::TAIL_H;
     let size = egui::vec2(width, height);
-    let y_offset = -height * 0.5 + row_h * 0.5;
-    let right_rect =
-        egui::Rect::from_min_size(egui::pos2(gate_rect.right() + side_gap, row_top), size)
-            .translate(egui::vec2(0.0, y_offset));
-    let mut rect = if right_rect.right() <= screen_rect.right() {
-        right_rect
+    let row_center_y = row_top + row_h * 0.5;
+    let prefer_right =
+        gate_rect.right() + side_gap + width <= screen_rect.right() - popover::VIEWPORT_PAD;
+    let left = if prefer_right {
+        gate_rect.right() + side_gap
     } else {
-        egui::Rect::from_min_size(
-            egui::pos2(gate_rect.left() - side_gap - width, row_top),
-            size,
-        )
-        .translate(egui::vec2(0.0, y_offset))
+        gate_rect.left() - side_gap - width
     };
+    let top = row_center_y - height * 0.5;
+    let mut rect = egui::Rect::from_min_size(egui::pos2(left, top), size);
 
-    let viewport_pad = 8.0; // spacing-2.
-    let min_left = screen_rect.left() + viewport_pad;
-    let max_left = screen_rect.right() - viewport_pad - rect.width();
+    let min_left = screen_rect.left() + popover::VIEWPORT_PAD;
+    let max_left = screen_rect.right() - popover::VIEWPORT_PAD - rect.width();
     let target_left = if max_left >= min_left {
         rect.left().clamp(min_left, max_left)
     } else {
         min_left
     };
-    rect = rect.translate(egui::vec2(target_left - rect.left(), 0.0));
-    rect
+    let min_top = screen_rect.top() + popover::VIEWPORT_PAD;
+    let max_top = screen_rect.bottom() - popover::VIEWPORT_PAD - rect.height();
+    let target_top = if max_top >= min_top {
+        rect.top().clamp(min_top, max_top)
+    } else {
+        min_top
+    };
+    rect = rect.translate(egui::vec2(
+        target_left - rect.left(),
+        target_top - rect.top(),
+    ));
+
+    // Choose the tail edge after viewport clamping. In cramped viewports the
+    // card can move away from the preferred side; the tail should still point
+    // from the card edge nearest to the hovered probability/amplitude row.
+    let tail = if rect.center().x >= gate_rect.center().x {
+        PopoverTail::on_left_edge(rect, row_center_y)
+    } else {
+        PopoverTail::on_right_edge(rect, row_center_y)
+    };
+    PopoverPlacement { rect, tail }
 }
 
 #[cfg(test)]
@@ -895,10 +891,19 @@ mod tests {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(200.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(260.0, 180.0));
 
-        let rect =
-            super::probability_hover_popup_rect(gate_rect, 64.0, 24.0, 80.0, 60.0, screen_rect);
+        let placement = super::probability_hover_popup_placement(
+            gate_rect,
+            64.0,
+            24.0,
+            80.0,
+            60.0,
+            screen_rect,
+        );
 
-        assert_eq!((rect.left(), rect.right()), (112.0, 192.0));
+        assert_eq!(
+            (placement.rect.left(), placement.rect.right()),
+            (108.0, 188.0)
+        );
     }
 
     #[test]
@@ -906,9 +911,15 @@ mod tests {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(64.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 180.0));
 
-        let rect =
-            super::probability_hover_popup_rect(gate_rect, 64.0, 24.0, 140.0, 60.0, screen_rect);
+        let placement = super::probability_hover_popup_placement(
+            gate_rect,
+            64.0,
+            24.0,
+            140.0,
+            60.0,
+            screen_rect,
+        );
 
-        assert_eq!(rect.left(), 8.0);
+        assert_eq!(placement.rect.left(), 4.0);
     }
 }

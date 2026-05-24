@@ -21,6 +21,7 @@ const AMPLITUDE_HOVER_RING: [number, number, number, number] = [139, 126, 200, 2
 const SPAN_RESIZE_HANDLE_BG: [number, number, number, number] = [58, 169, 159, 255]
 const AMPLITUDE_ICON_NEEDLE: [number, number, number, number] = [16, 15, 15, 255]
 const AMPLITUDE_NONZERO_OUTLINE: [number, number, number, number] = [111, 110, 105, 255]
+const FLEXOKI_TX_3: [number, number, number, number] = [183, 181, 172, 255]
 const EGUI_PANEL_MARGIN = 8
 const amplitudeFirstCellCenterX = (column: number): number =>
   LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * column + (UI_CONSTANTS.SLOT_SPACING - GATE_SIZE) / 2
@@ -565,6 +566,30 @@ test.describe('Amplitude Display', () => {
     ])
 
     expect(pixelRgbDistance(samples.hostFrame, AMPLITUDE_HOVER_RING)).toBeLessThanOrEqual(40)
+  })
+
+  test('Amps1 popup uses the shared popover tail outline', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 2, 0)
+
+    const canvas = page.locator('#egui-canvas')
+    const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING - GATE_SIZE / 2
+    const gateRight = gateLeft + UI_CONSTANTS.SLOT_SPACING + GATE_SIZE
+    const tailApexX = gateRight + 4
+    await page.mouse.move(EGUI_PANEL_MARGIN + amplitudeCellCenterX(1, 0), LINE_Y)
+    await page.waitForTimeout(150)
+
+    const points = []
+    for (let x = 0; x <= 8; x += 1) {
+      for (let y = -8; y <= 8; y += 1) {
+        points.push({ name: `tail${x}_${y}`, x: tailApexX + x, y: LINE_Y + y })
+      }
+    }
+    const pixels = await sampleCanvasPixels(page, canvas, points)
+    const outlinePixels = Object.values(pixels).filter((pixel) => pixelRgbDistance(pixel, FLEXOKI_TX_3) <= 70).length
+
+    expect(outlinePixels).toBeGreaterThanOrEqual(12)
   })
 
   test('Amps10 keeps tiny non-zero amplitudes on the non-zero outline color', async ({ page }) => {

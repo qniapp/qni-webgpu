@@ -775,6 +775,33 @@ test('Probability16 hover keeps the Quirk-style row line visible', async ({ page
   expect(hoverLinePixels).toBeGreaterThan(DENSE_PROBABILITY_HOVER_LINE_MIN_PIXELS)
 })
 
+test('Probability popup uses the shared popover tail outline', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Probability']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForProbabilityDistributions(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const rowCenterY = gateTop + 10
+  const tailApexX = gateLeft + GATE_SIZE + 4
+  await page.mouse.move(box.x + gateLeft + GATE_SIZE / 2, box.y + rowCenterY)
+  await page.waitForTimeout(150)
+
+  const points = []
+  for (let x = 0; x <= 8; x += 1) {
+    for (let y = -8; y <= 8; y += 1) {
+      points.push({ name: `tail${x}_${y}`, x: tailApexX + x, y: rowCenterY + y })
+    }
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, points)
+  const outlinePixels = Object.values(pixels).filter((pixel) => pixelRgbDistance(pixel, FLEXOKI_TX_3) <= 70).length
+
+  expect(outlinePixels).toBeGreaterThanOrEqual(12)
+})
+
 test('Probability popup stays above the palette and keeps GPU values while scrolled', async ({ page }) => {
   const lowerQubitPadding = Array(15).fill(1)
   const lowerQubitPaddingAfterPair = Array(14).fill(1)

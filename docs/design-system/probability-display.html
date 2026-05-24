@@ -137,15 +137,15 @@
       pointer-events: none;
       z-index: 50;
       background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 6px;       /* Qni のゲート本体 (CornerRadius::same(6)) と同じ角丸 */
+      border: 1px solid var(--tx-3); /* popover_outline: Flexoki tx-3 */
+      border-radius: 10px;      /* popover.html と同じ角丸 */
       padding: 12px 16px;       /* spacing-3 / spacing-4 */
       font-family: 'Geist', sans-serif;
       font-size: 12px;          /* text-xs */
       line-height: 1.4;
       color: var(--tx);
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
     }
     .cd-popup .cd-popup-ket {
       font-family: var(--font-mono);
@@ -187,8 +187,28 @@
       font-variant-numeric: tabular-nums;
       margin-left: auto;
     }
-    /* 仕様ページ用に常時表示する派生クラス。実際のホバー時挙動と同じ見た目を
-       静的に並べて Codex / 人間がスクロール一覧できるようにする。 */
+    .cd-popup .doc-popover-tail {
+      position: absolute;
+      top: var(--tail-y, 50%);
+      width: 10px;
+      height: 16px;
+      transform: translateY(-50%);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .cd-popup .doc-popover-tail__fill { fill: var(--bg); }
+    .cd-popup .doc-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);
+      stroke-width: 1.5px;
+      stroke-linejoin: round;
+    }
+    .cd-popup .doc-popover-tail--right { left: -8px; }
+    .cd-popup .doc-popover-tail--left { right: -8px; display: none; }
+    .cd-popup[data-side="left"] .doc-popover-tail--right { display: none; }
+    .cd-popup[data-side="left"] .doc-popover-tail--left { display: block; }
+    /* 仕様ページ用に常時表示する派生クラス。内容構造を静的に並べて
+       Codex / 人間がスクロール一覧できるようにする。tail は popover.html と動くモックで確認する。 */
     .cd-popup.cd-popup--static {
       display: inline-block;
       position: static;
@@ -634,13 +654,10 @@
         検討された形跡が無い。「全か無か」は実装は簡単だが UX には急峻すぎる。
       </p>
       <p class="critique-body">
-        <strong>角丸の不統一に根拠が無い:</strong>
-        本体 = 角ばり (<code>border-radius: 0</code>)、
-        ポップアップ = <code>6 px</code> (「Qni のゲート本体と統一」と書かれる)、
-        ハンドル = <code>3 px</code> ピル、placeholder = 角ばり。
-        <em>ポップアップだけ「6 px は本体と統一」と書きつつ、当の本体は 0 px</em>
-        という矛盾。Quirk が <code>ProbabilityDisplay</code> を角ばりで描いている踏襲だと
-        推測できるが、§ 設計判断レベルで明示すべき。
+        <strong>角丸の不統一は共通化で解消済み:</strong>
+        本体 = 角ばり (<code>border-radius: 0</code>)、ハンドル = <code>3 px</code> ピル、placeholder = 角ばりのままにし、
+        ポップアップは別レイヤの情報カードとして <a href="popover.html">ポップオーバー共通仕様</a>の <code>10 px</code> 角丸へ寄せた。
+        これにより「Qni のゲート本体と同じ 6 px」という旧説明と、確率表示ブロック本体の 0 px 角丸が衝突する状態を解消した。
       </p>
     </aside>
   </div>
@@ -945,10 +962,10 @@ stroke()</pre>
         <tr><th>行ホバー枠</th><td>ホバー中の行の内側に <code>purple-400</code> 2 px の枠を上書き (バーより上の overlay 層)。Quirk の <code>strokeRect(..., lineWidth = 2)</code> と同流儀。行高が 4 px 未満の高密度表示では、上下ストロークが重なった 2 px 相当の水平帯として描き、Probability16 でもホバーしている振幅の位置が消えないようにする</td></tr>
         <tr><th>同時表示</th><td>ホバー枠と行ホバー枠は同時に出る (回路上で行にカーソルを乗せたとき、外枠と内枠の両方が見える)</td></tr>
         <tr><th>ポップアップ</th><td>
-          行ホバー時、ゲートの右 8 px にポップアップが出る。表示内容: ket <code>|bin(k)⟩</code> (主)、
+          行ホバー時、<a href="popover.html">ポップオーバー共通仕様</a>に従う tail 付きカードを表示する。通常は対象行の右側に出し、画面右端では左側へ反転する。表示内容: ket <code>|bin(k)⟩</code> (主)、
           <code>Probability if measured · k = N</code> (補足)、<code>raw: (p × 100).toFixed(4) %</code>、
           <code>log: (log10(p) × 10).toFixed(1) dB</code> (<code>p = 0</code> なら <code>−∞ dB</code>)。
-          見た目は § 02 のモック参照 (Quirk のプレーンテキスト tooltip を Geist で再構成)
+          内容は Quirk のプレーンテキスト tooltip を Geist で再構成する。
         </td></tr>
         <tr><th>ポップアップのタイポグラフィ</th><td>
           ket = Geist Mono Regular 14 px (text-sm) / <code>tx</code>、
@@ -956,7 +973,7 @@ stroke()</pre>
           ラベル (raw / log) = Geist Mono 12 px (text-xs) / <code>tx-2</code> / UPPERCASE / letter-spacing 0.12 em、
           数値 = Geist Mono 14 px (text-sm) / <code>tx</code> / <code>tabular-nums</code>。
           <code>tx-3</code> (#B7B5AC) はゲート背景の <code>paper</code> 上で薄すぎるため使わず、<code>tx-2</code> (#6F6E69) を二次テキスト色とする。
-          枠 = <code>paper</code> bg + <code>ui-2</code> 1 px、<code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)、shadow = <code>0 4px 12px rgba(16,15,15,0.06)</code>
+          外装 (背景 / 枠 / 角丸 / 影 / tail / 画面端反転) は <a href="popover.html">ポップオーバー共通仕様</a>に従う。
         </td></tr>
         <tr><th>パレットアイコン</th><td>外側ホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
         <tr><th>リサイズハンドル</th><td>ホストホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
@@ -974,9 +991,9 @@ stroke()</pre>
   <h2>§ 11 ポップアップ仕様</h2>
   <div class="card">
     <p>
-      行ホバー時に出るポップアップの<strong>常時表示版</strong>。実装と同じ CSS / マークアップを
-      静的に並べ、状態バリアントとアナトミーを Codex / 人間がスクロールだけで確認できるようにする。
-      ホバーを必要としないので、スクリーンショットレビューや diff レビューで仕様逸脱を検出しやすい。
+      行ホバー時に出るポップアップ内容の<strong>常時表示版</strong>。値ラベルと行構成を静的に並べ、
+      状態バリアントとアナトミーを Codex / 人間がスクロールだけで確認できるようにする。
+      tail、輪郭、影、画面端反転は <a href="popover.html">ポップオーバー共通仕様</a>側で確認する。
     </p>
 
     <h3 style="margin-top: 16px;">基本構造</h3>
@@ -1004,21 +1021,22 @@ stroke()</pre>
     <table class="spec">
       <tbody>
         <tr><th>背景</th><td><code>paper</code> (#FFFCF0)</td></tr>
-        <tr><th>枠線</th><td><code>ui-2</code> 1 px (#DAD8CE)</td></tr>
-        <tr><th>角丸</th><td><code>border-radius: 6 px</code> (Qni のゲート本体 <code>CornerRadius::same(6)</code> と統一)</td></tr>
+        <tr><th>枠線</th><td><code>popover_outline</code> / Flexoki <code>tx-3</code> 1 px</td></tr>
+        <tr><th>角丸</th><td><code>border-radius: 10 px</code> (<a href="popover.html">ポップオーバー共通仕様</a>)</td></tr>
         <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
-        <tr><th>影</th><td><code>0 4px 12px rgba(16, 15, 15, 0.06)</code> — paper 背景に浮かせる軽い soft shadow</td></tr>
+        <tr><th>影</th><td><code>0 10px 28px rgba(16, 15, 15, 0.14)</code> — paper 背景に浮かせる共通の影</td></tr>
         <tr><th>z-index</th><td>50 (ゲート本体・ホバー枠より上、ドキュメント全体の overlay 層)</td></tr>
-        <tr><th>アンカー</th><td>ゲート右辺 + 8 px、ホバー中の行の <code>top</code> に合わせる</td></tr>
+        <tr><th>アンカー</th><td>通常は対象行の右側、画面右端では左側。対象行と tail 先端の距離は <code>4 px</code></td></tr>
         <tr><th>pointer-events</th><td><code>none</code> (ホバー判定を妨げない)</td></tr>
       </tbody>
     </table>
 
     <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
     <p>
-      実コードと同じ <code>.cd-popup</code> マークアップに <code>.cd-popup--static</code> を付け、
+      実コードと同じ内容構造の <code>.cd-popup</code> マークアップに <code>.cd-popup--static</code> を付け、
       <code>position: static; display: inline-block</code> で非ホバー時にも表示する。
-      代表的な確率値と span でレンダリングの違いを確認できる。
+      代表的な確率値と span でレンダリングの違いを確認できる。tail と画面端反転は
+      <a href="popover.html">ポップオーバー共通仕様</a>側で検証し、この常時表示モックでは値ラベルと行構成に焦点を当てる。
     </p>
     <div class="stage" style="gap: 24px; flex-wrap: wrap;">
       <div class="col" style="max-width: 240px;">
@@ -1101,8 +1119,8 @@ stroke()</pre>
       <li><strong>raw を 4 桁 / log を 1 桁にする</strong>: Quirk 互換 (<code>toFixed(4)</code> / <code>toFixed(1)</code>)。raw は微小確率の比較、log は dB スケールの大まかな桁感を伝える</li>
       <li><strong>マイナス記号は U+2212 (<code>−</code>)</strong>: hyphen-minus (<code>-</code>) より幅が広く、tabular-nums と同じ字幅に揃う</li>
       <li><strong>サブ・ラベルは tx-2</strong>: 当初 tx-3 を使ったが paper bg 上で読みにくかったため格上げ。tx-3 はポップアップ内では使わない</li>
-      <li><strong>角丸 6 px</strong>: Qni のゲート本体 (<code>CornerRadius::same(6)</code>) と同値にして UI 全体の調子を揃える。確率表示ブロックの本体は角ばりだがポップアップは別レイヤなので角丸でも齟齬なし</li>
-      <li><strong>枠 + soft shadow の二重表現</strong>: 枠 (<code>ui-2</code> 1 px) は paper bg との境界を明示、shadow は ≪浮いている≫ ことを示す。どちらか片方では弱い</li>
+      <li><strong>角丸 10 px</strong>: ポップアップは別レイヤの情報カードとして <a href="popover.html">ポップオーバー共通仕様</a>へ揃える。確率表示ブロック本体は角ばりのままにし、外装の責務を分ける</li>
+      <li><strong>枠 + 影の二重表現</strong>: 枠 (<code>popover_outline</code> / Flexoki <code>tx-3</code> 1 px) は paper 背景との境界を明示し、<code>0 10px 28px rgba(16, 15, 15, 0.14)</code> の影は浮いていることを示す。どちらか片方では弱い</li>
       <li><strong>span 16 でも 1 行で収まる</strong>: 16 bit ket = 16 文字、補足 30 文字程度。<code>white-space: nowrap</code> で折り返しを防ぐ (最大幅は ~280 px)</li>
     </ul>
 
@@ -1536,6 +1554,18 @@ stroke()</pre>
   // 行 hover 時のポップアップ。Quirk の paintDeferredValueTooltip と同じ内容
   // (ket / decimal / raw % / log dB) を Geist タイポグラフィで再構成。
   // ket: 主、補足: 従、ラベル: 小キャップ、数値: tabular-nums。
+  function popupTailHtml() {
+    return `
+      <svg class="doc-popover-tail doc-popover-tail--right" viewBox="0 0 10 16" aria-hidden="true">
+        <path class="doc-popover-tail__fill" d="M10 0 L0 8 L10 16 Z"></path>
+        <path class="doc-popover-tail__stroke" d="M8 0 L0 8 L8 16"></path>
+      </svg>
+      <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 10 16" aria-hidden="true">
+        <path class="doc-popover-tail__fill" d="M0 0 L10 8 L0 16 Z"></path>
+        <path class="doc-popover-tail__stroke" d="M2 0 L10 8 L2 16"></path>
+      </svg>
+    `;
+  }
   function popupHtml(idx, p100, span) {
     const bitWidth = Math.max(1, span);
     const ket = idx.toString(2).padStart(bitWidth, '0');
@@ -1558,6 +1588,33 @@ stroke()</pre>
       </div>
     `;
   }
+  function placePopup(host, popup, targetRect, rowCenterY) {
+    const hostRect = host.getBoundingClientRect();
+    popup.style.display = 'block';
+    popup.style.visibility = 'hidden';
+    const sideGap = 12; // anchor gap 4 px + tail height 8 px.
+    const pad = 4;
+    const width = popup.offsetWidth;
+    const height = popup.offsetHeight;
+    const rightLeft = targetRect.left + targetRect.width + sideGap;
+    const leftLeft = targetRect.left - sideGap - width;
+    const preferRight = hostRect.left + rightLeft + width <= window.innerWidth - pad;
+    const minLeft = pad - hostRect.left;
+    const maxLeft = window.innerWidth - pad - hostRect.left - width;
+    const minTop = pad - hostRect.top;
+    const maxTop = window.innerHeight - pad - hostRect.top - height;
+    const unclampedLeft = preferRight ? rightLeft : leftLeft;
+    const left = Math.max(minLeft, Math.min(unclampedLeft, Math.max(minLeft, maxLeft)));
+    const top = Math.max(minTop, Math.min(rowCenterY - height / 2, Math.max(minTop, maxTop)));
+    const side = left + width / 2 >= targetRect.left + targetRect.width / 2 ? 'right' : 'left';
+    const rawTailY = rowCenterY - top;
+    const tailY = Math.max(8, Math.min(rawTailY, Math.max(8, height - 8)));
+    popup.dataset.side = side;
+    popup.style.setProperty('--tail-y', `${tailY}px`);
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+    popup.style.visibility = 'visible';
+  }
   function attachPopup(host, cd, probs, totalH) {
     const n = probs.length;
     const rowH = totalH / n;
@@ -1570,10 +1627,11 @@ stroke()</pre>
       const rect = cd.getBoundingClientRect();
       const idx = Math.floor((e.clientY - rect.top) / rowH);
       if (idx < 0 || idx >= n) { popup.style.display = 'none'; return; }
-      popup.innerHTML = popupHtml(idx, probs[idx], span);
-      popup.style.left = (cd.offsetLeft + cd.offsetWidth + 8) + 'px';
-      popup.style.top = (cd.offsetTop + idx * rowH) + 'px';
-      popup.style.display = 'block';
+      popup.innerHTML = popupHtml(idx, probs[idx], span) + popupTailHtml();
+      placePopup(host, popup, {
+        left: cd.offsetLeft,
+        width: cd.offsetWidth,
+      }, cd.offsetTop + idx * rowH + rowH / 2);
     });
     cd.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
   }

@@ -406,10 +406,10 @@
         <tr><th>場所</th><th>現在の状態</th><th>共通化方針</th></tr>
       </thead>
       <tbody>
-        <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>変更時は本ページも同時に更新する。</td></tr>
-        <tr><td>確率 / 振幅表示ブロック</td><td>現在は tail なしの小さな角丸カード。</td><td>次の実装変更で本仕様の外装へ寄せる。値の GPU 直接描画は維持する。</td></tr>
-        <tr><td>ブロッホ球表示ブロック</td><td>仕様ページ上は詳細カード風のポップアップを持つ。</td><td>セル値系と同じ外装へ寄せ、内容だけを表示ブロック固有にする。</td></tr>
-        <tr><td>パレット説明表示</td><td>現在は tail なしの tooltip。</td><td>ゲートに結び付く説明として扱う場合は本仕様へ寄せる。単なる短文ヒントは別の tooltip として分ける。</td></tr>
+        <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>共通クロム実装を使い、変更時は本ページも同時に更新する。</td></tr>
+        <tr><td>確率 / 振幅表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象セルの右側、画面右端では左側へ反転する。</td><td>値の GPU 直接描画と表示ブロック固有の文言は維持する。</td></tr>
+        <tr><td>ブロッホ球表示ブロック</td><td>仕様ページ上は詳細カード風のポップアップを持つ。</td><td>実装時はセル値系と同じ外装へ寄せ、内容だけを表示ブロック固有にする。</td></tr>
+        <tr><td>パレット説明表示</td><td>本仕様の共通外装へ移行済み。ゲートに結び付く説明として top / bottom tail を使う。</td><td>単なる短文ヒントは別の tooltip として分ける。</td></tr>
         <tr><td>アスペクト選択</td><td>クリックで開く選択肢リスト。</td><td>情報表示ではなく選択用の小窓なので、本仕様をそのまま適用しない。</td></tr>
       </tbody>
     </table>
@@ -420,10 +420,10 @@
   <h2>§ 07 関連仕様 / ソース</h2>
   <div class="card">
     <ul>
-      <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 基準形の幅、余白、tail、画面端処理。</li>
-      <li><code>apps/web/src/render/state_panel_popup/cell/</code> 配下のクロム描画ファイル — 基準形の面、縁、影、tail 描画。</li>
-      <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックの現在のホバー表示。</li>
-      <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の現在の余白と配置。</li>
+      <li><code>apps/web/src/render/popover.rs</code> — 共通外装の面、縁、影、tail 描画。</li>
+      <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 状態ベクトルセル基準形の幅、余白、tail、画面端処理。</li>
+      <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックのホバー表示。</li>
+      <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の余白と配置。</li>
       <li><code>docs/design-system/probability-display.html</code> / <code>amplitude-display.html</code> / <code>bloch-display.html</code> — 表示ブロック側の内容仕様。</li>
     </ul>
   </div>

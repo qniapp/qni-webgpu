@@ -19,8 +19,8 @@ impl QniApp {
     /// to the screen rect. No-op when nothing is hovered or while a
     /// gate drag is in progress.
     ///
-    /// Chrome matches the state panel (paper bg + ui-2 1 px border +
-    /// soft shadow). Typography follows the Tailwind scale: title
+    /// Chrome matches the shared popover primitive (paper bg + tx-3 1 px border +
+    /// outlined tail + soft shadow). Typography follows the Tailwind scale: title
     /// text-sm (14 px) in tx, description text-xs (12 px) in tx-2.
     pub(crate) fn draw_palette_tooltip(
         &self,
@@ -55,11 +55,12 @@ impl QniApp {
         let card =
             layout::place_tooltip_card(rect, gate_rect, text.content_size(diagram_metrics.size()));
 
-        layout::paint_tooltip_card(painter, card.rect, colors);
-        let text_end_y = text::paint_tooltip_text(painter, card.rect, &text, colors);
+        layout::paint_tooltip_card(painter, card, colors);
+        let rect = card.placement.rect;
+        let text_end_y = text::paint_tooltip_text(painter, rect, &text, colors);
         diagram::paint_tooltip_diagram(
             painter,
-            card.rect,
+            rect,
             text_end_y,
             &info,
             gate,

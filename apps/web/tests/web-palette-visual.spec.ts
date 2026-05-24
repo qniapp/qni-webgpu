@@ -30,6 +30,8 @@ import {
 
 type HoverSnapshot = { hoveredPaletteIndex: number | null }
 
+const POPOVER_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
+
 const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> => {
   const snapshot = await page.evaluate(() => (window as any).__qniHoverSnapshotJson ?? null)
   if (snapshot === null) {
@@ -58,6 +60,35 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   ])
 
   expect(pixelRgbDistance(pixels.hoverRing, [139, 126, 200, 255])).toBeLessThan(48)
+})
+
+test('palette tooltip uses the shared popover tail outline', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const gateCenter = getPaletteGateCenter(box.width, 0)
+  const gateBottom = gateCenter.y + UI_CONSTANTS.GATE_SIZE / 2
+  const tailApex = { x: gateCenter.x, y: gateBottom + 4 }
+  await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
+  await page.waitForTimeout(150)
+
+  const points: PixelSamplePoint[] = []
+  for (let x = -8; x <= 8; x += 1) {
+    for (let y = 0; y <= 8; y += 1) {
+      points.push({ name: `tail${x}_${y}`, x: tailApex.x + x, y: tailApex.y + y })
+    }
+  }
+  const pixels = await sampleCanvasPixels(page, canvas, points)
+  const outlinePixels = Object.values(pixels).filter((pixel) => pixelRgbDistance(pixel, POPOVER_OUTLINE) <= 70).length
+
+  expect(outlinePixels).toBeGreaterThanOrEqual(4)
 })
 
 test('Display section Probability slot preserves its palette hover index', async ({ page }) => {

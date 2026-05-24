@@ -19,7 +19,6 @@ pub(crate) struct Colors {
     pub(crate) line: egui::Color32,
     pub(crate) box_fill: egui::Color32,
     pub(crate) drag_fill: egui::Color32,
-    pub(crate) box_border: egui::Color32,
     pub(crate) gate_hover_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
@@ -55,7 +54,6 @@ pub(crate) struct Colors {
     pub(crate) step_preview: egui::Color32,
     pub(crate) palette_shadow: egui::Color32,
     pub(crate) state_panel_shadow: egui::Color32,
-    pub(crate) tooltip_shadow: egui::Color32,
     pub(crate) state_cell_popup_shadow: egui::Color32,
     pub(crate) minimap_bg: egui::Color32,
     pub(crate) minimap_viewport_fill: egui::Color32,
@@ -167,7 +165,6 @@ fn flexoki_light() -> Colors {
         line: ui_2,                           // qubit wires
         box_fill: cyan_400,                   // unitary gate body
         drag_fill: purple_600,                // grabbed / preview body
-        box_border: ui,                       // neutral card / tooltip outline
         gate_hover_border: purple_400,        // gate hover outline (Flexoki purple-400)
         label: paper,                         // inverse label on filled gates
         text: tx_2,                           // body text
@@ -203,7 +200,6 @@ fn flexoki_light() -> Colors {
         step_preview: blue_600,
         palette_shadow: with_alpha(tx, 25),
         state_panel_shadow: with_alpha(tx, 25),
-        tooltip_shadow: with_alpha(tx, 25),
         state_cell_popup_shadow: with_alpha(tx, 36),
         minimap_bg: with_alpha(tx, 140),
         minimap_viewport_fill: with_alpha(paper, 70),

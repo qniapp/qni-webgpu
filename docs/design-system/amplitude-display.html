@@ -53,15 +53,15 @@
       pointer-events: none;
       z-index: 50;
       background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 6px;
+      border: 1px solid var(--tx-3); /* popover_outline: Flexoki tx-3 */
+      border-radius: 10px;
       padding: 12px 16px;
       font-family: var(--font-body);
       font-size: 12px;
       line-height: 16px;
       color: var(--tx);
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
     }
     .ad-popup .ad-popup-ket {
       font-family: var(--font-mono);
@@ -101,6 +101,26 @@
       font-variant-numeric: tabular-nums;
       margin-left: auto;
     }
+    .ad-popup .doc-popover-tail {
+      position: absolute;
+      top: var(--tail-y, 50%);
+      width: 10px;
+      height: 16px;
+      transform: translateY(-50%);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .ad-popup .doc-popover-tail__fill { fill: var(--bg); }
+    .ad-popup .doc-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);
+      stroke-width: 1.5px;
+      stroke-linejoin: round;
+    }
+    .ad-popup .doc-popover-tail--right { left: -8px; }
+    .ad-popup .doc-popover-tail--left { right: -8px; display: none; }
+    .ad-popup[data-side="left"] .doc-popover-tail--right { display: none; }
+    .ad-popup[data-side="left"] .doc-popover-tail--left { display: block; }
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -310,7 +330,7 @@
       span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。測定結果数 <code>n = 2<sup>span</sup></code> を
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
-      各セルにマウスを乗せると、Quirk と同じ tooltip 内容 (ket、val、mag² と phase) をポップアップ表示する。
+      各セルにマウスを乗せると、coherent では ket / val / mag² / phase、incoherent では ket / raw / log をポップアップ表示する (詳細は § 08)。
       cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
       production の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない。下のモックは表示の都合で 320 px に scale down しているので、mock では span 13〜16 が cellPx ≤ 2 となり heatmap mode に入る。
     </p>
@@ -732,7 +752,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <li>outline 円は通常通り描く (情報量を保持)、disk は <strong>alpha 0.45 で薄塗り</strong>「振幅未定義 / 確率のみ」を示す</li>
       <li>phase needle は描かない (虚部が無いので位相は 0、線が意味を持たない)</li>
       <li>ゲート下に "incoherent" を <code>red-600</code> でフェードイン (<code>1 − indicatorAlpha</code> 透明度)</li>
-      <li>ホバー popup は <code>"Probability of |ket⟩ [entangled with other qubits]"</code> と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
+      <li>ホバー popup は § 08 と同じ <code>Probability · decimal N · [entangled with other qubits]</code> のサブ行と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
     </ul>
     <h3 style="margin-top: 16px;">measure 済み列での挙動 (Quirk と仕様が異なる)</h3>
     <p>
@@ -779,7 +799,8 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   <h2>§ 08 ホバー時ポップアップ</h2>
   <div class="card">
     <p>
-      Quirk の <code>MathPainter.paintMatrixTooltip</code> と同じ 3 行構成。Geist タイポグラフィへ写像する。
+      Quirk の <code>MathPainter.paintMatrixTooltip</code> と同じ情報を Geist タイポグラフィへ写像する。coherent は <code>val</code> / <code>mag²</code> / <code>phase</code> の 3 行、incoherent は <code>raw</code> / <code>log</code> の 2 行で表示し、外装は <a href="popover.html">ポップオーバー共通仕様</a> (paper / <code>popover_outline</code> / tail / 共通の影) に従う。
+      下の常時表示モックは値ラベルと行構成を見せるための内容見本で、tail と画面端反転は <code>popover.html</code> と § 02 の動くモックで検証する。
     </p>
     <h3 style="margin-top: 8px;">coherent state</h3>
     <div class="ad-popup" style="display: inline-block; position: static;">
@@ -820,7 +841,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <p class="critique-body">
         coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行と<em>表示する数値の種類自体が変わる</em>。
         cell ホバーで popup を出すたび、状態に応じて popup の縦寸が <strong>~88 px</strong> と <strong>~64 px</strong> で <strong>24 px (3 spacing-6) 変動</strong>する。
-        ホバーで pointer が下方向にあるとき popup が cell の右に出る (アンカー = cell top) ので、popup 下端が画面外にはみ出す境界が状態依存になる。
+        配置は cell center を tail で指し、画面端では上下 clamp するため旧来の cell top アンカー問題は解消済みだが、高さが変わると同じセルでもカード中心の見え方が少し揺れる。
         改善案: incoherent でも 3 行構造を維持し、空行に <code>—</code> や「phase: undefined」を入れて popup 高さを固定する。
         または incoherent と coherent で popup 自体のデザイン (背景 alpha / border 色) を変えて、ユーザに「振幅未定義」を視覚的に強調する。
       </p>
@@ -1561,6 +1582,19 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     return s;
   }
 
+  function popupTailHtml() {
+    return `
+      <svg class="doc-popover-tail doc-popover-tail--right" viewBox="0 0 10 16" aria-hidden="true">
+        <path class="doc-popover-tail__fill" d="M10 0 L0 8 L10 16 Z"></path>
+        <path class="doc-popover-tail__stroke" d="M8 0 L0 8 L8 16"></path>
+      </svg>
+      <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 10 16" aria-hidden="true">
+        <path class="doc-popover-tail__fill" d="M0 0 L10 8 L0 16 Z"></path>
+        <path class="doc-popover-tail__stroke" d="M2 0 L10 8 L2 16"></path>
+      </svg>
+    `;
+  }
+
   function popupHtml(idx, re, im, span, incoherent) {
     const ket = bin(idx, span);
     const mag2 = (re*re + im*im) * 100;
@@ -1587,6 +1621,34 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     `;
   }
 
+  function placePopup(host, popup, targetRect, cellCenterY) {
+    const hostRect = host.getBoundingClientRect();
+    popup.style.display = 'block';
+    popup.style.visibility = 'hidden';
+    const sideGap = 12; // anchor gap 4 px + tail height 8 px.
+    const pad = 4;
+    const width = popup.offsetWidth;
+    const height = popup.offsetHeight;
+    const rightLeft = targetRect.left + targetRect.width + sideGap;
+    const leftLeft = targetRect.left - sideGap - width;
+    const preferRight = hostRect.left + rightLeft + width <= window.innerWidth - pad;
+    const minLeft = pad - hostRect.left;
+    const maxLeft = window.innerWidth - pad - hostRect.left - width;
+    const minTop = pad - hostRect.top;
+    const maxTop = window.innerHeight - pad - hostRect.top - height;
+    const unclampedLeft = preferRight ? rightLeft : leftLeft;
+    const left = Math.max(minLeft, Math.min(unclampedLeft, Math.max(minLeft, maxLeft)));
+    const top = Math.max(minTop, Math.min(cellCenterY - height / 2, Math.max(minTop, maxTop)));
+    const side = left + width / 2 >= targetRect.left + targetRect.width / 2 ? 'right' : 'left';
+    const rawTailY = cellCenterY - top;
+    const tailY = Math.max(8, Math.min(rawTailY, Math.max(8, height - 8)));
+    popup.dataset.side = side;
+    popup.style.setProperty('--tail-y', `${tailY}px`);
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+    popup.style.visibility = 'visible';
+  }
+
   function attachPopup(host, info) {
     const popup = document.createElement('div');
     popup.className = 'ad-popup';
@@ -1604,10 +1666,11 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       }
       const idx = row * w_grid + col;
       const re = state[idx*2], im = state[idx*2+1];
-      popup.innerHTML = popupHtml(idx, re, im, span, incoherent);
-      popup.style.left = (canvas.offsetLeft + canvas.offsetWidth + 8) + 'px';
-      popup.style.top = (canvas.offsetTop + row * cellPx) + 'px';
-      popup.style.display = 'block';
+      popup.innerHTML = popupHtml(idx, re, im, span, incoherent) + popupTailHtml();
+      placePopup(host, popup, {
+        left: canvas.offsetLeft + col * cellPx,
+        width: cellPx,
+      }, canvas.offsetTop + row * cellPx + cellPx / 2);
     });
     canvas.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
   }
