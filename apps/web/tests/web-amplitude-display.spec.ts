@@ -550,17 +550,21 @@ test.describe('Amplitude Display', () => {
     expect(pixelRgbDistance(samples.circleLeft, AMPLITUDE_HOVER_RING)).toBeLessThanOrEqual(90)
   })
 
-  test('hovering Amps1 does not draw a square cell corner', async ({ page }) => {
+  test('hovering Amps1 shows the host hover frame', async ({ page }) => {
     await page.goto(`/#${circuitHash([['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
     await waitForAmplitudeCell(page, 1, 0)
     await page.mouse.move(170, 256)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'cellCorner', x: 155, y: 245 },
+      {
+        name: 'hostFrame',
+        x: amplitudeFirstCellCenterX(0) + GATE_SIZE * 0.7,
+        y: LINE_Y - GATE_SIZE / 2 + 4,
+      },
     ])
 
-    expect(pixelRgbDistance(samples.cellCorner, AMPLITUDE_HOVER_RING)).toBeGreaterThan(90)
+    expect(pixelRgbDistance(samples.hostFrame, AMPLITUDE_HOVER_RING)).toBeLessThanOrEqual(40)
   })
 
   test('Amps10 keeps tiny non-zero amplitudes on the non-zero outline color', async ({ page }) => {
