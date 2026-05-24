@@ -197,25 +197,14 @@
 </div>
 
 <!--
-  共通 SVG シンボル定義 — Web Component 化していないアイコンを viewBox="0 0 48 48" で統一。
-  実装は assets/icons/*.svg (viewBox 48) を 256 px PNG → SDF テクスチャに焼いて 40 px cell へ描画。
-  ここでは同じ SVG path を直接埋め込むことで、文字グリフ (Geist) の太さと配置を実装と完全一致させる。
-  ただし X / Y / Z / S など移行済みゲートは各 <*-gate> に集約し、ここへ同じ path を重複定義しない。
-  Body の corner radius / 円半径 / ブロッホ軸 / Probability bar / Amps Q ロゴなどの primitive も
+  共通 SVG シンボル定義 — Web Component 化していない表示ブロックと、一部の既存プリミティブを viewBox="0 0 48 48" で統一。
+  ゲート本体は各 <*-gate> に集約し、ここへ同じ path を重複定義しない。
+  ブロッホ軸 / Probability bar / Amps Q ロゴなどの primitive は
   「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
-    body corner radius 6 px → rx 7.2、stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
+    stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
 -->
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
-    <!-- ─ Unitary square body (corner radius 6 px = rx 7.2 viewbox) + Geist glyph from assets/icons/*.svg ─ -->
-    <symbol id="g-H" viewBox="0 0 48 48">
-      <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
-      <g transform="translate(13.391 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
-        <path d="M92 0V710H178V399H535V710H621V0H535V315H178V0Z"/>
-      </g>
-    </symbol>
-
-    <!-- ─ Phase (circle body + P glyph from p.svg) ─ -->
 
     <!-- ─ Swap — cyan-400 × · stroke 4 (gate_glyphs.rs:123-128) ─ -->
     <symbol id="g-Swap" viewBox="0 0 48 48">
@@ -344,7 +333,7 @@
         <!-- Gates section -->
         <div class="gp-section">
           <div class="gp-row">
-            <div class="gp-gate" data-tip="H · Hadamard"><svg width="40" height="40"><use href="#g-H"/></svg><span class="tip">H · Hadamard</span></div>
+            <div class="gp-gate" data-tip="H · Hadamard"><h-gate></h-gate><span class="tip">H · Hadamard</span></div>
             <div class="gp-gate" data-tip="X · Pauli-X (NOT, +)"><x-gate></x-gate><span class="tip">X · Pauli-X (NOT)</span></div>
             <div class="gp-gate" data-tip="Y · Pauli-Y"><y-gate></y-gate><span class="tip">Y · Pauli-Y</span></div>
             <div class="gp-gate" data-tip="Z · Pauli-Z"><z-gate></z-gate><span class="tip">Z · Pauli-Z</span></div>
