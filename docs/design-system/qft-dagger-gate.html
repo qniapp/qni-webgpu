@@ -14,310 +14,230 @@
   </script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
-       pre.code / nav.breadcrumb / footer.doc-foot / .resize-handle) は design-system.css にある。 */
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       ゲート本体の共通クロムは gate-chrome.html に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
 
-    /* ── QFT† ゲート本体 ──────────────────────────
-       40 × (56·span − 16) px の cyan-400 角丸矩形に、中央へ Geist 700 由来の
-       "QFT" + 右上の † を 1 セットで配置する。本体寸法 / 配色 / 角丸はすべて QFT と共有し、
-       字形だけが「右上に小さな † を 1 個追加」する差分。 */
-    .qft-dagger-gate {
-      --span: 2;
-      position: relative;
-      width: 40px;                                  /* GATE_SIZE = spacing-10 */
-      height: calc(56px * var(--span) - 16px);      /* 56·span − 16 = LINE_GAP·(span−1) + GATE_SIZE */
-      background: var(--cyan-400);                  /* Flexoki cyan-400 / box_fill */
-      border-radius: 6px;                           /* rounded-md */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                             /* Flexoki paper / 字形 */
-      user-select: none;
-      cursor: grab;
-      transition: background 120ms ease-out;
-      flex-shrink: 0;
-    }
-    /* 字形 (QFT + †) はベクタパスとして埋め込む。
-       apps/web/assets/icons/qftdagger.svg / gate-palette.html の <symbol id="g-QftDagger"> と
-       完全一致する path 形を共有し、本体幅 40 px に対して SVG 40 × 40 px を中央配置する。
-       span が伸びても glyph サイズは変わらず、字形は常に本体の幾何中心に揃う。 */
-    .qft-dagger-glyph {
-      display: block;
-      width: 40px;
-      height: 40px;
-      color: var(--bg);                             /* paper / currentColor 経由で path fill に流れる */
-      pointer-events: none;
-      flex-shrink: 0;
-    }
-
-    /* ホバー枠 (hover-frame.html と同じ幾何)
-       box-shadow 内側から Flexoki bg 2 px → purple-400 の枠 2 px。 */
-    .qft-dagger-gate[data-state="hover"],
-    .qft-dagger-gate:not([data-state]):hover {
-      box-shadow:
-        0 0 0 2px var(--bg),                        /* Flexoki bg */
-        0 0 0 4px var(--purple-400);                /* Flexoki purple-400 / gate_hover_border */
-    }
-
-    /* ドラッグプレビュー = Flexoki purple-600 / semantic_intermediate。 */
-    .qft-dagger-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
-
-    /* ── resize handle 強制表示モック ─────────────
-       resize-handle.js を読まずに見た目だけ再現するための簡易レンダ。
-       実コンポーネントは design-system.css の .resize-handle を利用する。 */
-    .qft-dagger-gate .handle-mock {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 24px;                                  /* 確率表示ブロック / QFT と同じ 24 px 固定 */
-      height: 6px;
-      background: var(--cyan-400);                  /* default 色 */
-      border-radius: 3px;
-      pointer-events: none;
-    }
-    .qft-dagger-gate .handle-mock--top    { top: -12px; }
-    .qft-dagger-gate .handle-mock--bottom { bottom: -12px; }
-    .qft-dagger-gate[data-state="hover"] .handle-mock--bottom {
-      background: var(--cyan-600);                  /* handle hover の濃色を片側だけ表現 */
-      transform: translateX(-50%) scale(1.15);
-    }
-
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
-      gap: 48px;                                    /* spacing-12 */
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;                             /* spacing-4 */
-      padding: 24px 0;                              /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;                                     /* spacing-2 */
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 192px;                             /* spacing-48 */
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                              /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      min-width: 56px;                              /* SLOT_SPACING */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px 8px;                            /* resize handle の ±12 px が見切れないように */
-    }
-    .stage .zoom {
-      width: 200px;
-      height: 280px;
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
+      min-height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .qft-dagger-gate {
-      transform: scale(2);
+    .actual.tall { min-height: 168px; }
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    .zoom .gate-visual,
+    .zoom x-gate,
+    .zoom y-gate {
+      transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 07) ───────────────── */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
+    .gate-visual {
+      width: 40px;                       /* 共通クロムの基準本体。正は gate-chrome.html */
+      height: 40px;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .gate-visual::before,
+    .gate-visual::after {
+      content: '';
+      position: absolute;
+      display: none;
+      pointer-events: none;
+    }
+    .gate-visual::before {
+      inset: -4px;
+      border-radius: 10px;
+      background: var(--purple-400);     /* Flexoki purple-400 / gate_hover_border */
+    }
+    .gate-visual::after {
+      inset: -2px;
+      border-radius: 8px;
+      background: var(--bg);             /* Flexoki bg / paper */
+    }
+    .gate-visual.hover::before,
+    .gate-visual.hover::after { display: block; }
+    .gate-body {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+      color: var(--bg);                  /* Flexoki bg / label */
+      border-radius: 6px;
+    }
+    .gate-visual.circle .gate-body,
+    .gate-visual.circle::before,
+    .gate-visual.circle::after { border-radius: 9999px; }
+    .gate-visual.drag .gate-body { background: var(--purple-600); } /* Flexoki purple-600 / drag_fill */
+    .gate-body > svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+
+    .gate-visual.span {
+      height: calc(56px * var(--span, 2) - 16px); /* span 付きゲートの説明用。正は各 QFT 仕様。 */
+    }
+    .gate-visual.span .gate-body > svg {
+      width: 40px;
+      height: 40px;
+    }
+    .resize-handle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;                       /* QFT 固有のリサイズハンドル幅 */
+      height: 6px;                       /* QFT 固有のリサイズハンドル高 */
+      border-radius: 9999px;
+      background: var(--purple-400);     /* Flexoki purple-400 / resize affordance */
+      z-index: 2;
+      display: none;
+      pointer-events: none;
+    }
+    .resize-handle.top { top: -10px; }
+    .resize-handle.bottom { bottom: -10px; }
+    .gate-visual.span.hover .resize-handle,
+    .gate-visual.span.drag .resize-handle { display: block; }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;                           /* spacing-6 / spacing-8 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
-    .slot-mock .lanes {
+    .slot-mock .wire {
       position: relative;
-      width: 280px;                                 /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
+    }
+    .slot-mock .slot {
+      width: 56px;                       /* 説明用スロット幅 */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
     }
-    .slot-mock .lanes--3 {
-      height: 168px;                                /* 3 × LINE_GAP */
-      background:
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 28px  / 100% 1px no-repeat,
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 84px  / 100% 1px no-repeat,
-        linear-gradient(var(--ui-2), var(--ui-2)) 0 140px / 100% 1px no-repeat;
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
     }
-    .slot-mock .lanes .slot {
-      position: absolute;
-      top: 0;
-      width: 56px;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    /* QFT† は QFT と同じく本体上端を「最上 wire 中心 −20 px」に合わせるため、
-       span に関係なく top を 8 px (= wire0 中心 28 px − 20 px) に揃える。 */
-    .slot-mock .lanes .slot--qft {
-      align-items: flex-start;
-      padding-top: 8px;
-    }
+    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── サイズ別 grid (§ 06) ───────────────────── */
-    .size-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 24px;                                    /* spacing-6 */
-      align-items: end;
-      padding: 24px 0;                              /* spacing-6 */
-    }
-    .size-grid .col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;                                     /* spacing-2 */
-      text-align: center;
-    }
-    .size-grid .col .caption {
-      font-family: var(--font-mono);
-      font-size: 12px;                              /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2);
-    }
-
-    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
-    .geo-diagram {
-      display: flex;
-      align-items: center;
-      gap: 32px;                                    /* spacing-8 */
-      padding: 24px 0;                              /* spacing-6 */
-      flex-wrap: wrap;
-    }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                              /* text-xs */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
-
-    .matrix-card {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
-      gap: 12px;                                    /* spacing-3 */
-      margin-top: 12px;                             /* spacing-3 */
-    }
-    .matrix-card .mini {
-      border: 1px solid var(--ui-2);
+    .span-mock {
+      position: relative;
+      width: 280px;                      /* 説明用に 5 スロット分 */
+      height: 168px;                     /* 説明用に 3 ワイヤ分 */
+      margin-top: 16px;                  /* spacing-4 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
-      background: var(--bg-2);
-      padding: 12px 16px;                           /* spacing-3 / spacing-4 */
-      font-size: 14px;                              /* text-sm */
-      line-height: 20px;
-      color: var(--tx-2);
+      overflow: hidden;
     }
-    .matrix-card .mini strong { color: var(--tx); }
-
-    /* ── QFT vs QFT† 比較 (§ 04) ──────────────────── */
-    .compare {
-      display: flex;
-      align-items: center;
-      gap: 24px;                                    /* spacing-6 */
-      flex-wrap: wrap;
-      padding: 16px 0;                              /* spacing-4 */
+    .span-mock .lane {
+      position: absolute;
+      left: 24px;                        /* spacing-6 */
+      right: 24px;
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 = wire */
     }
-    .compare .col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;                                     /* spacing-2 */
-    }
-    .compare .col .caption {
-      font-family: var(--font-mono);
-      font-size: 12px;                              /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2);
-    }
-    .compare .col .zoom {
-      width: 200px;
-      height: 240px;
+    .span-mock .lane:nth-child(1) { top: 28px; }
+    .span-mock .lane:nth-child(2) { top: 84px; }
+    .span-mock .lane:nth-child(3) { top: 140px; }
+    .span-mock .span-slot {
+      position: absolute;
+      left: 120px;
+      top: 8px;
+      height: 152px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .compare .col .zoom .qft-dagger-gate { transform: scale(2); transform-origin: center; }
-    .compare .col .zoom .qft-gate-ref    { transform: scale(2); transform-origin: center; }
-    /* QFT 単独 (比較用) — QFT† と同じ chrome を字形だけ差し替える */
-    .qft-gate-ref {
-      --span: 2;
-      width: 40px;
-      height: calc(56px * var(--span) - 16px);
-      background: var(--cyan-400);
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--bg);
-    }
-    .qft-gate-ref > svg { display: block; width: 40px; height: 40px; }
 
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html / qft-gate.html と同じスタイル。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Qft"> / <symbol id="g-QftDagger"> と
-     完全一致する字形を 字形だけ (本体 rect を除く) として再定義する。
-     Q / F / T の 3 path に、QFT† では右上の小さな † path を 1 個追加した 4 path 構成。
-     fill は currentColor で本体から継承する。 -->
 <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
   <symbol id="g-Qft-glyph" viewBox="0 0 48 48">
     <g fill="currentColor">
@@ -350,10 +270,9 @@
   </symbol>
 </svg>
 
-<!-- サムネ用プレビュー: span = 1 はサイズ上はホスト全体に収まる代表絵。
-     QFT†(1) = H に縮退する degenerate ケースであることは § 06 で明記する。 -->
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
-  <div class="qft-dagger-gate" style="--span: 1"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
+  <div class="gate-visual span" style="--span: 1"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -365,50 +284,38 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · ゲート仕様</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">QFT† ゲート (逆量子フーリエ変換)</h1>
   <p class="page-lede">
-    span 内の量子ビットへ <code>|x⟩ → (1/√N) Σ<sub>y=0..N−1</sub> e<sup>−2πi·xy/N</sup>|y⟩</code> (<code>N = 2<sup>span</sup></code>)
-    を適用する QFT のエルミート共役。回路エディタ上では <strong>40 × (56·span − 16) px の cyan-400 角丸矩形</strong>に
-    Geist 700 由来の "QFT" + 右上の小さな † を中央配置し、上下に
-    <a href="resize-handle.html">resize-handle primitive</a> を出して span を 1〜実行モード容量まで伸縮する。
-    本体寸法 / 配色 / 挙動は QFT と完全に共有し、<strong>字形だけが QFT と異なる</strong>「順 / 逆」のペア表現を採用する。
-    Shor / 位相推定 / amplitude estimation の終端で <code>QFT†</code> として頻出する操作で、
-    <a href="qft-gate.html">QFT</a> と並んで <strong>span を伸縮できる操作ゲート</strong>。
+    指定した作用範囲に逆量子フーリエ変換を適用するゲート。span = 1 では H と同じ作用に縮退し、span &gt; 1 では QFT の随伴として使う。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは QFT† 固有の意味論、
+    <code>apps/web/assets/icons/qftdagger.svg</code> 由来の SVG path、QFT† としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">QFT ページとの diff が「字形に † を 1 個足した」だけなのに、ページ全体が複製されている</div>
-    <p class="critique-body">
-      ユニタリゲート族のクロム (cyan-400 / paper グリフ / 角丸 6 px / ホバー枠 4+2 / drag = purple-600) は H ページの全体所見と同じく
-      X / Y / Z / S / T / Rx / Ry / Rz とすべて共通で、ここで再展開する必要はない。
-      さらに本ページは <a href="qft-gate.html">QFT ページ</a> と比べても、<strong>本質的な差分は「字形 path に † を 1 個追加」「自己エルミート H と等価」「逆変換の意味論」の 3 点だけ</strong>。
-      ところが § 02 配色 / § 03 ジオメトリ / § 05 状態バリアント / § 06 サイズ別の見た目 / § 07 配置 はほぼ完全にコピペで、
-      <strong>9 章のうち 5 章が QFT ページのコピー</strong>になっている。S / T と S† / T† 仕様の関係を将来作るときも同じ問題が起きる。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは QFT† ゲート (逆量子フーリエ変換) としての意味、字形、固有の設計判断を定義し、span 付き本体として扱い、外装・配色・状態表現・横方向の配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      これは「dagger ゲート全体に通底する課題」で、本ページ単体で解決すべきではないが、設計判断として認識を共有しておくべき。
-      アーキテクチャ的には「QFT base 仕様 (本体・配色・ジオメトリ・配置・サイズ)」と「QFT† delta 仕様 († の追加 / 意味論 / H 自己エルミート)」を分離するか、
-      または QFT ページに「QFT† との差分は § 04 字形だけ」と書いて本ページを実質「§ 04 + § 08」だけのリダイレクトに近づける。
-      現状の本ページは S†, T†, QFT† で同じ「順 / 逆ペアの差分は字形 1 個」というパターンが繰り返されることに気付かせない構成になっている。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>dagger ペア仕様の親仕様を抽出</strong> — 「順 / 逆を字形差で示す」「自己エルミート H に span=1 で縮退」「色 / サイズ / 角丸 / span 範囲を共有」は S/S†・T/T†・QFT/QFT† で共通。dagger ペア共通仕様を別ドキュメントに切り出すと、本ページは "QFT 固有 + † delta" だけに集中できる (全体所見参照)。</li>
-      <li><strong>QFT との重複セクションを削減</strong> — § 02 / § 03 / § 05 / § 06 / § 07 は QFT ページとほぼ同一。各章末に「QFT ページ § XX と完全同一。差分なし」と明示するか、章自体を QFT ページへのリンクに置き換える (§ 02 / § 03 / § 05 参照)。</li>
-      <li><strong>§ 04 字形を「† delta」だけに絞る</strong> — Q / F / T の 3 path は QFT と同一なので、本ページの table.spec で再掲する必要はない。<strong>† の位置 / サイズ / scale (0.015360) / superscript ロジック</strong>だけを独立して詳述する (§ 04 参照)。</li>
-      <li><strong>QFT†(1) ≡ H (自己エルミート) の物理的意味の説明補強</strong> — § 03 / § 06 / § 08 で「H† = H なので QFT†(1) ≡ H」と 3 回繰り返されるが、自己エルミート (self-adjoint) という性質の説明がない。QFT(1) ≡ H とは別の論理 (Hadamard が自己エルミート) で同じ結果になるので、QFT ページのコピペで済まない点 (§ 06 / § 08 参照)。</li>
-      <li><strong>§ 07 「QFT → 制御位相 → QFT†」対パターンを 1 章昇格</strong> — § 07 本文に 1 行だけ「位相推定のメイン構成」と書かれているが、これが QFT† の最大ユースケースで、本仕様の存在理由そのもの。配置モックの spread を 5 slots に増やして QFT / 中間 / QFT† の対構造を明示する (§ 07 参照)。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item">
+        <strong>gate-chrome.html が正</strong>
+        <span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span>
+      </div>
+      <div class="item">
+        <strong>qft-dagger-gate.html が正</strong>
+        <span>逆量子フーリエ変換の意味、QFT† グリフ、作用範囲、dagger 表記とリサイズハンドルの扱い。</span>
+      </div>
+      <div class="item">
+        <strong>個別ページで再定義しない</strong>
+        <span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
@@ -416,549 +323,132 @@
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>
-      QFT† は周波数基底 <code>|ŷ⟩</code> を計算基底 <code>|x⟩</code> へ写す逆離散フーリエ変換のユニタリ版。
-      span が <code>k</code> なら <code>2<sup>k</sup></code> 次元の逆 DFT 行列を表し、位相推定の末尾や Shor の周期抽出など
-      <em>周波数情報を計算基底に取り出す</em>場面で QFT と対で使う。
-      回路エディタ上では <strong>1 列ぶんの幅 (40 px) を占有する縦長の角丸矩形</strong>として描き、
-      ホスト hover 時にはリサイズハンドルが上下に出現して「span を伸縮できる回路要素」であることを示す。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col" style="max-width: 192px;">
-        <div class="caption">既定 (rest)<br>span = 3<br>handle は非表示</div>
-        <div class="actual"><div class="qft-dagger-gate" style="--span: 3"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-      <div class="col" style="max-width: 192px;">
-        <div class="caption">ホバー<br>purple-400 枠 +<br>resize-handle 出現</div>
-        <div class="actual">
-          <div class="qft-dagger-gate" data-state="hover" style="--span: 3">
-            <span class="handle-mock handle-mock--top"></span>
-            <svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg>
-            <span class="handle-mock handle-mock--bottom"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
-      span 1〜6 の見た目は <strong>§ 06 サイズ別の見た目</strong>、
-      ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 QFT との対関係が冒頭 1 行で済んでいない">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">QFT との関係が page-lede と本文の両方に分散しており、対パターン (位相推定の終端) も後ろに埋まる</div>
-      <p class="critique-body">
-        page-lede では「QFT のエルミート共役」「QFT と並んで span を伸縮できる操作ゲート」と書かれ、§ 01 本文では「位相推定の末尾や Shor の周期抽出など
-        <em>周波数情報を計算基底に取り出す</em>場面で QFT と対で使う」と再掲されている。<strong>「QFT との対で使う」という最重要事実が 2 か所で別表現で書かれて</strong>いて、
-        本ページの存在理由 (= 対パターンの逆向きを担う) が読者にすぐ伝わらない。
-      </p>
-      <p class="critique-body">
-        改善案: § 01 冒頭に「<strong>QFT† は QFT の逆変換で、ほぼ常に「QFT → 中間処理 → QFT†」の対で使う</strong>」を 1 行で書く。
-        その後で「本体・配色・ジオメトリは QFT と完全に同じ。差分は字形右上の † 1 個だけ。詳細は § 04 字形 / § 08 設計判断を参照」と続け、
-        § 02 / § 03 / § 05 / § 06 / § 07 をスキップしやすい構成にする。読者の主な動線 (「QFT との差分を知りたい」) が短くなる。
-      </p>
-      <p class="critique-body">
-        さらに、§ 01 のモックは QFT ページと完全に同じ「default + hover」の 2 状態を span = 3 で並べているだけ。
-        本ページ固有の情報を出すなら、<strong>QFT と QFT† を横並びで対比した「対パターン」モック</strong> (例: span = 3 の QFT 1 個 → wire pass-through → QFT† 1 個) を § 01 冒頭に置くと、
-        本ページが「QFT 単体ではなく QFT との対で意味を持つ」ことが一目で伝わる。compare zoom は § 04 にあるが、それは字形だけの比較で、回路上の位置関係は示さない。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 02 配色 ─────── -->
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体 fill (既定)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール。H / X / Y / Z / S / T / Rx / Ry / Rz / QFT と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>字形 "QFT" + "†"</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上で相対輝度比 ≈ 2.8。stroke なしの塗りつぶし。QFT と † は同じ <code>currentColor</code> 系列</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
-        </tr>
-        <tr>
-          <td>本体 fill (ドラッグ)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-        <tr>
-          <td>resize-handle (default / visible)</td>
-          <td><code>cyan-400</code></td>
-          <td>本体と同色ピル。色族は本体と揃えるが、上下 12 px の空き + ピル形状で別オブジェクトとして読める。<a href="resize-handle.html">resize-handle.html</a> § 02 参照</td>
-        </tr>
-        <tr>
-          <td>resize-handle (hover / active)</td>
-          <td><code>cyan-600</code></td>
-          <td>ハンドル単独 hover / ドラッグ中の濃色。本体色は変えず、ハンドルだけが濃淡で「触れる対象 → 操作対象」を示す</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      <strong>逆変換を別色で目立たせない:</strong>
-      QFT† は逆向きの変換だが、色を別系統 (例えば orange / red) にすると操作ゲートのトーンと衝突する。
-      <code>cyan-400</code> = ユニタリ操作ゲートという既存のロールを守り、QFT との違いは <strong>右上の † グリフ 1 個だけ</strong>で示す。
-      S / S†、T / T† と完全に同じ規約。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 02 配色表が QFT と完全コピペ">
-      <div class="critique-label">★ 批評 · § 02 配色</div>
-      <div class="critique-title">配色テーブル 6 行が QFT ページと完全一致しており、本ページで再展開する意味がない</div>
-      <p class="critique-body">
-        本章の table.spec 6 行 (本体 fill / 字形 / ホバー枠 / drag fill / handle default / handle hover) は <a href="qft-gate.html">QFT ページ § 02</a> と
-        <strong>1 文字も差がない</strong>。唯一の違いは「字形 "QFT"」の行が「字形 "QFT" + "†"」となっている文字列だけで、配色そのものは差がない。
-        QFT ページの「相対輝度比 ≈ 2.8」も本ページに同じ値で複製されている (本来は 3.4 が正しい可能性が高い件は QFT ページの批評参照)。
-      </p>
-      <p class="critique-body">
-        改善案: 本章を「QFT ページ § 02 配色と完全同一。差分なし」と 1 行で済ませ、table.spec を削除する。
-        または table.spec の代わりに「<strong>QFT ページ § 02 を参照</strong>。本ページで追加 / 変更される配色はない」とだけ書く。
-        現状の構成は「ページの自己完結性」を優先しているが、その代償として「QFT を変更したときに本ページも同期更新する必要がある」という
-        メンテナンス負債を生む (実際、相対輝度比 2.8 が QFT ページからそのままコピーされている)。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 03 ジオメトリ ─────── -->
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体幅</th><td><code>40 px</code> (<code>GATE_SIZE = 40</code>、他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>本体高さ</th><td><code>56·span − 16 px</code> (<code>LINE_GAP·(span−1) + GATE_SIZE</code>)。span 1 → 40 px / span 2 → 96 px / span 3 → 152 px / span 4 → 208 px / span 6 → 320 px</td></tr>
-        <tr><th>形状</th><td>角丸矩形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>stroke</th><td>なし。本体色のみ</td></tr>
-        <tr><th>占有列幅</th><td><code>56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は列中央に配置され、左右に 8 px の余白</td></tr>
-        <tr><th>占有縦範囲</th><td>span 内の最上 / 最下量子ビットワイヤの中心 ±20 px。本体上端は最上量子ビット中心から −20 px、本体下端は最下量子ビット中心から +20 px</td></tr>
-        <tr><th>span</th><td>1〜実行モード容量。<a href="../large-gpu-mode-design.html">large-gpu-mode</a> の容量上限 (現状 24 量子ビット) と一致。QFT と共有する span 範囲</td></tr>
-        <tr><th>span = 1 の扱い</th><td>QFT†(1) は H と等価 (Hadamard は自己エルミート: <code>H† = H</code>) だが、本ゲートはそれでも QFT† として描く。Quirk と同じく <strong>span = 2 以上の使用を推奨</strong>するが、span = 1 への縮退は禁止しない</td></tr>
-        <tr><th>resize-handle</th><td>上下 2 個 (<a href="resize-handle.html">resize-handle primitive</a> を流用)。幅は <code>24 px 固定</code> (確率表示ブロック / QFT と同じ <code>widthMode: 'fixed'</code>)。本体幅が span に関係なく 40 px なのでハンドル幅も span 非依存</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (span = 3 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-24 -48 152 264" width="240" height="416" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
-        <!-- 占有列 (56 × (56·3) = 56 × 168) を点線で示す -->
-        <rect x="-8" y="-8" width="56" height="168" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <!-- 量子ビットワイヤ 3 本 (中心 y = 0, 56, 112、最上 wire 中心を 0 に正規化) -->
-        <g stroke="#DAD8CE" stroke-width="1">
-          <line x1="-24" y1="0"   x2="48" y2="0"/>
-          <line x1="-24" y1="56"  x2="48" y2="56"/>
-          <line x1="-24" y1="112" x2="48" y2="112"/>
-        </g>
-        <!-- QFT† 本体: 40 × 152 px、上端 y = −20、下端 y = 132 -->
-        <rect x="0" y="-20" width="40" height="152" rx="6" fill="#3AA99F"/>
-        <!-- "QFT" + "†" 字形 (中央 y = 56)。g-QftDagger-glyph と同じ 4 path を 40 × 40 px で中央配置。
-             SVG <use> は viewBox の (0,0) を <use> の (x,y) に揃えるので、x=0, y=36 で本体縦中心 (y=56) − 20 に置く。 -->
-        <use href="#g-QftDagger-glyph" x="0" y="36" width="40" height="40"/>
-        <!-- resize-handle (上下、cyan-400 ピル 24 × 6 px、本体外側 12 px) -->
-        <rect x="8" y="-35" width="24" height="6" rx="3" fill="#3AA99F"/>
-        <rect x="8" y="141" width="24" height="6" rx="3" fill="#3AA99F"/>
-
-        <!-- 横軸の dim 注釈 (40 px / 56 px) -->
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="0"  y1="180" x2="40" y2="180"/>
-          <line x1="0"  y1="178" x2="0"  y2="182"/>
-          <line x1="40" y1="178" x2="40" y2="182"/>
-          <line x1="-8" y1="200" x2="48" y2="200"/>
-          <line x1="-8" y1="198" x2="-8" y2="202"/>
-          <line x1="48" y1="198" x2="48" y2="202"/>
-        </g>
-        <g font-family="Geist Mono, monospace" font-size="5.5" fill="#6F6E69">
-          <text x="20" y="188" text-anchor="middle">40 px</text>
-          <text x="20" y="208" text-anchor="middle">56 px</text>
-        </g>
-
-        <!-- 縦軸の dim 注釈 (152 px) -->
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="-14" y1="-20" x2="-14" y2="132"/>
-          <line x1="-16" y1="-20" x2="-12" y2="-20"/>
-          <line x1="-16" y1="132" x2="-12" y2="132"/>
-        </g>
-        <text x="-18" y="58" text-anchor="middle" font-family="Geist Mono, monospace" font-size="5.5" fill="#6F6E69"
-              transform="rotate(-90, -18, 58)">152 px</text>
-
-        <!-- wire 中心ラベル -->
-        <g font-family="Geist Mono, monospace" font-size="5" fill="#B7B5AC">
-          <text x="-21" y="2"   text-anchor="start">y=0</text>
-          <text x="-23" y="58"  text-anchor="start">y=56</text>
-          <text x="-23" y="114" text-anchor="start">y=112</text>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体幅 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56·span − 16 px</strong> · 本体高さ (span 3 なら 152 px)</p>
-        <p><strong>56 px</strong> · 占有列幅 (<code>SLOT_SPACING</code>)</p>
-        <p><strong>6 px</strong> · 角丸半径 (<code>rounded-md</code>)</p>
-        <p><strong>8 px</strong> · 列内余白 (左右)</p>
-        <p><strong>20 px</strong> · 最上 / 最下 wire 中心から本体端への距離</p>
-        <p><strong>24 × 6 px</strong> · resize-handle ピル (上下 各 12 px 外側)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-      span 軸の伸縮挙動は <a href="resize-handle.html">resize-handle.html</a> 参照。
-      QFT と幾何は同一なので、本図は <a href="qft-gate.html#geo">qft-gate.html § 03</a> と読み替え可能 (字形だけが異なる)。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 03 ジオメトリも QFT 完全コピペ / リンクアンカーが壊れている">
-      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
-      <div class="critique-title">本文と SVG が QFT ページと完全同一、かつ <code>qft-gate.html#geo</code> のアンカーが実在しない</div>
-      <p class="critique-body">
-        table.spec の 10 行は QFT ページとほぼ完全一致 (span = 1 縮退の文言が「H と等価」「H と等価 (Hadamard は自己エルミート)」と微差があるだけ)。
-        geo-diagram SVG も同じ 240 × 416 px サイズで、本体 / 字形 / handle / 寸法注釈がすべて QFT 版と一致する (字形 use 先が g-Qft-glyph → g-QftDagger-glyph の差だけ)。
-        本仕様ページが「QFT と幾何は同一」と <code>.note</code> 末尾で自認しているなら、<strong>section を丸ごと QFT へのリンクに置き換える</strong>ほうが一貫している。
-      </p>
-      <p class="critique-body">
-        さらに、本文末尾の「<code>qft-gate.html#geo</code> と読み替え可能」というリンクは、<a href="qft-gate.html">qft-gate.html</a> の § 03 に
-        <strong><code>id="geo"</code> が存在しない</strong> (qft-gate.html line 412-499 で確認: section.block も h2 も id を持たない)。
-        リンク切れになっており、クリックしても § 03 にジャンプしない。改善案: (a) qft-gate.html 側の <code>&lt;section class="block"&gt;</code> に
-        <code>id="sec-03-geometry"</code> のような明示的 id を付ける、または (b) 本ページのリンクから <code>#geo</code> を削除して
-        単に <code>qft-gate.html</code> へリンクする。
-      </p>
-      <p class="critique-body">
-        補足: SVG 内テキスト 5.5 / 5 が Tailwind スケール外という問題は QFT ページの批評と同じ。本ページの SVG は QFT のコピペなので問題も継承している。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 04 字形 ─────── -->
-<section class="block">
-  <h2><span class="num">§ 04</span>字形 ("QFT" + †)</h2>
-  <div class="card">
-    <p>
-      中央字形は <code>"Q" / "F" / "T" / "†"</code> の <strong>4 個のベクタパス</strong>を 48 × 48 viewBox 内に並べたもの。
-      <a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-QftDagger</code> と path / transform が完全一致し、
-      実装側の <code>apps/web/assets/icons/qftdagger.svg</code> 由来の字形を本体へ重ねる。
-      Q / F / T の 3 path は <a href="qft-gate.html">QFT</a> と同一で、QFT† は <strong>右上の小さな † パス 1 個</strong>を追加した派生。
-      本体幅 40 px に対して SVG は 40 × 40 px で中央配置するので、span &gt; 1 でも glyph サイズは変わらず、字形は常に本体の幾何中心 (光学中心) に揃う。
-    </p>
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス × 4 個 (<code>&lt;symbol id="g-QftDagger-glyph"&gt;</code> と 1:1)。<a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-QftDagger</code> SVG の path / transform と完全一致</td></tr>
-        <tr><th>Q グリフ変換</th><td><code>translate(2.582 31.275) scale(0.022080 -0.022080)</code> (viewBox 48 への正規化、QFT と同じ位置)</td></tr>
-        <tr><th>F グリフ変換</th><td><code>translate(19.032 31.275) scale(0.022080 -0.022080)</code> (QFT と同じ位置)</td></tr>
-        <tr><th>T グリフ変換</th><td><code>translate(32.170 31.275) scale(0.022080 -0.022080)</code> (QFT と同じ位置)</td></tr>
-        <tr><th>† グリフ変換</th><td><code>translate(35.347 16.013) scale(0.015360 -0.015360)</code> (Q/F/T の ~70 % 縮尺で右上に superscript として配置)</td></tr>
-        <tr><th>3 文字外形</th><td>viewBox 上で約 <code>43 × 17.5</code> (x ≈ 2.6..45.6、y ≈ 14..32)。40 px 本体では約 <strong>36 × 14.6 px</strong></td></tr>
-        <tr><th>† グリフ外形</th><td>viewBox 上で約 <code>6.1 × 10.9</code>。40 px 本体では約 <strong>5.1 × 9.1 px</strong> (Q/F/T の ~52 % 縮尺)</td></tr>
-        <tr><th>† 配置</th><td>T グリフ右上に重なる superscript 位置。S / T の † と同じ位置補正値 <code>scale(0.015360 -0.015360)</code> を使う</td></tr>
-        <tr><th>color</th><td>4 path とも <code>fill: currentColor</code>。<code>.qft-dagger-glyph { color: var(--bg); }</code> 経由で本体から <code>paper</code> (#FFFCF0) を継承する</td></tr>
-        <tr><th>位置</th><td>本体の幾何中心 (中 wire 中心、span が奇数なら中央 wire と一致)。<code>display: flex; align-items: center; justify-content: center;</code> で X / Y どちらも中央</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">2× zoom (字形の位置確認)</h3>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">span = 2 · 2× zoom</div>
-        <div class="zoom"><div class="qft-dagger-gate" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">span = 2 · ホバー · 2× zoom<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><div class="qft-dagger-gate" data-state="hover" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-    </div>
-
-    <h3 style="margin-top: 24px;">QFT との比較 (2× zoom)</h3>
-    <div class="compare">
-      <div class="col">
-        <div class="caption">QFT</div>
-        <div class="zoom"><div class="qft-gate-ref" style="--span: 2"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Qft-glyph"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">QFT†</div>
-        <div class="zoom"><div class="qft-dagger-gate" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 12px;">
-      本体色 (cyan-400) と "QFT" 字形の位置は完全に同じ。差分は <strong>右上に重なる † グリフ 1 個だけ</strong>。
-      順 / 逆を字形差で示す方式は <a href="s-dagger-gate.html">S / S†</a>、<a href="t-dagger-gate.html">T / T†</a> と共通の規約。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 04 字形の表で Q/F/T 3 行が QFT のコピー / † 識別性が議論されていない">
-      <div class="critique-label">★ 批評 · § 04 字形</div>
-      <div class="critique-title">Q/F/T の transform 値 3 行は QFT と同じ。† の識別性 (52 % 縮尺 / 5.1 × 9.1 px) の妥当性検証が不在</div>
-      <p class="critique-body">
-        table.spec の Q/F/T グリフ変換 3 行は QFT ページと同じ値を再掲しているが、本ページの本質は <strong>「† グリフを追加する」差分</strong>だけなので、
-        Q/F/T の transform を再掲する代わりに「Q/F/T は <a href="qft-gate.html#glyph">QFT ページ § 04</a> と完全同一。本ページでは † のみを定義する」と
-        書いて、table から Q/F/T 3 行を削除すれば、本ページが「† delta だけを担当する」というアーキテクチャが明確になる。
-      </p>
-      <p class="critique-body">
-        さらに、† グリフの<strong>識別性についての設計判断が手薄</strong>。table.spec によると † は 40 px 本体上で約 5.1 × 9.1 px、
-        Q/F/T 文字高 14.6 px の <strong>~52 % 縮尺</strong>。これは S/T の † と同じ scale (0.015360) を流用したものだが、
-        本ページのコンテキスト (3 文字 + † の合計 4 グリフが詰まる) では、S/T (1 文字 + †) より † が小さく見える可能性がある。
-        T の右上 (3 文字横並びの右端) に重ねる位置で、視覚的に「ノイズ」と区別できる density が確保されているか、ハーフライト下や 80% zoom で潰れないか、
-        などの検証は本ページの責務として書いておくべき。S/T の批評として書くと該当ページが見つけにくくなる。
-      </p>
-      <p class="critique-body">
-        本質的論点: <strong>「QFT vs QFT† の差が † 1 個だけ」</strong>は dagger ゲート全体に通底する課題。S と S† の見分けがつかないという classical 課題が
-        QFT / QFT† でも起きるが、span が大きい分まだマシ (本体高 96 〜 320 px の縦長矩形の右上に 9 px 字形があるかないか、を判別する場面)。
-        ただし span = 1 (40 px) では H ゲートと同じプロポーションになり、† の有無が極めて分かりにくい。
-        この問題は § 06 サイズ別 (span = 1 の縮退) の判断とも関連するので、両章を相互参照する形で記述すると良い。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。
-      ホバーやドラッグ操作をしなくても状態差を確認できる。
-      ホバー時は <a href="resize-handle.html">resize-handle</a> が 上下に <code>opacity 0 → 1 + scale 0.7 → 1.0</code>
-      のバウンスで出現し、ハンドル単独 hover では下側ハンドルが <code>cyan-600 + scale 1.15</code> に切り替わる例を併記する。
+      QFT† ゲートは QFT と同じ span 付き本体を使い、右上の † で逆変換を示す。span = 1 では H と同じ作用になり、span を伸ばすと複数量子ビットの逆量子フーリエ変換として働く。共通クロムの外装を継承しつつ、高さとリサイズは QFT 系固有の差分として扱う。
     </p>
     <div class="stage">
       <div class="col">
-        <div class="caption">① 既定<br>cyan-400 角丸矩形<br>(handle 非表示)</div>
-        <div class="actual"><div class="qft-dagger-gate" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 枠 +<br>resize-handle visible</div>
-        <div class="actual">
-          <div class="qft-dagger-gate" data-state="hover" style="--span: 2">
-            <span class="handle-mock handle-mock--top"></span>
-            <svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg>
-            <span class="handle-mock handle-mock--bottom"></span>
-          </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 本体<br>(handle 非表示)</div>
-        <div class="actual"><div class="qft-dagger-gate" data-state="drag" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。
-      ドラッグ中は span を変更できないので、resize-handle は再び非表示になる。
-      handle の 4 状態 (default / visible / hover / active) は <a href="resize-handle.html">resize-handle.html § 05</a> 参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 05 状態モックが QFT と同形">
-      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
-      <div class="critique-title">3 状態モックが QFT ページと同じ span = 2 + 同じ caption 文言で複製されている</div>
-      <p class="critique-body">
-        本章の stage 3 マス (① 既定 / ② ホバー / ③ ドラッグ) は <a href="qft-gate.html">QFT ページ § 05</a> と <strong>caption も寸法も完全に同じ</strong>で、
-        字形 use 先が g-QftDagger-glyph になっているだけ。状態軸のバリアントは QFT と QFT† で<strong>確実に同じ</strong>なので
-        (本体色 / ホバー枠 / drag preview / resize-handle 出現はすべてクロムの話で字形に依存しない)、本章を「QFT § 05 と同一」として
-        丸ごと削除しても情報損失はない。
-      </p>
-      <p class="critique-body">
-        本ページで意味がある状態モックがあるとすれば、<strong>「QFT と QFT† を 並べたときに † の有無で状態が混同されないか」</strong>の検証。
-        例えば「QFT default (① 既定)」と「QFT† default (① 既定)」を横並びで見たとき、ぱっと見の区別がつくか?
-        この比較は § 04 字形末尾の compare zoom (2 × zoom で並べる) がカバーしているが、状態バリアントごとに比較する観点 (drag 状態同士、hover 状態同士) は欠けている。
-        QFT が purple-600 (drag) になったときに † が見えにくくならないか、purple-600 + paper の輝度比は cyan-400 + paper より低いので、識別性が落ちる可能性がある。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 06 サイズ別の見た目 ─────── -->
-<section class="block">
-  <h2><span class="num">§ 06</span>サイズ別の見た目 (span 1〜6)</h2>
-  <div class="card">
-    <p>
-      span 1〜6 の代表的な QFT† 本体を並べる。
-      本体高さは <code>56·span − 16 px</code> で span に比例して伸び、本体幅 / 字形サイズ / 角丸はすべて span 非依存に同じ値で描く。
-      QFT†(1) は数学的には H と等価 (Hadamard は自己エルミート <code>H† = H</code>) だが、QFT† と H は<strong>異なるユニタリ名</strong>として保持し、字形差で識別する。
-      QFT†(8〜) のように span が大きくなっても字形は中 wire 中心へ 1 個だけ置き、wires ごとに字形を繰り返したり、矢印で補助したりしない。
-      <em>「縦長 cyan-400 矩形 + 中央 "QFT" 字形 + 右上 †」</em>という統一プロポーションこそが QFT† の視覚アイデンティティだから。
-    </p>
-    <div class="size-grid">
-      <div class="col">
-        <div class="caption">span = 1<br>40 px<br><em>QFT†(1) ≡ H</em></div>
-        <div class="qft-dagger-gate" style="--span: 1"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-      </div>
-      <div class="col">
-        <div class="caption">span = 2<br>96 px</div>
-        <div class="qft-dagger-gate" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-      </div>
-      <div class="col">
-        <div class="caption">span = 3<br>152 px</div>
-        <div class="qft-dagger-gate" style="--span: 3"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-      </div>
-      <div class="col">
-        <div class="caption">span = 4<br>208 px</div>
-        <div class="qft-dagger-gate" style="--span: 4"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-      </div>
-      <div class="col">
-        <div class="caption">span = 5<br>264 px</div>
-        <div class="qft-dagger-gate" style="--span: 5"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-      </div>
-      <div class="col">
-        <div class="caption">span = 6<br>320 px</div>
-        <div class="qft-dagger-gate" style="--span: 6"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
+        <div class="caption">QFT† ゲート<br />既定</div>
+        <div class="actual tall"><div class="gate-visual span" style="--span: 2"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      実行モード容量を超える span (現状 24 量子ビット超) は配置時点で拒否し、サイズ別レンダリングの対象外とする。
-      span = 1 は H で代替できるため UI 上は強く推奨しないが、Quirk と同じく禁止もしない (列内で並べたときの視覚的均質性を保つため)。
+      ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は
+      <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 06 自己エルミート H の説明と span=1 縮退の論理">
-      <div class="critique-label">★ 批評 · § 06 サイズ別の見た目</div>
-      <div class="critique-title">「QFT†(1) ≡ H」の論理は QFT(1) ≡ H と異なる (Hadamard 自己エルミート) が、その違いが言語化されていない</div>
-      <p class="critique-body">
-        本ページの span = 1 caption に「<em>QFT†(1) ≡ H</em>」と書かれ、本文には「Hadamard は自己エルミート <code>H† = H</code>」と一言だけ補足されている。
-        しかし、QFT(1) ≡ H の論理 (= 1 量子ビット DFT が Hadamard そのもの) と、QFT†(1) ≡ H の論理 (= Hadamard が自己エルミートなので H† = H) は
-        <strong>別の数学的事実</strong>で、両方が成立するから「順 / 逆どちらも span = 1 で H に縮退する」という対称な結果になる。
-        本ページのコピペ起点である QFT ページの注記をそのまま再利用すると、この対称性が <em>偶然</em>のように見えるが、実は <em>2 つの独立した事実の組</em>。
-      </p>
-      <p class="critique-body">
-        改善案: § 06 か § 08 で「自己エルミート」という概念を 2 行で説明し、なぜ Hadamard だけがこの特殊性 (H = H†) を持つかを補足する。
-        Pauli (X = X†, Y = Y†, Z = Z†) も自己エルミートだが、QFT は span = 1 で <em>H</em> に縮退するのが特徴。S や T は自己エルミートではない (S† ≠ S)。
-        この説明があると、QFT/QFT† と S/S†・T/T† の違い (前者は span=1 で対称、後者は常に非対称) が読者に伝わる。
-      </p>
-      <p class="critique-body">
-        さらに、本ページの「span = 1 は H で代替できるため UI 上は強く推奨しない」は <strong>QFT ページからのコピペ</strong>だが、
-        QFT†(1) は QFT(1) と同じ H に縮退するので、本ページの文脈で言い換えれば「QFT†(1) ≡ QFT(1) ≡ H」の三重等価。
-        これは「ペアゲートの自己エルミート点」として概念化すべき特異な性質なので、ユーザストーリー (なぜ degenerate を保持するか) を本ページで補強する価値がある。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 07 回路グリッド上の配置 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>回路グリッド上の配置</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (QFT† 字形の確認)</h2>
   <div class="card">
     <p>
-      QFT† は同じ列の <strong>連続する span 本の量子ビットワイヤ</strong> を 1 つの本体で覆う。
-      span = 3 の例では、3 本の wire 中心 (28 / 84 / 140 px) のうち
-      <strong>最上 = 28 px から最下 = 140 px までの 112 px</strong> を本体中央が占有し、
-      本体上下端は wire 中心の ±20 px だけ外側へ広がる (= 8 / 160 px、本体高さ 152 px)。
-      隣接列の単一スロットゲートとは <strong>列単位</strong>で並ぶので、横方向に 56 px ピッチを共有する。
-      典型的な「<code>QFT → 制御位相 → QFT†</code>」の対パターン (位相推定のメイン構成) では、列を 1 つあけて QFT と QFT† を並べる。
+      状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。
+      ここでは同じ QFT† 字形が各状態で破綻しないことと、span 付きゲートのリサイズハンドルが見えることだけを常時表示モックで確認する。
     </p>
-    <div class="slot-mock">
-      <div class="lanes lanes--3">
-        <!-- スロット 0: span = 3 の QFT (順方向) -->
-        <div class="slot slot--qft" style="left: 0;">
-          <div class="qft-gate-ref" style="--span: 3; height: calc(56px * 3 - 16px);"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Qft-glyph"/></svg></div>
-        </div>
-        <!-- スロット 1: 空 (制御位相が入る列を想定) -->
-        <div class="slot" style="left: 56px;"></div>
-        <!-- スロット 2: span = 3 の QFT† (逆方向、対をなす) -->
-        <div class="slot slot--qft" style="left: 112px;">
-          <div class="qft-dagger-gate" style="--span: 3"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-        </div>
-        <!-- スロット 3: 空 -->
-        <div class="slot" style="left: 168px;"></div>
-        <!-- スロット 4: span = 2 の QFT† (異なる span との共存例) -->
-        <div class="slot slot--qft" style="left: 224px;">
-          <div class="qft-dagger-gate" style="--span: 2"><svg class="qft-dagger-glyph" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div>
-        </div>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">既定</div>
+        <div class="actual tall"><div class="gate-visual span" style="--span: 2"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー</div>
+        <div class="actual tall"><div class="gate-visual span hover" style="--span: 2"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ドラッグプレビュー</div>
+        <div class="actual tall"><div class="gate-visual span drag" style="--span: 2"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
       </div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      QFT† 本体は同じ列の他ゲートと共存できない (同じ列の重なる wire を独占する)。
-      逆に <em>異なる列</em>には任意のゲートを置けるので、上の例ではスロット 4 に span = 2 の QFT† を並べている。
-      span を変更すると本体高さが変わるが、本体の縦方向中心は最上 wire 中心と最下 wire 中心の中点で再計算されるため、
-      字形位置はリサイズ中も中央を維持する。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 07 対パターン (QFT → 中間 → QFT†) が 1 行で済まされている">
-      <div class="critique-label">★ 批評 · § 07 回路グリッド上の配置</div>
-      <div class="critique-title">「QFT → 制御位相 → QFT†」の対パターンが本仕様の最大ユースケースなのに、本文 1 行と モック 5 スロットに埋もれている</div>
-      <p class="critique-body">
-        本文に「典型的な『<code>QFT → 制御位相 → QFT†</code>』の対パターン (位相推定のメイン構成) では、列を 1 つあけて QFT と QFT† を並べる」と
-        1 行だけ書かれている。これは <strong>QFT† の存在理由そのもの</strong>で、本ページの読者の大半は「QFT との対をどう描くか」を知りたいはず。
-        ところが slot-mock は 5 スロットのうち <code>QFT (span=3) / 空 / QFT† (span=3) / 空 / QFT† (span=2)</code> の構成で、
-        対パターンとしては最初の 3 スロット (QFT / 空 / QFT†) で完結しており、4 〜 5 スロット目 (空 + 別 span の QFT†) は対パターンと無関係。
-      </p>
-      <p class="critique-body">
-        改善案: (a) slot-mock を「QFT → 制御位相プレースホルダ → QFT†」の 3 スロットに絞り、中間スロットに「制御位相」のラベル (テキストだけ) を入れる。
-        対パターンであることを 視覚的に強調する。(b) または別途「位相推定の対パターン」用のモックを 1 章追加し、現状の slot-mock は「異なる span の QFT†」用に残す。
-        本仕様の存在理由を可視化する責任は、本章 § 07 (配置) と § 08 (設計判断) のどちらかで担うべき。
-      </p>
-      <p class="critique-body">
-        さらに、対パターンを使う実際のユースケース (Shor の周期抽出 / 量子位相推定 / amplitude estimation) はすべて page-lede で名前だけ列挙され、
-        本文では具体的な回路構成 (例: 「QFT で重ね合わせ → 制御 U の累乗 → QFT† で測定基底に戻す」) に踏み込まない。
-        デザインシステム仕様としては数式まで踏み込まなくていいが、対パターンの「外形」(= 2 つの QFT 系ブロックが対称的に配置される) だけは visual に示すと、
-        ユーザが「ああ、これがあの教科書の図か」と直感的に理解できる。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 08 意味論と設計判断 ─────── -->
+<!-- ─────── § 03 グリフ ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>意味論と設計判断</h2>
+  <h2><span class="num">§ 03</span>グリフ "QFT†"</h2>
   <div class="card">
-    <div class="matrix-card">
-      <div class="mini"><strong>行列 (span = k)</strong><br /><code>(QFT†)<sub>jk</sub> = (1/√N) · e<sup>−2πi·jk/N</sup></code> (<code>N = 2<sup>k</sup></code>、<code>j, k = 0..N−1</code>)。QFT の各要素を複素共役にしたもの</div>
-      <div class="mini"><strong>基底状態</strong><br /><code>QFT†|ŷ⟩ = (1/√N) Σ<sub>x</sub> e<sup>−2πi·xy/N</sup>|x⟩</code>。周波数基底を計算基底に戻す</div>
-      <div class="mini"><strong>span = 1 の縮退</strong><br /><code>QFT†(1) = H</code>。Hadamard は自己エルミートなので <code>H† = H</code></div>
-      <div class="mini"><strong>関係</strong><br /><code>QFT† · QFT = I</code> / <code>(QFT†)<sup>4</sup> = I</code> / <code>QFT† = QFT<sup>3</sup></code>。位相推定 / Shor の最終段に頻出する</div>
+    <table class="spec">
+      <tbody>
+        <tr><th>表記</th><td>QFT† グリフ</td></tr>
+        <tr><th>実体</th><td><code>apps/web/assets/icons/qftdagger.svg</code> 由来の SVG path。本仕様ページのモックでも同じ字形を描く。</td></tr>
+        <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+        <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+        <tr><th>字形設計</th><td>QFT の 3 文字に右上の † を加え、逆変換を示す。QFT 本体の判読性を優先し、† は補助記号として扱う。</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      字形は共通クロムの上に載る QFT† 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">実表示<br />既定</div>
+        <div class="actual tall"><div class="gate-visual span" style="--span: 2"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col wide">
+        <div class="caption">3× 表示<br />字形位置の確認用</div>
+        <div class="zoom"><div class="gate-visual span" style="--span: 1"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
+      </div>
     </div>
-    <ul>
-      <li><strong>QFT と本体を共有して字形差で順 / 逆を示す</strong>: QFT (順) と QFT† (逆) は数学的には別のユニタリだが、ユーザにとっては「QFT の打ち消し / 逆変換」として理解される。色 / サイズ / 角丸 / span 範囲を完全に揃え、右上の † グリフだけで差分を示す</li>
-      <li><strong>逆変換を色で表現しない</strong>: 「順 / 逆」を別色にすると、ホバー / ドラッグなどの状態色と衝突する。順 / 逆の識別は字形 († の有無) とヘルプ文に閉じる</li>
-      <li><strong>† を superscript 位置に置く</strong>: 数式 QFT<sup>†</sup> の組版に倣い、T グリフの右上に小さく配置 (Q/F/T 字形の ~52 % 縮尺)。"QFT" の重心を本体中央に保ち、見た目の重心が右にずれないようにする。S / T の † と同じ <code>scale(0.015360 -0.015360)</code> を使う</li>
-      <li><strong>本体幅は span 非依存に 40 px 固定</strong>: QFT と同じく単一列幅で十分。本体幅を span に追従させるとカラム単位の整列が崩れ、列幅一定のグリッド設計と衝突する</li>
-      <li><strong>字形は 1 個だけ</strong>: span が大きくなっても字形を繰り返さず、本体幾何中心に 1 個だけ "QFT" + † を置く。Quirk と同じ規約。字形を繰り返すと <em>「同じゲートが重なって見える」</em>誤読を招き、span を変えるアフォーダンスとも衝突する</li>
-      <li><strong>QFT† と H を別ゲートとして区別する</strong>: QFT†(1) は H と数学的に等価だが、QFT† は「逆 DFT 変換の意図」、H は「Hadamard の意図」と意味論が異なる。実コード上でも <code>QftDaggerGate</code> と <code>HGate</code> は別 kind として扱い、回路の URL シリアライズや解析にも反映する</li>
-      <li><strong>span 上限は実行モード容量に従う</strong>: 表示ブロック (確率 16 / 振幅 16 / 密度行列 8) は描画コストで上限が決まるが、QFT† は<em>シミュレーションコスト</em>で決まるため、実行モード (local-webgpu / large-gpu / external) の容量と一致する。詳細は <a href="../large-gpu-mode-design.html">large-gpu-mode-design.html</a> 参照</li>
-      <li><strong>resize-handle のハンドル幅は 24 px 固定</strong>: 本体幅が span 非依存に 40 px なので、ハンドル幅も追従させない (<a href="probability-display.html">確率表示ブロック</a> / <a href="qft-gate.html">QFT</a> と同じ <code>widthMode: 'fixed'</code>)</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 08 設計判断の半分が QFT ページのコピー / dagger 規約共通項目の重複">
-      <div class="critique-label">★ 批評 · § 08 意味論と設計判断</div>
-      <div class="critique-title">8 項目のうち 5 項目が QFT ページとほぼ同一、† 固有判断は 3 項目だけ</div>
-      <p class="critique-body">
-        現状の 8 項目を QFT ページ § 08 (7 項目) と比較すると、次のように分解できる:
-      </p>
-      <ul class="critique-list">
-        <li><strong>(a) QFT/QFT† 共通 (QFT ページからほぼコピー)</strong>: 本体幅 40 px 固定 / 字形 1 個だけ / QFT/QFT† と H を別ゲートとして区別 / span 上限は実行モード容量 / resize-handle 24 px 固定 — 5 項目</li>
-        <li><strong>(b) QFT† 固有 (dagger 規約)</strong>: QFT と本体を共有して字形差で順 / 逆を示す / 逆変換を色で表現しない / † を superscript 位置に置く — 3 項目</li>
-      </ul>
-      <p class="critique-body">
-        (a) は QFT ページに canonical があり、本ページでは再展開せず参照に置き換えるべき。(b) は本ページ固有なので残すべきだが、
-        これらは <strong>「dagger ペア共通の規約」</strong>として S/S† / T/T† と完全に共有する。前述の全体所見で提案した「dagger ペア親仕様」を抽出すれば、
-        本ページ § 08 は「QFT 固有 + dagger 規約の override (なし)」だけに絞れる。
-      </p>
-      <p class="critique-body">
-        さらに、matrix-card の「行列 (span = k)」「基底状態」「span = 1 の縮退」「関係」の 4 mini は<strong>意味論</strong>で、ul の 8 項目は<strong>設計判断</strong>。
-        本章タイトル「意味論と設計判断」は両者を含意するが、QFT ページの批評と同様、「§ 08a 意味論」「§ 08b 設計判断」に分けて
-        matrix-card と ul の役割を明示する方が読み分けやすい。
-        加えて、QFT† 固有の意味論として<strong>「QFT† は QFT のエルミート共役」</strong>「<strong>(QFT†)<sup>4</sup> = I</strong>」が
-        matrix-card にあるが、これらは QFT の数学的性質から導かれる結果で、設計判断ではない。
-      </p>
-      <p class="critique-body">
-        補足: 「<code>QFT† = QFT<sup>3</sup></code>」は QFT ページの matrix-card にも書かれている同じ式。本ページでは
-        「QFT† は QFT を 3 回適用するのと同等」という別表現も追記すると、なぜわざわざ QFT† を別ゲートとして提供するか
-        (= 3 回適用より直接 QFT† を 1 つ置く方が回路が短く、シミュレーションも 3 倍速い) という設計判断につながる。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 09 関連仕様 ─────── -->
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 09</span>関連仕様</h2>
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      QFT† は選択した連続ワイヤ範囲を覆う span 付きゲートとして置かれる。横方向の配置方針は共通クロムを継承し、高さと作用範囲は QFT 系固有仕様として扱う。
+      スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>作用範囲</th><td><code>span ≥ 1</code>。連続するワイヤ範囲を 1 つの本体で覆う。</td></tr>
+        <tr><th>本体高さ</th><td>現行実装では <code>56·span − 16 px</code>。共通ピッチの正は <a href="gate-chrome.html">gate-chrome.html</a>、span による高さ計算は本ページを正とする。</td></tr>
+        <tr><th>変換</th><td><code>|x⟩ → 1/√N Σ<sub>y=0</sub><sup>N−1</sup> exp(−2πi xy/N)|y⟩</code>。ここで <code>N = 2<sup>span</sup></code>。</td></tr>
+        <tr><th>span = 1</th><td><code>QFT†(1) ≡ H</code>。プレビューではこの縮退ケースも表示できるが、主な用途は span を伸ばした複数量子ビット逆変換。</td></tr>
+        <tr><th>リサイズ</th><td>ホバー / ドラッグ時は上下のリサイズハンドルを表示し、作用範囲を伸縮できることを示す。</td></tr>
+      </tbody>
+    </table>
+    <div class="span-mock" aria-hidden="true">
+      <div class="lane"></div>
+      <div class="lane"></div>
+      <div class="lane"></div>
+      <div class="span-slot"><div class="gate-visual span" style="--span: 3"><div class="resize-handle top"></div><div class="resize-handle bottom"></div><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-QftDagger-glyph"/></svg></div></div></div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      点線代わりの薄いスロット境界やワイヤは説明用で、実 UI の描画そのものではない。QFT† 固有の配置差分だけを本ページで扱う。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 05 設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>設計判断</h2>
+  <div class="card">
+    <p>
+      設計判断は「共通クロムからの継承」「QFT† 固有」「妥協と将来対応」に分ける。
+      これにより、QFT† だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。
+    </p>
+    <div class="decision-grid">
+      <div class="item">
+        <strong>共通クロムからの継承</strong>
+        <span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span>
+      </div>
+      <div class="item">
+        <strong>QFT† 固有</strong>
+        <span>QFT と同じ縦長本体に † を加え、色や形状ではなく字形で逆変換を示す。</span>
+      </div>
+      <div class="item">
+        <strong>妥協と将来対応</strong>
+        <span>† の視認性や span 表示を変える場合は、QFT / QFT† の共通仕様として扱う。</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 06 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>関連仕様</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -966,48 +456,32 @@
       </thead>
       <tbody>
         <tr>
-          <td><a href="qft-gate.html">QFT ゲート (量子フーリエ変換)</a></td>
-          <td>順方向の対。本体・配色・ジオメトリ・span 範囲は完全共有。QFT† は "QFT" 字形に † を重ねるだけの差分</td>
-        </tr>
-        <tr>
-          <td><a href="resize-handle.html">resize-handle primitive</a></td>
-          <td>QFT† が span 軸の伸縮に利用する横断 primitive。本仕様はハンドル幅 (<code>widthMode: 'fixed'</code>) と span 上限を policy 側として定義する</td>
-        </tr>
-        <tr>
-          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>span = 1 の縮退先 (<code>QFT†(1) = H† = H</code>)。QFT† と H は別 kind として共存し、字形 / 本体プロポーションで区別する</td>
-        </tr>
-        <tr>
-          <td><a href="s-dagger-gate.html">S† ゲート</a> / <a href="t-dagger-gate.html">T† ゲート</a></td>
-          <td>順 / 逆を字形差 († superscript) だけで示す規約の先行例。QFT / QFT† も同じパターンを継承する</td>
-        </tr>
-        <tr>
-          <td><a href="probability-display.html">確率表示ブロック</a></td>
-          <td>本体幅 40 px 固定 + resize-handle 24 px 固定 + span 軸の伸縮、というプロポーション規約の先行例。QFT† は表示ブロックではないが、span の取り回しはこれと共通</td>
-        </tr>
-        <tr>
-          <td><a href="amplitude-display.html">振幅表示ブロック</a> / <a href="density-matrix-display.html">密度行列表示ブロック</a></td>
-          <td>span が大きいほど本体も広くなるタイプ (<code>widthMode: 'canvas60'</code>) の先行例。QFT† がそれと逆の <code>widthMode: 'fixed'</code> を選んだ根拠の対照</td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の QFT / QFT† の基準アイコン (<code>g-Qft</code> / <code>g-QftDagger</code>) を定義する。QFT の右に隣接配置されるペア</td>
+          <td>パレット上と回路上の QFT† ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 + 背景の空きのホバー枠 primitive。QFT† は角丸矩形版を本体外側に持つ</td>
+          <td><a href="qft-gate.html">QFT ゲート</a></td>
+          <td>QFT† の逆操作。</td>
+        </tr>
+        <tr>
+          <td><a href="resize-handle.html">リサイズハンドル</a></td>
+          <td>span 付き本体の作用範囲を調整する部品。</td>
+        </tr>
+        <tr>
+          <td><a href="s-dagger-gate.html">S† ゲート</a></td>
+          <td>同じ dagger 表記を持つ位相ゲート。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
-        </tr>
-        <tr>
-          <td><a href="../large-gpu-mode-design.html">large-gpu-mode-design</a></td>
-          <td>span 上限を決める実行モード容量の定義</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
       </tbody>
     </table>

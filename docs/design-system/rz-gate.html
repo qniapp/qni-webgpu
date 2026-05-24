@@ -12,241 +12,127 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- RZ本体は <rz-gate> カスタム要素で描画する。 -->
   <script src="components/rz-gate.js"></script>
   <style>
-    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       ゲート本体の共通クロムは gate-chrome.html と各 Web Component に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
+
     .stage {
       display: flex;
-      gap: 48px;                            /* spacing-12 */
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;                     /* spacing-4 */
-      padding: 24px 0;                      /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 160px;
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;                    /* text-xs default */
-      color: var(--tx-2);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom {
-      width: 192px;                         /* spacing-48 */
-      height: 192px;
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
     }
-    .stage .zoom rz-gate {
+    .zoom :is(x-gate, y-gate, z-gate, sqrtx-gate, s-gate, s-dagger-gate, t-gate, t-dagger-gate, p-gate, rx-gate, ry-gate, rz-gate) {
       transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
     .slot-mock .wire {
       position: relative;
-      height: 56px;
-      width: 280px;                         /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
       background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
+    }
     .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
-    .geo-diagram {
-      display: flex;
-      align-items: center;
-      gap: 32px;                            /* spacing-8 */
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
-    }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
-
-    .matrix-card {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
-      gap: 12px;                            /* spacing-3 */
-      margin-top: 12px;                     /* spacing-3 */
-    }
-    .matrix-card .mini {
-      border: 1px solid var(--ui-2);
-      border-radius: 10px;
-      background: var(--bg-2);
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .matrix-card .mini strong { color: var(--tx); }
-
-    /* ── θ パラメタ編集ポップオーバ モック (§ 06) ────── */
-    .theta-popover {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 8px;                   /* rounded-md - 2 */
-      box-shadow: 0 4px 14px rgba(16, 15, 15, 0.06);
-      min-width: 200px;
-    }
-    .theta-popover .label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2);
-      letter-spacing: 0.04em;
-    }
-    .theta-popover .row {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;                             /* spacing-2 */
-    }
-    .theta-popover .row .greek {
-      font-family: var(--font-mono);
-      font-size: 14px;                      /* text-sm */
-      color: var(--tx-2);
-      min-width: 12px;
-    }
-    .theta-popover .value {
-      flex: 1;
-      font-family: var(--font-mono);
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx);
-      padding: 4px 8px;                     /* spacing-1 / spacing-2 */
-      background: var(--bg-2);
-      border: 1px solid var(--ui-2);
-      border-radius: 4px;
-    }
-    .theta-popover .preset-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;                             /* spacing-1 */
-    }
-    .theta-popover .preset {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;
-      padding: 2px 8px;                     /* spacing-0.5 / spacing-2 */
-      background: var(--bg-2);
-      border: 1px solid var(--ui-2);
-      border-radius: 999px;
-      color: var(--tx-2);
-      cursor: pointer;
-    }
-    .theta-popover .preset.active {
-      background: var(--cyan-400);
-      color: var(--bg);
-      border-color: var(--cyan-400);
-    }
-    .popover-frame {
-      display: flex;
-      gap: 32px;                            /* spacing-8 */
-      align-items: center;
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
-    }
-
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html / x-gate.html / rx-gate.html / ry-gate.html と同じスタイル。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
   <rz-gate></rz-gate>
 </div>
@@ -260,495 +146,134 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">Rz ゲート (Z 軸回転 θ)</h1>
   <p class="page-lede">
-    単一量子ビットへ <code>e<sup>−iθZ/2</sup></code> を適用する <strong>Z 軸まわりのパラメタ可変回転ゲート</strong>。
-    回路エディタ上では <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の 2 文字グリフ "Rz" を中央配置する。
-    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では Rx / Ry と同じ 1 量子ビット回転ゲートのクロムを継承する。
+    Z 軸まわりに角度 θ だけ回転するパラメトリックゲート。位相を連続的に変える操作に使う。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは Rz 固有の意味論、
+    <code>components/rz-gate.js</code> の Shadow DOM、Rz としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ───────
-     Rotation 家系 (Rx / Ry / Rz) で共通する論点は ry-gate.html (中央のページ) に集約し、
-     本ページ (Rz) では Rz 固有 (Z / S / T / S† / T† との関係、P との対比) に絞る。 -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">Rz 固有性は「Z / S / T / S† / T† / P の 6 兄弟をまとめあげる中心点」、§ 07 の Rz vs P 議論が本ページの核</div>
-    <p class="critique-body">
-      配色 (§ 02) / ジオメトリ (§ 03) / グリッド配置 (§ 06 前半) は <a href="h-gate.html">h-gate.html</a> と完全に共通、
-      字形 2 文字グリフ (§ 04) / θ パラメタ編集 (§ 06 後半) は <a href="ry-gate.html">ry-gate.html</a> と共通の論点なので、
-      <strong>本ページの全体所見はそれらを参照</strong>するに留め、Rz 固有の論点だけを以下に展開する。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは Rz ゲート (Z 軸回転 θ) としての意味、字形、固有の設計判断を定義し、角丸正方形の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      Rz の固有性は <strong>「Rotation 族で最も別名固定角が多い」</strong>こと: <code>Rz(π) ∝ Z</code> /
-      <code>Rz(π/2) ∝ S</code> / <code>Rz(−π/2) ∝ S†</code> / <code>Rz(π/4) ∝ T</code> / <code>Rz(−π/4) ∝ T†</code>。
-      これに加えて <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> という「<strong>大域位相だけ違う双子ゲート P</strong>」が
-      別 palette カードで存在する。Rx 族 (X / √X / Rx の 3 兄弟) / Ry 族 (Y / Ry の 2 兄弟) と比べて Rz 族は 7 兄弟と最大で、
-      ユーザーが「どれを置くか」の決定樹はもっとも複雑。これを § 07 の bullet 4 / 5 / 6 で 3 つに分けて書いているが、
-      <strong>関係図 (Venn / Tree / Matrix)</strong> として 1 枚にまとめる価値が高い。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (Rz 固有のものを中心に)</div>
-    <ol class="critique-list">
-      <li><strong>Z / S / T / S† / T† / P / Rz の 7 兄弟関係図を § 01 に置く</strong> — Rz 固有の認知負荷の根源。Rx 族 (3 兄弟) や Ry 族 (2 兄弟) とは桁違いの複雑さで、関係図がないと初学者は <code>Rz(π/4) ∝ T</code> 系の対応を覚えきれない (全体所見参照)。</li>
-      <li><strong>Rz と P の「同位相 / 別位相」対比を § 07 から § 01 へ昇格</strong> — 現状は § 07 bullet 6 に深く埋もれているが、Rz と P は数学的にはほぼ同じで、差は<strong>位相の置き方 (対称 vs 非対称)</strong> だけ。これは palette で Rz と P が並んだとき<em>「なぜ 2 つあるの?」</em>と直感的に疑問になる箇所で、概要に出す価値が高い (§ 01 / § 07 参照)。</li>
-      <li><strong>Rotation 族共通の論点は <a href="ry-gate.html">ry-gate.html</a> へ集約</strong> — 字形 2 文字グリフ / θ ポップオーバ primitive / 「θ を色に持たせない」判断 / Rotation 族親仕様化は Rz でも該当するが、本ページでは Ry を canonical として参照に留める (§ 02 / § 04 / § 06 参照)。</li>
-      <li><strong>preset 集合 <code>0 / π/4 / π/2 / π / 3π/2</code> は Rz では特に S / T と直結</strong> — Rz の preset chip <code>π/4</code> を選ぶと事実上「T を θ で指定」しているのと同じ。chip に「= T」「= S」のラベルや tooltip を付けると、Rz 固有の決定樹に直接接続できる (§ 06 参照)。</li>
-      <li><strong>§ 08 関連欄が長くなり scan しにくい</strong> — Rz は 8 つの関連仕様 (Rx / Z / S / S† / T / T† / P / H / palette / hover-frame / colors / migration) を持ち、Ry (8) や Rx (8) より多い。関連の<strong>密度</strong>を「数学的等価」「視覚クロム共有」「primitive 継承」に分類すると navigability が上がる (§ 08 参照)。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
+      <div class="item"><strong>rz-gate.html が正</strong><span>Rz(θ) の意味、Rz グリフ、角度編集を本体クロムから分離する判断。</span></div>
+      <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
+    </div>
+  </div>
 </section>
 
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>
-      Rz は Z = Pauli-Z の連続版で、任意角 θ の <strong>ブロッホ球 Z 軸まわりの回転</strong>を表す。
-      行列は対角形 <code>diag(e<sup>−iθ/2</sup>, e<sup>iθ/2</sup>)</code> で、計算基底 <code>|0⟩</code> / <code>|1⟩</code> の
-      測定確率は変えずに <strong>相対位相だけを θ だけ回す</strong>。固定角の Z / S / T / S† / T† と同じ仲間で、
-      θ = π で Rz = −iZ、θ = π/2 で S、θ = π/4 で T (いずれも大域位相を除く) と一致するため、これらの上位互換として
-      連続パラメタが必要な場面で使う。見た目では「固定角」「任意角」を別色にせず、
-      <strong>cyan-400 = ユニタリ操作ゲート</strong>という既存の色対応を守る。
-      Rz 固有情報は字形 "Rz" と説明文、そしてパラメタ編集ポップオーバの θ 値に閉じる。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col">
-        <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><rz-gate></rz-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><rz-gate state="hover"></rz-gate></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
-      ジオメトリ / 配色 / 字形 / θ パラメタ編集の詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 Z 系 6 兄弟の関係図がない">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">「Z / S / T / S† / T† / P / Rz の 7 兄弟」が文章でしか提示されていない</div>
-      <p class="critique-body">
-        概要 p 内に「<code>θ = π で Rz = −iZ、θ = π/2 で S、θ = π/4 で T</code>」と 3 つの対応が並んでいる。
-        これに加えて <code>Rz(−π/2) ∝ S†</code> / <code>Rz(−π/4) ∝ T†</code> / <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code>
-        があり、合計 <strong>7 ゲートが Rz を中心に同心円的に並ぶ</strong>。Rx の 3 兄弟 (X / √X / Rx) や
-        Ry の 2 兄弟 (Y / Ry) と比べて圧倒的に複雑で、文章だけでは関係を覚えきれない。
-      </p>
-      <p class="critique-body">
-        提案: § 01 末尾に小型の関係図 (Z 軸の dial 上に θ = 0 / π/4 / π/2 / π / −π/4 / −π/2 のマークを置き、それぞれに対応する
-        固定角ゲート名 I / T / S / Z / T† / S† をラベル) を置く。Rz は dial そのもの、P はラベルが半分ずれた版、として 1 枚で
-        全関係が見える。これは Rz ページ最大の差別化要素になる。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体 fill (既定)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール。H / X / Y / Z / S / T / Rx / Ry と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>字形 "Rz"</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上で相対輝度比 ≈ 3.4。stroke なしの塗りつぶし</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
-        </tr>
-        <tr>
-          <td>本体 fill (ドラッグ)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      Rz の回転角 θ は色に持たせない。θ の現在値はポップオーバ (§ 06) と回路セルの数値ラベル
-      (例: <code>π/2</code>) で表現し、本体の色相 / 明度は θ によって変化させない。
-      色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、
-      <code>purple-600</code> = ドラッグに限定する。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 02 配色">
-      <div class="critique-label">★ 批評 · § 02 配色</div>
-      <div class="critique-title">テーブルは H ページ完全重複、Rz は S / T / S† / T† と全部同じ cyan-400 という色の責務過多</div>
-      <p class="critique-body">
-        配色テーブル (cyan-400 / paper / purple-400 / purple-600 の 4 行) は <a href="h-gate.html">h-gate.html § 02</a> と完全に同一。
-        Rotation 族共通の論点 (「θ を色に持たせない」判断、ロール × 状態の軸圧縮) は <a href="ry-gate.html">ry-gate.html § 02 の批評</a>を参照。
-      </p>
-      <p class="critique-body">
-        本ページ固有の論点: cyan-400 は <strong>Rz / S / T / S† / T† / P / Z の 7 ゲート</strong>すべてで使われる。
-        色族の責務が「ユニタリ操作」の一語に圧縮されているのは設計判断としては筋が良いが、ユーザーが palette を
-        scan するときに<strong>「位相系の中で何がハードコード固定で何がパラメトリックか」</strong>が色だけでは分からない。
-        Quirk は固定角 (S / T) と任意角 (Z^θ) を字形だけで区別しているのと同じ問題で、本仕様もこの選択を継承している。
-        この設計判断の<strong>代償</strong> (色での区別を諦めた) は § 07 で明示する価値がある。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
-        <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>stroke</th><td>なし。本体色のみ。<code>components/rz-gate.js</code> の <code>&lt;rz-gate&gt;</code> の字形 path / transform と一致 (palette 側は背景 <code>rect</code> も含む)</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
-        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y / Z / S / T / Rx / Ry など他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
-        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
-        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <rect x="0" y="0" width="40" height="40" rx="6" fill="#3AA99F"/>
-        <!-- gate-palette の (48 viewBox) から 40 px body 用に再スケール (× 40/48 = 0.8333)
-             scale: 0.022080 × 0.8333 = 0.018400
-             "R": translate(9.659 × 0.8333, 31.838 × 0.8333) = (8.049, 26.532)
-             "z": translate(24.673 × 0.8333, 31.838 × 0.8333) = (20.561, 26.532) -->
-        <g fill="#FFFCF0">
-          <g transform="translate(8.049 26.532) scale(0.018400 -0.018400)">
-            <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
-          </g>
-          <g transform="translate(20.561 26.532) scale(0.018400 -0.018400)">
-            <path d="M28 0V100L394 611H42V710H522V610L154 99H533V0Z"/>
-          </g>
-        </g>
-        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
-          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
-          <text x="20" y="50.5" text-anchor="middle">40 px body</text>
-        </g>
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
-          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
-          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
-          <line x1="0" y1="48" x2="40" y2="48"/>
-          <line x1="0" y1="47" x2="0" y2="49"/>
-          <line x1="40" y1="47" x2="40" y2="49"/>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
-        <p><strong>6 px</strong> · 角丸半径 (<code>rounded-md</code>)</p>
-        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-    </p>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 04</span>字形 (Rz)</h2>
-  <div class="card">
-    <p>
-      中央字形は <code>components/rz-gate.js</code> の <code>&lt;rz-gate&gt;</code> が提供する。
-      CSS のテキスト描画ではなく、palette 側で定義された "R" + "z" の 2 つのベクタ字形を 40 px 本体へ重ねる。
-      H / Y / Z / S / T が単一文字なのに対し、Rz は <strong>大文字 R + 小文字 z の 2 字形</strong>でひと組。
-      Rx / Ry / 大文字 R 始まりのパラメタ可変ゲートと字形パターンを共有する。
-    </p>
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス × 2 個 (<code>components/rz-gate.js</code> の Shadow DOM に集約)</td></tr>
-        <tr><th>"R" path</th><td><code>M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496…</code></td></tr>
-        <tr><th>"z" path</th><td><code>M28 0V100L394 611H42V710H522V610L154 99H533V0Z</code></td></tr>
-        <tr><th>"R" 変換</th><td><code>translate(9.659 31.838) scale(0.022080 -0.022080)</code> (viewBox 48 への正規化)</td></tr>
-        <tr><th>"z" 変換</th><td><code>translate(24.673 31.838) scale(0.022080 -0.022080)</code></td></tr>
-        <tr><th>外形サイズ</th><td>viewBox 上で "Rz" 全体が約 <code>27 × 16</code>。40 px 本体では約 <strong>22.5 × 13.3 px</strong></td></tr>
-        <tr><th>配置</th><td>"R" と "z" の bbox 合算の幾何中心を 40 px 本体の中心 (20, 20) に揃える。"R"→"z" の横間隔は palette の kerning と同じで、Rx (R→x: 15.014) / Ry (R→y: 15.015) と比較して Rz では 15.014 と同等。"z" の上端 / 下端は "R" の x-height とほぼ揃う</td></tr>
-        <tr><th>色</th><td><code>paper</code> (#FFFCF0)。stroke なしの塗りつぶし</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">3× zoom (字形の位置確認)</h3>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">既定 · 3× zoom</div>
-        <div class="zoom"><rz-gate></rz-gate></div>
-      </div>
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">ホバー · 3× zoom<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><rz-gate state="hover"></rz-gate></div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 04 字形 Rz 固有">
-      <div class="critique-label">★ 批評 · § 04 字形 (Rz 固有)</div>
-      <div class="critique-title">2 文字グリフ全般の論点は <a href="ry-gate.html">ry-gate.html § 04</a> に集約、Rz 固有は「z は palette 上で唯一の対角字形」</div>
-      <p class="critique-body">
-        Rotation 族共通の論点 (字形高さが H の 53 % に対し 33 %、kerning の出所、3× zoom の必要性、Rotation 族親仕様化)
-        は ry-gate.html § 04 の批評を参照。本ページでは Rz 固有の論点だけ展開する。
-      </p>
-      <ul class="critique-list">
-        <li><strong>"z" path <code>M28 0V100L394 611H42V710H522V610L154 99H533V0Z</code> は対角線が支配する字形</strong> — H / X / Y / Z / S / T / Rx (R+x) / Ry (R+y) / Rz (R+z) と並べたとき、"z" の左上→右下の対角ストロークは <strong>palette 上で唯一</strong>。これは Rotation 族内の<strong>視覚的識別性</strong>に貢献するが、本仕様ではメリットとして言及されていない。</li>
-        <li><strong>"z" の x オフセット <code>24.673</code> は Rx (<code>23.724</code>) / Ry (<code>23.923</code>) より約 0.75〜0.95 大きい</strong> — 本文には書かれているが、これは "z" の左側余白が "x" / "y" より広い字形特性に起因する。<strong>視覚中心</strong> (グリフのインク重心) を本体中心に揃えた場合 "z" は右に寄るため、optical-center-aware なオフセットが Geist Bold で計算されている。これは「letter-spacing は族で揃えていない」という事実の言い換えで、Ry の批評で指摘した曖昧さがここでも露出している。</li>
-        <li><strong>note の "z の上端 / 下端は R の x-height とほぼ揃う"</strong> — § 04 表の最後の行に書かれているが、"x-height" はラテン文字組版用語で、x 字形の高さを指す。"R" は capital なので x-height ではなく cap-height が正確 (Geist Bold では x-height &lt; cap-height)。<strong>用語の誤用</strong>で、後で修正したほうがよい。</li>
-        <li><strong>note の "Rx (R→x: 15.014) / Ry (R→y: 15.015) と比較して Rz では 15.014 と同等"</strong> — 「同等」とあるが、Rz の R→z 間隔は実際には <code>24.673 - 9.659 = 15.014</code>、Rx は <code>23.724 - 8.710 = 15.014</code>、Ry は <code>23.923 - 8.908 = 15.015</code> なので<strong>本当にほぼ同等</strong>。一方で <strong>R の絶対 x オフセット</strong> (Rx: 8.710 / Ry: 8.908 / Rz: 9.659) は族で差があり、これは "R + 第二字形" の bbox の中心が本体中心と揃うように、R の左 padding を字形ごとに変えているため。この内訳が本文では片方しか書かれていない。</li>
-      </ul>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      既定に加え、ホバー / ドラッグ状態を <code>state</code> 属性で強制したモック。ホバーやドラッグ操作をしなくても状態差を確認できる。
-    </p>
+    <p>Rz ゲートは回転軸と角度を持つ可変ゲートで、Z 軸まわりの連続的な位相操作を表す。P(θ) とはグローバル位相を除いて同じ位相操作を表すが、Rz は回転軸の記法として説明する。デザイン上は標準の角丸正方形ゲートとし、軸は Rz 字形で示す。</p>
     <div class="stage">
-      <div class="col">
-        <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
-        <div class="actual"><rz-gate></rz-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><rz-gate state="hover"></rz-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><rz-gate state="drag"></rz-gate></div>
-      </div>
+      <div class="col"><div class="caption">Rz ゲート<br />既定</div><div class="actual"><rz-gate></rz-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。
-      Rz は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
-      θ パラメタ編集ポップオーバ (§ 06) は ① 既定状態のセルを再クリック / 長押しで開く。
-    </p>
+    <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置と θ パラメタ編集 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>回路グリッド上の配置と θ パラメタ編集</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (Rz 字形の確認)</h2>
   <div class="card">
-    <p>
-      Rz ゲートは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
-      本体 40 px は中央配置で上下左右に 8 px の余白を持つ。配置後にクリックすると θ 値編集ポップオーバが開く。
-    </p>
-    <div class="slot-mock with-grid">
-      <div class="wire">
-        <div class="slot"><rz-gate></rz-gate></div>
-        <div class="slot"></div>
-        <div class="slot"><rz-gate></rz-gate></div>
-        <div class="slot"></div>
-        <div class="slot"><rz-gate></rz-gate></div>
-      </div>
+    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ Rz 字形が各状態で破綻しないことだけを常時表示モックで確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">既定</div><div class="actual"><rz-gate></rz-gate></div></div>
+      <div class="col"><div class="caption">ホバー</div><div class="actual"><rz-gate state="hover"></rz-gate></div></div>
+      <div class="col"><div class="caption">ドラッグプレビュー</div><div class="actual"><rz-gate state="drag"></rz-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
-      隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
-    </p>
-
-    <h3 style="margin-top: 24px;">θ パラメタ編集ポップオーバ (モック)</h3>
-    <p>
-      Rz は配置後に回転角 θ を編集する。ポップオーバは <strong>cell の右下から</strong> 8 px のオフセットで開き、
-      自由入力 (ラジアン / 数式) と π 系プリセット (<code>0 / π/4 / π/2 / π / 3π/2</code>) の併用を許す。
-      値編集中もゲート本体の色 / サイズは変えず、現在の θ はセル下に数値ラベル (例: <code>π/2</code>) として描く。
-    </p>
-    <div class="popover-frame">
-      <div class="actual" style="width: 56px; height: 56px;">
-        <rz-gate state="hover"></rz-gate>
-      </div>
-      <div class="theta-popover" role="group" aria-label="Rz θ パラメタ編集ポップオーバ (モック)">
-        <span class="label">RZ · Z-AXIS ROTATION</span>
-        <div class="row">
-          <span class="greek">θ</span>
-          <span class="value">π / 2</span>
-        </div>
-        <div class="preset-row">
-          <span class="preset">0</span>
-          <span class="preset">π/4</span>
-          <span class="preset active">π/2</span>
-          <span class="preset">π</span>
-          <span class="preset">3π/2</span>
-        </div>
-      </div>
-    </div>
-    <p class="note">
-      ポップオーバ自体のクロム (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
-      (別仕様で定義)。Rx / Ry / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
-      とプリセット集合のみが差分。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 06 θ ポップオーバ Rz 固有">
-      <div class="critique-label">★ 批評 · § 06 θ パラメタ編集ポップオーバ</div>
-      <div class="critique-title">Rz では preset 集合がそのまま「S / T / Z / S† / T†」への招待状になる、ラベル化の価値が最も高い</div>
-      <p class="critique-body">
-        Rotation 族共通の論点 (primitive 切り出し / セル下 θ ラベル / preset chip active state / 負角 preset の欠落 / popover placement)
-        は ry-gate.html § 06 の批評を参照。本ページでは Rz 固有の論点だけ展開する。
-      </p>
-      <ul class="critique-list">
-        <li><strong>preset <code>π/4</code> = T、<code>π/2</code> = S、<code>π</code> = Z、<code>−π/4</code> = T†、<code>−π/2</code> = S†</strong> — Rz の preset 集合は<strong>すべて別 palette カードに対応する</strong>。Rx (π/2 = √X / π = X の 2 つ) や Ry (対応なし) と比べて、ラベル化のメリットがもっとも大きい。chip に <em>「π/2 (= S)」</em>と付けるか、tooltip で出すかを Rz ページが先に決めるべき。</li>
-        <li><strong>負角 preset の欠落 (Ry 批評と同論点)</strong> — Rz では特に <code>−π/2</code> / <code>−π/4</code> が S† / T† に直結するため、preset に <code>±π/4 / ±π/2 / ±π</code> 対称形を入れる価値が高い。「inverse は手入力」の現状仕様は Rz では特に不便で、ansatz / QFT 逆変換 / Quantum Phase Estimation などの実用回路で頻繁にひっかかる。</li>
-        <li><strong>popover ラベル "RZ · Z-AXIS ROTATION"</strong> — Rx / Ry / Rz の 3 つ全てが uppercase 表記なのに、すぐ隣の P (Phase) は palette 上で字形が大文字 "P" 単独。本ページの末尾 note でも "PHASE" と表記しているが、P ゲートは Phase の頭文字 1 字なので、popover ラベル規約と本体字形規約が「Rz: 2 文字略号」「P: 単語フル」と非対称になる。Rotation 族親仕様 + Phase 仕様の<strong>横断 popover ラベル規約</strong>で揃えるべき。</li>
-      </ul>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<!-- ─────── § 03 グリフ ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <h2><span class="num">§ 03</span>グリフ "Rz"</h2>
   <div class="card">
-    <div class="matrix-card">
-      <div class="mini">
-        <strong>行列</strong><br />
-        <code>Rz(θ) = diag(e<sup>−iθ/2</sup>, e<sup>iθ/2</sup>) = [[e<sup>−iθ/2</sup>, 0], [0, e<sup>iθ/2</sup>]]</code>
-      </div>
-      <div class="mini">
-        <strong>基底状態</strong><br />
-        <code>Rz(θ)|0⟩ = e<sup>−iθ/2</sup>|0⟩</code><br />
-        <code>Rz(θ)|1⟩ = e<sup>iθ/2</sup>|1⟩</code><br />
-        計算基底の確率振幅は不変、相対位相だけが θ 回る。
-      </div>
-      <div class="mini">
-        <strong>ブロッホ球</strong><br />
-        Z 軸まわりの θ 回転。X-Y 平面ベクトルの偏角を θ シフトする。<code>|0⟩</code> / <code>|1⟩</code> は固定点。
-      </div>
-      <div class="mini">
-        <strong>関係</strong><br />
-        <code>Rz(0) = I</code> /
-        <code>Rz(π/4) ∝ T</code> /
-        <code>Rz(π/2) ∝ S</code> /
-        <code>Rz(π) = −iZ</code> /
-        <code>Rz(2π) = −I</code><br />
-        <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> (大域位相のみ違う)
-      </div>
+    <table class="spec"><tbody>
+      <tr><th>表記</th><td>Rz グリフ</td></tr>
+      <tr><th>実体</th><td><code>components/rz-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
+      <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+      <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+      <tr><th>字形設計</th><td>Rz は大文字 R と軸名 z の 2 文字で、回転ゲートであることと Z 軸であることを同時に示す。</td></tr>
+    </tbody></table>
+    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る Rz 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><rz-gate></rz-gate></div></div>
+      <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><rz-gate></rz-gate></div></div>
     </div>
-    <ul>
-      <li><strong>Rx / Ry と同じ角丸正方形にする</strong>: Rz は文字グリフで識別する通常の 1 量子ビット回転ゲート。X 系 (X / Rx の塗りつぶし円) ではなく Z 系 (cyan-400 角丸正方形) のクロムを継承する</li>
-      <li><strong>2 文字グリフ "Rz" を採用する</strong>: 大文字 R で「Rotation」、小文字 z で「軸ラベル」を表す。Qiskit / Cirq / Quirk と一致するアカデミック表記。すべて大文字 "RZ" は palette の他のゲート (H / Y / Z / S / T) と並べたとき視覚的に重く、字形バランスが崩れる</li>
-      <li><strong>回転角 θ を色で表現しない</strong>: θ は連続パラメタなので色相 / 明度マッピングは不安定 (θ = π と θ = π + 0.001 が同色)。θ の現在値はセル下の数値ラベルとポップオーバ (§ 06) に閉じる</li>
-      <li><strong>Rz(π) と Z を別カードとして残す</strong>: 数学的には大域位相を除いて等価だが、ハードウェア / 教育文脈では「Z = 固定 π 位相反転」「Rz = 連続パラメタ」と役割が違うため、palette でも UI でも別ゲートとして並べる</li>
-      <li><strong>Rz(π/2) と S、Rz(π/4) と T を別カードとして残す</strong>: 同様に、S は <code>π/2</code> 固定位相、T は <code>π/4</code> 固定位相 (Clifford+T で universal) として使う場面があるため、Rz(π/2) / Rz(π/4) とは別アイコンを持つ</li>
-      <li><strong>P (Phase θ) と別カードとして残す</strong>: <code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> で大域位相のみ違うが、P の行列は <code>diag(1, e<sup>iθ</sup>)</code> で <code>|1⟩</code> にだけ位相を乗せる教科書的な形式。Rz は <code>|0⟩</code> / <code>|1⟩</code> に対称的 (<code>e<sup>∓iθ/2</sup></code>) に位相を分配し、合成ハミルトニアン <code>−Z/2</code> を生成子とする物理的な形式。役割の説明が異なるため、X (固定円形) と Rx (角丸正方形) のような 2 系列を持たない P (固定円形) と Rz (角丸正方形) の対応として並べる</li>
-      <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
-      <li><strong>span = 1 固定</strong>: Rz は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 07 設計判断 Rz 固有">
-      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
-      <div class="critique-title">Rz vs P の議論が bullet 6 に圧縮されており、Rz 最大の固有論点を捉えきれていない</div>
-      <p class="critique-body">
-        bullet 6 (<code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> で大域位相のみ違うが、P と Rz を別カードに残す) は Rz 最大の固有判断で、
-        <strong>Rotation 族で P と直接対応する唯一のゲートが Rz</strong>であることを定義している。
-        にもかかわらず、bullet として書かれていて他の汎用論点 (角丸正方形 / 2 文字グリフ / stroke なし) と平等に並んでおり、
-        Rz 固有性が埋もれている。
-      </p>
-      <ul class="critique-list">
-        <li><strong>P 行列: <code>diag(1, e<sup>iθ</sup>)</code></strong> — <code>|0⟩</code> は不変、<code>|1⟩</code> にだけ位相 <code>e<sup>iθ</sup></code> を乗せる「<strong>非対称</strong>形式」。教科書 / Qiskit / Quirk が採用。</li>
-        <li><strong>Rz 行列: <code>diag(e<sup>−iθ/2</sup>, e<sup>iθ/2</sup>)</code></strong> — <code>|0⟩</code> / <code>|1⟩</code> に対称に位相を分配する「<strong>対称</strong>形式」。生成子 <code>−Z/2</code> が物理的に明確。</li>
-        <li><strong>差: 大域位相 <code>e<sup>iθ/2</sup></code></strong> — 観測可能量は変わらないので、回路シミュレーションでは等価。ただし制御 (controlled-Rz / controlled-P) を作るときに<strong>結果が違う</strong> (controlled の場合、大域位相が相対位相になる) ため、UI 仕様としては別カードに残す価値がある。</li>
-      </ul>
-      <p class="critique-body">
-        bullet 6 末尾の<em>「X (固定円形) と Rx (角丸正方形) のような 2 系列を持たない P (固定円形) と Rz (角丸正方形) の対応」</em>
-        は本文として読みにくい (二重否定気味)。「P は X / √X のように固定角名で覚えるゲートで、Rz は連続パラメタ。
-        ただし P 自身は θ を取るので<strong>P は固定 + 連続のハイブリッド</strong>」という整理のほうが明快。
-      </p>
-      <p class="critique-body">
-        補足: bullet 1 / 7 / 8 (角丸正方形 / stroke なし / span = 1) はユニタリゲート族共通、bullet 2 / 3 (2 文字グリフ / θ 不表現) は
-        Rotation 族共通で、h-gate.html § 07 批評 / ry-gate.html § 07 批評と同じく「(a) 族共通 / (b) Rotation 共通 / (c) Rz 固有」の
-        階層化が必要。Rz 固有として残るのは bullet 4 / 5 / 6 (Z / S / T / P との関係) で、これが本ページの核。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
   <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>ドキュメント</th><th>関係</th></tr>
-      </thead>
-      <tbody>
+    <p>Rz は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は別の編集 UI で扱う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
+    <div class="slot-mock with-grid"><div class="wire" aria-hidden="true"><div class="slot"><rz-gate></rz-gate></div><div class="slot"></div><div class="slot"><rz-gate></rz-gate></div><div class="slot"></div><div class="slot"><rz-gate></rz-gate></div></div></div>
+    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。Rz 固有の配置差分だけを本ページで扱う。</p>
+  </div>
+</section>
+
+<!-- ─────── § 05 設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>設計判断</h2>
+  <div class="card">
+    <p>設計判断は「共通クロムからの継承」「Rz 固有」「妥協と将来対応」に分ける。これにより、Rz だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>Rz 固有</strong><span>回転軸は Rz 字形で示し、θ の値は本体色や形状ではなく編集 UI に委ねる。</span></div><div class="item"><strong>妥協と将来対応</strong><span>P ゲートや固定位相ゲートとの関係を補足する場合も、共通クロムではなく意味論の説明として扱う。</span></div></div>
+  </div>
+</section>
+
+<!-- ─────── § 06 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>関連仕様</h2>
+  <div class="card"><table class="spec"><thead><tr><th>ドキュメント</th><th>関係</th></tr></thead><tbody>
         <tr>
-          <td><a href="rx-gate.html">Rx ゲート (X 軸回転 θ)</a></td>
-          <td>X 軸まわりの連続回転。Rz と同じクロム / 2 文字グリフ規約を共有する</td>
-        </tr>
-        <tr>
-          <td><a href="z-gate.html">Z ゲート (Pauli-Z)</a></td>
-          <td>Rz(π) と大域位相を除いて等価。固定 π 位相反転としての Z と連続回転の Rz の使い分けを定義する</td>
-        </tr>
-        <tr>
-          <td><a href="s-gate.html">S ゲート (位相 π/2)</a></td>
-          <td>Rz(π/2) と大域位相を除いて等価。π/2 固定の位相ゲートとして別カードで残す</td>
-        </tr>
-        <tr>
-          <td><a href="s-dagger-gate.html">S† ゲート (位相 −π/2)</a></td>
-          <td>Rz(−π/2) と大域位相を除いて等価。S の Hermite 共役で、Rz では負角を入れるだけで等価操作になる</td>
-        </tr>
-        <tr>
-          <td><a href="t-gate.html">T ゲート (位相 π/4)</a></td>
-          <td>Rz(π/4) と大域位相を除いて等価。Clifford+T で universal な π/4 固定位相</td>
-        </tr>
-        <tr>
-          <td><a href="t-dagger-gate.html">T† ゲート (位相 −π/4)</a></td>
-          <td>Rz(−π/4) と大域位相を除いて等価。T の Hermite 共役</td>
-        </tr>
-        <tr>
-          <td><a href="p-gate.html">P ゲート (位相 θ)</a></td>
-          <td>パラメトリック位相ゲート。<code>P(θ) = e<sup>iθ/2</sup> Rz(θ)</code> で大域位相のみ違う。P は <code>|1⟩</code> 側にだけ位相を乗せる教科書形式、Rz は対称形式</td>
-        </tr>
-        <tr>
-          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>角丸正方形 + 文字グリフの基本仕様。Rz は同じクロムを 2 文字グリフ版で継承する</td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Rz ゲート (ドラッグ元) の <code>components/rz-gate.js</code> の <code>&lt;rz-gate&gt;</code> を定義する。Rx / Ry も <code>g-Rx</code> / <code>g-Ry</code> として隣接配置</td>
+          <td>パレット上と回路上の Rz ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 + 背景の空き のホバー枠 primitive。Rz は角丸正方形版を使う</td>
+          <td><a href="rx-gate.html">Rx ゲート</a></td>
+          <td>X 軸まわりのパラメトリック回転。</td>
+        </tr>
+        <tr>
+          <td><a href="ry-gate.html">Ry ゲート</a></td>
+          <td>Y 軸まわりのパラメトリック回転。</td>
+        </tr>
+        <tr>
+          <td><a href="z-gate.html">Z ゲート</a></td>
+          <td>Rz(π) に対応する作用。</td>
+        </tr>
+        <tr>
+          <td><a href="p-gate.html">P ゲート</a></td>
+          <td>グローバル位相を除いて同じ位相操作を表すパラメトリック位相ゲート。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
-      </tbody>
-    </table>
-  </div>
+  </tbody></table></div>
 </section>
 
-<footer class="doc-foot">
-  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
-  <p class="meta">qni-webgpu · Rz ゲート (Z 軸回転 θ) · 2026-05</p>
-</footer>
+<footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · Rz ゲート (Z 軸回転 θ) · 2026-05</p></footer>
 
 </body>
 </html>

@@ -12,192 +12,127 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- canonical な X ゲート (Pauli-X / NOT) を Web Component <x-gate> として埋め込む。
-       本ページの全モック (#preview / § 各セクション) で同じ Shadow DOM 実装を共有する。 -->
   <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       本ページは「X ゲート」の常時表示モックを並べる役割なので、ゲート本体の見た目
-       (cyan-400 塗りつぶし円 + paper Plus グリフ + ホバー枠) を CSS + inline SVG で再現する。 */
+       ゲート本体の共通クロムは gate-chrome.html と各 Web Component に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
 
-    /* X ゲート本体 (cyan-400 真円 + paper Plus グリフ + ホバー枠 + drag preview) の
-       クロムは components/x-gate.js が Web Component <x-gate> として提供する。
-       本ファイルでは stage / zoom / slot-mock などレイアウト側の CSS だけを定義する。 */
-
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
-      gap: 48px;
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;
-      padding: 24px 0;
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 160px;
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      color: var(--tx-2);
-      line-height: 16px;
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      width: 56px;
-      height: 56px;                         /* SLOT_SPACING と同寸 */
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
+      height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom {
-      width: 200px;
-      height: 200px;
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
     }
-    .stage .zoom x-gate {
+    .zoom :is(x-gate, y-gate, z-gate, sqrtx-gate, s-gate, s-dagger-gate, t-gate, t-dagger-gate, p-gate, rx-gate, ry-gate, rz-gate) {
       transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 06) ─────────────────
-       40 × 40 の本体を 56 × 56 のスロット枠に置いて、上下に 8 px 余白が生じることを
-       1:1 で示す。隣接スロットは 56 px ピッチ。 */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
     .slot-mock .wire {
       position: relative;
-      height: 56px;
-      width: 280px;                         /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
-      /* 量子ビットワイヤ = ui-2 1 px (line ロール) */
       background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    /* スロット境界をうっすら可視化する補助線。実 UI には描かれない (説明用)。 */
     .slot-mock.with-grid .slot {
-      box-shadow: inset -1px 0 0 var(--ui);
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
     }
     .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── ピクセル内訳図 (§ 03 寸法) ──────────────────
-       本体 40 px 直径 + Plus 12 px ≈ 30 % の関係を annotated diagram で見せる。 */
-    .geo-diagram {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      padding: 24px 0;
-      flex-wrap: wrap;
-    }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      color: var(--tx-2);
-      line-height: 20px;
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
-
-    /* ── CNOT 一致デモ (§ 04 内) ─────────────────
-       標準 X と CNOT ターゲット X が同じ Plus グリフを使うことを並べて示す比較。 */
-    .cnot-compare {
-      display: flex;
-      gap: 48px;
-      align-items: center;
-      flex-wrap: wrap;
-      padding: 16px 0 8px;
-    }
-    .cnot-compare .col {
-      display: flex; flex-direction: column; gap: 8px;
-      align-items: center;
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      color: var(--tx-2);
-      line-height: 16px;
-      text-align: center;
-    }
-    .cnot-compare svg { display: block; }
-
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使い、
-       .note (tx-2 のグレー段落) とは別レイヤとして読めるようにする。
-       probability-display.html § 批評 と同じ語彙 / レイアウト。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
-<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。
-     <x-gate> Web Component が canonical な X ゲートを Shadow DOM 内で描画する。 -->
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
   <x-gate></x-gate>
 </div>
@@ -211,477 +146,126 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">X ゲート (Pauli-X / NOT)</h1>
   <p class="page-lede">
-    単一量子ビットを <code>|0⟩ ↔ |1⟩</code> に反転させる Pauli-X ゲート (古典的な NOT に対応)。
-    回路エディタ上では <strong>40 × 40 px の塗りつぶし円</strong>に Plus (⊕) グリフを中央配置した、
-    H / Y / Z とは異なる<strong>円形の見た目</strong>で描画する。これは CNOT のターゲット記号と同じ Plus を
-    用いることで、「Plus = ビット反転」という視覚規約を回路全体で統一する Quirk 由来の方針。
+    1 量子ビットの NOT ゲート。<code>|0⟩</code> と <code>|1⟩</code> を入れ替え、CNOT のターゲットにもなる。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは X 固有の意味論、
+    <code>components/x-gate.js</code> の Shadow DOM、X としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「H からのテンプレ流用」が X 固有の発見を薄めている</div>
-    <p class="critique-body">
-      章構成 (§ 01〜§ 08) を h-gate.html と並行に揃えたため、章ごとの分量も H と均等になりがち。
-      しかし X の核心は <strong>「Pauli 族で唯一円形である」</strong> と <strong>「CNOT ターゲットと見た目を共有する」</strong>
-      の 2 点に尽きる。現状は § 01 で前者を伝えるが、後者を支える CNOT 比較図は § 04 内 h3 サブセクションまで
-      読まないと出てこない。初見の読者は「X が ⊕ である理由」を一読では取れず、§ 04 で初めて腑に落ちる。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは X ゲート (Pauli-X / NOT) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      もうひとつ: X ゲートそのものの視覚デザインに関する判断 (Plus が本体直径 30 % で控えめ、円形は wire に
-      溶け込みやすいなど) が <em>spec の体裁の中に紛れて</em>、設計判断として
-      議論されていない。spec 内に <code>aside.critique</code> として明示的に立てて「ここは未決」と残す方が
-      後続の Y/Z/S/T 仕様策定にも知見が引き継ぎやすい。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>CNOT 一致を § 01 のヒーローに昇格</strong> — § 04 内 h3 にある CNOT 比較図を § 01 概要に引き上げ、「X = 単独で立つゲートではなく CNOT の構成要素」というメンタルモデルを最初に植える。</li>
-      <li><strong>ジオメトリ図 (§ 03) を canonical viewBox 48 系に統一</strong> — 現状は display 40 系の transform <code>translate(13.031 27.242)</code> と canonical <code>translate(15.637 32.690)</code> が併存し、読者に「どちらの値を覚えればいいか」を考えさせる。</li>
-      <li><strong>Plus の視覚的存在感を実機 H/X/Y/Z 横並び画像で検証</strong> — Plus 30 % / H 文字 55 % の比率差は、回路上で並べたとき X が「薄く」見える可能性がある。canonical を維持しつつ Plus 腕厚を 6 % → 8 % に調整する余地は要検証。</li>
-      <li><strong>「Plus = ビット反転」の学習者向け補強</strong> — 初見では「⊕ = XOR」と読まれがち。ツールチップや初回 hover アニメーションで補強する設計余地を § 07 に明文化する。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
+      <div class="item"><strong>x-gate.html が正</strong><span>Pauli-X / NOT の意味、Plus グリフ、真円形状を採用する判断。</span></div>
+      <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
+    </div>
+  </div>
 </section>
 
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>
-      Pauli-X は古典 NOT に対応する基本 1 量子ビットゲートで、Quirk / Qni では Hadamard とともに
-      もっとも使用頻度が高い。デザイン上の特徴は <em>H / Y / Z と本体形状が違う</em>こと。Y / Z は H と同じ
-      「cyan-400 の角丸正方形 + 文字グリフ」だが、X だけは <strong>cyan-400 の塗りつぶし円 + Plus グリフ</strong>
-      になっている。これは X = NOT を表す ⊕ 記号 (CNOT のターゲットと同じ) を踏襲しているため。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col">
-        <div class="caption">default<br>(rest)</div>
-        <div class="actual">
-          <x-gate></x-gate>
-        </div>
-      </div>
-      <div class="col">
-        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き (同心円)</div>
-        <div class="actual">
-          <x-gate state="hover"></x-gate>
-        </div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (default / hover / drag) の比較は <strong>§ 05 状態バリアント</strong>、
-      ジオメトリ / 配色 / グリフの詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 CNOT 一致の位置取り">
-      <div class="critique-label">★ 批評 · § 01 CNOT 一致の位置取り</div>
-      <div class="critique-title">X の核心が「本体形状の違い」止まりで、CNOT 一致が伏線化している</div>
-      <p class="critique-body">
-        § 01 本文は「H / Y / Z と本体形状が違う」と「CNOT のターゲットと同じ ⊕ を踏襲」の 2 点を語るが、
-        後者は補足の括弧書きにとどまる。実際の CNOT 比較図は § 04 のサブセクションまで読まないと出てこない。
-        読者の理解の流れは <em>「形が違う → なぜ? → CNOT と統一するため → CNOT 比較を見たい」</em>となるので、
-        CNOT 比較図のサムネを § 01 概要に置き、詳細を § 04 にリンクする構造の方が情報密度が高い。
-      </p>
-      <p class="critique-body">
-        現状の概要バリアント (default / hover の 2 状態) を 1 つ削り、CNOT 比較の小型版に置き換えるのが
-        最小コストの改善案。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 02 配色 (Flexoki Light) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体 fill (default)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール (<a href="design-system-colors.html">design-system-colors.html § 03</a>)。H / Y / Z と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>Plus グリフ</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上でじゅうぶんなコントラストを確保 (相対輝度比 ≈ 3.4)。塗りつぶしのみで stroke なし</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、本体との間に 2 px の背景の空き。<strong>本体が円なので、枠も同心円</strong> (<a href="hover-frame.html">hover-frame.html</a> 参照)</td>
-        </tr>
-        <tr>
-          <td>本体 fill (drag preview)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。「仮配置中」のあいだだけ本体色を置き換える</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      <strong>色族の選定根拠:</strong> 本体色は H / Y / Z と完全に同じ <code>cyan-400</code> を使う。形状 (円 vs 角丸正方形)
-      で違いを表現するため、色まで変える必要はない。<em>「色は意味を持たない」設計</em>を守ることで、ユーザは「cyan = 操作ゲート」
-      という単一の対応関係だけ覚えればよくなる。Plus グリフを <code>paper</code> にする理由は H と同じで、tx (#100F0F) だと
-      黒すぎてゲートが「ボタン」に寄り、回路上の操作要素という抽象度が損なわれるため。
-    </p>
-  </div>
-</section>
-
-<!-- ─────── § 03 ジオメトリ ─────── -->
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> 直径 (<code>GATE_SIZE = 40</code>)</td></tr>
-        <tr><th>形状</th><td>真円 (<code>border-radius: 50%</code> / SVG では <code>&lt;circle r="24"&gt;</code> on viewBox 48)</td></tr>
-        <tr><th>stroke</th><td>なし (本体色のみ。<code>components/x-gate.js</code> の <code>&lt;x-gate&gt;</code> と一致)</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
-        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / Y / Z など他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
-        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- スロット境界 (説明用) -->
-        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <!-- 本体: 円 (cx=20, cy=20, r=20) -->
-        <circle cx="20" cy="20" r="20" fill="#3AA99F"/>
-        <!-- Plus グリフ: viewBox 48 → 表示 40 へスケール = 40/48 = 0.833 を翻訳 + scale で適用 -->
-        <!-- apps/web/assets/icons/plus.svg canonical: translate(15.637 32.690) scale(0.02976 -0.02976) on viewBox 48
-             40 px 表示では translate(13.031 27.242) scale(0.02480 -0.02480) -->
-        <g transform="translate(13.031 27.242) scale(0.02480 -0.02480)" fill="#FFFCF0">
-          <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
-        </g>
-        <!-- 寸法注記 -->
-        <g font-family="Geist Mono, monospace" font-size="3.6" fill="#6F6E69">
-          <text x="20" y="-9.5" text-anchor="middle">56 px (スロット)</text>
-          <text x="20" y="50.5" text-anchor="middle">40 px (本体 = 直径)</text>
-        </g>
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <!-- 56 px 横ガイド -->
-          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
-          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
-          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
-          <!-- 40 px 横ガイド -->
-          <line x1="0" y1="48" x2="40" y2="48"/>
-          <line x1="0" y1="47" x2="0" y2="49"/>
-          <line x1="40" y1="47" x2="40" y2="49"/>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体直径 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
-        <p><strong>真円</strong> · <code>border-radius: 50%</code></p>
-        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通で、本仕様で独自に決めるわけではない。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 03 ジオメトリ図の座標系">
-      <div class="critique-label">★ 批評 · § 03 ジオメトリ図の座標系</div>
-      <div class="critique-title">canonical (viewBox 48) と display (40 px) の二重表記が読者に二度手間を強いる</div>
-      <p class="critique-body">
-        「形状」行は <code>&lt;circle r="24"&gt; on viewBox 48</code> を canonical として示すが、すぐ下のピクセル
-        内訳図 (1× 図解) は <code>viewBox -12 -12 80 80</code> 上で <code>circle r="20"</code> (display 40 px 直径)
-        を使い、Plus も canonical <code>scale(0.02976)</code> を display 系に再計算した <code>scale(0.02480)</code> で
-        配置している。canonical と display の二重表記は読者に「どちらの値を覚えればいいか」を考えさせ、
-        <code>components/x-gate.js</code> 側 (実装) との対応を追うコストが上がる。
-      </p>
-      <p class="critique-body">
-        修正案: 図も canonical (viewBox 48 そのまま) で描き、display 40 px への線形スケーリングは注記 1 行
-        (<code>40 / 48 = 0.833</code>) で済ませる。サイズ感を直感させる狙いなら別途「実寸プレビュー」(<code>56 × 56</code> スロット内に 1 つ置く) を 1 個追加する方が「ピクセル単位の妥当性」を伝えやすい。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 04 グリフ (Plus / ⊕) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 04</span>グリフ (Plus / ⊕)</h2>
-  <div class="card">
-    <p>
-      X ゲートの中央に描かれるのは文字 "X" ではなく、<strong>太い Plus 記号</strong>。これは古典 NOT の ⊕ 表記、
-      および CNOT のターゲット記号 (制御線で結ばれた ⊕) と完全に同じグリフを使うことで「Plus = ビット反転」という
-      視覚規約を統一する狙い。
-    </p>
-
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス (<code>components/x-gate.js</code> の Shadow DOM に集約)。フォント文字ではない</td></tr>
-        <tr><th>パス座標</th><td><code>M235 51V246H40V338H235V533H327V338H522V246H327V51Z</code> (path 座標系)</td></tr>
-        <tr><th>変換</th><td><code>translate(15.637 32.690) scale(0.02976 -0.02976)</code> (viewBox 48 への正規化)</td></tr>
-        <tr><th>外形サイズ</th><td>viewBox 上で <code>14.34 × 14.34</code> (中心 24, 24)。40 px 本体では <strong>約 12 × 12 px</strong></td></tr>
-        <tr><th>腕の太さ</th><td>viewBox 上で <code>2.74</code> (本体直径の約 6 %)。腕の長さ / 太さ比 ≈ 5:1 の太字 Plus</td></tr>
-        <tr><th>align</th><td>水平・垂直ともに本体中心 (本体直径の中心 = グリフバウンディングボックスの中心)</td></tr>
-        <tr><th>color</th><td><code>paper</code> (#FFFCF0)。stroke なしの塗りつぶしのみ</td></tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      H ゲートの文字 "H" は本体高の約 55 % だが、Plus は約 30 % にとどまる。これは文字グリフが上下に bearing
-      (アセンダ / ディセンダ) を含むのに対し、Plus は外形いっぱいまで塗りが伸びるため、視覚的にはほぼ同じ占有感に
-      落ち着くから。腕の太さ (本体直径の約 6 %) も Geist 700 のステム幅と近い。
-    </p>
-
-    <h3 style="margin-top: 16px;">CNOT ターゲットと同じグリフ</h3>
-    <p>
-      Pauli-X の Plus グリフは、制御線 (control connector) と組み合わさったときの CNOT ターゲット記号 ⊕ と
-      <strong>完全に同じパス</strong>。下図のように並べると、本体色 / グリフ / 寸法がすべて一致し、唯一の違いは
-      「制御線 + 制御ドットが上から伸びているか否か」だけ。
-    </p>
-    <div class="cnot-compare">
-      <div class="col">
-        <svg viewBox="0 0 48 56" width="64" height="74" aria-hidden="true">
-          <!-- 単独 X: 中央に Plus 付き円 (cy=28, r=24 = canonical <x-gate> と同じ全径) -->
-          <circle cx="24" cy="28" r="24" fill="#3AA99F"/>
-          <g transform="translate(15.637 36.690) scale(0.02976 -0.02976)" fill="#FFFCF0">
-            <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
-          </g>
-        </svg>
-        <span>標準 X</span>
-      </div>
-      <div class="col">
-        <svg viewBox="0 0 48 100" width="64" height="132" aria-hidden="true">
-          <!-- CNOT: 制御ドット → 制御線 → X (Plus 付き円、cy=72 r=24 で単独 X と寸法一致) -->
-          <circle cx="24" cy="20" r="8" fill="#100F0F"/>
-          <line x1="24" y1="20" x2="24" y2="72" stroke="#100F0F" stroke-width="1.5"/>
-          <circle cx="24" cy="72" r="24" fill="#3AA99F"/>
-          <g transform="translate(15.637 80.690) scale(0.02976 -0.02976)" fill="#FFFCF0">
-            <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
-          </g>
-        </svg>
-        <span>CNOT ターゲット<br>(制御 + X)</span>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 12px;">
-      制御マーカ / 制御線の仕様は別ページ (Control / Anti-control, todo) で扱う。
-    </p>
-
-    <h3 style="margin-top: 16px;">3× zoom (グリフの位置確認)</h3>
-    <p class="note">
-      実寸 (<code>40 × 40</code>) では Plus のセンタリングや太さを目視確認しにくいので、3 倍に拡大したビューを並べる。
-      腕の長さ / 太さ比 ≈ 5:1 が Quirk の標準 Plus と一致しているか確認する。
-    </p>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 220px;">
-        <div class="caption">default · 3× zoom</div>
-        <div class="zoom">
-          <x-gate></x-gate>
-        </div>
-      </div>
-      <div class="col" style="max-width: 220px;">
-        <div class="caption">ホバー · 3× zoom<br>(同心円 枠 + 背景の空き)</div>
-        <div class="zoom">
-          <x-gate state="hover"></x-gate>
-        </div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 04 Plus の視覚的存在感と CNOT 比較図のスケール">
-      <div class="critique-label">★ 批評 · § 04 Plus の視覚的存在感 + CNOT 比較図</div>
-      <div class="critique-title">「外形 ≈ 12 × 12 px / 腕の太さ ≈ 2.3 px」は X が H より薄く見える根源</div>
-      <p class="critique-body">
-        表によれば Plus は本体直径の <strong>30 %</strong>、腕の太さは <strong>6 %</strong>。これは H 文字グリフ
-        (本体高の 55 %, ストローク厚 ≈ 4 px) と比べると視覚的占有が小さく、cyan-400 円 + paper Plus の組み合わせは
-        「H ほど目に飛び込んでこない」可能性が高い。<code>bearing</code> の補正で同等の占有感とする説明はあるが、
-        実機で H / X / Y / Z を <em>横並びにした検証スクリーンショット</em>が添付されていないため検証可能性が低い。
-        canonical を維持しつつ Plus 腕厚を 6 % → 8 % (≈ 3 px) に太らせる余地があるかは別途検証したい。
-      </p>
-      <p class="critique-body">
-        <strong>CNOT 比較図のスケール不整合:</strong> 単独 X (viewBox <code>48 × 56</code>, width <code>64</code>) と
-        CNOT (viewBox <code>48 × 100</code>, width <code>64</code>) で display 幅を揃えたため、CNOT 側は viewBox が
-        縦に長い分だけ全体が圧縮されて表示される。「寸法が完全一致」と謳うなら両図とも canonical 単位
-        (たとえば 1 vbu = 2 display px) に揃えて、円の物理サイズを目視で確認できる方が説得力が出る。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      default に加え、hover / drag 状態を <code>data-state</code> 属性で強制したモック。実コードと同じ見た目 / マークアップで、
-      ホバーやドラッグ操作をしなくても状態が確認できるので Codex / 人間がスクロールで diff レビューしやすい。
-    </p>
+    <p>X ゲートは計算基底を反転する基本ゲートで、Quirk / Qni では CNOT ターゲットと同じ plus-in-circle の慣例を使う。H ゲートと同じ共通クロムを継承しつつ、形状だけは「反転 / ターゲット」を示す真円として扱う。</p>
     <div class="stage">
-      <div class="col">
-        <div class="caption">① default<br>(rest)<br>cyan-400 円</div>
-        <div class="actual">
-          <x-gate></x-gate>
-        </div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 同心円 +<br>2 px 背景の空き</div>
-        <div class="actual">
-          <x-gate state="hover"></x-gate>
-        </div>
-      </div>
-      <div class="col">
-        <div class="caption">③ drag preview<br>purple-600 本体<br>(仮配置中)</div>
-        <div class="actual">
-          <x-gate state="drag"></x-gate>
-        </div>
-      </div>
+      <div class="col"><div class="caption">X ゲート<br />既定</div><div class="actual"><x-gate></x-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。
-      ホバー枠とドラッグの相互作用やドロップ時のプレビュー等の詳細は <em>Gate drag &amp; drop</em> 仕様 (draft) を参照。
-    </p>
-
+    <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (X 字形の確認)</h2>
   <div class="card">
-    <p>
-      X ゲートは 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。スロットは
-      <code>56 × 56 px</code> 等間隔で並び、本体 40 px 直径は各スロットの中央に来る (上下左右に 8 px の余白)。
-      これは H / Y / Z など他の 1 量子ビット操作ゲートと完全に共通。形状が円であっても占有スロットは正方形であることに注意。
-    </p>
-    <div class="slot-mock with-grid">
-      <div class="wire">
-        <div class="slot">
-          <x-gate></x-gate>
-        </div>
-        <div class="slot"></div>
-        <div class="slot">
-          <x-gate></x-gate>
-        </div>
-        <div class="slot"></div>
-        <div class="slot">
-          <x-gate></x-gate>
-        </div>
-      </div>
+    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ X 字形が各状態で破綻しないことだけを常時表示モックで確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">既定</div><div class="actual"><x-gate></x-gate></div></div>
+      <div class="col"><div class="caption">ホバー</div><div class="actual"><x-gate state="hover"></x-gate></div></div>
+      <div class="col"><div class="caption">ドラッグプレビュー</div><div class="actual"><x-gate state="drag"></x-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      上のモックは <code>56 × 5 = 280 px</code> の量子ビットワイヤ (<code>ui-2</code> 1 px) に、3 個の X を
-      1 スロットおきに並べたもの。<em>うっすら入っているスロット境界の <code>ui</code> 線は説明用</em>で、
-      実 UI には描画されない。本体が円なのでワイヤ (灰色の水平線) が円の左右両端に当たって自然に隠れる
-      (角丸正方形より柔らかい接続に見える)。
-    </p>
-
-    <h3 style="margin-top: 16px;">隣接ゲートとの余白</h3>
-    <p>
-      ピッチ 56 px に対し本体 40 px なので、隣接スロットに置かれたゲートとの間には <strong>16 px の余白</strong>
-      が常に確保される。これは ホバー枠 (本体外側 4 px) + 背景の空き (2 px) + 反対側の枠 (4 px) + 反対側の背景の空き
-      (2 px) を合計 12 px、さらに視覚的な余白 4 px を含む値。<em>連続するゲートでも 枠が重ならない</em>
-      よう余裕を持って設計されている。本体形状が円か正方形かに関わらず、同じ余白計算が成り立つ。
-    </p>
   </div>
 </section>
 
-<!-- ─────── § 07 設計判断 ─────── -->
+<!-- ─────── § 03 グリフ ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>設計判断</h2>
+  <h2><span class="num">§ 03</span>グリフ "Plus"</h2>
   <div class="card">
-    <p class="note" style="margin: 0 0 12px;">
-      他の 1 量子ビットゲートと共通の判断 (本体色 cyan-400 / stroke なし / paper グリフ / span = 1 固定) は
-      <a href="h-gate.html">h-gate.html § 07</a> を参照。ここでは X 固有の判断だけを挙げる。
-    </p>
-    <ul>
-      <li><strong>X だけ円形にする理由</strong>: Pauli-X は古典 NOT に対応し、量子回路の慣習では ⊕ (Plus in circle) で描かれてきた。CNOT のターゲットも同じ ⊕ なので、単独 X と CNOT ターゲットで同じ見た目を共有することで「Plus = ビット反転」という視覚規約を統一できる。形状で X を識別させることで、Y / Z (文字グリフ) と一目で区別できる利点もある</li>
-      <li><strong>Plus グリフは文字ではなくベクタパス</strong>: 文字 "+" を font で描くと、Geist の "+" は記号バランスが細く、CNOT の太い ⊕ と一致しない。<code>components/x-gate.js</code> の Plus パスを 1:1 で使うことで、SDF テクスチャ焼き込みとも整合性をとる</li>
-      <li><strong>ホバー枠は同心円</strong>: 本体が真円なので、枠も <code>border-radius: 50%</code> で同心円にする。これは H ゲートの角丸枠と<em>形状だけ違って論理は同じ</em>: 本体外側 4 px の purple-400 + 2 px 背景の空き という幾何関係は完全に共通</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 07 設計判断の構造">
-      <div class="critique-label">★ 批評 · § 07 設計判断の構造</div>
-      <div class="critique-title">bullet 1 が 3 トピックを 1 文に圧縮し、優先順位が読み取れない</div>
-      <p class="critique-body">
-        現在の bullet 1 は (a) NOT の ⊕ 慣習 / (b) CNOT ターゲットと統一 / (c) Y / Z との形状区別の 3 つを
-        1 文で語る。読者が設計判断を引用したいとき、どれが「本質的理由」でどれが「副次的利点」かが取りにくい。
-        本質 (a + b) と 副次 (c) を 2 bullet に分割すれば、後続の Y / Z / S / T 仕様で「我々も形状で識別すべきか?」
-        を判断する際の論拠が明確になる。
-      </p>
-    </aside>
-
-    <aside class="critique" aria-label="批評 · X ゲート視覚デザインへの所見">
-      <div class="critique-label">★ 批評 · X ゲート視覚デザインそのもの (spec とは別軸)</div>
-      <div class="critique-title">canonical 一致と「ゲートとしての存在感」のトレードオフが議論されていない</div>
-      <p class="critique-body">
-        以下は spec ページの体裁ではなく、X ゲートの<strong>視覚デザインそのもの</strong>への批評。canonical
-        (<code>components/x-gate.js</code>) を 1:1 で踏襲する方針自体は妥当だが、その結果として X が回路上で持つ
-        プレゼンスについて、設計判断の中で議論されていない論点がいくつかある:
-      </p>
-      <ol class="critique-list">
-        <li><strong>視覚的存在感の弱さ</strong>: Plus が本体直径の 30 % (H 文字は 55 %)、腕の太さは 6 % (H ストロークは ≈ 10 %)。H / X / Y / Z を並べると X だけが「やや薄く」見える可能性がある。Quirk もこの傾向を持つが、qni-webgpu として canonical を見直す判断を放棄するかどうかは未明示。</li>
-        <li><strong>円形は wire に溶け込む</strong>: H / Y / Z の角丸正方形は wire (水平線) と直交して「ここに操作が立っている」シグナルを出すが、円は wire と接線で交わるため柔らかく溶け込む。エレガントだが、初学者には「ゲートが置かれている」アフォーダンスが弱まる。</li>
-        <li><strong>「Plus = ビット反転」の学習コスト</strong>: 専門家には自然な慣習だが、初見では「⊕ = XOR」と読まれがち。spec は「Quirk 由来の方針」と書くが、qni-webgpu として補強する設計余地 (ツールチップ / 初回 hover 時の bit-flip アニメーション / 隣接 wire への shimmer など) は明文化されていない。</li>
-      </ol>
-      <p class="critique-body">
-        これらは「canonical に従えば OK」で済む問題ではなく、Pauli 族の中で X だけが視覚的に特殊扱いされている
-        ことの帰結。spec 策定の段階で「ここは現状維持」「ここは検証が必要」を明示しておくと、後続の検証や
-        改修サイクルでブレない。
-      </p>
-    </aside>
+    <table class="spec"><tbody>
+      <tr><th>表記</th><td>Plus グリフ</td></tr>
+      <tr><th>実体</th><td><code>components/x-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
+      <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+      <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+      <tr><th>字形設計</th><td>文字 X ではなく Plus を使い、CNOT ターゲットの ⊕ と同じ読み取りを保つ。真円形状と組み合わせて「反転 / ターゲット」を示す。</td></tr>
+    </tbody></table>
+    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る X 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><x-gate></x-gate></div></div>
+      <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><x-gate></x-gate></div></div>
+    </div>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
   <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>ドキュメント</th><th>関係</th></tr>
-      </thead>
-      <tbody>
+    <p>X は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。CNOT では制御マーカと組み合わせ、同じ Plus グリフをターゲットとして使う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
+    <div class="slot-mock with-grid"><div class="wire" aria-hidden="true"><div class="slot"><x-gate></x-gate></div><div class="slot"></div><div class="slot"><x-gate></x-gate></div><div class="slot"></div><div class="slot"><x-gate></x-gate></div></div></div>
+    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。X 固有の配置差分だけを本ページで扱う。</p>
+  </div>
+</section>
+
+<!-- ─────── § 05 設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>設計判断</h2>
+  <div class="card">
+    <p>設計判断は「共通クロムからの継承」「X 固有」「妥協と将来対応」に分ける。これにより、X だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>X 固有</strong><span>計算基底の反転と CNOT ターゲットを同じ Plus グリフで表し、真円形状で角丸正方形ゲートと区別する。</span></div><div class="item"><strong>妥協と将来対応</strong><span>Plus グリフの太さや真円形状を変える場合は、CNOT ターゲットとしての読み取りやすさも同時に確認する。</span></div></div>
+  </div>
+</section>
+
+<!-- ─────── § 06 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>関連仕様</h2>
+  <div class="card"><table class="spec"><thead><tr><th>ドキュメント</th><th>関係</th></tr></thead><tbody>
         <tr>
-          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>1 量子ビット操作ゲートの基本仕様 (角丸正方形 + 文字グリフ)。X はその「形状違いの兄弟」として位置づけられる</td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の X ゲート (drag source) の見た目を canonical に定義。本仕様の本体 / Plus グリフは palette spec と 1:1</td>
+          <td>パレット上と回路上の X ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>ホバー枠 (purple-400 + bg gap) の方針。X ゲートでは形状を円にする調整のみ加える</td>
+          <td><a href="control-gate.html">Control ゲート</a></td>
+          <td>CNOT の制御マーカとして X ターゲットと組み合わせる。</td>
+        </tr>
+        <tr>
+          <td><a href="p-gate.html">P ゲート</a></td>
+          <td>同じ真円形状を使うパラメトリック位相ゲート。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="design-system-spacing.html">スペーシング</a></td>
-          <td>本体 40 px / スロット 56 px は Tailwind の <code>spacing-10</code> / <code>spacing-14</code> と一致</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
-        <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  </tbody></table></div>
 </section>
 
-<footer class="doc-foot">
-  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
-  <p class="meta">qni-webgpu · X ゲート (Pauli-X / NOT) · 2026-05</p>
-</footer>
+<footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · X ゲート (Pauli-X / NOT) · 2026-05</p></footer>
 
 </body>
 </html>

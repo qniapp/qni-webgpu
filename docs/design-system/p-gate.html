@@ -12,175 +12,127 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- P本体は <p-gate> カスタム要素で描画する。 -->
   <script src="components/p-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       本ページは「P ゲート」の常時表示モックを並べる役割なので、ゲート本体の見た目
-       (cyan-400 塗りつぶし円 + paper P グリフ + ホバー枠) を CSS + inline SVG で再現する。 */
+       ゲート本体の共通クロムは gate-chrome.html と各 Web Component に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
 
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
-      gap: 48px;                            /* spacing-12 */
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;                     /* spacing-4 */
-      padding: 24px 0;                      /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 160px;
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;                    /* text-xs default */
-      color: var(--tx-2);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom {
-      width: 192px;                         /* spacing-48 */
-      height: 192px;
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
     }
-    .stage .zoom p-gate {
+    .zoom :is(x-gate, y-gate, z-gate, sqrtx-gate, s-gate, s-dagger-gate, t-gate, t-dagger-gate, p-gate, rx-gate, ry-gate, rz-gate) {
       transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
     .slot-mock .wire {
       position: relative;
-      height: 56px;
-      width: 280px;                         /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
       background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
+    }
     .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
-    .geo-diagram {
-      display: flex;
-      align-items: center;
-      gap: 32px;                            /* spacing-8 */
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
-    }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
-
-    .matrix-card {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
-      gap: 12px;                            /* spacing-3 */
-      margin-top: 12px;                     /* spacing-3 */
-    }
-    .matrix-card .mini {
-      border: 1px solid var(--ui-2);
-      border-radius: 10px;
-      background: var(--bg-2);
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .matrix-card .mini strong { color: var(--tx); }
-
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html と同じスタイル (本仕様の sibling として一貫させる)。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
   <p-gate></p-gate>
 </div>
@@ -194,398 +146,134 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · ゲート仕様</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">P ゲート (位相 θ)</h1>
   <p class="page-lede">
-    単一量子ビットへ <code>diag(1, e<sup>iθ</sup>)</code> を適用するパラメトリック位相ゲート。
-    回路エディタ上では <strong>40 × 40 px の cyan-400 塗りつぶし円</strong>に字形 "P" を中央配置する。
-    S (= P(π/2)) / T (= P(π/4)) / Z (= P(π)) を 1 つの汎用形にまとめた位相系列の親で、
-    円形ボディを採用することで「角度パラメータを持つ位相ホイール」というメタファを字形と形状の両面で示す。
+    単一量子ビットへ <code>diag(1, e<sup>iθ</sup>)</code> を適用するパラメトリック位相ゲート。S / T / Z を含む位相系列の汎用形。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは P 固有の意味論、
+    <code>components/p-gate.js</code> の Shadow DOM、P としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「θ 可変パラメータ」というパラメトリックゲート性が本体の見た目に乗っていない</div>
-    <p class="critique-body">
-      40 px + 56 px ピッチ、ホバー枠 4+2、cyan-400 同族同色、Tailwind スケール厳守、stroke なし、
-      drag preview = purple-600 はユニタリ共通論点で、<a href="h-gate.html">h-gate.html</a> 全体所見と同じ批判が当てはまる。
-      円形ボディの選定根拠 (X との形状共有 + 字形差で識別) は <a href="x-gate.html">x-gate.html</a> 全体所見の
-      議論の延長線上にあり、本ページでは「X = Plus, P = 文字 P で識別できる」と簡潔に扱われている。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは P ゲート (位相 θ) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      P ページ固有の核心は <strong>「パラメトリックゲート (θ 可変) の見た目をどう表現するか」</strong>。page-lede では
-      <em>「円形ボディ = 位相ホイールのメタファ」</em>とパラメトリック性を形状に込めようとしているが、
-      現状の <strong>静的な円形 + 字形 "P"</strong> は θ の値や可変性をまったく示していない。S (P(π/2)) / T (P(π/4)) /
-      Z (P(π)) と P(θ) を並べたとき、ユーザは「P は θ をいじれる」という機能をクロムから読み取れない。
-      § 02 / § 05 の本文に「θ の現在値はホバーポップアップやパレットの数値入力など別チャネルで提示する」と
-      書かれているが、それは <em>設計判断としては有効</em>でも <em>パラメトリック性の視覚的シグナルが本体にない</em>という
-      課題は残る。Phase 族 (S / T / S† / T†) と並んだとき、「P だけが特別」を伝えるクロム上の差別化が円形以外にない。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>パラメトリック性の視覚的シグナルを本体に追加する余地を検討</strong> — 円周上に微小な θ マーカ (時計の針 / 扇形の角度インジケータ) を重ねる、あるいは P 字形の右下にミニ角度バッジ (例: "π/4") を出すなど、θ の存在 / 現在値を本体に乗せる選択肢がある。採否は別だが、選択肢の検討が § 07 に含まれていない (全体所見 / § 07 参照)。</li>
-      <li><strong>X との形状衝突を緩和する設計余地を § 07 で明示</strong> — § 07 リスト 1 で「円形は X と共有するが、X = Plus / P = 文字 P で識別できる」と書くが、これは <strong>X (CNOT ターゲット) と P (パラメトリック位相) という意味的にまったく異なる 2 つのゲート</strong>に同じ形状を使う設計判断。 Plus とアルファベット P はパッと見ても識別性が低くないが、初心者にとって「丸 = CNOT のターゲット」と「丸 = パラメトリック位相」の二重対応は学習負荷になる (§ 07 参照)。</li>
-      <li><strong>§ 05 状態バリアントに「θ パラメータ編集 UI 開閉中」状態を追加</strong> — 現状は default / hover / drag の 3 状態だが、パラメトリックゲートには「θ 編集 popover が開いている状態」も実シナリオで存在する (P 固有の状態)。これを §05 で扱わないと「θ をどう編集するか」の動線が仕様ページに残らない (§ 05 参照)。</li>
-      <li><strong>§ 07 「S / T / Z と冗長させる」設計判断の代償が議論されていない</strong> — P(π/2) = S / P(π/4) = T / P(π) = Z と意味的に同じゲートを別々に提供することは、UI 上「同じことが 4 通りで実現できる」という冗長性を生む。利点 (短い字形で読みやすい) は書かれているが、代償 (新規ユーザの「どれを使えばいいか」の判断負荷) は触れない (§ 07 参照)。</li>
-      <li><strong>RZ / RX / RY との位置づけを matrix-card に追加</strong> — 「RZ(θ) と P(θ) は大域位相を除いて等価」「P は Z 軸のみ / RZ は Z 軸の物理回転 (大域位相込み)」など、回転ゲート族との関係が本ページではほとんど扱われていない。matrix-card に「回転族との関係」セルを追加すると、ユーザが「いつ P を使い、いつ RZ を使うか」を判断できる (§ 07 参照)。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
+      <div class="item"><strong>p-gate.html が正</strong><span>P(θ) の意味、P グリフ、真円形状と θ 編集を分けて扱う判断。</span></div>
+      <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
+    </div>
+  </div>
 </section>
 
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>
-      P(θ) は <code>|1⟩</code> 成分にだけ位相 e<sup>iθ</sup> を加える 1 量子ビットゲートで、
-      θ を可変パラメータとして持つ。固定角の S / T / Z はすべて P の特殊例 (θ = π/2 / π/4 / π) として扱える。
-      見た目では「位相量」を別色で示さず、<strong>cyan-400 = ユニタリ操作ゲート</strong>という既存の色対応を守る。
-      P 固有情報は字形 "P" と円形ボディ (= 位相ホイール) で識別し、回路上に置いたときには
-      パレットや状態パネルで現在の θ 値を別途表示する想定。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col">
-        <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><p-gate></p-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><p-gate state="hover"></p-gate></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
-      ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 「位相ホイール」メタファが視覚に乗っていない">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">「円形 = 位相ホイール」のメタファが page-lede の文字情報だけで、視覚に乗らない</div>
-      <p class="critique-body">
-        page-lede では「円形ボディを採用することで角度パラメータを持つ位相ホイールというメタファを字形と形状の両面で示す」と
-        書かれているが、実際のクロムは <strong>cyan-400 の塗りつぶし円 + 文字 "P"</strong>で、円周上に角度指標は何もない。
-        位相ホイールとはユーザの<em>連想に依存する</em>メタファで、円形ボディだけからホイール性を読み取るのは
-        量子計算の素養が要る (RZ 回転ゲートのブロッホ球上の動きを知っているユーザ向け)。
-      </p>
-      <p class="critique-body">
-        改善案: § 01 概要のモックに「現在の θ 値を持つ P ゲート」のバリアントを追加し (例: 円周の一部に θ 角度マーカ、
-        または P 字形右下にミニ "π/4" バッジ)、位相ホイールという主張が単なる隠喩でなく視覚的シグナルとして
-        成立しうることを示す。採用しないとしても、「採用しなかった理由」を § 07 に明示しておくと、
-        後続の RX / RY / RZ ページがパラメトリックゲートの可視化を再検討するときの根拠になる。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体の塗り (既定)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール。H / X / Y / Z / S / T と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>字形 "P"</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上で相対輝度比 ≈ 2.8。枠線なしの塗りつぶし</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き (同心円)</td>
-        </tr>
-        <tr>
-          <td>本体の塗り (ドラッグ)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      P は θ を可変パラメータとして持つが、位相量を色で表現しない。
-      色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、
-      <code>purple-600</code> = ドラッグに限定する。θ の現在値は本体の見た目ではなく、
-      ホバーポップアップやパレットの数値入力など別チャネルで提示する。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 02 相対輝度比 2.8 vs 3.4 の矛盾">
-      <div class="critique-label">★ 批評 · § 02 配色</div>
-      <div class="critique-title">「相対輝度比 ≈ 2.8」は h-gate.html / x-gate.html の「≈ 3.4」と矛盾</div>
-      <p class="critique-body">
-        § 02 の「字形 "P" + paper」行は <code>cyan-400 上で相対輝度比 ≈ 2.8</code> と書くが、cyan-400 (#3AA99F) + paper (#FFFCF0)
-        という同じ前景・背景の対について <a href="h-gate.html">h-gate.html</a> / <a href="x-gate.html">x-gate.html</a> は <code>≈ 3.4</code>
-        と記載している。Phase 族の s-gate.html と同じ表記揺れで、どちらかが誤計算。同じ色対の輝度比が
-        4 ページ (h / x / s / s-dagger / p) でばらつくのは、設計トークンの単一情報源
-        (<a href="design-system-colors.html">design-system-colors.html</a>) が機能していないことを示唆する (s-gate.html / s-dagger-gate.html § 02 批評と同じ論点)。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
-        <tr><th>形状</th><td>塗りつぶし真円 (<code>border-radius: 50%</code> / 直径 40 px)</td></tr>
-        <tr><th>枠線</th><td>なし。本体色のみ。<code>components/p-gate.js</code> の <code>&lt;p-gate&gt;</code> と一致</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
-        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y / Z / S / T など他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
-        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
-        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <circle cx="20" cy="20" r="20" fill="#3AA99F"/>
-        <g transform="translate(11.444 28.804) scale(0.02480 -0.02480)" fill="#FFFCF0">
-          <path d="M92 0V710H347Q466 710 532.0 653.0Q598 596 598 495Q598 392 532.0 334.0Q466 276 347 276H178V0ZM178 360H347Q508 360 508 495Q508 626 347 626H178Z"/>
-        </g>
-        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
-          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
-          <text x="20" y="50.5" text-anchor="middle">40 px body (circle)</text>
-        </g>
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
-          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
-          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
-          <line x1="0" y1="48" x2="40" y2="48"/>
-          <line x1="0" y1="47" x2="0" y2="49"/>
-          <line x1="40" y1="47" x2="40" y2="49"/>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体直径 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
-        <p><strong>20 px</strong> · 本体半径 (<code>GATE_SIZE / 2</code>)</p>
-        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-    </p>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 04</span>字形 (P)</h2>
-  <div class="card">
-    <p>
-      中央字形は <code>components/p-gate.js</code> の <code>&lt;p-gate&gt;</code> が提供する。
-      CSS のテキスト描画ではなく、ベクタ字形 (p.svg 由来) を 40 px 本体へ重ねる。
-    </p>
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス (<code>&lt;symbol id="g-P"&gt;</code> と 1:1。実装側の P アイコンと共通)</td></tr>
-        <tr><th>パス座標</th><td><code>M92 0V710H347Q466 710 532.0 653.0Q598 596 598 495Q598 392 532.0 334.0Q466 276 347 276H178V0ZM178 360H347Q508 360 508 495Q508 626 347 626H178Z</code></td></tr>
-        <tr><th>変換</th><td><code>translate(13.733 34.565) scale(0.029760 -0.029760)</code> (viewBox 48 への正規化)</td></tr>
-        <tr><th>外形サイズ</th><td>viewBox 上で約 <code>15.1 × 21.1</code>。40 px 本体では約 <strong>12.6 × 17.6 px</strong></td></tr>
-        <tr><th>配置</th><td>水平・垂直ともに本体中心。P の縦棒が左寄りなので、光学中心を採用して bbox 中心を 40 px 本体の中心 (20, 20) に揃える</td></tr>
-        <tr><th>色</th><td><code>paper</code> (#FFFCF0)。枠線なしの塗りつぶし</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">3倍拡大 (字形の位置確認)</h3>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">既定 · 3倍拡大</div>
-        <div class="zoom"><p-gate></p-gate></div>
-      </div>
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">ホバー · 3倍拡大<br>(同心円枠 + 背景の空き)</div>
-        <div class="zoom"><p-gate state="hover"></p-gate></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      3 状態を <code>state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
-    </p>
+    <p>P ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。Rz(θ) とはグローバル位相を除いて同じ位相操作を表すが、P は行列 <code>diag(1, e<sup>iθ</sup>)</code> として説明する。デザイン上は真円形状と P 字形で、パラメータを持つ位相ゲートとして扱う。</p>
     <div class="stage">
-      <div class="col">
-        <div class="caption">① 既定<br>cyan-400 塗りつぶし円</div>
-        <div class="actual"><p-gate></p-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き (同心円)</div>
-        <div class="actual"><p-gate state="hover"></p-gate></div>
-      </div>
-      <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><p-gate state="drag"></p-gate></div>
-      </div>
+      <div class="col"><div class="caption">P ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      ドラッグ中は元位置のゲートを描かず、カーソル下のドラッグプレビューだけを描く。
-      P は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
-      θ パラメータの編集 UI (数値入力 / スライダ) はこの 3 状態とは別チャネルで提供される (未着手 / 別仕様)。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 05 「θ 編集中」状態が状態バリアントから欠落している">
-      <div class="critique-label">★ 批評 · § 05 状態バリアント</div>
-      <div class="critique-title">「θ パラメータ編集 UI 開閉中」は P 固有の重要な状態だが、別仕様として外部化されている</div>
-      <p class="critique-body">
-        P はパラメトリックゲートで、ユーザは θ を編集するために必ず「編集モード」を経由する。これは
-        default / hover / drag と並ぶ <strong>P 固有の第 4 状態</strong>だが、本文末尾の note では
-        <em>「未着手 / 別仕様」</em>として外部化されている。仕様ページとしては「P の状態空間 = 3 つ (他のゲートと共通)」と
-        ミスリードしうる構成で、P 固有の重要性 (パラメトリック性) が § 05 から欠けている。
-      </p>
-      <p class="critique-body">
-        改善案: § 05 に「④ θ 編集 popover が開いた状態 (placeholder)」を追加し、本体の上に
-        小さな数値入力 + スライダの仮スケッチを乗せる (実装は未着手で問題ない)。これがあれば、
-        「P は他のゲートと違って 4 状態目を持つ」が仕様レベルで明示され、別仕様のリンク先 (未着手) が
-        いつまで未着手で残るかの責任も明確になる。
-      </p>
-    </aside>
+    <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (P 字形の確認)</h2>
   <div class="card">
-    <p>
-      P ゲートは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
-      本体 40 px は中央配置で上下左右に 8 px の余白を持つ。
-    </p>
-    <div class="slot-mock with-grid">
-      <div class="wire">
-        <div class="slot"><p-gate></p-gate></div>
-        <div class="slot"></div>
-        <div class="slot"><p-gate></p-gate></div>
-        <div class="slot"></div>
-        <div class="slot"><p-gate></p-gate></div>
-      </div>
+    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ P 字形が各状態で破綻しないことだけを常時表示モックで確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">既定</div><div class="actual"><p-gate></p-gate></div></div>
+      <div class="col"><div class="caption">ホバー</div><div class="actual"><p-gate state="hover"></p-gate></div></div>
+      <div class="col"><div class="caption">ドラッグプレビュー</div><div class="actual"><p-gate state="drag"></p-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
-      隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
-    </p>
   </div>
 </section>
 
-<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<!-- ─────── § 03 グリフ ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <h2><span class="num">§ 03</span>グリフ "P"</h2>
   <div class="card">
-    <div class="matrix-card">
-      <div class="mini"><strong>行列</strong><br /><code>P(θ) = [[1, 0], [0, e<sup>iθ</sup>]]</code></div>
-      <div class="mini"><strong>基底状態</strong><br /><code>P(θ)|0⟩ = |0⟩</code><br /><code>P(θ)|1⟩ = e<sup>iθ</sup>|1⟩</code></div>
-      <div class="mini"><strong>ブロッホ球</strong><br />Z 軸まわりの θ 回転。確率を変えず相対位相だけを進める (大域位相を除けば RZ(θ) と等価)。</div>
-      <div class="mini"><strong>特殊化</strong><br /><code>P(π) = Z</code> / <code>P(π/2) = S</code> / <code>P(π/4) = T</code> / <code>P(0) = I</code>。Clifford 階層を θ で連続化したもの。</div>
+    <table class="spec"><tbody>
+      <tr><th>表記</th><td>P グリフ</td></tr>
+      <tr><th>実体</th><td><code>components/p-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
+      <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+      <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+      <tr><th>字形設計</th><td>P は可変位相 θ の親ゲートを示す字形。真円形状は「パラメータを持つ位相ホイール」の比喩として使う。</td></tr>
+    </tbody></table>
+    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る P 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
+    <div class="stage">
+      <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
+      <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><p-gate></p-gate></div></div>
     </div>
-    <ul>
-      <li><strong>円形ボディを採用する</strong>: P は θ を可変に持つ「位相ホイール」であり、固定角の S / T (角丸正方形) と視覚的に区別する。円形は X (CNOT ターゲット) と共有するが、X は Plus グリフ、P は文字 "P" グリフで識別できるため衝突しない</li>
-      <li><strong>パラメトリック回転 (RX / RY / RZ) とは違う見た目にする</strong>: RX / RY / RZ も θ を持つが、字形が 2 文字 (R + 軸) であり、角丸正方形ボディを使う。P は単独文字 + 円形で「単一軸 (Z) の位相のみ」「Clifford 階層の連続化」という固有の位置づけを示す</li>
-      <li><strong>位相量 θ を色で表現しない</strong>: θ = π/2 と π/4 で色を変えると、ホバー / ドラッグなどの状態色と衝突する。θ の現在値はホバーポップアップやパレットの数値入力など別チャネルで提示する</li>
-      <li><strong>S / T / Z と冗長させる</strong>: P(π/2) = S と P(π/4) = T は同じ作用だが、回路エディタ上では別ゲートとして残す。固定角は短い字形 ("S" / "T" / "Z") で読みやすく、ユーザの意図 (θ をいじりたいかどうか) が見た目から分かる利点を優先する</li>
-      <li><strong>枠線を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
-      <li><strong>span = 1 固定</strong>: P は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 07 冗長性 / X 衝突 / RZ 関係の議論不足">
-      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
-      <div class="critique-title">3 つの設計判断 (冗長性 / X 形状衝突 / RZ との関係) が一面的にしか議論されていない</div>
-      <p class="critique-body">
-        <strong>(1) 「S / T / Z と冗長させる」判断の代償</strong>: リスト 4 項目では「P(π/2) = S と P(π/4) = T を別ゲートとして残す」
-        利点 (短い字形で読みやすい / 意図が見た目から分かる) だけが書かれ、代償 (新規ユーザの「どれを使えばいいか」の判断負荷、
-        パレット上の冗長配置による情報密度の低下) は触れない。Phase 族 5 ページが提示する選択肢 (P / S / T / S† / T†)
-        は実用上「ほとんど S と T で済む」ので、初心者には「なぜ P が独立して必要か」が伝わりにくい。
-      </p>
-      <p class="critique-body">
-        <strong>(2) X との形状衝突</strong>: リスト 1 では「円形は X と共有するが、X = Plus / P = 文字 P で識別できるため衝突しない」と
-        断定するが、これは <strong>初心者が「丸 = NOT」と「丸 = パラメトリック位相」の二重対応を学ぶ負荷</strong>を考慮していない。
-        実 UI で X と P が同じ wire 上に隣接配置されたとき、字形 (Plus vs P) の判別性は本ページではモック検証されていない。
-      </p>
-      <p class="critique-body">
-        <strong>(3) RZ / RX / RY との関係</strong>: matrix-card の「ブロッホ球」セルに「大域位相を除けば RZ(θ) と等価」と書かれるが、
-        これは P と回転族の関係を理解するうえで根本的な情報。リストには「パラメトリック回転 (RX / RY / RZ) とは違う見た目にする」と
-        あるが、「P と RZ(θ) は大域位相を除いて等価」が決定的な区別点。matrix-card に「回転族との関係」セルを独立で立てると、
-        ユーザは「P を使うべき場面」と「RZ を使うべき場面」(大域位相が観測に影響する場合) を判断できる。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
   <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>ドキュメント</th><th>関係</th></tr>
-      </thead>
-      <tbody>
+    <p>P は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は本体クロムではなく、別の編集 UI で扱う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
+    <div class="slot-mock with-grid"><div class="wire" aria-hidden="true"><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div></div></div>
+    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。P 固有の配置差分だけを本ページで扱う。</p>
+  </div>
+</section>
+
+<!-- ─────── § 05 設計判断 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>設計判断</h2>
+  <div class="card">
+    <p>設計判断は「共通クロムからの継承」「P 固有」「妥協と将来対応」に分ける。これにより、P だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>P 固有</strong><span>可変位相であることは P 字形と編集 UI で示し、θ の値を本体色へ直接埋め込まない。</span></div><div class="item"><strong>妥協と将来対応</strong><span>θ の現在値を表示する場合は、ゲート本体の共通クロムではなく、パラメータ表示や編集ポップオーバの仕様として扱う。</span></div></div>
+  </div>
+</section>
+
+<!-- ─────── § 06 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>関連仕様</h2>
+  <div class="card"><table class="spec"><thead><tr><th>ドキュメント</th><th>関係</th></tr></thead><tbody>
         <tr>
-          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
-          <td>円形ボディを共有するもう 1 つの 1 量子ビットゲート。字形 (Plus vs "P") で識別する</td>
-        </tr>
-        <tr>
-          <td><a href="z-gate.html">Z ゲート (Pauli-Z)</a></td>
-          <td>Z 軸まわりの π 位相回転。<code>P(π) = Z</code> という関係を持つ位相系列の最大角</td>
-        </tr>
-        <tr>
-          <td><a href="s-gate.html">S ゲート (位相 π/2)</a></td>
-          <td>固定角の特殊例 <code>P(π/2) = S</code>。角丸正方形 + 文字グリフで P と対比される</td>
-        </tr>
-        <tr>
-          <td><a href="t-gate.html">T ゲート (位相 π/4)</a></td>
-          <td>固定角の特殊例 <code>P(π/4) = T</code>。Clifford + T で universal</td>
-        </tr>
-        <tr>
-          <td><a href="s-dagger-gate.html">S† ゲート (位相 −π/2)</a></td>
-          <td>固定角の逆回転。<code>P(-π/2) = S†</code></td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の P ゲートの <code>components/p-gate.js</code> の <code>&lt;p-gate&gt;</code> を定義する</td>
+          <td>パレット上と回路上の P ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 + 背景の空き のホバー枠 primitive。P は同心円版を使う (X と同じ)</td>
+          <td><a href="s-gate.html">S ゲート</a></td>
+          <td>P(π/2) に対応する固定位相ゲート。</td>
+        </tr>
+        <tr>
+          <td><a href="t-gate.html">T ゲート</a></td>
+          <td>P(π/4) に対応する固定位相ゲート。</td>
+        </tr>
+        <tr>
+          <td><a href="z-gate.html">Z ゲート</a></td>
+          <td>P(π) に対応する固定位相ゲート。</td>
+        </tr>
+        <tr>
+          <td><a href="rz-gate.html">Rz ゲート</a></td>
+          <td>グローバル位相を除いて同じ位相操作を表す回転ゲート。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
-      </tbody>
-    </table>
-  </div>
+  </tbody></table></div>
 </section>
 
-<footer class="doc-foot">
-  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
-  <p class="meta">qni-webgpu · P ゲート (位相 θ) · 2026-05</p>
-</footer>
+<footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · P ゲート (位相 θ) · 2026-05</p></footer>
 
 </body>
 </html>
