@@ -12,52 +12,15 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- Swap マーカは <swap-gate> カスタム要素で描画する。 -->
+  <script src="components/swap-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card /
        table.spec / pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       本ページは「Swap ゲート」の透明な 40px マーカ、4px 縦コネクタ、ホバー枠を
-       CSS + inline SVG で再現する。 */
+       本ページは「Swap ゲート」の透明な 40px マーカとホバー枠を <swap-gate> で描画し、
+       4px 縦コネクタをページ側で再現する。 */
 
-    /* ── Swap マーカ ────────────────────────────────
-       gate-palette.html の基準 <symbol id="g-Swap" viewBox="0 0 48 48"> と一致。
-       本体の塗りは持たず、40 × 40 px の透明な hit / hover 領域の中央に
-       cyan-400 の × を描く。線は viewBox 48 上の stroke 4 px。 */
-    .swap-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      color: var(--cyan-400);               /* Flexoki cyan-400 / box_fill */
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-    }
-    .swap-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-      overflow: visible;
-    }
-
-    /* 回路上のホバー枠。
-       実装側は transparent な Swap 内部を塗らず、body_rect.expand(4) に
-       purple-400 の 2px 線だけを描く。コネクタがマーカ内部で消えないようにするため。 */
-    .swap-gate[data-state="hover"]::before,
-    .swap-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                          /* body_rect.expand(4.0) */
-      border: 2px solid var(--purple-400);  /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-    .swap-gate[data-state="drag"] {
-      color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
-      cursor: grabbing;
-    }
+    /* Swap マーカ本体 / × 字形 / 回路ホバー枠は components/swap-gate.js の <swap-gate> に集約する。 */
 
     /* パレット上のホバー枠。palette panel は purple-400 の外側面 + surface の内側面を
        一度描いてから透明な Swap マーカを重ねる。 */
@@ -132,7 +95,7 @@
       transform: translateX(-50%);
       background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
     }
-    .swap-pair .swap-gate {
+    .swap-pair swap-gate {
       z-index: 1;
     }
 
@@ -204,7 +167,7 @@
       transform: translateX(-50%);
       pointer-events: none;
     }
-    .slot-mock .slot > .swap-gate { z-index: 1; }
+    .slot-mock .slot > swap-gate { z-index: 1; }
 
     /* ─── 批評コメント (Design Critique インライン挿入) ───
        通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
@@ -258,17 +221,8 @@
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Swap"> と同じ座標。
-     色は currentColor にし、既定 / ドラッグで CSS から cyan-400 / purple-600 を切り替える。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Swap" viewBox="0 0 48 48">
-    <line x1="12" y1="36" x2="36" y2="12" stroke="currentColor" stroke-width="4" stroke-linecap="butt" />
-    <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="4" stroke-linecap="butt" />
-  </symbol>
-</svg>
-
 <div id="preview">
-  <div class="swap-gate" aria-hidden="true"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+  <swap-gate aria-hidden="true"></swap-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -337,18 +291,18 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">単体マーカ<br>(透明な 40px 領域 + ×)</div>
-        <div class="actual"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+        <div class="actual"><swap-gate></swap-gate></div>
       </div>
       <div class="col">
         <div class="caption">2 端点<br>(同じ列で縦接続)</div>
         <div class="swap-pair">
-          <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
-          <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+          <swap-gate></swap-gate>
+          <swap-gate></swap-gate>
         </div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>線だけの紫枠</div>
-        <div class="actual"><div class="swap-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+        <div class="actual"><swap-gate state="hover"></swap-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -519,22 +473,22 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>cyan-400 ×</div>
-        <div class="actual"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+        <div class="actual"><swap-gate></swap-gate></div>
       </div>
       <div class="col">
         <div class="caption">② 回路ホバー<br>purple-400 線だけ</div>
-        <div class="actual"><div class="swap-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+        <div class="actual"><swap-gate state="hover"></swap-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>purple-600 ×</div>
-        <div class="actual"><div class="swap-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+        <div class="actual"><swap-gate state="drag"></swap-gate></div>
       </div>
       <div class="col">
         <div class="caption">④ パレットホバー<br>内側に背景色の空きあり</div>
         <div class="actual">
           <div class="palette-hover-host">
             <div class="palette-hover-inner">
-              <div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div>
+              <swap-gate></swap-gate>
             </div>
           </div>
         </div>
@@ -578,10 +532,10 @@
     <div class="slot-mock" aria-hidden="true">
       <span class="connector"></span>
       <div class="slot"></div>
-      <div class="slot"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      <div class="slot"><swap-gate></swap-gate></div>
       <div class="slot"></div>
       <div class="slot"></div>
-      <div class="slot"><div class="swap-gate"><svg viewBox="0 0 48 48"><use href="#g-Swap" /></svg></div></div>
+      <div class="slot"><swap-gate></swap-gate></div>
       <div class="slot"></div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -684,7 +638,7 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">gate-palette.html</a></td>
-          <td>パレットの基準 SVG <code>g-Swap</code> と、全ゲート一覧内の線幅・色の参照元</td>
+          <td><code>&lt;swap-gate&gt;</code> を使ったパレット上の Swap 表示と、全ゲート一覧内の線幅・色の参照元</td>
         </tr>
       </tbody>
     </table>
@@ -701,7 +655,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>Swap のパレット表示と <code>g-Swap</code> 基準 SVG</td>
+          <td>Swap のパレット表示で <code>&lt;swap-gate&gt;</code> を参照する</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>

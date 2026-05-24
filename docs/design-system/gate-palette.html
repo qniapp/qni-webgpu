@@ -16,6 +16,7 @@
        ゲート本体描画は各 <*-gate> に集約し、gp-gate ラップ側は palette 専用のクロム (hover frame / tooltip / grab cursor) を提供する。 -->
   <script src="components/h-gate.js"></script>
   <script src="components/x-gate.js"></script>
+  <script src="components/swap-gate.js"></script>
   <script src="components/y-gate.js"></script>
   <script src="components/z-gate.js"></script>
   <script src="components/s-gate.js"></script>
@@ -75,6 +76,7 @@
     .gp-gate svg { display: block; }
     .gp-gate > h-gate,
     .gp-gate > x-gate,
+    .gp-gate > swap-gate,
     .gp-gate > y-gate,
     .gp-gate > z-gate,
     .gp-gate > s-gate,
@@ -206,11 +208,6 @@
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
 
-    <!-- ─ Swap — cyan-400 × · stroke 4 (gate_glyphs.rs:123-128) ─ -->
-    <symbol id="g-Swap" viewBox="0 0 48 48">
-      <line x1="12" y1="36" x2="36" y2="12" stroke="#3AA99F" stroke-width="4"/>
-      <line x1="12" y1="12" x2="36" y2="36" stroke="#3AA99F" stroke-width="4"/>
-    </symbol>
 
 
 
@@ -348,7 +345,7 @@
             <div class="gp-gate" data-tip="RZ · Z-axis rotation"><rz-gate></rz-gate><span class="tip">RZ · Z-axis rotation</span></div>
           </div>
           <div class="gp-row">
-            <div class="gp-gate" data-tip="Swap"><svg width="40" height="40"><use href="#g-Swap"/></svg><span class="tip">Swap</span></div>
+            <div class="gp-gate" data-tip="Swap"><swap-gate></swap-gate><span class="tip">Swap</span></div>
             <div class="gp-gate" data-tip="Control · |1⟩"><control-gate></control-gate><span class="tip">Control · |1⟩</span></div>
             <div class="gp-gate" data-tip="Anti-control · |0⟩"><anti-control-gate></anti-control-gate><span class="tip">Anti-control · |0⟩</span></div>
             <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><write0-gate></write0-gate><span class="tip">|0⟩ · reset</span></div>
@@ -438,7 +435,7 @@
 
     <h3 style="margin-top: 24px;">Gates section · row 2 — 制御 / リセット / 計測 / 多量子ビット unitary (9 個 / indices 13, 14, 15, 17, 18, 19, 22, 23, 21)</h3>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Swap"/></svg></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
+      <div class="item"><div class="gp-gate"><swap-gate></swap-gate></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
       <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
       <div class="item"><div class="gp-gate"><anti-control-gate></anti-control-gate></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
       <div class="item"><div class="gp-gate"><write0-gate></write0-gate></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>

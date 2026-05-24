@@ -15,9 +15,9 @@
  *   <swap-gate state="drag"></swap-gate>   <!-- drag preview (× が purple-600) -->
  *
  * 設計判断:
- * - Shadow DOM (open): ホスト側の CSS が .swap-gate などを再定義しても見た目が壊れない
- * - SVG の × ラインは swap-gate.html § 03 / gate-palette.html の <symbol id="g-Swap">
- *   と完全一致 (line x1=12 y1=36 x2=36 y2=12 と line x1=12 y1=12 x2=36 y2=36、stroke-width 4)
+ * - Shadow DOM (open): ホスト側の CSS が swap-gate などを再定義しても見た目が壊れない
+ * - SVG の × ラインは swap-gate.html § 03 の正規ジオメトリと完全一致
+ *   (line x1=12 y1=36 x2=36 y2=12 と line x1=12 y1=12 x2=36 y2=36、stroke-width 4)
  * - Swap は「本体 fill を持たない透明なゲート」(swap-gate.html § 02) なので、
  *   ホバー枠は stroke 派生だけ持つ (内側を塗らない 2 px の紫線)。h-gate と違って
  *   .hover-gap (内側 paper 抜き) は不要 — 回路上の接続線が枠の内側を通っても消えない
@@ -74,7 +74,7 @@
 </style>
 <div class="hover-frame"></div>
 <div class="body">
-  <!-- × のラインは swap-gate.html § 03 / gate-palette.html <symbol id="g-Swap"> と完全一致。 -->
+  <!-- × のラインは swap-gate.html § 03 の正規ジオメトリと完全一致。 -->
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <line x1="12" y1="36" x2="36" y2="12" stroke="currentColor" stroke-width="4" stroke-linecap="butt"/>
     <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="4" stroke-linecap="butt"/>
