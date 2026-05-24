@@ -134,16 +134,7 @@ impl QniApp {
                 && self
                     .hovered_amplitude_outcome
                     .is_some_and(|(id, _)| id == gate.id);
-            let density_cell_hovered = gate.kind == GateKind::DensityMatrixDisplay
-                && self.density_display_slot(gate.id).is_some()
-                && self
-                    .hovered_density_cell
-                    .is_some_and(|(id, _)| id == gate.id);
-            if !fast_drag
-                && self.hovered_gate_id == Some(gate.id)
-                && !amplitude_cell_hovered
-                && !density_cell_hovered
-            {
+            if !fast_drag && self.hovered_gate_id == Some(gate.id) && !amplitude_cell_hovered {
                 let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
