@@ -129,12 +129,7 @@ impl QniApp {
                 let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
-            let amplitude_cell_hovered = gate.kind == GateKind::AmplitudeDisplay
-                && self.amplitude_display_slot(gate.id).is_some()
-                && self
-                    .hovered_amplitude_outcome
-                    .is_some_and(|(id, _)| id == gate.id);
-            if !fast_drag && self.hovered_gate_id == Some(gate.id) && !amplitude_cell_hovered {
+            if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
