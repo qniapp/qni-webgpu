@@ -32,6 +32,7 @@
   <script src="components/qft-gate.js"></script>
   <script src="components/qft-dagger-gate.js"></script>
   <script src="components/write0-gate.js"></script>
+  <script src="components/write1-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -87,7 +88,8 @@
     .gp-gate > anti-control-gate,
     .gp-gate > qft-gate,
     .gp-gate > qft-dagger-gate,
-    .gp-gate > write0-gate {
+    .gp-gate > write0-gate,
+    .gp-gate > write1-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -242,15 +244,6 @@
     </symbol>
 
 
-    <!-- ─ Write1 — gray bracket | ⟩ + blue 1 (digit1.svg) ─ -->
-    <symbol id="g-Write1" viewBox="0 0 48 48">
-      <line x1="6" y1="5" x2="6" y2="43" stroke="#6F6E69" stroke-width="2"/>
-      <line x1="37.4516" y1="5" x2="43.5" y2="24" stroke="#6F6E69" stroke-width="2"/>
-      <line x1="43.5" y1="24" x2="37.4516" y2="43" stroke="#6F6E69" stroke-width="2"/>
-      <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="#205EA6">
-        <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z"/>
-      </g>
-    </symbol>
 
     <!--
       ─ Measurement — purple-600 メーター (gate_glyphs.rs:18-41) ─
@@ -382,7 +375,7 @@
             <div class="gp-gate" data-tip="Control · |1⟩"><control-gate></control-gate><span class="tip">Control · |1⟩</span></div>
             <div class="gp-gate" data-tip="Anti-control · |0⟩"><anti-control-gate></anti-control-gate><span class="tip">Anti-control · |0⟩</span></div>
             <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><write0-gate></write0-gate><span class="tip">|0⟩ · reset</span></div>
-            <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><svg width="40" height="40"><use href="#g-Write1"/></svg><span class="tip">|1⟩ · reset</span></div>
+            <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><write1-gate></write1-gate><span class="tip">|1⟩ · reset</span></div>
             <div class="gp-gate" data-tip="Measurement · Z-basis"><svg width="40" height="40"><use href="#g-Measurement"/></svg><span class="tip">Z-basis measurement</span></div>
             <div class="gp-gate" data-tip="QFT · Quantum Fourier Transform"><qft-gate></qft-gate><span class="tip">QFT (span 1〜16)</span></div>
             <div class="gp-gate" data-tip="QFT† · inverse QFT"><qft-dagger-gate></qft-dagger-gate><span class="tip">QFT† (span 1〜16)</span></div>
@@ -472,7 +465,7 @@
       <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
       <div class="item"><div class="gp-gate"><anti-control-gate></anti-control-gate></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
       <div class="item"><div class="gp-gate"><write0-gate></write0-gate></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write1"/></svg></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
+      <div class="item"><div class="gp-gate"><write1-gate></write1-gate></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Measurement"/></svg></div><div class="label"><span class="name">Measurement</span><span>Z-basis 測定 (purple meter)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-gate></qft-gate></div><div class="label"><span class="name">QFT</span><span>Quantum Fourier Transform (resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-dagger-gate></qft-dagger-gate></div><div class="label"><span class="name">QFT†</span><span>inverse QFT (resizable)</span></div></div>
