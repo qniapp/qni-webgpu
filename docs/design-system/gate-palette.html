@@ -33,6 +33,7 @@
   <script src="components/qft-dagger-gate.js"></script>
   <script src="components/write0-gate.js"></script>
   <script src="components/write1-gate.js"></script>
+  <script src="components/measurement-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -89,7 +90,8 @@
     .gp-gate > qft-gate,
     .gp-gate > qft-dagger-gate,
     .gp-gate > write0-gate,
-    .gp-gate > write1-gate {
+    .gp-gate > write1-gate,
+    .gp-gate > measurement-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -245,16 +247,6 @@
 
 
 
-    <!--
-      ─ Measurement — purple-600 メーター (gate_glyphs.rs:18-41) ─
-      上半円 (cx=24, cy=36, r=20)、針 (24.625, 33.5)..(37.75, 11)、ピボット円 r=3.5
-      stroke 2 (= 2 * scale 計算後、SVG viewBox 48 では 2 のまま)
-    -->
-    <symbol id="g-Measurement" viewBox="0 0 48 48">
-      <path d="M 4 36 A 20 20 0 0 1 44 36" fill="none" stroke="#5E409D" stroke-width="2"/>
-      <line x1="24.625" y1="33.5" x2="37.75" y2="11" stroke="#5E409D" stroke-width="2"/>
-      <circle cx="24.625" cy="33.5" r="3.5" fill="#5E409D"/>
-    </symbol>
 
     <!-- ─ Spacer — 3 個の 6×6 squares at x=9, 21, 33 / y=21-27, tx 色 (gate_glyphs.rs:80-93) ─ -->
     <symbol id="g-Spacer" viewBox="0 0 48 48">
@@ -376,7 +368,7 @@
             <div class="gp-gate" data-tip="Anti-control · |0⟩"><anti-control-gate></anti-control-gate><span class="tip">Anti-control · |0⟩</span></div>
             <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><write0-gate></write0-gate><span class="tip">|0⟩ · reset</span></div>
             <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><write1-gate></write1-gate><span class="tip">|1⟩ · reset</span></div>
-            <div class="gp-gate" data-tip="Measurement · Z-basis"><svg width="40" height="40"><use href="#g-Measurement"/></svg><span class="tip">Z-basis measurement</span></div>
+            <div class="gp-gate" data-tip="Measurement · Z-basis"><measurement-gate></measurement-gate><span class="tip">Z-basis measurement</span></div>
             <div class="gp-gate" data-tip="QFT · Quantum Fourier Transform"><qft-gate></qft-gate><span class="tip">QFT (span 1〜16)</span></div>
             <div class="gp-gate" data-tip="QFT† · inverse QFT"><qft-dagger-gate></qft-dagger-gate><span class="tip">QFT† (span 1〜16)</span></div>
             <div class="gp-gate" data-tip="Spacer · 回路の空きスロット"><svg width="40" height="40"><use href="#g-Spacer"/></svg><span class="tip">Spacer · 回路の空きスロット</span></div>
@@ -466,7 +458,7 @@
       <div class="item"><div class="gp-gate"><anti-control-gate></anti-control-gate></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
       <div class="item"><div class="gp-gate"><write0-gate></write0-gate></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
       <div class="item"><div class="gp-gate"><write1-gate></write1-gate></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Measurement"/></svg></div><div class="label"><span class="name">Measurement</span><span>Z-basis 測定 (purple meter)</span></div></div>
+      <div class="item"><div class="gp-gate"><measurement-gate></measurement-gate></div><div class="label"><span class="name">Measurement</span><span>Z 基底測定 (purple-600 メーター)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-gate></qft-gate></div><div class="label"><span class="name">QFT</span><span>Quantum Fourier Transform (resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><qft-dagger-gate></qft-dagger-gate></div><div class="label"><span class="name">QFT†</span><span>inverse QFT (resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Spacer"/></svg></div><div class="label"><span class="name">Spacer</span><span>回路の空きスロット (drag 可能、placement 後は何も作用しない)</span></div></div>

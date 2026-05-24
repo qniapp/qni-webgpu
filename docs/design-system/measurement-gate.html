@@ -12,60 +12,12 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- 測定ゲート本体は <measurement-gate> カスタム要素で描画する。 -->
+  <script src="components/measurement-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
 
-    /* ── 測定ゲート本体 ────────────────────────────
-       実装: apps/web/src/icons/gate_glyphs.rs:draw_meter_icon。
-       40 × 40 px の透明な当たり判定領域に、Flexoki purple-600 のメーターを描く。
-       cyan-400 の角丸正方形は持たない。 */
-    .measurement-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      color: var(--purple-600);             /* semantic_intermediate */
-    }
-    .measurement-gate > svg,
-    .measurement-gate .digit-layer {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-      overflow: visible;
-    }
-    /* 回路上のホバー枠。実装は body_rect.expand(4) + 2 px stroke。
-       40 px 本体の外側 4 px に 48 × 48 px のリングを置き、内側 2 px は背景の空きとして残す。 */
-    .measurement-gate[data-state="hover"]::before,
-    .measurement-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border: 2px solid var(--purple-400); /* gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-    .measurement-gate[data-state="drag"] {
-      cursor: grabbing;
-    }
-
-    /* 測定済み状態。メーターは wire と同じ ui-2、結果ディジットだけが赤 / 青。 */
-    .measurement-gate[data-outcome] {
-      color: var(--ui-2);                   /* measurement_fired_icon */
-    }
-    .measurement-gate .digit-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      transform: translateY(1px);           /* MEASUREMENT_DIGIT_CENTER_Y_OFFSET */
-    }
-    .measurement-gate .digit-layer.digit-zero { color: var(--red-600); fill: var(--red-600); }  /* semantic_off */
-    .measurement-gate .digit-layer.digit-one  { color: var(--blue-600); fill: var(--blue-600); } /* semantic_on */
+    /* 測定ゲート本体 / 字形 / 結果表示は components/measurement-gate.js の <measurement-gate> に集約する。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
@@ -104,7 +56,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .measurement-gate {
+    .stage .zoom measurement-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -238,28 +190,9 @@
 </head>
 <body>
 
-<!-- SVG sprite: 実装の draw_meter_icon と shared digit atlas に合わせる。
-     viewBox は 48。ページ内では width/height 40 px に縮小して表示する。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-MeasurementMeter" viewBox="0 0 48 48">
-    <path d="M 4 36 A 20 20 0 0 1 44 36" fill="none" stroke="currentColor" stroke-width="2" />
-    <line x1="24.625" y1="33.5" x2="37.75" y2="11" stroke="currentColor" stroke-width="2" />
-    <circle cx="24.625" cy="33.5" r="3.5" fill="currentColor" />
-  </symbol>
-  <symbol id="g-Digit0" viewBox="0 0 48 48">
-    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="currentColor">
-      <path d="M300 -16Q223 -16 166.5 29.0Q110 74 80.0 157.0Q50 240 50 354Q50 469 80.0 552.0Q110 635 166.5 680.5Q223 726 300 726Q378 726 434.0 680.5Q490 635 520.0 552.0Q550 469 550 354Q550 240 520.0 157.0Q490 74 434.0 29.0Q378 -16 300 -16ZM140 354Q140 254 165 184L393 599Q354 642 300 642Q226 642 183.0 564.5Q140 487 140 354ZM300 68Q374 68 417.0 145.5Q460 223 460 354Q460 455 435 525L207 111Q246 68 300 68Z" />
-    </g>
-  </symbol>
-  <symbol id="g-Digit1" viewBox="0 0 48 48">
-    <g transform="translate(15.648 33.883) scale(0.027840 -0.027840)" fill="currentColor">
-      <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z" />
-    </g>
-  </symbol>
-</svg>
 
 <div id="preview">
-  <div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div>
+  <measurement-gate></measurement-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -308,7 +241,7 @@
     <ol class="critique-list">
       <li><strong>測定後の古典 wire (二重線) 表記の有無を仕様で確定</strong> — 教科書 / Qiskit drawer / Quirk では測定後の wire を二重線にして「これは古典ビット」と区別するが、本仕様は wire 表記の変化に触れていない (§ 03 / § 05 参照)。</li>
       <li><strong>「不可逆性」が視覚的にユーザに伝わっているか</strong> — メーター色を ui-2 へ退色させる方針は良いが、「測定が起きた = 後続の重ね合わせが壊れた」ことを示す要素 (例: 後続スロットへの subtle indicator) があるかは不明 (§ 04 / § 06 参照)。</li>
-      <li><strong>§ 04 状態バリアントが 4 状態 (既定 / ホバー / ドラッグ / 測定後) で過密</strong> — H 系の 3 状態に対し、Measurement だけ <code>data-outcome</code> という直交軸が追加され、4 状態のキャプションも文字数が揃わない (§ 04 参照)。</li>
+      <li><strong>§ 04 状態バリアントが 4 状態 (既定 / ホバー / ドラッグ / 測定後) で過密</strong> — H 系の 3 状態に対し、Measurement だけ <code>outcome</code> という直交軸が追加され、4 状態のキャプションも文字数が揃わない (§ 04 参照)。</li>
       <li><strong>§ 03 「wire マスク 4 px」の根拠と他ゲートとの比較</strong> — wire を切る ad-hoc な処理だが、Spacer / Write は wire マスクを使わない。なぜ Measurement だけが必要かの言語化が薄い (§ 03 参照)。</li>
       <li><strong>§ 02 配色テーブルに「ホバー枠」が回路 / パレットで分岐するのに、その分岐が 1 行に圧縮されている</strong> — 「回路上では 2 px の線だけ。パレット上は Gate palette に従う」と備考で書き分けているが、これは |0⟩ / |1⟩ / Spacer と共通の問題で、テーブル構造を見直す価値 (§ 02 参照)。</li>
     </ol>
@@ -326,19 +259,19 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>purple-600 メーター</div>
-        <div class="actual"><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="actual"><measurement-gate></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">ホバー<br>purple-400 の枠</div>
-        <div class="actual"><div class="measurement-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="actual"><measurement-gate state="hover"></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">測定済み 0<br>ui-2 + red-600</div>
-        <div class="actual"><div class="measurement-gate" data-outcome="0"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-zero" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit0" /></svg></div></div>
+        <div class="actual"><measurement-gate outcome="0"></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">測定済み 1<br>ui-2 + blue-600</div>
-        <div class="actual"><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+        <div class="actual"><measurement-gate outcome="1"></measurement-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -410,7 +343,7 @@
         <strong>(2) 結果ディジット (0 / 1)</strong>、<strong>(3) 場所別ホバー枠 (回路 / パレット)</strong> — を縦に並べているが、
         いずれも独立した軸で、現状の「用途」列に圧縮されている。
         加えて「ホバー枠」行の備考に <em>「回路上では 2 px の線だけ。パレット上は Gate palette の共通ホバー枠に従う」</em>と
-        2 種類のチョーキング (回路 / パレット) を 1 行に詰め込んでおり、h-gate.html § 02 の「ロール / 状態の軸圧縮」批評と
+        2 種類の扱い (回路 / パレット) を 1 行に詰め込んでおり、h-gate.html § 02 の「ロール / 状態の軸圧縮」批評と
         同じ問題を別軸で抱えている。
       </p>
       <p class="critique-body">
@@ -478,8 +411,8 @@
         「ここから先は古典ビット」と区別する慣習がある。これは「測定が量子 → 古典の変換である」という意味論の最も重要な視覚要素の 1 つだが、
         本仕様には wire 二重線の言及がなく、§ 05 の slot-mock を見ても測定前後の wire が同じ ui-2 単線で続いている。
         改善案: 「<strong>本仕様では古典 wire (二重線) を採用するかどうかを意図的に保留している</strong>」と書くか、
-        採用するなら本ページに wire 仕様も含めて統合する。これは <a href="wire-rendering.html">wire 仕様</a> (もし別仕様で存在するなら)
-        と相互参照すべき課題。
+        採用するなら本ページにワイヤ仕様も含めて統合する。別仕様として切り出す場合は、その実在する仕様と
+        相互参照すべき課題。
       </p>
     </aside>
   </div>
@@ -494,19 +427,19 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>未測定</div>
-        <div class="actual"><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="actual"><measurement-gate></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">② ホバー<br>2 px stroke</div>
-        <div class="actual"><div class="measurement-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="actual"><measurement-gate state="hover"></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>色変化なし</div>
-        <div class="actual"><div class="measurement-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="actual"><measurement-gate state="drag"></measurement-gate></div>
       </div>
       <div class="col">
         <div class="caption">④ 測定後<br>結果を重ねる</div>
-        <div class="actual"><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+        <div class="actual"><measurement-gate outcome="1"></measurement-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -518,8 +451,8 @@
       <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
       <div class="critique-title">既定 / ホバー / ドラッグ / 測定後の 4 状態が異なる軸で並んでおり、構造が読みにくい</div>
       <p class="critique-body">
-        本章は 4 つの状態モックを横並びで見せているが、よく見ると<strong>「① 既定 ② ホバー ③ ドラッグ」は <code>data-state</code> 軸 (UI 操作状態)</strong>、
-        <strong>「④ 測定後」は <code>data-outcome</code> 軸 (実行結果の有無)</strong>と<em>性質の違う 2 つの軸</em>を 1 つのストリップに並列に並べている。
+        本章は 4 つの状態モックを横並びで見せているが、よく見ると<strong>「① 既定 ② ホバー ③ ドラッグ」は <code>state</code> 軸 (UI 操作状態)</strong>、
+        <strong>「④ 測定後」は <code>outcome</code> 軸 (実行結果の有無)</strong>と<em>性質の違う 2 つの軸</em>を 1 つのストリップに並列に並べている。
         H / Rz の状態バリアントは UI 操作状態 1 軸の 3 状態だけで完結するが、Measurement だけは結果軸が加わるため、
         本来は 3 × 2 = 6 マスの直交表で示すべき情報を 1 行に圧縮している。
       </p>
@@ -546,11 +479,11 @@
     <div class="slot-mock with-grid">
       <div class="wire">
         <div class="slot"></div>
-        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg></div></div>
+        <div class="slot"><span class="wire-mask"></span><measurement-gate></measurement-gate></div>
         <div class="slot"></div>
-        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate" data-outcome="0"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-zero" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit0" /></svg></div></div>
+        <div class="slot"><span class="wire-mask"></span><measurement-gate outcome="0"></measurement-gate></div>
         <div class="slot"></div>
-        <div class="slot"><span class="wire-mask"></span><div class="measurement-gate" data-outcome="1"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-MeasurementMeter" /></svg><svg class="digit-layer digit-one" viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Digit1" /></svg></div></div>
+        <div class="slot"><span class="wire-mask"></span><measurement-gate outcome="1"></measurement-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -630,7 +563,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の測定ゲート <code>g-Measurement</code> とホバー枠を定義する</td>
+          <td>パレット上の測定ゲートでも <code>&lt;measurement-gate&gt;</code> を参照する</td>
         </tr>
         <tr>
           <td><a href="write0-gate.html">|0⟩ オペレーション</a></td>
