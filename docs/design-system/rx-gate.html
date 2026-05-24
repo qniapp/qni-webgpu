@@ -13,280 +13,215 @@
     }
   </script>
   <style>
-    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
-    /* ── Rx ゲート本体 ──────────────────────────────
-       gate-palette.html の基準 <symbol id="g-Rx"> と字形 path / transform が一致。
-       本体は角丸正方形 (Flexoki cyan-400 = box_fill ロール)。
-       width / height は Tailwind spacing-10 = 40 px、角丸は rounded-md = 6 px。 */
-    .rx-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
-      border-radius: 6px;                   /* rounded-md */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                     /* Flexoki paper / 字形 */
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      transition: background 120ms ease-out;
-    }
-    .rx-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-    }
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       ゲート本体の共通クロムは gate-chrome.html に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
 
-    /* ホバー枠 (hover-frame.html と同じ幾何)
-       box-shadow 内側から Flexoki bg 2 px → purple-400 の枠 2 px。 */
-    .rx-gate[data-state="hover"],
-    .rx-gate:not([data-state]):hover {
-      box-shadow:
-        0 0 0 2px var(--bg),                /* Flexoki bg */
-        0 0 0 4px var(--purple-400);        /* Flexoki purple-400 / gate_hover_border */
-    }
-
-    /* drag preview = Flexoki purple-600 / semantic_intermediate。 */
-    .rx-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
-      gap: 48px;                            /* spacing-12 */
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;                     /* spacing-4 */
-      padding: 24px 0;                      /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 160px;
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;                    /* text-xs default */
-      color: var(--tx-2);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
-      height: 56px;
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
+      min-height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom {
-      width: 192px;                         /* spacing-48 */
-      height: 192px;
+    .actual.tall { min-height: 168px; }
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
     }
-    .stage .zoom .rx-gate {
+    .zoom .gate-visual,
+    .zoom x-gate,
+    .zoom y-gate {
       transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
+    .gate-visual {
+      width: 40px;                       /* 共通クロムの基準本体。正は gate-chrome.html */
+      height: 40px;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .gate-visual::before,
+    .gate-visual::after {
+      content: '';
+      position: absolute;
+      display: none;
+      pointer-events: none;
+    }
+    .gate-visual::before {
+      inset: -4px;
+      border-radius: 10px;
+      background: var(--purple-400);     /* Flexoki purple-400 / gate_hover_border */
+    }
+    .gate-visual::after {
+      inset: -2px;
+      border-radius: 8px;
+      background: var(--bg);             /* Flexoki bg / paper */
+    }
+    .gate-visual.hover::before,
+    .gate-visual.hover::after { display: block; }
+    .gate-body {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+      color: var(--bg);                  /* Flexoki bg / label */
+      border-radius: 6px;
+    }
+    .gate-visual.circle .gate-body,
+    .gate-visual.circle::before,
+    .gate-visual.circle::after { border-radius: 9999px; }
+    .gate-visual.drag .gate-body { background: var(--purple-600); } /* Flexoki purple-600 / drag_fill */
+    .gate-body > svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+
+    .gate-visual.span {
+      height: calc(56px * var(--span, 2) - 16px); /* span 付きゲートの説明用。正は各 QFT 仕様。 */
+    }
+    .gate-visual.span .gate-body > svg {
+      width: 40px;
+      height: 40px;
+    }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
     .slot-mock .wire {
       position: relative;
-      height: 56px;
-      width: 280px;                         /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
       background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
+    }
     .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
-    .geo-diagram {
-      display: flex;
-      align-items: center;
-      gap: 32px;                            /* spacing-8 */
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
-    }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
-
-    .matrix-card {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
-      gap: 12px;                            /* spacing-3 */
-      margin-top: 12px;                     /* spacing-3 */
-    }
-    .matrix-card .mini {
-      border: 1px solid var(--ui-2);
+    .span-mock {
+      position: relative;
+      width: 280px;                      /* 説明用に 5 スロット分 */
+      height: 168px;                     /* 説明用に 3 ワイヤ分 */
+      margin-top: 16px;                  /* spacing-4 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
-      background: var(--bg-2);
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx-2);
+      overflow: hidden;
     }
-    .matrix-card .mini strong { color: var(--tx); }
-
-    /* ── θ パラメタ編集ポップオーバ モック (§ 06) ────── */
-    .theta-popover {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 8px;                   /* rounded-md - 2 */
-      box-shadow: 0 4px 14px rgba(16, 15, 15, 0.06);
-      min-width: 200px;
+    .span-mock .lane {
+      position: absolute;
+      left: 24px;                        /* spacing-6 */
+      right: 24px;
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 = wire */
     }
-    .theta-popover .label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2);
-      letter-spacing: 0.04em;
-    }
-    .theta-popover .row {
+    .span-mock .lane:nth-child(1) { top: 28px; }
+    .span-mock .lane:nth-child(2) { top: 84px; }
+    .span-mock .lane:nth-child(3) { top: 140px; }
+    .span-mock .span-slot {
+      position: absolute;
+      left: 120px;
+      top: 8px;
+      height: 152px;
       display: flex;
-      align-items: baseline;
-      gap: 8px;                             /* spacing-2 */
-    }
-    .theta-popover .row .greek {
-      font-family: var(--font-mono);
-      font-size: 14px;                      /* text-sm */
-      color: var(--tx-2);
-      min-width: 12px;
-    }
-    .theta-popover .value {
-      flex: 1;
-      font-family: var(--font-mono);
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx);
-      padding: 4px 8px;                     /* spacing-1 / spacing-2 */
-      background: var(--bg-2);
-      border: 1px solid var(--ui-2);
-      border-radius: 4px;
-    }
-    .theta-popover .preset-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;                             /* spacing-1 */
-    }
-    .theta-popover .preset {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;
-      padding: 2px 8px;                     /* spacing-0.5 / spacing-2 */
-      background: var(--bg-2);
-      border: 1px solid var(--ui-2);
-      border-radius: 999px;
-      color: var(--tx-2);
-      cursor: pointer;
-    }
-    .theta-popover .preset.active {
-      background: var(--cyan-400);
-      color: var(--bg);
-      border-color: var(--cyan-400);
-    }
-    .popover-frame {
-      display: flex;
-      gap: 32px;                            /* spacing-8 */
       align-items: center;
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
+      justify-content: center;
     }
 
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html / x-gate.html / ry-gate.html と同じスタイル。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Rx"> と完全一致する Rx 字形を
-     ローカル symbol として定義する。字形色は currentColor ではなく明示的に paper を指定する
-     (palette 側と同じ "cyan-400 本体 + paper 字形" の組を 1 個の symbol で完結させる)。 -->
 <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
   <symbol id="g-Rx" viewBox="0 0 48 48">
     <rect width="48" height="48" rx="7.2" fill="#3AA99F"/>
@@ -313,8 +248,9 @@
   </symbol>
 </svg>
 
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
-  <div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div>
+  <div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -326,417 +262,165 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · gate spec</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">Rx ゲート (X 軸回転 θ)</h1>
   <p class="page-lede">
-    単一量子ビットへ <code>e<sup>−iθX/2</sup></code> を適用する <strong>X 軸まわりのパラメタ可変回転ゲート</strong>。
-    回路エディタ上では <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の 2 文字グリフ "Rx" を中央配置する。
-    回転角 θ は配置後にパラメタ編集ポップオーバで決め、見た目では H / Y / Z / S / T と同じ 1 量子ビットゲートのクロムを継承する。
+    X 軸まわりに角度 θ だけ回転するパラメトリックゲート。θ によって X / √X などに対応する。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは Rx 固有の意味論、
+    <code>apps/web/assets/icons/rx.svg</code> 由来の SVG path、Rx としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ───────
-     Rotation 家系 (Rx / Ry / Rz) で共通する論点は ry-gate.html (中央のページ) に集約し、
-     本ページ (Rx) では Rx 固有 (X / √X との使い分け、Rx(π/2) 固定角の別名 √X) に絞る。
-     共通論点 (チェーン / chrome 重複 / θ ポップオーバ未 primitive 化) は ry-gate.html を参照。 -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">Rotation 族共通の論点は <a href="ry-gate.html">ry-gate.html</a> に集約、本ページは「Rx / X / √X の三つ巴」に固有性がある</div>
-    <p class="critique-body">
-      配色 (§ 02) / ジオメトリ (§ 03) / グリッド配置 (§ 06 前半) は <a href="h-gate.html">h-gate.html</a> と完全に共通、
-      字形 2 文字グリフ (§ 04) / θ パラメタ編集 (§ 06 後半) は <a href="ry-gate.html">ry-gate.html</a> と共通の論点なので、
-      <strong>本ページの全体所見はそれらを参照</strong>するに留め、Rx 固有の論点だけを以下に展開する。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは Rx ゲート (X 軸回転 θ) としての意味、字形、固有の設計判断を定義し、角丸正方形の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      Rx の固有性は <strong>「Rx / X / √X の 3 ゲートが palette に並列に存在する」</strong>こと。
-      数学的には <code>Rx(π) ∝ X</code> / <code>Rx(π/2) ∝ √X</code> で、Ry が「Y / Ry の 2 ゲートだけ」、Rz が「Z / S / T / Rz の 4 ゲートだけ」
-      なのに対し、Rx だけが固定角ハードコードの正方形ゲート (√X) を持つ。これは <em>ハードウェア実装で √X が NISQ デバイスの
-      ネイティブゲートになっている</em>歴史的経緯による。結果として Rx ページでは <strong>「ユーザーが Rx(π/2) と √X のどちらを置くか」</strong>
-      という意思決定支援が必要になり、§ 07 に bullet が 2 つ (Rx(π) と X / Rx(π/2) と √X) 並ぶことになる。
-      この決定樹を § 01 概要に小型 flowchart として置くと、初学者の認知負荷が下がる。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (Rx 固有のものを中心に)</div>
-    <ol class="critique-list">
-      <li><strong>「Rx / X / √X どれを置くか」の決定樹を § 01 に置く</strong> — Rx 固有の認知負荷の根源 (全体所見参照)。Ry / Rz では別名固定角が 0 個 / 3 個なので発生しない。</li>
-      <li><strong>Rotation 族共通の論点は <a href="ry-gate.html">ry-gate.html</a> へ集約</strong> — 字形 2 文字グリフ / θ ポップオーバ primitive / 「θ を色に持たせない」判断は Rx でも該当するが、本ページでは Ry を canonical として参照に留める (§ 02 / § 04 / § 06 参照)。</li>
-      <li><strong>§ 07 関連欄に <code>√Y</code> / <code>√Z</code> がないことの非対称を補足</strong> — 「Ry(π/2) ≡ √Y」「Rz(π/2) ≡ S = √Z」と書けば、Rx と Y / Z 族の構造差が一目で見える。現状は X / √X だけ言及されており、対称性の欠如が読者に伝わらない。</li>
-      <li><strong>§ 07 「Rx(π) と X を別カード」の根拠を強化</strong> — 「ハードウェア / 教育文脈で役割が違う」とあるが、もう一段下って「IBM Q / Rigetti のネイティブゲートは Rx ではなく √X + virtual-Z」「教育文脈では X = NOT というクラシカル対応がある」など、判断の根拠を spec として書ききる (§ 07 参照)。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item">
+        <strong>gate-chrome.html が正</strong>
+        <span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span>
+      </div>
+      <div class="item">
+        <strong>rx-gate.html が正</strong>
+        <span>Rx(θ) の意味、Rx グリフ、角度編集を本体クロムから分離する判断。</span>
+      </div>
+      <div class="item">
+        <strong>個別ページで再定義しない</strong>
+        <span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span>
+      </div>
+    </div>
+  </div>
 </section>
 
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>
-      Rx は X = Pauli-X の連続版で、任意角 θ の <strong>ブロッホ球 X 軸まわりの回転</strong>を表す。
-      θ = π で Rx = −iX、θ = π/2 で √X (グローバル位相を除いて等価) に一致するため、X / √X の上位互換として
-      ハードウェア実装に近い回路を組むときに使う。見た目では「固定角」「任意角」を別色にせず、
-      <strong>cyan-400 = ユニタリ操作ゲート</strong>という既存の色対応を守る。
-      Rx 固有情報は字形 "Rx" と説明文、そしてパラメタ編集ポップオーバの θ 値に閉じる。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col">
-        <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
-      ジオメトリ / 配色 / 字形 / θ パラメタ編集の詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 Rx vs X vs √X の決定樹">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">「X / √X の上位互換」と書きつつ、ユーザーが Rx と X / √X のどちらを置くべきかの基準が無い</div>
-      <p class="critique-body">
-        本文は <em>θ = π で Rx = −iX、θ = π/2 で √X (グローバル位相を除いて等価) に一致するため、X / √X の上位互換として
-        ハードウェア実装に近い回路を組むときに使う</em> と書く。しかし palette には <strong>Rx / X / √X が並列に並んでいる</strong>ので、
-        ユーザー視点では「ハードコード固定角を使うべきか、Rx で任意角にしておくべきか」という選択が常に発生する。
-        本仕様はこの選択の<strong>判断軸 (回路を hardware-aware に書くか / 高校〜大学初級の教科書回路として書くか)</strong>
-        を spec していない。
-      </p>
-      <p class="critique-body">
-        提案: § 01 末尾に小型 flowchart (「角度を固定で動かす → X / √X、scan で変えたい → Rx」「IBM Q ターゲット → √X、汎用 → Rx」)
-        を置く。Ry には別名固定角が 0 個、Rz には 3 個 (Z / S / T) で、Rx の 2 個 (X / √X) と同じ問題が Rz でも起きる。
-        この決定樹は Rotation 族 + Pauli / Phase の<strong>横断仕様</strong>に置く価値があり、ここでは Rx 固有の事例として
-        サブセットを示すかたちでよい。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体 fill (既定)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール。H / X / Y / Z / S / T と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>字形 "Rx"</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上で相対輝度比 ≈ 3.4。stroke なしの塗りつぶし</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
-        </tr>
-        <tr>
-          <td>本体 fill (ドラッグ)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      Rx の回転角 θ は色に持たせない。θ の現在値はポップオーバ (§ 06) と回路セルの数値ラベル
-      (例: <code>π/2</code>) で表現し、本体の色相 / 明度は θ によって変化させない。
-      色に意味を持たせる範囲は <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、
-      <code>purple-600</code> = ドラッグに限定する。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 02 配色">
-      <div class="critique-label">★ 批評 · § 02 配色</div>
-      <div class="critique-title">テーブルは H ページ完全重複、「θ を色に持たせない」判断は Rotation 族共通の論点</div>
-      <p class="critique-body">
-        配色テーブル (cyan-400 / paper / purple-400 / purple-600 の 4 行) は <a href="h-gate.html">h-gate.html § 02</a> と完全に同一。
-        H ページの「ロール × 状態の軸圧縮」批評がそのまま該当する。
-        テーブル直下の note の「θ は色に持たせない」判断は Rotation 族 (Rx / Ry / Rz) 共通の論点で、
-        詳細は <a href="ry-gate.html">ry-gate.html § 02 の批評</a>を参照 (Rx ページでは再展開しない)。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
-        <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>stroke</th><td>なし。本体色のみ。<a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Rx</code> の字形 path / transform と一致 (palette 側は背景 <code>rect</code> も含む)</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
-        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y / Z / S / T など他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
-        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
-        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <rect x="0" y="0" width="40" height="40" rx="6" fill="#3AA99F"/>
-        <!-- gate-palette の (48 viewBox) から 40 px body 用に再スケール (× 40/48 = 0.8333)
-             scale: 0.022080 × 0.8333 = 0.018400
-             "R": translate(8.710 × 0.8333, 31.838 × 0.8333) = (7.258, 26.532)
-             "x": translate(23.724 × 0.8333, 31.838 × 0.8333) = (19.770, 26.532) -->
-        <g fill="#FFFCF0">
-          <g transform="translate(7.258 26.532) scale(0.018400 -0.018400)">
-            <path d="M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496Q615 434 579.5 389.5Q544 345 494 330Q543 322 570.5 292.0Q598 262 603 207L622 0H513L496 193Q493 236 467.0 256.5Q441 277 382 277H194V0ZM194 376H371Q432 376 467.5 406.0Q503 436 503 493Q503 550 466.5 580.5Q430 611 362 611H194Z"/>
-          </g>
-          <g transform="translate(19.770 26.532) scale(0.018400 -0.018400)">
-            <path d="M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z"/>
-          </g>
-        </g>
-        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
-          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
-          <text x="20" y="50.5" text-anchor="middle">40 px body</text>
-        </g>
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
-          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
-          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
-          <line x1="0" y1="48" x2="40" y2="48"/>
-          <line x1="0" y1="47" x2="0" y2="49"/>
-          <line x1="40" y1="47" x2="40" y2="49"/>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
-        <p><strong>6 px</strong> · 角丸半径 (<code>rounded-md</code>)</p>
-        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-    </p>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 04</span>字形 (Rx)</h2>
-  <div class="card">
-    <p>
-      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 SVG <code>g-Rx</code> と同じ path / transform を使う。
-      CSS のテキスト描画ではなく、palette 側で定義された "R" + "x" の 2 つのベクタ字形を 40 px 本体へ重ねる。
-      H / Y / Z / S / T が単一文字なのに対し、Rx は <strong>大文字 R + 小文字 x の 2 字形</strong>でひと組。
-      Ry / Rz / 大文字 R 始まりのパラメタ可変ゲートと字形パターンを共有する。
-    </p>
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス × 2 個 (<code>&lt;symbol id="g-Rx"&gt;</code> と 1:1)</td></tr>
-        <tr><th>"R" path</th><td><code>M86 0V710H369Q482 710 548.5 652.0Q615 594 615 496…</code></td></tr>
-        <tr><th>"x" path</th><td><code>M14 0 250 356 16 710H143L318 440L490 710H616…</code></td></tr>
-        <tr><th>"R" 変換</th><td><code>translate(8.710 31.838) scale(0.022080 -0.022080)</code> (viewBox 48 への正規化)</td></tr>
-        <tr><th>"x" 変換</th><td><code>translate(23.724 31.838) scale(0.022080 -0.022080)</code></td></tr>
-        <tr><th>外形サイズ</th><td>viewBox 上で "Rx" 全体が約 <code>28 × 16</code>。40 px 本体では約 <strong>23.3 × 13.3 px</strong></td></tr>
-        <tr><th>配置</th><td>"R" と "x" の bbox 合算の幾何中心を 40 px 本体の中心 (20, 20) に揃える。 "R"→"x" の横間隔は palette の kerning と同じ (Ry / Rz では x 位置だけ差し替えて共通の見た目を保つ)</td></tr>
-        <tr><th>色</th><td><code>paper</code> (#FFFCF0)。stroke なしの塗りつぶし</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">3× zoom (字形の位置確認)</h3>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">既定 · 3× zoom</div>
-        <div class="zoom"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">ホバー · 3× zoom<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 04 字形 Rx 固有の論点">
-      <div class="critique-label">★ 批評 · § 04 字形 (Rx 固有)</div>
-      <div class="critique-title">2 文字グリフ全般の論点は <a href="ry-gate.html">ry-gate.html § 04</a> に集約、Rx 固有は「x が X ゲートのプラスとどう違って見えるか」</div>
-      <p class="critique-body">
-        Rotation 族共通の論点 (字形の高さが H の 53 % に対し 33 %、kerning の出所、3× zoom の必要性、Rotation 族親仕様化)
-        は ry-gate.html § 04 の批評を参照。本ページでは Rx 固有の論点だけ展開する。
-      </p>
-      <ul class="critique-list">
-        <li><strong>"x" と <a href="x-gate.html">X ゲート</a>のプラス記号 "⊕" がパレット上で隣接する</strong> — palette 上では Rx (角丸正方形 cyan-400 + paper "Rx") と X (cyan-400 円形 + paper "+") がしばしば並ぶ。"x" 字形は X (大文字) と区別される字形だが、目を素早く動かしたときに混同するか / しないかは実描画で検証が必要。<strong>「R」が頭につくことで Rx と X の差別化が成立する</strong>とは書かれているが、ベースの "x" 自体は X ゲートの "⊕" よりも視覚的に弱い。</li>
-        <li><strong>"x" path <code>M14 0 250 356 16 710H143L318 440L490 710H616L382 358L619 0H492L316 274L140 0Z</code> は対称形</strong> — 上下対称 (descender なし) で、Ry の "y" (実は Y を縮小) や Rz の "z" (descender なし) と並べたとき、字形高さが揃いやすい。これは Geist Bold の偶然の恩恵で、もし Rotation 族親仕様で「字形高さの canonical」を決めるなら、Rx の "x" を基準にできる。</li>
-        <li><strong>外形 23.3 × 13.3 px</strong> は H ページの "H" (21 × 21 ≈ 53 %) と比べて高さ約 33 %。Ry / Rz と並べたとき視覚的に「軽い」印象になりやすい。実装で本体の中央 (y = 20) に来るかどうかの検証スクショが本仕様にはない。</li>
-      </ul>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      既定に加え、ホバー / ドラッグ状態を <code>data-state</code> 属性で強制したモック。ホバーやドラッグ操作をしなくても状態差を確認できる。
+      Rx ゲートは回転軸と角度を持つ可変ゲートで、X 軸まわりの連続的な操作を表す。デザイン上は標準の角丸正方形ゲートとし、軸は Rx 字形で示す。
     </p>
     <div class="stage">
       <div class="col">
-        <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
-        <div class="actual"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><div class="rx-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="caption">Rx ゲート<br />既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
       </div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。
-      Rx は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
-      θ パラメタ編集ポップオーバ (§ 06) は ① 既定状態のセルを再クリック / 長押しで開く。
+    <p class="note" style="margin-top: 12px;">
+      ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は
+      <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置と θ パラメタ編集 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>回路グリッド上の配置と θ パラメタ編集</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (Rx 字形の確認)</h2>
   <div class="card">
     <p>
-      Rx ゲートは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
-      本体 40 px は中央配置で上下左右に 8 px の余白を持つ。配置後にクリックすると θ 値編集ポップオーバが開く。
+      状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。
+      ここでは同じ Rx 字形が各状態で破綻しないことだけを常時表示モックで確認する。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー</div>
+        <div class="actual"><div class="gate-visual square hover"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ドラッグプレビュー</div>
+        <div class="actual"><div class="gate-visual square drag"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 03 グリフ ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>グリフ "Rx"</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>表記</th><td>Rx グリフ</td></tr>
+        <tr><th>実体</th><td><code>apps/web/assets/icons/rx.svg</code> 由来の SVG path。本仕様ページのモックでも同じ字形を描く。</td></tr>
+        <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+        <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+        <tr><th>字形設計</th><td>Rx は大文字 R と軸名 x の 2 文字で、回転ゲートであることと X 軸であることを同時に示す。</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      字形は共通クロムの上に載る Rx 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">実表示<br />既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
+      </div>
+      <div class="col wide">
+        <div class="caption">3× 表示<br />字形位置の確認用</div>
+        <div class="zoom"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      Rx は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は別の編集 UI で扱う。
+      スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。
     </p>
     <div class="slot-mock with-grid">
-      <div class="wire">
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+      <div class="wire" aria-hidden="true">
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
         <div class="slot"></div>
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
         <div class="slot"></div>
-        <div class="slot"><div class="rx-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div>
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div></div></div>
       </div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
-      隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
+    <p class="note" style="margin-top: 12px;">
+      点線代わりの薄いスロット境界やワイヤは説明用で、実 UI の描画そのものではない。Rx 固有の配置差分だけを本ページで扱う。
     </p>
-
-    <h3 style="margin-top: 24px;">θ パラメタ編集ポップオーバ (モック)</h3>
-    <p>
-      Rx は配置後に回転角 θ を編集する。ポップオーバは <strong>cell の右下から</strong> 8 px のオフセットで開き、
-      自由入力 (ラジアン / 数式) と π 系プリセット (<code>0 / π/4 / π/2 / π / 3π/2</code>) の併用を許す。
-      値編集中もゲート本体の色 / サイズは変えず、現在の θ はセル下に数値ラベル (例: <code>π/2</code>) として描く。
-    </p>
-    <div class="popover-frame">
-      <div class="actual" style="width: 56px; height: 56px;">
-        <div class="rx-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Rx-glyph"/></svg></div>
-      </div>
-      <div class="theta-popover" role="group" aria-label="Rx θ パラメタ編集ポップオーバ (モック)">
-        <span class="label">RX · X-AXIS ROTATION</span>
-        <div class="row">
-          <span class="greek">θ</span>
-          <span class="value">π / 2</span>
-        </div>
-        <div class="preset-row">
-          <span class="preset">0</span>
-          <span class="preset">π/4</span>
-          <span class="preset active">π/2</span>
-          <span class="preset">π</span>
-          <span class="preset">3π/2</span>
-        </div>
-      </div>
-    </div>
-    <p class="note">
-      ポップオーバ自体のクロム (枠 / 影 / 角丸) はトーストや context menu と共通の primitive にそろえる予定
-      (別仕様で定義)。Ry / Rz / P も同じポップオーバを共有し、ラベル ("RX" / "RY" / "RZ" / "PHASE")
-      とプリセット集合のみが差分。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 06 θ ポップオーバ Rx 固有">
-      <div class="critique-label">★ 批評 · § 06 θ パラメタ編集ポップオーバ</div>
-      <div class="critique-title">primitive 化 / preset 集合 / popover placement の論点は <a href="ry-gate.html">ry-gate.html § 06</a> 参照、Rx 固有は「√X / X との preset 表記」</div>
-      <p class="critique-body">
-        Rotation 族共通の論点 (primitive 切り出し / セル下 θ ラベル / preset chip active state / 負角 preset の欠落 / popover placement)
-        は ry-gate.html § 06 の批評を参照。本ページでは Rx 固有の論点だけ展開する。
-      </p>
-      <ul class="critique-list">
-        <li><strong>preset chip <code>π</code> と <code>π/2</code> に「= X」「= √X」のラベルを付けるか</strong> — Rx(π) ∝ X / Rx(π/2) ∝ √X という別カードへの参照を preset 内でほのめかすと、ユーザーは <em>「あ、ここで Rx(π) を選ぶなら X を置けばいいんだ」</em>と気づける (Top Opportunities の決定樹と接続)。一方で chip が縦に伸びて 56 px ピッチを侵食するリスクもあり、tooltip 表示などの代替手段を検討する余地がある。</li>
-        <li><strong>ラベル "RX · X-AXIS ROTATION"</strong> — モックでは uppercase "RX" だが、本体の字形は "Rx" (大文字 + 小文字)。popover ラベルの規約 (uppercase / camelCase / 本体字形踏襲) が Ry の "RY" / Rz の "RZ" と整合してはいるが、本体字形との不一致は読者に違和感を残す。Rotation 族親仕様で popover ラベルの<strong>規約</strong>を 1 度決めると良い。</li>
-      </ul>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<!-- ─────── § 05 設計判断 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
-    <div class="matrix-card">
-      <div class="mini">
-        <strong>行列</strong><br />
-        <code>Rx(θ) = [[cos(θ/2), −i sin(θ/2)], [−i sin(θ/2), cos(θ/2)]]</code>
+    <p>
+      設計判断は「共通クロムからの継承」「Rx 固有」「妥協と将来対応」に分ける。
+      これにより、Rx だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。
+    </p>
+    <div class="decision-grid">
+      <div class="item">
+        <strong>共通クロムからの継承</strong>
+        <span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span>
       </div>
-      <div class="mini">
-        <strong>基底状態</strong><br />
-        <code>Rx(θ)|0⟩ = cos(θ/2)|0⟩ − i sin(θ/2)|1⟩</code><br />
-        <code>Rx(θ)|1⟩ = −i sin(θ/2)|0⟩ + cos(θ/2)|1⟩</code>
+      <div class="item">
+        <strong>Rx 固有</strong>
+        <span>回転軸は Rx 字形で示し、θ の値は本体色や形状ではなく編集 UI に委ねる。</span>
       </div>
-      <div class="mini">
-        <strong>ブロッホ球</strong><br />
-        X 軸まわりの θ 回転。θ = π で確率を完全反転 (= X)、θ = π/2 で √X (大域位相を除く) と等価。
-      </div>
-      <div class="mini">
-        <strong>関係</strong><br />
-        <code>Rx(0) = I</code> / <code>Rx(π) = −iX</code> / <code>Rx(π/2) ∝ √X</code> /
-        <code>Rx(2π) = −I</code>
+      <div class="item">
+        <strong>妥協と将来対応</strong>
+        <span>θ プリセットや現在値を表示する場合は、Rotation 族共通のパラメータ表示として扱う。</span>
       </div>
     </div>
-    <ul>
-      <li><strong>H / Y / Z と同じ角丸正方形にする</strong>: Rx は文字グリフで識別する通常の 1 量子ビットゲート。X だけは CNOT ターゲットと同じ ⊕ 記号を共有するため円形にする</li>
-      <li><strong>2 文字グリフ "Rx" を採用する</strong>: 大文字 R で「Rotation」、小文字 x で「軸ラベル」を表す。これは Qiskit / Cirq / Quirk と一致するアカデミック表記。すべて大文字 "RX" は palette の他のゲート (H / Y / Z / S / T) と並べたとき視覚的に重く、字形バランスが崩れる</li>
-      <li><strong>回転角 θ を色で表現しない</strong>: θ は連続パラメタなので色相 / 明度マッピングは不安定 (θ = π と θ = π + 0.001 が同色)。θ の現在値はセル下の数値ラベルとポップオーバ (§ 06) に閉じる</li>
-      <li><strong>Rx(π) と X を別カードとして残す</strong>: 数学的には大域位相を除いて等価だが、ハードウェア / 教育文脈では「X = 固定 NOT」「Rx = 連続パラメタ」と役割が違うため、palette でも UI でも別ゲートとして並べる</li>
-      <li><strong>Rx(π/2) と √X を別カードとして残す</strong>: 同様に、√X は固定角の「半 NOT」ゲートとして使う場面 ("half-X" や Clifford 系列の説明) があるため、Rx(π/2) とは別アイコンを持つ</li>
-      <li><strong>stroke を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
-      <li><strong>span = 1 固定</strong>: Rx は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 07 設計判断 Rx 固有">
-      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
-      <div class="critique-title">「Rx(π) と X」「Rx(π/2) と √X」を別カードにする根拠が「ハードウェア / 教育文脈」止まりで spec として弱い</div>
-      <p class="critique-body">
-        bullet 4 と 5 (Rx(π) と X / Rx(π/2) と √X を別カードに残す) は本ページ最大の Rx 固有判断だが、根拠が
-        <em>「ハードウェア / 教育文脈では役割が違う」</em>という一般論で済まされている。
-        spec として記述を強化するなら、もう一段下りた根拠が要る:
-      </p>
-      <ul class="critique-list">
-        <li><strong>ハードウェア</strong>: IBM Q / Rigetti / IonQ などの NISQ デバイスは <code>√X</code> + virtual-Z をネイティブゲートとして公開し、任意角の <code>Rx</code> は <code>Ry / Rz / √X</code> の合成で実現される。「<code>Rx(π/2)</code> を置く」と「<code>√X</code> を置く」では transpile 後のゲート数が違うので、別カードである必然性がある。</li>
-        <li><strong>教育文脈</strong>: <code>X = NOT</code> は古典論理と直接対応し、「ビット反転」というクラシカル直感が効く。<code>Rx(π) = −iX</code> は同じ操作だが大域位相 <code>−i</code> が付くため<strong>説明の文脈が違う</strong> (「グローバル位相は観測できない」という別話題)。</li>
-      </ul>
-      <p class="critique-body">
-        補足: Y / Z 族との非対称も spec で言及する価値がある — <strong>Ry には対応する「√Y」が palette に無く</strong>、
-        Rz には <code>S = √Z</code> として既に存在する。Rx 族の「X / √X / Rx」だけが 3 つ揃うのは、ハードウェアで √X (= sqrt-NOT)
-        がよく出てくる歴史的経緯による。これは Rotation 族親仕様または Pauli / Phase 親仕様で言及すべき横断的特徴で、
-        本ページからリンクするだけでも読者の理解が深まる。
-      </p>
-      <p class="critique-body">
-        補足 2: bullet 1 (角丸正方形) / bullet 6 (stroke なし) / bullet 7 (span = 1) はユニタリゲート族共通の話で、
-        h-gate.html § 07 の批評と同じ「(a) 族共通 / (b) Rotation 共通 / (c) Rx 固有」の階層化が必要 (詳細は ry-gate.html § 07 参照)。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
+<!-- ─────── § 06 関連仕様 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <h2><span class="num">§ 06</span>関連仕様</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -744,44 +428,32 @@
       </thead>
       <tbody>
         <tr>
-          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>角丸正方形 + 文字グリフの基本仕様。Rx は同じクロムを 2 文字グリフ版で継承する</td>
-        </tr>
-        <tr>
-          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
-          <td>Rx(π) と大域位相を除いて等価。固定 NOT としての X と連続回転の Rx の使い分けを定義する</td>
-        </tr>
-        <tr>
-          <td><a href="sqrtx-gate.html">√X ゲート (square-root X)</a></td>
-          <td>Rx(π/2) と大域位相を除いて等価。半 NOT の固定角版として別カードで残す</td>
-        </tr>
-        <tr>
-          <td><a href="y-gate.html">Y ゲート (Pauli-Y)</a></td>
-          <td>Y 軸の固定回転 (π)。同じパターンで Ry (連続) と並ぶ</td>
-        </tr>
-        <tr>
-          <td><a href="z-gate.html">Z ゲート (Pauli-Z)</a></td>
-          <td>Z 軸の固定回転 (π)。同じパターンで Rz / S / T (連続および固定角の位相) と並ぶ</td>
-        </tr>
-        <tr>
-          <td><a href="t-gate.html">T ゲート (位相 π/4)</a></td>
-          <td>Z 軸の固定 π/4 回転。Rz(π/4) と大域位相を除いて等価。Clifford+T で universal</td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Rx ゲート (ドラッグ元) の基準 SVG <code>g-Rx</code> を定義する。Ry / Rz も <code>g-Ry</code> / <code>g-Rz</code> として隣接配置</td>
+          <td>パレット上と回路上の Rx ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 + 背景の空き のホバー枠 primitive。Rx は角丸正方形版を使う</td>
+          <td><a href="ry-gate.html">Ry ゲート</a></td>
+          <td>Y 軸まわりのパラメトリック回転。</td>
+        </tr>
+        <tr>
+          <td><a href="rz-gate.html">Rz ゲート</a></td>
+          <td>Z 軸まわりのパラメトリック回転。</td>
+        </tr>
+        <tr>
+          <td><a href="x-gate.html">X ゲート</a></td>
+          <td>Rx(π) に対応する作用。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
       </tbody>
     </table>

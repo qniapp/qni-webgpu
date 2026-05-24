@@ -13,214 +13,215 @@
     }
   </script>
   <style>
-    /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
-    /* ── Z ゲート本体 ──────────────────────────────
-       gate-palette.html の基準 <symbol id="g-Z"> と一致。
-       本体は角丸正方形 (Flexoki cyan-400 = box_fill ロール)。
-       width / height は Tailwind spacing-10 = 40 px、角丸は rounded-md = 6 px。 */
-    .z-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
-      border-radius: 6px;                   /* rounded-md */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg);                     /* Flexoki paper / 字形 */
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      isolation: isolate;
-      transition: background 120ms ease-out;
-    }
-    .z-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-    }
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       ゲート本体の共通クロムは gate-chrome.html に委譲し、
+       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
 
-    /* ホバー枠 (hover-frame.html と同じ幾何)
-       Flexoki purple-400 の 2 px 枠を本体外側 4 px に描き、間の 2 px は塗らない。 */
-    .z-gate[data-state="hover"]::before,
-    .z-gate:not([data-state]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                          /* spacing-1 */
-      border: 2px solid var(--purple-400);  /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-
-    /* ドラッグプレビュー = Flexoki purple-600 / semantic_intermediate。 */
-    .z-gate[data-state="drag"] {
-      background: var(--purple-600);
-      cursor: grabbing;
-    }
-
-    /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
       display: flex;
-      gap: 48px;                            /* spacing-12 */
+      gap: 32px;                         /* spacing-8 */
       align-items: flex-start;
       flex-wrap: wrap;
-      margin-top: 16px;                     /* spacing-4 */
-      padding: 24px 0;                      /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
     }
     .stage .col {
       display: flex;
       flex-direction: column;
-      gap: 8px;                             /* spacing-2 */
+      gap: 8px;                          /* spacing-2 */
       align-items: center;
-      max-width: 160px;
+      max-width: 184px;
       text-align: center;
     }
-    .stage .col .caption {
+    .stage .col.wide { max-width: 220px; }
+    .caption {
       font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;                    /* text-xs default */
-      color: var(--tx-2);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
     }
-    .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
-      height: 56px;
+    .actual {
+      width: 56px;                       /* 説明用スロット幅 */
+      min-height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom {
-      width: 192px;                         /* spacing-48 */
-      height: 192px;
+    .actual.tall { min-height: 168px; }
+    .zoom {
+      width: 160px;                      /* spacing-40 */
+      height: 160px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
     }
-    .stage .zoom .z-gate {
+    .zoom .gate-visual,
+    .zoom x-gate,
+    .zoom y-gate {
       transform: scale(3);
       transform-origin: center;
     }
 
-    /* ── 回路スロット モック (§ 06) ───────────────── */
+    .responsibility-grid,
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .responsibility-grid .item,
+    .decision-grid .item {
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+    }
+    .responsibility-grid strong,
+    .decision-grid strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .responsibility-grid span,
+    .decision-grid span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
+    .gate-visual {
+      width: 40px;                       /* 共通クロムの基準本体。正は gate-chrome.html */
+      height: 40px;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .gate-visual::before,
+    .gate-visual::after {
+      content: '';
+      position: absolute;
+      display: none;
+      pointer-events: none;
+    }
+    .gate-visual::before {
+      inset: -4px;
+      border-radius: 10px;
+      background: var(--purple-400);     /* Flexoki purple-400 / gate_hover_border */
+    }
+    .gate-visual::after {
+      inset: -2px;
+      border-radius: 8px;
+      background: var(--bg);             /* Flexoki bg / paper */
+    }
+    .gate-visual.hover::before,
+    .gate-visual.hover::after { display: block; }
+    .gate-body {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+      color: var(--bg);                  /* Flexoki bg / label */
+      border-radius: 6px;
+    }
+    .gate-visual.circle .gate-body,
+    .gate-visual.circle::before,
+    .gate-visual.circle::after { border-radius: 9999px; }
+    .gate-visual.drag .gate-body { background: var(--purple-600); } /* Flexoki purple-600 / drag_fill */
+    .gate-body > svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+
+    .gate-visual.span {
+      height: calc(56px * var(--span, 2) - 16px); /* span 付きゲートの説明用。正は各 QFT 仕様。 */
+    }
+    .gate-visual.span .gate-body > svg {
+      width: 40px;
+      height: 40px;
+    }
+
     .slot-mock {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 24px 32px;                   /* spacing-6 / spacing-8 */
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
+      padding: 24px 32px;                /* spacing-6 / spacing-8 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       overflow-x: auto;
     }
     .slot-mock .wire {
       position: relative;
-      height: 56px;
-      width: 280px;                         /* 5 slots × 56 px */
+      height: 56px;                      /* 説明用スロット高 */
+      width: 280px;                      /* 説明用に 5 スロット分 */
       display: flex;
       align-items: center;
       justify-content: space-around;
       flex-shrink: 0;
       background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                       /* 説明用スロット幅 */
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    .slot-mock.with-grid .slot { box-shadow: inset -1px 0 0 var(--ui); }
+    .slot-mock.with-grid .slot {
+      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
+    }
     .slot-mock.with-grid .slot:last-child { box-shadow: none; }
 
-    /* ── ピクセル内訳図 (§ 03) ─────────────────────── */
-    .geo-diagram {
+    .span-mock {
+      position: relative;
+      width: 280px;                      /* 説明用に 5 スロット分 */
+      height: 168px;                     /* 説明用に 3 ワイヤ分 */
+      margin-top: 16px;                  /* spacing-4 */
+      background: var(--bg);             /* Flexoki bg */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .span-mock .lane {
+      position: absolute;
+      left: 24px;                        /* spacing-6 */
+      right: 24px;
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 = wire */
+    }
+    .span-mock .lane:nth-child(1) { top: 28px; }
+    .span-mock .lane:nth-child(2) { top: 84px; }
+    .span-mock .lane:nth-child(3) { top: 140px; }
+    .span-mock .span-slot {
+      position: absolute;
+      left: 120px;
+      top: 8px;
+      height: 152px;
       display: flex;
       align-items: center;
-      gap: 32px;                            /* spacing-8 */
-      padding: 24px 0;                      /* spacing-6 */
-      flex-wrap: wrap;
+      justify-content: center;
     }
-    .geo-diagram svg { display: block; }
-    .geo-diagram .legend {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      line-height: 16px;                    /* text-xs default */
-      color: var(--tx-2);
-    }
-    .geo-diagram .legend strong { color: var(--tx); }
 
-    .matrix-card {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
-      gap: 12px;                            /* spacing-3 */
-      margin-top: 12px;                     /* spacing-3 */
-    }
-    .matrix-card .mini {
-      border: 1px solid var(--ui-2);
-      border-radius: 10px;
-      background: var(--bg-2);
-      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-      color: var(--tx-2);
-    }
-    .matrix-card .mini strong { color: var(--tx); }
-
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文 (.note = tx-2 段落) と視覚的に分離する。red-600 を左ボーダーと
-       薄背景に使い、「仕様」「補足」「批評」の三層が一目で識別できるようにする。
-       h-gate.html と同じスタイル (Pauli 兄弟ページとして一貫させる)。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5 % で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
   </style>
 </head>
 <body>
 
-<!-- SVG sprite: 実装 (apps/web/assets/icons/z.svg) と完全一致する Z 字形を
-     <symbol id="g-Z"> として定義する。字形色は currentColor で .z-gate から継承する。 -->
 <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
   <symbol id="g-Z" viewBox="0 0 48 48">
     <g transform="translate(15.905 34.565) scale(0.029760 -0.029760)">
@@ -229,8 +230,9 @@
   </symbol>
 </svg>
 
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
 <div id="preview">
-  <div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div>
+  <div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -242,367 +244,165 @@
 </nav>
 
 <div class="page">
-  <p class="eyebrow">qni-webgpu · design system · ゲート仕様</p>
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
   <h1 class="page-title">Z ゲート (Pauli-Z)</h1>
   <p class="page-lede">
-    単一量子ビットへ Pauli-Z 行列を適用する位相反転ゲート。回路エディタ上では
-    <strong>40 × 40 px の cyan-400 角丸正方形</strong>に Geist Bold 由来の字形 "Z" を中央配置する。
-    X のような円形や位相専用色は使わず、H / Y / S / T と同じ 1 量子ビットゲートの見た目を継承する。
+    1 量子ビットの位相反転ゲート。<code>|1⟩</code> 成分の符号を反転し、Z 軸まわりの 180° 回転に対応する。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは Z 固有の意味論、
+    <code>apps/web/assets/icons/z.svg</code> 由来の SVG path、Z としての設計判断だけを定義する。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<!-- ─────── § 00 本ページの責務 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「測定基底を変えない唯一の Pauli」という Z 固有の機能が前面に出ていない</div>
-    <p class="critique-body">
-      ユニタリゲートクロム (40 px 本体 + 56 px ピッチ + cyan-400 + paper グリフ + 4+2 のホバー枠 + drag preview = purple-600) は
-      <a href="h-gate.html">h-gate.html</a> の全体所見と同じ批判 (ページ間で内容が重複し、親仕様の抽出が望ましい) がそのまま当てはまる。
-      ここでは Z 固有の論点に絞ると、本ページの最大の特色は <strong>Pauli-Z 行列 <code>diag(1, -1)</code> が対角行列であり、
-      計算基底 |0⟩ / |1⟩ の確率分布を一切変えず位相だけを反転する</strong>こと。これは X / Y にはない、Z 固有の機能で、
-      「測定結果からは Z が置かれたかどうか直接見えない」という非自明な振る舞いをもたらす。
+  <h2><span class="num">§ 00</span>本ページの責務</h2>
+  <div class="card">
+    <p>
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは Z ゲート (Pauli-Z) としての意味、字形、固有の設計判断を定義し、角丸正方形の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
-    <p class="critique-body">
-      にもかかわらず、§ 01 では「位相反転ゲート」と書くだけで、「測定では見えない」という特徴は § 07 の <code>matrix-card</code>
-      の <code>Z|0⟩ = |0⟩ / Z|1⟩ = -|1⟩</code> から読者が自分で気づくしかない。Z を初めて学ぶ読者には
-      「同じ見た目の H / Y と何が違うのか」が、本文中で明示的に述べられていない。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>§ 01 で「測定基底を変えない」特性を 1 段落で明示</strong> — Z は確率分布を変えず、Z|0⟩ = |0⟩ / Z|1⟩ = -|1⟩ という対角行列の特異性を前文に置く。現状は § 07 の <code>matrix-card</code> でしか伝わらず、H / Y と並べたときに「何が違うか」が初見では分かりにくい (§ 01 / § 07 参照)。</li>
-      <li><strong>§ 03 SVG の text-anchor 注記が英語 ("56 px slot" / "40 px body") のまま</strong> — 兄弟ページ (h-gate.html / y-gate.html) は「56 px スロット」「40 px 本体」のように日本語化済み。本ページだけ英語表記が残り、表記揺れになっている (§ 03 参照)。</li>
-      <li><strong>§ 04 の見出し「3倍拡大」と本文中の「3× zoom」表記揺れ</strong> — h3 は「3倍拡大」、本ページ中の他の表記 (キャプションなど) は「3倍拡大」「3× zoom」混在の可能性がある。兄弟ページは「3× zoom」で統一されており、表記をどちらかに寄せる (§ 04 参照)。</li>
-      <li><strong>cyan-400 + paper のコントラスト比 2.78 が WCAG AA 大文字基準 (3.0) 未満</strong> — § 02 配色表は数値を出すが、§ 07 の設計判断では妥協が議論されていない。「色を意味に使わない」設計の代償として明示する (§ 02 / § 07 参照)。</li>
-      <li><strong>「ホバー枠の幾何が H / X と微妙に違う」可能性</strong> — 本ページの <code>.z-gate::before</code> は <code>border: 2px solid + inset: -4px</code> の実装で、H / X の <code>::before + ::after</code> 2 層構造と異なる。視覚結果は近いが、purple-400 線と paper 抜きの幾何が完全に一致するか要検証 (§ 02 参照)。</li>
-    </ol>
-  </aside>
+    <div class="responsibility-grid">
+      <div class="item">
+        <strong>gate-chrome.html が正</strong>
+        <span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span>
+      </div>
+      <div class="item">
+        <strong>z-gate.html が正</strong>
+        <span>Pauli-Z の意味、Z グリフ、Z として色差を持たせない判断。</span>
+      </div>
+      <div class="item">
+        <strong>個別ページで再定義しない</strong>
+        <span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span>
+      </div>
+    </div>
+  </div>
 </section>
 
+<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>
-      Pauli-Z は <code>|1⟩</code> 成分の符号だけを反転し、確率を変えずに相対位相を変える基本ゲート。
-      見た目では「位相」を別色にせず、<strong>cyan-400 = ユニタリ操作ゲート</strong>という既存の色対応を守る。
-      Z 固有の情報は字形 "Z" と説明文だけで表し、H / Y と横並びに置いたときの同族感を優先する。
-    </p>
-    <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
-      <div class="col">
-        <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">ホバー<br>purple-400 の枠 +<br>背景の空き</div>
-        <div class="actual"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 16px;">
-      3 状態 (既定 / ホバー / ドラッグ) の比較は <strong>§ 05 状態バリアント</strong>、
-      ジオメトリ / 配色 / 字形の詳細は § 02 以降を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 01 Z 固有の機能の表現不足">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">Z の核心 (測定基底を変えない / 対角行列) が前文に出てこない</div>
-      <p class="critique-body">
-        本文は「<code>|1⟩</code> 成分の符号だけを反転し、確率を変えずに相対位相を変える」と書いており、
-        ここに <strong>Z 固有の特異性</strong>が凝縮されている。だがすぐ次の段で「<em>cyan-400 = ユニタリ操作ゲートという既存の色対応を守る</em>」
-        という見た目の話に移ってしまい、機能と意味論を読者が掴む前に視覚同族論で覆ってしまう。
-      </p>
-      <p class="critique-body">
-        Z は X / Y と違って「ビット反転を起こさない」唯一の Pauli であり、量子コンピュータ初学者にとっては
-        <em>「何をするゲートか」が直感的に分かりにくい</em>代表格。「Z|0⟩ = |0⟩、Z|1⟩ = -|1⟩ なので、Z の前後で測定確率は変わらない」
-        という具体的な振る舞いを 1 段落で示すと、本ページ単独でも Z の存在意義が掴める。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 02</span>配色 (Flexoki Light)</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>備考</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>本体の塗り (既定)</td>
-          <td><code>cyan-400</code></td>
-          <td><code>box_fill</code> ロール。H / X / Y と共通の操作ゲート色</td>
-        </tr>
-        <tr>
-          <td>字形 "Z"</td>
-          <td><code>paper</code> (<code>bg</code>)</td>
-          <td>cyan-400 上で相対輝度比 ≈ 2.78。枠線なしの塗りつぶし</td>
-        </tr>
-        <tr>
-          <td>ホバー枠</td>
-          <td><code>purple-400</code></td>
-          <td><code>gate_hover_border</code> ロール。本体外側 4 px、内側に 2 px の背景の空き</td>
-        </tr>
-        <tr>
-          <td>本体の塗り (ドラッグ)</td>
-          <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ本体色を置き換える</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 12px;">
-      Z は位相反転を担うが、位相の種類を色で表現しない。色に意味を持たせる範囲は
-      <code>cyan-400</code> = 操作ゲート、<code>purple-400</code> = ホバー、<code>purple-600</code> = ドラッグに限定する。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 02 ホバー枠の実装が H と異なる">
-      <div class="critique-label">★ 批評 · § 02 配色 / ホバー枠の幾何</div>
-      <div class="critique-title">本ページのホバー枠は <code>border + inset: -4px</code> 単層構造で、H ページの <code>::before + ::after</code> 2 層と異なる</div>
-      <p class="critique-body">
-        本ページの CSS は <code>.z-gate::before { border: 2px solid var(--purple-400); inset: -4px; }</code> という<strong>単層実装</strong>。
-        一方 <a href="h-gate.html">h-gate.html</a> は <code>::before</code> で purple-400 を <code>inset: -4px</code> の塗りに、
-        <code>::after</code> で paper を <code>inset: -2px</code> の塗りに重ね、結果として 2 px 線を「中抜き」する 2 層構造になっている。
-        視覚的にはどちらも「本体から 2 px 離れた位置に 2 px 紫線」に見えるが、<em>2 層方式は背景色が paper でないときも正しく抜ける</em>
-        のに対し、本ページの単層 <code>border</code> 方式は本体外側 2〜4 px の領域 (4 px 枠の内側 2 px) に何も描かないため、
-        親要素の背景がそのまま透けて見える。回路の背景が常に paper (bg) なら結果は同じだが、
-        将来 dark mode や card 上に Z ゲートを配置するときに見え方が変わる。
-      </p>
-      <p class="critique-body">
-        配色表の備考列には「本体外側 4 px、内側に 2 px の背景の空き」とだけ書かれており、実装方式の差は隠れている。
-        <a href="hover-frame.html">hover-frame.html</a> primitive の canonical 実装がどちらかを 1 か所で決め、
-        各ゲート仕様はそれを継承する形に統一すると、ホバー枠の振る舞いがゲート間で揃う。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 03</span>ジオメトリ</h2>
-  <div class="card">
-    <table class="spec">
-      <tbody>
-        <tr><th>本体サイズ</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)</td></tr>
-        <tr><th>形状</th><td>角丸正方形 (<code>border-radius: 6 px</code> / Tailwind <code>rounded-md</code>)</td></tr>
-        <tr><th>枠線</th><td>なし。本体色のみ。<a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-Z</code> と一致</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。本体は中央配置で上下左右に 8 px の余白</td></tr>
-        <tr><th>横ピッチ</th><td><code>56 px</code> 等間隔 (H / X / Y など他の 1 量子ビットゲートと共通)</td></tr>
-        <tr><th>縦ピッチ</th><td><code>56 px</code> (隣接量子ビットワイヤとのピッチも同値)</td></tr>
-        <tr><th>span</th><td><code>1</code> 固定 (リサイズハンドルなし)</td></tr>
-        <tr><th>z-index</th><td><code>10</code> — wire (z=0) より手前、ホバー枠 / ハンドル (z=20) より奥</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
-    <div class="geo-diagram">
-      <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / cyan-400 = #3AA99F / paper = #FFFCF0 / tx-2 = #6F6E69 / tx-3 = #B7B5AC -->
-        <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <rect x="0" y="0" width="40" height="40" rx="6" fill="#3AA99F"/>
-        <g transform="translate(13.254 28.804) scale(0.02480 -0.02480)" fill="#FFFCF0">
-          <path d="M28 0V88L408 626H41V710H506V622L126 84H516V0Z"/>
-        </g>
-        <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
-          <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
-          <text x="20" y="50.5" text-anchor="middle">40 px body</text>
-        </g>
-        <g stroke="#B7B5AC" stroke-width="0.4">
-          <line x1="-8" y1="-6.5" x2="48" y2="-6.5"/>
-          <line x1="-8" y1="-7.5" x2="-8" y2="-5.5"/>
-          <line x1="48" y1="-7.5" x2="48" y2="-5.5"/>
-          <line x1="0" y1="48" x2="40" y2="48"/>
-          <line x1="0" y1="47" x2="0" y2="49"/>
-          <line x1="40" y1="47" x2="40" y2="49"/>
-        </g>
-      </svg>
-      <div class="legend">
-        <p><strong>40 px</strong> · 本体 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
-        <p><strong>6 px</strong> · 角丸半径 (<code>rounded-md</code>)</p>
-        <p><strong>8 px</strong> · スロット内余白 (上下左右)</p>
-      </div>
-    </div>
-
-    <p class="note">
-      40 px → 56 px の関係は qni-webgpu 全ゲート共通。詳細な経緯は
-      <a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> を参照。
-    </p>
-
-    <aside class="critique" aria-label="批評 · § 03 SVG 内テキストが英語表記のまま">
-      <div class="critique-label">★ 批評 · § 03 ジオメトリ図</div>
-      <div class="critique-title">SVG 内寸法注記が "56 px slot" / "40 px body" と英語表記</div>
-      <p class="critique-body">
-        <code>geo-diagram</code> の SVG 内 <code>&lt;text&gt;</code> は <code>"56 px slot"</code> / <code>"40 px body"</code>
-        と英語のまま。兄弟ページ (<a href="y-gate.html">y-gate.html</a> / <a href="h-gate.html">h-gate.html</a>) は
-        「56 px スロット」「40 px 本体」と日本語化されており、本ページだけ英語が残るのは表記揺れ。
-        本文 / 凡例はすべて日本語なので、ここも日本語化すべき。
-      </p>
-      <p class="critique-body">
-        さらに、<code>font-size="4"</code> は viewBox 80 × 80 を 240 × 240 px に投影しているため、実表示で約 12 px に相当する。
-        h-gate.html の批評 (§ 03) では <code>font-size="3.6"</code> ≈ 10.8 px が読みづらいと指摘されていたが、
-        本ページは 4 に上げてあり改善されている。ただし「凡例ブロックと SVG 内テキストで同じ情報を 2 回出している」
-        重複は残るので、SVG 内テキストを撤去して凡例だけに寄せる選択肢もある。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<section class="block">
-  <h2><span class="num">§ 04</span>字形 (Z)</h2>
-  <div class="card">
-    <p>
-      中央字形は <a href="gate-palette.html">gate-palette.html</a> の基準 <code>g-Z</code> と同じ SVG パスを使う。
-      CSS のテキスト描画ではなく、<code>apps/web/assets/icons/z.svg</code> 由来のベクタ字形を 40 px 本体へ重ねる。
-    </p>
-    <table class="spec">
-      <tbody>
-        <tr><th>形式</th><td>ベクタパス (<code>&lt;symbol id="g-Z"&gt;</code> と 1:1)</td></tr>
-        <tr><th>パス座標</th><td><code>M28 0V88L408 626H41V710H506V622L126 84H516V0Z</code></td></tr>
-        <tr><th>変換</th><td><code>translate(15.905 34.565) scale(0.029760 -0.029760)</code> (viewBox 48 への正規化)</td></tr>
-        <tr><th>外形サイズ</th><td>viewBox 上で約 <code>14.5 × 21.1</code>。40 px 本体では約 <strong>12.1 × 17.6 px</strong></td></tr>
-        <tr><th>配置</th><td>水平・垂直ともに本体中心。斜線の重心が中央に見えるよう光学中心を採用</td></tr>
-        <tr><th>色</th><td><code>paper</code> (#FFFCF0)。枠線なしの塗りつぶし</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">3倍拡大 (字形の位置確認)</h3>
-    <div class="stage" style="gap: 32px;">
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">既定 · 3倍拡大</div>
-        <div class="zoom"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-      <div class="col" style="max-width: 224px;">
-        <div class="caption">ホバー · 3倍拡大<br>(角丸枠 + 背景の空き)</div>
-        <div class="zoom"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 04 字形 Z の意味論的中立性と表記揺れ">
-      <div class="critique-label">★ 批評 · § 04 字形 (Z)</div>
-      <div class="critique-title">字形 "Z" は意味論的に中立で、対角行列の特異性を伝える視覚要素を持たない</div>
-      <p class="critique-body">
-        Pauli-Z 行列は <code>diag(1, -1)</code> という単純な対角行列で、<strong>計算基底ベクトル <code>|0⟩</code> / <code>|1⟩</code>
-        を不変方向 (固有ベクトル) として持つ</strong>。これは X / Y が固有ベクトルを <code>|+⟩, |-⟩</code> や <code>|+i⟩, |-i⟩</code>
-        という<em>重ね合わせ状態</em>に持つのと対照的で、Z だけが「計算基底と直接対応する Pauli」となる。
-      </p>
-      <p class="critique-body">
-        字形 "Z" 単独ではこの「対角性」「計算基底との一致」は伝わらず、たとえば対角線を強調した独自字形
-        (例: 太い斜線で対角行列を暗示) を採用する余地もあった。しかし本仕様は H / Y / √X / S / T と一貫させるため
-        Geist Bold の "Z" を踏襲しており、その判断自体は妥当。<em>視覚情報量 vs 同族感</em>のトレードオフが
-        意識的になされていることを § 07 設計判断に追記すると、後続ゲートの字形選定時の議論基盤になる。
-      </p>
-      <p class="critique-body">
-        補足 (表記揺れ): h3 見出しは「3倍拡大」、本ページ § 03 凡例は日本語、SVG 内テキストは英語と、3 つの表記スタイルが混在している。
-        兄弟ページ (h / x / y / √X) はすべて「3× zoom」を採用しており、本ページの「3倍拡大」だけが異質。
-        どちらかに統一する (「3× zoom」推奨) ことで Pauli 4 ページ + sqrt-X が揃う。
-      </p>
-    </aside>
-  </div>
-</section>
-
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
-<section class="block">
-  <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
-  <div class="card">
-    <p>
-      3 状態を <code>data-state</code> 属性で強制したモック。ホバーしなくても状態差を確認できる。
+      Z ゲートは計算基底を入れ替えず、相対位相だけを反転する Pauli ゲート。デザイン上は標準の角丸正方形ゲートとして扱い、Z 字形だけで軸を識別する。
     </p>
     <div class="stage">
       <div class="col">
-        <div class="caption">① 既定<br>cyan-400 角丸正方形</div>
-        <div class="actual"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">② ホバー<br>purple-400 枠 +<br>2 px 背景の空き</div>
-        <div class="actual"><div class="z-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-      </div>
-      <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 本体</div>
-        <div class="actual"><div class="z-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+        <div class="caption">Z ゲート<br />既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
       </div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      ドラッグ中は元位置のゲートを描かず、カーソル下のドラッグプレビューだけを描く。
-      Z は span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
+    <p class="note" style="margin-top: 12px;">
+      ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は
+      <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
+<!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (Z 字形の確認)</h2>
   <div class="card">
     <p>
-      Z ゲートは 1 本の量子ビットワイヤ上の単一スロットに置く。スロットは <code>56 × 56 px</code> 等間隔、
-      本体 40 px は中央配置で上下左右に 8 px の余白を持つ。
+      状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。
+      ここでは同じ Z 字形が各状態で破綻しないことだけを常時表示モックで確認する。
     </p>
-    <div class="slot-mock with-grid">
-      <div class="wire">
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-        <div class="slot"></div>
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
-        <div class="slot"></div>
-        <div class="slot"><div class="z-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー</div>
+        <div class="actual"><div class="gate-visual square hover"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+      </div>
+      <div class="col">
+        <div class="caption">ドラッグプレビュー</div>
+        <div class="actual"><div class="gate-visual square drag"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
       </div>
     </div>
-    <p class="note" style="margin-top: 16px;">
-      うっすら入っているスロット境界の <code>ui</code> 線は説明用で、実 UI には描画されない。
-      隣接スロットへ連続配置しても、本体間には 16 px の余白が残り、ホバー枠同士が重ならない。
+  </div>
+</section>
+
+<!-- ─────── § 03 グリフ ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>グリフ "Z"</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>表記</th><td>Z グリフ</td></tr>
+        <tr><th>実体</th><td><code>apps/web/assets/icons/z.svg</code> 由来の SVG path。本仕様ページのモックでも同じ字形を描く。</td></tr>
+        <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+        <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
+        <tr><th>字形設計</th><td>Z は斜線の密度が高くなりすぎないよう、角丸正方形内で左右の余白を残す。位相反転の意味は字形で示す。</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      字形は共通クロムの上に載る Z 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。
+    </p>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">実表示<br />既定</div>
+        <div class="actual"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+      </div>
+      <div class="col wide">
+        <div class="caption">3× 表示<br />字形位置の確認用</div>
+        <div class="zoom"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 04 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      Z は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。
+      スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。
+    </p>
+    <div class="slot-mock with-grid">
+      <div class="wire" aria-hidden="true">
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+        <div class="slot"></div>
+        <div class="slot"><div class="gate-visual square"><div class="gate-body"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Z"/></svg></div></div></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      点線代わりの薄いスロット境界やワイヤは説明用で、実 UI の描画そのものではない。Z 固有の配置差分だけを本ページで扱う。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 07 意味論と設計判断 ─────── -->
+<!-- ─────── § 05 設計判断 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>意味論と設計判断</h2>
+  <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
-    <div class="matrix-card">
-      <div class="mini"><strong>行列</strong><br /><code>Z = [[1, 0], [0, -1]]</code></div>
-      <div class="mini"><strong>基底状態</strong><br /><code>Z|0⟩ = |0⟩</code><br /><code>Z|1⟩ = -|1⟩</code></div>
-      <div class="mini"><strong>ブロッホ球</strong><br />Z 軸まわりの 180° 回転。X / Y 成分の符号を反転し、Z 成分は保つ。</div>
+    <p>
+      設計判断は「共通クロムからの継承」「Z 固有」「妥協と将来対応」に分ける。
+      これにより、Z だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。
+    </p>
+    <div class="decision-grid">
+      <div class="item">
+        <strong>共通クロムからの継承</strong>
+        <span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span>
+      </div>
+      <div class="item">
+        <strong>Z 固有</strong>
+        <span>位相反転という意味は色ではなく Z 字形で示し、Pauli 系の他ゲートと同じ共通クロムにそろえる。</span>
+      </div>
+      <div class="item">
+        <strong>妥協と将来対応</strong>
+        <span>位相系ゲートとの識別が弱い場合も、まず字形や説明側で補強し、Z 単体の色差は増やさない。</span>
+      </div>
     </div>
-    <ul>
-      <li><strong>H / Y と同じ角丸正方形にする</strong>: Z は文字グリフで識別する通常の 1 量子ビットゲート。X だけは CNOT ターゲットと同じ ⊕ 記号を共有するため円形にする</li>
-      <li><strong>位相を色で表現しない</strong>: 位相反転を紫や赤で示すと、ホバー / ドラッグなどの状態色と衝突する。Z 固有の情報は字形と説明文だけで表す</li>
-      <li><strong>RZ と混同させない</strong>: Pauli-Z は固定角 π の操作、RZ は任意角 θ の回転ゲート。Z は単独文字、RZ は 2 文字グリフで描き分ける</li>
-      <li><strong>枠線を持たない</strong>: 本体色 cyan-400 が wire (<code>ui-2</code>) や背景 (<code>bg-2</code>) と十分区別できるため、枠線は足さない</li>
-      <li><strong>span = 1 固定</strong>: Z は単一量子ビットだけに作用するため、表示ブロックや QFT のような span リサイズを持たない</li>
-    </ul>
-
-    <aside class="critique" aria-label="批評 · § 07 Z 固有の意味論が S / T と区別されていない">
-      <div class="critique-label">★ 批評 · § 07 意味論と設計判断</div>
-      <div class="critique-title">「Z は π 位相反転」と「S / T は π/2 / π/4 位相回転」の連続性が示されていない</div>
-      <p class="critique-body">
-        現状の bullet は Z と RZ の混同回避のみを扱うが、本ページが触れていない重要な関係として
-        <strong>Z = S<sup>2</sup> = T<sup>4</sup></strong> がある。S は π/2 位相回転、T は π/4 位相回転、
-        Z は π 位相回転で、3 つは「位相回転の階段」を形成している。Pauli-Z 単独で見ると「位相を π だけ回す離散ゲート」だが、
-        S / T と並べると「Z は位相回転族の最大角バージョン」という連続軸が見える。
-      </p>
-      <p class="critique-body">
-        bullet 3「RZ と混同させない」は単独で正しいが、S / T との関係を 1 行加えれば、Z が固定角 (π) の操作で、
-        RZ が任意角 (θ) の操作で、S / T はその中間の固定刻みという階層構造が一目で伝わる。
-        後続の S / T ページが揃ったタイミングで「位相回転族」セクションを 3 ページ横断で作る価値がある。
-      </p>
-      <p class="critique-body">
-        コントラスト面: § 02 配色表で cyan-400 + paper のコントラスト比を <code>≈ 2.78</code> と書いており、これは WCAG AA 大文字テキスト基準
-        (3.0) を下回る。§ 07 設計判断には妥協が明示されていないため、「色を意味に使わない」設計の代償として
-        色覚アクセシビリティが落ちる点を 1 行加えると、将来「ハイコントラストモード」の根拠になる。
-      </p>
-      <p class="critique-body">
-        補足: 用語ゆれ — § 03 のジオメトリ表で「枠線」と「stroke」が混在している (本ページの設計判断は「枠線を持たない」、
-        H / Y ページは「stroke を持たない」)。仕様横断で日本語 (「枠線」) に寄せるか、原文 (「stroke」) を統一するかを
-        decide すべき。<a href="../../CLAUDE.md">CLAUDE.md</a> のルー語ルールでは「stroke なし」「枠線なし」のどちらも許容されているため、
-        プロジェクト全体で 1 つに決めて prh.yml に追加するのが堅い。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
+<!-- ─────── § 06 関連仕様 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連仕様</h2>
+  <h2><span class="num">§ 06</span>関連仕様</h2>
   <div class="card">
     <table class="spec">
       <thead>
@@ -610,32 +410,32 @@
       </thead>
       <tbody>
         <tr>
-          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
-          <td>角丸正方形 + 文字グリフの基本仕様。Z は同じ見た目を継承する</td>
-        </tr>
-        <tr>
-          <td><a href="y-gate.html">Y ゲート (Pauli-Y)</a></td>
-          <td>Pauli 族のうち、Y / Z が文字グリフで識別される方針を共有する</td>
-        </tr>
-        <tr>
-          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
-          <td>Pauli 族のうち、X だけが円形 + Plus グリフを採用する理由を定義する</td>
+          <td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td>
+          <td>ゲート本体の外装、配色ロール、状態表現、配置方針の正。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Z ゲート (ドラッグ元) の基準 SVG <code>g-Z</code> を定義する</td>
+          <td>パレット上と回路上の Z ゲートを同じ字形で扱う。</td>
         </tr>
         <tr>
-          <td><a href="hover-frame.html">ホバー枠</a></td>
-          <td>purple-400 + 背景の空き のホバー枠 primitive。Z は角丸正方形版を使う</td>
+          <td><a href="x-gate.html">X ゲート</a></td>
+          <td>同じ Pauli 系で、計算基底を反転する。</td>
+        </tr>
+        <tr>
+          <td><a href="y-gate.html">Y ゲート</a></td>
+          <td>同じ Pauli 系で、振幅反転と位相変化を同時に行う。</td>
+        </tr>
+        <tr>
+          <td><a href="s-gate.html">S ゲート</a></td>
+          <td>Z と同じく位相を扱うゲート。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> = cyan-400、<code>gate_hover_border</code> = purple-400、<code>drag_fill</code> = purple-600 などのロール → トーン対応</td>
+          <td>配色ロールと Flexoki トーンの対応。</td>
         </tr>
         <tr>
-          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
-          <td>ゲートサイズを 40 px に統一した経緯 (本仕様の前提)</td>
+          <td><a href="design-system-typography.html">タイポグラフィ</a></td>
+          <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
       </tbody>
     </table>
