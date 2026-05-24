@@ -34,6 +34,14 @@ mod simulation_plan {
             control_mask: u32,
             control_value: u32,
         },
+        CaptureDensity {
+            gate_id: u32,
+            base_bit: u32,
+            span: u32,
+            output_slot: u32,
+            control_mask: u32,
+            control_value: u32,
+        },
     }
 
     pub(crate) mod capacity {
@@ -52,6 +60,7 @@ fn tiny_limits() -> SimulationPlanLimits {
         max_measurement_slots: 1,
         max_probability_slots: 1,
         max_amplitude_slots: 1,
+        max_density_slots: 1,
     }
 }
 
@@ -122,10 +131,28 @@ fn amplitude_slot_limit_reports_buffer_capacity() {
     );
 }
 
+fn density_slot_limit_reports_buffer_capacity() {
+    let ops = vec![SimulationOp::CaptureDensity {
+        gate_id: 1,
+        base_bit: 0,
+        span: 1,
+        output_slot: 1,
+        control_mask: 0,
+        control_value: 0,
+    }];
+
+    let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "Density slot 1 exceeds MAX_DENSITY_SLOTS=1; reduce Density displays or grow the GPU buffer",
+    );
+}
+
 fn main() {
     gate_op_limit_reports_staging_capacity();
     bloch_slot_limit_reports_buffer_capacity();
     measurement_slot_limit_reports_buffer_capacity();
     probability_slot_limit_reports_buffer_capacity();
     amplitude_slot_limit_reports_buffer_capacity();
+    density_slot_limit_reports_buffer_capacity();
 }

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>振幅円 (プリミティブ) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <script src="components/amplitude-circle.js"></script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       振幅円そのものは components/amplitude-circle.js の <amplitude-circle> が基準。 */
+
+    .ac-stage {
+      background: var(--bg-2);              /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);        /* Flexoki ui-2 */
+      border-radius: 12px;
+      padding: 24px;                        /* spacing-6 */
+      display: flex;
+      gap: 24px;                            /* spacing-6 */
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .ac-example {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;                             /* spacing-2 */
+      min-width: 104px;
+      text-align: center;
+    }
+    .ac-cell {
+      width: 56px;                           /* spacing-14 */
+      height: 56px;
+      display: grid;
+      place-items: center;
+      background: var(--bg);                 /* Flexoki bg */
+      border: 1px solid var(--ui-2);
+    }
+    .ac-cell--small {
+      width: 32px;                           /* spacing-8 */
+      height: 32px;
+    }
+    .ac-cell--large {
+      width: 72px;                           /* preview-mode と同じ高さ */
+      height: 72px;
+    }
+    .ac-caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                       /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .ac-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 32px);
+      gap: 4px;                              /* spacing-1 */
+      padding: 4px;                          /* spacing-1 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+    }
+    .ac-preview-grid .ac-cell {
+      border: 0;
+      width: 32px;                           /* spacing-8 */
+      height: 32px;
+    }
+    .ac-anatomy {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) 1fr;
+      gap: 24px;                             /* spacing-6 */
+      align-items: center;
+    }
+    .ac-anatomy-visual {
+      display: grid;
+      place-items: center;
+      min-height: 160px;
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+    }
+    .ac-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;                              /* spacing-2 */
+    }
+    .ac-swatch {
+      width: 16px;                           /* spacing-4 */
+      height: 16px;
+      border: 1px solid var(--ui-2);
+      flex: 0 0 auto;
+    }
+    .ac-swatch--outline { border-radius: 999px; background: transparent; border-color: var(--tx-2); }
+    .ac-swatch--zero { border-radius: 999px; background: transparent; border-color: var(--ui-2); }
+    .ac-swatch--disk { border-radius: 999px; background: var(--blue-200); box-shadow: inset 0 0 0 2px var(--blue-400); }
+    .ac-swatch--incoherent { border-radius: 999px; background: var(--blue-200); box-shadow: inset 0 0 0 2px var(--blue-400); opacity: 0.45; }
+    .ac-swatch--needle { height: 2px; background: var(--tx); border: 0; }
+    .ac-swatch--placeholder { background: var(--purple-100); }
+
+    @media (max-width: 720px) {
+      .ac-anatomy { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="ac-preview-grid" aria-hidden="true">
+    <div class="ac-cell"><amplitude-circle size="32" mag="1" phase="0"></amplitude-circle></div>
+    <div class="ac-cell"><amplitude-circle size="32" mag="0.72" phase="90"></amplitude-circle></div>
+    <div class="ac-cell"><amplitude-circle size="32" mag="0.52" phase="-135"></amplitude-circle></div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">プリミティブ</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">振幅円</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · デザインシステム · プリミティブ仕様</p>
+  <h1 class="page-title">振幅円</h1>
+  <p class="page-lede">
+    複素値 <code>z = re + i·im</code> を、セル内の <strong>輪郭円 + 振幅円盤 + 円盤境界線 + 位相針</strong>で表す横断プリミティブ。
+    円盤の半径は大きさ <code>|z|</code>、位相針の向きは偏角 <code>arg(z)</code> に対応する。
+    振幅表示ブロック、密度行列表示ブロック、状態ベクトルパネルが同じ語彙で複素量を描けるように、セルの内側だけを本仕様に集約する。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 見た目と用途</h2>
+  <div class="card">
+    <p>
+      振幅円は「セル 1 個の中に描かれる複素量」の視覚部品。外側の行列枠、セル間隔、ホバー枠、ラベル、ポップアップは使用側の責務にする。
+      下の例では、位相 0 度を真上、+90 度を左、-90 度を右として描く。
+      円盤半径は入力した <code>mag</code>、円盤面積は <code>mag²</code> に比例する。
+    </p>
+    <div class="ac-stage" role="group" aria-label="振幅円の代表例">
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="1" phase="0" label="大きさ 1、位相 0 度"></amplitude-circle></div>
+        <div class="ac-caption">実数正<br><code>|z| = 1</code></div>
+      </div>
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="0.72" phase="90" label="大きさ 0.72、位相 90 度"></amplitude-circle></div>
+        <div class="ac-caption">虚数正<br><code>+90°</code></div>
+      </div>
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="0.52" phase="-135" label="大きさ 0.52、位相 -135 度"></amplitude-circle></div>
+        <div class="ac-caption">複素位相<br><code>-135°</code></div>
+      </div>
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="0" phase="0" label="大きさ 0"></amplitude-circle></div>
+        <div class="ac-caption">ゼロ振幅<br>輪郭円のみ</div>
+      </div>
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="0.64" phase="0" needle="false" label="大きさ 0.64、位相針なし"></amplitude-circle></div>
+        <div class="ac-caption">実数値<br>位相針なし</div>
+      </div>
+      <div class="ac-example">
+        <div class="ac-cell"><amplitude-circle mag="0.64" phase="0" coherent="false" label="混合状態の確率値"></amplitude-circle></div>
+        <div class="ac-caption">非コヒーレント<br>薄い円盤</div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 16px;">
+      密度行列表示ブロックでは、対角成分は実数の確率値なので <code>needle="false"</code>、非対角成分は複素値なので位相針ありで使う。
+      振幅表示ブロックと状態ベクトルパネルでは、各セルに位相針ありの振幅円を使う。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 レイヤ構成</h2>
+  <div class="card ac-anatomy">
+    <div class="ac-anatomy-visual" aria-hidden="true">
+      <div class="ac-cell ac-cell--large"><amplitude-circle size="72" mag="0.76" phase="-45"></amplitude-circle></div>
+    </div>
+    <table class="spec">
+      <tbody>
+        <tr><th>輪郭円</th><td>セル内の単位円。非ゼロ値は <code>tx-2</code>、ゼロ値は <code>ui-2</code>。大きさを読む基準線。</td></tr>
+        <tr><th>振幅円盤</th><td><code>|z|</code> に比例して半径が変わる青い円盤。面積は <code>|z|²</code> に対応する。</td></tr>
+        <tr><th>円盤境界線</th><td>円盤の外端を <code>blue-400</code> の 1 px 線で締める。小さい円盤では潰れるため省略可。</td></tr>
+        <tr><th>位相針</th><td>中心から単位円の端へ向かう線。<code>arg(z)</code> を示す。確率だけを描く場合は使用側が省略する。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配色 (Flexoki Light)</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>要素</th><th>Flexoki トーン</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--outline"></span>輪郭円</span></td><td><code>tx-2</code></td><td>値が非ゼロのセル。セル内の基準円として十分に読める濃さ。</td></tr>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--zero"></span>ゼロ輪郭</span></td><td><code>ui-2</code></td><td>値がほぼ 0 のセル。背景から消しすぎず、情報量が低いことを示す。</td></tr>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--disk"></span>振幅円盤</span></td><td><code>blue-200</code> / <code>blue-400</code></td><td>円盤本体と境界線。確率表示ブロックの青系と揃える。</td></tr>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--incoherent"></span>非コヒーレント円盤</span></td><td><code>blue-200</code> 45% / <code>blue-400</code></td><td>位相を持たない混合状態の補助表示。位相針を消し、円盤の塗りだけを薄く描く。</td></tr>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--needle"></span>位相針</span></td><td><code>tx</code></td><td>位相方向を最も高いコントラストで示す。小さいセルでは省略する。</td></tr>
+        <tr><td><span class="ac-token"><span class="ac-swatch ac-swatch--placeholder"></span>未確定背景</span></td><td><code>purple-100</code></td><td>値がまだ無いセルの背景。振幅円の責務ではなく、使用側の背景ポリシー。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 ジオメトリと式</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>入力値</th><td><code>z = re + i·im</code>。大きさ <code>mag = clamp(sqrt(re² + im²), 0, 1)</code>、位相 <code>phase = atan2(im, re)</code>。数式内の <code>phase</code> はラジアン、文書用 Web Component の <code>phase</code> 属性は度数法。</td></tr>
+        <tr><th>半径基準</th><td><code>outline_radius = cellPx / 2 - stroke / 2 - 1.5</code>、<code>inner_radius = outline_radius - stroke / 2</code>。</td></tr>
+        <tr><th>円盤半径</th><td><code>disk_radius = mag × inner_radius</code>。円盤は輪郭円の内側に収め、外側の行列枠やホバー枠に触れさせない。</td></tr>
+        <tr><th>位相方向</th><td>位相 0 を真上に置く。方向ベクトルは <code>(-sin(phase), -cos(phase))</code>。</td></tr>
+        <tr><th>線幅</th><td><code>cellPx ≥ 24</code> では 2 px、それ未満では 1 px。Tailwind 4 px 倍数のセル寸法内で潰れにくくする。</td></tr>
+        <tr><th>小セル</th><td><code>cellPx &lt; 12</code> では位相針を省略し、<code>cellPx &lt; 3</code> では使用側がヒートマップへ切り替える。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 使用側の差分</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>使用側</th><th>振幅円の使い方</th><th>使用側の責務</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>全セルに <code>mag + phase</code> を描く。確率を面積として読ませるため <code>mag = sqrt(p)</code> を渡し、位相針を表示する。</td><td>グリッド寸法、行列外枠、リサイズハンドル、セルポップアップ、span 上限。</td></tr>
+        <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>対角成分は行列値としての確率 <code>p = ρᵢᵢ</code> を半径で比較し、位相針を省略。非対角成分は <code>ρᵢⱼ</code> の大きさと位相を描く。</td><td>正方行列、対角 / 非対角の意味付け、混合状態の説明、span 上限。対角セルは面積ではなく半径で値を読む例外。</td></tr>
+        <tr><td>状態ベクトルパネル</td><td>状態ベクトルの各成分を同じ半径・位相規約で描く。</td><td>拡大縮小、パン、アスペクト比、GPU バッファの参照。</td></tr>
+        <tr><td>ポップアップ内の小見本</td><td>必要なら小サイズの振幅円を補助図として使う。</td><td>数値整形、基底ラベル、位置決め、背後 UI への入力遮断。</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      どの使用側でも、本番経路の値は GPU 上のバッファからシェーダで直接読む。振幅円は「どう描くか」の語彙であり、CPU への読み戻しを導入する理由にはしない。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 実装メモ</h2>
+  <div class="card">
+    <ul>
+      <li>実装側では Canvas / SVG ではなく、フラグメントシェーダの符号付き距離場で輪郭円、円盤、位相針を合成する。</li>
+      <li><code>components/amplitude-circle.js</code> はデザイン文書用の Web Component。基準となる見た目の確認に使い、アプリ本体の描画経路では使わない。</li>
+      <li>セル背景、行列外枠、ホバー枠、選択枠、リサイズハンドルは振幅円に含めない。重ね順の衝突を避けるため、親コンポーネントが外側のレイヤを管理する。</li>
+      <li>「振幅円」という名前は、物理量が振幅とは限らない密度行列の非対角成分にも使う。ここでは「複素値を円で表す描画語彙」という意味。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 振幅円プリミティブ仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

@@ -645,29 +645,76 @@ test('anti-control gate uses the qni-style open circular dot', async ({ page }) 
   }).toEqual({ centerOpen: false, ringVisible: true, outside: [false, false] })
 })
 
-test('anti-control connector keeps the hollow center clear', async ({ page }) => {
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['◦', 'X']] })))
+const CIRCUIT_BACKGROUND: CanvasPixel = [242, 240, 229, 255]
+const CIRCUIT_WIRE: CanvasPixel = [218, 216, 206, 255]
 
+const openPlacedAntiControlCircuit = async (page: Page) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['◦', 'X']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
   await canvas.waitFor({ state: 'visible' })
 
   const EGUI_PANEL_MARGIN = 8
-  const antiControlCenter = {
+  const antiControlCenter: Point = {
     x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
     y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
   }
+  return { canvas, antiControlCenter }
+}
+
+test('placed anti-control masks the qubit wire in its hollow center', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
   const pixels = await sampleCanvasPixels(page, canvas, [
     { name: 'center', x: antiControlCenter.x, y: antiControlCenter.y },
+  ])
+
+  expect(pixelRgbDistance(pixels.center, CIRCUIT_BACKGROUND) < 24).toBe(true)
+})
+
+test('placed anti-control keeps the left qubit wire visible', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'wire-left', x: antiControlCenter.x - 12, y: antiControlCenter.y },
+  ])
+
+  expect(pixelRgbDistance(pixels['wire-left'], CIRCUIT_WIRE) < 48).toBe(true)
+})
+
+test('placed anti-control keeps the right qubit wire visible', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'wire-right', x: antiControlCenter.x + 12, y: antiControlCenter.y },
+  ])
+
+  expect(pixelRgbDistance(pixels['wire-right'], CIRCUIT_WIRE) < 48).toBe(true)
+})
+
+test('placed anti-control keeps the lower connector visible', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
     { name: 'connector-below', x: antiControlCenter.x, y: antiControlCenter.y + 16 },
+  ])
+
+  expect(isRegularGateFill(pixels['connector-below'])).toBe(true)
+})
+
+test('placed anti-control keeps the connector continuous toward the target', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
     { name: 'connector-mid', x: antiControlCenter.x, y: antiControlCenter.y + 24 },
   ])
 
-  expect({
-    centerHasConnector: isRegularGateFill(pixels.center),
-    connectorStillVisible: ['connector-below', 'connector-mid'].map((name) => isRegularGateFill(pixels[name])),
-  }).toEqual({ centerHasConnector: false, connectorStillVisible: [true, true] })
+  expect(isRegularGateFill(pixels['connector-mid'])).toBe(true)
+})
+
+test('placed anti-control keeps its ring visible after masking the hollow center', async ({ page }) => {
+  const { canvas, antiControlCenter } = await openPlacedAntiControlCircuit(page)
+  const pixels = await sampleCanvasPixels(page, canvas, [
+    { name: 'ring-left', x: antiControlCenter.x - 6, y: antiControlCenter.y },
+  ])
+
+  expect(isRegularGateFill(pixels['ring-left'])).toBe(true)
 })
 
 test('control and anti-control have matching outer diameters', async ({ page }) => {

@@ -29,6 +29,10 @@ const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
 // Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
+// 3px keeps the anti-control ring open without biting into the 3px stroke.
+// The mask is painted after the glyph so the qubit wire never remains in the
+// hollow center.
+const ANTI_CONTROL_WIRE_MASK_RADIUS: f32 = 3.0;
 fn probability_hover_popup_ket(outcome: u32, span: usize) -> String {
     let width = span.clamp(1, 16);
     format!("|{outcome:0width$b}⟩")
@@ -164,6 +168,13 @@ impl QniApp {
                 draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
+                if gate.kind == GateKind::AntiControl {
+                    painter.circle_filled(
+                        gate_rect.center(),
+                        ANTI_CONTROL_WIRE_MASK_RADIUS,
+                        colors.background,
+                    );
+                }
             }
             // Resizable-span gates use one shared handle component: top +
             // bottom cyan pills with hover/active scaling. Amplitude's

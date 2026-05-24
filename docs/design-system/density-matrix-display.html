@@ -218,7 +218,7 @@
     振幅表示ブロックが <code>α = re + i·im</code> 1 本を <code>2<sup>span</sup></code> セルで描くのに対し、本表示ブロックは <code>ρ<sub>ij</sub></code> の <strong>2<sup>span</sup> × 2<sup>span</sup> 全成分</strong> を行列状に描く。
     対角成分は <strong>各測定結果の確率 <code>P(|i⟩) = ρ<sub>ii</sub></code></strong>、非対角成分は <strong>coupling / coherence <code>ρ<sub>ij</sub></code></strong> (絶対値 = 大きさ、偏角 = 相対位相)。
     <strong>span 上限は 8 量子ビット</strong> (Quirk <code>DensityMatrixDisplay</code> と同じ。<code>2<sup>16</sup> = 65 536</code> セルの正方行列、<code>vec2&lt;f32&gt;</code> で 512 KB を GPU storage で扱う上限)。
-    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は振幅表示ブロック / 状態ベクトルパネルと完全に揃える</strong> (Quirk の <code>#3F3 / #040</code> 緑系は Flexoki に馴染まないため不採用)。
+    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は <a href="amplitude-circle.html">振幅円</a> プリミティブに従い、振幅表示ブロック / 状態ベクトルパネルと完全に揃える</strong> (Quirk の <code>#3F3 / #040</code> 緑系は Flexoki に馴染まないため不採用)。
     Quirk の <code>DensityMatrixDisplayFamily</code> (<code>src/gates/DensityMatrixDisplay.js</code>) と <code>MathPainter.paintDensityMatrix</code> を Flexoki + WebGPU + Qiskit Aer 二系統経路へ移植する仕様書。
   </p>
 </div>
@@ -530,7 +530,7 @@
       <li><strong>対角セル <code>ρ<sub>ii</sub></code></strong> = <strong>実数の確率 <code>P(|i⟩) ∈ [0, 1]</code></strong>。
         <em>outline 円 + magnitude disk</em> の 2 層で描く。
         disk 半径 = <code>ρ<sub>ii</sub> × inner_radius</code> (= <code>P × inner_radius</code>)、半径ゼロ (P = 0) なら disk を描かない。
-        <strong>needle は描かない</strong>: 対角は常に実数 (位相 0) なので needle が真上を向くだけになり情報量を持たず、視覚的ノイズになる。Quirk の Probability square (下から上に伸びる塗りバー) は採用せず、非対角と同じ disk 表現で統一する (確率の値は disk の<em>面積</em>として読める)。</li>
+        <strong>needle は描かない</strong>: 対角は常に実数 (位相 0) なので needle が真上を向くだけになり情報量を持たず、視覚的ノイズになる。Quirk の Probability square (下から上に伸びる塗りバー) は採用せず、非対角と同じ disk 表現で統一する (対角セルだけは確率の値を disk の<em>半径</em>として読む)。</li>
       <li><strong>非対角セル <code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>)</strong> = <strong>複素数の coupling</strong>。
         振幅表示ブロックと同じ <em>outline 円 + magnitude disk + disk 境界線 + phase needle</em> の 4 層で描く。
         <code>mag = |ρ<sub>ij</sub>|</code>、<code>phase = arg(ρ<sub>ij</sub>)</code>。
@@ -546,7 +546,7 @@
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#6F6E69" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
       </div>
-      <div><b>(2) outline 円 (全セル)</b> — セル中央、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>。stroke は振幅表示ブロックに合わせ、<code>cellPx &gt; 24</code> で 2 px、それ以下で 1 px。円周 stroke の外端をセル境界から 1.5 px 内側に置き、matrix 外枠と重ならない範囲で最大化する。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。<code>mag &gt; 1e-6</code> なら <code>tx-2</code>、≈ 0 なら <code>ui-2</code>。cell hover 時は outline 円を <code>purple-400</code> に置き換える (振幅表示ブロックと同様)</div>
+      <div><b>(2) outline 円 (全セル)</b> — セル中央、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>。stroke は振幅表示ブロックに合わせ、<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px。円周 stroke の外端をセル境界から 1.5 px 内側に置き、matrix 外枠と重ならない範囲で最大化する。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。<code>mag &gt; 1e-6</code> なら <code>tx-2</code>、≈ 0 なら <code>ui-2</code>。cell hover 時は outline 円を <code>purple-400</code> に置き換える (振幅表示ブロックと同様)</div>
 
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" fill="#92BFDB"/></svg>

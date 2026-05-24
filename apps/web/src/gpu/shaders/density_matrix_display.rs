@@ -201,7 +201,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             heat.a = heat.a * sqrt(clamp(mag, 0.0, 1.0));
             color = blend_over(color, heat);
         } else {
-            let stroke = select(1.0, 2.0, cell > 24.0);
+            let stroke = select(1.0, 2.0, cell >= 24.0);
             let half_stroke = stroke * 0.5;
             let outline_clearance = 1.5;
             let outline_radius = max(0.0, cell * 0.5 - half_stroke - outline_clearance);

@@ -18,6 +18,7 @@ const AMPLITUDE_SURFACE: [number, number, number, number] = [255, 252, 240, 255]
 const AMPLITUDE_DISK: [number, number, number, number] = [146, 191, 219, 255]
 const AMPLITUDE_DISK_BORDER: [number, number, number, number] = [67, 133, 190, 255]
 const AMPLITUDE_HOVER_RING: [number, number, number, number] = [139, 126, 200, 255]
+const SPAN_RESIZE_HANDLE_BG: [number, number, number, number] = [58, 169, 159, 255]
 const AMPLITUDE_ICON_NEEDLE: [number, number, number, number] = [16, 15, 15, 255]
 const AMPLITUDE_NONZERO_OUTLINE: [number, number, number, number] = [111, 110, 105, 255]
 const EGUI_PANEL_MARGIN = 8
@@ -402,7 +403,7 @@ test.describe('Amplitude Display', () => {
       page,
       canvas,
       EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2 + gateHeight + 9,
-      AMPLITUDE_HOVER_RING,
+      SPAN_RESIZE_HANDLE_BG,
     )
 
     expect(width).toBe(125)
