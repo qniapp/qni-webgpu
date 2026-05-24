@@ -26,6 +26,7 @@
   <script src="components/rx-gate.js"></script>
   <script src="components/ry-gate.js"></script>
   <script src="components/rz-gate.js"></script>
+  <script src="components/p-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -75,7 +76,8 @@
     .gp-gate > sqrtx-gate,
     .gp-gate > rx-gate,
     .gp-gate > ry-gate,
-    .gp-gate > rz-gate {
+    .gp-gate > rz-gate,
+    .gp-gate > p-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -229,12 +231,6 @@
     </symbol>
 
     <!-- ─ Phase (circle body + P glyph from p.svg) ─ -->
-    <symbol id="g-Phase" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="24" fill="#3AA99F"/>
-      <g transform="translate(13.733 34.565) scale(0.029760 -0.029760)" fill="#FFFCF0">
-        <path d="M92 0V710H347Q466 710 532.0 653.0Q598 596 598 495Q598 392 532.0 334.0Q466 276 347 276H178V0ZM178 360H347Q508 360 508 495Q508 626 347 626H178Z"/>
-      </g>
-    </symbol>
 
     <!-- ─ Swap — cyan-400 × · stroke 4 (gate_glyphs.rs:123-128) ─ -->
     <symbol id="g-Swap" viewBox="0 0 48 48">
@@ -419,7 +415,7 @@
             <div class="gp-gate" data-tip="S† · phase −π/2"><s-dagger-gate></s-dagger-gate><span class="tip">S† · phase −π/2</span></div>
             <div class="gp-gate" data-tip="T · phase π/4"><t-gate></t-gate><span class="tip">T · phase π/4</span></div>
             <div class="gp-gate" data-tip="T† · phase −π/4"><t-dagger-gate></t-dagger-gate><span class="tip">T† · phase −π/4</span></div>
-            <div class="gp-gate" data-tip="P · phase θ"><svg width="40" height="40"><use href="#g-Phase"/></svg><span class="tip">P · parameterized phase θ</span></div>
+            <div class="gp-gate" data-tip="P · phase θ"><p-gate></p-gate><span class="tip">P · parameterized phase θ</span></div>
             <div class="gp-gate" data-tip="RX · X-axis rotation"><rx-gate></rx-gate><span class="tip">RX · X-axis rotation</span></div>
             <div class="gp-gate" data-tip="RY · Y-axis rotation"><ry-gate></ry-gate><span class="tip">RY · Y-axis rotation</span></div>
             <div class="gp-gate" data-tip="RZ · Z-axis rotation"><rz-gate></rz-gate><span class="tip">RZ · Z-axis rotation</span></div>
@@ -507,7 +503,7 @@
       <div class="item"><div class="gp-gate"><s-dagger-gate></s-dagger-gate></div><div class="label"><span class="name">S†</span><span>phase −π/2</span></div></div>
       <div class="item"><div class="gp-gate"><t-gate></t-gate></div><div class="label"><span class="name">T</span><span>phase π/4</span></div></div>
       <div class="item"><div class="gp-gate"><t-dagger-gate></t-dagger-gate></div><div class="label"><span class="name">T†</span><span>phase −π/4</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Phase"/></svg></div><div class="label"><span class="name">P</span><span>parameterized phase θ (円形 body)</span></div></div>
+      <div class="item"><div class="gp-gate"><p-gate></p-gate></div><div class="label"><span class="name">P</span><span>parameterized phase θ (円形 body)</span></div></div>
       <div class="item"><div class="gp-gate"><rx-gate></rx-gate></div><div class="label"><span class="name">RX</span><span>X-axis rotation</span></div></div>
       <div class="item"><div class="gp-gate"><ry-gate></ry-gate></div><div class="label"><span class="name">RY</span><span>Y-axis rotation</span></div></div>
       <div class="item"><div class="gp-gate"><rz-gate></rz-gate></div><div class="label"><span class="name">RZ</span><span>Z-axis rotation</span></div></div>
