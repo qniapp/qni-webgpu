@@ -161,11 +161,11 @@
   <div class="card">
     <p>
       共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
-      本ページは X ゲート (Pauli-X / NOT) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱い、外装・配色・状態表現・配置方針はリンク先を参照する。
+      本ページは X ゲート (Pauli-X / NOT) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱う。ただしホバー枠は真円にせず、共通クロムの角丸枠を継承する。外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
     <div class="responsibility-grid">
       <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
-      <div class="item"><strong>x-gate.html が正</strong><span>Pauli-X / NOT の意味、Plus グリフ、真円形状を採用する判断。</span></div>
+      <div class="item"><strong>x-gate.html が正</strong><span>Pauli-X / NOT の意味、Plus グリフ、真円本体を採用する判断。ホバー枠は共通クロムを継承する。</span></div>
       <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
     </div>
   </div>
@@ -187,7 +187,7 @@
 <section class="block">
   <h2><span class="num">§ 02</span>状態バリアント (X 字形の確認)</h2>
   <div class="card">
-    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ X 字形が各状態で破綻しないことだけを常時表示モックで確認する。</p>
+    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ X 字形が各状態で破綻しないことと、真円本体に角丸ホバー枠が付くことだけを常時表示モックで確認する。</p>
     <div class="stage">
       <div class="col"><div class="caption">既定</div><div class="actual"><x-gate></x-gate></div></div>
       <div class="col"><div class="caption">ホバー</div><div class="actual"><x-gate state="hover"></x-gate></div></div>
@@ -230,7 +230,7 @@
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
     <p>設計判断は「共通クロムからの継承」「X 固有」「妥協と将来対応」に分ける。これにより、X だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>X 固有</strong><span>計算基底の反転と CNOT ターゲットを同じ Plus グリフで表し、真円形状で角丸正方形ゲートと区別する。</span></div><div class="item"><strong>妥協と将来対応</strong><span>Plus グリフの太さや真円形状を変える場合は、CNOT ターゲットとしての読み取りやすさも同時に確認する。</span></div></div>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>配色ロール、角丸ホバー枠、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>X 固有</strong><span>計算基底の反転と CNOT ターゲットを同じ Plus グリフで表し、本体だけを真円にして角丸正方形ゲートと区別する。</span></div><div class="item"><strong>妥協と将来対応</strong><span>Plus グリフの太さや真円本体を変える場合は、CNOT ターゲットとしての読み取りやすさも同時に確認する。</span></div></div>
   </div>
 </section>
 

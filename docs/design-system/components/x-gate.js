@@ -11,7 +11,7 @@
  *   <script src="components/x-gate.js"></script>
  *
  *   <x-gate></x-gate>                <!-- 既定 (rest)、cyan-400 真円 + paper Plus -->
- *   <x-gate state="hover"></x-gate>  <!-- ホバー枠 (purple-400 同心円) を強制 -->
+ *   <x-gate state="hover"></x-gate>  <!-- 共通の角丸ホバー枠を強制 -->
  *   <x-gate state="drag"></x-gate>   <!-- drag preview (本体 purple-600) -->
  *
  * 設計判断:
@@ -20,8 +20,8 @@
  *   H / Y / Z などの角丸正方形 (border-radius 6 px) とは別形状で、グリフを覚えなくても
  *   形だけで「制御先 / Pauli-X」が判別できる
  * - SVG Plus path は apps/web/assets/icons/plus.svg と完全一致
- * - 本体が真円なのでホバー枠も同心円 (border-radius: 50%)。h-gate のような角丸 6 + 4 = 10
- *   の関係式は X には適用されない (常に真円)
+ * - 本体は真円だが、ホバー枠は実装に合わせて共通の角丸枠を使う。
+ *   円形本体に合わせた同心円枠にはしない。
  * - Flexoki の CSS 変数 (--cyan-400 / --bg / --purple-400 / --purple-600) は
  *   :root から Shadow DOM へ inheritance で伝播する
  * ───────────────────────────────────────────────────────────────────── */
@@ -40,21 +40,22 @@
   }
   :host([state="drag"]) { cursor: grabbing; }
 
-  /* ホバー枠 (purple-400 同心円) + 背景の空き (paper)。
-     真円本体に対し同心円で枠を描く (border-radius: 50%)。 */
+  /* ホバー枠 (purple-400) + 背景の空き (paper)。
+     本体は真円だが、実装と同じくホバー枠は共通の角丸枠を使う。 */
   .hover-frame,
   .hover-gap {
     position: absolute;
     display: none;
     pointer-events: none;
-    border-radius: 50%;
   }
   .hover-frame {
     inset: -4px;                          /* body_rect.expand(4.0) */
+    border-radius: 10px;
     background: var(--purple-400);        /* Flexoki purple-400 / gate_hover_border */
   }
   .hover-gap {
     inset: -2px;                          /* 2 px の paper 帯 */
+    border-radius: 8px;
     background: var(--bg);                /* Flexoki bg / paper */
   }
   :host([state="hover"]) .hover-frame,

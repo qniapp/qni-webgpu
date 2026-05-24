@@ -10,12 +10,13 @@
  *   <script src="components/p-gate.js"></script>
  *
  *   <p-gate></p-gate>                <!-- 既定 (rest) -->
- *   <p-gate state="hover"></p-gate>  <!-- ホバー枠 + 背景の空きを強制 -->
+ *   <p-gate state="hover"></p-gate>  <!-- 共通の角丸ホバー枠 + 背景の空きを強制 -->
  *   <p-gate state="drag"></p-gate>   <!-- drag preview (本体 purple-600) -->
  *
  * 設計判断:
  * - Shadow DOM (open): ホスト側の CSS が `.p-gate` などを再定義しても見た目が壊れない
  * - SVG path は実装 (apps/web/assets/icons/p.svg) と一致する Geist 700 outline
+ * - 本体は真円だが、ホバー枠は実装に合わせて共通の角丸枠を使う
  * - Flexoki の CSS 変数 (--cyan-400 / --bg / --purple-400 / --purple-600) は
  *   :root から Shadow DOM へ inheritance で伝播する
  * ───────────────────────────────────────────────────────────────────── */
@@ -42,12 +43,12 @@
   }
   .hover-frame {
     inset: -4px;                          /* body_rect.expand(4.0) */
-    border-radius: 50%;
+    border-radius: 10px;
     background: var(--purple-400);        /* Flexoki purple-400 / gate_hover_border */
   }
   .hover-gap {
     inset: -2px;                          /* 2 px の paper 帯 */
-    border-radius: 50%;
+    border-radius: 8px;
     background: var(--bg);                /* Flexoki bg / paper */
   }
   :host([state="hover"]) .hover-frame,
