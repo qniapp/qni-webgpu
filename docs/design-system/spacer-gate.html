@@ -12,73 +12,12 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- Spacer 本体は <spacer-gate> カスタム要素で描画する。 -->
+  <script src="components/spacer-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
 
-    /* ── Spacer ゲート本体 ──────────────────────────
-       実装: apps/web/src/icons/gate_glyphs.rs の GateKind::Spacer 分岐。
-       40 × 40 px の透明な当たり判定領域に、Flexoki tx の 3 点だけを描く。
-       cyan-400 の角丸正方形は持たない。 */
-    .spacer-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      background: transparent;              /* 本体 fill なし */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-      isolation: isolate;
-      color: var(--tx);                     /* spacer_dots = Flexoki tx */
-    }
-    .spacer-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      pointer-events: none;
-      overflow: visible;
-    }
-
-    /* 回路上のホバー枠。
-       実装は body_rect.expand(4) + 2 px stroke。透明ゲートなので、内側を背景で塗る
-       二重枠ではなく、purple-400 の線だけを外側に重ねる。 */
-    .spacer-gate[data-state="hover"]::before,
-    .spacer-gate:not([data-state]):not([data-frame="palette"]):hover::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                          /* spacing-1 */
-      border: 2px solid var(--purple-400);  /* gate_hover_border */
-      border-radius: 10px;
-      pointer-events: none;
-    }
-
-    /* パレット上のホバー枠。
-       gate-palette.html と同じく、outer = purple-400 / inner = paper。
-       Measurement / Spacer のような本体 fill を持たないゲートでも、パレット面が
-       bg-2 に透けず paper のまま保たれる。 */
-    .spacer-gate[data-frame="palette"]::before {
-      content: '';
-      position: absolute;
-      inset: -4px;                          /* spacing-1 */
-      border-radius: 10px;
-      background: var(--purple-400);        /* gate_hover_border */
-      z-index: -2;
-      pointer-events: none;
-    }
-    .spacer-gate[data-frame="palette"]::after {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: 8px;
-      background: var(--bg);                /* palette surface = paper */
-      z-index: -1;
-      pointer-events: none;
-    }
-
-    /* drag preview でも本体 fill は無い。draw_drag_gate_body は呼ばれるが、Spacer の
-       icon color は spacer_dots のままなので、見た目はカーソル状態だけが変わる。 */
-    .spacer-gate[data-state="drag"] { cursor: grabbing; }
+    /* Spacer 本体 / 3 点 / ホバー枠は components/spacer-gate.js の <spacer-gate> に集約する。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
@@ -117,7 +56,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .spacer-gate {
+    .stage .zoom spacer-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -241,18 +180,9 @@
 </head>
 <body>
 
-<!-- SVG sprite: gate-palette.html の <symbol id="g-Spacer"> と完全一致する 3 点。
-     viewBox は 48。実表示は 40 px なので各 6 × 6 viewBox 正方形は 5 × 5 px になる。 -->
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Spacer" viewBox="0 0 48 48">
-    <rect x="9"  y="21" width="6" height="6" fill="currentColor" />
-    <rect x="21" y="21" width="6" height="6" fill="currentColor" />
-    <rect x="33" y="21" width="6" height="6" fill="currentColor" />
-  </symbol>
-</svg>
 
 <div id="preview">
-  <div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div>
+  <spacer-gate></spacer-gate>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -322,19 +252,19 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>透明領域 + 3 点</div>
-        <div class="actual"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">回路ホバー<br>purple-400 の線</div>
-        <div class="actual"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate state="hover"></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">パレットホバー<br>purple-400 + paper</div>
-        <div class="actual"><div class="spacer-gate" data-frame="palette"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate frame="palette"></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">ドラッグ<br>色変化なし</div>
-        <div class="actual"><div class="spacer-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate state="drag"></spacer-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -359,7 +289,7 @@
       </p>
       <p class="critique-body">
         補足: § 01 mock では「① 既定 ② 回路ホバー ③ パレットホバー ④ ドラッグ」の 4 状態を 1 行に並べているが、
-        ③ パレットホバーだけ <code>data-frame="palette"</code> という別軸で、他の 3 つとは性質が違う (UI 状態 vs 文脈)。
+        ③ パレットホバーだけ <code>frame="palette"</code> という別軸で、他の 3 つとは性質が違う (UI 状態 vs 文脈)。
         Measurement § 04 と同型の問題で、状態モックの軸混在は本ファミリ共通の課題。
       </p>
     </aside>
@@ -504,19 +434,19 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>tx の 3 点</div>
-        <div class="actual"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">② 回路ホバー<br>2 px stroke</div>
-        <div class="actual"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate state="hover"></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ パレットホバー<br>内側の空き</div>
-        <div class="actual"><div class="spacer-gate" data-frame="palette"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate frame="palette"></spacer-gate></div>
       </div>
       <div class="col">
         <div class="caption">④ ドラッグ<br>色変化なし</div>
-        <div class="actual"><div class="spacer-gate" data-state="drag"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="actual"><spacer-gate state="drag"></spacer-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -528,7 +458,7 @@
       <div class="critique-title">回路 vs パレットのホバー枠分岐が、透明マーカ系 4 ゲートで揃っていない可能性</div>
       <p class="critique-body">
         本仕様は「<em>回路ホバー = 2 px の線だけ / パレットホバー = 外側 purple + 内側 paper の二重枠</em>」と書き分け、
-        実装も <code>data-frame="palette"</code> 属性で分岐させている。これは妥当な判断 (透明ゲートの内側を paper で塗ると、
+        実装も <code>frame="palette"</code> 属性で分岐させている。これは妥当な判断 (透明ゲートの内側を paper で塗ると、
         回路上では wire や制御線を消してしまう) だが、同じく透明マーカ系の <a href="write0-gate.html">|0⟩</a> /
         <a href="write1-gate.html">|1⟩</a> オペレーションでは <strong>「内側 bg ギャップなしの単線」</strong>を回路 / パレット問わず
         統一して使い、<a href="measurement-gate.html">Measurement</a> は「<em>パレットのホバーは外側 purple-400 + 内側 paper の二重枠、回路上のホバーは線だけ</em>」と
@@ -556,11 +486,11 @@
     <div class="slot-mock with-grid">
       <div class="wire">
         <div class="slot"></div>
-        <div class="slot"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="slot"><spacer-gate></spacer-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="spacer-gate" data-state="hover"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="slot"><spacer-gate state="hover"></spacer-gate></div>
         <div class="slot"></div>
-        <div class="slot"><div class="spacer-gate"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-Spacer" /></svg></div></div>
+        <div class="slot"><spacer-gate></spacer-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -644,7 +574,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の <code>g-Spacer</code> と、Measurement / Spacer 用の paper 内側ホバー枠を定義する</td>
+          <td>パレット上の Spacer でも <code>&lt;spacer-gate&gt;</code> を参照する。ホバーは <code>.gp-gate</code> の内側空き付きホバー枠を使う</td>
         </tr>
         <tr>
           <td><a href="measurement-gate.html">測定ゲート</a></td>
