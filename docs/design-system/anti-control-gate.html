@@ -12,60 +12,15 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- アンチコントロール CNOT ターゲット (X ゲート本体) は canonical な <x-gate> Web Component を埋め込む。 -->
+  <!-- 反制御マーカは <anti-control-gate>、塗りつぶし制御は <control-gate>、CNOT ターゲットは <x-gate> カスタム要素で描画する。 -->
+  <script src="components/anti-control-gate.js"></script>
+  <script src="components/control-gate.js"></script>
   <script src="components/x-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。
        本ページは AntiControl の透明な 40 px 領域、cyan-400 の空円、
-       空円内側の 8 px 背景マスク、4 px 縦コネクタ + ±6 px の中心隙間、
-       ホバー枠を CSS + inline SVG で再現する。 */
-
-    /* ── アンチコントロールマーカ ─────────────────────
-       Control と同じ box_fill ロール (cyan-400) を使い、字形だけが異なる「ペア表現」。
-       viewBox 48 座標: cx=24, cy=24, r=5, stroke=3 の空円。
-       40 px 表示時の見た目は外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px。
-       回路上では内側に 8 px (spacing-2) の bg-2 マスクを敷き、ワイヤを消す。 */
-    .ac-gate {
-      width: 40px;                          /* GATE_SIZE = spacing-10 */
-      height: 40px;
-      color: var(--cyan-400);               /* Flexoki cyan-400 / box_fill */
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      cursor: grab;
-      position: relative;
-    }
-    .ac-gate::before {
-      content: '';
-      position: absolute;
-      width: 8px;                           /* spacing-2 */
-      height: 8px;                          /* spacing-2 */
-      border-radius: 999px;
-      background: var(--ac-mask, transparent);
-    }
-    .ac-gate > svg {
-      display: block;
-      width: 40px;                          /* spacing-10 */
-      height: 40px;
-      overflow: visible;
-      pointer-events: none;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* 回路上のホバー枠。透明な内部全体を塗らず、purple-400 の 2 px 線だけを描く。
-       空円内側の小さなマスクだけでワイヤを消す。 */
-    .ac-gate[data-state="hover"],
-    .ac-gate:not([data-state]):hover {
-      box-shadow: 0 0 0 2px var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
-      border-radius: 10px;
-    }
-    .ac-gate[data-state="drag"] {
-      color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
-      cursor: grabbing;
-    }
+       空円内側の 8 px 背景マスク、ホバー枠を <anti-control-gate> で描画し、
+       4 px 縦コネクタ + ±6 px の中心隙間をページ側で再現する。 */
 
     /* パレット上だけは hover-frame.html の surface gap 版を使う。 */
     .palette-hover-host {
@@ -126,7 +81,7 @@
       align-items: center;
       justify-content: center;
     }
-    .stage .zoom .ac-gate {
+    .stage .zoom anti-control-gate {
       transform: scale(3);
       transform-origin: center;
     }
@@ -208,25 +163,10 @@
       top: 28px;
       height: 112px;
     }
-    .column-mock .ac-gate,
-    .column-mock x-gate,
-    .column-mock .ctl-gate {
+    .column-mock anti-control-gate,
+    .column-mock control-gate,
+    .column-mock x-gate {
       z-index: 1;
-    }
-
-    /* 同じ列に塗りつぶし制御 (Control) もモック描画したい場合の縮小版 */
-    .ctl-gate {
-      width: 40px;
-      height: 40px;
-      color: var(--cyan-400);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .ctl-gate > svg {
-      width: 40px;
-      height: 40px;
-      pointer-events: none;
     }
 
     .wide-column {
@@ -326,18 +266,9 @@
 </head>
 <body>
 
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-  <symbol id="g-Control" viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="8" fill="currentColor" />
-  </symbol>
-  <symbol id="g-AntiControl" viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="5" fill="none" stroke="currentColor" stroke-width="3" />
-  </symbol>
-</svg>
-
 <div id="preview">
   <div class="preview-solo" aria-hidden="true">
-    <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+    <anti-control-gate></anti-control-gate>
   </div>
 </div>
 
@@ -392,7 +323,7 @@
       <li><strong>コネクタ ±6 px 隙間の根拠が「空円外半径 ~5.4 px を完全に避ける幅」だけ</strong> — なぜ 5 px / 7 px / 8 px ではなく 6 px か、視覚的な検証ロジックが弱い (§ 03 参照)。</li>
       <li><strong>§ 05 column-mock--anti-middle の SVG / CSS 表現が見た目仕様 (実装) と乖離するリスク</strong> — CSS の <code>linear-gradient</code> 2 段重ねで隙間を表現しているが、これは実装 (Rust + WebGPU) の二本線描画と<strong>異なる表現手段</strong>。仕様ページの再現性として論点 (§ 05 参照)。</li>
       <li><strong>多重制御 (CCCX 等) で Control / AntiControl が混在する場合のコネクタの色 / 太さの安定性</strong> — § 05 mini-card で言及はあるが、視覚図がない (§ 05 参照)。</li>
-      <li><strong>§ 04 hover の box-shadow による枠と Control の <code>::before</code> による枠が技法的に違う</strong> — 同じ「purple-400 stroke-only 2 px」枠なのに、Control 仕様は <code>::before + border</code>、本仕様は <code>box-shadow</code>。実装と仕様の差なのか、仕様内の表記揺れか (§ 04 参照)。</li>
+      <li><strong>§ 04 回路ホバーとパレットホバーの横断仕様を集約する</strong> — Control / AntiControl / Swap は回路上で stroke-only 枠、パレット上で surface gap 枠を使い分けるため、<a href="hover-frame.html">ホバー枠</a> 側に共通ルールとして寄せると追従しやすい (§ 04 参照)。</li>
     </ol>
   </aside>
 </section>
@@ -408,16 +339,16 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col">
         <div class="caption">既定<br>(rest)</div>
-        <div class="actual"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+        <div class="actual"><anti-control-gate></anti-control-gate></div>
       </div>
       <div class="col">
         <div class="caption">原寸 3 倍<br>(zoom ×3)</div>
-        <div class="zoom"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+        <div class="zoom"><anti-control-gate></anti-control-gate></div>
       </div>
       <div class="col">
         <div class="caption">0 条件 CNOT<br>AntiControl + X</div>
         <div class="column-mock column-mock--2 column-mock--anti-top">
-          <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+          <anti-control-gate></anti-control-gate>
           <x-gate></x-gate>
         </div>
       </div>
@@ -568,20 +499,20 @@
     <div class="stage">
       <div class="col">
         <div class="caption">① 既定<br>cyan-400 空円</div>
-        <div class="actual"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+        <div class="actual"><anti-control-gate></anti-control-gate></div>
       </div>
       <div class="col">
         <div class="caption">② 回路ホバー<br>purple-400 線だけ</div>
-        <div class="actual"><div class="ac-gate" data-state="hover"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+        <div class="actual"><anti-control-gate state="hover"></anti-control-gate></div>
       </div>
       <div class="col">
         <div class="caption">③ ドラッグ<br>purple-600</div>
-        <div class="actual"><div class="ac-gate" data-state="drag"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div>
+        <div class="actual"><anti-control-gate state="drag"></anti-control-gate></div>
       </div>
       <div class="col">
         <div class="caption">④ パレットホバー<br>surface gap あり</div>
         <div class="actual">
-          <div class="palette-hover-host"><div class="palette-hover-inner"><div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div></div></div>
+          <div class="palette-hover-host"><div class="palette-hover-inner"><anti-control-gate></anti-control-gate></div></div>
         </div>
       </div>
     </div>
@@ -591,25 +522,18 @@
       パレットホバーだけは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使い、外側 2 px の bg を挟む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 04 ホバー枠の実装技法が Control と不一致">
+    <aside class="critique" aria-label="批評 · § 04 ホバー枠の横断仕様">
       <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
-      <div class="critique-title">CSS の hover 枠を <code>box-shadow</code> で描いており、Control の <code>::before + border</code> と技法が違う</div>
+      <div class="critique-title">回路ホバーとパレットホバーの 2 系統を横断仕様へ集約すると追従しやすい</div>
       <p class="critique-body">
-        本ページの hover は <code>box-shadow: 0 0 0 2px var(--purple-400)</code> で描かれており、
-        <a href="control-gate.html">Control 仕様</a>の <code>::before { inset: -4px; border: 2px solid }</code> と
-        <strong>異なる CSS 技法</strong>を使っている。同じ「purple-400 stroke-only 2 px」の見た目を、片や box-shadow、片や擬似要素 + border で
-        描いており、<strong>仕様ページ間の一貫性が崩れている</strong>。
+        <code>&lt;anti-control-gate&gt;</code> の回路ホバーは <a href="control-gate.html">Control 仕様</a> と同じ
+        <code>inset: -4px</code> + <code>border: 2px solid</code> の stroke-only 枠に揃えている。
+        ただし、パレット上では親の <code>.gp-gate</code> が surface gap 版を描くため、同じマーカでも文脈によりホバー枠が分岐する。
       </p>
       <p class="critique-body">
-        box-shadow と border は<strong>枠の位置 (本体外側 / 内側)</strong> が異なる: <code>box-shadow: 0 0 0 2px</code> は本体外周に密着して 2 px を足すため、
-        ホバー時に隣接スロットへ 2 px 食い込む。Control 仕様の <code>inset: -4px + border 2px</code> は本体から 4 px 離れて 2 px を描くため、
-        合計 6 px の hover halo になる。<strong>本仕様の hover は Control より枠の位置が違う可能性がある</strong>。
-        実装側 (gate-palette.html / hover-frame.html) と照合し、どちらが正しいかを統一すべき。
-      </p>
-      <p class="critique-body">
-        補足: 「回路ホバー = stroke-only / パレットホバー = surface gap」の使い分け根拠が caption に出ていない論点は、
-        <a href="control-gate.html">Control 仕様 § 04 の批評</a>と同じ。Control / AntiControl / Swap で共通の論点なので、
-        <a href="hover-frame.html">hover-frame.html</a> 側に横断仕様として記述するのが筋。
+        補足: 「回路ホバー = stroke-only / パレットホバー = surface gap」の使い分け根拠は
+        Control / AntiControl / Swap で共通するため、<a href="hover-frame.html">ホバー枠</a> 側に横断仕様として記述すると、
+        今後のカスタム要素追加時にも判断を共有しやすい。
       </p>
     </aside>
   </div>
@@ -628,7 +552,7 @@
         <div class="diagram-caption">AntiControl + X<br>0 条件 CNOT</div>
         <div class="wide-column">
           <div class="column-mock column-mock--2 column-mock--anti-top">
-            <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+            <anti-control-gate></anti-control-gate>
             <x-gate></x-gate>
           </div>
         </div>
@@ -637,8 +561,8 @@
         <div class="diagram-caption">Control + AntiControl + X<br>混在多重制御</div>
         <div class="wide-column">
           <div class="column-mock column-mock--3 column-mock--anti-middle">
-            <div class="ctl-gate"><svg viewBox="0 0 48 48"><use href="#g-Control" /></svg></div>
-            <div class="ac-gate"><svg viewBox="0 0 48 48"><use href="#g-AntiControl" /></svg></div>
+            <control-gate></control-gate>
+            <anti-control-gate></anti-control-gate>
             <x-gate></x-gate>
           </div>
         </div>
