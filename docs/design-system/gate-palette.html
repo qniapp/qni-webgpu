@@ -12,9 +12,10 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- H / Y の Web Component を使う箇所向けに読み込む。
-       Y ゲートの本体描画は <y-gate> に集約し、gp-gate ラップ側は palette 専用のクロム (hover frame / tooltip / grab cursor) を提供する。 -->
+  <!-- H / X / Y の Web Component を使う箇所向けに読み込む。
+       X / Y ゲートの本体描画は <x-gate> / <y-gate> に集約し、gp-gate ラップ側は palette 専用のクロム (hover frame / tooltip / grab cursor) を提供する。 -->
   <script src="components/h-gate.js"></script>
+  <script src="components/x-gate.js"></script>
   <script src="components/y-gate.js"></script>
   <style>
 
@@ -54,6 +55,11 @@
       border-radius: 8px;
     }
     .gp-gate svg { display: block; }
+    .gp-gate > h-gate,
+    .gp-gate > x-gate,
+    .gp-gate > y-gate {
+      pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
+    }
 
     /* ホバー枠 (panel.rs:59-69) — outer = +4 / corner 10 purple-400, inner = +2 / corner 8 paper */
     .gp-gate:hover::before {
@@ -129,7 +135,7 @@
   <div class="gp-stage" style="padding: 0; background: transparent; border: none; min-height: auto;">
     <div class="gp-row" style="margin: 0;">
       <div class="gp-gate"><h-gate></h-gate></div>
-      <div class="gp-gate"><div class="gate-body"><span class="g-letter">X</span></div></div>
+      <div class="gp-gate"><x-gate></x-gate></div>
       <div class="gp-gate"><y-gate></y-gate></div>
       <div class="gp-gate"><div class="gate-body"><span class="g-letter">Z</span></div></div>
       <div class="gp-gate"><div class="gate-body"><span class="g-letter">S</span></div></div>
@@ -158,7 +164,7 @@
   共通 SVG シンボル定義 — Web Component 化していないアイコンを viewBox="0 0 48 48" で統一。
   実装は assets/icons/*.svg (viewBox 48) を 256 px PNG → SDF テクスチャに焼いて 40 px cell へ描画。
   ここでは同じ SVG path を直接埋め込むことで、文字グリフ (Geist) の太さと配置を実装と完全一致させる。
-  ただし Y ゲートは <y-gate> に集約し、ここへ同じ path を重複定義しない。
+  ただし X / Y ゲートは <x-gate> / <y-gate> に集約し、ここへ同じ path を重複定義しない。
   Body の corner radius / 円半径 / ブロッホ軸 / Probability bar / Amps Q ロゴなどの primitive も
   「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
     body corner radius 6 px → rx 7.2、stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
@@ -285,14 +291,6 @@
         <g transform="translate(35.347 16.013) scale(0.015360 -0.015360)">
           <path d="M242 0V443H86V532H242V710H342V532H499V443H342V0Z"/>
         </g>
-      </g>
-    </symbol>
-
-    <!-- ─ X (circle body radius 24 viewbox = 20 display + Plus glyph from plus.svg) ─ -->
-    <symbol id="g-X" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="24" fill="#3AA99F"/>
-      <g transform="translate(15.637 32.690) scale(0.029760 -0.029760)" fill="#FFFCF0">
-        <path d="M235 51V246H40V338H235V533H327V338H522V246H327V51Z"/>
       </g>
     </symbol>
 
@@ -479,7 +477,7 @@
         <div class="gp-section">
           <div class="gp-row">
             <div class="gp-gate" data-tip="H · Hadamard"><svg width="40" height="40"><use href="#g-H"/></svg><span class="tip">H · Hadamard</span></div>
-            <div class="gp-gate" data-tip="X · Pauli-X (NOT, +)"><svg width="40" height="40"><use href="#g-X"/></svg><span class="tip">X · Pauli-X (NOT)</span></div>
+            <div class="gp-gate" data-tip="X · Pauli-X (NOT, +)"><x-gate></x-gate><span class="tip">X · Pauli-X (NOT)</span></div>
             <div class="gp-gate" data-tip="Y · Pauli-Y"><y-gate></y-gate><span class="tip">Y · Pauli-Y</span></div>
             <div class="gp-gate" data-tip="Z · Pauli-Z"><svg width="40" height="40"><use href="#g-Z"/></svg><span class="tip">Z · Pauli-Z</span></div>
             <div class="gp-gate" data-tip="√X · √NOT"><svg width="40" height="40"><use href="#g-SqrtX"/></svg><span class="tip">√X · square-root NOT</span></div>
@@ -567,7 +565,7 @@
     <h3 style="margin-top: 16px;">Gates section · row 1 — unitary 1 量子ビット gates (13 個 / indices 0〜12)</h3>
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><h-gate></h-gate></div><div class="label"><span class="name">H</span><span>Hadamard</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-X"/></svg></div><div class="label"><span class="name">X</span><span>Pauli-X / NOT (Plus glyph)</span></div></div>
+      <div class="item"><div class="gp-gate"><x-gate></x-gate></div><div class="label"><span class="name">X</span><span>Pauli-X / NOT (Plus glyph)</span></div></div>
       <div class="item"><div class="gp-gate"><y-gate></y-gate></div><div class="label"><span class="name">Y</span><span>Pauli-Y</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Z"/></svg></div><div class="label"><span class="name">Z</span><span>Pauli-Z</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-SqrtX"/></svg></div><div class="label"><span class="name">√X</span><span>X<sup>1/2</sup></span></div></div>
