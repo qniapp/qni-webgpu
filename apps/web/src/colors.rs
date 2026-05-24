@@ -44,6 +44,7 @@ pub(crate) struct Colors {
     pub(crate) span_resize_handle_bg_hover: egui::Color32,
     pub(crate) popup_icon: egui::Color32,
     pub(crate) popup_icon_chrome: egui::Color32,
+    pub(crate) popover_outline: egui::Color32,
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
@@ -191,6 +192,7 @@ fn flexoki_light() -> Colors {
         span_resize_handle_bg_hover: cyan_600, // Resize handle hover / active (Flexoki cyan-600)
         popup_icon: blue_400,
         popup_icon_chrome: tx_3,
+        popover_outline: tx_3, // Popover outline/tail stroke (Flexoki tx-3 #B7B5AC)
         bloch_sphere_bg: bg_2,
         bloch_sphere_lines: tx_3,
         bloch_vector_line: tx,
@@ -247,6 +249,14 @@ mod tests {
         assert_eq!(
             Colors::new().span_resize_handle_bg_hover,
             egui::Color32::from_rgb(0x24, 0x83, 0x7B)
+        );
+    }
+
+    #[test]
+    fn popover_outline_uses_flexoki_tx_3() {
+        assert_eq!(
+            Colors::new().popover_outline,
+            egui::Color32::from_rgb(0xB7, 0xB5, 0xAC)
         );
     }
 }

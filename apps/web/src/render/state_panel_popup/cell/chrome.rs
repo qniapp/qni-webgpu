@@ -13,7 +13,7 @@ pub(super) fn paint_popup_chrome(painter: &egui::Painter, colors: &Colors, popup
 }
 
 fn paint_card(painter: &egui::Painter, colors: &Colors, rect: egui::Rect) {
-    // Drop shadow → paper fill → ui-2 hairline border (B variant).
+    // Drop shadow → paper fill → tx-3 hairline border so the paper tail stays readable.
     let corner = egui::CornerRadius::same(10);
     let shadow = egui::epaint::Shadow {
         offset: [0, 10],
@@ -26,13 +26,13 @@ fn paint_card(painter: &egui::Painter, colors: &Colors, rect: egui::Rect) {
     painter.rect_stroke(
         rect,
         corner,
-        egui::Stroke::new(1.0, colors.state_outline_zero),
+        egui::Stroke::new(1.0, colors.popover_outline),
         egui::StrokeKind::Inside,
     );
 }
 
 fn paint_tail(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
-    // Tail (small triangle pointing at the cell). Filled paper + matching ui-2
+    // Tail (small triangle pointing at the cell). Filled paper + matching tx-3
     // stroke on the two slanted sides so it reads as part of the bordered card.
     // Uses the un-clamped horizontal anchor so the apex always lands on the
     // cell.
@@ -64,7 +64,7 @@ fn paint_tail(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
         colors.surface,
     );
 
-    let border_stroke = egui::Stroke::new(1.0, colors.state_outline_zero);
+    let border_stroke = egui::Stroke::new(1.0, colors.popover_outline);
     painter.line_segment([base_l, apex], border_stroke);
     painter.line_segment([apex, base_r], border_stroke);
 }
