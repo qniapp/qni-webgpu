@@ -1,11 +1,12 @@
 /* ─────────────────────────────────────────────────────────────────────
  * h-gate.js — <h-gate> カスタム要素
  *
- * 仕様: docs/design-system/h-gate.html (canonical 定義)
+ * 仕様: docs/design-system/gate-chrome.html (共通クロム) +
+ *       docs/design-system/h-gate.html (H 固有の字形 / 意味論)
  *
  * 他のデザインシステムページから H ゲートを参照するときは、簡略マークアップ
- * (色付き四角 + テキストラベル) ではなく、本要素を使って canonical な見た目を
- * そのまま埋め込む。これにより h-gate.html の仕様変更が他ページへ自動追従する。
+ * (色付き四角 + テキストラベル) ではなく、本要素を使って正規の見た目を
+ * そのまま埋め込む。これにより gate-chrome.html / h-gate.html に沿った本要素の更新が他ページへ自動追従する。
  *
  * 使い方:
  *   <script src="components/h-gate.js"></script>
@@ -62,7 +63,7 @@
   :host([state="hover"]) .hover-gap,
   :host(:not([state]):hover) .hover-gap { display: block; }
 
-  /* 本体 (cyan-400) + paper グリフ。h-gate.html § 02 / § 03 と完全一致。 */
+  /* 本体 (cyan-400) + paper グリフ。共通クロムは gate-chrome.html、H 字形は h-gate.html と一致。 */
   .body {
     position: absolute;
     inset: 0;

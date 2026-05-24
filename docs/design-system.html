@@ -296,15 +296,25 @@
   </div>
 </section>
 
-<!-- ─────── § 04 量子ゲート (Operation gates) ─────── -->
+<!-- ─────── § 04 量子ゲート (Quantum Gates) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 04</span>量子ゲート (Operation gates)</h2>
+  <h2><span class="num">§ 04</span>量子ゲート (Quantum Gates)</h2>
   <p class="note">
-    状態ベクトルを変化させる単項 / 二項 / 制御ゲート群と、編集用の空きスロット (Spacer)。すべて <strong>40px ゲート本体 + 56px ピッチ</strong>
-    (<code>GATE_SIZE = 40</code>, <code>LINE_GAP = SLOT_SPACING = 56</code>) に揃え、共通の hover / drag 挙動を持つ。
-    サイズ統一の経緯は <a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a> 参照。
+    状態に作用する単一量子ビットゲート、複数量子ビットゲート、制御マーカ、測定・リセットと、編集用の空きスロット (Spacer)。
+    この一覧では各要素が何をするかだけを説明し、共通の外装ルールは <a href="design-system/gate-chrome.html">gate-chrome.html</a> に委ねる。
   </p>
   <div class="spec-grid">
+
+    <a class="spec-card" href="design-system/gate-chrome.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/gate-chrome.html?preview" loading="lazy" title="ゲートクロム preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">ゲートクロム共通仕様</span>
+        <span class="pill ref">ref</span>
+      </div>
+      <p class="desc">ゲート共通の外装ルールをまとめる参照仕様。個別ゲートページはここを継承し、意味・字形・形状差分だけを書く。</p>
+    </a>
 
     <a class="spec-card" href="design-system/h-gate.html">
       <div class="preview" aria-hidden="true">
@@ -314,7 +324,7 @@
         <span class="name">Hadamard (H)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビット H ゲート。cyan-400 本体 + Geist 700 グリフ "H" を中央配置した、もっとも基本的な操作ゲート。</p>
+      <p class="desc">1 量子ビットを計算基底と重ね合わせ基底の間で変換する基本ゲート。重ね合わせを作る導入にも使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/x-gate.html">
@@ -325,7 +335,7 @@
         <span class="name">Pauli-X / NOT (X)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビット X ゲート (NOT)。cyan-400 の塗りつぶし円 + Plus (⊕) グリフを中央配置した、CNOT のターゲットと見た目を共有するゲート。</p>
+      <p class="desc">1 量子ビットの NOT ゲート。<code>|0⟩</code> と <code>|1⟩</code> を入れ替え、CNOT の対象にもなる。</p>
     </a>
 
     <a class="spec-card" href="design-system/y-gate.html">
@@ -336,7 +346,7 @@
         <span class="name">Pauli-Y (Y)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビット Y ゲート。H / Z と同じ cyan-400 角丸正方形 + Geist 700 グリフ "Y"。ブロッホ球上では Y 軸まわりの 180° 回転に対応する。</p>
+      <p class="desc">1 量子ビットを Y 軸まわりに 180° 回転する Pauli ゲート。振幅の入れ替えと位相変化を同時に表す。</p>
     </a>
 
     <a class="spec-card" href="design-system/z-gate.html">
@@ -347,7 +357,7 @@
         <span class="name">Pauli-Z (Z)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの位相反転ゲート。H / Y と同じ cyan-400 角丸正方形 + Geist 700 グリフ "Z" で、Z 軸 π 回転を表す。</p>
+      <p class="desc">1 量子ビットの位相反転ゲート。<code>|1⟩</code> 成分の符号を反転し、Z 軸まわりの 180° 回転に対応する。</p>
     </a>
 
     <a class="spec-card" href="design-system/sqrtx-gate.html">
@@ -358,7 +368,7 @@
         <span class="name">Square-root X (√X)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの平方根 NOT ゲート。H / Y / Z / S / T と同じ cyan-400 角丸正方形に、√ と X の合成字形を中央配置する。</p>
+      <p class="desc">X ゲートの平方根にあたる 1 量子ビットゲート。2 回続けて適用すると X と同じ作用になる。</p>
     </a>
 
     <a class="spec-card" href="design-system/s-gate.html">
@@ -369,7 +379,7 @@
         <span class="name">S ゲート (位相 π/2)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの位相 π/2 ゲート。H / Y / Z / T と同じ cyan-400 角丸正方形 + Geist 700 グリフ "S"。Z 軸 90° 回転を表す。</p>
+      <p class="desc">1 量子ビットの位相 π/2 ゲート。<code>|1⟩</code> 成分へ <code>i</code> を掛け、Z 軸まわりの 90° 回転に対応する。</p>
     </a>
 
     <a class="spec-card" href="design-system/s-dagger-gate.html">
@@ -380,7 +390,7 @@
         <span class="name">Phase −π/2 (S†)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">S の Hermite 共役 (位相 −π/2)。S と同じ cyan-400 角丸正方形 + Geist 700 グリフ "S" の右上に小さな † を重ねて順 / 逆を字形差で示す。</p>
+      <p class="desc">S のエルミート共役。S と逆向きの位相 −π/2 を与え、S の作用を取り消す向きに使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/t-gate.html">
@@ -391,7 +401,7 @@
         <span class="name">Phase π/4 (T)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの位相 π/4 ゲート。H / Y / Z / S と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T"。Clifford + T で universal。</p>
+      <p class="desc">1 量子ビットの位相 π/4 ゲート。Clifford ゲート群に加えることで普遍計算を構成する代表的な非 Clifford ゲート。</p>
     </a>
 
     <a class="spec-card" href="design-system/t-dagger-gate.html">
@@ -402,7 +412,7 @@
         <span class="name">Phase −π/4 (T†)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">T のエルミート共役 (位相 −π/4)。T と同じ cyan-400 角丸正方形 + Geist 700 グリフ "T" の右上に小さな † を重ねて順 / 逆を字形差で示す。</p>
+      <p class="desc">T のエルミート共役。T と逆向きの位相 −π/4 を与え、T の作用を取り消す向きに使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/p-gate.html">
@@ -413,7 +423,7 @@
         <span class="name">Phase θ (P)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">パラメトリック位相ゲート。<code>P(π/2) = S</code> / <code>P(π/4) = T</code> / <code>P(π) = Z</code> を 1 つの汎用形にまとめた位相系列の親。</p>
+      <p class="desc">角度 θ を指定できる位相ゲート。S / T / Z などの固定角ゲートを 1 つの汎用形にまとめる。</p>
     </a>
 
     <a class="spec-card" href="design-system/rx-gate.html">
@@ -424,7 +434,7 @@
         <span class="name">X-axis rotation (Rx)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの X 軸回転 (連続角 θ)。H / Y / Z / S / T と同じ cyan-400 角丸正方形 + 2 文字グリフ "Rx"。</p>
+      <p class="desc">角度 θ を指定して 1 量子ビットを X 軸まわりに回転するゲート。連続的な回転操作に使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/ry-gate.html">
@@ -435,7 +445,7 @@
         <span class="name">Y-axis rotation (Ry)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの Y 軸回転 (連続角 θ)。Rx と同じ cyan-400 角丸正方形 + 2 文字グリフ "Ry"。</p>
+      <p class="desc">角度 θ を指定して 1 量子ビットを Y 軸まわりに回転するゲート。連続的な回転操作に使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/rz-gate.html">
@@ -446,7 +456,7 @@
         <span class="name">Z-axis rotation (Rz)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">1 量子ビットの Z 軸回転 (連続角 θ)。Rx / Ry と同じ cyan-400 角丸正方形 + 2 文字グリフ "Rz"。</p>
+      <p class="desc">角度 θ を指定して 1 量子ビットを Z 軸まわりに回転するゲート。連続的な位相操作に使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/control-gate.html">
@@ -457,7 +467,7 @@
         <span class="name">Control (|1⟩ 条件)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">同じ列の対象ゲートを |1⟩ 条件にする透明な制御マーカ。cyan-400 の塗りつぶし円と 4px 縦コネクタで多量子ビット操作を示す。</p>
+      <p class="desc">同じ列の対象ゲートを <code>|1⟩</code> 条件で実行する制御マーカ。多量子ビット操作の条件を表す。</p>
     </a>
 
     <a class="spec-card" href="design-system/anti-control-gate.html">
@@ -468,7 +478,7 @@
         <span class="name">Anti-control (|0⟩ 条件)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">Control のペア。透明な 40px 領域 + cyan-400 の空円 (r=5 / stroke=3) で |0⟩ 条件を示し、縦コネクタは空円中心 ±6px の隙間付きで分割描画する。</p>
+      <p class="desc">同じ列の対象ゲートを <code>|0⟩</code> 条件で実行する制御マーカ。通常の制御とは逆の条件を表す。</p>
     </a>
 
     <a class="spec-card" href="design-system/swap-gate.html">
@@ -479,7 +489,7 @@
         <span class="name">Swap</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">透明な領域に描いた 2 つの × マーカを cyan-400 の 4px 縦コネクタで結び、2 量子ビットの値を交換する操作ゲート。</p>
+      <p class="desc">2 つの量子ビットの状態を交換する操作ゲート。ペアで置かれた対象同士を入れ替える。</p>
     </a>
 
     <a class="spec-card" href="design-system/qft-gate.html">
@@ -490,7 +500,7 @@
         <span class="name">QFT (量子フーリエ変換)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">span 内の量子ビットへ離散フーリエ変換のユニタリ版を適用する操作ゲート。40 × (56·span − 16) px の縦長本体を持つ。</p>
+      <p class="desc">複数量子ビットへ量子フーリエ変換を適用する操作ゲート。作用範囲を指定して使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/qft-dagger-gate.html">
@@ -501,7 +511,7 @@
         <span class="name">QFT† (逆量子フーリエ変換)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">QFT のエルミート共役。本体寸法・配色・span 範囲は QFT と共有し、"QFT" 字形の右上に小さな † を重ねる。</p>
+      <p class="desc">量子フーリエ変換の逆変換を適用する操作ゲート。QFT と同じく作用範囲を指定して使う。</p>
     </a>
 
     <a class="spec-card" href="design-system/write0-gate.html">
@@ -512,7 +522,7 @@
         <span class="name">|0⟩ オペレーション (Reset to |0⟩)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。tx-2 のケット括弧 <code>|⟩</code> + 中央 red-600 のディジット "0" だけで描く。</p>
+      <p class="desc">対象量子ビットを <code>|0⟩</code> に強制再初期化する非ユニタリ操作。回路内で値をリセットする。</p>
     </a>
 
     <a class="spec-card" href="design-system/write1-gate.html">
@@ -523,7 +533,7 @@
         <span class="name">|1⟩ オペレーション (Reset to |1⟩)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">対象量子ビットを <code>|1⟩</code> に強制再初期化する非ユニタリ操作。|0⟩ オペレーションと同じ陣形で、ディジットを blue-600 "1" に入れ替える。</p>
+      <p class="desc">対象量子ビットを <code>|1⟩</code> に強制再初期化する非ユニタリ操作。回路内で値をリセットする。</p>
     </a>
 
     <a class="spec-card" href="design-system/measurement-gate.html">
@@ -534,7 +544,7 @@
         <span class="name">測定ゲート (Measurement)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">Z 基底で 1 量子ビットを射影測定し、GPU 上の結果 0 / 1 を red-600 / blue-600 のディジットで重ねる非ユニタリ操作。</p>
+      <p class="desc">Z 基底で 1 量子ビットを射影測定する非ユニタリ操作。測定結果に応じて状態を収縮させる。</p>
     </a>
 
     <a class="spec-card" href="design-system/spacer-gate.html">
@@ -545,7 +555,7 @@
         <span class="name">Spacer ゲート (空きスロット)</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">状態に作用しない空きスロット。40 × 40 px の透明領域に tx の 3 点だけを描き、列の間隔と読みやすさを保つ。</p>
+      <p class="desc">状態に作用しない空きスロット。回路の列間隔や読みやすさを調整するために使う。</p>
     </a>
 
   </div>
@@ -579,7 +589,7 @@
         </svg>
       </div>
       <div class="row"><span class="name">Circuit grid</span><span class="pill todo">todo</span></div>
-      <p class="desc">回路本体のグリッド + 量子ビットワイヤ。40px ゲート本体を 56px ピッチで並べる。</p>
+      <p class="desc">回路本体のグリッドと量子ビットワイヤ。ゲートを配置する編集面の基準を定義する。</p>
     </div>
 
     <div class="spec-card dim">
@@ -632,7 +642,7 @@
         <span class="name">Gate palette</span>
         <span class="pill done">spec</span>
       </div>
-      <p class="desc">回路エディタ上部の 2 行ゲートパレット (40 × 40 px アイコンの drag source)。</p>
+      <p class="desc">回路エディタ上部のゲートパレット。配置できるゲートを選び、回路へドラッグする。</p>
     </a>
 
     <a class="spec-card" href="design-system/circuit-picker.html">
