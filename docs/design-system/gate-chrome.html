@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ゲートクロム共通仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <!-- 代表モック。共通クロムの説明に H を使うが、個別グリフの正は各ゲート仕様に置く。 -->
+  <script src="components/h-gate.js"></script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。 */
+
+    /* ── サムネ / 状態表示 ───────────────────────── */
+    .preview-strip,
+    .state-strip,
+    .shape-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;                         /* spacing-4 */
+      flex-wrap: wrap;
+    }
+    .stage {
+      display: flex;
+      gap: 32px;                         /* spacing-8 */
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px 0;                   /* spacing-4 */
+    }
+    .stage .col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                          /* spacing-2 */
+      align-items: center;
+      max-width: 184px;
+      text-align: center;
+    }
+    .caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+    .actual {
+      width: 56px;                       /* spacing-14 = SLOT_SPACING */
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    /* ── 範囲メモ ─────────────────────────────── */
+    .scope-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .scope-item {
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    .scope-item strong {
+      display: block;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      margin-bottom: 4px;                /* spacing-1 */
+    }
+    .scope-item span {
+      display: block;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+
+    /* ── 56 px スロット / 40 px 本体の図解 ───────────── */
+    .geometry-panel {
+      display: flex;
+      gap: 32px;                         /* spacing-8 */
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .slot-diagram {
+      position: relative;
+      width: 224px;                      /* 56px × 4: spacing-14 × 4 */
+      height: 152px;                     /* 4px 倍数 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      overflow: hidden;
+    }
+    .slot-diagram::before {
+      content: '';
+      position: absolute;
+      left: 24px;                        /* spacing-6 */
+      right: 24px;
+      top: 75px;
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 = wire */
+    }
+    .slot-box {
+      position: absolute;
+      left: 84px;                        /* (224 - 56) / 2 */
+      top: 32px;                         /* spacing-8 */
+      width: 56px;                       /* spacing-14 */
+      height: 56px;
+      border: 1px dashed var(--tx-3);    /* Flexoki tx-3 */
+      border-radius: 4px;
+    }
+    .slot-box::before {
+      content: '';
+      position: absolute;
+      inset: 8px;                        /* spacing-2 = slot padding */
+      border-radius: 6px;                /* rounded-md */
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+    }
+    .slot-label {
+      position: absolute;
+      left: 16px;                        /* spacing-4 */
+      right: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      text-align: center;
+    }
+    .slot-label.top { top: 12px; }       /* spacing-3 */
+    .slot-label.bottom { bottom: 16px; } /* spacing-4 */
+    .legend-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+    .legend-list li + li { margin-top: 4px; } /* spacing-1 */
+    .legend-list strong { color: var(--tx); }
+
+    /* ── 隣接ゲート余白の図解 ─────────────────────── */
+    .clearance-panel {
+      margin-top: 16px;                  /* spacing-4 */
+      padding: 16px;                     /* spacing-4 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      overflow-x: auto;
+    }
+    .clearance-canvas {
+      position: relative;
+      width: 144px;                      /* 2 slots + side padding */
+      height: 112px;                     /* spacing-28 */
+      margin: 0 auto;
+      flex: 0 0 auto;
+    }
+    .clearance-canvas::before {
+      content: '';
+      position: absolute;
+      left: 16px;                        /* spacing-4 */
+      right: 16px;
+      top: 44px;                         /* spacing-11 相当 */
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 = wire */
+    }
+    .slot-guide {
+      position: absolute;
+      top: 16px;                         /* spacing-4 */
+      width: 56px;                       /* spacing-14 */
+      height: 56px;
+      border: 1px dashed var(--ui-2);    /* Flexoki ui-2 */
+      border-radius: 4px;
+    }
+    .slot-guide.left { left: 16px; }
+    .slot-guide.right { left: 72px; }    /* 16 + 56 */
+    .clearance-canvas h-gate {
+      position: absolute;
+      top: 24px;                         /* slot top + 8px */
+    }
+    .clearance-canvas h-gate.left { left: 24px; }
+    .clearance-canvas h-gate.right { left: 80px; } /* left + 56px pitch */
+    .gap-bar {
+      position: absolute;
+      left: 64px;                        /* left body right edge */
+      top: 84px;                         /* spacing-21 */
+      display: flex;
+      width: 16px;                       /* body 間の余白 */
+      height: 12px;                      /* spacing-3 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+    }
+    .gap-bar .seg { height: 100%; flex: 0 0 auto; }
+    .gap-bar .gap {
+      width: 2px;
+      background: var(--bg);             /* Flexoki bg / 背景の空き */
+    }
+    .gap-bar .frame {
+      width: 2px;
+      background: var(--purple-400);     /* Flexoki purple-400 / gate_hover_border */
+    }
+    .gap-bar .free {
+      width: 8px;                        /* spacing-2 */
+      background: var(--ui);             /* Flexoki ui / 視覚的な余白 */
+    }
+    .gap-note {
+      margin-top: 12px;                  /* spacing-3 */
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+
+    /* ── 形状枝分かれ ─────────────────────────── */
+    .shape-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .shape-card .item {
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px;                     /* spacing-3 */
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      display: flex;
+      align-items: center;
+      gap: 12px;                         /* spacing-3 */
+    }
+    .shape-card .body {
+      width: 40px;                       /* spacing-10 */
+      height: 40px;
+      flex: 0 0 auto;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+    }
+    .shape-card .rounded { border-radius: 6px; } /* rounded-md */
+    .shape-card .circle { border-radius: 999px; }
+    .shape-card .transparent {
+      background: transparent;
+      border: 1px dashed var(--cyan-400); /* Flexoki cyan-400 / box_fill */
+    }
+    .shape-card p {
+      margin: 0;
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
+<div id="preview">
+  <div class="preview-strip" aria-hidden="true">
+    <div class="actual"><h-gate></h-gate></div>
+    <div class="actual"><h-gate state="hover"></h-gate></div>
+    <div class="actual"><h-gate state="drag"></h-gate></div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ゲートクロム共通仕様</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · デザインシステム · ゲート共通仕様</p>
+  <h1 class="page-title">ゲートクロム共通仕様</h1>
+  <p class="page-lede">
+    1 スロットゲートの基準本体、span を持つゲートにも共通する 56 px ピッチ、ホバー枠、配色ロールを定義する親仕様。
+    塗りつぶし本体を持つゲートは本体色とドラッグプレビューもここから継承し、透明マーカや非ユニタリ操作は hit 領域と配置方針だけを継承する。
+  </p>
+</div>
+
+<!-- ─────── § 01 適用範囲 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 01</span>適用範囲</h2>
+  <div class="card">
+    <p>
+      本仕様は「回路上で 1 つの配置単位として扱うゲートの外装」を扱う。対象は、角丸正方形 / 真円 / 透明マーカ / span 付き本体を持つ操作要素である。
+      ただし <code>box_fill</code> / <code>drag_fill</code> は塗りつぶし本体を持つゲートだけの共通仕様とし、Spacer / Measurement / Write 系や透明マーカは個別仕様の色とドラッグ表示を優先する。
+      表示ブロック (確率 / 振幅 / ブロッホ球 / 密度行列) は状態を変えない読み取り要素なので、各表示ブロック仕様を正とする。
+    </p>
+    <div class="scope-list">
+      <div class="scope-item">
+        <strong>このページで定義する</strong>
+        <span>1 スロットゲートの基準本体サイズ、スロットピッチ、塗りつぶし本体の色ロール、ホバー枠、z-index の層。</span>
+      </div>
+      <div class="scope-item">
+        <strong>個別ゲート仕様で定義する</strong>
+        <span>字形、量子操作の意味、形状分岐、span 範囲、例外的なコネクタやリサイズハンドル。</span>
+      </div>
+      <div class="scope-item">
+        <strong>再定義してはいけない</strong>
+        <span>1 スロットゲートの 40 px 基準本体、56 px ピッチ、ホバー枠の 4 px 外側展開。塗りつぶし本体の状態色もここを正とする。</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 02 配色ロールと状態 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 02</span>配色ロールと状態</h2>
+  <div class="card">
+    <p>
+      配色は「ロール」と「状態」を分けて読む。ロールはデザイントークン上の意味、状態は表示中にどのロールへ切り替えるかを示す。
+      これにより、個別ゲートページが <code>本体 fill (default)</code> と <code>本体 fill (drag)</code> を別判断として重複記述する必要がなくなる。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>ロール</th><th>状態</th><th>Flexoki トーン</th><th>使い方</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>box_fill</code></td>
+          <td>default / hover</td>
+          <td><code>cyan-400</code></td>
+          <td>確定配置済みの塗りつぶしゲート本体。形状は個別ゲートが決めるが、塗りはこの系統で共有する。</td>
+        </tr>
+        <tr>
+          <td><code>label</code></td>
+          <td>default / hover / drag</td>
+          <td><code>bg</code> / paper</td>
+          <td>塗りつぶしゲート上の反転字形。SVG path は <code>currentColor</code> で受け、stroke を足さない。</td>
+        </tr>
+        <tr>
+          <td><code>gate_hover_border</code></td>
+          <td>hover</td>
+          <td><code>purple-400</code></td>
+          <td>本体外側 4 px に出るホバー枠の外周 2 px。詳細は <a href="hover-frame.html">hover-frame.html</a> と一致。</td>
+        </tr>
+        <tr>
+          <td><code>surface</code></td>
+          <td>hover</td>
+          <td><code>bg</code> / paper</td>
+          <td>パレットや仕様モックで、本体とホバー枠の間に残す 2 px の背景の空き。回路上の透明マーカでは接続線を消さないため線だけのホバー枠にする。</td>
+        </tr>
+        <tr>
+          <td><code>drag_fill</code></td>
+          <td>drag preview</td>
+          <td><code>purple-600</code></td>
+          <td>塗りつぶし本体を持つゲートの仮配置中の本体色。半透明にはせず、確定済みの <code>cyan-400</code> と不透明色で区別する。</td>
+        </tr>
+        <tr>
+          <td><code>line</code></td>
+          <td>常時</td>
+          <td><code>ui-2</code></td>
+          <td>量子ビットワイヤ。ゲート本体より背面に置き、ゲートがワイヤ上に載っている関係を保つ。</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <code>cyan-400</code> + paper の相対輝度比は約 2.8。通常テキストの WCAG AA 基準には届かないため、
+      本仕様では「文字」ではなく 40 px アイコン内の字形として扱う。将来の高コントラスト表示では
+      <code>label</code> を <code>tx</code> 系へ切り替える余地を残す。透明マーカ / Spacer / Measurement / Write 系は、ここで定義する <code>box_fill</code> と <code>drag_fill</code> を継承しない。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 03 寸法と形状 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 03</span>寸法と形状</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>1 スロット本体</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code> / Tailwind <code>spacing-10</code>)。span を持たないゲートの基準サイズ。</td></tr>
+        <tr><th>スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code> / Tailwind <code>spacing-14</code>)</td></tr>
+        <tr><th>スロット内余白</th><td>上下左右 <code>8 px</code> (Tailwind <code>spacing-2</code>)。40 px 本体を 56 px スロットの中央に置く。</td></tr>
+        <tr><th>角丸正方形</th><td><code>border-radius: 6 px</code> (Tailwind <code>rounded-md</code>)。H / 位相 / 回転ゲートなどの標準形。</td></tr>
+        <tr><th>真円</th><td><code>border-radius: 50%</code>。X / CNOT ターゲットなど、Quirk の plus-in-circle 慣例を保つゲートで使う。</td></tr>
+        <tr><th>透明マーカ</th><td>Control / AntiControl / Swap などは 40 px の hit 領域を保ちつつ、本体塗りではなく円・線・× で描く。色とドラッグ表示は個別仕様を正とする。</td></tr>
+        <tr><th>span 付き本体</th><td>QFT などは幅 40 px と 56 px ピッチ、状態色を継承する。高さ、span 範囲、リサイズハンドルは個別仕様で定義する。</td></tr>
+        <tr><th>z-index</th><td>wire = 0、ゲート本体 = 10、ホバー枠 / ハンドル = 20。個別仕様が新しい層を足す場合もこの順序を崩さない。</td></tr>
+      </tbody>
+    </table>
+
+    <div class="geometry-panel">
+      <div class="slot-diagram" aria-hidden="true">
+        <div class="slot-label top">56 px スロット</div>
+        <div class="slot-box"></div>
+        <div class="slot-label bottom">40 px 本体 + 8 px 余白</div>
+      </div>
+      <ul class="legend-list">
+        <li><strong>40 px</strong> — ゲート本体。操作対象として視認する最小単位。</li>
+        <li><strong>56 px</strong> — 回路グリッドの配置単位。横方向・縦方向のピッチをそろえる。</li>
+        <li><strong>8 px</strong> — スロット内余白。ホバー枠や隣接ゲートの余白を確保する。</li>
+        <li><strong>6 px</strong> — 角丸正方形の半径。Tailwind <code>rounded-md</code> と一致する。</li>
+      </ul>
+    </div>
+
+    <div class="shape-card">
+      <div class="item">
+        <div class="body rounded" aria-hidden="true"></div>
+        <p><strong>角丸正方形</strong><br />H / 位相 / 回転ゲートなどの標準形。</p>
+      </div>
+      <div class="item">
+        <div class="body circle" aria-hidden="true"></div>
+        <p><strong>真円</strong><br />X / CNOT ターゲット。ホバー枠も同心円。</p>
+      </div>
+      <div class="item">
+        <div class="body transparent" aria-hidden="true"></div>
+        <p><strong>透明領域</strong><br />Control / Swap など。40 px hit 領域は維持。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── § 04 状態バリアント ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>状態バリアント</h2>
+  <div class="card">
+    <p>
+      個別ゲートは同じ 3 状態を実装する。状態名と色の切り替えは本仕様を正とし、個別ページは字形が各状態で読めることだけを確認する。
+    </p>
+    <div class="stage state-strip">
+      <div class="col">
+        <div class="caption">既定<br />cyan-400 本体</div>
+        <div class="actual"><h-gate></h-gate></div>
+      </div>
+      <div class="col">
+        <div class="caption">ホバー<br />purple-400 枠 +<br />2 px 背景の空き</div>
+        <div class="actual"><h-gate state="hover"></h-gate></div>
+      </div>
+      <div class="col">
+        <div class="caption">ドラッグプレビュー<br />purple-600 本体</div>
+        <div class="actual"><h-gate state="drag"></h-gate></div>
+      </div>
+    </div>
+    <table class="spec">
+      <tbody>
+        <tr><th>既定</th><td>確定配置済み。<code>box_fill</code> = cyan-400、<code>label</code> = paper。</td></tr>
+        <tr><th>ホバー</th><td>本体色は変えず、外側に <code>gate_hover_border</code> の枠を足す。パレットや仕様モックでは <code>surface</code> の空きも見せる。</td></tr>
+        <tr><th>ドラッグプレビュー</th><td>塗りつぶし本体を持つゲートでは、本体色だけを <code>drag_fill</code> = purple-600 に置き換える。ホバー枠とは重ねない。本体塗りを持たないゲートは個別仕様に従う。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 05 回路グリッド上の配置 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 05</span>回路グリッド上の配置</h2>
+  <div class="card">
+    <p>
+      1 スロット幅のゲートは 56 px ピッチで並び、本体同士の間には常に 16 px の余白が残る。
+      ホバー状態を隣接させても purple-400 の枠が接触しないよう、余白を次の層に分けて確保する。
+    </p>
+    <div class="clearance-panel">
+      <div class="clearance-canvas" aria-hidden="true">
+        <div class="slot-guide left"></div>
+        <div class="slot-guide right"></div>
+        <h-gate class="left" state="hover"></h-gate>
+        <h-gate class="right" state="hover"></h-gate>
+        <div class="gap-bar">
+          <span class="seg gap"></span>
+          <span class="seg frame"></span>
+          <span class="seg free"></span>
+          <span class="seg frame"></span>
+          <span class="seg gap"></span>
+        </div>
+      </div>
+      <div class="gap-note">16 px = 背景 2 + 枠 2 + 視覚的な余白 8 + 枠 2 + 背景 2</div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      上図の点線は説明用のスロット境界で、実 UI には描画しない。横ピッチ・縦ピッチとも 56 px にそろえるため、
+      ワイヤ間の縦方向にも同じ余白政策が適用される。
+    </p>
+  </div>
+</section>
+
+<!-- ─────── § 06 個別仕様への委譲 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 06</span>個別仕様への委譲</h2>
+  <div class="card">
+    <p>
+      各ゲート仕様は、共通クロムを参照したうえで差分だけを書く。次のように責務を分けると、角丸正方形の 1 スロットゲート群が
+      同じ配色表や 56 px 配置図を繰り返さなくてよい。透明マーカや非ユニタリ操作は、共通の配置方針を参照しつつ固有の色と状態表示を定義する。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>書く場所</th><th>書く内容</th><th>例</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>gate-chrome.html</td>
+          <td>40 px 基準本体、56 px ピッチ、塗りつぶし本体の状態色、ホバー枠、隣接余白。</td>
+          <td><code>box_fill</code> / <code>drag_fill</code> (塗りつぶし本体のみ) / 隣接余白。</td>
+        </tr>
+        <tr>
+          <td>個別ゲートページ</td>
+          <td>量子操作の意味、字形、形状分岐、span、固有の設計判断。</td>
+          <td>H のアダマール変換、X の真円、QFT の縦長本体。</td>
+        </tr>
+        <tr>
+          <td>関連 primitive</td>
+          <td>ゲート以外にも使う UI 部品の細部。</td>
+          <td><a href="hover-frame.html">ホバー枠</a>、<a href="resize-handle.html">リサイズハンドル</a>。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 07 関連仕様 ─────── -->
+<section class="block">
+  <h2><span class="num">§ 07</span>関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="h-gate.html">H ゲート (Hadamard)</a></td>
+          <td>本仕様を継承する角丸正方形ゲートの代表。H 固有の字形と意味論だけを定義する。</td>
+        </tr>
+        <tr>
+          <td><a href="x-gate.html">X ゲート (Pauli-X / NOT)</a></td>
+          <td>本仕様の色・ピッチ・状態を継承しつつ、真円本体を使う形状分岐の代表。</td>
+        </tr>
+        <tr>
+          <td><a href="hover-frame.html">ホバー枠</a></td>
+          <td>purple-400 の外側枠と 2 px 背景の空きの primitive 仕様。</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-colors.html">配色</a></td>
+          <td><code>box_fill</code> / <code>gate_hover_border</code> / <code>drag_fill</code> のロール → Flexoki トーン対応。</td>
+        </tr>
+        <tr>
+          <td><a href="design-system-spacing.html">スペーシング</a></td>
+          <td>40 px = <code>spacing-10</code>、56 px = <code>spacing-14</code>、8 px = <code>spacing-2</code> の根拠。</td>
+        </tr>
+        <tr>
+          <td><a href="../gate-size-40px-migration.html">gate-size-40px-migration</a></td>
+          <td>ゲート本体を 40 px に統一した移行経緯。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · ゲートクロム · 2026-05</p>
+</footer>
+
+</body>
+</html>
