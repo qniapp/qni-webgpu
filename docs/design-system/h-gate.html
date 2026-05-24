@@ -161,22 +161,21 @@
   <h2><span class="num">§ 00</span>本ページの責務</h2>
   <div class="card">
     <p>
-      旧版の H 仕様は、H 単体の仕様とゲートクロム共通仕様を同じページに展開していた。
-      現在は 40 px 本体、56 px ピッチ、配色ロール、状態バリアント、隣接余白を
-      <a href="gate-chrome.html">ゲートクロム共通仕様</a>へ移し、H ページは共通仕様への参照と H 固有の差分だけを持つ。
+      共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
+      本ページは H ゲートとしての意味、字形、H 固有の設計判断を定義し、外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
     <div class="responsibility-grid">
       <div class="item">
         <strong>gate-chrome.html が正</strong>
-        <span>寸法、配色ロール、ホバー枠、ドラッグプレビュー、回路グリッド上の 56 px ピッチ。</span>
+        <span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span>
       </div>
       <div class="item">
         <strong>h-gate.html が正</strong>
-        <span>アダマール変換の意味、H の SVG path、字形の位置、H として色差を持たせない判断。</span>
+        <span>アダマール変換の意味、H の字形と位置、H として色差を持たせない判断。</span>
       </div>
       <div class="item">
         <strong>個別ページで再定義しない</strong>
-        <span>H ページでは同じ 40 px クロムを再定義しない。今後の個別ゲートページも同じ方針にそろえる。</span>
+        <span>H ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span>
       </div>
     </div>
   </div>
