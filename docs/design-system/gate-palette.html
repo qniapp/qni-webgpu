@@ -28,6 +28,7 @@
   <script src="components/rz-gate.js"></script>
   <script src="components/p-gate.js"></script>
   <script src="components/control-gate.js"></script>
+  <script src="components/anti-control-gate.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -79,7 +80,8 @@
     .gp-gate > ry-gate,
     .gp-gate > rz-gate,
     .gp-gate > p-gate,
-    .gp-gate > control-gate {
+    .gp-gate > control-gate,
+    .gp-gate > anti-control-gate {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -241,10 +243,6 @@
     </symbol>
 
 
-    <!-- ─ AntiControl — cyan-400 stroked circle r=5 stroke=3 (gate_glyphs.rs:114-121) ─ -->
-    <symbol id="g-AntiControl" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="5" fill="none" stroke="#3AA99F" stroke-width="3"/>
-    </symbol>
 
     <!--
       ─ Bloch sphere ─
@@ -421,7 +419,7 @@
           <div class="gp-row">
             <div class="gp-gate" data-tip="Swap"><svg width="40" height="40"><use href="#g-Swap"/></svg><span class="tip">Swap</span></div>
             <div class="gp-gate" data-tip="Control · |1⟩"><control-gate></control-gate><span class="tip">Control · |1⟩</span></div>
-            <div class="gp-gate" data-tip="Anti-control · |0⟩"><svg width="40" height="40"><use href="#g-AntiControl"/></svg><span class="tip">Anti-control · |0⟩</span></div>
+            <div class="gp-gate" data-tip="Anti-control · |0⟩"><anti-control-gate></anti-control-gate><span class="tip">Anti-control · |0⟩</span></div>
             <div class="gp-gate" data-tip="|0⟩ · reset to |0⟩"><svg width="40" height="40"><use href="#g-Write0"/></svg><span class="tip">|0⟩ · reset</span></div>
             <div class="gp-gate" data-tip="|1⟩ · reset to |1⟩"><svg width="40" height="40"><use href="#g-Write1"/></svg><span class="tip">|1⟩ · reset</span></div>
             <div class="gp-gate" data-tip="Measurement · Z-basis"><svg width="40" height="40"><use href="#g-Measurement"/></svg><span class="tip">Z-basis measurement</span></div>
@@ -511,7 +509,7 @@
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Swap"/></svg></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
       <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-AntiControl"/></svg></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
+      <div class="item"><div class="gp-gate"><anti-control-gate></anti-control-gate></div><div class="label"><span class="name">AntiControl</span><span>|0⟩ control (○)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write0"/></svg></div><div class="label"><span class="name">|0⟩</span><span>reset to |0⟩ (Write0)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Write1"/></svg></div><div class="label"><span class="name">|1⟩</span><span>reset to |1⟩ (Write1)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Measurement"/></svg></div><div class="label"><span class="name">Measurement</span><span>Z-basis 測定 (purple meter)</span></div></div>
