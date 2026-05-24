@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ポップオーバー (Popover) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       nav.breadcrumb / footer.doc-foot) は design-system.css にある。
+       本ページは実装済みの状態セルポップオーバーを正として、共通化する外装だけを説明する。 */
+
+    .popover-stage {
+      min-height: 180px;
+      padding: 32px 24px;                /* spacing-8 / spacing-6 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center 132px / 100% 1px no-repeat,
+        var(--bg-2);                     /* Flexoki bg-2 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .popover-demo {
+      position: relative;
+      width: 360px;                      /* 表示舞台。状態セル実装の 296px 本体を中央に見せる */
+      height: 136px;                     /* 本体 108px + tail 8px + gap 4px + 対象 16px */
+    }
+    .anchor-cell {
+      position: absolute;
+      left: 172px;                       /* 舞台中央へ置く */
+      bottom: 0;
+      width: 16px;                       /* 状態セルの小さな振幅円を模す表示用 */
+      height: 16px;
+      border-radius: 9999px;
+      background: var(--bg);             /* Flexoki bg / paper */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+    }
+    .anchor-cell::after {
+      content: '';
+      position: absolute;
+      inset: 4px;                        /* spacing-1 */
+      border-radius: 9999px;
+      background: var(--blue-200);       /* Flexoki blue-200 / state_fill */
+    }
+
+    .popover {
+      position: absolute;
+      left: 32px;                        /* (360 - 296) / 2 */
+      top: 0;
+      width: 296px;                      /* 状態セル実装 POPUP_W */
+      height: 108px;                     /* 状態セル実装 popup_height() */
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 / popover_border */
+      border-radius: 10px;               /* 状態セル実装 CornerRadius::same(10) */
+      background: var(--bg);             /* Flexoki bg / paper / popover_surface */
+      color: var(--tx);                  /* Flexoki tx */
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* tx alpha。state_cell_popup_shadow 相当 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+    }
+    .popover::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -8px;                      /* tail height */
+      width: 16px;                       /* tail half width 8px × 2 */
+      height: 8px;
+      transform: translateX(-50%);
+      background: var(--bg);             /* Flexoki bg / paper */
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      filter: drop-shadow(0 1px 0 var(--ui-2)); /* Flexoki ui-2 / tail outline */
+      z-index: 2;
+    }
+    .popover-title {
+      font-family: var(--font-mono);
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      color: var(--tx);                  /* Flexoki tx */
+      text-align: left;
+    }
+    .popover-metrics {
+      margin-top: 8px;                   /* spacing-2 */
+    }
+    .popover-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;                          /* spacing-2 */
+      height: 20px;                      /* spacing-5 / row pitch */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 20px;                 /* text-sm default row pitch */
+    }
+    .popover-icon {
+      width: 16px;                       /* spacing-4 */
+      height: 16px;
+      flex: 0 0 auto;
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popup_icon_chrome */
+      border-radius: 9999px;
+      position: relative;
+    }
+    .popover-icon::before,
+    .popover-icon::after {
+      content: '';
+      position: absolute;
+      background: var(--blue-400);       /* Flexoki blue-400 / popup_icon */
+    }
+    .popover-icon--amplitude::before {
+      left: 3px;
+      top: 8px;
+      width: 10px;
+      height: 2px;
+      border-radius: 9999px;
+      transform: rotate(-35deg);
+      transform-origin: left center;
+    }
+    .popover-icon--amplitude::after {
+      right: 2px;
+      top: 3px;
+      width: 0;
+      height: 0;
+      background: transparent;
+      border-left: 5px solid var(--blue-400); /* Flexoki blue-400 / popup_icon */
+      border-top: 3px solid transparent;
+      border-bottom: 3px solid transparent;
+      transform: rotate(-35deg);
+    }
+    .popover-icon--probability::after {
+      inset: 5px;
+      border-radius: 9999px;
+    }
+    .popover-icon--phase::after {
+      inset: 3px;
+      background: transparent;
+      border: 2px solid var(--blue-400); /* Flexoki blue-400 / popup_icon */
+      border-left-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 9999px;
+    }
+    .popover-label {
+      width: 88px;                       /* 値列の開始位置を状態セル実装に近づける表示用幅 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+    .popover-value {
+      color: var(--tx);                  /* Flexoki tx */
+      font-variant-numeric: tabular-nums;
+    }
+    .popover-small {
+      display: inline-flex;
+      position: relative;
+      width: 184px;
+      min-height: 68px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg */
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;                          /* spacing-1 */
+    }
+    .popover-small::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 8px;
+      background: var(--bg);             /* Flexoki bg */
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      filter: drop-shadow(0 1px 0 var(--ui-2));
+    }
+    .popover-small[data-tail="bottom"]::after {
+      left: 32px;                        /* spacing-8 */
+      bottom: -8px;
+    }
+    .popover-small[data-tail="top"]::after {
+      right: 32px;                       /* spacing-8 */
+      top: -8px;
+      transform: rotate(180deg);
+    }
+    .popover-small[data-tail="left"]::after {
+      left: -12px;
+      top: 24px;                         /* spacing-6 */
+      transform: rotate(90deg);
+    }
+    .popover-small[data-tail="right"]::after {
+      right: -12px;
+      top: 24px;                         /* spacing-6 */
+      transform: rotate(-90deg);
+    }
+    .popover-variants {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;                         /* spacing-6 */
+      align-items: center;
+    }
+    .popover-variants .label {
+      font-family: var(--font-mono);
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+    }
+
+    #preview {
+      width: 132px;
+      height: 56px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    html.preview-mode #preview {
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+    #preview .mini-popover {
+      position: relative;
+      width: 96px;
+      height: 36px;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg */
+      box-shadow: 0 10px 18px rgba(16, 15, 15, 0.12);
+    }
+    #preview .mini-popover::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 16px;
+      height: 8px;
+      transform: translateX(-50%);
+      background: var(--bg);             /* Flexoki bg */
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      filter: drop-shadow(0 1px 0 var(--ui-2));
+    }
+    #preview .mini-line {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      height: 3px;
+      border-radius: 9999px;
+      background: var(--ui-2);           /* Flexoki ui-2 */
+    }
+    #preview .mini-line:nth-child(1) { top: 10px; }
+    #preview .mini-line:nth-child(2) { top: 17px; width: 44px; }
+    #preview .mini-line:nth-child(3) { top: 24px; }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="mini-popover" aria-hidden="true">
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">Primitives</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ポップオーバー</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
+  <h1 class="page-title">ポップオーバー</h1>
+  <p class="page-lede">
+    画面上のセル、行、ゲートなどに補足情報を結び付けて表示する吹き出し型の外装。
+    本仕様では、状態ベクトルセルの実装済みポップオーバーを基準形にし、
+    確率表示ブロック、振幅表示ブロック、ブロッホ球表示ブロック、パレットの説明表示へ展開するための共通寸法を定義する。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 基準形</h2>
+  <div class="card">
+    <div class="popover-stage">
+      <div class="popover-demo" role="img" aria-label="状態セルの上に表示される吹き出し型ポップオーバー">
+        <div class="popover">
+          <div class="popover-title">|01⟩ decimal 1</div>
+          <div class="popover-metrics">
+            <div class="popover-row"><span class="popover-icon popover-icon--amplitude" aria-hidden="true"></span><span class="popover-label">Amplitude:</span><span class="popover-value">+0.70711+0.00000i</span></div>
+            <div class="popover-row"><span class="popover-icon popover-icon--probability" aria-hidden="true"></span><span class="popover-label">Probability:</span><span class="popover-value">+50.0000%</span></div>
+            <div class="popover-row"><span class="popover-icon popover-icon--phase" aria-hidden="true"></span><span class="popover-label">Phase:</span><span class="popover-value">+0.00°</span></div>
+          </div>
+        </div>
+        <div class="anchor-cell" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 外装トークン</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>surface</th><td><code>colors.surface</code> / <code>var(--bg)</code>。Flexoki <code>bg</code> (paper) を使う。</td></tr>
+        <tr><th>outline</th><td><code>1 px</code> inside stroke。基準は <code>colors.state_outline_zero</code> / Flexoki <code>ui-2</code>。汎用化後は <code>colors.line</code> と同じトーンに揃える。</td></tr>
+        <tr><th>radius</th><td><code>10 px</code>。状態セル実装の <code>CornerRadius::same(10)</code> を基準にし、ゲート本体の角丸とは連動させない。</td></tr>
+        <tr><th>padding</th><td><code>12 px 16 px</code>。Tailwind <code>spacing-3</code> / <code>spacing-4</code>。</td></tr>
+        <tr><th>shadow</th><td><code>offset [0, 10]</code>、<code>blur 28</code>、<code>spread 0</code>、Flexoki <code>tx</code> alpha。実装上は <code>colors.state_cell_popup_shadow</code> を基準にする。</td></tr>
+        <tr><th>tail</th><td>高さ <code>8 px</code>、半幅 <code>8 px</code> の三角形。面は <code>surface</code>、縁は <code>outline</code> と同じ色。</td></tr>
+        <tr><th>anchor gap</th><td>対象要素と tail 先端の距離は <code>4 px</code>。Tailwind <code>spacing-1</code>。</td></tr>
+        <tr><th>viewport pad</th><td>画面端との余白は少なくとも <code>4 px</code>。狭い画面では本体位置を優先して内側へ寄せる。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 tail の向き</h2>
+  <div class="card">
+    <p>
+      原則は「ポップオーバー本体を読みやすい位置に置き、tail だけで対象要素との関係を示す」。
+      状態セルのように上下に空きがある場合は下向き tail で対象の上に置く。
+      確率表示ブロックや振幅表示ブロックのセル詳細では、通常は対象の右側に置いて左端 tail を使い、画面右端では対象の左側へ反転して右端 tail を使う。
+    </p>
+    <div class="popover-variants">
+      <div class="popover-small" data-tail="bottom">
+        <span class="label">bottom tail</span>
+        <span>対象の上に置く</span>
+      </div>
+      <div class="popover-small" data-tail="top">
+        <span class="label">top tail</span>
+        <span>対象の下に置く</span>
+      </div>
+      <div class="popover-small" data-tail="left">
+        <span class="label">left tail</span>
+        <span>対象の右に置く</span>
+      </div>
+      <div class="popover-small" data-tail="right">
+        <span class="label">right tail</span>
+        <span>対象の左に置く</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 内容レイアウトの扱い</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>規範範囲</th><td>本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで。見出し、行数、区切り線、ラベル文言、数値の桁数は各コンポーネント仕様が持つ。</td></tr>
+        <tr><th>基準例</th><td>状態セルは <code>text-sm</code> (<code>14 px / 20 px</code>) の等幅見出しと、<code>text-xs</code> (<code>12 px</code>) の 3 行値一覧を使う。区切り線や補足行は持たない。</td></tr>
+        <tr><th>行ピッチ</th><td>値の行間は <code>20 px</code> を基準にする。ラベルと値の間は対象の最大文字数に合わせ、狭い表示で読みにくくしない。</td></tr>
+        <tr><th>GPU 値</th><td>状態セル、確率表示ブロック、振幅表示ブロックなどの数値は GPU 上の値を直接描く経路を維持し、CPU へ読み戻さない。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 適用範囲と非目標</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>適用範囲</th><td><code>surface</code>、<code>outline</code>、<code>radius</code>、<code>shadow</code>、tail、anchor gap、画面端処理を共通化する。</td></tr>
+        <tr><th>非目標</th><td>値フォーマット、ラベル文言、表示ブロック固有の内容、ホバー対象の判定、選択用小窓、短文 tooltip の統合は本ページで規定しない。</td></tr>
+        <tr><th>不変条件</th><td>本番経路で GPU から CPU へ状態値を読み戻さない。ポップオーバーは外装だけを共通化し、各表示内容の GPU 直接描画を壊さない。</td></tr>
+        <tr><th>戻してよい範囲</th><td>確率 / 振幅 / ブロッホ / パレット側の採用で問題が出た場合は、各コンポーネント単位で既存クロムへ戻してよい。状態セルの基準挙動、GPU バッファ、シェーダ、値描画 callback、CPU 読み戻し禁止は戻さない。</td></tr>
+        <tr><th>検証</th><td>採用時は 4 方向 tail の見た目、画面端反転、GPU 読み戻し非発生を確認する。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 実装との対応</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>場所</th><th>現在の状態</th><th>共通化方針</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>変更時は本ページも同時に更新する。</td></tr>
+        <tr><td>確率 / 振幅表示ブロック</td><td>現在は tail なしの小さな角丸カード。</td><td>次の実装変更で本仕様の外装へ寄せる。値の GPU 直接描画は維持する。</td></tr>
+        <tr><td>ブロッホ球表示ブロック</td><td>仕様ページ上は詳細カード風のポップアップを持つ。</td><td>セル値系と同じ外装へ寄せ、内容だけを表示ブロック固有にする。</td></tr>
+        <tr><td>パレット説明表示</td><td>現在は tail なしの tooltip。</td><td>ゲートに結び付く説明として扱う場合は本仕様へ寄せる。単なる短文ヒントは別の tooltip として分ける。</td></tr>
+        <tr><td>アスペクト選択</td><td>クリックで開く選択肢リスト。</td><td>情報表示ではなく選択用の小窓なので、本仕様をそのまま適用しない。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 07 関連仕様 / ソース</h2>
+  <div class="card">
+    <ul>
+      <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 基準形の幅、余白、tail、画面端処理。</li>
+      <li><code>apps/web/src/render/state_panel_popup/cell/</code> 配下のクロム描画ファイル — 基準形の面、縁、影、tail 描画。</li>
+      <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックの現在のホバー表示。</li>
+      <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の現在の余白と配置。</li>
+      <li><code>docs/design-system/probability-display.html</code> / <code>amplitude-display.html</code> / <code>bloch-display.html</code> — 表示ブロック側の内容仕様。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  qni-webgpu design-system · popover primitive
+</footer>
+
+</body>
+</html>
