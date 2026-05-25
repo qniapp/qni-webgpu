@@ -12,11 +12,20 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- H ゲート、ブロッホ球表示ブロック、振幅表示ブロック、密度行列表示ブロックは正規のカスタム要素で描画する。
-       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○ / P) はカスタム要素化が済むまで
-       .vd-cell の色付きラベルで暫定表示する。 -->
+  <!-- ゲートパレットのモックは正規のカスタム要素で描画する。 -->
   <script src="components/h-gate.js"></script>
+  <script src="components/x-gate.js"></script>
+  <script src="components/y-gate.js"></script>
+  <script src="components/z-gate.js"></script>
+  <script src="components/rx-gate.js"></script>
+  <script src="components/ry-gate.js"></script>
+  <script src="components/rz-gate.js"></script>
+  <script src="components/swap-gate.js"></script>
+  <script src="components/control-gate.js"></script>
+  <script src="components/anti-control-gate.js"></script>
+  <script src="components/qft-gate.js"></script>
   <script src="components/bloch-display.js"></script>
+  <script src="components/probability-display.js"></script>
   <script src="components/amplitude-display.js"></script>
   <script src="components/density-matrix-display.js"></script>
   <style>
@@ -50,27 +59,6 @@
       display: flex;
       gap: 8px; /* PALETTE_GAP = spacing-2 */
     }
-    .vd-cell {
-      width: 40px; /* PALETTE_SIZE = spacing-10 */
-      height: 40px;
-      border-radius: 6px;
-      background: var(--cyan-400); /* Flexoki cyan-400 */
-      color: var(--bg);
-      display: grid;
-      place-items: center;
-      font-weight: 700;
-      font-size: 14px; /* text-sm */
-      line-height: 20px;
-      letter-spacing: -0.02em;
-    }
-    .vd-cell--display {
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      color: var(--tx-2);
-      font-family: var(--font-mono);
-      font-size: 12px; /* text-xs */
-      line-height: 16px;
-    }
     .vd-preview-strip {
       display: flex;
       align-items: stretch;
@@ -81,26 +69,7 @@
       background: var(--bg);
       box-shadow: 0 4px 12px rgba(16, 15, 15, 0.12);
     }
-    .vd-preview-mini {
-      width: 32px; /* spacing-8 */
-      height: 32px;
-      border-radius: 6px;
-      background: var(--cyan-400);
-      color: var(--bg);
-      display: grid;
-      place-items: center;
-      align-self: center;
-      font-weight: 700;
-      font-size: 12px; /* text-xs */
-      line-height: 16px;
-    }
-    .vd-preview-mini--display {
-      background: var(--bg-2);
-      color: var(--blue-600);
-      border: 1px solid var(--ui-2);
-      border-radius: 999px;
-    }
-    .vd-preview-bloch {
+    .vd-preview-gate {
       width: 32px; /* spacing-8 */
       height: 32px;
       align-self: center;
@@ -170,11 +139,11 @@
 
 <div id="preview">
   <div class="vd-preview-strip" aria-hidden="true">
-    <div class="vd-preview-mini">RY</div>
-    <div class="vd-preview-mini">RZ</div>
+    <ry-gate class="vd-preview-gate"></ry-gate>
+    <rz-gate class="vd-preview-gate"></rz-gate>
     <div class="vertical-divider"></div>
-    <bloch-display class="vd-preview-bloch" icon no-popover></bloch-display>
-    <div class="vd-preview-mini vd-preview-mini--display">ρ</div>
+    <bloch-display class="vd-preview-gate" icon no-popover></bloch-display>
+    <density-matrix-display class="vd-preview-gate" icon span="1" state="icon" no-popup role="img" aria-label="密度行列表示ブロック"></density-matrix-display>
   </div>
 </div>
 
@@ -208,24 +177,24 @@
         <div class="vd-section" role="group" aria-label="操作ゲート群">
           <div class="vd-row">
             <h-gate></h-gate>
-            <div class="vd-cell">X</div>
-            <div class="vd-cell">Y</div>
-            <div class="vd-cell">Z</div>
-            <div class="vd-cell">RX</div>
-            <div class="vd-cell">RY</div>
+            <x-gate></x-gate>
+            <y-gate></y-gate>
+            <z-gate></z-gate>
+            <rx-gate></rx-gate>
+            <ry-gate></ry-gate>
           </div>
           <div class="vd-row">
-            <div class="vd-cell">SW</div>
-            <div class="vd-cell">●</div>
-            <div class="vd-cell">○</div>
-            <div class="vd-cell">QFT</div>
+            <swap-gate></swap-gate>
+            <control-gate></control-gate>
+            <anti-control-gate></anti-control-gate>
+            <qft-gate></qft-gate>
           </div>
         </div>
         <div class="vertical-divider" aria-hidden="true"></div>
         <div class="vd-section" role="group" aria-label="表示ブロック群">
           <div class="vd-row">
             <bloch-display icon no-popover></bloch-display>
-            <div class="vd-cell vd-cell--display">P</div>
+            <probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display>
           </div>
           <div class="vd-row">
             <amplitude-display icon no-popup></amplitude-display>
