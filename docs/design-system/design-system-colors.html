@@ -181,12 +181,12 @@
 <section class="block">
   <h2><span class="num">§ 02</span>アクセント色 (Accents)</h2>
   <p class="note">
-    用途別の色相群。<strong>Blue</strong> は状態 / 振幅 / ステップ、<strong>Purple</strong> はインタラクション
-    (hover / drag)、<strong>Red / Green</strong> は意味論 (|0⟩ / |1⟩ / completed / failed) に紐づく。
+    用途別の色相群。<strong>Blue</strong> は <code>|1⟩</code> / 状態 / 振幅 / ステップ / 選択枠、<strong>Purple</strong> はインタラクション
+    (hover / drag)、<strong>Red / Green</strong> は <code>|0⟩</code> / 失敗 / 完了などの意味論に紐づく。
     Yellow / Cyan / Orange は補助ドキュメント (サンプル回路選択ページなど) で使う。
   </p>
 
-  <h3 style="margin: 16px 0 4px;">Blue (状態 / 振幅 / ステップ)</h3>
+  <h3 style="margin: 16px 0 4px;">Blue (状態 / 振幅 / ステップ / 選択枠)</h3>
   <div class="swatch-grid">
     <div class="swatch">
       <div class="chip" style="background: #C6DDE8;"></div>
@@ -209,7 +209,7 @@
       <div class="meta">
         <code class="token">--blue-300</code>
         <span class="hex">#66A0C8</span>
-        <p class="role">FPS HUD CPU プロット線</p>
+        <p class="role">FPS HUD CPU プロット線 / ブロッホ tip (z=-1、明るい高彩度)</p>
       </div>
     </div>
     <div class="swatch">
@@ -225,7 +225,7 @@
       <div class="meta">
         <code class="token">--blue-600</code>
         <span class="hex">#205EA6</span>
-        <p class="role">|1⟩ digit / 測定 1 / step preview / GPU 実行中 status / リンク色</p>
+        <p class="role">選択枠 / |1⟩ digit / 測定 1 / step preview / GPU 実行中 status / リンク色</p>
       </div>
     </div>
   </div>
@@ -237,7 +237,7 @@
       <div class="meta">
         <code class="token">--purple-400</code>
         <span class="hex">#8B7EC8</span>
-        <p class="role">ホバー枠 / FPS HUD total 線</p>
+        <p class="role">ホバー枠 / FPS HUD total 線 / ブロッホ tip (赤道、明るい高彩度)</p>
       </div>
     </div>
     <div class="swatch">
@@ -245,7 +245,7 @@
       <div class="meta">
         <code class="token">--purple-600</code>
         <span class="hex">#5E409D</span>
-        <p class="role">ドラッグ中ゲート fill / リサイズハンドル hover/active / 測定 idle</p>
+        <p class="role">ドラッグ中ゲート fill / 測定 idle</p>
       </div>
     </div>
   </div>
@@ -253,11 +253,27 @@
   <h3 style="margin: 16px 0 4px;">Semantic (意味付き)</h3>
   <div class="swatch-grid">
     <div class="swatch">
+      <div class="chip" style="background: #E8705F;"></div>
+      <div class="meta">
+        <code class="token">--red-300</code>
+        <span class="hex">#E8705F</span>
+        <p class="role">ブロッホ tip (z=+1、明るい高彩度)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #D14D41;"></div>
+      <div class="meta">
+        <code class="token">--red-400</code>
+        <span class="hex">#D14D41</span>
+        <p class="role">明るい赤の補助トーン</p>
+      </div>
+    </div>
+    <div class="swatch">
       <div class="chip" style="background: #AF3029;"></div>
       <div class="meta">
         <code class="token">--red-600</code>
         <span class="hex">#AF3029</span>
-        <p class="role">|0⟩ digit / 測定 0 / ブロッホ tip (z=+1) / GPU failed</p>
+        <p class="role">|0⟩ digit / 測定 0 / GPU failed</p>
       </div>
     </div>
     <div class="swatch">
@@ -297,7 +313,7 @@
       <div class="meta">
         <code class="token">--cyan-600</code>
         <span class="hex">#24837B</span>
-        <p class="role">サンプル回路選択 (情報 / 補助ラベル)</p>
+        <p class="role">リサイズハンドル hover/active / サンプル回路選択 (情報 / 補助ラベル)</p>
       </div>
     </div>
     <div class="swatch">
@@ -330,7 +346,8 @@
       <tr><td><code>line</code></td><td><code>ui-2</code></td><td>量子ビットワイヤ</td></tr>
       <tr><td><code>box_fill</code></td><td><code>cyan-400</code></td><td>ユニタリゲート本体</td></tr>
       <tr><td><code>drag_fill</code></td><td><code>purple-600</code></td><td>ドラッグ中 / preview ゲート本体</td></tr>
-      <tr><td><code>gate_hover_border</code></td><td><code>purple-400</code></td><td>ホバー枠 (4 px 枠)</td></tr>
+      <tr><td><code>gate_hover_border</code></td><td><code>purple-400</code></td><td>ホバー枠 (外側 4 px / 線幅 2 px)</td></tr>
+      <tr><td><code>gate_selected_border</code></td><td><code>blue-600</code></td><td>選択枠 (外側 4 px / 線幅 2 px)。ホバー枠と色相を分け、クリック後の編集対象を示す</td></tr>
       <tr><td><code>text</code></td><td><code>tx-2</code></td><td>本文テキスト</td></tr>
       <tr><td><code>text_strong</code></td><td><code>tx</code></td><td>強調タイトル / データインク</td></tr>
       <tr><td><code>state_fill</code></td><td><code>blue-200</code></td><td>振幅ディスク / 確率バー fill</td></tr>
@@ -347,7 +364,10 @@
       <tr><td><code>span_resize_handle_bg</code></td><td><code>cyan-400</code></td><td>リサイズハンドル default 色</td></tr>
       <tr><td><code>span_resize_handle_bg_hover</code></td><td><code>cyan-600</code></td><td>リサイズハンドル hover / active 色</td></tr>
       <tr><td><code>bloch_sphere_lines</code></td><td><code>tx-3</code></td><td>ブロッホ球 軸 / 緯線 / 経線</td></tr>
-      <tr><td><code>bloch_vector_tip</code></td><td><code>red-600</code></td><td>ブロッホ tip (z=+1 側、reduced は equator gradient)</td></tr>
+      <tr><td><code>bloch_vector_tip_0</code></td><td><code>red-300</code></td><td>ブロッホ tip (z=+1 側、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_mid</code></td><td><code>purple-400</code></td><td>ブロッホ tip (赤道、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_1</code></td><td><code>blue-300</code></td><td>ブロッホ tip (z=-1 側、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_outline</code></td><td><code>tx</code></td><td>ブロッホ tip / |v|=0 中心ドットの 1 px 輪郭線</td></tr>
       <tr><td><code>bloch_vector_zero</code></td><td><code>tx-3</code></td><td>ブロッホ |v|=0 中心ドット (非アクティブ)</td></tr>
       <tr><td><code>gpu_status_running</code></td><td><code>blue-600</code></td><td>GPU 実行中 status</td></tr>
       <tr><td><code>gpu_status_completed</code></td><td><code>green-600</code></td><td>GPU 完了 status</td></tr>

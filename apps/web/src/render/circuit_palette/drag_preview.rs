@@ -49,7 +49,7 @@ impl QniApp {
         draw_drag_gate_body(painter, body_rect, gate.kind, colors);
         if gate.kind == GateKind::BlochDisplay {
             // While dragging the gate isn't snapped, so we can't compute a
-            // Bloch vector. Render the qni d=0 blue dot at the sphere center.
+            // Bloch vector. Render the tx-3 center dot at the sphere center.
             draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
         }
     }

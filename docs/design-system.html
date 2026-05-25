@@ -227,6 +227,17 @@
       <p class="desc">対象要素に重なる purple-400 の 2px 枠。外側ホスト枠と表示セル内枠で共有。</p>
     </a>
 
+    <a class="spec-card" href="design-system/selection-frame.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/selection-frame.html?preview" loading="lazy" title="選択枠 preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">選択枠</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">クリック後も保持される blue-600 の 2px 枠。ホバー枠と同形状で、回路上の編集対象を示す。</p>
+    </a>
+
     <a class="spec-card" href="design-system/popover.html">
       <div class="preview" aria-hidden="true">
         <iframe src="design-system/popover.html?preview" loading="lazy" title="ポップオーバー preview"></iframe>
@@ -263,9 +274,43 @@
   </div>
 </section>
 
-<!-- ─────── § 03 表示ブロック (Display blocks) ─────── -->
+<!-- ─────── § 03 コンポーネント別ポップオーバー ─────── -->
 <section class="block">
-  <h2><span class="num">§ 03</span>表示ブロック (Display blocks)</h2>
+  <h2><span class="num">§ 03</span>コンポーネント別ポップオーバー</h2>
+  <p class="note">
+    <a href="design-system/popover.html">ポップオーバー</a>の共通外装を、個別コンポーネントの内容と配置へ適用する仕様。
+    共通外装そのものは primitive 側を正とし、ここではコンポーネント固有の内容と配置だけを定義する。
+  </p>
+  <div class="spec-grid">
+
+    <a class="spec-card" href="design-system/bloch-display-popover.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/bloch-display-popover.html?preview" loading="lazy" title="ブロッホ球ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">ブロッホ球ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">ブロッホ球表示ブロックの詳細表示。共通ポップオーバー外装に、球座標と直交座標の数値を載せる。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/density-matrix-display-popover.html">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/density-matrix-display-popover.html?preview" loading="lazy" title="密度行列表示ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">密度行列表示ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">密度行列表示ブロックのセル詳細表示。共通ポップオーバー外装に、確率 / 結合の数値を載せる。</p>
+    </a>
+
+  </div>
+</section>
+
+<!-- ─────── § 04 表示ブロック (Display blocks) ─────── -->
+<section class="block">
+  <h2><span class="num">§ 04</span>表示ブロック (Display blocks)</h2>
   <p class="note">
     回路上に「読み取り」だけを行う要素群。ユニタリ変換ではないので厳密にはゲートではなく、`表示ブロック` と呼ぶ。状態ベクトルに影響を与えず、span 内の量子ビットの確率や ブロッホベクトル等を可視化する。
   </p>
@@ -318,9 +363,9 @@
   </div>
 </section>
 
-<!-- ─────── § 04 量子ゲート (Quantum Gates) ─────── -->
+<!-- ─────── § 05 量子ゲート (Quantum Gates) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 04</span>量子ゲート (Quantum Gates)</h2>
+  <h2><span class="num">§ 05</span>量子ゲート (Quantum Gates)</h2>
   <p class="note">
     状態に作用する単一量子ビットゲート、複数量子ビットゲート、制御マーカ、測定・リセットと、編集用の空きスロット (Spacer)。
     この一覧では各要素が何をするかだけを説明し、共通の外装ルールは <a href="design-system/gate-chrome.html">gate-chrome.html</a> に委ねる。
@@ -583,9 +628,9 @@
   </div>
 </section>
 
-<!-- ─────── § 05 回路エディタ (Circuit editor) ─────── -->
+<!-- ─────── § 06 回路エディタ (Circuit editor) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 05</span>回路エディタ (Circuit editor)</h2>
+  <h2><span class="num">§ 06</span>回路エディタ (Circuit editor)</h2>
   <p class="note">
     ゲートを配置・編集する作業領域。グリッド、配線、ドラッグ / リサイズ操作、ホバー挙動などの仕様をまとめる。
   </p>
@@ -648,9 +693,9 @@
   </div>
 </section>
 
-<!-- ─────── § 06 パレット / ピッカー / ツールバー ─────── -->
+<!-- ─────── § 07 パレット / ピッカー / ツールバー ─────── -->
 <section class="block">
-  <h2><span class="num">§ 06</span>パレット / ピッカー / ツールバー</h2>
+  <h2><span class="num">§ 07</span>パレット / ピッカー / ツールバー</h2>
   <p class="note">
     回路の周辺 UI。ゲートパレット、回路ピッカー、ツールバー、ステータス表示など。
   </p>
@@ -712,9 +757,9 @@
   </div>
 </section>
 
-<!-- ─────── § 07 状態パネル (State panel) ─────── -->
+<!-- ─────── § 08 状態パネル (State panel) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 07</span>状態パネル (State panel)</h2>
+  <h2><span class="num">§ 08</span>状態パネル (State panel)</h2>
   <p class="note">
     回路実行後の状態ベクトル / 確率分布などを表示する右側パネル。レイアウト、ポップアップ、クロムなどを別仕様としてまとめる予定。
   </p>
@@ -795,14 +840,15 @@
   </div>
 </section>
 
-<!-- ─────── § 08 関連ドキュメント (横断的な参照) ─────── -->
+<!-- ─────── § 09 関連ドキュメント (横断的な参照) ─────── -->
 <section class="block">
-  <h2><span class="num">§ 08</span>関連ドキュメント</h2>
+  <h2><span class="num">§ 09</span>関連ドキュメント</h2>
   <p class="note">
     特定のコンポーネント仕様ではないが、デザインシステム全体方針や移行計画、過去のモックなど、参照頻度の高いドキュメントをまとめる。
   </p>
   <div class="card">
     <ul class="link-list">
+      <li><span class="kind">impl</span><a href="implementation.html">implementation.html</a></li>
       <li><span class="kind">arch</span><a href="design-system-architecture.html">design-system-architecture.html</a></li>
       <li><span class="kind">arch</span><a href="project-overview.html">project-overview.html</a></li>
       <li><span class="kind">migr</span><a href="gate-size-40px-migration.html">gate-size-40px-migration.html</a></li>
@@ -817,9 +863,9 @@
   </div>
 </section>
 
-<!-- ─────── § 09 新しい仕様ドキュメントの追加手順 ─────── -->
+<!-- ─────── § 10 新しい仕様ドキュメントの追加手順 ─────── -->
 <section class="block">
-  <h2><span class="num">§ 09</span>仕様ドキュメントの追加手順</h2>
+  <h2><span class="num">§ 10</span>仕様ドキュメントの追加手順</h2>
   <div class="card">
     <p>新しいコンポーネントの仕様を増やすときは、以下の順で進める。</p>
     <ol style="margin: 4px 0 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 1.7;">

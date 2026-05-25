@@ -23,7 +23,7 @@ struct ProbabilityPopupParams {
 @group(0) @binding(3) var atlas_sampler: sampler;
 
 const MAX_PROBABILITY_OUTCOMES: u32 = 65536u;
-const GLYPH_COUNT: u32 = 19u;
+const GLYPH_COUNT: u32 = 20u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_MINUS: u32 = 12u;
 const GLYPH_PERCENT: u32 = 14u;

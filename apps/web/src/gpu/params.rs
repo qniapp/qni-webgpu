@@ -453,7 +453,10 @@ pub(crate) struct BlochOverlayParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],
-    pub(crate) tip_color: [f32; 4],
+    pub(crate) tip_0_color: [f32; 4],
+    pub(crate) tip_mid_color: [f32; 4],
+    pub(crate) tip_1_color: [f32; 4],
+    pub(crate) tip_outline_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
 }
 
@@ -464,6 +467,36 @@ pub(crate) struct BlochOverlayInstance {
     pub(crate) radius: f32,
     pub(crate) outer: f32,
     pub(crate) slot: u32,
+}
+
+/// Uniform for the Bloch hover popover value shader.
+///
+/// The static popover chrome and labels are painted by egui, while the
+/// r / φ / θ / x / y / z values are formatted from `bloch_output_buffer`
+/// in WGSL so production rendering never reads Bloch values back to the CPU.
+///
+/// Total size: 80 bytes (multiple of 16 for uniform-buffer alignment).
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct BlochPopupValueParams {
+    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Top-left of the first value cell (`r`) in egui pixels.
+    pub(crate) value_anchor: [f32; 2],
+    /// Horizontal pitch between the r / φ / θ columns.
+    pub(crate) col_pitch: f32,
+    /// Vertical pitch between the spherical and Cartesian rows.
+    pub(crate) row_pitch: f32,
+    /// Size of one atlas character cell on screen (egui pixels).
+    pub(crate) char_size: [f32; 2],
+    /// Padding before the next vec4-aligned field (`text_color`).
+    pub(crate) _pad_char: [f32; 2],
+    /// RGBA text colour (premultiplied at sample time).
+    pub(crate) text_color: [f32; 4],
+    /// Which slot in `bloch_output_buffer` to display.
+    pub(crate) slot: u32,
+    pub(crate) _pad: [u32; 3],
 }
 
 #[repr(C)]

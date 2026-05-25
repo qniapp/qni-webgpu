@@ -16,70 +16,8 @@
   <script src="components/bloch-display.js"></script>
   <style>
 
-    /* ブロッホ球表示ブロック本体 / SVG / ホバー枠 / ホストホバー時のポップアップは
+    /* ブロッホ球表示ブロック本体 / SVG / ホバー枠は
        components/bloch-display.js の <bloch-display> に集約する。 */
-
-    /* ─── 静的ポップアップ例 (§ 11) ───
-       <bloch-display> 内部ポップアップと同じ内容を、仕様ページの常時表示モックとして並べる。 */
-    .bd-popup {
-      position: absolute;
-      top: 0;
-      left: calc(100% + 8px);    /* ゲート右 + 8 px (実装と同じアンカー) */
-      display: none;
-      pointer-events: none;
-      z-index: 50;
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 6px;       /* Qni のゲート本体 (CornerRadius::same(6)) と同じ */
-      padding: 12px 16px;       /* spacing-3 / spacing-4 */
-      font-family: 'Geist', sans-serif;
-      font-size: 12px;          /* text-xs */
-      line-height: 16px;
-      color: var(--tx);
-      white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
-    }
-    .bd-popup .bd-popup-title {
-      font-size: 14px;          /* text-sm */
-      font-weight: 400;
-      color: var(--tx);
-      letter-spacing: -0.005em;
-    }
-    .bd-popup .bd-popup-divider {
-      height: 1px;
-      background: var(--ui-2);
-      margin: 12px 0;           /* spacing-3 */
-    }
-    .bd-popup .bd-popup-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;                /* spacing-3 */
-      font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-    }
-    .bd-popup .bd-popup-row + .bd-popup-row {
-      margin-top: 4px;          /* spacing-1 */
-    }
-    .bd-popup .bd-popup-cell {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;                 /* spacing-2 */
-    }
-    .bd-popup .bd-popup-key {
-      font-size: 12px;          /* text-xs */
-      color: var(--tx-2);       /* tx-3 だと薄すぎるので tx-2 (#6F6E69) */
-      min-width: 12px;          /* r / ϕ / θ / x / y / z で字幅を揃える */
-    }
-    .bd-popup .bd-popup-val {
-      font-size: 14px;          /* text-sm */
-      color: var(--tx);
-    }
-    /* 仕様ページ用に常時表示する派生クラス */
-    .bd-popup.bd-popup--static {
-      display: inline-block;
-      position: static;
-      vertical-align: top;
-    }
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -109,7 +47,7 @@
 
 <div id="preview">
   <!-- |+⟩ 状態の Bloch 球 (ベクトルが赤道上を指す代表例) -->
-  <bloch-display x="1" no-popup></bloch-display>
+  <bloch-display x="1" no-popover></bloch-display>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -125,7 +63,7 @@
   <h1 class="page-title">ブロッホ球表示ブロック</h1>
   <p class="page-lede">
     単一の量子ビットの換算密度行列から求めた <strong>ブロッホベクトル (x, y, z)</strong> を、
-    本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §04 参照)。
     状態ベクトルには影響しない。<strong>span は 1 量子ビット 固定</strong>でリサイズ不可。
     密度行列の縮約 (reduce) → 矢印描画 (overlay) まで GPU パイプライン内で完結し、
     CPU リードバックは発生しない。本ドキュメントは描画仕様 (寸法 / 配色 / 投影 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
@@ -139,10 +77,10 @@
     <div class="critique-title">仕様が緻密だが「読む順序」と「再利用」の設計が弱い</div>
     <p class="critique-body">
       Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
-      しかし読者の動線を見ると、14 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
+      しかし読者の動線を見ると、14 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → パイプライン → URL → 実装」と段階的に深まる構成で、
       <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 08 投影)</strong> が中盤に埋もれる。
-      SVG マークアップの重複は <code>&lt;bloch-display&gt;</code> へ集約済みだが、同一 popup マークアップ × 5 個など、視覚仕様そのものではない複製はまだ残っている。
-      仕様としての厳密さを保ったまま、見出し階層と残りの再利用構造を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
+      SVG マークアップは <code>&lt;bloch-display&gt;</code> へ、ポップオーバー詳細は独立仕様へ分離済みなので、残る課題は読む順序と判断根拠の集約に絞られる。
+      仕様としての厳密さを保ったまま、見出し階層を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
     </p>
   </aside>
 
@@ -150,8 +88,6 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>tip の中間色とブロッホ球 SVG の重複は解消済み</strong> — § 02 のモックは <code>&lt;bloch-display&gt;</code> に置き換え、equator 状態の tip 色と wireframe をコンポーネント内で一元化した。</li>
-      <li><strong>§ 11 の popup モックを表形式へ縮約する</strong> — 5 個の静的 popup はまだ同一構造を繰り返している。構造説明 1 個 + 数値テーブルに分けると、残る重複をさらに減らせる (§ 11 参照)。</li>
       <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
     </ol>
   </aside>
@@ -163,25 +99,25 @@
   <div class="card">
     <p>
       1 量子ビット の局所状態を<strong>ブロッホベクトル <code>(x, y, z)</code></strong>として透視投影 + 矢印 + 先端ドットで可視化する表示ブロック。
-      ドットの色は z 成分による gradient (<code>|0⟩</code> = red-600、<code>|1⟩</code> = blue-600、equator は中点)。span は常に 1。
+      ドットの色は z 成分による gradient (<code>|0⟩</code> = red-300、赤道 = purple-400、<code>|1⟩</code> = blue-300) と 1 px の <code>tx</code> 輪郭線で示す。span は常に 1。
       下のモックで南北極の代表 2 状態の見た目を確認できる。
     </p>
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|0⟩</code><br>(0, 0, +1)<br>北極 → red tip</div>
         <div class="actual">
-          <bloch-display z="1" no-popup></bloch-display>
+          <bloch-display z="1" no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|1⟩</code><br>(0, 0, −1)<br>南極 → blue tip</div>
         <div class="actual">
-          <bloch-display z="-1" no-popup></bloch-display>
+          <bloch-display z="-1" no-popover></bloch-display>
         </div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップアップ等の詳細は § 04 以降を参照。
+      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップオーバー等の詳細は § 04 以降を参照。
     </p>
   </div>
 </section>
@@ -195,29 +131,20 @@
       ゲート本体は <strong>半径 19 px の円</strong> (内塗り <code>bg-2</code>、外周 1.5 px <code>tx-3</code>) で、
       その上に軸線 / 細楕円の wireframe (1 px <code>tx-3</code>) を重ねる。
       透視投影は <code>perspective-origin = top-right</code>、<code>p = 4</code> (§ 08 投影)。
-      矢印は中心からブロッホベクトルの先端へ伸び、先端には半径 3 px の色付き丸を置く。
-      先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-600</code>、<code>|1⟩</code> (z = -1) = <code>blue-600</code>、equator (z = 0) は中点 <code>#684768</code>。
-      ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) のみを描く。
-      マウスカーソルを乗せると、ゲート右 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 11 ポップアップ仕様)。
-      hover 枠 / popup ともに実装済み (2026-05-18)。
-      モックは「実装済み挙動の常時表示プレビュー」として読む。
+      矢印は中心からブロッホベクトルの先端へ伸び、先端には半径 4 px の色付き丸を置く。
+      先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-300</code>、赤道 (z = 0) = <code>purple-400</code>、<code>|1⟩</code> (z = -1) = <code>blue-300</code>。
+      有効時の先端ドットには 1 px の <code>tx</code> 輪郭線を付ける。ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) と同じ <code>tx</code> 輪郭線を描く。
+      仕様上は、マウスカーソルを乗せるとゲート右 +12 px (tail 8 px + gap 4 px) の位置にブロッホベクトル詳細ポップオーバーを出す (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)。
+      ホバー枠とポップオーバーへの値表示は実装済み。値は <code>bloch_output_buffer</code> から GPU 側で直接描画する。
+      モックはブロッホ球本体の常時表示プレビューとして読む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 tip 色 / SVG 重複 (Resolved)">
-      <div class="critique-label">★ 批評 · § 02 tip 色 / SVG 重複 — Resolved</div>
-      <div class="critique-title"><code>&lt;bloch-display&gt;</code> へ集約済み</div>
-      <p class="critique-body">
-        equator 状態の tip 色 (<code>#684768</code>) と、球本体 + 軸 + 楕円の wireframe は
-        <code>components/bloch-display.js</code> の <code>&lt;bloch-display&gt;</code> に集約した。
-        これにより未定義 CSS 変数による黒い tip と、同一 SVG のコピペによるドリフトを防ぐ。
-      </p>
-    </aside>
     <div class="stage">
       <!-- |0⟩: bloch = (0, 0, +1) → screen (0, -19) -->
       <div class="col">
         <div class="caption">|0⟩<br>(0, 0, +1)</div>
         <div class="actual">
-          <bloch-display z="1"></bloch-display>
+          <bloch-display z="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -225,7 +152,7 @@
       <div class="col">
         <div class="caption">|1⟩<br>(0, 0, −1)</div>
         <div class="actual">
-          <bloch-display z="-1"></bloch-display>
+          <bloch-display z="-1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -233,7 +160,7 @@
       <div class="col">
         <div class="caption">|+⟩<br>(+1, 0, 0)</div>
         <div class="actual">
-          <bloch-display x="1"></bloch-display>
+          <bloch-display x="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -241,7 +168,7 @@
       <div class="col">
         <div class="caption">|−⟩<br>(−1, 0, 0)</div>
         <div class="actual">
-          <bloch-display x="-1"></bloch-display>
+          <bloch-display x="-1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -249,7 +176,7 @@
       <div class="col">
         <div class="caption">|+i⟩<br>(0, +1, 0)</div>
         <div class="actual">
-          <bloch-display y="1"></bloch-display>
+          <bloch-display y="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -257,15 +184,15 @@
       <div class="col">
         <div class="caption">|−i⟩<br>(0, −1, 0)</div>
         <div class="actual">
-          <bloch-display y="-1"></bloch-display>
+          <bloch-display y="-1" no-popover></bloch-display>
         </div>
       </div>
 
-      <!-- 完全混合 (|v| = 0): 中心にグレードット (tx-3、非アクティブ)、矢印線なし -->
+      <!-- 完全混合 (|v| = 0): 中心にグレードット (tx-3、非アクティブ) + tx 輪郭線、矢印線なし -->
       <div class="col">
         <div class="caption">完全混合<br>(0, 0, 0)</div>
         <div class="actual">
-          <bloch-display></bloch-display>
+          <bloch-display no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -276,13 +203,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <bloch-display x="1"></bloch-display>
+          <bloch-display x="1" no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <bloch-display zoom x="1"></bloch-display>
+          <bloch-display zoom x="1" no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -299,7 +226,7 @@
       まず <code>icons/bloch_display.rs</code> の <code>draw_bloch_sphere</code> で軸線・対角・楕円を
       <code>tx-3</code> 1 px で描き、続いて
       <code>circuit_palette/panel.rs</code> が <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び出して
-      中心に <code>tx-3</code> 半径 3 px のドットを置く。
+      中心に <code>tx-3</code> 半径 4 px のドットと 1 px <code>tx</code> 輪郭線を置く。
       パレット項目はドラッグ起点としてのみ機能し、ホバーでもベクトル形状は変化しない。
       <span style="color: var(--tx-3); font-family: var(--font-mono); font-size: 12px;">
         旧仕様では blue-600 (qni オリジナルの "d=0 blue center dot") を使っていたが、
@@ -310,13 +237,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <bloch-display icon no-popup></bloch-display>
+          <bloch-display icon no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <bloch-display icon zoom no-popup></bloch-display>
+          <bloch-display icon zoom no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -363,10 +290,10 @@
       <tbody>
         <tr><th>軸線 / 楕円 stroke</th><td>1 px、色 <code>tx-3</code> (egui 側 <code>draw_bloch_sphere</code>)、shader 側は <code>line_half = 0.75</code> + <code>edge = 0.75</code> の SDF</td></tr>
         <tr><th>矢印 stroke</th><td>egui 側は 1.5 px、shader 側は <code>line_half = 0.75</code> の SDF (実効幅 ≈ 1.5 px)</td></tr>
-        <tr><th>矢印先端ドット</th><td>半径 3 px (= 直径 6 px)、qni オリジナルの <code>vector-end-circle</code> と同じ</td></tr>
+        <tr><th>矢印先端ドット</th><td>半径 4 px (= 直径 8 px)、有効 / 完全混合ともに 1 px <code>tx</code> 輪郭線を追加</td></tr>
         <tr><th>対角線長</th><td>中心から <code>±0.30 × sphere_radius ≈ ±5.7 px</code> (qni の 35% / 65% endpoints と一致)</td></tr>
         <tr><th>細楕円の短径</th><td><code>thin = 0.36 × sphere_radius ≈ 6.84 px</code> (qni の rx=18% / cx と一致)</td></tr>
-        <tr><th>quad outer 半径</th><td><code>outer = sphere_radius + 4 = 23 px</code> (GPU 矢印描画の quad サイズ; tip 3 px + AA fringe 1 px のスラック)</td></tr>
+        <tr><th>quad outer 半径</th><td><code>outer = sphere_radius + 6 = 25 px</code> (GPU 矢印描画の quad サイズ; tip 4 px + 輪郭線 1 px + AA fringe のスラック)</td></tr>
       </tbody>
     </table>
   </div>
@@ -377,8 +304,8 @@
   <h2>§ 06 配色 (Flexoki Light)</h2>
   <div class="card">
     <p class="note" style="margin-bottom: 12px;">
-      <strong>実装ステータス</strong>: 球本体 / 軸線 / ベクトル線 / ホバー枠 / 先端ドットの z gradient / 非アクティブ gray は実装済み (2026-05-18)。
-      Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションへ統一している。
+      <strong>実装ステータス</strong>: 球本体 / 軸線 / ベクトル線 / ホバー枠 / 先端ドットの高彩度 z gradient + 1 px 輪郭線 / 非アクティブ gray + 1 px 輪郭線は実装済み (2026-05-24)。
+      Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションを保ちつつ、赤道上の視認性を上げている。
     </p>
     <table class="spec">
       <thead>
@@ -388,8 +315,8 @@
         <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>外周内の円形背景 (paper よりわずかに濃い)。<code>bloch_sphere_bg</code></td></tr>
         <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px。<code>bloch_sphere_lines</code></td></tr>
         <tr><td>ベクトル線</td><td><code>tx</code></td><td>中心から先端への矢印 (1.5 px stroke)。<code>bloch_vector_line</code></td></tr>
-        <tr><td>先端ドット (有効時)</td><td><code>red-600 ⇄ blue-600</code> の sRGB 連続補間</td><td><code>z</code> 成分で補間するグラデーション。<code>|0⟩</code> 側 (<code>z = +1</code>) は <code>red-600</code> = <code>semantic_off</code>、<code>|1⟩</code> 側 (<code>z = −1</code>) は <code>blue-600</code> = <code>semantic_on</code>。赤道 (<code>z = 0</code>) は両者の数学的中点 <code>#684768</code>。Flexoki 名前付きトーンには存在しないが、WGSL 側の sRGB 補間と同値にするための例外</td></tr>
-        <tr><td>非アクティブドット</td><td><code>tx-3</code></td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆 (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
+        <tr><td>先端ドット (有効時)</td><td><code>red-300</code> / <code>purple-400</code> / <code>blue-300</code> + <code>tx</code></td><td><code>z</code> 成分で補間するグラデーション。<code>|0⟩</code> 側 (<code>z = +1</code>) は <code>red-300</code>、赤道 (<code>z = 0</code>) は <code>purple-400</code>、<code>|1⟩</code> 側 (<code>z = −1</code>) は <code>blue-300</code>。1 px の <code>tx</code> 輪郭線を重ねる</td></tr>
+        <tr><td>非アクティブドット</td><td><code>tx-3</code> + <code>tx</code></td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆し、同じ 1 px の <code>tx</code> 輪郭線で球の線から分離する (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
         <tr><td>外側余白</td><td><code>paper</code></td><td>占有矩形の四隅 (円の外側)。ゲート本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>外側ホバー枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
       </tbody>
@@ -431,20 +358,20 @@
       <li>線描画は <code>|v| &gt; 10<sup>−3</sup></code> のときのみ (ゼロベクトルでは線を出さない)</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">先端ドット (z 成分による色 gradient + 非アクティブ gray)</h3>
+    <h3 style="margin-top: 16px;">先端ドット (高彩度 z gradient + 輪郭線 + 非アクティブ gray)</h3>
     <ul>
       <li>位置: 矢印の終点 <code>tip</code> (純粋寄りの状態)、または中心 <code>(20, 20)</code> (完全混合)</li>
-      <li>半径: 3 px (= 直径 6 px)</li>
+      <li>半径: 4 px (= 直径 8 px)。有効時 / 完全混合ともに 1 px の <code>tx</code> 輪郭線を重ねる</li>
       <li>
         色は <strong>z 成分 (緯度) のリニア gradient</strong>:
-        <code>|0⟩ (z = +1) = red-600 (semantic_off)</code> から
-        <code>|1⟩ (z = −1) = blue-600 (semantic_on)</code> まで、sRGB 空間で連続補間。
-        equator (z = 0) は両者の数値的中点 <code>#684768</code>。
-        Write0 / Write1 / ket digit / measurement 結果と同じ「0 = 赤 / 1 = 青」コンベンション
+        <code>|0⟩ (z = +1) = red-300</code>、
+        <code>赤道 (z = 0) = purple-400</code>、
+        <code>|1⟩ (z = −1) = blue-300</code> の 3 点を、sRGB 空間で区分線形補間。
+        Write0 / Write1 / ket digit / measurement 結果と同じ「0 = 赤 / 1 = 青」コンベンションを保ちつつ、赤道上の紫を Flexoki の名前付き高彩度トーンにする
       </li>
       <li>
         <strong>|v| &lt; 10<sup>−3</sup> (完全混合)</strong> は<strong>非アクティブ</strong>を示唆する
-        <code>tx-3</code> (gray) を中心 <code>(20, 20)</code> に描く。
+        <code>tx-3</code> (gray) を中心 <code>(20, 20)</code> に描き、同じ 1 px の <code>tx</code> 輪郭線を重ねる。
         旧仕様の <code>blue-600</code> は「弱い |1⟩」と誤読されうるため避ける
       </li>
       <li>shader 側は <code>1.0 − smoothstep(tip_radius − edge, tip_radius + edge, dist_tip)</code> の SDF アルファでアンチエイリアス</li>
@@ -454,15 +381,14 @@
     <p class="note">
       WGSL 擬似コード (<code>BLOCH_OVERLAY_SHADER fs_main</code> 内、実装ターゲット):
     </p>
-    <pre class="code">// 緯度を [0, 1] に正規化: t = 0 が |1⟩ 寄り、t = 1 が |0⟩ 寄り。
-let t: f32 = clamp((bloch.z + 1.0) * 0.5, 0.0, 1.0);
+    <pre class="code">// z &gt;= 0 は purple-400 → red-300、z &lt; 0 は purple-400 → blue-300。
+let positive_t = clamp(bloch.z, 0.0, 1.0);
+let negative_t = clamp(-bloch.z, 0.0, 1.0);
+let positive_rgb = mix(params.tip_mid_color.rgb, params.tip_0_color.rgb, positive_t);
+let active_rgb = mix(positive_rgb, params.tip_1_color.rgb, negative_t);
 
-// |0⟩ 寄り (red) ⇄ |1⟩ 寄り (blue) の sRGB lerp。
-// WGSL の mix(a, b, t) は a*(1-t) + b*t なので、blue を a、red を b にする。
-let active_rgb: vec3&lt;f32&gt; = mix(params.blue_color.rgb, params.red_color.rgb, t);
-
-// |v| ≈ 0 のときは非アクティブの gray に切り替え。
-let tip_rgb: vec3&lt;f32&gt; = select(active_rgb, params.inactive_color.rgb, mag &lt; 1.0e-3);</pre>
+// active_rgb または tx-3 を塗ったあと、tx の 1px 輪郭線を重ねる。
+// |v| ≈ 0 のときは線なし + tx-3 fill + tx outline の非アクティブ表示。</pre>
     <p class="note">
       代表 7 状態の tip 色 (sRGB):
     </p>
@@ -471,12 +397,12 @@ let tip_rgb: vec3&lt;f32&gt; = select(active_rgb, params.inactive_color.rgb, mag
         <tr><th>状態</th><th>z</th><th>tip 色</th><th>HEX</th></tr>
       </thead>
       <tbody>
-        <tr><td>|0⟩</td><td class="num">+1.00</td><td><code>red-600</code></td><td><code>#AF3029</code></td></tr>
-        <tr><td>|+⟩ / |−⟩ / |±i⟩</td><td class="num">0.00</td><td>equator midpoint</td><td><code>#684768</code></td></tr>
-        <tr><td>|1⟩</td><td class="num">−1.00</td><td><code>blue-600</code></td><td><code>#205EA6</code></td></tr>
-        <tr><td>偏った混合 (例: z = +0.7)</td><td class="num">+0.70</td><td>red 寄り中間</td><td><code>≈ #9B3838</code></td></tr>
-        <tr><td>偏った混合 (例: z = −0.7)</td><td class="num">−0.70</td><td>blue 寄り中間</td><td><code>≈ #355398</code></td></tr>
-        <tr><td>完全混合 (|v| &lt; 10<sup>−3</sup>)</td><td class="num">—</td><td><code>tx-3</code> (非アクティブ)</td><td><code>#B7B5AC</code></td></tr>
+        <tr><td>|0⟩</td><td class="num">+1.00</td><td><code>red-300</code></td><td><code>#E8705F</code></td></tr>
+        <tr><td>|+⟩ / |−⟩ / |±i⟩</td><td class="num">0.00</td><td><code>purple-400</code></td><td><code>#8B7EC8</code></td></tr>
+        <tr><td>|1⟩</td><td class="num">−1.00</td><td><code>blue-300</code></td><td><code>#66A0C8</code></td></tr>
+        <tr><td>偏った混合 (例: z = +0.7)</td><td class="num">+0.70</td><td>red 寄り中間</td><td><code>≈ #CC747F</code></td></tr>
+        <tr><td>偏った混合 (例: z = −0.7)</td><td class="num">−0.70</td><td>blue 寄り中間</td><td><code>≈ #7196C8</code></td></tr>
+        <tr><td>完全混合 (|v| &lt; 10<sup>−3</sup>)</td><td class="num">—</td><td><code>tx-3</code> + <code>tx</code> 輪郭線 (非アクティブ)</td><td><code>#B7B5AC</code> + <code>#100F0F</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -618,223 +544,40 @@ z =  ρ_00 − ρ_11</pre>
       <li>リサイズハンドルなし (<code>resizable_span: false</code>)。span を変える UI は出さない</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">ポップアップ</h3>
+    <h3 style="margin-top: 16px;">ポップオーバー</h3>
     <ul>
-      <li>ホストホバーで右側 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 11 ポップアップ仕様)</li>
-      <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
+      <li>ホスト要素のホバー時に、右側 +12 px (tail 8 px + gap 4 px) の位置へブロッホベクトル詳細ポップオーバーを出す設計 (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)</li>
+      <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>φ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
       <li>Quirk の <code>BlochSphereDisplay.js</code> の <code>paintDeferredValueTooltip</code> と同等の情報量を、
-        probability-display popup と同じ Geist 系のタイポグラフィで再構成</li>
-      <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。popup の値表示は別作業で整理する</li>
+        確率表示ブロックのポップオーバーと同じ Geist 系のタイポグラフィで再構成</li>
+      <li>実装ステータス: <strong>本体表示、GPU 重ね描画、ポップオーバーへの値表示を実装済み</strong>。値は GPU 側の <code>bloch_output_buffer</code> から直接描画する</li>
     </ul>
 
     <h3 style="margin-top: 16px;">暫定描画 (snap 前 / GPU dispatch 前)</h3>
     <ul>
       <li>ドラッグ中 / 配置直後で <code>gpu_plan.bloch_slot(gate.id)</code> が <code>None</code> のときは GPU overlay を出せない</li>
       <li>このとき egui 側で <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び、<strong>中心にグレードット
-        (<code>tx-3</code>)</strong> のみを描く (静的 wireframe + 非アクティブ示唆の中央ドット)</li>
+        (<code>tx-3</code>)</strong> と 1 px <code>tx</code> 輪郭線を描く (静的 wireframe + 非アクティブ示唆の中央ドット)</li>
       <li>次フレームの GPU dispatch で値が確定し次第、egui 描画から GPU overlay 描画にシームレスに切り替わる</li>
       <li>egui 暫定描画と GPU overlay の見た目を完全に揃えるため、両者は同じ <code>bloch_project</code> 式を使う (§ 08)</li>
     </ul>
   </div>
 </section>
 
-<!-- ─────── § 11 ポップアップ仕様 ─────── -->
+<!-- ─────── § 11 ポップオーバー仕様への参照 ─────── -->
 <section class="block">
-  <h2>§ 11 ポップアップ仕様</h2>
+  <h2>§ 11 ポップオーバー仕様への参照</h2>
   <div class="card">
     <p>
-      ホストホバー時に出るブロッホベクトル詳細 popup の<strong>常時表示版</strong>。
-      実装と同じ CSS / マークアップを静的に並べ、状態バリアントとアナトミーを
-      Codex / 人間がスクロールだけで確認できるようにする。
-      Quirk オリジナル (<code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code>) と同じ情報を、
-      probability-display popup と同じ Flexoki / Geist 系で再構成。
+      ブロッホベクトル詳細ポップオーバーのデザイン仕様は、球本体の仕様から独立させた
+      <a href="bloch-display-popover.html">bloch-display-popover.html</a> に分離した。
+      共通外装は <a href="popover.html">ポップオーバー仕様</a> を使い、本ページではホバーでポップオーバーを出す導線だけを扱う。
     </p>
-
-    <h3 style="margin-top: 16px;">基本構造</h3>
-    <p>
-      DOM は 4 要素で構成: <code>.bd-popup-title</code> (主見出し) /
-      <code>.bd-popup-divider</code> (1 px ui-2) /
-      <code>.bd-popup-row × 2</code> (球座標 / 直交座標)。
-      各 row は 3 列グリッドで、<code>.bd-popup-cell</code> = ラベル + 値 のペア。
-    </p>
-    <table class="spec" style="margin-top: 8px;">
-      <thead>
-        <tr><th>要素</th><th>フォント</th><th>サイズ</th><th>色</th><th>追加</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>タイトル ("Bloch sphere representation of local state")</td><td>Geist Regular</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>letter-spacing −0.005 em</td></tr>
-        <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
-        <tr><td>ラベル (r / ϕ / θ / x / y / z)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>min-width 12 px (字幅統一)</td></tr>
-        <tr><td>数値 (±0.0000 / ±00.00°)</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code></td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">枠 / 影 / 配置 (probability-display popup と完全に共通)</h3>
-    <table class="spec">
-      <tbody>
-        <tr><th>背景</th><td><code>paper</code> (#FFFCF0)</td></tr>
-        <tr><th>枠線</th><td><code>ui-2</code> 1 px (#DAD8CE)</td></tr>
-        <tr><th>角丸</th><td><code>border-radius: 6 px</code> (probability-display popup と統一)</td></tr>
-        <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
-        <tr><th>影</th><td><code>0 4px 12px rgba(16, 15, 15, 0.06)</code></td></tr>
-        <tr><th>z-index</th><td>50</td></tr>
-        <tr><th>アンカー</th><td>ゲート右辺 + 8 px、ゲートの top に合わせる (probability とは「行」がない点だけ違う)</td></tr>
-        <tr><th>pointer-events</th><td><code>none</code> (ホバー判定を妨げない)</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">数値の計算式と表示形式</h3>
-    <table class="spec">
-      <thead>
-        <tr><th>値</th><th>計算</th><th>表示形式</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>r</code> (ブロッホ長)</td><td><code>sqrt(x² + y² + z²)</code></td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.9992</code></td></tr>
-        <tr><td><code>ϕ</code> (方位角)</td><td><code>atan2(y, x)</code>、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+0.00°</code></td></tr>
-        <tr><td><code>θ</code> (極角)</td><td><code>acos(z / r)</code> (r &gt; 10<sup>−6</sup>)、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+179.45°</code></td></tr>
-        <tr><td><code>x</code> / <code>y</code> / <code>z</code></td><td>shader 出力をそのまま使用 (符号反転なし)</td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.0095</code> / <code>-0.9992</code></td></tr>
-        <tr><td><code>r ≈ 0</code> 時</td><td>(完全混合)</td><td>ϕ / θ は <code>—</code> を表示。x / y / z は <code>+0.0000</code> のまま</td></tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 8px;">
-      <strong>qni-webgpu の符号規約</strong>: shader 出力 (x, y, z) は <code>x = 2·Re(ρ<sub>01</sub>)</code>、
-      <code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code> (§ 09)。
-      これは標準 Bloch convention と一致 (|0⟩ → z=+1、|1⟩ → z=−1) なので、popup では <strong>符号反転なしでそのまま表示する</strong>。
-      Quirk オリジナルは内部表現が標準と逆だったため <code>forceSign(-x)</code> / <code>forceSign(-z)</code> を行うが、
-      qni-webgpu では不要 (この差分はコメントとして実装側に残す)。
-    </p>
-
-    <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
-    <p>
-      実コードと同じ <code>.bd-popup</code> マークアップに <code>.bd-popup--static</code> を付け、
-      <code>position: static; display: inline-block</code> で非ホバー時にも表示する。
-      代表的なブロッホ状態でレンダリングを確認できる。
-    </p>
-    <div class="stage" style="gap: 24px; flex-wrap: wrap;">
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|0⟩<br>(0, 0, +1)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+0.00°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+1.0000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|1⟩ に近い<br>(0.0095, 0.0000, −0.9992)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.9992</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+179.45°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0095</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">−0.9992</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|+⟩<br>(+1, 0, 0)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">傾いた混合状態 (r &lt; 1)<br>(+0.5, −0.3, +0.7)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.9110</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">−30.96°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+39.78°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.5000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">−0.3000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.7000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">完全混合<br>(0, 0, 0)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">—</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">—</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 11 popup mocks 重複">
-      <div class="critique-label">★ 批評 · § 11 mock 重複</div>
-      <div class="critique-title">5 個の popup mock がほぼ同じマークアップを再宣言している</div>
-      <p class="critique-body">
-        5 つの状態バリアント (|0⟩ / |1⟩-近傍 / |+⟩ / 傾いた混合 / 完全混合) はそれぞれ <code>.bd-popup-title</code> + divider + 2 row × 3 cell の<strong>同一構造</strong>を持ち、差分は<em>数値だけ</em>。
-        しかし HTML 上は毎回約 13 行 (title + divider + 6 cell) を書き直しており、計 65 行が値テーブルとして再利用できない形で展開されている。
-        さらにタイトル文 "Bloch sphere representation of local state" は 5 個すべてで同じ — 5 回見せても情報量は増えない。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: タイトル行 + アンカー位置 + 余白の <em>anatomy diagram</em> を 1 個だけ大きく示し、
-        その下に <code>&lt;table class="spec"&gt;</code> で「状態名 / r / ϕ / θ / x / y / z」を 5 行並べる。
-        anatomy で構造を教え、テーブルで値の振れ幅を提示する 2 役分担。65 行 → ~25 行に縮み、値テーブルとして比較もしやすくなる。
-      </p>
-      <p class="critique-body">
-        <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 02 にはモックだけ、§ 11 には popup だけ)。
-        傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 02 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
-        anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;bloch-display&gt;</code> の縮小表示) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
-      </p>
-    </aside>
-
-    <h3 style="margin-top: 24px;">参考: Quirk オリジナルとの差分</h3>
-    <table class="spec">
-      <thead>
-        <tr><th>項目</th><th>Quirk</th><th>qni-webgpu</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>背景 / 枠</td><td>半透明黒 + 白テキスト</td><td><code>paper</code> + <code>ui-2</code> 1 px + soft shadow (probability-display popup と統一)</td></tr>
-        <tr><td>フォント</td><td>system serif / sans-serif、可変幅</td><td>Geist (タイトル) + Geist Mono (数値、<code>tabular-nums</code>)</td></tr>
-        <tr><td>x / z 符号</td><td>内部実装の都合で <code>-x</code> / <code>-z</code> を表示</td><td>内部値と一致するのでそのまま表示 (符号反転なし)</td></tr>
-        <tr><td>表示トリガ</td><td>focus point が球内部 (distance &lt; radius) のとき</td><td>ホストホバーで出す (本体が円なので球外部 vs 内部の区別を細かく取らない)</td></tr>
-        <tr><td>sphere 上のフォーカスマーカ</td><td>orange 2 px の円を上書き</td><td>外側ホバー枠 (<code>purple-400</code> 4 px ホバー枠) のみ、球内部は変えない</td></tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><strong>対象</strong>: <code>GateKind::BlochDisplay</code> のホスト要素のホバー時に出す詳細ポップオーバー</li>
+      <li><strong>参照先</strong>: <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a></li>
+      <li><strong>本ページに残す責務</strong>: 球本体、ホバー枠、GPU overlay、暫定描画、URL シリアライズ</li>
+    </ul>
   </div>
 </section>
 
@@ -877,9 +620,9 @@ z =  ρ_00 − ρ_11</pre>
 
     <p class="note" style="margin-top: 12px;">
       <strong>SDF 描画パラメータ</strong> (<code>BLOCH_OVERLAY_SHADER fs_main</code>):
-      <code>line_half = 0.75</code>、<code>tip_radius = 3.0</code>、<code>edge = 0.75</code>。
+      <code>line_half = 0.75</code>、<code>tip_radius = 4.0</code>、<code>edge = 0.75</code>。
       <code>1.0 − smoothstep(half − edge, half + edge, dist)</code> でアルファを作るので、
-      線の実効幅 ≈ 1.5 px、ドット直径 ≈ 6 px (= 2 × tip_radius) になる。
+      線の実効幅 ≈ 1.5 px、ドット直径 ≈ 8 px (= 2 × tip_radius) になる。
     </p>
 
     <h3 style="margin-top: 16px;">バックエンド対応</h3>
@@ -950,9 +693,11 @@ z =  ρ_00 − ρ_11</pre>
         <tr><td><code>apps/web/src/app/gpu_plan_state.rs</code></td><td><code>bloch_slot(gate_id)</code> のスロット割り当てルックアップ</td></tr>
         <tr><td><code>apps/web/src/colors.rs</code></td><td>Flexoki マッピング:
           <code>bloch_sphere_bg</code> (= bg-2) / <code>bloch_sphere_lines</code> (= tx-3) / <code>bloch_vector_line</code> (= tx) /
-          <strong>新仕様:</strong> <code>bloch_vector_tip_0</code> (= <code>semantic_off</code> = red-600) /
-          <code>bloch_vector_tip_1</code> (= <code>semantic_on</code> = blue-600) /
-          <code>bloch_vector_inactive</code> (= tx-3、|v| &lt; 1e-3 の非アクティブ色)</td></tr>
+          <strong>新仕様:</strong> <code>bloch_vector_tip_0</code> (= red-300) /
+          <code>bloch_vector_tip_mid</code> (= purple-400) /
+          <code>bloch_vector_tip_1</code> (= blue-300) /
+          <code>bloch_vector_tip_outline</code> (= tx) /
+          <code>bloch_vector_zero</code> (= tx-3、|v| &lt; 1e-3 の非アクティブ色)</td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
@@ -962,6 +707,7 @@ z =  ρ_00 − ρ_11</pre>
       <li>Quirk 原実装: <code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code></li>
       <li>デザインシステム全体方針: <a href="../design-system-architecture.html">design-system-architecture.html</a></li>
       <li>関連 spec: <a href="probability-display.html">probability-display.html</a> (表示ブロックの姉妹実装)</li>
+      <li>関連仕様: <a href="bloch-display-popover.html">bloch-display-popover.html</a> (ブロッホ球ポップオーバーの独立仕様)</li>
       <li>インデクス: <a href="../design-system.html">design-system.html</a></li>
     </ul>
   </div>

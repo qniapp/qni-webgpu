@@ -57,6 +57,7 @@ pub(crate) struct QniApp {
     pub(crate) circuit_scroll_x: f32,
     pub(crate) dragging: Option<DragState>,
     pub(crate) dragging_live_display_snap: bool,
+    pub(crate) dragging_live_display_plan_touched: bool,
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
     /// Resizable-span handle currently hovered (drives idle → hover color).
@@ -69,6 +70,9 @@ pub(crate) struct QniApp {
     /// k" preview without committing — drops back to `breakpoint_step`
     /// when the pointer leaves the slot row.
     pub(crate) hovered_step: Option<usize>,
+    /// Gate id currently selected as the edit target. Selection is UI-only:
+    /// it is not serialized into URL/localStorage and does not affect GPU simulation.
+    pub(crate) selected_gate_id: Option<u32>,
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
@@ -256,11 +260,13 @@ impl QniApp {
             circuit_scroll_x: 0.0,
             dragging: None,
             dragging_live_display_snap: false,
+            dragging_live_display_plan_touched: false,
             drag_state_count: None,
             state_panel: StatePanelState::default(),
             hovered_span_resize_handle: None,
             span_resize_drag: None,
             hovered_step: None,
+            selected_gate_id: None,
             breakpoint_step: None,
             hovered_gate_id: None,
             hovered_probability_outcome: None,
