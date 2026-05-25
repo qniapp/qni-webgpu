@@ -223,10 +223,46 @@ def apply_swap(
 ) -> None:
     if len(swap_wires) != 2:
         return
-    if controls or anti_controls:
-        raise CircuitBuildError("controlled Swap is not supported by the dev Qiskit runner yet")
     first, second = swap_wires
+    if controls or anti_controls:
+        apply_controlled_swap(qc, first, second, controls, anti_controls)
+        track_controlled_swap(basis, controls, anti_controls, first, second)
+        return
     qc.swap(first, second)
+    basis[first], basis[second] = basis[second], basis[first]
+
+
+def apply_controlled_swap(
+    qc: Any,
+    first: int,
+    second: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    apply_controlled_x(qc, second, controls + [first], anti_controls)
+    apply_controlled_x(qc, first, controls + [second], anti_controls)
+    apply_controlled_x(qc, second, controls + [first], anti_controls)
+
+
+def track_controlled_swap(
+    basis: BasisTracker,
+    controls: list[int],
+    anti_controls: list[int],
+    first: int,
+    second: int,
+) -> None:
+    control_values = [basis[control] for control in controls]
+    anti_control_values = [basis[anti_control] for anti_control in anti_controls]
+    if any(value == 0 for value in control_values) or any(
+        value == 1 for value in anti_control_values
+    ):
+        return
+    if any(value is None for value in control_values + anti_control_values):
+        if basis[first] is not None and basis[first] == basis[second]:
+            return
+        basis[first] = None
+        basis[second] = None
+        return
     basis[first], basis[second] = basis[second], basis[first]
 
 

@@ -85,7 +85,10 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             } else if supported_external_controlled_target(gate.kind)
                 || matches!(
                     gate.kind,
-                    GateKind::Measurement | GateKind::QftGate | GateKind::QftDaggerGate
+                    GateKind::Measurement
+                        | GateKind::QftGate
+                        | GateKind::QftDaggerGate
+                        | GateKind::Swap
                 )
             {
             } else if matches!(
@@ -568,17 +571,14 @@ mod tests {
     }
 
     #[test]
-    fn external_gpu_rejects_controlled_swap_gate() {
+    fn external_gpu_accepts_controlled_swap_gate() {
         let gates = [
             PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
             PlacedGate::new(2, GateKind::Swap, 0, 1, 1, None),
             PlacedGate::new(3, GateKind::Swap, 0, 2, 1, None),
         ];
 
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("SWAP")
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]

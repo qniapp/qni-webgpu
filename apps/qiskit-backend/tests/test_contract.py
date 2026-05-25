@@ -612,13 +612,29 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["Swap", 1]], 2)
         self.assertEqual(fake.ops, [])
 
-    def test_qiskit_builder_rejects_controlled_swap(self):
+    def test_qiskit_builder_ignores_controlled_stray_swap(self):
         class FakeCircuit:
-            def swap(self, _first, _second):
-                pass
+            def __init__(self):
+                self.ops = []
 
-        with self.assertRaises(CircuitBuildError):
-            apply_columns_to_qiskit(FakeCircuit(), [["•", "Swap", "Swap"]], 3)
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Swap"]], 2)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_applies_controlled_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Swap", "Swap"]], 3)
+        self.assertEqual(
+            fake.ops,
+            [("mcx", [0, 1], 2), ("mcx", [0, 2], 1), ("mcx", [0, 1], 2)],
+        )
 
     def test_qiskit_display_saves_tracks_swap_across_columns(self):
         class FakeCircuit:
@@ -637,6 +653,32 @@ class ContractTests(unittest.TestCase):
         )
         add_display_saves(fake, request, lambda axis: axis)
         self.assertEqual(fake.ops, [("x", 0), ("swap", 0, 1), ("x", 0)])
+
+    def test_qiskit_display_saves_keeps_equal_basis_after_unknown_controlled_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {"qubits": 3, "columns": [["H", 1, 1], ["•", "Swap", "Swap"], [1, "|0>", "|0>"]]}
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(
+            fake.ops,
+            [
+                ("h", 0),
+                ("mcx", [0, 1], 2),
+                ("mcx", [0, 2], 1),
+                ("mcx", [0, 1], 2),
+            ],
+        )
 
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:
