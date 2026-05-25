@@ -147,38 +147,41 @@
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<!-- ─────── § 00 複素振幅の視覚表現選定根拠 ─────── -->
 <section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「振幅をどう描くか」の根本判断が § 06 まで遅延し、複素数表示の trade-off が言語化されていない</div>
-    <p class="critique-body">
-      Flexoki Light 準拠、cellPx 帯ごとのレイヤ抑制、GPU パイプラインの 10 stage まで網羅性は高く、
-      probability-display.html / bloch-display.html と同じ「視覚仕様 + 実装仕様」の二重責任を踏襲している (全体構造は probability-display.html § 全体所見と同じ問題)。
-      一方で本仕様<strong>固有</strong>の論点として、<em>「複素振幅 (実数 + 虚数の 2 自由度) を 2D 平面にどう写すか」</em>という根本判断が
-      § 06 のセル描画モデルまで持ち越されており、§ 01〜§ 05 では「disk + needle」が天下り的に登場する。
-      Quirk オリジナルは <em>確率正方形 + 対数強調円 + needle</em> の 3 表現を併用、本仕様は <em>outline 円 + 振幅 disk + 位相 needle</em> に統一しているが、
-      <strong>なぜこの統一が振幅表現として優れているか</strong> (極座標 [mag, phase] が直交座標 [re, im] より読みやすい理由 / phasor 表現の代替案を退けた根拠) が
-      明示されていない。state panel と揃えるという <em>系内一貫性</em>の根拠だけが書かれていて、表現選択そのものの妥当性は読者の信頼に依存する。
+  <h2>§ 00 複素振幅の視覚表現選定根拠</h2>
+  <div class="card">
+    <p>
+      本表示ブロックは、複素振幅 <code>α = re + i·im</code> を<strong>極座標</strong>として読み替え、
+      <strong>大きさ <code>mag = |α|</code> を円盤半径</strong>、<strong>位相 <code>phase = atan2(im, re)</code> を針の向き</strong>で表す。
+      円盤の面積は <code>mag²</code>、つまり測定確率に比例するため、確率の量感と位相パターンを同じセル内で同時に追える。
+      位相 0 は状態ベクトルパネルと同じ真上に揃え、画面全体で「真上 = 正の実数」という読み方を統一する。
     </p>
-    <p class="critique-body">
-      <strong>確率表示ブロックとの差別化が「位相情報の有無」だけに集約されている</strong>: lede / § 01 / § 04 で「確率表示ブロックは <code>|α|²</code>、本表示ブロックは <code>α</code>」と繰り返されるが、
-      <em>α を見れば |α|² も読める</em>(disk 面積 ∝ mag² = prob) のだから、振幅表示ブロックが存在する以上は「確率表示ブロックの上位互換」とも解釈できてしまう。
-      にもかかわらず両者が別表示ブロックとして並存している根拠 (大量 span での縦バー読みやすさ / hover popup の文言の違い / production cellPx 帯の限界) は仕様書全体で散発的に触れられているだけで、
-      <em>「いつ確率表示ブロックを、いつ振幅表示ブロックを選ぶか」</em>の意思決定ガイドが章として無い。これは Codex / 人間が両方の仕様ページを行き来する動機を弱める。
+    <table class="spec">
+      <thead><tr><th>候補</th><th>採否</th><th>判断</th></tr></thead>
+      <tbody>
+        <tr><th>極座標: 円盤半径 + 位相針</th><td><strong>採用</strong></td><td>大きさと位相を分離して読める。<a href="amplitude-circle.html">振幅円</a>と状態ベクトルパネルの語彙を共有でき、cellPx が小さいときは針だけを省略しても確率の量感が残る。</td></tr>
+        <tr><th>直交座標: 実部 / 虚部の 2 本バー</th><td>不採用</td><td>実部と虚部の符号は直接読めるが、位相パターンを目で追うには 2 本の長さを合成して読む必要がある。多数セルを並べたときの干渉模様が見えにくい。</td></tr>
+        <tr><th>フェーザ: 中心から <code>(re, im)</code> へ伸びる 1 本矢印</th><td>不採用</td><td>1 オブジェクトで簡潔だが、<code>mag</code> が小さいセルでは矢印そのものが短くなり、位相も大きさも同時に失われる。円盤なら小振幅でも確率の量感を残せる。</td></tr>
+        <tr><th>色相: 位相を色で表す</th><td>不採用</td><td>高密度表示への移行は自然だが、Flexoki Light の意味付き色体系と衝突しやすい。色覚差にも依存するため、本仕様では形状で位相を表す。</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      この選定により、本表示ブロックは「確率も読めるが、主目的は<strong>位相を含む複素振幅のパターンを読むこと</strong>」に位置付ける。
+      確率だけを高密度に読みたい場合の使い分けは § 01 の判断表で定義する。
     </p>
-  </aside>
+  </div>
+</section>
 
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+<!-- ─────── Design Critique 主な論点 ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · 主な論点">
+    <div class="critique-label">★ 批評 · 主な論点</div>
+    <div class="critique-title">別仕様や実装方針を巻き込む論点</div>
     <ol class="critique-list">
-      <li><strong>複素振幅の視覚表現選定根拠を § 00 (前文) として独立</strong> — 極座標 (mag + phase) を直交座標 (re + im) より優先する根拠、phasor / arrow / heatmap 等を退けた理由を § 06 から前倒しする (全体所見 / § 06 参照)。</li>
-      <li><strong>確率表示ブロックとの使い分けガイドを § 01 末尾に明記</strong> — 「位相が見たい → 振幅表示ブロック」「測定結果を縦に多数並べたい → 確率表示ブロック」「span 16 を fit して全体形状を見たい → 確率表示ブロック」など decision matrix を 1 表で (全体所見 / § 01 参照)。</li>
-      <li><strong>§ 02 のサイズ別レンダリングを「production cellPx」と「mock cellPx」の 2 軸に分離</strong> — 現状は「mock span 13〜16 は heatmap」と注記があるが、production では heatmap が発生しないこと (cellPx 最小 3 px) が読み流されやすい (§ 02 参照)。</li>
-      <li><strong>§ 05 の placement / 衝突検出を amplitude / density で共有する独立仕様へ抽出</strong> — 同じ「JSON col index = qni 内部 slot index + 幾何交差」モデルが density-matrix-display.html にも展開されており、変更時の同期コストが高い (§ 05 参照)。</li>
-      <li><strong>§ 09 GPU パイプラインの 10 stage と § 10 決定事項の重複を整理</strong> — phase lock / quality / control_mask の決定値が両セクションに分散し、追跡が難しい (§ 09 / § 10 参照)。</li>
-      <li><strong>incoherent state の判定閾値 <code>quality &lt; 0.99</code> の根拠を補強</strong> — 「Quirk 互換」だけで根拠が止まっており、<code>f32</code> 丸め誤差で false-incoherent が出るリスクの定量評価がない (§ 07 参照)。</li>
+      <li><strong>§ 05 の配置 / 衝突検出を amplitude / density で共有する独立仕様へ抽出</strong> — 可変幅ゲート共通仕様を新設し、本ページは振幅表示ブロック固有の差分だけを記述する。</li>
+      <li><strong>§ 09 GPU パイプラインの 10 stage と § 10 決定事項の重複を整理</strong> — compute pass 仕様の移動先を決め、視覚仕様と実装メモの読路を分ける。</li>
+      <li><strong>incoherent state の判定閾値 <code>quality &lt; 0.99</code> の定量評価</strong> — span / 回路深さ / WebGPU 実行環境ごとの実測で false-incoherent の有無を定量評価し、閾値調整基準を定義する。</li>
     </ol>
   </aside>
 </section>
@@ -201,25 +204,21 @@
         <div class="actual"><amplitude-display span="2" sample="mixed2"></amplitude-display></div>
       </div>
     </div>
+    <h3 style="margin-top: 16px;">確率表示ブロックとの使い分け</h3>
+    <table class="spec">
+      <thead><tr><th>読みたいもの</th><th>推奨</th><th>理由</th></tr></thead>
+      <tbody>
+        <tr><th>位相パターン、干渉、複素振幅そのもの</th><td><strong>振幅表示ブロック</strong></td><td>針の向きで位相を追える。円盤の面積で確率も同時に読めるため、QFT や位相回転後の状態を観察しやすい。</td></tr>
+        <tr><th>大きな span の確率分布形状</th><td><strong>確率表示ブロック</strong></td><td>線形バーは幅 40 px のまま縦方向に圧縮できる。span 12〜16 のようにセルが極小になる場合、位相より分布の山谷を読む用途に向く。</td></tr>
+        <tr><th>1 セルの正確な複素値</th><td><strong>振幅表示ブロック</strong></td><td>ポップアップで <code>val</code> / <code>mag²</code> / <code>phase</code> を同時に確認できる。</td></tr>
+        <tr><th>測定確率だけを数値で確認</th><td><strong>確率表示ブロック</strong></td><td>ポップアップが <code>raw</code> / <code>log</code> に絞られ、位相情報を読ませない。確率だけを確認する作業では情報密度が低くて済む。</td></tr>
+        <tr><th>span 外とのもつれを見つける</th><td><strong>密度行列表示ブロック</strong></td><td>振幅表示ブロックは incoherent state で確率表示へ退避する。混合性や非対角成分を見たい場合は密度行列表示ブロックを使う。</td></tr>
+      </tbody>
+    </table>
     <p class="note" style="margin-top: 16px;">
       全 span (1〜16) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / 投影 / GPU パイプライン等の詳細は § 04 以降を参照。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 01 確率表示ブロックとの使い分けが書かれていない">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">「振幅表示ブロックがあれば確率表示ブロックは要らない」と誤読される設計提示</div>
-      <p class="critique-body">
-        本文は span 1 / span 2 の見本だけで本表示ブロックを「複素振幅を見せる」と紹介するが、
-        <em>振幅 disk の<strong>面積</strong> ∝ <code>mag² = 確率</code></em> なので、振幅表示ブロックは原理的に確率情報も内包する。
-        にもかかわらず確率表示ブロック (sibling) が独立して存在することは「単なる位相情報の有無」では正当化しきれない。
-        実際の使い分け軸は<strong>(a) span が大きい時の縦バーの読みやすさ</strong> (span 16 では 65 536 行を縦 880 px に詰める確率表示ブロックの線形バーが圧倒的に読みやすい)、
-        <strong>(b) 1 セルから何の量を読みたいか</strong> (確率は「ラベル数値」で正確に読む、振幅は「needle 方向で位相パターン」を視覚で読む) の 2 点。
-      </p>
-      <p class="critique-body">
-        この使い分けを § 01 末尾に「<em>位相を読みたい → 振幅表示ブロック</em> / <em>大きな span の確率分布形状を見たい → 確率表示ブロック</em>」の 1 表で示すと、
-        Quirk から移行した学習者が両表示ブロックを取り違える事故が減る。Quirk もこの decision matrix を持たないが、qni-webgpu は state panel + 3 表示ブロックを併用するので、本仕様が canonical な使い分けガイドの場として適する。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -232,11 +231,24 @@
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
       各セルにマウスを乗せると、coherent では ket / val / mag² / phase、incoherent では ket / raw / log をポップアップ表示する (詳細は § 08)。
-      cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
-      production の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない。下のモックは表示の都合で 320 px に scale down しているので、mock では span 13〜16 が cellPx ≤ 2 となり heatmap mode に入る。
+      cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk (disk は半径閾値を満たすセルのみ) / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
+      本番の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は本番では発生しない。ただし cellPx ≈ 3 では § 06 の半径式により円盤半径が 0 に近づくため、円は点状または外枠だけに近い表示になる。
+      下のモックは表示の都合で 320 px に縮小しているので、モックでは span 13〜16 が cellPx ≤ 2 となりヒートマップモードに入る。
+      heatmap は現行本番の必須経路ではなく、将来さらに小さいセルを許容した場合の<strong>仮想的な退避描画</strong>として扱う。
     </p>
 
-    <h3 style="margin-top: 12px;">mock span 1〜4 (mock cellPx ≥ 38、full detail)</h3>
+    <h3 style="margin-top: 12px;">本番とモックの cellPx の違い</h3>
+    <table class="spec">
+      <thead><tr><th>範囲</th><th>本番 cellPx</th><th>本番の見え方</th><th>モック cellPx</th><th>モックの見え方</th></tr></thead>
+      <tbody>
+        <tr><td>span 1〜8</td><td>23〜52 px</td><td>needle + outline + disk</td><td>20〜52 px</td><td>needle + outline + disk</td></tr>
+        <tr><td>span 9〜10</td><td>15〜17 px</td><td>needle + outline + disk</td><td>10 px</td><td>needle を省略し、outline + disk</td></tr>
+        <tr><td>span 11〜12</td><td>9〜10 px</td><td>needle を省略し、outline + disk</td><td>5 px</td><td>needle を省略し、outline + disk</td></tr>
+        <tr><td>span 13〜16</td><td>3〜6 px</td><td>needle なし。円 SDF 経路は維持するが、outline / disk は § 06 の半径閾値に従い、3 px 付近では点状または外枠だけに近くなる</td><td>1〜2 px</td><td>ヒートマップモード</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 12px;">モック span 1〜4 (mock cellPx ≥ 38、full detail)</h3>
     <div class="stage">
       <div class="col"><div class="caption">1 量子ビット · 2 outcomes<br>2×1 grid</div><div class="actual"><amplitude-display span="1" sample="hadamard1"></amplitude-display></div></div>
       <div class="col"><div class="caption">2 量子ビット · 4 outcomes<br>2×2 grid</div><div class="actual"><amplitude-display span="2" sample="mixed2"></amplitude-display></div></div>
@@ -244,7 +256,7 @@
       <div class="col"><div class="caption">4 量子ビット · 16 outcomes<br>4×4 grid</div><div class="actual"><amplitude-display span="4" sample="peak4"></amplitude-display></div></div>
     </div>
 
-    <h3 style="margin-top: 24px;">mock span 5〜8 (mock cellPx ≥ 13、needle 残る)</h3>
+    <h3 style="margin-top: 24px;">モック span 5〜8 (mock cellPx 20〜40、needle 残る)</h3>
     <div class="stage">
       <div class="col"><div class="caption">5 量子ビット · 32 outcomes<br>4×8 grid</div><div class="actual"><amplitude-display span="5" sample="demo"></amplitude-display></div></div>
       <div class="col"><div class="caption">6 量子ビット · 64 outcomes<br>8×8 grid</div><div class="actual"><amplitude-display span="6" sample="demo"></amplitude-display></div></div>
@@ -252,7 +264,7 @@
       <div class="col"><div class="caption">8 量子ビット · 256 outcomes<br>16×16 grid</div><div class="actual"><amplitude-display span="8" sample="demo"></amplitude-display></div></div>
     </div>
 
-    <h3 style="margin-top: 24px;">mock span 9〜12 (mock cellPx ∈ [5, 12)、needle 省略、outline + disk)</h3>
+    <h3 style="margin-top: 24px;">モック span 9〜12 (mock cellPx ∈ [5, 12)、needle 省略、outline + disk)</h3>
     <div class="stage">
       <div class="col"><div class="caption">9 量子ビット · 512 outcomes<br>16×32 grid</div><div class="actual"><amplitude-display span="9" sample="demo"></amplitude-display></div></div>
       <div class="col"><div class="caption">10 量子ビット · 1024 outcomes<br>32×32 grid</div><div class="actual"><amplitude-display span="10" sample="demo"></amplitude-display></div></div>
@@ -260,7 +272,7 @@
       <div class="col"><div class="caption">12 量子ビット · 4096 outcomes<br>64×64 grid</div><div class="actual"><amplitude-display span="12" sample="demo"></amplitude-display></div></div>
     </div>
 
-    <h3 style="margin-top: 24px;">mock span 13〜16 (mock cellPx ≤ 2、heatmap、alpha = √(mag/max_mag)) — mock 限定の rendering</h3>
+    <h3 style="margin-top: 24px;">モック span 13〜16 (mock cellPx ≤ 2、heatmap、alpha = √(mag/max_mag)) — モック限定の描画</h3>
     <div class="stage">
       <div class="col"><div class="caption">13 量子ビット · 8192 outcomes<br>64×128 grid</div><div class="actual"><amplitude-display span="13" sample="demo"></amplitude-display></div></div>
       <div class="col"><div class="caption">14 量子ビット · 16384 outcomes<br>128×128 grid</div><div class="actual"><amplitude-display span="14" sample="demo"></amplitude-display></div></div>
@@ -312,33 +324,10 @@
       <em>「初期化済み / 未初期化」フラグ</em> (例: <code>quality</code> に sentinel <code>-1.0</code> を書く) を持たせ、
       fragment shader 側で「sentinel なら placeholder layer (purple-100 背景 + ui-2 outline のみ)、それ以外は通常の outline + disk + needle」へ分岐する。
       CPU から空の振幅値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
-      span ≥ 13 (mock 上 heatmap モードに入る帯) でも、placeholder は <strong>常に outline 円を描く</strong> 方針で
+      span ≥ 13 (モック上 heatmap モードに入る帯) でも、placeholder は <strong>常に outline 円を描く</strong> 方針で
       heatmap への切替は適用しない (実行前にセル数で見た目が変わるのは混乱を招くため)。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 production と mock の cellPx 乖離">
-      <div class="critique-label">★ 批評 · § 02 production と mock の見た目が一致しない</div>
-      <div class="critique-title">「mock 限定の heatmap」がページの 1/4 を占めるのに、production では発生しない</div>
-      <p class="critique-body">
-        § 02 は「mock span 13〜16 (mock cellPx ≤ 2、heatmap、alpha = √(mag/max_mag)) — mock 限定の rendering」というセクションで 16 個中 4 個の見本を並べているが、
-        本文中に「production の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は production では発生しない」と注記されている。
-        これは <strong>仕様ページの 1/4 が production と一致しない見本に費やされている</strong>状態で、
-        実装根拠としてこのページを開いた読者は「heatmap モードは実装すべきか?」と判断に迷う。
-      </p>
-      <p class="critique-body">
-        改善案: (a) production / mock 両方の cellPx を表に追記する (§ 05 表に「production cellPx」「mock cellPx」の 2 列を作る) と、見本がどちらのスケールで描かれているかが章を跨いでも追跡できる。
-        (b) heatmap mock を「もし production cellPx が将来 3 px 未満になったらこう描く」という<em>仮想 fallback</em>として明示する 1 段落を入れる。
-        現状は「mock 限定」の注記が太字ではなく文末に押し込まれているので、最初の読み流しでは見落とされる。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">2<sup>N</sup> セルの<em>面積</em>スケーラビリティが span 8 で破綻している</div>
-      <p class="critique-body">
-        確率表示ブロックは縦バーなので 65 536 行を縦 880 px に圧縮できる (行高 ≈ 0.013 px、対数ヒント線で形だけ伝える)。
-        振幅表示ブロックは <strong>2D matrix (w_grid × h_grid)</strong> なので 65 536 セルを正方形に並べ、本体寸法が 880 × 880 px まで膨らむ。
-        これは確率表示ブロックの 40 px 幅と比べて<strong>面積で 484 倍</strong>。回路エディタの 1 つのゲートとしては大きすぎ、ユーザーが span を 16 まで上げると画面の大半を占有する。
-        Quirk も同じ問題を持つが、qni-webgpu の Flexoki + WebGPU 描画では <em>本体が大きい = "高価な情報を持つ"</em>という錯覚が強まり、初学者は「振幅表示ブロックは高機能」と過大評価しがち。
-        § 01 の使い分けガイドに「span が大きい場合は確率表示ブロックを推奨」と書くと、この錯覚を初期段階で打ち消せる。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -426,31 +415,32 @@
     <h3 style="margin-top: 16px;">span 別 grid とセル寸法</h3>
     <table class="spec">
       <thead>
-        <tr><th>span</th><th>outcomes</th><th style="text-align:right;">gate (cols × rows)</th><th style="text-align:right;">幅×高 (px)</th><th style="text-align:right;">matrix grid</th><th style="text-align:right;">cell (px)</th></tr>
+        <tr><th>span</th><th>outcomes</th><th style="text-align:right;">gate (cols × rows)</th><th style="text-align:right;">幅×高 (px)</th><th style="text-align:right;">matrix grid</th><th style="text-align:right;">本番 cellPx</th><th style="text-align:right;">モック cellPx</th></tr>
       </thead>
       <tbody>
-        <tr><td class="num">1</td><td class="num">2</td><td class="num">2 × 1</td><td class="num">96 × 40</td><td class="num">2 × 1</td><td class="num">40</td></tr>
-        <tr><td class="num">2</td><td class="num">4</td><td class="num">2 × 2</td><td class="num">96 × 96</td><td class="num">2 × 2</td><td class="num">48</td></tr>
-        <tr><td class="num">3</td><td class="num">8</td><td class="num">2 × 3</td><td class="num">96 × 152</td><td class="num">2 × 4</td><td class="num">38</td></tr>
-        <tr><td class="num">4</td><td class="num">16</td><td class="num">4 × 4</td><td class="num">208 × 208</td><td class="num">4 × 4</td><td class="num">52</td></tr>
-        <tr><td class="num">5</td><td class="num">32</td><td class="num">3 × 5</td><td class="num">152 × 264</td><td class="num">4 × 8</td><td class="num">33</td></tr>
-        <tr><td class="num">6</td><td class="num">64</td><td class="num">6 × 6</td><td class="num">320 × 320</td><td class="num">8 × 8</td><td class="num">40</td></tr>
-        <tr><td class="num">7</td><td class="num">128</td><td class="num">4 × 7</td><td class="num">208 × 376</td><td class="num">8 × 16</td><td class="num">23</td></tr>
-        <tr><td class="num">8</td><td class="num">256</td><td class="num">8 × 8</td><td class="num">432 × 432</td><td class="num">16 × 16</td><td class="num">27</td></tr>
-        <tr><td class="num">9</td><td class="num">512</td><td class="num">5 × 9</td><td class="num">264 × 488</td><td class="num">16 × 32</td><td class="num">15</td></tr>
-        <tr><td class="num">10</td><td class="num">1024</td><td class="num">10 × 10</td><td class="num">544 × 544</td><td class="num">32 × 32</td><td class="num">17</td></tr>
-        <tr><td class="num">11</td><td class="num">2048</td><td class="num">6 × 11</td><td class="num">320 × 600</td><td class="num">32 × 64</td><td class="num">9</td></tr>
-        <tr><td class="num">12</td><td class="num">4096</td><td class="num">12 × 12</td><td class="num">656 × 656</td><td class="num">64 × 64</td><td class="num">10</td></tr>
-        <tr><td class="num">13</td><td class="num">8192</td><td class="num">7 × 13</td><td class="num">376 × 712</td><td class="num">64 × 128</td><td class="num">5</td></tr>
-        <tr><td class="num">14</td><td class="num">16384</td><td class="num">14 × 14</td><td class="num">768 × 768</td><td class="num">128 × 128</td><td class="num">6</td></tr>
-        <tr><td class="num">15</td><td class="num">32768</td><td class="num">8 × 15</td><td class="num">432 × 824</td><td class="num">128 × 256</td><td class="num">3</td></tr>
-        <tr><td class="num">16</td><td class="num">65536</td><td class="num">16 × 16</td><td class="num">880 × 880</td><td class="num">256 × 256</td><td class="num">3</td></tr>
+        <tr><td class="num">1</td><td class="num">2</td><td class="num">2 × 1</td><td class="num">96 × 40</td><td class="num">2 × 1</td><td class="num">40</td><td class="num">40</td></tr>
+        <tr><td class="num">2</td><td class="num">4</td><td class="num">2 × 2</td><td class="num">96 × 96</td><td class="num">2 × 2</td><td class="num">48</td><td class="num">48</td></tr>
+        <tr><td class="num">3</td><td class="num">8</td><td class="num">2 × 3</td><td class="num">96 × 152</td><td class="num">2 × 4</td><td class="num">38</td><td class="num">38</td></tr>
+        <tr><td class="num">4</td><td class="num">16</td><td class="num">4 × 4</td><td class="num">208 × 208</td><td class="num">4 × 4</td><td class="num">52</td><td class="num">52</td></tr>
+        <tr><td class="num">5</td><td class="num">32</td><td class="num">3 × 5</td><td class="num">152 × 264</td><td class="num">4 × 8</td><td class="num">33</td><td class="num">33</td></tr>
+        <tr><td class="num">6</td><td class="num">64</td><td class="num">6 × 6</td><td class="num">320 × 320</td><td class="num">8 × 8</td><td class="num">40</td><td class="num">40</td></tr>
+        <tr><td class="num">7</td><td class="num">128</td><td class="num">4 × 7</td><td class="num">208 × 376</td><td class="num">8 × 16</td><td class="num">23</td><td class="num">20</td></tr>
+        <tr><td class="num">8</td><td class="num">256</td><td class="num">8 × 8</td><td class="num">432 × 432</td><td class="num">16 × 16</td><td class="num">27</td><td class="num">20</td></tr>
+        <tr><td class="num">9</td><td class="num">512</td><td class="num">5 × 9</td><td class="num">264 × 488</td><td class="num">16 × 32</td><td class="num">15</td><td class="num">10</td></tr>
+        <tr><td class="num">10</td><td class="num">1024</td><td class="num">10 × 10</td><td class="num">544 × 544</td><td class="num">32 × 32</td><td class="num">17</td><td class="num">10</td></tr>
+        <tr><td class="num">11</td><td class="num">2048</td><td class="num">6 × 11</td><td class="num">320 × 600</td><td class="num">32 × 64</td><td class="num">9</td><td class="num">5</td></tr>
+        <tr><td class="num">12</td><td class="num">4096</td><td class="num">12 × 12</td><td class="num">656 × 656</td><td class="num">64 × 64</td><td class="num">10</td><td class="num">5</td></tr>
+        <tr><td class="num">13</td><td class="num">8192</td><td class="num">7 × 13</td><td class="num">376 × 712</td><td class="num">64 × 128</td><td class="num">5</td><td class="num">2</td></tr>
+        <tr><td class="num">14</td><td class="num">16384</td><td class="num">14 × 14</td><td class="num">768 × 768</td><td class="num">128 × 128</td><td class="num">6</td><td class="num">2</td></tr>
+        <tr><td class="num">15</td><td class="num">32768</td><td class="num">8 × 15</td><td class="num">432 × 824</td><td class="num">128 × 256</td><td class="num">3</td><td class="num">1</td></tr>
+        <tr><td class="num">16</td><td class="num">65536</td><td class="num">16 × 16</td><td class="num">880 × 880</td><td class="num">256 × 256</td><td class="num">3</td><td class="num">1</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
       レイヤ抑制は<strong>cellPx 基準</strong>で行う (§ 06 参照):
       <code>cellPx ≥ 12</code> なら needle 描画、<code>cellPx ≥ 3</code> なら outline 描画、それ未満は heatmap。
-      production の cellPx 値は上記表のとおり (span 16 で 3 px が最小)、heatmap 描画への切替は production では発生しない (mock では scale down 都合で発生)。
+      本番 cellPx は実コード上の本体寸法から算出した値、モック cellPx はこの仕様ページの <code>&lt;amplitude-display&gt;</code> が最大 320 px に縮小した後の値。
+      本番は span 16 でも 3 px が最小なので heatmap 描画への切替は発生しない。ただし cellPx ≈ 3 では円 SDF 経路は残るものの、outline / disk 半径は 0 に近づく。モックでは縮小表示の都合で span 13〜16 だけヒートマップモードに入る。
       cell が小さい span 11+ では SDF per-pixel render が前提 (egui shape ではなく WebGPU fragment shader で直接合成)。
     </p>
 
@@ -480,29 +470,29 @@
           <li>各 qni slot を順に走査して JSON col 配列を出す。amplitude gate は <code>"Amps&lt;span&gt;"</code> の単一 token を該当 col に書くだけ</li>
           <li>shift / 圧縮なし。slot index がそのまま JSON col index になる</li>
         </ol>
-        <strong>衝突検出</strong>は decode/encode の責務ではなく、placement 時に幾何的に行う (次項)。</li>
+        <strong>衝突検出</strong>は decode/encode の責務ではなく、配置時に幾何的に行う (次項)。</li>
       <li><strong>水平 slot 占有モデル</strong> — qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code> (確率表示ブロックと同じ。<code>40 px</code> ではない)。amplitude の幾何幅は垂直の <code>(span − 1) × LINE_GAP + GATE_SIZE</code> と対称に
         <strong><code>width_px = (cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code></strong>。slot 構造としては 1 列消費 (上記 decode/encode と一致)、視覚的には <code>cols</code> slot 分の幅を覆う。
       </li>
-      <li><strong>placement / 衝突検出 (幾何ベース)</strong> — slot index の比較ではなく、<strong>gate_rect の幾何交差</strong>で判定する: 新規 gate を slot N に置くとき、その <code>gate_rect (x_left..x_left + width_px, y_top..y_top + height_px)</code> と既存 gate の rect が交差していたら drop 拒否。amplitude の場合 width が広いので、右側 <code>cols − 1</code> 個分の slot 範囲に既存 gate があれば交差で検出される。<br />
-        この方式なら cols 可変 × cols=1 ゲート混在も、矩形交差だけで一貫して扱える。逆に slot index 単純比較は wide gate に対して破綻するので採用しない。</li>
+      <li><strong>配置 / 衝突検出 (幾何ベース)</strong> — slot index の比較ではなく、<strong>gate_rect の幾何交差</strong>で判定する: 新規 gate を slot N に置くとき、その <code>gate_rect (x_left..x_left + width_px, y_top..y_top + height_px)</code> と既存 gate の rect が交差していたら drop 拒否。amplitude の場合 width が広いので、右側 <code>cols − 1</code> 個分の slot 範囲に既存 gate があれば交差で検出される。<br />
+        この方式なら cols 可変 × cols=1 ゲート混在も、矩形交差だけで一貫して扱える。逆に slot index 単純比較は可変幅ゲートに対して破綻するので採用しない。</li>
     </ul>
     <p class="note">
       上記が困難なら fallback: <strong>幅 40 px 固定 × 高さ可変</strong> (確率表示ブロックと同じ) にして、2D matrix を <strong>1 列の縦並び</strong> に潰す。情報は保持されるが Quirk のような bit-pattern 視覚化は失う。本仕様はまず可変幅で実装することを推奨、難しければこの fallback に切り替える。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 05 placement / 衝突検出の重複">
-      <div class="critique-label">★ 批評 · § 05 ジオメトリと placement</div>
+    <aside class="critique" aria-label="批評 · § 05 配置 / 衝突検出の重複">
+      <div class="critique-label">★ 批評 · § 05 ジオメトリと配置</div>
       <div class="critique-title">「JSON col index = qni 内部 slot index + 幾何交差」モデルが density-matrix-display.html と重複している</div>
       <p class="critique-body">
-        § 05 の「水平 slot 占有モデル」「placement / 衝突検出」「URL round-trip」は密度行列表示ブロック (<a href="density-matrix-display.html">density-matrix-display.html § 05</a>) に
-        ほぼ同一の説明が再掲されている (decode/encode の手順、矩形交差での placement 判定、shift / reserve しない方針)。
-        これは <em>wide gate (cols &gt; 1) の placement 仕様</em>として共通化できる論点で、将来 QFT / measurement-tomography のように cols &gt; 1 のゲートが増えると、同じ説明が 4 ページ目 / 5 ページ目に複製される。
+        § 05 の「水平 slot 占有モデル」「配置 / 衝突検出」「URL round-trip」は密度行列表示ブロック (<a href="density-matrix-display.html">density-matrix-display.html § 05</a>) に
+        ほぼ同一の説明が再掲されている (decode/encode の手順、矩形交差での配置判定、shift / reserve しない方針)。
+        これは <em>可変幅ゲート (cols &gt; 1) の配置仕様</em>として共通化できる論点で、将来 QFT / measurement-tomography のように cols &gt; 1 のゲートが増えると、同じ説明が 4 ページ目 / 5 ページ目に複製される。
       </p>
       <p class="critique-body">
         改善案: <code>docs/design-system/wide-gate-placement.html</code> (仮) を作り、(a) cols 算出式 / (b) 幾何交差ベースの placement / (c) JSON ↔ slot index の対応 / (d) drag preview の幅 を一括定義する。
         本仕様はそこから差分 (<code>cols = (span === 1 ? 2 : span % 2 === 0 ? span : ceil(span/2))</code> の式) だけを引用する形に薄くできる。
-        実装側でも <code>wide_gate_placement.rs</code> 1 ファイルに集約すれば、振幅 / 密度行列 / 将来の wide gate が同じヒットテスト関数を共有できる。
+        実装側でも <code>wide_gate_placement.rs</code> 1 ファイルに集約すれば、振幅 / 密度行列 / 将来の可変幅ゲートが同じヒットテスト関数を共有できる。
       </p>
       <div class="critique-title" style="margin-top: 12px;">cols 算出式 <code>span === 1 ? 2 : (span % 2 === 0 ? span : ceil(span/2))</code> の根拠不明</div>
       <p class="critique-body">
@@ -525,14 +515,20 @@
       Quirk の確率正方形 / 対数円は冗長 (disk の半径 = <code>mag</code>、面積 ∝ <code>mag²</code> で確率値も読める) なので不採用。
       <code>α = re + i·im</code>, <code>mag = |α| = √prob</code>。
     </p>
+    <p>
+      この極座標モデルの利点は、<strong>円盤の面積で確率の量感を保ちつつ、針の向きで位相パターンを追える</strong>点にある。
+      直交座標バーは実部 / 虚部を直接読める一方で、多数セルの干渉模様を読むには 2 本のバーを頭の中で合成する必要がある。
+      フェーザ 1 本だけの表現は簡潔だが、小振幅では矢印が短くなり、位相も大きさも同時に失われる。
+      そのため、本仕様は § 00 の通り「円盤で大きさ、針で位相」を分担する。
+    </p>
     <div class="legend">
       <div class="swatch" style="background: var(--bg);"></div>
       <div><b>(1) back fill</b> — セル背景。通常時は <code>bg</code> (#FFFCF0)。drag preview 中だけ円の外側を <code>purple-600</code> (#5E409D) に差し替え、outline 円の内側の白地と disk / outline / needle 色は維持する</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none" stroke="#6F6E69" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
       </div>
-      <div><b>(2) outline 円</b> — セル中央、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code> (matrix 外枠へ触れない範囲で最大化する)。stroke は <code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px。<strong>描画条件: <code>cellPx ≥ 3</code></strong>。
-        <code>mag &gt; 1e-6</code> なら <code>tx-2</code> (state panel の <code>state_outline</code>)、≈ 0 なら <code>ui-2</code> (<code>state_outline_zero</code>)。cell hover 時は正方形枠ではなく、この outline 円周を <code>purple-400</code> で上書きする。</div>
+      <div><b>(2) outline 円</b> — セル中央、半径 = <code>max(0, cellPx/2 − stroke/2 − 1.5 px)</code> (matrix 外枠へ触れない範囲で最大化する)。stroke は <code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px。<strong>円 SDF 経路の描画条件: <code>cellPx ≥ 3</code></strong>。
+        <code>mag &gt; 1e-6</code> なら <code>tx-2</code> (state panel の <code>state_outline</code>)、≈ 0 なら <code>ui-2</code> (<code>state_outline_zero</code>)。cellPx が 3 px 付近では半径が 0 に近づくため、視覚上は点状または外枠だけに近い表示になる。cell hover 時は正方形枠ではなく、この outline 円周を <code>purple-400</code> で上書きする。</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
         <svg style="position: absolute; inset: 4px;" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" fill="#92BFDB"/></svg>
       </div>
@@ -544,7 +540,7 @@
       </div>
       <div><b>(4) phase needle</b> — セル中心から方向 <code>(−sin(phase), −cos(phase)) = (−im/mag, −re/mag)</code> へ長さ <code>inner_radius</code> の線分。
         <code>tx</code> stroke (outline と同じ太さ: <code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px)。
-        <strong>描画条件: <code>cellPx ≥ 12</code></strong>。それ未満では省略 (<code>cellPx ∈ [3, 12)</code> は outline + disk、<code>cellPx &lt; 3</code> はモック限定 heatmap)。
+        <strong>描画条件: <code>cellPx ≥ 12</code></strong>。それ未満では省略 (<code>cellPx ∈ [3, 12)</code> は円 SDF 経路を維持しつつ、outline / disk は半径閾値に従う。<code>cellPx &lt; 3</code> はモック限定 heatmap)。
         <strong>位相 0° = 真上</strong>、反時計回りに π/2 (= 左)、π (= 下)、−π/2 (= 右)。
         state panel <code>cell_contribution</code> wgsl と一致 (<code>let dir = vec2(-sin(phase), -cos(phase))</code>)</div>
       <div class="swatch" style="background: transparent; border: 1px solid var(--ui-2); position: relative;">
@@ -561,24 +557,36 @@
       <li>layer 合成順序: 本仕様は <em>frame → outline → disk → disk border → needle</em> (state panel は <em>fill → disk border → needle → outline</em> 合成)。cell 間の区切り線は描かない</li>
       <li>phase lock cell の別マーカーは引かない (state panel は phase lock 概念がない、本仕様も Quirk の赤マーカーを不採用)</li>
     </ul>
+    <h3 style="margin-top: 16px;">閾値の分類</h3>
+    <table class="spec">
+      <thead><tr><th>閾値</th><th>役割</th><th>根拠</th></tr></thead>
+      <tbody>
+        <tr><th><code>mag &gt; 1e-6</code></th><td>outline 円を非ゼロ色 (<code>tx-2</code>) にするかを判定</td><td><code>f32</code> の丸め誤差で出る極小ノイズをゼロ扱いし、10 量子ビット一様振幅のような実データは非ゼロとして残す。</td></tr>
+        <tr><th><code>r &gt; 0.3</code></th><td>振幅 disk を塗るかを判定</td><td>sub-pixel の最小視認半径。これ未満は anti-alias だけが薄く残り、ノイズに見えるため塗らない。cellPx ≈ 3 では <code>inner_radius</code> が 0 になるため disk は描かれない。</td></tr>
+        <tr><th><code>r ≥ 1.5</code></th><td>disk 境界線を追加するかを判定</td><td>inset 1 px stroke が disk fill に埋もれず、外端が disk 半径 <code>r</code> と一致する最小半径。</td></tr>
+      </tbody>
+    </table>
     <h3 style="margin-top: 16px;">擬似コード (Rust + wgsl 構造)</h3>
     <pre class="code">// shader (fragment) — 1 cell につき (state.rs の cell_contribution と同形)
-const STROKE: f32 = 2.0;
-const half_stroke: f32 = STROKE / 2.0;
 fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt; vec4&lt;f32&gt; {
     let mag = sqrt(re*re + im*im);
-    let p   = re*re + im*im;
+    let stroke = select(1.0, 2.0, cell_size &gt;= 24.0);
+    let half_stroke = stroke * 0.5;
     let outline_clearance = 1.5;
-    let r_outline = cell_size / 2.0 - half_stroke - outline_clearance;
-    let r_inner   = r_outline - half_stroke;
+    let r_outline = max(0.0, cell_size / 2.0 - half_stroke - outline_clearance);
+    let r_inner   = max(0.0, r_outline - half_stroke);
     let r_cell    = distance(cell_uv * cell_size, vec2(cell_size/2.0));
     var col = BG;                                                      // (1) back
 
-    // (2) outline (常時描画、mag で stroke 色だけ切替)
+    if (cell_size &lt; 3.0) {
+        return render_heatmap_cell(re, im, cell_uv);                   // モック限定の退避描画
+    }
+
+    // (2) outline (円 SDF 経路。cell_size ≈ 3 では r_outline が 0 に近づく)
     let outline_color = select(UI_2, TX_2, mag &gt; 1e-6);
     if (abs(r_cell - r_outline) &lt; half_stroke) { col = outline_color; }
 
-    // (3) disk (mag &gt; threshold なら塗る)
+    // (3) disk (mag &gt; threshold なら塗る。r_inner == 0 なら描かない)
     let r_disk = mag * r_inner;
     if (r_disk &gt; 0.3 &amp;&amp; r_cell &lt;= r_disk) {
         col = BLUE_200;
@@ -587,39 +595,14 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
     if (r_disk &gt;= 1.5 &amp;&amp; abs(r_cell - (r_disk - 0.5)) &lt;= 0.5) {
         col = BLUE_400;
     }
-    // (4) needle: 同じ fragment shader 内で SDF。cell center から (-sin(phase), -cos(phase)) × inner_radius
-    //     への線分との signed distance を計算、stroke 幅以下なら TX で塗る (§ 09 参照)。
+    // (4) needle: cell_size &gt;= 12.0 のときだけ、同じ fragment shader 内で SDF 描画する。
+    //     cell center から (-sin(phase), -cos(phase)) × r_inner への線分との signed distance を計算し、
+    //     stroke 幅以下なら TX で塗る (§ 09 参照)。
     // (5) frame: matrix 全体の外枠だけを ui-2 1 px で塗る。cell 間の区切り線は描かない。
     //     全レイヤ CPU vertex buffer は不要、すべて fragment shader 完結。
     return vec4(col, 1.0);
 }</pre>
 
-    <aside class="critique" aria-label="批評 · § 06 振幅表現の選定根拠">
-      <div class="critique-label">★ 批評 · § 06 セル描画モデル</div>
-      <div class="critique-title">極座標 (mag + phase) を採用した根拠が「state panel と統一」で止まっている</div>
-      <p class="critique-body">
-        本ページは複素振幅 <code>α = re + i·im</code> を <em>「disk 半径 = mag = √prob」「needle 方向 = phase」</em>の極座標で描く決定をしているが、
-        この decision の根拠は「state panel <code>cell_contribution()</code> と同じ語彙」「Quirk の確率正方形 / 対数円は冗長」とだけ書かれている。
-        <strong>振幅を 2D 平面に写す方法は他にもある</strong>:
-      </p>
-      <ul class="critique-list">
-        <li><strong>(A) 直交座標</strong>: 2 つの bar (re と im) を縦に並べる。実部 / 虚部の符号と大きさが直接読める。位相回転による re ↔ im の swap が見える。</li>
-        <li><strong>(B) phasor (arrow)</strong>: 中心から <code>(re, im)</code> 方向へ長さ <code>mag</code> の矢印 1 本。極座標 (本仕様) は半径 + needle の 2 オブジェクトだが phasor は 1 オブジェクトに統合できる。</li>
-        <li><strong>(C) HSV / color wheel</strong>: 位相を色相に、大きさを彩度 / 明度にマッピング。1 cell が 1 つの色で済むので heatmap モードに自然移行できる (Quirk の oss/QuirkAlternate 拡張に類似)。</li>
-      </ul>
-      <p class="critique-body">
-        本仕様は (C) を「Flexoki トーンに馴染まない」(§ 10) と明示退ける一方、(A) (B) を退ける明示的な議論がない。
-        極座標 (mag + phase) の利点は<em>「needle が真上 = 位相 0」という幾何的アンカーを持ち、位相パターンを目で追える</em>こと、
-        欠点は<em>「mag = 0 のとき位相が定義できない」「needle と disk が cell 内で 2 オブジェクト = cellPx が小さい時に潰れる」</em>こと。
-        この trade-off を § 06 冒頭で 1 段落言語化すると、phasor (B) を採用しない理由 (mag が小さい時に矢印が見えない / 同心円的な disk のほうがスケール感を読みやすい) が明確になる。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">「mag &gt; 1e-6」と「r &gt; 0.3」「r ≥ 1.5」の閾値群がマジックナンバー</div>
-      <p class="critique-body">
-        outline の色切り替え (<code>mag &gt; 1e-6</code>) / disk fill (<code>r &gt; 0.3</code>) / disk border (<code>r ≥ 1.5</code>) と 3 つのマジックナンバーが本文中に散在する。
-        <code>1e-6</code> は f32 epsilon の経験値、<code>0.3 px</code> は anti-alias で sub-pixel 描画した時に視認できる最小半径、<code>1.5 px</code> は inset 1 px stroke が disk fill に潰されない最小半径、と<em>それぞれ異なる物理的根拠</em>を持つが、§ 06 ではフラットに並べられている。
-        コメントに「(a) f32 noise の閾値 / (b) sub-pixel 視認限界 / (c) inset border 視認限界」と分類して書くと、将来 cellPx を変えたり anti-alias を変更したりするときの再評価が容易になる。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -647,6 +630,8 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       span 内の量子ビットが span 外と entangled しているとき、<strong>純粋状態としての振幅は定義できない</strong> (reduced density matrix のみ計算可能)。
       Quirk は coherence 指標 <code>quality = denormalizedQuality / unity / incoherentUnity</code> を計算し、
       <code>quality &lt; 0.99</code> で incoherent と判定する。
+      qni-webgpu でも初期値は Quirk 互換の <code>0.99</code> とするが、これは<strong>固定不変の物理定数ではない</strong>。
+      実装後に span / 回路深さ / WebGPU 実行環境ごとの誤差を測り、pure state の false-incoherent が実測される場合は閾値を調整する。
     </p>
     <ul>
       <li>matrix は <code>ket</code> ではなく <code>incoherentKet = sqrt(reduced_diag)</code> (実数のみ) を描く</li>
@@ -669,13 +654,10 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
 
     <aside class="critique" aria-label="批評 · § 07 coherence threshold と incoherent 表現">
       <div class="critique-label">★ 批評 · § 07 phase lock + incoherent state</div>
-      <div class="critique-title"><code>quality &lt; 0.99</code> 閾値の根拠が Quirk 互換のみで、誤判定リスクが定量評価されていない</div>
+      <div class="critique-title"><code>quality &lt; 0.99</code> 閾値の調整基準を定量評価で定義する</div>
       <p class="critique-body">
-        本文は「<code>f32</code> 丸め誤差で false-incoherent は通常出ない」とだけ述べるが、
-        実際には <em>量子ビット数が増えると累積誤差が <code>1e-3</code> オーダーに達する</em>ことがあり、span 8 を超える pure state でも <code>quality = 0.98</code> 程度になり incoherent と誤判定される可能性がある。
-        Quirk は WebGL float32 で同じ閾値を使うが、qni-webgpu は WebGPU 経由でより数値安定な実装が可能 (compute shader で <code>f64</code> エミュレートも選択肢)。
-        単に Quirk と同じ <code>0.99</code> を継承するのではなく、<em>span × 回路深さ × Flexoki 表示でユーザに違和感を与えるしきい値</em>を実測した結果として閾値を採用するほうが防衛的。
-        最低限、「閾値は将来 <code>0.95</code> や <code>0.999</code> に変更する可能性がある」と注記すると、後続改良の自由度が確保される。
+        <code>quality &lt; 0.99</code> は Quirk 互換の初期値として妥当だが、qni-webgpu の WebGPU compute 結果に合わせた調整基準が必要になる。
+        span / 回路深さ / WebGPU 実行環境ごとの誤差を測り、pure state の false-incoherent の有無と閾値変更条件を定義する。
       </p>
       <div class="critique-title" style="margin-top: 12px;">incoherent 表示の alpha 0.45 が「振幅未定義」を直感的に伝えない</div>
       <p class="critique-body">
@@ -742,7 +724,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <p class="critique-body">
         coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行と<em>表示する数値の種類自体が変わる</em>。
         cell ホバーで popup を出すたび、状態に応じて popup の縦寸が <strong>~88 px</strong> と <strong>~64 px</strong> で <strong>24 px (3 spacing-6) 変動</strong>する。
-        配置は cell center を tail で指し、画面端では上下 clamp するため旧来の cell top アンカー問題は解消済みだが、高さが変わると同じセルでもカード中心の見え方が少し揺れる。
+        配置は cell center を tail で指し、画面端では上下 clamp する仕様だが、高さが変わると同じセルでもカード中心の見え方が少し揺れる。
         改善案: incoherent でも 3 行構造を維持し、空行に <code>—</code> や「phase: undefined」を入れて popup 高さを固定する。
         または incoherent と coherent で popup 自体のデザイン (背景 alpha / border 色) を変えて、ユーザに「振幅未定義」を視覚的に強調する。
       </p>
@@ -904,11 +886,11 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは 確率表示ブロックのポップアップと<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">確率表示ブロックのポップアップとの共有</h4>
     <p>
-      確率表示ブロックのポップアップの既存 <strong>glyph atlas + format callback</strong> パターンを再利用する:
+      確率表示ブロックのポップアップと <strong>glyph atlas + format callback</strong> パターンを共有する:
     </p>
     <ul>
-      <li><strong>glyph atlas 本体</strong> — 既に 確率表示ブロックのポップアップで実装済み (<code>shaders/glyph_atlas.wgsl</code>)。ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
-      <li><strong>format helper</strong> — 確率表示ブロックのポップアップで <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> 等が既にある。Amplitude は <strong>新規に</strong> 以下を追加:
+      <li><strong>glyph atlas 本体</strong> — ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有する。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
+      <li><strong>format helper</strong> — 確率表示ブロックと共通の <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> に加え、Amplitude 用に以下を追加する:
         <ul>
           <li><code>format_complex(re, im, decimals)</code> — <code>"0.50000 + 0.30000i"</code> 形式。sign / 整数桁 / 小数桁 / "i" 記号 を順に glyph に逆引き。</li>
           <li><code>format_signed_deg(deg, decimals)</code> — <code>"+30.96°"</code> 形式。<code>format_percent</code> に sign prefix を足したものと同等構造。</li>
@@ -918,7 +900,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       <li><strong><code>atan2</code></strong> は WGSL builtin なので追加実装不要。</li>
     </ul>
     <p class="note" style="margin-top: 8px;">
-      確率表示ブロックのポップアップが既に動いていれば、振幅表示ブロックのポップアップの glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」だけ</strong>で済む見込み。 fragment shader 内で完全な printf を実装するわけではなく、確率表示ブロックのポップアップの既存パイプラインに乗せる前提。
+      振幅表示ブロックのポップアップの glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」</strong>を共有パイプラインへ加える構成にする。fragment shader 内で完全な printf を実装するわけではなく、共通のポップアップ描画パイプラインに乗せる前提。
     </p>
     <p class="note" style="margin-top: 12px;">
       <strong>readback はテスト専用 API に限定:</strong>
@@ -981,7 +963,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
         <tr>
           <td><strong>coherence threshold</strong></td>
           <td><code>quality &lt; 0.99</code> で incoherent</td>
-          <td>Quirk 互換。<code>f32</code> 丸め誤差で false-incoherent は通常出ない</td>
+          <td>Quirk 互換の初期値。固定不変ではなく、span / 回路深さ / WebGPU 実行環境ごとの実測で pure state の false-incoherent が出る場合は調整する (§ 07 参照)</td>
         </tr>
         <tr>
           <td><strong>phaseLockIndex の選び方</strong></td>
@@ -1068,8 +1050,8 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
     </p>
     <ol>
       <li><strong>URL round-trip (Amps1..16)</strong> (Rust, <code>#[test]</code> × 16) — span 1〜16 の各 <code>"Amps&lt;span&gt;"</code> token について、encode → decode → encode が原文に一致することを 1 case 1 <code>assert_eq!</code>。</li>
-      <li><strong>wide gate decode 後の slot index 不変</strong> (Rust, <code>#[test]</code> × 3) — span 3 / 4 / 16 を含む 2 列の JSON (例: <code>{"cols":[["Amps3"],["H"]]}</code>) を decode したとき、<strong>amplitude の slot index = 0、後続 "H" の slot index = 1</strong> であることを assert (shift / reserved なし、JSON col index = qni 内部 slot index)。</li>
-      <li><strong>placement 幾何衝突</strong> (Rust + Playwright, テスト × 4):
+      <li><strong>可変幅ゲート decode 後の slot index 不変</strong> (Rust, <code>#[test]</code> × 3) — span 3 / 4 / 16 を含む 2 列の JSON (例: <code>{"cols":[["Amps3"],["H"]]}</code>) を decode したとき、<strong>amplitude の slot index = 0、後続 "H" の slot index = 1</strong> であることを assert (shift / reserved なし、JSON col index = qni 内部 slot index)。</li>
+      <li><strong>配置の幾何衝突</strong> (Rust + Playwright, テスト × 4):
         <ol>
           <li>span 3 amplitude を slot 0 に配置済み (gate_rect 96 px 幅、slot 0..1 を視覚的に覆う)、slot 1 に他 gate を drop 試行 → 矩形交差で<strong>拒否</strong></li>
           <li>同じ状況で slot 2 への drop は<strong>許可</strong></li>
@@ -1110,7 +1092,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
           <li>テスト専用 API <code>read_amplitude_cell(gate_id, k)</code> は async で動き、known-state で正しい値を返すことを 1 expect</li>
         </ol>
       </li>
-      <li><strong>visual snapshot (production の代表的描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — production cellPx を反映して: span 1 (full detail、cellPx ~ 40) / span 8 (needle 残る、cellPx ~ 27) / span 12 (needle 省略、outline + disk、cellPx ~ 10) / span 16 (disk only、cellPx ~ 3) の各フレームを 1 枚ずつ snapshot。回帰検出用 (heatmap モードは mock 限定なので production スナップショットでは扱わない)。</li>
+      <li><strong>visual snapshot (本番の代表的描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — 本番 cellPx を反映して: span 1 (full detail、cellPx ~ 40) / span 8 (needle 残る、cellPx ~ 27) / span 12 (needle 省略、outline + disk、cellPx ~ 10) / span 16 (needle なし、heatmap なし、円 SDF 経路は維持するが outline / disk は § 06 の半径閾値に従い点状または外枠だけに近い、cellPx ~ 3) の各フレームを 1 枚ずつ snapshot。回帰検出用 (heatmap モードはモック限定なので本番スナップショットでは扱わない)。</li>
     </ol>
 
     <aside class="critique" aria-label="批評 · § 11 テスト計画の網羅性と粒度">
@@ -1130,7 +1112,7 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
       </p>
       <div class="critique-title" style="margin-top: 12px;">「1 ケース 1 アサーション」規約に対して visual snapshot 4 枚は過剰圧縮</div>
       <p class="critique-body">
-        項目 10 は <em>「span 1 / span 8 / span 12 / span 16」</em>の 4 cellPx 帯を <strong>4 個の <code>assert_snapshot!</code></strong> で並べているが、それぞれの snapshot は full / needle 省略 / outline + disk / heatmap の 4 異なる描画パスを 1 枚に統合する。
+        項目 10 は <em>「span 1 / span 8 / span 12 / span 16」</em>の 4 cellPx 帯を <strong>4 個の <code>assert_snapshot!</code></strong> で並べているが、それぞれの snapshot は full / needle 省略 / outline + disk / cellPx ≈ 3 の円 SDF + 半径閾値パスという 4 異なる描画パスを 1 枚に統合する。
         snapshot が失敗したとき、原因が「cellPx 帯判定のバグ」なのか「個別レイヤ (outline / disk / needle) のバグ」なのか追跡しづらい。
         AGENTS.md の「1 テスト 1 アサーション」規約に厳密に従うなら、cellPx 帯ごとに「outline が描かれているか」「disk が描かれているか」「needle が描かれているか」を別 case に分割する。snapshot ベースでこれを実現するなら、span 別 + レイヤ別の 12 枚程度に増やすほうが回帰原因の切り分けが容易。
       </p>
