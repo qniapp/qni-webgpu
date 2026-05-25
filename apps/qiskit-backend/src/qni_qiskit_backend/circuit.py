@@ -159,6 +159,8 @@ def apply_gate(
         qc.rz(parse_angle(angle), wire)
     elif base == "|0>":
         apply_write0(qc, basis, wire)
+    elif base == "|1>":
+        apply_write1(qc, basis, wire)
     elif upper.startswith("QFT"):
         raise CircuitBuildError("QFT tokens are not supported by the dev Qiskit runner yet")
     else:
@@ -181,11 +183,19 @@ def track_controlled_x(basis: BasisTracker, controls: list[int], wire: int) -> N
 
 
 def apply_write0(qc: Any, basis: BasisTracker, wire: int) -> None:
+    apply_write(qc, basis, wire, target=0)
+
+
+def apply_write1(qc: Any, basis: BasisTracker, wire: int) -> None:
+    apply_write(qc, basis, wire, target=1)
+
+
+def apply_write(qc: Any, basis: BasisTracker, wire: int, *, target: int) -> None:
     value = basis[wire]
     if value is None:
         raise CircuitBuildError(
-            "|0> requires a deterministic basis state in the dev Qiskit runner"
+            f"|{target}> requires a deterministic basis state in the dev Qiskit runner"
         )
-    if value == 1:
+    if value != target:
         qc.x(wire)
-        basis[wire] = 0
+        basis[wire] = target
