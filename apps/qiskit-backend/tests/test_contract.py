@@ -355,6 +355,15 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(CircuitBuildError):
             add_display_saves(FakeCircuit(), request, lambda axis: axis)
 
+    def test_qiskit_builder_ignores_spacer_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["…"]], 1)
+        self.assertEqual(fake.ops, [])
+
     def test_qiskit_builder_applies_swap_pair(self):
         class FakeCircuit:
             def __init__(self):

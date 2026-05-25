@@ -99,6 +99,8 @@ def apply_column_to_qiskit(
         if token == "Swap":
             swap_wires.append(wire)
             continue
+        if token == "…":
+            continue
         if is_readonly_display_token(token):
             continue
         deferred.append((wire, token))
