@@ -32,6 +32,23 @@ type HoverSnapshot = { hoveredPaletteIndex: number | null }
 
 const POPOVER_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
 
+const readCircuitColsFromHash = (url: string): unknown[] => {
+  const hash = new URL(url).hash.slice(1)
+  if (!hash) {
+    return []
+  }
+  return JSON.parse(decodeURIComponent(hash)).cols
+}
+
+const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number): Promise<void> }, expected: unknown[]): Promise<void> => {
+  const expectedJson = JSON.stringify(expected)
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (JSON.stringify(readCircuitColsFromHash(page.url())) === expectedJson) return
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`URL hash columns did not become ${expectedJson}`)
+}
+
 const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> => {
   const snapshot = await page.evaluate(() => (window as any).__qniHoverSnapshotJson ?? null)
   if (snapshot === null) {
@@ -218,6 +235,71 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   expect(await readCenteredConnectorStroke(page)).toEqual({
     line: [true, true],
     outside: [true, true],
+  })
+})
+
+test('palette Phase drop shows its π/2 default angle label', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+
+  const panelMargin = 8
+  const phasePaletteIndex = 9
+  const phaseSource = getPaletteGateCenter(box.width, phasePaletteIndex)
+  const expectedHashCols = [['P(π_2)']]
+  await dragPointer(page, phaseSource, {
+    x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: UI_CONSTANTS.LINE_Y,
+  })
+  await waitForHashCols(page, expectedHashCols)
+
+  const screenshot = await canvas.screenshot({ type: 'png' })
+  const gateCenter = {
+    x: panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: panelMargin + UI_CONSTANTS.LINE_Y,
+  }
+  const darkPixels = await page.evaluate<
+    number,
+    { base64: string; cssWidth: number; cssHeight: number; gateCenter: Point }
+  >(async ({ base64, cssWidth, cssHeight, gateCenter }) => {
+    const img = new Image()
+    img.src = `data:image/png;base64,${base64}`
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve(null)
+      img.onerror = () => reject(new Error('Failed to decode screenshot'))
+    })
+
+    const probe = document.createElement('canvas')
+    probe.width = img.width
+    probe.height = img.height
+    const ctx = probe.getContext('2d', { willReadFrequently: true })
+    if (!ctx) {
+      return 0
+    }
+    ctx.drawImage(img, 0, 0)
+    const scaleX = img.width / cssWidth
+    const scaleY = img.height / cssHeight
+    let count = 0
+    for (let y = gateCenter.y - 38; y <= gateCenter.y - 20; y += 1) {
+      for (let x = gateCenter.x - 18; x <= gateCenter.x + 18; x += 1) {
+        const data = ctx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data
+        if (data[0] < 120 && data[1] < 120 && data[2] < 120 && data[3] > 0) {
+          count += 1
+        }
+      }
+    }
+    return count
+  }, { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateCenter })
+
+  expect({ hashCols: readCircuitColsFromHash(page.url()), labelVisible: darkPixels > 4 }).toEqual({
+    hashCols: expectedHashCols,
+    labelVisible: true,
   })
 })
 

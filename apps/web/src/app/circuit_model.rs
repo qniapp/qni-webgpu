@@ -35,10 +35,10 @@ pub(crate) struct PlacedGate {
     pub(crate) span: usize,
     /// Angle string for parametric gates (currently only `GateKind::Phase`).
     /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
-    /// `"2π/3"`, `"0"` — so URL round-trips are exact. `None` means
-    /// "use the gate's default" (palette-placed Phase falls back to π/2
-    /// to preserve the editor's pre-parametric behaviour); qni would
-    /// instead error out at simulate time.
+    /// `"2π/3"`, `"0"` — so URL round-trips are exact. Palette-placed Phase
+    /// gates store the explicit default `"π/2"` so the circuit can show the
+    /// angle label immediately. `None` still represents a bare legacy token and
+    /// is evaluated as the gate's default.
     pub(crate) angle: Option<String>,
 }
 

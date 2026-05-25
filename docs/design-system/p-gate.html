@@ -236,7 +236,7 @@
   <p class="page-lede">
     単一量子ビットへ <code>diag(1, e<sup>iθ</sup>)</code> を適用するパラメトリック位相ゲート。S / T / Z を含む位相系列の汎用形。
     共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは位相ゲート固有の意味論、
-    <code>components/p-gate.js</code> の Shadow DOM、Qni と同じ <strong>Φ ラベル</strong>としての設計判断だけを定義する。
+    <code>components/p-gate.js</code> の Shadow DOM、Qni と同じ <strong>Φ ラベル</strong>、および既定角 <strong>π/2</strong> の角度ラベルに関する設計判断だけを定義する。
   </p>
 </div>
 
@@ -246,7 +246,7 @@
   <div class="card">
     <p>
       共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
-      本ページは Phase ゲート (Φ / 位相 θ) としての意味、画面ラベル、真円本体、ラベルと内部表記を分ける判断を定義する。本体形状・配色ロール・線画グリフの具体値は § 03 を正とする。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を継承する。
+      本ページは Phase ゲート (Φ / 位相 θ) としての意味、画面ラベル、角度ラベル、真円本体、ラベルと内部表記を分ける判断を定義する。本体形状・配色ロール・線画グリフの具体値は § 03 を正とする。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を継承する。
     </p>
     <div class="responsibility-grid">
       <div class="item"><strong>gate-chrome.html が正</strong><span>ホバー枠、ドラッグ色、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
@@ -261,11 +261,11 @@
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>Phase ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。演算は内部表記 <code>P(θ)</code> の行列 <code>diag(1, e<sup>iθ</sup>)</code> で表す。<code>Rz(θ) = diag(e<sup>-iθ/2</sup>, e<sup>iθ/2</sup>) = e<sup>-iθ/2</sup> · P(θ)</code> なので、Rz(θ) とはグローバル位相を除いて同じ位相操作を表す。</p>
-    <p>画面上は真円本体と固定の Φ 字形で「パラメータを持つ位相ゲート」を示す。現在の Φ グリフは θ の値に応じて回転する角度メータではなく、θ の編集や現在値の表示は別 UI で扱う。</p>
+    <p>画面上は真円本体と固定の Φ 字形で「パラメータを持つ位相ゲート」を示す。現在の Φ グリフは θ の値に応じて回転する角度メータではなく、θ の値は本体外側の角度ラベルで表示し、編集は別 UI で扱う。</p>
     <div class="stage">
       <div class="col"><div class="caption">Phase ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
+    <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。回路上の既定角 <code>π/2</code> ラベルは § 04 で確認する。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
   </div>
 </section>
 
@@ -330,8 +330,8 @@
     <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。位相ゲート固有の配置差分だけを本ページで扱う。θ 編集 UI の起動トリガと入力フォームの詳細は、Rx / Ry / Rz / Phase にまたがる共通仕様として別途確定する。</p>
 
     <h3 style="margin-top: 16px;">角度ラベル</h3>
-    <p>角度文字列が指定された Phase ゲートは、回路上の真円本体の外側に角度を表示する。表示文字列は URL トークンから復元した保存済み角度文字列で、例として <code>1/3π</code>、<code>π/2</code>、<code>2π/3</code> などをそのまま描く。角度が未指定または空文字の Phase ゲートには角度ラベルを出さない。</p>
-    <div class="phase-angle-mock"><div class="phase-angle-wire" aria-hidden="true"><div class="phase-angle-slot"><span class="phase-angle-label above">1/3π</span><p-gate></p-gate></div><div class="phase-angle-slot"><p-gate></p-gate></div><div class="phase-angle-slot"><span class="phase-angle-label above">2π/3</span><p-gate></p-gate></div></div></div>
+    <p>パレットから回路へドロップした Phase ゲートは既定角 <code>π/2</code> を持ち、回路上の真円本体の外側に <code>π/2</code> を表示する。表示文字列は URL トークンから復元した保存済み角度文字列で、例として <code>π/2</code>、<code>1/3π</code>、<code>2π/3</code> などをそのまま描く。明示的な角度がない旧形式の <code>P</code> も既定角 <code>π/2</code> として表示し、空文字の角度だけは編集中のプレースホルダーとして角度ラベルを出さない。</p>
+    <div class="phase-angle-mock"><div class="phase-angle-wire" aria-hidden="true"><div class="phase-angle-slot"><span class="phase-angle-label above">π/2</span><p-gate></p-gate></div><div class="phase-angle-slot"><span class="phase-angle-label above">1/3π</span><p-gate></p-gate></div><div class="phase-angle-slot"><span class="phase-angle-label above">2π/3</span><p-gate></p-gate></div></div></div>
     <p class="note" style="margin-top: 12px;">角度ラベルは <code>text-xs</code> (12 px) の等幅文字で <code>tx</code> 色を使い、本体から 2 px 外側に置く。単独ゲートや同角ペアの上端では上側、同角ペアの下端では下側に逃がし、同角 Phase 同士を結ぶ縦コネクタと重ならないようにする。3 個以上の同角チェーンでは、中間ゲートのラベルは上側表示に戻す。</p>
   </div>
 </section>
@@ -341,7 +341,7 @@
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
     <p>設計判断は「共通クロムからの継承」「位相ゲート固有」「ラベルと内部表記」「パラメータ表示方針」に分ける。これにより、位相ゲートだけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>本体色は <code>box_fill</code>、ホバー枠は <code>gate_hover_border</code>、ドラッグ中は <code>drag_fill</code> を使う。Phase だけ色を変えると S / T / Z / Rz との同系性が崩れるため、配色ロールは共有する。</span></div><div class="item"><strong>位相ゲート固有</strong><span>本体だけを真円にし、固定の Φ 字形で可変位相ゲートだと示す。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を使う。Phase だけ真円ホバー枠に変える場合も、まず共通クロム全体への影響を確認する。</span></div><div class="item"><strong>ラベルと内部表記</strong><span>画面上のラベルは Φ。URL / シリアライズ / 内部表記は既存の <code>P</code> / <code>P(θ)</code> を維持し、共有リンクや保存済み回路との互換性を壊さない。</span></div><div class="item"><strong>パラメータ表示方針</strong><span>θ の現在値はゲート本体へ埋め込まず、角度が指定されたときだけ本体外側の角度ラベルとして表示する。40 px 本体では Φ の識別性を優先し、編集フォームはポップオーバー側で扱う。</span></div></div>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>本体色は <code>box_fill</code>、ホバー枠は <code>gate_hover_border</code>、ドラッグ中は <code>drag_fill</code> を使う。Phase だけ色を変えると S / T / Z / Rz との同系性が崩れるため、配色ロールは共有する。</span></div><div class="item"><strong>位相ゲート固有</strong><span>本体だけを真円にし、固定の Φ 字形で可変位相ゲートだと示す。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を使う。Phase だけ真円ホバー枠に変える場合も、まず共通クロム全体への影響を確認する。</span></div><div class="item"><strong>ラベルと内部表記</strong><span>画面上のラベルは Φ。URL / シリアライズ / 内部表記は既存の <code>P</code> / <code>P(θ)</code> を維持し、共有リンクや保存済み回路との互換性を壊さない。</span></div><div class="item"><strong>パラメータ表示方針</strong><span>θ の現在値はゲート本体へ埋め込まず、既定角 <code>π/2</code> を含めて本体外側の角度ラベルとして表示する。40 px 本体では Φ の識別性を優先し、編集フォームはポップオーバー側で扱う。</span></div></div>
   </div>
 </section>
 

@@ -1,10 +1,10 @@
 use eframe::egui;
 use std::collections::HashMap;
 
-use crate::app::QniApp;
+use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
-use crate::gates::GateKind;
+use crate::gates::{GateKind, PHASE_DEFAULT_ANGLE};
 use crate::layout::LayoutMetrics;
 use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 
@@ -51,8 +51,8 @@ fn draw_phase_phase_connectors(
     // Semantically it's a *visual* pairing only — qni's simulator still runs
     // each Phase independently (`simulator.ts::cu` :413-417 loops over
     // targets and applies the same 2x2 to each in turn), so we mirror just the
-    // line rendering. Phases with no angle (qni's empty placeholder) are
-    // skipped per :573.
+    // line rendering. Bare legacy `P` uses the Phase default π/2; an explicit
+    // empty angle remains a placeholder and is skipped.
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
         gate_slot_index_for_render(gate, metrics, dragging_gate_id)
     });
@@ -62,10 +62,9 @@ fn draw_phase_phase_connectors(
             if gate.kind != GateKind::Phase {
                 continue;
             }
-            let angle = gate.angle.as_deref().unwrap_or("");
-            if angle.is_empty() {
+            let Some(angle) = phase_angle_label_text(gate) else {
                 continue;
-            }
+            };
             let center =
                 circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
             angle_buckets
@@ -111,12 +110,9 @@ fn draw_phase_angle_labels(
             if gate.kind != GateKind::Phase {
                 continue;
             }
-            let Some(angle) = gate.angle.as_deref() else {
+            let Some(angle) = phase_angle_label_text(gate) else {
                 continue;
             };
-            if angle.is_empty() {
-                continue;
-            }
             let center =
                 circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
 
@@ -151,6 +147,17 @@ fn draw_phase_angle_labels(
     }
 }
 
+fn phase_angle_label_text(gate: &PlacedGate) -> Option<&str> {
+    if gate.kind != GateKind::Phase {
+        return None;
+    }
+    match gate.angle.as_deref() {
+        Some(angle) if !angle.is_empty() => Some(angle),
+        Some(_) => None,
+        None => Some(PHASE_DEFAULT_ANGLE),
+    }
+}
+
 fn phase_peers_by_side(
     column: &AnalyzedColumn<'_>,
     gate_id: u32,
@@ -163,7 +170,7 @@ fn phase_peers_by_side(
         if other.id == gate_id || other.kind != GateKind::Phase {
             continue;
         }
-        if other.angle.as_deref() != Some(angle) {
+        if phase_angle_label_text(other) != Some(angle) {
             continue;
         }
         if other.wire < wire {
@@ -173,4 +180,30 @@ fn phase_peers_by_side(
         }
     }
     (peers_above, peers_below)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn phase_label_uses_default_for_missing_angle() {
+        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, None);
+
+        assert_eq!(phase_angle_label_text(&gate), Some("π/2"));
+    }
+
+    #[test]
+    fn phase_label_skips_explicit_empty_angle() {
+        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(String::new()));
+
+        assert_eq!(phase_angle_label_text(&gate), None);
+    }
+
+    #[test]
+    fn phase_label_keeps_explicit_angle() {
+        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some("2π/3".to_owned()));
+
+        assert_eq!(phase_angle_label_text(&gate), Some("2π/3"));
+    }
 }
