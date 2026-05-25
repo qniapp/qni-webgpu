@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>密度行列表示ブロック — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">表示ブロック</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">密度行列表示ブロック</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · display block</p>
+  <h1 class="page-title">密度行列表示ブロック 実装仕様</h1>
+  <p class="page-lede">
+    <a href="../design-system/density-matrix-display.html">密度行列表示ブロックのデザイン仕様</a>から分離した実装仕様。
+    WebGPU 内部経路、外部 Qiskit Aer 経路、参照ファイル、受け入れ条件を扱う。
+    見た目、寸法、配色、ホバー、リサイズはデザイン仕様側を正とする。
+  </p>
+</div>
+
+<!-- ─────── § 01 Qiskit / GPU 実装メモ ─────── -->
+<section class="block" id="pipeline">
+  <h2>§ 01 Qiskit / GPU 実装メモ (二系統経路)</h2>
+  <div class="card">
+    <p>
+      密度行列表示ブロックは <strong>2 つの計算経路</strong>を持つ:
+      <em>(a) WebGPU 内部実行</em> (qni 単体で動く既存経路、振幅 / 確率表示ブロックと同じ scheme) と
+      <em>(b) 外部 Qiskit Aer 経路</em> (qiskit-backend からの結果を受け取る経路、apps/qiskit-backend と統合)。
+      どちらも<strong>本番 UI 経路では GPU → CPU readback しない</strong>規約に従い、結果を GPU storage buffer に置いて render shader が直接 sample する。
+      span 8 は <code>2<sup>16</sup> = 65 536</code> セルの正方行列で、<code>vec2&lt;f32&gt;</code> として 512 KB を GPU storage で扱う上限になる。
+    </p>
+
+    <h3 style="margin-top: 8px;">(a) WebGPU 内部実行 (qni 単体、振幅表示ブロックと同パイプライン)</h3>
+    <p>
+      Quirk の <code>densityDisplayStatTexture</code> (<code>DensityMatrixDisplay.js:44-71</code>) を WebGPU compute pass 列へ移植:
+    </p>
+    <ol>
+      <li><strong>Control select + cycle</strong> — controls を満たす要素だけ詰めて span subspace を head に持ってくる (Quirk <code>CircuitShaders.controlSelect</code> + <code>cycleAllBits</code>)</li>
+      <li><strong>amplitudes → couplings</strong> — Quirk <code>AMPLITUDES_TO_DENSITIES_SHADER</code> と等価な compute kernel: <code>ρ<sub>ij</sub>(rest) = ψ<sub>i,rest</sub> · conj(ψ<sub>j,rest</sub>)</code> を各 rest 値ごとに計算し、出力 buffer に <code>vec2&lt;f32&gt;</code> で書き込む。要素数 = <code>2<sup>rest</sup> × 2<sup>span</sup> × 2<sup>span</sup></code></li>
+      <li><strong>Partial trace (sum-fold)</strong> — rest 量子ビットについて <code>sumFold</code> で畳み込み、最終的に <code>ρ: vec2&lt;f32&gt;[2<sup>span</sup> × 2<sup>span</sup>]</code> の縮約密度行列が得られる</li>
+      <li><strong>unity 正規化</strong> — <code>unity = Σ ρ<sub>ii</sub>.real</code> を reduce、<code>ρ /= unity</code> を全要素並列で適用 (Quirk <code>densityPixelsToMatrix</code> と等価)</li>
+      <li><strong>measured-bit decoherence</strong> — controls / lowering で得た <code>is_measured_mask</code> を渡して、<code>(row ^ col) &amp; mask != 0</code> な非対角を 0 に潰す compute pass (Quirk <code>decohereMeasuredBitsInDensityMatrix</code> と等価)</li>
+      <li><strong>render shader</strong> — 出力 storage バッファを fragment shader が直接 sample。outline / disk / needle / 外枠はすべて fragment shader 内の SDF で描く (振幅表示ブロックの <code>amplitude_result</code> シェーダと同型)</li>
+    </ol>
+
+    <h3 style="margin-top: 16px;">測定済みビットの decoherence</h3>
+    <p>
+      row / col の measured bit pattern が一致しない非対角を 0 化する。qni 側の lowering 順序は<strong>列処理の後に display capture</strong>なので、測定される直前の純粋振幅ではなく <em>collapse 後の混合状態</em> が表示される。
+    </p>
+    <pre class="code">for row in 0..n:
+  for col in 0..n:
+    if ((row ^ col) &amp; is_measured_mask) != 0:
+      rho[row, col] = 0  // 位相 coherence が古典化で失われる</pre>
+
+    <h3 style="margin-top: 16px;">(b) 外部 Qiskit Aer 経路 (apps/qiskit-backend、実装済み)</h3>
+    <p>
+      外部 GPU 実行では、Web 側が配置済み Density Matrix 表示ブロックを <code>outputs.densities</code> に列挙し、qiskit-backend が <code>QuantumCircuit.save_density_matrix(qubits, label=...)</code> で縮約密度行列を保存する。応答は <code>densities</code> 配列で返り、各項目は <code>gate_id</code> / <code>span</code> / <code>cells</code> / <code>unity</code> を持つ。<code>cells</code> は行優先の <code>[re, im]</code> 配列で、サイズは <code>2<sup>span</sup> × 2<sup>span</sup></code> 複素数。
+    </p>
+    <ul>
+      <li><strong>バックエンド側</strong> — <code>contract.py</code> が <code>outputs.densities</code> を検証し、span 1〜8 / 最大 16 件を受け付ける。<code>runners.py</code> は各列のゲート適用直後に <code>save_density_matrix</code> を挿入し、<code>densities[].cells</code> へ変換する</li>
+      <li><strong>Web 側要求</strong> — <code>apps/web/src/app/external_gpu/density.rs</code> が <code>{"gate_id", "column", "span", "base_bit"}</code> を生成する。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約へ <code>control_mask</code> / <code>control_value</code> を追加するまで拒否する</li>
+      <li><strong>Web 側描画</strong> — 応答 JSON を <code>Float32Array</code> 相当の連続値へ平坦化し、<code>DensityMatrixDisplayCallback</code> が <code>density_output</code> / <code>density_meta</code> GPU バッファへ <code>queue.write_buffer</code> で転送する。転送後の描画は (a) と同じ <code>DENSITY_RENDER_SHADER</code> が担当する</li>
+      <li><strong>測定済み wire の注意</strong> — 現在の外部経路は Aer の保存結果をそのまま表示する。測定済み wire の非対角を WebGPU 内部実行と完全一致させるための追加 decoherence pass は今後の改善候補</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">経路 (a) と (b) のスイッチ</h3>
+    <table class="spec">
+      <thead><tr><th>項目</th><th>(a) WebGPU 内部</th><th>(b) 外部 Qiskit Aer</th></tr></thead>
+      <tbody>
+        <tr><th>span 上限</th><td>8 (256 × 256 = 65 536 セル)</td><td>8 (Aer の <code>save_density_matrix</code> 制限と一致)</td></tr>
+        <tr><th>partial trace</th><td>qni の compute pass 列で自前計算</td><td>Aer 内部で完結 (qni 側 trace 不要)</td></tr>
+        <tr><th>decoherence (measured bit)</th><td>qni の compute pass</td><td>今後の改善候補。現状は Aer の保存結果をそのまま表示</td></tr>
+        <tr><th>readback</th><td>なし (storage buffer のまま render)</td><td>backend → JSON → web の 1 度だけ、その後は GPU バッファに転送して render</td></tr>
+        <tr><th>レイテンシ</th><td>1 frame 内 (compute pass がフレーム内で完結)</td><td>backend RTT 依存 (典型 100ms〜数秒)</td></tr>
+        <tr><th>推奨用途</th><td>span ≤ 6 のリアルタイム表示 (drag / resize 中も再計算)</td><td>span 7〜8 や複雑回路の精密検証 (再計算頻度が低くてよい)</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      二系統は同じ render シェーダを共有するので、UI 側の見た目に差分は出ない。スイッチは <code>ExecMode</code>
+      (apps/web/src/app/exec_mode.rs) の <code>Local</code> / <code>Gpu</code> 設定 (既存の振幅 / 確率表示ブロックが従う設定) と一致させる。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 01 二系統経路のスイッチ UI と decoherence の非同期">
+      <div class="critique-label">★ 批評 · § 01 Qiskit / GPU 実装メモ</div>
+      <div class="critique-title">経路 (a) / (b) のスイッチ UI 仕様が無く、ユーザが「どっちで動いているか」を知る術がない</div>
+      <p class="critique-body">
+        経路 (a) WebGPU 内部と (b) 外部 Qiskit Aer は推奨用途 (span ≤ 6 リアルタイム vs span 7〜8 精密検証) が異なるが、
+        <em>ユーザが UI でどちらを選ぶか</em>の仕様が本セクションに無い。
+        「スイッチは <code>ExecMode</code> 設定と一致させる」と書かれているが、ExecMode の UI 表現や、密度行列表示ブロック側の<em>「今 a / b どっちで描画しているか」を伝える視覚指標</em>が定義されていない。
+        改善案: widget の右下に小さな <em>(a) / (b) badge</em> を表示する (例: 文字 "L" = Local WebGPU / "Q" = Qiskit、Flexoki <code>tx-3</code> で控えめに)。
+        ユーザが span 6 を超えて (b) の方が安定だと知ったとき、UI から経路を切り替える導線が必要。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">経路 (b) の decoherence 未実装が「今後の改善候補」のまま放置</div>
+      <p class="critique-body">
+        本文に「測定済み wire の注意 — 現在の外部経路は Aer の保存結果をそのまま表示する。測定済み wire の非対角を WebGPU 内部実行と完全一致させるための追加 decoherence pass は今後の改善候補」と書かれているが、
+        <strong>これは経路 (a) と (b) で<em>同じ回路に対して異なる行列が表示される</em></strong>ことを意味する。
+        ユーザは「同じ Bell state なのに、Local モードと Qiskit モードで非対角の値が違う」という<em>再現性の破れ</em>に遭遇する可能性がある。
+        改善案: (1) 経路 (b) でも qni 側で post-process decoherence を適用する compute pass を追加する、または (2) 本仕様に「<strong>measured wire を含む場合は経路 (a) のみサポート</strong>」と明示制約を入れて経路 (b) で reject する。
+        現状の「今後の改善候補」は決定保留であり、ユーザに混乱が生じる前に方針を固める価値がある。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">レイテンシ「backend RTT 依存 (典型 100 ms〜数秒)」の UX 影響が定量化されていない</div>
+      <p class="critique-body">
+        § 01 表に「(b) レイテンシ: backend RTT 依存 (典型 100 ms〜数秒)」とあるが、density 表示ブロックが drag / resize 中にこのレイテンシで動くと<em>「ハンドル動かしてから数秒後に描画が更新される」</em>という体験になる。
+        振幅 / 確率表示ブロックの (a) WebGPU 経路は frame 内 (16 ms 程度) で完結するので、表示ブロック族全体の<em>体感速度</em>が経路選択で激変する。
+        改善案: drag / resize 中は強制的に経路 (a) (= placeholder + 暫定描画) を使い、操作完了後に (b) で精密な値を取り直す、という<em>hybrid モード</em>を仕様化する。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 02 実行前プレースホルダ描画 ─────── -->
+<section class="block" id="placeholder">
+  <h2>§ 02 実行前プレースホルダ描画</h2>
+  <div class="card">
+    <p>
+      GPU 経路の <code>density_output</code> / <code>density_meta</code> バッファがまだ書き込まれていない段階では、既存 GPU 描画パイプラインの <code>DensityInstance.render_mode</code> に
+      <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で描画を分岐する。
+      placeholder なら <code>purple-100</code> 背景 + 外枠だけを描き、それ以外は通常の probability + disk + needle を描く。
+    </p>
+    <ul>
+      <li>CPU から空の行列値を計算しない</li>
+      <li>placeholder 専用の render pass は追加しない</li>
+      <li>全 span で背景の薄紫一色 + 外枠だけを描く</li>
+      <li>見た目の仕様は <a href="../design-system/density-matrix-display.html">デザイン仕様</a> § 07 を正とする</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 03 シリアライズ / 配置 / 衝突検出 ─────── -->
+<section class="block" id="serialization-placement">
+  <h2>§ 03 シリアライズ / 配置 / 衝突検出</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>シリアライズ ID</th><td><code>"Density"</code> (span 1)、<code>"Density2"</code>..<code>"Density8"</code> (span 2..8)。Quirk の <code>setSerializedId("Density" + span)</code> と一致、span 1 だけ接尾辞なしの "Density" になるのも同じ</td></tr>
+        <tr><th>palette symbol</th><td><code>"Density"</code> (Quirk <code>setSymbol("Density")</code> に対応)</td></tr>
+        <tr><th>URL round-trip</th><td>JSON は <code>{"cols":[["Density3"]]}</code> のように<strong>単一 token</strong>。<code>setWidth</code> は表示列幅であり JSON 上の列消費ではない。decode 時に <code>"Density&lt;span&gt;"</code> を正規表現で読み、内部 slot index 1 つ分を占有するエントリとして登録する (shift / reserve なし)</td></tr>
+        <tr><th>placement / 衝突検出</th><td>振幅表示ブロックと同じく<strong>gate_rect の幾何交差</strong>で判定する。新規 density を slot N に置くとき、<code>gate_rect</code> (<code>x..x + size_px</code>, <code>y..y + size_px</code>) が既存 gate と交差するなら drop を拒否する</td></tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 03 wide gate placement の重複">
+      <div class="critique-label">★ 批評 · § 03 シリアライズ / 配置</div>
+      <div class="critique-title">amplitude-display.html § 05 と placement / 衝突検出が 1:1 重複</div>
+      <p class="critique-body">
+        「水平 slot 占有」「placement / 衝突検出」「URL round-trip」は <a href="../design-system/amplitude-display.html">amplitude-display.html § 05</a> と 1:1 同型 (「振幅 → 密度行列」「Amps → Density」「cols 算出式の差」だけが違う)。
+        amplitude-display.html § 05 の批評と同じく、<em>wide gate (cols &gt; 1)</em> の placement 仕様を <code>wide-gate-placement.html</code> (仮) に共通化する余地が大きい。
+        現状の構造だと、placement バグを修正するとき本仕様と amplitude-display.html の<strong>両方</strong>を編集する必要があり、片方を忘れるリスクがある。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 04 実装参照ファイル / 受け入れ条件 ─────── -->
+<section class="block" id="acceptance">
+  <h2>§ 04 実装参照ファイル / 受け入れ条件</h2>
+  <div class="card">
+    <h3>主な参照ファイル</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>Quirk オリジナル</th><td><code>../oss/Quirk/src/gates/DensityMatrixDisplay.js</code> (Gate 定義 + GPU compute), <code>../oss/Quirk/src/draw/MathPainter.js</code> (<code>paintDensityMatrix</code>, <code>paintMatrixTooltip</code>, <code>_traceProbabilitySquare</code>, <code>_traceAmplitudeProbabilityCircle</code>, <code>_traceAmplitudePhaseDirection</code>)</td></tr>
+        <tr><th>qni-webgpu 参考</th><td><code>docs/design-system/amplitude-display.html</code> (cell 描画モデル / GPU パイプライン / placeholder の親仕様、outline + disk + needle の語彙を 1:1 で踏襲), <code>docs/design-system/probability-display.html</code> (popup の <code>raw / log dB</code> 整形ロジックを対角 cell の popup と共有)</td></tr>
+        <tr><th>qni 既存パイプライン</th><td><code>apps/web/src/gpu/shaders/state.rs</code> (<code>cell_contribution</code> の disk + needle ロジック), <code>apps/web/src/gpu/resources/</code> (storage buffer + compute pass の組み立てパターン)</td></tr>
+        <tr><th>Qiskit backend</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/circuit.py</code> (capture 追加箇所), <code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code> (JSON 契約スキーマ), <code>apps/qiskit-backend/src/qni_qiskit_backend/runners.py</code> (Aer の <code>save_density_matrix(qubits=[...])</code> 呼び出し)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">受け入れ条件 (最小テストセット、1 ケース 1 アサーション規約)</h3>
+    <ol>
+      <li><strong>URL round-trip (Density, Density2..Density8)</strong> (Rust, <code>#[test]</code> × 8) — span 1〜8 の各 token について encode → decode → encode が原文に一致することを 1 case 1 <code>assert_eq!</code></li>
+      <li><strong>wide gate decode 後の slot index 不変</strong> (Rust, <code>#[test]</code> × 3) — span 2 / 4 / 8 を含む 2 列 JSON を decode したとき density の slot index = 0、後続 gate の slot index = 1 (shift / 予約なし)</li>
+      <li><strong>placement 幾何衝突</strong> (Rust + Playwright, テスト × 4):
+        <ol>
+          <li>span 3 density を slot 0 に配置済み (gate_rect 152 × 152 px)、slot 1 への drop → 矩形交差で<strong>拒否</strong></li>
+          <li>同じ状況で slot 3 への drop は<strong>許可</strong></li>
+          <li>span 8 density を slot 0 に配置済み (gate_rect 432 × 432 px)、slot 7 への drop → 拒否</li>
+          <li>span 8 density、slot 8 への drop → 許可</li>
+        </ol>
+      </li>
+      <li><strong>known-state density (GPU compute 正しさ)</strong> (Rust + GPU snapshot, <code>#[test]</code> × N):
+        <ol>
+          <li><strong>1 量子ビット 回路、H q0、span 1 density on q0</strong> → <code>ρ = 0.5 * [[1, 1], [1, 1]]</code> (純粋 |+⟩⟨+|)、<code>Tr(ρ) = 1</code>、<code>Tr(ρ²) ≈ 1</code> を assert</li>
+          <li><strong>Bell state、span 2 density on q0,q1</strong> → <code>ρ<sub>00</sub> = ρ<sub>33</sub> = ρ<sub>03</sub> = ρ<sub>30</sub> = 0.5</code>、それ以外 0、<code>Tr(ρ²) ≈ 1</code></li>
+          <li><strong>Bell state、span 1 density on q0 だけ (= 部分トレース)</strong> → <code>ρ = I/2</code> (最大混合、<code>Tr(ρ²) = 0.5</code>)</li>
+          <li><strong>measure q1 直後の Bell state、span 2 density</strong> → 非対角 (<code>ρ<sub>03</sub></code>, <code>ρ<sub>30</sub></code>) が 0 化されていることを assert</li>
+        </ol>
+        各シナリオで read API (<code>read_density_cell(gate_id, row, col)</code>、Playwright テスト専用 async wasm_bindgen) を呼んで個別セル値を assert
+      </li>
+      <li><strong>Hermitian 性</strong> (Rust, <code>#[test]</code> × 1) — 上記 known-state すべてで <code>ρ[i][j] == conj(ρ[j][i])</code> を全成分にわたって assert</li>
+      <li><strong>外部 Qiskit Aer 経路</strong> (Python unittest + Playwright):
+        <ol>
+          <li><code>add_display_saves</code> が <code>save_density_matrix</code> を対象 qubit 順で呼ぶことを assert</li>
+          <li>Bell 回路などの縮約密度行列が応答 JSON の <code>densities[].cells</code> 形式で返ることを assert</li>
+          <li>Web 側で <code>outputs.densities</code> を payload に含め、応答を <code>density_output</code> / <code>density_meta</code> GPU バッファへ転送して <code>read_density_matrix_cell</code> テスト API で確認できることを assert</li>
+          <li>Control と同じ列に置いた Density Matrix 表示ブロックは、外部 GPU 実行で backend に送らず unsupported として拒否することを assert</li>
+        </ol>
+      </li>
+      <li><strong>visual snapshot (production 描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — production cellPx を反映して span 1 (full) / span 4 (full、cellPx ~13) / span 6 (outline + disk、cellPx 5) / span 8 (heatmap、cellPx 1.69) の各フレームを 1 枚ずつ snapshot</li>
+      <li><strong>GPU-only popup (readback 無し)</strong> (Playwright):
+        <ol>
+          <li>本番経路でホバーすると glyph overlay が表示されることを 1 expect</li>
+          <li>frame ごとに <code>read_density_cell</code> が呼ばれていないことを mock spy で 1 assert</li>
+          <li>テスト専用 API <code>read_density_cell(gate_id, row, col)</code> は async で動き、known-state で正しい値を返すことを 1 expect</li>
+        </ol>
+      </li>
+    </ol>
+
+    <aside class="critique" aria-label="批評 · § 04 二系統経路の整合性テストが薄い">
+      <div class="critique-label">★ 批評 · § 04 受け入れ条件</div>
+      <div class="critique-title">「経路 (a) と (b) が同じ回路で同じ結果を返す」整合性テストが定義されていない</div>
+      <p class="critique-body">
+        受け入れ条件は経路 (a) の known-state assert (項目 4) と経路 (b) の Aer API 確認 (項目 6) を独立に並べているが、
+        <strong>「同じ回路を (a) と (b) で実行して結果が一致する」整合性テスト</strong>が無い。
+        § 01 で「経路 (b) の measured wire decoherence は今後の改善候補」と認めている以上、現時点でも (a) と (b) で<em>異なる行列が返る</em>ことが既知の状態。
+        これをテストで明示的に「<em>measured wire を含まない回路では (a) と (b) が一致する</em>」「<em>measured wire を含む回路では (a) のみ採用</em>」と仕様化しないと、回帰検出のフックが弱い。
+      </p>
+      <p class="critique-body">
+        改善案: 受け入れ条件に「<em>(a) (b) 整合性</em>」項目を追加し、(1) Bell state, span 2 (measured wire なし) → (a) と (b) の cells 配列がいずれの成分も <code>|Δ| &lt; 1e-3</code>、(2) measured Bell state → (a) のみ採用 (= (b) は reject) を assert する。
+        テスト粒度として「1 ケース 1 assertion」を守りつつ、(a)(b) 整合性は独立した観点なので別 case として分離する。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">visual snapshot が span 1 / 4 / 6 / 8 の 4 枚で「対角と非対角」「pure と mixed」の網羅が不足</div>
+      <p class="critique-body">
+        項目 7 の visual snapshot は cellPx 帯別 (full / outline+disk / heatmap) の代表 4 枚を撮るが、
+        本表示ブロックの<strong>固有の論点</strong>である「対角 vs 非対角の disk スケール」「pure vs mixed の判別」「Bell の対角四隅パターン」が snapshot として明示されていない。
+        改善案: span 2 の Bell (純粋) / span 2 の I/4 (最大混合) / span 4 の 50% 混合 / span 6 の random circuit state の 4 枚を「<em>state 種別による snapshot</em>」として追加する。これで cellPx と state の <strong>2 軸の回帰検出</strong>が機能する。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 密度行列表示ブロック実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
