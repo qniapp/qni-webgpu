@@ -96,12 +96,49 @@ pub(crate) fn draw_bloch_vector(
             [center, tip],
             egui::Stroke::new(1.5, colors.bloch_vector_line),
         );
-    }
-    let tip_color = if length < 1.0e-3 {
-        colors.bloch_vector_zero
+        let tip_color = bloch_tip_color(vector[2], colors);
+        // 8px diameter at base size; add a 1px Flexoki tx outline for the
+        // brighter saturated tip trial.
+        painter.circle_filled(tip, 4.0, tip_color);
+        painter.circle_stroke(
+            tip,
+            4.0,
+            egui::Stroke::new(1.0, colors.bloch_vector_tip_outline),
+        );
     } else {
-        colors.bloch_vector_tip
-    };
-    // qni's vector-end-circle is 6px diameter at base size.
-    painter.circle_filled(tip, 3.0, tip_color);
+        painter.circle_filled(tip, 4.0, colors.bloch_vector_zero);
+        painter.circle_stroke(
+            tip,
+            4.0,
+            egui::Stroke::new(1.0, colors.bloch_vector_tip_outline),
+        );
+    }
+}
+
+fn bloch_tip_color(z: f32, colors: &Colors) -> egui::Color32 {
+    if z >= 0.0 {
+        lerp_color(
+            colors.bloch_vector_tip_mid,
+            colors.bloch_vector_tip_0,
+            z.clamp(0.0, 1.0),
+        )
+    } else {
+        lerp_color(
+            colors.bloch_vector_tip_mid,
+            colors.bloch_vector_tip_1,
+            (-z).clamp(0.0, 1.0),
+        )
+    }
+}
+
+fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
+    fn channel(a: u8, b: u8, t: f32) -> u8 {
+        (a as f32 + (b as f32 - a as f32) * t).round() as u8
+    }
+    egui::Color32::from_rgba_unmultiplied(
+        channel(a.r(), b.r(), t),
+        channel(a.g(), b.g(), t),
+        channel(a.b(), b.b(), t),
+        channel(a.a(), b.a(), t),
+    )
 }

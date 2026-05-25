@@ -215,7 +215,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 ## Theme / color roles
 
-`apps/web/src/colors.rs` が唯一の色定義。現在の既定 theme は `ThemeKind::FlexokiLight` で、raw RGB はこの theme 定義内にだけ置く。描画コードは `Colors` の semantic role (`background`, `surface`, `line`, `semantic_on`, `bloch_vector_tip`, `fps_hud_bg` など) だけを参照する。
+`apps/web/src/colors.rs` が唯一の色定義。現在の既定 theme は `ThemeKind::FlexokiLight` で、raw RGB はこの theme 定義内にだけ置く。描画コードは `Colors` の semantic role (`background`, `surface`, `line`, `semantic_on`, `bloch_vector_tip_0`, `fps_hud_bg` など) だけを参照する。
 
 Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` / `|1⟩` の wire mask も同じ `background` を使うため、ゲート背面だけ別色の矩形に見えてはいけない。
 
@@ -252,11 +252,11 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
 - |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
 - BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。`linearize_ops` が列ごとに GPU の Bloch capture を挿入し、`BLOCH_REDUCE_SHADER` がその時点の縮約密度行列由来の (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector` と同じ意味論）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。CPU ミラーシミュレータは使わない。
-- BlochDisplay の見た目は qni の `bloch_display.css` の役割に揃え、実色は theme role (`bloch_sphere_bg`, `bloch_sphere_lines`, `bloch_vector_line`, `bloch_vector_tip`, `bloch_vector_zero`) から取る。Flexoki Light では bg-2 / tx-3 / tx / red-600 / blue-600 に対応する。
+- BlochDisplay の見た目は qni の `bloch_display.css` の役割に揃え、実色は theme role (`bloch_sphere_bg`, `bloch_sphere_lines`, `bloch_vector_line`, `bloch_vector_tip_0`, `bloch_vector_tip_mid`, `bloch_vector_tip_1`, `bloch_vector_tip_outline`, `bloch_vector_zero`) から取る。Flexoki Light では bg-2 / tx-3 / tx / red-300 / purple-400 / blue-300 / tx / tx-3 に対応する。
 - 投影は qni の DOM 変換 `rotateY(phi) rotateX(-theta)` + `perspective: 4rem` + `perspective-origin: top right` をそのまま再現（pinhole 投影、p = 4·radius、origin = (1, -1) in radius units）。Bloch → CSS 軸対応は +x → +z (奥行き、視点向き)、+y → +x (右)、+z → -y (上)。
 - 結果として Bloch (1,0,0) (|+⟩, H|0⟩) は短く左下へ前縮小、Bloch (0,0,1) (|0⟩) は真上、(0,0,-1) (|1⟩) は真下、(0,±1,0) (|±i⟩) は真横、Bloch (-1,0,0) (|-⟩) は右上奥に縮小される。
 - 球の装飾線は qni の SVG (横線・縦線・NE/SW 斜線、垂直細楕円 rx=18% ry=50%、水平細楕円 rx=50% ry=18%) を踏襲し、傾けない。
-- ベクトル長 ≈ 0 のとき (もつれて部分トレースが maximally mixed になる、palette 表示、ドラッグ中、未スナップなど) は qni の `data-d='0'` ルール通り中心に blue-500 の点だけを描画し、線は引かない。Bell 状態の各量子ビットが好例。
+- ベクトル長 ≈ 0 のとき (もつれて部分トレースが maximally mixed になる、palette 表示、ドラッグ中、未スナップなど) は中心に `tx-3` の非アクティブ点と `tx` の 1px 輪郭線だけを描画し、線は引かない。Bell 状態の各量子ビットが好例。
 - Measurement ゲートは qni `simulator.ts:measure` の意味論を GPU で実行する: 列ごとに `MEASURE_REDUCE_SHADER` が pZero を計算し、決定論的 RNG (gate id ベース) で 0/1 をサンプル。続く `MEASURE_COLLAPSE_SHADER` が選ばれた基底に状態を射影して √(p) で再正規化する。結果は GPU state buffer の ping-pong で次の列に持ち越されるため、State vector は collapse 後の状態を表示する。
 - Measurement の見た目は qni `measurement_gate.css` の役割に合わせる。実色は theme role から取り、パレット / 未測定時は `semantic_intermediate`、測定済みメーターは `measurement_fired_icon`、`0` は `semantic_off`、`1` は `semantic_on`。回路上では meter 内側と左右 4px を `background` でマスクし、ワイヤを通さない。
 - 状態ベクトル計算は GPU の `STATE_COMPUTE_SHADER` (per-gate dispatch + ping-pong) で実行する。CPU 側にミラーシミュレータは残っていない (Step 4 で削除済み)。`simulation_plan/*` は `linearize_ops` で配置済みゲートを GPU op ストリームに並び替え、capacity を検証するだけのオーケストレーション専用モジュール。AGENTS.md ルール「シミュレーションは GPU でのみ」を満たしている。

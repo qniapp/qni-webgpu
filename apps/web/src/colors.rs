@@ -48,7 +48,10 @@ pub(crate) struct Colors {
     pub(crate) bloch_sphere_bg: egui::Color32,
     pub(crate) bloch_sphere_lines: egui::Color32,
     pub(crate) bloch_vector_line: egui::Color32,
-    pub(crate) bloch_vector_tip: egui::Color32,
+    pub(crate) bloch_vector_tip_0: egui::Color32,
+    pub(crate) bloch_vector_tip_mid: egui::Color32,
+    pub(crate) bloch_vector_tip_1: egui::Color32,
+    pub(crate) bloch_vector_tip_outline: egui::Color32,
     pub(crate) bloch_vector_zero: egui::Color32,
     pub(crate) measurement_fired_icon: egui::Color32,
     pub(crate) spacer_dots: egui::Color32,
@@ -148,6 +151,7 @@ fn flexoki_light() -> Colors {
     let tx_3 = tone(0.718, 0.710, 0.675); // tx-3 / base-300 #B7B5AC
     let tx_2 = tone(0.435, 0.431, 0.412); // tx-2 / base-600 #6F6E69
     let tx = tone(0.063, 0.059, 0.059); // tx / black #100F0F
+    let red_300 = tone(0.910, 0.439, 0.373); // red-300 #E8705F
     let red_600 = tone(0.686, 0.188, 0.161); // red-600 #AF3029
     let green_600 = tone(0.400, 0.502, 0.043); // green-600 #66800B
     let cyan_400 = tone(0.227, 0.663, 0.624); // cyan-400 #3AA99F
@@ -195,7 +199,10 @@ fn flexoki_light() -> Colors {
         bloch_sphere_bg: bg_2,
         bloch_sphere_lines: tx_3,
         bloch_vector_line: tx,
-        bloch_vector_tip: red_600,
+        bloch_vector_tip_0: red_300, // active Bloch tip z=+1 (Flexoki red-300, brighter saturated trial)
+        bloch_vector_tip_mid: purple_400, // active Bloch tip z=0 (Flexoki purple-400, brighter saturated trial)
+        bloch_vector_tip_1: blue_300, // active Bloch tip z=-1 (Flexoki blue-300, brighter saturated trial)
+        bloch_vector_tip_outline: tx, // 1 px tip outline (Flexoki tx #100F0F)
         bloch_vector_zero: tx_3,
         measurement_fired_icon: ui_2,
         spacer_dots: tx,
