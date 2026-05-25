@@ -87,6 +87,7 @@ def apply_column_to_qiskit(
     controls: list[int] = []
     anti_controls: list[int] = []
     swap_wires: list[int] = []
+    measurement_wires: list[int] = []
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
         token = token_text(raw)
@@ -103,12 +104,16 @@ def apply_column_to_qiskit(
             continue
         if token == "…":
             continue
+        if token == "Measure":
+            measurement_wires.append(wire)
+            continue
         if is_readonly_display_token(token):
             continue
         deferred.append((wire, token))
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     for wire, token in deferred:
         apply_gate(qc, wire, token, controls, anti_controls, qubits, basis)
+    apply_measurements(qc, measurement_wires, controls, anti_controls)
 
 
 def is_readonly_display_token(token: str) -> bool:
@@ -184,6 +189,20 @@ def apply_gate(
         mark_unknown(basis, wire, qft.span)
     else:
         raise CircuitBuildError(f"unsupported gate token: {token}")
+
+
+def apply_measurements(
+    qc: Any,
+    measurement_wires: list[int],
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    if not measurement_wires:
+        return
+    if controls or anti_controls:
+        raise CircuitBuildError("controlled Measurement is not supported by the dev Qiskit runner yet")
+    for wire in measurement_wires:
+        qc.measure(wire, wire)
 
 
 def apply_swap(

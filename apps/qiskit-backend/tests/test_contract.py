@@ -364,6 +364,54 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["…"]], 1)
         self.assertEqual(fake.ops, [])
 
+    def test_qiskit_builder_applies_measurement_after_column_unitaries(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Measure", "H"]], 2)
+        self.assertEqual(fake.ops, [("h", 1), ("measure", 0, 0)])
+
+    def test_qiskit_builder_rejects_controlled_measurement(self):
+        class FakeCircuit:
+            def measure(self, _wire, _bit):
+                pass
+
+        with self.assertRaises(CircuitBuildError):
+            apply_columns_to_qiskit(FakeCircuit(), [["•", "Measure"]], 2)
+
+    def test_qiskit_display_saves_measures_before_probability_save(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+            def save_probabilities(self, qubits, label):
+                self.ops.append(("save_probabilities", qubits, label))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Measure"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("measure", 0, 0), ("save_probabilities", [0], "probability:1")])
+
     def test_qiskit_builder_applies_anti_controlled_x(self):
         class FakeCircuit:
             def __init__(self):

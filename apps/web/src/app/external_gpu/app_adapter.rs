@@ -39,7 +39,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         let name = match gate.kind {
             GateKind::AntiControl => None,
             GateKind::BlochDisplay => None,
-            GateKind::Measurement => Some("Measurement"),
+            GateKind::Measurement => None,
             GateKind::ProbabilityDisplay => None,
             GateKind::AmplitudeDisplay => None,
             GateKind::DensityMatrixDisplay => None,
@@ -436,6 +436,13 @@ mod tests {
     }
 
     #[test]
+    fn external_gpu_accepts_measurement_gate() {
+        let gates = [PlacedGate::new(1, GateKind::Measurement, 0, 0, 1, None)];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
     fn external_gpu_accepts_anti_controlled_x_gate() {
         let gates = [
             PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
@@ -453,6 +460,16 @@ mod tests {
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("H"));
+    }
+
+    #[test]
+    fn external_gpu_rejects_controlled_measurement_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Measurement, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("M"));
     }
 
     #[test]
