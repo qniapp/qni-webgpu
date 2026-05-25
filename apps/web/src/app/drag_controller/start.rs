@@ -3,7 +3,7 @@ use eframe::egui;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{DragState, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
-use crate::gates::palette_gate_kind;
+use crate::gates::{default_palette_angle, palette_gate_kind};
 use crate::layout::{gate_visible_rect, palette_hit_test};
 use crate::span_resize::SpanResizeHandles;
 
@@ -77,11 +77,14 @@ impl DragController {
                     return false;
                 };
                 let mut new_gate = PlacedGate::new(
-                    new_id, kind, 0, 0, 1,
-                    // Palette drop: no explicit angle yet — Phase falls
-                    // back to its π/2 default until a future angle picker
-                    // lets the user set one.
-                    None,
+                    new_id,
+                    kind,
+                    0,
+                    0,
+                    1,
+                    // Palette drop: Phase starts with its explicit π/2 default
+                    // so the circuit shows the same angle label Qni shows.
+                    default_palette_angle(kind),
                 );
                 new_gate.pos = preview_pos;
                 app.next_gate_id += 1;

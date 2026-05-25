@@ -74,9 +74,8 @@ pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: 
 /// `angle` is `Some` only for parametric `GateKind::Phase` and is
 /// emitted as `P(<angle>)` with `/` replaced by `_` so the literal
 /// fits cleanly into URL fragments — mirroring qni's
-/// `phase-gate-element.ts::toJson`. `None` (= "use the gate's
-/// default") emits the bare `"P"` token, matching qni's editor
-/// placeholder.
+/// `phase-gate-element.ts::toJson`. Palette drops store Phase's explicit
+/// default `π/2`; `None` is kept for bare legacy tokens and emits bare `"P"`.
 fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String> {
     let spec = kind.spec();
     let s = match kind {

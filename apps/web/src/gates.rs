@@ -48,6 +48,8 @@ pub(crate) use params::{
     phase_params, rx_params, ry_params, rz_params, GateParams,
 };
 
+pub(crate) const PHASE_DEFAULT_ANGLE: &str = "π/2";
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateSpec {
     pub(crate) kind: GateKind,
@@ -257,6 +259,13 @@ pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
 pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 9] = [13, 14, 15, 17, 18, 19, 22, 23, 21];
 pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
+pub(crate) fn default_palette_angle(kind: GateKind) -> Option<String> {
+    match kind {
+        GateKind::Phase => Some(PHASE_DEFAULT_ANGLE.to_owned()),
+        _ => None,
+    }
+}
+
 pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
     if index < PALETTE_ROW1_COUNT {
         return Some(PALETTE_GATES_ROW1[index]);
@@ -309,5 +318,18 @@ impl GateKind {
             _ => qubit_capacity,
         }
         .max(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn phase_palette_default_angle_is_pi_over_two() {
+        assert_eq!(
+            default_palette_angle(GateKind::Phase).as_deref(),
+            Some("π/2")
+        );
     }
 }
