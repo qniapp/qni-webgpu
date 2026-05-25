@@ -315,7 +315,7 @@
         <!-- Display section (2 × 2 grid; 4 slots) -->
         <div class="gp-section">
           <div class="gp-row">
-            <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popup zero-color="blue"></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
+            <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popup></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
             <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
           </div>
           <div class="gp-row">
@@ -402,7 +402,7 @@
 
     <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (4 個 / indices 16, 20, 24, 25)</h3>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><bloch-display icon no-popup zero-color="blue"></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
+      <div class="item"><div class="gp-gate"><bloch-display icon no-popup></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
       <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Amps"/></svg></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Density"/></svg></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
@@ -477,7 +477,7 @@
         <tr><td>Measurement</td><td><code>draw_meter_icon</code>: 24 点上半円弧 (cx=24, cy=36, r=20) + 針 (24.625, 33.5)→(37.75, 11.0) + ピボット円 r=3.5 · viewbox 48</td><td><code>semantic_intermediate</code> = purple-600</td></tr>
         <tr><td>Spacer</td><td>3 個の 6 × 6 正方形 at x=9, 21, 33 / y=21–27 · viewbox 48</td><td><code>spacer_dots</code> = tx (#100F0F)</td></tr>
         <tr><td>Write0 / Write1</td><td>ket bracket: 縦 (6, 5)→(6, 43) + 右上斜 (37.45, 5)→(43.5, 24) + 右下斜 (43.5, 24)→(37.45, 43)、stroke 2 px。中央に <code>Digit0</code> / <code>Digit1</code> SDF glyph</td><td>bracket: <code>semantic_disabled</code> = tx-2、digit 0: <code>semantic_off</code> = red-600、digit 1: <code>semantic_on</code> = blue-600</td></tr>
-        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = blue-600</td></tr>
+        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = tx-3</td></tr>
         <tr><td>DensityMatrixDisplay</td><td><code>draw_density_palette_icon()</code>: 2 × 2 の円セルを直接描画。対角セルは needle 省略、非対角セルのみ真上 needle</td><td>outline = <code>state_outline</code>、disk = <code>state_fill</code>、disk border = <code>popup_icon</code>、needle = <code>state_needle</code></td></tr>
       </tbody>
     </table>
