@@ -88,6 +88,7 @@ def apply_column_to_qiskit(
     anti_controls: list[int] = []
     swap_wires: list[int] = []
     measurement_wires: list[int] = []
+    has_readonly_display = False
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
         token = token_text(raw)
@@ -108,11 +109,21 @@ def apply_column_to_qiskit(
             measurement_wires.append(wire)
             continue
         if is_readonly_display_token(token):
+            has_readonly_display = True
             continue
         deferred.append((wire, token))
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     for wire, token in deferred:
         apply_gate(qc, wire, token, controls, anti_controls, qubits, basis)
+    apply_control_only_z(
+        qc,
+        controls,
+        anti_controls,
+        basis,
+        has_column_content=bool(
+            deferred or swap_wires or measurement_wires or has_readonly_display
+        ),
+    )
     apply_measurements(qc, measurement_wires, controls, anti_controls)
 
 
@@ -215,6 +226,24 @@ def apply_swap(
     first, second = swap_wires
     qc.swap(first, second)
     basis[first], basis[second] = basis[second], basis[first]
+
+
+def apply_control_only_z(
+    qc: Any,
+    controls: list[int],
+    anti_controls: list[int],
+    basis: BasisTracker,
+    *,
+    has_column_content: bool,
+) -> None:
+    # qni/WebGPU drops AntiControl bits for control-only columns.
+    del anti_controls
+    if has_column_content or len(controls) < 2:
+        return
+    target = controls[0]
+    remaining_controls = controls[1:]
+    apply_controlled_gate(qc, target, "Z", None, remaining_controls, [])
+    track_controlled_gate(basis, remaining_controls, [], target, "Z")
 
 
 def parse_qft_token(token: str) -> QftSpec | None:

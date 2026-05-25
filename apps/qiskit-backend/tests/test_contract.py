@@ -457,6 +457,48 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["•", "P(π_4)"]], 2)
         self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [0], [1])])
 
+    def test_qiskit_builder_applies_control_only_z(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("Z", None), [1], [0])])
+
+    def test_qiskit_builder_keeps_lone_control_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_keeps_lone_anti_control_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_does_not_add_control_only_z_with_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•", "X"]], 3)
+        self.assertEqual(fake.ops, [("mcx", [0, 1], 2)])
+
     def test_qiskit_builder_applies_controlled_sqrt_x_url_token(self):
         class FakeCircuit:
             def __init__(self):
