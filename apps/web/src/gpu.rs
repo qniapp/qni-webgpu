@@ -23,9 +23,9 @@ mod shaders;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
-    DensityMatrixDisplayCallback, MeasurementDigitCallback, PopupValueCallback,
-    ProbabilityDisplayCallback, ProbabilityPopupValueCallback, StateVectorCallback,
-    StateVectorResourceBootstrapCallback,
+    BlochPopupValueCallback, DensityMatrixDisplayCallback, MeasurementDigitCallback,
+    PopupValueCallback, ProbabilityDisplayCallback, ProbabilityPopupValueCallback,
+    StateVectorCallback, StateVectorResourceBootstrapCallback,
 };
 pub(crate) use params::{
     AmplitudeInstance, BlochOverlayInstance, DensityInstance, ExternalAmplitudeUpload,

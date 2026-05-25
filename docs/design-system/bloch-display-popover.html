@@ -64,7 +64,7 @@
       gap: 8px;                          /* spacing-2 */
     }
     .bd-popover .bd-popover-key {
-      min-width: 12px;                   /* r / ϕ / θ / x / y / z の字幅合わせ */
+      min-width: 12px;                   /* r / φ / θ / x / y / z の字幅合わせ */
       font-size: 12px;                   /* text-xs */
       line-height: 16px;                 /* text-xs default */
       color: var(--tx-2);                /* Flexoki tx-2 */
@@ -278,10 +278,10 @@
     <table class="spec">
       <tbody>
         <tr><th>対象</th><td><code>GateKind::BlochDisplay</code> のホスト要素のホバー時に出す詳細ポップオーバー</td></tr>
-        <tr><th>目的</th><td>球の中の矢印だけでは読み取りにくい <code>r</code> / <code>ϕ</code> / <code>θ</code> / <code>x</code> / <code>y</code> / <code>z</code> を数値で確認する</td></tr>
+        <tr><th>目的</th><td>球の中の矢印だけでは読み取りにくい <code>r</code> / <code>φ</code> / <code>θ</code> / <code>x</code> / <code>y</code> / <code>z</code> を数値で確認する</td></tr>
         <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる。ブロッホ球表示ブロックには行の概念がないため、確率表示ブロックの行単位ポップオーバーとは異なりホスト単位で 1 個だけ出す</td></tr>
         <tr><th>ポインタイベント</th><td><code>pointer-events: none</code>。ポップオーバー自身はホバー判定を奪わない</td></tr>
-        <tr><th>GPU-only</th><td>本番経路では値を CPU に読み戻さない。値描画の接続時は <code>bloch_output_buffer</code> を GPU 側で直接読む</td></tr>
+        <tr><th>GPU-only</th><td>本番実装では <code>bloch_output_buffer</code> の <code>x</code> / <code>y</code> / <code>z</code> を GPU 側で直接読み、CPU リードバックなしでポップオーバー値まで描画する</td></tr>
       </tbody>
     </table>
 
@@ -314,13 +314,13 @@
     </p>
     <div class="bloch-popover-stage" role="img" aria-label="ブロッホ球の右に表示されるポップオーバーの配置例">
       <div class="bloch-popover-demo">
-        <bloch-display class="bloch-popover-anchor" x="1" no-popup aria-hidden="true"></bloch-display>
+        <bloch-display class="bloch-popover-anchor" x="1" no-popover aria-hidden="true"></bloch-display>
         <div class="bd-popover bd-popover--static">
           <div class="bd-popover-title">Bloch sphere representation of local state</div>
           <div class="bd-popover-divider"></div>
           <div class="bd-popover-row">
             <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
-            <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+            <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">+0.00°</span></span>
             <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+90.00°</span></span>
           </div>
           <div class="bd-popover-row">
@@ -344,7 +344,7 @@
       <tbody>
         <tr><td>タイトル</td><td>Geist Regular</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>letter-spacing −0.005 em</td></tr>
         <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
-        <tr><td>ラベル (r / ϕ / θ / x / y / z)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>min-width 12 px</td></tr>
+        <tr><td>ラベル (r / φ / θ / x / y / z)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>min-width 12 px</td></tr>
         <tr><td>数値 (±0.0000 / ±00.00°)</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code></td></tr>
         <tr><td>tail</td><td>—</td><td>16 × 8 px</td><td><code>bg</code> + <code>tx-3</code></td><td>ポップオーバー仕様と同じ三角形を左辺で 90° 回転</td></tr>
       </tbody>
@@ -354,7 +354,7 @@
       <div class="critique-label">★ 批評 · § 02 tail とタイトル</div>
       <div class="critique-title">tail の縦位置基準とタイトルの言語方針が未整理</div>
       <p class="critique-body">
-        アンカーの球本体は <code>&lt;bloch-display no-popup&gt;</code> に置き換え済みで、<a href="bloch-display.html">ブロッホ球表示ブロック仕様</a>と同じカスタム要素を使う。
+        アンカーの球本体は <code>&lt;bloch-display no-popover&gt;</code> に置き換え済みで、<a href="bloch-display.html">ブロッホ球表示ブロック仕様</a>と同じカスタム要素を使う。
         そのため、残る § 02 の論点はポップオーバー外装側の位置合わせとタイトル文言に絞られる。
       </p>
       <p class="critique-body">
@@ -418,10 +418,10 @@
       </thead>
       <tbody>
         <tr><td><code>r</code> (ブロッホ長)</td><td><code>sqrt(x² + y² + z²)</code></td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.9992</code></td></tr>
-        <tr><td><code>ϕ</code> (方位角)</td><td><code>atan2(y, x)</code>、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+0.00°</code></td></tr>
+        <tr><td><code>φ</code> (方位角)</td><td><code>atan2(y, x)</code>、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+0.00°</code></td></tr>
         <tr><td><code>θ</code> (極角)</td><td><code>acos(z / r)</code> (r &gt; 10<sup>−6</sup>)、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+179.46°</code></td></tr>
         <tr><td><code>x</code> / <code>y</code> / <code>z</code></td><td>シェーダ出力をそのまま使用 (符号反転なし)</td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.0095</code> / <code>-0.9992</code></td></tr>
-        <tr><td><code>r ≈ 0</code> 時</td><td>完全混合</td><td>ϕ / θ は <code>—</code> を表示。x / y / z は <code>+0.0000</code> のまま</td></tr>
+        <tr><td><code>r ≈ 0</code> 時</td><td>完全混合</td><td>φ / θ は <code>—</code> を表示。x / y / z は <code>+0.0000</code> のまま</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 8px;">
@@ -442,9 +442,9 @@
       </p>
       <p class="critique-body">
         <strong>r ≈ 0 の閾値ロジックが § 04 内で 2 箇所に分散している:</strong>
-        <code>θ</code> 行の計算欄に「<code>r &gt; 10⁻⁶</code>」と書き、「r ≈ 0 時」行で「ϕ / θ は <code>—</code> を表示」と書く。
+        <code>θ</code> 行の計算欄に「<code>r &gt; 10⁻⁶</code>」と書き、「r ≈ 0 時」行で「φ / θ は <code>—</code> を表示」と書く。
         2 つは同じことを言っているが、片方は閾値 (<code>10⁻⁶</code>)、片方は「完全混合」と表現が異なる。
-        「<code>r ≤ 10⁻⁶</code> なら <code>ϕ</code> / <code>θ</code> を <code>—</code> に置換し、x / y / z はそのまま表示」と 1 行で書き直して § 05 の完全混合行に逆参照を張ると、判定条件と表示結果の対応が明確になる。
+        「<code>r ≤ 10⁻⁶</code> なら <code>φ</code> / <code>θ</code> を <code>—</code> に置換し、x / y / z はそのまま表示」と 1 行で書き直して § 05 の完全混合行に逆参照を張ると、判定条件と表示結果の対応が明確になる。
       </p>
     </aside>
   </div>
@@ -463,13 +463,13 @@
       <div class="state-popover-card">
         <div class="state-popover-caption">|0⟩ · 北極 · (0, 0, +1)</div>
         <div class="bloch-popover-demo">
-          <bloch-display class="bloch-popover-anchor" z="1" no-popup aria-hidden="true"></bloch-display>
+          <bloch-display class="bloch-popover-anchor" z="1" no-popover aria-hidden="true"></bloch-display>
           <div class="bd-popover bd-popover--static">
             <div class="bd-popover-title">Bloch sphere representation of local state</div>
             <div class="bd-popover-divider"></div>
             <div class="bd-popover-row">
               <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
-              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">+0.00°</span></span>
               <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+0.00°</span></span>
             </div>
             <div class="bd-popover-row">
@@ -488,13 +488,13 @@
       <div class="state-popover-card">
         <div class="state-popover-caption">|1⟩ に近い · 3 桁度数 · (0.0095, 0.0000, −0.9992)</div>
         <div class="bloch-popover-demo">
-          <bloch-display class="bloch-popover-anchor" x="0.0095" z="-0.9992" no-popup aria-hidden="true"></bloch-display>
+          <bloch-display class="bloch-popover-anchor" x="0.0095" z="-0.9992" no-popover aria-hidden="true"></bloch-display>
           <div class="bd-popover bd-popover--static">
             <div class="bd-popover-title">Bloch sphere representation of local state</div>
             <div class="bd-popover-divider"></div>
             <div class="bd-popover-row">
               <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.9992</span></span>
-              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">+0.00°</span></span>
               <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+179.46°</span></span>
             </div>
             <div class="bd-popover-row">
@@ -513,13 +513,13 @@
       <div class="state-popover-card">
         <div class="state-popover-caption">|+⟩ · 赤道 · (+1, 0, 0)</div>
         <div class="bloch-popover-demo">
-          <bloch-display class="bloch-popover-anchor" x="1" no-popup aria-hidden="true"></bloch-display>
+          <bloch-display class="bloch-popover-anchor" x="1" no-popover aria-hidden="true"></bloch-display>
           <div class="bd-popover bd-popover--static">
             <div class="bd-popover-title">Bloch sphere representation of local state</div>
             <div class="bd-popover-divider"></div>
             <div class="bd-popover-row">
               <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
-              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">+0.00°</span></span>
               <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+90.00°</span></span>
             </div>
             <div class="bd-popover-row">
@@ -538,13 +538,13 @@
       <div class="state-popover-card">
         <div class="state-popover-caption">傾いた混合状態 · 負号付き角度 · (+0.5, −0.3, +0.7)</div>
         <div class="bloch-popover-demo">
-          <bloch-display class="bloch-popover-anchor" x="0.5" y="-0.3" z="0.7" no-popup aria-hidden="true"></bloch-display>
+          <bloch-display class="bloch-popover-anchor" x="0.5" y="-0.3" z="0.7" no-popover aria-hidden="true"></bloch-display>
           <div class="bd-popover bd-popover--static">
             <div class="bd-popover-title">Bloch sphere representation of local state</div>
             <div class="bd-popover-divider"></div>
             <div class="bd-popover-row">
               <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.9110</span></span>
-              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">−30.96°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">−30.96°</span></span>
               <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+39.79°</span></span>
             </div>
             <div class="bd-popover-row">
@@ -563,13 +563,13 @@
       <div class="state-popover-card">
         <div class="state-popover-caption">完全混合 · ダッシュ表示 · (0, 0, 0)</div>
         <div class="bloch-popover-demo">
-          <bloch-display class="bloch-popover-anchor" no-popup aria-hidden="true"></bloch-display>
+          <bloch-display class="bloch-popover-anchor" no-popover aria-hidden="true"></bloch-display>
           <div class="bd-popover bd-popover--static">
             <div class="bd-popover-title">Bloch sphere representation of local state</div>
             <div class="bd-popover-divider"></div>
             <div class="bd-popover-row">
               <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.0000</span></span>
-              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">—</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">φ</span><span class="bd-popover-val">—</span></span>
               <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">—</span></span>
             </div>
             <div class="bd-popover-row">
@@ -588,7 +588,7 @@
 
     <table class="spec value-table">
       <thead>
-        <tr><th>状態</th><th>r</th><th>ϕ</th><th>θ</th><th>x</th><th>y</th><th>z</th></tr>
+        <tr><th>状態</th><th>r</th><th>φ</th><th>θ</th><th>x</th><th>y</th><th>z</th></tr>
       </thead>
       <tbody>
         <tr><td>|0⟩ (0, 0, +1)</td><td>+1.0000</td><td>+0.00°</td><td>+0.00°</td><td>+0.0000</td><td>+0.0000</td><td>+1.0000</td></tr>

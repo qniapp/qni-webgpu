@@ -20,11 +20,12 @@
 
 mod overlay;
 mod pipeline;
+mod popup;
 mod reduce;
 
 use eframe::wgpu;
 
-use super::super::params::BlochOverlayParams;
+use super::super::params::{BlochOverlayParams, BlochPopupValueParams};
 use super::common::Common;
 
 pub(crate) struct BlochResources {
@@ -44,16 +45,25 @@ pub(crate) struct BlochResources {
     pub overlay_instance_buffer: wgpu::Buffer,
     pub last_overlay_params: Option<BlochOverlayParams>,
     pub last_external_upload_generation: Option<u64>,
+
+    // --- hover popover values (render) ---
+    pub popup_value_pipeline: wgpu::RenderPipeline,
+    pub popup_value_bind_group: wgpu::BindGroup,
+    pub popup_value_bind_group_layout: wgpu::BindGroupLayout,
+    pub popup_value_params_buffer: wgpu::Buffer,
+    pub last_popup_value_params: Option<BlochPopupValueParams>,
 }
 
 impl BlochResources {
     pub(super) fn build(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         target_format: wgpu::TextureFormat,
         common: &Common,
     ) -> Self {
         let reduce = reduce::build(device, common);
         let overlay = overlay::build(device, target_format, &reduce.output_buffer);
+        let popup = popup::build(device, queue, target_format, &reduce.output_buffer);
 
         Self {
             reduce_pipeline: reduce.pipeline,
@@ -68,6 +78,11 @@ impl BlochResources {
             overlay_instance_buffer: overlay.instance_buffer,
             last_overlay_params: None,
             last_external_upload_generation: None,
+            popup_value_pipeline: popup.pipeline,
+            popup_value_bind_group: popup.bind_group,
+            popup_value_bind_group_layout: popup.bind_group_layout,
+            popup_value_params_buffer: popup.params_buffer,
+            last_popup_value_params: None,
         }
     }
 
@@ -80,6 +95,11 @@ impl BlochResources {
             device,
             target_format,
             &self.overlay_bind_group_layout,
+        );
+        self.popup_value_pipeline = popup::build_popup_value_pipeline(
+            device,
+            target_format,
+            &self.popup_value_bind_group_layout,
         );
     }
 }

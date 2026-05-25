@@ -3,7 +3,7 @@
 pub(in crate::gpu) const AMPLITUDE_POPUP_VALUE_SHADER: &str = r#"
 const MAX_OUTCOMES: u32 = 65536u;
 const VALUES_PER_SLOT: u32 = MAX_OUTCOMES * 3u;
-const GLYPH_COUNT: u32 = 19u;
+const GLYPH_COUNT: u32 = 20u;
 const CHARS_PER_ROW: u32 = 18u;
 
 struct PopupParams {

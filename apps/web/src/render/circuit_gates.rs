@@ -9,11 +9,12 @@ use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
-    BlochOverlayInstance, DensityInstance, DensityMatrixDisplayCallback, MeasurementDigitCallback,
-    MeasurementDigitInstance, ProbabilityDisplayCallback, ProbabilityInstance,
-    ProbabilityPopupValueCallback, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER,
-    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, POPUP_GLYPH_CELL_H,
-    POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
+    BlochOverlayInstance, BlochPopupValueCallback, DensityInstance, DensityMatrixDisplayCallback,
+    MeasurementDigitCallback, MeasurementDigitInstance, ProbabilityDisplayCallback,
+    ProbabilityInstance, ProbabilityPopupValueCallback, AMPLITUDE_FORCE_NONE,
+    AMPLITUDE_FORCE_PLACEHOLDER, DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE,
+    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER,
+    PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
@@ -50,6 +51,10 @@ fn amplitude_hover_popup_ket(outcome: u32, span: usize) -> String {
 
 fn amplitude_hover_popup_subtitle(outcome: u32) -> String {
     format!("Amplitude · k = {outcome}")
+}
+
+fn bloch_hover_popup_title() -> &'static str {
+    "Bloch sphere representation of local state"
 }
 
 impl QniApp {
@@ -543,6 +548,118 @@ impl QniApp {
         }
     }
 
+    pub(crate) fn draw_bloch_hover_popup(
+        &self,
+        painter: &egui::Painter,
+        screen_rect: egui::Rect,
+        circuit_origin: egui::Pos2,
+        dragging_gate_id: Option<u32>,
+        colors: &Colors,
+    ) {
+        let Some(gate_id) = self.hovered_gate_id else {
+            return;
+        };
+        if dragging_gate_id == Some(gate_id) {
+            return;
+        }
+        let Some(gate) = self
+            .placed_gates
+            .iter()
+            .find(|gate| gate.id == gate_id && gate.kind == GateKind::BlochDisplay)
+        else {
+            return;
+        };
+        let Some(slot) = self.bloch_display_slot(gate.id) else {
+            return;
+        };
+        let gate_rect = egui::Rect::from_min_size(
+            circuit_origin + gate.pos.to_vec2(),
+            egui::vec2(GATE_SIZE, GATE_SIZE),
+        );
+
+        // docs/design-system/bloch-display-popover.html: title uses Geist regular
+        // text-sm; labels are Geist Mono text-xs; values are rendered by GPU from
+        // `bloch_output_buffer` to avoid production GPU→CPU readback.
+        let title_font = egui::FontId::proportional(14.0); // text-sm = 14px.
+        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let title_galley = painter.layout_no_wrap(
+            bloch_hover_popup_title().to_owned(),
+            title_font,
+            colors.text_strong,
+        );
+        let label_galleys = ["r", "φ", "θ", "x", "y", "z"]
+            .map(|label| painter.layout_no_wrap(label.to_owned(), label_font.clone(), colors.text));
+
+        let pad_x = 16.0; // spacing-4.
+        let pad_y = 12.0; // spacing-3.
+        let divider_gap = 12.0; // spacing-3.
+        let label_gap = 8.0; // spacing-2.
+        let col_gap = 12.0; // spacing-3.
+        let label_w = 12.0; // min-width 12px for r / φ / θ / x / y / z.
+        let value_chars = 8.0; // Matches WGSL VALUE_CHARS.
+        let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
+        let value_h = POPUP_GLYPH_CELL_H as f32;
+        let value_pitch = 20.0; // text-sm default line-height = 20px.
+        let cell_w = label_w + label_gap + value_w;
+        let col_pitch = cell_w + col_gap;
+        let content_w = title_galley.size().x.max(cell_w * 3.0 + col_gap * 2.0);
+        let width = content_w + pad_x * 2.0;
+        let title_h = title_galley.size().y.max(20.0);
+        let height =
+            pad_y + title_h + divider_gap + 1.0 + divider_gap + value_pitch + value_h + pad_y;
+        let placement = bloch_hover_popup_placement(gate_rect, width, height, screen_rect);
+        let rect = placement.rect;
+        popover::paint_popover(painter, colors, placement);
+
+        let title_pos = egui::pos2(rect.left() + pad_x, rect.top() + pad_y);
+        let divider_y = title_pos.y + title_h + divider_gap;
+        let row0_y = divider_y + 1.0 + divider_gap;
+        let row1_y = row0_y + value_pitch;
+        painter.galley(title_pos, title_galley, colors.text_strong);
+        painter.rect_filled(
+            egui::Rect::from_min_size(
+                egui::pos2(rect.left() + pad_x, divider_y),
+                egui::vec2(rect.width() - pad_x * 2.0, 1.0),
+            ),
+            egui::CornerRadius::ZERO,
+            colors.line,
+        );
+
+        let label_x0 = rect.left() + pad_x;
+        for row in 0..2 {
+            for col in 0..3 {
+                let label_index = row * 3 + col;
+                let label_x = label_x0 + col as f32 * col_pitch;
+                let label_y = if row == 0 { row0_y } else { row1_y } + 2.0;
+                painter.galley(
+                    egui::pos2(label_x, label_y),
+                    label_galleys[label_index].clone(),
+                    colors.text,
+                );
+            }
+        }
+
+        let value_anchor = egui::pos2(label_x0 + label_w + label_gap, row0_y + 2.0);
+        let callback = BlochPopupValueCallback {
+            viewport_min: [screen_rect.min.x, screen_rect.min.y],
+            viewport_size: [screen_rect.width(), screen_rect.height()],
+            value_anchor: [value_anchor.x, value_anchor.y],
+            col_pitch,
+            row_pitch: value_pitch,
+            char_size: [POPUP_GLYPH_CELL_W as f32, value_h],
+            text_color: colors.text_strong.to_normalized_gamma_f32(),
+            slot,
+        };
+        let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
+        let value_clip = egui::Rect::from_min_size(
+            value_anchor,
+            egui::vec2(value_w + col_pitch * 2.0, value_pitch + value_h),
+        );
+        painter
+            .with_clip_rect(value_clip.intersect(rect.shrink(4.0)))
+            .add(egui::Shape::Callback(paint_callback));
+    }
+
     pub(crate) fn draw_amplitude_hover_popup(
         &self,
         painter: &egui::Painter,
@@ -829,6 +946,55 @@ impl QniApp {
     }
 }
 
+fn bloch_hover_popup_placement(
+    gate_rect: egui::Rect,
+    width: f32,
+    height: f32,
+    screen_rect: egui::Rect,
+) -> PopoverPlacement {
+    let side_gap = popover::ANCHOR_GAP + popover::TAIL_H;
+    let size = egui::vec2(width, height);
+    let prefer_right =
+        gate_rect.right() + side_gap + width <= screen_rect.right() - popover::VIEWPORT_PAD;
+    let left = if prefer_right {
+        gate_rect.right() + side_gap
+    } else {
+        gate_rect.left() - side_gap - width
+    };
+    let mut rect = egui::Rect::from_min_size(egui::pos2(left, gate_rect.top()), size);
+
+    let min_left = screen_rect.left() + popover::VIEWPORT_PAD;
+    let max_left = screen_rect.right() - popover::VIEWPORT_PAD - rect.width();
+    let target_left = if max_left >= min_left {
+        rect.left().clamp(min_left, max_left)
+    } else {
+        min_left
+    };
+    let min_top = screen_rect.top() + popover::VIEWPORT_PAD;
+    let max_top = screen_rect.bottom() - popover::VIEWPORT_PAD - rect.height();
+    let target_top = if max_top >= min_top {
+        rect.top().clamp(min_top, max_top)
+    } else {
+        min_top
+    };
+    rect = rect.translate(egui::vec2(
+        target_left - rect.left(),
+        target_top - rect.top(),
+    ));
+
+    // docs/design-system/bloch-display-popover.html currently defines the
+    // static mock tail at top: 24px with a 16×8px rotated triangle, so the
+    // tail center lands 28px below the card top while the card top aligns to
+    // the gate top.
+    let anchor_y = gate_rect.top() + 28.0;
+    let tail = if rect.center().x >= gate_rect.center().x {
+        PopoverTail::on_left_edge(rect, anchor_y)
+    } else {
+        PopoverTail::on_right_edge(rect, anchor_y)
+    };
+    PopoverPlacement { rect, tail }
+}
+
 fn probability_hover_popup_placement(
     gate_rect: egui::Rect,
     row_top: f32,
@@ -883,6 +1049,41 @@ fn probability_hover_popup_placement(
 #[cfg(test)]
 mod tests {
     use eframe::egui;
+
+    #[test]
+    fn bloch_hover_popup_title_matches_spec() {
+        assert_eq!(
+            super::bloch_hover_popup_title(),
+            "Bloch sphere representation of local state"
+        );
+    }
+
+    #[test]
+    fn bloch_hover_popup_prefers_right_side_when_space_allows() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(40.0, 40.0));
+        let screen_rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(800.0, 600.0));
+        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+
+        assert_eq!(placement.rect.left(), 52.0);
+    }
+
+    #[test]
+    fn bloch_hover_popup_flips_left_near_viewport_right_edge() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(600.0, 40.0), egui::vec2(40.0, 40.0));
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+
+        assert_eq!(placement.rect.left(), 268.0);
+    }
+
+    #[test]
+    fn bloch_hover_popup_clamps_inside_viewport_left_edge() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(20.0, 40.0), egui::vec2(40.0, 40.0));
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(280.0, 180.0));
+        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+
+        assert_eq!(placement.rect.left(), 4.0);
+    }
 
     #[test]
     fn probability_hover_popup_text_matches_probability_display_spec() {

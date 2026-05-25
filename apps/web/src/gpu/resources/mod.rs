@@ -88,7 +88,7 @@ impl StateVectorResources {
     ) -> Self {
         let common = Common::build(device);
         let state = StateResources::build(device, target_format, &common);
-        let bloch = BlochResources::build(device, target_format, &common);
+        let bloch = BlochResources::build(device, queue, target_format, &common);
         let measure = MeasureResources::build(device, &common);
         let probability = ProbabilityResources::build(device, queue, target_format, &common);
         let amplitude = AmplitudeResources::build(device, queue, target_format, &common);

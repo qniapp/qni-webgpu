@@ -2,7 +2,7 @@
  * bloch-display.js — <bloch-display> カスタム要素
  *
  * ブロッホ球表示ブロックの正規描画を 1 箇所へ集約する。
- * x / y / z / icon / no-popup / state / zoom 属性で仕様ページの各状態を表す。
+ * x / y / z / icon / no-popover / state / zoom 属性で仕様ページの各状態を表す。
  * ───────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -65,60 +65,80 @@
   .tip { fill: var(--red-600); }       /* 既定は |0⟩ 側の Flexoki red-600 */
   .zero { fill: var(--tx-3); }         /* Flexoki tx-3 / inactive */
 
-  .bd-popup {
+  .bd-popover {
     position: absolute;
     top: 0;
-    left: calc(100% + 8px);
+    left: calc(100% + 12px);             /* tail 8 px + gap 4 px */
     display: none;
     pointer-events: none;
     z-index: 50;
-    background: var(--bg);
-    border: 1px solid var(--ui-2);
-    border-radius: 6px;
-    padding: 12px 16px;
+    background: var(--bg);               /* Flexoki bg / popover_surface */
+    border: 1px solid var(--tx-3);       /* Flexoki tx-3 / popover_outline */
+    border-radius: 10px;
+    padding: 12px 16px;                  /* spacing-3 / spacing-4 */
     font-family: 'Geist', sans-serif;
-    font-size: 12px;
-    line-height: 16px;
-    color: var(--tx);
+    font-size: 12px;                     /* text-xs */
+    line-height: 16px;                   /* text-xs default */
+    color: var(--tx);                    /* Flexoki tx */
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06); /* Flexoki black 6% */
+    box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* Flexoki tx alpha */
   }
-  :host(:not([icon]):not([no-popup]):hover) .bd-popup,
-  :host(:not([icon]):not([no-popup])[state="hover"]) .bd-popup {
+  :host(:not([icon]):not([no-popover]):hover) .bd-popover,
+  :host(:not([icon]):not([no-popover])[state="hover"]) .bd-popover {
     display: block;
   }
-  .bd-popup-title {
-    font-size: 14px;
+  .bd-popover-title {
+    font-size: 14px;                     /* text-sm */
+    line-height: 20px;                   /* text-sm default */
     font-weight: 400;
-    color: var(--tx);
+    color: var(--tx);                    /* Flexoki tx */
     letter-spacing: -0.005em;
   }
-  .bd-popup-divider {
+  .bd-popover-divider {
     height: 1px;
-    background: var(--ui-2);
-    margin: 12px 0;
+    background: var(--ui-2);             /* Flexoki ui-2 */
+    margin: 12px 0;                      /* spacing-3 */
   }
-  .bd-popup-row {
+  .bd-popover-row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 12px;                           /* spacing-3 */
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
-  .bd-popup-row + .bd-popup-row { margin-top: 4px; }
-  .bd-popup-cell {
+  .bd-popover-row + .bd-popover-row { margin-top: 4px; }
+  .bd-popover-cell {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 8px;                            /* spacing-2 */
   }
-  .bd-popup-key {
-    font-size: 12px;
-    color: var(--tx-2);
+  .bd-popover-key {
+    font-size: 12px;                     /* text-xs */
+    line-height: 16px;                   /* text-xs default */
+    color: var(--tx-2);                  /* Flexoki tx-2 */
     min-width: 12px;
   }
-  .bd-popup-val {
-    font-size: 14px;
-    color: var(--tx);
+  .bd-popover-val {
+    font-size: 14px;                     /* text-sm */
+    line-height: 20px;                   /* text-sm default */
+    color: var(--tx);                    /* Flexoki tx */
+  }
+  .bd-popover-tail {
+    position: absolute;
+    top: 24px;                           /* spacing-6 */
+    left: -12px;                         /* tail 8 px + gap 4 px */
+    width: 16px;
+    height: 8px;
+    transform: rotate(90deg);
+    pointer-events: none;
+    overflow: visible;
+  }
+  .bd-popover-tail-fill { fill: var(--bg); }
+  .bd-popover-tail-stroke {
+    fill: none;
+    stroke: var(--tx-3);                 /* Flexoki tx-3 / popover_outline */
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
   }
 </style>
 <div class="render-root"></div>
@@ -126,7 +146,7 @@
 
   class BlochDisplay extends HTMLElement {
     static get observedAttributes() {
-      return ['x', 'y', 'z', 'icon', 'no-popup', 'state', 'zoom'];
+      return ['x', 'y', 'z', 'icon', 'no-popover', 'state', 'zoom'];
     }
 
     constructor() {
@@ -148,8 +168,8 @@
       const vector = this.#vector();
       const svg = this.#buildSvg(vector);
       root.appendChild(svg);
-      if (!this.hasAttribute('icon') && !this.hasAttribute('no-popup')) {
-        root.appendChild(this.#buildPopup(vector));
+      if (!this.hasAttribute('icon') && !this.hasAttribute('no-popover')) {
+        root.appendChild(this.#buildPopover(vector));
       }
     }
 
@@ -248,29 +268,33 @@
       return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
     }
 
-    #buildPopup(vector) {
-      const popup = document.createElement('div');
-      popup.className = 'bd-popup';
+    #buildPopover(vector) {
+      const popover = document.createElement('div');
+      popover.className = 'bd-popover';
       const polar = this.#polar(vector);
-      popup.innerHTML = `
-        <div class="bd-popup-title">Bloch sphere representation of local state</div>
-        <div class="bd-popup-divider"></div>
-        <div class="bd-popup-row">
-          ${this.#popupCell('r', this.#formatNumber(polar.r, 4))}
-          ${this.#popupCell('ϕ', polar.phi)}
-          ${this.#popupCell('θ', polar.theta)}
+      popover.innerHTML = `
+        <div class="bd-popover-title">Bloch sphere representation of local state</div>
+        <div class="bd-popover-divider"></div>
+        <div class="bd-popover-row">
+          ${this.#popoverCell('r', this.#formatNumber(polar.r, 4))}
+          ${this.#popoverCell('φ', polar.phi)}
+          ${this.#popoverCell('θ', polar.theta)}
         </div>
-        <div class="bd-popup-row">
-          ${this.#popupCell('x', this.#formatNumber(vector.x, 4))}
-          ${this.#popupCell('y', this.#formatNumber(vector.y, 4))}
-          ${this.#popupCell('z', this.#formatNumber(vector.z, 4))}
+        <div class="bd-popover-row">
+          ${this.#popoverCell('x', this.#formatNumber(vector.x, 4))}
+          ${this.#popoverCell('y', this.#formatNumber(vector.y, 4))}
+          ${this.#popoverCell('z', this.#formatNumber(vector.z, 4))}
         </div>
+        <svg class="bd-popover-tail" viewBox="0 0 16 8" aria-hidden="true">
+          <path class="bd-popover-tail-fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="bd-popover-tail-stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       `;
-      return popup;
+      return popover;
     }
 
-    #popupCell(key, value) {
-      return `<span class="bd-popup-cell"><span class="bd-popup-key">${key}</span><span class="bd-popup-val">${value}</span></span>`;
+    #popoverCell(key, value) {
+      return `<span class="bd-popover-cell"><span class="bd-popover-key">${key}</span><span class="bd-popover-val">${value}</span></span>`;
     }
 
     #polar(vector) {
