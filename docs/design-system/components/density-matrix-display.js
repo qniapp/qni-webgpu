@@ -15,7 +15,7 @@
   const CANVAS_COLORS = Object.freeze({
     bg: '#FFFCF0',        // Flexoki bg
     blue200: '#92BFDB',   // Flexoki blue-200 / state_fill
-    blue400: '#4385BE',   // Flexoki blue-400 / popup_icon
+    blue400: '#4385BE',   // Flexoki blue-400 / density_disk_outline
     ui2: '#DAD8CE',       // Flexoki ui-2 / line
     tx2: '#6F6E69',       // Flexoki tx-2 / state_outline
     tx: '#100F0F',        // Flexoki tx / state_needle
@@ -50,61 +50,80 @@
       0 0 0 4px var(--purple-400);
   }
 
-  .dm-popup {
+  .dm-popover {
     position: absolute;
     display: none;
     pointer-events: none;
     z-index: 50;
-    background: var(--bg);
-    border: 1px solid var(--ui-2);
-    border-radius: 6px;
-    padding: 12px 16px;                    /* spacing-3 / spacing-4 */
+    min-width: 240px;
+    background: var(--bg);                /* Flexoki bg / paper / popover_surface */
+    border: 1px solid var(--tx-3);        /* Flexoki tx-3 / popover_outline */
+    border-radius: 10px;                  /* popover.html と同じ角丸 */
+    padding: 12px 16px;                   /* spacing-3 / spacing-4 */
     font-family: var(--font-body);
-    font-size: 12px;                       /* text-xs */
-    line-height: 16px;                     /* text-xs line-height */
+    font-size: 12px;                      /* text-xs */
+    line-height: 16px;                    /* text-xs default */
     color: var(--tx);
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06); /* Flexoki black 6% */
+    box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* Flexoki tx alpha / popover shadow */
   }
-  .dm-popup .dm-popup-ket {
+  .dm-popover .dm-popover-title {
     font-family: var(--font-mono);
-    font-size: 14px;                       /* text-sm */
+    font-size: 14px;                      /* text-sm */
+    line-height: 20px;
     font-weight: 400;
     letter-spacing: 0.02em;
     color: var(--tx);
-    text-align: center;
   }
-  .dm-popup .dm-popup-sub {
-    font-size: 12px;                       /* text-xs */
-    margin-top: 4px;                       /* spacing-1 */
+  .dm-popover .dm-popover-sub {
+    font-size: 12px;                      /* text-xs */
+    margin-top: 4px;                      /* spacing-1 */
     color: var(--tx-2);
   }
-  .dm-popup .dm-popup-divider {
+  .dm-popover .dm-popover-divider {
     height: 1px;
-    background: var(--ui-2);
-    margin: 12px 0;                        /* spacing-3 */
+    background: var(--ui-2);              /* Flexoki ui-2 */
+    margin: 12px 0;                       /* spacing-3 */
   }
-  .dm-popup .dm-popup-row {
+  .dm-popover .dm-popover-row {
     display: flex;
-    gap: 16px;                             /* spacing-4 */
+    gap: 16px;                            /* spacing-4 */
     align-items: baseline;
     font-family: var(--font-mono);
   }
-  .dm-popup .dm-popup-row + .dm-popup-row {
-    margin-top: 4px;                       /* spacing-1 */
+  .dm-popover .dm-popover-row + .dm-popover-row {
+    margin-top: 4px;                      /* spacing-1 */
   }
-  .dm-popup .dm-popup-label {
-    font-size: 12px;                       /* text-xs */
+  .dm-popover .dm-popover-label {
+    font-size: 12px;                      /* text-xs */
     color: var(--tx-2);
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    min-width: 40px;                       /* spacing-10 */
+    min-width: 48px;                      /* spacing-12 */
   }
-  .dm-popup .dm-popup-value {
-    font-size: 14px;                       /* text-sm */
-    color: var(--tx);
-    font-variant-numeric: tabular-nums;
+  .dm-popover .dm-popover-value {
     margin-left: auto;
+    color: var(--tx);
+    font-size: 14px;                      /* text-sm */
+    line-height: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+  .dm-popover .doc-popover-tail {
+    position: absolute;
+    left: -12px;                          /* tail 8 px + gap 4 px */
+    top: var(--tail-y, 20px);
+    width: 16px;
+    height: 8px;
+    transform: rotate(90deg);
+    pointer-events: none;
+    overflow: visible;
+  }
+  .dm-popover .doc-popover-tail__fill { fill: var(--bg); }
+  .dm-popover .doc-popover-tail__stroke {
+    fill: none;
+    stroke: var(--tx-3);                  /* Flexoki tx-3 / popover_outline */
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
   }
 
   /* Shadow DOM 内では design-system.css の .resize-handle が届かないため、
@@ -184,7 +203,7 @@
       root.style.setProperty('--density-handle-width', `${Math.max(24, info.sizePx * 0.6)}px`);
       root.appendChild(info.canvas);
       if (!opts.icon) this.#attachResizeHandles(root, opts.handleState);
-      if (!opts.icon && !opts.noPopup && !info.placeholder) this.#attachPopup(root, info);
+      if (!opts.icon && !opts.noPopup && !info.placeholder) this.#attachPopover(root, info);
     }
 
     #span() {
@@ -446,30 +465,44 @@
       root.appendChild(bottom);
     }
 
-    #attachPopup(root, info) {
-      const popup = document.createElement('div');
-      popup.className = 'dm-popup';
-      root.appendChild(popup);
+    #attachPopover(root, info) {
+      const popover = document.createElement('div');
+      popover.className = 'dm-popover';
+      root.appendChild(popover);
       const { canvas, rho, n, cellPx, span, sizePx } = info;
       canvas.addEventListener('mousemove', (event) => {
         const rect = canvas.getBoundingClientRect();
         const col = Math.floor((event.clientX - rect.left) / cellPx);
         const row = Math.floor((event.clientY - rect.top) / cellPx);
         if (col < 0 || col >= n || row < 0 || row >= n) {
-          popup.style.display = 'none';
+          popover.style.display = 'none';
           return;
         }
-        popup.innerHTML = this.#popupHtml(row, col, rho, span);
-        popup.style.left = `${sizePx + 8}px`;
-        popup.style.top = `${row * cellPx}px`;
-        popup.style.display = 'block';
+        popover.innerHTML = this.#popoverHtml(row, col, rho, span);
+        popover.style.display = 'block';
+        popover.style.visibility = 'hidden';
+        const popoverHeight = popover.offsetHeight;
+        const targetY = row * cellPx + cellPx / 2;
+        const preferredTailPointY = 24;
+        const desiredTop = targetY - preferredTailPointY;
+        const maxTop = Math.max(0, sizePx - popoverHeight);
+        const top = Math.max(0, Math.min(maxTop, desiredTop));
+        const tailPointMargin = 16;
+        const tailY = Math.max(
+          tailPointMargin - 4,
+          Math.min(popoverHeight - tailPointMargin - 4, targetY - top - 4),
+        );
+        popover.style.setProperty('--tail-y', `${tailY}px`);
+        popover.style.left = `${sizePx + 12}px`;
+        popover.style.top = `${top}px`;
+        popover.style.visibility = '';
       });
       canvas.addEventListener('mouseleave', () => {
-        popup.style.display = 'none';
+        popover.style.display = 'none';
       });
     }
 
-    #popupHtml(row, col, rho, span) {
+    #popoverHtml(row, col, rho, span) {
       const n = 1 << span;
       const k = (row * n + col) * 2;
       const re = rho[k];
@@ -478,11 +511,12 @@
         const p = re * 100;
         const db = p > 0 ? `${(Math.log10(p / 100) * 10).toFixed(1)} dB` : '−∞ dB';
         return `
-          <div class="dm-popup-ket">Probability of |${this.#bin(row, span)}⟩</div>
-          <div class="dm-popup-sub">diagonal · decimal ${row}</div>
-          <div class="dm-popup-divider"></div>
-          <div class="dm-popup-row"><span class="dm-popup-label">P</span><span class="dm-popup-value">${p.toFixed(4)}%</span></div>
-          <div class="dm-popup-row"><span class="dm-popup-label">log</span><span class="dm-popup-value">${db.replace(/^-/, '−')}</span></div>
+          <div class="dm-popover-title">Probability of |${this.#bin(row, span)}⟩</div>
+          <div class="dm-popover-sub">diagonal · decimal ${row}</div>
+          <div class="dm-popover-divider"></div>
+          <div class="dm-popover-row"><span class="dm-popover-label">P</span><span class="dm-popover-value">${p.toFixed(4)}%</span></div>
+          <div class="dm-popover-row"><span class="dm-popover-label">log P</span><span class="dm-popover-value">${db.replace(/^-/, '−')}</span></div>
+          ${this.#popoverTail()}
         `;
       }
       const mag = Math.sqrt(re * re + im * im);
@@ -490,12 +524,22 @@
       const phaseSign = phase >= 0 ? '+' : '−';
       const imSign = im >= 0 ? '+' : '−';
       return `
-        <div class="dm-popup-ket">Coupling of |${this.#bin(row, span)}⟩ to ⟨${this.#bin(col, span)}|</div>
-        <div class="dm-popup-sub">off-diagonal · decimal ${row} to ${col}</div>
-        <div class="dm-popup-divider"></div>
-        <div class="dm-popup-row"><span class="dm-popup-label">val</span><span class="dm-popup-value">${re.toFixed(6)} ${imSign} ${Math.abs(im).toFixed(6)}i</span></div>
-        <div class="dm-popup-row"><span class="dm-popup-label">mag</span><span class="dm-popup-value">${mag.toFixed(6)}</span></div>
-        <div class="dm-popup-row"><span class="dm-popup-label">phase</span><span class="dm-popup-value">${phaseSign}${Math.abs(phase).toFixed(2)}°</span></div>
+        <div class="dm-popover-title">Coupling of |${this.#bin(row, span)}⟩ to ⟨${this.#bin(col, span)}|</div>
+        <div class="dm-popover-sub">off-diagonal · decimal ${row} to ${col}</div>
+        <div class="dm-popover-divider"></div>
+        <div class="dm-popover-row"><span class="dm-popover-label">val</span><span class="dm-popover-value">${re.toFixed(6)} ${imSign} ${Math.abs(im).toFixed(6)}i</span></div>
+        <div class="dm-popover-row"><span class="dm-popover-label">mag</span><span class="dm-popover-value">${mag.toFixed(6)}</span></div>
+        <div class="dm-popover-row"><span class="dm-popover-label">phase</span><span class="dm-popover-value">${phaseSign}${Math.abs(phase).toFixed(2)}°</span></div>
+        ${this.#popoverTail()}
+      `;
+    }
+
+    #popoverTail() {
+      return `
+        <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+          <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+        </svg>
       `;
     }
 

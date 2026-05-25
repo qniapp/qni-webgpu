@@ -51,6 +51,42 @@ test('密度行列表示ブロックのカスタム要素は中間混合状態�
   assert.match(source, /name === 'mixed50'[\s\S]*#fillBellMix\(buf, n, 0\.5\)/)
 })
 
+test('密度行列表示ブロックのカスタム要素は吹き出し型ポップオーバー外装を使う', async () => {
+  const source = await read('docs/design-system/components/density-matrix-display.js')
+
+  assert.match(source, /dm-popover[\s\S]*doc-popover-tail/)
+})
+
+test('密度行列表示ブロック仕様はポップオーバー仕様ページへリンクする', async () => {
+  const source = await read('docs/design-system/density-matrix-display.html')
+
+  assert.match(source, /href="density-matrix-display-popover\.html"/)
+})
+
+test('密度行列表示ブロック仕様は旧ポップアップ実例を持たない', async () => {
+  const source = await read('docs/design-system/density-matrix-display.html')
+
+  assert.doesNotMatch(source, /class="dm-popup"/)
+})
+
+test('密度行列表示ブロックのカスタム要素は旧ポップアップ API 名を残さない', async () => {
+  const source = await read('docs/design-system/components/density-matrix-display.js')
+
+  assert.doesNotMatch(source, /dm-popup|#attachPopup|#popupHtml/)
+})
+
+test('密度行列表示ポップオーバー仕様は共通 tail を持つ', async () => {
+  const source = await read('docs/design-system/density-matrix-display-popover.html')
+
+  assert.match(source, /doc-popover-tail doc-popover-tail--left/)
+})
+
+test('デザインシステムは密度行列表示ポップオーバーをコンポーネント別ポップオーバーに載せる', async () => {
+  const source = await read('docs/design-system.html')
+
+  assert.match(source, /href="design-system\/density-matrix-display-popover\.html"/)
+})
+
 test('密度行列表示ブロック仕様は実装仕様ページへリンクする', async () => {
   const source = await read('docs/design-system/density-matrix-display.html')
 
