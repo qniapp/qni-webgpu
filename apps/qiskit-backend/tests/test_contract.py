@@ -379,13 +379,29 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["Measure", "H"]], 2)
         self.assertEqual(fake.ops, [("h", 1), ("measure", 0, 0)])
 
-    def test_qiskit_builder_rejects_controlled_measurement(self):
+    def test_qiskit_builder_ignores_controls_for_measurement(self):
         class FakeCircuit:
-            def measure(self, _wire, _bit):
-                pass
+            def __init__(self):
+                self.ops = []
 
-        with self.assertRaises(CircuitBuildError):
-            apply_columns_to_qiskit(FakeCircuit(), [["•", "Measure"]], 2)
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Measure"]], 2)
+        self.assertEqual(fake.ops, [("measure", 1, 1)])
+
+    def test_qiskit_builder_does_not_add_control_only_z_with_measurement(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•", "Measure"]], 3)
+        self.assertEqual(fake.ops, [("measure", 2, 2)])
 
     def test_qiskit_display_saves_measures_before_probability_save(self):
         class FakeCircuit:

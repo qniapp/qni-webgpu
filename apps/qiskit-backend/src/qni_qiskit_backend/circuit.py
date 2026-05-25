@@ -206,8 +206,8 @@ def apply_measurements(
 ) -> None:
     if not measurement_wires:
         return
-    if controls or anti_controls:
-        raise CircuitBuildError("controlled Measurement is not supported by the dev Qiskit runner yet")
+    # qni/WebGPU does not model controlled Measurement; column controls are ignored.
+    del controls, anti_controls
     for wire in measurement_wires:
         qc.measure(wire, wire)
 

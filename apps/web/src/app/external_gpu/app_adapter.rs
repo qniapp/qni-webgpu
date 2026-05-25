@@ -82,7 +82,9 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         for gate in placed_gates.iter().filter(|gate| gate.column == column) {
             if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
                 has_control = true;
-            } else if supported_external_controlled_target(gate.kind) {
+            } else if supported_external_controlled_target(gate.kind)
+                || gate.kind == GateKind::Measurement
+            {
             } else if matches!(
                 gate.kind,
                 GateKind::AmplitudeDisplay
@@ -509,13 +511,23 @@ mod tests {
     }
 
     #[test]
-    fn external_gpu_rejects_controlled_measurement_gate() {
+    fn external_gpu_accepts_controlled_measurement_gate() {
         let gates = [
             PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
             PlacedGate::new(2, GateKind::Measurement, 0, 1, 1, None),
         ];
 
-        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("M"));
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_anti_controlled_measurement_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Measurement, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
