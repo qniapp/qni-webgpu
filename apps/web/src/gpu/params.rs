@@ -453,7 +453,10 @@ pub(crate) struct BlochOverlayParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],
-    pub(crate) tip_color: [f32; 4],
+    pub(crate) tip_0_color: [f32; 4],
+    pub(crate) tip_mid_color: [f32; 4],
+    pub(crate) tip_1_color: [f32; 4],
+    pub(crate) tip_outline_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
 }
 

@@ -20,7 +20,10 @@ pub(crate) struct BlochOverlayCallback {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],
-    pub(crate) tip_color: [f32; 4],
+    pub(crate) tip_0_color: [f32; 4],
+    pub(crate) tip_mid_color: [f32; 4],
+    pub(crate) tip_1_color: [f32; 4],
+    pub(crate) tip_outline_color: [f32; 4],
     pub(crate) zero_color: [f32; 4],
     pub(crate) external_uploads: Option<ExternalBlochUploadBatch>,
 }
@@ -80,7 +83,10 @@ impl egui_wgpu::CallbackTrait for BlochOverlayCallback {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
             line_color: self.line_color,
-            tip_color: self.tip_color,
+            tip_0_color: self.tip_0_color,
+            tip_mid_color: self.tip_mid_color,
+            tip_1_color: self.tip_1_color,
+            tip_outline_color: self.tip_outline_color,
             zero_color: self.zero_color,
         };
         if resources.bloch.last_overlay_params != Some(params) {

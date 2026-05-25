@@ -11,10 +11,11 @@
   const EPS = 1e-3;
   const RADIUS = 19;
   const CENTER = 20;
-  const TIP_RADIUS = 3;
+  const TIP_RADIUS = 4;
   const COLORS = Object.freeze({
-    red600: [175, 48, 41],   // Flexoki red-600 / semantic_off / |0⟩
-    blue600: [32, 94, 166],  // Flexoki blue-600 / semantic_on / |1⟩
+    red300: [232, 112, 95],    // Flexoki red-300 / brighter saturated trial / |0⟩
+    purple400: [139, 126, 200], // Flexoki purple-400 / brighter saturated trial / equator
+    blue300: [102, 160, 200],   // Flexoki blue-300 / brighter saturated trial / |1⟩
   });
 
   const TEMPLATE = document.createElement('template');
@@ -62,8 +63,16 @@
   }
   :host([zoom]) .axis { stroke-width: 0.25; }
   :host([zoom]) .vec { stroke-width: 0.375; }
-  .tip { fill: var(--red-600); }       /* 既定は |0⟩ 側の Flexoki red-600 */
-  .zero { fill: var(--tx-3); }         /* Flexoki tx-3 / inactive */
+  .tip {
+    fill: var(--red-300);              /* Flexoki red-300 / brighter saturated trial */
+    stroke: var(--tx);                 /* Flexoki tx / 1px black outline */
+    stroke-width: 1;
+  }
+  .zero {
+    fill: var(--tx-3);                 /* Flexoki tx-3 / inactive */
+    stroke: var(--tx);                 /* Flexoki tx / 1px black outline */
+    stroke-width: 1;
+  }
 
   .bd-popup {
     position: absolute;
@@ -243,8 +252,9 @@
     }
 
     #tipColor(z) {
-      const t = Math.min(1, Math.max(0, (z + 1) * 0.5));
-      const rgb = COLORS.blue600.map((blue, i) => Math.round(blue * (1 - t) + COLORS.red600[i] * t));
+      const t = Math.min(1, Math.max(0, Math.abs(z)));
+      const target = z >= 0 ? COLORS.red300 : COLORS.blue300;
+      const rgb = COLORS.purple400.map((mid, i) => Math.round(mid * (1 - t) + target[i] * t));
       return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
     }
 

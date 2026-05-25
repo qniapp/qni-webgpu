@@ -209,7 +209,7 @@
       <div class="meta">
         <code class="token">--blue-300</code>
         <span class="hex">#66A0C8</span>
-        <p class="role">FPS HUD CPU プロット線</p>
+        <p class="role">FPS HUD CPU プロット線 / ブロッホ tip (z=-1、明るい高彩度)</p>
       </div>
     </div>
     <div class="swatch">
@@ -237,7 +237,7 @@
       <div class="meta">
         <code class="token">--purple-400</code>
         <span class="hex">#8B7EC8</span>
-        <p class="role">ホバー枠 / FPS HUD total 線</p>
+        <p class="role">ホバー枠 / FPS HUD total 線 / ブロッホ tip (赤道、明るい高彩度)</p>
       </div>
     </div>
     <div class="swatch">
@@ -253,11 +253,27 @@
   <h3 style="margin: 16px 0 4px;">Semantic (意味付き)</h3>
   <div class="swatch-grid">
     <div class="swatch">
+      <div class="chip" style="background: #E8705F;"></div>
+      <div class="meta">
+        <code class="token">--red-300</code>
+        <span class="hex">#E8705F</span>
+        <p class="role">ブロッホ tip (z=+1、明るい高彩度)</p>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="chip" style="background: #D14D41;"></div>
+      <div class="meta">
+        <code class="token">--red-400</code>
+        <span class="hex">#D14D41</span>
+        <p class="role">明るい赤の補助トーン</p>
+      </div>
+    </div>
+    <div class="swatch">
       <div class="chip" style="background: #AF3029;"></div>
       <div class="meta">
         <code class="token">--red-600</code>
         <span class="hex">#AF3029</span>
-        <p class="role">|0⟩ digit / 測定 0 / ブロッホ tip (z=+1) / GPU failed</p>
+        <p class="role">|0⟩ digit / 測定 0 / GPU failed</p>
       </div>
     </div>
     <div class="swatch">
@@ -347,7 +363,10 @@
       <tr><td><code>span_resize_handle_bg</code></td><td><code>cyan-400</code></td><td>リサイズハンドル default 色</td></tr>
       <tr><td><code>span_resize_handle_bg_hover</code></td><td><code>cyan-600</code></td><td>リサイズハンドル hover / active 色</td></tr>
       <tr><td><code>bloch_sphere_lines</code></td><td><code>tx-3</code></td><td>ブロッホ球 軸 / 緯線 / 経線</td></tr>
-      <tr><td><code>bloch_vector_tip</code></td><td><code>red-600</code></td><td>ブロッホ tip (z=+1 側、reduced は equator gradient)</td></tr>
+      <tr><td><code>bloch_vector_tip_0</code></td><td><code>red-300</code></td><td>ブロッホ tip (z=+1 側、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_mid</code></td><td><code>purple-400</code></td><td>ブロッホ tip (赤道、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_1</code></td><td><code>blue-300</code></td><td>ブロッホ tip (z=-1 側、明るい高彩度)</td></tr>
+      <tr><td><code>bloch_vector_tip_outline</code></td><td><code>tx</code></td><td>ブロッホ tip / |v|=0 中心ドットの 1 px 輪郭線</td></tr>
       <tr><td><code>bloch_vector_zero</code></td><td><code>tx-3</code></td><td>ブロッホ |v|=0 中心ドット (非アクティブ)</td></tr>
       <tr><td><code>gpu_status_running</code></td><td><code>blue-600</code></td><td>GPU 実行中 status</td></tr>
       <tr><td><code>gpu_status_completed</code></td><td><code>green-600</code></td><td>GPU 完了 status</td></tr>

@@ -187,8 +187,8 @@ impl QniApp {
             }
             if gate.kind == GateKind::BlochDisplay && self.bloch_display_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
-                // or before the first frame's GPU dispatch). Show qni's
-                // d=0 blue dot via egui until the GPU overlay takes over.
+                // or before the first frame's GPU dispatch). Show the
+                // inactive tx-3 center dot via egui until the GPU overlay takes over.
                 draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
             }
         }
@@ -454,8 +454,8 @@ impl QniApp {
                 );
                 let center = gate_rect.center();
                 let sphere_radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
-                // 4px slack covers the 3px tip dot + 1px AA fringe.
-                let outer = sphere_radius + 4.0;
+                // 6px slack covers the 4px tip dot + 1px outline + AA fringe.
+                let outer = sphere_radius + 6.0;
                 Some(BlochOverlayInstance {
                     center: [center.x, center.y],
                     radius: sphere_radius,
@@ -472,7 +472,10 @@ impl QniApp {
                 // Same gamma story as `RenderColors::new` — surface is
                 // rgba8unorm so we hand the GPU sRGB bytes, not linear.
                 line_color: colors.bloch_vector_line.to_normalized_gamma_f32(),
-                tip_color: colors.bloch_vector_tip.to_normalized_gamma_f32(),
+                tip_0_color: colors.bloch_vector_tip_0.to_normalized_gamma_f32(),
+                tip_mid_color: colors.bloch_vector_tip_mid.to_normalized_gamma_f32(),
+                tip_1_color: colors.bloch_vector_tip_1.to_normalized_gamma_f32(),
+                tip_outline_color: colors.bloch_vector_tip_outline.to_normalized_gamma_f32(),
                 zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu_bloch_uploads.clone(),
             };

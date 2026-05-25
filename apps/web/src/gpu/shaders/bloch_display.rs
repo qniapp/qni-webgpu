@@ -83,7 +83,10 @@ struct OverlayParams {
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
   line_color: vec4<f32>,
-  tip_color: vec4<f32>,
+  tip_0_color: vec4<f32>,
+  tip_mid_color: vec4<f32>,
+  tip_1_color: vec4<f32>,
+  tip_outline_color: vec4<f32>,
   zero_color: vec4<f32>,
 };
 
@@ -163,7 +166,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   );
 
   let line_half: f32 = 0.75;
-  let tip_radius: f32 = 3.0;
+  let tip_radius: f32 = 4.0;
   let edge: f32 = 0.75;
 
   let dist_line = line_distance(input.local, vec2<f32>(0.0, 0.0), tip);
@@ -175,12 +178,58 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     let line_rgb = params.line_color.rgb;
     color = vec4<f32>(line_rgb * line_alpha, line_alpha);
   }
-  let tip_rgb = select(params.tip_color.rgb, params.zero_color.rgb, mag < 1.0e-3);
-  let tip_alpha = 1.0 - smoothstep(tip_radius - edge, tip_radius + edge, dist_tip);
-  color = vec4<f32>(
-    color.rgb * (1.0 - tip_alpha) + tip_rgb * tip_alpha,
-    color.a * (1.0 - tip_alpha) + tip_alpha,
-  );
+  if (mag > 1.0e-3) {
+    let positive_t = clamp(bloch.z, 0.0, 1.0);
+    let negative_t = clamp(-bloch.z, 0.0, 1.0);
+    let positive_rgb = mix(params.tip_mid_color.rgb, params.tip_0_color.rgb, positive_t);
+    let active_rgb = mix(positive_rgb, params.tip_1_color.rgb, negative_t);
+
+    let tip_alpha = 1.0 - smoothstep(tip_radius - edge, tip_radius + edge, dist_tip);
+    color = vec4<f32>(
+      color.rgb * (1.0 - tip_alpha) + active_rgb * tip_alpha,
+      color.a * (1.0 - tip_alpha) + tip_alpha,
+    );
+
+    let outline_half: f32 = 0.5;
+    let outline_outer = 1.0 - smoothstep(
+      tip_radius + outline_half - edge,
+      tip_radius + outline_half + edge,
+      dist_tip,
+    );
+    let outline_inner = 1.0 - smoothstep(
+      tip_radius - outline_half - edge,
+      tip_radius - outline_half + edge,
+      dist_tip,
+    );
+    let outline_alpha = clamp(outline_outer - outline_inner, 0.0, 1.0);
+    color = vec4<f32>(
+      color.rgb * (1.0 - outline_alpha) + params.tip_outline_color.rgb * outline_alpha,
+      color.a * (1.0 - outline_alpha) + outline_alpha,
+    );
+  } else {
+    let tip_alpha = 1.0 - smoothstep(tip_radius - edge, tip_radius + edge, dist_tip);
+    color = vec4<f32>(
+      color.rgb * (1.0 - tip_alpha) + params.zero_color.rgb * tip_alpha,
+      color.a * (1.0 - tip_alpha) + tip_alpha,
+    );
+
+    let outline_half: f32 = 0.5;
+    let outline_outer = 1.0 - smoothstep(
+      tip_radius + outline_half - edge,
+      tip_radius + outline_half + edge,
+      dist_tip,
+    );
+    let outline_inner = 1.0 - smoothstep(
+      tip_radius - outline_half - edge,
+      tip_radius - outline_half + edge,
+      dist_tip,
+    );
+    let outline_alpha = clamp(outline_outer - outline_inner, 0.0, 1.0);
+    color = vec4<f32>(
+      color.rgb * (1.0 - outline_alpha) + params.tip_outline_color.rgb * outline_alpha,
+      color.a * (1.0 - outline_alpha) + outline_alpha,
+    );
+  }
 
   if (color.a < 1.0e-3) {
     discard;
