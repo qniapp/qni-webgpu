@@ -64,6 +64,48 @@
       transform-origin: center;
     }
 
+    .circuit-hover-host {
+      width: 48px;                       /* GATE_SIZE + expand(4px) × 2 */
+      height: 48px;
+      border: 2px solid var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
+      border-radius: 10px;               /* rounded gate hover frame */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
+      box-sizing: border-box;
+    }
+    .circuit-hover-host p-gate {
+      pointer-events: none;              /* 内側の :host(:hover) surface gap を出さない */
+    }
+
+    .geo-diagram {
+      display: flex;
+      align-items: center;
+      gap: 32px;                         /* spacing-8 */
+      padding: 16px 0;                   /* spacing-4 */
+      flex-wrap: wrap;
+    }
+    .glyph-diagram {
+      display: block;
+      width: 192px;                      /* spacing-48 */
+      height: 192px;
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    .geo-diagram .legend {
+      font-family: var(--font-mono);
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+    .geo-diagram .legend p {
+      margin: 0 0 4px;                   /* spacing-1 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+    }
+    .geo-diagram .legend strong { color: var(--tx); }
+
     .responsibility-grid,
     .decision-grid {
       display: grid;
@@ -161,12 +203,12 @@
   <div class="card">
     <p>
       共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
-      本ページは Phase ゲート (Φ / 位相 θ) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱う。ただしホバー枠は真円にせず、共通クロムの角丸枠を継承する。外装・配色・状態表現・配置方針はリンク先を参照する。
+      本ページは Phase ゲート (Φ / 位相 θ) としての意味、画面ラベル、真円本体、ラベルと内部表記を分ける判断を定義する。本体形状・配色ロール・線画グリフの具体値は § 03 を正とする。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を継承する。
     </p>
     <div class="responsibility-grid">
-      <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
-      <div class="item"><strong>p-gate.html が正</strong><span>内部表記 <code>P(θ)</code> の意味、Φ グリフ、真円本体と θ 編集を分けて扱う判断。ホバー枠は共通クロムを継承する。</span></div>
-      <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
+      <div class="item"><strong>gate-chrome.html が正</strong><span>ホバー枠、ドラッグ色、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
+      <div class="item"><strong>p-gate.html が正</strong><span><code>P(θ)</code> の意味、画面ラベル Φ、真円本体、線画グリフ、真円本体 + 角丸ホバー枠の意図的なずれ。</span></div>
+      <div class="item"><strong>個別ページで再定義しない</strong><span>共通クロムの値は再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
     </div>
   </div>
 </section>
@@ -175,7 +217,8 @@
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>Phase ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。Rz(θ) とはグローバル位相を除いて同じ位相操作を表すが、演算は内部表記 <code>P(θ)</code> と同じ行列 <code>diag(1, e<sup>iθ</sup>)</code> として説明する。デザイン上は真円形状と Φ 字形で、パラメータを持つ位相ゲートとして扱う。</p>
+    <p>Phase ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。演算は内部表記 <code>P(θ)</code> の行列 <code>diag(1, e<sup>iθ</sup>)</code> で表す。<code>Rz(θ) = diag(e<sup>-iθ/2</sup>, e<sup>iθ/2</sup>) = e<sup>-iθ/2</sup> · P(θ)</code> なので、Rz(θ) とはグローバル位相を除いて同じ位相操作を表す。</p>
+    <p>画面上は真円本体と固定の Φ 字形で「パラメータを持つ位相ゲート」を示す。現在の Φ グリフは θ の値に応じて回転する角度メータではなく、θ の編集や現在値の表示は別 UI で扱う。</p>
     <div class="stage">
       <div class="col"><div class="caption">Phase ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
     </div>
@@ -189,10 +232,12 @@
   <div class="card">
     <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ Φ 字形が各状態で破綻しないことと、真円本体に角丸ホバー枠が付くことだけを常時表示モックで確認する。</p>
     <div class="stage">
-      <div class="col"><div class="caption">既定</div><div class="actual"><p-gate></p-gate></div></div>
-      <div class="col"><div class="caption">ホバー</div><div class="actual"><p-gate state="hover"></p-gate></div></div>
-      <div class="col"><div class="caption">ドラッグプレビュー</div><div class="actual"><p-gate state="drag"></p-gate></div></div>
+      <div class="col"><div class="caption">① 既定<br />cyan-400 真円本体</div><div class="actual"><p-gate></p-gate></div></div>
+      <div class="col"><div class="caption">② 回路ホバー<br />purple-400 角丸線</div><div class="actual"><div class="circuit-hover-host"><p-gate></p-gate></div></div></div>
+      <div class="col"><div class="caption">③ パレットホバー<br />2 px 背景の空き</div><div class="actual"><p-gate state="hover"></p-gate></div></div>
+      <div class="col"><div class="caption">④ ドラッグプレビュー<br />purple-600 真円本体</div><div class="actual"><p-gate state="drag"></p-gate></div></div>
     </div>
+    <p class="note" style="margin-top: 12px;">回路上のホバーは接続線を隠さないため内部を塗らない線だけの枠にし、パレット上と仕様モックのホバーは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使う。② は回路ホバーの専用モックで、<code>&lt;p-gate state="hover"&gt;</code> 単体は ③ の surface gap 版を示す。</p>
   </div>
 </section>
 
@@ -203,12 +248,29 @@
     <table class="spec"><tbody>
       <tr><th>表記</th><td>Φ グリフ</td></tr>
       <tr><th>実体</th><td><code>components/p-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
+      <tr><th>本体</th><td>CSS 上は <code>40 × 40 px</code> の真円。<code>border-radius: 50%</code>、既定色は <code>box_fill</code> ロール (Flexoki <code>cyan-400</code>)、グリフ色は <code>bg</code> (paper)。SVG viewBox <code>0 0 48 48</code> は本体全体へ重ねる。</td></tr>
       <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
+      <tr><th>線画</th><td><code>fill="none"</code> / <code>stroke="currentColor"</code> / <code>stroke-width="2"</code> / <code>stroke-linecap="round"</code> / <code>vector-effect="non-scaling-stroke"</code>。</td></tr>
+      <tr><th>幾何</th><td>円はおおよそ <code>cx=24, cy=24.57, r=8</code>。斜線は <code>M18.29 36 → L29.71 12</code>、水平からの角度は約 <code>65°</code>。</td></tr>
       <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
-      <tr><th>字形設計</th><td>Φ は Qni の <code>phase-gate.svg</code> と同じ円 + 斜線の位相ラベル。真円形状は「パラメータを持つ位相ホイール」の比喩として使う。</td></tr>
-      <tr><th>内部表記</th><td>URL / シリアライズ上の <code>P(θ)</code> は維持する。画面上のラベルだけを Φ にする。</td></tr>
     </tbody></table>
-    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る位相ゲート固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
+    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る位相ゲート固有の情報である。θ の値を示す角度マーカではなく、固定の画面ラベルとして扱う。</p>
+    <h3 style="margin-top: 16px;">SVG ジオメトリ</h3>
+    <div class="geo-diagram">
+      <svg class="glyph-diagram" viewBox="0 0 48 48" aria-hidden="true">
+        <rect x="0" y="0" width="48" height="48" rx="24" fill="var(--cyan-400)" />
+        <path d="M18.2857 36L29.7143 12M16 24.5714C16 25.622 16.2069 26.6623 16.609 27.6329C17.011 28.6035 17.6003 29.4854 18.3431 30.2283C19.086 30.9712 19.9679 31.5604 20.9385 31.9625C21.9091 32.3645 22.9494 32.5714 24 32.5714C25.0506 32.5714 26.0909 32.3645 27.0615 31.9625C28.0321 31.5604 28.914 30.9712 29.6569 30.2283C30.3997 29.4854 30.989 28.6035 31.391 27.6329C31.7931 26.6623 32 25.622 32 24.5714C32 23.5209 31.7931 22.4806 31.391 21.51C30.989 20.5394 30.3997 19.6574 29.6569 18.9146C28.914 18.1717 28.0321 17.5824 27.0615 17.1804C26.0909 16.7784 25.0506 16.5714 24 16.5714C22.9494 16.5714 21.9091 16.7784 20.9385 17.1804C19.9679 17.5824 19.086 18.1717 18.3431 18.9146C17.6003 19.6574 17.011 20.5394 16.609 21.51C16.2069 22.4806 16 23.5209 16 24.5714Z" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+        <circle cx="24" cy="24.5714" r="8" fill="none" stroke="var(--tx-2)" stroke-width="0.7" stroke-dasharray="2 2" />
+        <line x1="18.2857" y1="36" x2="29.7143" y2="12" stroke="var(--tx-2)" stroke-width="0.7" stroke-dasharray="2 2" />
+      </svg>
+      <div class="legend">
+        <p><strong>真円本体</strong> · CSS <code>40 × 40 px</code> = viewBox <code>48 × 48</code>、Flexoki <code>cyan-400</code> / <code>box_fill</code></p>
+        <p><strong>Φ の円</strong> · viewBox 上で <code>r≈8</code>、stroke 幅 <code>2</code></p>
+        <p><strong>斜線</strong> · <code>M18.29 36 → L29.71 12</code>、約 <code>65°</code></p>
+        <p><strong>グリフ色</strong> · <code>bg</code> (paper)。本体色や θ 値には連動しない</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">SVG ジオメトリは寸法仕様の正、下の 3× 表示は実装が仕様どおりに描けているかを見る目視ガードである。</p>
     <div class="stage">
       <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
       <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><p-gate></p-gate></div></div>
@@ -220,9 +282,9 @@
 <section class="block">
   <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
   <div class="card">
-    <p>Phase ゲートは 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は本体クロムではなく、別の編集 UI で扱う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
+    <p>Phase ゲートは 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は本体クロムではなく、別の編集 UI で扱う。ポップオーバーの外装・余白・尾の描画は <a href="popover.html">popover.html</a> を参照する。スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
     <div class="slot-mock with-grid"><div class="wire" aria-hidden="true"><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div></div></div>
-    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。位相ゲート固有の配置差分だけを本ページで扱う。</p>
+    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。位相ゲート固有の配置差分だけを本ページで扱う。θ 編集 UI の起動トリガと入力フォームの詳細は、Rx / Ry / Rz / Phase にまたがる共通仕様として別途確定する。</p>
   </div>
 </section>
 
@@ -230,8 +292,8 @@
 <section class="block">
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
-    <p>設計判断は「共通クロムからの継承」「位相ゲート固有」「妥協と将来対応」に分ける。これにより、位相ゲートだけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>配色ロール、角丸ホバー枠、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>位相ゲート固有</strong><span>可変位相であることは Φ 字形と編集 UI で示し、θ の値を本体色へ直接埋め込まない。本体だけを真円として扱う。</span></div><div class="item"><strong>妥協と将来対応</strong><span>θ の現在値を表示する場合は、ゲート本体の共通クロムではなく、パラメータ表示や編集ポップオーバの仕様として扱う。</span></div></div>
+    <p>設計判断は「共通クロムからの継承」「位相ゲート固有」「ラベルと内部表記」「パラメータ表示方針」に分ける。これにより、位相ゲートだけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>本体色は <code>box_fill</code>、ホバー枠は <code>gate_hover_border</code>、ドラッグ中は <code>drag_fill</code> を使う。Phase だけ色を変えると S / T / Z / Rz との同系性が崩れるため、配色ロールは共有する。</span></div><div class="item"><strong>位相ゲート固有</strong><span>本体だけを真円にし、固定の Φ 字形で可変位相ゲートだと示す。ホバー枠は真円にせず、共通クロムの角丸 10 px 枠を使う。Phase だけ真円ホバー枠に変える場合も、まず共通クロム全体への影響を確認する。</span></div><div class="item"><strong>ラベルと内部表記</strong><span>画面上のラベルは Φ。URL / シリアライズ / 内部表記は既存の <code>P</code> / <code>P(θ)</code> を維持し、共有リンクや保存済み回路との互換性を壊さない。</span></div><div class="item"><strong>パラメータ表示方針</strong><span>θ の現在値はゲート本体へ埋め込まない。40 px 本体では Φ の識別性を優先し、現在値や編集フォームはパラメータ表示またはポップオーバー側で扱う。</span></div></div>
   </div>
 </section>
 
@@ -261,7 +323,19 @@
         </tr>
         <tr>
           <td><a href="rz-gate.html">Rz ゲート</a></td>
-          <td>グローバル位相を除いて同じ位相操作を表す回転ゲート。</td>
+          <td>グローバル位相を除いて同じ位相操作を表す Z 軸回転ゲート。</td>
+        </tr>
+        <tr>
+          <td><a href="rx-gate.html">Rx ゲート</a></td>
+          <td>同じ θ パラメータを持つ X 軸回転ゲート。Phase とは回転軸が異なる。</td>
+        </tr>
+        <tr>
+          <td><a href="ry-gate.html">Ry ゲート</a></td>
+          <td>同じ θ パラメータを持つ Y 軸回転ゲート。Phase とは回転軸が異なる。</td>
+        </tr>
+        <tr>
+          <td><a href="popover.html">ポップオーバー</a></td>
+          <td>θ 編集 UI や現在値表示に使う外装・余白・尾の共通仕様。</td>
         </tr>
         <tr>
           <td><a href="design-system-colors.html">配色</a></td>
@@ -271,7 +345,8 @@
           <td><a href="design-system-typography.html">タイポグラフィ</a></td>
           <td>Geist / Geist Mono のスケールと使い分け。</td>
         </tr>
-  </tbody></table></div>
+  </tbody></table>
+  </div>
 </section>
 
 <footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · Phase ゲート (Φ / 位相 θ) · 2026-05</p></footer>
