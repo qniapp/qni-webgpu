@@ -12,10 +12,11 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- H ゲートと密度行列表示ブロックは正規のカスタム要素で描画する。
-       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○ / B / P / A) はコンポーネント化が済むまで
+  <!-- H ゲート、ブロッホ球表示ブロック、密度行列表示ブロックは正規のカスタム要素で描画する。
+       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○ / P / A) はカスタム要素化が済むまで
        .vd-cell の色付きラベルで暫定表示する。 -->
   <script src="components/h-gate.js"></script>
+  <script src="components/bloch-display.js"></script>
   <script src="components/density-matrix-display.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
@@ -69,11 +70,6 @@
       font-size: 12px; /* text-xs */
       line-height: 16px;
     }
-    .vd-cell--bloch {
-      border-radius: 999px;
-      background: var(--bg-2);
-      color: var(--blue-600);
-    }
     .vd-preview-strip {
       display: flex;
       align-items: stretch;
@@ -102,6 +98,12 @@
       color: var(--blue-600);
       border: 1px solid var(--ui-2);
       border-radius: 999px;
+    }
+    .vd-preview-bloch {
+      width: 32px; /* spacing-8 */
+      height: 32px;
+      align-self: center;
+      flex: 0 0 auto;
     }
     .vd-callout {
       display: grid;
@@ -170,7 +172,7 @@
     <div class="vd-preview-mini">RY</div>
     <div class="vd-preview-mini">RZ</div>
     <div class="vertical-divider"></div>
-    <div class="vd-preview-mini vd-preview-mini--display">B</div>
+    <bloch-display class="vd-preview-bloch" icon no-popup></bloch-display>
     <div class="vd-preview-mini vd-preview-mini--display">ρ</div>
   </div>
 </div>
@@ -221,7 +223,7 @@
         <div class="vertical-divider" aria-hidden="true"></div>
         <div class="vd-section" role="group" aria-label="表示ブロック群">
           <div class="vd-row">
-            <div class="vd-cell vd-cell--display vd-cell--bloch">B</div>
+            <bloch-display icon no-popup></bloch-display>
             <div class="vd-cell vd-cell--display">P</div>
           </div>
           <div class="vd-row">

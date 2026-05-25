@@ -1,6 +1,6 @@
 import unittest
 
-from qni_qiskit_backend.circuit import apply_columns_to_qiskit
+from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit
 from qni_qiskit_backend.contract import ContractError, parse_run_request
 from qni_qiskit_backend.runners import (
     MockRunner,
@@ -227,6 +227,48 @@ class ContractTests(unittest.TestCase):
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["Density2"]], 2)
         self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_applies_write0_to_deterministic_one(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["X"], ["|0>"]], 1)
+        self.assertEqual(fake.ops, [("x", 0), ("x", 0)])
+
+    def test_qiskit_builder_rejects_write0_after_superposition(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+        with self.assertRaises(CircuitBuildError):
+            apply_columns_to_qiskit(FakeCircuit(), [["H"], ["|0>"]], 1)
+
+    def test_qiskit_display_saves_tracks_write0_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+        fake = FakeCircuit()
+        request = parse_run_request({"qubits": 1, "columns": [["X"], ["|0>"]]})
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0), ("x", 0)])
+
+    def test_qiskit_display_saves_rejects_write0_after_superposition(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+        request = parse_run_request({"qubits": 1, "columns": [["H"], ["|0>"]]})
+        with self.assertRaises(CircuitBuildError):
+            add_display_saves(FakeCircuit(), request, lambda axis: axis)
 
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:

@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
-from .circuit import apply_column_to_qiskit
+from .circuit import apply_column_to_qiskit, initial_basis_tracker
 from .contract import (
     AmplitudeOutputRequest,
     BlochOutputRequest,
@@ -126,8 +126,9 @@ def add_display_saves(
     probability_labels: dict[int, str] = {}
     density_labels: dict[int, str] = {}
     basis = qiskit_basis_order(request.qubits)
+    basis_tracker = initial_basis_tracker(request.qubits)
     for column_index, column in enumerate(request.columns):
-        apply_column_to_qiskit(qc, column, request.qubits)
+        apply_column_to_qiskit(qc, column, request.qubits, basis_tracker)
         for amplitude in amplitudes_by_column.get(column_index, []):
             label = f"amplitude:{amplitude.gate_id}"
             qc.save_amplitudes(basis, label=label)

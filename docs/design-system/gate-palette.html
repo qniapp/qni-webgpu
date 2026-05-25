@@ -13,7 +13,7 @@
     }
   </script>
   <!-- カスタム要素化済みのゲート / 表示ブロックを使う箇所向けに読み込む。
-       本体描画は各 <*-gate> / <*-display> に集約し、gp-gate ラップ側は palette 専用のクロム (hover frame / tooltip / grab cursor) を提供する。 -->
+       本体描画は各カスタム要素に集約し、gp-gate ラップ側はパレット専用のクロム (ホバー枠 / ツールチップ / ドラッグ開始カーソル) を提供する。 -->
   <script src="components/h-gate.js"></script>
   <script src="components/x-gate.js"></script>
   <script src="components/swap-gate.js"></script>
@@ -37,6 +37,7 @@
   <script src="components/measurement-gate.js"></script>
   <script src="components/spacer-gate.js"></script>
   <script src="components/probability-display.js"></script>
+  <script src="components/bloch-display.js"></script>
   <script src="components/density-matrix-display.js"></script>
   <style>
 
@@ -99,6 +100,7 @@
     .gp-gate > measurement-gate,
     .gp-gate > spacer-gate,
     .gp-gate > probability-display,
+    .gp-gate > bloch-display,
     .gp-gate > density-matrix-display {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
@@ -203,39 +205,14 @@
 </div>
 
 <!--
-  共通 SVG シンボル定義 — Web Component 化していない表示ブロックと、一部の既存プリミティブを viewBox="0 0 48 48" で統一。
-  ゲート本体、確率表示ブロック、密度行列表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
-  ブロッホ軸 / Amps Q ロゴなどの primitive は
+  共通 SVG シンボル定義 — カスタム要素化していない振幅表示ブロックを viewBox="0 0 48 48" で統一。
+  ゲート本体と確率 / ブロッホ球 / 密度行列表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
+  Amps Q ロゴの primitive は
   「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
     stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
 -->
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
-
-
-
-
-    <!--
-      ─ Bloch sphere ─
-        body: bloch_sphere_bg (bg-2) fill + 1.5 px bloch_sphere_lines (tx-3) stroke, radius (width/2 - 1) display
-              = 19 display = 22.8 viewbox
-        軸: bloch_sphere_lines (tx-3), 1 px stroke = 1.2 viewbox
-          - 横線: (-r, 0)..(r, 0) → (1.2, 24)..(46.8, 24)
-          - 縦線: (0, -r)..(0, r) → (24, 1.2)..(24, 46.8)
-          - NE-SW 対角 (diag = 0.3 * 19 = 5.7 display = 6.84 viewbox)
-          - 縦楕円: rx=0.36 r = 6.84 display = 8.208 viewbox / ry=22.8
-          - 横楕円: rx=22.8 / ry=8.208
-        中央 dot: bloch_vector_zero = blue-600, radius 3 display = 3.6 viewbox
-    -->
-    <symbol id="g-Bloch" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="22.8" fill="#F2F0E5" stroke="#B7B5AC" stroke-width="1.8"/>
-      <line x1="1.2" y1="24" x2="46.8" y2="24" stroke="#B7B5AC" stroke-width="1.2"/>
-      <line x1="24" y1="1.2" x2="24" y2="46.8" stroke="#B7B5AC" stroke-width="1.2"/>
-      <line x1="17.16" y1="30.84" x2="30.84" y2="17.16" stroke="#B7B5AC" stroke-width="1.2"/>
-      <ellipse cx="24" cy="24" rx="8.208" ry="22.8" fill="none" stroke="#B7B5AC" stroke-width="1.2"/>
-      <ellipse cx="24" cy="24" rx="22.8" ry="8.208" fill="none" stroke="#B7B5AC" stroke-width="1.2"/>
-      <circle cx="24" cy="24" r="3.6" fill="#205EA6"/>
-    </symbol>
 
 
 
@@ -308,7 +285,7 @@
         <!-- Display section (2 × 2 grid; 4 slots) -->
         <div class="gp-section">
           <div class="gp-row">
-            <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><svg width="40" height="40"><use href="#g-Bloch"/></svg><span class="tip">ブロッホ球表示ブロック</span></div>
+            <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popup></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
             <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
           </div>
           <div class="gp-row">
@@ -319,7 +296,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      字形描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みゲートと表示ブロックは各 <code>&lt;*-gate&gt;</code> / <code>&lt;*-display&gt;</code> が正規描画を共有し、未移行のブロッホ球表示ブロック / 振幅表示ブロックは静的 SVG 要素で近似する (字形の細部やエイリアシングは実装と完全一致しない)。
+      字形描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有し、未移行の振幅表示ブロックは静的 SVG 要素で近似する (字形の細部やエイリアシングは実装と完全一致しない)。
       レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
     </p>
   </div>
@@ -395,7 +372,7 @@
 
     <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (4 個 / indices 16, 20, 24, 25)</h3>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Bloch"/></svg></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
+      <div class="item"><div class="gp-gate"><bloch-display icon no-popup></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
       <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Amps"/></svg></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
       <div class="item"><div class="gp-gate"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
@@ -470,7 +447,7 @@
         <tr><td>Measurement</td><td><code>draw_meter_icon</code>: 24 点上半円弧 (cx=24, cy=36, r=20) + 針 (24.625, 33.5)→(37.75, 11.0) + ピボット円 r=3.5 · viewbox 48</td><td><code>semantic_intermediate</code> = purple-600</td></tr>
         <tr><td>Spacer</td><td>3 個の 6 × 6 正方形 at x=9, 21, 33 / y=21–27 · viewbox 48</td><td><code>spacer_dots</code> = tx (#100F0F)</td></tr>
         <tr><td>Write0 / Write1</td><td>ket bracket: 縦 (6, 5)→(6, 43) + 右上斜 (37.45, 5)→(43.5, 24) + 右下斜 (43.5, 24)→(37.45, 43)、stroke 2 px。中央に <code>Digit0</code> / <code>Digit1</code> SDF glyph</td><td>bracket: <code>semantic_disabled</code> = tx-2、digit 0: <code>semantic_off</code> = red-600、digit 1: <code>semantic_on</code> = blue-600</td></tr>
-        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = blue-600</td></tr>
+        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = tx-3</td></tr>
         <tr><td>DensityMatrixDisplay</td><td><code>draw_density_palette_icon()</code>: 2 × 2 の円セルを直接描画。対角セルは needle 省略、非対角セルのみ真上 needle</td><td>outline = <code>state_outline</code>、disk = <code>state_fill</code>、disk border = <code>popup_icon</code>、needle = <code>state_needle</code></td></tr>
       </tbody>
     </table>
