@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>密度行列表示ポップオーバー — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <script src="components/density-matrix-display.js"></script>
+  <style>
+    /* ─── 密度行列表示ポップオーバー ─────────────────────────
+       共通ポップオーバー外装 (popover.html) に、密度行列セル固有の
+       対角 / 非対角の内容を載せる。配色は Flexoki Light、寸法は Tailwind
+       の既定スケールに対応させる。 */
+    .dm-popover-stage {
+      position: relative;
+      min-height: 216px;
+      padding: 32px 24px;                /* spacing-8 / spacing-6 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      overflow: auto;
+    }
+    .dm-popover-demo {
+      position: relative;
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 12px;                         /* tail 8 px + gap 4 px */
+      min-width: 460px;
+    }
+    .dm-popover-anchor {
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .dm-popover-anchor::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--purple-400); /* Flexoki purple-400 / hover outline */
+      border-radius: 9999px;
+      pointer-events: none;
+    }
+    .dm-popover-anchor[data-cell="offdiag"]::after {
+      left: 72px;
+      top: 0;
+    }
+    .dm-popover {
+      position: relative;
+      min-width: 264px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg / paper / popover_surface */
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      white-space: nowrap;
+    }
+    .dm-popover-title {
+      font-family: var(--font-mono);
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+      color: var(--tx);                  /* Flexoki tx */
+    }
+    .dm-popover-sub {
+      margin-top: 4px;                   /* spacing-1 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+    }
+    .dm-popover-divider {
+      height: 1px;
+      margin: 12px 0;                    /* spacing-3 */
+      background: var(--ui-2);           /* Flexoki ui-2 */
+    }
+    .dm-popover-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;                         /* spacing-4 */
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .dm-popover-row + .dm-popover-row {
+      margin-top: 4px;                   /* spacing-1 */
+    }
+    .dm-popover-label {
+      min-width: 48px;                   /* spacing-12 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .dm-popover-value {
+      margin-left: auto;
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;
+    }
+    .dm-popover .doc-popover-tail {
+      position: absolute;
+      left: -12px;
+      top: var(--tail-y, 20px);
+      width: 16px;
+      height: 8px;
+      transform: rotate(90deg);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .dm-popover .doc-popover-tail__fill { fill: var(--bg); }
+    .dm-popover .doc-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);               /* Flexoki tx-3 / popover_outline */
+      stroke-width: 1.5px;
+      stroke-linejoin: round;
+    }
+
+    .density-popover-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 16px;                         /* spacing-4 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .density-popover-card {
+      padding: 12px;                     /* spacing-3 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      overflow-x: auto;
+    }
+    .density-popover-caption {
+      margin-bottom: 8px;                /* spacing-2 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+    }
+    .density-popover-card .dm-popover-demo {
+      min-width: 420px;
+    }
+
+    #preview .mini-popover {
+      position: relative;
+      width: 128px;
+      height: 48px;
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg */
+      box-shadow: 0 10px 18px rgba(16, 15, 15, 0.12);
+    }
+    #preview .mini-line {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      height: 3px;
+      border-radius: 9999px;
+      background: var(--ui-2);           /* Flexoki ui-2 */
+    }
+    #preview .mini-line:nth-child(1) { top: 10px; width: 92px; }
+    #preview .mini-line:nth-child(2) { top: 22px; width: 104px; }
+    #preview .mini-line:nth-child(3) { top: 32px; width: 70px; }
+    #preview .doc-popover-tail {
+      position: absolute;
+      left: -12px;
+      top: 20px;
+      width: 16px;
+      height: 8px;
+      transform: rotate(90deg);
+      overflow: visible;
+    }
+    #preview .doc-popover-tail__fill { fill: var(--bg); }
+    #preview .doc-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);               /* Flexoki tx-3 / popover_outline */
+      stroke-width: 1.5px;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="mini-popover" aria-hidden="true">
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+    <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" focusable="false">
+      <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+      <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+    </svg>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <a href="density-matrix-display.html">密度行列表示ブロック</a>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ポップオーバー</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · popover spec</p>
+  <h1 class="page-title">密度行列表示ポップオーバー</h1>
+  <p class="page-lede">
+    密度行列表示ブロックのセルホバー時に、対角セルの確率または非対角セルの結合を表示する詳細ポップオーバーの仕様。
+    共通の吹き出し型外装は <a href="popover.html">ポップオーバー仕様</a>に従い、本ページでは密度行列表示固有の内容、配置、数値形式を定義する。
+    密度行列本体の見た目は <a href="density-matrix-display.html">密度行列表示ブロック仕様</a>を正とする。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 役割と表示内容</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>対象</th><td><code>density-matrix-display</code> の個別セル。パレットアイコンと実行前プレースホルダでは表示しない</td></tr>
+        <tr><th>目的</th><td>セル内の disk / needle だけでは読み取りにくい <code>ρ<sub>ij</sub></code> の値、確率、絶対値、位相を数値で確認する</td></tr>
+        <tr><th>対角セル</th><td><code>i = j</code> のセルは確率として扱い、<code>P</code> と <code>log P</code> を表示する</td></tr>
+        <tr><th>非対角セル</th><td><code>i ≠ j</code> のセルは結合として扱い、複素値 <code>val</code>、絶対値 <code>mag</code>、位相 <code>phase</code> を表示する</td></tr>
+        <tr><th>外装</th><td><a href="popover.html">ポップオーバー</a>の surface / outline / radius / shadow / tail を使う。外枠は吹き出し型で、tail 方向と画面端反転は共通ポップオーバー仕様へ従う</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 アナトミー</h2>
+  <div class="card">
+    <p>
+      ポップオーバーは、タイトル、補助行、区切り線、値の行、tail で構成する。
+      通常は対象セルの右側に置き、共通ポップオーバー仕様の <code>left tail</code> でセル中心を指す。画面右端での反転規則は <a href="popover.html">ポップオーバー仕様</a> を正とする。
+    </p>
+
+    <div class="dm-popover-stage" role="img" aria-label="密度行列セルの右に表示される吹き出し型ポップオーバー">
+      <div class="dm-popover-demo">
+        <div class="dm-popover-anchor" data-cell="diag" aria-hidden="true">
+          <density-matrix-display span="2" state="bell2" no-popup></density-matrix-display>
+        </div>
+        <div class="dm-popover" style="--tail-y: 20px;">
+          <div class="dm-popover-title">Probability of |00⟩</div>
+          <div class="dm-popover-sub">diagonal · decimal 0</div>
+          <div class="dm-popover-divider"></div>
+          <div class="dm-popover-row"><span class="dm-popover-label">P</span><span class="dm-popover-value">50.0000%</span></div>
+          <div class="dm-popover-row"><span class="dm-popover-label">log P</span><span class="dm-popover-value">−3.0 dB</span></div>
+          <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+            <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+            <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 16px;">要素別の指定</h3>
+    <table class="spec" style="margin-top: 8px;">
+      <thead>
+        <tr><th>要素</th><th>フォント</th><th>サイズ</th><th>色</th><th>追加</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>タイトル</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>ket / bra を含むため等幅</td></tr>
+        <tr><td>補助行</td><td>Geist</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td><code>diagonal</code> / <code>off-diagonal</code> と decimal index</td></tr>
+        <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
+        <tr><td>ラベル</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>uppercase、min-width 48 px</td></tr>
+        <tr><td>数値</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code></td></tr>
+        <tr><td>tail</td><td>—</td><td>16 × 8 px</td><td><code>bg</code> + <code>tx-3</code></td><td>通常時は共通仕様の <code>left tail</code> を使い、セル中心を指す</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 対角 / 非対角の表示例</h2>
+  <div class="card">
+    <div class="density-popover-grid">
+      <div class="density-popover-card">
+        <div class="density-popover-caption">対角セル · 確率</div>
+        <div class="dm-popover-demo">
+          <div class="dm-popover-anchor" data-cell="diag" aria-hidden="true">
+            <density-matrix-display span="2" state="bell2" no-popup></density-matrix-display>
+          </div>
+          <div class="dm-popover" style="--tail-y: 20px;">
+            <div class="dm-popover-title">Probability of |00⟩</div>
+            <div class="dm-popover-sub">diagonal · decimal 0</div>
+            <div class="dm-popover-divider"></div>
+            <div class="dm-popover-row"><span class="dm-popover-label">P</span><span class="dm-popover-value">50.0000%</span></div>
+            <div class="dm-popover-row"><span class="dm-popover-label">log P</span><span class="dm-popover-value">−3.0 dB</span></div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="density-popover-card">
+        <div class="density-popover-caption">非対角セル · 結合</div>
+        <div class="dm-popover-demo">
+          <div class="dm-popover-anchor" data-cell="offdiag" aria-hidden="true">
+            <density-matrix-display span="2" state="bell2" no-popup></density-matrix-display>
+          </div>
+          <div class="dm-popover" style="--tail-y: 20px;">
+            <div class="dm-popover-title">Coupling of |00⟩ to ⟨11|</div>
+            <div class="dm-popover-sub">off-diagonal · decimal 0 to 3</div>
+            <div class="dm-popover-divider"></div>
+            <div class="dm-popover-row"><span class="dm-popover-label">val</span><span class="dm-popover-value">+0.500000 +0.000000i</span></div>
+            <div class="dm-popover-row"><span class="dm-popover-label">mag</span><span class="dm-popover-value">0.500000</span></div>
+            <div class="dm-popover-row"><span class="dm-popover-label">phase</span><span class="dm-popover-value">+0.00°</span></div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 数値形式</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>値</th><th>対象</th><th>表示形式</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>P</code></td><td>対角セル</td><td><code>(ρ<sub>ii</sub>.real × 100).toFixed(4) + "%"</code></td></tr>
+        <tr><td><code>log P</code></td><td>対角セル</td><td><code>10 × log10(P)</code> を <code>toFixed(1)</code> し、<code>dB</code> を付ける。0 のときは <code>−∞ dB</code></td></tr>
+        <tr><td><code>val</code></td><td>非対角セル</td><td>実部と虚部を <code>toFixed(6)</code>。虚部の符号は <code>+</code> / <code>−</code> を明示する</td></tr>
+        <tr><td><code>mag</code></td><td>非対角セル</td><td><code>|ρ<sub>ij</sub>|</code> を <code>toFixed(6)</code></td></tr>
+        <tr><td><code>phase</code></td><td>非対角セル</td><td><code>atan2(im, re)</code> を度へ変換し、符号付き <code>toFixed(2) + "°"</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 8px;">
+      対角セルでは <code>log</code> ではなく <code>log P</code> と表記し、縮約密度行列の対角確率であることを示す。
+      非対角セルは Quirk の 1 行表記を <code>val</code> 行に集約し、<code>mag</code> と <code>phase</code> を別行で読ませる。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 配置と反転</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>基本位置</th><td>対象セルの右側。セル右辺から tail 先端まで <code>4 px</code>、tail 高さ <code>8 px</code>、本体左辺までは合計 <code>12 px</code></td></tr>
+        <tr><th>tail 基準</th><td>tail の中心を対象セルの中心へ合わせる。ポップオーバーが画面端へ寄っても tail は可能な範囲で対象セルを指す</td></tr>
+        <tr><th>右端反転</th><td>右側に本体幅を確保できない場合は <a href="popover.html">ポップオーバー仕様</a> の反転規則へ委譲する。内容の行順と文字揃えは変えない</td></tr>
+        <tr><th>ヒートマップセル</th><td>span 7〜8 ではセルが小さいため、対象セルの正方形枠と tail が重ならないよう、tail 先端はセル中心ではなくセル矩形の外側 4 px に置く</td></tr>
+        <tr><th>ポインタイベント</th><td><code>pointer-events: none</code>。ポップオーバー自身はホバー判定を奪わない</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 密度行列表示ポップオーバー仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

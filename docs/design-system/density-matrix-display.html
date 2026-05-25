@@ -17,66 +17,8 @@
   <style>
 
     /* ページ固有スタイル。密度行列表示ブロック本体 / canvas / リサイズハンドル /
-       動くセルポップアップは components/density-matrix-display.js の
-       <density-matrix-display> に集約する。下の .dm-popup は § 08 の静的な仕様見本だけで使う。 */
-
-    /* ─── ホバー popup (cell 単位) ───
-       Quirk の paintMatrixTooltip + paintDensityMatrix の文言を Geist タイポグラフィへ移植。
-       対角 / 非対角でラベル文面と数値整形を切り替える。 */
-    .dm-popup {
-      position: absolute;
-      display: none;
-      pointer-events: none;
-      z-index: 50;
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 6px;
-      padding: 12px 16px;
-      font-family: var(--font-body);
-      font-size: 12px;
-      line-height: 16px;
-      color: var(--tx);
-      white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
-    }
-    .dm-popup .dm-popup-ket {
-      font-family: var(--font-mono);
-      font-size: 14px;
-      font-weight: 400;
-      letter-spacing: 0.02em;
-      color: var(--tx);
-      text-align: center;
-    }
-    .dm-popup .dm-popup-sub {
-      font-size: 12px;
-      margin-top: 4px;
-      color: var(--tx-2);
-    }
-    .dm-popup .dm-popup-divider {
-      height: 1px;
-      background: var(--ui-2);
-      margin: 12px 0;
-    }
-    .dm-popup .dm-popup-row {
-      display: flex;
-      gap: 16px;
-      align-items: baseline;
-      font-family: var(--font-mono);
-    }
-    .dm-popup .dm-popup-row + .dm-popup-row { margin-top: 4px; }
-    .dm-popup .dm-popup-label {
-      font-size: 12px;
-      color: var(--tx-2);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      min-width: 40px;
-    }
-    .dm-popup .dm-popup-value {
-      font-size: 14px;
-      color: var(--tx);
-      font-variant-numeric: tabular-nums;
-      margin-left: auto;
-    }
+       動くセルのポップオーバーは components/density-matrix-display.js の
+       <density-matrix-display> に集約する。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -226,7 +168,7 @@
       <div class="critique-label">★ 批評 · § 01 概要</div>
       <div class="critique-title">純粋度などの補助値を実 UI で常時表示するかは未決定</div>
       <p class="critique-body">
-        「振幅表示ブロックでは見えない情報」表で整理した軸を実 UI でも常時表示するかどうかは、別途判断が必要になる。特に純粋度は § 08 のポップアップ批評にもつながるが、数値表示の場所は UI 方針として未定義である。
+        「振幅表示ブロックでは見えない情報」表で整理した軸を実 UI でも常時表示するかどうかは、別途判断が必要になる。特に純粋度は § 08 のポップオーバー仕様にもつながるが、数値表示の場所は UI 方針として未定義である。
       </p>
     </aside>
   </div>
@@ -241,7 +183,7 @@
       cell 寸法 (<code>cellPx = size_px / n</code>) は span 3 以降で急速に縮む: span 1 で 20 px、span 4 で 13 px、span 5 で 8.25 px、span 7 で 2.94 px、span 8 で 1.69 px。
       cellPx に応じてレイヤを段階的に省略する (§ 06): <strong><code>cellPx ≥ 12</code> = outline + disk + needle / <code>cellPx ∈ [3, 12)</code> = outline + disk (needle 省略) / <code>cellPx &lt; 3</code> = heatmap (mag を alpha に潰す dense mode)</strong>。
       対角 / 非対角ともに <em>outline 円 + magnitude disk</em> で描き、disk 半径は対角なら <code>ρ<sub>ii</sub></code> (= 確率)、非対角なら <code>|ρ<sub>ij</sub>|</code>。対角は実数 (位相 0) なので needle のみ省略する。
-      各セルにマウスを乗せると Quirk と同じ tooltip 内容 (対角は <code>Probability of |k⟩</code> / 非対角は <code>Coupling of |row⟩ to ⟨col|</code>) をポップアップ表示する。
+      各セルにマウスを乗せると Quirk と同じ補足内容 (対角は <code>Probability of |k⟩</code> / 非対角は <code>Coupling of |row⟩ to ⟨col|</code>) をポップオーバーで表示する。
     </p>
 
     <h3 style="margin-top: 12px;">span 1〜4 (行列モード · full detail、cellPx ≥ 13)</h3>
@@ -304,7 +246,7 @@
       <strong>2×2 行列 (= span 1)</strong> を <em>純粋 |+⟩⟨+| の密度行列</em> として描く: 4 セルすべてに <code>0.5</code> 半径の magnitude disk + outline 円、非対角 2 セルだけは追加で真上 needle (実数なので位相 0 = 真上)。
       <em>「対角 / 非対角ともに disk、非対角だけ needle が立つ」</em>という本表示ブロックの統一されたセル描画を 1 アイコン内で提示し、密度行列特有の<em>行列 (matrix) 形状</em>を視認させる。
       アイコン自体の外側に四角枠は描かず、4 つの円だけで密度行列表示ブロックだと分かるようにする。円周の外端はセル境界から 1.5 px だけ内側に置き、hover 枠と重ならない範囲で最大化する。
-      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップオーバーは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -465,7 +407,7 @@
 
     <p class="note" style="margin-top: 12px;">
       <strong>Quirk との差分:</strong> Quirk は対角に塗りバー (<code>_traceProbabilitySquare</code>) を採用しているが、本仕様は<strong>対角も非対角と同じ disk 表現</strong>に統一する。理由は (a) 1 つの行列内に「塗りバー + 円」の 2 種類の見た目が並ぶと視線が分散する、(b) 振幅表示ブロック / 状態ベクトルパネルが既に「disk = 確率の大きさ、needle = 位相」の語彙を確立しているので、密度行列もそれに乗せたほうが学習コストが低い、(c) 対角は実数なので needle を省くだけで「確率 = 円」と「coupling = 円 + needle」の差が自然に出る。
-      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調は tooltip の <code>log: ... dB</code> 数値に集約する (§ 08)。
+      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調はポップオーバーの <code>log P: ... dB</code> 数値に集約する (§ 08)。
     </p>
 
     <h3 style="margin-top: 16px;">heatmap モード (<code>cellPx &lt; 3</code>、span 7〜8)</h3>
@@ -476,8 +418,8 @@
     <ul>
       <li>対角 / 非対角の区別はせず、全セルに <code>blue-200</code> を <em>√スケール</em> alpha で塗る (Quirk の <code>d ≤ 2</code> フォールバックと同じ、<code>lightgray</code> → <code>blue-200</code> へ色のみ差し替え)</li>
       <li>matrix 全体の外枠だけは <code>ui-2</code> 1 px で残す。cell 間 grid は描かない</li>
-      <li>cell hover は引き続き有効: <code>purple-400</code> 2 px の<strong>正方形の枠を描く</strong> (heatmap では outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなく cell rect の purple の枠 を採用)</li>
-      <li>位相情報は heatmap では消える: span 7〜8 では tooltip だけが phase の供給源になる (cell hover 必須)</li>
+      <li>セルホバーは引き続き有効: <code>purple-400</code> 2 px の<strong>正方形の枠を描く</strong> (ヒートマップでは outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなくセル矩形の purple の枠を採用)</li>
+      <li>位相情報はヒートマップでは消える: span 7〜8 ではポップオーバーだけが phase の供給源になる (セルホバー必須)</li>
     </ul>
 
     <h3 style="margin-top: 16px;">測定済み量子ビットの見た目</h3>
@@ -498,10 +440,10 @@
       </p>
       <div class="critique-title" style="margin-top: 12px;">heatmap モードで位相情報が完全に消えるのに、本仕様で軽く扱われている</div>
       <p class="critique-body">
-        § 06 の heatmap モード説明で「位相情報は heatmap では消える: span 7〜8 では tooltip だけが phase の供給源になる (cell hover 必須)」と 1 行で済まされているが、
+        § 06 のヒートマップモード説明で「位相情報はヒートマップでは消える: span 7〜8 ではポップオーバーだけが phase の供給源になる (セルホバー必須)」と 1 行で済まされているが、
         これは本表示ブロックの「coherence を見る」という本来の目的が span 7〜8 で<strong>視覚的には消失する</strong>ことを意味する。
         production 標準の描画 (span 7〜8 = heatmap) で位相が読めないなら、密度行列表示ブロックは span 6 までが事実上の上限とも言える。
-        改善案: <em>(a) heatmap でも phase を hue で出す</em> (HSV 表現、Flexoki に馴染まないが span 7+ 限定で example) / <em>(b) span 7+ では tooltip 必須を UI で明示</em> (本体の周囲に「Hover for phase」と注記を出す)。
+        改善案: <em>(a) heatmap でも phase を hue で出す</em> (HSV 表現、Flexoki に馴染まないが span 7+ 限定で example) / <em>(b) span 7+ ではポップオーバー確認が必須であることを UI で明示</em> (本体の周囲に「Hover for phase」と注記を出す)。
       </p>
       <div class="critique-title" style="margin-top: 12px;">operation 前後の差分表示が将来価値を持つ余地</div>
       <p class="critique-body">
@@ -527,7 +469,7 @@
       <li><strong>cell 構造ガイド</strong> — cell 間の grid は引かない。通常時と同じく、matrix 外枠だけで表示ブロックの領域を示す</li>
       <li><strong>outline 円 / disk / needle</strong> — 描かない。<code>ρ</code> の値が無いので「対角の確率」も「非対角の coupling」も意味を持たない</li>
       <li><strong>外枠</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く</li>
-      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前はセル単位ポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
       <li><strong>遷移</strong> — 現行実装は Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
     </ul>
     <div class="stage">
@@ -566,83 +508,22 @@
   </div>
 </section>
 
-<!-- ─────── § 08 ホバー / ポップアップ ─────── -->
+<!-- ─────── § 08 ホバー / ポップオーバー ─────── -->
 <section class="block">
-  <h2>§ 08 ホバー / ポップアップ</h2>
+  <h2>§ 08 ホバー / ポップオーバー</h2>
   <div class="card">
     <p>
-      Quirk の <code>MathPainter.paintMatrixTooltip</code> + <code>paintDensityMatrix</code> の文言を Geist タイポグラフィへ移植。
-      <strong>対角 / 非対角でラベル文面と数値整形を切り替える</strong> (Quirk と同じ振り分け)。
+      セルホバー時の詳細表示は、共通 <a href="popover.html">ポップオーバー</a> の吹き出し型外装を使う。
+      対角セルは確率、非対角セルは結合を表示し、外装・tail・影・画面端反転の規約は
+      <a href="density-matrix-display-popover.html">密度行列表示ポップオーバー仕様</a>を正とする。
+      このページではセルホバー時に本体側へ出る強調枠だけを定義する。
     </p>
 
-    <h3 style="margin-top: 8px;">対角セル (<code>i = j</code>) — 確率</h3>
-    <div class="dm-popup" style="display: inline-block; position: static;">
-      <div class="dm-popup-ket">Probability of |011⟩</div>
-      <div class="dm-popup-sub">diagonal · decimal 3</div>
-      <div class="dm-popup-divider"></div>
-      <div class="dm-popup-row">
-        <span class="dm-popup-label">P</span>
-        <span class="dm-popup-value">12.5000%</span>
-      </div>
-      <div class="dm-popup-row">
-        <span class="dm-popup-label">log</span>
-        <span class="dm-popup-value">−9.0 dB</span>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 8px;">
-      Quirk タイトル: <code>Probability of |011⟩ (decimal 3)</code>、値: <code>(ρ<sub>ii</sub>.real * 100).toFixed(4) + "%"</code>。
-      ket は qni の binary big-endian 表記、<code>log</code> 行は確率表示ブロックの popup と同じ <code>(log10(P) × 10).toFixed(1) + " dB"</code>。
-    </p>
-
-    <h3 style="margin-top: 16px;">非対角セル (<code>i ≠ j</code>) — coupling</h3>
-    <div class="dm-popup" style="display: inline-block; position: static;">
-      <div class="dm-popup-ket">Coupling of |001⟩ to ⟨011|</div>
-      <div class="dm-popup-sub">off-diagonal · decimal 1 to 3</div>
-      <div class="dm-popup-divider"></div>
-      <div class="dm-popup-row">
-        <span class="dm-popup-label">val</span>
-        <span class="dm-popup-value">−0.000000 −0.005874i</span>
-      </div>
-      <div class="dm-popup-row">
-        <span class="dm-popup-label">mag</span>
-        <span class="dm-popup-value">0.005874</span>
-      </div>
-      <div class="dm-popup-row">
-        <span class="dm-popup-label">phase</span>
-        <span class="dm-popup-value">−90.00°</span>
-      </div>
-    </div>
-    <p class="note" style="margin-top: 8px;">
-      Quirk タイトル: <code>Coupling of |001⟩ to ⟨011| (decimal 1 to 3)</code>、値: <code>ρ<sub>ij</sub>.toString(Format(false, 0, 6, ", "))</code>。
-      qni 側では振幅表示ブロックと同じく 3 行 (val / mag / phase) に分解して表示する。Quirk の 1 行表記 (実部 + 虚部) は val 行に集約。
-    </p>
-
-    <h3 style="margin-top: 16px;">cell hover 時の枠</h3>
+    <h3 style="margin-top: 16px;">セルホバー時の枠</h3>
     <ul>
-      <li><strong>full / outline + disk モード</strong> — 対象 cell の <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える (対角 / 非対角ともに同じ outline 円を持つので扱いが統一される)。matrix 全体のホバー枠は cell hover 中は消す (振幅表示ブロックの方針と同じ)</li>
-      <li><strong>heatmap モード</strong> — cell が小さすぎて outline 円が無いので、cell 領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む (Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置、色だけ Flexoki へ置換)</li>
+      <li><strong>行列モード</strong> — 対象セルの <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える。対角 / 非対角ともに同じ outline 円を持つので扱いが統一される。行列全体のホバー枠はセルホバー中は消す (振幅表示ブロックの方針と同じ)</li>
+      <li><strong>ヒートマップモード</strong> — セルが小さすぎて outline 円が無いので、セル領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む。Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置で、色だけ Flexoki へ置換する</li>
     </ul>
-
-    <aside class="critique" aria-label="批評 · § 08 ポップアップの対角/非対角分岐と purity の欠如">
-      <div class="critique-label">★ 批評 · § 08 ホバー / ポップアップ</div>
-      <div class="critique-title">対角 (2 行) と非対角 (3 行) で popup 高さが変わる sibling 共通の問題</div>
-      <p class="critique-body">
-        対角は <code>P / log</code> の 2 行、非対角は <code>val / mag / phase</code> の 3 行と<em>異なる構造</em>。
-        amplitude-display.html § 08 で指摘されているのと同じ「popup の高さが状態依存で変動する」問題が本表示ブロックでも発生する (cell hover で対角 → 非対角に移ると popup が成長する)。
-        改善案: 対角でも 3 行構造にして <code>P / phase = 0° / mag = √P</code> と書く (情報量は重複するが popup レイアウトが固定される)、または非対角でも 2 行に圧縮 (<code>val / phase</code> のみ、mag は val から導出可能)。
-      </p>
-      <p class="critique-body">
-        <strong>対角の log dB と確率表示ブロックの log dB の<em>意味</em>が違う</strong>: 確率表示ブロックの popup の <code>log = (log10(p) × 10).toFixed(1) dB</code> は<em>線形バー上の確率</em>の dB 表現。
-        密度行列表示ブロック対角の同じ <code>log dB</code> は<em>密度行列の対角要素</em>の dB だが、<em>これは部分トレース後の確率</em>であり、確率表示ブロックの値と<strong>意味的に異なる場面がある</strong> (確率表示ブロックは marginalize 後の確率、密度行列対角は reduced density matrix の対角)。同じラベル <code>log</code> でも、span 内が span 外と entangled かどうかで意味が変わる。
-        改善案: 対角の popup ラベルを <code>log P</code> と明示する / 「<em>reduced (span 内のみ)</em>」を補足表記に入れる、など意味の違いをユーザに伝える。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;"><code>Tr(ρ²)</code> = purity が popup / 補助テキストに出てこない</div>
-      <p class="critique-body">
-        本表示ブロックの<em>本質的な情報量</em>は <strong>純粋度 (purity) = <code>Tr(ρ²) ∈ [1/n, 1]</code></strong>。1 なら純粋、1/n なら最大混合。
-        現状の cell hover popup は<em>個別 cell の値</em>しか出さず、行列全体の purity / entropy / rank などの<em>aggregate な指標</em>が見えない。
-        改善案: matrix 全体に hover した時 (cell に当たっていない時) に widget 下部に <code>Tr(ρ²) = 0.625</code> のような<em>scalar summary</em>を出す、または常時 widget 下の補助テキストに表示する。Quirk は <code>printParagraph</code> でこれを下に表示しており、qni-webgpu でも採用する価値が高い。
-      </p>
-    </aside>
   </div>
 </section>
 
