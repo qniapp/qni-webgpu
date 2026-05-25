@@ -38,6 +38,7 @@
   <script src="components/spacer-gate.js"></script>
   <script src="components/probability-display.js"></script>
   <script src="components/bloch-display.js"></script>
+  <script src="components/amplitude-display.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -99,7 +100,8 @@
     .gp-gate > measurement-gate,
     .gp-gate > spacer-gate,
     .gp-gate > probability-display,
-    .gp-gate > bloch-display {
+    .gp-gate > bloch-display,
+    .gp-gate > amplitude-display {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -204,10 +206,9 @@
 
 <!--
   共通 SVG シンボル定義 — カスタム要素化していない表示ブロックと、一部の既存プリミティブを viewBox="0 0 48 48" で統一。
-  ゲート本体と確率 / ブロッホ球表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
-  Amps Q ロゴなどの primitive は
-  「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
-    stroke 1 px → 1.2、stroke 1.5 → 1.8、stroke 2 → 2.4、radius 19 → 22.8、radius 20 → 24 (full)
+  ゲート本体と確率表示ブロック / ブロッホ球表示ブロック / 振幅表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
+  密度行列アイコンなどの primitive は「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
+    stroke 1 px → 1.2、stroke 1.5 → 1.8、radius 19 → 22.8、radius 20 → 24 (full)
 -->
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
@@ -216,22 +217,6 @@
 
 
 
-
-    <!--
-      ─ Amplitude palette icon (gate_body.rs:138-165) ─ Q ロゴ風
-        outline circle: state_outline (tx-2) stroke 2 display = 2.4 viewbox, r=18 display=21.6
-        disk:    state_fill (blue-200), r = (outline_r - 0.5 stroke) * 1/√2 ≈ 12.7 display = 15.24
-        inset border: popup_icon (blue-400) stroke 1 = 1.2, r ≈ 12.2 display = 14.64
-        needle:  state_needle (tx) stroke 2 = 2.4, from (24, 24) to (24 + inner_r * 1/√2, 24 + ...)
-                 inner_r * 1/√2 = (18-1) * 0.7071 ≈ 12.0 display → 14.4 viewbox → (38.4, 38.4)
-    -->
-    <symbol id="g-Amps" viewBox="0 0 48 48">
-      <rect width="48" height="48" fill="#FFFCF0"/>
-      <circle cx="24" cy="24" r="21.6" fill="none" stroke="#6F6E69" stroke-width="2.4"/>
-      <circle cx="24" cy="24" r="15.24" fill="#92BFDB"/>
-      <circle cx="24" cy="24" r="14.64" fill="none" stroke="#4385BE" stroke-width="1.2"/>
-      <line x1="24" y1="24" x2="38.4" y2="38.4" stroke="#100F0F" stroke-width="2.4"/>
-    </symbol>
 
     <!--
       ─ Density matrix palette icon (gate_body.rs:201-235) ─ 2×2 compact preview
@@ -319,14 +304,14 @@
             <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
           </div>
           <div class="gp-row">
-            <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><svg width="40" height="40"><use href="#g-Amps"/></svg><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
+            <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><amplitude-display icon no-popup></amplitude-display><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
             <div class="gp-gate" data-tip="Density · 密度行列表示ブロック"><svg width="40" height="40"><use href="#g-Density"/></svg><span class="tip">密度行列表示ブロック (span 1〜8)</span></div>
           </div>
         </div>
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有し、未移行の表示ブロック (Amps / Density) は静的 SVG <code>&lt;path&gt;</code> 要素で近似する (字形の細部や aliasing は実装と完全一致しない)。
+      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有し、未移行の密度行列表示ブロックは静的 SVG プリミティブで近似する (字形の細部や aliasing は実装と完全一致しない)。
       レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
     </p>
   </div>
@@ -404,7 +389,7 @@
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><bloch-display icon no-popup></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
       <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Amps"/></svg></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
+      <div class="item"><div class="gp-gate"><amplitude-display icon no-popup></amplitude-display></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
       <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Density"/></svg></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
     </div>
 

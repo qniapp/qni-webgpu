@@ -12,11 +12,12 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- H ゲートとブロッホ球表示ブロックはカスタム要素で描画する。
+  <!-- H ゲート、ブロッホ球表示ブロック、振幅表示ブロックはカスタム要素で描画する。
        他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○) はカスタム要素化が済むまで
        .vd-cell の色付きラベルで暫定表示する。 -->
   <script src="components/h-gate.js"></script>
   <script src="components/bloch-display.js"></script>
+  <script src="components/amplitude-display.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot / .vertical-divider) は design-system.css にある。 */
@@ -239,7 +240,7 @@
             <div class="vd-cell vd-cell--display">P</div>
           </div>
           <div class="vd-row">
-            <div class="vd-cell vd-cell--display">A</div>
+            <amplitude-display icon no-popup></amplitude-display>
             <div class="vd-cell vd-cell--display vd-cell--matrix" role="img" aria-label="密度行列">
               <span class="vd-dot"></span><span class="vd-dot"></span>
               <span class="vd-dot"></span><span class="vd-dot"></span>
