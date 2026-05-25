@@ -358,23 +358,23 @@ h2 {
     <p class="note">qni-webgpu の外部 GPU 経路は、安全のため多くのゲートを拒否している。ABCI 本番前に、必要な互換範囲を明確にし、GPU 実行だけで実装する。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">未着手</span></div>
-        <div><h3>qni-gl 相当のゲート対応を洗い直す</h3><p>qni-gl は制御付き H/Y/Z/√X/S/S†/T/T†、SWAP、測定、制御 Z、書き込みゲートを Qiskit に変換している。現行外部 GPU 経路の拒否理由と、実装優先度をゲートごとに決める。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
+        <div><h3>qni-gl 相当のゲート対応を洗い直す</h3><p>qni-gl 相当の主要ゲート、測定、書き込み、表示ブロックの対応方針を <code>docs/implementation/external-gpu-api-compatibility.md</code> に整理した。制御付き QFT と制御付き測定は qni / WebGPU 本体の意味に合わせて制御を無視する。</p></div>
         <div class="done-rule">完了条件: 対応 / 非対応 / 後回しを表にし、UI の失敗表示と一致させる。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">未着手</span></div>
-        <div><h3>測定結果の契約を決める</h3><p>qni-gl は各ステップの <code>measuredBits</code> を返す。qni-webgpu はヒストグラムと表示ブロック結果が中心。測定ゲートを外部 GPU で使う場合の応答形式を決める。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
+        <div><h3>測定結果の契約を決める</h3><p><code>measuredBits</code> は採用せず、測定ゲートを含む回路でも量子結果は <code>histogram</code> と表示ブロック結果に限定する契約にした。メタデータは従来どおり返す。測定付き API テストも追加済み。</p></div>
         <div class="done-rule">完了条件: 測定ゲートありの API テストが追加される。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">未着手</span></div>
-        <div><h3>QASM3 書き出しの要否を決める</h3><p>qni-gl は <code>requestType=export</code> で QASM3 を返す。qni-webgpu で UI 導線を残すなら、外部バックエンドまたは Web 側で同等機能を設計する。</p></div>
+        <div class="badges"><span class="badge p1">P1</span><span class="badge">方針決定</span></div>
+        <div><h3>QASM3 書き出しの要否を決める</h3><p>ABCI 初期対応では非採用にした。必要になった場合は <code>/run</code> と分けた明示的な書き出し機能として設計する。</p></div>
         <div class="done-rule">完了条件: 採用 / 非採用と実装場所が決まる。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">未着手</span></div>
-        <div><h3>実行キャッシュを検討する</h3><p>qni-gl の <code>CachedQiskitRunner</code> 相当が必要か確認する。キャッシュする場合は、回路 JSON、出力要求、shots、seed、ランナーをキーに含める。</p></div>
+        <div class="badges"><span class="badge p1">P1</span><span class="badge">方針決定</span></div>
+        <div><h3>実行キャッシュを検討する</h3><p>ABCI 初期対応では採用しない。サーバはステートレスに保ち、同じ要求でも Qiskit Aer GPU を実行する。</p></div>
         <div class="done-rule">完了条件: 採用時はキャッシュ無効化条件のテストがある。</div>
       </article>
     </div>
@@ -385,13 +385,13 @@ h2 {
     <p class="note">ABCI 対応はコードだけでなく、GPU のある環境での起動確認までを完了条件にする。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">未着手</span></div>
-        <div><h3>コンテナのスモークテストを作る</h3><p><code>/health</code>、Basic 認証、開発用のモック実行、<code>qiskit-gpu</code> 実行、Web UI からの <code>Run GPU</code> を確認する手順を自動化する。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み・GPU 未検証</span></div>
+        <div><h3>コンテナのスモークテストを作る</h3><p><code>scripts/smoke-abci-container.sh</code> で <code>/health</code>、Basic 認証、<code>mock</code> 拒否、<code>qiskit-gpu</code> 実行を確認する。開発用モックは本番コンテナでは拒否する対象として扱う。</p></div>
         <div class="done-rule">完了条件: GPU 環境で実行する確認コマンドが README から再現できる。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">未着手</span></div>
-        <div><h3>ログ出力先を整理する</h3><p>nginx、Qiskit バックエンド、ABCI ジョブ標準出力のどこに何が出るかを決める。失敗時に CUDA / Qiskit / 認証 / パス問題を切り分けられるようにする。</p></div>
+        <div class="badges"><span class="badge p1">P1</span><span class="badge">実装済み</span></div>
+        <div><h3>ログ出力先を整理する</h3><p><code>docs/implementation/abci-deployment-guide.md</code> に、nginx、Qiskit バックエンド、Open OnDemand ジョブ標準出力の切り分け表を追加した。</p></div>
         <div class="done-rule">完了条件: 代表的な失敗ごとに見るログが文書化される。</div>
       </article>
     </div>
@@ -402,13 +402,13 @@ h2 {
     <p class="note">配備手順は ABCI 上の利用者と開発者の両方が読める粒度に分ける。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">未着手</span></div>
-        <div><h3>ABCI 配備手順書を作る</h3><p>イメージ作成、ジョブ投入、認証設定、接続確認、GPU 実行確認、停止方法を書く。CPU 代替実行の手順は書かない。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">下書き済み・実機未検証</span></div>
+        <div><h3>ABCI 配備手順書を作る</h3><p><code>docs/implementation/abci-deployment-guide.md</code> に、イメージ作成、ジョブ投入、認証設定、接続確認、GPU 実行確認、停止方法を書いた。実機確認後に資源種別を更新する。</p></div>
         <div class="done-rule">完了条件: 新規利用者が手順書だけで <code>Run GPU</code> 成功まで進める。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p2">P2</span><span class="badge">未着手</span></div>
-        <div><h3>qni-gl からの移行メモを残す</h3><p><code>/backend.json</code> と <code>/run</code>、フォーム形式と JSON 形式、Vite 開発サーバと静的配信の違いを整理する。</p></div>
+        <div class="badges"><span class="badge p2">P2</span><span class="badge">実装済み</span></div>
+        <div><h3>qni-gl からの移行メモを残す</h3><p><code>docs/implementation/qni-gl-migration-notes.md</code> に、<code>/backend.json</code> と <code>/run</code>、フォーム形式と JSON 形式、Vite 開発サーバと静的配信の違いを整理した。</p></div>
         <div class="done-rule">完了条件: 旧構成との差分調査を繰り返さずに済む。</div>
       </article>
     </div>

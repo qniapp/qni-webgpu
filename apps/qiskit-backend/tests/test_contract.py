@@ -1246,6 +1246,23 @@ class ContractTests(unittest.TestCase):
                 exc.close()
         self.assertEqual(status, 400)
 
+    def test_server_accepts_measurement_circuit_over_http(self):
+        with running_test_server("mock", frozenset({"mock"})) as base_url:
+            request = urllib.request.Request(
+                f"{base_url}/run",
+                data=json.dumps(
+                    {"qubits": 1, "columns": [["Measure"]], "shots": 12}
+                ).encode("utf-8"),
+                method="POST",
+                headers={"content-type": "application/json"},
+            )
+            response = urllib.request.urlopen(request, timeout=2)
+            body = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(
+            (body["status"], body["runner"], body["histogram"]),
+            ("completed", "mock", {"0": 12}),
+        )
+
     def test_server_rejects_run_without_required_proxy_token(self):
         with running_test_server(
             "qiskit-gpu",

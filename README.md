@@ -138,6 +138,11 @@ curl http://127.0.0.1:8000/health
 
 `.htpasswd` 認証を必須にしたい場合は `QNI_REQUIRE_BASIC_AUTH=true` を追加する。
 既存の `.htpasswd` を使う場合は `QNI_AUTH_HTPASSWD_FILE=/path/to/.htpasswd` を指定する。
+GPU 付き Docker 環境での確認には `scripts/smoke-abci-container.sh` を使う。
+
+```bash
+scripts/smoke-abci-container.sh
+```
 
 ## ABCI / Open OnDemand
 
@@ -152,6 +157,7 @@ rsync -a --delete deploy/abci_ood/ "$HOME/ondemand/dev/qni-webgpu/"
 
 Open OnDemand の Sandbox Apps から QNI WebGPU を選び、`$HOME/qni-webgpu.sif` のような絶対パス、ABCI 資源種別、ABCI グループ、Basic 認証設定を入力する。
 アプリは `singularity run --nv` で GPU ノード上に起動し、`/node/<host>/<port>/` 配下で Web UI と `/run` API を提供する。
+詳しい手順は `docs/implementation/abci-deployment-guide.md`、外部 GPU API の互換方針は `docs/implementation/external-gpu-api-compatibility.md`、qni-gl との差分は `docs/implementation/qni-gl-migration-notes.md` を参照する。
 
 ## Qiskit backend（ローカル開発）
 
