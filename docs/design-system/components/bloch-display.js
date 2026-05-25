@@ -134,7 +134,7 @@
   }
   .bd-popover-tail {
     position: absolute;
-    top: 24px;                           /* spacing-6 */
+    top: 16px;                           /* spacing-4: tail center = 20px host center */
     left: -12px;                         /* tail 8 px + gap 4 px */
     width: 16px;
     height: 8px;
