@@ -4,7 +4,7 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::BlochPopupValueParams;
 use super::super::resources::StateVectorResources;
 
-/// Renders the r / ϕ / θ / x / y / z value cells of the Bloch hover popup
+/// Renders the r / φ / θ / x / y / z value cells of the Bloch hover popup
 /// straight from `bloch_output_buffer`. The popup chrome and static labels are
 /// painted by egui; only the dynamic Bloch-vector-derived text is GPU-rendered.
 pub(crate) struct BlochPopupValueCallback {
@@ -66,7 +66,7 @@ impl egui_wgpu::CallbackTrait for BlochPopupValueCallback {
         };
         render_pass.set_pipeline(&resources.bloch.popup_value_pipeline);
         render_pass.set_bind_group(0, &resources.bloch.popup_value_bind_group, &[]);
-        // 6 verts × 6 instances: r / ϕ / θ / x / y / z.
+        // 6 verts × 6 instances: r / φ / θ / x / y / z.
         render_pass.draw(0..6, 0..6);
     }
 }

@@ -297,7 +297,7 @@
       <li><strong>§ 04 と § 05 で「規範範囲」「適用範囲」「非目標」が部分的に重複</strong> — § 04 行頭の「規範範囲: 本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで」と § 05 「適用範囲: surface / outline / radius / shadow / tail / anchor gap / 画面端処理を共通化する」が同じことを別言葉で 2 度書いている。§ 04 から規範範囲行を抜き、§ 04 は内容レイアウトの個別ルール (基準例 / 行ピッチ / GPU 値) に集中させる (§ 04 / § 05 参照)。</li>
       <li><strong>§ 02 outline 行の「1 px inside stroke」が CSS の <code>border</code> と乖離</strong> — 「inside stroke」は CSS では通常 <code>box-shadow: inset 0 0 0 1px ...</code> か <code>outline-offset: -1px</code> で実装する別物。実 CSS は <code>border: 1px solid var(--tx-3)</code> で外側に伸びる通常ボーダー。見た目は近いが、 primitive 仕様として「inside stroke」という表現は誤導的。「1 px の外周線 (面と背景の境界に沿う)」のような表記に直す (§ 02 参照)。</li>
       <li><strong>§ 03 caption の「対象の上に置く」が本体と tail のどちらの位置説明か曖昧</strong> — <code>bottom tail</code> = 「本体が対象の上、tail が下向き」を意味するが、caption は本体位置だけ書く。本体と対象の位置関係を ASCII 図式または小さなアンカーマーカで併記すると、4 方向の意味が初見で読める (§ 03 参照)。</li>
-      <li><strong>§ 06 ブロッホ球行「実装時はセル値系と同じ外装へ寄せ」が宣言として弱い</strong> — 確率 / 振幅 / パレットは「移行済み」と完了形で書く一方、ブロッホ球だけ仕様準拠とも非準拠ともとれる中立的な書き方。primitive 仕様を発行する以上「ブロッホ球の詳細ポップアップも本仕様準拠 (未実装)」と断言する (§ 06 参照)。</li>
+      <li><strong>§ 06 ブロッホ球行は実装済みのポップオーバーとして更新済み</strong> — 確率 / 振幅 / パレットと同じく共通外装へ移行済みと明記し、内容と数値形式は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲した。今後は外装トークンの差分が出たときだけ本ページと個別仕様を同時に更新する (§ 06 参照)。</li>
       <li><strong>共通だった <code>.critique</code> CSS は <code>design-system.css</code> へ集約済み</strong> — 本批評コメント追加と同時に、13 ファイルに散らばっていた <code>.critique</code> ルール (48 〜 49 行 / ファイル、差分はコメント空白 <code>5%</code> vs <code>5 %</code> のみ) を <code>design-system.css</code> へ移し、HTML 側は <code>class="critique"</code> マークアップだけを持つ形に揃えた。視覚的な差分は無いが、テーマ変更時の影響範囲が 1 箇所に絞れる。</li>
     </ol>
   </aside>
@@ -510,23 +510,23 @@
       <tbody>
         <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>共通クロム実装を使い、変更時は本ページも同時に更新する。</td></tr>
         <tr><td>確率 / 振幅表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象セルの右側、画面右端では左側へ反転する。</td><td>値の GPU 直接描画と表示ブロック固有の文言は維持する。</td></tr>
-        <tr><td>ブロッホ球表示ブロック</td><td>仕様ページ上は詳細カード風のポップアップを持つ。</td><td>実装時はセル値系と同じ外装へ寄せ、内容だけを表示ブロック固有にする。</td></tr>
+        <tr><td>ブロッホ球表示ブロック</td><td>本仕様の共通外装へ移行済み。ホスト要素の右 +12 px を基本位置に、GPU 側の <code>bloch_output_buffer</code> から値を直接描画する。</td><td>内容、数値形式、状態別の見本は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲する。</td></tr>
         <tr><td>パレット説明表示</td><td>本仕様の共通外装へ移行済み。ゲートに結び付く説明として top / bottom tail を使う。</td><td>単なる短文ヒントは別の tooltip として分ける。</td></tr>
         <tr><td>アスペクト選択</td><td>クリックで開く選択肢リスト。</td><td>情報表示ではなく選択用の小窓なので、本仕様をそのまま適用しない。</td></tr>
       </tbody>
     </table>
 
-    <aside class="critique" aria-label="批評 · § 06 ブロッホ球の宣言が弱い / 日付なし">
-      <div class="critique-label">★ 批評 · § 06 実装との対応</div>
-      <div class="critique-title">ブロッホ球行が「実装時はセル値系と同じ外装へ寄せ」とだけ書かれ、本仕様準拠かどうか曖昧</div>
+    <aside class="critique" aria-label="批評 · § 06 ブロッホ球の宣言を更新済み">
+      <div class="critique-label">★ 批評 · § 06 実装との対応 — Resolved</div>
+      <div class="critique-title">ブロッホ球ポップオーバーも本仕様の共通外装へ移行済みと明記した</div>
       <p class="critique-body">
-        確率 / 振幅 / パレットは「本仕様の共通外装へ移行済み」と完了形で書く一方、ブロッホ球は「仕様ページ上は詳細カード風のポップアップを持つ」と現状記述に留まり、
-        共通化方針の列も「実装時はセル値系と同じ外装へ寄せ」と中立的。primitive 仕様として「ブロッホ球の詳細ポップアップも本仕様準拠 (未実装)」と断言した方が、
-        <a href="bloch-display.html">bloch-display.html</a> 側の「詳細カード」と本ページの整合が明確になる。
+        以前の記述は「詳細カード風の表示」「実装時は寄せる」という将来形で、実装済みの状態と用語がずれていた。
+        現在は「本仕様の共通外装へ移行済み」と完了形で統一し、個別の内容、数値形式、状態別の見本は
+        <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲している。
       </p>
       <p class="critique-body">
-        「移行済み」と書く 2 行 (確率 / 振幅 / パレット) には日付情報が無い。bloch-display.html では <code>(2026-05-18)</code> のように
-        実装日を併記する例がある。本ページでも同じ形式で移行日を入れると、後から「いつ統一が決まったか」を読み返す際に primitive 仕様の歴史が辿れる。
+        残る運用上の注意は、外装トークンを変更したときに本ページだけでなく個別仕様も同時に更新すること。
+        これにより primitive 仕様と表示ブロック固有仕様の役割分担を保てる。
       </p>
     </aside>
   </div>

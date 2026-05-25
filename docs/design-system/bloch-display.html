@@ -47,7 +47,7 @@
 
 <div id="preview">
   <!-- |+⟩ 状態の Bloch 球 (ベクトルが赤道上を指す代表例) -->
-  <bloch-display x="1" no-popup></bloch-display>
+  <bloch-display x="1" no-popover></bloch-display>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -106,13 +106,13 @@
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|0⟩</code><br>(0, 0, +1)<br>北極 → red tip</div>
         <div class="actual">
-          <bloch-display z="1" no-popup></bloch-display>
+          <bloch-display z="1" no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|1⟩</code><br>(0, 0, −1)<br>南極 → blue tip</div>
         <div class="actual">
-          <bloch-display z="-1" no-popup></bloch-display>
+          <bloch-display z="-1" no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -135,7 +135,7 @@
       先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-300</code>、赤道 (z = 0) = <code>purple-400</code>、<code>|1⟩</code> (z = -1) = <code>blue-300</code>。
       有効時の先端ドットには 1 px の <code>tx</code> 輪郭線を付ける。ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) と同じ <code>tx</code> 輪郭線を描く。
       仕様上は、マウスカーソルを乗せるとゲート右 +12 px (tail 8 px + gap 4 px) の位置にブロッホベクトル詳細ポップオーバーを出す (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)。
-      ホバー枠は実装済みで、ポップオーバーの値表示接続は別作業として扱う。
+      ホバー枠とポップオーバーへの値表示は実装済み。値は <code>bloch_output_buffer</code> から GPU 側で直接描画する。
       モックはブロッホ球本体の常時表示プレビューとして読む。
     </p>
 
@@ -144,7 +144,7 @@
       <div class="col">
         <div class="caption">|0⟩<br>(0, 0, +1)</div>
         <div class="actual">
-          <bloch-display z="1" no-popup></bloch-display>
+          <bloch-display z="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -152,7 +152,7 @@
       <div class="col">
         <div class="caption">|1⟩<br>(0, 0, −1)</div>
         <div class="actual">
-          <bloch-display z="-1" no-popup></bloch-display>
+          <bloch-display z="-1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -160,7 +160,7 @@
       <div class="col">
         <div class="caption">|+⟩<br>(+1, 0, 0)</div>
         <div class="actual">
-          <bloch-display x="1" no-popup></bloch-display>
+          <bloch-display x="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -168,7 +168,7 @@
       <div class="col">
         <div class="caption">|−⟩<br>(−1, 0, 0)</div>
         <div class="actual">
-          <bloch-display x="-1" no-popup></bloch-display>
+          <bloch-display x="-1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -176,7 +176,7 @@
       <div class="col">
         <div class="caption">|+i⟩<br>(0, +1, 0)</div>
         <div class="actual">
-          <bloch-display y="1" no-popup></bloch-display>
+          <bloch-display y="1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -184,7 +184,7 @@
       <div class="col">
         <div class="caption">|−i⟩<br>(0, −1, 0)</div>
         <div class="actual">
-          <bloch-display y="-1" no-popup></bloch-display>
+          <bloch-display y="-1" no-popover></bloch-display>
         </div>
       </div>
 
@@ -192,7 +192,7 @@
       <div class="col">
         <div class="caption">完全混合<br>(0, 0, 0)</div>
         <div class="actual">
-          <bloch-display no-popup></bloch-display>
+          <bloch-display no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -203,13 +203,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <bloch-display x="1" no-popup></bloch-display>
+          <bloch-display x="1" no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <bloch-display zoom x="1" no-popup></bloch-display>
+          <bloch-display zoom x="1" no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -237,13 +237,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <bloch-display icon no-popup></bloch-display>
+          <bloch-display icon no-popover></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <bloch-display icon zoom no-popup></bloch-display>
+          <bloch-display icon zoom no-popover></bloch-display>
         </div>
       </div>
     </div>
@@ -547,10 +547,10 @@ z =  ρ_00 − ρ_11</pre>
     <h3 style="margin-top: 16px;">ポップオーバー</h3>
     <ul>
       <li>ホスト要素のホバー時に、右側 +12 px (tail 8 px + gap 4 px) の位置へブロッホベクトル詳細ポップオーバーを出す設計 (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)</li>
-      <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
+      <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>φ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
       <li>Quirk の <code>BlochSphereDisplay.js</code> の <code>paintDeferredValueTooltip</code> と同等の情報量を、
         確率表示ブロックのポップオーバーと同じ Geist 系のタイポグラフィで再構成</li>
-      <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。ポップオーバーの値表示接続は別作業として扱う</li>
+      <li>実装ステータス: <strong>本体表示、GPU 重ね描画、ポップオーバーへの値表示を実装済み</strong>。値は GPU 側の <code>bloch_output_buffer</code> から直接描画する</li>
     </ul>
 
     <h3 style="margin-top: 16px;">暫定描画 (snap 前 / GPU dispatch 前)</h3>
