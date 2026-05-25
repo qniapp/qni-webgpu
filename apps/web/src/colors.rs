@@ -135,6 +135,18 @@ pub(crate) fn with_alpha(color: egui::Color32, alpha: u8) -> egui::Color32 {
     egui::Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha)
 }
 
+pub(crate) fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
+    fn channel(a: u8, b: u8, t: f32) -> u8 {
+        (a as f32 + (b as f32 - a as f32) * t).round() as u8
+    }
+    egui::Color32::from_rgba_unmultiplied(
+        channel(a.r(), b.r(), t),
+        channel(a.g(), b.g(), t),
+        channel(a.b(), b.b(), t),
+        channel(a.a(), b.a(), t),
+    )
+}
+
 fn tone(r: f32, g: f32, b: f32) -> egui::Color32 {
     crate::shared::color_rgba(r, g, b, 1.0)
 }

@@ -2,7 +2,7 @@
 
 use eframe::egui;
 
-use crate::colors::Colors;
+use crate::colors::{lerp_color, Colors};
 
 /// Projects a Bloch vector (x, y, z) ∈ [-1, 1] to a 2D screen offset in units
 /// of sphere radius. Mirrors qni's `bloch-display-element.ts` rendering pipeline:
@@ -129,16 +129,4 @@ fn bloch_tip_color(z: f32, colors: &Colors) -> egui::Color32 {
             (-z).clamp(0.0, 1.0),
         )
     }
-}
-
-fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
-    fn channel(a: u8, b: u8, t: f32) -> u8 {
-        (a as f32 + (b as f32 - a as f32) * t).round() as u8
-    }
-    egui::Color32::from_rgba_unmultiplied(
-        channel(a.r(), b.r(), t),
-        channel(a.g(), b.g(), t),
-        channel(a.b(), b.b(), t),
-        channel(a.a(), b.a(), t),
-    )
 }
