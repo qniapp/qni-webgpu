@@ -62,72 +62,6 @@
     }
     .bd.bd--icon:hover, .bd.bd--icon { /* アイコンモードは静的、hover でも色は変えない */ }
 
-    /* ─── ポップアップ (ホストホバー時) ───
-       Quirk の MathPainter.paintDeferredValueTooltip と同じ内容を、
-       Geist 系のタイポグラフィで再構成。probability-display の popup と
-       配色 / 角丸 / 影 / spacing をそろえる。 */
-    .bd-popup {
-      position: absolute;
-      top: 0;
-      left: calc(100% + 8px);    /* ゲート右 + 8 px (実装と同じアンカー) */
-      display: none;
-      pointer-events: none;
-      z-index: 50;
-      background: var(--bg);
-      border: 1px solid var(--ui-2);
-      border-radius: 6px;       /* Qni のゲート本体 (CornerRadius::same(6)) と同じ */
-      padding: 12px 16px;       /* spacing-3 / spacing-4 */
-      font-family: 'Geist', sans-serif;
-      font-size: 12px;          /* text-xs */
-      line-height: 16px;
-      color: var(--tx);
-      white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
-    }
-    /* ホストホバーで popup を出す。icon モード (パレット) は静的なので除外。 */
-    .bd:not(.bd--icon):hover .bd-popup { display: block; }
-    .bd-popup .bd-popup-title {
-      font-size: 14px;          /* text-sm */
-      font-weight: 400;
-      color: var(--tx);
-      letter-spacing: -0.005em;
-    }
-    .bd-popup .bd-popup-divider {
-      height: 1px;
-      background: var(--ui-2);
-      margin: 12px 0;           /* spacing-3 */
-    }
-    .bd-popup .bd-popup-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;                /* spacing-3 */
-      font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-    }
-    .bd-popup .bd-popup-row + .bd-popup-row {
-      margin-top: 4px;          /* spacing-1 */
-    }
-    .bd-popup .bd-popup-cell {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;                 /* spacing-2 */
-    }
-    .bd-popup .bd-popup-key {
-      font-size: 12px;          /* text-xs */
-      color: var(--tx-2);       /* tx-3 だと薄すぎるので tx-2 (#6F6E69) */
-      min-width: 12px;          /* r / ϕ / θ / x / y / z で字幅を揃える */
-    }
-    .bd-popup .bd-popup-val {
-      font-size: 14px;          /* text-sm */
-      color: var(--tx);
-    }
-    /* 仕様ページ用に常時表示する派生クラス */
-    .bd-popup.bd-popup--static {
-      display: inline-block;
-      position: static;
-      vertical-align: top;
-    }
-
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
       flex-wrap: wrap; margin-top: 16px;
@@ -234,7 +168,7 @@
   <h1 class="page-title">ブロッホ球表示ブロック</h1>
   <p class="page-lede">
     単一の量子ビットの換算密度行列から求めた <strong>ブロッホベクトル (x, y, z)</strong> を、
-    本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §04 参照)。
     状態ベクトルには影響しない。<strong>span は 1 量子ビット 固定</strong>でリサイズ不可。
     密度行列の縮約 (reduce) → 矢印描画 (overlay) まで GPU パイプライン内で完結し、
     CPU リードバックは発生しない。本ドキュメントは描画仕様 (寸法 / 配色 / 投影 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
@@ -248,10 +182,10 @@
     <div class="critique-title">仕様が緻密だが「読む順序」と「再利用」の設計が弱い</div>
     <p class="critique-body">
       Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
-      しかし読者の動線は (a) 13 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
+      しかし読者の動線は「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → パイプライン → URL → 実装」と段階的に深まる構成で、
       <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 08 投影)</strong> が中盤に埋もれる。
-      また 1183 行のうち大部分は<strong>同一 SVG マークアップ × 9 個</strong>と<strong>同一 popup マークアップ × 5 個</strong>の複製で、視覚仕様そのものではない。
-      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば 400 行台に縮約でき、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
+      ポップオーバー詳細は独立ページへ分離済みだが、本ページにはまだ<strong>同一 SVG マークアップ</strong>の複製が残っている。
+      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
     </p>
   </aside>
 
@@ -259,8 +193,7 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>未定義 CSS 変数 <code>--tip-equator</code> を解消する</strong> — § 02 のモック 5 個 + 4× zoom 2 個で参照されているが宣言が無いため、equator 状態 (|+⟩ / |−⟩ / |±i⟩) の tip ドットが<strong>仕様外の黒</strong>で描画されている。仕様文 § 06 と実画の乖離が一目で出る最大の execution bug (§ 02 参照)。</li>
-      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の short use で同等のレンダリングが得られ、ファイル全体が 1183 行 → 400 行台に縮む (§ 02 参照)。</li>
+      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の短い <code>&lt;use&gt;</code> 参照で同等のレンダリングが得られ、更新時のドリフトを抑えられる (§ 02 参照)。</li>
       <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
       <li><strong>§ 06 配色テーブルと § 07 gradient 説明を統合する</strong> — 現状は § 06 が「red / blue / 中点」の 3 行を並べ、§ 07 が「sRGB lerp で連続補間」と書く。読者は § 06 だけ読むと離散 3 色だと誤解する。テーブル側に「gradient (z で連続補間、§ 07 参照)」を入れて統合表現にすべき (§ 06 / § 07 参照)。</li>
       <li><strong>§ 12 描画パイプラインから line-number 付きファイル参照を抜く</strong> — <code>gpu/shaders/bloch_display.rs:81-190</code> のような行番号は確実に rot する。§ 14 実装ファイル表が既に同じ情報を持っているので、§ 12 は「stage 1 / 2 / 3 が何をするか」だけに絞り、ファイル名は § 14 に集約する (§ 12 参照)。</li>
@@ -314,7 +247,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップアップ等の詳細は § 04 以降を参照。
+      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップオーバー等の詳細は § 04 以降を参照。
     </p>
   </div>
 </section>
@@ -331,32 +264,19 @@
       矢印は中心からブロッホベクトルの先端へ伸び、先端には半径 3 px の色付き丸を置く。
       先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-600</code>、<code>|1⟩</code> (z = -1) = <code>blue-600</code>、equator (z = 0) は中点 <code>#684768</code>。
       ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) のみを描く。
-      マウスカーソルを乗せると、ゲート右 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 11 ポップアップ仕様)。
-      hover 枠 / popup ともに実装済み (2026-05-18)。
-      モックは「実装済み挙動の常時表示プレビュー」として読む。
+      仕様上は、マウスカーソルを乗せるとゲート右 +12 px (tail 8 px + gap 4 px) の位置にブロッホベクトル詳細ポップオーバーを出す (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)。
+      ホバー枠は実装済みで、ポップオーバーの値表示接続は別作業として扱う。
+      モックはブロッホ球本体の常時表示プレビューとして読む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 --tip-equator 未定義 / SVG 重複">
-      <div class="critique-label">★ 批評 · § 02 仕様と描画の乖離 + SVG 重複</div>
-      <div class="critique-title">equator 状態の tip ドットが「仕様外の黒」でレンダリングされる</div>
-      <p class="critique-body">
-        |+⟩ / |−⟩ / |+i⟩ / |−i⟩ の 4 セルと 4× zoom 2 セルの <code>circle.tip</code> はすべて <code>style="fill: var(--tip-equator);"</code> を指定しているが、
-        <strong><code>--tip-equator</code> はこの HTML にも design-system.css にも宣言が無い</strong>。
-        ブラウザは未定義 var を <code>initial</code> (= <code>fill: black</code>) で解決するため、
-        equator 状態の tip が仕様文 § 06 / § 07 で謳う <code>#684768</code> ではなく真っ黒で出る。
-        仕様の最大の主張 (z gradient で 0 = 赤 / 1 = 青 / 中間 = lerp) が、ページ自身のモックで反証されている状態。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: ページ冒頭の <code>&lt;style&gt;</code> 先頭に <code>:root { --tip-equator: #684768; }</code> を 1 行宣言する。
-        さらに将来的には gradient を CSS 側で計算 (HSL 補間でも sRGB <code>color-mix(in srgb, var(--red-600), var(--blue-600))</code> でも) して、
-        モック生成時に z 値 → 色を CSS 変数で導出できるようにすると、§ 07 の gradient narrative とモックが本当に同期する。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">同じ wireframe SVG が 9 個重複している</div>
+    <aside class="critique" aria-label="批評 · § 02 SVG 重複">
+      <div class="critique-label">★ 批評 · § 02 SVG 重複</div>
+      <div class="critique-title">同じ wireframe SVG が 9 個重複している</div>
       <p class="critique-body">
         球本体 + 水平軸 + 垂直軸 + 対角 + 細楕円 ×2 の 6 要素は<strong>すべてのモックで完全に同じ座標</strong> (cx=20 cy=20 r=19 等) なのに、
         § 02 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
         <code>&lt;defs&gt;&lt;symbol id="bloch-frame"&gt; ... &lt;/symbol&gt;&lt;/defs&gt;</code> を 1 度宣言して各モックで <code>&lt;use href="#bloch-frame"/&gt;</code> + 矢印 + tip だけ書けば、
-        モックあたり 10 行 → 3 行に縮む。1183 行のページ全体で <strong>~150 行</strong> 削減できる。
+        モックあたり 10 行 → 3 行に縮む。
         重複の真の害は行数ではなく<strong>ドリフト</strong>: 別の作業で軸 stroke 太さを変えるとき 9 箇所すべてを正確に更新する保証が無い (textlint / html-validate も拾えない)。
       </p>
     </aside>
@@ -377,20 +297,6 @@
               <!-- |0⟩ (z = +1) → red-600 (default via .tip class) -->
               <circle class="tip" cx="20" cy="1" r="3" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+0.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+1.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -411,20 +317,6 @@
               <!-- |1⟩ (z = -1) → blue-600 -->
               <circle class="tip" cx="20" cy="39" r="3" style="fill: var(--blue-600);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+180.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">−1.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -445,20 +337,6 @@
               <!-- |+⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -479,20 +357,6 @@
               <!-- |−⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="23.8" cy="16.2" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+180.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">−1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -513,20 +377,6 @@
               <!-- |+i⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="39" cy="20" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+90.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -547,20 +397,6 @@
               <!-- |−i⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="1" cy="20" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">−90.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">−1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -579,20 +415,6 @@
               <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
               <circle class="zero" cx="20" cy="20" r="3" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">—</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">—</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -616,20 +438,6 @@
               <!-- |+⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -648,20 +456,6 @@
               <!-- |+⟩ (z = 0) → equator gradient midpoint -->
               <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
             </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -777,8 +571,8 @@
   <h2>§ 06 配色 (Flexoki Light)</h2>
   <div class="card">
     <p class="note" style="margin-bottom: 12px;">
-      <strong>実装ステータス</strong>: 球本体 / 軸線 / ベクトル線 / ホバー枠 / 先端ドットの z gradient / 非アクティブ gray は実装済み (2026-05-18)。
-      Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションへ統一している。
+      <strong>仕様ステータス</strong>: 球本体 / 軸線 / ベクトル線 / ホバー枠は実装済み。
+      先端ドットの z gradient / 非アクティブ gray は、Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションへ揃えるための目標仕様として定義する。
     </p>
     <table class="spec">
       <thead>
@@ -1040,13 +834,13 @@ z =  ρ_00 − ρ_11</pre>
       <li>リサイズハンドルなし (<code>resizable_span: false</code>)。span を変える UI は出さない</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">ポップアップ</h3>
+    <h3 style="margin-top: 16px;">ポップオーバー</h3>
     <ul>
-      <li>ホストホバーで右側 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 11 ポップアップ仕様)</li>
+      <li>ホスト要素のホバー時に、右側 +12 px (tail 8 px + gap 4 px) の位置へブロッホベクトル詳細ポップオーバーを出す設計 (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)</li>
       <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
       <li>Quirk の <code>BlochSphereDisplay.js:31-58</code> <code>paintDeferredValueTooltip</code> と同等の情報量を、
-        probability-display popup と同じ Geist 系のタイポグラフィで再構成</li>
-      <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。popup の値表示は別作業で整理する</li>
+        確率表示ブロックのポップオーバーと同じ Geist 系のタイポグラフィで再構成</li>
+      <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。ポップオーバーの値表示接続は別作業として扱う</li>
     </ul>
 
     <h3 style="margin-top: 16px;">暫定描画 (snap 前 / GPU dispatch 前)</h3>
@@ -1060,203 +854,21 @@ z =  ρ_00 − ρ_11</pre>
   </div>
 </section>
 
-<!-- ─────── § 11 ポップアップ仕様 ─────── -->
+<!-- ─────── § 11 ポップオーバー仕様への参照 ─────── -->
 <section class="block">
-  <h2>§ 11 ポップアップ仕様</h2>
+  <h2>§ 11 ポップオーバー仕様への参照</h2>
   <div class="card">
     <p>
-      ホストホバー時に出るブロッホベクトル詳細 popup の<strong>常時表示版</strong>。
-      実装と同じ CSS / マークアップを静的に並べ、状態バリアントとアナトミーを
-      Codex / 人間がスクロールだけで確認できるようにする。
-      Quirk オリジナル (<code>../oss/Quirk/src/gates/BlochSphereDisplay.js:31-58</code>) と同じ情報を、
-      probability-display popup と同じ Flexoki / Geist 系で再構成。
+      ブロッホベクトル詳細ポップオーバーのデザイン仕様は、球本体の仕様から独立させた
+      <a href="bloch-display-popover.html">bloch-display-popover.html</a> に分離した。
+      共通外装は <a href="popover.html">ポップオーバー仕様</a> を使い、本ページではホバーでポップオーバーを出す導線だけを扱う。
+      外装、タイポグラフィ、数値形式、状態別の表示例は独立ページを正とする。
     </p>
-
-    <h3 style="margin-top: 16px;">基本構造</h3>
-    <p>
-      DOM は 4 要素で構成: <code>.bd-popup-title</code> (主見出し) /
-      <code>.bd-popup-divider</code> (1 px ui-2) /
-      <code>.bd-popup-row × 2</code> (球座標 / 直交座標)。
-      各 row は 3 列グリッドで、<code>.bd-popup-cell</code> = ラベル + 値 のペア。
-    </p>
-    <table class="spec" style="margin-top: 8px;">
-      <thead>
-        <tr><th>要素</th><th>フォント</th><th>サイズ</th><th>色</th><th>追加</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>タイトル ("Bloch sphere representation of local state")</td><td>Geist Regular</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>letter-spacing −0.005 em</td></tr>
-        <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
-        <tr><td>ラベル (r / ϕ / θ / x / y / z)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>min-width 12 px (字幅統一)</td></tr>
-        <tr><td>数値 (±0.0000 / ±00.00°)</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code></td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">枠 / 影 / 配置 (probability-display popup と完全に共通)</h3>
-    <table class="spec">
-      <tbody>
-        <tr><th>背景</th><td><code>paper</code> (#FFFCF0)</td></tr>
-        <tr><th>枠線</th><td><code>ui-2</code> 1 px (#DAD8CE)</td></tr>
-        <tr><th>角丸</th><td><code>border-radius: 6 px</code> (probability-display popup と統一)</td></tr>
-        <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
-        <tr><th>影</th><td><code>0 4px 12px rgba(16, 15, 15, 0.06)</code></td></tr>
-        <tr><th>z-index</th><td>50</td></tr>
-        <tr><th>アンカー</th><td>ゲート右辺 + 8 px、ゲートの top に合わせる (probability とは「行」がない点だけ違う)</td></tr>
-        <tr><th>pointer-events</th><td><code>none</code> (ホバー判定を妨げない)</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">数値の計算式と表示形式</h3>
-    <table class="spec">
-      <thead>
-        <tr><th>値</th><th>計算</th><th>表示形式</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>r</code> (ブロッホ長)</td><td><code>sqrt(x² + y² + z²)</code></td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.9992</code></td></tr>
-        <tr><td><code>ϕ</code> (方位角)</td><td><code>atan2(y, x)</code>、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+0.00°</code></td></tr>
-        <tr><td><code>θ</code> (極角)</td><td><code>acos(z / r)</code> (r &gt; 10<sup>−6</sup>)、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+179.45°</code></td></tr>
-        <tr><td><code>x</code> / <code>y</code> / <code>z</code></td><td>shader 出力をそのまま使用 (符号反転なし)</td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.0095</code> / <code>-0.9992</code></td></tr>
-        <tr><td><code>r ≈ 0</code> 時</td><td>(完全混合)</td><td>ϕ / θ は <code>—</code> を表示。x / y / z は <code>+0.0000</code> のまま</td></tr>
-      </tbody>
-    </table>
-    <p class="note" style="margin-top: 8px;">
-      <strong>qni-webgpu の符号規約</strong>: shader 出力 (x, y, z) は <code>x = 2·Re(ρ<sub>01</sub>)</code>、
-      <code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code> (§ 09)。
-      これは標準 Bloch convention と一致 (|0⟩ → z=+1、|1⟩ → z=−1) なので、popup では <strong>符号反転なしでそのまま表示する</strong>。
-      Quirk オリジナルは内部表現が標準と逆だったため <code>forceSign(-x)</code> / <code>forceSign(-z)</code> を行うが、
-      qni-webgpu では不要 (この差分はコメントとして実装側に残す)。
-    </p>
-
-    <h3 style="margin-top: 16px;">状態バリアント (常時表示モック)</h3>
-    <p>
-      実コードと同じ <code>.bd-popup</code> マークアップに <code>.bd-popup--static</code> を付け、
-      <code>position: static; display: inline-block</code> で非ホバー時にも表示する。
-      代表的なブロッホ状態でレンダリングを確認できる。
-    </p>
-    <div class="stage" style="gap: 24px; flex-wrap: wrap;">
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|0⟩<br>(0, 0, +1)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+0.00°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+1.0000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|1⟩ に近い<br>(0.0095, 0.0000, −0.9992)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.9992</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+179.45°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0095</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">−0.9992</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">|+⟩<br>(+1, 0, 0)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">傾いた混合状態 (r &lt; 1)<br>(+0.5, −0.3, +0.7)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.9110</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">−30.96°</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+39.78°</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.5000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">−0.3000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.7000</span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="col" style="max-width: 280px;">
-        <div class="caption">完全混合<br>(0, 0, 0)</div>
-        <div class="bd-popup bd-popup--static">
-          <div class="bd-popup-title">Bloch sphere representation of local state</div>
-          <div class="bd-popup-divider"></div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">—</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">—</span></span>
-          </div>
-          <div class="bd-popup-row">
-            <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-            <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 11 popup mocks 重複">
-      <div class="critique-label">★ 批評 · § 11 mock 重複</div>
-      <div class="critique-title">5 個の popup mock がほぼ同じマークアップを再宣言している</div>
-      <p class="critique-body">
-        5 つの状態バリアント (|0⟩ / |1⟩-近傍 / |+⟩ / 傾いた混合 / 完全混合) はそれぞれ <code>.bd-popup-title</code> + divider + 2 row × 3 cell の<strong>同一構造</strong>を持ち、差分は<em>数値だけ</em>。
-        しかし HTML 上は毎回約 13 行 (title + divider + 6 cell) を書き直しており、計 65 行が値テーブルとして再利用できない形で展開されている。
-        さらにタイトル文 "Bloch sphere representation of local state" は 5 個すべてで同じ — 5 回見せても情報量は増えない。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: タイトル行 + アンカー位置 + 余白の <em>anatomy diagram</em> を 1 個だけ大きく示し、
-        その下に <code>&lt;table class="spec"&gt;</code> で「状態名 / r / ϕ / θ / x / y / z」を 5 行並べる。
-        anatomy で構造を教え、テーブルで値の振れ幅を提示する 2 役分担。65 行 → ~25 行に縮み、値テーブルとして比較もしやすくなる。
-      </p>
-      <p class="critique-body">
-        <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 02 にはモックだけ、§ 11 には popup だけ)。
-        傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 02 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
-        anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;use href="#bloch-frame"/&gt;</code> + tip + needle) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
-      </p>
-    </aside>
-
-    <h3 style="margin-top: 24px;">参考: Quirk オリジナルとの差分</h3>
-    <table class="spec">
-      <thead>
-        <tr><th>項目</th><th>Quirk</th><th>qni-webgpu</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>背景 / 枠</td><td>半透明黒 + 白テキスト</td><td><code>paper</code> + <code>ui-2</code> 1 px + soft shadow (probability-display popup と統一)</td></tr>
-        <tr><td>フォント</td><td>system serif / sans-serif、可変幅</td><td>Geist (タイトル) + Geist Mono (数値、<code>tabular-nums</code>)</td></tr>
-        <tr><td>x / z 符号</td><td>内部実装の都合で <code>-x</code> / <code>-z</code> を表示</td><td>内部値と一致するのでそのまま表示 (符号反転なし)</td></tr>
-        <tr><td>表示トリガ</td><td>focus point が球内部 (distance &lt; radius) のとき</td><td>ホストホバーで出す (本体が円なので球外部 vs 内部の区別を細かく取らない)</td></tr>
-        <tr><td>sphere 上のフォーカスマーカ</td><td>orange 2 px の円を上書き</td><td>外側ホバー枠 (<code>purple-400</code> 4 px ホバー枠) のみ、球内部は変えない</td></tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><strong>表示内容</strong>: タイトル、球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>)、直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
+      <li><strong>配置</strong>: ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲート上端に合わせる</li>
+      <li><strong>参照先</strong>: <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a></li>
+    </ul>
   </div>
 </section>
 
@@ -1306,12 +918,9 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 16px;">バックエンド対応</h3>
     <ul>
-      <li><strong>Local WebGPU のみ対応</strong>。<strong>external GPU バックエンドでは未対応</strong>
-        (<code>app/external_gpu/app_adapter.rs:97-115</code> の <code>unsupported_external_gpu_gate</code> に
-        <code>BlochDisplay → "Bloch"</code> が列挙されている)</li>
-      <li>回路に BlochDisplay が含まれる場合、external GPU 切替時に Unsupported エラーになる</li>
-      <li>制約理由: external GPU 経路は ρ → (x, y, z) の reduce + GPU フラグメントへの直結という本仕様の経路を持たないため。
-        将来対応するなら <code>BLOCH_REDUCE_SHADER</code> 相当の reduce を external 側にも追加する</li>
+      <li><strong>ローカル WebGPU</strong>: <code>BLOCH_REDUCE_SHADER</code> がローカルの状態ベクトルから <code>bloch_output_buffer</code> を更新し、重ね描画が同じ GPU バッファを読む</li>
+      <li><strong>外部 GPU バックエンド</strong>: <code>collect_bloch_requests</code> が BlochDisplay の出力要求を送信データに含め、バックエンド応答の <code>(x, y, z)</code> を <code>ExternalBlochUploadBatch</code> として <code>bloch_output_buffer</code> へ転送する</li>
+      <li>描画側はローカル WebGPU / 外部 GPU のどちらでも <code>bloch_output_buffer</code> を共通入口として扱うため、ブロッホ球本体とポップオーバー値表示の仕様は同じ</li>
     </ul>
 
     <aside class="critique" aria-label="批評 · § 12 line-number rot">
@@ -1324,7 +933,7 @@ z =  ρ_00 − ρ_11</pre>
       </p>
       <p class="critique-body">
         <strong>対応案</strong>: § 12 はパイプライン<em>そのもの</em>を語る (input → reduce → overlay → callback の責任分担、binding 表) に絞り、
-        ファイル参照は <code>(<a href="#section-13">§ 14 参照</a>)</code> 1 つで § 14 へ送る。
+        ファイル参照は <code>(<a href="#implementation-files">§ 14 参照</a>)</code> 1 つで § 14 へ送る。
         どうしても § 12 内に出したいなら、行番号無しの相対パス (<code>gpu/shaders/bloch_display.rs</code>) + 関数名 (<code>fs_main</code>) を組合せる方が grep で見つかり腐敗もしにくい。
       </p>
       <p class="critique-body">
@@ -1366,7 +975,7 @@ z =  ρ_00 − ρ_11</pre>
 </section>
 
 <!-- ─────── § 14 実装ファイル / 参照 ─────── -->
-<section class="block">
+<section class="block" id="implementation-files">
   <h2>§ 14 実装ファイル</h2>
   <div class="card">
     <table class="spec">
@@ -1390,9 +999,8 @@ z =  ρ_00 − ρ_11</pre>
         <tr><td><code>apps/web/src/app/gpu_plan_state.rs</code></td><td><code>bloch_slot(gate_id)</code> のスロット割り当てルックアップ</td></tr>
         <tr><td><code>apps/web/src/colors.rs</code></td><td>Flexoki マッピング:
           <code>bloch_sphere_bg</code> (= bg-2) / <code>bloch_sphere_lines</code> (= tx-3) / <code>bloch_vector_line</code> (= tx) /
-          <strong>新仕様:</strong> <code>bloch_vector_tip_0</code> (= <code>semantic_off</code> = red-600) /
-          <code>bloch_vector_tip_1</code> (= <code>semantic_on</code> = blue-600) /
-          <code>bloch_vector_inactive</code> (= tx-3、|v| &lt; 1e-3 の非アクティブ色)</td></tr>
+          現行 <code>bloch_vector_tip</code> (= red-600) / <code>bloch_vector_zero</code> (= blue-600)。
+          本仕様の z gradient / 非アクティブ gray へ移行する場合は <code>semantic_off</code> / <code>semantic_on</code> / <code>tx-3</code> を使う</td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
@@ -1401,7 +1009,8 @@ z =  ρ_00 − ρ_11</pre>
       <li>qni convention (符号定義): <code>packages/simulator/src/matrix.ts</code></li>
       <li>Quirk 原実装: <code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code></li>
       <li>デザインシステム全体方針: <a href="../design-system-architecture.html">design-system-architecture.html</a></li>
-      <li>関連 spec: <a href="probability-display.html">probability-display.html</a> (表示ブロックの姉妹実装)</li>
+      <li>関連仕様: <a href="bloch-display-popover.html">bloch-display-popover.html</a> (ブロッホ球ポップオーバーの独立仕様)</li>
+      <li>関連仕様: <a href="probability-display.html">probability-display.html</a> (表示ブロックの姉妹実装)</li>
       <li>インデクス: <a href="../design-system.html">design-system.html</a></li>
     </ul>
   </div>

@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ブロッホ球ポップオーバー — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ─── ブロッホ球ポップオーバー ─────────────────────────────
+       ブロッホ球表示ブロックのホスト要素のホバー時に表示する詳細情報。
+       配色は Flexoki Light、余白 / 文字サイズは Tailwind の既定スケールへ対応させる。 */
+    .bd-popover {
+      position: absolute;
+      top: 0;
+      left: calc(100% + 12px);           /* tail 8 px + gap 4 px (popover.html と同じ) */
+      display: none;
+      pointer-events: none;
+      z-index: 50;
+      background: var(--bg);             /* Flexoki bg / paper / popover_surface */
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
+      border-radius: 10px;               /* popover.html と同じ角丸 */
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      font-family: 'Geist', sans-serif;
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx);                  /* Flexoki tx */
+      white-space: nowrap;
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* popover.html と同じ影 */
+    }
+    .bd-popover .bd-popover-title {
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      font-weight: 400;
+      color: var(--tx);                  /* Flexoki tx */
+      letter-spacing: -0.005em;
+    }
+    .bd-popover .bd-popover-divider {
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 */
+      margin: 12px 0;                    /* spacing-3 */
+    }
+    .bd-popover .bd-popover-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;                         /* spacing-3 */
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .bd-popover .bd-popover-row + .bd-popover-row {
+      margin-top: 4px;                   /* spacing-1 */
+    }
+    .bd-popover .bd-popover-cell {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;                          /* spacing-2 */
+    }
+    .bd-popover .bd-popover-key {
+      min-width: 12px;                   /* r / ϕ / θ / x / y / z の字幅合わせ */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+    .bd-popover .bd-popover-val {
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+      color: var(--tx);                  /* Flexoki tx */
+    }
+    .bd-popover .doc-popover-tail {
+      position: absolute;
+      top: var(--tail-y, 24px);
+      width: 16px;
+      height: 8px;
+      transform: rotate(90deg);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .bd-popover .doc-popover-tail__fill { fill: var(--bg); }
+    .bd-popover .doc-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);               /* Flexoki tx-3 / popover_outline */
+      stroke-width: 1.5px;
+      stroke-linejoin: round;
+    }
+    .bd-popover .doc-popover-tail--left { left: -12px; }
+    .bd-popover.bd-popover--static {
+      position: relative;
+      top: auto;
+      left: auto;
+      display: inline-block;
+      vertical-align: top;
+    }
+
+    .bloch-popover-stage {
+      position: relative;
+      min-height: 176px;                 /* spacing-44 相当、4px 倍数 */
+      padding: 32px 24px;                /* spacing-8 / spacing-6 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      overflow: auto;
+    }
+    .bloch-popover-demo {
+      position: relative;
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 12px;                         /* tail 8 px + gap 4 px */
+      min-width: 448px;                  /* 40 px gate + 12 px gap + popover 幅の表示用余白 */
+    }
+    .bloch-popover-anchor {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      border-radius: 9999px;
+      background: var(--bg-2);           /* Flexoki bg-2 / ブロッホ球内塗り */
+      border: 1.5px solid var(--tx-3);   /* Flexoki tx-3 / 球の外周 */
+    }
+    .bloch-popover-anchor::before,
+    .bloch-popover-anchor::after {
+      content: '';
+      position: absolute;
+      background: var(--tx-3);           /* Flexoki tx-3 / 軸線 */
+    }
+    .bloch-popover-anchor::before {
+      left: 2px;
+      right: 2px;
+      top: 19px;
+      height: 1px;
+    }
+    .bloch-popover-anchor::after {
+      top: 2px;
+      bottom: 2px;
+      left: 19px;
+      width: 1px;
+    }
+    .bloch-popover-anchor .needle {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      width: 18px;
+      height: 1.5px;
+      background: var(--tx);             /* Flexoki tx / ベクトル線 */
+      transform: rotate(135deg);
+      transform-origin: left center;
+      border-radius: 9999px;
+    }
+    .bloch-popover-anchor .tip {
+      position: absolute;
+      left: 12px;
+      top: 25px;
+      width: 6px;
+      height: 6px;
+      border-radius: 9999px;
+      background: #684768;               /* red-600 と blue-600 の sRGB 中点 */
+    }
+    .bloch-popover-anchor[data-state="ket0"] .needle {
+      width: 18px;
+      transform: rotate(-90deg);
+    }
+    .bloch-popover-anchor[data-state="ket0"] .tip {
+      left: 17px;
+      top: 2px;
+      background: var(--red-600);        /* Flexoki red-600 / |0⟩ 側 */
+    }
+    .bloch-popover-anchor[data-state="near1"] .needle {
+      width: 18px;
+      transform: rotate(88deg);
+    }
+    .bloch-popover-anchor[data-state="near1"] .tip {
+      left: 17px;
+      top: 32px;
+      background: var(--blue-600);       /* Flexoki blue-600 / |1⟩ 側 */
+    }
+    .bloch-popover-anchor[data-state="plus"] .needle {
+      width: 18px;
+      transform: rotate(135deg);
+    }
+    .bloch-popover-anchor[data-state="plus"] .tip {
+      left: 12px;
+      top: 25px;
+      background: #684768;               /* red-600 と blue-600 の sRGB 中点 */
+    }
+    .bloch-popover-anchor[data-state="tilted"] .needle {
+      width: 14px;
+      transform: rotate(-145deg);
+    }
+    .bloch-popover-anchor[data-state="tilted"] .tip {
+      left: 8px;
+      top: 10px;
+      background: #9B3838;               /* z = +0.7 例の red 寄り中間色 */
+    }
+    .bloch-popover-anchor[data-state="mixed"] .needle {
+      display: none;
+    }
+    .bloch-popover-anchor[data-state="mixed"] .tip {
+      left: 17px;
+      top: 17px;
+      background: var(--tx-3);           /* Flexoki tx-3 / 非アクティブ */
+    }
+
+    .state-popover-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 16px;                         /* spacing-4 */
+      margin: 16px 0;                    /* spacing-4 */
+    }
+    .state-popover-card {
+      padding: 12px;                     /* spacing-3 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      overflow-x: auto;
+    }
+    .state-popover-caption {
+      margin-bottom: 8px;                /* spacing-2 */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+    }
+    .state-popover-card .bloch-popover-demo {
+      min-width: 420px;
+    }
+
+    table.value-table th {
+      width: auto;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    table.value-table td:not(:first-child) {
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    #preview .mini-popover {
+      position: relative;
+      width: 128px;
+      height: 48px;
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg */
+      box-shadow: 0 10px 18px rgba(16, 15, 15, 0.12); /* popover preview shadow */
+    }
+    #preview .mini-line {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      height: 3px;
+      border-radius: 9999px;
+      background: var(--ui-2);           /* Flexoki ui-2 */
+    }
+    #preview .mini-line:nth-child(1) { top: 10px; width: 78px; }
+    #preview .mini-line:nth-child(2) { top: 22px; width: 104px; }
+    #preview .mini-line:nth-child(3) { top: 32px; width: 92px; }
+
+    /* ─── 批評コメント (Design Critique インライン挿入) ───
+       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使う。
+       ".note" (tx-2 のグレー段落) とは別レイヤとして読めるようにし、
+       「仕様」と「レビューコメント」を一目で識別できるようにする。
+       bloch-display.html / probability-display.html の .critique と同じパターン。 */
+    .critique {
+      margin: 16px 0;                       /* spacing-4 */
+      padding: 14px 18px;
+      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
+      border-left: 4px solid var(--red-600);
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+    }
+    .critique .critique-label {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--red-600);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .critique .critique-title {
+      font-weight: 600;
+      color: var(--tx);
+      margin: 0 0 6px;
+    }
+    .critique .critique-body {
+      color: var(--tx-2);
+      margin: 0;
+    }
+    .critique .critique-body + .critique-body {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .critique ol.critique-list,
+    .critique ul.critique-list {
+      margin: 6px 0 0;
+      padding-left: 22px;
+      color: var(--tx-2);
+    }
+    .critique ol.critique-list li + li,
+    .critique ul.critique-list li + li {
+      margin-top: 4px;                      /* spacing-1 */
+    }
+    .critique code {
+      background: rgba(175, 48, 41, 0.08);
+      border-color: rgba(175, 48, 41, 0.18);
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="mini-popover" aria-hidden="true">
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+    <span class="mini-line"></span>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <a href="bloch-display.html">ブロッホ球表示ブロック</a>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ポップオーバー</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · popover spec</p>
+  <h1 class="page-title">ブロッホ球ポップオーバー</h1>
+  <p class="page-lede">
+    ブロッホ球表示ブロックのホスト要素のホバー時に、ブロッホベクトルの球座標と直交座標を表示する詳細ポップオーバーの仕様。
+    共通の吹き出し型外装は <a href="popover.html">ポップオーバー仕様</a> に従い、本ページではブロッホ球固有の内容と配置を定義する。
+    球本体の描画仕様は <a href="bloch-display.html">ブロッホ球表示ブロック仕様</a> に置き、本ページではブロッホ球固有の内容、配置、数値形式、状態別の表示例だけを独立して扱う。
+  </p>
+</div>
+
+<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
+<section class="block">
+  <aside class="critique" aria-label="批評 · Top Opportunities">
+    <div class="critique-label">★ 批評 · Top Opportunities</div>
+    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
+    <ol class="critique-list">
+      <li><strong>§ 02 のアンカー (左の円) を本物の bloch-display SVG に置き換える</strong> — 現状は独自 CSS で「円 + 軸 2 本 + 矢印 + 中点色 tip」を描いており、<a href="bloch-display.html">ブロッホ球表示ブロック仕様</a> の「3 軸 + 2 楕円ワイヤフレーム + tip gradient」とは別物。<code>&lt;defs&gt;&lt;symbol&gt;</code> を共有するか、せめて同じ SVG マークアップを使うべき (§ 02 参照)。</li>
+      <li><strong>tail の縦位置基準を仕様化する</strong> — CSS では <code>--tail-y</code> のデフォルトが <code>24px</code> だが、ゲート (40 × 40) の縦中央は 20 px。現状 tail はゲート中央より 8 px 下を指しており、§ 03 の「ゲート上端に合わせる」だけでは tail の高さ基準が決まらない (§ 02 / § 03 参照)。</li>
+      <li><strong>外装トークンを <code>popover.html</code> と共有する</strong> — <code>border-radius: 10px</code> / <code>box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14)</code> / <code>padding: 12px 16px</code> はコメントで「popover.html と同じ」と謳いつつ値がハードコード。<code>--popover-radius</code> / <code>--popover-shadow</code> として <code>design-system.css</code> に集約する余地がある (§ 03 参照)。</li>
+      <li><strong>モック内タイトル文字列の言語方針を明示する</strong> — 「Bloch sphere representation of local state」が英語のみで、日本語仕様の中で唯一の英語表現。Quirk 互換の事情か、国際化保留か、判断根拠が § 02 にも § 06 にも書かれていない。ルー語禁止ルール (AGENTS.md 用語集) との関係も曖昧 (§ 02 / § 06 参照)。</li>
+    </ol>
+  </aside>
+</section>
+
+<section class="block">
+  <h2>§ 01 役割と表示内容</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::BlochDisplay</code> のホスト要素のホバー時に出す詳細ポップオーバー</td></tr>
+        <tr><th>目的</th><td>球の中の矢印だけでは読み取りにくい <code>r</code> / <code>ϕ</code> / <code>θ</code> / <code>x</code> / <code>y</code> / <code>z</code> を数値で確認する</td></tr>
+        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる。ブロッホ球表示ブロックには行の概念がないため、確率表示ブロックの行単位ポップオーバーとは異なりホスト単位で 1 個だけ出す</td></tr>
+        <tr><th>ポインタイベント</th><td><code>pointer-events: none</code>。ポップオーバー自身はホバー判定を奪わない</td></tr>
+        <tr><th>GPU-only</th><td>本番経路では値を CPU に読み戻さない。値描画の接続時は <code>bloch_output_buffer</code> を GPU 側で直接読む</td></tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 01 仕様と実装制約の混在">
+      <div class="critique-label">★ 批評 · § 01 仕様と実装制約の混在</div>
+      <div class="critique-title">「役割と表示内容」テーブルが仕様 (対象/目的/アンカー) と実装制約 (pointer-events/GPU-only) を同居させている</div>
+      <p class="critique-body">
+        セクション名は「役割と表示内容」だが、最後の 2 行 <strong>ポインタイベント</strong> と <strong>GPU-only</strong> は「表示内容」ではなく「実装上の制約」。
+        混在によって「読者が最初に知るべきこと (このポップオーバーは何を見せるのか)」と
+        「実装者が遵守すべきこと (CPU 読み戻し禁止)」が同じ密度で並んでしまっている。
+        これらは別セクション (例: § 07 実装制約) に切り出すか、AGENTS.md の GPU-only ルールへ逆参照だけ残して 1 行に削るとリードしやすくなる。
+      </p>
+      <p class="critique-body">
+        <strong>「アンカー」行は § 03 と重複している:</strong>
+        「ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる」と
+        ほぼ同じ文章が § 03 にも書かれている。
+        § 01 では概念 (1 ホストにつき 1 個) だけ示し、寸法は § 03 一箇所に集約するほうが drift しにくい。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 アナトミー</h2>
+  <div class="card">
+    <p>
+      DOM はポップオーバー外装、<code>.bd-popover-title</code> (主見出し)、<code>.bd-popover-divider</code> (1 px 区切り線)、
+      <code>.bd-popover-row × 2</code> (球座標 / 直交座標)、<code>.doc-popover-tail</code> で構成する。
+      各行は 3 列グリッドで、<code>.bd-popover-cell</code> がラベルと値の組を持つ。
+    </p>
+    <div class="bloch-popover-stage" role="img" aria-label="ブロッホ球の右に表示されるポップオーバーの配置例">
+      <div class="bloch-popover-demo">
+        <div class="bloch-popover-anchor" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+        <div class="bd-popover bd-popover--static">
+          <div class="bd-popover-title">Bloch sphere representation of local state</div>
+          <div class="bd-popover-divider"></div>
+          <div class="bd-popover-row">
+            <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
+            <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+            <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+90.00°</span></span>
+          </div>
+          <div class="bd-popover-row">
+            <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+1.0000</span></span>
+            <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">+0.0000</span></span>
+            <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">+0.0000</span></span>
+          </div>
+          <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+            <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+            <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 16px;">要素別の指定</h3>
+    <table class="spec" style="margin-top: 8px;">
+      <thead>
+        <tr><th>要素</th><th>フォント</th><th>サイズ</th><th>色</th><th>追加</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>タイトル</td><td>Geist Regular</td><td>14 px (text-sm)</td><td><code>tx</code></td><td>letter-spacing −0.005 em</td></tr>
+        <tr><td>区切り線</td><td>—</td><td>height 1 px</td><td><code>ui-2</code></td><td>margin 12 px 0 (spacing-3)</td></tr>
+        <tr><td>ラベル (r / ϕ / θ / x / y / z)</td><td>Geist Mono</td><td>12 px (text-xs)</td><td><code>tx-2</code></td><td>min-width 12 px</td></tr>
+        <tr><td>数値 (±0.0000 / ±00.00°)</td><td>Geist Mono</td><td>14 px (text-sm)</td><td><code>tx</code></td><td><code>tabular-nums</code></td></tr>
+        <tr><td>tail</td><td>—</td><td>16 × 8 px</td><td><code>bg</code> + <code>tx-3</code></td><td>ポップオーバー仕様と同じ三角形を左辺で 90° 回転</td></tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 02 アンカー描画">
+      <div class="critique-label">★ 批評 · § 02 アンカー描画</div>
+      <div class="critique-title">アンカー (左の円) が本物の bloch-display ゲートを踏襲していない</div>
+      <p class="critique-body">
+        <code>.bloch-popover-anchor</code> は CSS の <code>::before</code> / <code>::after</code> で水平・垂直 1 px 軸を引き、<code>.needle</code> で 135° 回転矢印 + <code>.tip</code> で 6 px の中点色ドットを描く独自レンダリング。
+        一方、<a href="bloch-display.html">ブロッホ球表示ブロック仕様</a> 本体は SVG で <strong>3 軸 (水平 / 垂直 / 対角) + 球を斜めから見た 2 楕円ワイヤフレーム</strong> + tip の z による gradient を描いている。
+        モックがホスト要素の正確な姿を反映していないと、「ポップオーバーがゲートのどの位置に出るか」の判断材料にならない。
+        bloch-display.html と SVG 構造を共有するか (例: <code>&lt;defs&gt;&lt;symbol id="bloch-anchor-equator"&gt;</code> を両ページから <code>&lt;use&gt;</code>)、せめて同じ <code>viewBox="0 0 40 40"</code> の SVG マークアップを直接コピーして揃えるべき。
+      </p>
+      <p class="critique-body">
+        <strong>tail の縦位置基準が CSS に隠れている:</strong>
+        <code>.doc-popover-tail</code> は <code>top: var(--tail-y, 24px)</code> で、<code>--tail-y</code> は設定されていないのでデフォルト <code>24px</code> が使われる。
+        tail の上下中央は <code>24 + 4 = 28 px</code>、これに対して 40 × 40 ゲートの縦中央は <code>20 px</code>。
+        <strong>tail はゲート中央より 8 px 下を指している</strong>状態で、視覚的には「popover が少し下に垂れている」ように見える。
+        「ゲートの上端に合わせる」と「tail はゲート中央を指す」は両立しないので、どちらを採用するかを § 03 で明示し、tail-y の根拠も併記すべき。
+      </p>
+      <p class="critique-body">
+        <strong>モック内タイトルが英語のみ:</strong>
+        「Bloch sphere representation of local state」は日本語仕様ページの中で唯一の英語表現。
+        Quirk 互換の都合か (Quirk 原典で英語タイトルが使われている)、国際化保留かが書かれておらず、
+        プロジェクトのルー語禁止ルール (AGENTS.md 用語集) との整合も曖昧。
+        英語維持なら「Quirk 互換のためタイトルは英語固定」と § 06 に書く、日本語化するなら「ブロッホ球による局所状態の表現」のような訳を仕様内に置く、どちらかに揃えたい。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 枠、影、配置</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>背景</th><td><code>bg</code> (#FFFCF0)。<a href="popover.html">ポップオーバー仕様</a>の surface と同じ</td></tr>
+        <tr><th>枠線</th><td><code>tx-3</code> 1 px (#B7B5AC)。<code>popover_outline</code> を使う</td></tr>
+        <tr><th>角丸</th><td><code>border-radius: 10 px</code>。ポップオーバー仕様の基準形と同じ</td></tr>
+        <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
+        <tr><th>影</th><td><code>0 10px 28px rgba(16, 15, 15, 0.14)</code>。ポップオーバー仕様の基準形と同じ</td></tr>
+        <tr><th>tail</th><td>16 × 8 px の三角 tail を左辺で 90° 回転し、ゲート側を指す。塗りは <code>bg</code>、線は <code>tx-3</code></td></tr>
+        <tr><th>z-index</th><td>50</td></tr>
+        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる</td></tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 03 共通トークンの未集約">
+      <div class="critique-label">★ 批評 · § 03 共通トークンの未集約</div>
+      <div class="critique-title">「popover.html と同じ」を文章で繰り返すたびに値がドリフトしやすくなる</div>
+      <p class="critique-body">
+        背景・枠線・角丸・影・tail 寸法・<code>z-index</code> のすべてに<strong>「popover.html と同じ」</strong>と書かれている。
+        意図は共有だが、現状は <code>border-radius: 10px</code> / <code>box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14)</code> / <code>padding: 12px 16px</code> がそれぞれ<strong>このページの <code>&lt;style&gt;</code> 内にハードコード</strong>されている。
+        popover.html の値を変更したときに本ページが追従しない (ドリフトする) 構造になっている。
+        <code>design-system.css</code> に <code>--popover-radius</code> / <code>--popover-shadow</code> / <code>--popover-pad-y</code> / <code>--popover-pad-x</code> として集約し、popover.html / bloch-display-popover.html / probability-display.html (popup) の三者で参照する形に整えると drift が起きない。
+      </p>
+      <p class="critique-body">
+        <strong>「アンカー」行は § 01 と完全重複:</strong>
+        § 01 の最終行とほぼ同じ文章で「ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる」と書かれている。
+        本ページのアンカー寸法は § 03 一箇所に集約し、§ 01 からはリンクで参照するほうが整理しやすい。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 数値の計算式と表示形式</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>値</th><th>計算</th><th>表示形式</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>r</code> (ブロッホ長)</td><td><code>sqrt(x² + y² + z²)</code></td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.9992</code></td></tr>
+        <tr><td><code>ϕ</code> (方位角)</td><td><code>atan2(y, x)</code>、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+0.00°</code></td></tr>
+        <tr><td><code>θ</code> (極角)</td><td><code>acos(z / r)</code> (r &gt; 10<sup>−6</sup>)、ラジアン → 度</td><td><code>forceSign · toFixed(2) + "°"</code> 例: <code>+179.46°</code></td></tr>
+        <tr><td><code>x</code> / <code>y</code> / <code>z</code></td><td>シェーダ出力をそのまま使用 (符号反転なし)</td><td><code>forceSign · toFixed(4)</code> 例: <code>+0.0095</code> / <code>-0.9992</code></td></tr>
+        <tr><td><code>r ≈ 0</code> 時</td><td>完全混合</td><td>ϕ / θ は <code>—</code> を表示。x / y / z は <code>+0.0000</code> のまま</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 8px;">
+      <strong>qni-webgpu の符号規約</strong>: シェーダ出力 (x, y, z) は <code>x = 2·Re(ρ<sub>01</sub>)</code>、
+      <code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code>。
+      標準のブロッホベクトル規約と一致するため、ポップオーバーでは符号反転せずに表示する。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 04 関数名チェイン記法と閾値の出典">
+      <div class="critique-label">★ 批評 · § 04 関数名チェイン記法と閾値の出典</div>
+      <div class="critique-title"><code>forceSign · toFixed(4)</code> 記法の出典が不明 / r ≈ 0 の閾値が文と表で分散</div>
+      <p class="critique-body">
+        表示形式の列で <code>forceSign · toFixed(4)</code> という記法が 4 セル繰り返されているが、
+        <code>forceSign</code> は標準 JavaScript の関数ではなく、<code>toFixed</code> の前に何が来るかも未定義。
+        実装側のヘルパ関数を指しているのか、仕様上の擬似コードなのかが書かれていない。
+        実装ヘルパなら <code>apps/web</code> 側の該当関数を § 04 末尾で「実装側のヘルパ参照: <code>formatBlochScalar(x)</code>」のように 1 行で示し、
+        擬似コードなら「<code>+/-</code> を必ず先頭に付ける + 小数 4 桁固定」のように文章で書くほうが曖昧さが消える。
+      </p>
+      <p class="critique-body">
+        <strong>r ≈ 0 の閾値ロジックが § 04 内で 2 箇所に分散している:</strong>
+        <code>θ</code> 行の計算欄に「<code>r &gt; 10⁻⁶</code>」と書き、「r ≈ 0 時」行で「ϕ / θ は <code>—</code> を表示」と書く。
+        2 つは同じことを言っているが、片方は閾値 (<code>10⁻⁶</code>)、片方は「完全混合」と表現が異なる。
+        「<code>r ≤ 10⁻⁶</code> なら <code>ϕ</code> / <code>θ</code> を <code>—</code> に置換し、x / y / z はそのまま表示」と 1 行で書き直して § 05 の完全混合行に逆参照を張ると、判定条件と表示結果の対応が明確になる。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 状態別の表示例</h2>
+  <div class="card">
+    <p>
+      ポップオーバーの構造は § 02 の 1 種類だけを使い、状態ごとの差分を視覚モックと数値表の両方で示す。
+      完全混合のダッシュ表示、3 桁度数、負号付き角度が同じ 3 列グリッドで崩れないことを、このセクション内で確認できる。
+      左の球は状態差分と配置を見るための概略アンカーで、球本体の厳密な描画は <a href="bloch-display.html">ブロッホ球表示ブロック仕様</a>を正とする.
+    </p>
+
+    <div class="state-popover-grid" role="group" aria-label="状態別のブロッホ球ポップオーバー視覚モック">
+      <div class="state-popover-card">
+        <div class="state-popover-caption">|0⟩ · 北極 · (0, 0, +1)</div>
+        <div class="bloch-popover-demo">
+          <div class="bloch-popover-anchor" data-state="ket0" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+          <div class="bd-popover bd-popover--static">
+            <div class="bd-popover-title">Bloch sphere representation of local state</div>
+            <div class="bd-popover-divider"></div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+0.00°</span></span>
+            </div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">+1.0000</span></span>
+            </div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-popover-card">
+        <div class="state-popover-caption">|1⟩ に近い · 3 桁度数 · (0.0095, 0.0000, −0.9992)</div>
+        <div class="bloch-popover-demo">
+          <div class="bloch-popover-anchor" data-state="near1" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+          <div class="bd-popover bd-popover--static">
+            <div class="bd-popover-title">Bloch sphere representation of local state</div>
+            <div class="bd-popover-divider"></div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.9992</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+179.46°</span></span>
+            </div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+0.0095</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">−0.9992</span></span>
+            </div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-popover-card">
+        <div class="state-popover-caption">|+⟩ · 赤道 · (+1, 0, 0)</div>
+        <div class="bloch-popover-demo">
+          <div class="bloch-popover-anchor" data-state="plus" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+          <div class="bd-popover bd-popover--static">
+            <div class="bd-popover-title">Bloch sphere representation of local state</div>
+            <div class="bd-popover-divider"></div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+1.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">+0.00°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+90.00°</span></span>
+            </div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+1.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">+0.0000</span></span>
+            </div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-popover-card">
+        <div class="state-popover-caption">傾いた混合状態 · 負号付き角度 · (+0.5, −0.3, +0.7)</div>
+        <div class="bloch-popover-demo">
+          <div class="bloch-popover-anchor" data-state="tilted" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+          <div class="bd-popover bd-popover--static">
+            <div class="bd-popover-title">Bloch sphere representation of local state</div>
+            <div class="bd-popover-divider"></div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.9110</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">−30.96°</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">+39.79°</span></span>
+            </div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+0.5000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">−0.3000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">+0.7000</span></span>
+            </div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-popover-card">
+        <div class="state-popover-caption">完全混合 · ダッシュ表示 · (0, 0, 0)</div>
+        <div class="bloch-popover-demo">
+          <div class="bloch-popover-anchor" data-state="mixed" aria-hidden="true"><span class="needle"></span><span class="tip"></span></div>
+          <div class="bd-popover bd-popover--static">
+            <div class="bd-popover-title">Bloch sphere representation of local state</div>
+            <div class="bd-popover-divider"></div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">r</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">ϕ</span><span class="bd-popover-val">—</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">θ</span><span class="bd-popover-val">—</span></span>
+            </div>
+            <div class="bd-popover-row">
+              <span class="bd-popover-cell"><span class="bd-popover-key">x</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">y</span><span class="bd-popover-val">+0.0000</span></span>
+              <span class="bd-popover-cell"><span class="bd-popover-key">z</span><span class="bd-popover-val">+0.0000</span></span>
+            </div>
+            <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+              <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+              <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <table class="spec value-table">
+      <thead>
+        <tr><th>状態</th><th>r</th><th>ϕ</th><th>θ</th><th>x</th><th>y</th><th>z</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>|0⟩ (0, 0, +1)</td><td>+1.0000</td><td>+0.00°</td><td>+0.00°</td><td>+0.0000</td><td>+0.0000</td><td>+1.0000</td></tr>
+        <tr><td>|1⟩ に近い (0.0095, 0.0000, −0.9992)</td><td>+0.9992</td><td>+0.00°</td><td>+179.46°</td><td>+0.0095</td><td>+0.0000</td><td>−0.9992</td></tr>
+        <tr><td>|+⟩ (+1, 0, 0)</td><td>+1.0000</td><td>+0.00°</td><td>+90.00°</td><td>+1.0000</td><td>+0.0000</td><td>+0.0000</td></tr>
+        <tr><td>傾いた混合状態 (+0.5, −0.3, +0.7)</td><td>+0.9110</td><td>−30.96°</td><td>+39.79°</td><td>+0.5000</td><td>−0.3000</td><td>+0.7000</td></tr>
+        <tr><td>完全混合 (0, 0, 0)</td><td>+0.0000</td><td>—</td><td>—</td><td>+0.0000</td><td>+0.0000</td><td>+0.0000</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 Quirk オリジナルとの差分</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>項目</th><th>Quirk</th><th>qni-webgpu</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>背景 / 枠</td><td>半透明黒 + 白テキスト</td><td><code>bg</code> + <code>tx-3</code> 1 px + tail + 柔らかい影</td></tr>
+        <tr><td>フォント</td><td>system serif / sans-serif、可変幅</td><td>Geist (タイトル) + Geist Mono (数値、<code>tabular-nums</code>)</td></tr>
+        <tr><td>x / z 符号</td><td>内部実装の都合で <code>-x</code> / <code>-z</code> を表示</td><td>内部値と一致するのでそのまま表示 (符号反転なし)</td></tr>
+        <tr><td>表示トリガ</td><td>フォーカス点が球内部 (<code>distance &lt; radius</code>) のとき</td><td>ホスト要素のホバー時に出す。本体が円なので球外部と内部の区別を細かく取らない</td></tr>
+        <tr><td>球上のフォーカス印</td><td>オレンジ色 2 px の円を上書き</td><td>外側ホバー枠 (<code>purple-400</code> 4 px ホバー枠) のみ、球内部は変えない</td></tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 06 判断根拠の散在">
+      <div class="critique-label">★ 批評 · § 06 判断根拠の散在</div>
+      <div class="critique-title">qni 側の判断根拠が本文の各セクションに散在しており、§ 06 だけ読んでも「なぜそうしたか」が分からない</div>
+      <p class="critique-body">
+        差分テーブルの右列は「qni-webgpu はこうする」という結論だけで、判断根拠 (なぜそうしたか) はそれぞれ別セクションに分散している:
+      </p>
+      <ul class="critique-list">
+        <li><strong>x / z 符号</strong> の根拠 (シェーダ出力が標準ブロッホ規約に一致するため反転不要) は <strong>§ 04 末尾の note</strong>。</li>
+        <li><strong>表示トリガ</strong> の根拠 (本体が円で球内部 / 外部の区別が細かく取れない) は <strong>§ 01 アンカー行</strong>。</li>
+        <li><strong>球上のフォーカス印</strong> の根拠 (外側ホバー枠で十分。球内部を変えると視認性が下がる) は<strong>本ページのどこにも書かれていない</strong>。</li>
+      </ul>
+      <p class="critique-body">
+        各行の右列に「(根拠: § 04 末尾)」のように逆参照を 1 行ずつ付けるか、§ 06 を「Quirk 差分の判断根拠」セクションに昇格させて、本文に散らばっている注釈を集約するのが望ましい。
+        Quirk 互換性は qni-webgpu の重要な意思決定軸なので、判断根拠を 1 ヶ所にまとめておくと「将来 Quirk 仕様が変わったときに何を再評価すべきか」の差分テストになる。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="bloch-display.html">← ブロッホ球表示ブロック仕様に戻る</a></p>
+  <p class="meta">qni-webgpu · ブロッホ球ポップオーバー仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
