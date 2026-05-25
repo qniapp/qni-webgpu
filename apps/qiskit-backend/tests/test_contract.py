@@ -248,6 +248,26 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(CircuitBuildError):
             apply_columns_to_qiskit(FakeCircuit(), [["H"], ["|0>"]], 1)
 
+    def test_qiskit_builder_applies_write1_to_deterministic_zero(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["|1>"]], 1)
+        self.assertEqual(fake.ops, [("x", 0)])
+
+    def test_qiskit_builder_rejects_write1_after_superposition(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+        with self.assertRaises(CircuitBuildError):
+            apply_columns_to_qiskit(FakeCircuit(), [["H"], ["|1>"]], 1)
+
     def test_qiskit_display_saves_tracks_write0_across_columns(self):
         class FakeCircuit:
             def __init__(self):
@@ -267,6 +287,28 @@ class ContractTests(unittest.TestCase):
                 pass
 
         request = parse_run_request({"qubits": 1, "columns": [["H"], ["|0>"]]})
+        with self.assertRaises(CircuitBuildError):
+            add_display_saves(FakeCircuit(), request, lambda axis: axis)
+
+    def test_qiskit_display_saves_tracks_write1_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+        fake = FakeCircuit()
+        request = parse_run_request({"qubits": 1, "columns": [["|1>"], ["|1>"]]})
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0)])
+
+    def test_qiskit_display_saves_rejects_write1_after_superposition(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+        request = parse_run_request({"qubits": 1, "columns": [["H"], ["|1>"]]})
         with self.assertRaises(CircuitBuildError):
             add_display_saves(FakeCircuit(), request, lambda axis: axis)
 

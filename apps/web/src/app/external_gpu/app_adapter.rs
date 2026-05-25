@@ -45,7 +45,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             GateKind::DensityMatrixDisplay => None,
             GateKind::Spacer => Some("Spacer"),
             GateKind::Write0 => None,
-            GateKind::Write1 => Some("|1⟩"),
+            GateKind::Write1 => None,
             GateKind::Swap => Some("Swap"),
             GateKind::QftGate => Some("QFT"),
             GateKind::QftDaggerGate => Some("QFT†"),
@@ -408,6 +408,13 @@ mod tests {
     #[test]
     fn external_gpu_accepts_write0_gate() {
         let gates = [PlacedGate::new(1, GateKind::Write0, 0, 0, 1, None)];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_write1_gate() {
+        let gates = [PlacedGate::new(1, GateKind::Write1, 0, 0, 1, None)];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
