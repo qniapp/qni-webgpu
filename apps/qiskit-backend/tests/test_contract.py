@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit
@@ -309,6 +310,48 @@ class ContractTests(unittest.TestCase):
                 pass
 
         request = parse_run_request({"qubits": 1, "columns": [["H"], ["|1>"]]})
+        with self.assertRaises(CircuitBuildError):
+            add_display_saves(FakeCircuit(), request, lambda axis: axis)
+
+    def test_qiskit_builder_expands_qft2_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["QFT2", 1]], 2)
+        self.assertEqual(fake.ops, [("h", 0), ("cp", math.pi / 2, 1, 0), ("h", 1)])
+
+    def test_qiskit_builder_expands_qft_dagger2_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["QFT†2", 1]], 2)
+        self.assertEqual(fake.ops, [("h", 1), ("cp", -math.pi / 2, 1, 0), ("h", 0)])
+
+    def test_qiskit_display_saves_tracks_qft_as_unknown_basis(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+            def cp(self, _phase, _control, _target):
+                pass
+
+        request = parse_run_request({"qubits": 2, "columns": [["QFT2", 1], ["|1>", 1]]})
         with self.assertRaises(CircuitBuildError):
             add_display_saves(FakeCircuit(), request, lambda axis: axis)
 

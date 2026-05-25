@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import math
 import re
+from dataclasses import dataclass
 from typing import Any
 
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
@@ -64,6 +65,12 @@ def split_parametric(token: str) -> tuple[str, str | None]:
 BasisTracker = list[int | None]
 
 
+@dataclass(frozen=True)
+class QftSpec:
+    span: int
+    dagger: bool
+
+
 def apply_columns_to_qiskit(qc: Any, columns: list[list[Any]], qubits: int) -> None:
     basis = initial_basis_tracker(qubits)
     for column in columns:
@@ -116,6 +123,7 @@ def apply_gate(
         raise CircuitBuildError("gate references a wire beyond qubits")
     base, angle = split_parametric(token)
     upper = base.upper()
+    qft = parse_qft_token(base)
     if controls and upper != "X":
         raise CircuitBuildError(
             "controlled non-X gates are not supported by the dev Qiskit runner yet"
@@ -161,10 +169,48 @@ def apply_gate(
         apply_write0(qc, basis, wire)
     elif base == "|1>":
         apply_write1(qc, basis, wire)
-    elif upper.startswith("QFT"):
-        raise CircuitBuildError("QFT tokens are not supported by the dev Qiskit runner yet")
+    elif qft is not None:
+        apply_qft(qc, wire, qft, qubits)
+        mark_unknown(basis, wire, qft.span)
     else:
         raise CircuitBuildError(f"unsupported gate token: {token}")
+
+
+def parse_qft_token(token: str) -> QftSpec | None:
+    if token.startswith("QFT†"):
+        suffix = token.removeprefix("QFT†")
+        dagger = True
+    elif token.startswith("QFT"):
+        suffix = token.removeprefix("QFT")
+        dagger = False
+    else:
+        return None
+    if not suffix.isdecimal():
+        raise CircuitBuildError(f"unsupported gate token: {token}")
+    span = int(suffix)
+    if span < 1:
+        raise CircuitBuildError(f"unsupported gate token: {token}")
+    return QftSpec(span=span, dagger=dagger)
+
+
+def apply_qft(qc: Any, wire: int, spec: QftSpec, qubits: int) -> None:
+    if wire + spec.span > qubits:
+        raise CircuitBuildError("QFT span references a wire beyond qubits")
+    if spec.dagger:
+        for offset in reversed(range(spec.span)):
+            for distance in reversed(range(1, spec.span - offset)):
+                qc.cp(-math.pi / (1 << distance), wire + offset + distance, wire + offset)
+            qc.h(wire + offset)
+        return
+    for offset in range(spec.span):
+        qc.h(wire + offset)
+        for distance in range(1, spec.span - offset):
+            qc.cp(math.pi / (1 << distance), wire + offset + distance, wire + offset)
+
+
+def mark_unknown(basis: BasisTracker, wire: int, span: int) -> None:
+    for offset in range(span):
+        basis[wire + offset] = None
 
 
 def track_basis_flip(basis: BasisTracker, wire: int) -> None:
