@@ -37,7 +37,7 @@ struct ExternalGpuRunRequest {
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<&'static str> {
     for gate in placed_gates {
         let name = match gate.kind {
-            GateKind::AntiControl => Some("Anti-control"),
+            GateKind::AntiControl => None,
             GateKind::BlochDisplay => None,
             GateKind::Measurement => Some("Measurement"),
             GateKind::ProbabilityDisplay => None,
@@ -63,7 +63,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         let mut has_density_display = false;
         let mut non_x_target = None;
         for gate in placed_gates.iter().filter(|gate| gate.column == column) {
-            if gate.kind == GateKind::Control {
+            if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
                 has_control = true;
             } else if gate.kind == GateKind::X {
                 has_x_target = true;
@@ -433,6 +433,26 @@ mod tests {
         let gates = [PlacedGate::new(1, GateKind::Spacer, 0, 0, 1, None)];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_anti_controlled_x_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::X, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_rejects_anti_controlled_h_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::H, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("H"));
     }
 
     #[test]

@@ -364,6 +364,45 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["…"]], 1)
         self.assertEqual(fake.ops, [])
 
+    def test_qiskit_builder_applies_anti_controlled_x(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", controls, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "X"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
+    def test_qiskit_builder_rejects_anti_controlled_h(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+        with self.assertRaises(CircuitBuildError):
+            apply_columns_to_qiskit(FakeCircuit(), [["◦", "H"]], 2)
+
+    def test_qiskit_display_saves_tracks_anti_control_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", controls, target))
+
+        fake = FakeCircuit()
+        request = parse_run_request({"qubits": 2, "columns": [["◦", "X"], [1, "|1>"]]})
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
     def test_qiskit_builder_applies_swap_pair(self):
         class FakeCircuit:
             def __init__(self):

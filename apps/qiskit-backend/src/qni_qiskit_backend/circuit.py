@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
-ANTI_CONTROL_TOKENS = {"○", "anti", "Anti"}
+ANTI_CONTROL_TOKENS = {"◦", "○", "anti", "Anti"}
 EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
@@ -85,6 +85,7 @@ def apply_column_to_qiskit(
     qc: Any, column: list[Any], qubits: int, basis: BasisTracker
 ) -> None:
     controls: list[int] = []
+    anti_controls: list[int] = []
     swap_wires: list[int] = []
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
@@ -95,7 +96,8 @@ def apply_column_to_qiskit(
             controls.append(wire)
             continue
         if token in ANTI_CONTROL_TOKENS:
-            raise CircuitBuildError("anti-control is not supported by the dev Qiskit runner yet")
+            anti_controls.append(wire)
+            continue
         if token == "Swap":
             swap_wires.append(wire)
             continue
@@ -104,9 +106,9 @@ def apply_column_to_qiskit(
         if is_readonly_display_token(token):
             continue
         deferred.append((wire, token))
-    apply_swap(qc, swap_wires, controls, basis)
+    apply_swap(qc, swap_wires, controls, anti_controls, basis)
     for wire, token in deferred:
-        apply_gate(qc, wire, token, controls, qubits, basis)
+        apply_gate(qc, wire, token, controls, anti_controls, qubits, basis)
 
 
 def is_readonly_display_token(token: str) -> bool:
@@ -123,6 +125,7 @@ def apply_gate(
     wire: int,
     token: str,
     controls: list[int],
+    anti_controls: list[int],
     qubits: int,
     basis: BasisTracker,
 ) -> None:
@@ -131,13 +134,13 @@ def apply_gate(
     base, angle = split_parametric(token)
     upper = base.upper()
     qft = parse_qft_token(base)
-    if controls and upper != "X":
+    if (controls or anti_controls) and upper != "X":
         raise CircuitBuildError(
             "controlled non-X gates are not supported by the dev Qiskit runner yet"
         )
-    if controls:
-        qc.mcx(controls, wire)
-        track_controlled_x(basis, controls, wire)
+    if controls or anti_controls:
+        apply_controlled_x(qc, wire, controls, anti_controls)
+        track_controlled_x(basis, controls, anti_controls, wire)
         return
 
     if upper == "H":
@@ -183,10 +186,16 @@ def apply_gate(
         raise CircuitBuildError(f"unsupported gate token: {token}")
 
 
-def apply_swap(qc: Any, swap_wires: list[int], controls: list[int], basis: BasisTracker) -> None:
+def apply_swap(
+    qc: Any,
+    swap_wires: list[int],
+    controls: list[int],
+    anti_controls: list[int],
+    basis: BasisTracker,
+) -> None:
     if len(swap_wires) != 2:
         return
-    if controls:
+    if controls or anti_controls:
         raise CircuitBuildError("controlled Swap is not supported by the dev Qiskit runner yet")
     first, second = swap_wires
     qc.swap(first, second)
@@ -230,16 +239,31 @@ def mark_unknown(basis: BasisTracker, wire: int, span: int) -> None:
         basis[wire + offset] = None
 
 
+def apply_controlled_x(
+    qc: Any, wire: int, controls: list[int], anti_controls: list[int]
+) -> None:
+    for anti_control in anti_controls:
+        qc.x(anti_control)
+    qc.mcx(controls + anti_controls, wire)
+    for anti_control in reversed(anti_controls):
+        qc.x(anti_control)
+
+
 def track_basis_flip(basis: BasisTracker, wire: int) -> None:
     if basis[wire] is not None:
         basis[wire] ^= 1
 
 
-def track_controlled_x(basis: BasisTracker, controls: list[int], wire: int) -> None:
+def track_controlled_x(
+    basis: BasisTracker, controls: list[int], anti_controls: list[int], wire: int
+) -> None:
     control_values = [basis[control] for control in controls]
-    if any(value == 0 for value in control_values):
+    anti_control_values = [basis[anti_control] for anti_control in anti_controls]
+    if any(value == 0 for value in control_values) or any(
+        value == 1 for value in anti_control_values
+    ):
         return
-    if any(value is None for value in control_values):
+    if any(value is None for value in control_values + anti_control_values):
         basis[wire] = None
         return
     track_basis_flip(basis, wire)

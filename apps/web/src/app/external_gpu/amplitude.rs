@@ -34,6 +34,8 @@ pub(super) fn collect_amplitude_requests(
             if gate.kind == GateKind::Control {
                 control_mask |= 1u32 << bit;
                 control_value |= 1u32 << bit;
+            } else if gate.kind == GateKind::AntiControl {
+                control_mask |= 1u32 << bit;
             }
         }
         let mut displays: Vec<&PlacedGate> = column_gates
@@ -234,6 +236,21 @@ mod tests {
             2,
         );
         assert_eq!(requests[0].control_mask, 2);
+    }
+
+    #[test]
+    fn serializes_column_anti_control_for_amplitude_output_request() {
+        let requests = collect_amplitude_requests(
+            &[
+                PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+                PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 1, 1, None),
+            ],
+            2,
+        );
+        assert_eq!(
+            (requests[0].control_mask, requests[0].control_value),
+            (2, 0)
+        );
     }
 
     #[test]
