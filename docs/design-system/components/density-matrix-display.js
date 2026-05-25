@@ -342,6 +342,8 @@
       } else if (name === 'bell2') {
         set(0, 0, 0.5, 0); set(0, 3, 0.5, 0);
         set(3, 0, 0.5, 0); set(3, 3, 0.5, 0);
+      } else if (name === 'mixed50') {
+        this.#fillBellMix(buf, n, 0.5);
       } else if (name === 'maxmix2') {
         for (let k = 0; k < 4; k++) set(k, k, 0.25, 0);
       } else if (name === 'ghz3') {
@@ -353,6 +355,21 @@
         this.#fillMixedDemo(buf, n);
       }
       return buf;
+    }
+
+    #fillBellMix(buf, n, pureWeight) {
+      if (n !== 4) return;
+      const mixWeight = 1 - pureWeight;
+      const add = (r, c, re, im) => {
+        const k = (r * n + c) * 2;
+        buf[k] += re;
+        buf[k + 1] += im;
+      };
+      for (let k = 0; k < 4; k++) add(k, k, mixWeight / 4, 0);
+      add(0, 0, pureWeight * 0.5, 0);
+      add(0, 3, pureWeight * 0.5, 0);
+      add(3, 0, pureWeight * 0.5, 0);
+      add(3, 3, pureWeight * 0.5, 0);
     }
 
     #fillPureGaussian(buf, n, center, decay, phaseStep, pure, mix) {
