@@ -766,8 +766,8 @@ for row in 0..n:
       外部 GPU 実行では、Web 側が配置済み Density Matrix 表示ブロックを <code>outputs.densities</code> に列挙し、qiskit-backend が <code>QuantumCircuit.save_density_matrix(qubits, label=...)</code> で縮約密度行列を保存する。応答は <code>densities</code> 配列で返り、各項目は <code>gate_id</code> / <code>span</code> / <code>cells</code> / <code>unity</code> を持つ。<code>cells</code> は行優先の <code>[re, im]</code> 配列で、サイズは <code>2<sup>span</sup> × 2<sup>span</sup></code> 複素数。
     </p>
     <ul>
-      <li><strong>バックエンド側</strong> — <code>contract.py</code> が <code>outputs.densities</code> を検証し、span 1〜8 / 最大 16 件を受け付ける。<code>runners.py</code> は各列のゲート適用直後に <code>save_density_matrix</code> を挿入し、<code>densities[].cells</code> へ変換する</li>
-      <li><strong>Web 側要求</strong> — <code>apps/web/src/app/external_gpu/density.rs</code> が <code>{"gate_id", "column", "span", "base_bit"}</code> を生成する。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約へ <code>control_mask</code> / <code>control_value</code> を追加するまで拒否する</li>
+      <li><strong>バックエンド側</strong> — <code>contract.py</code> が <code>outputs.densities</code> を検証し、span 1〜8 / 最大 16 件 / 保存対象 span と非表示 control bit の合計 8 以下を受け付ける。<code>runners.py</code> は各列のゲート適用直後に <code>save_density_matrix</code> を挿入し、<code>control_mask</code> / <code>control_value</code> に合う <code>densities[].cells</code> へ変換する</li>
+      <li><strong>Web 側要求</strong> — <code>apps/web/src/app/external_gpu/density.rs</code> が <code>{"gate_id", "column", "span", "base_bit", "control_mask", "control_value"}</code> を生成する。Control と同じ列に置いた Density Matrix 表示ブロックも、内部 WebGPU 実行と同じ条件付き表示として外部 GPU 経路へ送信する</li>
       <li><strong>Web 側描画</strong> — 応答 JSON を <code>Float32Array</code> 相当の連続値へ平坦化し、<code>DensityMatrixDisplayCallback</code> が <code>density_output</code> / <code>density_meta</code> GPU バッファへ <code>queue.write_buffer</code> で転送する。転送後の描画は (a) と同じ <code>DENSITY_RENDER_SHADER</code> が担当する</li>
       <li><strong>測定済み wire の注意</strong> — 現在の外部経路は Aer の保存結果をそのまま表示する。測定済み wire の非対角を WebGPU 内部実行と完全一致させるための追加 decoherence pass は今後の改善候補</li>
     </ul>

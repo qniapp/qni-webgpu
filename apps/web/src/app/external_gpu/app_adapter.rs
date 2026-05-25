@@ -79,7 +79,6 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     let max_column = placed_gates.iter().map(|gate| gate.column).max()?;
     for column in 0..=max_column {
         let mut has_control = false;
-        let mut has_density_display = false;
         let mut unsupported_controlled_target = None;
         for gate in placed_gates.iter().filter(|gate| gate.column == column) {
             if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
@@ -91,24 +90,17 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
                         | GateKind::QftGate
                         | GateKind::QftDaggerGate
                         | GateKind::Swap
+                        | GateKind::AmplitudeDisplay
+                        | GateKind::BlochDisplay
+                        | GateKind::ProbabilityDisplay
+                        | GateKind::DensityMatrixDisplay
                 )
             {
-            } else if matches!(
-                gate.kind,
-                GateKind::AmplitudeDisplay
-                    | GateKind::BlochDisplay
-                    | GateKind::ProbabilityDisplay
-                    | GateKind::DensityMatrixDisplay
-            ) {
-                has_density_display |= gate.kind == GateKind::DensityMatrixDisplay;
             } else if !matches!(gate.kind, GateKind::Spacer) {
                 unsupported_controlled_target = Some(gate.kind.label());
             }
         }
         if has_control {
-            if has_density_display {
-                return Some("controlled Density Matrix Display");
-            }
             if let Some(label) = unsupported_controlled_target {
                 return Some(label);
             }
@@ -604,15 +596,12 @@ mod tests {
     }
 
     #[test]
-    fn external_gpu_rejects_controlled_density_display() {
+    fn external_gpu_accepts_controlled_density_display() {
         let gates = [
             PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
             PlacedGate::new(2, GateKind::DensityMatrixDisplay, 0, 1, 1, None),
         ];
 
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("controlled Density Matrix Display"),
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 }

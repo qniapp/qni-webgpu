@@ -146,7 +146,7 @@ def add_display_saves(
             probability_labels[probability.gate_id] = label
         for density in density_by_column.get(column_index, []):
             label = f"density:{density.gate_id}"
-            qc.save_density_matrix(density_qargs(density, request.qubits), label=label)
+            qc.save_density_matrix(density_save_qargs(density, request.qubits), label=label)
             density_labels[density.gate_id] = label
     return amplitude_labels, bloch_labels, probability_labels, density_labels
 
@@ -219,6 +219,7 @@ def add_qiskit_density(
         density_display_response(
             density,
             qiskit_saved_density_matrix(data[labels[density.gate_id]]),
+            request.qubits,
         )
         for density in request.density_outputs
     ]
@@ -263,7 +264,8 @@ def add_mock_density(response: dict[str, Any], request: RunRequest) -> None:
     response["densities"] = [
         density_display_response(
             density,
-            ground_density_matrix(density.span),
+            ground_density_matrix(density.span + len(density_control_bits(density, request.qubits))),
+            request.qubits,
         )
         for density in request.density_outputs
     ]
@@ -285,15 +287,24 @@ def probability_display_response(
 
 
 def density_display_response(
-    request: DensityOutputRequest, matrix: Sequence[Sequence[complex]]
+    request: DensityOutputRequest, matrix: Sequence[Sequence[complex]], qubits: int
 ) -> dict[str, Any]:
     dim = 1 << request.span
+    control_bits = density_control_bits(request, qubits)
+    control_index = density_control_index(request, control_bits)
     cells: list[list[float]] = []
+    unity = 0.0
     for row in range(dim):
+        row_matches = density_display_controls_match(request, row)
+        row_index = control_index * dim + row
+        if row_matches:
+            unity += complex(matrix[row_index][row_index]).real
         for col in range(dim):
-            value = complex(matrix[row][col])
+            col_matches = density_display_controls_match(request, col)
+            col_index = control_index * dim + col
+            value = complex(matrix[row_index][col_index]) if row_matches and col_matches else 0j
             cells.append([float(value.real), float(value.imag)])
-    return {"gate_id": request.gate_id, "span": request.span, "cells": cells, "unity": 1.0}
+    return {"gate_id": request.gate_id, "span": request.span, "cells": cells, "unity": unity}
 
 
 def ground_density_matrix(span: int) -> list[list[complex]]:
@@ -308,7 +319,44 @@ def probability_qargs(request: ProbabilityOutputRequest, qubits: int) -> list[in
 
 
 def density_qargs(request: DensityOutputRequest, qubits: int) -> list[int]:
-    return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
+    return [qubits - 1 - bit for bit in density_bits(request)]
+
+
+def density_save_qargs(request: DensityOutputRequest, qubits: int) -> list[int]:
+    bits = density_bits(request) + density_control_bits(request, qubits)
+    return [qubits - 1 - bit for bit in bits]
+
+
+def density_bits(request: DensityOutputRequest) -> list[int]:
+    return list(range(request.base_bit, request.base_bit + request.span))
+
+
+def density_control_bits(request: DensityOutputRequest, qubits: int) -> list[int]:
+    display_bits = set(density_bits(request))
+    return [
+        bit
+        for bit in range(qubits)
+        if request.control_mask & (1 << bit) and bit not in display_bits
+    ]
+
+
+def density_display_controls_match(request: DensityOutputRequest, outcome: int) -> bool:
+    for bit in density_bits(request):
+        mask = 1 << bit
+        if request.control_mask & mask:
+            actual = (outcome >> (bit - request.base_bit)) & 1
+            expected = 1 if request.control_value & mask else 0
+            if actual != expected:
+                return False
+    return True
+
+
+def density_control_index(request: DensityOutputRequest, control_bits: Sequence[int]) -> int:
+    index = 0
+    for offset, bit in enumerate(control_bits):
+        if request.control_value & (1 << bit):
+            index |= 1 << offset
+    return index
 
 
 def saved_float(value: Any) -> float:
