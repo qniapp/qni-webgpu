@@ -6,11 +6,11 @@
 
 理由は次の通り。
 
-- パレットと回路で同じ SDF テクスチャを使うため、サブピクセル位置差で H / X / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / Write0 / Write1 の太さが変わらない。
+- パレットと回路で同じ SDF テクスチャを使うため、サブピクセル位置差で H / X / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT† / Write0 / Write1 の太さが変わらない。
 - SDF の距離値を WebGPU シェーダ内で輪郭へ戻すため、S の曲線を拡大しても通常の PNG 拡大より階段状の揺れが目立ちにくい。
 - `assets/icons/*.svg` を正にしたまま、TypeScript 側は SVG、Rust 側は同じ SVG から生成した PNG / SDF を使える。
 - 実行時の SVG パーサ、PNG デコーダ、フォント抽出器を wasm に入れないため、`resvg` 案より wasm サイズを抑えられる。
-- 曲線を含む S / T / R / P なども、生成時に SVG から PNG / SDF 化するだけで対応できる。
+- 曲線を含む S / T / R / Phase (Φ) なども、生成時に SVG から PNG / SDF 化するだけで対応できる。
 
 ## 実測条件
 
@@ -28,7 +28,7 @@
 | --- | --- | --- | ---: | --- | --- | --- | --- |
 | A: `ttf-parser` でフォントから直接抽出 | `/tmp/qni-icon-a` で `ttf-parser = 0.25.1` を使い、Geist から輪郭を取り出してメッシュ描画 | H は描画できたが、最終描画はメッシュのまま。フォントヒンティング相当が無く、根本原因のサブピクセル細りを解かない | 8,349,058 bytes（+240,569） | フォント由来なので輪郭取得は容易。ただし塗りつぶし用の三角形分割は残る | Rust はフォント直、TypeScript は SVG になり、共有アセットの正が分かれる | 実行時コードが増える。Geist フォント依存が描画経路に残る | 不採用 |
 | B: `resvg` + 高解像度ラスタ化 | `resvg = 0.47.0`、`default-features = false` で初回描画時に SVG を 128×128 px テクスチャ化 | 通常表示は良いが、拡大時は通常のラスタ画像として階段状になりやすい | 8,989,134 bytes（+880,645） | SVG を足すだけ | 維持できる | 実行時に SVG 解析器とラスタ化器を wasm に含める。サイズ増が大きい | 不採用 |
-| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, P, RX, RY, RZ, QFT, QFT† が一致（内側の白画素: H 44 px、X 36 px、Y 38 px、Z 40 px、√X 65 px、S 58 px、S† 58 px、T 42 px、T† 42 px、P 50 px、RX 61 px、RY 43 px、RZ 61 px、QFT 91 px、QFT† 92 px）。Write / Measurement の数字は同じ digit0 / digit1 SDF を使い、回路実測で 0 / 1 とも `10×16` | 8,817,434 bytes（+708,945） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
+| C: SVG → PNG → SDF 焼き付け | `scripts/extract-gate-svg.py` が SVG と PNG を生成。`build.rs` が PNG アルファから SDF を生成し、WebGPU シェーダが輪郭を再構成 | Playwright 実測でパレット / 回路の H, X, Y, Z, √X, S, S†, T, T†, Phase (Φ), RX, RY, RZ, QFT, QFT† が一致（内側の白画素: H 44 px、X 36 px、Y 38 px、Z 40 px、√X 65 px、S 58 px、S† 58 px、T 42 px、T† 42 px、Phase 50 px、RX 61 px、RY 43 px、RZ 61 px、QFT 91 px、QFT† 92 px）。Write / Measurement の数字は同じ digit0 / digit1 SDF を使い、回路実測で 0 / 1 とも `10×16` | 8,817,434 bytes（+708,945） | SVG 生成後に PNG / SDF も生成されるため追加実装ほぼなし | 維持できる。SVG が正、PNG / SDF は派生物 | `rsvg-convert` または `magick` が再生成時だけ必要。通常ビルドは Rust の `png` ビルド時依存だけ | 採用 |
 
 ## 採用しなかった案
 
@@ -43,7 +43,7 @@
 ## 採用実装
 
 - `scripts/extract-gate-svg.py`
-  - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `p.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成。
+  - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成し、`p.svg` は Qni と同じ Phase (Φ) アイコンとして生成する。
   - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 256×256 px PNG も生成。
 - `apps/web/build.rs`
   - `assets/icons/*.png` をビルド時に読み、256×256 px RGBA であることと可視画素があることを検査。
@@ -55,7 +55,7 @@
 - `apps/web/src/icons/svg_icon.rs`
   - WebGPU が無い場合のみ RLE アルファを `ColorImage` に展開し、`Shape::image` で描く。
 - `apps/web/src/icons/gate_glyphs.rs`
-  - H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT† / X（本体は Plus）/ Write0 / Write1 を新方式へ切り替え。
+  - H / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT† / X（本体は Plus）/ Write0 / Write1 を新方式へ切り替え。
   - 旧自作 SVG パーサと ear-clip コードは削除。
 - `apps/web/src/gpu/digit_atlas.rs`
   - `digit0.svg` / `digit1.svg` 由来の SDF を 1×2 atlas に詰め、Measurement の 0 / 1 も Write と同じ輪郭・サイズで描く。

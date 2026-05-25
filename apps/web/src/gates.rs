@@ -173,7 +173,7 @@ const GATE_SPECS: [GateSpec; 26] = [
     },
     GateSpec {
         kind: GateKind::Phase,
-        label: "P",
+        label: "Φ",
         url_token: "P",
         resizable_span: false,
     },

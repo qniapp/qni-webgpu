@@ -316,7 +316,7 @@
             <div class="gp-gate" data-tip="S† · phase −π/2"><s-dagger-gate></s-dagger-gate><span class="tip">S† · phase −π/2</span></div>
             <div class="gp-gate" data-tip="T · phase π/4"><t-gate></t-gate><span class="tip">T · phase π/4</span></div>
             <div class="gp-gate" data-tip="T† · phase −π/4"><t-dagger-gate></t-dagger-gate><span class="tip">T† · phase −π/4</span></div>
-            <div class="gp-gate" data-tip="P · phase θ"><p-gate></p-gate><span class="tip">P · parameterized phase θ</span></div>
+            <div class="gp-gate" data-tip="Φ · phase θ"><p-gate></p-gate><span class="tip">Φ · parameterized phase θ</span></div>
             <div class="gp-gate" data-tip="RX · X-axis rotation"><rx-gate></rx-gate><span class="tip">RX · X-axis rotation</span></div>
             <div class="gp-gate" data-tip="RY · Y-axis rotation"><ry-gate></ry-gate><span class="tip">RY · Y-axis rotation</span></div>
             <div class="gp-gate" data-tip="RZ · Z-axis rotation"><rz-gate></rz-gate><span class="tip">RZ · Z-axis rotation</span></div>
@@ -404,7 +404,7 @@
       <div class="item"><div class="gp-gate"><s-dagger-gate></s-dagger-gate></div><div class="label"><span class="name">S†</span><span>phase −π/2</span></div></div>
       <div class="item"><div class="gp-gate"><t-gate></t-gate></div><div class="label"><span class="name">T</span><span>phase π/4</span></div></div>
       <div class="item"><div class="gp-gate"><t-dagger-gate></t-dagger-gate></div><div class="label"><span class="name">T†</span><span>phase −π/4</span></div></div>
-      <div class="item"><div class="gp-gate"><p-gate></p-gate></div><div class="label"><span class="name">P</span><span>parameterized phase θ (円形 body)</span></div></div>
+      <div class="item"><div class="gp-gate"><p-gate></p-gate></div><div class="label"><span class="name">Φ</span><span>parameterized phase θ (円形 body)</span></div></div>
       <div class="item"><div class="gp-gate"><rx-gate></rx-gate></div><div class="label"><span class="name">RX</span><span>X-axis rotation</span></div></div>
       <div class="item"><div class="gp-gate"><ry-gate></ry-gate></div><div class="label"><span class="name">RY</span><span>Y-axis rotation</span></div></div>
       <div class="item"><div class="gp-gate"><rz-gate></rz-gate></div><div class="label"><span class="name">RZ</span><span>Z-axis rotation</span></div></div>
@@ -457,7 +457,7 @@
         </tr>
         <tr>
           <td><strong>circle</strong></td>
-          <td>X / Phase (P)</td>
+          <td>X / Phase (Φ)</td>
           <td><code>circle_filled(center, width/2, fill)</code> — 半径 20</td>
         </tr>
         <tr>
@@ -492,7 +492,7 @@
     <table class="spec">
       <thead><tr><th>gate</th><th>描画</th><th>色</th></tr></thead>
       <tbody>
-        <tr><td>H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT / QFT†</td><td><code>assets/icons/*.svg</code> から焼いた SDF テクスチャ (<code>svg_icon.rs</code> / <code>sdf_icon.rs</code>) を <code>draw_glyph()</code> で中央配置</td><td><code>label</code> = paper (bg = #FFFCF0)</td></tr>
+        <tr><td>H / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT†</td><td><code>assets/icons/*.svg</code> から焼いた SDF テクスチャ (<code>svg_icon.rs</code> / <code>sdf_icon.rs</code>) を <code>draw_glyph()</code> で中央配置</td><td><code>label</code> = paper (bg = #FFFCF0)</td></tr>
         <tr><td>X</td><td>同じく SDF だが、glyph は <code>Plus</code> (太い "+" — CNOT ターゲット記号と統一)</td><td><code>label</code> = paper</td></tr>
         <tr><td>Control</td><td><code>circle_filled(center, CONTROL_RADIUS=8, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 (idle) / purple-600 (drag)</td></tr>
         <tr><td>AntiControl</td><td><code>circle_stroke(center, r=5, stroke=3, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 / purple-600</td></tr>
@@ -600,7 +600,7 @@
         <tr><th>gate_body.rs</th><td><code>icons/gate_body.rs</code> — <code>draw_gate_body</code> / <code>draw_drag_gate_body</code> + Probability / Amplitude preview</td></tr>
         <tr><th>gate_glyphs.rs</th><td><code>icons/gate_glyphs.rs</code> — meter / spacer / swap / control / anti / write の primitive 描画 + SDF テクスチャへの dispatch</td></tr>
         <tr><th>bloch_display.rs</th><td><code>icons/bloch_display.rs</code> — Bloch sphere の軸描画 + Bloch vector の射影描画</td></tr>
-        <tr><th>svg_icon.rs / sdf_icon.rs</th><td><code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code> — <code>assets/icons/*.svg</code> から焼いた SDF テクスチャでアルファベットを描画</td></tr>
+        <tr><th>svg_icon.rs / sdf_icon.rs</th><td><code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code> — <code>assets/icons/*.svg</code> から焼いた SDF テクスチャでゲート字形を描画</td></tr>
         <tr><th>gates.rs</th><td><code>gates.rs</code> — 3 配列 (ROW1 / ROW2 / DISPLAY) + indices マップ + <code>palette_gate_kind(index)</code> + <code>GateSpec</code> 構造体</td></tr>
       </tbody>
     </table>
@@ -629,7 +629,7 @@
       <li><strong>multi-select drag</strong> — 複数 gate を同時に drag する UI なし</li>
       <li><strong>カスタム gate</strong> — ユーザ定義の gate を palette に追加する仕組みなし</li>
       <li><strong>Display section の拡張</strong> — 5 つ目以降の表示ブロックを追加する場合は、2 × 2 を超えるレイアウト方針が必要</li>
-      <li><strong>parameterized gate の値入力</strong> — P / Rx / Ry / Rz は placement 後に値を編集する UI が必要だが palette 側からは設定できない</li>
+      <li><strong>parameterized gate の値入力</strong> — Phase / Rx / Ry / Rz は placement 後に値を編集する UI が必要だが palette 側からは設定できない</li>
     </ul>
   </div>
 </section>

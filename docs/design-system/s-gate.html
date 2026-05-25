@@ -205,7 +205,7 @@
       <tr><th>実体</th><td><code>components/s-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
       <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
       <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
-      <tr><th>字形設計</th><td>S は位相 π/2 を表す固定角の字形。位相量を色差にせず、S / T / P 系列の文字差で示す。</td></tr>
+      <tr><th>字形設計</th><td>S は位相 π/2 を表す固定角の字形。位相量を色差にせず、S / T / Φ の字形差で示す。</td></tr>
     </tbody></table>
     <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る S 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
     <div class="stage">
@@ -230,7 +230,7 @@
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
     <p>設計判断は「共通クロムからの継承」「S 固有」「妥協と将来対応」に分ける。これにより、S だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>S 固有</strong><span>位相量は色や形状でなく字形とラベルで示し、T / Z / P と同じ位相系列として扱う。</span></div><div class="item"><strong>妥協と将来対応</strong><span>S と S† の識別性が不足する場合は、dagger 表記の設計としてまとめて調整する。</span></div></div>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>S 固有</strong><span>位相量は色や形状でなく字形とラベルで示し、T / Z / Φ と同じ位相系列として扱う。</span></div><div class="item"><strong>妥協と将来対応</strong><span>S と S† の識別性が不足する場合は、dagger 表記の設計としてまとめて調整する。</span></div></div>
   </div>
 </section>
 

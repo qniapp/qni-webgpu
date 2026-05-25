@@ -368,7 +368,7 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
     { name: 'SDagger', paletteIndex: 6, circuitIndex: 6, circuitYOffset: 0 },
     { name: 'T', paletteIndex: 7, circuitIndex: 7, circuitYOffset: 0 },
     { name: 'TDagger', paletteIndex: 8, circuitIndex: 8, circuitYOffset: 0 },
-    { name: 'P', paletteIndex: 9, circuitIndex: 9, circuitYOffset: 0 },
+    { name: 'Phase', paletteIndex: 9, circuitIndex: 9, circuitYOffset: 0 },
     { name: 'RX', paletteIndex: 10, circuitIndex: 10, circuitYOffset: 0 },
     { name: 'RY', paletteIndex: 11, circuitIndex: 11, circuitYOffset: 0 },
     { name: 'RZ', paletteIndex: 12, circuitIndex: 12, circuitYOffset: 0 },
@@ -415,7 +415,7 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
       let count = 0
       const left = cx - gateSize / 2
       const top = cy - gateSize / 2
-      const isCircularBody = name.endsWith('X') || name.endsWith('P')
+      const isCircularBody = name.endsWith('X') || name.endsWith('Phase')
       const circleCenter = gateSize / 2
       const circleRadius = gateSize / 2 - 1
       for (let y = 4; y < gateSize - 4; y += 1) {
@@ -460,8 +460,8 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
     circuitT: { count: 42, width: 12, height: 16 },
     paletteTDagger: { count: 42, width: 12, height: 16 },
     circuitTDagger: { count: 42, width: 12, height: 16 },
-    paletteP: { count: 50, width: 12, height: 16 },
-    circuitP: { count: 50, width: 12, height: 16 },
+    palettePhase: { count: 50, width: 12, height: 16 },
+    circuitPhase: { count: 50, width: 12, height: 16 },
     paletteRX: { count: 61, width: 21, height: 12 },
     circuitRX: { count: 61, width: 21, height: 12 },
     paletteRY: { count: 43, width: 20, height: 12 },

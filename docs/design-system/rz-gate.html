@@ -175,7 +175,7 @@
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>Rz ゲートは回転軸と角度を持つ可変ゲートで、Z 軸まわりの連続的な位相操作を表す。P(θ) とはグローバル位相を除いて同じ位相操作を表すが、Rz は回転軸の記法として説明する。デザイン上は標準の角丸正方形ゲートとし、軸は Rz 字形で示す。</p>
+    <p>Rz ゲートは回転軸と角度を持つ可変ゲートで、Z 軸まわりの連続的な位相操作を表す。<code>P(θ)</code> とはグローバル位相を除いて同じ位相操作を表すが、Rz は回転軸の記法として説明する。デザイン上は標準の角丸正方形ゲートとし、軸は Rz 字形で示す。</p>
     <div class="stage">
       <div class="col"><div class="caption">Rz ゲート<br />既定</div><div class="actual"><rz-gate></rz-gate></div></div>
     </div>
@@ -230,7 +230,7 @@
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
     <p>設計判断は「共通クロムからの継承」「Rz 固有」「妥協と将来対応」に分ける。これにより、Rz だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>Rz 固有</strong><span>回転軸は Rz 字形で示し、θ の値は本体色や形状ではなく編集 UI に委ねる。</span></div><div class="item"><strong>妥協と将来対応</strong><span>P ゲートや固定位相ゲートとの関係を補足する場合も、共通クロムではなく意味論の説明として扱う。</span></div></div>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>外装、配色ロール、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>Rz 固有</strong><span>回転軸は Rz 字形で示し、θ の値は本体色や形状ではなく編集 UI に委ねる。</span></div><div class="item"><strong>妥協と将来対応</strong><span>Phase ゲートや固定位相ゲートとの関係を補足する場合も、共通クロムではなく意味論の説明として扱う。</span></div></div>
   </div>
 </section>
 
@@ -259,7 +259,7 @@
           <td>Rz(π) に対応する作用。</td>
         </tr>
         <tr>
-          <td><a href="p-gate.html">P ゲート</a></td>
+          <td><a href="p-gate.html">Phase ゲート</a></td>
           <td>グローバル位相を除いて同じ位相操作を表すパラメトリック位相ゲート。</td>
         </tr>
         <tr>

@@ -19,6 +19,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
     - S† / T† は Geist Regular の基底文字と † を合成
     - RX / RY / RZ は Geist Medium 500 の 2 文字を 0.46 倍で合成
     - QFT / QFT† は Geist Medium 500 の 3 文字を 0.46 倍で合成
+    - P は Qni の phase-gate.svg と同じ円 + 斜線の Φ アイコン
     - viewBox は 48×48 (apps/web/src/icons.rs の VIEWBOX)
     - 単一字グリフ高さは viewBox の 0.62 倍
 
@@ -243,6 +244,13 @@ def multi_glyph_svg(text: str) -> str:
     return svg_document(multi_glyph_body(text, weight, scale))
 
 
+def phase_svg() -> str:
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <path d="M18.2857 36L29.7143 12M16 24.5714C16 25.622 16.2069 26.6623 16.609 27.6329C17.011 28.6035 17.6003 29.4854 18.3431 30.2283C19.086 30.9712 19.9679 31.5604 20.9385 31.9625C21.9091 32.3645 22.9494 32.5714 24 32.5714C25.0506 32.5714 26.0909 32.3645 27.0615 31.9625C28.0321 31.5604 28.914 30.9712 29.6569 30.2283C30.3997 29.4854 30.989 28.6035 31.391 27.6329C31.7931 26.6623 32 25.622 32 24.5714C32 23.5209 31.7931 22.4806 31.391 21.51C30.989 20.5394 30.3997 19.6574 29.6569 18.9146C28.914 18.1717 28.0321 17.5824 27.0615 17.1804C26.0909 16.7784 25.0506 16.5714 24 16.5714C22.9494 16.5714 21.9091 16.7784 20.9385 17.1804C19.9679 17.5824 19.086 18.1717 18.3431 18.9146C17.6003 19.6574 17.011 20.5394 16.609 21.51C16.2069 22.4806 16 23.5209 16 24.5714Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+</svg>
+'''
+
+
 def qft_dagger_svg() -> str:
     weight = WEIGHT_FOR_TOKEN["QFT"]
     font = font_for_weight(weight)
@@ -302,6 +310,8 @@ def extract(token: str) -> str:
         return dagger_svg("T")
     if token == "QFT†":
         return qft_dagger_svg()
+    if token == "P":
+        return phase_svg()
     if token in WEIGHT_FOR_TOKEN:
         return multi_glyph_svg(token)
     if len(token) == 1:
@@ -330,6 +340,8 @@ def render_png(svg_path: str, png_path: str) -> None:
 
 
 def weight_description(token: str) -> str:
+    if token == "P":
+        return "Qni phase icon"
     if token in {"√X", "S†", "T†"}:
         return "Geist Regular composite"
     if token in WEIGHT_FOR_TOKEN or token == "QFT†":
