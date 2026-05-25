@@ -10,7 +10,10 @@ use crate::span_resize::SpanResizeHandles;
 #[derive(Clone, Copy, Debug)]
 enum DragStartIntent {
     SpanResize(SpanResizeDrag),
-    ExistingGate(DragState),
+    ExistingGate {
+        drag: DragState,
+        starts_live_display_snap: bool,
+    },
     PaletteGate {
         index: usize,
         preview_pos: egui::Pos2,
@@ -32,6 +35,7 @@ impl DragController {
                     return false;
                 }
                 app.begin_circuit_commit();
+                app.selected_gate_id = Some(resize.gate_id);
                 app.span_resize_drag = Some(resize);
                 app.hovered_gate_id = None;
                 app.hovered_probability_outcome = None;
@@ -41,13 +45,18 @@ impl DragController {
                 ctx.request_repaint();
                 true
             }
-            DragStartIntent::ExistingGate(drag) => {
+            DragStartIntent::ExistingGate {
+                drag,
+                starts_live_display_snap,
+            } => {
                 if app.library.active_locked() {
                     return false;
                 }
                 app.begin_circuit_commit();
+                app.selected_gate_id = Some(drag.id);
                 app.dragging = Some(drag);
-                app.dragging_live_display_snap = false;
+                app.dragging_live_display_snap = starts_live_display_snap;
+                app.dragging_live_display_plan_touched = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_gate_id = None;
@@ -77,12 +86,14 @@ impl DragController {
                 new_gate.pos = preview_pos;
                 app.next_gate_id += 1;
                 app.placed_gates.push(new_gate);
+                app.selected_gate_id = Some(new_id);
                 app.dragging = Some(DragState {
                     id: new_id,
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
                     original_column: None,
                 });
                 app.dragging_live_display_snap = false;
+                app.dragging_live_display_plan_touched = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_palette_index = None;
@@ -94,14 +105,23 @@ impl DragController {
                 true
             }
             DragStartIntent::BreakpointStep(step) => {
+                let changed_selection = app.selected_gate_id.take().is_some();
                 if app.breakpoint_step != Some(step) {
                     app.breakpoint_step = Some(step);
                     app.gpu_plan.mark_step_preview_dirty();
                     ctx.request_repaint();
+                } else if changed_selection {
+                    ctx.request_repaint();
                 }
                 true
             }
-            DragStartIntent::None => false,
+            DragStartIntent::None => {
+                if app.selected_gate_id.take().is_some() {
+                    ctx.request_repaint();
+                    return true;
+                }
+                false
+            }
         }
     }
 }
@@ -136,13 +156,22 @@ fn start_intent(
             let gate_rect = gate_visible_rect(gate, gate.pos);
             gate_rect.contains(cursor)
         })
-        .map(|gate| DragState {
-            id: gate.id,
-            offset: cursor - gate.pos,
-            original_column: Some(gate.column),
+        .map(|gate| DragStartIntent::ExistingGate {
+            drag: DragState {
+                id: gate.id,
+                offset: cursor - gate.pos,
+                original_column: Some(gate.column),
+            },
+            starts_live_display_snap: matches!(
+                gate.kind,
+                crate::gates::GateKind::AmplitudeDisplay
+                    | crate::gates::GateKind::DensityMatrixDisplay
+                    | crate::gates::GateKind::BlochDisplay
+                    | crate::gates::GateKind::Measurement
+            ),
         })
     {
-        return DragStartIntent::ExistingGate(drag);
+        return drag;
     }
 
     if let Some(cursor_screen) = pointer.screen_pos {

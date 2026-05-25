@@ -20,6 +20,7 @@ pub(crate) struct Colors {
     pub(crate) box_fill: egui::Color32,
     pub(crate) drag_fill: egui::Color32,
     pub(crate) gate_hover_border: egui::Color32,
+    pub(crate) gate_selected_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
     pub(crate) text_strong: egui::Color32,
@@ -166,6 +167,7 @@ fn flexoki_light() -> Colors {
         box_fill: cyan_400,                   // unitary gate body
         drag_fill: purple_600,                // grabbed / preview body
         gate_hover_border: purple_400,        // gate hover outline (Flexoki purple-400)
+        gate_selected_border: blue_600,       // gate selected outline (Flexoki blue-600)
         label: paper,                         // inverse label on filled gates
         text: tx_2,                           // body text
         text_strong: tx,                      // emphasized titles / data ink
@@ -231,6 +233,14 @@ fn flexoki_light() -> Colors {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gate_selected_border_uses_flexoki_blue_600() {
+        assert_eq!(
+            Colors::new().gate_selected_border,
+            egui::Color32::from_rgb(0x20, 0x5E, 0xA6)
+        );
+    }
 
     #[test]
     fn span_resize_handle_default_uses_flexoki_cyan_400() {

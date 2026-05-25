@@ -75,6 +75,7 @@ impl QniApp {
 
         if drag_pointer.start
             && DragController::handle_pointer_start(self, drag_pointer, &geometry, ctx)
+            && !drag_pointer.released
         {
             return;
         }

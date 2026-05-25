@@ -13,6 +13,7 @@
     }
   </script>
   <!-- 代表モック。共通クロムの説明に H を使うが、個別グリフの正は各ゲート仕様に置く。 -->
+  <script src="components/selection-frame.js"></script>
   <script src="components/h-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
@@ -58,7 +59,6 @@
       justify-content: center;
       flex: 0 0 auto;
     }
-
     /* ── 範囲メモ ─────────────────────────────── */
     .scope-list {
       display: grid;
@@ -266,6 +266,7 @@
   <div class="preview-strip" aria-hidden="true">
     <div class="actual"><h-gate></h-gate></div>
     <div class="actual"><h-gate state="hover"></h-gate></div>
+    <div class="actual"><selection-frame><h-gate></h-gate></selection-frame></div>
     <div class="actual"><h-gate state="drag"></h-gate></div>
   </div>
 </div>
@@ -282,7 +283,7 @@
   <p class="eyebrow">qni-webgpu · デザインシステム · ゲート共通仕様</p>
   <h1 class="page-title">ゲートクロム共通仕様</h1>
   <p class="page-lede">
-    1 スロットゲートの基準本体、span を持つゲートにも共通する 56 px ピッチ、ホバー枠、配色ロールを定義する親仕様。
+    1 スロットゲートの基準本体、span を持つゲートにも共通する 56 px ピッチ、ホバー枠、選択枠、配色ロールを定義する親仕様。
     塗りつぶし本体を持つゲートは本体色とドラッグプレビューもここから継承し、透明マーカや非ユニタリ操作は hit 領域と配置方針だけを継承する。
   </p>
 </div>
@@ -299,7 +300,7 @@
     <div class="scope-list">
       <div class="scope-item">
         <strong>このページで定義する</strong>
-        <span>1 スロットゲートの基準本体サイズ、スロットピッチ、塗りつぶし本体の色ロール、ホバー枠、z-index の層。</span>
+        <span>1 スロットゲートの基準本体サイズ、スロットピッチ、塗りつぶし本体の色ロール、ホバー枠、選択枠、z-index の層。</span>
       </div>
       <div class="scope-item">
         <strong>個別ゲート仕様で定義する</strong>
@@ -307,7 +308,7 @@
       </div>
       <div class="scope-item">
         <strong>再定義してはいけない</strong>
-        <span>1 スロットゲートの 40 px 基準本体、56 px ピッチ、ホバー枠の 4 px 外側展開。塗りつぶし本体の状態色もここを正とする。</span>
+        <span>1 スロットゲートの 40 px 基準本体、56 px ピッチ、ホバー枠 / 選択枠の 4 px 外側展開。塗りつぶし本体の状態色もここを正とする。</span>
       </div>
     </div>
   </div>
@@ -343,6 +344,12 @@
           <td>hover</td>
           <td><code>purple-400</code></td>
           <td>本体外側 4 px に出るホバー枠の外周 2 px。詳細は <a href="hover-frame.html">hover-frame.html</a> と一致。</td>
+        </tr>
+        <tr>
+          <td><code>gate_selected_border</code></td>
+          <td>選択</td>
+          <td><code>blue-600</code></td>
+          <td>クリック後も保持される選択枠。ホバー枠と同じ寸法で、色相を青へ切り替える。詳細は <a href="selection-frame.html">selection-frame.html</a> と一致。</td>
         </tr>
         <tr>
           <td><code>surface</code></td>
@@ -385,7 +392,7 @@
         <tr><th>真円</th><td><code>border-radius: 50%</code>。X / P / CNOT ターゲットなど、Quirk の plus-in-circle 慣例や円形メタファを保つ本体で使う。P は位相ゲートの中では例外的に真円本体。ホバー枠は本体に合わせた同心円ではなく、共通の角丸枠を使う。</td></tr>
         <tr><th>透明マーカ</th><td>Control / AntiControl / Swap などは 40 px の hit 領域を保ちつつ、本体塗りではなく円・線・× で描く。色とドラッグ表示は個別仕様を正とする。</td></tr>
         <tr><th>span 付き本体</th><td>QFT などは幅 40 px と 56 px ピッチ、状態色を継承する。高さ、span 範囲、リサイズハンドルは個別仕様で定義する。</td></tr>
-        <tr><th>z-index</th><td>wire = 0、ゲート本体 = 10、ホバー枠 / ハンドル = 20。個別仕様が新しい層を足す場合もこの順序を崩さない。</td></tr>
+        <tr><th>z-index</th><td>wire = 0、ゲート本体 = 10、ホバー枠 / 選択枠 / ハンドル = 20。個別仕様が新しい層を足す場合もこの順序を崩さない。</td></tr>
       </tbody>
     </table>
 
@@ -425,7 +432,8 @@
   <h2><span class="num">§ 04</span>状態バリアント</h2>
   <div class="card">
     <p>
-      個別ゲートは同じ 3 状態を実装する。状態名と色の切り替えは本仕様を正とし、個別ページは字形が各状態で読めることだけを確認する。
+      ゲート外装は 4 状態を持つ。既定 / ホバー / ドラッグプレビューは個別ゲート本体の状態、選択は外側の <a href="selection-frame.html">選択枠</a> primitive を重ねる状態として扱う。
+      個別ゲートページは本体 3 状態の字形確認を担当し、選択枠の形状と優先順位は本仕様と選択枠仕様を正とする。
     </p>
     <div class="stage state-strip">
       <div class="col">
@@ -437,6 +445,10 @@
         <div class="actual"><h-gate state="hover"></h-gate></div>
       </div>
       <div class="col">
+        <div class="caption">選択<br />blue-600 枠 +<br />2 px 背景の空き</div>
+        <div class="actual"><selection-frame><h-gate></h-gate></selection-frame></div>
+      </div>
+      <div class="col">
         <div class="caption">ドラッグプレビュー<br />purple-600 本体</div>
         <div class="actual"><h-gate state="drag"></h-gate></div>
       </div>
@@ -445,7 +457,8 @@
       <tbody>
         <tr><th>既定</th><td>確定配置済み。<code>box_fill</code> = cyan-400、<code>label</code> = paper。</td></tr>
         <tr><th>ホバー</th><td>本体色は変えず、外側に <code>gate_hover_border</code> の枠を足す。パレットや仕様モックでは <code>surface</code> の空きも見せる。</td></tr>
-        <tr><th>ドラッグプレビュー</th><td>塗りつぶし本体を持つゲートでは、本体色だけを <code>drag_fill</code> = purple-600 に置き換える。ホバー枠とは重ねない。本体塗りを持たないゲートは個別仕様に従う。</td></tr>
+        <tr><th>選択</th><td>本体色は変えず、外側に <code>gate_selected_border</code> の枠を足す。選択中にホバーしても枠を二重にせず、選択枠を優先する。</td></tr>
+        <tr><th>ドラッグプレビュー</th><td>塗りつぶし本体を持つゲートでは、本体色だけを <code>drag_fill</code> = purple-600 に置き換える。ホバー枠 / 選択枠とは重ねない。本体塗りを持たないゲートは個別仕様に従う。</td></tr>
       </tbody>
     </table>
   </div>
@@ -497,7 +510,7 @@
       <tbody>
         <tr>
           <td>gate-chrome.html</td>
-          <td>40 px 基準本体、56 px ピッチ、塗りつぶし本体の状態色、ホバー枠、隣接余白。</td>
+          <td>40 px 基準本体、56 px ピッチ、塗りつぶし本体の状態色、ホバー枠、選択枠、隣接余白。</td>
           <td><code>box_fill</code> / <code>drag_fill</code> (塗りつぶし本体のみ) / 隣接余白。</td>
         </tr>
         <tr>
@@ -508,7 +521,7 @@
         <tr>
           <td>関連 primitive</td>
           <td>ゲート以外にも使う UI 部品の細部。</td>
-          <td><a href="hover-frame.html">ホバー枠</a>、<a href="resize-handle.html">リサイズハンドル</a>。</td>
+          <td><a href="hover-frame.html">ホバー枠</a>、<a href="selection-frame.html">選択枠</a>、<a href="resize-handle.html">リサイズハンドル</a>。</td>
         </tr>
       </tbody>
     </table>
@@ -537,8 +550,12 @@
           <td>purple-400 の外側枠と 2 px 背景の空きの primitive 仕様。</td>
         </tr>
         <tr>
+          <td><a href="selection-frame.html">選択枠</a></td>
+          <td>blue-600 の外側枠で、クリック後の編集対象を示す primitive 仕様。</td>
+        </tr>
+        <tr>
           <td><a href="design-system-colors.html">配色</a></td>
-          <td><code>box_fill</code> / <code>gate_hover_border</code> / <code>drag_fill</code> のロール → Flexoki トーン対応。</td>
+          <td><code>box_fill</code> / <code>gate_hover_border</code> / <code>gate_selected_border</code> / <code>drag_fill</code> のロール → Flexoki トーン対応。</td>
         </tr>
         <tr>
           <td><a href="design-system-spacing.html">スペーシング</a></td>

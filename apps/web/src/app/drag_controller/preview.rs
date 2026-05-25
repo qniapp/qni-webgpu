@@ -98,6 +98,7 @@ impl DragController {
             // A snapped display drag has a meaningful tentative placement.
             // Rebuild the GPU capture plan so the drag preview can render live
             // GPU values instead of the static placeholder.
+            app.dragging_live_display_plan_touched = true;
             app.gpu_plan.mark_dirty();
         }
     }

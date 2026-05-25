@@ -7,6 +7,9 @@ const rootDir = path.join(__dirname, '..')
 const updateFlowPath = path.join(rootDir, 'src', 'app', 'update_flow.rs')
 const viewportPath = path.join(rootDir, 'src', 'app', 'state_panel', 'viewport.rs')
 const gpuPlanStatePath = path.join(rootDir, 'src', 'app', 'gpu_plan_state.rs')
+const dragStartPath = path.join(rootDir, 'src', 'app', 'drag_controller', 'start.rs')
+const dragPreviewPath = path.join(rootDir, 'src', 'app', 'drag_controller', 'preview.rs')
+const dragDropPath = path.join(rootDir, 'src', 'app', 'drag_controller', 'drop.rs')
 
 test('state panel overlay uses a layout refreshed after interactions', async () => {
   const source = await fs.readFile(updateFlowPath, 'utf8')
@@ -52,6 +55,24 @@ test('state panel wheel zoom anchors against the zoomed layout origin', async ()
     usesGridOffsetForOrigin: /QniApp::grid_offset_for_origin\(/.test(source),
     avoidsDeltaGridOffset: !/grid_offset\s*-=/.test(source),
   }, { usesZoomedDesiredOrigin: true, usesGridOffsetForOrigin: true, avoidsDeltaGridOffset: true })
+})
+
+test('live display drag cleanup dirties GPU plan after unchanged drops', async () => {
+  const [start, preview, drop] = await Promise.all([
+    fs.readFile(dragStartPath, 'utf8'),
+    fs.readFile(dragPreviewPath, 'utf8'),
+    fs.readFile(dragDropPath, 'utf8'),
+  ])
+
+  assert.deepEqual({
+    existingLiveDisplayStartsSnapped: /dragging_live_display_snap = starts_live_display_snap/.test(start),
+    livePreviewRecordsTouchedPlan: /dragging_live_display_plan_touched = true;[\s\S]*app\.gpu_plan\.mark_dirty\(\)/.test(preview),
+    dropKeepsDirtyWhenCommitUnchanged: /if app\.commit_current_circuit\(ctx\) \|\| live_display_plan_touched \{\n\s+app\.gpu_plan\.mark_dirty\(\);\n\s+\}/.test(drop),
+  }, {
+    existingLiveDisplayStartsSnapped: true,
+    livePreviewRecordsTouchedPlan: true,
+    dropKeepsDirtyWhenCommitUnchanged: true,
+  })
 })
 
 export {}
