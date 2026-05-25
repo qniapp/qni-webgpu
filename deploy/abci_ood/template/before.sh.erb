@@ -1,0 +1,21 @@
+# Export the module function if it exists.
+[[ $(type -t module) == "function" ]] && export -f module
+
+# Find available ports for nginx and the local Qiskit backend.
+port=$(find_port)
+backend_port=$(find_port)
+if [[ "${backend_port}" == "${port}" ]]; then
+  backend_port=$(python3 - <<PY
+import socket
+frontend_port = int("${port}")
+while True:
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    candidate = sock.getsockname()[1]
+    sock.close()
+    if candidate != frontend_port:
+        print(candidate)
+        break
+PY
+)
+fi

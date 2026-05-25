@@ -33,6 +33,9 @@ jobs:
       - name: Web preflight
         run: pnpm -C apps/web run test:preflight
 
+      - name: Deployment config tests
+        run: node --test test-node/*.test.cjs
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -75,8 +78,8 @@ jobs:
       - name: Web Rust check
         run: apps/web/scripts/check-rust.sh
 
-      - name: Web trunk build
-        run: env -u NO_COLOR TRUNK_COLOR=never trunk build
+      - name: Web production trunk build
+        run: env -u NO_COLOR TRUNK_COLOR=never trunk build --release --public-url ./
         working-directory: apps/web
 
       - name: Web Cucumber BDD (static dist)
@@ -103,29 +106,25 @@ jobs:
           QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
         working-directory: apps/web
 
-      - name: Web Playwright legacy (static dist)
-        run: |
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory dist >/tmp/web-legacy-server.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          python3 - <<'PY'
-          import time
-          import urllib.request
-
-          url = 'http://127.0.0.1:4174/'
-          deadline = time.time() + 20
-          while time.time() < deadline:
-              try:
-                  with urllib.request.urlopen(url) as response:
-                      response.read()
-                  break
-              except Exception:
-                  time.sleep(0.25)
-          else:
-              raise SystemExit('Timed out waiting for static web server')
-          PY
-          QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:pw-legacy
+      - name: Web Playwright legacy
+        run: pnpm run test:pw-legacy
         working-directory: apps/web
+
+  qiskit-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Backend editable install smoke
+        run: |
+          python3 -m venv /tmp/qni-backend-venv
+          /tmp/qni-backend-venv/bin/python -m pip install --upgrade pip
+          /tmp/qni-backend-venv/bin/python -m pip install --no-deps -e apps/qiskit-backend
+
+      - name: Backend tests
+        run: PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests
 
   mcp:
     runs-on: ubuntu-latest

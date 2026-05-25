@@ -1,0 +1,12 @@
+---
+batch_connect:
+  template: "basic"
+  set_host: "host=$(hostname -s)-m"
+
+script:
+  job_name: "QniWebGPU"
+  native:
+    - "-l"
+    - "<%= resource_type %>"
+    - "-g"
+    - "<%= abci_group %>"

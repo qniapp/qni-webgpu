@@ -1,0 +1,7 @@
+---
+name: QNI WebGPU
+category: Interactive Apps
+subcategory: Servers
+role: batch_connect
+description: |
+  Launch qni-webgpu on an ABCI GPU node with a Qiskit Aer GPU backend.
