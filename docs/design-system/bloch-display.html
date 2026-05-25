@@ -12,60 +12,15 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- ブロッホ球表示ブロック本体は <bloch-display> カスタム要素で描画する。 -->
+  <script src="components/bloch-display.js"></script>
   <style>
 
-    /* equator tip 色 (赤道、|+⟩ / |−⟩ / |±i⟩、z = 0) =
-       red-600 (#AF3029) と blue-600 (#205EA6) の sRGB 数学的中点。
-       Flexoki 名前付きトーンには存在しないが、§ 06 / § 07 で説明する gradient の
-       中点として必要なため例外的に定義する。WGSL 側の mix(blue, red, t=0.5) と同値。 */
-    :root { --tip-equator: #684768; }
+    /* ブロッホ球表示ブロック本体 / SVG / ホバー枠 / ホストホバー時のポップアップは
+       components/bloch-display.js の <bloch-display> に集約する。 */
 
-    /* ── ブロッホ球表示ブロック 視覚スタイル (実コードと 1:1 で揃える) ───── */
-    /* SVG は viewBox 0 0 40 40 (= GATE_SIZE 40 px) で描く。
-       sphere_radius = 19, outer = 23, line_half = 0.75, tip_radius = 3。
-       配色は colors.rs に対応: sphere_bg = bg-2, sphere_lines (外周 + 軸) = tx-3,
-       ベクトル線 = tx, tip = z 成分の red-600↔blue-600 sRGB 補間、|v|=0 の中心ドット = tx-3。
-       本体は 40×40 px の中の円 (半径 19 px) だけ。矩形枠は描かない。 */
-    .bd {
-      width: 40px; height: 40px;
-      position: relative;
-      overflow: visible;
-      flex-shrink: 0;
-      display: block;
-    }
-    .bd svg { display: block; width: 100%; height: 100%; overflow: visible; }
-    /* 外周 (sphere): bg-2 で塗り、tx-3 stroke 1.5 px。
-       (egui 側 `painter.circle_filled` + `circle_stroke` と一致) */
-    .bd .sphere { fill: var(--bg-2); stroke: var(--tx-3); stroke-width: 1.5; }
-    /* 内側 wireframe (軸線 + 対角 + 細楕円 ×2): tx-3 stroke 1 px。
-       (egui 側 `draw_bloch_sphere` と一致) */
-    .bd .axis { stroke: var(--tx-3); stroke-width: 1; fill: none; }
-    .bd .vec  { stroke: var(--tx);   stroke-width: 1.5; stroke-linecap: round; }
-    /* 先端ドット色は z 成分による gradient (§ 07 視覚要素):
-       |0⟩ (z = +1) = red-600 (= semantic_off)、|1⟩ (z = -1) = blue-600 (= semantic_on)、
-       中間は sRGB lerp。`.tip` のデフォルトは |0⟩ 寄り (red-600)、それ以外は inline style で上書き。 */
-    .bd .tip  { fill: var(--red-600); }
-    /* |v| ≈ 0 (完全混合) は「非アクティブ」を示すグレー。
-       blue-600 のままだと「弱い |1⟩」に誤読されうるので明確に分離する。 */
-    .bd .zero { fill: var(--tx-3); }
-    /* ホバー枠: 実装と同じ「本体 +4 px 拡張、角丸 10 px の 2 px ストローク (内側 2 px は透明)」。
-       実装側は `body_rect.expand(4.0)` を `CornerRadius::same(10)` で 2 px stroke (`Inside`) する。
-       内側 2 px は描かず、背景 (paper / 配線) がそのまま透ける。CSS では `.bd` 本体に 6 px
-       角丸を当て、box-shadow を重ねて同じ視覚を再現する (paper シャドウは「内側 2 px が paper
-       上にあるとき」の見た目)。内容 (球) とホバー枠を分離する設計で、他のゲートと統一。 */
-    .bd { border-radius: 6px; }
-    .bd:hover,
-    .bd.bd--state-hover {
-      box-shadow:
-        0 0 0 2px var(--bg),
-        0 0 0 4px var(--purple-400);
-    }
-    .bd.bd--icon:hover, .bd.bd--icon { /* アイコンモードは静的、hover でも色は変えない */ }
-
-    /* ─── ポップアップ (ホストホバー時) ───
-       Quirk の MathPainter.paintDeferredValueTooltip と同じ内容を、
-       Geist 系のタイポグラフィで再構成。probability-display の popup と
-       配色 / 角丸 / 影 / spacing をそろえる。 */
+    /* ─── 静的ポップアップ例 (§ 11) ───
+       <bloch-display> 内部ポップアップと同じ内容を、仕様ページの常時表示モックとして並べる。 */
     .bd-popup {
       position: absolute;
       top: 0;
@@ -84,8 +39,6 @@
       white-space: nowrap;
       box-shadow: 0 4px 12px rgba(16, 15, 15, 0.06);
     }
-    /* ホストホバーで popup を出す。icon モード (パレット) は静的なので除外。 */
-    .bd:not(.bd--icon):hover .bd-popup { display: block; }
     .bd-popup .bd-popup-title {
       font-size: 14px;          /* text-sm */
       font-weight: 400;
@@ -145,9 +98,7 @@
       width: 160px; height: 160px;
       display: flex; align-items: center; justify-content: center;
     }
-    .stage .zoom .bd { width: 160px; height: 160px; }
-    .stage .zoom .bd .axis  { stroke-width: 0.25; }
-    .stage .zoom .bd .vec   { stroke-width: 0.375; }
+    .stage .zoom bloch-display { width: 160px; height: 160px; }
 
 
   </style>
@@ -158,18 +109,7 @@
 
 <div id="preview">
   <!-- |+⟩ 状態の Bloch 球 (ベクトルが赤道上を指す代表例) -->
-  <div class="bd">
-    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-      <circle class="sphere" cx="20" cy="20" r="19" />
-      <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-      <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-      <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-      <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-      <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-      <line class="vec" x1="20" y1="20" x2="13.67" y2="26.33" />
-      <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
-    </svg>
-  </div>
+  <bloch-display x="1" no-popup></bloch-display>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -201,8 +141,8 @@
       Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
       しかし読者の動線を見ると、14 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
       <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 08 投影)</strong> が中盤に埋もれる。
-      またページの大部分は<strong>同一 SVG マークアップの複製</strong>と<strong>同一 popup マークアップ × 5 個</strong>で、視覚仕様そのものではない。
-      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
+      SVG マークアップの重複は <code>&lt;bloch-display&gt;</code> へ集約済みだが、同一 popup マークアップ × 5 個など、視覚仕様そのものではない複製はまだ残っている。
+      仕様としての厳密さを保ったまま、見出し階層と残りの再利用構造を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
     </p>
   </aside>
 
@@ -210,7 +150,8 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol と短い use 群で同等のレンダリングが得られ、ファイル全体を大きく縮められる (§ 02 参照)。</li>
+      <li><strong>tip の中間色とブロッホ球 SVG の重複は解消済み</strong> — § 02 のモックは <code>&lt;bloch-display&gt;</code> に置き換え、equator 状態の tip 色と wireframe をコンポーネント内で一元化した。</li>
+      <li><strong>§ 11 の popup モックを表形式へ縮約する</strong> — 5 個の静的 popup はまだ同一構造を繰り返している。構造説明 1 個 + 数値テーブルに分けると、残る重複をさらに減らせる (§ 11 参照)。</li>
       <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
     </ol>
   </aside>
@@ -229,35 +170,13 @@
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|0⟩</code><br>(0, 0, +1)<br>北極 → red tip</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="20" y2="1" />
-              <circle class="tip" cx="20" cy="1" r="3" />
-            </svg>
-          </div>
+          <bloch-display z="1" no-popup></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 160px;">
         <div class="caption"><code>|1⟩</code><br>(0, 0, −1)<br>南極 → blue tip</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="20" y2="39" />
-              <circle class="tip" cx="20" cy="39" r="3" style="fill: var(--blue-600);" />
-            </svg>
-          </div>
+          <bloch-display z="-1" no-popup></bloch-display>
         </div>
       </div>
     </div>
@@ -284,15 +203,13 @@
       モックは「実装済み挙動の常時表示プレビュー」として読む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 SVG 重複">
-      <div class="critique-label">★ 批評 · § 02 SVG 重複</div>
-      <div class="critique-title">同じ wireframe SVG が 9 個重複している</div>
+    <aside class="critique" aria-label="批評 · § 02 tip 色 / SVG 重複 (Resolved)">
+      <div class="critique-label">★ 批評 · § 02 tip 色 / SVG 重複 — Resolved</div>
+      <div class="critique-title"><code>&lt;bloch-display&gt;</code> へ集約済み</div>
       <p class="critique-body">
-        球本体 + 水平軸 + 垂直軸 + 対角 + 細楕円 ×2 の 6 要素は<strong>すべてのモックで完全に同じ座標</strong> (cx=20 cy=20 r=19 等) なのに、
-        § 02 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
-        <code>&lt;defs&gt;&lt;symbol id="bloch-frame"&gt; ... &lt;/symbol&gt;&lt;/defs&gt;</code> を 1 度宣言して各モックで <code>&lt;use href="#bloch-frame"/&gt;</code> + 矢印 + tip だけ書けば、
-        モックあたり 10 行 → 3 行に縮む。
-        重複の真の害は行数ではなく<strong>ドリフト</strong>: 別の作業で軸 stroke 太さを変えるとき 9 箇所すべてを正確に更新する保証が無い (textlint / html-validate も拾えない)。
+        equator 状態の tip 色 (<code>#684768</code>) と、球本体 + 軸 + 楕円の wireframe は
+        <code>components/bloch-display.js</code> の <code>&lt;bloch-display&gt;</code> に集約した。
+        これにより未定義 CSS 変数による黒い tip と、同一 SVG のコピペによるドリフトを防ぐ。
       </p>
     </aside>
     <div class="stage">
@@ -300,33 +217,7 @@
       <div class="col">
         <div class="caption">|0⟩<br>(0, 0, +1)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="20" y2="1" />
-              <!-- |0⟩ (z = +1) → red-600 (default via .tip class) -->
-              <circle class="tip" cx="20" cy="1" r="3" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+0.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+1.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display z="1"></bloch-display>
         </div>
       </div>
 
@@ -334,33 +225,7 @@
       <div class="col">
         <div class="caption">|1⟩<br>(0, 0, −1)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="20" y2="39" />
-              <!-- |1⟩ (z = -1) → blue-600 -->
-              <circle class="tip" cx="20" cy="39" r="3" style="fill: var(--blue-600);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+180.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">−1.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display z="-1"></bloch-display>
         </div>
       </div>
 
@@ -368,33 +233,7 @@
       <div class="col">
         <div class="caption">|+⟩<br>(+1, 0, 0)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="13.67" y2="26.33" />
-              <!-- |+⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display x="1"></bloch-display>
         </div>
       </div>
 
@@ -402,33 +241,7 @@
       <div class="col">
         <div class="caption">|−⟩<br>(−1, 0, 0)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="23.8" y2="16.2" />
-              <!-- |−⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="23.8" cy="16.2" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+180.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">−1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display x="-1"></bloch-display>
         </div>
       </div>
 
@@ -436,33 +249,7 @@
       <div class="col">
         <div class="caption">|+i⟩<br>(0, +1, 0)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="39" y2="20" />
-              <!-- |+i⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="39" cy="20" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+90.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display y="1"></bloch-display>
         </div>
       </div>
 
@@ -470,33 +257,7 @@
       <div class="col">
         <div class="caption">|−i⟩<br>(0, −1, 0)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="1" y2="20" />
-              <!-- |−i⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="1" cy="20" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">−90.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">−1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display y="-1"></bloch-display>
         </div>
       </div>
 
@@ -504,31 +265,7 @@
       <div class="col">
         <div class="caption">完全混合<br>(0, 0, 0)</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <circle class="zero" cx="20" cy="20" r="3" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">—</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">—</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display></bloch-display>
         </div>
       </div>
     </div>
@@ -539,65 +276,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="13.67" y2="26.33" />
-              <!-- |+⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display x="1"></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <div class="bd">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <line class="vec" x1="20" y1="20" x2="13.67" y2="26.33" />
-              <!-- |+⟩ (z = 0) → equator gradient midpoint -->
-              <circle class="tip" cx="13.67" cy="26.33" r="3" style="fill: var(--tip-equator);" />
-            </svg>
-            <div class="bd-popup">
-              <div class="bd-popup-title">Bloch sphere representation of local state</div>
-              <div class="bd-popup-divider"></div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">r</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">ϕ</span><span class="bd-popup-val">+0.00°</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">θ</span><span class="bd-popup-val">+90.00°</span></span>
-              </div>
-              <div class="bd-popup-row">
-                <span class="bd-popup-cell"><span class="bd-popup-key">x</span><span class="bd-popup-val">+1.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">y</span><span class="bd-popup-val">+0.0000</span></span>
-                <span class="bd-popup-cell"><span class="bd-popup-key">z</span><span class="bd-popup-val">+0.0000</span></span>
-              </div>
-            </div>
-          </div>
+          <bloch-display zoom x="1"></bloch-display>
         </div>
       </div>
     </div>
@@ -625,33 +310,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <div class="bd bd--icon">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <circle class="zero" cx="20" cy="20" r="3" />
-            </svg>
-          </div>
+          <bloch-display icon no-popup></bloch-display>
         </div>
       </div>
       <div class="col" style="max-width: 200px;">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <div class="bd bd--icon">
-            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle class="sphere" cx="20" cy="20" r="19" />
-              <line class="axis" x1="1" y1="20" x2="39" y2="20" />
-              <line class="axis" x1="20" y1="1" x2="20" y2="39" />
-              <line class="axis" x1="14.3" y1="25.7" x2="25.7" y2="14.3" />
-              <ellipse class="axis" cx="20" cy="20" rx="6.84" ry="19" />
-              <ellipse class="axis" cx="20" cy="20" rx="19" ry="6.84" />
-              <circle class="zero" cx="20" cy="20" r="3" />
-            </svg>
-          </div>
+          <bloch-display icon zoom no-popup></bloch-display>
         </div>
       </div>
     </div>
@@ -1153,7 +818,7 @@ z =  ρ_00 − ρ_11</pre>
       <p class="critique-body">
         <strong>追加機会</strong>: 各 popup と対応する球モックが今は<em>分離されている</em> (§ 02 にはモックだけ、§ 11 には popup だけ)。
         傾いた混合 <code>(+0.5, −0.3, +0.7)</code> のように § 02 に対応モックが無い状態は popup だけ残り「実際の見え方」が想像できない。
-        anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;use href="#bloch-frame"/&gt;</code> + tip + needle) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
+        anatomy + table 構造にするなら、各行に対応する 24 px ミニ球プレビュー (<code>&lt;bloch-display&gt;</code> の縮小表示) を 1 列追加すれば「数値 ⇄ 視覚」の対応が同じ行で完結する。
       </p>
     </aside>
 
@@ -1268,6 +933,7 @@ z =  ρ_00 − ρ_11</pre>
         <tr><th>ファイル</th><th>役割</th></tr>
       </thead>
       <tbody>
+        <tr><td><code>docs/design-system/components/bloch-display.js</code></td><td>仕様ページ / パレット用の <code>&lt;bloch-display&gt;</code> カスタム要素</td></tr>
         <tr><td><code>apps/web/src/gates.rs</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
         <tr><td><code>apps/web/src/gpu/shaders/bloch_display.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
