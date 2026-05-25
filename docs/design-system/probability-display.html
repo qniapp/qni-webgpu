@@ -157,7 +157,7 @@
   <h1 class="page-title">確率表示ブロック</h1>
   <p class="page-lede">
     任意の地点で span 内の量子ビットを測定した場合の各測定結果の確率を、
-    本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する確率表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    本体内に <strong>横バー + <code>XX.X%</code></strong> として可視化する確率表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §04 参照)。
     状態ベクトルには影響しない。<strong>span は 1〜16 量子ビット (上限 16)</strong>、見た目は span 全体で同一視覚モデル。
     本ドキュメントは描画仕様 (寸法 / 配色 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
   </p>
@@ -354,7 +354,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 08) の <code>ProbabilityInstance.render_mode</code> に
+      <strong>実装メモ:</strong> 既存 GPU 描画経路 (§ 09) の <code>ProbabilityInstance.render_mode</code> に
       <em>「sample / placeholder」</em> フラグを持たせ、fragment shader 側で「placeholder なら placeholder layer (purple-100 背景 + ui-2 行ガイド線 + 外枠)、それ以外は通常のバー + ラベル / 対数ヒント線」へ分岐する。
       CPU から空の確率値を計算したり、別の placeholder 専用 render pass を組んだりはしない (GPU-only ルール)。
       span ≥ 8 (<code>rowH ≤ 2 px</code> 帯) では通常時と同じく行ガイド線も省略し、背景 + 外枠だけが残る。span 16 は最終的に背景の薄紫一色 + 外枠 だけになる。

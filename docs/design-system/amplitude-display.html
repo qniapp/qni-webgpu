@@ -138,7 +138,7 @@
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">振幅表示ブロック</h1>
   <p class="page-lede">
-    span 内の量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §01 参照)。
+    span 内の量子ビットを測定せずに、状態ベクトルの<strong>複素振幅 (大きさ + 位相)</strong> を可視化する振幅表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §04 参照)。
     確率表示ブロックが <code>|α|²</code> (周辺確率) を線形バーで描くのに対し、本表示ブロックは <code>α = re + i·im</code> を
     横断プリミティブ <a href="amplitude-circle.html">振幅円</a> (<strong>輪郭円 + 振幅円盤 + 円盤境界線 + 位相針</strong>) で描く。
     <strong>span 上限は 16 量子ビット</strong> (Quirk と同じ。<code>2<sup>16</sup> = 65 536</code> outcomes、状態ベクトル ≈ 512 KB を GPU storage で扱う上限)。

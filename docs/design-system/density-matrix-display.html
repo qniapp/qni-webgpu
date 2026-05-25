@@ -139,7 +139,7 @@
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">密度行列表示ブロック</h1>
   <p class="page-lede">
-    span 内の量子ビットを測定せずに、<strong>局所的な混合状態 (reduced density matrix)</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する密度行列表示ブロック (<code>表示ブロック</code> の定義は AGENTS.md 用語集と design-system §01 参照)。
+    span 内の量子ビットを測定せずに、<strong>局所的な混合状態 (reduced density matrix)</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する密度行列表示ブロック (<code>表示ブロック</code> の定義は AGENTS.md 用語集と design-system §04 参照)。
     振幅表示ブロックが <code>α = re + i·im</code> 1 本を <code>2<sup>span</sup></code> セルで描くのに対し、本表示ブロックは <code>ρ<sub>ij</sub></code> の <strong>2<sup>span</sup> × 2<sup>span</sup> 全成分</strong> を行列状に描く。
     対角成分は <strong>各測定結果の確率 <code>P(|i⟩) = ρ<sub>ii</sub></code></strong>、非対角成分は <strong>coupling / coherence <code>ρ<sub>ij</sub></code></strong> (絶対値 = 大きさ、偏角 = 相対位相)。
     <strong>span 上限は 8 量子ビット</strong> (Quirk <code>DensityMatrixDisplay</code> と同じ。<code>2<sup>16</sup> = 65 536</code> セルの正方行列、<code>vec2&lt;f32&gt;</code> で 512 KB を GPU storage で扱う上限)。
@@ -702,7 +702,7 @@ for row in 0..n:
   <h2>§ 09 リサイズハンドル (span 1〜8)</h2>
   <div class="card">
     <p>
-      振幅表示ブロック / 確率表示ブロックの上下ハンドルとクロム仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 05</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 11</a> 参照)。
+      振幅表示ブロック / 確率表示ブロックの上下ハンドルとクロム仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 05</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 12</a> 参照)。
       ハンドル単独の挙動だけ要点を再掲する:
     </p>
     <ul>
