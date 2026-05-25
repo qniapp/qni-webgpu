@@ -50,6 +50,8 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
             | GateKind::Rx
             | GateKind::Ry
             | GateKind::Rz
+            | GateKind::Write0
+            | GateKind::Write1
     )
 }
 
@@ -434,6 +436,26 @@ mod tests {
     #[test]
     fn external_gpu_accepts_write1_gate() {
         let gates = [PlacedGate::new(1, GateKind::Write1, 0, 0, 1, None)];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_controlled_write0_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Write0, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_anti_controlled_write1_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Write1, 0, 1, 1, None),
+        ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }

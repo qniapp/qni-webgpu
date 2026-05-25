@@ -155,6 +155,16 @@ def apply_gate(
         apply_qft(qc, wire, qft, qubits)
         mark_unknown(basis, wire, qft.span)
         return
+    if (controls or anti_controls) and base in {"|0>", "|1>"}:
+        apply_controlled_write(
+            qc,
+            basis,
+            wire,
+            target=0 if base == "|0>" else 1,
+            controls=controls,
+            anti_controls=anti_controls,
+        )
+        return
     if controls or anti_controls:
         apply_controlled_gate(qc, wire, base, angle, controls, anti_controls)
         track_controlled_gate(basis, controls, anti_controls, wire, base)
@@ -463,6 +473,32 @@ def track_controlled_gate(
         track_basis_flip(basis, wire)
     elif upper in {"H", "RX", "RY"} or is_sqrt_x_token(base):
         basis[wire] = None
+
+
+def apply_controlled_write(
+    qc: Any,
+    basis: BasisTracker,
+    wire: int,
+    *,
+    target: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    control_values = [basis[control] for control in controls]
+    anti_control_values = [basis[anti_control] for anti_control in anti_controls]
+    if any(value == 0 for value in control_values) or any(
+        value == 1 for value in anti_control_values
+    ):
+        return
+    value = basis[wire]
+    if value is None:
+        raise CircuitBuildError(
+            f"|{target}> requires a deterministic basis state in the dev Qiskit runner"
+        )
+    if value == target:
+        return
+    apply_controlled_x(qc, wire, controls, anti_controls)
+    track_controlled_gate(basis, controls, anti_controls, wire, "X")
 
 
 def apply_write0(qc: Any, basis: BasisTracker, wire: int) -> None:

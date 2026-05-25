@@ -572,6 +572,78 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["H", 1], ["•", "Z"], [1, "|0>"]], 2)
         self.assertEqual(fake.ops, [("h", 0), ("controlled", ("Z", None), [0], [1])])
 
+    def test_qiskit_builder_applies_active_controlled_write0(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["|1>", "|1>"], ["•", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("x", 1), ("mcx", [0], 1)])
+
+    def test_qiskit_builder_keeps_inactive_controlled_write0_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [[1, "|1>"], ["•", "|0>"], [1, "|1>"]], 2)
+        self.assertEqual(fake.ops, [("x", 1)])
+
+    def test_qiskit_builder_allows_inactive_controlled_write_with_unknown_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [[1, "H"], ["•", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("h", 1)])
+
+    def test_qiskit_builder_applies_active_anti_controlled_write1(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "|1>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
+    def test_qiskit_builder_allows_inactive_anti_controlled_write_with_unknown_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["|1>", "H"], ["◦", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("h", 1)])
+
     def test_qiskit_display_saves_tracks_anti_control_across_columns(self):
         class FakeCircuit:
             def __init__(self):
