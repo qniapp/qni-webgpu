@@ -985,11 +985,10 @@ fn bloch_hover_popup_placement(
         target_top - rect.top(),
     ));
 
-    // docs/design-system/bloch-display-popover.html currently defines the
-    // static mock tail at top: 24px with a 16×8px rotated triangle, so the
-    // tail center lands 28px below the card top while the card top aligns to
-    // the gate top.
-    let anchor_y = gate_rect.top() + 28.0;
+    // The popover card top aligns to the 40px Bloch host top, while the tail
+    // apex points at the host's vertical center. This keeps the callout visually
+    // anchored to the sphere instead of drooping below it.
+    let anchor_y = gate_rect.center().y;
     let tail = if rect.center().x >= gate_rect.center().x {
         PopoverTail::on_left_edge(rect, anchor_y)
     } else {
@@ -1068,6 +1067,15 @@ mod tests {
         let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
 
         assert_eq!(placement.rect.left(), 52.0);
+    }
+
+    #[test]
+    fn bloch_hover_popup_tail_points_to_gate_vertical_center() {
+        let gate_rect = egui::Rect::from_min_size(egui::pos2(20.0, 40.0), egui::vec2(40.0, 40.0));
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+
+        assert_eq!(placement.tail.apex_y(), 60.0);
     }
 
     #[test]

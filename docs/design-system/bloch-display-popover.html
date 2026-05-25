@@ -76,7 +76,7 @@
     }
     .bd-popover .doc-popover-tail {
       position: absolute;
-      top: var(--tail-y, 24px);
+      top: var(--tail-y, 16px);
       width: 16px;
       height: 8px;
       transform: rotate(90deg);
@@ -265,7 +265,6 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>tail の縦位置基準を仕様化する</strong> — CSS では <code>--tail-y</code> のデフォルトが <code>24px</code> だが、ゲート (40 × 40) の縦中央は 20 px。現状 tail はゲート中央より 8 px 下を指しており、§ 03 の「ゲート上端に合わせる」だけでは tail の高さ基準が決まらない (§ 02 / § 03 参照)。</li>
       <li><strong>外装トークンを <code>popover.html</code> と共有する</strong> — <code>border-radius: 10px</code> / <code>box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14)</code> / <code>padding: 12px 16px</code> はコメントで「popover.html と同じ」と謳いつつ値がハードコード。<code>--popover-radius</code> / <code>--popover-shadow</code> として <code>design-system.css</code> に集約する余地がある (§ 03 参照)。</li>
       <li><strong>モック内タイトル文字列の言語方針を明示する</strong> — 「Bloch sphere representation of local state」が英語のみで、日本語仕様の中で唯一の英語表現。Quirk 互換の事情か、国際化保留か、判断根拠が § 02 にも § 06 にも書かれていない。ルー語禁止ルール (AGENTS.md 用語集) との関係も曖昧 (§ 02 / § 06 参照)。</li>
     </ol>
@@ -279,7 +278,7 @@
       <tbody>
         <tr><th>対象</th><td><code>GateKind::BlochDisplay</code> のホスト要素のホバー時に出す詳細ポップオーバー</td></tr>
         <tr><th>目的</th><td>球の中の矢印だけでは読み取りにくい <code>r</code> / <code>φ</code> / <code>θ</code> / <code>x</code> / <code>y</code> / <code>z</code> を数値で確認する</td></tr>
-        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる。ブロッホ球表示ブロックには行の概念がないため、確率表示ブロックの行単位ポップオーバーとは異なりホスト単位で 1 個だけ出す</td></tr>
+        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px) に置き、カード上端はゲート上端へ、tail の先端は 40 px ホストの縦中央 (上端 +20 px) へ合わせる。ブロッホ球表示ブロックには行の概念がないため、確率表示ブロックの行単位ポップオーバーとは異なりホスト単位で 1 個だけ出す</td></tr>
         <tr><th>ポインタイベント</th><td><code>pointer-events: none</code>。ポップオーバー自身はホバー判定を奪わない</td></tr>
         <tr><th>GPU-only</th><td>本番実装では <code>bloch_output_buffer</code> の <code>x</code> / <code>y</code> / <code>z</code> を GPU 側で直接読み、CPU リードバックなしでポップオーバー値まで描画する</td></tr>
       </tbody>
@@ -352,17 +351,16 @@
 
     <aside class="critique" aria-label="批評 · § 02 tail とタイトル">
       <div class="critique-label">★ 批評 · § 02 tail とタイトル</div>
-      <div class="critique-title">tail の縦位置基準とタイトルの言語方針が未整理</div>
+      <div class="critique-title">tail は球の縦中央合わせに整理済み、タイトルの言語方針は未整理</div>
       <p class="critique-body">
         アンカーの球本体は <code>&lt;bloch-display no-popover&gt;</code> に置き換え済みで、<a href="bloch-display.html">ブロッホ球表示ブロック仕様</a>と同じカスタム要素を使う。
         そのため、残る § 02 の論点はポップオーバー外装側の位置合わせとタイトル文言に絞られる。
       </p>
       <p class="critique-body">
-        <strong>tail の縦位置基準が CSS に隠れている:</strong>
-        <code>.doc-popover-tail</code> は <code>top: var(--tail-y, 24px)</code> で、<code>--tail-y</code> は設定されていないのでデフォルト <code>24px</code> が使われる。
-        tail の上下中央は <code>24 + 4 = 28 px</code>、これに対して 40 × 40 ゲートの縦中央は <code>20 px</code>。
-        <strong>tail はゲート中央より 8 px 下を指している</strong>状態で、視覚的には「ポップオーバーが少し下に垂れている」ように見える。
-        「ゲートの上端に合わせる」と「tail はゲート中央を指す」は両立しないので、どちらを採用するかを § 03 で明示し、tail-y の根拠も併記すべき。
+        <strong>tail の縦位置基準は中央合わせに解決済み:</strong>
+        <code>.doc-popover-tail</code> は <code>top: var(--tail-y, 16px)</code> を既定にする。
+        tail の上下中央は <code>16 + 4 = 20 px</code> となり、40 × 40 px のブロッホ球ホストの縦中央と一致する。
+        カード上端はゲート上端へ揃えたまま、tail の先端だけを球の中心線へ向けるため、ポップオーバーが下へ垂れて見える違和感を避けられる。
       </p>
       <p class="critique-body">
         <strong>モック内タイトルが英語のみ:</strong>
@@ -385,9 +383,9 @@
         <tr><th>角丸</th><td><code>border-radius: 10 px</code>。ポップオーバー仕様の基準形と同じ</td></tr>
         <tr><th>内側 padding</th><td><code>12 px 16 px</code> (spacing-3 / spacing-4)</td></tr>
         <tr><th>影</th><td><code>0 10px 28px rgba(16, 15, 15, 0.14)</code>。ポップオーバー仕様の基準形と同じ</td></tr>
-        <tr><th>tail</th><td>16 × 8 px の三角 tail を左辺で 90° 回転し、ゲート側を指す。塗りは <code>bg</code>、線は <code>tx-3</code></td></tr>
+        <tr><th>tail</th><td>16 × 8 px の三角 tail を左辺で 90° 回転し、先端をホストの縦中央 (上端 +20 px) へ合わせる。塗りは <code>bg</code>、線は <code>tx-3</code></td></tr>
         <tr><th>z-index</th><td>50</td></tr>
-        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)、ゲートの上端に合わせる</td></tr>
+        <tr><th>アンカー</th><td>ゲート右辺 + 12 px (tail 8 px + gap 4 px)。カード上端はゲート上端に合わせ、tail の先端は球の縦中央に合わせる</td></tr>
       </tbody>
     </table>
 

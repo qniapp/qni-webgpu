@@ -67,6 +67,11 @@ impl PopoverTail {
             egui::pos2(rect.right() + TAIL_H, y),
         )
     }
+
+    #[cfg(test)]
+    pub(crate) fn apex_y(&self) -> f32 {
+        self.apex.y
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
