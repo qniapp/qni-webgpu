@@ -83,7 +83,10 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
                 has_control = true;
             } else if supported_external_controlled_target(gate.kind)
-                || gate.kind == GateKind::Measurement
+                || matches!(
+                    gate.kind,
+                    GateKind::Measurement | GateKind::QftGate | GateKind::QftDaggerGate
+                )
             {
             } else if matches!(
                 gate.kind,
@@ -545,13 +548,23 @@ mod tests {
     }
 
     #[test]
-    fn external_gpu_rejects_controlled_qft_gate() {
+    fn external_gpu_accepts_controlled_qft_gate() {
         let gates = [
             PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
             PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
         ];
 
-        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("QFT"));
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_controlled_qft_dagger_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::QftDaggerGate, 0, 1, 2, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]

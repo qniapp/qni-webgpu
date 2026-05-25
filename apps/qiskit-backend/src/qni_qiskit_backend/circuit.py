@@ -150,6 +150,11 @@ def apply_gate(
     base, angle = split_parametric(token)
     upper = base.upper()
     qft = parse_qft_token(base)
+    if qft is not None:
+        # qni/WebGPU does not model controlled QFT; column controls are ignored.
+        apply_qft(qc, wire, qft, qubits)
+        mark_unknown(basis, wire, qft.span)
+        return
     if controls or anti_controls:
         apply_controlled_gate(qc, wire, base, angle, controls, anti_controls)
         track_controlled_gate(basis, controls, anti_controls, wire, base)
@@ -191,9 +196,6 @@ def apply_gate(
         apply_write0(qc, basis, wire)
     elif base == "|1>":
         apply_write1(qc, basis, wire)
-    elif qft is not None:
-        apply_qft(qc, wire, qft, qubits)
-        mark_unknown(basis, wire, qft.span)
     else:
         raise CircuitBuildError(f"unsupported gate token: {token}")
 
