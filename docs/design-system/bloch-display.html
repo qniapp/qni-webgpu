@@ -149,55 +149,6 @@
     .stage .zoom .bd .axis  { stroke-width: 0.25; }
     .stage .zoom .bd .vec   { stroke-width: 0.375; }
 
-    /* ─── 批評コメント (Design Critique インライン挿入) ───
-       通常本文と視覚的に明確に分離する。red-600 を左ボーダーと薄背景に使う。
-       ".note" (tx-2 のグレー段落) とは別レイヤとして読めるようにし、
-       「仕様」と「レビューコメント」を一目で識別できるようにする。
-       probability-display.html の .critique と同じパターン。 */
-    .critique {
-      margin: 16px 0;                       /* spacing-4 */
-      padding: 14px 18px;
-      background: rgba(175, 48, 41, 0.05);  /* red-600 を 5% で薄く */
-      border-left: 4px solid var(--red-600);
-      border-radius: 0 6px 6px 0;
-      font-size: 14px;                      /* text-sm */
-      line-height: 20px;
-    }
-    .critique .critique-label {
-      font-family: var(--font-mono);
-      font-size: 12px;                      /* text-xs */
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--red-600);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .critique .critique-title {
-      font-weight: 600;
-      color: var(--tx);
-      margin: 0 0 6px;
-    }
-    .critique .critique-body {
-      color: var(--tx-2);
-      margin: 0;
-    }
-    .critique .critique-body + .critique-body {
-      margin-top: 8px;                      /* spacing-2 */
-    }
-    .critique ol.critique-list,
-    .critique ul.critique-list {
-      margin: 6px 0 0;
-      padding-left: 22px;
-      color: var(--tx-2);
-    }
-    .critique ol.critique-list li + li,
-    .critique ul.critique-list li + li {
-      margin-top: 4px;                      /* spacing-1 */
-    }
-    .critique code {
-      background: rgba(175, 48, 41, 0.08);
-      border-color: rgba(175, 48, 41, 0.18);
-    }
 
   </style>
 </head>
@@ -248,10 +199,10 @@
     <div class="critique-title">仕様が緻密だが「読む順序」と「再利用」の設計が弱い</div>
     <p class="critique-body">
       Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
-      しかし読者の動線は (a) 13 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
+      しかし読者の動線を見ると、14 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → popup → パイプライン → URL → 実装」と段階的に深まる構成で、
       <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 08 投影)</strong> が中盤に埋もれる。
-      また 1183 行のうち大部分は<strong>同一 SVG マークアップ × 9 個</strong>と<strong>同一 popup マークアップ × 5 個</strong>の複製で、視覚仕様そのものではない。
-      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば 400 行台に縮約でき、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
+      またページの大部分は<strong>同一 SVG マークアップの複製</strong>と<strong>同一 popup マークアップ × 5 個</strong>で、視覚仕様そのものではない。
+      仕様としての厳密さを保ったまま、見出し階層と再利用構造を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
     </p>
   </aside>
 
@@ -259,11 +210,8 @@
     <div class="critique-label">★ 批評 · Top Opportunities</div>
     <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
     <ol class="critique-list">
-      <li><strong>未定義 CSS 変数 <code>--tip-equator</code> を解消する</strong> — § 02 のモック 5 個 + 4× zoom 2 個で参照されているが宣言が無いため、equator 状態 (|+⟩ / |−⟩ / |±i⟩) の tip ドットが<strong>仕様外の黒</strong>で描画されている。仕様文 § 06 と実画の乖離が一目で出る最大の execution bug (§ 02 参照)。</li>
-      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol + 7 個の short use で同等のレンダリングが得られ、ファイル全体が 1183 行 → 400 行台に縮む (§ 02 参照)。</li>
+      <li><strong>9 個のブロッホ球 SVG を <code>&lt;defs&gt;&lt;symbol&gt;</code> + <code>&lt;use&gt;</code> に集約する</strong> — 球本体 + 軸 + 楕円の wireframe 部分が毎回 7 要素 × 約 9 行ずつ重複している。1 つの symbol と短い use 群で同等のレンダリングが得られ、ファイル全体を大きく縮められる (§ 02 参照)。</li>
       <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
-      <li><strong>§ 06 配色テーブルと § 07 gradient 説明を統合する</strong> — 現状は § 06 が「red / blue / 中点」の 3 行を並べ、§ 07 が「sRGB lerp で連続補間」と書く。読者は § 06 だけ読むと離散 3 色だと誤解する。テーブル側に「gradient (z で連続補間、§ 07 参照)」を入れて統合表現にすべき (§ 06 / § 07 参照)。</li>
-      <li><strong>§ 12 描画パイプラインから line-number 付きファイル参照を抜く</strong> — <code>gpu/shaders/bloch_display.rs:81-190</code> のような行番号は確実に rot する。§ 14 実装ファイル表が既に同じ情報を持っているので、§ 12 は「stage 1 / 2 / 3 が何をするか」だけに絞り、ファイル名は § 14 に集約する (§ 12 参照)。</li>
     </ol>
   </aside>
 </section>
@@ -336,27 +284,14 @@
       モックは「実装済み挙動の常時表示プレビュー」として読む。
     </p>
 
-    <aside class="critique" aria-label="批評 · § 02 --tip-equator 未定義 / SVG 重複">
-      <div class="critique-label">★ 批評 · § 02 仕様と描画の乖離 + SVG 重複</div>
-      <div class="critique-title">equator 状態の tip ドットが「仕様外の黒」でレンダリングされる</div>
-      <p class="critique-body">
-        |+⟩ / |−⟩ / |+i⟩ / |−i⟩ の 4 セルと 4× zoom 2 セルの <code>circle.tip</code> はすべて <code>style="fill: var(--tip-equator);"</code> を指定しているが、
-        <strong><code>--tip-equator</code> はこの HTML にも design-system.css にも宣言が無い</strong>。
-        ブラウザは未定義 var を <code>initial</code> (= <code>fill: black</code>) で解決するため、
-        equator 状態の tip が仕様文 § 06 / § 07 で謳う <code>#684768</code> ではなく真っ黒で出る。
-        仕様の最大の主張 (z gradient で 0 = 赤 / 1 = 青 / 中間 = lerp) が、ページ自身のモックで反証されている状態。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: ページ冒頭の <code>&lt;style&gt;</code> 先頭に <code>:root { --tip-equator: #684768; }</code> を 1 行宣言する。
-        さらに将来的には gradient を CSS 側で計算 (HSL 補間でも sRGB <code>color-mix(in srgb, var(--red-600), var(--blue-600))</code> でも) して、
-        モック生成時に z 値 → 色を CSS 変数で導出できるようにすると、§ 07 の gradient narrative とモックが本当に同期する。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">同じ wireframe SVG が 9 個重複している</div>
+    <aside class="critique" aria-label="批評 · § 02 SVG 重複">
+      <div class="critique-label">★ 批評 · § 02 SVG 重複</div>
+      <div class="critique-title">同じ wireframe SVG が 9 個重複している</div>
       <p class="critique-body">
         球本体 + 水平軸 + 垂直軸 + 対角 + 細楕円 ×2 の 6 要素は<strong>すべてのモックで完全に同じ座標</strong> (cx=20 cy=20 r=19 等) なのに、
         § 02 (7 個) + 4× zoom (2 個) で 9 回コピペされている。
         <code>&lt;defs&gt;&lt;symbol id="bloch-frame"&gt; ... &lt;/symbol&gt;&lt;/defs&gt;</code> を 1 度宣言して各モックで <code>&lt;use href="#bloch-frame"/&gt;</code> + 矢印 + tip だけ書けば、
-        モックあたり 10 行 → 3 行に縮む。1183 行のページ全体で <strong>~150 行</strong> 削減できる。
+        モックあたり 10 行 → 3 行に縮む。
         重複の真の害は行数ではなく<strong>ドリフト</strong>: 別の作業で軸 stroke 太さを変えるとき 9 箇所すべてを正確に更新する保証が無い (textlint / html-validate も拾えない)。
       </p>
     </aside>
@@ -678,7 +613,7 @@
       <strong>中央の <code>|v|=0</code> グレードット</strong> (非アクティブ表示)。
       まず <code>icons/bloch_display.rs</code> の <code>draw_bloch_sphere</code> で軸線・対角・楕円を
       <code>tx-3</code> 1 px で描き、続いて
-      <code>circuit_palette/panel.rs:73-75</code> が <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び出して
+      <code>circuit_palette/panel.rs</code> が <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び出して
       中心に <code>tx-3</code> 半径 3 px のドットを置く。
       パレット項目はドラッグ起点としてのみ機能し、ホバーでもベクトル形状は変化しない。
       <span style="color: var(--tx-3); font-family: var(--font-mono); font-size: 12px;">
@@ -788,34 +723,12 @@
         <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>外周内の円形背景 (paper よりわずかに濃い)。<code>bloch_sphere_bg</code></td></tr>
         <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px。<code>bloch_sphere_lines</code></td></tr>
         <tr><td>ベクトル線</td><td><code>tx</code></td><td>中心から先端への矢印 (1.5 px stroke)。<code>bloch_vector_line</code></td></tr>
-        <tr><td>先端ドット (<code>z = +1</code> 寄り)</td><td><code>red-600</code> = <code>semantic_off</code></td><td><code>|0⟩</code> 側の先端色。Write0 / ket digit "0" / measurement 0 と統一</td></tr>
-        <tr><td>先端ドット (<code>z = −1</code> 寄り)</td><td><code>blue-600</code> = <code>semantic_on</code></td><td><code>|1⟩</code> 側の先端色。Write1 / ket digit "1" / measurement 1 と統一</td></tr>
-        <tr><td>先端ドット (equator)</td><td>(Flexoki 外: lerp 中点)</td><td><code>z = 0</code> (赤道、|+⟩ / |−⟩ / |±i⟩) の先端色。<code>red-600 ⇄ blue-600</code> の sRGB lerp 中点</td></tr>
+        <tr><td>先端ドット (有効時)</td><td><code>red-600 ⇄ blue-600</code> の sRGB 連続補間</td><td><code>z</code> 成分で補間するグラデーション。<code>|0⟩</code> 側 (<code>z = +1</code>) は <code>red-600</code> = <code>semantic_off</code>、<code>|1⟩</code> 側 (<code>z = −1</code>) は <code>blue-600</code> = <code>semantic_on</code>。赤道 (<code>z = 0</code>) は両者の数学的中点 <code>#684768</code>。Flexoki 名前付きトーンには存在しないが、WGSL 側の sRGB 補間と同値にするための例外</td></tr>
         <tr><td>非アクティブドット</td><td><code>tx-3</code></td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆 (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
         <tr><td>外側余白</td><td><code>paper</code></td><td>占有矩形の四隅 (円の外側)。ゲート本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>外側ホバー枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 06 配色テーブルと gradient narrative の不整合">
-      <div class="critique-label">★ 批評 · § 06 / § 07 一貫性</div>
-      <div class="critique-title">テーブルは「3 つの離散色」、本文は「連続 gradient」</div>
-      <p class="critique-body">
-        § 06 配色テーブルは tip 色を「<code>z = +1 寄り = red-600</code> / <code>z = −1 寄り = blue-600</code> / <code>equator = #684768</code>」の 3 行で並べている。
-        この見た目だと「離散 3 色」と読める。実際は § 07 が示すとおり <code>mix(blue, red, t)</code> の連続 sRGB lerp で、z = 0.7 のような中間値も補間色が出る。
-        § 06 だけ読んだ読者は z = 0.5 のとき何色か即答できない。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: テーブルを 1 行に統合 (<em>「先端ドット (active) = z gradient (red-600 ⇄ blue-600 sRGB lerp、equator midpoint <code>#684768</code>) — 連続補間、§ 07 参照」</em>) するか、テーブル直下に gradient swatch (横長の <code>linear-gradient(to right, blue-600, #684768, red-600)</code> 帯) を 1 つ置いて視覚的に「連続だ」と一目で伝える。
-        後者なら 7 行のテーブル + 24 px の swatch で離散 / 連続の両方を提示できる。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">「Flexoki 外」を justify せずに通している</div>
-      <p class="critique-body">
-        <code>#684768</code> は表内で「(Flexoki 外: lerp 中点)」と注記されているが、CLAUDE.md の「新規 / 変更色は必ず Flexoki の名前付きトーンにマップ」原則からの例外。
-        現状は<em>事実だけ告知して根拠を書かない</em>姿勢で、なぜ <code>purple-600</code> (#5E409D) のような既存トーンではダメだったのか読み取れない。
-        例外を残すなら「red-600 ⇄ blue-600 の数学的中点である必要があり、Flexoki の <code>purple-600</code> は色相がずれて gradient が破綻するため」など根拠 1 行を添えるべき。さもなければ Flexoki 純粋運用へ戻す決断を促すべき。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -890,7 +803,7 @@ let tip_rgb: vec3&lt;f32&gt; = select(active_rgb, params.inactive_color.rgb, mag
     </p>
     <table class="spec">
       <thead>
-        <tr><th>状態</th><th>z</th><th>tip 色</th></tr>
+        <tr><th>状態</th><th>z</th><th>tip 色</th><th>HEX</th></tr>
       </thead>
       <tbody>
         <tr><td>|0⟩</td><td class="num">+1.00</td><td><code>red-600</code></td><td><code>#AF3029</code></td></tr>
@@ -949,8 +862,8 @@ sy = py + factor · (y_3d − py)</pre>
       </tbody>
     </table>
     <p class="note" style="margin-top: 8px;">
-      実装: <code>icons/bloch_display.rs:17-32</code> (egui プレビュー用) と
-      <code>gpu/shaders/bloch_display.rs:130-141</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
+      実装: <code>icons/bloch_display.rs</code> (egui プレビュー用) と
+      <code>gpu/shaders/bloch_display.rs</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
       数値の一致は egui 上の暫定描画と GPU overlay の見た目を完全に揃えるため。
     </p>
 
@@ -978,7 +891,7 @@ sy = py + factor · (y_3d − py)</pre>
   <h2>§ 09 ブロッホベクトル算出 (GPU compute)</h2>
   <div class="card">
     <p>
-      <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs:3-80</code>)
+      <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)
       は対象量子ビット <code>qubit_bit</code> を消去した
       1 量子ビット 換算密度行列 ρ の 3 成分を計算し、<code>bloch_output_buffer</code> の
       <code>output_slot</code> に <code>vec4&lt;f32&gt;(x, y, z, 0)</code> として書き出す。
@@ -1032,10 +945,10 @@ z =  ρ_00 − ρ_11</pre>
     <ul>
       <li>実装: <code>body_rect.expand(4.0)</code> に対して <strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の
         <strong>2 px stroke</strong> を <code>Inside</code> で描く。
-        内側 2 px (gate edge から外 2 px) は塗らず、ステージ背景 / 配線がそのまま透ける</li>
+        内側 2 px (ゲート端から外側 2 px) は塗らず、ステージ背景 / 配線がそのまま透ける</li>
       <li>本体は円だが、外側ホバー枠は他のゲートと統一して<strong>角丸矩形</strong>。
         内容 (球) とホバー枠を分離する設計で、利用者はホバー時の見せ方を 1 つだけ覚えればよい</li>
-      <li>確率 / 振幅 / 密度行列表示ブロックは本体が角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> に従い、外側ホバー枠の角丸は <code>0 px</code> (90 度) にする。行 / セルホバー枠は表示ブロック固有の内側枠として扱う</li>
+      <li>確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロックは本体が角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> に従い、外側ホバー枠の角丸は <code>0 px</code> (90 度) にする。行ホバー枠 / セルホバー枠は表示ブロック固有の内側枠として扱う</li>
       <li>確率表示ブロックと異なり <strong>行ホバー枠は存在しない</strong> (描画要素が単一なので行の概念がない)</li>
       <li>リサイズハンドルなし (<code>resizable_span: false</code>)。span を変える UI は出さない</li>
     </ul>
@@ -1044,7 +957,7 @@ z =  ρ_00 − ρ_11</pre>
     <ul>
       <li>ホストホバーで右側 +8 px の位置にブロッホベクトル詳細 popup が出る (§ 11 ポップアップ仕様)</li>
       <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>ϕ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
-      <li>Quirk の <code>BlochSphereDisplay.js:31-58</code> <code>paintDeferredValueTooltip</code> と同等の情報量を、
+      <li>Quirk の <code>BlochSphereDisplay.js</code> の <code>paintDeferredValueTooltip</code> と同等の情報量を、
         probability-display popup と同じ Geist 系のタイポグラフィで再構成</li>
       <li>実装ステータス: <strong>本体表示 + GPU overlay 実装済み</strong>。popup の値表示は別作業で整理する</li>
     </ul>
@@ -1068,7 +981,7 @@ z =  ρ_00 − ρ_11</pre>
       ホストホバー時に出るブロッホベクトル詳細 popup の<strong>常時表示版</strong>。
       実装と同じ CSS / マークアップを静的に並べ、状態バリアントとアナトミーを
       Codex / 人間がスクロールだけで確認できるようにする。
-      Quirk オリジナル (<code>../oss/Quirk/src/gates/BlochSphereDisplay.js:31-58</code>) と同じ情報を、
+      Quirk オリジナル (<code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code>) と同じ情報を、
       probability-display popup と同じ Flexoki / Geist 系で再構成。
     </p>
 
@@ -1272,7 +1185,7 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 8px;">Stage 1: Reduce (compute)</h3>
     <ul>
-      <li>shader: <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs:3-80</code>)</li>
+      <li>shader: <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)</li>
       <li>pipeline: <code>gpu/resources/bloch_display/reduce.rs</code></li>
       <li>workgroup: 64 スレッド、ツリー縮約 (workgroupBarrier 付き)</li>
       <li>入力 binding: 状態ベクトル (storage, read) + <code>BlochParams</code> uniform</li>
@@ -1281,7 +1194,7 @@ z =  ρ_00 − ρ_11</pre>
 
     <h3 style="margin-top: 16px;">Stage 2: Overlay (render)</h3>
     <ul>
-      <li>shader: <code>BLOCH_OVERLAY_SHADER</code> (<code>gpu/shaders/bloch_display.rs:81-190</code>)</li>
+      <li>shader: <code>BLOCH_OVERLAY_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)</li>
       <li>pipeline: <code>gpu/resources/bloch_display/overlay.rs</code></li>
       <li>頂点: <code>common.unit_quad_vertex_buffer</code> (Probability / その他と共有の単位 quad)</li>
       <li>インスタンス: <code>BlochOverlayInstance { center, radius, outer, slot }</code></li>
@@ -1294,7 +1207,7 @@ z =  ρ_00 − ρ_11</pre>
       <li>callback: <code>gpu/callbacks/bloch_display_overlay.rs</code> (<code>BlochOverlayCallback</code>)</li>
       <li>prepare: パラメータ / インスタンスを GPU バッファに書き込む (CPU → GPU)</li>
       <li>paint: pipeline + bind group をバインドし <code>draw_indexed(0..6, 0, 0..N)</code></li>
-      <li>呼び出し元: <code>render/circuit_gates.rs:210-249</code> (placed_gates から BlochDisplay を抽出してインスタンス化)</li>
+      <li>呼び出し元: <code>render/circuit_gates.rs</code> (placed_gates から BlochDisplay を抽出してインスタンス化)</li>
     </ul>
 
     <p class="note" style="margin-top: 12px;">
@@ -1307,31 +1220,12 @@ z =  ρ_00 − ρ_11</pre>
     <h3 style="margin-top: 16px;">バックエンド対応</h3>
     <ul>
       <li><strong>Local WebGPU のみ対応</strong>。<strong>external GPU バックエンドでは未対応</strong>
-        (<code>app/external_gpu/app_adapter.rs:97-115</code> の <code>unsupported_external_gpu_gate</code> に
+        (<code>app/external_gpu/app_adapter.rs</code> の <code>unsupported_external_gpu_gate</code> に
         <code>BlochDisplay → "Bloch"</code> が列挙されている)</li>
       <li>回路に BlochDisplay が含まれる場合、external GPU 切替時に Unsupported エラーになる</li>
       <li>制約理由: external GPU 経路は ρ → (x, y, z) の reduce + GPU フラグメントへの直結という本仕様の経路を持たないため。
         将来対応するなら <code>BLOCH_REDUCE_SHADER</code> 相当の reduce を external 側にも追加する</li>
     </ul>
-
-    <aside class="critique" aria-label="批評 · § 12 line-number rot">
-      <div class="critique-label">★ 批評 · § 12 / § 14 重複 + 行番号 rot</div>
-      <div class="critique-title">行番号付きファイル参照 (<code>:3-80</code> 等) が確実に陳腐化する</div>
-      <p class="critique-body">
-        § 12 描画パイプラインの 3 段の各説明に <code>gpu/shaders/bloch_display.rs:3-80</code> / <code>:81-190</code> / <code>:130-141</code> のような行番号レンジが埋め込まれている。
-        ファイルへの編集が入った瞬間にこの数字は嘘になる (textlint / html-validate でも検出されない静的腐敗)。
-        さらに § 14 実装ファイル表が<em>同じ情報</em>を行番号なしで保持しているため、内容としては重複している。
-      </p>
-      <p class="critique-body">
-        <strong>対応案</strong>: § 12 はパイプライン<em>そのもの</em>を語る (input → reduce → overlay → callback の責任分担、binding 表) に絞り、
-        ファイル参照は <code>(<a href="#section-13">§ 14 参照</a>)</code> 1 つで § 14 へ送る。
-        どうしても § 12 内に出したいなら、行番号無しの相対パス (<code>gpu/shaders/bloch_display.rs</code>) + 関数名 (<code>fs_main</code>) を組合せる方が grep で見つかり腐敗もしにくい。
-      </p>
-      <p class="critique-body">
-        <strong>類似事例</strong>: § 07 / § 08 / § 10 / § 14 にも行番号付きのファイル参照が散在する。
-        spec 内のファイル参照は <strong>§ 14 の 1 テーブルに集約</strong>するルールにすれば、コードベース側のリファクタで spec を 1 ヶ所だけ追跡すれば済む。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -1341,7 +1235,7 @@ z =  ρ_00 − ρ_11</pre>
   <div class="card">
     <p>
       BlochDisplay の <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する
-      (Quirk URL インポート / 双方向の URL 共有のため、<code>gates.rs:73-77</code> で <code>url_token: "Bloch"</code>)。
+      (Quirk URL インポート / 双方向の URL 共有のため、<code>gates.rs</code> で <code>url_token: "Bloch"</code>)。
       ただし<strong>下記の <code>#circuit=...</code> 形式は Quirk オリジナルの URL hash 構造</strong>であり、qni-webgpu 現行の URL 表現
       (<code>/#&lt;percent-encoded JSON&gt;</code>) とは hash 内のキー名・構造が異なる。
       本セクションは <em>Quirk URL の語彙互換性</em>を示すための参考であり、qni-webgpu 内部の URL 設計は別仕様 (TBD)。
@@ -1374,7 +1268,7 @@ z =  ρ_00 − ρ_11</pre>
         <tr><th>ファイル</th><th>役割</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>apps/web/src/gates.rs:73-77</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
+        <tr><td><code>apps/web/src/gates.rs</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
         <tr><td><code>apps/web/src/gpu/shaders/bloch_display.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
         <tr><td><code>apps/web/src/gpu/resources/bloch_display/overlay.rs</code></td><td>render パイプライン構築 (頂点 / インスタンス layout、blend state)</td></tr>
@@ -1383,7 +1277,7 @@ z =  ρ_00 − ρ_11</pre>
         <tr><td><code>apps/web/src/gpu/recompute/dispatch.rs</code></td><td>reduce + overlay の毎フレーム dispatch オーケストレーション (<code>SimulationOp::CaptureBloch</code> → <code>encode_capture_bloch</code>)</td></tr>
         <tr><td><code>apps/web/src/gpu/params.rs</code></td><td><code>BlochParams</code> uniform + <code>BlochOverlayInstance</code></td></tr>
         <tr><td><code>apps/web/src/gpu/callbacks/bloch_display_overlay.rs</code></td><td>egui_wgpu 描画コールバック (prepare / paint)</td></tr>
-        <tr><td><code>apps/web/src/icons/gate_body.rs:67-76</code></td><td>外周の円本体 (<code>circle_filled</code> + <code>circle_stroke</code>) — ブロッホ球表示ブロック専用の例外的な本体形状</td></tr>
+        <tr><td><code>apps/web/src/icons/gate_body.rs</code></td><td>外周の円本体 (<code>circle_filled</code> + <code>circle_stroke</code>) — ブロッホ球表示ブロック専用の例外的な本体形状</td></tr>
         <tr><td><code>apps/web/src/icons/bloch_display.rs</code></td><td>内側 wireframe (<code>draw_bloch_sphere</code>) と暫定矢印 (<code>draw_bloch_vector</code>)、透視投影式 <code>bloch_project</code></td></tr>
         <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>ホバー枠 / 暫定描画 / GPU overlay インスタンス化</td></tr>
         <tr><td><code>apps/web/src/simulation_plan/op.rs</code></td><td><code>SimulationOp::CaptureBloch</code> (シミュレーションプランへの組み込み)</td></tr>
