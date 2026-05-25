@@ -39,6 +39,7 @@
   <script src="components/probability-display.js"></script>
   <script src="components/bloch-display.js"></script>
   <script src="components/amplitude-display.js"></script>
+  <script src="components/density-matrix-display.js"></script>
   <style>
 
     /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
@@ -101,7 +102,8 @@
     .gp-gate > spacer-gate,
     .gp-gate > probability-display,
     .gp-gate > bloch-display,
-    .gp-gate > amplitude-display {
+    .gp-gate > amplitude-display,
+    .gp-gate > density-matrix-display {
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
@@ -204,55 +206,6 @@
   </p>
 </div>
 
-<!--
-  共通 SVG シンボル定義 — カスタム要素化していない表示ブロックと、一部の既存プリミティブを viewBox="0 0 48 48" で統一。
-  ゲート本体と確率表示ブロック / ブロッホ球表示ブロック / 振幅表示ブロックは各カスタム要素に集約し、ここへ同じ path を重複定義しない。
-  密度行列アイコンなどの primitive は「display 40 px → viewBox 48」のスケール係数 (48/40 = 1.2) で換算済み:
-    stroke 1 px → 1.2、stroke 1.5 → 1.8、radius 19 → 22.8、radius 20 → 24 (full)
--->
-<svg width="0" height="0" style="position: absolute" aria-hidden="true">
-  <defs>
-
-
-
-
-
-
-    <!--
-      ─ Density matrix palette icon (gate_body.rs:201-235) ─ 2×2 compact preview
-        cell = 20 display = 24 viewbox、center = (12/36, 12/36)
-        outline: state_outline (tx-2) stroke 1.25 display = 1.5 viewbox, r=7.875 display = 9.45 viewbox
-        disk: state_fill (blue-200), r=3.9375 display = 4.725 viewbox + popup_icon (blue-400) inset border 1.2
-        needle: 非対角セルだけ state_needle (tx) stroke 1.25 display = 1.5 viewbox、真上方向
-    -->
-    <symbol id="g-Density" viewBox="0 0 48 48">
-      <rect width="48" height="48" fill="#FFFCF0"/>
-      <g>
-        <circle cx="12" cy="12" r="9.45" fill="#FFFCF0" stroke="#6F6E69" stroke-width="1.5"/>
-        <circle cx="12" cy="12" r="4.725" fill="#92BFDB"/>
-        <circle cx="12" cy="12" r="4.125" fill="none" stroke="#4385BE" stroke-width="1.2"/>
-      </g>
-      <g>
-        <circle cx="36" cy="12" r="9.45" fill="#FFFCF0" stroke="#6F6E69" stroke-width="1.5"/>
-        <circle cx="36" cy="12" r="4.725" fill="#92BFDB"/>
-        <circle cx="36" cy="12" r="4.125" fill="none" stroke="#4385BE" stroke-width="1.2"/>
-        <line x1="36" y1="12" x2="36" y2="2.55" stroke="#100F0F" stroke-width="1.5"/>
-      </g>
-      <g>
-        <circle cx="12" cy="36" r="9.45" fill="#FFFCF0" stroke="#6F6E69" stroke-width="1.5"/>
-        <circle cx="12" cy="36" r="4.725" fill="#92BFDB"/>
-        <circle cx="12" cy="36" r="4.125" fill="none" stroke="#4385BE" stroke-width="1.2"/>
-        <line x1="12" y1="36" x2="12" y2="26.55" stroke="#100F0F" stroke-width="1.5"/>
-      </g>
-      <g>
-        <circle cx="36" cy="36" r="9.45" fill="#FFFCF0" stroke="#6F6E69" stroke-width="1.5"/>
-        <circle cx="36" cy="36" r="4.725" fill="#92BFDB"/>
-        <circle cx="36" cy="36" r="4.125" fill="none" stroke="#4385BE" stroke-width="1.2"/>
-      </g>
-    </symbol>
-  </defs>
-</svg>
-
 <!-- ─────── § 01 動くモック ─────── -->
 <section class="block">
   <h2>§ 01 動くモック</h2>
@@ -305,13 +258,13 @@
           </div>
           <div class="gp-row">
             <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><amplitude-display icon no-popup></amplitude-display><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
-            <div class="gp-gate" data-tip="Density · 密度行列表示ブロック"><svg width="40" height="40"><use href="#g-Density"/></svg><span class="tip">密度行列表示ブロック (span 1〜8)</span></div>
+            <div class="gp-gate" data-tip="Density · 密度行列表示ブロック"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display><span class="tip">密度行列表示ブロック (span 1〜8)</span></div>
           </div>
         </div>
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      glyph 描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有し、未移行の密度行列表示ブロックは静的 SVG プリミティブで近似する (字形の細部や aliasing は実装と完全一致しない)。
+      字形描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有する。
       レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
     </p>
   </div>
@@ -390,7 +343,7 @@
       <div class="item"><div class="gp-gate"><bloch-display icon no-popup></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
       <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
       <div class="item"><div class="gp-gate"><amplitude-display icon no-popup></amplitude-display></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
-      <div class="item"><div class="gp-gate"><svg width="40" height="40"><use href="#g-Density"/></svg></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
+      <div class="item"><div class="gp-gate"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
     </div>
 
     <p class="note" style="margin-top: 16px;">

@@ -12,12 +12,13 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- H ゲート、ブロッホ球表示ブロック、振幅表示ブロックはカスタム要素で描画する。
-       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○) はカスタム要素化が済むまで
+  <!-- H ゲート、ブロッホ球表示ブロック、振幅表示ブロック、密度行列表示ブロックは正規のカスタム要素で描画する。
+       他のセル (X / Y / Z / RX / RY / SW / QFT / ●/○ / P) はカスタム要素化が済むまで
        .vd-cell の色付きラベルで暫定表示する。 -->
   <script src="components/h-gate.js"></script>
   <script src="components/bloch-display.js"></script>
   <script src="components/amplitude-display.js"></script>
+  <script src="components/density-matrix-display.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot / .vertical-divider) は design-system.css にある。 */
@@ -69,19 +70,6 @@
       font-family: var(--font-mono);
       font-size: 12px; /* text-xs */
       line-height: 16px;
-    }
-    .vd-cell--matrix {
-      display: grid;
-      grid-template-columns: repeat(2, 10px);
-      grid-template-rows: repeat(2, 10px);
-      gap: 4px; /* spacing-1 */
-      padding: 6px;
-    }
-    .vd-dot {
-      border-radius: 999px;
-      border: 1px solid var(--tx-2);
-      background: var(--blue-200);
-      box-shadow: inset 0 0 0 1px var(--blue-400);
     }
     .vd-preview-strip {
       display: flex;
@@ -241,10 +229,7 @@
           </div>
           <div class="vd-row">
             <amplitude-display icon no-popup></amplitude-display>
-            <div class="vd-cell vd-cell--display vd-cell--matrix" role="img" aria-label="密度行列">
-              <span class="vd-dot"></span><span class="vd-dot"></span>
-              <span class="vd-dot"></span><span class="vd-dot"></span>
-            </div>
+            <density-matrix-display icon span="1" state="icon" no-popup role="img" aria-label="密度行列表示ブロック"></density-matrix-display>
           </div>
         </div>
       </div>

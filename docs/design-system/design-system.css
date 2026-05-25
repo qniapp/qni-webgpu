@@ -287,8 +287,8 @@ pre.code {
    span を持つ表示ブロック / QFT などが共有する「上下ドラッグハンドル」。
    仕様: docs/design-system/resize-handle.html。
    chrome (色 / 寸法 / state machine / マイクロインタラクション) はここに 1 箇所だけ定義し、
-   各コンポーネント側のホスト要素 (.cd-host / .ad-host / .dm-host 等) は
-   <strong>.resize-handle-host</strong> マーカークラスを併記して .resize-handle 要素を appendChild する。
+   Shadow DOM を使わない仕様モック側のホスト要素は <strong>.resize-handle-host</strong>
+   マーカークラスを併記して .resize-handle 要素を appendChild する。
    state は .resize-handle[data-handle-state="visible | hover | active"] という
    data 属性に集約する (spec ページの常時表示モック用)。 */
 .resize-handle {

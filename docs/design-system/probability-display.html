@@ -1051,8 +1051,9 @@ stroke()</pre>
       </p>
       <p class="critique-body" style="color: var(--tx-3);">
         <em>波及範囲:</em> 本ページの描画 HTML 生成を <code>components/probability-display.js</code> の
-        <code>&lt;probability-display&gt;</code> に集約。振幅表示ブロック / 密度行列表示ブロックも同様にカスタム要素化できる余地がある。
-        Rust 実装側 (<code>apps/web/src/colors.rs</code> / <code>circuit_gates.rs</code>) の整理は別タスク。
+        <code>&lt;probability-display&gt;</code> に集約。密度行列表示ブロックも
+        <code>components/density-matrix-display.js</code> の <code>&lt;density-matrix-display&gt;</code> に集約済み。
+        振幅表示ブロックと Rust 実装側 (<code>apps/web/src/colors.rs</code> / <code>circuit_gates.rs</code>) の整理は別タスク。
       </p>
     </aside>
   </div>
