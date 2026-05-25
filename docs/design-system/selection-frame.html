@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>選択枠 (基本部品) — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <script src="components/selection-frame.js"></script>
+  <script src="components/h-gate.js"></script>
+  <script src="components/swap-gate.js"></script>
+  <style>
+    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
+       nav.breadcrumb / footer.doc-foot / .selection-frame) は design-system.css にある。 */
+
+    .sf-stage {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 32px 24px; /* spacing-8 / spacing-6 */
+      display: flex;
+      gap: 56px; /* spacing-14 */
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      overflow: hidden;
+    }
+    .sf-example {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px; /* spacing-3 */
+      min-width: 152px;
+    }
+    .sf-caption {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs = 12px */
+      line-height: 16px; /* text-xs default */
+      color: var(--tx-2);
+      text-align: center;
+    }
+    .sf-circuit {
+      position: relative;
+      width: 152px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+    }
+    .sf-circuit::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--ui-2);
+      transform: translateY(-0.5px);
+    }
+    .sf-display-block {
+      width: 40px;  /* GATE_SIZE = spacing-10 */
+      height: 40px; /* GATE_SIZE = spacing-10 */
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 2px;
+      padding: 4px; /* spacing-1 */
+      background: var(--bg);
+      border: 1px solid var(--ui-2);
+    }
+    .sf-display-block span {
+      display: block;
+      width: 12px;  /* spacing-3 */
+      height: 12px; /* spacing-3 */
+      border-radius: 999px;
+      background: var(--blue-200);       /* Flexoki blue-200 / state_fill */
+      border: 1px solid var(--blue-400); /* Flexoki blue-400 / amplitude_disk_border */
+      align-self: center;
+      justify-self: center;
+    }
+
+    /* ── 角詳細 (右上角の実寸描画 × 2 ケース) ──
+       対象矩形の角丸の有無で外側選択枠の見え方がどう変わるかを、
+       1:1 スケールで右上角だけ切り出して示す。 */
+    .sf-corner-detail {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      overflow: hidden;
+    }
+    .sf-corner-body,
+    .sf-corner-gap,
+    .sf-corner-frame {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+    }
+    .sf-corner-body {
+      top: 14px;
+      right: 14px;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / box_fill */
+      z-index: 3;
+    }
+    .sf-corner-gap {
+      top: 12px;
+      right: 12px;
+      background: var(--bg-2);
+      z-index: 2;
+    }
+    .sf-corner-frame {
+      top: 10px;
+      right: 10px;
+      background: var(--blue-600);       /* Flexoki blue-600 / gate_selected_border */
+      z-index: 1;
+    }
+    .sf-corner-detail--rounded .sf-corner-body  { border-radius: 6px; }
+    .sf-corner-detail--rounded .sf-corner-gap   { border-radius: 8px; }
+    .sf-corner-detail--rounded .sf-corner-frame { border-radius: 10px; }
+
+    .sf-corner-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px; /* spacing-4 */
+      justify-content: center;
+      margin-top: 16px; /* spacing-4 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+    }
+    .sf-corner-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px; /* spacing-2 */
+    }
+    .sf-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid var(--ui-2);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- design-system.html サムネ用プレビュー。40 × 40 px の H ゲートに選択枠を重ねる。 -->
+<div id="preview">
+  <selection-frame aria-hidden="true"><h-gate></h-gate></selection-frame>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">Primitives</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">選択枠</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
+  <h1 class="page-title">選択枠</h1>
+  <p class="page-lede">
+    回路上の配置済みゲートが、現在の編集対象として選ばれていることを示す枠線。
+    ホバー枠と同じ寸法語彙を使いながら、色相を <code>blue-600</code> へ切り替えることで、
+    「一時的にポインタが重なっている」と「クリック後も選ばれている」を一目で区別できるようにする。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 見た目</h2>
+  <div class="card">
+    <div class="sf-stage">
+      <div class="sf-example">
+        <div class="sf-circuit">
+          <selection-frame><h-gate></h-gate></selection-frame>
+        </div>
+        <div class="sf-caption">角丸ゲート<br>blue-600 の選択枠</div>
+      </div>
+      <div class="sf-example">
+        <div class="sf-circuit">
+          <selection-frame><swap-gate></swap-gate></selection-frame>
+        </div>
+        <div class="sf-caption">透明なゲート<br>接続線を消さない</div>
+      </div>
+      <div class="sf-example">
+        <div class="sf-circuit">
+          <selection-frame shape="square">
+            <div class="sf-display-block" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </selection-frame>
+        </div>
+        <div class="sf-caption">角ばり表示ブロック<br>90 度の選択枠</div>
+      </div>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      選択枠は回路上のゲートに出る永続的な編集状態で、パレット項目の一時的なホバー表示とは分ける。
+      選択中のゲートにポインタが重なっても、枠を二重にせず <code>blue-600</code> の選択枠を優先する。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 寸法</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th></th><th>角丸ゲート</th><th>角ばり表示ブロック</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>内側の空き</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
+        <tr><th>線幅</th><td><code>2 px</code></td><td><code>2 px</code></td></tr>
+        <tr><th>角丸</th><td>対象の角丸 + <code>4 px</code><br>(例: ゲート <code>6 px</code> → 選択枠 <code>10 px</code>)</td><td><code>0 px</code> (90 度)</td></tr>
+        <tr>
+          <th>右上角 (実寸)</th>
+          <td>
+            <div class="sf-corner-detail sf-corner-detail--rounded" role="img" aria-label="角丸ゲートの右上角">
+              <div class="sf-corner-frame"></div>
+              <div class="sf-corner-gap"></div>
+              <div class="sf-corner-body"></div>
+            </div>
+          </td>
+          <td>
+            <div class="sf-corner-detail sf-corner-detail--square" role="img" aria-label="角ばり表示ブロックの右上角">
+              <div class="sf-corner-frame"></div>
+              <div class="sf-corner-gap"></div>
+              <div class="sf-corner-body"></div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sf-corner-legend">
+      <span><i class="sf-swatch" style="background: var(--cyan-400);"></i>対象矩形</span>
+      <span><i class="sf-swatch" style="background: var(--bg-2);"></i>内側の空き 2 px</span>
+      <span><i class="sf-swatch" style="background: var(--blue-600);"></i>選択枠 2 px</span>
+    </div>
+    <p class="note" style="margin-top: 12px;">
+      選択枠は対象矩形の外側へ <code>4 px</code> 拡張して描く。この <code>4 px</code> は、内側の空き <code>2 px</code> と線幅 <code>2 px</code> の合計である。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配色</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ロール</th><th>Flexoki トーン</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>gate_selected_border</code></td><td><code>blue-600</code></td><td>クリック後も保持される選択状態。ホバー枠と色相を分けて視認性を上げる</td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      <code>blue-600</code> は選択枠では外側クロムだけに限定して使う。本体 fill や測定結果の色とは混ぜない。
+      ホバー枠の <code>gate_hover_border</code> は <a href="hover-frame.html">ホバー枠</a>仕様を正とする。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 描き分け</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>場所</th><th>描き方</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>回路上</td>
+          <td>線だけを描き、内側は塗らない</td>
+          <td>Control / AntiControl / Swap / Phase など、透明なゲート内部を通る接続線を消さないため</td>
+        </tr>
+        <tr>
+          <td>ゲートパレット</td>
+          <td>選択枠は出さない。パレット項目はホバー枠とドラッグプレビューだけを持つ</td>
+          <td>パレットは配置元であり、回路上の編集対象ではないため</td>
+        </tr>
+        <tr>
+          <td>表示ブロック</td>
+          <td>外側の選択枠は本体形状に合わせる。角ばり表示ブロックは 90 度の角を保つ</td>
+          <td>表示セル内のホバーやポップアップと、ブロック全体の編集対象表示を分けるため</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 状態と操作</h2>
+  <div class="card">
+    <h3>状態遷移</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>出現条件</th><td>回路上の配置済みゲートをクリックしたとき、またはパレットからゲートの配置が完了したとき</td></tr>
+        <tr><th>解除条件</th><td>別のゲートを選ぶ、空白をクリックする、または編集状態を終了する</td></tr>
+        <tr><th>ドラッグ後</th><td>ドラッグ中に一時的に隠した選択枠は、ドラッグ完了後に同じゲートが選択対象なら再表示する</td></tr>
+        <tr><th>アニメーション</th><td>なし。選択枠はクリック後すぐ表示し、解除時も即時消す</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">優先順位</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>ホバーとの重なり</th><td>選択枠を優先し、同じ要素にはホバー枠を重ねない。ツールチップなどのホバー副作用は個別仕様に従う</td></tr>
+        <tr><th>ドラッグ中</th><td>ドラッグプレビューの本体色 <code>drag_fill</code> を優先し、選択枠は一時的に表示しない</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 使用ルール</h2>
+  <div class="card">
+    <h3>禁止事項</h3>
+    <ul>
+      <li>ホバーだけを示すために <code>blue-600</code> を使わない。ホバーは <code>purple-400</code> に固定する。</li>
+      <li>エラー、実行状態、測定結果、無効状態には使わない。選択枠は編集対象だけを表す。</li>
+      <li>選択時にゲート本体の fill や字形色を変えない。状態差分は外側の枠だけに閉じ込める。</li>
+    </ul>
+
+    <h3>不変条件</h3>
+    <ul>
+      <li>外側への拡張 <code>4 px</code> / 線幅 <code>2 px</code> / <code>blue-600</code> を変えない。</li>
+      <li>選択中かつホバー中の要素は、枠を二重にせず選択枠 1 本で表す。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 07 関連仕様</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ドキュメント</th><th>関係</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="hover-frame.html">ホバー枠</a></td><td>同じ寸法語彙を使う一時状態。色は <code>purple-400</code>。</td></tr>
+        <tr><td><a href="gate-chrome.html">ゲートクロム共通仕様</a></td><td>ゲートの状態バリアントと、ホバー / 選択 / ドラッグの優先順位。</td></tr>
+        <tr><td><a href="design-system-colors.html">配色</a></td><td><code>gate_selected_border</code> → <code>blue-600</code> の意味別マッピング。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムへ戻る</a></p>
+  <p class="meta">qni-webgpu · 選択枠 · 2026-05</p>
+</footer>
+
+</body>
+</html>

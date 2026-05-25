@@ -41,15 +41,16 @@ impl CircuitRevision {
         self.is_working_on_commit = true;
     }
 
-    pub(crate) fn commit(&mut self, new_checkpoint: String) {
+    pub(crate) fn commit(&mut self, new_checkpoint: String) -> bool {
         if new_checkpoint == self.history[self.index] {
             self.is_working_on_commit = false;
-            return;
+            return false;
         }
         self.is_working_on_commit = false;
         self.index += 1;
         self.history.truncate(self.index);
         self.history.push(new_checkpoint);
+        true
     }
 
     pub(crate) fn undo(&mut self) -> Option<String> {
@@ -80,16 +81,19 @@ impl QniApp {
         }
     }
 
-    pub(crate) fn commit_current_circuit(&mut self, ctx: &egui::Context) {
+    pub(crate) fn commit_current_circuit(&mut self, ctx: &egui::Context) -> bool {
         if self.library.active_locked() {
-            return;
+            return false;
         }
-        self.commit_current_circuit_unchecked(ctx);
+        self.commit_current_circuit_unchecked(ctx)
     }
 
-    pub(crate) fn commit_current_circuit_unchecked(&mut self, ctx: &egui::Context) {
+    pub(crate) fn commit_current_circuit_unchecked(&mut self, ctx: &egui::Context) -> bool {
         let json = self.current_circuit_json();
-        self.circuit_revision.commit(json.clone());
+        if !self.circuit_revision.commit(json.clone()) {
+            ctx.request_repaint();
+            return false;
+        }
         self.library.update_active_unchecked(json.clone());
         persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(&json);
@@ -106,6 +110,7 @@ impl QniApp {
         self.pending_external_density_slots.clear();
         self.pending_external_gpu_run_id = None;
         ctx.request_repaint();
+        true
     }
 
     pub(crate) fn can_undo_circuit(&self) -> bool {
@@ -174,6 +179,7 @@ impl QniApp {
         self.update_qubit_count();
         self.dragging = None;
         self.dragging_live_display_snap = false;
+        self.dragging_live_display_plan_touched = false;
         self.drag_state_count = None;
         self.span_resize_drag = None;
         self.hovered_gate_id = None;
@@ -183,6 +189,7 @@ impl QniApp {
         self.hovered_palette_index = None;
         self.hovered_span_resize_handle = None;
         self.hovered_step = None;
+        self.selected_gate_id = None;
         self.breakpoint_step = None;
         self.drag_cursor_pos = None;
         self.drag_repaint_deadline = None;

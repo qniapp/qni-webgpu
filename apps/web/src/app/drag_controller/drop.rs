@@ -15,6 +15,7 @@ impl DragController {
         if !pointer.released {
             return;
         }
+        let live_display_plan_touched = app.dragging_live_display_plan_touched;
         if let Some(drag) = app.dragging.take() {
             if let Some(index) = app.placed_gates.iter().position(|gate| gate.id == drag.id) {
                 let gate_pos = app.placed_gates[index].pos;
@@ -38,6 +39,9 @@ impl DragController {
 
                 if !on_circuit {
                     app.placed_gates.remove(index);
+                    if app.selected_gate_id == Some(gate_id) {
+                        app.selected_gate_id = None;
+                    }
                 } else if let Some(snap) = snapped {
                     match snap {
                         CircuitSnap::Slot(snap) => {
@@ -65,11 +69,13 @@ impl DragController {
                 // Mirror qni / Quirk: live drag state is transient;
                 // drop creates one undoable JSON checkpoint and syncs it
                 // to the URL hash.
-                app.gpu_plan.mark_dirty();
-                app.commit_current_circuit(ctx);
+                if app.commit_current_circuit(ctx) || live_display_plan_touched {
+                    app.gpu_plan.mark_dirty();
+                }
             }
         }
         app.dragging_live_display_snap = false;
+        app.dragging_live_display_plan_touched = false;
         app.drag_state_count = None;
         reset_drag_frame_state(app);
         app.drag_cursor_pos = None;
