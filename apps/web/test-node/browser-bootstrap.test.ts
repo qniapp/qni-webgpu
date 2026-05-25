@@ -22,6 +22,9 @@ test('browser bootstrap source is TypeScript without a checked-in JavaScript wra
     trunkUsesPnpm: /command = "pnpm"/.test(trunkConfig),
     trunkBuildBootstrap: /"build:bootstrap"/.test(trunkConfig),
     trunkWatchesBootstrapTs: /watch = \["bootstrap\.ts"\]/.test(trunkConfig),
+    bootstrapImportsWasmNextToBootstrapScript: /new URL\('qni-web\.js', bootstrapScriptUrl\(\)\)/.test(
+      await fs.readFile(path.join(rootDir, 'bootstrap.ts'), 'utf8'),
+    ),
     indexLoadsGeneratedBootstrap: /href="\.trunk-generated\/bootstrap\.js"/.test(index),
     indexAvoidsCheckedInBootstrapTarget: !/data-target-path="bootstrap\.js"/.test(index),
     indexUsesModuleScript: /<script type="module" src="bootstrap\.js"><\/script>/.test(index),
@@ -35,10 +38,25 @@ test('browser bootstrap source is TypeScript without a checked-in JavaScript wra
     trunkUsesPnpm: true,
     trunkBuildBootstrap: true,
     trunkWatchesBootstrapTs: true,
+    bootstrapImportsWasmNextToBootstrapScript: true,
     indexLoadsGeneratedBootstrap: true,
     indexAvoidsCheckedInBootstrapTarget: true,
     indexUsesModuleScript: true,
     gitignoreIgnoresGeneratedBootstrap: true,
+  })
+})
+
+test('browser bootstrap defaults Qiskit backend to same-origin outside local trunk dev', async () => {
+  const source = await fs.readFile(path.join(rootDir, 'bootstrap.ts'), 'utf8')
+
+  assert.deepEqual({
+    keepsLocalTrunkBackend: /window\.location\.port === '4174'/.test(source),
+    usesSameOriginRunPath: /new URL\('run', window\.location\.href\)/.test(source),
+    fetchesThroughUrlHelper: /fetch\(qiskitBackendUrl\(\)/.test(source),
+  }, {
+    keepsLocalTrunkBackend: true,
+    usesSameOriginRunPath: true,
+    fetchesThroughUrlHelper: true,
   })
 })
 

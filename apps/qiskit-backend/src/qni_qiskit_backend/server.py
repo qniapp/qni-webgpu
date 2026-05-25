@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from .circuit import CircuitBuildError
-from .contract import ContractError, parse_run_request
+from .contract import RUNNERS, ContractError, parse_run_request
 from .runners import RunnerUnavailable, select_runner
 
 
@@ -29,7 +29,7 @@ class QiskitBackendHandler(BaseHTTPRequestHandler):
                 {
                     "status": "ok",
                     "defaultRunner": self.default_runner,
-                    "runners": ["mock", "qiskit-cpu-dev", "qiskit-gpu"],
+                    "runners": sorted(self.allowed_runners),
                 },
             )
             return
@@ -40,8 +40,13 @@ class QiskitBackendHandler(BaseHTTPRequestHandler):
             self.write_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
         try:
+            self.require_proxy_token()
             payload = self.read_json_body()
-            request = parse_run_request(payload, default_runner=self.default_runner)
+            request = parse_run_request(
+                payload,
+                default_runner=self.default_runner,
+                allowed_runners=self.allowed_runners,
+            )
             result = select_runner(request.runner).run(request)
         except (CircuitBuildError, ContractError) as exc:
             self.write_json(HTTPStatus.BAD_REQUEST, {"error": "bad_request", "message": str(exc)})
@@ -63,6 +68,19 @@ class QiskitBackendHandler(BaseHTTPRequestHandler):
     @property
     def default_runner(self) -> str:
         return getattr(self.server, "default_runner", "mock")
+
+    @property
+    def allowed_runners(self) -> frozenset[str]:
+        return getattr(self.server, "allowed_runners", RUNNERS)
+
+    @property
+    def proxy_token(self) -> str:
+        return getattr(self.server, "proxy_token", "")
+
+    def require_proxy_token(self) -> None:
+        token = self.proxy_token
+        if token and self.headers.get("x-qni-backend-token") != token:
+            raise ContractError("missing or invalid backend proxy token")
 
     def read_json_body(self) -> dict[str, Any]:
         length = int(self.headers.get("content-length", "0"))
@@ -88,12 +106,41 @@ class QiskitBackendHandler(BaseHTTPRequestHandler):
 
 class QiskitBackendServer(ThreadingHTTPServer):
     default_runner: str
+    allowed_runners: frozenset[str]
+    proxy_token: str
 
 
-def make_server(host: str, port: int, default_runner: str) -> QiskitBackendServer:
+def parse_allowed_runners(raw: str) -> frozenset[str]:
+    names = frozenset(name.strip() for name in raw.split(",") if name.strip())
+    if not names:
+        raise argparse.ArgumentTypeError("at least one runner must be allowed")
+    unknown = sorted(names - RUNNERS)
+    if unknown:
+        raise argparse.ArgumentTypeError(f"unknown runner: {', '.join(unknown)}")
+    return names
+
+
+def make_server(
+    host: str,
+    port: int,
+    default_runner: str,
+    allowed_runners: frozenset[str] = RUNNERS,
+    proxy_token: str = "",
+) -> QiskitBackendServer:
+    if default_runner not in allowed_runners:
+        raise ValueError("default runner must be one of the allowed runners")
     server = QiskitBackendServer((host, port), QiskitBackendHandler)
     server.default_runner = default_runner
+    server.allowed_runners = allowed_runners
+    server.proxy_token = proxy_token
     return server
+
+
+def read_proxy_token(raw_token: str, token_file: str) -> str:
+    if not token_file:
+        return raw_token
+    with open(token_file, encoding="utf-8") as handle:
+        return handle.read().strip()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,12 +150,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--runner",
         default=os.environ.get("QNI_QISKIT_RUNNER", "mock"),
-        choices=["mock", "qiskit-cpu-dev", "qiskit-gpu"],
+        choices=sorted(RUNNERS),
         help="default runner for requests that omit runner",
     )
+    parser.add_argument(
+        "--allowed-runners",
+        default=os.environ.get("QNI_QISKIT_ALLOWED_RUNNERS", ",".join(sorted(RUNNERS))),
+        type=parse_allowed_runners,
+        help="comma-separated runners accepted from request payloads",
+    )
+    parser.add_argument(
+        "--proxy-token",
+        default=os.environ.get("QNI_BACKEND_PROXY_TOKEN", ""),
+        help="optional token required in the x-qni-backend-token header for /run",
+    )
+    parser.add_argument(
+        "--proxy-token-file",
+        default=os.environ.get("QNI_BACKEND_PROXY_TOKEN_FILE", ""),
+        help="path to a file containing the optional /run proxy token",
+    )
     args = parser.parse_args(argv)
-    server = make_server(args.host, args.port, args.runner)
-    print(f"qni qiskit backend listening on http://{args.host}:{args.port} runner={args.runner}")
+    if args.runner not in args.allowed_runners:
+        parser.error("--runner must be included in --allowed-runners")
+    proxy_token = read_proxy_token(args.proxy_token, args.proxy_token_file)
+    server = make_server(args.host, args.port, args.runner, args.allowed_runners, proxy_token)
+    print(
+        "qni qiskit backend listening on "
+        f"http://{args.host}:{args.port} runner={args.runner} "
+        f"allowed={','.join(sorted(args.allowed_runners))}"
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

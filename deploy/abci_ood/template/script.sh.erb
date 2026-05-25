@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+<%- require "shellwords" -%>
+
+set -euo pipefail
+
+<%- module_names = Shellwords.split(context.modules.to_s) -%>
+echo "TIMING - Starting QNI WebGPU script at: $(date)"
+cd "${HOME}"
+
+QNI_SIF=<%= Shellwords.escape(context.singularity_image.to_s) %>
+if [[ ! -e "${QNI_SIF}" ]]; then
+  echo "No such image file: ${QNI_SIF}" 1>&2
+  exit 1
+fi
+
+<%- unless module_names.empty? -%>
+source /etc/profile.d/modules.sh
+module purge
+module load <%= module_names.map { |name| Shellwords.escape(name) }.join(" ") %>
+module list
+<%- end -%>
+
+runtime_dir=<%= Shellwords.escape(session.staged_root.join("qni-runtime").to_s) %>
+mkdir -p "${runtime_dir}"
+chmod 700 "${runtime_dir}"
+
+# Pass runtime settings into both SingularityCE and Apptainer variants.
+export SINGULARITYENV_QNI_HTTP_PORT="${port}"
+export APPTAINERENV_QNI_HTTP_PORT="${port}"
+export SINGULARITYENV_QNI_QISKIT_BACKEND_PORT="${backend_port}"
+export APPTAINERENV_QNI_QISKIT_BACKEND_PORT="${backend_port}"
+export SINGULARITYENV_QNI_RUNTIME_DIR="${runtime_dir}"
+export APPTAINERENV_QNI_RUNTIME_DIR="${runtime_dir}"
+export SINGULARITYENV_QNI_QISKIT_RUNNER="qiskit-gpu"
+export APPTAINERENV_QNI_QISKIT_RUNNER="qiskit-gpu"
+export SINGULARITYENV_QNI_QISKIT_ALLOWED_RUNNERS="qiskit-gpu"
+export APPTAINERENV_QNI_QISKIT_ALLOWED_RUNNERS="qiskit-gpu"
+
+<%- auth_mode = context.auth_mode.to_s -%>
+<%- if auth_mode == "password" -%>
+<%- if context.auth_username.to_s.strip.empty? || context.auth_password.to_s.empty? -%>
+echo "Basic authentication mode requires both username and password." 1>&2
+exit 1
+<%- end -%>
+auth_password_file="${runtime_dir}/qni-auth-password"
+qni_auth_password=<%= Shellwords.escape(context.auth_password.to_s) %>
+printf '%s\n' "${qni_auth_password}" > "${auth_password_file}"
+chmod 600 "${auth_password_file}"
+unset qni_auth_password
+export SINGULARITYENV_QNI_AUTH_USERNAME=<%= Shellwords.escape(context.auth_username.to_s) %>
+export APPTAINERENV_QNI_AUTH_USERNAME=<%= Shellwords.escape(context.auth_username.to_s) %>
+export SINGULARITYENV_QNI_AUTH_PASSWORD_FILE="${auth_password_file}"
+export APPTAINERENV_QNI_AUTH_PASSWORD_FILE="${auth_password_file}"
+export SINGULARITYENV_QNI_REQUIRE_BASIC_AUTH="true"
+export APPTAINERENV_QNI_REQUIRE_BASIC_AUTH="true"
+<%- elsif auth_mode == "htpasswd_file" -%>
+<%- if context.auth_htpasswd_file.to_s.strip.empty? -%>
+echo "Existing .htpasswd mode requires a file path." 1>&2
+exit 1
+<%- end -%>
+QNI_HTPASSWD_SOURCE=<%= Shellwords.escape(context.auth_htpasswd_file.to_s) %>
+if [[ ! -f "${QNI_HTPASSWD_SOURCE}" ]]; then
+  echo "No such .htpasswd file: ${QNI_HTPASSWD_SOURCE}" 1>&2
+  exit 1
+fi
+QNI_HTPASSWD="${runtime_dir}/qni-auth.htpasswd"
+cp "${QNI_HTPASSWD_SOURCE}" "${QNI_HTPASSWD}"
+chmod 600 "${QNI_HTPASSWD}"
+export SINGULARITYENV_QNI_AUTH_HTPASSWD_FILE="${QNI_HTPASSWD}"
+export APPTAINERENV_QNI_AUTH_HTPASSWD_FILE="${QNI_HTPASSWD}"
+export SINGULARITYENV_QNI_REQUIRE_BASIC_AUTH="true"
+export APPTAINERENV_QNI_REQUIRE_BASIC_AUTH="true"
+<%- else -%>
+export SINGULARITYENV_QNI_REQUIRE_BASIC_AUTH="false"
+export APPTAINERENV_QNI_REQUIRE_BASIC_AUTH="false"
+<%- end -%>
+
+echo "TIMING - Starting qni-webgpu at: $(date)"
+set -x
+singularity run --nv --bind "${runtime_dir}:${runtime_dir}" "${QNI_SIF}"

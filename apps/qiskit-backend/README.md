@@ -8,6 +8,8 @@ Local development backend for the web external GPU execution path.
 - `qiskit-cpu-dev`: explicit local Qiskit CPU runner for checking the Qiskit circuit path on machines without CUDA. This is not a WebGPU fallback and must not be used as the production execution path.
 - `qiskit-gpu`: Qiskit Aer statevector runner with `device="GPU"` and `cuStateVec_enable=True`. No CPU fallback.
 
+Production deployment must start the server with `--runner qiskit-gpu --allowed-runners qiskit-gpu` or equivalent `QNI_QISKIT_RUNNER=qiskit-gpu` / `QNI_QISKIT_ALLOWED_RUNNERS=qiskit-gpu` environment variables. With that setting, request payloads that ask for `mock` or `qiskit-cpu-dev` are rejected instead of falling back to CPU.
+
 All runners return bounded histogram output and optional Amplitude / Bloch / Probability / Density Matrix display payloads only. The API accepts 1–32 qubits, rejects full statevector / full probability requests, and currently limits exact Amplitude display extraction to <=16 qubits. Bloch display extraction uses per-axis expectation values. Probability display extraction uses bounded subsystem probability vectors for the requested display span. Density Matrix display extraction uses bounded subsystem density matrices for Quirk-compatible span 1–8 displays, and controlled Density Matrix display requests carry `control_mask` / `control_value` for conditional extraction. The web state-vector panel, when refreshed for <=16-qubit GPU-mode runs, is recomputed locally in WebGPU after a successful run rather than transferred from this backend.
 
 ## Run
@@ -26,6 +28,14 @@ GPU runner:
 
 ```bash
 PYTHONPATH=apps/qiskit-backend/src python3 -m qni_qiskit_backend --port 4184 --runner qiskit-gpu
+```
+
+Production GPU-only runner:
+
+```bash
+QNI_QISKIT_ALLOWED_RUNNERS=qiskit-gpu \
+PYTHONPATH=apps/qiskit-backend/src \
+python3 -m qni_qiskit_backend --port 4184 --runner qiskit-gpu
 ```
 
 ## API

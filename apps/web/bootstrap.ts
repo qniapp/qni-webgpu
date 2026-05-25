@@ -42,8 +42,22 @@ declare global {
 
 type QniBackendError = Error & { qniHttpStatus?: number }
 
-const wasmModulePath = '/qni-web.js'
+const bootstrapScriptUrl = (): string => {
+  const script = Array.from(document.scripts).find((element) => element.src.endsWith('/bootstrap.js'))
+  return script?.src ?? new URL('bootstrap.js', window.location.href).toString()
+}
+
+const wasmModulePath = new URL('qni-web.js', bootstrapScriptUrl()).toString()
 const loadQniWeb = async (): Promise<QniWebModule> => import(wasmModulePath) as Promise<QniWebModule>
+
+const defaultQiskitBackendUrl = (): string => {
+  if (window.location.port === '4174' && ['127.0.0.1', 'localhost'].includes(window.location.hostname)) {
+    return 'http://127.0.0.1:4184/run'
+  }
+  return new URL('run', window.location.href).toString()
+}
+
+const qiskitBackendUrl = (): string => window.__qniQiskitBackendUrl ?? defaultQiskitBackendUrl()
 
 const statusEl = document.getElementById('app-status')
 
@@ -162,7 +176,7 @@ const run = async (): Promise<void> => {
       const payload = JSON.parse(payloadJson) as unknown
       window.__qniLastQiskitRequest = payload
       window.__qniLastQiskitResult = undefined
-      const response = await fetch(window.__qniQiskitBackendUrl ?? 'http://127.0.0.1:4184/run', {
+      const response = await fetch(qiskitBackendUrl(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),

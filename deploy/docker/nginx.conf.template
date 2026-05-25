@@ -1,0 +1,53 @@
+server {
+  listen ${QNI_HTTP_PORT};
+  server_name _;
+  root ${QNI_WEB_ROOT};
+  index index.html;
+
+  access_log /dev/stdout;
+  error_log /dev/stderr;
+
+  location = /health {
+    proxy_pass http://${QNI_QISKIT_BACKEND_HOST}:${QNI_QISKIT_BACKEND_PORT}/health;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+  }
+
+  location = /run {
+    include ${QNI_AUTH_SNIPPET};
+    proxy_pass http://${QNI_QISKIT_BACKEND_HOST}:${QNI_QISKIT_BACKEND_PORT}/run;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-QNI-Backend-Token ${QNI_BACKEND_PROXY_TOKEN};
+  }
+
+  location ~ ^/node/[^/]+/[0-9]+/health$ {
+    rewrite ^/node/[^/]+/[0-9]+/health$ /health break;
+    proxy_pass http://${QNI_QISKIT_BACKEND_HOST}:${QNI_QISKIT_BACKEND_PORT};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+  }
+
+  location ~ ^/node/[^/]+/[0-9]+/run$ {
+    include ${QNI_AUTH_SNIPPET};
+    rewrite ^/node/[^/]+/[0-9]+/run$ /run break;
+    proxy_pass http://${QNI_QISKIT_BACKEND_HOST}:${QNI_QISKIT_BACKEND_PORT};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-QNI-Backend-Token ${QNI_BACKEND_PROXY_TOKEN};
+  }
+
+  location ~ ^/node/[^/]+/[0-9]+/(?<qni_path>.*)$ {
+    include ${QNI_AUTH_SNIPPET};
+    try_files /$qni_path /$qni_path/ /index.html;
+  }
+
+  location / {
+    include ${QNI_AUTH_SNIPPET};
+    try_files $uri $uri/ /index.html;
+  }
+}

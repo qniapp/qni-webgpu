@@ -20,6 +20,7 @@ MAX_BLOCH_OUTPUTS = 64
 MAX_PROBABILITY_OUTPUTS = 32
 MAX_DENSITY_OUTPUTS = 16
 MAX_DENSITY_SPAN = 8
+RUNNERS = frozenset({"mock", "qiskit-cpu-dev", "qiskit-gpu"})
 
 
 class ContractError(ValueError):
@@ -75,7 +76,11 @@ class RunRequest:
     density_outputs: list[DensityOutputRequest]
 
 
-def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> RunRequest:
+def parse_run_request(
+    payload: dict[str, Any],
+    default_runner: str = "mock",
+    allowed_runners: set[str] | frozenset[str] | None = None,
+) -> RunRequest:
     outputs = payload.get("outputs", {"histogram": True})
     if not isinstance(outputs, dict):
         raise ContractError("outputs must be an object")
@@ -111,9 +116,18 @@ def parse_run_request(payload: dict[str, Any], default_runner: str = "mock") -> 
     probability_outputs = parse_probability_outputs(outputs, columns, qubits)
     density_outputs = parse_density_outputs(outputs, columns, qubits)
 
+    allowed = RUNNERS if allowed_runners is None else frozenset(allowed_runners)
+    if not allowed:
+        raise ContractError("at least one runner must be allowed")
+    unknown_allowed = sorted(allowed - RUNNERS)
+    if unknown_allowed:
+        raise ContractError(f"unknown allowed runner: {', '.join(unknown_allowed)}")
+
     runner = payload.get("runner", default_runner)
-    if runner not in {"mock", "qiskit-cpu-dev", "qiskit-gpu"}:
+    if runner not in RUNNERS:
         raise ContractError("runner must be mock, qiskit-cpu-dev, or qiskit-gpu")
+    if runner not in allowed:
+        raise ContractError(f"runner is not allowed by this server: {runner}")
 
     return RunRequest(
         runner=runner,

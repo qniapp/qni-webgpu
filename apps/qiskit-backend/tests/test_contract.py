@@ -1,5 +1,10 @@
+import json
 import math
+import threading
 import unittest
+from contextlib import contextmanager
+import urllib.error
+import urllib.request
 
 from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit
 from qni_qiskit_backend.contract import ContractError, parse_run_request
@@ -16,6 +21,21 @@ from qni_qiskit_backend.runners import (
     probability_qargs,
     select_runner,
 )
+from qni_qiskit_backend.server import make_server, parse_allowed_runners
+
+
+@contextmanager
+def running_test_server(default_runner, allowed_runners, proxy_token=""):
+    server = make_server("127.0.0.1", 0, default_runner, allowed_runners, proxy_token)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
 
 
 class ContractTests(unittest.TestCase):
@@ -1182,6 +1202,69 @@ class ContractTests(unittest.TestCase):
 
     def test_qiskit_counts_are_reoriented_to_wire_order(self):
         self.assertEqual(normalize_qiskit_counts({"10": 5, "01": 7}), {"01": 5, "10": 7})
+
+    def test_contract_defaults_to_allowed_gpu_runner(self):
+        request = parse_run_request(
+            {"qubits": 1, "columns": []},
+            default_runner="qiskit-gpu",
+            allowed_runners={"qiskit-gpu"},
+        )
+        self.assertEqual(request.runner, "qiskit-gpu")
+
+    def test_contract_rejects_disallowed_runner(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {"qubits": 1, "columns": [], "runner": "mock"},
+                default_runner="qiskit-gpu",
+                allowed_runners={"qiskit-gpu"},
+            )
+
+    def test_allowed_runner_csv_parses_single_gpu_runner(self):
+        self.assertEqual(parse_allowed_runners("qiskit-gpu"), {"qiskit-gpu"})
+
+    def test_server_health_reports_only_allowed_gpu_runner(self):
+        with running_test_server("qiskit-gpu", frozenset({"qiskit-gpu"})) as base_url:
+            response = urllib.request.urlopen(f"{base_url}/health", timeout=2)
+            body = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(body["runners"], ["qiskit-gpu"])
+
+    def test_server_rejects_disallowed_runner_over_http(self):
+        with running_test_server("qiskit-gpu", frozenset({"qiskit-gpu"})) as base_url:
+            request = urllib.request.Request(
+                f"{base_url}/run",
+                data=json.dumps({"runner": "mock", "qubits": 1, "columns": []}).encode(
+                    "utf-8"
+                ),
+                method="POST",
+                headers={"content-type": "application/json"},
+            )
+            status = 0
+            try:
+                urllib.request.urlopen(request, timeout=2)
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+                exc.close()
+        self.assertEqual(status, 400)
+
+    def test_server_rejects_run_without_required_proxy_token(self):
+        with running_test_server(
+            "qiskit-gpu",
+            frozenset({"qiskit-gpu"}),
+            proxy_token="secret-token",
+        ) as base_url:
+            request = urllib.request.Request(
+                f"{base_url}/run",
+                data=json.dumps({"qubits": 1, "columns": []}).encode("utf-8"),
+                method="POST",
+                headers={"content-type": "application/json"},
+            )
+            status = 0
+            try:
+                urllib.request.urlopen(request, timeout=2)
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+                exc.close()
+        self.assertEqual(status, 400)
 
 
 if __name__ == "__main__":

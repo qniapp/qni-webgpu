@@ -1,0 +1,55 @@
+# Batch Connect QNI WebGPU app configuration file
+---
+cluster: "abci_V"
+
+attributes:
+  modules: "singularitypro"
+
+  singularity_image:
+    widget: "text_field"
+    label: "Singularity / Apptainer Image Path"
+    required: true
+
+  resource_type:
+    widget: "text_field"
+    label: "ABCI Resource Type"
+    required: true
+
+  abci_group:
+    widget: "text_field"
+    label: "ABCI Group"
+    required: true
+
+  auth_mode:
+    widget: "select"
+    label: "Basic Authentication"
+    options:
+      - ["Disabled", "disabled"]
+      - ["Generate from username/password", "password"]
+      - ["Use existing .htpasswd file", "htpasswd_file"]
+    value: "disabled"
+
+  auth_username:
+    widget: "text_field"
+    label: "Basic Auth Username"
+    value: ""
+
+  auth_password:
+    widget: "password_field"
+    label: "Basic Auth Password"
+    value: ""
+
+  auth_htpasswd_file:
+    widget: "text_field"
+    label: ".htpasswd File Path"
+    value: ""
+
+form:
+  - modules
+  - resource_type
+  - abci_group
+  - singularity_image
+  - auth_mode
+  - auth_username
+  - auth_password
+  - auth_htpasswd_file
