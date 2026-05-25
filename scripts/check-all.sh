@@ -15,6 +15,9 @@ pnpm -C "$ROOT_DIR/apps/web" run test:bdd
 echo "==> Web: Playwright legacy"
 pnpm -C "$ROOT_DIR/apps/web" run test:pw-legacy
 
+echo "==> Qiskit backend: unit tests"
+PYTHONPATH="$ROOT_DIR/apps/qiskit-backend/src" python3 -m unittest discover "$ROOT_DIR/apps/qiskit-backend/tests"
+
 echo "==> MCP: pnpm check"
 pnpm -C "$ROOT_DIR/apps/mcp-qni" check
 

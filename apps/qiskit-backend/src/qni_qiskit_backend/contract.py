@@ -58,6 +58,8 @@ class DensityOutputRequest:
     column: int
     span: int
     base_bit: int
+    control_mask: int
+    control_value: int
 
 
 @dataclass(frozen=True)
@@ -271,6 +273,8 @@ def parse_density_output(
     column = required_int(raw, "column", "density")
     span = required_int(raw, "span", "density")
     base_bit = required_int(raw, "base_bit", "density")
+    control_mask = optional_int(raw, "control_mask", "density", default=0)
+    control_value = optional_int(raw, "control_value", "density", default=0)
     if gate_id < 0:
         raise ContractError("density gate_id must be non-negative")
     if not 0 <= column < len(columns):
@@ -279,12 +283,35 @@ def parse_density_output(
         raise ContractError(f"density span must be in [1, {MAX_DENSITY_SPAN}]")
     if not 0 <= base_bit or base_bit + span > qubits:
         raise ContractError("density bit range is out of range")
+    max_mask = (1 << qubits) - 1
+    if not 0 <= control_mask <= max_mask:
+        raise ContractError("density control_mask is out of range")
+    if not 0 <= control_value <= max_mask:
+        raise ContractError("density control_value is out of range")
+    if control_value & ~control_mask:
+        raise ContractError("density control_value must be a subset of control_mask")
+    display_bits = set(range(base_bit, base_bit + span))
+    non_display_control_count = sum(
+        1 for bit in range(qubits) if control_mask & (1 << bit) and bit not in display_bits
+    )
+    if span + non_display_control_count > MAX_DENSITY_SPAN:
+        raise ContractError(
+            f"density span plus non-display controls must be in [1, {MAX_DENSITY_SPAN}]"
+        )
     return DensityOutputRequest(
         gate_id=gate_id,
         column=column,
         span=span,
         base_bit=base_bit,
+        control_mask=control_mask,
+        control_value=control_value,
     )
+
+
+def optional_int(raw: dict[str, Any], key: str, subject: str, *, default: int) -> int:
+    if key not in raw:
+        return default
+    return required_int(raw, key, subject)
 
 
 def required_int(raw: dict[str, Any], key: str, subject: str) -> int:

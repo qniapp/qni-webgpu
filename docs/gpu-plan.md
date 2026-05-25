@@ -49,7 +49,7 @@ flowchart LR
 - `PROBABILITY_REDUCE_SHADER` が表示対象 span の周辺確率を GPU 上で集計し、`PROBABILITY_RENDER_SHADER` が棒を描画する。
 - `AMPLITUDE_CAPTURE_SHADER` が表示対象 span の複素振幅と混合状態用の大きさを GPU バッファへ保存し、`AMPLITUDE_RENDER_SHADER` が円盤・輪郭・位相針を描画する。
 - `DENSITY_CAPTURE_SHADER` が Quirk 互換の `Density`〜`Density8` 用に縮約密度行列を GPU 上で計算し、`DENSITY_RENDER_SHADER` が同じ storage バッファを直接読んでセルを描画する。
-- 外部 GPU 実行では Qiskit backend が Probability / Amplitude / Bloch / Density Matrix の表示値を返し、Web 側は対応する GPU storage バッファへ一括転送する。転送後の描画はローカル実行と同じ render shader が担当し、本番経路で読み戻しはしない。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約へ `control_mask` / `control_value` を追加するまで外部 GPU 実行では拒否する。
+- 外部 GPU 実行では Qiskit backend が Probability / Amplitude / Bloch / Density Matrix の表示値を返し、Web 側は対応する GPU storage バッファへ一括転送する。転送後の描画はローカル実行と同じ render shader が担当し、本番経路で読み戻しはしない。Control と同じ列に置いた Density Matrix 表示ブロックは、外部契約の `control_mask` / `control_value` で条件付き表示として抽出する。
 - CPU は表示値、測定確率、ブロッホベクトル、密度行列要素を計算しない。ホバー中のセル番号など、描画値ではない幾何情報だけを渡す。
 
 ### State-vector panel

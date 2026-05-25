@@ -9,6 +9,8 @@ pub(super) struct ExternalDensityRequest {
     pub(super) column: usize,
     pub(super) span: usize,
     pub(super) base_bit: u32,
+    pub(super) control_mask: u32,
+    pub(super) control_value: u32,
 }
 
 pub(super) fn collect_density_requests(
@@ -20,13 +22,24 @@ pub(super) fn collect_density_requests(
     };
     let mut requests = Vec::new();
     for column in 0..=max_column {
-        let mut displays: Vec<&PlacedGate> = placed_gates
+        let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| {
-                gate.column == column
-                    && gate.kind == GateKind::DensityMatrixDisplay
-                    && gate.wire < qubits
-            })
+            .filter(|gate| gate.column == column && gate.wire < qubits)
+            .collect();
+        let mut control_mask = 0u32;
+        let mut control_value = 0u32;
+        for gate in &column_gates {
+            let bit = (qubits - 1 - gate.wire) as u32;
+            if gate.kind == GateKind::Control {
+                control_mask |= 1u32 << bit;
+                control_value |= 1u32 << bit;
+            } else if gate.kind == GateKind::AntiControl {
+                control_mask |= 1u32 << bit;
+            }
+        }
+        let mut displays: Vec<&PlacedGate> = column_gates
+            .into_iter()
+            .filter(|gate| gate.kind == GateKind::DensityMatrixDisplay)
             .collect();
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
@@ -37,6 +50,8 @@ pub(super) fn collect_density_requests(
                 column,
                 span,
                 base_bit,
+                control_mask,
+                control_value,
             });
         }
     }
@@ -48,8 +63,17 @@ pub(super) fn density_requests_json(requests: &[ExternalDensityRequest]) -> Stri
         .iter()
         .map(|request| {
             format!(
-                r#"{{"gate_id":{},"column":{},"span":{},"base_bit":{}}}"#,
-                request.gate_id, request.column, request.span, request.base_bit
+                concat!(
+                    "{{\"gate_id\":{},\"column\":{},\"span\":{}",
+                    ",\"base_bit\":{},\"control_mask\":{}",
+                    ",\"control_value\":{}}}"
+                ),
+                request.gate_id,
+                request.column,
+                request.span,
+                request.base_bit,
+                request.control_mask,
+                request.control_value
             )
         })
         .collect();
@@ -189,7 +213,7 @@ mod tests {
 
         assert_eq!(
             density_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0}]"#,
+            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0}]"#,
         );
     }
 
@@ -209,7 +233,24 @@ mod tests {
 
         assert_eq!(
             density_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1}]"#,
+            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1,"control_mask":0,"control_value":0}]"#,
+        );
+    }
+
+    #[test]
+    fn serializes_density_controls() {
+        let requests = collect_density_requests(
+            &[
+                PlacedGate::new(1, GateKind::Control, 2, 0, 1, None),
+                PlacedGate::new(2, GateKind::AntiControl, 2, 1, 1, None),
+                PlacedGate::new(3, GateKind::DensityMatrixDisplay, 2, 2, 1, None),
+            ],
+            3,
+        );
+
+        assert_eq!(
+            density_requests_json(&requests),
+            r#"[{"gate_id":3,"column":2,"span":1,"base_bit":0,"control_mask":6,"control_value":4}]"#,
         );
     }
 

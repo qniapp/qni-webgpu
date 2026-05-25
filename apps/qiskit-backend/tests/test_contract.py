@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit
@@ -10,6 +11,7 @@ from qni_qiskit_backend.runners import (
     add_qiskit_probability,
     amplitude_display_response,
     density_qargs,
+    density_save_qargs,
     normalize_qiskit_counts,
     probability_qargs,
     select_runner,
@@ -179,6 +181,28 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(request.density_outputs[0].gate_id, 2)
 
+    def test_contract_accepts_controlled_density_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Density"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [
+                        {
+                            "gate_id": 2,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(request.density_outputs[0].control_mask, 2)
+
     def test_contract_rejects_density_span_above_quirk_limit(self):
         with self.assertRaises(ContractError):
             parse_run_request(
@@ -188,6 +212,72 @@ class ContractTests(unittest.TestCase):
                     "outputs": {
                         "histogram": True,
                         "densities": [{"gate_id": 1, "column": 0, "span": 9, "base_bit": 0}],
+                    },
+                }
+            )
+
+    def test_contract_rejects_density_with_too_many_saved_control_bits(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 9,
+                    "columns": [["•", "Density8"]],
+                    "outputs": {
+                        "histogram": True,
+                        "densities": [
+                            {
+                                "gate_id": 1,
+                                "column": 0,
+                                "span": 8,
+                                "base_bit": 0,
+                                "control_mask": 256,
+                                "control_value": 256,
+                            }
+                        ],
+                    },
+                }
+            )
+
+    def test_contract_rejects_density_control_value_outside_mask(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 2,
+                    "columns": [["Density"]],
+                    "outputs": {
+                        "histogram": True,
+                        "densities": [
+                            {
+                                "gate_id": 1,
+                                "column": 0,
+                                "span": 1,
+                                "base_bit": 0,
+                                "control_mask": 0,
+                                "control_value": 2,
+                            }
+                        ],
+                    },
+                }
+            )
+
+    def test_contract_rejects_density_control_mask_out_of_range(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 2,
+                    "columns": [["Density"]],
+                    "outputs": {
+                        "histogram": True,
+                        "densities": [
+                            {
+                                "gate_id": 1,
+                                "column": 0,
+                                "span": 1,
+                                "base_bit": 0,
+                                "control_mask": 4,
+                                "control_value": 0,
+                            }
+                        ],
                     },
                 }
             )
@@ -312,6 +402,445 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(CircuitBuildError):
             add_display_saves(FakeCircuit(), request, lambda axis: axis)
 
+    def test_qiskit_builder_expands_qft2_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["QFT2", 1]], 2)
+        self.assertEqual(fake.ops, [("h", 0), ("cp", math.pi / 2, 1, 0), ("h", 1)])
+
+    def test_qiskit_builder_expands_qft_dagger2_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["QFT†2", 1]], 2)
+        self.assertEqual(fake.ops, [("h", 1), ("cp", -math.pi / 2, 1, 0), ("h", 0)])
+
+    def test_qiskit_display_saves_tracks_qft_as_unknown_basis(self):
+        class FakeCircuit:
+            def h(self, _wire):
+                pass
+
+            def cp(self, _phase, _control, _target):
+                pass
+
+        request = parse_run_request({"qubits": 2, "columns": [["QFT2", 1], ["|1>", 1]]})
+        with self.assertRaises(CircuitBuildError):
+            add_display_saves(FakeCircuit(), request, lambda axis: axis)
+
+    def test_qiskit_builder_ignores_spacer_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["…"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_applies_measurement_after_column_unitaries(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Measure", "H"]], 2)
+        self.assertEqual(fake.ops, [("h", 1), ("measure", 0, 0)])
+
+    def test_qiskit_builder_ignores_controls_for_measurement(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Measure"]], 2)
+        self.assertEqual(fake.ops, [("measure", 1, 1)])
+
+    def test_qiskit_builder_does_not_add_control_only_z_with_measurement(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•", "Measure"]], 3)
+        self.assertEqual(fake.ops, [("measure", 2, 2)])
+
+    def test_qiskit_display_saves_measures_before_probability_save(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def measure(self, wire, bit):
+                self.ops.append(("measure", wire, bit))
+
+            def save_probabilities(self, qubits, label):
+                self.ops.append(("save_probabilities", qubits, label))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {
+                "qubits": 1,
+                "columns": [["Measure"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [{"gate_id": 1, "column": 0, "span": 1, "base_bit": 0}],
+                },
+            }
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("measure", 0, 0), ("save_probabilities", [0], "probability:1")])
+
+    def test_qiskit_builder_applies_anti_controlled_x(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", controls, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "X"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
+    def test_qiskit_builder_applies_anti_controlled_h(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "H"]], 2)
+        self.assertEqual(
+            fake.ops,
+            [("x", 0), ("controlled", ("H", None), [0], [1]), ("x", 0)],
+        )
+
+    def test_qiskit_builder_applies_controlled_phase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "P(π_4)"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [0], [1])])
+
+    def test_qiskit_builder_applies_control_only_z(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("Z", None), [1], [0])])
+
+    def test_qiskit_builder_keeps_lone_control_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_keeps_lone_anti_control_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦"]], 1)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_does_not_add_control_only_z_with_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "•", "X"]], 3)
+        self.assertEqual(fake.ops, [("mcx", [0, 1], 2)])
+
+    def test_qiskit_builder_applies_controlled_sqrt_x_url_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "X^½"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("SX", None), [0], [1])])
+
+    def test_qiskit_builder_ignores_controls_for_qft(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "QFT2"]], 3)
+        self.assertEqual(fake.ops, [("h", 1), ("cp", math.pi / 2, 2, 1), ("h", 2)])
+
+    def test_qiskit_builder_ignores_controls_for_qft_dagger(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "QFT†2"]], 3)
+        self.assertEqual(fake.ops, [("h", 2), ("cp", -math.pi / 2, 2, 1), ("h", 1)])
+
+    def test_qiskit_builder_keeps_diagonal_controlled_gate_basis(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["H", 1], ["•", "Z"], [1, "|0>"]], 2)
+        self.assertEqual(fake.ops, [("h", 0), ("controlled", ("Z", None), [0], [1])])
+
+    def test_qiskit_builder_applies_active_controlled_write0(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["|1>", "|1>"], ["•", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("x", 1), ("mcx", [0], 1)])
+
+    def test_qiskit_builder_keeps_inactive_controlled_write0_as_no_op(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [[1, "|1>"], ["•", "|0>"], [1, "|1>"]], 2)
+        self.assertEqual(fake.ops, [("x", 1)])
+
+    def test_qiskit_builder_allows_inactive_controlled_write_with_unknown_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [[1, "H"], ["•", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("h", 1)])
+
+    def test_qiskit_builder_applies_active_anti_controlled_write1(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "|1>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
+    def test_qiskit_builder_allows_inactive_anti_controlled_write_with_unknown_target(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["|1>", "H"], ["◦", "|0>"]], 2)
+        self.assertEqual(fake.ops, [("x", 0), ("h", 1)])
+
+    def test_qiskit_display_saves_tracks_anti_control_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", controls, target))
+
+        fake = FakeCircuit()
+        request = parse_run_request({"qubits": 2, "columns": [["◦", "X"], [1, "|1>"]]})
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
+
+    def test_qiskit_builder_applies_swap_pair(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Swap", "Swap"]], 2)
+        self.assertEqual(fake.ops, [("swap", 0, 1)])
+
+    def test_qiskit_builder_ignores_stray_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Swap", 1]], 2)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_ignores_controlled_stray_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Swap"]], 2)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_applies_controlled_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "Swap", "Swap"]], 3)
+        self.assertEqual(
+            fake.ops,
+            [("mcx", [0, 1], 2), ("mcx", [0, 2], 1), ("mcx", [0, 1], 2)],
+        )
+
+    def test_qiskit_display_saves_tracks_swap_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {"qubits": 2, "columns": [["|1>", 1], ["Swap", "Swap"], ["|1>", 1]]}
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0), ("swap", 0, 1), ("x", 0)])
+
+    def test_qiskit_display_saves_keeps_equal_basis_after_unknown_controlled_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def mcx(self, controls, target):
+                self.ops.append(("mcx", list(controls), target))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {"qubits": 3, "columns": [["H", 1, 1], ["•", "Swap", "Swap"], [1, "|0>", "|0>"]]}
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(
+            fake.ops,
+            [
+                ("h", 0),
+                ("mcx", [0, 1], 2),
+                ("mcx", [0, 2], 1),
+                ("mcx", [0, 1], 2),
+            ],
+        )
+
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:
             def __init__(self):
@@ -386,6 +915,97 @@ class ContractTests(unittest.TestCase):
         add_qiskit_density(response, request, {"density:1": [[0.5, 0.25j], [-0.25j, 0.5]]}, {1: "density:1"})
         self.assertEqual(response["densities"][0]["cells"][1], [0.0, 0.25])
 
+    def test_qiskit_density_response_extracts_controlled_block(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Density"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_density(
+            response,
+            request,
+            {"density:1": [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0.25, 0.1j], [0, 0, -0.1j, 0.75]]},
+            {1: "density:1"},
+        )
+        self.assertEqual(
+            response["densities"][0],
+            {
+                "gate_id": 1,
+                "span": 1,
+                "cells": [[0.25, 0.0], [0.0, 0.1], [0.0, -0.1], [0.75, 0.0]],
+                "unity": 1.0,
+            },
+        )
+
+    def test_qiskit_density_response_applies_display_bit_controls(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Density2", "•"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 2,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_density(
+            response,
+            request,
+            {"density:1": [[0.1, 0, 0, 0], [0, 0.2, 0, 0], [0, 0, 0.3, 0.4j], [0, 0, -0.4j, 0.4]]},
+            {1: "density:1"},
+        )
+        self.assertEqual(
+            response["densities"][0],
+            {
+                "gate_id": 1,
+                "span": 2,
+                "cells": [
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.3, 0.0],
+                    [0.0, 0.4],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, -0.4],
+                    [0.4, 0.0],
+                ],
+                "unity": 0.7,
+            },
+        )
+
     def test_probability_qargs_match_web_outcome_order(self):
         request = parse_run_request(
             {
@@ -411,6 +1031,50 @@ class ContractTests(unittest.TestCase):
             }
         )
         self.assertEqual(density_qargs(request.density_outputs[0], 2), [1, 0])
+
+    def test_density_save_qargs_include_controls_after_display_bits(self):
+        request = parse_run_request(
+            {
+                "qubits": 3,
+                "columns": [["•", "◦", "Density"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 6,
+                            "control_value": 4,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(density_save_qargs(request.density_outputs[0], 3), [2, 1, 0])
+
+    def test_density_save_qargs_omits_display_control_bits(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["Density2", "•"]],
+                "outputs": {
+                    "histogram": True,
+                    "densities": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 2,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(density_save_qargs(request.density_outputs[0], 2), [1, 0])
 
     def test_mock_runner_returns_fixed_probability_outputs(self):
         request = parse_run_request(
