@@ -46,7 +46,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             GateKind::Spacer => Some("Spacer"),
             GateKind::Write0 => None,
             GateKind::Write1 => None,
-            GateKind::Swap => Some("Swap"),
+            GateKind::Swap => None,
             GateKind::QftGate | GateKind::QftDaggerGate => None,
             _ => None,
         };
@@ -419,6 +419,16 @@ mod tests {
     }
 
     #[test]
+    fn external_gpu_accepts_swap_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Swap, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Swap, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
     fn external_gpu_accepts_qft_gate() {
         let gates = [PlacedGate::new(1, GateKind::QftGate, 0, 0, 2, None)];
 
@@ -430,6 +440,20 @@ mod tests {
         let gates = [PlacedGate::new(1, GateKind::QftDaggerGate, 0, 0, 2, None)];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_rejects_controlled_swap_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::Swap, 0, 1, 1, None),
+            PlacedGate::new(3, GateKind::Swap, 0, 2, 1, None),
+        ];
+
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("SWAP")
+        );
     }
 
     #[test]

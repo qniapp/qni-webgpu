@@ -85,6 +85,7 @@ def apply_column_to_qiskit(
     qc: Any, column: list[Any], qubits: int, basis: BasisTracker
 ) -> None:
     controls: list[int] = []
+    swap_wires: list[int] = []
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
         token = token_text(raw)
@@ -95,9 +96,13 @@ def apply_column_to_qiskit(
             continue
         if token in ANTI_CONTROL_TOKENS:
             raise CircuitBuildError("anti-control is not supported by the dev Qiskit runner yet")
+        if token == "Swap":
+            swap_wires.append(wire)
+            continue
         if is_readonly_display_token(token):
             continue
         deferred.append((wire, token))
+    apply_swap(qc, swap_wires, controls, basis)
     for wire, token in deferred:
         apply_gate(qc, wire, token, controls, qubits, basis)
 
@@ -174,6 +179,16 @@ def apply_gate(
         mark_unknown(basis, wire, qft.span)
     else:
         raise CircuitBuildError(f"unsupported gate token: {token}")
+
+
+def apply_swap(qc: Any, swap_wires: list[int], controls: list[int], basis: BasisTracker) -> None:
+    if len(swap_wires) != 2:
+        return
+    if controls:
+        raise CircuitBuildError("controlled Swap is not supported by the dev Qiskit runner yet")
+    first, second = swap_wires
+    qc.swap(first, second)
+    basis[first], basis[second] = basis[second], basis[first]
 
 
 def parse_qft_token(token: str) -> QftSpec | None:

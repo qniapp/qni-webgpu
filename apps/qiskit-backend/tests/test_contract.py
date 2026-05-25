@@ -355,6 +355,56 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(CircuitBuildError):
             add_display_saves(FakeCircuit(), request, lambda axis: axis)
 
+    def test_qiskit_builder_applies_swap_pair(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Swap", "Swap"]], 2)
+        self.assertEqual(fake.ops, [("swap", 0, 1)])
+
+    def test_qiskit_builder_ignores_stray_swap(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Swap", 1]], 2)
+        self.assertEqual(fake.ops, [])
+
+    def test_qiskit_builder_rejects_controlled_swap(self):
+        class FakeCircuit:
+            def swap(self, _first, _second):
+                pass
+
+        with self.assertRaises(CircuitBuildError):
+            apply_columns_to_qiskit(FakeCircuit(), [["•", "Swap", "Swap"]], 3)
+
+    def test_qiskit_display_saves_tracks_swap_across_columns(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def swap(self, first, second):
+                self.ops.append(("swap", first, second))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {"qubits": 2, "columns": [["|1>", 1], ["Swap", "Swap"], ["|1>", 1]]}
+        )
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("x", 0), ("swap", 0, 1), ("x", 0)])
+
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:
             def __init__(self):
