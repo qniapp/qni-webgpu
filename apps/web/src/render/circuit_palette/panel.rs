@@ -81,7 +81,7 @@ impl QniApp {
                 draw_gate_body(painter, gate_rect, gate, colors);
             }
             if gate == GateKind::BlochDisplay {
-                // Palette has no associated state: render qni's d=0 blue center dot.
+                // Palette has no associated state: render the inactive |v|=0 center dot.
                 draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
             }
         }

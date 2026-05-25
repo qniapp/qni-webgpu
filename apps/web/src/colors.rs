@@ -194,7 +194,7 @@ fn flexoki_light() -> Colors {
         bloch_sphere_lines: tx_3,
         bloch_vector_line: tx,
         bloch_vector_tip: red_600,
-        bloch_vector_zero: blue_600,
+        bloch_vector_zero: tx_3,
         measurement_fired_icon: ui_2,
         spacer_dots: tx,
         step_preview: blue_600,

@@ -2,7 +2,7 @@
  * bloch-display.js — <bloch-display> カスタム要素
  *
  * ブロッホ球表示ブロックの正規描画を 1 箇所へ集約する。
- * x / y / z / icon / no-popup / state / zoom / zero-color 属性で仕様ページの各状態を表す。
+ * x / y / z / icon / no-popup / state / zoom 属性で仕様ページの各状態を表す。
  * ───────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -126,7 +126,7 @@
 
   class BlochDisplay extends HTMLElement {
     static get observedAttributes() {
-      return ['x', 'y', 'z', 'icon', 'no-popup', 'state', 'zoom', 'zero-color'];
+      return ['x', 'y', 'z', 'icon', 'no-popup', 'state', 'zoom'];
     }
 
     constructor() {
@@ -180,9 +180,7 @@
 
       const magnitude = this.#magnitude(vector);
       if (magnitude < EPS) {
-        const zero = this.#circle('zero', CENTER, CENTER, TIP_RADIUS);
-        if (this.getAttribute('zero-color') === 'blue') zero.style.fill = 'var(--blue-600)';
-        svg.appendChild(zero);
+        svg.appendChild(this.#circle('zero', CENTER, CENTER, TIP_RADIUS));
         return svg;
       }
 
