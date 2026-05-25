@@ -382,7 +382,7 @@
         <tr><th>スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code> / Tailwind <code>spacing-14</code>)</td></tr>
         <tr><th>スロット内余白</th><td>上下左右 <code>8 px</code> (Tailwind <code>spacing-2</code>)。40 px 本体を 56 px スロットの中央に置く。</td></tr>
         <tr><th>角丸正方形</th><td><code>border-radius: 6 px</code> (Tailwind <code>rounded-md</code>)。H / 固定位相 / 回転ゲートなどの標準形。</td></tr>
-        <tr><th>真円</th><td><code>border-radius: 50%</code>。X / P / CNOT ターゲットなど、Quirk の plus-in-circle 慣例や円形メタファを保つ本体で使う。P は位相ゲートの中では例外的に真円本体。ホバー枠は本体に合わせた同心円ではなく、共通の角丸枠を使う。</td></tr>
+        <tr><th>真円</th><td><code>border-radius: 50%</code>。X / Phase (Φ) / CNOT ターゲットなど、Quirk の plus-in-circle 慣例や円形メタファを保つ本体で使う。Phase は位相ゲートの中では例外的に真円本体。ホバー枠は本体に合わせた同心円ではなく、共通の角丸枠を使う。</td></tr>
         <tr><th>透明マーカ</th><td>Control / AntiControl / Swap などは 40 px の hit 領域を保ちつつ、本体塗りではなく円・線・× で描く。色とドラッグ表示は個別仕様を正とする。</td></tr>
         <tr><th>span 付き本体</th><td>QFT などは幅 40 px と 56 px ピッチ、状態色を継承する。高さ、span 範囲、リサイズハンドルは個別仕様で定義する。</td></tr>
         <tr><th>z-index</th><td>wire = 0、ゲート本体 = 10、ホバー枠 / ハンドル = 20。個別仕様が新しい層を足す場合もこの順序を崩さない。</td></tr>
@@ -410,7 +410,7 @@
       </div>
       <div class="item">
         <div class="body circle" aria-hidden="true"></div>
-        <p><strong>真円</strong><br />X / P / CNOT ターゲット。本体は真円、ホバー枠は角丸。</p>
+        <p><strong>真円</strong><br />X / Phase (Φ) / CNOT ターゲット。本体は真円、ホバー枠は角丸。</p>
       </div>
       <div class="item">
         <div class="body transparent" aria-hidden="true"></div>

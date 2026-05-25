@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>P ゲート (位相 θ) — 仕様</title>
+  <title>Phase ゲート (Φ / 位相 θ) — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
   <script>
     // design-system.html のサムネ iframe (?preview) から読まれたときは
@@ -142,16 +142,16 @@
   <span class="sep">/</span>
   <span class="parent">量子ゲート</span>
   <span class="sep">/</span>
-  <span class="current" aria-current="page">P ゲート (位相 θ)</span>
+  <span class="current" aria-current="page">Phase ゲート (Φ / 位相 θ)</span>
 </nav>
 
 <div class="page">
   <p class="eyebrow">qni-webgpu · デザインシステム · ゲート仕様</p>
-  <h1 class="page-title">P ゲート (位相 θ)</h1>
+  <h1 class="page-title">Phase ゲート (Φ / 位相 θ)</h1>
   <p class="page-lede">
     単一量子ビットへ <code>diag(1, e<sup>iθ</sup>)</code> を適用するパラメトリック位相ゲート。S / T / Z を含む位相系列の汎用形。
-    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは P 固有の意味論、
-    <code>components/p-gate.js</code> の Shadow DOM、P としての設計判断だけを定義する。
+    共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは位相ゲート固有の意味論、
+    <code>components/p-gate.js</code> の Shadow DOM、Qni と同じ <strong>Φ ラベル</strong>としての設計判断だけを定義する。
   </p>
 </div>
 
@@ -161,11 +161,11 @@
   <div class="card">
     <p>
       共通クロムは <a href="gate-chrome.html">ゲートクロム共通仕様</a> を正とする。
-      本ページは P ゲート (位相 θ) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱う。ただしホバー枠は真円にせず、共通クロムの角丸枠を継承する。外装・配色・状態表現・配置方針はリンク先を参照する。
+      本ページは Phase ゲート (Φ / 位相 θ) としての意味、字形、固有の設計判断を定義し、真円の塗りつぶしゲートとして扱う。ただしホバー枠は真円にせず、共通クロムの角丸枠を継承する。外装・配色・状態表現・配置方針はリンク先を参照する。
     </p>
     <div class="responsibility-grid">
       <div class="item"><strong>gate-chrome.html が正</strong><span>ゲート本体の外装、配色ロール、状態表現、回路グリッド上の配置方針。</span></div>
-      <div class="item"><strong>p-gate.html が正</strong><span>P(θ) の意味、P グリフ、真円本体と θ 編集を分けて扱う判断。ホバー枠は共通クロムを継承する。</span></div>
+      <div class="item"><strong>p-gate.html が正</strong><span>内部表記 <code>P(θ)</code> の意味、Φ グリフ、真円本体と θ 編集を分けて扱う判断。ホバー枠は共通クロムを継承する。</span></div>
       <div class="item"><strong>個別ページで再定義しない</strong><span>本ページでは共通クロムの値を再定義しない。共通値の変更が必要な場合は、ゲートクロム共通仕様を更新する。</span></div>
     </div>
   </div>
@@ -175,9 +175,9 @@
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
-    <p>P ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。Rz(θ) とはグローバル位相を除いて同じ位相操作を表すが、P は行列 <code>diag(1, e<sup>iθ</sup>)</code> として説明する。デザイン上は真円形状と P 字形で、パラメータを持つ位相ゲートとして扱う。</p>
+    <p>Phase ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。Rz(θ) とはグローバル位相を除いて同じ位相操作を表すが、演算は内部表記 <code>P(θ)</code> と同じ行列 <code>diag(1, e<sup>iθ</sup>)</code> として説明する。デザイン上は真円形状と Φ 字形で、パラメータを持つ位相ゲートとして扱う。</p>
     <div class="stage">
-      <div class="col"><div class="caption">P ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
+      <div class="col"><div class="caption">Phase ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
     </div>
     <p class="note" style="margin-top: 12px;">ここでは既定状態の代表表示だけを示す。各状態の比較は § 02 で確認し、状態定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> を正とする。</p>
   </div>
@@ -185,9 +185,9 @@
 
 <!-- ─────── § 02 状態バリアント ─────── -->
 <section class="block">
-  <h2><span class="num">§ 02</span>状態バリアント (P 字形の確認)</h2>
+  <h2><span class="num">§ 02</span>状態バリアント (Φ 字形の確認)</h2>
   <div class="card">
-    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ P 字形が各状態で破綻しないことと、真円本体に角丸ホバー枠が付くことだけを常時表示モックで確認する。</p>
+    <p>状態名と見た目の定義は <a href="gate-chrome.html">gate-chrome.html § 04</a> が正である。ここでは同じ Φ 字形が各状態で破綻しないことと、真円本体に角丸ホバー枠が付くことだけを常時表示モックで確認する。</p>
     <div class="stage">
       <div class="col"><div class="caption">既定</div><div class="actual"><p-gate></p-gate></div></div>
       <div class="col"><div class="caption">ホバー</div><div class="actual"><p-gate state="hover"></p-gate></div></div>
@@ -198,16 +198,17 @@
 
 <!-- ─────── § 03 グリフ ─────── -->
 <section class="block">
-  <h2><span class="num">§ 03</span>グリフ "P"</h2>
+  <h2><span class="num">§ 03</span>グリフ "Φ"</h2>
   <div class="card">
     <table class="spec"><tbody>
-      <tr><th>表記</th><td>P グリフ</td></tr>
+      <tr><th>表記</th><td>Φ グリフ</td></tr>
       <tr><th>実体</th><td><code>components/p-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
       <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
       <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
-      <tr><th>字形設計</th><td>P は可変位相 θ の親ゲートを示す字形。真円形状は「パラメータを持つ位相ホイール」の比喩として使う。</td></tr>
+      <tr><th>字形設計</th><td>Φ は Qni の <code>phase-gate.svg</code> と同じ円 + 斜線の位相ラベル。真円形状は「パラメータを持つ位相ホイール」の比喩として使う。</td></tr>
+      <tr><th>内部表記</th><td>URL / シリアライズ上の <code>P(θ)</code> は維持する。画面上のラベルだけを Φ にする。</td></tr>
     </tbody></table>
-    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る P 固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
+    <p class="note" style="margin-top: 12px;">字形は共通クロムの上に載る位相ゲート固有の情報である。外装や状態色は再定義せず、ここでは字形の読み取りやすさだけを確認する。</p>
     <div class="stage">
       <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
       <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><p-gate></p-gate></div></div>
@@ -219,9 +220,9 @@
 <section class="block">
   <h2><span class="num">§ 04</span>回路グリッド上の配置</h2>
   <div class="card">
-    <p>P は 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は本体クロムではなく、別の編集 UI で扱う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
+    <p>Phase ゲートは 1 量子ビットゲートなので、1 本の量子ビットワイヤ上の単一スロットに置かれる。角度 θ の編集は本体クロムではなく、別の編集 UI で扱う。 スロット寸法、隣接余白、ワイヤとの層関係は <a href="gate-chrome.html">gate-chrome.html § 05</a> を継承する。</p>
     <div class="slot-mock with-grid"><div class="wire" aria-hidden="true"><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div><div class="slot"></div><div class="slot"><p-gate></p-gate></div></div></div>
-    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。P 固有の配置差分だけを本ページで扱う。</p>
+    <p class="note" style="margin-top: 12px;">点線代わりの薄いスロット境界は説明用で、実 UI には描画しない。位相ゲート固有の配置差分だけを本ページで扱う。</p>
   </div>
 </section>
 
@@ -229,8 +230,8 @@
 <section class="block">
   <h2><span class="num">§ 05</span>設計判断</h2>
   <div class="card">
-    <p>設計判断は「共通クロムからの継承」「P 固有」「妥協と将来対応」に分ける。これにより、P だけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
-    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>配色ロール、角丸ホバー枠、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>P 固有</strong><span>可変位相であることは P 字形と編集 UI で示し、θ の値を本体色へ直接埋め込まない。本体だけを真円として扱う。</span></div><div class="item"><strong>妥協と将来対応</strong><span>θ の現在値を表示する場合は、ゲート本体の共通クロムではなく、パラメータ表示や編集ポップオーバの仕様として扱う。</span></div></div>
+    <p>設計判断は「共通クロムからの継承」「位相ゲート固有」「妥協と将来対応」に分ける。これにより、位相ゲートだけで変えてよい判断と、ゲートクロム全体を巻き込む判断を混ぜない。</p>
+    <div class="decision-grid"><div class="item"><strong>共通クロムからの継承</strong><span>配色ロール、角丸ホバー枠、状態表現、回路グリッド上の配置方針は共通仕様を継承する。</span></div><div class="item"><strong>位相ゲート固有</strong><span>可変位相であることは Φ 字形と編集 UI で示し、θ の値を本体色へ直接埋め込まない。本体だけを真円として扱う。</span></div><div class="item"><strong>妥協と将来対応</strong><span>θ の現在値を表示する場合は、ゲート本体の共通クロムではなく、パラメータ表示や編集ポップオーバの仕様として扱う。</span></div></div>
   </div>
 </section>
 
@@ -244,7 +245,7 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上と回路上の P ゲートを同じ字形で扱う。</td>
+          <td>パレット上と回路上の Phase ゲートを同じ Φ 字形で扱う。</td>
         </tr>
         <tr>
           <td><a href="s-gate.html">S ゲート</a></td>
@@ -273,7 +274,7 @@
   </tbody></table></div>
 </section>
 
-<footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · P ゲート (位相 θ) · 2026-05</p></footer>
+<footer class="doc-foot"><p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p><p class="meta">qni-webgpu · Phase ゲート (Φ / 位相 θ) · 2026-05</p></footer>
 
 </body>
 </html>

@@ -149,7 +149,7 @@ fn draw_connector_and_gate(
 
 /// Mini gate body (24 px) for the tooltip diagram — matches qni's
 /// `qpu-operation-sm` (1.5rem). Delegates to the shared `draw_gate_body` so
-/// the icon glyph is identical to what the palette renders (Phase = `P`
+/// the icon glyph is identical to what the palette renders (Phase = `Φ`
 /// circle, X = filled disk, …), just scaled down.
 fn draw_tooltip_mini_gate(
     painter: &egui::Painter,

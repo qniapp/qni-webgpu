@@ -52,7 +52,7 @@ fn draw_gate_body_with_fill(
         return;
     } else if kind == GateKind::Phase {
         // qni renders the parametric Phase as a circular body (the
-        // SDF-backed `P` glyph centred inside) so the angle label has
+        // SDF-backed `Φ` glyph centred inside) so the angle label has
         // somewhere clean to sit above / below the gate without colliding with
         // the gate body's square corners.
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;

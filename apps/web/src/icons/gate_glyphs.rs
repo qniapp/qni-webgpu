@@ -47,7 +47,7 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
 ) -> bool {
-    // H / Y / Z / √X / S / S† / T / T† / P / RX / RY / RZ / QFT /
+    // H / Y / Z / √X / S / S† / T / T† / Phase(Φ) / RX / RY / RZ / QFT /
     // QFT† / X (本体は "+" として描く) / Write の 0・1 は
     // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,plus,digit0,digit1}.svg`
     // を 1 ソースに、ビルド時に 256 px PNG から作った SDF テクスチャで
@@ -127,7 +127,7 @@ pub(super) fn draw_gate_icon(
             true
         }
         // Everything else (H / X-as-`+` / Y / Z / √X / S / S† / T /
-        // T† / P / RX / RY / RZ / QFT / QFT†) was already handled above.
+        // T† / Phase(Φ) / RX / RY / RZ / QFT / QFT†) was already handled above.
         // Anything that reaches here without matching is a non-typographic gate
         // the body code knows how to fall back on with `kind.label()`.
         _ => false,
@@ -148,7 +148,7 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::SDagger => GateGlyph::SDagger,
         GateKind::T => GateGlyph::T,
         GateKind::TDagger => GateGlyph::TDagger,
-        GateKind::Phase => GateGlyph::P,
+        GateKind::Phase => GateGlyph::Phase,
         GateKind::Rx => GateGlyph::Rx,
         GateKind::Ry => GateGlyph::Ry,
         GateKind::Rz => GateGlyph::Rz,

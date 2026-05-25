@@ -477,7 +477,7 @@
       ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI ではホバー枠を重ねず、
       字形そのものは既定と同じまま表示する。
       |0⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
-      パラメタを持たないため、Rz / P のようなポップオーバ編集 UI も無い。
+      パラメタを持たないため、Rz / Phase ゲートのようなポップオーバ編集 UI も無い。
     </p>
 
     <aside class="critique" aria-label="批評 · § 05 ドラッグ状態の視認性">
@@ -578,7 +578,7 @@
       <li><strong>ディジット "0" を red-600 にする</strong>: 色対 <code>red-600</code> = 0 / off と <code>blue-600</code> = 1 / on を UI 全体 (確率表示 / Measurement / |0⟩/|1⟩ operation) で 1 つに固定する。緑 / 青 / 紫など他の色を試すと、「on/off の対」という意味が崩れる</li>
       <li><strong>回路上のホバー枠を bg 塗りなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の二層枠を使うが、本体が透明な |0⟩ では内側を paper で塗るとケット括弧と枠の間に余計な色面が生まれ、可読性が落ちる。回路上では 40 px 領域から 4 px 外へ拡張した purple-400 の単線枠にし、パレット上では親の <code>.gp-gate</code> が surface gap 枠を描く</li>
       <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |0⟩ ではこの方法が使えない。色を変えない代わりに、drag preview がうっすらしか目立たないため、cursor: grabbing と配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
-      <li><strong>パラメタを持たない</strong>: Rz / P のような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write1-gate.html">|1⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
+      <li><strong>パラメタを持たない</strong>: Rz / Phase ゲートのような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write1-gate.html">|1⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
       <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |0⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
     </ul>
 
