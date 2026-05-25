@@ -34,6 +34,25 @@ struct ExternalGpuRunRequest {
     density_slot_to_gate_id: Vec<u32>,
 }
 
+fn supported_external_controlled_target(kind: GateKind) -> bool {
+    matches!(
+        kind,
+        GateKind::H
+            | GateKind::X
+            | GateKind::Y
+            | GateKind::Z
+            | GateKind::SqrtX
+            | GateKind::S
+            | GateKind::SDagger
+            | GateKind::T
+            | GateKind::TDagger
+            | GateKind::Phase
+            | GateKind::Rx
+            | GateKind::Ry
+            | GateKind::Rz
+    )
+}
+
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<&'static str> {
     for gate in placed_gates {
         let name = match gate.kind {
@@ -58,15 +77,15 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     let max_column = placed_gates.iter().map(|gate| gate.column).max()?;
     for column in 0..=max_column {
         let mut has_control = false;
-        let mut has_x_target = false;
+        let mut has_controlled_target = false;
         let mut has_readonly_display = false;
         let mut has_density_display = false;
-        let mut non_x_target = None;
+        let mut unsupported_controlled_target = None;
         for gate in placed_gates.iter().filter(|gate| gate.column == column) {
             if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
                 has_control = true;
-            } else if gate.kind == GateKind::X {
-                has_x_target = true;
+            } else if supported_external_controlled_target(gate.kind) {
+                has_controlled_target = true;
             } else if matches!(
                 gate.kind,
                 GateKind::AmplitudeDisplay
@@ -77,17 +96,17 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
                 has_readonly_display = true;
                 has_density_display |= gate.kind == GateKind::DensityMatrixDisplay;
             } else if !matches!(gate.kind, GateKind::Spacer) {
-                non_x_target = Some(gate.kind.label());
+                unsupported_controlled_target = Some(gate.kind.label());
             }
         }
         if has_control {
             if has_density_display {
                 return Some("controlled Density Matrix Display");
             }
-            if let Some(label) = non_x_target {
+            if let Some(label) = unsupported_controlled_target {
                 return Some(label);
             }
-            if !has_x_target && !has_readonly_display {
+            if !has_controlled_target && !has_readonly_display {
                 return Some("Control");
             }
         }
@@ -453,13 +472,23 @@ mod tests {
     }
 
     #[test]
-    fn external_gpu_rejects_anti_controlled_h_gate() {
+    fn external_gpu_accepts_anti_controlled_h_gate() {
         let gates = [
             PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
             PlacedGate::new(2, GateKind::H, 0, 1, 1, None),
         ];
 
-        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("H"));
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_controlled_sqrt_x_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::SqrtX, 0, 1, 1, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
@@ -484,6 +513,16 @@ mod tests {
         let gates = [PlacedGate::new(1, GateKind::QftDaggerGate, 0, 0, 2, None)];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_rejects_controlled_qft_gate() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
+        ];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), Some("QFT"));
     }
 
     #[test]

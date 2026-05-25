@@ -139,13 +139,9 @@ def apply_gate(
     base, angle = split_parametric(token)
     upper = base.upper()
     qft = parse_qft_token(base)
-    if (controls or anti_controls) and upper != "X":
-        raise CircuitBuildError(
-            "controlled non-X gates are not supported by the dev Qiskit runner yet"
-        )
     if controls or anti_controls:
-        apply_controlled_x(qc, wire, controls, anti_controls)
-        track_controlled_x(basis, controls, anti_controls, wire)
+        apply_controlled_gate(qc, wire, base, angle, controls, anti_controls)
+        track_controlled_gate(basis, controls, anti_controls, wire, base)
         return
 
     if upper == "H":
@@ -159,7 +155,7 @@ def apply_gate(
         track_basis_flip(basis, wire)
     elif upper == "Z":
         qc.z(wire)
-    elif base == "√X":
+    elif is_sqrt_x_token(base):
         qc.sx(wire)
         basis[wire] = None
     elif upper == "S":
@@ -258,6 +254,110 @@ def mark_unknown(basis: BasisTracker, wire: int, span: int) -> None:
         basis[wire + offset] = None
 
 
+def apply_controlled_gate(
+    qc: Any,
+    wire: int,
+    base: str,
+    angle: str | None,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    upper = base.upper()
+    if upper == "X":
+        apply_controlled_x(qc, wire, controls, anti_controls)
+        return
+    gate = controlled_gate_for_base(qc, base, angle)
+    for anti_control in anti_controls:
+        qc.x(anti_control)
+    control_wires = controls + anti_controls
+    append_controlled_gate(qc, gate, control_wires, [wire])
+    for anti_control in reversed(anti_controls):
+        qc.x(anti_control)
+
+
+def controlled_gate_for_base(qc: Any, base: str, angle: str | None) -> Any:
+    upper = base.upper()
+    token = controlled_gate_token(base)
+    if not is_real_qiskit_circuit(qc):
+        return (token, angle)
+    from qiskit.circuit.library import (  # type: ignore[import-not-found]
+        HGate,
+        PhaseGate,
+        RXGate,
+        RYGate,
+        RZGate,
+        SGate,
+        SdgGate,
+        SXGate,
+        TGate,
+        TdgGate,
+        YGate,
+        ZGate,
+    )
+
+    if token == "H":
+        return HGate()
+    if token == "Y":
+        return YGate()
+    if token == "Z":
+        return ZGate()
+    if token == "SX":
+        return SXGate()
+    if upper == "S":
+        return SGate()
+    if upper in {"S†", "SDG"}:
+        return SdgGate()
+    if upper == "T":
+        return TGate()
+    if upper in {"T†", "TDG"}:
+        return TdgGate()
+    if upper == "P":
+        return PhaseGate(parse_angle(angle))
+    if upper == "RX":
+        return RXGate(parse_angle(angle))
+    if upper == "RY":
+        return RYGate(parse_angle(angle))
+    if upper == "RZ":
+        return RZGate(parse_angle(angle))
+    raise CircuitBuildError(f"controlled gate token is not supported: {base}")
+
+
+def controlled_gate_token(base: str) -> str:
+    upper = base.upper()
+    if is_sqrt_x_token(base):
+        return "SX"
+    if upper in {"H", "Y", "Z", "S", "T", "P", "RX", "RY", "RZ"}:
+        return upper
+    if upper in {"S†", "SDG"}:
+        return "S†"
+    if upper in {"T†", "TDG"}:
+        return "T†"
+    raise CircuitBuildError(f"controlled gate token is not supported: {base}")
+
+
+def is_sqrt_x_token(base: str) -> bool:
+    return base in {"√X", "X^½"}
+
+
+def is_diagonal_gate_token(base: str) -> bool:
+    if base.upper() == "X":
+        return False
+    return controlled_gate_token(base) in {"Z", "S", "S†", "T", "T†", "P", "RZ"}
+
+
+def is_real_qiskit_circuit(qc: Any) -> bool:
+    return qc.__class__.__module__.startswith("qiskit")
+
+
+def append_controlled_gate(
+    qc: Any, gate: Any, control_wires: list[int], target_wires: list[int]
+) -> None:
+    if is_real_qiskit_circuit(qc):
+        qc.append(gate.control(len(control_wires)), control_wires + target_wires)
+    else:
+        qc.append(("controlled", gate, list(control_wires), list(target_wires)))
+
+
 def apply_controlled_x(
     qc: Any, wire: int, controls: list[int], anti_controls: list[int]
 ) -> None:
@@ -273,8 +373,12 @@ def track_basis_flip(basis: BasisTracker, wire: int) -> None:
         basis[wire] ^= 1
 
 
-def track_controlled_x(
-    basis: BasisTracker, controls: list[int], anti_controls: list[int], wire: int
+def track_controlled_gate(
+    basis: BasisTracker,
+    controls: list[int],
+    anti_controls: list[int],
+    wire: int,
+    base: str,
 ) -> None:
     control_values = [basis[control] for control in controls]
     anti_control_values = [basis[anti_control] for anti_control in anti_controls]
@@ -282,10 +386,16 @@ def track_controlled_x(
         value == 1 for value in anti_control_values
     ):
         return
+    if is_diagonal_gate_token(base):
+        return
     if any(value is None for value in control_values + anti_control_values):
         basis[wire] = None
         return
-    track_basis_flip(basis, wire)
+    upper = base.upper()
+    if upper in {"X", "Y"}:
+        track_basis_flip(basis, wire)
+    elif upper in {"H", "RX", "RY"} or is_sqrt_x_token(base):
+        basis[wire] = None
 
 
 def apply_write0(qc: Any, basis: BasisTracker, wire: int) -> None:

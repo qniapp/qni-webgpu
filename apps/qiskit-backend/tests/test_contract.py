@@ -427,13 +427,70 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["◦", "X"]], 2)
         self.assertEqual(fake.ops, [("x", 0), ("mcx", [0], 1), ("x", 0)])
 
-    def test_qiskit_builder_rejects_anti_controlled_h(self):
+    def test_qiskit_builder_applies_anti_controlled_h(self):
         class FakeCircuit:
-            def h(self, _wire):
+            def __init__(self):
+                self.ops = []
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["◦", "H"]], 2)
+        self.assertEqual(
+            fake.ops,
+            [("x", 0), ("controlled", ("H", None), [0], [1]), ("x", 0)],
+        )
+
+    def test_qiskit_builder_applies_controlled_phase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "P(π_4)"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [0], [1])])
+
+    def test_qiskit_builder_applies_controlled_sqrt_x_url_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["•", "X^½"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("SX", None), [0], [1])])
+
+    def test_qiskit_builder_rejects_controlled_qft(self):
+        class FakeCircuit:
+            def append(self, _instruction):
                 pass
 
         with self.assertRaises(CircuitBuildError):
-            apply_columns_to_qiskit(FakeCircuit(), [["◦", "H"]], 2)
+            apply_columns_to_qiskit(FakeCircuit(), [["•", "QFT2"]], 2)
+
+    def test_qiskit_builder_keeps_diagonal_controlled_gate_basis(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["H", 1], ["•", "Z"], [1, "|0>"]], 2)
+        self.assertEqual(fake.ops, [("h", 0), ("controlled", ("Z", None), [0], [1])])
 
     def test_qiskit_display_saves_tracks_anti_control_across_columns(self):
         class FakeCircuit:
