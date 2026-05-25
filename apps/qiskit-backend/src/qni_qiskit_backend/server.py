@@ -7,6 +7,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from .circuit import CircuitBuildError
 from .contract import ContractError, parse_run_request
 from .runners import RunnerUnavailable, select_runner
 
@@ -42,7 +43,7 @@ class QiskitBackendHandler(BaseHTTPRequestHandler):
             payload = self.read_json_body()
             request = parse_run_request(payload, default_runner=self.default_runner)
             result = select_runner(request.runner).run(request)
-        except ContractError as exc:
+        except (CircuitBuildError, ContractError) as exc:
             self.write_json(HTTPStatus.BAD_REQUEST, {"error": "bad_request", "message": str(exc)})
             return
         except RunnerUnavailable as exc:

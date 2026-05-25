@@ -44,7 +44,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             GateKind::AmplitudeDisplay => None,
             GateKind::DensityMatrixDisplay => None,
             GateKind::Spacer => Some("Spacer"),
-            GateKind::Write0 => Some("|0⟩"),
+            GateKind::Write0 => None,
             GateKind::Write1 => Some("|1⟩"),
             GateKind::Swap => Some("Swap"),
             GateKind::QftGate => Some("QFT"),
@@ -404,6 +404,13 @@ mod tests {
     use super::unsupported_external_gpu_gate_for_gates;
     use crate::app::PlacedGate;
     use crate::gates::GateKind;
+
+    #[test]
+    fn external_gpu_accepts_write0_gate() {
+        let gates = [PlacedGate::new(1, GateKind::Write0, 0, 0, 1, None)];
+
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
 
     #[test]
     fn external_gpu_rejects_controlled_density_display() {
