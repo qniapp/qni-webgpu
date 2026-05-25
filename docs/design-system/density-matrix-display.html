@@ -12,39 +12,13 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
+  <!-- 密度行列表示ブロック本体は <density-matrix-display> カスタム要素で描画する。 -->
+  <script src="components/density-matrix-display.js"></script>
   <style>
 
-    /* ── 密度行列表示ブロック視覚スタイル ─────────────────────────
-       state vector panel (apps/web/src/gpu/shaders/state.rs) / 振幅表示ブロックの 4 層モデルに揃える。
-       対角 / 非対角ともに magnitude disk + outline 円 で表現し、対角は実数 (位相 0) なので
-       needle のみ省略する。半径は対角なら ρ_ii (= 確率) の絶対値、非対角なら |ρ_ij|。
-       各セルは正方形 grid に配置し、内部に下記のレイヤを描く:
-         1. back   (cell 背景) = bg
-         2. outline 円 (全セル、cell 中央) = tx-2 (mag > 1e-6) / ui-2 (≈ 0)
-         3. magnitude disk (全セル、半径 ∝ |ρ_{ij}|) = blue-200 fill + blue-400 inset 1 px
-         4. needle (非対角のみ、center → edge) = tx stroke
-         5. matrix 外枠 = ui-2 1 px (cell 間の縦横区切り線は描かない)
-       Quirk のロガリズム円 (small-mag 強調用の補助円) は disk と冗長なので不採用。
-       cell 寸法が小さいときは needle / outline をレイヤ抑制する (§ 06)。 */
-    .dm-host {
-      position: relative;
-      display: inline-flex;
-      align-items: stretch;
-      flex-shrink: 0;
-    }
-    .dm-host canvas { display: block; cursor: crosshair; }
-    .dm-host:hover canvas {
-      box-shadow:
-        0 0 0 2px var(--bg),
-        0 0 0 4px var(--purple-400);
-    }
-    /* 静的アイコン (パレット mini preview)。hover の枠を強制表示するための個別クラス */
-    .dm-host.icon canvas { cursor: default; }
-
-    /* リサイズハンドルの chrome は primitive として design-system.css の .resize-handle に集約済み。
-       仕様: docs/design-system/resize-handle.html。
-       密度行列表示ブロックは span が大きいほど本体が広くなるので、widthMode: 'canvas60' を渡して
-       canvas 幅 × 0.6 (min 24 px) で追従させる。span 上限は 8 (matrix サイズの現実的限界)。 */
+    /* ページ固有スタイル。密度行列表示ブロック本体 / canvas / リサイズハンドル /
+       動くセルポップアップは components/density-matrix-display.js の
+       <density-matrix-display> に集約する。下の .dm-popup は § 08 の静的な仕様見本だけで使う。 */
 
     /* ─── ホバー popup (cell 単位) ───
        Quirk の paintMatrixTooltip + paintDensityMatrix の文言を Geist タイポグラフィへ移植。
@@ -123,7 +97,7 @@
       width: 160px; height: 160px;
       display: flex; align-items: center; justify-content: center;
     }
-    .stage .zoom .dm-host { transform: scale(4); transform-origin: center; }
+    .stage .zoom density-matrix-display { transform: scale(4); transform-origin: center; }
 
     .legend {
       display: grid;
@@ -199,7 +173,7 @@
 
 <div id="preview">
   <!-- 1 量子ビット (2×2、|+⟩⟨+|) がもっともシンプルな代表例。サムネ iframe で使う -->
-  <div class="dm-host" data-span="1" data-state="plus1"></div>
+  <density-matrix-display span="1" state="plus1"></density-matrix-display>
 </div>
 
 <nav class="breadcrumb" aria-label="breadcrumb">
@@ -266,11 +240,11 @@
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
       <div class="col" style="max-width: 160px;">
         <div class="caption">span 1<br><code>|+⟩</code> 純粋状態<br>2×2 行列</div>
-        <div class="actual"><div class="dm-host" data-span="1" data-state="plus1"></div></div>
+        <div class="actual"><density-matrix-display span="1" state="plus1"></density-matrix-display></div>
       </div>
       <div class="col" style="max-width: 160px;">
         <div class="caption">span 2<br>Bell <code>|Φ⁺⟩</code><br>4×4 行列</div>
-        <div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div>
+        <div class="actual"><density-matrix-display span="2" state="bell2"></density-matrix-display></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
@@ -309,16 +283,16 @@
 
     <h3 style="margin-top: 12px;">span 1〜4 (full detail、cellPx ≥ 13)</h3>
     <div class="stage">
-      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · cellPx = 20</div><div class="actual"><div class="dm-host" data-span="1" data-state="plus1"></div></div></div>
-      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · cellPx = 24</div><div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div></div>
-      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · cellPx = 19</div><div class="actual"><div class="dm-host" data-span="3" data-state="ghz3"></div></div></div>
-      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · cellPx = 13</div><div class="actual"><div class="dm-host" data-span="4" data-state="demo4"></div></div></div>
+      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · cellPx = 20</div><div class="actual"><density-matrix-display span="1" state="plus1"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · cellPx = 24</div><div class="actual"><density-matrix-display span="2" state="bell2"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · cellPx = 19</div><div class="actual"><density-matrix-display span="3" state="ghz3"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · cellPx = 13</div><div class="actual"><density-matrix-display span="4" state="demo4"></density-matrix-display></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">span 5〜6 (needle 省略、outline + disk)</h3>
     <div class="stage">
-      <div class="col"><div class="caption">5 量子ビット · 32×32 行列<br>264 px · cellPx = 8.25</div><div class="actual"><div class="dm-host" data-span="5" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">6 量子ビット · 64×64 行列<br>320 px · cellPx = 5.0</div><div class="actual"><div class="dm-host" data-span="6" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">5 量子ビット · 32×32 行列<br>264 px · cellPx = 8.25</div><div class="actual"><density-matrix-display span="5" state="demo"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">6 量子ビット · 64×64 行列<br>320 px · cellPx = 5.0</div><div class="actual"><density-matrix-display span="6" state="demo"></density-matrix-display></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">span 7〜8 (heatmap / dense mode、cellPx &lt; 3)</h3>
@@ -329,8 +303,8 @@
       Quirk は同じ条件 (<code>d ≤ 2</code>) で matrix 全面を <code>lightgray</code> の半透明塗りに潰すフォールバックを採用しており、本仕様もそれを <code>blue-200</code> の濃淡として踏襲する。
     </p>
     <div class="stage">
-      <div class="col"><div class="caption">7 量子ビット · 128×128 行列<br>376 px · cellPx = 2.94</div><div class="actual"><div class="dm-host" data-span="7" data-state="demo"></div></div></div>
-      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · cellPx = 1.69</div><div class="actual"><div class="dm-host" data-span="8" data-state="demo"></div></div></div>
+      <div class="col"><div class="caption">7 量子ビット · 128×128 行列<br>376 px · cellPx = 2.94</div><div class="actual"><density-matrix-display span="7" state="demo"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · cellPx = 1.69</div><div class="actual"><density-matrix-display span="8" state="demo"></density-matrix-display></div></div>
     </div>
 
     <h3 style="margin-top: 24px;">純粋状態 vs 混合状態の見た目の違い</h3>
@@ -340,8 +314,8 @@
       最大混合状態は対角のみに <code>0.25</code> 半径の小さな disk が均等に並び、非対角は全て 0 → <em>off-diagonal が空になり対角の小さな円だけが残る</em> 見た目になる。これが「混合度の視覚的指標」になる。
     </p>
     <div class="stage">
-      <div class="col"><div class="caption">純粋状態<br>Bell <code>|Φ⁺⟩</code></div><div class="actual"><div class="dm-host" data-span="2" data-state="bell2"></div></div></div>
-      <div class="col"><div class="caption">最大混合状態<br><code>I/4</code> (= 完全に entangled で外と切り離された場合)</div><div class="actual"><div class="dm-host" data-span="2" data-state="maxmix2"></div></div></div>
+      <div class="col"><div class="caption">純粋状態<br>Bell <code>|Φ⁺⟩</code></div><div class="actual"><density-matrix-display span="2" state="bell2"></density-matrix-display></div></div>
+      <div class="col"><div class="caption">最大混合状態<br><code>I/4</code> (例: 外部と最大にもつれている部分系)</div><div class="actual"><density-matrix-display span="2" state="maxmix2"></density-matrix-display></div></div>
     </div>
 
     <aside class="critique" aria-label="批評 · § 02 heatmap が production 標準になる + 純粋/混合の判別">
@@ -388,13 +362,13 @@
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
         <div class="actual">
-          <div class="dm-host icon" data-span="1" data-state="icon" data-no-popup="true"></div>
+          <density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display>
         </div>
       </div>
       <div class="col">
         <div class="caption">4× zoom</div>
         <div class="zoom">
-          <div class="dm-host icon" data-span="1" data-state="icon" data-no-popup="true"></div>
+          <density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display>
         </div>
       </div>
     </div>
@@ -655,11 +629,11 @@ for row in 0..n:
       <li><strong>遷移</strong> — 現行実装は Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
     </ul>
     <div class="stage">
-      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · 実行前</div><div class="actual"><div class="dm-host" data-span="1" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
-      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · 実行前</div><div class="actual"><div class="dm-host" data-span="2" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
-      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · 実行前</div><div class="actual"><div class="dm-host" data-span="3" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
-      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · 実行前</div><div class="actual"><div class="dm-host" data-span="4" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
-      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · 実行前 (背景 + 外枠のみ)</div><div class="actual"><div class="dm-host" data-span="8" data-state="placeholder" data-placeholder="true" data-no-popup="true"></div></div></div>
+      <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · 実行前</div><div class="actual"><density-matrix-display span="1" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
+      <div class="col"><div class="caption">2 量子ビット · 4×4 行列<br>96 px · 実行前</div><div class="actual"><density-matrix-display span="2" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
+      <div class="col"><div class="caption">3 量子ビット · 8×8 行列<br>152 px · 実行前</div><div class="actual"><density-matrix-display span="3" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
+      <div class="col"><div class="caption">4 量子ビット · 16×16 行列<br>208 px · 実行前</div><div class="actual"><density-matrix-display span="4" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
+      <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · 実行前 (背景 + 外枠のみ)</div><div class="actual"><density-matrix-display span="8" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
     </div>
     <p class="note" style="margin-top: 12px;">
       <strong>実装メモ:</strong> 既存 GPU 描画パイプライン (§ 10) の <code>DensityInstance.render_mode</code> に
@@ -973,311 +947,6 @@ for row in 0..n:
   <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
   <p class="meta">qni-webgpu · 密度行列表示ブロック仕様 · 2026-05</p>
 </footer>
-
-<script src="resize-handle.js"></script>
-<script>
-  /* ─── 密度行列表示ブロックの canvas renderer + cell tooltip ───
-     Quirk の MathPainter.paintDensityMatrix を 1:1 で写したシンプルな実装。
-     入力: rho = Float32Array (re, im, re, im, ...)、長さ 2 * n * n。
-     n × n に配置、cell = diam × diam (cellPx)。 */
-
-  const BG          = '#FFFCF0';
-  const BLUE_200    = '#92BFDB';  /* magnitude disk fill = state_fill (全セル) */
-  const BLUE_400    = '#4385BE';  /* disk inset border (確率表示ブロックの bar 右端と同濃さ) */
-  const UI_2        = '#DAD8CE';  /* zero-amp outline + 外枠 */
-  const TX_2        = '#6F6E69';  /* non-zero outline */
-  const TX          = '#100F0F';  /* phase needle */
-  const PURPLE_100  = '#ECE1F3';  /* 実行前プレースホルダ背景 (Flexoki purple-100、未確定/結果待ち) */
-
-  /* サンプル密度行列 (各値は Hermitian + Tr(ρ) = 1 を満たすよう作る) */
-  function buildRho(name, n) {
-    const buf = new Float32Array(n * n * 2);
-    const set = (r, c, re, im) => {
-      buf[(r * n + c) * 2]     = re;
-      buf[(r * n + c) * 2 + 1] = im;
-    };
-    if (name === 'plus1') {
-      // |+⟩⟨+| = 0.5 * [[1, 1], [1, 1]]
-      set(0, 0, 0.5, 0); set(0, 1, 0.5, 0);
-      set(1, 0, 0.5, 0); set(1, 1, 0.5, 0);
-    } else if (name === 'bell2') {
-      // |Φ⁺⟩⟨Φ⁺| = 0.5 * (|00⟩⟨00| + |00⟩⟨11| + |11⟩⟨00| + |11⟩⟨11|)
-      set(0, 0, 0.5, 0); set(0, 3, 0.5, 0);
-      set(3, 0, 0.5, 0); set(3, 3, 0.5, 0);
-    } else if (name === 'maxmix2') {
-      // I / 4: 対角だけ 0.25、非対角 0
-      for (let k = 0; k < 4; k++) set(k, k, 0.25, 0);
-    } else if (name === 'ghz3') {
-      // |GHZ⟩⟨GHZ| = 0.5 * (|000⟩⟨000| + |000⟩⟨111| + |111⟩⟨000| + |111⟩⟨111|)
-      set(0, 0, 0.5, 0); set(0, 7, 0.5, 0);
-      set(7, 0, 0.5, 0); set(7, 7, 0.5, 0);
-    } else if (name === 'demo4') {
-      // 16×16 用、ガウシアン peak (k = 0) の純粋状態
-      // ρ = |ψ⟩⟨ψ|、ψ_k = a * exp(−k * 0.4) * e^(i * k * π / 4)
-      const psi = new Float32Array(n * 2);
-      let unity = 0;
-      for (let k = 0; k < n; k++) {
-        const mag = Math.exp(-k * 0.4);
-        const ph = k * Math.PI / 4;
-        const re = mag * Math.cos(ph);
-        const im = mag * Math.sin(ph);
-        psi[k * 2] = re; psi[k * 2 + 1] = im;
-        unity += re * re + im * im;
-      }
-      const u = 1 / Math.sqrt(unity);
-      for (let k = 0; k < n * 2; k++) psi[k] *= u;
-      for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-          // ρ_{rc} = ψ_r * conj(ψ_c)
-          const a = psi[r * 2], b = psi[r * 2 + 1];
-          const x = psi[c * 2], y = psi[c * 2 + 1];
-          set(r, c, a * x + b * y, b * x - a * y);
-        }
-      }
-    } else if (name === 'demo') {
-      // span 5+ 用の汎用パターン: 中心 k = n/4 にガウシアン peak、位相は k に比例。
-      // ρ = |ψ⟩⟨ψ| + ε * I で純粋 + 少しの混合を作る (0.85 純粋 + 0.15 mix)
-      const psi = new Float32Array(n * 2);
-      const center = n / 4;
-      const sigma = Math.max(2, n / 8);
-      let unity = 0;
-      for (let k = 0; k < n; k++) {
-        const d = (k - center) / sigma;
-        const mag = Math.exp(-(d * d) / 2);
-        const ph = (2 * Math.PI * k) / Math.min(n, 32);
-        const re = mag * Math.cos(ph);
-        const im = mag * Math.sin(ph);
-        psi[k * 2] = re; psi[k * 2 + 1] = im;
-        unity += re * re + im * im;
-      }
-      if (unity > 0) {
-        const u = 1 / Math.sqrt(unity);
-        for (let k = 0; k < n * 2; k++) psi[k] *= u;
-      }
-      const pure = 0.85, mix = 0.15;
-      for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-          const a = psi[r * 2], b = psi[r * 2 + 1];
-          const x = psi[c * 2], y = psi[c * 2 + 1];
-          const re = pure * (a * x + b * y) + (r === c ? mix / n : 0);
-          const im = pure * (b * x - a * y);
-          set(r, c, re, im);
-        }
-      }
-    } else if (name === 'icon') {
-      // パレットアイコン: 2×2 の |+⟩⟨+| を使う (対角 + 非対角の両方が見える)
-      set(0, 0, 0.5, 0); set(0, 1, 0.5, 0);
-      set(1, 0, 0.5, 0); set(1, 1, 0.5, 0);
-    }
-    return buf;
-  }
-
-  function buildDmCanvas(host) {
-    const span = Number(host.dataset.span);
-    const n = 1 << span;
-    /* size_px は仕様 (§ 05) と同じ式: 56 * span − 16。
-       ただし span 1 はパレットアイコン専用で 40 px、それ以外は size_px。 */
-    const sizePx = 56 * span - 16;
-    const cellPx = sizePx / n;
-    const stateName = host.dataset.state;
-    const placeholder = host.dataset.placeholder === 'true';
-    const isIcon = host.classList.contains('icon');
-
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(sizePx * dpr);
-    canvas.height = Math.round(sizePx * dpr);
-    canvas.style.width = sizePx + 'px';
-    canvas.style.height = sizePx + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-
-    /* (1) 背景 — 通常は paper、実行前プレースホルダだけ purple-100 */
-    ctx.fillStyle = placeholder ? PURPLE_100 : BG;
-    ctx.fillRect(0, 0, sizePx, sizePx);
-
-    /* 実行前プレースホルダ: 外枠だけ描いて早期 return */
-    if (placeholder) {
-      ctx.strokeStyle = UI_2;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
-      return { canvas, rho: null, n, cellPx, span, placeholder: true };
-    }
-
-    const rho = buildRho(stateName, n);
-    const stroke = cellPx > 24 ? 2 : 1;
-    const half_stroke = stroke / 2;
-    const outline_clearance = 1.5;
-    const outline_radius = Math.max(0, cellPx / 2 - half_stroke - outline_clearance);
-    const inner_radius = Math.max(0, outline_radius - half_stroke);
-    const showFull    = cellPx >= 12;        // probability + outline + disk + needle
-    const showOutline = cellPx >= 3;         // outline + disk (needle 抑制)
-    const useHeatmap  = cellPx < 3;
-
-    if (useHeatmap) {
-      /* heatmap mode: 各セルを alpha = √(|ρ_ij|) で塗る */
-      for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-          const k = (r * n + c) * 2;
-          const re = rho[k], im = rho[k + 1];
-          const mag = Math.sqrt(re * re + im * im);
-          if (mag < 1e-6) continue;
-          const a = Math.sqrt(Math.min(1, mag));
-          ctx.fillStyle = `rgba(146, 191, 219, ${a})`;
-          ctx.fillRect(c * cellPx, r * cellPx, Math.ceil(cellPx) + 0.5, Math.ceil(cellPx) + 0.5);
-        }
-      }
-      /* 外枠だけ描いて return */
-      ctx.strokeStyle = UI_2;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
-      return { canvas, rho, n, cellPx, span, placeholder: false };
-    }
-
-    /* (2) outline 円 — 全セル (対角 / 非対角とも) */
-    if (showOutline) {
-      ctx.lineWidth = stroke;
-      for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-          const k = (r * n + c) * 2;
-          const re = rho[k], im = rho[k + 1];
-          const p = re * re + im * im;
-          ctx.strokeStyle = p > 0.001 ? TX_2 : UI_2;
-          ctx.beginPath();
-          ctx.arc(c * cellPx + cellPx / 2, r * cellPx + cellPx / 2, outline_radius, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-    }
-
-    /* (3) magnitude disk — 全セル。半径 = |ρ_ij| × inner_radius
-       対角は ρ_ii (実数 = 確率) の絶対値、非対角は |ρ_ij| (複素絶対値) */
-    const r_base = showOutline ? inner_radius : Math.max(0.5, cellPx / 2 - 0.5);
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        const k = (r * n + c) * 2;
-        const re = rho[k], im = rho[k + 1];
-        const mag = Math.sqrt(re * re + im * im);
-        const rr = mag * r_base;
-        if (rr < 0.3) continue;
-        const cx = c * cellPx + cellPx / 2;
-        const cy = r * cellPx + cellPx / 2;
-        ctx.fillStyle = BLUE_200;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
-        ctx.fill();
-        if (rr >= 1.5) {
-          ctx.strokeStyle = BLUE_400;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(cx, cy, rr - 0.5, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-    }
-
-    /* (4) phase needle — 非対角セルのみ、cellPx >= 12 のときだけ
-       (対角 ρ_ii は実数なので位相は常に 0、needle を描く意味がない) */
-    if (showFull) {
-      ctx.strokeStyle = TX;
-      ctx.lineWidth = stroke;
-      ctx.beginPath();
-      for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
-          if (r === c) continue;
-          const k = (r * n + c) * 2;
-          const re = rho[k], im = rho[k + 1];
-          const mag = Math.sqrt(re * re + im * im);
-          if (mag < 0.001) continue;
-          const cx = c * cellPx + cellPx / 2;
-          const cy = r * cellPx + cellPx / 2;
-          const ux = -im / mag, uy = -re / mag;  // phase 0 = 真上
-          ctx.moveTo(cx, cy);
-          ctx.lineTo(cx + ux * inner_radius, cy + uy * inner_radius);
-        }
-      }
-      ctx.stroke();
-    }
-
-    /* (6) 外枠 — cell 間の縦横区切り線は描かない */
-    if (!isIcon) {
-      ctx.strokeStyle = UI_2;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, sizePx - 1, sizePx - 1);
-    }
-
-    return { canvas, rho, n, cellPx, span, placeholder: false };
-  }
-
-  function bin(k, span) {
-    let s = k.toString(2);
-    while (s.length < span) s = '0' + s;
-    return s;
-  }
-
-  function popupHtml(row, col, rho, span) {
-    const n = 1 << span;
-    const k = (row * n + col) * 2;
-    const re = rho[k], im = rho[k + 1];
-    const isDiag = row === col;
-    if (isDiag) {
-      const p = re * 100;  // 対角の実部 = 確率
-      const db = p > 0 ? (Math.log10(p / 100) * 10).toFixed(1) + ' dB' : '−∞ dB';
-      return `
-        <div class="dm-popup-ket">Probability of |${bin(row, span)}⟩</div>
-        <div class="dm-popup-sub">diagonal · decimal ${row}</div>
-        <div class="dm-popup-divider"></div>
-        <div class="dm-popup-row"><span class="dm-popup-label">P</span><span class="dm-popup-value">${p.toFixed(4)}%</span></div>
-        <div class="dm-popup-row"><span class="dm-popup-label">log</span><span class="dm-popup-value">${db.replace(/^-/, '−')}</span></div>
-      `;
-    }
-    const mag = Math.sqrt(re * re + im * im);
-    const phase = Math.atan2(im, re) * 180 / Math.PI;
-    const phaseStr = (phase >= 0 ? '+' : '−') + Math.abs(phase).toFixed(2) + '°';
-    const sign = im >= 0 ? '+' : '−';
-    return `
-      <div class="dm-popup-ket">Coupling of |${bin(row, span)}⟩ to ⟨${bin(col, span)}|</div>
-      <div class="dm-popup-sub">off-diagonal · decimal ${row} to ${col}</div>
-      <div class="dm-popup-divider"></div>
-      <div class="dm-popup-row"><span class="dm-popup-label">val</span><span class="dm-popup-value">${re.toFixed(6)} ${sign} ${Math.abs(im).toFixed(6)}i</span></div>
-      <div class="dm-popup-row"><span class="dm-popup-label">mag</span><span class="dm-popup-value">${mag.toFixed(6)}</span></div>
-      <div class="dm-popup-row"><span class="dm-popup-label">phase</span><span class="dm-popup-value">${phaseStr}</span></div>
-    `;
-  }
-
-  function attachPopup(host, info) {
-    const popup = document.createElement('div');
-    popup.className = 'dm-popup';
-    host.style.position = 'relative';
-    host.appendChild(popup);
-    const { canvas, rho, n, cellPx, span } = info;
-    canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const col = Math.floor((e.clientX - rect.left) / cellPx);
-      const row = Math.floor((e.clientY - rect.top) / cellPx);
-      if (col < 0 || col >= n || row < 0 || row >= n) {
-        popup.style.display = 'none';
-        return;
-      }
-      popup.innerHTML = popupHtml(row, col, rho, span);
-      popup.style.left = (canvas.offsetLeft + canvas.offsetWidth + 8) + 'px';
-      popup.style.top = (canvas.offsetTop + row * cellPx) + 'px';
-      popup.style.display = 'block';
-    });
-    canvas.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
-  }
-
-  document.querySelectorAll('.dm-host').forEach(host => {
-    const info = buildDmCanvas(host);
-    host.appendChild(info.canvas);
-    if (!info.placeholder && host.dataset.noPopup !== 'true') attachPopup(host, info);
-    // リサイズハンドルは共有 primitive (resize-handle.js)。placeholder でも出す。
-    if (!host.classList.contains('icon')) {
-      host.classList.add('resize-handle-host');
-      attachResizeHandles(host, { widthMode: 'canvas60' });
-    }
-  });
-</script>
 
 </body>
 </html>
