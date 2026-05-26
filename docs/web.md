@@ -177,7 +177,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 
 - 状態ベクトル / Bloch / 測定 / Probability / Amplitude / Density Matrix の表示値はすべて GPU storage buffer に置き、render shader が直接 sample する (`STATE_RENDER_SHADER` パターン)。CPU リードバックなし。
 - 確率表示ブロックは recompute 中の `PROBABILITY_REDUCE_SHADER` で contiguous span の marginal probability を `probability_output` に書き、本体の bar は `PROBABILITY_RENDER_SHADER` がそのバッファを直接読む。振幅表示ブロックと密度行列表示ブロックも capture shader または外部 GPU 実行結果の転送で同じ GPU バッファを更新し、描画値は CPU に戻さない。palette / hover ポップアップのラベルは幾何の固定情報だけを CPU で描く。
-- 列セレクト中も GPU simulation は最後の列まで実行する。選択列の state panel だけは `SnapshotState` で GPU buffer にコピーし、後続の Measurement / Bloch / Probability readout はすべて通常どおり表示する (qni worker loop と同じ)。hover による step-preview recompute 待ちの間は既存の readout slot map を保持し、Quirk の `CircuitStats.customStatsForSlot` と同様に前フレームの readout を描き続けてデフォルト body への 1-frame flicker を避ける。
+- 列セレクト中も GPU simulation は最後の列まで実行する。選択列の state panel だけは `SnapshotState` で GPU buffer にコピーし、後続の Measurement / Bloch / Probability readout はすべて通常どおり表示する (qni worker loop と同じ)。hover による step-preview 切り替えや、ドラッグ中に回路スロットへスナップして GPU 計算計画を作り直す間は既存の readout slot map を保持し、Quirk の `CircuitStats.customStatsForSlot` と同様に前フレームの readout を描き続けてデフォルト body への 1-frame flicker を避ける。
 - `read_state_vector_impl` / `read_bloch_vectors_impl` / `read_measurement_outcomes_impl` / `read_probability_distributions_impl` / `read_amplitude_cell_impl` / `read_density_matrix_cell_impl` は `#[wasm_bindgen]` 経由 JS から呼ぶ test 専用。production の `prepare()` 経路は通らない (`apps/web/src/gpu/readback.rs`)。
 
 ### recompute あたりの GPU 往復

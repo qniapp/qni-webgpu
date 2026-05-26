@@ -56,6 +56,16 @@ impl GpuPlanState {
         self.capacity_error = None;
     }
 
+    pub(crate) fn mark_live_drag_dirty(&mut self) {
+        // A snapped drag needs a fresh GPU plan, but the circuit is drawn once
+        // before the recompute callback replaces slot maps. Keep the previous
+        // display slots so Probability / Amplitude / Density / Bloch blocks
+        // keep showing the last GPU result instead of flashing to their static
+        // fallback icon for that frame.
+        self.needs_recompute = true;
+        self.capacity_error = None;
+    }
+
     pub(crate) fn mark_step_preview_dirty(&mut self) {
         // Qni keeps per-step results cached and only switches the displayed
         // snapshot on hover. Do the same: changing the active preview column
