@@ -61,6 +61,9 @@
     display: none;
     pointer-events: none;
     z-index: 50;
+    box-sizing: border-box;
+    width: 296px;
+    min-height: 108px;
     background: var(--bg);
     border: 1px solid var(--tx-3);
     border-radius: 10px;
@@ -75,47 +78,58 @@
   .ad-popup .ad-popup-ket {
     font-family: var(--font-mono);
     font-size: 14px;        /* text-sm */
+    line-height: 20px;
     font-weight: 400;
     letter-spacing: 0.02em;
     color: var(--tx);
-    text-align: center;
+    text-align: left;
   }
-  .ad-popup .ad-popup-sub {
-    font-size: 12px;        /* text-xs */
-    margin-top: 4px;        /* spacing-1 */
-    color: var(--tx-2);
-  }
-  .ad-popup .ad-popup-divider {
-    height: 1px;
-    background: var(--ui-2);
-    margin: 12px 0;         /* spacing-3 */
+  .ad-popup .ad-popup-metrics {
+    margin-top: 8px;        /* spacing-2 */
   }
   .ad-popup .ad-popup-row {
     display: flex;
-    gap: 16px;              /* spacing-4 */
-    align-items: baseline;
+    align-items: center;
+    gap: 8px;               /* spacing-2 */
+    height: 20px;           /* spacing-5 */
     font-family: var(--font-mono);
-  }
-  .ad-popup .ad-popup-row + .ad-popup-row { margin-top: 4px; }
-  .ad-popup .ad-popup-label {
     font-size: 12px;        /* text-xs */
+    line-height: 20px;
+  }
+  .ad-popup .ad-popup-icon {
+    width: 16px;            /* spacing-4 */
+    height: 16px;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .ad-popup .ad-popup-icon__chrome {
+    fill: none;
+    stroke: var(--tx-3);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ad-popup .ad-popup-icon__chrome-fill { fill: var(--tx-3); }
+  .ad-popup .ad-popup-icon__accent {
+    fill: none;
+    stroke: var(--blue-400);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ad-popup .ad-popup-icon__accent-fill { fill: var(--blue-400); }
+  .ad-popup .ad-popup-label {
+    width: 88px;
     color: var(--tx-2);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    min-width: 40px;
   }
   .ad-popup .ad-popup-value {
-    font-size: 14px;        /* text-sm */
     color: var(--tx);
     font-variant-numeric: tabular-nums;
-    margin-left: auto;
   }
+  .ad-popup .ad-popup-value--muted { color: var(--tx-2); }
   .ad-popup .doc-popover-tail {
     position: absolute;
-    top: var(--tail-y, 50%);
-    width: 10px;
-    height: 16px;
-    transform: translateY(-50%);
+    left: var(--tail-x, 50%);
+    width: 16px;
+    height: 8px;
     pointer-events: none;
     overflow: visible;
   }
@@ -124,12 +138,21 @@
     fill: none;
     stroke: var(--tx-3);
     stroke-width: 1.5px;
+    stroke-linecap: round;
     stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
   }
-  .ad-popup .doc-popover-tail--right { left: -8px; }
-  .ad-popup .doc-popover-tail--left { right: -8px; display: none; }
-  .ad-popup[data-side="left"] .doc-popover-tail--right { display: none; }
-  .ad-popup[data-side="left"] .doc-popover-tail--left { display: block; }
+  .ad-popup .doc-popover-tail--bottom {
+    bottom: -8px;
+    transform: translateX(-50%);
+  }
+  .ad-popup .doc-popover-tail--top {
+    top: -8px;
+    transform: translateX(-50%) rotate(180deg);
+    display: none;
+  }
+  .ad-popup[data-placement="below"] .doc-popover-tail--bottom { display: none; }
+  .ad-popup[data-placement="below"] .doc-popover-tail--top { display: block; }
 
   .incoherent-label {
     margin-top: 16px;       /* spacing-4: 下リサイズハンドルと重ねない */
@@ -499,6 +522,8 @@
       parent.appendChild(popup);
       const { canvas, state, wGrid, hGrid, cellPx, incoherent } = info;
       const span = Math.log2(wGrid * hGrid);
+      const stroke = cellPx >= 24 ? 2 : 1;
+      const circleRadius = Math.max(0, cellPx / 2 - stroke / 2 - 1.5);
       canvas.addEventListener('mousemove', (event) => {
         const rect = canvas.getBoundingClientRect();
         const col = Math.floor((event.clientX - rect.left) / cellPx);
@@ -512,38 +537,43 @@
         const im = state[idx * 2 + 1];
         popup.innerHTML = this.#popupHtml(idx, re, im, span, incoherent) + this.#popupTailHtml();
         this.#placePopup(parent, popup, {
-          left: canvas.offsetLeft + col * cellPx,
-          width: cellPx,
-        }, canvas.offsetTop + row * cellPx + cellPx / 2);
+          centerX: canvas.offsetLeft + col * cellPx + cellPx / 2,
+          centerY: canvas.offsetTop + row * cellPx + cellPx / 2,
+          radius: circleRadius,
+        });
       });
       canvas.addEventListener('mouseleave', () => {
         popup.style.display = 'none';
       });
     }
 
-    #placePopup(anchor, popup, targetRect, cellCenterY) {
+    #placePopup(anchor, popup, target) {
       const hostRect = anchor.getBoundingClientRect();
       popup.style.display = 'block';
       popup.style.visibility = 'hidden';
-      const sideGap = 12;
+      const gap = 4;
+      const tailH = 8;
       const pad = 4;
       const width = popup.offsetWidth;
       const height = popup.offsetHeight;
-      const rightLeft = targetRect.left + targetRect.width + sideGap;
-      const leftLeft = targetRect.left - sideGap - width;
-      const preferRight = hostRect.left + rightLeft + width <= window.innerWidth - pad;
       const minLeft = pad - hostRect.left;
       const maxLeft = window.innerWidth - pad - hostRect.left - width;
+      const unclampedLeft = target.centerX - width / 2;
+      const left = Math.max(minLeft, Math.min(unclampedLeft, Math.max(minLeft, maxLeft)));
       const minTop = pad - hostRect.top;
       const maxTop = window.innerHeight - pad - hostRect.top - height;
-      const unclampedLeft = preferRight ? rightLeft : leftLeft;
-      const left = Math.max(minLeft, Math.min(unclampedLeft, Math.max(minLeft, maxLeft)));
-      const top = Math.max(minTop, Math.min(cellCenterY - height / 2, Math.max(minTop, maxTop)));
-      const side = left + width / 2 >= targetRect.left + targetRect.width / 2 ? 'right' : 'left';
-      const rawTailY = cellCenterY - top;
-      const tailY = Math.max(8, Math.min(rawTailY, Math.max(8, height - 8)));
-      popup.dataset.side = side;
-      popup.style.setProperty('--tail-y', `${tailY}px`);
+      const aboveTop = target.centerY - target.radius - gap - tailH - height;
+      const belowTop = target.centerY + target.radius + gap + tailH;
+      const viewportTargetY = hostRect.top + target.centerY;
+      const availableAbove = viewportTargetY - target.radius - gap - tailH - pad;
+      const availableBelow = window.innerHeight - pad - (viewportTargetY + target.radius + gap + tailH);
+      const placeAbove = availableAbove >= height || (availableBelow < height && availableAbove >= availableBelow);
+      const placement = placeAbove ? 'above' : 'below';
+      const unclampedTop = placeAbove ? aboveTop : belowTop;
+      const top = Math.max(minTop, Math.min(unclampedTop, Math.max(minTop, maxTop)));
+      const tailX = Math.max(8, Math.min(target.centerX - left, Math.max(8, width - 8)));
+      popup.dataset.placement = placement === 'below' ? 'below' : 'above';
+      popup.style.setProperty('--tail-x', `${tailX}px`);
       popup.style.left = `${left}px`;
       popup.style.top = `${top}px`;
       popup.style.visibility = 'visible';
@@ -667,38 +697,75 @@
     #popupHtml(idx, re, im, span, incoherent) {
       const ket = this.#bin(idx, span);
       const mag2 = (re * re + im * im) * 100;
-      if (incoherent) {
-        const db = mag2 > 0 ? `${(Math.log10(mag2 / 100) * 10).toFixed(1)} dB` : '−∞ dB';
-        return `
-          <div class="ad-popup-ket">|${ket}⟩</div>
-          <div class="ad-popup-sub">Probability · decimal ${idx} · [entangled with other qubits]</div>
-          <div class="ad-popup-divider"></div>
-          <div class="ad-popup-row"><span class="ad-popup-label">raw</span><span class="ad-popup-value">${mag2.toFixed(4)}%</span></div>
-          <div class="ad-popup-row"><span class="ad-popup-label">log</span><span class="ad-popup-value">${db.replace(/^-/, '−')}</span></div>
-        `;
-      }
+      const amp = incoherent ? this.#mutedValue('—') : this.#signedComplex(re, im);
       const phase = Math.atan2(im, re) * 180 / Math.PI;
-      const phaseStr = `${phase >= 0 ? '+' : '−'}${Math.abs(phase).toFixed(2)}°`;
-      const sign = im >= 0 ? '+' : '−';
+      const phaseText = incoherent ? this.#mutedValue('—') : this.#signedFixed(phase, 2, '°');
+      const probability = this.#signedFixed(mag2, 4, '%');
       return `
-        <div class="ad-popup-ket">|${ket}⟩</div>
-        <div class="ad-popup-sub">Amplitude · decimal ${idx}</div>
-        <div class="ad-popup-divider"></div>
-        <div class="ad-popup-row"><span class="ad-popup-label">val</span><span class="ad-popup-value">${re.toFixed(5)} ${sign} ${Math.abs(im).toFixed(5)}i</span></div>
-        <div class="ad-popup-row"><span class="ad-popup-label">mag²</span><span class="ad-popup-value">${mag2.toFixed(4)}%</span></div>
-        <div class="ad-popup-row"><span class="ad-popup-label">phase</span><span class="ad-popup-value">${phaseStr}</span></div>
+        <div class="ad-popup-ket">|${ket}⟩ decimal ${idx}</div>
+        <div class="ad-popup-metrics">
+          ${this.#metricRowHtml('amplitude', 'Amplitude:', amp)}
+          ${this.#metricRowHtml('probability', 'Probability:', probability)}
+          ${this.#metricRowHtml('phase', 'Phase:', phaseText)}
+        </div>
       `;
+    }
+
+    #metricRowHtml(kind, label, valueHtml) {
+      return `
+        <div class="ad-popup-row">
+          ${this.#popupIconHtml(kind)}
+          <span class="ad-popup-label">${label}</span><span class="ad-popup-value">${valueHtml}</span>
+        </div>
+      `;
+    }
+
+    #popupIconHtml(kind) {
+      if (kind === 'probability') {
+        return `
+          <svg class="ad-popup-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <circle class="ad-popup-icon__chrome" cx="8" cy="8" r="6.4" stroke-width="2"></circle>
+            <circle class="ad-popup-icon__accent-fill" cx="8" cy="8" r="4"></circle>
+          </svg>`;
+      }
+      if (kind === 'phase') {
+        return `
+          <svg class="ad-popup-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path class="ad-popup-icon__chrome" d="M2.5 12.6 H14.2 M2.5 12.6 L10.23 3.09" stroke-width="1.6"></path>
+            <path class="ad-popup-icon__accent" d="M6.02 8.95 L7.1 10.6 L7.9 12.95" stroke-width="2"></path>
+          </svg>`;
+      }
+      return `
+        <svg class="ad-popup-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path class="ad-popup-icon__chrome" d="M1 13 H15 M3 1 V15" stroke-width="1.2"></path>
+          <circle class="ad-popup-icon__chrome-fill" cx="3" cy="13" r="1.4"></circle>
+          <path class="ad-popup-icon__accent" d="M3 13 L10.61 5.39" stroke-width="2.2"></path>
+          <path class="ad-popup-icon__accent-fill" d="M14 2 L7.92 3.27 L12.73 8.08 Z"></path>
+        </svg>`;
+    }
+
+    #signedComplex(re, im) {
+      return `${this.#signedFixed(re, 5)}${this.#signedFixed(im, 5)}i`;
+    }
+
+    #signedFixed(value, digits, suffix = '') {
+      const sign = value >= 0 ? '+' : '−';
+      return `${sign}${Math.abs(value).toFixed(digits)}${suffix}`;
+    }
+
+    #mutedValue(value) {
+      return `<span class="ad-popup-value--muted">${value}</span>`;
     }
 
     #popupTailHtml() {
       return `
-        <svg class="doc-popover-tail doc-popover-tail--right" viewBox="0 0 10 16" aria-hidden="true">
-          <path class="doc-popover-tail__fill" d="M10 0 L0 8 L10 16 Z"></path>
-          <path class="doc-popover-tail__stroke" d="M8 0 L0 8 L8 16"></path>
+        <svg class="doc-popover-tail doc-popover-tail--bottom" viewBox="0 0 16 8" aria-hidden="true">
+          <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
         </svg>
-        <svg class="doc-popover-tail doc-popover-tail--left" viewBox="0 0 10 16" aria-hidden="true">
-          <path class="doc-popover-tail__fill" d="M0 0 L10 8 L0 16 Z"></path>
-          <path class="doc-popover-tail__stroke" d="M2 0 L10 8 L2 16"></path>
+        <svg class="doc-popover-tail doc-popover-tail--top" viewBox="0 0 16 8" aria-hidden="true">
+          <path class="doc-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+          <path class="doc-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
         </svg>
       `;
     }

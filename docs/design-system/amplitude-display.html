@@ -16,61 +16,9 @@
   <script src="components/amplitude-display.js"></script>
   <style>
 
-    /* 振幅表示ブロック本体 / canvas 描画処理 / ポップアップ / リサイズハンドルは
+    /* 振幅表示ブロック本体 / canvas 描画処理 / ポップオーバー / リサイズハンドルは
        components/amplitude-display.js の <amplitude-display> に集約する。
-       § 08 の常時表示ポップアップ見本だけは、内容比較のため light DOM に静的表示する。 */
-
-    .ad-static-popup {
-      display: inline-block;
-      background: var(--bg);
-      border: 1px solid var(--tx-3); /* popover_outline: Flexoki tx-3 */
-      border-radius: 10px;
-      padding: 12px 16px;            /* spacing-3 / spacing-4 */
-      font-family: var(--font-body);
-      font-size: 12px;               /* text-xs */
-      line-height: 16px;
-      color: var(--tx);
-      white-space: nowrap;
-      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
-    }
-    .ad-static-popup .ad-popup-ket {
-      font-family: var(--font-mono);
-      font-size: 14px;               /* text-sm */
-      font-weight: 400;
-      letter-spacing: 0.02em;
-      color: var(--tx);
-      text-align: center;
-    }
-    .ad-static-popup .ad-popup-sub {
-      font-size: 12px;               /* text-xs */
-      margin-top: 4px;               /* spacing-1 */
-      color: var(--tx-2);
-    }
-    .ad-static-popup .ad-popup-divider {
-      height: 1px;
-      background: var(--ui-2);
-      margin: 12px 0;                /* spacing-3 */
-    }
-    .ad-static-popup .ad-popup-row {
-      display: flex;
-      gap: 16px;                     /* spacing-4 */
-      align-items: baseline;
-      font-family: var(--font-mono);
-    }
-    .ad-static-popup .ad-popup-row + .ad-popup-row { margin-top: 4px; }
-    .ad-static-popup .ad-popup-label {
-      font-size: 12px;               /* text-xs */
-      color: var(--tx-2);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      min-width: 40px;
-    }
-    .ad-static-popup .ad-popup-value {
-      font-size: 14px;               /* text-sm */
-      color: var(--tx);
-      font-variant-numeric: tabular-nums;
-      margin-left: auto;
-    }
+       振幅円ポップオーバーの内容仕様は amplitude-circle-popover.html に分離する。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -210,9 +158,9 @@
       <tbody>
         <tr><th>位相パターン、干渉、複素振幅そのもの</th><td><strong>振幅表示ブロック</strong></td><td>針の向きで位相を追える。円盤の面積で確率も同時に読めるため、QFT や位相回転後の状態を観察しやすい。</td></tr>
         <tr><th>大きな span の確率分布形状</th><td><strong>確率表示ブロック</strong></td><td>線形バーは幅 40 px のまま縦方向に圧縮できる。span 12〜16 のようにセルが極小になる場合、位相より分布の山谷を読む用途に向く。</td></tr>
-        <tr><th>1 セルの正確な複素値</th><td><strong>振幅表示ブロック</strong></td><td>ポップアップで <code>val</code> / <code>mag²</code> / <code>phase</code> を同時に確認できる。</td></tr>
-        <tr><th>測定確率だけを数値で確認</th><td><strong>確率表示ブロック</strong></td><td>ポップアップが <code>raw</code> / <code>log</code> に絞られ、位相情報を読ませない。確率だけを確認する作業では情報密度が低くて済む。</td></tr>
-        <tr><th>span 外とのもつれを見つける</th><td><strong>密度行列表示ブロック</strong></td><td>振幅表示ブロックは incoherent state で確率表示へ退避する。混合性や非対角成分を見たい場合は密度行列表示ブロックを使う。</td></tr>
+        <tr><th>1 セルの正確な複素値</th><td><strong>振幅表示ブロック</strong></td><td>ポップオーバーで <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> を状態ベクトルパネルと同じ行構成で確認できる。</td></tr>
+        <tr><th>測定確率だけを数値で確認</th><td><strong>確率表示ブロック</strong></td><td>ポップオーバーが確率値に絞られ、位相情報を読ませない。確率だけを確認する作業では情報密度が低くて済む。</td></tr>
+        <tr><th>span 外とのもつれを見つける</th><td><strong>密度行列表示ブロック</strong></td><td>振幅表示ブロックは非コヒーレント状態で確率だけを表示し、ポップオーバーも 3 行構造を維持する。混合性や非対角成分を見たい場合は密度行列表示ブロックを使う。</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 16px;">
@@ -230,7 +178,7 @@
       span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。測定結果数 <code>n = 2<sup>span</sup></code> を
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
-      各セルにマウスを乗せると、coherent では ket / val / mag² / phase、incoherent では ket / raw / log をポップアップ表示する (詳細は § 08)。
+      各セルにマウスを乗せると、状態ベクトルパネルと同じ <code>|bin(k)⟩ decimal k</code> / <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> のポップオーバーを表示する (詳細は § 08)。
       cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk (disk は半径閾値を満たすセルのみ) / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
       本番の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は本番では発生しない。ただし cellPx ≈ 3 では § 06 の半径式により円盤半径が 0 に近づくため、円は点状または外枠だけに近い表示になる。
       下のモックは表示の都合で 320 px に縮小しているので、モックでは span 13〜16 が cellPx ≤ 2 となりヒートマップモードに入る。
@@ -310,7 +258,7 @@
       <li><strong>outline 円</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレー。<em>これは「振幅 ≈ 0」のときの既存配色 (state panel <code>state_outline_zero</code>) と同じ token を流用する</em>ので、追加の色定義は不要。stroke 太さ・半径は通常時と同じルール (<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>)。</li>
       <li><strong>disk / needle</strong> — 描かない。振幅値そのものを持たないので、disk (大きさ) も needle (位相) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前は cell 単位のポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー outline) を 150 ms ease-out でフェードアウトしつつ、通常の disk + needle 描画にクロスフェードする。フェード中は cellPx の判定 (§ 06) も通常通り適用する。</li>
     </ul>
     <div class="stage">
@@ -340,7 +288,7 @@
       <strong>単一 cell (1×1)</strong> に <code>mag² ≈ 50%</code> の disk + 右下向き needle (<code>phase = 5π/4</code>) で
       <strong>Qni の "Q" 風シルエット</strong>を作る (円胴 + 右下に伸びるテール)。
       matrix の四角い外枠は描かず、円胴 + 右下テールだけを表示する。
-      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップオーバーは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -638,7 +586,7 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
       <li>outline 円は通常通り描く (情報量を保持)、disk は <strong>alpha 0.45 で薄塗り</strong>「振幅未定義 / 確率のみ」を示す</li>
       <li>phase needle は描かない (虚部が無いので位相は 0、線が意味を持たない)</li>
       <li>ゲート下に "incoherent" を <code>red-600</code> でフェードイン (<code>1 − indicatorAlpha</code> 透明度)</li>
-      <li>ホバー popup は § 08 と同じ <code>Probability · decimal N · [entangled with other qubits]</code> のサブ行と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
+      <li>ホバー時ポップオーバーは § 08 と同じ 3 行構造を維持し、<code>Amplitude:</code> と <code>Phase:</code> は <code>—</code>、<code>Probability:</code> だけに確率値を表示する</li>
     </ul>
     <h3 style="margin-top: 16px;">measure 済み列での挙動 (Quirk と仕様が異なる)</h3>
     <p>
@@ -677,69 +625,24 @@ fn render_cell(re: f32, im: f32, cell_uv: vec2&lt;f32&gt;, cell_size: f32) -&gt;
   </div>
 </section>
 
-<!-- ─────── § 08 ホバーポップアップ ─────── -->
+<!-- ─────── § 08 ホバー時ポップオーバー ─────── -->
 <section class="block">
-  <h2>§ 08 ホバー時ポップアップ</h2>
+  <h2>§ 08 ホバー時ポップオーバー</h2>
   <div class="card">
     <p>
-      Quirk の <code>MathPainter.paintMatrixTooltip</code> と同じ情報を Geist タイポグラフィへ写像する。coherent は <code>val</code> / <code>mag²</code> / <code>phase</code> の 3 行、incoherent は <code>raw</code> / <code>log</code> の 2 行で表示し、外装は <a href="popover.html">ポップオーバー共通仕様</a> (paper / <code>popover_outline</code> / tail / 共通の影) に従う。
-      下の常時表示モックは値ラベルと行構成を見せるための内容見本で、tail と画面端反転は <code>popover.html</code> と § 02 の動くモックで検証する。
+      振幅表示ブロックのセルは、状態ベクトルパネルと同じ<a href="amplitude-circle.html">振幅円</a>を表示する。
+      そのため、ホバー時の内容、数値形式、三角形の近接配置は独立仕様
+      <a href="amplitude-circle-popover.html">振幅円ポップオーバー</a>を正とする。
+      本ページでは振幅表示ブロック側の前提と GPU 描画経路だけを補足する。
     </p>
-    <h3 style="margin-top: 8px;">coherent state</h3>
-    <div class="ad-static-popup">
-      <div class="ad-popup-ket">|01⟩</div>
-      <div class="ad-popup-sub">Amplitude · decimal 1</div>
-      <div class="ad-popup-divider"></div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">val</span>
-        <span class="ad-popup-value">0.500 +0.300i</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">mag²</span>
-        <span class="ad-popup-value">34.0000%</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">phase</span>
-        <span class="ad-popup-value">+30.96°</span>
-      </div>
-    </div>
-    <h3 style="margin-top: 16px;">incoherent state</h3>
-    <div class="ad-static-popup">
-      <div class="ad-popup-ket">|01⟩</div>
-      <div class="ad-popup-sub">Probability · decimal 1 · [entangled with other qubits]</div>
-      <div class="ad-popup-divider"></div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">raw</span>
-        <span class="ad-popup-value">25.0000%</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">log</span>
-        <span class="ad-popup-value">−6.0 dB</span>
-      </div>
-    </div>
-
-    <aside class="critique" aria-label="批評 · § 08 ポップアップの数値表現">
-      <div class="critique-label">★ 批評 · § 08 ホバーポップアップ</div>
-      <div class="critique-title">coherent / incoherent でラベル数 (3 行 / 2 行) が違い、popup の高さが変わる</div>
-      <p class="critique-body">
-        coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行と<em>表示する数値の種類自体が変わる</em>。
-        cell ホバーで popup を出すたび、状態に応じて popup の縦寸が <strong>~88 px</strong> と <strong>~64 px</strong> で <strong>24 px (3 spacing-6) 変動</strong>する。
-        配置は cell center を tail で指し、画面端では上下 clamp する仕様だが、高さが変わると同じセルでもカード中心の見え方が少し揺れる。
-        改善案: incoherent でも 3 行構造を維持し、空行に <code>—</code> や「phase: undefined」を入れて popup 高さを固定する。
-        または incoherent と coherent で popup 自体のデザイン (背景 alpha / border 色) を変えて、ユーザに「振幅未定義」を視覚的に強調する。
-      </p>
-      <p class="critique-body">
-        <strong>incoherent 側の数値は確率表示ブロックのポップアップと完全同一</strong> (<code>raw % / log dB</code>)。
-        これは「振幅表示ブロック内で incoherent 状態に当たったときは、確率表示ブロックに切り替えるべき」というシグナルとも読める。
-        本仕様は § 09 の glyph 共有としてポジティブに扱っているが、UX 視点では「振幅表示ブロックがダウングレード表示する」より「確率表示ブロックへ切替を促す inline link」のほうが教育的かもしれない (Quirk と互換性は破るが)。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">サブ行 "Amplitude · decimal 1" / "Probability · decimal 1 · [entangled ...]" が冗長</div>
-      <p class="critique-body">
-        probability-display.html § 11 の批評で指摘されているとおり、ket <code>|01⟩</code> が見えれば <code>decimal 1</code> は導出可能。
-        本仕様は同じパターン (ket + サブ + raw/log) を継承しているので、<strong>同じ批評がそのまま適用される</strong>。
-        ここで個別に反論せず、確率表示ブロック側の改善が決まったらそのままミラーする (両仕様で popup フォーマットを揃え続ける) のが妥当な方針。
-      </p>
-    </aside>
+    <table class="spec" style="margin-top: 8px;">
+      <tbody>
+        <tr><th>内容仕様</th><td><a href="amplitude-circle-popover.html">振幅円ポップオーバー</a> § 02。<code>|bin(k)⟩ decimal k</code> 見出しと <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> の 3 行を使う。</td></tr>
+        <tr><th>配置仕様</th><td><a href="amplitude-circle-popover.html">振幅円ポップオーバー</a> § 03。対象セルの右側ではなく、対象の輪郭円を基準に上側へ近接配置する。</td></tr>
+        <tr><th>非コヒーレント状態</th><td>振幅と位相は <code>—</code>、確率だけを表示する。<code>raw</code> / <code>log</code> の 2 行カードへは切り替えない。</td></tr>
+        <tr><th>本番経路</th><td>値は GPU storage buffer から overlay shader で直接描画し、CPU へ読み戻さない。詳細は § 09 のポップオーバー描画メモを参照。</td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -838,74 +741,63 @@ for (k = 0u; k &lt; n; k++) {
       <strong>CPU は vertex バッファを作らない</strong>。ゲート配置 (cell サイズ) が変わったときに更新する vertex は <em>cell quad の四隅と uv だけ</em> (各セル fragment shader が cell index を知るための instance buffer 相当)。これは ゲート placement / resize 時だけ rebuild。
     </p>
 
-    <h3 style="margin-top: 16px;">Popup の値も GPU 描画 (readback 無し、glyph atlas + overlay shader)</h3>
+    <h3 style="margin-top: 16px;">ポップオーバーの値も GPU 描画 (読み戻し無し、glyph atlas + overlay shader)</h3>
     <p>
-      ホバー popup の数値 (coherent では <code>val / mag² / phase</code> の 3 行、incoherent では <code>raw / log</code> の 2 行) は<strong>本番 UI 経路</strong>なので、GPU-only ルールに従い<strong>readback しない</strong>。
-      代わりに <em>glyph atlas + overlay render pass</em> で GPU 上で文字を直接合成する (確率表示ブロックのポップアップと同じ方針)。
-      coherent / incoherent の分岐は overlay fragment shader 内で <code>quality &lt; 0.99</code> を判定して切り替える (擬似コードは下記)。
+      ホバー時ポップオーバーの数値 (<code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code>) は<strong>本番 UI 経路</strong>なので、GPU-only ルールに従い<strong>読み戻ししない</strong>。
+      外装、見出し、アイコン、固定ラベルは<a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>と同じクロムを使い、値だけを <em>glyph atlas + overlay render pass</em> で GPU 上から直接合成する。
+      非コヒーレント状態でも行構成は変えず、振幅と位相の値欄には <code>—</code> を描く。
     </p>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">必要なリソース</h4>
     <ul>
-      <li><strong><code>glyph_atlas: texture_2d</code></strong> — pre-rendered grid: ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、ラベル <code>val / mag² / phase</code> (coherent 用)、<code>raw / log</code> (incoherent 用、<strong>確率表示ブロックのポップアップと完全共有</strong>) と <code>dB</code> 単位。Geist Mono で 1 行高 16 px、各 glyph 16×16 px の正方 grid に焼く (起動時 1 度のみ)</li>
-      <li><strong><code>amplitude_result</code></strong> — § 09 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む</li>
-      <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — hovered cell の index <code>hovered_k: u32</code>、popup screen 位置 <code>popup_pos: vec2&lt;f32&gt;</code>、表示 / 非表示 flag</li>
+      <li><strong><code>glyph_atlas: texture_2d</code></strong> — ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、未定義値の <code>—</code> を Geist Mono で焼く。ラベル文字は状態ベクトルセルと同じ固定描画でよい。</li>
+      <li><strong><code>amplitude_result</code></strong> — § 09 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む。</li>
+      <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — ホバー中の測定結果 <code>hovered_k: u32</code>、ポップオーバー位置、三角形の向き、表示 / 非表示フラグ。ホバー判定は CPU が座標から <code>hovered_k</code> だけを渡し、値そのものは渡さない。</li>
     </ul>
     <h4 style="margin: 12px 0 6px; font-size: 14px;">overlay render pass</h4>
     <p>
-      ホバー判定は CPU で行う (マウス座標 → cell index)、その index を <code>popup_uniform</code> に書くだけ。値そのものは GPU 内のまま:
+      状態ベクトルセルと同じ 3 行の値欄を描く。非コヒーレント状態の確率は <code>incoherent_ket[k]²</code> を使い、振幅と位相は未定義記号にする:
     </p>
-    <pre class="code">// fragment shader (popup overlay) — coherent と incoherent で表示内容を切替
+    <pre class="code">// fragment shader (popup overlay) — 3 行の値欄だけを GPU で描く
 @fragment
 fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt; {
     if (popup.hovered_k == 0xffffffffu) { discard; }
     let k: u32 = popup.hovered_k;
     let q: f32 = amplitude_result.quality;
 
-    var glyph_uv: vec2&lt;f32&gt;;
     if (q &lt; 0.99) {
-        // incoherent: raw % と log dB の 2 行のみ (val / phase は出さない)。
-        // incoherent_ket[k] は sqrt(prob) なので raw_prob = (incoherent_ket[k])².
         let sqrt_p: f32 = amplitude_result.incoherent_ket[k];
-        let raw_p: f32 = sqrt_p * sqrt_p;                       // 0..1
-        // log10(x) = log(x) * 0.4342945。raw_p = 0 のときは log(0) = -inf になるので、
-        // 専用 sentinel (NEG_INF: f32 = -3.4e38) を渡し、compute_glyph_uv_incoherent 側で
-        // "−∞ dB" の glyph 並びへ分岐する。
-        let log_db: f32 = select(log(raw_p) * 4.342945, NEG_INF, raw_p &lt;= 0.0);
-        glyph_uv = compute_glyph_uv_incoherent(k, uv, raw_p, log_db);
-    } else {
-        // coherent: val (re / im) / mag² / phase の 3 行。
-        let amp: vec2&lt;f32&gt; = amplitude_result.ket[k];
-        let mag2: f32 = dot(amp, amp);
-        let phase_deg: f32 = atan2(amp.y, amp.x) * 180.0 / PI;
-        glyph_uv = compute_glyph_uv_coherent(k, uv, amp, mag2, phase_deg);
+        let prob: f32 = sqrt_p * sqrt_p;
+        return draw_three_value_rows(
+            uv,
+            format_dash(),
+            format_signed_percent(prob, 4u),
+            format_dash(),
+        );
     }
-    return sample_glyph_atlas(glyph_uv);
+
+    let amp: vec2&lt;f32&gt; = amplitude_result.ket[k];
+    let prob: f32 = dot(amp, amp);
+    let phase_deg: f32 = atan2(amp.y, amp.x) * 180.0 / PI;
+    return draw_three_value_rows(
+        uv,
+        format_complex_signed(amp.x, amp.y, 5u),
+        format_signed_percent(prob, 4u),
+        format_signed_deg(phase_deg, 2u),
+    );
 }</pre>
-    <p>
-      <code>compute_glyph_uv_coherent</code> / <code>compute_glyph_uv_incoherent</code> は同じ glyph atlas を sample するが、
-      ラベル glyph (<code>val / mag² / phase</code> vs <code>raw / log</code>) と行レイアウトが異なる。incoherent 側の <code>raw / log</code> ラベルと整形ロジックは 確率表示ブロックのポップアップと<strong>完全共有</strong> (<code>shaders/glyph_format.wgsl</code>)。</p>
-    <h4 style="margin: 12px 0 6px; font-size: 14px;">確率表示ブロックのポップアップとの共有</h4>
-    <p>
-      確率表示ブロックのポップアップと <strong>glyph atlas + format callback</strong> パターンを共有する:
-    </p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">振幅円ポップオーバー仕様との共有</h4>
     <ul>
-      <li><strong>glyph atlas 本体</strong> — ASCII 数字・<code>+ − . i % °</code>・固定ラベル文字を共有する。Amplitude 用に追加するのは <code>val</code> / <code>mag²</code> / <code>phase</code> のラベル glyph のみ。</li>
-      <li><strong>format helper</strong> — 確率表示ブロックと共通の <code>format_percent(p, decimals)</code> / <code>format_db(p)</code> に加え、Amplitude 用に以下を追加する:
-        <ul>
-          <li><code>format_complex(re, im, decimals)</code> — <code>"0.50000 + 0.30000i"</code> 形式。sign / 整数桁 / 小数桁 / "i" 記号 を順に glyph に逆引き。</li>
-          <li><code>format_signed_deg(deg, decimals)</code> — <code>"+30.96°"</code> 形式。<code>format_percent</code> に sign prefix を足したものと同等構造。</li>
-        </ul>
-      </li>
-      <li><strong>log10 の WGSL fallback</strong> — WGSL には <code>log10</code> が無いので <code>log10(x) = log(x) / log(10.0)</code> (= <code>log(x) * 0.4342945</code>) を <code>glyph_format.wgsl</code> 内に inline 定義。確率表示ブロックのポップアップの dB 表示でも同じ式が必要なので、Probability/Amplitude 共有 helper として置く。</li>
-      <li><strong><code>atan2</code></strong> は WGSL builtin なので追加実装不要。</li>
+      <li><strong>外装と配置</strong> — <a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a> § 03 の配置を使い、三角形の先端を対象の輪郭円から <code>4 px</code> に保つ。</li>
+      <li><strong>固定ラベルとアイコン</strong> — <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> と 3 つのアイコンは同仕様 § 02 に従う。</li>
+      <li><strong>format helper</strong> — <code>format_complex_signed(re, im, 5)</code>、<code>format_signed_percent(prob, 4)</code>、<code>format_signed_deg(deg, 2)</code>、<code>format_dash()</code> を共有する。確率表示ブロック固有の dB 表示はここでは使わない。</li>
     </ul>
     <p class="note" style="margin-top: 8px;">
-      振幅表示ブロックのポップアップの glyph 描画は<strong>「format 関数 2 つ追加 + label glyph 3 つ追加」</strong>を共有パイプラインへ加える構成にする。fragment shader 内で完全な printf を実装するわけではなく、共通のポップアップ描画パイプラインに乗せる前提。
+      振幅表示ブロックのポップオーバーは、<a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>に「表示元が回路上のセルである」差分だけを足す。数値の本番描画は GPU storage buffer から直接行い、CPU への状態値読み戻しは導入しない。
     </p>
     <p class="note" style="margin-top: 12px;">
-      <strong>readback はテスト専用 API に限定:</strong>
+      <strong>読み戻しはテスト専用 API に限定:</strong>
       <code>read_amplitude_cell(gate_id, k)</code> は <code>#[wasm_bindgen]</code> で JS テストから呼ぶ async API として<strong>のみ</strong>提供
-      (Playwright で <code>val / mag² / phase</code> の正しさを確認する用途)。本番 UI 経路からは一切呼ばれない。
+      (Playwright で <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> の正しさを確認する用途)。本番 UI 経路からは一切呼ばれない。
       これは AGENTS.md の例外条項 (テストハーネス向けの on-demand readback) に該当。
     </p>
 

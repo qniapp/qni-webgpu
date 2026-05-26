@@ -6,7 +6,7 @@ use eframe::egui;
 /// the complex amplitude. Origin at (3, 13); axes stay thin so the
 /// arrow reads as foreground. Arrow shaft 2.2 px, filled triangular
 /// head.
-pub(super) fn draw_amplitude_icon(
+pub(in crate::render) fn draw_amplitude_icon(
     painter: &egui::Painter,
     rect: egui::Rect,
     chrome: egui::Color32,
@@ -61,7 +61,7 @@ pub(super) fn draw_amplitude_icon(
 /// Probability icon — chrome outer ring + accent (blue) inner disk.
 /// The blue inner disk reads as "the value" (probability mass);
 /// the gray ring frames it without competing.
-pub(super) fn draw_probability_icon(
+pub(in crate::render) fn draw_probability_icon(
     painter: &egui::Painter,
     rect: egui::Rect,
     chrome: egui::Color32,
@@ -77,7 +77,7 @@ pub(super) fn draw_probability_icon(
 /// arc near the origin marking the swept angle. The arc is the
 /// "the value" (phase angle); the two straight lines just frame the
 /// triangle.
-pub(super) fn draw_phase_icon(
+pub(in crate::render) fn draw_phase_icon(
     painter: &egui::Painter,
     rect: egui::Rect,
     chrome: egui::Color32,

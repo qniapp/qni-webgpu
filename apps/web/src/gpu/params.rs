@@ -378,8 +378,10 @@ pub(crate) struct AmplitudePopupValueParams {
     /// Size of one atlas character cell on screen (egui pixels).
     pub(crate) char_size: [f32; 2],
     pub(crate) _pad_char: [f32; 2],
-    /// RGBA text colour (premultiplied at sample time).
+    /// RGBA value text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
+    /// RGBA muted value colour for incoherent amplitude / phase rows.
+    pub(crate) muted_text_color: [f32; 4],
     /// Amplitude output slot and hovered outcome cell.
     pub(crate) slot: u32,
     pub(crate) outcome: u32,

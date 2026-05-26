@@ -271,7 +271,7 @@
       外装トークン (面 / 縁 / 角丸 / 影 / tail / anchor gap / 画面端処理) を 1 ページに集約し、
       Flexoki トーンと Tailwind スケールへ準拠しつつ、状態セルのポップオーバー実装を「基準形」として置く構造は概ね適切。
       § 02 / § 03 / § 04 が「規範はクロムだけ、内容は各コンポーネント」と書き分けるのも primitive 仕様として読みやすい。
-      4 方向の tail バリアントと「対象の右が基本、画面右端では反転」という配置原則も実装に直結する具体性を持つ。
+      4 方向の tail バリアントと、振幅円では上下配置、細い行では左右配置という配置原則も実装に直結する具体性を持つ。
     </p>
     <p class="critique-body">
       最大の問題は、§ 07 関連仕様 / ソースと § 04 アイコン行、および § 02 / § 06 のトークン名 / 定数名引用が、
@@ -401,8 +401,8 @@
   <div class="card">
     <p>
       原則は「ポップオーバー本体を読みやすい位置に置き、tail だけで対象要素との関係を示す」。
-      状態セルのように上下に空きがある場合は下向き tail で対象の上に置く。
-      確率表示ブロックや振幅表示ブロックのセル詳細では、通常は対象の右側に置いて左端 tail を使い、画面右端では対象の左側へ反転して右端 tail を使う。
+      振幅円の詳細 (状態ベクトルセルと振幅表示ブロックのセル) は下向き tail で対象の上に置き、tail の先端を輪郭円から <code>4 px</code> だけ離す。
+      確率表示ブロックの行詳細のように縦に細い対象では、通常は対象の右側に置いて左端 tail を使い、画面右端では対象の左側へ反転して右端 tail を使う。
     </p>
     <div class="popover-variants">
       <div class="popover-small" data-tail="bottom">
@@ -448,8 +448,8 @@
         4 方向のサンプルに本体と対象アンカーを並べて表示し、矢印または視覚的位置関係を caption に併記すると、 primitive 仕様としての「向き」が初見で読める。
       </p>
       <p class="critique-body">
-        加えて、本文 p で「通常は対象の右側に置いて左端 tail を使い、画面右端では対象の左側へ反転して右端 tail を使う」と書くが、
-        この「右が基本 / 右端で反転」のルールは § 02 viewport pad と同じ画面端処理を別言葉で書いており、§ 02 と相互参照させると重複が減る。
+        加えて、本文 p は振幅円では上下配置、確率表示ブロックでは左右配置を使い分けるように更新された。
+        次の改善として、4 方向のサンプルに小さな対象アンカーを描き、tail 名と本体位置の対応を絵だけで読めるようにするとよい。
       </p>
     </aside>
   </div>
@@ -462,24 +462,23 @@
       <tbody>
         <tr><th>規範範囲</th><td>本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで。見出し、行数、区切り線、ラベル文言、数値の桁数は各コンポーネント仕様が持つ。</td></tr>
         <tr><th>基準例</th><td>状態セルは <code>text-sm</code> (<code>14 px / 20 px</code>) の等幅見出しと、<code>text-xs</code> (<code>12 px</code>) の 3 行値一覧を使う。区切り線や補足行は持たない。</td></tr>
-        <tr><th>状態セルのアイコン</th><td><code>apps/web/src/render/state_panel_popup/icons.rs</code> を正とする。Amplitude は Re/Im 軸 + 斜め矢印、Probability は外輪 + 内側ディスク、Phase は底辺 + 斜辺 + 角度弧で描く。</td></tr>
+        <tr><th>振幅円の詳細</th><td>状態ベクトルセルと振幅表示ブロックのセルは同じ内容レイアウトを使う。内容の正は <a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>に置き、本ページでは対象をセル矩形ではなく輪郭円として扱う配置原則だけを共有する。</td></tr>
+        <tr><th>振幅円のアイコン</th><td><a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>を正とする。Amplitude は Re/Im 軸 + 斜め矢印、Probability は外輪 + 内側ディスク、Phase は底辺 + 斜辺 + 角度弧で描く。</td></tr>
         <tr><th>行ピッチ</th><td>値の行間は <code>20 px</code> を基準にする。ラベルと値の間は対象の最大文字数に合わせ、狭い表示で読みにくくしない。</td></tr>
         <tr><th>GPU 値</th><td>状態セル、確率表示ブロック、振幅表示ブロックなどの数値は GPU 上の値を直接描く経路を維持し、CPU へ読み戻さない。</td></tr>
       </tbody>
     </table>
 
-    <aside class="critique" aria-label="批評 · § 04 規範範囲が § 05 と重複 / icons.rs 直接参照">
+    <aside class="critique" aria-label="批評 · § 04 規範範囲の重複とアイコン参照">
       <div class="critique-label">★ 批評 · § 04 内容レイアウトの扱い</div>
-      <div class="critique-title">「規範範囲」が § 05 「適用範囲」と重複し、状態セルのアイコン行は実装ファイルを直接参照している</div>
+      <div class="critique-title">「規範範囲」が § 05 「適用範囲」と重複している。アイコン参照は振幅円ポップオーバー仕様へ移した</div>
       <p class="critique-body">
         「規範範囲」行 (外装 / tail / 距離 / 画面端処理まで) は § 05 「適用範囲」(surface / outline / radius / shadow / tail / anchor gap / 画面端処理) と
         同じ範囲を別言葉で 2 度書く。§ 04 から規範範囲行を抜き、内容レイアウトの個別ルール (基準例 / 行ピッチ / GPU 値) に集中させる。
       </p>
       <p class="critique-body">
-        「状態セルのアイコン」行は <code>apps/web/src/render/state_panel_popup/icons.rs を正とする</code> と書くが、
-        これは「デザインシステム→実装参照禁止」ルールに該当する (依存方向の議論は本ページ冒頭の全体所見を参照)。
-        Amplitude / Probability / Phase アイコンが「Re/Im 軸 + 矢印」「外輪 + ディスク」「底辺 + 斜辺 + 角度弧」で描かれている事実だけを残し、
-        ファイルパスは外す。ファイル参照を入れる位置は実装側の AGENTS.md / README から本ページを指す逆方向だけにする。
+        アイコンの正は <a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>へ移し、本ページから実装ファイルを直接指す行は外した。
+        残る改善は、§ 04 と § 05 にまたがる適用範囲 / 非目標の重複整理である。
       </p>
     </aside>
   </div>
@@ -509,7 +508,8 @@
       </thead>
       <tbody>
         <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>共通クロム実装を使い、変更時は本ページも同時に更新する。</td></tr>
-        <tr><td>確率 / 振幅表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象セルの右側、画面右端では左側へ反転する。</td><td>値の GPU 直接描画と表示ブロック固有の文言は維持する。</td></tr>
+        <tr><td>振幅表示ブロック</td><td>本仕様の共通外装を使い、状態ベクトルセルと同じ振幅円詳細ポップオーバーへ統一する。対象の輪郭円を基準に、通常は上側へ表示する。</td><td>tail 先端を円に近づける。値の GPU 直接描画は維持し、内容は <a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>に従う。</td></tr>
+        <tr><td>確率表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象行の右側、画面右端では左側へ反転する。</td><td>値の GPU 直接描画と表示ブロック固有の文言は維持する。</td></tr>
         <tr><td>ブロッホ球表示ブロック</td><td>本仕様の共通外装へ移行済み。ホスト要素の右 +12 px を基本位置に、GPU 側の <code>bloch_output_buffer</code> から値を直接描画する。</td><td>内容、数値形式、状態別の見本は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲する。</td></tr>
         <tr><td>パレット説明表示</td><td>本仕様の共通外装へ移行済み。ゲートに結び付く説明として top / bottom tail を使う。</td><td>単なる短文ヒントは別の tooltip として分ける。</td></tr>
         <tr><td>アスペクト選択</td><td>クリックで開く選択肢リスト。</td><td>情報表示ではなく選択用の小窓なので、本仕様をそのまま適用しない。</td></tr>
@@ -533,31 +533,13 @@
 </section>
 
 <section class="block">
-  <h2>§ 07 関連仕様 / ソース</h2>
+  <h2>§ 07 関連仕様</h2>
   <div class="card">
-    <aside class="critique" aria-label="批評 · § 07 *.rs 参照を全て外す">
-      <div class="critique-label">★ 批評 · § 07 関連仕様 / ソース</div>
-      <div class="critique-title">デザインシステム→実装参照禁止ルールへの正面違反 — 6 項目中 5 つが <code>apps/web/src/render/*.rs</code></div>
-      <p class="critique-body">
-        本リストの 5 項目 (<code>popover.rs</code> / <code>state_panel_popup/cell/geometry.rs</code> / <code>state_panel_popup/icons.rs</code> /
-        <code>circuit_gates.rs</code> / <code>circuit_palette/tooltip/layout.rs</code>) はいずれも実装ファイル。
-        デザインシステムから実装を指すと依存方向が逆転し、実装が動くたびに primitive 仕様を書き直す関係になる。
-        本ページ自体が「実装が参照される側」になるべきで、本ページから実装を指す側にはならない。
-      </p>
-      <p class="critique-body">
-        <code>*.rs</code> リンクをすべて削除し、残すのは同じ design-system 配下の HTML
-        (<a href="probability-display.html">probability-display</a> / <a href="amplitude-display.html">amplitude-display</a> /
-        <a href="bloch-display.html">bloch-display</a>) と、Flexoki / Tailwind の外部規約だけにする。
-        実装側からは <code>apps/web/src/render/popover.rs</code> などのドキュメンテーションコメントに本ページの URL を書く形で逆参照させる。
-      </p>
-    </aside>
     <ul>
-      <li><code>apps/web/src/render/popover.rs</code> — 共通外装の面、縁、影、tail 描画。</li>
-      <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 状態ベクトルセル基準形の幅、余白、tail、画面端処理。</li>
-      <li><code>apps/web/src/render/state_panel_popup/icons.rs</code> — 状態ベクトルセルの Amplitude / Probability / Phase 行アイコン。</li>
-      <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックのホバー表示。</li>
-      <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の余白と配置。</li>
-      <li><code>docs/design-system/probability-display.html</code> / <code>amplitude-display.html</code> / <code>bloch-display.html</code> — 表示ブロック側の内容仕様。</li>
+      <li><a href="popover.html">ポップオーバー</a> — 共通外装の面、枠、角丸、影、tail、画面端処理。</li>
+      <li><a href="amplitude-circle-popover.html">振幅円ポップオーバー</a> — 状態ベクトルセルと振幅表示ブロックの振幅円詳細表示。</li>
+      <li><a href="probability-display.html">確率表示ブロック</a> / <a href="amplitude-display.html">振幅表示ブロック</a> / <a href="bloch-display.html">ブロッホ球表示ブロック</a> — 各表示ブロック側の内容仕様。</li>
+      <li><a href="bloch-display-popover.html">ブロッホ球ポップオーバー</a> / <a href="density-matrix-display-popover.html">密度行列表示ポップオーバー</a> — コンポーネント別ポップオーバー仕様。</li>
     </ul>
   </div>
 </section>

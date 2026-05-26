@@ -7,6 +7,7 @@
 //! Each submodule extends `impl QniApp` with the methods it owns.
 //! Nothing else lives here.
 
+mod amplitude_circle_popover;
 mod circuit;
 mod circuit_connectors;
 mod circuit_gates;

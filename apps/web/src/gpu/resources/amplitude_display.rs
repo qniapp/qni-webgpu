@@ -492,8 +492,10 @@ fn create_glyph_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> GlyphAtlas 
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
         label: Some("amplitude_popup_glyph_atlas_sampler"),
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
+        // The popup value shader uses textureLoad for exact texel fetches; keep
+        // nearest filtering if this sampler is used by a future fallback path.
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
         ..Default::default()
     });
     GlyphAtlas { view, sampler }
