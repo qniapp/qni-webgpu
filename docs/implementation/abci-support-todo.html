@@ -266,156 +266,67 @@ h2 {
     <h1>産総研 ABCI 対応 TODO リスト</h1>
     <p class="lead">
       <code>~/Work/qni-gl</code> の Docker / nginx / Open OnDemand / Qiskit GPU 構成を基準に、
-      現行 <code>qni-webgpu</code> で本番配備前に埋める作業を優先度付きで整理する。
-      本番経路は GPU 実行のみとし、CPU 代替実行は作らない。
+      現行 <code>qni-webgpu</code> で本番配備前に残っている作業だけを整理する。
+      完了した項目は表示していない。本番経路は GPU 実行のみとし、CPU 代替実行は作らない。
     </p>
     <div class="summary-grid">
-      <div class="summary-card"><b>12</b><span>最優先項目</span></div>
-      <div class="summary-card"><b>4</b><span>運用・検証項目</span></div>
+      <div class="summary-card"><b>4</b><span>残件</span></div>
+      <div class="summary-card"><b>4</b><span>実機 / GPU 確認</span></div>
       <div class="summary-card"><b>0</b><span>CPU 代替実行</span></div>
-      <div class="summary-card"><b>1</b><span>ABCI 配備手順</span></div>
+      <div class="summary-card"><b>3</b><span>準備済み手順</span></div>
     </div>
   </header>
 
   <nav class="nav" aria-label="ABCI TODO 目次">
-    <a href="#container">コンテナ</a>
-    <a href="#proxy-auth">配信・認証</a>
-    <a href="#abci">ABCI</a>
-    <a href="#gpu-api">外部 GPU API</a>
-    <a href="#validation">検証</a>
-    <a href="#docs">文書</a>
+    <a href="#abci">ABCI 実機確認</a>
+    <a href="#validation">GPU 検証</a>
+    <a href="#docs">手順書</a>
     <a href="#references">参照元</a>
   </nav>
 
-  <section class="section" id="container">
-    <div class="section-head"><span class="section-num">01</span><h2>コンテナと GPU 実行環境</h2></div>
-    <p class="note">qni-gl の Dockerfile は CUDA / cuQuantum / Qiskit Aer GPU ビルドを 1 イメージにまとめている。qni-webgpu では WebAssembly 配信と Qiskit GPU バックエンドを同じ配備単位に閉じ込める。</p>
-    <div class="todo-list">
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>本番 Dockerfile を追加する</h3><p>CUDA ベースイメージ、Rust / Trunk / Node / Python、nginx、Qiskit Aer GPU、cuQuantum、cuTensor を含める。Web は <code>trunk build --release</code> の成果物だけを配信する。</p></div>
-        <div class="done-rule">完了条件: <code>docker build</code> と <code>docker run --gpus all</code> で Web UI と <code>/health</code> が応答する。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>Python 依存関係を固定する</h3><p><code>apps/qiskit-backend</code> に本番用の依存関係定義を置く。<code>qiskit-gpu</code> は <code>device="GPU"</code> と <code>cuStateVec_enable=True</code> を必須にし、失敗時に CPU へ逃がさない。</p></div>
-        <div class="done-rule">完了条件: 新規環境で依存関係を入れ直し、<code>PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests</code> が通る。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>本番ランナーを <code>qiskit-gpu</code> に固定する</h3><p>本番配備では <code>mock</code> と <code>qiskit-cpu-dev</code> を要求から選べないようにする。通信確認用のモック実行は開発・スモークテストだけに限定し、本番の成功判定には使わない。</p></div>
-        <div class="done-rule">完了条件: 本番設定で <code>runner</code> を省略しても <code>qiskit-gpu</code> だけが使われる。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>起動スクリプトを作る</h3><p>コンテナ起動時に Qiskit バックエンドを本番向けに起動し、nginx を前面に出す。qni-gl の <code>docker-entrypoint.sh</code> 相当だが、Vite 開発サーバは使わない。</p></div>
-        <div class="done-rule">完了条件: 1 コマンドで静的 Web、<code>/run</code>、<code>/health</code> が起動する。</div>
-      </article>
-    </div>
-  </section>
-
-  <section class="section" id="proxy-auth">
-    <div class="section-head"><span class="section-num">02</span><h2>静的配信・リバースプロキシ・認証</h2></div>
-    <p class="note">現行 Web は既定で <code>http://127.0.0.1:4184/run</code> を直接呼ぶ。ABCI と Basic 認証では、Web と API を同一オリジンに寄せる構成が必要。</p>
-    <div class="todo-list">
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>nginx 設定を追加する</h3><p>静的ファイルを配信し、<code>/run</code> と <code>/health</code> を Qiskit バックエンドへ転送する。Open OnDemand の <code>/node/&lt;host&gt;/&lt;port&gt;/</code> 配下でも動くように、Trunk の公開パスと生成後の <code>bootstrap.js</code> の読み込みパスも検証する。</p></div>
-        <div class="done-rule">完了条件: Web UI の <code>Run GPU</code> が同一オリジンの <code>/run</code> へ要求を送る。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3><code>.htpasswd</code> 認証を環境変数で制御する</h3><p>qni-gl の固定 <code>userA/passA</code> ではなく、環境変数またはシークレットから生成する。未設定時に認証を無効化するか、起動失敗にするかを明記する。</p></div>
-        <div class="done-rule">完了条件: 認証あり / なしの両方を <code>curl</code> で確認できる。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">実装済み</span></div>
-        <div><h3>バックエンド URL 注入方法を整理する</h3><p><code>bootstrap.ts</code> の <code>__qniQiskitBackendUrl</code> 初期値を配備形態に合わせる。相対パス既定にすると、認証付き配備で扱いやすい。</p></div>
-        <div class="done-rule">完了条件: 開発環境と本番環境で URL の上書き手順が分かれている。</div>
-      </article>
-    </div>
-  </section>
-
   <section class="section" id="abci">
-    <div class="section-head"><span class="section-num">03</span><h2>ABCI / Open OnDemand 対応</h2></div>
-    <p class="note">qni-gl には <code>abci_ood</code> 一式がある。qni-webgpu では CUDA コンテナと WebAssembly 配信を前提に作り直す。</p>
+    <div class="section-head"><span class="section-num">01</span><h2>ABCI / Open OnDemand 実機確認</h2></div>
+    <p class="note">Open OnDemand アプリ定義と Singularity / Apptainer 定義は用意済み。残りは ABCI 実機でのジョブ投入、接続、GPU ノード上の応答確認。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み・実機未検証</span></div>
-        <div><h3>Open OnDemand アプリ定義を追加する</h3><p><code>manifest.yml</code>、<code>form.yml</code>、<code>submit.yml.erb</code>、<code>template</code>、<code>view.html.erb</code> を作る。GPU 資源、ABCI グループ、コンテナイメージ、認証設定を入力できるようにする。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実機未検証</span></div>
+        <div><h3>Open OnDemand からジョブを投入して接続する</h3><p><code>deploy/abci_ood</code> を Sandbox Apps に配置し、GPU 資源、ABCI グループ、コンテナイメージ、認証設定を入力して起動する。</p></div>
         <div class="done-rule">完了条件: ABCI の Sandbox Apps からジョブを投入し、接続リンクで Web UI が開く。</div>
       </article>
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み・実機未検証</span></div>
-        <div><h3>Singularity / Apptainer 用定義を作る</h3><p>Docker イメージを ABCI 上で使うための変換手順または定義ファイルを用意する。qni-gl の Node/Vite 用定義はそのまま流用しない。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実機未検証</span></div>
+        <div><h3>Singularity / Apptainer イメージを ABCI 上で作成・起動する</h3><p><code>deploy/apptainer/qni-webgpu.def</code> からイメージを作り、<code>singularity run --nv</code> で GPU ノード上に起動する。</p></div>
         <div class="done-rule">完了条件: ABCI 上でイメージ作成、ジョブ起動、<code>/health</code> 確認まで通る。</div>
       </article>
     </div>
   </section>
 
-  <section class="section" id="gpu-api">
-    <div class="section-head"><span class="section-num">04</span><h2>外部 GPU API と qni-gl 互換の不足</h2></div>
-    <p class="note">qni-webgpu の外部 GPU 経路は、安全のため多くのゲートを拒否している。ABCI 本番前に、必要な互換範囲を明確にし、GPU 実行だけで実装する。</p>
-    <div class="todo-list">
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>qni-gl 相当のゲート対応を洗い直す</h3><p>qni-gl 相当の主要ゲート、測定、書き込み、表示ブロックの対応方針を <code>docs/implementation/external-gpu-api-compatibility.md</code> に整理した。制御付き QFT と制御付き測定は qni / WebGPU 本体の意味に合わせて制御を無視する。</p></div>
-        <div class="done-rule">完了条件: 対応 / 非対応 / 後回しを表にし、UI の失敗表示と一致させる。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み</span></div>
-        <div><h3>測定結果の契約を決める</h3><p><code>measuredBits</code> は採用せず、測定ゲートを含む回路でも量子結果は <code>histogram</code> と表示ブロック結果に限定する契約にした。メタデータは従来どおり返す。測定付き API テストも追加済み。</p></div>
-        <div class="done-rule">完了条件: 測定ゲートありの API テストが追加される。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">方針決定</span></div>
-        <div><h3>QASM3 書き出しの要否を決める</h3><p>ABCI 初期対応では非採用にした。必要になった場合は <code>/run</code> と分けた明示的な書き出し機能として設計する。</p></div>
-        <div class="done-rule">完了条件: 採用 / 非採用と実装場所が決まる。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">方針決定</span></div>
-        <div><h3>実行キャッシュを検討する</h3><p>ABCI 初期対応では採用しない。サーバはステートレスに保ち、同じ要求でも Qiskit Aer GPU を実行する。</p></div>
-        <div class="done-rule">完了条件: 採用時はキャッシュ無効化条件のテストがある。</div>
-      </article>
-    </div>
-  </section>
-
   <section class="section" id="validation">
-    <div class="section-head"><span class="section-num">05</span><h2>検証と運用確認</h2></div>
-    <p class="note">ABCI 対応はコードだけでなく、GPU のある環境での起動確認までを完了条件にする。</p>
+    <div class="section-head"><span class="section-num">02</span><h2>GPU 検証</h2></div>
+    <p class="note">ローカルでは構文と静的検証まで完了。残りは GPU のある環境で本番ランナーを実行する確認。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">実装済み・GPU 未検証</span></div>
-        <div><h3>コンテナのスモークテストを作る</h3><p><code>scripts/smoke-abci-container.sh</code> で <code>/health</code>、Basic 認証、<code>mock</code> 拒否、<code>qiskit-gpu</code> 実行を確認する。開発用モックは本番コンテナでは拒否する対象として扱う。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">GPU 未検証</span></div>
+        <div><h3>コンテナのスモークテストを GPU 環境で通す</h3><p><code>scripts/smoke-abci-container.sh</code> で <code>/health</code>、Basic 認証、<code>mock</code> 拒否、<code>qiskit-gpu</code> 実行を確認する。CPU 代替実行は使わない。</p></div>
         <div class="done-rule">完了条件: GPU 環境で実行する確認コマンドが README から再現できる。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p1">P1</span><span class="badge">実装済み</span></div>
-        <div><h3>ログ出力先を整理する</h3><p><code>docs/implementation/abci-deployment-guide.md</code> に、nginx、Qiskit バックエンド、Open OnDemand ジョブ標準出力の切り分け表を追加した。</p></div>
-        <div class="done-rule">完了条件: 代表的な失敗ごとに見るログが文書化される。</div>
       </article>
     </div>
   </section>
 
   <section class="section" id="docs">
-    <div class="section-head"><span class="section-num">06</span><h2>文書化</h2></div>
-    <p class="note">配備手順は ABCI 上の利用者と開発者の両方が読める粒度に分ける。</p>
+    <div class="section-head"><span class="section-num">03</span><h2>手順書の実機反映</h2></div>
+    <p class="note">手順書の下書きは作成済み。残りは ABCI 実機の結果に合わせた資源種別、モジュール名、ログ例の反映。</p>
     <div class="todo-list">
       <article class="todo">
-        <div class="badges"><span class="badge p0">P0</span><span class="badge">下書き済み・実機未検証</span></div>
-        <div><h3>ABCI 配備手順書を作る</h3><p><code>docs/implementation/abci-deployment-guide.md</code> に、イメージ作成、ジョブ投入、認証設定、接続確認、GPU 実行確認、停止方法を書いた。実機確認後に資源種別を更新する。</p></div>
+        <div class="badges"><span class="badge p0">P0</span><span class="badge">実機反映待ち</span></div>
+        <div><h3>ABCI 配備手順書を実機結果で更新する</h3><p><code>docs/implementation/abci-deployment-guide.md</code> のイメージ作成、ジョブ投入、認証設定、接続確認、GPU 実行確認、停止方法を実機結果で確定する。</p></div>
         <div class="done-rule">完了条件: 新規利用者が手順書だけで <code>Run GPU</code> 成功まで進める。</div>
-      </article>
-      <article class="todo">
-        <div class="badges"><span class="badge p2">P2</span><span class="badge">実装済み</span></div>
-        <div><h3>qni-gl からの移行メモを残す</h3><p><code>docs/implementation/qni-gl-migration-notes.md</code> に、<code>/backend.json</code> と <code>/run</code>、フォーム形式と JSON 形式、Vite 開発サーバと静的配信の違いを整理した。</p></div>
-        <div class="done-rule">完了条件: 旧構成との差分調査を繰り返さずに済む。</div>
       </article>
     </div>
   </section>
 
   <section class="section" id="references">
-    <div class="section-head"><span class="section-num">07</span><h2>参照元</h2></div>
+    <div class="section-head"><span class="section-num">04</span><h2>参照元</h2></div>
     <p class="note">この TODO リストは、次の qni-gl / qni-webgpu ファイルを比較して作った。qni-gl の公開元は <a href="https://github.com/yasuhito/qni-gl">yasuhito/qni-gl</a>、ローカル確認時のコミットは <code>e497e6e</code>。</p>
     <div class="refs">
       <div class="ref-card">

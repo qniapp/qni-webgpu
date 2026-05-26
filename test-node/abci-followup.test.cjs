@@ -17,7 +17,7 @@ test('ABCI follow-up docs capture non-environment decisions', async () => {
     cacheDecisionIsExplicit: /CachedQiskitRunner` 相当は、ABCI 初期対応では採用しない/.test(apiDoc),
     deploymentGuideReferencesSmokeScript: /scripts\/smoke-abci-container\.sh/.test(deployDoc),
     migrationNotesCompareBackendJsonAndRun: /`\/backend\.json` は使わない/.test(migrationDoc),
-    todoMarksGpuUnverifiedWork: /実装済み・GPU 未検証/.test(todo),
+    todoMarksGpuUnverifiedWork: /GPU 未検証/.test(todo),
   }, {
     measurementContractRejectsMeasuredBits: true,
     qasmDecisionIsExplicit: true,
