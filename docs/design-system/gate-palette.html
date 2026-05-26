@@ -42,7 +42,7 @@
   <script src="components/density-matrix-display.js"></script>
   <style>
 
-    /* ─── Gate palette mock (src/render/circuit_palette/panel.rs / icons/gate_body.rs と 1:1) ─── */
+    /* ─── Gate palette mock ─── */
     .gp-stage {
       background: var(--bg-2);
       border: 1px solid var(--ui-2);
@@ -53,11 +53,11 @@
       isolation: isolate;                  /* ホバー枠が stage 内で閉じる */
     }
     .gp-palette {
-      /* PALETTE_PADDING_X = 16, PALETTE_PADDING_Y = 20 */
+      /* horizontal padding = 16, vertical padding = 20 */
       padding: 20px 16px;
-      border-radius: 12px;                 /* PALETTE_CORNER_RADIUS = 12 */
+      border-radius: 12px;                 /* radius 12 */
       background: var(--bg);               /* surface (paper) */
-      /* palette_shadow = tx @ 25% (offset 0, 6 / blur 16) */
+      /* パレット影 = tx @ 25% (offset 0, 6 / blur 16) */
       box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
       display: inline-block;
       position: relative;
@@ -65,13 +65,13 @@
     }
     .gp-row {
       display: flex;
-      gap: 8px;                            /* PALETTE_GAP */
+      gap: 8px;                            /* spacing-2 */
     }
     .gp-row + .gp-row {
-      margin-top: 8px;                     /* PALETTE_ROW_GAP */
+      margin-top: 8px;                     /* spacing-2 */
     }
     .gp-gate {
-      width: 40px; height: 40px;           /* PALETTE_SIZE = GATE_SIZE = 40 */
+      width: 40px; height: 40px;           /* palette icon size */
       position: relative;
       cursor: grab;
       user-select: none;
@@ -107,7 +107,7 @@
       pointer-events: none;                 /* palette hover frame / tooltip を gp-gate 側へ集約 */
     }
 
-    /* ホバー枠 (panel.rs:59-69) — outer = +4 / corner 10 purple-400, inner = +2 / corner 8 paper */
+    /* ホバー枠 — outer = +4 / corner 10 purple-400, inner = +2 / corner 8 paper */
     .gp-gate:hover::before {
       content: ''; position: absolute;
       inset: -4px; border-radius: 10px;
@@ -157,16 +157,16 @@
     .gate-zoo .item .label { display: flex; flex-direction: column; gap: 2px; }
     .gate-zoo .item .label .name { color: var(--tx); font-weight: 700; font-family: var(--font-body); font-size: 13px; }
 
-    /* ─── palette を Gates / Display の 2 section に分割 (layout/palette.rs) ─── */
+    /* ─── palette を Gates / Display の 2 section に分割 ─── */
     .gp-palette--split {
       display: flex;
       align-items: stretch;
-      /* PALETTE_SECTION_GAP = 8 px (左右両側) */
+      /* section gap = 8 px (左右両側) */
       gap: 8px;
     }
     .gp-section { display: flex; flex-direction: column; }
     .gp-sep {
-      /* 垂直ディバイダ primitive。PALETTE_SEPARATOR_WIDTH = 2 px、2 行高フル。 */
+      /* 垂直ディバイダ primitive。2 px、2 行高フル。 */
       align-self: stretch;
     }
 
@@ -201,8 +201,8 @@
   <p class="eyebrow">qni-webgpu · design system · widget spec</p>
   <h1 class="page-title">Gate palette</h1>
   <p class="page-lede">
-    回路エディタ上部中央に常駐する 2 行のゲートパレット。各セル 40 × 40 px のアイコンを drag source として、回路グリッドへゲートを drop して配置する。
-    実装: <code>apps/web/src/render/circuit_palette/</code> + <code>src/icons/gate_body.rs</code> + <code>src/icons/gate_glyphs.rs</code> + <code>src/gates.rs</code> (3 配列 <code>PALETTE_GATES_ROW1 / PALETTE_GATES_ROW2 / PALETTE_DISPLAY_GATES</code> に分割) + <code>src/layout/palette.rs</code> (section ベースの hit_test)。
+    回路エディタ上部中央に常駐する 2 行のゲートパレット。各セル 40 × 40 px のアイコンを配置元として、回路グリッドへドラッグして配置する。
+    操作ゲート領域 / 表示ブロック領域 / 垂直ディバイダの 3 領域に分け、見た目上のスロット順序を明確にする。
   </p>
 </div>
 
@@ -211,15 +211,15 @@
   <h2>§ 01 動くモック</h2>
   <div class="card">
     <p>
-      実コードの寸法 (40 × 40 アイコン / 8 px gap / 16 × 20 padding / 12 px corner radius / paper bg + 25 % alpha shadow) と
-      各 gate の SVG icon 形状 (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>) を 1:1 で再現。
-      palette は <strong>Gates section (左)</strong> + <strong><a href="vertical-divider.html">2 px ui-2 垂直ディバイダ</a> (2 行高)</strong> + <strong>Display section (右 2 × 2)</strong> に分割。
-      アイコンに hover すると <code>purple-400</code> 外枠 (4 px 拡張 / corner 10) + <code>paper</code> 内枠 (2 px 拡張 / corner 8) の枠が出る。
-      Display section は 2 × 2 の 4 スロットすべてを使う。
+      仕様上の寸法 (40 × 40 アイコン / 8 px gap / 16 × 20 padding / 12 px 角丸 / paper 背景 + 25 % 透明度の影) と
+      各ゲートのアイコン形状を再現。
+      パレットは <strong>操作ゲート領域 (左)</strong> + <strong><a href="vertical-divider.html">2 px ui-2 垂直ディバイダ</a> (2 行高)</strong> + <strong>表示ブロック領域 (右 2 × 2)</strong> に分割。
+      アイコンにホバーすると <code>purple-400</code> 外枠 (外側 4 px / 角丸 10 px) + <code>paper</code> 内枠 (外側 2 px / 角丸 8 px) の枠が出る。
+      表示ブロック領域は 2 × 2 の 4 スロットすべてを使う。
     </p>
     <div class="gp-stage">
       <div class="gp-palette gp-palette--split">
-        <!-- Gates section -->
+        <!-- 操作ゲート領域 -->
         <div class="gp-section">
           <div class="gp-row">
             <div class="gp-gate" data-tip="H · Hadamard"><h-gate></h-gate><span class="tip">H · Hadamard</span></div>
@@ -250,7 +250,7 @@
         </div>
         <!-- 2 行高の垂直ディバイダ -->
         <div class="gp-sep vertical-divider" aria-hidden="true"></div>
-        <!-- Display section (2 × 2 grid; 4 slots) -->
+        <!-- 表示ブロック領域 (2 × 2 グリッド; 4 スロット) -->
         <div class="gp-section">
           <div class="gp-row">
             <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popover></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
@@ -264,8 +264,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      字形描画は本番では SVG → 256 px PNG → SDF テクスチャ (<code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code>) で行う。このモックでは、カスタム要素化済みのゲート / 表示ブロックは各カスタム要素が正規描画を共有する。
-      レイアウト / 色 / 形状 / 寸法は実コードと 1:1。
+      このモックでは、レイアウト / 色 / 形状 / 寸法を本仕様の値に揃える。
     </p>
   </div>
 </section>
@@ -274,41 +273,40 @@
 <section class="block">
   <h2>§ 02 レイアウト</h2>
   <div class="card">
-    <h3>寸法 (<code>constants.rs</code>)</h3>
+    <h3>寸法</h3>
     <table class="spec">
       <tbody>
-        <tr><th>cell size</th><td><code>PALETTE_SIZE = GATE_SIZE = 40.0 px</code> — アイコン 1 個の幅と高さ、回路グリッドの slot pitch と統一</td></tr>
-        <tr><th>gap (横)</th><td><code>PALETTE_GAP = 8.0 px</code> — section 内のアイコン間</td></tr>
-        <tr><th>gap (縦)</th><td><code>PALETTE_ROW_GAP = 8.0 px</code></td></tr>
-        <tr><th>section gap</th><td><code>PALETTE_SECTION_GAP = 8.0 px</code> — Gates section と垂直ディバイダ、垂直ディバイダと Display section の隙間 (左右両側)</td></tr>
-        <tr><th>separator</th><td><code>PALETTE_SEPARATOR_WIDTH = 2.0 px</code> · fill = <code>colors.line</code> (ui-2)、palette content 全高 (= 2 行高) を縦に走る。詳細は <a href="vertical-divider.html">垂直ディバイダ仕様</a></td></tr>
-        <tr><th>Display section</th><td><code>PALETTE_DISPLAY_COLUMNS = 2</code> × <code>PALETTE_DISPLAY_ROWS = 2</code> grid。4 スロットすべてが表示ブロックの hit_test 対象</td></tr>
-        <tr><th>padding</th><td>水平 <code>PALETTE_PADDING_X = 16.0 px</code> / 垂直 <code>PALETTE_PADDING_Y = 20.0 px</code></td></tr>
-        <tr><th>corner radius</th><td><code>PALETTE_CORNER_RADIUS = 12 px</code></td></tr>
-        <tr><th>背景</th><td><code>colors.surface</code> = Flexoki <code>bg</code> = #FFFCF0 (paper)</td></tr>
-        <tr><th>shadow</th><td><code>palette_shadow</code> = <code>tx</code> @ 25% alpha · offset (0, 6) · blur 16 · spread 0</td></tr>
-        <tr><th>位置</th><td>画面上部中央、<code>PALETTE_ROW_Y = 2.5 REM = 80 px</code> から配置 (toolbar 44 px + egui top margin 8 px + 余白)。常駐</td></tr>
-        <tr><th>ゲート総数</th><td>Gates section 22 個 (row 1 = 13、row 2 = 9) + Display section 4 個 = 計 26 個</td></tr>
-        <tr><th>Gates section 幅</th><td>max(row 1, row 2) = <code>13 × 40 + 12 × 8 = 616 px</code></td></tr>
-        <tr><th>Display section 幅</th><td><code>2 × 40 + 1 × 8 = 88 px</code></td></tr>
-        <tr><th>palette 幅</th><td><code>16 + 616 + 8 + 2 + 8 + 88 + 16 = 754 px</code></td></tr>
-        <tr><th>palette 高さ</th><td><code>20 + 2 × 40 + 8 + 20 = 128 px</code></td></tr>
+        <tr><th>セルサイズ</th><td><code>40 px</code> — アイコン 1 個の幅と高さ、回路グリッドのスロットピッチと統一</td></tr>
+        <tr><th>横の間隔</th><td><code>8 px</code> — 領域内のアイコン間</td></tr>
+        <tr><th>縦の間隔</th><td><code>8 px</code></td></tr>
+        <tr><th>領域間隔</th><td><code>8 px</code> — ゲート領域と垂直ディバイダ、垂直ディバイダと表示ブロック領域の隙間 (左右両側)</td></tr>
+        <tr><th>ディバイダ</th><td><code>2.0 px</code> · fill = Flexoki <code>ui-2</code>、パレット内容の全高 (= 2 行高) を縦に走る。詳細は <a href="vertical-divider.html">垂直ディバイダ仕様</a></td></tr>
+        <tr><th>表示ブロック領域</th><td><code>2 × 2</code> グリッド。4 スロットすべてを表示ブロックの配置元にする</td></tr>
+        <tr><th>余白</th><td>水平 <code>16 px</code> / 垂直 <code>20 px</code></td></tr>
+        <tr><th>角丸</th><td><code>12 px</code></td></tr>
+        <tr><th>背景</th><td>Flexoki <code>bg</code> = #FFFCF0 (paper)</td></tr>
+        <tr><th>影</th><td><code>tx</code> @ 25% alpha · offset (0, 6) · blur 16 · spread 0</td></tr>
+        <tr><th>位置</th><td>画面上部中央、toolbar との間に <code>24 px</code> の余白を置いて常駐</td></tr>
+        <tr><th>パレット要素総数</th><td>操作ゲート領域 22 個 (1 行目 = 13、2 行目 = 9) + 表示ブロック領域 4 個 = 計 26 個</td></tr>
+        <tr><th>操作ゲート領域幅</th><td>max(1 行目, 2 行目) = <code>13 × 40 + 12 × 8 = 616 px</code></td></tr>
+        <tr><th>表示ブロック領域幅</th><td><code>2 × 40 + 1 × 8 = 88 px</code></td></tr>
+        <tr><th>パレット幅</th><td><code>16 + 616 + 8 + 2 + 8 + 88 + 16 = 754 px</code></td></tr>
+        <tr><th>パレット高さ</th><td><code>20 + 2 × 40 + 8 + 20 = 128 px</code></td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 03 ゲート一覧 ─────── -->
+<!-- ─────── § 03 パレット要素一覧 ─────── -->
 <section class="block">
-  <h2>§ 03 ゲート一覧 (<code>gates.rs</code>)</h2>
+  <h2>§ 03 パレット要素一覧</h2>
   <div class="card">
     <p>
-      ゲートは <strong>3 つの配列</strong>に分かれて定義: <code>PALETTE_GATES_ROW1: [GateKind; 13]</code>、<code>PALETTE_GATES_ROW2: [GateKind; 9]</code>、<code>PALETTE_DISPLAY_GATES: [GateKind; 4]</code>。
-      フラットインデックス (0〜25) は section 分割後も安定しており、<code>PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 22, 23, 21]</code> と
-      <code>PALETTE_DISPLAY_INDICES = [16, 20, 24, 25]</code> がそれぞれの slot 順から flat ID へマップする。<code>palette_gate_kind(index)</code> がこのマップを使って GateKind を解決。
+      パレット要素は <strong>操作ゲート領域 2 行</strong>と<strong>表示ブロック領域 2×2</strong>に分ける。
+      パレット上の見た目は領域ごとの順序を正とし、操作ゲート領域と表示ブロック領域を垂直ディバイダで明確に分離する。
     </p>
 
-    <h3 style="margin-top: 16px;">Gates section · row 1 — unitary 1 量子ビット gates (13 個 / indices 0〜12)</h3>
+    <h3 style="margin-top: 16px;">操作ゲート領域 · 1 行目 — 1 量子ビットのユニタリゲート (13 個)</h3>
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><h-gate></h-gate></div><div class="label"><span class="name">H</span><span>Hadamard</span></div></div>
       <div class="item"><div class="gp-gate"><x-gate></x-gate></div><div class="label"><span class="name">X</span><span>Pauli-X / NOT (Plus glyph)</span></div></div>
@@ -325,7 +323,7 @@
       <div class="item"><div class="gp-gate"><rz-gate></rz-gate></div><div class="label"><span class="name">RZ</span><span>Z-axis rotation</span></div></div>
     </div>
 
-    <h3 style="margin-top: 24px;">Gates section · row 2 — 制御 / リセット / 計測 / 多量子ビット unitary (9 個 / indices 13, 14, 15, 17, 18, 19, 22, 23, 21)</h3>
+    <h3 style="margin-top: 24px;">操作ゲート領域 · 2 行目 — 制御 / リセット / 計測 / 多量子ビットユニタリ (9 個)</h3>
     <div class="gate-zoo">
       <div class="item"><div class="gp-gate"><swap-gate></swap-gate></div><div class="label"><span class="name">Swap</span><span>2 量子ビット swap (× アイコン)</span></div></div>
       <div class="item"><div class="gp-gate"><control-gate></control-gate></div><div class="label"><span class="name">Control</span><span>|1⟩ control (●)</span></div></div>
@@ -338,65 +336,64 @@
       <div class="item"><div class="gp-gate"><spacer-gate></spacer-gate></div><div class="label"><span class="name">Spacer</span><span>回路の空きスロット (ドラッグ可能、配置後は何も作用しない)</span></div></div>
     </div>
 
-    <h3 style="margin-top: 24px;">Display section — 2 × 2 grid (4 個 / indices 16, 20, 24, 25)</h3>
+    <h3 style="margin-top: 24px;">表示ブロック領域 — 2 × 2 グリッド (4 個)</h3>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><bloch-display icon no-popover></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (top-left, index 16)</span></div></div>
-      <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (top-right, index 20, resizable)</span></div></div>
-      <div class="item"><div class="gp-gate"><amplitude-display icon no-popup></amplitude-display></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (bottom-left, index 24, resizable, span 1〜16)</span></div></div>
-      <div class="item"><div class="gp-gate"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (bottom-right, index 25, resizable, span 1〜8)</span></div></div>
+      <div class="item"><div class="gp-gate"><bloch-display icon no-popover></bloch-display></div><div class="label"><span class="name">Bloch</span><span>ブロッホ球表示ブロック (左上)</span></div></div>
+      <div class="item"><div class="gp-gate"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display></div><div class="label"><span class="name">Probability</span><span>確率表示ブロック (右上, resizable)</span></div></div>
+      <div class="item"><div class="gp-gate"><amplitude-display icon no-popup></amplitude-display></div><div class="label"><span class="name">Amps</span><span>振幅表示ブロック (左下, resizable, span 1〜16)</span></div></div>
+      <div class="item"><div class="gp-gate"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display></div><div class="label"><span class="name">Density</span><span>密度行列表示ブロック (右下, resizable, span 1〜8)</span></div></div>
     </div>
 
     <p class="note" style="margin-top: 16px;">
-      <strong>grouping</strong>: Gates section = 回路への作用 / 視覚装飾、Display section = 観測ウィジェット (可視化用)。Display 2 × 2 は 4 つの表示ブロックで埋まり、垂直ディバイダの右側にまとまる。
-      <strong>Spacer</strong> は Gates section row 2 末尾に配置、drop 時は<strong>空きスロット (作用なし)</strong> として回路上に置かれる。全ゲートがホバー枠・tooltip・drag に対応する。
+      <strong>グルーピング</strong>: 操作ゲート領域 = 回路への作用 / 視覚装飾、表示ブロック領域 = 観測ウィジェット (可視化用)。2 × 2 は 4 つの表示ブロックで埋まり、垂直ディバイダの右側にまとまる。
+      <strong>Spacer</strong> は操作ゲート領域 2 行目末尾に配置し、配置時は<strong>空きスロット (作用なし)</strong> として回路上に置かれる。全要素がホバー枠・ツールチップ・ドラッグに対応する。
     </p>
   </div>
 </section>
 
 <!-- ─────── § 04 描画タイプ ─────── -->
 <section class="block">
-  <h2>§ 04 描画タイプ (<code>gate_body.rs</code> / <code>gate_glyphs.rs</code>)</h2>
+  <h2>§ 04 描画タイプ</h2>
   <div class="card">
     <p>
-      <code>draw_gate_body()</code> (idle = <code>box_fill</code>) / <code>draw_drag_gate_body()</code> (drag = <code>drag_fill</code>) で本体を描き、その上に <code>draw_gate_icon()</code> がアイコン (SDF テクスチャ or primitive 描画) を載せる。
-      色は idle = <code>cyan-400</code> (#3AA99F)、drag 中 = <code>purple-600</code> (#5E409D)。
+      要素本体の上にアイコンを載せる。色は通常時 = <code>cyan-400</code> (#3AA99F)、ドラッグ中 = <code>purple-600</code> (#5E409D)。
     </p>
-    <h3>本体 (body) の形</h3>
+    <h3>本体の形</h3>
     <table class="spec">
-      <thead><tr><th>タイプ</th><th>該当 gate</th><th>描き方</th></tr></thead>
+      <thead><tr><th>タイプ</th><th>該当要素</th><th>見た目</th></tr></thead>
       <tbody>
         <tr>
-          <td><strong>rounded square</strong></td>
+          <td><strong>角丸正方形</strong></td>
           <td>H / Y / Z / √X / S / S† / T / T† / RX / RY / RZ / QFT / QFT†</td>
-          <td><code>rect_filled(rect, CornerRadius::same(6), fill)</code> — 40 × 40 / corner radius 6</td>
+          <td>40 × 40 px / 角丸 6 px</td>
         </tr>
         <tr>
-          <td><strong>circle</strong></td>
+          <td><strong>円</strong></td>
           <td>X / Phase (Φ)</td>
-          <td><code>circle_filled(center, width/2, fill)</code> — 半径 20</td>
+          <td>半径 20 px の塗りつぶし円</td>
         </tr>
         <tr>
-          <td><strong>Bloch circle</strong></td>
+          <td><strong>ブロッホ球円</strong></td>
           <td>BlochDisplay</td>
-          <td>半径 <code>width/2 − 1</code> の円、<code>bloch_sphere_bg</code> (bg-2) fill + 1.5 px <code>bloch_sphere_lines</code> (tx-3) stroke</td>
+          <td>半径 19 px の円、<code>bg-2</code> fill + 1.5 px <code>tx-3</code> stroke</td>
         </tr>
         <tr>
-          <td><strong>Probability preview</strong></td>
+          <td><strong>確率プレビュー</strong></td>
           <td>ProbabilityDisplay</td>
-          <td>surface fill + 4 行ミニ確率バー (widths = [0.30, 0.75, 0.55, 0.20]) を <code>state_fill</code> (blue-200) で、各バー右端に <code>popup_icon</code> (blue-400) 1 px、行間に <code>line</code> (ui-2) divider、外周に <code>line</code> 1 px stroke</td>
+          <td>surface fill + 4 行ミニ確率バー (widths = [0.30, 0.75, 0.55, 0.20]) を <code>blue-200</code> で描き、各バー右端に <code>blue-400</code> 1 px、行間と外周に <code>ui-2</code> 1 px 線を置く</td>
         </tr>
         <tr>
-          <td><strong>Amplitude preview</strong></td>
+          <td><strong>振幅プレビュー</strong></td>
           <td>AmplitudeDisplay</td>
-          <td>surface fill + 外輪 <code>state_outline</code> (tx-2) stroke 2 px + 内側に <code>state_fill</code> (blue-200) disk (r = inner_r × 1/√2) + 1 px <code>popup_icon</code> (blue-400) 内枠 + 中央 → 右下 2 px <code>state_needle</code> (tx) 針 (mag² ≈ 50 % / phase = 5π/4 を Q ロゴ風に静的描画)</td>
+          <td>surface fill + <code>tx-2</code> 2 px 外輪 + <code>blue-200</code> 円盤 (mag² ≈ 50 %) + <code>blue-400</code> 1 px 内枠 + <code>tx</code> 2 px 位相針 (phase = 5π/4)</td>
         </tr>
         <tr>
-          <td><strong>Density matrix preview</strong></td>
+          <td><strong>密度行列プレビュー</strong></td>
           <td>DensityMatrixDisplay</td>
-          <td>surface fill + 2 × 2 の compact density icon。各セルに <code>state_outline</code> 円 + <code>state_fill</code> disk + <code>popup_icon</code> 内枠を描き、非対角セルだけ <code>state_needle</code> を足す</td>
+          <td>surface fill + 2 × 2 の小型密度アイコン。各セルに <code>tx-2</code> 円 + <code>blue-200</code> 円盤 + <code>blue-400</code> 内枠を描き、非対角セルだけ <code>tx</code> 位相針を足す</td>
         </tr>
         <tr>
-          <td><strong>no body</strong></td>
+          <td><strong>本体なし</strong></td>
           <td>Control / AntiControl / Swap / Measurement / Spacer / Write0 / Write1</td>
           <td>本体描画なし、アイコンだけ直接描く</td>
         </tr>
@@ -405,18 +402,18 @@
 
     <h3 style="margin-top: 16px;">アイコン (glyph) の描画</h3>
     <table class="spec">
-      <thead><tr><th>gate</th><th>描画</th><th>色</th></tr></thead>
+      <thead><tr><th>要素</th><th>見た目</th><th>色</th></tr></thead>
       <tbody>
-        <tr><td>H / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT†</td><td><code>assets/icons/*.svg</code> から焼いた SDF テクスチャ (<code>svg_icon.rs</code> / <code>sdf_icon.rs</code>) を <code>draw_glyph()</code> で中央配置</td><td><code>label</code> = paper (bg = #FFFCF0)</td></tr>
-        <tr><td>X</td><td>同じく SDF だが、glyph は <code>Plus</code> (太い "+" — CNOT ターゲット記号と統一)</td><td><code>label</code> = paper</td></tr>
-        <tr><td>Control</td><td><code>circle_filled(center, CONTROL_RADIUS=8, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 (idle) / purple-600 (drag)</td></tr>
-        <tr><td>AntiControl</td><td><code>circle_stroke(center, r=5, stroke=3, color)</code> · viewbox 48</td><td><code>fill</code> = cyan-400 / purple-600</td></tr>
-        <tr><td>Swap</td><td>diagonal line 2 本: (12, 36)→(36, 12) と (12, 12)→(36, 36)、stroke 4 px · viewbox 48</td><td><code>fill</code> = cyan-400 / purple-600</td></tr>
-        <tr><td>Measurement</td><td><code>draw_meter_icon</code>: 24 点上半円弧 (cx=24, cy=36, r=20) + 針 (24.625, 33.5)→(37.75, 11.0) + ピボット円 r=3.5 · viewbox 48</td><td><code>semantic_intermediate</code> = purple-600</td></tr>
-        <tr><td>Spacer</td><td>3 個の 6 × 6 正方形 at x=9, 21, 33 / y=21–27 · viewbox 48</td><td><code>spacer_dots</code> = tx (#100F0F)</td></tr>
-        <tr><td>Write0 / Write1</td><td>ket bracket: 縦 (6, 5)→(6, 43) + 右上斜 (37.45, 5)→(43.5, 24) + 右下斜 (43.5, 24)→(37.45, 43)、stroke 2 px。中央に <code>Digit0</code> / <code>Digit1</code> SDF glyph</td><td>bracket: <code>semantic_disabled</code> = tx-2、digit 0: <code>semantic_off</code> = red-600、digit 1: <code>semantic_on</code> = blue-600</td></tr>
-        <tr><td>BlochDisplay</td><td>軸: 横線 + 縦線 + NE-SW 対角 (±0.3 r) + 縦楕円 (rx=0.36 r) + 横楕円 (ry=0.36 r)、stroke 1 px。さらに palette では <code>draw_bloch_vector([0,0,0])</code> で中央に半径 3 px の zero-vector dot</td><td>軸: <code>bloch_sphere_lines</code> = tx-3、中央 dot: <code>bloch_vector_zero</code> = tx-3</td></tr>
-        <tr><td>DensityMatrixDisplay</td><td><code>draw_density_palette_icon()</code>: 2 × 2 の円セルを直接描画。対角セルは needle 省略、非対角セルのみ真上 needle</td><td>outline = <code>state_outline</code>、disk = <code>state_fill</code>、disk border = <code>popup_icon</code>、needle = <code>state_needle</code></td></tr>
+        <tr><td>H / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT†</td><td>字形を中央配置</td><td>paper (bg = #FFFCF0)</td></tr>
+        <tr><td>X</td><td>太い "+" — CNOT ターゲット記号と統一</td><td>paper</td></tr>
+        <tr><td>Control</td><td>中心に半径 8 px の塗りつぶし円</td><td>cyan-400 (通常時) / purple-600 (ドラッグ中)</td></tr>
+        <tr><td>AntiControl</td><td>中心に半径 5 px、線幅 3 px の空円</td><td>cyan-400 / purple-600</td></tr>
+        <tr><td>Swap</td><td>2 本の対角線、線幅 4 px</td><td>cyan-400 / purple-600</td></tr>
+        <tr><td>Measurement</td><td>上半円弧 + 針 + ピボット円でメーター形状を描く</td><td>purple-600</td></tr>
+        <tr><td>Spacer</td><td>3 個の 6 × 6 px 正方形</td><td>tx (#100F0F)</td></tr>
+        <tr><td>Write0 / Write1</td><td>ket bracket + 中央ディジット 0 / 1</td><td>bracket: tx-2、digit 0: red-600、digit 1: blue-600</td></tr>
+        <tr><td>BlochDisplay</td><td>横線 + 縦線 + 対角線 + 縦楕円 + 横楕円。中央に半径 3 px の zero-vector dot</td><td>軸: tx-3、中央 dot: tx-3</td></tr>
+        <tr><td>DensityMatrixDisplay</td><td>2 × 2 の円セル。対角セルは needle 省略、非対角セルのみ真上 needle</td><td>outline = tx-2、disk = blue-200、disk border = blue-400、needle = tx</td></tr>
       </tbody>
     </table>
   </div>
@@ -426,21 +423,21 @@
 <section class="block">
   <h2>§ 05 ホバー / ツールチップ</h2>
   <div class="card">
-    <h3>ホバー枠 (<code>panel.rs:59-69</code>)</h3>
+    <h3>ホバー枠</h3>
     <ul>
-      <li><strong>外枠 (outer)</strong>: <code>gate_rect.expand(4.0)</code> · <code>CornerRadius::same(10)</code> · fill = <code>gate_hover_border</code> = purple-400</li>
-      <li><strong>内枠 (inner)</strong>: <code>gate_rect.expand(2.0)</code> · <code>CornerRadius::same(8)</code> · fill = <code>surface</code> (paper)</li>
-      <li>差分 = 2 px の <code>purple-400</code> 枠が gate 周囲に出る。内側を paper で塗り直すのは <strong>Measurement / Spacer のような本体 fill を持たないゲートでも背景が灰色 (palette bg) に変わらないため</strong></li>
-      <li>その上に <code>draw_gate_body()</code> が gate body と icon を重ねる</li>
-      <li>Spacer 含む全 26 ゲートに対して<strong>同じロジック</strong>でホバー枠が出る (<code>palette_hit_test()</code> は Spacer を除外しない)</li>
+      <li><strong>外枠</strong>: アイコン領域の外側 4 px まで広げ、角丸 10 px、色は <code>purple-400</code></li>
+      <li><strong>内枠</strong>: アイコン領域の外側 2 px まで広げ、角丸 8 px、色は <code>paper</code></li>
+      <li>差分 = 2 px の <code>purple-400</code> 枠が要素周囲に出る。内側を paper で塗り直すのは <strong>Measurement / Spacer のような本体 fill を持たないゲートでも背景が灰色 (palette bg) に変わらないため</strong></li>
+      <li>その上に本体とアイコンを重ねる</li>
+      <li>Spacer 含む全 26 要素に対して<strong>同じホバー枠</strong>を出す</li>
     </ul>
-    <h3 style="margin-top: 16px;">ツールチップ (<code>tooltip.rs</code>)</h3>
+    <h3 style="margin-top: 16px;">ツールチップ</h3>
     <ul>
-      <li>表示条件: hover 中 かつ drag 未開始 (drag 開始で即非表示)</li>
-      <li>位置: gate body の下、12 px 余白</li>
-      <li>内容: <strong>gate 名</strong> (太字) + <strong>説明文</strong> + 一部 gate は<strong>変換図</strong> (行列表記 / ブロッホ球での変換イメージ)</li>
+      <li>表示条件: ホバー中 かつドラッグ未開始 (ドラッグ開始で即非表示)</li>
+      <li>位置: アイコン下、12 px 余白</li>
+      <li>内容: <strong>要素名</strong> (太字) + <strong>説明文</strong> + 一部ゲートは<strong>変換図</strong> (行列表記 / ブロッホ球での変換イメージ)</li>
       <li>背景: <code>surface</code> + <code>line</code> (ui-2) 1 px border + soft shadow</li>
-      <li>サブモジュール: <code>tooltip/layout.rs</code> / <code>tooltip/text.rs</code> / <code>tooltip/amplitude_display.rs</code> / <code>tooltip/diagram.rs</code></li>
+      <li>説明文に加え、必要なゲートでは変換図や振幅表示の補足を出す。</li>
     </ul>
   </div>
 </section>
@@ -451,100 +448,77 @@
   <div class="card">
     <h3>ドラッグ開始</h3>
     <ul>
-      <li>パレットアイコンに <strong>mousedown</strong> したとき、<code>palette_hit_test()</code> (<code>layout/palette.rs</code>) で hit 判定</li>
-      <li>hit したらすぐ <code>DragStartIntent::PaletteGate</code> を発行、<strong>新規 <code>PlacedGate</code></strong> を生成 (mouse 位置を中心に <code>preview_pos = mouse_pos − (GATE_SIZE/2, GATE_SIZE/2)</code>)</li>
-      <li>drag threshold (移動距離) は<strong>無し</strong>: mousedown と同時にドラッグ開始 (palette → circuit は新規配置なので閾値不要)</li>
-      <li>Spacer も同じパス: drop すると回路上で空きスロット (作用なしの placeholder) として配置される</li>
+      <li>パレットアイコンを押したとき、領域単位で当たり判定を行う。</li>
+      <li>当たったらすぐドラッグを開始し、マウス位置を中心にプレビューを表示する。</li>
+      <li>ドラッグ開始の移動しきい値は<strong>無し</strong>: 押下と同時にドラッグ開始 (パレット → 回路は新規配置なので閾値不要)</li>
+      <li>Spacer も同じ挙動: ドロップすると回路上で空きスロット (作用なしの placeholder) として配置される</li>
     </ul>
     <h3 style="margin-top: 16px;">ドラッグ中</h3>
     <ul>
-      <li>パレットアイコン<strong>自身は残り続ける</strong> (source は消えない)。同じパレットから何度でも drop 可能</li>
-      <li>カーソル下に preview gate が浮く: <code>render/circuit_palette/drag_preview.rs</code> で<strong>専用 overlay 描画</strong> (回路グリッド上の他 gate と z-order が独立)</li>
-      <li>本体色を持つゲートの preview 本体色は <code>drag_fill</code> = purple-600 (idle の cyan-400 と区別)。Write0 / Write1 / Measurement / Spacer など no-body 系は字形色や本体なしの見た目を維持する</li>
-      <li>cursor は <code>grabbing</code></li>
+      <li>パレットアイコン<strong>自身は残り続ける</strong>。同じパレットから何度でもドロップ可能</li>
+      <li>カーソル下にプレビューが浮く。回路グリッド上の他要素とは独立した専用オーバーレイとする。</li>
+      <li>本体色を持つゲートのプレビュー本体色は purple-600 (通常時の cyan-400 と区別)。Write0 / Write1 / Measurement / Spacer など本体なし系は字形色や本体なしの見た目を維持する</li>
+      <li>カーソルは <code>grabbing</code></li>
     </ul>
-    <h3 style="margin-top: 16px;">drop</h3>
+    <h3 style="margin-top: 16px;">ドロップ</h3>
     <ul>
-      <li>drop 位置の slot index を計算 (mouse_pos → grid 座標変換)</li>
-      <li>既存配置 logic と同じ placement: snap / column insertion / 衝突検出</li>
-      <li>drop 不可な位置 (他 gate と衝突 / 範囲外) では snap back (preview が消えて何も配置されない)</li>
-      <li>drop 成功時は <code>placed_gates</code> に新 entry 追加、<code>gpu_plan.mark_dirty()</code>、<code>commit_current_circuit(ctx)</code></li>
+      <li>ドロップ位置に最も近い回路スロットへ配置する</li>
+      <li>配置はスナップ / 列挿入 / 衝突検出の規則に従う</li>
+      <li>ドロップ不可な位置 (他要素と衝突 / 範囲外) では何も配置しない</li>
+      <li>ドロップ成功時は回路に新しいゲートまたは表示ブロックを追加し、現在の回路として保存する</li>
     </ul>
   </div>
 </section>
 
 <!-- ─────── § 07 関連定数とファイル ─────── -->
 <section class="block">
-  <h2>§ 07 関連定数とファイル</h2>
+  <h2>§ 07 関連トークンと仕様</h2>
   <div class="card">
-    <h3>定数 (<code>apps/web/src/constants.rs</code> / <code>gates.rs</code>)</h3>
+    <h3>主要寸法</h3>
     <table class="spec">
-      <thead><tr><th>定数</th><th>値</th><th>ファイル</th></tr></thead>
+      <thead><tr><th>項目</th><th>値</th></tr></thead>
       <tbody>
-        <tr><td><code>PALETTE_SIZE</code></td><td class="num">40.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_ROW_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_SECTION_GAP</code></td><td class="num">8.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_SEPARATOR_WIDTH</code></td><td class="num">2.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_COLUMNS</code></td><td class="num">2</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_ROWS</code></td><td class="num">2</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_PADDING_X</code></td><td class="num">16.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_PADDING_Y</code></td><td class="num">20.0</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_CORNER_RADIUS</code></td><td class="num">12</td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_ROW_Y</code></td><td><code>2.5 × REM = 80 px</code></td><td><code>constants.rs</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW1</code></td><td>13 entries</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW2</code></td><td>9 entries</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_GATES</code></td><td>4 entries</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>PALETTE_GATE_COUNT</code></td><td class="num">26</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>PALETTE_GATES_ROW2_INDICES</code></td><td>[13,14,15,17,18,19,22,23,21]</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>PALETTE_DISPLAY_INDICES</code></td><td>[16, 20, 24, 25]</td><td><code>gates.rs</code></td></tr>
-        <tr><td><code>CONTROL_RADIUS</code></td><td class="num">8.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
-        <tr><td><code>ANTI_CONTROL_STROKE_WIDTH</code></td><td class="num">3.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
-        <tr><td><code>ANTI_CONTROL_RADIUS</code></td><td class="num">5.0</td><td><code>icons/gate_glyphs.rs</code></td></tr>
-        <tr><td><code>PROBABILITY_PREVIEW_BAR_WIDTHS</code></td><td>[0.30, 0.75, 0.55, 0.20]</td><td><code>icons/gate_body.rs</code></td></tr>
+        <tr><td>アイコンサイズ</td><td class="num">40 px</td></tr>
+        <tr><td>横の間隔 / 行の間隔</td><td class="num">8 px</td></tr>
+        <tr><td>領域間隔</td><td class="num">8 px</td></tr>
+        <tr><td>垂直ディバイダ幅</td><td class="num">2 px</td></tr>
+        <tr><td>表示ブロック領域</td><td><code>2 × 2</code> グリッド</td></tr>
+        <tr><td>余白</td><td>水平 <code>16 px</code> / 垂直 <code>20 px</code></td></tr>
+        <tr><td>角丸</td><td class="num">12 px</td></tr>
+        <tr><td>位置</td><td>画面上部中央、toolbar との間に <code>24 px</code> の余白を置く。</td></tr>
+        <tr><td>総数</td><td>操作ゲート領域 22 個 + 表示ブロック領域 4 個 = 計 26 個</td></tr>
       </tbody>
     </table>
-    <h3 style="margin-top: 16px;">関連ソースファイル (<code>apps/web/src/</code>)</h3>
-    <table class="spec">
-      <tbody>
-        <tr><th>panel.rs</th><td><code>render/circuit_palette/panel.rs</code> — palette 全体の描画、shadow、separator、ホバー枠、各 gate body</td></tr>
-        <tr><th>tooltip.rs</th><td><code>render/circuit_palette/tooltip.rs</code> — hover ツールチップ (4 サブモジュール)</td></tr>
-        <tr><th>drag_preview.rs</th><td><code>render/circuit_palette/drag_preview.rs</code> — drag 中の preview overlay</td></tr>
-        <tr><th>palette.rs</th><td><code>layout/palette.rs</code> — <code>palette_layout / palette_start_x / palette_gate_local_pos / palette_hit_test</code> — section ベースの hit test と座標計算</td></tr>
-        <tr><th>start.rs</th><td><code>app/drag_controller/start.rs</code> — <code>DragStartIntent::PaletteGate</code> の処理</td></tr>
-        <tr><th>gate_body.rs</th><td><code>icons/gate_body.rs</code> — <code>draw_gate_body</code> / <code>draw_drag_gate_body</code> + Probability / Amplitude preview</td></tr>
-        <tr><th>gate_glyphs.rs</th><td><code>icons/gate_glyphs.rs</code> — meter / spacer / swap / control / anti / write の primitive 描画 + SDF テクスチャへの dispatch</td></tr>
-        <tr><th>bloch_display.rs</th><td><code>icons/bloch_display.rs</code> — Bloch sphere の軸描画 + Bloch vector の射影描画</td></tr>
-        <tr><th>svg_icon.rs / sdf_icon.rs</th><td><code>icons/svg_icon.rs</code> / <code>icons/sdf_icon.rs</code> — <code>assets/icons/*.svg</code> から焼いた SDF テクスチャでゲート字形を描画</td></tr>
-        <tr><th>gates.rs</th><td><code>gates.rs</code> — 3 配列 (ROW1 / ROW2 / DISPLAY) + indices マップ + <code>palette_gate_kind(index)</code> + <code>GateSpec</code> 構造体</td></tr>
-      </tbody>
-    </table>
+    <h3 style="margin-top: 16px;">関連仕様</h3>
+    <ul>
+      <li><a href="vertical-divider.html">垂直ディバイダ</a> — 操作ゲート領域 / 表示ブロック領域の境界線。</li>
+      <li><a href="gate-chrome.html">ゲートクロム</a> — 共通ゲート本体、状態、ホバー枠。</li>
+      <li><a href="popover.html">ポップオーバー</a> — パレット説明表示の外装。</li>
+      <li><a href="design-system-colors.html">配色</a> — Flexoki トーンと意味ロール。</li>
+      <li><a href="design-system-spacing.html">スペーシング</a> — 4px 倍数スケール。</li>
+    </ul>
   </div>
 </section>
 
-<!-- ─────── § 08 実装状況と TODO ─────── -->
+<!-- ─────── § 08 検討事項 ─────── -->
 <section class="block">
-  <h2>§ 08 実装状況と TODO</h2>
+  <h2>§ 08 検討事項</h2>
   <div class="card">
-    <h3>完全実装済み</h3>
+    <h3>現時点の範囲</h3>
     <ul>
-      <li>2 section レイアウト: Gates section (2 行 × 22 個) + 2 px ui-2 垂直ディバイダ + Display section (2 × 2 grid、4 個)</li>
-      <li>section ベースの <code>palette_hit_test</code> (gates / display それぞれ別経路 + separator / inter-section gap を除外)、フラット index は 0〜25</li>
-      <li>各 gate のアイコン描画 (rounded square / circle body / Bloch circle / Probability preview / Amplitude preview / Density matrix preview / no body の 7 タイプ)</li>
-      <li>SDF テクスチャ経由の文字描画 (<code>assets/icons/*.svg</code> → 256 px PNG → SDF)</li>
-      <li>ホバー枠 (purple-400 4 px expand / radius 10 + paper 2 px expand / radius 8) — 全 26 ゲート対応</li>
-      <li>ツールチップ (gate 名 + 説明 + 変換図)</li>
-      <li>drag source (mousedown 即開始、新規 <code>PlacedGate</code> 生成、ドラッグプレビュー overlay) — Spacer 含む全 26 ゲートに対応。purple-600 の本体色は body ありゲートだけに適用する</li>
-      <li>Spacer は Gates section row 2 末尾、drop すると回路上の<strong>空きスロット</strong>として配置</li>
+      <li>2 領域レイアウト: ゲート領域 (2 行 × 22 個) + 2 px ui-2 垂直ディバイダ + 表示ブロック領域 (2 × 2 グリッド、4 個)。</li>
+      <li>全 26 要素に同じホバー枠とツールチップの外装を適用する。</li>
+      <li>ドラッグは押下で即開始し、Spacer も含めて配置元として扱う。</li>
+      <li>Spacer はゲート領域 2 行目末尾に置き、ドロップすると回路上の<strong>空きスロット</strong>として配置する。</li>
     </ul>
-    <h3 style="margin-top: 16px;">未実装 / TODO</h3>
+    <h3 style="margin-top: 16px;">今後の検討 / TODO</h3>
     <ul>
-      <li><strong>パレット上ゲートの再配置 (reordering)</strong> — ユーザがパレット内のゲート順を入れ替える UI なし</li>
-      <li><strong>非表示制御 (hide / show)</strong> — 特定の gate を非表示にする設定なし (現状は 3 配列で全部表示)</li>
-      <li><strong>multi-select drag</strong> — 複数 gate を同時に drag する UI なし</li>
-      <li><strong>カスタム gate</strong> — ユーザ定義の gate を palette に追加する仕組みなし</li>
-      <li><strong>Display section の拡張</strong> — 5 つ目以降の表示ブロックを追加する場合は、2 × 2 を超えるレイアウト方針が必要</li>
-      <li><strong>parameterized gate の値入力</strong> — Phase / Rx / Ry / Rz は placement 後に値を編集する UI が必要だが palette 側からは設定できない</li>
+      <li><strong>パレット上ゲートの再配置</strong> — ユーザがパレット内のゲート順を入れ替える UI なし。</li>
+      <li><strong>非表示制御</strong> — 特定の gate を非表示にする設定なし。</li>
+      <li><strong>複数選択ドラッグ</strong> — 複数ゲートを同時にドラッグする UI なし。</li>
+      <li><strong>カスタムゲート</strong> — ユーザ定義のゲートをパレットに追加する仕組みなし。</li>
+      <li><strong>表示ブロック領域の拡張</strong> — 5 つ目以降の表示ブロックを追加する場合は、2 × 2 を超えるレイアウト方針が必要。</li>
+      <li><strong>パラメータ付きゲートの値入力</strong> — Phase / Rx / Ry / Rz は配置後に値を編集する UI が必要だが、パレット側からは設定できない。</li>
     </ul>
   </div>
 </section>

@@ -17,8 +17,7 @@
   <style>
 
     /* ページ固有スタイル。密度行列表示ブロック本体 / canvas / リサイズハンドル /
-       動くセルのポップオーバーは components/density-matrix-display.js の
-       <density-matrix-display> に集約する。 */
+       動くセルのポップオーバーの見た目をこの仕様ページ内で確認する。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -84,39 +83,12 @@
     span 内の量子ビットを測定せずに、<strong>局所的な混合状態 (reduced density matrix)</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する密度行列表示ブロック (<code>表示ブロック</code> の定義は AGENTS.md 用語集と design-system §04 参照)。
     振幅表示ブロックが <code>α = re + i·im</code> 1 本を <code>2<sup>span</sup></code> セルで描くのに対し、本表示ブロックは <code>ρ<sub>ij</sub></code> の <strong>2<sup>span</sup> × 2<sup>span</sup> 全成分</strong> を行列状に描く。
     対角成分は <strong>各測定結果の確率 <code>P(|i⟩) = ρ<sub>ii</sub></code></strong>、非対角成分は <strong>coupling / coherence <code>ρ<sub>ij</sub></code></strong> (絶対値 = 大きさ、偏角 = 相対位相)。
-    <strong>span 上限は 8 量子ビット</strong> (Quirk <code>DensityMatrixDisplay</code> と同じ。span 8 は <code>65 536</code> セルの正方行列で、ヒートマップとして読む)。
-    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は <a href="amplitude-circle.html">振幅円</a> プリミティブに従い、振幅表示ブロック / 状態ベクトルパネルと完全に揃える</strong> (Quirk の <code>#3F3 / #040</code> 緑系は Flexoki に馴染まないため不採用)。
-    Quirk の <code>DensityMatrixDisplayFamily</code> (<code>src/gates/DensityMatrixDisplay.js</code>) と <code>MathPainter.paintDensityMatrix</code> の見た目を Flexoki の表示ブロックとして定義する。WebGPU / Qiskit Aer 経路の詳細は <a href="../implementation/density-matrix-display.html">実装仕様</a>へ分離する。
+    <strong>span 上限は 8 量子ビット</strong> (span 8 は <code>65 536</code> セルの正方行列で、ヒートマップとして読む)。
+    <strong>配色 (blue-200 fill / blue-400 disk border / tx-2 outline / tx needle) は <a href="amplitude-circle.html">振幅円</a> プリミティブに従い、振幅表示ブロック / 状態ベクトルパネルと完全に揃える</strong>。
+    密度行列表示ブロックの見た目を、Flexoki の表示ブロックとして定義する。本番表示は本ページの視覚仕様に従う。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + 改善候補 ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「N×N 行列を 1 widget に詰める」根本的なスケーラビリティ問題が § 05 表に押し込まれている</div>
-    <p class="critique-body">
-      Flexoki Light 準拠、振幅表示ブロックとのセル描画統一、実装仕様との分離により、probability-display.html / amplitude-display.html と同等に見た目の仕様として読みやすい。
-      ただし本表示ブロックの<strong>固有の難しさ</strong>は <em>「セル数が <code>2<sup>2 × span</sup></code> = (振幅表示ブロックの 2 乗) で爆発する」</em>こと。
-      span 1 で 4 セル、span 2 で 16 セル、span 4 で 256 セル、span 8 で <strong>65 536 セル</strong>。同じ span でも振幅表示ブロックは 2<sup>span</sup> セルなので、密度行列表示ブロックは <em>常に振幅表示ブロックの 2 乗倍のセル</em>を持つ。
-      これが「span 上限 8」(振幅は 16) の根本理由であり、§ 02 / § 05 では span 1〜6 の行列モードと span 7〜8 のヒートマップモードを分けて説明する。span 8 の 65 536 セルを <code>432 × 432 px</code> 正方形に詰めると、個々の円ではなく濃淡分布として読む必要があるため、<strong>「N × N 行列を視覚化することそのものの限界」</strong>を仕様内で先に知らせる。
-    </p>
-    <p class="critique-body">
-      <strong>「対角 = 確率、非対角 = coherence」という 2 つの異なる意味を同じセル形状で描く判断</strong>も本表示ブロックの固有問題で、§ 06 で
-      「対角も非対角も outline 円 + magnitude disk、対角だけ needle 省略」と統一されている。
-      これは振幅表示ブロックとの語彙統一として優れているが、<em>対角の <code>ρ<sub>ii</sub> = 確率</code> と非対角の <code>ρ<sub>ij</sub> = coupling</code> は物理的に別の量</em> (確率は <code>[0, 1]</code>、coupling は複素数で大きさ <code>≤ 0.5</code>) で、同じ「半径 = mag」表現にすると<em>対角の disk は最大 1 まで膨らみ、非対角は最大 0.5 まで</em>と<strong>視覚的スケールが構造的に対角優位</strong>になる。Quirk は対角を probability bar、非対角を disk と<em>形を変えて</em>区別していたが、本仕様は語彙統一を優先する。§ 06 では、この利点と副作用をトレードオフとして明示する。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · 改善候補">
-    <div class="critique-label">★ 批評 · 改善候補</div>
-    <div class="critique-title">ユーザー判断が必要な改善候補</div>
-    <ol class="critique-list">
-      <li><strong>operation 前後の diff 表示</strong> — 量子操作後の <code>ρ</code> の変化 (どの coupling が増減したか) は単一スナップショットでは読めない。「直前の ρ との差分表示モード」が将来価値を持つ可能性 (§ 06 後半 / <a href="../implementation/density-matrix-display.html#acceptance">実装仕様の受け入れ条件</a>参照)。</li>
-      <li><strong>二系統経路 (WebGPU 内部 / Qiskit Aer) のスイッチ UI</strong> — <a href="../implementation/density-matrix-display.html#pipeline">実装仕様</a>に推奨用途が書かれているが、<em>ユーザが UI で経路を選ぶ手段</em>が定義されていない。<code>ExecMode</code> 設定との連動が必要。</li>
-    </ol>
-  </aside>
-</section>
 
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
@@ -137,7 +109,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      全 span (1〜8) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / リサイズハンドルは § 04 以降、実装経路は <a href="../implementation/density-matrix-display.html">実装仕様</a>を参照。
+      全 span (1〜8) の一覧は <strong>§ 02 サイズ別の見た目</strong>、配色 / セル描画モデル / リサイズハンドルは § 04 以降を参照。
     </p>
 
     <h3 style="margin-top: 16px;">振幅表示ブロックでは見えない情報</h3>
@@ -163,14 +135,6 @@
         </tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 01 表示ブロック族での位置づけ">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">純粋度などの補助値を実 UI で常時表示するかは未決定</div>
-      <p class="critique-body">
-        「振幅表示ブロックでは見えない情報」表で整理した軸を実 UI でも常時表示するかどうかは、別途判断が必要になる。特に純粋度は § 08 のポップオーバー仕様にもつながるが、数値表示の場所は UI 方針として未定義である。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -183,7 +147,7 @@
       cell 寸法 (<code>cellPx = size_px / n</code>) は span 3 以降で急速に縮む: span 1 で 20 px、span 4 で 13 px、span 5 で 8.25 px、span 7 で 2.94 px、span 8 で 1.69 px。
       cellPx に応じてレイヤを段階的に省略する (§ 06): <strong><code>cellPx ≥ 12</code> = outline + disk + needle / <code>cellPx ∈ [3, 12)</code> = outline + disk (needle 省略) / <code>cellPx &lt; 3</code> = heatmap (mag を alpha に潰す dense mode)</strong>。
       対角 / 非対角ともに <em>outline 円 + magnitude disk</em> で描き、disk 半径は対角なら <code>ρ<sub>ii</sub></code> (= 確率)、非対角なら <code>|ρ<sub>ij</sub>|</code>。対角は実数 (位相 0) なので needle のみ省略する。
-      各セルにマウスを乗せると Quirk と同じ補足内容 (対角は <code>Probability of |k⟩</code> / 非対角は <code>Coupling of |row⟩ to ⟨col|</code>) をポップオーバーで表示する。
+      各セルにマウスを乗せると、対角は <code>Probability of |k⟩</code>、非対角は <code>Coupling of |row⟩ to ⟨col|</code> をポップオーバーで表示する。
     </p>
 
     <h3 style="margin-top: 12px;">span 1〜4 (行列モード · full detail、cellPx ≥ 13)</h3>
@@ -205,7 +169,7 @@
       cellPx が 3 px を下回ると outline 円と disk が視覚的に潰れるので、
       <strong>各セルを単一の塗りつぶし矩形にして <code>alpha = √(|ρ<sub>ij</sub>|)</code> で濃淡を出す</strong>
       ヒートマップモードへ切替える。これは span 1〜6 の行列モードとは別の読み方で、<em>個々の円や位相針ではなく、全体の濃淡分布から対角の山 / 非対角の結合縞を読む</em>ための本番描画である。
-      Quirk は同じ条件 (<code>d ≤ 2</code>) で matrix 全面を <code>lightgray</code> の半透明塗りに潰すフォールバックを採用しており、本仕様もそれを <code>blue-200</code> の濃淡として踏襲する。
+      本仕様では <code>blue-200</code> の濃淡として表現する。
     </p>
     <div class="stage">
       <div class="col"><div class="caption">7 量子ビット · 128×128 行列<br>376 px · cellPx = 2.94</div><div class="actual"><density-matrix-display span="7" state="demo"></density-matrix-display></div></div>
@@ -225,15 +189,6 @@
       <div class="col"><div class="caption">50% 混合<br><code>0.5 Bell + 0.5 I/4</code><br><code>Tr(ρ²) = 0.438</code></div><div class="actual"><density-matrix-display span="2" state="mixed50"></density-matrix-display></div></div>
       <div class="col"><div class="caption">最大混合状態<br><code>I/4</code><br><code>Tr(ρ²) = 0.250</code></div><div class="actual"><density-matrix-display span="2" state="maxmix2"></density-matrix-display></div></div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 02 純粋/混合の判別">
-      <div class="critique-label">★ 批評 · § 02 サイズ別の見た目</div>
-      <div class="critique-title">純粋状態の判別: rank=1 という構造が視覚化されていない</div>
-      <p class="critique-body">
-        純粋状態 <code>|ψ⟩⟨ψ|</code> は rank 1、混合状態は rank &gt; 1 という代数的事実は密度行列表示ブロックの主要な情報量だが、本仕様の disk 表現ではこの構造を直接読めない (rank は固有値分解しないと出てこない)。
-        <code>Tr(ρ²)</code> の補助値で純粋度の入口はあるが、残る改善余地は「<em>純粋なら disk pattern が 1 つの outer product (列ベクトル × 行ベクトル) で書ける</em>」という構造を hover で示唆すること。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -262,20 +217,6 @@
         </div>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 03 アイコンと密度行列の象徴">
-      <div class="critique-label">★ 批評 · § 03 パレットアイコン</div>
-      <div class="critique-title">「2×2 の |+⟩⟨+|」は density matrix を直感させるが、span 8 の現実とは乖離する</div>
-      <p class="critique-body">
-        本表示ブロックのアイコンは <strong>2×2 行列 (span 1 の |+⟩⟨+|)</strong> で 4 つの disk を並べ、密度行列特有の<em>行列形状</em>を最初から提示する。
-        これは振幅表示ブロック (1 セル) や確率表示ブロック (4 行ガウシアン) より<em>意図が明確</em>で、設計判断として優れている (probability-display.html / amplitude-display.html § 03 の批評で「アイコンと配置後の形状ジャンプ」を問題視したのと対照的)。
-      </p>
-      <p class="critique-body">
-        一方で、本表示ブロックの<em>本質的な力</em>は span 4〜6 の <code>16×16 / 64×64</code> 行列で <em>off-diagonal coupling パターン</em>を visualize することにあり、span 1 の 2×2 はもっとも単純な例にすぎない。
-        アイコンが span 1 (4 セル) なので、ユーザは「2×2 程度の小さい行列を見るゲート」と最初に学習し、span 4 まで上げる動機が弱い。
-        改善案: アイコンを <strong>4×4 (span 2 の Bell)</strong> にして、対角四隅 + 中央 4 セルの<em>coupling pattern</em>を初期表現にする。span 4 で見える coupling 縞を span 2 のレベルで予告すると、ユーザの mental model が「行列のパターン認識」に寄る。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -285,15 +226,15 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>役割</th><td>span 内の量子ビットの<strong>局所的な混合状態</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する表示ブロック (状態に影響しない)。純粋状態 / 混合状態の判別と、span 内外の entanglement の有無を 1 つの widget で読める点が振幅表示ブロックとの差。Quirk の <code>Density Matrix Display</code> と同じ意味</td></tr>
-        <tr><th>span</th><td>1〜8 量子ビット (Quirk の <code>Gate.buildFamily(1, 8, ...)</code> と一致)。<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> 複素成分を扱う上限</td></tr>
+        <tr><th>役割</th><td>span 内の量子ビットの<strong>局所的な混合状態</strong> <code>ρ = Tr<sub>rest</sub>(|ψ⟩⟨ψ|)</code> を可視化する表示ブロック (状態に影響しない)。純粋状態 / 混合状態の判別と、span 内外の entanglement の有無を 1 つの widget で読める点が振幅表示ブロックとの差。</td></tr>
+        <tr><th>span</th><td>1〜8 量子ビット。<code>2<sup>8</sup> × 2<sup>8</sup> = 65 536</code> 複素成分を扱う上限</td></tr>
         <tr><th>matrix 寸法</th><td><code>n × n</code> (<code>n = 2<sup>span</sup></code>)、row / col とも binary big-endian (row 0 = <code>|0…0⟩</code>、col 0 = <code>⟨0…0|</code>)。<code>ρ<sub>ii</sub></code> が対角 = 確率、<code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>) が非対角 = coupling</td></tr>
-        <tr><th>計算内容</th><td>span に対応する subspace の<strong>縮約密度行列</strong>を control 条件で射影して表示する。計算経路の詳細は <a href="../implementation/density-matrix-display.html">実装仕様</a>で扱う</td></tr>
+        <tr><th>計算内容</th><td>span に対応する subspace の<strong>縮約密度行列</strong>を control 条件で射影して表示する。</td></tr>
 
         <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置後に上下のリサイズハンドルで span を 1..8 に変更 (§ 09)</td></tr>
-        <tr><th>nesting</th><td>禁止 (表示ブロックの中に表示ブロックは置けない、Quirk と同じ <code>"can't nest displays"</code>)</td></tr>
-        <tr><th>measure column</th><td>Quirk と同じく、<strong>列処理の後に display capture</strong>。span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される (Quirk の <code>decohereMeasuredBitsInDensityMatrix</code> と同じ挙動)。詳細は § 06 参照</td></tr>
-        <tr><th>NaN handling</th><td>正規化 (<code>unity = Σ ρ<sub>ii</sub></code>) が 0 や NaN になる pathological ケース (controls が満たされない / 入力が崩れる) では <code>ρ = NaN</code> として中央に "NaN" を描く。Quirk の <code>densityPixelsToMatrix</code> と <code>paintDensityMatrix</code> の hasNaN 分岐に揃える</td></tr>
+        <tr><th>入れ子配置</th><td>禁止 (表示ブロックの中に表示ブロックは置けない)</td></tr>
+        <tr><th>測定列</th><td>span 内に measured wire を含む列では、measure された量子ビットの非対角成分が 0 に潰される。詳細は § 06 参照</td></tr>
+        <tr><th>NaN handling</th><td>正規化 (<code>unity = Σ ρ<sub>ii</sub></code>) が 0 や NaN になる pathological ケース (controls が満たされない / 入力が崩れる) では <code>ρ = NaN</code> として中央に "NaN" を描く。</td></tr>
       </tbody>
     </table>
   </div>
@@ -303,11 +244,11 @@
 <section class="block">
   <h2>§ 05 ジオメトリ</h2>
   <div class="card">
-    <h3>本体寸法 (qni-webgpu 規格)</h3>
+    <h3>本体寸法</h3>
     <table class="spec">
       <tbody>
-        <tr><th>幅 = 高さ (px)</th><td><code>size_px = (span − 1) × LINE_GAP + GATE_SIZE = 56 × span − 16</code> (正方形、確率表示ブロックの高さ公式と同じ)</td></tr>
-        <tr><th>幅 (gate columns)</th><td><code>cols = (span === 1 ? 1 : span)</code>。密度行列は本質的に <code>n × n</code> の正方行列なので、span 2 以上では <code>cols = span</code> で本体を正方形に保つ (Quirk の <code>setWidth(span)</code> 相当)。振幅表示ブロックは 1D ベクトルを 2D に詰めるため別の cols 式を使うが、配置と衝突検出の幾何モデルは共有する。span 1 だけは <code>cols = 1</code> で 40 × 40 px に収まる</td></tr>
+        <tr><th>幅 = 高さ (px)</th><td><code>56 × span − 16</code> (正方形、確率表示ブロックの高さ公式と同じ)</td></tr>
+        <tr><th>幅</th><td>密度行列は本質的に <code>n × n</code> の正方行列なので、span 2 以上では span スロット分の幅で本体を正方形に保つ。span 1 だけは 40 × 40 px に収まる</td></tr>
         <tr><th>matrix 内セル</th><td><code>n × n</code> (<code>n = 2<sup>span</sup></code>)、cell は必ず正方形 (<code>cellPx = size_px / n</code>)</td></tr>
         <tr><th>外枠</th><td><code>ui-2</code> 1 px、角ばり (角丸ゼロ)</td></tr>
         <tr><th>cell 間の区切り</th><td>描かない。振幅表示ブロックと同じく、円どうしの余白だけでセル境界を読ませる</td></tr>
@@ -340,17 +281,17 @@
 
     <h3 style="margin-top: 16px;">水平 slot 占有 (振幅表示ブロックと同モデル)</h3>
     <p>
-      qni の水平 slot pitch は <code>SLOT_SPACING = 56 px</code>。密度行列表示ブロックは正方形なので
-      <code>width_px = size_px = (span − 1) × SLOT_SPACING + GATE_SIZE = 56 × span − 16</code> となり、
+      水平スロットピッチは <code>56 px</code>。密度行列表示ブロックは正方形なので
+      <code>width = height = 56 × span − 16</code> となり、
       span 8 で 432 px (= 8 slot 分の幅を覆う) になる。slot 構造としては<strong>1 列消費</strong>、視覚的には <code>span</code> slot 分の幅をはみ出す
       (振幅表示ブロックの可変幅モデルと同じ採用。詳細は <a href="amplitude-display.html">amplitude-display.html § 05</a> 参照)。
     </p>
     <ul>
       <li><strong>resize handle</strong> — 上下のみ (span を変える)。幅は span の関数なので separate な width handle は不要 (§ 09)</li>
-      <li><strong>drag / drop preview</strong> — drag 中は他ゲートと同じく <code>purple-600</code> を背景に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま維持する</li>
+      <li><strong>drag / drop preview</strong> — drag 中は通常ゲートと同じく <code>purple-600</code> を背景に差し替え、内部の cell 描画 (outline / disk / needle) は通常時のまま維持する</li>
     </ul>
     <p class="note" style="margin-top: 12px;">
-      保存形式と配置判定の詳細は <a href="../implementation/density-matrix-display.html#serialization-placement">実装仕様 § 03</a>を参照。
+      保存形式は表示ブロック ID を使い、配置判定は本ページの span / 幅 / 高さ制約に従う。
     </p>
   </div>
 </section>
@@ -360,20 +301,20 @@
   <h2>§ 06 セル描画モデル (全セル統一、対角は needle のみ省略)</h2>
   <div class="card">
     <p>
-      Quirk の <code>paintDensityMatrix</code> (<code>src/draw/MathPainter.js</code>) を Flexoki + 振幅表示ブロックの視覚言語へ移植する。
+      密度行列表示を Flexoki + 振幅表示ブロックの視覚言語へ揃える。
       <strong>対角 / 非対角ともに同じ「outline 円 + magnitude disk」レイヤで描き、対角だけ needle を省く</strong>のがポイント。これにより:
     </p>
     <ul>
       <li><strong>対角セル <code>ρ<sub>ii</sub></code></strong> = <strong>実数の確率 <code>P(|i⟩) ∈ [0, 1]</code></strong>。
         <em>outline 円 + magnitude disk</em> の 2 層で描く。
         disk 半径 = <code>ρ<sub>ii</sub> × inner_radius</code> (= <code>P × inner_radius</code>)、半径ゼロ (P = 0) なら disk を描かない。
-        <strong>needle は描かない</strong>: 対角は常に実数 (位相 0) なので needle が真上を向くだけになり情報量を持たず、視覚的ノイズになる。Quirk の Probability square (下から上に伸びる塗りバー) は採用せず、非対角と同じ disk 表現で統一する (対角セルだけは確率の値を disk の<em>半径</em>として読む)。</li>
+        <strong>needle は描かない</strong>: 対角は常に実数 (位相 0) なので needle が真上を向くだけになり情報量を持たず、視覚的ノイズになる。非対角と同じ disk 表現で統一する (対角セルだけは確率の値を disk の<em>半径</em>として読む)。</li>
       <li><strong>非対角セル <code>ρ<sub>ij</sub></code> (<code>i ≠ j</code>)</strong> = <strong>複素数の coupling</strong>。
         振幅表示ブロックと同じ <em>outline 円 + magnitude disk + disk 境界線 + phase needle</em> の 4 層で描く。
         <code>mag = |ρ<sub>ij</sub>|</code>、<code>phase = arg(ρ<sub>ij</sub>)</code>。
         disk 半径 = <code>mag × inner_radius</code>、needle 方向 = <code>(−sin(phase), −cos(phase))</code> で<strong>真上が phase 0</strong>。
         境界線 / 配色は振幅表示ブロックの規約に従う (<a href="amplitude-display.html">amplitude-display.html § 06</a> と完全共有)。</li>
-      <li><strong>Hermitian 性</strong> — 密度行列は <code>ρ<sub>ij</sub> = conj(ρ<sub>ji</sub>)</code> なので、上三角と下三角は<strong>位相が反転した対称</strong>。表示としても自動的に左下と右上の needle が鏡像になるため、ユーザーは行列の片側を読むだけで全体が読める (Quirk と同じ視覚言語)。対角は実数 (虚部 0) なので Hermitian 性も自動的に満たされる。</li>
+      <li><strong>Hermitian 性</strong> — 密度行列は <code>ρ<sub>ij</sub> = conj(ρ<sub>ji</sub>)</code> なので、上三角と下三角は<strong>位相が反転した対称</strong>。表示としても自動的に左下と右上の needle が鏡像になるため、ユーザーは行列の片側を読むだけで全体が読める。対角は実数 (虚部 0) なので Hermitian 性も自動的に満たされる。</li>
     </ul>
 
     <p class="note" style="margin-top: 12px;">
@@ -406,8 +347,8 @@
     </div>
 
     <p class="note" style="margin-top: 12px;">
-      <strong>Quirk との差分:</strong> Quirk は対角に塗りバー (<code>_traceProbabilitySquare</code>) を採用しているが、本仕様は<strong>対角も非対角と同じ disk 表現</strong>に統一する。理由は (a) 1 つの行列内に「塗りバー + 円」の 2 種類の見た目が並ぶと視線が分散する、(b) 振幅表示ブロック / 状態ベクトルパネルが既に「disk = 確率の大きさ、needle = 位相」の語彙を確立しているので、密度行列もそれに乗せたほうが学習コストが低い、(c) 対角は実数なので needle を省くだけで「確率 = 円」と「coupling = 円 + needle」の差が自然に出る。
-      Quirk の <code>_traceAmplitudeLogarithmCircle</code> (log 強調用の補助円) は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調はポップオーバーの <code>log P: ... dB</code> 数値に集約する (§ 08)。
+      本仕様は<strong>対角も非対角と同じ disk 表現</strong>に統一する。理由は (a) 1 つの行列内に「塗りバー + 円」の 2 種類の見た目が並ぶと視線が分散する、(b) 振幅表示ブロック / 状態ベクトルパネルが既に「disk = 確率の大きさ、needle = 位相」の語彙を確立しているので、密度行列もそれに乗せたほうが学習コストが低い、(c) 対角は実数なので needle を省くだけで「確率 = 円」と「coupling = 円 + needle」の差が自然に出る。
+      log 強調用の補助円は disk と冗長 (disk が小さくても outline 円が常に視認できる) なので<strong>不採用</strong>。小さい coupling は magnitude disk の<em>大きさだけ</em>で表現し、ロガリズム強調はポップオーバーの <code>log P: ... dB</code> 数値に集約する (§ 08)。
     </p>
 
     <h3 style="margin-top: 16px;">heatmap モード (<code>cellPx &lt; 3</code>、span 7〜8)</h3>
@@ -416,7 +357,7 @@
       <strong>各セルを 1 つの矩形塗りに潰し</strong>、<code>alpha = √(|ρ<sub>ij</sub>|)</code> で濃淡を出す:
     </p>
     <ul>
-      <li>対角 / 非対角の区別はせず、全セルに <code>blue-200</code> を <em>√スケール</em> alpha で塗る (Quirk の <code>d ≤ 2</code> フォールバックと同じ、<code>lightgray</code> → <code>blue-200</code> へ色のみ差し替え)</li>
+      <li>対角 / 非対角の区別はせず、全セルに <code>blue-200</code> を <em>√スケール</em> alpha で塗る</li>
       <li>matrix 全体の外枠だけは <code>ui-2</code> 1 px で残す。cell 間 grid は描かない</li>
       <li>セルホバーは引き続き有効: <code>purple-400</code> 2 px の<strong>正方形の枠を描く</strong> (ヒートマップでは outline 円が無いため、振幅表示ブロックの「outline 円を purple-400 で置換」ではなくセル矩形の purple の枠を採用)</li>
       <li>位相情報はヒートマップでは消える: span 7〜8 ではポップオーバーだけが phase の供給源になる (セルホバー必須)</li>
@@ -426,32 +367,8 @@
     <p>
       span 内に測定済み wire が含まれる列では、測定済みビットが異なる <code>(row, col)</code> ペアの非対角成分を 0 として表示する。
       視覚的には、測定済み wire 由来の非対角列 / 行が消えて、対角の塊が残る。これは「測定後の古典化された状態」と「未測定の量子重ね合わせ」の境界を hover 抜きで見分ける手がかりになる。
-      詳細な計算順序は <a href="../implementation/density-matrix-display.html#pipeline">実装仕様 § 01</a>を参照。
+      計算順序は本ページの GPU-only 条件と、表示ブロックごとの出力要求に従う。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 06 対角と非対角の意味的差分">
-      <div class="critique-label">★ 批評 · § 06 セル描画モデル</div>
-      <div class="critique-title">Hermitian 性で上三角と下三角が「鏡像」になる冗長表示が情報量を 2 倍に膨らませている</div>
-      <p class="critique-body">
-        本文は「Hermitian 性 → 上三角と下三角は位相が反転した対称、ユーザは片側を読むだけで全体が読める」と述べる。
-        これは正しいが、<strong>視覚的には全 n² セルが描かれている</strong>ので情報密度に対するセル数は<em>実質 n(n+1)/2</em>。
-        span 5 で 1024 セル描いて実質 528 セル、span 8 で 65 536 セル描いて実質 32 896 セル。<em>cellPx を 2 倍にできる空間が浪費されている</em>。
-        改善案: 「<em>下三角だけ描画し、対角と上三角を空にする (または薄く描く)</em>」というモードを設ければ、同じ本体寸法で cellPx を ~1.4 倍にでき、span 6〜8 の視認性が劇的に上がる。Quirk は対称描画を採用しているが、qni-webgpu 独自の改善余地。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">heatmap モードで位相情報が完全に消えるのに、本仕様で軽く扱われている</div>
-      <p class="critique-body">
-        § 06 のヒートマップモード説明で「位相情報はヒートマップでは消える: span 7〜8 ではポップオーバーだけが phase の供給源になる (セルホバー必須)」と 1 行で済まされているが、
-        これは本表示ブロックの「coherence を見る」という本来の目的が span 7〜8 で<strong>視覚的には消失する</strong>ことを意味する。
-        production 標準の描画 (span 7〜8 = heatmap) で位相が読めないなら、密度行列表示ブロックは span 6 までが事実上の上限とも言える。
-        改善案: <em>(a) heatmap でも phase を hue で出す</em> (HSV 表現、Flexoki に馴染まないが span 7+ 限定で example) / <em>(b) span 7+ ではポップオーバー確認が必須であることを UI で明示</em> (本体の周囲に「Hover for phase」と注記を出す)。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">operation 前後の差分表示が将来価値を持つ余地</div>
-      <p class="critique-body">
-        密度行列は量子操作 (gate 適用、measurement) で <em>どう変化するか</em>が本質的な情報。
-        現状の本仕様はスナップショット (操作直後の <code>ρ</code>) しか描かず、ユーザは複数の widget を並べて<em>目で diff を取る</em>必要がある。
-        将来の改善余地として「<em>直前の slot との差分モード</em>」 (各セルに <code>Δρ<sub>ij</sub></code> を描く)、「<em>純粋からの距離</em>」 (<code>√(1 − Tr(ρ²))</code> を補助テキストで出す) などが考えられる。Quirk には無い機能で、qni-webgpu 独自の教育的価値を作れる。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -469,8 +386,8 @@
       <li><strong>cell 構造ガイド</strong> — cell 間の grid は引かない。通常時と同じく、matrix 外枠だけで表示ブロックの領域を示す</li>
       <li><strong>outline 円 / disk / needle</strong> — 描かない。<code>ρ</code> の値が無いので「対角の確率」も「非対角の coupling」も意味を持たない</li>
       <li><strong>外枠</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く</li>
-      <li><strong>ホバー / ポップオーバー</strong> — 実行前はセル単位ポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
-      <li><strong>遷移</strong> — 現行実装は Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前はセル単位ポップオーバーを出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
+      <li><strong>遷移</strong> — Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
     </ul>
     <div class="stage">
       <div class="col"><div class="caption">1 量子ビット · 2×2 行列<br>40 px · 実行前</div><div class="actual"><density-matrix-display span="1" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
@@ -480,31 +397,9 @@
       <div class="col"><div class="caption">8 量子ビット · 256×256 行列<br>432 px · 実行前 (背景 + 外枠のみ)</div><div class="actual"><density-matrix-display span="8" state="placeholder" placeholder no-popup></density-matrix-display></div></div>
     </div>
     <p class="note" style="margin-top: 12px;">
-      <strong>実装仕様:</strong> プレースホルダ描画の詳細は <a href="../implementation/density-matrix-display.html#placeholder">密度行列表示ブロック実装仕様 § 02</a>を参照。
+      <strong>プレースホルダ描画:</strong> 通常時と同じ matrix 外枠だけを引き、セル内の outline 円 / disk / needle は描かない。
       このページでは、全 span で背景の薄紫一色 + 外枠だけになる見た目を定義する。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 07 placeholder の情報量と他表示ブロックとの差">
-      <div class="critique-label">★ 批評 · § 07 実行前プレースホルダ</div>
-      <div class="critique-title">amplitude/probability の placeholder と異なり「outline 円すら描かない」のは情報量を犠牲にしすぎ</div>
-      <p class="critique-body">
-        本仕様の placeholder は <em>「背景 <code>purple-100</code> + matrix 外枠」のみ</em>で、cell ガイドを描かない。
-        amplitude-display.html § 02 は「placeholder でも outline 円を全セルに描く」(これから何セルが並ぶかを示す)、probability-display.html § 02 は「行ガイド線を <code>2<sup>span</sup> − 1</code> 本引く」(これから何行が並ぶかを示す) と決めている。
-        本表示ブロックだけが<strong>「matrix サイズすら placeholder で示さない」</strong>選択をしており、ユーザは Run 前に「これは 2×2 行列? 16×16 行列?」を判別できない。
-      </p>
-      <p class="critique-body">
-        本仕様は理由を「<em>placeholder は全 span で背景の薄紫一色 + 外枠だけになる</em>」と書くが、根拠は説明されていない。
-        想像できる理由は <strong>(a) 65 536 セルの outline 円を描くのは GPU 負荷が大きい</strong>、<strong>(b) cell 間の grid 線を描かない方針 (§ 05) と整合させる</strong> の 2 点だが、(a) は heatmap モード (span 7〜8) でも GPU で問題なく描画している以上説得力が弱く、(b) は cell 描画と placeholder ガイドを別 layer として扱える。
-        改善案: <em>span 1〜4 (full モード) では outline 円を描く / span 5+ では空</em> のように cellPx 帯で判断する。これで「placeholder でも matrix のおおよその density が分かる」という情報量が span 4 までは保てる。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">遷移演出が「即時切替」と書かれているのに、振幅/確率は 150 ms クロスフェード</div>
-      <p class="critique-body">
-        本文に「現行実装は Run 結果が届いたフレームでプレースホルダ層から通常の描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補」と書かれている。
-        sibling の amplitude-display.html § 02 / probability-display.html § 02 は「150 ms ease-out クロスフェード」を採用済みで、<strong>本表示ブロックだけが即時切替</strong>と不揃い。
-        これは表示ブロック族の<em>マイクロインタラクション一貫性</em>を破る決定で、ユーザは「結果が来た瞬間」の視覚フィードバックを表示ブロックごとに別形式で受け取ることになる。
-        将来の改善候補として残されているが、優先度は高い (sibling と揃えるだけで unified UX になる)。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -522,7 +417,7 @@
     <h3 style="margin-top: 16px;">セルホバー時の枠</h3>
     <ul>
       <li><strong>行列モード</strong> — 対象セルの <strong>outline 円周</strong>を <code>purple-400</code> 2 px に置き換える。対角 / 非対角ともに同じ outline 円を持つので扱いが統一される。行列全体のホバー枠はセルホバー中は消す (振幅表示ブロックの方針と同じ)</li>
-      <li><strong>ヒートマップモード</strong> — セルが小さすぎて outline 円が無いので、セル領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む。Quirk の <code>strokeRect ... 'orange', 2</code> と同じ位置で、色だけ Flexoki へ置換する</li>
+      <li><strong>ヒートマップモード</strong> — セルが小さすぎて outline 円が無いので、セル領域の<strong>正方形の枠</strong>を <code>purple-400</code> 2 px で囲む</li>
     </ul>
   </div>
 </section>
@@ -542,42 +437,12 @@
       <li><strong>default</strong> — <code>cyan-400</code> ベース (ホバー枠 <code>purple-400</code> と別色族で「リングの突起 ?」誤認を回避)</li>
       <li><strong>個別 hover</strong> — <code>cyan-600</code> + <code>scale(1.15)</code>、cursor は <code>ns-resize</code></li>
       <li><strong>active drag</strong> — <code>cyan-600</code> + <code>scale(1.25)</code>、固定</li>
-      <li><strong>span clamp</strong> — drag の上限は span 8 (Quirk と同じ)、下限は span 1。span 1 から上方向 / span 8 から下方向にドラッグしても止まる</li>
+      <li><strong>span clamp</strong> — drag の上限は span 8、下限は span 1。span 1 から上方向 / span 8 から下方向にドラッグしても止まる</li>
       <li><strong>左右ハンドルなし</strong> — width は span の関数 (<code>56 × span − 16</code>) なので独立した width handle は不要。高さハンドルの変更で同時に幅も変わる正方形リサイズ</li>
     </ul>
-
-    <aside class="critique" aria-label="批評 · § 09 span 上限 8 とリサイズの正方形連動">
-      <div class="critique-label">★ 批評 · § 09 リサイズハンドル</div>
-      <div class="critique-title">span 上限 8 が「Quirk と同じ」だけで根拠が薄い (cellPx 1.69 px は本当に視認可能か)</div>
-      <p class="critique-body">
-        span 上限 8 は Quirk 互換として自然だが、<strong>「視覚的に意味のある上限」</strong>とは別の問題である。
-        § 05 表で span 8 は cellPx = 1.69 px、ヒートマップモードで「<em>位相情報は heatmap では消える</em>」とまで書かれている。
-        <em>位相が消えた密度行列は本表示ブロックの価値の半分を失う</em>ので、span 8 を許可する根拠はもっぱら「Quirk 互換」だけになる。
-        改善案: span 6 (cellPx 5.0、outline + disk が見える) を実用上限とし、span 7〜8 は「<em>heatmap モード専用</em>」として警告を出す。または span 8 のリサイズで widget を <code>~3 倍</code> (cellPx ~5) にスケールするオプションを用意する (本体寸法を 1080 px に伸ばすトレードオフ)。
-      </p>
-      <div class="critique-title" style="margin-top: 12px;">「上下ハンドルだけ = 正方形維持」が他表示ブロックと違うハンドル動作</div>
-      <p class="critique-body">
-        確率表示ブロック / 振幅表示ブロックの上下ハンドルは「span を変える = 高さだけ変える」だが、本表示ブロックは「span を変える = 高さと幅<em>両方</em>が変わる」(正方形維持)。
-        ユーザは sibling のハンドル動作を学習しているので、本表示ブロックで上下ドラッグして<em>左右にも本体が広がる</em>のは予想外の動きになる。
-        改善案: 上下ハンドルだけでなく <strong>4 隅 (上下左右) すべてにハンドルを置く</strong>。正方形維持の制約は保ちつつ、「どの隅をつかんでもサイズが変わる」と<em>形状が正方形だと最初から伝わる</em>。
-        または現状の上下ハンドルの形を「正方形を示すアイコン (□)」に変えて、視覚的に「これは正方形リサイズ」と予告する。
-      </p>
-    </aside>
   </div>
 </section>
 
-<!-- ─────── 実装仕様への参照 ─────── -->
-<section class="block">
-  <h2>実装仕様への参照</h2>
-  <div class="card">
-    <p>
-      WebGPU 内部経路、外部 Qiskit Aer 経路、保存形式、参照ファイル、受け入れ条件は
-      <a href="../implementation/density-matrix-display.html">密度行列表示ブロック実装仕様</a>に分離する。
-      このページは見た目、寸法、配色、ホバー、リサイズなど、ユーザーに見えるデザイン仕様だけを扱う。
-    </p>
-
-  </div>
-</section>
 
 <footer class="doc-foot">
   <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>

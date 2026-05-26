@@ -16,7 +16,7 @@
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       振幅円そのものは components/amplitude-circle.js の <amplitude-circle> が基準。 */
+       振幅円そのものは本仕様ページのモックが基準。 */
 
     .ac-stage {
       background: var(--bg-2);              /* Flexoki bg-2 */
@@ -240,22 +240,22 @@
       <tbody>
         <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>全セルに <code>mag + phase</code> を描く。確率を面積として読ませるため <code>mag = sqrt(p)</code> を渡し、位相針を表示する。</td><td>グリッド寸法、行列外枠、リサイズハンドル、セルポップアップ、span 上限。</td></tr>
         <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>対角成分は行列値としての確率 <code>p = ρᵢᵢ</code> を半径で比較し、位相針を省略。非対角成分は <code>ρᵢⱼ</code> の大きさと位相を描く。</td><td>正方行列、対角 / 非対角の意味付け、混合状態の説明、span 上限。対角セルは面積ではなく半径で値を読む例外。</td></tr>
-        <tr><td>状態ベクトルパネル</td><td>状態ベクトルの各成分を同じ半径・位相規約で描く。</td><td>拡大縮小、パン、アスペクト比、GPU バッファの参照。</td></tr>
+        <tr><td>状態ベクトルパネル</td><td>状態ベクトルの各成分を同じ半径・位相規約で描く。</td><td>拡大縮小、パン、アスペクト比。</td></tr>
         <tr><td>ポップアップ内の小見本</td><td>必要なら小サイズの振幅円を補助図として使う。</td><td>数値整形、基底ラベル、位置決め、背後 UI への入力遮断。</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      どの使用側でも、本番経路の値は GPU 上のバッファからシェーダで直接読む。振幅円は「どう描くか」の語彙であり、CPU への読み戻しを導入する理由にはしない。
+      どの使用側でも、本番 UI 経路では CPU への読み戻しを発生させない。振幅円は「どう描くか」の語彙であり、値の取得方法を増やす理由にはしない。
     </p>
   </div>
 </section>
 
 <section class="block">
-  <h2>§ 06 実装メモ</h2>
+  <h2>§ 06 描画メモ</h2>
   <div class="card">
     <ul>
-      <li>実装側では Canvas / SVG ではなく、フラグメントシェーダの符号付き距離場で輪郭円、円盤、位相針を合成する。</li>
-      <li><code>components/amplitude-circle.js</code> はデザイン文書用の Web Component。基準となる見た目の確認に使い、アプリ本体の描画経路では使わない。</li>
+      <li>輪郭円、円盤、位相針を 1 つの視覚単位として合成し、拡大時も線幅と位相の読み取りを保つ。</li>
+      <li>本仕様ページのモックは基準となる見た目の確認に使う。</li>
       <li>セル背景、行列外枠、ホバー枠、選択枠、リサイズハンドルは振幅円に含めない。重ね順の衝突を避けるため、親コンポーネントが外側のレイヤを管理する。</li>
       <li>「振幅円」という名前は、物理量が振幅とは限らない密度行列の非対角成分にも使う。ここでは「複素値を円で表す描画語彙」という意味。</li>
     </ul>

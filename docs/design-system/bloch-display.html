@@ -16,8 +16,7 @@
   <script src="components/bloch-display.js"></script>
   <style>
 
-    /* ブロッホ球表示ブロック本体 / SVG / ホバー枠は
-       components/bloch-display.js の <bloch-display> に集約する。 */
+    /* ブロッホ球表示ブロック本体 / SVG / ホバー枠の見た目をこの仕様ページ内で確認する。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -65,33 +64,11 @@
     単一の量子ビットの換算密度行列から求めた <strong>ブロッホベクトル (x, y, z)</strong> を、
     本体内に <strong>3D 球の透視投影 + 矢印</strong> として可視化するブロッホ球表示ブロック (`表示ブロック` の定義は AGENTS.md 用語集と design-system §04 参照)。
     状態ベクトルには影響しない。<strong>span は 1 量子ビット 固定</strong>でリサイズ不可。
-    密度行列の縮約 (reduce) → 矢印描画 (overlay) まで GPU パイプライン内で完結し、
-    CPU リードバックは発生しない。本ドキュメントは描画仕様 (寸法 / 配色 / 投影 / 挙動 / 実装参照) を 1 ヶ所にまとめたリファレンス。
+    ブロッホベクトルの算出から矢印描画まで GPU 上で完結し、
+    CPU リードバックは発生しない。本ドキュメントは描画仕様 (寸法 / 配色 / 投影 / 挙動 / 関連仕様) を 1 ヶ所にまとめたリファレンス。
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">仕様が緻密だが「読む順序」と「再利用」の設計が弱い</div>
-    <p class="critique-body">
-      Flexoki への厳密な配色マッピング、qni convention の符号、Quirk 互換性、GPU-only ルールへの忠実さ — どれも実装者が必要な根拠は揃っている。
-      しかし読者の動線を見ると、14 セクションが「視覚 → ジオメトリ → 配色 → 視覚要素 → 投影 → GPU → ホバー → パイプライン → URL → 実装」と段階的に深まる構成で、
-      <strong>「なぜ |+⟩ が左下に表示されるか」のような第 1 質問の答え (§ 08 投影)</strong> が中盤に埋もれる。
-      SVG マークアップは <code>&lt;bloch-display&gt;</code> へ、ポップオーバー詳細は独立仕様へ分離済みなので、残る課題は読む順序と判断根拠の集約に絞られる。
-      仕様としての厳密さを保ったまま、見出し階層を整理すれば、レビュアー / 実装者 / 読者の全員が読む箇所だけを読める形になる。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>セクションを「読む順序」に並べ替える</strong> — 現状の § 04 概要 / § 08 投影 / § 09 GPU compute は「最初に欲しい情報」だが中盤に埋もれる。Quick Reference card (寸法 / 配色 / hover / GPU-only) を冒頭に置き、§ 08 投影は § 05 ジオメトリ直後に移すと「なぜ |+⟩ が左下か」に最短で到達できる (§ 08 参照)。</li>
-    </ol>
-  </aside>
-</section>
 
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
@@ -117,7 +94,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU 算出 / ポップオーバー等の詳細は § 04 以降を参照。
+      標準 6 状態 (|0⟩, |1⟩, |±⟩, |±i⟩, 混合) の一覧は <strong>§ 02 標準状態の見た目</strong>、配色 / 投影 / GPU-only 不変条件 / ポップオーバー等の詳細は § 04 以降を参照。
     </p>
   </div>
 </section>
@@ -128,14 +105,14 @@
   <div class="card">
     <p>
       代表的な 1 量子ビット 状態を実寸 (40 × 40 px) で並べた参考レンダリング。
-      ゲート本体は <strong>半径 19 px の円</strong> (内塗り <code>bg-2</code>、外周 1.5 px <code>tx-3</code>) で、
+      表示ブロック本体は <strong>半径 19 px の円</strong> (内塗り <code>bg-2</code>、外周 1.5 px <code>tx-3</code>) で、
       その上に軸線 / 細楕円の wireframe (1 px <code>tx-3</code>) を重ねる。
-      透視投影は <code>perspective-origin = top-right</code>、<code>p = 4</code> (§ 08 投影)。
+      投影は右上を奥行きの基準にした軽い透視表現 (§ 08)。
       矢印は中心からブロッホベクトルの先端へ伸び、先端には半径 4 px の色付き丸を置く。
       先端ドットの色は z 成分による gradient: <code>|0⟩</code> (z = +1) = <code>red-300</code>、赤道 (z = 0) = <code>purple-400</code>、<code>|1⟩</code> (z = -1) = <code>blue-300</code>。
       有効時の先端ドットには 1 px の <code>tx</code> 輪郭線を付ける。ブロッホベクトル長が 0 のとき (完全混合) は中心に<strong>グレーの丸</strong> (<code>tx-3</code>、非アクティブを示唆) と同じ <code>tx</code> 輪郭線を描く。
-      仕様上は、マウスカーソルを乗せるとゲート右 +12 px (tail 8 px + gap 4 px) の位置にブロッホベクトル詳細ポップオーバーを出す (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)。
-      ホバー枠とポップオーバーへの値表示は実装済み。値は <code>bloch_output_buffer</code> から GPU 側で直接描画する。
+      仕様上は、マウスカーソルを乗せるとホスト右 +12 px (tail 8 px + gap 4 px) の位置にブロッホベクトル詳細ポップオーバーを出す (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)。
+      ホバー枠とポップオーバーへの値表示も同じ GPU-only 方針に従う。
       モックはブロッホ球本体の常時表示プレビューとして読む。
     </p>
 
@@ -223,13 +200,11 @@
     <p>
       パレットの <code>BlochDisplay</code> アイコンは 40 × 40 px の静的 wireframe sphere +
       <strong>中央の <code>|v|=0</code> グレードット</strong> (非アクティブ表示)。
-      まず <code>icons/bloch_display.rs</code> の <code>draw_bloch_sphere</code> で軸線・対角・楕円を
-      <code>tx-3</code> 1 px で描き、続いて
-      <code>circuit_palette/panel.rs</code> が <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び出して
+      軸線・対角・楕円を <code>tx-3</code> 1 px で描き、
       中心に <code>tx-3</code> 半径 4 px のドットと 1 px <code>tx</code> 輪郭線を置く。
       パレット項目はドラッグ起点としてのみ機能し、ホバーでもベクトル形状は変化しない。
       <span style="color: var(--tx-3); font-family: var(--font-mono); font-size: 12px;">
-        旧仕様では blue-600 (qni オリジナルの "d=0 blue center dot") を使っていたが、
+        旧仕様では blue-600 を使っていたが、
         「弱い |1⟩」と誤読されうるため本仕様で tx-3 へ差し替え (§ 07 視覚要素)。
       </span>
     </p>
@@ -257,12 +232,12 @@
     <table class="spec">
       <tbody>
         <tr><th>役割</th><td>単一の量子ビットのブロッホベクトル (x, y, z) を可視化する表示ブロック (状態に影響しない)</td></tr>
-        <tr><th>span</th><td><strong>1 量子ビット 固定</strong> (<code>resizable_span: false</code>)。リサイズハンドルなし、QFT / Probability のような可変 span はない</td></tr>
+        <tr><th>span</th><td><strong>1 量子ビット固定</strong>。リサイズハンドルなし、QFT / 確率表示ブロックのような可変 span はない</td></tr>
         <tr><th>出力</th><td>ブロッホベクトル (x, y, z) ∈ [−1, 1]<sup>3</sup>。長さ |v| ≤ 1 (純粋状態 |v| = 1、完全混合 |v| = 0)</td></tr>
-        <tr><th>算出</th><td>1 量子ビット 換算密度行列 ρ から GPU コンピュートシェーダで計算 → <code>bloch_output_buffer</code> に書き出す。CPU リードバックなし</td></tr>
-        <tr><th>表示式</th><td><code>x = 2·Re(ρ<sub>01</sub>)</code>、<code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code> (qni convention)</td></tr>
+        <tr><th>算出</th><td>1 量子ビット換算密度行列 ρ から GPU 上で計算する。CPU リードバックなし</td></tr>
+        <tr><th>表示式</th><td><code>x = 2·Re(ρ<sub>01</sub>)</code>、<code>y = −2·Im(ρ<sub>01</sub>)</code>、<code>z = ρ<sub>00</sub> − ρ<sub>11</sub></code></td></tr>
         <tr><th>シリアライズ ID</th><td><code>"Bloch"</code> (Quirk の "ブロッホ球表示ブロック" と互換)</td></tr>
-        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置直後 (GPU dispatch 前) は <code>|v|=0</code> 状態のグレードットを egui で暫定描画 (§ 10)</td></tr>
+        <tr><th>配置</th><td>パレット 1 アイコンから drag-and-drop。配置直後は <code>|v|=0</code> 状態のグレードットを placeholder として描く (§ 10)</td></tr>
         <tr><th>nesting</th><td>禁止 (表示ブロックを表示ブロックの中には置けない、Quirk と同じ)</td></tr>
       </tbody>
     </table>
@@ -276,24 +251,24 @@
     <h3>本体寸法</h3>
     <table class="spec">
       <tbody>
-        <tr><th>占有矩形</th><td><code>GATE_SIZE × GATE_SIZE = 40 × 40 px</code> (span 1 固定)</td></tr>
+        <tr><th>占有矩形</th><td><code>40 × 40 px</code> (span 1 固定)</td></tr>
         <tr><th>本体形状</th><td><strong>円</strong> (矩形ではない)。半径 19 px の球を占有矩形の中央に描く。
-          矩形外枠 (<code>ui-2</code> 1 px) は <strong>描かない</strong> — 他ゲートと異なる例外</td></tr>
-        <tr><th>中心</th><td><code>(GATE_SIZE / 2, GATE_SIZE / 2) = (20, 20)</code></td></tr>
-        <tr><th>球半径</th><td><code>sphere_radius = min(w, h) / 2 − 1 = 19 px</code></td></tr>
-        <tr><th>外周 stroke</th><td><code>1.5 px</code>、色 <code>tx-3</code> (= <code>bloch_sphere_lines</code>)。<code>painter.circle_stroke</code></td></tr>
-        <tr><th>外周内塗り</th><td><code>bloch_sphere_bg</code> = Flexoki <code>bg-2</code> (paper よりわずかに濃い)。<code>painter.circle_filled</code></td></tr>
+          矩形外枠 (<code>ui-2</code> 1 px) は <strong>描かない</strong> — 通常ゲートと異なる例外</td></tr>
+        <tr><th>中心</th><td><code>(20, 20)</code></td></tr>
+        <tr><th>球半径</th><td><code>19 px</code></td></tr>
+        <tr><th>外周 stroke</th><td><code>1.5 px</code>、色 <code>tx-3</code></td></tr>
+        <tr><th>外周内塗り</th><td>Flexoki <code>bg-2</code> (paper よりわずかに濃い)</td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">内側 wireframe と矢印</h3>
     <table class="spec">
       <tbody>
-        <tr><th>軸線 / 楕円 stroke</th><td>1 px、色 <code>tx-3</code> (egui 側 <code>draw_bloch_sphere</code>)、shader 側は <code>line_half = 0.75</code> + <code>edge = 0.75</code> の SDF</td></tr>
-        <tr><th>矢印 stroke</th><td>egui 側は 1.5 px、shader 側は <code>line_half = 0.75</code> の SDF (実効幅 ≈ 1.5 px)</td></tr>
+        <tr><th>軸線 / 楕円 stroke</th><td>1 px、色 <code>tx-3</code></td></tr>
+        <tr><th>矢印 stroke</th><td>1.5 px、色 <code>tx</code></td></tr>
         <tr><th>矢印先端ドット</th><td>半径 4 px (= 直径 8 px)、有効 / 完全混合ともに 1 px <code>tx</code> 輪郭線を追加</td></tr>
-        <tr><th>対角線長</th><td>中心から <code>±0.30 × sphere_radius ≈ ±5.7 px</code> (qni の 35% / 65% endpoints と一致)</td></tr>
-        <tr><th>細楕円の短径</th><td><code>thin = 0.36 × sphere_radius ≈ 6.84 px</code> (qni の rx=18% / cx と一致)</td></tr>
-        <tr><th>quad outer 半径</th><td><code>outer = sphere_radius + 6 = 25 px</code> (GPU 矢印描画の quad サイズ; tip 4 px + 輪郭線 1 px + AA fringe のスラック)</td></tr>
+        <tr><th>対角線長</th><td>中心から <code>±5.7 px</code></td></tr>
+        <tr><th>細楕円の短径</th><td><code>約 6.8 px</code></td></tr>
+        <tr><th>外側余白半径</th><td><code>25 px</code>。先端ドットとアンチエイリアスの余白を含める</td></tr>
       </tbody>
     </table>
   </div>
@@ -304,21 +279,21 @@
   <h2>§ 06 配色 (Flexoki Light)</h2>
   <div class="card">
     <p class="note" style="margin-bottom: 12px;">
-      <strong>実装ステータス</strong>: 球本体 / 軸線 / ベクトル線 / ホバー枠 / 先端ドットの高彩度 z gradient + 1 px 輪郭線 / 非アクティブ gray + 1 px 輪郭線は実装済み (2026-05-24)。
-      Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションを保ちつつ、赤道上の視認性を上げている。
+      球本体 / 軸線 / ベクトル線 / ホバー枠 / 先端ドットの高彩度 z gradient + 1 px 輪郭線 / 非アクティブ gray + 1 px 輪郭線を標準とする。
+      Write0 / Write1 / ket digit / measurement と同じ「0 = 赤 / 1 = 青」コンベンションを保ちつつ、赤道上の視認性を上げる。
     </p>
     <table class="spec">
       <thead>
         <tr><th>要素</th><th>Flexoki トーン</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>外周内の円形背景 (paper よりわずかに濃い)。<code>bloch_sphere_bg</code></td></tr>
-        <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px。<code>bloch_sphere_lines</code></td></tr>
-        <tr><td>ベクトル線</td><td><code>tx</code></td><td>中心から先端への矢印 (1.5 px stroke)。<code>bloch_vector_line</code></td></tr>
+        <tr><td>球の内塗り</td><td><code>bg-2</code></td><td>外周内の円形背景 (paper よりわずかに濃い)</td></tr>
+        <tr><td>球の外周 stroke / 軸線 / 楕円</td><td><code>tx-3</code></td><td>外周 1.5 px + 内側 wireframe (水平軸 / 垂直軸 / 対角線 / 細楕円 ×2) 1 px</td></tr>
+        <tr><td>ベクトル線</td><td><code>tx</code></td><td>中心から先端への矢印 (1.5 px stroke)</td></tr>
         <tr><td>先端ドット (有効時)</td><td><code>red-300</code> / <code>purple-400</code> / <code>blue-300</code> + <code>tx</code></td><td><code>z</code> 成分で補間するグラデーション。<code>|0⟩</code> 側 (<code>z = +1</code>) は <code>red-300</code>、赤道 (<code>z = 0</code>) は <code>purple-400</code>、<code>|1⟩</code> 側 (<code>z = −1</code>) は <code>blue-300</code>。1 px の <code>tx</code> 輪郭線を重ねる</td></tr>
         <tr><td>非アクティブドット</td><td><code>tx-3</code> + <code>tx</code></td><td>完全混合 (|v| &lt; 10<sup>−3</sup>) の中心ドット。グレーで「非アクティブ」を示唆し、同じ 1 px の <code>tx</code> 輪郭線で球の線から分離する (旧仕様の blue-600 = "弱い |1⟩" 誤読を回避)</td></tr>
-        <tr><td>外側余白</td><td><code>paper</code></td><td>占有矩形の四隅 (円の外側)。ゲート本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
-        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>外側ホバー枠 (<code>gate_hover_border</code>)。本体 <code>gate_rect</code> を <strong>+4 px 拡張</strong>し、<strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の <strong>2 px stroke</strong> を描く。内側 2 px (gate edge から外 2 px) は塗らず背景が透ける。本体は円だが、枠は他のゲートと統一して角丸矩形</td></tr>
+        <tr><td>外側余白</td><td><code>paper</code></td><td>占有矩形の四隅 (円の外側)。表示ブロック本体は円なので四隅は wire / 背景がそのまま見える</td></tr>
+        <tr><td>ホバー枠</td><td><code>purple-400</code></td><td>外側ホバー枠。本体の外側へ <strong>4 px</strong> 拡張し、<strong>角丸 10 px</strong> の <strong>2 px stroke</strong> を描く。内側 2 px は塗らず背景が透ける。本体は円だが、枠は通常ゲートと統一して角丸矩形</td></tr>
       </tbody>
     </table>
   </div>
@@ -330,31 +305,28 @@
   <div class="card">
     <h3>球本体 (外周)</h3>
     <ul>
-      <li>中心 <code>(20, 20)</code>、半径 <code>sphere_radius = 19</code> の円</li>
-      <li>内塗り <code>bg-2</code> (<code>painter.circle_filled</code>)、外周 stroke 1.5 px <code>tx-3</code> (<code>painter.circle_stroke</code>)</li>
-      <li>本体は<strong>この円だけ</strong>。占有矩形 40 × 40 の四隅は塗らない (他のゲートにある角丸 6 px の矩形本体は出さない、ブロッホ球表示ブロック専用の挙動)</li>
+      <li>中心 <code>(20, 20)</code>、半径 <code>19 px</code> の円</li>
+      <li>内塗り <code>bg-2</code>、外周 stroke 1.5 px <code>tx-3</code></li>
+      <li>本体は<strong>この円だけ</strong>。占有矩形 40 × 40 の四隅は塗らない (通常ゲートにある角丸 6 px の矩形本体は出さない、ブロッホ球表示ブロック専用の挙動)</li>
     </ul>
 
     <h3 style="margin-top: 16px;">内側 wireframe (軸線と楕円)</h3>
     <ul>
-      <li>水平軸: 中心から左右に <code>sphere_radius</code> 伸ばす 1 px <code>tx-3</code> 直線</li>
-      <li>垂直軸: 中心から上下に <code>sphere_radius</code> 伸ばす 1 px <code>tx-3</code> 直線</li>
-      <li>対角線: 左下 → 右上に <code>0.30 × sphere_radius</code> 分だけ伸ばす 1 px <code>tx-3</code> 直線 (y 軸方向の擬似遠近マーカー)</li>
-      <li>細楕円 (縦): 中心、短径 <code>0.36 × sphere_radius</code>、長径 <code>sphere_radius</code> の 1 px <code>tx-3</code> 楕円 (子午線)</li>
-      <li>細楕円 (横): 中心、短径 <code>sphere_radius</code>、長径 <code>0.36 × sphere_radius</code> の 1 px <code>tx-3</code> 楕円 (赤道)</li>
+      <li>水平軸: 中心から左右に 19 px 伸ばす 1 px <code>tx-3</code> 直線</li>
+      <li>垂直軸: 中心から上下に 19 px 伸ばす 1 px <code>tx-3</code> 直線</li>
+      <li>対角線: 左下 → 右上に 5.7 px 伸ばす 1 px <code>tx-3</code> 直線 (y 軸方向の擬似遠近マーカー)</li>
+      <li>細楕円 (縦): 中心、短径 6.8 px、長径 19 px の 1 px <code>tx-3</code> 楕円 (子午線)</li>
+      <li>細楕円 (横): 中心、短径 19 px、長径 6.8 px の 1 px <code>tx-3</code> 楕円 (赤道)</li>
     </ul>
     <p class="note" style="margin-top: 8px;">
-      qni オリジナルの <code>bloch-display-element.ts</code> の <strong>静的 SVG wireframe</strong> と
-      レイアウト互換 (axis %、ellipse rx/ry 比は qni から継承)。
+      静的な球ワイヤーフレームは、水平軸・垂直軸・斜め軸・縦横の細楕円を組み合わせて、球面として読める比率にする。
     </p>
 
     <h3 style="margin-top: 16px;">動的な矢印</h3>
     <ul>
       <li>始点: 球の中心 <code>(20, 20)</code></li>
-      <li>終点: <code>bloch_project(x, y, z) × sphere_radius</code> を中心からのオフセットとして加算</li>
-      <li>終点が球面外 (<code>raw_tip_len &gt; sphere_radius</code>) の場合は<strong>球面に投影してクリップ</strong>:
-        <code>tip = raw_tip × (sphere_radius / raw_tip_len)</code> (純粋状態が
-        透視で枠外に出るのを防ぐ)</li>
+      <li>終点: ブロッホベクトルを球面内の 2D 位置へ投影し、中心からのオフセットとして加算</li>
+      <li>終点が球面外に出る場合は<strong>球面内にクリップ</strong>し、純粋状態が枠外に出るのを防ぐ</li>
       <li>線描画は <code>|v| &gt; 10<sup>−3</sup></code> のときのみ (ゼロベクトルでは線を出さない)</li>
     </ul>
 
@@ -374,21 +346,15 @@
         <code>tx-3</code> (gray) を中心 <code>(20, 20)</code> に描き、同じ 1 px の <code>tx</code> 輪郭線を重ねる。
         旧仕様の <code>blue-600</code> は「弱い |1⟩」と誤読されうるため避ける
       </li>
-      <li>shader 側は <code>1.0 − smoothstep(tip_radius − edge, tip_radius + edge, dist_tip)</code> の SDF アルファでアンチエイリアス</li>
+      <li>ドット外周はアンチエイリアスを入れ、球の軸線から分離して見えるようにする</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">色補間の計算式</h3>
+    <h3 style="margin-top: 16px;">色補間</h3>
     <p class="note">
-      WGSL 擬似コード (<code>BLOCH_OVERLAY_SHADER fs_main</code> 内、実装ターゲット):
+      z 成分が正なら <code>purple-400</code> から <code>red-300</code> へ、負なら <code>purple-400</code> から <code>blue-300</code> へ連続的に補間する。
+      完全混合に近い状態は <code>tx-3</code> の非アクティブドットに切り替える。
     </p>
-    <pre class="code">// z &gt;= 0 は purple-400 → red-300、z &lt; 0 は purple-400 → blue-300。
-let positive_t = clamp(bloch.z, 0.0, 1.0);
-let negative_t = clamp(-bloch.z, 0.0, 1.0);
-let positive_rgb = mix(params.tip_mid_color.rgb, params.tip_0_color.rgb, positive_t);
-let active_rgb = mix(positive_rgb, params.tip_1_color.rgb, negative_t);
 
-// active_rgb または tx-3 を塗ったあと、tx の 1px 輪郭線を重ねる。
-// |v| ≈ 0 のときは線なし + tx-3 fill + tx outline の非アクティブ表示。</pre>
     <p class="note">
       代表 7 状態の tip 色 (sRGB):
     </p>
@@ -410,120 +376,49 @@ let active_rgb = mix(positive_rgb, params.tip_1_color.rgb, negative_t);
 
 <!-- ─────── § 08 投影 ─────── -->
 <section class="block">
-  <h2>§ 08 投影 (透視 + 軸 swap)</h2>
+  <h2>§ 08 投影の見た目</h2>
   <div class="card">
     <p>
-      qni の <code>bloch-display-element.ts</code> は CSS の
-      <code>transform: rotateY(phi) rotateX(−theta)</code> +
-      <code>perspective: 4rem</code> +
-      <code>perspective-origin: top right</code> で 3D 描画している。
-      egui-web では同じ視覚を 2D で再現するため、以下の固定変換を使う。
+      ブロッホ球は、右上を奥行きの基準にした軽い透視表現で描く。
+      代表状態の矢印先端は次の位置関係を満たし、プレビュー表示と通常表示で同じ見た目にする。
     </p>
 
-    <h3>1. Bloch → CSS の軸 swap</h3>
-    <p>初期 up ベクトルを <code>rotateY(phi)·rotateX(−theta)</code> で回した結果として、Bloch (x, y, z) を CSS (X, Y, Z) に置き換える:</p>
-    <pre class="code">x_3d =  bloch.y      // CSS X (right)
-y_3d = -bloch.z      // CSS Y (down)
-z_3d =  bloch.x      // CSS Z (out of screen)</pre>
-
-    <h3 style="margin-top: 16px;">2. ピンホール透視</h3>
-    <p>カメラを <code>p = 4</code> (radius 単位)、viewing origin を球の右上 <code>(px, py) = (1, −1)</code> に置いた透視投影:</p>
-    <pre class="code">factor = p / (p − z_3d)            // z_3d &gt; 0 で拡大、z_3d &lt; 0 で縮小
-sx = px + factor · (x_3d − px)
-sy = py + factor · (y_3d − py)</pre>
-    <p>
-      最終的にスクリーン座標は <code>tip = center + (sx, sy) × sphere_radius</code>。
-      <code>perspective-origin: top right</code> なので、観測者から見て手前にあるベクトル
-      (<code>bloch.x &gt; 0</code>) は <strong>左下寄り</strong>、奥にあるベクトル (<code>bloch.x &lt; 0</code>) は
-      <strong>右上寄り</strong>に投影される。
-    </p>
-
-    <h3 style="margin-top: 16px;">3. 代表 6 状態の先端位置 (radius = 19 px、center = (20, 20))</h3>
     <table class="spec">
       <thead>
-        <tr><th>状態</th><th>(x, y, z)</th><th style="text-align:right;">(sx, sy)</th><th>tip (px)</th></tr>
+        <tr><th>状態</th><th>位置関係</th><th>先端位置の目安</th></tr>
       </thead>
       <tbody>
-        <tr><td>|0⟩</td><td><code>(0, 0, +1)</code></td><td class="num">(0, −1)</td><td><code>(20, 1)</code></td></tr>
-        <tr><td>|1⟩</td><td><code>(0, 0, −1)</code></td><td class="num">(0, +1)</td><td><code>(20, 39)</code></td></tr>
-        <tr><td>|+⟩</td><td><code>(+1, 0, 0)</code></td><td class="num">(−1/3, +1/3)</td><td><code>(13.7, 26.3)</code></td></tr>
-        <tr><td>|−⟩</td><td><code>(−1, 0, 0)</code></td><td class="num">(+0.2, −0.2)</td><td><code>(23.8, 16.2)</code></td></tr>
-        <tr><td>|+i⟩</td><td><code>(0, +1, 0)</code></td><td class="num">(+1, 0)</td><td><code>(39, 20)</code></td></tr>
-        <tr><td>|−i⟩</td><td><code>(0, −1, 0)</code></td><td class="num">(−1, 0)</td><td><code>(1, 20)</code></td></tr>
+        <tr><td>|0⟩</td><td>球の上端</td><td><code>(20, 1)</code></td></tr>
+        <tr><td>|1⟩</td><td>球の下端</td><td><code>(20, 39)</code></td></tr>
+        <tr><td>|+⟩</td><td>左下寄り</td><td><code>(13.7, 26.3)</code></td></tr>
+        <tr><td>|−⟩</td><td>右上寄り</td><td><code>(23.8, 16.2)</code></td></tr>
+        <tr><td>|+i⟩</td><td>右端</td><td><code>(39, 20)</code></td></tr>
+        <tr><td>|−i⟩</td><td>左端</td><td><code>(1, 20)</code></td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 8px;">
-      実装: <code>icons/bloch_display.rs</code> (egui プレビュー用) と
-      <code>gpu/shaders/bloch_display.rs</code> (WGSL <code>bloch_project</code>) で完全に同じ式を使う。
-      数値の一致は egui 上の暫定描画と GPU overlay の見た目を完全に揃えるため。
+      純粋状態の先端は球面上に置き、混合状態は中心へ近づける。球外へはみ出す表示はしない。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 08 投影が中盤に埋もれている">
-      <div class="critique-label">★ 批評 · § 08 セクション順序</div>
-      <div class="critique-title">「なぜ |+⟩ が左下に出るか」は最初の質問なのに 7 番目に置かれている</div>
-      <p class="critique-body">
-        § 02 のモックを見て読者が最初に抱く疑問は<em>「|0⟩ が真上はわかる。じゃあ |+⟩ がなぜ画面の左下に出るのか」</em>。
-        その答え (<code>perspective-origin: top right</code> で +x 軸が画面手前に倒れる) は § 08 の中盤、6 セクション越しに登場する。
-        その間に挟まる § 03〜§ 07 (パレットアイコン / 概要 / ジオメトリ / 配色 / 視覚要素) は<em>「すでに見たことを後から確認する」内容</em>で、第 1 質問の解消には貢献しない。
-      </p>
-      <p class="critique-body">
-        <strong>対応案 A (順序入れ替え)</strong>: § 08 投影を § 05 ジオメトリの直後に持ってくる。
-        論理順は「占有矩形 → ジオメトリ → 投影 (= 見え方の根拠) → 配色 / 視覚要素 (= 細部) → GPU パイプライン → 実装」の方が滑らかで、第 1 質問への到達距離が 6 → 2 セクションに短縮される。
-      </p>
-      <p class="critique-body">
-        <strong>対応案 B (Quick Reference カード)</strong>: § 02 の直後に「観測者は右上、+x は画面手前 → 左下、+y は右、+z は上」を 1 行で伝える図 (3 軸を矢印で示すだけのミニ SVG、40×40 px) を置く。順序入れ替えなしで読者の見当を即座に揃えられる。
-      </p>
-    </aside>
   </div>
 </section>
 
 <!-- ─────── § 09 ブロッホベクトル算出 ─────── -->
 <section class="block">
-  <h2>§ 09 ブロッホベクトル算出 (GPU compute)</h2>
+  <h2>§ 09 ブロッホベクトル算出 (GPU-only)</h2>
   <div class="card">
     <p>
-      <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)
-      は対象量子ビット <code>qubit_bit</code> を消去した
-      1 量子ビット 換算密度行列 ρ の 3 成分を計算し、<code>bloch_output_buffer</code> の
-      <code>output_slot</code> に <code>vec4&lt;f32&gt;(x, y, z, 0)</code> として書き出す。
-      シェーダは <strong>workgroup_size 64</strong> + ツリー縮約 (64→32→16→8→4→2→1) で
-      2<sup>n</sup> 個の状態振幅を 1 つの workgroup でまとめ上げる。
+      ブロッホベクトルは対象量子ビットの縮約密度行列 ρ から得る。本番 UI 経路では CPU へ値を読み戻さない。
+      デザイン上の符号規約は以下で固定する。
     </p>
-
-    <h3 style="margin-top: 8px;">入力 / 出力</h3>
     <table class="spec">
       <tbody>
-        <tr><th>入力 (storage, read)</th><td><code>state: array&lt;vec2&lt;f32&gt;&gt;</code> (状態ベクトル、各成分 = (Re, Im))</td></tr>
-        <tr><th>入力 (uniform)</th><td><code>BlochParams { qubit_bit, state_count, output_slot }</code></td></tr>
-        <tr><th>出力 (storage, read_write)</th><td><code>bloch_out: array&lt;vec4&lt;f32&gt;&gt;</code>、 <code>bloch_out[output_slot] = (x, y, z, 0)</code></td></tr>
+        <tr><th><code>x</code></th><td><code>2·Re(ρ<sub>01</sub>)</code></td></tr>
+        <tr><th><code>y</code></th><td><code>−2·Im(ρ<sub>01</sub>)</code>。画面座標の向きに合わせて符号を反転する</td></tr>
+        <tr><th><code>z</code></th><td><code>ρ<sub>00</sub> − ρ<sub>11</sub></code></td></tr>
       </tbody>
     </table>
-
-    <h3 style="margin-top: 16px;">計算式</h3>
-    <p>
-      対象 量子ビットのビットが 0 の状態 <code>i</code> と、それに <code>qubit_bit</code> を足した状態 <code>j = i | qubit_mask</code>
-      の振幅を組にして、ρ<sub>00</sub> / ρ<sub>11</sub> / ρ<sub>01</sub> を累積する:
-    </p>
-    <pre class="code">ρ_00     = Σ_{bit(i)=0}  |amp[i]|²
-ρ_11     = Σ_{bit(i)=1}  |amp[i]|²
-ρ_01_re  = Σ_{bit(i)=0}  Re( amp[i] · conj(amp[j]) )
-ρ_01_im  = Σ_{bit(i)=0}  Im( amp[i] · conj(amp[j]) )
-
-x =  2 · ρ_01_re
-y = -2 · ρ_01_im      // qni convention (符号注意)
-z =  ρ_00 − ρ_11</pre>
-    <p class="note">
-      <code>y</code> のマイナス符号は qni の <code>packages/simulator/src/matrix.ts</code> 由来の
-      convention。Quirk と数値が一致するよう、シェーダ側でこの符号を保つ。
-    </p>
-
-    <h3 style="margin-top: 16px;">GPU-only 保証</h3>
-    <p>
-      <strong>本番経路で CPU リードバックは発生しない</strong>。<code>bloch_output_buffer</code> は
-      storage buffer のまま <code>BLOCH_OVERLAY_SHADER</code> の <code>@binding(0)</code> に渡され、
-      fragment shader が <code>bloch_data[slot]</code> を直接サンプルする
-      (確率表示ブロックの <code>STATE_PROB_BUFFER</code> と同じパターン)。
-      これは AGENTS.md の「最重要ルール: GPU-only」に準拠する設計。
+    <p class="note" style="margin-top: 12px;">
+      本番表示では、ブロッホベクトル・ポップオーバー数値・矢印描画を CPU 読み戻しなしで表示する。
     </p>
   </div>
 </section>
@@ -534,32 +429,29 @@ z =  ρ_00 − ρ_11</pre>
   <div class="card">
     <h3>ホバー枠</h3>
     <ul>
-      <li>実装: <code>body_rect.expand(4.0)</code> に対して <strong>角丸 10 px</strong> (= 本体 6 px + 4 px) の
-        <strong>2 px stroke</strong> を <code>Inside</code> で描く。
-        内側 2 px (ゲート端から外側 2 px) は塗らず、ステージ背景 / 配線がそのまま透ける</li>
-      <li>本体は円だが、外側ホバー枠は他のゲートと統一して<strong>角丸矩形</strong>。
+      <li>本体の可視矩形を 4 px 外側へ広げた領域に対して <strong>角丸 10 px</strong> の
+        <strong>2 px stroke</strong> を内側に描く。
+        内側 2 px (本体端から外側 2 px) は塗らず、ステージ背景 / 配線がそのまま透ける</li>
+      <li>本体は円だが、外側ホバー枠は通常ゲートと統一して<strong>角丸矩形</strong>。
         内容 (球) とホバー枠を分離する設計で、利用者はホバー時の見せ方を 1 つだけ覚えればよい</li>
       <li>確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロックは本体が角ばりなので、<a href="hover-frame.html">ホバー枠 § 02</a> に従い、外側ホバー枠の角丸は <code>0 px</code> (90 度) にする。行ホバー枠 / セルホバー枠は表示ブロック固有の内側枠として扱う</li>
       <li>確率表示ブロックと異なり <strong>行ホバー枠は存在しない</strong> (描画要素が単一なので行の概念がない)</li>
-      <li>リサイズハンドルなし (<code>resizable_span: false</code>)。span を変える UI は出さない</li>
+      <li>リサイズハンドルなし。span を変える UI は出さない</li>
     </ul>
 
     <h3 style="margin-top: 16px;">ポップオーバー</h3>
     <ul>
       <li>ホスト要素のホバー時に、右側 +12 px (tail 8 px + gap 4 px) の位置へブロッホベクトル詳細ポップオーバーを出す設計 (<a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a>)</li>
       <li>表示内容: タイトル + 球座標 (<code>r</code> / <code>φ</code> / <code>θ</code>) + 直交座標 (<code>x</code> / <code>y</code> / <code>z</code>)</li>
-      <li>Quirk の <code>BlochSphereDisplay.js</code> の <code>paintDeferredValueTooltip</code> と同等の情報量を、
-        確率表示ブロックのポップオーバーと同じ Geist 系のタイポグラフィで再構成</li>
-      <li>実装ステータス: <strong>本体表示、GPU 重ね描画、ポップオーバーへの値表示を実装済み</strong>。値は GPU 側の <code>bloch_output_buffer</code> から直接描画する</li>
+      <li>確率表示ブロックのポップオーバーと同じ Geist 系のタイポグラフィで、座標値を読みやすく再構成する</li>
+      <li>値は本番 UI 経路では CPU に戻さず、GPU 上の値から直接表示する</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">暫定描画 (snap 前 / GPU dispatch 前)</h3>
+    <h3 style="margin-top: 16px;">実行前プレースホルダ</h3>
     <ul>
-      <li>ドラッグ中 / 配置直後で <code>gpu_plan.bloch_slot(gate.id)</code> が <code>None</code> のときは GPU overlay を出せない</li>
-      <li>このとき egui 側で <code>draw_bloch_vector(rect, [0, 0, 0])</code> を呼び、<strong>中心にグレードット
-        (<code>tx-3</code>)</strong> と 1 px <code>tx</code> 輪郭線を描く (静的 wireframe + 非アクティブ示唆の中央ドット)</li>
-      <li>次フレームの GPU dispatch で値が確定し次第、egui 描画から GPU overlay 描画にシームレスに切り替わる</li>
-      <li>egui 暫定描画と GPU overlay の見た目を完全に揃えるため、両者は同じ <code>bloch_project</code> 式を使う (§ 08)</li>
+      <li>ドラッグ中 / 配置直後で値がまだ確定していないときは、中心にグレードット (<code>tx-3</code>) と 1 px <code>tx</code> 輪郭線を描く。</li>
+      <li>値が確定したら通常の矢印表示へクロスフェードする。</li>
+      <li>placeholder も通常表示と同じ投影式・球 wireframe を使う (§ 08)。</li>
     </ul>
   </div>
 </section>
@@ -574,142 +466,37 @@ z =  ρ_00 − ρ_11</pre>
       共通外装は <a href="popover.html">ポップオーバー仕様</a> を使い、本ページではホバーでポップオーバーを出す導線だけを扱う。
     </p>
     <ul>
-      <li><strong>対象</strong>: <code>GateKind::BlochDisplay</code> のホスト要素のホバー時に出す詳細ポップオーバー</li>
+      <li><strong>対象</strong>: ブロッホ球表示ブロックのホバー時に出す詳細ポップオーバー</li>
       <li><strong>参照先</strong>: <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a></li>
-      <li><strong>本ページに残す責務</strong>: 球本体、ホバー枠、GPU overlay、暫定描画、URL シリアライズ</li>
+      <li><strong>本ページに残す責務</strong>: 球本体、ホバー枠、実行前プレースホルダ、URL シリアライズ</li>
     </ul>
   </div>
 </section>
 
-<!-- ─────── § 12 描画パイプライン ─────── -->
+<!-- ─────── § 12 GPU-only 描画要件 ─────── -->
 <section class="block">
-  <h2>§ 12 描画パイプライン (3 段)</h2>
+  <h2>§ 12 GPU-only 描画要件</h2>
   <div class="card">
     <p>
-      ブロッホ球表示ブロックは <strong>compute (reduce) → render (overlay) → egui callback</strong> の
-      3 段で完結する。CPU は形状とスロット番号だけを GPU に渡し、ブロッホベクトル値は GPU の
-      ストレージバッファをまたいで完結する。
+      ブロッホ球表示ブロックは、ブロッホベクトルの算出・矢印の投影・先端ドットの色決定・ポップオーバー値表示を GPU 上の値で完結させる。
+      CPU 側では状態ベクトルや密度行列を計算しない。
     </p>
-
-    <h3 style="margin-top: 8px;">Stage 1: Reduce (compute)</h3>
     <ul>
-      <li>shader: <code>BLOCH_REDUCE_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)</li>
-      <li>pipeline: <code>gpu/resources/bloch_display/reduce.rs</code></li>
-      <li>workgroup: 64 スレッド、ツリー縮約 (workgroupBarrier 付き)</li>
-      <li>入力 binding: 状態ベクトル (storage, read) + <code>BlochParams</code> uniform</li>
-      <li>出力 binding: <code>bloch_output_buffer</code> (storage, read_write)、各 BlochDisplay に <code>output_slot</code> を割り当て</li>
-    </ul>
-
-    <h3 style="margin-top: 16px;">Stage 2: Overlay (render)</h3>
-    <ul>
-      <li>shader: <code>BLOCH_OVERLAY_SHADER</code> (<code>gpu/shaders/bloch_display.rs</code>)</li>
-      <li>pipeline: <code>gpu/resources/bloch_display/overlay.rs</code></li>
-      <li>頂点: <code>common.unit_quad_vertex_buffer</code> (Probability / その他と共有の単位 quad)</li>
-      <li>インスタンス: <code>BlochOverlayInstance { center, radius, outer, slot }</code></li>
-      <li>fragment: <code>bloch_data[slot]</code> から (x, y, z) を直接サンプル → <code>bloch_project</code> → SDF で線とドットを描く</li>
-      <li>NDC 変換: egui_wgpu が callback rect に viewport をセットするので、<code>viewport_min</code> / <code>viewport_size</code> uniform で world 座標を NDC に変換</li>
-    </ul>
-
-    <h3 style="margin-top: 16px;">Stage 3: egui callback</h3>
-    <ul>
-      <li>callback: <code>gpu/callbacks/bloch_display_overlay.rs</code> (<code>BlochOverlayCallback</code>)</li>
-      <li>prepare: パラメータ / インスタンスを GPU バッファに書き込む (CPU → GPU)</li>
-      <li>paint: pipeline + bind group をバインドし <code>draw_indexed(0..6, 0, 0..N)</code></li>
-      <li>呼び出し元: <code>render/circuit_gates.rs</code> (placed_gates から BlochDisplay を抽出してインスタンス化)</li>
-    </ul>
-
-    <p class="note" style="margin-top: 12px;">
-      <strong>SDF 描画パラメータ</strong> (<code>BLOCH_OVERLAY_SHADER fs_main</code>):
-      <code>line_half = 0.75</code>、<code>tip_radius = 4.0</code>、<code>edge = 0.75</code>。
-      <code>1.0 − smoothstep(half − edge, half + edge, dist)</code> でアルファを作るので、
-      線の実効幅 ≈ 1.5 px、ドット直径 ≈ 8 px (= 2 × tip_radius) になる。
-    </p>
-
-    <h3 style="margin-top: 16px;">バックエンド対応</h3>
-    <ul>
-      <li><strong>Local WebGPU のみ対応</strong>。<strong>external GPU バックエンドでは未対応</strong>
-        (<code>app/external_gpu/app_adapter.rs</code> の <code>unsupported_external_gpu_gate</code> に
-        <code>BlochDisplay → "Bloch"</code> が列挙されている)</li>
-      <li>回路に BlochDisplay が含まれる場合、external GPU 切替時に Unsupported エラーになる</li>
-      <li>制約理由: external GPU 経路は ρ → (x, y, z) の reduce + GPU フラグメントへの直結という本仕様の経路を持たないため。
-        将来対応するなら <code>BLOCH_REDUCE_SHADER</code> 相当の reduce を external 側にも追加する</li>
+      <li><strong>通常表示</strong> — § 08 の投影式に従い、中心から先端ドットまで矢印を描く。</li>
+      <li><strong>完全混合</strong> — 矢印線を出さず、中心に非アクティブドットを描く。</li>
+      <li><strong>外部 GPU モード</strong> — 同じ GPU-only 表示経路を用意できない場合は未対応として扱い、CPU 代替計算は行わない。</li>
     </ul>
   </div>
 </section>
 
-<!-- ─────── § 13 URL シリアライズ ─────── -->
+<!-- ─────── § 13 シリアライズ ─────── -->
 <section class="block">
-  <h2>§ 13 URL シリアライズ (Quirk 互換)</h2>
+  <h2>§ 13 シリアライズ</h2>
   <div class="card">
     <p>
-      BlochDisplay の <strong>シリアライズ ID</strong> は Quirk と同じ語彙を採用する
-      (Quirk URL インポート / 双方向の URL 共有のため、<code>gates.rs</code> で <code>url_token: "Bloch"</code>)。
-      ただし<strong>下記の <code>#circuit=...</code> 形式は Quirk オリジナルの URL hash 構造</strong>であり、qni-webgpu 現行の URL 表現
-      (<code>/#&lt;percent-encoded JSON&gt;</code>) とは hash 内のキー名・構造が異なる。
-      本セクションは <em>Quirk URL の語彙互換性</em>を示すための参考であり、qni-webgpu 内部の URL 設計は別仕様 (TBD)。
+      ブロッホ球表示ブロックのシリアライズ ID は <code>"Bloch"</code>。span は 1 量子ビット固定なので、派生 ID は持たない。
     </p>
-    <table class="spec">
-      <thead>
-        <tr><th>span</th><th>serialized id</th></tr>
-      </thead>
-      <tbody>
-        <tr><td class="num">1</td><td><code>"Bloch"</code> (固定 — ブロッホ球表示ブロックは span 1 のみ)</td></tr>
-      </tbody>
-    </table>
-    <p style="margin-top: 12px;">URL fragment 内では JSON 生のまま (Quirk 形式):</p>
-    <pre class="code">#circuit={"cols":[["H"],["Bloch"]]}                          # H → Bloch
-#circuit={"cols":[["H","H","H"],["Bloch","Bloch","Bloch"]]}  # 3 量子ビット、各 wire に Bloch
-#circuit={"cols":[[1,"Bloch"]]}                              # q1 起点 (q0 placeholder)</pre>
-    <p style="margin-top: 12px;">
-      percent-encode 済み (<code>%7B"cols"%3A%5B%5B"Bloch"%5D%5D%7D</code>) も等価に parse できる
-      (Quirk と同じ挙動)。Quirk 側ロジックは <code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code> 参照。
-    </p>
-  </div>
-</section>
-
-<!-- ─────── § 14 実装ファイル / 参照 ─────── -->
-<section class="block">
-  <h2>§ 14 実装ファイル</h2>
-  <div class="card">
-    <table class="spec">
-      <thead>
-        <tr><th>ファイル</th><th>役割</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>docs/design-system/components/bloch-display.js</code></td><td>仕様ページ / パレット用の <code>&lt;bloch-display&gt;</code> カスタム要素</td></tr>
-        <tr><td><code>apps/web/src/gates.rs</code></td><td><code>GateKind::BlochDisplay</code> 定義、<code>url_token = "Bloch"</code></td></tr>
-        <tr><td><code>apps/web/src/gpu/shaders/bloch_display.rs</code></td><td>WGSL シェーダ (<code>BLOCH_REDUCE_SHADER</code> + <code>BLOCH_OVERLAY_SHADER</code>)</td></tr>
-        <tr><td><code>apps/web/src/gpu/resources/bloch_display/reduce.rs</code></td><td>compute パイプライン構築 (binding layout、shader module)</td></tr>
-        <tr><td><code>apps/web/src/gpu/resources/bloch_display/overlay.rs</code></td><td>render パイプライン構築 (頂点 / インスタンス layout、blend state)</td></tr>
-        <tr><td><code>apps/web/src/gpu/resources/bloch_display.rs</code></td><td>モジュールファサード (<code>BlochResources</code> 構造体、reduce / overlay 両 パイプラインを保持)</td></tr>
-        <tr><td><code>apps/web/src/gpu/resources/bloch_display/pipeline.rs</code></td><td>overlay render pipeline 構築 (<code>build_overlay_pipeline</code>)</td></tr>
-        <tr><td><code>apps/web/src/gpu/recompute/dispatch.rs</code></td><td>reduce + overlay の毎フレーム dispatch オーケストレーション (<code>SimulationOp::CaptureBloch</code> → <code>encode_capture_bloch</code>)</td></tr>
-        <tr><td><code>apps/web/src/gpu/params.rs</code></td><td><code>BlochParams</code> uniform + <code>BlochOverlayInstance</code></td></tr>
-        <tr><td><code>apps/web/src/gpu/callbacks/bloch_display_overlay.rs</code></td><td>egui_wgpu 描画コールバック (prepare / paint)</td></tr>
-        <tr><td><code>apps/web/src/icons/gate_body.rs</code></td><td>外周の円本体 (<code>circle_filled</code> + <code>circle_stroke</code>) — ブロッホ球表示ブロック専用の例外的な本体形状</td></tr>
-        <tr><td><code>apps/web/src/icons/bloch_display.rs</code></td><td>内側 wireframe (<code>draw_bloch_sphere</code>) と暫定矢印 (<code>draw_bloch_vector</code>)、透視投影式 <code>bloch_project</code></td></tr>
-        <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>ホバー枠 / 暫定描画 / GPU overlay インスタンス化</td></tr>
-        <tr><td><code>apps/web/src/simulation_plan/op.rs</code></td><td><code>SimulationOp::CaptureBloch</code> (シミュレーションプランへの組み込み)</td></tr>
-        <tr><td><code>apps/web/src/app/gpu_plan_state.rs</code></td><td><code>bloch_slot(gate_id)</code> のスロット割り当てルックアップ</td></tr>
-        <tr><td><code>apps/web/src/colors.rs</code></td><td>Flexoki マッピング:
-          <code>bloch_sphere_bg</code> (= bg-2) / <code>bloch_sphere_lines</code> (= tx-3) / <code>bloch_vector_line</code> (= tx) /
-          <strong>新仕様:</strong> <code>bloch_vector_tip_0</code> (= red-300) /
-          <code>bloch_vector_tip_mid</code> (= purple-400) /
-          <code>bloch_vector_tip_1</code> (= blue-300) /
-          <code>bloch_vector_tip_outline</code> (= tx) /
-          <code>bloch_vector_zero</code> (= tx-3、|v| &lt; 1e-3 の非アクティブ色)</td></tr>
-      </tbody>
-    </table>
-    <h3 style="margin-top: 16px;">参考</h3>
-    <ul>
-      <li>qni オリジナル要素: <code>packages/elements/src/bloch-display-element.ts</code></li>
-      <li>qni convention (符号定義): <code>packages/simulator/src/matrix.ts</code></li>
-      <li>Quirk 原実装: <code>../oss/Quirk/src/gates/BlochSphereDisplay.js</code></li>
-      <li>デザインシステム全体方針: <a href="../design-system-architecture.html">design-system-architecture.html</a></li>
-      <li>関連 spec: <a href="probability-display.html">probability-display.html</a> (表示ブロックの姉妹実装)</li>
-      <li>関連仕様: <a href="bloch-display-popover.html">bloch-display-popover.html</a> (ブロッホ球ポップオーバーの独立仕様)</li>
-      <li>インデクス: <a href="../design-system.html">design-system.html</a></li>
-    </ul>
+    <pre class="code">{"cols":[["H"],["Bloch"]]}</pre>
   </div>
 </section>
 

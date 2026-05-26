@@ -17,7 +17,7 @@
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
 
-    /* Spacer 本体 / 3 点 / ホバー枠は components/spacer-gate.js の <spacer-gate> に集約する。 */
+    /* Spacer 本体 / 3 点 / ホバー枠は本仕様ページのモックで確認する。 */
 
     /* ── stage (各状態を横並びで見せる) ─────────────── */
     .stage {
@@ -43,7 +43,7 @@
       color: var(--tx-2);
     }
     .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      width: 56px;                          /* spacing-14 */
       height: 56px;
       display: flex;
       align-items: center;
@@ -84,7 +84,7 @@
         linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat;
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                          /* spacing-14 */
       height: 56px;
       display: flex;
       align-items: center;
@@ -155,49 +155,12 @@
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「何もしないゲート」がそもそも「ゲート」として存在する根拠が薄い</div>
-    <p class="critique-body">
-      <code>H ページの全体所見と同じ</code>く、本仕様は Flexoki Light に厳密で、3 点だけの最小グリフ / 透明 hit 領域 / 回路 vs パレットの
-      ホバー枠分岐などが根拠付きで書かれている。<a href="measurement-gate.html">測定</a> /
-      <a href="write0-gate.html">|0⟩</a> オペレーションと同じ「透明マーカ系」クロムの仲間として整理されている点もよい。
-    </p>
-    <p class="critique-body">
-      しかし Spacer は qni-webgpu のゲート群で<strong>最も特殊なケース</strong>で、§ 06 にあるように
-      <em>「状態変化: linearize_ops が GateKind::Spacer を捨て、dispatch を発行しない」</em>「外部 GPU 実行: <code>Unsupported gate · Spacer</code> として停止する」
-      という、量子計算上は<strong>純粋に no-op </strong>な要素である。仕様は「列を占有するだけで何もしない」ことを丁寧に書くが、
-      <strong>なぜこれを「ゲート」として持つ必要があるのか</strong> (空セルとは何が違うのか) という存在意義の核心が
-      § 01 と § 06 のあいだに散在しており、「Spacer はそもそも存在すべきか?」という設計判断の根拠が弱い。
-    </p>
-    <p class="critique-body">
-      Quirk では Spacer は「<em>列幅を保つための見える空白</em>」として実装上の必要から生まれた要素で、回路を Quirk URL から
-      シリアライズ / 復元するときに「空でないが何もしない列」を保持するために必要だった。qni-webgpu でも同じ理由なら、
-      その実装由来の経緯を <strong>§ 00 前文</strong>として書いておくと、本ゲートが「<em>ユーザに能動的に置いてもらう</em>」のではなく
-      「<em>Quirk 互換のために残す</em>」性格のものだと正確に伝わる。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>「ユーザに使われるか?」の UX 観点が欠如</strong> — 何もしないゲートを palette から選んで配置する動機が明確でなく、UI 探索時に「これは何?」と<em>誤クリック</em>される可能性 (§ 01 / § 04 参照)。</li>
-      <li><strong>3 点 ("…") と三点リーダー (省略記号) の意味的衝突</strong> — 「…」は一般 UI で「メニュー / 続きあり」を示す強い慣習がある。本仕様の 3 点は「空白」を意味するが、Quirk 互換の <code>"…"</code> シリアライズ ID もあり、用法と意味のズレが起きやすい (§ 02 参照)。</li>
-      <li><strong>tx (#100F0F = ほぼ黒) で 5 px 点を描く強さの正当性</strong> — 「<em>tx-2 では弱すぎ、tx なら見失わない</em>」と書かれているが、「空白を示すマーカ」を本文と同じ濃さで描くのは矛盾する設計判断 (§ 02 参照)。</li>
-      <li><strong>§ 06 「外部 GPU 実行で Unsupported gate · Spacer として停止する」が本ゲートの致命的欠陥</strong> — qni-webgpu の二大実行経路の片方で動かないゲートを UI に置けることの是非が触れられていない (§ 06 参照)。</li>
-      <li><strong>§ 04 のパレットホバー (内側 paper 枠) と回路ホバー (線だけ) の使い分けが H 系と非整合</strong> — 透明マーカ系 4 ゲート (Spacer / Write0 / Write1 / Measurement) でホバー枠仕様の合議をしたい (§ 04 参照)。</li>
-    </ol>
-  </aside>
-</section>
 
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>
-      Spacer は <code>GateKind::Spacer</code>、シリアライズ ID は Quirk 互換の <code>"…"</code> (三点リーダー 1 文字)。
+      Spacer のシリアライズ ID は <code>"…"</code> (三点リーダー 1 文字)。
       パレットでは Gates section の 2 行目末尾に置かれ、ドラッグするとほかのゲートと同じ 56 px ピッチのスロットへ配置できる。
       ただし、状態ベクトルには一切作用しないため、回路の意味論としては「列を占有する空白」に近い。
     </p>
@@ -222,29 +185,6 @@
     <p class="note" style="margin-top: 16px;">
       Spacer の役割は「見える空白」。通常の空セルは何も描かれず選択もできないが、Spacer は 3 点で存在を示し、ドラッグ / ホバー / 削除などの編集操作を受け付ける。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 01 Spacer の UX 動機">
-      <div class="critique-label">★ 批評 · § 01 概要</div>
-      <div class="critique-title">ユーザが palette から Spacer を能動的に選ぶ動機が薄い</div>
-      <p class="critique-body">
-        本仕様は「<em>列の間隔や例題回路の読みやすさを保つための視覚的な区切り</em>」「<em>3 点で存在を示し、ドラッグ / ホバー / 削除などの編集操作を受け付ける</em>」
-        と Spacer の用途を書くが、ユーザが palette から Spacer を能動的に選ぶ動機を読者に伝える具体例がない。
-        H / X / CNOT を palette からドラッグするのは「回路を作る」という明確な目的があるが、Spacer をドラッグして何を達成したいのか
-        (列幅を保つ? 読みやすさのため? Quirk URL の互換性のため?) が § 01 だけでは判別できない。
-      </p>
-      <p class="critique-body">
-        改善案: § 01 末尾に <strong>「Spacer の使いどころ (具体例 3 つ)」</strong>を追加する:
-        (a) 教科書例題の回路を再現するとき、Quirk から import した URL に Spacer が含まれていた場合
-        (b) 例題のコメント枠を空けたいとき (回路の "段落" を作る)
-        (c) 制御線を伸ばしたいが、対象量子ビット側に何もゲートを置きたくないとき。
-        これがあれば、「ユーザに能動的に使ってもらう」or「Quirk 互換のためだけに残す」の方針も明確になる。
-      </p>
-      <p class="critique-body">
-        補足: § 01 mock では「① 既定 ② 回路ホバー ③ パレットホバー ④ ドラッグ」の 4 状態を 1 行に並べているが、
-        ③ パレットホバーだけ <code>frame="palette"</code> という別軸で、他の 3 つとは性質が違う (UI 状態 vs 文脈)。
-        Measurement § 04 と同型の問題で、状態モックの軸混在は本ファミリ共通の課題。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -253,7 +193,7 @@
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>用途</th><th>Flexoki トーン</th><th>実装ロール / 備考</th></tr>
+        <tr><th>用途</th><th>Flexoki トーン</th><th>色ロール / 備考</th></tr>
       </thead>
       <tbody>
         <tr>
@@ -285,30 +225,6 @@
         </tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 02 tx 黒の強さと 三点リーダー の意味的衝突">
-      <div class="critique-label">★ 批評 · § 02 配色</div>
-      <div class="critique-title">「空白マーカ」を tx (ほぼ黒) で描く強さ、および 3 点と一般 UI 慣習 (…) の衝突</div>
-      <p class="critique-body">
-        <code>tx</code> (#100F0F) は本文や見出しと同じ最濃の文字色で、これを「<em>空白を示すマーカ</em>」に使う設計判断には
-        <strong>視覚的強さと意味の不一致</strong>がある。本文は「<em>tx-2 では弱すぎ、tx なら 5 px 点でも見失わない</em>」と
-        書くが、これは「空白を示す要素を、もっとも強い色で描く」という<em>逆方向の判断</em>。
-        Spacer が「他のゲートと並んだ時の <em>見える空白</em>」だとすれば、視覚優先度は最低であるべきで、tx-3 (#B7B5AC) や
-        ui (#E7E5DC) のように <strong>背景と本体の中間色</strong>で描くほうが、意味と見た目が一致する。
-      </p>
-      <p class="critique-body">
-        加えて、3 点 ("…") は <strong>一般 UI 慣習で「メニュー」「省略」「読み込み中」</strong>を強く意味する記号で、
-        Material Design / iOS / Bootstrap いずれも <code>…</code> = "more options" の意味で使う。
-        本仕様の Spacer は「空白」を示すが、palette でこれを見たユーザは「<em>これはメニューゲート? 他のゲートが隠れている?</em>」と
-        誤解する可能性が高い。Quirk 互換のシリアライズ ID も <code>"…"</code> (三点リーダー 1 文字) で、
-        Quirk の選択もまた一般 UI 慣習と衝突している。
-      </p>
-      <p class="critique-body">
-        改善案: 3 点をやめて <strong>"⌑" (square containing right) や "·" (中点 1 個) </strong>のような「空白」を強く示す記号にするか、
-        色を tx-3 まで落として「<em>これは弱い視覚要素ですよ</em>」と明示する。Quirk 互換 ID は維持しつつ、UI 上の見た目は
-        qni-webgpu 独自に再定義する道もある。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -317,8 +233,8 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>当たり判定領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)。本体 fill は transparent</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。中央配置で上下左右 8 px の余白</td></tr>
+        <tr><th>当たり判定領域</th><td><code>40 × 40 px</code>。本体 fill は transparent</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code>。中央配置で上下左右 8 px の余白</td></tr>
         <tr><th>SVG viewBox</th><td><code>0 0 48 48</code>。実表示 40 px へ縮小して描く</td></tr>
         <tr><th>点の形</th><td>viewBox 上で <code>6 × 6</code> の塗りつぶし正方形。40 px 表示時は <code>5 × 5 px</code></td></tr>
         <tr><th>点の座標</th><td><code>x = 9 / 21 / 33</code>、<code>y = 21</code>、<code>width = height = 6</code>。中心は viewBox の <code>(12,24)</code> / <code>(24,24)</code> / <code>(36,24)</code></td></tr>
@@ -348,31 +264,11 @@
       </svg>
       <div class="legend">
         <p><strong>40 px</strong> · 透明な当たり判定領域</p>
-        <p><strong>56 px</strong> · スロット (<code>SLOT_SPACING</code>)</p>
+        <p><strong>56 px</strong> · スロット</p>
         <p><strong>5 px</strong> · 実表示時の各点サイズ</p>
         <p><strong>3 点</strong> · viewBox 中心 <code>y = 24</code> に水平整列</p>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 03 点間隔と幅の暗算">
-      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
-      <div class="critique-title">点の中心座標 (12, 24) / (24, 24) / (36, 24) から間隔 12 / 幅 6 を読者が暗算する必要がある</div>
-      <p class="critique-body">
-        本仕様で「<em>点の座標: x = 9 / 21 / 33、y = 21、width = height = 6</em>」と書かれているが、
-        この値から「<strong>3 点の中心間隔 = 12 (viewBox 48 上)、実表示で 10 px</strong>」「<strong>3 点全体の合計幅 = 30 (実 25 px)、左右 7.5 / 7.5 px 余白</strong>」という
-        Spacer の幾何関係は読者が暗算しないと出てこない。これは h-gate.html § 06 の「16 px 余白の内訳図がない」批評と同じパターンで、
-        <em>計算済みの幾何関係</em>を annotated diagram で見せると、設計の意図が一目で伝わる。
-      </p>
-      <p class="critique-body">
-        改善案: § 03 末尾に「点の幾何関係 (点幅 5 / 点間 5 / 余白 5 — 5 × 5 の対称配置)」のような<strong>等分構造</strong>を
-        annotated diagram で示す。等分配置は Spacer が「<em>幾何的にも空白の中央性を示す</em>」要素であることを強調できる。
-      </p>
-      <p class="critique-body">
-        補足: <code>geo-diagram</code> SVG が他のページ (Write0 / Write1 / Measurement) と同じく 240 × 240 px サイズで、
-        中の SVG 内テキスト <code>font-size="4"</code> が実表示 12 px に相当する。これは Spacer 単独の問題ではないが、
-        本ファミリ全体で SVG 内テキストサイズの基準を統一したい (現状 4 / 3.6 が混在)。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -404,28 +300,6 @@
     <p class="note" style="margin-top: 16px;">
       パレット上だけ内側を paper で塗る。回路上で同じ処理をすると、透明ゲートの内部を通る wire や制御線を消してしまうため、回路上は線だけのホバー枠に統一する。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 04 ホバー枠の文脈分岐">
-      <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
-      <div class="critique-title">回路 vs パレットのホバー枠分岐が、透明マーカ系 4 ゲートで揃っていない可能性</div>
-      <p class="critique-body">
-        本仕様は「<em>回路ホバー = 2 px の線だけ / パレットホバー = 外側 purple + 内側 paper の二重枠</em>」と書き分け、
-        実装も <code>frame="palette"</code> 属性で分岐させている。これは妥当な判断 (透明ゲートの内側を paper で塗ると、
-        回路上では wire や制御線を消してしまう) だが、同じく透明マーカ系の <a href="write0-gate.html">|0⟩</a> /
-        <a href="write1-gate.html">|1⟩</a> オペレーションでは <strong>「内側 bg ギャップなしの単線」</strong>を回路 / パレット問わず
-        統一して使い、<a href="measurement-gate.html">Measurement</a> は「<em>パレットのホバーは外側 purple-400 + 内側 paper の二重枠、回路上のホバーは線だけ</em>」と
-        分岐している。
-      </p>
-      <p class="critique-body">
-        結果として、透明マーカ系 4 ゲートで <strong>(a) Spacer / Measurement = 文脈分岐あり (b) Write0 / Write1 = 文脈分岐なし</strong>
-        という非対称が生まれる。同族のゲートで仕様が分岐するのは、レビューと実装の両方で「<em>このゲートはどっち?</em>」を
-        毎回確認する負荷になる。
-      </p>
-      <p class="critique-body">
-        改善案: 透明マーカ系全 4 ゲートのホバー枠仕様を <code>hover-frame.html</code> に集約し、文脈分岐の有無を 1 か所で決める。
-        ホバー枠 primitive 仕様自体は既に存在するので、本ファミリ用のバリアント定義を追加する形で良い。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -448,34 +322,16 @@
     <p class="note" style="margin-top: 16px;">
       うっすら入っている縦線は説明用のスロット境界。実 UI では wire と 3 点だけが見える。単独の Spacer はコネクタを作らず、span も伸びない。同じ列に Control / Anti-control がある場合は描画上の対象として縦コネクタに含まれるが、状態変化はない。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 05 制御との連動仕様の散在">
-      <div class="critique-label">★ 批評 · § 05 回路グリッド配置</div>
-      <div class="critique-title">「Control / Anti-control がある場合は縦コネクタに含まれる」の重要仕様が note 末尾に隠れている</div>
-      <p class="critique-body">
-        本章末尾の note に <strong>「同じ列に Control / Anti-control がある場合は描画上の対象として縦コネクタに含まれるが、状態変化はない」</strong>と
-        重要な仕様が 1 文だけ書かれている。これは Spacer の意味論として「<em>状態変化なし</em>」と矛盾する微妙な仕様
-        (描画上は制御コネクタの対象 = ターゲットとして扱われるが、量子計算上は no-op) で、本ゲートの最も特異な振る舞いの 1 つ。
-        にもかかわらず、本文中で図解もなく、文章 1 文だけで通り過ぎている。
-      </p>
-      <p class="critique-body">
-        改善案: § 05 に <strong>「制御コネクタに含まれた Spacer の挙動」</strong>の小見出しを設け、
-        slot-mock で「Control + Spacer + Spacer」の縦並びを実際に描く。これがあれば、
-        「Spacer は描画上は制御の対象になるが、measurement と違い後続列に影響しない」が一目で伝わる。
-        加えて、Quirk の "Identity gate" との関係 (Quirk の I ゲートが取り立てて何もしない場合の挙動) も
-        比較として書ければ、Spacer の存在意義がより明確になる。
-      </p>
-    </aside>
   </div>
 </section>
 
 <section class="block">
-  <h2><span class="num">§ 06</span>意味論と実装契約</h2>
+  <h2><span class="num">§ 06</span>意味論と導入要件</h2>
   <div class="card">
     <div class="semantic-grid">
-      <div class="mini"><strong>状態変化</strong><br />ローカル WebGPU 実行では <code>linearize_ops</code> が <code>GateKind::Spacer</code> を捨て、dispatch を発行しない。</div>
+      <div class="mini"><strong>状態変化</strong><br />Spacer は状態ベクトルに作用せず、計算ステップを発生させない。</div>
       <div class="mini"><strong>編集操作</strong><br />配置・選択・削除・ドラッグは通常ゲートと同じ。空セルではなく、編集可能なプレースホルダとして扱う。</div>
-      <div class="mini"><strong>外部 GPU 実行</strong><br />現状の Qiskit バックエンド経路では <code>Unsupported gate · Spacer</code> として停止する。</div>
+      <div class="mini"><strong>外部 GPU 実行</strong><br />未対応の経路では <code>Unsupported gate · Spacer</code> として停止する。</div>
     </div>
     <ul>
       <li><strong>3 点だけで描く</strong>: 空白を示す記号なので、操作ゲートの cyan-400 本体や枠線を足さない。</li>
@@ -484,35 +340,6 @@
       <li><strong>ドラッグ中に紫化しない</strong>: 本体 fill が無いゲートに purple-600 の仮本体を出すと、Spacer が操作ゲートに見えるため避ける。</li>
       <li><strong>span = 1 固定</strong>: 列を占有するだけで、複数量子ビットの領域を持たない。リサイズハンドルは出さない。</li>
     </ul>
-
-    <aside class="critique" aria-label="批評 · § 06 外部 GPU 実行で停止する致命的欠陥">
-      <div class="critique-label">★ 批評 · § 06 意味論と実装契約</div>
-      <div class="critique-title">「外部 GPU 実行: Unsupported gate · Spacer として停止する」が Spacer の致命的欠陥</div>
-      <p class="critique-body">
-        本章 semantic-grid 3 マス目に <strong>「<em>外部 GPU 実行: 現状の Qiskit バックエンド経路では <code>Unsupported gate · Spacer</code> として停止する</em>」</strong>と
-        書かれている。これは <a href="../web.md">CLAUDE.md</a> によれば qni-webgpu の<strong>二大実行経路 (ローカル WebGPU / 外部 GPU = Qiskit バックエンド)</strong>の
-        片方で<em>動かない</em>ことを意味する。ローカル経路では <code>linearize_ops</code> が Spacer を捨てて no-op になるが、
-        ユーザが Qiskit バックエンドに切り替えると<strong>同じ回路が突然動かなくなる</strong>。
-      </p>
-      <p class="critique-body">
-        この実装的非対称は Spacer の存在意義を根本から揺らがせる。ユーザが palette から Spacer をドラッグして配置し、
-        ローカル実行で問題なく動いたあと、Qiskit に切り替えると「Unsupported gate」エラーが出る、というシナリオが起きる。
-        改善案は 2 つ: <strong>(a) Qiskit バックエンドでも Spacer を no-op として扱うようバックエンド側を修正</strong>する、
-        または <strong>(b) Spacer を palette から外し、Quirk 互換のシリアライズ復元時にだけ「読むけど描かない」隠し要素にする</strong>。
-        現状の「palette には出るが、半分の経路で動かない」は最悪のユーザ体験。
-      </p>
-      <p class="critique-body">
-        補足: semantic-grid 3 マスのうち最後の「外部 GPU 実行」は、実装契約というより「<em>このゲートは半分動かない</em>」という
-        重要なユーザ警告。デザインシステム仕様で <strong>これを mini-card 1 つで済ませる扱いの軽さ</strong>に違和感がある。
-        本ファイル冒頭の <em>page-lede</em> か、§ 01 概要に <strong>「⚠ Qiskit バックエンドでは未対応」</strong>と
-        明示しないと、本仕様を読むユーザに警告が届かない。
-      </p>
-      <p class="critique-body">
-        補足 2: 5 項目の設計判断リストは h-gate.html / write0-gate.html と同じく「平等並び」問題を抱えており、
-        透明マーカ系共通 (cyan-400 を使わない / ホバー枠単線 / ドラッグ色変えない / wire マスクなし) と
-        Spacer 単独 (3 点で描く / tx 色 / span = 1 固定 / Quirk 互換の no-op 性質) を階層化したい。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -526,7 +353,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上の Spacer でも <code>&lt;spacer-gate&gt;</code> を参照する。ホバーは <code>.gp-gate</code> の内側空き付きホバー枠を使う</td>
+          <td>パレット上の Spacer でも同じ 3 点形状を使う。ホバーはパレット共通の内側空き付きホバー枠を使う</td>
         </tr>
         <tr>
           <td><a href="measurement-gate.html">測定ゲート</a></td>

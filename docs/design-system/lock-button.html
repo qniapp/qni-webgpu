@@ -27,7 +27,7 @@
       color: var(--tx-2); line-height: 1.4;
     }
 
-    /* ── トップバー再現 (apps/egui-web/src/render/toolbar.rs と 1:1) ────── */
+    /* ── トップバー再現 ────── */
     .toolbar {
       display: inline-flex; align-items: center;
       gap: 8px;                            /* gap-2 = 8 px */
@@ -86,7 +86,7 @@
       stroke-linecap: round; stroke-linejoin: round;
     }
 
-    /* ── 回路ピッカー (circuit-picker.html と同じ実装) ──────────────────
+    /* ── 回路ピッカー (circuit-picker.html と同じ見た目) ──────────────────
        2 ペイン構成: 上の items pane (overflow-y: auto, 独立スクロール) +
        resize 区切り線 + 下の footer (Create new circuit, 常時 pinned)。
        drag-to-reorder + separator resize の挙動も同じ。
@@ -331,7 +331,7 @@
     回路ピッカーを <strong>Example Circuits</strong> と <strong>My Circuits</strong> の 2 セクションに分ける際に必要な
     「現在の回路が編集可能か」を示すトグルボタン。複製アイコンの直右に追加し、
     Lucide <code>lock</code> / <code>lock-open</code> を outline で 24×24 → 18 px に描画する。
-    既存トップバー (<code>apps/egui-web/src/render/toolbar.rs</code>) の規格と完全に揃える。
+    既存トップバーの規格と完全に揃える。
   </p>
   <p class="page-lede" style="margin-top: 12px;">
     <strong>方針 (案 B の改訂):</strong>
@@ -483,13 +483,13 @@
   <h2>§ 04 編集禁止の不変条件</h2>
   <div class="card">
     <p>
-      <code>locked</code> = 「<strong>その entry の中身を書き換える mutation を一切受け付けない</strong>」。
+      <code>locked</code> = 「<strong>その回路の内容や名前を書き換える操作を一切受け付けない</strong>」。
       Example Circuits は常時 locked、My Circuits はユーザが lock ボタンで明示的に切り替え可能。
-      locked は entry の <code>circuit_json</code> と <code>name</code> の両方を凍結する
-      (ゲート編集 / ゲート配置 / Clear / Undo/Redo / 実行中の URL hash 適用 / Rename / Delete を抑止)。
-      一方、<strong><code>circuit_json</code> / <code>name</code> を書き換えない操作、または unlock のためのメタ情報更新</strong>は locked でも通す:
+      locked は回路内容と名前の両方を凍結する
+      (ゲート編集 / ゲート配置 / Clear / Undo/Redo / 実行中の URL 適用 / Rename / Delete を抑止)。
+      一方、<strong>回路内容や名前を書き換えない操作、または unlock のためのメタ情報更新</strong>は locked でも通す:
       <em>Select (active 切替)</em> / <em>Duplicate</em> / <em>Create new circuit</em> / <em>My 内 reorder (順序は別管理)</em> /
-      <em>locked My の lock toggle (<code>origin.User.locked</code> のメタ情報更新で unlock 経路)</em>。
+      <em>locked My の lock toggle (ロック状態のメタ情報更新で unlock 経路)</em>。
     </p>
     <table class="spec" style="width: 100%;">
       <thead>
@@ -499,8 +499,8 @@
         <tr><td>ゲート配置 / 移動 / 削除</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
         <tr><td>Clear (trash)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
         <tr><td>Undo / Redo</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
-        <tr><td>URL hash → 適用 (実行中)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
-        <tr><td>起動時 URL 解決 (boot_circuit)</td><td><code>✓</code></td><td><code>✓</code> (上書きせず select / fresh id)</td><td><code>✓</code> (Sample select のみ)</td></tr>
+        <tr><td>実行中の URL 適用</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
+        <tr><td>起動時の URL 解決</td><td><code>✓</code></td><td><code>✓</code> (上書きせず選択 / 新規回路)</td><td><code>✓</code> (Sample select のみ)</td></tr>
         <tr><td>Rename (picker)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
         <tr><td>Delete (picker submenu)</td><td><code>✓</code></td><td><code>✗</code></td><td><code>✗</code></td></tr>
         <tr><td>Lock toggle (toolbar)</td><td><code>✓</code> (→ locked)</td><td><code>✓</code> (→ unlocked)</td><td><code>✗</code> (固定)</td></tr>
@@ -512,32 +512,13 @@
       </tbody>
     </table>
     <p class="note" style="margin-top: 16px;">
-      <strong>Create new circuit</strong> は <em>active が何であっても</em>常に許可する (<code>origin: User { locked: false }</code> の新 entry を末尾に追加して active 化、上書き mutation ではない)。
-      <strong>Lock toggle</strong> は localStorage に永続化するが <em>undo history には積まない</em> (履歴は circuit の編集を扱う単位で、メタ状態は別)。
+      <strong>Create new circuit</strong> は <em>active が何であっても</em>常に許可する (unlocked My の新しい回路を末尾に追加して active 化し、既存回路を上書きしない)。
+      <strong>Lock toggle</strong> は永続状態として扱うが <em>undo history には積まない</em> (履歴は circuit の編集を扱う単位で、メタ状態は別)。
     </p>
     <p class="note" style="margin-top: 12px;">
-      実装ガード: ガード対象は <strong>active 編集系</strong>と <strong>picker 行操作</strong>で対象 entry が異なる。
-    </p>
-    <ul style="margin: 0 0 12px 18px; padding: 0; color: var(--tx-2); font-size: 14px; line-height: 22px;">
-      <li><strong>active 編集系</strong> (active entry の <code>circuit_json</code> を書き換える):
-        <code>place_gate</code> / <code>remove_gate</code> / <code>clear_circuit</code> /
-        <code>undo_circuit</code> / <code>redo_circuit</code> / <code>apply_url_payload</code> →
-        入口で <code>self.library.active_locked()</code> を確認、true なら早期 return。
-        副作用としてトップバー側の Undo / Redo / Trash ボタンも disabled 表示。
-      </li>
-      <li><strong>picker 行操作</strong> (任意 entry の <code>name</code> / 存在を変える):
-        <code>rename(entry_id, new_name)</code> / <code>delete(entry_id)</code> →
-        入口で <code>self.library.entry_locked_by_id(entry_id)</code> (= origin が Sample または User { locked: true }) を確認、true なら早期 return。
-        <strong>active が unlocked My でも、対象行が locked My / Sample なら拒否されるのが正しい挙動</strong>。
-        submenu 表示時の disabled 判定とは別に、commit / delete の API 側でも必ず再チェックする (UI 競合や直接呼び出し対策)。
-      </li>
-    </ul>
-    <p class="note" style="margin-top: 0;">
-      <strong>ガード対象外</strong> (locked でも通す):
-      <em>toggle_circuit_lock</em> (メタ情報 <code>origin.User.locked</code> のみ更新。
-      <strong>active が Sample の場合は API 側で no-op</strong>: Sample variant に <code>locked</code> フィールドが無いのでトグル対象が存在しない) /
-      <em>move_up</em> / <em>move_down</em> / <em>reorder</em> (順序は別管理、entry の中身は触らない) /
-      <em>duplicate</em> / <em>select</em> / <em>create_new</em> (新 entry または active 切替で escape hatch)。
+      ガード対象は「現在の回路内容を書き換える操作」と「ピッカー内で対象行の名前・存在を変える操作」。
+      active が unlocked My でも、対象行が locked My / Example なら Rename / Delete は拒否する。
+      Duplicate / Select / Create new circuit / Move up / Move down / Reorder / Lock toggle は、回路内容を上書きしないため locked でも通す。
     </p>
   </div>
 </section>
@@ -547,7 +528,7 @@
   <h2>§ 05 既存トップバーのスペック</h2>
   <div class="card">
     <p>
-      出典: <code>apps/egui-web/src/render/toolbar.rs</code>。
+      以下の表をトップバー共通規格として扱う。
       新ボタンも以下の規格に揃え、他 4 アイコン (Undo / Redo / Trash / Copy) と寸法・色・ホバー挙動を完全一致させる。
     </p>
     <table class="spec" style="margin-top: 8px;">
@@ -576,7 +557,7 @@
     </p>
     <table class="spec">
       <thead>
-        <tr><th>状態</th><th>tooltip</th><th>意味 (AccessKit role / state)</th></tr>
+        <tr><th>状態</th><th>tooltip</th><th>支援技術へ伝える意味</th></tr>
       </thead>
       <tbody>
         <tr><td><code>unlocked (my)</code></td><td><code>Lock circuit</code></td><td>ToggleButton, <code>Toggled::False</code></td></tr>
@@ -585,461 +566,41 @@
       </tbody>
     </table>
     <p class="note" style="margin-top: 16px;">
-      <strong>注意:</strong> § 01 のモック (DOM) では <code>aria-pressed</code> / <code>aria-disabled</code> 属性を直接付けているが、
-      実 egui アプリは canvas 描画なので DOM の aria-* は使えない。
-      実装は egui の AccessKit 統合 (<code>WidgetInfo::new_toggle_button</code> 等) で
-      <code>Role::ToggleButton</code> と <code>Toggled</code> / <code>Disabled</code> を expose する。
+      <strong>注意:</strong> § 01 のモックでは <code>aria-pressed</code> / <code>aria-disabled</code> 属性を直接付けている。
+      本番 UI でも支援技術に ToggleButton / Toggled / Disabled 相当の意味が伝わることを受け入れ条件にする。
       モック上の aria は HTML レビュー用の補助表記として扱う。
     </p>
   </div>
 </section>
 
-<!-- ─────── § 07 実装メモ ─────── -->
+<!-- ─────── § 07 導入要件 ─────── -->
 <section class="block">
-  <h2>§ 07 実装メモ</h2>
+  <h2>§ 07 導入要件</h2>
   <div class="card">
-    <h3>ToolbarIcon 拡張</h3>
-    <pre class="code">// apps/egui-web/src/render/toolbar.rs
-enum ToolbarIcon {
-    Undo, Redo, Trash, Copy, Play,
-    Lock,      // Lucide "lock"
-    LockOpen,  // Lucide "lock-open"
-}</pre>
-
-    <h3 style="margin-top: 16px;">paint_icon に枝を追加</h3>
-    <pre class="code">ToolbarIcon::LockOpen =&gt; {
-    paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
-    // M7 11 V7 a5 5 0 0 1 9.9 -1
-    paint_shackle_open(painter, icon_rect, stroke);
-}
-ToolbarIcon::Lock =&gt; {
-    paint_icon_rect_outline(painter, icon_rect, 3.0, 11.0, 18.0, 11.0, 2.0, stroke);
-    // M7 11 V7 a5 5 0 0 1 10 0 v4
-    paint_shackle_closed(painter, icon_rect, stroke);
-}</pre>
-
-    <h3 style="margin-top: 16px;">CircuitEntry スキーマ拡張</h3>
-    <p>
-      現行の <code>CircuitEntry</code> は <code>id / name / circuit_json / updated_at</code> のみ。
-      lock 仕様には <code>origin</code> (Sample 由来か User か) と
-      User の場合の <code>locked</code> 状態が必要。
-      <strong>Sample variant は <code>locked</code> フィールドを持たない</strong>ことで
-      「Sample + 非 locked」という不正状態を型レベルで表現不能にする。
-    </p>
-    <pre class="code">// apps/egui-web/crates/circuit-library-model/src/lib.rs
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct CircuitEntry {
-    pub id: CircuitId,
-    pub name: String,
-    pub circuit_json: String,
-    pub updated_at: u64,
-    pub origin: CircuitOrigin,   // 新規
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CircuitOrigin {
-    Sample { origin_id: String },   // 常時 locked (locked フィールド無し)
-    User   { locked: bool },         // ユーザがトグルで切り替え
-}</pre>
-    <p>
-      <code>tag = "kind"</code> + <code>rename_all = "snake_case"</code> で JSON 上は <code>{"kind":"sample", "origin_id":"bell"}</code> / <code>{"kind":"user", "locked":true}</code> の internally-tagged 形式。
-      <code>deny_unknown_fields</code> で<strong>未知フィールドを silently 受理しない</strong>(例: 破損データで Sample variant に <code>locked</code> が混入していたら deserialize エラー)。
-      これで「Sample + locked」が保存形式レベルでも表現不能 = 起動時に detect 可能。
-    </p>
-    <p>
-      <strong>付随する書き換え:</strong> <code>CircuitEntry</code> のフィールドが増えるので、シリアライズ経路を網羅的に更新する。
-    </p>
+    <h3>ロック状態と編集制御</h3>
     <ul>
-      <li><code>circuit_library.rs</code> の <code>localStorage</code> read/write (JSON serde で <code>origin</code> も入出力)。</li>
-      <li><code>CircuitLibrary::to_test_json()</code> も <code>origin</code> / <code>locked</code> をエクスポート (snapshot test の比較対象に含める)。</li>
-      <li><code>test_hooks.rs</code> 経由で JS から見るデバッグ JSON も <code>origin</code> を含める (Playwright 側で `entry.origin.kind === "sample"` などで判定可能に)。</li>
-      <li>seed の hard-coded const に <code>origin: CircuitOrigin::Sample { origin_id: id.to_owned() }</code> を付与。</li>
-    </ul>
-    <p>
-      <strong>派生 helper:</strong>
-    </p>
-    <pre class="code">impl CircuitLibrary {
-    pub fn active_kind(&amp;self) -&gt; CircuitKind {
-        match &amp;self.active().origin {
-            CircuitOrigin::Sample { .. } =&gt; CircuitKind::Example,
-            CircuitOrigin::User { .. }   =&gt; CircuitKind::My,
-        }
-    }
-    /// Sample なら常に true。壊れた保存データで Sample + 非 locked になることはない。
-    pub fn active_locked(&amp;self) -&gt; bool {
-        match &amp;self.active().origin {
-            CircuitOrigin::Sample { .. } =&gt; true,
-            CircuitOrigin::User { locked } =&gt; *locked,
-        }
-    }
-}
-
-pub enum CircuitKind { Example, My }</pre>
-
-    <h3 style="margin-top: 16px;">localStorage 移行 (v1 → v2)</h3>
-    <p>
-      <strong>v1 では seed sample もユーザが編集できた</strong>ので、id だけで「Sample 確定」と判定するのは危険
-      (編集済みのユーザ回路を読み取り専用に閉じ込めてしまう)。
-      v2 では「公式 sample は const から再生成」「v1 entry が公式 sample の <code>id</code> を持っていても、
-      内容 (canonical JSON + name) が一致しなければ User コピーへ退避」を行う。
-    </p>
-    <h4 style="margin: 12px 0 6px; font-size: 14px;">保存形式 (v2 document JSON)</h4>
-    <pre class="code">{
-  "version": 2,
-  "active_id": "ckt_20260518_my-experiment",
-  "entries": [
-    {
-      "id": "bell",
-      "name": "Bell state",
-      "circuit_json": "{\"cols\":[[\"H\"],[\"•\",\"X\"]]}",
-      "updated_at": 1778727600000,
-      "origin": { "kind": "sample", "origin_id": "bell" }
-    },
-    {
-      "id": "ckt_20260518_my-experiment",
-      "name": "my-experiment",
-      "circuit_json": "{...}",
-      "updated_at": 1778740000000,
-      "origin": { "kind": "user", "locked": true }
-    }
-  ]
-}</pre>
-    <p>
-      <code>origin</code> は <code>{ kind: "sample", origin_id }</code> | <code>{ kind: "user", locked }</code> の internally-tagged 形式 (Rust <code>#[serde(tag = "kind", rename_all = "snake_case")]</code>)。
-      Sample variant に <code>locked</code> フィールドを持たせないことで、保存形式レベルでも「Sample + 非 locked」が表現不能。
-    </p>
-    <h4 style="margin: 12px 0 6px; font-size: 14px;">移行手順 (<code>migrate_v1_to_v2()</code>)</h4>
-    <ol>
-      <li>キーは <code>qni.circuit_library.v2</code> に bump。古い <code>qni.circuit_library.v1</code> は<strong>v2 validate 成功まで残す</strong>(復旧余地)。
-        <ul>
-          <li>初回起動: v2 が無い → v1 を読んで migration → v2 を書き込んで <strong>validate (parse round-trip + schema 確認)</strong>。validate 成功するまで v1 は<strong>削除しない</strong>。</li>
-          <li>2 回目以降: v2 を読む。<strong>v2 read / validate に失敗</strong>かつ v1 が残っていれば、v2 を退避 (<code>qni.circuit_library.v2.broken-{ts}</code>) して<strong>v1 から再 migration</strong> + v2 書き直し。tracing で警告。</li>
-          <li>v2 validate 成功した次回起動で初めて <code>localStorage.removeItem("qni.circuit_library.v1")</code> を実行。</li>
-        </ul>
-      </li>
-      <li>v2 seed: <code>CircuitLibrary::seed()</code> が hard-coded const から Sample entries (bell / ghz / qft-4 / grover-search) を生成、常に含める。</li>
-      <li>v1 entries を 1 件ずつ処理:
-        <ul>
-          <li>id が seed sample ID と一致し、<code>circuit_json</code> と <code>name</code> が canonical 定義と<strong>完全一致</strong> → 廃棄 (v2 seed と重複)</li>
-          <li>id が seed sample ID と一致するが内容が違う → <strong>User コピーへ退避</strong>:
-            <ul>
-              <li>新 id = <code>format!("{old_id}-user-edit")</code>。これも既存と衝突するなら <code>-2</code>, <code>-3</code> ... と採番</li>
-              <li>name = <code>format!("{old_name} (edited)")</code>。これも衝突なら <code>(edited 2)</code> 採番</li>
-              <li><code>origin: User { locked: false }</code> で保存 (ユーザ編集物は最初は unlocked が安全)</li>
-            </ul>
-          </li>
-          <li>id が seed sample ID と一致しない (純粋なユーザ作成) → そのまま <code>origin: User { locked: false }</code> で保存</li>
-        </ul>
-      </li>
-      <li><code>active_id</code> の再写像: v1 の active_id が seed と完全一致なら seed 側の id へ、退避された場合は新 id へ、見つからなければ先頭 entry へ fallback。</li>
-      <li>migration log を <code>tracing::info!</code> で残す (削除件数 / 退避件数 / active 再写像)。</li>
-    </ol>
-
-    <h3 style="margin-top: 16px;">起動時の URL hash 経路 (実行中 apply と分離)</h3>
-    <p>
-      実行中の URL hash 適用は §「Select と Apply を別 API として分離」のとおり <code>active_locked()</code> でガードするが、
-      <strong>起動時 (<code>main.rs</code> / <code>startup.rs</code>)</strong> は「URL に乗せた回路をアプリ起動と同時に開く」共有 URL の主用途を壊さないため、<em>locked guard を通さない別経路</em>として扱う。
-      ただし「locked My を URL 再読込で事実上上書きできる」抜け穴を塞ぐため、解決の優先順序を 4 段階で固定する。
-    </p>
-    <pre class="code">// startup.rs (pseudo)
-fn boot_circuit(library: &amp;mut CircuitLibrary, url_hash: Option&lt;UrlPayload&gt;) {
-    let Some(payload) = url_hash else {
-        // hash 無し → 最後に active だった entry を select
-        return library.set_active(library.last_active_id());
-    };
-
-    // (1) URL payload が persisted active entry と完全一致なら active を維持。
-    //     ページリロードで意図せず別 entry に切り替わらないため。
-    if library.active_circuit_json() == payload.circuit_json {
-        return; // 何もしない (active は既に正しい)
-    }
-
-    // (2) canonical sample と一致 → その Sample を select。新 entry は作らない。
-    if let Some(sample_id) = library.find_canonical_sample(&amp;payload.circuit_json) {
-        return library.set_active(sample_id);
-    }
-
-    // (3) 既存 User entry のいずれかと完全一致 → その entry を select。
-    //     User の locked / unlocked は問わず select 自体は guard 不要。
-    //     これで locked My を URL から再読込しても entry の中身は触らず active 切替だけになる。
-    if let Some(existing_id) = library.find_user_entry_with_json(&amp;payload.circuit_json) {
-        return library.set_active(existing_id);
-    }
-
-    // (4) どれにも一致しない URL → "current" 用 unlocked User entry を作成 / 上書きして active 化。
-    //     ただし既存 "current" が locked になっているなら、それを保護して新 id を採番する。
-    if library.entry_locked_by_id("current") {
-        let fresh_id = library.fresh_id("current");
-        library.create_user_entry(fresh_id.clone(), payload.circuit_json, /*locked=*/ false);
-        library.set_active(fresh_id); // ← 作成と active 化は別ステップ。明示する。
-    } else {
-        library.set_active_current_circuit(payload.circuit_json);
-        // ↑ 既存実装。origin: User { locked: false } の "current" entry を作る (or 上書き) + active 化を一括で行う。
-    }
-}</pre>
-    <ul>
-      <li><strong>(1) active 維持:</strong> ページリロードで URL hash がそのまま残るので、同じ payload + 同じ active なら no-op にする。これで「locked My を見ていたユーザがリロードしたら別 entry に切り替わってしまう」事故を防ぐ。</li>
-      <li><strong>(2) Sample 一致:</strong> 共有 URL の典型 (「友人が Bell state を共有」) は Sample select のみ、新 User を増やさない。</li>
-      <li><strong>(3) User 一致:</strong> 「自分の locked 回路の URL を再共有 / 再読込」は、その entry の中身は触らず active 切替だけ。locked guard 不要、上書きも起きない。</li>
-      <li><strong>(4) 新規 URL:</strong> どれにも一致しない場合のみ <code>current</code> 用の unlocked User を作る。既存 <code>current</code> が locked なら上書きせず<strong>新 id を採番</strong>して別 entry を作成 (locked 保護)。</li>
-      <li>起動時の boot_circuit から呼ぶ helper は<strong>guard 不要</strong>、それ以外の経路から呼ぶ apply は<strong>必ず guard あり</strong>。</li>
+      <li>Example は常に locked。My はユーザーが lock ボタンで切り替える。</li>
+      <li>locked 中はゲート配置 / 移動 / 削除、Clear、Undo / Redo、実行中の URL 適用、Rename、Delete を抑止する。</li>
+      <li>Duplicate は常に許可し、新しい My 回路として unlocked で作る。ロック状態は継承しない。</li>
+      <li>Create new circuit は active が何であっても許可し、unlocked My を作成して active にする。</li>
+      <li>Move up / Move down / Reorder は My 内の順序だけを変えるため、locked My でも許可する。Example の順序は固定。</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">複製 (Duplicate) のルール</h3>
+    <h3 style="margin-top: 16px;">ピッカーのセクション</h3>
     <ul>
-      <li>Sample / User どちらを複製しても、新 entry は <code>origin: User { locked: false }</code> で作成。lock は継承しない (新コピーは編集可能であるべき)。</li>
-      <li>name は既存ルール (「Name (copy)」→「Name (copy 2)」…) を踏襲。</li>
+      <li>Example Circuits と My Circuits を分けて表示する。</li>
+      <li>Example 行は drag 並び替え・Rename・Delete を受け付けない。</li>
+      <li>My 行は My セクション内だけで並び替えでき、Example セクションへ跨がない。</li>
+      <li>locked My 行は Rename / Delete を無効表示にし、Duplicate / Move up / Move down は維持する。</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">「Select」と「Apply」を別 API として分離</h3>
-    <p>
-      現行は picker の select も URL hash の load も <code>replace_editor_circuit()</code> / <code>apply_circuit_json()</code> 経由でまとめて active entry の中身を書き換えている。
-      ここに単純な <code>locked</code> guard を入れると Example の select 自体が壊れる、入れないと URL から locked entry を上書きされる。
-      <strong>「editor へ読み込む helper」と「active entry を変更する guarded helper」を分けて、guard を後者にだけ付ける。</strong>
-    </p>
-    <pre class="code">impl QniApp {
-    // ─── editor 読み込み helper (mutation 無し、guard 無し) ───
-    /// 指定 entry の circuit_json から placed_gates / qubit_count を再構築するだけ。
-    /// entry 自体は触らない。Example / locked My でも安全に呼べる。
-    fn load_into_editor(&amp;mut self, entry: &amp;CircuitEntry, ctx: &amp;egui::Context) { ... }
-
-    // ─── active 切替 (entry の中身は触らない) ───
-    /// picker からの select / 起動時 restore など。
-    /// active_id を変更し、対象 entry を load_into_editor() で読み込む。
-    /// entry の json を書き換えないので locked guard 不要。
-    fn select_circuit_entry(&amp;mut self, id: &amp;CircuitId, ctx: &amp;egui::Context) {
-        self.library.set_active(id.clone());
-        self.load_into_editor(self.library.active(), ctx);
-    }
-
-    // ─── active entry を更新する guarded helper ───
-    /// editor の現在状態を active entry に commit。locked なら abort。
-    /// 既存 commit_current_circuit() の guarded wrapper として配置。
-    fn commit_active_if_unlocked(&amp;mut self, ctx: &amp;egui::Context) -&gt; Result&lt;()&gt; {
-        if self.library.active_locked() { return Err(LockedError); }
-        self.commit_current_circuit_unchecked(ctx);
-        Ok(())
-    }
-
-    /// URL hash や外部からの JSON を active entry へ適用 (実行中)。
-    /// = circuit_json を上書きする mutation。locked なら abort + URL hash 巻き戻し。
-    /// 起動時の経路は別 (§ 「起動時の URL hash 経路」)、ここを通さない。
-    fn apply_url_payload(&amp;mut self, json: String, ctx: &amp;egui::Context) -&gt; Result&lt;()&gt; {
-        if self.library.active_locked() { return Err(LockedError); }
-        self.replace_active_circuit_json_unchecked(json, ctx);
-        Ok(())
-    }
-}</pre>
-    <p>
-      <strong>命名規約:</strong> mutation を起こす内部 helper には <code>_unchecked</code> 接尾辞を付け、外向き API は必ず guarded wrapper を経由させる。
-      <code>commit_current_circuit()</code> / <code>replace_active_circuit_json()</code> など既存呼び出しは <code>commit_active_if_unlocked()</code> / <code>apply_url_payload()</code> 経由に書き換える。
-    </p>
-    <p>
-      編集経路の guard 対象 entry は 2 種類ある (§ 04 実装ガードと対応):
-    </p>
-    <pre class="code">// active 編集系: active entry を guard
-fn place_gate(&amp;mut self, ...)        { if self.library.active_locked() { return; } ... }
-fn remove_gate(&amp;mut self, ...)       { if self.library.active_locked() { return; } ... }
-fn clear_circuit(&amp;mut self, ...)     { if self.library.active_locked() { return; } ... }
-fn undo_circuit(&amp;mut self, ...)      { if self.library.active_locked() { return; } ... }
-fn redo_circuit(&amp;mut self, ...)      { if self.library.active_locked() { return; } ... }
-fn apply_url_payload(&amp;mut self, ...) { if self.library.active_locked() { return Err(...); } ... }
-
-// picker 行操作: 対象 entry id で guard (active と一致しないことがある)
-fn rename(&amp;mut self, entry_id: &amp;CircuitId, new_name: &amp;str) {
-    if self.library.entry_locked_by_id(entry_id) { return; }
-    self.library.rename_unchecked(entry_id, new_name);
-}
-fn delete(&amp;mut self, entry_id: &amp;CircuitId) {
-    if self.library.entry_locked_by_id(entry_id) { return; }
-    self.library.delete_unchecked(entry_id);
-}
-
-impl CircuitLibrary {
-    pub fn entry_locked_by_id(&amp;self, id: &amp;CircuitId) -&gt; bool {
-        self.entries.iter().find(|e| &amp;e.id == id).is_some_and(|e| match &amp;e.origin {
-            CircuitOrigin::Sample { .. } =&gt; true,
-            CircuitOrigin::User { locked } =&gt; *locked,
-        })
-    }
-}</pre>
-    <p>
-      submenu の Rename / Delete 項目を disabled 表示するだけでは不十分: <strong>UI race / 直接呼び出し (test / keyboard 操作) でも防ぐため、commit/delete API 側で必ず再チェック</strong>する。
-      <code>duplicate</code> / <code>select</code> / <code>create_new</code> / <code>move_up</code> / <code>move_down</code> / <code>reorder</code> / <code>toggle_circuit_lock</code> はガード対象外 (§ 04 参照)。
-      ただし <code>toggle_circuit_lock</code> は active が Sample のとき<strong>API 側で no-op</strong> (match で <code>Sample =&gt; return</code>)。
-    </p>
-
-    <h3 style="margin-top: 16px;">icon_button() の API 拡張</h3>
-    <p>
-      現行 <code>icon_button(ui, colors, icon, enabled, tooltip)</code> に toggle 状態を渡すため、
-      <code>ButtonState</code> 構造体を導入して引数を統合する。
-    </p>
-    <pre class="code">pub(crate) struct ButtonState {
-    pub enabled: bool,
-    pub toggle_on: bool,   // active な toggle (例: lock が掛かっている)
-}
-
-fn icon_button(
-    ui: &amp;mut egui::Ui,
-    colors: &amp;Colors,
-    icon: ToolbarIcon,
-    state: ButtonState,
-    tooltip: &amp;'static str,
-) -&gt; egui::Response { ... }</pre>
-
-    <h3 style="margin-top: 16px;">show_edit_utilities 配置</h3>
-    <p>
-      Undo / Redo はもともと <code>can_undo_circuit()</code> / <code>can_redo_circuit()</code> で履歴有無を見ていた。
-      ここに「<code>edit_allowed</code> (= Example でない、かつ locked でない)」を AND 合成する。
-      Trash は履歴条件無しで <code>edit_allowed</code> のみ。Duplicate はガード対象外。
-    </p>
-    <pre class="code">// after Copy
-let kind = self.library.active_kind();
-let locked = self.library.active_locked();
-let example = matches!(kind, CircuitKind::Example);
-let edit_allowed = !example &amp;&amp; !locked;
-
-// Example または locked My では編集系を disable (§ 04 参照)。
-// Undo / Redo は履歴条件と AND 合成。
-icon_button(ui, colors, Undo,
-    ButtonState { enabled: edit_allowed &amp;&amp; self.can_undo_circuit(), toggle_on: false },
-    "Undo");
-icon_button(ui, colors, Redo,
-    ButtonState { enabled: edit_allowed &amp;&amp; self.can_redo_circuit(), toggle_on: false },
-    "Redo");
-icon_button(ui, colors, Trash,
-    ButtonState { enabled: edit_allowed, toggle_on: false },
-    "Clear circuit");
-
-// Duplicate は常時 enabled (escape hatch)。
-icon_button(ui, colors, Copy,
-    ButtonState { enabled: true, toggle_on: false },
-    "Duplicate circuit");
-
-// Lock toggle。Example は固定 disabled、My は toggle_on で背景ピル。
-let (icon, tooltip) = match (kind, locked) {
-    (CircuitKind::My,      false) =&gt; (LockOpen, "Lock circuit"),
-    (CircuitKind::My,      true)  =&gt; (Lock,     "Unlock circuit"),
-    (CircuitKind::Example, _)     =&gt; (Lock,     "Locked (sample) — duplicate to edit"),
-};
-let lock_state = ButtonState { enabled: !example, toggle_on: locked };
-if icon_button(ui, colors, icon, lock_state, tooltip).clicked() {
-    self.toggle_circuit_lock(ctx);
-}</pre>
-
-    <h3 style="margin-top: 16px;">toggle-on の背景ピル</h3>
-    <p>
-      <code>icon_button()</code> に「toggle-on かつ enabled なら背景を常時 <code>colors.toolbar_hover_bg</code> (= Flexoki <code>ui</code>) で塗る」分岐を足す。
-      アイコン色は <code>tx-2</code> のまま、hover 時のみ背景を 1 段深い <code>ui-2</code> に切り替え、icon を <code>tx</code> に。
-      新しい色トークン (accent_strong など) は導入しない。
-    </p>
-    <pre class="code">// icon_button() 抜粋 (toggle-on のとき)
-if toggle_on &amp;&amp; enabled {
-    ui.painter().rect_filled(
-        rect,
-        egui::CornerRadius::same(6),
-        if hovered { colors.line } else { colors.toolbar_hover_bg }, // ui-2 ↔ ui
-    );
-}
-// icon 色は通常通り tx-2 → tx (hover)</pre>
-
-    <h3 style="margin-top: 16px;">シャックル弧の描画</h3>
-    <p>
-      既存 <code>append_icon_arc()</code> は 4 ステップで弧を近似する。
-      Lucide のシャックルは半径 5 / 約 180°〜270° の弧なので、ステップ数を 5〜6 に上げるかどうかは
-      スナップショットテストで判断する。
-      <code>paint_shackle_open</code> は polyline (7,11)→(7,7) のあと半円弧 → 終端 (16.9, 6) で停止、
-      <code>paint_shackle_closed</code> は polyline + 半円弧 + 終端 (17, 7) → (17, 11) で閉じる。
-    </p>
-
-    <h3 style="margin-top: 16px;">Picker の section 化 (circuit_picker モジュール)</h3>
-    <p>
-      <code>circuit_picker</code> は現在 <code>entries.iter().enumerate()</code> の<strong>平坦 index</strong>で
-      drag / submenu / keyboard focus を扱っているが、Example / My の 2 セクションを描画するには
-      表示行モデルを section-aware に拡張する必要がある。
-    </p>
-    <pre class="code">enum DisplayRow {
-    Header(SectionId),
-    Entry { section: SectionId, entry_index: usize },
-}
-enum SectionId { Example, My }
-
-fn build_display_rows(library: &amp;CircuitLibrary) -&gt; Vec&lt;DisplayRow&gt; {
-    let mut rows = Vec::new();
-    let examples = library.entries.iter().enumerate()
-        .filter(|(_, e)| matches!(e.origin, CircuitOrigin::Sample { .. }));
-    let users = library.entries.iter().enumerate()
-        .filter(|(_, e)| matches!(e.origin, CircuitOrigin::User));
-    // examples 先頭 → Header(Example) + Entry...
-    // users 後 → Header(My) + Entry...
-}</pre>
-    <p>
-      <strong>置換手順 (flat index → section-aware):</strong>
-    </p>
-    <ol>
-      <li>状態キーを <code>usize</code> 平坦 index から <code>(SectionId, CircuitId)</code> に置換。 <code>DragState</code> / <code>PickerState::focused</code> / <code>submenu_index</code> もこの組で持つ。<code>build_display_rows()</code> の <code>Vec&lt;DisplayRow&gt;</code> は描画専用に毎フレーム作る。</li>
-      <li>drag 開始: <code>DisplayRow::Entry { section, .. }</code> の section が <code>Example</code> なら drag 開始しない。<code>My</code> のときだけ <code>sameKindRows</code> を <code>section == My</code> の Entry に限定して slot 計算 / splice。</li>
-      <li>slot 計算と<code>Y</code>クランプは Header の bounding rect を<strong>除外</strong>して My subset の Entry rect だけで行う (§ 01 のモック JS と同じ)。</li>
-      <li>keyboard: ArrowUp/Down は <code>DisplayRow::Header</code> をスキップして前後の Entry へ。Home/End は active section の先頭/末尾 Entry。Tab は section 跨ぎ可。focused が Example だったとき lock toggle のキーは無視 (ToggleButton が Disabled なので Space/Enter で発火しない)。</li>
-      <li>submenu: <code>Move up</code> / <code>Move down</code> は<strong>同じ section の subset 内 index</strong> で動く。My subset の先頭にいるなら <code>Move up</code> は disabled、末尾なら <code>Move down</code> は disabled。Example のときは Move up/down 項目自体を出さない。</li>
-      <li><code>delete()</code> / <code>rename()</code> など既存の usize index を取る API は <code>CircuitId</code> 引数版に書き換える。flat index は描画ヒットテストでのみ局所的に使う。</li>
-    </ol>
-    <p>
-      <strong>submenu 項目の有効性:</strong>
-    </p>
-    <table class="spec">
-      <thead>
-        <tr><th>項目</th><th>Example</th><th>My (unlocked)</th><th>My (locked)</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Rename</td><td><code>✗</code> (sample 名固定)</td><td><code>✓</code></td><td><code>✗</code> (要 unlock)</td></tr>
-        <tr><td>Duplicate</td><td><code>✓</code></td><td><code>✓</code></td><td><code>✓</code></td></tr>
-        <tr><td>Move up</td><td><code>✗</code></td><td><code>✓</code> (My 内、先頭なら disabled)</td><td><code>✓</code> (My 内、先頭なら disabled)</td></tr>
-        <tr><td>Move down</td><td><code>✗</code></td><td><code>✓</code> (My 内、末尾なら disabled)</td><td><code>✓</code> (My 内、末尾なら disabled)</td></tr>
-        <tr><td>Delete</td><td><code>✗</code></td><td><code>✓</code></td><td><code>✗</code> (要 unlock)</td></tr>
-      </tbody>
-    </table>
-
-    <h3 style="margin-top: 16px;">テスト計画 (受け入れ条件)</h3>
-    <p>
-      本 PR でカバーすべき自動テストの最小セット。受け入れ条件として CI に組み込む。
-      <strong>AGENTS.md の「1 テスト 1 アサーション」規約に従い</strong>、下記の各箇条書きは「観点 / シナリオの大分類」を示すもので、
-      実装時には <strong>1 ケース 1 <code>assert_*</code></strong> に分割すること (例: migration の 4 ケースは 4 つの <code>#[test]</code> 関数、
-      Playwright も <code>test()</code> 単位に 1 <code>expect</code> ずつ)。
-    </p>
+    <h3 style="margin-top: 16px;">受け入れ条件</h3>
     <ul>
-      <li><strong>migration unit tests</strong> (Rust, <code>#[test]</code> × 4 + v2 fallback 1 = 5):
-        <ol>
-          <li>untouched seed 4 件のみ → v2 entries.len() == 4 を assert</li>
-          <li>seed の 1 件を編集済み → 退避 entry の id が <code>{seed_id}-user-edit</code> であることを assert</li>
-          <li>ユーザ作成 entry 1 件 → その entry の origin が <code>User { locked: false }</code> であることを assert</li>
-          <li>v1 read 失敗 (壊れた JSON) → seed のみで初期化されたことを assert</li>
-        </ol>
-        v2 read/validate 失敗時の v1 fallback も別 <code>#[test]</code> として追加。
-      </li>
-      <li><strong>active_locked() 型不変条件</strong> (Rust, <code>tests/compile_fail/</code>) — <code>CircuitOrigin::Sample { locked: false }</code> という直接構築がコンパイルエラーになることを <code>trybuild</code> で検証 (1 ファイル 1 case)。</li>
-      <li><strong>Duplicate は常に unlocked</strong> (Rust, <code>#[test]</code> × 3) — Sample / locked My / unlocked My を duplicate した直後の新 entry を 1 アサーションずつ確認。</li>
-      <li><strong>locked 中の編集拒否 (active 編集系)</strong> (Rust, <code>#[test]</code> × 6) — <code>place_gate</code> / <code>remove_gate</code> / <code>clear_circuit</code> / <code>undo_circuit</code> / <code>redo_circuit</code> / <code>apply_url_payload</code> をそれぞれ別テストで呼び、locked active entry の <code>circuit_json</code> が変わらないことを 1 つずつ assert (undo/redo は事前に履歴を積む setup を共有 fixture で)。</li>
-      <li><strong>locked 中の編集拒否 (picker 行操作)</strong> (Rust, <code>#[test]</code> × 4) — <strong>active は unlocked My だが対象行は locked My / Sample</strong>のケースを含めて:
-        <ol>
-          <li><code>rename(locked_my_id, "new")</code> → 対象 entry の name が変わらない</li>
-          <li><code>rename(sample_id, "new")</code> → 対象 entry の name が変わらない</li>
-          <li><code>delete(locked_my_id)</code> → 対象 entry が残っている</li>
-          <li><code>delete(sample_id)</code> → 対象 entry が残っている</li>
-        </ol>
-      </li>
-      <li><strong>起動時 URL 経路の 4 段階</strong> (Rust + Playwright, 4 case) — Rust 側は <code>#[test]</code>、Playwright 側は <code>test()</code>。payload と library 状態の組合せ別に: (1) active 維持 / (2) Sample select / (3) 既存 User select / (4) 新 current 作成 + locked current 保護のとき新 id 採番。それぞれ 1 case 1 assertion (1 <code>expect</code>)。</li>
-      <li><strong>実行中 URL apply の guard</strong> (Playwright, 1 case) — locked My を active にして URL apply を試行 → active の circuit_json が変わらないことを 1 expect。</li>
-      <li><strong>picker section reorder</strong> (Playwright, 3 case に分割):
-        <ol>
-          <li>My 内の drag → 順序が変わったことを 1 expect</li>
-          <li>Example 行を drag 試行 → 順序不変を 1 expect</li>
-          <li>My から Example へ cross-section drag 試行 → 順序不変を 1 expect</li>
-        </ol>
-      </li>
-      <li><strong>toolbar 3 状態の visual snapshot</strong> (insta, <code>#[test]</code> × 3) — unlocked My / locked My / locked Example のフレームを別テストで snapshot。<code>assert_snapshot!</code> 1 つずつ。</li>
+      <li>unlocked My / locked My / locked Example の 3 状態が § 03 と同じ見た目になる。</li>
+      <li>locked 中の編集操作で回路内容が変わらない。</li>
+      <li>Duplicate は Sample / locked My / unlocked My のどれからでも unlocked My を作る。</li>
+      <li>URL からの回路読み込みは locked My を上書きしない。</li>
+      <li>ピッカーの Example / My セクション境界を越える drag 並び替えは起きない。</li>
     </ul>
   </div>
 </section>
@@ -1052,7 +613,7 @@ fn build_display_rows(library: &amp;CircuitLibrary) -&gt; Vec&lt;DisplayRow&gt; 
 <script>
   // ── 動くモック (§ 01) のロジック ───────────────────────────
   // 回路リスト + 現在の選択状態を保持し、picker / lock-btn のイベントで UI を更新。
-  // id は実装の CircuitLibrary::seed() (apps/egui-web/crates/circuit-library-model/src/lib.rs) と一致させる。
+  // id は初期サンプル定義と一致させる。
   const circuits = [
     { id: 'bell',          name: 'Bell state',           kind: 'example' },
     { id: 'ghz',           name: 'GHZ state',            kind: 'example' },
@@ -1217,8 +778,8 @@ fn build_display_rows(library: &amp;CircuitLibrary) -&gt; Vec&lt;DisplayRow&gt; 
   });
 
   /* ─────────── Create new circuit (footer)
-     active が何であっても (locked Example でも locked My でも) 新 User entry を末尾に追加して active 化。
-     上書き mutation ではないので guard 不要 (§ 04 表参照)。 */
+     active が何であっても (locked Example でも locked My でも) 新 User 回路を末尾に追加して active 化。
+     既存回路を上書きしないため常に許可 (§ 04 表参照)。 */
   const footer = document.getElementById('picker-footer');
   if (footer) {
     footer.addEventListener('click', (e) => {

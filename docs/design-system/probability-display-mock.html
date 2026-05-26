@@ -33,12 +33,12 @@
        the n=1 case (2 rows: |0⟩ and |1⟩) — no special vertical-fill
        form, so the visual model stays uniform across spans. */
     .probability-display {
-      width: 32px;             /* matches existing 1-qubit gate footprint */
+      width: 32px;             /* 旧プロトタイプの基準幅 */
       background: var(--bg);
       border: 1px solid var(--ui-2);
       /* No border-radius — overflow: hidden + rounded corners would clip
-         the top/bottom rows' bars at the corners. Display gate is a
-         sharp rectangle (matches Quirk). */
+         the top/bottom rows' bars at the corners. Display block is a
+         sharp rectangle. */
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -95,11 +95,10 @@
     .probability-row.is-focus .bar { background: var(--blue-600); }
 
     /* ───── Resize handle (= shared resizable-span handle) ─────
-       Probability Displayの下端に小さな purple グリップを出し、上下にドラッグして
-       span (= 縦に伸びる量子ビット数) を 1..16 で変更できる。色は既存 colors.rs
-       の `span_resize_handle_bg` / `span_resize_handle_bg_hover` と一致:
-         idle:  purple-400 (#8B7EC8)
-         hover/drag: purple-600 (#5E409D) */
+       Probability Display の下端に小さな cyan グリップを出し、上下にドラッグして
+       span (= 縦に伸びる量子ビット数) を 1..16 で変更できる。色は共通のリサイズハンドル仕様と一致:
+         idle:  cyan-400 (#3AA99F)
+         hover/drag: cyan-600 (#24837B) */
     .probability-wrap {
       position: relative;
       display: inline-block;
@@ -118,19 +117,19 @@
       left: 50%; top: 3px;
       transform: translateX(-50%);
       width: 16px; height: 4px;
-      background: #8B7EC8;   /* purple-400 */
+      background: #3AA99F;   /* cyan-400 */
       border-radius: 2px;
       transition: background 80ms ease, width 80ms ease, height 80ms ease;
     }
     .probability-resize-handle:hover::before,
     .probability-resize-handle.is-dragging::before {
-      background: #5E409D;   /* purple-600 */
+      background: #24837B;   /* cyan-600 */
       width: 20px; height: 5px;
     }
     body.is-probability-resize-dragging,
     body.is-probability-resize-dragging * { cursor: ns-resize !important; }
 
-    /* ───── Hover tooltip (Quirk-style probability popup) ─────
+    /* ───── Hover tooltip probability popup ─────
        Shown when a probability-row is hovered. Anchored to the right edge of
        the gate, vertically aligned with the hovered row. Content:
          title:  "Probability of |bin⟩ (decimal k) if measured"
@@ -297,7 +296,7 @@
     .fake-circuit .probability-stack.is-span-2 { height: 84px; }   /* 32 + 20 + 32 */
     .fake-circuit .probability-stack.is-span-3 { height: 136px; }  /* 32 + 20 + 32 + 20 + 32 */
 
-    /* Impl spec section. */
+    /* Requirements section. */
     .impl-spec {
       background: var(--bg); border: 1px solid var(--ui-2);
       border-radius: 14px; padding: 24px 28px;
@@ -364,12 +363,9 @@
   <p class="eyebrow">qni-webgpu · ui mock</p>
   <h1 class="page-title">確率表示ブロック</h1>
   <p class="page-lede">
-    Quirk の <code>Probability</code> / <code>Probability2…16</code> 相当の<strong>確率表示
-    ゲート</strong>。回路の任意の地点に置くと、その時点で span 内の量子ビットを測定した
-    場合の各測定結果 確率を、ゲート本体の中で<strong>横バー+%</strong>として可視化
-    する。状態ベクトルには影響しない (表示ブロック)。span 1..16、いずれも
-    <strong>2<sup>span</sup> 行の横バー</strong>という同じ視覚モデルで統一
-    (Quirk の span 1 thermometer 形は採用せず、span 1 = 2 行に正規化)。
+    <code>Probability</code> / <code>Probability2…16</code> 相当の<strong>確率表示
+    ブロック</strong>の旧プロトタイプモック。現在の規範仕様は <a href="probability-display.html">確率表示ブロック仕様</a> を正とし、
+    このページは横バー + % 表示、span 変更、ホバー時の挙動を試す非規範の検討資料として扱う。
   </p>
 </div>
 
@@ -379,11 +375,9 @@
   <p class="note">
     paper bg + ui-2 1 px のシンプルなボックス。中身は <strong>blue-300</strong>
     の確率バー + Mono の %。<strong>span 1 (= 2 行)、span n (= 2<sup>n</sup> 行)
-    どちらも横バーを縦に stack</strong> する同じ形式。Quirk は span 1 を縦
-    thermometer にする特例があるが、qni-webgpu では軸の向きを変えない方が
-    認知負荷が低いと判断して span ぶん 2<sup>span</sup> 行に統一する。span が
-    大きく行が 8 px を切る場合は % を省略して log ヒント線にフォールバック
-    (Quirk 互換)。NaN は赤の斜線パターン。
+    どちらも横バーを縦に stack</strong> する同じ形式。span 1 も 2 行に正規化し、
+    軸の向きを変えないことで認知負荷を下げる。span が大きく行が 8 px を切る場合は
+    % を省略して log ヒント線にフォールバックする。NaN は赤の斜線パターン。
   </p>
 
   <div class="anatomy">
@@ -410,18 +404,18 @@
 
     <table>
       <tbody>
-        <tr><th>footprint</th><td><strong>span n</strong>: 32×(n × 32 + (n − 1) × wire_gap)。既存ゲートと同じ列幅、span ぶんだけ縦に伸びる。span 1 は 32×32。</td></tr>
+        <tr><th>footprint</th><td><strong>span n</strong>: この旧プロトタイプでは 32 px 基準。現在の規範仕様では 40 px 基準を採用する。</td></tr>
         <tr><th>ボックスクロム</th><td>bg: <code>paper</code> (#FFFCF0) / border: <code>ui-2</code> 1 px / radius 4 px。表示ブロックは unitary (cyan-400 塗り) ではなく <strong>薄い背景に色付きバー</strong>で差別化。</td></tr>
         <tr><th>fill bar</th><td><code>blue-300</code> (#66A0C8 — Flexoki <code>state_fill</code> と同じトーン)。各行左から右へ <code>P(outcome k) × gate_w</code> の幅で塗る。<code>transition: 120 ms ease</code> で値変化を補間。</td></tr>
         <tr><th>row order</th><td>上から <code>k = 0</code> (= |0..0⟩) → 下が <code>k = 2<sup>span</sup> − 1</code> (= |1..1⟩)。binary big-endian。</td></tr>
         <tr><th>label</th><td>Geist Mono Medium。8 px / 右寄せ / 色は <code>tx</code> (黒)。</td></tr>
         <tr><th>row height ≥ 8 px</th><td>% テキストを描く。</td></tr>
-        <tr><th>row height &lt; 8 px</th><td>テキストは省略 (読めないため)。代わりに <code>tx-3 @ 70%</code> の縦 1 px 線で対数スケール位置を hint (Quirk の <code>_paintMultiProbabilityDisplay_logarithmHints</code> と同じ趣旨)。</td></tr>
-        <tr><th>NaN</th><td>赤の 45° 斜線ストライプ + <code>red-600</code> の "NaN" テキスト。確率が computable でない (state 未定義 / 0 ノルム) ときに表示。</td></tr>
+        <tr><th>row height &lt; 8 px</th><td>テキストは省略 (読めないため)。代わりに <code>tx-3 @ 70%</code> の縦 1 px 線で対数スケール位置を示す。</td></tr>
+        <tr><th>NaN</th><td>赤の 45° 斜線ストライプ + <code>red-600</code> の "NaN" テキスト。確率が計算できない (state 未定義 / 0 ノルム) ときに表示。</td></tr>
         <tr><th>focus / hover</th><td>focus 中の row に <code>orange</code> 2 px outline + 横にツールチップ (`Probability of |bin⟩ if measured`、raw % と log dB)。</td></tr>
-        <tr><th>controls</th><td>circuit の制御ワイヤを尊重する — 制御条件が真の sub-population のみ集計して確率を出す (Quirk と同じ)。</td></tr>
-        <tr><th>nesting</th><td>禁止 (Quirk: <code>setExtraDisableReasonFinder</code>)。表示ブロックの中に表示ブロックは置けない。</td></tr>
-        <tr><th>resize handle</th><td>ゲート本体下端中央の <strong>16×4 px の purple-400 pill</strong> (hover/ドラッグで 20×5 + purple-600)。上下ドラッグで span 1 → 16 を変更し、行数 2<sup>span</sup> が自動追従。色は既存 <code>span_resize_handle_bg</code> / <code>_hover</code> と一致 (= resizable-span ハンドルと同型)。詳細は § 02 d。</td></tr>
+        <tr><th>controls</th><td>circuit の制御ワイヤを尊重する — 制御条件が真の sub-population のみ集計して確率を出す。</td></tr>
+        <tr><th>nesting</th><td>禁止。表示ブロックの中に表示ブロックは置けない。</td></tr>
+        <tr><th>resize handle</th><td>表示ブロック本体下端中央の <strong>16×4 px の cyan-400 pill</strong> (hover/ドラッグで 20×5 + cyan-600)。上下ドラッグで span 1 → 16 を変更し、行数 2<sup>span</sup> が自動追従。詳細は <a href="resize-handle.html">リサイズハンドル仕様</a> を参照。</td></tr>
       </tbody>
     </table>
   </div>
@@ -437,7 +431,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · 確率表示ブロック · span 1</div>
+    <div class="scene-label">確率表示ブロック · span 1</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -469,7 +463,7 @@
             </div>
           </div>
           <p class="note" style="margin: 16px 0 0;">
-            実描画 (回路上では 32×32 px) と同じ形状を <strong>4 ×</strong> に
+            旧 32 px 基準のプロトタイプ形状を <strong>4 ×</strong> に
             拡大しています。span 1 は 2 行で各行 16 px、% テキスト (8 px) が
             余裕で収まる。span が増えるほど 1 行が狭くなる (§ 02 b / c で確認)。
           </p>
@@ -489,7 +483,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · 確率表示ブロック · multi qubit (span 3)</div>
+    <div class="scene-label">確率表示ブロック · multi qubit (span 3)</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -519,7 +513,7 @@
             </div>
           </div>
           <p class="note" style="margin: 16px 0 0;">
-            実描画は <strong>32 × 96 px</strong> (3 量子ビットを vertical span)。
+            旧プロトタイプ上の見た目は <strong>32 × 96 px</strong> (3 量子ビットを vertical span)。
             行高 = 96 / 8 = 12 px なので % テキスト (8 px) が読める。
             span を増やして行高が 8 px を切ると下記のように log ヒント線フォールバックします:
           </p>
@@ -533,14 +527,13 @@
 <section class="block">
   <h2><span class="num">§ 02 c</span> プロトタイプ — span 5 (tiny-row fallback)</h2>
   <p class="note">
-    span 5 = 32 outcome。実描画の高さは 32 × 5 + gap × 4 = 240 px、
-    1 行あたり 240 / 32 = 7.5 px なので % テキストは省略し、Quirk の
-    <code>_paintMultiProbabilityDisplay_logarithmHints</code> 相当の
+    span 5 = 32 outcome。旧プロトタイプ上の高さは 32 × 5 + gap × 4 = 240 px、
+    1 行あたり 240 / 32 = 7.5 px なので % テキストは省略し、
     対数スケール位置線 (tx-3 @ 70%) でフォールバックします。
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · 確率表示ブロック · multi qubit (span 5)</div>
+    <div class="scene-label">確率表示ブロック · multi qubit (span 5)</div>
     <div class="app-body">
       <div class="proto-row">
         <div class="scaled-preview">
@@ -567,7 +560,7 @@
             span が大きい (量子ビット数が増える) ほど測定結果数は指数的に増え、
             個別の確率を読むより<strong>分布の形</strong>を一目で把握する用途に
             向きます。サンプル数が増えるとバー 1 本ずつの幅は読み取れなくなるので、
-            ピーク位置を log スケールでも示すのが Quirk 流。
+            ピーク位置を log スケールでも示す。
           </p>
         </div>
       </div>
@@ -579,17 +572,17 @@
 <section class="block">
   <h2><span class="num">§ 02 d</span> プロトタイプ — drag to resize span (= resizable-span handle)</h2>
   <p class="note">
-    ゲート下端の <strong>紫のグリップ</strong>を上下にドラッグすると、span
+    表示ブロック下端の <strong>cyan のグリップ</strong>を上下にドラッグすると、span
     (= 縦に伸びる量子ビット数) が 1 → 2 → 3 → 4 → 5 と変わります。
-    integer span にスナップ。Quirk のように <code>Probability</code> / <code>Probability2..16</code>
-    を別アイコンとしてパレットに並べるのではなく、<strong>パレットには mini gate
-    プレビューの 1 アイコンだけ</strong>を出し、配置後にこのハンドルで span を調整
-    する UX (= resizable-span ゲートと同じ仕組み)。span 変化に合わせて行数 = 2<sup>span</sup>
+    integer span にスナップ。<code>Probability</code> / <code>Probability2..16</code>
+    を別アイコンとしてパレットに並べるのではなく、<strong>パレットには表示ブロックプレビューの
+    1 アイコンだけ</strong>を出し、配置後にこのハンドルで span を調整
+    する UX (= resizable-span 表示ブロックと同じ仕組み)。span 変化に合わせて行数 = 2<sup>span</sup>
     も自動更新されます (uniform distribution で seed)。
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · 確率表示ブロック · resize handle</div>
+    <div class="scene-label">確率表示ブロック · resize handle</div>
     <div class="app-body">
       <div class="proto-row">
         <div style="display: flex; gap: 28px; align-items: flex-start;">
@@ -610,17 +603,14 @@
             <div class="row">
               <span class="lbl">range</span>
               <span style="color: var(--tx-2); font-size: 13px;">
-                span 1..5 (実装では Probability2..16 まで)
+                span 1..5 (仕様上は Probability2..16 まで)
               </span>
             </div>
           </div>
           <p class="note" style="margin: 16px 0 0;">
-            ハンドルの色: idle <code>purple-400</code> (#8B7EC8) → hover/drag
-            <code>purple-600</code> (#5E409D)。既存の <code>span_resize_handle_bg</code> /
-            <code>span_resize_handle_bg_hover</code> と完全一致。<br />
-            このプロトタイプは <strong>2 ×</strong> 表示 (gate width 64 px) で、
-            1 量子ビット 増えるごとに <strong>104 px</strong> 縦に伸びる。実描画
-            (32 px 幅) では 1 量子ビット = <strong>52 px</strong>。
+            ハンドルの色: idle <code>cyan-400</code> (#3AA99F) → hover/drag
+            <code>cyan-600</code> (#24837B)。現在の共通リサイズハンドル仕様と揃える。<br />
+            このプロトタイプは旧 32 px 基準を 2 × 表示した非規範モックで、現在の寸法判断は <a href="probability-display.html">確率表示ブロック仕様</a> を正とする。
           </p>
         </div>
       </div>
@@ -632,14 +622,14 @@
 <section class="block">
   <h2><span class="num">§ 03</span> 回路上での見え方</h2>
   <p class="note">
-    Probability Displayを他の (unitary) ゲートと並べて配置したときの相対サイズ。
-    表示ブロックは薄い背景 + 色付きバーで、cyan-400 塗りの unitary ゲートとは
-    パッと見で区別できる。span 1 は通常ゲートと同じ 32×32、span ≥ 2 は
+    Probability Displayを他のユニタリゲートと並べて配置したときの相対サイズ。
+    表示ブロックは薄い背景 + 色付きバーで、cyan-400 塗りのユニタリゲートとは
+    パッと見で区別できる。span 1 は旧プロトタイプ上の通常ゲートと同じ 32×32、span ≥ 2 は
     span 行分の縦長になる。
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web · circuit canvas excerpt</div>
+    <div class="scene-label">circuit canvas excerpt</div>
     <div class="app-body">
       <div class="fake-circuit">
         <div class="wires">
@@ -705,96 +695,21 @@
   </div>
 </section>
 
-<!-- ───────────────── 4. Impl spec ───────────────── -->
+<!-- ───────────────── 4. 導入要件 ───────────────── -->
 <section class="block">
-  <h2><span class="num">§ 04</span> 実装仕様 (Codex 用リファレンス、暫定)</h2>
+  <h2><span class="num">§ 04</span> 導入要件</h2>
 
   <div class="impl-spec">
-    <h3>パイプラインの大枠</h3>
+    <h3>見た目と挙動の要件</h3>
     <ol>
-      <li>
-        <strong>compute shader (probability marginalize)</strong> ─
-        既存の <code>STATE</code> storage buffer (vec2 amplitudes) を入力に、
-        <pre>// 1) amp → prob with control mask
-prob[k] = dot(amp[k], amp[k]) * control_mask[k];
-
-// 2) cycle bits so the spanned range starts at bit 0
-prob = cycle_bits(prob, -range_offset);
-
-// 3) sum-fold from n_total down to span: log2(register_size) − span 回
-//    の half-and-sum を回して、後ろの bit を marginalize
-while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
-
-// 4) result: 2^span 要素の確率テクスチャ / storage buffer</pre>
-        Quirk の <code>probabilityStatTexture</code> を WebGPU コンピュートシェーダに翻訳。
-        <strong>CPU 側に readback しない</strong> (CLAUDE.md 制約)。結果は
-        <code>STATE_PROB_BUFFER</code> 的なストレージバッファに書き出す。
-      </li>
-      <li>
-        <strong>render shader (gate body)</strong> ─ 既存の <code>STATE_RENDER_SHADER</code>
-        パターンと同じく、フラグメントシェーダ内で probability バッファを直接 sample して
-        バーと矩形を描画する。digit overlay (<code>measure/digit.rs</code>) と同じ要領で
-        % テキストは <code>digit_atlas</code> を sample する別 pass で重ねる。
-        text 描画も GPU 完結 (CPU 側で text rasterize しない)。
-      </li>
-      <li>
-        <strong>per-row layout</strong>:<br />
-        ・bar の高さ = <code>gate_h / 2^span</code><br />
-        ・bar の幅 = <code>prob[k] * gate_w</code><br />
-        ・行高 ≥ 8 px なら digit アトラスで <code>"XX.X%"</code> を右詰めで描画<br />
-        ・行高 &lt; 8 px なら % は描画せず、<code>tx-3 @ 70%</code> の縦 1 px 線を
-        <code>x = (1 + log(prob) / log_scale) * gate_w</code> の位置に置く
-      </li>
-      <li>
-        <strong>state representation</strong> ─ <code>GateKind::ProbabilityDisplay { span: u8 }</code>。
-        既存の display 系 (ブロッホ表示等) と同じ trait に乗せる。<code>has_no_unitary_effect = true</code>
-        相当のフラグ立ててシミュレータは skip。
-      </li>
-      <li>
-        <strong>URL serialization (Quirk 互換)</strong> ─ serialized id は Quirk
-        と同じ語彙を採用 (将来の Quirk URL インポートを素直に取るため):<br />
-        ・<code>"Probability"</code> (span 1)<br />
-        ・<code>"Probability2"</code>, <code>"Probability3"</code>, ..., <code>"Probability16"</code> (span 2..16)<br />
-        URL fragment (<code>#circuit=...</code>) 内では JSON がそのまま生で入る
-        (fragment 内は <code>{}[]":,</code> がエンコード不要):
-        <pre># span 1、q0 に 1 個
-#circuit={"cols":[["Probability"]]}
-
-# span 3、q0..q2 に
-#circuit={"cols":[["Probability3"]]}
-
-# span 3、q1..q3 に (q0 を skip するため数値 1 を placeholder)
-#circuit={"cols":[[1,"Probability3"]]}
-
-# H × 3 → Probability3 で末尾の測定確率を見る回路
-#circuit={"cols":[["H","H","H"],["Probability3"]]}</pre>
-        ブラウザコピー時に percent-encode された
-        <code>%7B"cols"%3A%5B%5B"Probability"%5D%5D%7D</code> 形式も等価に parse
-        できるようにする (Quirk と同じ挙動)。<br />
-        Quirk の <code>setSerializedId</code> 該当ロジックは
-        <code>ProbabilityDisplay.js:280 / 294</code> (single = <code>"Probability"</code>、
-        multi = <code>"Probability" + span</code>) を参照。
-      </li>
-      <li>
-        <strong>placement</strong> ─ パレットには <strong>mini gate プレビューの
-        1 アイコンだけ</strong>を出し、配置後に <strong>resize ハンドルで span を
-        1..16 に変更</strong> (§ 02 d の挙動)。Quirk 風に Probability / Probability2..16 を
-        パレットに並べるよりアイコン数が削れ、UX も既存 resizable-span ゲートと一貫する。
-        ハンドルはゲート本体の下端中央に 16×4 px の purple-400 pill、hover/ドラッグで
-        purple-600 + 20×5 px に拡大。ドラッグは cursor 縦移動 ÷ <code>wire_pitch</code>
-        (= 52 px / 量子ビット) で integer span にスナップ。配置直後は span 1 で開始。
-      </li>
-      <li>
-        <strong>tests</strong>:<br />
-        ・compute shader unit test ─ 既知の state (H|0⟩, Bell, GHZ) で結果が解析解と一致すること。<br />
-        ・visual snapshot ─ insta で span 1 / span 3 / span 5 の見た目を固定。<br />
-        ・Playwright ─ パレットから Probability Display を drop → 回路上で表示される → ゲートを動かすと値が更新される。
-      </li>
+      <li><strong>GPU-only</strong> — 本番 UI 経路では確率値を CPU へ毎フレーム読み戻さない。バー、対数ヒント線、ポップアップ値は GPU 上の値から直接表示する。</li>
+      <li><strong>span</strong> — 1..16 を扱う。配置直後は span 1 で開始し、上下のリサイズハンドルで整数 span にスナップする。</li>
+      <li><strong>行レイアウト</strong> — 行高は <code>本体高 / 2^span</code>。行高が十分あるときだけ <code>XX.X%</code> を右詰め表示し、高密度では対数ヒント線へ切り替える。</li>
+      <li><strong>パレット</strong> — パレットには表示ブロックプレビューの 1 アイコンだけを出す。span 別アイコンを並べない。</li>
+      <li><strong>シリアライズ</strong> — span 1 は <code>"Probability"</code>、span 2..16 は <code>"Probability2"</code> .. <code>"Probability16"</code> を使う。</li>
+      <li><strong>入れ子配置</strong> — 表示ブロックの中に表示ブロックは置けない。</li>
+      <li><strong>検証</strong> — span 1 / span 3 / span 5 の見た目、リサイズ、パレットからの配置、既知状態の確率値を確認する。</li>
     </ol>
-    <p style="margin: 16px 0 0; color: var(--tx-2); font-size: 13px;">
-      ※ 数値 (gate footprint, バー色, テキストサイズ) は本モック上の値が "見た目の正解"。
-      Codex 向けプロンプトは別途このページを参照する形で発行します。
-    </p>
   </div>
 </section>
 
@@ -803,15 +718,15 @@ while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
   <h2><span class="num">§ 05</span> ゲートパレット用アイコン</h2>
   <p class="note">
     パレット (gate toolbox) 上で他のゲートと並べて表示するアイコン。
-    <strong>ゲート本体のミニチュア (Quirk 流儀)</strong> を採用 — 2 行 × 横バーで
+    <strong>表示ブロック本体のミニチュア</strong>を採用 — 2 行 × 横バーで
     「これは確率表示ブロックだ」が palette サイズでも瞬時に伝わる。
     左 = 28 px (実寸)、右 = 96 px (拡大)。ストロークは <code>tx</code> (#100F0F)、
-    塗りは <code>blue-300</code> (#66A0C8 — gate 本体のバー色と同じ)、背景透過。
+    塗りは <code>blue-300</code> (#66A0C8 — 表示ブロック本体のバー色と同じ)、背景透過。
   </p>
 
   <div class="icon-grid">
 
-    <!-- Mini gate preview (mirrors the actual probability display look). -->
+    <!-- 表示ブロックプレビュー -->
     <div class="icon-card">
       <div class="small">
         <svg class="icon-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -830,13 +745,12 @@ while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
         </svg>
       </div>
       <div class="meta">
-        <h4>Mini gate preview (= ゲート本体ミニチュア)</h4>
+        <h4>表示ブロックプレビュー (= 表示ブロック本体ミニチュア)</h4>
         <p>24×24 viewBox 内に <code>(3, 4) → (21, 20)</code> = 18×16 の外枠 (stroke
           <code>tx</code> #100F0F、1.4 px)、中央水平線 (1 px、行区切り) で 2 行に分割。
           上段 = 1/3 長の bar、下段 = 7/9 長の bar (= 例示として「分布が偏っている」
-          見た目)。fill は <code>blue-300</code> (#66A0C8) で gate 本体と完全一致。
-          実装は <code>apps/egui-web/src/icons/</code> 配下に Lucide 風 SVG として
-          配置 (既存のゲートアイコンと同じ階層)。</p>
+          見た目)。fill は <code>blue-300</code> (#66A0C8) で表示ブロック本体と完全一致。
+          他のゲートアイコンと同じ階層に置く。</p>
       </div>
     </div>
 
@@ -844,8 +758,8 @@ while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
 
   <p class="note" style="margin: 20px 0 0;">
     span が 1 でも 5 でも、palette アイコンは <strong>同じ 2 行 mini preview</strong>
-    で OK (Quirk と同じ)。span 別の visual variant は不要 — パレット上では
-    「Probability Display 系ゲート」がひと目で識別できれば十分で、span は配置後のゲート本体が span 数を物理的に示すので。
+    で OK。span 別の visual variant は不要 — パレット上では
+    「Probability Display 系表示ブロック」がひと目で識別できれば十分で、span は配置後の表示ブロック本体が span 数を物理的に示すので。
   </p>
 </section>
 
@@ -855,7 +769,7 @@ while (n &gt; span) { prob = sum_fold(prob); n -= 1; }
 </footer>
 
 <script>
-  /* ─── Quirk-style hover tooltip on probability-row ───
+  /* ─── Hover tooltip on probability-row ───
      Single global tip element; row hover fills + positions it. Probs are
      derived from the DOM (bar widths) so dynamic gates work without any
      extra wiring — they update DOM as usual, the tip re-reads on each

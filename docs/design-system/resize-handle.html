@@ -55,7 +55,7 @@
     }
     .stage .actual { display: flex; align-items: center; justify-content: center; }
     .stage .zoom {
-      width: 200px; height: 360px;  /* 96 × 3 = 288 + ハンドル上下 ±36 = 360 px が安全。Resolved (2026-05-23) */
+      width: 200px; height: 360px;  /* 96 × 3 = 288 + ハンドル上下 ±36 = 360 px が安全。 */
       display: flex; align-items: center; justify-content: center;
     }
     .stage .zoom .rh-mock { transform: scale(3); transform-origin: center; }
@@ -92,19 +92,6 @@
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>§ 04 にカーブ図 + on-page demo</strong> — <code>60 × 60 px</code> の SVG で <code>cubic-bezier(0.34, 1.56, 0.64, 1)</code> を描き、その横にホスト hover で発火する live demo を置く。「動きを規定する仕様が動かない」状態を解消 (§ 04 参照)。</li>
-      <li><strong>§ 03 にレイヤ側面図</strong> — ホスト本体 → 背景の空き → ホバー枠 → 背景の空き → ハンドルの 5 層を縦に並べた注釈付き側面図。表は数値リファレンスに格下げ (§ 03 参照)。</li>
-      <li><strong>§ 01 を lede 1 文に縮約 (もしくは § 05 を冒頭直後に上げる)</strong> — breadcrumb + eyebrow + h1 + lede + § 01 と「これは何か」を 5 段で繰り返している。preamble を 2 段に (§ 01 参照)。</li>
-      <li><strong>default モックに "invisible by design" の affordance</strong> — 薄破線 outline + <code>opacity 0</code> 注釈、もしくは薄い位置ガイド (<code>opacity 0.15</code>)。「未実装の placeholder」「描画失敗」に読まれない (§ 05 参照)。</li>
-    </ol>
-  </aside>
-</section>
 
 <!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
@@ -133,22 +120,6 @@
       4 状態 (default / visible / hover / active) の比較は <strong>§ 05 状態バリアント</strong>、
       配色 / 寸法 / 状態遷移 / マイクロインタラクションの詳細は § 02 以降を参照。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 01 § 05 との機能重複">
-      <div class="critique-label">★ 批評 · § 01 § 05 との機能重複</div>
-      <div class="critique-title">「概要」と「状態バリアント」が同じ default モックを 2 回見せている</div>
-      <p class="critique-body">
-        § 01 は 2 状態比較 (default / hover)、§ 05 は 4 状態比較。両者は同じ
-        <code>.rh-mock data-mock="default"</code> をそれぞれ描く。
-        breadcrumb + eyebrow + h1 + lede + § 01 と「これは何か」を 5 段で繰り返したあとで、
-        § 05 で改めて 4 状態を見せる構造は、<strong>情報密度の階段がない</strong>。
-      </p>
-      <p class="critique-body">
-        対案: (a) § 01 を 1 文の lede だけにして mocks を § 05 に統合する。
-        (b) § 05 を冒頭直後に上げ、<strong>「結論を最初に見せる」</strong>順序に変える。
-        仕様ページの読者は「正解の絵」を最初に見たい。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -217,21 +188,6 @@
         <tr><td>リサイズハンドル</td><td>6 .. 12 px 外側</td><td><code>cyan-400</code> #3AA99F (default) / <code>cyan-600</code> #24837B (hover/active)</td></tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 03 レイヤ図がない">
-      <div class="critique-label">★ 批評 · § 03 レイヤ図がない</div>
-      <div class="critique-title">5 層の積層を表だけで伝えている</div>
-      <p class="critique-body">
-        「ホスト本体 → 背景の空き → ホバー枠 → 背景の空き → リサイズハンドル」と y 軸方向に 5 層が積層する話は、
-        表で読むと毎行 <code>0..2 px 外側</code> / <code>2..4 px 外側</code> を暗算で繋ぐ必要があり、
-        頭の中で図を再構成しないと位置関係が掴めない。
-      </p>
-      <p class="critique-body">
-        対案: 幅 <code>6 px</code> · 高さ <code>60 px</code> 程度の <strong>annotated 側面図 (SVG)</strong>
-        を表の右に置く。色付き矩形 5 個 + 寸法線 + ラベルだけで、表は単なる数値リファレンスに格下げできて、
-        図が主たる伝達手段になる。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -281,22 +237,6 @@
       <code>scale(0.7) → scale(1.0)</code> の変化が「奥から飛び出してきて、ちょっと弾む」マイクロインタラクションとして読める。
       気付きやすさ + ゲート操作の遊び心を狙う。opacity と background は通常の ease-out にして、scale だけが弾む。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 04 動きの仕様が動かない">
-      <div class="critique-label">★ 批評 · § 04 動きの仕様が動かない</div>
-      <div class="critique-title">バウンスを語るページにバウンス曲線も on-page demo もない</div>
-      <p class="critique-body">
-        このページの存在意義の半分は <code>cubic-bezier(0.34, 1.56, 0.64, 1)</code> の
-        「ちょっと弾む」表現。だがその曲線そのもの (グラフ) も、ホスト hover で発火する live demo も、
-        どこにも描かれていない。読者は数値を読んで頭の中でカーブを想像する。
-      </p>
-      <p class="critique-body">
-        対案: (a) <code>60 × 60 px</code> の SVG で <code>cubic-bezier(0.34, 1.56, 0.64, 1)</code>
-        を描いて表の右に置く。0..1 を超える <code>1.56</code> の山が一目で見える。
-        (b) その下に「ホスト hover で発火する live demo」用の <code>.rh-mock</code> を 1 つ置き、
-        <strong>仕様の核を spec が体現する</strong>。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -305,8 +245,8 @@
   <h2 id="s05">§ 05 状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      4 状態を常時表示したモック。実コードと同じ CSS / マークアップで、
-      ホバーしなくても状態が確認できるので Codex / 人間がスクロールで差分レビューしやすい。
+      4 状態を常時表示したモック。本仕様の CSS / マークアップで、
+      ホバーしなくても状態が確認できるので、スクロールだけで差分レビューしやすい。
       ホスト矩形 (40 × 96 px の <code>.rh-mock</code>) はゲート本体の代用で、③・④ は ホバー枠 (<code>purple-400</code>)
       も強制表示している。
     </p>
@@ -363,22 +303,6 @@
         </div>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 05 default モックが wireframe に読める">
-      <div class="critique-label">★ 批評 · § 05 default モックが wireframe に読める</div>
-      <div class="critique-title">「invisible が正しい状態である」ことを示す affordance がない</div>
-      <p class="critique-body">
-        ① <code>default (non-hover)</code> モックは <code>ui-2</code> 1 px 枠だけの完全な空矩形。
-        <code>opacity 0</code> の handle は当然見えない。隣の ②③④ と並べたとき、
-        <strong>「未実装の placeholder」「描画失敗」「無効状態」</strong>のいずれかに読めてしまう。
-        意味は caption の「ハンドル非表示」が運んでいて、モック単体では仕様を伝えていない。
-      </p>
-      <p class="critique-body">
-        対案: 薄破線 outline + <code>opacity 0</code> 注釈、
-        もしくは薄い位置ガイド (<code>opacity: 0.15</code> の cyan-400 ピル) を入れて、
-        「ここに何があるはずか」を視覚的に示す。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -432,25 +356,23 @@
   </div>
 </section>
 
-<!-- ─────── § 08 実装ファイル ─────── -->
+<!-- ─────── § 08 関連仕様 / 補助ファイル ─────── -->
 <section class="block">
-  <h2>§ 08 実装ファイル</h2>
+  <h2>§ 08 関連仕様</h2>
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>ファイル</th><th>役割</th></tr>
+        <tr><th>項目</th><th>役割</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>docs/design-system/design-system.css</code></td><td><code>.resize-handle</code> / <code>.resize-handle--top|bottom</code> / <code>.resize-handle-host</code> のクロム定義 (本仕様の唯一の真実)</td></tr>
-        <tr><td><code>docs/design-system/resize-handle.js</code></td><td>仕様ページのモックで <code>.resize-handle</code> 要素を生成する補助。設計判断の対象ではないため、本ページ本文では使い方を説明しない</td></tr>
-        <tr><td><code>apps/web/src/render/circuit_gates.rs</code></td><td>Rust 側のハンドル描画 / 状態管理。<em>本 primitive 化に合わせた整理は別タスク</em></td></tr>
-        <tr><td><code>apps/web/src/colors.rs</code></td><td>配色定数。default = <strong>cyan-400 (#3AA99F)</strong>、active = <strong>cyan-600 (#24837B)</strong></td></tr>
+        <tr><td><a href="probability-display.html">確率表示ブロック</a> / <a href="amplitude-display.html">振幅表示ブロック</a> / <a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>本 primitive を使う表示ブロック群。</td></tr>
+        <tr><td><a href="design-system-colors.html">配色</a></td><td>default = <strong>cyan-400 (#3AA99F)</strong>、active = <strong>cyan-600 (#24837B)</strong></td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
     <ul>
-      <li>歴史的経緯: 元は probability-display.html § 12 に同梱されていた仕様を、3 コンポーネント (確率 / 振幅 / 密度行列) が同じクロムを共有することが判明したため独立 primitive として抽出 (2026-05-22)</li>
-      <li>当初は <code>purple-400</code> ベースだったが、ホバー枠と同色衝突する問題を design critique で指摘されて <code>cyan-400</code> に移行 (probability-display.html § 12 の Resolved 批評参照)</li>
+      <li>確率 / 振幅 / 密度行列の 3 表示ブロックで同じクロムを共有する。</li>
+      <li>ハンドル色は <code>cyan-400</code> を標準とし、ホバー枠の <code>purple-400</code> と混同しないようにする。</li>
     </ul>
   </div>
 </section>

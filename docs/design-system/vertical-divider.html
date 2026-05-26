@@ -42,22 +42,22 @@
       overflow-x: auto;
     }
     .vd-palette {
-      padding: 20px 16px; /* PALETTE_PADDING_Y / PALETTE_PADDING_X */
+      padding: 20px 16px; /* spacing-5 / spacing-4 */
       border-radius: 12px;
       background: var(--bg); /* Flexoki bg / paper */
       box-shadow: 0 6px 16px rgba(16, 15, 15, 0.25);
       display: flex;
-      gap: 8px; /* PALETTE_SECTION_GAP = spacing-2 */
+      gap: 8px; /* spacing-2 */
       align-items: stretch;
     }
     .vd-section {
       display: flex;
       flex-direction: column;
-      gap: 8px; /* PALETTE_ROW_GAP = spacing-2 */
+      gap: 8px; /* spacing-2 */
     }
     .vd-row {
       display: flex;
-      gap: 8px; /* PALETTE_GAP = spacing-2 */
+      gap: 8px; /* spacing-2 */
     }
     .vd-preview-strip {
       display: flex;
@@ -160,8 +160,7 @@
   <h1 class="page-title">垂直ディバイダ</h1>
   <p class="page-lede">
     ゲートパレット内で、左側の操作ゲート群と右側の表示ブロック群を分ける 2 px の縦区切り線。
-    線そのものは操作対象ではなく、セクションのまとまりだけを示す。現行の実装では
-    <code>PALETTE_SEPARATOR_WIDTH</code> と <code>colors.line</code> で描画する。
+    線そのものは操作対象ではなく、セクションのまとまりだけを示す。幅は 2 px、色は Flexoki <code>ui-2</code> とする。
   </p>
 </div>
 
@@ -211,14 +210,14 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>幅</th><td><code>2 px</code>。実装値は <code>PALETTE_SEPARATOR_WIDTH = 2.0</code></td></tr>
+        <tr><th>幅</th><td><code>2 px</code></td></tr>
         <tr><th>高さ</th><td><code>88 px</code>。<code>2 × 40 px</code> のアイコン高 + 行間 <code>8 px</code> に一致させる</td></tr>
         <tr><th>縦位置</th><td>パレット内容領域の上端に揃える。上下の <code>20 px</code> padding までは伸ばさない</td></tr>
-        <tr><th>横位置</th><td><code>gates_width + PALETTE_SECTION_GAP</code>。現行値は <code>616 + 8 = 624 px</code></td></tr>
-        <tr><th>左右余白</th><td>左 8 px / 右 8 px。どちらも <code>PALETTE_SECTION_GAP</code></td></tr>
-        <tr><th>角丸</th><td>なし (<code>CornerRadius::ZERO</code>)。細い線として扱い、ピルやハンドルには見せない</td></tr>
+        <tr><th>横位置</th><td>ゲート領域の右端 + 8 px。基準値は <code>616 + 8 = 624 px</code></td></tr>
+        <tr><th>左右余白</th><td>左 8 px / 右 8 px</td></tr>
+        <tr><th>角丸</th><td>なし。細い線として扱い、ピルやハンドルには見せない</td></tr>
         <tr><th>影</th><td>なし。パレットの影は面全体だけに付ける</td></tr>
-        <tr><th>ヒット判定</th><td>なし。<code>palette_hit_test()</code> はディバイダと左右余白を <code>None</code> として扱う</td></tr>
+        <tr><th>ヒット判定</th><td>なし。ディバイダと左右余白はドラッグ開始対象にしない</td></tr>
       </tbody>
     </table>
 
@@ -247,7 +246,7 @@
         <tr><th>ロール</th><th>Flexoki トーン</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>colors.line</code></td><td><code>ui-2</code></td><td>ディバイダ本体。ワイヤ / カード枠と同じ中立線</td></tr>
+        <tr><td>ディバイダ本体</td><td><code>ui-2</code></td><td>ワイヤ / カード枠と同じ中立線</td></tr>
         <tr><td>背景</td><td><code>bg</code></td><td>パレット面。ディバイダの左右 8 px 余白として見える</td></tr>
       </tbody>
     </table>
@@ -275,22 +274,17 @@
 </section>
 
 <section class="block">
-  <h2>§ 05 実装参照</h2>
+  <h2>§ 05 設計要件</h2>
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>寸法定数</th><td><code>apps/web/src/constants.rs</code> — <code>PALETTE_SEPARATOR_WIDTH = 2.0</code>、<code>PALETTE_SECTION_GAP = 8.0</code></td></tr>
-        <tr><th>配置計算</th><td><code>apps/web/src/layout/palette.rs</code> — <code>separator_x</code> / <code>display_x</code> を算出</td></tr>
-        <tr><th>描画</th><td><code>apps/web/src/render/circuit_palette/panel.rs</code> — <code>separator_rect</code> を <code>colors.line</code> で塗る</td></tr>
+        <tr><th>寸法</th><td><code>2 px</code> 幅、左右に <code>8 px</code> の section gap を置く。</td></tr>
+        <tr><th>配置計算</th><td>Gates section と Display section の間で、パレット content 全高に揃える。</td></tr>
+        <tr><th>描画</th><td>Flexoki <code>ui-2</code> で矩形を塗る。</td></tr>
         <tr><th>仕様内 CSS</th><td><code>docs/design-system/design-system.css</code> — <code>.vertical-divider</code></td></tr>
       </tbody>
     </table>
 
-    <pre class="code">let separator_rect = egui::Rect::from_min_size(
-    palette_origin + egui::vec2(layout.separator_x, 0.0),
-    egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
-);
-painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);</pre>
   </div>
 </section>
 

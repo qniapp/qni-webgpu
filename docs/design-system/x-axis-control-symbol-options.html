@@ -371,7 +371,7 @@
         </ul>
         <ul class="cons">
           <li>上付きが小さくて 1× だと <code>X</code> がほぼ点にしか見えない (Geist Mono 8 px)</li>
-          <li>SVG ラスタライズでアンチエイリアシングがにじむと文字が崩れる (egui rasterize で要検証)</li>
+          <li>ラスタライズ時にアンチエイリアシングがにじむと文字が崩れるため、1× 表示での確認が必要</li>
           <li>「●ˣ vs ●ʸ」のラベル切替だけだと、列を縮めたとき判別困難</li>
         </ul>
         <div class="verdict"><span class="pill pill--no">非推奨</span> 縦長レイアウトに合わない。zoom しないと読めない。</div>
@@ -523,12 +523,12 @@
       qni-webgpu はまず<strong>採用するか / しないかの判断</strong>からユーザに確認すべき。
     </p>
 
-    <h3>採用後にやること</h3>
+    <h3>採用後に決めること</h3>
     <ul>
-      <li>ゲート定義に <code>GateKind::XControl</code> / <code>GateKind::XAntiControl</code> / 同 Y 版を追加</li>
-      <li>icon rasterize (`icons/gate_body.rs` 系) で SVG 経路をリファレンスに描画</li>
-      <li>WGSL shader への影響 (制御解釈): 既存の Z 制御を「H サンドイッチで包む」操作を回路コンパイル側で挿入する</li>
-      <li>URL シリアライズ: Quirk 互換のため <code>⊕</code> / <code>⊖</code> / <code>⊗</code> / <code>(/)</code> を保持 (UI 描画とは分離)</li>
+      <li>X 軸制御 / X 軸反制御 / Y 軸制御 / Y 軸反制御の 4 種をゲート一覧に追加するか。</li>
+      <li>アイコンは 1× 表示で視認できる経路を基準にする。</li>
+      <li>制御解釈は既存の Z 制御との対応関係をユーザー向け文言で明確にする。</li>
+      <li>URL シリアライズは UI 描画とは分離して扱う。</li>
       <li>tooltip: 「X 軸制御 — 制御 量子ビットが <code>|+⟩</code> 状態のとき発火 (Hadamard 基底)」のような短い説明を必ず添える</li>
     </ul>
   </div>
