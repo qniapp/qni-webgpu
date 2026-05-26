@@ -124,6 +124,14 @@
     }
     .legend .item { display: inline-flex; align-items: center; gap: 8px; }
 
+    .section-subtitle {
+      margin: 20px 0 8px;          /* spacing-5 / spacing-2 */
+      font-size: 16px;             /* text-base */
+      line-height: 24px;           /* text-base default */
+      font-weight: 600;
+      color: var(--tx);
+    }
+
   </style>
 </head>
 <body>
@@ -279,16 +287,317 @@
   <h2><span class="num">§ 03</span>コンポーネント別ポップオーバー</h2>
   <p class="note">
     <a href="design-system/popover.html">ポップオーバー</a>の共通外装を、個別コンポーネントの内容と配置へ適用する仕様。
-    共通外装そのものは primitive 側を正とし、ここではコンポーネント固有の内容と配置だけを定義する。
+    共通外装そのものは primitive 側を正とし、ここではコンポーネント固有の内容、表示文字列、変換図、配置だけを定義する。
+  </p>
+
+  <h3 class="section-subtitle">パレット説明ポップオーバー</h3>
+  <p class="note">
+    ゲートパレット上の各ゲート / 表示ブロックにホバーしたときの説明表示。
+    実装側の <code>GateKind::info()</code> と同じ見出し、説明段落、変換図をゲートごとに分けて記録する。
+  </p>
+  <div class="spec-grid">
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-h">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=h" loading="lazy" title="Hadamard (H) 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Hadamard (H) 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの H にホバーしたときの説明表示。2 行の変換図で |0⟩ / |1⟩ から重ね合わせへの写像を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-x">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=x" loading="lazy" title="X 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">X 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの X にホバーしたときの説明表示。|0⟩ と |1⟩ の入れ替えを 2 行の変換図で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-y">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=y" loading="lazy" title="Y 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Y 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Y にホバーしたときの説明表示。X と Z を合わせた作用を、位相付きの変換図で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-z">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=z" loading="lazy" title="Z 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Z 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Z にホバーしたときの説明表示。|1⟩ 側だけ位相が反転することを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-sqrtx">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=sqrtx" loading="lazy" title="√X 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">√X 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの √X にホバーしたときの説明表示。X 軸まわり π/2 回転の既定例を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-s">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=s" loading="lazy" title="S 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">S 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの S にホバーしたときの説明表示。π/2 位相ゲートの短縮形であることを 2 段落で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-s-dagger">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=s-dagger" loading="lazy" title="S† 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">S† 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの S† にホバーしたときの説明表示。−π/2 位相ゲートの短縮形であることを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-t">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=t" loading="lazy" title="T 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">T 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの T にホバーしたときの説明表示。π/4 位相ゲートの短縮形であることを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-t-dagger">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=t-dagger" loading="lazy" title="T† 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">T† 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの T† にホバーしたときの説明表示。−π/4 位相ゲートの短縮形であることを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-phase">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=phase" loading="lazy" title="Phase 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Phase 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Phase にホバーしたときの説明表示。既定角 φ = π/2 の変換図を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-rx">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=rx" loading="lazy" title="Rx 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Rx 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Rx にホバーしたときの説明表示。既定角 θ = π/2 の X 軸回転例を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-ry">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=ry" loading="lazy" title="Ry 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Ry 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Ry にホバーしたときの説明表示。既定角 θ = π/2 の Y 軸回転例を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-rz">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=rz" loading="lazy" title="Rz 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Rz 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Rz にホバーしたときの説明表示。既定角 θ = π/2 の Z 軸回転例を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-swap">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=swap" loading="lazy" title="Swap 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Swap 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Swap にホバーしたときの説明表示。2 個を同じ列へ置く使い方を文章で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-control">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=control" loading="lazy" title="Control 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Control 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Control にホバーしたときの説明表示。ON 条件で同じ列のゲートを実行することを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-anti-control">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=anti-control" loading="lazy" title="Anti-control 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Anti-control 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Anti-control にホバーしたときの説明表示。OFF 条件で同じ列のゲートを実行することを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-write0">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=write0" loading="lazy" title="|0⟩ 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">|0⟩ 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの |0⟩ にホバーしたときの説明表示。|0⟩ へ再設定する写像を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-write1">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=write1" loading="lazy" title="|1⟩ 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">|1⟩ 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの |1⟩ にホバーしたときの説明表示。|1⟩ へ再設定する写像を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-measurement">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=measurement" loading="lazy" title="測定ゲート説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">測定ゲート説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの測定ゲートにホバーしたときの説明表示。ON/OFF の測定であることを文章で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-qft">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=qft" loading="lazy" title="QFT 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">QFT 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの QFT にホバーしたときの説明表示。位相周波数空間への変換を文章で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-qft-dagger">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=qft-dagger" loading="lazy" title="QFT† 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">QFT† 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの QFT† にホバーしたときの説明表示。逆量子フーリエ変換の説明を文章で示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-spacer">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=spacer" loading="lazy" title="Spacer 説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">Spacer 説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの Spacer にホバーしたときの説明表示。状態に作用しない空きスロットであることを示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-bloch-display">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=bloch-display" loading="lazy" title="ブロッホ球表示説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">ブロッホ球表示説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットのブロッホ球表示ブロックにホバーしたときの説明表示。局所状態を球上の点として示すことを説明する。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-probability-display">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=probability-display" loading="lazy" title="確率表示説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">確率表示説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの確率表示ブロックにホバーしたときの説明表示。測定時の確率と条件付き確率の操作を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-amplitude-display">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=amplitude-display" loading="lazy" title="振幅表示説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">振幅表示説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの振幅表示ブロックにホバーしたときの説明表示。複素振幅と条件付き振幅の操作を示す。</p>
+    </a>
+
+    <a class="spec-card" href="design-system/palette-popovers.html#popover-density-matrix-display">
+      <div class="preview" aria-hidden="true">
+        <iframe src="design-system/palette-popovers.html?preview=density-matrix-display" loading="lazy" title="密度行列表示説明ポップオーバー preview"></iframe>
+      </div>
+      <div class="row">
+        <span class="name">密度行列表示説明ポップオーバー</span>
+        <span class="pill done">spec</span>
+      </div>
+      <p class="desc">パレットの密度行列表示ブロックにホバーしたときの説明表示。縮約密度行列と条件付き局所混合状態を示す。</p>
+    </a>
+
+  </div>
+
+  <h3 class="section-subtitle">表示ブロック詳細ポップオーバー</h3>
+  <p class="note">
+    回路上の表示ブロックやセルにホバーしたとき、GPU 上の値を読み取って見せる詳細ポップオーバー。
+    パレット説明とは別に、値の行構成と数値形式を定義する。
   </p>
   <div class="spec-grid">
 
     <a class="spec-card" href="design-system/bloch-display-popover.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/bloch-display-popover.html?preview" loading="lazy" title="ブロッホ球ポップオーバー preview"></iframe>
+        <iframe src="design-system/bloch-display-popover.html?preview" loading="lazy" title="ブロッホ球詳細ポップオーバー preview"></iframe>
       </div>
       <div class="row">
-        <span class="name">ブロッホ球ポップオーバー</span>
+        <span class="name">ブロッホ球詳細ポップオーバー</span>
         <span class="pill done">spec</span>
       </div>
       <p class="desc">ブロッホ球表示ブロックの詳細表示。共通ポップオーバー外装に、球座標と直交座標の数値を載せる。</p>
@@ -296,10 +605,10 @@
 
     <a class="spec-card" href="design-system/density-matrix-display-popover.html">
       <div class="preview" aria-hidden="true">
-        <iframe src="design-system/density-matrix-display-popover.html?preview" loading="lazy" title="密度行列表示ポップオーバー preview"></iframe>
+        <iframe src="design-system/density-matrix-display-popover.html?preview" loading="lazy" title="密度行列表示詳細ポップオーバー preview"></iframe>
       </div>
       <div class="row">
-        <span class="name">密度行列表示ポップオーバー</span>
+        <span class="name">密度行列表示詳細ポップオーバー</span>
         <span class="pill done">spec</span>
       </div>
       <p class="desc">密度行列表示ブロックのセル詳細表示。共通ポップオーバー外装に、確率 / 結合の数値を載せる。</p>

@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>パレット説明ポップオーバー — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+      window.__palettePopoverPreviewSlug = params.get('preview') || 'h';
+    }
+  </script>
+  <style>
+    /* ─── パレット説明ポップオーバー ────────────────────────
+       実装の GateKind::info() と palette tooltip 描画に合わせた仕様。
+       配色は Flexoki Light、フォントサイズ / 余白は Tailwind 既定スケールへ対応させる。 */
+    .popover-mock-stage {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 136px;
+      padding: 24px;                     /* spacing-6 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      overflow-x: auto;
+    }
+    .tooltip-card {
+      position: relative;
+      margin-top: 8px;                  /* tail height = spacing-2 */
+      width: max-content;
+      max-width: 360px;
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg / paper */
+      color: var(--tx);                  /* Flexoki tx */
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
+      white-space: nowrap;
+    }
+    .tooltip-card::before,
+    .tooltip-card::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+    .tooltip-card::before {
+      top: -8px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid var(--tx-3); /* Flexoki tx-3 / popover_outline */
+    }
+    .tooltip-card::after {
+      top: -6px;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 7px solid var(--bg);   /* Flexoki bg / paper */
+    }
+    .tooltip-title {
+      color: var(--tx);                  /* Flexoki tx */
+      font-size: 18px;                   /* text-lg */
+      line-height: 28px;                 /* text-lg default */
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+    .tooltip-copy {
+      margin-top: 4px;                   /* spacing-1 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    .tooltip-copy p { margin: 0; }
+    .tooltip-copy p + p { margin-top: 2px; }
+    .tooltip-diagram {
+      margin-top: 16px;                  /* spacing-4 */
+      display: grid;
+      gap: 8px;                          /* spacing-2 */
+    }
+    .transition-row {
+      display: grid;
+      grid-template-columns: 72px 64px 72px;
+      align-items: start;
+      column-gap: 8px;                   /* spacing-2 */
+    }
+    .transition-state {
+      display: grid;
+      gap: 0;
+      justify-items: start;
+    }
+    .amp-pair {
+      width: 72px;
+      height: 36px;
+      display: block;
+    }
+    .transition-connector {
+      display: flex;
+      align-items: center;
+      height: 32px;
+      margin-top: 0;
+    }
+    .wire {
+      display: inline-block;
+      width: 12px;
+      height: 2px;
+      background: var(--tx);             /* Flexoki tx */
+      flex: 0 0 12px;
+    }
+    .wire-after {
+      position: relative;
+      margin-left: 2px;
+    }
+    .wire-after::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      width: 0;
+      height: 0;
+      border-left: 6px solid var(--tx);  /* Flexoki tx */
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      transform: translateY(-50%);
+    }
+    .wire-before { margin-right: 2px; }
+    .mini-gate {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;                       /* qpu-operation-sm = 1.5rem */
+      height: 24px;
+      border-radius: 4px;
+      background: var(--cyan-400);       /* Flexoki cyan-400 / gate fill */
+      color: var(--bg);                  /* Flexoki bg / paper glyph */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+    .mini-gate--circle {
+      border-radius: 9999px;             /* X / Phase は draw_gate_body 側でも円 */
+    }
+    .mini-gate--write {
+      background: transparent;           /* Write は塗り面を持たず bracket + digit だけ */
+      color: var(--tx-2);                /* Flexoki tx-2 / disabled bracket 寄り */
+    }
+    .content-table td { vertical-align: top; }
+    .overview-table td:nth-child(4) {
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    #preview {
+      width: 132px;
+      height: 72px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    html.preview-mode #preview {
+      display: block;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+    }
+    #preview .preview-scale {
+      position: absolute;
+      top: 4px;                         /* spacing-1 */
+      left: 8px;                        /* spacing-2。JS で中央寄せに上書き */
+      transform: scale(0.42);
+      transform-origin: top left;
+      display: grid;
+      place-items: center;
+    }
+    #preview .tooltip-card {
+      box-shadow: 0 8px 18px rgba(16, 15, 15, 0.12);
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview" aria-hidden="true"></div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">コンポーネント別ポップオーバー</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">パレット説明ポップオーバー</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · popover spec</p>
+  <h1 class="page-title">パレット説明ポップオーバー</h1>
+  <p class="page-lede">
+    ゲートパレット上のゲート / 表示ブロックへホバーしたときに出る説明ポップオーバーの仕様。
+    共通外装は <a href="popover.html">ポップオーバー</a>の tail 付きカードを使い、内容はゲートごとの見出し、説明段落、必要に応じた 1 量子ビット変換図で構成する。
+    本ページの文字列と変換図は、パレット説明で使う <code>GateKind::info()</code> の内容に合わせる。
+  </p>
+</div>
+
+<section class="block">
+  <h2><span class="num">§ 01</span>共通構造</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>対象</th><td>ゲートパレット上の 26 項目。回路上の値ポップオーバーとは別で、ドラッグ中は表示しない</td></tr>
+        <tr><th>外装</th><td><code>bg</code> 面、<code>tx-3</code> 1 px 枠、角丸 10 px、<code>0 10px 28px rgba(16, 15, 15, 0.14)</code> の影、tail 高 8 px + 対象との gap 4 px</td></tr>
+        <tr><th>配置</th><td>通常はホバー中のパレット項目の下に本体を中央寄せする。下側に入らない場合は上側へ反転し、画面端から 4 px 以上を保つ</td></tr>
+        <tr><th>余白</th><td>内側 padding は <code>12 px 16 px</code> (spacing-3 / spacing-4)。見出しと説明の間は <code>4 px</code>、説明段落同士は <code>2 px</code>、変換図との間は <code>16 px</code></td></tr>
+        <tr><th>文字</th><td>見出しは Geist 18 px (text-lg) / <code>tx</code>、説明は Geist 14 px (text-sm) / <code>tx-2</code>。実 UI では実装由来の英語文字列をそのまま表示する</td></tr>
+        <tr><th>変換図</th><td>1 量子ビットの具体例を持つ項目だけ表示する。振幅円は 32 × 32 px、円の間隔は 8 px、ミニゲートは 24 × 24 px。ミニゲートの形はゲート本体の描画規則を縮小して使い、X / Phase は円、Write 系は塗り面なし、その他の字形ゲートは角丸正方形にする。各行の間隔は 8 px</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2><span class="num">§ 02</span>実装由来の内容一覧</h2>
+  <div class="card">
+    <table class="spec overview-table">
+      <thead>
+        <tr><th>項目</th><th>見出し</th><th>説明段落</th><th>変換図</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="#popover-h">Hadamard (H)</a></td><td><code>Hadamard Gate</code></td><td>Creates simple superpositions.</td><td>2</td></tr>
+        <tr><td><a href="#popover-x">Pauli-X / NOT (X)</a></td><td><code>NOT Gate (Pauli X Gate)</code></td><td>Swaps the qubit pair of |0⟩ and |1⟩.</td><td>2</td></tr>
+        <tr><td><a href="#popover-y">Pauli-Y (Y)</a></td><td><code>Pauli Y Gate</code></td><td>A combination of the X and Z gates.</td><td>2</td></tr>
+        <tr><td><a href="#popover-z">Pauli-Z (Z)</a></td><td><code>Pauli Z Gate</code></td><td>Negate phases when the qubit is ON.</td><td>2</td></tr>
+        <tr><td><a href="#popover-sqrtx">Square-root X (√X)</a></td><td><code>Square Root of NOT Gate</code></td><td>Rotates around the X-axis by π/2.</td><td>2</td></tr>
+        <tr><td><a href="#popover-s">S ゲート</a></td><td><code>S Gate</code></td><td>A shortcut for π/2 Phase gate.<br />Applies a phase of e^(iπ/2) to the |1⟩ state.</td><td>2</td></tr>
+        <tr><td><a href="#popover-s-dagger">S† ゲート</a></td><td><code>S† Gate</code></td><td>A shortcut for -π/2 Phase gate.<br />Applies a phase of e^(-iπ/2) to the |1⟩ state.</td><td>2</td></tr>
+        <tr><td><a href="#popover-t">T ゲート</a></td><td><code>T Gate</code></td><td>A shortcut for π/4 Phase gate.<br />Applies a phase of e^(iπ/4) to the |1⟩ state.</td><td>2</td></tr>
+        <tr><td><a href="#popover-t-dagger">T† ゲート</a></td><td><code>T† Gate</code></td><td>A shortcut for -π/4 Phase gate.<br />Applies a phase of e^(-iπ/4) to the |1⟩ state.</td><td>2</td></tr>
+        <tr><td><a href="#popover-phase">Phase θ (Φ)</a></td><td><code>Phase Gate</code></td><td>Applies a phase of e^(iφ) to the |1⟩ state.<br />The default φ = π/2.</td><td>2</td></tr>
+        <tr><td><a href="#popover-rx">X-axis rotation (Rx)</a></td><td><code>Rx Gate</code></td><td>Rotates around the X-axis by the angle θ.<br />The default θ = π/2.</td><td>2</td></tr>
+        <tr><td><a href="#popover-ry">Y-axis rotation (Ry)</a></td><td><code>Ry Gate</code></td><td>Rotates around the Y-axis by the angle θ.<br />The default θ = π/2.</td><td>2</td></tr>
+        <tr><td><a href="#popover-rz">Z-axis rotation (Rz)</a></td><td><code>Rz Gate</code></td><td>Rotates around the Z-axis by the angle θ.<br />The default θ = π/2.</td><td>2</td></tr>
+        <tr><td><a href="#popover-swap">Swap</a></td><td><code>Swap Gate</code></td><td>Swap the values of two qubits.<br />(Place two in the same step.)</td><td>0</td></tr>
+        <tr><td><a href="#popover-control">Control (|1⟩ 条件)</a></td><td><code>Control Gate</code></td><td>Conditions on a qubit being ON.<br />Gates in the same step only apply to states meeting the condition.</td><td>0</td></tr>
+        <tr><td><a href="#popover-anti-control">Anti-control (|0⟩ 条件)</a></td><td><code>Anti Control Gate</code></td><td>Conditions on a qubit being OFF.<br />Gates in the same step only apply to states meeting the condition.</td><td>0</td></tr>
+        <tr><td><a href="#popover-write0">|0⟩ オペレーション</a></td><td><code>|0⟩ Operation</code></td><td>(Re)sets a qubit to state |0⟩.</td><td>2</td></tr>
+        <tr><td><a href="#popover-write1">|1⟩ オペレーション</a></td><td><code>|1⟩ Operation</code></td><td>(Re)sets a qubit to state |1⟩.</td><td>2</td></tr>
+        <tr><td><a href="#popover-measurement">測定ゲート</a></td><td><code>Measurement Gate</code></td><td>Measures whether a qubit is ON or OFF.</td><td>0</td></tr>
+        <tr><td><a href="#popover-qft">QFT</a></td><td><code>Quantum Fourier Transform Gate</code></td><td>Transforms to/from phase frequency space.</td><td>0</td></tr>
+        <tr><td><a href="#popover-qft-dagger">QFT†</a></td><td><code>Inverse Quantum Fourier Transform Gate</code></td><td>Transforms to/from phase frequency space.</td><td>0</td></tr>
+        <tr><td><a href="#popover-spacer">Spacer</a></td><td><code>Spacer Gate</code></td><td>A gate with no effect.</td><td>0</td></tr>
+        <tr><td><a href="#popover-bloch-display">ブロッホ球表示ブロック</a></td><td><code>Bloch Sphere Display</code></td><td>Shows a wire&#x27;s local state as a point on the Bloch sphere.</td><td>0</td></tr>
+        <tr><td><a href="#popover-probability-display">確率表示ブロック</a></td><td><code>Probability Display</code></td><td>Shows probabilities of outcomes if a measurement was performed.<br />Use controls to see conditional probabilities.</td><td>0</td></tr>
+        <tr><td><a href="#popover-amplitude-display">振幅表示ブロック</a></td><td><code>Amplitude&#32;Display</code></td><td>Shows complex amplitudes for a span of qubits.<br />Use controls to see conditional amplitudes.</td><td>0</td></tr>
+        <tr><td><a href="#popover-density-matrix-display">密度行列表示ブロック</a></td><td><code>Density Matrix Display</code></td><td>Shows the reduced density matrix for a span of qubits.<br />Use controls to see conditional local mixed states.</td><td>0</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<section class="block popover-spec" id="popover-h">
+  <h2><span class="num">§ 03</span>Hadamard (H) 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="h">
+        <div class="tooltip-title">Hadamard Gate</div>
+        <div class="tooltip-copy"><p>Creates simple superpositions.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">H</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">H</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="32.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::H</code> / パレット項目 <strong>Hadamard (H)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Hadamard Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Creates simple superpositions.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → (1/√2)|0⟩ + (1/√2)|1⟩<br />|1⟩ → (1/√2)|0⟩ − (1/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-x">
+  <h2><span class="num">§ 04</span>X 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="x">
+        <div class="tooltip-title">NOT Gate (Pauli X Gate)</div>
+        <div class="tooltip-copy"><p>Swaps the qubit pair of |0⟩ and |1⟩.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--circle">X</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--circle">X</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::X</code> / パレット項目 <strong>Pauli-X / NOT (X)</strong></td></tr>
+        <tr><th>見出し</th><td><code>NOT Gate (Pauli X Gate)</code></td></tr>
+        <tr><th>説明段落</th><td>Swaps the qubit pair of |0⟩ and |1⟩.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |1⟩<br />|1⟩ → |0⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-y">
+  <h2><span class="num">§ 05</span>Y 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="y">
+        <div class="tooltip-title">Pauli Y Gate</div>
+        <div class="tooltip-copy"><p>A combination of the X and Z gates.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Y</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="72.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Y</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="0.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Y</code> / パレット項目 <strong>Pauli-Y (Y)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Pauli Y Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A combination of the X and Z gates.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → i|1⟩<br />|1⟩ → −i|0⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-z">
+  <h2><span class="num">§ 06</span>Z 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="z">
+        <div class="tooltip-title">Pauli Z Gate</div>
+        <div class="tooltip-copy"><p>Negate phases when the qubit is ON.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Z</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Z</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="32.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Z</code> / パレット項目 <strong>Pauli-Z (Z)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Pauli Z Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Negate phases when the qubit is ON.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → −|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-sqrtx">
+  <h2><span class="num">§ 07</span>√X 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="sqrtx">
+        <div class="tooltip-title">Square Root of NOT Gate</div>
+        <div class="tooltip-copy"><p>Rotates around the X-axis by π/2.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">√X</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="27.314" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="44.686" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">√X</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="4.686" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="67.314" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::SqrtX</code> / パレット項目 <strong>Square-root X (√X)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Square Root of NOT Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Rotates around the X-axis by π/2.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → (0.5+0.5i)|0⟩ + (0.5−0.5i)|1⟩<br />|1⟩ → (0.5−0.5i)|0⟩ + (0.5+0.5i)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-s">
+  <h2><span class="num">§ 08</span>S 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="s">
+        <div class="tooltip-title">S Gate</div>
+        <div class="tooltip-copy"><p>A shortcut for π/2 Phase gate.</p><p>Applies a phase of e^(iπ/2) to the |1⟩ state.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">S</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">S</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="72.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::S</code> / パレット項目 <strong>S ゲート</strong></td></tr>
+        <tr><th>見出し</th><td><code>S Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A shortcut for π/2 Phase gate.<br />Applies a phase of e^(iπ/2) to the |1⟩ state.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → i|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-s-dagger">
+  <h2><span class="num">§ 09</span>S† 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="s-dagger">
+        <div class="tooltip-title">S† Gate</div>
+        <div class="tooltip-copy"><p>A shortcut for -π/2 Phase gate.</p><p>Applies a phase of e^(-iπ/2) to the |1⟩ state.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">S†</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">S†</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="40.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::SDagger</code> / パレット項目 <strong>S† ゲート</strong></td></tr>
+        <tr><th>見出し</th><td><code>S† Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A shortcut for -π/2 Phase gate.<br />Applies a phase of e^(-iπ/2) to the |1⟩ state.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → −i|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-t">
+  <h2><span class="num">§ 10</span>T 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="t">
+        <div class="tooltip-title">T Gate</div>
+        <div class="tooltip-copy"><p>A shortcut for π/4 Phase gate.</p><p>Applies a phase of e^(iπ/4) to the |1⟩ state.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">T</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">T</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="67.314" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::T</code> / パレット項目 <strong>T ゲート</strong></td></tr>
+        <tr><th>見出し</th><td><code>T Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A shortcut for π/4 Phase gate.<br />Applies a phase of e^(iπ/4) to the |1⟩ state.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → (1/√2+i/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-t-dagger">
+  <h2><span class="num">§ 11</span>T† 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="t-dagger">
+        <div class="tooltip-title">T† Gate</div>
+        <div class="tooltip-copy"><p>A shortcut for -π/4 Phase gate.</p><p>Applies a phase of e^(-iπ/4) to the |1⟩ state.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">T†</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">T†</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="44.686" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::TDagger</code> / パレット項目 <strong>T† ゲート</strong></td></tr>
+        <tr><th>見出し</th><td><code>T† Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A shortcut for -π/4 Phase gate.<br />Applies a phase of e^(-iπ/4) to the |1⟩ state.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → (1/√2−i/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-phase">
+  <h2><span class="num">§ 12</span>Phase 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="phase">
+        <div class="tooltip-title">Phase Gate</div>
+        <div class="tooltip-copy"><p>Applies a phase of e^(iφ) to the |1⟩ state.</p><p>The default φ = π/2.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--circle">Φ</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--circle">Φ</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="72.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Phase</code> / パレット項目 <strong>Phase θ (Φ)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Phase Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Applies a phase of e^(iφ) to the |1⟩ state.<br />The default φ = π/2.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → i|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-rx">
+  <h2><span class="num">§ 13</span>Rx 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="rx">
+        <div class="tooltip-title">Rx Gate</div>
+        <div class="tooltip-copy"><p>Rotates around the X-axis by the angle θ.</p><p>The default θ = π/2.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Rx</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="40.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Rx</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="0.000" y2="16.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Rx</code> / パレット項目 <strong>X-axis rotation (Rx)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Rx Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Rotates around the X-axis by the angle θ.<br />The default θ = π/2.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → (1/√2)|0⟩ − (i/√2)|1⟩<br />|1⟩ → −(i/√2)|0⟩ + (1/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-ry">
+  <h2><span class="num">§ 14</span>Ry 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="ry">
+        <div class="tooltip-title">Ry Gate</div>
+        <div class="tooltip-copy"><p>Rotates around the Y-axis by the angle θ.</p><p>The default θ = π/2.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Ry</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Ry</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="32.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="11.314" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Ry</code> / パレット項目 <strong>Y-axis rotation (Ry)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Ry Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Rotates around the Y-axis by the angle θ.<br />The default θ = π/2.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → (1/√2)|0⟩ + (1/√2)|1⟩<br />|1⟩ → −(1/√2)|0⟩ + (1/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-rz">
+  <h2><span class="num">§ 15</span>Rz 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="rz">
+        <div class="tooltip-title">Rz Gate</div>
+        <div class="tooltip-copy"><p>Rotates around the Z-axis by the angle θ.</p><p>The default θ = π/2.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Rz</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="4.686" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate">Rz</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="67.314" y2="4.686" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Rz</code> / パレット項目 <strong>Z-axis rotation (Rz)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Rz Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Rotates around the Z-axis by the angle θ.<br />The default θ = π/2.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → (1/√2−i/√2)|0⟩<br />|1⟩ → (1/√2+i/√2)|1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-swap">
+  <h2><span class="num">§ 16</span>Swap 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="swap">
+        <div class="tooltip-title">Swap Gate</div>
+        <div class="tooltip-copy"><p>Swap the values of two qubits.</p><p>(Place two in the same step.)</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Swap</code> / パレット項目 <strong>Swap</strong></td></tr>
+        <tr><th>見出し</th><td><code>Swap Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Swap the values of two qubits.<br />(Place two in the same step.)</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-control">
+  <h2><span class="num">§ 17</span>Control 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="control">
+        <div class="tooltip-title">Control Gate</div>
+        <div class="tooltip-copy"><p>Conditions on a qubit being ON.</p><p>Gates in the same step only apply to states meeting the condition.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Control</code> / パレット項目 <strong>Control (|1⟩ 条件)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Control Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Conditions on a qubit being ON.<br />Gates in the same step only apply to states meeting the condition.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-anti-control">
+  <h2><span class="num">§ 18</span>Anti-control 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="anti-control">
+        <div class="tooltip-title">Anti Control Gate</div>
+        <div class="tooltip-copy"><p>Conditions on a qubit being OFF.</p><p>Gates in the same step only apply to states meeting the condition.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::AntiControl</code> / パレット項目 <strong>Anti-control (|0⟩ 条件)</strong></td></tr>
+        <tr><th>見出し</th><td><code>Anti Control Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Conditions on a qubit being OFF.<br />Gates in the same step only apply to states meeting the condition.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-write0">
+  <h2><span class="num">§ 19</span>|0⟩ 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="write0">
+        <div class="tooltip-title">|0⟩ Operation</div>
+        <div class="tooltip-copy"><p>(Re)sets a qubit to state |0⟩.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--write">|0⟩</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--write">|0⟩</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Write0</code> / パレット項目 <strong>|0⟩ オペレーション</strong></td></tr>
+        <tr><th>見出し</th><td><code>|0⟩ Operation</code></td></tr>
+        <tr><th>説明段落</th><td>(Re)sets a qubit to state |0⟩.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |0⟩<br />|1⟩ → |0⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-write1">
+  <h2><span class="num">§ 20</span>|1⟩ 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="write1">
+        <div class="tooltip-title">|1⟩ Operation</div>
+        <div class="tooltip-copy"><p>(Re)sets a qubit to state |1⟩.</p></div>
+        <div class="tooltip-diagram">
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="16" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="16" y1="16" x2="16.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--write">|1⟩</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+        <div class="transition-row">
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+          <div class="transition-connector" aria-hidden="true">
+            <span class="wire wire-before"></span><span class="mini-gate mini-gate--write">|1⟩</span><span class="wire wire-after"></span>
+          </div>
+          <div class="transition-state">
+            <svg class="amp-pair" viewBox="0 0 72 36" aria-hidden="true" focusable="false"><circle cx="16" cy="16" r="16" fill="var(--bg)" stroke="var(--ui-2)" stroke-width="1.5"></circle><text x="25" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|0⟩</text><circle cx="56" cy="16" r="16" fill="var(--bg)" stroke="var(--tx-2)" stroke-width="1.5"></circle><circle cx="56" cy="16" r="16.000" fill="var(--blue-200)" stroke="var(--blue-400)" stroke-width="1"></circle><line x1="56" y1="16" x2="56.000" y2="0.000" stroke="var(--tx)" stroke-width="2" stroke-linecap="round"></line><text x="65" y="31" font-family="var(--font-mono)" font-size="12" fill="var(--tx-2)">|1⟩</text></svg>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Write1</code> / パレット項目 <strong>|1⟩ オペレーション</strong></td></tr>
+        <tr><th>見出し</th><td><code>|1⟩ Operation</code></td></tr>
+        <tr><th>説明段落</th><td>(Re)sets a qubit to state |1⟩.</td></tr>
+        <tr><th>変換図</th><td>2 行のミニ変換図</td></tr>
+        <tr><th>写像</th><td>|0⟩ → |1⟩<br />|1⟩ → |1⟩</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-measurement">
+  <h2><span class="num">§ 21</span>測定ゲート説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="measurement">
+        <div class="tooltip-title">Measurement Gate</div>
+        <div class="tooltip-copy"><p>Measures whether a qubit is ON or OFF.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Measurement</code> / パレット項目 <strong>測定ゲート</strong></td></tr>
+        <tr><th>見出し</th><td><code>Measurement Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Measures whether a qubit is ON or OFF.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-qft">
+  <h2><span class="num">§ 22</span>QFT 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="qft">
+        <div class="tooltip-title">Quantum Fourier Transform Gate</div>
+        <div class="tooltip-copy"><p>Transforms to/from phase frequency space.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::QftGate</code> / パレット項目 <strong>QFT</strong></td></tr>
+        <tr><th>見出し</th><td><code>Quantum Fourier Transform Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Transforms to/from phase frequency space.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-qft-dagger">
+  <h2><span class="num">§ 23</span>QFT† 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="qft-dagger">
+        <div class="tooltip-title">Inverse Quantum Fourier Transform Gate</div>
+        <div class="tooltip-copy"><p>Transforms to/from phase frequency space.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::QftDaggerGate</code> / パレット項目 <strong>QFT†</strong></td></tr>
+        <tr><th>見出し</th><td><code>Inverse Quantum Fourier Transform Gate</code></td></tr>
+        <tr><th>説明段落</th><td>Transforms to/from phase frequency space.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-spacer">
+  <h2><span class="num">§ 24</span>Spacer 説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="spacer">
+        <div class="tooltip-title">Spacer Gate</div>
+        <div class="tooltip-copy"><p>A gate with no effect.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::Spacer</code> / パレット項目 <strong>Spacer</strong></td></tr>
+        <tr><th>見出し</th><td><code>Spacer Gate</code></td></tr>
+        <tr><th>説明段落</th><td>A gate with no effect.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-bloch-display">
+  <h2><span class="num">§ 25</span>ブロッホ球表示説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="bloch-display">
+        <div class="tooltip-title">Bloch Sphere Display</div>
+        <div class="tooltip-copy"><p>Shows a wire&#x27;s local state as a point on the Bloch sphere.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::BlochDisplay</code> / パレット項目 <strong>ブロッホ球表示ブロック</strong></td></tr>
+        <tr><th>見出し</th><td><code>Bloch Sphere Display</code></td></tr>
+        <tr><th>説明段落</th><td>Shows a wire&#x27;s local state as a point on the Bloch sphere.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-probability-display">
+  <h2><span class="num">§ 26</span>確率表示説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="probability-display">
+        <div class="tooltip-title">Probability Display</div>
+        <div class="tooltip-copy"><p>Shows probabilities of outcomes if a measurement was performed.</p><p>Use controls to see conditional probabilities.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::ProbabilityDisplay</code> / パレット項目 <strong>確率表示ブロック</strong></td></tr>
+        <tr><th>見出し</th><td><code>Probability Display</code></td></tr>
+        <tr><th>説明段落</th><td>Shows probabilities of outcomes if a measurement was performed.<br />Use controls to see conditional probabilities.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-amplitude-display">
+  <h2><span class="num">§ 27</span>振幅表示説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="amplitude-display">
+        <div class="tooltip-title">Amplitude&#32;Display</div>
+        <div class="tooltip-copy"><p>Shows complex amplitudes for a span of qubits.</p><p>Use controls to see conditional amplitudes.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::AmplitudeDisplay</code> / パレット項目 <strong>振幅表示ブロック</strong></td></tr>
+        <tr><th>見出し</th><td><code>Amplitude&#32;Display</code></td></tr>
+        <tr><th>説明段落</th><td>Shows complex amplitudes for a span of qubits.<br />Use controls to see conditional amplitudes.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block popover-spec" id="popover-density-matrix-display">
+  <h2><span class="num">§ 28</span>密度行列表示説明ポップオーバー</h2>
+  <div class="card">
+    <div class="popover-mock-stage">
+
+      <div class="tooltip-card" data-popover-slug="density-matrix-display">
+        <div class="tooltip-title">Density Matrix Display</div>
+        <div class="tooltip-copy"><p>Shows the reduced density matrix for a span of qubits.</p><p>Use controls to see conditional local mixed states.</p></div>
+      </div>
+    </div>
+    <table class="spec content-table">
+      <tbody>
+        <tr><th>対象</th><td><code>GateKind::DensityMatrixDisplay</code> / パレット項目 <strong>密度行列表示ブロック</strong></td></tr>
+        <tr><th>見出し</th><td><code>Density Matrix Display</code></td></tr>
+        <tr><th>説明段落</th><td>Shows the reduced density matrix for a span of qubits.<br />Use controls to see conditional local mixed states.</td></tr>
+        <tr><th>変換図</th><td>なし</td></tr>
+        <tr><th>写像</th><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · パレット説明ポップオーバー仕様 · 2026-05</p>
+</footer>
+
+<script>
+  (function () {
+    const slugs = new Set(["h","x","y","z","sqrtx","s","s-dagger","t","t-dagger","phase","rx","ry","rz","swap","control","anti-control","write0","write1","measurement","qft","qft-dagger","spacer","bloch-display","probability-display","amplitude-display","density-matrix-display"]);
+    const rawSlug = window.__palettePopoverPreviewSlug || 'h';
+    const slug = slugs.has(rawSlug) ? rawSlug : 'h';
+    const preview = document.getElementById('preview');
+    if (!preview || !document.documentElement.classList.contains('preview-mode')) return;
+    const source = document.querySelector('[data-popover-slug="' + slug + '"]');
+    if (!source) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'preview-scale';
+    wrapper.appendChild(source.cloneNode(true));
+    preview.replaceChildren(wrapper);
+    requestAnimationFrame(() => {
+      const scale = 0.42;
+      const card = wrapper.firstElementChild;
+      if (!(card instanceof HTMLElement)) return;
+      const visualWidth = card.offsetWidth * scale;
+      const visualHeight = card.offsetHeight * scale;
+      wrapper.style.left = `${Math.max(4, (preview.clientWidth - visualWidth) / 2)}px`;
+      wrapper.style.top = `${Math.max(2, (preview.clientHeight - visualHeight) / 2)}px`;
+    });
+  })();
+</script>
+
+</body>
+</html>
