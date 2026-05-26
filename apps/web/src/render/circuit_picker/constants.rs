@@ -29,6 +29,9 @@ pub(super) const SECTION_HEADER_TOP_MARGIN: f32 = 6.0; // mt-1.5 = 6px between s
 pub(super) const ITEM_HEIGHT: f32 = 36.0;
 pub(super) const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.
 pub(super) const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.
+pub(super) const ROW_ICON_SIZE: f32 = 14.0; // mock row icon box = 14px.
+pub(super) const ROW_ICON_GAP: f32 = 8.0; // gap-2 = 8px.
+pub(super) const ROW_TEXT_OFFSET: f32 = ITEM_PAD_X + ROW_ICON_SIZE + ROW_ICON_GAP;
 pub(super) const TOPBAR_BOTTOM_OFFSET: f32 = 6.0; // py-1.5 = 6px; trigger bottom → topbar bottom.
 pub(super) const SUBMENU_GAP: f32 = 4.0; // spacing-1.
 pub(super) const KEBAB_SIZE: egui::Vec2 = egui::vec2(20.0, 20.0);

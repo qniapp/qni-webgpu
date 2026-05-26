@@ -12,6 +12,12 @@ type CircuitLibrarySnapshot = {
   active_id: string
 }
 
+type CircuitPickerRenameGeometry = {
+  row_text_left: number
+  edit_text_left: number
+  selection_text_rgba: [number, number, number, number]
+}
+
 type Point = { x: number; y: number }
 
 const BELL_JSON = '{"cols":[["H"]]}'
@@ -87,6 +93,21 @@ const waitForSnapshot = async (
     await page.waitForTimeout(50)
   }
   throw new Error(`timed out waiting for circuit picker snapshot: ${description}`)
+}
+
+const renameGeometry = async (page: Page): Promise<CircuitPickerRenameGeometry | null> =>
+  page.evaluate(() => {
+    const raw = (window as any).__qniCircuitPickerRenameGeometryJson
+    return typeof raw === 'string' ? JSON.parse(raw) : null
+  })
+
+const waitForRenameGeometry = async (page: Page): Promise<CircuitPickerRenameGeometry> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const geometry = await renameGeometry(page)
+    if (geometry) return geometry
+    await page.waitForTimeout(50)
+  }
+  throw new Error('timed out waiting for circuit picker rename geometry')
 }
 
 const storedDocument = async (page: Page): Promise<any> =>
@@ -408,6 +429,26 @@ test('Rename action turns the item into an inline editor and commits on Enter', 
   await page.keyboard.press('Enter')
 
   await expect.poll(async () => (await snapshot(page)).entries[0].name).toBe('Renamed Bell')
+})
+
+test('Rename action aligns inline editor text and uses Flexoki near-black selected text', async ({ page }) => {
+  await seedLibrary(page)
+
+  await clickCanvas(page, TRIGGER)
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
+  await page.waitForTimeout(300)
+  await clickCanvas(page, { x: SUBMENU_X, y: 100 })
+  await page.waitForTimeout(300)
+
+  const geometry = await waitForRenameGeometry(page)
+  expect({
+    textStartAligned: Math.abs(geometry.edit_text_left - geometry.row_text_left) <= 0.5,
+    selectionTextRgba: geometry.selection_text_rgba,
+  }).toEqual({
+    textStartAligned: true,
+    selectionTextRgba: [0x10, 0x0f, 0x0f, 0xff],
+  })
 })
 
 test('Rename action accepts Japanese circuit names', async ({ page }) => {
