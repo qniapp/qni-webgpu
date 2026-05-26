@@ -30,7 +30,7 @@ use eframe::egui;
 use std::collections::VecDeque;
 
 pub(crate) use circuit_model::{
-    DragState, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
+    DragState, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
@@ -56,8 +56,9 @@ pub(crate) struct QniApp {
     /// `[0, max(0, line_right - canvas_width)]` post-update.
     pub(crate) circuit_scroll_x: f32,
     pub(crate) dragging: Option<DragState>,
+    pub(crate) dragging_live_snap: Option<LiveDragSnap>,
     pub(crate) dragging_live_display_snap: bool,
-    pub(crate) dragging_live_display_plan_touched: bool,
+    pub(crate) dragging_live_gpu_plan_touched: bool,
     drag_state_count: Option<usize>,
     pub(crate) state_panel: StatePanelState,
     /// Resizable-span handle currently hovered (drives idle → hover color).
@@ -259,8 +260,9 @@ impl QniApp {
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
             dragging: None,
+            dragging_live_snap: None,
             dragging_live_display_snap: false,
-            dragging_live_display_plan_touched: false,
+            dragging_live_gpu_plan_touched: false,
             drag_state_count: None,
             state_panel: StatePanelState::default(),
             hovered_span_resize_handle: None,

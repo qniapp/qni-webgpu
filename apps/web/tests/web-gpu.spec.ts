@@ -10,9 +10,12 @@ import {
   isGateBodyFill,
   isRegularGateFill,
   pixelRgbDistance,
+  readAmplitudeCell,
   readBlochVectors,
+  readDensityMatrixCell,
   readEguiError,
   readMeasurementOutcomes,
+  readProbabilityDistributions,
   readStateVector,
   releasePointer,
   sampleCanvasPixels,
@@ -323,6 +326,118 @@ test('GPU measurement digit follows snapped drag placement before drop', async (
     outcome: 1,
     liveDigitBlue: true,
   })
+})
+
+test('GPU display readouts and state vector follow snapped palette gate before drop', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({
+    cols: [[], ['Bloch'], ['Probability'], ['Amps1'], ['Density']],
+  })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+  const hSource = getPaletteGateCenter(cssWidth, 0)
+  const target = {
+    x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: UI_CONSTANTS.LINE_Y,
+  }
+
+  await dragPointer(page, hSource, target, 6, false)
+
+  const round = (value: number | undefined): number | null => {
+    if (value === undefined || !Number.isFinite(value)) return null
+    const rounded = Math.round(value * 1000) / 1000
+    return Math.abs(rounded) < 0.001 ? 0 : rounded
+  }
+  const expected = {
+    state: [0.707, 0, 0.707, 0],
+    bloch: [1, 0, 0],
+    probability: [0.5, 0.5],
+    amplitude: [0.707, 0, 0.707, 0],
+    density: [0.5, 0, 0.5, 0],
+  }
+  let observed: typeof expected | undefined
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const state = await readStateVector(page) as number[]
+    const [bloch] = await readBlochVectors(page)
+    const [probability] = await readProbabilityDistributions(page)
+    const amplitude0 = await readAmplitudeCell(page, 3, 0)
+    const amplitude1 = await readAmplitudeCell(page, 3, 1)
+    const density00 = await readDensityMatrixCell(page, 4, 0, 0)
+    const density01 = await readDensityMatrixCell(page, 4, 0, 1)
+    const candidate = {
+      state: state.slice(0, 4).map(round),
+      bloch: [round(bloch?.x), round(bloch?.y), round(bloch?.z)],
+      probability: probability?.gateId === 2
+        ? probability.probabilities.slice(0, 2).map(round)
+        : [],
+      amplitude: [round(amplitude0?.re), round(amplitude0?.im), round(amplitude1?.re), round(amplitude1?.im)],
+      density: [round(density00?.re), round(density00?.im), round(density01?.re), round(density01?.im)],
+    }
+    observed = candidate as typeof expected
+    if (JSON.stringify(candidate) === JSON.stringify(expected)) {
+      break
+    }
+    await page.waitForTimeout(50)
+  }
+  await page.mouse.up()
+
+  expect(observed).toEqual(expected)
+})
+
+test('GPU state vector follows insert-snap ordering before drop', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Bloch']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForBlochVectorsApprox(page, [[1, 0, 0]])
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const viewport = page.viewportSize()
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
+  const xSource = getPaletteGateCenter(cssWidth, 1)
+  const insertBeforeFirstColumn = {
+    x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE - UI_CONSTANTS.SLOT_SPACING / 2,
+    y: UI_CONSTANTS.LINE_Y,
+  }
+
+  await dragPointer(page, xSource, insertBeforeFirstColumn, 6, false)
+
+  const round = (value: number | undefined): number | null => {
+    if (value === undefined || !Number.isFinite(value)) return null
+    const rounded = Math.round(value * 1000) / 1000
+    return Math.abs(rounded) < 0.001 ? 0 : rounded
+  }
+  const expected = {
+    state: [0.707, 0, -0.707, 0],
+    bloch: [-1, 0, 0],
+  }
+  let observed: typeof expected | undefined
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const state = await readStateVector(page) as number[]
+    const [bloch] = await readBlochVectors(page)
+    const candidate = {
+      state: state.slice(0, 4).map(round),
+      bloch: [round(bloch?.x), round(bloch?.y), round(bloch?.z)],
+    }
+    observed = candidate as typeof expected
+    if (JSON.stringify(candidate) === JSON.stringify(expected)) {
+      break
+    }
+    await page.waitForTimeout(50)
+  }
+  await page.mouse.up()
+
+  expect(observed).toEqual(expected)
 })
 
 test('GPU circuit overlays stay optically anchored to measurement and Bloch bodies', async ({ page }) => {

@@ -273,9 +273,9 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - Control and anti-control gates apply to every non-control gate in the same column (same step).
 - Probability / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
-- ドラッグ中は `needs_recompute` を立てず、状態ベクトルの再計算は drop/snap 時のみ実行する。
+- ドラッグ中は未スナップの移動だけでは `needs_recompute` を立てず、ゲートが回路スロットまたは挿入ドロップゾーンへスナップした時点で GPU 計算計画を作り直す。これにより、ドロップ前でも既存のブロッホ球表示ブロック / 確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / 状態ベクトルパネルが仮配置を反映する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。
-- ドラッグ中の state_count は `drag_state_count` で固定し、状態ベクトルの長さを変えない。
+- ドラッグ中の state_count は未スナップの間だけ `drag_state_count` で開始時の値を保ち、スナップ後は仮配置が必要とする状態数まで伸ばす。
 - 状態ベクトル panel の viewport 上では wheel だけで円グリッドを cursor anchor zoom する。ドラッグで pan、header 右側の dims text 上の wheel は aspect 変更に使う。zoom clamp は倍率固定ではなく、描画される円サイズ 1px〜256px で決める。
 - 状態ベクトル panel / aspect popover 上の hover・click・wheel は panel が捕捉し、背後の circuit step preview / breakpoint / scroll へ伝播させない。
 - 状態ベクトル cell popup は hover 時だけ表示し、gate drag / panel drag / resize / pointer down 中は隠す。

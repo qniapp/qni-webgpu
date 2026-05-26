@@ -1,5 +1,5 @@
 use super::{DragController, DragPointer};
-use crate::app::QniApp;
+use crate::app::{LiveDragSnap, QniApp};
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::gates::GateKind;
 use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
@@ -24,7 +24,7 @@ impl DragController {
         let Some(index) = app.placed_gates.iter().position(|gate| gate.id == drag.id) else {
             return;
         };
-        let previous_snapped = app.dragging_live_display_snap;
+        let previous_live_snap = app.dragging_live_snap;
         let previous_wire = app.placed_gates[index].wire;
         let previous_column = app.placed_gates[index].column;
         let previous_span = app.placed_gates[index].span;
@@ -32,7 +32,7 @@ impl DragController {
         let mut next_pos = cursor - drag.offset;
         let mut next_wire = previous_wire;
         let mut next_column = previous_column;
-        let mut snapped_to_live_display_slot = false;
+        let mut live_snap = None;
         let center_y = next_pos.y + GATE_SIZE / 2.0;
         let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
         if distance <= SNAP_DISTANCE {
@@ -54,7 +54,16 @@ impl DragController {
             {
                 next_pos.x = snap.center() - GATE_SIZE / 2.0;
                 next_column = snap.column();
-                snapped_to_live_display_slot = matches!(snap, CircuitSnap::Slot(_));
+                live_snap = Some(match snap {
+                    CircuitSnap::Slot(snap) => LiveDragSnap::Slot {
+                        column: snap.index,
+                        wire: line_index,
+                    },
+                    CircuitSnap::Insert(snap) => LiveDragSnap::Insert {
+                        column: snap.index,
+                        wire: line_index,
+                    },
+                });
             }
         }
         let capacity = app.exec_mode.qubit_capacity();
@@ -73,12 +82,14 @@ impl DragController {
                 | GateKind::BlochDisplay
                 | GateKind::Measurement
         );
-        app.dragging_live_display_snap = live_display_kind && snapped_to_live_display_slot;
-        let state_count_changed = if app.dragging_live_display_snap {
+        app.dragging_live_snap = live_snap;
+        app.dragging_live_display_snap =
+            live_display_kind && matches!(app.dragging_live_snap, Some(LiveDragSnap::Slot { .. }));
+        let state_count_changed = if app.dragging_live_snap.is_some() {
             let required_state_count = app.state_count();
             if app
                 .drag_state_count
-                .is_some_and(|state_count| state_count < required_state_count)
+                .is_none_or(|state_count| state_count < required_state_count)
             {
                 app.drag_state_count = Some(required_state_count);
                 true
@@ -88,17 +99,17 @@ impl DragController {
         } else {
             false
         };
-        if app.dragging_live_display_snap
-            && (!previous_snapped
+        if app.dragging_live_snap.is_some()
+            && (previous_live_snap != app.dragging_live_snap
                 || previous_wire != gate_wire
                 || previous_column != gate_column
                 || previous_span != gate_span
                 || state_count_changed)
         {
-            // A snapped display drag has a meaningful tentative placement.
-            // Rebuild the GPU capture plan so the drag preview can render live
-            // GPU values instead of the static placeholder.
-            app.dragging_live_display_plan_touched = true;
+            // A snapped drag has a meaningful tentative placement. Rebuild the
+            // GPU capture plan so every existing display block and the state
+            // vector panel show the tentative circuit before drop.
+            app.dragging_live_gpu_plan_touched = true;
             app.gpu_plan.mark_dirty();
         }
     }

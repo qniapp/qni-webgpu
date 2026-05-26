@@ -92,6 +92,12 @@ pub(crate) struct DragState {
     pub(crate) original_column: Option<usize>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LiveDragSnap {
+    Slot { column: usize, wire: usize },
+    Insert { column: usize, wire: usize },
+}
+
 /// Which vertical edge of a span-resizable gate is being manipulated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SpanResizeEdge {
@@ -131,14 +137,6 @@ impl QniApp {
         self.placed_gates
             .iter()
             .map(|gate| gate.column + gate_width_cols(gate.kind, gate.span) + 1)
-            .max()
-            .unwrap_or(0)
-    }
-
-    pub(crate) fn step_snapshot_slot_count(&self) -> usize {
-        self.placed_gates
-            .iter()
-            .map(|gate| gate.column + 1)
             .max()
             .unwrap_or(0)
     }

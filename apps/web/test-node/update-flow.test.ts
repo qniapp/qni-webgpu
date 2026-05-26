@@ -57,7 +57,7 @@ test('state panel wheel zoom anchors against the zoomed layout origin', async ()
   }, { usesZoomedDesiredOrigin: true, usesGridOffsetForOrigin: true, avoidsDeltaGridOffset: true })
 })
 
-test('live display drag cleanup dirties GPU plan after unchanged drops', async () => {
+test('snapped gate drag dirties GPU plan before unchanged drops', async () => {
   const [start, preview, drop] = await Promise.all([
     fs.readFile(dragStartPath, 'utf8'),
     fs.readFile(dragPreviewPath, 'utf8'),
@@ -65,11 +65,13 @@ test('live display drag cleanup dirties GPU plan after unchanged drops', async (
   ])
 
   assert.deepEqual({
-    existingLiveDisplayStartsSnapped: /dragging_live_display_snap = starts_live_display_snap/.test(start),
-    livePreviewRecordsTouchedPlan: /dragging_live_display_plan_touched = true;[\s\S]*app\.gpu_plan\.mark_dirty\(\)/.test(preview),
-    dropKeepsDirtyWhenCommitUnchanged: /if app\.commit_current_circuit\(ctx\) \|\| live_display_plan_touched \{\n\s+app\.gpu_plan\.mark_dirty\(\);\n\s+\}/.test(drop),
+    existingGateStartsSnapped: /dragging_live_snap = app\.placed_gates\.iter\(\)\.find_map/.test(start),
+    paletteGateStartsUnsnapped: /dragging_live_snap = None/.test(start),
+    livePreviewRecordsTouchedPlan: /dragging_live_gpu_plan_touched = true;[\s\S]*app\.gpu_plan\.mark_dirty\(\)/.test(preview),
+    dropKeepsDirtyWhenCommitUnchanged: /if app\.commit_current_circuit\(ctx\) \|\| live_gpu_plan_touched \{\n\s+app\.gpu_plan\.mark_dirty\(\);\n\s+\}/.test(drop),
   }, {
-    existingLiveDisplayStartsSnapped: true,
+    existingGateStartsSnapped: true,
+    paletteGateStartsUnsnapped: true,
     livePreviewRecordsTouchedPlan: true,
     dropKeepsDirtyWhenCommitUnchanged: true,
   })

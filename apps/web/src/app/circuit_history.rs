@@ -178,8 +178,9 @@ impl QniApp {
         }
         self.update_qubit_count();
         self.dragging = None;
+        self.dragging_live_snap = None;
         self.dragging_live_display_snap = false;
-        self.dragging_live_display_plan_touched = false;
+        self.dragging_live_gpu_plan_touched = false;
         self.drag_state_count = None;
         self.span_resize_drag = None;
         self.hovered_gate_id = None;

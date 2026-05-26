@@ -22,10 +22,10 @@
 
 ### 実装済み
 
-- **状態ベクトルは drop/snap 時のみ再計算**  
-  `needs_recompute` を drop 時にだけ立てるようにし、ドラッグ中の compute/submit を抑制。
-- **ドラッグ中は state_count を固定**  
-  `drag_state_count` で状態ベクトルの長さを固定し、ドラッグ中の増減を防止。
+- **GPU 計算計画はドロップ / スナップ時のみ更新**  
+  未スナップのドラッグ移動では `needs_recompute` を立てず、回路スロット / 挿入ドロップゾーンへのスナップまたはドロップの時点だけ GPU 計算を走らせる。
+- **ドラッグ中の state_count はスナップまで固定**  
+  `drag_state_count` で未スナップ中の状態ベクトル長を保ち、スナップ後は仮配置が必要とする状態数まで伸ばす。
 - **状態ベクトルのインスタンスをキャッシュ**  
   layout/offset が変わらない限り `StateInstance` を再生成せず、GPU バッファ書き込みを間引く。
 - **CooldownThrottle 相当の再描画間引き**  
