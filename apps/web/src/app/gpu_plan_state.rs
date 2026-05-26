@@ -13,6 +13,7 @@ pub(crate) struct GpuPlanState {
     needs_recompute: bool,
     last_state_count: usize,
     sim_ops: Vec<SimulationOp>,
+    snapshot_slot_count: usize,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
     bloch_slots: HashMap<u32, u32>,
@@ -33,6 +34,7 @@ impl Default for GpuPlanState {
             needs_recompute: true,
             last_state_count: 2,
             sim_ops: Vec::new(),
+            snapshot_slot_count: 0,
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
             probability_slots: HashMap::new(),
@@ -72,6 +74,7 @@ impl GpuPlanState {
 
     pub(crate) fn clear_ops(&mut self) {
         self.sim_ops.clear();
+        self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.probability_slots.clear();
@@ -82,6 +85,7 @@ impl GpuPlanState {
 
     pub(crate) fn set_capacity_error(&mut self, message: String) {
         self.sim_ops.clear();
+        self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.probability_slots.clear();
@@ -94,9 +98,10 @@ impl GpuPlanState {
         self.capacity_error.as_deref()
     }
 
-    pub(crate) fn replace_ops(&mut self, sim_ops: Vec<SimulationOp>) {
+    pub(crate) fn replace_ops(&mut self, sim_ops: Vec<SimulationOp>, snapshot_slot_count: usize) {
         self.capacity_error = None;
         self.sim_ops = sim_ops;
+        self.snapshot_slot_count = snapshot_slot_count;
         self.rebuild_slot_maps();
     }
 
@@ -111,6 +116,7 @@ impl GpuPlanState {
         self.needs_recompute = false;
         self.last_state_count = state_count;
         self.sim_ops.clear();
+        self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
         self.probability_slots.clear();
@@ -129,6 +135,10 @@ impl GpuPlanState {
         for (slot, gate_id) in density_slot_to_gate_id.iter().enumerate() {
             self.density_slots.insert(*gate_id, slot as u32);
         }
+    }
+
+    pub(crate) fn snapshot_slot_count(&self) -> usize {
+        self.snapshot_slot_count
     }
 
     pub(crate) fn sim_ops_for_callback(&self, recompute: bool) -> Vec<SimulationOp> {

@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
-use crate::app::{DragState, PlacedGate, QniApp, SpanResizeDrag};
+use crate::app::{DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
 use crate::gates::{default_palette_angle, palette_gate_kind};
 use crate::layout::{gate_visible_rect, palette_hit_test};
@@ -54,9 +54,15 @@ impl DragController {
                 }
                 app.begin_circuit_commit();
                 app.selected_gate_id = Some(drag.id);
+                app.dragging_live_snap = app.placed_gates.iter().find_map(|gate| {
+                    (gate.id == drag.id).then_some(LiveDragSnap::Slot {
+                        column: gate.column,
+                        wire: gate.wire,
+                    })
+                });
                 app.dragging = Some(drag);
                 app.dragging_live_display_snap = starts_live_display_snap;
-                app.dragging_live_display_plan_touched = false;
+                app.dragging_live_gpu_plan_touched = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_gate_id = None;
@@ -95,8 +101,9 @@ impl DragController {
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
                     original_column: None,
                 });
+                app.dragging_live_snap = None;
                 app.dragging_live_display_snap = false;
-                app.dragging_live_display_plan_touched = false;
+                app.dragging_live_gpu_plan_touched = false;
                 app.drag_state_count = Some(app.state_count());
                 app.drag_cursor_pos = pointer.local_pos;
                 app.hovered_palette_index = None;

@@ -776,7 +776,7 @@ test('state cell popup hides while dragging over the state panel', async ({ page
   await page.mouse.up()
 })
 
-test('dragging does not grow state vector until drop', async ({ page }) => {
+test('snapped dragging grows state vector before drop without mutating URL', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -821,7 +821,7 @@ test('dragging does not grow state vector until drop', async ({ page }) => {
 
   const lengthDuringDrag = (await readStateVector(page)).length
   expect({ lengthDuringDrag, colsDuringDrag: readCircuitColsFromHash(page.url()) }).toEqual({
-    lengthDuringDrag: 8,
+    lengthDuringDrag: 16,
     colsDuringDrag: colsBeforeDrag,
   })
 

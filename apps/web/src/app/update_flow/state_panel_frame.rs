@@ -12,9 +12,10 @@ impl QniApp {
         &mut self,
         screen_rect: egui::Rect,
     ) -> StatePanelFrameState {
-        // Resolve the state count / aspect / layout for this frame. While a gate
-        // is mid-drag, an extra phantom qubit is added (`drag_state_count`) so
-        // the layout doesn't reflow underneath the user during the drag.
+        // Resolve the state count / aspect / layout for this frame. While an
+        // unsnapped gate is mid-drag, keep the initial count; once it snaps to
+        // the circuit, grow `drag_state_count` so the live GPU preview can show
+        // the tentative placement without waiting for drop.
         let base_state_count = self.state_count();
         let state_count = if self.dragging.is_some() {
             self.drag_state_count.unwrap_or(base_state_count)
