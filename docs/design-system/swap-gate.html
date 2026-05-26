@@ -20,7 +20,7 @@
        本ページは「Swap ゲート」の透明な 40px マーカとホバー枠を <swap-gate> で描画し、
        4px 縦コネクタをページ側で再現する。 */
 
-    /* Swap マーカ本体 / × 字形 / 回路ホバー枠は components/swap-gate.js の <swap-gate> に集約する。 */
+    /* Swap マーカ本体 / × 字形 / 回路ホバー枠は本仕様ページのモックで確認する。 */
 
     /* パレット上のホバー枠。palette panel は purple-400 の外側面 + surface の内側面を
        一度描いてから透明な Swap マーカを重ねる。 */
@@ -68,7 +68,7 @@
       color: var(--tx-2);
     }
     .stage .actual {
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
+      width: 56px;                          /* spacing-14 */
       height: 56px;
       display: flex;
       align-items: center;
@@ -76,10 +76,10 @@
     }
     .swap-pair {
       position: relative;
-      width: 56px;                          /* SLOT_SPACING = spacing-14 */
-      height: 112px;                        /* 2 × LINE_GAP = spacing-28 */
+      width: 56px;                          /* spacing-14 */
+      height: 112px;                        /* spacing-28 */
       display: grid;
-      grid-template-rows: repeat(2, 56px);  /* 2 × LINE_GAP */
+      grid-template-rows: repeat(2, 56px);  /* 2 × spacing-14 */
       place-items: center;
       background:
         linear-gradient(var(--ui-2), var(--ui-2)) 0 28px / 100% 1px no-repeat,
@@ -91,7 +91,7 @@
       left: 50%;
       top: 28px;
       width: 4px;                           /* CONNECTOR_STROKE_WIDTH = spacing-1 */
-      height: 56px;                         /* LINE_GAP = spacing-14 */
+      height: 56px;                         /* spacing-14 */
       transform: translateX(-50%);
       background: var(--cyan-400);          /* Flexoki cyan-400 / box_fill */
     }
@@ -135,8 +135,8 @@
 
     .slot-mock {
       display: grid;
-      grid-template-columns: repeat(3, 56px); /* 3 × SLOT_SPACING */
-      grid-template-rows: repeat(2, 56px);    /* 2 × LINE_GAP */
+      grid-template-columns: repeat(3, 56px); /* 3 × spacing-14 */
+      grid-template-rows: repeat(2, 56px);    /* 2 × spacing-14 */
       padding: 24px 32px;                     /* spacing-6 / spacing-8 */
       background:
         linear-gradient(var(--ui-2), var(--ui-2)) 32px 52px / 168px 1px no-repeat,
@@ -149,7 +149,7 @@
       width: max-content;
     }
     .slot-mock .slot {
-      width: 56px;                          /* SLOT_SPACING */
+      width: 56px;                          /* spacing-14 */
       height: 56px;
       display: flex;
       align-items: center;
@@ -162,7 +162,7 @@
       left: 116px;                          /* padding 32 + slot 1 center 84 */
       top: 52px;                            /* row 0 center */
       width: 4px;                           /* CONNECTOR_STROKE_WIDTH */
-      height: 56px;                         /* LINE_GAP */
+      height: 56px;                         /* spacing-14 */
       background: var(--cyan-400);
       transform: translateX(-50%);
       pointer-events: none;
@@ -196,41 +196,6 @@
   </p>
 </div>
 
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">「2 つで 1 つ」の操作モデルが他のゲートと異質で、本仕様の責任範囲が広がっている</div>
-    <p class="critique-body">
-      Swap は <strong>2 つのマーカが揃って初めて操作になる</strong>という、他の qni-webgpu ゲートにはない独特の構造を持つ。
-      本仕様は (a) 単独マーカ (40 px の透明領域 + × 記号)、(b) 2 端点ペア (縦コネクタ + 同色)、
-      (c) 不正な配置 (単体 / 3 個以上) の意味論まで網羅しており、密度の高い良い仕様。
-      一方で、本仕様で初めて<strong>「同じシンボルが 2 つで 1 つ」</strong>のパターンが扱われるため、
-      Control / AntiControl の<strong>「制御 + 対象」</strong>パターンや、表示ブロックの<strong>「span でリサイズ」</strong>
-      パターンと並べたとき、設計理由の比較対照が欠落しており、Swap が<strong>なぜ「2 つで 1 つ」なのか</strong>の根拠が薄い。
-    </p>
-    <p class="critique-body">
-      ホバー枠 (purple-400 4 + 2 構成) / Tailwind スケール厳守 / drag preview = purple-600 の議論は
-      <a href="h-gate.html">H ページの全体所見</a>と同じため再展開しない。本仕様の固有論点は
-      <strong>(a) × 記号と CNOT の Plus グリフの誤認</strong>、<strong>(b) 「2 つで 1 つ」操作モデルの semantics</strong>、
-      <strong>(c) 縦コネクタ仕様の重複 (Control / AntiControl と本仕様で 3 ページ重複)</strong>、
-      <strong>(d) 3 行以上離れた端点 / 中間ゲートとのレイヤー関係</strong>の 4 つに集中する。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>× 記号と CNOT (target circle + Plus) の識別性を直接比較する図がない</strong> — 関連仕様の <a href="x-gate.html">X ゲート</a>欄では「X は塗りつぶし円 + Plus、Swap は透明領域 + ×」と書かれているが、並列モックが無い。CNOT と Swap の混在回路で誤認しやすい (§ 01 / § 03 参照)。</li>
-      <li><strong>3 行以上離れた端点と中間ワイヤ / 中間ゲートのレイヤー関係が未定義</strong> — 例: q0 と q3 を Swap、q1 / q2 にも個別ゲートがあるとき、縦コネクタが中間ゲートの上を通るか背面を通るか (§ 03 / § 05 参照)。</li>
-      <li><strong>§ 02 配色テーブルに「× 記号」「縦コネクタ」が独立行で並ぶが、両者は同じ <code>cyan-400</code> / <code>box_fill</code></strong> — Control / AntiControl と同じ軸圧縮問題 (§ 02 参照)。</li>
-      <li><strong>§ 03 SVG 寸法注記の「0 px · 本体の塗り / 枠線はなし」が他の数値値と並ぶ違和感</strong> — 0 px はサイズではなく「無し」の宣言で、表内の表現として浮いている (§ 03 参照)。</li>
-      <li><strong>§ 06 「分解 = CX × 3」の図解がない</strong> — シミュレーション計画として重要な情報だが、テキストだけ。CNOT の繰り返しとの対比は視覚化する価値がある (§ 06 参照)。</li>
-      <li><strong>「単体 Swap / 3 個以上の Swap が同じ列にある場合 = 無効」のフィードバック UI が仕様化されていない</strong> — 「無視する」とあるが、ユーザーに何が起きるかが書かれていない (warning マーカ? 静かに削除?) (§ 06 参照)。</li>
-    </ol>
-  </aside>
-</section>
 
 <section class="block">
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
@@ -259,31 +224,8 @@
     </div>
     <p class="note" style="margin-top: 16px;">
       Swap は <strong>2 つで 1 つ</strong>の操作として読む。単体の <code>Swap</code> マーカや、同じ列に 3 つ以上置かれた状態は
-      正規の交換操作として扱わない。実装のシミュレーション計画も、列内の Swap がちょうど 2 つのときだけ 3 つの CNOT に分解する。
+      正規の交換操作として扱わない。シミュレーション計画も、列内の Swap がちょうど 2 つのときだけ 3 つの CNOT に分解する。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 01 × 記号と CNOT の Plus グリフの誤認">
-      <div class="critique-label">★ 批評 · § 01 識別性</div>
-      <div class="critique-title">× 記号と CNOT の target (塗りつぶし円 + Plus) を直接比較する図がない</div>
-      <p class="critique-body">
-        Swap の × 記号 (45° の交差線) と CNOT の target (塗りつぶし円の中央に Plus) は<strong>視覚的に似ている</strong>。
-        どちらも <code>cyan-400</code> で、2 つの直線が交差する形をしている。違いは「塗りつぶし円の有無」と「線が
-        45° か 90° か」の 2 つだけで、回路全体を素早くスキャンしているときに<strong>瞬間判別を誤りやすい</strong>。
-        Multi-qubit 家系では Swap と CNOT が同じ回路に混在することが頻繁にあるため、識別性は本仕様の重要論点。
-      </p>
-      <p class="critique-body">
-        改善案: § 01 のステージに「Swap マーカ」「CNOT target」「H ゲート」を並べた識別性比較モックを 1 行追加すると、
-        <strong>「透明領域 + × vs 塗りつぶし円 + Plus」</strong>の違いが一目で読める。
-        関連仕様 (§ 08) の <a href="x-gate.html">X ゲート</a>欄に「記号が似て読まれやすいが」と記述があるが、
-        並列モックがないため、Codex / 人間が判断を検証できない。
-      </p>
-      <p class="critique-body">
-        補足: <strong>「2 つで 1 つ」</strong>の semantics は note で十分に説明されているが、
-        <strong>なぜそうするか</strong> (一個では unitary operation として定義できない、ペア端点の上下入れ替えは可換だから単一概念) の根拠は薄い。
-        Pauli (X / Y / Z) や Phase (S / T) の<strong>「単一マーカ = 単一操作」</strong>モデルと比較すると、Swap だけが異質なので、
-        この設計判断は § 06 設計判断ではなく § 01 概要で先に明示する価値がある。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -326,23 +268,6 @@
       Swap は「操作ゲート」だが、色面ではなく線で表現する。cyan-400 は H / X / Phase (Φ) と同じ操作色として使い、
       塗りつぶし面を持たないことで、Control / AntiControl と同じ「回路構造をつなぐ記号」寄りの見た目にする。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 02 配色テーブル">
-      <div class="critique-label">★ 批評 · § 02 配色テーブル</div>
-      <div class="critique-title">「× 記号」と「縦コネクタ」が独立行で並ぶが、両者は同じ <code>box_fill</code> ロール</div>
-      <p class="critique-body">
-        <a href="control-gate.html">Control 仕様</a>と <a href="anti-control-gate.html">AntiControl 仕様</a>でも指摘した
-        <strong>「同じ Flexoki トーンが同じロールで複数箇所に適用される」</strong>パターンが本仕様でも繰り返される。
-        Swap では「× 記号」「縦コネクタ」が両方とも <code>cyan-400 / box_fill</code> で、適用箇所だけが違う。
-        テーブル列を「ロール / Flexoki トーン / hex / 適用箇所 / 状態」の 5 列に再構成すると、
-        <code>box_fill (cyan-400)</code> 行に「× 記号 + 縦コネクタ」とまとめられる。
-      </p>
-      <p class="critique-body">
-        補足: 「× 記号 (ドラッグ) = purple-600」は drag_fill ロールだが、現状の備考は<strong>「仮配置中だけ記号色を置き換える」</strong>と
-        書かれており、<strong>同じ列にあるもう片方の Swap マーカと縦コネクタはどうなるか</strong>の言及が無い。
-        2 つで 1 つの操作なので、片方をドラッグ中はもう片方の状態 (待機 / 連動して仮色化) も仕様化する価値がある。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -351,11 +276,11 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>占有領域</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code>)。見た目は透明だが、ホバー / ドラッグ / 当たり判定はこの領域で持つ</td></tr>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code>。見た目は透明だが、ホバー / ドラッグ / 当たり判定はこの領域で持つ</td></tr>
         <tr><th>表示記号</th><td>× 記号。viewBox 48 上で 2 本の対角線 <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code></td></tr>
         <tr><th>線幅</th><td>× 記号は基準 SVG の viewBox 48 上で <code>4 px</code> (40 px 表示では約 <code>3.33 px</code>)。縦コネクタは実寸 <code>4 px</code> (<code>CONNECTOR_STROKE_WIDTH</code>)</td></tr>
-        <tr><th>本体 fill</th><td>なし。<code>GateKind::Swap</code> は <code>draw_gate_body_with_fill</code> で矩形 / 円を描かない</td></tr>
-        <tr><th>占有スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code>)。40 px 領域はスロット中央に置く</td></tr>
+        <tr><th>本体 fill</th><td>なし。Swap マーカは矩形 / 円の本体を描かない</td></tr>
+        <tr><th>占有スロット</th><td><code>56 × 56 px</code>。40 px 領域はスロット中央に置く</td></tr>
         <tr><th>縦コネクタ</th><td>同じ列にある Swap マーカの中心 y どうしを、中心 x に揃えた 4 px 幅の矩形で結ぶ</td></tr>
         <tr><th>span</th><td>高さ方向の占有量 (<code>span</code>) は <code>1</code> のマーカを 2 個組み合わせる。表示ブロックのような高さリサイズは持たない</td></tr>
         <tr><th>z-index</th><td>コネクタを先に描き、その上に × 記号を描く。ホバー枠は × / コネクタの前面に出るが、内部は塗らない</td></tr>
@@ -384,35 +309,12 @@
         </g>
       </svg>
       <div class="legend">
-        <p><strong>40 px</strong> · 透明な当たり判定領域 (<code>GATE_SIZE</code>)</p>
-        <p><strong>56 px</strong> · スロット / ワイヤ間隔 (<code>SLOT_SPACING</code> / <code>LINE_GAP</code>)</p>
+        <p><strong>40 px</strong> · 透明な当たり判定領域</p>
+        <p><strong>56 px</strong> · スロット / ワイヤ間隔</p>
         <p><strong>4 px</strong> · viewBox 48 上の × 記号の線幅 (表示 40 px では約 3.33 px)</p>
         <p><strong>0 px</strong> · 本体の塗り / 枠線はなし</p>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 03 ジオメトリ表現の細部">
-      <div class="critique-label">★ 批評 · § 03 ジオメトリ</div>
-      <div class="critique-title">線幅の二重定義 (viewBox 4 / 表示 3.33) と「0 px」凡例の違和感、3 行以上 span 時の仕様欠落</div>
-      <p class="critique-body">
-        × 記号の線幅は<strong>「viewBox 48 上で 4 px / 40 px 表示では約 3.33 px」</strong>と二重に書かれている (40/48 × 4 = 3.333…)。
-        これは仕様 / 実装の<strong>表現単位の混在</strong>で、Codex / 人間が「どちらを正として読むか」を迷う。
-        縦コネクタは「実寸 4 px」(<code>CONNECTOR_STROKE_WIDTH</code>) で、× 記号と<strong>同じ「4」</strong>を共有しているが、
-        実際には<strong>表示換算すると違う値</strong>になる (× 記号は 3.33 px / コネクタは 4 px)。同じ 4 を使う設計判断はあるが、
-        実表示で両者が「同じ太さ」に見えるかどうかの根拠が薄い。
-      </p>
-      <p class="critique-body">
-        SVG 凡例の <strong>「0 px · 本体の塗り / 枠線はなし」</strong>は、寸法 (px) を並べる文脈に「なし」を 0 px として置く違和感がある。
-        実体は「sizing prop なし」「border-width: 0」のような<strong>属性の不在</strong>であって 0 という値ではない。
-        「<strong>—</strong> · 本体の塗り / 枠線は描かない」のように区別記号で書くと、寸法と属性不在が混ざらない。
-      </p>
-      <p class="critique-body">
-        補足: <code>span</code> 行に「<strong>1</strong> のマーカを 2 個組み合わせる」とあるが、これは<strong>隣接 2 行</strong>に置いた場合の話。
-        実回路では <strong>q0 と q3 を Swap</strong> など 3 行以上離れた配置が頻繁にあり、その場合のコネクタ長 (3 × LINE_GAP = 168 px)、
-        z-index と中間ワイヤとの交差、<strong>中間ゲート (例: q1 や q2 に置かれた H) との描画順</strong>が本仕様で未定義。
-        Multi-qubit 家系の Swap で最も視覚デバッグが難しい組み合わせなので、§ 03 or § 05 に図解を追加する価値がある。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -450,27 +352,6 @@
       回路上のホバーは、パレットホバーと違って内側を背景色で塗らない。透明な Swap / Control / AntiControl の内部を通る
       縦コネクタが消えないようにするため。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 04 単独マーカのホバーと「ペア連動」">
-      <div class="critique-label">★ 批評 · § 04 状態バリアント</div>
-      <div class="critique-title">単独マーカの 4 状態 (① 〜 ④) だけが並び、「ペアでのホバー / ドラッグ」が無い</div>
-      <p class="critique-body">
-        Swap は<strong>「2 つで 1 つ」</strong>の操作なので、片方のマーカ上にホバーしたときに<strong>もう片方も連動して highlight するか</strong>、
-        ドラッグ中にもう片方のマーカ / 縦コネクタの状態がどうなるか、という<strong>ペア連動の状態バリアント</strong>が本章で論じられていない。
-        ① 既定 / ② 回路ホバー / ③ ドラッグ / ④ パレットホバーはすべて単独マーカの 40 px クロムの話で、
-        Swap 固有の<strong>「ペア状態」</strong>が抜け落ちている。
-      </p>
-      <p class="critique-body">
-        改善案: § 04 に 5 つ目のステージ列を追加し、<strong>「⑤ ペアホバー (片方ホバー → 縦コネクタ + 相方も highlight)」</strong>を見せる。
-        または、「⑥ ペアドラッグ (片方を別行に移動 → 相方は元の位置に残るか / 連動して移動するか / コネクタは追従するか)」のような
-        Swap 固有の操作 semantics を視覚化する。これらは実装で必ず判断が必要なので、仕様で先に決めておく価値がある。
-      </p>
-      <p class="critique-body">
-        補足: 「stroke-only vs surface gap」の使い分け根拠が caption に出ていない論点は
-        <a href="control-gate.html">Control 仕様 § 04</a> / <a href="anti-control-gate.html">AntiControl 仕様 § 04</a>と同じ。
-        Multi-qubit 家系 3 ページで共通の論点なので、<a href="hover-frame.html">hover-frame.html</a> 側に横断仕様として記述するのが筋。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -494,26 +375,6 @@
       実 UI ではスロット境界の縦線は描かれない。Swap コネクタはワイヤと同じ列の中心にあり、
       × 記号の背面を通って上下の中心を結ぶ。
     </p>
-
-    <aside class="critique" aria-label="批評 · § 05 グリッド配置の網羅性">
-      <div class="critique-label">★ 批評 · § 05 回路グリッド配置</div>
-      <div class="critique-title">「隣接 2 行 + 中央列だけ有効」というシンプル例しか示しておらず、エッジケースが図解されていない</div>
-      <p class="critique-body">
-        本 § の slot-mock は<strong>「3 列 × 2 行のグリッドで中央列だけ有効な Swap ペア」</strong>という<strong>最も単純なケース</strong>を見せる。
-        実 UI で頻繁に起きる以下のエッジケースの図解 / 言及が無い:
-      </p>
-      <ul class="critique-list">
-        <li><strong>3 行以上離れた Swap</strong> (q0 ↔ q3 など) — § 03 批評で言及。コネクタは長くなるが、中間ワイヤや中間ゲートを跨ぐ。</li>
-        <li><strong>同じ列に Control + Swap</strong> — Quirk の controlled-Swap (Fredkin) パターン。本仕様の§ 02 で「Control / AntiControl と同じ操作色」とあるが、3 つの記号が同じ列に並んだときの<strong>視覚的優先順位</strong>が未定義。</li>
-        <li><strong>連続した列に Swap が並ぶ</strong> (量子ビットのワイヤを「並列に」3 段 swap など) — 隣接列で縦コネクタが横並びになり、見え方が変わる。</li>
-        <li><strong>不正な配置のフィードバック</strong> — § 06 で「列内の Swap が 2 つのときだけ」とあるが、1 個 / 3 個以上のときに<strong>ユーザーに何が表示されるか</strong> (赤枠? 警告? 静かに無視?) が未定義。</li>
-      </ul>
-      <p class="critique-body">
-        改善案: 上記 4 つのうち、特に「3 行以上離れた Swap」と「Control + Swap (Fredkin)」は最頻 / 重要パターンなので、§ 05 に
-        小さめの slot-mock を追加する価値がある。本仕様の slot-mock の <code>linear-gradient</code> ワイヤと
-        <code>absolute</code> connector のレイアウトを<strong>そのまま行数違いで再利用</strong>できる構造になっているので、コストは低い。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -533,64 +394,36 @@
       <li><strong>ホバーで内部を塗らない</strong>: コネクタが通る透明ゲートの内部を背景色でマスクしない。紫枠だけを足す</li>
       <li><strong>リサイズを持たない</strong>: 2 端点の組で距離を表すため、表示ブロックの高さ指定 (<code>span</code>) 用ハンドルとは別の操作モデルにする</li>
     </ul>
-
-    <aside class="critique" aria-label="批評 · § 06 意味論 / 設計判断">
-      <div class="critique-label">★ 批評 · § 06 意味論と設計判断</div>
-      <div class="critique-title">「分解 = CX × 3」と「不正配置の扱い」が文章だけで、フィードバック UI が未定義</div>
-      <p class="critique-body">
-        <strong>分解</strong>カードは <code>CX(a→b) → CX(b→a) → CX(a→b)</code> という Swap の標準的な分解を 1 行で書いているが、
-        これは<strong>シミュレーション計画として最も重要な情報の一つ</strong>で、Codex が GPU op の正しさをデバッグする際に
-        必須となる。テキストだけでなく、CNOT 3 つの並列モック (control + plus を 3 列並べる) を追加すると、
-        「Swap が CNOT 3 つに分解される」というモデルが視覚的に理解できる。
-      </p>
-      <p class="critique-body">
-        <strong>制約</strong>カードは「列内に Swap が 2 個ある場合だけ交換操作として扱う。単体・3 個以上は避ける」とあるが、
-        <strong>ユーザーが間違って 1 個 / 3 個以上置いた時の UI フィードバック</strong>が仕様化されていない。
-        現状の文言だと「実装が静かに無視する」ように読めるが、Quirk / IBM Q Composer のような既存ツールでは
-        <strong>赤い枠 / 警告アイコン / disabled 表示</strong>などで明示する慣習がある。本仕様で
-        <strong>「無効配置のフィードバック」</strong>を 1 行決めると、回路エディタの実装方針が安定する。
-      </p>
-      <p class="critique-body">
-        補足: 設計判断リスト 5 項目のうち、<strong>「ホバーで内部を塗らない」</strong>は実は Swap 単体の話ではなく、
-        Control / AntiControl と共通の<strong>「コネクタが通る透明ゲートの内部マスク方針」</strong>。
-        h-gate の批評で指摘した「ユニタリゲート族共通の親仕様抽出」と同じく、Multi-qubit 家系で
-        <strong>「コネクタを持つ透明ゲートの共通仕様」</strong>を抽出すると、3 ページで重複している論点が 1 箇所に集約できる。
-      </p>
-    </aside>
   </div>
 </section>
 
 <section class="block">
-  <h2><span class="num">§ 07</span>実装参照</h2>
+  <h2><span class="num">§ 07</span>設計要件</h2>
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>ファイル</th><th>関係</th></tr>
+        <tr><th>項目</th><th>要件</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><code>apps/web/src/icons/gate_body.rs</code></td>
-          <td><code>GateKind::Swap</code> では矩形 / 円の本体を描かず、<code>draw_gate_icon</code> へ渡す色だけを <code>box_fill</code> / <code>drag_fill</code> に切り替える</td>
+          <td>本体</td>
+          <td>矩形 / 円のゲート本体は持たず、× 記号だけを描く。idle は <code>box_fill</code>、drag 中は <code>drag_fill</code> を使う。</td>
         </tr>
         <tr>
-          <td><code>apps/web/src/icons/gate_glyphs.rs</code></td>
-          <td>× 記号の 2 本線を <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code>、線幅 <code>4.0 * scale</code> で描く</td>
+          <td>× 記号</td>
+          <td>viewBox 48 座標で <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code> の 2 本線、線幅 <code>4 px</code>。</td>
         </tr>
         <tr>
-          <td><code>apps/web/src/render/circuit_connectors/swap.rs</code></td>
-          <td>同じ列の Swap マーカを集め、中心 x / 最上端 y / 最下端 y から縦コネクタを描く</td>
+          <td>縦コネクタ</td>
+          <td>同じ列の Swap マーカを集め、中心 x / 最上端 y / 最下端 y から <code>4 px</code> 縦コネクタを描く。</td>
         </tr>
         <tr>
-          <td><code>apps/web/src/render/circuit_connectors.rs</code></td>
-          <td><code>CONNECTOR_STROKE_WIDTH = 4.0</code> を Control / Swap / 同角 Phase で共有する</td>
-        </tr>
-        <tr>
-          <td><code>apps/web/src/simulation_plan/linearize.rs</code></td>
-          <td>列内の Swap が 2 個のときだけ 3 つの CNOT に分解する</td>
+          <td>意味論</td>
+          <td>列内の Swap が 2 個のときだけ 3 つの CNOT に分解する。</td>
         </tr>
         <tr>
           <td><a href="gate-palette.html">gate-palette.html</a></td>
-          <td><code>&lt;swap-gate&gt;</code> を使ったパレット上の Swap 表示と、全ゲート一覧内の線幅・色の参照元</td>
+          <td>パレット上の Swap 表示と、全ゲート一覧内の線幅・色の参照元。</td>
         </tr>
       </tbody>
     </table>
@@ -607,7 +440,7 @@
       <tbody>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>Swap のパレット表示で <code>&lt;swap-gate&gt;</code> を参照する</td>
+          <td>Swap のパレット表示でも同じ × 記号と線幅を使う</td>
         </tr>
         <tr>
           <td><a href="hover-frame.html">ホバー枠</a></td>

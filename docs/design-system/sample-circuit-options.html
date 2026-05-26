@@ -137,10 +137,10 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
 
 <section class="section" id="overview">
   <div class="section-head"><span class="section-num">00</span><h2>背景</h2></div>
-  <p class="section-note">現在の実装では、起動時に <code class="code-inline">CircuitLibrary::seed()</code> がサンプル 4 件を生成し、ユーザが新規作成した回路と同じ <code class="code-inline">qni.circuit_library.v1</code> に同居する。両者は <code class="code-inline">CircuitEntry</code> 構造が同一で、ドロップダウンに区別表示はない。サンプルを編集すると JSON が上書きされ、元の定義に戻す手段がない。</p>
+  <p class="section-note">現在の挙動では、起動時にサンプル 4 件が生成され、ユーザが新規作成した回路と同じ保存領域に同居する。両者はドロップダウン上で区別表示されない。サンプルを編集すると内容が上書きされ、元の定義に戻す手段がない。</p>
   <div class="kpis">
     <div class="kpi"><div class="num">4</div><div class="cap">同梱サンプル件数 (今後増える前提)</div></div>
-    <div class="kpi"><div class="num">同居</div><div class="cap">サンプルとユーザ回路は同一 localStorage キー</div></div>
+    <div class="kpi"><div class="num">同居</div><div class="cap">サンプルとユーザ回路は同じ保存領域</div></div>
     <div class="kpi"><div class="num">無印</div><div class="cap">ドロップダウンにバッジ・セクション無し</div></div>
   </div>
 </section>
@@ -163,7 +163,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
     <tbody>
       <tr><td><b>視覚区別</b></td><td>無印 / バッジ / セクション / 別 UI</td><td>P1 の解像度。バッジは省スペース、セクションは明確、別 UI は最強だが導線が遠い。</td></tr>
       <tr><td><b>編集ポリシー</b></td><td>そのまま許可 / 自動フォーク / 編集禁止 / 確認</td><td>P2 の解。サンプルを mutable にするほど自由、immutable にするほど安全。</td></tr>
-      <tr><td><b>storage</b></td><td>同居 / origin タグ / 別キー</td><td>サンプル更新時の merge ロジックの複雑さに直結する。</td></tr>
+      <tr><td><b>保存領域</b></td><td>同居 / 種別タグ / 別領域</td><td>サンプル更新時の統合方針の複雑さに直結する。</td></tr>
       <tr><td><b>導線コスト</b></td><td>1 クリック / 2 クリック / メニュー奥</td><td>新規ユーザがサンプルから入る経路の摩擦。</td></tr>
     </tbody>
   </table>
@@ -171,7 +171,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
 
 <section class="section" id="option-a">
   <div class="section-head"><span class="section-num">03</span><h2>案 A · バッジ + 編集前ダイアログ</h2></div>
-  <div class="option-head"><span class="option-tag">OPTION A</span><span class="option-meta">最小実装 · 既存ドロップダウン据え置き</span></div>
+  <div class="option-head"><span class="option-tag">OPTION A</span><span class="option-meta">最小導入 · 既存ドロップダウン据え置き</span></div>
   <p class="section-note">サンプルにだけ「SAMPLE」バッジを付与し、編集が始まる瞬間に「複製して編集しますか？ / そのまま編集しますか？」を確認する。同居・編集許可のまま、視覚と確認だけ追加する案。</p>
   <div class="grid-2">
     <div class="card">
@@ -206,7 +206,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
   <div class="grid-3" style="margin-top:16px">
     <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>UI 構造を変えない。</li><li>「Edited」バッジで P3 (更新衝突) も部分的に可視化。</li><li>確認は初回 + opt-out 可。</li></ul></div>
     <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>ダイアログ疲れ。</li><li>サンプル削除可否が曖昧なまま。</li><li>サンプルが増えると一覧で目立たない。</li></ul></div>
-    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin: Sample|User</code> を追加。<code class="code-inline">paint_picker_item_text</code> でバッジ描画。<code class="code-inline">update_active</code> の前でダイアログを挟む。</p></div>
+    <div class="card"><div class="label cyan">導入規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">回路に「サンプル / ユーザ」種別を持たせ、ドロップダウン行にバッジを描く。サンプル選択後、編集が始まる前に確認ダイアログを挟む。</p></div>
   </div>
 </section>
 
@@ -249,7 +249,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
   <div class="grid-3" style="margin-top:16px">
     <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>P1・P2 を同時に解決。</li><li>サンプルは常に原型保証。アプリ更新で安全に内容更新できる。</li><li>「マイ回路」概念がユーザに明示される。</li></ul></div>
     <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>クリックで毎回複製されるためノイズが増える。</li><li>「サンプルを 1 度だけ閲覧」したいユースケースに摩擦。</li><li>ドロップダウンが縦に長くなる。</li></ul></div>
-    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプルを別 const 配列に分離し、<code class="code-inline">entries</code> 描画ループでセクション見出しを挿入。サンプル行の <code class="code-inline">Select</code> action は <code class="code-inline">Duplicate</code> へ rewire。</p></div>
+    <div class="card"><div class="label cyan">導入規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプルをユーザ回路と別の一覧として扱い、ドロップダウンにセクション見出しを挿入。サンプル行の選択は「複製してアクティブ化」にする。</p></div>
   </div>
 </section>
 
@@ -287,8 +287,8 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
   </div>
   <div class="grid-3" style="margin-top:16px">
     <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>ピッカーがいつでもユーザの作業空間として綺麗。</li><li>サンプル増加に強い (ギャラリーで分類・検索可)。</li><li>P1・P2・P3 すべて解決。</li></ul></div>
-    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>新規ユーザがサンプルに 1 クリックで触れない (発見性低下)。</li><li>初回起動時に何を表示するか考える必要がある (空 + CTA)。</li><li>実装範囲が広い (gallery popover が増える)。</li></ul></div>
-    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプル定義を <code class="code-inline">samples.rs</code> に隔離、<code class="code-inline">seed()</code> から外す。新規 sub-popover (gallery) を <code class="code-inline">render/circuit_picker/gallery.rs</code> として追加。</p></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>新規ユーザがサンプルに 1 クリックで触れない (発見性低下)。</li><li>初回起動時に何を表示するか考える必要がある (空 + CTA)。</li><li>導入範囲が広い (gallery popover が増える)。</li></ul></div>
+    <div class="card"><div class="label cyan">設計範囲</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">サンプル一覧を初回起動処理から切り離し、ギャラリー用のサブポップオーバーとして扱う。</p></div>
   </div>
 </section>
 
@@ -328,15 +328,15 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
   </div>
   <div class="grid-3" style="margin-top:16px">
     <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>サンプルは原型保証 + 1 クリックで触れる発見性も維持。</li><li>「複製してから編集」を意識させない。</li><li>P1・P2・P3 すべて解決。</li></ul></div>
-    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>暗黙のフォークは「いつの間にか別物を編集している」混乱を生み得る。</li><li>read-only 中の URL 共有・undo 仕様の設計が必要。</li><li>fork 検出を「編集操作」フックに正確に置く実装難易度。</li></ul></div>
-    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry.origin</code> + <code class="code-inline">editor_lock</code> 状態追加。<code class="code-inline">apply_gate_edit</code> / <code class="code-inline">set_qubits</code> など mutation 経路の入口で「サンプルなら先に複製」を共通化。</p></div>
+    <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>暗黙のフォークは「いつの間にか別物を編集している」混乱を生み得る。</li><li>read-only 中の URL 共有・undo 仕様の設計が必要。</li><li>fork 検出を「編集操作」フックに正確に置く導入難易度。</li></ul></div>
+    <div class="card"><div class="label cyan">導入規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">回路に種別と読み取り専用状態を持たせる。ゲート配置・削除・量子ビット数変更など編集操作の入口で「サンプルなら先に複製」を共通化する。</p></div>
   </div>
 </section>
 
 <section class="section" id="option-e">
   <div class="section-head"><span class="section-num">07</span><h2>案 E · Origin タグ + Reset to default</h2></div>
   <div class="option-head"><span class="option-tag e">OPTION E</span><span class="option-meta">寛容案 · 編集は許可、いつでも巻き戻せる</span></div>
-  <p class="section-note">サンプルもユーザと同じく自由に編集できるが、<code class="code-inline">origin</code> タグを持たせ、kebab メニューに「Reset to default」を出す。サンプルの canonical JSON はコード側 const から常に参照可能。「Reset」で初期値に戻す。アプリ更新でサンプル定義が変わったら、未編集のサンプルだけ自動同期する。</p>
+  <p class="section-note">サンプルもユーザと同じく自由に編集できるが、種別タグを持たせ、kebab メニューに「Reset to default」を出す。サンプルの標準定義を常に参照できるようにし、「Reset」で初期値に戻す。アプリ更新でサンプル定義が変わったら、未編集のサンプルだけ自動同期する。</p>
   <div class="grid-2">
     <div class="card">
       <div class="label purple">Kebab submenu (mock)</div>
@@ -367,13 +367,13 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
   <div class="grid-3" style="margin-top:16px">
     <div class="card"><div class="label green">利点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>編集の自由度を奪わない。</li><li>サンプル定義の更新を自動反映する道が開ける。</li><li>UI 変更が小さい (バッジと 1 メニュー項目)。</li></ul></div>
     <div class="card"><div class="label orange">欠点</div><ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px"><li>「Reset」項目に気付かないと P2 は解決しない。</li><li>ユーザの編集を一発で失う破壊的操作になりうる (要確認ダイアログ)。</li><li>P1 はバッジ依存。</li></ul></div>
-    <div class="card"><div class="label cyan">実装規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px"><code class="code-inline">CircuitEntry.origin</code> + <code class="code-inline">origin_id</code> 追加。サンプルの canonical map を <code class="code-inline">circuit-library-model</code> に保持。kebab に <code class="code-inline">Reset</code> action 追加。</p></div>
+    <div class="card"><div class="label cyan">導入規模</div><p style="margin:0;color:var(--tx-2);font-size:14px;line-height:22px">回路に種別とサンプル識別子を持たせ、標準定義の対応表を保持する。kebab に <code class="code-inline">Reset</code> 項目を追加する。</p></div>
   </div>
 </section>
 
 <section class="section" id="compare">
   <div class="section-head"><span class="section-num">08</span><h2>比較表</h2></div>
-  <p class="section-note">各案を §02 の 4 軸 + 解決度 + 実装規模で並べる。<span class="cell-good">◎</span> 解決, <span class="cell-warn">○</span> 部分解決, <span class="cell-bad">×</span> 未解決, <span class="cell-na">—</span> 該当なし。</p>
+  <p class="section-note">各案を §02 の 4 軸 + 解決度 + 導入規模で並べる。<span class="cell-good">◎</span> 解決, <span class="cell-warn">○</span> 部分解決, <span class="cell-bad">×</span> 未解決, <span class="cell-na">—</span> 該当なし。</p>
   <div class="compare-row head">
     <div></div><div>A · バッジ+確認</div><div>B · 2 セクション</div><div>C · ギャラリー分離</div><div>D · Copy on Edit</div><div>E · Origin+Reset</div>
   </div>
@@ -418,7 +418,7 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
     <div>低</div>
   </div>
   <div class="compare-row foot">
-    <div class="axis">実装規模</div>
+    <div class="axis">導入規模</div>
     <div>小</div>
     <div>中</div>
     <div>大</div>
@@ -434,28 +434,28 @@ td code,.code-inline{font:12px/16px var(--font-mono);background:var(--ui);border
     <div class="card">
       <div class="label green">Phase 1 · まず案 B</div>
       <ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px">
-        <li><code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin: Sample | User</code> を追加。</li>
-        <li>サンプル const を <code class="code-inline">circuit-library-model</code> に分離。<code class="code-inline">seed()</code> はサンプル + 空 User 1 件で開始。</li>
-        <li>ピッカー描画ループでセクション見出しを挟む。</li>
-        <li>サンプル行の <code class="code-inline">Select</code> action を「複製 → アクティブ化」に書き換え。</li>
-        <li>サンプル行の kebab を <code class="code-inline">Duplicate</code> のみに制限。</li>
+        <li>各回路に「サンプル / ユーザ」の種別を持たせる。</li>
+        <li>サンプル一覧をユーザ回路一覧から分離し、初期状態はサンプル + 空のユーザ回路 1 件で始める。</li>
+        <li>ピッカー表示にセクション見出しを挟む。</li>
+        <li>サンプル行の選択を「複製 → アクティブ化」にする。</li>
+        <li>サンプル行の kebab は <code class="code-inline">Duplicate</code> のみに制限。</li>
       </ul>
     </div>
     <div class="card">
       <div class="label blue">Phase 2 · 必要なら案 D</div>
       <ul style="margin:0 0 0 18px;padding:0;color:var(--tx-2);font-size:14px;line-height:22px">
         <li>サンプル「閲覧」モードを足す: クリック直後はコピーせず read-only で開く。</li>
-        <li>編集 mutation の共通入口に「Sample なら fork してから適用」を挿入。</li>
+        <li>編集操作の共通入口に「Sample なら fork してから適用」を挿入。</li>
         <li>fork 直後に toast 表示 (「Forked to My circuits」)。</li>
         <li>read-only 中はツールバーから保存・URL share を抑止 (or 自動 fork)。</li>
       </ul>
     </div>
   </div>
-  <div class="callout warn-c" style="margin-top:24px"><strong>避けたい組み合わせ:</strong> 案 A 単独。P3 (更新衝突) の方針がないまま編集を許可するとアプリ更新時にユーザのサンプル定義と新定義の差分処理が破綻する。案 A を採るなら最低でも <code class="code-inline">origin</code> タグ + 案 E の Reset を併用する。</div>
-  <div class="callout green-c" style="margin-top:16px"><strong>共通の前提:</strong> どの案でも <code class="code-inline">CircuitEntry</code> に <code class="code-inline">origin</code> (<code class="code-inline">Sample { origin_id }</code> | <code class="code-inline">User</code>) を導入する価値がある。これがあるだけで「サンプル削除を許可するか」「アプリ更新時にどう merge するか」を後から自由に決められる。</div>
+  <div class="callout warn-c" style="margin-top:24px"><strong>避けたい組み合わせ:</strong> 案 A 単独。P3 (更新衝突) の方針がないまま編集を許可するとアプリ更新時にユーザのサンプル定義と新定義の差分処理が破綻する。案 A を採るなら最低でも種別タグ + 案 E の Reset を併用する。</div>
+  <div class="callout green-c" style="margin-top:16px"><strong>共通の前提:</strong> どの案でも回路に「サンプル / ユーザ」の種別を持たせる価値がある。これがあるだけで「サンプル削除を許可するか」「アプリ更新時にどう統合するか」を後から自由に決められる。</div>
 </section>
 
-<div class="footer-note"><strong>次の一歩:</strong> Phase 1 (案 B) のうち、まず <code class="code-inline">CircuitEntry.origin</code> 導入とサンプル const 分離を独立 PR にする。UI のセクション見出し追加は別 PR で、スナップショットテストで visual diff を確認する。Phase 2 への移行余地を残すため、サンプル選択時の挙動 (「即複製」か「read-only で開く」か) は app 層の 1 関数に集約しておく。</div>
+<div class="footer-note"><strong>次の一歩:</strong> Phase 1 (案 B) のうち、まず回路種別とサンプル一覧の分離を独立作業にする。UI のセクション見出し追加は別作業で、スナップショットテストで見た目の差分を確認する。Phase 2 への移行余地を残すため、サンプル選択時の挙動 (「即複製」か「read-only で開く」か) は 1 か所で切り替えられるようにしておく。</div>
 </main></div>
 <script>(function(){const toc=document.getElementById('toc');if(!toc)return;const links=[...toc.querySelectorAll('a')];const sections=links.map(link=>({link,el:document.getElementById(link.getAttribute('href').slice(1))})).filter(x=>x.el);const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;links.forEach(l=>l.classList.remove('active'));const match=sections.find(x=>x.el===entry.target);if(match){match.link.classList.add('active');if(window.innerWidth<=1080)match.link.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}})},{rootMargin:'-10% 0px -78% 0px'});sections.forEach(x=>observer.observe(x.el));links.forEach(link=>link.addEventListener('click',e=>{e.preventDefault();const el=document.getElementById(link.getAttribute('href').slice(1));if(el){el.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'','#'+el.id);}}));})();</script>
 

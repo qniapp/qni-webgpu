@@ -15,7 +15,7 @@
   <style>
     /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
        nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       本ページは実装済みの状態セルポップオーバーを正として、共通化する外装だけを説明する。 */
+       本ページは共通化する外装だけを説明する。 */
 
     .popover-stage {
       min-height: 180px;
@@ -32,14 +32,14 @@
     }
     .popover-demo {
       position: relative;
-      width: 360px;                      /* 表示舞台。状態セル実装の 296px 本体を中央に見せる */
+      width: 360px;                      /* 表示舞台。296px 本体を中央に見せる */
       height: 136px;                     /* 本体 108px + tail 8px + gap 4px + 対象 16px */
     }
     .anchor-cell {
       position: absolute;
       left: 172px;                       /* 舞台中央へ置く */
       bottom: 0;
-      width: 16px;                       /* 状態セルの小さな振幅円を模す表示用 */
+      width: 16px;                       /* 対象要素を模す表示用 */
       height: 16px;
       border-radius: 9999px;
       background: var(--bg);             /* Flexoki bg / paper */
@@ -57,11 +57,11 @@
       position: absolute;
       left: 32px;                        /* (360 - 296) / 2 */
       top: 0;
-      width: 296px;                      /* 状態セル実装 POPUP_W */
-      height: 108px;                     /* 状態セル実装 popup_height() */
+      width: 296px;                      /* 基準幅 */
+      height: 108px;                     /* 基準高 */
       padding: 12px 16px;                /* spacing-3 / spacing-4 */
       border: 1px solid var(--tx-3);     /* Flexoki tx-3 / popover_outline */
-      border-radius: 10px;               /* 状態セル実装 CornerRadius::same(10) */
+      border-radius: 10px;               /* radius 10px */
       background: var(--bg);             /* Flexoki bg / paper / popover_surface */
       color: var(--tx);                  /* Flexoki tx */
       box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* tx alpha。state_cell_popup_shadow 相当 */
@@ -136,7 +136,7 @@
       fill: var(--blue-400);             /* Flexoki blue-400 / popup_icon */
     }
     .popover-label {
-      width: 88px;                       /* 値列の開始位置を状態セル実装に近づける表示用幅 */
+      width: 88px;                       /* 値列の開始位置を状態セルの基準形に近づける表示用幅 */
       color: var(--tx-2);                /* Flexoki tx-2 */
     }
     .popover-value {
@@ -257,51 +257,10 @@
   <h1 class="page-title">ポップオーバー</h1>
   <p class="page-lede">
     画面上のセル、行、ゲートなどに補足情報を結び付けて表示する吹き出し型の外装。
-    本仕様では、状態ベクトルセルの実装済みポップオーバーを基準形にし、
+    本仕様では、状態ベクトルセルでも使う外装を基準形にし、
     確率表示ブロック、振幅表示ブロック、ブロッホ球表示ブロック、パレットの説明表示へ展開するための共通寸法を定義する。
   </p>
 </div>
-
-<!-- ─────── Design Critique 全体所見 + Top Opportunities ─────── -->
-<section class="block">
-  <aside class="critique" aria-label="批評 · 全体所見">
-    <div class="critique-label">★ 批評 · 全体所見</div>
-    <div class="critique-title">primitive 仕様としては「実装ファイル参照禁止」ルール違反と、基準形が consumer の中身に寄りすぎている点が同居する</div>
-    <p class="critique-body">
-      外装トークン (面 / 縁 / 角丸 / 影 / tail / anchor gap / 画面端処理) を 1 ページに集約し、
-      Flexoki トーンと Tailwind スケールへ準拠しつつ、状態セルのポップオーバー実装を「基準形」として置く構造は概ね適切。
-      § 02 / § 03 / § 04 が「規範はクロムだけ、内容は各コンポーネント」と書き分けるのも primitive 仕様として読みやすい。
-      4 方向の tail バリアントと「対象の右が基本、画面右端では反転」という配置原則も実装に直結する具体性を持つ。
-    </p>
-    <p class="critique-body">
-      最大の問題は、§ 07 関連仕様 / ソースと § 04 アイコン行、および § 02 / § 06 のトークン名 / 定数名引用が、
-      <code>apps/web/src/render/popover.rs</code> のような実装ファイルを直接参照していること。
-      デザインシステム配下のドキュメントから <code>*.rs</code> を指すと依存方向が逆転し、「実装が動くたびに primitive 仕様を書き直す」関係になる。
-      本来の依存方向は <strong>実装→デザインシステム</strong>の一方向のみで、本ページ自体が「実装が参照される側」になるべき。
-    </p>
-    <p class="critique-body">
-      もう一つの問題は § 01 「基準形」が、状態セル ポップオーバーの 296 × 108 px / 3 行 (Amplitude / Probability / Phase) の中身を
-      そのまま再掲してしまっていること。primitive ページの「基準形」が特定の consumer の中身で説明されていると、
-      確率 / 振幅 / ブロッホ / パレット説明で外装を共有する際、「3 行の表が無いとこのクロムは使えないのか」という誤解を招く。
-      外装だけで成立する抽象例を最初に出し、consumer 固有の中身例は § 06 ないし別ページへ寄せるとよい。
-    </p>
-  </aside>
-
-  <aside class="critique" aria-label="批評 · Top Opportunities">
-    <div class="critique-label">★ 批評 · Top Opportunities</div>
-    <div class="critique-title">影響度の大きい改善候補 (各論は本文中の批評ブロックに展開)</div>
-    <ol class="critique-list">
-      <li><strong>§ 07 関連仕様 / ソースの <code>*.rs</code> リンクをすべて外す</strong> — 5 つ全部が <code>apps/web/src/render/*.rs</code> で、デザインシステム→実装参照禁止ルールに正面から違反している。残すなら同じ design-system 配下の HTML 仕様 (probability-display / amplitude-display / bloch-display) と、Flexoki / Tailwind の外部規約だけにする (§ 07 参照)。</li>
-      <li><strong>§ 02 / § 04 / § 06 に散在する実装側 token / 定数の引用も同時に外す</strong> — <code>colors.popover_outline</code> / <code>colors.state_cell_popup_shadow</code> / <code>CornerRadius::same(10)</code> / <code>POPUP_W</code> / <code>popup_height()</code> / <code>apps/web/src/render/state_panel_popup/icons.rs</code> はすべて実装側の名前。Flexoki トーン (<code>tx-3</code>) と Tailwind スペーシング (<code>spacing-3</code>) と数値 (<code>radius 10 px</code>) だけで規定できる (§ 02 / § 04 / § 06 参照)。</li>
-      <li><strong>§ 01 基準形を「状態セル ポップオーバーの再掲」から「外装だけを見せる例」に置き換える</strong> — 296 × 108 px / 3 行の Amplitude / Probability / Phase は特定 consumer の中身であって primitive ではない。空のクロム (面 + 縁 + 角丸 + 影 + tail) を最初に出し、3 行を持つ例は § 01b あるいは § 06 側へ分離する (§ 01 参照)。</li>
-      <li><strong>§ 04 と § 05 で「規範範囲」「適用範囲」「非目標」が部分的に重複</strong> — § 04 行頭の「規範範囲: 本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで」と § 05 「適用範囲: surface / outline / radius / shadow / tail / anchor gap / 画面端処理を共通化する」が同じことを別言葉で 2 度書いている。§ 04 から規範範囲行を抜き、§ 04 は内容レイアウトの個別ルール (基準例 / 行ピッチ / GPU 値) に集中させる (§ 04 / § 05 参照)。</li>
-      <li><strong>§ 02 outline 行の「1 px inside stroke」が CSS の <code>border</code> と乖離</strong> — 「inside stroke」は CSS では通常 <code>box-shadow: inset 0 0 0 1px ...</code> か <code>outline-offset: -1px</code> で実装する別物。実 CSS は <code>border: 1px solid var(--tx-3)</code> で外側に伸びる通常ボーダー。見た目は近いが、 primitive 仕様として「inside stroke」という表現は誤導的。「1 px の外周線 (面と背景の境界に沿う)」のような表記に直す (§ 02 参照)。</li>
-      <li><strong>§ 03 caption の「対象の上に置く」が本体と tail のどちらの位置説明か曖昧</strong> — <code>bottom tail</code> = 「本体が対象の上、tail が下向き」を意味するが、caption は本体位置だけ書く。本体と対象の位置関係を ASCII 図式または小さなアンカーマーカで併記すると、4 方向の意味が初見で読める (§ 03 参照)。</li>
-      <li><strong>§ 06 ブロッホ球行は実装済みのポップオーバーとして更新済み</strong> — 確率 / 振幅 / パレットと同じく共通外装へ移行済みと明記し、内容と数値形式は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲した。今後は外装トークンの差分が出たときだけ本ページと個別仕様を同時に更新する (§ 06 参照)。</li>
-      <li><strong>共通だった <code>.critique</code> CSS は <code>design-system.css</code> へ集約済み</strong> — 本批評コメント追加と同時に、13 ファイルに散らばっていた <code>.critique</code> ルール (48 〜 49 行 / ファイル、差分はコメント空白 <code>5%</code> vs <code>5 %</code> のみ) を <code>design-system.css</code> へ移し、HTML 側は <code>class="critique"</code> マークアップだけを持つ形に揃えた。視覚的な差分は無いが、テーマ変更時の影響範囲が 1 箇所に絞れる。</li>
-    </ol>
-  </aside>
-</section>
 
 <section class="block">
   <h2>§ 01 基準形</h2>
@@ -343,22 +302,6 @@
         <div class="anchor-cell" aria-hidden="true"></div>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 01 primitive と consumer の境界">
-      <div class="critique-label">★ 批評 · § 01 基準形</div>
-      <div class="critique-title">「基準形」が状態セル ポップオーバーの 296 × 108 / 3 行をそのまま再掲してしまっている</div>
-      <p class="critique-body">
-        § 01 のデモは状態セル ポップオーバー実装そのもので、Amplitude / Probability / Phase の 3 行と各アイコン、phase の <code>+0.00°</code> まで含む。
-        primitive ページの「基準形」がこのまま consumer の中身を持つと、振幅表示ブロックや確率表示ブロックが本クロムを採用する際に
-        「3 行表が無いとこのクロムは使えないのか」と読まれかねない。
-      </p>
-      <p class="critique-body">
-        外装 (面 + 縁 + 角丸 + 影 + tail + anchor gap) だけを持つ空の本体を § 01 の「基準形」とし、
-        3 行を含む例は「§ 01b 状態セルでの利用例」または § 06 実装との対応の中に移すと、primitive と consumer の責任境界が読みやすい。
-        基準寸法 <code>296 × 108</code> を持つ理由が「状態セル実装」だとすれば、それも § 06 側で書くべき
-        (本ページの inline <code>&lt;style&gt;</code> コメントに残る <code>POPUP_W</code> / <code>popup_height()</code> も同じ理由で外せる)。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -367,32 +310,16 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>surface</th><td><code>colors.surface</code> / <code>var(--bg)</code>。Flexoki <code>bg</code> (paper) を使う。</td></tr>
-        <tr><th>outline</th><td><code>1 px</code> inside stroke。<code>colors.popover_outline</code> / Flexoki <code>tx-3</code>。面と背景がどちらも paper になる場面でも tail の輪郭を読める濃さにする。</td></tr>
-        <tr><th>radius</th><td><code>10 px</code>。状態セル実装の <code>CornerRadius::same(10)</code> を基準にし、ゲート本体の角丸とは連動させない。</td></tr>
+        <tr><th>surface</th><td>Flexoki <code>bg</code> (paper) を使う。</td></tr>
+        <tr><th>outline</th><td><code>1 px</code> の外周線。Flexoki <code>tx-3</code> を使い、面と背景がどちらも paper になる場面でも tail の輪郭を読める濃さにする。</td></tr>
+        <tr><th>radius</th><td><code>10 px</code>。ゲート本体の角丸とは連動させない。</td></tr>
         <tr><th>padding</th><td><code>12 px 16 px</code>。Tailwind <code>spacing-3</code> / <code>spacing-4</code>。</td></tr>
-        <tr><th>shadow</th><td><code>offset [0, 10]</code>、<code>blur 28</code>、<code>spread 0</code>、Flexoki <code>tx</code> alpha。実装上は <code>colors.state_cell_popup_shadow</code> を基準にする。</td></tr>
+        <tr><th>shadow</th><td><code>offset [0, 10]</code>、<code>blur 28</code>、<code>spread 0</code>、Flexoki <code>tx</code> alpha。</td></tr>
         <tr><th>tail</th><td>高さ <code>8 px</code>、半幅 <code>8 px</code> の三角形。面は <code>surface</code>、対象へ向かう 2 本の斜辺だけを <code>outline</code> と同じ色の <code>1.5 px</code> 線幅で描く。本体との接合辺には線を引かない。</td></tr>
         <tr><th>anchor gap</th><td>対象要素と tail 先端の距離は <code>4 px</code>。Tailwind <code>spacing-1</code>。</td></tr>
         <tr><th>viewport pad</th><td>画面端との余白は少なくとも <code>4 px</code>。狭い画面では本体位置を優先して内側へ寄せる。</td></tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 02 inside stroke と実装トークン参照">
-      <div class="critique-label">★ 批評 · § 02 外装トークン</div>
-      <div class="critique-title">outline 行の「inside stroke」表記と、実装側 token 名 (<code>colors.popover_outline</code> 等) の混入</div>
-      <p class="critique-body">
-        outline 行は「<code>1 px</code> inside stroke」と書くが、本ページの <code>.popover</code> 実 CSS は <code>border: 1px solid var(--tx-3)</code> で外側に伸びる通常ボーダー。
-        CSS で本当に inside stroke (= 面の内側へ縁を引く) を実装するには <code>box-shadow: inset 0 0 0 1px ...</code> または <code>outline; outline-offset: -1px</code> が必要で、
-        見た目は近いが用語としては誤導的。「<code>1 px</code> の外周線 (面と背景の境界に沿う)」のような表記に直すと CSS 実装と整合する。
-      </p>
-      <p class="critique-body">
-        同じ表で <code>colors.surface</code> / <code>colors.popover_outline</code> / <code>colors.state_cell_popup_shadow</code> / <code>CornerRadius::same(10)</code> は実装側 token 名で、
-        これを spec から指すと実装が改名するたびに仕様も書き直すことになる。
-        Flexoki トーン (<code>bg</code> / <code>tx-3</code>) と Tailwind スペーシング (<code>spacing-3</code> / <code>spacing-4</code>) と数値 (<code>radius 10 px</code>, <code>offset 0 / 10</code>, <code>blur 28</code>) だけで十分。
-        viewport pad の「狭い画面では本体位置を優先して内側へ寄せる」も抽象的で、画面端での反転 (§ 03 で言及) との重複や手段の例示が無い点も改善余地。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -438,20 +365,6 @@
         </svg>
       </div>
     </div>
-
-    <aside class="critique" aria-label="批評 · § 03 caption の主語が曖昧">
-      <div class="critique-label">★ 批評 · § 03 tail の向き</div>
-      <div class="critique-title">caption の「対象の上に置く」が本体位置の話か tail 方向の話か一目で読めない</div>
-      <p class="critique-body">
-        <code>data-tail="bottom"</code> の caption は「対象の上に置く」と書くが、これは「本体が対象の上、tail は下向き」を意味する。
-        初見ではこの 2 つの主語 (本体 / tail) が混在し、tail の名称 (<code>bottom</code> = tail が下向き) と本体位置 (= 対象の上) が直接結び付かない。
-        4 方向のサンプルに本体と対象アンカーを並べて表示し、矢印または視覚的位置関係を caption に併記すると、 primitive 仕様としての「向き」が初見で読める。
-      </p>
-      <p class="critique-body">
-        加えて、本文 p で「通常は対象の右側に置いて左端 tail を使い、画面右端では対象の左側へ反転して右端 tail を使う」と書くが、
-        この「右が基本 / 右端で反転」のルールは § 02 viewport pad と同じ画面端処理を別言葉で書いており、§ 02 と相互参照させると重複が減る。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -462,26 +375,11 @@
       <tbody>
         <tr><th>規範範囲</th><td>本ページが規定するのは外装、tail、対象要素との距離、画面端処理まで。見出し、行数、区切り線、ラベル文言、数値の桁数は各コンポーネント仕様が持つ。</td></tr>
         <tr><th>基準例</th><td>状態セルは <code>text-sm</code> (<code>14 px / 20 px</code>) の等幅見出しと、<code>text-xs</code> (<code>12 px</code>) の 3 行値一覧を使う。区切り線や補足行は持たない。</td></tr>
-        <tr><th>状態セルのアイコン</th><td><code>apps/web/src/render/state_panel_popup/icons.rs</code> を正とする。Amplitude は Re/Im 軸 + 斜め矢印、Probability は外輪 + 内側ディスク、Phase は底辺 + 斜辺 + 角度弧で描く。</td></tr>
+        <tr><th>状態セルのアイコン</th><td>Amplitude は Re/Im 軸 + 斜め矢印、Probability は外輪 + 内側ディスク、Phase は底辺 + 斜辺 + 角度弧で描く。</td></tr>
         <tr><th>行ピッチ</th><td>値の行間は <code>20 px</code> を基準にする。ラベルと値の間は対象の最大文字数に合わせ、狭い表示で読みにくくしない。</td></tr>
         <tr><th>GPU 値</th><td>状態セル、確率表示ブロック、振幅表示ブロックなどの数値は GPU 上の値を直接描く経路を維持し、CPU へ読み戻さない。</td></tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 04 規範範囲が § 05 と重複 / icons.rs 直接参照">
-      <div class="critique-label">★ 批評 · § 04 内容レイアウトの扱い</div>
-      <div class="critique-title">「規範範囲」が § 05 「適用範囲」と重複し、状態セルのアイコン行は実装ファイルを直接参照している</div>
-      <p class="critique-body">
-        「規範範囲」行 (外装 / tail / 距離 / 画面端処理まで) は § 05 「適用範囲」(surface / outline / radius / shadow / tail / anchor gap / 画面端処理) と
-        同じ範囲を別言葉で 2 度書く。§ 04 から規範範囲行を抜き、内容レイアウトの個別ルール (基準例 / 行ピッチ / GPU 値) に集中させる。
-      </p>
-      <p class="critique-body">
-        「状態セルのアイコン」行は <code>apps/web/src/render/state_panel_popup/icons.rs を正とする</code> と書くが、
-        これは「デザインシステム→実装参照禁止」ルールに該当する (依存方向の議論は本ページ冒頭の全体所見を参照)。
-        Amplitude / Probability / Phase アイコンが「Re/Im 軸 + 矢印」「外輪 + ディスク」「底辺 + 斜辺 + 角度弧」で描かれている事実だけを残し、
-        ファイルパスは外す。ファイル参照を入れる位置は実装側の AGENTS.md / README から本ページを指す逆方向だけにする。
-      </p>
-    </aside>
   </div>
 </section>
 
@@ -493,7 +391,7 @@
         <tr><th>適用範囲</th><td><code>surface</code>、<code>outline</code>、<code>radius</code>、<code>shadow</code>、tail、anchor gap、画面端処理を共通化する。</td></tr>
         <tr><th>非目標</th><td>値フォーマット、ラベル文言、表示ブロック固有の内容、ホバー対象の判定、選択用小窓、短文 tooltip の統合は本ページで規定しない。</td></tr>
         <tr><th>不変条件</th><td>本番経路で GPU から CPU へ状態値を読み戻さない。ポップオーバーは外装だけを共通化し、各表示内容の GPU 直接描画を壊さない。</td></tr>
-        <tr><th>戻してよい範囲</th><td>確率 / 振幅 / ブロッホ / パレット側の採用で問題が出た場合は、各コンポーネント単位で既存クロムへ戻してよい。状態セルの基準挙動、GPU バッファ、シェーダ、値描画 callback、CPU 読み戻し禁止は戻さない。</td></tr>
+        <tr><th>戻してよい範囲</th><td>確率 / 振幅 / ブロッホ / パレット側の採用で問題が出た場合は、各コンポーネント単位で既存クロムへ戻してよい。状態セルの基準挙動、値描画、CPU 読み戻し禁止は戻さない。</td></tr>
         <tr><th>検証</th><td>採用時は 4 方向 tail の見た目、画面端反転、GPU 読み戻し非発生を確認する。</td></tr>
       </tbody>
     </table>
@@ -501,63 +399,32 @@
 </section>
 
 <section class="block">
-  <h2>§ 06 実装との対応</h2>
+  <h2>§ 06 利用箇所との対応</h2>
   <div class="card">
     <table class="spec">
       <thead>
         <tr><th>場所</th><th>現在の状態</th><th>共通化方針</th></tr>
       </thead>
       <tbody>
-        <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>共通クロム実装を使い、変更時は本ページも同時に更新する。</td></tr>
-        <tr><td>確率 / 振幅表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象セルの右側、画面右端では左側へ反転する。</td><td>値の GPU 直接描画と表示ブロック固有の文言は維持する。</td></tr>
-        <tr><td>ブロッホ球表示ブロック</td><td>本仕様の共通外装へ移行済み。ホスト要素の右 +12 px を基本位置に、GPU 側の <code>bloch_output_buffer</code> から値を直接描画する。</td><td>内容、数値形式、状態別の見本は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲する。</td></tr>
+        <tr><td>状態ベクトルセル</td><td>本仕様の基準形。tail 付き、角丸 <code>10 px</code>、影 <code>[0,10] / 28</code>。</td><td>共通クロムを使い、変更時は本ページも同時に更新する。</td></tr>
+        <tr><td>確率 / 振幅表示ブロック</td><td>本仕様の共通外装へ移行済み。通常は対象セルの右側、画面右端では左側へ反転する。</td><td>GPU-only の値表示と表示ブロック固有の文言は維持する。</td></tr>
+        <tr><td>ブロッホ球表示ブロック</td><td>本仕様の共通外装へ移行済み。ホスト要素の右 +12 px を基本位置にする。</td><td>内容、数値形式、状態別の見本は <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲する。</td></tr>
         <tr><td>パレット説明表示</td><td>本仕様の共通外装へ移行済み。ゲートに結び付く説明として top / bottom tail を使う。</td><td>単なる短文ヒントは別の tooltip として分ける。</td></tr>
         <tr><td>アスペクト選択</td><td>クリックで開く選択肢リスト。</td><td>情報表示ではなく選択用の小窓なので、本仕様をそのまま適用しない。</td></tr>
       </tbody>
     </table>
-
-    <aside class="critique" aria-label="批評 · § 06 ブロッホ球の宣言を更新済み">
-      <div class="critique-label">★ 批評 · § 06 実装との対応 — Resolved</div>
-      <div class="critique-title">ブロッホ球ポップオーバーも本仕様の共通外装へ移行済みと明記した</div>
-      <p class="critique-body">
-        以前の記述は「詳細カード風の表示」「実装時は寄せる」という将来形で、実装済みの状態と用語がずれていた。
-        現在は「本仕様の共通外装へ移行済み」と完了形で統一し、個別の内容、数値形式、状態別の見本は
-        <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> へ委譲している。
-      </p>
-      <p class="critique-body">
-        残る運用上の注意は、外装トークンを変更したときに本ページだけでなく個別仕様も同時に更新すること。
-        これにより primitive 仕様と表示ブロック固有仕様の役割分担を保てる。
-      </p>
-    </aside>
   </div>
 </section>
 
 <section class="block">
-  <h2>§ 07 関連仕様 / ソース</h2>
+  <h2>§ 07 関連仕様</h2>
   <div class="card">
-    <aside class="critique" aria-label="批評 · § 07 *.rs 参照を全て外す">
-      <div class="critique-label">★ 批評 · § 07 関連仕様 / ソース</div>
-      <div class="critique-title">デザインシステム→実装参照禁止ルールへの正面違反 — 6 項目中 5 つが <code>apps/web/src/render/*.rs</code></div>
-      <p class="critique-body">
-        本リストの 5 項目 (<code>popover.rs</code> / <code>state_panel_popup/cell/geometry.rs</code> / <code>state_panel_popup/icons.rs</code> /
-        <code>circuit_gates.rs</code> / <code>circuit_palette/tooltip/layout.rs</code>) はいずれも実装ファイル。
-        デザインシステムから実装を指すと依存方向が逆転し、実装が動くたびに primitive 仕様を書き直す関係になる。
-        本ページ自体が「実装が参照される側」になるべきで、本ページから実装を指す側にはならない。
-      </p>
-      <p class="critique-body">
-        <code>*.rs</code> リンクをすべて削除し、残すのは同じ design-system 配下の HTML
-        (<a href="probability-display.html">probability-display</a> / <a href="amplitude-display.html">amplitude-display</a> /
-        <a href="bloch-display.html">bloch-display</a>) と、Flexoki / Tailwind の外部規約だけにする。
-        実装側からは <code>apps/web/src/render/popover.rs</code> などのドキュメンテーションコメントに本ページの URL を書く形で逆参照させる。
-      </p>
-    </aside>
     <ul>
-      <li><code>apps/web/src/render/popover.rs</code> — 共通外装の面、縁、影、tail 描画。</li>
-      <li><code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code> — 状態ベクトルセル基準形の幅、余白、tail、画面端処理。</li>
-      <li><code>apps/web/src/render/state_panel_popup/icons.rs</code> — 状態ベクトルセルの Amplitude / Probability / Phase 行アイコン。</li>
-      <li><code>apps/web/src/render/circuit_gates.rs</code> — 確率表示ブロック / 振幅表示ブロックのホバー表示。</li>
-      <li><code>apps/web/src/render/circuit_palette/tooltip/layout.rs</code> — パレット説明表示の余白と配置。</li>
-      <li><code>docs/design-system/probability-display.html</code> / <code>amplitude-display.html</code> / <code>bloch-display.html</code> — 表示ブロック側の内容仕様。</li>
+      <li><a href="probability-display.html">確率表示ブロック</a> — 共通外装を使う表示ブロック側の内容仕様。</li>
+      <li><a href="amplitude-display.html">振幅表示ブロック</a> — 共通外装を使う表示ブロック側の内容仕様。</li>
+      <li><a href="bloch-display.html">ブロッホ球表示ブロック</a> / <a href="bloch-display-popover.html">ブロッホ球ポップオーバー仕様</a> — ブロッホ球側の内容、数値形式、状態別の見本。</li>
+      <li><a href="gate-palette.html">ゲートパレット</a> — パレット説明表示の利用箇所。</li>
+      <li><a href="https://github.com/kepano/flexoki" target="_blank" rel="noopener">Flexoki</a> / <a href="https://tailwindcss.com/docs/customizing-spacing" target="_blank" rel="noopener">Tailwind spacing</a> — 色と余白の外部規約。</li>
     </ul>
   </div>
 </section>

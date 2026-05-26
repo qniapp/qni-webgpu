@@ -52,7 +52,7 @@
       color: var(--tx-2);                /* Flexoki tx-2 */
     }
     .actual {
-      width: 56px;                       /* spacing-14 = SLOT_SPACING */
+      width: 56px;                       /* spacing-14 */
       height: 56px;
       display: flex;
       align-items: center;
@@ -385,8 +385,8 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>1 スロット本体</th><td><code>40 × 40 px</code> (<code>GATE_SIZE = 40</code> / Tailwind <code>spacing-10</code>)。span を持たないゲートの基準サイズ。</td></tr>
-        <tr><th>スロット</th><td><code>56 × 56 px</code> (<code>SLOT_SPACING = LINE_GAP = 56</code> / Tailwind <code>spacing-14</code>)</td></tr>
+        <tr><th>1 スロット本体</th><td><code>40 × 40 px</code> (Tailwind <code>spacing-10</code>)。span を持たないゲートの基準サイズ。</td></tr>
+        <tr><th>スロット</th><td><code>56 × 56 px</code> (Tailwind <code>spacing-14</code>)</td></tr>
         <tr><th>スロット内余白</th><td>上下左右 <code>8 px</code> (Tailwind <code>spacing-2</code>)。40 px 本体を 56 px スロットの中央に置く。</td></tr>
         <tr><th>角丸正方形</th><td><code>border-radius: 6 px</code> (Tailwind <code>rounded-md</code>)。H / 固定位相 / 回転ゲートなどの標準形。</td></tr>
         <tr><th>真円</th><td><code>border-radius: 50%</code>。X / Phase (Φ) / CNOT ターゲットなど、Quirk の plus-in-circle 慣例や円形メタファを保つ本体で使う。Phase は位相ゲートの中では例外的に真円本体。ホバー枠は本体に合わせた同心円ではなく、共通の角丸枠を使う。</td></tr>

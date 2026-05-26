@@ -152,7 +152,7 @@
   <p class="page-lede">
     単一量子ビットを <code>|0⟩ / |1⟩</code> 基底から <code>|+⟩ / |−⟩</code> 基底へ変換するアダマールゲート。
     共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは H 固有の意味論、
-    <code>apps/web/assets/icons/h.svg</code> 由来の字形、H としての設計判断だけを定義する。
+    H としての字形と設計判断だけを定義する。
   </p>
 </div>
 
@@ -235,7 +235,7 @@
     <table class="spec">
       <tbody>
         <tr><th>書体</th><td><code>Geist</code> sans-serif (700 / Bold の "H" outline をベクタ化)</td></tr>
-        <tr><th>実体</th><td><code>apps/web/assets/icons/h.svg</code> の SVG path。本仕様ページも <code>&lt;h-gate&gt;</code> の Shadow DOM 内で同じ path を描く。</td></tr>
+        <tr><th>字形基準</th><td>本仕様ページも同じ SVG path を描く。</td></tr>
         <tr><th>SVG path</th><td><code>M92 0V710H178V399H535V710H621V0H535V315H178V0Z</code></td></tr>
         <tr><th>viewBox</th><td><code>0 0 48 48</code>。H 字形用の正方形座標系。光学パディングを含む。</td></tr>
         <tr><th>transform</th><td><code>translate(13.391 34.565) scale(0.029760 -0.029760)</code></td></tr>
@@ -244,9 +244,8 @@
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
-      実装側はこの SVG を高解像度 PNG にラスタ化し、Signed Distance Field (SDF) テクスチャへ変換して
-      WebGPU シェーダ (<code>apps/web/src/icons/sdf_icon.rs</code>) で輪郭を再構成する。本仕様ページは raw SVG を描くが、
-      ソース path が同じなので、拡大表示でも outline レベルで同一として扱える。
+      この SVG path を H 字形の形状基準とする。
+      本仕様ページの拡大表示でも、outline レベルで同一として扱える。
     </p>
     <div class="stage">
       <div class="col">

@@ -34,7 +34,7 @@
       display: flex; align-items: center; justify-content: center;
       position: relative;
     }
-    /* ホバー枠: 実装と同じ Flexoki purple-400 (#8B7EC8)。10/8 px → 4× で 40/32 px。 */
+    /* ホバー枠: Flexoki purple-400 (#8B7EC8)。10/8 px → 4× で 40/32 px。 */
     .hover-frame::before {
       content: '';
       position: absolute; inset: 0;
@@ -61,8 +61,8 @@
     }
 
     /* 確率表示ブロック共通スタイル。
-       本物は drawn-on-canvas だが、見た目を完全に再現するため CSS で 1:1 模倣。
-       実コード (apps/egui-web/src/icons/gate_body.rs:116-141) と数値を揃える: */
+       見た目を比較するため CSS で 1:1 模倣。
+       本仕様の数値に揃える: */
     .cd-base {
       width: 32px; height: 32px;
       background: var(--bg);         /* surface / paper */
@@ -181,7 +181,7 @@
   <p class="eyebrow">qni-webgpu · design discussion</p>
   <h1 class="page-title">確率表示ブロックの角丸案</h1>
   <p class="page-lede">
-    現状 <code>ProbabilityDisplay</code> ゲートだけは本体が<strong>角ばり (border-radius: 0)</strong>
+    現状 <code>ProbabilityDisplay</code> 表示ブロックだけは本体が<strong>角ばり (border-radius: 0)</strong>
     で描画されている。他の unitary 系ゲート（H / X / Y / Z 等）は 6 px の角丸付きだが、
     確率表示ブロックだけ角ばりなのは「角丸 + <code>overflow: hidden</code> だと上下行のバーが
     角でクリップされる」という設計判断の結果。
@@ -194,16 +194,16 @@
 <section class="block">
   <h2><span class="num">§ 01</span> 現状と問題</h2>
   <div class="card">
-    <h3>実コード</h3>
+    <h3>現在の仕様</h3>
     <ul>
-      <li><code>apps/egui-web/src/icons/gate_body.rs:84</code> — 通常 unitary 系は <code>CornerRadius::same(6)</code></li>
-      <li><code>apps/egui-web/src/icons/gate_body.rs:119</code> — Probability preview は <code>CornerRadius::ZERO</code></li>
-      <li><code>apps/egui-web/src/render/circuit_palette/panel.rs:51-56</code> — ホバー枠は外 10 px / 内 8 px の角丸</li>
+      <li>通常 unitary 系は <code>6 px</code> の角丸。</li>
+      <li>Probability preview は角丸なし。</li>
+      <li>ホバー枠は外 10 px / 内 8 px の角丸。</li>
     </ul>
     <p>
-      角ばりにしている根拠 (<code>docs/probability-display-mock.html</code>):
-      「角丸を付けると上下行のバーが角でクリップされ、Quirk と同じ sharp 矩形が崩れる」。
-      Quirk 互換と「100% = 端まで塗りつぶし」を保つ判断だった。
+      角ばりにしている根拠:
+      「角丸を付けると上下行のバーが角でクリップされ、sharp 矩形が崩れる」。
+      端まで塗る方式と「100% = 端まで塗りつぶし」を保つ判断だった。
     </p>
   </div>
 </section>
@@ -230,7 +230,7 @@
       </div>
       <div>
         <p>
-          ゲート本体に他の unitary と同じ <code>border-radius: 6 px</code> を入れ、
+          表示ブロック本体に他のユニタリゲートと同じ <code>border-radius: 6 px</code> を入れ、
           中のバーは外枠から <strong>2 px 内側</strong>に詰める。バーは角丸領域を踏まないので
           クリップ不要。
         </p>
@@ -242,8 +242,8 @@
           <tbody>
             <tr><th>ホバー枠と揃う</th><td class="yes">○ 6 px の角丸が外枠と無理なく接続</td></tr>
             <tr><th>「端まで = 100%」の意味</th><td class="meh">△ 2 px ぶん詰まる（バー領域 28 px ÷ ゲート 32 px = 87.5%）</td></tr>
-            <tr><th>Quirk 互換性</th><td class="no">× Quirk は端まで塗る方式</td></tr>
-            <tr><th>実装コスト</th><td class="yes">○ <code>rect_filled</code> の corner_radius + 内側矩形 <code>shrink2</code></td></tr>
+            <tr><th>端まで塗る方式との整合</th><td class="no">× 端まで塗る見た目から外れる</td></tr>
+            <tr><th>導入負荷</th><td class="yes">○ 本体角丸 + 内側矩形で表現できる</td></tr>
           </tbody>
         </table>
       </div>
@@ -276,15 +276,14 @@
           角度感を揃える。
         </p>
         <p>
-          ホバー枠が gate kind 依存のコンテキストロジックになるが、現状でも
-          <code>gate_body</code> 内で kind 別分岐があるので相性は悪くない。
+          ホバー枠がゲート種別依存のルールになるが、角ばり本体との整合は取りやすい。
         </p>
         <table class="tradeoff">
           <tbody>
             <tr><th>ホバー枠と揃う</th><td class="yes">○ 角ばり同士で違和感なし</td></tr>
             <tr><th>「端まで = 100%」の意味</th><td class="yes">○ 維持</td></tr>
-            <tr><th>Quirk 互換性</th><td class="yes">○ 本体は不変</td></tr>
-            <tr><th>実装コスト</th><td class="meh">△ <code>panel.rs</code> のホバー枠描画に kind 別分岐が必要</td></tr>
+            <tr><th>端まで塗る方式との整合</th><td class="yes">○ 本体は不変</td></tr>
+            <tr><th>導入負荷</th><td class="meh">△ ホバー枠に表示ブロック専用ルールが必要</td></tr>
             <tr><th>他ゲートとの整合</th><td class="no">× 確率表示ブロックのホバー枠だけ角ばり、という別ルールができる</td></tr>
           </tbody>
         </table>
@@ -319,15 +318,15 @@
         </p>
         <p>
           バーが角でわずかに削れて見える（特に最上行 / 最下行が 100% に近いとき）。
-          実用上は 6 px の削れなので「角がほんのり丸い」程度で、Quirk より気持ち柔らかい
+          実用上は 6 px の削れなので「角がほんのり丸い」程度で、sharp な現状より気持ち柔らかい
           見た目になる。
         </p>
         <table class="tradeoff">
           <tbody>
             <tr><th>ホバー枠と揃う</th><td class="yes">○ 角丸同士で完全に揃う</td></tr>
             <tr><th>「端まで = 100%」の意味</th><td class="meh">△ 視覚的にはほぼ端まで（角ぶん 1–2 px 欠ける）</td></tr>
-            <tr><th>Quirk 互換性</th><td class="meh">△ Quirk は sharp、こちらは柔らかい</td></tr>
-            <tr><th>実装コスト</th><td class="yes">○ 既存 <code>rect_filled</code> に <code>CornerRadius::same(6)</code> を渡すだけ</td></tr>
+            <tr><th>端まで塗る方式との整合</th><td class="meh">△ sharp な現状より柔らかい</td></tr>
+            <tr><th>導入負荷</th><td class="yes">○ 本体角丸を 6 px にするだけ</td></tr>
           </tbody>
         </table>
       </div>
@@ -359,7 +358,7 @@
       <div>
         <p>
           外側は他ゲート同様 6 px 角丸のチップ。中身は<strong>3 px 余白を取って、その中に
-          sharp なバー / 枠</strong>を描く。「角丸チップ = ゲート枠」「中の sharp 矩形 =
+          sharp なバー / 枠</strong>を描く。「角丸チップ = 外枠」「中の sharp 矩形 =
           データ可視化エリア」というメタ的な分離。
         </p>
         <p>
@@ -369,9 +368,9 @@
         <table class="tradeoff">
           <tbody>
             <tr><th>ホバー枠と揃う</th><td class="yes">○ 外チップが角丸で揃う</td></tr>
-            <tr><th>「端まで = 100%」の意味</th><td class="meh">△ チップ内の sharp 矩形では「端まで」だが、ゲート全体としては余白あり</td></tr>
-            <tr><th>Quirk 互換性</th><td class="meh">△ 内側 sharp は維持、ただし外側に余白フレームが乗る</td></tr>
-            <tr><th>実装コスト</th><td class="meh">△ 描画レイヤが 1 つ増える (外枠 + 内枠 + バー)</td></tr>
+            <tr><th>「端まで = 100%」の意味</th><td class="meh">△ チップ内の sharp 矩形では「端まで」だが、表示ブロック全体としては余白あり</td></tr>
+            <tr><th>端まで塗る方式との整合</th><td class="meh">△ 内側 sharp は維持、ただし外側に余白フレームが乗る</td></tr>
+            <tr><th>導入負荷</th><td class="meh">△ 描画レイヤが 1 つ増える (外枠 + 内枠 + バー)</td></tr>
             <tr><th>他ゲートとの整合</th><td class="meh">△ 「確率表示ブロックだけ二重枠」が意図的にデザイン言語として通用するか要レビュー</td></tr>
           </tbody>
         </table>
@@ -388,17 +387,15 @@
       推奨は <strong>案 C</strong>（角丸 + バー追従クリップ）。理由：
     </p>
     <ul>
-      <li>実装コストが最小（既存の <code>rect_filled</code> の <code>CornerRadius</code> を
-        <code>ZERO</code> → <code>same(6)</code> に変えるだけ）</li>
+      <li>導入負荷が最小（本体角丸を 0 px → 6 px に変えるだけ）</li>
       <li>ホバー枠との段差が完全に解消</li>
       <li>バーの角クリップは「6 px 半径 × 数 px の欠け」なので<strong>視覚的にはほぼ気にならない</strong>。
-        Quirk の sharp と比べてもむしろ柔らかく現代的に見える</li>
+        sharp な本体と比べてもむしろ柔らかく現代的に見える</li>
       <li>「端まで = 100%」の意味が大きく崩れない（案 A / D のような明確な内側余白がない）</li>
     </ul>
     <p>
-      次点は <strong>案 A</strong>。Quirk の sharp バーを維持しつつホバー枠と揃えたい場合の選択。
-      ただし 87.5% しか塗らない「100%」は perceptual には小さい嘘なので、Quirk 互換を
-      捨ててでも案 C のほうがすっきりすると判断。
+      次点は <strong>案 A</strong>。sharp バーを維持しつつホバー枠と揃えたい場合の選択。
+      ただし 87.5% しか塗らない「100%」は perceptual には小さい嘘なので、案 C のほうがすっきりすると判断。
     </p>
     <p>
       <strong>案 B</strong> は「確率表示ブロックのホバー枠だけ別ルール」を持ち込むコストが情報量に対して

@@ -65,7 +65,7 @@
     }
 
     .circuit-hover-host {
-      width: 48px;                       /* GATE_SIZE + expand(4px) × 2 */
+      width: 48px;                       /* 40 px + 4 px × 2 */
       height: 48px;
       border: 2px solid var(--purple-400); /* Flexoki purple-400 / gate_hover_border */
       border-radius: 10px;               /* rounded gate hover frame */
@@ -192,7 +192,7 @@
     }
     .phase-angle-slot {
       position: relative;
-      width: 56px;                       /* SLOT_SPACING */
+      width: 56px;                       /* spacing-14 */
       height: 96px;
       display: flex;
       align-items: center;
@@ -236,7 +236,7 @@
   <p class="page-lede">
     単一量子ビットへ <code>diag(1, e<sup>iθ</sup>)</code> を適用するパラメトリック位相ゲート。S / T / Z を含む位相系列の汎用形。
     共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは位相ゲート固有の意味論、
-    <code>components/p-gate.js</code> の Shadow DOM、Qni と同じ <strong>Φ ラベル</strong>、および既定角 <strong>π/2</strong> の角度ラベルに関する設計判断だけを定義する。
+    Qni と同じ <strong>Φ ラベル</strong>、および既定角 <strong>π/2</strong> の角度ラベルに関する設計判断だけを定義する。
   </p>
 </div>
 
@@ -280,7 +280,7 @@
       <div class="col"><div class="caption">③ パレットホバー<br />2 px 背景の空き</div><div class="actual"><p-gate state="hover"></p-gate></div></div>
       <div class="col"><div class="caption">④ ドラッグプレビュー<br />purple-600 真円本体</div><div class="actual"><p-gate state="drag"></p-gate></div></div>
     </div>
-    <p class="note" style="margin-top: 12px;">回路上のホバーは接続線を隠さないため内部を塗らない線だけの枠にし、パレット上と仕様モックのホバーは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使う。② は回路ホバーの専用モックで、<code>&lt;p-gate state="hover"&gt;</code> 単体は ③ の surface gap 版を示す。</p>
+    <p class="note" style="margin-top: 12px;">回路上のホバーは接続線を隠さないため内部を塗らない線だけの枠にし、パレット上と仕様モックのホバーは <a href="hover-frame.html">ホバー枠</a> の surface gap 版を使う。② は回路ホバーの専用モックで、③ は surface gap 版を示す。</p>
   </div>
 </section>
 
@@ -290,7 +290,7 @@
   <div class="card">
     <table class="spec"><tbody>
       <tr><th>表記</th><td>Φ グリフ</td></tr>
-      <tr><th>実体</th><td><code>components/p-gate.js</code> の Shadow DOM。本仕様ページのモックでも同じ字形を描く。</td></tr>
+      <tr><th>字形基準</th><td>本仕様ページのモックでも同じ字形を描く。</td></tr>
       <tr><th>本体</th><td>CSS 上は <code>40 × 40 px</code> の真円。<code>border-radius: 50%</code>、既定色は <code>box_fill</code> ロール (Flexoki <code>cyan-400</code>)、グリフ色は <code>bg</code> (paper)。SVG viewBox <code>0 0 48 48</code> は本体全体へ重ねる。</td></tr>
       <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
       <tr><th>線画</th><td><code>fill="none"</code> / <code>stroke="currentColor"</code> / <code>stroke-width="2"</code> / <code>stroke-linecap="round"</code> / <code>vector-effect="non-scaling-stroke"</code>。</td></tr>
@@ -313,7 +313,7 @@
         <p><strong>グリフ色</strong> · <code>bg</code> (paper)。本体色や θ 値には連動しない</p>
       </div>
     </div>
-    <p class="note" style="margin-top: 12px;">SVG ジオメトリは寸法仕様の正、下の 3× 表示は実装が仕様どおりに描けているかを見る目視ガードである。</p>
+    <p class="note" style="margin-top: 12px;">SVG ジオメトリは寸法仕様の正、下の 3× 表示は字形が仕様どおりに見えるかを確認する目視ガードである。</p>
     <div class="stage">
       <div class="col"><div class="caption">実表示<br />既定</div><div class="actual"><p-gate></p-gate></div></div>
       <div class="col wide"><div class="caption">3× 表示<br />字形位置の確認用</div><div class="zoom"><p-gate></p-gate></div></div>

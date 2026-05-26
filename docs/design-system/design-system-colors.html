@@ -105,8 +105,7 @@
   <p class="page-lede">
     qni-webgpu は <a href="https://github.com/kepano/flexoki" target="_blank" rel="noopener">Flexoki Light</a>
     (Steph Ango / kepano) のパレットだけを使う。Tailwind 等の独自色 (sky-500 / zinc-600 / emerald-500 など) は
-    使わず、必ず Flexoki の名前付きトーンにマップする。実装側の名→トーン対応は
-    <code>apps/web/src/colors.rs</code> の <code>flexoki_light()</code> が単一の出典。
+    使わず、必ず Flexoki の名前付きトーンにマップする。本ページの役割名→トーン対応を単一の出典にする。
   </p>
 </div>
 
@@ -331,8 +330,7 @@
 <section class="block">
   <h2><span class="num">§ 03</span>意味別マッピング</h2>
   <p class="note">
-    <code>apps/web/src/colors.rs</code> の <code>flexoki_light()</code> で定義される
-    役割 → トーン の単一マップ。コードは tone を直接参照せず、<code>Colors</code> 構造体の役割名
+    本ページで定義する役割 → トーンの単一マップ。利用側は tone を直接参照せず、対応する役割名
     (<code>state_fill</code> / <code>gate_hover_border</code> など) で参照する。新規ロールを追加するときは、
     必ずここを通って Flexoki の名前付きトーンに紐付ける。
   </p>
@@ -361,8 +359,8 @@
       <tr><td><code>semantic_on</code></td><td><code>blue-600</code></td><td>|1⟩ digit / 測定 1</td></tr>
       <tr><td><code>semantic_intermediate</code></td><td><code>purple-600</code></td><td>測定 idle</td></tr>
       <tr><td><code>semantic_disabled</code></td><td><code>tx-2</code></td><td>無効 / ブラケットクロム</td></tr>
-      <tr><td><code>span_resize_handle_bg</code></td><td><code>cyan-400</code></td><td>リサイズハンドル default 色</td></tr>
-      <tr><td><code>span_resize_handle_bg_hover</code></td><td><code>cyan-600</code></td><td>リサイズハンドル hover / active 色</td></tr>
+      <tr><td>リサイズハンドル通常色</td><td><code>cyan-400</code></td><td>リサイズハンドル default 色</td></tr>
+      <tr><td>リサイズハンドルホバー色</td><td><code>cyan-600</code></td><td>リサイズハンドル hover / active 色</td></tr>
       <tr><td><code>bloch_sphere_lines</code></td><td><code>tx-3</code></td><td>ブロッホ球 軸 / 緯線 / 経線</td></tr>
       <tr><td><code>bloch_vector_tip_0</code></td><td><code>red-300</code></td><td>ブロッホ tip (z=+1 側、明るい高彩度)</td></tr>
       <tr><td><code>bloch_vector_tip_mid</code></td><td><code>purple-400</code></td><td>ブロッホ tip (赤道、明るい高彩度)</td></tr>
@@ -406,7 +404,6 @@
   <div class="card">
     <ul style="margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px;">
       <li><a href="https://github.com/kepano/flexoki" target="_blank" rel="noopener">kepano/flexoki</a> — Flexoki オリジナル仕様 (Steph Ango)</li>
-      <li><code>apps/web/src/colors.rs</code> — 実装側 <code>flexoki_light()</code> と <code>Colors</code> 役割定義</li>
       <li><code>docs/design-system/design-system.css</code> — ドキュメント側の <code>:root</code> CSS 変数 (本ページのトーンと 1:1)</li>
       <li><a href="../../AGENTS.md">AGENTS.md</a> — UI / スタイルガイド (Flexoki 厳守ルール、disallowed-methods 検知)</li>
     </ul>

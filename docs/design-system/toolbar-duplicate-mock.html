@@ -115,7 +115,7 @@
     }
     .icon-spotlight svg { width: 48px; height: 48px; color: var(--tx); }
 
-    /* ───── Impl spec ───── */
+    /* ───── Requirements ───── */
     .impl-spec {
       background: var(--bg); border: 1px solid var(--ui-2);
       border-radius: 14px; padding: 24px 28px;
@@ -205,7 +205,7 @@
   </p>
 
   <div class="app-frame">
-    <div class="scene-label">egui-web ·上部 toolbar · Duplicate 追加後</div>
+    <div class="scene-label">上部 toolbar · Duplicate 追加後</div>
     <div class="app-body">
       <div class="toolbar">
         <button class="picker-trigger" type="button">
@@ -272,74 +272,34 @@
         </tr>
         <tr>
           <th>tooltip / a11y</th>
-          <td><code>response.on_hover_text("Duplicate circuit")</code> を付ける。Cmd/Ctrl+D は<strong>本 PR では割り当てない</strong> (将来別 PR で hotkey の検討)。</td>
+          <td>tooltip は <code>Duplicate circuit</code>。Cmd/Ctrl+D は割り当てず、将来のショートカット検討に残す。</td>
         </tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ───────────────── 3. Impl spec ───────────────── -->
+<!-- ───────────────── 3. 導入要件 ───────────────── -->
 <section class="block">
-  <h2><span class="num">§ 03</span> 実装仕様 (Codex 用リファレンス)</h2>
+  <h2><span class="num">§ 03</span> 導入要件</h2>
 
   <div class="impl-spec">
-    <h3>差分は <code>render/toolbar.rs</code> と <code>app/circuit_library.rs</code> のみ。</h3>
+    <h3>見た目と挙動</h3>
     <ol>
-      <li>
-        <strong>新規 <code>ToolbarIcon::Copy</code></strong> を <code>render/toolbar.rs</code> の
-        <code>ToolbarIcon</code> enum に追加。<code>paint_icon</code> の match 腕に <code>Lucide copy</code>
-        のパス 2 本 (<code>Rect (9,9)→(22,22) radius 2</code> と上 §02 の L 字 path) を <code>paint_path</code> で
-        順に描く。
-      </li>
-      <li>
-        <strong><code>show_edit_utilities</code> でゴミ箱と divider の間に挿入</strong>:
-        <pre>if icon_button(ui, colors, ToolbarIcon::Trash, true, "Clear circuit").clicked() {
-    // ... existing ...
-}
-if icon_button(ui, colors, ToolbarIcon::Copy, true, "Duplicate circuit").clicked() {
-    self.duplicate_active_circuit();
-    ctx.request_repaint();
-}</pre>
-      </li>
-      <li>
-        <strong>action: <code>QniApp::duplicate_active_circuit()</code></strong> を新規 (or 既存の
-        <code>CircuitLibrary::duplicate</code> を呼ぶ薄いラッパー)。実装はサブメニューの Duplicate と同等:
-        <pre>impl CircuitLibrary {
-    /// Insert a copy of the active entry right after it, with name
-    /// suffix " (copy)" (or numbered " (copy 2)" / " (copy 3)" if a
-    /// "(copy)" sibling already exists), and switch active to the
-    /// new entry. Triggers `bump_updated_at()`.
-    pub(crate) fn duplicate_active(&amp;mut self) -&gt; CircuitId { ... }
-}</pre>
-        既に submenu 用に同等のロジックが居れば、それを共有する形で OK。
-      </li>
-      <li>
-        <strong>サイズ / 色</strong> は他の <code>tool</code> ボタンと完全に同じ:
-        32×32 px ボタン、18×18 px icon、stroke 2、tx-2 idle、tx hover、tx-3 disabled。
-        hover bg = ui。kebab style の "color だけ濃く" は<strong>適用しない</strong>
-        (これは行内の kebab 専用ルール、ツールバーの通常 tool は bg + color 両方変える)。
-      </li>
-      <li>
-        <strong>disabled 条件</strong>: 通常時は always enabled (active 回路は常に存在するので)。
-        将来 active が null になるエッジケースが出てきたら disable する想定だが、本 PR では考慮不要。
-      </li>
-      <li>
-        <strong>テスト</strong>: <code>tests/egui-web-toolbar-duplicate.spec.ts</code> を新規:<br />
-        ・Duplicate ボタンクリック → 新 entry が active 直後に追加され active が切り替わる<br />
-        ・連続クリックで <code>... (copy) → (copy 2) → (copy 3)</code> のように suffix が増える<br />
-        ・既存 snapshot は toolbar アイコンが 1 個増えるので diff → <code>cargo insta review</code> で accept
-      </li>
+      <li>ツールバーのゴミ箱の右隣に Lucide <code>copy</code> アイコンを追加する。</li>
+      <li>サイズ / 色 / hover 挙動は他の tool ボタンと完全に同じ: 32×32 px ボタン、18×18 px icon、stroke 2、tx-2 idle、tx hover、tx-3 disabled、hover bg = ui。</li>
+      <li>divider は trash と Duplicate の右側に置き、edit cluster と execute cluster の境界を維持する。</li>
+      <li>クリックで active 回路の複製をピッカーの active 直後に挿入し、新しい回路を active にする。</li>
+      <li>複製名は <code>"{元} (copy)"</code>。すでに同名がある場合は <code>(copy 2)</code> / <code>(copy 3)</code> のように連番にする。</li>
+      <li>通常時は enabled。将来 active が存在しない状態を導入する場合だけ disabled を検討する。</li>
     </ol>
 
     <h3 style="margin-top: 24px;">Acceptance</h3>
     <ol>
-      <li>ツールバーのゴミ箱の右隣に Lucide <code>copy</code> アイコンが追加され、サイズ / 色 / hover 挙動が他の tool ボタンと一致。</li>
-      <li>クリックで active 回路の複製が picker entries の active 直後に挿入され、新 entry が active になる。</li>
-      <li>複製の名前は <code>"{元} (copy)"</code>、すでに同名がいるなら <code>(copy 2)</code> など連番。</li>
+      <li>Duplicate アイコンのサイズ / 色 / hover 挙動が他の tool ボタンと一致する。</li>
+      <li>クリックで active 回路の複製が active 直後に入り、新しい回路が active になる。</li>
+      <li>連続クリックで copy suffix が連番になる。</li>
       <li>tooltip <code>"Duplicate circuit"</code> がホバーで出る。</li>
-      <li>divider は引き続き trash <strong>と</strong> Duplicate の<strong>右</strong>に置く (= edit cluster と execute cluster の境界は変わらない)。</li>
-      <li><code>cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings</code> 通過、<code>cargo fmt --check</code> クリーン、<code>cargo insta test</code> → review で accept。</li>
     </ol>
   </div>
 </section>

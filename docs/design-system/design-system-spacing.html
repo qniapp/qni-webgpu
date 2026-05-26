@@ -207,7 +207,7 @@
       <code class="token">spacing-10</code>
       <span class="px">40 px</span>
       <span class="bar" style="width: 40px;"></span>
-      <p class="role">ゲート本体 (GATE_SIZE) / card 大きめ余白</p>
+      <p class="role">ゲート本体 / card 大きめ余白</p>
     </div>
     <div class="space-row">
       <code class="token">spacing-12</code>
@@ -219,7 +219,7 @@
       <code class="token">spacing-14</code>
       <span class="px">56 px</span>
       <span class="bar" style="width: 56px;"></span>
-      <p class="role">.page top padding / 量子ビットピッチ (LINE_GAP / SLOT_SPACING) / footer top margin</p>
+      <p class="role">.page top padding / 量子ビットピッチ / footer top margin</p>
     </div>
     <div class="space-row">
       <code class="token">spacing-16</code>
@@ -297,22 +297,22 @@
   </div>
 </section>
 
-<!-- ─────── § 03 アプリ側スペーシング (実装定数) ─────── -->
+<!-- ─────── § 03 アプリ側スペーシング ─────── -->
 <section class="block">
-  <h2><span class="num">§ 03</span>アプリ側スペーシング (実装定数)</h2>
+  <h2><span class="num">§ 03</span>アプリ側スペーシング</h2>
   <p class="note">
-    回路エディタ本体は CSS を持たないが、Rust 側で <code>spacing-N</code> に対応する定数を定義し、
-    回路グリッド / ゲートサイズ / 余白を 4px 倍数に揃えている。<code>apps/web/src/constants.rs</code> 参照。
+    回路グリッド / ゲートサイズ / 余白も、Tailwind の 4px 倍数スケールに揃える。
+    アプリ側は本表の値を参照し、独自のスケール外寸法を追加しない。
   </p>
   <table class="spec">
     <thead>
-      <tr><th>定数</th><th>値</th><th>Tailwind 名</th><th>使い所</th></tr>
+      <tr><th>項目</th><th>値</th><th>Tailwind 名</th><th>使い所</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>GATE_SIZE</code></td><td>40 px</td><td><code>spacing-10</code></td><td>ゲート本体 (1 量子ビット セル)</td></tr>
-      <tr><td><code>LINE_GAP</code></td><td>56 px</td><td><code>spacing-14</code></td><td>量子ビット行間 (回路上下のピッチ)</td></tr>
-      <tr><td><code>SLOT_SPACING</code></td><td>56 px</td><td><code>spacing-14</code></td><td>ゲート列ピッチ (回路左右の刻み)</td></tr>
-      <tr><td><code>LINE_LEFT_OFFSET</code> / <code>LINE_RIGHT_OFFSET</code></td><td>—</td><td>—</td><td>左右のワイヤ余白 (詳細は constants.rs)</td></tr>
+      <tr><td>ゲート本体</td><td>40 px</td><td><code>spacing-10</code></td><td>1 量子ビットセル</td></tr>
+      <tr><td>量子ビット行間</td><td>56 px</td><td><code>spacing-14</code></td><td>回路上下のピッチ</td></tr>
+      <tr><td>ゲート列ピッチ</td><td>56 px</td><td><code>spacing-14</code></td><td>回路左右の刻み</td></tr>
+      <tr><td>ワイヤ余白</td><td>—</td><td>—</td><td>左右のワイヤ余白</td></tr>
     </tbody>
   </table>
 </section>
@@ -324,7 +324,6 @@
     <ul style="margin: 0; padding-left: 20px; color: var(--tx-2); font-size: 14px; line-height: 20px;">
       <li><a href="https://tailwindcss.com/docs/customizing-spacing" target="_blank" rel="noopener">Tailwind CSS — Customizing Spacing</a> — spacing-* スケールの公式定義</li>
       <li><code>docs/design-system/design-system.css</code> — 本ページのカテゴリ → 値 マッピングが住む共有 CSS</li>
-      <li><code>apps/web/src/constants.rs</code> — 回路エディタの寸法定数 (GATE_SIZE / LINE_GAP など)</li>
       <li><a href="../gate-size-40px-migration.html">gate-size-40px-migration.html</a> — 40px ゲートへの移行記録 (32→40 / 48→56 ピッチの経緯)</li>
       <li><a href="../../AGENTS.md">AGENTS.md</a> — UI / スタイルガイド (スケール外余白の禁止)</li>
     </ul>

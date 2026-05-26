@@ -98,7 +98,7 @@
       line-height: 20px;
     }
 
-    /* QFT 本体 / 字形 / リサイズハンドルは components/qft-gate.js の <qft-gate> に集約する。 */
+    /* QFT 本体 / 字形 / リサイズハンドルは本仕様ページのモックで確認する。 */
 
     .span-mock {
       position: relative;
@@ -154,7 +154,7 @@
   <p class="page-lede">
     指定した作用範囲に量子フーリエ変換を適用するゲート。span = 1 では H と同じ作用に縮退し、span &gt; 1 では複数量子ビットゲートとして周期性や位相推定の回路で使う。
     共通クロムは <a href="gate-chrome.html">gate-chrome.html</a> を正とし、本ページでは QFT 固有の意味論、
-    <code>apps/web/assets/icons/qft.svg</code> 由来の SVG path、QFT としての設計判断だけを定義する。
+    QFT としての SVG path と設計判断だけを定義する。
   </p>
 </div>
 
@@ -235,7 +235,7 @@
     <table class="spec">
       <tbody>
         <tr><th>表記</th><td>QFT グリフ</td></tr>
-        <tr><th>実体</th><td><code>apps/web/assets/icons/qft.svg</code> 由来の SVG path を <code>components/qft-gate.js</code> の <code>&lt;qft-gate&gt;</code> に集約する。</td></tr>
+        <tr><th>字形基準</th><td>SVG path。</td></tr>
         <tr><th>viewBox</th><td><code>0 0 48 48</code>。字形用の正方形座標系。光学パディングを含む。</td></tr>
         <tr><th>配置</th><td>水平・垂直ともに光学センター。CSS 側のテキスト中央寄せには依存しない。</td></tr>
         <tr><th>字形設計</th><td>Q / F / T の 3 文字を 1 つのまとまりとして扱う。span が変わっても字形の大きさは変えず、中央に置く。</td></tr>
@@ -268,7 +268,7 @@
     <table class="spec">
       <tbody>
         <tr><th>作用範囲</th><td><code>span ≥ 1</code>。連続するワイヤ範囲を 1 つの本体で覆う。</td></tr>
-        <tr><th>本体高さ</th><td>現行実装では <code>56·span − 16 px</code>。共通ピッチの正は <a href="gate-chrome.html">gate-chrome.html</a>、span による高さ計算は本ページを正とする。</td></tr>
+        <tr><th>本体高さ</th><td><code>56·span − 16 px</code>。共通ピッチの正は <a href="gate-chrome.html">gate-chrome.html</a>、span による高さ計算は本ページを正とする。</td></tr>
         <tr><th>変換</th><td><code>|x⟩ → 1/√N Σ<sub>y=0</sub><sup>N−1</sup> exp(2πi xy/N)|y⟩</code>。ここで <code>N = 2<sup>span</sup></code>。</td></tr>
         <tr><th>span = 1</th><td><code>QFT(1) ≡ H</code>。プレビューではこの縮退ケースも表示できるが、主な用途は span を伸ばした複数量子ビット変換。</td></tr>
         <tr><th>リサイズ</th><td>ホバー / ドラッグ時は上下のリサイズハンドルを表示し、作用範囲を伸縮できることを示す。</td></tr>
@@ -326,7 +326,7 @@
         </tr>
         <tr>
           <td><a href="gate-palette.html">Gate palette</a></td>
-          <td>パレット上と回路上の QFT ゲートで <code>&lt;qft-gate&gt;</code> を共有する。</td>
+          <td>パレット上と回路上の QFT ゲートで同じ字形・線幅・色を使う。</td>
         </tr>
         <tr>
           <td><a href="qft-dagger-gate.html">QFT† ゲート</a></td>
