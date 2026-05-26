@@ -20,8 +20,10 @@ use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
+use super::amplitude_circle_popover as amplitude_popover;
 use super::hover_frame::hover_frame_corner_radius;
 use super::popover::{self, PopoverPlacement, PopoverTail};
+use super::state_panel_popup::{draw_amplitude_icon, draw_phase_icon, draw_probability_icon};
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
@@ -44,13 +46,9 @@ fn probability_hover_popup_subtitle(outcome: u32) -> String {
     format!("Probability if measured · k = {outcome}")
 }
 
-fn amplitude_hover_popup_ket(outcome: u32, span: usize) -> String {
+fn amplitude_hover_popup_header(outcome: u32, span: usize) -> String {
     let width = span.clamp(1, 16);
-    format!("|{outcome:0width$b}⟩")
-}
-
-fn amplitude_hover_popup_subtitle(outcome: u32) -> String {
-    format!("Amplitude · k = {outcome}")
+    format!("|{outcome:0width$b}⟩ decimal {outcome}")
 }
 
 fn bloch_hover_popup_title() -> &'static str {
@@ -689,121 +687,72 @@ impl QniApp {
         };
         let span = gate.span.clamp(1, 16);
         let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
-        let grid_rect = amplitude_grid_rect(gate_rect, span);
-        let (cols, rows) = amplitude_grid_dims(span);
-        let cell = grid_rect.width() / cols as f32;
-        let outcome_usize = outcome as usize;
-        if outcome_usize >= cols * rows {
+        let Some((circle_center, circle_radius)) = amplitude_hover_circle(gate_rect, span, outcome)
+        else {
             return;
-        }
-        let row = outcome_usize / cols;
-        let row_top = grid_rect.top() + row as f32 * cell;
-        let ket = amplitude_hover_popup_ket(outcome, span);
-        let subtitle = amplitude_hover_popup_subtitle(outcome);
+        };
 
-        // Popup typography follows docs/design-system/amplitude-display.html §09:
-        // text-sm ket, text-xs subtitle/labels, Tailwind 4px spacing scale.
-        let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
-        let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
-        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
-        let ket_galley = painter.layout_no_wrap(ket, ket_font, colors.text_strong);
-        let subtitle_galley = painter.layout_no_wrap(subtitle, subtitle_font, colors.text);
-        let val_label_galley =
-            painter.layout_no_wrap("VAL".to_owned(), label_font.clone(), colors.text);
-        let mag_label_galley =
-            painter.layout_no_wrap("MAG²".to_owned(), label_font.clone(), colors.text);
-        let phase_label_galley =
-            painter.layout_no_wrap("PHASE".to_owned(), label_font, colors.text);
-
-        let pad_x = 16.0; // spacing-4.
-        let pad_y = 12.0; // spacing-3.
-        let subtitle_gap = 4.0; // spacing-1.
-        let divider_gap = 12.0; // spacing-3.
-        let row_gap = 16.0; // spacing-4.
-        let value_chars = 18.0; // Matches WGSL CHARS_PER_ROW.
-        let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
-        let value_h = POPUP_GLYPH_CELL_H as f32;
-        let value_pitch = 20.0; // text-sm default line-height = 20px.
-        let label_w = 44.0_f32
-            .max(val_label_galley.size().x)
-            .max(mag_label_galley.size().x)
-            .max(phase_label_galley.size().x);
-        let row_w = label_w + row_gap + value_w;
-        let content_w = ket_galley.size().x.max(subtitle_galley.size().x).max(row_w);
-        let width = content_w + pad_x * 2.0;
-        let ket_h = ket_galley.size().y.max(16.0);
-        let subtitle_h = subtitle_galley.size().y.max(16.0);
-        let height = pad_y * 2.0
-            + ket_h
-            + subtitle_gap
-            + subtitle_h
-            + divider_gap
-            + 1.0
-            + divider_gap
-            + value_h
-            + 4.0
-            + value_h
-            + 4.0
-            + value_h;
-        let placement =
-            probability_hover_popup_placement(gate_rect, row_top, cell, width, height, screen_rect);
+        // docs/design-system/amplitude-circle-popover.html: state-vector panel
+        // amplitude-circle popover is canonical. CPU paints only fixed chrome,
+        // labels, and icons; all numeric values are rendered by WebGPU from the
+        // Amplitude Display storage buffers without production readback.
+        let header = amplitude_hover_popup_header(outcome, span);
+        let header_font = egui::FontId::monospace(14.0); // text-sm = 14px.
+        let body_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let height = amplitude_popover::height();
+        let placement = amplitude_hover_popup_placement(
+            circle_center,
+            circle_radius,
+            amplitude_popover::WIDTH,
+            height,
+            screen_rect,
+        );
         let rect = placement.rect;
         popover::paint_popover(painter, colors, placement);
 
-        let ket_pos = egui::pos2(
-            rect.center().x - ket_galley.size().x * 0.5,
-            rect.top() + pad_y,
-        );
-        let subtitle_pos = egui::pos2(rect.left() + pad_x, ket_pos.y + ket_h + subtitle_gap);
-        let divider_y = subtitle_pos.y + subtitle_h + divider_gap;
-        let row0_y = divider_y + 1.0 + divider_gap;
-        let row1_y = row0_y + value_pitch;
-        let row2_y = row1_y + value_pitch;
-        painter.galley(ket_pos, ket_galley, colors.text_strong);
-        painter.galley(subtitle_pos, subtitle_galley, colors.text);
-        painter.rect_filled(
-            egui::Rect::from_min_size(
-                egui::pos2(rect.left() + pad_x, divider_y),
-                egui::vec2(rect.width() - pad_x * 2.0, 1.0),
-            ),
-            egui::CornerRadius::ZERO,
-            colors.line,
+        let header_pos = amplitude_popover::header_pos(rect);
+        painter.text(
+            header_pos,
+            egui::Align2::LEFT_TOP,
+            header,
+            header_font,
+            colors.text_strong,
         );
 
-        let label_x = rect.left() + pad_x;
-        let value_x = rect.right() - pad_x - value_w;
-        painter.galley(
-            egui::pos2(label_x, row0_y + 2.0),
-            val_label_galley,
-            colors.text,
-        );
-        painter.galley(
-            egui::pos2(label_x, row1_y + 2.0),
-            mag_label_galley,
-            colors.text,
-        );
-        painter.galley(
-            egui::pos2(label_x, row2_y + 2.0),
-            phase_label_galley,
-            colors.text,
-        );
+        let icon_accent = colors.popup_icon;
+        let icon_chrome = colors.popup_icon_chrome;
+        let labels = ["Amplitude:", "Probability:", "Phase:"];
+        for (row, label) in labels.iter().enumerate() {
+            let icon_rect = amplitude_popover::icon_rect(rect, row);
+            match row {
+                0 => draw_amplitude_icon(painter, icon_rect, icon_chrome, icon_accent),
+                1 => draw_probability_icon(painter, icon_rect, icon_chrome, icon_accent),
+                _ => draw_phase_icon(painter, icon_rect, icon_chrome, icon_accent),
+            }
+            painter.text(
+                amplitude_popover::label_pos(rect, row),
+                egui::Align2::LEFT_TOP,
+                *label,
+                body_font.clone(),
+                colors.text,
+            );
+        }
 
-        let value_anchor = egui::pos2(value_x, row0_y + 2.0);
+        let value_anchor = amplitude_popover::value_anchor(rect);
+        let value_h = POPUP_GLYPH_CELL_H as f32;
         let callback = AmplitudePopupValueCallback {
             viewport_min: [screen_rect.min.x, screen_rect.min.y],
             viewport_size: [screen_rect.width(), screen_rect.height()],
             value_anchor: [value_anchor.x, value_anchor.y],
-            row_pitch: value_pitch,
+            row_pitch: amplitude_popover::ROW_H,
             char_size: [POPUP_GLYPH_CELL_W as f32, value_h],
             text_color: colors.text_strong.to_normalized_gamma_f32(),
+            muted_text_color: colors.text.to_normalized_gamma_f32(),
             slot,
             outcome,
         };
         let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
-        let value_clip = egui::Rect::from_min_size(
-            value_anchor,
-            egui::vec2(value_w, value_pitch * 2.0 + value_h),
-        );
+        let value_clip = amplitude_popover::value_clip_rect(value_anchor);
         painter
             .with_clip_rect(value_clip.intersect(rect.shrink(4.0)))
             .add(egui::Shape::Callback(paint_callback));
@@ -947,6 +896,57 @@ impl QniApp {
             .with_clip_rect(value_clip.intersect(rect.shrink(4.0)))
             .add(egui::Shape::Callback(paint_callback));
     }
+}
+
+fn amplitude_hover_circle(
+    gate_rect: egui::Rect,
+    span: usize,
+    outcome: u32,
+) -> Option<(egui::Pos2, f32)> {
+    let grid_rect = amplitude_grid_rect(gate_rect, span);
+    let (cols, rows) = amplitude_grid_dims(span);
+    let outcome = outcome as usize;
+    if outcome >= cols * rows {
+        return None;
+    }
+    let cell = grid_rect.width() / cols as f32;
+    let col = outcome % cols;
+    let row = outcome / cols;
+    let center = egui::pos2(
+        grid_rect.left() + (col as f32 + 0.5) * cell,
+        grid_rect.top() + (row as f32 + 0.5) * cell,
+    );
+    Some((center, amplitude_popover::outline_radius_for_cell(cell)))
+}
+
+fn amplitude_hover_popup_placement(
+    circle_center: egui::Pos2,
+    circle_radius: f32,
+    width: f32,
+    height: f32,
+    screen_rect: egui::Rect,
+) -> PopoverPlacement {
+    let size = egui::vec2(width, height);
+    let above_top =
+        circle_center.y - circle_radius - popover::ANCHOR_GAP - popover::TAIL_H - height;
+    let min_top = screen_rect.top() + popover::VIEWPORT_PAD;
+    let prefer_above = above_top >= min_top;
+    let top = if prefer_above {
+        above_top
+    } else {
+        circle_center.y + circle_radius + popover::ANCHOR_GAP + popover::TAIL_H
+    };
+    let rect = amplitude_popover::clamp_horizontally_to_bounds(
+        egui::Rect::from_min_size(egui::pos2(circle_center.x - width * 0.5, top), size),
+        screen_rect,
+    );
+
+    let tail = if prefer_above {
+        PopoverTail::on_bottom_edge(rect, circle_center.x)
+    } else {
+        PopoverTail::on_top_edge(rect, circle_center.x)
+    };
+    PopoverPlacement { rect, tail }
 }
 
 fn bloch_hover_popup_placement(
@@ -1145,5 +1145,41 @@ mod tests {
         );
 
         assert_eq!(placement.rect.left(), 4.0);
+    }
+
+    #[test]
+    fn amplitude_hover_popup_header_matches_spec() {
+        assert_eq!(
+            super::amplitude_hover_popup_header(3, 4),
+            "|0011⟩ decimal 3"
+        );
+    }
+
+    #[test]
+    fn amplitude_hover_popup_prefers_above_with_spec_gap() {
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let placement = super::amplitude_hover_popup_placement(
+            egui::pos2(200.0, 220.0),
+            16.0,
+            296.0,
+            108.0,
+            screen_rect,
+        );
+
+        assert_eq!(placement.rect.bottom(), 192.0);
+    }
+
+    #[test]
+    fn amplitude_hover_popup_flips_below_near_viewport_top() {
+        let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let placement = super::amplitude_hover_popup_placement(
+            egui::pos2(200.0, 24.0),
+            16.0,
+            296.0,
+            108.0,
+            screen_rect,
+        );
+
+        assert_eq!(placement.rect.top(), 52.0);
     }
 }

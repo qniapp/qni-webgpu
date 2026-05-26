@@ -568,28 +568,53 @@ test.describe('Amplitude Display', () => {
     expect(pixelRgbDistance(samples.hostFrame, AMPLITUDE_HOVER_RING)).toBeLessThanOrEqual(40)
   })
 
-  test('Amps1 popup uses the shared popover tail outline', async ({ page }) => {
+  test('Amps1 popup uses the shared top popover tail outline', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
-    const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + UI_CONSTANTS.SLOT_SPACING - GATE_SIZE / 2
-    const gateRight = gateLeft + UI_CONSTANTS.SLOT_SPACING + GATE_SIZE
-    const tailApexX = gateRight + 4
-    await page.mouse.move(EGUI_PANEL_MARGIN + amplitudeCellCenterX(1, 0), LINE_Y)
+    const circleCenterX = EGUI_PANEL_MARGIN + amplitudeCellCenterX(1, 0)
+    const circleRadius = GATE_SIZE / 2 - 1 - 1.5
+    const tailApexY = LINE_Y - circleRadius - 4
+    await page.mouse.move(circleCenterX, LINE_Y)
     await page.waitForTimeout(150)
 
     const points = []
-    for (let x = 0; x <= 8; x += 1) {
-      for (let y = -8; y <= 8; y += 1) {
-        points.push({ name: `tail${x}_${y}`, x: tailApexX + x, y: LINE_Y + y })
+    for (let x = -8; x <= 8; x += 1) {
+      for (let y = 0; y <= 8; y += 1) {
+        points.push({ name: `tail${x}_${y}`, x: circleCenterX + x, y: tailApexY + y })
       }
     }
     const pixels = await sampleCanvasPixels(page, canvas, points)
     const outlinePixels = Object.values(pixels).filter((pixel) => pixelRgbDistance(pixel, FLEXOKI_TX_3) <= 70).length
 
     expect(outlinePixels).toBeGreaterThanOrEqual(12)
+  })
+
+  test('Amps1 popup paints canonical header and metric rows', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await waitForAmplitudeCell(page, 2, 0)
+
+    const canvas = page.locator('#egui-canvas')
+    const circleCenterX = EGUI_PANEL_MARGIN + amplitudeCellCenterX(1, 0)
+    const circleRadius = GATE_SIZE / 2 - 1 - 1.5
+    const popupLeft = circleCenterX - 296 / 2
+    const popupTop = LINE_Y - circleRadius - 4 - 8 - 108
+    await page.mouse.move(circleCenterX, LINE_Y)
+    await page.waitForTimeout(150)
+
+    const points = []
+    for (let x = 16; x <= 276; x += 4) {
+      for (let y = 12; y <= 92; y += 3) {
+        points.push({ name: `content${x}_${y}`, x: popupLeft + x, y: popupTop + y })
+      }
+    }
+    const pixels = await sampleCanvasPixels(page, canvas, points)
+    const contentInk = Object.values(pixels).filter(([r, g, b]) => r < 130 && g < 130 && b < 130).length
+
+    expect(contentInk).toBeGreaterThanOrEqual(45)
   })
 
   test('Amps10 keeps tiny non-zero amplitudes on the non-zero outline color', async ({ page }) => {

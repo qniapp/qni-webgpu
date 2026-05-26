@@ -16,61 +16,9 @@
   <script src="components/amplitude-display.js"></script>
   <style>
 
-    /* 振幅表示ブロック本体 / canvas 描画処理 / ポップアップ / リサイズハンドルの
-       見た目をこの仕様ページ内で確認する。
-       § 08 の常時表示ポップアップ見本だけは、内容比較のため light DOM に静的表示する。 */
-
-    .ad-static-popup {
-      display: inline-block;
-      background: var(--bg);
-      border: 1px solid var(--tx-3); /* popover_outline: Flexoki tx-3 */
-      border-radius: 10px;
-      padding: 12px 16px;            /* spacing-3 / spacing-4 */
-      font-family: var(--font-body);
-      font-size: 12px;               /* text-xs */
-      line-height: 16px;
-      color: var(--tx);
-      white-space: nowrap;
-      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
-    }
-    .ad-static-popup .ad-popup-ket {
-      font-family: var(--font-mono);
-      font-size: 14px;               /* text-sm */
-      font-weight: 400;
-      letter-spacing: 0.02em;
-      color: var(--tx);
-      text-align: center;
-    }
-    .ad-static-popup .ad-popup-sub {
-      font-size: 12px;               /* text-xs */
-      margin-top: 4px;               /* spacing-1 */
-      color: var(--tx-2);
-    }
-    .ad-static-popup .ad-popup-divider {
-      height: 1px;
-      background: var(--ui-2);
-      margin: 12px 0;                /* spacing-3 */
-    }
-    .ad-static-popup .ad-popup-row {
-      display: flex;
-      gap: 16px;                     /* spacing-4 */
-      align-items: baseline;
-      font-family: var(--font-mono);
-    }
-    .ad-static-popup .ad-popup-row + .ad-popup-row { margin-top: 4px; }
-    .ad-static-popup .ad-popup-label {
-      font-size: 12px;               /* text-xs */
-      color: var(--tx-2);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      min-width: 40px;
-    }
-    .ad-static-popup .ad-popup-value {
-      font-size: 14px;               /* text-sm */
-      color: var(--tx);
-      font-variant-numeric: tabular-nums;
-      margin-left: auto;
-    }
+    /* 振幅表示ブロック本体 / canvas 描画処理 / ポップオーバー / リサイズハンドルは
+       components/amplitude-display.js の <amplitude-display> に集約する。
+       振幅円ポップオーバーの内容仕様は amplitude-circle-popover.html に分離する。 */
 
     .stage {
       display: flex; gap: 24px; align-items: flex-start;
@@ -197,9 +145,9 @@
       <tbody>
         <tr><th>位相パターン、干渉、複素振幅そのもの</th><td><strong>振幅表示ブロック</strong></td><td>針の向きで位相を追える。円盤の面積で確率も同時に読めるため、QFT や位相回転後の状態を観察しやすい。</td></tr>
         <tr><th>大きな span の確率分布形状</th><td><strong>確率表示ブロック</strong></td><td>線形バーは幅 40 px のまま縦方向に圧縮できる。span 12〜16 のようにセルが極小になる場合、位相より分布の山谷を読む用途に向く。</td></tr>
-        <tr><th>1 セルの正確な複素値</th><td><strong>振幅表示ブロック</strong></td><td>ポップアップで <code>val</code> / <code>mag²</code> / <code>phase</code> を同時に確認できる。</td></tr>
-        <tr><th>測定確率だけを数値で確認</th><td><strong>確率表示ブロック</strong></td><td>ポップアップが <code>raw</code> / <code>log</code> に絞られ、位相情報を読ませない。確率だけを確認する作業では情報密度が低くて済む。</td></tr>
-        <tr><th>span 外とのもつれを見つける</th><td><strong>密度行列表示ブロック</strong></td><td>振幅表示ブロックは incoherent state で確率表示へ退避する。混合性や非対角成分を見たい場合は密度行列表示ブロックを使う。</td></tr>
+        <tr><th>1 セルの正確な複素値</th><td><strong>振幅表示ブロック</strong></td><td>ポップオーバーで <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> を状態ベクトルパネルと同じ行構成で確認できる。</td></tr>
+        <tr><th>測定確率だけを数値で確認</th><td><strong>確率表示ブロック</strong></td><td>ポップオーバーが確率値に絞られ、位相情報を読ませない。確率だけを確認する作業では情報密度が低くて済む。</td></tr>
+        <tr><th>span 外とのもつれを見つける</th><td><strong>密度行列表示ブロック</strong></td><td>振幅表示ブロックは非コヒーレント状態で確率だけを表示し、ポップオーバーも 3 行構造を維持する。混合性や非対角成分を見たい場合は密度行列表示ブロックを使う。</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 16px;">
@@ -217,7 +165,7 @@
       span を <strong>1〜16 (上限)</strong> 全部並べた参考レンダリング。測定結果数 <code>n = 2<sup>span</sup></code> を
       <strong>w × h</strong> グリッド (<code>w = n === 2 ? 2 : 1 &lt;&lt; floor(log<sub>2</sub>(n)/2)</code>) に配置する。
       <strong>位相の原点 (needle の向き) は state panel と同じ「<code>phase = 0</code> = 真上」</strong> (cell 中心からの方向 = <code>(−sin(phase), −cos(phase))</code>)。
-      各セルにマウスを乗せると、coherent では ket / val / mag² / phase、incoherent では ket / raw / log をポップアップ表示する (詳細は § 08)。
+      各セルにマウスを乗せると、状態ベクトルパネルと同じ <code>|bin(k)⟩ decimal k</code> / <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> のポップオーバーを表示する (詳細は § 08)。
       cell 寸法 (<code>cellPx</code>) が小さくなるにつれてレイヤを段階的に省略する。閾値 (§ 06 参照): <strong><code>cellPx ≥ 12</code> = needle + outline + disk / <code>cellPx ∈ [3, 12)</code> = outline + disk (disk は半径閾値を満たすセルのみ) / <code>cellPx &lt; 3</code> = heatmap</strong>。cell 間の区切り線は描かず、matrix 全体の外枠だけを描く。
       本番の cellPx は § 05 表参照、span 16 でも最小 3 px なので heatmap は本番では発生しない。ただし cellPx ≈ 3 では § 06 の半径式により円盤半径が 0 に近づくため、円は点状または外枠だけに近い表示になる。
       下のモックは表示の都合で 320 px に縮小しているので、モックでは span 13〜16 が cellPx ≤ 2 となりヒートマップモードに入る。
@@ -295,8 +243,8 @@
         色相は drag/hover で使う濃い紫よりさらに淡くして、「進行中アクション」と「結果待ちの静止状態」を区別する。</li>
       <li><strong>outline 円</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレー。<em>これは「振幅 ≈ 0」のときの既存配色 (state panel <code>state_outline_zero</code>) と同じ token を流用する</em>ので、追加の色定義は不要。stroke 太さ・半径は通常時と同じルール (<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>)。</li>
       <li><strong>disk / needle</strong> — 描かない。振幅値そのものを持たないので、disk (大きさ) も needle (位相) も意味を持たない。</li>
-      <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「表示ブロックとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は cell 単位 popup を出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
+      <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前は cell 単位のポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー outline) を 150 ms ease-out でフェードアウトしつつ、通常の disk + needle 描画にクロスフェードする。フェード中は cellPx の判定 (§ 06) も通常通り適用する。</li>
     </ul>
     <div class="stage">
@@ -322,7 +270,7 @@
       <strong>単一 cell (1×1)</strong> に <code>mag² ≈ 50%</code> の disk + 右下向き needle (<code>phase = 5π/4</code>) で
       <strong>Qni の "Q" 風シルエット</strong>を作る (円胴 + 右下に伸びるテール)。
       matrix の四角い外枠は描かず、円胴 + 右下テールだけを表示する。
-      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップアップは出さない)。
+      ホバー時は外側のホバー枠だけ表示 (静的なので個別 cell ポップオーバーは出さない)。
     </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
@@ -526,8 +474,8 @@
       <li>matrix は <code>ket</code> ではなく <code>incoherentKet = sqrt(reduced_diag)</code> (実数のみ) を描く</li>
       <li>outline 円は通常通り描く (情報量を保持)、disk は <strong>alpha 0.45 で薄塗り</strong>「振幅未定義 / 確率のみ」を示す</li>
       <li>phase needle は描かない (虚部が無いので位相は 0、線が意味を持たない)</li>
-      <li>本体下に "incoherent" を <code>red-600</code> でフェードイン (純粋度の低下に応じた透明度)</li>
-      <li>ホバー popup は § 08 と同じ <code>Probability · decimal N · [entangled with other qubits]</code> のサブ行と <code>raw % / log dB</code> のみ (val / phase は出さない)</li>
+      <li>ゲート下に "incoherent" を <code>red-600</code> でフェードイン (<code>1 − indicatorAlpha</code> 透明度)</li>
+      <li>ホバー時ポップオーバーは § 08 と同じ 3 行構造を維持し、<code>Amplitude:</code> と <code>Phase:</code> は <code>—</code>、<code>Probability:</code> だけに確率値を表示する</li>
     </ul>
     <h3 style="margin-top: 16px;">measure 済み列での挙動 (Quirk と仕様が異なる)</h3>
     <p>
@@ -543,46 +491,24 @@
   </div>
 </section>
 
-<!-- ─────── § 08 ホバーポップアップ ─────── -->
+<!-- ─────── § 08 ホバー時ポップオーバー ─────── -->
 <section class="block">
-  <h2>§ 08 ホバー時ポップアップ</h2>
+  <h2>§ 08 ホバー時ポップオーバー</h2>
   <div class="card">
     <p>
-      coherent は <code>val</code> / <code>mag²</code> / <code>phase</code> の 3 行、incoherent は <code>raw</code> / <code>log</code> の 2 行で表示し、外装は <a href="popover.html">ポップオーバー共通仕様</a> (paper / <code>popover_outline</code> / tail / 共通の影) に従う。
-      下の常時表示モックは値ラベルと行構成を見せるための内容見本で、tail と画面端反転は <code>popover.html</code> と § 02 の動くモックで検証する。
+      振幅表示ブロックのセルは、状態ベクトルパネルと同じ<a href="amplitude-circle.html">振幅円</a>を表示する。
+      そのため、ホバー時の内容、数値形式、三角形の近接配置は独立仕様
+      <a href="amplitude-circle-popover.html">振幅円ポップオーバー</a>を正とする。
+      本ページでは振幅表示ブロック側の前提と GPU 描画経路だけを補足する。
     </p>
-    <h3 style="margin-top: 8px;">coherent state</h3>
-    <div class="ad-static-popup">
-      <div class="ad-popup-ket">|01⟩</div>
-      <div class="ad-popup-sub">Amplitude · decimal 1</div>
-      <div class="ad-popup-divider"></div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">val</span>
-        <span class="ad-popup-value">0.500 +0.300i</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">mag²</span>
-        <span class="ad-popup-value">34.0000%</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">phase</span>
-        <span class="ad-popup-value">+30.96°</span>
-      </div>
-    </div>
-    <h3 style="margin-top: 16px;">incoherent state</h3>
-    <div class="ad-static-popup">
-      <div class="ad-popup-ket">|01⟩</div>
-      <div class="ad-popup-sub">Probability · decimal 1 · [entangled with other qubits]</div>
-      <div class="ad-popup-divider"></div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">raw</span>
-        <span class="ad-popup-value">25.0000%</span>
-      </div>
-      <div class="ad-popup-row">
-        <span class="ad-popup-label">log</span>
-        <span class="ad-popup-value">−6.0 dB</span>
-      </div>
-    </div>
+    <table class="spec" style="margin-top: 8px;">
+      <tbody>
+        <tr><th>内容仕様</th><td><a href="amplitude-circle-popover.html">振幅円ポップオーバー</a> § 02。<code>|bin(k)⟩ decimal k</code> 見出しと <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> の 3 行を使う。</td></tr>
+        <tr><th>配置仕様</th><td><a href="amplitude-circle-popover.html">振幅円ポップオーバー</a> § 03。対象セルの右側ではなく、対象の輪郭円を基準に上側へ近接配置する。</td></tr>
+        <tr><th>非コヒーレント状態</th><td>振幅と位相は <code>—</code>、確率だけを表示する。<code>raw</code> / <code>log</code> の 2 行カードへは切り替えない。</td></tr>
+        <tr><th>本番経路</th><td>値は GPU storage buffer から overlay shader で直接描画し、CPU へ読み戻さない。詳細は § 09 のポップオーバー描画メモを参照。</td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -601,6 +527,278 @@
       <li><strong>ポップアップ</strong> — coherent / incoherent の行構成は § 08 に従う。画面端では <a href="popover.html">ポップオーバー共通仕様</a> の反転・余白規則に従う。</li>
       <li><strong>検証</strong> — 代表 span、placeholder、incoherent、ホバー時ポップアップを Playwright とスナップショットで確認する。テスト用の on-demand 読み戻しは許容するが、本番 UI の毎フレーム経路には含めない。</li>
     </ul>
+    <p>
+      <strong>CPU は vertex バッファを作らない</strong>。ゲート配置 (cell サイズ) が変わったときに更新する vertex は <em>cell quad の四隅と uv だけ</em> (各セル fragment shader が cell index を知るための instance buffer 相当)。これは ゲート placement / resize 時だけ rebuild。
+    </p>
+
+    <h3 style="margin-top: 16px;">ポップオーバーの値も GPU 描画 (読み戻し無し、glyph atlas + overlay shader)</h3>
+    <p>
+      ホバー時ポップオーバーの数値 (<code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code>) は<strong>本番 UI 経路</strong>なので、GPU-only ルールに従い<strong>読み戻ししない</strong>。
+      外装、見出し、アイコン、固定ラベルは<a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>と同じクロムを使い、値だけを <em>glyph atlas + overlay render pass</em> で GPU 上から直接合成する。
+      非コヒーレント状態でも行構成は変えず、振幅と位相の値欄には <code>—</code> を描く。
+    </p>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">必要なリソース</h4>
+    <ul>
+      <li><strong><code>glyph_atlas: texture_2d</code></strong> — ASCII 数字 <code>0..9</code>、記号 <code>+ − . i %</code>、単位 <code>°</code>、未定義値の <code>—</code> を Geist Mono で焼く。ラベル文字は状態ベクトルセルと同じ固定描画でよい。</li>
+      <li><strong><code>amplitude_result</code></strong> — § 09 の compute pass 出力 storage buffer (<code>ket / incoherent_ket / quality / phase_lock_index</code>)。fragment shader は <code>quality &lt; 0.99</code> で <code>incoherent_ket</code> を読み、それ以外は <code>ket</code> を読む。</li>
+      <li><strong><code>popup_uniform: PopupRenderInput</code></strong> — ホバー中の測定結果 <code>hovered_k: u32</code>、ポップオーバー位置、三角形の向き、表示 / 非表示フラグ。ホバー判定は CPU が座標から <code>hovered_k</code> だけを渡し、値そのものは渡さない。</li>
+    </ul>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">overlay render pass</h4>
+    <p>
+      状態ベクトルセルと同じ 3 行の値欄を描く。非コヒーレント状態の確率は <code>incoherent_ket[k]²</code> を使い、振幅と位相は未定義記号にする:
+    </p>
+    <pre class="code">// fragment shader (popup overlay) — 3 行の値欄だけを GPU で描く
+@fragment
+fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt; {
+    if (popup.hovered_k == 0xffffffffu) { discard; }
+    let k: u32 = popup.hovered_k;
+    let q: f32 = amplitude_result.quality;
+
+    if (q &lt; 0.99) {
+        let sqrt_p: f32 = amplitude_result.incoherent_ket[k];
+        let prob: f32 = sqrt_p * sqrt_p;
+        return draw_three_value_rows(
+            uv,
+            format_dash(),
+            format_signed_percent(prob, 4u),
+            format_dash(),
+        );
+    }
+
+    let amp: vec2&lt;f32&gt; = amplitude_result.ket[k];
+    let prob: f32 = dot(amp, amp);
+    let phase_deg: f32 = atan2(amp.y, amp.x) * 180.0 / PI;
+    return draw_three_value_rows(
+        uv,
+        format_complex_signed(amp.x, amp.y, 5u),
+        format_signed_percent(prob, 4u),
+        format_signed_deg(phase_deg, 2u),
+    );
+}</pre>
+    <h4 style="margin: 12px 0 6px; font-size: 14px;">振幅円ポップオーバー仕様との共有</h4>
+    <ul>
+      <li><strong>外装と配置</strong> — <a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a> § 03 の配置を使い、三角形の先端を対象の輪郭円から <code>4 px</code> に保つ。</li>
+      <li><strong>固定ラベルとアイコン</strong> — <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> と 3 つのアイコンは同仕様 § 02 に従う。</li>
+      <li><strong>format helper</strong> — <code>format_complex_signed(re, im, 5)</code>、<code>format_signed_percent(prob, 4)</code>、<code>format_signed_deg(deg, 2)</code>、<code>format_dash()</code> を共有する。確率表示ブロック固有の dB 表示はここでは使わない。</li>
+    </ul>
+    <p class="note" style="margin-top: 8px;">
+      振幅表示ブロックのポップオーバーは、<a href="amplitude-circle-popover.html">振幅円ポップオーバー仕様</a>に「表示元が回路上のセルである」差分だけを足す。数値の本番描画は GPU storage buffer から直接行い、CPU への状態値読み戻しは導入しない。
+    </p>
+    <p class="note" style="margin-top: 12px;">
+      <strong>読み戻しはテスト専用 API に限定:</strong>
+      <code>read_amplitude_cell(gate_id, k)</code> は <code>#[wasm_bindgen]</code> で JS テストから呼ぶ async API として<strong>のみ</strong>提供
+      (Playwright で <code>Amplitude:</code> / <code>Probability:</code> / <code>Phase:</code> の正しさを確認する用途)。本番 UI 経路からは一切呼ばれない。
+      これは AGENTS.md の例外条項 (テストハーネス向けの on-demand readback) に該当。
+    </p>
+
+    <aside class="critique" aria-label="批評 · § 09 GPU パイプラインの 10 stage">
+      <div class="critique-label">★ 批評 · § 09 GPU パイプライン</div>
+      <div class="critique-title">10 stage の compute pass が「視覚仕様」と同じ階層に並んでいる</div>
+      <p class="critique-body">
+        本セクションは <code>AmplitudeCapture</code> uniform 定義 + 10 stage の compute pass 一覧 + phaseLockIndex 探索ロジック + render shader + glyph atlas / popup 仕様 を 1 ブロックに詰め込んでおり、
+        確率表示ブロック (probability-display.html) で同じ問題が「視覚仕様と実装仕様の二重責任」として全体所見で指摘されている。
+        本ページもまったく同じ構造を継承しているので、別途 <code>docs/design-system-architecture.html</code> や <code>docs/gpu-pipeline.html</code> (仮) に
+        compute pass 列 / capture uniform / phaseLock の数値ロジックを括り出すと、本仕様は「振幅<em>視覚</em>仕様」だけに集中できる。
+      </p>
+      <p class="critique-body">
+        現状の 10 stage 一覧は実装計画書としては優れているが、デザインシステムの 1 ページとしては<strong>読み終わるまでに 20 分以上かかる</strong>。
+        Codex / 人間が「振幅 disk の色を変えたい」と本ページを開いたとき、§ 02〜§ 08 のあとに § 09 の compute pass を読む必要はない。
+        セクション順序を <em>視覚仕様 (§ 01〜§ 08) → 設計判断 (§ 10) → 実装メモ (§ 09 + § 11) → 関連仕様 (§ 12)</em> に並べ替えると、視覚デザイナと実装者の読路が分離する。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">phaseLockIndex の「10000 倍ジャンプ」探索が量子状態に対しては保守的すぎる可能性</div>
+      <p class="critique-body">
+        Quirk の探索ロジック <code>m &gt; best * 10000</code> は<em>「明らかに大きい測定結果だけ採用、拮抗時は index 0 を保つ」</em>。
+        これは振幅が小数点 4 桁オーダーで揺らぐ場合に lock 先が安定するメリットがある一方、span が大きいときに「実質的な最大値」を見逃すケースが出る。
+        例えば span 8 の <code>QFT|001⟩</code> では全 256 測定結果が <code>mag² = 1/256 ≈ 0.39%</code> で均等になり、<code>best × 10000</code> 条件を満たす測定結果は存在せず lock index = 0 で固定される。
+        これは「均等位相分布では位相回転をしない」という意味になるが、ユーザは「lock index が真に最大の測定結果を指している」と期待する。
+        テスト計画 § 11 にこのケースが含まれているのは良いが、本セクションでは Quirk 互換であるという根拠だけで採用されている。<em>qni-webgpu 独自の制約 (cellPx ≥ 12 で needle が見える span 1〜8)</em>に対して最適化された探索ロジックを検討する余地はある (例: <code>m &gt; best × 1.1</code> など 10 % 程度の差で更新)。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 10 決定事項 ─────── -->
+<section class="block">
+  <h2>§ 10 決定事項 (実装前の固定値)</h2>
+  <div class="card">
+    <p>仕様策定中に検討した分岐は以下のとおり<strong>事前に決定</strong>済み。実装時はこの値で進める。</p>
+    <table class="spec">
+      <thead>
+        <tr><th>項目</th><th>決定値</th><th>根拠</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>span 上限</strong></td>
+          <td><code>16</code> 量子ビット</td>
+          <td>Quirk と同じ。確率表示ブロックも 16 なのでパレット内で揃う。<code>2<sup>16</sup> = 65 536</code> 振幅 (vec2&lt;f32&gt; で 512 KB) は WebGPU storage の許容範囲内</td>
+        </tr>
+        <tr>
+          <td><strong>位相エンコーディング</strong></td>
+          <td>線分 (needle、color = <code>tx</code>)</td>
+          <td>state panel と統一。HSV hue で cell 全体を色相回転させる選択肢は Flexoki トーンに馴染まないので不採用</td>
+        </tr>
+        <tr>
+          <td><strong>位相 0 の方向</strong></td>
+          <td>真上 (north)</td>
+          <td>state panel <code>cell_contribution()</code> の <code>dir = (-sin(phase), -cos(phase))</code> と一致。Quirk の「右」convention は不採用 (アプリ内 UI 一貫性優先)</td>
+        </tr>
+        <tr>
+          <td><strong>coherence threshold</strong></td>
+          <td><code>quality &lt; 0.99</code> で incoherent</td>
+          <td>Quirk 互換の初期値。固定不変ではなく、span / 回路深さ / WebGPU 実行環境ごとの実測で pure state の false-incoherent が出る場合は調整する (§ 07 参照)</td>
+        </tr>
+        <tr>
+          <td><strong>phaseLockIndex の選び方</strong></td>
+          <td>Quirk 互換「決定論的最大」 (<code>m &gt; best × 10000</code>)。<strong><code>span == total_qubits</code> のときは <code>phase_lock_enabled = 0</code> で disable し、sentinel <code>0xffffffff</code> を書いて θ=0 扱い</strong> (§ 07 / § 09 参照)</td>
+          <td>真の argmax は使わない (拮抗時に lock 先がチラつくため)、Quirk の安定化トリックをそのまま流用</td>
+        </tr>
+        <tr>
+          <td><strong>shader 構造</strong></td>
+          <td>段階的 reduce (Quirk の 6 stage を 10 compute pass に分解; § 09 参照)</td>
+          <td>確率表示ブロックと同じスタイル。読みやすく、各段で textureViews が独立して shader 再利用しやすい</td>
+        </tr>
+        <tr>
+          <td><strong>layer 合成順序</strong></td>
+          <td>frame → outline → disk → disk border → needle (cell ごとに上層が下層を覆う)</td>
+          <td>state panel の合成順序と同等の視覚結果。cell 間の区切り線は描かず、needle が最上層</td>
+        </tr>
+        <tr>
+          <td><strong>disk 境界線</strong></td>
+          <td><code>blue-400</code> inset 1 px stroke</td>
+          <td>確率表示ブロックのバー右端と同じ濃さ。inset で disk 面積は変わらない</td>
+        </tr>
+        <tr>
+          <td><strong>palette icon</strong></td>
+          <td>単一 cell (1×1)、mag² = 50%、phase = 5π/4 → 右下向き needle ("Q" 風)</td>
+          <td>パレットでの視認性 + Qni ブランドの "Q" シルエットを連想させる</td>
+        </tr>
+        <tr>
+          <td><strong>幅</strong></td>
+          <td>可変 (<code>(cols − 1) × SLOT_SPACING + GATE_SIZE = 56 × cols − 16</code> px、垂直公式と対称)</td>
+          <td>2D matrix の縦横バランス維持のため。fallback (40 px 固定 + 1 列縦並び) は採用しない (§ 05 参照)</td>
+        </tr>
+        <tr>
+          <td><strong>measure 列の挙動</strong></td>
+          <td>post-measure 振幅をそのまま表示</td>
+          <td>qni の lowering 順序に合わせる。Quirk の "deferred measurement" 風表示は再現しない (§ 07 参照)</td>
+        </tr>
+        <tr>
+          <td><strong>controls 統合</strong></td>
+          <td><code>AmplitudeCapture</code> uniform に <code>control_mask / control_value</code> を追加</td>
+          <td>1 uniform で完結、確率表示ブロックが将来 controls 対応する場合の参考実装にもなる (§ 09 参照)</td>
+        </tr>
+        <tr>
+          <td><strong>実行前プレースホルダ</strong></td>
+          <td>背景 <code>purple-100</code> (#ECE1F3) + outline 円 <code>ui-2</code> (#DAD8CE)。disk / needle は描かず外枠は通常通り。Run 直後に 150 ms ease-out でクロスフェード (§ 02「実行前プレースホルダ」参照)</td>
+          <td>紫系統で「未確定 / 結果待ち」を表現するデザインコンベンション (drag = <code>purple-600</code>、hover = <code>purple-400</code>) と整合。outline には既存 <code>state_outline_zero</code> token を流用し新規色は背景の 1 token のみ。実行前に真っ白の四角が出る既存挙動を解消する</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <aside class="critique" aria-label="批評 · § 10 決定事項の階層化と継承">
+      <div class="critique-label">★ 批評 · § 10 決定事項</div>
+      <div class="critique-title">13 項目が平等に並んでおり、「表示ブロック共通」と「振幅表示ブロック固有」が混在している</div>
+      <p class="critique-body">
+        h-gate.html § 07 の批評と同じ構造的問題が本ページにも当てはまる。13 項目は性質が次の 3 種類に分かれる:
+      </p>
+      <ul class="critique-list">
+        <li><strong>(a) 表示ブロック共通 (probability / bloch / amplitude / density で同じ判断)</strong>: 実行前プレースホルダ (<code>purple-100</code>) / shader 構造 (段階的 reduce) / nesting 禁止 / span 上限値の根拠 (Quirk 互換 + WebGPU storage 制約) など。</li>
+        <li><strong>(b) coherent state 系表示ブロック共通 (amplitude / density)</strong>: 位相エンコーディング (needle) / 位相 0 の方向 (真上) / layer 合成順序 (frame → outline → disk → disk border → needle) / disk 境界線 (blue-400 inset)。</li>
+        <li><strong>(c) 振幅表示ブロック固有</strong>: phaseLockIndex の選び方 / coherence threshold (<code>quality &lt; 0.99</code>) / measure 列の挙動 / controls 統合の uniform 設計。</li>
+      </ul>
+      <p class="critique-body">
+        改善案: (a) は「<em>表示ブロック共通の決定 → <a href="../design-system-architecture.html">design-system-architecture.html</a> 参照</em>」で 1 行に圧縮、
+        (b) は「<em>coherent state 表示ブロックの決定 → coherent-state-displays.html (仮) 参照</em>」で同じく 1 行、
+        (c) だけを本ページに残す。これで「H ページ vs Pauli ページ」と同じ階層化問題が、表示ブロック族でも同様に解決できる。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「決定事項」と「§ 02 / § 06 / § 07 / § 09 の本文」の二重メンテナンスが発生する</div>
+      <p class="critique-body">
+        例: 実行前プレースホルダの背景は § 02「実行前プレースホルダ」/ § 10「実行前プレースホルダ」/ コード内コメント (CSS の <code>PURPLE_100 = '#ECE1F3'</code>) の<strong>3 箇所</strong>に書かれている。
+        将来 <code>purple-100</code> を <code>purple-50</code> に変更したとき、3 箇所すべての更新を見落とすリスクがある。
+        改善案: § 10 を <em>「決定事項のショートカット参照表」</em>と位置付け、各セルに「§ 02 参照」「§ 06 参照」と本文へのリンクだけを置き、決定の<em>本文</em>は本文章 1 箇所だけに置く (「決定」と「説明」を分離)。
+        h-gate.html / probability-display.html も同じ構造の決定事項表を持つので、共通の改善方針として記録に残す価値がある。
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ─────── § 11 テスト計画 ─────── -->
+<section class="block">
+  <h2>§ 11 テスト計画 (受け入れ条件)</h2>
+  <div class="card">
+    <p>
+      本 PR でカバーすべき自動テストの最小セット。AGENTS.md の「1 テスト 1 アサーション」規約に従い、各箇条書きは観点であり、
+      実装時には 1 ケース 1 <code>assert_*</code> / 1 <code>expect</code> に分割する。
+    </p>
+    <ol>
+      <li><strong>URL round-trip (Amps1..16)</strong> (Rust, <code>#[test]</code> × 16) — span 1〜16 の各 <code>"Amps&lt;span&gt;"</code> token について、encode → decode → encode が原文に一致することを 1 case 1 <code>assert_eq!</code>。</li>
+      <li><strong>可変幅ゲート decode 後の slot index 不変</strong> (Rust, <code>#[test]</code> × 3) — span 3 / 4 / 16 を含む 2 列の JSON (例: <code>{"cols":[["Amps3"],["H"]]}</code>) を decode したとき、<strong>amplitude の slot index = 0、後続 "H" の slot index = 1</strong> であることを assert (shift / reserved なし、JSON col index = qni 内部 slot index)。</li>
+      <li><strong>配置の幾何衝突</strong> (Rust + Playwright, テスト × 4):
+        <ol>
+          <li>span 3 amplitude を slot 0 に配置済み (gate_rect 96 px 幅、slot 0..1 を視覚的に覆う)、slot 1 に他 gate を drop 試行 → 矩形交差で<strong>拒否</strong></li>
+          <li>同じ状況で slot 2 への drop は<strong>許可</strong></li>
+          <li>span 16 amplitude を slot 0 に配置済み (gate_rect 880 px、slot 0..15 を覆う)、slot 15 への drop → 拒否</li>
+          <li>span 16 amplitude、slot 16 への drop → 許可</li>
+        </ol>
+      </li>
+      <li><strong>known-state amplitude (GPU compute 正しさ)</strong> (Rust + GPU snapshot, <code>#[test]</code> × N):
+        <ol>
+          <li><strong>H q0 / 2 量子ビット 回路、span 1 amplitude on q0</strong> (<code>total_qubits = 2 &gt; span = 1</code> なので phase lock 有効) → ket = [1/√2, 1/√2]、quality ≈ 1.0、phaseLockIndex = 0</li>
+          <li><strong>QFT q0..q2 を <code>|001⟩</code> に適用 / 4 量子ビット 回路、span 3 amplitude on q0..q2</strong> (<code>total_qubits = 4 &gt; span = 3</code>) → raw ket[k] = (1/√8) e<sup>iπk/4</sup> (位相が 8 方向にランプ、全 mag² = 1/8 で等振幅)。<strong>phase lock は全成分を実数化しない</strong>: <code>m &gt; best × 10000</code> な決定論的最大は等振幅では更新条件を満たさず、<code>phaseLockIndex = 0</code> で確定する (k=0 の <code>θ_lock = 0</code>、他は元の位相のまま)。quality ≈ 1.0 を assert</li>
+          <li><strong>非 0 lock の確認</strong> (Rust, <code>#[test]</code>) — k=2 の振幅だけを圧倒的最大にした state (例: <code>|010⟩</code> 単独基底状態) を作り、<code>phaseLockIndex = 2</code> が選ばれて θ_lock = (k=2 の位相) で全成分が回転されることを assert</li>
+          <li><em>注</em>: <code>QFT|0⟩</code> は全成分が実数一様 (= (1/√8, 1/√8, …))、位相ランプは出ない。位相ランプを観測するには <code>|001⟩</code> 等の非基底零状態を入力にする (Quirk と同じ定義)</li>
+          <li><strong>span == total_qubits、phase lock 無効</strong> (例: 1 量子ビット 回路に H q0、span 1) → <code>phase_lock_enabled = 0</code>、<code>phaseLockIndex = 0xffffffff (sentinel)</code>、ket は正規化のみ (位相回転なし)、quality ≈ 1.0</li>
+          <li><strong>entangled (Bell state、span 1 だけ覗く)</strong> → <code>quality &lt; 0.99</code>、<code>incoherent_ket = sqrt(reduced diag)</code> を assert</li>
+        </ol>
+        各シナリオで読み出し API (<code>read_amplitude_cell</code>) を呼んで個別 測定結果を assert。
+      </li>
+      <li><strong>phase lock 無効ケース (span == total_qubits)</strong> (Rust, <code>#[test]</code> × 2):
+        <ol>
+          <li>span = total_qubits の amplitude で、AmplitudeCapture.phase_lock_enabled = 0 が set される</li>
+          <li>その状態で ket は正規化のみ (θ = 0)、原状態の位相が保持されている</li>
+        </ol>
+      </li>
+      <li><strong>controls 統合</strong> (Rust, <code>#[test]</code> × 3):
+        <ol>
+          <li><code>control_mask = 0</code> で無条件、全要素が集約対象</li>
+          <li><code>|1⟩</code> control で control_value bit が立っている state_index のみ採用</li>
+          <li><code>|0⟩</code> anti-control で control_value bit が 0 の state_index のみ採用</li>
+        </ol>
+      </li>
+      <li><strong>post-measure 挙動 (qni 仕様、Quirk と異なる)</strong> (Rust, <code>#[test]</code>) — span 内に measured wire を含む列で、display capture が collapse 後の古典化 amplitude を返すことを assert (Quirk の "deferred measurement" とは値が異なる、§ 07 で決定)。</li>
+      <li><strong>incoherent state 検出</strong> (Rust, <code>#[test]</code>) — span 外と entangled な span を仕掛けて、<code>quality &lt; 0.99</code> を assert、render shader が incoherent ket fallback を選ぶことを GPU snapshot で確認。</li>
+      <li><strong>GPU-only popup (readback 無し)</strong> (Playwright):
+        <ol>
+          <li>本番経路でホバーすると glyph overlay が表示されることを 1 expect</li>
+          <li>frame ごとに <code>read_amplitude_cell</code> が呼ばれていないことを mock spy で 1 assert (本番 UI 経路は readback 禁止の確認)</li>
+          <li>テスト専用 API <code>read_amplitude_cell(gate_id, k)</code> は async で動き、known-state で正しい値を返すことを 1 expect</li>
+        </ol>
+      </li>
+      <li><strong>visual snapshot (本番の代表的描画)</strong> (insta, <code>assert_snapshot!</code> × 4) — 本番 cellPx を反映して: span 1 (full detail、cellPx ~ 40) / span 8 (needle 残る、cellPx ~ 27) / span 12 (needle 省略、outline + disk、cellPx ~ 10) / span 16 (needle なし、heatmap なし、円 SDF 経路は維持するが outline / disk は § 06 の半径閾値に従い点状または外枠だけに近い、cellPx ~ 3) の各フレームを 1 枚ずつ snapshot。回帰検出用 (heatmap モードはモック限定なので本番スナップショットでは扱わない)。</li>
+    </ol>
+
+    <aside class="critique" aria-label="批評 · § 11 テスト計画の網羅性と粒度">
+      <div class="critique-label">★ 批評 · § 11 テスト計画</div>
+      <div class="critique-title">「視覚デザインの正しさ」を検証するテストが visual snapshot 1 種類だけ</div>
+      <p class="critique-body">
+        本仕様は GPU 計算の正しさ (known-state amplitude / Hermitian 性 / controls 統合 / phase lock 無効ケース) について豊富なテストを定義しているが、
+        <em>「振幅表示ブロックがデザイン仕様どおりに描かれているか」</em>を確認するテストは項目 10 の visual snapshot 4 枚だけ。
+        Flexoki Light 配色、cellPx 帯ごとのレイヤ抑制、incoherent 表現の alpha 0.45、phase 0 = 真上の方向、placeholder の <code>purple-100</code> 背景など、
+        本仕様の<em>視覚的</em>決定事項を直接テストする項目が無く、回帰検出が visual snapshot の人間レビューに依存している。
+      </p>
+      <p class="critique-body">
+        改善案: Playwright で本仕様ページ (<code>docs/design-system/amplitude-display.html</code>) 自体を開き、
+        モックの canvas をピクセル単位で読んで「指定 cell に <code>blue-200</code> (#92BFDB) が描かれている」「placeholder セルに <code>purple-100</code> (#ECE1F3) が描かれている」を assert するテストを追加する。
+        これは本仕様ページのモックが design-system.css / state.rs / amplitude-display.html の 3 者で一貫していることを継続的に検証する仕組みになる。
+        AGENTS.md にも「デザインを修正したあとは必ず Playwright で実際の見た目を確認する」とあるので、自動化された Playwright assertion で「視覚仕様」の回帰を検出するのは整合的。
+      </p>
+      <div class="critique-title" style="margin-top: 12px;">「1 ケース 1 アサーション」規約に対して visual snapshot 4 枚は過剰圧縮</div>
+      <p class="critique-body">
+        項目 10 は <em>「span 1 / span 8 / span 12 / span 16」</em>の 4 cellPx 帯を <strong>4 個の <code>assert_snapshot!</code></strong> で並べているが、それぞれの snapshot は full / needle 省略 / outline + disk / cellPx ≈ 3 の円 SDF + 半径閾値パスという 4 異なる描画パスを 1 枚に統合する。
+        snapshot が失敗したとき、原因が「cellPx 帯判定のバグ」なのか「個別レイヤ (outline / disk / needle) のバグ」なのか追跡しづらい。
+        AGENTS.md の「1 テスト 1 アサーション」規約に厳密に従うなら、cellPx 帯ごとに「outline が描かれているか」「disk が描かれているか」「needle が描かれているか」を別 case に分割する。snapshot ベースでこれを実現するなら、span 別 + レイヤ別の 12 枚程度に増やすほうが回帰原因の切り分けが容易。
+      </p>
+    </aside>
   </div>
 </section>
 

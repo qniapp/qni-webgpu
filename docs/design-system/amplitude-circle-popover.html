@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>振幅円ポップオーバー — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <script src="components/amplitude-circle.js"></script>
+  <style>
+    /* 振幅円ポップオーバー固有の内容と配置。外装の面 / 枠 / 影 / tail の原則は
+       popover.html を正とし、本ページでは振幅円を対象にする場合の内容と近接配置を定義する。 */
+
+    .acp-stage {
+      background: var(--bg-2);              /* Flexoki bg-2 */
+      border: 1px solid var(--ui-2);        /* Flexoki ui-2 */
+      border-radius: 12px;
+      padding: 24px;                        /* spacing-6 */
+      overflow: hidden;
+    }
+    .acp-demo {
+      position: relative;
+      width: 360px;
+      height: 208px;                         /* 108px popover + 8px tail + 4px gap + 40px cell + padding */
+      margin: 0 auto;
+    }
+    .acp-anchor-cell {
+      position: absolute;
+      left: 160px;
+      bottom: 18px;
+      width: 40px;                          /* spacing-10 */
+      height: 40px;
+      display: grid;
+      place-items: center;
+      background: var(--bg);                /* Flexoki bg */
+      border: 1px solid var(--ui-2);        /* Flexoki ui-2 */
+    }
+    .acp-popover {
+      position: absolute;
+      box-sizing: border-box;
+      left: 32px;                           /* (360 - 296) / 2 */
+      top: 24px;                            /* spacing-6 */
+      width: 296px;
+      min-height: 108px;
+      padding: 12px 16px;                   /* spacing-3 / spacing-4 */
+      border: 1px solid var(--tx-3);        /* Flexoki tx-3 */
+      border-radius: 10px;
+      background: var(--bg);                /* Flexoki bg */
+      color: var(--tx);                     /* Flexoki tx */
+      box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;
+      white-space: nowrap;
+    }
+    .acp-popover-title {
+      font-family: var(--font-mono);
+      font-size: 14px;                      /* text-sm */
+      line-height: 20px;
+      letter-spacing: 0.02em;
+      color: var(--tx);
+    }
+    .acp-popover-metrics {
+      margin-top: 8px;                      /* spacing-2 */
+    }
+    .acp-popover-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;                             /* spacing-2 */
+      height: 20px;                         /* spacing-5 */
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 20px;
+    }
+    .acp-popover-icon {
+      width: 16px;                          /* spacing-4 */
+      height: 16px;
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+    .acp-popover-icon__chrome {
+      fill: none;
+      stroke: var(--tx-3);                  /* Flexoki tx-3 */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .acp-popover-icon__chrome-fill {
+      fill: var(--tx-3);                    /* Flexoki tx-3 */
+    }
+    .acp-popover-icon__accent {
+      fill: none;
+      stroke: var(--blue-400);              /* Flexoki blue-400 */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .acp-popover-icon__accent-fill {
+      fill: var(--blue-400);                /* Flexoki blue-400 */
+    }
+    .acp-popover-label {
+      width: 88px;
+      color: var(--tx-2);                   /* Flexoki tx-2 */
+    }
+    .acp-popover-value {
+      color: var(--tx);                     /* Flexoki tx */
+      font-variant-numeric: tabular-nums;
+    }
+    .acp-popover-value--muted {
+      color: var(--tx-2);                   /* Flexoki tx-2 */
+    }
+    .acp-popover-tail {
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 16px;
+      height: 8px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .acp-popover-tail__fill {
+      fill: var(--bg);                      /* Flexoki bg */
+    }
+    .acp-popover-tail__stroke {
+      fill: none;
+      stroke: var(--tx-3);                  /* Flexoki tx-3 */
+      stroke-width: 1.5px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .acp-variants {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;                            /* spacing-6 */
+      align-items: flex-start;
+    }
+    .acp-variant {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;                             /* spacing-2 */
+      align-items: flex-start;
+    }
+    .acp-caption {
+      font-family: var(--font-mono);
+      font-size: 12px;                      /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);                   /* Flexoki tx-2 */
+    }
+
+    #preview {
+      width: 160px;
+      height: 72px;
+      background: var(--bg-2);              /* Flexoki bg-2 */
+    }
+    html.preview-mode #preview {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      padding: 0;
+    }
+    #preview .acp-preview-wrap {
+      position: relative;
+      width: 128px;
+      height: 64px;
+    }
+    #preview .acp-preview-popover {
+      position: absolute;
+      left: 8px;
+      top: 0;
+      width: 112px;
+      height: 36px;
+      border: 1px solid var(--tx-3);        /* Flexoki tx-3 */
+      border-radius: 10px;
+      background: var(--bg);                /* Flexoki bg */
+      box-shadow: 0 10px 18px rgba(16, 15, 15, 0.12);
+    }
+    #preview .acp-preview-popover::before,
+    #preview .acp-preview-popover::after {
+      content: '';
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      height: 3px;
+      border-radius: 9999px;
+      background: var(--ui-2);              /* Flexoki ui-2 */
+    }
+    #preview .acp-preview-popover::before { top: 10px; }
+    #preview .acp-preview-popover::after { top: 22px; width: 64px; }
+    #preview .acp-preview-tail {
+      position: absolute;
+      left: 56px;
+      bottom: -8px;
+      width: 16px;
+      height: 8px;
+      transform: translateX(-50%);
+    }
+    #preview .acp-preview-circle {
+      position: absolute;
+      left: 50px;
+      bottom: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 9999px;
+      background: var(--bg);                /* Flexoki bg */
+      border: 1px solid var(--tx-2);        /* Flexoki tx-2 */
+    }
+    #preview .acp-preview-circle::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-radius: 9999px;
+      background: var(--blue-200);          /* Flexoki blue-200 */
+      box-shadow: inset 0 0 0 1px var(--blue-400);
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview">
+  <div class="acp-preview-wrap" aria-hidden="true">
+    <div class="acp-preview-popover">
+      <svg class="acp-preview-tail" viewBox="0 0 16 8" focusable="false">
+        <path class="acp-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+        <path class="acp-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+      </svg>
+    </div>
+    <div class="acp-preview-circle"></div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">コンポーネント別ポップオーバー</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">振幅円ポップオーバー</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · component popover spec</p>
+  <h1 class="page-title">振幅円ポップオーバー</h1>
+  <p class="page-lede">
+    <a href="amplitude-circle.html">振幅円</a>をホバーしたときに表示する詳細情報カードの仕様。
+    状態ベクトルパネルと<a href="amplitude-display.html">振幅表示ブロック</a>の振幅円は同じ視覚部品なので、ポップオーバーの内容、数値形式、三角形の近さも同じにする。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 適用範囲</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>対象</th><td>状態ベクトルパネルの振幅円、振幅表示ブロックの各セル。どちらも同じ <code>|bin(k)⟩ decimal k</code> 見出しと 3 行値一覧を使う。</td></tr>
+        <tr><th>外装</th><td><a href="popover.html">ポップオーバー共通仕様</a>の面、枠、角丸、影、tail を使う。ここでは振幅円に結び付ける配置と内容だけを定義する。</td></tr>
+        <tr><th>非対象</th><td>確率表示ブロックの行詳細、密度行列表示ブロックのセル詳細、ブロッホ球表示ブロックのベクトル詳細。これらはそれぞれ独立したポップオーバー仕様を持つ。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 内容と数値形式</h2>
+  <div class="card">
+    <p>
+      見出しはホバー中の測定結果を最も強く示す。値は状態ベクトルパネルと同じ <strong>Amplitude:</strong> / <strong>Probability:</strong> / <strong>Phase:</strong> の 3 行に固定する。
+      <code>VAL</code> / <code>MAG²</code> / <code>PHASE</code> の省略ラベルや、<code>raw</code> / <code>log</code> だけの 2 行カードへは切り替えない。
+    </p>
+    <table class="spec" style="margin-top: 8px;">
+      <tbody>
+        <tr><th>見出し</th><td><code>|bin(k)⟩ decimal k</code>。Geist Mono <code>text-sm</code> (14 px / 20 px)。</td></tr>
+        <tr><th>Amplitude:</th><td><code>+0.70711+0.00000i</code>。実部と虚部を小数点以下 5 桁で表示し、符号を必ず付ける。</td></tr>
+        <tr><th>Probability:</th><td><code>+50.0000%</code>。<code>|amp|² × 100</code> を小数点以下 4 桁で表示し、符号を必ず付ける。</td></tr>
+        <tr><th>Phase:</th><td><code>+0.00°</code>。度数法で小数点以下 2 桁表示し、符号を必ず付ける。</td></tr>
+        <tr><th>非コヒーレント状態</th><td>行数と高さは変えない。振幅と位相は未定義なので <code>—</code>、確率だけを <strong>Probability:</strong> 行に表示する。</td></tr>
+      </tbody>
+    </table>
+
+    <div class="acp-variants" style="margin-top: 16px;">
+      <div class="acp-variant">
+        <div class="acp-caption">コヒーレント状態</div>
+        <div class="acp-popover" style="position: relative; left: auto; top: auto;">
+          <div class="acp-popover-title">|01⟩ decimal 1</div>
+          <div class="acp-popover-metrics">
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M1 13 H15 M3 1 V15" stroke-width="1.2"></path>
+                <circle class="acp-popover-icon__chrome-fill" cx="3" cy="13" r="1.4"></circle>
+                <path class="acp-popover-icon__accent" d="M3 13 L10.61 5.39" stroke-width="2.2"></path>
+                <path class="acp-popover-icon__accent-fill" d="M14 2 L7.92 3.27 L12.73 8.08 Z"></path>
+              </svg>
+              <span class="acp-popover-label">Amplitude:</span><span class="acp-popover-value">+0.50000+0.30000i</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle class="acp-popover-icon__chrome" cx="8" cy="8" r="6.4" stroke-width="2"></circle>
+                <circle class="acp-popover-icon__accent-fill" cx="8" cy="8" r="4"></circle>
+              </svg>
+              <span class="acp-popover-label">Probability:</span><span class="acp-popover-value">+34.0000%</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M2.5 12.6 H14.2 M2.5 12.6 L10.23 3.09" stroke-width="1.6"></path>
+                <path class="acp-popover-icon__accent" d="M6.02 8.95 L7.1 10.6 L7.9 12.95" stroke-width="2"></path>
+              </svg>
+              <span class="acp-popover-label">Phase:</span><span class="acp-popover-value">+30.96°</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acp-variant">
+        <div class="acp-caption">非コヒーレント状態</div>
+        <div class="acp-popover" style="position: relative; left: auto; top: auto;">
+          <div class="acp-popover-title">|01⟩ decimal 1</div>
+          <div class="acp-popover-metrics">
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M1 13 H15 M3 1 V15" stroke-width="1.2"></path>
+                <circle class="acp-popover-icon__chrome-fill" cx="3" cy="13" r="1.4"></circle>
+                <path class="acp-popover-icon__accent" d="M3 13 L10.61 5.39" stroke-width="2.2"></path>
+                <path class="acp-popover-icon__accent-fill" d="M14 2 L7.92 3.27 L12.73 8.08 Z"></path>
+              </svg>
+              <span class="acp-popover-label">Amplitude:</span><span class="acp-popover-value acp-popover-value--muted">—</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle class="acp-popover-icon__chrome" cx="8" cy="8" r="6.4" stroke-width="2"></circle>
+                <circle class="acp-popover-icon__accent-fill" cx="8" cy="8" r="4"></circle>
+              </svg>
+              <span class="acp-popover-label">Probability:</span><span class="acp-popover-value">+25.0000%</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M2.5 12.6 H14.2 M2.5 12.6 L10.23 3.09" stroke-width="1.6"></path>
+                <path class="acp-popover-icon__accent" d="M6.02 8.95 L7.1 10.6 L7.9 12.95" stroke-width="2"></path>
+              </svg>
+              <span class="acp-popover-label">Phase:</span><span class="acp-popover-value acp-popover-value--muted">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配置</h2>
+  <div class="card">
+    <p>
+      第 1 候補は対象の振幅円の上。ポップオーバー本体を円の中心に揃え、tail (三角形) の先端を輪郭円から <code>4 px</code> (spacing-1) だけ離す。
+      上に置けない場合だけ下へ反転する。左右に離して置く配置は採用しない。
+    </p>
+    <div class="acp-stage" style="margin-top: 12px;">
+      <div class="acp-demo" role="img" aria-label="振幅円の上に近接配置したポップオーバー">
+        <div class="acp-popover">
+          <div class="acp-popover-title">|1⟩ decimal 1</div>
+          <div class="acp-popover-metrics">
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M1 13 H15 M3 1 V15" stroke-width="1.2"></path>
+                <circle class="acp-popover-icon__chrome-fill" cx="3" cy="13" r="1.4"></circle>
+                <path class="acp-popover-icon__accent" d="M3 13 L10.61 5.39" stroke-width="2.2"></path>
+                <path class="acp-popover-icon__accent-fill" d="M14 2 L7.92 3.27 L12.73 8.08 Z"></path>
+              </svg>
+              <span class="acp-popover-label">Amplitude:</span><span class="acp-popover-value">+0.70711+0.00000i</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle class="acp-popover-icon__chrome" cx="8" cy="8" r="6.4" stroke-width="2"></circle>
+                <circle class="acp-popover-icon__accent-fill" cx="8" cy="8" r="4"></circle>
+              </svg>
+              <span class="acp-popover-label">Probability:</span><span class="acp-popover-value">+50.0000%</span>
+            </div>
+            <div class="acp-popover-row">
+              <svg class="acp-popover-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path class="acp-popover-icon__chrome" d="M2.5 12.6 H14.2 M2.5 12.6 L10.23 3.09" stroke-width="1.6"></path>
+                <path class="acp-popover-icon__accent" d="M6.02 8.95 L7.1 10.6 L7.9 12.95" stroke-width="2"></path>
+              </svg>
+              <span class="acp-popover-label">Phase:</span><span class="acp-popover-value">+0.00°</span>
+            </div>
+          </div>
+          <svg class="acp-popover-tail" viewBox="0 0 16 8" aria-hidden="true" focusable="false">
+            <path class="acp-popover-tail__fill" d="M0 0 L8 8 L16 0 Z"></path>
+            <path class="acp-popover-tail__stroke" d="M0 0 L8 8 L16 0"></path>
+          </svg>
+        </div>
+        <div class="acp-anchor-cell" aria-hidden="true">
+          <amplitude-circle size="40" mag="0.70711" phase="0"></amplitude-circle>
+        </div>
+      </div>
+    </div>
+    <table class="spec" style="margin-top: 16px;">
+      <tbody>
+        <tr><th>anchor gap</th><td>tail (三角形) の先端と輪郭円の距離は <code>4 px</code>。セル矩形ではなく、振幅円の輪郭円を基準にする。</td></tr>
+        <tr><th>水平位置</th><td>通常は振幅円中心に本体中央を揃える。画面端で本体を寄せる場合も、tail は可能な限り円中心へ向ける。</td></tr>
+        <tr><th>反転</th><td>上側に十分な空きが無い場合だけ、top tail で対象の下へ置く。左右配置は、確率表示ブロックの細い行のような対象に限定する。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 実装メモ</h2>
+  <div class="card">
+    <ul>
+      <li>本番 UI 経路では GPU 上の状態値を CPU へ読み戻さない。値欄は glyph atlas と overlay shader で GPU storage buffer から直接描画する。</li>
+      <li>固定ラベル、アイコン、外装は CPU 側のレイアウト情報として持ってよい。振幅値、確率値、位相値そのものを CPU へ渡して文字列化しない。</li>
+      <li>振幅表示ブロック側の動く仕様モックは <code>components/amplitude-display.js</code> にあり、本ページの内容・配置へ合わせる。</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../design-system.html">← デザインシステムに戻る</a></p>
+  <p class="meta">qni-webgpu · 振幅円ポップオーバー仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

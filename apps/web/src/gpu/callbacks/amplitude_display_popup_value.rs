@@ -12,6 +12,7 @@ pub(crate) struct AmplitudePopupValueCallback {
     pub(crate) row_pitch: f32,
     pub(crate) char_size: [f32; 2],
     pub(crate) text_color: [f32; 4],
+    pub(crate) muted_text_color: [f32; 4],
     pub(crate) slot: u32,
     pub(crate) outcome: u32,
 }
@@ -37,6 +38,7 @@ impl egui_wgpu::CallbackTrait for AmplitudePopupValueCallback {
             char_size: self.char_size,
             _pad_char: [0.0; 2],
             text_color: self.text_color,
+            muted_text_color: self.muted_text_color,
             slot: self.slot,
             outcome: self.outcome,
             _pad: [0; 2],
@@ -63,6 +65,6 @@ impl egui_wgpu::CallbackTrait for AmplitudePopupValueCallback {
         };
         render_pass.set_pipeline(&resources.amplitude.popup_value_pipeline);
         render_pass.set_bind_group(0, &resources.amplitude.popup_value_bind_group, &[]);
-        render_pass.draw(0..6, 0..1);
+        render_pass.draw(0..6, 0..3);
     }
 }
