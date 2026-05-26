@@ -1,10 +1,22 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
 const repoRoot = path.join(rootDir, '..', '..')
+
+const sha256 = async (filePath: string): Promise<string | null> => {
+  try {
+    return crypto.createHash('sha256').update(await fs.readFile(filePath)).digest('hex')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null
+    }
+    throw error
+  }
+}
 
 test('browser bootstrap source is TypeScript without a checked-in JavaScript wrapper', async () => {
   const accessOk = async (filePath: string): Promise<boolean> => fs.access(filePath).then(() => true, () => false)
@@ -43,6 +55,32 @@ test('browser bootstrap source is TypeScript without a checked-in JavaScript wra
     indexAvoidsCheckedInBootstrapTarget: true,
     indexUsesModuleScript: true,
     gitignoreIgnoresGeneratedBootstrap: true,
+  })
+})
+
+test('browser document advertises Qni favicon assets', async () => {
+  const index = await fs.readFile(path.join(rootDir, 'index.html'), 'utf8')
+
+  assert.deepEqual({
+    copiesFaviconIco: /data-trunk rel="copy-file" href="favicon\.ico"/.test(index),
+    copiesSvgIcon: /data-trunk rel="copy-file" href="icon\.svg"/.test(index),
+    copiesAppleTouchIcon: /data-trunk rel="copy-file" href="apple-touch-icon\.png"/.test(index),
+    linksFaviconIco: /<link rel="icon" href="favicon\.ico" type="image\/x-icon" \/>/.test(index),
+    linksSvgIcon: /<link rel="icon" href="icon\.svg" type="image\/svg\+xml" \/>/.test(index),
+    linksAppleTouchIcon: /<link rel="apple-touch-icon" href="apple-touch-icon\.png" \/>/.test(index),
+    faviconIcoSha256: await sha256(path.join(rootDir, 'favicon.ico')),
+    svgIconSha256: await sha256(path.join(rootDir, 'icon.svg')),
+    appleTouchIconSha256: await sha256(path.join(rootDir, 'apple-touch-icon.png')),
+  }, {
+    copiesFaviconIco: true,
+    copiesSvgIcon: true,
+    copiesAppleTouchIcon: true,
+    linksFaviconIco: true,
+    linksSvgIcon: true,
+    linksAppleTouchIcon: true,
+    faviconIcoSha256: 'f2c4bad949b0ec8860fd84b540c014d8745479889f42f67ecdd8e09b4c114ef9',
+    svgIconSha256: '3bfb62e31079261982c60dc4e7cfde47d96ab5ae5e10112379f60635ca028099',
+    appleTouchIconSha256: '411c6cee28330a09497f6d842d3ba774188439fb9ee9c66c5426fcc11800f095',
   })
 })
 
