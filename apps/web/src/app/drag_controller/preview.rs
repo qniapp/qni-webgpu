@@ -110,7 +110,7 @@ impl DragController {
             // GPU capture plan so every existing display block and the state
             // vector panel show the tentative circuit before drop.
             app.dragging_live_gpu_plan_touched = true;
-            app.gpu_plan.mark_dirty();
+            app.gpu_plan.mark_live_drag_dirty();
         }
     }
 }
