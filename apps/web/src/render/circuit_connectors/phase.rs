@@ -13,8 +13,8 @@ use super::draw_vertical_connector;
 
 pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = 12.0; // text-xs = 12px.
 pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = 16.0; // text-xs line-height = 16px.
-pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.0; // Prototype ::after bottom: 1px.
-                                                                     // The 16px label sits centered in a 17px row, so the 1px stroke center is 2px above row bottom.
+pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.5; // Prototype ::after bottom: 1px + 0.5px optical lift.
+                                                                     // The 16px label sits centered in a 17px row; lift the stroke center slightly while keeping it below text.
                                                                      // spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
                                                                      // the midpoint between the previous too-low +2px inset and too-high -2px gap.
 const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
@@ -491,7 +491,7 @@ mod tests {
             outline_with_background: false,
         };
 
-        assert_eq!(angle_underline_y(&label), 58.0);
+        assert_eq!(angle_underline_y(&label), 57.5);
     }
 
     #[test]
