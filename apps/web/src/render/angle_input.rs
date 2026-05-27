@@ -424,7 +424,7 @@ impl QniApp {
         }
         let alpha = (255.0 * alpha.clamp(0.0, 1.0)).round() as u8;
         painter.line_segment(
-            angle_underline_segment(painter, label, colors),
+            angle_underline_segment(label),
             egui::Stroke::new(1.0, with_alpha(colors.text, alpha)), // Flexoki tx-2.
         );
     }

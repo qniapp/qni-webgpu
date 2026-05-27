@@ -13,9 +13,10 @@ use super::draw_vertical_connector;
 
 pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = 12.0; // text-xs = 12px.
 pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = 16.0; // text-xs line-height = 16px.
-pub(in crate::render) const ANGLE_UNDERLINE_GAP: f32 = 1.0; // 1px optical offset, not layout spacing.
-                                                            // spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
-                                                            // the midpoint between the previous too-low +2px inset and too-high -2px gap.
+pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.0; // Prototype ::after bottom: 1px.
+                                                                     // The 16px label sits centered in a 17px row, so the 1px stroke center is 2px above row bottom.
+                                                                     // spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
+                                                                     // the midpoint between the previous too-low +2px inset and too-high -2px gap.
 const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
 const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
 const ANGLE_LABEL_OUTLINE_OFFSETS: [(f32, f32); 8] = [
@@ -216,35 +217,16 @@ pub(in crate::render) fn angle_label_interaction_rect(label: &AngleLabelInfo<'_>
     )
 }
 
-pub(in crate::render) fn angle_label_text_rect(
-    painter: &egui::Painter,
-    label: &AngleLabelInfo<'_>,
-    colors: &Colors,
-) -> egui::Rect {
-    let galley = painter.layout_no_wrap(
-        label.text.to_owned(),
-        egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE),
-        colors.text_strong,
-    );
-    let size = galley.size();
-    let top_left = if label.above_gate {
-        egui::pos2(label.pos.x - size.x * 0.5, label.pos.y - size.y)
-    } else {
-        egui::pos2(label.pos.x - size.x * 0.5, label.pos.y)
-    };
-    egui::Rect::from_min_size(top_left, size)
-}
-
-pub(in crate::render) fn angle_underline_segment(
-    painter: &egui::Painter,
-    label: &AngleLabelInfo<'_>,
-    colors: &Colors,
-) -> [egui::Pos2; 2] {
-    let y = angle_label_text_rect(painter, label, colors).bottom() + ANGLE_UNDERLINE_GAP;
+pub(in crate::render) fn angle_underline_segment(label: &AngleLabelInfo<'_>) -> [egui::Pos2; 2] {
+    let y = angle_underline_y(label);
     [
         egui::pos2(label.pos.x - GATE_SIZE * 0.5, y),
         egui::pos2(label.pos.x + GATE_SIZE * 0.5, y),
     ]
+}
+
+fn angle_underline_y(label: &AngleLabelInfo<'_>) -> f32 {
+    angle_label_interaction_rect(label).bottom() - ANGLE_UNDERLINE_BOTTOM_INSET
 }
 
 fn angle_label_layout(connection_sides: ConnectionSides) -> AngleLabelLayout {
@@ -496,6 +478,20 @@ mod tests {
                 bottom: true,
             }
         );
+    }
+
+    #[test]
+    fn underline_matches_prototype_row_inset() {
+        let label = AngleLabelInfo {
+            gate_id: 1,
+            text: "π/2",
+            pos: egui::pos2(80.0, 60.0),
+            align: egui::Align2::CENTER_BOTTOM,
+            above_gate: true,
+            outline_with_background: false,
+        };
+
+        assert_eq!(angle_underline_y(&label), 58.0);
     }
 
     #[test]
