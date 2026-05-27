@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>インライン角度入力 UI プロトタイプ — Phase / Rx / Ry / Rz</title>
+  <title>角度入力 UI 仕様 — Phase / Rx / Ry / Rz</title>
   <link rel="stylesheet" href="design-system.css" />
   <script src="components/h-gate.js"></script>
   <script src="components/p-gate.js"></script>
@@ -278,17 +278,23 @@
   </div>
 </div>
 
-<nav class="breadcrumb"><a href="../design-system.html">Design system</a> / Angle input prototype</nav>
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">量子ゲート</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">角度入力 UI</span>
+</nav>
 
 <div class="page">
   <header>
-    <h1>角度入力 UI プロトタイプ</h1>
-    <p class="lead">ワイヤ間隔を変えずに、角度文字列へ下線を出して編集できることを示す案。表示ブロックが同じ回路内にあっても破綻しないことを確認する。</p>
+    <h1>角度入力 UI 仕様</h1>
+    <p class="lead">Phase / Rx / Ry / Rz の角度文字列をインライン編集するための仕様。ワイヤ間隔を変えず、表示ブロックが同じ回路内にあっても破綻しない配置とふるまいを定義する。</p>
   </header>
 </div>
 
 <section class="block">
-    <h2>01. インライン案</h2>
+    <h2>01. インライン入力</h2>
     <div class="stage">
       <div class="mock-circuit tall">
         <div class="wire top"></div>
@@ -334,15 +340,18 @@
 
   <section class="block">
     <h2>02. 不正入力の扱い</h2>
-    <p>この節では、アプリ実装へ次に反映する不正入力時のふるまいを先に定義する。</p>
     <div class="compare">
       <div class="option-card">
         <h3>A. 入力中</h3>
         <div class="inline-rule-demo">
-          <p class="editor-label">Phase angle</p>
-          <label class="pi-field"><textarea rows="1">hoge</textarea></label>
+          <div class="revert-result-strip">
+            <div class="angle-gate editing-inline">
+              <label class="inline-angle-field is-revealed"><textarea rows="1">hoge</textarea></label>
+              <p-gate class="gate-element"></p-gate>
+            </div>
+          </div>
         </div>
-        <p>Enter または外側クリックで確定を試みる。入力中は警告を出さず、通常の編集欄のままにする。</p>
+        <p>Enter または外側クリックで確定を試みる。入力中は警告を出さず、通常のインライン編集欄のままにする。</p>
       </div>
       <div class="option-card">
         <h3>B. 確定後</h3>
@@ -384,10 +393,10 @@
     <h2>04. 入力規則</h2>
     <ul class="rule-list">
       <li><code>1/2</code> は <code>π/2</code> と表示する。<code>1</code> は <code>π</code>、<code>0</code> は <code>0</code> と表示する。</li>
-      <li><code>2/4</code>、<code>-2/-4</code> のように約分できる分数は <code>1/2</code> に正規化して保存する。</li>
-      <li><code>-1/2</code> は <code>−π/2</code> と表示し、マイナス記号は表示側で統一する。</li>
+      <li><code>2/4</code>、<code>-2/-4</code> のように約分できる分数は <code>π/2</code> に正規化して保存する。</li>
+      <li><code>-1/2</code> は <code>-π/2</code> と表示し、そのまま保存する。</li>
       <li><code>abc</code>、<code>1//2</code>、分母が <code>0</code> の値は保存せず、編集前の角度へ戻す。</li>
-      <li>小数を許可する場合は <code>0.25π</code> として表示するが、初期実装は整数と分数だけに絞る案を推奨する。</li>
+      <li><code>0.5π</code> のような小数係数は有限値のときだけ保存し、そのまま表示する。</li>
     </ul>
 </section>
 <script>
@@ -400,6 +409,8 @@
 
   const parseAngle = (raw) => {
     let text = raw.trim().replace('−', '-').replace(/\s+/g, '');
+    const decimalPi = text.match(/^([+-]?(?:\d+\.\d*|\.\d+))π$/);
+    if (decimalPi && Number.isFinite(Number(decimalPi[1]))) return { decimal: `${decimalPi[1]}π` };
     if (text === 'π' || text === '+π') text = '1';
     if (text === '-π') text = '-1';
     text = text.replace(/^([+-]?)π\/(\d+)$/, '$11/$2');
@@ -419,18 +430,17 @@
     return { numerator: numerator / divisor, denominator: denominator / divisor };
   };
 
-  const valueText = ({ numerator, denominator }) => (
-    denominator === 1 ? String(numerator) : `${numerator}/${denominator}`
-  );
-
-  const displayText = (angle) => {
+  const valueText = (angle) => {
+    if (angle.decimal) return angle.decimal;
     const { numerator, denominator } = angle;
     if (numerator === 0) return '0';
-    const sign = numerator < 0 ? '−' : '';
+    const sign = numerator < 0 ? '-' : '';
     const absNumerator = Math.abs(numerator);
     if (denominator === 1) return absNumerator === 1 ? `${sign}π` : `${sign}${absNumerator}π`;
     return absNumerator === 1 ? `${sign}π/${denominator}` : `${sign}${absNumerator}π/${denominator}`;
   };
+
+  const displayText = (angle) => valueText(angle);
 
   /* ─────────────────────────────────────────────────────────
    * MICROINTERACTION STORYBOARD
