@@ -153,35 +153,23 @@
     }
     .inline-angle-field .pi-suffix { color: var(--tx-2); }
     .editing-inline .inline-angle-field .pi-suffix { display: none; }
-    .angle-error {
-      position: absolute;
-      top: -18px;                        /* ゲートに重ならない位置 */
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 0 4px;                    /* spacing-1 */
-      border-radius: 4px;
-      background: #FFE1D5;               /* Flexoki red-100 */
-      color: var(--red-600);             /* Flexoki red-600 */
-      font-size: 12px;                   /* text-xs */
-      line-height: 16px;                 /* text-xs default */
-      white-space: nowrap;
-      z-index: 2;
-    }
-    .angle-gate.has-error .inline-angle-field::after { background: var(--red-600); }
     .gate-element {
       width: 40px;                       /* GATE_SIZE = spacing-10 */
       height: 40px;                      /* GATE_SIZE = spacing-10 */
     }
     .angle-gate.no-angle .gate-element { grid-row: 2; }
     .slot-spacer { width: 48px; }        /* SLOT_SPACING 56px - gap 8px */
-    .inline-error-demo {
+    .inline-rule-demo {
       padding: 8px;                      /* spacing-2 */
       border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
       border-radius: 10px;
       background: var(--bg);             /* Flexoki bg */
     }
-    .inline-error-demo.error-inline { border-color: var(--red-600); }
-    .inline-error-demo.warning-inline { border-color: var(--purple-400); }
+    .revert-result-strip {
+      display: flex;
+      justify-content: center;
+      padding-top: 8px;                  /* spacing-2 */
+    }
     .editor-label {
       margin: 0 0 4px;                   /* spacing-1 */
       color: var(--tx-2);                /* Flexoki tx-2 */
@@ -218,22 +206,6 @@
       font-family: var(--font-mono);
       font-size: 14px;                   /* text-sm */
       line-height: 20px;                 /* text-sm default */
-    }
-    .message {
-      margin: 8px 0 0;                   /* spacing-2 */
-      font-size: 12px;                   /* text-xs */
-      line-height: 16px;                 /* text-xs default */
-    }
-    .message.error { color: var(--red-600); }
-    .message.info { color: var(--purple-600); }
-    .toast {
-      margin-top: 8px;                   /* spacing-2 */
-      padding: 8px 12px;                 /* spacing-2 / spacing-3 */
-      border-radius: 8px;
-      background: #FFE1D5;               /* Flexoki red-100 */
-      color: var(--red-600);             /* Flexoki red-600 */
-      font-size: 12px;                   /* text-xs */
-      line-height: 16px;                 /* text-xs default */
     }
     .rule-list li { margin: 8px 0; }     /* spacing-2 */
     .compare {
@@ -361,25 +333,26 @@
   </section>
 
   <section class="block">
-    <h2>02. エラー表示案</h2>
+    <h2>02. 不正入力の扱い</h2>
+    <p>この節では、アプリ実装へ次に反映する不正入力時のふるまいを先に定義する。</p>
     <div class="compare">
       <div class="option-card">
-        <h3>A. 小さなバッジ</h3>
-        <div class="inline-error-demo error-inline">
+        <h3>A. 入力中</h3>
+        <div class="inline-rule-demo">
           <p class="editor-label">Phase angle</p>
-          <label class="pi-field"><textarea rows="1">abc</textarea><span class="pi-suffix">π</span></label>
-          <p class="message error">Invalid.</p>
+          <label class="pi-field"><textarea rows="1">hoge</textarea></label>
         </div>
-        <p>ゲート本体に重ならない短い表示にする。</p>
+        <p>Enter または外側クリックで確定を試みる。入力中は警告を出さず、通常の編集欄のままにする。</p>
       </div>
       <div class="option-card">
-        <h3>B. 自動約分を情報表示</h3>
-        <div class="inline-error-demo warning-inline">
-          <p class="editor-label">Rx angle</p>
-          <label class="pi-field"><textarea rows="1">2/4</textarea><span class="pi-suffix">π</span></label>
-          <p class="message info">Saves as π/2.</p>
+        <h3>B. 確定後</h3>
+        <div class="inline-rule-demo">
+          <p class="editor-label">角度ラベル</p>
+          <div class="revert-result-strip">
+            <div class="angle-gate"><button class="angle-button" type="button">π/2</button><p-gate class="gate-element"></p-gate></div>
+          </div>
         </div>
-        <p>無効ではないが、確定後の表示が変わることを事前に伝える。</p>
+        <p>不正な値は保存せず、編集前の角度に戻す。エラーバッジは出さない。</p>
       </div>
     </div>
   </section>
@@ -401,7 +374,7 @@
           <li>ワイヤ間隔は変更しない。表示ブロックや複数ワイヤゲートの高さを壊さないため。</li>
           <li>角度文字列の場所を、下線付きの等幅テキスト欄へ置き換える。</li>
           <li>同時に開ける編集 UI は 1 つだけにし、角度入力を開くと回路名メニューを閉じる。</li>
-          <li>確定は Enter、取り消しは Esc、フォーカス外クリックは妥当な値なら確定、無効値なら <code>Invalid</code> を表示して開いたままにする。</li>
+          <li>確定は Enter、取り消しは Esc、フォーカス外クリックは妥当な値なら確定、無効値なら編集前の角度へ戻す。</li>
         </ul>
       </div>
     </div>
@@ -413,7 +386,7 @@
       <li><code>1/2</code> は <code>π/2</code> と表示する。<code>1</code> は <code>π</code>、<code>0</code> は <code>0</code> と表示する。</li>
       <li><code>2/4</code>、<code>-2/-4</code> のように約分できる分数は <code>1/2</code> に正規化して保存する。</li>
       <li><code>-1/2</code> は <code>−π/2</code> と表示し、マイナス記号は表示側で統一する。</li>
-      <li><code>abc</code>、<code>1//2</code>、分母が <code>0</code> の値は確定できない。</li>
+      <li><code>abc</code>、<code>1//2</code>、分母が <code>0</code> の値は保存せず、編集前の角度へ戻す。</li>
       <li>小数を許可する場合は <code>0.25π</code> として表示するが、初期実装は整数と分数だけに絞る案を推奨する。</li>
     </ul>
 </section>
@@ -477,57 +450,34 @@
   const fieldHtml = (value) => `
     <label class="inline-angle-field">
       <textarea rows="1"></textarea><span class="pi-suffix">π</span>
-    </label>
-    <div class="angle-error" hidden>Invalid</div>`;
-
-  const activeTextarea = (host) => host?.querySelector('.inline-angle-field textarea');
-
-  const showError = (host) => {
-    host.classList.add('has-error');
-    let error = host.querySelector('.angle-error');
-    if (!error) {
-      error = document.createElement('div');
-      error.className = 'angle-error';
-      error.textContent = 'Invalid';
-      host.append(error);
-    }
-    error.hidden = false;
-    activeTextarea(host)?.focus();
-  };
+    </label>`;
 
   const commitValue = (gate, raw) => {
     const parsed = parseAngle(raw);
-    if (!parsed) return false;
-    gate.dataset.angle = valueText(parsed);
-    return true;
+    if (parsed) gate.dataset.angle = valueText(parsed);
   };
 
   const restoreButton = (gate) => {
     const angle = parseAngle(gate.dataset.angle || '1/2');
-    gate.classList.remove('editing-inline', 'has-error');
+    gate.classList.remove('editing-inline');
     gate.querySelector('.inline-angle-field')?.replaceWith(Object.assign(document.createElement('button'), {
       className: 'angle-button',
       type: 'button',
       textContent: displayText(angle),
     }));
-    gate.querySelector('.angle-error')?.remove();
   };
 
   const closeEditor = (options = {}) => {
-    if (!activeGate) return true;
+    if (!activeGate) return;
     const gate = activeGate;
     const textarea = gate.querySelector('textarea');
-    if (!options.cancel && textarea && !commitValue(gate, textarea.value)) {
-      showError(gate);
-      return false;
-    }
+    if (!options.cancel && textarea) commitValue(gate, textarea.value);
     restoreButton(gate);
     activeGate = null;
-    return true;
   };
 
   const openEditor = (gate, { preserveUnderline = false } = {}) => {
-    if (activeGate && activeGate !== gate && !closeEditor()) return;
+    if (activeGate && activeGate !== gate) closeEditor();
     if (activeGate === gate) return;
     activeGate = gate;
     if (gate.classList.contains('editing-inline')) {
@@ -545,7 +495,6 @@
     if (preserveUnderline) label.classList.add('is-revealed');
     button.replaceWith(label);
     if (!preserveUnderline) requestAnimationFrame(() => label.classList.add('is-revealed'));
-    gate.append(wrapper.querySelector('.angle-error'));
     const textarea = label.querySelector('textarea');
     textarea.focus();
     textarea.select();

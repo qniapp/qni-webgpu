@@ -8,6 +8,7 @@
 //! Nothing else lives here.
 
 mod amplitude_circle_popover;
+mod angle_input;
 mod circuit;
 mod circuit_connectors;
 mod circuit_gates;

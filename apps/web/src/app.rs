@@ -30,7 +30,8 @@ use eframe::egui;
 use std::collections::VecDeque;
 
 pub(crate) use circuit_model::{
-    DragState, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
+    AngleAffordance, AngleEditor, DragState, LiveDragSnap, PlacedGate, SpanResizeDrag,
+    SpanResizeEdge, SpanResizeHandle,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
@@ -74,6 +75,10 @@ pub(crate) struct QniApp {
     /// Gate id currently selected as the edit target. Selection is UI-only:
     /// it is not serialized into URL/localStorage and does not affect GPU simulation.
     pub(crate) selected_gate_id: Option<u32>,
+    /// Delayed angle-label underline affordance for parametric gates. UI-only.
+    pub(crate) angle_affordance: Option<AngleAffordance>,
+    /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
+    pub(crate) angle_editor: Option<AngleEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
@@ -269,6 +274,8 @@ impl QniApp {
             span_resize_drag: None,
             hovered_step: None,
             selected_gate_id: None,
+            angle_affordance: None,
+            angle_editor: None,
             breakpoint_step: None,
             hovered_gate_id: None,
             hovered_probability_outcome: None,

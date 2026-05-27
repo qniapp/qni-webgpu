@@ -338,7 +338,130 @@ pub(crate) fn parse_angle_radians(s: &str) -> Option<f32> {
     // piCoefficient: strip `π`; bare `π` becomes `"1"`, `Nπ` becomes `"N"`.
     let coefficient = pi_coefficient(&with_slash);
     let value = parse_fraction(&coefficient)?;
-    Some(value * std::f32::consts::PI)
+    let radians = value * std::f32::consts::PI;
+    radians.is_finite().then_some(radians)
+}
+
+pub(crate) fn normalize_angle_input(input: &str) -> Option<String> {
+    let compact: String = input
+        .trim()
+        .replace('−', "-")
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect();
+    if compact.is_empty() {
+        return None;
+    }
+    let coefficient = if compact.contains('π') {
+        match pi_input_coefficient(&compact) {
+            Some(coefficient) => coefficient,
+            None if valid_decimal_pi_input(&compact) => return Some(compact),
+            None => return None,
+        }
+    } else {
+        compact
+    };
+    let (numerator, denominator) = parse_integer_fraction(&coefficient)?;
+    let normalized = format_pi_coefficient(numerator, denominator);
+    parse_angle_radians(&normalized)?;
+    Some(normalized)
+}
+
+fn pi_input_coefficient(s: &str) -> Option<String> {
+    if s.matches('π').count() != 1 {
+        return None;
+    }
+    let pi_index = s.find('π')?;
+    let before = &s[..pi_index];
+    let after = &s[pi_index + 'π'.len_utf8()..];
+    if let Some((numerator, denominator)) = before.split_once('/') {
+        if !after.is_empty() || !signed_integer(numerator) || !signed_integer(denominator) {
+            return None;
+        }
+        return Some(format!("{numerator}/{denominator}"));
+    }
+    let numerator = match before {
+        "" | "+" => "1".to_owned(),
+        "-" => "-1".to_owned(),
+        value if signed_integer(value) => value.to_owned(),
+        _ => return None,
+    };
+    if after.is_empty() {
+        return Some(numerator);
+    }
+    let denominator = after.strip_prefix('/')?;
+    if !signed_integer(denominator) {
+        return None;
+    }
+    Some(format!("{numerator}/{denominator}"))
+}
+
+fn signed_integer(s: &str) -> bool {
+    let digits = s
+        .strip_prefix(['+', '-'])
+        .filter(|rest| !rest.is_empty())
+        .unwrap_or(s);
+    !digits.is_empty() && digits.chars().all(|ch| ch.is_ascii_digit())
+}
+
+fn valid_decimal_pi_input(s: &str) -> bool {
+    if s.matches('π').count() != 1 {
+        return false;
+    }
+    let Some(before) = s.strip_suffix('π') else {
+        return false;
+    };
+    before.contains('.')
+        && before.parse::<f32>().is_ok_and(f32::is_finite)
+        && parse_angle_radians(s).is_some()
+}
+
+fn parse_integer_fraction(s: &str) -> Option<(i128, i128)> {
+    let (mut numerator, mut denominator): (i128, i128) =
+        if let Some((num, denom)) = s.split_once('/') {
+            (num.parse().ok()?, denom.parse().ok()?)
+        } else {
+            (s.parse().ok()?, 1)
+        };
+    if denominator == 0 || numerator == i128::MIN || denominator == i128::MIN {
+        return None;
+    }
+    if denominator < 0 {
+        numerator = numerator.checked_neg()?;
+        denominator = denominator.checked_neg()?;
+    }
+    let divisor = gcd_i128(numerator, denominator);
+    Some((numerator / divisor, denominator / divisor))
+}
+
+fn gcd_i128(a: i128, b: i128) -> i128 {
+    let mut a = a.abs();
+    let mut b = b.abs();
+    while b != 0 {
+        let remainder = a % b;
+        a = b;
+        b = remainder;
+    }
+    a.max(1)
+}
+
+fn format_pi_coefficient(numerator: i128, denominator: i128) -> String {
+    if numerator == 0 {
+        return "0".to_owned();
+    }
+    let sign = if numerator < 0 { "-" } else { "" };
+    let abs_numerator = numerator.abs();
+    if denominator == 1 {
+        if abs_numerator == 1 {
+            format!("{sign}π")
+        } else {
+            format!("{sign}{abs_numerator}π")
+        }
+    } else if abs_numerator == 1 {
+        format!("{sign}π/{denominator}")
+    } else {
+        format!("{sign}{abs_numerator}π/{denominator}")
+    }
 }
 
 /// Strip the `π` literal from an angle string, leaving its numeric
@@ -399,5 +522,101 @@ pub(crate) fn controlled_phase_params(
         control_value: 1u32 << control_bit,
         mode: GATE_MODE_MATRIX,
         _pad: [0; 3],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_angle_fraction_adds_pi() {
+        assert_eq!(normalize_angle_input("1/2"), Some("π/2".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_reduces_fraction() {
+        assert_eq!(normalize_angle_input("2/4"), Some("π/2".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_rejects_zero_denominator() {
+        assert_eq!(normalize_angle_input("1/0"), None);
+    }
+
+    #[test]
+    fn normalize_angle_integer_one_becomes_pi() {
+        assert_eq!(normalize_angle_input("1"), Some("π".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_zero_stays_zero() {
+        assert_eq!(normalize_angle_input("0"), Some("0".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_negative_fraction_keeps_sign() {
+        assert_eq!(normalize_angle_input("-1/2"), Some("-π/2".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_double_negative_reduces_positive() {
+        assert_eq!(normalize_angle_input("-2/-4"), Some("π/2".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_rejects_word() {
+        assert_eq!(normalize_angle_input("abc"), None);
+    }
+
+    #[test]
+    fn normalize_angle_rejects_double_slash() {
+        assert_eq!(normalize_angle_input("1//2"), None);
+    }
+
+    #[test]
+    fn normalize_angle_rejects_repeated_pi() {
+        assert_eq!(normalize_angle_input("ππ"), None);
+    }
+
+    #[test]
+    fn normalize_angle_rejects_pi_denominator() {
+        assert_eq!(normalize_angle_input("π/π"), None);
+    }
+
+    #[test]
+    fn normalize_angle_rejects_trailing_pi_coefficient() {
+        assert_eq!(normalize_angle_input("1π2"), None);
+    }
+
+    #[test]
+    fn normalize_angle_accepts_suffix_pi_fraction() {
+        assert_eq!(normalize_angle_input("1/3π"), Some("π/3".to_owned()));
+    }
+
+    #[test]
+    fn normalize_angle_rejects_suffix_and_postfix_denominator() {
+        assert_eq!(normalize_angle_input("1/3π/2"), None);
+    }
+
+    #[test]
+    fn normalize_angle_rejects_i128_min() {
+        assert_eq!(
+            normalize_angle_input("-170141183460469231731687303715884105728"),
+            None
+        );
+    }
+
+    #[test]
+    fn normalize_angle_rejects_non_finite_radians() {
+        assert_eq!(
+            normalize_angle_input("170141183460469231731687303715884105727"),
+            None
+        );
+    }
+
+    #[test]
+    fn normalize_angle_accepts_decimal_pi() {
+        assert_eq!(normalize_angle_input("0.5π"), Some("0.5π".to_owned()));
     }
 }

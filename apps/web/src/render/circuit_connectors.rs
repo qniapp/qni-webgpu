@@ -4,7 +4,7 @@
 //! swap pairs, and same-angle phase chains / labels.
 
 mod control;
-mod phase;
+pub(in crate::render) mod phase;
 mod swap;
 
 use eframe::egui;

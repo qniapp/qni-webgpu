@@ -58,6 +58,19 @@ impl QniApp {
                     frame_state.dragging_gate_id,
                     self.circuit_scroll_x,
                 );
+                let pointer_pos = ctx.input(|input| input.pointer.latest_pos());
+                let pointer_over_picker = self.picker_overlay_rect.is_some_and(|picker_rect| {
+                    pointer_pos.is_some_and(|pos| picker_rect.contains(pos))
+                });
+                self.show_angle_input_overlay(
+                    ui,
+                    rect,
+                    &metrics,
+                    colors,
+                    frame_state.dragging_gate_id,
+                    self.circuit_scroll_x,
+                    pointer_over_state_panel || pointer_over_picker,
+                );
             });
 
         frame_state

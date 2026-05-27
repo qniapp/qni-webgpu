@@ -54,6 +54,32 @@ impl QniApp {
             released: pointer_released,
         };
 
+        let angle_label_gate_id = (!self.library.active_locked())
+            .then(|| {
+                self.angle_label_at_local_pos(
+                    local_pos,
+                    &geometry.metrics,
+                    self.dragging.map(|drag| drag.id),
+                )
+            })
+            .flatten();
+        if let Some(affordance) = self.angle_affordance {
+            if drag_pointer.start
+                && affordance.open_editor_after_delay
+                && angle_label_gate_id != Some(affordance.gate_id)
+            {
+                self.angle_affordance = None;
+            }
+        }
+        if drag_pointer.start && self.angle_editor.is_some() {
+            let active_editor_gate = self.angle_editor.as_ref().map(|editor| editor.gate_id);
+            if angle_label_gate_id != active_editor_gate {
+                if let Some(editor) = self.angle_editor.as_mut() {
+                    editor.commit_after_frame = true;
+                }
+            }
+        }
+
         let pointer_over_picker = self
             .picker_overlay_rect
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
@@ -72,6 +98,30 @@ impl QniApp {
             drag_pointer.screen_pos,
             &geometry.metrics,
         );
+        if self.angle_editor.is_some() && self.dragging.is_none() && self.span_resize_drag.is_none()
+        {
+            if drag_pointer.start {
+                let active_editor_gate = self.angle_editor.as_ref().map(|editor| editor.gate_id);
+                if angle_label_gate_id != active_editor_gate {
+                    if let Some(editor) = self.angle_editor.as_mut() {
+                        editor.commit_after_frame = true;
+                    }
+                }
+            }
+            DragController::clear_idle_hover(self, ctx);
+            if angle_label_gate_id.is_some() {
+                ctx.set_cursor_icon(egui::CursorIcon::Text);
+            }
+            return;
+        }
+        if angle_label_gate_id.is_some()
+            && self.dragging.is_none()
+            && self.span_resize_drag.is_none()
+        {
+            DragController::clear_idle_hover(self, ctx);
+            ctx.set_cursor_icon(egui::CursorIcon::Text);
+            return;
+        }
 
         if drag_pointer.start
             && DragController::handle_pointer_start(self, drag_pointer, &geometry, ctx)
