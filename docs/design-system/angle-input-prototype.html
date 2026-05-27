@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>インライン角度入力 UI プロトタイプ — Phase / Rx / Ry / Rz</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script src="components/h-gate.js"></script>
+  <script src="components/p-gate.js"></script>
+  <script src="components/rx-gate.js"></script>
+  <script src="components/ry-gate.js"></script>
+  <script src="components/rz-gate.js"></script>
+  <script src="components/amplitude-display.js"></script>
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    .stage {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 24px;                         /* spacing-6 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .mock-circuit {
+      position: relative;
+      min-height: 176px;
+      padding: 24px 16px 16px;           /* spacing-6 / spacing-4 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg-2);           /* Flexoki bg-2 */
+      overflow: hidden;
+    }
+    .wire {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--ui-2);           /* Flexoki ui-2 */
+    }
+    .wire.above { top: 12px; }
+    .wire.top { top: 68px; }
+    .wire.second { top: 124px; }         /* LINE_GAP = 56 px */
+    .wire.third { top: 180px; }          /* LINE_GAP = 56 px */
+    .wire.bottom { top: 236px; }         /* LINE_GAP = 56 px */
+    .mock-circuit.tall { min-height: 280px; }
+    .gate-row {
+      position: absolute;
+      left: 16px;                        /* spacing-4 */
+      display: flex;
+      gap: 8px;                          /* SLOT_SPACING 56px - angle slot 48px */
+      align-items: flex-start;
+      z-index: 2;
+    }
+    .amplitude-fixture {
+      position: absolute;
+      left: 244px;                       /* 16px + SLOT_SPACING 56px × 4 + gate centering 4px */
+      top: 48px;                         /* 4 ワイヤをまたぐ表示ブロック */
+      z-index: 1;
+    }
+    .gate-row.wire-0 { top: 31px; }      /* wire y 68 - label row 17 - gate radius 20 */
+    .gate-row.wire-1 { top: 87px; }      /* top + LINE_GAP 56px */
+    .angle-gate {
+      position: relative;
+      width: 48px;                       /* SLOT_SPACING 56px - gap 8px */
+      display: grid;
+      grid-template-rows: 17px 40px;
+      justify-items: center;
+      align-items: center;
+    }
+    .angle-gate.editing-inline {
+      width: 48px;                       /* spacing-12: ゲート列幅を維持 */
+      grid-template-rows: 17px 40px;     /* text-xs line-height + 1px underline / spacing-10 */
+    }
+    .angle-button {
+      position: relative;
+      width: 40px;                       /* GATE_SIZE = spacing-10 */
+      min-width: 40px;
+      height: 16px;                      /* text-xs line-height */
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--tx);                  /* Flexoki tx / colors.text_strong */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs / egui::FontId::monospace(12.0) */
+      line-height: 16px;                 /* text-xs default */
+      cursor: text;
+      transition: color 80ms ease-out;
+    }
+    .angle-button::after,
+    .inline-angle-field::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 1px;                       /* 文字最下部から 1px */
+      height: 1px;
+      background: var(--tx-2);           /* Flexoki tx-2: angle text (tx) より一段薄い黒 */
+      opacity: 0;
+      transition: opacity 120ms ease-out;
+    }
+    .angle-button.is-affordance {
+      color: var(--tx);                  /* Flexoki tx */
+      /* 文字位置は動かさない。下線だけを徐々に濃くする。 */
+    }
+    .angle-button.is-affordance::after,
+    .inline-angle-field.is-revealed::after {
+      opacity: 1;
+    }
+    .angle-button.angle-outlined {
+      text-shadow:
+        1px 1px 0 var(--bg-2),
+        -1px -1px 0 var(--bg-2),
+        -1px 1px 0 var(--bg-2),
+        1px -1px 0 var(--bg-2),
+        0 1px 0 var(--bg-2),
+        0 -1px 0 var(--bg-2),
+        -1px 0 0 var(--bg-2),
+        1px 0 0 var(--bg-2);             /* colors.background 8 方向 1px */
+    }
+    .angle-gate.is-angle-pending .angle-button { color: var(--tx); }
+    .inline-angle-field {
+      position: relative;
+      width: 40px;                       /* GATE_SIZE = spacing-10 */
+      height: 16px;                      /* text-xs line-height */
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 4px;                          /* spacing-1 */
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-family: var(--font-mono);
+    }
+    .inline-angle-field textarea {
+      flex: 0 1 40px;
+      min-width: 0;
+      height: 16px;
+      padding: 0;
+      resize: none;
+      overflow: hidden;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--tx);                  /* Flexoki tx */
+      font-family: var(--font-mono);
+      font-size: 12px;                   /* text-xs / egui::FontId::monospace(12.0) */
+      line-height: 16px;                 /* text-xs default */
+      text-align: center;
+    }
+    .inline-angle-field .pi-suffix { color: var(--tx-2); }
+    .editing-inline .inline-angle-field .pi-suffix { display: none; }
+    .angle-error {
+      position: absolute;
+      top: -18px;                        /* ゲートに重ならない位置 */
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0 4px;                    /* spacing-1 */
+      border-radius: 4px;
+      background: #FFE1D5;               /* Flexoki red-100 */
+      color: var(--red-600);             /* Flexoki red-600 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .angle-gate.has-error .inline-angle-field::after { background: var(--red-600); }
+    .gate-element {
+      width: 40px;                       /* GATE_SIZE = spacing-10 */
+      height: 40px;                      /* GATE_SIZE = spacing-10 */
+    }
+    .angle-gate.no-angle .gate-element { grid-row: 2; }
+    .slot-spacer { width: 48px; }        /* SLOT_SPACING 56px - gap 8px */
+    .inline-error-demo {
+      padding: 8px;                      /* spacing-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      background: var(--bg);             /* Flexoki bg */
+    }
+    .inline-error-demo.error-inline { border-color: var(--red-600); }
+    .inline-error-demo.warning-inline { border-color: var(--purple-400); }
+    .editor-label {
+      margin: 0 0 4px;                   /* spacing-1 */
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+    }
+    .pi-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;                          /* spacing-2 */
+      height: 36px;                      /* 回路名入力欄と同じ高さ */
+      padding: 0 8px;                    /* spacing-2 */
+      border: 2px solid var(--blue-600); /* Flexoki blue-600 */
+      border-radius: 8px;
+      background: var(--bg);             /* Flexoki bg */
+    }
+    .pi-field textarea {
+      flex: 1;
+      min-width: 0;
+      height: 20px;
+      padding: 0;
+      resize: none;
+      overflow: hidden;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--tx);                  /* Flexoki tx */
+      font-family: var(--font-mono);
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    .pi-suffix {
+      color: var(--tx-2);                /* Flexoki tx-2 */
+      font-family: var(--font-mono);
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    .message {
+      margin: 8px 0 0;                   /* spacing-2 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+    }
+    .message.error { color: var(--red-600); }
+    .message.info { color: var(--purple-600); }
+    .toast {
+      margin-top: 8px;                   /* spacing-2 */
+      padding: 8px 12px;                 /* spacing-2 / spacing-3 */
+      border-radius: 8px;
+      background: #FFE1D5;               /* Flexoki red-100 */
+      color: var(--red-600);             /* Flexoki red-600 */
+      font-size: 12px;                   /* text-xs */
+      line-height: 16px;                 /* text-xs default */
+    }
+    .rule-list li { margin: 8px 0; }     /* spacing-2 */
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;                         /* spacing-3 */
+      margin-top: 16px;                  /* spacing-4 */
+    }
+    .option-card {
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 10px;
+      padding: 12px;                     /* spacing-3 */
+      background: var(--bg-2);           /* Flexoki bg-2 */
+    }
+    .option-card h3 { margin-top: 0; }
+    .target-gate-strip {
+      display: flex;
+      gap: 16px;                         /* spacing-4 */
+      margin-top: 16px;                  /* spacing-4 */
+      align-items: flex-start;
+    }
+    .circuit-name-popover {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 240px;
+      padding: 8px 8px 0;                /* spacing-2 */
+      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
+      border-radius: 12px;
+      background: var(--bg);             /* Flexoki bg */
+      box-shadow: var(--shadow-popover);
+      z-index: 4;
+    }
+    .name-row {
+      height: 36px;                      /* 回路名入力欄と同じ高さ */
+      display: flex;
+      align-items: center;
+      padding: 0 8px;                    /* spacing-2 */
+      border-radius: 6px;
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    .name-row.active { background: var(--bg-2); }
+    .name-input {
+      height: 36px;                      /* 回路名入力欄と同じ高さ */
+      display: flex;
+      align-items: center;
+      padding: 0 8px;                    /* spacing-2 */
+      border: 2px solid var(--blue-600); /* Flexoki blue-600 */
+      border-radius: 8px;
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    .name-footer {
+      margin: 8px -8px 0;                /* spacing-2 */
+      padding: 12px 16px;                /* spacing-3 / spacing-4 */
+      border-top: 1px solid var(--ui-2); /* Flexoki ui-2 */
+      font-size: 14px;                   /* text-sm */
+      line-height: 20px;                 /* text-sm default */
+    }
+    html.preview-mode #preview .angle-gate { transform: scale(1.2); }
+  </style>
+</head>
+<body>
+<!-- design-system.html サムネ用プレビュー (preview-mode で #preview だけ表示)。 -->
+<div id="preview">
+  <div class="angle-gate">
+    <button class="angle-button" type="button">π/2</button>
+    <rx-gate class="gate-element"></rx-gate>
+  </div>
+</div>
+
+<nav class="breadcrumb"><a href="../design-system.html">Design system</a> / Angle input prototype</nav>
+
+<div class="page">
+  <header>
+    <h1>角度入力 UI プロトタイプ</h1>
+    <p class="lead">ワイヤ間隔を変えずに、角度文字列へ下線を出して編集できることを示す案。表示ブロックが同じ回路内にあっても破綻しないことを確認する。</p>
+  </header>
+</div>
+
+<section class="block">
+    <h2>01. インライン案</h2>
+    <div class="stage">
+      <div class="mock-circuit tall">
+        <div class="wire top"></div>
+        <div class="wire second"></div>
+        <div class="wire third"></div>
+        <div class="wire bottom"></div>
+        <amplitude-display class="amplitude-fixture" span="4" no-popup></amplitude-display>
+        <div class="gate-row wire-0">
+          <div class="angle-gate no-angle">
+            <h-gate class="gate-element"></h-gate>
+          </div>
+        </div>
+        <div class="gate-row wire-1">
+          <div class="slot-spacer" aria-hidden="true"></div>
+          <div class="angle-gate editable-angle" data-mode="inline" data-angle="1/2" data-symbol="Rx">
+            <button class="angle-button" type="button">π/2</button>
+            <rx-gate class="gate-element"></rx-gate>
+          </div>
+          <div class="angle-gate editable-angle" data-mode="inline" data-angle="1/2" data-symbol="φ">
+            <button class="angle-button" type="button">π/2</button>
+            <p-gate class="gate-element"></p-gate>
+          </div>
+        </div>
+      </div>
+      <div class="option-card">
+        <h3>特徴</h3>
+        <ul class="rule-list">
+          <li>角度ラベルは 12px の等幅フォント、Flexoki tx で表示する。</li>
+          <li>クリック後 680ms、またはホバー開始から 680ms は何も表示せず、その後 120ms で角度文字列の下線を一段薄い黒へフェードインする。</li>
+          <li>上側ラベルは対象ゲートの上端、下側ラベルは対象ゲートの下端 + 2px を基準にする。接続方向が <code>top &amp;&amp; bottom</code> のときだけ背景ふちどりを使う。</li>
+          <li>ワイヤ間隔は固定なので、振幅表示ブロックなどを押し広げない。</li>
+          <li>入力欄はゲート列幅を変えないため、ゲートは下にずれない。</li>
+        </ul>
+        <div class="target-gate-strip" role="group" aria-label="対象ゲート">
+          <div class="angle-gate"><button class="angle-button" type="button">π/2</button><p-gate class="gate-element"></p-gate></div>
+          <div class="angle-gate"><button class="angle-button" type="button">π/4</button><rx-gate class="gate-element"></rx-gate></div>
+          <div class="angle-gate"><button class="angle-button" type="button">π/4</button><ry-gate class="gate-element"></ry-gate></div>
+          <div class="angle-gate"><button class="angle-button" type="button">π/4</button><rz-gate class="gate-element"></rz-gate></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>02. エラー表示案</h2>
+    <div class="compare">
+      <div class="option-card">
+        <h3>A. 小さなバッジ</h3>
+        <div class="inline-error-demo error-inline">
+          <p class="editor-label">Phase angle</p>
+          <label class="pi-field"><textarea rows="1">abc</textarea><span class="pi-suffix">π</span></label>
+          <p class="message error">Invalid.</p>
+        </div>
+        <p>ゲート本体に重ならない短い表示にする。</p>
+      </div>
+      <div class="option-card">
+        <h3>B. 自動約分を情報表示</h3>
+        <div class="inline-error-demo warning-inline">
+          <p class="editor-label">Rx angle</p>
+          <label class="pi-field"><textarea rows="1">2/4</textarea><span class="pi-suffix">π</span></label>
+          <p class="message info">Saves as π/2.</p>
+        </div>
+        <p>無効ではないが、確定後の表示が変わることを事前に伝える。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>03. 回路名変更 UI との共存</h2>
+    <div class="stage">
+      <div class="mock-circuit">
+        <div class="circuit-name-popover">
+          <div class="name-row">Circuit 5</div>
+          <div class="name-row active">Circuit 7</div>
+          <div class="name-input">かきくけこ</div>
+          <div class="name-footer">＋ Create new circuit</div>
+        </div>
+      </div>
+      <div class="option-card">
+        <h3>衝突しないための方針</h3>
+        <ul class="rule-list">
+          <li>ワイヤ間隔は変更しない。表示ブロックや複数ワイヤゲートの高さを壊さないため。</li>
+          <li>角度文字列の場所を、下線付きの等幅テキスト欄へ置き換える。</li>
+          <li>同時に開ける編集 UI は 1 つだけにし、角度入力を開くと回路名メニューを閉じる。</li>
+          <li>確定は Enter、取り消しは Esc、フォーカス外クリックは妥当な値なら確定、無効値なら <code>Invalid</code> を表示して開いたままにする。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>04. 入力規則</h2>
+    <ul class="rule-list">
+      <li><code>1/2</code> は <code>π/2</code> と表示する。<code>1</code> は <code>π</code>、<code>0</code> は <code>0</code> と表示する。</li>
+      <li><code>2/4</code>、<code>-2/-4</code> のように約分できる分数は <code>1/2</code> に正規化して保存する。</li>
+      <li><code>-1/2</code> は <code>−π/2</code> と表示し、マイナス記号は表示側で統一する。</li>
+      <li><code>abc</code>、<code>1//2</code>、分母が <code>0</code> の値は確定できない。</li>
+      <li>小数を許可する場合は <code>0.25π</code> として表示するが、初期実装は整数と分数だけに絞る案を推奨する。</li>
+    </ul>
+</section>
+<script>
+  const gcd = (a, b) => {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y !== 0) [x, y] = [y, x % y];
+    return x || 1;
+  };
+
+  const parseAngle = (raw) => {
+    let text = raw.trim().replace('−', '-').replace(/\s+/g, '');
+    if (text === 'π' || text === '+π') text = '1';
+    if (text === '-π') text = '-1';
+    text = text.replace(/^([+-]?)π\/(\d+)$/, '$11/$2');
+    text = text.replace(/^([+-]?\d+)π\/(\d+)$/, '$1/$2');
+    text = text.replace(/^([+-]?\d+)π$/, '$1');
+    if (/^[+-]?\d+$/.test(text)) return { numerator: Number(text), denominator: 1 };
+    const match = text.match(/^([+-]?\d+)\/([+-]?\d+)$/);
+    if (!match) return null;
+    let numerator = Number(match[1]);
+    let denominator = Number(match[2]);
+    if (denominator === 0) return null;
+    if (denominator < 0) {
+      numerator = -numerator;
+      denominator = -denominator;
+    }
+    const divisor = gcd(numerator, denominator);
+    return { numerator: numerator / divisor, denominator: denominator / divisor };
+  };
+
+  const valueText = ({ numerator, denominator }) => (
+    denominator === 1 ? String(numerator) : `${numerator}/${denominator}`
+  );
+
+  const displayText = (angle) => {
+    const { numerator, denominator } = angle;
+    if (numerator === 0) return '0';
+    const sign = numerator < 0 ? '−' : '';
+    const absNumerator = Math.abs(numerator);
+    if (denominator === 1) return absNumerator === 1 ? `${sign}π` : `${sign}${absNumerator}π`;
+    return absNumerator === 1 ? `${sign}π/${denominator}` : `${sign}${absNumerator}π/${denominator}`;
+  };
+
+  /* ─────────────────────────────────────────────────────────
+   * MICROINTERACTION STORYBOARD
+   *
+   * Read top-to-bottom. Each value is ms after hover/click trigger.
+   *
+   *    0ms   angle text receives intent state, no underline yet
+   *  680ms   underline starts fading in; click also opens inline editor
+   *  800ms   underline reaches tx-2 opacity
+   * ───────────────────────────────────────────────────────── */
+  const TIMING = {
+    underlineReveal: 680,  // delay before showing edit affordance
+  };
+
+  let activeGate = null;
+
+  const fieldHtml = (value) => `
+    <label class="inline-angle-field">
+      <textarea rows="1"></textarea><span class="pi-suffix">π</span>
+    </label>
+    <div class="angle-error" hidden>Invalid</div>`;
+
+  const activeTextarea = (host) => host?.querySelector('.inline-angle-field textarea');
+
+  const showError = (host) => {
+    host.classList.add('has-error');
+    let error = host.querySelector('.angle-error');
+    if (!error) {
+      error = document.createElement('div');
+      error.className = 'angle-error';
+      error.textContent = 'Invalid';
+      host.append(error);
+    }
+    error.hidden = false;
+    activeTextarea(host)?.focus();
+  };
+
+  const commitValue = (gate, raw) => {
+    const parsed = parseAngle(raw);
+    if (!parsed) return false;
+    gate.dataset.angle = valueText(parsed);
+    return true;
+  };
+
+  const restoreButton = (gate) => {
+    const angle = parseAngle(gate.dataset.angle || '1/2');
+    gate.classList.remove('editing-inline', 'has-error');
+    gate.querySelector('.inline-angle-field')?.replaceWith(Object.assign(document.createElement('button'), {
+      className: 'angle-button',
+      type: 'button',
+      textContent: displayText(angle),
+    }));
+    gate.querySelector('.angle-error')?.remove();
+  };
+
+  const closeEditor = (options = {}) => {
+    if (!activeGate) return true;
+    const gate = activeGate;
+    const textarea = gate.querySelector('textarea');
+    if (!options.cancel && textarea && !commitValue(gate, textarea.value)) {
+      showError(gate);
+      return false;
+    }
+    restoreButton(gate);
+    activeGate = null;
+    return true;
+  };
+
+  const openEditor = (gate, { preserveUnderline = false } = {}) => {
+    if (activeGate && activeGate !== gate && !closeEditor()) return;
+    if (activeGate === gate) return;
+    activeGate = gate;
+    if (gate.classList.contains('editing-inline')) {
+      gate.querySelector('textarea')?.focus();
+      gate.querySelector('textarea')?.select();
+      return;
+    }
+    gate.classList.add('editing-inline');
+    const button = gate.querySelector('.angle-button');
+    const wrapper = document.createElement('span');
+    wrapper.innerHTML = fieldHtml(gate.dataset.angle || '1/2');
+    const label = wrapper.querySelector('.inline-angle-field');
+    label.setAttribute('aria-label', `${gate.dataset.symbol} angle`);
+    label.querySelector('textarea').value = displayText(parseAngle(gate.dataset.angle || '1/2'));
+    if (preserveUnderline) label.classList.add('is-revealed');
+    button.replaceWith(label);
+    if (!preserveUnderline) requestAnimationFrame(() => label.classList.add('is-revealed'));
+    gate.append(wrapper.querySelector('.angle-error'));
+    const textarea = label.querySelector('textarea');
+    textarea.focus();
+    textarea.select();
+  };
+
+  const clearAffordanceTimer = (gate) => {
+    window.clearTimeout(Number(gate.dataset.angleTimer || 0));
+    delete gate.dataset.angleTimer;
+    delete gate.dataset.angleClickPending;
+    gate.classList.remove('is-angle-pending');
+  };
+
+  const revealAffordance = (gate) => {
+    gate.classList.remove('is-angle-pending');
+    gate.querySelector('.angle-button')?.classList.add('is-affordance');
+  };
+
+  const scheduleAffordance = (gate, { openAfterReveal = false } = {}) => {
+    document.querySelectorAll('.editable-angle').forEach((otherGate) => {
+      if (otherGate === gate) return;
+      clearAffordanceTimer(otherGate);
+      if (!otherGate.classList.contains('editing-inline')) {
+        otherGate.querySelector('.angle-button')?.classList.remove('is-affordance');
+      }
+    });
+    clearAffordanceTimer(gate);
+    if (!gate.querySelector('.angle-button')) return;
+    gate.classList.add('is-angle-pending');
+    if (openAfterReveal) gate.dataset.angleClickPending = 'true';
+    gate.dataset.angleTimer = String(window.setTimeout(() => {
+      delete gate.dataset.angleTimer;
+      delete gate.dataset.angleClickPending;
+      if (openAfterReveal) {
+        gate.classList.remove('is-angle-pending');
+        openEditor(gate);
+        return;
+      }
+      revealAffordance(gate);
+    }, TIMING.underlineReveal));
+  };
+
+  document.querySelectorAll('.editable-angle').forEach((gate) => {
+    gate.addEventListener('pointerover', (event) => {
+      if (!event.target.closest('.angle-button')) return;
+      if (gate.dataset.angleClickPending === 'true') return;
+      scheduleAffordance(gate);
+    });
+    gate.addEventListener('pointerout', (event) => {
+      const button = event.target.closest('.angle-button');
+      if (!button) return;
+      if (event.relatedTarget instanceof Node && button.contains(event.relatedTarget)) return;
+      const nextButton = event.relatedTarget instanceof Element
+        ? event.relatedTarget.closest('.angle-button')
+        : null;
+      if (nextButton && nextButton !== button) {
+        clearAffordanceTimer(gate);
+        button.classList.remove('is-affordance');
+        return;
+      }
+      if (gate.dataset.angleClickPending !== 'true') clearAffordanceTimer(gate);
+      if (!gate.classList.contains('editing-inline') && gate.dataset.angleClickPending !== 'true') {
+        button.classList.remove('is-affordance');
+      }
+    });
+    gate.addEventListener('click', (event) => {
+      const button = event.target.closest('.angle-button');
+      if (!button || event.target.closest('textarea')) return;
+      if (button.classList.contains('is-affordance')) {
+        openEditor(gate, { preserveUnderline: true });
+        return;
+      }
+      scheduleAffordance(gate, { openAfterReveal: true });
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (!activeGate) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      closeEditor();
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeEditor({ cancel: true });
+    }
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!activeGate) return;
+    if (activeGate.contains(event.target)) return;
+    closeEditor();
+  });
+
+  activeGate = null;
+</script>
+</body>
+</html>
