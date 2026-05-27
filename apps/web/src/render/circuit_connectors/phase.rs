@@ -225,6 +225,41 @@ pub(in crate::render) fn angle_underline_segment(label: &AngleLabelInfo<'_>) -> 
     ]
 }
 
+pub(in crate::render) fn reserve_angle_label_outline(
+    painter: &egui::Painter,
+    label: &AngleLabelInfo<'_>,
+) -> Option<[egui::layers::ShapeIdx; ANGLE_LABEL_OUTLINE_OFFSETS.len()]> {
+    label
+        .outline_with_background
+        .then(|| ANGLE_LABEL_OUTLINE_OFFSETS.map(|_| painter.add(egui::Shape::Noop)))
+}
+
+pub(in crate::render) fn paint_reserved_angle_label_outline(
+    painter: &egui::Painter,
+    colors: &Colors,
+    text: &str,
+    galley_pos: egui::Pos2,
+    text_clip_rect: egui::Rect,
+    outline_slots: Option<[egui::layers::ShapeIdx; ANGLE_LABEL_OUTLINE_OFFSETS.len()]>,
+) {
+    let Some(outline_slots) = outline_slots else {
+        return;
+    };
+    let font_id = egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE);
+    let galley = painter.layout_no_wrap(text.to_owned(), font_id, colors.background);
+    let clipped_painter = painter.with_clip_rect(text_clip_rect);
+    for (slot, (dx, dy)) in outline_slots.into_iter().zip(ANGLE_LABEL_OUTLINE_OFFSETS) {
+        clipped_painter.set(
+            slot,
+            egui::Shape::galley(
+                galley_pos + egui::vec2(dx, dy),
+                galley.clone(),
+                colors.background,
+            ),
+        );
+    }
+}
+
 fn angle_underline_y(label: &AngleLabelInfo<'_>) -> f32 {
     angle_label_interaction_rect(label).bottom() - ANGLE_UNDERLINE_BOTTOM_INSET
 }

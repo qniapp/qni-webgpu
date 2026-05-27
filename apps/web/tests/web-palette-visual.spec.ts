@@ -238,6 +238,40 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   })
 })
 
+test('active same-angle phase editor masks the connector behind typed text', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['P(π_2)', 'P(π_2)', 'P(π_2)']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+
+  const geometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
+  const label = geometry.labels[1]
+  await page.mouse.click((label.left + label.right) / 2, (label.top + label.bottom) / 2)
+  await page.waitForTimeout(850)
+  await page.keyboard.type('111/3')
+  await page.waitForTimeout(100)
+
+  const pixels = await sampleCanvasPixels(page, canvas, [{
+    name: 'maskedConnector',
+    x: (label.left + label.right) / 2 - box.x,
+    y: label.bottom - 4 - box.y,
+  }])
+  const activeGeometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
+
+  expect({
+    activeEditor: activeGeometry.editor_gate_id,
+    maskedConnectorIsBackground: pixelRgbDistance(pixels.maskedConnector, [242, 240, 229, 255]) < 8,
+  }).toEqual({
+    activeEditor: label.gate_id,
+    maskedConnectorIsBackground: true,
+  })
+})
+
 test('palette Phase drop shows its π/2 default angle label', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })

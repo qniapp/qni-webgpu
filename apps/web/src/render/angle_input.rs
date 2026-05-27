@@ -11,8 +11,9 @@ use crate::simulation_plan::ColumnAnalysis;
 
 use super::circuit::gate_slot_index_for_render;
 use super::circuit_connectors::phase::{
-    angle_label_interaction_rect, angle_underline_segment, parametric_angle_label_info,
-    AngleLabelInfo, ANGLE_LABEL_FONT_SIZE,
+    angle_label_interaction_rect, angle_underline_segment, paint_reserved_angle_label_outline,
+    parametric_angle_label_info, reserve_angle_label_outline, AngleLabelInfo,
+    ANGLE_LABEL_FONT_SIZE,
 };
 
 const ANGLE_AFFORDANCE_DELAY_SECS: f64 = 0.680;
@@ -277,6 +278,7 @@ impl QniApp {
         editor.select_all_pending = false;
         editor.commit_after_frame = false;
 
+        let outline_slots = reserve_angle_label_outline(ui.painter(), &info);
         let text_id = ui.make_persistent_id(("angle-editor", editor.gate_id));
         let mut edit_ui = ui.new_child(
             egui::UiBuilder::new()
@@ -295,6 +297,14 @@ impl QniApp {
             .margin(egui::Margin::ZERO)
             .desired_width(GATE_SIZE) // spacing-10 = 40px.
             .show(&mut edit_ui);
+        paint_reserved_angle_label_outline(
+            ui.painter(),
+            colors,
+            &draft,
+            output.galley_pos,
+            output.text_clip_rect,
+            outline_slots,
+        );
         if select_all || editor.error.is_some() {
             output.response.request_focus();
         }
