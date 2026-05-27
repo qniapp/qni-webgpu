@@ -187,13 +187,14 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
 }
 
 /// Reverse of `gate_token`. Handles the `QFT<n>` / `QFT†<n>` span
-/// suffixes and the parametric `P(<angle>)` form. Returns `None` for
-/// unrecognised tokens (e.g. tokens emitted by a future qni version
-/// we don't yet know about).
+/// suffixes and the parametric `P(<angle>)` / `Rx(<angle>)` /
+/// `Ry(<angle>)` / `Rz(<angle>)` forms. Returns `None` for unrecognised
+/// tokens (e.g. tokens emitted by a future qni version we don't yet know
+/// about).
 ///
 /// The third tuple slot is the angle string — `Some("π/2")` etc. —
-/// `None` for non-parametric gates and for bare `"P"` (which uses
-/// the editor's default angle).
+/// `None` for non-parametric gates and for bare parametric tokens (which
+/// use the editor's default angle).
 fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;

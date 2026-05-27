@@ -33,9 +33,9 @@ pub(crate) struct PlacedGate {
     /// resizable-span gates (Probability, Amplitude, QFT / QFT†) can grow via hover-revealed
     /// resize handles.
     pub(crate) span: usize,
-    /// Angle string for parametric gates (currently only `GateKind::Phase`).
+    /// Angle string for parametric gates (`GateKind::Phase` / `Rx` / `Ry` / `Rz`).
     /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
-    /// `"2π/3"`, `"0"` — so URL round-trips are exact. Palette-placed Phase
+    /// `"2π/3"`, `"0"` — so URL round-trips are exact. Palette-placed parametric
     /// gates store the explicit default `"π/2"` so the circuit can show the
     /// angle label immediately. `None` still represents a bare legacy token and
     /// is evaluated as the gate's default.

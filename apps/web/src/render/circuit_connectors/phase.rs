@@ -4,12 +4,85 @@ use std::collections::HashMap;
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
-use crate::gates::{GateKind, PHASE_DEFAULT_ANGLE};
+use crate::gates::{GateKind, PARAMETRIC_DEFAULT_ANGLE};
 use crate::layout::LayoutMetrics;
 use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 
 use super::super::circuit::gate_slot_index_for_render;
 use super::draw_vertical_connector;
+
+const ANGLE_LABEL_FONT_SIZE: f32 = 12.0;
+const ANGLE_LABEL_GAP: f32 = 2.0;
+const ANGLE_LABEL_OUTLINE_OFFSETS: [(f32, f32); 8] = [
+    (1.0, 1.0),
+    (-1.0, -1.0),
+    (-1.0, 1.0),
+    (1.0, -1.0),
+    (0.0, 1.0),
+    (0.0, -1.0),
+    (-1.0, 0.0),
+    (1.0, 0.0),
+];
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ConnectionSides {
+    top: bool,
+    bottom: bool,
+}
+
+impl ConnectionSides {
+    fn include_wire(&mut self, gate_wire: usize, other_wire: usize) {
+        if other_wire < gate_wire {
+            self.top = true;
+        } else if other_wire > gate_wire {
+            self.bottom = true;
+        }
+    }
+
+    fn include(&mut self, other: Self) {
+        self.top |= other.top;
+        self.bottom |= other.bottom;
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct AngleLabelConnections {
+    sides: ConnectionSides,
+    adjacent_above_phase_center_y: Option<f32>,
+}
+
+impl AngleLabelConnections {
+    fn include_connection(&mut self, gate: &PlacedGate, other: &PlacedGate) {
+        self.sides.include_wire(gate.wire, other.wire);
+    }
+
+    fn include_phase_connection(&mut self, gate: &PlacedGate, other: &PlacedGate) {
+        self.include_connection(gate, other);
+        if other.wire + 1 == gate.wire {
+            self.adjacent_above_phase_center_y = Some(other.pos.y + GATE_SIZE / 2.0);
+        }
+    }
+
+    fn include(&mut self, other: Self) {
+        self.sides.include(other.sides);
+        if let Some(other_center_y) = other.adjacent_above_phase_center_y {
+            self.adjacent_above_phase_center_y = Some(other_center_y);
+        }
+    }
+
+    fn translated_y(mut self, offset_y: f32) -> Self {
+        if let Some(center_y) = &mut self.adjacent_above_phase_center_y {
+            *center_y += offset_y;
+        }
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AngleLabelLayout {
+    above_gate: bool,
+    outline_with_background: bool,
+}
 
 pub(super) fn draw_phase_connectors_and_labels(
     app: &QniApp,
@@ -19,16 +92,13 @@ pub(super) fn draw_phase_connectors_and_labels(
     circuit_origin: egui::Pos2,
     dragging_gate_id: Option<u32>,
 ) {
-    draw_phase_phase_connectors(
+    let render_columns = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
+        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+    });
+    draw_phase_phase_connectors(&render_columns, painter, metrics, colors, circuit_origin);
+    draw_parametric_angle_labels(
         app,
-        painter,
-        metrics,
-        colors,
-        circuit_origin,
-        dragging_gate_id,
-    );
-    draw_phase_angle_labels(
-        app,
+        &render_columns,
         painter,
         metrics,
         colors,
@@ -38,12 +108,11 @@ pub(super) fn draw_phase_connectors_and_labels(
 }
 
 fn draw_phase_phase_connectors(
-    app: &QniApp,
+    render_columns: &ColumnAnalysis<'_>,
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<u32>,
 ) {
     // Phase-Phase connector. qni's
     // `circuit-step-element.ts::updatePhasePhaseConnections` (:566-602)
@@ -51,12 +120,9 @@ fn draw_phase_phase_connectors(
     // Semantically it's a *visual* pairing only — qni's simulator still runs
     // each Phase independently (`simulator.ts::cu` :413-417 loops over
     // targets and applies the same 2x2 to each in turn), so we mirror just the
-    // line rendering. Bare legacy `P` uses the Phase default π/2; an explicit
-    // empty angle remains a placeholder and is skipped.
-    let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
-        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
-    });
-    for column in analysis.columns() {
+    // line rendering. Bare legacy `P` uses the parametric default π/2; an
+    // explicit empty angle remains a placeholder and is skipped.
+    for column in render_columns.columns() {
         let mut angle_buckets: HashMap<String, Vec<egui::Pos2>> = HashMap::new();
         for gate in column.gates() {
             if gate.kind != GateKind::Phase {
@@ -89,97 +155,209 @@ fn draw_phase_phase_connectors(
     }
 }
 
-fn draw_phase_angle_labels(
+fn draw_parametric_angle_labels(
     app: &QniApp,
+    render_columns: &ColumnAnalysis<'_>,
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
     dragging_gate_id: Option<u32>,
 ) {
-    // Angle labels for Phase gates. qni puts the angle text just outside the
-    // circular gate body (above for the topmost / standalone gate in a
-    // same-angle pair, below for the bottommost) so the label never overlaps
-    // the vertical connector that ties same-angle Phase gates together. We
-    // replicate the same dodge logic here.
-    let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
-        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
-    });
-    for column in analysis.columns() {
-        for gate in column.gates() {
-            if gate.kind != GateKind::Phase {
-                continue;
-            }
-            let Some(angle) = phase_angle_label_text(gate) else {
-                continue;
-            };
-            let center =
-                circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    // Angle labels for parametric gates. qni puts the angle text just outside
+    // the gate body and draws a white text-shadow when the dropzone has both
+    // `data-connect-top` and `data-connect-bottom`
+    // (`packages/elements/css/qni.css`, `.operation-angleable`). We mirror that
+    // with the circuit background (Flexoki bg-2 via `colors.background`) so
+    // labels stay legible over vertical connectors.
+    for gate in &app.placed_gates {
+        let Some(angle) = parametric_angle_label_text(gate) else {
+            continue;
+        };
+        let center =
+            circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
 
-            let (peers_above, peers_below) = phase_peers_by_side(column, gate.id, gate.wire, angle);
+        let connections = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+            .map(|column| angle_label_connections(column, gate, angle))
+            .unwrap_or_default()
+            .translated_y(circuit_origin.y);
+        let layout = angle_label_layout(connections.sides);
+        let (label_pos, align) = angle_label_position(center, layout, connections);
+        draw_angle_label(
+            painter,
+            label_pos,
+            align,
+            angle,
+            colors,
+            layout.outline_with_background,
+        );
+    }
+}
 
-            // Above for the topmost / standalone gate; below for the bottommost. A
-            // middle gate in a 3+ chain falls back to above and is left to overlap
-            // the connector (qni does the same).
-            //   standalone (no peers)         → above
-            //   topmost (peer below only)     → above
-            //   bottommost (peer above only)  → below
-            //   middle (peers above & below)  → above (fallback)
-            let label_above = peers_below || !peers_above;
-            let (label_y, align) = if label_above {
-                (
-                    center.y - GATE_SIZE / 2.0 - 2.0,
-                    egui::Align2::CENTER_BOTTOM,
-                )
-            } else {
-                (center.y + GATE_SIZE / 2.0 + 2.0, egui::Align2::CENTER_TOP)
-            };
-            painter.text(
-                egui::pos2(center.x, label_y),
-                align,
-                angle,
-                // text-xs (12 px) — Tailwind. Matches the popup body font so labels
-                // feel like they belong to the same typographic system.
-                egui::FontId::monospace(12.0),
-                colors.text,
+fn angle_label_layout(connection_sides: ConnectionSides) -> AngleLabelLayout {
+    // Mirrors qni's `.operation-angleable` placement rules:
+    //   no top connection        → top label
+    //   top + bottom connection  → top label with background outline
+    //   top-only connection      → bottom label
+    AngleLabelLayout {
+        above_gate: !connection_sides.top || connection_sides.bottom,
+        outline_with_background: connection_sides.top && connection_sides.bottom,
+    }
+}
+
+fn angle_label_position(
+    gate_center: egui::Pos2,
+    layout: AngleLabelLayout,
+    connections: AngleLabelConnections,
+) -> (egui::Pos2, egui::Align2) {
+    if layout.above_gate && layout.outline_with_background {
+        if let Some(above_center_y) = connections.adjacent_above_phase_center_y {
+            return (
+                egui::pos2(gate_center.x, (above_center_y + gate_center.y) * 0.5),
+                egui::Align2::CENTER_CENTER,
             );
         }
     }
+    if layout.above_gate {
+        (
+            egui::pos2(
+                gate_center.x,
+                gate_center.y - GATE_SIZE / 2.0 - ANGLE_LABEL_GAP,
+            ),
+            egui::Align2::CENTER_BOTTOM,
+        )
+    } else {
+        (
+            egui::pos2(
+                gate_center.x,
+                gate_center.y + GATE_SIZE / 2.0 + ANGLE_LABEL_GAP,
+            ),
+            egui::Align2::CENTER_TOP,
+        )
+    }
+}
+
+fn draw_angle_label(
+    painter: &egui::Painter,
+    pos: egui::Pos2,
+    align: egui::Align2,
+    text: &str,
+    colors: &Colors,
+    outline_with_background: bool,
+) {
+    // text-xs (12 px) — Tailwind. Matches the popup body font so labels
+    // feel like they belong to the same typographic system.
+    let font_id = egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE);
+    if outline_with_background {
+        for (dx, dy) in ANGLE_LABEL_OUTLINE_OFFSETS {
+            painter.text(
+                pos + egui::vec2(dx, dy),
+                align,
+                text,
+                font_id.clone(),
+                colors.background,
+            );
+        }
+    }
+    painter.text(pos, align, text, font_id, colors.text_strong);
 }
 
 fn phase_angle_label_text(gate: &PlacedGate) -> Option<&str> {
     if gate.kind != GateKind::Phase {
         return None;
     }
+    parametric_angle_label_text(gate)
+}
+
+fn phase_render_column<'columns, 'gates>(
+    render_columns: &'columns ColumnAnalysis<'gates>,
+    gate: &PlacedGate,
+    metrics: &LayoutMetrics,
+    dragging_gate_id: Option<u32>,
+) -> Option<&'columns AnalyzedColumn<'gates>> {
+    let slot = gate_slot_index_for_render(gate, metrics, dragging_gate_id)?;
+    render_columns
+        .columns()
+        .iter()
+        .find(|column| column.slot == slot)
+}
+
+fn parametric_angle_label_text(gate: &PlacedGate) -> Option<&str> {
+    if !matches!(
+        gate.kind,
+        GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz
+    ) {
+        return None;
+    }
     match gate.angle.as_deref() {
         Some(angle) if !angle.is_empty() => Some(angle),
         Some(_) => None,
-        None => Some(PHASE_DEFAULT_ANGLE),
+        None => Some(PARAMETRIC_DEFAULT_ANGLE),
     }
 }
 
-fn phase_peers_by_side(
+fn angle_label_connections(
     column: &AnalyzedColumn<'_>,
-    gate_id: u32,
-    wire: usize,
+    gate: &PlacedGate,
     angle: &str,
-) -> (bool, bool) {
-    let mut peers_above = false;
-    let mut peers_below = false;
+) -> AngleLabelConnections {
+    let mut connections = phase_phase_connections(column, gate, angle);
+    connections.include(control_connections(column, gate));
+    connections
+}
+
+fn phase_phase_connections(
+    column: &AnalyzedColumn<'_>,
+    gate: &PlacedGate,
+    angle: &str,
+) -> AngleLabelConnections {
+    if gate.kind != GateKind::Phase {
+        return AngleLabelConnections::default();
+    }
+    let mut connections = AngleLabelConnections::default();
     for other in column.gates() {
-        if other.id == gate_id || other.kind != GateKind::Phase {
+        if other.id == gate.id || other.kind != GateKind::Phase {
             continue;
         }
         if phase_angle_label_text(other) != Some(angle) {
             continue;
         }
-        if other.wire < wire {
-            peers_above = true;
-        } else if other.wire > wire {
-            peers_below = true;
-        }
+        connections.include_phase_connection(gate, other);
     }
-    (peers_above, peers_below)
+    connections
+}
+
+fn control_connections(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> AngleLabelConnections {
+    let controls = column
+        .gates()
+        .iter()
+        .filter(|other| matches!(other.kind, GateKind::Control | GateKind::AntiControl))
+        .count();
+    if controls == 0 {
+        return AngleLabelConnections::default();
+    }
+    let targets = column
+        .gates()
+        .iter()
+        .filter(|other| {
+            !matches!(
+                other.kind,
+                GateKind::Control | GateKind::AntiControl | GateKind::Swap
+            )
+        })
+        .count();
+    if targets == 0 && controls < 2 {
+        return AngleLabelConnections::default();
+    }
+
+    let mut connections = AngleLabelConnections::default();
+    for other in column.gates() {
+        if other.id == gate.id || other.kind == GateKind::Swap {
+            continue;
+        }
+        connections.include_connection(gate, other);
+    }
+    connections
 }
 
 #[cfg(test)]
@@ -205,5 +383,138 @@ mod tests {
         let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some("2π/3".to_owned()));
 
         assert_eq!(phase_angle_label_text(&gate), Some("2π/3"));
+    }
+
+    #[test]
+    fn rx_label_uses_default_for_missing_angle() {
+        let gate = PlacedGate::new(1, GateKind::Rx, 0, 0, 1, None);
+
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/2"));
+    }
+
+    #[test]
+    fn ry_label_keeps_explicit_angle() {
+        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, Some("π/4".to_owned()));
+
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/4"));
+    }
+
+    #[test]
+    fn rz_label_skips_explicit_empty_angle() {
+        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, Some(String::new()));
+
+        assert_eq!(parametric_angle_label_text(&gate), None);
+    }
+
+    #[test]
+    fn middle_phase_label_gets_background_outline() {
+        let layout = angle_label_layout(ConnectionSides {
+            top: true,
+            bottom: true,
+        });
+
+        assert!(layout.outline_with_background);
+    }
+
+    #[test]
+    fn topmost_phase_label_does_not_get_background_outline() {
+        let layout = angle_label_layout(ConnectionSides {
+            top: false,
+            bottom: true,
+        });
+
+        assert!(!layout.outline_with_background);
+    }
+
+    #[test]
+    fn bottommost_phase_label_uses_bottom_placement() {
+        let layout = angle_label_layout(ConnectionSides {
+            top: true,
+            bottom: false,
+        });
+
+        assert!(!layout.above_gate);
+    }
+
+    #[test]
+    fn phase_with_phase_above_and_control_below_gets_both_connection_sides() {
+        let gates = vec![
+            PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some("π/2".to_owned())),
+            PlacedGate::new(2, GateKind::Phase, 0, 1, 1, Some("π/2".to_owned())),
+            PlacedGate::new(3, GateKind::Control, 0, 2, 1, None),
+        ];
+        let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column));
+
+        assert_eq!(
+            angle_label_connections(&analysis.columns()[0], &gates[1], "π/2").sides,
+            ConnectionSides {
+                top: true,
+                bottom: true,
+            }
+        );
+    }
+
+    #[test]
+    fn outlined_top_label_is_centered_between_adjacent_phase_centers() {
+        let gate_center = egui::pos2(10.0, 80.0);
+        let layout = angle_label_layout(ConnectionSides {
+            top: true,
+            bottom: true,
+        });
+        let connections = AngleLabelConnections {
+            sides: ConnectionSides {
+                top: true,
+                bottom: true,
+            },
+            adjacent_above_phase_center_y: Some(24.0),
+        };
+
+        assert_eq!(
+            angle_label_position(gate_center, layout, connections).0.y,
+            52.0
+        );
+    }
+
+    #[test]
+    fn separated_phase_label_uses_gate_top_anchor() {
+        let gate_center = egui::pos2(10.0, 80.0);
+        let layout = angle_label_layout(ConnectionSides {
+            top: true,
+            bottom: true,
+        });
+        let connections = AngleLabelConnections {
+            sides: ConnectionSides {
+                top: true,
+                bottom: true,
+            },
+            adjacent_above_phase_center_y: None,
+        };
+
+        assert_eq!(
+            angle_label_position(gate_center, layout, connections).0.y,
+            58.0
+        );
+    }
+
+    #[test]
+    fn outlined_top_label_translation_keeps_screen_coordinates_consistent() {
+        let gate_center = egui::pos2(10.0, 180.0);
+        let layout = angle_label_layout(ConnectionSides {
+            top: true,
+            bottom: true,
+        });
+        let connections = AngleLabelConnections {
+            sides: ConnectionSides {
+                top: true,
+                bottom: true,
+            },
+            adjacent_above_phase_center_y: Some(24.0),
+        }
+        .translated_y(100.0);
+
+        assert_eq!(
+            angle_label_position(gate_center, layout, connections).0.y,
+            152.0
+        );
     }
 }

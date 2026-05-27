@@ -48,7 +48,7 @@ pub(crate) use params::{
     phase_params, rx_params, ry_params, rz_params, GateParams,
 };
 
-pub(crate) const PHASE_DEFAULT_ANGLE: &str = "π/2";
+pub(crate) const PARAMETRIC_DEFAULT_ANGLE: &str = "π/2";
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateSpec {
@@ -261,7 +261,9 @@ pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<String> {
     match kind {
-        GateKind::Phase => Some(PHASE_DEFAULT_ANGLE.to_owned()),
+        GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => {
+            Some(PARAMETRIC_DEFAULT_ANGLE.to_owned())
+        }
         _ => None,
     }
 }
@@ -331,5 +333,20 @@ mod tests {
             default_palette_angle(GateKind::Phase).as_deref(),
             Some("π/2")
         );
+    }
+
+    #[test]
+    fn rx_palette_default_angle_is_pi_over_two() {
+        assert_eq!(default_palette_angle(GateKind::Rx).as_deref(), Some("π/2"));
+    }
+
+    #[test]
+    fn ry_palette_default_angle_is_pi_over_two() {
+        assert_eq!(default_palette_angle(GateKind::Ry).as_deref(), Some("π/2"));
+    }
+
+    #[test]
+    fn rz_palette_default_angle_is_pi_over_two() {
+        assert_eq!(default_palette_angle(GateKind::Rz).as_deref(), Some("π/2"));
     }
 }

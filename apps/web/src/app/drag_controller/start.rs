@@ -88,8 +88,8 @@ impl DragController {
                     0,
                     0,
                     1,
-                    // Palette drop: Phase starts with its explicit π/2 default
-                    // so the circuit shows the same angle label Qni shows.
+                    // Palette drop: parametric gates start with their explicit
+                    // π/2 default so the circuit shows the same angle label Qni shows.
                     default_palette_angle(kind),
                 );
                 new_gate.pos = preview_pos;

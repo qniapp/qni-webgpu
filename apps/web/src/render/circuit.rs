@@ -115,7 +115,9 @@ impl QniApp {
                 label_pos,
                 egui::Align2::LEFT_TOP,
                 format!("q{index}:"),
-                egui::FontId::proportional(14.0),
+                // text-sm (14 px) — Tailwind. Monospace keeps q0:/q1: wire
+                // labels aligned with angle labels and state-panel numerals.
+                egui::FontId::monospace(14.0),
                 colors.text,
             );
         }
