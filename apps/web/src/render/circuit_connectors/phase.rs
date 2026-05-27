@@ -12,7 +12,10 @@ use super::super::circuit::gate_slot_index_for_render;
 use super::draw_vertical_connector;
 
 const ANGLE_LABEL_FONT_SIZE: f32 = 12.0;
-const ANGLE_LABEL_GAP: f32 = 2.0;
+// spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
+// the midpoint between the previous too-low +2px inset and too-high -2px gap.
+const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
+const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
 const ANGLE_LABEL_OUTLINE_OFFSETS: [(f32, f32); 8] = [
     (1.0, 1.0),
     (-1.0, -1.0),
@@ -42,39 +45,6 @@ impl ConnectionSides {
     fn include(&mut self, other: Self) {
         self.top |= other.top;
         self.bottom |= other.bottom;
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct AngleLabelConnections {
-    sides: ConnectionSides,
-    adjacent_above_phase_center_y: Option<f32>,
-}
-
-impl AngleLabelConnections {
-    fn include_connection(&mut self, gate: &PlacedGate, other: &PlacedGate) {
-        self.sides.include_wire(gate.wire, other.wire);
-    }
-
-    fn include_phase_connection(&mut self, gate: &PlacedGate, other: &PlacedGate) {
-        self.include_connection(gate, other);
-        if other.wire + 1 == gate.wire {
-            self.adjacent_above_phase_center_y = Some(other.pos.y + GATE_SIZE / 2.0);
-        }
-    }
-
-    fn include(&mut self, other: Self) {
-        self.sides.include(other.sides);
-        if let Some(other_center_y) = other.adjacent_above_phase_center_y {
-            self.adjacent_above_phase_center_y = Some(other_center_y);
-        }
-    }
-
-    fn translated_y(mut self, offset_y: f32) -> Self {
-        if let Some(center_y) = &mut self.adjacent_above_phase_center_y {
-            *center_y += offset_y;
-        }
-        self
     }
 }
 
@@ -164,8 +134,8 @@ fn draw_parametric_angle_labels(
     circuit_origin: egui::Pos2,
     dragging_gate_id: Option<u32>,
 ) {
-    // Angle labels for parametric gates. qni puts the angle text just outside
-    // the gate body and draws a white text-shadow when the dropzone has both
+    // Angle labels for parametric gates. qni puts the angle text near the gate
+    // body and draws a white text-shadow when the dropzone has both
     // `data-connect-top` and `data-connect-bottom`
     // (`packages/elements/css/qni.css`, `.operation-angleable`). We mirror that
     // with the circuit background (Flexoki bg-2 via `colors.background`) so
@@ -177,12 +147,11 @@ fn draw_parametric_angle_labels(
         let center =
             circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
 
-        let connections = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
-            .map(|column| angle_label_connections(column, gate, angle))
-            .unwrap_or_default()
-            .translated_y(circuit_origin.y);
-        let layout = angle_label_layout(connections.sides);
-        let (label_pos, align) = angle_label_position(center, layout, connections);
+        let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+            .map(|column| angle_label_connection_sides(column, gate, angle))
+            .unwrap_or_default();
+        let layout = angle_label_layout(connection_sides);
+        let (label_pos, align) = angle_label_position(center, layout);
         draw_angle_label(
             painter,
             label_pos,
@@ -208,21 +177,12 @@ fn angle_label_layout(connection_sides: ConnectionSides) -> AngleLabelLayout {
 fn angle_label_position(
     gate_center: egui::Pos2,
     layout: AngleLabelLayout,
-    connections: AngleLabelConnections,
 ) -> (egui::Pos2, egui::Align2) {
-    if layout.above_gate && layout.outline_with_background {
-        if let Some(above_center_y) = connections.adjacent_above_phase_center_y {
-            return (
-                egui::pos2(gate_center.x, (above_center_y + gate_center.y) * 0.5),
-                egui::Align2::CENTER_CENTER,
-            );
-        }
-    }
     if layout.above_gate {
         (
             egui::pos2(
                 gate_center.x,
-                gate_center.y - GATE_SIZE / 2.0 - ANGLE_LABEL_GAP,
+                gate_center.y - GATE_SIZE / 2.0 + ANGLE_LABEL_TOP_OFFSET,
             ),
             egui::Align2::CENTER_BOTTOM,
         )
@@ -230,7 +190,7 @@ fn angle_label_position(
         (
             egui::pos2(
                 gate_center.x,
-                gate_center.y + GATE_SIZE / 2.0 + ANGLE_LABEL_GAP,
+                gate_center.y + GATE_SIZE / 2.0 + ANGLE_LABEL_BOTTOM_GAP,
             ),
             egui::Align2::CENTER_TOP,
         )
@@ -296,25 +256,25 @@ fn parametric_angle_label_text(gate: &PlacedGate) -> Option<&str> {
     }
 }
 
-fn angle_label_connections(
+fn angle_label_connection_sides(
     column: &AnalyzedColumn<'_>,
     gate: &PlacedGate,
     angle: &str,
-) -> AngleLabelConnections {
-    let mut connections = phase_phase_connections(column, gate, angle);
-    connections.include(control_connections(column, gate));
-    connections
+) -> ConnectionSides {
+    let mut sides = phase_phase_connection_sides(column, gate, angle);
+    sides.include(control_connection_sides(column, gate));
+    sides
 }
 
-fn phase_phase_connections(
+fn phase_phase_connection_sides(
     column: &AnalyzedColumn<'_>,
     gate: &PlacedGate,
     angle: &str,
-) -> AngleLabelConnections {
+) -> ConnectionSides {
     if gate.kind != GateKind::Phase {
-        return AngleLabelConnections::default();
+        return ConnectionSides::default();
     }
-    let mut connections = AngleLabelConnections::default();
+    let mut sides = ConnectionSides::default();
     for other in column.gates() {
         if other.id == gate.id || other.kind != GateKind::Phase {
             continue;
@@ -322,19 +282,19 @@ fn phase_phase_connections(
         if phase_angle_label_text(other) != Some(angle) {
             continue;
         }
-        connections.include_phase_connection(gate, other);
+        sides.include_wire(gate.wire, other.wire);
     }
-    connections
+    sides
 }
 
-fn control_connections(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> AngleLabelConnections {
+fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> ConnectionSides {
     let controls = column
         .gates()
         .iter()
         .filter(|other| matches!(other.kind, GateKind::Control | GateKind::AntiControl))
         .count();
     if controls == 0 {
-        return AngleLabelConnections::default();
+        return ConnectionSides::default();
     }
     let targets = column
         .gates()
@@ -347,17 +307,17 @@ fn control_connections(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> AngleL
         })
         .count();
     if targets == 0 && controls < 2 {
-        return AngleLabelConnections::default();
+        return ConnectionSides::default();
     }
 
-    let mut connections = AngleLabelConnections::default();
+    let mut sides = ConnectionSides::default();
     for other in column.gates() {
         if other.id == gate.id || other.kind == GateKind::Swap {
             continue;
         }
-        connections.include_connection(gate, other);
+        sides.include_wire(gate.wire, other.wire);
     }
-    connections
+    sides
 }
 
 #[cfg(test)]
@@ -446,7 +406,7 @@ mod tests {
         let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column));
 
         assert_eq!(
-            angle_label_connections(&analysis.columns()[0], &gates[1], "π/2").sides,
+            angle_label_connection_sides(&analysis.columns()[0], &gates[1], "π/2"),
             ConnectionSides {
                 top: true,
                 bottom: true,
@@ -455,66 +415,13 @@ mod tests {
     }
 
     #[test]
-    fn outlined_top_label_is_centered_between_adjacent_phase_centers() {
+    fn top_label_uses_lower_gate_biased_anchor() {
         let gate_center = egui::pos2(10.0, 80.0);
         let layout = angle_label_layout(ConnectionSides {
             top: true,
             bottom: true,
         });
-        let connections = AngleLabelConnections {
-            sides: ConnectionSides {
-                top: true,
-                bottom: true,
-            },
-            adjacent_above_phase_center_y: Some(24.0),
-        };
 
-        assert_eq!(
-            angle_label_position(gate_center, layout, connections).0.y,
-            52.0
-        );
-    }
-
-    #[test]
-    fn separated_phase_label_uses_gate_top_anchor() {
-        let gate_center = egui::pos2(10.0, 80.0);
-        let layout = angle_label_layout(ConnectionSides {
-            top: true,
-            bottom: true,
-        });
-        let connections = AngleLabelConnections {
-            sides: ConnectionSides {
-                top: true,
-                bottom: true,
-            },
-            adjacent_above_phase_center_y: None,
-        };
-
-        assert_eq!(
-            angle_label_position(gate_center, layout, connections).0.y,
-            58.0
-        );
-    }
-
-    #[test]
-    fn outlined_top_label_translation_keeps_screen_coordinates_consistent() {
-        let gate_center = egui::pos2(10.0, 180.0);
-        let layout = angle_label_layout(ConnectionSides {
-            top: true,
-            bottom: true,
-        });
-        let connections = AngleLabelConnections {
-            sides: ConnectionSides {
-                top: true,
-                bottom: true,
-            },
-            adjacent_above_phase_center_y: Some(24.0),
-        }
-        .translated_y(100.0);
-
-        assert_eq!(
-            angle_label_position(gate_center, layout, connections).0.y,
-            152.0
-        );
+        assert_eq!(angle_label_position(gate_center, layout).0.y, 60.0);
     }
 }
