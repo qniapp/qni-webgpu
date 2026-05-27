@@ -124,6 +124,23 @@ pub(crate) struct SpanResizeDrag {
     pub(crate) start_span: usize,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct AngleAffordance {
+    pub(crate) gate_id: u32,
+    pub(crate) started_at: f64,
+    pub(crate) open_editor_after_delay: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AngleEditor {
+    pub(crate) gate_id: u32,
+    pub(crate) draft: String,
+    pub(crate) error: Option<String>,
+    pub(crate) reveal_started_at: f64,
+    pub(crate) select_all_pending: bool,
+    pub(crate) commit_after_frame: bool,
+}
+
 impl QniApp {
     /// Minimum number of slot centers the layout must expose so every placed
     /// gate has a valid snap target. Passed to `layout_metrics` so the wire

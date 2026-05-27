@@ -11,9 +11,11 @@ use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 use super::super::circuit::gate_slot_index_for_render;
 use super::draw_vertical_connector;
 
-const ANGLE_LABEL_FONT_SIZE: f32 = 12.0;
-// spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
-// the midpoint between the previous too-low +2px inset and too-high -2px gap.
+pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = 12.0; // text-xs = 12px.
+pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = 16.0; // text-xs line-height = 16px.
+pub(in crate::render) const ANGLE_UNDERLINE_GAP: f32 = 1.0; // 1px optical offset, not layout spacing.
+                                                            // spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
+                                                            // the midpoint between the previous too-low +2px inset and too-high -2px gap.
 const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
 const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
 const ANGLE_LABEL_OUTLINE_OFFSETS: [(f32, f32); 8] = [
@@ -46,6 +48,16 @@ impl ConnectionSides {
         self.top |= other.top;
         self.bottom |= other.bottom;
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::render) struct AngleLabelInfo<'a> {
+    pub(in crate::render) gate_id: u32,
+    pub(in crate::render) text: &'a str,
+    pub(in crate::render) pos: egui::Pos2,
+    pub(in crate::render) align: egui::Align2,
+    pub(in crate::render) above_gate: bool,
+    pub(in crate::render) outline_with_background: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -141,26 +153,98 @@ fn draw_parametric_angle_labels(
     // with the circuit background (Flexoki bg-2 via `colors.background`) so
     // labels stay legible over vertical connectors.
     for gate in &app.placed_gates {
-        let Some(angle) = parametric_angle_label_text(gate) else {
+        if app
+            .angle_editor
+            .as_ref()
+            .is_some_and(|editor| editor.gate_id == gate.id)
+        {
+            continue;
+        }
+        let Some(label) = parametric_angle_label_info(
+            gate,
+            render_columns,
+            metrics,
+            circuit_origin,
+            dragging_gate_id,
+        ) else {
             continue;
         };
-        let center =
-            circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-
-        let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
-            .map(|column| angle_label_connection_sides(column, gate, angle))
-            .unwrap_or_default();
-        let layout = angle_label_layout(connection_sides);
-        let (label_pos, align) = angle_label_position(center, layout);
         draw_angle_label(
             painter,
-            label_pos,
-            align,
-            angle,
+            label.pos,
+            label.align,
+            label.text,
             colors,
-            layout.outline_with_background,
+            label.outline_with_background,
         );
     }
+}
+
+pub(in crate::render) fn parametric_angle_label_info<'a>(
+    gate: &'a PlacedGate,
+    render_columns: &ColumnAnalysis<'_>,
+    metrics: &LayoutMetrics,
+    circuit_origin: egui::Pos2,
+    dragging_gate_id: Option<u32>,
+) -> Option<AngleLabelInfo<'a>> {
+    let angle = parametric_angle_label_text(gate)?;
+    let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+        .map(|column| angle_label_connection_sides(column, gate, angle))
+        .unwrap_or_default();
+    let layout = angle_label_layout(connection_sides);
+    let (pos, align) = angle_label_position(center, layout);
+    Some(AngleLabelInfo {
+        gate_id: gate.id,
+        text: angle,
+        pos,
+        align,
+        above_gate: layout.above_gate,
+        outline_with_background: layout.outline_with_background,
+    })
+}
+
+pub(in crate::render) fn angle_label_interaction_rect(label: &AngleLabelInfo<'_>) -> egui::Rect {
+    let top = if label.above_gate {
+        label.pos.y - ANGLE_LABEL_ROW_HEIGHT
+    } else {
+        label.pos.y
+    };
+    egui::Rect::from_min_size(
+        egui::pos2(label.pos.x - GATE_SIZE * 0.5, top),
+        egui::vec2(GATE_SIZE, ANGLE_LABEL_ROW_HEIGHT),
+    )
+}
+
+pub(in crate::render) fn angle_label_text_rect(
+    painter: &egui::Painter,
+    label: &AngleLabelInfo<'_>,
+    colors: &Colors,
+) -> egui::Rect {
+    let galley = painter.layout_no_wrap(
+        label.text.to_owned(),
+        egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE),
+        colors.text_strong,
+    );
+    let size = galley.size();
+    let top_left = if label.above_gate {
+        egui::pos2(label.pos.x - size.x * 0.5, label.pos.y - size.y)
+    } else {
+        egui::pos2(label.pos.x - size.x * 0.5, label.pos.y)
+    };
+    egui::Rect::from_min_size(top_left, size)
+}
+
+pub(in crate::render) fn angle_underline_segment(
+    painter: &egui::Painter,
+    label: &AngleLabelInfo<'_>,
+    colors: &Colors,
+) -> [egui::Pos2; 2] {
+    let y = angle_label_text_rect(painter, label, colors).bottom() + ANGLE_UNDERLINE_GAP;
+    [
+        egui::pos2(label.pos.x - GATE_SIZE * 0.5, y),
+        egui::pos2(label.pos.x + GATE_SIZE * 0.5, y),
+    ]
 }
 
 fn angle_label_layout(connection_sides: ConnectionSides) -> AngleLabelLayout {

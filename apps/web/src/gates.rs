@@ -44,8 +44,8 @@ mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;
 pub(crate) use params::{
-    controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
-    phase_params, rx_params, ry_params, rz_params, GateParams,
+    controlled_phase_params, gate_params, gate_params_controlled, normalize_angle_input,
+    parse_angle_radians, phase_params, rx_params, ry_params, rz_params, GateParams,
 };
 
 pub(crate) const PARAMETRIC_DEFAULT_ANGLE: &str = "π/2";
