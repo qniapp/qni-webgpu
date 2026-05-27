@@ -135,7 +135,6 @@ pub(crate) struct AngleAffordance {
 pub(crate) struct AngleEditor {
     pub(crate) gate_id: u32,
     pub(crate) draft: String,
-    pub(crate) error: Option<String>,
     pub(crate) reveal_started_at: f64,
     pub(crate) select_all_pending: bool,
     pub(crate) commit_after_frame: bool,

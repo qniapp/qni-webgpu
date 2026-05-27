@@ -18,9 +18,6 @@ use super::circuit_connectors::phase::{
 
 const ANGLE_AFFORDANCE_DELAY_SECS: f64 = 0.680;
 const ANGLE_UNDERLINE_FADE_SECS: f64 = 0.120;
-const ANGLE_ERROR_GAP: f32 = 4.0; // spacing-1.
-const ANGLE_ERROR_FONT_SIZE: f32 = 12.0; // text-xs.
-
 #[derive(Clone, Debug)]
 struct OwnedAngleLabel {
     gate_id: u32,
@@ -249,7 +246,6 @@ impl QniApp {
         self.angle_editor = Some(AngleEditor {
             gate_id,
             draft,
-            error: None,
             reveal_started_at,
             select_all_pending: true,
             commit_after_frame: false,
@@ -305,7 +301,7 @@ impl QniApp {
             output.text_clip_rect,
             outline_slots,
         );
-        if select_all || editor.error.is_some() {
+        if select_all {
             output.response.request_focus();
         }
         if select_all {
@@ -321,9 +317,6 @@ impl QniApp {
 
         let alpha = editor_underline_alpha(editor.reveal_started_at, now);
         self.paint_underline(ui.painter(), &info, colors, alpha);
-        if let Some(error) = editor.error.as_deref() {
-            self.paint_angle_error(ui.painter(), &info, colors, error);
-        }
 
         let (enter, escape) = ui.input(|input| {
             input
@@ -351,9 +344,6 @@ impl QniApp {
             self.angle_editor = Some(editor);
             self.commit_angle_editor(ui.ctx());
         } else {
-            if output.response.changed() {
-                editor.error = None;
-            }
             self.angle_editor = Some(editor);
             if alpha < 1.0 {
                 ui.ctx().request_repaint();
@@ -368,13 +358,10 @@ impl QniApp {
             ctx.request_repaint();
             return false;
         }
-        let Some(mut editor) = self.angle_editor.take() else {
+        let Some(editor) = self.angle_editor.take() else {
             return true;
         };
         let Some(normalized) = normalize_angle_input(&editor.draft) else {
-            editor.error = Some("Invalid.".to_owned());
-            editor.select_all_pending = false;
-            self.angle_editor = Some(editor);
             ctx.request_repaint();
             return false;
         };
@@ -436,34 +423,6 @@ impl QniApp {
         painter.line_segment(
             angle_underline_segment(label),
             egui::Stroke::new(1.0, with_alpha(colors.text, alpha)), // Flexoki tx-2.
-        );
-    }
-
-    fn paint_angle_error(
-        &self,
-        painter: &egui::Painter,
-        label: &AngleLabelInfo<'_>,
-        colors: &Colors,
-        error: &str,
-    ) {
-        let rect = angle_label_interaction_rect(label);
-        let (pos, align) = if label.above_gate {
-            (
-                egui::pos2(rect.center().x, rect.top() - ANGLE_ERROR_GAP),
-                egui::Align2::CENTER_BOTTOM,
-            )
-        } else {
-            (
-                egui::pos2(rect.center().x, rect.bottom() + ANGLE_ERROR_GAP),
-                egui::Align2::CENTER_TOP,
-            )
-        };
-        painter.text(
-            pos,
-            align,
-            error,
-            egui::FontId::monospace(ANGLE_ERROR_FONT_SIZE),
-            colors.semantic_off, // Flexoki red-600.
         );
     }
 
