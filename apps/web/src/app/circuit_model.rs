@@ -11,7 +11,7 @@ use crate::layout::gate_width_cols;
 
 use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MIN_QUBITS, SLOT_SPACING};
 use crate::gates::{GateKind, GateSpan, ParametricAngle};
-use crate::qubit_count::{local_state_count, QubitCapacity, QubitCount, QubitCountError};
+use crate::qubit_count::{QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
 
@@ -362,7 +362,8 @@ impl QniApp {
     }
 
     pub(super) fn state_count(&self) -> usize {
-        local_state_count(self.state_qubits())
+        self.state_qubits()
+            .local_state_count()
             .expect("state_qubits always returns a local-capacity value")
     }
 }

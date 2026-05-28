@@ -39,6 +39,26 @@ impl QubitCount {
     pub(crate) fn get(self) -> usize {
         self.0.get()
     }
+
+    /// ローカル実行の状態ベクトル長 `2^n`。ローカル容量を超える `n` は
+    /// `QubitCountError::AboveCapacity`。外部 GPU では有効な量子ビット数でも
+    /// ローカル状態ベクトルは確保できないため、名前に `local` を残す。
+    pub(crate) fn local_state_count(self) -> Result<usize, QubitCountError> {
+        let capacity = QubitCapacity::local();
+        if capacity.contains(self) {
+            Ok(1usize << self.get())
+        } else {
+            Err(QubitCountError::AboveCapacity {
+                count: self.get(),
+                capacity: capacity.get(),
+            })
+        }
+    }
+
+    /// GPU バッファ / `GateParams` 用の `u32` 版。同じくローカル容量で検証する。
+    pub(crate) fn local_state_count_u32(self) -> Result<u32, QubitCountError> {
+        self.local_state_count().map(|count| count as u32)
+    }
 }
 
 impl QubitCapacity {
@@ -59,18 +79,6 @@ impl QubitCapacity {
     }
 }
 
-pub(crate) fn local_state_count(count: QubitCount) -> Result<usize, QubitCountError> {
-    let capacity = QubitCapacity::local();
-    if capacity.contains(count) {
-        Ok(1usize << count.get())
-    } else {
-        Err(QubitCountError::AboveCapacity {
-            count: count.get(),
-            capacity: capacity.get(),
-        })
-    }
-}
-
 const fn nonzero_const(value: usize) -> NonZeroUsize {
     match NonZeroUsize::new(value) {
         Some(value) => value,
@@ -80,7 +88,7 @@ const fn nonzero_const(value: usize) -> NonZeroUsize {
 
 #[cfg(test)]
 mod tests {
-    use super::{local_state_count, QubitCapacity, QubitCount, QubitCountError};
+    use super::{QubitCapacity, QubitCount, QubitCountError};
 
     #[test]
     fn zero_is_rejected() {
@@ -126,7 +134,14 @@ mod tests {
     fn local_state_count_is_available_inside_local_capacity() {
         let count = QubitCount::try_for_capacity(16, QubitCapacity::local()).unwrap();
 
-        assert_eq!(local_state_count(count), Ok(65_536));
+        assert_eq!(count.local_state_count(), Ok(65_536));
+    }
+
+    #[test]
+    fn local_state_count_u32_is_available_inside_local_capacity() {
+        let count = QubitCount::try_for_capacity(16, QubitCapacity::local()).unwrap();
+
+        assert_eq!(count.local_state_count_u32(), Ok(65_536u32));
     }
 
     #[test]
@@ -134,7 +149,7 @@ mod tests {
         let count = QubitCount::try_for_capacity(32, QubitCapacity::external_gpu()).unwrap();
 
         assert_eq!(
-            local_state_count(count),
+            count.local_state_count(),
             Err(QubitCountError::AboveCapacity {
                 count: 32,
                 capacity: 16,

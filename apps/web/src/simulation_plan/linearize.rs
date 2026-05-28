@@ -32,7 +32,9 @@ pub(crate) fn linearize_ops(
     snapshot_slot_count: usize,
 ) -> Vec<SimulationOp> {
     let n = qubits.get();
-    let state_count = 1u32 << n;
+    let state_count = qubits
+        .local_state_count_u32()
+        .expect("linearize runs only on the local dispatch path within local capacity");
 
     let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
         if !gate.wire.is_within(qubits) {
