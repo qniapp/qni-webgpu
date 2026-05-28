@@ -10,6 +10,8 @@ pub(super) struct ExternalProbabilityRequest {
     pub(super) column: CircuitColumnIndex,
     pub(super) span: usize,
     pub(super) base_bit: u32,
+    pub(super) control_mask: u32,
+    pub(super) control_value: u32,
 }
 
 pub(super) fn collect_probability_requests(
@@ -22,13 +24,24 @@ pub(super) fn collect_probability_requests(
     };
     let mut requests = Vec::new();
     for column in 0..=max_column {
-        let mut displays: Vec<&PlacedGate> = placed_gates
+        let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| {
-                gate.column.as_usize() == column
-                    && gate.kind == GateKind::ProbabilityDisplay
-                    && gate.wire < qubits
-            })
+            .filter(|gate| gate.column.as_usize() == column && gate.wire < qubits)
+            .collect();
+        let mut control_mask = 0u32;
+        let mut control_value = 0u32;
+        for gate in &column_gates {
+            let bit = (qubits - 1 - gate.wire) as u32;
+            if gate.kind == GateKind::Control {
+                control_mask |= 1u32 << bit;
+                control_value |= 1u32 << bit;
+            } else if gate.kind == GateKind::AntiControl {
+                control_mask |= 1u32 << bit;
+            }
+        }
+        let mut displays: Vec<&PlacedGate> = column_gates
+            .into_iter()
+            .filter(|gate| gate.kind == GateKind::ProbabilityDisplay)
             .collect();
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
@@ -39,6 +52,8 @@ pub(super) fn collect_probability_requests(
                 column: CircuitColumnIndex::new(column),
                 span,
                 base_bit,
+                control_mask,
+                control_value,
             });
         }
     }
@@ -50,11 +65,17 @@ pub(super) fn probability_requests_json(requests: &[ExternalProbabilityRequest])
         .iter()
         .map(|request| {
             format!(
-                r#"{{"gate_id":{},"column":{},"span":{},"base_bit":{}}}"#,
+                concat!(
+                    "{{\"gate_id\":{},\"column\":{},\"span\":{}",
+                    ",\"base_bit\":{},\"control_mask\":{}",
+                    ",\"control_value\":{}}}"
+                ),
                 request.gate_id,
                 request.column.as_usize(),
                 request.span,
-                request.base_bit
+                request.base_bit,
+                request.control_mask,
+                request.control_value
             )
         })
         .collect();
@@ -188,7 +209,7 @@ mod tests {
 
         assert_eq!(
             probability_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0}]"#,
+            r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0}]"#,
         );
     }
 
@@ -208,7 +229,45 @@ mod tests {
 
         assert_eq!(
             probability_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1}]"#,
+            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1,"control_mask":0,"control_value":0}]"#,
+        );
+    }
+
+    #[test]
+    fn serializes_probability_controls() {
+        let requests = collect_probability_requests(
+            &[
+                PlacedGate::new(
+                    1,
+                    GateKind::Control,
+                    crate::app::CircuitColumnIndex::new(2),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    2,
+                    GateKind::AntiControl,
+                    crate::app::CircuitColumnIndex::new(2),
+                    1,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    3,
+                    GateKind::ProbabilityDisplay,
+                    crate::app::CircuitColumnIndex::new(2),
+                    2,
+                    1,
+                    None,
+                ),
+            ],
+            qubit_count(3),
+        );
+
+        assert_eq!(
+            probability_requests_json(&requests),
+            r#"[{"gate_id":3,"column":2,"span":1,"base_bit":0,"control_mask":6,"control_value":4}]"#,
         );
     }
 

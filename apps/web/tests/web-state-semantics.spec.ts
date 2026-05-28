@@ -190,6 +190,34 @@ test('anti-control does not apply when the control wire is one', async ({ page }
   await waitForStateVectorApprox(page, [0, 0, 0, 0, 1, 0, 0, 0])
 })
 
+test('Control suppresses QFT when the control wire is zero', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['•', 'QFT2']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const expected = Array(16).fill(0)
+  expected[0] = 1
+  await waitForStateVectorApprox(page, expected)
+})
+
+test('Control lets QFT run when the control wire is one', async ({ page }) => {
+  await page.goto(
+    '/#' +
+      encodeURIComponent(
+        JSON.stringify({ cols: [['|1>', 1, 1], ['•', 'QFT2', 1]] }),
+      ),
+  )
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const expected = Array(16).fill(0)
+  expected[8] = 0.5
+  expected[10] = 0.5
+  expected[12] = 0.5
+  expected[14] = 0.5
+  await waitForStateVectorApprox(page, expected)
+})
+
 test('Control does not affect gates in other columns', async ({ page }) => {
   await page.goto('/')
 

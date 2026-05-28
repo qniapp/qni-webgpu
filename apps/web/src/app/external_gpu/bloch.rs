@@ -9,6 +9,8 @@ pub(super) struct ExternalBlochRequest {
     pub(super) gate_id: u32,
     pub(super) column: CircuitColumnIndex,
     pub(super) wire: usize,
+    pub(super) control_mask: u32,
+    pub(super) control_value: u32,
 }
 
 pub(super) fn collect_bloch_requests(
@@ -21,13 +23,24 @@ pub(super) fn collect_bloch_requests(
     };
     let mut requests = Vec::new();
     for column in 0..=max_column {
-        let mut displays: Vec<&PlacedGate> = placed_gates
+        let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| {
-                gate.column.as_usize() == column
-                    && gate.kind == GateKind::BlochDisplay
-                    && gate.wire < qubits
-            })
+            .filter(|gate| gate.column.as_usize() == column && gate.wire < qubits)
+            .collect();
+        let mut control_mask = 0u32;
+        let mut control_value = 0u32;
+        for gate in &column_gates {
+            let bit = (qubits - 1 - gate.wire) as u32;
+            if gate.kind == GateKind::Control {
+                control_mask |= 1u32 << bit;
+                control_value |= 1u32 << bit;
+            } else if gate.kind == GateKind::AntiControl {
+                control_mask |= 1u32 << bit;
+            }
+        }
+        let mut displays: Vec<&PlacedGate> = column_gates
+            .into_iter()
+            .filter(|gate| gate.kind == GateKind::BlochDisplay)
             .collect();
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
@@ -35,6 +48,8 @@ pub(super) fn collect_bloch_requests(
                 gate_id: display.id,
                 column: CircuitColumnIndex::new(column),
                 wire: display.wire,
+                control_mask,
+                control_value,
             });
         }
     }
@@ -46,10 +61,15 @@ pub(super) fn bloch_requests_json(requests: &[ExternalBlochRequest]) -> String {
         .iter()
         .map(|request| {
             format!(
-                r#"{{"gate_id":{},"column":{},"wire":{}}}"#,
+                concat!(
+                    "{{\"gate_id\":{},\"column\":{},\"wire\":{}",
+                    ",\"control_mask\":{},\"control_value\":{}}}"
+                ),
                 request.gate_id,
                 request.column.as_usize(),
-                request.wire
+                request.wire,
+                request.control_mask,
+                request.control_value
             )
         })
         .collect();
@@ -177,7 +197,45 @@ mod tests {
 
         assert_eq!(
             bloch_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"wire":0}]"#,
+            r#"[{"gate_id":2,"column":1,"wire":0,"control_mask":0,"control_value":0}]"#,
+        );
+    }
+
+    #[test]
+    fn serializes_bloch_controls() {
+        let requests = collect_bloch_requests(
+            &[
+                PlacedGate::new(
+                    1,
+                    GateKind::Control,
+                    crate::app::CircuitColumnIndex::new(2),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    2,
+                    GateKind::AntiControl,
+                    crate::app::CircuitColumnIndex::new(2),
+                    1,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    3,
+                    GateKind::BlochDisplay,
+                    crate::app::CircuitColumnIndex::new(2),
+                    2,
+                    1,
+                    None,
+                ),
+            ],
+            qubit_count(3),
+        );
+
+        assert_eq!(
+            bloch_requests_json(&requests),
+            r#"[{"gate_id":3,"column":2,"wire":2,"control_mask":6,"control_value":4}]"#,
         );
     }
 

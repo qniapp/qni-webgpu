@@ -41,12 +41,16 @@ impl PackedRecomputeParams {
                 SimulationOp::CaptureBloch {
                     qubit_bit,
                     output_slot,
+                    control_mask,
+                    control_value,
                     ..
                 } => packed.bloch.push(BlochParams {
                     qubit_bit: *qubit_bit,
                     state_count: state_count as u32,
                     output_slot: *output_slot,
-                    _pad: 0,
+                    control_mask: *control_mask,
+                    control_value: *control_value,
+                    _pad: [0; 3],
                 }),
                 SimulationOp::MeasureReduceSample {
                     gate_id,
@@ -76,6 +80,8 @@ impl PackedRecomputeParams {
                     base_bit,
                     span,
                     output_slot,
+                    control_mask,
+                    control_value,
                     ..
                 } => {
                     let rest_count = (state_count as u32) >> *span;
@@ -84,6 +90,9 @@ impl PackedRecomputeParams {
                         span: *span,
                         rest_count,
                         output_slot: *output_slot,
+                        control_mask: *control_mask,
+                        control_value: *control_value,
+                        _pad: [0; 2],
                     });
                 }
                 SimulationOp::CaptureAmplitude {

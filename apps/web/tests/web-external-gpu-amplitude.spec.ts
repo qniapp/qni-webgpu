@@ -539,6 +539,42 @@ test('Run GPU uploads Qiskit Probability results into the display buffer', async
   expect(Math.round(probability * 100) / 100).toBe(0.75)
 })
 
+test('Run GPU sends Probability display controls to the Qiskit backend', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['•', 'Probability']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '00': 1024 },
+        probability: [{ gate_id: 2, span: 1, probabilities: [1, 0] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  const request = await page.evaluate(() => (window as any).__qniLastQiskitRequest)
+
+  expect(request?.outputs?.probability?.[0]).toMatchObject({
+    control_mask: 2,
+    control_value: 2,
+  })
+})
+
 test('Run GPU replaces the Probability placeholder with Qiskit-rendered data', async ({ page }) => {
   await page.goto(`/#${circuitHash([['H'], ['Probability']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -662,6 +698,42 @@ test('Run GPU uploads combined Qiskit display results into GPU buffers', async (
     x: Math.round(vector.x * 100) / 100,
     p: Math.round(probability * 100) / 100,
   }).toEqual({ re: 0.6, x: 0.4, p: 0.3 })
+})
+
+test('Run GPU sends Bloch display controls to the Qiskit backend', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['•', 'Bloch']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    ;(window as any).__qniRunQiskitBackend = async (payloadJson: string) => {
+      const payload = JSON.parse(payloadJson)
+      ;(window as any).__qniLastQiskitRequest = payload
+      const result = {
+        status: 'completed',
+        runner: 'test',
+        qubits: payload.qubits,
+        shots: payload.shots,
+        histogram: { '00': 1024 },
+        bloch: [{ gate_id: 2, vector: [0, 0, 1] }],
+        truncated: false,
+      }
+      ;(window as any).__qniLastQiskitResult = result
+      return result
+    }
+  })
+
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  await page.mouse.click(box.x + RUN_GPU_BUTTON_POINT.x, box.y + RUN_GPU_BUTTON_POINT.y)
+  await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
+  const request = await page.evaluate(() => (window as any).__qniLastQiskitRequest)
+
+  expect(request?.outputs?.bloch?.[0]).toMatchObject({
+    control_mask: 2,
+    control_value: 2,
+  })
 })
 
 test('Run GPU uploads Qiskit Bloch results into the display buffer', async ({ page }) => {
