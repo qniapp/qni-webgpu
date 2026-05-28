@@ -27,6 +27,64 @@ class ContractError(ValueError):
     pass
 
 
+class QubitCountError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class QubitCapacity:
+    value: int
+
+    @classmethod
+    def local(cls) -> QubitCapacity:
+        return cls(16)
+
+    @classmethod
+    def external_gpu(cls) -> QubitCapacity:
+        return cls(MAX_QUBITS)
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.value, bool)
+            or not isinstance(self.value, int)
+            or self.value < 1
+        ):
+            raise QubitCountError("qubit capacity must be an integer >= 1")
+
+    def contains(self, count: QubitCount) -> bool:
+        return count.value <= self.value
+
+
+@dataclass(frozen=True)
+class QubitCount:
+    value: int
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.value, bool)
+            or not isinstance(self.value, int)
+            or self.value < 1
+        ):
+            raise QubitCountError("qubits must be an integer >= 1")
+
+    @classmethod
+    def create(cls, value: int) -> QubitCount:
+        return cls(value)
+
+    @classmethod
+    def create_for_capacity(cls, value: int, capacity: QubitCapacity) -> QubitCount:
+        count = cls.create(value)
+        if not capacity.contains(count):
+            raise QubitCountError("qubits exceed capacity")
+        return count
+
+    def __index__(self) -> int:
+        return self.value
+
+    def __int__(self) -> int:
+        return self.value
+
+
 @dataclass(frozen=True)
 class AmplitudeOutputRequest:
     gate_id: int
@@ -66,7 +124,7 @@ class DensityOutputRequest:
 @dataclass(frozen=True)
 class RunRequest:
     runner: str
-    qubits: int
+    qubits: QubitCount
     columns: list[list[Any]]
     shots: int
     seed: int | None
@@ -90,9 +148,11 @@ def parse_run_request(
     if outputs.get("histogram") is False:
         raise ContractError("histogram output is required in this phase")
 
-    qubits = payload.get("qubits")
-    if not isinstance(qubits, int) or not 1 <= qubits <= MAX_QUBITS:
-        raise ContractError(f"qubits must be an integer in [1, {MAX_QUBITS}]")
+    raw_qubits = payload.get("qubits")
+    try:
+        qubits = QubitCount.create_for_capacity(raw_qubits, QubitCapacity.external_gpu())
+    except QubitCountError as exc:
+        raise ContractError(f"qubits must be an integer in [1, {MAX_QUBITS}]") from exc
 
     columns = payload.get("columns")
     if not isinstance(columns, list):
@@ -100,7 +160,7 @@ def parse_run_request(
     for column in columns:
         if not isinstance(column, list):
             raise ContractError("each column must be an array")
-        if len(column) > qubits:
+        if len(column) > qubits.value:
             raise ContractError("column references a wire beyond qubits")
 
     shots = payload.get("shots", 1024)
@@ -143,14 +203,14 @@ def parse_run_request(
 
 
 def parse_amplitude_outputs(
-    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: QubitCount
 ) -> list[AmplitudeOutputRequest]:
     raw_outputs = outputs.get("amplitudes", [])
     if raw_outputs in (None, False):
         return []
     if not isinstance(raw_outputs, list):
         raise ContractError("outputs.amplitudes must be an array")
-    if raw_outputs and qubits > MAX_EXACT_AMPLITUDE_QUBITS:
+    if raw_outputs and qubits.value > MAX_EXACT_AMPLITUDE_QUBITS:
         raise ContractError(
             f"amplitude outputs require qubits <= {MAX_EXACT_AMPLITUDE_QUBITS} in this phase"
         )
@@ -160,7 +220,7 @@ def parse_amplitude_outputs(
 
 
 def parse_amplitude_output(
-    raw: Any, columns: list[list[Any]], qubits: int
+    raw: Any, columns: list[list[Any]], qubits: QubitCount
 ) -> AmplitudeOutputRequest:
     if not isinstance(raw, dict):
         raise ContractError("each amplitude output must be an object")
@@ -179,9 +239,9 @@ def parse_amplitude_output(
         raise ContractError("amplitude column is out of range")
     if not 1 <= span <= 16:
         raise ContractError("amplitude span must be in [1, 16]")
-    if not 0 <= base_bit or base_bit + span > qubits:
+    if not 0 <= base_bit or base_bit + span > qubits.value:
         raise ContractError("amplitude bit range is out of range")
-    max_mask = (1 << qubits) - 1
+    max_mask = (1 << qubits.value) - 1
     if not 0 <= control_mask <= max_mask:
         raise ContractError("amplitude control_mask is out of range")
     if not 0 <= control_value <= max_mask:
@@ -200,7 +260,7 @@ def parse_amplitude_output(
 
 
 def parse_bloch_outputs(
-    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: QubitCount
 ) -> list[BlochOutputRequest]:
     raw_outputs = outputs.get("bloch", [])
     if raw_outputs in (None, False):
@@ -212,7 +272,9 @@ def parse_bloch_outputs(
     return [parse_bloch_output(raw, columns, qubits) for raw in raw_outputs]
 
 
-def parse_bloch_output(raw: Any, columns: list[list[Any]], qubits: int) -> BlochOutputRequest:
+def parse_bloch_output(
+    raw: Any, columns: list[list[Any]], qubits: QubitCount
+) -> BlochOutputRequest:
     if not isinstance(raw, dict):
         raise ContractError("each bloch output must be an object")
     gate_id = required_int(raw, "gate_id", "bloch")
@@ -222,13 +284,13 @@ def parse_bloch_output(raw: Any, columns: list[list[Any]], qubits: int) -> Bloch
         raise ContractError("bloch gate_id must be non-negative")
     if not 0 <= column < len(columns):
         raise ContractError("bloch column is out of range")
-    if not 0 <= wire < qubits:
+    if not 0 <= wire < qubits.value:
         raise ContractError("bloch wire is out of range")
     return BlochOutputRequest(gate_id=gate_id, column=column, wire=wire)
 
 
 def parse_probability_outputs(
-    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: QubitCount
 ) -> list[ProbabilityOutputRequest]:
     raw_outputs = outputs.get("probability", [])
     if raw_outputs in (None, False):
@@ -241,7 +303,7 @@ def parse_probability_outputs(
 
 
 def parse_probability_output(
-    raw: Any, columns: list[list[Any]], qubits: int
+    raw: Any, columns: list[list[Any]], qubits: QubitCount
 ) -> ProbabilityOutputRequest:
     if not isinstance(raw, dict):
         raise ContractError("each probability output must be an object")
@@ -255,7 +317,7 @@ def parse_probability_output(
         raise ContractError("probability column is out of range")
     if not 1 <= span <= 16:
         raise ContractError("probability span must be in [1, 16]")
-    if not 0 <= base_bit or base_bit + span > qubits:
+    if not 0 <= base_bit or base_bit + span > qubits.value:
         raise ContractError("probability bit range is out of range")
     return ProbabilityOutputRequest(
         gate_id=gate_id,
@@ -266,7 +328,7 @@ def parse_probability_output(
 
 
 def parse_density_outputs(
-    outputs: dict[str, Any], columns: list[list[Any]], qubits: int
+    outputs: dict[str, Any], columns: list[list[Any]], qubits: QubitCount
 ) -> list[DensityOutputRequest]:
     raw_outputs = outputs.get("densities", [])
     if raw_outputs in (None, False):
@@ -279,7 +341,7 @@ def parse_density_outputs(
 
 
 def parse_density_output(
-    raw: Any, columns: list[list[Any]], qubits: int
+    raw: Any, columns: list[list[Any]], qubits: QubitCount
 ) -> DensityOutputRequest:
     if not isinstance(raw, dict):
         raise ContractError("each density output must be an object")
@@ -295,9 +357,9 @@ def parse_density_output(
         raise ContractError("density column is out of range")
     if not 1 <= span <= MAX_DENSITY_SPAN:
         raise ContractError(f"density span must be in [1, {MAX_DENSITY_SPAN}]")
-    if not 0 <= base_bit or base_bit + span > qubits:
+    if not 0 <= base_bit or base_bit + span > qubits.value:
         raise ContractError("density bit range is out of range")
-    max_mask = (1 << qubits) - 1
+    max_mask = (1 << qubits.value) - 1
     if not 0 <= control_mask <= max_mask:
         raise ContractError("density control_mask is out of range")
     if not 0 <= control_value <= max_mask:
@@ -306,7 +368,9 @@ def parse_density_output(
         raise ContractError("density control_value must be a subset of control_mask")
     display_bits = set(range(base_bit, base_bit + span))
     non_display_control_count = sum(
-        1 for bit in range(qubits) if control_mask & (1 << bit) and bit not in display_bits
+        1
+        for bit in range(qubits.value)
+        if control_mask & (1 << bit) and bit not in display_bits
     )
     if span + non_display_control_count > MAX_DENSITY_SPAN:
         raise ContractError(

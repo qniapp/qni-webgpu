@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QubitCount 値オブジェクト — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">ドメインモデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">QubitCount 値オブジェクト</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · domain model</p>
+  <h1 class="page-title">QubitCount 値オブジェクト 実装仕様</h1>
+  <p class="page-lede">
+    量子ビット数を生の <code>usize</code> / <code>int</code> / <code>number</code> で引き回す代わりに、
+    ドメイン駆動設計（DDD）の値オブジェクトとして扱うための実装仕様。
+    「1 以上であること」と「実行モードごとの上限」を型と生成境界で表し、
+    WebGPU 内部実行、外部 GPU 実行、Qiskit バックエンドの契約を同じ言葉でそろえる。
+  </p>
+</div>
+
+<!-- ─────── § 01 目的と非目的 ─────── -->
+<section class="block" id="purpose">
+  <h2><span class="num">§ 01</span>目的と非目的</h2>
+  <div class="card">
+    <h3>目的</h3>
+    <ul>
+      <li><code>QubitCount</code> は量子レジスタの量子ビット数を表す値オブジェクトであり、常に <code>1</code> 以上である。</li>
+      <li><code>QubitCapacity</code> は実行モードごとに受け入れられる最大量子ビット数を表す値オブジェクトである。</li>
+      <li>ローカル WebGPU 内部実行の上限は <code>QubitCapacity::local() == 16</code> とする。</li>
+      <li>外部 GPU 実行の上限は <code>QubitCapacity::external_gpu() == 32</code> とする。</li>
+      <li>量子ビット数に依存する配列長、ビット反転、Qiskit の量子ビット引数は、すべて <code>QubitCount</code> から派生させる。</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">非目的</h3>
+    <ul>
+      <li><code>QubitCount</code> 自体へ実行モードを埋め込まない。同じ <code>17</code> は外部 GPU では有効だが、ローカル WebGPU では無効であるため、値そのものと上限判定は分ける。</li>
+      <li>回路エディタが見た目として最低 2 本のワイヤを表示する規則は、量子レジスタの不変条件ではない。必要なら <code>VisibleWireCount</code> など別の値として表す。</li>
+      <li>表示ブロックの <code>span</code>、ゲートの対象ワイヤ、Qiskit のビット順序は <code>QubitCount</code> の責務に含めない。必要になった時点で別の値オブジェクトとして定義する。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 02 値オブジェクト ─────── -->
+<section class="block" id="value-objects">
+  <h2><span class="num">§ 02</span>値オブジェクトの定義</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>名前</th><th>責務</th><th>不変条件</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th><code>QubitCount</code></th>
+          <td>量子レジスタの量子ビット数。状態数 <code>2^n</code>、ワイヤ範囲、外部 GPU 要求の <code>qubits</code> を導く元値。</td>
+          <td><code>1 &lt;= value</code></td>
+        </tr>
+        <tr>
+          <th><code>QubitCapacity</code></th>
+          <td>実行モードごとの最大量子ビット数。<code>QubitCount</code> を受け入れられるかを判定する。</td>
+          <td><code>1 &lt;= max</code>。定数は <code>local = 16</code>、<code>external_gpu = 32</code></td>
+        </tr>
+        <tr>
+          <th><code>QubitCountError</code></th>
+          <td>生成または上限判定に失敗した理由を境界で返す。UI と API はこの理由を表示用文言へ変換する。</td>
+          <td><code>Zero</code>、<code>AboveCapacity { count, capacity }</code> を区別する</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">Rust の形</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub(crate) struct QubitCount(NonZeroUsize);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct QubitCapacity(NonZeroUsize);
+
+impl QubitCount {
+    pub(crate) fn try_new(value: usize) -&gt; Result&lt;Self, QubitCountError&gt;;
+    pub(crate) fn try_for_capacity(
+        value: usize,
+        capacity: QubitCapacity,
+    ) -&gt; Result&lt;Self, QubitCountError&gt;;
+    pub(crate) fn get(self) -&gt; usize;
+}
+
+pub(crate) fn local_state_count(count: QubitCount) -&gt; Result&lt;usize, QubitCountError&gt;;
+
+impl QubitCapacity {
+    pub(crate) const fn local() -&gt; Self;        // 16
+    pub(crate) const fn external_gpu() -&gt; Self; // 32
+    pub(crate) fn contains(self, count: QubitCount) -&gt; bool;
+}</pre>
+
+    <p>
+      状態ベクトル長の算出は <code>local_state_count</code> のようなローカル実行専用ヘルパーに隔離する。
+      <code>QubitCount</code> 自体へ <code>state_count()</code> を持たせると、外部 GPU では有効な <code>32</code> 量子ビットでもローカル状態ベクトルを確保できるように読めてしまうためである。
+    </p>
+
+    <h3 style="margin-top: 16px;">Python / TypeScript の境界</h3>
+    <ul>
+      <li>Qiskit バックエンドでは <code>RunRequest.qubits</code> を <code>QubitCount</code> 相当の frozen dataclass にする。JSON から読む場所だけが <code>int</code> を受け取り、以降は値オブジェクトを渡す。</li>
+      <li>MCP や Playwright 補助の TypeScript では branded type または小さなオブジェクトを使い、<code>createQubitCount(raw)</code> を通さない値を受け取らない。</li>
+      <li>言語ごとの表現は違ってよいが、境界で検証して内部へ不正値を入れない、という不変条件は同じにする。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 03 実行モードと上限 ─────── -->
+<section class="block" id="execution-capacity">
+  <h2><span class="num">§ 03</span>実行モードと上限</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>実行モード</th><th>上限</th><th>意味</th><th>失敗時の扱い</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th><code>ExecMode::Local</code></th>
+          <td><code>QubitCapacity::local()</code> = 16</td>
+          <td>WebGPU 内部の状態ベクトル、ブロッホ表示、測定、確率表示、振幅表示、密度行列表示をフレーム内で扱う上限。</td>
+          <td><code>17</code> 以上はローカル実行不可。UI は外部 GPU への切り替えを促す。</td>
+        </tr>
+        <tr>
+          <th><code>ExecMode::Gpu</code></th>
+          <td><code>QubitCapacity::external_gpu()</code> = 32</td>
+          <td>外部 Qiskit Aer 経路へ送信できる量子ビット数の上限。</td>
+          <td><code>33</code> 以上は回路編集または実行要求を拒否する。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top: 12px;">
+      <code>ExecMode</code> は <code>QubitCapacity</code> を返すだけにする。
+      <code>ExecMode</code> が生の <code>usize</code> を返すと、呼び出し側が <code>16</code> / <code>32</code> の意味を知らないまま比較できてしまうため、上限の意図が失われる。
+    </p>
+    <pre class="code">impl ExecMode {
+    pub(crate) fn qubit_capacity(self) -&gt; QubitCapacity {
+        match self {
+            ExecMode::Local =&gt; QubitCapacity::local(),
+            ExecMode::Gpu =&gt; QubitCapacity::external_gpu(),
+        }
+    }
+}</pre>
+  </div>
+</section>
+
+<!-- ─────── § 04 既存コードへの対応方針 ─────── -->
+<section class="block" id="migration-points">
+  <h2><span class="num">§ 04</span>既存コードへの対応方針</h2>
+  <div class="card">
+    <h3>Web アプリ</h3>
+    <ul>
+      <li><code>required_qubit_count()</code> は <code>QubitCount</code> を返す。配置済みゲートが無い場合は、ドメイン上の最小値 <code>1</code> と、エディタ表示上の最小ワイヤ数 <code>2</code> を混ぜない。</li>
+      <li><code>state_qubits()</code> はローカル実行用に <code>QubitCount::try_for_capacity(raw, QubitCapacity::local())</code> を通す。</li>
+      <li><code>external_execution_qubits()</code> は外部 GPU 用に <code>QubitCount::try_for_capacity(raw, QubitCapacity::external_gpu())</code> を通す。</li>
+      <li><code>layout_qubits()</code> は見た目のワイヤ本数なので、<code>QubitCount</code> と同一視しない。ドラッグ中に 1 本増やす処理は表示都合の派生値として扱う。</li>
+      <li><code>linearize_ops</code>、<code>circuit_columns_to_json</code>、<code>collect_*_requests</code> は生の <code>usize</code> ではなく <code>QubitCount</code> を受け取る。</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">外部 GPU / Qiskit バックエンド</h3>
+    <ul>
+      <li>Web 側は外部 GPU 実行要求を組み立てる直前まで <code>QubitCount</code> を保持し、JSON の <code>qubits</code> へは <code>qiskit_run_payload_with_display_outputs</code> を呼ぶ最後の境界で <code>get()</code> した値だけを書き込む。</li>
+      <li><code>contract.py</code> は <code>payload["qubits"]</code> を読んだ直後に <code>QubitCount</code> を生成し、<code>QubitCapacity.external_gpu()</code> で上限を検証する。</li>
+      <li><code>runners.py</code> の <code>QuantumCircuit(request.qubits, request.qubits)</code>、<code>qiskit_basis_order</code>、<code>probability_qargs</code>、<code>density_save_qargs</code> は値オブジェクトから取り出した値だけを使う。</li>
+      <li>バックエンドのエラー文言は <code>qubits must be an integer in [1, 32]</code> の意味を維持する。ただし内部では <code>Zero</code> と <code>AboveCapacity</code> を分けておく。</li>
+    </ul>
+
+    <h3 style="margin-top: 16px;">TUI（端末 UI） / MCP（Model Context Protocol）</h3>
+    <ul>
+      <li>TUI の <code>qubit_count(state)</code> は <code>QubitCount</code> を返す候補である。ただし現在の TUI は CPU シミュレーションを含むため、WebGPU 本番経路と同時に整理する。</li>
+      <li>MCP の <code>createCircuit(qubits)</code> と <code>setQubits(circuit, qubits)</code> は、入力直後に TypeScript 側の <code>QubitCount</code> 相当へ変換する。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 05 境界と変換規則 ─────── -->
+<section class="block" id="boundaries">
+  <h2><span class="num">§ 05</span>境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>境界</th><th>入力</th><th>変換後</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>URL 回路 JSON</th>
+          <td>列配列の長さと配置済みゲート</td>
+          <td><code>QubitCount</code></td>
+          <td>URL は量子ビット数を明示しない。必要量子ビット数を復元してから生成する。</td>
+        </tr>
+        <tr>
+          <th>外部 GPU 要求 JSON</th>
+          <td><code>{ "qubits": number }</code></td>
+          <td><code>QubitCount</code></td>
+          <td>受信直後に <code>1..=32</code> を検証し、以降は生の整数を要求オブジェクトに保持しない。</td>
+        </tr>
+        <tr>
+          <th>GPU uniform / storage</th>
+          <td><code>QubitCount</code></td>
+          <td><code>u32</code></td>
+          <td>GPU へ書き込む直前だけ <code>u32</code> へ変換する。変換失敗は起きない範囲に制限済み。</td>
+        </tr>
+        <tr>
+          <th>Qiskit API</th>
+          <td><code>QubitCount</code></td>
+          <td><code>int</code></td>
+          <td><code>QuantumCircuit</code> や qargs へ渡す最後の境界でだけ整数化する。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────── § 06 受け入れ条件 ─────── -->
+<section class="block" id="acceptance">
+  <h2><span class="num">§ 06</span>受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>最小値</strong> — <code>QubitCount::try_new(0)</code> が <code>Zero</code> を返すことを 1 ケース 1 アサーションで確認する。</li>
+      <li><strong>1 は有効</strong> — <code>QubitCount::try_new(1)</code> が成功することを 1 ケース 1 アサーションで確認する。</li>
+      <li><strong>ローカル上限</strong> — <code>QubitCount::try_for_capacity(17, QubitCapacity::local())</code> が <code>AboveCapacity</code> を返すことを確認する。</li>
+      <li><strong>外部 GPU 上限</strong> — <code>QubitCount::try_for_capacity(32, QubitCapacity::external_gpu())</code> が成功し、<code>33</code> は失敗することを別テストで確認する。</li>
+      <li><strong>URL 復元</strong> — 17 本目のワイヤにゲートがある URL は、ローカルでは不可、外部 GPU では有効な <code>QubitCount</code> として扱われることを確認する。</li>
+      <li><strong>外部 GPU 要求 JSON</strong> — 外部 GPU 要求 JSON の <code>qubits</code> が値オブジェクトから生成され、回路列の最大ワイヤ数以上になることを確認する。</li>
+      <li><strong>バックエンド契約</strong> — <code>{ "qubits": 0 }</code> と <code>{ "qubits": 33 }</code> が契約エラーになることを Python unittest で分けて確認する。</li>
+      <li><strong>生整数の封じ込め</strong> — ドメイン内部の新規関数は <code>usize</code> / <code>int</code> / <code>number</code> の量子ビット数を直接受け取らず、境界と GPU / Qiskit への最終変換だけで整数へ戻す。</li>
+    </ol>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · QubitCount 値オブジェクト実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

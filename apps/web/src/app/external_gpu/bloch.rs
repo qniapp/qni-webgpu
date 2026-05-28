@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::app::PlacedGate;
 use crate::gates::GateKind;
 use crate::gpu::{ExternalBlochUpload, ExternalBlochUploadBatch};
+use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalBlochRequest {
     pub(super) gate_id: u32,
@@ -12,8 +13,9 @@ pub(super) struct ExternalBlochRequest {
 
 pub(super) fn collect_bloch_requests(
     placed_gates: &[PlacedGate],
-    qubits: usize,
+    qubits: QubitCount,
 ) -> Vec<ExternalBlochRequest> {
+    let qubits = qubits.get();
     let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
         return Vec::new();
     };
@@ -149,12 +151,17 @@ mod tests {
     use super::{bloch_requests_json, bloch_slot_to_gate_id, collect_bloch_requests};
     use crate::app::PlacedGate;
     use crate::gates::GateKind;
+    use crate::qubit_count::QubitCount;
+
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
 
     #[test]
     fn serializes_bloch_output_request() {
         let requests = collect_bloch_requests(
             &[PlacedGate::new(2, GateKind::BlochDisplay, 1, 0, 1, None)],
-            1,
+            qubit_count(1),
         );
 
         assert_eq!(
@@ -170,7 +177,7 @@ mod tests {
                 PlacedGate::new(4, GateKind::BlochDisplay, 1, 0, 1, None),
                 PlacedGate::new(3, GateKind::BlochDisplay, 1, 1, 1, None),
             ],
-            2,
+            qubit_count(2),
         );
 
         assert_eq!(bloch_slot_to_gate_id(&requests), vec![3, 4]);

@@ -265,6 +265,11 @@ fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::qubit_count::QubitCount;
+
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
 
     #[test]
     fn amplitude_span_sixteen_decodes() {
@@ -314,7 +319,7 @@ mod tests {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
 
         assert_eq!(
-            crate::url_circuit::circuit_to_json(&gates, 1),
+            crate::url_circuit::circuit_to_json(&gates, qubit_count(1)),
             r#"{"cols":[["P(π_2)"]]}"#
         );
     }

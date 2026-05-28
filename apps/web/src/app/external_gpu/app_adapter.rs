@@ -197,7 +197,19 @@ impl QniApp {
             return;
         }
 
-        let request = self.external_gpu_run_request();
+        let request = match self.external_gpu_run_request() {
+            Ok(request) => request,
+            Err(message) => {
+                self.pending_external_gpu_run_id = None;
+                self.pending_external_amplitude_slots.clear();
+                self.pending_external_bloch_slots.clear();
+                self.pending_external_probability_slots.clear();
+                self.pending_external_density_slots.clear();
+                self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(message));
+                ctx.request_repaint();
+                return;
+            }
+        };
         if request.amplitude_slot_to_gate_id.len() > MAX_AMPLITUDE_SLOTS {
             self.pending_external_gpu_run_id = None;
             self.pending_external_amplitude_slots.clear();
@@ -378,8 +390,10 @@ impl QniApp {
         ExternalGpuStatus::Completed { duration }
     }
 
-    fn external_gpu_run_request(&self) -> ExternalGpuRunRequest {
-        let qubits = self.external_execution_qubits();
+    fn external_gpu_run_request(&self) -> Result<ExternalGpuRunRequest, String> {
+        let qubits = self
+            .external_execution_qubits()
+            .map_err(|_| "qubit count exceeds external GPU capacity (32)".to_owned())?;
         let columns_json = crate::url_circuit::circuit_columns_to_json(&self.placed_gates, qubits);
         let amplitude_requests = collect_amplitude_requests(&self.placed_gates, qubits);
         let bloch_requests = collect_bloch_requests(&self.placed_gates, qubits);
@@ -389,9 +403,9 @@ impl QniApp {
         let bloch_json = bloch_requests_json(&bloch_requests);
         let probability_json = probability_requests_json(&probability_requests);
         let densities_json = density_requests_json(&density_requests);
-        ExternalGpuRunRequest {
+        Ok(ExternalGpuRunRequest {
             payload: qiskit_run_payload_with_display_outputs(
-                qubits,
+                qubits.get(),
                 &columns_json,
                 1024,
                 &amplitudes_json,
@@ -403,7 +417,7 @@ impl QniApp {
             bloch_slot_to_gate_id: bloch_slot_to_gate_id(&bloch_requests),
             probability_slot_to_gate_id: probability_slot_to_gate_id(&probability_requests),
             density_slot_to_gate_id: density_slot_to_gate_id(&density_requests),
-        }
+        })
     }
 
     pub(crate) fn wire_test_hooks(ctx: &egui::Context) {

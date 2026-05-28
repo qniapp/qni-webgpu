@@ -36,7 +36,7 @@ impl DragController {
                     let old_width = gate_width_cols(gate_kind, old_span);
                     match drag.edge {
                         SpanResizeEdge::Bottom => {
-                            let remaining_wires = capacity.saturating_sub(gate.wire).max(1);
+                            let remaining_wires = capacity.get().saturating_sub(gate.wire).max(1);
                             let max_span = gate.kind.max_resizable_span(remaining_wires);
                             gate.span = (drag.start_span as i32 + span_delta)
                                 .clamp(1, max_span as i32)

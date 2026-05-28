@@ -22,6 +22,7 @@ use crate::gpu::{
     ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalDensityUploadBatch,
     ExternalProbabilityUploadBatch,
 };
+use crate::qubit_count::{QubitCapacity, QubitCount};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
 use circuit_library::CircuitLibrary;
@@ -224,13 +225,9 @@ impl QniApp {
         let (url_gates, url_next_gate_id) = crate::url_circuit::parse_circuit_from_url();
         let requested_exec_mode = crate::url_circuit::parse_exec_mode_from_url();
         let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);
-        let url_exec_mode = if url_required_qubits > LOCAL_MAX_QUBITS {
-            ExecMode::Gpu
-        } else {
-            requested_exec_mode.unwrap_or_default()
-        };
-        let url_qubit_count = url_required_qubits.clamp(MIN_QUBITS, url_exec_mode.qubit_capacity());
-        let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_qubit_count);
+        let url_serialized_qubits = QubitCount::try_new(url_required_qubits.max(MIN_QUBITS))
+            .expect("URL serialized qubit count is at least one");
+        let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_serialized_qubits);
         let (library, initial_json) = circuit_library::for_startup(
             url_json.clone(),
             crate::url_circuit::current_url_has_circuit_payload(),
@@ -247,8 +244,12 @@ impl QniApp {
             requested_exec_mode.unwrap_or_default()
         };
         let initial_qubit_count =
-            initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity());
-        let initial_json = crate::url_circuit::circuit_to_json(&initial_gates, initial_qubit_count);
+            initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity().get());
+        let initial_serialized_qubits =
+            QubitCount::try_new(initial_required_qubits.max(MIN_QUBITS))
+                .expect("initial serialized qubit count is at least one");
+        let initial_json =
+            crate::url_circuit::circuit_to_json(&initial_gates, initial_serialized_qubits);
         crate::url_circuit::write_circuit_to_url(&initial_json);
         crate::url_circuit::write_exec_mode_to_url(exec_mode);
         Self {
@@ -317,7 +318,7 @@ impl QniApp {
     }
 
     fn layout_qubits(&self) -> usize {
-        let capacity = self.exec_mode.qubit_capacity();
+        let capacity = self.exec_mode.qubit_capacity().get();
         let mut count = self.qubit_count.clamp(MIN_QUBITS, capacity);
         if self.dragging.is_some() && count < capacity {
             count += 1;
@@ -326,7 +327,8 @@ impl QniApp {
     }
 
     pub(crate) fn local_state_vector_active(&self) -> bool {
-        self.exec_mode == ExecMode::Local && self.required_qubit_count() <= LOCAL_MAX_QUBITS
+        self.exec_mode == ExecMode::Local
+            && QubitCapacity::local().contains(self.required_qubit_count())
     }
 
     pub(crate) fn state_panel_visible(&self) -> bool {
@@ -351,6 +353,6 @@ impl QniApp {
     }
 
     pub(crate) fn local_exec_mode_available(&self) -> bool {
-        self.required_qubit_count() <= LOCAL_MAX_QUBITS
+        QubitCapacity::local().contains(self.required_qubit_count())
     }
 }

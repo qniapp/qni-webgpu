@@ -7,7 +7,13 @@ import urllib.error
 import urllib.request
 
 from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit, parse_angle
-from qni_qiskit_backend.contract import ContractError, parse_run_request
+from qni_qiskit_backend.contract import (
+    ContractError,
+    QubitCapacity,
+    QubitCount,
+    QubitCountError,
+    parse_run_request,
+)
 from qni_qiskit_backend.runners import (
     MockRunner,
     QiskitRunner,
@@ -36,6 +42,32 @@ def running_test_server(default_runner, allowed_runners, proxy_token=""):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+class QubitCountTests(unittest.TestCase):
+    def test_zero_qubit_count_is_rejected(self):
+        with self.assertRaises(QubitCountError):
+            QubitCount.create(0)
+
+    def test_direct_zero_qubit_count_constructor_is_rejected(self):
+        with self.assertRaises(QubitCountError):
+            QubitCount(0)
+
+    def test_one_qubit_count_is_accepted(self):
+        self.assertEqual(QubitCount.create(1).value, 1)
+
+    def test_local_capacity_rejects_seventeen_qubits(self):
+        with self.assertRaises(QubitCountError):
+            QubitCount.create_for_capacity(17, QubitCapacity.local())
+
+    def test_external_gpu_capacity_accepts_thirty_two_qubits(self):
+        self.assertEqual(
+            QubitCount.create_for_capacity(32, QubitCapacity.external_gpu()).value, 32
+        )
+
+    def test_external_gpu_capacity_rejects_thirty_three_qubits(self):
+        with self.assertRaises(QubitCountError):
+            QubitCount.create_for_capacity(33, QubitCapacity.external_gpu())
 
 
 class ContractTests(unittest.TestCase):
@@ -89,7 +121,11 @@ class ContractTests(unittest.TestCase):
 
     def test_accepts_thirty_two_qubits(self):
         request = parse_run_request({"qubits": 32, "columns": [], "shots": 12})
-        self.assertEqual(request.qubits, 32)
+        self.assertEqual(request.qubits.value, 32)
+
+    def test_rejects_zero_qubits(self):
+        with self.assertRaises(ContractError):
+            parse_run_request({"qubits": 0, "columns": [], "shots": 12})
 
     def test_rejects_more_than_thirty_two_qubits(self):
         with self.assertRaises(ContractError):
@@ -106,6 +142,10 @@ class ContractTests(unittest.TestCase):
             },
             {"histogram": {"000": 12}, "has_statevector": False, "has_probabilities": False},
         )
+
+    def test_qiskit_display_saves_do_not_allocate_amplitude_basis_without_amplitude_outputs(self):
+        request = parse_run_request({"qubits": 32, "columns": [], "shots": 12})
+        self.assertEqual(add_display_saves(object(), request, lambda axis: axis), ({}, {}, {}, {}))
 
     def test_contract_accepts_amplitude_output_requests(self):
         request = parse_run_request(

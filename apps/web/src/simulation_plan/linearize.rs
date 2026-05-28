@@ -13,6 +13,7 @@ use crate::gates::{
     controlled_phase_params, gate_params, gate_params_controlled, phase_params, rx_params,
     ry_params, rz_params, GateKind,
 };
+use crate::qubit_count::QubitCount;
 
 /// Walks placed gates column by column and emits ops in the exact order the
 /// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
@@ -25,12 +26,10 @@ use crate::gates::{
 /// copy only, matching qni's worker-side per-step result cache.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
-    qubits: usize,
+    qubits: QubitCount,
     snapshot_slot_count: usize,
 ) -> Vec<SimulationOp> {
-    if qubits == 0 {
-        return Vec::new();
-    }
+    let qubits = qubits.get();
     let state_count = 1u32 << qubits;
 
     let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
@@ -399,12 +398,17 @@ fn linearize_qft(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::qubit_count::QubitCount;
 
     const EPSILON: f32 = 0.000_001;
 
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
     fn bare_parametric_matrix(kind: GateKind) -> [[f32; 2]; 4] {
         let gate = PlacedGate::new(1, kind, 0, 0, 1, None);
-        let ops = linearize_ops(&[gate], 1, 0);
+        let ops = linearize_ops(&[gate], qubit_count(1), 0);
         match ops.first().expect("expected an apply-gate op") {
             SimulationOp::ApplyGate(params) => params.matrix(),
             _ => panic!("expected apply-gate op"),

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::app::PlacedGate;
 use crate::gates::GateKind;
 use crate::gpu::{ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch};
+use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalAmplitudeRequest {
     pub(super) gate_id: u32,
@@ -16,8 +17,9 @@ pub(super) struct ExternalAmplitudeRequest {
 
 pub(super) fn collect_amplitude_requests(
     placed_gates: &[PlacedGate],
-    qubits: usize,
+    qubits: QubitCount,
 ) -> Vec<ExternalAmplitudeRequest> {
+    let qubits = qubits.get();
     let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
         return Vec::new();
     };
@@ -206,6 +208,11 @@ mod tests {
     use super::{amplitude_requests_json, amplitude_slot_to_gate_id, collect_amplitude_requests};
     use crate::app::PlacedGate;
     use crate::gates::GateKind;
+    use crate::qubit_count::QubitCount;
+
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
 
     #[test]
     fn serializes_amplitude_output_request() {
@@ -218,7 +225,7 @@ mod tests {
                 1,
                 None,
             )],
-            1,
+            qubit_count(1),
         );
         assert_eq!(
             amplitude_requests_json(&requests),
@@ -233,7 +240,7 @@ mod tests {
                 PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
                 PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 1, 1, None),
             ],
-            2,
+            qubit_count(2),
         );
         assert_eq!(requests[0].control_mask, 2);
     }
@@ -245,7 +252,7 @@ mod tests {
                 PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
                 PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 1, 1, None),
             ],
-            2,
+            qubit_count(2),
         );
         assert_eq!(
             (requests[0].control_mask, requests[0].control_value),
@@ -260,7 +267,7 @@ mod tests {
                 PlacedGate::new(4, GateKind::AmplitudeDisplay, 1, 0, 1, None),
                 PlacedGate::new(3, GateKind::AmplitudeDisplay, 1, 1, 1, None),
             ],
-            2,
+            qubit_count(2),
         );
         assert_eq!(amplitude_slot_to_gate_id(&requests), vec![3, 4]);
     }

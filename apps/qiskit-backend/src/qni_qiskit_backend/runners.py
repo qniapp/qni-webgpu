@@ -12,8 +12,13 @@ from .contract import (
     BlochOutputRequest,
     DensityOutputRequest,
     ProbabilityOutputRequest,
+    QubitCount,
     RunRequest,
 )
+
+
+def qubit_value(qubits: int | QubitCount) -> int:
+    return qubits.value if isinstance(qubits, QubitCount) else qubits
 
 
 class RunnerUnavailable(RuntimeError):
@@ -32,10 +37,11 @@ class MockRunner:
 
     def run(self, request: RunRequest) -> dict[str, Any]:
         # Transport/UI smoke runner only. It intentionally does not simulate.
-        key = "0" * request.qubits
+        qubits = request.qubits.value
+        key = "0" * qubits
         response = histogram_response(
             runner=self.name,
-            qubits=request.qubits,
+            qubits=qubits,
             shots=request.shots,
             histogram={key: request.shots},
         )
@@ -62,9 +68,12 @@ class QiskitRunner:
                 "qiskit and qiskit-aer are required for this runner"
             ) from exc
 
-        qc = QuantumCircuit(request.qubits, request.qubits)
-        amplitude_labels, bloch_labels, probability_labels, density_labels = add_display_saves(qc, request, Pauli)
-        for wire in range(request.qubits):
+        qubits = request.qubits.value
+        qc = QuantumCircuit(qubits, qubits)
+        amplitude_labels, bloch_labels, probability_labels, density_labels = add_display_saves(
+            qc, request, Pauli
+        )
+        for wire in range(qubits):
             qc.measure(wire, wire)
 
         options: dict[str, Any] = {"method": "statevector", "device": self.device}
@@ -84,7 +93,7 @@ class QiskitRunner:
         counts = normalize_qiskit_counts(result.get_counts())
         response = histogram_response(
             runner=self.name,
-            qubits=request.qubits,
+            qubits=qubits,
             shots=request.shots,
             histogram=counts,
         )
@@ -125,10 +134,11 @@ def add_display_saves(
     bloch_labels: dict[int, dict[str, str]] = {}
     probability_labels: dict[int, str] = {}
     density_labels: dict[int, str] = {}
-    basis = qiskit_basis_order(request.qubits)
-    basis_tracker = initial_basis_tracker(request.qubits)
+    qubits = request.qubits.value
+    basis = qiskit_basis_order(qubits) if request.amplitude_outputs else []
+    basis_tracker = initial_basis_tracker(qubits)
     for column_index, column in enumerate(request.columns):
-        apply_column_to_qiskit(qc, column, request.qubits, basis_tracker)
+        apply_column_to_qiskit(qc, column, qubits, basis_tracker)
         for amplitude in amplitudes_by_column.get(column_index, []):
             label = f"amplitude:{amplitude.gate_id}"
             qc.save_amplitudes(basis, label=label)
@@ -142,11 +152,11 @@ def add_display_saves(
             bloch_labels[bloch.gate_id] = axis_labels
         for probability in probability_by_column.get(column_index, []):
             label = f"probability:{probability.gate_id}"
-            qc.save_probabilities(probability_qargs(probability, request.qubits), label=label)
+            qc.save_probabilities(probability_qargs(probability, qubits), label=label)
             probability_labels[probability.gate_id] = label
         for density in density_by_column.get(column_index, []):
             label = f"density:{density.gate_id}"
-            qc.save_density_matrix(density_save_qargs(density, request.qubits), label=label)
+            qc.save_density_matrix(density_save_qargs(density, qubits), label=label)
             density_labels[density.gate_id] = label
     return amplitude_labels, bloch_labels, probability_labels, density_labels
 
@@ -163,7 +173,7 @@ def add_qiskit_amplitudes(
         amplitude_display_response(
             amplitude,
             qiskit_saved_amplitudes(data[labels[amplitude.gate_id]]),
-            request.qubits,
+            request.qubits.value,
         )
         for amplitude in request.amplitude_outputs
     ]
@@ -219,7 +229,7 @@ def add_qiskit_density(
         density_display_response(
             density,
             qiskit_saved_density_matrix(data[labels[density.gate_id]]),
-            request.qubits,
+            request.qubits.value,
         )
         for density in request.density_outputs
     ]
@@ -228,11 +238,12 @@ def add_qiskit_density(
 def add_mock_amplitudes(response: dict[str, Any], request: RunRequest) -> None:
     if not request.amplitude_outputs:
         return
-    state_count = 1 << request.qubits
+    qubits = request.qubits.value
+    state_count = 1 << qubits
     ground_state = [0j] * state_count
     ground_state[0] = 1 + 0j
     response["amplitudes"] = [
-        amplitude_display_response(amplitude, ground_state, request.qubits)
+        amplitude_display_response(amplitude, ground_state, qubits)
         for amplitude in request.amplitude_outputs
     ]
 
@@ -264,8 +275,10 @@ def add_mock_density(response: dict[str, Any], request: RunRequest) -> None:
     response["densities"] = [
         density_display_response(
             density,
-            ground_density_matrix(density.span + len(density_control_bits(density, request.qubits))),
-            request.qubits,
+            ground_density_matrix(
+                density.span + len(density_control_bits(density, request.qubits.value))
+            ),
+            request.qubits.value,
         )
         for density in request.density_outputs
     ]
@@ -287,8 +300,11 @@ def probability_display_response(
 
 
 def density_display_response(
-    request: DensityOutputRequest, matrix: Sequence[Sequence[complex]], qubits: int
+    request: DensityOutputRequest,
+    matrix: Sequence[Sequence[complex]],
+    qubits: int | QubitCount,
 ) -> dict[str, Any]:
+    qubits = qubit_value(qubits)
     dim = 1 << request.span
     control_bits = density_control_bits(request, qubits)
     control_index = density_control_index(request, control_bits)
@@ -314,15 +330,18 @@ def ground_density_matrix(span: int) -> list[list[complex]]:
     return matrix
 
 
-def probability_qargs(request: ProbabilityOutputRequest, qubits: int) -> list[int]:
+def probability_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
     return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
 
 
-def density_qargs(request: DensityOutputRequest, qubits: int) -> list[int]:
+def density_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
     return [qubits - 1 - bit for bit in density_bits(request)]
 
 
-def density_save_qargs(request: DensityOutputRequest, qubits: int) -> list[int]:
+def density_save_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
     bits = density_bits(request) + density_control_bits(request, qubits)
     return [qubits - 1 - bit for bit in bits]
 
@@ -331,7 +350,8 @@ def density_bits(request: DensityOutputRequest) -> list[int]:
     return list(range(request.base_bit, request.base_bit + request.span))
 
 
-def density_control_bits(request: DensityOutputRequest, qubits: int) -> list[int]:
+def density_control_bits(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
     display_bits = set(density_bits(request))
     return [
         bit
@@ -377,11 +397,13 @@ def qiskit_saved_density_matrix(saved: Any) -> list[list[complex]]:
     return [[complex(value) for value in row] for row in rows]
 
 
-def qiskit_basis_order(qubits: int) -> list[int]:
+def qiskit_basis_order(qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
     return [web_index_to_qiskit_index(index, qubits) for index in range(1 << qubits)]
 
 
-def web_index_to_qiskit_index(index: int, qubits: int) -> int:
+def web_index_to_qiskit_index(index: int, qubits: int | QubitCount) -> int:
+    qubits = qubit_value(qubits)
     qiskit_index = 0
     for wire in range(qubits):
         web_bit = qubits - 1 - wire
@@ -391,8 +413,9 @@ def web_index_to_qiskit_index(index: int, qubits: int) -> int:
 
 
 def amplitude_display_response(
-    request: AmplitudeOutputRequest, state: Sequence[complex], qubits: int
+    request: AmplitudeOutputRequest, state: Sequence[complex], qubits: int | QubitCount
 ) -> dict[str, Any]:
+    qubits = qubit_value(qubits)
     outcomes = 1 << request.span
     rest_count = 1 << (qubits - request.span)
     incoherent = [0.0] * outcomes
