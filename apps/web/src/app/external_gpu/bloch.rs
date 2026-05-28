@@ -45,7 +45,7 @@ pub(super) fn collect_bloch_requests(
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
             requests.push(ExternalBlochRequest {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
                 wire: display.wire.as_usize(),
                 control_mask,
@@ -185,7 +185,7 @@ mod tests {
     fn serializes_bloch_output_request() {
         let requests = collect_bloch_requests(
             &[PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::BlochDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
@@ -206,7 +206,7 @@ mod tests {
         let requests = collect_bloch_requests(
             &[
                 PlacedGate::new(
-                    1,
+                    crate::app::GateId::from_u32(1),
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(0),
@@ -214,7 +214,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    2,
+                    crate::app::GateId::from_u32(2),
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(1),
@@ -222,7 +222,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    3,
+                    crate::app::GateId::from_u32(3),
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(2),
@@ -244,7 +244,7 @@ mod tests {
         let requests = collect_bloch_requests(
             &[
                 PlacedGate::new(
-                    4,
+                    crate::app::GateId::from_u32(4),
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(0),
@@ -252,7 +252,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    3,
+                    crate::app::GateId::from_u32(3),
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(1),

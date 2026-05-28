@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::time::Duration;
 
-use crate::app::{CircuitColumnIndex, QniApp};
+use crate::app::{CircuitColumnIndex, GateId, QniApp};
 use crate::constants::DRAG_REPAINT_MIN_SECS;
 use crate::shared::now_seconds;
 
@@ -52,27 +52,31 @@ impl QniApp {
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_hover_snapshot(
-    hovered_gate_id: Option<u32>,
+    hovered_gate_id: Option<GateId>,
     hovered_palette_index: Option<usize>,
-    hovered_probability_outcome: Option<(u32, u32)>,
-    hovered_amplitude_outcome: Option<(u32, u32)>,
-    hovered_density_cell: Option<(u32, u32)>,
+    hovered_probability_outcome: Option<(GateId, u32)>,
+    hovered_amplitude_outcome: Option<(GateId, u32)>,
+    hovered_density_cell: Option<(GateId, u32)>,
     hovered_step: Option<CircuitColumnIndex>,
 ) {
     let gate = hovered_gate_id
-        .map(|id| id.to_string())
+        .map(|id| id.as_u32().to_string())
         .unwrap_or_else(|| "null".to_owned());
     let palette = hovered_palette_index
         .map(|index| index.to_string())
         .unwrap_or_else(|| "null".to_owned());
     let probability = hovered_probability_outcome
-        .map(|(gate_id, outcome)| format!("{{\"gateId\":{gate_id},\"outcome\":{outcome}}}"))
+        .map(|(gate_id, outcome)| {
+            format!("{{\"gateId\":{},\"outcome\":{outcome}}}", gate_id.as_u32())
+        })
         .unwrap_or_else(|| "null".to_owned());
     let amplitude = hovered_amplitude_outcome
-        .map(|(gate_id, outcome)| format!("{{\"gateId\":{gate_id},\"outcome\":{outcome}}}"))
+        .map(|(gate_id, outcome)| {
+            format!("{{\"gateId\":{},\"outcome\":{outcome}}}", gate_id.as_u32())
+        })
         .unwrap_or_else(|| "null".to_owned());
     let density = hovered_density_cell
-        .map(|(gate_id, cell)| format!("{{\"gateId\":{gate_id},\"cell\":{cell}}}"))
+        .map(|(gate_id, cell)| format!("{{\"gateId\":{},\"cell\":{cell}}}", gate_id.as_u32()))
         .unwrap_or_else(|| "null".to_owned());
     let step = hovered_step
         .map(|index| index.as_usize().to_string())
@@ -88,11 +92,11 @@ fn publish_hover_snapshot(
 
 #[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
 fn publish_hover_snapshot(
-    _hovered_gate_id: Option<u32>,
+    _hovered_gate_id: Option<GateId>,
     _hovered_palette_index: Option<usize>,
-    _hovered_probability_outcome: Option<(u32, u32)>,
-    _hovered_amplitude_outcome: Option<(u32, u32)>,
-    _hovered_density_cell: Option<(u32, u32)>,
+    _hovered_probability_outcome: Option<(GateId, u32)>,
+    _hovered_amplitude_outcome: Option<(GateId, u32)>,
+    _hovered_density_cell: Option<(GateId, u32)>,
     _hovered_step: Option<CircuitColumnIndex>,
 ) {
 }

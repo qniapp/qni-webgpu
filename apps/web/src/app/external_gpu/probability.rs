@@ -51,7 +51,7 @@ pub(super) fn collect_probability_requests(
                 .get();
             let base_bit = (qubits - display.wire.as_usize() - span) as u32;
             requests.push(ExternalProbabilityRequest {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
                 span,
                 base_bit,
@@ -200,7 +200,7 @@ mod tests {
     fn serializes_probability_output_request() {
         let requests = collect_probability_requests(
             &[PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
@@ -220,7 +220,7 @@ mod tests {
     fn serializes_probability_span_base_bit() {
         let requests = collect_probability_requests(
             &[PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
@@ -241,7 +241,7 @@ mod tests {
         let requests = collect_probability_requests(
             &[
                 PlacedGate::new(
-                    1,
+                    crate::app::GateId::from_u32(1),
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(0),
@@ -249,7 +249,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    2,
+                    crate::app::GateId::from_u32(2),
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(1),
@@ -257,7 +257,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    3,
+                    crate::app::GateId::from_u32(3),
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(2),
@@ -279,7 +279,7 @@ mod tests {
         let requests = collect_probability_requests(
             &[
                 PlacedGate::new(
-                    4,
+                    crate::app::GateId::from_u32(4),
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(0),
@@ -287,7 +287,7 @@ mod tests {
                     None,
                 ),
                 PlacedGate::new(
-                    3,
+                    crate::app::GateId::from_u32(3),
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(1),

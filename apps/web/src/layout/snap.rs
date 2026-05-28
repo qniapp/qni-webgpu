@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::geometry::{gate_rect_at_grid, gate_width_cols};
-use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
+use crate::app::{CircuitColumnIndex, GateId, PlacedGate, WireIndex};
 use crate::constants::SLOT_SPACING;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -76,7 +76,7 @@ fn candidate_available_at_slot(
     moving_gate: &PlacedGate,
     column: usize,
     wire_index: usize,
-    ignore_id: Option<u32>,
+    ignore_id: Option<GateId>,
     gates: &[PlacedGate],
 ) -> bool {
     gates.iter().all(|gate| {
@@ -95,7 +95,7 @@ fn candidate_available_after_insert(
     moving_gate: &PlacedGate,
     insert_index: usize,
     wire_index: usize,
-    ignore_id: Option<u32>,
+    ignore_id: Option<GateId>,
     gates: &[PlacedGate],
 ) -> bool {
     let moving_width = gate_width_cols(moving_gate.kind, moving_gate.span.get());
@@ -119,7 +119,7 @@ fn nearest_available_slot(
     x: f32,
     wire_index: usize,
     moving_gate: &PlacedGate,
-    ignore_id: Option<u32>,
+    ignore_id: Option<GateId>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
 ) -> Option<SlotSnap> {
@@ -146,7 +146,7 @@ fn nearest_insert_slot(
     x: f32,
     wire_index: usize,
     moving_gate: &PlacedGate,
-    ignore_id: Option<u32>,
+    ignore_id: Option<GateId>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
 ) -> Option<InsertSnap> {
@@ -201,7 +201,7 @@ pub(crate) fn nearest_circuit_snap(
     x: f32,
     wire_index: usize,
     moving_gate: &PlacedGate,
-    ignore_id: Option<u32>,
+    ignore_id: Option<GateId>,
     gates: &[PlacedGate],
     slot_centers: &[f32],
 ) -> Option<CircuitSnap> {
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn amplitude_slot_snap_skips_intersecting_neighbor_column() {
         let existing = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::H,
             crate::app::CircuitColumnIndex::new(1),
             crate::app::WireIndex::new(0),
@@ -239,7 +239,7 @@ mod tests {
             None,
         );
         let moving = PlacedGate::new(
-            2,
+            crate::app::GateId::from_u32(2),
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -250,7 +250,7 @@ mod tests {
             126.0,
             0,
             &moving,
-            Some(2),
+            Some(crate::app::GateId::from_u32(2)),
             &[existing, moving.clone()],
             &[126.0, 182.0, 238.0],
         );

@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_write0_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Write0,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_write1_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Write1,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -470,7 +470,7 @@ mod tests {
     fn external_gpu_accepts_controlled_write0_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -478,7 +478,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Write0,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -494,7 +494,7 @@ mod tests {
     fn external_gpu_accepts_anti_controlled_write1_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -502,7 +502,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Write1,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -518,7 +518,7 @@ mod tests {
     fn external_gpu_accepts_swap_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -526,7 +526,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_spacer_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Spacer,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -555,7 +555,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_measurement_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Measurement,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -570,7 +570,7 @@ mod tests {
     fn external_gpu_accepts_anti_controlled_x_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -578,7 +578,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::X,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_lone_control_column() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -608,7 +608,7 @@ mod tests {
     fn external_gpu_accepts_control_only_column() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -616,7 +616,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -631,7 +631,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_anti_control_only_column() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::AntiControl,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -646,7 +646,7 @@ mod tests {
     fn external_gpu_accepts_anti_controlled_h_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -654,7 +654,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::H,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -670,7 +670,7 @@ mod tests {
     fn external_gpu_accepts_controlled_sqrt_x_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -678,7 +678,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::SqrtX,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -694,7 +694,7 @@ mod tests {
     fn external_gpu_accepts_controlled_measurement_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -702,7 +702,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Measurement,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -718,7 +718,7 @@ mod tests {
     fn external_gpu_accepts_anti_controlled_measurement_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -726,7 +726,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Measurement,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -741,7 +741,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_qft_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::QftGate,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -755,7 +755,7 @@ mod tests {
     #[test]
     fn external_gpu_accepts_qft_dagger_gate() {
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::QftDaggerGate,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -770,7 +770,7 @@ mod tests {
     fn external_gpu_accepts_controlled_qft_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -778,7 +778,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -794,7 +794,7 @@ mod tests {
     fn external_gpu_accepts_controlled_qft_dagger_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -802,7 +802,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::QftDaggerGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -818,7 +818,7 @@ mod tests {
     fn external_gpu_accepts_controlled_swap_gate() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -826,7 +826,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -834,7 +834,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                3,
+                crate::app::GateId::from_u32(3),
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
@@ -850,7 +850,7 @@ mod tests {
     fn external_gpu_accepts_controlled_density_display() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -858,7 +858,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::DensityMatrixDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),

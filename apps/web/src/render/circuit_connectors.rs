@@ -9,7 +9,7 @@ mod swap;
 
 use eframe::egui;
 
-use crate::app::QniApp;
+use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::layout::LayoutMetrics;
 
@@ -48,7 +48,7 @@ impl QniApp {
         metrics: &LayoutMetrics,
         colors: &Colors,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
     ) {
         // Connector lines are computed every frame, including mid-drag, so a
         // gate being moved into or out of a multi-qubit relationship snaps

@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::cmp::Ordering;
 
-use crate::app::QniApp;
+use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
@@ -17,7 +17,7 @@ pub(super) fn draw_swap_connectors(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) {
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
         gate_slot_index_for_render(gate, metrics, dragging_gate_id)

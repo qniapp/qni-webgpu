@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::collections::HashMap;
 
-use crate::app::{PlacedGate, QniApp, WireIndex};
+use crate::app::{GateId, PlacedGate, QniApp, WireIndex};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
@@ -53,7 +53,7 @@ impl ConnectionSides {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::render) struct AngleLabelInfo {
-    pub(in crate::render) gate_id: u32,
+    pub(in crate::render) gate_id: GateId,
     pub(in crate::render) text: String,
     pub(in crate::render) pos: egui::Pos2,
     pub(in crate::render) align: egui::Align2,
@@ -73,7 +73,7 @@ pub(super) fn draw_phase_connectors_and_labels(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) {
     let render_columns = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
         gate_slot_index_for_render(gate, metrics, dragging_gate_id)
@@ -141,7 +141,7 @@ fn draw_parametric_angle_labels(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) {
     // Angle labels for parametric gates. qni puts the angle text near the gate
     // body and draws a white text-shadow when the dropzone has both
@@ -182,7 +182,7 @@ pub(in crate::render) fn parametric_angle_label_info(
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) -> Option<AngleLabelInfo> {
     let angle = parametric_angle(gate)?;
     let text = angle.label();
@@ -336,7 +336,7 @@ fn phase_render_column<'columns, 'gates>(
     render_columns: &'columns ColumnAnalysis<'gates>,
     gate: &PlacedGate,
     metrics: &LayoutMetrics,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) -> Option<&'columns AnalyzedColumn<'gates>> {
     let slot = gate_slot_index_for_render(gate, metrics, dragging_gate_id)?;
     render_columns
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn phase_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn phase_label_keeps_explicit_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn rx_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Rx,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -477,7 +477,7 @@ mod tests {
     #[test]
     fn ry_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn ry_label_keeps_explicit_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -505,7 +505,7 @@ mod tests {
     #[test]
     fn rz_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Rz,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -550,7 +550,7 @@ mod tests {
     fn phase_with_phase_above_and_control_below_gets_both_connection_sides() {
         let gates = vec![
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -558,7 +558,7 @@ mod tests {
                 Some(angle("π/2")),
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -566,7 +566,7 @@ mod tests {
                 Some(angle("4π/8")),
             ),
             PlacedGate::new(
-                3,
+                crate::app::GateId::from_u32(3),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn underline_matches_prototype_row_inset() {
         let label = AngleLabelInfo {
-            gate_id: 1,
+            gate_id: crate::app::GateId::from_u32(1),
             text: "π/2".to_owned(),
             pos: egui::pos2(80.0, 60.0),
             align: egui::Align2::CENTER_BOTTOM,

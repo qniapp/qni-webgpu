@@ -32,9 +32,9 @@ use std::collections::VecDeque;
 
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState,
-    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
-    WireIndexError,
+    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState, GateId,
+    GateIdAllocator, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
+    WireIndex, WireIndexError,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
@@ -51,7 +51,7 @@ pub(crate) struct QniApp {
     pub(crate) picker_submenu_toggle_suppressed_until_release: bool,
     pub(crate) picker_drag_animation_epoch: u64,
     pub(crate) picker_overlay_rect: Option<egui::Rect>,
-    next_gate_id: u32,
+    gate_ids: GateIdAllocator,
     pub(crate) placed_gates: Vec<PlacedGate>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
     /// When circuit content exceeds the canvas width, this pushes the
@@ -83,16 +83,16 @@ pub(crate) struct QniApp {
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
     pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
-    pub(crate) hovered_gate_id: Option<u32>,
+    pub(crate) hovered_gate_id: Option<GateId>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
     /// outcome index is geometry-only; probability values remain GPU-only.
-    pub(crate) hovered_probability_outcome: Option<(u32, u32)>,
+    pub(crate) hovered_probability_outcome: Option<(GateId, u32)>,
     /// `(gate_id, outcome)` for the Amplitude cell under the pointer. The
     /// cell index is geometry-only; complex values remain GPU-only.
-    pub(crate) hovered_amplitude_outcome: Option<(u32, u32)>,
+    pub(crate) hovered_amplitude_outcome: Option<(GateId, u32)>,
     /// `(gate_id, cell)` for the Density Matrix cell under the pointer. The
     /// cell index is row-major; density values remain GPU-only.
-    pub(crate) hovered_density_cell: Option<(u32, u32)>,
+    pub(crate) hovered_density_cell: Option<(GateId, u32)>,
     pub(crate) hovered_palette_index: Option<usize>,
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
@@ -221,7 +221,7 @@ impl QniApp {
         // persisted active localStorage circuit; if no persisted library
         // exists, keep the seeded samples and a separate "Circuit 1" current
         // entry so examples are not overwritten by the empty editor.
-        let (url_gates, url_next_gate_id) = crate::url_circuit::parse_circuit_from_url();
+        let (url_gates, url_gate_ids) = crate::url_circuit::parse_circuit_from_url();
         let requested_exec_mode = crate::url_circuit::parse_exec_mode_from_url();
         let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);
         let url_serialized_qubits = QubitCount::try_new(url_required_qubits.max(MIN_QUBITS))
@@ -231,8 +231,8 @@ impl QniApp {
             url_json.clone(),
             crate::url_circuit::current_url_has_circuit_payload(),
         );
-        let (initial_gates, next_gate_id) = if initial_json == url_json {
-            (url_gates, url_next_gate_id)
+        let (initial_gates, gate_ids) = if initial_json == url_json {
+            (url_gates, url_gate_ids)
         } else {
             crate::url_circuit::parse_circuit_json(&initial_json)
         };
@@ -261,7 +261,7 @@ impl QniApp {
             picker_submenu_toggle_suppressed_until_release: false,
             picker_drag_animation_epoch: 0,
             picker_overlay_rect: None,
-            next_gate_id,
+            gate_ids,
             placed_gates: initial_gates,
             circuit_scroll_x: 0.0,
             dragging: None,

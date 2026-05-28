@@ -17,12 +17,14 @@ use super::QniApp;
 
 mod column_index;
 pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
+mod gate_id;
+pub(crate) use gate_id::{GateId, GateIdAllocator};
 mod wire_index;
 pub(crate) use wire_index::{WireIndex, WireIndexError};
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {
-    pub(crate) id: u32,
+    pub(crate) id: GateId,
     pub(crate) kind: GateKind,
     /// Semantic circuit column (qni `CircuitStepElement` index). This is the
     /// authoritative horizontal model; `pos.x` is only the derived draw/drag
@@ -47,7 +49,7 @@ pub(crate) struct PlacedGate {
 
 impl PlacedGate {
     pub(crate) fn new(
-        id: u32,
+        id: GateId,
         kind: GateKind,
         column: CircuitColumnIndex,
         wire: WireIndex,
@@ -87,7 +89,7 @@ impl PlacedGate {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DragState {
-    pub(crate) id: u32,
+    pub(crate) id: GateId,
     pub(crate) offset: egui::Vec2,
     /// Original semantic column for an existing gate. `None` means a palette
     /// gate that has no committed source column yet.
@@ -116,7 +118,7 @@ pub(crate) enum SpanResizeEdge {
 /// A concrete resizable-span handle under the pointer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct SpanResizeHandle {
-    pub(crate) gate_id: u32,
+    pub(crate) gate_id: GateId,
     pub(crate) edge: SpanResizeEdge,
 }
 
@@ -125,7 +127,7 @@ pub(crate) struct SpanResizeHandle {
 /// derives the new span from the *total* cursor delta.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SpanResizeDrag {
-    pub(crate) gate_id: u32,
+    pub(crate) gate_id: GateId,
     pub(crate) edge: SpanResizeEdge,
     pub(crate) start_pointer_y: f32,
     pub(crate) start_wire: usize,
@@ -134,14 +136,14 @@ pub(crate) struct SpanResizeDrag {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct AngleAffordance {
-    pub(crate) gate_id: u32,
+    pub(crate) gate_id: GateId,
     pub(crate) started_at: f64,
     pub(crate) open_editor_after_delay: bool,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct AngleEditor {
-    pub(crate) gate_id: u32,
+    pub(crate) gate_id: GateId,
     pub(crate) draft: String,
     pub(crate) reveal_started_at: f64,
     pub(crate) select_all_pending: bool,
@@ -249,7 +251,7 @@ impl QniApp {
     /// grown display does not overlap later columns.
     pub(crate) fn shift_trailing_gates_after_width_change(
         &mut self,
-        gate_id: u32,
+        gate_id: GateId,
         column: CircuitColumnIndex,
         old_width: usize,
         new_width: usize,
@@ -294,7 +296,7 @@ impl QniApp {
 
     pub(crate) fn insert_gate_at_column(
         &mut self,
-        gate_id: u32,
+        gate_id: GateId,
         wire: WireIndex,
         insert_index: CircuitColumnIndex,
         original_column: Option<CircuitColumnIndex>,

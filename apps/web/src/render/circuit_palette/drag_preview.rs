@@ -1,6 +1,6 @@
 use eframe::{egui, egui_wgpu};
 
-use crate::app::QniApp;
+use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::gates::GateKind;
 use crate::gpu::{AmplitudeDisplayCallback, AmplitudeInstance, AMPLITUDE_FORCE_ZERO};
@@ -13,7 +13,7 @@ impl QniApp {
         painter: &egui::Painter,
         content_rect: egui::Rect,
         colors: &Colors,
-        dragging_gate_id: u32,
+        dragging_gate_id: GateId,
         scroll_x: f32,
         live_drag_gpu_overlay_ready: bool,
     ) {
@@ -54,7 +54,7 @@ impl QniApp {
         }
     }
 
-    pub(crate) fn live_drag_gpu_overlay_ready(&self, gate_id: u32) -> bool {
+    pub(crate) fn live_drag_gpu_overlay_ready(&self, gate_id: GateId) -> bool {
         if !self.dragging_live_display_snap {
             return false;
         }

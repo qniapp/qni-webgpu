@@ -3,7 +3,7 @@
 
 use eframe::egui;
 
-use crate::app::{PlacedGate, QniApp};
+use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, REM};
 use crate::layout::{nearest_slot_index, LayoutMetrics};
@@ -13,7 +13,7 @@ const SLOT_CENTER_EPSILON: f32 = 0.5;
 pub(super) fn gate_slot_index_for_render(
     gate: &PlacedGate,
     metrics: &LayoutMetrics,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
 ) -> Option<usize> {
     if dragging_gate_id == Some(gate.id) {
         // A dragged gate can snap to an insert preview halfway between real
@@ -43,7 +43,7 @@ impl QniApp {
         metrics: &LayoutMetrics,
         colors: &Colors,
         fast_drag: bool,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         scroll_x: f32,
     ) {
         // `circuit_origin` is `rect.min` shifted left by the current
@@ -135,7 +135,7 @@ mod tests {
     fn dragged_insert_preview_does_not_join_slot_connector() {
         let metrics = layout_metrics(600.0, 2, 3);
         let mut gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -154,7 +154,7 @@ mod tests {
     fn dragged_slot_preview_joins_that_slot_connector() {
         let metrics = layout_metrics(600.0, 2, 3);
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),

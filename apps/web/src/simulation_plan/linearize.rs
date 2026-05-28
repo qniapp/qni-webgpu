@@ -228,7 +228,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
             ops.push(SimulationOp::MeasureReduceSample {
-                gate_id: measurement.id,
+                gate_id: measurement.id.as_u32(),
                 qubit_bit,
                 output_slot: measurement_slot,
             });
@@ -247,7 +247,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
             ops.push(SimulationOp::CaptureBloch {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 qubit_bit,
                 output_slot: bloch_slot,
                 controls,
@@ -272,7 +272,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureProbability {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
                 output_slot: probability_slot,
@@ -295,7 +295,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureAmplitude {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
                 output_slot: amplitude_slot,
@@ -318,7 +318,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureDensity {
-                gate_id: display.id,
+                gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
                 output_slot: density_slot,
@@ -491,7 +491,7 @@ mod tests {
 
     fn bare_parametric_matrix(kind: GateKind) -> [[f32; 2]; 4] {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             kind,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -547,7 +547,7 @@ mod tests {
         // wire 0 → bit 2 (highest = Z target); wire 1 → bit 1 (control).
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -555,7 +555,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -579,7 +579,7 @@ mod tests {
         // (bit 0) must not leak into the Z's control mask.
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -587,7 +587,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -595,7 +595,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                3,
+                crate::app::GateId::from_u32(3),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
@@ -616,7 +616,7 @@ mod tests {
     fn controlled_qft_applies_external_control_to_hadamard() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -624,7 +624,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -645,7 +645,7 @@ mod tests {
     fn controlled_qft_combines_external_control_with_internal_phase_control() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -653,7 +653,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -674,7 +674,7 @@ mod tests {
     fn anti_controlled_qft_keeps_zero_external_control_value() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -682,7 +682,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -703,7 +703,7 @@ mod tests {
     fn qft_ignores_control_tokens_inside_its_span() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -711,7 +711,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -732,7 +732,7 @@ mod tests {
     fn probability_display_captures_column_controls() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -740,7 +740,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
@@ -763,7 +763,7 @@ mod tests {
         // 3 qubits, top wire, span 2 → base_bit = qubits - wire - span = 1,
         // exercising `wire.offset(span - 1).to_qubit_bit(qubits)`.
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::ProbabilityDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -784,7 +784,7 @@ mod tests {
         // A density display stored with span 10 lowers with span clamped to the
         // GateKind cap of 8 via `GateSpan::clamped_for`, even at 16 qubits.
         let gates = [PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::DensityMatrixDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -804,7 +804,7 @@ mod tests {
     fn bloch_display_captures_column_controls() {
         let gates = [
             PlacedGate::new(
-                1,
+                crate::app::GateId::from_u32(1),
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
@@ -812,7 +812,7 @@ mod tests {
                 None,
             ),
             PlacedGate::new(
-                2,
+                crate::app::GateId::from_u32(2),
                 GateKind::BlochDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),

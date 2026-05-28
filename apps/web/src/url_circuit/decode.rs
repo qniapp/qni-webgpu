@@ -1,6 +1,6 @@
 //! URL decoder (`location.hash` / qni path payload → `PlacedGate`s).
 
-use crate::app::PlacedGate;
+use crate::app::{GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
 use crate::gates::{GateKind, ParametricAngle};
 
@@ -25,9 +25,9 @@ use super::parser::parse_cols;
 /// `next_gate_id`. Empty `Vec` (with `next_gate_id = 1`) if no circuit
 /// payload was found.
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
+pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, GateIdAllocator) {
     let Some(window) = web_sys::window() else {
-        return (Vec::new(), 1);
+        return (Vec::new(), GateIdAllocator::new());
     };
     let location = window.location();
     // 1. Hash fragment (our native write path).
@@ -45,12 +45,12 @@ pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
             }
         }
     }
-    (Vec::new(), 1)
+    (Vec::new(), GateIdAllocator::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, u32) {
-    (Vec::new(), 1)
+pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, GateIdAllocator) {
+    (Vec::new(), GateIdAllocator::new())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -80,7 +80,7 @@ pub(crate) fn current_url_has_circuit_payload() -> bool {
 /// Decode one canonical circuit JSON checkpoint. Unlike URL parsing,
 /// `{"cols":[]}` is a valid empty circuit and returns no gates with
 /// `next_gate_id = 1`.
-pub(crate) fn parse_circuit_json(json: &str) -> (Vec<PlacedGate>, u32) {
+pub(crate) fn parse_circuit_json(json: &str) -> (Vec<PlacedGate>, GateIdAllocator) {
     let cols = parse_cols(json).unwrap_or_default();
     assign_ids(build_gates(&cols))
 }
@@ -182,7 +182,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
                 continue;
             };
             gates.push(PlacedGate::new(
-                0,
+                GateId::from_u32(0),
                 kind,
                 crate::app::CircuitColumnIndex::new(col_idx),
                 crate::app::WireIndex::new(wire_idx),
@@ -261,13 +261,12 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle
 
 /// Assign sequential ids starting from 1 and return the next available
 /// id (so `QniApp::next_gate_id` can resume without collision).
-fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, u32) {
-    let mut next = 1u32;
+fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, GateIdAllocator) {
+    let mut allocator = GateIdAllocator::new();
     for gate in &mut gates {
-        gate.id = next;
-        next += 1;
+        gate.id = allocator.allocate();
     }
-    (gates, next)
+    (gates, allocator)
 }
 
 #[cfg(test)]
@@ -286,6 +285,16 @@ mod tests {
         assert_eq!(
             gates.first().map(|gate| (gate.kind, gate.span.get())),
             Some((GateKind::AmplitudeDisplay, 16))
+        );
+    }
+
+    #[test]
+    fn decoded_gates_get_sequential_ids_from_one() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["H"],["X"]]}"#);
+
+        assert_eq!(
+            gates.iter().map(|gate| gate.id).collect::<Vec<_>>(),
+            vec![GateId::from_u32(1), GateId::from_u32(2)]
         );
     }
 

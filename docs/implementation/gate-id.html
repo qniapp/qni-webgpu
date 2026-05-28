@@ -61,8 +61,8 @@
         <tr><th>意味</th><td><code>GateId</code> は配置済みゲートの同一性。<code>GateIdAllocator</code> は一意な <code>GateId</code> を順に発行するカウンタ</td></tr>
         <tr><th>保持する値</th><td><code>GateId</code> は <code>u32</code>、<code>GateIdAllocator</code> は次に発行する <code>u32</code>。いずれもフィールドは非公開にする</td></tr>
         <tr><th>性質</th><td><code>GateId</code> は値オブジェクトとして等価性・順序・ハッシュを内部値で定める（<code>Eq</code> / <code>Ord</code> / <code>Hash</code>）。ゲート自体はエンティティ</td></tr>
-        <tr><th>対象範囲</th><td><code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、<code>SimulationOp</code> の <code>gate_id</code>、スロット辞書のキー、外部 GPU 経路の表示出力 <code>gate_id</code></td></tr>
-        <tr><th>対象外</th><td>GPU のビット番号（<a href="qubit-bit.html">QubitBit</a>）、スロット番号（<a href="slot-index.html">SlotIndex</a>）、回路ライブラリのエントリ ID（<a href="circuit-id.html">CircuitId</a>）</td></tr>
+        <tr><th>対象範囲</th><td><code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、ホバー状態（<code>hovered_gate_id</code> ほか）、<code>gpu_plan_state</code> のスロット辞書のキー</td></tr>
+        <tr><th>対象外</th><td>GPU のビット番号（<a href="qubit-bit.html">QubitBit</a>）、スロット番号（<a href="slot-index.html">SlotIndex</a>）、回路ライブラリのエントリ ID（<a href="circuit-id.html">CircuitId</a>）。さらに <code>SimulationOp.gate_id</code> / GPU パラメータ（<code>GpuParams.slot_to_gate_id</code> ・ <code>slot_for_gate</code>）/ 外部 GPU 要求の <code>gate_id</code> は GPU 計算・直列化の境界として裸の <code>u32</code> のまま残す</td></tr>
       </tbody>
     </table>
 
@@ -93,7 +93,7 @@ impl GateIdAllocator {
     <p class="note">
       <code>from_u32</code> は、URL 復元やテストで明示的に <code>GateId</code> を作る入口で使う。通常のゲート追加は <code>GateIdAllocator::allocate</code> で採番する。
       <code>Ord</code> の導出により <code>sort_by_key(|gate| gate.id)</code> で列内の決定的な並び替えができ、<code>Eq</code> / <code>Hash</code> の導出によりスロット辞書のキーに使える。
-      <code>as_u32()</code> はデバッグ表示やテストの照合など、必要な境界だけで使う。
+      <code>as_u32()</code> は GPU 計算・直列化の境界（<code>SimulationOp</code> や外部 GPU 要求への書き出し）やデバッグ表示・テストの照合など、必要な境界だけで使う。
     </p>
   </div>
 </section>
@@ -134,7 +134,7 @@ impl GateIdAllocator {
   <div class="card">
     <h3>同一性フィールド</h3>
     <p>
-      <code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、<code>SimulationOp</code> の <code>gate_id</code>、外部 GPU 経路の表示出力要求の <code>gate_id</code> を <code>GateId</code> へ変更する。
+      <code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、ホバー状態（<code>hovered_gate_id</code> や <code>(GateId, u32)</code> のタプル）を <code>GateId</code> へ変更する。
       同一性の比較（<code>gate.id == drag.id</code> など）は導出した <code>Eq</code> でそのまま動く。
     </p>
 
@@ -152,7 +152,9 @@ impl GateIdAllocator {
 
     <h3>スロット辞書</h3>
     <p>
-      <code>gpu_plan_state.rs</code> と <code>gpu/params.rs</code> の <code>bloch_slot(gate_id)</code> / <code>measurement_slot(gate_id)</code> / <code>slot_for_gate(gate_id)</code> など、<code>gate_id</code> をキーにスロット番号を引く辞書は、キーを <code>GateId</code> にする。
+      <code>gpu_plan_state.rs</code> の <code>bloch_slot(gate_id)</code> / <code>measurement_slot(gate_id)</code> など、Rust ドメイン側で <code>gate_id</code> をキーにスロット番号を引く <code>HashMap</code> は、キーを <code>GateId</code> にする。
+      <code>SimulationOp.gate_id</code> や外部 GPU 要求から渡る <code>u32</code> は、辞書を組み立てる <code>rebuild_slot_maps</code> / <code>replace_external_display_slots</code> の中で <code>GateId::from_u32</code> によりキーへ変換する。
+      いっぽう <code>gpu/params.rs</code> の <code>GpuParams.slot_to_gate_id</code> と <code>slot_for_gate(gate_id: u32)</code> は GPU パラメータ束（直列化の境界）なので <code>u32</code> のまま残し、呼び出し側で <code>gate_id.as_u32()</code> を渡す。
       返り値のスロット番号は <a href="slot-index.html">SlotIndex</a> として別に扱う。
     </p>
   </div>
@@ -165,7 +167,8 @@ impl GateIdAllocator {
       <thead><tr><th>境界</th><th>形式</th><th>変換</th></tr></thead>
       <tbody>
         <tr><th>URL 復元</th><td>解析中に順に振る番号</td><td><code>GateIdAllocator</code> で順に <code>allocate()</code> し、採番器を引き継ぐ</td></tr>
-        <tr><th>スロット辞書</th><td><code>GateId</code> をキーにした <code>HashMap</code> / 探索</td><td><code>GateId</code> の <code>Eq</code> / <code>Hash</code> をそのまま使う</td></tr>
+        <tr><th>スロット辞書（Rust ドメイン）</th><td><code>GateId</code> をキーにした <code>HashMap</code> / 探索</td><td><code>GateId</code> の <code>Eq</code> / <code>Hash</code> をそのまま使う</td></tr>
+        <tr><th>GPU 計算・直列化</th><td><code>SimulationOp.gate_id</code> / <code>GpuParams.slot_to_gate_id</code> / 外部 GPU 要求の <code>gate_id</code>（いずれも <code>u32</code>）</td><td>書き出しは <code>gate_id.as_u32()</code>、辞書へ取り込むときは <code>GateId::from_u32</code> で変換する</td></tr>
         <tr><th>デバッグ / テスト</th><td>数値</td><td><code>from_u32</code> / <code>as_u32</code> で出入りする</td></tr>
       </tbody>
     </table>
@@ -204,7 +207,8 @@ impl GateIdAllocator {
       <li><strong>並び替えに使える</strong> — <code>GateId</code> を <code>Ord</code> で並べたとき採番順になることを確認する</li>
       <li><strong>辞書キーに使える</strong> — <code>GateId</code> をキーにした <code>HashMap</code> で値を出し入れできることを確認する</li>
       <li><strong>URL 復元で衝突しない採番を引き継ぐ</strong> — 復元したゲート群の後に <code>allocate()</code> した <code>GateId</code> が既存のどれとも重複しないことを確認する</li>
-      <li><strong>裸の <code>u32</code> 同一性が残らない</strong> — <code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SimulationOp</code> の <code>gate_id</code>、スロット辞書のキーが <code>GateId</code> を使うことを確認する</li>
+      <li><strong>Rust ドメインの同一性が <code>GateId</code> になっている</strong> — <code>PlacedGate.id</code>、<code>DragState.id</code>、ホバー状態、<code>gpu_plan_state</code> のスロット辞書キーが <code>GateId</code> を使うことを確認する</li>
+      <li><strong>GPU 境界では <code>u32</code> のまま変換する</strong> — <code>SimulationOp.gate_id</code> / 外部 GPU 要求から渡る <code>u32</code> が <code>GateId::from_u32</code> でスロット辞書キーへ正しく対応づくことを確認する</li>
     </ol>
   </div>
 </section>

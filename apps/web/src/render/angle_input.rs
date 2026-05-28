@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use crate::app::{AngleAffordance, AngleEditor, QniApp};
+use crate::app::{AngleAffordance, AngleEditor, GateId, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
@@ -20,7 +20,7 @@ const ANGLE_AFFORDANCE_DELAY_SECS: f64 = 0.680;
 const ANGLE_UNDERLINE_FADE_SECS: f64 = 0.120;
 #[derive(Clone, Debug)]
 struct OwnedAngleLabel {
-    gate_id: u32,
+    gate_id: GateId,
     text: String,
     pos: egui::Pos2,
     align: egui::Align2,
@@ -46,8 +46,8 @@ impl QniApp {
         &self,
         local_pos: Option<egui::Pos2>,
         metrics: &LayoutMetrics,
-        dragging_gate_id: Option<u32>,
-    ) -> Option<u32> {
+        dragging_gate_id: Option<GateId>,
+    ) -> Option<GateId> {
         let local_pos = local_pos?;
         self.collect_angle_labels(metrics, egui::Pos2::ZERO, dragging_gate_id)
             .iter()
@@ -62,7 +62,7 @@ impl QniApp {
         rect: egui::Rect,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         scroll_x: f32,
         angle_interaction_blocked: bool,
     ) {
@@ -134,7 +134,7 @@ impl QniApp {
         &self,
         metrics: &LayoutMetrics,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
     ) -> Vec<OwnedAngleLabel> {
         let render_columns = ColumnAnalysis::from_gates(&self.placed_gates, |gate| {
             gate_slot_index_for_render(gate, metrics, dragging_gate_id)
@@ -161,7 +161,7 @@ impl QniApp {
             .collect()
     }
 
-    fn ensure_angle_hover_affordance(&mut self, gate_id: u32, now: f64, ctx: &egui::Context) {
+    fn ensure_angle_hover_affordance(&mut self, gate_id: GateId, now: f64, ctx: &egui::Context) {
         if self
             .angle_affordance
             .as_ref()
@@ -177,7 +177,7 @@ impl QniApp {
         ctx.request_repaint_after(Duration::from_secs_f64(ANGLE_AFFORDANCE_DELAY_SECS));
     }
 
-    fn handle_angle_label_click(&mut self, gate_id: u32, now: f64, ctx: &egui::Context) {
+    fn handle_angle_label_click(&mut self, gate_id: GateId, now: f64, ctx: &egui::Context) {
         if self.library.active_locked() {
             return;
         }
@@ -224,7 +224,7 @@ impl QniApp {
         );
     }
 
-    fn open_angle_editor(&mut self, gate_id: u32, reveal_started_at: f64, ctx: &egui::Context) {
+    fn open_angle_editor(&mut self, gate_id: GateId, reveal_started_at: f64, ctx: &egui::Context) {
         if self.library.active_locked() {
             return;
         }
@@ -425,7 +425,7 @@ impl QniApp {
         );
     }
 
-    fn clear_stale_angle_hover(&mut self, hovered_gate_id: Option<u32>) {
+    fn clear_stale_angle_hover(&mut self, hovered_gate_id: Option<GateId>) {
         let Some(affordance) = self.angle_affordance else {
             return;
         };
@@ -460,7 +460,7 @@ fn publish_angle_input_geometry_json(
             let rect = angle_label_interaction_rect(&info);
             format!(
                 "{{\"gate_id\":{},\"text\":\"{}\",\"left\":{:.3},\"top\":{:.3},\"right\":{:.3},\"bottom\":{:.3}}}",
-                label.gate_id,
+                label.gate_id.as_u32(),
                 label.text.replace('\\', "\\\\").replace('\"', "\\\""),
                 rect.left(),
                 rect.top(),
@@ -471,10 +471,10 @@ fn publish_angle_input_geometry_json(
         .collect::<Vec<_>>()
         .join(",");
     let affordance_gate_id = affordance
-        .map(|affordance| affordance.gate_id.to_string())
+        .map(|affordance| affordance.gate_id.as_u32().to_string())
         .unwrap_or_else(|| "null".to_owned());
     let editor_gate_id = editor
-        .map(|editor| editor.gate_id.to_string())
+        .map(|editor| editor.gate_id.as_u32().to_string())
         .unwrap_or_else(|| "null".to_owned());
     let json = format!(
         "{{\"labels\":[{labels_json}],\"affordance_gate_id\":{affordance_gate_id},\"editor_gate_id\":{editor_gate_id}}}"
@@ -500,7 +500,7 @@ mod tests {
     #[test]
     fn angle_hover_affordance_is_hidden_before_delay() {
         let affordance = AngleAffordance {
-            gate_id: 1,
+            gate_id: crate::app::GateId::from_u32(1),
             started_at: 10.0,
             open_editor_after_delay: false,
         };
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn angle_hover_affordance_is_done_at_total_duration() {
         let affordance = AngleAffordance {
-            gate_id: 1,
+            gate_id: crate::app::GateId::from_u32(1),
             started_at: 10.0,
             open_editor_after_delay: false,
         };

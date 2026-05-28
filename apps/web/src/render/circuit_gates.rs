@@ -3,7 +3,7 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::QniApp;
+use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
@@ -56,11 +56,11 @@ fn bloch_hover_popup_title() -> &'static str {
 }
 
 impl QniApp {
-    fn amplitude_display_slot(&self, gate_id: u32) -> Option<u32> {
+    fn amplitude_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
             .external_gpu_amplitude_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id));
+            .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
@@ -68,18 +68,18 @@ impl QniApp {
         }
     }
 
-    fn bloch_display_slot(&self, gate_id: u32) -> Option<u32> {
+    fn bloch_display_slot(&self, gate_id: GateId) -> Option<u32> {
         self.external_gpu_bloch_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id))
+            .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()))
             .or_else(|| self.gpu_plan.bloch_slot(gate_id))
     }
 
-    fn probability_display_slot(&self, gate_id: u32) -> Option<u32> {
+    fn probability_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
             .external_gpu_probability_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id));
+            .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
@@ -87,11 +87,11 @@ impl QniApp {
         }
     }
 
-    fn density_display_slot(&self, gate_id: u32) -> Option<u32> {
+    fn density_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
             .external_gpu_density_uploads
             .as_ref()
-            .and_then(|batch| batch.slot_for_gate(gate_id));
+            .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
@@ -105,7 +105,7 @@ impl QniApp {
         circuit_origin: egui::Pos2,
         colors: &Colors,
         fast_drag: bool,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
     ) {
         for gate in &self.placed_gates {
             let live_dragging_gate = dragging_gate_id == Some(gate.id)
@@ -207,7 +207,7 @@ impl QniApp {
         painter: &egui::Painter,
         rect: egui::Rect,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
         // Egui clamps callback viewports to the physical screen. Use the
@@ -547,7 +547,7 @@ impl QniApp {
         painter: &egui::Painter,
         screen_rect: egui::Rect,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
         let Some(gate_id) = self.hovered_gate_id else {
@@ -659,7 +659,7 @@ impl QniApp {
         painter: &egui::Painter,
         screen_rect: egui::Rect,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
         let Some((gate_id, outcome)) = self.hovered_amplitude_outcome else {
@@ -756,7 +756,7 @@ impl QniApp {
         painter: &egui::Painter,
         screen_rect: egui::Rect,
         circuit_origin: egui::Pos2,
-        dragging_gate_id: Option<u32>,
+        dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
         let Some((gate_id, outcome)) = self.hovered_probability_outcome else {

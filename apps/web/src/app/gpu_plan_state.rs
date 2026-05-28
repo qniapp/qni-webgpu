@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use crate::app::GateId;
 use crate::simulation_plan::SimulationOp;
 
 #[derive(Debug)]
@@ -16,15 +17,15 @@ pub(crate) struct GpuPlanState {
     snapshot_slot_count: usize,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
-    bloch_slots: HashMap<u32, u32>,
+    bloch_slots: HashMap<GateId, u32>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
-    measurement_slots: HashMap<u32, u32>,
+    measurement_slots: HashMap<GateId, u32>,
     /// Probability displays → `probability_output` slot.
-    probability_slots: HashMap<u32, u32>,
+    probability_slots: HashMap<GateId, u32>,
     /// Amplitude displays → `amplitude_output` slot.
-    amplitude_slots: HashMap<u32, u32>,
+    amplitude_slots: HashMap<GateId, u32>,
     /// Density Matrix displays → `density_output` slot.
-    density_slots: HashMap<u32, u32>,
+    density_slots: HashMap<GateId, u32>,
     capacity_error: Option<String>,
 }
 
@@ -134,16 +135,20 @@ impl GpuPlanState {
         self.density_slots.clear();
         self.capacity_error = None;
         for (slot, gate_id) in amplitude_slot_to_gate_id.iter().enumerate() {
-            self.amplitude_slots.insert(*gate_id, slot as u32);
+            self.amplitude_slots
+                .insert(GateId::from_u32(*gate_id), slot as u32);
         }
         for (slot, gate_id) in bloch_slot_to_gate_id.iter().enumerate() {
-            self.bloch_slots.insert(*gate_id, slot as u32);
+            self.bloch_slots
+                .insert(GateId::from_u32(*gate_id), slot as u32);
         }
         for (slot, gate_id) in probability_slot_to_gate_id.iter().enumerate() {
-            self.probability_slots.insert(*gate_id, slot as u32);
+            self.probability_slots
+                .insert(GateId::from_u32(*gate_id), slot as u32);
         }
         for (slot, gate_id) in density_slot_to_gate_id.iter().enumerate() {
-            self.density_slots.insert(*gate_id, slot as u32);
+            self.density_slots
+                .insert(GateId::from_u32(*gate_id), slot as u32);
         }
     }
 
@@ -159,27 +164,27 @@ impl GpuPlanState {
         }
     }
 
-    pub(crate) fn has_measurement_slot(&self, gate_id: u32) -> bool {
+    pub(crate) fn has_measurement_slot(&self, gate_id: GateId) -> bool {
         self.measurement_slots.contains_key(&gate_id)
     }
 
-    pub(crate) fn bloch_slot(&self, gate_id: u32) -> Option<u32> {
+    pub(crate) fn bloch_slot(&self, gate_id: GateId) -> Option<u32> {
         self.bloch_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn measurement_slot(&self, gate_id: u32) -> Option<u32> {
+    pub(crate) fn measurement_slot(&self, gate_id: GateId) -> Option<u32> {
         self.measurement_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn probability_slot(&self, gate_id: u32) -> Option<u32> {
+    pub(crate) fn probability_slot(&self, gate_id: GateId) -> Option<u32> {
         self.probability_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn amplitude_slot(&self, gate_id: u32) -> Option<u32> {
+    pub(crate) fn amplitude_slot(&self, gate_id: GateId) -> Option<u32> {
         self.amplitude_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn density_slot(&self, gate_id: u32) -> Option<u32> {
+    pub(crate) fn density_slot(&self, gate_id: GateId) -> Option<u32> {
         self.density_slots.get(&gate_id).copied()
     }
 
@@ -197,35 +202,40 @@ impl GpuPlanState {
                     output_slot,
                     ..
                 } => {
-                    self.bloch_slots.insert(*gate_id, *output_slot);
+                    self.bloch_slots
+                        .insert(GateId::from_u32(*gate_id), *output_slot);
                 }
                 SimulationOp::MeasureReduceSample {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.measurement_slots.insert(*gate_id, *output_slot);
+                    self.measurement_slots
+                        .insert(GateId::from_u32(*gate_id), *output_slot);
                 }
                 SimulationOp::CaptureProbability {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.probability_slots.insert(*gate_id, *output_slot);
+                    self.probability_slots
+                        .insert(GateId::from_u32(*gate_id), *output_slot);
                 }
                 SimulationOp::CaptureAmplitude {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.amplitude_slots.insert(*gate_id, *output_slot);
+                    self.amplitude_slots
+                        .insert(GateId::from_u32(*gate_id), *output_slot);
                 }
                 SimulationOp::CaptureDensity {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.density_slots.insert(*gate_id, *output_slot);
+                    self.density_slots
+                        .insert(GateId::from_u32(*gate_id), *output_slot);
                 }
                 _ => {}
             }
@@ -235,7 +245,10 @@ impl GpuPlanState {
 
 #[cfg(test)]
 mod tests {
-    use super::GpuPlanState;
+    use super::{GateId, GpuPlanState};
+    use crate::gates::ColumnControls;
+    use crate::qubit_bit::QubitBit;
+    use crate::simulation_plan::SimulationOp;
 
     #[test]
     fn step_preview_dirty_keeps_cached_gpu_plan_clean() {
@@ -244,5 +257,37 @@ mod tests {
         state.mark_step_preview_dirty();
 
         assert!(!state.needs_recompute_for(4));
+    }
+
+    #[test]
+    fn bloch_slot_returns_slot_for_matching_gate_id() {
+        let mut state = GpuPlanState::default();
+        state.replace_ops(
+            vec![SimulationOp::CaptureBloch {
+                gate_id: 7,
+                qubit_bit: QubitBit::new(0),
+                output_slot: 3,
+                controls: ColumnControls::NONE,
+            }],
+            1,
+        );
+
+        assert_eq!(state.bloch_slot(GateId::from_u32(7)), Some(3));
+    }
+
+    #[test]
+    fn bloch_slot_returns_none_for_unknown_gate_id() {
+        let mut state = GpuPlanState::default();
+        state.replace_ops(
+            vec![SimulationOp::CaptureBloch {
+                gate_id: 7,
+                qubit_bit: QubitBit::new(0),
+                output_slot: 3,
+                controls: ColumnControls::NONE,
+            }],
+            1,
+        );
+
+        assert_eq!(state.bloch_slot(GateId::from_u32(8)), None);
     }
 }

@@ -7,7 +7,7 @@
 
 use eframe::egui;
 
-use crate::app::{PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex};
+use crate::app::{GateId, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex};
 use crate::colors::Colors;
 use crate::gates::GateKind;
 use crate::icons::draw_span_resize_handle;
@@ -81,7 +81,7 @@ fn span_resize_handle_hit_rect(body_rect: egui::Rect, edge: SpanResizeEdge) -> e
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SpanResizeHandles {
-    gate_id: u32,
+    gate_id: GateId,
     body_rect: egui::Rect,
     available_edges: [bool; 2],
 }
@@ -440,7 +440,7 @@ mod tests {
         span: usize,
     ) -> PlacedGate {
         PlacedGate::new(
-            id,
+            GateId::from_u32(id),
             kind,
             CircuitColumnIndex::new(column),
             WireIndex::new(wire),

@@ -12,14 +12,14 @@ mod state_panel_frame;
 
 use eframe::{egui, egui_wgpu};
 
-use super::QniApp;
+use super::{GateId, QniApp};
 use crate::gpu::StateVectorResourceBootstrapCallback;
 use crate::render::StatePanelLayout;
 use crate::shared::now_seconds;
 
 struct CircuitFrameState {
     content_rect: Option<egui::Rect>,
-    dragging_gate_id: Option<u32>,
+    dragging_gate_id: Option<GateId>,
     live_drag_gpu_overlay_ready: bool,
 }
 

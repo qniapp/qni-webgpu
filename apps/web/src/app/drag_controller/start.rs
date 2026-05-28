@@ -78,10 +78,10 @@ impl DragController {
                     return false;
                 }
                 app.begin_circuit_commit();
-                let new_id = app.next_gate_id;
                 let Some(kind) = palette_gate_kind(index) else {
                     return false;
                 };
+                let new_id = app.gate_ids.allocate();
                 let mut new_gate = PlacedGate::new(
                     new_id,
                     kind,
@@ -93,7 +93,6 @@ impl DragController {
                     default_palette_angle(kind),
                 );
                 new_gate.pos = preview_pos;
-                app.next_gate_id += 1;
                 app.placed_gates.push(new_gate);
                 app.dragging = Some(DragState {
                     id: new_id,

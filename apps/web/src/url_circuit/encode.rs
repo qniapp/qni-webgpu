@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn amplitude_span_one_serializes_with_suffix() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn amplitude_span_sixteen_serializes_with_suffix() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn parametric_angle_serializes_normalized_url_label() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn parametric_angle_serializes_four_pi_as_zero() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn bare_phase_angle_serializes_without_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn bare_rx_angle_serializes_without_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Rx,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn bare_ry_angle_serializes_without_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn bare_rz_angle_serializes_without_angle() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::Rz,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn nonzero_column_serializes_as_later_cols_entry() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::H,
             crate::app::CircuitColumnIndex::new(1),
             crate::app::WireIndex::new(0),
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn density_span_one_serializes_without_suffix() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::DensityMatrixDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn density_span_eight_serializes_with_suffix() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::DensityMatrixDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn far_wire_gate_is_preserved_when_serialized_count_includes_it() {
         let gate = PlacedGate::new(
-            1,
+            crate::app::GateId::from_u32(1),
             GateKind::H,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(32),
