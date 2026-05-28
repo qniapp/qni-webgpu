@@ -30,7 +30,7 @@ import {
 
 const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
 const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
-const GATE_SELECTED_BORDER: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
 const STATE_POPUP_SURFACE: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
 const STATE_POPUP_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
 
@@ -89,25 +89,25 @@ const firstGateCenter = (): Point => ({
   y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
 })
 
-const firstGateSelectionFrameProbe = (): PixelSamplePoint => {
+const firstGateOuterChromeProbe = (): PixelSamplePoint => {
   const gate = firstGateCenter()
   return {
-    name: 'selectionFrame',
-    x: gate.x - UI_CONSTANTS.GATE_SIZE / 2 - 3,
-    y: gate.y,
+    name: 'outerChrome',
+    x: gate.x,
+    y: gate.y - UI_CONSTANTS.GATE_SIZE / 2 - 3,
   }
 }
 
-const sampleFirstGateSelectionFrame = async (page: Page) => {
-  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [firstGateSelectionFrameProbe()])
-  return pixels.selectionFrame
+const sampleFirstGateOuterChrome = async (page: Page) => {
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [firstGateOuterChromeProbe()])
+  return pixels.outerChrome
 }
 
-const waitForSelectionFrameBlue = async (page: Page, expected: boolean): Promise<boolean> => {
+const waitForFirstGateOuterChromeBlue = async (page: Page): Promise<boolean> => {
   let observed = false
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    observed = pixelRgbDistance(await sampleFirstGateSelectionFrame(page), GATE_SELECTED_BORDER) < 60
-    if (observed === expected) return observed
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    observed = pixelRgbDistance(await sampleFirstGateOuterChrome(page), FLEXOKI_BLUE_600) < 60
+    if (observed) return observed
     await page.waitForTimeout(50)
   }
   return observed
@@ -175,7 +175,7 @@ const defaultStatePopupProbeGeometry = (
   }
 }
 
-test('clicking a placed gate paints and clears the selection frame', async ({ page }) => {
+test('dropping and clicking a placed gate do not paint persistent outer chrome', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
 
@@ -195,18 +195,14 @@ test('clicking a placed gate paints and clears the selection frame', async ({ pa
 
   await dragPointer(page, source, target)
   await waitForHashCols(page, [['H']])
-  await page.mouse.click(box.x + gate.x + UI_CONSTANTS.SLOT_SPACING * 2, box.y + gate.y)
-  await waitForSelectionFrameBlue(page, false)
+  const afterDropIsBlue = await waitForFirstGateOuterChromeBlue(page)
 
   await page.mouse.click(box.x + gate.x, box.y + gate.y)
-  const selectedFrameIsBlue = await waitForSelectionFrameBlue(page, true)
+  const afterClickIsBlue = await waitForFirstGateOuterChromeBlue(page)
 
-  await page.mouse.click(box.x + gate.x + UI_CONSTANTS.SLOT_SPACING * 2, box.y + gate.y)
-  const clearedFrameIsBlue = await waitForSelectionFrameBlue(page, false)
-
-  expect({ selectedFrameIsBlue, clearedFrameIsBlue }).toEqual({
-    selectedFrameIsBlue: true,
-    clearedFrameIsBlue: false,
+  expect({ afterDropIsBlue, afterClickIsBlue }).toEqual({
+    afterDropIsBlue: false,
+    afterClickIsBlue: false,
   })
 })
 

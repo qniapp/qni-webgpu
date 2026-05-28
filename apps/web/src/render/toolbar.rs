@@ -91,7 +91,6 @@ impl QniApp {
         .clicked()
         {
             self.placed_gates.clear();
-            self.selected_gate_id = None;
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
             self.external_gpu_status = ExternalGpuStatus::Idle;

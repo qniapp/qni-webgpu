@@ -199,7 +199,6 @@ impl QniApp {
         self.hovered_palette_index = None;
         self.hovered_span_resize_handle = None;
         self.hovered_step = None;
-        self.selected_gate_id = None;
         self.angle_affordance = None;
         self.angle_editor = None;
         self.breakpoint_step = None;

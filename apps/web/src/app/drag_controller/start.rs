@@ -35,7 +35,6 @@ impl DragController {
                     return false;
                 }
                 app.begin_circuit_commit();
-                app.selected_gate_id = Some(resize.gate_id);
                 app.span_resize_drag = Some(resize);
                 app.hovered_gate_id = None;
                 app.hovered_probability_outcome = None;
@@ -53,7 +52,6 @@ impl DragController {
                     return false;
                 }
                 app.begin_circuit_commit();
-                app.selected_gate_id = Some(drag.id);
                 app.dragging_live_snap = app.placed_gates.iter().find_map(|gate| {
                     (gate.id == drag.id).then_some(LiveDragSnap::Slot {
                         column: gate.column,
@@ -95,7 +93,6 @@ impl DragController {
                 new_gate.pos = preview_pos;
                 app.next_gate_id += 1;
                 app.placed_gates.push(new_gate);
-                app.selected_gate_id = Some(new_id);
                 app.dragging = Some(DragState {
                     id: new_id,
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
@@ -115,23 +112,14 @@ impl DragController {
                 true
             }
             DragStartIntent::BreakpointStep(step) => {
-                let changed_selection = app.selected_gate_id.take().is_some();
                 if app.breakpoint_step != Some(step) {
                     app.breakpoint_step = Some(step);
                     app.gpu_plan.mark_step_preview_dirty();
                     ctx.request_repaint();
-                } else if changed_selection {
-                    ctx.request_repaint();
                 }
                 true
             }
-            DragStartIntent::None => {
-                if app.selected_gate_id.take().is_some() {
-                    ctx.request_repaint();
-                    return true;
-                }
-                false
-            }
+            DragStartIntent::None => false,
         }
     }
 }
