@@ -63,7 +63,7 @@ test('Amplitude rendering keeps outlines enabled for 15-qubit-sized cells', asyn
 test('Amplitude circuit rendering delegates visible body selection to span resize', async () => {
   const circuitGates = await fs.readFile(circuitGatesPath, 'utf8')
 
-  assert.match(circuitGates, /let body_rect = span_resize_body_rect\(gate\.kind, gate\.span, gate_rect\);[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
+  assert.match(circuitGates, /let body_rect = span_resize_body_rect\(gate\.kind, gate\.span\.get\(\), gate_rect\);[\s\S]*draw_gate_body\(painter, body_rect, gate\.kind, colors\)/)
 })
 
 test('Amplitude span resize body selection uses the matrix draw area', async () => {
@@ -91,7 +91,7 @@ test('Amplitude palette icon maximizes without touching the frame', async () => 
 test('Amplitude unsnapped Amps1 drag preview uses a foreground GPU callback', async () => {
   const dragPreview = await fs.readFile(dragPreviewPath, 'utf8')
 
-  assert.match(dragPreview, /if gate\.kind == GateKind::AmplitudeDisplay && gate\.span == 1 \{\s*draw_zero_amplitude_drag_preview\(painter, body_rect, colors\);/)
+  assert.match(dragPreview, /if gate\.kind == GateKind::AmplitudeDisplay && gate\.span\.get\(\) == 1 \{\s*draw_zero_amplitude_drag_preview\(painter, body_rect, colors\);/)
 })
 
 test('Amplitude unsnapped Amps1 drag preview uses a force-zero GPU instance', async () => {
