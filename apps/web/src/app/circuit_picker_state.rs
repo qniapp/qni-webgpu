@@ -110,13 +110,13 @@ impl PickerState {
         }
     }
 
-    pub(crate) fn update_rename_draft(&mut self, entry_id: &str, draft: String) {
+    pub(crate) fn update_rename_draft(&mut self, entry_id: &CircuitId, draft: String) {
         if let Self::Open {
             renaming: Some(rename),
             ..
         } = self
         {
-            if rename.entry_id == entry_id {
+            if rename.entry_id == *entry_id {
                 rename.draft = draft;
             }
         }
@@ -139,7 +139,7 @@ impl PickerState {
             Self::Open {
                 renaming: Some(rename),
                 ..
-            } => Some(&rename.entry_id),
+            } => Some(rename.entry_id.as_str()),
             _ => None,
         }
     }

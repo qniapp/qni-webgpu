@@ -10,8 +10,8 @@
 mod wasm {
     use std::cell::Cell;
 
-    use crate::app::circuit_library::{CircuitEntry, CircuitLibrary};
-    use qni_web_circuit_library_model::{CircuitOrigin, EMPTY_CIRCUIT_JSON};
+    use crate::app::circuit_library::{CircuitEntry, CircuitId, CircuitLibrary};
+    use qni_web_circuit_library_model::CircuitOrigin;
     use wasm_bindgen::{JsCast, JsValue};
 
     const STORAGE_KEY: &str = "qni.circuit_library.v2";
@@ -190,7 +190,11 @@ mod wasm {
         for index in 0..circuits.length() {
             let entry = circuits.get(index);
             v1_entries.push(CircuitEntry::user(
-                string_prop(&entry, "id").ok_or_else(|| error("circuit library is corrupted"))?,
+                CircuitId::try_new(
+                    string_prop(&entry, "id")
+                        .ok_or_else(|| error("circuit library is corrupted"))?,
+                )
+                .map_err(|_| error("circuit library is corrupted"))?,
                 string_prop(&entry, "name").ok_or_else(|| error("circuit library is corrupted"))?,
                 string_prop(&entry, "json").ok_or_else(|| error("circuit library is corrupted"))?,
                 number_prop(&entry, "updatedAt")
@@ -201,11 +205,12 @@ mod wasm {
         }
         let active_id = js_sys::Reflect::get(&document, &JsValue::from_str("activeId"))
             .ok()
-            .and_then(|value| value.as_string());
+            .and_then(|value| value.as_string())
+            .and_then(|id| CircuitId::try_new(id).ok());
         let migrated = CircuitLibrary::migrate_v1_entries(v1_entries, active_id);
         tracing::info!(
             entry_count = migrated.entries.len(),
-            active_id = %migrated.active_id,
+            active_id = %migrated.active_id.as_str(),
             "migrated circuit library from v1 to v2"
         );
         app_library_to_document(&migrated)
@@ -257,7 +262,7 @@ mod wasm {
             crate::url_circuit::summarize_circuit_json(&entry.circuit_json)
                 .ok_or_else(|| error("invalid circuit json"))?;
             let stored = js_sys::Object::new();
-            set_string(stored.as_ref(), "id", &entry.id)?;
+            set_string(stored.as_ref(), "id", entry.id.as_str())?;
             set_string(stored.as_ref(), "name", &entry.name)?;
             set_string(stored.as_ref(), "circuit_json", &entry.circuit_json)?;
             set_number(stored.as_ref(), "updated_at", entry.updated_at as f64)?;
@@ -269,7 +274,7 @@ mod wasm {
             .iter()
             .any(|entry| entry.id == library.active_id)
         {
-            JsValue::from_str(&library.active_id)
+            JsValue::from_str(library.active_id.as_str())
         } else {
             JsValue::NULL
         };
@@ -287,8 +292,11 @@ mod wasm {
         for index in 0..entries_value.length() {
             let entry = entries_value.get(index);
             entries.push(CircuitEntry {
-                id: string_prop(&entry, "id")
-                    .ok_or_else(|| error("circuit library is corrupted"))?,
+                id: CircuitId::try_new(
+                    string_prop(&entry, "id")
+                        .ok_or_else(|| error("circuit library is corrupted"))?,
+                )
+                .map_err(|_| error("circuit library is corrupted"))?,
                 name: string_prop(&entry, "name")
                     .ok_or_else(|| error("circuit library is corrupted"))?,
                 circuit_json: string_prop(&entry, "circuit_json")
@@ -302,6 +310,7 @@ mod wasm {
         let active_id = js_sys::Reflect::get(document, &JsValue::from_str("active_id"))
             .ok()
             .and_then(|value| value.as_string())
+            .and_then(|id| CircuitId::try_new(id).ok())
             .unwrap_or_else(|| entries[0].id.clone());
         Ok(Some(CircuitLibrary::from_entries(entries, active_id)))
     }
@@ -405,7 +414,7 @@ mod wasm {
         match origin {
             CircuitOrigin::Sample { origin_id } => {
                 set_string(object.as_ref(), "kind", "sample")?;
-                set_string(object.as_ref(), "origin_id", origin_id)?;
+                set_string(object.as_ref(), "origin_id", origin_id.as_str())?;
             }
             CircuitOrigin::User { locked } => {
                 set_string(object.as_ref(), "kind", "user")?;
@@ -426,8 +435,11 @@ mod wasm {
                     return Err(error("circuit library is corrupted"));
                 }
                 Ok(CircuitOrigin::Sample {
-                    origin_id: string_prop(&origin, "origin_id")
-                        .ok_or_else(|| error("circuit library is corrupted"))?,
+                    origin_id: CircuitId::try_new(
+                        string_prop(&origin, "origin_id")
+                            .ok_or_else(|| error("circuit library is corrupted"))?,
+                    )
+                    .map_err(|_| error("circuit library is corrupted"))?,
                 })
             }
             "user" => {
@@ -574,17 +586,6 @@ mod wasm {
 
     fn error(message: &str) -> JsValue {
         JsValue::from_str(message)
-    }
-
-    #[allow(dead_code)]
-    fn empty_user_entry(id: &str, name: &str) -> CircuitEntry {
-        CircuitEntry::user(
-            id.to_owned(),
-            name.to_owned(),
-            EMPTY_CIRCUIT_JSON.to_owned(),
-            js_sys::Date::now().max(0.0) as u64,
-            false,
-        )
     }
 }
 

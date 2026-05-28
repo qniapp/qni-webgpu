@@ -89,6 +89,7 @@ impl From&lt;CircuitId&gt; for String { /* 内部の String を返す */ }</pre>
       <code>try_new</code> は空文字列を <code>Err(CircuitIdError::Empty)</code> で弾く。
       <code>#[serde(try_from = "String", into = "String")]</code> により、JSON では従来どおり素の文字列として読み書きしつつ、逆シリアライズの時点で <code>try_new</code> の検証を通す。シリアライズ側は <code>into</code> 属性が <code>From&lt;CircuitId&gt; for String</code> を使う。<code>serde(transparent)</code> は検証を挟めないため使わない。
       <code>as_str()</code> は比較や JavaScript 連携（DOM ストレージ）など、文字列として扱う境界で使う。
+      クレート内部で生成する固定文字列（サンプルの <code>"bell"</code> など）や採番結果（<code>fresh_id</code> / <code>unique_id</code>）は、構造的に空にならないため、検証失敗を不変条件の破れとして <code>panic</code> させる非公開ヘルパ経由で <code>CircuitId</code> にする（外部入力には使わない）。
     </p>
   </div>
 </section>
@@ -136,9 +137,10 @@ impl From&lt;CircuitId&gt; for String { /* 内部の String を返す */ }</pre>
 
     <h3>空 ID の既定値</h3>
     <p>
-      現在 <code>CircuitEntry::default()</code> は空の <code>id</code> を作る。
-      <code>CircuitId</code> は空を許さないため、この既定値を見直す。
-      このプロジェクトは後方互換の保持を残さない方針なので、誤解を生む空 ID の <code>Default</code> 実装は削除するか、呼び出し側で実際に採番した <code>CircuitId</code> を渡す形へ移行する。
+      <code>CircuitEntry::default()</code> は空の <code>id</code> を作っていた。
+      <code>CircuitId</code> は空を許さず、かつこの <code>Default</code> 実装はどこからも使われていなかったため、後方互換を残さない方針に沿って削除した。
+      実体化が必要な箇所は、採番済みの <code>CircuitId</code> を渡す <code>CircuitEntry::user</code> / <code>CircuitEntry::sample</code> を使う。
+      あわせて、空の <code>active_id</code> を補正していた <code>ensure_non_empty</code> 内の分岐は、<code>CircuitId</code> が構造的に空にならないため到達不能となり削除した（<code>from_entries</code> が存在しない <code>active_id</code> を先頭エントリへ振り直す処理は残る）。
     </p>
 
     <h3>JavaScript 連携</h3>

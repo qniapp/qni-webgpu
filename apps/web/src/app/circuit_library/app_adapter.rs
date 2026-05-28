@@ -7,6 +7,7 @@ use super::storage::{
     PersistedLibraryState,
 };
 use super::test_hooks::{publish_library_snapshot, take_pending_url_payload, take_seeded_library};
+use super::CircuitId;
 use crate::app::circuit_history::CircuitRevision;
 use crate::app::QniApp;
 
@@ -166,7 +167,7 @@ impl QniApp {
         }
     }
 
-    pub(crate) fn commit_circuit_rename(&mut self, entry_id: &str, next_name: String) {
+    pub(crate) fn commit_circuit_rename(&mut self, entry_id: &CircuitId, next_name: String) {
         self.library.rename(entry_id, &next_name);
         persist_library(&self.library);
         self.picker.finish_rename();

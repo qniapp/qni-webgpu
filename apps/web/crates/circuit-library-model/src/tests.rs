@@ -1,10 +1,78 @@
 use super::{
-    CircuitEntry, CircuitKind, CircuitLibrary, CircuitOrigin, EMPTY_CIRCUIT_JSON,
-    GROVER_SEARCH_JSON,
+    CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin,
+    EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON,
 };
 
+fn cid(value: &str) -> CircuitId {
+    CircuitId::try_new(value).expect("test circuit id must be non-empty")
+}
+
 fn user(id: &str, name: &str, json: &str, locked: bool) -> CircuitEntry {
-    CircuitEntry::user(id.to_owned(), name.to_owned(), json.to_owned(), 0, locked)
+    CircuitEntry::user(cid(id), name.to_owned(), json.to_owned(), 0, locked)
+}
+
+#[test]
+fn circuit_id_keeps_non_empty_value() {
+    assert_eq!(cid("ckt_1").as_str(), "ckt_1");
+}
+
+#[test]
+fn circuit_id_rejects_empty_value() {
+    assert_eq!(CircuitId::try_new(""), Err(CircuitIdError::Empty));
+}
+
+#[test]
+fn equal_circuit_ids_compare_by_value() {
+    assert_eq!(cid("ckt_1"), cid("ckt_1"));
+}
+
+#[test]
+fn different_circuit_ids_are_not_equal() {
+    assert_ne!(cid("ckt_1"), cid("ckt_2"));
+}
+
+#[test]
+fn circuit_id_serializes_as_plain_string() {
+    assert_eq!(serde_json::to_string(&cid("bell")).unwrap(), r#""bell""#);
+}
+
+#[test]
+fn circuit_id_deserializes_from_plain_string() {
+    assert_eq!(
+        serde_json::from_str::<CircuitId>(r#""bell""#).unwrap(),
+        cid("bell")
+    );
+}
+
+#[test]
+fn circuit_id_deserialize_rejects_empty_string() {
+    assert!(serde_json::from_str::<CircuitId>(r#""""#).is_err());
+}
+
+#[test]
+fn circuit_id_round_trips_through_string() {
+    let original = "ckt_42".to_owned();
+
+    assert_eq!(
+        String::from(CircuitId::try_from(original.clone()).unwrap()),
+        original
+    );
+}
+
+#[test]
+fn circuit_entry_serializes_id_as_plain_string() {
+    let entry = user("bell", "Bell", EMPTY_CIRCUIT_JSON, false);
+
+    assert!(serde_json::to_string(&entry)
+        .unwrap()
+        .contains(r#""id":"bell""#));
+}
+
+#[test]
+fn circuit_entry_deserialize_rejects_empty_id() {
+    let json = r#"{"id":"","name":"x","circuit_json":"{\"cols\":[]}","updated_at":0,"origin":{"kind":"user","locked":false}}"#;
+
+    assert!(serde_json::from_str::<CircuitEntry>(json).is_err());
 }
 
 #[test]
@@ -39,7 +107,7 @@ fn grover_seed_uses_expanded_quirk_json() {
     let grover = library
         .entries
         .iter()
-        .find(|entry| entry.id == "grover-search");
+        .find(|entry| entry.id.as_str() == "grover-search");
 
     assert_eq!(
         grover.map(|entry| entry.circuit_json.as_str()),
@@ -79,7 +147,7 @@ fn legacy_auto_untitled_entries_migrate_to_numbered_circuits() {
             user("circuit-8", "Untitled", EMPTY_CIRCUIT_JSON, false),
             user("ckt_saved", "Untitled", EMPTY_CIRCUIT_JSON, false),
         ],
-        "current".to_owned(),
+        cid("current"),
     );
 
     let migrated = library.migrate_legacy_default_names();
@@ -98,10 +166,10 @@ fn legacy_auto_untitled_entries_migrate_to_numbered_circuits() {
 fn update_and_set_active_keep_canonical_json_for_unlocked_user() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("ghz", "GHZ state", r#"{"cols":[["X"]]}"#, false)],
-        "ghz".to_owned(),
+        cid("ghz"),
     );
 
-    library.set_active("ghz".to_owned());
+    library.set_active(cid("ghz"));
     library.update_active(EMPTY_CIRCUIT_JSON.to_owned());
 
     assert_eq!(
@@ -117,7 +185,7 @@ fn update_and_set_active_keep_canonical_json_for_unlocked_user() {
 fn locked_active_update_is_ignored() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("locked", "Locked", r#"{"cols":[["X"]]}"#, true)],
-        "locked".to_owned(),
+        cid("locked"),
     );
 
     library.update_active(EMPTY_CIRCUIT_JSON.to_owned());
@@ -148,7 +216,7 @@ fn duplicate_sample_creates_unlocked_user() {
 fn duplicate_locked_user_creates_unlocked_user() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("locked", "Locked", EMPTY_CIRCUIT_JSON, true)],
-        "locked".to_owned(),
+        cid("locked"),
     );
 
     let id = library.duplicate_active();
@@ -167,7 +235,7 @@ fn duplicate_locked_user_creates_unlocked_user() {
 fn duplicate_unlocked_user_creates_unlocked_user() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("open", "Open", EMPTY_CIRCUIT_JSON, false)],
-        "open".to_owned(),
+        cid("open"),
     );
 
     let id = library.duplicate_active();
@@ -185,7 +253,7 @@ fn duplicate_unlocked_user_creates_unlocked_user() {
 #[test]
 fn duplicate_active_inserts_into_my_section_and_numbers_copy_names() {
     let mut library = CircuitLibrary::seed();
-    library.set_active("bell".to_owned());
+    library.set_active(cid("bell"));
 
     let first_id = library.duplicate_active();
     let second_id = library.duplicate_active();
@@ -221,7 +289,7 @@ fn duplicate_active_skips_existing_copy_name_collisions() {
             user("copy-1", "Bell state (copy)", EMPTY_CIRCUIT_JSON, false),
             user("copy-2", "Bell state (copy 2)", EMPTY_CIRCUIT_JSON, false),
         ],
-        "bell".to_owned(),
+        cid("bell"),
     );
 
     let id = library.duplicate_active();
@@ -278,22 +346,25 @@ fn delete_locked_entry_is_ignored() {
             user("open", "Open", EMPTY_CIRCUIT_JSON, false),
             user("locked", "Locked", EMPTY_CIRCUIT_JSON, true),
         ],
-        "open".to_owned(),
+        cid("open"),
     );
 
-    library.delete_by_id("locked");
+    library.delete_by_id(&cid("locked"));
 
-    assert!(library.entries.iter().any(|entry| entry.id == "locked"));
+    assert!(library
+        .entries
+        .iter()
+        .any(|entry| entry.id.as_str() == "locked"));
 }
 
 #[test]
 fn rename_locked_entry_is_ignored() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("locked", "Locked", EMPTY_CIRCUIT_JSON, true)],
-        "locked".to_owned(),
+        cid("locked"),
     );
 
-    library.rename("locked", "Renamed");
+    library.rename(&cid("locked"), "Renamed");
 
     assert_eq!(library.active().name.as_str(), "Locked");
 }
@@ -302,7 +373,7 @@ fn rename_locked_entry_is_ignored() {
 fn toggle_active_lock_flips_only_user_entries() {
     let mut library = CircuitLibrary::from_entries(
         vec![user("open", "Open", EMPTY_CIRCUIT_JSON, false)],
-        "open".to_owned(),
+        cid("open"),
     );
 
     library.toggle_active_lock();
@@ -323,7 +394,7 @@ fn toggle_active_lock_ignores_samples() {
 fn v1_migration_keeps_untouched_seed_count() {
     let seed = CircuitLibrary::seed();
 
-    let migrated = CircuitLibrary::migrate_v1_entries(seed.entries, Some("bell".to_owned()));
+    let migrated = CircuitLibrary::migrate_v1_entries(seed.entries, Some(cid("bell")));
 
     assert_eq!(migrated.entries.len(), 4);
 }
@@ -331,14 +402,14 @@ fn v1_migration_keeps_untouched_seed_count() {
 #[test]
 fn v1_migration_escapes_edited_seed_id() {
     let edited = CircuitEntry::user(
-        "bell".to_owned(),
+        cid("bell"),
         "Bell state".to_owned(),
         EMPTY_CIRCUIT_JSON.to_owned(),
         0,
         false,
     );
 
-    let migrated = CircuitLibrary::migrate_v1_entries(vec![edited], Some("bell".to_owned()));
+    let migrated = CircuitLibrary::migrate_v1_entries(vec![edited], Some(cid("bell")));
 
     assert_eq!(migrated.active_id.as_str(), "bell-user-edit");
 }
@@ -347,7 +418,7 @@ fn v1_migration_escapes_edited_seed_id() {
 fn v1_migration_marks_user_entry_unlocked() {
     let migrated = CircuitLibrary::migrate_v1_entries(
         vec![user("mine", "Mine", EMPTY_CIRCUIT_JSON, false)],
-        Some("mine".to_owned()),
+        Some(cid("mine")),
     );
 
     assert_eq!(
@@ -389,4 +460,11 @@ fn sample_origin_rejects_locked_field_at_compile_time() {
     let tests = trybuild::TestCases::new();
 
     tests.compile_fail("tests/compile_fail/sample_origin_locked.rs");
+}
+
+#[test]
+fn rename_rejects_name_string_at_compile_time() {
+    let tests = trybuild::TestCases::new();
+
+    tests.compile_fail("tests/compile_fail/rename_rejects_name_string.rs");
 }

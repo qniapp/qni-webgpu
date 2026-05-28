@@ -9,7 +9,7 @@ mod wasm_debug {
     use eframe::egui;
     use wasm_bindgen::JsCast;
 
-    use super::super::{CircuitEntry, CircuitLibrary};
+    use super::super::{CircuitEntry, CircuitId, CircuitLibrary};
     use crate::test_hooks::{
         set_property, QNI_APPLY_URL_PAYLOAD, QNI_CIRCUIT_LIBRARY_DELETE, QNI_CIRCUIT_LIBRARY_LOAD,
         QNI_CIRCUIT_LIBRARY_RENAME, QNI_CIRCUIT_LIBRARY_SAVE, QNI_CIRCUIT_PICKER_SNAPSHOT,
@@ -158,7 +158,7 @@ mod wasm_debug {
         for index in 0..entries_array.length() {
             let entry = entries_array.get(index);
             entries.push(CircuitEntry {
-                id: string_prop(&entry, "id")?,
+                id: CircuitId::try_new(string_prop(&entry, "id")?).ok()?,
                 name: string_prop(&entry, "name")?,
                 circuit_json: string_prop(&entry, "circuit_json")
                     .or_else(|| string_prop(&entry, "circuitJson"))
@@ -173,6 +173,7 @@ mod wasm_debug {
         }
         let active_id = string_prop(&value, "active_id")
             .or_else(|| string_prop(&value, "activeId"))
+            .and_then(|id| CircuitId::try_new(id).ok())
             .or_else(|| entries.first().map(|entry| entry.id.clone()))?;
         Some(CircuitLibrary::from_entries(entries, active_id))
     }
@@ -199,7 +200,7 @@ mod wasm_debug {
         let origin = prop(value, "origin")?;
         match string_prop(&origin, "kind")?.as_str() {
             "sample" => Some(CircuitOrigin::Sample {
-                origin_id: string_prop(&origin, "origin_id")?,
+                origin_id: CircuitId::try_new(string_prop(&origin, "origin_id")?).ok()?,
             }),
             "user" => Some(CircuitOrigin::User {
                 locked: bool_prop(&origin, "locked")?,

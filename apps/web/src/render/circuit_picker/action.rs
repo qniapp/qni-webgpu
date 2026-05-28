@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use crate::app::circuit_library::CircuitId;
 use crate::app::QniApp;
 
 #[derive(Clone, Debug)]
@@ -9,8 +10,8 @@ pub(super) enum PickerAction {
     OpenSubmenu(usize),
     CloseSubmenuFromTrigger { suppress_click: bool },
     StartRename(usize),
-    UpdateRenameDraft { entry_id: String, draft: String },
-    CommitRename { entry_id: String, draft: String },
+    UpdateRenameDraft { entry_id: CircuitId, draft: String },
+    CommitRename { entry_id: CircuitId, draft: String },
     CancelRename,
     Duplicate(usize),
     MoveUp(usize),
