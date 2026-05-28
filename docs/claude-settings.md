@@ -21,22 +21,9 @@ Claude Code の設定は複数のレベルで管理されています：
 ```json
 {
   "mcpServers": {
-    "qni": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js"],
-      "env": {}
-    },
     "playwright": {
-      "command": "xvfb-run",
-      "args": [
-        "-d",
-        "-s", "-screen 0 1920x1080x24",
-        "npx",
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--config", "/home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json"
-      ]
+      "command": "/home/yasuhito/Work/qni-webgpu/scripts/playwright-mcp.sh",
+      "args": []
     }
   }
 }
@@ -44,7 +31,6 @@ Claude Code の設定は複数のレベルで管理されています：
 
 #### 定義済みサーバー
 
-- **qni**: 量子回路シミュレータ用 MCP サーバー
 - **playwright**: ブラウザ自動化用（xvfb + WebGPU 対応）
 
 #### 並行開発時の注意
@@ -111,7 +97,7 @@ Chromium を SwiftShader + WebGPU フラグ付きで起動する。
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["qni", "playwright"],
+  "enabledMcpjsonServers": ["playwright"],
   "enabledPlugins": {
     "playwright@claude-plugins-official": false
   }
@@ -177,7 +163,7 @@ cat ~/.claude/settings.json | jq '.enabledPlugins'
   "enabledPlugins": {
     "playwright@claude-plugins-official": false
   },
-  "enabledMcpjsonServers": ["qni", "playwright"]
+  "enabledMcpjsonServers": ["playwright"]
 }
 ```
 
@@ -192,8 +178,7 @@ claude mcp list
 期待される出力（公式プラグインが無効化されている場合の一例）：
 
 ```
-playwright: xvfb-run -d -s -screen 0 1920x1080x24 npx @playwright/mcp@latest --isolated --config /home/yasuhito/Work/qni-webgpu/.playwright-mcp/config.json - ✓ Connected
-qni: node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js - ✓ Connected
+playwright: /home/yasuhito/Work/qni-webgpu/scripts/playwright-mcp.sh - ✓ Connected
 ```
 
 ## トラブルシューティング

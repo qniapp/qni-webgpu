@@ -7,7 +7,6 @@ apps/web/output/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/node_modules/
-apps/mcp-qni/node_modules/
 apps/tui/target/
 apps/tui/tests/snapshots/*.snap.new
 apps/tui/tests/snapshots/*.snap.old

@@ -810,9 +810,9 @@
           <article class="candidate safety">
             <div class="topline"><span class="rank">C-07</span><span class="badge">P2 policy</span></div>
             <h3>CPU simulation islands の扱いを決める</h3>
-            <p>Web本番外だが、TUI / MCP は CPU state vector simulation を持つ。Qni 本家 simulator も CPU 実装なので、仕様参照に限定する境界を明示。</p>
+            <p>Web本番外だが、TUI は CPU state vector simulation を持つ。Qni 本家 simulator も CPU 実装なので、仕様参照に限定する境界を明示。</p>
             <ul><li>legacy / test-only と docs 化</li><li>または WebGPU 経路へ寄せる</li><li>Qni: <code>Simulator.runStep</code> は semantics oracle</li></ul>
-            <div class="file-list"><span class="file-chip">apps/tui/src/model.rs</span><span class="file-chip">apps/mcp-qni/src/circuit.ts</span></div>
+            <div class="file-list"><span class="file-chip">apps/tui/src/model.rs</span></div>
           </article>
 
           <article class="candidate medium">
@@ -867,7 +867,7 @@
                 <tr><td>C-04 QniApp split</td><td><span class="status p1">P1</span></td><td>状態が一つの struct に集中</td><td>circuit model + drag controller + state panel state + GPU plan state は抽出済み</td><td>borrow 分割で差分が大きくなる</td><td>cargo clippy + Playwright smoke</td></tr>
                 <tr><td>C-05 large functions</td><td><span class="status p1">P1</span></td><td>300〜470行関数</td><td>drag controller / update flow / circuit / state panel interaction / layout / popup / recompute / shader source / input controller は分割済み</td><td>抽出時の描画順序変更</td><td>snapshot / visual screenshot</td></tr>
                 <tr><td>C-06 GateSpec</td><td><span class="status p1">P1</span></td><td>Gate 知識が 5+ ファイルに分散</td><td>registry + trait-like metadata + icon drawing split 済み</td><td>循環依存</td><td>URL roundtrip + all gate simulation tests</td></tr>
-                <tr><td>C-07 CPU islands</td><td><span class="status p2">P2</span></td><td>TUI/MCP が CPU simulation</td><td>境界を docs 化 or GPU 経路統合</td><td>scope が大きい</td><td>TUI tests + MCP tests</td></tr>
+                <tr><td>C-07 CPU islands</td><td><span class="status p2">P2</span></td><td>TUI が CPU simulation</td><td>境界を docs 化 or GPU 経路統合</td><td>scope が大きい</td><td>TUI tests</td></tr>
                 <tr><td>C-08 TUI split</td><td><span class="status p2">P2</span></td><td>500行超ファイル複数</td><td>renderer/model/tests 分割</td><td>snapshot 差分</td><td>cargo test + insta review</td></tr>
                 <tr><td>C-09 style tokens</td><td><span class="status p2">P2</span></td><td>hardcoded RGB / scale外サイズ</td><td>Flexoki + Tailwind constants</td><td>見た目の微差</td><td>visual screenshot + clippy禁止API</td></tr>
                 <tr><td>C-10 tests split</td><td><span class="status p3">P3</span></td><td>巨大 spec</td><td>観点別 spec + shared helper に分割済み</td><td>テスト起動時間の変動</td><td>pnpm test:preflight / bdd / pw-legacy</td></tr>
@@ -983,7 +983,6 @@
                 <li><code>cd apps/web &amp;&amp; cargo clippy --target wasm32-unknown-unknown -- -D warnings</code></li>
                 <li><code>cd apps/web &amp;&amp; pnpm run typecheck</code></li>
                 <li><code>cd apps/tui &amp;&amp; cargo check</code> / <code>cargo clippy -- -D warnings</code></li>
-                <li><code>cd apps/mcp-qni &amp;&amp; pnpm run typecheck</code> / <code>pnpm run lint</code></li>
               </ul>
             </div>
           </details>

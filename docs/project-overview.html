@@ -615,7 +615,7 @@
       <div class="what">Rust 2021 (stable)<br>TypeScript 5.x</div>
       <div class="note">
         <p><b>Rust</b> — C/C++ 系のシステム言語。<em>ガーベジコレクタを持たない</em> ので実行時オーバーヘッドが小さく、所有権 (ownership) と借用 (borrowing) の型システムでメモリ安全を<em>コンパイル時に</em> 保証する。`cargo` でビルド・テスト・依存解決まで一括。ネイティブ実行ファイルにも <em>WebAssembly</em> にも同じソースからコンパイルできるのが本プロジェクトの肝。</p>
-        <p>UI / シミュレーション / GPU パイプライン本体はすべて Rust。<b>TypeScript</b> は (1) ブラウザ起動時の wasm 読み込み glue (<code>bootstrap.ts</code>) と (2) MCP サーバ (Node.js) だけに限定。</p>
+        <p>UI / シミュレーション / GPU パイプライン本体はすべて Rust。<b>TypeScript</b> はブラウザ起動時の wasm 読み込み glue (<code>bootstrap.ts</code>) と Playwright / Cucumber のテスト補助に限定。</p>
       </div>
     </div>
 
@@ -684,11 +684,10 @@
     </div>
 
     <div class="row">
-      <div class="layer">Adjacent apps</div>
-      <div class="what"><code>apps/tui</code> (ratatui)<br><code>apps/mcp-qni</code> (MCP server)</div>
+      <div class="layer">Adjacent app</div>
+      <div class="what"><code>apps/tui</code> (ratatui)</div>
       <div class="note">
         <p><b>apps/tui</b> — 同じ回路モデルを <em>ターミナルで</em> 描くプロトタイプ。<code>ratatui</code> + <code>crossterm</code> で動き、wasm を立てなくても素早く動作確認ができる。配色も Flexoki トーンの ANSI 近似で揃えている。</p>
-        <p><b>apps/mcp-qni</b> — <em>MCP</em> (Model Context Protocol) のサーバ。Claude や Codex などのエージェントが stdio 経由で「H ゲートを q0 に置いて」「状態ベクトルを返して」のような操作を呼べる。エージェント駆動で回路編集とテストを回すための入口。</p>
       </div>
     </div>
 

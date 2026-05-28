@@ -108,7 +108,7 @@ impl QubitCapacity {
     <h3 style="margin-top: 16px;">Python / TypeScript の境界</h3>
     <ul>
       <li>Qiskit バックエンドでは <code>RunRequest.qubits</code> を <code>QubitCount</code> 相当の frozen dataclass にする。JSON から読む場所だけが <code>int</code> を受け取り、以降は値オブジェクトを渡す。</li>
-      <li>MCP や Playwright 補助の TypeScript では branded type または小さなオブジェクトを使い、<code>createQubitCount(raw)</code> を通さない値を受け取らない。</li>
+      <li>Playwright 補助の TypeScript では branded type または小さなオブジェクトを使い、<code>createQubitCount(raw)</code> を通さない値を受け取らない。</li>
       <li>言語ごとの表現は違ってよいが、境界で検証して内部へ不正値を入れない、という不変条件は同じにする。</li>
     </ul>
   </div>
@@ -174,10 +174,9 @@ impl QubitCapacity {
       <li>バックエンドのエラー文言は <code>qubits must be an integer in [1, 32]</code> の意味を維持する。ただし内部では <code>Zero</code> と <code>AboveCapacity</code> を分けておく。</li>
     </ul>
 
-    <h3 style="margin-top: 16px;">TUI（端末 UI） / MCP（Model Context Protocol）</h3>
+    <h3 style="margin-top: 16px;">TUI（端末 UI）</h3>
     <ul>
       <li>TUI の <code>qubit_count(state)</code> は <code>QubitCount</code> を返す候補である。ただし現在の TUI は CPU シミュレーションを含むため、WebGPU 本番経路と同時に整理する。</li>
-      <li>MCP の <code>createCircuit(qubits)</code> と <code>setQubits(circuit, qubits)</code> は、入力直後に TypeScript 側の <code>QubitCount</code> 相当へ変換する。</li>
     </ul>
   </div>
 </section>

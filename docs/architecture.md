@@ -6,7 +6,7 @@
 
 - Monorepo 構成で、WebGPU PoC は `apps/web` に集約されている。
 - 端末向けの最小 PoC は `apps/tui` に置き、Rust + ratatui で Web 版に触れずに動作確認できる。
-- MCP サーバ `apps/mcp-qni` から回路編集と実行を行う。
+- 外部 GPU 実行 API は `apps/qiskit-backend` に置き、Web UI の `Run GPU` から利用する。
 - Web UI は Rust（egui/eframe）で構築し、Wasm として動く。
 - Web PoC は起動時 2 量子ビットから始まるが、ドラッグ操作に応じて空のワイヤを追加し、最大 16 量子ビットまで扱う。
 - Web のゲートパレットは `H/CTRL/X/Y/Z/√X/S/S†/T/T†/P/Rx/Ry/Rz/SWAP` を扱う。
@@ -16,12 +16,13 @@ flowchart LR
   subgraph repo[リポジトリ]
     web[apps/web<br/>web app]
     tui[apps/tui<br/>TUI PoC]
-    mcp[apps/mcp-qni<br/>MCP Qni]
+    backend[apps/qiskit-backend<br/>Qiskit backend]
     docs[docs<br/>設計・決定事項]
   end
+  web --> backend
   web --> docs
   tui --> docs
-  mcp --> docs
+  backend --> docs
 ```
 
 ## 画面構成（画面に何が出るか）

@@ -1,13 +1,5 @@
 {
   "mcpServers": {
-    "qni": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "/home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js"
-      ],
-      "env": {}
-    },
     "playwright": {
       "command": "/home/yasuhito/Work/qni-webgpu/scripts/playwright-mcp.sh",
       "args": []
