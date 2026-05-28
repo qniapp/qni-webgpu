@@ -387,7 +387,7 @@
       <li><strong>cell 構造ガイド</strong> — cell 間の grid は引かない。通常時と同じく、matrix 外枠だけで表示ブロックの領域を示す</li>
       <li><strong>outline 円 / disk / needle</strong> — 描かない。<code>ρ</code> の値が無いので「対角の確率」も「非対角の coupling」も意味を持たない</li>
       <li><strong>外枠</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く</li>
-      <li><strong>ホバー / ポップオーバー</strong> — 実行前はセル単位ポップオーバーを出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前はセル単位ポップオーバーを出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) は通常時と同じく出し、リサイズハンドルは端ごとの表示可否判定に従う</li>
       <li><strong>遷移</strong> — Run 結果が届いたフレームでプレースホルダ層 (薄紫背景 + 外枠) から通常の probability + disk + needle 描画へ即時に切り替える。150 ms ease-out のクロスフェードは将来の改善候補</li>
     </ul>
     <div class="stage">
@@ -428,17 +428,17 @@
   <h2>§ 09 リサイズハンドル (span 1〜8)</h2>
   <div class="card">
     <p>
-      振幅表示ブロック / 確率表示ブロックの上下ハンドルとクロム仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 05</a> の resize handle 節 / <a href="probability-display.html">probability-display.html § 12</a> 参照)。
+      振幅表示ブロック / 確率表示ブロックの上下ハンドルとクロム仕様は完全に共有する (<a href="amplitude-display.html">amplitude-display.html § 05</a> のリサイズハンドル節 / <a href="probability-display.html">probability-display.html § 12</a> 参照)。
       ハンドル単独の挙動だけ要点を再掲する:
     </p>
     <ul>
       <li><strong>配置</strong> — matrix の上下中央に 1 つずつ。<code>top / bottom: −12 px</code> (4 px ホバー枠 + 2 px の背景の空き + 6 px 高さ の合計 12 px 外側)</li>
       <li><strong>幅</strong> — JS で canvas 幅 (<code>size_px</code>) の 60% に動的にスケール、min 24 px (上限なし、span 8 = 432 px なら handle 幅 ≈ 259 px)</li>
-      <li><strong>初期状態</strong> — <code>opacity: 0</code>、ホストホバーで<strong>奥から飛び出してくる</strong>マイクロインタラクション (フェードイン + 軽いバウンス: <code>scale(0.7) → scale(1)</code> in 250 ms cubic-bezier(0.34, 1.56, 0.64, 1))</li>
+      <li><strong>初期状態</strong> — <code>opacity: 0</code>、ホストホバー時に表示可否判定を通った端だけが<strong>奥から飛び出してくる</strong>マイクロインタラクション (フェードイン + 軽いバウンス: <code>scale(0.7) → scale(1)</code> in 250 ms cubic-bezier(0.34, 1.56, 0.64, 1))</li>
       <li><strong>default</strong> — <code>cyan-400</code> ベース (ホバー枠 <code>purple-400</code> と別色族で「リングの突起 ?」誤認を回避)</li>
       <li><strong>個別 hover</strong> — <code>cyan-600</code> + <code>scale(1.15)</code>、cursor は <code>ns-resize</code></li>
       <li><strong>active drag</strong> — <code>cyan-600</code> + <code>scale(1.25)</code>、固定</li>
-      <li><strong>span clamp</strong> — drag の上限は span 8、下限は span 1。span 1 から上方向 / span 8 から下方向にドラッグしても止まる</li>
+      <li><strong>span 範囲</strong> — ドラッグの上限は span 8、下限は span 1。上下それぞれの表示可否は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する</li>
       <li><strong>左右ハンドルなし</strong> — width は span の関数 (<code>56 × span − 16</code>) なので独立した width handle は不要。高さハンドルの変更で同時に幅も変わる正方形リサイズ</li>
     </ul>
   </div>

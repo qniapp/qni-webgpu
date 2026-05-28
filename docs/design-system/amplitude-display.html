@@ -245,7 +245,7 @@
       <li><strong>outline 円</strong> — <code>ui-2</code> (#DAD8CE) の薄いグレー。<em>これは「振幅 ≈ 0」のときの既存配色 (state panel <code>state_outline_zero</code>) と同じ token を流用する</em>ので、追加の色定義は不要。stroke 太さ・半径は通常時と同じルール (<code>cellPx ≥ 24</code> で 2 px、それ未満で 1 px、半径 = <code>cellPx/2 − stroke/2 − 1.5 px</code>)。</li>
       <li><strong>disk / needle</strong> — 描かない。振幅値そのものを持たないので、disk (大きさ) も needle (位相) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「ゲートとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>ホバー / ポップオーバー</strong> — 実行前は cell 単位のポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドルは通常時と同じく出す。</li>
+      <li><strong>ホバー / ポップオーバー</strong> — 実行前は cell 単位のポップオーバーを出さない (表示すべき数値が無い)。ゲート全体のホバー枠 (<code>purple-400</code> 4 px) は通常時と同じく出し、リサイズハンドルは端ごとの表示可否判定に従う。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー outline) を 150 ms ease-out でフェードアウトしつつ、通常の disk + needle 描画にクロスフェードする。フェード中は cellPx の判定 (§ 06) も通常通り適用する。</li>
     </ul>
     <div class="stage">
@@ -366,7 +366,7 @@
       <li><strong>可視矩形</strong> — 幅は <code>56 × cols − 16</code> px、高さは <code>56 × span − 16</code> px。矩形内に他の回路要素が重なる配置は不可。</li>
       <li><strong>ドラッグ中プレビュー</strong> — 本体と同じ幅・高さで表示する。背景は通常ゲートのドラッグプレビューと同じ <code>purple-600</code> を使い、セル内の白地・円盤・輪郭・位相針の色は維持する。</li>
       <li><strong>ホバー表示</strong> — cell hover は対象測定結果の outline 円周だけを <code>purple-400</code> に置き換える。cell hover 中は表示ブロック全体の矩形ホバー枠を出さない。</li>
-      <li><strong>リサイズ</strong> — 上下ハンドルで span だけを変更する。幅は span から自動で決まり、左右の幅ハンドルは置かない。</li>
+      <li><strong>リサイズ</strong> — 上下ハンドルで span だけを変更する。幅は span から自動で決まり、左右の幅ハンドルは置かない。上下それぞれの表示可否は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する。</li>
       <li><strong>保存形式</strong> — <code>"Amps3"</code> のように span を持つ 1 トークンで表す。表示幅の列数は保存形式ではなく描画上の幅として扱う。</li>
     </ul>
 

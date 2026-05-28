@@ -140,7 +140,14 @@ fn start_intent(
         .placed_gates
         .iter()
         .rev()
-        .filter_map(|gate| SpanResizeHandles::for_gate(gate)?.drag_at(gate, cursor))
+        .filter_map(|gate| {
+            SpanResizeHandles::for_gate_with_availability(
+                gate,
+                &app.placed_gates,
+                app.exec_mode.qubit_capacity().get(),
+            )?
+            .drag_at(gate, cursor)
+        })
         .next()
     {
         return DragStartIntent::SpanResize(resize);

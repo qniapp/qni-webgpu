@@ -42,7 +42,11 @@ impl DragController {
             let mut hovered_density_cell = None;
             for gate in app.placed_gates.iter().rev() {
                 let gate_rect = gate_visible_rect(gate, gate.pos);
-                let resize_handles = SpanResizeHandles::for_gate(gate);
+                let resize_handles = SpanResizeHandles::for_gate_with_availability(
+                    gate,
+                    &app.placed_gates,
+                    app.exec_mode.qubit_capacity().get(),
+                );
                 let body_rect = resize_handles
                     .map(SpanResizeHandles::body_rect)
                     .unwrap_or_else(|| span_resize_body_rect(gate.kind, gate.span, gate_rect));
