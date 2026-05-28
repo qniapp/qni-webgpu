@@ -28,9 +28,6 @@ hooks:
       if [ -f apps/web/package.json ]; then
         pnpm -C apps/web install
       fi
-      if [ -f apps/mcp-qni/package.json ]; then
-        pnpm -C apps/mcp-qni install
-      fi
     fi
     if command -v cargo >/dev/null 2>&1; then
       cargo fetch || true

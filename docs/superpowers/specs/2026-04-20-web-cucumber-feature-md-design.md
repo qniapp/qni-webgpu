@@ -32,7 +32,7 @@
 - 既存 `apps/web/tests/web.spec.js` を一度に全面削除すること。
 - `@playwright/test` 依存 helper を一気に全面書き換えること。
 - ブラウザ選択ロジックや WebGPU フラグ方針を変更すること。
-- `apps/web` 以外のテスト体系（`apps/tui`, `apps/mcp-qni` など）へ Cucumber を広げること。
+- `apps/web` 以外のテスト体系（`apps/tui` など）へ Cucumber を広げること。
 - `.feature.md` とは別の独自 Markdown DSL を設計すること。
 - CI を大規模に再設計すること。
 

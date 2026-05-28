@@ -1,15 +1,15 @@
 # Tech Stack
 
-このプロジェクトは **Rust を中心にしたモノレポ** で、用途ごとに 3 つのアプリで構成されています。
+このプロジェクトは **Rust を中心にしたモノレポ** で、用途ごとに Web / TUI / Qiskit backend を持ちます。
 
 - **Web PoC**: ブラウザ上で動く量子回路 UI
 - **TUI PoC**: ターミナル上で動く確認用 UI
-- **MCP サーバ**: 回路編集・状態ベクトル取得用のローカルサーバ
+- **Qiskit backend**: 外部 GPU 実行パスを受けるローカル API
 
 ## 全体像
 
 - リポジトリ構成: **monorepo**
-- 主言語: **Rust** / **TypeScript**
+- 主言語: **Rust** / **TypeScript** / **Python**
 - Rust toolchain: **stable** (`rust-toolchain.toml`)
 - Web 向けビルド: **Rust → WebAssembly**
 - Node パッケージ管理: **pnpm**
@@ -54,25 +54,20 @@ Web 版とは別に、ローカルで素早く確認できる TUI PoC です。
 - `crossterm = 0.27`
 - `insta = 1`
 
-### 3. `apps/mcp-qni` — MCP サーバ
+### 3. `apps/qiskit-backend` — Qiskit backend
 
-Codex / Claude などの MCP クライアントから量子回路を操作するためのサーバです。
+Web UI の外部 GPU 実行パスを受けるローカル API です。
 
-- 実行環境: **Node.js**
-- 言語: **TypeScript**（`src/**/*.ts` / `test/**/*.ts` を `dist/` へビルド）
-- モジュール形式: **ESM** (`"type": "module"`)
-- SDK: **@modelcontextprotocol/sdk**
-- 通信方式: **stdio**
-- パッケージ管理: **pnpm**
-- 品質チェック: **ESLint / Prettier / Node test runner**
-  - `pnpm run typecheck` で TypeScript を `--noEmit` 検証
+- 実行環境: **Python 3.10+**
+- 量子実行: **Qiskit / Qiskit Aer**
+- 実行方式: **`mock` / `qiskit-cpu-dev` / `qiskit-gpu`**
+- テスト: **unittest**
 
 主な依存関係:
 
-- `@modelcontextprotocol/sdk`（package.json では `^1.0.0`、lockfile では 1.x 系を解決）
-- `eslint`（9.x）
-- `prettier`（3.x）
-- `typescript`（6.x）
+- `numpy = 1.26.4`
+- `qiskit = 1.2.1`
+- `qiskit-aer = 0.15.1`
 
 ## 開発・検証ツール
 
@@ -90,6 +85,11 @@ Codex / Claude などの MCP クライアントから量子回路を操作する
 - `pnpm exec playwright test`
 - WebAssembly target: `wasm32-unknown-unknown`
 
+### Qiskit backend 側
+
+- `PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests`
+- editable install smoke
+
 ### CI
 
 GitHub Actions では以下を使って検証します。
@@ -97,6 +97,7 @@ GitHub Actions では以下を使って検証します。
 - **Node.js 20**
 - **pnpm 9**
 - **Rust stable**
+- **Python 3**
 - **trunk**
 - **Playwright Chromium**
 
@@ -110,9 +111,9 @@ GitHub Actions では以下を使って検証します。
 
 - Web UI を動かす: `apps/web`
 - TUI を動かす: `apps/tui`
-- MCP サーバを動かす: `apps/mcp-qni`
+- Qiskit backend を動かす: `apps/qiskit-backend`
 - 全体チェック: `./scripts/check-all.sh`
 
 ## ひとことで言うと
 
-このプロジェクトは、**Rust を中心に、Web は egui + wgpu + WebAssembly + Trunk、TUI は ratatui、外部連携は Node.js 製 MCP サーバで構成されたモノレポ**です。
+このプロジェクトは、**Rust を中心に、Web は egui + wgpu + WebAssembly + Trunk、TUI は ratatui、外部 GPU 実行は Python 製 Qiskit backend で構成されたモノレポ**です。

@@ -117,7 +117,6 @@ legacy 側の `test:pw-legacy` が `apps/web/playwright.config.ts` の Playwrigh
 - ルートで `node --test test-node/*.test.cjs`（配備設定 / CI 設定）
 - ルートで Qiskit backend の editable install smoke
 - ルートで `PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests`
-- `apps/mcp-qni` で `pnpm check`
 - ルートで `make check`（TUI fmt / clippy / test / snapshot / audit / deny）
 
 ## Docker（ABCI 本番配備の土台）
@@ -174,22 +173,3 @@ PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-back
 
 詳細は `apps/qiskit-backend/README.md` を参照。
 
-## MCP サーバ（Qni）
-
-回路編集と状態ベクトル取得を行う MCP サーバは `apps/mcp-qni` にある。
-
-```
-cd apps/mcp-qni
-pnpm install
-pnpm run build
-pnpm start
-```
-
-Claude Code でプロジェクトに登録する:
-
-```
-claude mcp add --scope project --transport stdio qni -- \
-  node /home/yasuhito/Work/qni-webgpu/apps/mcp-qni/dist/src/index.js
-```
-
-詳細は `docs/mcp-qni.md` を参照。
