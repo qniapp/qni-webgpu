@@ -90,9 +90,12 @@ impl QubitCount {
         capacity: QubitCapacity,
     ) -&gt; Result&lt;Self, QubitCountError&gt;;
     pub(crate) fn get(self) -&gt; usize;
-}
 
-pub(crate) fn local_state_count(count: QubitCount) -&gt; Result&lt;usize, QubitCountError&gt;;
+    // ローカル実行の状態ベクトル長 2^n。ローカル容量を超える n は QubitCountError。
+    pub(crate) fn local_state_count(self) -&gt; Result&lt;usize, QubitCountError&gt;;
+    // GPU バッファ / GateParams 用の u32 版（同じくローカル容量で検証する）。
+    pub(crate) fn local_state_count_u32(self) -&gt; Result&lt;u32, QubitCountError&gt;;
+}
 
 impl QubitCapacity {
     pub(crate) const fn local() -&gt; Self;        // 16
@@ -101,8 +104,9 @@ impl QubitCapacity {
 }</pre>
 
     <p>
-      状態ベクトル長の算出は <code>local_state_count</code> のようなローカル実行専用ヘルパーに隔離する。
-      <code>QubitCount</code> 自体へ <code>state_count()</code> を持たせると、外部 GPU では有効な <code>32</code> 量子ビットでもローカル状態ベクトルを確保できるように読めてしまうためである。
+      状態ベクトル長 <code>2^n</code> の算出は、ローカル容量を検証する <code>local_state_count()</code> / <code>local_state_count_u32()</code> メソッドへ集約する。
+      名前に <code>local</code> を残すのは、修飾のない <code>state_count()</code> を <code>QubitCount</code> へ持たせると、外部 GPU では有効な <code>32</code> 量子ビットでもローカル状態ベクトルを確保できるように読めてしまうためである。
+      GPU 実行計画（<code>linearize_ops</code>）と <code>GateParams</code> が使う <code>1u32 &lt;&lt; qubits</code> は <code>local_state_count_u32()</code> に置き換え、各所に散らばる <code>1u32 &lt;&lt; qubits</code> を 1 本化する。
     </p>
 
     <h3 style="margin-top: 16px;">Python / TypeScript の境界</h3>
@@ -164,6 +168,7 @@ impl QubitCapacity {
       <li><code>external_execution_qubits()</code> は外部 GPU 用に <code>QubitCount::try_for_capacity(raw, QubitCapacity::external_gpu())</code> を通す。</li>
       <li><code>layout_qubits()</code> は見た目のワイヤ本数なので、<code>QubitCount</code> と同一視しない。ドラッグ中に 1 本増やす処理は表示都合の派生値として扱う。</li>
       <li><code>linearize_ops</code>、<code>circuit_columns_to_json</code>、<code>collect_*_requests</code> は生の <code>usize</code> ではなく <code>QubitCount</code> を受け取る。</li>
+      <li><code>linearize_ops</code> と <code>GateParams</code> の状態数 <code>1u32 &lt;&lt; qubits</code> は <code>QubitCount::local_state_count_u32()</code> を通す。メソッド自体は容量超過を <code>Result</code> で弾くが、これらはローカル実行経路のみで <code>state_qubits()</code> がローカル容量を保証するため、ここでの算出は常に成功する。</li>
     </ul>
 
     <h3 style="margin-top: 16px;">外部 GPU / Qiskit バックエンド</h3>
@@ -232,6 +237,7 @@ impl QubitCapacity {
       <li><strong>外部 GPU 要求 JSON</strong> — 外部 GPU 要求 JSON の <code>qubits</code> が値オブジェクトから生成され、回路列の最大ワイヤ数以上になることを確認する。</li>
       <li><strong>バックエンド契約</strong> — <code>{ "qubits": 0 }</code> と <code>{ "qubits": 33 }</code> が契約エラーになることを Python unittest で分けて確認する。</li>
       <li><strong>生整数の封じ込め</strong> — ドメイン内部の新規関数は <code>usize</code> / <code>int</code> / <code>number</code> の量子ビット数を直接受け取らず、境界と GPU / Qiskit への最終変換だけで整数へ戻す。</li>
+      <li><strong>状態数メソッド</strong> — <code>16</code> 量子ビットで <code>local_state_count()</code> が <code>65_536</code>・<code>local_state_count_u32()</code> が <code>65_536u32</code> を返し、外部 GPU 容量の <code>32</code> 量子ビットでは <code>local_state_count()</code> が <code>AboveCapacity</code> を返すことを別テストで確認する。</li>
     </ol>
   </div>
 </section>
