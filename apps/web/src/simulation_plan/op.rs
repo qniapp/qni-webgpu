@@ -1,4 +1,5 @@
 use crate::gates::GateParams;
+use crate::qubit_bit::QubitBit;
 
 /// One step the GPU dispatcher should run during a recompute.
 ///   * `ApplyGate`: unitary / write gate via `STATE_COMPUTE_SHADER`.
@@ -26,23 +27,23 @@ pub(crate) enum SimulationOp {
     ApplyGate(GateParams),
     CaptureBloch {
         gate_id: u32,
-        qubit_bit: u32,
+        qubit_bit: QubitBit,
         output_slot: u32,
         control_mask: u32,
         control_value: u32,
     },
     MeasureReduceSample {
         gate_id: u32,
-        qubit_bit: u32,
+        qubit_bit: QubitBit,
         output_slot: u32,
     },
     MeasureCollapse {
-        qubit_bit: u32,
+        qubit_bit: QubitBit,
         aux_slot: u32,
     },
     CaptureProbability {
         gate_id: u32,
-        base_bit: u32,
+        base_bit: QubitBit,
         span: u32,
         output_slot: u32,
         control_mask: u32,
@@ -50,7 +51,7 @@ pub(crate) enum SimulationOp {
     },
     CaptureAmplitude {
         gate_id: u32,
-        base_bit: u32,
+        base_bit: QubitBit,
         span: u32,
         output_slot: u32,
         control_mask: u32,
@@ -58,7 +59,7 @@ pub(crate) enum SimulationOp {
     },
     CaptureDensity {
         gate_id: u32,
-        base_bit: u32,
+        base_bit: QubitBit,
         span: u32,
         output_slot: u32,
         control_mask: u32,

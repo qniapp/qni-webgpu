@@ -12,6 +12,7 @@ use crate::app::PlacedGate;
 use crate::gates::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params, GateKind,
 };
+use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 
 /// Walks placed gates column by column and emits ops in the exact order the
@@ -65,8 +66,8 @@ pub(crate) fn linearize_ops(
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
-            let bit = (qubits - 1 - gate.wire) as u32;
-            let bit_mask = 1u32 << bit;
+            let bit = QubitBit::new((qubits - 1 - gate.wire) as u32);
+            let bit_mask = bit.mask();
             match gate.kind {
                 GateKind::Control => {
                     control_mask |= bit_mask;
@@ -104,10 +105,10 @@ pub(crate) fn linearize_ops(
         // disables stray swaps via `updateSwapConnections`).
         swap_targets.sort_by(|a, b| a.id.cmp(&b.id));
         if swap_targets.len() == 2 {
-            let bit_a = (qubits - 1 - swap_targets[0].wire) as u32;
-            let bit_b = (qubits - 1 - swap_targets[1].wire) as u32;
-            let mask_a = 1u32 << bit_a;
-            let mask_b = 1u32 << bit_b;
+            let bit_a = QubitBit::new((qubits - 1 - swap_targets[0].wire) as u32);
+            let bit_b = QubitBit::new((qubits - 1 - swap_targets[1].wire) as u32);
+            let mask_a = bit_a.mask();
+            let mask_b = bit_b.mask();
             let cx_a_to_b = gate_params_controlled(
                 GateKind::X,
                 bit_b,
@@ -129,14 +130,14 @@ pub(crate) fn linearize_ops(
 
         targets.sort_by(|a, b| a.id.cmp(&b.id));
         for target in &targets {
-            let bit = (qubits - 1 - target.wire) as u32;
+            let bit = QubitBit::new((qubits - 1 - target.wire) as u32);
             // Parametric gates carry an optional normalized angle. When
             // present we route through the matching `*_params(θ, …)` builder
             // so the matrix carries that angle; when absent we fall back to
             // the editor's pre-parametric π/2 default (the gate's hard-coded
             // matrix in `gate_matrix`). qni would instead error out at
             // simulate time for a bare `P` / `Rx` / `Ry` / `Rz`.
-            type ParametricBuilder = fn(f32, u32, u32, u32, u32) -> crate::gates::GateParams;
+            type ParametricBuilder = fn(f32, QubitBit, u32, u32, u32) -> crate::gates::GateParams;
             let parametric_builder: Option<ParametricBuilder> = match target.kind {
                 GateKind::Phase => Some(phase_params),
                 GateKind::Rx => Some(rx_params),
@@ -197,8 +198,8 @@ pub(crate) fn linearize_ops(
             && swap_targets.is_empty()
             && control_value.count_ones() >= 2
         {
-            let target_bit = 31 - control_value.leading_zeros();
-            let target_bit_mask = 1u32 << target_bit;
+            let target_bit = QubitBit::new(31 - control_value.leading_zeros());
+            let target_bit_mask = target_bit.mask();
             let cz_control_value = control_value & !target_bit_mask;
             // Match qni and drop anti-control bits entirely: only the
             // remaining `Control` wires gate the Z. (Mixing anti-control
@@ -238,7 +239,7 @@ pub(crate) fn linearize_ops(
         // then collapse. Each consumes one aux slot.
         measurement_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for measurement in &measurement_targets {
-            let qubit_bit = (qubits - 1 - measurement.wire) as u32;
+            let qubit_bit = QubitBit::new((qubits - 1 - measurement.wire) as u32);
             ops.push(SimulationOp::MeasureReduceSample {
                 gate_id: measurement.id,
                 qubit_bit,
@@ -254,7 +255,7 @@ pub(crate) fn linearize_ops(
         // Bloch captures see the post-measurement state.
         bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for display in &bloch_targets {
-            let qubit_bit = (qubits - 1 - display.wire) as u32;
+            let qubit_bit = QubitBit::new((qubits - 1 - display.wire) as u32);
             ops.push(SimulationOp::CaptureBloch {
                 gate_id: display.id,
                 qubit_bit,
@@ -274,7 +275,7 @@ pub(crate) fn linearize_ops(
                 continue;
             }
             let span = display.span.clamp(1, 16).min(qubits - display.wire);
-            let base_bit = (qubits - display.wire - span) as u32;
+            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
             ops.push(SimulationOp::CaptureProbability {
                 gate_id: display.id,
                 base_bit,
@@ -292,7 +293,7 @@ pub(crate) fn linearize_ops(
                 continue;
             }
             let span = display.span.clamp(1, 16).min(qubits - display.wire);
-            let base_bit = (qubits - display.wire - span) as u32;
+            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
             ops.push(SimulationOp::CaptureAmplitude {
                 gate_id: display.id,
                 base_bit,
@@ -310,7 +311,7 @@ pub(crate) fn linearize_ops(
                 continue;
             }
             let span = display.span.clamp(1, 8).min(qubits - display.wire);
-            let base_bit = (qubits - display.wire - span) as u32;
+            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
             ops.push(SimulationOp::CaptureDensity {
                 gate_id: display.id,
                 base_bit,
@@ -353,7 +354,7 @@ fn qft_external_controls(
     let span = gate.span.max(1).min(qubits - gate.wire);
     let mut qft_span_mask = 0u32;
     for offset in 0..span {
-        qft_span_mask |= 1u32 << (qubits - 1 - gate.wire - offset);
+        qft_span_mask |= QubitBit::new((qubits - 1 - gate.wire - offset) as u32).mask();
     }
     let external_control_mask = control_mask & !qft_span_mask;
     let external_control_value = control_value & external_control_mask;
@@ -388,7 +389,7 @@ fn linearize_qft(
     if span == 0 {
         return Vec::new();
     }
-    let bit_of = |idx: usize| (qubits - 1 - gate.wire - idx) as u32;
+    let bit_of = |idx: usize| QubitBit::new((qubits - 1 - gate.wire - idx) as u32);
     let mut ops = Vec::new();
 
     if !dagger {
@@ -439,7 +440,7 @@ fn linearize_qft(
 }
 
 fn qft_h_params(
-    bit: u32,
+    bit: QubitBit,
     state_count: u32,
     control_mask: u32,
     control_value: u32,
@@ -452,14 +453,14 @@ fn qft_h_params(
 }
 
 fn qft_phase_params(
-    target_bit: u32,
-    qft_control_bit: u32,
+    target_bit: QubitBit,
+    qft_control_bit: QubitBit,
     phase: f32,
     state_count: u32,
     control_mask: u32,
     control_value: u32,
 ) -> crate::gates::GateParams {
-    let qft_control_mask = 1u32 << qft_control_bit;
+    let qft_control_mask = qft_control_bit.mask();
     phase_params(
         phase,
         target_bit,

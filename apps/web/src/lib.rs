@@ -6,6 +6,7 @@ mod gates;
 mod gpu;
 mod icons;
 mod layout;
+mod qubit_bit;
 mod qubit_count;
 mod render;
 mod shared;
