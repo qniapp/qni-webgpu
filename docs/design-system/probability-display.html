@@ -710,7 +710,7 @@
       <tbody>
         <tr><th>span 上限</th><td>1〜16 (ドラッグで変化可能、上限 16 で停止)</td></tr>
         <tr><th>ハンドル幅</th><td>本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
-        <tr><th>表示可否</th><td>上下それぞれを独立に判定する。端ごとの条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する</td></tr>
+        <tr><th>表示可否 / 停止条件</th><td>上下それぞれを独立に判定する。端ごとの条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する。ドラッグ中は他の回路要素に重なる手前で止める</td></tr>
         <tr><th>連動状態</th><td><code>state="hover"</code> をホストに付けると、確率表示ブロック側のホバー枠 (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
       </tbody>
     </table>

@@ -5,6 +5,7 @@ use crate::app::QniApp;
 use crate::app::SpanResizeEdge;
 use crate::constants::LINE_GAP;
 use crate::layout::gate_width_cols;
+use crate::span_resize::resolve_span_resize_candidate;
 
 impl DragController {
     pub(in crate::app) fn update_active_span_resize(
@@ -27,37 +28,45 @@ impl DragController {
                     .position(|gate| gate.id == drag.gate_id)
                 {
                     let capacity = app.exec_mode.qubit_capacity();
-                    let gate = &mut app.placed_gates[index];
+                    let gate = &app.placed_gates[index];
                     let gate_id = gate.id;
                     let gate_kind = gate.kind;
                     let gate_column = gate.column;
                     let old_wire = gate.wire;
                     let old_span = gate.span;
                     let old_width = gate_width_cols(gate_kind, old_span);
-                    match drag.edge {
+                    let (desired_wire, desired_span) = match drag.edge {
                         SpanResizeEdge::Bottom => {
                             let remaining_wires = capacity.get().saturating_sub(gate.wire).max(1);
                             let max_span = gate.kind.max_resizable_span(remaining_wires);
-                            gate.span = (drag.start_span as i32 + span_delta)
+                            let span = (drag.start_span as i32 + span_delta)
                                 .clamp(1, max_span as i32)
                                 as usize;
+                            (gate.wire, span)
                         }
                         SpanResizeEdge::Top => {
                             let bottom_wire = drag.start_wire + drag.start_span.saturating_sub(1);
                             let max_span = gate.kind.max_resizable_span(bottom_wire + 1);
                             let min_wire = bottom_wire + 1 - max_span;
-                            let new_wire = (drag.start_wire as i32 + span_delta)
+                            let wire = (drag.start_wire as i32 + span_delta)
                                 .clamp(min_wire as i32, bottom_wire as i32)
                                 as usize;
-                            gate.wire = new_wire;
-                            gate.span = bottom_wire - new_wire + 1;
-                            gate.sync_pos_from_grid();
+                            (wire, bottom_wire - wire + 1)
                         }
-                    }
-                    gate.clamp_span_to_qubit_capacity(capacity);
-                    let new_wire = gate.wire;
-                    let new_span = gate.span;
+                    };
+                    let (new_wire, new_span) = resolve_span_resize_candidate(
+                        gate,
+                        &app.placed_gates,
+                        capacity.get(),
+                        drag.edge,
+                        desired_wire,
+                        desired_span,
+                    );
                     let new_width = gate_width_cols(gate_kind, new_span);
+                    let gate = &mut app.placed_gates[index];
+                    gate.wire = new_wire;
+                    gate.span = new_span;
+                    gate.sync_pos_from_grid();
                     let changed = new_wire != old_wire || new_span != old_span;
                     if changed {
                         app.shift_trailing_gates_after_width_change(

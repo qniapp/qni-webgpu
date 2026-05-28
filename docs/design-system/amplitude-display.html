@@ -366,7 +366,7 @@
       <li><strong>可視矩形</strong> — 幅は <code>56 × cols − 16</code> px、高さは <code>56 × span − 16</code> px。矩形内に他の回路要素が重なる配置は不可。</li>
       <li><strong>ドラッグ中プレビュー</strong> — 本体と同じ幅・高さで表示する。背景は通常ゲートのドラッグプレビューと同じ <code>purple-600</code> を使い、セル内の白地・円盤・輪郭・位相針の色は維持する。</li>
       <li><strong>ホバー表示</strong> — cell hover は対象測定結果の outline 円周だけを <code>purple-400</code> に置き換える。cell hover 中は表示ブロック全体の矩形ホバー枠を出さない。</li>
-      <li><strong>リサイズ</strong> — 上下ハンドルで span だけを変更する。幅は span から自動で決まり、左右の幅ハンドルは置かない。上下それぞれの表示可否は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する。</li>
+      <li><strong>リサイズ</strong> — 上下ハンドルで span だけを変更する。幅は span から自動で決まり、左右の幅ハンドルは置かない。上下それぞれの表示可否とドラッグ停止条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示し、他の回路要素に重なる手前で止める。</li>
       <li><strong>保存形式</strong> — <code>"Amps3"</code> のように span を持つ 1 トークンで表す。表示幅の列数は保存形式ではなく描画上の幅として扱う。</li>
     </ul>
 

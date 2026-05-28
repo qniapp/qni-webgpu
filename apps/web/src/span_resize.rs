@@ -209,36 +209,120 @@ fn edge_can_change_span(
     qubit_capacity: usize,
     edge: SpanResizeEdge,
 ) -> bool {
-    if gate.span > 1 {
-        return true;
-    }
     match edge {
-        SpanResizeEdge::Top => can_grow_to_span_two_from_top(gate, gates, qubit_capacity),
-        SpanResizeEdge::Bottom => can_grow_to_span_two_from_bottom(gate, gates, qubit_capacity),
+        SpanResizeEdge::Top => {
+            can_shrink_from_top(gate, gates, qubit_capacity)
+                || can_grow_from_top(gate, gates, qubit_capacity)
+        }
+        SpanResizeEdge::Bottom => {
+            can_shrink_from_bottom(gate, gates, qubit_capacity)
+                || can_grow_from_bottom(gate, gates, qubit_capacity)
+        }
     }
 }
 
-fn can_grow_to_span_two_from_top(
-    gate: &PlacedGate,
-    gates: &[PlacedGate],
-    qubit_capacity: usize,
-) -> bool {
-    if gate.wire == 0 || gate.kind.max_resizable_span(gate.wire + 1) < 2 {
+fn can_shrink_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
+    gate.span > 1
+        && candidate_span_is_clear(gate, gates, gate.wire + 1, gate.span - 1, qubit_capacity)
+}
+
+fn can_shrink_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
+    gate.span > 1 && candidate_span_is_clear(gate, gates, gate.wire, gate.span - 1, qubit_capacity)
+}
+
+fn can_grow_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
+    let bottom_wire = gate.wire + gate.span.saturating_sub(1);
+    let next_span = gate.span + 1;
+    if gate.wire == 0 || gate.kind.max_resizable_span(bottom_wire + 1) < next_span {
         return false;
     }
-    candidate_span_is_clear(gate, gates, gate.wire - 1, 2, qubit_capacity)
+    candidate_span_is_clear(gate, gates, gate.wire - 1, next_span, qubit_capacity)
 }
 
-fn can_grow_to_span_two_from_bottom(
-    gate: &PlacedGate,
-    gates: &[PlacedGate],
-    qubit_capacity: usize,
-) -> bool {
+fn can_grow_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
     let remaining_wires = qubit_capacity.saturating_sub(gate.wire).max(1);
-    if gate.kind.max_resizable_span(remaining_wires) < 2 {
+    let next_span = gate.span + 1;
+    if gate.kind.max_resizable_span(remaining_wires) < next_span {
         return false;
     }
-    candidate_span_is_clear(gate, gates, gate.wire, 2, qubit_capacity)
+    candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity)
+}
+
+pub(crate) fn resolve_span_resize_candidate(
+    gate: &PlacedGate,
+    gates: &[PlacedGate],
+    qubit_capacity: usize,
+    edge: SpanResizeEdge,
+    desired_wire: usize,
+    desired_span: usize,
+) -> (usize, usize) {
+    match edge {
+        SpanResizeEdge::Bottom => {
+            resolve_bottom_resize_candidate(gate, gates, qubit_capacity, desired_span.max(1))
+        }
+        SpanResizeEdge::Top => {
+            resolve_top_resize_candidate(gate, gates, qubit_capacity, desired_wire)
+        }
+    }
+}
+
+fn resolve_bottom_resize_candidate(
+    gate: &PlacedGate,
+    gates: &[PlacedGate],
+    qubit_capacity: usize,
+    desired_span: usize,
+) -> (usize, usize) {
+    let mut span = gate.span;
+    if desired_span <= gate.span {
+        for next_span in (desired_span..gate.span).rev() {
+            if !candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity) {
+                break;
+            }
+            span = next_span;
+        }
+        return (gate.wire, span);
+    }
+
+    for next_span in (gate.span + 1)..=desired_span {
+        if !candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity) {
+            break;
+        }
+        span = next_span;
+    }
+    (gate.wire, span)
+}
+
+fn resolve_top_resize_candidate(
+    gate: &PlacedGate,
+    gates: &[PlacedGate],
+    qubit_capacity: usize,
+    desired_wire: usize,
+) -> (usize, usize) {
+    let bottom_wire = gate.wire + gate.span.saturating_sub(1);
+    let mut wire = gate.wire;
+    let mut span = gate.span;
+    if desired_wire >= gate.wire {
+        let target_wire = desired_wire.min(bottom_wire);
+        for next_wire in (gate.wire + 1)..=target_wire {
+            let next_span = bottom_wire - next_wire + 1;
+            if !candidate_span_is_clear(gate, gates, next_wire, next_span, qubit_capacity) {
+                break;
+            }
+            wire = next_wire;
+            span = next_span;
+        }
+        return (wire, span);
+    }
+
+    for next_wire in (desired_wire..gate.wire).rev() {
+        let next_span = bottom_wire - next_wire + 1;
+        if !candidate_span_is_clear(gate, gates, next_wire, next_span, qubit_capacity) {
+            break;
+        }
+        wire = next_wire;
+        span = next_span;
+    }
+    (wire, span)
 }
 
 fn candidate_span_is_clear(
@@ -254,27 +338,58 @@ fn candidate_span_is_clear(
     let candidate_rect = gate_rect_at_grid(gate.kind, gate.column, candidate_wire, candidate_span);
     let old_width = gate_width_cols(gate.kind, gate.span);
     let new_width = gate_width_cols(gate.kind, candidate_span);
-    let width_delta = new_width.saturating_sub(old_width);
     let old_right = gate
         .column
         .checked_add(old_width)
         .map(|column| column.as_usize());
-    gates.iter().all(|other| {
-        if other.id == gate.id {
-            return true;
+    let Some(other_rects) = gates
+        .iter()
+        .filter(|other| other.id != gate.id)
+        .map(|other| {
+            let shifted_column =
+                shifted_column_after_width_change(other, old_right, old_width, new_width)?;
+            Some(gate_rect_at_grid(
+                other.kind,
+                shifted_column,
+                other.wire,
+                other.span,
+            ))
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if other_rects
+        .iter()
+        .any(|other_rect| candidate_rect.intersects(*other_rect))
+    {
+        return false;
+    }
+    for left in 0..other_rects.len() {
+        for right in (left + 1)..other_rects.len() {
+            if other_rects[left].intersects(other_rects[right]) {
+                return false;
+            }
         }
-        let shifted_column =
-            if width_delta > 0 && old_right.is_some_and(|right| other.column.as_usize() >= right) {
-                let Some(column) = other.column.checked_add(width_delta) else {
-                    return false;
-                };
-                column
-            } else {
-                other.column
-            };
-        let other_rect = gate_rect_at_grid(other.kind, shifted_column, other.wire, other.span);
-        !candidate_rect.intersects(other_rect)
-    })
+    }
+    true
+}
+
+fn shifted_column_after_width_change(
+    gate: &PlacedGate,
+    old_right: Option<usize>,
+    old_width: usize,
+    new_width: usize,
+) -> Option<crate::app::CircuitColumnIndex> {
+    let old_right = old_right?;
+    if gate.column.as_usize() < old_right {
+        return Some(gate.column);
+    }
+    if new_width > old_width {
+        gate.column.checked_add(new_width - old_width)
+    } else {
+        Some(gate.column.saturating_sub(old_width - new_width))
+    }
 }
 
 #[cfg(test)]
@@ -399,5 +514,118 @@ mod tests {
                 .expect("Density display is resizable");
 
         assert_eq!(handles.available_edges, [false, true]);
+    }
+
+    #[test]
+    fn density_bottom_resize_stops_before_unshifted_lower_blocker() {
+        let gate = placed_gate_at(1, GateKind::DensityMatrixDisplay, 0, 0, 2);
+        let blocker = placed_gate_at(2, GateKind::H, 1, 2, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), blocker],
+            3,
+            SpanResizeEdge::Bottom,
+            0,
+            3,
+        );
+
+        assert_eq!(resolved, (0, 2));
+    }
+
+    #[test]
+    fn density_handles_are_unavailable_when_shrink_and_grow_are_blocked() {
+        let gate = placed_gate_at(1, GateKind::DensityMatrixDisplay, 0, 0, 2);
+        let stationary = placed_gate_at(2, GateKind::H, 1, 2, 1);
+        let trailing = placed_gate_at(3, GateKind::H, 2, 2, 1);
+        let handles = SpanResizeHandles::for_gate_with_availability(
+            &gate,
+            &[gate.clone(), stationary, trailing],
+            3,
+        )
+        .expect("Density display is resizable");
+
+        assert_eq!(handles.available_edges, [false, false]);
+    }
+
+    #[test]
+    fn density_shrink_stops_before_shifted_trailing_gate_collision() {
+        let gate = placed_gate_at(1, GateKind::DensityMatrixDisplay, 0, 0, 2);
+        let stationary = placed_gate_at(2, GateKind::H, 1, 2, 1);
+        let trailing = placed_gate_at(3, GateKind::H, 2, 2, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), stationary, trailing],
+            3,
+            SpanResizeEdge::Bottom,
+            0,
+            1,
+        );
+
+        assert_eq!(resolved, (0, 2));
+    }
+
+    #[test]
+    fn density_multi_step_shrink_stops_before_intermediate_shift_collision() {
+        let gate = placed_gate_at(1, GateKind::DensityMatrixDisplay, 0, 0, 3);
+        let stationary = placed_gate_at(2, GateKind::H, 2, 3, 1);
+        let trailing = placed_gate_at(3, GateKind::H, 3, 3, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), stationary, trailing],
+            4,
+            SpanResizeEdge::Bottom,
+            0,
+            1,
+        );
+
+        assert_eq!(resolved, (0, 3));
+    }
+
+    #[test]
+    fn bottom_resize_stops_before_occupied_lower_wire() {
+        let gate = placed_gate(1, GateKind::QftGate, 0, 3);
+        let blocker = placed_gate(2, GateKind::H, 3, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), blocker],
+            4,
+            SpanResizeEdge::Bottom,
+            0,
+            4,
+        );
+
+        assert_eq!(resolved, (0, 3));
+    }
+
+    #[test]
+    fn bottom_resize_can_shrink_when_lower_wire_is_occupied() {
+        let gate = placed_gate(1, GateKind::QftGate, 0, 3);
+        let blocker = placed_gate(2, GateKind::H, 3, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), blocker],
+            4,
+            SpanResizeEdge::Bottom,
+            0,
+            2,
+        );
+
+        assert_eq!(resolved, (0, 2));
+    }
+
+    #[test]
+    fn top_resize_stops_before_occupied_upper_wire() {
+        let gate = placed_gate(1, GateKind::QftGate, 1, 3);
+        let blocker = placed_gate(2, GateKind::H, 0, 1);
+        let resolved = resolve_span_resize_candidate(
+            &gate,
+            &[gate.clone(), blocker],
+            4,
+            SpanResizeEdge::Top,
+            0,
+            4,
+        );
+
+        assert_eq!(resolved, (1, 3));
     }
 }

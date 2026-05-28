@@ -438,7 +438,7 @@
       <li><strong>default</strong> — <code>cyan-400</code> ベース (ホバー枠 <code>purple-400</code> と別色族で「リングの突起 ?」誤認を回避)</li>
       <li><strong>個別 hover</strong> — <code>cyan-600</code> + <code>scale(1.15)</code>、cursor は <code>ns-resize</code></li>
       <li><strong>active drag</strong> — <code>cyan-600</code> + <code>scale(1.25)</code>、固定</li>
-      <li><strong>span 範囲</strong> — ドラッグの上限は span 8、下限は span 1。上下それぞれの表示可否は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する</li>
+      <li><strong>span 範囲</strong> — ドラッグの上限は span 8、下限は span 1。上下それぞれの表示可否とドラッグ停止条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示し、他の回路要素に重なる手前で止める</li>
       <li><strong>左右ハンドルなし</strong> — width は span の関数 (<code>56 × span − 16</code>) なので独立した width handle は不要。高さハンドルの変更で同時に幅も変わる正方形リサイズ</li>
     </ul>
   </div>
