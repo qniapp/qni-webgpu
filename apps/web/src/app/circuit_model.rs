@@ -9,10 +9,9 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::layout::gate_width_cols;
 
-use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, SLOT_SPACING,
-};
+use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MIN_QUBITS, SLOT_SPACING};
 use crate::gates::GateKind;
+use crate::qubit_count::{local_state_count, QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
 
@@ -73,11 +72,11 @@ impl PlacedGate {
         self.pos = Self::grid_pos(self.column, self.wire);
     }
 
-    pub(crate) fn clamp_span_to_qubit_capacity(&mut self, capacity: usize) {
+    pub(crate) fn clamp_span_to_qubit_capacity(&mut self, capacity: QubitCapacity) {
         if !self.kind.is_resizable_span() {
             return;
         }
-        let remaining_wires = capacity.saturating_sub(self.wire).max(1);
+        let remaining_wires = capacity.get().saturating_sub(self.wire).max(1);
         let max_span = self.kind.max_resizable_span(remaining_wires);
         self.span = self.span.clamp(1, max_span);
     }
@@ -165,26 +164,33 @@ impl QniApp {
             .unwrap_or(0)
     }
 
-    pub(super) fn required_qubit_count(&self) -> usize {
-        self.raw_required_qubit_count().max(MIN_QUBITS)
+    pub(super) fn required_qubit_count(&self) -> QubitCount {
+        QubitCount::try_new(self.raw_required_qubit_count().max(1))
+            .expect("required qubit count is clamped to at least one")
     }
 
-    pub(super) fn external_execution_qubits(&self) -> usize {
-        self.raw_required_qubit_count()
-            .max(1)
-            .min(self.exec_mode.qubit_capacity())
+    pub(super) fn required_visible_wire_count(&self) -> usize {
+        self.required_qubit_count().get().max(MIN_QUBITS)
     }
 
-    pub(super) fn state_qubits(&self) -> usize {
-        self.raw_required_qubit_count()
-            .max(1)
-            .clamp(1, LOCAL_MAX_QUBITS)
+    pub(super) fn external_execution_qubits(&self) -> Result<QubitCount, QubitCountError> {
+        QubitCount::try_for_capacity(
+            self.raw_required_qubit_count().max(1),
+            self.exec_mode.qubit_capacity(),
+        )
+    }
+
+    pub(super) fn state_qubits(&self) -> QubitCount {
+        let capacity = QubitCapacity::local();
+        let qubits = self.raw_required_qubit_count().max(1).min(capacity.get());
+        QubitCount::try_for_capacity(qubits, capacity)
+            .expect("local state qubit count is clamped to local capacity")
     }
 
     pub(crate) fn update_qubit_count(&mut self) {
         self.qubit_count = self
-            .required_qubit_count()
-            .clamp(MIN_QUBITS, self.exec_mode.qubit_capacity());
+            .required_visible_wire_count()
+            .clamp(MIN_QUBITS, self.exec_mode.qubit_capacity().get());
     }
 
     /// After a successful drop or off-circuit removal, collapse empty columns
@@ -303,6 +309,7 @@ impl QniApp {
     }
 
     pub(super) fn state_count(&self) -> usize {
-        1usize << self.state_qubits()
+        local_state_count(self.state_qubits())
+            .expect("state_qubits always returns a local-capacity value")
     }
 }

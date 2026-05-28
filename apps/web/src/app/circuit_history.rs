@@ -12,6 +12,7 @@ use eframe::egui;
 
 use super::circuit_library::persist_library;
 use super::{ExecMode, ExternalGpuStatus, QniApp};
+use crate::qubit_count::QubitCount;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct CircuitRevision {
@@ -150,7 +151,11 @@ impl QniApp {
     }
 
     fn current_circuit_json(&self) -> String {
-        crate::url_circuit::circuit_to_json(&self.placed_gates, self.qubit_count)
+        crate::url_circuit::circuit_to_json(
+            &self.placed_gates,
+            QubitCount::try_new(self.required_visible_wire_count())
+                .expect("visible wire count is at least one"),
+        )
     }
 
     pub(crate) fn replace_active_circuit_json_unchecked(
@@ -170,7 +175,11 @@ impl QniApp {
         let (gates, next_gate_id) = crate::url_circuit::parse_circuit_json(json);
         self.placed_gates = gates;
         self.next_gate_id = next_gate_id;
-        if self.required_qubit_count() > self.exec_mode.qubit_capacity() {
+        if !self
+            .exec_mode
+            .qubit_capacity()
+            .contains(self.required_qubit_count())
+        {
             self.exec_mode = ExecMode::Gpu;
         }
         if self.exec_mode != previous_exec_mode {

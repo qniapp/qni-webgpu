@@ -2,6 +2,7 @@
 
 use crate::app::PlacedGate;
 use crate::gates::GateKind;
+use crate::qubit_count::QubitCount;
 
 use super::EMPTY_CIRCUIT_JSON;
 
@@ -13,7 +14,7 @@ use super::EMPTY_CIRCUIT_JSON;
 /// token otherwise. Trailing `1`s in a column are stripped to match
 /// Quirk / qni's compact JSON; a column with no gates at all (which
 /// shouldn't happen post-`compact_empty_steps`) becomes `[1]`.
-pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -> String {
+pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: QubitCount) -> String {
     if placed_gates.is_empty() {
         return EMPTY_CIRCUIT_JSON.to_string();
     }
@@ -23,7 +24,10 @@ pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -
     )
 }
 
-pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: usize) -> String {
+pub(crate) fn circuit_columns_to_json(
+    placed_gates: &[PlacedGate],
+    qubit_count: QubitCount,
+) -> String {
     if placed_gates.is_empty() {
         return "[]".to_string();
     }
@@ -44,7 +48,7 @@ pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: 
     for bucket in &buckets {
         // Build the wire-indexed token vector for this column. Empty
         // wires are the `1` literal; gates emit their token.
-        let mut entries: Vec<String> = (0..qubit_count).map(|_| "1".to_string()).collect();
+        let mut entries: Vec<String> = (0..qubit_count.get()).map(|_| "1".to_string()).collect();
         for gate in bucket {
             let Some(token) = gate_token(gate.kind, gate.span, gate.angle.as_deref()) else {
                 continue;
@@ -139,31 +143,57 @@ mod tests {
     use super::*;
     use crate::app::PlacedGate;
 
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
     #[test]
     fn amplitude_span_one_serializes_with_suffix() {
         let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 1, None);
 
-        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Amps1"]]}"#);
+        assert_eq!(
+            circuit_to_json(&[gate], qubit_count(1)),
+            r#"{"cols":[["Amps1"]]}"#
+        );
     }
 
     #[test]
     fn amplitude_span_sixteen_serializes_with_suffix() {
         let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 16, None);
 
-        assert_eq!(circuit_to_json(&[gate], 16), r#"{"cols":[["Amps16"]]}"#);
+        assert_eq!(
+            circuit_to_json(&[gate], qubit_count(16)),
+            r#"{"cols":[["Amps16"]]}"#
+        );
     }
 
     #[test]
     fn density_span_one_serializes_without_suffix() {
         let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 1, None);
 
-        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Density"]]}"#);
+        assert_eq!(
+            circuit_to_json(&[gate], qubit_count(1)),
+            r#"{"cols":[["Density"]]}"#
+        );
     }
 
     #[test]
     fn density_span_eight_serializes_with_suffix() {
         let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 8, None);
 
-        assert_eq!(circuit_to_json(&[gate], 8), r#"{"cols":[["Density8"]]}"#);
+        assert_eq!(
+            circuit_to_json(&[gate], qubit_count(8)),
+            r#"{"cols":[["Density8"]]}"#
+        );
+    }
+
+    #[test]
+    fn far_wire_gate_is_preserved_when_serialized_count_includes_it() {
+        let gate = PlacedGate::new(1, GateKind::H, 0, 32, 1, None);
+
+        assert_eq!(
+            circuit_to_json(&[gate], qubit_count(33)),
+            format!(r#"{{"cols":[[{},"H"]]}}"#, vec!["1"; 32].join(","))
+        );
     }
 }

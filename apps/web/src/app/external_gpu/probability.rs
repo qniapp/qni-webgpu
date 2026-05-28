@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::app::PlacedGate;
 use crate::gates::GateKind;
 use crate::gpu::{ExternalProbabilityUpload, ExternalProbabilityUploadBatch};
+use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalProbabilityRequest {
     pub(super) gate_id: u32,
@@ -13,8 +14,9 @@ pub(super) struct ExternalProbabilityRequest {
 
 pub(super) fn collect_probability_requests(
     placed_gates: &[PlacedGate],
-    qubits: usize,
+    qubits: QubitCount,
 ) -> Vec<ExternalProbabilityRequest> {
+    let qubits = qubits.get();
     let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
         return Vec::new();
     };
@@ -161,6 +163,11 @@ mod tests {
     };
     use crate::app::PlacedGate;
     use crate::gates::GateKind;
+    use crate::qubit_count::QubitCount;
+
+    fn qubit_count(value: usize) -> QubitCount {
+        QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
 
     #[test]
     fn serializes_probability_output_request() {
@@ -173,7 +180,7 @@ mod tests {
                 1,
                 None,
             )],
-            1,
+            qubit_count(1),
         );
 
         assert_eq!(
@@ -193,7 +200,7 @@ mod tests {
                 2,
                 None,
             )],
-            3,
+            qubit_count(3),
         );
 
         assert_eq!(
@@ -209,7 +216,7 @@ mod tests {
                 PlacedGate::new(4, GateKind::ProbabilityDisplay, 1, 0, 1, None),
                 PlacedGate::new(3, GateKind::ProbabilityDisplay, 1, 1, 1, None),
             ],
-            2,
+            qubit_count(2),
         );
 
         assert_eq!(probability_slot_to_gate_id(&requests), vec![3, 4]);

@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::QniApp;
 use crate::colors::{with_alpha, Colors};
-use crate::constants::{GPU_MAX_QUBITS, LOCAL_MAX_QUBITS};
+use crate::qubit_count::QubitCapacity;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum ExecMode {
@@ -16,10 +16,10 @@ impl ExecMode {
         matches!(self, Self::Gpu)
     }
 
-    pub(crate) fn qubit_capacity(self) -> usize {
+    pub(crate) fn qubit_capacity(self) -> QubitCapacity {
         match self {
-            Self::Local => LOCAL_MAX_QUBITS,
-            Self::Gpu => GPU_MAX_QUBITS,
+            Self::Local => QubitCapacity::local(),
+            Self::Gpu => QubitCapacity::external_gpu(),
         }
     }
 
@@ -336,6 +336,7 @@ fn lerp(start: f32, end: f32, t: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::{exec_mode_after_key, ExecMode, ExecModeKey};
+    use crate::qubit_count::QubitCapacity;
 
     #[test]
     fn arrow_keys_select_sibling_modes() {
@@ -375,6 +376,19 @@ mod tests {
                 exec_mode_after_key(ExecMode::Gpu, ExecModeKey::Space, false),
             ),
             (ExecMode::Gpu, ExecMode::Gpu, ExecMode::Gpu)
+        );
+    }
+
+    #[test]
+    fn local_mode_exposes_local_qubit_capacity() {
+        assert_eq!(ExecMode::Local.qubit_capacity(), QubitCapacity::local());
+    }
+
+    #[test]
+    fn gpu_mode_exposes_external_gpu_qubit_capacity() {
+        assert_eq!(
+            ExecMode::Gpu.qubit_capacity(),
+            QubitCapacity::external_gpu()
         );
     }
 }

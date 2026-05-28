@@ -13,6 +13,7 @@ use crate::gates::{
     controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
     phase_params, rx_params, ry_params, rz_params, GateKind,
 };
+use crate::qubit_count::QubitCount;
 
 /// Walks placed gates column by column and emits ops in the exact order the
 /// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
@@ -25,12 +26,10 @@ use crate::gates::{
 /// copy only, matching qni's worker-side per-step result cache.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
-    qubits: usize,
+    qubits: QubitCount,
     snapshot_slot_count: usize,
 ) -> Vec<SimulationOp> {
-    if qubits == 0 {
-        return Vec::new();
-    }
+    let qubits = qubits.get();
     let state_count = 1u32 << qubits;
 
     let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
