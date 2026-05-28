@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shots — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">外部 GPU 経路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">Shots</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · external gpu value object</p>
+  <h1 class="page-title">Shots 実装仕様</h1>
+  <p class="page-lede">
+    外部 GPU 実行（Qiskit Aer バックエンドを使う経路）の測定ショット数を <code>usize</code> の裸値ではなく、<code>Shots</code> という値オブジェクトで扱うための仕様。
+    バックエンドの契約と同じ「1 以上、上限以下」という不変条件を Rust 側の型へ閉じ込め、不正なショット数をネットワーク往復の前に弾く。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      外部 GPU 実行のペイロード生成 <code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code>（<code>external-gpu-model</code> クレート）は、測定ショット数を <code>shots: usize</code> で受け取り、JSON へ埋め込む。
+      バックエンド側（<code>apps/qiskit-backend</code> の <code>contract.py</code>）は <code>1 &lt;= shots &lt;= MAX_SHOTS</code>（<code>MAX_SHOTS = 100_000</code>）を検証し、外れると <code>ContractError</code> にする。
+    </p>
+    <p>
+      つまりショット数には「1 以上、上限以下」という契約上の不変条件があるが、現状それを守るのはバックエンドだけである。
+      Rust 側は生の <code>usize</code> を渡すだけなので（呼び出し元は <code>1024</code> をハードコード）、不正なショット数はネットワークを往復してから初めて弾かれる。
+    </p>
+    <p>
+      <code>Shots</code> は「測定ショット数」だけを表す値オブジェクトにする。
+      範囲を生成時に検証し、上限はバックエンドの <code>MAX_SHOTS</code> と同期させる。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性をショット数へ適用する。
+    </p>
+    <ul>
+      <li>ショット数は 1 以上、上限以下である（上限はバックエンドの <code>MAX_SHOTS</code> と同期させ、片方だけ変えない）</li>
+      <li>ショット数・量子ビット数・結果側の回数を同じ <code>usize</code> で混在させない</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>Shots</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/crates/external-gpu-model/src/lib.rs</code>。クレート公開型なので <code>pub</code> を維持する</td></tr>
+        <tr><th>意味</th><td>外部 GPU 実行の測定ショット数</td></tr>
+        <tr><th>不変条件</th><td><code>1 &lt;= value &lt;= Shots::MAX</code>。<code>Shots::MAX</code> はバックエンドの <code>MAX_SHOTS</code>（<code>100_000</code>）と同じ値</td></tr>
+        <tr><th>既定値</th><td><code>Shots::DEFAULT</code> = <code>1024</code>（現在のハードコード値）</td></tr>
+        <tr><th>保持する値</th><td><code>NonZeroUsize</code>。フィールドは非公開にする</td></tr>
+        <tr><th>対象範囲</th><td><code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数、外部 GPU 実行要求を組み立てる呼び出し元</td></tr>
+        <tr><th>対象外</th><td>量子ビット数（<code>QubitCount</code>）、ヒストグラムの観測回数のような結果側の数値</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Shots(NonZeroUsize);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShotsError {
+    Zero,
+    AboveMax { value: usize, max: usize },
+}
+
+impl Shots {
+    /// バックエンドの MAX_SHOTS と同期させる上限。
+    pub const MAX: usize = 100_000;
+    /// 既定のショット数（現行のハードコード値）。
+    pub const DEFAULT: Shots = /* Shots(1024) */;
+
+    pub fn try_new(value: usize) -&gt; Result&lt;Self, ShotsError&gt;;
+    pub fn get(self) -&gt; usize;
+}</pre>
+
+    <p class="note">
+      <code>try_new</code> は <code>0</code> を <code>Err(ShotsError::Zero)</code>、上限超えを <code>Err(ShotsError::AboveMax { value, max })</code> で弾く。エラー設計は <a href="qubit-count-value-object.html">QubitCount</a> の <code>Zero</code> / <code>AboveCapacity</code> に揃える。
+      <code>Shots::MAX</code> はバックエンドの <code>MAX_SHOTS</code> と同じ値にし、定義の近くに同期する旨をコメントで明記する。
+      <code>get()</code> はペイロード JSON へ数値を埋め込む境界だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部値を変更しない。別のショット数が必要なら新しい <code>Shots</code> を作る</td>
+          <td>公開フィールド、<code>&amp;mut usize</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>生成時に <code>1 &lt;= value &lt;= MAX</code> を保証する。範囲外は <code>ShotsError</code> にする</td>
+          <td>呼び出し側で <code>shots</code> の範囲チェックを重複実装しない。バックエンドだけに検証を任せない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>内部のショット数値で比較する。同じ値の <code>Shots</code> は等しい</td>
+          <td>生成元や呼び出し文脈でショット数の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>ショット数を受け渡す Rust API は <code>Shots</code> を使う。量子ビット数や結果側の回数の <code>usize</code> と混在させない</td>
+          <td>新しいショット数引数を <code>usize</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>ペイロード生成</h3>
+    <p>
+      <code>qiskit_run_payload</code> と <code>qiskit_run_payload_with_display_outputs</code> の <code>shots: usize</code> 引数を <code>shots: Shots</code> へ変更する。
+      関数内では <code>shots.get()</code> で JSON へ数値を埋め込む。出力 JSON の形式（<code>"shots":1024</code>）は変えない。
+    </p>
+
+    <h3>呼び出し元</h3>
+    <p>
+      外部 GPU 実行要求を組み立てる <code>app/external_gpu/app_adapter.rs</code> のハードコード <code>1024</code> は <code>Shots::DEFAULT</code> にする。
+      将来ショット数を可変にする場合も、入口で <code>Shots::try_new</code> を通してから渡す。
+    </p>
+
+    <h3>バックエンドとの契約同期</h3>
+    <p>
+      <code>Shots::MAX</code> はバックエンド（<code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code> の <code>MAX_SHOTS</code>）と同じ値にする。
+      <code>Shots</code> による検証は契約の前段チェックであり、Python 側の <code>1 &lt;= shots &lt;= MAX_SHOTS</code> 検証はそのまま残す（境界の二重防御）。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th><th>不正値の扱い</th></tr></thead>
+      <tbody>
+        <tr><th>ペイロード JSON</th><td>整数 <code>"shots":N</code></td><td><code>shots.get()</code> で数値化する</td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
+        <tr><th>呼び出し元</th><td>既定値またはユーザー入力</td><td>既定は <code>Shots::DEFAULT</code>、可変入力は <code>try_new</code></td><td>範囲外は <code>ShotsError</code></td></tr>
+        <tr><th>Qiskit バックエンド</th><td>JSON の整数</td><td>Python 側の契約検証で <code>1 &lt;= shots &lt;= MAX_SHOTS</code> を確認する</td><td>範囲外なら <code>ContractError</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      公開 JSON の形式（<code>"shots":N</code>）は変えない。
+      型による保護は Rust 側の前段で効かせる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>Shots</code> と <code>ShotsError</code> を <code>external-gpu-model</code> クレートに追加し、<code>Shots::MAX</code> をバックエンドの <code>MAX_SHOTS</code> に合わせる</li>
+      <li><code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数を <code>Shots</code> へ変更し、内部で <code>get()</code> を使う</li>
+      <li>呼び出し元のハードコード <code>1024</code> を <code>Shots::DEFAULT</code> にする</li>
+      <li>ショット数を受け取るクレート公開 API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>usize</code> 引数のままショット数を受け取る関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>有効なショット数を生成できる</strong> — <code>Shots::try_new(256).map(Shots::get)</code> が <code>Ok(256)</code> になることを確認する</li>
+      <li><strong>0 を拒否する</strong> — <code>Shots::try_new(0)</code> が <code>Err(ShotsError::Zero)</code> になることを確認する</li>
+      <li><strong>上限超えを拒否する</strong> — <code>Shots::try_new(Shots::MAX + 1)</code> が <code>Err(ShotsError::AboveMax { value: 100_001, max: 100_000 })</code> になることを確認する</li>
+      <li><strong>既定値が 1024</strong> — <code>Shots::DEFAULT.get()</code> が <code>1024</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 同じ値の <code>Shots</code> 同士が等しいことを確認する</li>
+      <li><strong>JSON 形式が変わらない</strong> — <code>Shots::DEFAULT</code> を渡したペイロードに <code>"shots":1024</code> が含まれることを確認する</li>
+      <li><strong>裸の <code>usize</code> ショット数が残らない</strong> — <code>qiskit_run_payload</code> 系がすべて <code>Shots</code> を受け取ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>ペイロード生成</th><td><code>apps/web/crates/external-gpu-model/src/lib.rs</code>（<code>qiskit_run_payload</code> 系）</td></tr>
+        <tr><th>呼び出し元</th><td><code>apps/web/src/app/external_gpu/app_adapter.rs</code></td></tr>
+        <tr><th>バックエンドの契約</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code>（<code>MAX_SHOTS</code>, <code>shots</code> 検証）</td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="qubit-count-value-object.html">QubitCount 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · Shots 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
