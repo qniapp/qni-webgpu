@@ -232,7 +232,7 @@ pub(crate) fn linearize_ops(
                 .expect("column gates are within the register");
             let slot = measurement_slots.allocate();
             ops.push(SimulationOp::MeasureReduceSample {
-                gate_id: measurement.id.as_u32(),
+                gate_id: measurement.id,
                 qubit_bit,
                 output_slot: slot,
             });
@@ -250,7 +250,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
             ops.push(SimulationOp::CaptureBloch {
-                gate_id: display.id.as_u32(),
+                gate_id: display.id,
                 qubit_bit,
                 output_slot: bloch_slots.allocate(),
                 controls,
@@ -274,7 +274,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureProbability {
-                gate_id: display.id.as_u32(),
+                gate_id: display.id,
                 base_bit,
                 span: span.get() as u32,
                 output_slot: probability_slots.allocate(),
@@ -296,7 +296,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureAmplitude {
-                gate_id: display.id.as_u32(),
+                gate_id: display.id,
                 base_bit,
                 span: span.get() as u32,
                 output_slot: amplitude_slots.allocate(),
@@ -318,7 +318,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureDensity {
-                gate_id: display.id.as_u32(),
+                gate_id: display.id,
                 base_bit,
                 span: span.get() as u32,
                 output_slot: density_slots.allocate(),
@@ -852,6 +852,28 @@ mod tests {
             ops.first(),
             Some(SimulationOp::CaptureBloch { controls, .. })
                 if controls.mask() == 0b10 && controls.value() == 0
+        ));
+    }
+
+    #[test]
+    fn bloch_display_op_carries_gate_id() {
+        // 線形化 op ストリームはゲートの同一性を GateId のまま運び、u32 へ落として
+        // 採番し直す往復を作らない。
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(5),
+            GateKind::BlochDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        )];
+
+        let ops = linearize_ops(&gates, qubit_count(1), 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureBloch { gate_id, .. })
+                if *gate_id == crate::app::GateId::from_u32(5)
         ));
     }
 }

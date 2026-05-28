@@ -203,40 +203,35 @@ impl GpuPlanState {
                     output_slot,
                     ..
                 } => {
-                    self.bloch_slots
-                        .insert(GateId::from_u32(*gate_id), *output_slot);
+                    self.bloch_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::MeasureReduceSample {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.measurement_slots
-                        .insert(GateId::from_u32(*gate_id), *output_slot);
+                    self.measurement_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::CaptureProbability {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.probability_slots
-                        .insert(GateId::from_u32(*gate_id), *output_slot);
+                    self.probability_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::CaptureAmplitude {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.amplitude_slots
-                        .insert(GateId::from_u32(*gate_id), *output_slot);
+                    self.amplitude_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::CaptureDensity {
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.density_slots
-                        .insert(GateId::from_u32(*gate_id), *output_slot);
+                    self.density_slots.insert(*gate_id, *output_slot);
                 }
                 _ => {}
             }
@@ -265,7 +260,7 @@ mod tests {
         let mut state = GpuPlanState::default();
         state.replace_ops(
             vec![SimulationOp::CaptureBloch {
-                gate_id: 7,
+                gate_id: GateId::from_u32(7),
                 qubit_bit: QubitBit::new(0),
                 output_slot: SlotIndex::new(3),
                 controls: ColumnControls::NONE,
@@ -284,7 +279,7 @@ mod tests {
         let mut state = GpuPlanState::default();
         state.replace_ops(
             vec![SimulationOp::CaptureBloch {
-                gate_id: 7,
+                gate_id: GateId::from_u32(7),
                 qubit_bit: QubitBit::new(0),
                 output_slot: SlotIndex::new(3),
                 controls: ColumnControls::NONE,

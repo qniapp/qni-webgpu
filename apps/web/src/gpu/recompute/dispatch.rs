@@ -49,22 +49,22 @@ pub(super) fn encode_batched_recompute(
             ),
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
             SimulationOp::CaptureBloch { gate_id, .. } => {
-                state.encode_capture_bloch(&mut encoder, resources, *gate_id);
+                state.encode_capture_bloch(&mut encoder, resources, gate_id.as_u32());
             }
             SimulationOp::MeasureReduceSample { gate_id, .. } => {
-                state.encode_measure_reduce(&mut encoder, resources, *gate_id);
+                state.encode_measure_reduce(&mut encoder, resources, gate_id.as_u32());
             }
             SimulationOp::MeasureCollapse { .. } => {
                 state.encode_measure_collapse(&mut encoder, resources);
             }
             SimulationOp::CaptureProbability { gate_id, span, .. } => {
-                state.encode_capture_probability(&mut encoder, resources, *gate_id, *span);
+                state.encode_capture_probability(&mut encoder, resources, gate_id.as_u32(), *span);
             }
             SimulationOp::CaptureAmplitude { gate_id, .. } => {
-                state.encode_capture_amplitude(&mut encoder, resources, *gate_id);
+                state.encode_capture_amplitude(&mut encoder, resources, gate_id.as_u32());
             }
             SimulationOp::CaptureDensity { gate_id, span, .. } => {
-                state.encode_capture_density(&mut encoder, resources, *gate_id, *span);
+                state.encode_capture_density(&mut encoder, resources, gate_id.as_u32(), *span);
             }
         }
     }

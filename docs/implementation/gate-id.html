@@ -36,7 +36,7 @@
     <p>
       番号は <code>QniApp::next_gate_id: u32</code> をカウンタにして採番し、URL 復元時には衝突しない次番号を引き継ぐ。
       同一性の判定（<code>gate.id == drag.id</code>）、列内の決定的な並び替え（<code>a.id.cmp(&amp;b.id)</code>）、スロット辞書の検索（<code>gate_id</code> をキーにした探索）に使われる。
-      <code>SimulationOp</code> や GPU 計画には <code>gate_id</code> / <code>output_slot</code> / <code>bit</code> といった意味の異なる <code>u32</code> が同居しており、裸の <code>u32</code> では取り違えを型で防げない。
+      <code>SimulationOp</code> や GPU 計画では、ゲートの同一性・スロット番号・ビット番号という意味の異なる値が隣り合う。これらを裸の <code>u32</code> で混ぜると取り違えを型で防げないため、同一性は <code>GateId</code>、スロット番号は <a href="slot-index.html">SlotIndex</a>、ビット番号は <a href="qubit-bit.html">QubitBit</a> と型で分ける。
     </p>
     <p>
       <code>GateId</code> は「ゲートの同一性」だけを表す値オブジェクトにする。
@@ -61,8 +61,8 @@
         <tr><th>意味</th><td><code>GateId</code> は配置済みゲートの同一性。<code>GateIdAllocator</code> は一意な <code>GateId</code> を順に発行するカウンタ</td></tr>
         <tr><th>保持する値</th><td><code>GateId</code> は <code>u32</code>、<code>GateIdAllocator</code> は次に発行する <code>u32</code>。いずれもフィールドは非公開にする</td></tr>
         <tr><th>性質</th><td><code>GateId</code> は値オブジェクトとして等価性・順序・ハッシュを内部値で定める（<code>Eq</code> / <code>Ord</code> / <code>Hash</code>）。ゲート自体はエンティティ</td></tr>
-        <tr><th>対象範囲</th><td><code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、ホバー状態（<code>hovered_gate_id</code> ほか）、<code>gpu_plan_state</code> のスロット辞書のキー</td></tr>
-        <tr><th>対象外</th><td>GPU のビット番号（<a href="qubit-bit.html">QubitBit</a>）、スロット番号（<a href="slot-index.html">SlotIndex</a>）、回路ライブラリのエントリ ID（<a href="circuit-id.html">CircuitId</a>）。さらに <code>SimulationOp.gate_id</code> / GPU パラメータ（<code>GpuParams.slot_to_gate_id</code> ・ <code>slot_for_gate</code>）/ 外部 GPU 要求の <code>gate_id</code> は GPU 計算・直列化の境界として裸の <code>u32</code> のまま残す</td></tr>
+        <tr><th>対象範囲</th><td><code>PlacedGate.id</code>、<code>DragState.id</code>、<code>SpanResizeHandle.gate_id</code>、<code>SpanResizeDrag.gate_id</code>、<code>AngleAffordance.gate_id</code>、<code>AngleEditor.gate_id</code>、ホバー状態（<code>hovered_gate_id</code> ほか）、<code>gpu_plan_state</code> のスロット辞書のキー、<code>SimulationOp.gate_id</code>（線形化 op ストリーム。GPU へは送らず、スロット辞書の構築だけに使う Rust ドメイン値）</td></tr>
+        <tr><th>対象外</th><td>GPU のビット番号（<a href="qubit-bit.html">QubitBit</a>）、スロット番号（<a href="slot-index.html">SlotIndex</a>）、回路ライブラリのエントリ ID（<a href="circuit-id.html">CircuitId</a>）。さらに GPU パラメータ束（<code>GpuParams.slot_to_gate_id</code> ・ <code>slot_for_gate</code>）と外部 GPU 要求の <code>gate_id</code> は、外部 GPU の JSON 応答から組み立てる直列化の境界として裸の <code>u32</code> のまま残す</td></tr>
       </tbody>
     </table>
 
@@ -93,7 +93,7 @@ impl GateIdAllocator {
     <p class="note">
       <code>from_u32</code> は、URL 復元やテストで明示的に <code>GateId</code> を作る入口で使う。通常のゲート追加は <code>GateIdAllocator::allocate</code> で採番する。
       <code>Ord</code> の導出により <code>sort_by_key(|gate| gate.id)</code> で列内の決定的な並び替えができ、<code>Eq</code> / <code>Hash</code> の導出によりスロット辞書のキーに使える。
-      <code>as_u32()</code> は GPU 計算・直列化の境界（<code>SimulationOp</code> や外部 GPU 要求への書き出し）やデバッグ表示・テストの照合など、必要な境界だけで使う。
+      <code>as_u32()</code> は直列化の境界（GPU パラメータ束や外部 GPU 要求への書き出し）やデバッグ表示・テストの照合など、必要な境界だけで使う。
     </p>
   </div>
 </section>
@@ -153,7 +153,8 @@ impl GateIdAllocator {
     <h3>スロット辞書</h3>
     <p>
       <code>gpu_plan_state.rs</code> の <code>bloch_slot(gate_id)</code> / <code>measurement_slot(gate_id)</code> など、Rust ドメイン側で <code>gate_id</code> をキーにスロット番号を引く <code>HashMap</code> は、キーを <code>GateId</code> にする。
-      <code>SimulationOp.gate_id</code> や外部 GPU 要求から渡る <code>u32</code> は、辞書を組み立てる <code>rebuild_slot_maps</code> / <code>replace_external_display_slots</code> の中で <code>GateId::from_u32</code> によりキーへ変換する。
+      <code>SimulationOp.gate_id</code> も <code>GateId</code> なので、辞書を組み立てる <code>rebuild_slot_maps</code> は <code>GateId::from_u32</code> を介さずそのままキーへ入れる。<code>PlacedGate.id</code> から <code>SimulationOp</code> を経てスロット辞書キーに至るまで <code>u32</code> へ落とす往復を作らない。
+      外部 GPU 要求から渡る <code>u32</code> だけは、取り込み口の <code>replace_external_display_slots</code> で <code>GateId::from_u32</code> によりキーへ変換する。
       いっぽう <code>gpu/params.rs</code> の <code>GpuParams.slot_to_gate_id</code> と <code>slot_for_gate(gate_id: u32)</code> は GPU パラメータ束（直列化の境界）なので <code>u32</code> のまま残し、呼び出し側で <code>gate_id.as_u32()</code> を渡す。
       返り値のスロット番号は <a href="slot-index.html">SlotIndex</a> として別に扱う。
     </p>
@@ -168,7 +169,8 @@ impl GateIdAllocator {
       <tbody>
         <tr><th>URL 復元</th><td>解析中に順に振る番号</td><td><code>GateIdAllocator</code> で順に <code>allocate()</code> し、採番器を引き継ぐ</td></tr>
         <tr><th>スロット辞書（Rust ドメイン）</th><td><code>GateId</code> をキーにした <code>HashMap</code> / 探索</td><td><code>GateId</code> の <code>Eq</code> / <code>Hash</code> をそのまま使う</td></tr>
-        <tr><th>GPU 計算・直列化</th><td><code>SimulationOp.gate_id</code> / <code>GpuParams.slot_to_gate_id</code> / 外部 GPU 要求の <code>gate_id</code>（いずれも <code>u32</code>）</td><td>書き出しは <code>gate_id.as_u32()</code>、辞書へ取り込むときは <code>GateId::from_u32</code> で変換する</td></tr>
+        <tr><th>線形化 op ストリーム</th><td><code>SimulationOp.gate_id</code>（<code>GateId</code>）</td><td><code>PlacedGate.id</code> をそのまま入れ、<code>rebuild_slot_maps</code> でそのままスロット辞書キーに使う（往復変換しない）</td></tr>
+        <tr><th>GPU パラメータ・直列化</th><td><code>GpuParams.slot_to_gate_id</code> / 外部 GPU 要求の <code>gate_id</code>（いずれも <code>u32</code>）</td><td>書き出しは <code>gate_id.as_u32()</code>、辞書へ取り込むときは <code>GateId::from_u32</code> で変換する</td></tr>
         <tr><th>デバッグ / テスト</th><td>数値</td><td><code>from_u32</code> / <code>as_u32</code> で出入りする</td></tr>
       </tbody>
     </table>
@@ -208,7 +210,8 @@ impl GateIdAllocator {
       <li><strong>辞書キーに使える</strong> — <code>GateId</code> をキーにした <code>HashMap</code> で値を出し入れできることを確認する</li>
       <li><strong>URL 復元で衝突しない採番を引き継ぐ</strong> — 復元したゲート群の後に <code>allocate()</code> した <code>GateId</code> が既存のどれとも重複しないことを確認する</li>
       <li><strong>Rust ドメインの同一性が <code>GateId</code> になっている</strong> — <code>PlacedGate.id</code>、<code>DragState.id</code>、ホバー状態、<code>gpu_plan_state</code> のスロット辞書キーが <code>GateId</code> を使うことを確認する</li>
-      <li><strong>GPU 境界では <code>u32</code> のまま変換する</strong> — <code>SimulationOp.gate_id</code> / 外部 GPU 要求から渡る <code>u32</code> が <code>GateId::from_u32</code> でスロット辞書キーへ正しく対応づくことを確認する</li>
+      <li><strong>線形化 op ストリームは <code>GateId</code> を運ぶ</strong> — <code>PlacedGate.id</code> が <code>CaptureBloch</code> などの <code>SimulationOp.gate_id</code> へ <code>u32</code> へ落とさず流れ、<code>rebuild_slot_maps</code> がそのままスロット辞書キーにすることを確認する</li>
+      <li><strong>外部 GPU 境界では <code>u32</code> のまま変換する</strong> — 外部 GPU 要求から渡る <code>u32</code> が <code>GateId::from_u32</code> でスロット辞書キーへ正しく対応づくことを確認する</li>
     </ol>
   </div>
 </section>

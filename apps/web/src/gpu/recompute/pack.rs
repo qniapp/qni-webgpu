@@ -59,7 +59,7 @@ impl PackedRecomputeParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
                     output_slot: output_slot.as_u32(),
-                    seed: *gate_id,
+                    seed: gate_id.as_u32(),
                 }),
                 SimulationOp::MeasureCollapse {
                     qubit_bit,

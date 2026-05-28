@@ -1,3 +1,4 @@
+use crate::app::GateId;
 use crate::gates::{ColumnControls, GateParams};
 use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotIndex, Snapshot};
 use crate::qubit_bit::QubitBit;
@@ -27,13 +28,13 @@ pub(crate) enum SimulationOp {
     },
     ApplyGate(GateParams),
     CaptureBloch {
-        gate_id: u32,
+        gate_id: GateId,
         qubit_bit: QubitBit,
         output_slot: SlotIndex<Bloch>,
         controls: ColumnControls,
     },
     MeasureReduceSample {
-        gate_id: u32,
+        gate_id: GateId,
         qubit_bit: QubitBit,
         output_slot: SlotIndex<Measurement>,
     },
@@ -42,21 +43,21 @@ pub(crate) enum SimulationOp {
         aux_slot: SlotIndex<Measurement>,
     },
     CaptureProbability {
-        gate_id: u32,
+        gate_id: GateId,
         base_bit: QubitBit,
         span: u32,
         output_slot: SlotIndex<Probability>,
         controls: ColumnControls,
     },
     CaptureAmplitude {
-        gate_id: u32,
+        gate_id: GateId,
         base_bit: QubitBit,
         span: u32,
         output_slot: SlotIndex<Amplitude>,
         controls: ColumnControls,
     },
     CaptureDensity {
-        gate_id: u32,
+        gate_id: GateId,
         base_bit: QubitBit,
         span: u32,
         output_slot: SlotIndex<Density>,
