@@ -172,8 +172,8 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs, Shots,
-        ShotsError, unsupported_gate_from_message,
+        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs,
+        unsupported_gate_from_message, Shots, ShotsError,
     };
 
     #[test]
