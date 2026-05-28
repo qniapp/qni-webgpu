@@ -19,7 +19,7 @@ use super::probability::{
     probability_slot_to_gate_id,
 };
 use super::test_hooks::{take_external_gpu_status_override, wire_external_gpu_test_hooks};
-use super::{qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure};
+use super::{qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure, Shots};
 use super::{ExecMode, QniApp};
 use crate::app::{circuit_library, PlacedGate};
 use crate::gates::GateKind;
@@ -413,7 +413,7 @@ impl QniApp {
             payload: qiskit_run_payload_with_display_outputs(
                 qubits.get(),
                 &columns_json,
-                1024,
+                Shots::DEFAULT,
                 &amplitudes_json,
                 &bloch_json,
                 &probability_json,

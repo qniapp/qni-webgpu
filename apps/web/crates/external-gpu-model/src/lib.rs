@@ -1,4 +1,46 @@
+use std::num::NonZeroUsize;
 use std::time::Duration;
+
+/// 外部 GPU 実行（Qiskit Aer バックエンド経路）の測定ショット数。
+///
+/// バックエンドの契約と同じ「1 以上・上限以下」を生成時に強制する値オブジェクト。
+/// 量子ビット数や結果側の回数の `usize` と取り違えないよう型で区別する。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Shots(NonZeroUsize);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShotsError {
+    Zero,
+    AboveMax { value: usize, max: usize },
+}
+
+impl Shots {
+    /// 上限。バックエンドの `MAX_SHOTS`
+    /// (`apps/qiskit-backend/src/qni_qiskit_backend/contract.py`) と同じ値に保つ。
+    /// 片方だけ変えないこと。
+    pub const MAX: usize = 100_000;
+
+    /// 既定のショット数。
+    pub const DEFAULT: Shots = Shots(match NonZeroUsize::new(1024) {
+        Some(value) => value,
+        None => unreachable!(),
+    });
+
+    pub fn try_new(value: usize) -> Result<Self, ShotsError> {
+        let value = NonZeroUsize::new(value).ok_or(ShotsError::Zero)?;
+        if value.get() > Self::MAX {
+            return Err(ShotsError::AboveMax {
+                value: value.get(),
+                max: Self::MAX,
+            });
+        }
+        Ok(Self(value))
+    }
+
+    pub fn get(self) -> usize {
+        self.0.get()
+    }
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum ExternalGpuStatus {
@@ -45,19 +87,20 @@ impl GpuFailure {
     }
 }
 
-pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: usize) -> String {
+pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: Shots) -> String {
     qiskit_run_payload_with_display_outputs(qubits, columns_json, shots, "[]", "[]", "[]", "[]")
 }
 
 pub fn qiskit_run_payload_with_display_outputs(
     qubits: usize,
     columns_json: &str,
-    shots: usize,
+    shots: Shots,
     amplitudes_json: &str,
     bloch_json: &str,
     probability_json: &str,
     densities_json: &str,
 ) -> String {
+    let shots = shots.get();
     let amplitudes = optional_output_json("amplitudes", amplitudes_json);
     let bloch = optional_output_json("bloch", bloch_json);
     let probability = optional_output_json("probability", probability_json);
@@ -129,13 +172,54 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs,
-        unsupported_gate_from_message,
+        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs, Shots,
+        ShotsError, unsupported_gate_from_message,
     };
 
     #[test]
+    fn shots_keeps_valid_value() {
+        assert_eq!(Shots::try_new(256).map(Shots::get), Ok(256));
+    }
+
+    #[test]
+    fn shots_rejects_zero() {
+        assert_eq!(Shots::try_new(0), Err(ShotsError::Zero));
+    }
+
+    #[test]
+    fn shots_rejects_above_max() {
+        assert_eq!(
+            Shots::try_new(Shots::MAX + 1),
+            Err(ShotsError::AboveMax {
+                value: 100_001,
+                max: 100_000,
+            })
+        );
+    }
+
+    #[test]
+    fn shots_accepts_max() {
+        assert_eq!(Shots::try_new(Shots::MAX).map(Shots::get), Ok(100_000));
+    }
+
+    #[test]
+    fn shots_default_is_1024() {
+        assert_eq!(Shots::DEFAULT.get(), 1024);
+    }
+
+    #[test]
+    fn equal_shots_compare_by_value() {
+        assert_eq!(Shots::try_new(512).unwrap(), Shots::try_new(512).unwrap());
+    }
+
+    #[test]
+    fn payload_embeds_default_shots() {
+        assert!(qiskit_run_payload(2, r#"[["H",1]]"#, Shots::DEFAULT).contains(r#""shots":1024"#));
+    }
+
+    #[test]
     fn payload_requests_histogram() {
-        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, 256);
+        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, Shots::try_new(256).unwrap());
         assert_eq!(
             payload.as_str(),
             r#"{"qubits":2,"columns":[["H",1]],"shots":256,"outputs":{"histogram":true}}"#,
@@ -144,7 +228,7 @@ mod tests {
 
     #[test]
     fn payload_omits_full_vector_outputs() {
-        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, 256);
+        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, Shots::try_new(256).unwrap());
         assert!(!(payload.contains("statevector") || payload.contains("probabilities")));
     }
 
@@ -153,7 +237,7 @@ mod tests {
         let payload = qiskit_run_payload_with_display_outputs(
             1,
             r#"[["H"],["Amps1"]]"#,
-            256,
+            Shots::try_new(256).unwrap(),
             r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":false}]"#,
             "[]",
             "[]",
@@ -170,7 +254,7 @@ mod tests {
         let payload = qiskit_run_payload_with_display_outputs(
             1,
             r#"[["H"],["Bloch"]]"#,
-            256,
+            Shots::try_new(256).unwrap(),
             "[]",
             r#"[{"gate_id":2,"column":1,"wire":0}]"#,
             "[]",
@@ -187,7 +271,7 @@ mod tests {
         let payload = qiskit_run_payload_with_display_outputs(
             1,
             r#"[["H"],["Probability"]]"#,
-            256,
+            Shots::try_new(256).unwrap(),
             "[]",
             "[]",
             r#"[{"gate_id":2,"column":1,"span":1,"base_bit":0}]"#,
@@ -204,7 +288,7 @@ mod tests {
         let payload = qiskit_run_payload_with_display_outputs(
             1,
             r#"[["H"],["Density"]]"#,
-            256,
+            Shots::try_new(256).unwrap(),
             "[]",
             "[]",
             "[]",
