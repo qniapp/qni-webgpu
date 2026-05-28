@@ -41,15 +41,14 @@ impl PackedRecomputeParams {
                 SimulationOp::CaptureBloch {
                     qubit_bit,
                     output_slot,
-                    control_mask,
-                    control_value,
+                    controls,
                     ..
                 } => packed.bloch.push(BlochParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
                     output_slot: *output_slot,
-                    control_mask: *control_mask,
-                    control_value: *control_value,
+                    control_mask: controls.mask(),
+                    control_value: controls.value(),
                     _pad: [0; 3],
                 }),
                 SimulationOp::MeasureReduceSample {
@@ -80,8 +79,7 @@ impl PackedRecomputeParams {
                     base_bit,
                     span,
                     output_slot,
-                    control_mask,
-                    control_value,
+                    controls,
                     ..
                 } => {
                     let rest_count = (state_count as u32) >> *span;
@@ -90,8 +88,8 @@ impl PackedRecomputeParams {
                         span: *span,
                         rest_count,
                         output_slot: *output_slot,
-                        control_mask: *control_mask,
-                        control_value: *control_value,
+                        control_mask: controls.mask(),
+                        control_value: controls.value(),
                         _pad: [0; 2],
                     });
                 }
@@ -99,8 +97,7 @@ impl PackedRecomputeParams {
                     base_bit,
                     span,
                     output_slot,
-                    control_mask,
-                    control_value,
+                    controls,
                     ..
                 } => {
                     let total_qubits = usize::BITS - state_count.leading_zeros() - 1;
@@ -109,8 +106,8 @@ impl PackedRecomputeParams {
                         span: *span,
                         output_slot: *output_slot,
                         state_count: state_count as u32,
-                        control_mask: *control_mask,
-                        control_value: *control_value,
+                        control_mask: controls.mask(),
+                        control_value: controls.value(),
                         phase_lock_enabled: u32::from(*span != total_qubits),
                         total_qubits,
                     });
@@ -119,8 +116,7 @@ impl PackedRecomputeParams {
                     base_bit,
                     span,
                     output_slot,
-                    control_mask,
-                    control_value,
+                    controls,
                     ..
                 } => {
                     packed.density.push(DensityCaptureParams {
@@ -128,8 +124,8 @@ impl PackedRecomputeParams {
                         span: *span,
                         output_slot: *output_slot,
                         state_count: state_count as u32,
-                        control_mask: *control_mask,
-                        control_value: *control_value,
+                        control_mask: controls.mask(),
+                        control_value: controls.value(),
                         _pad: [0; 2],
                     });
                 }

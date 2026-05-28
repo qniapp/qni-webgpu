@@ -10,7 +10,8 @@
 use super::{ColumnAnalysis, SimulationOp};
 use crate::app::PlacedGate;
 use crate::gates::{
-    gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params, GateKind,
+    gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params,
+    ColumnControls, GateKind,
 };
 use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
@@ -54,8 +55,7 @@ pub(crate) fn linearize_ops(
             next_snapshot_slot += 1;
         }
         let column_gates = column.gates();
-        let mut control_mask = 0u32;
-        let mut control_value = 0u32;
+        let mut controls = ColumnControls::NONE;
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
@@ -70,15 +70,9 @@ pub(crate) fn linearize_ops(
                 .wire
                 .to_qubit_bit(qubits)
                 .expect("column gates are filtered to wires within the register");
-            let bit_mask = bit.mask();
             match gate.kind {
-                GateKind::Control => {
-                    control_mask |= bit_mask;
-                    control_value |= bit_mask;
-                }
-                GateKind::AntiControl => {
-                    control_mask |= bit_mask;
-                }
+                GateKind::Control => controls.add_control(bit),
+                GateKind::AntiControl => controls.add_anti_control(bit),
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {
                     // Non-mutating decoration.
@@ -116,20 +110,16 @@ pub(crate) fn linearize_ops(
                 .wire
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
-            let mask_a = bit_a.mask();
-            let mask_b = bit_b.mask();
             let cx_a_to_b = gate_params_controlled(
                 GateKind::X,
                 bit_b,
-                control_mask | mask_a,
-                control_value | mask_a,
+                controls.with_control(bit_a),
                 state_count,
             );
             let cx_b_to_a = gate_params_controlled(
                 GateKind::X,
                 bit_a,
-                control_mask | mask_b,
-                control_value | mask_b,
+                controls.with_control(bit_b),
                 state_count,
             );
             ops.push(SimulationOp::ApplyGate(cx_a_to_b));
@@ -149,7 +139,8 @@ pub(crate) fn linearize_ops(
             // the editor's pre-parametric π/2 default (the gate's hard-coded
             // matrix in `gate_matrix`). qni would instead error out at
             // simulate time for a bare `P` / `Rx` / `Ry` / `Rz`.
-            type ParametricBuilder = fn(f32, QubitBit, u32, u32, u32) -> crate::gates::GateParams;
+            type ParametricBuilder =
+                fn(f32, QubitBit, ColumnControls, u32) -> crate::gates::GateParams;
             let parametric_builder: Option<ParametricBuilder> = match target.kind {
                 GateKind::Phase => Some(phase_params),
                 GateKind::Rx => Some(rx_params),
@@ -159,28 +150,16 @@ pub(crate) fn linearize_ops(
             };
             let params = if let Some(build) = parametric_builder {
                 if let Some(angle) = target.angle {
-                    build(
-                        angle.radians_f32(),
-                        bit,
-                        control_mask,
-                        control_value,
-                        state_count,
-                    )
-                } else if control_mask == 0 {
+                    build(angle.radians_f32(), bit, controls, state_count)
+                } else if controls.is_uncontrolled() {
                     gate_params(target.kind, bit, state_count)
                 } else {
-                    gate_params_controlled(
-                        target.kind,
-                        bit,
-                        control_mask,
-                        control_value,
-                        state_count,
-                    )
+                    gate_params_controlled(target.kind, bit, controls, state_count)
                 }
-            } else if control_mask == 0 {
+            } else if controls.is_uncontrolled() {
                 gate_params(target.kind, bit, state_count)
             } else {
-                gate_params_controlled(target.kind, bit, control_mask, control_value, state_count)
+                gate_params_controlled(target.kind, bit, controls, state_count)
             };
             ops.push(SimulationOp::ApplyGate(params));
         }
@@ -208,23 +187,18 @@ pub(crate) fn linearize_ops(
             && amplitude_targets.is_empty()
             && density_targets.is_empty()
             && swap_targets.is_empty()
-            && control_value.count_ones() >= 2
+            && controls.control_count() >= 2
         {
-            let target_bit = QubitBit::new(31 - control_value.leading_zeros());
-            let target_bit_mask = target_bit.mask();
-            let cz_control_value = control_value & !target_bit_mask;
+            let target_bit = controls
+                .highest_control()
+                .expect("control_count >= 2 guarantees a value bit");
             // Match qni and drop anti-control bits entirely: only the
-            // remaining `Control` wires gate the Z. (Mixing anti-control
-            // bits into the mask would change the semantics from qni's
-            // `{type:'•', targets:[control bits]}` form.)
-            let cz_control_mask = cz_control_value;
-            let params = gate_params_controlled(
-                GateKind::Z,
-                target_bit,
-                cz_control_mask,
-                cz_control_value,
-                state_count,
-            );
+            // remaining `Control` wires gate the Z. `controls_only` keeps
+            // just the value (Control) bits, then `without` removes the Z
+            // target. (Mixing anti-control bits into the mask would change
+            // the semantics from qni's `{type:'•', targets:[control bits]}` form.)
+            let cz_controls = controls.controls_only().without(target_bit);
+            let params = gate_params_controlled(GateKind::Z, target_bit, cz_controls, state_count);
             ops.push(SimulationOp::ApplyGate(params));
         }
 
@@ -235,15 +209,13 @@ pub(crate) fn linearize_ops(
         qft_gates.sort_by(|a, b| a.id.cmp(&b.id));
         for qft in &qft_gates {
             let dagger = qft.kind == GateKind::QftDaggerGate;
-            let (qft_control_mask, qft_control_value) =
-                qft_external_controls(qft, qubits, control_mask, control_value);
+            let qft_controls = qft_external_controls(qft, qubits, controls);
             ops.extend(linearize_qft(
                 qft,
                 qubits,
                 state_count,
                 dagger,
-                qft_control_mask,
-                qft_control_value,
+                qft_controls,
             ));
         }
 
@@ -278,8 +250,7 @@ pub(crate) fn linearize_ops(
                 gate_id: display.id,
                 qubit_bit,
                 output_slot: bloch_slot,
-                control_mask,
-                control_value,
+                controls,
             });
             bloch_slot += 1;
         }
@@ -303,8 +274,7 @@ pub(crate) fn linearize_ops(
                 base_bit,
                 span: span as u32,
                 output_slot: probability_slot,
-                control_mask,
-                control_value,
+                controls,
             });
             probability_slot += 1;
         }
@@ -325,8 +295,7 @@ pub(crate) fn linearize_ops(
                 base_bit,
                 span: span as u32,
                 output_slot: amplitude_slot,
-                control_mask,
-                control_value,
+                controls,
             });
             amplitude_slot += 1;
         }
@@ -347,8 +316,7 @@ pub(crate) fn linearize_ops(
                 base_bit,
                 span: span as u32,
                 output_slot: density_slot,
-                control_mask,
-                control_value,
+                controls,
             });
             density_slot += 1;
         }
@@ -375,11 +343,10 @@ pub(crate) fn linearize_ops(
 fn qft_external_controls(
     gate: &PlacedGate,
     qubits: QubitCount,
-    control_mask: u32,
-    control_value: u32,
-) -> (u32, u32) {
+    controls: ColumnControls,
+) -> ColumnControls {
     if !gate.wire.is_within(qubits) {
-        return (control_mask, control_value);
+        return controls;
     }
     let span = gate.span.max(1).min(qubits.get() - gate.wire.as_usize());
     let mut qft_span_mask = 0u32;
@@ -391,9 +358,7 @@ fn qft_external_controls(
             .expect("offset is within the clamped span")
             .mask();
     }
-    let external_control_mask = control_mask & !qft_span_mask;
-    let external_control_value = control_value & external_control_mask;
-    (external_control_mask, external_control_value)
+    controls.restricted_outside(qft_span_mask)
 }
 
 /// Expand a placed QFT (or QFT†) gate into its textbook decomposition:
@@ -411,8 +376,7 @@ fn linearize_qft(
     qubits: QubitCount,
     state_count: u32,
     dagger: bool,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
 ) -> Vec<SimulationOp> {
     if !gate.wire.is_within(qubits) {
         return Vec::new();
@@ -439,8 +403,7 @@ fn linearize_qft(
             ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
                 state_count,
-                control_mask,
-                control_value,
+                controls,
             )));
             for j in 1..(span - i) {
                 let phase = std::f32::consts::PI / (1u32 << j) as f32;
@@ -449,8 +412,7 @@ fn linearize_qft(
                     bit_of(i + j),
                     phase,
                     state_count,
-                    control_mask,
-                    control_value,
+                    controls,
                 )));
             }
         }
@@ -464,15 +426,13 @@ fn linearize_qft(
                     bit_of(i + j),
                     phase,
                     state_count,
-                    control_mask,
-                    control_value,
+                    controls,
                 )));
             }
             ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
                 state_count,
-                control_mask,
-                control_value,
+                controls,
             )));
         }
     }
@@ -482,13 +442,12 @@ fn linearize_qft(
 fn qft_h_params(
     bit: QubitBit,
     state_count: u32,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
 ) -> crate::gates::GateParams {
-    if control_mask == 0 {
+    if controls.is_uncontrolled() {
         gate_params(GateKind::H, bit, state_count)
     } else {
-        gate_params_controlled(GateKind::H, bit, control_mask, control_value, state_count)
+        gate_params_controlled(GateKind::H, bit, controls, state_count)
     }
 }
 
@@ -497,15 +456,12 @@ fn qft_phase_params(
     qft_control_bit: QubitBit,
     phase: f32,
     state_count: u32,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
 ) -> crate::gates::GateParams {
-    let qft_control_mask = qft_control_bit.mask();
     phase_params(
         phase,
         target_bit,
-        control_mask | qft_control_mask,
-        control_value | qft_control_mask,
+        controls.with_control(qft_control_bit),
         state_count,
     )
 }
@@ -570,6 +526,77 @@ mod tests {
         assert!(
             (bare_parametric_matrix(GateKind::Rz)[0][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
                 < EPSILON
+        );
+    }
+
+    #[test]
+    fn two_controls_emit_controlled_z() {
+        // 3 qubits, Controls on the top two wires (no target gate) → CCZ.
+        // wire 0 → bit 2 (highest = Z target); wire 1 → bit 1 (control).
+        let gates = [
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                1,
+                None,
+            ),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (2, 0b010, 0b010)
+        );
+    }
+
+    #[test]
+    fn controlled_z_drops_anti_control_bits() {
+        // 3 qubits: Controls on wires 0, 1 and an AntiControl on wire 2.
+        // The Z keeps only the remaining Control (bit 1); the anti-control
+        // (bit 0) must not leak into the Z's control mask.
+        let gates = [
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                3,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(2),
+                1,
+                None,
+            ),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (2, 0b010, 0b010)
         );
     }
 
@@ -714,11 +741,8 @@ mod tests {
 
         assert!(matches!(
             ops.first(),
-            Some(SimulationOp::CaptureProbability {
-                control_mask: 0b10,
-                control_value: 0b10,
-                ..
-            })
+            Some(SimulationOp::CaptureProbability { controls, .. })
+                if controls.mask() == 0b10 && controls.value() == 0b10
         ));
     }
 
@@ -768,11 +792,8 @@ mod tests {
 
         assert!(matches!(
             ops.first(),
-            Some(SimulationOp::CaptureBloch {
-                control_mask: 0b10,
-                control_value: 0,
-                ..
-            })
+            Some(SimulationOp::CaptureBloch { controls, .. })
+                if controls.mask() == 0b10 && controls.value() == 0
         ));
     }
 }

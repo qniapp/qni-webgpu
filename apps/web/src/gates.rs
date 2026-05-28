@@ -42,6 +42,8 @@ pub(crate) enum GateKind {
 
 mod angle;
 pub(crate) use angle::ParametricAngle;
+mod controls;
+pub(crate) use controls::ColumnControls;
 mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;

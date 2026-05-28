@@ -87,7 +87,10 @@ impl ColumnControls {
     pub(crate) fn with_control(self, bit: QubitBit) -&gt; Self;
     /// 指定ビットを mask と value の両方から外した新しい制御条件を返す。
     pub(crate) fn without(self, bit: QubitBit) -&gt; Self;
-    /// 指定マスク外のビットだけを残す（QFT スパン内の制御除去用）。
+    /// 値 1 を要求する制御ワイヤだけを残した純制御集合（反制御を落とす）。
+    /// CCZ 化で、反制御を除いた Z の制御を作るのに使う。
+    pub(crate) fn controls_only(self) -&gt; Self;
+    /// 指定マスク内のビットを mask と value の両方から外す（QFT スパン内の制御除去用）。
     pub(crate) fn restricted_outside(self, span_mask: u32) -&gt; Self;
 
     /// 制御が 1 本もないか（`if control_mask == 0` の置き換え）。
@@ -161,7 +164,7 @@ impl ColumnControls {
     <table class="spec">
       <tbody>
         <tr><th>SWAP</th><td>3 段の CNOT へ列の制御を合流させる。<code>controls.with_control(swap_partner_bit)</code> で各 CNOT の制御を作る</td></tr>
-        <tr><th>CCZ 化</th><td><code>controls.control_count() &gt;= 2</code> で多重制御 Z を出す条件を判定する。Z の対象ビットは <code>controls.highest_control()</code> で選び、<code>controls.without(target)</code> で対象を除いた制御を作る。反制御ビットは Z の制御に含めない</td></tr>
+        <tr><th>CCZ 化</th><td><code>controls.control_count() &gt;= 2</code> で多重制御 Z を出す条件を判定する。Z の対象ビットは <code>controls.highest_control()</code> で選び、<code>controls.controls_only().without(target)</code> で反制御を落としつつ対象を除いた制御を作る（反制御ビットは Z の制御に含めない）</td></tr>
       </tbody>
     </table>
 
@@ -205,7 +208,7 @@ impl ColumnControls {
       <li><code>ColumnControls</code> を <code>apps/web/src/gates/controls.rs</code> に追加し、<code>gates</code> から再公開する</li>
       <li><code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> の <code>control_mask, control_value</code> 引数を <code>controls: ColumnControls</code> へまとめる</li>
       <li><code>linearize.rs</code> の列走査ローカル変数 <code>control_mask</code> / <code>control_value</code> を <code>ColumnControls</code> へ置き換え、<code>Control</code> / <code>AntiControl</code> の処理を <code>add_control</code> / <code>add_anti_control</code> にする</li>
-      <li>SWAP 分解、CCZ 化、QFT への制御の引き回しのビット演算を <code>with_control</code> / <code>without</code> / <code>restricted_outside</code> / <code>highest_control</code> / <code>control_count</code> へ移す</li>
+      <li>SWAP 分解、CCZ 化、QFT への制御の引き回しのビット演算を <code>with_control</code> / <code>without</code> / <code>controls_only</code> / <code>restricted_outside</code> / <code>highest_control</code> / <code>control_count</code> へ移す</li>
       <li><code>SimulationOp</code> の表示ブロック系バリアントの 2 フィールドを <code>controls: ColumnControls</code> へ変更し、GPU ディスパッチ側を <code>mask()</code> / <code>value()</code> 経由にする</li>
       <li>制御条件を受け取る Rust ドメイン API に <code>control_mask</code> / <code>control_value</code> の 2 引数や裸の <code>u32</code> 対が残っていないことを <code>rg</code> で確認する</li>
     </ol>

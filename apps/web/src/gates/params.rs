@@ -1,5 +1,6 @@
 //! Gate matrix packing.
 
+use super::ColumnControls;
 use super::GateKind;
 use crate::qubit_bit::QubitBit;
 
@@ -200,8 +201,7 @@ pub(crate) fn gate_params(kind: GateKind, bit: QubitBit, state_count: u32) -> Ga
 pub(crate) fn gate_params_controlled(
     kind: GateKind,
     bit: QubitBit,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
     state_count: u32,
 ) -> GateParams {
     let matrix = gate_matrix(kind);
@@ -212,8 +212,8 @@ pub(crate) fn gate_params_controlled(
         m11: matrix.m11,
         bit: bit.as_u32(),
         state_count,
-        control_mask,
-        control_value,
+        control_mask: controls.mask(),
+        control_value: controls.value(),
         mode: gate_mode(kind),
         _pad: [0; 3],
     }
@@ -227,8 +227,7 @@ pub(crate) fn gate_params_controlled(
 pub(crate) fn phase_params(
     phase: f32,
     bit: QubitBit,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
     state_count: u32,
 ) -> GateParams {
     GateParams {
@@ -238,8 +237,8 @@ pub(crate) fn phase_params(
         m11: [phase.cos(), phase.sin()],
         bit: bit.as_u32(),
         state_count,
-        control_mask,
-        control_value,
+        control_mask: controls.mask(),
+        control_value: controls.value(),
         mode: gate_mode(GateKind::Phase),
         _pad: [0; 3],
     }
@@ -252,8 +251,7 @@ pub(crate) fn phase_params(
 pub(crate) fn rx_params(
     theta: f32,
     bit: QubitBit,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
     state_count: u32,
 ) -> GateParams {
     let half = theta * 0.5;
@@ -266,8 +264,8 @@ pub(crate) fn rx_params(
         m11: [c, 0.0],
         bit: bit.as_u32(),
         state_count,
-        control_mask,
-        control_value,
+        control_mask: controls.mask(),
+        control_value: controls.value(),
         mode: gate_mode(GateKind::Rx),
         _pad: [0; 3],
     }
@@ -278,8 +276,7 @@ pub(crate) fn rx_params(
 pub(crate) fn ry_params(
     theta: f32,
     bit: QubitBit,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
     state_count: u32,
 ) -> GateParams {
     let half = theta * 0.5;
@@ -292,8 +289,8 @@ pub(crate) fn ry_params(
         m11: [c, 0.0],
         bit: bit.as_u32(),
         state_count,
-        control_mask,
-        control_value,
+        control_mask: controls.mask(),
+        control_value: controls.value(),
         mode: gate_mode(GateKind::Ry),
         _pad: [0; 3],
     }
@@ -303,8 +300,7 @@ pub(crate) fn ry_params(
 pub(crate) fn rz_params(
     theta: f32,
     bit: QubitBit,
-    control_mask: u32,
-    control_value: u32,
+    controls: ColumnControls,
     state_count: u32,
 ) -> GateParams {
     let half = theta * 0.5;
@@ -317,8 +313,8 @@ pub(crate) fn rz_params(
         m11: [c, s],
         bit: bit.as_u32(),
         state_count,
-        control_mask,
-        control_value,
+        control_mask: controls.mask(),
+        control_value: controls.value(),
         mode: gate_mode(GateKind::Rz),
         _pad: [0; 3],
     }
