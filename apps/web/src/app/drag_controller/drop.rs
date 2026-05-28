@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::{reset_drag_frame_state, DragController, DragPointer};
-use crate::app::{CircuitColumnIndex, QniApp};
+use crate::app::{CircuitColumnIndex, QniApp, WireIndex};
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
 
@@ -45,14 +45,14 @@ impl DragController {
                             let capacity = app.exec_mode.qubit_capacity();
                             let gate = &mut app.placed_gates[index];
                             gate.column = CircuitColumnIndex::new(snap.index);
-                            gate.wire = line_index;
+                            gate.wire = WireIndex::new(line_index);
                             gate.clamp_span_to_qubit_capacity(capacity);
                             gate.sync_pos_from_grid();
                         }
                         CircuitSnap::Insert(snap) => {
                             app.insert_gate_at_column(
                                 gate_id,
-                                line_index,
+                                WireIndex::new(line_index),
                                 CircuitColumnIndex::new(snap.index),
                                 drag.original_column,
                             );

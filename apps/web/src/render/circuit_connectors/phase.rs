@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::collections::HashMap;
 
-use crate::app::{PlacedGate, QniApp};
+use crate::app::{PlacedGate, QniApp, WireIndex};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
@@ -37,7 +37,7 @@ struct ConnectionSides {
 }
 
 impl ConnectionSides {
-    fn include_wire(&mut self, gate_wire: usize, other_wire: usize) {
+    fn include_wire(&mut self, gate_wire: WireIndex, other_wire: WireIndex) {
         if other_wire < gate_wire {
             self.top = true;
         } else if other_wire > gate_wire {
@@ -438,7 +438,7 @@ mod tests {
             1,
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -452,7 +452,7 @@ mod tests {
             1,
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             Some(angle("2π/3")),
         );
@@ -466,7 +466,7 @@ mod tests {
             1,
             GateKind::Rx,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -480,7 +480,7 @@ mod tests {
             1,
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -494,7 +494,7 @@ mod tests {
             1,
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             Some(angle("π/4")),
         );
@@ -508,7 +508,7 @@ mod tests {
             1,
             GateKind::Rz,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -553,7 +553,7 @@ mod tests {
                 1,
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 Some(angle("π/2")),
             ),
@@ -561,7 +561,7 @@ mod tests {
                 2,
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 1,
                 Some(angle("4π/8")),
             ),
@@ -569,7 +569,7 @@ mod tests {
                 3,
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
-                2,
+                crate::app::WireIndex::new(2),
                 1,
                 None,
             ),

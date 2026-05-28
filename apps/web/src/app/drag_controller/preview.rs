@@ -1,5 +1,5 @@
 use super::{DragController, DragPointer};
-use crate::app::{LiveDragSnap, QniApp};
+use crate::app::{LiveDragSnap, QniApp, WireIndex};
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::gates::GateKind;
 use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
@@ -37,7 +37,7 @@ impl DragController {
         let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
         if distance <= SNAP_DISTANCE {
             next_pos.y = line_y - GATE_SIZE / 2.0;
-            next_wire = line_index;
+            next_wire = WireIndex::new(line_index);
             let center_x = next_pos.x + GATE_SIZE / 2.0;
             // Keep horizontal snapping sticky, not magnetic: outside the
             // snap radius the dragged gate must keep following the pointer
@@ -58,11 +58,11 @@ impl DragController {
                 live_snap = Some(match snap {
                     CircuitSnap::Slot(_) => LiveDragSnap::Slot {
                         column: snapped_column,
-                        wire: line_index,
+                        wire: WireIndex::new(line_index),
                     },
                     CircuitSnap::Insert(_) => LiveDragSnap::Insert {
                         column: snapped_column,
-                        wire: line_index,
+                        wire: WireIndex::new(line_index),
                     },
                 });
             }

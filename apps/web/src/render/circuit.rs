@@ -138,7 +138,7 @@ mod tests {
             1,
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -157,7 +157,7 @@ mod tests {
             1,
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );

@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::{CircuitColumnIndex, PlacedGate};
+use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
 };
@@ -55,7 +55,7 @@ pub(crate) fn gate_size(kind: GateKind, span: usize) -> egui::Vec2 {
 pub(crate) fn gate_rect_at_grid(
     kind: GateKind,
     column: CircuitColumnIndex,
-    wire: usize,
+    wire: WireIndex,
     span: usize,
 ) -> egui::Rect {
     egui::Rect::from_min_size(PlacedGate::grid_pos(column, wire), gate_size(kind, span))

@@ -27,12 +27,12 @@ pub(super) fn collect_amplitude_requests(
     for column in 0..=max_column {
         let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| gate.column.as_usize() == column && gate.wire < qubits)
+            .filter(|gate| gate.column.as_usize() == column && gate.wire.as_usize() < qubits)
             .collect();
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
         for gate in &column_gates {
-            let bit = (qubits - 1 - gate.wire) as u32;
+            let bit = (qubits - 1 - gate.wire.as_usize()) as u32;
             if gate.kind == GateKind::Control {
                 control_mask |= 1u32 << bit;
                 control_value |= 1u32 << bit;
@@ -46,8 +46,11 @@ pub(super) fn collect_amplitude_requests(
             .collect();
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
-            let span = display.span.clamp(1, 16).min(qubits - display.wire);
-            let base_bit = (qubits - display.wire - span) as u32;
+            let span = display
+                .span
+                .clamp(1, 16)
+                .min(qubits - display.wire.as_usize());
+            let base_bit = (qubits - display.wire.as_usize() - span) as u32;
             requests.push(ExternalAmplitudeRequest {
                 gate_id: display.id,
                 column: CircuitColumnIndex::new(column),
@@ -221,7 +224,7 @@ mod tests {
                 2,
                 GateKind::AmplitudeDisplay,
                 crate::app::CircuitColumnIndex::new(1),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             )],
@@ -241,7 +244,7 @@ mod tests {
                     1,
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(0),
-                    0,
+                    crate::app::WireIndex::new(0),
                     1,
                     None,
                 ),
@@ -249,7 +252,7 @@ mod tests {
                     2,
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(0),
-                    1,
+                    crate::app::WireIndex::new(1),
                     1,
                     None,
                 ),
@@ -267,7 +270,7 @@ mod tests {
                     1,
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(0),
-                    0,
+                    crate::app::WireIndex::new(0),
                     1,
                     None,
                 ),
@@ -275,7 +278,7 @@ mod tests {
                     2,
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(0),
-                    1,
+                    crate::app::WireIndex::new(1),
                     1,
                     None,
                 ),
@@ -296,7 +299,7 @@ mod tests {
                     4,
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(1),
-                    0,
+                    crate::app::WireIndex::new(0),
                     1,
                     None,
                 ),
@@ -304,7 +307,7 @@ mod tests {
                     3,
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(1),
-                    1,
+                    crate::app::WireIndex::new(1),
                     1,
                     None,
                 ),

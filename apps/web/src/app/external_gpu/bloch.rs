@@ -25,12 +25,12 @@ pub(super) fn collect_bloch_requests(
     for column in 0..=max_column {
         let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| gate.column.as_usize() == column && gate.wire < qubits)
+            .filter(|gate| gate.column.as_usize() == column && gate.wire.as_usize() < qubits)
             .collect();
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
         for gate in &column_gates {
-            let bit = (qubits - 1 - gate.wire) as u32;
+            let bit = (qubits - 1 - gate.wire.as_usize()) as u32;
             if gate.kind == GateKind::Control {
                 control_mask |= 1u32 << bit;
                 control_value |= 1u32 << bit;
@@ -47,7 +47,7 @@ pub(super) fn collect_bloch_requests(
             requests.push(ExternalBlochRequest {
                 gate_id: display.id,
                 column: CircuitColumnIndex::new(column),
-                wire: display.wire,
+                wire: display.wire.as_usize(),
                 control_mask,
                 control_value,
             });
@@ -188,7 +188,7 @@ mod tests {
                 2,
                 GateKind::BlochDisplay,
                 crate::app::CircuitColumnIndex::new(1),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             )],
@@ -209,7 +209,7 @@ mod tests {
                     1,
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(2),
-                    0,
+                    crate::app::WireIndex::new(0),
                     1,
                     None,
                 ),
@@ -217,7 +217,7 @@ mod tests {
                     2,
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(2),
-                    1,
+                    crate::app::WireIndex::new(1),
                     1,
                     None,
                 ),
@@ -225,7 +225,7 @@ mod tests {
                     3,
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(2),
-                    2,
+                    crate::app::WireIndex::new(2),
                     1,
                     None,
                 ),
@@ -247,7 +247,7 @@ mod tests {
                     4,
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(1),
-                    0,
+                    crate::app::WireIndex::new(0),
                     1,
                     None,
                 ),
@@ -255,7 +255,7 @@ mod tests {
                     3,
                     GateKind::BlochDisplay,
                     crate::app::CircuitColumnIndex::new(1),
-                    1,
+                    crate::app::WireIndex::new(1),
                     1,
                     None,
                 ),

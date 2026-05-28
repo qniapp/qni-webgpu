@@ -120,7 +120,7 @@ pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
 pub(crate) fn qubit_count_from_gates(gates: &[PlacedGate]) -> usize {
     gates
         .iter()
-        .map(|g| g.wire + g.span.saturating_sub(1) + 1)
+        .map(|g| g.wire.as_usize() + g.span.saturating_sub(1) + 1)
         .max()
         .unwrap_or(0)
 }
@@ -184,7 +184,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
                 0,
                 kind,
                 crate::app::CircuitColumnIndex::new(col_idx),
-                wire_idx,
+                crate::app::WireIndex::new(wire_idx),
                 span,
                 angle,
             ));

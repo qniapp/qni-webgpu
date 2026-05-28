@@ -29,11 +29,11 @@ pub(crate) fn linearize_ops(
     qubits: QubitCount,
     snapshot_slot_count: usize,
 ) -> Vec<SimulationOp> {
-    let qubits = qubits.get();
-    let state_count = 1u32 << qubits;
+    let n = qubits.get();
+    let state_count = 1u32 << n;
 
     let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
-        if gate.wire >= qubits {
+        if !gate.wire.is_within(qubits) {
             return None;
         }
         Some(gate.column.as_usize())
@@ -66,7 +66,10 @@ pub(crate) fn linearize_ops(
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
-            let bit = QubitBit::new((qubits - 1 - gate.wire) as u32);
+            let bit = gate
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are filtered to wires within the register");
             let bit_mask = bit.mask();
             match gate.kind {
                 GateKind::Control => {
@@ -105,8 +108,14 @@ pub(crate) fn linearize_ops(
         // disables stray swaps via `updateSwapConnections`).
         swap_targets.sort_by(|a, b| a.id.cmp(&b.id));
         if swap_targets.len() == 2 {
-            let bit_a = QubitBit::new((qubits - 1 - swap_targets[0].wire) as u32);
-            let bit_b = QubitBit::new((qubits - 1 - swap_targets[1].wire) as u32);
+            let bit_a = swap_targets[0]
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
+            let bit_b = swap_targets[1]
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
             let mask_a = bit_a.mask();
             let mask_b = bit_b.mask();
             let cx_a_to_b = gate_params_controlled(
@@ -130,7 +139,10 @@ pub(crate) fn linearize_ops(
 
         targets.sort_by(|a, b| a.id.cmp(&b.id));
         for target in &targets {
-            let bit = QubitBit::new((qubits - 1 - target.wire) as u32);
+            let bit = target
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
             // Parametric gates carry an optional normalized angle. When
             // present we route through the matching `*_params(θ, …)` builder
             // so the matrix carries that angle; when absent we fall back to
@@ -239,7 +251,10 @@ pub(crate) fn linearize_ops(
         // then collapse. Each consumes one aux slot.
         measurement_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for measurement in &measurement_targets {
-            let qubit_bit = QubitBit::new((qubits - 1 - measurement.wire) as u32);
+            let qubit_bit = measurement
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
             ops.push(SimulationOp::MeasureReduceSample {
                 gate_id: measurement.id,
                 qubit_bit,
@@ -255,7 +270,10 @@ pub(crate) fn linearize_ops(
         // Bloch captures see the post-measurement state.
         bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for display in &bloch_targets {
-            let qubit_bit = QubitBit::new((qubits - 1 - display.wire) as u32);
+            let qubit_bit = display
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
             ops.push(SimulationOp::CaptureBloch {
                 gate_id: display.id,
                 qubit_bit,
@@ -271,11 +289,15 @@ pub(crate) fn linearize_ops(
         // samples that buffer directly, no CPU-side probabilities.
         probability_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for display in &probability_targets {
-            if display.wire >= qubits {
+            if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 16).min(qubits - display.wire);
-            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
+            let span = display.span.clamp(1, 16).min(n - display.wire.as_usize());
+            let base_bit = display
+                .wire
+                .offset(span - 1)
+                .to_qubit_bit(qubits)
+                .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureProbability {
                 gate_id: display.id,
                 base_bit,
@@ -289,11 +311,15 @@ pub(crate) fn linearize_ops(
 
         amplitude_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for display in &amplitude_targets {
-            if display.wire >= qubits {
+            if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 16).min(qubits - display.wire);
-            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
+            let span = display.span.clamp(1, 16).min(n - display.wire.as_usize());
+            let base_bit = display
+                .wire
+                .offset(span - 1)
+                .to_qubit_bit(qubits)
+                .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureAmplitude {
                 gate_id: display.id,
                 base_bit,
@@ -307,11 +333,15 @@ pub(crate) fn linearize_ops(
 
         density_targets.sort_by(|a, b| a.id.cmp(&b.id));
         for display in &density_targets {
-            if display.wire >= qubits {
+            if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 8).min(qubits - display.wire);
-            let base_bit = QubitBit::new((qubits - display.wire - span) as u32);
+            let span = display.span.clamp(1, 8).min(n - display.wire.as_usize());
+            let base_bit = display
+                .wire
+                .offset(span - 1)
+                .to_qubit_bit(qubits)
+                .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureDensity {
                 gate_id: display.id,
                 base_bit,
@@ -344,17 +374,22 @@ pub(crate) fn linearize_ops(
 /// control would create self-controlled H / duplicate controlled-phase ops.
 fn qft_external_controls(
     gate: &PlacedGate,
-    qubits: usize,
+    qubits: QubitCount,
     control_mask: u32,
     control_value: u32,
 ) -> (u32, u32) {
-    if gate.wire >= qubits {
+    if !gate.wire.is_within(qubits) {
         return (control_mask, control_value);
     }
-    let span = gate.span.max(1).min(qubits - gate.wire);
+    let span = gate.span.max(1).min(qubits.get() - gate.wire.as_usize());
     let mut qft_span_mask = 0u32;
     for offset in 0..span {
-        qft_span_mask |= QubitBit::new((qubits - 1 - gate.wire - offset) as u32).mask();
+        qft_span_mask |= gate
+            .wire
+            .offset(offset)
+            .to_qubit_bit(qubits)
+            .expect("offset is within the clamped span")
+            .mask();
     }
     let external_control_mask = control_mask & !qft_span_mask;
     let external_control_value = control_value & external_control_mask;
@@ -373,23 +408,28 @@ fn qft_external_controls(
 /// simulator convention where the top wire is the MSB).
 fn linearize_qft(
     gate: &PlacedGate,
-    qubits: usize,
+    qubits: QubitCount,
     state_count: u32,
     dagger: bool,
     control_mask: u32,
     control_value: u32,
 ) -> Vec<SimulationOp> {
-    if gate.wire >= qubits {
+    if !gate.wire.is_within(qubits) {
         return Vec::new();
     }
     // Clamp the span so the QFT never reaches past the qubit register;
     // a user-resized QFT can momentarily extend beyond the placed
     // bottom wire before `update_qubit_count` catches up.
-    let span = gate.span.max(1).min(qubits - gate.wire);
+    let span = gate.span.max(1).min(qubits.get() - gate.wire.as_usize());
     if span == 0 {
         return Vec::new();
     }
-    let bit_of = |idx: usize| QubitBit::new((qubits - 1 - gate.wire - idx) as u32);
+    let bit_of = |idx: usize| {
+        gate.wire
+            .offset(idx)
+            .to_qubit_bit(qubits)
+            .expect("idx is within the clamped span")
+    };
     let mut ops = Vec::new();
 
     if !dagger {
@@ -482,7 +522,14 @@ mod tests {
     }
 
     fn bare_parametric_matrix(kind: GateKind) -> [[f32; 2]; 4] {
-        let gate = PlacedGate::new(1, kind, crate::app::CircuitColumnIndex::new(0), 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            kind,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            1,
+            None,
+        );
         let ops = linearize_ops(&[gate], qubit_count(1), 0);
         match ops.first().expect("expected an apply-gate op") {
             SimulationOp::ApplyGate(params) => params.matrix(),
@@ -533,7 +580,7 @@ mod tests {
                 1,
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             ),
@@ -541,7 +588,7 @@ mod tests {
                 2,
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 2,
                 None,
             ),
@@ -562,7 +609,7 @@ mod tests {
                 1,
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             ),
@@ -570,7 +617,7 @@ mod tests {
                 2,
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 2,
                 None,
             ),
@@ -591,7 +638,7 @@ mod tests {
                 1,
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             ),
@@ -599,7 +646,7 @@ mod tests {
                 2,
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 2,
                 None,
             ),
@@ -620,7 +667,7 @@ mod tests {
                 1,
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 2,
                 None,
             ),
@@ -628,7 +675,7 @@ mod tests {
                 2,
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 1,
                 None,
             ),
@@ -649,7 +696,7 @@ mod tests {
                 1,
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             ),
@@ -657,7 +704,7 @@ mod tests {
                 2,
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 1,
                 None,
             ),
@@ -676,13 +723,34 @@ mod tests {
     }
 
     #[test]
+    fn probability_display_base_bit_is_span_bottom() {
+        // 3 qubits, top wire, span 2 → base_bit = qubits - wire - span = 1,
+        // exercising `wire.offset(span - 1).to_qubit_bit(qubits)`.
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::ProbabilityDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            2,
+            None,
+        )];
+
+        let ops = linearize_ops(&gates, qubit_count(3), 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureProbability { base_bit, .. }) if base_bit.as_u32() == 1
+        ));
+    }
+
+    #[test]
     fn bloch_display_captures_column_controls() {
         let gates = [
             PlacedGate::new(
                 1,
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
-                0,
+                crate::app::WireIndex::new(0),
                 1,
                 None,
             ),
@@ -690,7 +758,7 @@ mod tests {
                 2,
                 GateKind::BlochDisplay,
                 crate::app::CircuitColumnIndex::new(0),
-                1,
+                crate::app::WireIndex::new(1),
                 1,
                 None,
             ),

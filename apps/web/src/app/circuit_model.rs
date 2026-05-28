@@ -17,6 +17,8 @@ use super::QniApp;
 
 mod column_index;
 pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
+mod wire_index;
+pub(crate) use wire_index::{WireIndex, WireIndexError};
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {
@@ -30,7 +32,7 @@ pub(crate) struct PlacedGate {
     /// pointer as a preview; on committed placement it is resynchronised from
     /// `column` / `wire`.
     pub(crate) pos: egui::Pos2,
-    pub(crate) wire: usize,
+    pub(crate) wire: WireIndex,
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
     /// resizable-span gates (Probability, Amplitude, QFT / QFT†) can grow via hover-revealed
     /// resize handles.
@@ -48,7 +50,7 @@ impl PlacedGate {
         id: u32,
         kind: GateKind,
         column: CircuitColumnIndex,
-        wire: usize,
+        wire: WireIndex,
         span: usize,
         angle: Option<ParametricAngle>,
     ) -> Self {
@@ -63,10 +65,10 @@ impl PlacedGate {
         }
     }
 
-    pub(crate) fn grid_pos(column: CircuitColumnIndex, wire: usize) -> egui::Pos2 {
+    pub(crate) fn grid_pos(column: CircuitColumnIndex, wire: WireIndex) -> egui::Pos2 {
         let slot_left = LINE_LEFT_OFFSET + GATE_SIZE;
         let slot_center_x = slot_left + SLOT_SPACING * column.as_usize() as f32;
-        let line_y = LINE_Y + LINE_GAP * wire as f32;
+        let line_y = LINE_Y + LINE_GAP * wire.as_usize() as f32;
         egui::pos2(slot_center_x - GATE_SIZE / 2.0, line_y - GATE_SIZE / 2.0)
     }
 
@@ -78,7 +80,7 @@ impl PlacedGate {
         if !self.kind.is_resizable_span() {
             return;
         }
-        let remaining_wires = capacity.get().saturating_sub(self.wire).max(1);
+        let remaining_wires = capacity.get().saturating_sub(self.wire.as_usize()).max(1);
         let max_span = self.kind.max_resizable_span(remaining_wires);
         self.span = self.span.clamp(1, max_span);
     }
@@ -97,11 +99,11 @@ pub(crate) struct DragState {
 pub(crate) enum LiveDragSnap {
     Slot {
         column: CircuitColumnIndex,
-        wire: usize,
+        wire: WireIndex,
     },
     Insert {
         column: CircuitColumnIndex,
-        wire: usize,
+        wire: WireIndex,
     },
 }
 
@@ -172,7 +174,7 @@ impl QniApp {
     fn raw_required_qubit_count(&self) -> usize {
         self.placed_gates
             .iter()
-            .map(|gate| gate.wire + gate.span.saturating_sub(1) + 1)
+            .map(|gate| gate.wire.as_usize() + gate.span.saturating_sub(1) + 1)
             .max()
             .unwrap_or(0)
     }
@@ -294,7 +296,7 @@ impl QniApp {
     pub(crate) fn insert_gate_at_column(
         &mut self,
         gate_id: u32,
-        wire: usize,
+        wire: WireIndex,
         insert_index: CircuitColumnIndex,
         original_column: Option<CircuitColumnIndex>,
     ) {

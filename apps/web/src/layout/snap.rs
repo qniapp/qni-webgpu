@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::geometry::{gate_rect_at_grid, gate_width_cols};
-use crate::app::{CircuitColumnIndex, PlacedGate};
+use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
 use crate::constants::SLOT_SPACING;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,7 +60,7 @@ fn candidate_intersects_gate(
     let candidate_rect = gate_rect_at_grid(
         moving_gate.kind,
         CircuitColumnIndex::new(candidate_column),
-        candidate_wire,
+        WireIndex::new(candidate_wire),
         moving_gate.span,
     );
     let existing_rect = gate_rect_at_grid(
@@ -234,7 +234,7 @@ mod tests {
             1,
             GateKind::H,
             crate::app::CircuitColumnIndex::new(1),
-            0,
+            crate::app::WireIndex::new(0),
             1,
             None,
         );
@@ -242,7 +242,7 @@ mod tests {
             2,
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
-            0,
+            crate::app::WireIndex::new(0),
             3,
             None,
         );

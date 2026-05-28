@@ -33,7 +33,8 @@ use std::collections::VecDeque;
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
     AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState,
-    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
+    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
+    WireIndexError,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};

@@ -3,6 +3,7 @@ use eframe::egui;
 use super::{reset_drag_frame_state, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::app::SpanResizeEdge;
+use crate::app::WireIndex;
 use crate::constants::LINE_GAP;
 use crate::layout::gate_width_cols;
 use crate::span_resize::resolve_span_resize_candidate;
@@ -32,17 +33,18 @@ impl DragController {
                     let gate_id = gate.id;
                     let gate_kind = gate.kind;
                     let gate_column = gate.column;
-                    let old_wire = gate.wire;
+                    let old_wire = gate.wire.as_usize();
                     let old_span = gate.span;
                     let old_width = gate_width_cols(gate_kind, old_span);
                     let (desired_wire, desired_span) = match drag.edge {
                         SpanResizeEdge::Bottom => {
-                            let remaining_wires = capacity.get().saturating_sub(gate.wire).max(1);
+                            let remaining_wires =
+                                capacity.get().saturating_sub(gate.wire.as_usize()).max(1);
                             let max_span = gate.kind.max_resizable_span(remaining_wires);
                             let span = (drag.start_span as i32 + span_delta)
                                 .clamp(1, max_span as i32)
                                 as usize;
-                            (gate.wire, span)
+                            (gate.wire.as_usize(), span)
                         }
                         SpanResizeEdge::Top => {
                             let bottom_wire = drag.start_wire + drag.start_span.saturating_sub(1);
@@ -64,7 +66,7 @@ impl DragController {
                     );
                     let new_width = gate_width_cols(gate_kind, new_span);
                     let gate = &mut app.placed_gates[index];
-                    gate.wire = new_wire;
+                    gate.wire = WireIndex::new(new_wire);
                     gate.span = new_span;
                     gate.sync_pos_from_grid();
                     let changed = new_wire != old_wire || new_span != old_span;

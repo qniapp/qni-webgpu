@@ -1,7 +1,9 @@
 use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
-use crate::app::{CircuitColumnIndex, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag};
+use crate::app::{
+    CircuitColumnIndex, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag, WireIndex,
+};
 use crate::constants::GATE_SIZE;
 use crate::gates::{default_palette_angle, palette_gate_kind};
 use crate::layout::{gate_visible_rect, palette_hit_test};
@@ -84,7 +86,7 @@ impl DragController {
                     new_id,
                     kind,
                     CircuitColumnIndex::ZERO,
-                    0,
+                    WireIndex::ZERO,
                     1,
                     // Palette drop: parametric gates start with their explicit
                     // π/2 default so the circuit shows the same angle label Qni shows.

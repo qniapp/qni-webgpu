@@ -7,7 +7,7 @@
 
 use eframe::egui;
 
-use crate::app::{PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle};
+use crate::app::{PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex};
 use crate::colors::Colors;
 use crate::gates::GateKind;
 use crate::icons::draw_span_resize_handle;
@@ -144,7 +144,7 @@ impl SpanResizeHandles {
             gate_id: gate.id,
             edge,
             start_pointer_y: cursor.y,
-            start_wire: gate.wire,
+            start_wire: gate.wire.as_usize(),
             start_span: gate.span.max(1),
         })
     }
@@ -223,29 +223,48 @@ fn edge_can_change_span(
 
 fn can_shrink_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
     gate.span > 1
-        && candidate_span_is_clear(gate, gates, gate.wire + 1, gate.span - 1, qubit_capacity)
+        && candidate_span_is_clear(
+            gate,
+            gates,
+            gate.wire.as_usize() + 1,
+            gate.span - 1,
+            qubit_capacity,
+        )
 }
 
 fn can_shrink_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    gate.span > 1 && candidate_span_is_clear(gate, gates, gate.wire, gate.span - 1, qubit_capacity)
+    gate.span > 1
+        && candidate_span_is_clear(
+            gate,
+            gates,
+            gate.wire.as_usize(),
+            gate.span - 1,
+            qubit_capacity,
+        )
 }
 
 fn can_grow_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    let bottom_wire = gate.wire + gate.span.saturating_sub(1);
+    let bottom_wire = gate.wire.as_usize() + gate.span.saturating_sub(1);
     let next_span = gate.span + 1;
-    if gate.wire == 0 || gate.kind.max_resizable_span(bottom_wire + 1) < next_span {
+    if gate.wire.as_usize() == 0 || gate.kind.max_resizable_span(bottom_wire + 1) < next_span {
         return false;
     }
-    candidate_span_is_clear(gate, gates, gate.wire - 1, next_span, qubit_capacity)
+    candidate_span_is_clear(
+        gate,
+        gates,
+        gate.wire.as_usize() - 1,
+        next_span,
+        qubit_capacity,
+    )
 }
 
 fn can_grow_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    let remaining_wires = qubit_capacity.saturating_sub(gate.wire).max(1);
+    let remaining_wires = qubit_capacity.saturating_sub(gate.wire.as_usize()).max(1);
     let next_span = gate.span + 1;
     if gate.kind.max_resizable_span(remaining_wires) < next_span {
         return false;
     }
-    candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity)
+    candidate_span_is_clear(gate, gates, gate.wire.as_usize(), next_span, qubit_capacity)
 }
 
 pub(crate) fn resolve_span_resize_candidate(
@@ -275,21 +294,27 @@ fn resolve_bottom_resize_candidate(
     let mut span = gate.span;
     if desired_span <= gate.span {
         for next_span in (desired_span..gate.span).rev() {
-            if !candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity) {
+            if !candidate_span_is_clear(
+                gate,
+                gates,
+                gate.wire.as_usize(),
+                next_span,
+                qubit_capacity,
+            ) {
                 break;
             }
             span = next_span;
         }
-        return (gate.wire, span);
+        return (gate.wire.as_usize(), span);
     }
 
     for next_span in (gate.span + 1)..=desired_span {
-        if !candidate_span_is_clear(gate, gates, gate.wire, next_span, qubit_capacity) {
+        if !candidate_span_is_clear(gate, gates, gate.wire.as_usize(), next_span, qubit_capacity) {
             break;
         }
         span = next_span;
     }
-    (gate.wire, span)
+    (gate.wire.as_usize(), span)
 }
 
 fn resolve_top_resize_candidate(
@@ -298,12 +323,12 @@ fn resolve_top_resize_candidate(
     qubit_capacity: usize,
     desired_wire: usize,
 ) -> (usize, usize) {
-    let bottom_wire = gate.wire + gate.span.saturating_sub(1);
-    let mut wire = gate.wire;
+    let bottom_wire = gate.wire.as_usize() + gate.span.saturating_sub(1);
+    let mut wire = gate.wire.as_usize();
     let mut span = gate.span;
-    if desired_wire >= gate.wire {
+    if desired_wire >= gate.wire.as_usize() {
         let target_wire = desired_wire.min(bottom_wire);
-        for next_wire in (gate.wire + 1)..=target_wire {
+        for next_wire in (gate.wire.as_usize() + 1)..=target_wire {
             let next_span = bottom_wire - next_wire + 1;
             if !candidate_span_is_clear(gate, gates, next_wire, next_span, qubit_capacity) {
                 break;
@@ -314,7 +339,7 @@ fn resolve_top_resize_candidate(
         return (wire, span);
     }
 
-    for next_wire in (desired_wire..gate.wire).rev() {
+    for next_wire in (desired_wire..gate.wire.as_usize()).rev() {
         let next_span = bottom_wire - next_wire + 1;
         if !candidate_span_is_clear(gate, gates, next_wire, next_span, qubit_capacity) {
             break;
@@ -335,7 +360,12 @@ fn candidate_span_is_clear(
     if candidate_wire + candidate_span > qubit_capacity {
         return false;
     }
-    let candidate_rect = gate_rect_at_grid(gate.kind, gate.column, candidate_wire, candidate_span);
+    let candidate_rect = gate_rect_at_grid(
+        gate.kind,
+        gate.column,
+        WireIndex::new(candidate_wire),
+        candidate_span,
+    );
     let old_width = gate_width_cols(gate.kind, gate.span);
     let new_width = gate_width_cols(gate.kind, candidate_span);
     let old_right = gate
@@ -409,7 +439,14 @@ mod tests {
         wire: usize,
         span: usize,
     ) -> PlacedGate {
-        PlacedGate::new(id, kind, CircuitColumnIndex::new(column), wire, span, None)
+        PlacedGate::new(
+            id,
+            kind,
+            CircuitColumnIndex::new(column),
+            WireIndex::new(wire),
+            span,
+            None,
+        )
     }
 
     #[test]
