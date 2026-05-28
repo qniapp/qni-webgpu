@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ColumnControls — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路モデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ColumnControls</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">ColumnControls 実装仕様</h1>
+  <p class="page-lede">
+    1 つの回路列が持つ制御条件を、<code>control_mask: u32</code> と <code>control_value: u32</code> の裸の 2 値ではなく、<code>ColumnControls</code> という 1 つの値オブジェクトで扱うための仕様。
+    「どのワイヤが制御か」と「そのうち 1 を要求するのはどれか」という 2 本のビットマスクを束ね、両者の関係という不変条件を型へ閉じ込める。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      現行実装では、列ごとの制御条件を <code>control_mask</code> と <code>control_value</code> という 2 本の <code>u32</code> ビットマスクで表し、常に対で引き回している。
+      <code>control_mask</code> は制御ワイヤ全体（<code>Control</code> と <code>AntiControl</code> の両方）のビット、<code>control_value</code> は値 1 を要求するワイヤ（<code>Control</code> のみ）のビットを表す。
+      <code>AntiControl</code> は <code>control_mask</code> だけ立て、<code>control_value</code> は立てない（<code>simulation_plan/linearize.rs</code> の列走査）。
+    </p>
+    <p>
+      この 2 本には「<code>control_value</code> のビットは必ず <code>control_mask</code> の部分集合である」という不変条件がある。
+      裸の <code>u32</code> 対では、この関係を型で保証できず、<code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> の引数順を取り違えても気付けない。
+      さらに、CCZ 化（制御だけの列）、SWAP 分解への制御の合流、QFT の外部制御除去といった操作が、各所のビット演算として散らばっている。
+    </p>
+    <p>
+      <code>ColumnControls</code> は「1 つの回路列の制御条件」だけを表す値オブジェクトにする。
+      2 本のマスクは非公開にし、生成と更新を <code>add_control</code> / <code>add_anti_control</code> などの操作へ閉じ込め、不変条件を常に満たす。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性を制御条件へ適用する。
+    </p>
+    <ul>
+      <li><code>control_value</code> のビットは常に <code>control_mask</code> の部分集合である</li>
+      <li>制御ワイヤの追加は <code>QubitBit</code> 単位で行い、生のビット演算を呼び出し側へ漏らさない</li>
+      <li>GPU へ渡す <code>GateParams</code> の 2 つの <code>u32</code> フィールドは、境界で <code>ColumnControls</code> から取り出す</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>ColumnControls</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/gates/controls.rs</code> を新設し、<code>apps/web/src/gates.rs</code> から再公開する（<code>GateParams</code> 構築と同じ層）</td></tr>
+        <tr><th>意味</th><td>1 つの回路列が持つ制御条件。制御ワイヤ全体のビットマスクと、値 1 を要求するワイヤのビットマスクの対</td></tr>
+        <tr><th>保持する値</th><td><code>mask: u32</code>（制御ワイヤ全体）と <code>value: u32</code>（値 1 要求ワイヤ）。フィールドは非公開にする</td></tr>
+        <tr><th>不変条件</th><td><code>value &amp; !mask == 0</code>。<code>AntiControl</code> のビットは <code>mask</code> にのみ含まれ <code>value</code> には含まれない</td></tr>
+        <tr><th>ビット番号</th><td>ビット位置は <code>QubitBit</code>（MSB 始まりの量子ビット番号）に対応する。<a href="qubit-bit.html">QubitBit 実装仕様</a>を参照</td></tr>
+        <tr><th>対象範囲</th><td>列単位の実行計画（ユニタリ適用、表示ブロックの捕捉）、SWAP 分解、CCZ 化、QFT 展開での制御の引き回し</td></tr>
+        <tr><th>対象外</th><td>1 量子ビットゲートの対象ビット（<code>QubitBit</code> 側）、状態カウント、表示ブロックのスパン</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ColumnControls {
+    mask: u32,
+    value: u32,
+}
+
+impl ColumnControls {
+    /// 制御なしの列（mask = 0, value = 0）。
+    pub(crate) const NONE: Self = Self { mask: 0, value: 0 };
+
+    /// 制御ワイヤを 1 本追加する（mask と value の両方を立てる）。
+    pub(crate) fn add_control(&amp;mut self, bit: QubitBit);
+    /// 反制御ワイヤを 1 本追加する（mask のみ立てる）。
+    pub(crate) fn add_anti_control(&amp;mut self, bit: QubitBit);
+
+    /// 指定ビットを足した新しい制御条件を返す（不変のまま 1 本追加）。
+    pub(crate) fn with_control(self, bit: QubitBit) -&gt; Self;
+    /// 指定ビットを mask と value の両方から外した新しい制御条件を返す。
+    pub(crate) fn without(self, bit: QubitBit) -&gt; Self;
+    /// 指定マスク外のビットだけを残す（QFT スパン内の制御除去用）。
+    pub(crate) fn restricted_outside(self, span_mask: u32) -&gt; Self;
+
+    /// 制御が 1 本もないか（`if control_mask == 0` の置き換え）。
+    pub(crate) fn is_uncontrolled(self) -&gt; bool;
+    /// 値 1 を要求する制御ワイヤの本数（CCZ 化の 2 本以上判定用）。
+    pub(crate) fn control_count(self) -&gt; u32;
+    /// 値 1 を要求する制御ワイヤのうち最上位のビット（CCZ の Z 対象選択用）。
+    pub(crate) fn highest_control(self) -&gt; Option&lt;QubitBit&gt;;
+
+    /// GPU 境界（GateParams / SimulationOp）へ渡す生の値。
+    pub(crate) fn mask(self) -&gt; u32;
+    pub(crate) fn value(self) -&gt; u32;
+}</pre>
+
+    <p class="note">
+      生のビット演算（<code>1u32 &lt;&lt; bit</code>、<code>|=</code>、<code>&amp; !</code>）は <code>ColumnControls</code> の内部だけに閉じ込め、呼び出し側へ漏らさない。
+      <code>mask()</code> / <code>value()</code> は <code>GateParams</code> 生成や <code>SimulationOp</code> への格納など、GPU 境界へ出る直前だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>列走査で値を組み立てる間は <code>add_control</code> / <code>add_anti_control</code> で更新し、確定後は変更しない。SWAP・CCZ・QFT の派生は <code>with_control</code> / <code>without</code> / <code>restricted_outside</code> で新しい値を計算する</td>
+          <td>公開フィールド、<code>&amp;mut u32</code> を返すメソッド、内部の 2 本を個別に書き換える API を作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>すべての操作は <code>value &amp; !mask == 0</code> を保つ。<code>add_anti_control</code> は <code>mask</code> のみ、<code>add_control</code> は両方を立てる</td>
+          <td>呼び出し側で <code>value</code> だけを単独で立てない。<code>mask</code> を外すときに <code>value</code> を残さない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>2 本のマスクの値で比較する。同じ <code>mask</code> / <code>value</code> を持つ <code>ColumnControls</code> 同士は、どの列で生成されたかに関わらず等しい</td>
+          <td>列番号やゲート ID、生成順で制御条件の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>制御条件を受け渡す Rust ドメイン API は <code>ColumnControls</code> を 1 引数で使う。<code>control_mask</code> / <code>control_value</code> を 2 引数で並べない</td>
+          <td>新しい制御条件引数を <code>(u32, u32)</code> や 2 本の <code>u32</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>列走査での組み立て</h3>
+    <p>
+      <code>simulation_plan/linearize.rs</code> の列走査では、<code>control_mask</code> / <code>control_value</code> という 2 本のローカル変数を <code>ColumnControls</code> 1 本に置き換える。
+      <code>GateKind::Control</code> は <code>add_control(bit)</code>、<code>GateKind::AntiControl</code> は <code>add_anti_control(bit)</code> を呼ぶ。
+      <code>bit</code> は <code>QubitBit</code> として求める（<code>wire</code> からの変換は <a href="wire-index.html">WireIndex</a> / <a href="qubit-bit.html">QubitBit</a> 側に閉じる）。
+    </p>
+
+    <h3>ゲート行列の構築</h3>
+    <p>
+      <code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> は、<code>control_mask: u32, control_value: u32</code> の 2 引数を <code>controls: ColumnControls</code> の 1 引数へ変更する。
+      関数内では <code>controls.mask()</code> / <code>controls.value()</code> で <code>GateParams</code> の <code>u32</code> フィールドへ書き込む。
+      制御なしと制御ありで分岐していた <code>if control_mask == 0</code> は <code>controls.is_uncontrolled()</code> にする。
+    </p>
+
+    <h3>SWAP 分解と CCZ 化</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>SWAP</th><td>3 段の CNOT へ列の制御を合流させる。<code>controls.with_control(swap_partner_bit)</code> で各 CNOT の制御を作る</td></tr>
+        <tr><th>CCZ 化</th><td><code>controls.control_count() &gt;= 2</code> で多重制御 Z を出す条件を判定する。Z の対象ビットは <code>controls.highest_control()</code> で選び、<code>controls.without(target)</code> で対象を除いた制御を作る。反制御ビットは Z の制御に含めない</td></tr>
+      </tbody>
+    </table>
+
+    <h3>QFT への制御の引き回し</h3>
+    <p>
+      <code>qft_external_controls</code> は QFT スパン内のワイヤに付いた制御を除いた外部制御を返す。
+      <code>controls.restricted_outside(qft_span_mask)</code> でスパン内ビットを除外する。
+      QFT 内部の制御位相回転では、外部制御に内部制御ビットを足すため <code>external.with_control(qft_control_bit)</code> を使う。
+    </p>
+
+    <h3>表示ブロックの捕捉</h3>
+    <p>
+      <code>SimulationOp::CaptureBloch</code> / <code>CaptureProbability</code> / <code>CaptureAmplitude</code> / <code>CaptureDensity</code> が持つ <code>control_mask</code> / <code>control_value</code> の 2 フィールドは、<code>controls: ColumnControls</code> の 1 フィールドへ変更する。
+      これらの表示ブロックは列の制御を受けて条件付きで状態を捕捉するため、組み立て済みの <code>ColumnControls</code> をそのまま持たせる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th></tr></thead>
+      <tbody>
+        <tr><th>GPU（GateParams）</th><td><code>#[repr(C)]</code> の <code>control_mask: u32</code> / <code>control_value: u32</code></td><td>WGSL シェーダの入力レイアウトは変えない。<code>ColumnControls</code> から <code>mask()</code> / <code>value()</code> で取り出して詰める</td></tr>
+        <tr><th>SimulationOp</th><td>ディスパッチ用の中間表現</td><td>表示ブロック系のバリアントは <code>ColumnControls</code> を保持し、GPU ディスパッチ直前に <code>mask()</code> / <code>value()</code> を読む</td></tr>
+        <tr><th>URL / 外部 GPU JSON</th><td>制御は <code>"•"</code> / <code>"◦"</code> のトークンとして列内に並ぶ</td><td>制御条件はビットマスクとしては直列化しない。<code>ColumnControls</code> は実行計画の内部表現にとどめる</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      <code>GateParams</code> は GPU へ渡す <code>#[repr(C)]</code> の固定レイアウトなので、内部の <code>u32</code> フィールド自体は変えない。
+      型による保護は実行計画を組み立てる Rust ドメイン層の中で効かせ、GPU 境界では <code>mask()</code> / <code>value()</code> という明示的な取り出し点を置く。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>ColumnControls</code> を <code>apps/web/src/gates/controls.rs</code> に追加し、<code>gates</code> から再公開する</li>
+      <li><code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> の <code>control_mask, control_value</code> 引数を <code>controls: ColumnControls</code> へまとめる</li>
+      <li><code>linearize.rs</code> の列走査ローカル変数 <code>control_mask</code> / <code>control_value</code> を <code>ColumnControls</code> へ置き換え、<code>Control</code> / <code>AntiControl</code> の処理を <code>add_control</code> / <code>add_anti_control</code> にする</li>
+      <li>SWAP 分解、CCZ 化、QFT への制御の引き回しのビット演算を <code>with_control</code> / <code>without</code> / <code>restricted_outside</code> / <code>highest_control</code> / <code>control_count</code> へ移す</li>
+      <li><code>SimulationOp</code> の表示ブロック系バリアントの 2 フィールドを <code>controls: ColumnControls</code> へ変更し、GPU ディスパッチ側を <code>mask()</code> / <code>value()</code> 経由にする</li>
+      <li>制御条件を受け取る Rust ドメイン API に <code>control_mask</code> / <code>control_value</code> の 2 引数や裸の <code>u32</code> 対が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い 2 引数版は残さない。
+      変更後は <code>(control_mask, control_value)</code> の対で制御条件を受け取る関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>制御なしを表せる</strong> — <code>ColumnControls::NONE</code> が <code>is_uncontrolled()</code> で真になることを確認する</li>
+      <li><strong>制御がマスクと値の両方を立てる</strong> — 空の制御条件へ <code>add_control(bit)</code> した結果の <code>mask()</code> と <code>value()</code> が同じビットになることを確認する</li>
+      <li><strong>反制御がマスクのみを立てる</strong> — 空の制御条件へ <code>add_anti_control(bit)</code> した結果の <code>value()</code> が <code>0</code> で <code>mask()</code> にビットが立つことを確認する</li>
+      <li><strong>不変条件を保つ</strong> — 任意の操作後に <code>value() &amp; !mask() == 0</code> が成り立つことを確認する</li>
+      <li><strong>制御本数を数えられる</strong> — 制御 2 本を足した制御条件の <code>control_count()</code> が <code>2</code> になることを確認する</li>
+      <li><strong>最上位の制御を選べる</strong> — 複数の制御を足した制御条件の <code>highest_control()</code> が最上位ビットを返すことを確認する</li>
+      <li><strong>スパン内の制御を除外できる</strong> — <code>restricted_outside(span_mask)</code> がスパン内ビットを <code>mask</code> と <code>value</code> の両方から外すことを確認する</li>
+      <li><strong>反制御は CCZ の制御に入らない</strong> — 反制御を含む列で CCZ 化したとき、Z の制御に反制御ビットが含まれないことを確認する（既存の linearize テストを <code>ColumnControls</code> ベースへ移す）</li>
+      <li><strong>GPU 形式が変わらない</strong> — <code>ColumnControls</code> 経由で構築した <code>GateParams</code> の <code>control_mask</code> / <code>control_value</code> が従来と同じ値になることを確認する</li>
+      <li><strong>裸の <code>u32</code> 対が残らない</strong> — <code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> と <code>SimulationOp</code> の表示ブロック系が <code>ColumnControls</code> を受け取ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>制御条件の組み立て</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>（列走査、SWAP、CCZ、QFT）</td></tr>
+        <tr><th>ゲート行列の構築</th><td><code>apps/web/src/gates/params.rs</code>（<code>gate_params_controlled</code> / <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code>）</td></tr>
+        <tr><th>ディスパッチ表現</th><td><code>apps/web/src/simulation_plan/op.rs</code>（<code>SimulationOp</code> の表示ブロック系バリアント）</td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="qubit-bit.html">QubitBit 実装仕様</a>, <a href="wire-index.html">WireIndex 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · ColumnControls 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
