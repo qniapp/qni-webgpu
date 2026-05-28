@@ -47,8 +47,8 @@ pub(super) fn collect_probability_requests(
         for display in displays {
             let span = display
                 .span
-                .clamp(1, 16)
-                .min(qubits - display.wire.as_usize());
+                .clamped_for(display.kind, qubits - display.wire.as_usize())
+                .get();
             let base_bit = (qubits - display.wire.as_usize() - span) as u32;
             requests.push(ExternalProbabilityRequest {
                 gate_id: display.id,
@@ -204,7 +204,7 @@ mod tests {
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             )],
             qubit_count(1),
@@ -224,7 +224,7 @@ mod tests {
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             )],
             qubit_count(3),
@@ -245,7 +245,7 @@ mod tests {
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(0),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -253,7 +253,7 @@ mod tests {
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(1),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -261,7 +261,7 @@ mod tests {
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(2),
                     crate::app::WireIndex::new(2),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
             ],
@@ -283,7 +283,7 @@ mod tests {
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(0),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -291,7 +291,7 @@ mod tests {
                     GateKind::ProbabilityDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(1),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
             ],

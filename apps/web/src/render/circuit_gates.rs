@@ -121,7 +121,7 @@ impl QniApp {
             // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
             // draw area. The shared span-resize component uses that same body.
-            let body_rect = span_resize_body_rect(gate.kind, gate.span, gate_rect);
+            let body_rect = span_resize_body_rect(gate.kind, gate.span.get(), gate_rect);
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
             let circuit_fill = colors.background;
@@ -236,7 +236,7 @@ impl QniApp {
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
-                let span = gate.span.clamp(1, 16) as u32;
+                let span = gate.span.get().clamp(1, 16) as u32;
                 let (slot, render_mode) = if let Some(slot) = self.probability_display_slot(gate.id)
                 {
                     (slot, PROBABILITY_RENDER_MODE_SAMPLE)
@@ -311,7 +311,7 @@ impl QniApp {
                 if dragging_this_gate && live_dragging_amplitude_id != Some(gate.id) {
                     return None;
                 }
-                let span = gate.span.clamp(1, 16) as u32;
+                let span = gate.span.get().clamp(1, 16) as u32;
                 let (slot, force_zero_amplitude) = if let Some(slot) =
                     self.amplitude_display_slot(gate.id)
                 {
@@ -326,7 +326,7 @@ impl QniApp {
                     return None;
                 };
                 let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
-                let body_rect = amplitude_grid_rect(gate_rect, gate.span);
+                let body_rect = amplitude_grid_rect(gate_rect, gate.span.get());
                 let hovered_outcome = self
                     .hovered_amplitude_outcome
                     .filter(|(id, _)| *id == gate.id)
@@ -397,7 +397,7 @@ impl QniApp {
                 } else {
                     return None;
                 };
-                let span = gate.span.clamp(1, 8) as u32;
+                let span = gate.span.get().clamp(1, 8) as u32;
                 let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
                 let hovered_cell = self
                     .hovered_density_cell
@@ -678,7 +678,7 @@ impl QniApp {
         let Some(slot) = self.amplitude_display_slot(gate.id) else {
             return;
         };
-        let span = gate.span.clamp(1, 16);
+        let span = gate.span.get().clamp(1, 16);
         let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
         let Some((circle_center, circle_radius)) = amplitude_hover_circle(gate_rect, span, outcome)
         else {
@@ -772,7 +772,7 @@ impl QniApp {
         else {
             return;
         };
-        let span = gate.span.clamp(1, 16);
+        let span = gate.span.get().clamp(1, 16);
         let row_count = 1usize << span;
         let gate_height = (span - 1) as f32 * LINE_GAP + GATE_SIZE;
         let gate_rect = egui::Rect::from_min_size(

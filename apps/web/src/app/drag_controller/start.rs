@@ -5,7 +5,7 @@ use crate::app::{
     CircuitColumnIndex, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag, WireIndex,
 };
 use crate::constants::GATE_SIZE;
-use crate::gates::{default_palette_angle, palette_gate_kind};
+use crate::gates::{default_palette_angle, palette_gate_kind, GateSpan};
 use crate::layout::{gate_visible_rect, palette_hit_test};
 use crate::span_resize::SpanResizeHandles;
 
@@ -87,7 +87,7 @@ impl DragController {
                     kind,
                     CircuitColumnIndex::ZERO,
                     WireIndex::ZERO,
-                    1,
+                    GateSpan::SINGLE,
                     // Palette drop: parametric gates start with their explicit
                     // π/2 default so the circuit shows the same angle label Qni shows.
                     default_palette_angle(kind),

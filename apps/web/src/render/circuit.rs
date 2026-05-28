@@ -139,7 +139,7 @@ mod tests {
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
         gate.pos.x =
@@ -158,7 +158,7 @@ mod tests {
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 

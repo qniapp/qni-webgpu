@@ -49,7 +49,9 @@ impl DragController {
                 );
                 let body_rect = resize_handles
                     .map(SpanResizeHandles::body_rect)
-                    .unwrap_or_else(|| span_resize_body_rect(gate.kind, gate.span, gate_rect));
+                    .unwrap_or_else(|| {
+                        span_resize_body_rect(gate.kind, gate.span.get(), gate_rect)
+                    });
                 if let Some(handles) = resize_handles {
                     if let Some(edge) = handles.edge_at(cursor) {
                         hovered_handle = Some(handles.handle(edge));
@@ -60,7 +62,7 @@ impl DragController {
                 if body_rect.contains(cursor) {
                     hovered_gate = Some(gate.id);
                     if gate.kind == GateKind::ProbabilityDisplay {
-                        let row_count = 1usize << gate.span.clamp(1, 16);
+                        let row_count = 1usize << gate.span.get().clamp(1, 16);
                         let row_h = gate_rect.height() / row_count as f32;
                         let row = ((cursor.y - gate_rect.top()) / row_h)
                             .floor()
@@ -69,11 +71,11 @@ impl DragController {
                         hovered_probability_outcome = Some((gate.id, row));
                     } else if gate.kind == GateKind::AmplitudeDisplay {
                         hovered_amplitude_outcome =
-                            amplitude_cell_index_at(gate_rect, gate.span, cursor)
+                            amplitude_cell_index_at(gate_rect, gate.span.get(), cursor)
                                 .map(|outcome| (gate.id, outcome));
                     } else if gate.kind == GateKind::DensityMatrixDisplay {
                         hovered_density_cell =
-                            density_matrix_cell_index_at(gate_rect, gate.span, cursor)
+                            density_matrix_cell_index_at(gate_rect, gate.span.get(), cursor)
                                 .map(|cell| (gate.id, cell));
                     }
                     break;

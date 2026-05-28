@@ -30,7 +30,7 @@ impl QniApp {
         let circuit_origin = content_rect.min - egui::vec2(scroll_x, 0.0);
         let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
         let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
-            amplitude_grid_rect(gate_rect, gate.span)
+            amplitude_grid_rect(gate_rect, gate.span.get())
         } else {
             gate_rect
         };
@@ -42,7 +42,7 @@ impl QniApp {
             // overwrite each other's geometry.
             return;
         }
-        if gate.kind == GateKind::AmplitudeDisplay && gate.span == 1 {
+        if gate.kind == GateKind::AmplitudeDisplay && gate.span.get() == 1 {
             draw_zero_amplitude_drag_preview(painter, body_rect, colors);
             return;
         }

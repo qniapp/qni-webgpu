@@ -61,13 +61,13 @@ fn candidate_intersects_gate(
         moving_gate.kind,
         CircuitColumnIndex::new(candidate_column),
         WireIndex::new(candidate_wire),
-        moving_gate.span,
+        moving_gate.span.get(),
     );
     let existing_rect = gate_rect_at_grid(
         existing_gate.kind,
         CircuitColumnIndex::new(existing_column),
         existing_gate.wire,
-        existing_gate.span,
+        existing_gate.span.get(),
     );
     candidate_rect.intersects(existing_rect)
 }
@@ -98,7 +98,7 @@ fn candidate_available_after_insert(
     ignore_id: Option<u32>,
     gates: &[PlacedGate],
 ) -> bool {
-    let moving_width = gate_width_cols(moving_gate.kind, moving_gate.span);
+    let moving_width = gate_width_cols(moving_gate.kind, moving_gate.span.get());
     gates.iter().all(|gate| {
         if ignore_id == Some(gate.id) {
             return true;
@@ -235,7 +235,7 @@ mod tests {
             GateKind::H,
             crate::app::CircuitColumnIndex::new(1),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
         let moving = PlacedGate::new(
@@ -243,7 +243,7 @@ mod tests {
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            3,
+            crate::gates::GateSpan::try_new(3).unwrap(),
             None,
         );
         let snap = nearest_circuit_snap(

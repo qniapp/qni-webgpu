@@ -53,7 +53,7 @@ pub(crate) fn circuit_columns_to_json(
         // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count.get()).map(|_| "1".to_string()).collect();
         for gate in bucket {
-            let Some(token) = gate_token(gate.kind, gate.span, gate.angle.as_ref()) else {
+            let Some(token) = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref()) else {
                 continue;
             };
             if gate.wire.as_usize() < entries.len() {
@@ -157,7 +157,7 @@ mod tests {
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -174,7 +174,7 @@ mod tests {
             GateKind::AmplitudeDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            16,
+            crate::gates::GateSpan::try_new(16).unwrap(),
             None,
         );
 
@@ -191,7 +191,7 @@ mod tests {
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             Some(ParametricAngle::parse_qni("4π/8").unwrap()),
         );
 
@@ -208,7 +208,7 @@ mod tests {
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             Some(ParametricAngle::parse_qni("4π").unwrap()),
         );
 
@@ -225,7 +225,7 @@ mod tests {
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -242,7 +242,7 @@ mod tests {
             GateKind::Rx,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -259,7 +259,7 @@ mod tests {
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -276,7 +276,7 @@ mod tests {
             GateKind::Rz,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -293,7 +293,7 @@ mod tests {
             GateKind::H,
             crate::app::CircuitColumnIndex::new(1),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -310,7 +310,7 @@ mod tests {
             GateKind::DensityMatrixDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -327,7 +327,7 @@ mod tests {
             GateKind::DensityMatrixDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            8,
+            crate::gates::GateSpan::try_new(8).unwrap(),
             None,
         );
 
@@ -344,7 +344,7 @@ mod tests {
             GateKind::H,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(32),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 

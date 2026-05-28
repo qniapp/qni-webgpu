@@ -1,6 +1,7 @@
 //! URL decoder (`location.hash` / qni path payload → `PlacedGate`s).
 
 use crate::app::PlacedGate;
+use crate::gates::GateSpan;
 use crate::gates::{GateKind, ParametricAngle};
 
 use super::parser::parse_cols;
@@ -120,7 +121,7 @@ pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
 pub(crate) fn qubit_count_from_gates(gates: &[PlacedGate]) -> usize {
     gates
         .iter()
-        .map(|g| g.wire.as_usize() + g.span.saturating_sub(1) + 1)
+        .map(|g| g.wire.as_usize() + g.span.get().saturating_sub(1) + 1)
         .max()
         .unwrap_or(0)
 }
@@ -185,7 +186,7 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
                 kind,
                 crate::app::CircuitColumnIndex::new(col_idx),
                 crate::app::WireIndex::new(wire_idx),
-                span,
+                GateSpan::try_new(span).unwrap_or(GateSpan::SINGLE),
                 angle,
             ));
         }
@@ -283,7 +284,7 @@ mod tests {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps16"]]}"#);
 
         assert_eq!(
-            gates.first().map(|gate| (gate.kind, gate.span)),
+            gates.first().map(|gate| (gate.kind, gate.span.get())),
             Some((GateKind::AmplitudeDisplay, 16))
         );
     }
@@ -391,7 +392,7 @@ mod tests {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["Density8"]]}"#);
 
         assert_eq!(
-            gates.first().map(|gate| (gate.kind, gate.span)),
+            gates.first().map(|gate| (gate.kind, gate.span.get())),
             Some((GateKind::DensityMatrixDisplay, 8))
         );
     }

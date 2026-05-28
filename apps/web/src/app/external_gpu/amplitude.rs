@@ -48,8 +48,8 @@ pub(super) fn collect_amplitude_requests(
         for display in displays {
             let span = display
                 .span
-                .clamp(1, 16)
-                .min(qubits - display.wire.as_usize());
+                .clamped_for(display.kind, qubits - display.wire.as_usize())
+                .get();
             let base_bit = (qubits - display.wire.as_usize() - span) as u32;
             requests.push(ExternalAmplitudeRequest {
                 gate_id: display.id,
@@ -225,7 +225,7 @@ mod tests {
                 GateKind::AmplitudeDisplay,
                 crate::app::CircuitColumnIndex::new(1),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             )],
             qubit_count(1),
@@ -245,7 +245,7 @@ mod tests {
                     GateKind::Control,
                     crate::app::CircuitColumnIndex::new(0),
                     crate::app::WireIndex::new(0),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -253,7 +253,7 @@ mod tests {
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(0),
                     crate::app::WireIndex::new(1),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
             ],
@@ -271,7 +271,7 @@ mod tests {
                     GateKind::AntiControl,
                     crate::app::CircuitColumnIndex::new(0),
                     crate::app::WireIndex::new(0),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -279,7 +279,7 @@ mod tests {
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(0),
                     crate::app::WireIndex::new(1),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
             ],
@@ -300,7 +300,7 @@ mod tests {
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(0),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
                 PlacedGate::new(
@@ -308,7 +308,7 @@ mod tests {
                     GateKind::AmplitudeDisplay,
                     crate::app::CircuitColumnIndex::new(1),
                     crate::app::WireIndex::new(1),
-                    1,
+                    crate::gates::GateSpan::SINGLE,
                     None,
                 ),
             ],

@@ -439,7 +439,7 @@ mod tests {
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -453,7 +453,7 @@ mod tests {
             GateKind::Phase,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             Some(angle("2π/3")),
         );
 
@@ -467,7 +467,7 @@ mod tests {
             GateKind::Rx,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -481,7 +481,7 @@ mod tests {
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -495,7 +495,7 @@ mod tests {
             GateKind::Ry,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             Some(angle("π/4")),
         );
 
@@ -509,7 +509,7 @@ mod tests {
             GateKind::Rz,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
 
@@ -554,7 +554,7 @@ mod tests {
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 Some(angle("π/2")),
             ),
             PlacedGate::new(
@@ -562,7 +562,7 @@ mod tests {
                 GateKind::Phase,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 Some(angle("4π/8")),
             ),
             PlacedGate::new(
@@ -570,7 +570,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];

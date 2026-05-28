@@ -263,16 +263,18 @@ pub(crate) fn linearize_ops(
             if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 16).min(n - display.wire.as_usize());
+            let span = display
+                .span
+                .clamped_for(display.kind, n - display.wire.as_usize());
             let base_bit = display
                 .wire
-                .offset(span - 1)
+                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureProbability {
                 gate_id: display.id,
                 base_bit,
-                span: span as u32,
+                span: span.get() as u32,
                 output_slot: probability_slot,
                 controls,
             });
@@ -284,16 +286,18 @@ pub(crate) fn linearize_ops(
             if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 16).min(n - display.wire.as_usize());
+            let span = display
+                .span
+                .clamped_for(display.kind, n - display.wire.as_usize());
             let base_bit = display
                 .wire
-                .offset(span - 1)
+                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureAmplitude {
                 gate_id: display.id,
                 base_bit,
-                span: span as u32,
+                span: span.get() as u32,
                 output_slot: amplitude_slot,
                 controls,
             });
@@ -305,16 +309,18 @@ pub(crate) fn linearize_ops(
             if !display.wire.is_within(qubits) {
                 continue;
             }
-            let span = display.span.clamp(1, 8).min(n - display.wire.as_usize());
+            let span = display
+                .span
+                .clamped_for(display.kind, n - display.wire.as_usize());
             let base_bit = display
                 .wire
-                .offset(span - 1)
+                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
                 .expect("span is clamped to the register");
             ops.push(SimulationOp::CaptureDensity {
                 gate_id: display.id,
                 base_bit,
-                span: span as u32,
+                span: span.get() as u32,
                 output_slot: density_slot,
                 controls,
             });
@@ -348,7 +354,10 @@ fn qft_external_controls(
     if !gate.wire.is_within(qubits) {
         return controls;
     }
-    let span = gate.span.max(1).min(qubits.get() - gate.wire.as_usize());
+    let span = gate
+        .span
+        .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
+        .get();
     let mut qft_span_mask = 0u32;
     for offset in 0..span {
         qft_span_mask |= gate
@@ -384,7 +393,10 @@ fn linearize_qft(
     // Clamp the span so the QFT never reaches past the qubit register;
     // a user-resized QFT can momentarily extend beyond the placed
     // bottom wire before `update_qubit_count` catches up.
-    let span = gate.span.max(1).min(qubits.get() - gate.wire.as_usize());
+    let span = gate
+        .span
+        .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
+        .get();
     if span == 0 {
         return Vec::new();
     }
@@ -483,7 +495,7 @@ mod tests {
             kind,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         );
         let ops = linearize_ops(&[gate], qubit_count(1), 0);
@@ -539,7 +551,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -547,7 +559,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -571,7 +583,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -579,7 +591,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -587,7 +599,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -608,7 +620,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -616,7 +628,7 @@ mod tests {
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
         ];
@@ -637,7 +649,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -645,7 +657,7 @@ mod tests {
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
         ];
@@ -666,7 +678,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -674,7 +686,7 @@ mod tests {
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
         ];
@@ -695,7 +707,7 @@ mod tests {
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
             PlacedGate::new(
@@ -703,7 +715,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -724,7 +736,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -732,7 +744,7 @@ mod tests {
                 GateKind::ProbabilityDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -755,7 +767,7 @@ mod tests {
             GateKind::ProbabilityDisplay,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            2,
+            crate::gates::GateSpan::try_new(2).unwrap(),
             None,
         )];
 
@@ -768,6 +780,27 @@ mod tests {
     }
 
     #[test]
+    fn density_display_caps_span_at_eight() {
+        // A density display stored with span 10 lowers with span clamped to the
+        // GateKind cap of 8 via `GateSpan::clamped_for`, even at 16 qubits.
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::DensityMatrixDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::try_new(10).unwrap(),
+            None,
+        )];
+
+        let ops = linearize_ops(&gates, qubit_count(16), 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureDensity { span: 8, .. })
+        ));
+    }
+
+    #[test]
     fn bloch_display_captures_column_controls() {
         let gates = [
             PlacedGate::new(
@@ -775,7 +808,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -783,7 +816,7 @@ mod tests {
                 GateKind::BlochDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];

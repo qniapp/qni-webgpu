@@ -150,13 +150,13 @@ impl GateSpan {
 
     <h3>伸縮ハンドル</h3>
     <p>
-      <code>span_resize.rs</code> / <code>drag_controller/resize.rs</code> がドラッグ量から求めた新しいスパン候補は、<code>GateSpan::try_new(candidate)</code> で値オブジェクトにし、<code>clamped_for</code> で上限へ収める。
-      <code>SpanResizeDrag.start_span</code> も <code>GateSpan</code> にする。
+      <code>drag_controller/resize.rs</code> がドラッグ量から求めた新しいスパンは <code>GateSpan::try_new(candidate)</code> で値オブジェクトにして <code>PlacedGate.span</code> へ戻す。<code>span_resize.rs</code> の伸縮判定（<code>clamped_for</code> / <code>max_resizable_span</code>）には <code>gate.span.get()</code> を渡す。
+      <code>SpanResizeDrag.start_span</code> は伸縮ドラッグ中の差分計算（整数演算）に使う一時状態なので <code>usize</code> のまま保ち、取得時に <code>get()</code> で変換する（<a href="wire-index.html">WireIndex</a> の <code>start_wire</code> と同じ方針）。
     </p>
 
     <h3>ピクセル幅と表示ブロックのスパン下端</h3>
     <p>
-      <code>layout/geometry.rs</code> の <code>gate_width_cols</code> / <code>gate_size</code> / <code>amplitude_grid_dims</code> / <code>amplitude_grid_rect</code> / <code>density_matrix_width_cols</code> は <code>GateSpan</code> を受け取り、ピクセル計算の内部だけで <code>get()</code> を使う。
+      <code>layout/geometry.rs</code> のピクセル幅関数（<code>gate_width_cols</code> / <code>gate_size</code> / <code>amplitude_grid_dims</code> / <code>amplitude_grid_rect</code> / <code>density_matrix_width_cols</code>）は派生ピクセル層なので <code>usize</code> 境界のままにし、呼び出し側が <code>gate.span.get()</code> で渡す。
       一方、ステップ展開では表示ブロックのスパン下端 <code>base_bit = qubits − wire − span</code> を、<a href="wire-index.html">WireIndex</a> と <code>GateSpan</code> を組み合わせて求め、結果を <a href="qubit-bit.html">QubitBit</a> として扱う。
     </p>
   </div>
@@ -170,7 +170,7 @@ impl GateSpan {
       <tbody>
         <tr><th>URL 復元</th><td>列トークンから数えたスパン <code>usize</code></td><td><code>GateSpan::try_new(span)</code>、その後 <code>clamped_for</code></td><td><code>0</code> は <code>Err</code>。範囲外は上限へ切り詰める</td></tr>
         <tr><th>伸縮ドラッグ</th><td>ドラッグ量から求めた候補 <code>usize</code></td><td><code>try_new</code> ＋ <code>clamped_for</code></td><td>下限 1、上限は種類別</td></tr>
-        <tr><th>ピクセル幅</th><td><code>GateSpan</code></td><td>幅計算の内部で <code>get()</code></td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
+        <tr><th>ピクセル幅</th><td><code>GateSpan</code></td><td>呼び出し側で <code>get()</code> し、<code>usize</code> を受け取る幅計算へ渡す</td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
         <tr><th>外部 GPU 表示出力</th><td>Rust の値オブジェクト</td><td>JSON 生成時だけ <code>get()</code> で数値化する</td><td>同上</td></tr>
       </tbody>
     </table>
@@ -185,11 +185,11 @@ impl GateSpan {
   <h2>§ 06 移行方針</h2>
   <div class="card">
     <ol>
-      <li><code>GateSpan</code> と <code>GateSpanError</code> を <code>apps/web/src/gates/span.rs</code> に追加し、再公開する</li>
+      <li><code>GateSpan</code> と <code>GateSpanError</code> を <code>apps/web/src/gates/span.rs</code> に追加する（<code>GateSpan</code> のみ <code>gates</code> から再公開し、<code>GateSpanError</code> は <code>try_new</code> の戻り値型として内部に保つ）</li>
       <li><code>PlacedGate.span</code> と <code>PlacedGate::new</code> のスパン引数を <code>GateSpan</code> へ変更し、1 量子ビットゲートは <code>GateSpan::SINGLE</code> にする</li>
-      <li><code>span.clamp(1, 16).min(...)</code> / <code>span.clamp(1, 8).min(...)</code> / <code>span.max(1)</code> / <code>clamp_span_to_qubit_capacity</code> の切り詰めを <code>clamped_for</code> へ統一する</li>
-      <li>伸縮ドラッグのスパン候補と <code>SpanResizeDrag.start_span</code> を <code>GateSpan</code> へ変更する</li>
-      <li><code>layout/geometry.rs</code> のスパンを取るピクセル幅関数を <code>GateSpan</code> 受け取りにし、内部で <code>get()</code> を使う</li>
+      <li><code>span.clamp(1, 16).min(...)</code> / <code>span.clamp(1, 8).min(...)</code> / <code>span.max(1)</code> / <code>clamp_span_to_qubit_capacity</code> の切り詰めを <code>clamped_for</code> へ統一する（種類別上限は <code>GateKind::max_resizable_span</code> に集約）</li>
+      <li>伸縮ドラッグのスパン候補は <code>GateSpan::try_new</code> で <code>PlacedGate.span</code> へ戻す。<code>SpanResizeDrag.start_span</code> は差分計算用の一時状態なので <code>usize</code> のまま保つ</li>
+      <li><code>layout/geometry.rs</code> のピクセル幅関数は派生ピクセル層として <code>usize</code> 境界のままにし、呼び出し側で <code>get()</code> して渡す</li>
       <li>スパンを受け取る Rust ドメイン API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
     </ol>
     <p class="note">

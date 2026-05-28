@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashMap};
 use crate::layout::gate_width_cols;
 
 use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MIN_QUBITS, SLOT_SPACING};
-use crate::gates::{GateKind, ParametricAngle};
+use crate::gates::{GateKind, GateSpan, ParametricAngle};
 use crate::qubit_count::{local_state_count, QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
@@ -36,7 +36,7 @@ pub(crate) struct PlacedGate {
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
     /// resizable-span gates (Probability, Amplitude, QFT / QFT†) can grow via hover-revealed
     /// resize handles.
-    pub(crate) span: usize,
+    pub(crate) span: GateSpan,
     /// Angle value for parametric gates (`GateKind::Phase` / `Rx` / `Ry` / `Rz`).
     /// `Some` stores a qni-compatible, normalized value object. Palette-placed
     /// parametric gates store the explicit default `π/2` so the circuit can show
@@ -51,7 +51,7 @@ impl PlacedGate {
         kind: GateKind,
         column: CircuitColumnIndex,
         wire: WireIndex,
-        span: usize,
+        span: GateSpan,
         angle: Option<ParametricAngle>,
     ) -> Self {
         Self {
@@ -81,8 +81,7 @@ impl PlacedGate {
             return;
         }
         let remaining_wires = capacity.get().saturating_sub(self.wire.as_usize()).max(1);
-        let max_span = self.kind.max_resizable_span(remaining_wires);
-        self.span = self.span.clamp(1, max_span);
+        self.span = self.span.clamped_for(self.kind, remaining_wires);
     }
 }
 
@@ -163,7 +162,7 @@ impl QniApp {
             .iter()
             .filter_map(|gate| {
                 gate.column
-                    .checked_add(gate_width_cols(gate.kind, gate.span))
+                    .checked_add(gate_width_cols(gate.kind, gate.span.get()))
                     .and_then(|column| column.checked_add(1))
                     .map(CircuitColumnIndex::as_usize)
             })
@@ -174,7 +173,7 @@ impl QniApp {
     fn raw_required_qubit_count(&self) -> usize {
         self.placed_gates
             .iter()
-            .map(|gate| gate.wire.as_usize() + gate.span.saturating_sub(1) + 1)
+            .map(|gate| gate.wire.as_usize() + gate.span.get().saturating_sub(1) + 1)
             .max()
             .unwrap_or(0)
     }
@@ -221,7 +220,7 @@ impl QniApp {
             .flat_map(|gate| {
                 let start = gate.column.as_usize();
                 gate.column
-                    .checked_add(gate_width_cols(gate.kind, gate.span))
+                    .checked_add(gate_width_cols(gate.kind, gate.span.get()))
                     .into_iter()
                     .flat_map(move |end| start..end.as_usize())
             })
@@ -306,7 +305,7 @@ impl QniApp {
 
         let moving_width = gate_width_cols(
             self.placed_gates[gate_index].kind,
-            self.placed_gates[gate_index].span,
+            self.placed_gates[gate_index].span.get(),
         );
         let mut adjusted_insert = insert_index;
         let remove_old_column = original_column.is_some_and(|old_column| {

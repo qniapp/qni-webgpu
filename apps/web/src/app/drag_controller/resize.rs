@@ -5,6 +5,7 @@ use crate::app::QniApp;
 use crate::app::SpanResizeEdge;
 use crate::app::WireIndex;
 use crate::constants::LINE_GAP;
+use crate::gates::GateSpan;
 use crate::layout::gate_width_cols;
 use crate::span_resize::resolve_span_resize_candidate;
 
@@ -34,7 +35,7 @@ impl DragController {
                     let gate_kind = gate.kind;
                     let gate_column = gate.column;
                     let old_wire = gate.wire.as_usize();
-                    let old_span = gate.span;
+                    let old_span = gate.span.get();
                     let old_width = gate_width_cols(gate_kind, old_span);
                     let (desired_wire, desired_span) = match drag.edge {
                         SpanResizeEdge::Bottom => {
@@ -67,7 +68,7 @@ impl DragController {
                     let new_width = gate_width_cols(gate_kind, new_span);
                     let gate = &mut app.placed_gates[index];
                     gate.wire = WireIndex::new(new_wire);
-                    gate.span = new_span;
+                    gate.span = GateSpan::try_new(new_span).expect("resize span is at least 1");
                     gate.sync_pos_from_grid();
                     let changed = new_wire != old_wire || new_span != old_span;
                     if changed {

@@ -44,6 +44,8 @@ mod angle;
 pub(crate) use angle::ParametricAngle;
 mod controls;
 pub(crate) use controls::ColumnControls;
+mod span;
+pub(crate) use span::GateSpan;
 mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;

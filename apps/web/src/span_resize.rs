@@ -111,7 +111,7 @@ impl SpanResizeHandles {
         }
         Some(Self {
             gate_id: gate.id,
-            body_rect: span_resize_body_rect(gate.kind, gate.span, gate_rect),
+            body_rect: span_resize_body_rect(gate.kind, gate.span.get(), gate_rect),
             available_edges: available_edges(gate, gates, qubit_capacity),
         })
     }
@@ -145,7 +145,7 @@ impl SpanResizeHandles {
             edge,
             start_pointer_y: cursor.y,
             start_wire: gate.wire.as_usize(),
-            start_span: gate.span.max(1),
+            start_span: gate.span.get(),
         })
     }
 
@@ -222,30 +222,30 @@ fn edge_can_change_span(
 }
 
 fn can_shrink_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    gate.span > 1
+    gate.span.get() > 1
         && candidate_span_is_clear(
             gate,
             gates,
             gate.wire.as_usize() + 1,
-            gate.span - 1,
+            gate.span.get() - 1,
             qubit_capacity,
         )
 }
 
 fn can_shrink_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    gate.span > 1
+    gate.span.get() > 1
         && candidate_span_is_clear(
             gate,
             gates,
             gate.wire.as_usize(),
-            gate.span - 1,
+            gate.span.get() - 1,
             qubit_capacity,
         )
 }
 
 fn can_grow_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
-    let bottom_wire = gate.wire.as_usize() + gate.span.saturating_sub(1);
-    let next_span = gate.span + 1;
+    let bottom_wire = gate.wire.as_usize() + gate.span.get().saturating_sub(1);
+    let next_span = gate.span.get() + 1;
     if gate.wire.as_usize() == 0 || gate.kind.max_resizable_span(bottom_wire + 1) < next_span {
         return false;
     }
@@ -260,7 +260,7 @@ fn can_grow_from_top(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: us
 
 fn can_grow_from_bottom(gate: &PlacedGate, gates: &[PlacedGate], qubit_capacity: usize) -> bool {
     let remaining_wires = qubit_capacity.saturating_sub(gate.wire.as_usize()).max(1);
-    let next_span = gate.span + 1;
+    let next_span = gate.span.get() + 1;
     if gate.kind.max_resizable_span(remaining_wires) < next_span {
         return false;
     }
@@ -291,9 +291,9 @@ fn resolve_bottom_resize_candidate(
     qubit_capacity: usize,
     desired_span: usize,
 ) -> (usize, usize) {
-    let mut span = gate.span;
-    if desired_span <= gate.span {
-        for next_span in (desired_span..gate.span).rev() {
+    let mut span = gate.span.get();
+    if desired_span <= gate.span.get() {
+        for next_span in (desired_span..gate.span.get()).rev() {
             if !candidate_span_is_clear(
                 gate,
                 gates,
@@ -308,7 +308,7 @@ fn resolve_bottom_resize_candidate(
         return (gate.wire.as_usize(), span);
     }
 
-    for next_span in (gate.span + 1)..=desired_span {
+    for next_span in (gate.span.get() + 1)..=desired_span {
         if !candidate_span_is_clear(gate, gates, gate.wire.as_usize(), next_span, qubit_capacity) {
             break;
         }
@@ -323,9 +323,9 @@ fn resolve_top_resize_candidate(
     qubit_capacity: usize,
     desired_wire: usize,
 ) -> (usize, usize) {
-    let bottom_wire = gate.wire.as_usize() + gate.span.saturating_sub(1);
+    let bottom_wire = gate.wire.as_usize() + gate.span.get().saturating_sub(1);
     let mut wire = gate.wire.as_usize();
-    let mut span = gate.span;
+    let mut span = gate.span.get();
     if desired_wire >= gate.wire.as_usize() {
         let target_wire = desired_wire.min(bottom_wire);
         for next_wire in (gate.wire.as_usize() + 1)..=target_wire {
@@ -366,7 +366,7 @@ fn candidate_span_is_clear(
         WireIndex::new(candidate_wire),
         candidate_span,
     );
-    let old_width = gate_width_cols(gate.kind, gate.span);
+    let old_width = gate_width_cols(gate.kind, gate.span.get());
     let new_width = gate_width_cols(gate.kind, candidate_span);
     let old_right = gate
         .column
@@ -382,7 +382,7 @@ fn candidate_span_is_clear(
                 other.kind,
                 shifted_column,
                 other.wire,
-                other.span,
+                other.span.get(),
             ))
         })
         .collect::<Option<Vec<_>>>()
@@ -444,7 +444,7 @@ mod tests {
             kind,
             CircuitColumnIndex::new(column),
             WireIndex::new(wire),
-            span,
+            crate::gates::GateSpan::try_new(span).expect("test span must be non-zero"),
             None,
         )
     }

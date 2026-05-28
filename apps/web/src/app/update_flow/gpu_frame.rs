@@ -31,7 +31,7 @@ impl QniApp {
         let mut gates = self.placed_gates.clone();
         // Mirror `insert_gate_at_column` for GPU planning only: drawing and URL
         // state stay on the transient drag preview until the drop commits.
-        let moving_width = gate_width_cols(gates[gate_index].kind, gates[gate_index].span);
+        let moving_width = gate_width_cols(gates[gate_index].kind, gates[gate_index].span.get());
         let mut adjusted_insert = insert_index;
         if let Some(old_column) = drag.original_column {
             let old_column_still_occupied = gates

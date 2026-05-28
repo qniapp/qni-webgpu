@@ -445,7 +445,7 @@ mod tests {
             GateKind::Write0,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -459,7 +459,7 @@ mod tests {
             GateKind::Write1,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -474,7 +474,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -482,7 +482,7 @@ mod tests {
                 GateKind::Write0,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -498,7 +498,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -506,7 +506,7 @@ mod tests {
                 GateKind::Write1,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -522,7 +522,7 @@ mod tests {
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -530,7 +530,7 @@ mod tests {
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -545,7 +545,7 @@ mod tests {
             GateKind::Spacer,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -559,7 +559,7 @@ mod tests {
             GateKind::Measurement,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -574,7 +574,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -582,7 +582,7 @@ mod tests {
                 GateKind::X,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -597,7 +597,7 @@ mod tests {
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -612,7 +612,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -620,7 +620,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -635,7 +635,7 @@ mod tests {
             GateKind::AntiControl,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            1,
+            crate::gates::GateSpan::SINGLE,
             None,
         )];
 
@@ -650,7 +650,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -658,7 +658,7 @@ mod tests {
                 GateKind::H,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -674,7 +674,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -682,7 +682,7 @@ mod tests {
                 GateKind::SqrtX,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -698,7 +698,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -706,7 +706,7 @@ mod tests {
                 GateKind::Measurement,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -722,7 +722,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -730,7 +730,7 @@ mod tests {
                 GateKind::Measurement,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -745,7 +745,7 @@ mod tests {
             GateKind::QftGate,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            2,
+            crate::gates::GateSpan::try_new(2).unwrap(),
             None,
         )];
 
@@ -759,7 +759,7 @@ mod tests {
             GateKind::QftDaggerGate,
             crate::app::CircuitColumnIndex::new(0),
             crate::app::WireIndex::new(0),
-            2,
+            crate::gates::GateSpan::try_new(2).unwrap(),
             None,
         )];
 
@@ -774,7 +774,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -782,7 +782,7 @@ mod tests {
                 GateKind::QftGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
         ];
@@ -798,7 +798,7 @@ mod tests {
                 GateKind::AntiControl,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -806,7 +806,7 @@ mod tests {
                 GateKind::QftDaggerGate,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                2,
+                crate::gates::GateSpan::try_new(2).unwrap(),
                 None,
             ),
         ];
@@ -822,7 +822,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -830,7 +830,7 @@ mod tests {
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -838,7 +838,7 @@ mod tests {
                 GateKind::Swap,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(2),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];
@@ -854,7 +854,7 @@ mod tests {
                 GateKind::Control,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(0),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
             PlacedGate::new(
@@ -862,7 +862,7 @@ mod tests {
                 GateKind::DensityMatrixDisplay,
                 crate::app::CircuitColumnIndex::new(0),
                 crate::app::WireIndex::new(1),
-                1,
+                crate::gates::GateSpan::SINGLE,
                 None,
             ),
         ];

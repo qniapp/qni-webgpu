@@ -66,7 +66,7 @@ pub(crate) fn gate_rect_at_grid(
 /// `origin` is the top-left of the gate body (= rect.min + gate.pos
 /// in the circuit's local coordinate space).
 pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
-    egui::Rect::from_min_size(origin, gate_size(gate.kind, gate.span))
+    egui::Rect::from_min_size(origin, gate_size(gate.kind, gate.span.get()))
 }
 
 pub(crate) fn amplitude_grid_rect(gate_rect: egui::Rect, span: usize) -> egui::Rect {
