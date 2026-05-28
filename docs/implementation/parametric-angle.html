@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ParametricAngle — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路モデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ParametricAngle</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">ParametricAngle 実装仕様</h1>
+  <p class="page-lede">
+    <code>P</code> / <code>Rx</code> / <code>Ry</code> / <code>Rz</code> の角度を、ただの文字列ではなく値オブジェクトとして扱うための仕様。
+    qni 互換の角度表記、URL 往復、WebGPU 実行計画、外部 Qiskit Aer 経路へ渡す JSON を同じ意味で扱うことを目的にする。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      導入前の Web 側では、配置済みゲートの角度は <code>PlacedGate.angle: Option&lt;String&gt;</code> として保持されていた。
+      そのため <code>P()</code> や不正な分数のような値も型上は混入でき、実行計画作成時に解析へ失敗すると <code>π/2</code> に丸められる経路が残っていた。
+      一方、Qiskit バックエンドは Web 側と別の式解析器を持つため、同じ角度表記でも内部 WebGPU 実行と外部 Qiskit Aer 経路で振る舞いが分かれる恐れがある。
+    </p>
+    <p>
+      <code>ParametricAngle</code> は、生成できた時点で「qni 互換の角度として有効」と分かる値にする。
+      角度ラベル、URL 用表記、ラジアン値への変換を 1 か所に閉じ込め、<code>String</code> の受け渡しによる意味のずれを防ぐ。
+    </p>
+    <ul>
+      <li>角度の妥当性検証は URL 復元時、パレット配置時、将来の角度入力確定時に行う</li>
+      <li>GPU シェーダや <code>GateParams</code> のバイナリ配置は変更しない</li>
+      <li>量子状態、確率、ブロッホベクトルなどを CPU 側で計算しない既存規約は維持する</li>
+      <li>本仕様の中心は Web 側 Rust コードだが、外部 Qiskit Aer 経路の整合には Python 製 Qiskit バックエンドの式解析器更新も含める。Rust の値オブジェクト自体は Python 側へ移植しない</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="source-scan">
+  <h2>§ 02 ソース走査結果</h2>
+  <div class="card">
+    <p>
+      角度を扱う箇所を走査すると、必要な操作は「解析」だけではない。
+      URL 往復、ラベル表示、同角度判定、GPU 行列生成、外部 Qiskit Aer 経路との互換、TUI の入力確定がそれぞれ角度値へ別の要求を持つ。
+      <code>ParametricAngle</code> はこれらを 1 つの正規形から派生させる。
+    </p>
+    <table class="spec">
+      <thead><tr><th>用途</th><th>現状の参照箇所</th><th>必要な操作</th></tr></thead>
+      <tbody>
+        <tr><th>URL 復元</th><td><code>url_circuit/decode.rs</code></td><td><code>P(π_4)</code> の内側を読み、最初の <code>_</code> だけを <code>/</code> へ戻し、妥当性検証と約分を行う</td></tr>
+        <tr><th>URL 生成</th><td><code>url_circuit/encode.rs</code></td><td>正規化済みラベルを出し、最初の <code>/</code> だけ <code>_</code> に変換する</td></tr>
+        <tr><th>パレット配置</th><td><code>gates.rs</code>, <code>drag_controller/start.rs</code></td><td><code>π/2</code> の既定値を明示角度として生成する</td></tr>
+        <tr><th>GPU 実行計画</th><td><code>simulation_plan/linearize.rs</code>, <code>gates/params.rs</code></td><td>ラジアン値を <code>f32</code> で返し、解析失敗時の <code>π/2</code> 置き換えをなくす</td></tr>
+        <tr><th>ラベル描画</th><td><code>render/circuit_connectors/phase.rs</code></td><td><code>4π/8</code> と <code>π/2</code> を同じ表示ラベル <code>π/2</code> にする</td></tr>
+        <tr><th>Phase 接続線</th><td><code>render/circuit_connectors/phase.rs</code></td><td>文字列ではなく正規化済み係数で同角度判定し、同じ列の Phase を束ねる</td></tr>
+        <tr><th>TUI 入力</th><td><code>apps/tui/src/model.rs</code>, <code>apps/tui/src/input.rs</code></td><td><code>parse_phase_label</code> は <code>pi</code> / <code>PI</code> / 空白入り入力を処理するが、キー入力制約と約分規則は Web とずれる。統合時は <code>parse_user_input</code> に寄せる</td></tr>
+        <tr><th>外部 Qiskit Aer 経路</th><td><code>qni_qiskit_backend/circuit.py</code></td><td>列配列 JSON の形を変えず、qni 互換の正規化済みラベルを同じ角度として解釈できるようにする</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 03 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>ParametricAngle</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/gates/angle.rs</code> を新設し、<code>apps/web/src/gates.rs</code> から再公開する</td></tr>
+        <tr><th>対象ゲート</th><td><code>GateKind::Phase</code> / <code>GateKind::Rx</code> / <code>GateKind::Ry</code> / <code>GateKind::Rz</code></td></tr>
+        <tr><th>保持する値</th><td><code>π</code> に掛かる有理数係数。例: <code>π/2</code> は <code>1/2</code>、<code>-π/128</code> は <code>-1/128</code>、<code>2π/3</code> は <code>2/3</code>、<code>0</code> は <code>0/1</code></td></tr>
+        <tr><th>正規化</th><td>生成時に最大公約数で約分し、分母は正にそろえた後、<code>4π</code> 周期で <code>-2π &lt; θ &lt;= 2π</code> に収める。<code>4π/8</code> / <code>4/8π</code> / <code>π/2</code> はすべて同じ値になり、<code>4π</code> は <code>0</code>、<code>3π</code> は <code>-π</code> になる</td></tr>
+        <tr><th>境界</th><td>表記を一意にするため <code>-2π</code> は <code>2π</code> に寄せる。<code>2π</code> は <code>0</code> にしない</td></tr>
+        <tr><th>不変性</th><td>フィールドは非公開。生成後に係数を書き換えるメソッドは持たない</td></tr>
+        <tr><th>等価性</th><td>約分済みかつ <code>4π</code> 周期で正規化した係数で比較する。<code>π_2</code>、<code>π/2</code>、<code>4π/8</code>、<code>4/8π</code> は同じ値になる。<code>4π</code> と <code>0</code> も同じ値だが、<code>2π</code> と <code>0</code> は同じ値にしない</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ParametricAngle {
+    numerator: i32,
+    denominator: NonZeroU32,
+}
+
+impl ParametricAngle {
+    pub(crate) const DEFAULT_LABEL: &amp;'static str = "π/2";
+
+    pub(crate) fn parse_qni(input: &amp;str) -&gt; Result&lt;Self, ParametricAngleError&gt;;
+    pub(crate) fn parse_user_input(input: &amp;str) -&gt; Result&lt;Self, ParametricAngleError&gt;;
+    pub(crate) fn from_pi_fraction(numerator: i32, denominator: NonZeroU32) -&gt; Self;
+    // Default trait: ParametricAngle::default() == π/2
+    pub(crate) fn label(&amp;self) -&gt; String;
+    pub(crate) fn url_label(&amp;self) -&gt; String;
+    pub(crate) fn radians_f32(&amp;self) -&gt; f32;
+    pub(crate) fn numerator(&amp;self) -&gt; i32;
+    pub(crate) fn denominator(&amp;self) -&gt; u32;
+}</pre>
+
+    <p class="note" style="margin-top: 12px;">
+      <code>label()</code> は保持文字列を返すのではなく、約分と <code>4π</code> 周期正規化を終えた係数から qni 互換ラベルを組み立てる。
+      <code>radians_f32()</code> は GPU に渡す行列係数を作るための補助値を返すだけで、状態ベクトルの計算は行わない。
+      <code>ParametricAngle</code> が妥当性を保証するため、呼び出し側で <code>unwrap_or(π/2)</code> のような既定値への黙った置き換えをしてはならない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="grammar">
+  <h2>§ 04 受け付ける角度表記</h2>
+  <div class="card">
+    <p>
+      <code>parse_qni</code> は URL / JSON に現れる qni 互換表記を扱う。
+      前後の ASCII 空白を取り除き、URL から来る最初の <code>_</code> だけを <code>/</code> に戻し、ちょうど 1 つの <code>π</code> を含む整数の有理数係数として検証する。
+      ただし <code>0</code> だけは <code>π</code> を含まない例外として受け付ける。
+      小数係数や符号付き分母は拒否し、<code>0.5π</code> は <code>π/2</code>、<code>π/-2</code> は <code>-π/2</code> のような正規形で表す。
+      約分後は <code>4π</code> 周期で正規化し、係数を <code>(-2, 2]</code> に収める。
+      <code>parse_user_input</code> は角度入力 UI と TUI 互換のため、<code>pi</code> / <code>PI</code>、Unicode マイナス、空白除去を追加で許可する。
+      また、<code>π</code> を含まない整数または分数は <code>π</code> の係数として扱い、<code>1/2</code> を <code>π/2</code> に正規化する。
+      ただし小数係数と符号付き分母は入力 UI でも拒否し、妥当性検証は <code>ParametricAngle</code> だけで行う。
+    </p>
+    <table class="spec">
+      <thead><tr><th>入力例</th><th>正規化済みラベル</th><th>ラジアン値</th><th>扱い</th></tr></thead>
+      <tbody>
+        <tr><th><code>π</code></th><td><code>π</code></td><td><code>PI</code></td><td>有効</td></tr>
+        <tr><th><code>+π</code></th><td><code>π</code></td><td><code>PI</code></td><td>有効。正符号は表示しない</td></tr>
+        <tr><th><code>-π</code></th><td><code>-π</code></td><td><code>-PI</code></td><td>有効</td></tr>
+        <tr><th><code>π/2</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td>有効</td></tr>
+        <tr><th><code>π_2</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td>URL 用表記として有効</td></tr>
+        <tr><th><code>2π/3</code></th><td><code>2π/3</code></td><td><code>2 * PI / 3</code></td><td>有効</td></tr>
+        <tr><th><code>4π/8</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td>約分して有効</td></tr>
+        <tr><th><code>4/8π</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td>係数が <code>π</code> の前にある表記として有効</td></tr>
+        <tr><th><code>-6π/9</code></th><td><code>-2π/3</code></td><td><code>-2 * PI / 3</code></td><td>約分して有効</td></tr>
+        <tr><th><code>8π/4</code></th><td><code>2π</code></td><td><code>2 * PI</code></td><td>約分して有効。<code>2π</code> は <code>0</code> にしない</td></tr>
+        <tr><th><code>-2π</code></th><td><code>2π</code></td><td><code>2 * PI</code></td><td>境界を <code>2π</code> 側へ寄せる</td></tr>
+        <tr><th><code>4π</code></th><td><code>0</code></td><td><code>0</code></td><td><code>4π</code> 周期で正規化する</td></tr>
+        <tr><th><code>-4π</code></th><td><code>0</code></td><td><code>0</code></td><td><code>4π</code> 周期で正規化する</td></tr>
+        <tr><th><code>6π</code></th><td><code>2π</code></td><td><code>2 * PI</code></td><td><code>4π</code> 周期で正規化する</td></tr>
+        <tr><th><code>3π</code></th><td><code>-π</code></td><td><code>-PI</code></td><td><code>4π</code> 周期で正規化する</td></tr>
+        <tr><th><code>0π/8</code></th><td><code>0</code></td><td><code>0</code></td><td>約分して有効</td></tr>
+        <tr><th><code>0</code></th><td><code>0</code></td><td><code>0</code></td><td>有効</td></tr>
+        <tr><th><code>pi / 2</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td><code>parse_user_input</code> だけ有効</td></tr>
+        <tr><th><code>1/2</code></th><td><code>π/2</code></td><td><code>PI / 2</code></td><td><code>parse_user_input</code> だけ有効。<code>π</code> の係数として扱う</td></tr>
+        <tr><th><code>1/3π</code></th><td><code>π/3</code></td><td><code>PI / 3</code></td><td><code>parse_user_input</code> でも有効</td></tr>
+        <tr><th><code>P()</code> の内側</th><td>なし</td><td>なし</td><td>不正。<code>π/2</code> へ置き換えない</td></tr>
+        <tr><th><code>π/0</code></th><td>なし</td><td>なし</td><td>不正</td></tr>
+        <tr><th><code>1.0</code></th><td>なし</td><td>なし</td><td><code>π</code> を含まないため不正。ただし <code>0</code> だけは例外</td></tr>
+        <tr><th><code>0.5π</code></th><td>なし</td><td>なし</td><td>小数係数のため不正。<code>π/2</code> を使う</td></tr>
+        <tr><th><code>π/-2</code></th><td>なし</td><td>なし</td><td>符号付き分母のため不正。<code>-π/2</code> を使う</td></tr>
+        <tr><th><code>ππ</code></th><td>なし</td><td>なし</td><td><code>π</code> が複数あるため不正</td></tr>
+      </tbody>
+    </table>
+
+    <p class="note" style="margin-top: 12px;">
+      周期正規化は <code>4π</code> 単位だけで行う。
+      <code>Phase</code> 単体は <code>2π</code> 周期だが、<code>Rx</code> / <code>Ry</code> / <code>Rz</code> は行列として <code>4π</code> 周期なので、共通値オブジェクトでは <code>2π</code> を <code>0</code> にしない。
+      将来、Qiskit バックエンドと同じく <code>π/2 + π/4</code> のような式を Web 側でも扱う場合は、<code>ParametricAngle</code> の文法を拡張してから受け入れる。
+      先に <code>String</code> で例外的に通す実装は作らない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 05 組み込み方</h2>
+  <div class="card">
+    <h3>配置済みゲート</h3>
+    <p>
+      <code>PlacedGate.angle</code> は <code>Option&lt;String&gt;</code> から <code>Option&lt;ParametricAngle&gt;</code> に変更する。
+      <code>None</code> は古い URL に含まれる裸の <code>P</code> / <code>Rx</code> / <code>Ry</code> / <code>Rz</code> を表すためだけに残す。
+      パレットから新規配置したパラメトリックゲートは必ず <code>Some(ParametricAngle::default())</code> を持つ。
+    </p>
+
+    <h3 style="margin-top: 16px;">URL 往復</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>復元</th><td><code>P(π_4)</code> などの内側を <code>ParametricAngle::parse_qni</code> に渡す。失敗したトークンは不明トークンと同じ扱いで配置しない</td></tr>
+        <tr><th>生成</th><td><code>angle.url_label()</code> は、正規化済みラベル内の最初の <code>/</code> だけを <code>_</code> に変換した URL 用表記を返す。呼び出し側はその値を使って <code>P(π_4)</code> のように出力する。<code>P(4π_8)</code> は復元後の再生成で <code>P(π_2)</code>、<code>P(4π)</code> は <code>P(0)</code>、<code>P(3π)</code> は <code>P(-π)</code> になる</td></tr>
+        <tr><th>裸トークン</th><td><code>None</code> のときだけ <code>P</code> のように角度なしで出力する。新規配置から裸トークンは作らない</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 16px;">実行計画</h3>
+    <p>
+      <code>simulation_plan::linearize_ops</code> は、<code>Some(angle)</code> なら <code>angle.radians_f32()</code> を使って <code>phase_params</code> / <code>rx_params</code> / <code>ry_params</code> / <code>rz_params</code> を呼ぶ。
+      <code>None</code> の裸トークンだけ旧 URL 互換として <code>π/2</code> の既定行列に進む。
+      <code>Some</code> の解析失敗を実行計画で扱う分岐は存在しない。
+    </p>
+
+    <h3 style="margin-top: 16px;">描画ラベルと Phase 接続線</h3>
+    <p>
+      角度ラベルは <code>angle.label()</code> を表示する。
+      裸トークンは表示上だけ <code>ParametricAngle::default()</code> (<code>ParametricAngle::DEFAULT_LABEL</code> 相当) を使う。
+      同じ列の Phase 接続線は、正規化済み係数の一致で束ねる。
+      これにより <code>P(π_2)</code>、<code>P(π/2)</code>、<code>P(4π_8)</code>、<code>P(4/8π)</code> は同じ角度として扱われる。
+      同様に <code>P(4π)</code> と <code>P(0)</code> は同じ角度として扱うが、<code>P(2π)</code> と <code>P(0)</code> は共通値オブジェクト上は同じ角度にしない。
+    </p>
+
+    <h3 style="margin-top: 16px;">外部 Qiskit Aer 経路</h3>
+    <p>
+      外部 Qiskit Aer 経路は既存どおり <code>circuit_columns_to_json</code> が作る列配列 JSON を <code>columns</code> に埋め込んで送る。
+      <code>ParametricAngle</code> は JSON スキーマを変えず、JSON 生成前に角度表記の妥当性を保証する。
+      例: 列配列は <code>[["P(π_4)"]]</code>、送信 JSON 内では <code>{"columns":[["P(π_4)"]]}</code>。
+      ただし <code>2π/3</code> のような qni の省略乗算表記は、現行の Python 側解析器ではそのまま解釈できない。
+      <code>ParametricAngle</code> を導入する実装では、Qiskit バックエンドを更新し、Web 側が送る正規化済みラベルを同じ角度として受け付けるようにする。
+      JSON スキーマは変えないため、<code>columns</code> の要素は文字列トークンのままにする。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="non-goals">
+  <h2>§ 06 対象外</h2>
+  <div class="card">
+    <ul>
+      <li><code>GateKind</code> の値オブジェクト化は行わない。すでに enum で十分に制約できている</li>
+      <li><code>GateParams</code> のフィールド型は変更しない。WebGPU へ渡す <code>bytemuck::Pod</code> 構造体として維持する</li>
+      <li>GPU シェーダ内で角度文字列を解釈しない。文字列処理は Rust 側の実行計画作成までに終える</li>
+      <li>Qiskit バックエンドの Python 実装に Rust の値オブジェクトを移植しない。ただし Web から送る qni 互換表記を同じ意味で受け付けることはテストで確認する</li>
+      <li>Phase 専用の <code>2π</code> 周期正規化は行わない。<code>ParametricAngle</code> は <code>Phase</code> / <code>Rx</code> / <code>Ry</code> / <code>Rz</code> の共通値として <code>4π</code> 周期でだけ正規化する</li>
+      <li>QFT / QFT† の内部分解で作る制御 Phase の角度は、URL ラベルやユーザー入力を持たない実行計画内の一時値なので <code>ParametricAngle</code> へ置き換えない</li>
+      <li>状態表示や表示ブロックのシェーダ内で計算する振幅の位相角は、回路ゲートの入力角度ではないので <code>ParametricAngle</code> の対象外にする</li>
+      <li>ワイヤ番号、列番号、span の値オブジェクト化は別検討にする</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>妥当な角度を生成できる</strong> — <code>π</code> / <code>+π</code> / <code>-π</code> / <code>π/2</code> / <code>π_2</code> / <code>2π/3</code> / <code>0</code> が <code>ParametricAngle</code> になることを、各入力ごとに 1 ケース 1 アサーションで確認する</li>
+      <li><strong>約分される</strong> — <code>4π/8</code> / <code>4/8π</code> / <code>-6π/9</code> / <code>0π/8</code> が、それぞれ <code>π/2</code> / <code>π/2</code> / <code>-2π/3</code> / <code>0</code> へ正規化されることを、各入力ごとに確認する</li>
+      <li><strong><code>4π</code> 周期で正規化される</strong> — <code>4π</code> / <code>-4π</code> / <code>6π</code> / <code>3π</code> が、それぞれ <code>0</code> / <code>0</code> / <code>2π</code> / <code>-π</code> へ正規化されることを、各入力ごとに確認する</li>
+      <li><strong><code>2π</code> 周期では正規化しない</strong> — <code>8π/4</code> が <code>2π</code> になり、<code>0</code> にはならないことを確認する</li>
+      <li><strong>境界は <code>2π</code> 側へ寄せる</strong> — <code>-2π</code> が <code>2π</code> へ正規化されることを確認する</li>
+      <li><strong>不正な角度を拒否する</strong> — 空文字 / <code>π/0</code> / <code>1.0</code> / <code>0.5π</code> / <code>π/-2</code> / <code>abc</code> / <code>ππ</code> が <code>Err</code> になることを、各入力ごとに確認する。<code>P()</code> は内側が空文字の例として扱う</li>
+      <li><strong>URL 表記を正規化する</strong> — <code>π_2</code> を復元すると <code>label() == "π/2"</code> になり、生成時は <code>url_label() == "π_2"</code> になることを別々のテストで確認する</li>
+      <li><strong>約分・周期正規化後の URL が安定する</strong> — <code>P(4π_8)</code> を復元して再生成すると <code>P(π_2)</code> になること、<code>P(4π)</code> を復元して再生成すると <code>P(0)</code> になることを別々のテストで確認する</li>
+      <li><strong>同角度判定が正規化係数で行われる</strong> — <code>π/2</code> と <code>4π/8</code> が同じ値として扱われること、<code>4π</code> と <code>0</code> が同じ値として扱われること、<code>2π</code> と <code>0</code> は異なる値として扱われることを別々のテストで確認する</li>
+      <li><strong>ラジアン値が正しい</strong> — <code>π/2</code> / <code>-2π/3</code> / <code>4π</code> / <code>6π</code> の <code>radians_f32()</code> が、それぞれ <code>PI / 2</code> / <code>-2 * PI / 3</code> / <code>0</code> / <code>2 * PI</code> に近いことを各入力ごとに確認する</li>
+      <li><strong>ユーザー入力互換を保つ</strong> — <code>parse_user_input("pi / 2")</code> / <code>parse_user_input("PI/2")</code> / <code>parse_user_input("1/2")</code> が <code>π/2</code> になることを、各入力ごとに確認する</li>
+      <li><strong>旧 URL の裸トークンを保つ</strong> — <code>{"cols":[["P"]]}</code> / <code>{"cols":[["Rx"]]}</code> / <code>{"cols":[["Ry"]]}</code> / <code>{"cols":[["Rz"]]}</code> を復元した場合は <code>angle == None</code> のままにすること、表示では <code>π/2</code> として扱うこと、実行では <code>π/2</code> として扱うこと、再生成も裸トークンになることをゲート種別と観点ごとに別々のテストで確認する</li>
+      <li><strong>新規パレット配置は明示角度を持つ</strong> — <code>Phase</code> / <code>Rx</code> / <code>Ry</code> / <code>Rz</code> のパレット配置が <code>Some(ParametricAngle::default())</code> になり、URL は <code>P(π_2)</code> などになることを各ゲートごとに確認する</li>
+      <li><strong>不正角度は既定値に化けない</strong> — <code>{"cols":[["P()"]]}</code> や <code>{"cols":[["P(π_0)"]]}</code> を復元しても <code>π/2</code> の Phase ゲートとして配置されないことを確認する</li>
+      <li><strong>実行計画で再解析失敗分岐がない</strong> — <code>linearize_ops</code> 内から <code>parse_angle_radians(...).unwrap_or(...)</code> が消え、<code>ParametricAngle</code> から得たラジアン値だけを使うことを確認する</li>
+      <li><strong>外部 Qiskit Aer 経路と意味が一致する</strong> — <code>ParametricAngle</code> 導入後も <code>P(π_4)</code> / <code>Rx(π_2)</code> / <code>P(2π_3)</code> などの列配列 JSON が Qiskit バックエンドで同じ角度として受理されることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>配置済みゲート</th><td><code>apps/web/src/app/circuit_model.rs</code> (<code>PlacedGate.angle</code>)</td></tr>
+        <tr><th>角度解析と行列係数</th><td><code>apps/web/src/gates/angle.rs</code> (<code>ParametricAngle</code>), <code>apps/web/src/gates/params.rs</code> (<code>phase_params</code>, <code>rx_params</code>, <code>ry_params</code>, <code>rz_params</code>)</td></tr>
+        <tr><th>実行計画</th><td><code>apps/web/src/simulation_plan/linearize.rs</code> (パラメトリックゲートの <code>GateParams</code> 生成)</td></tr>
+        <tr><th>URL 復元</th><td><code>apps/web/src/url_circuit/decode.rs</code> (<code>P(...)</code> / <code>Rx(...)</code> / <code>Ry(...)</code> / <code>Rz(...)</code>)</td></tr>
+        <tr><th>URL 生成</th><td><code>apps/web/src/url_circuit/encode.rs</code> (<code>format_parametric</code>)</td></tr>
+        <tr><th>角度ラベル描画</th><td><code>apps/web/src/render/circuit_connectors/phase.rs</code> (<code>parametric_angle_label_text</code>)</td></tr>
+        <tr><th>TUI 角度入力</th><td><code>apps/tui/src/model.rs</code> (<code>PhaseValue</code>, <code>parse_phase_label</code>), <code>apps/tui/src/input.rs</code> (<code>handle_phase_edit_key</code>)</td></tr>
+        <tr><th>外部 Qiskit Aer 経路</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/circuit.py</code> (<code>parse_angle</code>, <code>split_parametric</code>)</td></tr>
+        <tr><th>対象外の角度</th><td><code>apps/web/src/simulation_plan/linearize.rs</code> (<code>linearize_qft</code> の制御 Phase 角度), <code>apps/web/src/gpu/shaders/state.rs</code> (表示用の振幅位相)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · ParametricAngle 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

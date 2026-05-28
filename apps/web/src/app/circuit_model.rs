@@ -12,7 +12,7 @@ use crate::layout::gate_width_cols;
 use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, SLOT_SPACING,
 };
-use crate::gates::GateKind;
+use crate::gates::{GateKind, ParametricAngle};
 
 use super::QniApp;
 
@@ -33,13 +33,12 @@ pub(crate) struct PlacedGate {
     /// resizable-span gates (Probability, Amplitude, QFT / QFT†) can grow via hover-revealed
     /// resize handles.
     pub(crate) span: usize,
-    /// Angle string for parametric gates (`GateKind::Phase` / `Rx` / `Ry` / `Rz`).
-    /// Stored as the raw qni-compatible expression — e.g. `"π/2"`, `"-π/128"`,
-    /// `"2π/3"`, `"0"` — so URL round-trips are exact. Palette-placed parametric
-    /// gates store the explicit default `"π/2"` so the circuit can show the
-    /// angle label immediately. `None` still represents a bare legacy token and
-    /// is evaluated as the gate's default.
-    pub(crate) angle: Option<String>,
+    /// Angle value for parametric gates (`GateKind::Phase` / `Rx` / `Ry` / `Rz`).
+    /// `Some` stores a qni-compatible, normalized value object. Palette-placed
+    /// parametric gates store the explicit default `π/2` so the circuit can show
+    /// the angle label immediately. `None` still represents a bare legacy token
+    /// and is evaluated as the gate's default.
+    pub(crate) angle: Option<ParametricAngle>,
 }
 
 impl PlacedGate {
@@ -49,7 +48,7 @@ impl PlacedGate {
         column: usize,
         wire: usize,
         span: usize,
-        angle: Option<String>,
+        angle: Option<ParametricAngle>,
     ) -> Self {
         Self {
             id,

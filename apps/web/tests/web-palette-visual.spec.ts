@@ -298,6 +298,22 @@ test('invalid active angle editor restores the previous angle', async ({ page })
   })
 })
 
+test('active angle editor normalizes coefficient fraction', async ({ page }) => {
+  const expectedCols = [['P(π_2)']]
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['P(π_4)']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const geometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
+  const label = geometry.labels[0]
+  await page.mouse.click((label.left + label.right) / 2, (label.top + label.bottom) / 2)
+  await page.waitForTimeout(850)
+  await page.keyboard.type('1/2')
+  await page.keyboard.press('Enter')
+  await waitForHashCols(page, expectedCols)
+
+  expect(readCircuitColsFromHash(page.url())).toEqual(expectedCols)
+})
+
 test('palette Phase drop shows its π/2 default angle label', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })

@@ -1,7 +1,7 @@
 //! Circuit JSON encoder (`PlacedGate` → `{"cols":[...]}`).
 
 use crate::app::PlacedGate;
-use crate::gates::GateKind;
+use crate::gates::{GateKind, ParametricAngle};
 
 use super::EMPTY_CIRCUIT_JSON;
 
@@ -46,7 +46,7 @@ pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: 
         // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count).map(|_| "1".to_string()).collect();
         for gate in bucket {
-            let Some(token) = gate_token(gate.kind, gate.span, gate.angle.as_deref()) else {
+            let Some(token) = gate_token(gate.kind, gate.span, gate.angle.as_ref()) else {
                 continue;
             };
             if gate.wire < entries.len() {
@@ -76,7 +76,7 @@ pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: 
 /// into URL fragments — mirroring qni's `phase-gate-element.ts::toJson`.
 /// Palette drops store the explicit default `π/2`; `None` is kept for bare
 /// legacy tokens and emits bare `"Base"`.
-fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String> {
+fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> Option<String> {
     let spec = kind.spec();
     let s = match kind {
         GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => {
@@ -111,10 +111,10 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&str>) -> Option<String
 /// otherwise bare `Base`. The angle string is URL-safed by replacing
 /// the first `/` with `_` to match qni's
 /// `phase-gate-element.ts::toJson` substitution.
-fn format_parametric(base: &str, angle: Option<&str>) -> String {
+fn format_parametric(base: &str, angle: Option<&ParametricAngle>) -> String {
     match angle {
-        Some(a) if !a.is_empty() => format!("{}({})", base, a.replacen('/', "_", 1)),
-        _ => base.to_string(),
+        Some(angle) => format!("{}({})", base, angle.url_label()),
+        None => base.to_string(),
     }
 }
 
@@ -151,6 +151,62 @@ mod tests {
         let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 16, None);
 
         assert_eq!(circuit_to_json(&[gate], 16), r#"{"cols":[["Amps16"]]}"#);
+    }
+
+    #[test]
+    fn parametric_angle_serializes_normalized_url_label() {
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Phase,
+            0,
+            0,
+            1,
+            Some(ParametricAngle::parse_qni("4π/8").unwrap()),
+        );
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["P(π_2)"]]}"#);
+    }
+
+    #[test]
+    fn parametric_angle_serializes_four_pi_as_zero() {
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Phase,
+            0,
+            0,
+            1,
+            Some(ParametricAngle::parse_qni("4π").unwrap()),
+        );
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["P(0)"]]}"#);
+    }
+
+    #[test]
+    fn bare_phase_angle_serializes_without_angle() {
+        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["P"]]}"#);
+    }
+
+    #[test]
+    fn bare_rx_angle_serializes_without_angle() {
+        let gate = PlacedGate::new(1, GateKind::Rx, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Rx"]]}"#);
+    }
+
+    #[test]
+    fn bare_ry_angle_serializes_without_angle() {
+        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Ry"]]}"#);
+    }
+
+    #[test]
+    fn bare_rz_angle_serializes_without_angle() {
+        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, None);
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Rz"]]}"#);
     }
 
     #[test]

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import urllib.error
 import urllib.request
 
-from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit
+from qni_qiskit_backend.circuit import CircuitBuildError, apply_columns_to_qiskit, parse_angle
 from qni_qiskit_backend.contract import ContractError, parse_run_request
 from qni_qiskit_backend.runners import (
     MockRunner,
@@ -39,6 +39,44 @@ def running_test_server(default_runner, allowed_runners, proxy_token=""):
 
 
 class ContractTests(unittest.TestCase):
+    def test_parse_angle_accepts_qni_implicit_multiplication(self):
+        self.assertAlmostEqual(parse_angle("2π/3"), 2 * math.pi / 3)
+
+    def test_parse_angle_accepts_qni_url_separator(self):
+        self.assertAlmostEqual(parse_angle("π_2"), math.pi / 2)
+
+    def test_qiskit_builder_applies_qni_implicit_phase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def p(self, phase, wire):
+                self.ops.append(("p", phase, wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P(2π_3)"]], 1)
+        self.assertAlmostEqual(fake.ops[0][1], 2 * math.pi / 3)
+
+    def test_qiskit_builder_applies_qni_rx_url_angle(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def rx(self, phase, wire):
+                self.ops.append(("rx", phase, wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["Rx(π_2)"]], 1)
+        self.assertAlmostEqual(fake.ops[0][1], math.pi / 2)
+
+    def test_parse_angle_rejects_empty_expression(self):
+        with self.assertRaises(CircuitBuildError):
+            parse_angle("")
+
+    def test_parse_angle_rejects_zero_denominator(self):
+        with self.assertRaises(CircuitBuildError):
+            parse_angle("π_0")
+
     def test_rejects_full_statevector_output(self):
         with self.assertRaises(ContractError):
             parse_run_request(

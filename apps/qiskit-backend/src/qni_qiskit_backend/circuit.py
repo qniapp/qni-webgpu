@@ -26,11 +26,21 @@ def token_text(token: Any) -> str | None:
 
 
 def parse_angle(expr: str | None, default: float = math.pi / 2) -> float:
-    if expr is None or not expr.strip():
+    if expr is None:
         return default
-    normalized = expr.strip().replace("π", "pi")
-    tree = ast.parse(normalized, mode="eval")
+    if not expr.strip():
+        raise CircuitBuildError("unsupported angle expression")
+    normalized = normalize_angle_expr(expr)
+    try:
+        tree = ast.parse(normalized, mode="eval")
+    except SyntaxError as exc:
+        raise CircuitBuildError("unsupported angle expression") from exc
     return float(_eval_angle_node(tree.body))
+
+
+def normalize_angle_expr(expr: str) -> str:
+    normalized = expr.strip().replace("_", "/").replace("π", "pi")
+    return re.sub(r"(?<=\d)pi\b", "*pi", normalized)
 
 
 def _eval_angle_node(node: ast.AST) -> float:
@@ -50,6 +60,8 @@ def _eval_angle_node(node: ast.AST) -> float:
         if isinstance(node.op, ast.Mult):
             return left * right
         if isinstance(node.op, ast.Div):
+            if right == 0:
+                raise CircuitBuildError("unsupported angle expression")
             return left / right
     raise CircuitBuildError("unsupported angle expression")
 

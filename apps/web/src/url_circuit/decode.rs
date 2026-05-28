@@ -1,7 +1,7 @@
 //! URL decoder (`location.hash` / qni path payload → `PlacedGate`s).
 
 use crate::app::PlacedGate;
-use crate::gates::GateKind;
+use crate::gates::{GateKind, ParametricAngle};
 
 use super::parser::parse_cols;
 
@@ -192,10 +192,10 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
 /// tokens (e.g. tokens emitted by a future qni version we don't yet know
 /// about).
 ///
-/// The third tuple slot is the angle string — `Some("π/2")` etc. —
+/// The third tuple slot is the angle value — `Some(π/2)` etc. —
 /// `None` for non-parametric gates and for bare parametric tokens (which
 /// use the editor's default angle).
-fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
+fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftDaggerGate, span.max(1), None));
@@ -243,16 +243,8 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<String>)> {
         if let Some(rest) = token.strip_prefix(prefix) {
             if let Some(inner) = rest.strip_suffix(')') {
                 let trimmed = inner.trim();
-                let normalized = if let Some(idx) = trimmed.find('_') {
-                    let mut s = String::with_capacity(trimmed.len());
-                    s.push_str(&trimmed[..idx]);
-                    s.push('/');
-                    s.push_str(&trimmed[idx + 1..]);
-                    s
-                } else {
-                    trimmed.to_string()
-                };
-                return Some((kind, 1, Some(normalized)));
+                let angle = ParametricAngle::parse_qni(trimmed).ok()?;
+                return Some((kind, 1, Some(angle)));
             }
         }
     }
@@ -302,6 +294,71 @@ mod tests {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps"]]}"#);
 
         assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn parametric_angle_decodes_normalized_label() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
+
+        assert_eq!(
+            gates
+                .first()
+                .and_then(|gate| gate.angle)
+                .map(|angle| angle.label()),
+            Some("π/2".to_owned())
+        );
+    }
+
+    #[test]
+    fn parametric_angle_round_trip_uses_normalized_url_label() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
+
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(&gates, 1),
+            r#"{"cols":[["P(π_2)"]]}"#
+        );
+    }
+
+    #[test]
+    fn parametric_angle_invalid_token_is_ignored() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["P()"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn parametric_angle_zero_denominator_token_is_ignored() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(π_0)"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn bare_phase_token_keeps_missing_angle() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["P"]]}"#);
+
+        assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
+    }
+
+    #[test]
+    fn bare_rx_token_keeps_missing_angle() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Rx"]]}"#);
+
+        assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
+    }
+
+    #[test]
+    fn bare_ry_token_keeps_missing_angle() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Ry"]]}"#);
+
+        assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
+    }
+
+    #[test]
+    fn bare_rz_token_keeps_missing_angle() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Rz"]]}"#);
+
+        assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
     }
 
     #[test]

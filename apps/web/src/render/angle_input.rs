@@ -5,7 +5,7 @@ use eframe::egui;
 use crate::app::{AngleAffordance, AngleEditor, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::GATE_SIZE;
-use crate::gates::{normalize_angle_input, GateKind, PARAMETRIC_DEFAULT_ANGLE};
+use crate::gates::{GateKind, ParametricAngle};
 use crate::layout::LayoutMetrics;
 use crate::simulation_plan::ColumnAnalysis;
 
@@ -29,10 +29,10 @@ struct OwnedAngleLabel {
 }
 
 impl OwnedAngleLabel {
-    fn as_info(&self) -> AngleLabelInfo<'_> {
+    fn as_info(&self) -> AngleLabelInfo {
         AngleLabelInfo {
             gate_id: self.gate_id,
-            text: &self.text,
+            text: self.text.clone(),
             pos: self.pos,
             align: self.align,
             above_gate: self.above_gate,
@@ -152,7 +152,7 @@ impl QniApp {
             })
             .map(|label| OwnedAngleLabel {
                 gate_id: label.gate_id,
-                text: label.text.to_owned(),
+                text: label.text,
                 pos: label.pos,
                 align: label.align,
                 above_gate: label.above_gate,
@@ -241,8 +241,8 @@ impl QniApp {
         }
         let draft = gate
             .angle
-            .clone()
-            .unwrap_or_else(|| PARAMETRIC_DEFAULT_ANGLE.to_owned());
+            .map(|angle| angle.label())
+            .unwrap_or_else(|| ParametricAngle::default().label());
         self.angle_editor = Some(AngleEditor {
             gate_id,
             draft,
@@ -361,7 +361,7 @@ impl QniApp {
         let Some(editor) = self.angle_editor.take() else {
             return true;
         };
-        let Some(normalized) = normalize_angle_input(&editor.draft) else {
+        let Ok(angle) = ParametricAngle::parse_user_input(&editor.draft) else {
             ctx.request_repaint();
             return false;
         };
@@ -373,12 +373,12 @@ impl QniApp {
             ctx.request_repaint();
             return true;
         };
-        if self.placed_gates[index].angle.as_deref() == Some(normalized.as_str()) {
+        if self.placed_gates[index].angle == Some(angle) {
             ctx.request_repaint();
             return true;
         }
         self.begin_circuit_commit();
-        self.placed_gates[index].angle = Some(normalized);
+        self.placed_gates[index].angle = Some(angle);
         if self.commit_current_circuit(ctx) {
             self.gpu_plan.mark_dirty();
         }
@@ -388,7 +388,7 @@ impl QniApp {
     fn paint_angle_affordance(
         &self,
         painter: &egui::Painter,
-        label: &AngleLabelInfo<'_>,
+        label: &AngleLabelInfo,
         colors: &Colors,
         now: f64,
         ctx: &egui::Context,
@@ -412,7 +412,7 @@ impl QniApp {
     fn paint_underline(
         &self,
         painter: &egui::Painter,
-        label: &AngleLabelInfo<'_>,
+        label: &AngleLabelInfo,
         colors: &Colors,
         alpha: f32,
     ) {

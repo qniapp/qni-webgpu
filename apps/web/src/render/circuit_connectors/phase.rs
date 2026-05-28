@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::app::{PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
-use crate::gates::{GateKind, PARAMETRIC_DEFAULT_ANGLE};
+use crate::gates::{GateKind, ParametricAngle};
 use crate::layout::LayoutMetrics;
 use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
 
@@ -51,10 +51,10 @@ impl ConnectionSides {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::render) struct AngleLabelInfo<'a> {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(in crate::render) struct AngleLabelInfo {
     pub(in crate::render) gate_id: u32,
-    pub(in crate::render) text: &'a str,
+    pub(in crate::render) text: String,
     pub(in crate::render) pos: egui::Pos2,
     pub(in crate::render) align: egui::Align2,
     pub(in crate::render) above_gate: bool,
@@ -103,23 +103,19 @@ fn draw_phase_phase_connectors(
     // Semantically it's a *visual* pairing only — qni's simulator still runs
     // each Phase independently (`simulator.ts::cu` :413-417 loops over
     // targets and applies the same 2x2 to each in turn), so we mirror just the
-    // line rendering. Bare legacy `P` uses the parametric default π/2; an
-    // explicit empty angle remains a placeholder and is skipped.
+    // line rendering. Bare legacy `P` uses the parametric default π/2.
     for column in render_columns.columns() {
-        let mut angle_buckets: HashMap<String, Vec<egui::Pos2>> = HashMap::new();
+        let mut angle_buckets: HashMap<ParametricAngle, Vec<egui::Pos2>> = HashMap::new();
         for gate in column.gates() {
             if gate.kind != GateKind::Phase {
                 continue;
             }
-            let Some(angle) = phase_angle_label_text(gate) else {
+            let Some(angle) = phase_angle(gate) else {
                 continue;
             };
             let center =
                 circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-            angle_buckets
-                .entry(angle.to_string())
-                .or_default()
-                .push(center);
+            angle_buckets.entry(angle).or_default().push(center);
         }
         for points in angle_buckets.values() {
             if points.len() < 2 {
@@ -174,21 +170,22 @@ fn draw_parametric_angle_labels(
             painter,
             label.pos,
             label.align,
-            label.text,
+            &label.text,
             colors,
             label.outline_with_background,
         );
     }
 }
 
-pub(in crate::render) fn parametric_angle_label_info<'a>(
-    gate: &'a PlacedGate,
+pub(in crate::render) fn parametric_angle_label_info(
+    gate: &PlacedGate,
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
     circuit_origin: egui::Pos2,
     dragging_gate_id: Option<u32>,
-) -> Option<AngleLabelInfo<'a>> {
-    let angle = parametric_angle_label_text(gate)?;
+) -> Option<AngleLabelInfo> {
+    let angle = parametric_angle(gate)?;
+    let text = angle.label();
     let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
         .map(|column| angle_label_connection_sides(column, gate, angle))
@@ -197,7 +194,7 @@ pub(in crate::render) fn parametric_angle_label_info<'a>(
     let (pos, align) = angle_label_position(center, layout);
     Some(AngleLabelInfo {
         gate_id: gate.id,
-        text: angle,
+        text,
         pos,
         align,
         above_gate: layout.above_gate,
@@ -205,7 +202,7 @@ pub(in crate::render) fn parametric_angle_label_info<'a>(
     })
 }
 
-pub(in crate::render) fn angle_label_interaction_rect(label: &AngleLabelInfo<'_>) -> egui::Rect {
+pub(in crate::render) fn angle_label_interaction_rect(label: &AngleLabelInfo) -> egui::Rect {
     let top = if label.above_gate {
         label.pos.y - ANGLE_LABEL_ROW_HEIGHT
     } else {
@@ -217,7 +214,7 @@ pub(in crate::render) fn angle_label_interaction_rect(label: &AngleLabelInfo<'_>
     )
 }
 
-pub(in crate::render) fn angle_underline_segment(label: &AngleLabelInfo<'_>) -> [egui::Pos2; 2] {
+pub(in crate::render) fn angle_underline_segment(label: &AngleLabelInfo) -> [egui::Pos2; 2] {
     let y = angle_underline_y(label);
     [
         egui::pos2(label.pos.x - GATE_SIZE * 0.5, y),
@@ -227,7 +224,7 @@ pub(in crate::render) fn angle_underline_segment(label: &AngleLabelInfo<'_>) -> 
 
 pub(in crate::render) fn reserve_angle_label_outline(
     painter: &egui::Painter,
-    label: &AngleLabelInfo<'_>,
+    label: &AngleLabelInfo,
 ) -> Option<[egui::layers::ShapeIdx; ANGLE_LABEL_OUTLINE_OFFSETS.len()]> {
     label
         .outline_with_background
@@ -260,7 +257,7 @@ pub(in crate::render) fn paint_reserved_angle_label_outline(
     }
 }
 
-fn angle_underline_y(label: &AngleLabelInfo<'_>) -> f32 {
+fn angle_underline_y(label: &AngleLabelInfo) -> f32 {
     angle_label_interaction_rect(label).bottom() - ANGLE_UNDERLINE_BOTTOM_INSET
 }
 
@@ -323,11 +320,16 @@ fn draw_angle_label(
     painter.text(pos, align, text, font_id, colors.text_strong);
 }
 
-fn phase_angle_label_text(gate: &PlacedGate) -> Option<&str> {
+fn phase_angle(gate: &PlacedGate) -> Option<ParametricAngle> {
     if gate.kind != GateKind::Phase {
         return None;
     }
-    parametric_angle_label_text(gate)
+    parametric_angle(gate)
+}
+
+#[cfg(test)]
+fn phase_angle_label_text(gate: &PlacedGate) -> Option<String> {
+    phase_angle(gate).map(|angle| angle.label())
 }
 
 fn phase_render_column<'columns, 'gates>(
@@ -343,24 +345,25 @@ fn phase_render_column<'columns, 'gates>(
         .find(|column| column.slot == slot)
 }
 
-fn parametric_angle_label_text(gate: &PlacedGate) -> Option<&str> {
+fn parametric_angle(gate: &PlacedGate) -> Option<ParametricAngle> {
     if !matches!(
         gate.kind,
         GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz
     ) {
         return None;
     }
-    match gate.angle.as_deref() {
-        Some(angle) if !angle.is_empty() => Some(angle),
-        Some(_) => None,
-        None => Some(PARAMETRIC_DEFAULT_ANGLE),
-    }
+    Some(gate.angle.unwrap_or_default())
+}
+
+#[cfg(test)]
+fn parametric_angle_label_text(gate: &PlacedGate) -> Option<String> {
+    parametric_angle(gate).map(|angle| angle.label())
 }
 
 fn angle_label_connection_sides(
     column: &AnalyzedColumn<'_>,
     gate: &PlacedGate,
-    angle: &str,
+    angle: ParametricAngle,
 ) -> ConnectionSides {
     let mut sides = phase_phase_connection_sides(column, gate, angle);
     sides.include(control_connection_sides(column, gate));
@@ -370,7 +373,7 @@ fn angle_label_connection_sides(
 fn phase_phase_connection_sides(
     column: &AnalyzedColumn<'_>,
     gate: &PlacedGate,
-    angle: &str,
+    angle: ParametricAngle,
 ) -> ConnectionSides {
     if gate.kind != GateKind::Phase {
         return ConnectionSides::default();
@@ -380,7 +383,7 @@ fn phase_phase_connection_sides(
         if other.id == gate.id || other.kind != GateKind::Phase {
             continue;
         }
-        if phase_angle_label_text(other) != Some(angle) {
+        if phase_angle(other) != Some(angle) {
             continue;
         }
         sides.include_wire(gate.wire, other.wire);
@@ -425,46 +428,50 @@ fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> C
 mod tests {
     use super::*;
 
+    fn angle(value: &str) -> ParametricAngle {
+        ParametricAngle::parse_qni(value).expect("angle should parse")
+    }
+
     #[test]
     fn phase_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, None);
 
-        assert_eq!(phase_angle_label_text(&gate), Some("π/2"));
-    }
-
-    #[test]
-    fn phase_label_skips_explicit_empty_angle() {
-        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(String::new()));
-
-        assert_eq!(phase_angle_label_text(&gate), None);
+        assert_eq!(phase_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
     fn phase_label_keeps_explicit_angle() {
-        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some("2π/3".to_owned()));
+        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(angle("2π/3")));
 
-        assert_eq!(phase_angle_label_text(&gate), Some("2π/3"));
+        assert_eq!(phase_angle_label_text(&gate), Some("2π/3".to_owned()));
     }
 
     #[test]
     fn rx_label_uses_default_for_missing_angle() {
         let gate = PlacedGate::new(1, GateKind::Rx, 0, 0, 1, None);
 
-        assert_eq!(parametric_angle_label_text(&gate), Some("π/2"));
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
+    }
+
+    #[test]
+    fn ry_label_uses_default_for_missing_angle() {
+        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, None);
+
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
     fn ry_label_keeps_explicit_angle() {
-        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, Some("π/4".to_owned()));
+        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, Some(angle("π/4")));
 
-        assert_eq!(parametric_angle_label_text(&gate), Some("π/4"));
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/4".to_owned()));
     }
 
     #[test]
-    fn rz_label_skips_explicit_empty_angle() {
-        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, Some(String::new()));
+    fn rz_label_uses_default_for_missing_angle() {
+        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, None);
 
-        assert_eq!(parametric_angle_label_text(&gate), None);
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
@@ -500,14 +507,14 @@ mod tests {
     #[test]
     fn phase_with_phase_above_and_control_below_gets_both_connection_sides() {
         let gates = vec![
-            PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some("π/2".to_owned())),
-            PlacedGate::new(2, GateKind::Phase, 0, 1, 1, Some("π/2".to_owned())),
+            PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(angle("π/2"))),
+            PlacedGate::new(2, GateKind::Phase, 0, 1, 1, Some(angle("4π/8"))),
             PlacedGate::new(3, GateKind::Control, 0, 2, 1, None),
         ];
         let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column));
 
         assert_eq!(
-            angle_label_connection_sides(&analysis.columns()[0], &gates[1], "π/2"),
+            angle_label_connection_sides(&analysis.columns()[0], &gates[1], angle("π/2")),
             ConnectionSides {
                 top: true,
                 bottom: true,
@@ -519,7 +526,7 @@ mod tests {
     fn underline_matches_prototype_row_inset() {
         let label = AngleLabelInfo {
             gate_id: 1,
-            text: "π/2",
+            text: "π/2".to_owned(),
             pos: egui::pos2(80.0, 60.0),
             align: egui::Align2::CENTER_BOTTOM,
             above_gate: true,

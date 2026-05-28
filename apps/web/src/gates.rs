@@ -40,15 +40,15 @@ pub(crate) enum GateKind {
     QftDaggerGate,
 }
 
+mod angle;
+pub(crate) use angle::ParametricAngle;
 mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;
 pub(crate) use params::{
-    controlled_phase_params, gate_params, gate_params_controlled, normalize_angle_input,
-    parse_angle_radians, phase_params, rx_params, ry_params, rz_params, GateParams,
+    controlled_phase_params, gate_params, gate_params_controlled, phase_params, rx_params,
+    ry_params, rz_params, GateParams,
 };
-
-pub(crate) const PARAMETRIC_DEFAULT_ANGLE: &str = "π/2";
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateSpec {
@@ -259,10 +259,10 @@ pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
 pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 9] = [13, 14, 15, 17, 18, 19, 22, 23, 21];
 pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
-pub(crate) fn default_palette_angle(kind: GateKind) -> Option<String> {
+pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
     match kind {
         GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => {
-            Some(PARAMETRIC_DEFAULT_ANGLE.to_owned())
+            Some(ParametricAngle::default())
         }
         _ => None,
     }
@@ -330,23 +330,23 @@ mod tests {
     #[test]
     fn phase_palette_default_angle_is_pi_over_two() {
         assert_eq!(
-            default_palette_angle(GateKind::Phase).as_deref(),
-            Some("π/2")
+            default_palette_angle(GateKind::Phase).unwrap().label(),
+            "π/2"
         );
     }
 
     #[test]
     fn rx_palette_default_angle_is_pi_over_two() {
-        assert_eq!(default_palette_angle(GateKind::Rx).as_deref(), Some("π/2"));
+        assert_eq!(default_palette_angle(GateKind::Rx).unwrap().label(), "π/2");
     }
 
     #[test]
     fn ry_palette_default_angle_is_pi_over_two() {
-        assert_eq!(default_palette_angle(GateKind::Ry).as_deref(), Some("π/2"));
+        assert_eq!(default_palette_angle(GateKind::Ry).unwrap().label(), "π/2");
     }
 
     #[test]
     fn rz_palette_default_angle_is_pi_over_two() {
-        assert_eq!(default_palette_angle(GateKind::Rz).as_deref(), Some("π/2"));
+        assert_eq!(default_palette_angle(GateKind::Rz).unwrap().label(), "π/2");
     }
 }

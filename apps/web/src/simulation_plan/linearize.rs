@@ -10,8 +10,8 @@
 use super::{ColumnAnalysis, SimulationOp};
 use crate::app::PlacedGate;
 use crate::gates::{
-    controlled_phase_params, gate_params, gate_params_controlled, parse_angle_radians,
-    phase_params, rx_params, ry_params, rz_params, GateKind,
+    controlled_phase_params, gate_params, gate_params_controlled, phase_params, rx_params,
+    ry_params, rz_params, GateKind,
 };
 
 /// Walks placed gates column by column and emits ops in the exact order the
@@ -132,12 +132,11 @@ pub(crate) fn linearize_ops(
         targets.sort_by(|a, b| a.id.cmp(&b.id));
         for target in &targets {
             let bit = (qubits - 1 - target.wire) as u32;
-            // Parametric gates carry an optional angle string ("π/2",
-            // "-π/128", …). When present we route through the matching
-            // `*_params(θ, …)` builder so the matrix carries the parsed
-            // angle; when absent we fall back to the editor's
-            // pre-parametric π/2 default (the gate's hard-coded matrix
-            // in `gate_matrix`). qni would instead error out at
+            // Parametric gates carry an optional normalized angle. When
+            // present we route through the matching `*_params(θ, …)` builder
+            // so the matrix carries that angle; when absent we fall back to
+            // the editor's pre-parametric π/2 default (the gate's hard-coded
+            // matrix in `gate_matrix`). qni would instead error out at
             // simulate time for a bare `P` / `Rx` / `Ry` / `Rz`.
             type ParametricBuilder = fn(f32, u32, u32, u32, u32) -> crate::gates::GateParams;
             let parametric_builder: Option<ParametricBuilder> = match target.kind {
@@ -148,10 +147,14 @@ pub(crate) fn linearize_ops(
                 _ => None,
             };
             let params = if let Some(build) = parametric_builder {
-                if let Some(angle_str) = target.angle.as_deref() {
-                    let radians =
-                        parse_angle_radians(angle_str).unwrap_or(std::f32::consts::FRAC_PI_2);
-                    build(radians, bit, control_mask, control_value, state_count)
+                if let Some(angle) = target.angle {
+                    build(
+                        angle.radians_f32(),
+                        bit,
+                        control_mask,
+                        control_value,
+                        state_count,
+                    )
                 } else if control_mask == 0 {
                     gate_params(target.kind, bit, state_count)
                 } else {
@@ -391,4 +394,49 @@ fn linearize_qft(
         }
     }
     ops
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPSILON: f32 = 0.000_001;
+
+    fn bare_parametric_matrix(kind: GateKind) -> [[f32; 2]; 4] {
+        let gate = PlacedGate::new(1, kind, 0, 0, 1, None);
+        let ops = linearize_ops(&[gate], 1, 0);
+        match ops.first().expect("expected an apply-gate op") {
+            SimulationOp::ApplyGate(params) => params.matrix(),
+            _ => panic!("expected apply-gate op"),
+        }
+    }
+
+    #[test]
+    fn bare_phase_uses_pi_over_two_default() {
+        assert!((bare_parametric_matrix(GateKind::Phase)[3][1] - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn bare_rx_uses_pi_over_two_default() {
+        assert!(
+            (bare_parametric_matrix(GateKind::Rx)[1][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
+                < EPSILON
+        );
+    }
+
+    #[test]
+    fn bare_ry_uses_pi_over_two_default() {
+        assert!(
+            (bare_parametric_matrix(GateKind::Ry)[2][0] - std::f32::consts::FRAC_1_SQRT_2).abs()
+                < EPSILON
+        );
+    }
+
+    #[test]
+    fn bare_rz_uses_pi_over_two_default() {
+        assert!(
+            (bare_parametric_matrix(GateKind::Rz)[0][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
+                < EPSILON
+        );
+    }
 }
