@@ -1,175 +1,125 @@
 # qni-webgpu
 
-## 前提ツール
+ブラウザ上で動く **WebGPU ベースの量子回路 UI / シミュレーション環境**です。
+Rust + egui で書いた回路エディタを WebAssembly として配信し、状態ベクトルや表示ブロックの計算を WebGPU compute shader 上で行います。
 
-Web 側のローカル実行では以下が必要:
+既存の [Qni](https://github.com/qniapp/qni) (qni-gl, WebGL 系) を母体に、状態シミュレーションを **GPU 上で完結させる構成** を試している実験的後継プロジェクトです。
 
-```
+![qni-webgpu の Web UI。5 量子ビットの Grover 探索回路と、振幅増幅後の状態ベクトル表示](docs/assets/screenshot.png)
+
+> 画面例: サンプル回路の Grover 探索。状態ベクトル表示で、解の確率振幅だけが大きくなる様子が確認できる。
+
+## 機能
+
+- **Web UI 上での量子回路編集** — ゲートパレットからのドラッグでゲートを配置し、最大 16 量子ビットまで編集できる
+- **WebGPU による高速なローカルシミュレーション** — 状態ベクトル / 密度行列 / ブロッホベクトルなどの計算から可視化まで、すべて WebGPU compute shader 上で完結する。GPU → CPU のリードバックが無いため高速
+- **表示ブロック** — 振幅 / 確率 / ブロッホ球 / 密度行列の各表示ブロックをサポート
+- **オプション: 外部 GPU 実行 (Qiskit バックエンド)** — `Run GPU` から `apps/qiskit-backend` の HTTP API へ投げ、Qiskit Aer (cuStateVec) で実行できる
+- **ABCI / Open OnDemand 配備の土台** — Docker / Singularity / Open OnDemand 用の定義を `deploy/` に同梱
+
+## クイックスタート
+
+ローカルで Web UI を起動する最短手順です。
+
+### 1. Rust と Trunk を用意する
+
+```bash
 rustup target add wasm32-unknown-unknown
 cargo install trunk --locked
 ```
 
-## TUI PoC（ローカル）
+### 2. 開発サーバを起動する
 
-```
-cd apps/tui
-cargo run
-```
-
-## Rust（TUI）チェック
-
-初回のみ:
-
-```
-cargo install cargo-audit cargo-deny cargo-insta
-```
-
-```
-cd apps/tui
-cargo fmt
-cargo clippy -- -D warnings
-cargo test
-```
-
-詳細は `docs/rust.md` を参照。
-
-依存関係 / snapshot チェック:
-
-```
-cd apps/tui
-cargo insta pending-snapshots
-cargo audit
-cargo deny check --config ../../deny.toml
-```
-
-ワンコマンド:
-
-```
-./scripts/check.sh
-```
-
-または:
-
-```
-make check
-```
-
-## Web アプリ（Rust / WebGPU、ローカル）
-
-まずサーバを起動する:
-
-```
+```bash
 cd apps/web
 trunk serve --address 127.0.0.1 --port 4174 --no-autoreload
 ```
 
-通常の Chrome で `http://127.0.0.1:4174/` を開く。
-リポジトリルートから helper script を使ってもよい:
+### 3. Chrome でアクセスする
+
+WebGPU 対応ブラウザ (Chrome / Chromium 系の最新版を推奨) で次を開きます。
 
 ```
-./scripts/open-web.sh
+http://127.0.0.1:4174/
 ```
 
-この helper は `google-chrome-stable` を優先し、見つからない場合のみ Chromium 系へ fallback する。WebGPU 用の特別な起動フラグは付けない。
+リポジトリルートから `./scripts/open-web.sh` を使うと、`google-chrome-stable` を優先して開きます。
 
-詳細は `docs/web.md` を参照。
+詳しい起動方法と環境変数は [`docs/web.md`](docs/web.md) を参照してください。
 
-## Playwright での確認（任意）
-WebGPU の描画を読み戻して検証する。
+## 開発
 
-### Playwright を準備
-```
-cd apps/web
-pnpm install
-pnpm exec playwright install chromium
-```
+主要なチェックはリポジトリルートからまとめて実行できます。
 
-### xvfb でテスト実行（Linux）
-```
-cd apps/web
-xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test
-```
-
-## GitHub Actions での CI
-
-GitHub Actions では staged rollout と同じ検証を個別ステップとして実行する。
-`apps/web` では本番 Trunk ビルド、`pnpm run test:bdd`、`pnpm run test:pw-legacy` を順に実行し、
-legacy 側の `test:pw-legacy` が `apps/web/playwright.config.ts` の Playwright 設定を呼ぶ。
-ローカルでは `playwright.config.ts` も `google-chrome-stable` を優先し、
-未インストール時のみ Playwright 同梱 Chromium へ fallback する。CI/headless の安定化用に Playwright 側では WebGPU 起動設定を持つ。Linux 環境では `xvfb-run` を併用できる。
-
-ワークフロー例: `.github/workflows/ci.yml`
-
-出力される画像:
-- `/tmp/qni-webgpu-initial.png`
-- `/tmp/qni-webgpu-after.png`
-
-## まとめてチェック（トップディレクトリ）
-```
+```bash
 ./scripts/check-all.sh
 ```
 
-内部で以下を実行する:
-- `apps/web` で `trunk build --release --public-url ./`（本番相対パス配信ビルド）
-- `apps/web` で `pnpm run test:preflight`（Chrome 優先解決の browser preflight）
-- `apps/web` で `pnpm run test:bdd`（Cucumber BDD）
-- `apps/web` で `pnpm run test:pw-legacy`（legacy Playwright）
-- ルートで `node --test test-node/*.test.cjs`（配備設定 / CI 設定）
-- ルートで Qiskit backend の editable install smoke
-- ルートで `PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests`
-- ルートで `make check`（TUI fmt / clippy / test / snapshot / audit / deny）
+これは Trunk 本番ビルド、Web の BDD / Playwright テスト、Node の配備設定テスト、Qiskit バックエンドのスモークテスト、Rust の fmt / clippy / test / snapshot / audit / deny をまとめて流します。
 
-## Docker（ABCI 本番配備の土台）
+個別に動かしたい場合の主なコマンド:
 
-本番用コンテナは Web 静的ファイルと Qiskit GPU backend を同一 nginx 配下で起動する。
-本番コンテナ内では `qiskit-gpu` だけを許可し、`mock` / `qiskit-cpu-dev` へは逃がさない。
-Docker 配備時の Web UI は同一オリジンの `/run` を使い、ローカル開発の `127.0.0.1:4174` だけ `http://127.0.0.1:4184/run` を既定値にする。
-静的ファイルは相対パスでビルドし、nginx は Open OnDemand の `/node/<host>/<port>/` 配下でも配信と `/run` 転送を行う。
+- **Web の BDD (Cucumber)**: `cd apps/web && pnpm install && pnpm run test:bdd`
+- **Web の Playwright**: `cd apps/web && pnpm exec playwright install chromium && xvfb-run -a -s "-screen 0 1920x1080x24" pnpm exec playwright test`
+- **ドキュメント lint**: `./scripts/lint-docs.sh` (用語ゆれ / HTML 構造 / Markdown スタイル)
 
+詳細は [`docs/rust.md`](docs/rust.md) と [`docs/web.md`](docs/web.md) を参照してください。
+
+## Qiskit バックエンド (任意)
+
+`Run GPU` から呼び出す外部 GPU 実行用のローカルバックエンドです。Web UI は回路を送り、バックエンドはヒストグラムと表示ブロック単位の結果だけを返します。全状態ベクトルや全確率分布は転送しません。
+
+```mermaid
+flowchart LR
+  ui["Web UI<br/>(apps/web)"] -- "回路 (Run GPU)" --> backend["Qiskit バックエンド<br/>(apps/qiskit-backend)"]
+  backend -- "Qiskit 回路" --> aer["Qiskit Aer<br/>(GPU / cuStateVec)"]
+  aer -- "状態ベクトル" --> backend
+  backend -- "ヒストグラム + 表示ブロック結果" --> ui
 ```
+
+ローカルで起動する最短手順:
+
+```bash
+PYTHONPATH=apps/qiskit-backend/src python3 -m qni_qiskit_backend --port 4184 --runner mock
+```
+
+ランナーは 3 種類あります。
+
+- `mock` — 固定ヒストグラム / 固定表示ブロック結果を返す。UI と API のスモークテスト用。
+- `qiskit-cpu-dev` — Qiskit 経路を CPU で確認するための **明示的な開発用ランナー**。WebGPU の CPU フォールバックではない。
+- `qiskit-gpu` — `device="GPU"` / `cuStateVec_enable=True` を要求する本番相当のランナー。CPU フォールバックしない。
+
+本番配備では `qiskit-gpu` だけを許可し、`mock` / `qiskit-cpu-dev` を要求するリクエストは拒否します。詳細は [`apps/qiskit-backend/README.md`](apps/qiskit-backend/README.md) を参照してください。
+
+## デプロイ
+
+ABCI の GPU ノードで動かすための Docker / Singularity / Open OnDemand 定義を `deploy/` に同梱しています。Open OnDemand 経由では `singularity run --nv` で GPU ノード上に起動し、`/node/<host>/<port>/` 配下で Web UI と `/run` API を提供します。
+
+```bash
 docker build -t qni-webgpu-abci .
 docker run --gpus all --rm -p 8000:8000 \
   -e QNI_AUTH_USERNAME=userA \
   -e QNI_AUTH_PASSWORD=passA \
   qni-webgpu-abci
-curl http://127.0.0.1:8000/health
 ```
 
-`.htpasswd` 認証を必須にしたい場合は `QNI_REQUIRE_BASIC_AUTH=true` を追加する。
-既存の `.htpasswd` を使う場合は `QNI_AUTH_HTPASSWD_FILE=/path/to/.htpasswd` を指定する。
-GPU 付き Docker 環境での確認には `scripts/smoke-abci-container.sh` を使う。
+配備手順の詳細は次を参照してください。
 
-```bash
-scripts/smoke-abci-container.sh
-```
+- [`docs/implementation/abci-deployment-guide.md`](docs/implementation/abci-deployment-guide.md) — ABCI Open OnDemand 配備手順
+- [`docs/implementation/external-gpu-api-compatibility.md`](docs/implementation/external-gpu-api-compatibility.md) — 外部 GPU API の互換方針
+- [`docs/implementation/qni-gl-migration-notes.md`](docs/implementation/qni-gl-migration-notes.md) — qni-gl との差分
 
-## ABCI / Open OnDemand
+## ドキュメント
 
-Open OnDemand アプリ定義は `deploy/abci_ood`、Singularity / Apptainer イメージ定義は `deploy/apptainer/qni-webgpu.def` にある。
+- [`docs/architecture.md`](docs/architecture.md) — WebGPU 版のアーキテクチャ概要
+- [`docs/tech-stack.md`](docs/tech-stack.md) — 技術スタック (Rust / wgpu / egui / Trunk)
+- [`docs/web.md`](docs/web.md) — Web アプリの起動・確認手順
+- [`docs/rust.md`](docs/rust.md) — Rust 側のチェック手順
+- [`docs/design.md`](docs/design.md) — UI 設計メモ
+- [`apps/qiskit-backend/README.md`](apps/qiskit-backend/README.md) — Qiskit バックエンドの API 仕様
 
-```
-module load singularitypro
-singularity build --fakeroot "$HOME/qni-webgpu.sif" deploy/apptainer/qni-webgpu.def
-mkdir -p "$HOME/ondemand/dev/qni-webgpu"
-rsync -a --delete deploy/abci_ood/ "$HOME/ondemand/dev/qni-webgpu/"
-```
+## 既知の制限
 
-Open OnDemand の Sandbox Apps から QNI WebGPU を選び、`$HOME/qni-webgpu.sif` のような絶対パス、ABCI 資源種別、ABCI グループ、Basic 認証設定を入力する。
-アプリは `singularity run --nv` で GPU ノード上に起動し、`/node/<host>/<port>/` 配下で Web UI と `/run` API を提供する。
-詳しい手順は `docs/implementation/abci-deployment-guide.md`、外部 GPU API の互換方針は `docs/implementation/external-gpu-api-compatibility.md`、qni-gl との差分は `docs/implementation/qni-gl-migration-notes.md` を参照する。
-
-## Qiskit backend（ローカル開発）
-
-外部 GPU 実行パスの API / UI 確認用 backend は `apps/qiskit-backend` にある。
-既定の `mock` runner は量子計算をせず固定 histogram と固定 Amplitude / Bloch / Probability / Density Matrix 表示結果を返す。
-`qiskit-cpu-dev` は Qiskit 経路確認用の明示的な CPU runner で、WebGPU の CPU fallback ではない。
-本番相当の `qiskit-gpu` は `device="GPU"` / `cuStateVec_enable=True` を要求し、CPU fallback しない。
-Web UI の `Run GPU` は histogram と表示ブロック単位の Amplitude / Bloch / Probability / Density Matrix 結果だけを要求する。表示ブロック結果がない 16量子ビット以下の GPU-mode run では、成功後に状態ベクトルパネルをローカル WebGPU で1回だけ更新する。backend から全状態ベクトルや全確率分布は返さない。
-
-```
-PYTHONPATH=apps/qiskit-backend/src python3 -m qni_qiskit_backend --port 4184 --runner mock
-PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests
-```
-
-詳細は `apps/qiskit-backend/README.md` を参照。
-
+- **WebGPU 対応ブラウザが必要**: 主要ブラウザの最新版 (Chrome / Edge / Firefox / Safari) で動作する。ただし Firefox の Linux 安定版は WebGPU 未対応で、Nightly / Beta で `gfx.webgpu.ignore-blocklist` を有効にする必要がある (2026 年 5 月時点)。対応していない GPU / ドライバでも起動しない。
+- **Qiskit バックエンドは別途用意**: `Run GPU` を使うには `apps/qiskit-backend` を別プロセスで起動する必要がある。本番 `qiskit-gpu` ランナーは CUDA / cuStateVec を要求する。
+- **ABCI 配備は環境依存**: `deploy/` 配下の定義は ABCI 実機での検証が部分的であり、資源種別 / モジュール名は環境に合わせて調整する必要がある。
