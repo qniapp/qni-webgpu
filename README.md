@@ -3,7 +3,7 @@
 ブラウザ上で動く **WebGPU ベースの量子回路 UI / シミュレーション環境**です。
 Rust + egui で書いた回路エディタを WebAssembly として配信し、状態ベクトルや表示ブロックの計算を WebGPU compute shader 上で行います。
 
-既存の [Qni](https://github.com/qniapp/qni) (qni-gl, WebGL 系) を母体に、状態シミュレーションを **GPU 上で完結させる構成** を試している実験的後継プロジェクトです。
+[Qni](https://github.com/qniapp/qni) (qni-gl, WebGL 系) の正式な後継プロジェクトで、状態シミュレーションを **GPU 上で完結させる構成** に刷新しています。
 
 ![qni-webgpu の Web UI。5 量子ビットの Grover 探索回路と、振幅増幅後の状態ベクトル表示](docs/assets/screenshot.png)
 
@@ -11,7 +11,7 @@ Rust + egui で書いた回路エディタを WebAssembly として配信し、�
 
 ## 機能
 
-- **Web UI 上での量子回路編集** — ゲートパレットからのドラッグでゲートを配置し、最大 16 量子ビットまで編集できる
+- **Web UI 上での量子回路編集** — ゲートパレットからのドラッグでゲートを配置できる。扱える量子ビット数はローカルの WebGPU シミュレーションで最大 16、外部 GPU (Qiskit) バックエンド利用時は最大 32
 - **WebGPU による高速なローカルシミュレーション** — 状態ベクトル / 密度行列 / ブロッホベクトルなどの計算から可視化まで、すべて WebGPU compute shader 上で完結する。GPU → CPU のリードバックが無いため高速
 - **表示ブロック** — 振幅 / 確率 / ブロッホ球 / 密度行列の各表示ブロックをサポート
 - **オプション: 外部 GPU 実行 (Qiskit バックエンド)** — `Run GPU` から `apps/qiskit-backend` の HTTP API へ投げ、Qiskit Aer (cuStateVec) で実行できる
