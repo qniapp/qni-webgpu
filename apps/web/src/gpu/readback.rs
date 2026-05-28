@@ -459,7 +459,7 @@ pub(crate) async fn read_density_matrix_cell_impl(
     if dim == 0 || row as usize >= dim || col as usize >= dim {
         return Ok(js_sys::Float64Array::new_with_length(0));
     }
-    let cell = row as usize * dim + col as usize;
+    let cell = crate::grid_cell::GridCell::new(col as usize, row as usize).to_index(dim);
     if cell >= DENSITY_VALUES_PER_SLOT {
         return Ok(js_sys::Float64Array::new_with_length(0));
     }

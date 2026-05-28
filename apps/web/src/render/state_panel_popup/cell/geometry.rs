@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use crate::grid_cell::GridCell;
 use crate::render::amplitude_circle_popover as amplitude_popover;
 use crate::render::popover;
 use crate::render::state_panel_layout::StatePanelLayout;
@@ -107,11 +108,10 @@ fn cell_center_for(
 ) -> egui::Pos2 {
     let pitch = layout.cell_pitch();
     let cols = layout.columns().max(1);
-    let col = (display_index as usize) % cols;
-    let row = (display_index as usize) / cols;
+    let cell = GridCell::from_index(display_index as usize, cols);
     egui::pos2(
-        grid_origin.x + col as f32 * pitch + pitch * 0.5,
-        grid_origin.y + row as f32 * pitch + pitch * 0.5,
+        grid_origin.x + cell.col() as f32 * pitch + pitch * 0.5,
+        grid_origin.y + cell.row() as f32 * pitch + pitch * 0.5,
     )
 }
 

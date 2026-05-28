@@ -4,6 +4,7 @@ mod colors;
 mod constants;
 mod gates;
 mod gpu;
+mod grid_cell;
 mod icons;
 mod layout;
 mod qubit_bit;

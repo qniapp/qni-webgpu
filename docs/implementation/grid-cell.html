@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GridCell — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">座標変換</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">GridCell</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · geometry value object</p>
+  <h1 class="page-title">GridCell 実装仕様</h1>
+  <p class="page-lede">
+    行優先（row-major）グリッドのセル位置を、裸の <code>usize</code> 算術ではなく <code>GridCell</code> という値オブジェクトで扱うための仕様。
+    1 次元のセル番号と 2 次元の桁・行の往復変換（<code>index = row * cols + col</code> とその逆）を 1 か所へ集約し、桁と行の取り違えを型で防ぐ。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      振幅表示ブロック・密度行列表示ブロック・状態ベクトルパネルのセルは、いずれも左上を起点に桁（列）方向へ進み、右端で次の行へ折り返す行優先グリッドで並ぶ。
+      1 つのセルは、行優先の通し番号（<code>index = row * cols + col</code>）と、桁・行の組（<code>col = index % cols</code> / <code>row = index / cols</code>）の 2 つの見方を行き来する。
+    </p>
+    <p>
+      この往復変換が現状は複数の経路へ裸の <code>usize</code> 算術として散らばっている。
+      順変換（桁・行 → 通し番号）は <code>layout/geometry.rs</code> の振幅・密度のセル番号算出と、密度行列セルの読み戻し（<code>gpu/readback.rs</code>）にあり、逆変換（通し番号 → 桁・行）は振幅ホバー円の中心算出（<code>render/circuit_gates.rs</code>）と状態パネルポップアップのセル中心算出（<code>render/state_panel_popup/cell/geometry.rs</code>）にある。
+      桁数（<code>cols</code>）と行数（<code>rows</code>）はいずれも <code>usize</code> なので、現状はコンパイラが桁と行の取り違えや、剰余と商の取り違えを検出できない。
+    </p>
+    <p>
+      <code>GridCell</code> は「行優先グリッド上のセル位置（桁・行）」だけを表す値オブジェクトにする。
+      通し番号との往復変換を <code>from_index</code> / <code>to_index</code> に閉じ込め、<code>row * cols + col</code> やその逆を呼び出し側へ書かない。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性・等価性・型の一貫性を、グリッドのセル位置へ適用する。
+    </p>
+    <ul>
+      <li>行優先の通し番号と桁・行の往復は <code>from_index</code> / <code>to_index</code> に集約し、<code>% cols</code> / <code>/ cols</code> / <code>row * cols + col</code> を呼び出し側へ書かない</li>
+      <li>桁（<code>col</code>）と行（<code>row</code>）を型のフィールドとして区別し、同じ <code>usize</code> として取り違えない</li>
+      <li>GPU の WGSL シェーダ内に現れる同じ行優先規約は、シェーダ側で完結させるためこの値オブジェクトの対象外とする</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>GridCell</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/grid_cell.rs</code> を新設し、<code>lib.rs</code> から <code>mod grid_cell;</code> で公開する（<a href="qubit-bit.html">QubitBit</a> と並ぶ、サブシステム横断の基盤型）</td></tr>
+        <tr><th>意味</th><td>行優先グリッド上の 1 セルの位置。左上を <code>(col, row) = (0, 0)</code> として、桁は右へ、行は下へ増える</td></tr>
+        <tr><th>保持する値</th><td>桁 <code>col: usize</code> と行 <code>row: usize</code>。フィールドは非公開にし、<code>col()</code> / <code>row()</code> で読む</td></tr>
+        <tr><th>性質</th><td>値オブジェクト。等価性・ハッシュを内部値（桁・行の組）で定める。同一性は持たない</td></tr>
+        <tr><th>桁数の出どころ</th><td>振幅は <code>amplitude_grid_dims(span)</code> の桁数、密度行列は <code>dim = 1 &lt;&lt; span</code>、状態パネルは <code>layout.columns()</code>。いずれも 1 以上で、<code>GridCell</code> へ <code>cols</code> として渡す</td></tr>
+        <tr><th>対象範囲</th><td>振幅・密度のセル番号算出（順変換）、振幅ホバー円とポップアップのセル中心算出（逆変換）、密度行列セルの読み戻しのセル番号（順変換）</td></tr>
+        <tr><th>対象外</th><td>セルのピクセル座標（<code>egui::Pos2</code> / <code>egui::Rect</code>）、桁数・行数そのもの（グリッドの寸法）、GPU の WGSL シェーダ内の行優先算術（シェーダで完結させる）</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct GridCell {
+    col: usize,
+    row: usize,
+}
+
+impl GridCell {
+    pub(crate) const fn new(col: usize, row: usize) -&gt; Self;
+
+    /// 行優先の通し番号から桁・行を復元する（`col = index % cols` / `row = index / cols`）。
+    pub(crate) const fn from_index(index: usize, cols: usize) -&gt; Self;
+
+    pub(crate) const fn col(self) -&gt; usize;
+    pub(crate) const fn row(self) -&gt; usize;
+
+    /// 行優先の通し番号へ変換する（`row * cols + col`）。
+    pub(crate) const fn to_index(self, cols: usize) -&gt; usize;
+}</pre>
+
+    <p class="note">
+      <code>cols</code> は呼び出し側が 1 以上を保証する（グリッド寸法が <code>max(1)</code> 済み、または <code>1 &lt;&lt; span</code> で必ず 1 以上）。
+      不変条件を型へ閉じ込めるのは桁・行の組であり、桁数 <code>cols</code> は変換ごとに引数として渡す。
+      <code>col()</code> / <code>row()</code> はピクセル座標を求める直前など、境界層へ出るときだけ使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に桁・行を変更しない。別のセルが要るときは新しい <code>GridCell</code> を作る</td>
+          <td>公開フィールド、<code>set_col</code> / <code>set_row</code>、<code>&amp;mut usize</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>行優先の往復変換を <code>from_index</code> / <code>to_index</code> に集約し、剰余・商・乗算の式を 1 か所に閉じ込める</td>
+          <td>呼び出し側で <code>index % cols</code> / <code>index / cols</code> / <code>row * cols + col</code> を重複実装しない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>桁・行の組で比較する。別々に生成した同じ桁・行の <code>GridCell</code> は等しい</td>
+          <td>ピクセル座標や生成元でセル位置の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>セル位置を受け渡す箇所は <code>GridCell</code> を使い、桁と行を別々の <code>usize</code> として裸で持ち回らない</td>
+          <td>桁・行の組を新しく <code>(usize, usize)</code> のタプルや 2 つの <code>usize</code> 引数で追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>順変換（桁・行 → 通し番号）</h3>
+    <p>
+      <code>layout/geometry.rs</code> の <code>amplitude_cell_index_at</code> と <code>density_matrix_cell_index_at</code> は、カーソル位置から桁・行を求めた後に <code>(row * cols + col) as u32</code>（密度行列では <code>cols</code> を <code>dim</code> とする）でセル番号を返している。
+      この末尾の式を <code>GridCell::new(col, row).to_index(cols) as u32</code> に置き換える。
+    </p>
+    <p>
+      <code>gpu/readback.rs</code> の密度行列セル読み戻し（<code>read_density_matrix_cell_impl</code>、wasm 専用のテストハーネス経路）にある <code>row as usize * dim + col as usize</code> も、<code>GridCell::new(col as usize, row as usize).to_index(dim)</code> に置き換える。
+      境界チェック（<code>row &gt;= dim</code> / <code>col &gt;= dim</code>）は変換とは別の関心事なので、そのまま残す。
+    </p>
+
+    <h3>逆変換（通し番号 → 桁・行）</h3>
+    <p>
+      <code>render/circuit_gates.rs</code> の <code>amplitude_hover_circle</code> にある <code>col = outcome % cols</code> / <code>row = outcome / cols</code> は、<code>let cell = GridCell::from_index(outcome, cols);</code> にし、ピクセル中心を求める箇所で <code>cell.col()</code> / <code>cell.row()</code> を使う。
+      <code>render/state_panel_popup/cell/geometry.rs</code> の <code>cell_center_for</code> にある <code>col = display_index % cols</code> / <code>row = display_index / cols</code> も同様に <code>GridCell::from_index(display_index, cols)</code> へ置き換える。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>入口 / 出口</th><th>形式</th><th>変換</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><th>ホバー・選択</th><td>通し番号 <code>u32</code>（GPU 表示インデックス / 結果インデックス）</td><td><code>GridCell::from_index(index, cols)</code></td><td>桁数 <code>cols</code> はグリッド寸法から渡す</td></tr>
+        <tr><th>セル番号の書き出し</th><td>通し番号 <code>u32</code></td><td><code>cell.to_index(cols) as u32</code></td><td>カーソルから求めた桁・行を 1 つの番号へ畳む</td></tr>
+        <tr><th>ピクセル座標</th><td><code>egui::Pos2</code> / <code>egui::Rect</code></td><td><code>cell.col()</code> / <code>cell.row()</code> を取り出して座標式へ渡す</td><td>座標計算自体は値オブジェクトの外</td></tr>
+        <tr><th>GPU シェーダ</th><td>WGSL 内の行優先算術</td><td>変換しない</td><td>GPU 側で完結させる（<a href="density-matrix-display.html">密度行列表示ブロック</a> ほか）</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      桁数 <code>cols</code> はグリッドの寸法であり、セル位置の一部ではない。
+      <code>GridCell</code> は桁・行の組だけを持ち、<code>cols</code> は往復変換のたびに引数で受け取る。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>GridCell</code> を <code>apps/web/src/grid_cell.rs</code> に追加し、<code>lib.rs</code> から <code>mod grid_cell;</code> で公開する</li>
+      <li>順変換の 3 か所（<code>amplitude_cell_index_at</code> / <code>density_matrix_cell_index_at</code> / <code>read_density_matrix_cell_impl</code>）を <code>to_index</code> へ置き換える</li>
+      <li>逆変換の 2 か所（<code>amplitude_hover_circle</code> / <code>cell_center_for</code>）を <code>from_index</code> ＋ <code>col()</code> / <code>row()</code> へ置き換える</li>
+      <li>行優先の往復算術（<code>% cols</code> / <code>/ cols</code> / <code>row * cols + col</code>）が CPU 側の Rust に残っていないことを <code>rg</code> で確認する（WGSL シェーダ内は対象外）</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      桁・行の組を <code>usize</code> のタプルや 2 引数で受け渡す関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>桁・行を保持できる</strong> — <code>GridCell::new(1, 2)</code> の <code>col()</code> が <code>1</code>、<code>row()</code> が <code>2</code> になることを確認する</li>
+      <li><strong>通し番号から復元できる</strong> — 桁数 <code>3</code> で <code>GridCell::from_index(7, 3)</code> が桁 <code>1</code>・行 <code>2</code> になることを確認する</li>
+      <li><strong>通し番号へ畳める</strong> — 桁数 <code>3</code> で <code>GridCell::new(1, 2).to_index(3)</code> が <code>7</code> になることを確認する</li>
+      <li><strong>往復で元へ戻る</strong> — 桁数 <code>4</code> で <code>from_index(11, 4)</code> を <code>to_index(4)</code> したとき <code>11</code> に戻ることを確認する</li>
+      <li><strong>先頭セルは原点</strong> — 桁数 <code>3</code> で <code>GridCell::from_index(0, 3)</code> が桁 <code>0</code>・行 <code>0</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 別々に生成した <code>GridCell::new(1, 2)</code> 同士が等しいことを確認する</li>
+      <li><strong>CPU 側の行優先算術が残らない</strong> — 振幅・密度のセル番号算出、振幅ホバー円、状態パネルポップアップ、密度行列セル読み戻しが <code>GridCell</code> を使うことを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>順変換（セル番号算出）</th><td><code>apps/web/src/layout/geometry.rs</code>（<code>amplitude_cell_index_at</code>, <code>density_matrix_cell_index_at</code>）</td></tr>
+        <tr><th>順変換（読み戻し）</th><td><code>apps/web/src/gpu/readback.rs</code>（<code>read_density_matrix_cell_impl</code>）</td></tr>
+        <tr><th>逆変換（セル中心算出）</th><td><code>apps/web/src/render/circuit_gates.rs</code>（<code>amplitude_hover_circle</code>）, <code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code>（<code>cell_center_for</code>）</td></tr>
+        <tr><th>グリッド寸法</th><td><code>apps/web/src/layout/geometry.rs</code>（<code>amplitude_grid_dims</code>）, <code>apps/web/src/render/state_panel_popup/cell/geometry.rs</code>（<code>StatePanelLayout::columns</code>）</td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="qubit-bit.html">QubitBit 実装仕様</a>, <a href="gate-span.html">GateSpan 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · GridCell 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

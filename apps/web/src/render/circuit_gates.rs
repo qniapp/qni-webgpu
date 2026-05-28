@@ -16,6 +16,7 @@ use crate::gpu::{
     POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER,
     PROBABILITY_RENDER_MODE_SAMPLE,
 };
+use crate::grid_cell::GridCell;
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
@@ -915,11 +916,10 @@ fn amplitude_hover_circle(
         return None;
     }
     let cell = grid_rect.width() / cols as f32;
-    let col = outcome % cols;
-    let row = outcome / cols;
+    let grid_cell = GridCell::from_index(outcome, cols);
     let center = egui::pos2(
-        grid_rect.left() + (col as f32 + 0.5) * cell,
-        grid_rect.top() + (row as f32 + 0.5) * cell,
+        grid_rect.left() + (grid_cell.col() as f32 + 0.5) * cell,
+        grid_rect.top() + (grid_cell.row() as f32 + 0.5) * cell,
     );
     Some((center, amplitude_popover::outline_radius_for_cell(cell)))
 }

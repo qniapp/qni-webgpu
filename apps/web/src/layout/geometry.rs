@@ -5,6 +5,7 @@ use crate::constants::{
     GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
 };
 use crate::gates::GateKind;
+use crate::grid_cell::GridCell;
 
 pub(crate) fn amplitude_display_width_cols(span: usize) -> usize {
     let span = span.clamp(1, 16);
@@ -93,7 +94,7 @@ pub(crate) fn amplitude_cell_index_at(
     let row = ((cursor.y - grid_rect.top()) / cell)
         .floor()
         .clamp(0.0, (rows - 1) as f32) as usize;
-    Some((row * cols + col) as u32)
+    Some(GridCell::new(col, row).to_index(cols) as u32)
 }
 
 fn density_matrix_grid_rect(gate_rect: egui::Rect, span: usize) -> egui::Rect {
@@ -120,7 +121,7 @@ pub(crate) fn density_matrix_cell_index_at(
     let row = ((cursor.y - grid_rect.top()) / cell)
         .floor()
         .clamp(0.0, (dim - 1) as f32) as usize;
-    Some((row * dim + col) as u32)
+    Some(GridCell::new(col, row).to_index(dim) as u32)
 }
 
 #[derive(Clone, Debug)]
