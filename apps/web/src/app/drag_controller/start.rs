@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
-use crate::app::{DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag};
+use crate::app::{CircuitColumnIndex, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag};
 use crate::constants::GATE_SIZE;
 use crate::gates::{default_palette_angle, palette_gate_kind};
 use crate::layout::{gate_visible_rect, palette_hit_test};
@@ -18,7 +18,7 @@ enum DragStartIntent {
         index: usize,
         preview_pos: egui::Pos2,
     },
-    BreakpointStep(usize),
+    BreakpointStep(CircuitColumnIndex),
     None,
 }
 
@@ -83,7 +83,7 @@ impl DragController {
                 let mut new_gate = PlacedGate::new(
                     new_id,
                     kind,
-                    0,
+                    CircuitColumnIndex::ZERO,
                     0,
                     1,
                     // Palette drop: parametric gates start with their explicit

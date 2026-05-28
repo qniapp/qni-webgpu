@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use crate::app::PlacedGate;
+use crate::app::{CircuitColumnIndex, PlacedGate};
 use crate::gates::GateKind;
 use crate::gpu::{ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch};
 use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalAmplitudeRequest {
     pub(super) gate_id: u32,
-    pub(super) column: usize,
+    pub(super) column: CircuitColumnIndex,
     pub(super) span: usize,
     pub(super) base_bit: u32,
     pub(super) control_mask: u32,
@@ -20,14 +20,14 @@ pub(super) fn collect_amplitude_requests(
     qubits: QubitCount,
 ) -> Vec<ExternalAmplitudeRequest> {
     let qubits = qubits.get();
-    let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
+    let Some(max_column) = placed_gates.iter().map(|gate| gate.column.as_usize()).max() else {
         return Vec::new();
     };
     let mut requests = Vec::new();
     for column in 0..=max_column {
         let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| gate.column == column && gate.wire < qubits)
+            .filter(|gate| gate.column.as_usize() == column && gate.wire < qubits)
             .collect();
         let mut control_mask = 0u32;
         let mut control_value = 0u32;
@@ -50,7 +50,7 @@ pub(super) fn collect_amplitude_requests(
             let base_bit = (qubits - display.wire - span) as u32;
             requests.push(ExternalAmplitudeRequest {
                 gate_id: display.id,
-                column,
+                column: CircuitColumnIndex::new(column),
                 span,
                 base_bit,
                 control_mask,
@@ -73,7 +73,7 @@ pub(super) fn amplitude_requests_json(requests: &[ExternalAmplitudeRequest]) -> 
                     ",\"control_value\":{},\"phase_lock_enabled\":{}}}"
                 ),
                 request.gate_id,
-                request.column,
+                request.column.as_usize(),
                 request.span,
                 request.base_bit,
                 request.control_mask,
@@ -220,7 +220,7 @@ mod tests {
             &[PlacedGate::new(
                 2,
                 GateKind::AmplitudeDisplay,
-                1,
+                crate::app::CircuitColumnIndex::new(1),
                 0,
                 1,
                 None,
@@ -237,8 +237,22 @@ mod tests {
     fn serializes_column_control_for_amplitude_output_request() {
         let requests = collect_amplitude_requests(
             &[
-                PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-                PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 1, 1, None),
+                PlacedGate::new(
+                    1,
+                    GateKind::Control,
+                    crate::app::CircuitColumnIndex::new(0),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    2,
+                    GateKind::AmplitudeDisplay,
+                    crate::app::CircuitColumnIndex::new(0),
+                    1,
+                    1,
+                    None,
+                ),
             ],
             qubit_count(2),
         );
@@ -249,8 +263,22 @@ mod tests {
     fn serializes_column_anti_control_for_amplitude_output_request() {
         let requests = collect_amplitude_requests(
             &[
-                PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-                PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 1, 1, None),
+                PlacedGate::new(
+                    1,
+                    GateKind::AntiControl,
+                    crate::app::CircuitColumnIndex::new(0),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    2,
+                    GateKind::AmplitudeDisplay,
+                    crate::app::CircuitColumnIndex::new(0),
+                    1,
+                    1,
+                    None,
+                ),
             ],
             qubit_count(2),
         );
@@ -264,8 +292,22 @@ mod tests {
     fn external_amplitude_slot_matches_collection_order() {
         let requests = collect_amplitude_requests(
             &[
-                PlacedGate::new(4, GateKind::AmplitudeDisplay, 1, 0, 1, None),
-                PlacedGate::new(3, GateKind::AmplitudeDisplay, 1, 1, 1, None),
+                PlacedGate::new(
+                    4,
+                    GateKind::AmplitudeDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    3,
+                    GateKind::AmplitudeDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    1,
+                    1,
+                    None,
+                ),
             ],
             qubit_count(2),
         );

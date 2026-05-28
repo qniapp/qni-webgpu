@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use crate::app::PlacedGate;
+use crate::app::{CircuitColumnIndex, PlacedGate};
 use crate::gates::GateKind;
 use crate::gpu::{ExternalProbabilityUpload, ExternalProbabilityUploadBatch};
 use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalProbabilityRequest {
     pub(super) gate_id: u32,
-    pub(super) column: usize,
+    pub(super) column: CircuitColumnIndex,
     pub(super) span: usize,
     pub(super) base_bit: u32,
 }
@@ -17,7 +17,7 @@ pub(super) fn collect_probability_requests(
     qubits: QubitCount,
 ) -> Vec<ExternalProbabilityRequest> {
     let qubits = qubits.get();
-    let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
+    let Some(max_column) = placed_gates.iter().map(|gate| gate.column.as_usize()).max() else {
         return Vec::new();
     };
     let mut requests = Vec::new();
@@ -25,7 +25,7 @@ pub(super) fn collect_probability_requests(
         let mut displays: Vec<&PlacedGate> = placed_gates
             .iter()
             .filter(|gate| {
-                gate.column == column
+                gate.column.as_usize() == column
                     && gate.kind == GateKind::ProbabilityDisplay
                     && gate.wire < qubits
             })
@@ -36,7 +36,7 @@ pub(super) fn collect_probability_requests(
             let base_bit = (qubits - display.wire - span) as u32;
             requests.push(ExternalProbabilityRequest {
                 gate_id: display.id,
-                column,
+                column: CircuitColumnIndex::new(column),
                 span,
                 base_bit,
             });
@@ -51,7 +51,10 @@ pub(super) fn probability_requests_json(requests: &[ExternalProbabilityRequest])
         .map(|request| {
             format!(
                 r#"{{"gate_id":{},"column":{},"span":{},"base_bit":{}}}"#,
-                request.gate_id, request.column, request.span, request.base_bit
+                request.gate_id,
+                request.column.as_usize(),
+                request.span,
+                request.base_bit
             )
         })
         .collect();
@@ -175,7 +178,7 @@ mod tests {
             &[PlacedGate::new(
                 2,
                 GateKind::ProbabilityDisplay,
-                1,
+                crate::app::CircuitColumnIndex::new(1),
                 0,
                 1,
                 None,
@@ -195,7 +198,7 @@ mod tests {
             &[PlacedGate::new(
                 2,
                 GateKind::ProbabilityDisplay,
-                1,
+                crate::app::CircuitColumnIndex::new(1),
                 0,
                 2,
                 None,
@@ -213,8 +216,22 @@ mod tests {
     fn external_probability_slot_matches_collection_order() {
         let requests = collect_probability_requests(
             &[
-                PlacedGate::new(4, GateKind::ProbabilityDisplay, 1, 0, 1, None),
-                PlacedGate::new(3, GateKind::ProbabilityDisplay, 1, 1, 1, None),
+                PlacedGate::new(
+                    4,
+                    GateKind::ProbabilityDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    3,
+                    GateKind::ProbabilityDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    1,
+                    1,
+                    None,
+                ),
             ],
             qubit_count(2),
         );

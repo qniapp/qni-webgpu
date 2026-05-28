@@ -434,42 +434,84 @@ mod tests {
 
     #[test]
     fn phase_label_uses_default_for_missing_angle() {
-        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Phase,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(phase_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
     fn phase_label_keeps_explicit_angle() {
-        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(angle("2π/3")));
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Phase,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            Some(angle("2π/3")),
+        );
 
         assert_eq!(phase_angle_label_text(&gate), Some("2π/3".to_owned()));
     }
 
     #[test]
     fn rx_label_uses_default_for_missing_angle() {
-        let gate = PlacedGate::new(1, GateKind::Rx, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Rx,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
     fn ry_label_uses_default_for_missing_angle() {
-        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Ry,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
     fn ry_label_keeps_explicit_angle() {
-        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, Some(angle("π/4")));
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Ry,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            Some(angle("π/4")),
+        );
 
         assert_eq!(parametric_angle_label_text(&gate), Some("π/4".to_owned()));
     }
 
     #[test]
     fn rz_label_uses_default_for_missing_angle() {
-        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Rz,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
@@ -507,11 +549,32 @@ mod tests {
     #[test]
     fn phase_with_phase_above_and_control_below_gets_both_connection_sides() {
         let gates = vec![
-            PlacedGate::new(1, GateKind::Phase, 0, 0, 1, Some(angle("π/2"))),
-            PlacedGate::new(2, GateKind::Phase, 0, 1, 1, Some(angle("4π/8"))),
-            PlacedGate::new(3, GateKind::Control, 0, 2, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Phase,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                Some(angle("π/2")),
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Phase,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                Some(angle("4π/8")),
+            ),
+            PlacedGate::new(
+                3,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                2,
+                1,
+                None,
+            ),
         ];
-        let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column));
+        let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column.as_usize()));
 
         assert_eq!(
             angle_label_connection_sides(&analysis.columns()[0], &gates[1], angle("π/2")),

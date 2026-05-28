@@ -24,7 +24,7 @@ pub(super) fn gate_slot_index_for_render(
         let (slot_index, distance) = nearest_slot_index(center_x, &metrics.slot_centers)?;
         return (distance <= SLOT_CENTER_EPSILON).then_some(slot_index);
     }
-    (gate.column < metrics.slot_centers.len()).then_some(gate.column)
+    (gate.column.as_usize() < metrics.slot_centers.len()).then_some(gate.column.as_usize())
 }
 
 impl QniApp {
@@ -84,11 +84,11 @@ impl QniApp {
                 );
             };
             if let Some(step) = self.breakpoint_step {
-                step_line(painter, step, 255);
+                step_line(painter, step.as_usize(), 255);
             }
             if let Some(step) = self.hovered_step {
                 if Some(step) != self.breakpoint_step {
-                    step_line(painter, step, 80);
+                    step_line(painter, step.as_usize(), 80);
                 }
             }
         }
@@ -134,7 +134,14 @@ mod tests {
     #[test]
     fn dragged_insert_preview_does_not_join_slot_connector() {
         let metrics = layout_metrics(600.0, 2, 3);
-        let mut gate = PlacedGate::new(1, GateKind::Control, 0, 0, 1, None);
+        let mut gate = PlacedGate::new(
+            1,
+            GateKind::Control,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
         gate.pos.x =
             metrics.slot_centers[0] + SLOT_SPACING * 0.5 - crate::constants::GATE_SIZE * 0.5;
 
@@ -146,7 +153,14 @@ mod tests {
     #[test]
     fn dragged_slot_preview_joins_that_slot_connector() {
         let metrics = layout_metrics(600.0, 2, 3);
-        let gate = PlacedGate::new(1, GateKind::Control, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Control,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         let slot = super::gate_slot_index_for_render(&gate, &metrics, Some(gate.id));
 

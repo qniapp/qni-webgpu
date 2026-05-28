@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::geometry::{gate_rect_at_grid, gate_width_cols};
-use crate::app::PlacedGate;
+use crate::app::{CircuitColumnIndex, PlacedGate};
 use crate::constants::SLOT_SPACING;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -42,10 +42,10 @@ impl CircuitSnap {
         }
     }
 
-    pub(crate) fn column(self) -> usize {
+    pub(crate) fn column(self) -> CircuitColumnIndex {
         match self {
-            CircuitSnap::Slot(snap) => snap.index,
-            CircuitSnap::Insert(snap) => snap.index,
+            CircuitSnap::Slot(snap) => CircuitColumnIndex::new(snap.index),
+            CircuitSnap::Insert(snap) => CircuitColumnIndex::new(snap.index),
         }
     }
 }
@@ -59,13 +59,13 @@ fn candidate_intersects_gate(
 ) -> bool {
     let candidate_rect = gate_rect_at_grid(
         moving_gate.kind,
-        candidate_column,
+        CircuitColumnIndex::new(candidate_column),
         candidate_wire,
         moving_gate.span,
     );
     let existing_rect = gate_rect_at_grid(
         existing_gate.kind,
-        existing_column,
+        CircuitColumnIndex::new(existing_column),
         existing_gate.wire,
         existing_gate.span,
     );
@@ -81,7 +81,13 @@ fn candidate_available_at_slot(
 ) -> bool {
     gates.iter().all(|gate| {
         ignore_id == Some(gate.id)
-            || !candidate_intersects_gate(moving_gate, column, wire_index, gate, gate.column)
+            || !candidate_intersects_gate(
+                moving_gate,
+                column,
+                wire_index,
+                gate,
+                gate.column.as_usize(),
+            )
     })
 }
 
@@ -97,10 +103,13 @@ fn candidate_available_after_insert(
         if ignore_id == Some(gate.id) {
             return true;
         }
-        let shifted_column = if gate.column >= insert_index {
-            gate.column + moving_width
+        let shifted_column = if gate.column.as_usize() >= insert_index {
+            let Some(shifted_column) = gate.column.checked_add(moving_width) else {
+                return false;
+            };
+            shifted_column.as_usize()
         } else {
-            gate.column
+            gate.column.as_usize()
         };
         !candidate_intersects_gate(moving_gate, insert_index, wire_index, gate, shifted_column)
     })
@@ -148,7 +157,7 @@ fn nearest_insert_slot(
     let occupied_columns: BTreeSet<usize> = gates
         .iter()
         .filter(|gate| ignore_id != Some(gate.id))
-        .map(|gate| gate.column)
+        .map(|gate| gate.column.as_usize())
         .collect();
     if occupied_columns.is_empty() {
         return None;
@@ -157,7 +166,9 @@ fn nearest_insert_slot(
     let mut insert_indices: BTreeSet<usize> = BTreeSet::new();
     insert_indices.insert(0);
     for column in occupied_columns {
-        insert_indices.insert(column + 1);
+        if let Some(index) = column.checked_add(1) {
+            insert_indices.insert(index);
+        }
     }
 
     let mut nearest = None;
@@ -219,8 +230,22 @@ mod tests {
 
     #[test]
     fn amplitude_slot_snap_skips_intersecting_neighbor_column() {
-        let existing = PlacedGate::new(1, GateKind::H, 1, 0, 1, None);
-        let moving = PlacedGate::new(2, GateKind::AmplitudeDisplay, 0, 0, 3, None);
+        let existing = PlacedGate::new(
+            1,
+            GateKind::H,
+            crate::app::CircuitColumnIndex::new(1),
+            0,
+            1,
+            None,
+        );
+        let moving = PlacedGate::new(
+            2,
+            GateKind::AmplitudeDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            3,
+            None,
+        );
         let snap = nearest_circuit_snap(
             126.0,
             0,

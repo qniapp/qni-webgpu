@@ -76,11 +76,17 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         }
     }
 
-    let max_column = placed_gates.iter().map(|gate| gate.column).max()?;
+    let max_column = placed_gates
+        .iter()
+        .map(|gate| gate.column.as_usize())
+        .max()?;
     for column in 0..=max_column {
         let mut has_control = false;
         let mut unsupported_controlled_target = None;
-        for gate in placed_gates.iter().filter(|gate| gate.column == column) {
+        for gate in placed_gates
+            .iter()
+            .filter(|gate| gate.column.as_usize() == column)
+        {
             if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
                 has_control = true;
             } else if supported_external_controlled_target(gate.kind)
@@ -434,14 +440,28 @@ mod tests {
 
     #[test]
     fn external_gpu_accepts_write0_gate() {
-        let gates = [PlacedGate::new(1, GateKind::Write0, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::Write0,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
     fn external_gpu_accepts_write1_gate() {
-        let gates = [PlacedGate::new(1, GateKind::Write1, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::Write1,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
@@ -449,8 +469,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_write0_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Write0, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Write0,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -459,8 +493,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_anti_controlled_write1_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Write1, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Write1,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -469,8 +517,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_swap_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Swap, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Swap, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Swap,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Swap,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -478,14 +540,28 @@ mod tests {
 
     #[test]
     fn external_gpu_accepts_spacer_gate() {
-        let gates = [PlacedGate::new(1, GateKind::Spacer, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::Spacer,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
     fn external_gpu_accepts_measurement_gate() {
-        let gates = [PlacedGate::new(1, GateKind::Measurement, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::Measurement,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
@@ -493,8 +569,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_anti_controlled_x_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::X, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::X,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -502,7 +592,14 @@ mod tests {
 
     #[test]
     fn external_gpu_accepts_lone_control_column() {
-        let gates = [PlacedGate::new(1, GateKind::Control, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::Control,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
@@ -510,8 +607,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_control_only_column() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Control, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -519,7 +630,14 @@ mod tests {
 
     #[test]
     fn external_gpu_accepts_anti_control_only_column() {
-        let gates = [PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::AntiControl,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
@@ -527,8 +645,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_anti_controlled_h_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::H, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::H,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -537,8 +669,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_sqrt_x_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::SqrtX, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::SqrtX,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -547,8 +693,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_measurement_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Measurement, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Measurement,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -557,8 +717,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_anti_controlled_measurement_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Measurement, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Measurement,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -566,14 +740,28 @@ mod tests {
 
     #[test]
     fn external_gpu_accepts_qft_gate() {
-        let gates = [PlacedGate::new(1, GateKind::QftGate, 0, 0, 2, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::QftGate,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            2,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
     fn external_gpu_accepts_qft_dagger_gate() {
-        let gates = [PlacedGate::new(1, GateKind::QftDaggerGate, 0, 0, 2, None)];
+        let gates = [PlacedGate::new(
+            1,
+            GateKind::QftDaggerGate,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            2,
+            None,
+        )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
@@ -581,8 +769,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_qft_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::QftGate,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                2,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -591,8 +793,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_qft_dagger_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::QftDaggerGate, 0, 1, 2, None),
+            PlacedGate::new(
+                1,
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::QftDaggerGate,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                2,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -601,9 +817,30 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_swap_gate() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::Swap, 0, 1, 1, None),
-            PlacedGate::new(3, GateKind::Swap, 0, 2, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::Swap,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                3,
+                GateKind::Swap,
+                crate::app::CircuitColumnIndex::new(0),
+                2,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -612,8 +849,22 @@ mod tests {
     #[test]
     fn external_gpu_accepts_controlled_density_display() {
         let gates = [
-            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
-            PlacedGate::new(2, GateKind::DensityMatrixDisplay, 0, 1, 1, None),
+            PlacedGate::new(
+                1,
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                0,
+                1,
+                None,
+            ),
+            PlacedGate::new(
+                2,
+                GateKind::DensityMatrixDisplay,
+                crate::app::CircuitColumnIndex::new(0),
+                1,
+                1,
+                None,
+            ),
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);

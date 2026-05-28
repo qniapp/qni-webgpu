@@ -53,14 +53,15 @@ impl DragController {
             .filter(|snap| snap.distance() <= SNAP_DISTANCE)
             {
                 next_pos.x = snap.center() - GATE_SIZE / 2.0;
-                next_column = snap.column();
+                let snapped_column = snap.column();
+                next_column = snapped_column;
                 live_snap = Some(match snap {
-                    CircuitSnap::Slot(snap) => LiveDragSnap::Slot {
-                        column: snap.index,
+                    CircuitSnap::Slot(_) => LiveDragSnap::Slot {
+                        column: snapped_column,
                         wire: line_index,
                     },
-                    CircuitSnap::Insert(snap) => LiveDragSnap::Insert {
-                        column: snap.index,
+                    CircuitSnap::Insert(_) => LiveDragSnap::Insert {
+                        column: snapped_column,
                         wire: line_index,
                     },
                 });
