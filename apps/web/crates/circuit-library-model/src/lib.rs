@@ -15,6 +15,28 @@ const GROVER_SEARCH_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// QFT を H と制御位相回転へ分解した 4 量子ビット回路。ネイティブ `QFT4`
+/// ゲートを教材として展開したもので、シミュレータの `linearize_qft` が
+/// `QFT4` を変換する手順そのもの（各ビットに H を当て、下位ビットからの
+/// 制御位相 π/2^j を掛ける。j=1→π/2, j=2→π/4, j=3→π/8。最後のビット反転
+/// SWAP は qni と同じく省略）を回路として書き下した。`QFT4` と数学的に
+/// 等価であることは Web アプリ側の `decomposed_qft4_matches_native_qft4_ops`
+/// テストで保証する。
+pub const QFT4_DECOMPOSED_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["H"],"#,
+    r#"["P(π_2)","•"],"#,
+    r#"["P(π_4)",1,"•"],"#,
+    r#"["P(π_8)",1,1,"•"],"#,
+    r#"[1,"H"],"#,
+    r#"[1,"P(π_2)","•"],"#,
+    r#"[1,"P(π_4)",1,"•"],"#,
+    r#"[1,1,"H"],"#,
+    r#"[1,1,"P(π_2)","•"],"#,
+    r#"[1,1,1,"H"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -415,6 +437,37 @@ impl CircuitLibrary {
         changed
     }
 
+    /// 永続化された組み込みサンプルを現在のコード定義（`sample_entries`）へ同期する。
+    ///
+    /// 組み込みサンプルの JSON や名前をコード側で更新しても、初回シード後に保存された
+    /// ライブラリは取り残される。ロード時にこの調整を掛けることで、同じ `id` を持つ
+    /// 既存サンプルの name / circuit_json をコード定義へ更新し、保存版に無いサンプルは
+    /// 追加する。ユーザー回路（`CircuitOrigin::User`）には一切触れない。既存サンプルの
+    /// `updated_at` は据え置く（表示はセクション別なので並び順には影響しない）。
+    /// 変更があれば true を返す。
+    pub fn reconcile_samples(&mut self) -> bool {
+        let mut changed = false;
+        for canonical in sample_entries(now_millis()) {
+            if let Some(existing) = self
+                .entries
+                .iter_mut()
+                .find(|entry| entry.is_sample() && entry.id == canonical.id)
+            {
+                if existing.name != canonical.name
+                    || existing.circuit_json != canonical.circuit_json
+                {
+                    existing.name = canonical.name;
+                    existing.circuit_json = canonical.circuit_json;
+                    changed = true;
+                }
+            } else {
+                self.entries.push(canonical);
+                changed = true;
+            }
+        }
+        changed
+    }
+
     pub fn resolve_startup_url_payload(&mut self, url_json: String) -> bool {
         if self.active().circuit_json == url_json {
             return false;
@@ -660,7 +713,7 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#,
             updated_at,
         ),
-        CircuitEntry::sample("qft-4", "QFT 4-qubit", r#"{"cols":[["QFT4"]]}"#, updated_at),
+        CircuitEntry::sample("qft-4", "QFT 4-qubit", QFT4_DECOMPOSED_JSON, updated_at),
         grover_search_entry(updated_at),
     ]
 }

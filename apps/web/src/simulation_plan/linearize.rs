@@ -753,6 +753,48 @@ mod tests {
         );
     }
 
+    /// 各 `ApplyGate` を (対象ビット, 制御マスク, 制御値, 量子化した行列) に
+    /// 要約する。行列は 1e-6 精度で整数化し、順序づき比較が浮動小数の微小誤差に
+    /// 振り回されないようにする。`SnapshotState` 等の非ユニタリ演算は除外する。
+    fn applied_gate_summary(json: &str) -> Vec<(u32, u32, u32, [i64; 8])> {
+        let (gates, _) = crate::url_circuit::parse_circuit_json(json);
+        linearize_ops(&gates, qubit_count(4), 0)
+            .iter()
+            .filter_map(|op| match op {
+                SimulationOp::ApplyGate(params) => {
+                    let m = params.matrix();
+                    let q = |value: f32| (value * 1_000_000.0).round() as i64;
+                    Some((
+                        params.bit(),
+                        params.control_mask(),
+                        params.control_value(),
+                        [
+                            q(m[0][0]),
+                            q(m[0][1]),
+                            q(m[1][0]),
+                            q(m[1][1]),
+                            q(m[2][0]),
+                            q(m[2][1]),
+                            q(m[3][0]),
+                            q(m[3][1]),
+                        ],
+                    ))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn decomposed_qft4_matches_native_qft4_ops() {
+        // 分解版 QFT4 サンプルは、ネイティブ `QFT4` ゲートと同一の ApplyGate 列
+        // （同じ行列・対象ビット・制御）へ展開される = 数学的に等価。
+        let native = applied_gate_summary(r#"{"cols":[["QFT4"]]}"#);
+        let decomposed = applied_gate_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON);
+
+        assert_eq!(decomposed, native);
+    }
+
     #[test]
     fn probability_display_captures_column_controls() {
         let gates = [

@@ -1,6 +1,6 @@
 use super::{
     CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin,
-    EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON,
+    EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON, QFT4_DECOMPOSED_JSON,
 };
 
 fn cid(value: &str) -> CircuitId {
@@ -112,6 +112,121 @@ fn grover_seed_uses_expanded_quirk_json() {
     assert_eq!(
         grover.map(|entry| entry.circuit_json.as_str()),
         Some(GROVER_SEARCH_JSON)
+    );
+}
+
+#[test]
+fn qft4_seed_uses_decomposed_json() {
+    let library = CircuitLibrary::seed();
+    let qft4 = library
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "qft-4");
+
+    assert_eq!(
+        qft4.map(|entry| entry.circuit_json.as_str()),
+        Some(QFT4_DECOMPOSED_JSON)
+    );
+}
+
+#[test]
+fn reconcile_refreshes_stale_sample_json() {
+    let mut library = CircuitLibrary::seed();
+    // コード更新前に保存された旧サンプル JSON を模擬する。
+    library
+        .entries
+        .iter_mut()
+        .find(|entry| entry.id.as_str() == "qft-4")
+        .expect("seed has qft-4")
+        .circuit_json = r#"{"cols":[["QFT4"]]}"#.to_owned();
+
+    library.reconcile_samples();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id.as_str() == "qft-4")
+            .map(|entry| entry.circuit_json.as_str()),
+        Some(QFT4_DECOMPOSED_JSON)
+    );
+}
+
+#[test]
+fn reconcile_reports_no_change_for_current_library() {
+    let mut library = CircuitLibrary::seed();
+
+    assert!(!library.reconcile_samples());
+}
+
+#[test]
+fn reconcile_leaves_user_circuits_untouched() {
+    let mut library = CircuitLibrary::seed();
+    library
+        .entries
+        .push(user("mine", "Mine", r#"{"cols":[["X"]]}"#, false));
+    let before = library
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "mine")
+        .cloned();
+
+    library.reconcile_samples();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id.as_str() == "mine"),
+        before.as_ref()
+    );
+}
+
+#[test]
+fn reconcile_reinserts_missing_sample() {
+    let mut library = CircuitLibrary::seed();
+    library.entries.retain(|entry| entry.id.as_str() != "qft-4");
+
+    library.reconcile_samples();
+
+    assert!(library
+        .entries
+        .iter()
+        .any(|entry| entry.id.as_str() == "qft-4" && entry.is_sample()));
+}
+
+#[test]
+fn reconcile_returns_true_when_sample_is_stale() {
+    let mut library = CircuitLibrary::seed();
+    library
+        .entries
+        .iter_mut()
+        .find(|entry| entry.id.as_str() == "qft-4")
+        .expect("seed has qft-4")
+        .circuit_json = r#"{"cols":[["QFT4"]]}"#.to_owned();
+
+    assert!(library.reconcile_samples());
+}
+
+#[test]
+fn reconcile_refreshes_stale_sample_name() {
+    let mut library = CircuitLibrary::seed();
+    library
+        .entries
+        .iter_mut()
+        .find(|entry| entry.id.as_str() == "qft-4")
+        .expect("seed has qft-4")
+        .name = "Old QFT".to_owned();
+
+    library.reconcile_samples();
+
+    assert_eq!(
+        library
+            .entries
+            .iter()
+            .find(|entry| entry.id.as_str() == "qft-4")
+            .map(|entry| entry.name.as_str()),
+        Some("QFT 4-qubit")
     );
 }
 
