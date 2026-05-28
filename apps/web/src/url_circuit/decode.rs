@@ -180,7 +180,14 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             let Some((kind, span, angle)) = token_to_gate(token) else {
                 continue;
             };
-            gates.push(PlacedGate::new(0, kind, col_idx, wire_idx, span, angle));
+            gates.push(PlacedGate::new(
+                0,
+                kind,
+                crate::app::CircuitColumnIndex::new(col_idx),
+                wire_idx,
+                span,
+                angle,
+            ));
         }
     }
     gates
@@ -285,7 +292,17 @@ mod tests {
                 .iter()
                 .find(|gate| gate.kind == GateKind::AmplitudeDisplay)
                 .map(|gate| gate.column),
-            Some(1)
+            Some(crate::app::CircuitColumnIndex::new(1))
+        );
+    }
+
+    #[test]
+    fn nonzero_column_round_trips_as_later_cols_entry() {
+        let (gates, _) = parse_circuit_json(r#"{"cols":[[1],["H"]]}"#);
+
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(&gates, 1),
+            r#"{"cols":[[1],["H"]]}"#
         );
     }
 

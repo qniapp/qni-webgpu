@@ -49,9 +49,19 @@ impl QniApp {
             }
         }
 
+        if gates.iter().any(|gate| {
+            gate.id != drag.id
+                && gate.column >= adjusted_insert
+                && gate.column.checked_add(moving_width).is_none()
+        }) {
+            return Cow::Borrowed(&self.placed_gates);
+        }
         for gate in &mut gates {
             if gate.id != drag.id && gate.column >= adjusted_insert {
-                gate.column += moving_width;
+                let Some(column) = gate.column.checked_add(moving_width) else {
+                    return Cow::Borrowed(&self.placed_gates);
+                };
+                gate.column = column;
             }
         }
 
@@ -64,7 +74,15 @@ impl QniApp {
     }
 
     fn step_snapshot_slot_count_for(gates: &[PlacedGate]) -> usize {
-        gates.iter().map(|gate| gate.column + 1).max().unwrap_or(0)
+        gates
+            .iter()
+            .filter_map(|gate| {
+                gate.column
+                    .checked_add(1)
+                    .map(crate::app::CircuitColumnIndex::as_usize)
+            })
+            .max()
+            .unwrap_or(0)
     }
 
     /// Refresh the simulation operation list + per-gate slot lookups when

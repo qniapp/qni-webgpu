@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::app::PlacedGate;
+use crate::app::{CircuitColumnIndex, PlacedGate};
 use crate::gates::GateKind;
 use crate::gpu::{ExternalBlochUpload, ExternalBlochUploadBatch};
 
 pub(super) struct ExternalBlochRequest {
     pub(super) gate_id: u32,
-    pub(super) column: usize,
+    pub(super) column: CircuitColumnIndex,
     pub(super) wire: usize,
 }
 
@@ -14,7 +14,7 @@ pub(super) fn collect_bloch_requests(
     placed_gates: &[PlacedGate],
     qubits: usize,
 ) -> Vec<ExternalBlochRequest> {
-    let Some(max_column) = placed_gates.iter().map(|gate| gate.column).max() else {
+    let Some(max_column) = placed_gates.iter().map(|gate| gate.column.as_usize()).max() else {
         return Vec::new();
     };
     let mut requests = Vec::new();
@@ -22,14 +22,16 @@ pub(super) fn collect_bloch_requests(
         let mut displays: Vec<&PlacedGate> = placed_gates
             .iter()
             .filter(|gate| {
-                gate.column == column && gate.kind == GateKind::BlochDisplay && gate.wire < qubits
+                gate.column.as_usize() == column
+                    && gate.kind == GateKind::BlochDisplay
+                    && gate.wire < qubits
             })
             .collect();
         displays.sort_by(|a, b| a.id.cmp(&b.id));
         for display in displays {
             requests.push(ExternalBlochRequest {
                 gate_id: display.id,
-                column,
+                column: CircuitColumnIndex::new(column),
                 wire: display.wire,
             });
         }
@@ -43,7 +45,9 @@ pub(super) fn bloch_requests_json(requests: &[ExternalBlochRequest]) -> String {
         .map(|request| {
             format!(
                 r#"{{"gate_id":{},"column":{},"wire":{}}}"#,
-                request.gate_id, request.column, request.wire
+                request.gate_id,
+                request.column.as_usize(),
+                request.wire
             )
         })
         .collect();
@@ -153,7 +157,14 @@ mod tests {
     #[test]
     fn serializes_bloch_output_request() {
         let requests = collect_bloch_requests(
-            &[PlacedGate::new(2, GateKind::BlochDisplay, 1, 0, 1, None)],
+            &[PlacedGate::new(
+                2,
+                GateKind::BlochDisplay,
+                crate::app::CircuitColumnIndex::new(1),
+                0,
+                1,
+                None,
+            )],
             1,
         );
 
@@ -167,8 +178,22 @@ mod tests {
     fn external_bloch_slot_matches_collection_order() {
         let requests = collect_bloch_requests(
             &[
-                PlacedGate::new(4, GateKind::BlochDisplay, 1, 0, 1, None),
-                PlacedGate::new(3, GateKind::BlochDisplay, 1, 1, 1, None),
+                PlacedGate::new(
+                    4,
+                    GateKind::BlochDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    0,
+                    1,
+                    None,
+                ),
+                PlacedGate::new(
+                    3,
+                    GateKind::BlochDisplay,
+                    crate::app::CircuitColumnIndex::new(1),
+                    1,
+                    1,
+                    None,
+                ),
             ],
             2,
         );

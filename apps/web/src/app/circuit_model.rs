@@ -16,6 +16,9 @@ use crate::gates::{GateKind, ParametricAngle};
 
 use super::QniApp;
 
+mod column_index;
+pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
+
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {
     pub(crate) id: u32,
@@ -23,7 +26,7 @@ pub(crate) struct PlacedGate {
     /// Semantic circuit column (qni `CircuitStepElement` index). This is the
     /// authoritative horizontal model; `pos.x` is only the derived draw/drag
     /// preview coordinate.
-    pub(crate) column: usize,
+    pub(crate) column: CircuitColumnIndex,
     /// Derived circuit-local draw position. During drag this follows the
     /// pointer as a preview; on committed placement it is resynchronised from
     /// `column` / `wire`.
@@ -45,7 +48,7 @@ impl PlacedGate {
     pub(crate) fn new(
         id: u32,
         kind: GateKind,
-        column: usize,
+        column: CircuitColumnIndex,
         wire: usize,
         span: usize,
         angle: Option<ParametricAngle>,
@@ -61,9 +64,9 @@ impl PlacedGate {
         }
     }
 
-    pub(crate) fn grid_pos(column: usize, wire: usize) -> egui::Pos2 {
+    pub(crate) fn grid_pos(column: CircuitColumnIndex, wire: usize) -> egui::Pos2 {
         let slot_left = LINE_LEFT_OFFSET + GATE_SIZE;
-        let slot_center_x = slot_left + SLOT_SPACING * column as f32;
+        let slot_center_x = slot_left + SLOT_SPACING * column.as_usize() as f32;
         let line_y = LINE_Y + LINE_GAP * wire as f32;
         egui::pos2(slot_center_x - GATE_SIZE / 2.0, line_y - GATE_SIZE / 2.0)
     }
@@ -88,13 +91,19 @@ pub(crate) struct DragState {
     pub(crate) offset: egui::Vec2,
     /// Original semantic column for an existing gate. `None` means a palette
     /// gate that has no committed source column yet.
-    pub(crate) original_column: Option<usize>,
+    pub(crate) original_column: Option<CircuitColumnIndex>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LiveDragSnap {
-    Slot { column: usize, wire: usize },
-    Insert { column: usize, wire: usize },
+    Slot {
+        column: CircuitColumnIndex,
+        wire: usize,
+    },
+    Insert {
+        column: CircuitColumnIndex,
+        wire: usize,
+    },
 }
 
 /// Which vertical edge of a span-resizable gate is being manipulated.
@@ -151,7 +160,12 @@ impl QniApp {
     pub(super) fn min_circuit_slots(&self) -> usize {
         self.placed_gates
             .iter()
-            .map(|gate| gate.column + gate_width_cols(gate.kind, gate.span) + 1)
+            .filter_map(|gate| {
+                gate.column
+                    .checked_add(gate_width_cols(gate.kind, gate.span))
+                    .and_then(|column| column.checked_add(1))
+                    .map(CircuitColumnIndex::as_usize)
+            })
             .max()
             .unwrap_or(0)
     }
@@ -196,7 +210,13 @@ impl QniApp {
         let occupied: BTreeSet<usize> = self
             .placed_gates
             .iter()
-            .flat_map(|gate| gate.column..gate.column + gate_width_cols(gate.kind, gate.span))
+            .flat_map(|gate| {
+                let start = gate.column.as_usize();
+                gate.column
+                    .checked_add(gate_width_cols(gate.kind, gate.span))
+                    .into_iter()
+                    .flat_map(move |end| start..end.as_usize())
+            })
             .collect();
         let already_compact = occupied
             .iter()
@@ -210,8 +230,8 @@ impl QniApp {
             remap.insert(old_i, new_i);
         }
         for gate in &mut self.placed_gates {
-            if let Some(&new_i) = remap.get(&gate.column) {
-                gate.column = new_i;
+            if let Some(&new_i) = remap.get(&gate.column.as_usize()) {
+                gate.column = CircuitColumnIndex::new(new_i);
                 gate.sync_pos_from_grid();
             }
         }
@@ -223,26 +243,41 @@ impl QniApp {
     pub(crate) fn shift_trailing_gates_after_width_change(
         &mut self,
         gate_id: u32,
-        column: usize,
+        column: CircuitColumnIndex,
         old_width: usize,
         new_width: usize,
     ) {
         if old_width == new_width {
             return;
         }
-        let boundary = column + old_width;
+        let Some(boundary) = column
+            .checked_add(old_width)
+            .map(CircuitColumnIndex::as_usize)
+        else {
+            return;
+        };
         if new_width > old_width {
             let delta = new_width - old_width;
+            if self.placed_gates.iter().any(|gate| {
+                gate.id != gate_id
+                    && gate.column.as_usize() >= boundary
+                    && gate.column.checked_add(delta).is_none()
+            }) {
+                return;
+            }
             for gate in &mut self.placed_gates {
-                if gate.id != gate_id && gate.column >= boundary {
-                    gate.column += delta;
+                if gate.id != gate_id && gate.column.as_usize() >= boundary {
+                    let Some(column) = gate.column.checked_add(delta) else {
+                        return;
+                    };
+                    gate.column = column;
                     gate.sync_pos_from_grid();
                 }
             }
         } else {
             let delta = old_width - new_width;
             for gate in &mut self.placed_gates {
-                if gate.id != gate_id && gate.column >= boundary {
+                if gate.id != gate_id && gate.column.as_usize() >= boundary {
                     gate.column = gate.column.saturating_sub(delta);
                     gate.sync_pos_from_grid();
                 }
@@ -254,8 +289,8 @@ impl QniApp {
         &mut self,
         gate_id: u32,
         wire: usize,
-        insert_index: usize,
-        original_column: Option<usize>,
+        insert_index: CircuitColumnIndex,
+        original_column: Option<CircuitColumnIndex>,
     ) {
         let Some(gate_index) = self.placed_gates.iter().position(|gate| gate.id == gate_id) else {
             return;
@@ -266,27 +301,43 @@ impl QniApp {
             self.placed_gates[gate_index].span,
         );
         let mut adjusted_insert = insert_index;
-        if let Some(old_column) = original_column {
-            let old_width = moving_width;
+        let remove_old_column = original_column.is_some_and(|old_column| {
             let old_column_still_occupied = self
                 .placed_gates
                 .iter()
                 .any(|gate| gate.id != gate_id && gate.column == old_column);
-            if !old_column_still_occupied {
+            !old_column_still_occupied
+        });
+        if remove_old_column {
+            if let Some(old_column) = original_column {
+                if old_column < adjusted_insert {
+                    adjusted_insert = adjusted_insert.saturating_sub(moving_width);
+                }
+            }
+        }
+        if self.placed_gates.iter().any(|gate| {
+            gate.id != gate_id
+                && gate.column >= adjusted_insert
+                && gate.column.checked_add(moving_width).is_none()
+        }) {
+            return;
+        }
+        if remove_old_column {
+            if let Some(old_column) = original_column {
                 for gate in &mut self.placed_gates {
                     if gate.id != gate_id && gate.column > old_column {
-                        gate.column = gate.column.saturating_sub(old_width);
+                        gate.column = gate.column.saturating_sub(moving_width);
                     }
-                }
-                if old_column < adjusted_insert {
-                    adjusted_insert = adjusted_insert.saturating_sub(old_width);
                 }
             }
         }
 
         for gate in &mut self.placed_gates {
             if gate.id != gate_id && gate.column >= adjusted_insert {
-                gate.column += moving_width;
+                let Some(column) = gate.column.checked_add(moving_width) else {
+                    return;
+                };
+                gate.column = column;
             }
         }
 

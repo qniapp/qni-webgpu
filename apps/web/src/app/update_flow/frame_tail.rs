@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::time::Duration;
 
-use crate::app::QniApp;
+use crate::app::{CircuitColumnIndex, QniApp};
 use crate::constants::DRAG_REPAINT_MIN_SECS;
 use crate::shared::now_seconds;
 
@@ -57,7 +57,7 @@ fn publish_hover_snapshot(
     hovered_probability_outcome: Option<(u32, u32)>,
     hovered_amplitude_outcome: Option<(u32, u32)>,
     hovered_density_cell: Option<(u32, u32)>,
-    hovered_step: Option<usize>,
+    hovered_step: Option<CircuitColumnIndex>,
 ) {
     let gate = hovered_gate_id
         .map(|id| id.to_string())
@@ -75,7 +75,7 @@ fn publish_hover_snapshot(
         .map(|(gate_id, cell)| format!("{{\"gateId\":{gate_id},\"cell\":{cell}}}"))
         .unwrap_or_else(|| "null".to_owned());
     let step = hovered_step
-        .map(|index| index.to_string())
+        .map(|index| index.as_usize().to_string())
         .unwrap_or_else(|| "null".to_owned());
     let snapshot = format!(
         "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredProbabilityOutcome\":{probability},\"hoveredAmplitudeOutcome\":{amplitude},\"hoveredDensityCell\":{density},\"hoveredStep\":{step}}}"
@@ -93,6 +93,6 @@ fn publish_hover_snapshot(
     _hovered_probability_outcome: Option<(u32, u32)>,
     _hovered_amplitude_outcome: Option<(u32, u32)>,
     _hovered_density_cell: Option<(u32, u32)>,
-    _hovered_step: Option<usize>,
+    _hovered_step: Option<CircuitColumnIndex>,
 ) {
 }

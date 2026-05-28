@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitColumnIndex — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路モデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">CircuitColumnIndex</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">CircuitColumnIndex 実装仕様</h1>
+  <p class="page-lede">
+    回路上の列番号を <code>usize</code> の裸値ではなく、<code>CircuitColumnIndex</code> という値オブジェクトで扱うための仕様。
+    0 始まりの列番号という不変条件を型へ閉じ込め、URL 復元、ドラッグ、描画、GPU 実行計画、外部 GPU 経路（Qiskit Aer バックエンドを使う経路）で同じ意味の値として扱う。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      現行実装では <code>PlacedGate.column: usize</code> を中心に、URL の <code>cols</code> 配列添字、ドラッグ中のスナップ先、ステッププレビュー、外部 GPU 経路の表示出力に含まれる <code>column</code> JSON 値が同じ意味の列番号として使われている。
+      一方で、状態表示のグリッド列、密度行列の列、CSS の列数など、同じ <code>column</code> / <code>col</code> という語を持つ別概念も多い。
+      裸の <code>usize</code> では、これらの混入を型で防げない。
+    </p>
+    <p>
+      <code>CircuitColumnIndex</code> は「回路モデル内の 0 始まり列番号」だけを表す値オブジェクトにする。
+      値は非公開にし、生成時に検証し、比較は値そのもので行う。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性を列番号へ適用する。
+    </p>
+    <ul>
+      <li>列番号は常に 0 以上の整数である</li>
+      <li>最初の列は <code>CircuitColumnIndex::ZERO</code> で表す</li>
+      <li>ピクセル座標や表示グリッド列から暗黙に列番号を作らない</li>
+      <li>外部境界では数値 JSON を維持し、Rust ドメイン層へ入る時点で値オブジェクトへ変換する</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>CircuitColumnIndex</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/app/circuit_model/column_index.rs</code> を新設し、<code>apps/web/src/app/circuit_model.rs</code> と <code>apps/web/src/app.rs</code> から再公開する</td></tr>
+        <tr><th>意味</th><td>回路の意味的な列番号。qni 互換のステップ添字、URL の <code>cols</code> 配列添字、GPU 実行計画の列順に対応する</td></tr>
+        <tr><th>始点</th><td>0 始まり。<code>0</code> は先頭列を表す</td></tr>
+        <tr><th>保持する値</th><td><code>usize</code>。ただしフィールドは非公開にし、呼び出し側が直接書き換えられないようにする</td></tr>
+        <tr><th>対象範囲</th><td><code>PlacedGate.column</code>、ドラッグで確定したスナップ先、挿入位置、ステッププレビュー、列単位の実行計画、外部 GPU 経路の表示出力列指定</td></tr>
+        <tr><th>対象外</th><td>状態ベクトルパネルのグリッド列、振幅表示ブロック内のセル列、密度行列の列、CSS の列数、パレットやライブラリの並び替え位置</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub(crate) struct CircuitColumnIndex {
+    value: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CircuitColumnIndexError {
+    Negative,
+    Overflow,
+}
+
+impl CircuitColumnIndex {
+    pub(crate) const ZERO: Self = Self { value: 0 };
+
+    pub(crate) const fn new(value: usize) -&gt; Self;
+    pub(crate) fn try_from_i64(value: i64) -&gt; Result&lt;Self, CircuitColumnIndexError&gt;;
+    pub(crate) const fn as_usize(self) -&gt; usize;
+
+    pub(crate) fn checked_add(self, delta: usize) -&gt; Option&lt;Self&gt;;
+    pub(crate) fn saturating_sub(self, delta: usize) -&gt; Self;
+}</pre>
+
+    <p class="note">
+      <code>new(usize)</code> は Rust の型がすでに 0 以上を保証しているため失敗しない。
+      外部入力、テスト補助、将来の JavaScript 連携など、負数や対象環境の <code>usize</code> に収まらない整数が混ざりうる入口では <code>try_from_i64</code> を使う。
+      <code>checked_add</code> と <code>saturating_sub</code> は列移動で必要な場合だけ使う名前付き演算であり、暗黙の <code>Add&lt;usize&gt;</code> 実装は持たせない。
+      <code>as_usize()</code> は配列添字、JSON 生成、<code>egui</code> の座標計算など、境界層へ出る直前だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部値を変更しない。列移動や挿入による変更は、古い値を書き換えるのではなく新しい <code>CircuitColumnIndex</code> を計算して <code>PlacedGate.column</code> へ代入する</td>
+          <td>公開フィールド、<code>set_value</code>、<code>&amp;mut usize</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>値オブジェクトの生成時点で 0 以上、かつ <code>usize</code> に収まることを保証する。外部入力から負数を受け取った場合は <code>Err(CircuitColumnIndexError::Negative)</code> にする</td>
+          <td>Rust ドメイン層の呼び出し側で <code>if column &gt;= 0</code> を重複実装しない。JSON や TypeScript 境界の形式検証は維持する。負数を <code>0</code> に丸めない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>識別子ではなく内部の列番号値で比較する。<code>CircuitColumnIndex::new(2)</code> 同士は同じ値であり、どこで生成されたかは等価性へ影響しない</td>
+          <td>ポインタ同一性、ゲート ID、生成元、ピクセル座標で列番号の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>回路列番号を受け渡す Rust ドメイン API は同じ型を使う。関数ごとに <code>usize</code>、<code>slot</code>、<code>step</code> を混在させない</td>
+          <td>新しい回路列番号引数を <code>usize</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>配置済みゲート</h3>
+    <p>
+      <code>PlacedGate.column</code> は <code>usize</code> から <code>CircuitColumnIndex</code> に変更する。
+      <code>PlacedGate::new</code> の列引数も <code>CircuitColumnIndex</code> にし、呼び出し側で列番号の意味を明示する。
+      URL 復元のように <code>enumerate()</code> から得た添字を使う場合は、<code>CircuitColumnIndex::new(col_idx)</code> で変換する。
+    </p>
+
+    <h3>ドラッグと挿入</h3>
+    <p>
+      <code>LiveDragSnap::Slot.column</code>、<code>LiveDragSnap::Insert.column</code>、<code>DragState.original_column</code> は <code>CircuitColumnIndex</code> にする。
+      <code>insert_gate_at_column</code> は <code>insert_index: CircuitColumnIndex</code> を受け取る。
+      <code>SlotSnap.index</code> や <code>InsertSnap.index</code> のような探索途中の配列添字は、回路列番号として確定する地点で <code>CircuitColumnIndex</code> へ変換する。
+      挿入によって後続ゲートを右へずらす場合は <code>checked_add</code> を使い、あふれが起きる値は受け入れない。
+      左へ詰める処理は現行の <code>saturating_sub</code> の意味を値オブジェクト側へ閉じ込める。
+    </p>
+
+    <h3>描画と座標計算</h3>
+    <p>
+      <code>PlacedGate::grid_pos</code> と <code>gate_rect_at_grid</code> は <code>CircuitColumnIndex</code> を受け取る。
+      ピクセル座標へ変換する箇所だけ <code>column.as_usize()</code> を使う。
+      <code>nearest_slot_index</code> が返す配列添字は、スナップ先として採用する段階で <code>CircuitColumnIndex::new(index)</code> に変換する。
+    </p>
+
+    <h3>URL と外部 GPU 経路</h3>
+    <table class="spec">
+      <tbody>
+        <tr><th>URL 復元</th><td><code>cols.iter().enumerate()</code> の <code>col_idx</code> を <code>CircuitColumnIndex::new(col_idx)</code> に変換して <code>PlacedGate</code> へ渡す</td></tr>
+        <tr><th>URL 生成</th><td><code>gate.column.as_usize()</code> で <code>cols</code> 配列の添字へ変換する。JSON の <code>cols</code> 配列形式は変えない</td></tr>
+        <tr><th>外部 GPU 表示出力</th><td>Rust 側の <code>ExternalAmplitudeRequest.column</code> などは <code>CircuitColumnIndex</code> にし、JSON 生成時だけ数値へ戻す</td></tr>
+        <tr><th>Qiskit バックエンド</th><td>Python 側は JSON 境界なので <code>int</code> のままにし、既存どおり <code>0 &lt;= column &lt; len(columns)</code> を検証する</td></tr>
+      </tbody>
+    </table>
+
+    <h3>実行計画</h3>
+    <p>
+      <code>ColumnAnalysis</code> は回路列番号をキーにする経路で <code>CircuitColumnIndex</code> を扱う。
+      描画専用の配列添字を残す場合は、<code>circuit_column</code> と <code>slot_index</code> のように名前を分け、値オブジェクトへの変換点を明示する。
+      WebGPU へ渡すバッファ構造体には列番号を直接入れないため、シェーダや量子状態計算の経路は変更しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>入口</th><th>入力</th><th>変換</th><th>不正値の扱い</th></tr></thead>
+      <tbody>
+        <tr><th>URL <code>cols</code></th><td>配列添字 <code>usize</code></td><td><code>CircuitColumnIndex::new(col_idx)</code></td><td>配列添字なので負数は発生しない</td></tr>
+        <tr><th>MCP <code>qni_place_gate</code></th><td>JavaScript の <code>number</code></td><td>公開境界の形式検証として TypeScript 側の <code>column &gt;= 0</code> は維持する。Rust ドメインへ入れる経路ができた場合は <code>try_from_i64</code> を使う</td><td>負数、小数、無限大、<code>NaN</code> は拒否する</td></tr>
+        <tr><th>外部 GPU 経路の表示出力要求</th><td>Rust の値オブジェクト</td><td>JSON 生成時に <code>as_usize()</code> で数値化する</td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
+        <tr><th>Qiskit バックエンド</th><td>JSON の整数</td><td>Python 側の契約検証で <code>0 &lt;= column &lt; len(columns)</code> を確認する</td><td>範囲外なら <code>ContractError</code> にする</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      値オブジェクトを導入しても、公開 JSON の形式は変えない。
+      <code>{"column":1}</code> は引き続き数値として送受信する。
+      型による保護は Rust ドメイン層の中で効かせ、境界層では明示的な変換点を置く。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>CircuitColumnIndex</code> と <code>CircuitColumnIndexError</code> を追加する</li>
+      <li><code>PlacedGate.column</code> と <code>PlacedGate::new</code> の列引数を <code>CircuitColumnIndex</code> へ変更する</li>
+      <li>URL 復元、テストデータ、ドラッグ開始時の既定列を <code>CircuitColumnIndex::ZERO</code> または <code>CircuitColumnIndex::new(...)</code> へ置き換える</li>
+      <li>挿入、ステッププレビュー、列解析など、回路列番号として確定した引数を <code>CircuitColumnIndex</code> へ広げる。探索途中の配列添字は変換点を明示する</li>
+      <li>URL 生成、描画座標、配列添字、JSON 生成の境界だけ <code>as_usize()</code> を使う</li>
+      <li>回路列番号を受け取る公開的な Rust ドメイン API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>usize</code> 引数のまま回路列番号を受け取る関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>0 始まりを表せる</strong> — <code>CircuitColumnIndex::ZERO.as_usize()</code> が <code>0</code> になることを確認する</li>
+      <li><strong>0 以上の値を生成できる</strong> — <code>CircuitColumnIndex::new(3).as_usize()</code> が <code>3</code> になることを確認する</li>
+      <li><strong>負数を拒否する</strong> — <code>CircuitColumnIndex::try_from_i64(-1)</code> が <code>Err(CircuitColumnIndexError::Negative)</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 別々に生成した <code>CircuitColumnIndex::new(2)</code> 同士が等しいことを確認する</li>
+      <li><strong>異なる列は等しくない</strong> — <code>CircuitColumnIndex::new(1)</code> と <code>CircuitColumnIndex::new(2)</code> が異なることを確認する</li>
+      <li><strong>順序付けが列順と一致する</strong> — <code>CircuitColumnIndex::new(1) &lt; CircuitColumnIndex::new(2)</code> になることを確認する</li>
+      <li><strong>あふれを検出できる</strong> — <code>usize::MAX</code> を保持する列へ <code>checked_add(1)</code> した場合に <code>None</code> になることを確認する</li>
+      <li><strong>左詰め操作が 0 未満へ落ちない</strong> — <code>CircuitColumnIndex::ZERO.saturating_sub(1)</code> が <code>CircuitColumnIndex::ZERO</code> になることを確認する</li>
+      <li><strong>URL 復元で列番号が保存される</strong> — <code>{"cols":[[1],["H"]]}</code> を復元した <code>H</code> の列が <code>CircuitColumnIndex::new(1)</code> になることを確認する</li>
+      <li><strong>URL 生成の形式が変わらない</strong> — <code>CircuitColumnIndex::new(1)</code> のゲートを含む回路が従来どおり <code>cols</code> 配列の 2 番目に出力されることを確認する</li>
+      <li><strong>外部 GPU JSON の形式が変わらない</strong> — 表示出力要求の <code>column</code> が従来どおり数値で直列化されることを確認する</li>
+      <li><strong>裸の <code>usize</code> 回路列引数が残らない</strong> — <code>PlacedGate::new</code>、<code>grid_pos</code>、<code>gate_rect_at_grid</code>、<code>insert_gate_at_column</code>、<code>shift_trailing_gates_after_width_change</code>、ステッププレビュー状態、外部 GPU 経路の表示出力要求が <code>CircuitColumnIndex</code> を受け取ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>配置済みゲート</th><td><code>apps/web/src/app/circuit_model.rs</code> (<code>PlacedGate.column</code>, <code>PlacedGate::new</code>)</td></tr>
+        <tr><th>ドラッグと挿入</th><td><code>apps/web/src/app/drag_controller/*.rs</code>, <code>apps/web/src/layout/snap.rs</code></td></tr>
+        <tr><th>描画座標</th><td><code>apps/web/src/layout/geometry.rs</code>, <code>apps/web/src/render/circuit.rs</code></td></tr>
+        <tr><th>実行計画</th><td><code>apps/web/src/simulation_plan/column_analysis.rs</code>, <code>apps/web/src/simulation_plan/linearize.rs</code></td></tr>
+        <tr><th>URL 復元と生成</th><td><code>apps/web/src/url_circuit/decode.rs</code>, <code>apps/web/src/url_circuit/encode.rs</code></td></tr>
+        <tr><th>外部 GPU 経路</th><td><code>apps/web/src/app/external_gpu/*.rs</code>, <code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code>, <code>apps/qiskit-backend/src/qni_qiskit_backend/runners.py</code></td></tr>
+        <tr><th>MCP</th><td><code>apps/mcp-qni/src/circuit.ts</code>, <code>apps/mcp-qni/src/index.ts</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · CircuitColumnIndex 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

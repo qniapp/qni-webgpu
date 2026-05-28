@@ -12,7 +12,7 @@ mod start;
 
 use eframe::egui;
 
-use super::QniApp;
+use super::{CircuitColumnIndex, QniApp};
 use crate::constants::{LINE_GAP, PALETTE_ROW_Y, SLOT_SPACING};
 use crate::layout::{
     layout_metrics, nearest_slot_index, palette_layout, palette_start_x, LayoutMetrics,
@@ -67,7 +67,7 @@ pub(super) struct DragController;
 
 /// Column index the pointer is hovering over for step-preview.
 /// Returns `None` when outside the slot row / range.
-fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<usize> {
+fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<CircuitColumnIndex> {
     if metrics.slot_centers.is_empty() || metrics.line_ys.is_empty() {
         return None;
     }
@@ -83,7 +83,7 @@ fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<usize> 
     }
     let (slot, dist) = nearest_slot_index(cursor.x, &metrics.slot_centers)?;
     if dist <= SLOT_SPACING * 0.5 {
-        Some(slot)
+        Some(CircuitColumnIndex::new(slot))
     } else {
         None
     }

@@ -37,7 +37,7 @@ pub(crate) fn linearize_ops(
         if gate.wire >= qubits {
             return None;
         }
-        Some(gate.column)
+        Some(gate.column.as_usize())
     });
 
     let mut ops: Vec<SimulationOp> = Vec::new();
@@ -403,7 +403,7 @@ mod tests {
     const EPSILON: f32 = 0.000_001;
 
     fn bare_parametric_matrix(kind: GateKind) -> [[f32; 2]; 4] {
-        let gate = PlacedGate::new(1, kind, 0, 0, 1, None);
+        let gate = PlacedGate::new(1, kind, crate::app::CircuitColumnIndex::new(0), 0, 1, None);
         let ops = linearize_ops(&[gate], 1, 0);
         match ops.first().expect("expected an apply-gate op") {
             SimulationOp::ApplyGate(params) => params.matrix(),

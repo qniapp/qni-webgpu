@@ -32,12 +32,15 @@ pub(crate) fn circuit_columns_to_json(placed_gates: &[PlacedGate], qubit_count: 
     // is ever called pre-compaction.
     let max_slot = placed_gates
         .iter()
-        .map(|gate| gate.column)
+        .map(|gate| gate.column.as_usize())
         .max()
         .unwrap_or(0);
-    let mut buckets: Vec<Vec<&PlacedGate>> = vec![Vec::new(); max_slot + 1];
+    let Some(bucket_count) = max_slot.checked_add(1) else {
+        return "[]".to_string();
+    };
+    let mut buckets: Vec<Vec<&PlacedGate>> = vec![Vec::new(); bucket_count];
     for gate in placed_gates {
-        buckets[gate.column].push(gate);
+        buckets[gate.column.as_usize()].push(gate);
     }
 
     let mut cols: Vec<String> = Vec::with_capacity(buckets.len());
@@ -141,14 +144,28 @@ mod tests {
 
     #[test]
     fn amplitude_span_one_serializes_with_suffix() {
-        let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::AmplitudeDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Amps1"]]}"#);
     }
 
     #[test]
     fn amplitude_span_sixteen_serializes_with_suffix() {
-        let gate = PlacedGate::new(1, GateKind::AmplitudeDisplay, 0, 0, 16, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::AmplitudeDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            16,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 16), r#"{"cols":[["Amps16"]]}"#);
     }
@@ -158,7 +175,7 @@ mod tests {
         let gate = PlacedGate::new(
             1,
             GateKind::Phase,
-            0,
+            crate::app::CircuitColumnIndex::new(0),
             0,
             1,
             Some(ParametricAngle::parse_qni("4π/8").unwrap()),
@@ -172,7 +189,7 @@ mod tests {
         let gate = PlacedGate::new(
             1,
             GateKind::Phase,
-            0,
+            crate::app::CircuitColumnIndex::new(0),
             0,
             1,
             Some(ParametricAngle::parse_qni("4π").unwrap()),
@@ -183,42 +200,98 @@ mod tests {
 
     #[test]
     fn bare_phase_angle_serializes_without_angle() {
-        let gate = PlacedGate::new(1, GateKind::Phase, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Phase,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["P"]]}"#);
     }
 
     #[test]
     fn bare_rx_angle_serializes_without_angle() {
-        let gate = PlacedGate::new(1, GateKind::Rx, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Rx,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Rx"]]}"#);
     }
 
     #[test]
     fn bare_ry_angle_serializes_without_angle() {
-        let gate = PlacedGate::new(1, GateKind::Ry, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Ry,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Ry"]]}"#);
     }
 
     #[test]
     fn bare_rz_angle_serializes_without_angle() {
-        let gate = PlacedGate::new(1, GateKind::Rz, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::Rz,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Rz"]]}"#);
     }
 
     #[test]
+    fn nonzero_column_serializes_as_later_cols_entry() {
+        let gate = PlacedGate::new(
+            1,
+            GateKind::H,
+            crate::app::CircuitColumnIndex::new(1),
+            0,
+            1,
+            None,
+        );
+
+        assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[[1],["H"]]}"#);
+    }
+
+    #[test]
     fn density_span_one_serializes_without_suffix() {
-        let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 1, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::DensityMatrixDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            1,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 1), r#"{"cols":[["Density"]]}"#);
     }
 
     #[test]
     fn density_span_eight_serializes_with_suffix() {
-        let gate = PlacedGate::new(1, GateKind::DensityMatrixDisplay, 0, 0, 8, None);
+        let gate = PlacedGate::new(
+            1,
+            GateKind::DensityMatrixDisplay,
+            crate::app::CircuitColumnIndex::new(0),
+            0,
+            8,
+            None,
+        );
 
         assert_eq!(circuit_to_json(&[gate], 8), r#"{"cols":[["Density8"]]}"#);
     }

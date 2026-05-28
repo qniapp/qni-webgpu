@@ -29,9 +29,10 @@ use circuit_picker_state::PickerState;
 use eframe::egui;
 use std::collections::VecDeque;
 
+#[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, DragState, LiveDragSnap, PlacedGate, SpanResizeDrag,
-    SpanResizeEdge, SpanResizeHandle,
+    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState,
+    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};
@@ -71,7 +72,7 @@ pub(crate) struct QniApp {
     /// step-preview interaction. Drives the live "state-vector at step
     /// k" preview without committing — drops back to `breakpoint_step`
     /// when the pointer leaves the slot row.
-    pub(crate) hovered_step: Option<usize>,
+    pub(crate) hovered_step: Option<CircuitColumnIndex>,
     /// Gate id currently selected as the edit target. Selection is UI-only:
     /// it is not serialized into URL/localStorage and does not affect GPU simulation.
     pub(crate) selected_gate_id: Option<u32>,
@@ -82,7 +83,7 @@ pub(crate) struct QniApp {
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final-state (all columns applied), which
     /// is the default.
-    pub(crate) breakpoint_step: Option<usize>,
+    pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
     pub(crate) hovered_gate_id: Option<u32>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
     /// outcome index is geometry-only; probability values remain GPU-only.
