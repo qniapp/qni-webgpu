@@ -169,7 +169,12 @@ impl QniApp {
             // Resizable-span gates use one shared handle component: top +
             // bottom cyan pills with hover/active scaling. Amplitude's
             // component body is its centred matrix, so width follows the body.
-            if let Some(handles) = SpanResizeHandles::for_gate_at(gate, gate_rect) {
+            if let Some(handles) = SpanResizeHandles::for_gate_at_with_availability(
+                gate,
+                gate_rect,
+                &self.placed_gates,
+                self.exec_mode.qubit_capacity().get(),
+            ) {
                 let visible = self.hovered_gate_id == Some(gate.id)
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(

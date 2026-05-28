@@ -84,11 +84,11 @@
   <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
   <h1 class="page-title">リサイズハンドル</h1>
   <p class="page-lede">
-    span を持つ表示ブロック (確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT / QFT† 等)
-    が共有する「上下ドラッグハンドル」 primitive。ゲートの上下 2 ヶ所に出る <code>cyan-400</code> ピル形 (24 × 6 px)
+    span 付き要素 (確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT / QFT† 等)
+    が共有する「上下ドラッグハンドル」 primitive。操作できる端に出る <code>cyan-400</code> ピル形 (24 × 6 px)
     で、ホスト ホバーで「奥から飛び出してくる」マイクロインタラクションを伴って出現する。
     クロム (色 / 寸法 / 状態遷移 / マイクロインタラクション) は本ページ + <code>design-system.css</code>
-    に集約し、各コンポーネントは <strong>ポリシー (幅算出 / span 上限 / 配置主体)</strong> だけを定義する。
+    に集約し、各コンポーネントは <strong>ポリシー (幅算出 / span 上限 / 端ごとの表示可否 / 配置主体)</strong> だけを定義する。
   </p>
 </div>
 
@@ -98,8 +98,8 @@
   <h2>§ 01 概要 (見た目と用途)</h2>
   <div class="card">
     <p>
-      span を持つ表示ブロック (確率 / 振幅 / 密度行列 / QFT 等) のホスト要素の上下にドラッグハンドルを出し、span を伸縮可能にする横断 primitive。
-      通常時は invisible で UI を圧迫せず、ホスト hover で「奥から飛び出してくる」バウンス出現を伴って visible になる。
+      span 付き要素 (確率 / 振幅 / 密度行列 / QFT 等) のホスト要素にドラッグハンドルを出し、span を伸縮可能にする横断 primitive。
+      通常時は invisible で UI を圧迫せず、ホスト hover 時に表示可否判定を通った端だけが「奥から飛び出してくる」バウンス出現を伴って visible になる。
       下のモックで挙動と典型的な見た目を確認できる。
     </p>
     <div class="stage" style="gap: 56px; padding: 16px 0 8px;">
@@ -110,7 +110,7 @@
         </div>
       </div>
       <div class="col" style="max-width: 160px;">
-        <div class="caption">ホスト hover<br>cyan-400 ハンドル × 2 +<br>purple-400 ホバー枠</div>
+        <div class="caption">ホスト hover<br>有効端の cyan-400 ハンドル<br>(モックでは 2 個)</div>
         <div class="actual">
           <div class="rh-mock resize-handle-host rh-mock--ring-on" data-mock="visible"></div>
         </div>
@@ -132,7 +132,7 @@
         <tr><th>状態</th><th>Flexoki トーン</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td>default / visible</td><td><code>cyan-400</code></td><td>ピル本体のデフォルト色。ホスト hover で出現したあとも個別 hover していない状態は cyan-400 のまま</td></tr>
+        <tr><td>default / visible</td><td><code>cyan-400</code></td><td>ピル本体のデフォルト色。ホスト hover と表示可否判定で出現したあとも、個別 hover していない状態は cyan-400 のまま</td></tr>
         <tr><td>hover / active</td><td><code>cyan-600</code></td><td>ハンドル単独 hover / ドラッグ中の濃色。<code>cyan-400 → cyan-600</code> の濃度遷移で「触れる対象 → 操作対象」を示す</td></tr>
         <tr><td>関連色 (隣接)</td><td><code>purple-400</code></td><td>本 primitive の責務外。隣接するホバー枠で使われる色で、cyan を選んだ理由 (色族分離) の相方 (§ 03 参照)</td></tr>
       </tbody>
@@ -155,7 +155,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>個数</th><td>2 個 (top / bottom)</td></tr>
+        <tr><th>個数</th><td>最大 2 個 (top / bottom)。表示可否判定により片側だけ、または両側とも非表示になることがある</td></tr>
         <tr><th>形状</th><td>ピル (capsule)、<code>border-radius: 3 px</code></td></tr>
         <tr><th>幅 (default)</th><td><code>24 px</code> 固定 (確率表示ブロックなど幅が変わらないコンポーネント)</td></tr>
         <tr><th>幅 (可変)</th><td>canvas 幅 × 0.6 (min 24 px)。振幅表示ブロック / 密度行列表示ブロックのように span が大きいほど本体が広くなる場合に使う。<strong>幅ポリシーはコンポーネント側の責務</strong>で、本仕様ではクロムの幅算出ルールだけを定義する</td></tr>
@@ -208,7 +208,7 @@
           <td>—</td>
         </tr>
         <tr>
-          <td>visible (ホスト hover、モックでは常時表示)</td>
+          <td>visible (ホスト hover + 有効端、モックでは常時表示)</td>
           <td>1</td>
           <td><code>scale(1.0)</code></td>
           <td><code>cyan-400</code></td>
@@ -234,6 +234,7 @@
     </table>
     <p class="note" style="margin-top: 12px;">
       <strong>バウンスの理由:</strong> cubic-bezier(0.34, 1.56, 0.64, 1) は最終値を 1.56 倍まで一瞬オーバーシュートするイージング。
+      ここでの visible は、§ 06 の表示可否判定を通った端にだけ適用する状態である。
       <code>scale(0.7) → scale(1.0)</code> の変化が「奥から飛び出してきて、ちょっと弾む」マイクロインタラクションとして読める。
       気付きやすさ + ゲート操作の遊び心を狙う。opacity と background は通常の ease-out にして、scale だけが弾む。
     </p>
@@ -247,6 +248,7 @@
     <p>
       4 状態を常時表示したモック。本仕様の CSS / マークアップで、
       ホバーしなくても状態が確認できるので、スクロールだけで差分レビューしやすい。
+      ここでは上下とも操作できる前提で、端ごとの表示可否ではなくクロムの状態差だけを確認する。
       ホスト矩形 (40 × 96 px の <code>.rh-mock</code>) はゲート本体の代用で、③・④ は ホバー枠 (<code>purple-400</code>)
       も強制表示している。
     </p>
@@ -258,7 +260,7 @@
         </div>
       </div>
       <div class="col">
-        <div class="caption">② ホストホバー<br>ハンドルがバウンスで出現<br>(両方とも visible)</div>
+        <div class="caption">② ホストホバー<br>両端有効の例<br>(両方とも visible)</div>
         <div class="actual">
           <div class="rh-mock resize-handle-host rh-mock--ring-on" data-mock="visible"></div>
         </div>
@@ -306,9 +308,69 @@
   </div>
 </section>
 
-<!-- ─────── § 06 設計判断 ─────── -->
+<!-- ─────── § 06 表示 / 非表示条件 ─────── -->
 <section class="block">
-  <h2>§ 06 設計判断</h2>
+  <h2 id="visibility-conditions">§ 06 表示 / 非表示条件</h2>
+  <div class="card">
+    <p>
+      リサイズハンドルは、ホストホバー中は有効端判定を通った端だけ表示し、ドラッグ中は開始時に掴んだ端をマウスアップまで表示し続ける。
+      ホスト非ホバーかつドラッグ中でないときは、操作可能な端でも非表示にする。
+      有効端とは、<strong>その端をドラッグしたときに 1 段階以上の有効な span 変更ができる端</strong>を指す。
+      無効な端は opacity 0 で残すのではなく、描画と当たり判定の対象から外し、<code>ns-resize</code> カーソルも出さない。
+    </p>
+    <table class="spec">
+      <thead>
+        <tr><th>端</th><th>有効端として表示する条件</th><th>有効端でない条件</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>上のハンドル</td>
+          <td>
+            ホストホバー中、または上端のドラッグ中で、次のどちらかを満たす。
+            <ul>
+              <li><code>span &gt; 1</code> で、上端を下へ動かして span を縮められる。</li>
+              <li><code>span = 1</code> でも、すぐ上のワイヤが実行モードの容量内にあり、変更後の本体矩形が他の回路要素と重ならず、対象コンポーネントの span 上限を超えない。</li>
+            </ul>
+          </td>
+          <td>
+            <code>span = 1</code> かつ、上へ 1 ワイヤ広げる条件を満たさない場合。
+            例: 最上段にある、すぐ上の同じ列範囲が他の回路要素で埋まっている、または span 上限 / 実行モード容量に届いている。
+          </td>
+        </tr>
+        <tr>
+          <td>下のハンドル</td>
+          <td>
+            ホストホバー中、または下端のドラッグ中で、次のどちらかを満たす。
+            <ul>
+              <li><code>span &gt; 1</code> で、下端を上へ動かして span を縮められる。</li>
+              <li><code>span = 1</code> でも、すぐ下のワイヤが実行モードの容量内にあり、変更後の本体矩形が他の回路要素と重ならず、対象コンポーネントの span 上限を超えない。</li>
+            </ul>
+          </td>
+          <td>
+            <code>span = 1</code> かつ、下へ 1 ワイヤ広げる条件を満たさない場合。
+            例: 実行モード容量の最下段にある、すぐ下の同じ列範囲が他の回路要素で埋まっている、または span 上限に届いている。
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 12px;">
+      表示可否判定でいう「他の回路要素と重ならない」は、1 段階広げた候補の可視矩形で判定する。
+      振幅表示ブロック / 密度行列表示ブロックは 1 段階の span 変更で幅も変わるため、変更後の幅と、必要な後続列の押し出しが成立することも含めて判定する。
+      ここでいう実行モード容量は、現在の実行モードで回路が扱える最大量子ビット数を指す。
+    </p>
+    <h3 style="margin-top: 16px;">代表例</h3>
+    <ul>
+      <li><strong>最上段の span 1</strong>: 上へ広げられず、縮小もできないため、上のハンドルは出さない。下はすぐ下が空いている場合だけ出す。</li>
+      <li><strong>すぐ下の同じ列範囲にゲートがある span 1</strong>: 下へ広げられず、縮小もできないため、下のハンドルは出さない。上は条件を満たす場合だけ出す。</li>
+      <li><strong>span 2 以上</strong>: 端を内側へ動かして span を縮められるため、外側の境界や占有状況に関わらず、その端は表示対象になる。</li>
+      <li><strong>ドラッグ中</strong>: ドラッグ開始時に表示されていた端は、途中で上限・下限に達してもマウスアップまで表示し続ける。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────── § 07 設計判断 ─────── -->
+<section class="block">
+  <h2>§ 07 設計判断</h2>
   <div class="card">
     <h3>色</h3>
     <ul>
@@ -318,7 +380,7 @@
 
     <h3 style="margin-top: 16px;">形状とジオメトリ</h3>
     <ul>
-      <li><strong>上下 2 個にする</strong>: span は両方向に変化させたいので、片側のみだと拡張方向が片寄って感じる。確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT は同じ「縦方向に伸びる回路要素」なので、上下対称な配置に統一する</li>
+      <li><strong>上下 2 か所を候補にする</strong>: span は両方向に変化させたいので、候補が片側のみだと拡張方向が片寄って感じる。確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / QFT は同じ「縦方向に伸びる回路要素」なので、上下対称な候補位置に統一する。実際に表示する端は § 06 の表示可否条件で決める</li>
       <li><strong>4 px ホバー枠の外側 + 2 px の空きで配置</strong>: 空きは色族分離の防御ではなく、ハンドルがゲート本体から「浮いて」見える効果を狙う。色族分離があるので空きを更に詰めることも可能だが、視覚的な余白として 2 px (spacing-0.5) を保つ</li>
       <li><strong>形状はピル (capsule)</strong>: 矩形だと「点」、円だと「ボタン」、ピルだと「つまみ」に読める。span を <em>引き伸ばす</em>動作とピル形の<em>横長</em>が一致して、操作のメタファとして馴染む</li>
     </ul>
@@ -338,40 +400,41 @@
   </div>
 </section>
 
-<!-- ─────── § 07 利用箇所 ─────── -->
+<!-- ─────── § 08 利用箇所 ─────── -->
 <section class="block">
-  <h2>§ 07 利用箇所</h2>
+  <h2>§ 08 利用箇所</h2>
   <div class="card">
     <table class="spec">
       <thead>
-        <tr><th>コンポーネント</th><th>span 上限</th><th>ハンドル幅</th><th>備考</th></tr>
+        <tr><th>コンポーネント</th><th>span 範囲</th><th>ハンドル幅</th><th>端ごとの表示可否</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="probability-display.html">確率表示ブロック</a></td><td>16</td><td>24 px 固定</td><td>本体幅が span に関係なく 40 px なのでハンドル幅も固定</td></tr>
-        <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>16</td><td>canvas 幅 × 0.6</td><td>span が大きいほど本体が広くなるので本体幅に追従</td></tr>
-        <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>8</td><td>canvas 幅 × 0.6</td><td>同上。span 上限は密度行列の <code>2<sup>span</sup> × 2<sup>span</sup></code> サイズが現実的に扱える範囲で 8</td></tr>
-        <tr><td>QFT / QFT†</td><td>実行モード容量</td><td>未定</td><td>計画中。確率表示ブロックと同じ 24 px 固定になる見込み</td></tr>
+        <tr><td><a href="probability-display.html">確率表示ブロック</a></td><td>1〜16</td><td>24 px 固定</td><td>§ 06 の共通条件。span 1 では空いている端だけ表示し、span 2 以上では上下とも縮小操作が可能なので表示対象</td></tr>
+        <tr><td><a href="amplitude-display.html">振幅表示ブロック</a></td><td>1〜16</td><td>canvas 幅 × 0.6</td><td>§ 06 の共通条件。span 変更後の行列幅で重なりを判定する</td></tr>
+        <tr><td><a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>1〜8</td><td>canvas 幅 × 0.6</td><td>§ 06 の共通条件。span 上限は <code>2<sup>span</sup> × 2<sup>span</sup></code> の密度行列が現実的に扱える範囲で 8</td></tr>
+        <tr><td><a href="qft-gate.html">QFT ゲート</a></td><td>1〜実行モード容量</td><td>24 px 固定</td><td>§ 06 の共通条件。span 1 が H 相当でも、空きがある端だけ作用範囲の拡張ハンドルを出す</td></tr>
+        <tr><td><a href="qft-dagger-gate.html">QFT† ゲート</a></td><td>1〜実行モード容量</td><td>24 px 固定</td><td>§ 06 の共通条件。QFT と同じ表示可否を使い、逆変換の表記差分だけを持つ</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 / 補助ファイル ─────── -->
+<!-- ─────── § 09 関連仕様 / 補助ファイル ─────── -->
 <section class="block">
-  <h2>§ 08 関連仕様</h2>
+  <h2>§ 09 関連仕様</h2>
   <div class="card">
     <table class="spec">
       <thead>
         <tr><th>項目</th><th>役割</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="probability-display.html">確率表示ブロック</a> / <a href="amplitude-display.html">振幅表示ブロック</a> / <a href="density-matrix-display.html">密度行列表示ブロック</a></td><td>本 primitive を使う表示ブロック群。</td></tr>
+        <tr><td><a href="probability-display.html">確率表示ブロック</a> / <a href="amplitude-display.html">振幅表示ブロック</a> / <a href="density-matrix-display.html">密度行列表示ブロック</a> / <a href="qft-gate.html">QFT ゲート</a> / <a href="qft-dagger-gate.html">QFT† ゲート</a></td><td>本 primitive を使う span 付き要素。</td></tr>
         <tr><td><a href="design-system-colors.html">配色</a></td><td>default = <strong>cyan-400 (#3AA99F)</strong>、active = <strong>cyan-600 (#24837B)</strong></td></tr>
       </tbody>
     </table>
     <h3 style="margin-top: 16px;">参考</h3>
     <ul>
-      <li>確率 / 振幅 / 密度行列の 3 表示ブロックで同じクロムを共有する。</li>
+      <li>確率 / 振幅 / 密度行列 / QFT / QFT† の span 付き要素で同じクロムを共有する。</li>
       <li>ハンドル色は <code>cyan-400</code> を標準とし、ホバー枠の <code>purple-400</code> と混同しないようにする。</li>
     </ul>
   </div>

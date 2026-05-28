@@ -267,13 +267,16 @@
     </p>
     <table class="spec">
       <tbody>
-        <tr><th>作用範囲</th><td><code>span ≥ 1</code>。連続するワイヤ範囲を 1 つの本体で覆う。</td></tr>
+        <tr><th>作用範囲</th><td><code>1 ≤ span ≤ 実行モード容量</code>。連続するワイヤ範囲を 1 つの本体で覆う。</td></tr>
         <tr><th>本体高さ</th><td><code>56·span − 16 px</code>。共通ピッチの正は <a href="gate-chrome.html">gate-chrome.html</a>、span による高さ計算は本ページを正とする。</td></tr>
         <tr><th>変換</th><td><code>|x⟩ → 1/√N Σ<sub>y=0</sub><sup>N−1</sup> exp(2πi xy/N)|y⟩</code>。ここで <code>N = 2<sup>span</sup></code>。</td></tr>
         <tr><th>span = 1</th><td><code>QFT(1) ≡ H</code>。プレビューではこの縮退ケースも表示できるが、主な用途は span を伸ばした複数量子ビット変換。</td></tr>
-        <tr><th>リサイズ</th><td>ホバー / ドラッグ時は上下のリサイズハンドルを表示し、作用範囲を伸縮できることを示す。</td></tr>
+        <tr><th>リサイズ</th><td>ホバー / ドラッグ時は上下それぞれを独立に判定し、操作できる端のリサイズハンドルだけを表示する。端ごとの条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従う。</td></tr>
       </tbody>
     </table>
+    <p class="note" style="margin-top: 12px;">
+      実行モード容量は、現在の実行モードで回路が扱える最大量子ビット数を指す。
+    </p>
     <div class="span-mock" aria-hidden="true">
       <div class="lane"></div>
       <div class="lane"></div>

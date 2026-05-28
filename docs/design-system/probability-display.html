@@ -264,7 +264,7 @@
         <code>rowH ≤ 2 px</code> (span 8+) では線が重畳するので省略 (通常時の行区切り線と同じ閾値)。</li>
       <li><strong>バー / ラベル / 対数ヒント線</strong> — 描かない。確率値そのものを持たないので、バー (幅) もラベル (数値) も対数ヒント線 (補助) も意味を持たない。</li>
       <li><strong>frame</strong> — 通常時と同じ <code>ui-2</code> 1 px の外枠を引く。これにより<strong>「表示ブロックとしての箱の輪郭」</strong>が背景 <code>bg-2</code> と区別できる。</li>
-      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) と上下リサイズハンドル (§ 12) は通常時と同じく出す。</li>
+      <li><strong>hover / tooltip</strong> — 実行前は行単位 popup を出さない (表示すべき数値が無い)。表示ブロック全体のホバー枠 (<code>purple-400</code> 4 px) は通常時と同じく出し、リサイズハンドル (§ 12) は端ごとの表示可否判定に従う。</li>
       <li><strong>遷移</strong> — Run を押した瞬間、placeholder layer (薄紫背景 + グレー行ガイド) を 150 ms ease-out でフェードアウトしつつ、通常の バー + ラベル / 対数ヒント線 描画にクロスフェードする。</li>
     </ul>
     <div class="stage">
@@ -558,7 +558,7 @@
           外装 (背景 / 枠 / 角丸 / 影 / tail / 画面端反転) は <a href="popover.html">ポップオーバー共通仕様</a>に従う。
         </td></tr>
         <tr><th>パレットアイコン</th><td>外側ホバー枠だけ受ける (行ホバー枠は出さない、静的プレビューなので)</td></tr>
-        <tr><th>リサイズハンドル</th><td>ホストホバー時に上下の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
+        <tr><th>リサイズハンドル</th><td>ホストホバー時に、操作できる端の <code>cyan-400</code> ピル形ハンドルがフェードイン + 軽いバウンスで出現。ホバー枠 (<code>purple-400</code>) と別色族なので視覚的に独立したオブジェクトとして読める。詳細は § 12 参照</td></tr>
       </tbody>
     </table>
     <p class="note" style="margin-top: 12px;">
@@ -710,6 +710,7 @@
       <tbody>
         <tr><th>span 上限</th><td>1〜16 (ドラッグで変化可能、上限 16 で停止)</td></tr>
         <tr><th>ハンドル幅</th><td>本体幅が span に関係なく 40 px 固定なので、ハンドル幅も 24 px 固定で十分掴める</td></tr>
+        <tr><th>表示可否</th><td>上下それぞれを独立に判定する。端ごとの条件は <a href="resize-handle.html#visibility-conditions">resize-handle.html § 06</a> に従い、span 1 では空いている端だけ表示する</td></tr>
         <tr><th>連動状態</th><td><code>state="hover"</code> をホストに付けると、確率表示ブロック側のホバー枠 (<code>purple-400</code>) を強制表示する。ハンドル側の visible 強制とは独立した属性</td></tr>
       </tbody>
     </table>
