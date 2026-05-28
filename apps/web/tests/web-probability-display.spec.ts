@@ -567,6 +567,34 @@ test('Probability display renders GPU probabilities and serializes the Quirk tok
   })
 })
 
+test('Probability display uses same-column control as a conditional readout', async ({ page }) => {
+  await page.goto(
+    '/#' +
+      encodeURIComponent(
+        JSON.stringify({ cols: [['H', 1], ['•', 'X'], ['•', 'Probability']] }),
+      ),
+  )
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const probs = await waitForProbabilityDistributions(page)
+  expect(probs.slice(0, 2).map((value) => Math.round(value * 1000) / 1000)).toEqual([0, 1])
+})
+
+test('Probability display uses same-column anti-control as a conditional readout', async ({ page }) => {
+  await page.goto(
+    '/#' +
+      encodeURIComponent(
+        JSON.stringify({ cols: [['H', 1], ['•', 'X'], ['◦', 'Probability']] }),
+      ),
+  )
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  const probs = await waitForProbabilityDistributions(page)
+  expect(probs.slice(0, 2).map((value) => Math.round(value * 1000) / 1000)).toEqual([1, 0])
+})
+
 test('Probability4 displays GPU-rendered percentage labels', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 'H', 'H', 'H'], ['Probability4']] })))
   await waitForStartupReady(page, { waitForStateVector: true })

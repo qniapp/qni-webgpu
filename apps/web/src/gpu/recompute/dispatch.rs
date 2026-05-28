@@ -294,6 +294,15 @@ impl DispatchState {
             let dispatch_y = outcomes.div_ceil(dispatch_x);
             pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         }
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("probability_normalize_pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&resources.probability.normalize_pipeline);
+            pass.set_bind_group(0, &resources.probability.normalize_bind_group, &[]);
+            pass.dispatch_workgroups(1, 1, 1);
+        }
         self.probability_slot += 1;
         self.probability_slot_to_gate_id.push(gate_id);
     }

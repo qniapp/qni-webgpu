@@ -117,7 +117,7 @@ def select_runner(name: str) -> Runner:
 
 def add_display_saves(
     qc: Any, request: RunRequest, pauli_type: Any
-) -> tuple[dict[int, str], dict[int, dict[str, str]], dict[int, str], dict[int, str]]:
+) -> tuple[dict[int, str], dict[int, str | dict[str, str]], dict[int, str], dict[int, str]]:
     amplitudes_by_column: dict[int, list[AmplitudeOutputRequest]] = defaultdict(list)
     bloch_by_column: dict[int, list[BlochOutputRequest]] = defaultdict(list)
     probability_by_column: dict[int, list[ProbabilityOutputRequest]] = defaultdict(list)
@@ -131,7 +131,7 @@ def add_display_saves(
     for density in request.density_outputs:
         density_by_column[density.column].append(density)
     amplitude_labels: dict[int, str] = {}
-    bloch_labels: dict[int, dict[str, str]] = {}
+    bloch_labels: dict[int, str | dict[str, str]] = {}
     probability_labels: dict[int, str] = {}
     density_labels: dict[int, str] = {}
     qubits = request.qubits.value
@@ -144,15 +144,20 @@ def add_display_saves(
             qc.save_amplitudes(basis, label=label)
             amplitude_labels[amplitude.gate_id] = label
         for bloch in bloch_by_column.get(column_index, []):
-            axis_labels: dict[str, str] = {}
-            for axis in ("X", "Y", "Z"):
-                label = f"bloch:{bloch.gate_id}:{axis.lower()}"
-                qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
-                axis_labels[axis] = label
-            bloch_labels[bloch.gate_id] = axis_labels
+            if bloch.control_mask == 0:
+                axis_labels: dict[str, str] = {}
+                for axis in ("X", "Y", "Z"):
+                    label = f"bloch:{bloch.gate_id}:{axis.lower()}"
+                    qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
+                    axis_labels[axis] = label
+                bloch_labels[bloch.gate_id] = axis_labels
+            else:
+                label = f"bloch:{bloch.gate_id}:density"
+                qc.save_density_matrix(bloch_save_qargs(bloch, request.qubits), label=label)
+                bloch_labels[bloch.gate_id] = label
         for probability in probability_by_column.get(column_index, []):
             label = f"probability:{probability.gate_id}"
-            qc.save_probabilities(probability_qargs(probability, qubits), label=label)
+            qc.save_probabilities(probability_save_qargs(probability, qubits), label=label)
             probability_labels[probability.gate_id] = label
         for density in density_by_column.get(column_index, []):
             label = f"density:{density.gate_id}"
@@ -183,21 +188,26 @@ def add_qiskit_bloch(
     response: dict[str, Any],
     request: RunRequest,
     data: dict[str, Any],
-    labels: dict[int, dict[str, str]],
+    labels: dict[int, str | dict[str, str]],
 ) -> None:
     if not request.bloch_outputs:
         return
-    response["bloch"] = [
-        bloch_display_response(
-            bloch,
-            [
-                saved_float(data[labels[bloch.gate_id]["X"]]),
-                saved_float(data[labels[bloch.gate_id]["Y"]]),
-                saved_float(data[labels[bloch.gate_id]["Z"]]),
-            ],
-        )
-        for bloch in request.bloch_outputs
-    ]
+    response["bloch"] = []
+    for bloch in request.bloch_outputs:
+        label = labels[bloch.gate_id]
+        if isinstance(label, dict):
+            vector = [
+                saved_float(data[label["X"]]),
+                saved_float(data[label["Y"]]),
+                saved_float(data[label["Z"]]),
+            ]
+        else:
+            vector = controlled_bloch_vector(
+                bloch,
+                qiskit_saved_density_matrix(data[label]),
+                request.qubits,
+            )
+        response["bloch"].append(bloch_display_response(bloch, vector))
 
 
 def add_qiskit_probability(
@@ -212,6 +222,7 @@ def add_qiskit_probability(
         probability_display_response(
             probability,
             qiskit_saved_probabilities(data[labels[probability.gate_id]]),
+            request.qubits,
         )
         for probability in request.probability_outputs
     ]
@@ -263,7 +274,10 @@ def add_mock_probability(response: dict[str, Any], request: RunRequest) -> None:
     response["probability"] = [
         probability_display_response(
             probability,
-            [1.0] + [0.0] * ((1 << probability.span) - 1),
+            [1.0]
+            + [0.0]
+            * ((1 << (probability.span + len(probability_control_bits(probability, request.qubits)))) - 1),
+            request.qubits,
         )
         for probability in request.probability_outputs
     ]
@@ -288,14 +302,46 @@ def bloch_display_response(request: BlochOutputRequest, vector: Sequence[float])
     return {"gate_id": request.gate_id, "vector": [float(value) for value in vector[:3]]}
 
 
+def controlled_bloch_vector(
+    request: BlochOutputRequest, matrix: Sequence[Sequence[complex]], qubits: int | QubitCount
+) -> list[float]:
+    control_bits = bloch_control_bits(request, qubits)
+    row_base = bloch_control_index(request, control_bits) * 2
+    rho_00 = complex(matrix[row_base][row_base]).real
+    rho_01 = complex(matrix[row_base][row_base + 1])
+    rho_11 = complex(matrix[row_base + 1][row_base + 1]).real
+    unity = rho_00 + rho_11
+    if unity <= 1e-12:
+        return [0.0, 0.0, 0.0]
+    return [
+        2.0 * rho_01.real / unity,
+        -2.0 * rho_01.imag / unity,
+        (rho_00 - rho_11) / unity,
+    ]
+
+
 def probability_display_response(
-    request: ProbabilityOutputRequest, probabilities: Sequence[float]
+    request: ProbabilityOutputRequest, probabilities: Sequence[float], qubits: int | QubitCount
 ) -> dict[str, Any]:
+    qubits = qubit_value(qubits)
     outcomes = 1 << request.span
+    control_bits = probability_control_bits(request, qubits)
+    control_index = probability_control_index(request, control_bits)
+    values: list[float] = []
+    unity = 0.0
+    for outcome in range(outcomes):
+        if probability_display_controls_match(request, outcome):
+            value = float(probabilities[control_index * outcomes + outcome])
+        else:
+            value = 0.0
+        values.append(value)
+        unity += value
+    if unity > 1e-12:
+        values = [value / unity for value in values]
     return {
         "gate_id": request.gate_id,
         "span": request.span,
-        "probabilities": [float(value) for value in probabilities[:outcomes]],
+        "probabilities": values,
     }
 
 
@@ -330,9 +376,74 @@ def ground_density_matrix(span: int) -> list[list[complex]]:
     return matrix
 
 
+def bloch_save_qargs(request: BlochOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
+    bits = [qubits - 1 - request.wire] + bloch_control_bits(request, qubits)
+    return [qubits - 1 - bit for bit in bits]
+
+
+def bloch_control_bits(request: BlochOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
+    target_bit = qubits - 1 - request.wire
+    return [
+        bit
+        for bit in range(qubits)
+        if request.control_mask & (1 << bit) and bit != target_bit
+    ]
+
+
+def bloch_control_index(request: BlochOutputRequest, control_bits: Sequence[int]) -> int:
+    index = 0
+    for offset, bit in enumerate(control_bits):
+        if request.control_value & (1 << bit):
+            index |= 1 << offset
+    return index
+
+
 def probability_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    return [qubits - 1 - bit for bit in range(request.base_bit, request.base_bit + request.span)]
+    return [qubits - 1 - bit for bit in probability_bits(request)]
+
+
+def probability_save_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
+    bits = probability_bits(request) + probability_control_bits(request, qubits)
+    return [qubits - 1 - bit for bit in bits]
+
+
+def probability_bits(request: ProbabilityOutputRequest) -> list[int]:
+    return list(range(request.base_bit, request.base_bit + request.span))
+
+
+def probability_control_bits(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
+    qubits = qubit_value(qubits)
+    display_bits = set(probability_bits(request))
+    return [
+        bit
+        for bit in range(qubits)
+        if request.control_mask & (1 << bit) and bit not in display_bits
+    ]
+
+
+def probability_display_controls_match(request: ProbabilityOutputRequest, outcome: int) -> bool:
+    for bit in probability_bits(request):
+        mask = 1 << bit
+        if request.control_mask & mask:
+            actual = (outcome >> (bit - request.base_bit)) & 1
+            expected = 1 if request.control_value & mask else 0
+            if actual != expected:
+                return False
+    return True
+
+
+def probability_control_index(
+    request: ProbabilityOutputRequest, control_bits: Sequence[int]
+) -> int:
+    index = 0
+    for offset, bit in enumerate(control_bits):
+        if request.control_value & (1 << bit):
+            index |= 1 << offset
+    return index
 
 
 def density_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:

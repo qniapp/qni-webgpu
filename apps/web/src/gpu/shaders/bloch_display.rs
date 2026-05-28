@@ -5,7 +5,8 @@ struct BlochParams {
   qubit_bit: u32,
   state_count: u32,
   output_slot: u32,
-  _pad: u32,
+  control_mask: u32,
+  control_value: u32,
 };
 
 @group(0) @binding(0) var<storage, read> state: array<vec2<f32>>;
@@ -35,18 +36,22 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   loop {
     if (i >= total) { break; }
     let bit_is_zero: bool = (i & qubit_mask) == 0u;
-    let amp = state[i];
-    let mag2 = amp.x * amp.x + amp.y * amp.y;
-    if (bit_is_zero) {
-      rho_00 = rho_00 + mag2;
-      let j: u32 = i | qubit_mask;
-      let amp_j = state[j];
-      // ρ_01 = Σ_rest amp_i · conj(amp_j)
-      //   amp_i · conj(amp_j) = (a + bi)(c - di) = (ac + bd) + (bc - ad)i.
-      rho_01_re = rho_01_re + (amp.x * amp_j.x + amp.y * amp_j.y);
-      rho_01_im = rho_01_im + (amp.y * amp_j.x - amp.x * amp_j.y);
-    } else {
-      rho_11 = rho_11 + mag2;
+    if ((i & params.control_mask) == params.control_value) {
+      let amp = state[i];
+      let mag2 = amp.x * amp.x + amp.y * amp.y;
+      if (bit_is_zero) {
+        rho_00 = rho_00 + mag2;
+        let j: u32 = i | qubit_mask;
+        if ((j & params.control_mask) == params.control_value) {
+          let amp_j = state[j];
+          // ρ_01 = Σ_rest amp_i · conj(amp_j)
+          //   amp_i · conj(amp_j) = (a + bi)(c - di) = (ac + bd) + (bc - ad)i.
+          rho_01_re = rho_01_re + (amp.x * amp_j.x + amp.y * amp_j.y);
+          rho_01_im = rho_01_im + (amp.y * amp_j.x - amp.x * amp_j.y);
+        }
+      } else {
+        rho_11 = rho_11 + mag2;
+      }
     }
     i = i + 64u;
   }
@@ -71,9 +76,17 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   if (tid == 0u) {
     // qni convention (`packages/simulator/src/matrix.ts`):
     //   x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11.
-    let x: f32 =  2.0 * shared_rho01_re[0];
-    let y: f32 = -2.0 * shared_rho01_im[0];
-    let z: f32 = shared_rho00[0] - shared_rho11[0];
+    // Quirk-style controlled displays first project onto the control slice,
+    // then normalize that conditional density matrix.
+    let unity = shared_rho00[0] + shared_rho11[0];
+    var x: f32 = 0.0;
+    var y: f32 = 0.0;
+    var z: f32 = 0.0;
+    if (unity > 0.000000000001) {
+      x =  2.0 * shared_rho01_re[0] / unity;
+      y = -2.0 * shared_rho01_im[0] / unity;
+      z = (shared_rho00[0] - shared_rho11[0]) / unity;
+    }
     bloch_out[params.output_slot] = vec4<f32>(x, y, z, 0.0);
   }
 }

@@ -16,8 +16,8 @@ use super::super::popup_glyph_atlas::{
     rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
 };
 use super::super::shaders::{
-    PROBABILITY_AGGREGATE_SHADER, PROBABILITY_POPUP_VALUE_SHADER, PROBABILITY_REDUCE_SHADER,
-    PROBABILITY_RENDER_SHADER,
+    PROBABILITY_AGGREGATE_SHADER, PROBABILITY_NORMALIZE_SHADER, PROBABILITY_POPUP_VALUE_SHADER,
+    PROBABILITY_REDUCE_SHADER, PROBABILITY_RENDER_SHADER,
 };
 use super::common::Common;
 
@@ -32,6 +32,8 @@ pub(crate) struct ProbabilityResources {
     pub reduce_params_buffer: wgpu::Buffer,
     pub reduce_params_staging_buffer: wgpu::Buffer,
     pub output_buffer: wgpu::Buffer,
+    pub normalize_pipeline: wgpu::ComputePipeline,
+    pub normalize_bind_group: wgpu::BindGroup,
 
     pub aggregate_pipeline: wgpu::ComputePipeline,
     pub aggregate_bind_group: wgpu::BindGroup,
@@ -63,6 +65,10 @@ impl ProbabilityResources {
             label: Some("probability_reduce"),
             source: wgpu::ShaderSource::Wgsl(PROBABILITY_REDUCE_SHADER.into()),
         });
+        let normalize_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("probability_normalize"),
+            source: wgpu::ShaderSource::Wgsl(PROBABILITY_NORMALIZE_SHADER.into()),
+        });
         let reduce_layout = create_reduce_bind_group_layout(device);
         let reduce_pipeline = create_reduce_pipeline(device, &reduce_shader, &reduce_layout);
         let reduce_params_buffer = create_reduce_params_buffer(device);
@@ -73,6 +79,15 @@ impl ProbabilityResources {
             &reduce_layout,
             &reduce_params_buffer,
             &output_buffer,
+        );
+        let normalize_layout = create_normalize_bind_group_layout(device);
+        let normalize_pipeline =
+            create_normalize_pipeline(device, &normalize_shader, &normalize_layout);
+        let normalize_bind_group = create_normalize_bind_group(
+            device,
+            &normalize_layout,
+            &output_buffer,
+            &reduce_params_buffer,
         );
 
         let aggregate_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -138,6 +153,8 @@ impl ProbabilityResources {
             reduce_params_buffer,
             reduce_params_staging_buffer,
             output_buffer,
+            normalize_pipeline,
+            normalize_bind_group,
             aggregate_pipeline,
             aggregate_bind_group,
             _aggregate_buffer: aggregate_buffer,
@@ -319,6 +336,76 @@ fn create_reduce_bind_groups(
             ],
         }),
     ]
+}
+
+fn create_normalize_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("probability_normalize_layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+fn create_normalize_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+) -> wgpu::ComputePipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("probability_normalize_pipeline_layout"),
+        bind_group_layouts: &[layout],
+        push_constant_ranges: &[],
+    });
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("probability_normalize_pipeline"),
+        layout: Some(&pipeline_layout),
+        module: shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    })
+}
+
+fn create_normalize_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    output_buffer: &wgpu::Buffer,
+    params_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("probability_normalize_bind_group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buffer.as_entire_binding(),
+            },
+        ],
+    })
 }
 
 fn create_aggregate_buffer(device: &wgpu::Device) -> wgpu::Buffer {

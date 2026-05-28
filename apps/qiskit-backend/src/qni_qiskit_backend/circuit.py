@@ -163,9 +163,11 @@ def apply_gate(
     upper = base.upper()
     qft = parse_qft_token(base)
     if qft is not None:
-        # qni/WebGPU does not model controlled QFT; column controls are ignored.
-        apply_qft(qc, wire, qft, qubits)
-        mark_unknown(basis, wire, qft.span)
+        qft_controls, qft_anti_controls = qft_external_controls(
+            wire, qft.span, controls, anti_controls
+        )
+        apply_qft(qc, wire, qft, qubits, qft_controls, qft_anti_controls)
+        track_qft(basis, qft_controls, qft_anti_controls, wire, qft.span)
         return
     if (controls or anti_controls) and base in {"|0>", "|1>"}:
         apply_controlled_write(
@@ -323,24 +325,100 @@ def parse_qft_token(token: str) -> QftSpec | None:
     return QftSpec(span=span, dagger=dagger)
 
 
-def apply_qft(qc: Any, wire: int, spec: QftSpec, qubits: int) -> None:
+def qft_external_controls(
+    wire: int,
+    span: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> tuple[list[int], list[int]]:
+    def outside_qft_span(control: int) -> bool:
+        return control < wire or control >= wire + span
+
+    return (
+        [control for control in controls if outside_qft_span(control)],
+        [anti_control for anti_control in anti_controls if outside_qft_span(anti_control)],
+    )
+
+
+def apply_qft(
+    qc: Any,
+    wire: int,
+    spec: QftSpec,
+    qubits: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
     if wire + spec.span > qubits:
         raise CircuitBuildError("QFT span references a wire beyond qubits")
     if spec.dagger:
         for offset in reversed(range(spec.span)):
             for distance in reversed(range(1, spec.span - offset)):
-                qc.cp(-math.pi / (1 << distance), wire + offset + distance, wire + offset)
-            qc.h(wire + offset)
+                apply_qft_phase(
+                    qc,
+                    -math.pi / (1 << distance),
+                    control=wire + offset + distance,
+                    target=wire + offset,
+                    controls=controls,
+                    anti_controls=anti_controls,
+                )
+            apply_qft_h(qc, wire + offset, controls, anti_controls)
         return
     for offset in range(spec.span):
-        qc.h(wire + offset)
+        apply_qft_h(qc, wire + offset, controls, anti_controls)
         for distance in range(1, spec.span - offset):
-            qc.cp(math.pi / (1 << distance), wire + offset + distance, wire + offset)
+            apply_qft_phase(
+                qc,
+                math.pi / (1 << distance),
+                control=wire + offset + distance,
+                target=wire + offset,
+                controls=controls,
+                anti_controls=anti_controls,
+            )
+
+
+def apply_qft_h(
+    qc: Any, wire: int, controls: list[int], anti_controls: list[int]
+) -> None:
+    if controls or anti_controls:
+        apply_controlled_gate(qc, wire, "H", None, controls, anti_controls)
+        return
+    qc.h(wire)
+
+
+def apply_qft_phase(
+    qc: Any,
+    phase: float,
+    *,
+    control: int,
+    target: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    if controls or anti_controls:
+        apply_controlled_phase(qc, phase, target, controls + [control], anti_controls)
+        return
+    qc.cp(phase, control, target)
 
 
 def mark_unknown(basis: BasisTracker, wire: int, span: int) -> None:
     for offset in range(span):
         basis[wire + offset] = None
+
+
+def track_qft(
+    basis: BasisTracker,
+    controls: list[int],
+    anti_controls: list[int],
+    wire: int,
+    span: int,
+) -> None:
+    control_values = [basis[control] for control in controls]
+    anti_control_values = [basis[anti_control] for anti_control in anti_controls]
+    if any(value == 0 for value in control_values) or any(
+        value == 1 for value in anti_control_values
+    ):
+        return
+    mark_unknown(basis, wire, span)
 
 
 def apply_controlled_gate(
@@ -362,6 +440,30 @@ def apply_controlled_gate(
     append_controlled_gate(qc, gate, control_wires, [wire])
     for anti_control in reversed(anti_controls):
         qc.x(anti_control)
+
+
+def apply_controlled_phase(
+    qc: Any,
+    phase: float,
+    wire: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    gate = controlled_phase_gate(qc, phase)
+    for anti_control in anti_controls:
+        qc.x(anti_control)
+    control_wires = controls + anti_controls
+    append_controlled_gate(qc, gate, control_wires, [wire])
+    for anti_control in reversed(anti_controls):
+        qc.x(anti_control)
+
+
+def controlled_phase_gate(qc: Any, phase: float) -> Any:
+    if not is_real_qiskit_circuit(qc):
+        return ("P", phase)
+    from qiskit.circuit.library import PhaseGate  # type: ignore[import-not-found]
+
+    return PhaseGate(phase)
 
 
 def controlled_gate_for_base(qc: Any, base: str, angle: str | None) -> Any:

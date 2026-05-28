@@ -158,6 +158,18 @@ impl GateParams {
     pub(crate) fn matrix(self) -> [[f32; 2]; 4] {
         [self.m00, self.m01, self.m10, self.m11]
     }
+
+    pub(crate) fn bit(self) -> u32 {
+        self.bit
+    }
+
+    pub(crate) fn control_mask(self) -> u32 {
+        self.control_mask
+    }
+
+    pub(crate) fn control_value(self) -> u32 {
+        self.control_value
+    }
 }
 
 fn gate_mode(kind: GateKind) -> u32 {
@@ -307,31 +319,6 @@ pub(crate) fn rz_params(
         control_mask,
         control_value,
         mode: gate_mode(GateKind::Rz),
-        _pad: [0; 3],
-    }
-}
-
-/// Single-control phase gate with an arbitrary phase angle. Used by the
-/// QFT / QFT† decomposition (the textbook `R_k = diag(1, e^{iπ/2^j})`
-/// rotations between every pair of qubits in the QFT span). Unlike the
-/// fixed-phase `GateKind::Phase` (π/2), the angle here is a runtime
-/// parameter; everything else (matrix shape, mode) is identical.
-pub(crate) fn controlled_phase_params(
-    target_bit: u32,
-    control_bit: u32,
-    phase: f32,
-    state_count: u32,
-) -> GateParams {
-    GateParams {
-        m00: [1.0, 0.0],
-        m01: [0.0, 0.0],
-        m10: [0.0, 0.0],
-        m11: [phase.cos(), phase.sin()],
-        bit: target_bit,
-        state_count,
-        control_mask: 1u32 << control_bit,
-        control_value: 1u32 << control_bit,
-        mode: GATE_MODE_MATRIX,
         _pad: [0; 3],
     }
 }

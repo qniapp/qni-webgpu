@@ -18,13 +18,16 @@ from qni_qiskit_backend.runners import (
     MockRunner,
     QiskitRunner,
     add_display_saves,
+    add_qiskit_bloch,
     add_qiskit_density,
     add_qiskit_probability,
     amplitude_display_response,
+    bloch_save_qargs,
     density_qargs,
     density_save_qargs,
     normalize_qiskit_counts,
     probability_qargs,
+    probability_save_qargs,
     select_runner,
 )
 from qni_qiskit_backend.server import make_server, parse_allowed_runners
@@ -228,6 +231,69 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(request.bloch_outputs[0].gate_id, 2)
 
+    def test_contract_accepts_controlled_bloch_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [
+                        {
+                            "gate_id": 2,
+                            "column": 0,
+                            "wire": 1,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(request.bloch_outputs[0].control_mask, 2)
+
+    def test_contract_rejects_bloch_control_value_outside_mask(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 2,
+                    "columns": [["Bloch"]],
+                    "outputs": {
+                        "histogram": True,
+                        "bloch": [
+                            {
+                                "gate_id": 2,
+                                "column": 0,
+                                "wire": 1,
+                                "control_mask": 0,
+                                "control_value": 2,
+                            }
+                        ],
+                    },
+                }
+            )
+
+    def test_contract_rejects_bloch_with_too_many_saved_control_bits(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 9,
+                    "columns": [["•", "•", "•", "•", "•", "•", "•", "•", "Bloch"]],
+                    "outputs": {
+                        "histogram": True,
+                        "bloch": [
+                            {
+                                "gate_id": 2,
+                                "column": 0,
+                                "wire": 8,
+                                "control_mask": 510,
+                                "control_value": 510,
+                            }
+                        ],
+                    },
+                }
+            )
+
     def test_contract_rejects_too_many_bloch_outputs(self):
         bloch = [{"gate_id": index, "column": 0, "wire": 0} for index in range(65)]
         with self.assertRaises(ContractError):
@@ -251,6 +317,72 @@ class ContractTests(unittest.TestCase):
             }
         )
         self.assertEqual(request.probability_outputs[0].gate_id, 2)
+
+    def test_contract_accepts_controlled_probability_output_requests(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [
+                        {
+                            "gate_id": 2,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(request.probability_outputs[0].control_mask, 2)
+
+    def test_contract_rejects_probability_control_value_outside_mask(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 2,
+                    "columns": [["Probability"]],
+                    "outputs": {
+                        "histogram": True,
+                        "probability": [
+                            {
+                                "gate_id": 2,
+                                "column": 0,
+                                "span": 1,
+                                "base_bit": 0,
+                                "control_mask": 0,
+                                "control_value": 2,
+                            }
+                        ],
+                    },
+                }
+            )
+
+    def test_contract_rejects_probability_with_too_many_saved_control_bits(self):
+        with self.assertRaises(ContractError):
+            parse_run_request(
+                {
+                    "qubits": 17,
+                    "columns": [["•"] + [1] * 15 + ["Probability16"]],
+                    "outputs": {
+                        "histogram": True,
+                        "probability": [
+                            {
+                                "gate_id": 2,
+                                "column": 0,
+                                "span": 16,
+                                "base_bit": 0,
+                                "control_mask": 65536,
+                                "control_value": 65536,
+                            }
+                        ],
+                    },
+                }
+            )
 
     def test_contract_rejects_too_many_probability_outputs(self):
         probability = [
@@ -530,6 +662,21 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["QFT†2", 1]], 2)
         self.assertEqual(fake.ops, [("h", 1), ("cp", -math.pi / 2, 1, 0), ("h", 0)])
 
+    def test_qiskit_builder_ignores_qft_span_overlapping_control_token(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def cp(self, phase, control, target):
+                self.ops.append(("cp", phase, control, target))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["QFT2", "•"]], 2)
+        self.assertEqual(fake.ops, [("h", 0), ("cp", math.pi / 2, 1, 0), ("h", 1)])
+
     def test_qiskit_display_saves_tracks_qft_as_unknown_basis(self):
         class FakeCircuit:
             def h(self, _wire):
@@ -714,35 +861,52 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["•", "X^½"]], 2)
         self.assertEqual(fake.ops, [("controlled", ("SX", None), [0], [1])])
 
-    def test_qiskit_builder_ignores_controls_for_qft(self):
+    def test_qiskit_builder_applies_controlled_qft(self):
         class FakeCircuit:
             def __init__(self):
                 self.ops = []
 
-            def h(self, wire):
-                self.ops.append(("h", wire))
-
-            def cp(self, phase, control, target):
-                self.ops.append(("cp", phase, control, target))
+            def append(self, instruction):
+                self.ops.append(instruction)
 
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["•", "QFT2"]], 3)
-        self.assertEqual(fake.ops, [("h", 1), ("cp", math.pi / 2, 2, 1), ("h", 2)])
+        self.assertEqual(
+            fake.ops,
+            [
+                ("controlled", ("H", None), [0], [1]),
+                ("controlled", ("P", math.pi / 2), [0, 2], [1]),
+                ("controlled", ("H", None), [0], [2]),
+            ],
+        )
 
-    def test_qiskit_builder_ignores_controls_for_qft_dagger(self):
+    def test_qiskit_builder_applies_anti_controlled_qft_dagger(self):
         class FakeCircuit:
             def __init__(self):
                 self.ops = []
 
-            def h(self, wire):
-                self.ops.append(("h", wire))
+            def x(self, wire):
+                self.ops.append(("x", wire))
 
-            def cp(self, phase, control, target):
-                self.ops.append(("cp", phase, control, target))
+            def append(self, instruction):
+                self.ops.append(instruction)
 
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["◦", "QFT†2"]], 3)
-        self.assertEqual(fake.ops, [("h", 2), ("cp", -math.pi / 2, 2, 1), ("h", 1)])
+        self.assertEqual(
+            fake.ops,
+            [
+                ("x", 0),
+                ("controlled", ("H", None), [0], [2]),
+                ("x", 0),
+                ("x", 0),
+                ("controlled", ("P", -math.pi / 2), [2, 0], [1]),
+                ("x", 0),
+                ("x", 0),
+                ("controlled", ("H", None), [0], [1]),
+                ("x", 0),
+            ],
+        )
 
     def test_qiskit_builder_keeps_diagonal_controlled_gate_basis(self):
         class FakeCircuit:
@@ -939,6 +1103,36 @@ class ContractTests(unittest.TestCase):
             ],
         )
 
+    def test_qiskit_display_saves_controlled_bloch_as_density_with_controls(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.saved = []
+
+            def save_density_matrix(self, qubits, label):
+                self.saved.append((qubits, label))
+
+        fake = FakeCircuit()
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "wire": 1,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        labels = add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual((fake.saved, labels[1]), ([([1, 0], "bloch:1:density")], {1: "bloch:1:density"}))
+
     def test_qiskit_display_saves_probability_with_web_order_qargs(self):
         class FakeCircuit:
             def __init__(self):
@@ -983,6 +1177,41 @@ class ContractTests(unittest.TestCase):
         labels = add_display_saves(fake, request, lambda axis: axis)
         self.assertEqual((fake.saved, labels[3]), ([([1, 0], "density:1")], {1: "density:1"}))
 
+    def test_qiskit_bloch_response_extracts_controlled_vector(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "wire": 1,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_bloch(
+            response,
+            request,
+            {
+                "bloch:1:density": [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0.25, -0.25j],
+                    [0, 0, 0.25j, 0.25],
+                ]
+            },
+            {1: "bloch:1:density"},
+        )
+        self.assertEqual(response["bloch"][0]["vector"], [0.0, 1.0, 0.0])
+
     def test_qiskit_probability_response_uses_saved_data(self):
         request = parse_run_request(
             {
@@ -997,6 +1226,30 @@ class ContractTests(unittest.TestCase):
         response = {}
         add_qiskit_probability(response, request, {"probability:1": [0.25, 0.75]}, {1: "probability:1"})
         self.assertEqual(response["probability"][0]["probabilities"][1], 0.75)
+
+    def test_qiskit_probability_response_extracts_controlled_slice(self):
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["•", "Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 2,
+                            "control_value": 2,
+                        }
+                    ],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_probability(response, request, {"probability:1": [0.4, 0.1, 0.0, 0.5]}, {1: "probability:1"})
+        self.assertEqual(response["probability"][0]["probabilities"], [0.0, 1.0])
 
     def test_qiskit_density_response_uses_saved_data(self):
         request = parse_run_request(
@@ -1116,6 +1369,49 @@ class ContractTests(unittest.TestCase):
             }
         )
         self.assertEqual(probability_qargs(request.probability_outputs[0], 2), [1, 0])
+
+    def test_bloch_save_qargs_include_controls_after_display_wire(self):
+        request = parse_run_request(
+            {
+                "qubits": 3,
+                "columns": [["•", "◦", "Bloch"]],
+                "outputs": {
+                    "histogram": True,
+                    "bloch": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "wire": 2,
+                            "control_mask": 6,
+                            "control_value": 4,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(bloch_save_qargs(request.bloch_outputs[0], 3), [2, 1, 0])
+
+    def test_probability_save_qargs_include_controls_after_display_bits(self):
+        request = parse_run_request(
+            {
+                "qubits": 3,
+                "columns": [["•", "◦", "Probability"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 1,
+                            "base_bit": 0,
+                            "control_mask": 6,
+                            "control_value": 4,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(probability_save_qargs(request.probability_outputs[0], 3), [2, 1, 0])
 
     def test_density_qargs_match_web_outcome_order(self):
         request = parse_run_request(
