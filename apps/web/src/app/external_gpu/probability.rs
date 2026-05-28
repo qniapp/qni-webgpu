@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::app::{CircuitColumnIndex, PlacedGate};
 use crate::gates::{ColumnControls, GateKind};
-use crate::gpu::{ExternalProbabilityUpload, ExternalProbabilityUploadBatch};
+use crate::gpu::{
+    ExternalProbabilityUpload, ExternalProbabilityUploadBatch, ProbabilityDistribution,
+};
 use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 
@@ -141,9 +143,11 @@ fn parse_probability_upload_batch_impl(
         for index in 0..outcomes as u32 {
             values.push(probabilities.get(index).as_f64()? as f32);
         }
+        let distribution =
+            ProbabilityDistribution::try_new(Arc::from(values.into_boxed_slice())).ok()?;
         uploads.push(ExternalProbabilityUpload {
             slot: slot_index as u32,
-            probabilities: Arc::from(values.into_boxed_slice()),
+            probabilities: distribution,
         });
     }
     if uploads.len() != slot_to_gate_id.len() || seen_slots.iter().any(|seen| !*seen) {

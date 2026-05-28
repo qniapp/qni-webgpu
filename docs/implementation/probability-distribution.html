@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProbabilityDistribution — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">外部 GPU 経路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">ProbabilityDistribution</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · external gpu value object</p>
+  <h1 class="page-title">ProbabilityDistribution 実装仕様</h1>
+  <p class="page-lede">
+    外部 GPU 実行（Qiskit Aer バックエンドを使う経路）から受け取る測定確率分布を、裸の <code>Arc&lt;[f32]&gt;</code> ではなく <code>ProbabilityDistribution</code> という値オブジェクトで扱うための仕様。
+    「長さが 2 のべき乗・GPU バッファ枠以下・各要素が有限かつ単位区間内」という不変条件を JSON 取り込みの境界で一度だけ検証して閉じ込め、不正な確率配列が GPU バッファへ書き込まれるのを防ぐ。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      外部 GPU 実行では、Qiskit が算出した測定確率分布が JSON で返り、<code>parse_probability_upload_batch_impl</code>（<code>apps/web/src/app/external_gpu/probability.rs</code>）が各測定結果の確率を <code>f64</code> から <code>f32</code> へ変換して <code>Arc&lt;[f32]&gt;</code> に詰める。
+      この配列は <code>ExternalProbabilityUpload</code> に保持され、<code>probability_display.rs</code> で <code>bytemuck::cast_slice</code> により GPU の確率バッファへ転送される。
+    </p>
+    <p>
+      従来この配列は裸の <code>Arc&lt;[f32]&gt;</code> で、確率分布としての妥当性が型にも実行時にも保証されていなかった。
+      具体的には、NaN・&plusmn;Inf・負値・1 超過の要素や、想定外の長さ（2 のべき乗でない、または GPU バッファの 1 スロット枠を超える長さ）がそのまま GPU バッファへ流れ込みうる状態だった。
+      長さの一部（<code>2^span</code> 個ちょうど取り込む）はパース側で守られていたが、要素の値域はまったく検証されていなかった。
+    </p>
+    <p>
+      <code>ProbabilityDistribution</code> は「外部 GPU から受け取る 1 スロット分の測定確率分布」だけを表す値オブジェクトにする。
+      不変条件を生成時に検証し、確率の値が GPU バッファへ届く前に不正を弾く。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性・自己検証・等価性を確率分布へ適用する。
+    </p>
+    <ul>
+      <li>確率分布の長さは 2 のべき乗（<code>2^span</code>）で、GPU バッファの 1 スロット枠（<code>MAX_PROBABILITY_OUTCOMES</code>）以下である</li>
+      <li>各要素は有限で、丸め誤差を考慮した単位区間内（おおむね <code>0.0..=1.0</code>）にある</li>
+      <li>確率分布の配列を、スロット番号・観測結果インデックス・要素数などの裸の数値と混在させない</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>ProbabilityDistribution</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/gpu/probability_distribution.rs</code>。クレート内型なので <code>pub(crate)</code> を維持する</td></tr>
+        <tr><th>意味</th><td>外部 GPU（Qiskit）から受け取る、確率表示スロット 1 つ分の測定確率分布</td></tr>
+        <tr><th>不変条件</th><td>空でない / 長さが 2 のべき乗 / 長さが <code>MAX_PROBABILITY_OUTCOMES</code> 以下 / 各要素が有限かつ <code>-UNIT_TOLERANCE ..= 1.0 + UNIT_TOLERANCE</code> の範囲内</td></tr>
+        <tr><th>保持する値</th><td><code>Arc&lt;[f32]&gt;</code>。フィールドは非公開にする</td></tr>
+        <tr><th>許容誤差</th><td><code>UNIT_TOLERANCE = 1e-3</code>。<code>f64</code> から <code>f32</code> への変換やバックエンドの丸めで生じる微小な逸脱（例: <code>1.0000001</code>）を弾かないための余裕</td></tr>
+        <tr><th>対象範囲</th><td><code>ExternalProbabilityUpload.probabilities</code> のフィールド型、JSON 取り込みの生成点、GPU 書き込みの消費点</td></tr>
+        <tr><th>対象外</th><td>確率表示ブロックの種別（<code>GateKind::ProbabilityDisplay</code>）、スロット番号（<code>SlotIndex&lt;Probability&gt;</code>）、<code>span</code> や表示個数、GPU バッファ上の <code>f32</code>（Rust の型が届かない）</td></tr>
+      </tbody>
+    </table>
+
+    <h3>実装 API</h3>
+    <pre class="code">#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ProbabilityDistribution {
+    values: Arc&lt;[f32]&gt;,
+}
+
+const UNIT_TOLERANCE: f32 = 1e-3;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ProbabilityDistributionError {
+    Empty,
+    NotPowerOfTwo { len: usize },
+    TooManyOutcomes { len: usize, max: usize },
+    OutOfUnitRange { index: usize, value: f32 },
+}
+
+impl ProbabilityDistribution {
+    pub(crate) fn try_new(values: Arc&lt;[f32]&gt;) -&gt; Result&lt;Self, ProbabilityDistributionError&gt;;
+    pub(crate) fn as_slice(&amp;self) -&gt; &amp;[f32];
+}</pre>
+
+    <p class="note">
+      <code>try_new</code> は長さ（空・2 のべき乗・上限）を順に検証し、続いて各要素の有限性と値域を検証する。
+      長さの上限 <code>MAX_PROBABILITY_OUTCOMES</code>（<code>2^16</code>）は <code>apps/web/src/gpu/params.rs</code> の定数を参照し、これにより GPU 書き込み時に隣のスロットを破壊しない安全性も型で担保する。
+      <code>as_slice()</code> は GPU バッファへ書き込む境界だけで使い、<code>bytemuck::cast_slice</code> へそのまま渡せる生の <code>&amp;[f32]</code> を返す。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部の配列を変更しない。別の分布が必要なら新しい <code>ProbabilityDistribution</code> を作る</td>
+          <td>公開フィールドや、内部配列への可変参照を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>生成時に長さと各要素の値域を保証する。不正は <code>ProbabilityDistributionError</code> にする</td>
+          <td>消費側で長さや値域のチェックを重複実装しない。外部バックエンドの応答を無検証で信頼しない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>内部の確率配列の値で比較する。同じ配列を持つ <code>ProbabilityDistribution</code> は等しい</td>
+          <td>スロット番号や生成元の文脈で分布の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>確率分布を受け渡す Rust API は <code>ProbabilityDistribution</code> を使う。スロット番号や要素数の <code>u32</code> / <code>usize</code> と混在させない</td>
+          <td>新しい確率分布フィールドや引数を裸の <code>Arc&lt;[f32]&gt;</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="gpu-only">
+  <h2>§ 04 GPU-only 制約との関係</h2>
+  <div class="card">
+    <p>
+      量子状態のシミュレーション（測定確率の算出）は GPU の compute shader 側で完結させ、CPU では計算しない（GPU-only ルール）。
+      この値オブジェクトはそのルールに抵触しない。<code>try_new</code> がするのは「外部バックエンドが算出済みの数値が分布として妥当か」という入力検証であって、状態ベクトルから確率を再計算する処理ではないからである。
+    </p>
+    <p>
+      確率の値が CPU を通過するのは、外部 GPU 実行の結果を JSON で受け取って GPU バッファへ転送する一瞬だけである。
+      <code>as_slice()</code> が返す生の <code>&amp;[f32]</code> を <code>bytemuck::cast_slice</code> でそのまま書き込むため、コピーを増やさず GPU バッファのレイアウトも従来どおり保たれる。
+    </p>
+    <table class="spec">
+      <thead><tr><th>確率の値が現れる箇所</th><th>本値オブジェクトの扱い</th></tr></thead>
+      <tbody>
+        <tr><td>外部 GPU（Qiskit）取り込み境界</td><td><strong>対象</strong>。生成点で検証し、運搬・消費を <code>ProbabilityDistribution</code> で型付けする</td></tr>
+        <tr><td>GPU バッファ上の <code>f32</code>（本番描画）</td><td>対象外。Rust の型が届かない。描画は shader が直接バッファを sample する</td></tr>
+        <tr><td>テスト専用 readback（<code>read_probability_distributions_impl</code>）</td><td>対象外。本番では発生しない例外経路で、JS の <code>Float32Array</code> へ抜けるため生の <code>&amp;[f32]</code> のままにする</td></tr>
+        <tr><td>静的パレットツールチップの <code>|amp|&sup2;</code>（<code>gates/info.rs</code>）</td><td>対象外。固定振幅から描く図示用で、量子状態ではない</td></tr>
+        <tr><td><code>apps/tui</code> の測定確率</td><td>対象外。<code>apps/web</code> とは別の CPU シミュレータで、GPU-only ルールの管轄外</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 05 組み込み方</h2>
+  <div class="card">
+    <h3>生成点（JSON 取り込み）</h3>
+    <p>
+      <code>parse_probability_upload_batch_impl</code> は、<code>2^span</code> 個の確率を <code>Vec&lt;f32&gt;</code> に集めたあと <code>ProbabilityDistribution::try_new(Arc::from(..))</code> で構築する。
+      検証に失敗した場合は <code>.ok()?</code> でバッチ全体を <code>None</code> にし、不正な確率分布を 1 スロットでも含む応答は取り込まない（この関数のほかの検証失敗と同じ扱い）。
+    </p>
+
+    <h3>消費点（GPU 書き込み）</h3>
+    <p>
+      <code>ProbabilityDisplayCallback</code> は <code>upload.probabilities.as_slice()</code> を <code>bytemuck::cast_slice</code> に渡し、GPU の確率バッファへ書き込む。
+      書き込みのオフセットや挙動は従来と変わらない。
+    </p>
+
+    <h3>運搬</h3>
+    <p>
+      <code>ExternalProbabilityUpload.probabilities</code> のフィールド型を <code>Arc&lt;[f32]&gt;</code> から <code>ProbabilityDistribution</code> へ変更する。
+      <code>ExternalProbabilityUploadBatch</code> 経由でアプリ状態へ運ぶ経路はこの型を透過的に運ぶだけで、追加の検証は不要。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 06 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th><th>不正値の扱い</th></tr></thead>
+      <tbody>
+        <tr><td>応答 JSON</td><td><code>probabilities</code> 配列（<code>f64</code> 要素）</td><td><code>f64</code> を <code>f32</code> へ変換し <code>try_new</code> に通す</td><td>長さ・値域違反は <code>ProbabilityDistributionError</code>、バッチは <code>None</code></td></tr>
+        <tr><td>GPU バッファ書き込み</td><td>連続した <code>f32</code></td><td><code>as_slice()</code> を <code>bytemuck::cast_slice</code> に渡す</td><td>生成済みなので追加検証は不要</td></tr>
+        <tr><td>テスト readback</td><td>JS の <code>Float32Array</code></td><td>GPU バッファを直接読み出す（本番外）</td><td>本値オブジェクトは介在しない</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      公開 JSON の形式は変えない。
+      型による保護は Rust 側の取り込み境界で効かせる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 07 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>ProbabilityDistribution</code> と <code>ProbabilityDistributionError</code> を <code>apps/web/src/gpu/probability_distribution.rs</code> に追加し、<code>gpu</code> モジュールから再エクスポートする</li>
+      <li><code>ExternalProbabilityUpload.probabilities</code> を <code>Arc&lt;[f32]&gt;</code> から <code>ProbabilityDistribution</code> へ変更する</li>
+      <li>JSON 取り込みの生成点を <code>try_new</code> 経由にし、失敗時は <code>.ok()?</code> でバッチを弾く</li>
+      <li>GPU 書き込みの消費点を <code>as_ref()</code> から <code>as_slice()</code> へ変更する</li>
+      <li>確率分布を受け渡す箇所に裸の <code>Arc&lt;[f32]&gt;</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>Arc&lt;[f32]&gt;</code> のまま確率分布を受け取るフィールドや関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 08 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>有効な分布を生成できる</strong> — 長さ 2 の <code>[0.25, 0.75]</code> が <code>Ok</code> になることを確認する</li>
+      <li><strong>下限の長さを受理する</strong> — 長さ 1（<code>2^0</code>）が <code>Ok</code> になることを確認する</li>
+      <li><strong>上限の長さを受理する</strong> — ちょうど <code>MAX_PROBABILITY_OUTCOMES</code> 個が <code>Ok</code> になることを確認する</li>
+      <li><strong>空を拒否する</strong> — 長さ 0 が <code>Err(Empty)</code> になることを確認する</li>
+      <li><strong>2 のべき乗でない長さを拒否する</strong> — 長さ 3 が <code>Err(NotPowerOfTwo)</code> になることを確認する</li>
+      <li><strong>上限超えを拒否する</strong> — <code>MAX_PROBABILITY_OUTCOMES</code> の 2 倍が <code>Err(TooManyOutcomes)</code> になることを確認する</li>
+      <li><strong>非有限・範囲外を拒否する</strong> — <code>NaN</code> / <code>1.5</code> / <code>-0.5</code> がそれぞれ <code>Err(OutOfUnitRange)</code> になり、報告されるインデックスが正しいことを確認する</li>
+      <li><strong>許容誤差内を受理する</strong> — <code>1.0</code> および <code>0.0</code> をわずかに超える/下回る値が許容誤差内なら <code>Ok</code> になることを確認する</li>
+      <li><strong>値を取り出せる</strong> — <code>as_slice()</code> が元の配列を返すことを確認する</li>
+      <li><strong>裸の <code>Arc&lt;[f32]&gt;</code> が残らない</strong> — 確率分布の運搬がすべて <code>ProbabilityDistribution</code> を経ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 09 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>値オブジェクト本体</th><td><code>apps/web/src/gpu/probability_distribution.rs</code></td></tr>
+        <tr><th>運搬する型</th><td><code>apps/web/src/gpu/params.rs</code>（<code>ExternalProbabilityUpload</code>）</td></tr>
+        <tr><th>生成点</th><td><code>apps/web/src/app/external_gpu/probability.rs</code>（<code>parse_probability_upload_batch_impl</code>）</td></tr>
+        <tr><th>消費点</th><td><code>apps/web/src/gpu/callbacks/probability_display.rs</code></td></tr>
+        <tr><th>長さの上限</th><td><code>apps/web/src/gpu/params.rs</code>（<code>MAX_PROBABILITY_OUTCOMES</code>）</td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="shots.html">Shots 実装仕様</a> / <a href="slot-index.html">SlotIndex 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · ProbabilityDistribution 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>

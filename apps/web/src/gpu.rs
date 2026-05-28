@@ -16,6 +16,7 @@ mod callbacks;
 mod digit_atlas;
 mod params;
 mod popup_glyph_atlas;
+mod probability_distribution;
 mod readback;
 mod recompute;
 mod resources;
@@ -40,6 +41,7 @@ pub(crate) use params::{
     PROBABILITY_RENDER_MODE_SAMPLE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
+pub(crate) use probability_distribution::ProbabilityDistribution;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
     read_amplitude_cell_impl, read_bloch_vectors_impl, read_density_matrix_cell_impl,

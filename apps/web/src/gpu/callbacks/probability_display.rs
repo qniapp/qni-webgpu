@@ -48,7 +48,7 @@ impl ProbabilityDisplayCallback {
             queue.write_buffer(
                 &resources.probability.output_buffer,
                 offset as wgpu::BufferAddress,
-                bytemuck::cast_slice(upload.probabilities.as_ref()),
+                bytemuck::cast_slice(upload.probabilities.as_slice()),
             );
         }
         resources.probability.last_external_upload_generation = Some(batch.generation);

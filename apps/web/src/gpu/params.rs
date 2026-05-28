@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use super::probability_distribution::ProbabilityDistribution;
 use crate::colors::Colors;
 
 #[repr(C)]
@@ -117,7 +118,7 @@ pub(crate) const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1;
 #[derive(Clone)]
 pub(crate) struct ExternalProbabilityUpload {
     pub(crate) slot: u32,
-    pub(crate) probabilities: Arc<[f32]>,
+    pub(crate) probabilities: ProbabilityDistribution,
 }
 
 #[derive(Clone)]
