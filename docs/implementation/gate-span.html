@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GateSpan — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路モデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">GateSpan</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">GateSpan 実装仕様</h1>
+  <p class="page-lede">
+    ゲートが縦方向に占めるワイヤ本数（スパン）を <code>usize</code> の裸値ではなく、<code>GateSpan</code> という値オブジェクトで扱うための仕様。
+    「1 以上」という不変条件を型へ閉じ込め、種類別の上限とワイヤ残数で切り詰める処理を 1 か所へ集約する。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      現行実装では <code>PlacedGate.span: usize</code> で、ゲートが縦に占めるワイヤ本数を表す。
+      通常の 1 量子ビットゲートは常に <code>1</code>。確率・振幅・密度行列の表示ブロックと QFT / QFT† は、ホバーで現れるハンドルでスパンを伸縮できる。
+      スパンには「1 以上」という不変条件と、種類別の上限がある（確率・振幅は 16、密度行列は 8、QFT は量子ビット数まで。<code>GateKind::max_resizable_span</code>）。
+    </p>
+    <p>
+      この切り詰めは各所に散らばっている。
+      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> は <code>span.clamp(1, 16).min(qubits − wire)</code>（密度行列は <code>8</code>）と書き、エディタ側の <code>clamp_span_to_qubit_capacity</code> は <code>max_resizable_span</code> を呼ぶ。
+      前者（<code>linearize.rs</code> / <code>external_gpu</code>）がハードコードする <code>16</code> / <code>8</code> は、後者の <code>max_resizable_span</code> のロジックを暗黙に複製している。
+      裸の <code>usize</code> では、<code>0</code> という不正なスパンや、上限の取り違えを型で防げない。
+    </p>
+    <p>
+      <code>GateSpan</code> は「ゲートのスパン」だけを表す値オブジェクトにする。
+      内部値を <code>NonZeroUsize</code> で持って「1 以上」を型で保証し、切り詰めを <code>clamped_for</code> へ集約する。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性をスパンへ適用する。
+    </p>
+    <ul>
+      <li>スパンは常に 1 以上で、1 量子ビットゲートは <code>GateSpan::SINGLE</code> で表す</li>
+      <li>種類別の上限とワイヤ残数による切り詰めは <code>clamped_for</code> に集約する</li>
+      <li>ピクセル幅の計算へ出る境界だけで <code>get()</code> を使う</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>GateSpan</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/gates/span.rs</code> を新設し、<code>gates.rs</code> から再公開する（<code>GateKind::max_resizable_span</code> と同じ層）</td></tr>
+        <tr><th>意味</th><td>ゲートが縦方向に占めるワイヤ本数。1 量子ビットゲートは 1、伸縮可能なゲートはハンドルで増やせる</td></tr>
+        <tr><th>不変条件</th><td>常に 1 以上。内部値は <code>NonZeroUsize</code> で持つ</td></tr>
+        <tr><th>種類別の上限</th><td>確率・振幅は 16、密度行列は 8、QFT / QFT† は量子ビット数まで（<code>GateKind::max_resizable_span</code>）</td></tr>
+        <tr><th>保持する値</th><td><code>NonZeroUsize</code>。フィールドは非公開にする</td></tr>
+        <tr><th>対象範囲</th><td><code>PlacedGate.span</code>、伸縮ドラッグ後のスパン、ステップ展開での表示ブロックのスパン、ピクセル幅の計算（<code>gate_width_cols</code> など）</td></tr>
+        <tr><th>対象外</th><td>ワイヤ番号（<code>WireIndex</code>）、列番号（<code>CircuitColumnIndex</code>）、横方向の列幅そのもの</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct GateSpan {
+    value: NonZeroUsize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GateSpanError {
+    Zero,
+}
+
+impl GateSpan {
+    /// 1 量子ビットゲートのスパン（= 1）。
+    pub(crate) const SINGLE: Self = /* NonZeroUsize::new(1) */;
+
+    pub(crate) fn try_new(value: usize) -&gt; Result&lt;Self, GateSpanError&gt;;
+    pub(crate) fn get(self) -&gt; usize;
+
+    /// 種類別の上限と利用可能ワイヤ数で切り詰めた新しいスパンを返す。
+    /// `GateKind::max_resizable_span(available_wires)` を上限に使い、
+    /// `span.clamp(1, 16).min(qubits − wire)` 系をここに集約する。
+    pub(crate) fn clamped_for(self, kind: GateKind, available_wires: usize) -&gt; Self;
+}</pre>
+
+    <p class="note">
+      <code>try_new</code> は <code>0</code> を <code>Err(GateSpanError::Zero)</code> で弾く。
+      <code>clamped_for</code> は種類別の上限（<code>max_resizable_span</code>）とワイヤ残数（利用可能ワイヤ数 <code>available_wires</code>）の両方を 1 回で適用し、結果は常に 1 以上になる。
+      ワイヤ残数は飽和減算で求め（0 以上）、ステップ展開では <code>qubits − wire</code>、エディタ側では <code>capacity − wire</code> を渡す。
+      <code>get()</code> はピクセル幅の計算や行数の算出など、境界層へ出る直前だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部値を変更しない。伸縮や切り詰めは古い値を書き換えず、新しい <code>GateSpan</code> を計算して <code>PlacedGate.span</code> へ代入する</td>
+          <td>公開フィールド、<code>&amp;mut usize</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>生成時に 1 以上であることを <code>NonZeroUsize</code> で保証する。<code>0</code> は <code>Err(GateSpanError::Zero)</code> にする。上限の切り詰めは <code>clamped_for</code> に集約する</td>
+          <td>呼び出し側で <code>span.clamp(1, 16)</code> や <code>.max(1)</code> を重複実装しない。<code>0</code> を <code>1</code> へ暗黙に丸めるコードを各所に置かない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>内部のスパン値で比較する。別々に生成した同じスパンの <code>GateSpan</code> は等しい</td>
+          <td>ゲート ID やピクセル幅でスパンの等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>スパンを受け渡す Rust ドメイン API は <code>GateSpan</code> を使う。ワイヤ本数・列幅・行数の <code>usize</code> と混在させない</td>
+          <td>新しいスパン引数を <code>usize</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>配置済みゲート</h3>
+    <p>
+      <code>PlacedGate.span</code> は <code>usize</code> から <code>GateSpan</code> に変更する。
+      <code>PlacedGate::new</code> のスパン引数も <code>GateSpan</code> にし、1 量子ビットゲートは <code>GateSpan::SINGLE</code> を渡す。
+    </p>
+
+    <h3>切り詰めの集約</h3>
+    <p>
+      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> の <code>span.clamp(1, 16).min(qubits − wire)</code>（密度行列は <code>8</code>）、ホバープレビューの <code>gate.span.clamp(1, 16)</code> は、すべて <code>span.clamped_for(kind, qubits − wire)</code> へ置き換える。
+      エディタ側の <code>clamp_span_to_qubit_capacity</code> は <code>span.clamped_for(kind, capacity − wire)</code> にする。
+      これで種類別の上限はすべて <code>GateKind::max_resizable_span</code> 1 か所に集約され、<code>16</code> / <code>8</code> のハードコードが消える。
+    </p>
+
+    <h3>伸縮ハンドル</h3>
+    <p>
+      <code>span_resize.rs</code> / <code>drag_controller/resize.rs</code> がドラッグ量から求めた新しいスパン候補は、<code>GateSpan::try_new(candidate)</code> で値オブジェクトにし、<code>clamped_for</code> で上限へ収める。
+      <code>SpanResizeDrag.start_span</code> も <code>GateSpan</code> にする。
+    </p>
+
+    <h3>ピクセル幅と表示ブロックのスパン下端</h3>
+    <p>
+      <code>layout/geometry.rs</code> の <code>gate_width_cols</code> / <code>gate_size</code> / <code>amplitude_grid_dims</code> / <code>amplitude_grid_rect</code> / <code>density_matrix_width_cols</code> は <code>GateSpan</code> を受け取り、ピクセル計算の内部だけで <code>get()</code> を使う。
+      一方、ステップ展開では表示ブロックのスパン下端 <code>base_bit = qubits − wire − span</code> を、<a href="wire-index.html">WireIndex</a> と <code>GateSpan</code> を組み合わせて求め、結果を <a href="qubit-bit.html">QubitBit</a> として扱う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>入口 / 出口</th><th>形式</th><th>変換</th><th>不正値の扱い</th></tr></thead>
+      <tbody>
+        <tr><th>URL 復元</th><td>列トークンから数えたスパン <code>usize</code></td><td><code>GateSpan::try_new(span)</code>、その後 <code>clamped_for</code></td><td><code>0</code> は <code>Err</code>。範囲外は上限へ切り詰める</td></tr>
+        <tr><th>伸縮ドラッグ</th><td>ドラッグ量から求めた候補 <code>usize</code></td><td><code>try_new</code> ＋ <code>clamped_for</code></td><td>下限 1、上限は種類別</td></tr>
+        <tr><th>ピクセル幅</th><td><code>GateSpan</code></td><td>幅計算の内部で <code>get()</code></td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
+        <tr><th>外部 GPU 表示出力</th><td>Rust の値オブジェクト</td><td>JSON 生成時だけ <code>get()</code> で数値化する</td><td>同上</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      公開 JSON の形式は変えない。
+      型による保護は Rust ドメイン層の中で効かせ、ピクセル幅と JSON の境界に明示的な変換点を置く。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>GateSpan</code> と <code>GateSpanError</code> を <code>apps/web/src/gates/span.rs</code> に追加し、再公開する</li>
+      <li><code>PlacedGate.span</code> と <code>PlacedGate::new</code> のスパン引数を <code>GateSpan</code> へ変更し、1 量子ビットゲートは <code>GateSpan::SINGLE</code> にする</li>
+      <li><code>span.clamp(1, 16).min(...)</code> / <code>span.clamp(1, 8).min(...)</code> / <code>span.max(1)</code> / <code>clamp_span_to_qubit_capacity</code> の切り詰めを <code>clamped_for</code> へ統一する</li>
+      <li>伸縮ドラッグのスパン候補と <code>SpanResizeDrag.start_span</code> を <code>GateSpan</code> へ変更する</li>
+      <li><code>layout/geometry.rs</code> のスパンを取るピクセル幅関数を <code>GateSpan</code> 受け取りにし、内部で <code>get()</code> を使う</li>
+      <li>スパンを受け取る Rust ドメイン API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>usize</code> 引数のままスパンを受け取る関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>1 量子ビットを表せる</strong> — <code>GateSpan::SINGLE.get()</code> が <code>1</code> になることを確認する</li>
+      <li><strong>1 以上の値を生成できる</strong> — <code>GateSpan::try_new(5).map(GateSpan::get)</code> が <code>Ok(5)</code> になることを確認する</li>
+      <li><strong>0 を拒否する</strong> — <code>GateSpan::try_new(0)</code> が <code>Err(GateSpanError::Zero)</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 別々に生成した <code>GateSpan::try_new(3)</code> 同士が等しいことを確認する</li>
+      <li><strong>確率表示の上限は 16</strong> — <code>GateSpan::try_new(20)</code> を確率表示ブロック・ワイヤ残数 32 で <code>clamped_for</code> した結果が <code>16</code> になることを確認する</li>
+      <li><strong>密度行列の上限は 8</strong> — <code>GateSpan::try_new(20)</code> を密度行列表示ブロック・ワイヤ残数 32 で <code>clamped_for</code> した結果が <code>8</code> になることを確認する</li>
+      <li><strong>ワイヤ残数で切り詰める</strong> — <code>GateSpan::try_new(10)</code> をワイヤ残数 3 で <code>clamped_for</code> した結果が <code>3</code> になることを確認する</li>
+      <li><strong>URL 復元でスパンが保存される</strong> — 5 ワイヤ分の確率表示ブロックを復元した <code>span</code> が <code>GateSpan::try_new(5)</code> になることを確認する</li>
+      <li><strong>裸の <code>usize</code> スパン引数が残らない</strong> — <code>PlacedGate::new</code>、<code>gate_width_cols</code>、<code>clamp_span_to_qubit_capacity</code>、伸縮ドラッグ、ステップ展開が <code>GateSpan</code> を受け取ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>配置済みゲート</th><td><code>apps/web/src/app/circuit_model.rs</code> (<code>PlacedGate.span</code>, <code>clamp_span_to_qubit_capacity</code>)</td></tr>
+        <tr><th>種類別の上限</th><td><code>apps/web/src/gates.rs</code> (<code>GateKind::max_resizable_span</code>)</td></tr>
+        <tr><th>切り詰めの集約先</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>, <code>apps/web/src/app/external_gpu/{probability,amplitude,density}.rs</code>, <code>apps/web/src/app/drag_controller/hover.rs</code></td></tr>
+        <tr><th>伸縮ハンドル</th><td><code>apps/web/src/span_resize.rs</code>, <code>apps/web/src/app/drag_controller/resize.rs</code></td></tr>
+        <tr><th>ピクセル幅</th><td><code>apps/web/src/layout/geometry.rs</code></td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="wire-index.html">WireIndex 実装仕様</a>, <a href="qubit-bit.html">QubitBit 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · GateSpan 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
