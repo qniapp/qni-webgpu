@@ -28,6 +28,8 @@ pub(crate) enum SimulationOp {
         gate_id: u32,
         qubit_bit: u32,
         output_slot: u32,
+        control_mask: u32,
+        control_value: u32,
     },
     MeasureReduceSample {
         gate_id: u32,
@@ -43,6 +45,8 @@ pub(crate) enum SimulationOp {
         base_bit: u32,
         span: u32,
         output_slot: u32,
+        control_mask: u32,
+        control_value: u32,
     },
     CaptureAmplitude {
         gate_id: u32,

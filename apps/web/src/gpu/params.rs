@@ -226,7 +226,9 @@ pub(crate) struct BlochParams {
     pub(crate) qubit_bit: u32,
     pub(crate) state_count: u32,
     pub(crate) output_slot: u32,
-    pub(crate) _pad: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 3],
 }
 
 #[repr(C)]
@@ -255,6 +257,9 @@ pub(crate) struct ProbabilityReduceParams {
     pub(crate) span: u32,
     pub(crate) rest_count: u32,
     pub(crate) output_slot: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 2],
 }
 
 #[repr(C)]

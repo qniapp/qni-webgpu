@@ -18,6 +18,7 @@ MAX_EXACT_AMPLITUDE_QUBITS = 16
 MAX_AMPLITUDE_OUTPUTS = 32
 MAX_BLOCH_OUTPUTS = 64
 MAX_PROBABILITY_OUTPUTS = 32
+MAX_PROBABILITY_SPAN = 16
 MAX_DENSITY_OUTPUTS = 16
 MAX_DENSITY_SPAN = 8
 RUNNERS = frozenset({"mock", "qiskit-cpu-dev", "qiskit-gpu"})
@@ -43,6 +44,8 @@ class BlochOutputRequest:
     gate_id: int
     column: int
     wire: int
+    control_mask: int
+    control_value: int
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,8 @@ class ProbabilityOutputRequest:
     column: int
     span: int
     base_bit: int
+    control_mask: int
+    control_value: int
 
 
 @dataclass(frozen=True)
@@ -218,13 +223,36 @@ def parse_bloch_output(raw: Any, columns: list[list[Any]], qubits: int) -> Bloch
     gate_id = required_int(raw, "gate_id", "bloch")
     column = required_int(raw, "column", "bloch")
     wire = required_int(raw, "wire", "bloch")
+    control_mask = optional_int(raw, "control_mask", "bloch", default=0)
+    control_value = optional_int(raw, "control_value", "bloch", default=0)
     if gate_id < 0:
         raise ContractError("bloch gate_id must be non-negative")
     if not 0 <= column < len(columns):
         raise ContractError("bloch column is out of range")
     if not 0 <= wire < qubits:
         raise ContractError("bloch wire is out of range")
-    return BlochOutputRequest(gate_id=gate_id, column=column, wire=wire)
+    max_mask = (1 << qubits) - 1
+    if not 0 <= control_mask <= max_mask:
+        raise ContractError("bloch control_mask is out of range")
+    if not 0 <= control_value <= max_mask:
+        raise ContractError("bloch control_value is out of range")
+    if control_value & ~control_mask:
+        raise ContractError("bloch control_value must be a subset of control_mask")
+    target_bit = qubits - 1 - wire
+    non_target_control_count = sum(
+        1 for bit in range(qubits) if control_mask & (1 << bit) and bit != target_bit
+    )
+    if 1 + non_target_control_count > MAX_DENSITY_SPAN:
+        raise ContractError(
+            f"bloch target plus controls must be in [1, {MAX_DENSITY_SPAN}]"
+        )
+    return BlochOutputRequest(
+        gate_id=gate_id,
+        column=column,
+        wire=wire,
+        control_mask=control_mask,
+        control_value=control_value,
+    )
 
 
 def parse_probability_outputs(
@@ -249,6 +277,8 @@ def parse_probability_output(
     column = required_int(raw, "column", "probability")
     span = required_int(raw, "span", "probability")
     base_bit = required_int(raw, "base_bit", "probability")
+    control_mask = optional_int(raw, "control_mask", "probability", default=0)
+    control_value = optional_int(raw, "control_value", "probability", default=0)
     if gate_id < 0:
         raise ContractError("probability gate_id must be non-negative")
     if not 0 <= column < len(columns):
@@ -257,11 +287,28 @@ def parse_probability_output(
         raise ContractError("probability span must be in [1, 16]")
     if not 0 <= base_bit or base_bit + span > qubits:
         raise ContractError("probability bit range is out of range")
+    max_mask = (1 << qubits) - 1
+    if not 0 <= control_mask <= max_mask:
+        raise ContractError("probability control_mask is out of range")
+    if not 0 <= control_value <= max_mask:
+        raise ContractError("probability control_value is out of range")
+    if control_value & ~control_mask:
+        raise ContractError("probability control_value must be a subset of control_mask")
+    display_bits = set(range(base_bit, base_bit + span))
+    non_display_control_count = sum(
+        1 for bit in range(qubits) if control_mask & (1 << bit) and bit not in display_bits
+    )
+    if span + non_display_control_count > MAX_PROBABILITY_SPAN:
+        raise ContractError(
+            f"probability span plus non-display controls must be in [1, {MAX_PROBABILITY_SPAN}]"
+        )
     return ProbabilityOutputRequest(
         gate_id=gate_id,
         column=column,
         span=span,
         base_bit=base_bit,
+        control_mask=control_mask,
+        control_value=control_value,
     )
 
 

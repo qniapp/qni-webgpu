@@ -169,6 +169,32 @@ const waitForBlochPopoverEvidence = async (
   return last
 }
 
+test('Bloch display uses same-column control as a conditional readout', async ({ page }) => {
+  await page.goto(
+    '/#' +
+      encodeURIComponent(
+        JSON.stringify({ cols: [['H', 1], ['•', 'X'], ['•', 'Bloch']] }),
+      ),
+  )
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  await waitForBlochVectorsApprox(page, [[0, 0, -1]])
+})
+
+test('Bloch display uses same-column anti-control as a conditional readout', async ({ page }) => {
+  await page.goto(
+    '/#' +
+      encodeURIComponent(
+        JSON.stringify({ cols: [['H', 1], ['•', 'X'], ['◦', 'Bloch']] }),
+      ),
+  )
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  await waitForBlochVectorsApprox(page, [[0, 0, 1]])
+})
+
 test('Bloch hover opens a GPU-valued popover', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Bloch']] })))
   await waitForStartupReady(page, { waitForStateVector: true })

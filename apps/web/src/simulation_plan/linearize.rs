@@ -10,8 +10,7 @@
 use super::{ColumnAnalysis, SimulationOp};
 use crate::app::PlacedGate;
 use crate::gates::{
-    controlled_phase_params, gate_params, gate_params_controlled, phase_params, rx_params,
-    ry_params, rz_params, GateKind,
+    gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params, GateKind,
 };
 
 /// Walks placed gates column by column and emits ops in the exact order the
@@ -218,12 +217,22 @@ pub(crate) fn linearize_ops(
         }
 
         // QFT-family gates expand to their textbook decomposition (H +
-        // controlled-phase rotations). Column controls are ignored here
-        // — qni's simulator doesn't model controlled-QFT either.
+        // controlled-phase rotations). Column controls are threaded through
+        // every decomposed operation, making the whole QFT conditional while
+        // preserving the usual internal QFT controlled-phase gates.
         qft_gates.sort_by(|a, b| a.id.cmp(&b.id));
         for qft in &qft_gates {
             let dagger = qft.kind == GateKind::QftDaggerGate;
-            ops.extend(linearize_qft(qft, qubits, state_count, dagger));
+            let (qft_control_mask, qft_control_value) =
+                qft_external_controls(qft, qubits, control_mask, control_value);
+            ops.extend(linearize_qft(
+                qft,
+                qubits,
+                state_count,
+                dagger,
+                qft_control_mask,
+                qft_control_value,
+            ));
         }
 
         // Measurements run after the column's unitaries: reduce + sample,
@@ -251,6 +260,8 @@ pub(crate) fn linearize_ops(
                 gate_id: display.id,
                 qubit_bit,
                 output_slot: bloch_slot,
+                control_mask,
+                control_value,
             });
             bloch_slot += 1;
         }
@@ -270,6 +281,8 @@ pub(crate) fn linearize_ops(
                 base_bit,
                 span: span as u32,
                 output_slot: probability_slot,
+                control_mask,
+                control_value,
             });
             probability_slot += 1;
         }
@@ -326,6 +339,28 @@ pub(crate) fn linearize_ops(
     ops
 }
 
+/// Return only controls outside the QFT span. A decoded URL can contain a
+/// control token on a row covered by the QFT body; treating it as an external
+/// control would create self-controlled H / duplicate controlled-phase ops.
+fn qft_external_controls(
+    gate: &PlacedGate,
+    qubits: usize,
+    control_mask: u32,
+    control_value: u32,
+) -> (u32, u32) {
+    if gate.wire >= qubits {
+        return (control_mask, control_value);
+    }
+    let span = gate.span.max(1).min(qubits - gate.wire);
+    let mut qft_span_mask = 0u32;
+    for offset in 0..span {
+        qft_span_mask |= 1u32 << (qubits - 1 - gate.wire - offset);
+    }
+    let external_control_mask = control_mask & !qft_span_mask;
+    let external_control_value = control_value & external_control_mask;
+    (external_control_mask, external_control_value)
+}
+
 /// Expand a placed QFT (or QFT†) gate into its textbook decomposition:
 /// `span` Hadamards interleaved with controlled-phase rotations
 /// `R_k = diag(1, exp(iπ/2^j))`. Translated 1:1 from qni's
@@ -341,6 +376,8 @@ fn linearize_qft(
     qubits: usize,
     state_count: u32,
     dagger: bool,
+    control_mask: u32,
+    control_value: u32,
 ) -> Vec<SimulationOp> {
     if gate.wire >= qubits {
         return Vec::new();
@@ -359,18 +396,21 @@ fn linearize_qft(
         // QFT: for i in 0..span: H(i), then controlled-Phase π/2^j with
         // control=(i+j) for j in 1..span-i.
         for i in 0..span {
-            ops.push(SimulationOp::ApplyGate(gate_params(
-                GateKind::H,
+            ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
                 state_count,
+                control_mask,
+                control_value,
             )));
             for j in 1..(span - i) {
                 let phase = std::f32::consts::PI / (1u32 << j) as f32;
-                ops.push(SimulationOp::ApplyGate(controlled_phase_params(
+                ops.push(SimulationOp::ApplyGate(qft_phase_params(
                     bit_of(i),
                     bit_of(i + j),
                     phase,
                     state_count,
+                    control_mask,
+                    control_value,
                 )));
             }
         }
@@ -379,21 +419,55 @@ fn linearize_qft(
         for i in (0..span).rev() {
             for j in (1..(span - i)).rev() {
                 let phase = -std::f32::consts::PI / (1u32 << j) as f32;
-                ops.push(SimulationOp::ApplyGate(controlled_phase_params(
+                ops.push(SimulationOp::ApplyGate(qft_phase_params(
                     bit_of(i),
                     bit_of(i + j),
                     phase,
                     state_count,
+                    control_mask,
+                    control_value,
                 )));
             }
-            ops.push(SimulationOp::ApplyGate(gate_params(
-                GateKind::H,
+            ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
                 state_count,
+                control_mask,
+                control_value,
             )));
         }
     }
     ops
+}
+
+fn qft_h_params(
+    bit: u32,
+    state_count: u32,
+    control_mask: u32,
+    control_value: u32,
+) -> crate::gates::GateParams {
+    if control_mask == 0 {
+        gate_params(GateKind::H, bit, state_count)
+    } else {
+        gate_params_controlled(GateKind::H, bit, control_mask, control_value, state_count)
+    }
+}
+
+fn qft_phase_params(
+    target_bit: u32,
+    qft_control_bit: u32,
+    phase: f32,
+    state_count: u32,
+    control_mask: u32,
+    control_value: u32,
+) -> crate::gates::GateParams {
+    let qft_control_mask = 1u32 << qft_control_bit;
+    phase_params(
+        phase,
+        target_bit,
+        control_mask | qft_control_mask,
+        control_value | qft_control_mask,
+        state_count,
+    )
 }
 
 #[cfg(test)]
@@ -407,6 +481,13 @@ mod tests {
         let ops = linearize_ops(&[gate], 1, 0);
         match ops.first().expect("expected an apply-gate op") {
             SimulationOp::ApplyGate(params) => params.matrix(),
+            _ => panic!("expected apply-gate op"),
+        }
+    }
+
+    fn apply_gate_params(ops: &[SimulationOp], index: usize) -> crate::gates::GateParams {
+        match ops.get(index).expect("expected an apply-gate op") {
+            SimulationOp::ApplyGate(params) => *params,
             _ => panic!("expected apply-gate op"),
         }
     }
@@ -438,5 +519,103 @@ mod tests {
             (bare_parametric_matrix(GateKind::Rz)[0][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
                 < EPSILON
         );
+    }
+
+    #[test]
+    fn controlled_qft_applies_external_control_to_hadamard() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, 3, 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (1, 0b100, 0b100)
+        );
+    }
+
+    #[test]
+    fn controlled_qft_combines_external_control_with_internal_phase_control() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, 3, 0), 1);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (1, 0b101, 0b101)
+        );
+    }
+
+    #[test]
+    fn anti_controlled_qft_keeps_zero_external_control_value() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::QftGate, 0, 1, 2, None),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, 3, 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (1, 0b100, 0)
+        );
+    }
+
+    #[test]
+    fn qft_ignores_control_tokens_inside_its_span() {
+        let gates = [
+            PlacedGate::new(1, GateKind::QftGate, 0, 0, 2, None),
+            PlacedGate::new(2, GateKind::Control, 0, 1, 1, None),
+        ];
+
+        let params = apply_gate_params(&linearize_ops(&gates, 2, 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (1, 0, 0)
+        );
+    }
+
+    #[test]
+    fn probability_display_captures_column_controls() {
+        let gates = [
+            PlacedGate::new(1, GateKind::Control, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::ProbabilityDisplay, 0, 1, 1, None),
+        ];
+
+        let ops = linearize_ops(&gates, 2, 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureProbability {
+                control_mask: 0b10,
+                control_value: 0b10,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn bloch_display_captures_column_controls() {
+        let gates = [
+            PlacedGate::new(1, GateKind::AntiControl, 0, 0, 1, None),
+            PlacedGate::new(2, GateKind::BlochDisplay, 0, 1, 1, None),
+        ];
+
+        let ops = linearize_ops(&gates, 2, 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureBloch {
+                control_mask: 0b10,
+                control_value: 0,
+                ..
+            })
+        ));
     }
 }

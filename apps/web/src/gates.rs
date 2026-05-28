@@ -46,8 +46,7 @@ mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;
 pub(crate) use params::{
-    controlled_phase_params, gate_params, gate_params_controlled, phase_params, rx_params,
-    ry_params, rz_params, GateParams,
+    gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params, GateParams,
 };
 
 #[derive(Clone, Copy, Debug)]
