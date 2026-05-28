@@ -64,7 +64,11 @@ impl QniApp {
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
-            external_slot.or_else(|| self.gpu_plan.amplitude_slot(gate_id))
+            external_slot.or_else(|| {
+                self.gpu_plan
+                    .amplitude_slot(gate_id)
+                    .map(|slot| slot.as_u32())
+            })
         }
     }
 
@@ -72,7 +76,7 @@ impl QniApp {
         self.external_gpu_bloch_uploads
             .as_ref()
             .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()))
-            .or_else(|| self.gpu_plan.bloch_slot(gate_id))
+            .or_else(|| self.gpu_plan.bloch_slot(gate_id).map(|slot| slot.as_u32()))
     }
 
     fn probability_display_slot(&self, gate_id: GateId) -> Option<u32> {
@@ -83,7 +87,11 @@ impl QniApp {
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
-            external_slot.or_else(|| self.gpu_plan.probability_slot(gate_id))
+            external_slot.or_else(|| {
+                self.gpu_plan
+                    .probability_slot(gate_id)
+                    .map(|slot| slot.as_u32())
+            })
         }
     }
 
@@ -95,7 +103,11 @@ impl QniApp {
         if self.external_gpu_display_placeholders_active() {
             external_slot
         } else {
-            external_slot.or_else(|| self.gpu_plan.density_slot(gate_id))
+            external_slot.or_else(|| {
+                self.gpu_plan
+                    .density_slot(gate_id)
+                    .map(|slot| slot.as_u32())
+            })
         }
     }
 
@@ -508,7 +520,7 @@ impl QniApp {
                 {
                     return None;
                 }
-                let slot = self.gpu_plan.measurement_slot(gate.id)?;
+                let slot = self.gpu_plan.measurement_slot(gate.id)?.as_u32();
                 let gate_rect = egui::Rect::from_min_size(
                     circuit_origin + gate.pos.to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),

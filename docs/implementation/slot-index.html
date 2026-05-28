@@ -141,8 +141,12 @@ pub(crate) enum Density {}</pre>
   <div class="card">
     <h3>家族別の採番</h3>
     <p>
-      <code>linearize.rs</code> の 6 つのカウンタ（<code>bloch_slot</code> / <code>measurement_slot</code> / <code>probability_slot</code> / <code>amplitude_slot</code> / <code>density_slot</code> / <code>next_snapshot_slot</code>）を、対応する <code>SlotAllocator&lt;F&gt;</code> に置き換える。
+      <code>linearize.rs</code> の表示・測定の 5 つのカウンタ（<code>bloch_slot</code> / <code>measurement_slot</code> / <code>probability_slot</code> / <code>amplitude_slot</code> / <code>density_slot</code>）を、対応する <code>SlotAllocator&lt;F&gt;</code> に置き換える。
       <code>bloch_slot += 1</code> などの採番は <code>allocate()</code> にする。
+      測定は <code>MeasureReduceSample</code> と <code>MeasureCollapse</code> が同じスロットを共有するため、<code>allocate()</code> を 1 度だけ呼び、得た <code>SlotIndex&lt;Measurement&gt;</code>（<code>Copy</code>）を両方へ渡す。
+    </p>
+    <p>
+      <code>next_snapshot_slot</code> は <code>SlotAllocator</code> にしない。これはスナップショットを <code>column.slot</code> まで埋める「ループ境界」も兼ねた <code>usize</code> カウンタで、<code>allocate()</code> では現在値の比較ができなくなるためである。<code>usize</code> のまま残し、<code>SnapshotState</code> を組み立てる時点で <code>SlotIndex::&lt;Snapshot&gt;::new(next_snapshot_slot as u32)</code> として型を付ける。
     </p>
 
     <h3>ディスパッチ表現</h3>
@@ -157,10 +161,12 @@ pub(crate) enum Density {}</pre>
       スロットを引く <code>bloch_slot(gate_id)</code> などは <code>Option&lt;SlotIndex&lt;Bloch&gt;&gt;</code> を返す。
     </p>
 
-    <h3>GPU 境界</h3>
+    <h3>GPU 境界（u32 のまま残す範囲）</h3>
     <p>
       シェーダへの割り当てやバッファ添字へ渡すときだけ <code>as_u32()</code> を使う。
       WebGPU のバッファレイアウトとシェーダは変更しない。
+      具体的には、<code>gpu/params.rs</code> の <code>#[repr(C)]</code> パラメータ／インスタンス構造体、<code>gpu/recompute/dispatch.rs</code> のディスパッチ内部カウンタ、外部 GPU 経路の <code>slot_to_gate_id</code> 逆引き（配列の添字がスロット番号）と <code>slot_for_gate</code> は <code>u32</code> のまま残す。
+      <code>pack.rs</code>（パラメータ書き出し）・<code>capacity.rs</code>（範囲検査）・<code>dispatch.rs</code>（スナップショット添字）・<code>circuit_gates.rs</code>（インスタンスと表示スロットの合流点）が、ドメイン側の <code>SlotIndex&lt;F&gt;</code> を <code>as_u32()</code> でこの境界へ渡す唯一の点になる。
     </p>
   </div>
 </section>
@@ -188,11 +194,11 @@ pub(crate) enum Density {}</pre>
   <div class="card">
     <ol>
       <li><code>SlotIndex&lt;F&gt;</code> / <code>SlotAllocator&lt;F&gt;</code> と 6 つの家族マーカーを <code>apps/web/src/gpu/slot.rs</code> に追加し、再公開する</li>
-      <li><code>linearize.rs</code> の 6 つのカウンタを家族別の <code>SlotAllocator</code> に置き換え、採番を <code>allocate()</code> へ集約する</li>
+      <li><code>linearize.rs</code> の表示・測定の 5 つのカウンタを家族別の <code>SlotAllocator</code> に置き換え、採番を <code>allocate()</code> へ集約する（<code>next_snapshot_slot</code> はループ境界用途のため <code>usize</code> のまま残し、構築時に型を付ける）</li>
       <li><code>SimulationOp</code> の <code>output_slot</code> / <code>aux_slot</code> を家族付きの <code>SlotIndex&lt;F&gt;</code> へ変更する</li>
-      <li><code>gpu_plan_state.rs</code> の家族別 <code>HashMap</code> の値を <code>SlotIndex&lt;F&gt;</code>・キーを <code>GateId</code> にし、<code>gpu/params.rs</code> のスロットフィールドと <code>slot_to_gate_id</code> 逆引きも <code>SlotIndex&lt;F&gt;</code> にする</li>
-      <li>GPU ディスパッチ側（バッファ添字・バインド）だけ <code>as_u32()</code> を使う</li>
-      <li>スロット番号を受け取る Rust ドメイン API に裸の <code>u32</code> が残っていないことを <code>rg</code> で確認する</li>
+      <li><code>gpu_plan_state.rs</code> の家族別 <code>HashMap</code> の値を <code>SlotIndex&lt;F&gt;</code>・キーを <code>GateId</code> にする。<code>gpu/params.rs</code> の <code>#[repr(C)]</code> 構造体と外部 GPU 経路の <code>slot_to_gate_id</code> 逆引き（添字＝スロット）は GPU・直列化の境界として <code>u32</code> のまま残す</li>
+      <li>GPU ディスパッチ側（バッファ添字・バインド・パラメータ書き出し・範囲検査）だけ <code>as_u32()</code> を使う</li>
+      <li>スロット番号を受け取るドメイン側（<code>SimulationOp</code>・<code>gpu_plan_state</code> の辞書・<code>linearize</code> の採番）に裸の <code>u32</code> が残っていないことを <code>rg</code> で確認する</li>
     </ol>
     <p class="note">
       後方互換の別名や古い入口は残さない。
@@ -207,7 +213,7 @@ pub(crate) enum Density {}</pre>
     <ol>
       <li><strong>スロット番号を保持できる</strong> — <code>Bloch</code> 家族の <code>SlotIndex</code> を <code>new(2)</code> で作り <code>as_u32()</code> が <code>2</code> になることを確認する</li>
       <li><strong>家族別に採番が単調</strong> — 1 つの <code>SlotAllocator&lt;Bloch&gt;</code> から続けて <code>allocate()</code> した 2 つのスロットが <code>0</code> と <code>1</code> になることを確認する</li>
-      <li><strong>家族をまたいで代入できない</strong> — <code>SlotIndex&lt;Bloch&gt;</code> を <code>SlotIndex&lt;Measurement&gt;</code> が必要な箇所へ渡せないことを確認する（型エラー）</li>
+      <li><strong>家族をまたいで代入できない</strong> — <code>SlotIndex&lt;Bloch&gt;</code> を <code>SlotIndex&lt;Measurement&gt;</code> が必要な箇所へ渡せない（型エラー）。これはファントム型により構造的に保証される。<code>qni-web</code> クレートには <code>trybuild</code> を導入していないため compile-fail テストは置かず、<code>SimulationOp</code> の各バリアントと <code>gpu_plan_state</code> の各 <code>HashMap</code> が固定の家族で型付けされていることで担保する</li>
       <li><strong>同じ家族内で等価性が値で決まる</strong> — 同じ家族・同じ番号の <code>SlotIndex</code> 同士が等しいことを確認する</li>
       <li><strong>辞書の値に使える</strong> — <code>HashMap&lt;GateId, SlotIndex&lt;Bloch&gt;&gt;</code> で値を出し入れできることを確認する</li>
       <li><strong>裸の <code>u32</code> スロット番号が残らない</strong> — <code>SimulationOp</code> の <code>output_slot</code> / <code>aux_slot</code> と家族別 <code>HashMap</code> の値が <code>SlotIndex&lt;F&gt;</code> を使うことを確認する</li>

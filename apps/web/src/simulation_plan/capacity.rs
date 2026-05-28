@@ -44,7 +44,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     for op in ops {
         match op {
             SimulationOp::SnapshotState { output_slot } => {
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_step_snapshot_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "step snapshot slot {slot} exceeds MAX_STEP_SNAPSHOT_SLOTS={}; reduce sparse columns or grow the GPU snapshot cache",
@@ -55,7 +55,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             SimulationOp::ApplyGate(_) => gate_ops += 1,
             SimulationOp::CaptureBloch { output_slot, .. } => {
                 bloch_ops += 1;
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_bloch_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "Bloch slot {slot} exceeds MAX_BLOCH_SLOTS={}; reduce Bloch displays or grow the GPU buffer",
@@ -65,7 +65,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             }
             SimulationOp::MeasureReduceSample { output_slot, .. } => {
                 measure_reduce_ops += 1;
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_measurement_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "measurement slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
@@ -75,7 +75,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             }
             SimulationOp::MeasureCollapse { aux_slot, .. } => {
                 measure_collapse_ops += 1;
-                let slot = *aux_slot as usize;
+                let slot = aux_slot.as_u32() as usize;
                 if slot >= limits.max_measurement_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "measurement collapse slot {slot} exceeds MAX_MEASUREMENT_SLOTS={}; reduce measurements or grow the GPU buffer",
@@ -85,7 +85,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             }
             SimulationOp::CaptureProbability { output_slot, .. } => {
                 probability_ops += 1;
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_probability_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "Probability slot {slot} exceeds MAX_PROBABILITY_SLOTS={}; reduce Probability displays or grow the GPU buffer",
@@ -95,7 +95,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             }
             SimulationOp::CaptureAmplitude { output_slot, .. } => {
                 amplitude_ops += 1;
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_amplitude_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "Amplitude slot {slot} exceeds MAX_AMPLITUDE_SLOTS={}; reduce Amplitude displays or grow the GPU buffer",
@@ -105,7 +105,7 @@ pub(crate) fn validate_simulation_plan_capacity(
             }
             SimulationOp::CaptureDensity { output_slot, .. } => {
                 density_ops += 1;
-                let slot = *output_slot as usize;
+                let slot = output_slot.as_u32() as usize;
                 if slot >= limits.max_density_slots {
                     return Err(SimulationPlanCapacityError::new(format!(
                         "Density slot {slot} exceeds MAX_DENSITY_SLOTS={}; reduce Density displays or grow the GPU buffer",

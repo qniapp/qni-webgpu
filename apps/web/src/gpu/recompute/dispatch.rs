@@ -41,9 +41,12 @@ pub(super) fn encode_batched_recompute(
     let mut state = DispatchState::new(pair_count, dispatch_x);
     for op in sim_ops {
         match op {
-            SimulationOp::SnapshotState { output_slot } => {
-                state.encode_snapshot_state(&mut encoder, resources, state_count, *output_slot)
-            }
+            SimulationOp::SnapshotState { output_slot } => state.encode_snapshot_state(
+                &mut encoder,
+                resources,
+                state_count,
+                output_slot.as_u32(),
+            ),
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
             SimulationOp::CaptureBloch { gate_id, .. } => {
                 state.encode_capture_bloch(&mut encoder, resources, *gate_id);

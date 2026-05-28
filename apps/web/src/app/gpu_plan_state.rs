@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use crate::app::GateId;
+use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotIndex};
 use crate::simulation_plan::SimulationOp;
 
 #[derive(Debug)]
@@ -17,15 +18,15 @@ pub(crate) struct GpuPlanState {
     snapshot_slot_count: usize,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
-    bloch_slots: HashMap<GateId, u32>,
+    bloch_slots: HashMap<GateId, SlotIndex<Bloch>>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
-    measurement_slots: HashMap<GateId, u32>,
+    measurement_slots: HashMap<GateId, SlotIndex<Measurement>>,
     /// Probability displays → `probability_output` slot.
-    probability_slots: HashMap<GateId, u32>,
+    probability_slots: HashMap<GateId, SlotIndex<Probability>>,
     /// Amplitude displays → `amplitude_output` slot.
-    amplitude_slots: HashMap<GateId, u32>,
+    amplitude_slots: HashMap<GateId, SlotIndex<Amplitude>>,
     /// Density Matrix displays → `density_output` slot.
-    density_slots: HashMap<GateId, u32>,
+    density_slots: HashMap<GateId, SlotIndex<Density>>,
     capacity_error: Option<String>,
 }
 
@@ -136,19 +137,19 @@ impl GpuPlanState {
         self.capacity_error = None;
         for (slot, gate_id) in amplitude_slot_to_gate_id.iter().enumerate() {
             self.amplitude_slots
-                .insert(GateId::from_u32(*gate_id), slot as u32);
+                .insert(GateId::from_u32(*gate_id), SlotIndex::new(slot as u32));
         }
         for (slot, gate_id) in bloch_slot_to_gate_id.iter().enumerate() {
             self.bloch_slots
-                .insert(GateId::from_u32(*gate_id), slot as u32);
+                .insert(GateId::from_u32(*gate_id), SlotIndex::new(slot as u32));
         }
         for (slot, gate_id) in probability_slot_to_gate_id.iter().enumerate() {
             self.probability_slots
-                .insert(GateId::from_u32(*gate_id), slot as u32);
+                .insert(GateId::from_u32(*gate_id), SlotIndex::new(slot as u32));
         }
         for (slot, gate_id) in density_slot_to_gate_id.iter().enumerate() {
             self.density_slots
-                .insert(GateId::from_u32(*gate_id), slot as u32);
+                .insert(GateId::from_u32(*gate_id), SlotIndex::new(slot as u32));
         }
     }
 
@@ -168,23 +169,23 @@ impl GpuPlanState {
         self.measurement_slots.contains_key(&gate_id)
     }
 
-    pub(crate) fn bloch_slot(&self, gate_id: GateId) -> Option<u32> {
+    pub(crate) fn bloch_slot(&self, gate_id: GateId) -> Option<SlotIndex<Bloch>> {
         self.bloch_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn measurement_slot(&self, gate_id: GateId) -> Option<u32> {
+    pub(crate) fn measurement_slot(&self, gate_id: GateId) -> Option<SlotIndex<Measurement>> {
         self.measurement_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn probability_slot(&self, gate_id: GateId) -> Option<u32> {
+    pub(crate) fn probability_slot(&self, gate_id: GateId) -> Option<SlotIndex<Probability>> {
         self.probability_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn amplitude_slot(&self, gate_id: GateId) -> Option<u32> {
+    pub(crate) fn amplitude_slot(&self, gate_id: GateId) -> Option<SlotIndex<Amplitude>> {
         self.amplitude_slots.get(&gate_id).copied()
     }
 
-    pub(crate) fn density_slot(&self, gate_id: GateId) -> Option<u32> {
+    pub(crate) fn density_slot(&self, gate_id: GateId) -> Option<SlotIndex<Density>> {
         self.density_slots.get(&gate_id).copied()
     }
 
@@ -245,7 +246,7 @@ impl GpuPlanState {
 
 #[cfg(test)]
 mod tests {
-    use super::{GateId, GpuPlanState};
+    use super::{GateId, GpuPlanState, SlotIndex};
     use crate::gates::ColumnControls;
     use crate::qubit_bit::QubitBit;
     use crate::simulation_plan::SimulationOp;
@@ -266,13 +267,16 @@ mod tests {
             vec![SimulationOp::CaptureBloch {
                 gate_id: 7,
                 qubit_bit: QubitBit::new(0),
-                output_slot: 3,
+                output_slot: SlotIndex::new(3),
                 controls: ColumnControls::NONE,
             }],
             1,
         );
 
-        assert_eq!(state.bloch_slot(GateId::from_u32(7)), Some(3));
+        assert_eq!(
+            state.bloch_slot(GateId::from_u32(7)),
+            Some(SlotIndex::new(3))
+        );
     }
 
     #[test]
@@ -282,7 +286,7 @@ mod tests {
             vec![SimulationOp::CaptureBloch {
                 gate_id: 7,
                 qubit_bit: QubitBit::new(0),
-                output_slot: 3,
+                output_slot: SlotIndex::new(3),
                 controls: ColumnControls::NONE,
             }],
             1,

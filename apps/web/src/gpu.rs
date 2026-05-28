@@ -20,6 +20,7 @@ mod readback;
 mod recompute;
 mod resources;
 mod shaders;
+mod slot;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
@@ -43,4 +44,7 @@ pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 pub(crate) use readback::{
     read_amplitude_cell_impl, read_bloch_vectors_impl, read_density_matrix_cell_impl,
     read_measurement_outcomes_impl, read_probability_distributions_impl, read_state_vector_impl,
+};
+pub(crate) use slot::{
+    Amplitude, Bloch, Density, Measurement, Probability, SlotAllocator, SlotIndex, Snapshot,
 };

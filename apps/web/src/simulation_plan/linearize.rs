@@ -13,6 +13,7 @@ use crate::gates::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params,
     ColumnControls, GateKind,
 };
+use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotAllocator, SlotIndex};
 use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 
@@ -42,15 +43,15 @@ pub(crate) fn linearize_ops(
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut next_snapshot_slot = 0usize;
-    let mut bloch_slot: u32 = 0;
-    let mut measurement_slot: u32 = 0;
-    let mut probability_slot: u32 = 0;
-    let mut amplitude_slot: u32 = 0;
-    let mut density_slot: u32 = 0;
+    let mut bloch_slots = SlotAllocator::<Bloch>::new();
+    let mut measurement_slots = SlotAllocator::<Measurement>::new();
+    let mut probability_slots = SlotAllocator::<Probability>::new();
+    let mut amplitude_slots = SlotAllocator::<Amplitude>::new();
+    let mut density_slots = SlotAllocator::<Density>::new();
     for column in analysis.columns() {
         while next_snapshot_slot < column.slot && next_snapshot_slot < snapshot_slot_count {
             ops.push(SimulationOp::SnapshotState {
-                output_slot: next_snapshot_slot as u32,
+                output_slot: SlotIndex::new(next_snapshot_slot as u32),
             });
             next_snapshot_slot += 1;
         }
@@ -227,16 +228,16 @@ pub(crate) fn linearize_ops(
                 .wire
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
+            let slot = measurement_slots.allocate();
             ops.push(SimulationOp::MeasureReduceSample {
                 gate_id: measurement.id.as_u32(),
                 qubit_bit,
-                output_slot: measurement_slot,
+                output_slot: slot,
             });
             ops.push(SimulationOp::MeasureCollapse {
                 qubit_bit,
-                aux_slot: measurement_slot,
+                aux_slot: slot,
             });
-            measurement_slot += 1;
         }
 
         // Bloch captures see the post-measurement state.
@@ -249,10 +250,9 @@ pub(crate) fn linearize_ops(
             ops.push(SimulationOp::CaptureBloch {
                 gate_id: display.id.as_u32(),
                 qubit_bit,
-                output_slot: bloch_slot,
+                output_slot: bloch_slots.allocate(),
                 controls,
             });
-            bloch_slot += 1;
         }
 
         // Probability displays are also read-only displays. They capture the
@@ -275,10 +275,9 @@ pub(crate) fn linearize_ops(
                 gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
-                output_slot: probability_slot,
+                output_slot: probability_slots.allocate(),
                 controls,
             });
-            probability_slot += 1;
         }
 
         amplitude_targets.sort_by(|a, b| a.id.cmp(&b.id));
@@ -298,10 +297,9 @@ pub(crate) fn linearize_ops(
                 gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
-                output_slot: amplitude_slot,
+                output_slot: amplitude_slots.allocate(),
                 controls,
             });
-            amplitude_slot += 1;
         }
 
         density_targets.sort_by(|a, b| a.id.cmp(&b.id));
@@ -321,22 +319,21 @@ pub(crate) fn linearize_ops(
                 gate_id: display.id.as_u32(),
                 base_bit,
                 span: span.get() as u32,
-                output_slot: density_slot,
+                output_slot: density_slots.allocate(),
                 controls,
             });
-            density_slot += 1;
         }
 
         if next_snapshot_slot == column.slot && next_snapshot_slot < snapshot_slot_count {
             ops.push(SimulationOp::SnapshotState {
-                output_slot: next_snapshot_slot as u32,
+                output_slot: SlotIndex::new(next_snapshot_slot as u32),
             });
             next_snapshot_slot += 1;
         }
     }
     while next_snapshot_slot < snapshot_slot_count {
         ops.push(SimulationOp::SnapshotState {
-            output_slot: next_snapshot_slot as u32,
+            output_slot: SlotIndex::new(next_snapshot_slot as u32),
         });
         next_snapshot_slot += 1;
     }
@@ -538,6 +535,32 @@ mod tests {
         assert!(
             (bare_parametric_matrix(GateKind::Rz)[0][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
                 < EPSILON
+        );
+    }
+
+    #[test]
+    fn measurement_pair_shares_one_slot() {
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            GateKind::Measurement,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        )];
+        let ops = linearize_ops(&gates, qubit_count(1), 0);
+        let reduce_slot = ops.iter().find_map(|op| match op {
+            SimulationOp::MeasureReduceSample { output_slot, .. } => Some(*output_slot),
+            _ => None,
+        });
+        let collapse_slot = ops.iter().find_map(|op| match op {
+            SimulationOp::MeasureCollapse { aux_slot, .. } => Some(*aux_slot),
+            _ => None,
+        });
+
+        assert_eq!(
+            (reduce_slot, collapse_slot),
+            (Some(SlotIndex::new(0)), Some(SlotIndex::new(0)))
         );
     }
 

@@ -1,4 +1,5 @@
 use crate::gates::{ColumnControls, GateParams};
+use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotIndex, Snapshot};
 use crate::qubit_bit::QubitBit;
 
 /// One step the GPU dispatcher should run during a recompute.
@@ -22,43 +23,43 @@ use crate::qubit_bit::QubitBit;
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SimulationOp {
     SnapshotState {
-        output_slot: u32,
+        output_slot: SlotIndex<Snapshot>,
     },
     ApplyGate(GateParams),
     CaptureBloch {
         gate_id: u32,
         qubit_bit: QubitBit,
-        output_slot: u32,
+        output_slot: SlotIndex<Bloch>,
         controls: ColumnControls,
     },
     MeasureReduceSample {
         gate_id: u32,
         qubit_bit: QubitBit,
-        output_slot: u32,
+        output_slot: SlotIndex<Measurement>,
     },
     MeasureCollapse {
         qubit_bit: QubitBit,
-        aux_slot: u32,
+        aux_slot: SlotIndex<Measurement>,
     },
     CaptureProbability {
         gate_id: u32,
         base_bit: QubitBit,
         span: u32,
-        output_slot: u32,
+        output_slot: SlotIndex<Probability>,
         controls: ColumnControls,
     },
     CaptureAmplitude {
         gate_id: u32,
         base_bit: QubitBit,
         span: u32,
-        output_slot: u32,
+        output_slot: SlotIndex<Amplitude>,
         controls: ColumnControls,
     },
     CaptureDensity {
         gate_id: u32,
         base_bit: QubitBit,
         span: u32,
-        output_slot: u32,
+        output_slot: SlotIndex<Density>,
         controls: ColumnControls,
     },
 }

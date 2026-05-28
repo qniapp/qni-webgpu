@@ -46,7 +46,7 @@ impl PackedRecomputeParams {
                 } => packed.bloch.push(BlochParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
-                    output_slot: *output_slot,
+                    output_slot: output_slot.as_u32(),
                     control_mask: controls.mask(),
                     control_value: controls.value(),
                     _pad: [0; 3],
@@ -58,7 +58,7 @@ impl PackedRecomputeParams {
                 } => packed.measure_reduce.push(MeasureReduceParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
-                    output_slot: *output_slot,
+                    output_slot: output_slot.as_u32(),
                     seed: *gate_id,
                 }),
                 SimulationOp::MeasureCollapse {
@@ -71,7 +71,7 @@ impl PackedRecomputeParams {
                     packed.measure_collapse.push(MeasureCollapseParams {
                         qubit_bit: qubit_bit.as_u32(),
                         state_count: state_count as u32,
-                        aux_slot: *aux_slot,
+                        aux_slot: aux_slot.as_u32(),
                         _pad: 0,
                     });
                 }
@@ -87,7 +87,7 @@ impl PackedRecomputeParams {
                         base_bit: base_bit.as_u32(),
                         span: *span,
                         rest_count,
-                        output_slot: *output_slot,
+                        output_slot: output_slot.as_u32(),
                         control_mask: controls.mask(),
                         control_value: controls.value(),
                         _pad: [0; 2],
@@ -104,7 +104,7 @@ impl PackedRecomputeParams {
                     packed.amplitude.push(AmplitudeCaptureParams {
                         base_bit: base_bit.as_u32(),
                         span: *span,
-                        output_slot: *output_slot,
+                        output_slot: output_slot.as_u32(),
                         state_count: state_count as u32,
                         control_mask: controls.mask(),
                         control_value: controls.value(),
@@ -122,7 +122,7 @@ impl PackedRecomputeParams {
                     packed.density.push(DensityCaptureParams {
                         base_bit: base_bit.as_u32(),
                         span: *span,
-                        output_slot: *output_slot,
+                        output_slot: output_slot.as_u32(),
                         state_count: state_count as u32,
                         control_mask: controls.mask(),
                         control_value: controls.value(),
