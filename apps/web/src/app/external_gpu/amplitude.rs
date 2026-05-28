@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
 use crate::app::{CircuitColumnIndex, PlacedGate};
-use crate::gates::GateKind;
+use crate::gates::{ColumnControls, GateKind};
 use crate::gpu::{ExternalAmplitudeUpload, ExternalAmplitudeUploadBatch};
+use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalAmplitudeRequest {
     pub(super) gate_id: u32,
     pub(super) column: CircuitColumnIndex,
     pub(super) span: usize,
-    pub(super) base_bit: u32,
-    pub(super) control_mask: u32,
-    pub(super) control_value: u32,
+    pub(super) base_bit: QubitBit,
+    pub(super) controls: ColumnControls,
     pub(super) phase_lock_enabled: bool,
 }
 
@@ -19,7 +19,7 @@ pub(super) fn collect_amplitude_requests(
     placed_gates: &[PlacedGate],
     qubits: QubitCount,
 ) -> Vec<ExternalAmplitudeRequest> {
-    let qubits = qubits.get();
+    let n = qubits.get();
     let Some(max_column) = placed_gates.iter().map(|gate| gate.column.as_usize()).max() else {
         return Vec::new();
     };
@@ -27,17 +27,18 @@ pub(super) fn collect_amplitude_requests(
     for column in 0..=max_column {
         let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| gate.column.as_usize() == column && gate.wire.as_usize() < qubits)
+            .filter(|gate| gate.column.as_usize() == column && gate.wire.is_within(qubits))
             .collect();
-        let mut control_mask = 0u32;
-        let mut control_value = 0u32;
+        let mut controls = ColumnControls::NONE;
         for gate in &column_gates {
-            let bit = (qubits - 1 - gate.wire.as_usize()) as u32;
-            if gate.kind == GateKind::Control {
-                control_mask |= 1u32 << bit;
-                control_value |= 1u32 << bit;
-            } else if gate.kind == GateKind::AntiControl {
-                control_mask |= 1u32 << bit;
+            let bit = gate
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are filtered to wires within the register");
+            match gate.kind {
+                GateKind::Control => controls.add_control(bit),
+                GateKind::AntiControl => controls.add_anti_control(bit),
+                _ => {}
             }
         }
         let mut displays: Vec<&PlacedGate> = column_gates
@@ -48,17 +49,19 @@ pub(super) fn collect_amplitude_requests(
         for display in displays {
             let span = display
                 .span
-                .clamped_for(display.kind, qubits - display.wire.as_usize())
-                .get();
-            let base_bit = (qubits - display.wire.as_usize() - span) as u32;
+                .clamped_for(display.kind, n - display.wire.as_usize());
+            let base_bit = display
+                .wire
+                .offset(span.get() - 1)
+                .to_qubit_bit(qubits)
+                .expect("span is clamped to the register");
             requests.push(ExternalAmplitudeRequest {
                 gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
-                span,
+                span: span.get(),
                 base_bit,
-                control_mask,
-                control_value,
-                phase_lock_enabled: span != qubits,
+                controls,
+                phase_lock_enabled: span.get() != n,
             });
         }
     }
@@ -78,9 +81,9 @@ pub(super) fn amplitude_requests_json(requests: &[ExternalAmplitudeRequest]) -> 
                 request.gate_id,
                 request.column.as_usize(),
                 request.span,
-                request.base_bit,
-                request.control_mask,
-                request.control_value,
+                request.base_bit.as_u32(),
+                request.controls.mask(),
+                request.controls.value(),
                 request.phase_lock_enabled
             )
         })
@@ -237,6 +240,27 @@ mod tests {
     }
 
     #[test]
+    fn serializes_amplitude_span_base_bit() {
+        // 3 qubits, top wire, span 2 → base_bit = qubits - wire - span = 1
+        // （wire.offset(span-1).to_qubit_bit(qubits) 経路）、phase_lock_enabled は span != n で true。
+        let requests = collect_amplitude_requests(
+            &[PlacedGate::new(
+                crate::app::GateId::from_u32(2),
+                GateKind::AmplitudeDisplay,
+                crate::app::CircuitColumnIndex::new(1),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::try_new(2).unwrap(),
+                None,
+            )],
+            qubit_count(3),
+        );
+        assert_eq!(
+            amplitude_requests_json(&requests),
+            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1,"control_mask":0,"control_value":0,"phase_lock_enabled":true}]"#,
+        );
+    }
+
+    #[test]
     fn serializes_column_control_for_amplitude_output_request() {
         let requests = collect_amplitude_requests(
             &[
@@ -259,7 +283,7 @@ mod tests {
             ],
             qubit_count(2),
         );
-        assert_eq!(requests[0].control_mask, 2);
+        assert_eq!(requests[0].controls.mask(), 2);
     }
 
     #[test]
@@ -286,7 +310,7 @@ mod tests {
             qubit_count(2),
         );
         assert_eq!(
-            (requests[0].control_mask, requests[0].control_value),
+            (requests[0].controls.mask(), requests[0].controls.value()),
             (2, 0)
         );
     }

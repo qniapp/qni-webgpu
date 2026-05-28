@@ -1,23 +1,21 @@
 use std::sync::Arc;
 
-use crate::app::{CircuitColumnIndex, PlacedGate};
-use crate::gates::GateKind;
+use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
+use crate::gates::{ColumnControls, GateKind};
 use crate::gpu::{ExternalBlochUpload, ExternalBlochUploadBatch};
 use crate::qubit_count::QubitCount;
 
 pub(super) struct ExternalBlochRequest {
     pub(super) gate_id: u32,
     pub(super) column: CircuitColumnIndex,
-    pub(super) wire: usize,
-    pub(super) control_mask: u32,
-    pub(super) control_value: u32,
+    pub(super) wire: WireIndex,
+    pub(super) controls: ColumnControls,
 }
 
 pub(super) fn collect_bloch_requests(
     placed_gates: &[PlacedGate],
     qubits: QubitCount,
 ) -> Vec<ExternalBlochRequest> {
-    let qubits = qubits.get();
     let Some(max_column) = placed_gates.iter().map(|gate| gate.column.as_usize()).max() else {
         return Vec::new();
     };
@@ -25,17 +23,18 @@ pub(super) fn collect_bloch_requests(
     for column in 0..=max_column {
         let column_gates: Vec<&PlacedGate> = placed_gates
             .iter()
-            .filter(|gate| gate.column.as_usize() == column && gate.wire.as_usize() < qubits)
+            .filter(|gate| gate.column.as_usize() == column && gate.wire.is_within(qubits))
             .collect();
-        let mut control_mask = 0u32;
-        let mut control_value = 0u32;
+        let mut controls = ColumnControls::NONE;
         for gate in &column_gates {
-            let bit = (qubits - 1 - gate.wire.as_usize()) as u32;
-            if gate.kind == GateKind::Control {
-                control_mask |= 1u32 << bit;
-                control_value |= 1u32 << bit;
-            } else if gate.kind == GateKind::AntiControl {
-                control_mask |= 1u32 << bit;
+            let bit = gate
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are filtered to wires within the register");
+            match gate.kind {
+                GateKind::Control => controls.add_control(bit),
+                GateKind::AntiControl => controls.add_anti_control(bit),
+                _ => {}
             }
         }
         let mut displays: Vec<&PlacedGate> = column_gates
@@ -47,9 +46,8 @@ pub(super) fn collect_bloch_requests(
             requests.push(ExternalBlochRequest {
                 gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
-                wire: display.wire.as_usize(),
-                control_mask,
-                control_value,
+                wire: display.wire,
+                controls,
             });
         }
     }
@@ -67,9 +65,9 @@ pub(super) fn bloch_requests_json(requests: &[ExternalBlochRequest]) -> String {
                 ),
                 request.gate_id,
                 request.column.as_usize(),
-                request.wire,
-                request.control_mask,
-                request.control_value
+                request.wire.as_usize(),
+                request.controls.mask(),
+                request.controls.value()
             )
         })
         .collect();

@@ -181,12 +181,18 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             let Some((kind, span, angle)) = token_to_gate(token) else {
                 continue;
             };
+            // 0 は不正なスパン。`GateSpan::try_new` を唯一の下限ゲートにし、
+            // `unwrap_or(SINGLE)` のような暗黙の 0 → 1 丸めは置かない（不正な
+            // トークンは復元せず読み飛ばす）。
+            let Ok(span) = GateSpan::try_new(span) else {
+                continue;
+            };
             gates.push(PlacedGate::new(
                 GateId::from_u32(0),
                 kind,
                 crate::app::CircuitColumnIndex::new(col_idx),
                 crate::app::WireIndex::new(wire_idx),
-                GateSpan::try_new(span).unwrap_or(GateSpan::SINGLE),
+                span,
                 angle,
             ));
         }
@@ -206,11 +212,11 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
 fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;
-        return Some((GateKind::QftDaggerGate, span.max(1), None));
+        return Some((GateKind::QftDaggerGate, span, None));
     }
     if let Some(rest) = token.strip_prefix("QFT") {
         let span: usize = rest.parse().ok()?;
-        return Some((GateKind::QftGate, span.max(1), None));
+        return Some((GateKind::QftGate, span, None));
     }
     if let Some(rest) = token.strip_prefix("Probability") {
         let span = if rest.is_empty() {
@@ -218,7 +224,7 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle
         } else {
             rest.parse().ok()?
         };
-        return Some((GateKind::ProbabilityDisplay, span.clamp(1, 16), None));
+        return Some((GateKind::ProbabilityDisplay, span.min(16), None));
     }
     if let Some(rest) = token.strip_prefix("Amps") {
         let span: usize = rest.parse().ok()?;
@@ -327,6 +333,44 @@ mod tests {
     #[test]
     fn bare_amplitude_token_is_ignored() {
         let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn zero_span_qft_token_is_ignored() {
+        // スパン 0 は不正。`GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["QFT0"]]}"#);
+
+        assert_eq!(gates.len(), 0);
+    }
+
+    #[test]
+    fn qft_span_decodes() {
+        // `.max(1)` 削除後も正常スパンはそのまま復元される。
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["QFT3"]]}"#);
+
+        assert_eq!(
+            gates.first().map(|gate| (gate.kind, gate.span.get())),
+            Some((GateKind::QftGate, 3))
+        );
+    }
+
+    #[test]
+    fn probability_span_over_max_clamps_to_sixteen() {
+        // `clamp(1, 16)` → `min(16)` 変更後も上限 16 への切り詰めは保たれる。
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Probability20"]]}"#);
+
+        assert_eq!(
+            gates.first().map(|gate| (gate.kind, gate.span.get())),
+            Some((GateKind::ProbabilityDisplay, 16))
+        );
+    }
+
+    #[test]
+    fn probability_zero_span_is_ignored() {
+        // スパン 0 は `GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
+        let (gates, _) = parse_circuit_json(r#"{"cols":[["Probability0"]]}"#);
 
         assert_eq!(gates.len(), 0);
     }

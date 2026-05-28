@@ -143,9 +143,12 @@ impl GateSpan {
 
     <h3>切り詰めの集約</h3>
     <p>
-      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> の <code>span.clamp(1, 16).min(qubits − wire)</code>（密度行列は <code>8</code>）、ホバープレビューの <code>gate.span.clamp(1, 16)</code> は、すべて <code>span.clamped_for(kind, qubits − wire)</code> へ置き換える。
-      エディタ側の <code>clamp_span_to_qubit_capacity</code> は <code>span.clamped_for(kind, capacity − wire)</code> にする。
-      これで種類別の上限はすべて <code>GateKind::max_resizable_span</code> 1 か所に集約され、<code>16</code> / <code>8</code> のハードコードが消える。
+      実行計画を組み立てるドメイン層、すなわち <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> の <code>span.clamp(1, 16).min(qubits − wire)</code>（密度行列は <code>8</code>）は、すべて <code>span.clamped_for(kind, qubits − wire)</code> へ置き換える。
+      エディタ側の <code>clamp_span_to_qubit_capacity</code> も <code>span.clamped_for(kind, capacity − wire)</code> にする。
+      これで種類別の上限はドメイン層では <code>GateKind::max_resizable_span</code> 1 か所に集約され、ドメイン層から <code>16</code> / <code>8</code> のハードコードが消える。
+    </p>
+    <p>
+      一方、ピクセル座標を計算する描画層とヒット判定（<code>layout/geometry.rs</code> / <code>render/circuit_gates.rs</code> / <code>drag_controller/hover.rs</code>）、および URL / JSON 境界（<code>url_circuit/encode.rs</code> / <code>url_circuit/decode.rs</code>）は、表示する行数やセル数を求める数値 clamp を <code>usize</code> のまま残す（§ 05 の境界方針どおり）。ヒット判定は描画と同じ数値で揃える必要があり、ドメインの <code>clamped_for</code>（量子ビット数とワイヤ番号に依存する）を描画層へ持ち込まない。
     </p>
 
     <h3>伸縮ハンドル</h3>
@@ -223,9 +226,9 @@ impl GateSpan {
       <tbody>
         <tr><th>配置済みゲート</th><td><code>apps/web/src/app/circuit_model.rs</code> (<code>PlacedGate.span</code>, <code>clamp_span_to_qubit_capacity</code>)</td></tr>
         <tr><th>種類別の上限</th><td><code>apps/web/src/gates.rs</code> (<code>GateKind::max_resizable_span</code>)</td></tr>
-        <tr><th>切り詰めの集約先</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>, <code>apps/web/src/app/external_gpu/{probability,amplitude,density}.rs</code>, <code>apps/web/src/app/drag_controller/hover.rs</code></td></tr>
+        <tr><th>切り詰めの集約先（ドメイン層）</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>, <code>apps/web/src/app/external_gpu/{probability,amplitude,density}.rs</code></td></tr>
         <tr><th>伸縮ハンドル</th><td><code>apps/web/src/span_resize.rs</code>, <code>apps/web/src/app/drag_controller/resize.rs</code></td></tr>
-        <tr><th>ピクセル幅</th><td><code>apps/web/src/layout/geometry.rs</code></td></tr>
+        <tr><th>数値 clamp 残置（描画 / ヒット判定）</th><td><code>apps/web/src/layout/geometry.rs</code>, <code>apps/web/src/render/circuit_gates.rs</code>, <code>apps/web/src/app/drag_controller/hover.rs</code></td></tr>
         <tr><th>関連する値オブジェクト</th><td><a href="wire-index.html">WireIndex 実装仕様</a>, <a href="qubit-bit.html">QubitBit 実装仕様</a></td></tr>
       </tbody>
     </table>
