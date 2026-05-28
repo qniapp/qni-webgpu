@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitId — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路ライブラリ</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">CircuitId</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">CircuitId 実装仕様</h1>
+  <p class="page-lede">
+    回路ライブラリのエントリ識別子を、現状の型エイリアス <code>pub type CircuitId = String;</code> から、検証を持つ newtype の値オブジェクトへ昇格するための仕様。
+    「空でない識別子」という不変条件を型へ閉じ込め、保存名や回路 JSON といった他の <code>String</code> との取り違えを防ぐ。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      現行の <code>circuit-library-model</code> クレートは <code>pub type CircuitId = String;</code> という型エイリアスでエントリ識別子を表す。
+      エイリアスは名前を付けただけで、<code>String</code> そのものと区別されない。
+      <code>CircuitEntry</code> は <code>id</code> / <code>name</code> / <code>circuit_json</code> がいずれも <code>String</code> なので、<code>rename(id: &amp;str, name: &amp;str)</code> のように同じ <code>&amp;str</code> を 2 つ取る関数で引数を取り違えても、コンパイラは検出できない。
+    </p>
+    <p>
+      さらにエイリアスは不変条件を一切強制しない。
+      識別子はサンプルが固定文字列、ユーザー作成は採番されるが、空文字列も型としては許され、現に <code>CircuitEntry::default()</code> は空の <code>id</code> を作る。
+      空の識別子は「どのエントリも指さない」不正な状態であり、本来は型で表現できなくすべきものである。
+    </p>
+    <p>
+      <code>CircuitId</code> を、<code>String</code> を内側に持つ newtype の値オブジェクトへ昇格する。
+      「空でない」を生成時に検証し、保存名や回路 JSON とは別の型にする。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性を識別子へ適用する。
+    </p>
+    <ul>
+      <li>識別子は空でない文字列である</li>
+      <li>識別子・保存名・回路 JSON を同じ <code>String</code> で混在させない</li>
+      <li>保存形式（JSON の文字列）は変えず、逆シリアライズの時点で検証する</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>CircuitId</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（現行の型エイリアスを置き換える）。クレート公開型なので <code>pub</code> を維持する</td></tr>
+        <tr><th>意味</th><td>回路ライブラリのエントリ識別子。<code>CircuitEntry.id</code> と <code>CircuitLibrary.active_id</code> が指す値</td></tr>
+        <tr><th>不変条件</th><td>常に空でない文字列</td></tr>
+        <tr><th>保持する値</th><td><code>String</code>。フィールドは非公開にする</td></tr>
+        <tr><th>採番形式</th><td>サンプルは固定文字列、ユーザー作成は採番される（クレートの <code>fresh_id</code> は <code>circuit-N</code> など、Web の DOM ストレージ層は <code>ckt_…</code> 形式）。<code>CircuitId</code> は形式そのものは縛らず「空でない」だけを保証する</td></tr>
+        <tr><th>対象範囲</th><td><code>CircuitEntry.id</code>、<code>CircuitOrigin::Sample.origin_id</code>、<code>CircuitLibrary.active_id</code>、識別子を受け渡すライブラリ操作の引数と戻り値</td></tr>
+        <tr><th>対象外</th><td>保存名（<code>name</code>）、回路 JSON（<code>circuit_json</code>）、ゲートの同一性（<a href="gate-id.html">GateId</a>）</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CircuitId(String);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CircuitIdError {
+    Empty,
+}
+
+impl CircuitId {
+    pub fn try_new(value: impl Into&lt;String&gt;) -&gt; Result&lt;Self, CircuitIdError&gt;;
+    pub fn as_str(&amp;self) -&gt; &amp;str;
+}
+
+impl TryFrom&lt;String&gt; for CircuitId { /* try_new */ }
+impl From&lt;CircuitId&gt; for String { /* 内部の String を返す */ }</pre>
+
+    <p class="note">
+      <code>try_new</code> は空文字列を <code>Err(CircuitIdError::Empty)</code> で弾く。
+      <code>#[serde(try_from = "String", into = "String")]</code> により、JSON では従来どおり素の文字列として読み書きしつつ、逆シリアライズの時点で <code>try_new</code> の検証を通す。シリアライズ側は <code>into</code> 属性が <code>From&lt;CircuitId&gt; for String</code> を使う。<code>serde(transparent)</code> は検証を挟めないため使わない。
+      <code>as_str()</code> は比較や JavaScript 連携（DOM ストレージ）など、文字列として扱う境界で使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部値を変更しない。識別子の変更は新しい <code>CircuitId</code> を作って差し替える</td>
+          <td>公開フィールド、<code>&amp;mut String</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>生成時に空でないことを保証する。空文字列は <code>Err(CircuitIdError::Empty)</code> にする。逆シリアライズも <code>try_from</code> で同じ検証を通す</td>
+          <td>呼び出し側で <code>if id.is_empty()</code> を重複実装しない。空 <code>id</code> を持つ <code>CircuitEntry</code> を作らない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>内部の文字列値で比較する。<code>entry.id == active_id</code> はこの値で比較する</td>
+          <td>保存名やピクセル位置で識別子の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>識別子を受け渡す API は <code>CircuitId</code> を使う。保存名・回路 JSON の <code>String</code> と区別する</td>
+          <td>新しい識別子引数を <code>String</code> や <code>&amp;str</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>エントリとライブラリ</h3>
+    <p>
+      <code>CircuitEntry.id</code>、<code>CircuitOrigin::Sample.origin_id</code>、<code>CircuitLibrary.active_id</code> を <code>CircuitId</code> にする。
+      識別子で比較・検索するライブラリ操作（<code>set_active</code> / <code>delete_by_id</code> / <code>rename</code> / <code>find_canonical_sample</code> / <code>duplicate_active</code> など）は、引数と戻り値を <code>CircuitId</code> または <code>&amp;CircuitId</code> にする。
+      これで <code>id</code> と <code>name</code> の取り違えを型で防ぐ。
+    </p>
+
+    <h3>空 ID の既定値</h3>
+    <p>
+      現在 <code>CircuitEntry::default()</code> は空の <code>id</code> を作る。
+      <code>CircuitId</code> は空を許さないため、この既定値を見直す。
+      このプロジェクトは後方互換の保持を残さない方針なので、誤解を生む空 ID の <code>Default</code> 実装は削除するか、呼び出し側で実際に採番した <code>CircuitId</code> を渡す形へ移行する。
+    </p>
+
+    <h3>JavaScript 連携</h3>
+    <p>
+      <code>apps/web/src/circuit_library.rs</code> は DOM ストレージとの間で識別子を JavaScript の文字列としてやり取りする。
+      JavaScript から受け取った文字列は <code>CircuitId::try_new</code> で値オブジェクトにし、書き出すときは <code>as_str()</code> で文字列へ戻す。
+      採番（<code>format!("ckt_{millis}_{suffix:06x}")</code>）の結果も <code>try_new</code> を通して <code>CircuitId</code> にする。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th><th>不正値の扱い</th></tr></thead>
+      <tbody>
+        <tr><th>JSON 保存 / 復元</th><td>素の文字列</td><td><code>#[serde(try_from = "String", into = "String")]</code></td><td>空文字列は逆シリアライズで <code>Err</code> にする</td></tr>
+        <tr><th>JavaScript（DOM ストレージ）</th><td>文字列</td><td>読み込みは <code>try_new</code>、書き出しは <code>as_str()</code></td><td>空文字列は <code>try_new</code> で弾く</td></tr>
+        <tr><th>採番</th><td><code>format!</code> の結果</td><td><code>try_new</code></td><td>採番結果は空にならないが検証は通す</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      保存形式は変えない。
+      <code>{"id":"ckt_…"}</code> は引き続き素の文字列として送受信し、型による保護はクレート内のドメイン層で効かせる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>pub type CircuitId = String;</code> を <code>CircuitId</code> newtype と <code>CircuitIdError</code> へ置き換える</li>
+      <li><code>CircuitEntry.id</code> / <code>CircuitOrigin::Sample.origin_id</code> / <code>CircuitLibrary.active_id</code> を <code>CircuitId</code> にする</li>
+      <li>識別子を比較・検索・受け渡しするライブラリ操作の引数と戻り値を <code>CircuitId</code> / <code>&amp;CircuitId</code> へ広げる</li>
+      <li>空 <code>id</code> を作る <code>CircuitEntry::default()</code> を見直す（削除または採番済み <code>CircuitId</code> を渡す形へ）</li>
+      <li>JavaScript 連携の入口で <code>try_new</code>、出口で <code>as_str()</code> を使う。<code>serde</code> 属性で JSON 形式を保つ</li>
+      <li>識別子を受け取るクレート公開 API に裸の <code>String</code> / <code>&amp;str</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      <code>pub type CircuitId = String;</code> は削除し、識別子を <code>String</code> のまま受け取る関数を新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>空でない識別子を生成できる</strong> — <code>CircuitId::try_new("ckt_1")</code> の <code>as_str()</code> が <code>"ckt_1"</code> になることを確認する</li>
+      <li><strong>空文字列を拒否する</strong> — <code>CircuitId::try_new("")</code> が <code>Err(CircuitIdError::Empty)</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 同じ文字列の <code>CircuitId</code> 同士が等しく、異なる文字列は等しくないことを確認する</li>
+      <li><strong>JSON 形式が変わらない</strong> — <code>CircuitId</code> を含む <code>CircuitEntry</code> が従来どおり <code>{"id":"…"}</code> の素の文字列でシリアライズされることを確認する</li>
+      <li><strong>逆シリアライズで検証する</strong> — <code>id</code> が空文字列の JSON を <code>CircuitEntry</code> へ逆シリアライズすると失敗することを確認する</li>
+      <li><strong>取り違えを型で防ぐ</strong> — 識別子を取るライブラリ操作に保存名の <code>String</code> をそのまま渡せないことを確認する（型エラー）</li>
+      <li><strong>裸の識別子 <code>String</code> が残らない</strong> — <code>CircuitEntry.id</code>、<code>active_id</code>、識別子を取るライブラリ操作が <code>CircuitId</code> を使うことを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>ドメインモデル</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>CircuitId</code>, <code>CircuitEntry</code>, <code>CircuitLibrary</code>）</td></tr>
+        <tr><th>テスト</th><td><code>apps/web/crates/circuit-library-model/src/tests.rs</code></td></tr>
+        <tr><th>採番と JavaScript 連携</th><td><code>apps/web/src/circuit_library.rs</code>, <code>apps/web/src/app/circuit_library/*.rs</code></td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="gate-id.html">GateId 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · CircuitId 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
