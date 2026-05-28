@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SlotIndex — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">GPU 実行計画</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">SlotIndex</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · gpu value object</p>
+  <h1 class="page-title">SlotIndex 実装仕様</h1>
+  <p class="page-lede">
+    GPU バッファのスロット番号を <code>u32</code> の裸値ではなく、家族（バッファ種別）ごとに型を分けた <code>SlotIndex&lt;F&gt;</code> という値オブジェクトで扱うための仕様。
+    家族の異なるスロットの取り違えと、スロット番号・ゲート ID・ビット番号の混同を型で防ぎ、家族別の採番を <code>SlotAllocator&lt;F&gt;</code> へ集約する。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      GPU の表示出力やステップキャッシュは、種別ごとに別々のストレージバッファを持つ。
+      <code>simulation_plan/linearize.rs</code> は、ブロッホ・測定・確率・振幅・密度行列・ステップスナップショットの 6 つの家族について、それぞれ独立したカウンタ（<code>bloch_slot</code> / <code>measurement_slot</code> / <code>probability_slot</code> / <code>amplitude_slot</code> / <code>density_slot</code> / <code>next_snapshot_slot</code>）で <code>u32</code> のスロット番号を採番する。
+      <code>gpu_plan_state.rs</code> は家族ごとに <code>HashMap&lt;gate_id, slot&gt;</code>（<code>bloch_slots</code> など）を持ち、対応するバッファのスロットを引く。
+    </p>
+    <p>
+      スロット番号は家族ごとに別々のアドレス空間である。
+      にもかかわらず、<code>SimulationOp</code> には <code>output_slot</code> / <code>aux_slot</code> / <code>gate_id</code> / <code>bit</code> といった意味の異なる <code>u32</code> が同居しており、裸の <code>u32</code> ではブロッホスロットを測定バッファへ渡すような家族の取り違えも、スロット番号とゲート ID の混同も型で防げない。
+    </p>
+    <p>
+      <code>SlotIndex&lt;F&gt;</code> は「ある家族 <code>F</code> のスロット番号」だけを表す値オブジェクトにする。
+      家族はファントム型のマーカーで区別し、採番を <code>SlotAllocator&lt;F&gt;</code> に閉じ込める。
+      これにより、ドメイン駆動設計（DDD）の観点で、家族別のアドレス空間と採番の一意性を型として明確にする。
+    </p>
+    <ul>
+      <li>スロット番号は家族 <code>F</code> ごとに別の型で、家族をまたいで代入できない</li>
+      <li>家族別の採番は <code>SlotAllocator&lt;F&gt;</code> に集約し、<code>slot += 1</code> を各所へ書かない</li>
+      <li>スロット番号・ゲート ID・ビット番号を同じ <code>u32</code> で混在させない</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>SlotIndex&lt;F&gt;</code>（スロット番号）と <code>SlotAllocator&lt;F&gt;</code>（家族別の採番器）</td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/gpu/slot.rs</code> を新設し、<code>gpu</code> から再公開する（スロットは GPU バッファを指すため）</td></tr>
+        <tr><th>意味</th><td>家族 <code>F</code> のストレージバッファ内の位置。<code>F</code> はバッファ種別を表すマーカー</td></tr>
+        <tr><th>家族</th><td><code>Snapshot</code> / <code>Bloch</code> / <code>Measurement</code> / <code>Probability</code> / <code>Amplitude</code> / <code>Density</code> のゼロサイズマーカー</td></tr>
+        <tr><th>保持する値</th><td><code>u32</code> と <code>PhantomData&lt;F&gt;</code>。値フィールドは非公開にする</td></tr>
+        <tr><th>対象範囲</th><td><code>SimulationOp</code> の <code>output_slot</code> / <code>aux_slot</code>、家族別カウンタ、<code>gpu_plan_state.rs</code> の家族別 <code>HashMap</code> の値</td></tr>
+        <tr><th>対象外</th><td>ゲートの同一性（<a href="gate-id.html">GateId</a>）、GPU のビット番号（<a href="qubit-bit.html">QubitBit</a>）、量子ビット数</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">use std::marker::PhantomData;
+
+pub(crate) struct SlotIndex&lt;F&gt; {
+    value: u32,
+    _marker: PhantomData&lt;F&gt;,
+}
+
+pub(crate) struct SlotAllocator&lt;F&gt; {
+    next: u32,
+    _marker: PhantomData&lt;F&gt;,
+}
+
+impl&lt;F&gt; SlotIndex&lt;F&gt; {
+    pub(crate) const fn new(value: u32) -&gt; Self;
+    pub(crate) const fn as_u32(self) -&gt; u32;
+}
+
+impl&lt;F&gt; SlotAllocator&lt;F&gt; {
+    pub(crate) const fn new() -&gt; Self;
+    /// 家族 F の一意なスロットを 1 つ発行し、カウンタを進める。
+    pub(crate) fn allocate(&amp;mut self) -&gt; SlotIndex&lt;F&gt;;
+}
+
+// 家族マーカー（ゼロサイズ）。
+pub(crate) enum Snapshot {}
+pub(crate) enum Bloch {}
+pub(crate) enum Measurement {}
+pub(crate) enum Probability {}
+pub(crate) enum Amplitude {}
+pub(crate) enum Density {}</pre>
+
+    <p class="note">
+      <code>PhantomData&lt;F&gt;</code> により <code>F</code> は実体を持たず、<code>SlotIndex&lt;Bloch&gt;</code> と <code>SlotIndex&lt;Measurement&gt;</code> はコンパイル時に別の型になる。
+      <code>Clone</code> / <code>Copy</code> / <code>PartialEq</code> / <code>Eq</code> / <code>Hash</code> は <code>F</code> に依存せず（<code>HashMap</code> の値・キーとして使えるように）手動実装で付ける。
+      <code>as_u32()</code> は GPU バッファの添字やシェーダへの割り当てなど、GPU 境界へ出る直前だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td><code>SlotIndex</code> は生成後に変更しない。次のスロットは <code>SlotAllocator</code> から発行する</td>
+          <td><code>SlotIndex</code> に <code>&amp;mut u32</code> を返すメソッドや公開フィールドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>家族の一意性は <code>SlotAllocator&lt;F&gt;</code> が採番時に保証する。家族の取り違えはファントム型で生成時に防ぐ</td>
+          <td>呼び出し側で <code>slot += 1</code> を直接書かない。<code>SlotIndex::new</code> で家族をまたいだ番号を作らない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>同じ家族 <code>F</code> 内で内部のスロット番号値により比較する</td>
+          <td>家族の異なるスロットを等価比較しない（型が違うので比較できない）</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>スロット番号を受け渡す Rust ドメイン API は <code>SlotIndex&lt;F&gt;</code> を使う。家族・ゲート ID・ビット番号の <code>u32</code> を区別する</td>
+          <td>新しいスロット番号引数やフィールドを <code>u32</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>家族別の採番</h3>
+    <p>
+      <code>linearize.rs</code> の 6 つのカウンタ（<code>bloch_slot</code> / <code>measurement_slot</code> / <code>probability_slot</code> / <code>amplitude_slot</code> / <code>density_slot</code> / <code>next_snapshot_slot</code>）を、対応する <code>SlotAllocator&lt;F&gt;</code> に置き換える。
+      <code>bloch_slot += 1</code> などの採番は <code>allocate()</code> にする。
+    </p>
+
+    <h3>ディスパッチ表現</h3>
+    <p>
+      <code>SimulationOp</code> の各バリアントの <code>output_slot</code> / <code>aux_slot</code> を、家族付きの <code>SlotIndex&lt;F&gt;</code> にする。
+      <code>SnapshotState.output_slot</code> は <code>SlotIndex&lt;Snapshot&gt;</code>、<code>CaptureBloch.output_slot</code> は <code>SlotIndex&lt;Bloch&gt;</code>、<code>MeasureReduceSample.output_slot</code> と <code>MeasureCollapse.aux_slot</code> は <code>SlotIndex&lt;Measurement&gt;</code>、確率・振幅・密度行列も同様に対応する家族にする。
+    </p>
+
+    <h3>スロット辞書</h3>
+    <p>
+      <code>gpu_plan_state.rs</code> の家族別 <code>HashMap&lt;gate_id, slot&gt;</code>（<code>bloch_slots</code> など）は、値を家族付きの <code>SlotIndex&lt;F&gt;</code>、キーを <a href="gate-id.html">GateId</a> にする。
+      スロットを引く <code>bloch_slot(gate_id)</code> などは <code>Option&lt;SlotIndex&lt;Bloch&gt;&gt;</code> を返す。
+    </p>
+
+    <h3>GPU 境界</h3>
+    <p>
+      シェーダへの割り当てやバッファ添字へ渡すときだけ <code>as_u32()</code> を使う。
+      WebGPU のバッファレイアウトとシェーダは変更しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th></tr></thead>
+      <tbody>
+        <tr><th>GPU バッファ / シェーダ</th><td>バッファ添字・バインドの <code>u32</code></td><td>バッファレイアウトは変えない。<code>SlotIndex</code> から <code>as_u32()</code> で取り出す</td></tr>
+        <tr><th>SimulationOp</th><td>ディスパッチ用の中間表現</td><td><code>output_slot</code> / <code>aux_slot</code> を <code>SlotIndex&lt;F&gt;</code> にし、ディスパッチ直前に <code>as_u32()</code> を読む</td></tr>
+        <tr><th>スロット辞書</th><td>家族別 <code>HashMap</code></td><td>キーを <code>GateId</code>、値を <code>SlotIndex&lt;F&gt;</code> にする</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      WebGPU のバッファレイアウトとシェーダは <code>#[repr(C)]</code> や WGSL の固定形式なので変えない。
+      型による保護は実行計画を組み立てる Rust ドメイン層の中で効かせ、GPU 境界では <code>as_u32()</code> という明示的な取り出し点を置く。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>SlotIndex&lt;F&gt;</code> / <code>SlotAllocator&lt;F&gt;</code> と 6 つの家族マーカーを <code>apps/web/src/gpu/slot.rs</code> に追加し、再公開する</li>
+      <li><code>linearize.rs</code> の 6 つのカウンタを家族別の <code>SlotAllocator</code> に置き換え、採番を <code>allocate()</code> へ集約する</li>
+      <li><code>SimulationOp</code> の <code>output_slot</code> / <code>aux_slot</code> を家族付きの <code>SlotIndex&lt;F&gt;</code> へ変更する</li>
+      <li><code>gpu_plan_state.rs</code> の家族別 <code>HashMap</code> の値を <code>SlotIndex&lt;F&gt;</code>・キーを <code>GateId</code> にし、<code>gpu/params.rs</code> のスロットフィールドと <code>slot_to_gate_id</code> 逆引きも <code>SlotIndex&lt;F&gt;</code> にする</li>
+      <li>GPU ディスパッチ側（バッファ添字・バインド）だけ <code>as_u32()</code> を使う</li>
+      <li>スロット番号を受け取る Rust ドメイン API に裸の <code>u32</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>u32</code> のままスロット番号を受け取る関数やフィールドを新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>スロット番号を保持できる</strong> — <code>Bloch</code> 家族の <code>SlotIndex</code> を <code>new(2)</code> で作り <code>as_u32()</code> が <code>2</code> になることを確認する</li>
+      <li><strong>家族別に採番が単調</strong> — 1 つの <code>SlotAllocator&lt;Bloch&gt;</code> から続けて <code>allocate()</code> した 2 つのスロットが <code>0</code> と <code>1</code> になることを確認する</li>
+      <li><strong>家族をまたいで代入できない</strong> — <code>SlotIndex&lt;Bloch&gt;</code> を <code>SlotIndex&lt;Measurement&gt;</code> が必要な箇所へ渡せないことを確認する（型エラー）</li>
+      <li><strong>同じ家族内で等価性が値で決まる</strong> — 同じ家族・同じ番号の <code>SlotIndex</code> 同士が等しいことを確認する</li>
+      <li><strong>辞書の値に使える</strong> — <code>HashMap&lt;GateId, SlotIndex&lt;Bloch&gt;&gt;</code> で値を出し入れできることを確認する</li>
+      <li><strong>裸の <code>u32</code> スロット番号が残らない</strong> — <code>SimulationOp</code> の <code>output_slot</code> / <code>aux_slot</code> と家族別 <code>HashMap</code> の値が <code>SlotIndex&lt;F&gt;</code> を使うことを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>家族別の採番</th><td><code>apps/web/src/simulation_plan/linearize.rs</code></td></tr>
+        <tr><th>ディスパッチ表現</th><td><code>apps/web/src/simulation_plan/op.rs</code>（<code>output_slot</code> / <code>aux_slot</code>）</td></tr>
+        <tr><th>スロット辞書</th><td><code>apps/web/src/app/gpu_plan_state.rs</code>（家族別 <code>HashMap</code>）</td></tr>
+        <tr><th>スロットフィールドと逆引き</th><td><code>apps/web/src/gpu/params.rs</code>（GPU パラメータ構造体の <code>slot</code> / <code>output_slot</code> / <code>aux_slot</code>, <code>slot_to_gate_id</code>）</td></tr>
+        <tr><th>GPU バッファ</th><td><code>apps/web/src/gpu/resources/common.rs</code></td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="gate-id.html">GateId 実装仕様</a>, <a href="qubit-bit.html">QubitBit 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · SlotIndex 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
