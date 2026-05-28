@@ -252,7 +252,6 @@ impl QniApp {
         });
         self.angle_affordance = None;
         self.picker.close();
-        self.selected_gate_id = None;
         ctx.request_repaint();
     }
 

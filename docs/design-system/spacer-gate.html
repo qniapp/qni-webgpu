@@ -183,7 +183,7 @@
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      Spacer の役割は「見える空白」。通常の空セルは何も描かれず選択もできないが、Spacer は 3 点で存在を示し、ドラッグ / ホバー / 削除などの編集操作を受け付ける。
+      Spacer の役割は「見える空白」。通常の空セルは何も描かれないが、Spacer は 3 点で存在を示し、ドラッグ / ホバー / 削除などの編集操作を受け付ける。
     </p>
   </div>
 </section>
@@ -330,7 +330,7 @@
   <div class="card">
     <div class="semantic-grid">
       <div class="mini"><strong>状態変化</strong><br />Spacer は状態ベクトルに作用せず、計算ステップを発生させない。</div>
-      <div class="mini"><strong>編集操作</strong><br />配置・選択・削除・ドラッグは通常ゲートと同じ。空セルではなく、編集可能なプレースホルダとして扱う。</div>
+      <div class="mini"><strong>編集操作</strong><br />配置・削除・ドラッグは通常ゲートと同じ。空セルではなく、編集可能なプレースホルダとして扱う。</div>
       <div class="mini"><strong>外部 GPU 実行</strong><br />未対応の経路では <code>Unsupported gate · Spacer</code> として停止する。</div>
     </div>
     <ul>

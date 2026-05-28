@@ -133,19 +133,7 @@ impl QniApp {
                 let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
-            let selected = !fast_drag && self.selected_gate_id == Some(gate.id);
-            if selected {
-                let selected_outer = body_rect.expand(4.0);
-                // docs/design-system/selection-frame.html: selection uses the
-                // same stroke-only geometry as circuit hover, but blue-600
-                // wins over hover when both states apply.
-                painter.rect_stroke(
-                    selected_outer,
-                    hover_frame_corner_radius(gate.kind),
-                    egui::Stroke::new(2.0, colors.gate_selected_border),
-                    egui::StrokeKind::Inside,
-                );
-            } else if !fast_drag && self.hovered_gate_id == Some(gate.id) {
+            if !fast_drag && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの

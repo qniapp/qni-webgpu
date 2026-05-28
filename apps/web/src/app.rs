@@ -72,9 +72,6 @@ pub(crate) struct QniApp {
     /// k" preview without committing — drops back to `breakpoint_step`
     /// when the pointer leaves the slot row.
     pub(crate) hovered_step: Option<usize>,
-    /// Gate id currently selected as the edit target. Selection is UI-only:
-    /// it is not serialized into URL/localStorage and does not affect GPU simulation.
-    pub(crate) selected_gate_id: Option<u32>,
     /// Delayed angle-label underline affordance for parametric gates. UI-only.
     pub(crate) angle_affordance: Option<AngleAffordance>,
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
@@ -273,7 +270,6 @@ impl QniApp {
             hovered_span_resize_handle: None,
             span_resize_drag: None,
             hovered_step: None,
-            selected_gate_id: None,
             angle_affordance: None,
             angle_editor: None,
             breakpoint_step: None,
