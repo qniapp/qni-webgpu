@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QubitBit — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">回路モデル</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">QubitBit</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · circuit value object</p>
+  <h1 class="page-title">QubitBit 実装仕様</h1>
+  <p class="page-lede">
+    GPU の量子状態計算が使う最上位ビット（MSB）始まりの量子ビット番号を、<code>u32</code> の裸値ではなく <code>QubitBit</code> という値オブジェクトで扱うための仕様。
+    ビット位置という意味を型へ閉じ込め、<code>1u32 &lt;&lt; bit</code> のビットマスク生成を 1 か所へ集約する。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      現行実装では、GPU へ渡す量子ビット番号を <code>bit</code> / <code>qubit_bit</code> / <code>base_bit</code> / <code>target_bit</code> という名前の <code>u32</code> で表す。
+      これは MSB 始まりのビット位置で、エディタのワイヤ番号（上から下へ 0 始まり）とは並びが逆になる。
+      値は <a href="wire-index.html">WireIndex</a> からの変換、または制御マスクの最上位ビット抽出（CCZ の対象選択）、表示ブロックのスパン下端から生まれる。
+    </p>
+    <p>
+      ビット位置からは <code>1u32 &lt;&lt; bit</code> でビットマスクを作り、<code>simulation_plan/linearize.rs</code> や <a href="column-controls.html">ColumnControls</a> の各所で制御マスクへ合流させる。
+      <code>SimulationOp</code> には <code>gate_id</code> / <code>output_slot</code> / <code>bit</code> といった意味の異なる <code>u32</code> が同居しており、裸の <code>u32</code> では取り違えを型で防げない。
+      さらに <code>1u32 &lt;&lt; bit</code> が各所に散らばっている。
+    </p>
+    <p>
+      <code>QubitBit</code> は「MSB 始まりのビット位置」だけを表す値オブジェクトにする。
+      値は非公開にし、ビットマスク生成をメソッドへ閉じ込める。
+      これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性をビット番号へ適用する。
+    </p>
+    <ul>
+      <li>ビット位置は <code>WireIndex::to_qubit_bit</code> などの変換から生まれ、量子ビット数の範囲内に収まる</li>
+      <li>ビットマスク生成は <code>mask()</code> に集約し、<code>1u32 &lt;&lt; bit</code> を呼び出し側へ書かない</li>
+      <li>ビット位置・ゲート ID・スロット番号を同じ <code>u32</code> で混在させない</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="domain-model">
+  <h2>§ 02 ドメインモデル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>型名</th><td><code>QubitBit</code></td></tr>
+        <tr><th>配置先</th><td><code>apps/web/src/qubit_bit.rs</code> を新設し、<code>lib.rs</code> から再公開する（<code>QubitCount</code> と並ぶ量子ビット番号の基盤型）</td></tr>
+        <tr><th>意味</th><td>GPU の量子状態計算が使う MSB 始まりのビット位置。最上段ワイヤが最上位ビットに対応する</td></tr>
+        <tr><th>範囲</th><td><code>0</code> 以上、量子ビット数未満。GPU 上限の 32 量子ビットでは <code>0..=31</code></td></tr>
+        <tr><th>保持する値</th><td><code>u32</code>。フィールドは非公開にする</td></tr>
+        <tr><th>生成元</th><td><code>WireIndex::to_qubit_bit</code>（ワイヤ番号からの反転変換）、<code>ColumnControls::highest_control</code>（最上位制御ビット）、表示ブロックのスパン下端（<code>qubits − wire − span</code>）</td></tr>
+        <tr><th>対象範囲</th><td><code>GateParams.bit</code>、<code>SimulationOp</code> の <code>qubit_bit</code> / <code>base_bit</code>、CCZ の対象ビット、QFT 展開の対象・制御ビット</td></tr>
+        <tr><th>対象外</th><td>エディタのワイヤ番号（<code>WireIndex</code>）、列番号（<code>CircuitColumnIndex</code>）、GPU バッファのスロット番号（<code>SlotIndex</code>）</td></tr>
+      </tbody>
+    </table>
+
+    <h3>想定 API</h3>
+    <pre class="code">#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub(crate) struct QubitBit {
+    value: u32,
+}
+
+impl QubitBit {
+    pub(crate) const fn new(value: u32) -&gt; Self;
+    pub(crate) const fn as_u32(self) -&gt; u32;
+
+    /// このビット位置だけを立てたビットマスク（`1u32 &lt;&lt; bit` の集約）。
+    pub(crate) fn mask(self) -&gt; u32;
+}</pre>
+
+    <p class="note">
+      <code>new(u32)</code> は基本のコンストラクタ。<code>QubitBit</code> は外部入力を直接受けず生成元の変換から作られるため、<code>WireIndex</code> のような <code>try_from_i64</code> や専用エラー型は持たない。
+      ビット位置が量子ビット数の範囲内（≤ 32）に収まることは生成元（<code>WireIndex::to_qubit_bit</code> の範囲ガード、制御マスクの最上位ビット抽出、範囲判定済みの表示ブロック）が保証し、<code>mask()</code> の <code>1u32 &lt;&lt; value</code> もこの範囲に依存する。
+      <code>as_u32()</code> は <code>GateParams</code> や <code>SimulationOp</code> の <code>u32</code> フィールドへ詰める、GPU 境界へ出る直前だけで使う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="ddd-properties">
+  <h2>§ 03 DDD 上の性質</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>性質</th><th>仕様</th><th>禁止事項</th></tr></thead>
+      <tbody>
+        <tr>
+          <th>不変性</th>
+          <td>生成後に内部値を変更しない。別のビット位置が必要なら新しい <code>QubitBit</code> を生成する</td>
+          <td>公開フィールド、<code>&amp;mut u32</code> を返すメソッドを作らない</td>
+        </tr>
+        <tr>
+          <th>自己検証</th>
+          <td>ビット位置が量子ビット数の範囲内であることを生成元で保証する。<code>mask()</code> はその範囲（&lt; 32）に依存する</td>
+          <td>呼び出し側で <code>1u32 &lt;&lt; bit</code> を直接書かない。範囲外のビット位置で <code>mask()</code> を呼ばない</td>
+        </tr>
+        <tr>
+          <th>等価性</th>
+          <td>内部のビット位置値で比較する。同じビット位置の <code>QubitBit</code> は等しい</td>
+          <td>ゲート ID、スロット番号、ワイヤ番号でビット位置の等価性を判定しない</td>
+        </tr>
+        <tr>
+          <th>型の一貫性</th>
+          <td>ビット位置を受け渡す Rust ドメイン API は <code>QubitBit</code> を使う。<code>SimulationOp</code> のビット位置フィールドと、ゲート ID・スロット番号の <code>u32</code> を区別する</td>
+          <td>新しいビット位置引数やフィールドを <code>u32</code> のまま追加しない</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="integration">
+  <h2>§ 04 組み込み方</h2>
+  <div class="card">
+    <h3>ワイヤ番号からの生成</h3>
+    <p>
+      <code>WireIndex::to_qubit_bit(qubits)</code> は <code>Option&lt;QubitBit&gt;</code> を返す。
+      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> の <code>(qubits − 1 − wire) as u32</code> は、この変換でビット位置を得る形へ統一する（<a href="wire-index.html">WireIndex 実装仕様</a>を参照）。
+    </p>
+
+    <h3>ビットマスクへの合流</h3>
+    <p>
+      <code>1u32 &lt;&lt; bit</code> はすべて <code>bit.mask()</code> へ置き換える。
+      制御マスクへの合流は <a href="column-controls.html">ColumnControls</a> の <code>add_control</code> / <code>add_anti_control</code> / <code>with_control</code> が <code>QubitBit</code> を受け取って内部で <code>mask()</code> を使う。
+    </p>
+
+    <h3>制御マスクの最上位ビット</h3>
+    <p>
+      CCZ 化で Z の対象を選ぶビット位置（<code>31 − control_value.leading_zeros()</code>）は、<code>ColumnControls::highest_control()</code> が <code>Option&lt;QubitBit&gt;</code> で返す。
+      呼び出し側はこの <code>QubitBit</code> をそのまま対象ビットに使い、<code>without</code> で制御から外す。
+    </p>
+
+    <h3>表示ブロックのスパン下端</h3>
+    <p>
+      確率・振幅・密度行列の表示ブロックが使う <code>base_bit = (qubits − wire − span) as u32</code> は、スパンの下端に当たるビット位置である。
+      この計算地点で <code>QubitBit::new(...)</code> を作り、<code>SimulationOp</code> の <code>base_bit</code> フィールドへ <code>QubitBit</code> として持たせる。
+      スパンは <a href="gate-span.html">GateSpan</a>、ワイヤは <a href="wire-index.html">WireIndex</a> として別々に扱う。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="boundaries">
+  <h2>§ 05 境界と変換規則</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>境界</th><th>形式</th><th>変換</th></tr></thead>
+      <tbody>
+        <tr><th>GPU（GateParams）</th><td><code>#[repr(C)]</code> の <code>bit: u32</code></td><td>WGSL シェーダの入力レイアウトは変えない。<code>QubitBit</code> から <code>as_u32()</code> で詰める</td></tr>
+        <tr><th>SimulationOp</th><td>ディスパッチ用の中間表現</td><td><code>qubit_bit</code> / <code>base_bit</code> フィールドを <code>QubitBit</code> にし、GPU ディスパッチ直前に <code>as_u32()</code> を読む</td></tr>
+        <tr><th>WireIndex</th><td>エディタのワイヤ番号</td><td><code>WireIndex::to_qubit_bit(qubits)</code> で MSB 始まりへ反転変換する</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      <code>GateParams</code> は GPU へ渡す <code>#[repr(C)]</code> の固定レイアウトなので、内部の <code>u32</code> フィールド自体は変えない。
+      型による保護は実行計画を組み立てる Rust ドメイン層の中で効かせ、GPU 境界では <code>as_u32()</code> という明示的な取り出し点を置く。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="migration">
+  <h2>§ 06 移行方針</h2>
+  <div class="card">
+    <ol>
+      <li><code>QubitBit</code> を <code>apps/web/src/qubit_bit.rs</code> に追加し、再公開する</li>
+      <li><code>WireIndex::to_qubit_bit</code> と <code>ColumnControls::highest_control</code> の戻り値を <code>QubitBit</code> にする</li>
+      <li><code>1u32 &lt;&lt; bit</code> の全箇所を <code>bit.mask()</code> へ置き換える</li>
+      <li><code>SimulationOp</code> の <code>qubit_bit</code> / <code>base_bit</code> フィールドと、ビット位置を渡すヘルパの引数を <code>QubitBit</code> へ変更する</li>
+      <li>表示ブロックのスパン下端 <code>base_bit</code> を <code>QubitBit::new(...)</code> で生成する地点を 1 か所に保つ</li>
+      <li>GPU ディスパッチ側（<code>GateParams.bit</code> への代入）だけ <code>as_u32()</code> を使う</li>
+      <li>ビット位置を受け取る Rust ドメイン API に裸の <code>u32</code> が残っていないことを <code>rg</code> で確認する</li>
+    </ol>
+    <p class="note">
+      後方互換の別名や古い入口は残さない。
+      変更後は <code>u32</code> のままビット位置を受け取る関数やフィールドを新設しない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="acceptance">
+  <h2>§ 07 受け入れ条件</h2>
+  <div class="card">
+    <ol>
+      <li><strong>ビット位置を保持できる</strong> — <code>QubitBit::new(2).as_u32()</code> が <code>2</code> になることを確認する</li>
+      <li><strong>ビットマスクを生成できる</strong> — <code>QubitBit::new(0).mask()</code> が <code>0b1</code> に、<code>QubitBit::new(2).mask()</code> が <code>0b100</code> になることを確認する</li>
+      <li><strong>等価性が値で決まる</strong> — 別々に生成した <code>QubitBit::new(1)</code> 同士が等しいことを確認する</li>
+      <li><strong>異なるビット位置は等しくない</strong> — <code>QubitBit::new(1)</code> と <code>QubitBit::new(2)</code> が異なることを確認する</li>
+      <li><strong>ワイヤ番号から生成できる</strong> — 3 量子ビットで <code>WireIndex::ZERO.to_qubit_bit(3)</code> が <code>QubitBit::new(2)</code> になることを確認する</li>
+      <li><strong>GPU 形式が変わらない</strong> — <code>QubitBit</code> 経由で構築した <code>GateParams.bit</code> が従来と同じ値になることを確認する</li>
+      <li><strong>裸の <code>u32</code> ビット位置が残らない</strong> — <code>SimulationOp</code> の <code>qubit_bit</code> / <code>base_bit</code> と、ビット位置を渡すヘルパが <code>QubitBit</code> を受け取ることを確認する</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 08 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>ビット位置の生成と利用</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>（変換、CCZ、QFT、表示ブロックのスパン下端）</td></tr>
+        <tr><th>ゲート行列の構築</th><td><code>apps/web/src/gates/params.rs</code>（<code>GateParams.bit</code>）</td></tr>
+        <tr><th>ディスパッチ表現</th><td><code>apps/web/src/simulation_plan/op.rs</code>（<code>qubit_bit</code> / <code>base_bit</code>）</td></tr>
+        <tr><th>外部 GPU 経路</th><td><code>apps/web/src/app/external_gpu/{bloch,probability,amplitude,density}.rs</code></td></tr>
+        <tr><th>関連する値オブジェクト</th><td><a href="wire-index.html">WireIndex 実装仕様</a>, <a href="column-controls.html">ColumnControls 実装仕様</a>, <a href="gate-span.html">GateSpan 実装仕様</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · QubitBit 実装仕様 · 2026-05</p>
+</footer>
+
+</body>
+</html>
