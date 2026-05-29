@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>遅延選択量子消しゴム（Delayed Choice Quantum Eraser）— 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/h-gate.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/sqrtx-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/anti-control-gate.js"></script>
+  <script src="../design-system/components/measurement-gate.js"></script>
+  <script src="../design-system/components/qft-gate.js"></script>
+  <script src="../design-system/components/probability-display.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
+  <style>
+    .dce-figure {
+      overflow-x: auto;
+      margin: 4px 0;
+    }
+    .dce-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px; /* spacing-1 / spacing-5 */
+      align-items: center;
+      margin-top: 12px; /* spacing-3 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+    }
+    .dce-legend .item { display: inline-flex; align-items: center; gap: 4px; }
+    .dce-legend .glyph { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: none; }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">遅延選択量子消しゴム</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
+  <h1 class="page-title">遅延選択量子消しゴム（Delayed Choice Quantum Eraser）</h1>
+  <p class="page-lede">
+    量子系が「波」のように干渉縞を見せるか「粒子」のように見せないかは、<strong>経路情報（どちらの道を通ったか）が得られるかどうか</strong>で決まる。
+    しかもその「経路情報を消すかどうか」の選択は、<strong>スクリーンに像を記録した後でも</strong>行える（遅延選択）。そのふるまいを見せる 9 量子ビット回路。
+    Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+  </p>
+</div>
+
+<section class="block" id="circuit">
+  <h2>§ 01 回路図</h2>
+  <div class="card">
+    <p>
+      9 量子ビット。<strong>q0 = 選択</strong>（経路情報を消すかどうか）、<strong>q1 = 経路</strong>（光子）、<strong>q2–q8 = スクリーン</strong>（7 量子ビットで着弾位置を表す）。
+      回路図はサンプル定義（cols JSON）から <code>&lt;quantum-circuit&gt;</code> カスタム要素が組み立てる。
+    </p>
+
+    <div class="dce-figure">
+      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,"X"],[1,1,"QFT7"],[1,1,"Measure","Measure","Measure","Measure","Measure","Measure","Measure"],[1,1,"Probability7"],["H"],["Measure"],["•","X^½"],[1,"Measure"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
+    </div>
+
+    <div class="dce-legend" aria-hidden="true">
+      <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
+      <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
+      <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
+      <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
+      <span class="item"><span class="glyph"><sqrtx-gate></sqrtx-gate></span>√X（X の平方根）</span>
+      <span class="item"><span class="glyph"><measurement-gate></measurement-gate></span>測定</span>
+      <span class="item">QFT = 量子フーリエ変換 / Probability = 確率表示ブロック（縦長の箱）</span>
+    </div>
+
+    <p class="note">
+      末尾の確率表示ブロックは、qni で実行すると実際の分布が出る（このドキュメントでは箱だけを置いている）。
+      縦の水色の線は<strong>制御線</strong>で、制御（●）/ 反制御（○）どうし、または制御と表示ブロックを繋ぐ。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="reading">
+  <h2>§ 02 回路の読み方</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>1 – 3</td><td>q1 に H → CNOT(q1→q4) → スクリーンに QFT</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q4）へ刻み、QFT で着弾位置の分布を作る（二重スリットに相当）</td></tr>
+        <tr><td>4</td><td>スクリーン（q2–q8）を測定</td><td>像を<strong>先に</strong>記録する。これが「遅延選択」の遅延の前提</td></tr>
+        <tr><td>5</td><td>スクリーン全体の確率表示ブロック</td><td>経路情報が残っているため、全体の分布は<strong>のっぺり</strong>（干渉縞なし）</td></tr>
+        <tr><td>6 – 7</td><td>q0 に H → 測定</td><td>0 か 1 かをランダムに引く＝「経路情報を消すか残すか」の遅延選択</td></tr>
+        <tr><td>8</td><td>q0 で制御した √X を q1 に</td><td><strong>消しゴム</strong>。選択が「消す」なら q1 の測定基底を変え、経路情報を消す</td></tr>
+        <tr><td>9</td><td>q1（結果）を測定</td><td>経路（または消去後の重ね合わせ）の測定結果</td></tr>
+        <tr><td>10 – 13</td><td>条件付きの確率表示ブロック ×4</td><td>スクリーンの分布を、選択（q0）と結果（q1）の 4 通りで<strong>仕分けて</strong>見せる</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="meaning">
+  <h2>§ 03 何を意味するか</h2>
+  <div class="card">
+    <p>末尾の 4 つの条件付き確率表示ブロックは、スクリーンの分布を選択・結果で仕分けたものを見せる:</p>
+    <table class="spec">
+      <thead><tr><th>選択 q0</th><th>結果 q1</th><th>スクリーンの分布</th></tr></thead>
+      <tbody>
+        <tr><td><code>◦</code> 消さない</td><td><code>◦</code> / <code>•</code></td><td>のっぺり（干渉縞なし＝粒子的）</td></tr>
+        <tr><td><code>•</code> 消す</td><td><code>◦</code></td><td>干渉縞（波）</td></tr>
+        <tr><td><code>•</code> 消す</td><td><code>•</code></td><td>干渉縞（上と相補的にずれた波）</td></tr>
+      </tbody>
+    </table>
+    <p>
+      経路情報を<strong>消さない</strong>とき（q0 = 0）はどちらの結果でものっぺり。経路情報を<strong>消す</strong>とき（q0 = 1）は干渉縞が現れ、しかも結果 q1 の 0 と 1 で互いに相補的にずれた縞になる（足し合わせるとのっぺりに戻る）。
+    </p>
+    <p class="note">
+      肝心なのは、<strong>スクリーン全体の分布は常にのっぺり</strong>で、干渉縞は<strong>後の選択・結果で仕分けた部分集合のなかにだけ</strong>現れること。
+      スクリーンは選択より先に測定されているが、過去が書き換わるわけではない。縞を取り出すには後の選択結果で仕分ける必要があり、因果律は破れない（遅延選択しても情報は遡らない）。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="porting">
+  <h2>§ 04 サンプルとしての追加</h2>
+  <div class="card">
+    <p>
+      使うゲート（H・制御・反制御・X・√X・測定・QFT・確率表示ブロック）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
+      Quirk の JSON からの変換は次の 2 点:
+    </p>
+    <ul>
+      <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
+      <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）と区切りだけの列を削除する。</li>
+    </ul>
+    <table class="spec">
+      <tbody>
+        <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
+        <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/quantum-circuit.js</code>（cols JSON から回路を描画）、ワイヤと制御線は <code>docs/design-system/components/circuit-dropzone.js</code></td></tr>
+        <tr><th>元の定義</th><td><code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>eraserLink</code>）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 遅延選択量子消しゴム（Delayed Choice Quantum Eraser）· 2026-05</p>
+</footer>
+
+</body>
+</html>
