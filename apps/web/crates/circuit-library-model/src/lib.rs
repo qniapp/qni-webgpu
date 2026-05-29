@@ -37,6 +37,31 @@ pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// 対称性の破れ（Symmetry Breaking）4 量子ビット回路。上位 2 本（q0,q1）と下位 2 本
+/// （q2,q3）にまったく同じ H・CNOT で Bell ペアを作り、q1↔q3 の SWAP で結合、再度
+/// CNOT、反制御つき √X を経て測定する。同一・対称に作った 2 つのサブシステムが必ず
+/// 反相関（不一致）になる様子を見せる。Quirk の symmetryBreakingLink を移植したもので、
+/// 確率表示の ID を Chance → Probability に揃え、注釈用の恒等ラベルは除いてある。
+/// 解説は docs/implementation/symmetry-breaking.html。
+///
+/// 制御を伴う操作（2 つの CNOT 層と反制御つき √X）は列を分ける。同じ列に複数の制御を
+/// 置くと qni では列内の全制御が全ターゲットに掛かり、独立した 2 つの操作ではなく
+/// 多重制御になってしまうため。制御を持たない H と最後の √X は同じ列にまとめてよい。
+const SYMMETRY_BREAKING_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["H",1,"H"],"#,
+    r#"["•","X"],"#,
+    r#"[1,1,"•","X"],"#,
+    r#"[1,"Swap",1,"Swap"],"#,
+    r#"["•","X"],"#,
+    r#"[1,1,"•","X"],"#,
+    r#"["X^½","◦"],"#,
+    r#"[1,1,"X^½","◦"],"#,
+    r#"[1,"X^½",1,"X^½"],"#,
+    r#"["Measure","Measure","Measure","Measure"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -715,6 +740,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
         ),
         CircuitEntry::sample("qft-4", "QFT 4-qubit", QFT4_DECOMPOSED_JSON, updated_at),
         grover_search_entry(updated_at),
+        CircuitEntry::sample(
+            "symmetry-breaking",
+            "Symmetry Breaking",
+            SYMMETRY_BREAKING_JSON,
+            updated_at,
+        ),
     ]
 }
 
