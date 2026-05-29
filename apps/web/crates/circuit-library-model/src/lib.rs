@@ -18,10 +18,10 @@ const GROVER_SEARCH_JSON: &str = concat!(
 /// QFT を H と制御位相回転へ分解した 4 量子ビット回路。ネイティブ `QFT4`
 /// ゲートを教材として展開したもので、シミュレータの `linearize_qft` が
 /// `QFT4` を変換する手順そのもの（各ビットに H を当て、下位ビットからの
-/// 制御位相 π/2^j を掛ける。j=1→π/2, j=2→π/4, j=3→π/8。最後のビット反転
-/// SWAP は qni と同じく省略）を回路として書き下した。`QFT4` と数学的に
-/// 等価であることは Web アプリ側の `decomposed_qft4_matches_native_qft4_ops`
-/// テストで保証する。
+/// 制御位相 π/2^j を掛ける。j=1→π/2, j=2→π/4, j=3→π/8。最後に末尾の
+/// ビット反転 SWAP で出力順を戻し、真の離散フーリエ変換にする）を回路として
+/// 書き下した。`QFT4` と数学的に等価であることは Web アプリ側の
+/// `decomposed_qft4_matches_native_qft4_ops` テストで保証する。
 pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"["H"],"#,
@@ -33,7 +33,9 @@ pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"[1,"P(π_4)",1,"•"],"#,
     r#"[1,1,"H"],"#,
     r#"[1,1,"P(π_2)","•"],"#,
-    r#"[1,1,1,"H"]"#,
+    r#"[1,1,1,"H"],"#,
+    r#"["Swap",1,1,"Swap"],"#,
+    r#"[1,"Swap","Swap"]"#,
     r#"]}"#,
 );
 
@@ -62,25 +64,29 @@ const SYMMETRY_BREAKING_JSON: &str = concat!(
     r#"]}"#,
 );
 
-/// 遅延選択量子消しゴム（Delayed Choice Quantum Eraser）9 量子ビット回路。
+/// 遅延選択量子消しゴム（Delayed Choice Quantum Eraser）の 9 量子ビット回路。
 /// q0=選択（経路情報を消すか）、q1=経路（光子）、q2–q8=スクリーン（7 量子ビット）。
-/// 経路情報をスクリーンへ刻んで QFT で位置分布を作り、スクリーンを先に測定。その後の
-/// 遅延選択（q0）と反制御なしの controlled-√X（消しゴム）で経路情報を消すか決め、末尾の
-/// 条件付き確率表示ブロックが「干渉縞（消去時）／のっぺり（非消去時）」を仕分けて見せる。
-/// Quirk の eraserLink を移植したもので、確率表示の ID を Chance → Probability に揃え、
-/// 注釈用の恒等ラベルと区切りだけの列は除いてある。解説は
+/// 経路情報をスクリーンへ刻んで QFT で位置分布を作り、q0 の選択と controlled-√X（消しゴム）で
+/// 経路情報を消すか決め、末尾の条件付き確率表示ブロックが「干渉縞（消去時）／のっぺり
+/// （非消去時）」を仕分けて見せる。
+///
+/// 測定を置かないコヒーレント版で実現している。qni の測定は状態を 1 サンプルに潰すため、
+/// Quirk のようなアンサンブルの干渉縞が 1 画面では出ない。そこで測定を省き、コヒーレントな
+/// 状態への条件付き確率表示で 4 通りを同時に見せる（Quirk が「測定して仕分ける」分布を、
+/// 状態を潰さずに提示）。この形では遅延（スクリーンを先に測定）の演出は省いている。
+///
+/// which-path のマークは q6 に置く。qni は上のワイヤを最上位ビットとして数える（Quirk は逆）ため、
+/// Quirk が q4（上から 3 番目）に置くマークは qni では下から 3 番目の q6 に当たり、これで
+/// 干渉縞が 4 本になり Quirk の見た目と一致する。解説は
 /// docs/implementation/delayed-choice-eraser.html。
 const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"[1,"H"],"#,
-    r#"[1,"•",1,1,"X"],"#,
+    r#"[1,"•",1,1,1,1,"X"],"#,
     r#"[1,1,"QFT7"],"#,
-    r#"[1,1,"Measure","Measure","Measure","Measure","Measure","Measure","Measure"],"#,
     r#"[1,1,"Probability7"],"#,
     r#"["H"],"#,
-    r#"["Measure"],"#,
     r#"["•","X^½"],"#,
-    r#"[1,"Measure"],"#,
     r#"["◦","◦","Probability7"],"#,
     r#"["◦","•","Probability7"],"#,
     r#"["•","◦","Probability7"],"#,

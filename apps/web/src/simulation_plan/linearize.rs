@@ -90,14 +90,9 @@ pub(crate) fn linearize_ops(
             }
         }
 
-        // Swap step → 3-CNOT decomposition. Mirrors qni's
-        // `simulator.ts::swap` (`packages/simulator/src/simulator.ts:296`):
-        //   X target1 controls=[target0]
-        //   X target0 controls=[target1]
-        //   X target1 controls=[target0]
-        // Any column-level controls (Fredkin / controlled-SWAP) ride
-        // along — they're OR'd into each CX's control mask the same way
-        // qni does via `controlOptions.controls.concat(...)`.
+        // Swap step → `push_swap_3cnot` (the 3-CNOT decomposition qni uses,
+        // mirroring `simulator.ts::swap`). Column-level controls (Fredkin /
+        // controlled-SWAP) ride along through `controls`.
         //
         // Two-target swap only; if the user dropped a single Swap with
         // no partner, or three+ Swaps in one column, the column is
@@ -113,21 +108,7 @@ pub(crate) fn linearize_ops(
                 .wire
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
-            let cx_a_to_b = gate_params_controlled(
-                GateKind::X,
-                bit_b,
-                controls.with_control(bit_a),
-                state_count,
-            );
-            let cx_b_to_a = gate_params_controlled(
-                GateKind::X,
-                bit_a,
-                controls.with_control(bit_b),
-                state_count,
-            );
-            ops.push(SimulationOp::ApplyGate(cx_a_to_b));
-            ops.push(SimulationOp::ApplyGate(cx_b_to_a));
-            ops.push(SimulationOp::ApplyGate(cx_a_to_b));
+            push_swap_3cnot(&mut ops, bit_a, bit_b, controls, state_count);
         }
 
         targets.sort_by(|a, b| a.id.cmp(&b.id));
@@ -369,12 +350,20 @@ fn qft_external_controls(
     controls.restricted_outside(qft_span_mask)
 }
 
-/// Expand a placed QFT (or QFT†) gate into its textbook decomposition:
+/// Expand a placed QFT (or QFT†) gate into the textbook decomposition:
 /// `span` Hadamards interleaved with controlled-phase rotations
-/// `R_k = diag(1, exp(iπ/2^j))`. Translated 1:1 from qni's
-/// `simulator.ts::qftSingleTargetBit` / `qftDaggerSingleTargetBit`.
-/// No final bit-reversal SWAPs — qni's simulator skips them too, so
-/// the output is in bit-reversed order, but this matches qni exactly.
+/// `R_k = diag(1, exp(iπ/2^j))`, followed by a bit-reversal SWAP network.
+///
+/// The bare H/phase ladder (H on the top wire first, controlled phases
+/// running downward) leaves the transform's output qubits in bit-reversed
+/// order; the trailing swaps undo that, giving the true (symmetric) discrete
+/// Fourier transform — the textbook QFT, matching Quirk's
+/// `FourierTransformGates`. A Quirk QFT circuit ports 1:1: e.g. a which-path
+/// mark on the 3rd wire yields 4 interference fringes, as in Quirk. Verified
+/// by GPU state-vector readback.
+///
+/// `QFT†` is the adjoint `(S·L)† = L†·S`, so its swap network comes *before*
+/// the (inverse) ladder rather than after.
 ///
 /// Wire-to-bit mapping: `gate.wire + idx` (wire index of the i-th
 /// qubit in the QFT register) → `bit = qubits − 1 − wire` (the
@@ -406,10 +395,12 @@ fn linearize_qft(
             .expect("idx is within the clamped span")
     };
     let mut ops = Vec::new();
+    let reversal = qft_reversal_swap_ops(gate, qubits, span, state_count, controls);
 
     if !dagger {
         // QFT: for i in 0..span: H(i), then controlled-Phase π/2^j with
-        // control=(i+j) for j in 1..span-i.
+        // control=(i+j) for j in 1..span-i. Then the trailing bit-reversal
+        // swaps to land the true DFT (textbook QFT = ladder + final swaps).
         for i in 0..span {
             ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
@@ -427,8 +418,11 @@ fn linearize_qft(
                 )));
             }
         }
+        ops.extend(reversal);
     } else {
-        // QFT†: reverse loop, negated phases, H *after* the phases.
+        // QFT† = (S·L)† = L†·S: the swap network comes first, then the
+        // inverse ladder (reverse loop, negated phases, H after the phases).
+        ops.extend(reversal);
         for i in (0..span).rev() {
             for j in (1..(span - i)).rev() {
                 let phase = -std::f32::consts::PI / (1u32 << j) as f32;
@@ -448,6 +442,51 @@ fn linearize_qft(
         }
     }
     ops
+}
+
+/// Bit-reversal SWAP network for a QFT register: `swap(wire i, wire span−1−i)`
+/// for the first half of the span. Each swap expands to the same 3-CNOT
+/// sequence as a column `Swap` (`X b ctrl a`, `X a ctrl b`, `X b ctrl a`),
+/// and any external `controls` ride along so a controlled-QFT gates the
+/// swaps too.
+fn qft_reversal_swap_ops(
+    gate: &PlacedGate,
+    qubits: QubitCount,
+    span: usize,
+    state_count: u32,
+    controls: ColumnControls,
+) -> Vec<SimulationOp> {
+    let bit_of = |idx: usize| {
+        gate.wire
+            .offset(idx)
+            .to_qubit_bit(qubits)
+            .expect("idx is within the clamped span")
+    };
+    let mut ops = Vec::new();
+    for i in 0..(span / 2) {
+        push_swap_3cnot(&mut ops, bit_of(i), bit_of(span - 1 - i), controls, state_count);
+    }
+    ops
+}
+
+/// Expand one `SWAP(bit_a, bit_b)` into the 3-CNOT sequence qni uses
+/// (mirroring `simulator.ts::swap`): `X b ctrl a`, `X a ctrl b`, `X b ctrl a`.
+/// Any column-level `controls` (Fredkin / controlled-SWAP) ride along on each
+/// CX. Shared by the column `Swap` step and the QFT bit-reversal network.
+fn push_swap_3cnot(
+    ops: &mut Vec<SimulationOp>,
+    bit_a: QubitBit,
+    bit_b: QubitBit,
+    controls: ColumnControls,
+    state_count: u32,
+) {
+    let cx_a_to_b =
+        gate_params_controlled(GateKind::X, bit_b, controls.with_control(bit_a), state_count);
+    let cx_b_to_a =
+        gate_params_controlled(GateKind::X, bit_a, controls.with_control(bit_b), state_count);
+    ops.push(SimulationOp::ApplyGate(cx_a_to_b));
+    ops.push(SimulationOp::ApplyGate(cx_b_to_a));
+    ops.push(SimulationOp::ApplyGate(cx_a_to_b));
 }
 
 fn qft_h_params(
@@ -687,6 +726,7 @@ mod tests {
             ),
         ];
 
+        // op[1]: the first controlled-phase (op[0] is the first Hadamard).
         let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 1);
 
         assert_eq!(
@@ -750,6 +790,52 @@ mod tests {
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
             (1, 0, 0)
+        );
+    }
+
+    #[test]
+    fn qft_emits_trailing_bit_reversal_swap() {
+        // The forward QFT completes its H/phase ladder with a trailing
+        // bit-reversal SWAP network (textbook QFT = ladder + final swaps).
+        // For a span-2 QFT on wires 0,1 the ladder is H, P, H (op[0..3]); op[3]
+        // is the first CNOT of the trailing swap(bit1, bit0): X on bit 0
+        // controlled by bit 1.
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            GateKind::QftGate,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::try_new(2).unwrap(),
+            None,
+        )];
+
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (0, 0b10, 0b10)
+        );
+    }
+
+    #[test]
+    fn qft_dagger_emits_leading_bit_reversal_swap() {
+        // QFT† = (S·L)† = L†·S, so its bit-reversal SWAP network comes first.
+        // span-2 QFT† on wires 0,1: op[0] is the first CNOT of the leading
+        // swap(bit1, bit0): X on bit 0 controlled by bit 1.
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            GateKind::QftDaggerGate,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::try_new(2).unwrap(),
+            None,
+        )];
+
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 0);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.control_value()),
+            (0, 0b10, 0b10)
         );
     }
 

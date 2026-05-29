@@ -49,8 +49,9 @@
   <h1 class="page-title">遅延選択量子消しゴム（Delayed Choice Quantum Eraser）</h1>
   <p class="page-lede">
     量子系が「波」のように干渉縞を見せるか「粒子」のように見せないかは、<strong>経路情報（どちらの道を通ったか）が得られるかどうか</strong>で決まる。
-    しかもその「経路情報を消すかどうか」の選択は、<strong>スクリーンに像を記録した後でも</strong>行える（遅延選択）。そのふるまいを見せる 9 量子ビット回路。
-    Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+    経路情報を<strong>消す</strong>と干渉縞が戻る ― この量子消しゴムのふるまいを見せる 9 量子ビット回路。
+    Quirk の同名サンプル（遅延選択量子消しゴム）の移植だが、qni では測定を置かない<strong>コヒーレント版</strong>で実現している（理由は §02・§04）。
+    <a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A。
   </p>
 </div>
 
@@ -63,7 +64,7 @@
     </p>
 
     <div class="dce-figure">
-      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,"X"],[1,1,"QFT7"],[1,1,"Measure","Measure","Measure","Measure","Measure","Measure","Measure"],[1,1,"Probability7"],["H"],["Measure"],["•","X^½"],[1,"Measure"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
+      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,1,1,"X"],[1,1,"QFT7"],[1,1,"Probability7"],["H"],["•","X^½"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
     </div>
 
     <div class="dce-legend" aria-hidden="true">
@@ -72,7 +73,6 @@
       <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
       <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
       <span class="item"><span class="glyph"><sqrtx-gate></sqrtx-gate></span>√X（X の平方根）</span>
-      <span class="item"><span class="glyph"><measurement-gate></measurement-gate></span>測定</span>
       <span class="item">QFT = 量子フーリエ変換 / Probability = 確率表示ブロック（縦長の箱）</span>
     </div>
 
@@ -89,13 +89,12 @@
     <table class="spec">
       <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1 – 3</td><td>q1 に H → CNOT(q1→q4) → スクリーンに QFT</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q4）へ刻み、QFT で着弾位置の分布を作る（二重スリットに相当）</td></tr>
-        <tr><td>4</td><td>スクリーン（q2–q8）を測定</td><td>像を<strong>先に</strong>記録する。これが「遅延選択」の遅延の前提</td></tr>
-        <tr><td>5</td><td>スクリーン全体の確率表示ブロック</td><td>経路情報が残っているため、全体の分布は<strong>のっぺり</strong>（干渉縞なし）</td></tr>
-        <tr><td>6 – 7</td><td>q0 に H → 測定</td><td>0 か 1 かをランダムに引く＝「経路情報を消すか残すか」の遅延選択</td></tr>
-        <tr><td>8</td><td>q0 で制御した √X を q1 に</td><td><strong>消しゴム</strong>。選択が「消す」なら q1 の測定基底を変え、経路情報を消す</td></tr>
-        <tr><td>9</td><td>q1（結果）を測定</td><td>経路（または消去後の重ね合わせ）の測定結果</td></tr>
-        <tr><td>10 – 13</td><td>条件付きの確率表示ブロック ×4</td><td>スクリーンの分布を、選択（q0）と結果（q1）の 4 通りで<strong>仕分けて</strong>見せる</td></tr>
+        <tr><td>1 – 2</td><td>q1 に H → CNOT(q1→q6)</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q6）へ刻む（二重スリットに相当）</td></tr>
+        <tr><td>3</td><td>スクリーンに QFT</td><td>着弾位置の分布を作る</td></tr>
+        <tr><td>4</td><td>スクリーン全体の確率表示ブロック</td><td>経路情報が残っているため、全体の分布は<strong>のっぺり</strong>（干渉縞なし）</td></tr>
+        <tr><td>5</td><td>q0 に H</td><td>「経路情報を消すか残すか」をコヒーレントな重ね合わせにする（測定はしない）</td></tr>
+        <tr><td>6</td><td>q0 で制御した √X を q1 に</td><td><strong>消しゴム</strong>。q0 が「消す」側のとき q1 の基底を変え、経路情報を消す</td></tr>
+        <tr><td>7 – 10</td><td>条件付きの確率表示ブロック ×4</td><td>スクリーンの分布を、選択（q0）と経路（q1）の 4 通りで<strong>仕分けて同時に</strong>見せる</td></tr>
       </tbody>
     </table>
   </div>
@@ -104,9 +103,9 @@
 <section class="block" id="meaning">
   <h2>§ 03 何を意味するか</h2>
   <div class="card">
-    <p>末尾の 4 つの条件付き確率表示ブロックは、スクリーンの分布を選択・結果で仕分けたものを見せる:</p>
+    <p>末尾の 4 つの条件付き確率表示ブロックは、スクリーンの分布を選択・経路で仕分けたものを見せる:</p>
     <table class="spec">
-      <thead><tr><th>選択 q0</th><th>結果 q1</th><th>スクリーンの分布</th></tr></thead>
+      <thead><tr><th>選択 q0</th><th>経路 q1</th><th>スクリーンの分布</th></tr></thead>
       <tbody>
         <tr><td><code>◦</code> 消さない</td><td><code>◦</code> / <code>•</code></td><td>のっぺり（干渉縞なし＝粒子的）</td></tr>
         <tr><td><code>•</code> 消す</td><td><code>◦</code></td><td>干渉縞（波）</td></tr>
@@ -114,11 +113,13 @@
       </tbody>
     </table>
     <p>
-      経路情報を<strong>消さない</strong>とき（q0 = 0）はどちらの結果でものっぺり。経路情報を<strong>消す</strong>とき（q0 = 1）は干渉縞が現れ、しかも結果 q1 の 0 と 1 で互いに相補的にずれた縞になる（足し合わせるとのっぺりに戻る）。
+      経路情報を<strong>消さない</strong>とき（q0 = 0）はどちらの経路でものっぺり。経路情報を<strong>消す</strong>とき（q0 = 1）は干渉縞が現れ、しかも経路 q1 の 0 と 1 で互いに相補的にずれた縞になる（足し合わせるとのっぺりに戻る）。
     </p>
     <p class="note">
-      肝心なのは、<strong>スクリーン全体の分布は常にのっぺり</strong>で、干渉縞は<strong>後の選択・結果で仕分けた部分集合のなかにだけ</strong>現れること。
-      スクリーンは選択より先に測定されているが、過去が書き換わるわけではない。縞を取り出すには後の選択結果で仕分ける必要があり、因果律は破れない（遅延選択しても情報は遡らない）。
+      肝心なのは、<strong>スクリーン全体の分布は常にのっぺり</strong>で、干渉縞は<strong>選択・経路で仕分けた部分集合のなかにだけ</strong>現れること。縞を取り出すには仕分けが要る。
+    </p>
+    <p class="note">
+      Quirk は各ショットで測定し結果ごとに仕分けてこの分布（アンサンブル）を見せる。qni の測定は状態を 1 サンプルに潰すため同じ見せ方ができないので、ここでは<strong>測定を置かず、コヒーレントな状態への条件付き確率表示</strong>で同じ分布を 4 通り同時に提示している（測定して仕分けたアンサンブルと、コヒーレントな状態の条件付き確率は同じ分布になる）。
     </p>
   </div>
 </section>
@@ -127,11 +128,13 @@
   <h2>§ 04 サンプルとしての追加</h2>
   <div class="card">
     <p>
-      使うゲート（H・制御・反制御・X・√X・測定・QFT・確率表示ブロック）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
-      Quirk の JSON からの変換は次の 2 点:
+      使うゲート（H・制御・反制御・X・√X・QFT・確率表示ブロック）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
+      Quirk の JSON からの変換は次のとおり:
     </p>
     <ul>
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
+      <li><strong>測定（Measure）は置かない。</strong> qni の測定は状態を 1 サンプルに潰すため、アンサンブルの干渉縞が 1 画面で出ない。スクリーンと q0/q1 をコヒーレントに保ち、条件付き確率表示で 4 通りを同時に見せる（測定して仕分けた分布と同じ）。</li>
+      <li><strong>which-path のマーク（CNOT のターゲット）を Quirk の q4 から q6 へ。</strong> qni は上のワイヤを最上位ビットとして数える（Quirk は逆）ため、干渉縞の本数（4 本）を Quirk と一致させるには下から 3 番目の q6 に置く。qni の QFT は末尾にビット反転 SWAP を含む真の離散フーリエ変換（<a href="quirk-sample-circuits.html">QFT の項</a>）。</li>
       <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）と区切りだけの列を削除する。</li>
     </ul>
     <table class="spec">
