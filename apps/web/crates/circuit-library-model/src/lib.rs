@@ -94,6 +94,29 @@ const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// 量子テレポーテーション 3 量子ビット回路。q0=メッセージ、q1=アリス、q2=ボブ。
+/// もつれ（Bell ペア）と 2 ビットの古典情報で未知の状態を q0 から q2 へ移す。アリスの
+/// ベル測定（CNOT・H・測定）で q0・q1 を潰し、ボブが測定結果で X / Z 補正をかけると、
+/// ランダムな測定結果によらず q2 が決定的にメッセージと一致する（qni の硬測定が正しく働く例。
+/// 測定で状態が潰れることをそのまま使う点で遅延選択量子消しゴムと対照的）。転送前後を
+/// 2 つのブロッホ球表示ブロックで見比べる。解説は
+/// docs/implementation/quantum-teleportation.html。
+const TELEPORTATION_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"[1,"H"],"#,
+    r#"[1,"•","X"],"#,
+    r#"["H"],"#,
+    r#"["T"],"#,
+    r#"["Bloch"],"#,
+    r#"["•","X"],"#,
+    r#"["H"],"#,
+    r#"["Measure","Measure"],"#,
+    r#"[1,"•","X"],"#,
+    r#"["•",1,"Z"],"#,
+    r#"[1,1,"Bloch"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -782,6 +805,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             "delayed-choice-eraser",
             "Delayed Choice Eraser",
             DELAYED_CHOICE_ERASER_JSON,
+            updated_at,
+        ),
+        CircuitEntry::sample(
+            "quantum-teleportation",
+            "Quantum Teleportation",
+            TELEPORTATION_JSON,
             updated_at,
         ),
     ]

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>量子テレポーテーション（Quantum Teleportation）— 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/h-gate.js"></script>
+  <script src="../design-system/components/t-gate.js"></script>
+  <script src="../design-system/components/z-gate.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/measurement-gate.js"></script>
+  <script src="../design-system/components/bloch-display.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
+  <style>
+    .qt-figure {
+      overflow-x: auto;
+      margin: 4px 0;
+    }
+    .qt-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px; /* spacing-1 / spacing-5 */
+      align-items: center;
+      margin-top: 12px; /* spacing-3 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+    }
+    .qt-legend .item { display: inline-flex; align-items: center; gap: 4px; }
+    .qt-legend .glyph { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: none; }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">量子テレポーテーション</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
+  <h1 class="page-title">量子テレポーテーション（Quantum Teleportation）</h1>
+  <p class="page-lede">
+    未知の量子状態を、量子ビットそのものを動かさずに、あらかじめ共有した<strong>もつれ（Bell ペア）</strong>と
+    <strong>2 ビットの古典情報</strong>だけで別の場所へ移すプロトコル。送り手（アリス）の手元の状態は測定で壊れ、
+    受け手（ボブ）の量子ビットにそっくり現れる。複製ではなく移動なので、複製不可定理とも矛盾しない。
+    3 量子ビット回路で、転送前後の状態を 2 つのブロッホ球表示ブロックで見比べる。
+    Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+  </p>
+</div>
+
+<section class="block" id="circuit">
+  <h2>§ 01 回路図</h2>
+  <div class="card">
+    <p>
+      3 量子ビット。<strong>q0 = メッセージ</strong>（転送したい未知の状態）、<strong>q1 = アリス</strong>のもつれ片割れ、
+      <strong>q2 = ボブ</strong>のもつれ片割れ。回路図はサンプル定義（cols JSON）から <code>&lt;quantum-circuit&gt;</code>
+      カスタム要素が組み立てる。
+    </p>
+
+    <div class="qt-figure">
+      <quantum-circuit cols='[[1,"H"],[1,"•","X"],["H"],["T"],["Bloch"],["•","X"],["H"],["Measure","Measure"],[1,"•","X"],["•",1,"Z"],[1,1,"Bloch"]]'></quantum-circuit>
+    </div>
+
+    <div class="qt-legend" aria-hidden="true">
+      <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
+      <span class="item"><span class="glyph"><t-gate></t-gate></span>T（π/4 位相）</span>
+      <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
+      <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
+      <span class="item"><span class="glyph"><z-gate></z-gate></span>Z（位相反転）</span>
+      <span class="item"><span class="glyph"><measurement-gate></measurement-gate></span>測定</span>
+      <span class="item">Bloch = ブロッホ球表示ブロック</span>
+    </div>
+
+    <p class="note">
+      縦の水色の線は<strong>制御線</strong>。制御（●）と X を繋げば CNOT、制御（●）と Z を繋げば
+      制御 Z（CZ）になる。ブロッホ球表示ブロックは、qni で実行すると実際の状態が球面上に出る
+      （このドキュメントでは箱だけを置いている）。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="reading">
+  <h2>§ 02 回路の読み方</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>1 – 2</td><td>q1 に H → CNOT(q1→q2)</td><td>アリス（q1）とボブ（q2）が<strong>もつれ（Bell ペア）</strong>を共有する。事前に配っておく前提</td></tr>
+        <tr><td>3 – 4</td><td>q0 に H → T</td><td>転送したい<strong>未知の状態（メッセージ）</strong>を作る。ここでは赤道上の状態だが、任意の状態でよい</td></tr>
+        <tr><td>5</td><td>q0 のブロッホ球表示ブロック</td><td>転送<strong>前</strong>のメッセージの状態を表示</td></tr>
+        <tr><td>6 – 7</td><td>CNOT(q0→q1) → H(q0)</td><td>アリスの<strong>ベル測定</strong>の準備（メッセージともつれ片割れを結合）</td></tr>
+        <tr><td>8</td><td>q0, q1 を測定</td><td>ベル測定。<strong>2 ビットの古典情報</strong> (m0, m1) を得る。ここで q0 のメッセージは壊れる</td></tr>
+        <tr><td>9</td><td>CNOT(q1→q2)</td><td>ボブの補正 <strong>X<sup>m1</sup></strong>（q1 の測定値 m1 で制御）</td></tr>
+        <tr><td>10</td><td>CZ(q0→q2)</td><td>ボブの補正 <strong>Z<sup>m0</sup></strong>（q0 の測定値 m0 で制御）</td></tr>
+        <tr><td>11</td><td>q2 のブロッホ球表示ブロック</td><td>受信した状態を表示。<strong>ステップ 5 のメッセージと一致</strong>する</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="meaning">
+  <h2>§ 03 何を意味するか</h2>
+  <div class="card">
+    <p>
+      ベル測定の結果 (m0, m1) は<strong>ランダムな 2 ビット</strong>で、それ自体にはメッセージの情報は無い。
+      アリスはこの 2 ビットを（古典通信で）ボブへ伝え、ボブは測定値に応じて補正をかける:
+    </p>
+    <table class="spec">
+      <thead><tr><th>測定 (m0, m1)</th><th>ボブの補正</th></tr></thead>
+      <tbody>
+        <tr><td>(0, 0)</td><td>なし</td></tr>
+        <tr><td>(0, 1)</td><td>X</td></tr>
+        <tr><td>(1, 0)</td><td>Z</td></tr>
+        <tr><td>(1, 1)</td><td>X → Z</td></tr>
+      </tbody>
+    </table>
+    <p>
+      測定結果ごとにボブの量子ビットは 4 通りにずれるが、対応する X / Z 補正が必ず元へ戻す。
+      だから補正後のボブの状態は、<strong>ランダムな測定によらず毎回メッセージと同じ</strong>になる。
+    </p>
+    <p class="note">
+      <strong>qni 固有の事情</strong>: qni の測定は状態を 1 サンプルに潰す（硬測定）。テレポーテーションでは
+      これが<strong>正しく働く</strong>。q0・q1 は測定でランダムな (m0, m1) に潰れるが、X<sup>m1</sup> Z<sup>m0</sup>
+      の補正がそのランダムさを打ち消し、ボブの q2 は決定的にメッセージと一致する。実機の状態読み出しでも、
+      メッセージ (q0) と受信 (q2) のブロッホベクトルが一致することを確認済み。
+    </p>
+    <p class="note">
+      <a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>とは対照的。あちらはアンサンブル（統計集団）の
+      干渉縞を見せるため、測定で状態が潰れるのを<strong>避ける</strong>必要があったが、テレポーテーションは測定結果で
+      補正するので、状態が潰れることを<strong>使う</strong>。同じ qni の硬測定が、片方では障害に、片方では本質になる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="porting">
+  <h2>§ 04 サンプルとしての追加</h2>
+  <div class="card">
+    <p>
+      使うゲート（H・T・制御・X・Z・測定・ブロッホ球表示ブロック）はすべて qni-webgpu が対応済みのため、
+      <strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。制御 Z（CZ）は同じ列に制御（●）と Z を置けばよい。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
+        <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/quantum-circuit.js</code>（cols JSON から回路を描画）</td></tr>
+        <tr><th>元の定義</th><td>Quirk <code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>teleportLink</code>）／ qni チュートリアル <code>~/Work/qni/apps/tutorial/teleportation_circuit.html</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      元との差: Quirk は q0 / q1 / q4 を使い（アリスとボブを視覚的に離す）、メッセージをパラメトリックなアニメーション
+      （<code>e^-iYt</code>・<code>X^t</code>）で作る。qni チュートリアルは 3 量子ビットで <code>H</code>・<code>P(π/4)</code>・<code>H</code>
+      でメッセージを作る。本サンプルは 3 量子ビット（q0 / q1 / q2）で、固定の <code>H</code>・<code>T</code> でメッセージを作る形にした。
+    </p>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 量子テレポーテーション（Quantum Teleportation）· 2026-05</p>
+</footer>
+
+</body>
+</html>
