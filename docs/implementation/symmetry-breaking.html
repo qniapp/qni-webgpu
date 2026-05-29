@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>対称性の破れ（Symmetry Breaking）— 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/h-gate.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/sqrtx-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/anti-control-gate.js"></script>
+  <script src="../design-system/components/swap-gate.js"></script>
+  <script src="../design-system/components/measurement-gate.js"></script>
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <style>
+    /* 回路図グリッド: 量子ビットラベル列 + 10 ステップ。 */
+    .sb-circuit {
+      display: grid;
+      /* セルは 56px ピッチ (SLOT_SPACING = LINE_GAP = spacing-14)。隙間なく並べ、
+         各セル (circuit-dropzone) のワイヤと制御線を連続させる。 */
+      grid-template-columns: max-content repeat(10, 56px);
+      grid-auto-rows: 56px;
+      align-items: center;
+      width: max-content;
+      margin: 4px 0;
+      --ac-mask: var(--bg); /* 反制御の空円内側を紙色で消し込む */
+    }
+    .sb-circuit .corner { grid-row: 1; }
+    .sb-circuit .step-label {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-3); /* Flexoki base-300 */
+      text-align: center;
+      height: 20px;
+    }
+    .sb-circuit .qubit-label {
+      font-family: var(--font-mono);
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+      padding-right: 8px; /* spacing-2 */
+      text-align: right;
+      white-space: nowrap;
+    }
+    .sb-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px; /* spacing-2 / spacing-5 */
+      align-items: center;
+      margin-top: 12px; /* spacing-3 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+    }
+    .sb-legend .item { display: inline-flex; align-items: center; gap: 4px; } /* spacing-1 */
+    .sb-legend .glyph { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: none; }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">対称性の破れ</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
+  <h1 class="page-title">対称性の破れ（Symmetry Breaking）</h1>
+  <p class="page-lede">
+    まったく同じ作り方をした 2 つの量子サブシステムを結合して測ると、両者は<strong>必ず正反対（不一致）</strong>になり、しかも<strong>どの正反対パターンになるかはランダム</strong>になる。
+    対称な構成から、対称性を破った確定的な相関が立ち上がる ── そのふるまいを見せる回路。Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+  </p>
+</div>
+
+<section class="block" id="circuit">
+  <h2>§ 01 回路図</h2>
+  <div class="card">
+    <p>
+      4 量子ビット。上の 2 本（q0・q1）が 1 つ目のサブシステム「Alice¹」、下の 2 本（q2・q3）が 2 つ目の「Alice²」。
+      両者にまったく同じ操作を施し（＝交換対称）、途中の <strong>SWAP（×）で 2 つを結合</strong>する。
+    </p>
+
+    <div class="sb-circuit" role="img" aria-label="対称性の破れ回路: q0/q1 と q2/q3 に同一の H・CNOT で Bell ペアを作り、q1 と q3 を SWAP で結合し、再度 CNOT、反制御つき √X を経て 4 量子ビットを測定する。制御を伴う操作は列を分けてある">
+      <div class="corner"></div>
+      <div class="step-label">1</div>
+      <div class="step-label">2</div>
+      <div class="step-label">3</div>
+      <div class="step-label">4</div>
+      <div class="step-label">5</div>
+      <div class="step-label">6</div>
+      <div class="step-label">7</div>
+      <div class="step-label">8</div>
+      <div class="step-label">9</div>
+      <div class="step-label">10</div>
+
+      <div class="qubit-label">q0</div>
+      <circuit-dropzone><h-gate></h-gate></circuit-dropzone>
+      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><sqrtx-gate></sqrtx-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone><measurement-gate outcome="0"></measurement-gate></circuit-dropzone>
+
+      <div class="qubit-label">q1</div>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><swap-gate></swap-gate></circuit-dropzone>
+      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-top><anti-control-gate></anti-control-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone><sqrtx-gate></sqrtx-gate></circuit-dropzone>
+      <circuit-dropzone><measurement-gate outcome="0"></measurement-gate></circuit-dropzone>
+
+      <div class="qubit-label">q2</div>
+      <circuit-dropzone><h-gate></h-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
+      <circuit-dropzone connect-top connect-bottom></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-bottom><sqrtx-gate></sqrtx-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone><measurement-gate outcome="1"></measurement-gate></circuit-dropzone>
+
+      <div class="qubit-label">q3</div>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
+      <circuit-dropzone connect-top><swap-gate></swap-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
+      <circuit-dropzone></circuit-dropzone>
+      <circuit-dropzone connect-top><anti-control-gate></anti-control-gate></circuit-dropzone>
+      <circuit-dropzone><sqrtx-gate></sqrtx-gate></circuit-dropzone>
+      <circuit-dropzone><measurement-gate outcome="1"></measurement-gate></circuit-dropzone>
+    </div>
+
+    <div class="sb-legend" aria-hidden="true">
+      <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
+      <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
+      <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
+      <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
+      <span class="item"><span class="glyph"><swap-gate></swap-gate></span>SWAP</span>
+      <span class="item"><span class="glyph"><sqrtx-gate></sqrtx-gate></span>√X（X の平方根）</span>
+      <span class="item"><span class="glyph"><measurement-gate></measurement-gate></span>測定</span>
+    </div>
+
+    <p class="note">
+      制御を伴う操作（2 つの CNOT 層と反制御つき √X）は列を分けてある。同じ列に複数の制御を置くと、列内の全制御が全ターゲットに掛かって独立した操作ではなく多重制御になるため。制御を持たない H（ステップ 1）と最後の √X（ステップ 9）は同じ列にまとめている。
+      縦の水色の線は<strong>制御線</strong>で、制御（●）/ 反制御（○）/ SWAP（×）どうしを繋ぐ。
+      ステップ 4 の SWAP は q1 と q3 を入れ替えるため、間の q2 を制御線が貫通する。
+      測定ゲートに出る 0（赤）/ 1（青）は一例の測定結果（ここでは Alice¹=00, Alice²=11）で、実行ごとに §03 の 4 通りのいずれかになる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="reading">
+  <h2>§ 02 回路の読み方</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>1 – 3</td><td>各サブシステムに H → CNOT</td><td>Alice¹（q0,q1）と Alice²（q2,q3）に、まったく同じ手順で Bell ペア <code>(|00⟩ + |11⟩) / √2</code> を作る。この時点で 2 つは完全に対称・独立</td></tr>
+        <tr><td>4</td><td>q1 と q3 を SWAP</td><td>2 つのサブシステムを<strong>結合</strong>する。ここで初めて両者が絡み合う</td></tr>
+        <tr><td>5 – 6</td><td>もう一度 CNOT</td><td>入れ替え後の状態を再び絡め直す</td></tr>
+        <tr><td>7 – 9</td><td>条件付き √X と √X</td><td>測定の直前に各量子ビットを回転させ、相関を測定基底へ移す</td></tr>
+        <tr><td>10</td><td>4 量子ビットを測定</td><td>Alice¹ と Alice² の結果を読み出す</td></tr>
+      </tbody>
+    </table>
+    <p>
+      ポイントは、回路全体が「Alice¹ と Alice² を入れ替えても同じ」という<strong>交換対称性</strong>を持つように作られていること。
+      素朴には「同じものを 2 つ作ったのだから、同じ結果になるはず」と思える。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="result">
+  <h2>§ 03 測定結果と「対称性の破れ」</h2>
+  <div class="card">
+    <p>
+      qni-webgpu（GPU シミュレーション）で測定直前の結合確率分布を確認すると、16 通りのうち<strong>わずか 4 通りだけが各 25 %</strong>、残りはすべて 0 % だった。
+    </p>
+    <table class="spec">
+      <thead><tr><th>結果 (q0 q1 q2 q3)</th><th>Alice¹ (q0 q1)</th><th>Alice² (q2 q3)</th><th>確率</th></tr></thead>
+      <tbody>
+        <tr><td><code>0011</code></td><td><code>00</code></td><td><code>11</code></td><td>25 %</td></tr>
+        <tr><td><code>0110</code></td><td><code>01</code></td><td><code>10</code></td><td>25 %</td></tr>
+        <tr><td><code>1001</code></td><td><code>10</code></td><td><code>01</code></td><td>25 %</td></tr>
+        <tr><td><code>1100</code></td><td><code>11</code></td><td><code>00</code></td><td>25 %</td></tr>
+      </tbody>
+    </table>
+    <p>どの結果でも <strong>Alice² は Alice¹ のビット完全反転</strong>（q2 = ¬q0、q3 = ¬q1）になっている。つまり:</p>
+    <ul>
+      <li>2 つのサブシステムは<strong>必ず「不一致」</strong>になる（完全反相関）。同じ作り方をしたのに、決して同じ答えを出さず常に正反対になる。</li>
+      <li><strong>どの配置になるかは完全にランダム</strong>（4 通りが等確率）。Alice¹ 単体の結果は五分五分。</li>
+    </ul>
+    <p>
+      これが「対称性の破れ」である。構成は完全に対称（2 つのサブシステムは区別できない）のに、1 回の測定は必ず<strong>対称性を破った 1 つの結果</strong>（特定の反相関配置）に確定する。対称性は「4 通りが等確率」という<strong>統計集団のなかでだけ</strong>回復する。
+    </p>
+    <p class="note">
+      これは古典物理の自発的対称性の破れ ── 先端で立てた鉛筆が、どの向きにも倒れうるのにランダムに 1 方向へ倒れる ── の量子版にあたる。
+      「どの向きも対等」が「4 つの反相関配置が等確率」に、「鉛筆が倒れて 1 方向を選ぶ」が「測定が 1 つの結果を選ぶ」に対応する。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="porting">
+  <h2>§ 04 サンプルとしての追加</h2>
+  <div class="card">
+    <p>
+      使うゲート（H・制御・反制御・X・SWAP・√X・測定・確率表示ブロック）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
+      Quirk の JSON からの変換は次の 2 点だけ:
+    </p>
+    <ul>
+      <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
+      <li>注釈用のカスタムゲート（<code>Alice^1</code> / <code>Alice^2</code> / <code>disagree</code> といった恒等行列のラベル）を削除する。</li>
+    </ul>
+    <p>
+      元の Quirk サンプルは、測定後に<strong>条件付きの確率表示ブロック</strong>（Alice¹ の結果で条件付けた Alice² の確率）を並べ、この「必ず逆になる」関係を目に見える形で示している。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
+        <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/circuit-dropzone.js</code>（ワイヤと制御線）、各ゲートは <code>docs/design-system/components/*.js</code></td></tr>
+        <tr><th>元の定義</th><td><code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>symmetryBreakingLink</code>）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 対称性の破れ（Symmetry Breaking）· 2026-05</p>
+</footer>
+
+</body>
+</html>

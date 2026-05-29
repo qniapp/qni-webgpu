@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quirk サンプル回路の移植候補 — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">Quirk サンプル回路の移植候補</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuits</p>
+  <h1 class="page-title">Quirk サンプル回路の移植候補</h1>
+  <p class="page-lede">
+    Quirk（Craig Gidney 作の量子回路シミュレータ）の組み込みサンプル回路を qni-webgpu のサンプルへ取り込めるかを調べた結果。
+    どの回路がそのまま（トークンの書き換えだけで）追加でき、どれが新しいゲートを足して初めて追加できるかを、Quirk 標準の 10 サンプルについて区分する。
+  </p>
+</div>
+
+<section class="block" id="motivation">
+  <h2>§ 01 背景と目的</h2>
+  <div class="card">
+    <p>
+      Quirk と qni-webgpu はどちらも回路を <code>{"cols":[[...]]}</code> という同じ形の JSON で表す。
+      一見すると Quirk のサンプルをそのまま貼り付けて移植できそうだが、実際には次の 3 つの落とし穴があり、「読み込めた」ことと「意味が正しい」ことは別である。
+    </p>
+    <ol>
+      <li><strong>確率表示ブロックの ID が違う。</strong> Quirk は確率表示を <code>Chance</code> / <code>Chance5</code> と書くが、qni は <code>Probability</code> / <code>Probability5</code> を使う。Quirk の <code>Chance</code> をそのまま貼ると、qni 側では確率表示ブロックとして認識されない。</li>
+      <li><strong>デコーダは未知のトークンを読み飛ばす。</strong> qni のデコーダ（<code>token_to_gate</code>）は知らないトークンに出会うと、エラーにせずそのゲートを捨てて残りを読み込む。未対応のゲートが混じっていても回路自体は開けてしまうが、捨てられたゲートのぶん意味が壊れる。忠実に移植するには、登場する全ゲートが対応済みであることが前提になる。</li>
+      <li><strong>Quirk の <code>~xxxx</code> カスタムゲート。</strong> Quirk のサンプルは <code>~xxxx</code> という独自 ID のゲートを多用する。多くは恒等行列にラベルを付けただけの注釈なので削除して差し支えないが、一部（Grover の Oracle など）は実体のあるサブ回路を持つ。qni にネストした回路を 1 ゲートに畳む機能はないため、恒等ラベルは削除し、実体のあるものは中身を列として展開する必要がある。</li>
+    </ol>
+    <p class="note">
+      落とし穴 2 は特に注意が要る。未対応ゲートを含む Quirk 回路を貼り付けても画面にはそれらしく描画されるため、欠落に気づきにくい。
+      移植時は登場トークンを 1 つずつ qni のゲート語彙（§ 02）と突き合わせる。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="vocabulary">
+  <h2>§ 02 qni がサポートするゲート語彙</h2>
+  <div class="card">
+    <p>qni-webgpu が現在受理するトークンは次の 26 種類（<code>GateKind</code> のバリアント）に対応する。</p>
+    <table class="spec">
+      <thead><tr><th>分類</th><th>トークン</th></tr></thead>
+      <tbody>
+        <tr><th>単一量子ビット</th><td><code>H</code> <code>X</code> <code>Y</code> <code>Z</code> <code>X^½</code>（√X） <code>S</code> <code>S†</code> <code>T</code> <code>T†</code></td></tr>
+        <tr><th>パラメータ付き（角度）</th><td><code>P</code>（位相） <code>Rx</code> <code>Ry</code> <code>Rz</code>。<code>P(π_2)</code> のように角度を添える</td></tr>
+        <tr><th>複数量子ビット</th><td><code>Swap</code> <code>QFT&lt;n&gt;</code> <code>QFT†&lt;n&gt;</code></td></tr>
+        <tr><th>制御</th><td><code>•</code>（制御） <code>◦</code>（反制御）。いずれも Z 軸のみ</td></tr>
+        <tr><th>書き込み</th><td><code>|0&gt;</code> <code>|1&gt;</code></td></tr>
+        <tr><th>測定</th><td><code>Measure</code></td></tr>
+        <tr><th>表示ブロック</th><td><code>Bloch</code>（ブロッホ球表示ブロック） <code>Probability&lt;n&gt;</code>（確率表示ブロック） <code>Amps&lt;n&gt;</code>（振幅表示ブロック） <code>Density&lt;n&gt;</code>（密度行列表示ブロック）</td></tr>
+        <tr><th>区切り</th><td><code>…</code></td></tr>
+      </tbody>
+    </table>
+    <p>Quirk にあって qni に無い主な系統は次のとおり。これらを使うサンプルは新ゲートの追加が前提になる。</p>
+    <ul>
+      <li><code>⊖</code> / <code>⊕</code> — X 軸の制御 / 反制御</li>
+      <li><code>X^¼</code> / <code>X^-¼</code> など X・Y のルート族</li>
+      <li><code>|0⟩⟨0|</code> など — ポストセレクション（事後選択）</li>
+      <li><code>+=A</code> / <code>*A</code> / <code>*BToAmodR</code> / <code>inputA</code> / <code>setR</code> など — 算術・モジュラー演算と入力レジスタ</li>
+      <li><code>Counting</code> — 時間で値が進む入力レジスタ</li>
+      <li><code>e^-iYt</code> / <code>X^t</code> など — 時間依存ゲート</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="rewrites">
+  <h2>§ 03 トークンの書き換えで吸収できる差分</h2>
+  <div class="card">
+    <p>
+      Quirk と qni の差分の多くは、<strong>新しいゲートを足さずトークンを書き換えるだけ</strong>で吸収できる。
+      次の対応で済むものは、ゲート語彙そのものは足りている。
+    </p>
+    <table class="spec">
+      <thead><tr><th>Quirk のトークン</th><th>qni での書き換え</th><th>新ゲート</th></tr></thead>
+      <tbody>
+        <tr><td><code>Chance</code> / <code>Chance5</code> …</td><td><code>Probability</code> / <code>Probability5</code> …</td><td>不要（ID の名称違いのみ）</td></tr>
+        <tr><td><code>Z^½</code> / <code>Z^-½</code></td><td><code>S</code> / <code>S†</code></td><td>不要</td></tr>
+        <tr><td><code>Z^¼</code> / <code>Z^-¼</code></td><td><code>T</code> / <code>T†</code></td><td>不要</td></tr>
+        <tr><td><code>Z^⅛</code> <code>Z^⅟₁₆</code> <code>Z^⅟₃₂</code> <code>Z^⅟₆₄</code> <code>Z^⅟₁₂₈</code></td><td><code>P(π_8)</code> <code>P(π_16)</code> <code>P(π_32)</code> <code>P(π_64)</code> <code>P(π_128)</code></td><td>不要</td></tr>
+        <tr><td>制御位相 <code>["Z^½","•"]</code></td><td><code>["S","•"]</code> または <code>["P(π_2)","•"]</code></td><td>不要（制御は列単位で付く）</td></tr>
+        <tr><td><code>~xxxx</code>（恒等行列のラベル）</td><td>削除</td><td>不要（ユニタリは恒等のため）</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      位相ゲート <code>P</code> の行列は <code>diag(1, e^{iθ})</code> で、角度パーサは任意分母の <code>π/n</code> を受理する（<code>apps/web/src/gates/angle.rs</code> で確認）。
+      そのため <code>Z</code> の高次ルート（<code>Z^⅛</code> 以降）はすべて <code>P(π/n)</code> で表せる。Quirk の <code>Z^t</code> は <code>diag(1, e^{iπt})</code> なので、<code>Z^½</code> は位相 π/2（＝<code>S</code>）、<code>Z^¼</code> は π/4（＝<code>T</code>）、<code>Z^⅛</code> は π/8 に対応する。
+      制御位相は、同じ列の別ワイヤに <code>•</code> を置くだけで掛かる（制御位相は対称なので対象と制御の役割は入れ替えてよい）。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="verdict">
+  <h2>§ 04 Quirk 標準サンプルの移植判定</h2>
+  <div class="card">
+    <p>
+      Quirk のメニューにある標準 10 サンプルを、追加に要する手間で 3 区分に分けた。
+      <code>~xxxx</code> ラベルの削除と §&nbsp;03 のトークン書き換えは、いずれの区分でも前提とする。
+    </p>
+
+    <h3>区分 A — 新ゲート不要（トークン書き換えとラベル削除のみ）</h3>
+    <table class="spec">
+      <thead><tr><th>回路</th><th>主に使うゲート</th><th>追加に必要な対応</th></tr></thead>
+      <tbody>
+        <tr><td>対称性の破れ（Symmetry Breaking）</td><td><code>H</code> <code>•</code> <code>◦</code> <code>X</code> <code>Swap</code> <code>X^½</code> <code>Measure</code> <code>Chance</code></td><td><code>Chance</code>→<code>Probability</code> と恒等ラベルの削除だけ。実ゲートはすべて対応済み</td></tr>
+        <tr><td>遅延選択量子消しゴム（Delayed Choice Eraser）</td><td><code>H</code> <code>•</code> <code>X</code> <code>QFT7</code> <code>Measure</code> <code>X^½</code> <code>Chance7</code></td><td><code>Chance7</code>→<code>Probability7</code> と恒等ラベルの削除。<code>QFT</code> も対応済み</td></tr>
+        <tr><td>量子テレポーテーション（Teleportation）</td><td><code>H</code> <code>•</code> <code>X</code> <code>Measure</code> <code>Z</code> <code>Bloch</code> ＋ 時間依存の状態準備</td><td>送る状態を作る <code>e^-iYt</code> / <code>X^t</code> を固定の状態準備（<code>Ry</code> など）に置き換える。中核は対応済み</td></tr>
+        <tr><td>超高密度符号化（Superdense Coding）</td><td><code>H</code> <code>•</code> <code>X</code> <code>Z</code> <code>Swap</code> <code>Measure</code> ＋ <code>Counting2</code></td><td>送るビットを与える <code>Counting2</code> を固定の <code>X</code> 入力に置き換える。中核は対応済み</td></tr>
+        <tr><td>量子加算（Addition）</td><td><code>X</code> <code>•</code> <code>Swap</code> ＋ <code>Counting5</code></td><td>入力の <code>Counting5</code> を固定入力に置き換える。加算本体（制御 Swap の網）は対応済み</td></tr>
+      </tbody>
+    </table>
+
+    <h3>区分 B — 新ゲート 1 つで可能</h3>
+    <table class="spec">
+      <thead><tr><th>回路</th><th>不足するゲート</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>CHSH テスト（CHSH Test）</td><td><code>X^-¼</code>（X のルート族）</td><td>測定確率だけを見るなら <code>Rx(-π_4)</code> で近似できる。厳密に再現するには X のルート族の追加が要る</td></tr>
+      </tbody>
+    </table>
+
+    <h3>区分 C — 大規模なゲート族が必要（現状は非現実的）</h3>
+    <table class="spec">
+      <thead><tr><th>回路</th><th>不足するゲート</th><th>規模感</th></tr></thead>
+      <tbody>
+        <tr><td>ショアのアルゴリズム（Shor）</td><td><code>*BToAmodR</code>（モジュラー冪乗） <code>inputA</code> <code>setR</code> <code>setB</code></td><td>算術ゲート族の一式。最大の工事</td></tr>
+        <tr><td>魔法状態蒸留（Distillation）</td><td><code>⊖</code>（X 軸制御）＋ <code>|0⟩⟨0|</code>（ポストセレクション）</td><td>2 系統の新機能が要る</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="already">
+  <h2>§ 05 すでに qni にあるもの</h2>
+  <div class="card">
+    <p>次の 2 つは、Quirk から移植するまでもなく、qni に同等のサンプルやゲートがすでにある。</p>
+    <table class="spec">
+      <tbody>
+        <tr><th>Grover</th><td>qni に <code>grover-search</code> サンプル（5 量子ビット）が実装済み。Quirk 版は拡散変換に <code>⊖</code>（X 軸制御）を使うが、qni 版は <code>H</code> → 多重制御 <code>X</code> → <code>H</code>（多重制御 <code>Z</code> と等価）の形で同じ拡散を組んでいるため、<code>⊖</code> なしで成立している</td></tr>
+        <tr><th>QFT</th><td>qni はネイティブの <code>QFT&lt;n&gt;</code> ゲートを持ち、<code>qft-4</code> サンプルもある。Quirk の手動 QFT は <code>Counting</code> と <code>Z</code> の高次ルートを使うが、qni のサンプルは <code>H</code> と制御位相回転（<code>P(π_2)</code> / <code>P(π_4)</code> / <code>P(π_8)</code>）へ分解した形で持っている</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="recommendations">
+  <h2>§ 06 推奨アクション</h2>
+  <div class="card">
+    <h3>すぐ追加できる（新ゲート不要）</h3>
+    <p>
+      区分 A のうち、対称性の破れと遅延選択量子消しゴムの 2 つは、トークンの書き換えだけで忠実に追加できる。
+      テレポーテーション・超高密度符号化・量子加算は、入力や状態準備を固定値へ簡略化すれば追加できる。
+    </p>
+
+    <h3>費用対効果の高い基盤改善</h3>
+    <p>
+      デコーダ（<code>token_to_gate</code>）に <code>Chance</code>→<code>Probability</code>、<code>Z^½</code>→<code>S</code>、<code>Z^¼</code>→<code>T</code>、<code>Z^⅛</code>→<code>P(π_8)</code> … という<strong>デコード時のエイリアス</strong>を足すと、Quirk の URL をそのまま貼り付けて読み込めるようになる。
+      新しい <code>GateKind</code> は増やさず、トークンの対応表に行を足すだけで済む。
+    </p>
+
+    <h3>新ゲートの追加候補（優先順）</h3>
+    <ol>
+      <li><code>⊖</code> / <code>⊕</code>（X 軸の制御）— Grover や蒸留の拡散変換を素直に書けるようになる汎用機能</li>
+      <li><code>|0⟩⟨0|</code> など — ポストセレクション</li>
+      <li><code>X^¼</code> ほか — X・Y のルート族</li>
+      <li>モジュラー算術（<code>*BToAmodR</code> ほか）— ショアのアルゴリズム向け。最も大きな工事</li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="references">
+  <h2>§ 07 主な参照ファイル</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>サンプル定義</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>デコーダ（トークン → ゲート）</th><td><code>apps/web/src/url_circuit/decode.rs</code>（<code>token_to_gate</code> / <code>build_gates</code>）</td></tr>
+        <tr><th>ゲート語彙</th><td><code>apps/web/src/gates.rs</code>（<code>GateKind</code> と URL トークンの対応表）</td></tr>
+        <tr><th>角度のパース</th><td><code>apps/web/src/gates/angle.rs</code>（<a href="parametric-angle.html">ParametricAngle 実装仕様</a>）</td></tr>
+        <tr><th>QFT の展開</th><td><code>apps/web/src/simulation_plan/linearize.rs</code>（<code>linearize_qft</code>）</td></tr>
+        <tr><th>Quirk のサンプル定義</th><td><code>~/Work/oss/Quirk/src/ui/menu.js</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · Quirk サンプル回路の移植候補 · 2026-05</p>
+</footer>
+
+</body>
+</html>
