@@ -98,11 +98,11 @@ fn seed_contains_quirk_named_samples() {
             "bell",
             "Bell state",
             "GHZ state",
-            "QFT 4-qubit",
-            "Grover Search",
-            "Symmetry Breaking",
-            "Delayed Choice Eraser",
             "Quantum Teleportation",
+            "QFT 4-qubit",
+            "Symmetry Breaking",
+            "Grover Search",
+            "Delayed Choice Eraser",
             true,
         )
     );
@@ -486,11 +486,11 @@ fn move_to_slot_reorders_only_user_entries() {
         (
             "bell",
             "ghz",
-            "qft-4",
-            "grover-search",
-            "symmetry-breaking",
-            "delayed-choice-eraser",
             "quantum-teleportation",
+            "qft-4",
+            "symmetry-breaking",
+            "grover-search",
+            "delayed-choice-eraser",
             second_id.as_str(),
         )
     );
@@ -516,12 +516,12 @@ fn move_to_slot_reorders_only_sample_entries() {
         ),
         (
             "ghz",
-            "qft-4",
-            "bell",
-            "grover-search",
-            "symmetry-breaking",
-            "delayed-choice-eraser",
             "quantum-teleportation",
+            "bell",
+            "qft-4",
+            "symmetry-breaking",
+            "grover-search",
+            "delayed-choice-eraser",
             CircuitKind::My,
         )
     );

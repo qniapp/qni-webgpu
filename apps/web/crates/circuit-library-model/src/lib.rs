@@ -793,24 +793,24 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#,
             updated_at,
         ),
+        CircuitEntry::sample(
+            "quantum-teleportation",
+            "Quantum Teleportation",
+            TELEPORTATION_JSON,
+            updated_at,
+        ),
         CircuitEntry::sample("qft-4", "QFT 4-qubit", QFT4_DECOMPOSED_JSON, updated_at),
-        grover_search_entry(updated_at),
         CircuitEntry::sample(
             "symmetry-breaking",
             "Symmetry Breaking",
             SYMMETRY_BREAKING_JSON,
             updated_at,
         ),
+        grover_search_entry(updated_at),
         CircuitEntry::sample(
             "delayed-choice-eraser",
             "Delayed Choice Eraser",
             DELAYED_CHOICE_ERASER_JSON,
-            updated_at,
-        ),
-        CircuitEntry::sample(
-            "quantum-teleportation",
-            "Quantum Teleportation",
-            TELEPORTATION_JSON,
             updated_at,
         ),
     ]
