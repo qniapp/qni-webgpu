@@ -62,6 +62,32 @@ const SYMMETRY_BREAKING_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// 遅延選択量子消しゴム（Delayed Choice Quantum Eraser）9 量子ビット回路。
+/// q0=選択（経路情報を消すか）、q1=経路（光子）、q2–q8=スクリーン（7 量子ビット）。
+/// 経路情報をスクリーンへ刻んで QFT で位置分布を作り、スクリーンを先に測定。その後の
+/// 遅延選択（q0）と反制御なしの controlled-√X（消しゴム）で経路情報を消すか決め、末尾の
+/// 条件付き確率表示ブロックが「干渉縞（消去時）／のっぺり（非消去時）」を仕分けて見せる。
+/// Quirk の eraserLink を移植したもので、確率表示の ID を Chance → Probability に揃え、
+/// 注釈用の恒等ラベルと区切りだけの列は除いてある。解説は
+/// docs/implementation/delayed-choice-eraser.html。
+const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"[1,"H"],"#,
+    r#"[1,"•",1,1,"X"],"#,
+    r#"[1,1,"QFT7"],"#,
+    r#"[1,1,"Measure","Measure","Measure","Measure","Measure","Measure","Measure"],"#,
+    r#"[1,1,"Probability7"],"#,
+    r#"["H"],"#,
+    r#"["Measure"],"#,
+    r#"["•","X^½"],"#,
+    r#"[1,"Measure"],"#,
+    r#"["◦","◦","Probability7"],"#,
+    r#"["◦","•","Probability7"],"#,
+    r#"["•","◦","Probability7"],"#,
+    r#"["•","•","Probability7"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -744,6 +770,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             "symmetry-breaking",
             "Symmetry Breaking",
             SYMMETRY_BREAKING_JSON,
+            updated_at,
+        ),
+        CircuitEntry::sample(
+            "delayed-choice-eraser",
+            "Delayed Choice Eraser",
+            DELAYED_CHOICE_ERASER_JSON,
             updated_at,
         ),
     ]

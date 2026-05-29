@@ -1,6 +1,7 @@
 use super::{
     CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin,
-    EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON, QFT4_DECOMPOSED_JSON, SYMMETRY_BREAKING_JSON,
+    DELAYED_CHOICE_ERASER_JSON, EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON, QFT4_DECOMPOSED_JSON,
+    SYMMETRY_BREAKING_JSON,
 };
 
 fn cid(value: &str) -> CircuitId {
@@ -88,16 +89,18 @@ fn seed_contains_quirk_named_samples() {
             library.entries[2].name.as_str(),
             library.entries[3].name.as_str(),
             library.entries[4].name.as_str(),
+            library.entries[5].name.as_str(),
             library.entries.iter().all(CircuitEntry::locked),
         ),
         (
-            5,
+            6,
             "bell",
             "Bell state",
             "GHZ state",
             "QFT 4-qubit",
             "Grover Search",
             "Symmetry Breaking",
+            "Delayed Choice Eraser",
             true,
         )
     );
@@ -142,6 +145,20 @@ fn symmetry_breaking_seed_uses_quirk_json() {
     assert_eq!(
         entry.map(|entry| entry.circuit_json.as_str()),
         Some(SYMMETRY_BREAKING_JSON)
+    );
+}
+
+#[test]
+fn delayed_choice_eraser_seed_uses_quirk_json() {
+    let library = CircuitLibrary::seed();
+    let entry = library
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "delayed-choice-eraser");
+
+    assert_eq!(
+        entry.map(|entry| entry.circuit_json.as_str()),
+        Some(DELAYED_CHOICE_ERASER_JSON)
     );
 }
 
@@ -392,12 +409,12 @@ fn duplicate_active_inserts_into_my_section_and_numbers_copy_names() {
 
     assert_eq!(
         (
-            library.entries[5].id.as_str(),
-            library.entries[5].name.as_str(),
             library.entries[6].id.as_str(),
             library.entries[6].name.as_str(),
             library.entries[7].id.as_str(),
             library.entries[7].name.as_str(),
+            library.entries[8].id.as_str(),
+            library.entries[8].name.as_str(),
             library.active_id.as_str(),
         ),
         (
@@ -437,7 +454,7 @@ fn move_to_slot_reorders_only_user_entries() {
     library.create_new();
     let second_id = library.create_new().id.clone();
 
-    library.move_to_slot(6, 5);
+    library.move_to_slot(7, 6);
 
     assert_eq!(
         (
@@ -447,6 +464,7 @@ fn move_to_slot_reorders_only_user_entries() {
             library.entries[3].id.as_str(),
             library.entries[4].id.as_str(),
             library.entries[5].id.as_str(),
+            library.entries[6].id.as_str(),
         ),
         (
             "bell",
@@ -454,6 +472,7 @@ fn move_to_slot_reorders_only_user_entries() {
             "qft-4",
             "grover-search",
             "symmetry-breaking",
+            "delayed-choice-eraser",
             second_id.as_str(),
         )
     );
@@ -473,7 +492,8 @@ fn move_to_slot_reorders_only_sample_entries() {
             library.entries[2].id.as_str(),
             library.entries[3].id.as_str(),
             library.entries[4].id.as_str(),
-            library.entries[5].kind(),
+            library.entries[5].id.as_str(),
+            library.entries[6].kind(),
         ),
         (
             "ghz",
@@ -481,6 +501,7 @@ fn move_to_slot_reorders_only_sample_entries() {
             "bell",
             "grover-search",
             "symmetry-breaking",
+            "delayed-choice-eraser",
             CircuitKind::My,
         )
     );
@@ -543,7 +564,7 @@ fn v1_migration_keeps_untouched_seed_count() {
 
     let migrated = CircuitLibrary::migrate_v1_entries(seed.entries, Some(cid("bell")));
 
-    assert_eq!(migrated.entries.len(), 5);
+    assert_eq!(migrated.entries.len(), 6);
 }
 
 #[test]
@@ -592,7 +613,7 @@ fn startup_url_preserves_locked_current_by_creating_fresh_entry() {
 
     library.resolve_startup_url_payload(r#"{"cols":[["X"]]}"#.to_owned());
 
-    assert_eq!(library.active_id.as_str(), "current-7");
+    assert_eq!(library.active_id.as_str(), "current-8");
 }
 
 #[test]
