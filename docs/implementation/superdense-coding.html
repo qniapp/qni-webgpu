@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>超高密度符号化（Superdense Coding）— 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/write1-gate.js"></script>
+  <script src="../design-system/components/h-gate.js"></script>
+  <script src="../design-system/components/z-gate.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/swap-gate.js"></script>
+  <script src="../design-system/components/measurement-gate.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
+  <style>
+    .sc-figure {
+      overflow-x: auto;
+      margin: 4px 0;
+    }
+    .sc-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px; /* spacing-1 / spacing-5 */
+      align-items: center;
+      margin-top: 12px; /* spacing-3 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+    }
+    .sc-legend .item { display: inline-flex; align-items: center; gap: 4px; }
+    .sc-legend .glyph { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: none; }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">超高密度符号化</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
+  <h1 class="page-title">超高密度符号化（Superdense Coding）</h1>
+  <p class="page-lede">
+    あらかじめ共有した<strong>もつれ（Bell ペア）</strong>を使い、<strong>1 量子ビットを送るだけで 2 古典ビット</strong>を伝えるプロトコル。
+    送り手（アリス）は自分の量子ビットに Z と X を掛けて 2 ビットを符号化し、その 1 量子ビットを受け手（ボブ）へ渡す。
+    ボブは手元の 2 量子ビットをベル測定して 2 ビットを復号する。<a href="quantum-teleportation.html">量子テレポーテーション</a>の双対にあたる。
+    Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+  </p>
+</div>
+
+<section class="block" id="circuit">
+  <h2>§ 01 回路図</h2>
+  <div class="card">
+    <p>
+      6 量子ビット。<strong>q0・q1 = 送信ビット</strong>（アリスが送りたい 2 ビットのメッセージ）、
+      <strong>q2 = アリス</strong>の作業用量子ビット、<strong>q3・q4 = ベルペアを作って配る量子ビット</strong>、
+      <strong>q5 = ボブ</strong>の作業用量子ビット。回路図はサンプル定義（cols JSON）から <code>&lt;quantum-circuit&gt;</code>
+      カスタム要素が組み立てる。
+    </p>
+
+    <div class="sc-figure">
+      <quantum-circuit cols='[[1,1,1,"H"],[1,1,1,"•","X"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap","Swap"],["|1>","|1>"],["•",1,"Z"],[1,"•","X"],[1,1,"Swap",1,"Swap"],[1,1,1,1,"•","X"],[1,1,1,1,"H"],[1,1,1,1,"Measure","Measure"]]'></quantum-circuit>
+    </div>
+
+    <div class="sc-legend" aria-hidden="true">
+      <span class="item"><span class="glyph"><write1-gate></write1-gate></span>|1⟩（|1⟩ を書き込む）</span>
+      <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
+      <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
+      <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
+      <span class="item"><span class="glyph"><z-gate></z-gate></span>Z（位相反転）</span>
+      <span class="item"><span class="glyph"><swap-gate></swap-gate></span>Swap（入れ替え）</span>
+      <span class="item"><span class="glyph"><measurement-gate></measurement-gate></span>測定</span>
+    </div>
+
+    <p class="note">
+      まず q3・q4 で<strong>ベルペア</strong>を作り、Swap でアリス（q2）とボブ（q5）へ 1 つずつ配る（事前のもつれ共有）。
+      配ったあと q4 は空くので、符号化のあとの <strong>Swap</strong>（q2↔q4）でアリスの量子ビットを受け取る<strong>受信スロット</strong>になり、
+      最後にボブが q4・q5 を測定する。縦の水色の線は<strong>制御線</strong>で、制御（●）と X を繋げば CNOT、
+      制御（●）と Z を繋げば制御 Z（CZ）になる。この例では送るメッセージを <strong>「11」</strong> に固定している。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="reading">
+  <h2>§ 02 回路の読み方</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>1 – 2</td><td>H(q3) → CNOT(q3→q4)</td><td>q3・q4 で<strong>ベルペア（もつれ）を生成</strong>する</td></tr>
+        <tr><td>3</td><td>Swap(q2↔q3)</td><td>ベルペアの片割れを<strong>アリス（q2）へ配る</strong></td></tr>
+        <tr><td>4</td><td>Swap(q4↔q5)</td><td>もう片方を<strong>ボブ（q5）へ配る</strong>。これでアリスとボブが事前にもつれを共有した状態になる</td></tr>
+        <tr><td>5</td><td>q0・q1 に |1⟩</td><td>送るメッセージ<strong>「11」</strong>を 2 つの送信ビットに書き込む</td></tr>
+        <tr><td>6</td><td>CZ(q0→q2)</td><td>ビット b<sub>0</sub> を符号化（q0 = 1 なので q2 に Z を掛ける）</td></tr>
+        <tr><td>7</td><td>CNOT(q1→q2)</td><td>ビット b<sub>1</sub> を符号化（q1 = 1 なので q2 に X を掛ける）</td></tr>
+        <tr><td>8</td><td>Swap(q2↔q4)</td><td><strong>送信</strong>。符号化したアリスの量子ビットをボブ側（q4）へ移す。送るのは<strong>1 量子ビットだけ</strong></td></tr>
+        <tr><td>9 – 10</td><td>CNOT(q4→q5) → H(q4)</td><td>ボブの<strong>ベル測定</strong>の準備（ベルペアを作る回路の逆）</td></tr>
+        <tr><td>11</td><td>q4, q5 を測定</td><td>復号。q4 → b<sub>0</sub>、q5 → b<sub>1</sub> で<strong>「11」</strong>が得られる</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="meaning">
+  <h2>§ 03 何を意味するか</h2>
+  <div class="card">
+    <p>
+      アリスが自分の 1 量子ビットに掛けるゲートで、もつれた 2 量子ビット系は 4 つの直交した<strong>ベル状態</strong>のどれかに移る。
+      4 状態は完全に区別できるので、ボブはベル測定で 2 ビットを誤りなく取り出せる:
+    </p>
+    <table class="spec">
+      <thead><tr><th>メッセージ (b<sub>0</sub>, b<sub>1</sub>)</th><th>アリスの操作</th><th>結果のベル状態</th></tr></thead>
+      <tbody>
+        <tr><td>(0, 0)</td><td>なし</td><td>|Φ<sup>+</sup>⟩</td></tr>
+        <tr><td>(0, 1)</td><td>X</td><td>|Ψ<sup>+</sup>⟩</td></tr>
+        <tr><td>(1, 0)</td><td>Z</td><td>|Φ<sup>-</sup>⟩</td></tr>
+        <tr><td>(1, 1)</td><td>Z → X</td><td>|Ψ<sup>-</sup>⟩</td></tr>
+      </tbody>
+    </table>
+    <p>
+      <a href="quantum-teleportation.html">量子テレポーテーション</a>の<strong>双対</strong>。テレポーテーションは「2 古典ビット＋もつれ」で
+      1 量子ビットの状態を送るが、超高密度符号化は「1 量子ビット＋もつれ」で 2 古典ビットを送る。
+    </p>
+    <p class="note">
+      <strong>qni 固有の事情</strong>: qni の測定は状態を 1 サンプルに潰す（硬測定）。超高密度符号化ではこれが
+      <strong>正しく働く</strong>。ボブのベル測定のあと系は確定した計算基底状態（送られたメッセージそのもの）になるので、
+      測定で 2 ビットが決定的に取り出せる。実機の測定結果の読み出しでも、メッセージ「11」を符号化したとき
+      ボブが (q4, q5) = (1, 1)、「10」（Z のみ）なら (1, 0) を測定することを確認済み
+      （q4 が b<sub>0</sub>、q5 が b<sub>1</sub> に対応）。<a href="quantum-teleportation.html">量子テレポーテーション</a>と同じく、
+      測定で状態が潰れることをそのまま使う点で、潰れるのを避ける必要があった
+      <a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>とは対照的。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="porting">
+  <h2>§ 04 サンプルとしての追加</h2>
+  <div class="card">
+    <p>
+      使うゲート（|1⟩ の書き込み・H・制御・X・Z・Swap・測定）はすべて qni-webgpu が対応済みのため、
+      <strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。制御 Z（CZ）は同じ列に制御（●）と Z を置けばよい。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
+        <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/quantum-circuit.js</code>（cols JSON から回路を描画）</td></tr>
+        <tr><th>元の定義</th><td>Quirk <code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>superdenseCodingLink</code>）／ qni チュートリアル <code>~/Work/qni/apps/tutorial/superdense_coding_circuit.html</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      元との差: qni チュートリアルは 7 量子ビットで、ベルペアを専用の量子ビットで作って Swap でアリスとボブへ配り、
+      送るメッセージを <code>H</code> と測定でランダムに作る（Quirk の同名サンプルは <code>Counting2</code> でメッセージを次々に変え、
+      確率表示で復号結果と見比べる）。本サンプルは同じ<strong>「ベルペアを作って配る → 符号化 → 送信 Swap → 復号」</strong>の骨格を
+      残しつつ、メッセージを「11」に固定し、ランダム生成や状態表示を省いた 6 量子ビットの形にした。
+    </p>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 超高密度符号化（Superdense Coding）· 2026-05</p>
+</footer>
+
+</body>
+</html>

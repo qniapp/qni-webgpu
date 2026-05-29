@@ -117,6 +117,27 @@ const TELEPORTATION_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// 超高密度符号化（Superdense Coding）6 量子ビット回路。q0・q1=送信ビット、q2=アリス、
+/// q3・q4=ベルペアを作って配る量子ビット、q5=ボブ。ベルペアを生成して Swap でアリスとボブへ
+/// 配り、Z・X でメッセージ「11」を符号化、Swap で送信し、ボブのベル測定（CNOT・H・測定）で
+/// 2 ビットを復号する。テレポーテーションの双対で、こちらも qni の硬測定が正しく働く。解説は
+/// docs/implementation/superdense-coding.html。
+const SUPERDENSE_CODING_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"[1,1,1,"H"],"#,
+    r#"[1,1,1,"•","X"],"#,
+    r#"[1,1,"Swap","Swap"],"#,
+    r#"[1,1,1,1,"Swap","Swap"],"#,
+    r#"["|1>","|1>"],"#,
+    r#"["•",1,"Z"],"#,
+    r#"[1,"•","X"],"#,
+    r#"[1,1,"Swap",1,"Swap"],"#,
+    r#"[1,1,1,1,"•","X"],"#,
+    r#"[1,1,1,1,"H"],"#,
+    r#"[1,1,1,1,"Measure","Measure"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -797,6 +818,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             "quantum-teleportation",
             "Quantum Teleportation",
             TELEPORTATION_JSON,
+            updated_at,
+        ),
+        CircuitEntry::sample(
+            "superdense-coding",
+            "Superdense Coding",
+            SUPERDENSE_CODING_JSON,
             updated_at,
         ),
         CircuitEntry::sample("qft-4", "QFT 4-qubit", QFT4_DECOMPOSED_JSON, updated_at),
