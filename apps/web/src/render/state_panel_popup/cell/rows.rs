@@ -22,12 +22,13 @@ fn paint_header(
     display_index: u32,
     qubits: u32,
 ) {
-    // Label uses the cell's *display position* (= `display_index`) rather than
-    // the bit-reversed state-vector index. Matches qni's
-    // `circle-notation-element.ts:907` where `ket = col + row * colCount` —
-    // the same `(row, col)` the user is visually hovering. The fragment shader
-    // still reads `state[reverse_bits(display_index)]` for the numeric columns,
-    // so the displayed numbers stay consistent with the cell the user points at.
+    // Label uses the cell's *display position* (= `display_index`). With the
+    // q0=LSB (little-endian) convention this is also the state-vector index, so
+    // the big-endian ket string `|b_{n-1}..b_0⟩` puts q0 at the right edge —
+    // matching Quirk. Matches qni's `circle-notation-element.ts:907` where
+    // `ket = col + row * colCount` — the same `(row, col)` the user hovers. The
+    // fragment shader reads `state[display_index]` directly (no bit-reverse), so
+    // the displayed numbers stay consistent with the cell the user points at.
     let ket_binary = format!("{:0width$b}", display_index, width = qubits as usize);
     let header = format!("|{}⟩ decimal {}", ket_binary, display_index);
     let header_font = egui::FontId::monospace(14.0); // text-sm = 14px

@@ -75,14 +75,15 @@ const SYMMETRY_BREAKING_JSON: &str = concat!(
 /// 状態への条件付き確率表示で 4 通りを同時に見せる（Quirk が「測定して仕分ける」分布を、
 /// 状態を潰さずに提示）。この形では遅延（スクリーンを先に測定）の演出は省いている。
 ///
-/// which-path のマークは q6 に置く。qni は上のワイヤを最上位ビットとして数える（Quirk は逆）ため、
-/// Quirk が q4（上から 3 番目）に置くマークは qni では下から 3 番目の q6 に当たり、これで
+/// which-path のマークは Quirk と同じ q4 に置く。qni も上のワイヤを最下位ビット
+/// （LSB）として数える q0=LSB 規約になり、Quirk のリトルエンディアンと一致したため、
+/// Quirk が q4（QFT レジスタの上から 3 番目）に置くマークをそのまま q4 に置けば
 /// 干渉縞が 4 本になり Quirk の見た目と一致する。解説は
 /// docs/implementation/delayed-choice-eraser.html。
 const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"[1,"H"],"#,
-    r#"[1,"•",1,1,1,1,"X"],"#,
+    r#"[1,"•",1,1,"X"],"#,
     r#"[1,1,"QFT7"],"#,
     r#"[1,1,"Probability7"],"#,
     r#"["H"],"#,

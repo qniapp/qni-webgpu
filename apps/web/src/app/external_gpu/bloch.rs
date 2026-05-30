@@ -233,7 +233,7 @@ mod tests {
 
         assert_eq!(
             bloch_requests_json(&requests),
-            r#"[{"gate_id":3,"column":2,"wire":2,"control_mask":6,"control_value":4}]"#,
+            r#"[{"gate_id":3,"column":2,"wire":2,"control_mask":3,"control_value":1}]"#,
         );
     }
 

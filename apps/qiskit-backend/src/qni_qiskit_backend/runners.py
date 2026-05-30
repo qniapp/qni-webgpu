@@ -377,14 +377,14 @@ def ground_density_matrix(span: int) -> list[list[complex]]:
 
 
 def bloch_save_qargs(request: BlochOutputRequest, qubits: int | QubitCount) -> list[int]:
+    # q0=LSB: web ビット位置 = wire = Qiskit 量子ビット番号（恒等写像）。
     qubits = qubit_value(qubits)
-    bits = [qubits - 1 - request.wire] + bloch_control_bits(request, qubits)
-    return [qubits - 1 - bit for bit in bits]
+    return [request.wire] + bloch_control_bits(request, qubits)
 
 
 def bloch_control_bits(request: BlochOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    target_bit = qubits - 1 - request.wire
+    target_bit = request.wire
     return [
         bit
         for bit in range(qubits)
@@ -400,15 +400,14 @@ def bloch_control_index(request: BlochOutputRequest, control_bits: Sequence[int]
     return index
 
 
-def probability_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
-    qubits = qubit_value(qubits)
-    return [qubits - 1 - bit for bit in probability_bits(request)]
+def probability_qargs(request: ProbabilityOutputRequest) -> list[int]:
+    # q0=LSB: web ビット位置 = Qiskit 量子ビット番号（恒等写像）。
+    return list(probability_bits(request))
 
 
 def probability_save_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    bits = probability_bits(request) + probability_control_bits(request, qubits)
-    return [qubits - 1 - bit for bit in bits]
+    return probability_bits(request) + probability_control_bits(request, qubits)
 
 
 def probability_bits(request: ProbabilityOutputRequest) -> list[int]:
@@ -446,15 +445,14 @@ def probability_control_index(
     return index
 
 
-def density_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
-    qubits = qubit_value(qubits)
-    return [qubits - 1 - bit for bit in density_bits(request)]
+def density_qargs(request: DensityOutputRequest) -> list[int]:
+    # q0=LSB: web ビット位置 = Qiskit 量子ビット番号（恒等写像）。
+    return list(density_bits(request))
 
 
 def density_save_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    bits = density_bits(request) + density_control_bits(request, qubits)
-    return [qubits - 1 - bit for bit in bits]
+    return density_bits(request) + density_control_bits(request, qubits)
 
 
 def density_bits(request: DensityOutputRequest) -> list[int]:
@@ -509,18 +507,10 @@ def qiskit_saved_density_matrix(saved: Any) -> list[list[complex]]:
 
 
 def qiskit_basis_order(qubits: int | QubitCount) -> list[int]:
+    # q0=LSB: web state index == Qiskit state index（恒等）。save_amplitudes には
+    # 自然順の基底をそのまま渡せばよい。
     qubits = qubit_value(qubits)
-    return [web_index_to_qiskit_index(index, qubits) for index in range(1 << qubits)]
-
-
-def web_index_to_qiskit_index(index: int, qubits: int | QubitCount) -> int:
-    qubits = qubit_value(qubits)
-    qiskit_index = 0
-    for wire in range(qubits):
-        web_bit = qubits - 1 - wire
-        if index & (1 << web_bit):
-            qiskit_index |= 1 << wire
-    return qiskit_index
+    return list(range(1 << qubits))
 
 
 def amplitude_display_response(
@@ -630,12 +620,11 @@ def normalize_incoherent(probabilities: Sequence[float], unity: float) -> list[f
 
 
 def normalize_qiskit_counts(counts: dict[str, int]) -> dict[str, int]:
-    # Qiskit reports classical bits high-to-low. The egui/qni editor labels
-    # wires top-to-bottom, so reverse compact bitstrings for the API boundary.
+    # q0=LSB: Qiskit のビット列は qubit0(=wire0) を右端に置く little-endian で、
+    # qni の ket |b_{n-1}..b_0⟩ とビット順が一致する。並べ替えは不要で、空白除去のみ。
     normalized: dict[str, int] = {}
     for key, value in counts.items():
-        compact = key.replace(" ", "")
-        normalized[compact[::-1]] = int(value)
+        normalized[key.replace(" ", "")] = int(value)
     return dict(sorted(normalized.items()))
 
 

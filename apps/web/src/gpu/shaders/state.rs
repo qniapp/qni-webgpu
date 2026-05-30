@@ -158,8 +158,9 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     return vec4<f32>(0.0);
   }
   let display_index = row * params.cols + col;
-  let state_index = reverseBits(display_index) >> (32u - params.qubits);
-  let amp = state[state_index];
+  // q0=LSB（リトルエンディアン）なので、表示セル |b_{n-1}..b_0⟩ の整数値 display_index が
+  // そのまま state バッファの添字になる。内部 state index も q0=bit0 で格納するため reverseBits は不要。
+  let amp = state[display_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
 
   // Hover darken — qni's `:host(:hover) #border { filter: brightness(0.9) }`

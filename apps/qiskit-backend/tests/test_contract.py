@@ -17,6 +17,7 @@ from qni_qiskit_backend.contract import (
 from qni_qiskit_backend.runners import (
     MockRunner,
     QiskitRunner,
+    RunnerUnavailable,
     add_display_saves,
     add_qiskit_bloch,
     add_qiskit_density,
@@ -243,14 +244,14 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 2,
                             "column": 0,
                             "wire": 1,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(request.bloch_outputs[0].control_mask, 2)
+        self.assertEqual(request.bloch_outputs[0].control_mask, 1)
 
     def test_contract_rejects_bloch_control_value_outside_mask(self):
         with self.assertRaises(ContractError):
@@ -286,8 +287,8 @@ class ContractTests(unittest.TestCase):
                                 "gate_id": 2,
                                 "column": 0,
                                 "wire": 8,
-                                "control_mask": 510,
-                                "control_value": 510,
+                                "control_mask": 255,
+                                "control_value": 255,
                             }
                         ],
                     },
@@ -330,15 +331,15 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 2,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "base_bit": 1,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(request.probability_outputs[0].control_mask, 2)
+        self.assertEqual(request.probability_outputs[0].control_mask, 1)
 
     def test_contract_rejects_probability_control_value_outside_mask(self):
         with self.assertRaises(ContractError):
@@ -423,15 +424,15 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 2,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "base_bit": 1,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(request.density_outputs[0].control_mask, 2)
+        self.assertEqual(request.density_outputs[0].control_mask, 1)
 
     def test_contract_rejects_density_span_above_quirk_limit(self):
         with self.assertRaises(ContractError):
@@ -1123,8 +1124,8 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "wire": 1,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
@@ -1153,7 +1154,7 @@ class ContractTests(unittest.TestCase):
             }
         )
         labels = add_display_saves(fake, request, lambda axis: axis)
-        self.assertEqual((fake.saved, labels[2]), ([([1, 0], "probability:1")], {1: "probability:1"}))
+        self.assertEqual((fake.saved, labels[2]), ([([0, 1], "probability:1")], {1: "probability:1"}))
 
     def test_qiskit_display_saves_density_with_web_order_qargs(self):
         class FakeCircuit:
@@ -1175,7 +1176,7 @@ class ContractTests(unittest.TestCase):
             }
         )
         labels = add_display_saves(fake, request, lambda axis: axis)
-        self.assertEqual((fake.saved, labels[3]), ([([1, 0], "density:1")], {1: "density:1"}))
+        self.assertEqual((fake.saved, labels[3]), ([([0, 1], "density:1")], {1: "density:1"}))
 
     def test_qiskit_bloch_response_extracts_controlled_vector(self):
         request = parse_run_request(
@@ -1189,8 +1190,8 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "wire": 1,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
@@ -1239,9 +1240,9 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "base_bit": 1,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
@@ -1278,9 +1279,9 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 2,
-                            "control_value": 2,
+                            "base_bit": 1,
+                            "control_mask": 1,
+                            "control_value": 1,
                         }
                     ],
                 },
@@ -1368,7 +1369,7 @@ class ContractTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(probability_qargs(request.probability_outputs[0], 2), [1, 0])
+        self.assertEqual(probability_qargs(request.probability_outputs[0]), [0, 1])
 
     def test_bloch_save_qargs_include_controls_after_display_wire(self):
         request = parse_run_request(
@@ -1382,14 +1383,14 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "wire": 2,
-                            "control_mask": 6,
-                            "control_value": 4,
+                            "control_mask": 3,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(bloch_save_qargs(request.bloch_outputs[0], 3), [2, 1, 0])
+        self.assertEqual(bloch_save_qargs(request.bloch_outputs[0], 3), [2, 0, 1])
 
     def test_probability_save_qargs_include_controls_after_display_bits(self):
         request = parse_run_request(
@@ -1403,15 +1404,15 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 6,
-                            "control_value": 4,
+                            "base_bit": 2,
+                            "control_mask": 3,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(probability_save_qargs(request.probability_outputs[0], 3), [2, 1, 0])
+        self.assertEqual(probability_save_qargs(request.probability_outputs[0], 3), [2, 0, 1])
 
     def test_density_qargs_match_web_outcome_order(self):
         request = parse_run_request(
@@ -1424,7 +1425,7 @@ class ContractTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(density_qargs(request.density_outputs[0], 2), [1, 0])
+        self.assertEqual(density_qargs(request.density_outputs[0]), [0, 1])
 
     def test_density_save_qargs_include_controls_after_display_bits(self):
         request = parse_run_request(
@@ -1438,15 +1439,15 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 0,
-                            "control_mask": 6,
-                            "control_value": 4,
+                            "base_bit": 2,
+                            "control_mask": 3,
+                            "control_value": 1,
                         }
                     ],
                 },
             }
         )
-        self.assertEqual(density_save_qargs(request.density_outputs[0], 3), [2, 1, 0])
+        self.assertEqual(density_save_qargs(request.density_outputs[0], 3), [2, 0, 1])
 
     def test_density_save_qargs_omits_display_control_bits(self):
         request = parse_run_request(
@@ -1468,7 +1469,7 @@ class ContractTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(density_save_qargs(request.density_outputs[0], 2), [1, 0])
+        self.assertEqual(density_save_qargs(request.density_outputs[0], 2), [0, 1])
 
     def test_mock_runner_returns_fixed_probability_outputs(self):
         request = parse_run_request(
@@ -1560,6 +1561,53 @@ class ContractTests(unittest.TestCase):
         response = amplitude_display_response(request.amplitude_outputs[0], [2**-0.5, 2**-0.5], 1)
         self.assertEqual(round(response["ket"][1][0], 3), 0.707)
 
+    def test_qiskit_runner_histogram_uses_q0_lsb_ket_order(self):
+        # 実 Qiskit 実行で wire→qubit→state index→ket の規約全体を固定する。
+        # X を wire0 だけに置くと wire0=1, wire1=0。q0=LSB では wire0(=q0) が
+        # ket の右端なので "01"。reverseBits 時代の規約だと "10" になっていた。
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["X"]],
+                "outputs": {"histogram": True},
+            }
+        )
+        try:
+            response = QiskitRunner(name="qiskit-cpu-dev", device="CPU").run(request)
+        except RunnerUnavailable as exc:
+            self.skipTest(str(exc))
+        self.assertEqual(response["histogram"], {"01": request.shots})
+
+    def test_qiskit_runner_amplitude_index_uses_q0_lsb(self):
+        # X を wire0 だけに置くと状態は index 1 (= bit0/q0/wire0 が 1) に集中する。
+        # qiskit_basis_order が恒等になったことを実 Qiskit 実行で固定する。
+        request = parse_run_request(
+            {
+                "qubits": 2,
+                "columns": [["X"]],
+                "outputs": {
+                    "histogram": True,
+                    "amplitudes": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 2,
+                            "base_bit": 0,
+                            "control_mask": 0,
+                            "control_value": 0,
+                            "phase_lock_enabled": False,
+                        }
+                    ],
+                },
+            }
+        )
+        try:
+            response = QiskitRunner(name="qiskit-cpu-dev", device="CPU").run(request)
+        except RunnerUnavailable as exc:
+            self.skipTest(str(exc))
+        ket = [[round(value, 6) for value in pair] for pair in response["amplitudes"][0]["ket"]]
+        self.assertEqual(ket, [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 0.0]])
+
     def test_cpu_dev_runner_is_explicit_not_fallback(self):
         runner = select_runner("qiskit-cpu-dev")
         self.assertEqual(
@@ -1574,8 +1622,10 @@ class ContractTests(unittest.TestCase):
             (True, "GPU", True),
         )
 
-    def test_qiskit_counts_are_reoriented_to_wire_order(self):
-        self.assertEqual(normalize_qiskit_counts({"10": 5, "01": 7}), {"01": 5, "10": 7})
+    def test_qiskit_counts_pass_through_in_qiskit_little_endian_order(self):
+        # q0=LSB: Qiskit の little-endian ビット列 = qni の ket 順なので並べ替えなし。
+        # 空白除去とキーのソートのみが起きる。
+        self.assertEqual(normalize_qiskit_counts({"10": 5, "01": 7}), {"01": 7, "10": 5})
 
     def test_contract_defaults_to_allowed_gpu_runner(self):
         request = parse_run_request(

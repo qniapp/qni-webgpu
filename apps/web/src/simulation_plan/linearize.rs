@@ -157,12 +157,11 @@ pub(crate) fn linearize_ops(
         // `< 2` guard at :1306).
         //
         // `control_value` bits = Controls only (AntiControls live in
-        // `control_mask & !control_value`). We pick the topmost wire
-        // (= the highest set bit of `control_value`, since our bit
-        // numbering runs qubits-1..0 top→bottom) as the Z target so the
-        // dispatch matches qni's "first in target list" convention. CZ
-        // is physically symmetric so the choice only affects the
-        // GateParams shape, not the resulting state.
+        // `control_mask & !control_value`). We pick the highest set bit of
+        // `control_value` (now the bottommost wire, since our bit numbering
+        // runs 0..qubits-1 top→bottom with q0=LSB) as the Z target. CZ is
+        // physically symmetric so the choice only affects the GateParams
+        // shape, not the resulting state.
         if targets.is_empty()
             && qft_gates.is_empty()
             && measurement_targets.is_empty()
@@ -249,11 +248,12 @@ pub(crate) fn linearize_ops(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
+            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
+            // outcome の bit j は上端から j 本目のワイヤに対応し、ケットでは q0=上端が右端になる。
             let base_bit = display
                 .wire
-                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
-                .expect("span is clamped to the register");
+                .expect("display wire is within the register");
             ops.push(SimulationOp::CaptureProbability {
                 gate_id: display.id,
                 base_bit,
@@ -271,11 +271,12 @@ pub(crate) fn linearize_ops(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
+            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
+            // outcome の bit j は上端から j 本目のワイヤに対応し、ケットでは q0=上端が右端になる。
             let base_bit = display
                 .wire
-                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
-                .expect("span is clamped to the register");
+                .expect("display wire is within the register");
             ops.push(SimulationOp::CaptureAmplitude {
                 gate_id: display.id,
                 base_bit,
@@ -293,11 +294,12 @@ pub(crate) fn linearize_ops(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
+            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
+            // outcome の bit j は上端から j 本目のワイヤに対応し、ケットでは q0=上端が右端になる。
             let base_bit = display
                 .wire
-                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
-                .expect("span is clamped to the register");
+                .expect("display wire is within the register");
             ops.push(SimulationOp::CaptureDensity {
                 gate_id: display.id,
                 base_bit,
@@ -366,8 +368,8 @@ fn qft_external_controls(
 /// the (inverse) ladder rather than after.
 ///
 /// Wire-to-bit mapping: `gate.wire + idx` (wire index of the i-th
-/// qubit in the QFT register) → `bit = qubits − 1 − wire` (the
-/// simulator convention where the top wire is the MSB).
+/// qubit in the QFT register) → `bit = wire` (the simulator convention
+/// where the top wire q0 is the LSB; identity map).
 fn linearize_qft(
     gate: &PlacedGate,
     qubits: QubitCount,
@@ -622,7 +624,8 @@ mod tests {
     #[test]
     fn two_controls_emit_controlled_z() {
         // 3 qubits, Controls on the top two wires (no target gate) → CCZ.
-        // wire 0 → bit 2 (highest = Z target); wire 1 → bit 1 (control).
+        // wire 0 → bit 0; wire 1 → bit 1 (highest set bit = Z target). The
+        // remaining Control (bit 0) gates the Z.
         let gates = [
             PlacedGate::new(
                 crate::app::GateId::from_u32(1),
@@ -646,15 +649,16 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (2, 0b010, 0b010)
+            (1, 0b001, 0b001)
         );
     }
 
     #[test]
     fn controlled_z_drops_anti_control_bits() {
-        // 3 qubits: Controls on wires 0, 1 and an AntiControl on wire 2.
-        // The Z keeps only the remaining Control (bit 1); the anti-control
-        // (bit 0) must not leak into the Z's control mask.
+        // 3 qubits: Controls on wires 0, 1 (bits 0, 1) and an AntiControl on
+        // wire 2 (bit 2). The Z target is the highest Control bit (bit 1) and
+        // it keeps only the remaining Control (bit 0); the anti-control (bit 2)
+        // must not leak into the Z's control mask.
         let gates = [
             PlacedGate::new(
                 crate::app::GateId::from_u32(1),
@@ -686,7 +690,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (2, 0b010, 0b010)
+            (1, 0b001, 0b001)
         );
     }
 
@@ -715,7 +719,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (1, 0b100, 0b100)
+            (1, 0b001, 0b001)
         );
     }
 
@@ -774,7 +778,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (1, 0b100, 0)
+            (1, 0b001, 0)
         );
     }
 
@@ -803,7 +807,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (1, 0, 0)
+            (0, 0, 0)
         );
     }
 
@@ -812,8 +816,8 @@ mod tests {
         // The forward QFT completes its H/phase ladder with a trailing
         // bit-reversal SWAP network (textbook QFT = ladder + final swaps).
         // For a span-2 QFT on wires 0,1 the ladder is H, P, H (op[0..3]); op[3]
-        // is the first CNOT of the trailing swap(bit1, bit0): X on bit 0
-        // controlled by bit 1.
+        // is the first CNOT of the trailing swap(bit0, bit1): X on bit 1
+        // controlled by bit 0.
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftGate,
@@ -827,7 +831,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (0, 0b10, 0b10)
+            (1, 0b01, 0b01)
         );
     }
 
@@ -835,7 +839,7 @@ mod tests {
     fn qft_dagger_emits_leading_bit_reversal_swap() {
         // QFT† = (S·L)† = L†·S, so its bit-reversal SWAP network comes first.
         // span-2 QFT† on wires 0,1: op[0] is the first CNOT of the leading
-        // swap(bit1, bit0): X on bit 0 controlled by bit 1.
+        // swap(bit0, bit1): X on bit 1 controlled by bit 0.
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftDaggerGate,
@@ -849,7 +853,7 @@ mod tests {
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
-            (0, 0b10, 0b10)
+            (1, 0b01, 0b01)
         );
     }
 
@@ -921,14 +925,14 @@ mod tests {
         assert!(matches!(
             ops.first(),
             Some(SimulationOp::CaptureProbability { controls, .. })
-                if controls.mask() == 0b10 && controls.value() == 0b10
+                if controls.mask() == 0b1 && controls.value() == 0b1
         ));
     }
 
     #[test]
-    fn probability_display_base_bit_is_span_bottom() {
-        // 3 qubits, top wire, span 2 → base_bit = qubits - wire - span = 1,
-        // exercising `wire.offset(span - 1).to_qubit_bit(qubits)`.
+    fn probability_display_base_bit_is_span_top() {
+        // 3 qubits, top wire, span 2 → base_bit = top wire = 0 (q0=LSB),
+        // exercising `wire.to_qubit_bit(qubits)` (span's lowest bit).
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::ProbabilityDisplay,
@@ -942,7 +946,7 @@ mod tests {
 
         assert!(matches!(
             ops.first(),
-            Some(SimulationOp::CaptureProbability { base_bit, .. }) if base_bit.as_u32() == 1
+            Some(SimulationOp::CaptureProbability { base_bit, .. }) if base_bit.as_u32() == 0
         ));
     }
 
@@ -993,7 +997,7 @@ mod tests {
         assert!(matches!(
             ops.first(),
             Some(SimulationOp::CaptureBloch { controls, .. })
-                if controls.mask() == 0b10 && controls.value() == 0
+                if controls.mask() == 0b1 && controls.value() == 0
         ));
     }
 

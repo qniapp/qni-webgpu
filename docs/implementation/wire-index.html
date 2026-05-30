@@ -21,7 +21,7 @@
   <h1 class="page-title">WireIndex 実装仕様</h1>
   <p class="page-lede">
     回路エディタの量子ビットワイヤ番号を <code>usize</code> の裸値ではなく、<code>WireIndex</code> という値オブジェクトで扱うための仕様。
-    上から下へ 0 始まりで数えるワイヤ番号という意味を型へ閉じ込め、GPU 側の MSB 始まりビット番号への変換を 1 か所へ集約する。
+    上から下へ 0 始まりで数えるワイヤ番号という意味を型へ閉じ込め、GPU 側のビット番号（q0=LSB、リトルエンディアン）への変換と範囲判定を 1 か所へ集約する。
   </p>
 </div>
 
@@ -31,20 +31,20 @@
     <p>
       現行実装では <code>PlacedGate.wire: usize</code> を中心に、ドラッグ中のスナップ先ワイヤ、ステップ展開の対象ワイヤ、外部 GPU 経路の表示出力対象が、同じ意味のワイヤ番号として使われている。
       ワイヤは画面の上から下へ <code>0, 1, 2, …</code> と数える。
-      一方で GPU 側の量子状態計算は最上位ビット（MSB）始まりのビット番号を使うため、<code>bit = qubits − 1 − wire</code> という反転変換が必要になる。
+      GPU 側の量子状態計算は最上段ワイヤ q0 を最下位ビット（LSB）とするリトルエンディアンのビット番号を使うため、ワイヤ番号とビット番号は一致する（<code>bit = wire</code> の恒等対応）。Quirk と同じビット順である。
     </p>
     <p>
-      この変換は <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> に十数か所散らばっており、いずれも「<code>wire</code> が量子ビット数の範囲内である」という前提に依存する。
-      裸の <code>usize</code> では、ワイヤ番号と配列添字・スロット番号・ビット番号の取り違えを型で防げず、反転変換のオフバイワン誤りも検出できない。
+      この対応の範囲判定は <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> に十数か所散らばっており、いずれも「<code>wire</code> が量子ビット数の範囲内である」という前提に依存する。
+      裸の <code>usize</code> では、ワイヤ番号と配列添字・スロット番号・ビット番号の取り違えを型で防げず、範囲判定のオフバイワン誤りも検出できない。
     </p>
     <p>
       <code>WireIndex</code> は「回路エディタのワイヤ番号」だけを表す値オブジェクトにする。
-      値は非公開にし、MSB 始まりビット番号への変換と範囲判定をメソッドへ閉じ込める。
+      値は非公開にし、ビット番号（q0=LSB）への変換と範囲判定をメソッドへ閉じ込める。
       これにより、ドメイン駆動設計（DDD）の観点で重要な不変性、自己検証、等価性をワイヤ番号へ適用する。
     </p>
     <ul>
       <li>ワイヤ番号は常に 0 以上の整数で、先頭ワイヤは <code>WireIndex::ZERO</code> で表す</li>
-      <li>ビット番号への変換は <code>to_qubit_bit</code> に集約し、<code>qubits − 1 − wire</code> を呼び出し側へ書かない</li>
+      <li>ビット番号への変換は <code>to_qubit_bit</code> に集約し、範囲判定（<code>wire &lt; qubits</code>）を呼び出し側へ書かない</li>
       <li>ピクセル座標から暗黙にワイヤ番号を作らず、スナップ確定時に明示的に変換する</li>
     </ul>
   </div>
@@ -60,7 +60,7 @@
         <tr><th>意味</th><td>回路エディタのワイヤ番号。画面上端のワイヤを <code>0</code> として下へ増える</td></tr>
         <tr><th>始点</th><td>0 始まり。<code>0</code> は最上段のワイヤを表す</td></tr>
         <tr><th>保持する値</th><td><code>usize</code>。フィールドは非公開にする</td></tr>
-        <tr><th>関連概念</th><td>GPU 側の MSB 始まりビット番号は <a href="qubit-bit.html">QubitBit</a>。<code>WireIndex</code> から <code>to_qubit_bit</code> で変換する</td></tr>
+        <tr><th>関連概念</th><td>GPU 側のビット番号（q0=LSB、リトルエンディアン）は <a href="qubit-bit.html">QubitBit</a>。<code>WireIndex</code> から <code>to_qubit_bit</code> で変換する</td></tr>
         <tr><th>対象範囲</th><td><code>PlacedGate.wire</code>、ドラッグのスナップ先ワイヤ、挿入対象ワイヤ、ステップ展開の対象ワイヤ、外部 GPU 経路の表示出力対象</td></tr>
         <tr><th>対象外</th><td>横方向の列番号（<code>CircuitColumnIndex</code>）、表示ブロックのスパン（<code>GateSpan</code>）、状態ベクトルパネルのグリッド行</td></tr>
       </tbody>
@@ -88,8 +88,8 @@ impl WireIndex {
 
     /// 量子ビット数の範囲内か（`wire &lt; qubits` ガードの置き換え）。
     pub(crate) fn is_within(self, qubits: QubitCount) -&gt; bool;
-    /// MSB 始まりビット番号へ変換する。範囲外なら None。
-    /// (`qubits − 1 − wire` をここだけに閉じ込める)
+    /// ビット番号（q0=LSB、リトルエンディアン）へ変換する。範囲外なら None。
+    /// (ワイヤ番号とビット番号は一致する恒等対応。範囲判定だけをここに閉じ込める)
     pub(crate) fn to_qubit_bit(self, qubits: QubitCount) -&gt; Option&lt;QubitBit&gt;;
     /// 下方向へ delta 本ずらしたワイヤ（スパン内・QFT 展開のワイヤ走査用）。
     pub(crate) fn offset(self, delta: usize) -&gt; Self;
@@ -98,7 +98,7 @@ impl WireIndex {
     <p class="note">
       <code>new(usize)</code> は Rust の型がすでに 0 以上を保証するため失敗しない。
       負数や対象環境の <code>usize</code> に収まらない整数が混ざりうる URL 復元や将来の JavaScript 連携では <code>try_from_i64</code> を使う。
-      <code>to_qubit_bit</code> は範囲判定と反転変換を 1 回で行い、結果が <code>None</code> のときは GPU へ出さない。
+      <code>to_qubit_bit</code> は範囲判定を行ってビット番号（恒等対応）を返し、結果が <code>None</code> のときは GPU へ出さない。
       <code>as_usize()</code> はピクセル座標計算や配列添字など、境界層へ出る直前だけで使う。
     </p>
   </div>
@@ -118,7 +118,7 @@ impl WireIndex {
         <tr>
           <th>自己検証</th>
           <td>生成時に 0 以上かつ <code>usize</code> に収まることを保証する。外部入力から負数を受け取った場合は <code>Err(WireIndexError::Negative)</code> にする。範囲判定（<code>wire &lt; qubits</code>）は <code>is_within</code> / <code>to_qubit_bit</code> に集約する</td>
-          <td>呼び出し側で <code>qubits − 1 − wire</code> や <code>wire &gt;= qubits</code> を重複実装しない。負数を <code>0</code> に丸めない</td>
+          <td>呼び出し側で <code>wire &gt;= qubits</code> を重複実装しない。負数を <code>0</code> に丸めない</td>
         </tr>
         <tr>
           <th>等価性</th>
@@ -147,11 +147,11 @@ impl WireIndex {
 
     <h3>ビット番号への変換</h3>
     <p>
-      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> に散らばる <code>(qubits − 1 − gate.wire) as u32</code> は、すべて <code>gate.wire.to_qubit_bit(qubits)</code> へ置き換える。
-      <code>to_qubit_bit</code> は範囲判定と反転変換をまとめて行うため、1 量子ビットの対象ビットを求める箇所はこれ 1 つで済む。
+      <code>simulation_plan/linearize.rs</code> と <code>app/external_gpu/*.rs</code> に散らばる <code>gate.wire as u32</code> は、すべて <code>gate.wire.to_qubit_bit(qubits)</code> へ置き換える。
+      <code>to_qubit_bit</code> は範囲判定を行ってビット番号（恒等対応）を返すため、1 量子ビットの対象ビットを求める箇所はこれ 1 つで済む。
     </p>
     <p>
-      一方、表示ブロックのように対象ビットがスパンを含む別の式（<code>base_bit = qubits − wire − span</code>）で決まる箇所では、変換を伴わない範囲判定だけが要るので <code>is_within</code> を使う。
+      一方、表示ブロックのように対象ビットがスパンの上端（<code>base_bit = wire</code>）で決まる箇所では、変換を伴わない範囲判定だけが要るので <code>is_within</code> を使う。
       表示ブロックの収集前に置かれた <code>if display.wire &gt;= qubits { continue; }</code> と、外部 GPU 経路のフィルタ <code>gate.wire &lt; qubits</code> がこれに当たる。
       QFT 展開でワイヤを下へ走査する <code>gate.wire + idx</code> は <code>gate.wire.offset(idx)</code> にし、その後 <code>to_qubit_bit</code> でビット番号へ変換する。
     </p>
@@ -178,7 +178,7 @@ impl WireIndex {
       <tbody>
         <tr><th>URL 復元</th><td>配列添字 / 行番号 <code>usize</code></td><td><code>WireIndex::new(row)</code></td><td>配列添字なので負数は発生しない</td></tr>
         <tr><th>ピクセル座標</th><td>スナップ計算の候補ワイヤ <code>usize</code></td><td>スナップ確定時に <code>WireIndex::new(index)</code></td><td>範囲外候補はスナップ対象から除外する</td></tr>
-        <tr><th>GPU ビット番号</th><td><code>QubitBit</code>（MSB 始まり）</td><td><code>wire.to_qubit_bit(qubits)</code></td><td>範囲外は <code>None</code>。GPU へ出さない</td></tr>
+        <tr><th>GPU ビット番号</th><td><code>QubitBit</code>（q0=LSB、リトルエンディアン）</td><td><code>wire.to_qubit_bit(qubits)</code></td><td>範囲外は <code>None</code>。GPU へ出さない</td></tr>
         <tr><th>外部 GPU 表示出力</th><td>Rust の値オブジェクト</td><td>JSON 生成時だけ <code>as_usize()</code> で数値化する</td><td>値オブジェクト生成済みなので追加検証は不要</td></tr>
       </tbody>
     </table>
@@ -195,7 +195,7 @@ impl WireIndex {
     <ol>
       <li><code>WireIndex</code> と <code>WireIndexError</code> を <code>app/circuit_model/wire_index.rs</code> に追加し、再公開する</li>
       <li><code>PlacedGate.wire</code> と <code>PlacedGate::new</code> のワイヤ引数を <code>WireIndex</code> へ変更する</li>
-      <li><code>(qubits − 1 − wire) as u32</code> の全箇所を <code>wire.to_qubit_bit(qubits)</code> へ、<code>wire &gt;= qubits</code> / <code>wire &lt; qubits</code> のガードを <code>is_within</code> へ置き換える</li>
+      <li><code>wire as u32</code> の全箇所を <code>wire.to_qubit_bit(qubits)</code> へ、<code>wire &gt;= qubits</code> / <code>wire &lt; qubits</code> のガードを <code>is_within</code> へ置き換える</li>
       <li>ドラッグのスナップ先、挿入対象、<code>LiveDragSnap</code> のワイヤを <code>WireIndex</code> へ広げる。ピクセルから求めた候補は確定地点で変換する</li>
       <li>QFT 展開のワイヤ走査を <code>offset</code> ＋ <code>to_qubit_bit</code> に置き換える</li>
       <li>ワイヤ番号を受け取る Rust ドメイン API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
@@ -215,7 +215,7 @@ impl WireIndex {
       <li><strong>0 以上の値を生成できる</strong> — <code>WireIndex::new(2).as_usize()</code> が <code>2</code> になることを確認する</li>
       <li><strong>負数を拒否する</strong> — <code>WireIndex::try_from_i64(-1)</code> が <code>Err(WireIndexError::Negative)</code> になることを確認する</li>
       <li><strong>等価性が値で決まる</strong> — 別々に生成した <code>WireIndex::new(1)</code> 同士が等しいことを確認する</li>
-      <li><strong>ビット番号へ反転変換する</strong> — 3 量子ビットで <code>WireIndex::ZERO.to_qubit_bit(3)</code> が最上位ビット（<code>2</code>）に対応することを確認する</li>
+      <li><strong>ビット番号へ変換する</strong> — 3 量子ビットで <code>WireIndex::ZERO.to_qubit_bit(3)</code> が最下位ビット（<code>0</code>）に対応することを確認する</li>
       <li><strong>範囲外は変換しない</strong> — <code>WireIndex::new(3).to_qubit_bit(3)</code> が <code>None</code> になることを確認する</li>
       <li><strong>範囲判定ができる</strong> — <code>WireIndex::new(3).is_within(3)</code> が <code>false</code> になることを確認する</li>
       <li><strong>下方向のずらしができる</strong> — <code>WireIndex::ZERO.offset(2).as_usize()</code> が <code>2</code> になることを確認する</li>

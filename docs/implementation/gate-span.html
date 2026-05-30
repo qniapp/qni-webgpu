@@ -157,10 +157,10 @@ impl GateSpan {
       <code>SpanResizeDrag.start_span</code> は伸縮ドラッグ中の差分計算（整数演算）に使う一時状態なので <code>usize</code> のまま保ち、取得時に <code>get()</code> で変換する（<a href="wire-index.html">WireIndex</a> の <code>start_wire</code> と同じ方針）。
     </p>
 
-    <h3>ピクセル幅と表示ブロックのスパン下端</h3>
+    <h3>ピクセル幅と表示ブロックのスパン上端</h3>
     <p>
       <code>layout/geometry.rs</code> のピクセル幅関数（<code>gate_width_cols</code> / <code>gate_size</code> / <code>amplitude_grid_dims</code> / <code>amplitude_grid_rect</code> / <code>density_matrix_width_cols</code>）は派生ピクセル層なので <code>usize</code> 境界のままにし、呼び出し側が <code>gate.span.get()</code> で渡す。
-      一方、ステップ展開では表示ブロックのスパン下端 <code>base_bit = qubits − wire − span</code> を、<a href="wire-index.html">WireIndex</a> と <code>GateSpan</code> を組み合わせて求め、結果を <a href="qubit-bit.html">QubitBit</a> として扱う。
+      一方、ステップ展開では表示ブロックのスパン上端（span に含まれる最下位ビット）<code>base_bit = wire</code> を、<a href="wire-index.html">WireIndex</a> の <code>to_qubit_bit</code> で求め、結果を <a href="qubit-bit.html">QubitBit</a> として扱う。q0=LSB なので上端ワイヤがスパン内の最下位ビットになる。
     </p>
   </div>
 </section>

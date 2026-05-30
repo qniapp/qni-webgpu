@@ -570,8 +570,8 @@ test('Run GPU sends Probability display controls to the Qiskit backend', async (
   const request = await page.evaluate(() => (window as any).__qniLastQiskitRequest)
 
   expect(request?.outputs?.probability?.[0]).toMatchObject({
-    control_mask: 2,
-    control_value: 2,
+    control_mask: 1,
+    control_value: 1,
   })
 })
 
@@ -731,8 +731,8 @@ test('Run GPU sends Bloch display controls to the Qiskit backend', async ({ page
   const request = await page.evaluate(() => (window as any).__qniLastQiskitRequest)
 
   expect(request?.outputs?.bloch?.[0]).toMatchObject({
-    control_mask: 2,
-    control_value: 2,
+    control_mask: 1,
+    control_value: 1,
   })
 })
 

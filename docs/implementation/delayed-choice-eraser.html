@@ -64,7 +64,7 @@
     </p>
 
     <div class="dce-figure">
-      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,1,1,"X"],[1,1,"QFT7"],[1,1,"Probability7"],["H"],["•","X^½"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
+      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,"X"],[1,1,"QFT7"],[1,1,"Probability7"],["H"],["•","X^½"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
     </div>
 
     <div class="dce-legend" aria-hidden="true">
@@ -89,7 +89,7 @@
     <table class="spec">
       <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1 – 2</td><td>q1 に H → CNOT(q1→q6)</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q6）へ刻む（二重スリットに相当）</td></tr>
+        <tr><td>1 – 2</td><td>q1 に H → CNOT(q1→q4)</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q4）へ刻む（二重スリットに相当）</td></tr>
         <tr><td>3</td><td>スクリーンに QFT</td><td>着弾位置の分布を作る</td></tr>
         <tr><td>4</td><td>スクリーン全体の確率表示ブロック</td><td>経路情報が残っているため、全体の分布は<strong>のっぺり</strong>（干渉縞なし）</td></tr>
         <tr><td>5</td><td>q0 に H</td><td>「経路情報を消すか残すか」をコヒーレントな重ね合わせにする（測定はしない）</td></tr>
@@ -134,7 +134,7 @@
     <ul>
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
       <li><strong>測定（Measure）は置かない。</strong> qni の測定は状態を 1 サンプルに潰すため、アンサンブルの干渉縞が 1 画面で出ない。スクリーンと q0/q1 をコヒーレントに保ち、条件付き確率表示で 4 通りを同時に見せる（測定して仕分けた分布と同じ）。</li>
-      <li><strong>which-path のマーク（CNOT のターゲット）を Quirk の q4 から q6 へ。</strong> qni は上のワイヤを最上位ビットとして数える（Quirk は逆）ため、干渉縞の本数（4 本）を Quirk と一致させるには下から 3 番目の q6 に置く。qni の QFT は末尾にビット反転 SWAP を含む真の離散フーリエ変換（<a href="quirk-sample-circuits.html">QFT の項</a>）。</li>
+      <li><strong>which-path のマーク（CNOT のターゲット）は Quirk と同じ q4 のまま。</strong> qni は上のワイヤ q0 を最下位ビット（LSB）として数えるリトルエンディアンで、これは Quirk と同じビット順なので、Quirk 本来の q4（QFT レジスタの上から 3 番目のワイヤ）にマークを置けば干渉縞の本数（4 本）も Quirk と一致する。qni の QFT は末尾にビット反転 SWAP を含む真の離散フーリエ変換（<a href="quirk-sample-circuits.html">QFT の項</a>）。</li>
       <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）と区切りだけの列を削除する。</li>
     </ul>
     <table class="spec">

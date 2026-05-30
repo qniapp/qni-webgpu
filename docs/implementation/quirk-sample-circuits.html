@@ -145,7 +145,7 @@
     <table class="spec">
       <tbody>
         <tr><th>Grover</th><td>qni に <code>grover-search</code> サンプル（5 量子ビット）が実装済み。Quirk 版は拡散変換に <code>⊖</code>（X 軸制御）を使うが、qni 版は <code>H</code> → 多重制御 <code>X</code> → <code>H</code>（多重制御 <code>Z</code> と等価）の形で同じ拡散を組んでいるため、<code>⊖</code> なしで成立している</td></tr>
-        <tr><th>QFT</th><td>qni はネイティブの <code>QFT&lt;n&gt;</code> ゲートを持ち、<code>qft-4</code> サンプルもある。Quirk の手動 QFT は <code>Counting</code> と <code>Z</code> の高次ルートを使うが、qni のサンプルは <code>H</code> と制御位相回転（<code>P(π_2)</code> / <code>P(π_4)</code> / <code>P(π_8)</code>）、および末尾のビット反転 <code>Swap</code> へ分解した形で持っている。ネイティブの <code>QFT&lt;n&gt;</code> ゲートも同じ分解で展開し、末尾のビット反転 <code>Swap</code> で出力順を戻して真の離散フーリエ変換になる。ビット順は qni の流儀（上のワイヤが最上位ビット。Quirk は逆）なので、同じ位置にマークを置いても干渉縞の本数は Quirk と変わる（<a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>はこの差を吸収するためマーク位置を q6 にしている）</td></tr>
+        <tr><th>QFT</th><td>qni はネイティブの <code>QFT&lt;n&gt;</code> ゲートを持ち、<code>qft-4</code> サンプルもある。Quirk の手動 QFT は <code>Counting</code> と <code>Z</code> の高次ルートを使うが、qni のサンプルは <code>H</code> と制御位相回転（<code>P(π_2)</code> / <code>P(π_4)</code> / <code>P(π_8)</code>）、および末尾のビット反転 <code>Swap</code> へ分解した形で持っている。ネイティブの <code>QFT&lt;n&gt;</code> ゲートも同じ分解で展開し、末尾のビット反転 <code>Swap</code> で出力順を戻して真の離散フーリエ変換になる。ビット順は qni も Quirk と同じ（上のワイヤ q0 が最下位ビット＝リトルエンディアン）なので、同じ位置にマークを置けば干渉縞の本数も Quirk と一致する（<a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>のマークは Quirk と同じ q4 に置いている）</td></tr>
       </tbody>
     </table>
   </div>

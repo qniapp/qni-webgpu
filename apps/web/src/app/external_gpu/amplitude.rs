@@ -50,11 +50,12 @@ pub(super) fn collect_amplitude_requests(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
+            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
+            // outcome の bit j は base_bit + j = 上端から j 本目のワイヤに対応する。
             let base_bit = display
                 .wire
-                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
-                .expect("span is clamped to the register");
+                .expect("display wire is within the register");
             requests.push(ExternalAmplitudeRequest {
                 gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
@@ -241,8 +242,8 @@ mod tests {
 
     #[test]
     fn serializes_amplitude_span_base_bit() {
-        // 3 qubits, top wire, span 2 → base_bit = qubits - wire - span = 1
-        // （wire.offset(span-1).to_qubit_bit(qubits) 経路）、phase_lock_enabled は span != n で true。
+        // 3 qubits, top wire (wire 0), span 2 → 範囲 [0,2)、最下位ビット = 上端ワイヤ
+        // なので base_bit = 0（q0=LSB）。phase_lock_enabled は span != n で true。
         let requests = collect_amplitude_requests(
             &[PlacedGate::new(
                 crate::app::GateId::from_u32(2),
@@ -256,7 +257,7 @@ mod tests {
         );
         assert_eq!(
             amplitude_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1,"control_mask":0,"control_value":0,"phase_lock_enabled":true}]"#,
+            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":0,"control_mask":0,"control_value":0,"phase_lock_enabled":true}]"#,
         );
     }
 
@@ -283,7 +284,7 @@ mod tests {
             ],
             qubit_count(2),
         );
-        assert_eq!(requests[0].controls.mask(), 2);
+        assert_eq!(requests[0].controls.mask(), 1);
     }
 
     #[test]
@@ -311,7 +312,7 @@ mod tests {
         );
         assert_eq!(
             (requests[0].controls.mask(), requests[0].controls.value()),
-            (2, 0)
+            (1, 0)
         );
     }
 
