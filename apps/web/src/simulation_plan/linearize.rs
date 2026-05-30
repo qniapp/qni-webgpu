@@ -464,7 +464,13 @@ fn qft_reversal_swap_ops(
     };
     let mut ops = Vec::new();
     for i in 0..(span / 2) {
-        push_swap_3cnot(&mut ops, bit_of(i), bit_of(span - 1 - i), controls, state_count);
+        push_swap_3cnot(
+            &mut ops,
+            bit_of(i),
+            bit_of(span - 1 - i),
+            controls,
+            state_count,
+        );
     }
     ops
 }
@@ -480,10 +486,18 @@ fn push_swap_3cnot(
     controls: ColumnControls,
     state_count: u32,
 ) {
-    let cx_a_to_b =
-        gate_params_controlled(GateKind::X, bit_b, controls.with_control(bit_a), state_count);
-    let cx_b_to_a =
-        gate_params_controlled(GateKind::X, bit_a, controls.with_control(bit_b), state_count);
+    let cx_a_to_b = gate_params_controlled(
+        GateKind::X,
+        bit_b,
+        controls.with_control(bit_a),
+        state_count,
+    );
+    let cx_b_to_a = gate_params_controlled(
+        GateKind::X,
+        bit_a,
+        controls.with_control(bit_b),
+        state_count,
+    );
     ops.push(SimulationOp::ApplyGate(cx_a_to_b));
     ops.push(SimulationOp::ApplyGate(cx_b_to_a));
     ops.push(SimulationOp::ApplyGate(cx_a_to_b));
