@@ -32,6 +32,14 @@ import {
   UI_CONSTANTS,
 } from './support/web-spec-helpers'
 
+// Bloch tip dot colors follow the z gradient defined in src/colors.rs:
+// z = +1 (|0⟩) = red-300 #E8705F = rgb(232, 112, 95);
+// z = -1 (|1⟩) = blue-300 #66A0C8 = rgb(102, 160, 200).
+// These probes confirm the polarity-correct tip color is painted at a sampled
+// on-sphere pixel and is absent (circuit background #F2F0E5) just outside it.
+const isBlochTipRed = ([r, g, b]: CanvasPixel): boolean => r > 200 && g > 90 && g < 135 && b < 120
+const isBlochTipBlue = ([r, g, b]: CanvasPixel): boolean => b > 170 && r < 140 && g > 130 && g < 190
+
 const waitForSeedHook = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => typeof (window as any).__seedCircuits === 'function')
 }
@@ -277,12 +285,12 @@ test('GPU bloch reduction follows snapped drag placement before drop', async ({ 
     const v = Math.round(value * 1000) / 1000
     return Math.abs(v) < 0.001 ? 0 : v
   }
-  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
   expect({
     x: rounded(vector.x),
     y: rounded(vector.y),
     z: rounded(vector.z),
-    liveTipRed: isBlochRed(samples.liveTip),
+    // z = +1 (|0⟩) → the snapped live tip is painted red-300.
+    liveTipRed: isBlochTipRed(samples.liveTip),
   }).toEqual({ x: 0, y: 0, z: 1, liveTipRed: true })
 })
 
@@ -476,7 +484,6 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
-  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
   const isCircuitBackground = ([r, g, b]: CanvasPixel): boolean =>
     Math.abs(r - 242) + Math.abs(g - 240) + Math.abs(b - 229) < 40
   const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
@@ -487,8 +494,9 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
     measurementGapLeft: isCircuitBackground(samples.measurement_gap_left),
     measurementWireLeft: isWireLine(samples.measurement_wire_left),
     measurementDigitCentered: isOutcomeBlue(samples.measurement_digit_centered),
-    blochTipOnSphere: isBlochRed(samples.bloch_tip_on_sphere),
-    blochTipOutsideSphere: isBlochRed(samples.bloch_tip_outside_sphere),
+    // X then Measure leaves q0 in |1⟩ → z = -1, so the south-pole tip is blue-300.
+    blochTipOnSphere: isBlochTipBlue(samples.bloch_tip_on_sphere),
+    blochTipOutsideSphere: isBlochTipBlue(samples.bloch_tip_outside_sphere),
   }
 
   const box = await canvas.boundingBox()
@@ -558,13 +566,13 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   ])
 
   const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
-  const isBlochRed = ([r, g, b]: CanvasPixel): boolean => r > 140 && g < 100 && b < 100
 
   expect({
     measurementDigitTooHigh: isOutcomeBlue(samples.measurement_digit_too_high),
     measurementDigitOnWire: isOutcomeBlue(samples.measurement_digit_on_wire),
-    blochTipOnSphere: isBlochRed(samples.bloch_tip_on_sphere),
-    blochTipTooHigh: isBlochRed(samples.bloch_tip_too_high),
+    // The Bloch on wire 2 has no gate → |0⟩ → z = +1, so the north-pole tip is red-300.
+    blochTipOnSphere: isBlochTipRed(samples.bloch_tip_on_sphere),
+    blochTipTooHigh: isBlochTipRed(samples.bloch_tip_too_high),
   }).toEqual({
     measurementDigitTooHigh: false,
     measurementDigitOnWire: true,
