@@ -143,11 +143,13 @@ const SUPERDENSE_CODING_JSON: &str = concat!(
 /// 可逆加算（Reversible Addition）10 量子ビット回路。q0-q4=A レジスタ、q5-q9=B レジスタ
 /// （下位ビットが上のワイヤ）。Quirk の Swap ネット構成で、A を保ったまま B に A を足し込む
 /// （B += A、5 ビット同士の mod 32）。入力は A=5・B=3 に固定し、B を 8 にする。多ターゲット制御 X
-/// （X の壁）と制御 Swap（Fredkin）を使う。どちらも GPU シェーダが対応済みで新ゲートは不要。解説は
-/// docs/implementation/reversible-addition.html。
+/// （X の壁）と制御 Swap（Fredkin）を使う。加算の前後に Probability5 を A・B 各 1 つずつ（計 4 つ）
+/// 置き、入力 A=5・B=3 と出力 A=5・B=8 の各レジスタ値を見せる。どれも GPU シェーダが対応済みで
+/// 新ゲートは不要。解説は docs/implementation/reversible-addition.html。
 const REVERSIBLE_ADDITION_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"["X",1,"X",1,1,"X","X"],"#,
+    r#"["Probability5",1,1,1,1,"Probability5"],"#,
     r#"["X","X","X","X","•","X","X","X","X","X"],"#,
     r#"[1,1,1,1,"•","X"],"#,
     r#"["Swap",1,1,1,"Swap","•"],"#,
@@ -166,7 +168,8 @@ const REVERSIBLE_ADDITION_JSON: &str = concat!(
     r#"[1,"•",1,1,1,1,"X"],"#,
     r#"["Swap",1,1,1,"Swap","•"],"#,
     r#"["•",1,1,1,1,"X"],"#,
-    r#"["X","X","X","X","•","X","X","X","X","X"]"#,
+    r#"["X","X","X","X","•","X","X","X","X","X"],"#,
+    r#"["Probability5",1,1,1,1,"Probability5"]"#,
     r#"]}"#,
 );
 
