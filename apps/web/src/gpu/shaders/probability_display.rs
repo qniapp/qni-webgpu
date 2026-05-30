@@ -175,6 +175,7 @@ pub(in crate::gpu) const PROBABILITY_RENDER_SHADER: &str = r#"
 struct ProbabilityRenderParams {
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
+  pixels_per_point: f32,
   background: vec4<f32>,
   placeholder_background: vec4<f32>,
   border: vec4<f32>,
@@ -225,6 +226,7 @@ struct VsOut {
   @location(3) @interpolate(flat) span: u32,
   @location(4) @interpolate(flat) hovered_outcome: i32,
   @location(5) @interpolate(flat) render_mode: u32,
+  @location(6) @interpolate(flat) rect_min: vec2<f32>,
 };
 
 @vertex
@@ -244,6 +246,7 @@ fn vs_main(input: VsIn) -> VsOut {
   out.span = input.span;
   out.hovered_outcome = input.hovered_outcome;
   out.render_mode = input.render_mode;
+  out.rect_min = input.rect_min;
   return out;
 }
 
@@ -392,34 +395,73 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
   let row_h = input.rect_size.y / f32(row_count);
-  let raw_row = u32(clamp(floor(input.local.y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
+  // Decide the outcome row from the fragment's framebuffer pixel centre rather
+  // than the interpolated `local.y`. `local.y` is interpolated across the unit
+  // quad's two triangles and is not bit-exact at the shared diagonal, so a pixel
+  // centre on a `row_h` boundary can floor to different rows on either side of
+  // the seam — painting a partial-width bar "nub" one pixel below a full-width
+  // bar (e.g. Probability5, row_h = 8.25px). `@builtin(position)` (`input.clip`
+  // in the fragment) is the rasteriser's physical pixel centre, identical on
+  // both triangles. Invert the world→ndc→framebuffer map to recover the logical
+  // row: egui rounds the callback viewport top to whole physical pixels.
+  //
+  // Two assumptions bound the inversion's exactness (both hold for the reported
+  // bug and every reachable circuit; documented so a refactor cannot silently
+  // break them):
+  //   * `params.viewport_min` is `callback_rect.min`, where `callback_rect` is
+  //     the gate rect intersected with the on-screen clip (see circuit_gates.rs).
+  //     So `viewport_min.y ∈ [0, screen]` and egui's viewport-top clamp to the
+  //     framebuffer is always a no-op here — which is why this shader can omit it.
+  //   * `viewport_top_px` reconstructs egui's top via `floor(x + 0.5)` (round half
+  //     up). epaint uses Rust `f32::round` (half away from zero); for the
+  //     non-negative `x = viewport_min.y * dpr` here the two agree everywhere
+  //     except the single tie `x = n.5 − 1 ULP`, reachable only at a fractional
+  //     device pixel ratio. There it shifts every row one physical pixel (a
+  //     smooth, transient offset — never a seam nub) until the scroll moves off
+  //     the tie. `floor(x + 0.5)` is the closest match WGSL offers: native
+  //     `round` is half-to-even and disagrees with epaint at every odd half.
+  //
+  // `row_local_y` then stands in for `local.y` in EVERY vertical row/boundary
+  // test below (outcome row, aggregate sample, separators, the outer border, the
+  // log hint, and the hover band). Snapping a boundary to a whole pixel only
+  // dodges the seam at device-pixel-ratio 1, where pixel centres sit at half
+  // integers; at a fractional ratio a physical centre can land exactly on an
+  // integer boundary (e.g. ratio 1.25 → logical y = 2.0), so the interpolated
+  // `local.y` could still flip across the seam there. Horizontal tests keep the
+  // interpolated `local.x` (a sub-ULP horizontal wobble never crosses a discrete
+  // row index), and glyph rendering keeps `local` for continuous sampling.
+  let dpr = max(params.pixels_per_point, 1.0e-6);
+  let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
+  let row_local_y =
+    params.viewport_min.y - input.rect_min.y + (input.clip.y - viewport_top_px) / dpr;
+  let raw_row = u32(clamp(floor(row_local_y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let border_px = 1.0;
   if (input.render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER) {
     var placeholder_color = params.placeholder_background;
     let on_border =
       input.local.x < border_px ||
-      input.local.y < border_px ||
+      row_local_y < border_px ||
       input.local.x >= input.rect_size.x - border_px ||
-      input.local.y >= input.rect_size.y - border_px;
+      row_local_y >= input.rect_size.y - border_px;
     let separator_y = pixel_row_top(raw_row, row_h, input.rect_size.y);
     let on_separator =
       row_h > border_px * 2.0 &&
       row_count > 1u &&
       raw_row > 0u &&
-      input.local.y >= separator_y &&
-      input.local.y < separator_y + border_px;
+      row_local_y >= separator_y &&
+      row_local_y < separator_y + border_px;
     if (on_border || on_separator) {
       placeholder_color = params.border;
     }
     return placeholder_color;
   }
   let prob = probability_prob(input.slot, raw_row);
-  let draw_prob = probability_aggregate_prob_for_pixel(input.slot, input.span, input.local.y, prob);
+  let draw_prob = probability_aggregate_prob_for_pixel(input.slot, input.span, row_local_y, prob);
   let bar_right = draw_prob * input.rect_size.x;
   let show_text = row_count <= 16u && row_h > 8.0;
 
   var color = params.background;
-  if (!show_text && on_log_hint(input.local.x, input.local.y, input.slot, input.span, raw_row, row_h, draw_prob, input.rect_size.x, input.rect_size.y)) {
+  if (!show_text && on_log_hint(input.local.x, row_local_y, input.slot, input.span, raw_row, row_h, draw_prob, input.rect_size.x, input.rect_size.y)) {
     color = params.log_hint;
   }
   if (input.local.x <= bar_right) {
@@ -431,14 +473,12 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
   let on_border =
     input.local.x < border_px ||
-    input.local.y < border_px ||
+    row_local_y < border_px ||
     input.local.x >= input.rect_size.x - border_px ||
-    input.local.y >= input.rect_size.y - border_px;
-  let row_pos = input.local.y / max(row_h, 1.0e-6);
-  let row_frac = fract(row_pos);
+    row_local_y >= input.rect_size.y - border_px;
   var on_separator = false;
   let separator_y = pixel_row_top(raw_row, row_h, input.rect_size.y);
-  if (row_h > border_px * 2.0 && row_count > 1u && raw_row > 0u && input.local.y >= separator_y && input.local.y < separator_y + border_px) {
+  if (row_h > border_px * 2.0 && row_count > 1u && raw_row > 0u && row_local_y >= separator_y && row_local_y < separator_y + border_px) {
     let prev_prob = clamp(probability_data[input.slot * MAX_PROBABILITY_OUTCOMES + raw_row - 1u], 0.0, 1.0);
     let separator_x = max(prev_prob, prob) * input.rect_size.x;
     on_separator = input.local.x >= separator_x;
@@ -447,7 +487,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     color = params.border;
   }
 
-  if (on_hover_highlight(input.local, input.rect_size, row_h, input.hovered_outcome)) {
+  if (on_hover_highlight(vec2<f32>(input.local.x, row_local_y), input.rect_size, row_h, input.hovered_outcome)) {
     color = params.hover_border;
   }
 

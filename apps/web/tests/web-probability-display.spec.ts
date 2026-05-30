@@ -628,6 +628,77 @@ test('Probability5 keeps the Quirk-style bar-only display', async ({ page }) => 
   expect(evidence.textPixels < 8).toBe(true)
 })
 
+// Regression guard for the triangle-seam "nub": `raw_row = floor(local.y / row_h)`
+// used the interpolated `local.y`, which is not bit-exact across the unit quad's
+// diagonal, so a `row_h` boundary landing on a pixel centre flipped the row on the
+// lower-left triangle and bled bar fill one pixel below the bar. For Probability5
+// (span 5) `row_h = 264 / 32 = 8.25px`, and the row-6 boundary `6 * 8.25 = 49.5px`
+// is a DPR-1 pixel centre — the exact trigger. Value 5 (full bar in row 5 only)
+// means every row below the spike must be empty, so any bar-blue pixel there is a nub.
+const waitForRowsBelowProbabilitySpike = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+): Promise<{ belowSpikeBarPixels: number }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
+  const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const evidence = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { spikeBarPixels: 0, belowSpikeBarPixels: 0 }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const isBarBlue = (x: number, y: number): boolean => {
+          const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+          return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
+        }
+        const xLo = Math.floor((gateLeft + 1) * scaleX)
+        const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+        let spikeBarPixels = 0
+        const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
+        const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
+        for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) spikeBarPixels += 1
+        let belowSpikeBarPixels = 0
+        const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
+        const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
+        for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) belowSpikeBarPixels += 1
+        return { spikeBarPixels, belowSpikeBarPixels }
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE },
+    )
+    if (evidence.spikeBarPixels > 40) return { belowSpikeBarPixels: evidence.belowSpikeBarPixels }
+    await page.waitForTimeout(50)
+  }
+  throw new Error('Probability5 value-5 bar never rendered; cannot evaluate rows below the spike')
+}
+
+test('Probability5 bar leaves no seam nub in the rows below the spike', async ({ page }) => {
+  // q0 = LSB: X on q0 and q2 → outcome 5, probability 1 → one full-width bar in row 5.
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['X', 1, 'X'], ['Probability5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForProbabilityDistributions(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const evidence = await waitForRowsBelowProbabilitySpike(page, canvas)
+
+  expect(evidence.belowSpikeBarPixels).toBe(0)
+})
+
 test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 1, 1, 1, 1], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
