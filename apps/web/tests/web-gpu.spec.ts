@@ -34,11 +34,19 @@ import {
 
 // Bloch tip dot colors follow the z gradient defined in src/colors.rs:
 // z = +1 (|0⟩) = red-300 #E8705F = rgb(232, 112, 95);
+// z =  0 (|+⟩) = purple-400 #8B7EC8 = rgb(139, 126, 200);
 // z = -1 (|1⟩) = blue-300 #66A0C8 = rgb(102, 160, 200).
-// These probes confirm the polarity-correct tip color is painted at a sampled
-// on-sphere pixel and is absent (circuit background #F2F0E5) just outside it.
+// Thresholds are calibrated to the antialias-free tip-dot center pixels measured
+// under SwiftShader; the three are mutually exclusive and all reject the circuit
+// background #F2F0E5. These probes confirm the polarity-correct tip color is
+// painted at a sampled on-sphere pixel and is absent just outside it.
 const isBlochTipRed = ([r, g, b]: CanvasPixel): boolean => r > 200 && g > 90 && g < 135 && b < 120
 const isBlochTipBlue = ([r, g, b]: CanvasPixel): boolean => b > 170 && r < 140 && g > 130 && g < 190
+const isBlochTipPurple = ([r, g, b]: CanvasPixel): boolean =>
+  r > 110 && r < 170 && g > 100 && g < 155 && b > 165
+// Measurement outcome digits are painted in a darker blue with no green floor,
+// distinct from the brighter blue-300 Bloch south-pole tip above.
+const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
 
 const waitForSeedHook = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => typeof (window as any).__seedCircuits === 'function')
@@ -330,7 +338,6 @@ test('GPU measurement digit follows snapped drag placement before drop', async (
   const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveDigit', x: liveX, y: liveY }])
   await page.mouse.up()
 
-  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   expect({ outcome, liveDigitBlue: isOutcomeBlue(samples.liveDigit) }).toEqual({
     outcome: 1,
     liveDigitBlue: true,
@@ -483,7 +490,6 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
     { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 26 },
   ])
 
-  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
   const isCircuitBackground = ([r, g, b]: CanvasPixel): boolean =>
     Math.abs(r - 242) + Math.abs(g - 240) + Math.abs(b - 229) < 40
   const isWireLine = ([r, g, b]: CanvasPixel): boolean =>
@@ -565,8 +571,6 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
     { name: 'bloch_tip_too_high', x: overlayX, y: wireCenterY(2) - 26 },
   ])
 
-  const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
-
   expect({
     measurementDigitTooHigh: isOutcomeBlue(samples.measurement_digit_too_high),
     measurementDigitOnWire: isOutcomeBlue(samples.measurement_digit_on_wire),
@@ -579,6 +583,43 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
     blochTipOnSphere: true,
     blochTipTooHigh: false,
   })
+})
+
+test('GPU bloch tip is purple at the equator for |+⟩', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Bloch']] })))
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const REM = 32
+  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
+  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
+  const CIRCUIT_PADDING = 2 * REM
+  const QUBIT_LABEL_WIDTH = 3 * 14
+  const QUBIT_LABEL_GAP = 0.5 * REM
+  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
+  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const EGUI_PANEL_MARGIN = 8
+  const blochX = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * 1
+  const wireCenterY = EGUI_PANEL_MARGIN + LINE_Y
+
+  // H|0⟩ = |+⟩ → bloch (1, 0, 0), z = 0. The perspective projection in
+  // bloch_project (src/gpu/shaders/bloch_display.rs) puts the equator tip at
+  // local (-6.33, +6.33) from the sphere center, i.e. down-left of center, where
+  // the gradient midpoint is painted purple-400.
+  const samples = await sampleCanvasPixels(page, canvas, [
+    { name: 'equator_tip', x: blochX - 6, y: wireCenterY + 6 },
+    { name: 'off_tip', x: blochX + 80, y: wireCenterY - 20 },
+  ])
+
+  expect({
+    // The equator tip is the gradient midpoint: purple, neither pole color.
+    equatorTipPurple: isBlochTipPurple(samples.equator_tip),
+    equatorTipRed: isBlochTipRed(samples.equator_tip),
+    equatorTipBlue: isBlochTipBlue(samples.equator_tip),
+    offTipPurple: isBlochTipPurple(samples.off_tip),
+  }).toEqual({ equatorTipPurple: true, equatorTipRed: false, equatorTipBlue: false, offTipPurple: false })
 })
 
 test('Write and measurement digits share the same SDF size', async ({ page }) => {
