@@ -17,13 +17,16 @@ const GROVER_SEARCH_JSON: &str = concat!(
 
 /// QFT を H と制御位相回転へ分解した 4 量子ビット回路。ネイティブ `QFT4`
 /// ゲートを教材として展開したもので、シミュレータの `linearize_qft` が
-/// `QFT4` を変換する手順そのもの（各ビットに H を当て、下位ビットからの
-/// 制御位相 π/2^j を掛ける。j=1→π/2, j=2→π/4, j=3→π/8。最後に末尾の
-/// ビット反転 SWAP で出力順を戻し、真の離散フーリエ変換にする）を回路として
-/// 書き下した。`QFT4` と数学的に等価であることは Web アプリ側の
+/// `QFT4` を変換する手順そのもの（先頭でビット反転 SWAP を掛けてから、各ビット
+/// に H を当て、より上位のビットを制御とする制御位相 π/2^j を掛ける。
+/// j=1→π/2, j=2→π/4, j=3→π/8）を回路として書き下した。先頭の SWAP で入力を
+/// ビット反転してからラダーを通すことで、真の対称離散フーリエ変換（Quirk の
+/// FourierTransformGates）になる。`QFT4` と数学的に等価であることは Web アプリ側の
 /// `decomposed_qft4_matches_native_qft4_ops` テストで保証する。
 pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"{"cols":["#,
+    r#"["Swap",1,1,"Swap"],"#,
+    r#"[1,"Swap","Swap"],"#,
     r#"["H"],"#,
     r#"["P(π_2)","•"],"#,
     r#"["P(π_4)",1,"•"],"#,
@@ -33,9 +36,7 @@ pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"[1,"P(π_4)",1,"•"],"#,
     r#"[1,1,"H"],"#,
     r#"[1,1,"P(π_2)","•"],"#,
-    r#"[1,1,1,"H"],"#,
-    r#"["Swap",1,1,"Swap"],"#,
-    r#"[1,"Swap","Swap"]"#,
+    r#"[1,1,1,"H"]"#,
     r#"]}"#,
 );
 
@@ -75,14 +76,15 @@ const SYMMETRY_BREAKING_JSON: &str = concat!(
 /// 状態への条件付き確率表示で 4 通りを同時に見せる（Quirk が「測定して仕分ける」分布を、
 /// 状態を潰さずに提示）。この形では遅延（スクリーンを先に測定）の演出は省いている。
 ///
-/// which-path のマークは q6 に置く。qni は上のワイヤを最上位ビットとして数える（Quirk は逆）ため、
-/// Quirk が q4（上から 3 番目）に置くマークは qni では下から 3 番目の q6 に当たり、これで
+/// which-path のマークは Quirk と同じ q4 に置く。qni も上のワイヤを最下位ビット
+/// （LSB）として数える q0=LSB 規約になり、Quirk のリトルエンディアンと一致したため、
+/// Quirk が q4（QFT レジスタの上から 3 番目）に置くマークをそのまま q4 に置けば
 /// 干渉縞が 4 本になり Quirk の見た目と一致する。解説は
 /// docs/implementation/delayed-choice-eraser.html。
 const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"[1,"H"],"#,
-    r#"[1,"•",1,1,1,1,"X"],"#,
+    r#"[1,"•",1,1,"X"],"#,
     r#"[1,1,"QFT7"],"#,
     r#"[1,1,"Probability7"],"#,
     r#"["H"],"#,
@@ -135,6 +137,39 @@ const SUPERDENSE_CODING_JSON: &str = concat!(
     r#"[1,1,1,1,"•","X"],"#,
     r#"[1,1,1,1,"H"],"#,
     r#"[1,1,1,1,"Measure","Measure"]"#,
+    r#"]}"#,
+);
+
+/// 可逆加算（Reversible Addition）10 量子ビット回路。q0-q4=A レジスタ、q5-q9=B レジスタ
+/// （下位ビットが上のワイヤ）。Quirk の Swap ネット構成で、A を保ったまま B に A を足し込む
+/// （B += A、5 ビット同士の mod 32）。入力は A=5・B=3 に固定し、B を 8 にする。多ターゲット制御 X
+/// （X の壁）と制御 Swap（Fredkin）を使う。加算の前後に Probability5 を A・B 各 1 つずつ（計 4 つ）
+/// 置き、入力 A=5・B=3 と出力 A=5・B=8 の各レジスタ値を見せる。どれも GPU シェーダが対応済みで
+/// 新ゲートは不要。解説は docs/implementation/reversible-addition.html。
+const REVERSIBLE_ADDITION_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["X",1,"X",1,1,"X","X"],"#,
+    r#"["Probability5",1,1,1,1,"Probability5"],"#,
+    r#"["X","X","X","X","•","X","X","X","X","X"],"#,
+    r#"[1,1,1,1,"•","X"],"#,
+    r#"["Swap",1,1,1,"Swap","•"],"#,
+    r#"[1,1,1,1,"•",1,"X"],"#,
+    r#"[1,"Swap",1,1,"Swap",1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,"X"],"#,
+    r#"[1,1,"Swap",1,"Swap",1,1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,1,"X"],"#,
+    r#"[1,1,1,"Swap","Swap",1,1,1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,1,1,"Swap","Swap",1,1,1,"•"],"#,
+    r#"[1,1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,1,"Swap",1,"Swap",1,1,"•"],"#,
+    r#"[1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,"Swap",1,1,"Swap",1,"•"],"#,
+    r#"[1,"•",1,1,1,1,"X"],"#,
+    r#"["Swap",1,1,1,"Swap","•"],"#,
+    r#"["•",1,1,1,1,"X"],"#,
+    r#"["X","X","X","X","•","X","X","X","X","X"],"#,
+    r#"["Probability5",1,1,1,1,"Probability5"]"#,
     r#"]}"#,
 );
 
@@ -834,6 +869,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             updated_at,
         ),
         grover_search_entry(updated_at),
+        CircuitEntry::sample(
+            "reversible-addition",
+            "Reversible Addition",
+            REVERSIBLE_ADDITION_JSON,
+            updated_at,
+        ),
         CircuitEntry::sample(
             "delayed-choice-eraser",
             "Delayed Choice Eraser",

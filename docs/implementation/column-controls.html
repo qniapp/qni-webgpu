@@ -61,7 +61,7 @@
         <tr><th>意味</th><td>1 つの回路列が持つ制御条件。制御ワイヤ全体のビットマスクと、値 1 を要求するワイヤのビットマスクの対</td></tr>
         <tr><th>保持する値</th><td><code>mask: u32</code>（制御ワイヤ全体）と <code>value: u32</code>（値 1 要求ワイヤ）。フィールドは非公開にする</td></tr>
         <tr><th>不変条件</th><td><code>value &amp; !mask == 0</code>。<code>AntiControl</code> のビットは <code>mask</code> にのみ含まれ <code>value</code> には含まれない</td></tr>
-        <tr><th>ビット番号</th><td>ビット位置は <code>QubitBit</code>（MSB 始まりの量子ビット番号）に対応する。<a href="qubit-bit.html">QubitBit 実装仕様</a>を参照</td></tr>
+        <tr><th>ビット番号</th><td>ビット位置は <code>QubitBit</code>（q0=LSB のビット位置）に対応する。<a href="qubit-bit.html">QubitBit 実装仕様</a>を参照</td></tr>
         <tr><th>対象範囲</th><td>列単位の実行計画（ユニタリ適用、表示ブロックの捕捉）、SWAP 分解、CCZ 化、QFT 展開での制御の引き回し</td></tr>
         <tr><th>対象外</th><td>1 量子ビットゲートの対象ビット（<code>QubitBit</code> 側）、状態カウント、表示ブロックのスパン</td></tr>
       </tbody>

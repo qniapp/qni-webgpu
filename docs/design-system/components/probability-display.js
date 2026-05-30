@@ -376,17 +376,30 @@
       const span = Math.log2(probs.length);
       const s = 1 / (4 + Math.max(8, span));
       const e = Math.max(rowH, 1);
-      let d = 'M 0 0';
+      // log(0) is undefined: an impossible outcome (prob 0) has no log-scale
+      // position, so it gets neither a tick nor a connector. The hint is a set of
+      // vertical ticks at the rows that carry probability, joined by a horizontal
+      // connector only where two consecutive rows are both non-zero — so a full
+      // bar leaves no full-width connector down to the empty rows below it.
+      let d = '';
+      let prevPx = null;
       for (let i = 0; i < probs.length; i++) {
         const p01 = probs[i] / 100;
-        const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
-        const px = (width * xRatio).toFixed(3);
-        const py = (rowH * i).toFixed(3);
-        const pyEnd = (rowH * i + e).toFixed(3);
-        d += ` L ${px} ${py} L ${px} ${pyEnd}`;
+        if (p01 <= 0) {
+          prevPx = null;
+          continue;
+        }
+        const xRatio = Math.min(1, Math.max(0, 1 + Math.log(p01) * s));
+        const px = width * xRatio;
+        const pyTop = rowH * i;
+        const pyEnd = rowH * i + e;
+        if (prevPx !== null) {
+          d += ` M ${prevPx.toFixed(3)} ${pyTop.toFixed(3)} L ${px.toFixed(3)} ${pyTop.toFixed(3)}`;
+        }
+        d += ` M ${px.toFixed(3)} ${pyTop.toFixed(3)} L ${px.toFixed(3)} ${pyEnd.toFixed(3)}`;
+        prevPx = px;
       }
-      d += ` L 0 ${totalH}`;
-      path.setAttribute('d', d);
+      path.setAttribute('d', d.trim());
       path.setAttribute('stroke', 'var(--tx-3)');
       path.setAttribute('stroke-width', '1');
       path.setAttribute('fill', 'none');
@@ -442,16 +455,25 @@
         ctx.strokeStyle = CANVAS_COLORS.tx3;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, 0);
+        // log(0) is undefined: skip impossible outcomes (prob 0) entirely so a
+        // full bar leaves no full-width connector down to the empty rows below.
+        let prevPx = null;
         for (let i = 0; i < n; i++) {
           const p01 = probs[i] / 100;
-          const xRatio = p01 > 0 ? Math.min(1, Math.max(0, 1 + Math.log(p01) * s)) : 0;
-          const px = w * xRatio;
+          if (p01 <= 0) {
+            prevPx = null;
+            continue;
+          }
+          const px = w * Math.min(1, Math.max(0, 1 + Math.log(p01) * s));
           const py = rowH * i;
-          ctx.lineTo(px, py);
+          if (prevPx !== null) {
+            ctx.moveTo(prevPx, py);
+            ctx.lineTo(px, py);
+          }
+          ctx.moveTo(px, py);
           ctx.lineTo(px, py + e);
+          prevPx = px;
         }
-        ctx.lineTo(0, h);
         ctx.stroke();
       }
 

@@ -30,9 +30,9 @@ pub(crate) struct RenderParams {
     pub(crate) stroke: f32,
     pub(crate) cols: u32,
     pub(crate) rows: u32,
-    /// Number of qubits. The fragment shader bit-reverses the display index
-    /// over `qubits` bits to produce the state-vector index — qni's
-    /// row-major-to-state-vector mapping.
+    /// Number of qubits. With the q0=LSB (little-endian) convention the cell
+    /// display index `row * cols + col` is already the state-vector index, so
+    /// the fragment shader reads `state[display_index]` directly (no bit-reverse).
     pub(crate) qubits: u32,
     /// Cell display-index (= `row * cols + col`) the pointer is currently
     /// hovering over, or `-1` for "no hover". The fragment shader
@@ -400,6 +400,13 @@ pub(crate) struct ProbabilityRenderParams {
     /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
+    /// Device pixels per logical point. The fragment shader maps its framebuffer
+    /// `@builtin(position)` back to a logical row so the outcome row is decided
+    /// from the (seam-stable) physical pixel centre rather than the interpolated
+    /// `local.y`, which is not bit-exact across the unit quad's triangle seam.
+    pub(crate) pixels_per_point: f32,
+    /// Pad to keep the following `vec4` colours 16-byte aligned (WGSL std layout).
+    pub(crate) _pad_ppp: [f32; 3],
     pub(crate) background: [f32; 4],
     /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
     pub(crate) placeholder_background: [f32; 4],
@@ -550,9 +557,10 @@ pub(crate) struct PopupValueParams {
     pub(crate) _pad_char: [f32; 2],
     /// RGBA text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// Which state-vector cell the user is hovering — display-space
-    /// index, the shader applies the bit-reverse to get the state-space
-    /// index (same convention as `STATE_RENDER_SHADER`).
+    /// Which state-vector cell the user is hovering — display-space index.
+    /// With q0=LSB this equals the state-space index, so the shader reads
+    /// `state[hovered_display_index]` directly (same convention as
+    /// `STATE_RENDER_SHADER`).
     pub(crate) hovered_display_index: u32,
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>可逆加算（Reversible Addition）— 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/swap-gate.js"></script>
+  <script src="../design-system/components/probability-display.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
+  <style>
+    .ra-figure {
+      overflow-x: auto;
+      margin: 4px 0;
+    }
+    .ra-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px; /* spacing-1 / spacing-5 */
+      align-items: center;
+      margin-top: 12px; /* spacing-3 */
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2); /* Flexoki base-600 */
+    }
+    .ra-legend .item { display: inline-flex; align-items: center; gap: 4px; }
+    .ra-legend .glyph { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: none; }
+  </style>
+</head>
+<body>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a>
+  <span class="sep">/</span>
+  <span class="parent">サンプル回路</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">可逆加算</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
+  <h1 class="page-title">可逆加算（Reversible Addition）</h1>
+  <p class="page-lede">
+    2 つの 5 ビットレジスタ A・B について、<strong>A を保ったまま B を A + B に書き換える</strong>加算回路。
+    全ゲートがユニタリ（可逆）なので、同じゲートを逆順に適用すれば B から A を引いて元へ戻せる ──
+    古典の加算が入力を捨ててしまうのと対照的で、量子回路で算術を扱うときの土台になる。
+    本サンプルは <strong>Quirk の 10 量子ビット構成</strong>をそのまま使い、入力を A = 5・B = 3 に固定して、
+    B を <strong>8（= 5 + 3）</strong>にする。加算の前後に <strong>確率表示（Probability Display）を 4 つ</strong>置き、
+    入力（A = 5・B = 3）と出力（A = 5・B = 8）の各レジスタ値が一目でわかるようにしている。
+    Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
+  </p>
+</div>
+
+<section class="block" id="circuit">
+  <h2>§ 01 回路図</h2>
+  <div class="card">
+    <p>
+      10 量子ビット。<strong>q0–q4 = A レジスタ</strong>（5 ビット。加算しても変わらない）、
+      <strong>q5–q9 = B レジスタ</strong>（5 ビット。最後に A + B が入る）。各レジスタは下位ビットが上のワイヤ
+      （q0・q5 が 1 の位）。回路図はサンプル定義（cols JSON）から <code>&lt;quantum-circuit&gt;</code> カスタム要素が組み立てる
+      （横に長いので右へスクロールできる）。全 22 列で、先頭の 1 列が入力（A・B）のセット、次の 1 列が
+      入力の確率表示、続く 19 列が Quirk の加算本体、最後の 1 列が出力の確率表示。確率表示は A（q0–q4）と
+      B（q5–q9）に 1 つずつ <code>Probability5</code> を置き、各レジスタが取りうる値ごとの確率を縦に並べて示す。
+    </p>
+
+    <div class="ra-figure">
+      <quantum-circuit cols='[["X",1,"X",1,1,"X","X"],["Probability5",1,1,1,1,"Probability5"],["X","X","X","X","•","X","X","X","X","X"],[1,1,1,1,"•","X"],["Swap",1,1,1,"Swap","•"],[1,1,1,1,"•",1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,1,1,1,"•",1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,1,1,"•",1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,1,"•",1,1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,"•",1,1,1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,"•",1,1,1,1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,"•",1,1,1,1,"X"],["Swap",1,1,1,"Swap","•"],["•",1,1,1,1,"X"],["X","X","X","X","•","X","X","X","X","X"],["Probability5",1,1,1,1,"Probability5"]]'></quantum-circuit>
+    </div>
+
+    <div class="ra-legend" aria-hidden="true">
+      <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
+      <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
+      <span class="item"><span class="glyph"><swap-gate></swap-gate></span>Swap（入れ替え）</span>
+    </div>
+
+    <p class="note">
+      縦の水色の線は<strong>制御線</strong>。制御（●）に X を複数繋ぐと<strong>多ターゲット制御 X</strong>（「X の壁」）、
+      制御（●）に Swap 2 つを繋ぐと<strong>制御 Swap（Fredkin）</strong>になる。前後の「X の壁」とその間の制御 Swap 網が、
+      A を保ったまま B に A を足し込む Quirk の<strong>可逆加算</strong>を構成する。縦に長い箱が<strong>確率表示</strong>で、
+      その範囲のレジスタが取りうる各値の確率を縦に並べる（ここでは入力・出力とも 1 つの値に確率 1 が集中する）。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="reading">
+  <h2>§ 02 回路の読み方</h2>
+  <div class="card">
+    <table class="spec">
+      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>X(q0) ・ X(q2)<br />／ X(q5) ・ X(q6)</td><td>A レジスタを <strong>5</strong>（1 の位 q0 ＋ 4 の位 q2）、B レジスタを <strong>3</strong>（1 の位 q5 ＋ 2 の位 q6）にセット</td></tr>
+        <tr><td>2</td><td>確率表示（A: q0–q4 ／ B: q5–q9）</td><td><strong>入力</strong>を表示。A = <strong>5</strong>、B = <strong>3</strong> に確率 1 が集中する</td></tr>
+        <tr><td>3 – 21</td><td>X の壁 ＋ 制御 Swap 網</td><td>Quirk の<strong>可逆加算</strong>。前後の多ターゲット制御 X（X の壁）と、その間の制御 Swap（Fredkin）・制御 X が、A を保ったまま <strong>B += A</strong> を計算する（5 ビット同士、mod 32）</td></tr>
+        <tr><td>22</td><td>確率表示（A: q0–q4 ／ B: q5–q9）</td><td><strong>出力</strong>を表示。A = <strong>5</strong>（保たれる）、B = <strong>8</strong>（= 5 + 3）に確率 1 が集中する</td></tr>
+        <tr><td>結果</td><td>—</td><td>B = A + B = <strong>8</strong>（= 5 + 3）。A は <strong>5</strong> のまま保たれる</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="meaning">
+  <h2>§ 03 何を意味するか</h2>
+  <div class="card">
+    <p>
+      古典の加算 <code>b = a + b</code> は元の b を捨ててしまう（非可逆）。量子の加算は <strong>A を残したまま B を A + B へ移す
+      ユニタリ変換</strong>なので、まったく同じゲートを逆順に適用すれば（B -= A）元の B を取り戻せる。情報を一切捨てない
+      この可逆性が、量子回路で算術を扱うときの基本になる。レジスタが重ね合わせでも、1 回の実行で全ての値をまとめて加算できる。
+    </p>
+    <p class="note">
+      本サンプルは <strong>Quirk の Swap ネット構成</strong>をそのまま使う。<strong>制御 Swap（Fredkin）</strong>と
+      <strong>多ターゲット制御 X（X の壁）</strong>を組み合わせ、補助量子ビットなしに A を保ったまま B += A を計算する
+      （具体的なゲートの組み方は Quirk の <code>additionLink</code> を参照）。加算の前後に置いた 4 つの確率表示が、
+      入力 A = 5・B = 3 と出力 A = 5・B = 8 をそのまま示す（実機の状態ベクトル読み出しでも、入力 A = 5・B = 3 で
+      B = 8 になり A = 5 が保たれることを確認済み）。多ターゲット制御 X も制御 Swap も確率表示も qni の
+      シミュレーション（GPU シェーダ）が対応済みで、新しいゲートは要らない。
+    </p>
+  </div>
+</section>
+
+<section class="block" id="porting">
+  <h2>§ 04 サンプルとしての追加</h2>
+  <div class="card">
+    <p>
+      使うゲート（X・制御・Swap）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
+      多ターゲット制御 X は同じ列に制御（●）と複数の X を、制御 Swap（Fredkin）は同じ列に制御（●）と Swap 2 つを置けばよい。
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
+        <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/quantum-circuit.js</code>（cols JSON から回路を描画）</td></tr>
+        <tr><th>元の定義</th><td>Quirk <code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>additionLink</code>）／ qni チュートリアル <code>~/Work/qni/apps/tutorial/addition_circuit.html</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      元との差: Quirk は入力を <code>Counting5</code> で次々に変えて <code>Chance5</code>（確率表示）で見比べる。本サンプルは Quirk の
+      <strong>10 量子ビットの Swap ネット構成そのまま</strong>に、<code>Counting5</code> を固定入力 A = 5・B = 3 へ置き換え、
+      Quirk の <code>Chance5</code> に相当する <code>Probability5</code> を入力直後と出力末尾に A・B 各 1 つずつ（計 4 つ）置いて、
+      各レジスタの値を見せる形にした。qni チュートリアル（<code>addition_circuit.html</code>）は同じ加算を多重制御 X の
+      リップルキャリーで組む別構成。
+    </p>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+  <p class="meta">qni-webgpu · 可逆加算（Reversible Addition）· 2026-05</p>
+</footer>
+
+</body>
+</html>

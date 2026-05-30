@@ -100,7 +100,8 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
 
   await dragPointer(page, hSource, { x: targetX, y: targetY1 })
 
-  const expectedAfterH = [1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0, 0, 0, 0, 0]
+  // q0=LSB: H on wire1 superposes bit1 → amplitudes on index 0 and index 2.
+  const expectedAfterH = [1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0, 0, 0]
   await waitForStateVectorApprox(page, expectedAfterH)
 
   await dragPointer(page, controlSource, { x: targetX2, y: targetY1 })
@@ -144,7 +145,8 @@ test('anti-control with a zero control wire applies the target gate', async ({ p
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
   await dragPointer(page, xSource, { x: targetX, y: targetY1 })
-  await waitForStateVectorApprox(page, [0, 0, 1, 0, 0, 0, 0, 0])
+  // q0=LSB: X on wire1 sets bit1 → state index 2 (|q1=1, q0=0⟩).
+  await waitForStateVectorApprox(page, [0, 0, 0, 0, 1, 0, 0, 0])
 })
 
 test('anti-control does not apply when the control wire is one', async ({ page }) => {
@@ -185,9 +187,9 @@ test('anti-control does not apply when the control wire is one', async ({ page }
   await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
   // anti-control(q0) sees q0=1, so it does not fire and the X on q1 is
   // suppressed. The state vector still grows to two qubits because q1 has a
-  // placed gate; the final amplitude is on |q0=1, q1=0⟩ (state index 2 with
-  // q0 as the MSB).
-  await waitForStateVectorApprox(page, [0, 0, 0, 0, 1, 0, 0, 0])
+  // placed gate; the final amplitude is on |q0=1, q1=0⟩ (state index 1 with
+  // q0 as the LSB: bit0=1, bit1=0).
+  await waitForStateVectorApprox(page, [0, 0, 1, 0, 0, 0, 0, 0])
 })
 
 test('Control suppresses QFT when the control wire is zero', async ({ page }) => {
@@ -210,10 +212,12 @@ test('Control lets QFT run when the control wire is one', async ({ page }) => {
 
   await waitForStartupReady(page, { waitForStateVector: true })
 
+  // q0=LSB: |1> on wire0 fixes bit0=1; QFT2 on wires 1,2 spreads bits 1,2
+  // uniformly → state indices 1, 3, 5, 7 (positions 2, 6, 10, 14).
   const expected = Array(16).fill(0)
-  expected[8] = 0.5
+  expected[2] = 0.5
+  expected[6] = 0.5
   expected[10] = 0.5
-  expected[12] = 0.5
   expected[14] = 0.5
   await waitForStateVectorApprox(page, expected)
 })
@@ -257,7 +261,8 @@ test('Control does not affect gates in other columns', async ({ page }) => {
 
   await dragPointer(page, xSource, { x: targetX3, y: targetY1 })
 
-  const expected = [0, 0, 1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0]
+  // q0=LSB: X on wire1 fixes bit1=1; H on wire0 spreads bit0 → indices 2, 3.
+  const expected = [0, 0, 0, 0, 1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expected)
 })
 

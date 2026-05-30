@@ -300,7 +300,8 @@ def parse_bloch_output(
         raise ContractError("bloch control_value is out of range")
     if control_value & ~control_mask:
         raise ContractError("bloch control_value must be a subset of control_mask")
-    target_bit = qubits.value - 1 - wire
+    # q0=LSB: web ビット位置 = wire（恒等写像）。runners.py の bloch_control_bits と同じ。
+    target_bit = wire
     non_target_control_count = sum(
         1 for bit in range(qubits.value) if control_mask & (1 << bit) and bit != target_bit
     )

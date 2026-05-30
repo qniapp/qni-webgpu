@@ -189,9 +189,10 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
   await dragPointer(page, hSource, { x: targetX4, y: targetY0 })
 
   // After H q0: (|00⟩+|10⟩)/√2 → CNOT: (|00⟩+|11⟩)/√2 → Z q0: (|00⟩-|11⟩)/√2
-  // → H q0: (|00⟩-|01⟩+|10⟩+|11⟩)/2 (state index n = 2·q0 + q1; q0 is MSB).
+  // → H q0: (|00⟩+|01⟩-|10⟩+|11⟩)/2 in |q1 q0⟩ order, i.e. amplitudes
+  // (+,+,-,+)/2 on state indices 0..3 (index n = q0 + 2·q1; q0 is LSB).
   const half = 0.5
-  await waitForStateVectorApprox(page, [half, 0, -half, 0, half, 0, half, 0])
+  await waitForStateVectorApprox(page, [half, 0, half, 0, -half, 0, half, 0])
 })
 
 test('GPU bloch reduction captures the textbook vectors per qubit', async ({ page }) => {

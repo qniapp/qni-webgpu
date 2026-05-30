@@ -49,11 +49,12 @@ pub(super) fn collect_density_requests(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
+            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
+            // outcome の bit j は base_bit + j = 上端から j 本目のワイヤに対応する。
             let base_bit = display
                 .wire
-                .offset(span.get() - 1)
                 .to_qubit_bit(qubits)
-                .expect("span is clamped to the register");
+                .expect("display wire is within the register");
             requests.push(ExternalDensityRequest {
                 gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column),
@@ -246,7 +247,7 @@ mod tests {
 
         assert_eq!(
             density_requests_json(&requests),
-            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":1,"control_mask":0,"control_value":0}]"#,
+            r#"[{"gate_id":2,"column":1,"span":2,"base_bit":0,"control_mask":0,"control_value":0}]"#,
         );
     }
 
@@ -284,7 +285,7 @@ mod tests {
 
         assert_eq!(
             density_requests_json(&requests),
-            r#"[{"gate_id":3,"column":2,"span":1,"base_bit":0,"control_mask":6,"control_value":4}]"#,
+            r#"[{"gate_id":3,"column":2,"span":1,"base_bit":2,"control_mask":3,"control_value":1}]"#,
         );
     }
 

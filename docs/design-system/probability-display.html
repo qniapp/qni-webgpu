@@ -493,8 +493,8 @@
         <tr><th>描画 x</th><td><code>px = rect.x + rect.w × x_ratio</code></td></tr>
         <tr><th>境界挙動</th><td>
           <code>p = 1</code> → <code>x_ratio = 1</code> (右端) /
-          <code>p</code> が小さいほど左へ寄る /
-          <code>p</code> が極小または <code>0</code> なら clamp により <code>x_ratio = 0</code> (左端) に潰れる
+          極小の<strong>非ゼロ</strong> <code>p</code> ほど左へ寄り、clamp で左端付近に潰れる /
+          <code>p = 0</code> (起こり得ない測定結果) は <code>ln(0)</code> が未定義なので<strong>対数ヒント線も接続線も描かない</strong>
         </td></tr>
         <tr><th>span 依存性</th><td>
           span が大きいほど <code>s</code> が小さくなり、<code>ln(p)</code> の効き目が緩やかになる
@@ -503,15 +503,18 @@
       </tbody>
     </table>
 
-    <h3 style="margin-top: 16px;">描画形状 (連続ポリライン)</h3>
+    <h3 style="margin-top: 16px;">描画形状 (非ゼロ行のセグメント)</h3>
     <ul>
       <li>
-        <strong>1 本の連続ポリラインで描く</strong>。
-        各行の縦線 (<code>px_i</code> で長さ <code>e = max(row_h, 1)</code>) を、行境界で水平な接続線 (<code>px_{i-1} → px_i</code>) で繋ぐ。
-        全体として <em>ECG / 階段</em>状のシルエットになり、隣接行の確率差も視覚化される。
+        確率が乗る行 (<code>p &gt; 0</code>) だけに、その行の log 位置 <code>px_i</code> から下へ長さ <code>e = max(row_h, 1)</code> の<strong>対数ヒント線</strong>を引く。
+        連続する非ゼロ行どうしは行境界で<strong>水平な接続線</strong> (<code>px_{i-1} → px_i</code>) で繋ぎ、<em>ECG / 階段</em>状のシルエットにする。
+        <code>p = 0</code> の行は対数ヒント線を持たないので、線はそこで途切れる。
       </li>
       <li>線スタイル: <code>tx-3</code> (#B7B5AC)、1 px</li>
-      <li>行ごとに独立した縦線にはしない。水平接続を省くと、密な span (5〜) で隣接確率の上下関係が読めなくなる。</li>
+      <li>
+        水平接続は<strong>両端が非ゼロ</strong>の行間だけに引く。これにより、フル幅の <code>100%</code> バー直下の空行へ伸びる<strong>全幅の横線</strong>が出ない。
+        一方で密な span (5〜) でも、隣接する非ゼロ確率の上下関係は接続線で引き続き読める。
+      </li>
     </ul>
 
     <h3 style="margin-top: 16px;">tooltip の <code>log: ... dB</code> との違い (重要)</h3>

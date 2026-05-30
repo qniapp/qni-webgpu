@@ -87,12 +87,12 @@
     <a class="impl-card" href="implementation/wire-index.html">
       <span class="kind">value object</span>
       <span class="name">WireIndex 実装仕様</span>
-      <p class="desc">回路エディタのワイヤ番号を値オブジェクト化し、MSB 始まりビット番号への変換を集約する方針。</p>
+      <p class="desc">回路エディタのワイヤ番号を値オブジェクト化し、ビット番号（q0=LSB）への変換と範囲判定を集約する方針。</p>
     </a>
     <a class="impl-card" href="implementation/qubit-bit.html">
       <span class="kind">value object</span>
       <span class="name">QubitBit 実装仕様</span>
-      <p class="desc">GPU の MSB 始まりビット番号を値オブジェクト化し、1u32 &lt;&lt; bit のマスク生成を集約する方針。</p>
+      <p class="desc">GPU のビット位置（q0=LSB）を値オブジェクト化し、1u32 &lt;&lt; bit のマスク生成を集約する方針。</p>
     </a>
     <a class="impl-card" href="implementation/gate-span.html">
       <span class="kind">value object</span>
@@ -170,6 +170,11 @@
       <span class="kind">sample circuit</span>
       <span class="name">超高密度符号化（Superdense Coding）</span>
       <p class="desc">もつれを使い 1 量子ビットを送るだけで 2 古典ビットを伝える。テレポーテーションの双対で、こちらも硬測定が正しく働く。</p>
+    </a>
+    <a class="impl-card" href="implementation/reversible-addition.html">
+      <span class="kind">sample circuit</span>
+      <span class="name">可逆加算（Reversible Addition）</span>
+      <p class="desc">Quirk の 10 量子ビット Swap ネット構成で A を保ったまま B を A + B に。制御 Swap（Fredkin）と多ターゲット制御 X を使う、補助量子ビットなしの可逆加算。</p>
     </a>
   </div>
 </section>

@@ -70,7 +70,7 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        screen_descriptor: &egui_wgpu::ScreenDescriptor,
         egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
@@ -84,6 +84,8 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
         let params = ProbabilityRenderParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
+            pixels_per_point: screen_descriptor.pixels_per_point,
+            _pad_ppp: [0.0; 3],
             background: self.background,
             placeholder_background: self.placeholder_background,
             border: self.border,

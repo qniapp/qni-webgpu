@@ -226,10 +226,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let char_index = u32(floor(input.cell_uv.x));
   let cell_local = vec2<f32>(fract(input.cell_uv.x), input.cell_uv.y);
 
-  // display_index → state_index via bit-reverse (same convention as
-  // STATE_RENDER_SHADER).
-  let state_index = reverseBits(params.hovered_display_index) >> (32u - params.qubits);
-  let amp = state[state_index];
+  // q0=LSB なので hovered_display_index がそのまま state バッファの添字になる
+  // （reverseBits 不要。STATE_RENDER_SHADER と同じ規約）。
+  let amp = state[params.hovered_display_index];
   let re = amp.x;
   let im = amp.y;
   let prob = clamp(re * re + im * im, 0.0, 1.0);
