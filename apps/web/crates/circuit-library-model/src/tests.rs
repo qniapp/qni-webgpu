@@ -1,7 +1,7 @@
 use super::{
     CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin,
     DELAYED_CHOICE_ERASER_JSON, EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON, QFT4_DECOMPOSED_JSON,
-    SUPERDENSE_CODING_JSON, SYMMETRY_BREAKING_JSON, TELEPORTATION_JSON,
+    REVERSIBLE_ADDITION_JSON, SUPERDENSE_CODING_JSON, SYMMETRY_BREAKING_JSON, TELEPORTATION_JSON,
 };
 
 fn cid(value: &str) -> CircuitId {
@@ -92,10 +92,11 @@ fn seed_contains_quirk_named_samples() {
             library.entries[5].name.as_str(),
             library.entries[6].name.as_str(),
             library.entries[7].name.as_str(),
+            library.entries[8].name.as_str(),
             library.entries.iter().all(CircuitEntry::locked),
         ),
         (
-            8,
+            9,
             "bell",
             "Bell state",
             "GHZ state",
@@ -104,6 +105,7 @@ fn seed_contains_quirk_named_samples() {
             "QFT 4-qubit",
             "Symmetry Breaking",
             "Grover Search",
+            "Reversible Addition",
             "Delayed Choice Eraser",
             true,
         )
@@ -191,6 +193,20 @@ fn superdense_coding_seed_uses_json() {
     assert_eq!(
         entry.map(|entry| entry.circuit_json.as_str()),
         Some(SUPERDENSE_CODING_JSON)
+    );
+}
+
+#[test]
+fn reversible_addition_seed_uses_json() {
+    let library = CircuitLibrary::seed();
+    let entry = library
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "reversible-addition");
+
+    assert_eq!(
+        entry.map(|entry| entry.circuit_json.as_str()),
+        Some(REVERSIBLE_ADDITION_JSON)
     );
 }
 
@@ -441,12 +457,12 @@ fn duplicate_active_inserts_into_my_section_and_numbers_copy_names() {
 
     assert_eq!(
         (
-            library.entries[8].id.as_str(),
-            library.entries[8].name.as_str(),
             library.entries[9].id.as_str(),
             library.entries[9].name.as_str(),
             library.entries[10].id.as_str(),
             library.entries[10].name.as_str(),
+            library.entries[11].id.as_str(),
+            library.entries[11].name.as_str(),
             library.active_id.as_str(),
         ),
         (
@@ -486,7 +502,7 @@ fn move_to_slot_reorders_only_user_entries() {
     library.create_new();
     let second_id = library.create_new().id.clone();
 
-    library.move_to_slot(9, 8);
+    library.move_to_slot(10, 9);
 
     assert_eq!(
         (
@@ -499,6 +515,7 @@ fn move_to_slot_reorders_only_user_entries() {
             library.entries[6].id.as_str(),
             library.entries[7].id.as_str(),
             library.entries[8].id.as_str(),
+            library.entries[9].id.as_str(),
         ),
         (
             "bell",
@@ -508,6 +525,7 @@ fn move_to_slot_reorders_only_user_entries() {
             "qft-4",
             "symmetry-breaking",
             "grover-search",
+            "reversible-addition",
             "delayed-choice-eraser",
             second_id.as_str(),
         )
@@ -531,7 +549,8 @@ fn move_to_slot_reorders_only_sample_entries() {
             library.entries[5].id.as_str(),
             library.entries[6].id.as_str(),
             library.entries[7].id.as_str(),
-            library.entries[8].kind(),
+            library.entries[8].id.as_str(),
+            library.entries[9].kind(),
         ),
         (
             "ghz",
@@ -541,6 +560,7 @@ fn move_to_slot_reorders_only_sample_entries() {
             "qft-4",
             "symmetry-breaking",
             "grover-search",
+            "reversible-addition",
             "delayed-choice-eraser",
             CircuitKind::My,
         )
@@ -604,7 +624,7 @@ fn v1_migration_keeps_untouched_seed_count() {
 
     let migrated = CircuitLibrary::migrate_v1_entries(seed.entries, Some(cid("bell")));
 
-    assert_eq!(migrated.entries.len(), 8);
+    assert_eq!(migrated.entries.len(), 9);
 }
 
 #[test]
@@ -653,7 +673,7 @@ fn startup_url_preserves_locked_current_by_creating_fresh_entry() {
 
     library.resolve_startup_url_payload(r#"{"cols":[["X"]]}"#.to_owned());
 
-    assert_eq!(library.active_id.as_str(), "current-10");
+    assert_eq!(library.active_id.as_str(), "current-11");
 }
 
 #[test]

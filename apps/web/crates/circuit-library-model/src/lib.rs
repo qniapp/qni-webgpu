@@ -138,6 +138,36 @@ const SUPERDENSE_CODING_JSON: &str = concat!(
     r#"]}"#,
 );
 
+/// 可逆加算（Reversible Addition）10 量子ビット回路。q0-q4=A レジスタ、q5-q9=B レジスタ
+/// （下位ビットが上のワイヤ）。Quirk の Swap ネット構成で、A を保ったまま B に A を足し込む
+/// （B += A、5 ビット同士の mod 32）。入力は A=5・B=3 に固定し、B を 8 にする。多ターゲット制御 X
+/// （X の壁）と制御 Swap（Fredkin）を使う。どちらも GPU シェーダが対応済みで新ゲートは不要。解説は
+/// docs/implementation/reversible-addition.html。
+const REVERSIBLE_ADDITION_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["X",1,"X",1,1,"X","X"],"#,
+    r#"["X","X","X","X","•","X","X","X","X","X"],"#,
+    r#"[1,1,1,1,"•","X"],"#,
+    r#"["Swap",1,1,1,"Swap","•"],"#,
+    r#"[1,1,1,1,"•",1,"X"],"#,
+    r#"[1,"Swap",1,1,"Swap",1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,"X"],"#,
+    r#"[1,1,"Swap",1,"Swap",1,1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,1,"X"],"#,
+    r#"[1,1,1,"Swap","Swap",1,1,1,"•"],"#,
+    r#"[1,1,1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,1,1,"Swap","Swap",1,1,1,"•"],"#,
+    r#"[1,1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,1,"Swap",1,"Swap",1,1,"•"],"#,
+    r#"[1,1,"•",1,1,1,1,"X"],"#,
+    r#"[1,"Swap",1,1,"Swap",1,"•"],"#,
+    r#"[1,"•",1,1,1,1,"X"],"#,
+    r#"["Swap",1,1,1,"Swap","•"],"#,
+    r#"["•",1,1,1,1,"X"],"#,
+    r#"["X","X","X","X","•","X","X","X","X","X"]"#,
+    r#"]}"#,
+);
+
 /// 回路ライブラリのエントリ識別子。常に空でない文字列を保持する値オブジェクト。
 ///
 /// 保存名や回路 JSON と同じ `String` で取り違えないよう型で区別し、生成時に
@@ -834,6 +864,12 @@ fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
             updated_at,
         ),
         grover_search_entry(updated_at),
+        CircuitEntry::sample(
+            "reversible-addition",
+            "Reversible Addition",
+            REVERSIBLE_ADDITION_JSON,
+            updated_at,
+        ),
         CircuitEntry::sample(
             "delayed-choice-eraser",
             "Delayed Choice Eraser",
