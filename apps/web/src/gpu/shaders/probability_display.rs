@@ -345,18 +345,29 @@ fn pixel_row_top(row: u32, row_h: f32, height: f32) -> f32 {
 }
 
 fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32, height: f32) -> bool {
+  // log(0) is undefined: an impossible outcome (prob 0) has no log-scale
+  // position, so draw neither its vertical tick nor any connector that touches
+  // it. The hint only marks rows that actually carry probability — its purpose
+  // is to reveal tiny non-zero differences a linear bar cannot show. Without
+  // this guard a full bar (px = width) joined to the empty rows below (px = 0)
+  // paints a full-width connector right under the bar.
+  if (prob <= 0.0) { return false; }
   let hint_x = probability_log_hint_x(prob, span, width);
   if (abs(local_x - hint_x) < 0.5) { return true; }
   if (span >= PROBABILITY_AGGREGATE_MIN_SPAN) {
     let y = probability_aggregate_y(local_y);
     if (y == 0u) { return false; }
-    let prev_x = probability_log_hint_x(probability_aggregate_prob_at_y(slot, y - 1u), span, width);
+    let prev_prob = probability_aggregate_prob_at_y(slot, y - 1u);
+    if (prev_prob <= 0.0) { return false; }
+    let prev_x = probability_log_hint_x(prev_prob, span, width);
     return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
   }
   if (row == 0u) { return false; }
   let row_top = pixel_row_top(row, row_h, height);
   if (local_y < row_top || local_y >= row_top + 1.0) { return false; }
-  let prev_x = probability_log_hint_x(probability_prob(slot, row - 1u), span, width);
+  let prev_prob = probability_prob(slot, row - 1u);
+  if (prev_prob <= 0.0) { return false; }
+  let prev_x = probability_log_hint_x(prev_prob, span, width);
   return local_x >= min(prev_x, hint_x) && local_x <= max(prev_x, hint_x);
 }
 

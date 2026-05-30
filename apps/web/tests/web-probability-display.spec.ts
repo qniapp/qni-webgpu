@@ -700,6 +700,9 @@ test('Probability5 bar leaves no seam nub in the rows below the spike', async ({
 })
 
 test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) => {
+  // q0 = LSB: H on q0 splits probability equally across outcomes 0 and 1 (rows 0
+  // and 1), each 0.5. Row 1 carries a non-zero probability, so its log-scale tick
+  // is drawn at x = gateLeft + width·(1 + ln(0.5)·s), s = 1/12 for span 5.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 1, 1, 1, 1], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   await waitForProbabilityDistributions(page)
@@ -709,9 +712,154 @@ test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) =>
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
   const hintX = gateLeft + GATE_SIZE * (1 + Math.log(0.5) / 12)
-  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'halfProbabilityHint', x: hintX, y: gateTop + rowH * 16.5 }])
+  const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'halfProbabilityHint', x: hintX, y: gateTop + rowH * 1.5 }])
 
   expect(pixelRgbDistance(pixels.halfProbabilityHint, FLEXOKI_TX_3)).toBeLessThan(64)
+})
+
+// Regression guard: an impossible outcome (prob 0) has no log-scale position
+// (log(0) is undefined), so it must carry no log hint. Previously prob 0 clamped
+// to the left edge, so the staircase connector ran full-width from a 100% bar
+// down to the empty rows below — a stray gray line right under the bar.
+const waitForLogHintBelowFullBar = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+): Promise<{ logHintPixelsBelowBar: number }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
+  const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const evidence = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize, logHint }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { barPixels: 0, logHintPixelsBelowBar: 0 }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const px = (x: number, y: number): [number, number, number] => {
+          const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+          return [r, g, b]
+        }
+        const isBar = (x: number, y: number): boolean => {
+          const [r, g, b] = px(x, y)
+          return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
+        }
+        const isLogHint = (x: number, y: number): boolean => {
+          const [r, g, b] = px(x, y)
+          return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
+        }
+        const xLo = Math.floor((gateLeft + 1) * scaleX)
+        const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+        let barPixels = 0
+        const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
+        const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
+        for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBar(x, y)) barPixels += 1
+        let logHintPixelsBelowBar = 0
+        const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
+        const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
+        for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) logHintPixelsBelowBar += 1
+        return { barPixels, logHintPixelsBelowBar }
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
+    )
+    if (evidence.barPixels > 40) return { logHintPixelsBelowBar: evidence.logHintPixelsBelowBar }
+    await page.waitForTimeout(50)
+  }
+  throw new Error('Probability5 value-5 bar never rendered; cannot evaluate log hints below the bar')
+}
+
+test('Probability5 draws no log hint for the zero-probability rows below a full bar', async ({ page }) => {
+  // q0 = LSB: X on q0 and q2 → outcome 5, probability 1. Every row below is an
+  // impossible outcome, so no log-hint pixel (tick or connector) may appear there.
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['X', 1, 'X'], ['Probability5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForProbabilityDistributions(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const evidence = await waitForLogHintBelowFullBar(page, canvas)
+
+  expect(evidence.logHintPixelsBelowBar).toBe(0)
+})
+
+// Complements the absence test above: when a zero-probability row sits BETWEEN two
+// non-zero rows, the log-hint curve must break there (no tick, no connector running
+// across it). The helper's positive control requires the two non-zero rows' ticks to
+// render first, so the assertion cannot vacuously pass on a blank display.
+const waitForSeveredZeroRowLogHint = async (
+  page: Parameters<typeof sampleCanvasPixels>[0],
+  canvas: Parameters<typeof sampleCanvasPixels>[1],
+): Promise<{ zeroRowLogHintPixels: number }> => {
+  const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const screenshot = await canvas.screenshot({ type: 'png' })
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('expected egui canvas to be measurable')
+    const evidence = await page.evaluate(
+      async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateSize, logHint }) => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${base64}`
+        await new Promise((resolve, reject) => {
+          img.onload = () => resolve(null)
+          img.onerror = () => reject(new Error('Failed to decode screenshot'))
+        })
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return { tickPixels: 0, zeroRowLogHintPixels: 0 }
+        ctx.drawImage(img, 0, 0)
+        const scaleX = img.width / cssWidth
+        const scaleY = img.height / cssHeight
+        const isLogHint = (x: number, y: number): boolean => {
+          const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+          return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
+        }
+        const xLo = Math.floor((gateLeft + 1) * scaleX)
+        const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+        // includeTop catches the connector painted at the row's top boundary
+        // (pixel_row_top), which is exactly where the old full-width connector ran.
+        const countRow = (row: number, includeTop: boolean): number => {
+          const yLo = Math.floor((gateTop + row * rowH + (includeTop ? 0 : 1)) * scaleY)
+          const yHi = Math.floor((gateTop + (row + 1) * rowH - 1) * scaleY)
+          let n = 0
+          for (let y = yLo; y <= yHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) n += 1
+          return n
+        }
+        return { tickPixels: countRow(0, false) + countRow(2, false), zeroRowLogHintPixels: countRow(1, true) }
+      },
+      { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
+    )
+    if (evidence.tickPixels > 0) return { zeroRowLogHintPixels: evidence.zeroRowLogHintPixels }
+    await page.waitForTimeout(50)
+  }
+  throw new Error('Probability5 log-hint ticks for the non-zero rows never rendered')
+}
+
+test('Probability5 severs the log-hint curve at a zero-probability row between non-zero rows', async ({ page }) => {
+  // q1 = LSB bit 1: H on q1 → outcomes 0 and 2 (rows 0 and 2) each 0.5, row 1 empty between them.
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'H'], ['Probability5']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await waitForProbabilityDistributions(page)
+
+  const canvas = page.locator('#egui-canvas')
+  const evidence = await waitForSeveredZeroRowLogHint(page, canvas)
+
+  expect(evidence.zeroRowLogHintPixels).toBe(0)
 })
 
 test('Probability hover highlights an outcome row and opens the popup', async ({ page }) => {
@@ -1016,7 +1164,9 @@ test('selected earlier column keeps later readouts populated', async ({ page }) 
 })
 
 test('Probability9 keeps tiny-row bars visible', async ({ page }) => {
-  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'H'], ['Probability9']] })))
+  // q0 = LSB: H on q7 (bit 7) splits probability across outcomes 0 and 128, so the
+  // deep row 128 carries 0.5 — a tiny (sub-pixel) row whose bar must stay visible.
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 1, 1, 1, 'H'], ['Probability9']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
 
   const canvas = page.locator('#egui-canvas')
