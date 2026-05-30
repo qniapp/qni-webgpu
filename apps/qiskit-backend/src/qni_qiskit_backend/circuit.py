@@ -268,6 +268,26 @@ def apply_controlled_swap(
     apply_controlled_x(qc, second, controls + [first], anti_controls)
 
 
+def apply_qft_swaps(
+    qc: Any,
+    wire: int,
+    span: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    # Bit-reversal swap network swap(wire+i, wire+span-1-i) for the first half
+    # of the span. Any column controls ride along so a controlled-QFT gates the
+    # swaps too. The QFT's overall basis effect is set by track_qft (called from
+    # apply_gate after apply_qft), so the swaps need no per-step basis update here.
+    for i in range(span // 2):
+        first = wire + i
+        second = wire + span - 1 - i
+        if controls or anti_controls:
+            apply_controlled_swap(qc, first, second, controls, anti_controls)
+        else:
+            qc.swap(first, second)
+
+
 def track_controlled_swap(
     basis: BasisTracker,
     controls: list[int],
@@ -350,6 +370,10 @@ def apply_qft(
 ) -> None:
     if wire + spec.span > qubits:
         raise CircuitBuildError("QFT span references a wire beyond qubits")
+    # The bare H/phase ladder realizes the DFT on bit-reversed input (F·BR);
+    # the bit-reversal swaps go before the ladder (forward) / after the inverse
+    # ladder (dagger) so the net transform is the true symmetric DFT, matching
+    # Quirk and the GPU path's linearize_qft.
     if spec.dagger:
         for offset in reversed(range(spec.span)):
             for distance in reversed(range(1, spec.span - offset)):
@@ -362,7 +386,9 @@ def apply_qft(
                     anti_controls=anti_controls,
                 )
             apply_qft_h(qc, wire + offset, controls, anti_controls)
+        apply_qft_swaps(qc, wire, spec.span, controls, anti_controls)
         return
+    apply_qft_swaps(qc, wire, spec.span, controls, anti_controls)
     for offset in range(spec.span):
         apply_qft_h(qc, wire + offset, controls, anti_controls)
         for distance in range(1, spec.span - offset):

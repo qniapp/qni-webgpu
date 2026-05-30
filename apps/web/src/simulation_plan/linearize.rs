@@ -353,19 +353,20 @@ fn qft_external_controls(
 }
 
 /// Expand a placed QFT (or QFT†) gate into the textbook decomposition:
-/// `span` Hadamards interleaved with controlled-phase rotations
-/// `R_k = diag(1, exp(iπ/2^j))`, followed by a bit-reversal SWAP network.
+/// a bit-reversal SWAP network plus `span` Hadamards interleaved with
+/// controlled-phase rotations `R_k = diag(1, exp(iπ/2^j))`.
 ///
 /// The bare H/phase ladder (H on the top wire first, controlled phases
-/// running downward) leaves the transform's output qubits in bit-reversed
-/// order; the trailing swaps undo that, giving the true (symmetric) discrete
-/// Fourier transform — the textbook QFT, matching Quirk's
-/// `FourierTransformGates`. A Quirk QFT circuit ports 1:1: e.g. a which-path
-/// mark on the 3rd wire yields 4 interference fringes, as in Quirk. Verified
-/// by GPU state-vector readback.
+/// running downward) realizes the DFT acting on bit-reversed input
+/// (`F·BR`). Putting the bit-reversal swaps *before* the ladder feeds it the
+/// reversed input, so the net transform is the true (symmetric) discrete
+/// Fourier transform `F[r,c] = (1/√N)·exp(+i2πrc/N)` — matching Quirk's
+/// `FourierTransformGates`, which likewise reverses first. A Quirk QFT circuit
+/// ports 1:1: e.g. a which-path mark on the QFT register's bit-2 wire yields
+/// 4 interference fringes, as in Quirk.
 ///
-/// `QFT†` is the adjoint `(S·L)† = L†·S`, so its swap network comes *before*
-/// the (inverse) ladder rather than after.
+/// `QFT` = swaps then ladder; `QFT†` is its adjoint = inverse ladder then
+/// swaps, so the swap network comes *after* the (inverse) ladder.
 ///
 /// Wire-to-bit mapping: `gate.wire + idx` (wire index of the i-th
 /// qubit in the QFT register) → `bit = wire` (the simulator convention
@@ -400,9 +401,12 @@ fn linearize_qft(
     let reversal = qft_reversal_swap_ops(gate, qubits, span, state_count, controls);
 
     if !dagger {
-        // QFT: for i in 0..span: H(i), then controlled-Phase π/2^j with
-        // control=(i+j) for j in 1..span-i. Then the trailing bit-reversal
-        // swaps to land the true DFT (textbook QFT = ladder + final swaps).
+        // QFT: bit-reversal swaps FIRST, then the H/phase ladder — for i in
+        // 0..span: H(i), then controlled-Phase π/2^j with control=(i+j) for
+        // j in 1..span-i. The bare ladder realizes F·BR (the DFT acting on
+        // bit-reversed input), so feeding it the reversed input lands the
+        // true symmetric DFT (Quirk's FourierTransformGates reverses first too).
+        ops.extend(reversal);
         for i in 0..span {
             ops.push(SimulationOp::ApplyGate(qft_h_params(
                 bit_of(i),
@@ -420,11 +424,10 @@ fn linearize_qft(
                 )));
             }
         }
-        ops.extend(reversal);
     } else {
-        // QFT† = (S·L)† = L†·S: the swap network comes first, then the
-        // inverse ladder (reverse loop, negated phases, H after the phases).
-        ops.extend(reversal);
+        // QFT† is the adjoint of "swaps then ladder", i.e. "inverse ladder
+        // then swaps": the inverse ladder (reverse loop, negated phases, H
+        // after the phases) comes first, then the trailing bit-reversal swaps.
         for i in (0..span).rev() {
             for j in (1..(span - i)).rev() {
                 let phase = -std::f32::consts::PI / (1u32 << j) as f32;
@@ -442,6 +445,7 @@ fn linearize_qft(
                 controls,
             )));
         }
+        ops.extend(reversal);
     }
     ops
 }
@@ -715,7 +719,9 @@ mod tests {
             ),
         ];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 0);
+        // The forward QFT now leads with the bit-reversal swaps (op[0..3]);
+        // the first Hadamard is op[3]. The external control rides along on it.
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 3);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -744,8 +750,10 @@ mod tests {
             ),
         ];
 
-        // op[1]: the first controlled-phase (op[0] is the first Hadamard).
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 1);
+        // op[0..3] are the leading bit-reversal swaps, op[3] the first
+        // Hadamard, op[4] the first controlled-phase. Its control mask combines
+        // the external control (bit 0) with the internal phase control (bit 2).
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 4);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -774,7 +782,9 @@ mod tests {
             ),
         ];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 0);
+        // First Hadamard at op[3] (after the leading bit-reversal swaps); the
+        // external anti-control (bit 0, value 0) rides along on it.
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 3);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -803,7 +813,9 @@ mod tests {
             ),
         ];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 0);
+        // First Hadamard at op[3] (after the leading bit-reversal swaps). The
+        // control sits inside the QFT span, so it is ignored: no control mask.
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -812,12 +824,12 @@ mod tests {
     }
 
     #[test]
-    fn qft_emits_trailing_bit_reversal_swap() {
-        // The forward QFT completes its H/phase ladder with a trailing
-        // bit-reversal SWAP network (textbook QFT = ladder + final swaps).
-        // For a span-2 QFT on wires 0,1 the ladder is H, P, H (op[0..3]); op[3]
-        // is the first CNOT of the trailing swap(bit0, bit1): X on bit 1
-        // controlled by bit 0.
+    fn qft_emits_leading_bit_reversal_swap() {
+        // The forward QFT begins with a leading bit-reversal SWAP network,
+        // then the H/phase ladder (true symmetric DFT = swaps + ladder).
+        // For a span-2 QFT on wires 0,1 op[0] is the first CNOT of the leading
+        // swap(bit0, bit1): X on bit 1 controlled by bit 0; the ladder H, P, H
+        // follows at op[3..6].
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftGate,
@@ -827,7 +839,7 @@ mod tests {
             None,
         )];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 0);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -836,10 +848,11 @@ mod tests {
     }
 
     #[test]
-    fn qft_dagger_emits_leading_bit_reversal_swap() {
-        // QFT† = (S·L)† = L†·S, so its bit-reversal SWAP network comes first.
-        // span-2 QFT† on wires 0,1: op[0] is the first CNOT of the leading
-        // swap(bit0, bit1): X on bit 1 controlled by bit 0.
+    fn qft_dagger_emits_trailing_bit_reversal_swap() {
+        // QFT† is the adjoint of "swaps then ladder" = "inverse ladder then
+        // swaps", so its bit-reversal SWAP network comes last. span-2 QFT† on
+        // wires 0,1: the inverse ladder H, P, H is op[0..3]; op[3] is the first
+        // CNOT of the trailing swap(bit0, bit1): X on bit 1 controlled by bit 0.
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftDaggerGate,
@@ -849,7 +862,7 @@ mod tests {
             None,
         )];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 0);
+        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -897,6 +910,106 @@ mod tests {
         let decomposed = applied_gate_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON);
 
         assert_eq!(decomposed, native);
+    }
+
+    /// `ApplyGate` 列を `basis` 番目の基底状態へ CPU で適用し、結果の状態ベクトル
+    /// （= ユニタリの `basis` 列目）を (re, im) で返す。各 `ApplyGate` は対象ビット
+    /// 上の単一量子ビットゲートで、`(i0 & control_mask) == control_value` のペアだけ
+    /// に作用する（GPU の STATE_COMPUTE_SHADER の GATE_MODE_MATRIX 経路と同じ意味論。
+    /// QFT 展開は行列モードのゲートだけなので Write0/Write1 モードは扱わない）。
+    /// テスト専用の検証用。
+    fn qft_apply_to_basis(ops: &[SimulationOp], n: u32, basis: usize) -> Vec<(f64, f64)> {
+        let dim = 1usize << n;
+        let mut state = vec![(0.0f64, 0.0f64); dim];
+        state[basis] = (1.0, 0.0);
+        let mul = |a: (f64, f64), b: (f64, f64)| (a.0 * b.0 - a.1 * b.1, a.0 * b.1 + a.1 * b.0);
+        let add = |a: (f64, f64), b: (f64, f64)| (a.0 + b.0, a.1 + b.1);
+        for op in ops {
+            let SimulationOp::ApplyGate(p) = op else {
+                continue;
+            };
+            let bit = p.bit() as usize;
+            let mask = p.control_mask();
+            let val = p.control_value();
+            let m = p.matrix();
+            let cx = |k: usize| (m[k][0] as f64, m[k][1] as f64);
+            let (m00, m01, m10, m11) = (cx(0), cx(1), cx(2), cx(3));
+            let step = 1usize << bit;
+            let mut next = state.clone();
+            for i0 in 0..dim {
+                if i0 & step != 0 || (i0 as u32 & mask) != val {
+                    continue;
+                }
+                let i1 = i0 | step;
+                let (a0, a1) = (state[i0], state[i1]);
+                next[i0] = add(mul(m00, a0), mul(m01, a1));
+                next[i1] = add(mul(m10, a0), mul(m11, a1));
+            }
+            state = next;
+        }
+        state
+    }
+
+    /// ネイティブ QFT<n> / QFT†<n> が対称離散フーリエ変換 F[r,c] =
+    /// (1/√N)·exp(±i2πrc/N)（Quirk の FourierTransformGates。順方向 +、ダガー −）
+    /// へ展開されることを、内部整合ではなく結果ユニタリで固定する。ビット反転 SWAP
+    /// が逆側にあると落ちる回帰ガード。span は全レジスタ（wire0 から n 本）。
+    fn assert_native_qft_matches_dft(n: u32, dagger: bool) {
+        let dim = 1usize << n;
+        let kind = if dagger {
+            GateKind::QftDaggerGate
+        } else {
+            GateKind::QftGate
+        };
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            kind,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::try_new(n as usize).unwrap(),
+            None,
+        )];
+        let ops = linearize_ops(&gates, qubit_count(n as usize), 0);
+        let q = |v: f64| (v * 100_000.0).round() as i64;
+        let actual: Vec<(i64, i64)> = (0..dim)
+            .flat_map(|c| {
+                qft_apply_to_basis(&ops, n, c)
+                    .into_iter()
+                    .map(move |(re, im)| (q(re), q(im)))
+            })
+            .collect();
+        let scale = (dim as f64).sqrt();
+        let sign = if dagger { -1.0 } else { 1.0 };
+        let expected: Vec<(i64, i64)> = (0..dim)
+            .flat_map(|c| {
+                (0..dim).map(move |r| {
+                    let theta =
+                        sign * 2.0 * std::f64::consts::PI * (r as f64) * (c as f64) / (dim as f64);
+                    (q(theta.cos() / scale), q(theta.sin() / scale))
+                })
+            })
+            .collect();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn native_qft2_equals_symmetric_dft() {
+        assert_native_qft_matches_dft(2, false);
+    }
+
+    #[test]
+    fn native_qft3_equals_symmetric_dft() {
+        assert_native_qft_matches_dft(3, false);
+    }
+
+    #[test]
+    fn native_qft2_dagger_equals_inverse_dft() {
+        assert_native_qft_matches_dft(2, true);
+    }
+
+    #[test]
+    fn native_qft3_dagger_equals_inverse_dft() {
+        assert_native_qft_matches_dft(3, true);
     }
 
     #[test]
