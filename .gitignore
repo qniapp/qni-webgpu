@@ -1,13 +1,13 @@
 .pnpm-store/
 node_modules/
 dist/
-apps/web/target/
+# Rust ビルド成果物 (ワークスペース直下・ネストした crate / vendor の両方)
+**/target/
 apps/web/.trunk-generated/
 apps/web/output/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/node_modules/
-apps/tui/target/
 apps/tui/tests/snapshots/*.snap.new
 apps/tui/tests/snapshots/*.snap.old
 .env
