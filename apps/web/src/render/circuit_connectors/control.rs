@@ -32,9 +32,6 @@ pub(super) fn draw_control_connectors(
         let mut targets = Vec::new();
         let mut anti_control_gaps = Vec::new();
         for gate in column.gates() {
-            if gate.kind == GateKind::Swap {
-                continue;
-            }
             let center =
                 circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
             if gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl {
@@ -43,6 +40,13 @@ pub(super) fn draw_control_connectors(
                     anti_control_gaps.push(center.y);
                 }
             } else {
+                // Swap counts as a controllable target so a controlled-SWAP
+                // (Fredkin) gets the control→swap connector line. A column's
+                // controls apply to every gate in it, so the swap symbols sit
+                // on the same vertical connector as the control dots. An
+                // uncontrolled swap still skips this line via the
+                // `controls.is_empty()` early-return below; its swap-to-swap
+                // connector is drawn separately in `draw_swap_connectors`.
                 targets.push(center);
             }
         }
