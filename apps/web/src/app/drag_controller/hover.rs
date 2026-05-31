@@ -29,9 +29,16 @@ impl DragController {
         ctx: &egui::Context,
     ) {
         if let Some(cursor) = pointer.local_pos {
+            // Editing-locked circuits must not show edit affordances: no gate
+            // hover ring, resize handles, display-cell hover, palette hover, or
+            // grab cursor. Step preview remains available because it is an
+            // inspection aid, not an editing affordance.
+            let edit_hover_allowed = !app.library.active_locked();
             // Iterate top-of-stack first so a resizable-span handle wins
             // over the gate body when the cursor is on both (span handles
             // overhang the top / bottom edges).
+            let previous_gate = app.hovered_gate_id;
+            let previous_handle = app.hovered_span_resize_handle;
             let previous_probability_outcome = app.hovered_probability_outcome;
             let previous_amplitude_outcome = app.hovered_amplitude_outcome;
             let previous_density_cell = app.hovered_density_cell;
@@ -40,45 +47,47 @@ impl DragController {
             let mut hovered_probability_outcome = None;
             let mut hovered_amplitude_outcome = None;
             let mut hovered_density_cell = None;
-            for gate in app.placed_gates.iter().rev() {
-                let gate_rect = gate_visible_rect(gate, gate.pos);
-                let resize_handles = SpanResizeHandles::for_gate_with_availability(
-                    gate,
-                    &app.placed_gates,
-                    app.exec_mode.qubit_capacity().get(),
-                );
-                let body_rect = resize_handles
-                    .map(SpanResizeHandles::body_rect)
-                    .unwrap_or_else(|| {
-                        span_resize_body_rect(gate.kind, gate.span.get(), gate_rect)
-                    });
-                if let Some(handles) = resize_handles {
-                    if let Some(edge) = handles.edge_at(cursor) {
-                        hovered_handle = Some(handles.handle(edge));
+            if edit_hover_allowed {
+                for gate in app.placed_gates.iter().rev() {
+                    let gate_rect = gate_visible_rect(gate, gate.pos);
+                    let resize_handles = SpanResizeHandles::for_gate_with_availability(
+                        gate,
+                        &app.placed_gates,
+                        app.exec_mode.qubit_capacity().get(),
+                    );
+                    let body_rect = resize_handles
+                        .map(SpanResizeHandles::body_rect)
+                        .unwrap_or_else(|| {
+                            span_resize_body_rect(gate.kind, gate.span.get(), gate_rect)
+                        });
+                    if let Some(handles) = resize_handles {
+                        if let Some(edge) = handles.edge_at(cursor) {
+                            hovered_handle = Some(handles.handle(edge));
+                            hovered_gate = Some(gate.id);
+                            break;
+                        }
+                    }
+                    if body_rect.contains(cursor) {
                         hovered_gate = Some(gate.id);
+                        if gate.kind == GateKind::ProbabilityDisplay {
+                            let row_count = 1usize << gate.span.get().clamp(1, 16);
+                            let row_h = gate_rect.height() / row_count as f32;
+                            let row = ((cursor.y - gate_rect.top()) / row_h)
+                                .floor()
+                                .clamp(0.0, (row_count - 1) as f32)
+                                as u32;
+                            hovered_probability_outcome = Some((gate.id, row));
+                        } else if gate.kind == GateKind::AmplitudeDisplay {
+                            hovered_amplitude_outcome =
+                                amplitude_cell_index_at(gate_rect, gate.span.get(), cursor)
+                                    .map(|outcome| (gate.id, outcome));
+                        } else if gate.kind == GateKind::DensityMatrixDisplay {
+                            hovered_density_cell =
+                                density_matrix_cell_index_at(gate_rect, gate.span.get(), cursor)
+                                    .map(|cell| (gate.id, cell));
+                        }
                         break;
                     }
-                }
-                if body_rect.contains(cursor) {
-                    hovered_gate = Some(gate.id);
-                    if gate.kind == GateKind::ProbabilityDisplay {
-                        let row_count = 1usize << gate.span.get().clamp(1, 16);
-                        let row_h = gate_rect.height() / row_count as f32;
-                        let row = ((cursor.y - gate_rect.top()) / row_h)
-                            .floor()
-                            .clamp(0.0, (row_count - 1) as f32)
-                            as u32;
-                        hovered_probability_outcome = Some((gate.id, row));
-                    } else if gate.kind == GateKind::AmplitudeDisplay {
-                        hovered_amplitude_outcome =
-                            amplitude_cell_index_at(gate_rect, gate.span.get(), cursor)
-                                .map(|outcome| (gate.id, outcome));
-                    } else if gate.kind == GateKind::DensityMatrixDisplay {
-                        hovered_density_cell =
-                            density_matrix_cell_index_at(gate_rect, gate.span.get(), cursor)
-                                .map(|cell| (gate.id, cell));
-                    }
-                    break;
                 }
             }
             app.hovered_gate_id = hovered_gate;
@@ -86,7 +95,9 @@ impl DragController {
             app.hovered_probability_outcome = hovered_probability_outcome;
             app.hovered_amplitude_outcome = hovered_amplitude_outcome;
             app.hovered_density_cell = hovered_density_cell;
-            if hovered_probability_outcome != previous_probability_outcome
+            if hovered_gate != previous_gate
+                || hovered_handle != previous_handle
+                || hovered_probability_outcome != previous_probability_outcome
                 || hovered_amplitude_outcome != previous_amplitude_outcome
                 || hovered_density_cell != previous_density_cell
             {
@@ -103,17 +114,23 @@ impl DragController {
                 ctx.request_repaint();
             }
 
+            let previous_palette = app.hovered_palette_index;
             let mut hovered_palette = None;
-            if let Some(cursor_screen) = pointer.screen_pos {
-                if geometry.palette_rect.contains(cursor_screen) {
-                    let local = egui::pos2(
-                        cursor_screen.x - geometry.palette_origin.x,
-                        cursor_screen.y - geometry.palette_origin.y,
-                    );
-                    hovered_palette = palette_hit_test(local, &geometry.palette_layout);
+            if edit_hover_allowed {
+                if let Some(cursor_screen) = pointer.screen_pos {
+                    if geometry.palette_rect.contains(cursor_screen) {
+                        let local = egui::pos2(
+                            cursor_screen.x - geometry.palette_origin.x,
+                            cursor_screen.y - geometry.palette_origin.y,
+                        );
+                        hovered_palette = palette_hit_test(local, &geometry.palette_layout);
+                    }
                 }
             }
             app.hovered_palette_index = hovered_palette;
+            if hovered_palette != previous_palette {
+                ctx.request_repaint();
+            }
         } else {
             Self::clear_idle_hover(app, ctx);
         }

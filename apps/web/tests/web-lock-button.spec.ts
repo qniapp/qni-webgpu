@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-import { waitForStartupReady } from './support/web-spec-helpers'
+import {
+  getPaletteGateCenter,
+  pixelRgbDistance,
+  sampleCanvasPixels,
+  UI_CONSTANTS,
+  waitForStartupReady,
+  type CanvasPixel,
+} from './support/web-spec-helpers'
 
 type CircuitLibrarySnapshot = {
   entries: Array<{
@@ -16,10 +23,14 @@ type CircuitLibrarySnapshot = {
 }
 
 type ButtonGeometry = { left: number; right: number; top: number; bottom: number; hovered: boolean; tooltip: string }
+type HoverSnapshot = { hoveredGateId: number | null; hoveredPaletteIndex: number | null; hoveredStep: number | null }
 
 const BELL_JSON = '{"cols":[["H"],["•","X"]]}'
 const H_JSON = '{"cols":[["H"]]}'
 const X_JSON = '{"cols":[["X"]]}'
+const EGUI_PANEL_MARGIN = 8
+const CANVAS_BACKGROUND: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5.
+const GATE_HOVER_BORDER: CanvasPixel = [139, 126, 200, 255] // Flexoki purple-400 #8B7EC8.
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   const raw = await page.evaluate(() => {
@@ -67,6 +78,37 @@ const toolbarGeometry = async (page: Page, key: string): Promise<ButtonGeometry>
   throw new Error(`${key} was not published`)
 }
 
+const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> => {
+  const raw = await page.evaluate(() => (window as any).__qniHoverSnapshotJson ?? null)
+  if (typeof raw !== 'string') throw new Error('__qniHoverSnapshotJson hook missing')
+  return JSON.parse(raw) as HoverSnapshot
+}
+
+const waitForHoverStep = async (page: Page, expected: number): Promise<HoverSnapshot> => {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const snapshot = await hoverSnapshot(page)
+    if (snapshot.hoveredStep === expected) return snapshot
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`hoveredStep did not become ${expected}`)
+}
+
+const waitForCanvasBackgroundPixel = async (page: Page, point: { x: number; y: number }): Promise<CanvasPixel> => {
+  const canvas = page.locator('#egui-canvas')
+  let lastPixel: CanvasPixel | null = null
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'probe', x: point.x, y: point.y }])
+    const pixel = pixels.probe
+    if (pixel[3] > 0) {
+      lastPixel = pixel
+      if (pixelRgbDistance(pixel, CANVAS_BACKGROUND) < 16) return pixel
+    }
+    await page.waitForTimeout(50)
+  }
+  if (lastPixel) return lastPixel
+  throw new Error('canvas probe did not produce an opaque pixel')
+}
+
 const clickToolbarButton = async (page: Page, key: string): Promise<void> => {
   const box = await canvasBox(page)
   const geometry = await toolbarGeometry(page, key)
@@ -109,6 +151,66 @@ test('duplicating a sample creates an unlocked My circuit', async ({ page }) => 
   const state = await waitForSnapshot(page, (next) => next.active_kind === 'my', 'duplicate active')
 
   expect(state.entries.find((entry) => entry.id === state.active_id)?.locked).toBe(false)
+})
+
+test('locked active circuit does not paint the edit palette', async ({ page }) => {
+  await seedLibrary(page, {
+    entries: [{ id: 'bell', name: 'Bell state', circuit_json: BELL_JSON, updated_at: 1, origin: { kind: 'sample', origin_id: 'bell' } }],
+    active_id: 'bell',
+  })
+  await waitForSnapshot(page, (state) => state.active_locked === true, 'locked sample active')
+
+  const box = await canvasBox(page)
+  const paletteGate = getPaletteGateCenter(box.width, 0)
+  const pixel = await waitForCanvasBackgroundPixel(page, {
+    x: paletteGate.x + UI_CONSTANTS.GATE_SIZE / 2 - 6,
+    y: EGUI_PANEL_MARGIN + paletteGate.y + UI_CONSTANTS.GATE_SIZE / 2 - 6,
+  })
+
+  expect(pixelRgbDistance(pixel, CANVAS_BACKGROUND)).toBeLessThan(16)
+})
+
+test('locked active circuit keeps placed gates out of hover state', async ({ page }) => {
+  await seedLibrary(page, {
+    entries: [{ id: 'bell', name: 'Bell state', circuit_json: BELL_JSON, updated_at: 1, origin: { kind: 'sample', origin_id: 'bell' } }],
+    active_id: 'bell',
+  })
+  await waitForSnapshot(page, (state) => state.active_locked === true, 'locked sample active')
+
+  const box = await canvasBox(page)
+  const gateCenter = {
+    x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+  }
+  await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
+  const snapshot = await waitForHoverStep(page, 0)
+
+  expect(snapshot.hoveredGateId).toBeNull()
+})
+
+test('locked active circuit does not paint placed gate hover frame', async ({ page }) => {
+  await seedLibrary(page, {
+    entries: [{ id: 'bell', name: 'Bell state', circuit_json: BELL_JSON, updated_at: 1, origin: { kind: 'sample', origin_id: 'bell' } }],
+    active_id: 'bell',
+  })
+  await waitForSnapshot(page, (state) => state.active_locked === true, 'locked sample active')
+
+  const box = await canvasBox(page)
+  const gateCenter = {
+    x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
+    y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+  }
+  await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
+  await waitForHoverStep(page, 0)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    {
+      name: 'hoverFrame',
+      x: gateCenter.x,
+      y: gateCenter.y - UI_CONSTANTS.GATE_SIZE / 2 - 3,
+    },
+  ])
+
+  expect(pixelRgbDistance(pixels.hoverFrame, GATE_HOVER_BORDER) < 48).toBe(false)
 })
 
 test('locking a My circuit guards runtime URL apply', async ({ page }) => {

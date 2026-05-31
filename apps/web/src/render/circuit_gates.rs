@@ -137,6 +137,7 @@ impl QniApp {
             let body_rect = span_resize_body_rect(gate.kind, gate.span.get(), gate_rect);
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
+            let edit_hover_visible = !self.library.active_locked();
             let circuit_fill = colors.background;
             if gate.kind == GateKind::Measurement {
                 // qni shortens the input/output wire around a measurement
@@ -146,7 +147,7 @@ impl QniApp {
                 let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
-            if !fast_drag && self.hovered_gate_id == Some(gate.id) {
+            if !fast_drag && edit_hover_visible && self.hovered_gate_id == Some(gate.id) {
                 let hover_outer = body_rect.expand(4.0);
                 // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
                 // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
@@ -188,7 +189,7 @@ impl QniApp {
                 &self.placed_gates,
                 self.exec_mode.qubit_capacity().get(),
             ) {
-                let visible = self.hovered_gate_id == Some(gate.id)
+                let visible = (edit_hover_visible && self.hovered_gate_id == Some(gate.id))
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(
                     egui::Id::new(("span_resize_handles", gate.id)),

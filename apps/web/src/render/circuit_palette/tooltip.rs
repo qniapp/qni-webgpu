@@ -28,6 +28,9 @@ impl QniApp {
         rect: egui::Rect,
         colors: &Colors,
     ) {
+        if self.library.active_locked() {
+            return;
+        }
         let Some(index) = self.hovered_palette_index else {
             return;
         };

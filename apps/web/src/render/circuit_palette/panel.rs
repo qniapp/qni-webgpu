@@ -14,6 +14,9 @@ use super::super::hover_frame::{hover_frame_corner_radius, hover_frame_inner_cor
 
 impl QniApp {
     pub(crate) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+        if self.library.active_locked() {
+            return;
+        }
         let layout = palette_layout();
         let palette_start_x = palette_start_x(rect.width(), &layout);
         let palette_rect = egui::Rect::from_min_size(
