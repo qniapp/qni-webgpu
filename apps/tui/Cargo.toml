@@ -6,7 +6,7 @@ license = "MIT"
 default-run = "qni-webgpu-tui"
 
 [dependencies]
-ratatui = "0.26"
+ratatui = "0.30"
 crossterm = "0.27"
 
 [dev-dependencies]
