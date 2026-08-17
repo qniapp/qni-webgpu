@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
   "numpy==1.26.4",
   "qiskit==1.4.2",
-  "qiskit-aer==0.15.1",
+  "qiskit-aer==0.17.2",
 ]
 
 [build-system]
