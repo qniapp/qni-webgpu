@@ -183,7 +183,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 ### recompute あたりの GPU 往復
 
 | 項目 | 旧 | 現 |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `queue.submit` 呼び出し / recompute | N (gate ごと) | **1** |
 | `\|0…0⟩` 初期化のための CPU 確保 + upload | 2^N × 8 byte | **0** (encoder 内で `clear_buffer` + 8 byte `copy_buffer_to_buffer`) |
 | アイドルフレームの params `queue.write_buffer` | 3 / frame | **0** (dirty flag) |
@@ -207,7 +207,7 @@ CLAUDE.md の方針 (「WebGPU の恩恵を最大限に得る」「production �
 実測例 (10 runs each, `--repeat-each 10`):
 
 | テスト | 改修前 中央値 | 改修後 中央値 |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `applies a unitary chain` | 1,251 ms | 1,280 ms |
 | `GPU bloch reduction` | 1,130 ms | 1,132 ms |
 
