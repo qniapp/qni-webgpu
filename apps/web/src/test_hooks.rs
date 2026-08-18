@@ -30,6 +30,11 @@ pub(crate) const QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON: &str = "__qniToolbarDuplic
 pub(crate) const QNI_TOOLBAR_LOCK_GEOMETRY_JSON: &str = "__qniToolbarLockGeometryJson";
 pub(crate) const QNI_TOOLBAR_TOOLTIP_TEXT: &str = "__qniToolbarTooltipText";
 
+/// 起動完了フラグ。最初のフレームを描画した時点で立てる。
+/// `bootstrap.ts` の `start()` 呼び出し直後に立てると、eframe が canvas の
+/// イベントリスナを張る前にテストがクリックしてしまい入力が失われる。
+pub(crate) const QNI_EGUI_READY: &str = "__eguiReady";
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn set_property(target: &JsValue, name: &str, value: &JsValue) {
     let _ = js_sys::Reflect::set(target, &JsValue::from_str(name), value);
@@ -42,3 +47,18 @@ pub(crate) fn set_window_value(name: &str, value: &JsValue) {
     };
     set_property(window.as_ref(), name, value);
 }
+
+/// 最初のフレーム描画後に一度だけ起動完了フラグを立てる。
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn mark_egui_ready() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static PUBLISHED: AtomicBool = AtomicBool::new(false);
+    if PUBLISHED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    set_window_value(QNI_EGUI_READY, &JsValue::TRUE);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn mark_egui_ready() {}

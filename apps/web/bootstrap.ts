@@ -201,8 +201,9 @@ const run = async (): Promise<void> => {
       canvas?.focus()
       event.preventDefault()
     }, { capture: true })
+    // 起動完了フラグ (`__eguiReady`) は Rust 側が最初のフレーム描画後に立てる。
+    // ここで立てると eframe がイベントリスナを張る前になり、入力が失われる。
     const promise = start('egui-canvas')
-    window.__eguiReady = true
     promise
       .then(() => {
         hideStatus()
