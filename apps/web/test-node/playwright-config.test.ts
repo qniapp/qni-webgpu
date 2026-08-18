@@ -120,12 +120,18 @@ test('playwright config allows one more worker outside CI', () => {
   assert.equal(config.workers, 3)
 })
 
-// 起動固まりは Chrome / Dawn 側の待ちで解消できないため 1 回だけ再試行する。
-// 2 回続けて落ちるものは本当の退行として扱いたいので、上限を固定する。
-test('playwright config retries a failing test exactly once', () => {
+// 固まりや描画待ちの取りこぼしは環境の性能で頻度が変わる。上限まで落ちるものは
+// 本当の退行として扱いたいので、再試行の回数を環境ごとに固定する。
+test('playwright config retries a failing test once outside CI', () => {
   const config = loadConfig({ ...process.env, CI: undefined })
 
   assert.equal(config.retries, 1)
+})
+
+test('playwright config retries a failing test twice on CI', () => {
+  const config = loadConfig({ ...process.env, CI: '1' })
+
+  assert.equal(config.retries, 2)
 })
 
 test('playwright config can reuse an externally managed web server', () => {

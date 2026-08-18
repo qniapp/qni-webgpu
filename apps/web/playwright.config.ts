@@ -18,10 +18,11 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
 // CPU を 4 個に制限した再現環境に合わせて CI ではさらに下げる。
 const workers = process.env.CI ? 2 : 3
 
-// 起動固まりは Chrome / Dawn 側の待ちで、こちらから解消できない。描画待ちも
-// CPU が飽和すると期限に間に合わないことがある。1 回だけ再試行し、2 回続けて
-// 落ちるものは本当の退行として扱う (再試行で通ったものは flaky として報告される)。
-const retries = 1
+// 起動固まりは Chrome / Dawn 側の待ちで、こちらから解消できない。描画やドラッグの
+// 待ちも CPU が飽和すると期限に間に合わないことがある。CI (4 vCPU、SwiftShader) は
+// 発生率が高いので 2 回、手元では 1 回まで再試行する。上限まで落ちるものは本当の
+// 退行として扱う (再試行で通ったものは flaky として報告される)。
+const retries = process.env.CI ? 2 : 1
 
 export default defineConfig({
   testDir: './tests',
