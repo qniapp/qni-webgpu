@@ -3,6 +3,7 @@ import {
   pixelRgbDistance,
   sampleCanvasPixels,
   waitForStartupReady,
+  waitForValue,
   type CanvasPixel,
 } from './support/web-spec-helpers'
 
@@ -55,19 +56,21 @@ const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   })
   return JSON.parse(raw) as CircuitLibrarySnapshot
 }
-
 const waitForCondition = async (page: Page, predicate: () => Promise<boolean>, description: string): Promise<void> => {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    try {
-      if (await predicate()) return
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes('hook missing')) {
-        throw error
+  await waitForValue(
+    async () => {
+      try {
+        return await predicate()
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('hook missing')) {
+          throw error
+        }
+        return false
       }
-    }
-    await page.waitForTimeout(50)
-  }
-  throw new Error(`timed out waiting for ${description}`)
+    },
+    (value) => value,
+    `timed out waiting for ${description}`,
+  )
 }
 
 const seedLibrary = async (page: Page, activeId = 'two'): Promise<void> => {

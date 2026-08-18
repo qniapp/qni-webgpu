@@ -24,8 +24,13 @@ const workers = process.env.CI ? 2 : 3
 // 退行として扱う (再試行で通ったものは flaky として報告される)。
 const retries = process.env.CI ? 2 : 1
 
+// CPU が飽和するとアニメーションの完了待ちが既定の 30 秒に収まらないことがある。
+// 待ち側は「進んでいる間は待つ」形にしているので、テストの上限はその倍を確保する。
+const timeout = 60_000
+
 export default defineConfig({
   testDir: './tests',
+  timeout,
   fullyParallel: true,
   workers,
   retries,

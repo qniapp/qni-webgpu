@@ -3,6 +3,7 @@ import {
   pixelRgbDistance,
   sampleCanvasPixels,
   waitForStartupReady,
+  waitForValue,
   type CanvasPixel,
 } from './support/web-spec-helpers'
 
@@ -111,13 +112,13 @@ const waitForResizeGeometry = async (
   predicate: (geometry: ResizeGeometry) => boolean = () => true,
   description = 'picker resize geometry',
 ): Promise<ResizeGeometry> => {
-  let last: ResizeGeometry | null = null
-  await waitForCondition(page, async () => {
-    last = await resizeGeometry(page)
-    return last !== null && predicate(last)
-  }, description)
-  if (!last) throw new Error('picker resize geometry missing')
-  return last
+  const geometry = await waitForValue(
+    () => resizeGeometry(page),
+    (value) => value !== null && predicate(value),
+    `timed out waiting for ${description}`,
+  )
+  if (!geometry) throw new Error('picker resize geometry missing')
+  return geometry
 }
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {

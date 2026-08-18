@@ -22,6 +22,7 @@ import {
   waitForStartupReady,
   waitForStateVectorApprox,
   waitForStateVectorLength,
+  waitForValue,
   type CanvasPixel,
   type CircularBodySignature,
   type PixelSamplePoint,
@@ -39,14 +40,13 @@ const readCircuitColsFromHash = (url: string): unknown[] => {
   }
   return JSON.parse(decodeURIComponent(hash)).cols
 }
-
 const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number): Promise<void> }, expected: unknown[]): Promise<void> => {
   const expectedJson = JSON.stringify(expected)
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (JSON.stringify(readCircuitColsFromHash(page.url())) === expectedJson) return
-    await page.waitForTimeout(50)
-  }
-  throw new Error(`URL hash columns did not become ${expectedJson}`)
+  await waitForValue(
+    () => Promise.resolve(JSON.stringify(readCircuitColsFromHash(page.url()))),
+    (seen) => seen === expectedJson,
+    `URL hash columns did not become ${expectedJson}`,
+  )
 }
 
 const hoverSnapshot = async (page: Page): Promise<HoverSnapshot> => {

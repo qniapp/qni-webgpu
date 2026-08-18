@@ -134,6 +134,13 @@ test('playwright config retries a failing test twice on CI', () => {
   assert.equal(config.retries, 2)
 })
 
+// アニメーション待ちは CPU 飽和時に既定の 30 秒を超えることがある。
+test('playwright config raises the per-test timeout above the default', () => {
+  const config = loadConfig({ ...process.env, CI: undefined })
+
+  assert.equal(config.timeout, 60_000)
+})
+
 test('playwright config can reuse an externally managed web server', () => {
   const env = {
     ...process.env,
