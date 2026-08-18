@@ -17,10 +17,17 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
 // 発生自体を減らすため並列数を抑える。
 const workers = 3
 
+// 上記の起動固まりは Chrome / Dawn 側の待ちで、こちらから解消できない。
+// 単一ページの Cucumber でも発生するため並列数だけでは消えない。
+// 1 回だけ再試行し、2 回続けて落ちるものは本当の退行として扱う
+// (再試行で通ったものは flaky として報告される)。
+const retries = 1
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   workers,
+  retries,
   use: {
     baseURL: getPlaywrightBaseUrl({ env: process.env }),
     viewport: { width: 1000, height: 800 },

@@ -120,6 +120,14 @@ test('playwright config uses the same bounded worker count outside CI', () => {
   assert.equal(config.workers, 3)
 })
 
+// 起動固まりは Chrome / Dawn 側の待ちで解消できないため 1 回だけ再試行する。
+// 2 回続けて落ちるものは本当の退行として扱いたいので、上限を固定する。
+test('playwright config retries a failing test exactly once', () => {
+  const config = loadConfig({ ...process.env, CI: undefined })
+
+  assert.equal(config.retries, 1)
+})
+
 test('playwright config can reuse an externally managed web server', () => {
   const env = {
     ...process.env,
