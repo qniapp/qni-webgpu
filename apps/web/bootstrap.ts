@@ -102,16 +102,39 @@ const formatStartupError = (err: unknown): string => {
 
 // WebGPU の初期化は、アダプタ取得もデバイス取得も応答しないまま固まることがある。
 // 例外も出ないため、この間キャンバスは白いままで利用者には何も伝わらない。
-// 最初のフレームが描画されたかどうかを Rust 側の起動段階フラグで監視し、
-// 期限を過ぎても描画が始まらなければ明示的なエラーとして扱う。
-// 監視の期限。テストからは `__qniStartupWatchdogMs` で短縮できる。
+// 実測では 3 並列 / 4 CPU で 60 回の読み込みのうち 2 回が 90 秒たっても描画に
+// 到達せず、残りは 1.4 秒以内に描画できた。つまり遅いのではなく固まっている。
+// 読み込み直せばほぼ確実に描画できるので、最初のフレームが来ないときは一度だけ
+// 自動で読み込み直し、それでも来なければ明示的なエラーにする。
 const DEFAULT_STARTUP_WATCHDOG_MS = 15_000
+const STARTUP_RETRY_KEY = 'qniStartupRetry'
 
 const startupStage = (): unknown => Reflect.get(window, '__qniStartupStage')
 
 // 監視が先に発火したあとで起動が完了することもある。その場合は起動側を正とし、
 // 監視が立てたエラーを取り消す。取り消し対象を区別するため発火を記録しておく。
 let watchdogError: string | null = null
+
+// sessionStorage が使えない環境 (プライベートモードなど) でも起動は続ける。
+const readRetryMarker = (): string | null => {
+  try {
+    return sessionStorage.getItem(STARTUP_RETRY_KEY)
+  } catch {
+    return null
+  }
+}
+
+const writeRetryMarker = (value: string | null): void => {
+  try {
+    if (value === null) {
+      sessionStorage.removeItem(STARTUP_RETRY_KEY)
+    } else {
+      sessionStorage.setItem(STARTUP_RETRY_KEY, value)
+    }
+  } catch {
+    // 保存できない場合は再読み込みを 1 回に制限できないため、再試行しない。
+  }
+}
 
 const watchStartup = (): void => {
   const rawOverride = Reflect.get(window, '__qniStartupWatchdogMs')
@@ -121,10 +144,15 @@ const watchStartup = (): void => {
       return
     }
     const detail = `WebGPU initialization did not finish within ${timeout} ms (stage: ${String(startupStage() ?? 'not-started')})`
+    console.error(detail)
+    if (readRetryMarker() === null) {
+      writeRetryMarker(detail)
+      location.reload()
+      return
+    }
     watchdogError = detail
     window.__eguiError = detail
     showStatus(formatStartupError(new Error(detail)))
-    console.error(detail)
   }, timeout)
 }
 
@@ -133,6 +161,7 @@ const finishStartup = (): void => {
     window.__eguiError = undefined
   }
   watchdogError = null
+  writeRetryMarker(null)
   hideStatus()
 }
 

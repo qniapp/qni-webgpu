@@ -111,10 +111,10 @@ test('playwright config uses a bounded multi-worker count on CI', () => {
   }
   const config = loadConfig(env)
 
-  assert.equal(config.workers, 3)
+  assert.equal(config.workers, 2)
 })
 
-test('playwright config uses the same bounded worker count outside CI', () => {
+test('playwright config allows one more worker outside CI', () => {
   const config = loadConfig({ ...process.env, CI: undefined })
 
   assert.equal(config.workers, 3)

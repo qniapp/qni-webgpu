@@ -36,7 +36,9 @@ type DragPreviewProbeOptions = {
 }
 type ArtifactWorld = { artifactDir?: string } | null | undefined
 
-export const DEFAULT_READY_TIMEOUT_MS = 20_000
+// 起動が固まった場合、`bootstrap.ts` の監視が 15 秒後に一度だけ自動で読み込み
+// 直す。その分の余裕を含めた待ち時間にする。
+export const DEFAULT_READY_TIMEOUT_MS = 30_000
 export const DEFAULT_CANVAS_CONTENT_TIMEOUT_MS = 5_000
 export const DEFAULT_ARTIFACT_DIR = path.join(os.tmpdir(), 'qni-web-cucumber')
 const DEFAULT_EVALUATE_ATTEMPTS = 3

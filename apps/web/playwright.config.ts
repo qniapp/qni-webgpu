@@ -12,15 +12,15 @@ const standardBrowser = getStandardWebGpuLaunchOptions({
   defaultPath: chromium.executablePath(),
 })
 // Chrome を並列に多数起動すると、WebGPU のデバイス取得が応答しないまま止まる
-// ページが混ざる (実測: 6 並列で 1〜2 回の実行に 1 件、3 並列では 4 回の実行で 0 件)。
-// 起動が固まった場合は `bootstrap.ts` の監視が明示的なエラーへ切り替えるが、
-// 発生自体を減らすため並列数を抑える。
-const workers = 3
+// ページが混ざる (実測: 6 並列で 1〜2 回の実行に 1 件)。起動が固まった場合は
+// `bootstrap.ts` の監視が一度だけ自動で読み込み直すが、発生自体を減らすため
+// 並列数を抑える。GitHub Actions は 4 vCPU で描画も SwiftShader (CPU) のため、
+// CPU を 4 個に制限した再現環境に合わせて CI ではさらに下げる。
+const workers = process.env.CI ? 2 : 3
 
-// 上記の起動固まりは Chrome / Dawn 側の待ちで、こちらから解消できない。
-// 単一ページの Cucumber でも発生するため並列数だけでは消えない。
-// 1 回だけ再試行し、2 回続けて落ちるものは本当の退行として扱う
-// (再試行で通ったものは flaky として報告される)。
+// 起動固まりは Chrome / Dawn 側の待ちで、こちらから解消できない。描画待ちも
+// CPU が飽和すると期限に間に合わないことがある。1 回だけ再試行し、2 回続けて
+// 落ちるものは本当の退行として扱う (再試行で通ったものは flaky として報告される)。
 const retries = 1
 
 export default defineConfig({
