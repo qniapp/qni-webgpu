@@ -175,8 +175,8 @@ Chrome の WebGPU 初期化は、例外を出さずに応答しなくなるこ�
 実測では 6 並列の Playwright 実行で 1〜2 回の実行につき 1 件、単一ページの Cucumber でもまれに起きた。
 症状と切り分けの結果は次のとおり。
 
-- wasm と JS の取得はいずれも 300 ミリ秒以内に完了している。
-- 固まっている最中に JS から `navigator.gpu.requestAdapter()` を呼ぶと、正常にアダプタを返す。
+- wasm と JavaScript の取得はいずれも 300 ミリ秒以内に完了している。
+- 固まっている最中に JavaScript から `navigator.gpu.requestAdapter()` を呼ぶと、正常にアダプタを返す。
 - それでも起動段階は `runner-start` のまま進まず、キャンバスは 300x150 の初期サイズから変わらない。
   つまり `eframe::WebRunner::start` の中のデバイス取得が応答していない。
 - WebGPU の仕様でも、ページが前面に無い場合などにアダプタ / デバイス取得が解決しないことは想定されている。
@@ -186,6 +186,7 @@ Chrome の WebGPU 初期化は、例外を出さずに応答しなくなるこ�
 1. **起動段階の可視化**: Rust 側が `__qniStartupStage` に `runner-start` / `app-new` / `first-frame` を publish する。
    起動待ちのタイムアウトはこの値を添えて投げるので、どこで止まったか判別できる。
 2. **明示的なエラー化**: `bootstrap.ts` は 15 秒経っても最初のフレームが来なければ、起動エラー表示へ切り替える。
+   期限は `__qniStartupWatchdogMs` で短縮でき、テストはこれを使う。監視が発火したあとで起動が完了した場合は起動側を正としてエラーを取り消す。
    利用者にキャンバスが白いまま見える状態を残さない。回帰テストは `tests/web-startup-watchdog.spec.ts`。
 3. **並列数と再試行**: `playwright.config.ts` の並列数は 3、再試行は 1 回。`cucumber.ts` の `retry` も 1 回。
    2 回続けて落ちるものは本当の退行として扱う。

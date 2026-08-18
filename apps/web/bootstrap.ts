@@ -104,20 +104,36 @@ const formatStartupError = (err: unknown): string => {
 // 例外も出ないため、この間キャンバスは白いままで利用者には何も伝わらない。
 // 最初のフレームが描画されたかどうかを Rust 側の起動段階フラグで監視し、
 // 期限を過ぎても描画が始まらなければ明示的なエラーとして扱う。
-const STARTUP_WATCHDOG_MS = 15_000
+// 監視の期限。テストからは `__qniStartupWatchdogMs` で短縮できる。
+const DEFAULT_STARTUP_WATCHDOG_MS = 15_000
 
 const startupStage = (): unknown => Reflect.get(window, '__qniStartupStage')
 
+// 監視が先に発火したあとで起動が完了することもある。その場合は起動側を正とし、
+// 監視が立てたエラーを取り消す。取り消し対象を区別するため発火を記録しておく。
+let watchdogError: string | null = null
+
 const watchStartup = (): void => {
+  const rawOverride = Reflect.get(window, '__qniStartupWatchdogMs')
+  const timeout = typeof rawOverride === 'number' ? rawOverride : DEFAULT_STARTUP_WATCHDOG_MS
   setTimeout(() => {
     if (startupStage() === 'first-frame' || window.__eguiError) {
       return
     }
-    const detail = `WebGPU initialization did not finish within ${STARTUP_WATCHDOG_MS} ms (stage: ${String(startupStage() ?? 'not-started')})`
+    const detail = `WebGPU initialization did not finish within ${timeout} ms (stage: ${String(startupStage() ?? 'not-started')})`
+    watchdogError = detail
     window.__eguiError = detail
     showStatus(formatStartupError(new Error(detail)))
     console.error(detail)
-  }, STARTUP_WATCHDOG_MS)
+  }, timeout)
+}
+
+const finishStartup = (): void => {
+  if (watchdogError !== null && window.__eguiError === watchdogError) {
+    window.__eguiError = undefined
+  }
+  watchdogError = null
+  hideStatus()
 }
 
 const run = async (): Promise<void> => {
@@ -227,7 +243,7 @@ const run = async (): Promise<void> => {
     watchStartup()
     promise
       .then(() => {
-        hideStatus()
+        finishStartup()
       })
       .catch((err) => {
         window.__eguiError = String(err)
