@@ -238,6 +238,19 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   })
 })
 
+// 角度エディタは長押し判定を挟んで開くため、固定時間で待つと CPU 飽和時に
+// 入力が空振りする。エディタが対象ゲートに紐づいたことを状態で待つ。
+const waitForAngleEditor = async (page: Page, gateId: number): Promise<void> => {
+  await waitForValue(
+    () => page.evaluate(() => {
+      const raw = Reflect.get(window, '__qniAngleInputGeometryJson')
+      return typeof raw === 'string' ? raw : null
+    }),
+    (raw) => raw !== null && JSON.parse(raw).editor_gate_id === gateId,
+    `angle editor did not become active for gate ${gateId}`,
+  )
+}
+
 test('active same-angle phase editor masks the connector behind typed text', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['P(π_2)', 'P(π_2)', 'P(π_2)']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -252,7 +265,7 @@ test('active same-angle phase editor masks the connector behind typed text', asy
   const geometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
   const label = geometry.labels[1]
   await page.mouse.click((label.left + label.right) / 2, (label.top + label.bottom) / 2)
-  await page.waitForTimeout(850)
+  await waitForAngleEditor(page, label.gate_id)
   await page.keyboard.type('111/3')
   await page.waitForTimeout(100)
 
@@ -280,7 +293,7 @@ test('invalid active angle editor restores the previous angle', async ({ page })
   const geometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
   const label = geometry.labels[0]
   await page.mouse.click((label.left + label.right) / 2, (label.top + label.bottom) / 2)
-  await page.waitForTimeout(850)
+  await waitForAngleEditor(page, label.gate_id)
   await page.keyboard.type('hoge')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(100)
@@ -306,7 +319,7 @@ test('active angle editor normalizes coefficient fraction', async ({ page }) => 
   const geometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
   const label = geometry.labels[0]
   await page.mouse.click((label.left + label.right) / 2, (label.top + label.bottom) / 2)
-  await page.waitForTimeout(850)
+  await waitForAngleEditor(page, label.gate_id)
   await page.keyboard.type('1/2')
   await page.keyboard.press('Enter')
   await waitForHashCols(page, expectedCols)
