@@ -156,7 +156,7 @@ impl QniApp {
                 painter.rect_stroke(
                     hover_outer,
                     hover_frame_corner_radius(gate.kind),
-                    egui::Stroke::new(2.0, colors.gate_hover_border),
+                    egui::Stroke::new(2.0_f32, colors.gate_hover_border),
                     egui::StrokeKind::Inside,
                 );
             }

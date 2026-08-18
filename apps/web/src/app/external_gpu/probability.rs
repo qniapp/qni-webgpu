@@ -46,7 +46,7 @@ pub(super) fn collect_probability_requests(
             .into_iter()
             .filter(|gate| gate.kind == GateKind::ProbabilityDisplay)
             .collect();
-        displays.sort_by(|a, b| a.id.cmp(&b.id));
+        displays.sort_by_key(|a| a.id);
         for display in displays {
             let span = display
                 .span

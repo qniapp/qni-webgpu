@@ -41,7 +41,7 @@ pub(super) fn collect_bloch_requests(
             .into_iter()
             .filter(|gate| gate.kind == GateKind::BlochDisplay)
             .collect();
-        displays.sort_by(|a, b| a.id.cmp(&b.id));
+        displays.sort_by_key(|a| a.id);
         for display in displays {
             requests.push(ExternalBlochRequest {
                 gate_id: display.id.as_u32(),

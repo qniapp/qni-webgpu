@@ -94,7 +94,7 @@ Web UI の外部 GPU 実行パスを受けるローカル API です。
 
 GitHub Actions では以下を使って検証します。
 
-- **Node.js 20**
+- **Node.js 22** (`cucumber.ts` を読み込むために、型注釈を実行時に取り除ける 22.18 以降が必要)
 - **pnpm 9**
 - **Rust stable**
 - **Python 3**

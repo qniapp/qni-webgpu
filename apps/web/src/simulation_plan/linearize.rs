@@ -98,7 +98,7 @@ pub(crate) fn linearize_ops(
         // no partner, or three+ Swaps in one column, the column is
         // skipped (qni dispatches only the first two `targets` and
         // disables stray swaps via `updateSwapConnections`).
-        swap_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        swap_targets.sort_by_key(|a| a.id);
         if swap_targets.len() == 2 {
             let bit_a = swap_targets[0]
                 .wire
@@ -111,7 +111,7 @@ pub(crate) fn linearize_ops(
             push_swap_3cnot(&mut ops, bit_a, bit_b, controls, state_count);
         }
 
-        targets.sort_by(|a, b| a.id.cmp(&b.id));
+        targets.sort_by_key(|a| a.id);
         for target in &targets {
             let bit = target
                 .wire
@@ -189,7 +189,7 @@ pub(crate) fn linearize_ops(
         // controlled-phase rotations). Column controls are threaded through
         // every decomposed operation, making the whole QFT conditional while
         // preserving the usual internal QFT controlled-phase gates.
-        qft_gates.sort_by(|a, b| a.id.cmp(&b.id));
+        qft_gates.sort_by_key(|a| a.id);
         for qft in &qft_gates {
             let dagger = qft.kind == GateKind::QftDaggerGate;
             let qft_controls = qft_external_controls(qft, qubits, controls);
@@ -204,7 +204,7 @@ pub(crate) fn linearize_ops(
 
         // Measurements run after the column's unitaries: reduce + sample,
         // then collapse. Each consumes one aux slot.
-        measurement_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        measurement_targets.sort_by_key(|a| a.id);
         for measurement in &measurement_targets {
             let qubit_bit = measurement
                 .wire
@@ -223,7 +223,7 @@ pub(crate) fn linearize_ops(
         }
 
         // Bloch captures see the post-measurement state.
-        bloch_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        bloch_targets.sort_by_key(|a| a.id);
         for display in &bloch_targets {
             let qubit_bit = display
                 .wire
@@ -240,7 +240,7 @@ pub(crate) fn linearize_ops(
         // Probability displays are also read-only displays. They capture the
         // current GPU state into a per-display probability buffer; rendering
         // samples that buffer directly, no CPU-side probabilities.
-        probability_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        probability_targets.sort_by_key(|a| a.id);
         for display in &probability_targets {
             if !display.wire.is_within(qubits) {
                 continue;
@@ -263,7 +263,7 @@ pub(crate) fn linearize_ops(
             });
         }
 
-        amplitude_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        amplitude_targets.sort_by_key(|a| a.id);
         for display in &amplitude_targets {
             if !display.wire.is_within(qubits) {
                 continue;
@@ -286,7 +286,7 @@ pub(crate) fn linearize_ops(
             });
         }
 
-        density_targets.sort_by(|a, b| a.id.cmp(&b.id));
+        density_targets.sort_by_key(|a| a.id);
         for display in &density_targets {
             if !display.wire.is_within(qubits) {
                 continue;

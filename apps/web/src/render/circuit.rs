@@ -56,7 +56,7 @@ impl QniApp {
         for &line_y in &metrics.line_ys {
             let start = circuit_origin + egui::vec2(metrics.line_left, line_y);
             let end = circuit_origin + egui::vec2(metrics.line_right, line_y);
-            painter.line_segment([start, end], egui::Stroke::new(2.0, colors.line));
+            painter.line_segment([start, end], egui::Stroke::new(2.0_f32, colors.line));
         }
 
         // Step-preview vertical bars at the right edge of the
@@ -80,7 +80,7 @@ impl QniApp {
                         egui::pos2(x, rect.min.y + top),
                         egui::pos2(x, rect.min.y + bot),
                     ],
-                    egui::Stroke::new(3.0, color),
+                    egui::Stroke::new(3.0_f32, color),
                 );
             };
             if let Some(step) = self.breakpoint_step {
