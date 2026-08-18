@@ -67,6 +67,7 @@ pub(super) fn publish_picker_resize_geometry_json(
     scroll_offset_y: f32,
     hovered: bool,
     dragging: bool,
+    item_dragging: bool,
 ) {
     let first_row_top = first_row_rect
         .map(|rect| rect.top())
@@ -75,7 +76,7 @@ pub(super) fn publish_picker_resize_geometry_json(
         .map(|rect| rect.bottom())
         .unwrap_or_else(|| items_rect.bottom());
     let json = format!(
-        "{{\"items_height\":{items_height:.3},\"max_items_height\":{max_items_height:.3},\"items_top\":{:.3},\"items_bottom\":{:.3},\"handle_left\":{:.3},\"handle_right\":{:.3},\"handle_top\":{:.3},\"handle_bottom\":{:.3},\"footer_top\":{:.3},\"footer_bottom\":{:.3},\"first_row_top\":{first_row_top:.3},\"last_row_bottom\":{last_row_bottom:.3},\"scroll_offset_y\":{scroll_offset_y:.3},\"hovered\":{hovered},\"dragging\":{dragging}}}",
+        "{{\"items_height\":{items_height:.3},\"max_items_height\":{max_items_height:.3},\"items_top\":{:.3},\"items_bottom\":{:.3},\"handle_left\":{:.3},\"handle_right\":{:.3},\"handle_top\":{:.3},\"handle_bottom\":{:.3},\"footer_top\":{:.3},\"footer_bottom\":{:.3},\"first_row_top\":{first_row_top:.3},\"last_row_bottom\":{last_row_bottom:.3},\"scroll_offset_y\":{scroll_offset_y:.3},\"hovered\":{hovered},\"dragging\":{dragging},\"item_dragging\":{item_dragging}}}",
         items_rect.top(),
         items_rect.bottom(),
         handle_rect.left(),
@@ -104,6 +105,7 @@ pub(super) fn publish_picker_resize_geometry_json(
     _scroll_offset_y: f32,
     _hovered: bool,
     _dragging: bool,
+    _item_dragging: bool,
 ) {
 }
 
