@@ -100,6 +100,26 @@ const formatStartupError = (err: unknown): string => {
   ].join('\n\n')
 }
 
+// WebGPU の初期化は、アダプタ取得もデバイス取得も応答しないまま固まることがある。
+// 例外も出ないため、この間キャンバスは白いままで利用者には何も伝わらない。
+// 最初のフレームが描画されたかどうかを Rust 側の起動段階フラグで監視し、
+// 期限を過ぎても描画が始まらなければ明示的なエラーとして扱う。
+const STARTUP_WATCHDOG_MS = 15_000
+
+const startupStage = (): unknown => Reflect.get(window, '__qniStartupStage')
+
+const watchStartup = (): void => {
+  setTimeout(() => {
+    if (startupStage() === 'first-frame' || window.__eguiError) {
+      return
+    }
+    const detail = `WebGPU initialization did not finish within ${STARTUP_WATCHDOG_MS} ms (stage: ${String(startupStage() ?? 'not-started')})`
+    window.__eguiError = detail
+    showStatus(formatStartupError(new Error(detail)))
+    console.error(detail)
+  }, STARTUP_WATCHDOG_MS)
+}
+
 const run = async (): Promise<void> => {
   try {
     const {
@@ -204,6 +224,7 @@ const run = async (): Promise<void> => {
     // 起動完了フラグ (`__eguiReady`) は Rust 側が最初のフレーム描画後に立てる。
     // ここで立てると eframe がイベントリスナを張る前になり、入力が失われる。
     const promise = start('egui-canvas')
+    watchStartup()
     promise
       .then(() => {
         hideStatus()

@@ -35,6 +35,9 @@ pub(crate) const QNI_TOOLBAR_TOOLTIP_TEXT: &str = "__qniToolbarTooltipText";
 /// イベントリスナを張る前にテストがクリックしてしまい入力が失われる。
 pub(crate) const QNI_EGUI_READY: &str = "__eguiReady";
 
+/// 起動の進行段階。起動が固まったときに、どこで止まったかを切り分けるために publish する。
+pub(crate) const QNI_STARTUP_STAGE: &str = "__qniStartupStage";
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn set_property(target: &JsValue, name: &str, value: &JsValue) {
     let _ = js_sys::Reflect::set(target, &JsValue::from_str(name), value);
@@ -58,7 +61,17 @@ pub(crate) fn mark_egui_ready() {
         return;
     }
     set_window_value(QNI_EGUI_READY, &JsValue::TRUE);
+    set_startup_stage("first-frame");
 }
+
+/// 起動の進行段階を publish する。値は `runner-start` / `app-new` / `first-frame`。
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn set_startup_stage(stage: &str) {
+    set_window_value(QNI_STARTUP_STAGE, &JsValue::from_str(stage));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn set_startup_stage(_stage: &str) {}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn mark_egui_ready() {}
