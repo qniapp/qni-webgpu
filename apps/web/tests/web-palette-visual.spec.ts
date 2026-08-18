@@ -296,9 +296,16 @@ test('invalid active angle editor restores the previous angle', async ({ page })
   await waitForAngleEditor(page, label.gate_id)
   await page.keyboard.type('hoge')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(100)
-
-  const restoredGeometry = JSON.parse(await page.evaluate(() => (window as any).__qniAngleInputGeometryJson))
+  // Enter の反映もフレームをまたぐ。閉じたことを状態で待ってから読む。
+  const restoredJson = await waitForValue(
+    () => page.evaluate(() => {
+      const raw = Reflect.get(window, '__qniAngleInputGeometryJson')
+      return typeof raw === 'string' ? raw : null
+    }),
+    (raw) => raw !== null && JSON.parse(raw).editor_gate_id === null,
+    'angle editor did not close after Enter',
+  )
+  const restoredGeometry = JSON.parse(restoredJson ?? 'null')
 
   expect({
     cols: readCircuitColsFromHash(page.url()),
