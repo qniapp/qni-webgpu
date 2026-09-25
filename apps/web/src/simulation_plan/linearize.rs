@@ -7,7 +7,7 @@
 //! - `packages/simulator/src/state-vector.ts` and `matrix.ts` — the math each
 //!   shader implements (kept in `gpu/*`).
 
-use super::{ColumnAnalysis, SimulationOp};
+use super::{SimulationColumnAnalysis, SimulationOp};
 use crate::app::PlacedGate;
 use crate::gates::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params,
@@ -36,12 +36,7 @@ pub(crate) fn linearize_ops(
         .local_state_count_u32()
         .expect("linearize runs only on the local dispatch path within local capacity");
 
-    let analysis = ColumnAnalysis::from_gates(placed_gates, |gate| {
-        if !gate.wire.is_within(qubits) {
-            return None;
-        }
-        Some(gate.column.as_usize())
-    });
+    let analysis = SimulationColumnAnalysis::from_gates(placed_gates, qubits);
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut next_snapshot_slot = 0usize;
@@ -58,7 +53,7 @@ pub(crate) fn linearize_ops(
             next_snapshot_slot += 1;
         }
         let column_gates = column.gates();
-        let mut controls = ColumnControls::NONE;
+        let controls = column.controls();
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
@@ -69,13 +64,8 @@ pub(crate) fn linearize_ops(
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
-            let bit = gate
-                .wire
-                .to_qubit_bit(qubits)
-                .expect("column gates are filtered to wires within the register");
             match gate.kind {
-                GateKind::Control => controls.add_control(bit),
-                GateKind::AntiControl => controls.add_anti_control(bit),
+                GateKind::Control | GateKind::AntiControl => {}
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {
                     // Non-mutating decoration.
@@ -1060,6 +1050,66 @@ mod tests {
         assert!(matches!(
             ops.first(),
             Some(SimulationOp::CaptureProbability { base_bit, .. }) if base_bit.as_u32() == 0
+        ));
+    }
+
+    #[test]
+    fn amplitude_display_captures_column_controls() {
+        let gates = [
+            PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ),
+            PlacedGate::new(
+                crate::app::GateId::from_u32(2),
+                GateKind::AmplitudeDisplay,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ),
+        ];
+
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureAmplitude { controls, .. })
+                if controls.mask() == 0b1 && controls.value() == 0b1
+        ));
+    }
+
+    #[test]
+    fn density_display_captures_column_controls() {
+        let gates = [
+            PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ),
+            PlacedGate::new(
+                crate::app::GateId::from_u32(2),
+                GateKind::DensityMatrixDisplay,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ),
+        ];
+
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+
+        assert!(matches!(
+            ops.first(),
+            Some(SimulationOp::CaptureDensity { controls, .. })
+                if controls.mask() == 0b1 && controls.value() == 0
         ));
     }
 
