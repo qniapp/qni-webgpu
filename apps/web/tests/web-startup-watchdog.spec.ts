@@ -9,10 +9,12 @@ const WATCHDOG_MS = 1_000
 
 test('startup that stalls once recovers on the automatic reload', async ({ page }) => {
   await page.addInitScript((watchdogMs: number) => {
-    Reflect.set(window, '__qniStartupWatchdogMs', watchdogMs)
-    if (!navigator.gpu) return
+    // 最初の読み込みだけ監視を短縮する。再読み込み後の本物の GPU 初期化には
+    // 通常の期限を与えないと、負荷の高い CI では回復前に再びエラーになる。
+    const retry = sessionStorage.getItem('qniStartupRetry') !== null
+    Reflect.set(window, '__qniStartupWatchdogMs', retry ? 15_000 : watchdogMs)
+    if (!navigator.gpu || retry) return
     // 1 回目の読み込みだけ固める。自動再読み込み後は本来のアダプタ取得に戻す。
-    if (sessionStorage.getItem('qniStartupRetry') !== null) return
     Object.defineProperty(navigator.gpu, 'requestAdapter', {
       configurable: true,
       value: () => new Promise(() => {}),
