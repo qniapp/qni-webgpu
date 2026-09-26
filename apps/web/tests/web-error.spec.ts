@@ -87,6 +87,30 @@ test('asset loading failure does not blame GPU access', async ({ page }) => {
   })
 })
 
+test('GPU error text uses bundled fonts rather than operating-system fallbacks', async ({ page }) => {
+  await denyAdapter(page, 'Linux')
+  await page.goto('/')
+  await page.getByTestId('webgpu-error').waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: 'Linux Chromium? Try these steps' }).click()
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready
+    return {
+      heading: getComputedStyle(document.querySelector('#app-status h1')!).fontFamily,
+      dialog: getComputedStyle(document.querySelector('#linux-steps')!).fontFamily,
+      command: getComputedStyle(document.querySelector('#cmd')!).fontFamily,
+      loadedFaces: Array.from(document.fonts)
+        .filter((face) => face.family.startsWith('Qni Geist'))
+        .map((face) => `${face.family}:${face.weight}:${face.status}`),
+    }
+  })
+  expect(fonts).toEqual({
+    heading: '"Qni Geist", sans-serif',
+    dialog: '"Qni Geist", sans-serif',
+    command: '"Qni Geist Mono", monospace',
+    loadedFaces: ['Qni Geist:400:loaded', 'Qni Geist:700 900:loaded', 'Qni Geist Mono:400:loaded'],
+  })
+})
+
 test('GPU failure shows the crayon screen without Linux instructions on Windows', async ({ page }) => {
   await denyAdapter(page, 'Windows')
   await page.goto('/')

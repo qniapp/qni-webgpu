@@ -1,3 +1,8 @@
+/* アプリ内の書体を使い、OS ごとの代替フォントで配置がずれないようにする。 */
+@font-face { font-family: 'Qni Geist'; src: url('Geist-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Qni Geist'; src: url('Geist-Bold.ttf') format('truetype'); font-weight: 700 900; font-display: swap; }
+@font-face { font-family: 'Qni Geist Mono'; src: url('GeistMono-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+
 /* ===== 配色: Flexoki Light の名前付きトーン ===== */
   :root {
     --bg: #FFFCF0;        /* Flexoki bg (paper) */
@@ -25,7 +30,7 @@
     overflow-y: auto;
     background: var(--bg);
     color: var(--tx);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: 'Qni Geist', sans-serif;
     font-size: 16px; line-height: 24px;  /* text-base */
     overflow-x: clip;
   }
@@ -162,7 +167,7 @@
     background: var(--bg-2);
     border: 1px solid var(--ui-2);
     border-radius: 8px;                  /* rounded-lg */
-    font: 12px/16px ui-monospace, "JetBrains Mono", monospace; /* text-xs */
+    font: 12px/16px 'Qni Geist Mono', monospace; /* text-xs */
     color: var(--tx-2);
     text-align: left;
     white-space: pre-wrap;
@@ -171,6 +176,7 @@
 
   /* ---- Linux Chromium の手順: 中央モーダル ---- */
   dialog {
+    font-family: 'Qni Geist', sans-serif;
     width: min(640px, calc(100vw - 32px)); /* spacing-4 x 2 */
     max-height: calc(100dvh - 32px);
     padding: 0; border: 0;
@@ -219,9 +225,9 @@
     border: 1px solid var(--ui);
     border-radius: 8px;                  /* rounded-lg */
     white-space: pre-wrap;               /* スマホでも全文を読めるよう <wbr> の位置で折り返す。コピーは原文のまま */
-    font: 12px/16px ui-monospace, "JetBrains Mono", monospace; /* text-xs */
+    font: 12px/16px 'Qni Geist Mono', monospace; /* text-xs */
   }
-  code { font-family: ui-monospace, "JetBrains Mono", monospace; }
+  code { font-family: 'Qni Geist Mono', monospace; }
 
   /* ---- スマホ: 絵を拡大して折れた場所の周辺だけを切り取る ---- */
   @media (max-width: 767px) {
