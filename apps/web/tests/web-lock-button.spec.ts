@@ -218,11 +218,19 @@ test('locked active circuit does not paint placed gate hover frame', async ({ pa
 })
 
 test('locking a My circuit guards runtime URL apply', async ({ page }) => {
+  const initialLockButton = await toolbarGeometry(page, '__qniToolbarLockGeometryJson')
   await seedLibrary(page, {
     entries: [{ id: 'mine', name: 'Mine', circuit_json: H_JSON, updated_at: 1, origin: { kind: 'user', locked: false } }],
     active_id: 'mine',
   })
   await waitForSnapshot(page, (state) => state.active_locked === false, 'unlocked My active')
+  // ライブラリーのスナップショットはツールバー再描画より先に更新される。
+  // 名前が短くなったあとのボタン座標を待たないと、古い座標で空白を押す。
+  await waitForValue(
+    () => toolbarGeometry(page, '__qniToolbarLockGeometryJson'),
+    (button) => Math.abs(button.left - initialLockButton.left) > 1,
+    'toolbar layout after switching to Mine',
+  )
 
   await clickToolbarButton(page, '__qniToolbarLockGeometryJson')
   await waitForSnapshot(page, (state) => state.active_locked === true, 'My circuit locked')

@@ -491,11 +491,28 @@ test('Move up keeps the displaced bottom item visually idle', async ({ page }) =
   await waitForSnapshot(page, (state) => state.active_id === 'qft', 'seeded QFT active')
 
   await clickCanvas(page, TRIGGER)
-  await page.waitForTimeout(300)
+  await waitForValue(
+    () => page.evaluate(() => (window as any).__qniCircuitPickerDropdownGeometryJson ?? null),
+    (geometry) => typeof geometry === 'string',
+    'circuit picker dropdown paint',
+  )
+  // egui は移動とクリックの間に描画を挟むと kebab のホバーを認識する。
+  await page.mouse.move(KEBAB_X, ROW_4.y)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   await clickCanvas(page, { x: KEBAB_X, y: ROW_4.y })
-  await page.waitForTimeout(300)
-  await clickCanvas(page, { x: SUBMENU_X, y: MOVE_UP_SUBMENU_Y + 36 })
-  await page.waitForTimeout(300)
+  const submenu = await waitForValue(
+    () => page.evaluate(() => {
+      const raw = (window as any).__qniCircuitPickerGeometryJson
+      return typeof raw === 'string' ? JSON.parse(raw) as { index: number; submenu_left: number; submenu_right: number } : null
+    }),
+    (geometry) => geometry?.index === 3,
+    'QFT kebab submenu paint',
+  )
+  if (!submenu) throw new Error('QFT kebab submenu missing')
+  const moveUp = { x: (submenu.submenu_left + submenu.submenu_right) / 2, y: MOVE_UP_SUBMENU_Y + 36 }
+  await page.mouse.move(moveUp.x, moveUp.y)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await clickCanvas(page, moveUp)
 
   const state = await waitForSnapshot(
     page,
