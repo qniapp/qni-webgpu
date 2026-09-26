@@ -37,6 +37,7 @@ declare global {
     __qniCircuitLibraryRename?: (id: string, name: string) => void
     __qniCircuitLibrarySave?: (name: string, circuitJson: string) => string
     __setExternalGpuStatus?: (json: string | unknown) => void
+    __qniShowGpuError?: () => void
   }
 }
 
@@ -65,34 +66,42 @@ const hideStatus = (): void => {
   if (!statusEl) {
     return
   }
+  const dialog = statusEl.querySelector('dialog')
+  if (dialog?.open) dialog.close()
   statusEl.hidden = true
-  statusEl.textContent = ''
+  const announcement = document.getElementById('gpu-error-announcement')
+  if (announcement) announcement.textContent = ''
+  statusEl.classList.remove('plain-error')
+  const assetError = statusEl.querySelector('#asset-error')
+  if (assetError) assetError.setAttribute('hidden', '')
 }
 
-const showStatus = (message: string): void => {
+const showStatus = (message: string, kind: 'gpu' | 'asset' = 'gpu'): void => {
   if (!statusEl) {
     return
   }
+  const announcement = document.getElementById('gpu-error-announcement')
+  if (kind === 'asset') {
+    statusEl.classList.add('plain-error')
+    const assetError = statusEl.querySelector('#asset-error')
+    if (assetError) {
+      assetError.textContent = message
+      assetError.removeAttribute('hidden')
+    }
+    statusEl.hidden = false
+    if (announcement) announcement.textContent = 'Qni could not load. Try a hard reload.'
+    return
+  }
+  statusEl.classList.remove('plain-error')
+  const details = statusEl.querySelector('.raw')
+  if (details) details.textContent = message
   statusEl.hidden = false
-  statusEl.textContent = message
+  if (announcement) announcement.textContent = 'No GPU access. Try opening Qni in a different browser.'
+  window.__qniShowGpuError?.()
 }
 
 const formatStartupError = (err: unknown): string => {
   const detail = err instanceof Error ? err.message : String(err)
-  // The dynamic `import()` of the wasm-bindgen JS shim throws a
-  // TypeError with the literal "Failed to fetch dynamically imported
-  // module" message when the browser cache holds a stale reference to
-  // an asset trunk has since replaced. That's a totally different
-  // problem from a missing WebGPU adapter, so peel the two cases apart.
-  if (detail.includes('Failed to fetch dynamically imported module')) {
-    return [
-      'Asset load failed.',
-      'The browser could not fetch /qni-web.js — usually a stale',
-      'cache from a previous dev build. Hard reload (Ctrl+Shift+R) to',
-      'force a fresh download.',
-      detail,
-    ].join('\n\n')
-  }
   return [
     'WebGPU initialization failed.',
     'This browser or environment could not provide a usable WebGPU adapter.',
@@ -166,6 +175,7 @@ const finishStartup = (): void => {
 }
 
 const run = async (): Promise<void> => {
+  let moduleInitialized = false
   try {
     const {
       default: init,
@@ -184,6 +194,7 @@ const run = async (): Promise<void> => {
       start,
     } = await loadQniWeb()
     await init()
+    moduleInitialized = true
     window.__eguiReadStateVector = async () => {
       try {
         return Array.from(await read_state_vector())
@@ -259,7 +270,8 @@ const run = async (): Promise<void> => {
       return body
     }
     document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Tab' || event.shiftKey || event.defaultPrevented) {
+      // Error dialogs must retain native keyboard navigation.
+      if ((statusEl && !statusEl.hidden) || event.key !== 'Tab' || event.shiftKey || event.defaultPrevented) {
         return
       }
       window.__qniExecModeFocusRequested = true
@@ -281,7 +293,12 @@ const run = async (): Promise<void> => {
       })
   } catch (err) {
     window.__eguiError = String(err)
-    showStatus(formatStartupError(err))
+    if (moduleInitialized) {
+      showStatus(formatStartupError(err))
+    } else {
+      const detail = err instanceof Error ? err.message : String(err)
+      showStatus(`Asset load failed. Try a hard reload (Ctrl+Shift+R).\n\n${detail}`, 'asset')
+    }
     console.error(err)
   }
 }

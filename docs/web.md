@@ -265,7 +265,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 ## Notes
 
 - `apps/web/src/lib.rs` uses eframe with the `wgpu` feature enabled.
-- 通常のブラウザ起動で利用可能な WebGPU adapter が見つからない場合、キャンバスが白いままになる代わりに、ページ上に WebGPU 初期化失敗メッセージを表示する。
+- WebGPU を初期化できない場合は、白いキャンバスの代わりにクレヨンの回路図と「No GPU access.」を表示する。別のブラウザで開き直す案内を優先し、元のエラーは折りたたむ。Linux の Chromium 向け実験的な起動手順は、Linux の Chromium で `127.0.0.1:4174` または `localhost:4174` を開いた場合だけ表示する。
 - ローカル手動確認は通常の Chrome で行う。`./scripts/open-web.sh` も WebGPU 用の特別な起動フラグは付けない。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。
 - UI fonts are unified on Geist: `FontFamily::Proportional` starts with Geist Sans Regular, `FontFamily::Monospace` starts with Geist Mono Regular, `QniJapaneseFallback-Regular.otf` (CP932/JIS subset generated from Noto Sans CJK JP Regular, SIL OFL 1.1) provides Japanese fallback for circuit names, and Hack remains only as the final fallback for glyphs such as `⟨` / `⟩`.

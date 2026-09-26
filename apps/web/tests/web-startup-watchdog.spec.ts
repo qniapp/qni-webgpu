@@ -38,7 +38,8 @@ test('startup that keeps stalling surfaces the error after the reload', async ({
 
   await page.goto('/')
 
-  await expect(page.getByTestId('webgpu-error')).toContainText('WebGPU initialization', {
+  await page.getByTestId('webgpu-error').waitFor({ state: 'visible', timeout: 30_000 })
+  await expect(page.getByTestId('webgpu-error').locator('h1')).toHaveText('No GPU access.', {
     timeout: 30_000,
   })
 })
@@ -64,7 +65,10 @@ test('slow but successful startup clears the watchdog error', async ({ page }) =
   await page.goto('/')
   await page.waitForFunction(() => window.__eguiReady === true, null, { timeout: 30_000 })
 
-  const startupError = await page.evaluate(() => window.__eguiError ?? null)
+  const recovered = await page.evaluate(() => ({
+    error: window.__eguiError ?? null,
+    screenHidden: document.getElementById('app-status')?.hidden,
+  }))
 
-  expect(startupError).toBeNull()
+  expect(recovered).toEqual({ error: null, screenHidden: true })
 })
