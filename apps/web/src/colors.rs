@@ -82,6 +82,9 @@ pub(crate) struct Colors {
     pub(crate) gpu_status_completed: egui::Color32,
     pub(crate) gpu_status_failed: egui::Color32,
     pub(crate) gpu_status_separator: egui::Color32,
+    pub(crate) error_notice_bg: egui::Color32,
+    pub(crate) error_notice_border: egui::Color32,
+    pub(crate) error_notice_text: egui::Color32,
 }
 
 pub(crate) struct Theme {
@@ -119,6 +122,34 @@ impl Theme {
 }
 
 impl Colors {
+    /// Brightens gate chrome toward Flexoki `bg` for transient copy/paste
+    /// feedback. Rendering code remains expressed in semantic theme roles.
+    pub(crate) fn gate_highlighted(self, strength: f32) -> Self {
+        let paper = self.surface;
+        let brighten = |color: egui::Color32| color.lerp_to_gamma(paper, strength);
+        Self {
+            box_fill: brighten(self.box_fill),
+            label: brighten(self.label),
+            line: brighten(self.line),
+            state_fill: brighten(self.state_fill),
+            amplitude_disk_border: brighten(self.amplitude_disk_border),
+            display_placeholder_fill: brighten(self.display_placeholder_fill),
+            state_outline: brighten(self.state_outline),
+            state_outline_zero: brighten(self.state_outline_zero),
+            state_needle: brighten(self.state_needle),
+            semantic_off: brighten(self.semantic_off),
+            semantic_on: brighten(self.semantic_on),
+            semantic_intermediate: brighten(self.semantic_intermediate),
+            semantic_disabled: brighten(self.semantic_disabled),
+            bloch_sphere_bg: brighten(self.bloch_sphere_bg),
+            bloch_sphere_lines: brighten(self.bloch_sphere_lines),
+            measurement_fired_icon: brighten(self.measurement_fired_icon),
+            spacer_dots: brighten(self.spacer_dots),
+            popup_icon: brighten(self.popup_icon),
+            ..self
+        }
+    }
+
     pub(crate) fn new() -> Self {
         Self::for_theme(DEFAULT_THEME)
     }
@@ -162,6 +193,8 @@ fn flexoki_light() -> Colors {
     let tx_3 = tone(0.718, 0.710, 0.675); // tx-3 / base-300 #B7B5AC
     let tx_2 = tone(0.435, 0.431, 0.412); // tx-2 / base-600 #6F6E69
     let tx = tone(0.063, 0.059, 0.059); // tx / black #100F0F
+    let red_50 = tone(1.000, 0.882, 0.835); // red-50 #FFE1D5
+    let red_100 = tone(1.000, 0.792, 0.733); // red-100 #FFCABB
     let red_300 = tone(0.910, 0.439, 0.373); // red-300 #E8705F
     let red_600 = tone(0.686, 0.188, 0.161); // red-600 #AF3029
     let green_600 = tone(0.400, 0.502, 0.043); // green-600 #66800B
@@ -244,6 +277,9 @@ fn flexoki_light() -> Colors {
         gpu_status_completed: green_600,    // Flexoki green-600 #66800B
         gpu_status_failed: red_600,         // Flexoki red-600 #AF3029
         gpu_status_separator: tx_3,         // Flexoki tx-3 #B7B5AC
+        error_notice_bg: red_50,            // Flexoki red-50 #FFE1D5
+        error_notice_border: red_100,       // Flexoki red-100 #FFCABB
+        error_notice_text: red_600,         // Flexoki red-600 #AF3029
     }
 }
 

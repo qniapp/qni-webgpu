@@ -1,11 +1,13 @@
 //! Placed circuit gates and GPU-backed circuit overlays.
 
+use std::time::Duration;
+
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::{GateId, QniApp};
+use crate::app::{gate_frame_group, selection_frame_groups, GateId, QniApp};
 use crate::colors::Colors;
-use crate::constants::{GATE_SIZE, LINE_GAP};
+use crate::constants::{DRAG_REPAINT_MIN_SECS, GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
@@ -19,10 +21,11 @@ use crate::gpu::{
 use crate::grid_cell::GridCell;
 use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
+use crate::shared::now_seconds;
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
 use super::amplitude_circle_popover as amplitude_popover;
-use super::hover_frame::hover_frame_corner_radius;
+use super::hover_frame::{connected_gate_frame_corner_radius, hover_frame_corner_radius};
 use super::popover::{self, PopoverPlacement, PopoverTail};
 use super::state_panel_popup::{draw_amplitude_icon, draw_phase_icon, draw_probability_icon};
 
@@ -57,6 +60,38 @@ fn bloch_hover_popup_title() -> &'static str {
 }
 
 impl QniApp {
+    fn gate_group_frame(
+        &self,
+        group: &std::collections::BTreeSet<GateId>,
+        circuit_origin: egui::Pos2,
+        now: f64,
+    ) -> Option<(egui::Rect, egui::CornerRadius)> {
+        let mut gates = self
+            .placed_gates
+            .iter()
+            .filter(|gate| group.contains(&gate.id));
+        let first = gates.next()?;
+        let first_kind = first.kind;
+        let frame_rect =
+            std::iter::once(first)
+                .chain(gates)
+                .fold(egui::Rect::NOTHING, |rect, gate| {
+                    let motion_x = self
+                        .circuit_motion_offset_x(gate.id, now)
+                        .unwrap_or_default();
+                    let rendered_pos = gate.pos + egui::vec2(motion_x, 0.0);
+                    let gate_rect =
+                        gate_visible_rect(gate, circuit_origin + rendered_pos.to_vec2());
+                    rect.union(span_resize_body_rect(gate.kind, gate.span.get(), gate_rect))
+                });
+        let corner_radius = if group.len() == 1 {
+            hover_frame_corner_radius(first_kind)
+        } else {
+            connected_gate_frame_corner_radius()
+        };
+        Some((frame_rect, corner_radius))
+    }
+
     fn amplitude_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
             .external_gpu_amplitude_uploads
@@ -120,7 +155,15 @@ impl QniApp {
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
     ) {
+        let now = now_seconds();
+        let editing_enabled = !self.library.active_locked();
         for gate in &self.placed_gates {
+            if editing_enabled && self.paste_gate_hidden(gate.id, now) {
+                painter
+                    .ctx()
+                    .request_repaint_after(Duration::from_secs_f64(DRAG_REPAINT_MIN_SECS));
+                continue;
+            }
             let live_dragging_gate = dragging_gate_id == Some(gate.id)
                 && self.dragging_live_display_snap
                 && ((gate.kind == GateKind::BlochDisplay
@@ -130,14 +173,39 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
             }
-            let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+            let motion_x = editing_enabled
+                .then(|| self.circuit_motion_offset_x(gate.id, now))
+                .flatten();
+            if motion_x.is_some() {
+                painter
+                    .ctx()
+                    .request_repaint_after(Duration::from_secs_f64(DRAG_REPAINT_MIN_SECS));
+            }
+            let rendered_pos = gate.pos + egui::vec2(motion_x.unwrap_or_default(), 0.0);
+            let gate_rect = gate_visible_rect(gate, circuit_origin + rendered_pos.to_vec2());
             // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
             // draw area. The shared span-resize component uses that same body.
             let body_rect = span_resize_body_rect(gate.kind, gate.span.get(), gate_rect);
             let measurement_has_slot =
                 gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
-            let edit_hover_visible = !self.library.active_locked();
+            let paste_strength = editing_enabled
+                .then(|| {
+                    self.paste_flashes
+                        .iter()
+                        .filter_map(|flash| flash.strength(gate.id, now))
+                        .reduce(f32::max)
+                })
+                .flatten();
+            let highlight_strength = paste_strength;
+            if highlight_strength.is_some() {
+                painter
+                    .ctx()
+                    .request_repaint_after(Duration::from_secs_f64(DRAG_REPAINT_MIN_SECS));
+            }
+            let highlighted_colors =
+                highlight_strength.map(|strength| colors.gate_highlighted(strength));
+            let gate_colors = highlighted_colors.as_ref().unwrap_or(colors);
             let circuit_fill = colors.background;
             if gate.kind == GateKind::Measurement {
                 // qni shortens the input/output wire around a measurement
@@ -146,19 +214,6 @@ impl QniApp {
                 // digit overlay so the hover side borders remain visible.
                 let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
-            }
-            if !fast_drag && edit_hover_visible && self.hovered_gate_id == Some(gate.id) {
-                let hover_outer = body_rect.expand(4.0);
-                // 接続線はゲート本体の下に描く。ホバー枠の内側を背景色で
-                // 塗りつぶすと、Control / AntiControl / Swap / Phase などの
-                // 透明なゲート内部を通る縦接続線まで消えてしまうため、
-                // 回路上のホバーは全ゲートで内部を塗らない線だけのリングにする。
-                painter.rect_stroke(
-                    hover_outer,
-                    hover_frame_corner_radius(gate.kind),
-                    egui::Stroke::new(2.0_f32, colors.gate_hover_border),
-                    egui::StrokeKind::Inside,
-                );
             }
             if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
                 // Write gates have no fill, so the wire would otherwise show
@@ -169,9 +224,9 @@ impl QniApp {
                 // Repaint the meter in the same neutral tone as the wire after
                 // masking the wire gap. Draw it once (instead of purple then
                 // neutral) so anti-aliased edges do not leak the palette colour.
-                draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
+                draw_meter_icon(painter, gate_rect, gate_colors.measurement_fired_icon);
             } else {
-                draw_gate_body(painter, body_rect, gate.kind, colors);
+                draw_gate_body(painter, body_rect, gate.kind, gate_colors);
                 if gate.kind == GateKind::AntiControl {
                     painter.circle_filled(
                         gate_rect.center(),
@@ -189,7 +244,7 @@ impl QniApp {
                 &self.placed_gates,
                 self.exec_mode.qubit_capacity().get(),
             ) {
-                let visible = (edit_hover_visible && self.hovered_gate_id == Some(gate.id))
+                let visible = (editing_enabled && self.hovered_gate_id == Some(gate.id))
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(
                     egui::Id::new(("span_resize_handles", gate.id)),
@@ -211,7 +266,59 @@ impl QniApp {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
                 // or before the first frame's GPU dispatch). Show the
                 // inactive tx-3 center dot via egui until the GPU overlay takes over.
-                draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+                draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], gate_colors);
+            }
+        }
+        if !fast_drag && editing_enabled {
+            let selection_groups =
+                selection_frame_groups(&self.placed_gates, &self.selected_gate_ids);
+            if let Some(hovered_gate_id) = self.hovered_gate_id {
+                let group = selection_groups
+                    .iter()
+                    .find(|group| group.contains(&hovered_gate_id))
+                    .cloned()
+                    .unwrap_or_else(|| gate_frame_group(&self.placed_gates, hovered_gate_id));
+                if let Some((frame_rect, corner_radius)) =
+                    self.gate_group_frame(&group, circuit_origin, now)
+                {
+                    painter.rect_stroke(
+                        frame_rect.expand(4.0),
+                        corner_radius,
+                        egui::Stroke::new(2.0_f32, colors.gate_hover_border),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+            }
+            for group in selection_groups {
+                if dragging_gate_id.is_some_and(|gate_id| group.contains(&gate_id))
+                    || group
+                        .iter()
+                        .any(|&gate_id| self.paste_gate_hidden(gate_id, now))
+                {
+                    continue;
+                }
+                let Some((frame_rect, corner_radius)) =
+                    self.gate_group_frame(&group, circuit_origin, now)
+                else {
+                    continue;
+                };
+                let copy_strength = group
+                    .iter()
+                    .filter_map(|&gate_id| {
+                        self.copy_flash
+                            .as_ref()
+                            .and_then(|flash| flash.strength(gate_id, now))
+                    })
+                    .reduce(f32::max);
+                let selection_color = copy_strength
+                    .map(|strength| colors.semantic_on.lerp_to_gamma(colors.surface, strength))
+                    .unwrap_or(colors.semantic_on);
+                painter.rect_stroke(
+                    frame_rect.expand(4.0),
+                    corner_radius,
+                    egui::Stroke::new(2.0_f32, selection_color),
+                    egui::StrokeKind::Inside,
+                );
             }
         }
     }
@@ -224,6 +331,7 @@ impl QniApp {
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
+        let now = now_seconds();
         // Egui clamps callback viewports to the physical screen. Use the
         // visible clip intersection as the callback viewport; otherwise tall
         // circuits (e.g. 16 qubits) get vertically rescaled by wgpu and GPU
@@ -247,6 +355,9 @@ impl QniApp {
                 if gate.kind != GateKind::ProbabilityDisplay {
                     return None;
                 }
+                if self.paste_gate_hidden(gate.id, now) {
+                    return None;
+                }
                 if dragging_gate_id == Some(gate.id) {
                     return None;
                 }
@@ -266,7 +377,14 @@ impl QniApp {
                 };
                 let gate_height = (span.saturating_sub(1)) as f32 * LINE_GAP + GATE_SIZE;
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + (gate.pos
+                            + egui::vec2(
+                                self.circuit_motion_offset_x(gate.id, now)
+                                    .unwrap_or_default(),
+                                0.0,
+                            ))
+                        .to_vec2(),
                     egui::vec2(GATE_SIZE, gate_height),
                 );
                 let hovered_outcome = self
@@ -321,6 +439,9 @@ impl QniApp {
                 if gate.kind != GateKind::AmplitudeDisplay {
                     return None;
                 }
+                if self.paste_gate_hidden(gate.id, now) {
+                    return None;
+                }
                 let dragging_this_gate = dragging_gate_id == Some(gate.id);
                 if dragging_this_gate && live_dragging_amplitude_id != Some(gate.id) {
                     return None;
@@ -339,7 +460,13 @@ impl QniApp {
                 } else {
                     return None;
                 };
-                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let rendered_pos = gate.pos
+                    + egui::vec2(
+                        self.circuit_motion_offset_x(gate.id, now)
+                            .unwrap_or_default(),
+                        0.0,
+                    );
+                let gate_rect = gate_visible_rect(gate, circuit_origin + rendered_pos.to_vec2());
                 let body_rect = amplitude_grid_rect(gate_rect, gate.span.get());
                 let hovered_outcome = self
                     .hovered_amplitude_outcome
@@ -396,6 +523,9 @@ impl QniApp {
                 if gate.kind != GateKind::DensityMatrixDisplay {
                     return None;
                 }
+                if self.paste_gate_hidden(gate.id, now) {
+                    return None;
+                }
                 let dragging_this_gate = dragging_gate_id == Some(gate.id);
                 if dragging_this_gate && live_dragging_density_id != Some(gate.id) {
                     return None;
@@ -412,7 +542,13 @@ impl QniApp {
                     return None;
                 };
                 let span = gate.span.get().clamp(1, 8) as u32;
-                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let rendered_pos = gate.pos
+                    + egui::vec2(
+                        self.circuit_motion_offset_x(gate.id, now)
+                            .unwrap_or_default(),
+                        0.0,
+                    );
+                let gate_rect = gate_visible_rect(gate, circuit_origin + rendered_pos.to_vec2());
                 let hovered_cell = self
                     .hovered_density_cell
                     .filter(|(id, _)| *id == gate.id)
@@ -466,12 +602,22 @@ impl QniApp {
                 if gate.kind != GateKind::BlochDisplay {
                     return None;
                 }
+                if self.paste_gate_hidden(gate.id, now) {
+                    return None;
+                }
                 if dragging_gate_id == Some(gate.id) && live_dragging_bloch_id != Some(gate.id) {
                     return None;
                 }
                 let slot = self.bloch_display_slot(gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + (gate.pos
+                            + egui::vec2(
+                                self.circuit_motion_offset_x(gate.id, now)
+                                    .unwrap_or_default(),
+                                0.0,
+                            ))
+                        .to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
@@ -517,6 +663,9 @@ impl QniApp {
                 if gate.kind != GateKind::Measurement {
                     return None;
                 }
+                if self.paste_gate_hidden(gate.id, now) {
+                    return None;
+                }
                 if dragging_gate_id == Some(gate.id)
                     && live_dragging_measurement_id != Some(gate.id)
                 {
@@ -524,7 +673,14 @@ impl QniApp {
                 }
                 let slot = self.gpu_plan.measurement_slot(gate.id)?.as_u32();
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + (gate.pos
+                            + egui::vec2(
+                                self.circuit_motion_offset_x(gate.id, now)
+                                    .unwrap_or_default(),
+                                0.0,
+                            ))
+                        .to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center =

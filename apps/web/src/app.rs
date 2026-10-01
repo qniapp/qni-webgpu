@@ -1,6 +1,7 @@
 //! App root — `QniApp` state, initialization, and small accessors.
 //! Per-frame update order lives in `update_flow`.
 
+mod circuit_clipboard;
 mod circuit_history;
 pub(crate) mod circuit_library;
 mod circuit_model;
@@ -28,8 +29,9 @@ use circuit_history::CircuitRevision;
 use circuit_library::CircuitLibrary;
 use circuit_picker_state::PickerState;
 use eframe::egui;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
+pub(crate) use circuit_clipboard::{gate_frame_group, selection_frame_groups};
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
     AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState, GateId,
@@ -53,6 +55,15 @@ pub(crate) struct QniApp {
     pub(crate) picker_overlay_rect: Option<egui::Rect>,
     gate_ids: GateIdAllocator,
     pub(crate) placed_gates: Vec<PlacedGate>,
+    pub(crate) selected_gate_ids: BTreeSet<GateId>,
+    circuit_clipboard: Option<circuit_clipboard::CircuitFragment>,
+    pub(crate) copy_flash: Option<circuit_clipboard::CopyFlash>,
+    pub(crate) paste_flashes: Vec<circuit_clipboard::PasteFlash>,
+    pub(crate) paste_error_notice: Option<circuit_clipboard::PasteErrorNotice>,
+    pub(crate) circuit_motion: Option<circuit_clipboard::CircuitMotion>,
+    circuit_scroll_motion: Option<circuit_clipboard::CircuitScrollMotion>,
+    active_cell: Option<circuit_clipboard::CircuitCell>,
+    selection_drag: Option<drag_controller::SelectionDrag>,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
     /// When circuit content exceeds the canvas width, this pushes the
     /// rendered circuit left by that many pixels so the user can see
@@ -97,6 +108,7 @@ pub(crate) struct QniApp {
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
     pub(crate) exec_mode_keyboard_focus: bool,
+    pub(crate) shortcut_help_open: bool,
     pub(crate) external_gpu_status: ExternalGpuStatus,
     pub(crate) external_gpu_started_at: Option<f64>,
     /// One-shot local WebGPU refresh for the state-vector panel after an
@@ -120,6 +132,7 @@ pub(crate) struct QniApp {
     drag_repaint_pending: bool,
     startup_repaint_until: f64,
     pointer_was_down: bool,
+    gate_click_selection: Option<GateClickSelection>,
     /// Debug HUD: backtick (`) toggles a small bottom-right overlay showing
     /// smoothed FPS + frame ms. Off by default — when on, forces continuous
     /// repaint so the reading stays responsive (which itself costs perf,
@@ -135,6 +148,13 @@ pub(crate) struct QniApp {
     /// total CPU time — useful for "is the state panel scaling badly?"
     /// diagnostics.
     fps_hud_svp_history: VecDeque<f32>,
+}
+
+struct GateClickSelection {
+    gate_id: GateId,
+    pressed_at: f64,
+    selected_gate_ids: BTreeSet<GateId>,
+    repeated_same_gate: bool,
 }
 
 impl QniApp {
@@ -263,6 +283,15 @@ impl QniApp {
             picker_overlay_rect: None,
             gate_ids,
             placed_gates: initial_gates,
+            selected_gate_ids: BTreeSet::new(),
+            circuit_clipboard: None,
+            copy_flash: None,
+            paste_flashes: Vec::new(),
+            paste_error_notice: None,
+            circuit_motion: None,
+            circuit_scroll_motion: None,
+            active_cell: None,
+            selection_drag: None,
             circuit_scroll_x: 0.0,
             dragging: None,
             dragging_live_snap: None,
@@ -284,6 +313,7 @@ impl QniApp {
             qubit_count: initial_qubit_count,
             exec_mode,
             exec_mode_keyboard_focus: false,
+            shortcut_help_open: false,
             external_gpu_status: ExternalGpuStatus::default(),
             external_gpu_started_at: None,
             external_gpu_state_refresh_pending: false,
@@ -304,6 +334,7 @@ impl QniApp {
             drag_repaint_pending: false,
             startup_repaint_until: now_seconds() + 0.5,
             pointer_was_down: false,
+            gate_click_selection: None,
             fps_hud_visible: false,
             fps_hud_history: VecDeque::with_capacity(120),
             fps_hud_cpu_history: VecDeque::with_capacity(120),
@@ -318,10 +349,16 @@ impl QniApp {
     fn layout_qubits(&self) -> usize {
         let capacity = self.exec_mode.qubit_capacity().get();
         let mut count = self.qubit_count.clamp(MIN_QUBITS, capacity);
+        if let Some((anchor, (_, height))) = self
+            .paste_preview()
+            .filter(|_| !self.library.active_locked())
+        {
+            count = count.max(anchor.wire.as_usize().saturating_add(height));
+        }
         if self.dragging.is_some() && count < capacity {
             count += 1;
         }
-        count
+        count.min(capacity)
     }
 
     pub(crate) fn local_state_vector_active(&self) -> bool {

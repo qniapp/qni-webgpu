@@ -5,11 +5,14 @@ use eframe::egui;
 use std::time::Duration;
 
 use super::drag_controller::{CircuitInputGeometry, DragController, DragPointer};
-use super::QniApp;
+use super::{GateClickSelection, QniApp};
 use crate::constants::{
     DRAG_REPAINT_BASE_SECS, DRAG_REPAINT_MAX_SECS, DRAG_REPAINT_MIN_SECS, DRAG_REPAINT_PUMP_FACTOR,
 };
+use crate::layout::gate_visible_rect;
 use crate::shared::now_seconds;
+
+const DOUBLE_CLICK_SELECTION_WINDOW_SECS: f64 = 0.5;
 
 impl QniApp {
     pub(crate) fn handle_input(
@@ -24,6 +27,7 @@ impl QniApp {
         let pointer_down = pointer.primary_down();
         let pointer_pressed = pointer.primary_pressed();
         let pointer_released = pointer.primary_released();
+        let double_clicked = pointer.button_double_clicked(egui::PointerButton::Primary);
 
         let pointer_start = pointer_pressed || (pointer_down && !self.pointer_was_down);
         self.pointer_was_down = pointer_down;
@@ -46,6 +50,36 @@ impl QniApp {
             self.layout_qubits(),
             self.min_circuit_slots(),
         );
+        let now = now_seconds();
+        let pointer_gate_id = local_pos.and_then(|cursor| {
+            self.placed_gates
+                .iter()
+                .rev()
+                .find(|gate| {
+                    let motion_x = self
+                        .circuit_motion_offset_x(gate.id, now)
+                        .unwrap_or_default();
+                    gate_visible_rect(gate, gate.pos + egui::vec2(motion_x, 0.0)).contains(cursor)
+                })
+                .map(|gate| gate.id)
+        });
+        if pointer_start {
+            if let Some(gate_id) = pointer_gate_id {
+                if let Some(click) = self.gate_click_selection.as_mut().filter(|click| {
+                    click.gate_id == gate_id
+                        && now - click.pressed_at <= DOUBLE_CLICK_SELECTION_WINDOW_SECS
+                }) {
+                    click.repeated_same_gate = true;
+                } else {
+                    self.gate_click_selection = Some(GateClickSelection {
+                        gate_id,
+                        pressed_at: now,
+                        selected_gate_ids: self.selected_gate_ids.clone(),
+                        repeated_same_gate: false,
+                    });
+                }
+            }
+        }
         let drag_pointer = DragPointer {
             screen_pos: pos,
             local_pos,
@@ -130,6 +164,10 @@ impl QniApp {
             return;
         }
 
+        if DragController::update_selection_drag(self, drag_pointer, ctx) {
+            return;
+        }
+
         // Active resizable-span drag → update span from total Δy and skip
         // the rest of the input pipeline (gate drag, hover) for this frame.
         if DragController::update_active_span_resize(self, drag_pointer, ctx) {
@@ -143,6 +181,17 @@ impl QniApp {
         }
 
         DragController::commit_gate_drop(self, drag_pointer, &geometry.metrics, ctx);
+        if let Some(gate_id) = double_clicked.then_some(pointer_gate_id).flatten() {
+            let selection = self
+                .gate_click_selection
+                .take()
+                .filter(|click| click.gate_id == gate_id && click.repeated_same_gate)
+                .map(|click| click.selected_gate_ids);
+            if let Some(selection) = selection {
+                self.select_gate_individually(gate_id, selection);
+                ctx.request_repaint();
+            }
+        }
         DragController::set_cursor_icon(self, drag_pointer, ctx);
     }
 

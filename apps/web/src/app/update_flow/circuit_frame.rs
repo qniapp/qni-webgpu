@@ -15,17 +15,27 @@ impl QniApp {
         pointer_over_state_panel: bool,
         colors: &Colors,
     ) -> CircuitFrameState {
+        self.update_circuit_scroll_motion(ctx);
+        #[cfg(all(target_arch = "wasm32", debug_assertions))]
+        crate::test_hooks::set_window_value(
+            crate::test_hooks::QNI_CIRCUIT_SCROLL_X,
+            &wasm_bindgen::JsValue::from_f64(self.circuit_scroll_x as f64),
+        );
         let mut frame_state = CircuitFrameState {
             content_rect: None,
             dragging_gate_id: None,
             live_drag_gpu_overlay_ready: false,
         };
+        let pointer_pos = ctx.input(|input| input.pointer.latest_pos());
+        let pointer_over_picker = self
+            .picker_overlay_rect
+            .is_some_and(|picker_rect| pointer_pos.is_some_and(|pos| picker_rect.contains(pos)));
 
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .scroll_source(egui::scroll_area::ScrollSource {
                 drag: false,
-                mouse_wheel: !pointer_over_state_panel,
+                mouse_wheel: !pointer_over_state_panel && !pointer_over_picker,
                 scroll_bar: true,
             })
             .show(ui, |ui| {
@@ -58,10 +68,6 @@ impl QniApp {
                     frame_state.dragging_gate_id,
                     self.circuit_scroll_x,
                 );
-                let pointer_pos = ctx.input(|input| input.pointer.latest_pos());
-                let pointer_over_picker = self.picker_overlay_rect.is_some_and(|picker_rect| {
-                    pointer_pos.is_some_and(|pos| picker_rect.contains(pos))
-                });
                 self.show_angle_input_overlay(
                     ui,
                     rect,
