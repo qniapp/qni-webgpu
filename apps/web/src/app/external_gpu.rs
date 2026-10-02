@@ -7,7 +7,7 @@ mod probability;
 mod session;
 mod test_hooks;
 
-pub(crate) use session::{Acceptance, AcceptedRun, DisplayExpectation, SlotLayout};
+pub(crate) use session::{ExternalGpuSession, Invalidation};
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod parser_fixtures;

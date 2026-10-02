@@ -96,7 +96,7 @@ impl QniApp {
         state_count: usize,
         ctx: &egui::Context,
     ) -> bool {
-        let external_gpu_state_refresh = self.external_gpu_state_refresh_pending
+        let external_gpu_state_refresh = self.external_gpu.view().refresh_pending
             && self.local_exec_mode_available()
             && !self.local_state_vector_active();
         let state_vector_active = self.local_state_vector_active() || external_gpu_state_refresh;
@@ -148,7 +148,7 @@ impl QniApp {
                 self.gpu_plan.replace_ops(sim_ops, snapshot_slot_count);
                 self.publish_gpu_plan_capacity_error(None);
                 if external_gpu_state_refresh {
-                    self.external_gpu_state_refresh_pending = false;
+                    self.external_gpu.state_refresh_planned();
                 }
             }
             recompute

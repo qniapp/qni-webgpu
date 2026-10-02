@@ -17,9 +17,11 @@ fn gate(kind: GateKind, id: u32, column: usize, wire: usize) -> PlacedGate {
 
 fn ready_to_start(app: &mut QniApp) {
     seeded(app);
-    app.external_gpu_status = ExternalGpuStatus::Completed {
-        duration: Duration::from_secs(1),
-    };
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.status = ExternalGpuStatus::Completed {
+            duration: Duration::from_secs(1),
+        };
+    });
 }
 
 fn validation_failure(
@@ -163,10 +165,9 @@ fn completed_override_then_matching_display_success_leaves_plan_clean_and_refres
     let mut expected = cleared();
     set_uploads(&mut app, 8);
     expected.uploads = state(&app).uploads;
-    app.external_gpu_amplitude_uploads = None;
-    app.external_gpu_bloch_uploads = None;
-    app.external_gpu_probability_uploads = None;
-    app.external_gpu_density_uploads = None;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.displays = Default::default();
+    });
     expected.status = StatusState::Completed;
     expected.generation = 8;
     // 表示成功後にも override の更新要求が残る現状を固定する。
@@ -191,9 +192,11 @@ fn completed_override_then_matching_display_success_leaves_plan_clean_and_refres
 #[test]
 fn running_override_acquires_start_before_matching_completion_reads_end() {
     let (mut app, ctx) = app();
-    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
-        id: RUN_ID,
-        expected: DisplayExpectation::None,
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.acceptance = Acceptance::Awaiting(AcceptedRun {
+            id: RUN_ID,
+            expected: DisplayExpectation::None,
+        });
     });
     super::super::super::test_hooks::inject_external_gpu_status(ExternalGpuStatus::Running);
     let (_, remaining) = with_times(&[5.0, 12.0], || {
@@ -202,7 +205,7 @@ fn running_override_acquires_start_before_matching_completion_reads_end() {
     assert_eq!(
         (
             completed_duration(&app),
-            app.external_gpu_started_at,
+            app.external_gpu.fixture().started_at,
             remaining
         ),
         (Duration::from_secs(7), None, 0)
@@ -213,12 +216,18 @@ fn running_override_acquires_start_before_matching_completion_reads_end() {
 fn parse_failure_without_start_reads_fallback_start_then_end() {
     let (mut app, ctx) = app();
     pending(&mut app);
-    app.external_gpu_started_at = None;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.started_at = None;
+    });
     let (_, remaining) = with_times(&[5.0, 12.0], || {
         poll(&mut app, &ctx, Ok("bad".into()));
     });
     assert_eq!(
-        (state(&app).status, app.external_gpu_started_at, remaining),
+        (
+            state(&app).status,
+            app.external_gpu.fixture().started_at,
+            remaining
+        ),
         (
             StatusState::Failed(GpuFailure::Other("Amplitude result missing".into())),
             None,
@@ -228,7 +237,7 @@ fn parse_failure_without_start_reads_fallback_start_then_end() {
 }
 
 fn completed_duration(app: &QniApp) -> Duration {
-    match app.external_gpu_status {
+    match app.external_gpu.fixture().status {
         ExternalGpuStatus::Completed { duration } => duration,
         _ => panic!("expected Completed"),
     }
@@ -236,16 +245,18 @@ fn completed_duration(app: &QniApp) -> Duration {
 
 fn completion_duration(started_at: Option<f64>, times: &[f64]) -> (Duration, Option<f64>, usize) {
     let (mut app, ctx) = app();
-    app.external_gpu_status = ExternalGpuStatus::Running;
-    app.external_gpu_started_at = started_at;
-    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
-        id: RUN_ID,
-        expected: DisplayExpectation::None,
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.status = ExternalGpuStatus::Running;
+        fixture.started_at = started_at;
+        fixture.acceptance = Acceptance::Awaiting(AcceptedRun {
+            id: RUN_ID,
+            expected: DisplayExpectation::None,
+        });
     });
     let (_, remaining) = with_times(times, || poll(&mut app, &ctx, Ok("unparsed".into())));
     (
         completed_duration(&app),
-        app.external_gpu_started_at,
+        app.external_gpu.fixture().started_at,
         remaining,
     )
 }
@@ -293,7 +304,11 @@ fn parse_failure_consumes_duration_timestamp_without_exposing_duration() {
     pending(&mut app);
     let (_, remaining) = with_times(&[9.0], || poll(&mut app, &ctx, Ok("bad".into())));
     assert_eq!(
-        (state(&app).status, app.external_gpu_started_at, remaining),
+        (
+            state(&app).status,
+            app.external_gpu.fixture().started_at,
+            remaining
+        ),
         (
             StatusState::Failed(GpuFailure::Other("Amplitude result missing".into())),
             None,
@@ -311,7 +326,9 @@ fn refresh_case(
     let (mut app, ctx) = app();
     app.exec_mode = mode;
     app.placed_gates = gates;
-    app.external_gpu_state_refresh_pending = true;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.refresh_pending = true;
+    });
     let result = app.test_process_gpu_recompute(
         target_ready.then_some(eframe::wgpu::TextureFormat::Rgba8Unorm),
         recompute,
@@ -320,7 +337,7 @@ fn refresh_case(
     );
     (
         result,
-        app.external_gpu_state_refresh_pending,
+        app.external_gpu.fixture().refresh_pending,
         app.gpu_plan.capacity_error().is_some(),
     )
 }
@@ -375,6 +392,40 @@ fn refresh_is_not_consumed_on_snapshot_capacity_failure() {
             vec![gate(GateKind::H, 1, MAX_STEP_SNAPSHOT_SLOTS, 0)]
         ),
         (false, true, true)
+    );
+}
+
+fn no_display_refresh_publication(mode: ExecMode, wire: usize) -> (bool, bool) {
+    let (mut app, ctx) = app();
+    app.exec_mode = mode;
+    app.placed_gates = vec![gate(GateKind::H, 1, 0, wire)];
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.acceptance = Acceptance::Awaiting(AcceptedRun {
+            id: RUN_ID,
+            expected: DisplayExpectation::None,
+        });
+    });
+    app.gpu_plan.mark_clean_for(app.state_count());
+    with_times(&[5.0, 12.0], || poll(&mut app, &ctx, Ok("unparsed".into())));
+    (
+        app.external_gpu.view().refresh_pending,
+        app.gpu_plan.needs_recompute_for(app.state_count()),
+    )
+}
+
+#[test]
+fn no_display_completion_without_local_capacity_does_not_request_refresh_or_dirty_plan() {
+    assert_eq!(
+        no_display_refresh_publication(ExecMode::Gpu, 31),
+        (false, false)
+    );
+}
+
+#[test]
+fn no_display_completion_in_local_mode_marks_plan_dirty_without_requesting_refresh() {
+    assert_eq!(
+        no_display_refresh_publication(ExecMode::Local, 0),
+        (false, true)
     );
 }
 

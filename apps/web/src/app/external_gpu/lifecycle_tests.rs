@@ -1,10 +1,12 @@
 //! 外部 GPU 実行の現在の状態遷移を固定する。解析器そのものは対象外。
 //! ネイティブの解析スタブには検証済みバッチを注入し、調整・後始末は実コードを通す。
 
-use super::*;
+use super::super::session::{Acceptance, AcceptedRun, DisplayExpectation, SlotLayout};
+use super::super::{ExternalGpuStatus, GpuFailure};
+use super::{egui, QniApp};
 use crate::app::circuit_history::CircuitRevision;
-use crate::app::{CircuitColumnIndex, GateId, WireIndex};
-use crate::gates::GateSpan;
+use crate::app::{CircuitColumnIndex, ExecMode, GateId, PlacedGate, WireIndex};
+use crate::gates::{GateKind, GateSpan};
 use crate::gpu::*;
 use std::sync::Arc;
 
@@ -47,7 +49,8 @@ struct RunState {
 }
 
 fn state(app: &QniApp) -> RunState {
-    let (run_id, slots) = match &app.external_gpu_acceptance {
+    let fixture = app.external_gpu.fixture();
+    let (run_id, slots) = match &fixture.acceptance {
         Acceptance::Closed => (None, Default::default()),
         Acceptance::Awaiting(accepted) => {
             let slots = match &accepted.expected {
@@ -63,42 +66,40 @@ fn state(app: &QniApp) -> RunState {
         }
     };
     RunState {
-        status: match &app.external_gpu_status {
+        status: match &fixture.status {
             ExternalGpuStatus::Idle => StatusState::Idle,
             ExternalGpuStatus::Running => StatusState::Running,
             ExternalGpuStatus::Completed { .. } => StatusState::Completed,
             ExternalGpuStatus::Failed(failure) => StatusState::Failed(failure.clone()),
         },
-        started_at: app.external_gpu_started_at,
-        refresh_pending: app.external_gpu_state_refresh_pending,
+        started_at: fixture.started_at,
+        refresh_pending: fixture.refresh_pending,
         uploads: [
-            app.external_gpu_amplitude_uploads
-                .as_ref()
-                .map(|batch| BatchState {
-                    generation: batch.generation,
-                    gate_ids: batch.slot_to_gate_id.to_vec(),
-                    slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
-                    values: batch
-                        .uploads
-                        .iter()
-                        .map(|upload| (upload.coherent.to_vec(), upload.incoherent.to_vec()))
-                        .collect(),
-                    meta: batch.uploads.iter().map(|upload| upload.meta).collect(),
-                }),
-            app.external_gpu_bloch_uploads
-                .as_ref()
-                .map(|batch| BatchState {
-                    generation: batch.generation,
-                    gate_ids: batch.slot_to_gate_id.to_vec(),
-                    slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
-                    values: batch
-                        .uploads
-                        .iter()
-                        .map(|upload| (upload.vector.to_vec(), vec![]))
-                        .collect(),
-                    meta: vec![],
-                }),
-            app.external_gpu_probability_uploads
+            fixture.displays.amplitude.as_ref().map(|batch| BatchState {
+                generation: batch.generation,
+                gate_ids: batch.slot_to_gate_id.to_vec(),
+                slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
+                values: batch
+                    .uploads
+                    .iter()
+                    .map(|upload| (upload.coherent.to_vec(), upload.incoherent.to_vec()))
+                    .collect(),
+                meta: batch.uploads.iter().map(|upload| upload.meta).collect(),
+            }),
+            fixture.displays.bloch.as_ref().map(|batch| BatchState {
+                generation: batch.generation,
+                gate_ids: batch.slot_to_gate_id.to_vec(),
+                slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
+                values: batch
+                    .uploads
+                    .iter()
+                    .map(|upload| (upload.vector.to_vec(), vec![]))
+                    .collect(),
+                meta: vec![],
+            }),
+            fixture
+                .displays
+                .probability
                 .as_ref()
                 .map(|batch| BatchState {
                     generation: batch.generation,
@@ -111,23 +112,21 @@ fn state(app: &QniApp) -> RunState {
                         .collect(),
                     meta: vec![],
                 }),
-            app.external_gpu_density_uploads
-                .as_ref()
-                .map(|batch| BatchState {
-                    generation: batch.generation,
-                    gate_ids: batch.slot_to_gate_id.to_vec(),
-                    slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
-                    values: batch
-                        .uploads
-                        .iter()
-                        .map(|upload| (upload.cells.to_vec(), vec![]))
-                        .collect(),
-                    meta: batch.uploads.iter().map(|upload| upload.meta).collect(),
-                }),
+            fixture.displays.density.as_ref().map(|batch| BatchState {
+                generation: batch.generation,
+                gate_ids: batch.slot_to_gate_id.to_vec(),
+                slots: batch.uploads.iter().map(|upload| upload.slot).collect(),
+                values: batch
+                    .uploads
+                    .iter()
+                    .map(|upload| (upload.cells.to_vec(), vec![]))
+                    .collect(),
+                meta: batch.uploads.iter().map(|upload| upload.meta).collect(),
+            }),
         ],
         slots,
         run_id,
-        generation: app.external_gpu_display_generation,
+        generation: fixture.generation,
     }
 }
 
@@ -142,7 +141,9 @@ fn app() -> (QniApp, egui::Context) {
     app.library = library;
     app.circuit_revision = CircuitRevision::starting_at(r#"{"cols":[]}"#.into());
     app.exec_mode = ExecMode::Gpu;
-    app.external_gpu_display_generation = 7;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.generation = 7;
+    });
     (app, ctx)
 }
 
@@ -194,31 +195,37 @@ fn density(generation: u64) -> ExternalDensityUploadBatch {
 }
 
 fn set_uploads(app: &mut QniApp, generation: u64) {
-    app.external_gpu_amplitude_uploads = Some(amplitude(generation));
-    app.external_gpu_bloch_uploads = Some(bloch(generation));
-    app.external_gpu_probability_uploads = Some(probability(generation));
-    app.external_gpu_density_uploads = Some(density(generation));
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.displays.amplitude = Some(amplitude(generation));
+        fixture.displays.bloch = Some(bloch(generation));
+        fixture.displays.probability = Some(probability(generation));
+        fixture.displays.density = Some(density(generation));
+    });
 }
 
 fn pending(app: &mut QniApp) {
-    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
-        id: RUN_ID,
-        expected: SlotLayout {
-            amplitude: vec![11],
-            bloch: vec![22],
-            probability: vec![33],
-            density: vec![44],
-        }
-        .into(),
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.acceptance = Acceptance::Awaiting(AcceptedRun {
+            id: RUN_ID,
+            expected: SlotLayout {
+                amplitude: vec![11],
+                bloch: vec![22],
+                probability: vec![33],
+                density: vec![44],
+            }
+            .into(),
+        });
+        fixture.status = ExternalGpuStatus::Running;
+        fixture.started_at = Some(0.0);
     });
-    app.external_gpu_status = ExternalGpuStatus::Running;
-    app.external_gpu_started_at = Some(0.0);
 }
 
 fn seeded(app: &mut QniApp) {
     pending(app);
     set_uploads(app, 3);
-    app.external_gpu_state_refresh_pending = true;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.refresh_pending = true;
+    });
 }
 
 fn inject_valid_batches(message: &str) {
@@ -279,10 +286,9 @@ fn matching_success_publishes_all_four_batches_and_clears_pending_slots() {
     let mut expected = cleared();
     set_uploads(&mut app, 8);
     expected.uploads = state(&app).uploads;
-    app.external_gpu_amplitude_uploads = None;
-    app.external_gpu_bloch_uploads = None;
-    app.external_gpu_probability_uploads = None;
-    app.external_gpu_density_uploads = None;
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.displays = Default::default();
+    });
     expected.status = StatusState::Completed;
     expected.generation = 8;
     inject_valid_batches(RESPONSE);
@@ -509,10 +515,12 @@ fn switching_to_local_through_toggle_clears_results_but_leaves_running_status() 
 #[test]
 fn completion_without_display_outputs_requests_one_shot_gpu_state_refresh() {
     let (mut app, ctx) = app();
-    app.external_gpu_status = ExternalGpuStatus::Running;
-    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
-        id: RUN_ID,
-        expected: DisplayExpectation::None,
+    app.external_gpu.edit_fixture(|fixture| {
+        fixture.status = ExternalGpuStatus::Running;
+        fixture.acceptance = Acceptance::Awaiting(AcceptedRun {
+            id: RUN_ID,
+            expected: DisplayExpectation::None,
+        });
     });
     app.gpu_plan.mark_clean_for(app.state_count());
     // 表示要求がなければ本文は解析しない。これも現在の動作として固定する。

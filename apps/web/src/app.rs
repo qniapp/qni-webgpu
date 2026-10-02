@@ -18,10 +18,6 @@ mod update_flow;
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
 use crate::gates::GateKind;
-use crate::gpu::{
-    ExternalAmplitudeUploadBatch, ExternalBlochUploadBatch, ExternalDensityUploadBatch,
-    ExternalProbabilityUploadBatch,
-};
 use crate::qubit_count::{QubitCapacity, QubitCount};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
@@ -97,18 +93,7 @@ pub(crate) struct QniApp {
     qubit_count: usize,
     pub(crate) exec_mode: ExecMode,
     pub(crate) exec_mode_keyboard_focus: bool,
-    pub(crate) external_gpu_status: ExternalGpuStatus,
-    pub(crate) external_gpu_started_at: Option<f64>,
-    /// One-shot local WebGPU refresh for the state-vector panel after an
-    /// explicit external GPU run completes. Keeps GPU mode from live-
-    /// recomputing on every edit while still making <=16-qubit runs visible.
-    pub(crate) external_gpu_state_refresh_pending: bool,
-    pub(crate) external_gpu_amplitude_uploads: Option<ExternalAmplitudeUploadBatch>,
-    pub(crate) external_gpu_bloch_uploads: Option<ExternalBlochUploadBatch>,
-    pub(crate) external_gpu_probability_uploads: Option<ExternalProbabilityUploadBatch>,
-    pub(crate) external_gpu_density_uploads: Option<ExternalDensityUploadBatch>,
-    pub(crate) external_gpu_display_generation: u64,
-    pub(crate) external_gpu_acceptance: external_gpu::Acceptance,
+    pub(crate) external_gpu: external_gpu::ExternalGpuSession,
     pub(crate) gpu_plan: GpuPlanState,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
@@ -280,15 +265,7 @@ impl QniApp {
             qubit_count: initial_qubit_count,
             exec_mode,
             exec_mode_keyboard_focus: false,
-            external_gpu_status: ExternalGpuStatus::default(),
-            external_gpu_started_at: None,
-            external_gpu_state_refresh_pending: false,
-            external_gpu_amplitude_uploads: None,
-            external_gpu_bloch_uploads: None,
-            external_gpu_probability_uploads: None,
-            external_gpu_density_uploads: None,
-            external_gpu_display_generation: 0,
-            external_gpu_acceptance: external_gpu::Acceptance::Closed,
+            external_gpu: external_gpu::ExternalGpuSession::default(),
             gpu_plan: GpuPlanState::default(),
             last_content_rect: None,
             drag_cursor_pos: None,

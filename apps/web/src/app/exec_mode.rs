@@ -67,12 +67,8 @@ impl QniApp {
             crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
             self.update_qubit_count();
             if self.exec_mode == ExecMode::Local {
-                self.external_gpu_state_refresh_pending = false;
-                self.external_gpu_amplitude_uploads = None;
-                self.external_gpu_bloch_uploads = None;
-                self.external_gpu_probability_uploads = None;
-                self.external_gpu_density_uploads = None;
-                self.external_gpu_acceptance = super::external_gpu::Acceptance::Closed;
+                self.external_gpu
+                    .invalidate(super::external_gpu::Invalidation::EnteredLocal);
             }
             self.gpu_plan.mark_dirty();
         }
