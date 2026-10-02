@@ -56,26 +56,6 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
 }
 
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<&'static str> {
-    for gate in placed_gates {
-        let name = match gate.kind {
-            GateKind::AntiControl => None,
-            GateKind::BlochDisplay => None,
-            GateKind::Measurement => None,
-            GateKind::ProbabilityDisplay => None,
-            GateKind::AmplitudeDisplay => None,
-            GateKind::DensityMatrixDisplay => None,
-            GateKind::Spacer => None,
-            GateKind::Write0 => None,
-            GateKind::Write1 => None,
-            GateKind::Swap => None,
-            GateKind::QftGate | GateKind::QftDaggerGate => None,
-            _ => None,
-        };
-        if let Some(name) = name {
-            return Some(name);
-        }
-    }
-
     let max_column = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize())
@@ -191,7 +171,7 @@ impl QniApp {
         if self.external_gpu_status.is_running() {
             return;
         }
-        if let Some(gate_name) = self.unsupported_external_gpu_gate() {
+        if let Some(gate_name) = unsupported_external_gpu_gate_for_gates(&self.placed_gates) {
             self.pending_external_gpu_run_id = None;
             self.pending_external_amplitude_slots.clear();
             self.pending_external_bloch_slots.clear();
@@ -289,10 +269,6 @@ impl QniApp {
             }
         }
         ctx.request_repaint();
-    }
-
-    fn unsupported_external_gpu_gate(&self) -> Option<&'static str> {
-        unsupported_external_gpu_gate_for_gates(&self.placed_gates)
     }
 
     fn complete_external_gpu_run(&mut self, message: &str) -> ExternalGpuStatus {
