@@ -436,6 +436,10 @@ impl QniApp {
     }
 }
 
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "lifecycle_tests.rs"]
+mod lifecycle_tests;
+
 #[cfg(test)]
 mod tests {
     use super::unsupported_external_gpu_gate_for_gates;

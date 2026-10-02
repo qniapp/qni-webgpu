@@ -145,6 +145,9 @@ fn parse_density_upload_batch_impl(
     _generation: u64,
     _slot_to_gate_id: &[u32],
 ) -> Option<ExternalDensityUploadBatch> {
+    #[cfg(test)]
+    return super::parser_fixtures::take_density(_message, _generation, _slot_to_gate_id);
+    #[cfg(not(test))]
     None
 }
 

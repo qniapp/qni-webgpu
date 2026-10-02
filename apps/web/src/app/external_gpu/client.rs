@@ -70,9 +70,24 @@ pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure
     })
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
     None
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+thread_local! {
+    static TEST_RUN_RESULTS: RefCell<std::collections::VecDeque<(u64, Result<String, GpuFailure>)>> = const { RefCell::new(std::collections::VecDeque::new()) };
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn inject_qiskit_run_results(results: Vec<(u64, Result<String, GpuFailure>)>) {
+    TEST_RUN_RESULTS.with(|queue| *queue.borrow_mut() = results.into());
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
+    TEST_RUN_RESULTS.with(|queue| queue.borrow_mut().pop_front())
 }
 
 #[cfg(target_arch = "wasm32")]
