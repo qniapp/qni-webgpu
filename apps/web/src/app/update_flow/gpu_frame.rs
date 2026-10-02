@@ -160,6 +160,17 @@ impl QniApp {
         }
     }
 
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(crate) fn test_process_gpu_recompute(
+        &mut self,
+        target_format: Option<eframe::wgpu::TextureFormat>,
+        recompute: bool,
+        state_count: usize,
+        ctx: &egui::Context,
+    ) -> bool {
+        self.process_gpu_recompute(target_format, recompute, state_count, ctx)
+    }
+
     fn log_gpu_plan_capacity_error(&self, message: &str) {
         #[cfg(target_arch = "wasm32")]
         {

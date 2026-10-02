@@ -15,9 +15,24 @@ pub(super) fn take_external_gpu_status_override() -> Option<ExternalGpuStatus> {
     TEST_EXTERNAL_GPU_STATUS.with(|slot| slot.borrow_mut().take())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 pub(super) fn take_external_gpu_status_override() -> Option<ExternalGpuStatus> {
     None
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+thread_local! {
+    static TEST_EXTERNAL_GPU_STATUS: RefCell<Option<ExternalGpuStatus>> = const { RefCell::new(None) };
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn inject_external_gpu_status(status: ExternalGpuStatus) {
+    TEST_EXTERNAL_GPU_STATUS.with(|slot| *slot.borrow_mut() = Some(status));
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn take_external_gpu_status_override() -> Option<ExternalGpuStatus> {
+    TEST_EXTERNAL_GPU_STATUS.with(|slot| slot.borrow_mut().take())
 }
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]

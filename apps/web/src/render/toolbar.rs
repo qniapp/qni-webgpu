@@ -48,6 +48,11 @@ impl QniApp {
             });
     }
 
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(crate) fn show_test_edit_utilities(&mut self, ui: &mut egui::Ui) {
+        self.show_edit_utilities(ui, &self.colors(), &ui.ctx().clone());
+    }
+
     fn show_edit_utilities(&mut self, ui: &mut egui::Ui, colors: &Colors, ctx: &egui::Context) {
         let edit_allowed = !self.library.active_locked();
         if icon_button(

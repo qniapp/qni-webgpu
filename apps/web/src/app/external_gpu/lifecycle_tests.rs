@@ -542,3 +542,6 @@ fn poll_consumes_only_one_queued_result_even_when_first_result_is_stale() {
         (before, Some(second))
     );
 }
+
+#[path = "lifecycle_extra_tests.rs"]
+mod lifecycle_extra_tests;
