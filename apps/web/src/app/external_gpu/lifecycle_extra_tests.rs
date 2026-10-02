@@ -105,8 +105,29 @@ fn synchronous_start_failure_clears_old_uploads_and_pending_but_keeps_refresh_an
         "Qiskit backend fetch is only available in wasm".into(),
     ));
     expected.refresh_pending = true;
+    app.external_gpu
+        .transport_handle()
+        .queue_start(Err(GpuFailure::Other(
+            "Qiskit backend fetch is only available in wasm".into(),
+        )));
     let (_, remaining) = with_times(&[17.0], || app.start_external_gpu_run(&ctx));
     assert_eq!((state(&app), remaining), (expected, 0));
+}
+
+#[test]
+fn scripted_start_id_accepts_matching_completion() {
+    let (mut app, ctx) = app();
+    let handle = app.external_gpu.transport_handle();
+    handle.queue_start(Ok(RUN_ID));
+    let (_, remaining) = with_times(&[5.0, 12.0], || {
+        app.start_external_gpu_run(&ctx);
+        handle.queue_results(vec![(RUN_ID, Ok("unparsed".into()))]);
+        app.poll_external_gpu_run(&ctx);
+    });
+    assert_eq!(
+        (completed_duration(&app), state(&app).run_id, remaining),
+        (Duration::from_secs(7), None, 0)
+    );
 }
 
 #[test]

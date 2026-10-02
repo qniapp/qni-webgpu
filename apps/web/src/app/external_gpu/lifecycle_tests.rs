@@ -10,7 +10,7 @@ use crate::gates::{GateKind, GateSpan};
 use crate::gpu::*;
 use std::sync::Arc;
 
-use super::super::{client, parser_fixtures};
+use super::super::parser_fixtures;
 
 const RUN_ID: u64 = 42;
 const RESPONSE: &str = r#"{
@@ -131,10 +131,10 @@ fn state(app: &QniApp) -> RunState {
 }
 
 fn app() -> (QniApp, egui::Context) {
-    client::inject_qiskit_run_results(vec![]);
     parser_fixtures::reset();
     let ctx = egui::Context::default();
     let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+    app.external_gpu.install_scripted_transport();
     app.load_circuit_json_into_editor(r#"{"cols":[]}"#, &ctx);
     // 起動時の保存済み回路ではなく、空の編集可能な回路を履歴の起点にする。
     let (library, _) = crate::app::circuit_library::for_startup(r#"{"cols":[]}"#.into(), true);
@@ -236,7 +236,9 @@ fn inject_valid_batches(message: &str) {
 }
 
 fn poll(app: &mut QniApp, ctx: &egui::Context, result: Result<String, GpuFailure>) {
-    client::inject_qiskit_run_results(vec![(RUN_ID, result)]);
+    app.external_gpu
+        .transport_handle()
+        .queue_results(vec![(RUN_ID, result)]);
     app.poll_external_gpu_run(ctx);
 }
 
@@ -257,10 +259,12 @@ fn stale_success_is_discarded_without_changing_current_run() {
     let (mut app, ctx) = app();
     seeded(&mut app);
     let before = state(&app);
-    client::inject_qiskit_run_results(vec![(RUN_ID - 1, Ok(RESPONSE.into()))]);
+    app.external_gpu
+        .transport_handle()
+        .queue_results(vec![(RUN_ID - 1, Ok(RESPONSE.into()))]);
     app.poll_external_gpu_run(&ctx);
     assert_eq!(
-        (state(&app), client::take_qiskit_run_result()),
+        (state(&app), app.external_gpu.transport_handle().take_one()),
         (before, None)
     );
 }
@@ -270,10 +274,12 @@ fn stale_failure_is_discarded_without_changing_current_run() {
     let (mut app, ctx) = app();
     seeded(&mut app);
     let before = state(&app);
-    client::inject_qiskit_run_results(vec![(RUN_ID - 1, Err(GpuFailure::Http(503)))]);
+    app.external_gpu
+        .transport_handle()
+        .queue_results(vec![(RUN_ID - 1, Err(GpuFailure::Http(503)))]);
     app.poll_external_gpu_run(&ctx);
     assert_eq!(
-        (state(&app), client::take_qiskit_run_result()),
+        (state(&app), app.external_gpu.transport_handle().take_one()),
         (before, None)
     );
 }
@@ -547,10 +553,12 @@ fn poll_consumes_only_one_queued_result_when_first_result_matches() {
     expected.slots = [vec![], vec![], vec![], vec![]];
     expected.run_id = None;
     let second = (RUN_ID - 1, Ok(RESPONSE.into()));
-    client::inject_qiskit_run_results(vec![(RUN_ID, Err(GpuFailure::Http(503))), second.clone()]);
+    app.external_gpu
+        .transport_handle()
+        .queue_results(vec![(RUN_ID, Err(GpuFailure::Http(503))), second.clone()]);
     app.poll_external_gpu_run(&ctx);
     assert_eq!(
-        (state(&app), client::take_qiskit_run_result()),
+        (state(&app), app.external_gpu.transport_handle().take_one()),
         (expected, Some(second))
     );
 }
@@ -561,10 +569,12 @@ fn poll_consumes_only_one_queued_result_even_when_first_result_is_stale() {
     seeded(&mut app);
     let before = state(&app);
     let second = (RUN_ID, Err(GpuFailure::Http(503)));
-    client::inject_qiskit_run_results(vec![(RUN_ID - 1, Ok(RESPONSE.into())), second.clone()]);
+    app.external_gpu
+        .transport_handle()
+        .queue_results(vec![(RUN_ID - 1, Ok(RESPONSE.into())), second.clone()]);
     app.poll_external_gpu_run(&ctx);
     assert_eq!(
-        (state(&app), client::take_qiskit_run_result()),
+        (state(&app), app.external_gpu.transport_handle().take_one()),
         (before, Some(second))
     );
 }

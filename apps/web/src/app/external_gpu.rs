@@ -1,11 +1,11 @@
 mod amplitude;
 mod app_adapter;
 mod bloch;
-mod client;
 mod density;
 mod probability;
 mod session;
 mod test_hooks;
+mod transport;
 
 pub(crate) use session::{ExternalGpuSession, Invalidation};
 

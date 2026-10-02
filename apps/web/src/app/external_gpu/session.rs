@@ -9,7 +9,6 @@ use super::amplitude::{
 use super::bloch::{
     bloch_requests_json, bloch_slot_to_gate_id, collect_bloch_requests, parse_bloch_upload_batch,
 };
-use super::client::{start_qiskit_run, take_qiskit_run_result};
 use super::density::{
     collect_density_requests, density_requests_json, density_slot_to_gate_id,
     parse_density_upload_batch,
@@ -19,6 +18,7 @@ use super::probability::{
     probability_slot_to_gate_id,
 };
 use super::test_hooks::take_external_gpu_status_override;
+use super::transport::{BrowserTransport, RunTransport, WireRequest};
 use super::ExecMode;
 use super::{qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure, Shots};
 use crate::app::PlacedGate;
@@ -141,13 +141,26 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     None
 }
 
-#[derive(Default)]
 pub(crate) struct ExternalGpuSession {
     acceptance: Acceptance,
     presentation: Presentation,
     displays: PublishedDisplays,
     generation: u64,
     refresh: RefreshState,
+    transport: Box<dyn RunTransport>,
+}
+
+impl Default for ExternalGpuSession {
+    fn default() -> Self {
+        Self {
+            acceptance: Acceptance::default(),
+            presentation: Presentation::default(),
+            displays: PublishedDisplays::default(),
+            generation: 0,
+            refresh: RefreshState::default(),
+            transport: Box::new(BrowserTransport),
+        }
+    }
 }
 #[derive(Default)]
 struct Presentation {
@@ -225,11 +238,11 @@ impl ExternalGpuSession {
         if let Some(status) = take_external_gpu_status_override() {
             self.apply_status(status, environment, &mut publication);
         }
-        if let Some((run_id, result)) = take_qiskit_run_result() {
+        if let Some(completion) = self.transport.take_one() {
             let Acceptance::Awaiting(accepted) = &self.acceptance else {
                 return publication;
             };
-            if accepted.id != run_id {
+            if accepted.id != completion.id {
                 return publication;
             }
             let Acceptance::Awaiting(accepted) =
@@ -237,8 +250,8 @@ impl ExternalGpuSession {
             else {
                 unreachable!()
             };
-            let status = match result {
-                Ok(message) => self.complete(&message, accepted.expected, &mut publication),
+            let status = match completion.result {
+                Ok(message) => self.complete(&message.0, accepted.expected, &mut publication),
                 Err(failure) => {
                     self.presentation.started_at = None;
                     ExternalGpuStatus::Failed(failure)
@@ -359,7 +372,10 @@ impl ExternalGpuSession {
         self.displays.probability = None;
         self.displays.density = None;
         self.presentation.started_at = Some(now_seconds());
-        match start_qiskit_run(request.payload, ctx.clone()) {
+        match self
+            .transport
+            .start(WireRequest(request.payload), ctx.clone())
+        {
             Ok(run_id) => {
                 self.acceptance = Acceptance::Awaiting(AcceptedRun {
                     id: run_id,
@@ -494,6 +510,14 @@ pub(crate) struct SessionFixture {
 }
 #[cfg(all(test, not(target_arch = "wasm32")))]
 impl ExternalGpuSession {
+    pub(super) fn install_scripted_transport(&mut self) {
+        self.transport = Box::<super::transport::ScriptedTransport>::default();
+    }
+
+    pub(super) fn transport_handle(&self) -> super::transport::ScriptedHandle {
+        self.transport.scripted_handle()
+    }
+
     pub(crate) fn fixture(&self) -> SessionFixture {
         SessionFixture {
             acceptance: self.acceptance.clone(),
