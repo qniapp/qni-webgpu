@@ -4,7 +4,10 @@ mod bloch;
 mod client;
 mod density;
 mod probability;
+mod session;
 mod test_hooks;
+
+pub(crate) use session::{Acceptance, AcceptedRun, DisplayExpectation, SlotLayout};
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod parser_fixtures;

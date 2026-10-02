@@ -20,7 +20,7 @@ use super::probability::{
 };
 use super::test_hooks::{take_external_gpu_status_override, wire_external_gpu_test_hooks};
 use super::{qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure, Shots};
-use super::{ExecMode, QniApp};
+use super::{Acceptance, AcceptedRun, DisplayExpectation, ExecMode, QniApp, SlotLayout};
 use crate::app::{circuit_library, PlacedGate};
 use crate::gates::GateKind;
 use crate::gpu::{MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_PROBABILITY_SLOTS};
@@ -105,18 +105,21 @@ impl QniApp {
             self.apply_external_gpu_status(status, ctx);
         }
         if let Some((run_id, result)) = take_qiskit_run_result() {
-            if self.pending_external_gpu_run_id != Some(run_id) {
+            let Acceptance::Awaiting(accepted) = &self.external_gpu_acceptance else {
+                return;
+            };
+            if accepted.id != run_id {
                 return;
             }
-            self.pending_external_gpu_run_id = None;
+            let Acceptance::Awaiting(accepted) =
+                std::mem::replace(&mut self.external_gpu_acceptance, Acceptance::Closed)
+            else {
+                unreachable!();
+            };
             let status = match result {
-                Ok(message) => self.complete_external_gpu_run(&message),
+                Ok(message) => self.complete_external_gpu_run(&message, accepted.expected),
                 Err(failure) => {
                     self.external_gpu_started_at = None;
-                    self.pending_external_amplitude_slots.clear();
-                    self.pending_external_bloch_slots.clear();
-                    self.pending_external_probability_slots.clear();
-                    self.pending_external_density_slots.clear();
                     ExternalGpuStatus::Failed(failure)
                 }
             };
@@ -172,11 +175,7 @@ impl QniApp {
             return;
         }
         if let Some(gate_name) = unsupported_external_gpu_gate_for_gates(&self.placed_gates) {
-            self.pending_external_gpu_run_id = None;
-            self.pending_external_amplitude_slots.clear();
-            self.pending_external_bloch_slots.clear();
-            self.pending_external_probability_slots.clear();
-            self.pending_external_density_slots.clear();
+            self.external_gpu_acceptance = Acceptance::Closed;
             self.external_gpu_status =
                 ExternalGpuStatus::Failed(GpuFailure::UnsupportedGate(gate_name.to_owned()));
             ctx.request_repaint();
@@ -186,22 +185,14 @@ impl QniApp {
         let request = match self.external_gpu_run_request() {
             Ok(request) => request,
             Err(message) => {
-                self.pending_external_gpu_run_id = None;
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
+                self.external_gpu_acceptance = Acceptance::Closed;
                 self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(message));
                 ctx.request_repaint();
                 return;
             }
         };
         if request.amplitude_slot_to_gate_id.len() > MAX_AMPLITUDE_SLOTS {
-            self.pending_external_gpu_run_id = None;
-            self.pending_external_amplitude_slots.clear();
-            self.pending_external_bloch_slots.clear();
-            self.pending_external_probability_slots.clear();
-            self.pending_external_density_slots.clear();
+            self.external_gpu_acceptance = Acceptance::Closed;
             self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
                 "at most {MAX_AMPLITUDE_SLOTS} Amplitude displays"
             )));
@@ -209,11 +200,7 @@ impl QniApp {
             return;
         }
         if request.bloch_slot_to_gate_id.len() > MAX_BLOCH_SLOTS {
-            self.pending_external_gpu_run_id = None;
-            self.pending_external_amplitude_slots.clear();
-            self.pending_external_bloch_slots.clear();
-            self.pending_external_probability_slots.clear();
-            self.pending_external_density_slots.clear();
+            self.external_gpu_acceptance = Acceptance::Closed;
             self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
                 "at most {MAX_BLOCH_SLOTS} Bloch displays"
             )));
@@ -221,11 +208,7 @@ impl QniApp {
             return;
         }
         if request.probability_slot_to_gate_id.len() > MAX_PROBABILITY_SLOTS {
-            self.pending_external_gpu_run_id = None;
-            self.pending_external_amplitude_slots.clear();
-            self.pending_external_bloch_slots.clear();
-            self.pending_external_probability_slots.clear();
-            self.pending_external_density_slots.clear();
+            self.external_gpu_acceptance = Acceptance::Closed;
             self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
                 "at most {MAX_PROBABILITY_SLOTS} Probability displays"
             )));
@@ -233,21 +216,19 @@ impl QniApp {
             return;
         }
         if request.density_slot_to_gate_id.len() > MAX_DENSITY_SLOTS {
-            self.pending_external_gpu_run_id = None;
-            self.pending_external_amplitude_slots.clear();
-            self.pending_external_bloch_slots.clear();
-            self.pending_external_probability_slots.clear();
-            self.pending_external_density_slots.clear();
+            self.external_gpu_acceptance = Acceptance::Closed;
             self.external_gpu_status = ExternalGpuStatus::Failed(GpuFailure::Other(format!(
                 "at most {MAX_DENSITY_SLOTS} Density Matrix displays"
             )));
             ctx.request_repaint();
             return;
         }
-        self.pending_external_amplitude_slots = request.amplitude_slot_to_gate_id;
-        self.pending_external_bloch_slots = request.bloch_slot_to_gate_id;
-        self.pending_external_probability_slots = request.probability_slot_to_gate_id;
-        self.pending_external_density_slots = request.density_slot_to_gate_id;
+        let expected = DisplayExpectation::from(SlotLayout {
+            amplitude: request.amplitude_slot_to_gate_id,
+            bloch: request.bloch_slot_to_gate_id,
+            probability: request.probability_slot_to_gate_id,
+            density: request.density_slot_to_gate_id,
+        });
         self.external_gpu_amplitude_uploads = None;
         self.external_gpu_bloch_uploads = None;
         self.external_gpu_probability_uploads = None;
@@ -255,97 +236,85 @@ impl QniApp {
         self.external_gpu_started_at = Some(now_seconds());
         match start_qiskit_run(request.payload, ctx.clone()) {
             Ok(run_id) => {
-                self.pending_external_gpu_run_id = Some(run_id);
+                self.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
+                    id: run_id,
+                    expected,
+                });
                 self.external_gpu_status = ExternalGpuStatus::Running;
             }
             Err(failure) => {
                 self.external_gpu_started_at = None;
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
-                self.pending_external_gpu_run_id = None;
+                self.external_gpu_acceptance = Acceptance::Closed;
                 self.external_gpu_status = ExternalGpuStatus::Failed(failure);
             }
         }
         ctx.request_repaint();
     }
 
-    fn complete_external_gpu_run(&mut self, message: &str) -> ExternalGpuStatus {
+    fn complete_external_gpu_run(
+        &mut self,
+        message: &str,
+        expected: DisplayExpectation,
+    ) -> ExternalGpuStatus {
         let duration = self.take_external_gpu_duration();
-        let has_display_outputs = !self.pending_external_amplitude_slots.is_empty()
-            || !self.pending_external_bloch_slots.is_empty()
-            || !self.pending_external_probability_slots.is_empty()
-            || !self.pending_external_density_slots.is_empty();
+        let has_display_outputs = matches!(expected, DisplayExpectation::Requested(_));
+        let slots = match expected {
+            DisplayExpectation::None => SlotLayout::default(),
+            DisplayExpectation::Requested(slots) => slots,
+        };
         if has_display_outputs {
             self.external_gpu_display_generation += 1;
         }
-        let amplitude_batch = if self.pending_external_amplitude_slots.is_empty() {
+        let amplitude_batch = if slots.amplitude.is_empty() {
             None
         } else {
             let Some(batch) = parse_amplitude_upload_batch(
                 message,
                 self.external_gpu_display_generation,
-                &self.pending_external_amplitude_slots,
+                &slots.amplitude,
             ) else {
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
                 return ExternalGpuStatus::Failed(GpuFailure::Other(
                     "Amplitude result missing".to_owned(),
                 ));
             };
             Some(batch)
         };
-        let bloch_batch = if self.pending_external_bloch_slots.is_empty() {
+        let bloch_batch = if slots.bloch.is_empty() {
             None
         } else {
             let Some(batch) = parse_bloch_upload_batch(
                 message,
                 self.external_gpu_display_generation,
-                &self.pending_external_bloch_slots,
+                &slots.bloch,
             ) else {
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
                 return ExternalGpuStatus::Failed(GpuFailure::Other(
                     "Bloch result missing".to_owned(),
                 ));
             };
             Some(batch)
         };
-        let probability_batch = if self.pending_external_probability_slots.is_empty() {
+        let probability_batch = if slots.probability.is_empty() {
             None
         } else {
             let Some(batch) = parse_probability_upload_batch(
                 message,
                 self.external_gpu_display_generation,
-                &self.pending_external_probability_slots,
+                &slots.probability,
             ) else {
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
                 return ExternalGpuStatus::Failed(GpuFailure::Other(
                     "Probability result missing".to_owned(),
                 ));
             };
             Some(batch)
         };
-        let density_batch = if self.pending_external_density_slots.is_empty() {
+        let density_batch = if slots.density.is_empty() {
             None
         } else {
             let Some(batch) = parse_density_upload_batch(
                 message,
                 self.external_gpu_display_generation,
-                &self.pending_external_density_slots,
+                &slots.density,
             ) else {
-                self.pending_external_amplitude_slots.clear();
-                self.pending_external_bloch_slots.clear();
-                self.pending_external_probability_slots.clear();
-                self.pending_external_density_slots.clear();
                 return ExternalGpuStatus::Failed(GpuFailure::Other(
                     "Density result missing".to_owned(),
                 ));
@@ -358,17 +327,13 @@ impl QniApp {
         self.external_gpu_density_uploads = density_batch;
         if has_display_outputs {
             self.gpu_plan.replace_external_display_slots(
-                &self.pending_external_amplitude_slots,
-                &self.pending_external_bloch_slots,
-                &self.pending_external_probability_slots,
-                &self.pending_external_density_slots,
+                &slots.amplitude,
+                &slots.bloch,
+                &slots.probability,
+                &slots.density,
                 self.state_count(),
             );
         }
-        self.pending_external_amplitude_slots.clear();
-        self.pending_external_bloch_slots.clear();
-        self.pending_external_probability_slots.clear();
-        self.pending_external_density_slots.clear();
         ExternalGpuStatus::Completed { duration }
     }
 

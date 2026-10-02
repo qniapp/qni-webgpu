@@ -47,6 +47,21 @@ struct RunState {
 }
 
 fn state(app: &QniApp) -> RunState {
+    let (run_id, slots) = match &app.external_gpu_acceptance {
+        Acceptance::Closed => (None, Default::default()),
+        Acceptance::Awaiting(accepted) => {
+            let slots = match &accepted.expected {
+                DisplayExpectation::None => Default::default(),
+                DisplayExpectation::Requested(slots) => [
+                    slots.amplitude.clone(),
+                    slots.bloch.clone(),
+                    slots.probability.clone(),
+                    slots.density.clone(),
+                ],
+            };
+            (Some(accepted.id), slots)
+        }
+    };
     RunState {
         status: match &app.external_gpu_status {
             ExternalGpuStatus::Idle => StatusState::Idle,
@@ -110,13 +125,8 @@ fn state(app: &QniApp) -> RunState {
                     meta: batch.uploads.iter().map(|upload| upload.meta).collect(),
                 }),
         ],
-        slots: [
-            app.pending_external_amplitude_slots.clone(),
-            app.pending_external_bloch_slots.clone(),
-            app.pending_external_probability_slots.clone(),
-            app.pending_external_density_slots.clone(),
-        ],
-        run_id: app.pending_external_gpu_run_id,
+        slots,
+        run_id,
         generation: app.external_gpu_display_generation,
     }
 }
@@ -191,11 +201,16 @@ fn set_uploads(app: &mut QniApp, generation: u64) {
 }
 
 fn pending(app: &mut QniApp) {
-    app.pending_external_amplitude_slots = vec![11];
-    app.pending_external_bloch_slots = vec![22];
-    app.pending_external_probability_slots = vec![33];
-    app.pending_external_density_slots = vec![44];
-    app.pending_external_gpu_run_id = Some(RUN_ID);
+    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
+        id: RUN_ID,
+        expected: SlotLayout {
+            amplitude: vec![11],
+            bloch: vec![22],
+            probability: vec![33],
+            density: vec![44],
+        }
+        .into(),
+    });
     app.external_gpu_status = ExternalGpuStatus::Running;
     app.external_gpu_started_at = Some(0.0);
 }
@@ -495,7 +510,10 @@ fn switching_to_local_through_toggle_clears_results_but_leaves_running_status() 
 fn completion_without_display_outputs_requests_one_shot_gpu_state_refresh() {
     let (mut app, ctx) = app();
     app.external_gpu_status = ExternalGpuStatus::Running;
-    app.pending_external_gpu_run_id = Some(RUN_ID);
+    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
+        id: RUN_ID,
+        expected: DisplayExpectation::None,
+    });
     app.gpu_plan.mark_clean_for(app.state_count());
     // 表示要求がなければ本文は解析しない。これも現在の動作として固定する。
     poll(&mut app, &ctx, Ok("not even JSON".into()));

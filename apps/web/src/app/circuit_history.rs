@@ -105,11 +105,7 @@ impl QniApp {
         self.external_gpu_bloch_uploads = None;
         self.external_gpu_probability_uploads = None;
         self.external_gpu_density_uploads = None;
-        self.pending_external_amplitude_slots.clear();
-        self.pending_external_bloch_slots.clear();
-        self.pending_external_probability_slots.clear();
-        self.pending_external_density_slots.clear();
-        self.pending_external_gpu_run_id = None;
+        self.external_gpu_acceptance = super::external_gpu::Acceptance::Closed;
         ctx.request_repaint();
         true
     }
@@ -212,11 +208,7 @@ impl QniApp {
         self.external_gpu_bloch_uploads = None;
         self.external_gpu_probability_uploads = None;
         self.external_gpu_density_uploads = None;
-        self.pending_external_amplitude_slots.clear();
-        self.pending_external_bloch_slots.clear();
-        self.pending_external_probability_slots.clear();
-        self.pending_external_density_slots.clear();
-        self.pending_external_gpu_run_id = None;
+        self.external_gpu_acceptance = super::external_gpu::Acceptance::Closed;
         self.gpu_plan.mark_dirty();
         self.clear_gpu_plan_capacity_error();
         ctx.request_repaint();

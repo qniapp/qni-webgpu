@@ -191,7 +191,10 @@ fn completed_override_then_matching_display_success_leaves_plan_clean_and_refres
 #[test]
 fn running_override_acquires_start_before_matching_completion_reads_end() {
     let (mut app, ctx) = app();
-    app.pending_external_gpu_run_id = Some(RUN_ID);
+    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
+        id: RUN_ID,
+        expected: DisplayExpectation::None,
+    });
     super::super::super::test_hooks::inject_external_gpu_status(ExternalGpuStatus::Running);
     let (_, remaining) = with_times(&[5.0, 12.0], || {
         poll(&mut app, &ctx, Ok("unparsed".into()));
@@ -235,7 +238,10 @@ fn completion_duration(started_at: Option<f64>, times: &[f64]) -> (Duration, Opt
     let (mut app, ctx) = app();
     app.external_gpu_status = ExternalGpuStatus::Running;
     app.external_gpu_started_at = started_at;
-    app.pending_external_gpu_run_id = Some(RUN_ID);
+    app.external_gpu_acceptance = Acceptance::Awaiting(AcceptedRun {
+        id: RUN_ID,
+        expected: DisplayExpectation::None,
+    });
     let (_, remaining) = with_times(times, || poll(&mut app, &ctx, Ok("unparsed".into())));
     (
         completed_duration(&app),
