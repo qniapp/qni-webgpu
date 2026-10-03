@@ -484,7 +484,7 @@ fn redo_invalidates_external_gpu_state_instead_of_restoring_uploads() {
 }
 
 #[test]
-fn switching_to_local_through_toggle_clears_results_but_leaves_running_status() {
+fn switching_to_local_through_toggle_clears_results_and_resets_status() {
     let (mut app, ctx) = app();
     seeded(&mut app);
     app.gpu_plan.mark_clean_for(app.state_count());
@@ -504,10 +504,7 @@ fn switching_to_local_through_toggle_clears_results_but_leaves_running_status() 
             app.show_exec_mode_toggle(ui, &app.colors());
         });
     });
-    // NOTE: suspected bug — status/started_at are not reset on switch to Local; to be fixed in a separate PR. This test pins current behavior.
-    let mut expected = cleared();
-    expected.status = StatusState::Running;
-    expected.started_at = Some(0.0);
+    let expected = cleared();
     assert_eq!(
         (
             app.exec_mode,
