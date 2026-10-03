@@ -11,7 +11,7 @@
 use eframe::egui;
 
 use super::circuit_library::persist_library;
-use super::{ExecMode, ExternalGpuStatus, QniApp};
+use super::{ExecMode, QniApp};
 use crate::qubit_count::QubitCount;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -98,18 +98,8 @@ impl QniApp {
         self.library.update_active_unchecked(json.clone());
         persist_library(&self.library);
         crate::url_circuit::write_circuit_to_url(&json);
-        self.external_gpu_status = ExternalGpuStatus::Idle;
-        self.external_gpu_started_at = None;
-        self.external_gpu_state_refresh_pending = false;
-        self.external_gpu_amplitude_uploads = None;
-        self.external_gpu_bloch_uploads = None;
-        self.external_gpu_probability_uploads = None;
-        self.external_gpu_density_uploads = None;
-        self.pending_external_amplitude_slots.clear();
-        self.pending_external_bloch_slots.clear();
-        self.pending_external_probability_slots.clear();
-        self.pending_external_density_slots.clear();
-        self.pending_external_gpu_run_id = None;
+        self.external_gpu
+            .invalidate(super::external_gpu::Invalidation::CircuitChanged);
         ctx.request_repaint();
         true
     }
@@ -205,18 +195,8 @@ impl QniApp {
         self.drag_cursor_pos = None;
         self.drag_repaint_deadline = None;
         self.drag_repaint_pending = false;
-        self.external_gpu_status = ExternalGpuStatus::Idle;
-        self.external_gpu_started_at = None;
-        self.external_gpu_state_refresh_pending = false;
-        self.external_gpu_amplitude_uploads = None;
-        self.external_gpu_bloch_uploads = None;
-        self.external_gpu_probability_uploads = None;
-        self.external_gpu_density_uploads = None;
-        self.pending_external_amplitude_slots.clear();
-        self.pending_external_bloch_slots.clear();
-        self.pending_external_probability_slots.clear();
-        self.pending_external_density_slots.clear();
-        self.pending_external_gpu_run_id = None;
+        self.external_gpu
+            .invalidate(super::external_gpu::Invalidation::CircuitChanged);
         self.gpu_plan.mark_dirty();
         self.clear_gpu_plan_capacity_error();
         ctx.request_repaint();

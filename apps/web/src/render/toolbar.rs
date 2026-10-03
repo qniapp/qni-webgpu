@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::{ExecMode, ExternalGpuStatus, QniApp};
+use crate::app::{ExecMode, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::SECTION_DIVIDER_WIDTH;
 
@@ -48,6 +48,11 @@ impl QniApp {
             });
     }
 
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(crate) fn show_test_edit_utilities(&mut self, ui: &mut egui::Ui) {
+        self.show_edit_utilities(ui, &self.colors(), &ui.ctx().clone());
+    }
+
     fn show_edit_utilities(&mut self, ui: &mut egui::Ui, colors: &Colors, ctx: &egui::Context) {
         let edit_allowed = !self.library.active_locked();
         if icon_button(
@@ -93,7 +98,7 @@ impl QniApp {
             self.placed_gates.clear();
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
-            self.external_gpu_status = ExternalGpuStatus::Idle;
+            self.external_gpu.note_clear_requested();
             self.commit_current_circuit(ctx);
         }
         if icon_button(
@@ -144,7 +149,7 @@ impl QniApp {
         colors: &Colors,
         ctx: &egui::Context,
     ) {
-        let running = self.external_gpu_status().is_running();
+        let running = self.external_gpu.view().status.is_running();
         let run = icon_button(
             ui,
             colors,
@@ -161,7 +166,7 @@ impl QniApp {
         if run.clicked() {
             self.start_external_gpu_run(ctx);
         }
-        let _ = gpu_status_pill(ui, self.external_gpu_status());
+        let _ = gpu_status_pill(ui, self.external_gpu.view().status);
     }
 }
 

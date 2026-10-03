@@ -59,7 +59,10 @@ fn bloch_hover_popup_title() -> &'static str {
 impl QniApp {
     fn amplitude_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
-            .external_gpu_amplitude_uploads
+            .external_gpu
+            .view()
+            .displays
+            .amplitude
             .as_ref()
             .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
@@ -74,7 +77,10 @@ impl QniApp {
     }
 
     fn bloch_display_slot(&self, gate_id: GateId) -> Option<u32> {
-        self.external_gpu_bloch_uploads
+        self.external_gpu
+            .view()
+            .displays
+            .bloch
             .as_ref()
             .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()))
             .or_else(|| self.gpu_plan.bloch_slot(gate_id).map(|slot| slot.as_u32()))
@@ -82,7 +88,10 @@ impl QniApp {
 
     fn probability_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
-            .external_gpu_probability_uploads
+            .external_gpu
+            .view()
+            .displays
+            .probability
             .as_ref()
             .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
@@ -98,7 +107,10 @@ impl QniApp {
 
     fn density_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
-            .external_gpu_density_uploads
+            .external_gpu
+            .view()
+            .displays
+            .density
             .as_ref()
             .and_then(|batch| batch.slot_for_gate(gate_id.as_u32()));
         if self.external_gpu_display_placeholders_active() {
@@ -236,7 +248,10 @@ impl QniApp {
         // GPU overlay: draw Probability bars from the GPU-side
         // marginalization buffer. CPU supplies only geometry + hover row.
         let mut next_probability_placeholder_slot = self
-            .external_gpu_probability_uploads
+            .external_gpu
+            .view()
+            .displays
+            .probability
             .as_ref()
             .map(|batch| batch.slot_to_gate_id.len() as u32)
             .unwrap_or(0);
@@ -301,7 +316,7 @@ impl QniApp {
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
-                external_uploads: self.external_gpu_probability_uploads.clone(),
+                external_uploads: self.external_gpu.view().displays.probability.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
@@ -310,7 +325,10 @@ impl QniApp {
         let live_dragging_amplitude_id =
             dragging_gate_id.filter(|_| self.dragging_live_display_snap);
         let mut next_amplitude_placeholder_slot = self
-            .external_gpu_amplitude_uploads
+            .external_gpu
+            .view()
+            .displays
+            .amplitude
             .as_ref()
             .map(|batch| batch.slot_to_gate_id.len() as u32)
             .unwrap_or(0);
@@ -377,7 +395,7 @@ impl QniApp {
                 needle: colors.state_needle.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
-                external_uploads: self.external_gpu_amplitude_uploads.clone(),
+                external_uploads: self.external_gpu.view().displays.amplitude.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
@@ -385,7 +403,10 @@ impl QniApp {
 
         let live_dragging_density_id = dragging_gate_id.filter(|_| self.dragging_live_display_snap);
         let mut next_density_placeholder_slot = self
-            .external_gpu_density_uploads
+            .external_gpu
+            .view()
+            .displays
+            .density
             .as_ref()
             .map(|batch| batch.slot_to_gate_id.len() as u32)
             .unwrap_or(0);
@@ -448,7 +469,7 @@ impl QniApp {
                 needle: colors.state_needle.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
-                external_uploads: self.external_gpu_density_uploads.clone(),
+                external_uploads: self.external_gpu.view().displays.density.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));
@@ -499,7 +520,7 @@ impl QniApp {
                 tip_1_color: colors.bloch_vector_tip_1.to_normalized_gamma_f32(),
                 tip_outline_color: colors.bloch_vector_tip_outline.to_normalized_gamma_f32(),
                 zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
-                external_uploads: self.external_gpu_bloch_uploads.clone(),
+                external_uploads: self.external_gpu.view().displays.bloch.clone(),
             };
             let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
             painter.add(egui::Shape::Callback(paint_callback));

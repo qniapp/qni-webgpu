@@ -1,8 +1,41 @@
+#[cfg(any(test, target_arch = "wasm32"))]
 use std::cell::RefCell;
 
 use eframe::egui;
 
 use super::{short_failure_label, unsupported_gate_from_message, GpuFailure};
+
+pub(super) struct WireRequest(pub(super) String);
+pub(super) struct RawResponse(pub(super) String);
+pub(super) struct TransportCompletion {
+    pub(super) id: u64,
+    pub(super) result: Result<RawResponse, GpuFailure>,
+}
+
+pub(super) trait RunTransport {
+    fn start(&mut self, request: WireRequest, ctx: egui::Context) -> Result<u64, GpuFailure>;
+    fn take_one(&mut self) -> Option<TransportCompletion>;
+
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    fn scripted_handle(&self) -> ScriptedHandle {
+        panic!("scripted transport not installed")
+    }
+}
+
+pub(super) struct BrowserTransport;
+
+impl RunTransport for BrowserTransport {
+    fn start(&mut self, request: WireRequest, ctx: egui::Context) -> Result<u64, GpuFailure> {
+        start_qiskit_run(request.0, ctx)
+    }
+
+    fn take_one(&mut self) -> Option<TransportCompletion> {
+        take_qiskit_run_result().map(|(id, result)| TransportCompletion {
+            id,
+            result: result.map(RawResponse),
+        })
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {
@@ -11,7 +44,7 @@ thread_local! {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(super) fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<u64, GpuFailure> {
+fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<u64, GpuFailure> {
     use wasm_bindgen::JsCast;
 
     let window = web_sys::window().ok_or_else(|| GpuFailure::Other("window not found".into()))?;
@@ -52,14 +85,14 @@ pub(super) fn start_qiskit_run(payload: String, ctx: egui::Context) -> Result<u6
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn start_qiskit_run(_payload: String, _ctx: egui::Context) -> Result<u64, GpuFailure> {
+fn start_qiskit_run(_payload: String, _ctx: egui::Context) -> Result<u64, GpuFailure> {
     Err(GpuFailure::Other(
         "Qiskit backend fetch is only available in wasm".into(),
     ))
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
+fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
     QISKIT_RUN_RESULTS.with(|slot| {
         let mut results = slot.borrow_mut();
         if results.is_empty() {
@@ -71,8 +104,66 @@ pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
+fn take_qiskit_run_result() -> Option<(u64, Result<String, GpuFailure>)> {
     None
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[derive(Clone, Default)]
+pub(super) struct ScriptedHandle(std::rc::Rc<RefCell<Script>>);
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[derive(Default)]
+struct Script {
+    starts: std::collections::VecDeque<Result<u64, GpuFailure>>,
+    completions: std::collections::VecDeque<(u64, Result<String, GpuFailure>)>,
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+impl ScriptedHandle {
+    pub(super) fn queue_results(&self, results: Vec<(u64, Result<String, GpuFailure>)>) {
+        self.0.borrow_mut().completions = results.into();
+    }
+
+    pub(super) fn take_one(&self) -> Option<(u64, Result<String, GpuFailure>)> {
+        self.0.borrow_mut().completions.pop_front()
+    }
+
+    pub(super) fn queue_start(&self, result: Result<u64, GpuFailure>) {
+        self.0.borrow_mut().starts.push_back(result);
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[derive(Default)]
+pub(super) struct ScriptedTransport {
+    handle: ScriptedHandle,
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+impl RunTransport for ScriptedTransport {
+    fn start(&mut self, _request: WireRequest, _ctx: egui::Context) -> Result<u64, GpuFailure> {
+        // 検査失敗や実行中の開始拒否から通信へ到達した場合も検出する。
+        self.handle
+            .0
+            .borrow_mut()
+            .starts
+            .pop_front()
+            .expect("unscripted start")
+    }
+
+    fn take_one(&mut self) -> Option<TransportCompletion> {
+        self.handle
+            .take_one()
+            .map(|(id, result)| TransportCompletion {
+                id,
+                result: result.map(RawResponse),
+            })
+    }
+
+    fn scripted_handle(&self) -> ScriptedHandle {
+        self.handle.clone()
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

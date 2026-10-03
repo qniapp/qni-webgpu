@@ -144,6 +144,9 @@ fn parse_probability_upload_batch_impl(
     _generation: u64,
     _slot_to_gate_id: &[u32],
 ) -> Option<ExternalProbabilityUploadBatch> {
+    #[cfg(test)]
+    return super::parser_fixtures::take_probability(_message, _generation, _slot_to_gate_id);
+    #[cfg(not(test))]
     None
 }
 
