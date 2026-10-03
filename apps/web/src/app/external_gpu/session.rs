@@ -224,11 +224,9 @@ impl ExternalGpuSession {
     pub(crate) fn note_clear_requested(&mut self) {
         self.presentation.status = ExternalGpuStatus::Idle;
     }
-    pub(crate) fn invalidate(&mut self, reason: Invalidation) {
-        if matches!(reason, Invalidation::CircuitChanged) {
-            self.presentation.status = ExternalGpuStatus::Idle;
-            self.presentation.started_at = None;
-        }
+    pub(crate) fn invalidate(&mut self, _reason: Invalidation) {
+        self.presentation.status = ExternalGpuStatus::Idle;
+        self.presentation.started_at = None;
         self.acceptance = Acceptance::Closed;
         self.displays = PublishedDisplays::default();
         self.refresh = RefreshState::Clear;
