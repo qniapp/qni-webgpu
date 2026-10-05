@@ -11,7 +11,7 @@ members = ["crates/circuit-library-model", "crates/external-gpu-model"]
 resolver = "2"
 
 [dependencies]
-eframe = { version = "0.33.3", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+eframe = { version = "0.35.0", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 # Used to rasterize the measurement gate digits ("0" / "1") into a GPU
 # texture so the WGSL fragment shader can sample the same Geist Bold glyphs
 # egui paints for |0> / |1>. Done once at startup (no per-frame readback).
