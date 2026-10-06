@@ -11,10 +11,9 @@ impl QniApp {
     pub(crate) fn draw_drag_preview(
         &self,
         painter: &egui::Painter,
-        content_rect: egui::Rect,
+        circuit_origin: egui::Pos2,
         colors: &Colors,
         dragging_gate_id: GateId,
-        scroll_x: f32,
         live_drag_gpu_overlay_ready: bool,
     ) {
         let Some(gate) = self
@@ -24,10 +23,6 @@ impl QniApp {
         else {
             return;
         };
-        // Same convention as draw_circuit — gate.pos is in circuit
-        // space, so we shift the content_rect origin left by the scroll
-        // offset before placing the drag preview.
-        let circuit_origin = content_rect.min - egui::vec2(scroll_x, 0.0);
         let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
         let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
             amplitude_grid_rect(gate_rect, gate.span.get())

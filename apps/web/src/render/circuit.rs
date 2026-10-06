@@ -45,7 +45,7 @@ impl QniApp {
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
         scroll_x: f32,
-    ) {
+    ) -> bool {
         // `circuit_origin` is `rect.min` shifted left by the current
         // horizontal scroll offset. Anything pinned to the circuit's
         // coordinate system (wires, slot grid, gate bodies, step
@@ -95,15 +95,40 @@ impl QniApp {
 
         self.draw_circuit_connectors(painter, metrics, colors, circuit_origin, dragging_gate_id);
 
-        self.draw_placed_circuit_gates(
+        // Keep one visible viewport for GPU geometry even when insert layering
+        // splits its paint scissor into left and right passes.
+        let gpu_viewport = rect.intersect(painter.clip_rect());
+        let insert_preview_painted = self.draw_placed_circuit_gates(
             painter,
             circuit_origin,
             colors,
             fast_drag,
             dragging_gate_id,
+            gpu_viewport,
         );
 
-        self.draw_circuit_gpu_overlays(painter, rect, circuit_origin, dragging_gate_id, colors);
+        let mut gpu_clip = painter.clip_rect();
+        if insert_preview_painted {
+            if let Some(gate) = self
+                .placed_gates
+                .iter()
+                .find(|gate| Some(gate.id) == dragging_gate_id)
+            {
+                gpu_clip.min.x = gpu_clip
+                    .min
+                    .x
+                    .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+            }
+        }
+        if gpu_clip.is_positive() {
+            self.draw_circuit_gpu_overlays(
+                &painter.with_clip_rect(gpu_clip),
+                gpu_viewport,
+                circuit_origin,
+                dragging_gate_id,
+                colors,
+            );
+        }
 
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
             // Labels live in circuit space (anchored to the wire's
@@ -121,6 +146,7 @@ impl QniApp {
                 colors.text,
             );
         }
+        insert_preview_painted
     }
 }
 

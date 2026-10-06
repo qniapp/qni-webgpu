@@ -9,6 +9,8 @@ mod preview;
 mod resize;
 mod scroll;
 mod start;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests;
 
 use eframe::egui;
 
@@ -25,6 +27,7 @@ pub(super) struct DragPointer {
     pub(super) local_pos: Option<egui::Pos2>,
     pub(super) down: bool,
     pub(super) start: bool,
+    pub(super) shift_at_start: Option<bool>,
     pub(super) released: bool,
 }
 

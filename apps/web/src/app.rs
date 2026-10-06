@@ -10,6 +10,7 @@ mod exec_mode;
 mod external_gpu;
 mod fps_hud;
 mod gate_input;
+mod gpu_drag_layout;
 mod gpu_plan_state;
 mod state_panel;
 mod state_panel_state;
@@ -28,9 +29,9 @@ use std::collections::VecDeque;
 
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, DragState, GateId,
-    GateIdAllocator, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle,
-    WireIndex, WireIndexError,
+    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, ClickCopy,
+    DragState, GateId, GateIdAllocator, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge,
+    SpanResizeHandle, WireIndex, WireIndexError,
 };
 pub(crate) use exec_mode::ExecMode;
 pub(crate) use external_gpu::{format_gpu_duration, ExternalGpuStatus};

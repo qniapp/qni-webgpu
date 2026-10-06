@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::{reset_drag_frame_state, DragController, DragPointer};
-use crate::app::{CircuitColumnIndex, QniApp, WireIndex};
+use crate::app::{CircuitColumnIndex, LiveDragSnap, QniApp, WireIndex};
 use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
 use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
 
@@ -31,32 +31,40 @@ impl DragController {
                     &app.placed_gates,
                     &metrics.slot_centers,
                 );
-                let on_circuit = distance <= SNAP_DISTANCE
-                    && snapped
-                        .as_ref()
-                        .map(|snap| snap.distance() <= SNAP_DISTANCE)
-                        .unwrap_or(false);
-
-                if !on_circuit {
-                    app.placed_gates.remove(index);
-                } else if let Some(snap) = snapped {
-                    match snap {
-                        CircuitSnap::Slot(snap) => {
-                            let capacity = app.exec_mode.qubit_capacity();
-                            let gate = &mut app.placed_gates[index];
-                            gate.column = CircuitColumnIndex::new(snap.index);
-                            gate.wire = WireIndex::new(line_index);
-                            gate.clamp_span_to_qubit_capacity(capacity);
-                            gate.sync_pos_from_grid();
-                        }
-                        CircuitSnap::Insert(snap) => {
-                            app.insert_gate_at_column(
-                                gate_id,
-                                WireIndex::new(line_index),
-                                CircuitColumnIndex::new(snap.index),
-                                drag.original_column,
-                            );
-                        }
+                let target = drag.click_copy.map(|click| click.target).or_else(|| {
+                    if distance > SNAP_DISTANCE {
+                        return None;
+                    }
+                    snapped
+                        .filter(|snap| snap.distance() <= SNAP_DISTANCE)
+                        .map(|snap| {
+                            let wire = WireIndex::new(line_index);
+                            match snap {
+                                CircuitSnap::Slot(snap) => LiveDragSnap::Slot {
+                                    column: CircuitColumnIndex::new(snap.index),
+                                    wire,
+                                },
+                                CircuitSnap::Insert(snap) => LiveDragSnap::Insert {
+                                    column: CircuitColumnIndex::new(snap.index),
+                                    wire,
+                                },
+                            }
+                        })
+                });
+                match target {
+                    None => {
+                        app.placed_gates.remove(index);
+                    }
+                    Some(LiveDragSnap::Slot { column, wire }) => {
+                        let capacity = app.exec_mode.qubit_capacity();
+                        let gate = &mut app.placed_gates[index];
+                        gate.column = column;
+                        gate.wire = wire;
+                        gate.clamp_span_to_qubit_capacity(capacity);
+                        gate.sync_pos_from_grid();
+                    }
+                    Some(LiveDragSnap::Insert { column, wire }) => {
+                        app.insert_gate_at_column(gate_id, wire, column, drag.original_column);
                     }
                 }
                 // Mirror qni's post-drop `resize()`: remove empty
