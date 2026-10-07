@@ -3,7 +3,7 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::{GateId, QniApp};
+use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
@@ -54,6 +54,20 @@ fn amplitude_hover_popup_header(outcome: u32, span: usize) -> String {
 
 fn bloch_hover_popup_title() -> &'static str {
     "Bloch sphere representation of local state"
+}
+
+// Both circuit and panel-overlay passes start right-side GPU painting at
+// the insertion preview's center, without widening the existing scissor.
+pub(super) fn insert_preview_right_clip(
+    mut clip: egui::Rect,
+    circuit_origin: egui::Pos2,
+    gate: &PlacedGate,
+) -> egui::Rect {
+    clip.min.x = clip
+        .min
+        .x
+        .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+    clip
 }
 
 impl QniApp {
@@ -287,11 +301,7 @@ impl QniApp {
             Some(id),
             gpu_viewport,
         );
-        let mut right_clip = painter.clip_rect();
-        right_clip.min.x = right_clip
-            .min
-            .x
-            .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+        let right_clip = insert_preview_right_clip(painter.clip_rect(), circuit_origin, gate);
         if right_clip.is_positive() {
             self.draw_circuit_gpu_overlays(
                 &painter.with_clip_rect(right_clip),

@@ -114,10 +114,8 @@ impl QniApp {
                 .iter()
                 .find(|gate| Some(gate.id) == dragging_gate_id)
             {
-                gpu_clip.min.x = gpu_clip
-                    .min
-                    .x
-                    .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+                gpu_clip =
+                    super::circuit_gates::insert_preview_right_clip(gpu_clip, circuit_origin, gate);
             }
         }
         if gpu_clip.is_positive() {
