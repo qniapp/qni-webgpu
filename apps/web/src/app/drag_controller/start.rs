@@ -2,11 +2,12 @@ use eframe::egui;
 
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{
-    CircuitColumnIndex, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag, WireIndex,
+    CircuitColumnIndex, ClickCopy, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag,
+    WireIndex,
 };
 use crate::constants::GATE_SIZE;
 use crate::gates::{default_palette_angle, palette_gate_kind, GateSpan};
-use crate::layout::{gate_visible_rect, palette_hit_test};
+use crate::layout::{gate_visible_rect, gate_width_cols, palette_hit_test};
 use crate::span_resize::SpanResizeHandles;
 
 #[derive(Clone, Copy, Debug)]
@@ -22,6 +23,22 @@ enum DragStartIntent {
     },
     BreakpointStep(CircuitColumnIndex),
     None,
+}
+
+fn copy_click_target(gate: &PlacedGate, cursor: egui::Pos2) -> Option<LiveDragSnap> {
+    let left = cursor.x < gate_visible_rect(gate, gate.pos).center().x;
+    let column = if left {
+        gate.column
+    } else {
+        gate.column
+            .checked_add(gate_width_cols(gate.kind, gate.span.get()))?
+    };
+    // A click-copy previews at the adjacent column boundary, even when
+    // the neighboring cell is empty. The column is inserted on release.
+    Some(LiveDragSnap::Insert {
+        column,
+        wire: gate.wire,
+    })
 }
 
 impl DragController {
@@ -47,13 +64,39 @@ impl DragController {
                 true
             }
             DragStartIntent::ExistingGate {
-                drag,
+                mut drag,
                 starts_live_display_snap,
             } => {
                 if app.library.active_locked() {
                     return false;
                 }
                 app.begin_circuit_commit();
+                // Latch duplication at pickup; releasing Shift during the
+                // gesture must not turn the copy into a move of its source.
+                if pointer
+                    .shift_at_start
+                    .unwrap_or_else(|| ctx.input(|input| input.modifiers.shift))
+                {
+                    let Some(mut copy) = app
+                        .placed_gates
+                        .iter()
+                        .find(|gate| gate.id == drag.id)
+                        .cloned()
+                    else {
+                        return false;
+                    };
+                    copy.id = app.gate_ids.allocate();
+                    drag.click_copy =
+                        copy_click_target(&copy, copy.pos + drag.offset).map(|target| ClickCopy {
+                            target,
+                            press_pos: pointer.screen_pos.unwrap_or(copy.pos + drag.offset),
+                            max_distance: ctx
+                                .options(|options| options.input_options.max_click_dist),
+                        });
+                    drag.id = copy.id;
+                    drag.original_column = None;
+                    app.placed_gates.push(copy);
+                }
                 app.dragging_live_snap = app.placed_gates.iter().find_map(|gate| {
                     (gate.id == drag.id).then_some(LiveDragSnap::Slot {
                         column: gate.column,
@@ -70,6 +113,9 @@ impl DragController {
                 app.hovered_amplitude_outcome = None;
                 app.hovered_density_cell = None;
                 app.hovered_palette_index = None;
+                if drag.click_copy.is_some() {
+                    Self::update_gate_drag_preview(app, pointer, &geometry.metrics);
+                }
                 ctx.request_repaint();
                 true
             }
@@ -98,6 +144,7 @@ impl DragController {
                     id: new_id,
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
                     original_column: None,
+                    click_copy: None,
                 });
                 app.dragging_live_snap = None;
                 app.dragging_live_display_snap = false;
@@ -167,6 +214,7 @@ fn start_intent(
                 id: gate.id,
                 offset: cursor - gate.pos,
                 original_column: Some(gate.column),
+                click_copy: None,
             },
             starts_live_display_snap: matches!(
                 gate.kind,

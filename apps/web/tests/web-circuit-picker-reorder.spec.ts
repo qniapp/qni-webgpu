@@ -304,9 +304,17 @@ test('starting a row drag closes an open kebab submenu', async ({ page }) => {
 
 test('clicking the open kebab trigger closes its submenu', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
-  await page.waitForTimeout(160)
+  await waitForCondition(page, async () => (await submenuGeometry(page)) !== null, 'open submenu geometry')
+  const geometry = (await submenuGeometry(page))!
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
 
+  // 次のクリックを送る前に閉じた描画を待ち、同じフレームへの入力集約を避ける。
+  await waitForCondition(page, async () => {
+    const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+      { name: 'closedSubmenu', x: geometry.submenu_right - 12, y: MOVE_DOWN_Y },
+    ])
+    return pixelRgbDistance(pixels.closedSubmenu, FLEXOKI_BG_2) < 16
+  }, 'closed submenu background')
   await clickCanvas(page, { x: SUBMENU_X, y: MOVE_DOWN_Y })
   await waitForCondition(page, async () => (await entryIds(page)).join(',') === 'one,two,three', 'submenu move ignored after close')
   expect(await entryIds(page)).toEqual(['one', 'two', 'three'])

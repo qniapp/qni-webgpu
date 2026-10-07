@@ -1,6 +1,6 @@
 use super::{DragController, DragPointer};
 use crate::app::{LiveDragSnap, QniApp, WireIndex};
-use crate::constants::{GATE_SIZE, SNAP_DISTANCE};
+use crate::constants::{GATE_SIZE, SLOT_SPACING, SNAP_DISTANCE};
 use crate::gates::GateKind;
 use crate::layout::{nearest_circuit_snap, nearest_line, CircuitSnap, LayoutMetrics};
 
@@ -10,7 +10,7 @@ impl DragController {
         pointer: DragPointer,
         metrics: &LayoutMetrics,
     ) {
-        let Some(drag) = app.dragging else {
+        let Some(mut drag) = app.dragging else {
             return;
         };
         if !(pointer.down || pointer.released) {
@@ -21,6 +21,18 @@ impl DragController {
             return;
         };
         app.drag_cursor_pos = Some(cursor);
+        if let Some(click) = drag.click_copy {
+            if pointer
+                .screen_pos
+                .or(pointer.local_pos)
+                .is_some_and(|pos| pos.distance(click.press_pos) > click.max_distance)
+            {
+                // Once moved beyond click tolerance, this gesture stays a drag
+                // even if the pointer later returns to its pickup position.
+                drag.click_copy = None;
+                app.dragging = Some(drag);
+            }
+        }
         let Some(index) = app.placed_gates.iter().position(|gate| gate.id == drag.id) else {
             return;
         };
@@ -67,6 +79,19 @@ impl DragController {
                 });
             }
         }
+        if let Some(click) = drag.click_copy {
+            let (column, wire, insertion) = match click.target {
+                LiveDragSnap::Slot { column, wire } => (column, wire, false),
+                LiveDragSnap::Insert { column, wire } => (column, wire, true),
+            };
+            next_pos = crate::app::PlacedGate::grid_pos(column, wire);
+            if insertion {
+                next_pos.x -= SLOT_SPACING / 2.0;
+            }
+            next_column = column;
+            next_wire = wire;
+            live_snap = Some(click.target);
+        }
         let capacity = app.exec_mode.qubit_capacity();
         let (gate_kind, gate_wire, gate_column, gate_span) = {
             let gate = &mut app.placed_gates[index];
@@ -86,30 +111,19 @@ impl DragController {
         app.dragging_live_snap = live_snap;
         app.dragging_live_display_snap =
             live_display_kind && matches!(app.dragging_live_snap, Some(LiveDragSnap::Slot { .. }));
-        let state_count_changed = if app.dragging_live_snap.is_some() {
-            let required_state_count = app.state_count();
-            if app
-                .drag_state_count
-                .is_none_or(|state_count| state_count < required_state_count)
-            {
-                app.drag_state_count = Some(required_state_count);
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-        if app.dragging_live_snap.is_some()
+        let required_state_count = app.state_count();
+        let state_count_changed = app.drag_state_count != Some(required_state_count);
+        app.drag_state_count = Some(required_state_count);
+        if (previous_live_snap.is_some() || app.dragging_live_snap.is_some())
             && (previous_live_snap != app.dragging_live_snap
                 || previous_wire != gate_wire
                 || previous_column != gate_column
                 || previous_span != gate_span
                 || state_count_changed)
         {
-            // A snapped drag has a meaningful tentative placement. Rebuild the
-            // GPU capture plan so every existing display block and the state
-            // vector panel show the tentative circuit before drop.
+            // Entering, changing, or leaving a tentative placement changes the
+            // circuit being shown. Rebuild the GPU plan, including when a gate
+            // leaves the circuit and stops participating in the simulation.
             app.dragging_live_gpu_plan_touched = true;
             app.gpu_plan.mark_live_drag_dirty();
         }

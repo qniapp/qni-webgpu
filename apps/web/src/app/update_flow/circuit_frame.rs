@@ -17,8 +17,10 @@ impl QniApp {
     ) -> CircuitFrameState {
         let mut frame_state = CircuitFrameState {
             content_rect: None,
+            gpu_viewport: egui::Rect::NOTHING,
             dragging_gate_id: None,
             live_drag_gpu_overlay_ready: false,
+            insert_preview_painted: false,
         };
 
         egui::ScrollArea::vertical()
@@ -44,12 +46,13 @@ impl QniApp {
                 let metrics =
                     layout_metrics(rect.width(), self.layout_qubits(), self.min_circuit_slots());
                 let painter = ui.painter_at(rect);
+                frame_state.gpu_viewport = rect.intersect(painter.clip_rect());
                 let fast_drag = self.dragging.is_some();
                 frame_state.dragging_gate_id = self.dragging.map(|drag| drag.id);
                 frame_state.live_drag_gpu_overlay_ready = frame_state
                     .dragging_gate_id
                     .is_some_and(|gate_id| self.live_drag_gpu_overlay_ready(gate_id));
-                self.draw_circuit(
+                frame_state.insert_preview_painted = self.draw_circuit(
                     &painter,
                     rect,
                     &metrics,

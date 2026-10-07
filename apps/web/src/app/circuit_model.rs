@@ -91,9 +91,17 @@ impl PlacedGate {
 pub(crate) struct DragState {
     pub(crate) id: GateId,
     pub(crate) offset: egui::Vec2,
-    /// Original semantic column for an existing gate. `None` means a palette
-    /// gate that has no committed source column yet.
+    /// Original semantic column for a moved gate. `None` means a palette gate
+    /// or a duplicate that has no committed source column yet.
     pub(crate) original_column: Option<CircuitColumnIndex>,
+    pub(crate) click_copy: Option<ClickCopy>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ClickCopy {
+    pub(crate) target: LiveDragSnap,
+    pub(crate) press_pos: egui::Pos2,
+    pub(crate) max_distance: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -198,7 +206,19 @@ impl QniApp {
 
     pub(super) fn state_qubits(&self) -> QubitCount {
         let capacity = QubitCapacity::local();
-        let qubits = self.raw_required_qubit_count().max(1).min(capacity.get());
+        // An off-circuit drag is a floating preview, not a simulation operand.
+        let floating_id = self
+            .dragging
+            .filter(|_| self.dragging_live_snap.is_none())
+            .map(|drag| drag.id);
+        let qubits = self
+            .placed_gates
+            .iter()
+            .filter(|gate| Some(gate.id) != floating_id)
+            .map(|gate| gate.wire.as_usize() + gate.span.get())
+            .max()
+            .unwrap_or(1)
+            .min(capacity.get());
         QubitCount::try_for_capacity(qubits, capacity)
             .expect("local state qubit count is clamped to local capacity")
     }
@@ -213,37 +233,7 @@ impl QniApp {
     /// and shift trailing gates left. Mirrors qni's
     /// `QuantumCircuitElement.removeEmptySteps()`.
     pub(crate) fn compact_empty_steps(&mut self) {
-        if self.placed_gates.is_empty() {
-            return;
-        }
-        let occupied: BTreeSet<usize> = self
-            .placed_gates
-            .iter()
-            .flat_map(|gate| {
-                let start = gate.column.as_usize();
-                gate.column
-                    .checked_add(gate_width_cols(gate.kind, gate.span.get()))
-                    .into_iter()
-                    .flat_map(move |end| start..end.as_usize())
-            })
-            .collect();
-        let already_compact = occupied
-            .iter()
-            .enumerate()
-            .all(|(new_i, &old_i)| new_i == old_i);
-        if already_compact {
-            return;
-        }
-        let mut remap: HashMap<usize, usize> = HashMap::with_capacity(occupied.len());
-        for (new_i, &old_i) in occupied.iter().enumerate() {
-            remap.insert(old_i, new_i);
-        }
-        for gate in &mut self.placed_gates {
-            if let Some(&new_i) = remap.get(&gate.column.as_usize()) {
-                gate.column = CircuitColumnIndex::new(new_i);
-                gate.sync_pos_from_grid();
-            }
-        }
+        compact_gate_columns(&mut self.placed_gates);
     }
 
     /// After a resizable gate changes horizontal footprint, move every gate
@@ -301,69 +291,115 @@ impl QniApp {
         insert_index: CircuitColumnIndex,
         original_column: Option<CircuitColumnIndex>,
     ) {
-        let Some(gate_index) = self.placed_gates.iter().position(|gate| gate.id == gate_id) else {
-            return;
-        };
-
-        let moving_width = gate_width_cols(
-            self.placed_gates[gate_index].kind,
-            self.placed_gates[gate_index].span.get(),
+        insert_gate_in(
+            &mut self.placed_gates,
+            gate_id,
+            wire,
+            insert_index,
+            original_column,
+            self.exec_mode.qubit_capacity(),
         );
-        let mut adjusted_insert = insert_index;
-        let remove_old_column = original_column.is_some_and(|old_column| {
-            let old_column_still_occupied = self
-                .placed_gates
-                .iter()
-                .any(|gate| gate.id != gate_id && gate.column == old_column);
-            !old_column_still_occupied
-        });
-        if remove_old_column {
-            if let Some(old_column) = original_column {
-                if old_column < adjusted_insert {
-                    adjusted_insert = adjusted_insert.saturating_sub(moving_width);
-                }
-            }
-        }
-        if self.placed_gates.iter().any(|gate| {
-            gate.id != gate_id
-                && gate.column >= adjusted_insert
-                && gate.column.checked_add(moving_width).is_none()
-        }) {
-            return;
-        }
-        if remove_old_column {
-            if let Some(old_column) = original_column {
-                for gate in &mut self.placed_gates {
-                    if gate.id != gate_id && gate.column > old_column {
-                        gate.column = gate.column.saturating_sub(moving_width);
-                    }
-                }
-            }
-        }
-
-        for gate in &mut self.placed_gates {
-            if gate.id != gate_id && gate.column >= adjusted_insert {
-                let Some(column) = gate.column.checked_add(moving_width) else {
-                    return;
-                };
-                gate.column = column;
-            }
-        }
-
-        let capacity = self.exec_mode.qubit_capacity();
-        let gate = &mut self.placed_gates[gate_index];
-        gate.column = adjusted_insert;
-        gate.wire = wire;
-        gate.clamp_span_to_qubit_capacity(capacity);
-
-        for gate in &mut self.placed_gates {
-            gate.sync_pos_from_grid();
-        }
     }
 
     pub(super) fn state_count(&self) -> usize {
         self.state_qubits()
             .local_state_count()
             .expect("state_qubits always returns a local-capacity value")
+    }
+}
+
+pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) {
+    if gates.is_empty() {
+        return;
+    }
+    let occupied: BTreeSet<usize> = gates
+        .iter()
+        .flat_map(|gate| {
+            let start = gate.column.as_usize();
+            gate.column
+                .checked_add(gate_width_cols(gate.kind, gate.span.get()))
+                .into_iter()
+                .flat_map(move |end| start..end.as_usize())
+        })
+        .collect();
+    let already_compact = occupied
+        .iter()
+        .enumerate()
+        .all(|(new_i, &old_i)| new_i == old_i);
+    if already_compact {
+        return;
+    }
+    let mut remap: HashMap<usize, usize> = HashMap::with_capacity(occupied.len());
+    for (new_i, &old_i) in occupied.iter().enumerate() {
+        remap.insert(old_i, new_i);
+    }
+    for gate in gates.iter_mut() {
+        if let Some(&new_i) = remap.get(&gate.column.as_usize()) {
+            gate.column = CircuitColumnIndex::new(new_i);
+            gate.sync_pos_from_grid();
+        }
+    }
+}
+
+pub(super) fn insert_gate_in(
+    gates: &mut [PlacedGate],
+    gate_id: GateId,
+    wire: WireIndex,
+    insert_index: CircuitColumnIndex,
+    original_column: Option<CircuitColumnIndex>,
+    capacity: QubitCapacity,
+) {
+    let Some(gate_index) = gates.iter().position(|gate| gate.id == gate_id) else {
+        return;
+    };
+
+    let moving_width = gate_width_cols(gates[gate_index].kind, gates[gate_index].span.get());
+    let mut adjusted_insert = insert_index;
+    let remove_old_column = original_column.is_some_and(|old_column| {
+        let old_column_still_occupied = gates
+            .iter()
+            .any(|gate| gate.id != gate_id && gate.column == old_column);
+        !old_column_still_occupied
+    });
+    if remove_old_column {
+        if let Some(old_column) = original_column {
+            if old_column < adjusted_insert {
+                adjusted_insert = adjusted_insert.saturating_sub(moving_width);
+            }
+        }
+    }
+    if gates.iter().any(|gate| {
+        gate.id != gate_id
+            && gate.column >= adjusted_insert
+            && gate.column.checked_add(moving_width).is_none()
+    }) {
+        return;
+    }
+    if remove_old_column {
+        if let Some(old_column) = original_column {
+            for gate in gates.iter_mut() {
+                if gate.id != gate_id && gate.column > old_column {
+                    gate.column = gate.column.saturating_sub(moving_width);
+                }
+            }
+        }
+    }
+
+    for gate in gates.iter_mut() {
+        if gate.id != gate_id && gate.column >= adjusted_insert {
+            let Some(column) = gate.column.checked_add(moving_width) else {
+                return;
+            };
+            gate.column = column;
+        }
+    }
+
+    let gate = &mut gates[gate_index];
+    gate.column = adjusted_insert;
+    gate.wire = wire;
+    gate.clamp_span_to_qubit_capacity(capacity);
+
+    for gate in gates.iter_mut() {
+        gate.sync_pos_from_grid();
     }
 }

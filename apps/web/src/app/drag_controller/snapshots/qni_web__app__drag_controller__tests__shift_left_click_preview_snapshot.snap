@@ -1,0 +1,22 @@
+---
+source: src/app/drag_controller/tests.rs
+expression: "rendered_gate_bodies(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0)"
+---
+[
+    (
+        [162.0 256.0],
+        false,
+    ),
+    (
+        [190.0 256.0],
+        true,
+    ),
+    (
+        [218.0 256.0],
+        false,
+    ),
+    (
+        [274.0 256.0],
+        false,
+    ),
+]

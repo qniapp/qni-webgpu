@@ -3,7 +3,7 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 
-use crate::app::{GateId, QniApp};
+use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
@@ -54,6 +54,20 @@ fn amplitude_hover_popup_header(outcome: u32, span: usize) -> String {
 
 fn bloch_hover_popup_title() -> &'static str {
     "Bloch sphere representation of local state"
+}
+
+// Both circuit and panel-overlay passes start right-side GPU painting at
+// the insertion preview's center, without widening the existing scissor.
+pub(super) fn insert_preview_right_clip(
+    mut clip: egui::Rect,
+    circuit_origin: egui::Pos2,
+    gate: &PlacedGate,
+) -> egui::Rect {
+    clip.min.x = clip
+        .min
+        .x
+        .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+    clip
 }
 
 impl QniApp {
@@ -131,8 +145,35 @@ impl QniApp {
         colors: &Colors,
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
-    ) {
-        for gate in &self.placed_gates {
+        gpu_viewport: egui::Rect,
+    ) -> bool {
+        let insert_preview = dragging_gate_id.and_then(|id| match self.dragging_live_snap {
+            Some(crate::app::LiveDragSnap::Insert { column, .. }) => Some((id, column)),
+            _ => None,
+        });
+        let mut preview_painted = false;
+        // Keep positions unchanged, but paint left columns behind the insert
+        // preview and right columns in front, regardless of editor list order.
+        let gates =
+            self.placed_gates
+                .iter()
+                .filter(|gate| insert_preview.is_none_or(|(_, column)| gate.column < column))
+                .chain(self.placed_gates.iter().filter(|gate| {
+                    insert_preview.is_some_and(|(_, column)| gate.column >= column)
+                }));
+        for gate in gates {
+            if let Some((id, column)) = insert_preview {
+                if !preview_painted && gate.column >= column {
+                    self.draw_insert_drag_preview(
+                        painter,
+                        gpu_viewport,
+                        circuit_origin,
+                        colors,
+                        id,
+                    );
+                    preview_painted = true;
+                }
+            }
             let live_dragging_gate = dragging_gate_id == Some(gate.id)
                 && self.dragging_live_display_snap
                 && ((gate.kind == GateKind::BlochDisplay
@@ -226,21 +267,88 @@ impl QniApp {
                 draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
             }
         }
+        if let Some((id, _)) = insert_preview {
+            if !preview_painted {
+                self.draw_insert_drag_preview(painter, gpu_viewport, circuit_origin, colors, id);
+                preview_painted = true;
+            }
+        }
+        preview_painted
+    }
+
+    /// Repaint only the insertion footprint above panels, preserving the
+    /// circuit's left gate -> preview -> right gate order within that footprint.
+    pub(crate) fn draw_insert_preview_overlay(
+        &self,
+        painter: &egui::Painter,
+        gpu_viewport: egui::Rect,
+        circuit_origin: egui::Pos2,
+        colors: &Colors,
+        id: GateId,
+    ) {
+        let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
+            return;
+        };
+        let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let painter = painter.with_clip_rect(rect.intersect(painter.clip_rect()));
+        // Reuse the circuit viewport and full GPU batches: callbacks share
+        // instance buffers, so only their paint scissors may differ.
+        self.draw_placed_circuit_gates(
+            &painter,
+            circuit_origin,
+            colors,
+            true,
+            Some(id),
+            gpu_viewport,
+        );
+        let right_clip = insert_preview_right_clip(painter.clip_rect(), circuit_origin, gate);
+        if right_clip.is_positive() {
+            self.draw_circuit_gpu_overlays(
+                &painter.with_clip_rect(right_clip),
+                gpu_viewport,
+                circuit_origin,
+                Some(id),
+                colors,
+            );
+        }
+    }
+
+    fn draw_insert_drag_preview(
+        &self,
+        painter: &egui::Painter,
+        gpu_viewport: egui::Rect,
+        circuit_origin: egui::Pos2,
+        colors: &Colors,
+        id: GateId,
+    ) {
+        let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
+            return;
+        };
+        let split_x = circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0;
+        let mut clip = painter.clip_rect();
+        clip.max.x = clip.max.x.min(split_x);
+        if clip.is_positive() {
+            // Both passes upload identical full batches and use one viewport.
+            // Only the paint scissor differs, so shared GPU buffers agree.
+            self.draw_circuit_gpu_overlays(
+                &painter.with_clip_rect(clip),
+                gpu_viewport,
+                circuit_origin,
+                Some(id),
+                colors,
+            );
+        }
+        self.draw_drag_preview(painter, circuit_origin, colors, id, false);
     }
 
     pub(super) fn draw_circuit_gpu_overlays(
         &self,
         painter: &egui::Painter,
-        rect: egui::Rect,
+        callback_rect: egui::Rect,
         circuit_origin: egui::Pos2,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
-        // Egui clamps callback viewports to the physical screen. Use the
-        // visible clip intersection as the callback viewport; otherwise tall
-        // circuits (e.g. 16 qubits) get vertically rescaled by wgpu and GPU
-        // overlays drift above their egui-painted gate bodies.
-        let callback_rect = rect.intersect(painter.clip_rect());
         if callback_rect.width() <= 0.0 || callback_rect.height() <= 0.0 {
             return;
         }

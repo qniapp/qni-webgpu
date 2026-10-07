@@ -51,14 +51,24 @@ impl QniApp {
         if let (Some(content_rect), Some(dragging_gate_id)) =
             (circuit_frame.content_rect, circuit_frame.dragging_gate_id)
         {
-            self.draw_drag_preview(
-                &overlay_painter,
-                content_rect,
-                colors,
-                dragging_gate_id,
-                self.circuit_scroll_x,
-                circuit_frame.live_drag_gpu_overlay_ready,
-            );
+            let circuit_origin = content_rect.min - egui::vec2(self.circuit_scroll_x, 0.0);
+            if circuit_frame.insert_preview_painted {
+                self.draw_insert_preview_overlay(
+                    &overlay_painter,
+                    circuit_frame.gpu_viewport,
+                    circuit_origin,
+                    colors,
+                    dragging_gate_id,
+                );
+            } else {
+                self.draw_drag_preview(
+                    &overlay_painter,
+                    circuit_origin,
+                    colors,
+                    dragging_gate_id,
+                    circuit_frame.live_drag_gpu_overlay_ready,
+                );
+            }
         }
         if let Some(content_rect) = circuit_frame.content_rect {
             let circuit_origin = content_rect.min - egui::vec2(self.circuit_scroll_x, 0.0);

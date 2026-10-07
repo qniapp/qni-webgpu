@@ -1,78 +1,15 @@
-use std::borrow::Cow;
-
 use eframe::egui;
 
-use crate::app::{LiveDragSnap, PlacedGate, QniApp};
+use crate::app::{PlacedGate, QniApp};
 use crate::gpu::{
     MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS,
     MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
 };
-use crate::layout::gate_width_cols;
 use crate::simulation_plan::{
     linearize_ops, validate_simulation_plan_capacity, SimulationPlanLimits,
 };
 
 impl QniApp {
-    fn gpu_plan_gates(&self) -> Cow<'_, [PlacedGate]> {
-        let Some(drag) = self.dragging else {
-            return Cow::Borrowed(&self.placed_gates);
-        };
-        let Some(LiveDragSnap::Insert {
-            column: insert_index,
-            wire,
-        }) = self.dragging_live_snap
-        else {
-            return Cow::Borrowed(&self.placed_gates);
-        };
-        let Some(gate_index) = self.placed_gates.iter().position(|gate| gate.id == drag.id) else {
-            return Cow::Borrowed(&self.placed_gates);
-        };
-
-        let mut gates = self.placed_gates.clone();
-        // Mirror `insert_gate_at_column` for GPU planning only: drawing and URL
-        // state stay on the transient drag preview until the drop commits.
-        let moving_width = gate_width_cols(gates[gate_index].kind, gates[gate_index].span.get());
-        let mut adjusted_insert = insert_index;
-        if let Some(old_column) = drag.original_column {
-            let old_column_still_occupied = gates
-                .iter()
-                .any(|gate| gate.id != drag.id && gate.column == old_column);
-            if !old_column_still_occupied {
-                for gate in &mut gates {
-                    if gate.id != drag.id && gate.column > old_column {
-                        gate.column = gate.column.saturating_sub(moving_width);
-                    }
-                }
-                if old_column < adjusted_insert {
-                    adjusted_insert = adjusted_insert.saturating_sub(moving_width);
-                }
-            }
-        }
-
-        if gates.iter().any(|gate| {
-            gate.id != drag.id
-                && gate.column >= adjusted_insert
-                && gate.column.checked_add(moving_width).is_none()
-        }) {
-            return Cow::Borrowed(&self.placed_gates);
-        }
-        for gate in &mut gates {
-            if gate.id != drag.id && gate.column >= adjusted_insert {
-                let Some(column) = gate.column.checked_add(moving_width) else {
-                    return Cow::Borrowed(&self.placed_gates);
-                };
-                gate.column = column;
-            }
-        }
-
-        let capacity = self.exec_mode.qubit_capacity();
-        let gate = &mut gates[gate_index];
-        gate.column = adjusted_insert;
-        gate.wire = wire;
-        gate.clamp_span_to_qubit_capacity(capacity);
-        Cow::Owned(gates)
-    }
-
     fn step_snapshot_slot_count_for(gates: &[PlacedGate]) -> usize {
         gates
             .iter()
@@ -112,7 +49,10 @@ impl QniApp {
             if recompute {
                 self.gpu_plan.mark_clean_for(state_count);
                 let qubits = self.state_qubits();
-                let gpu_gates = self.gpu_plan_gates();
+                let mut gpu_gates = self.gpu_plan_gates();
+                if let Some(drag) = self.dragging.filter(|_| self.dragging_live_snap.is_none()) {
+                    gpu_gates.to_mut().retain(|gate| gate.id != drag.id);
+                }
                 // Cache every semantic step snapshot on the GPU, qni-style.
                 // Hover / breakpoint changes later select a cached slot via
                 // copy-only preview updates instead of rerunning simulation.

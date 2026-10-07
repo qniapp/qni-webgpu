@@ -8,14 +8,20 @@ use crate::constants::{
 use crate::shared::amplitude_qubits;
 
 impl QniApp {
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(crate) fn test_state_panel_dimensions(&mut self) -> (usize, bool) {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
+        let frame = self.prepare_state_panel_frame(rect);
+        (frame.state_count, frame.recompute)
+    }
+
     pub(super) fn prepare_state_panel_frame(
         &mut self,
         screen_rect: egui::Rect,
     ) -> StatePanelFrameState {
-        // Resolve the state count / aspect / layout for this frame. While an
-        // unsnapped gate is mid-drag, keep the initial count; once it snaps to
-        // the circuit, grow `drag_state_count` so the live GPU preview can show
-        // the tentative placement without waiting for drop.
+        // Resolve the state count / aspect / layout for this frame. A snapped
+        // drag participates in the tentative circuit; a floating drag does
+        // not. Follow both growth and shrinkage without waiting for drop.
         let base_state_count = self.state_count();
         let state_count = if self.dragging.is_some() {
             self.drag_state_count.unwrap_or(base_state_count)

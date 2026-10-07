@@ -48,10 +48,15 @@ pub(super) fn paint_state_vector_gpu(
         outline_zero: render_colors.outline_zero,
         needle: render_colors.needle,
     };
-    let preview_step = app
-        .hovered_step
-        .or(app.breakpoint_step)
-        .map(|step| step.as_usize());
+    // During a gate gesture, show the whole tentative circuit, not the
+    // cached column selected before pickup. Keep that selection for release.
+    let preview_step = if app.dragging.is_some() {
+        None
+    } else {
+        app.hovered_step
+            .or(app.breakpoint_step)
+            .map(|step| step.as_usize())
+    };
     let snapshot_slot_count = app.gpu_plan.snapshot_slot_count();
     let callback = StateVectorCallback {
         sim_ops,
