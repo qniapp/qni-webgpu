@@ -309,6 +309,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は未スナップの移動だけでは `needs_recompute` を立てず、ゲートが回路スロットまたは挿入ドロップゾーンへスナップした時点で GPU 計算計画を作り直す。これにより、ドロップ前でも既存のブロッホ球表示ブロック / 確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / 状態ベクトルパネルが仮配置を反映する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。
+- ゲートをつかんでいる間の状態ベクトルパネルは、途中の列の結果ではなく、仮配置を含む回路全体の結果を表示する。複製の列間プレビューも、マウスを離す前から計算結果へ反映する。操作前の列選択は保持し、操作終了後に再び使う。
 - ドラッグ中の状態数は、浮遊中のゲートを除いた回路から更新する。スナップ中は仮配置も計算対象に含め、回路外へ移動すると残った回路に必要な状態数へ戻す。
 - 状態ベクトル panel の viewport 上では wheel だけで円グリッドを cursor anchor zoom する。ドラッグで pan、header 右側の dims text 上の wheel は aspect 変更に使う。zoom clamp は倍率固定ではなく、描画される円サイズ 1px〜256px で決める。
 - 状態ベクトル panel / aspect popover 上の hover・click・wheel は panel が捕捉し、背後の circuit step preview / breakpoint / scroll へ伝播させない。
