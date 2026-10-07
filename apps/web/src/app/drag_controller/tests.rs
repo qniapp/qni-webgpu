@@ -471,6 +471,30 @@ fn side_copy(
 }
 
 #[test]
+fn shift_left_click_preview_snapshot() {
+    let (app, ctx, geometry, _, _) = side_copy(r#"{"cols":[["X"],["H"],["Z"]]}"#, 1, -10.0);
+    insta::assert_debug_snapshot!(rendered_gate_bodies(
+        &app,
+        &ctx,
+        &geometry,
+        egui::Pos2::ZERO,
+        0.0
+    ));
+}
+
+#[test]
+fn shift_right_click_preview_snapshot() {
+    let (app, ctx, geometry, _, _) = side_copy(r#"{"cols":[["X"],["H"],["Z"]]}"#, 1, 10.0);
+    insta::assert_debug_snapshot!(rendered_gate_bodies(
+        &app,
+        &ctx,
+        &geometry,
+        egui::Pos2::ZERO,
+        0.0
+    ));
+}
+
+#[test]
 fn shift_left_click_inserts_before_source_and_after_occupied_left_neighbor() {
     let (mut app, ctx, geometry, pos, source) =
         side_copy(r#"{"cols":[["X"],["H"],["Z"]]}"#, 1, -10.0);

@@ -262,6 +262,47 @@ impl QniApp {
         preview_painted
     }
 
+    /// Repaint only the insertion footprint above panels, preserving the
+    /// circuit's left gate -> preview -> right gate order within that footprint.
+    pub(crate) fn draw_insert_preview_overlay(
+        &self,
+        painter: &egui::Painter,
+        gpu_viewport: egui::Rect,
+        circuit_origin: egui::Pos2,
+        colors: &Colors,
+        id: GateId,
+    ) {
+        let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
+            return;
+        };
+        let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let painter = painter.with_clip_rect(rect.intersect(painter.clip_rect()));
+        // Reuse the circuit viewport and full GPU batches: callbacks share
+        // instance buffers, so only their paint scissors may differ.
+        self.draw_placed_circuit_gates(
+            &painter,
+            circuit_origin,
+            colors,
+            true,
+            Some(id),
+            gpu_viewport,
+        );
+        let mut right_clip = painter.clip_rect();
+        right_clip.min.x = right_clip
+            .min
+            .x
+            .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+        if right_clip.is_positive() {
+            self.draw_circuit_gpu_overlays(
+                &painter.with_clip_rect(right_clip),
+                gpu_viewport,
+                circuit_origin,
+                Some(id),
+                colors,
+            );
+        }
+    }
+
     fn draw_insert_drag_preview(
         &self,
         painter: &egui::Painter,

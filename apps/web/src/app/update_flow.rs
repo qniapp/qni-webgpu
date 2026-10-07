@@ -19,6 +19,7 @@ use crate::shared::now_seconds;
 
 struct CircuitFrameState {
     content_rect: Option<egui::Rect>,
+    gpu_viewport: egui::Rect,
     dragging_gate_id: Option<GateId>,
     live_drag_gpu_overlay_ready: bool,
     insert_preview_painted: bool,
