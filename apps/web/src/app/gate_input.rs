@@ -30,8 +30,11 @@ impl QniApp {
         self.pointer_was_down = pointer_down;
         if self.dragging.is_some() && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             // Undo while a gesture is in progress restores its checkpoint
-            // without moving back through completed edits.
+            // without moving back through completed edits. Keep the fixed
+            // column selection, which the circuit reload otherwise clears.
+            let breakpoint_step = self.breakpoint_step;
             self.undo_circuit(ctx);
+            self.breakpoint_step = breakpoint_step;
             return;
         }
         // `local_pos` is the cursor in *circuit space* — the same
