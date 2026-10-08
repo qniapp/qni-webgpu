@@ -166,5 +166,5 @@ test('GPU failure includes the actual error in details', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('webgpu-error').waitFor({ state: 'visible' })
   await page.getByText('Error details').click()
-  await expect(page.locator('#app-status .raw')).toContainText('No suitable graphics adapter found')
+  await expect(page.locator('#app-status .raw')).toContainText('failed to create wgpu surface')
 })

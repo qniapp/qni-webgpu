@@ -150,8 +150,8 @@ fn toolbar_clear_on_identical_empty_circuit_changes_only_status_in_run_state() {
     expected.status = StatusState::Idle;
     // 同一回路の確定では受理権も開始時刻も残る。今回これを修正しない。
     let mut position = egui::Pos2::ZERO;
-    let draw = |app: &mut QniApp, ctx: &egui::Context, position: &mut egui::Pos2| {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    let draw = |app: &mut QniApp, root_ui: &mut egui::Ui, position: &mut egui::Pos2| {
+        egui::CentralPanel::default().show(root_ui, |ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
             ui.horizontal(|ui| {
                 *position = ui.cursor().min + egui::vec2(96.0, 16.0);
@@ -159,7 +159,7 @@ fn toolbar_clear_on_identical_empty_circuit_changes_only_status_in_run_state() {
             });
         });
     };
-    let _ = ctx.run(Default::default(), |ctx| draw(&mut app, ctx, &mut position));
+    let _ = ctx.run_ui(Default::default(), |ui| draw(&mut app, ui, &mut position));
     for pressed in [true, false] {
         let input = egui::RawInput {
             events: vec![
@@ -173,7 +173,7 @@ fn toolbar_clear_on_identical_empty_circuit_changes_only_status_in_run_state() {
             ],
             ..Default::default()
         };
-        let _ = ctx.run(input, |ctx| draw(&mut app, ctx, &mut position));
+        let _ = ctx.run_ui(input, |ui| draw(&mut app, ui, &mut position));
     }
     assert_eq!(state(&app), expected);
 }

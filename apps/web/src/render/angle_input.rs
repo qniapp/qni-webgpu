@@ -288,7 +288,7 @@ impl QniApp {
             .font(egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE)) // text-xs = 12px.
             .text_color(colors.text_strong) // Flexoki tx.
             .horizontal_align(egui::Align::Center)
-            .frame(false)
+            .frame(egui::Frame::NONE)
             .margin(egui::Margin::ZERO)
             .desired_width(GATE_SIZE) // spacing-10 = 40px.
             .show(&mut edit_ui);

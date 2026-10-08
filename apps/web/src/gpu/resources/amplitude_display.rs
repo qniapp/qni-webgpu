@@ -258,8 +258,8 @@ fn create_capture_pipeline(
 ) -> wgpu::ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("amplitude_capture_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("amplitude_capture_pipeline"),
@@ -572,8 +572,8 @@ fn create_render_pipeline(
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("amplitude_render_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("amplitude_render_pipeline"),
@@ -650,7 +650,7 @@ fn create_render_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }
@@ -663,8 +663,8 @@ fn create_popup_value_pipeline(
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("amplitude_popup_value_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("amplitude_popup_value_pipeline"),
@@ -688,7 +688,7 @@ fn create_popup_value_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }

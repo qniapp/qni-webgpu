@@ -52,8 +52,9 @@ const waitForHashCols = async (page: { url(): string; waitForTimeout(ms: number)
 }
 
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
-  { name: 'local', x: cssWidth - 100, y: 23 },
-  { name: 'gpu', x: cssWidth - 30, y: 23 },
+  // Sample the segment fill above its text, independent of font shaping.
+  { name: 'local', x: cssWidth - 100, y: 12 },
+  { name: 'gpu', x: cssWidth - 30, y: 12 },
 ]
 
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2

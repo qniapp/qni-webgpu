@@ -326,14 +326,17 @@ const run = async (): Promise<void> => {
         finishStartup()
       })
       .catch((err) => {
-        window.__eguiError = String(err)
-        showStatus(formatStartupError(err))
+        const message = formatStartupError(err)
+        window.__eguiError = message
+        showStatus(message)
         console.error(err)
       })
   } catch (err) {
     window.__eguiError = String(err)
     if (moduleInitialized) {
-      showStatus(formatStartupError(err))
+      const message = formatStartupError(err)
+      window.__eguiError = message
+      showStatus(message)
     } else {
       const detail = err instanceof Error ? err.message : String(err)
       showStatus(`Asset load failed. Try a hard reload (Ctrl+Shift+R).\n\n${detail}`, 'asset')

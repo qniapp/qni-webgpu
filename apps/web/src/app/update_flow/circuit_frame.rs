@@ -26,7 +26,7 @@ impl QniApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .scroll_source(egui::scroll_area::ScrollSource {
-                drag: false,
+                drag: egui::scroll_area::DragScroll::Never,
                 mouse_wheel: !pointer_over_state_panel,
                 scroll_bar: true,
             })

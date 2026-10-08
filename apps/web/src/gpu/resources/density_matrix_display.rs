@@ -163,8 +163,8 @@ fn create_capture_pipeline(
 ) -> wgpu::ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("density_capture_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("density_capture_pipeline"),
@@ -345,8 +345,8 @@ fn create_render_pipeline(
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("density_render_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("density_render_pipeline"),
@@ -421,7 +421,7 @@ fn create_render_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }

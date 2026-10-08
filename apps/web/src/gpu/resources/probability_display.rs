@@ -257,8 +257,8 @@ fn create_reduce_pipeline(
 ) -> wgpu::ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("probability_reduce_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("probability_reduce_pipeline"),
@@ -373,8 +373,8 @@ fn create_normalize_pipeline(
 ) -> wgpu::ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("probability_normalize_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("probability_normalize_pipeline"),
@@ -463,8 +463,8 @@ fn create_aggregate_pipeline(
 ) -> wgpu::ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("probability_aggregate_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("probability_aggregate_pipeline"),
@@ -663,8 +663,8 @@ fn create_render_pipeline(
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("probability_render_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("probability_render_pipeline"),
@@ -734,7 +734,7 @@ fn create_render_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }
@@ -747,8 +747,8 @@ fn create_popup_value_pipeline(
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("probability_popup_value_pipeline_layout"),
-        bind_group_layouts: &[layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("probability_popup_value_pipeline"),
@@ -772,7 +772,7 @@ fn create_popup_value_pipeline(
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }

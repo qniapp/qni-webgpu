@@ -18,6 +18,28 @@ mod url_circuit;
 
 use crate::app::QniApp;
 
+#[cfg(any(target_arch = "wasm32", test))]
+fn web_wgpu_setup() -> eframe::egui_wgpu::WgpuSetup {
+    let mut setup = eframe::egui_wgpu::WgpuSetupCreateNew::without_display_handle();
+    // Quantum compute shaders require WebGPU; WebGL cannot run this app.
+    setup.instance_descriptor.backends = eframe::wgpu::Backends::BROWSER_WEBGPU;
+    eframe::egui_wgpu::WgpuSetup::CreateNew(setup)
+}
+
+#[cfg(test)]
+mod web_backend_tests {
+    #[test]
+    fn web_setup_requires_webgpu_without_webgl_fallback() {
+        let eframe::egui_wgpu::WgpuSetup::CreateNew(setup) = super::web_wgpu_setup() else {
+            panic!("expected a new WebGPU instance");
+        };
+        assert_eq!(
+            setup.instance_descriptor.backends,
+            eframe::wgpu::Backends::BROWSER_WEBGPU
+        );
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
@@ -37,7 +59,13 @@ pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
         .dyn_into::<web_sys::HtmlCanvasElement>()?;
 
     crate::test_hooks::set_startup_stage("runner-start");
-    let web_options = eframe::WebOptions::default();
+    let web_options = eframe::WebOptions {
+        wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
+            wgpu_setup: web_wgpu_setup(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     eframe::WebRunner::new()
         .start(
             canvas,

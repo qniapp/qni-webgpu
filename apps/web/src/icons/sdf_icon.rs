@@ -193,7 +193,7 @@ impl SdfIconResources {
             label: Some("gate_icon_sdf_sampler"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             ..Default::default()
@@ -297,8 +297,8 @@ fn build_sdf_pipeline(
     });
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("gate_icon_sdf_pipeline_layout"),
-        bind_group_layouts: &[bind_group_layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[Some(bind_group_layout)],
+        immediate_size: 0,
     });
     let vertex_layout = wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
@@ -342,7 +342,7 @@ fn build_sdf_pipeline(
         },
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     })
 }

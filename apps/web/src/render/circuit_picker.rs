@@ -151,9 +151,9 @@ impl QniApp {
                     ui.set_max_width(DROPDOWN_WIDTH - 12.0);
                     let items_height = self.picker.items_height();
                     let previous_style = ui.style().clone();
-                    let previous_context_style = ctx.style();
+                    let previous_context_style = ctx.global_style();
                     apply_items_scrollbar_style(ui, colors);
-                    ctx.style_mut(|style| {
+                    ctx.global_style_mut(|style| {
                         style.animation_time = ITEMS_SCROLLBAR_FADE_SECONDS;
                     });
                     let pending_scroll_offset = self.picker.take_pending_scroll_offset();
@@ -226,7 +226,7 @@ impl QniApp {
                         ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
                     });
                     ui.set_style(previous_style);
-                    ctx.set_style(previous_context_style);
+                    ctx.set_global_style(previous_context_style);
                     let (drag_min_scroll_offset, drag_max_scroll_offset) =
                         picker_drag_scroll_bounds(
                             &display_rows,
