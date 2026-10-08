@@ -26,11 +26,15 @@ serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-wgpu = { version = "27.0.1", default-features = false, features = ["webgpu"] }
+wgpu = { version = "29.0.4", default-features = false, features = ["webgpu"] }
 web-sys = { version = "0.3", features = ["console", "Document", "HtmlCanvasElement", "History", "Location", "Storage", "Window"] }
 
 [dev-dependencies]
 insta = "1.47"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# Native unit tests need a winit platform; production WebGPU stays unchanged.
+winit = { version = "0.30.13", default-features = false, features = ["x11", "rwh_06"] }
 
 [build-dependencies]
 png = "0.18"

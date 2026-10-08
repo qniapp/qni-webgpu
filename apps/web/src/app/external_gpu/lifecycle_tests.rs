@@ -499,8 +499,8 @@ fn switching_to_local_through_toggle_clears_results_and_resets_status() {
         }],
         ..Default::default()
     };
-    let _ = ctx.run(input, |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    let _ = ctx.run_ui(input, |root_ui| {
+        egui::CentralPanel::default().show(root_ui, |ui| {
             app.show_exec_mode_toggle(ui, &app.colors());
         });
     });

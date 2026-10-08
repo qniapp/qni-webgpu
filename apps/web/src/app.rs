@@ -123,7 +123,7 @@ impl QniApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let theme = Theme::default();
         theme.apply_to_context(&cc.egui_ctx);
-        cc.egui_ctx.style_mut(|style| {
+        cc.egui_ctx.global_style_mut(|style| {
             style.spacing.window_margin = egui::Margin::same(0);
         });
         // Font setup:

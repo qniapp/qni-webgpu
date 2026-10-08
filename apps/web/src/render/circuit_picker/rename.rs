@@ -52,8 +52,7 @@ impl QniApp {
             .id(text_id)
             .font(egui::FontId::new(14.0, egui::FontFamily::Proportional)) // text-sm = 14px.
             .text_color(colors.text_strong) // Flexoki tx.
-            .frame(false)
-            .margin(egui::Margin::symmetric(0, 2)) // px-0, py-0.5 = 2px.
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(0, 2))) // px-0, py-0.5 = 2px.
             .desired_width(edit_rect.width())
             .show(&mut edit_ui);
         publish_picker_rename_geometry_json(

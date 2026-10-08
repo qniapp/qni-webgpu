@@ -38,7 +38,7 @@ impl QniApp {
             // viewports.
             .order(egui::Order::Tooltip)
             .frame(
-                egui::Frame::popup(&ctx.style())
+                egui::Frame::popup(&ctx.global_style())
                     .inner_margin(egui::Margin::symmetric(8, 6))
                     .fill(colors.fps_hud_bg)
                     .stroke(egui::Stroke::new(1.0_f32, colors.fps_hud_border)),

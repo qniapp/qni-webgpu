@@ -313,10 +313,15 @@ test('my dragged row stays below the My Circuits divider', async ({ page }) => {
 
 test('picker locked row icon matches the footer plus color', async ({ page }) => {
   const geometry = await openPickerWithExamples(page, 1, 1)
-  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'lock-icon', ...lockedRowIconSample(geometry) },
-    { name: 'footer-plus', ...footerPlusSample(geometry) },
-  ])
+  // Geometry is published before the popup's painted colors have settled.
+  const pixels = await pollForValue(
+    () => sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+      { name: 'lock-icon', ...lockedRowIconSample(geometry) },
+      { name: 'footer-plus', ...footerPlusSample(geometry) },
+    ]),
+    (sample) => pixelRgbDistance(sample['lock-icon'], sample['footer-plus']) < 35,
+    { timeout: 5_000 },
+  )
 
   expect(pixelRgbDistance(pixels['lock-icon'], pixels['footer-plus'])).toBeLessThan(35)
 })

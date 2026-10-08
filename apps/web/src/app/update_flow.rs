@@ -83,7 +83,8 @@ impl QniApp {
 }
 
 impl eframe::App for QniApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, root_ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let ctx = &root_ui.ctx().clone();
         crate::icons::set_sdf_target_format(
             frame.wgpu_render_state().map(|state| state.target_format),
         );
@@ -92,11 +93,11 @@ impl eframe::App for QniApp {
         self.apply_external_circuit_library_update(ctx);
         self.apply_pending_url_payload(ctx);
         let colors = self.colors();
-        let mut panel_frame = egui::Frame::central_panel(&ctx.style());
+        let mut panel_frame = egui::Frame::central_panel(&ctx.global_style());
         panel_frame.fill = colors.background;
         egui::CentralPanel::default()
             .frame(panel_frame)
-            .show(ctx, |ui| {
+            .show(root_ui, |ui| {
                 self.show_update_central_panel(ctx, frame, ui);
             });
         self.show_exec_mode_toolbar(ctx, &colors);
