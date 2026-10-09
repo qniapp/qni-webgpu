@@ -61,7 +61,7 @@ export function prepareEmbed() {
  * @param {HTMLCanvasElement} canvas
  * @param {string} circuit Quirk-style JSON, e.g. '{"cols":[["H"]]}'.
  * @param {{showStatePanel?: boolean, onProgress?: function, onDeviceLost?: function}} settings
- * @returns {Promise<{destroy(): void, readStateVector(): Promise<Float32Array>}>}
+ * @returns {Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>}
  */
 export async function startEmbed(canvas, circuit, { showStatePanel = true, onProgress, onDeviceLost } = {}) {
   let runner
@@ -94,6 +94,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, onPro
   }
   let destroyed = false
   return {
+    circuitJSON() { return runner.circuit_json() },
     // Test-only, explicitly requested GPU readback, never part of rendering.
     readStateVector() { return runner.read_state_vector() },
     destroy() {

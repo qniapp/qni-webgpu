@@ -16,13 +16,13 @@ async function fixture(t, headers, fail = false) {
       await module_or_path.arrayBuffer();
     }
     export const starts = { active: 0, max: 0 };
-    export async function start_embed(canvas) {
+    export async function start_embed(canvas, circuit) {
       starts.active++;
       starts.max = Math.max(starts.max, starts.active);
       await new Promise(resolve => setTimeout(resolve, 1));
       starts.active--;
       if (canvas.fail) throw new Error('startup failed');
-      return {destroy(){}, free(){}, read_state_vector(){ return Promise.resolve(canvas.state) }};
+      return {destroy(){}, free(){}, read_state_vector(){ return Promise.resolve(canvas.state) }, circuit_json(){ return canvas.circuit ?? circuit }};
     }
   `)
   await writeFile(join(dir, 'package.json'), '{"type":"module"}')
@@ -73,4 +73,16 @@ test('a failed runner does not poison later startup or instance readback', async
   const state = await handle.readStateVector()
   handle.destroy()
   assert.deepEqual(state, [7])
+})
+
+test('circuit export is synchronous and scoped to the current runner', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  const canvas = {}
+  const first = await f.module.startEmbed(canvas, '{"cols":[["H"]]}')
+  const second = await f.module.startEmbed({}, '{"cols":[["X"]]}')
+  canvas.circuit = '{"cols":[["T"]]}'
+  const circuits = [first.circuitJSON(), second.circuitJSON()]
+  first.destroy()
+  second.destroy()
+  assert.deepEqual(circuits, ['{"cols":[["T"]]}', '{"cols":[["X"]]}'])
 })

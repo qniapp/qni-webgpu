@@ -58,6 +58,14 @@ impl QniRunner {
         self.runner.destroy();
     }
 
+    /// Current committed circuit metadata, scoped to this editor. No GPU readback.
+    pub fn circuit_json(&self) -> Result<String, JsValue> {
+        self.runner
+            .app_mut::<QniApp>()
+            .map(|app| app.library.active().circuit_json.clone())
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
+    }
+
     /// Test-only, on-demand readback of this runner, never another canvas.
     pub async fn read_state_vector(&self) -> Result<js_sys::Float32Array, JsValue> {
         gpu::read_runner_state_vector(&self.render_state).await

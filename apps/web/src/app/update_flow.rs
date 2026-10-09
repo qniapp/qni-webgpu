@@ -83,6 +83,11 @@ impl QniApp {
 }
 
 impl eframe::App for QniApp {
+    #[cfg(target_arch = "wasm32")]
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
+    }
+
     fn persist_egui_memory(&self) -> bool {
         self.mode.uses_browser_state()
     }
