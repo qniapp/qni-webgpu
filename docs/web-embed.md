@@ -16,6 +16,12 @@ bash apps/web/scripts/build-embed.sh
 - `qni-web.js`: wasm-bindgen の JavaScript
 - `qni-web_bg.wasm`: アプリ本体。フォントとシェーダも含む
 
+埋め込みのビルドでは専用の Cargo プロファイル `embed` を使う。
+`opt-level="z"`、fat LTO、`codegen-units=1`、`strip=true` と `wasm-opt -Oz` で配信サイズを抑える。
+通常アプリの release プロファイルは変えない。wasm32 ターゲットの既定の `panic=abort` も変えない。
+使っていない egui の既定フォントと WebGL 用の依存関係は無効にするが、
+Geist、日本語の代替フォント、数学記号用の Hack、スクリーンリーダーは維持する。
+
 JavaScript は JavaScript の MIME 型、wasm は `application/wasm` で配信する。
 HTTPS または localhost が必要。別オリジンから読み込む場合は全ファイルに CORS 許可を付ける。
 wasm の URL は `import.meta.url` を基準に解決する。ホストページのパスや `<base>` に依存しない。
@@ -33,8 +39,20 @@ const runner = await startEmbed(canvas, '{"cols":[["H"]]}', {
 runner.destroy()
 ```
 
-`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean})`
+`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, onProgress?: function})`
 は `Promise<{destroy(): void}>` を返す。`showStatePanel` の既定値は `true`。
+`onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
+`loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
+圧縮応答の Content-Length から百分率を計算してはならない。
+通知関数は例外を投げないようにする。
+
+`prepareEmbed(): Promise<unknown>` を早めに呼ぶと、キャンバスの接続前に wasm の取得と
+ストリーミングコンパイルを始められる。`startEmbed` と同じ初期化 Promise を共有するので重複取得しない。
+失敗時は次の呼び出しで再試行する。応答のストリームを `Response` として wasm-bindgen に渡し、
+`application/wasm` なら `WebAssembly.instantiateStreaming` を使う。ArrayBuffer へ事前に集めない。
+読み込み段階は `qni:wasm-fetch-start`、`qni:wasm-fetch-end`、`qni:wasm-instantiated`、
+`qni:runner-start`、`qni:runner-started` の Performance API のマークでも確認できる。
+`wasm-fetch-end` はストリームがある場合だけ記録する。
 DOM に接続済みで、幅と高さのあるキャンバスを渡す。shadow DOM 内でも使える。
 ブラウザで WebGPU が使えなければ Promise が失敗する。WebGL や CPU への代替処理はない。
 エラー表示と接続・切断の管理はホスト側で行う。

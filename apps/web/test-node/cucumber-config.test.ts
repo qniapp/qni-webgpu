@@ -106,7 +106,7 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
     bdd: 'cucumber-js --config cucumber.ts',
     buildBootstrapUsesTs: true,
     typecheck: 'tsc --noEmit',
-    preflight: 'pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts',
+    preflight: 'node --test test-node/embed-loader.test.mjs && pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts',
     cucumberVersionPinned: true,
     nodeTypesVersionPinned: true,
     tsNodeVersionPinned: true,
