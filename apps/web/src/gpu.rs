@@ -45,7 +45,8 @@ pub(crate) use probability_distribution::ProbabilityDistribution;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
     read_amplitude_cell_impl, read_bloch_vectors_impl, read_density_matrix_cell_impl,
-    read_measurement_outcomes_impl, read_probability_distributions_impl, read_state_vector_impl,
+    read_measurement_outcomes_impl, read_probability_distributions_impl, read_runner_state_vector,
+    read_state_vector_impl,
 };
 pub(crate) use slot::{
     Amplitude, Bloch, Density, Measurement, Probability, SlotAllocator, SlotIndex, Snapshot,

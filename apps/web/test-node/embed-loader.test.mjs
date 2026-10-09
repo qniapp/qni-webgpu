@@ -15,7 +15,15 @@ async function fixture(t, headers, fail = false) {
       if (module_or_path.headers.get('content-type') !== 'application/wasm') throw new Error('Lost MIME type');
       await module_or_path.arrayBuffer();
     }
-    export async function start_embed() { return {destroy(){}, free(){}} }
+    export const starts = { active: 0, max: 0 };
+    export async function start_embed(canvas) {
+      starts.active++;
+      starts.max = Math.max(starts.max, starts.active);
+      await new Promise(resolve => setTimeout(resolve, 1));
+      starts.active--;
+      if (canvas.fail) throw new Error('startup failed');
+      return {destroy(){}, free(){}, read_state_vector(){ return Promise.resolve(canvas.state) }};
+    }
   `)
   await writeFile(join(dir, 'package.json'), '{"type":"module"}')
   const original = globalThis.fetch
@@ -26,7 +34,8 @@ async function fixture(t, headers, fail = false) {
   }
   t.after(() => { globalThis.fetch = original })
   const module = await import(pathToFileURL(join(dir, 'embed.mjs')).href)
-  return { module, requests: () => requests }
+  const { starts } = await import(pathToFileURL(join(dir, 'qni-web.js')).href)
+  return { module, starts, requests: () => requests }
 }
 
 test('early preparation and canvas startup share one streaming fetch', async t => {
@@ -48,4 +57,20 @@ test('failed early preparation can retry on canvas startup', async t => {
   await f.module.prepareEmbed().catch(() => {})
   await f.module.startEmbed({}, '{}')
   assert.equal(f.requests(), 2)
+})
+
+test('seven concurrent elements serialize GPU startup and fetch wasm once', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  const handles = await Promise.all(Array.from({ length: 7 }, () => f.module.startEmbed({}, '{}')))
+  handles.forEach(handle => handle.destroy())
+  assert.deepEqual({ maximumConcurrentStarts: f.starts.max, wasmRequests: f.requests() }, { maximumConcurrentStarts: 1, wasmRequests: 1 })
+})
+
+test('a failed runner does not poison later startup or instance readback', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  await f.module.startEmbed({ fail: true }, '{}').catch(() => {})
+  const handle = await f.module.startEmbed({ state: [7] }, '{}')
+  const state = await handle.readStateVector()
+  handle.destroy()
+  assert.deepEqual(state, [7])
 })

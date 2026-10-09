@@ -106,6 +106,37 @@ pub(crate) async fn read_state_vector_impl() -> Result<js_sys::Float32Array, JsV
     let Some(state) = GPU_READBACK.with(|slot| slot.borrow().clone()) else {
         return Err(JsValue::from_str("state vector not ready"));
     };
+    read_state(state).await
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_runner_state_vector(
+    render: &eframe::egui_wgpu::RenderState,
+) -> Result<js_sys::Float32Array, JsValue> {
+    let state = {
+        let renderer = render.renderer.read();
+        let resources = renderer
+            .callback_resources
+            .get::<super::resources::StateVectorResources>()
+            .filter(|resources| resources.state_count > 0)
+            .ok_or_else(|| JsValue::from_str("state vector not ready"))?;
+        GpuReadbackState {
+            device: render.device.clone(),
+            queue: render.queue.clone(),
+            state_buffers: [
+                resources.common.state_buffers[0].clone(),
+                resources.common.state_buffers[1].clone(),
+                resources.common.state_preview_buffer.clone(),
+            ],
+            state_count: resources.state_count,
+            active_state: resources.active_state,
+        }
+    };
+    read_state(state).await
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn read_state(state: GpuReadbackState) -> Result<js_sys::Float32Array, JsValue> {
     let byte_len = state.state_count * 2 * std::mem::size_of::<f32>();
     let staging = state.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("state_vector_readback"),

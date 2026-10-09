@@ -1,6 +1,7 @@
 import init, { start_embed } from './qni-web.js'
 
 let initialization
+let startup = Promise.resolve()
 let progress = { stage: 'download', loaded: 0, total: null }
 const listeners = new Set()
 
@@ -59,11 +60,14 @@ export function prepareEmbed() {
  * Start a local WebGPU editor on a connected canvas, including in a shadow root.
  * @param {HTMLCanvasElement} canvas
  * @param {string} circuit Quirk-style JSON, e.g. '{"cols":[["H"]]}'.
- * @param {{showStatePanel?: boolean, onProgress?: function}} settings
- * @returns {Promise<{destroy(): void}>}
+ * @param {{showStatePanel?: boolean, onProgress?: function, onDeviceLost?: function}} settings
+ * @returns {Promise<{destroy(): void, readStateVector(): Promise<Float32Array>}>}
  */
-export async function startEmbed(canvas, circuit, { showStatePanel = true, onProgress } = {}) {
+export async function startEmbed(canvas, circuit, { showStatePanel = true, onProgress, onDeviceLost } = {}) {
   let runner
+  let deviceLost = false
+  const lost = () => { deviceLost = true; onDeviceLost?.() }
+  globalThis.addEventListener?.('qni-device-lost', lost)
   try {
     if (onProgress) {
       listeners.add(onProgress)
@@ -72,10 +76,14 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, onPro
     await prepareEmbed()
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
     performance.mark('qni:runner-start')
-    runner = await start_embed(canvas, circuit, showStatePanel)
+    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel))
+    startup = starting.catch(() => {})
+    runner = await starting
+    if (deviceLost) throw new Error('Qni GPU device lost during startup')
     performance.mark('qni:runner-started')
     if (onProgress) onProgress({ ...progress, stage: 'prepare' })
   } catch (error) {
+    globalThis.removeEventListener?.('qni-device-lost', lost)
     if (runner) {
       runner.destroy()
       runner.free()
@@ -86,9 +94,12 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, onPro
   }
   let destroyed = false
   return {
+    // Test-only, explicitly requested GPU readback, never part of rendering.
+    readStateVector() { return runner.read_state_vector() },
     destroy() {
       if (destroyed) return
       destroyed = true
+      globalThis.removeEventListener?.('qni-device-lost', lost)
       runner.destroy()
       runner.free()
     },

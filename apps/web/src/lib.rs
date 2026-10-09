@@ -48,6 +48,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct QniRunner {
     runner: eframe::WebRunner,
+    render_state: eframe::egui_wgpu::RenderState,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -56,6 +57,60 @@ impl QniRunner {
     pub fn destroy(&self) {
         self.runner.destroy();
     }
+
+    /// Test-only, on-demand readback of this runner, never another canvas.
+    pub async fn read_state_vector(&self) -> Result<js_sys::Float32Array, JsValue> {
+        gpu::read_runner_state_vector(&self.render_state).await
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static SHARED_GPU: std::cell::RefCell<Option<eframe::egui_wgpu::WgpuSetupExisting>> = const { std::cell::RefCell::new(None) };
+}
+
+// embed.mjs serializes startup, including failed attempts, so concurrent
+// elements cannot race this asynchronous one-device initialization.
+#[cfg(target_arch = "wasm32")]
+async fn shared_gpu_setup() -> Result<eframe::egui_wgpu::WgpuSetup, JsValue> {
+    if let Some(existing) = SHARED_GPU.with(|slot| slot.borrow().clone()) {
+        return Ok(existing.into());
+    }
+    let setup = web_wgpu_setup();
+    let instance = setup.new_instance().await;
+    let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = setup else {
+        unreachable!()
+    };
+    let adapter = instance
+        .request_adapter(&eframe::wgpu::RequestAdapterOptions {
+            power_preference: create.power_preference,
+            ..Default::default()
+        })
+        .await
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let (device, queue) = adapter
+        .request_device(&(create.device_descriptor)(&adapter))
+        .await
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    device.set_device_lost_callback(|reason, message| {
+        SHARED_GPU.with(|slot| *slot.borrow_mut() = None);
+        web_sys::console::error_1(&JsValue::from_str(&format!(
+            "Qni shared GPU device lost: {reason:?}: {message}"
+        )));
+        if let (Some(window), Ok(event)) =
+            (web_sys::window(), web_sys::Event::new("qni-device-lost"))
+        {
+            let _ = window.dispatch_event(&event);
+        }
+    });
+    let existing = eframe::egui_wgpu::WgpuSetupExisting {
+        instance,
+        adapter,
+        device,
+        queue,
+    };
+    SHARED_GPU.with(|slot| *slot.borrow_mut() = Some(existing.clone()));
+    Ok(existing.into())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -86,9 +141,16 @@ async fn start_runner(
     if standalone {
         crate::test_hooks::set_startup_stage("runner-start");
     }
+    let setup = if standalone {
+        web_wgpu_setup()
+    } else {
+        shared_gpu_setup().await?
+    };
+    let render_state = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_render_state = render_state.clone();
     let web_options = eframe::WebOptions {
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
-            wgpu_setup: web_wgpu_setup(),
+            wgpu_setup: setup,
             ..Default::default()
         },
         ..Default::default()
@@ -99,6 +161,7 @@ async fn start_runner(
             canvas,
             web_options,
             Box::new(move |cc| {
+                *captured_render_state.borrow_mut() = cc.wgpu_render_state.clone();
                 if standalone {
                     crate::test_hooks::set_startup_stage("app-new");
                 }
@@ -113,7 +176,14 @@ async fn start_runner(
         runner.destroy();
         return Err(error);
     }
-    Ok(QniRunner { runner })
+    let Some(render_state) = render_state.borrow_mut().take() else {
+        runner.destroy();
+        return Err(JsValue::from_str("WebGPU render state missing"));
+    };
+    Ok(QniRunner {
+        runner,
+        render_state,
+    })
 }
 
 #[cfg(target_arch = "wasm32")]
