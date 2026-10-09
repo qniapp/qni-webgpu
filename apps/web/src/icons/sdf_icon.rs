@@ -114,27 +114,6 @@ fn current_target_format(ctx: &egui::Context) -> Option<wgpu::TextureFormat> {
     })
 }
 
-#[cfg(test)]
-mod context_tests {
-    #[test]
-    fn surface_formats_do_not_leak_between_editors() {
-        let first = eframe::egui::Context::default();
-        let second = eframe::egui::Context::default();
-        super::set_target_format(&first, Some(eframe::wgpu::TextureFormat::Bgra8Unorm));
-        super::set_target_format(&second, Some(eframe::wgpu::TextureFormat::Rgba8Unorm));
-        assert_eq!(
-            (
-                super::current_target_format(&first),
-                super::current_target_format(&second)
-            ),
-            (
-                Some(eframe::wgpu::TextureFormat::Bgra8Unorm),
-                Some(eframe::wgpu::TextureFormat::Rgba8Unorm)
-            )
-        );
-    }
-}
-
 fn sdf_texture_name(glyph: GateGlyph) -> &'static str {
     match glyph {
         GateGlyph::H => "gate-icon-h-sdf",
@@ -454,4 +433,25 @@ pub(super) fn draw_glyph(
     let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
     painter.add(egui::Shape::Callback(paint_callback));
     true
+}
+
+#[cfg(test)]
+mod context_tests {
+    #[test]
+    fn surface_formats_do_not_leak_between_editors() {
+        let first = eframe::egui::Context::default();
+        let second = eframe::egui::Context::default();
+        super::set_target_format(&first, Some(eframe::wgpu::TextureFormat::Bgra8Unorm));
+        super::set_target_format(&second, Some(eframe::wgpu::TextureFormat::Rgba8Unorm));
+        assert_eq!(
+            (
+                super::current_target_format(&first),
+                super::current_target_format(&second)
+            ),
+            (
+                Some(eframe::wgpu::TextureFormat::Bgra8Unorm),
+                Some(eframe::wgpu::TextureFormat::Rgba8Unorm)
+            )
+        );
+    }
 }
