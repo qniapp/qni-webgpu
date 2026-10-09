@@ -21,11 +21,31 @@ bash apps/web/scripts/build-embed.sh
 通常アプリの release プロファイルは変えない。wasm32 ターゲットの既定の `panic=abort` も変えない。
 使っていない egui の既定フォントと WebGL 用の依存関係は無効にするが、
 Geist、日本語の代替フォント、数学記号用の Hack、スクリーンリーダーは維持する。
+この依存関係の削減は wasm32 ターゲットだけに適用し、その他のターゲットの描画と既定フォントの設定は従来のままにする。
 
 JavaScript は JavaScript の MIME 型、wasm は `application/wasm` で配信する。
 HTTPS または localhost が必要。別オリジンから読み込む場合は全ファイルに CORS 許可を付ける。
 wasm の URL は `import.meta.url` を基準に解決する。ホストページのパスや `<base>` に依存しない。
 通常の `index.html` や `bootstrap.js` は埋め込みに使わない。
+
+## 最適化ツールの固定
+
+`apps/web/Trunk.toml` の `[tools] wasm_opt = "version_123"` で Binaryen 123 を指定する。
+Trunk の既定の取得版も 123 だが、指定がないと PATH 上の別の版を優先してしまう。
+指定版と異なるシステムの実行ファイルは選ばず、Trunk のキャッシュまたは取得した指定版を使う。
+同じ版を名乗る PATH 上の実行ファイルや、明示的なコマンド行・環境変数による指定は別途確認する。
+ビルドの詳細ログには選ばれた実行ファイル、版、引数を残す。
+
+最適化の引数は `-Oz --enable-bulk-memory --enable-nontrapping-float-to-int`。
+追加の 2 引数は Rust が出力する命令を許可するためのもので、`--all-features` は使わない。
+wasm-bindgen の版は Cargo.lock の依存関係と合わせる。現在の確認済みの版は 0.2.129。
+
+[wasm-bindgen #4228](https://github.com/wasm-bindgen/wasm-bindgen/issues/4228) は、
+古いシステムの Binaryen による `WebAssembly.Table.grow` の失敗を報告している。
+関連する [Binaryen #4711](https://github.com/WebAssembly/binaryen/issues/4711) の
+誤ったテーブルのエクスポートは [#4736](https://github.com/WebAssembly/binaryen/pull/4736) で修正済みで、123 に含まれる。
+この組み合わせでは通常アプリと埋め込みの最適化済みの成果物を実際の WebGPU ブラウザで起動し、
+H ゲートの実行結果とエラーがないことを確認した。版や引数を変えたときも成果物をブラウザで確認する。
 
 ## JavaScript API
 

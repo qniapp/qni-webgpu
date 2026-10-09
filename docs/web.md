@@ -266,7 +266,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 
 ## Notes
 
-- `apps/web/src/lib.rs` は eframe の `wgpu_no_default_features` と wgpu の `webgpu` を使う。WebGL 用の依存関係と、使っていない既定フォントは無効にしている。
+- wasm32 ターゲットの `apps/web/src/lib.rs` は eframe の `wgpu_no_default_features` と wgpu の `webgpu` を使う。WebGL 用の依存関係と、使っていない既定フォントは無効にしている。それ以外のターゲットの eframe の描画と既定フォントの設定は従来のまま。
 - WebGPU を初期化できない場合は、白いキャンバスの代わりにクレヨンの回路図と「No GPU access.」を表示する。別のブラウザで開き直す案内を優先し、元のエラーは折りたたむ。Linux の Chromium 向け実験的な起動手順は、Linux の Chromium で `127.0.0.1:4174` または `localhost:4174` を開いた場合だけ表示する。
 - ローカル手動確認は通常の Chrome で行う。`./scripts/open-web.sh` も WebGPU 用の特別な起動フラグは付けない。
 - 状態ベクトルの計算と円描画は WebGPU（Compute/Fragment）で行い、CPU への読み戻しはテスト時のみ。

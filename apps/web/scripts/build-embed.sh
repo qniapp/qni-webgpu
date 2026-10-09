@@ -8,7 +8,7 @@ output="$(realpath "$output")"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-env -u NO_COLOR -C "$web_dir" trunk build --release --cargo-profile embed --dist "$stage"
+env -u NO_COLOR -C "$web_dir" trunk build --verbose --release --cargo-profile embed --dist "$stage"
 # Fonts and shaders are compiled into wasm; the standalone bootstrap is not used.
 cp "$stage/qni-web.js" "$stage/qni-web_bg.wasm" "$output/"
 cp "$web_dir/embed.mjs" "$output/qni-embed.mjs"
