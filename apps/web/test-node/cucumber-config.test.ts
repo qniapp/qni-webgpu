@@ -90,6 +90,7 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
   assert.deepEqual({
     test: pkg.scripts.test,
     pwLegacy: pkg.scripts['test:pw-legacy'],
+    buildEmbed: pkg.scripts['build:embed'],
     bdd: pkg.scripts['test:bdd'],
     buildBootstrapUsesTs: /tsc bootstrap\.ts/.test(pkg.scripts['build:bootstrap']),
     typecheck: pkg.scripts.typecheck,
@@ -99,8 +100,9 @@ test('package scripts add bdd and keep legacy Playwright as the primary test com
     tsNodeVersionPinned: /^\^\d+/.test(pkg.devDependencies['ts-node']),
     typescriptVersionPinned: /^\^\d+/.test(pkg.devDependencies.typescript),
   }, {
-    test: 'playwright test',
-    pwLegacy: 'playwright test',
+    test: 'pnpm run build:embed && playwright test',
+    pwLegacy: 'pnpm run build:embed && playwright test',
+    buildEmbed: 'bash scripts/build-embed.sh',
     bdd: 'cucumber-js --config cucumber.ts',
     buildBootstrapUsesTs: true,
     typecheck: 'tsc --noEmit',

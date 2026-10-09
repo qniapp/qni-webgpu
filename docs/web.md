@@ -1,5 +1,7 @@
 # web app (Rust)
 
+外部ページへの埋め込みは [WebGPU アプリの埋め込み](web-embed.md) を参照する。
+
 ## Prerequisites
 
 - `rustup target add wasm32-unknown-unknown`

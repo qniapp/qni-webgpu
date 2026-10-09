@@ -1,6 +1,7 @@
 .pnpm-store/
 node_modules/
 dist/
+apps/web/embed-dist/
 # Rust ビルド成果物 (ワークスペース直下・ネストした crate / vendor の両方)
 **/target/
 apps/web/.trunk-generated/
