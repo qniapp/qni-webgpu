@@ -10,6 +10,9 @@
 use eframe::egui;
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 include!(concat!(env!("OUT_DIR"), "/gate_icon_alpha.rs"));
 
 /// Rust から SVG 由来テクスチャで描画する対象のグリフ。
@@ -141,19 +144,26 @@ fn texture_name(glyph: GateGlyph) -> &'static str {
 }
 
 fn texture_id(ctx: &egui::Context, glyph: GateGlyph) -> egui::TextureId {
+    let cache_id = egui::Id::new("qni-glyph-textures");
+    if let Some(id) = ctx.data_mut(|data| {
+        data.get_temp_mut_or_default::<HashMap<GateGlyph, egui::TextureHandle>>(cache_id)
+            .get(&glyph)
+            .map(egui::TextureHandle::id)
+    }) {
+        return id;
+    }
+
+    // load_texture also locks the context, so allocate outside data_mut.
+    let texture = ctx.load_texture(
+        texture_name(glyph),
+        color_image_from_alpha(alpha_rle(glyph)),
+        egui::TextureOptions::LINEAR,
+    );
     ctx.data_mut(|data| {
-        data.get_temp_mut_or_default::<HashMap<GateGlyph, egui::TextureHandle>>(egui::Id::new(
-            "qni-glyph-textures",
-        ))
-        .entry(glyph)
-        .or_insert_with(|| {
-            ctx.load_texture(
-                texture_name(glyph),
-                color_image_from_alpha(alpha_rle(glyph)),
-                egui::TextureOptions::LINEAR,
-            )
-        })
-        .id()
+        data.get_temp_mut_or_default::<HashMap<GateGlyph, egui::TextureHandle>>(cache_id)
+            .entry(glyph)
+            .or_insert(texture)
+            .id()
     })
 }
 
