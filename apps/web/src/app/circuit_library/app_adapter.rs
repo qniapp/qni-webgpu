@@ -3,8 +3,7 @@
 use eframe::egui;
 
 use super::storage::{
-    load_persisted_library_state, persist_library, take_external_library_dirty,
-    PersistedLibraryState,
+    load_persisted_library_state, take_external_library_dirty, PersistedLibraryState,
 };
 use super::test_hooks::{publish_library_snapshot, take_pending_url_payload, take_seeded_library};
 use super::CircuitId;
@@ -17,6 +16,9 @@ impl QniApp {
     }
 
     pub(crate) fn apply_pending_circuit_library_seed(&mut self, ctx: &egui::Context) {
+        if !self.mode.uses_browser_state() {
+            return;
+        }
         if let Some(library) = take_seeded_library() {
             self.library = library;
             let active_json = self.library.active().circuit_json.clone();
@@ -25,6 +27,9 @@ impl QniApp {
     }
 
     pub(crate) fn apply_external_circuit_library_update(&mut self, ctx: &egui::Context) {
+        if !self.mode.uses_browser_state() {
+            return;
+        }
         if !take_external_library_dirty() {
             return;
         }
@@ -36,27 +41,37 @@ impl QniApp {
     }
 
     pub(crate) fn apply_pending_url_payload(&mut self, ctx: &egui::Context) {
+        if !self.mode.uses_browser_state() {
+            return;
+        }
         if let Some(payload) = take_pending_url_payload() {
             self.apply_url_payload(payload, ctx);
         }
     }
 
     pub(crate) fn publish_circuit_library_snapshot(&self) {
-        publish_library_snapshot(&self.library);
+        if self.mode.uses_browser_state() {
+            publish_library_snapshot(&self.library);
+        }
     }
 
     pub(crate) fn select_circuit_entry(&mut self, index: usize, ctx: &egui::Context) {
+        if let Some(entry) = self.library.entries.get(index) {
+            if !self.accepts_circuit_json(&entry.circuit_json) {
+                return;
+            }
+        }
         let circuit_json = self.library.set_active_index(index).circuit_json.clone();
         self.picker.close();
         self.load_selected_circuit(circuit_json, ctx);
-        persist_library(&self.library);
+        self.persist_library();
     }
 
     pub(crate) fn create_new_circuit(&mut self, ctx: &egui::Context) {
         let circuit_json = self.library.create_new().circuit_json.clone();
         self.picker.close();
         self.load_selected_circuit(circuit_json, ctx);
-        persist_library(&self.library);
+        self.persist_library();
     }
 
     pub(crate) fn duplicate_circuit_entry(&mut self, index: usize, ctx: &egui::Context) {
@@ -66,7 +81,7 @@ impl QniApp {
             self.picker.set_focused_index(focused_index);
             self.suppress_picker_hover_until_pointer_moves(ctx);
             self.load_selected_circuit(circuit_json, ctx);
-            persist_library(&self.library);
+            self.persist_library();
         }
         self.picker.close_submenu();
     }
@@ -76,12 +91,12 @@ impl QniApp {
         let circuit_json = self.library.active().circuit_json.clone();
         self.picker.close();
         self.load_selected_circuit(circuit_json, ctx);
-        persist_library(&self.library);
+        self.persist_library();
     }
 
     pub(crate) fn toggle_circuit_lock(&mut self) {
         if self.library.toggle_active_lock() {
-            persist_library(&self.library);
+            self.persist_library();
         }
     }
 
@@ -98,7 +113,7 @@ impl QniApp {
             self.picker.set_focused_index(focused_index);
         }
         self.suppress_picker_hover_until_pointer_moves(ctx);
-        persist_library(&self.library);
+        self.persist_library();
         self.picker.close_submenu();
     }
 
@@ -115,7 +130,7 @@ impl QniApp {
             self.picker.set_focused_index(focused_index);
         }
         self.suppress_picker_hover_until_pointer_moves(ctx);
-        persist_library(&self.library);
+        self.persist_library();
         self.picker.close_submenu();
     }
 
@@ -129,7 +144,7 @@ impl QniApp {
                 let circuit_json = self.library.active().circuit_json.clone();
                 self.load_selected_circuit(circuit_json, ctx);
             }
-            persist_library(&self.library);
+            self.persist_library();
         }
         self.picker.close_submenu();
     }
@@ -169,7 +184,7 @@ impl QniApp {
 
     pub(crate) fn commit_circuit_rename(&mut self, entry_id: &CircuitId, next_name: String) {
         self.library.rename(entry_id, &next_name);
-        persist_library(&self.library);
+        self.persist_library();
         self.picker.finish_rename();
     }
 
@@ -179,7 +194,10 @@ impl QniApp {
     }
 
     fn load_selected_circuit(&mut self, circuit_json: String, ctx: &egui::Context) {
+        if !self.accepts_circuit_json(&circuit_json) {
+            return;
+        }
         self.replace_editor_circuit(circuit_json.clone(), ctx);
-        crate::url_circuit::write_circuit_to_url(&circuit_json);
+        self.write_circuit_to_url(&circuit_json);
     }
 }

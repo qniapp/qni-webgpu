@@ -42,40 +42,156 @@ mod web_backend_tests {
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+/// Owns one canvas runner. Call `destroy` before removing its canvas.
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
+#[wasm_bindgen]
+pub struct QniRunner {
+    runner: eframe::WebRunner,
+    render_state: eframe::egui_wgpu::RenderState,
+}
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
-    let window =
-        web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window not found"))?;
-    let document = window
-        .document()
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str("document not found"))?;
-    let canvas = document
-        .get_element_by_id(canvas_id)
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str("canvas not found"))?
-        .dyn_into::<web_sys::HtmlCanvasElement>()?;
+impl QniRunner {
+    pub fn destroy(&self) {
+        self.runner.destroy();
+    }
 
-    crate::test_hooks::set_startup_stage("runner-start");
+    /// Current committed circuit metadata, scoped to this editor. No GPU readback.
+    pub fn circuit_json(&self) -> Result<String, JsValue> {
+        self.runner
+            .app_mut::<QniApp>()
+            .map(|app| app.library.active().circuit_json.clone())
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
+    }
+
+    /// Test-only, on-demand readback of this runner, never another canvas.
+    pub async fn read_state_vector(&self) -> Result<js_sys::Float32Array, JsValue> {
+        gpu::read_runner_state_vector(&self.render_state).await
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static SHARED_GPU: std::cell::RefCell<Option<eframe::egui_wgpu::WgpuSetupExisting>> = const { std::cell::RefCell::new(None) };
+}
+
+// embed.mjs serializes startup, including failed attempts, so concurrent
+// elements cannot race this asynchronous one-device initialization.
+#[cfg(target_arch = "wasm32")]
+async fn shared_gpu_setup() -> Result<eframe::egui_wgpu::WgpuSetup, JsValue> {
+    if let Some(existing) = SHARED_GPU.with(|slot| slot.borrow().clone()) {
+        return Ok(existing.into());
+    }
+    let setup = web_wgpu_setup();
+    let instance = setup.new_instance().await;
+    let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = setup else {
+        unreachable!()
+    };
+    let adapter = instance
+        .request_adapter(&eframe::wgpu::RequestAdapterOptions {
+            power_preference: create.power_preference,
+            ..Default::default()
+        })
+        .await
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let (device, queue) = adapter
+        .request_device(&(create.device_descriptor)(&adapter))
+        .await
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    device.set_device_lost_callback(|reason, message| {
+        SHARED_GPU.with(|slot| *slot.borrow_mut() = None);
+        web_sys::console::error_1(&JsValue::from_str(&format!(
+            "Qni shared GPU device lost: {reason:?}: {message}"
+        )));
+        if let (Some(window), Ok(event)) =
+            (web_sys::window(), web_sys::Event::new("qni-device-lost"))
+        {
+            let _ = window.dispatch_event(&event);
+        }
+    });
+    let existing = eframe::egui_wgpu::WgpuSetupExisting {
+        instance,
+        adapter,
+        device,
+        queue,
+    };
+    SHARED_GPU.with(|slot| *slot.borrow_mut() = Some(existing.clone()));
+    Ok(existing.into())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn start(canvas: web_sys::HtmlCanvasElement) -> Result<QniRunner, JsValue> {
+    start_runner(canvas, None).await
+}
+
+/// Starts an isolated, local-WebGPU-only editor without URL or browser storage.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn start_embed(
+    canvas: web_sys::HtmlCanvasElement,
+    circuit_json: &str,
+    show_state_panel: bool,
+) -> Result<QniRunner, JsValue> {
+    let startup =
+        app::EmbedStartup::parse(circuit_json, show_state_panel).map_err(JsValue::from_str)?;
+    start_runner(canvas, Some(startup)).await
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn start_runner(
+    canvas: web_sys::HtmlCanvasElement,
+    embed: Option<app::EmbedStartup>,
+) -> Result<QniRunner, JsValue> {
+    let standalone = embed.is_none();
+    if standalone {
+        crate::test_hooks::set_startup_stage("runner-start");
+    }
+    let setup = if standalone {
+        web_wgpu_setup()
+    } else {
+        shared_gpu_setup().await?
+    };
+    let render_state = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_render_state = render_state.clone();
     let web_options = eframe::WebOptions {
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
-            wgpu_setup: web_wgpu_setup(),
+            wgpu_setup: setup,
             ..Default::default()
         },
         ..Default::default()
     };
-    eframe::WebRunner::new()
+    let runner = eframe::WebRunner::new();
+    let result = runner
         .start(
             canvas,
             web_options,
-            Box::new(|cc| {
-                crate::test_hooks::set_startup_stage("app-new");
-                Ok(Box::new(QniApp::new(cc)))
+            Box::new(move |cc| {
+                *captured_render_state.borrow_mut() = cc.wgpu_render_state.clone();
+                if standalone {
+                    crate::test_hooks::set_startup_stage("app-new");
+                }
+                Ok(Box::new(match embed {
+                    Some(startup) => QniApp::new_with_startup(cc, Some(startup)),
+                    None => QniApp::new(cc),
+                }))
             }),
         )
-        .await
+        .await;
+    if let Err(error) = result {
+        runner.destroy();
+        return Err(error);
+    }
+    let Some(render_state) = render_state.borrow_mut().take() else {
+        runner.destroy();
+        return Err(JsValue::from_str("WebGPU render state missing"));
+    };
+    Ok(QniRunner {
+        runner,
+        render_state,
+    })
 }
 
 #[cfg(target_arch = "wasm32")]

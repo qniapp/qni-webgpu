@@ -11,7 +11,6 @@ members = ["crates/circuit-library-model", "crates/external-gpu-model"]
 resolver = "2"
 
 [dependencies]
-eframe = { version = "0.35.0", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 # Used to rasterize the measurement gate digits ("0" / "1") into a GPU
 # texture so the WGSL fragment shader can sample the same Geist Bold glyphs
 # egui paints for |0> / |1>. Done once at startup (no per-frame readback).
@@ -27,7 +26,15 @@ tracing = "0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wgpu = { version = "29.0.4", default-features = false, features = ["webgpu"] }
-web-sys = { version = "0.3", features = ["console", "Document", "HtmlCanvasElement", "History", "Location", "Storage", "Window"] }
+web-sys = { version = "0.3", features = ["console", "Document", "Event", "EventTarget", "HtmlCanvasElement", "History", "Location", "Storage", "Window"] }
+
+# Both browser entry points require WebGPU and register their own complete fonts.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+eframe = { version = "0.35.0", default-features = false, features = ["wgpu_no_default_features", "web_screen_reader"] }
+
+# Preserve the original graphics/font feature graph outside the browser target.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+eframe = { version = "0.35.0", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 
 [dev-dependencies]
 insta = "1.47"
@@ -38,3 +45,11 @@ winit = { version = "0.30.13", default-features = false, features = ["x11", "rwh
 
 [build-dependencies]
 png = "0.18"
+
+# Size-focused delivery profile, leaving the standalone release profile unchanged.
+[profile.embed]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = true

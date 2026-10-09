@@ -6,6 +6,9 @@ use eframe::egui;
 
 impl QniApp {
     pub(crate) fn start_external_gpu_run(&mut self, ctx: &egui::Context) {
+        if !self.mode.uses_browser_state() {
+            return;
+        }
         let input = CircuitInput {
             gates: &self.placed_gates,
             qubits: self.external_execution_qubits(),

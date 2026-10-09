@@ -1,6 +1,10 @@
 [build]
 filehash = false
 
+# Do not silently select an older system/Python Binaryen from PATH.
+[tools]
+wasm_opt = "version_123"
+
 [watch]
 watch = ["bootstrap.ts"]
 

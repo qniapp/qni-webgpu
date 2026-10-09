@@ -11,7 +11,7 @@ type QniWebModule = {
   read_density_matrix_cell: (gateId: number, row: number, col: number) => Promise<ArrayLike<number>>
   read_probability_distributions: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
-  start: (canvasId: string) => Promise<void>
+  start: (canvas: HTMLCanvasElement) => Promise<{ destroy: () => void }>
 }
 
 declare global {
@@ -319,7 +319,8 @@ const run = async (): Promise<void> => {
     }, { capture: true })
     // 起動完了フラグ (`__eguiReady`) は Rust 側が最初のフレーム描画後に立てる。
     // ここで立てると eframe がイベントリスナを張る前になり、入力が失われる。
-    const promise = start('egui-canvas')
+    if (!canvas) throw new Error('canvas not found')
+    const promise = start(canvas)
     watchStartup()
     promise
       .then(() => {

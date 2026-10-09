@@ -8,7 +8,6 @@
 use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;
-use std::cell::RefCell;
 use std::collections::HashMap;
 
 use wgpu::util::DeviceExt;
@@ -104,18 +103,15 @@ struct SdfIconCallback {
     target_format: wgpu::TextureFormat,
 }
 
-thread_local! {
-    static SDF_TARGET_FORMAT: RefCell<Option<wgpu::TextureFormat>> = const { RefCell::new(None) };
+pub(crate) fn set_target_format(ctx: &egui::Context, target_format: Option<wgpu::TextureFormat>) {
+    ctx.data_mut(|data| data.insert_temp(egui::Id::new("qni-sdf-format"), target_format));
 }
 
-pub(crate) fn set_target_format(target_format: Option<wgpu::TextureFormat>) {
-    SDF_TARGET_FORMAT.with(|slot| {
-        *slot.borrow_mut() = target_format;
-    });
-}
-
-fn current_target_format() -> Option<wgpu::TextureFormat> {
-    SDF_TARGET_FORMAT.with(|slot| *slot.borrow())
+fn current_target_format(ctx: &egui::Context) -> Option<wgpu::TextureFormat> {
+    ctx.data(|data| {
+        data.get_temp::<Option<wgpu::TextureFormat>>(egui::Id::new("qni-sdf-format"))
+            .flatten()
+    })
 }
 
 fn sdf_texture_name(glyph: GateGlyph) -> &'static str {
@@ -426,7 +422,7 @@ pub(super) fn draw_glyph(
     color: egui::Color32,
     glyph: GateGlyph,
 ) -> bool {
-    let Some(target_format) = current_target_format() else {
+    let Some(target_format) = current_target_format(painter.ctx()) else {
         return false;
     };
     let callback = SdfIconCallback {
@@ -437,4 +433,25 @@ pub(super) fn draw_glyph(
     let paint_callback = egui_wgpu::Callback::new_paint_callback(rect, callback);
     painter.add(egui::Shape::Callback(paint_callback));
     true
+}
+
+#[cfg(test)]
+mod context_tests {
+    #[test]
+    fn surface_formats_do_not_leak_between_editors() {
+        let first = eframe::egui::Context::default();
+        let second = eframe::egui::Context::default();
+        super::set_target_format(&first, Some(eframe::wgpu::TextureFormat::Bgra8Unorm));
+        super::set_target_format(&second, Some(eframe::wgpu::TextureFormat::Rgba8Unorm));
+        assert_eq!(
+            (
+                super::current_target_format(&first),
+                super::current_target_format(&second)
+            ),
+            (
+                Some(eframe::wgpu::TextureFormat::Bgra8Unorm),
+                Some(eframe::wgpu::TextureFormat::Rgba8Unorm)
+            )
+        );
+    }
 }

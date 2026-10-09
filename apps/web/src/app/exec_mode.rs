@@ -55,6 +55,9 @@ pub(crate) fn exec_mode_after_key(
 
 impl QniApp {
     pub(crate) fn show_exec_mode_toggle(&mut self, ui: &mut egui::Ui, colors: &Colors) {
+        if !self.mode.uses_browser_state() {
+            return;
+        }
         let previous_mode = self.exec_mode;
         let local_available = self.local_exec_mode_available();
         ui.add(ExecModeToggle {
@@ -64,7 +67,7 @@ impl QniApp {
             colors,
         });
         if self.exec_mode != previous_mode {
-            crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
+            self.write_exec_mode_to_url();
             self.update_qubit_count();
             if self.exec_mode == ExecMode::Local {
                 self.external_gpu

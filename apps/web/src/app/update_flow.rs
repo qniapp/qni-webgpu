@@ -83,9 +83,19 @@ impl QniApp {
 }
 
 impl eframe::App for QniApp {
+    #[cfg(target_arch = "wasm32")]
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        self.mode.uses_browser_state()
+    }
+
     fn ui(&mut self, root_ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = &root_ui.ctx().clone();
         crate::icons::set_sdf_target_format(
+            ctx,
             frame.wgpu_render_state().map(|state| state.target_format),
         );
         let frame_start = now_seconds();

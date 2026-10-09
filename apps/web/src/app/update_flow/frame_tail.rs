@@ -21,8 +21,10 @@ impl QniApp {
 
         self.process_fps_hud(ctx, frame_secs);
         self.publish_circuit_library_snapshot();
-        self.publish_hover_snapshot();
-        crate::test_hooks::mark_egui_ready();
+        if self.mode.uses_browser_state() {
+            self.publish_hover_snapshot();
+            crate::test_hooks::mark_egui_ready();
+        }
     }
 
     fn publish_hover_snapshot(&self) {

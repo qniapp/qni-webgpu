@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "test": "playwright test",
-    "test:pw-legacy": "playwright test",
+    "build:embed": "bash scripts/build-embed.sh",
+    "test": "pnpm run build:embed && playwright test",
+    "test:pw-legacy": "pnpm run build:embed && playwright test",
     "test:bdd": "cucumber-js --config cucumber.ts",
     "build:bootstrap": "tsc bootstrap.ts --ignoreConfig --target ES2022 --module ES2022 --strict --skipLibCheck --lib ES2022,DOM,DOM.Iterable --outDir .trunk-generated --declaration false --sourceMap false",
     "generate:ui-constants": "node -r ts-node/register/transpile-only scripts/generate-ui-constants.ts",
     "check:ui-constants": "node -r ts-node/register/transpile-only scripts/generate-ui-constants.ts --check",
     "typecheck": "tsc --noEmit",
-    "test:preflight": "pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts",
+    "test:preflight": "node --test test-node/embed-loader.test.mjs && pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts",
     "test:gpu": "node -r ts-node/register/transpile-only --test --test-concurrency=1 test-gpu/*.test.ts"
   },
   "devDependencies": {
