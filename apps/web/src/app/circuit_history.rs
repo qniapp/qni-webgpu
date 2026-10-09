@@ -10,7 +10,6 @@
 
 use eframe::egui;
 
-use super::circuit_library::persist_library;
 use super::{ExecMode, QniApp};
 use crate::qubit_count::QubitCount;
 
@@ -91,13 +90,16 @@ impl QniApp {
 
     pub(crate) fn commit_current_circuit_unchecked(&mut self, ctx: &egui::Context) -> bool {
         let json = self.current_circuit_json();
+        if !self.accepts_circuit_json(&json) {
+            return false;
+        }
         if !self.circuit_revision.commit(json.clone()) {
             ctx.request_repaint();
             return false;
         }
         self.library.update_active_unchecked(json.clone());
-        persist_library(&self.library);
-        crate::url_circuit::write_circuit_to_url(&json);
+        self.persist_library();
+        self.write_circuit_to_url(&json);
         self.external_gpu
             .invalidate(super::external_gpu::Invalidation::CircuitChanged);
         ctx.request_repaint();
@@ -131,8 +133,11 @@ impl QniApp {
     }
 
     pub(crate) fn apply_url_payload(&mut self, json: String, ctx: &egui::Context) -> bool {
+        if !self.mode.uses_browser_state() {
+            return false;
+        }
         if self.library.active_locked() {
-            crate::url_circuit::write_circuit_to_url(&self.library.active().circuit_json);
+            self.write_circuit_to_url(&self.library.active().circuit_json);
             return false;
         }
         self.circuit_revision = CircuitRevision::starting_at(json.clone());
@@ -153,14 +158,20 @@ impl QniApp {
         json: &str,
         ctx: &egui::Context,
     ) {
+        if !self.accepts_circuit_json(json) {
+            return;
+        }
         self.load_circuit_json_into_editor(json, ctx);
         self.library.update_active_unchecked(json.to_owned());
-        persist_library(&self.library);
-        crate::url_circuit::write_circuit_to_url(json);
+        self.persist_library();
+        self.write_circuit_to_url(json);
         ctx.request_repaint();
     }
 
     pub(crate) fn load_circuit_json_into_editor(&mut self, json: &str, ctx: &egui::Context) {
+        if !self.accepts_circuit_json(json) {
+            return;
+        }
         let previous_exec_mode = self.exec_mode;
         let (gates, gate_ids) = crate::url_circuit::parse_circuit_json(json);
         self.placed_gates = gates;
@@ -173,7 +184,7 @@ impl QniApp {
             self.exec_mode = ExecMode::Gpu;
         }
         if self.exec_mode != previous_exec_mode {
-            crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
+            self.write_exec_mode_to_url();
         }
         self.update_qubit_count();
         self.dragging = None;

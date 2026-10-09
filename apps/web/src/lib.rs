@@ -42,23 +42,50 @@ mod web_backend_tests {
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+/// Owns one canvas runner. Call `destroy` before removing its canvas.
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
+#[wasm_bindgen]
+pub struct QniRunner {
+    runner: eframe::WebRunner,
+}
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
-    let window =
-        web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window not found"))?;
-    let document = window
-        .document()
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str("document not found"))?;
-    let canvas = document
-        .get_element_by_id(canvas_id)
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str("canvas not found"))?
-        .dyn_into::<web_sys::HtmlCanvasElement>()?;
+impl QniRunner {
+    pub fn destroy(&self) {
+        self.runner.destroy();
+    }
+}
 
-    crate::test_hooks::set_startup_stage("runner-start");
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn start(canvas: web_sys::HtmlCanvasElement) -> Result<QniRunner, JsValue> {
+    start_runner(canvas, None).await
+}
+
+/// Starts an isolated, local-WebGPU-only editor without URL or browser storage.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn start_embed(
+    canvas: web_sys::HtmlCanvasElement,
+    circuit_json: &str,
+    show_state_panel: bool,
+) -> Result<QniRunner, JsValue> {
+    let startup =
+        app::EmbedStartup::parse(circuit_json, show_state_panel).map_err(JsValue::from_str)?;
+    start_runner(canvas, Some(startup)).await
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn start_runner(
+    canvas: web_sys::HtmlCanvasElement,
+    embed: Option<app::EmbedStartup>,
+) -> Result<QniRunner, JsValue> {
+    let standalone = embed.is_none();
+    if standalone {
+        crate::test_hooks::set_startup_stage("runner-start");
+    }
     let web_options = eframe::WebOptions {
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
             wgpu_setup: web_wgpu_setup(),
@@ -66,16 +93,27 @@ pub async fn start(canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
         },
         ..Default::default()
     };
-    eframe::WebRunner::new()
+    let runner = eframe::WebRunner::new();
+    let result = runner
         .start(
             canvas,
             web_options,
-            Box::new(|cc| {
-                crate::test_hooks::set_startup_stage("app-new");
-                Ok(Box::new(QniApp::new(cc)))
+            Box::new(move |cc| {
+                if standalone {
+                    crate::test_hooks::set_startup_stage("app-new");
+                }
+                Ok(Box::new(match embed {
+                    Some(startup) => QniApp::new_with_startup(cc, Some(startup)),
+                    None => QniApp::new(cc),
+                }))
             }),
         )
-        .await
+        .await;
+    if let Err(error) = result {
+        runner.destroy();
+        return Err(error);
+    }
+    Ok(QniRunner { runner })
 }
 
 #[cfg(target_arch = "wasm32")]

@@ -22,7 +22,9 @@ enum ToolbarIcon {
 
 impl QniApp {
     pub(crate) fn show_exec_mode_toolbar(&mut self, ctx: &egui::Context, colors: &Colors) {
-        self.poll_external_gpu_run(ctx);
+        if self.mode.uses_browser_state() {
+            self.poll_external_gpu_run(ctx);
+        }
         let viewport = ctx.content_rect();
         egui::Area::new(egui::Id::new("exec_mode_toolbar"))
             .order(egui::Order::Foreground)
@@ -34,7 +36,9 @@ impl QniApp {
                     ui.set_min_height(32.0); // h-8 = 32px content row.
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0); // gap-2 = 8px.
-                        self.show_circuit_picker(ui, colors, ctx);
+                        if self.mode.uses_browser_state() {
+                            self.show_circuit_picker(ui, colors, ctx);
+                        }
                         self.show_edit_utilities(ui, colors, ctx);
                         if self.exec_mode == ExecMode::Gpu {
                             paint_toolbar_divider(ui, colors);
@@ -100,6 +104,9 @@ impl QniApp {
             self.gpu_plan.mark_dirty();
             self.external_gpu.note_clear_requested();
             self.commit_current_circuit(ctx);
+        }
+        if !self.mode.uses_browser_state() {
+            return;
         }
         if icon_button(
             ui,
