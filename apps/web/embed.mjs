@@ -10,13 +10,23 @@ let initialization
  * @returns {Promise<{destroy(): void}>}
  */
 export async function startEmbed(canvas, circuit, { showStatePanel = true } = {}) {
-  initialization ??= init({ module_or_path: new URL('./qni-web_bg.wasm', import.meta.url) })
-    .catch(error => {
-      initialization = undefined
-      throw error
-    })
+  if (!initialization) {
+    performance.mark('qni:wasm-fetch-start')
+    initialization = init({ module_or_path: new URL('./qni-web_bg.wasm', import.meta.url) })
+      .then(value => {
+        performance.mark('qni:wasm-instantiated')
+        performance.measure('qni:wasm-init', 'qni:wasm-fetch-start', 'qni:wasm-instantiated')
+        return value
+      })
+      .catch(error => {
+        initialization = undefined
+        throw error
+      })
+  }
   await initialization
+  performance.mark('qni:runner-start')
   const runner = await start_embed(canvas, circuit, showStatePanel)
+  performance.mark('qni:runner-started')
   let destroyed = false
   return {
     destroy() {
