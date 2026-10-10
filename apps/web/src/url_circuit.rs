@@ -30,6 +30,8 @@
 //!   ◦            — anti-control (U+25E6)
 //!   |0> |1>      — write gates (literal ASCII as in qni)
 //!   Measure      — measurement gate
+//!   Measure>a    - measurement that stores its outcome in variable `a`
+//!   X<a          - applied only when variable `a` is 1 (H X Y Z X^½ S S† T T†)
 //!   Bloch        — Bloch sphere display
 //!   …            — spacer ellipsis
 //!   Probability       — 1-qubit Probability display

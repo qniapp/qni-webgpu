@@ -19,6 +19,14 @@ pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.5; // Prototyp
                                                                      // the midpoint between the previous too-low +2px inset and too-high -2px gap.
 const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
 const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
+// qni styles measurement variable / condition labels with `font-mono
+// tracking-tighter text-xs` (`.operation-flaggable` / `.operation-ifable`):
+// tracking-tighter = -0.05em = -0.6px at 12px.
+const FLAG_LABEL_TRACKING: f32 = -0.6;
+// qni joins `if` and the flag name with U+2009. The monospace font advances
+// a thin space by a full cell, so paint the two runs apart instead: a 12px
+// thin space (1/5 em = 2.4px) minus the -0.6px tracking.
+const FLAG_LABEL_IF_GAP: f32 = 1.8;
 const ANGLE_LABEL_OUTLINE_OFFSETS: [(f32, f32); 8] = [
     (1.0, 1.0),
     (-1.0, -1.0),
@@ -88,6 +96,117 @@ pub(super) fn draw_phase_connectors_and_labels(
         circuit_origin,
         dragging_gate_id,
     );
+    draw_flag_labels(
+        app,
+        &render_columns,
+        painter,
+        metrics,
+        colors,
+        circuit_origin,
+        dragging_gate_id,
+    );
+}
+
+fn draw_flag_labels(
+    app: &QniApp,
+    render_columns: &ColumnAnalysis<'_>,
+    painter: &egui::Painter,
+    metrics: &LayoutMetrics,
+    colors: &Colors,
+    circuit_origin: egui::Pos2,
+    dragging_gate_id: Option<GateId>,
+) {
+    // `aliceX` above `Measure>aliceX` and `if aliceX` above `X<aliceX`, with
+    // the same top / outlined top / bottom placement rules as angle labels.
+    for gate in &app.placed_gates {
+        let Some(label) = flag_label_info(
+            gate,
+            render_columns,
+            metrics,
+            circuit_origin,
+            dragging_gate_id,
+        ) else {
+            continue;
+        };
+        draw_flag_label(painter, &label, colors);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct FlagLabelInfo {
+    prefix: Option<&'static str>,
+    name: String,
+    pos: egui::Pos2,
+    align: egui::Align2,
+    above_gate: bool,
+    outline_with_background: bool,
+}
+
+fn flag_label_info(
+    gate: &PlacedGate,
+    render_columns: &ColumnAnalysis<'_>,
+    metrics: &LayoutMetrics,
+    circuit_origin: egui::Pos2,
+    dragging_gate_id: Option<GateId>,
+) -> Option<FlagLabelInfo> {
+    let flag = gate.flag.as_ref()?;
+    let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    // A measurement never joins a control connector (qni measurements are not
+    // controllable), so its label always sits on top.
+    let connection_sides = if gate.kind == GateKind::Measurement {
+        ConnectionSides::default()
+    } else {
+        phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+            .map(|column| control_connection_sides(column, gate))
+            .unwrap_or_default()
+    };
+    let layout = angle_label_layout(connection_sides);
+    // qni's `-mt-3.5 leading-3` leaves 4px between the label ink and the
+    // gate; the angle label anchor already lands the egui galley there.
+    let (pos, align) = angle_label_position(center, layout);
+    Some(FlagLabelInfo {
+        prefix: flag.label_prefix(),
+        name: flag.name().as_str().to_owned(),
+        pos,
+        align,
+        above_gate: layout.above_gate,
+        outline_with_background: layout.outline_with_background,
+    })
+}
+
+fn draw_flag_label(painter: &egui::Painter, label: &FlagLabelInfo, colors: &Colors) {
+    let layout = |text: &str, color: egui::Color32| {
+        painter.layout_job(egui::text::LayoutJob::single_section(
+            text.to_owned(),
+            egui::TextFormat {
+                // text-xs (12 px), the same font as the angle labels.
+                font_id: egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE),
+                extra_letter_spacing: FLAG_LABEL_TRACKING,
+                color,
+                ..Default::default()
+            },
+        ))
+    };
+    let mut passes = Vec::new();
+    if label.outline_with_background {
+        passes.extend(
+            ANGLE_LABEL_OUTLINE_OFFSETS.map(|(dx, dy)| (egui::vec2(dx, dy), colors.background)),
+        );
+    }
+    passes.push((egui::Vec2::ZERO, colors.text_strong));
+    for (offset, color) in passes {
+        let prefix = label.prefix.map(|prefix| layout(prefix, color));
+        let name = layout(&label.name, color);
+        let prefix_width = prefix
+            .as_ref()
+            .map_or(0.0, |prefix| prefix.size().x + FLAG_LABEL_IF_GAP);
+        let size = egui::vec2(prefix_width + name.size().x, name.size().y);
+        let rect = label.align.anchor_size(label.pos + offset, size);
+        if let Some(prefix) = prefix {
+            painter.galley(rect.min, prefix, color);
+        }
+        painter.galley(rect.min + egui::vec2(prefix_width, 0.0), name, color);
+    }
 }
 
 fn draw_phase_phase_connectors(
@@ -608,5 +727,63 @@ mod tests {
         });
 
         assert_eq!(angle_label_position(gate_center, layout).0.y, 60.0);
+    }
+
+    fn flagged_column(json: &str) -> Vec<PlacedGate> {
+        crate::url_circuit::parse_circuit_json(json).gates
+    }
+
+    fn flag_label(gates: &[PlacedGate], index: usize) -> Option<FlagLabelInfo> {
+        let metrics = crate::layout::layout_metrics(800.0, 3, 4);
+        let analysis = ColumnAnalysis::from_gates(gates, |gate| Some(gate.column.as_usize()));
+        flag_label_info(&gates[index], &analysis, &metrics, egui::Pos2::ZERO, None)
+    }
+
+    #[test]
+    fn measurement_flag_label_shows_the_flag_name() {
+        let gates = flagged_column(r#"{"cols":[["Measure>aliceX"]]}"#);
+
+        assert_eq!(
+            flag_label(&gates, 0).map(|label| label.name),
+            Some("aliceX".to_owned())
+        );
+    }
+
+    #[test]
+    fn flag_label_shares_the_angle_label_anchor() {
+        let gates = flagged_column(r#"{"cols":[["X<aliceX"]]}"#);
+        let gate_top = gates[0].pos.y;
+
+        assert_eq!(
+            flag_label(&gates, 0).map(|label| label.pos.y),
+            Some(gate_top)
+        );
+    }
+
+    #[test]
+    fn bottom_target_flag_label_moves_below_the_gate() {
+        let gates = flagged_column(r#"{"cols":[["•","X<a"]]}"#);
+
+        assert_eq!(
+            flag_label(&gates, 1).map(|label| label.above_gate),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn measurement_flag_label_ignores_column_controls() {
+        let gates = flagged_column(r#"{"cols":[["•","Measure>a"]]}"#);
+
+        assert_eq!(
+            flag_label(&gates, 1).map(|label| label.above_gate),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn plain_gate_has_no_flag_label() {
+        let gates = flagged_column(r#"{"cols":[["X"]]}"#);
+
+        assert_eq!(flag_label(&gates, 0), None);
     }
 }

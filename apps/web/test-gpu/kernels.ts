@@ -2,7 +2,7 @@ export const kernels = {
   state_compute: {
     uniform: 'GateParams',
     wgsl: 'GateParams',
-    bindings: ['stateA:r', 'stateB:rw', 'uniform:u'],
+    bindings: ['stateA:r', 'stateB:rw', 'uniform:u', 'measurement:r'],
     workgroup: 64,
   },
   measure_reduce: {
@@ -83,6 +83,7 @@ export const bindingTypes: Record<string, string> = {
 }
 export type Kernel = keyof typeof kernels
 export const constants = {
+  state_compute: { UNCONDITIONAL: 'GATE_UNCONDITIONAL' },
   probability_reduce: { MAX_PROBABILITY_OUTCOMES: 'MAX_PROBABILITY_OUTCOMES' },
   probability_normalize: { MAX_PROBABILITY_OUTCOMES: 'MAX_PROBABILITY_OUTCOMES' },
   probability_aggregate: {

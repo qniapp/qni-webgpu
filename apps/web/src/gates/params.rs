@@ -2,6 +2,7 @@
 
 use super::ColumnControls;
 use super::GateKind;
+use crate::gpu::{Measurement, SlotIndex};
 use crate::qubit_bit::QubitBit;
 
 #[derive(Clone, Copy, Debug)]
@@ -153,7 +154,25 @@ pub(crate) struct GateParams {
     control_mask: u32,
     control_value: u32,
     mode: u32,
-    _pad: [u32; 3],
+    /// Measurement aux slot whose sampled outcome must be 1 for the gate to
+    /// apply (qni `X<name`), or `GATE_UNCONDITIONAL`.
+    condition_slot: u32,
+    _pad: [u32; 2],
+}
+
+/// `GateParams::condition_slot` sentinel (`u32::MAX`): apply the gate
+/// unconditionally. Written as a literal so the GPU kernel contract test can
+/// match it against the WGSL constant.
+pub(crate) const GATE_UNCONDITIONAL: u32 = 4294967295;
+
+impl GateParams {
+    /// Apply this gate only when the measurement sampled into `slot` is 1.
+    /// The GPU reads the outcome straight from the measurement aux buffer;
+    /// the CPU never sees it.
+    pub(crate) fn conditioned_on(mut self, slot: SlotIndex<Measurement>) -> Self {
+        self.condition_slot = slot.as_u32();
+        self
+    }
 }
 
 #[cfg(test)]
@@ -172,6 +191,10 @@ impl GateParams {
 
     pub(crate) fn control_value(self) -> u32 {
         self.control_value
+    }
+
+    pub(crate) fn condition_slot(self) -> u32 {
+        self.condition_slot
     }
 }
 
@@ -195,7 +218,8 @@ pub(crate) fn gate_params(kind: GateKind, bit: QubitBit, state_count: u32) -> Ga
         control_mask: 0,
         control_value: 0,
         mode: gate_mode(kind),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }
 
@@ -216,7 +240,8 @@ pub(crate) fn gate_params_controlled(
         control_mask: controls.mask(),
         control_value: controls.value(),
         mode: gate_mode(kind),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }
 
@@ -241,7 +266,8 @@ pub(crate) fn phase_params(
         control_mask: controls.mask(),
         control_value: controls.value(),
         mode: gate_mode(GateKind::Phase),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }
 
@@ -268,7 +294,8 @@ pub(crate) fn rx_params(
         control_mask: controls.mask(),
         control_value: controls.value(),
         mode: gate_mode(GateKind::Rx),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }
 
@@ -293,7 +320,8 @@ pub(crate) fn ry_params(
         control_mask: controls.mask(),
         control_value: controls.value(),
         mode: gate_mode(GateKind::Ry),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }
 
@@ -317,6 +345,7 @@ pub(crate) fn rz_params(
         control_mask: controls.mask(),
         control_value: controls.value(),
         mode: gate_mode(GateKind::Rz),
-        _pad: [0; 3],
+        condition_slot: GATE_UNCONDITIONAL,
+        _pad: [0; 2],
     }
 }

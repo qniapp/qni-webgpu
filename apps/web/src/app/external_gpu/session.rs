@@ -101,7 +101,19 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
     )
 }
 
-fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<&'static str> {
+fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<String> {
+    // The Qiskit backend has no classical flags: qni measurement variables
+    // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
+    if let Some((gate, flag)) = placed_gates
+        .iter()
+        .find_map(|gate| gate.flag.as_ref().map(|flag| (gate, flag)))
+    {
+        return Some(format!(
+            "{}{}",
+            gate.kind.spec().url_token,
+            flag.token_suffix()
+        ));
+    }
     let max_column = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize())
@@ -134,7 +146,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         }
         if has_control {
             if let Some(label) = unsupported_controlled_target {
-                return Some(label);
+                return Some(label.to_owned());
             }
         }
     }
@@ -319,7 +331,7 @@ impl ExternalGpuSession {
         if let Some(gate_name) = unsupported_external_gpu_gate_for_gates(input.gates) {
             self.acceptance = Acceptance::Closed;
             self.presentation.status =
-                ExternalGpuStatus::Failed(GpuFailure::UnsupportedGate(gate_name.to_owned()));
+                ExternalGpuStatus::Failed(GpuFailure::UnsupportedGate(gate_name));
             return true;
         }
 
@@ -1010,5 +1022,29 @@ mod gate_tests {
         ];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    fn flagged_gates(json: &str) -> Vec<PlacedGate> {
+        crate::url_circuit::parse_circuit_json(json).gates
+    }
+
+    #[test]
+    fn external_gpu_rejects_measurement_variables() {
+        let gates = flagged_gates(r#"{"cols":[["H"],["Measure>aliceX"]]}"#);
+
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("Measure>aliceX".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_conditional_gates() {
+        let gates = flagged_gates(r#"{"cols":[["X<aliceX"]]}"#);
+
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("X<aliceX".to_owned())
+        );
     }
 }

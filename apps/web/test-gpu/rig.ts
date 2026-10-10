@@ -242,6 +242,7 @@ export function createRig(device: GPUDevice) {
             control_mask: control.mask,
             control_value: control.value,
             mode: op.mode ?? 0,
+            condition_slot: op.condition ?? rustConst('GATE_UNCONDITIONAL'),
           }
           groups = [Math.ceil(n / 2 / rustConst('STATE_WORKGROUP_SIZE'))]
           break

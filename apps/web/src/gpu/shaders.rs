@@ -7,6 +7,7 @@ mod amplitude_display;
 mod amplitude_display_popup_value;
 mod bloch_display;
 mod bloch_popup_value;
+mod conditional_gate_body;
 mod density_matrix_display;
 mod digit;
 mod measure;
@@ -19,6 +20,7 @@ pub(super) use amplitude_display::{AMPLITUDE_CAPTURE_SHADER, AMPLITUDE_RENDER_SH
 pub(super) use amplitude_display_popup_value::AMPLITUDE_POPUP_VALUE_SHADER;
 pub(super) use bloch_display::{BLOCH_OVERLAY_SHADER, BLOCH_REDUCE_SHADER};
 pub(super) use bloch_popup_value::BLOCH_POPUP_VALUE_SHADER;
+pub(super) use conditional_gate_body::CONDITIONAL_GATE_BODY_SHADER;
 pub(super) use density_matrix_display::{DENSITY_CAPTURE_SHADER, DENSITY_RENDER_SHADER};
 pub(super) use digit::MEASUREMENT_DIGIT_SHADER;
 pub(super) use measure::{MEASURE_COLLAPSE_SHADER, MEASURE_REDUCE_SHADER};

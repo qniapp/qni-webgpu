@@ -532,6 +532,34 @@ pub(crate) struct MeasurementDigitInstance {
     pub(crate) slot: u32,
 }
 
+/// Uniform for `CONDITIONAL_GATE_BODY_SHADER`.
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ConditionalGateBodyParams {
+    /// See `BlochOverlayParams::viewport_min`: same NDC story.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    /// Body fill when the measurement sampled 1 (the gate applied).
+    pub(crate) enabled_color: [f32; 4],
+    /// Body fill when the measurement sampled 0 (the gate was skipped).
+    pub(crate) disabled_color: [f32; 4],
+}
+
+/// One conditional gate body. `corner_radius == half_size` draws a circle.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ConditionalGateBodyInstance {
+    pub(crate) center: [f32; 2],
+    pub(crate) half_size: f32,
+    pub(crate) corner_radius: f32,
+    /// Measurement aux slot holding the outcome that decides the fill.
+    pub(crate) slot: u32,
+}
+
+/// Conditional gate bodies drawn per frame. Each one is an `ApplyGate` op, so
+/// the recompute op budget already bounds them.
+pub(crate) const MAX_CONDITIONAL_GATE_BODIES: usize = MAX_OPS_PER_RECOMPUTE;
+
 /// Uniform for the state-cell hover popup value text shader
 /// (`POPUP_VALUE_SHADER`). Layout matches the WGSL `PopupParams` struct
 /// byte-for-byte — implicit WGSL alignment padding is made explicit

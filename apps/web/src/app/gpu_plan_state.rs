@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::app::GateId;
 use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotIndex};
-use crate::simulation_plan::SimulationOp;
+use crate::simulation_plan::{FlagSource, FlagSources, SimulationOp};
 
 #[derive(Debug)]
 pub(crate) struct GpuPlanState {
@@ -27,6 +27,10 @@ pub(crate) struct GpuPlanState {
     amplitude_slots: HashMap<GateId, SlotIndex<Amplitude>>,
     /// Density Matrix displays → `density_output` slot.
     density_slots: HashMap<GateId, SlotIndex<Density>>,
+    /// Conditional gate → measurement it reads, for the latest `sim_ops`.
+    /// Lets the circuit paint a skipped conditional gate in qni's disabled
+    /// colour; the outcome itself is read on the GPU.
+    flag_sources: FlagSources,
     capacity_error: Option<String>,
 }
 
@@ -42,6 +46,7 @@ impl Default for GpuPlanState {
             probability_slots: HashMap::new(),
             amplitude_slots: HashMap::new(),
             density_slots: HashMap::new(),
+            flag_sources: FlagSources::default(),
             capacity_error: None,
         }
     }
@@ -55,6 +60,7 @@ impl GpuPlanState {
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
+        self.flag_sources = FlagSources::default();
         self.capacity_error = None;
     }
 
@@ -92,6 +98,7 @@ impl GpuPlanState {
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
+        self.flag_sources = FlagSources::default();
         self.capacity_error = None;
     }
 
@@ -103,6 +110,7 @@ impl GpuPlanState {
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
+        self.flag_sources = FlagSources::default();
         self.capacity_error = Some(message);
     }
 
@@ -110,11 +118,17 @@ impl GpuPlanState {
         self.capacity_error.as_deref()
     }
 
-    pub(crate) fn replace_ops(&mut self, sim_ops: Vec<SimulationOp>, snapshot_slot_count: usize) {
+    pub(crate) fn replace_ops(
+        &mut self,
+        sim_ops: Vec<SimulationOp>,
+        snapshot_slot_count: usize,
+        flag_sources: FlagSources,
+    ) {
         self.capacity_error = None;
         self.sim_ops = sim_ops;
         self.snapshot_slot_count = snapshot_slot_count;
         self.rebuild_slot_maps();
+        self.flag_sources = flag_sources;
     }
 
     pub(crate) fn replace_external_display_slots(
@@ -134,6 +148,7 @@ impl GpuPlanState {
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
+        self.flag_sources = FlagSources::default();
         self.capacity_error = None;
         for (slot, gate_id) in amplitude_slot_to_gate_id.iter().enumerate() {
             self.amplitude_slots
@@ -177,6 +192,12 @@ impl GpuPlanState {
         self.measurement_slots.get(&gate_id).copied()
     }
 
+    /// What conditional gate `gate_id` reads in the latest plan; `None` before
+    /// the gate has been planned.
+    pub(crate) fn flag_source(&self, gate_id: GateId) -> Option<FlagSource> {
+        self.flag_sources.source(gate_id)
+    }
+
     pub(crate) fn probability_slot(&self, gate_id: GateId) -> Option<SlotIndex<Probability>> {
         self.probability_slots.get(&gate_id).copied()
     }
@@ -195,6 +216,7 @@ impl GpuPlanState {
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
+        self.flag_sources = FlagSources::default();
         for op in &self.sim_ops {
             match op {
                 SimulationOp::SnapshotState { .. } => {}
@@ -241,7 +263,7 @@ impl GpuPlanState {
 
 #[cfg(test)]
 mod tests {
-    use super::{GateId, GpuPlanState, SlotIndex};
+    use super::{FlagSources, GateId, GpuPlanState, SlotIndex};
     use crate::gates::ColumnControls;
     use crate::qubit_bit::QubitBit;
     use crate::simulation_plan::SimulationOp;
@@ -266,6 +288,7 @@ mod tests {
                 controls: ColumnControls::NONE,
             }],
             1,
+            FlagSources::default(),
         );
 
         assert_eq!(
@@ -285,6 +308,7 @@ mod tests {
                 controls: ColumnControls::NONE,
             }],
             1,
+            FlagSources::default(),
         );
 
         assert_eq!(state.bloch_slot(GateId::from_u32(8)), None);

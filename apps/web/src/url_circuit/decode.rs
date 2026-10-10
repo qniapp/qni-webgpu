@@ -2,7 +2,7 @@
 
 use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
-use crate::gates::{GateKind, ParametricAngle};
+use crate::gates::{GateFlag, GateKind, ParametricAngle};
 
 use super::parser::parse_cols;
 
@@ -118,9 +118,9 @@ pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
     for col in &cols {
         for (wire, entry) in col.iter().enumerate() {
             if let Some(token) = entry.as_deref() {
-                let (_, span, _) = token_to_gate(token)?;
+                let gate = token_to_gate(token)?;
                 gate_count += 1;
-                qubits = qubits.max(wire + span);
+                qubits = qubits.max(wire + gate.span);
             }
         }
     }
@@ -268,23 +268,33 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             let Some(token) = entry.as_deref() else {
                 continue;
             };
-            let Some((kind, span, angle)) = token_to_gate(token) else {
+            let Some(token) = token_to_gate(token) else {
                 continue;
             };
             // 0 は不正なスパン。`GateSpan::try_new` を唯一の下限ゲートにし、
             // `unwrap_or(SINGLE)` のような暗黙の 0 → 1 丸めは置かない（不正な
             // トークンは復元せず読み飛ばす）。
-            let Ok(span) = GateSpan::try_new(span) else {
+            let Ok(span) = GateSpan::try_new(token.span) else {
                 continue;
             };
-            gates.push(PlacedGate::new(
+            let gate = PlacedGate::new(
                 GateId::from_u32(0),
-                kind,
+                token.kind,
                 crate::app::CircuitColumnIndex::new(col_idx),
                 crate::app::WireIndex::new(wire_idx),
                 span,
-                angle,
-            ));
+                token.angle,
+            );
+            let gate = match token.flag {
+                Some(flag) => {
+                    let Some(gate) = gate.with_flag(flag) else {
+                        continue;
+                    };
+                    gate
+                }
+                None => gate,
+            };
+            gates.push(gate);
         }
     }
     gates
@@ -294,24 +304,52 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
 /// embed palette accepts what a circuit cell accepts: `H`, `|0>`, `•`,
 /// `Bloch`, and parametric `P(π/4)`. Span suffixes (`QFT3`) are rejected
 /// because palette gates always start with their default span.
+/// Measurement variables and conditions (`Measure>a`, `X<a`) are rejected
+/// too: a palette gate is a template without per-circuit variable names.
 pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<ParametricAngle>)> {
     match token_to_gate(token) {
-        Some((kind, 1, angle)) => Some((kind, angle)),
+        Some(DecodedToken {
+            kind,
+            span: 1,
+            angle,
+            flag: None,
+        }) => Some((kind, angle)),
         Some(_) => None,
         None => GateKind::from_url_token(token).map(|kind| (kind, None)),
     }
 }
 
-/// Reverse of `gate_token`. Handles the `QFT<n>` / `QFT†<n>` span
-/// suffixes and the parametric `P(<angle>)` / `Rx(<angle>)` /
-/// `Ry(<angle>)` / `Rz(<angle>)` forms. Returns `None` for unrecognised
-/// tokens (e.g. tokens emitted by a future qni version we don't yet know
-/// about).
-///
-/// The third tuple slot is the angle value — `Some(π/2)` etc. —
-/// `None` for non-parametric gates and for bare parametric tokens (which
-/// use the editor's default angle).
-fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
+/// One decoded `cols` entry.
+#[derive(Debug, PartialEq)]
+struct DecodedToken {
+    kind: GateKind,
+    span: usize,
+    /// The angle value for parametric tokens (`Some(π/2)` etc.); `None` for
+    /// non-parametric gates and for bare parametric tokens (which use the
+    /// editor's default angle).
+    angle: Option<ParametricAngle>,
+    /// qni measurement variable link (`Measure>a` / `X<a`).
+    flag: Option<GateFlag>,
+}
+
+/// Reverse of `gate_token`. Handles the qni measurement variable suffixes
+/// (`Measure>a`, `X<a`), the `QFT<n>` / `QFT†<n>` span suffixes, and the
+/// parametric `P(<angle>)` / `Rx(<angle>)` / `Ry(<angle>)` / `Rz(<angle>)`
+/// forms. Returns `None` for unrecognised tokens (e.g. tokens emitted by a
+/// future qni version we don't yet know about).
+fn token_to_gate(token: &str) -> Option<DecodedToken> {
+    let (base, flag) = GateFlag::split_token(token)?;
+    let (kind, span, angle) = base_token_to_gate(base)?;
+    Some(DecodedToken {
+        kind,
+        span,
+        angle,
+        flag,
+    })
+}
+
+/// Decode a token without its measurement variable suffix.
+fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftDaggerGate, span, None));
@@ -747,5 +785,95 @@ mod tests {
             crate::url_circuit::circuit_columns_to_json(&circuit.gates, qubit_count(2)),
             r#"[["|0>","|0>"],["H"],["•","X"],["Measure"],[1,"Measure"]]"#
         );
+    }
+
+    fn flag_name(raw: &str) -> crate::gates::FlagName {
+        crate::gates::FlagName::parse(raw).expect("test flag name must be non-empty")
+    }
+
+    fn decoded_flags(json: &str) -> Vec<Option<GateFlag>> {
+        parse_circuit_json(json)
+            .gates
+            .into_iter()
+            .map(|gate| gate.flag)
+            .collect()
+    }
+
+    #[test]
+    fn measurement_flag_decodes() {
+        assert_eq!(
+            decoded_flags(r#"{"cols":[["Measure>aliceX"]]}"#),
+            vec![Some(GateFlag::Set(flag_name("aliceX")))]
+        );
+    }
+
+    #[test]
+    fn conditional_gate_decodes_its_base_kind() {
+        let gates = parse_circuit_json(r#"{"cols":[["X<aliceX"]]}"#).gates;
+
+        assert_eq!(gates.first().map(|gate| gate.kind), Some(GateKind::X));
+    }
+
+    #[test]
+    fn conditional_gate_decodes_its_condition() {
+        assert_eq!(
+            decoded_flags(r#"{"cols":[["H<bobH"]]}"#),
+            vec![Some(GateFlag::If(flag_name("bobH")))]
+        );
+    }
+
+    #[test]
+    fn conditional_measurement_token_is_not_a_gate() {
+        assert!(parse_circuit_json(r#"{"cols":[["Measure<a"]]}"#)
+            .gates
+            .is_empty());
+    }
+
+    #[test]
+    fn palette_rejects_conditional_tokens() {
+        assert_eq!(palette_token_to_gate("X<a"), None);
+    }
+
+    #[test]
+    fn palette_rejects_measurement_variables() {
+        assert_eq!(palette_token_to_gate("Measure>a"), None);
+    }
+
+    #[test]
+    fn summary_counts_flagged_gates() {
+        let summary = summarize_circuit_json(r#"{"cols":[["Measure>a"],[1,"X<a"]]}"#);
+
+        assert_eq!(summary.map(|summary| summary.gate_count), Some(2));
+    }
+
+    #[test]
+    fn flagged_gates_round_trip_through_json() {
+        let json = r#"{"cols":[["H"],["Measure>a"],[1,"X<a"],[1,"S†<a"],[1,"X^½<a"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn blank_flag_name_round_trips_as_a_plain_gate() {
+        assert_eq!(
+            round_trip(r#"{"cols":[["Measure> "],["X< "]]}"#),
+            r#"{"cols":[["Measure"],["X"]]}"#
+        );
+    }
+
+    /// qni `apps/tutorial/bb84_circuit.html` (qniapp/qni@acf87bf).
+    const BB84_JSON: &str = r#"{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}"#;
+
+    #[test]
+    fn bb84_circuit_decodes_every_gate() {
+        assert_eq!(parse_circuit_json(BB84_JSON).gates.len(), 25);
+    }
+
+    #[test]
+    fn bb84_circuit_round_trips_through_json() {
+        // qni drops the trailing empty step when it serialises the circuit.
+        let expected = BB84_JSON.replace(r#",[1]]}"#, "]}");
+
+        assert_eq!(round_trip(BB84_JSON), expected);
     }
 }

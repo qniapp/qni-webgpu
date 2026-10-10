@@ -7,8 +7,10 @@
 //! - `packages/simulator/src/state-vector.ts` and `matrix.ts` — the math each
 //!   shader implements (kept in `gpu/*`).
 
-use super::{SimulationColumnAnalysis, SimulationOp};
-use crate::app::PlacedGate;
+use std::collections::HashMap;
+
+use super::{FlagSource, FlagSources, SimulationColumnAnalysis, SimulationOp};
+use crate::app::{GateId, PlacedGate};
 use crate::gates::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params,
     ColumnControls, GateKind,
@@ -22,6 +24,9 @@ use crate::qubit_count::QubitCount;
 /// Within each column the order is: column unitaries / writes → measurements
 /// (reduce-sample then collapse) → bloch captures, mirroring qni's
 /// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
+/// A conditional gate (`X<name`) reads the measurement `FlagSources` picks:
+/// the GPU applies it only if that measurement's aux slot sampled 1, and the
+/// op is dropped when no earlier measurement writes `name`.
 /// `snapshot_slot_count`: number of semantic step snapshots to cache for the
 /// state panel. Slot `k` stores the state after circuit step `k`; empty steps
 /// copy the previous state. Hovering later switches to the cached slot via GPU
@@ -37,6 +42,8 @@ pub(crate) fn linearize_ops(
         .expect("linearize runs only on the local dispatch path within local capacity");
 
     let analysis = SimulationColumnAnalysis::from_gates(placed_gates, qubits);
+    let flag_sources = FlagSources::from_columns(&analysis);
+    let mut measurement_slot_by_gate: HashMap<GateId, SlotIndex<Measurement>> = HashMap::new();
 
     let mut ops: Vec<SimulationOp> = Vec::new();
     let mut next_snapshot_slot = 0usize;
@@ -135,6 +142,16 @@ pub(crate) fn linearize_ops(
             } else {
                 gate_params_controlled(target.kind, bit, controls, state_count)
             };
+            let params = match flag_sources.source(target.id) {
+                None => params,
+                Some(FlagSource::Measurement(source)) => {
+                    let Some(slot) = measurement_slot_by_gate.get(&source) else {
+                        continue;
+                    };
+                    params.conditioned_on(*slot)
+                }
+                Some(FlagSource::NeverSet) => continue,
+            };
             ops.push(SimulationOp::ApplyGate(params));
         }
 
@@ -201,6 +218,7 @@ pub(crate) fn linearize_ops(
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
             let slot = measurement_slots.allocate();
+            measurement_slot_by_gate.insert(measurement.id, slot);
             ops.push(SimulationOp::MeasureReduceSample {
                 gate_id: measurement.id,
                 qubit_bit,
@@ -1199,5 +1217,58 @@ mod tests {
             ),
             linearized(r#"{"cols":[["|0>","|0>"],["H"],["•","X"],["Measure"],[1,"Measure"]]}"#)
         );
+    }
+
+    fn flagged_gates(json: &str) -> Vec<PlacedGate> {
+        crate::url_circuit::parse_circuit_json(json).gates
+    }
+
+    fn apply_gate_count(ops: &[SimulationOp]) -> usize {
+        ops.iter()
+            .filter(|op| matches!(op, SimulationOp::ApplyGate(_)))
+            .count()
+    }
+
+    #[test]
+    fn conditional_gate_reads_the_measurement_aux_slot() {
+        let gates = flagged_gates(r#"{"cols":[["Measure>a"],[1,"X<a"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+
+        assert_eq!(apply_gate_params(&ops, 2).condition_slot(), 0);
+    }
+
+    #[test]
+    fn conditional_gate_reads_the_latest_measurement_slot() {
+        let gates = flagged_gates(r#"{"cols":[["Measure>a"],[1,"Measure>a"],[1,1,"X<a"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(3), 0);
+
+        assert_eq!(apply_gate_params(&ops, 4).condition_slot(), 1);
+    }
+
+    #[test]
+    fn plain_gate_is_unconditional() {
+        let gates = flagged_gates(r#"{"cols":[["Measure>a"],[1,"X"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+
+        assert_eq!(
+            apply_gate_params(&ops, 2).condition_slot(),
+            crate::gates::GATE_UNCONDITIONAL
+        );
+    }
+
+    #[test]
+    fn conditional_gate_without_a_measurement_is_dropped() {
+        let gates = flagged_gates(r#"{"cols":[["H"],["X<a"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(1), 0);
+
+        assert_eq!(apply_gate_count(&ops), 1);
+    }
+
+    #[test]
+    fn controlled_conditional_gate_keeps_its_controls() {
+        let gates = flagged_gates(r#"{"cols":[["Measure>a"],["•","X<a"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+
+        assert_eq!(apply_gate_params(&ops, 2).control_mask(), 0b01);
     }
 }

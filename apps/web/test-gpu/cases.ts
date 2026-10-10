@@ -1,7 +1,8 @@
 import type { C } from './reference'
 export type Control = { mask: number; value: number }
 export type Op =
-  | { kind: 'gate'; bit: number; m: C[]; mode?: 0 | 1 | 2; controls?: Control }
+  // `condition`: measurement aux slot that must hold outcome 1 (qni `X<name`).
+  | { kind: 'gate'; bit: number; m: C[]; mode?: 0 | 1 | 2; controls?: Control; condition?: number }
   | { kind: 'measure'; bit: number; gateId: number; slot: number }
   | { kind: 'collapse'; bit: number; auxSlot: number }
   | { kind: 'bloch'; bit: number; slot: number; controls?: Control }
@@ -201,6 +202,19 @@ export const cases: RecomputeCase[] = [
     ops: [
       { kind: 'measure' as const, bit: 0, gateId: 42, slot: 1 },
       { kind: 'collapse' as const, bit: 0, auxSlot: 1 },
+    ],
+  })),
+  ...[
+    { name: 'conditional X applies after measuring 1', init: [[0, 0], [1, 0], [0, 0], [0, 0]] as C[] },
+    { name: 'conditional X is skipped after measuring 0', init: 'ground' as const },
+  ].map(({ name, init }) => ({
+    name,
+    qubits: 2,
+    init,
+    ops: [
+      { kind: 'measure' as const, bit: 0, gateId: 3, slot: 2 },
+      { kind: 'collapse' as const, bit: 0, auxSlot: 2 },
+      { kind: 'gate' as const, bit: 1, m: matrices.X, condition: 2 },
     ],
   })),
   {
