@@ -872,7 +872,7 @@ fn fixture(json: &str) -> (QniApp, egui::Context, CircuitInputGeometry) {
     app.library = circuit_library::for_startup(json.to_owned(), true).0;
     app.circuit_revision = CircuitRevision::starting_at(json.to_owned());
     let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
-    let geometry = CircuitInputGeometry::new(rect, rect, 3, 6);
+    let geometry = CircuitInputGeometry::new(rect, rect, 3, 6, &app.palette);
     (app, ctx, geometry)
 }
 

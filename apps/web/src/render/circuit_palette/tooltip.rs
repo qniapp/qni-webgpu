@@ -8,8 +8,7 @@ mod text;
 use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
-use crate::gates::palette_gate_kind;
-use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
+use crate::layout::palette_start_x;
 
 impl QniApp {
     /// Hover tooltip painted over the palette: a paper card with the
@@ -37,11 +36,11 @@ impl QniApp {
         if self.dragging.is_some() {
             return;
         }
-        let Some(gate) = palette_gate_kind(index) else {
+        let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
             return;
         };
-        let palette_layout = palette_layout();
-        let Some(local) = palette_gate_local_pos(index, &palette_layout) else {
+        let palette_layout = self.palette.layout();
+        let Some(local) = self.palette.local_pos(index, &palette_layout) else {
             return;
         };
 

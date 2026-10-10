@@ -30,7 +30,8 @@ pub(super) fn gate_slot_index_for_render(
 impl QniApp {
     pub(crate) fn circuit_content_height(&self, qubit_count: usize, screen_height: f32) -> f32 {
         let line_count = qubit_count.max(1);
-        let last_line_y = LINE_Y + LINE_GAP * (line_count.saturating_sub(1)) as f32;
+        let last_line_y = LINE_Y - self.palette.circuit_shift_y()
+            + LINE_GAP * (line_count.saturating_sub(1)) as f32;
         let content_height = last_line_y + GATE_SIZE + 4.0 * REM;
         content_height.max(screen_height)
     }
@@ -47,12 +48,12 @@ impl QniApp {
         scroll_x: f32,
     ) -> bool {
         // `circuit_origin` is `rect.min` shifted left by the current
-        // horizontal scroll offset. Anything pinned to the circuit's
-        // coordinate system (wires, slot grid, gate bodies, step
-        // indicators, connectors) is drawn relative to it; the qubit
-        // label strip on the left and the GPU callback viewports stay
-        // on `rect.min` so they don't track the scroll.
-        let circuit_origin = rect.min - egui::vec2(scroll_x, 0.0);
+        // horizontal scroll offset and up by the restricted-palette shift.
+        // Anything pinned to the circuit's coordinate system (wires, slot
+        // grid, gate bodies, step indicators, connectors) is drawn relative
+        // to it; the GPU callback viewports stay on `rect` so they don't
+        // track the scroll.
+        let circuit_origin = self.circuit_origin(rect.min, scroll_x);
         // Blocks sit behind everything else, like qni's block body that
         // wraps its steps.
         self.draw_circuit_blocks(painter, metrics, colors, circuit_origin);
@@ -80,8 +81,8 @@ impl QniApp {
                 let color = with_alpha(colors.step_preview, alpha);
                 painter.line_segment(
                     [
-                        egui::pos2(x, rect.min.y + top),
-                        egui::pos2(x, rect.min.y + bot),
+                        egui::pos2(x, circuit_origin.y + top),
+                        egui::pos2(x, circuit_origin.y + bot),
                     ],
                     egui::Stroke::new(3.0_f32, color),
                 );

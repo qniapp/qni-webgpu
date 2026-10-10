@@ -1,8 +1,11 @@
 use eframe::egui;
 
 use super::StatePanelLayout;
-use crate::app::QniApp;
-use crate::constants::{state_circle_layout, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT};
+use crate::app::{AppMode, QniApp};
+use crate::constants::{
+    state_circle_layout, EMBED_STATE_PANEL_CIRCUIT_GAP, EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN,
+    STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT, STATE_VIEWPORT_MIN_HEIGHT,
+};
 use crate::shared::amplitude_qubits;
 
 impl QniApp {
@@ -71,10 +74,33 @@ impl QniApp {
         // Strip-text minimum is the only thing that can force `panel_width`
         // above the user's choice — practically a no-op for ≤16 qubits
         // since min viewport width already covers the widest label.
-        let panel_width = self.state_panel.viewport_size.x.max(strip_min_width);
-        let panel_height = self.state_panel.viewport_size.y + handle_height;
+        let embed = matches!(self.mode, AppMode::Embed { .. });
+        let viewport_width = if embed {
+            // Narrow embeds (phone-width tutorial pages) keep the panel inside
+            // the canvas with the same spacing-4 side margin.
+            self.state_panel
+                .viewport_size
+                .x
+                .min(rect.width() - 2.0 * EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN)
+        } else {
+            self.state_panel.viewport_size.x
+        };
+        let panel_width = viewport_width.max(strip_min_width);
+        let (panel_min_y, viewport_height) = if embed {
+            embed_panel_vertical(
+                rect.height(),
+                self.circuit_bottom_y(rect) - rect.min.y,
+                self.state_panel.viewport_size.y,
+            )
+        } else {
+            let viewport_height = self.state_panel.viewport_size.y;
+            (
+                rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - handle_height - viewport_height,
+                viewport_height,
+            )
+        };
+        let panel_height = viewport_height + handle_height;
         let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
-        let panel_min_y = rect.height() - STATE_CIRCLE_BOTTOM_MARGIN - panel_height;
         let state_rect = egui::Rect::from_min_size(
             rect.min + egui::vec2(panel_min_x, panel_min_y),
             egui::vec2(panel_width, panel_height),
@@ -137,6 +163,33 @@ impl QniApp {
     }
 }
 
+/// Vertical placement `(panel_min_y, viewport_height)` of an embed's state
+/// panel, relative to the canvas top. Small embeds must never hide gates:
+/// the panel keeps the standalone bottom-anchored spot when it clears the
+/// circuit, otherwise it sits right below the circuit and its viewport
+/// shrinks to fit (never below the minimum, clipping at the canvas edge).
+pub(crate) fn embed_panel_vertical(
+    canvas_height: f32,
+    circuit_bottom: f32,
+    viewport_height: f32,
+) -> (f32, f32) {
+    let top_limit = circuit_bottom + EMBED_STATE_PANEL_CIRCUIT_GAP;
+    let anchored_min_y =
+        canvas_height - STATE_CIRCLE_BOTTOM_MARGIN - STATE_HANDLE_HEIGHT - viewport_height;
+    if anchored_min_y >= top_limit {
+        return (anchored_min_y, viewport_height);
+    }
+    let available =
+        canvas_height - EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN - STATE_HANDLE_HEIGHT - top_limit;
+    (
+        top_limit,
+        available.clamp(
+            STATE_VIEWPORT_MIN_HEIGHT,
+            viewport_height.max(STATE_VIEWPORT_MIN_HEIGHT),
+        ),
+    )
+}
+
 fn grid_axis_origin(viewport_min: f32, viewport_size: f32, grid_size: f32, pan: f32) -> f32 {
     if grid_size <= viewport_size {
         let slack = (viewport_size - grid_size) * 0.5;
@@ -157,5 +210,110 @@ fn grid_axis_pan_for_origin(
         origin - (viewport_min + slack)
     } else {
         origin - viewport_min
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CANVAS_HEIGHT: f32 = 560.0;
+
+    #[test]
+    fn embed_panel_keeps_bottom_anchor_when_clear_of_circuit() {
+        let (min_y, _) = embed_panel_vertical(CANVAS_HEIGHT, 100.0, 160.0);
+        assert_eq!(
+            min_y,
+            CANVAS_HEIGHT - STATE_CIRCLE_BOTTOM_MARGIN - STATE_HANDLE_HEIGHT - 160.0
+        );
+    }
+
+    #[test]
+    fn embed_panel_moves_below_circuit_when_anchor_would_cover_it() {
+        let (min_y, _) = embed_panel_vertical(CANVAS_HEIGHT, 348.0, 160.0);
+        assert_eq!(min_y, 348.0 + EMBED_STATE_PANEL_CIRCUIT_GAP);
+    }
+
+    #[test]
+    fn embed_panel_viewport_shrinks_to_fit_below_circuit() {
+        let (_, viewport) = embed_panel_vertical(CANVAS_HEIGHT, 348.0, 160.0);
+        assert_eq!(
+            viewport,
+            CANVAS_HEIGHT
+                - EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN
+                - STATE_HANDLE_HEIGHT
+                - (348.0 + EMBED_STATE_PANEL_CIRCUIT_GAP)
+        );
+    }
+
+    #[test]
+    fn embed_panel_viewport_never_shrinks_below_minimum() {
+        let (_, viewport) = embed_panel_vertical(CANVAS_HEIGHT, 520.0, 160.0);
+        assert_eq!(viewport, STATE_VIEWPORT_MIN_HEIGHT);
+    }
+
+    fn embed_app(json: &str, palette: Option<&[&str]>) -> QniApp {
+        let ctx = egui::Context::default();
+        let startup = crate::app::EmbedStartup::parse(json, true, palette).unwrap();
+        QniApp::new_with_startup(&eframe::CreationContext::_new_kittest(ctx), Some(startup))
+    }
+
+    fn small_embed_rect() -> egui::Rect {
+        egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(960.0, CANVAS_HEIGHT))
+    }
+
+    #[test]
+    fn small_full_palette_embed_panel_clears_cnot_target() {
+        let app = embed_app(r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#, None);
+        let rect = small_embed_rect();
+        let layout = app.state_panel_layout(rect, 4);
+        assert!(layout.state_rect.min.y >= app.circuit_bottom_y(rect));
+    }
+
+    #[test]
+    fn small_restricted_palette_embed_panel_clears_cnot_target() {
+        let app = embed_app(
+            r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#,
+            Some(&["H", "•", "X"]),
+        );
+        let rect = small_embed_rect();
+        let layout = app.state_panel_layout(rect, 4);
+        assert!(layout.state_rect.min.y >= app.circuit_bottom_y(rect));
+    }
+
+    #[test]
+    fn narrow_embed_panel_stays_inside_canvas() {
+        let app = embed_app(r#"{"cols":[["|0>"]]}"#, Some(&["H", "X"]));
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(354.0, 592.0));
+        let layout = app.state_panel_layout(rect, 2);
+        assert!(rect.contains_rect(layout.state_rect));
+    }
+
+    #[test]
+    fn resize_in_shrunk_embed_starts_from_visible_viewport() {
+        let mut app = embed_app(r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#, None);
+        let layout = app.state_panel_layout(small_embed_rect(), 4);
+        let pointer = layout.state_rect.right_bottom();
+        app.begin_resize_drag(
+            crate::app::ResizeCorner::BottomRight,
+            pointer,
+            layout.viewport_rect.size(),
+        );
+        app.apply_resize_drag(pointer - egui::vec2(0.0, 10.0));
+        assert_eq!(
+            app.state_panel.viewport_size.y,
+            layout.viewport_rect.height() - 10.0
+        );
+    }
+
+    #[test]
+    fn standalone_panel_keeps_bottom_anchor() {
+        let ctx = egui::Context::default();
+        let app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx));
+        let layout = app.state_panel_layout(small_embed_rect(), 4);
+        assert_eq!(
+            layout.state_rect.max.y,
+            CANVAS_HEIGHT - STATE_CIRCLE_BOTTOM_MARGIN
+        );
     }
 }

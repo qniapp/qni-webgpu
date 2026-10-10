@@ -39,22 +39,19 @@ impl QniApp {
         }
         // `local_pos` is the cursor in *circuit space* — the same
         // coordinate frame `gate.pos` lives in. We undo the horizontal
-        // scroll here once so every downstream hit-test (gate body,
-        // slot snap, step preview, palette drop on circuit) gets a
-        // cursor it can compare directly against `gate.pos.x`.
-        // Palette pickup itself uses `pos` (screen) so it isn't
-        // affected by the offset.
-        let local_pos = pos.map(|p| {
-            egui::pos2(
-                p.x - content_rect.min.x + self.circuit_scroll_x,
-                p.y - content_rect.min.y,
-            )
-        });
+        // scroll and the restricted-palette shift here once so every
+        // downstream hit-test (gate body, slot snap, step preview,
+        // palette drop on circuit) gets a cursor it can compare directly
+        // against `gate.pos`. Palette pickup itself uses `pos` (screen)
+        // so it isn't affected by the offset.
+        let circuit_origin = self.circuit_origin(content_rect.min, self.circuit_scroll_x);
+        let local_pos = pos.map(|p| (p - circuit_origin).to_pos2());
         let geometry = CircuitInputGeometry::new(
             content_rect,
             screen_rect,
             self.layout_qubits(),
             self.min_circuit_slots(),
+            &self.palette,
         );
         let drag_pointer = DragPointer {
             screen_pos: pos,
@@ -151,12 +148,7 @@ impl QniApp {
             shift_at_start: press.map(|(_, shift)| shift),
             screen_pos: press_pos.or(drag_pointer.screen_pos),
             local_pos: press_pos
-                .map(|p| {
-                    egui::pos2(
-                        p.x - content_rect.min.x + self.circuit_scroll_x,
-                        p.y - content_rect.min.y,
-                    )
-                })
+                .map(|p| (p - circuit_origin).to_pos2())
                 .or(drag_pointer.local_pos),
             ..drag_pointer
         };

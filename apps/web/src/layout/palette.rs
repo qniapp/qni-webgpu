@@ -1,12 +1,13 @@
 use eframe::egui;
 
 use crate::constants::{
-    PALETTE_DISPLAY_COLUMNS, PALETTE_DISPLAY_ROWS, PALETTE_GAP, PALETTE_ROW_GAP,
+    PALETTE_DISPLAY_COLUMNS, PALETTE_DISPLAY_ROWS, PALETTE_GAP, PALETTE_PADDING_Y, PALETTE_ROW_GAP,
     PALETTE_SECTION_GAP, PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
 use crate::gates::{
-    PALETTE_DISPLAY_GATES, PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2, PALETTE_GATES_ROW2_INDICES,
-    PALETTE_GATE_COUNT, PALETTE_ROW1_COUNT,
+    default_palette_angle, palette_gate_kind, GateKind, ParametricAngle, PALETTE_DISPLAY_GATES,
+    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2, PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT,
+    PALETTE_ROW1_COUNT,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -14,9 +15,128 @@ pub(crate) struct PaletteLayout {
     pub(crate) total_width: f32,
     pub(crate) total_height: f32,
     pub(crate) gates_width: f32,
-    pub(crate) separator_x: f32,
+    /// Gates / Display divider. Only the full palette has the Display section.
+    pub(crate) separator_x: Option<f32>,
     pub(crate) display_x: f32,
     pub(crate) display_width: f32,
+}
+
+/// A palette gate as it drops into the circuit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PaletteEntry {
+    pub(crate) kind: GateKind,
+    pub(crate) angle: Option<ParametricAngle>,
+}
+
+/// Which gates the palette offers. Indices are stable per palette: the full
+/// palette keeps its historical flat indices, a restricted palette numbers
+/// its entries left to right.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Palette {
+    #[default]
+    Full,
+    /// qni tutorial embeds list only the gates a lesson needs (the arguments
+    /// of qni's `mini_qni` Liquid filter) in a single row. Empty hides the
+    /// palette panel.
+    Restricted(Vec<PaletteEntry>),
+}
+
+impl Palette {
+    /// Parses circuit-JSON gate tokens such as `["|0>", "H", "P(π/4)"]`.
+    pub(crate) fn restricted<S: AsRef<str>>(tokens: &[S]) -> Result<Self, String> {
+        tokens
+            .iter()
+            .map(|token| {
+                let token = token.as_ref();
+                crate::url_circuit::palette_token_to_gate(token)
+                    .map(|(kind, angle)| PaletteEntry {
+                        kind,
+                        angle: angle.or_else(|| default_palette_angle(kind)),
+                    })
+                    .ok_or_else(|| format!("unknown palette gate: {token}"))
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(Self::Restricted)
+    }
+
+    pub(crate) fn is_hidden(&self) -> bool {
+        matches!(self, Self::Restricted(entries) if entries.is_empty())
+    }
+
+    pub(crate) fn entry(&self, index: usize) -> Option<PaletteEntry> {
+        match self {
+            Self::Full => palette_gate_kind(index).map(|kind| PaletteEntry {
+                kind,
+                angle: default_palette_angle(kind),
+            }),
+            Self::Restricted(entries) => entries.get(index).copied(),
+        }
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        match self {
+            Self::Full => PALETTE_GATE_COUNT,
+            Self::Restricted(entries) => entries.len(),
+        }
+    }
+
+    pub(crate) fn layout(&self) -> PaletteLayout {
+        match self {
+            Self::Full => palette_layout(),
+            Self::Restricted(entries) => {
+                let width = palette_row_width(entries.len());
+                PaletteLayout {
+                    total_width: width,
+                    total_height: if entries.is_empty() {
+                        0.0
+                    } else {
+                        PALETTE_SIZE
+                    },
+                    gates_width: width,
+                    separator_x: None,
+                    display_x: width,
+                    display_width: 0.0,
+                }
+            }
+        }
+    }
+
+    /// Gate top-left relative to the palette panel top-left.
+    pub(crate) fn local_pos(&self, index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
+        match self {
+            Self::Full => palette_gate_local_pos(index, layout),
+            Self::Restricted(entries) => (index < entries.len())
+                .then(|| egui::pos2(index as f32 * (PALETTE_SIZE + PALETTE_GAP), 0.0)),
+        }
+    }
+
+    pub(crate) fn hit_test(&self, local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usize> {
+        match self {
+            Self::Full => palette_hit_test(local_pos, layout),
+            Self::Restricted(entries) => {
+                if local_pos.y < 0.0 || local_pos.y > PALETTE_SIZE {
+                    return None;
+                }
+                col_from_x(local_pos.x).filter(|col| *col < entries.len())
+            }
+        }
+    }
+
+    /// Height of the palette panel including its padding; `0` when hidden.
+    pub(crate) fn panel_height(&self) -> f32 {
+        if self.is_hidden() {
+            0.0
+        } else {
+            self.layout().total_height + 2.0 * PALETTE_PADDING_Y
+        }
+    }
+
+    /// How far the circuit moves up because this palette is shorter than the
+    /// full two-row palette. Circuit-space geometry (`LINE_Y`) stays fixed;
+    /// screen conversion subtracts this offset, like the horizontal scroll.
+    pub(crate) fn circuit_shift_y(&self) -> f32 {
+        Self::Full.panel_height() - self.panel_height()
+    }
 }
 
 fn palette_row_width(count: usize) -> f32 {
@@ -31,7 +151,7 @@ fn palette_grid_width(columns: usize) -> f32 {
     palette_row_width(columns)
 }
 
-pub(crate) fn palette_layout() -> PaletteLayout {
+fn palette_layout() -> PaletteLayout {
     let gates_row1_width = palette_row_width(PALETTE_ROW1_COUNT);
     let gates_row2_width = palette_row_width(PALETTE_GATES_ROW2.len());
     let gates_width = gates_row1_width.max(gates_row2_width);
@@ -43,7 +163,7 @@ pub(crate) fn palette_layout() -> PaletteLayout {
         total_height: PALETTE_DISPLAY_ROWS as f32 * PALETTE_SIZE
             + (PALETTE_DISPLAY_ROWS.saturating_sub(1)) as f32 * PALETTE_ROW_GAP,
         gates_width,
-        separator_x,
+        separator_x: Some(separator_x),
         display_x,
         display_width,
     }
@@ -83,7 +203,7 @@ fn palette_display_local_pos(index: usize, layout: &PaletteLayout) -> Option<egu
 /// Returns gate top-left position relative to the palette panel top-left.
 /// Gates stay in the left section; Display widgets occupy a 2×2 grid on the
 /// right.
-pub(crate) fn palette_gate_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
+fn palette_gate_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
     if index >= PALETTE_GATE_COUNT {
         return None;
     }
@@ -139,7 +259,7 @@ fn hit_test_display(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usi
 /// Maps a cursor position (relative to the palette panel top-left) to a flat
 /// gate index. Returns `None` outside any gate cell, including the separator,
 /// inter-section gaps, and the Display section's empty bottom-right slot.
-pub(crate) fn palette_hit_test(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usize> {
+fn palette_hit_test(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usize> {
     if local_pos.y < 0.0 || local_pos.x < 0.0 {
         return None;
     }
@@ -155,6 +275,125 @@ pub(crate) fn palette_hit_test(local_pos: egui::Pos2, layout: &PaletteLayout) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn kinds(palette: &Palette) -> Vec<GateKind> {
+        (0..palette.len())
+            .filter_map(|index| palette.entry(index).map(|entry| entry.kind))
+            .collect()
+    }
+
+    #[test]
+    fn restricted_palette_accepts_every_mini_qni_token() {
+        let palette =
+            Palette::restricted(&["|0>", "|1>", "H", "X", "Y", "Z", "P", "•", "Bloch"]).unwrap();
+
+        assert_eq!(
+            kinds(&palette),
+            vec![
+                GateKind::Write0,
+                GateKind::Write1,
+                GateKind::H,
+                GateKind::X,
+                GateKind::Y,
+                GateKind::Z,
+                GateKind::Phase,
+                GateKind::Control,
+                GateKind::BlochDisplay,
+            ]
+        );
+    }
+
+    #[test]
+    fn restricted_bare_phase_drops_with_mini_qni_default_angle() {
+        let palette = Palette::restricted(&["P"]).unwrap();
+
+        assert_eq!(
+            palette.entry(0).unwrap().angle,
+            Some(ParametricAngle::default())
+        );
+    }
+
+    #[test]
+    fn restricted_phase_keeps_explicit_angle() {
+        let palette = Palette::restricted(&["P(π/4)"]).unwrap();
+
+        assert_eq!(
+            palette.entry(0).unwrap().angle,
+            ParametricAngle::parse_qni("π/4").ok()
+        );
+    }
+
+    #[test]
+    fn restricted_palette_rejects_unknown_token() {
+        assert!(Palette::restricted(&["H", "Foo"]).is_err());
+    }
+
+    #[test]
+    fn restricted_palette_rejects_span_suffix() {
+        assert!(Palette::restricted(&["QFT3"]).is_err());
+    }
+
+    #[test]
+    fn empty_restricted_palette_is_hidden() {
+        assert!(Palette::restricted::<&str>(&[]).unwrap().is_hidden());
+    }
+
+    #[test]
+    fn full_palette_keeps_circuit_in_place() {
+        assert_eq!(Palette::Full.circuit_shift_y(), 0.0);
+    }
+
+    #[test]
+    fn single_row_palette_lifts_circuit_by_one_row() {
+        let palette = Palette::restricted(&["H", "X"]).unwrap();
+
+        assert_eq!(palette.circuit_shift_y(), PALETTE_SIZE + PALETTE_ROW_GAP);
+    }
+
+    #[test]
+    fn hidden_palette_lifts_circuit_by_whole_panel() {
+        let palette = Palette::restricted::<&str>(&[]).unwrap();
+
+        assert_eq!(palette.circuit_shift_y(), Palette::Full.panel_height());
+    }
+
+    #[test]
+    fn restricted_palette_has_no_display_separator() {
+        let palette = Palette::restricted(&["H", "Bloch"]).unwrap();
+
+        assert_eq!(palette.layout().separator_x, None);
+    }
+
+    #[test]
+    fn restricted_hit_test_round_trips_entries() {
+        let palette = Palette::restricted(&["|0>", "H", "•"]).unwrap();
+        let layout = palette.layout();
+        let hits = (0..palette.len())
+            .map(|index| {
+                let local = palette.local_pos(index, &layout).unwrap();
+                palette.hit_test(
+                    local + egui::vec2(PALETTE_SIZE / 2.0, PALETTE_SIZE / 2.0),
+                    &layout,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(hits, vec![Some(0), Some(1), Some(2)]);
+    }
+
+    #[test]
+    fn restricted_hit_test_ignores_second_row() {
+        let palette = Palette::restricted(&["H"]).unwrap();
+        let layout = palette.layout();
+
+        assert_eq!(
+            palette.hit_test(
+                egui::pos2(20.0, PALETTE_SIZE + PALETTE_ROW_GAP + 20.0),
+                &layout
+            ),
+            None
+        );
+    }
 
     #[test]
     fn palette_hit_test_finds_gates_section_cell() {
@@ -205,11 +444,11 @@ mod tests {
                 PALETTE_SIZE / 2.0,
             ),
             egui::pos2(
-                layout.separator_x + PALETTE_SEPARATOR_WIDTH / 2.0,
+                layout.separator_x.unwrap() + PALETTE_SEPARATOR_WIDTH / 2.0,
                 PALETTE_SIZE / 2.0,
             ),
             egui::pos2(
-                layout.separator_x + PALETTE_SEPARATOR_WIDTH + PALETTE_SECTION_GAP / 2.0,
+                layout.separator_x.unwrap() + PALETTE_SEPARATOR_WIDTH + PALETTE_SECTION_GAP / 2.0,
                 PALETTE_SIZE / 2.0,
             ),
         ];

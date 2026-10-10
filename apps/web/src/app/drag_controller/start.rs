@@ -6,8 +6,8 @@ use crate::app::{
     WireIndex,
 };
 use crate::constants::GATE_SIZE;
-use crate::gates::{default_palette_angle, palette_gate_kind, GateSpan};
-use crate::layout::{gate_visible_rect, gate_width_cols, palette_hit_test};
+use crate::gates::GateSpan;
+use crate::layout::{gate_visible_rect, gate_width_cols};
 use crate::span_resize::SpanResizeHandles;
 
 #[derive(Clone, Copy, Debug)]
@@ -124,19 +124,20 @@ impl DragController {
                     return false;
                 }
                 app.begin_circuit_commit();
-                let Some(kind) = palette_gate_kind(index) else {
+                let Some(entry) = app.palette.entry(index) else {
                     return false;
                 };
                 let new_id = app.gate_ids.allocate();
                 let mut new_gate = PlacedGate::new(
                     new_id,
-                    kind,
+                    entry.kind,
                     CircuitColumnIndex::ZERO,
                     WireIndex::ZERO,
                     GateSpan::SINGLE,
                     // Palette drop: parametric gates start with their explicit
-                    // π/2 default so the circuit shows the same angle label Qni shows.
-                    default_palette_angle(kind),
+                    // angle (π/2 unless the embed palette names one) so the
+                    // circuit shows the same angle label Qni shows.
+                    entry.angle,
                 );
                 new_gate.pos = preview_pos;
                 app.placed_gates.push(new_gate);
@@ -233,7 +234,7 @@ fn start_intent(
             cursor_screen.x - geometry.palette_origin.x,
             cursor_screen.y - geometry.palette_origin.y,
         );
-        if let Some(index) = palette_hit_test(local, &geometry.palette_layout) {
+        if let Some(index) = app.palette.hit_test(local, &geometry.palette_layout) {
             return DragStartIntent::PaletteGate {
                 index,
                 preview_pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),

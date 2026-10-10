@@ -15,8 +15,9 @@ async function fixture(t, headers, fail = false) {
       if (module_or_path.headers.get('content-type') !== 'application/wasm') throw new Error('Lost MIME type');
       await module_or_path.arrayBuffer();
     }
-    export const starts = { active: 0, max: 0 };
-    export async function start_embed(canvas, circuit) {
+    export const starts = { active: 0, max: 0, args: [] };
+    export async function start_embed(canvas, circuit, showStatePanel, palette) {
+      starts.args.push({ showStatePanel, palette });
       starts.active++;
       starts.max = Math.max(starts.max, starts.active);
       await new Promise(resolve => setTimeout(resolve, 1));
@@ -85,4 +86,16 @@ test('circuit export is synchronous and scoped to the current runner', async t =
   first.destroy()
   second.destroy()
   assert.deepEqual(circuits, ['{"cols":[["T"]]}', '{"cols":[["X"]]}'])
+})
+
+test('palette setting reaches the wasm entry unchanged', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  await f.module.startEmbed({}, '{}', { palette: ['|0>', '|1>', 'H'] })
+  assert.deepEqual(f.starts.args.at(-1).palette, ['|0>', '|1>', 'H'])
+})
+
+test('omitted palette keeps the full palette', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  await f.module.startEmbed({}, '{}')
+  assert.equal(f.starts.args.at(-1).palette, undefined)
 })

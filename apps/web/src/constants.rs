@@ -17,6 +17,11 @@ pub(crate) const STATE_VIEWPORT_MIN_WIDTH: f32 = 280.0;
 pub(crate) const STATE_VIEWPORT_MIN_HEIGHT: f32 = 80.0;
 pub(crate) const STATE_VIEWPORT_MAX_WIDTH: f32 = 1200.0;
 pub(crate) const STATE_VIEWPORT_MAX_HEIGHT: f32 = 600.0;
+/// Embeds keep the state panel this far below the circuit (spacing-4 = 16px).
+pub(crate) const EMBED_STATE_PANEL_CIRCUIT_GAP: f32 = 16.0;
+/// Bottom / side margin of an embed state panel squeezed by a small canvas
+/// (spacing-4 = 16px).
+pub(crate) const EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN: f32 = 16.0;
 
 /// Panel rounded-corner radius (px). The top resize handles' outer arcs
 /// curve along this radius minus the handle padding so they sit flush

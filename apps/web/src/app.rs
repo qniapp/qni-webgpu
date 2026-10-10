@@ -42,6 +42,7 @@ pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
     pub(crate) mode: AppMode,
+    pub(crate) palette: crate::layout::Palette,
     theme: ThemeKind,
     circuit_revision: CircuitRevision,
     pub(crate) library: CircuitLibrary,
@@ -83,8 +84,8 @@ pub(crate) struct QniApp {
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
     pub(crate) angle_editor: Option<AngleEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
-    /// `None` means: show the final-state (all columns applied), which
-    /// is the default.
+    /// `None` means: show the final-state (all columns applied). Loading a
+    /// circuit resets it to `AppMode::initial_breakpoint_step`.
     pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
     pub(crate) hovered_gate_id: Option<GateId>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
@@ -137,6 +138,10 @@ impl QniApp {
         let mode = embed
             .as_ref()
             .map(|startup| startup.mode)
+            .unwrap_or_default();
+        let palette = embed
+            .as_ref()
+            .map(|startup| startup.palette.clone())
             .unwrap_or_default();
         let theme = Theme::default();
         theme.apply_to_context(&cc.egui_ctx);
@@ -277,6 +282,7 @@ impl QniApp {
         }
         Self {
             mode,
+            palette,
             theme: theme.kind,
             circuit_revision: CircuitRevision::starting_at(initial_json),
             library,
@@ -301,7 +307,7 @@ impl QniApp {
             hovered_step: None,
             angle_affordance: None,
             angle_editor: None,
-            breakpoint_step: None,
+            breakpoint_step: mode.initial_breakpoint_step(),
             hovered_gate_id: None,
             hovered_probability_outcome: None,
             hovered_amplitude_outcome: None,
@@ -323,6 +329,34 @@ impl QniApp {
             fps_hud_cpu_history: VecDeque::with_capacity(120),
             fps_hud_svp_history: VecDeque::with_capacity(120),
         }
+    }
+
+    /// Screen position of the circuit-space origin for a circuit content
+    /// rect: shifted left by the horizontal scroll and up by the space a
+    /// restricted palette saves.
+    pub(crate) fn circuit_origin(&self, content_min: egui::Pos2, scroll_x: f32) -> egui::Pos2 {
+        content_min - egui::vec2(scroll_x, self.palette.circuit_shift_y())
+    }
+
+    /// Screen y of the lowest pixel the circuit draws: the last wire's step
+    /// bar, or a block's lower label when the circuit has blocks.
+    pub(crate) fn circuit_bottom_y(&self, screen_rect: egui::Rect) -> f32 {
+        use crate::constants::{
+            CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_GAP, CIRCUIT_BLOCK_PADDING_Y,
+            LINE_GAP, LINE_Y,
+        };
+        let content_min = self
+            .last_content_rect
+            .map_or(screen_rect.min, |rect| rect.min);
+        let last_line_y = self.circuit_origin(content_min, 0.0).y
+            + LINE_Y
+            + LINE_GAP * (self.layout_qubits() - 1) as f32;
+        let block_labels = if self.circuit_blocks.is_empty() {
+            0.0
+        } else {
+            CIRCUIT_BLOCK_PADDING_Y + CIRCUIT_BLOCK_LABEL_GAP + CIRCUIT_BLOCK_LABEL_FONT_SIZE
+        };
+        last_line_y + LINE_GAP * 0.5 + block_labels
     }
 
     pub(crate) fn colors(&self) -> Colors {

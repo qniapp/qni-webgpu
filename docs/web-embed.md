@@ -54,12 +54,13 @@ import { startEmbed } from './assets/qni-embed.mjs'
 
 const runner = await startEmbed(canvas, '{"cols":[["H"]]}', {
   showStatePanel: true,
+  palette: ['H', 'X'],
 })
 // キャンバスを取り外す前に呼ぶ。複数回呼んでもよい。
 runner.destroy()
 ```
 
-`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, onProgress?: function})`
+`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], onProgress?: function})`
 は `Promise<{destroy(): void}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
@@ -88,11 +89,38 @@ qni と同じく、`["{ラベル"]` の列と `["}"]` の列で囲んだ列は�
 編集、消去、Undo / Redo はメモリ内だけで行い、URL と localStorage へ書き込まない。
 回路ピッカー、保存操作、外部 GPU 実行への切り替えは表示しない。再読み込みで初期回路に戻る。
 
+### パレットの制限
+
+`palette` にゲートの文字列の配列を渡すと、パレットにはそのゲートだけを渡した順に 1 行で並べる。
+旧 Qni のチュートリアルの Liquid フィルタ `mini_qni` の引数と同じ書き方で、
+`{{ json | strip | mini_qni: "|0>", "|1>", "H" }}` は `palette: ['|0>', '|1>', 'H']` になる。
+文字列は回路 JSON のセルと同じ語彙で、`mini_qni` の使う `|0>`、`|1>`、`H`、`X`、`Y`、`Z`、`P`、`•`、`Bloch` のほか、
+`Measure` や `Swap`、角度付きの `P(π/4)` も使える。角度のない `P` は旧 Qni と同じく π/2 で置かれる。
+`QFT3` のような幅の指定と未知の文字列は拒否する。
+
+`palette` を省略すると従来どおり全ゲートのパレットを表示する。
+空配列 `[]` はパレットを表示しない。旧 Qni でパレットのない埋め込み (`mini_qni` の引数なしや `cnot_gate.html` など) に対応する。
+パレットが低くなった分だけ回路を上へ詰める。
+
+### 初期表示と状態パネルの配置
+
+埋め込みでは、回路を読み込んだ直後にブレークポイントをステップ 0 に置き、最初の列を適用した状態を表示する。
+旧 Qni のチュートリアルと同じで、`{"cols":[["|0>","|0>"],["H"],["•","X"]]}` は |00> から始まる。
+Undo / Redo で回路を読み込み直したときもステップ 0 に戻る。通常アプリは従来どおり最終状態を表示する。
+
+状態パネルが回路やゲートを隠さないように、埋め込みでは回路の下端 (最後の量子ビットのステップ表示とブロックのラベル) より下にパネルを置く。
+通常アプリと同じ下寄せの位置で回路と重ならなければその位置のままにする。
+重なる場合は回路の 16px 下へ移し、キャンバスの下端から 16px までの高さに収まるようビューポートを縮める。
+最小の高さ 80px でも収まらないときは、パネルの下側をキャンバスの外へはみ出させる。
+パネルの幅はキャンバスの幅から左右 16px ずつを引いた幅までに抑える。
+
+### 低水準の API
+
 低水準の `qni-web.js` は初期化用の default export と、次の関数も公開する。
 
 ```js
 start(canvas: HTMLCanvasElement): Promise<QniRunner>
-start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean): Promise<QniRunner>
+start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean, palette?: string[]): Promise<QniRunner>
 ```
 
 直接使う場合は先に wasm を初期化する必要がある。
@@ -118,12 +146,12 @@ pnpm -C apps/web exec playwright test tests/embed.spec.ts --workers=1
 `pnpm -C apps/web run test:pw-legacy` と `pnpm -C apps/web test` は、埋め込み用の成果物を毎回ビルドしてから全テストを実行する。
 Linux でディスプレイがない場合は `xvfb-run -a` で Playwright を実行する。
 テストは別オリジンのネストしたパスからモジュールを読み込み、shadow DOM の描画、
-H ゲートの計算、ストレージと履歴へのアクセス遮断、消去、破棄後の再起動、不正な回路の拒否を確認する。
+H ゲートの計算、ストレージと履歴へのアクセス遮断、消去、破棄後の再起動、不正な回路の拒否、
+ステップ 0 の初期表示、制限したパレットからの配置、不正なパレットの拒否、960x560 で状態パネルが回路を隠さないことを確認する。
 GPU の読み戻しはテスト時だけ行う。
 
 ## 未対応事項
 
-- パレットの制限とチュートリアル専用のレイアウトは未対応。
 - TODO: ページ内で GPUDevice を共有する。現状はランナーごとにデバイスを作る。
 - TODO: デバイス喪失への復旧を追加する。
 - TODO: 複数の埋め込みで使うスレッドローカルの状態をインスタンスごとに分ける。

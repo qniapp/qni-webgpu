@@ -3,9 +3,7 @@ use eframe::egui;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::QniApp;
 use crate::gates::GateKind;
-use crate::layout::{
-    amplitude_cell_index_at, density_matrix_cell_index_at, gate_visible_rect, palette_hit_test,
-};
+use crate::layout::{amplitude_cell_index_at, density_matrix_cell_index_at, gate_visible_rect};
 use crate::span_resize::{span_resize_body_rect, SpanResizeHandles};
 
 impl DragController {
@@ -123,7 +121,7 @@ impl DragController {
                             cursor_screen.x - geometry.palette_origin.x,
                             cursor_screen.y - geometry.palette_origin.y,
                         );
-                        hovered_palette = palette_hit_test(local, &geometry.palette_layout);
+                        hovered_palette = app.palette.hit_test(local, &geometry.palette_layout);
                     }
                 }
             }

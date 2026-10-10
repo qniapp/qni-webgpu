@@ -4,7 +4,12 @@ import path from 'node:path'
 
 // Serve the bundle on a different origin and nested path without a second server.
 const assetOrigin = 'http://localhost:4175/tutorial/assets/'
-async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}') {
+const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
+type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[] }, width?: number, height?: number }
+
+async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
+  settings = { showStatePanel: true }, width = 960, height = 640,
+}: EmbedHost = {}) {
   await page.route(`${assetOrigin}*`, async route => {
     const file = new URL(route.request().url()).pathname.split('/').pop()!
     await route.fulfill({
@@ -15,7 +20,7 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}') {
   })
   await page.route('**/host/article?mode=gpu', route => route.fulfill({
     contentType: 'text/html',
-    body: `<html><body style="margin:0"><h1>Third-party tutorial</h1>
+    body: `<html><head><meta charset="utf-8"></head><body style="margin:0"><h1>Third-party tutorial</h1>
       <qni-webgpu-test></qni-webgpu-test><script type="module">
       window.effects = [];
       for (const name of ['pushState', 'replaceState']) {
@@ -28,14 +33,14 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}') {
         constructor() {
           super();
           const shadow = this.attachShadow({mode: 'open'});
-          shadow.innerHTML = '<style>:host{display:block;width:960px;height:640px}canvas{width:100%;height:100%;display:block}</style><canvas></canvas>';
+          shadow.innerHTML = '<style>:host{display:block;width:${width}px;height:${height}px}canvas{width:100%;height:100%;display:block}</style><canvas></canvas>';
         }
       });
       try {
         const {startEmbed} = await import('${assetOrigin}qni-embed.mjs');
         window.startEmbed = startEmbed;
         window.canvas = document.querySelector('qni-webgpu-test').shadowRoot.querySelector('canvas');
-        window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, {showStatePanel: true});
+        window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, ${JSON.stringify(settings)});
         window.readState = (await import('${assetOrigin}qni-web.js')).read_state_vector;
         window.started = true;
       } catch(error) { window.startError = String(error); }
@@ -43,6 +48,13 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}') {
   }))
   await page.goto('/host/article?mode=gpu#host-fragment')
   await page.waitForFunction(() => (window as any).started || (window as any).startError)
+}
+
+// Every circuit used here starts in |0...0> at step 0.
+async function waitForStepZero(page: Page) {
+  await page.waitForFunction(async () => {
+    try { return (await (window as any).readState())[0] === 1 } catch { return false }
+  })
 }
 
 async function waitForHState(page: Page) {
@@ -99,4 +111,44 @@ test('destroy is idempotent and the same canvas can restart', async ({ page }) =
 test('invalid embed circuit rejects before runner startup', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["unknown"]]}')
   expect(await page.evaluate(() => (window as any).startError)).toContain('invalid circuit JSON')
+})
+
+test('embed starts at step 0 like qni tutorials', async ({ page }) => {
+  await hostEmbed(page, CNOT)
+  await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[]))
+    .toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+})
+
+test('unknown palette gate rejects before runner startup', async ({ page }) => {
+  await hostEmbed(page, CNOT, { settings: { palette: ['H', 'Foo'] } })
+  expect(await page.evaluate(() => (window as any).startError)).toContain('unknown palette gate: Foo')
+})
+
+test('restricted palette gate drops into the lifted circuit', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[]}', { settings: { palette: ['X'] } })
+  await waitForStepZero(page)
+  // The one-gate palette is centred at x = 480 on the 960px canvas; its row
+  // starts at PALETTE_ROW_Y = 80. A one-row palette lifts q0 by 48px from
+  // 8 + LINE_Y (256), and slot 0 sits at LINE_LEFT_OFFSET + GATE_SIZE = 162.
+  const canvas = page.locator('qni-webgpu-test canvas')
+  const box = (await canvas.boundingBox())!
+  await page.mouse.move(box.x + 480, box.y + 100)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
+  await page.mouse.move(box.x + 162, box.y + 216, { steps: 8 })
+  await page.mouse.up()
+  await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[]))
+    .toEqual([0, 0, 1, 0])
+})
+
+test('small embed with full palette keeps CNOT clear of the state panel', async ({ page }) => {
+  await hostEmbed(page, CNOT, { width: 960, height: 560 })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-full-palette.png')
+})
+
+test('small embed with restricted palette keeps CNOT clear of the state panel', async ({ page }) => {
+  await hostEmbed(page, CNOT, { settings: { palette: ['H', '•', 'X'] }, width: 960, height: 560 })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-restricted-palette.png')
 })
