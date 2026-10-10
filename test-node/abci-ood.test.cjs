@@ -68,7 +68,7 @@ test('Apptainer definition builds the same production service contract', async (
   const def = await fs.readFile(path.join(rootDir, 'deploy', 'apptainer', 'qni-webgpu.def'), 'utf8')
 
   assert.deepEqual({
-    usesCudaBase: /From: nvidia\/cuda:12\.6\.1-devel-ubuntu22\.04/.test(def),
+    usesCudaBase: /From: nvcr\.io\/nvidia\/cuquantum-appliance:25\.11-cuda12\.9\.1-devel-ubuntu24\.04-x86_64/.test(def),
     usesBashPostSection: /%post -c \/bin\/bash/.test(def),
     pinsQiskitAerTag: /git clone --depth 1 -b 0\.17\.2/.test(def),
     buildsRelativeWebAssets: /trunk build --release --public-url \.\//.test(def),
