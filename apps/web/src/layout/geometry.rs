@@ -2,7 +2,9 @@ use eframe::egui;
 
 use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
 use crate::constants::{
-    GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y, SLOT_SPACING,
+    CIRCUIT_PADDING, COMPACT_CIRCUIT_MAX_WIDTH, COMPACT_CIRCUIT_PADDING, COMPACT_LINE_LEFT_OFFSET,
+    COMPACT_QUBIT_LABEL_GAP, GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y,
+    SLOT_SPACING,
 };
 use crate::gates::GateKind;
 use crate::grid_cell::GridCell;
@@ -124,6 +126,48 @@ pub(crate) fn density_matrix_cell_index_at(
     Some(GridCell::new(col, row).to_index(dim) as u32)
 }
 
+/// Horizontal gutters of the circuit on a canvas. Circuit-space geometry
+/// (`LINE_LEFT_OFFSET`, slot centres, gate positions) never changes; a
+/// narrow canvas instead slides the circuit left by `shift_x` and draws the
+/// qubit labels right-aligned against the wires, so the space left of the
+/// first gate shrinks from 142px to 60px.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct CircuitGutters {
+    /// Screen distance the circuit moves left, before horizontal scroll.
+    pub(crate) shift_x: f32,
+    /// Space kept right of the wire end when scrolled to the end.
+    pub(crate) right_padding: f32,
+    /// Circuit-space anchor of the "qN:" labels.
+    pub(crate) label_x: f32,
+    pub(crate) label_align: egui::Align2,
+}
+
+impl CircuitGutters {
+    pub(crate) fn for_canvas_width(canvas_width: f32) -> Self {
+        if canvas_width < COMPACT_CIRCUIT_MAX_WIDTH {
+            Self {
+                shift_x: LINE_LEFT_OFFSET - COMPACT_LINE_LEFT_OFFSET,
+                right_padding: COMPACT_CIRCUIT_PADDING,
+                label_x: LINE_LEFT_OFFSET - COMPACT_QUBIT_LABEL_GAP,
+                label_align: egui::Align2::RIGHT_TOP,
+            }
+        } else {
+            Self {
+                shift_x: 0.0,
+                right_padding: LINE_RIGHT_OFFSET,
+                label_x: CIRCUIT_PADDING,
+                label_align: egui::Align2::LEFT_TOP,
+            }
+        }
+    }
+
+    /// Largest horizontal scroll that still keeps `right_padding` after the
+    /// wire end; `0` when the wires fit.
+    pub(crate) fn max_scroll(&self, metrics: &LayoutMetrics, canvas_width: f32) -> f32 {
+        (metrics.line_right - self.shift_x + self.right_padding - canvas_width).max(0.0)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct LayoutMetrics {
     pub(crate) line_left: f32,
@@ -144,7 +188,8 @@ pub(crate) struct LayoutMetrics {
 /// canvas-width-only behaviour.
 pub(crate) fn layout_metrics(width: f32, qubit_count: usize, min_slots: usize) -> LayoutMetrics {
     let line_left = LINE_LEFT_OFFSET;
-    let canvas_line_right = width - LINE_RIGHT_OFFSET;
+    let gutters = CircuitGutters::for_canvas_width(width);
+    let canvas_line_right = width + gutters.shift_x - gutters.right_padding;
     let line_ys = (0..qubit_count)
         .map(|index| LINE_Y + LINE_GAP * index as f32)
         .collect::<Vec<f32>>();
@@ -212,6 +257,83 @@ pub(crate) fn nearest_line(y: f32, line_ys: &[f32]) -> (f32, f32, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Circuit-area widths of the qni tutorial embeds on 1440 px and 390 px
+    // pages: the 1068 px / 354 px canvases minus the central panel's 8 px
+    // margins.
+    const WIDE: f32 = 1052.0;
+    const NARROW: f32 = 338.0;
+    const PANEL_MARGIN: f32 = 8.0;
+
+    /// Screen x of the right edge of the gate in `column`, before scroll.
+    fn gate_right_on_screen(column: usize, canvas_width: f32) -> f32 {
+        let metrics = layout_metrics(canvas_width, 2, column + 2);
+        metrics.slot_centers[column] + GATE_SIZE / 2.0
+            - CircuitGutters::for_canvas_width(canvas_width).shift_x
+    }
+
+    #[test]
+    fn wide_canvas_keeps_circuit_gutters() {
+        assert_eq!(CircuitGutters::for_canvas_width(WIDE).shift_x, 0.0);
+    }
+
+    #[test]
+    fn narrow_canvas_shows_fifth_column_spacing_4_inside_canvas_edge() {
+        let canvas_width = NARROW + 2.0 * PANEL_MARGIN;
+        let gate_right_on_canvas = PANEL_MARGIN + gate_right_on_screen(4, NARROW);
+
+        // spacing-4 = 16 px between the gate and the canvas edge.
+        assert!(gate_right_on_canvas <= canvas_width - 16.0);
+    }
+
+    #[test]
+    fn narrow_canvas_wires_start_at_compact_offset() {
+        let metrics = layout_metrics(NARROW, 2, 0);
+
+        assert_eq!(
+            metrics.line_left - CircuitGutters::for_canvas_width(NARROW).shift_x,
+            COMPACT_LINE_LEFT_OFFSET
+        );
+    }
+
+    #[test]
+    fn narrow_canvas_wires_fill_canvas_inside_compact_gutter() {
+        let metrics = layout_metrics(NARROW, 2, 0);
+        let gutters = CircuitGutters::for_canvas_width(NARROW);
+        let slack = NARROW - gutters.right_padding - (metrics.line_right - gutters.shift_x);
+
+        assert!((0.0..SLOT_SPACING).contains(&slack));
+    }
+
+    #[test]
+    fn fitting_wires_do_not_scroll() {
+        let metrics = layout_metrics(NARROW, 2, 0);
+
+        assert_eq!(
+            CircuitGutters::for_canvas_width(NARROW).max_scroll(&metrics, NARROW),
+            0.0
+        );
+    }
+
+    #[test]
+    fn overflowing_wires_scroll_to_compact_right_gutter() {
+        let metrics = layout_metrics(NARROW, 2, 8);
+        let gutters = CircuitGutters::for_canvas_width(NARROW);
+        let scroll = gutters.max_scroll(&metrics, NARROW);
+
+        assert_eq!(
+            metrics.line_right - gutters.shift_x - scroll,
+            NARROW - COMPACT_CIRCUIT_PADDING
+        );
+    }
+
+    #[test]
+    fn wide_canvas_scroll_keeps_circuit_padding() {
+        let metrics = layout_metrics(WIDE, 2, 30);
+        let scroll = CircuitGutters::for_canvas_width(WIDE).max_scroll(&metrics, WIDE);
+
+        assert_eq!(metrics.line_right - scroll, WIDE - CIRCUIT_PADDING);
+    }
 
     #[test]
     fn amplitude_width_cols_follow_spec() {

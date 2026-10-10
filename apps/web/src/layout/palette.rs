@@ -1,8 +1,9 @@
 use eframe::egui;
 
 use crate::constants::{
-    PALETTE_DISPLAY_COLUMNS, PALETTE_DISPLAY_ROWS, PALETTE_GAP, PALETTE_PADDING_Y, PALETTE_ROW_GAP,
-    PALETTE_SECTION_GAP, PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
+    PALETTE_DISPLAY_COLUMNS, PALETTE_DISPLAY_ROWS, PALETTE_GAP, PALETTE_MARGIN_X,
+    PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_GAP, PALETTE_SECTION_GAP,
+    PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
 use crate::gates::{
     default_palette_angle, palette_gate_kind, GateKind, ParametricAngle, PALETTE_DISPLAY_GATES,
@@ -19,6 +20,9 @@ pub(crate) struct PaletteLayout {
     pub(crate) separator_x: Option<f32>,
     pub(crate) display_x: f32,
     pub(crate) display_width: f32,
+    /// Entries per row of a restricted palette. The full palette keeps its
+    /// fixed grid and ignores this.
+    pub(crate) columns: usize,
 }
 
 /// A palette gate as it drops into the circuit.
@@ -36,8 +40,9 @@ pub(crate) enum Palette {
     #[default]
     Full,
     /// qni tutorial embeds list only the gates a lesson needs (the arguments
-    /// of qni's `mini_qni` Liquid filter) in a single row. Empty hides the
-    /// palette panel.
+    /// of qni's `mini_qni` Liquid filter). The entries sit in one row and
+    /// wrap into balanced rows when the canvas is too narrow. Empty hides
+    /// the palette panel.
     Restricted(Vec<PaletteEntry>),
 }
 
@@ -80,22 +85,23 @@ impl Palette {
         }
     }
 
-    pub(crate) fn layout(&self) -> PaletteLayout {
+    /// Layout on a canvas `canvas_width` px wide. Only a restricted palette
+    /// depends on the width; the full palette keeps its fixed grid.
+    pub(crate) fn layout(&self, canvas_width: f32) -> PaletteLayout {
         match self {
             Self::Full => palette_layout(),
             Self::Restricted(entries) => {
-                let width = palette_row_width(entries.len());
+                let columns = restricted_columns(entries.len(), canvas_width);
+                let rows = entries.len().div_ceil(columns.max(1));
+                let width = palette_row_width(columns);
                 PaletteLayout {
                     total_width: width,
-                    total_height: if entries.is_empty() {
-                        0.0
-                    } else {
-                        PALETTE_SIZE
-                    },
+                    total_height: palette_column_height(rows),
                     gates_width: width,
                     separator_x: None,
                     display_x: width,
                     display_width: 0.0,
+                    columns,
                 }
             }
         }
@@ -105,8 +111,12 @@ impl Palette {
     pub(crate) fn local_pos(&self, index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
         match self {
             Self::Full => palette_gate_local_pos(index, layout),
-            Self::Restricted(entries) => (index < entries.len())
-                .then(|| egui::pos2(index as f32 * (PALETTE_SIZE + PALETTE_GAP), 0.0)),
+            Self::Restricted(entries) => (index < entries.len()).then(|| {
+                egui::pos2(
+                    (index % layout.columns) as f32 * (PALETTE_SIZE + PALETTE_GAP),
+                    (index / layout.columns) as f32 * (PALETTE_SIZE + PALETTE_ROW_GAP),
+                )
+            }),
         }
     }
 
@@ -114,29 +124,57 @@ impl Palette {
         match self {
             Self::Full => palette_hit_test(local_pos, layout),
             Self::Restricted(entries) => {
-                if local_pos.y < 0.0 || local_pos.y > PALETTE_SIZE {
-                    return None;
-                }
-                col_from_x(local_pos.x).filter(|col| *col < entries.len())
+                let row = restricted_row_from_y(local_pos.y)?;
+                let col = col_from_x(local_pos.x).filter(|col| *col < layout.columns)?;
+                Some(row * layout.columns + col).filter(|index| *index < entries.len())
             }
         }
     }
 
     /// Height of the palette panel including its padding; `0` when hidden.
-    pub(crate) fn panel_height(&self) -> f32 {
+    pub(crate) fn panel_height(&self, canvas_width: f32) -> f32 {
         if self.is_hidden() {
             0.0
         } else {
-            self.layout().total_height + 2.0 * PALETTE_PADDING_Y
+            self.layout(canvas_width).total_height + 2.0 * PALETTE_PADDING_Y
         }
     }
 
     /// How far the circuit moves up because this palette is shorter than the
-    /// full two-row palette. Circuit-space geometry (`LINE_Y`) stays fixed;
-    /// screen conversion subtracts this offset, like the horizontal scroll.
-    pub(crate) fn circuit_shift_y(&self) -> f32 {
-        Self::Full.panel_height() - self.panel_height()
+    /// full two-row palette (negative when a wrapped palette is taller).
+    /// Circuit-space geometry (`LINE_Y`) stays fixed; screen conversion
+    /// subtracts this offset, like the horizontal scroll.
+    pub(crate) fn circuit_shift_y(&self, canvas_width: f32) -> f32 {
+        Self::Full.panel_height(canvas_width) - self.panel_height(canvas_width)
     }
+}
+
+/// Entries per row of a restricted palette: everything in one row when the
+/// panel fits between the spacing-4 canvas margins, otherwise the fewest
+/// rows that fit, filled evenly (9 entries on a 354 px canvas → 5 + 4).
+fn restricted_columns(count: usize, canvas_width: f32) -> usize {
+    if count == 0 {
+        return 0;
+    }
+    let available = canvas_width - 2.0 * (PALETTE_MARGIN_X + PALETTE_PADDING_X);
+    let fit = (((available + PALETTE_GAP) / (PALETTE_SIZE + PALETTE_GAP)).floor() as usize).max(1);
+    count.div_ceil(count.div_ceil(fit))
+}
+
+fn palette_column_height(rows: usize) -> f32 {
+    if rows == 0 {
+        0.0
+    } else {
+        rows as f32 * PALETTE_SIZE + (rows - 1) as f32 * PALETTE_ROW_GAP
+    }
+}
+
+fn restricted_row_from_y(y: f32) -> Option<usize> {
+    if y < 0.0 {
+        return None;
+    }
+    let row = (y / (PALETTE_SIZE + PALETTE_ROW_GAP)).floor() as usize;
+    (y - row as f32 * (PALETTE_SIZE + PALETTE_ROW_GAP) <= PALETTE_SIZE).then_some(row)
 }
 
 fn palette_row_width(count: usize) -> f32 {
@@ -160,12 +198,12 @@ fn palette_layout() -> PaletteLayout {
     let display_width = palette_grid_width(PALETTE_DISPLAY_COLUMNS);
     PaletteLayout {
         total_width: display_x + display_width,
-        total_height: PALETTE_DISPLAY_ROWS as f32 * PALETTE_SIZE
-            + (PALETTE_DISPLAY_ROWS.saturating_sub(1)) as f32 * PALETTE_ROW_GAP,
+        total_height: palette_column_height(PALETTE_DISPLAY_ROWS),
         gates_width,
         separator_x: Some(separator_x),
         display_x,
         display_width,
+        columns: PALETTE_ROW1_COUNT,
     }
 }
 
@@ -276,6 +314,15 @@ fn palette_hit_test(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usi
 mod tests {
     use super::*;
 
+    // Circuit-area widths of the qni tutorial embeds on 1440 px and 390 px
+    // pages: the 1068 px / 354 px canvases minus the central panel's 8 px
+    // margins.
+    const WIDE: f32 = 1052.0;
+    const NARROW: f32 = 338.0;
+    const PHASE_PALETTE: [&str; 9] = [
+        "H", "X", "Y", "Z", "P(π/2)", "X^½", "Rx(π/2)", "Ry(π/2)", "Rz(π/2)",
+    ];
+
     fn kinds(palette: &Palette) -> Vec<GateKind> {
         (0..palette.len())
             .filter_map(|index| palette.entry(index).map(|entry| entry.kind))
@@ -340,34 +387,40 @@ mod tests {
 
     #[test]
     fn full_palette_keeps_circuit_in_place() {
-        assert_eq!(Palette::Full.circuit_shift_y(), 0.0);
+        assert_eq!(Palette::Full.circuit_shift_y(WIDE), 0.0);
     }
 
     #[test]
     fn single_row_palette_lifts_circuit_by_one_row() {
         let palette = Palette::restricted(&["H", "X"]).unwrap();
 
-        assert_eq!(palette.circuit_shift_y(), PALETTE_SIZE + PALETTE_ROW_GAP);
+        assert_eq!(
+            palette.circuit_shift_y(WIDE),
+            PALETTE_SIZE + PALETTE_ROW_GAP
+        );
     }
 
     #[test]
     fn hidden_palette_lifts_circuit_by_whole_panel() {
         let palette = Palette::restricted::<&str>(&[]).unwrap();
 
-        assert_eq!(palette.circuit_shift_y(), Palette::Full.panel_height());
+        assert_eq!(
+            palette.circuit_shift_y(WIDE),
+            Palette::Full.panel_height(WIDE)
+        );
     }
 
     #[test]
     fn restricted_palette_has_no_display_separator() {
         let palette = Palette::restricted(&["H", "Bloch"]).unwrap();
 
-        assert_eq!(palette.layout().separator_x, None);
+        assert_eq!(palette.layout(WIDE).separator_x, None);
     }
 
     #[test]
     fn restricted_hit_test_round_trips_entries() {
         let palette = Palette::restricted(&["|0>", "H", "•"]).unwrap();
-        let layout = palette.layout();
+        let layout = palette.layout(WIDE);
         let hits = (0..palette.len())
             .map(|index| {
                 let local = palette.local_pos(index, &layout).unwrap();
@@ -382,9 +435,89 @@ mod tests {
     }
 
     #[test]
+    fn wide_canvas_keeps_restricted_palette_in_one_row() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+
+        assert_eq!(palette.layout(WIDE).columns, PHASE_PALETTE.len());
+    }
+
+    #[test]
+    fn narrow_canvas_wraps_restricted_palette_into_balanced_rows() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+
+        assert_eq!(palette.layout(NARROW).columns, 5);
+    }
+
+    #[test]
+    fn wrapped_palette_panel_fits_inside_canvas_margins() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+        let layout = palette.layout(NARROW);
+        let left = palette_start_x(NARROW, &layout) - PALETTE_PADDING_X;
+        let right = left + layout.total_width + 2.0 * PALETTE_PADDING_X;
+
+        assert!(left >= PALETTE_MARGIN_X && right <= NARROW - PALETTE_MARGIN_X);
+    }
+
+    #[test]
+    fn wrapped_palette_starts_second_row_below_first() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+        let layout = palette.layout(NARROW);
+
+        assert_eq!(
+            palette.local_pos(5, &layout),
+            Some(egui::pos2(0.0, PALETTE_SIZE + PALETTE_ROW_GAP))
+        );
+    }
+
+    #[test]
+    fn two_row_wrapped_palette_keeps_circuit_in_place() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+
+        assert_eq!(palette.circuit_shift_y(NARROW), 0.0);
+    }
+
+    #[test]
+    fn three_row_wrapped_palette_pushes_circuit_down_one_row() {
+        let palette = Palette::restricted(&["H"; 7]).unwrap();
+
+        // 7 entries at most 3 per row (a 200 px canvas) → 3 + 3 + 1.
+        assert_eq!(
+            palette.circuit_shift_y(200.0),
+            -(PALETTE_SIZE + PALETTE_ROW_GAP)
+        );
+    }
+
+    #[test]
+    fn wrapped_hit_test_round_trips_entries() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+        let layout = palette.layout(NARROW);
+        let round_trips = (0..palette.len()).all(|index| {
+            let local = palette.local_pos(index, &layout).unwrap();
+            palette.hit_test(
+                local + egui::vec2(PALETTE_SIZE / 2.0, PALETTE_SIZE / 2.0),
+                &layout,
+            ) == Some(index)
+        });
+
+        assert!(round_trips);
+    }
+
+    #[test]
+    fn wrapped_hit_test_ignores_empty_cell_after_last_entry() {
+        let palette = Palette::restricted(&PHASE_PALETTE).unwrap();
+        let layout = palette.layout(NARROW);
+        let empty = egui::pos2(
+            4.0 * (PALETTE_SIZE + PALETTE_GAP) + PALETTE_SIZE / 2.0,
+            PALETTE_SIZE + PALETTE_ROW_GAP + PALETTE_SIZE / 2.0,
+        );
+
+        assert_eq!(palette.hit_test(empty, &layout), None);
+    }
+
+    #[test]
     fn restricted_hit_test_ignores_second_row() {
         let palette = Palette::restricted(&["H"]).unwrap();
-        let layout = palette.layout();
+        let layout = palette.layout(WIDE);
 
         assert_eq!(
             palette.hit_test(

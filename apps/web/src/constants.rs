@@ -148,6 +148,20 @@ pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
 pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
 pub(crate) const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
 pub(crate) const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
+/// Circuit areas narrower than Tailwind's `sm` breakpoint (640px) use
+/// compact gutters so a phone-width embed (a 354px canvas on a 390px
+/// tutorial page) still shows five columns.
+pub(crate) const COMPACT_CIRCUIT_MAX_WIDTH: f32 = 640.0;
+/// Compact x where the wires start, relative to the circuit area
+/// (spacing-10 = 40px): a spacing-2 margin, a "q0:" label (3 GeistMono
+/// text-sm glyphs ≈ 25px), and a spacing-2 gap before the wire. With the
+/// central panel's 8px margin the label starts ~spacing-4 from the canvas
+/// edge.
+pub(crate) const COMPACT_LINE_LEFT_OFFSET: f32 = 40.0;
+/// Compact gap between a right-aligned qubit label and its wire (spacing-2).
+pub(crate) const COMPACT_QUBIT_LABEL_GAP: f32 = 8.0;
+/// Compact right gutter past the last wire end (spacing-4 = 16px).
+pub(crate) const COMPACT_CIRCUIT_PADDING: f32 = 16.0;
 
 // qni circuit-block geometry. The block body extends spacing-2 = 8 px past
 // the step-preview bar (half a wire gap above the first wire / below the
@@ -187,6 +201,10 @@ pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 2;
 pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;
 pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
 pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
+/// Smallest gap between the palette panel and the canvas side edges
+/// (spacing-4 = 16px). A restricted palette wraps into more rows rather
+/// than cross it.
+pub(crate) const PALETTE_MARGIN_X: f32 = 16.0;
 pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
 /// Palette first-row top aligned after the full-width toolbar strip.
 /// Toolbar strip height is 44px (32px content row + py-1.5), and egui's

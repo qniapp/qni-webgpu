@@ -2,8 +2,7 @@ use eframe::egui;
 
 use super::DragController;
 use crate::app::QniApp;
-use crate::constants::CIRCUIT_PADDING;
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitGutters, LayoutMetrics};
 
 impl DragController {
     pub(in crate::app) fn update_circuit_scroll(
@@ -18,9 +17,8 @@ impl DragController {
         // produce a `delta.y`, so we treat shift+wheel-y as wheel-x
         // when the cursor is inside the circuit area. Scroll right
         // (positive delta) → reveal trailing gates → `scroll_x`
-        // grows. Always clamp to `[0, max(0, line_right -
-        // canvas_width + CIRCUIT_PADDING)]` so the rightmost slot
-        // stops just past the canvas edge.
+        // grows. Always clamp to `CircuitGutters::max_scroll` so the
+        // wire end stops one right gutter before the canvas edge.
         let cursor_in_circuit = screen_pos.is_some_and(|p| content_rect.contains(p));
         if cursor_in_circuit {
             let (raw_dx, raw_dy, shift) = ctx.input(|i| {
@@ -52,5 +50,5 @@ impl DragController {
 }
 
 fn max_circuit_scroll(metrics: &LayoutMetrics, content_width: f32) -> f32 {
-    (metrics.line_right + CIRCUIT_PADDING - content_width).max(0.0)
+    CircuitGutters::for_canvas_width(content_width).max_scroll(metrics, content_width)
 }

@@ -152,3 +152,47 @@ test('small embed with restricted palette keeps CNOT clear of the state panel', 
   await waitForStepZero(page)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-restricted-palette.png')
 })
+
+// qni tutorial pages at 390px give embeds a 354px canvas (issue #52).
+const PHASE_PALETTE = ['H', 'X', 'Y', 'Z', 'P(π/2)', 'X^½', 'Rx(π/2)', 'Ry(π/2)', 'Rz(π/2)']
+const ENTANGLEMENT = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["•","X"],["}"],["Measure"],[1,"Measure"]]}'
+const ROTATIONS = '{"cols":[["|0>"],["X"],["Rx(π/2)"],["Rz(π/2)"],["Ry(π/2)"]]}'
+
+test('narrow embed wraps a nine-gate palette into two rows', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"]]}', { settings: { palette: PHASE_PALETTE }, width: 354, height: 592 })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-phase-palette.png')
+})
+
+test('narrow embed keeps trailing measurements inside the canvas', async ({ page }) => {
+  await hostEmbed(page, ENTANGLEMENT, { settings: { palette: ['H', '•', 'X'] }, width: 354, height: 592 })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-entanglement.png')
+})
+
+test('narrow embed keeps five rotation columns inside the canvas', async ({ page }) => {
+  await hostEmbed(page, ROTATIONS, { settings: { palette: ['Bloch'] }, width: 354, height: 592 })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-rotations.png')
+})
+
+test('narrow embed drops a gate from the wrapped second palette row', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[]}', { settings: { palette: PHASE_PALETTE }, width: 354, height: 592 })
+  await waitForStepZero(page)
+  // Inside the central panel's 8px margin the 338px circuit area centres the
+  // 5 + 4 palette (232px wide) at x = 8 + 53; Rx(π/2) is row 2, column 2,
+  // whose centre is (8 + 53 + 48 + 20, 8 + 80 + 48 + 20). Two palette rows
+  // keep q0 at 8 + LINE_Y (264); the compact gutter puts slot 0 at
+  // 8 + 162 - 82 = 88.
+  const canvas = page.locator('qni-webgpu-test canvas')
+  const box = (await canvas.boundingBox())!
+  await page.mouse.move(box.x + 129, box.y + 156)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 110, box.y + 210, { steps: 8 })
+  await page.mouse.move(box.x + 88, box.y + 264, { steps: 8 })
+  await page.mouse.up()
+  // Rx(π/2)|0> = (|0> - i|1>) / √2, read back as [re0, im0, re1, im1].
+  await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[])
+    .map(value => Math.round(value * 1000) / 1000))
+    .toEqual([0.707, 0, 0, -0.707])
+})

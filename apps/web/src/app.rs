@@ -332,10 +332,15 @@ impl QniApp {
     }
 
     /// Screen position of the circuit-space origin for a circuit content
-    /// rect: shifted left by the horizontal scroll and up by the space a
-    /// restricted palette saves.
-    pub(crate) fn circuit_origin(&self, content_min: egui::Pos2, scroll_x: f32) -> egui::Pos2 {
-        content_min - egui::vec2(scroll_x, self.palette.circuit_shift_y())
+    /// rect: shifted left by the narrow-canvas gutter and the horizontal
+    /// scroll, and up by the space a restricted palette saves.
+    pub(crate) fn circuit_origin(&self, content_rect: egui::Rect, scroll_x: f32) -> egui::Pos2 {
+        let width = content_rect.width();
+        content_rect.min
+            - egui::vec2(
+                crate::layout::CircuitGutters::for_canvas_width(width).shift_x + scroll_x,
+                self.palette.circuit_shift_y(width),
+            )
     }
 
     /// Screen y of the lowest pixel the circuit draws: the last wire's step
@@ -345,10 +350,8 @@ impl QniApp {
             CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_GAP, CIRCUIT_BLOCK_PADDING_Y,
             LINE_GAP, LINE_Y,
         };
-        let content_min = self
-            .last_content_rect
-            .map_or(screen_rect.min, |rect| rect.min);
-        let last_line_y = self.circuit_origin(content_min, 0.0).y
+        let content_rect = self.last_content_rect.unwrap_or(screen_rect);
+        let last_line_y = self.circuit_origin(content_rect, 0.0).y
             + LINE_Y
             + LINE_GAP * (self.layout_qubits() - 1) as f32;
         let block_labels = if self.circuit_blocks.is_empty() {

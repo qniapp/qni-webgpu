@@ -46,7 +46,7 @@ impl CircuitInputGeometry {
         min_slots: usize,
         palette: &Palette,
     ) -> Self {
-        let palette_layout = palette.layout();
+        let palette_layout = palette.layout(screen_rect.width());
         let palette_start_x = palette_start_x(screen_rect.width(), &palette_layout);
         let palette_origin = egui::pos2(
             screen_rect.min.x + palette_start_x,

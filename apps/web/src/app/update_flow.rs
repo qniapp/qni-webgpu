@@ -40,8 +40,7 @@ impl QniApp {
     ) {
         let screen_rect = ui.max_rect();
         let colors = self.colors();
-        let content_height =
-            self.circuit_content_height(self.layout_qubits(), screen_rect.height());
+        let content_height = self.circuit_content_height(self.layout_qubits(), screen_rect);
 
         // Decide whether wheel-over-the-panel should suppress the surrounding
         // ScrollArea's page-scroll. If pointer is on the state panel (or its
