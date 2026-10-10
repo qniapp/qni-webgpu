@@ -5,8 +5,8 @@ use eframe::egui;
 
 use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
-use crate::constants::{CIRCUIT_PADDING, GATE_SIZE, LINE_GAP, LINE_Y, REM};
-use crate::layout::{nearest_slot_index, LayoutMetrics};
+use crate::constants::{GATE_SIZE, LINE_GAP, LINE_Y, REM};
+use crate::layout::{nearest_slot_index, CircuitGutters, LayoutMetrics};
 
 const SLOT_CENTER_EPSILON: f32 = 0.5;
 
@@ -28,12 +28,16 @@ pub(super) fn gate_slot_index_for_render(
 }
 
 impl QniApp {
-    pub(crate) fn circuit_content_height(&self, qubit_count: usize, screen_height: f32) -> f32 {
+    pub(crate) fn circuit_content_height(
+        &self,
+        qubit_count: usize,
+        screen_rect: egui::Rect,
+    ) -> f32 {
         let line_count = qubit_count.max(1);
-        let last_line_y = LINE_Y - self.palette.circuit_shift_y()
+        let last_line_y = LINE_Y - self.palette.circuit_shift_y(screen_rect.width())
             + LINE_GAP * (line_count.saturating_sub(1)) as f32;
         let content_height = last_line_y + GATE_SIZE + 4.0 * REM;
-        content_height.max(screen_height)
+        content_height.max(screen_rect.height())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -47,13 +51,14 @@ impl QniApp {
         dragging_gate_id: Option<GateId>,
         scroll_x: f32,
     ) -> bool {
-        // `circuit_origin` is `rect.min` shifted left by the current
-        // horizontal scroll offset and up by the restricted-palette shift.
+        // `circuit_origin` is `rect.min` shifted left by the narrow-canvas
+        // gutter and the current horizontal scroll offset, and up by the
+        // restricted-palette shift.
         // Anything pinned to the circuit's coordinate system (wires, slot
         // grid, gate bodies, step indicators, connectors) is drawn relative
         // to it; the GPU callback viewports stay on `rect` so they don't
         // track the scroll.
-        let circuit_origin = self.circuit_origin(rect.min, scroll_x);
+        let circuit_origin = self.circuit_origin(rect, scroll_x);
         // Blocks sit behind everything else, like qni's block body that
         // wraps its steps.
         self.draw_circuit_blocks(painter, metrics, colors, circuit_origin);
@@ -132,15 +137,16 @@ impl QniApp {
             );
         }
 
+        let gutters = CircuitGutters::for_canvas_width(rect.width());
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
             // Labels live in circuit space (anchored to the wire's
             // start) so they scroll with the rest of the circuit —
             // otherwise the leftmost gates would slide under fixed
             // "q0:" / "q1:" labels and visually collide.
-            let label_pos = circuit_origin + egui::vec2(CIRCUIT_PADDING, line_y - 7.0);
+            let label_pos = circuit_origin + egui::vec2(gutters.label_x, line_y - 7.0);
             painter.text(
                 label_pos,
-                egui::Align2::LEFT_TOP,
+                gutters.label_align,
                 format!("q{index}:"),
                 // text-sm (14 px) — Tailwind. Monospace keeps q0:/q1: wire
                 // labels aligned with angle labels and state-panel numerals.

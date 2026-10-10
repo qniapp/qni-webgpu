@@ -39,7 +39,7 @@ impl QniApp {
         let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
             return;
         };
-        let palette_layout = self.palette.layout();
+        let palette_layout = self.palette.layout(rect.width());
         let Some(local) = self.palette.local_pos(index, &palette_layout) else {
             return;
         };

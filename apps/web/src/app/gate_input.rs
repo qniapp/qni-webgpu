@@ -44,7 +44,7 @@ impl QniApp {
         // palette drop on circuit) gets a cursor it can compare directly
         // against `gate.pos`. Palette pickup itself uses `pos` (screen)
         // so it isn't affected by the offset.
-        let circuit_origin = self.circuit_origin(content_rect.min, self.circuit_scroll_x);
+        let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
         let local_pos = pos.map(|p| (p - circuit_origin).to_pos2());
         let geometry = CircuitInputGeometry::new(
             content_rect,

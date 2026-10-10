@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn block_beyond_the_laid_out_slots_has_no_rect() {
         // Too narrow for any slot beyond the one `min_slots` forces.
-        let metrics = layout_metrics(200.0, 2, 1);
+        let metrics = layout_metrics(120.0, 2, 1);
         let block = first_block(r#"{"cols":[["H"],["{a"],["X"],["}"]]}"#);
 
         assert_eq!(circuit_block_rect(&block, &metrics), None);

@@ -51,7 +51,7 @@ impl QniApp {
         if let (Some(content_rect), Some(dragging_gate_id)) =
             (circuit_frame.content_rect, circuit_frame.dragging_gate_id)
         {
-            let circuit_origin = self.circuit_origin(content_rect.min, self.circuit_scroll_x);
+            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
             if circuit_frame.insert_preview_painted {
                 self.draw_insert_preview_overlay(
                     &overlay_painter,
@@ -71,7 +71,7 @@ impl QniApp {
             }
         }
         if let Some(content_rect) = circuit_frame.content_rect {
-            let circuit_origin = self.circuit_origin(content_rect.min, self.circuit_scroll_x);
+            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
             // Paint display popovers in the foreground overlay so they sit above
             // the palette. Use the full screen rect as the GPU value viewport:
             // scrolled circuit content can have a negative rect origin, while

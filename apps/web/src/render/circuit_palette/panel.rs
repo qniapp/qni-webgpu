@@ -17,7 +17,7 @@ impl QniApp {
         if self.library.active_locked() || self.palette.is_hidden() {
             return;
         }
-        let layout = self.palette.layout();
+        let layout = self.palette.layout(rect.width());
         let palette_start_x = palette_start_x(rect.width(), &layout);
         let palette_rect = egui::Rect::from_min_size(
             rect.min
