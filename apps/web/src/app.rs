@@ -30,9 +30,9 @@ use std::collections::VecDeque;
 
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, CircuitColumnIndex, CircuitColumnIndexError, ClickCopy,
-    DragState, GateId, GateIdAllocator, LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge,
-    SpanResizeHandle, WireIndex, WireIndexError,
+    AngleAffordance, AngleEditor, CircuitBlock, CircuitBlocks, CircuitColumnIndex,
+    CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator, LiveDragSnap,
+    PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex, WireIndexError,
 };
 pub(crate) use embed::{AppMode, EmbedStartup};
 pub(crate) use exec_mode::ExecMode;
@@ -53,6 +53,9 @@ pub(crate) struct QniApp {
     pub(crate) picker_overlay_rect: Option<egui::Rect>,
     gate_ids: GateIdAllocator,
     pub(crate) placed_gates: Vec<PlacedGate>,
+    /// Labelled column ranges drawn around groups of gates (qni
+    /// `circuit-block`). Presentation only; never part of the simulation.
+    pub(crate) circuit_blocks: CircuitBlocks,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
     /// When circuit content exceeds the canvas width, this pushes the
     /// rendered circuit left by that many pixels so the user can see
@@ -214,34 +217,44 @@ impl QniApp {
             Self::wire_test_hooks(&cc.egui_ctx);
         }
         cc.egui_ctx.request_repaint();
-        let (library, initial_gates, gate_ids, requested_exec_mode) = if let Some(startup) = embed {
-            let (gates, gate_ids) = crate::url_circuit::parse_circuit_json(&startup.circuit_json);
+        let (library, initial_circuit, requested_exec_mode) = if let Some(startup) = embed {
+            let circuit = crate::url_circuit::parse_circuit_json(&startup.circuit_json);
             let mut library = CircuitLibrary::seed();
             library.set_active_current_circuit(startup.circuit_json);
-            (library, gates, gate_ids, Some(ExecMode::Local))
+            (library, circuit, Some(ExecMode::Local))
         } else {
             // Restore a shared circuit from the URL (`#{"cols":[...]}` or
             // qni-style path) first. If no URL payload is present, use the
             // persisted active localStorage circuit; if no persisted library
             // exists, keep the seeded samples and a separate "Circuit 1" current
             // entry so examples are not overwritten by the empty editor.
-            let (url_gates, url_gate_ids) = crate::url_circuit::parse_circuit_from_url();
+            let url_circuit = crate::url_circuit::parse_circuit_from_url();
             let requested_exec_mode = crate::url_circuit::parse_exec_mode_from_url();
-            let url_required_qubits = crate::url_circuit::qubit_count_from_gates(&url_gates);
+            let url_required_qubits =
+                crate::url_circuit::qubit_count_from_gates(&url_circuit.gates);
             let url_serialized_qubits = QubitCount::try_new(url_required_qubits.max(MIN_QUBITS))
                 .expect("URL serialized qubit count is at least one");
-            let url_json = crate::url_circuit::circuit_to_json(&url_gates, url_serialized_qubits);
+            let url_json = crate::url_circuit::circuit_to_json(
+                &url_circuit.gates,
+                &url_circuit.blocks,
+                url_serialized_qubits,
+            );
             let (library, initial_json) = circuit_library::for_startup(
                 url_json.clone(),
                 crate::url_circuit::current_url_has_circuit_payload(),
             );
-            let (initial_gates, gate_ids) = if initial_json == url_json {
-                (url_gates, url_gate_ids)
+            let initial_circuit = if initial_json == url_json {
+                url_circuit
             } else {
                 crate::url_circuit::parse_circuit_json(&initial_json)
             };
-            (library, initial_gates, gate_ids, requested_exec_mode)
+            (library, initial_circuit, requested_exec_mode)
         };
+        let crate::url_circuit::DecodedCircuit {
+            gates: initial_gates,
+            gate_ids,
+            blocks: circuit_blocks,
+        } = initial_circuit;
         let initial_required_qubits = crate::url_circuit::qubit_count_from_gates(&initial_gates);
         let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
             ExecMode::Gpu
@@ -253,8 +266,11 @@ impl QniApp {
         let initial_serialized_qubits =
             QubitCount::try_new(initial_required_qubits.max(MIN_QUBITS))
                 .expect("initial serialized qubit count is at least one");
-        let initial_json =
-            crate::url_circuit::circuit_to_json(&initial_gates, initial_serialized_qubits);
+        let initial_json = crate::url_circuit::circuit_to_json(
+            &initial_gates,
+            &circuit_blocks,
+            initial_serialized_qubits,
+        );
         if mode.uses_browser_state() {
             crate::url_circuit::write_circuit_to_url(&initial_json);
             crate::url_circuit::write_exec_mode_to_url(exec_mode);
@@ -272,6 +288,7 @@ impl QniApp {
             picker_overlay_rect: None,
             gate_ids,
             placed_gates: initial_gates,
+            circuit_blocks,
             circuit_scroll_x: 0.0,
             dragging: None,
             dragging_live_snap: None,

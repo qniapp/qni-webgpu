@@ -1,46 +1,71 @@
 //! Circuit JSON encoder (`PlacedGate` → `{"cols":[...]}`).
 
-use crate::app::PlacedGate;
+use crate::app::{CircuitBlocks, PlacedGate};
 use crate::gates::{GateKind, ParametricAngle};
 use crate::qubit_count::QubitCount;
 
 use super::EMPTY_CIRCUIT_JSON;
 
 /// Serialise the circuit to qni's `{"cols":[...]}` JSON shape. Returns
-/// `EMPTY_CIRCUIT_JSON` if there are no gates.
+/// `EMPTY_CIRCUIT_JSON` if there are no gates and no blocks.
 ///
 /// Each entry of `cols` is one column; each column is an array indexed
 /// by wire (qubit) number, with `1` for an empty wire and the gate's
 /// token otherwise. Trailing `1`s in a column are stripped to match
 /// Quirk / qni's compact JSON; a column with no gates at all (which
 /// shouldn't happen post-`compact_empty_steps`) becomes `[1]`.
-pub(crate) fn circuit_to_json(placed_gates: &[PlacedGate], qubit_count: QubitCount) -> String {
-    if placed_gates.is_empty() {
+///
+/// Each circuit block is written as an `["{<label>"]` column before its
+/// first column and a `["}"]` column after its last one.
+pub(crate) fn circuit_to_json(
+    placed_gates: &[PlacedGate],
+    blocks: &CircuitBlocks,
+    qubit_count: QubitCount,
+) -> String {
+    if placed_gates.is_empty() && blocks.is_empty() {
         return EMPTY_CIRCUIT_JSON.to_string();
     }
-    format!(
-        r#"{{"cols":{}}}"#,
-        circuit_columns_to_json(placed_gates, qubit_count)
-    )
+    let mut cols = gate_columns_json(placed_gates, qubit_count, blocks.column_count());
+    // Insert markers back to front so earlier column indices stay valid.
+    for block in blocks.iter().rev() {
+        cols.insert(block.end().as_usize(), r#"["}"]"#.to_string());
+        cols.insert(
+            block.start().as_usize(),
+            format!(r#"["{{{}"]"#, json_escape(block.label())),
+        );
+    }
+    format!(r#"{{"cols":[{}]}}"#, cols.join(","))
 }
 
+/// Serialise only the gate columns, without circuit-block markers. This is
+/// the operand list sent to external GPU execution, where blocks have no
+/// meaning.
 pub(crate) fn circuit_columns_to_json(
     placed_gates: &[PlacedGate],
     qubit_count: QubitCount,
 ) -> String {
-    if placed_gates.is_empty() {
-        return "[]".to_string();
-    }
+    format!(
+        "[{}]",
+        gate_columns_json(placed_gates, qubit_count, 0).join(",")
+    )
+}
+
+/// One JSON array per gate column, padded with empty `[1]` columns up to
+/// at least `min_columns`.
+fn gate_columns_json(
+    placed_gates: &[PlacedGate],
+    qubit_count: QubitCount,
+    min_columns: usize,
+) -> Vec<String> {
     // Bucket gates by semantic column. After `compact_empty_steps` the
     // occupied indices are dense from 0..N-1, but be defensive in case this
     // is ever called pre-compaction.
-    let max_slot = placed_gates
+    let Some(bucket_count) = placed_gates
         .iter()
-        .map(|gate| gate.column.as_usize())
-        .max()
-        .unwrap_or(0);
-    let Some(bucket_count) = max_slot.checked_add(1) else {
-        return "[]".to_string();
+        .map(|gate| gate.column.as_usize().checked_add(1))
+        .try_fold(min_columns, |count, end| end.map(|end| count.max(end)))
+    else {
+        return Vec::new();
     };
     let mut buckets: Vec<Vec<&PlacedGate>> = vec![Vec::new(); bucket_count];
     for gate in placed_gates {
@@ -70,7 +95,7 @@ pub(crate) fn circuit_columns_to_json(
         }
         cols.push(format!("[{}]", entries.join(",")));
     }
-    format!("[{}]", cols.join(","))
+    cols
 }
 
 /// Map a gate kind + span + optional angle string to its URL token.
@@ -162,7 +187,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["Amps1"]]}"#
         );
     }
@@ -179,7 +204,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(16)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(16)),
             r#"{"cols":[["Amps16"]]}"#
         );
     }
@@ -196,7 +221,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["P(π_2)"]]}"#
         );
     }
@@ -213,7 +238,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["P(0)"]]}"#
         );
     }
@@ -230,7 +255,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["P"]]}"#
         );
     }
@@ -247,7 +272,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["Rx"]]}"#
         );
     }
@@ -264,7 +289,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["Ry"]]}"#
         );
     }
@@ -281,7 +306,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["Rz"]]}"#
         );
     }
@@ -298,7 +323,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[[1],["H"]]}"#
         );
     }
@@ -315,7 +340,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
             r#"{"cols":[["Density"]]}"#
         );
     }
@@ -332,7 +357,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(8)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(8)),
             r#"{"cols":[["Density8"]]}"#
         );
     }
@@ -349,7 +374,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], qubit_count(33)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(33)),
             format!(r#"{{"cols":[[{},"H"]]}}"#, vec!["1"; 32].join(","))
         );
     }

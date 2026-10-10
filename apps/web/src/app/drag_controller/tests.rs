@@ -7,6 +7,7 @@ use crate::constants::{GATE_SIZE, LINE_Y};
 fn circuit_json(app: &QniApp) -> String {
     crate::url_circuit::circuit_to_json(
         &app.placed_gates,
+        &app.circuit_blocks,
         crate::qubit_count::QubitCount::try_new(app.required_visible_wire_count()).unwrap(),
     )
 }
@@ -1326,4 +1327,111 @@ fn free_left_neighbor_still_previews_at_source_left_boundary() {
             (geometry.metrics.slot_centers[1] + geometry.metrics.slot_centers[2]) / 2.0
         )
     );
+}
+
+fn off_circuit() -> egui::Pos2 {
+    egui::pos2(1100.0, 470.0)
+}
+
+#[test]
+fn removing_a_gate_before_a_block_moves_the_block_left() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["X"],["{a"],["H"],["Z"],["}"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(&mut app, &ctx, &geometry, off_circuit());
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],["H"],["Z"],["}"]]}"#);
+}
+
+#[test]
+fn removing_the_last_gate_of_a_block_drops_the_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["{a"],["H"],["}"],["X"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(&mut app, &ctx, &geometry, off_circuit());
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["X"]]}"#);
+}
+
+#[test]
+fn inserting_between_block_columns_widens_the_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["X"],["{a"],["H"],["Z"],["}"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(
+        &mut app,
+        &ctx,
+        &geometry,
+        egui::pos2(
+            (geometry.metrics.slot_centers[1] + geometry.metrics.slot_centers[2]) / 2.0,
+            geometry.metrics.line_ys[0],
+        ),
+    );
+
+    assert_eq!(
+        circuit_json(&app),
+        r#"{"cols":[["{a"],["H"],["X"],["Z"],["}"]]}"#
+    );
+}
+
+#[test]
+fn moving_a_gate_into_a_block_slot_keeps_the_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["X"],["{a"],["H"],["}"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(
+        &mut app,
+        &ctx,
+        &geometry,
+        egui::pos2(
+            geometry.metrics.slot_centers[1],
+            geometry.metrics.line_ys[1],
+        ),
+    );
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],["H","X"],["}"]]}"#);
+}
+
+#[test]
+fn undo_restores_a_dropped_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["{a"],["H"],["}"],["X"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(&mut app, &ctx, &geometry, off_circuit());
+    app.undo_circuit(&ctx);
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],["H"],["}"],["X"]]}"#);
+}
+
+#[test]
+fn widening_the_last_gate_of_a_block_widens_the_block() {
+    let (mut app, _, _) = fixture(r#"{"cols":[["{a"],["Amps2"],[1],["}"],["H"]]}"#);
+    let gate = app.placed_gates[0].id;
+    app.shift_trailing_gates_after_width_change(gate, CircuitColumnIndex::ZERO, 2, 4);
+
+    assert_eq!(
+        circuit_json(&app),
+        r#"{"cols":[["{a"],["Amps2"],[1],[1],[1],["}"],["H"]]}"#
+    );
+}
+
+#[test]
+fn removing_the_only_gate_drops_its_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["{a"],["H"],["}"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(&mut app, &ctx, &geometry, off_circuit());
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[]}"#);
+}
+
+#[test]
+fn editing_trims_empty_columns_at_the_end_of_a_block() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["{a"],["H"],[1],["}"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    drop_at(
+        &mut app,
+        &ctx,
+        &geometry,
+        egui::pos2(
+            geometry.metrics.slot_centers[0],
+            geometry.metrics.line_ys[1],
+        ),
+    );
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],[1,"H"],["}"]]}"#);
 }

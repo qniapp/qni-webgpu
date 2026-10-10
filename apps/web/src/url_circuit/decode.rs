@@ -1,6 +1,6 @@
 //! URL decoder (`location.hash` / qni path payload → `PlacedGate`s).
 
-use crate::app::{GateId, GateIdAllocator, PlacedGate};
+use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
 use crate::gates::{GateKind, ParametricAngle};
 
@@ -19,38 +19,51 @@ use super::parser::parse_cols;
 //  via `token_to_gate`. The semantic column index (= qni step index)
 //  and wire index (= qubit number) are restored directly; the derived
 //  draw position is then synchronised from that grid.
+//
+//  qni circuit-block markers are split out before that: a column holding
+//  only `"{<label>"` (or qni's `"[<label>"`) opens a block and `"}"` (or
+//  `"]"`) closes it. Marker columns are not circuit steps, so the gate
+//  columns after them are renumbered as if they were absent.
 // ─────────────────────────────────────────────────────────────────────
 
-/// Decode the URL and return the placed gates plus a recommended
-/// `next_gate_id`. Empty `Vec` (with `next_gate_id = 1`) if no circuit
-/// payload was found.
+/// A decoded circuit: placed gates with sequential ids plus the circuit
+/// blocks drawn around them.
+#[derive(Debug, Default)]
+pub(crate) struct DecodedCircuit {
+    pub(crate) gates: Vec<PlacedGate>,
+    pub(crate) gate_ids: GateIdAllocator,
+    pub(crate) blocks: CircuitBlocks,
+}
+
+/// Decode the URL. Returns an empty circuit (with `next_gate_id = 1`) if no
+/// circuit payload was found.
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, GateIdAllocator) {
+pub(crate) fn parse_circuit_from_url() -> DecodedCircuit {
     let Some(window) = web_sys::window() else {
-        return (Vec::new(), GateIdAllocator::new());
+        return DecodedCircuit::default();
     };
     let location = window.location();
     // 1. Hash fragment (our native write path).
     if let Ok(hash) = location.hash() {
-        if let Some(gates) = try_decode(hash.strip_prefix('#').unwrap_or(&hash)) {
-            return assign_ids(gates);
+        if let Some(circuit) = try_decode(hash.strip_prefix('#').unwrap_or(&hash)) {
+            return circuit;
         }
     }
     // 2. Last path segment (qni-compatible — JSON percent-encoded in
     //    the URL path, e.g. `/%7B%22cols%22:...%7D`).
     if let Ok(pathname) = location.pathname() {
         if let Some(last) = pathname.rsplit('/').next() {
-            if let Some(gates) = try_decode(last) {
-                return assign_ids(gates);
+            if let Some(circuit) = try_decode(last) {
+                return circuit;
             }
         }
     }
-    (Vec::new(), GateIdAllocator::new())
+    DecodedCircuit::default()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn parse_circuit_from_url() -> (Vec<PlacedGate>, GateIdAllocator) {
-    (Vec::new(), GateIdAllocator::new())
+pub(crate) fn parse_circuit_from_url() -> DecodedCircuit {
+    DecodedCircuit::default()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -79,10 +92,13 @@ pub(crate) fn current_url_has_circuit_payload() -> bool {
 
 /// Decode one canonical circuit JSON checkpoint. Unlike URL parsing,
 /// `{"cols":[]}` is a valid empty circuit and returns no gates with
-/// `next_gate_id = 1`.
-pub(crate) fn parse_circuit_json(json: &str) -> (Vec<PlacedGate>, GateIdAllocator) {
-    let cols = parse_cols(json).unwrap_or_default();
-    assign_ids(build_gates(&cols))
+/// `next_gate_id = 1`. Malformed JSON (including malformed block markers)
+/// also decodes to the empty circuit.
+pub(crate) fn parse_circuit_json(json: &str) -> DecodedCircuit {
+    let Some(columns) = parse_cols(json).and_then(split_block_markers) else {
+        return DecodedCircuit::default();
+    };
+    with_gate_ids(build_gates(&columns.cols), columns.blocks)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,7 +112,7 @@ pub(crate) struct CircuitJsonSummary {
 /// Used by browser-local persistence metadata; state-vector / Bloch /
 /// measurement values remain GPU-only.
 pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
-    let cols = parse_cols(json)?;
+    let cols = split_block_markers(parse_cols(json)?)?.cols;
     let mut qubits = 0usize;
     let mut gate_count = 0usize;
     for col in &cols {
@@ -130,7 +146,7 @@ pub(crate) fn qubit_count_from_gates(gates: &[PlacedGate]) -> usize {
 /// snippet) into a list of `PlacedGate`. Strips a `circuit=` prefix
 /// if present so Quirk URLs paste cleanly. A valid empty `cols` payload
 /// is a real circuit checkpoint and must override any stale path payload.
-fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
+fn try_decode(payload: &str) -> Option<DecodedCircuit> {
     if payload.is_empty() {
         return None;
     }
@@ -146,14 +162,88 @@ fn try_decode(payload: &str) -> Option<Vec<PlacedGate>> {
     if !json.starts_with('{') {
         return None;
     }
-    let cols = parse_cols(json)?;
-    let gates = build_gates(&cols);
-    let has_gate_tokens = cols.iter().flatten().any(Option::is_some);
+    let columns = split_block_markers(parse_cols(json)?)?;
+    let gates = build_gates(&columns.cols);
+    let has_gate_tokens = columns.cols.iter().flatten().any(Option::is_some);
     if gates.is_empty() && has_gate_tokens {
         None
     } else {
-        Some(gates)
+        Some(with_gate_ids(gates, columns.blocks))
     }
+}
+
+/// Gate columns with the circuit-block marker columns removed.
+struct SplitColumns {
+    cols: Vec<Vec<Option<String>>>,
+    blocks: CircuitBlocks,
+}
+
+/// What a raw `cols` entry means for circuit blocks.
+enum ColumnRole {
+    Gates,
+    OpenBlock(String),
+    CloseBlock,
+}
+
+/// Separate qni circuit-block markers from the gate columns. Returns `None`
+/// for malformed blocks, which rejects the whole circuit just like any
+/// other malformed JSON:
+///
+/// * a marker sharing its column with another entry (`[1,"{a"]`),
+/// * an opening marker without a label (`"{"`), as qni requires one,
+/// * a block opened inside another block (qni blocks never nest),
+/// * a closing marker without an open block.
+///
+/// A block still open at the end of `cols` is closed there, matching qni's
+/// loader. Blocks without any column (`["{a"],["}"]`) are dropped, matching
+/// qni's serializer, which only writes blocks around non-empty steps.
+fn split_block_markers(raw: Vec<Vec<Option<String>>>) -> Option<SplitColumns> {
+    let mut cols = Vec::with_capacity(raw.len());
+    let mut blocks = CircuitBlocks::default();
+    let mut open: Option<(String, CircuitColumnIndex)> = None;
+    let close = |blocks: &mut CircuitBlocks, (label, start), end| {
+        // Columns are appended in order and empty ranges are skipped, so
+        // `push` can only fail for an empty block.
+        let _ = blocks.push(label, start, end);
+    };
+    for col in raw {
+        match column_role(&col)? {
+            ColumnRole::Gates => cols.push(col),
+            ColumnRole::OpenBlock(label) => {
+                if open.is_some() {
+                    return None;
+                }
+                open = Some((label, CircuitColumnIndex::new(cols.len())));
+            }
+            ColumnRole::CloseBlock => {
+                let block = open.take()?;
+                close(&mut blocks, block, CircuitColumnIndex::new(cols.len()));
+            }
+        }
+    }
+    if let Some(block) = open {
+        close(&mut blocks, block, CircuitColumnIndex::new(cols.len()));
+    }
+    Some(SplitColumns { cols, blocks })
+}
+
+fn column_role(col: &[Option<String>]) -> Option<ColumnRole> {
+    let is_marker = |entry: &Option<String>| {
+        entry
+            .as_deref()
+            .is_some_and(|token| token.starts_with(['{', '[', '}', ']']))
+    };
+    if !col.iter().any(is_marker) {
+        return Some(ColumnRole::Gates);
+    }
+    let [Some(token)] = col else {
+        return None;
+    };
+    if token == "}" || token == "]" {
+        return Some(ColumnRole::CloseBlock);
+    }
+    let label = token.strip_prefix(['{', '['])?;
+    (!label.is_empty()).then(|| ColumnRole::OpenBlock(label.to_owned()))
 }
 
 /// `decodeURIComponent` via js_sys on wasm; pure-Rust passthrough
@@ -265,14 +355,18 @@ fn token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle
     GateKind::from_url_token(token).map(|kind| (kind, 1, None))
 }
 
-/// Assign sequential ids starting from 1 and return the next available
-/// id (so `QniApp::next_gate_id` can resume without collision).
-fn assign_ids(mut gates: Vec<PlacedGate>) -> (Vec<PlacedGate>, GateIdAllocator) {
-    let mut allocator = GateIdAllocator::new();
+/// Assign sequential gate ids starting from 1 and keep the allocator so
+/// `QniApp` can resume without collision.
+fn with_gate_ids(mut gates: Vec<PlacedGate>, blocks: CircuitBlocks) -> DecodedCircuit {
+    let mut gate_ids = GateIdAllocator::new();
     for gate in &mut gates {
-        gate.id = allocator.allocate();
+        gate.id = gate_ids.allocate();
     }
-    (gates, allocator)
+    DecodedCircuit {
+        gates,
+        gate_ids,
+        blocks,
+    }
 }
 
 #[cfg(test)]
@@ -286,7 +380,7 @@ mod tests {
 
     #[test]
     fn amplitude_span_sixteen_decodes() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps16"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Amps16"]]}"#).gates;
 
         assert_eq!(
             gates.first().map(|gate| (gate.kind, gate.span.get())),
@@ -296,7 +390,7 @@ mod tests {
 
     #[test]
     fn decoded_gates_get_sequential_ids_from_one() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["H"],["X"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["H"],["X"]]}"#).gates;
 
         assert_eq!(
             gates.iter().map(|gate| gate.id).collect::<Vec<_>>(),
@@ -306,7 +400,7 @@ mod tests {
 
     #[test]
     fn amplitude_decode_preserves_column_index() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["H"],["Amps3"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["H"],["Amps3"]]}"#).gates;
 
         assert_eq!(
             gates
@@ -319,11 +413,12 @@ mod tests {
 
     #[test]
     fn nonzero_column_round_trips_as_later_cols_entry() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[[1],["H"]]}"#);
+        let circuit = parse_circuit_json(r#"{"cols":[[1],["H"]]}"#);
 
         assert_eq!(
             crate::url_circuit::circuit_to_json(
-                &gates,
+                &circuit.gates,
+                &circuit.blocks,
                 crate::qubit_count::QubitCount::try_new(1).expect("test qubit count"),
             ),
             r#"{"cols":[[1],["H"]]}"#
@@ -332,7 +427,7 @@ mod tests {
 
     #[test]
     fn bare_amplitude_token_is_ignored() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Amps"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Amps"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
     }
@@ -340,7 +435,7 @@ mod tests {
     #[test]
     fn zero_span_qft_token_is_ignored() {
         // スパン 0 は不正。`GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["QFT0"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["QFT0"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
     }
@@ -348,7 +443,7 @@ mod tests {
     #[test]
     fn qft_span_decodes() {
         // `.max(1)` 削除後も正常スパンはそのまま復元される。
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["QFT3"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["QFT3"]]}"#).gates;
 
         assert_eq!(
             gates.first().map(|gate| (gate.kind, gate.span.get())),
@@ -359,7 +454,7 @@ mod tests {
     #[test]
     fn probability_span_over_max_clamps_to_sixteen() {
         // `clamp(1, 16)` → `min(16)` 変更後も上限 16 への切り詰めは保たれる。
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Probability20"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Probability20"]]}"#).gates;
 
         assert_eq!(
             gates.first().map(|gate| (gate.kind, gate.span.get())),
@@ -370,14 +465,14 @@ mod tests {
     #[test]
     fn probability_zero_span_is_ignored() {
         // スパン 0 は `GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Probability0"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Probability0"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
     }
 
     #[test]
     fn parametric_angle_decodes_normalized_label() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#).gates;
 
         assert_eq!(
             gates
@@ -390,59 +485,59 @@ mod tests {
 
     #[test]
     fn parametric_angle_round_trip_uses_normalized_url_label() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
+        let circuit = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
 
         assert_eq!(
-            crate::url_circuit::circuit_to_json(&gates, qubit_count(1)),
+            crate::url_circuit::circuit_to_json(&circuit.gates, &circuit.blocks, qubit_count(1)),
             r#"{"cols":[["P(π_2)"]]}"#
         );
     }
 
     #[test]
     fn parametric_angle_invalid_token_is_ignored() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["P()"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["P()"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
     }
 
     #[test]
     fn parametric_angle_zero_denominator_token_is_ignored() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["P(π_0)"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["P(π_0)"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
     }
 
     #[test]
     fn bare_phase_token_keeps_missing_angle() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["P"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["P"]]}"#).gates;
 
         assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
     }
 
     #[test]
     fn bare_rx_token_keeps_missing_angle() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Rx"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Rx"]]}"#).gates;
 
         assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
     }
 
     #[test]
     fn bare_ry_token_keeps_missing_angle() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Ry"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Ry"]]}"#).gates;
 
         assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
     }
 
     #[test]
     fn bare_rz_token_keeps_missing_angle() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Rz"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Rz"]]}"#).gates;
 
         assert_eq!(gates.first().map(|gate| gate.angle), Some(None));
     }
 
     #[test]
     fn density_span_eight_decodes() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Density8"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Density8"]]}"#).gates;
 
         assert_eq!(
             gates.first().map(|gate| (gate.kind, gate.span.get())),
@@ -452,8 +547,193 @@ mod tests {
 
     #[test]
     fn density_span_nine_is_ignored() {
-        let (gates, _) = parse_circuit_json(r#"{"cols":[["Density9"]]}"#);
+        let gates = parse_circuit_json(r#"{"cols":[["Density9"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
+    }
+
+    const BELL_BLOCK_JSON: &str = r#"{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["•","X"],["}"],["Measure"],[1,"Measure"]]}"#;
+
+    fn block_ranges(circuit: &DecodedCircuit) -> Vec<(String, usize, usize)> {
+        circuit
+            .blocks
+            .iter()
+            .map(|block| {
+                (
+                    block.label().to_owned(),
+                    block.start().as_usize(),
+                    block.end().as_usize(),
+                )
+            })
+            .collect()
+    }
+
+    fn round_trip(json: &str) -> String {
+        let circuit = parse_circuit_json(json);
+        let qubits = qubit_count_from_gates(&circuit.gates).max(1);
+        crate::url_circuit::circuit_to_json(&circuit.gates, &circuit.blocks, qubit_count(qubits))
+    }
+
+    #[test]
+    fn block_marker_columns_are_not_circuit_steps() {
+        let circuit = parse_circuit_json(BELL_BLOCK_JSON);
+
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| (gate.kind, gate.column.as_usize()))
+                .collect::<Vec<_>>(),
+            vec![
+                (GateKind::Write0, 0),
+                (GateKind::Write0, 0),
+                (GateKind::H, 1),
+                (GateKind::Control, 2),
+                (GateKind::X, 2),
+                (GateKind::Measurement, 3),
+                (GateKind::Measurement, 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn block_decodes_label_and_column_range() {
+        assert_eq!(
+            block_ranges(&parse_circuit_json(BELL_BLOCK_JSON)),
+            vec![("量子もつれ".to_owned(), 1, 3)]
+        );
+    }
+
+    #[test]
+    fn qni_bracket_block_markers_decode() {
+        assert_eq!(
+            block_ranges(&parse_circuit_json(r#"{"cols":[["[Bell"],["H"],["]"]]}"#)),
+            vec![("Bell".to_owned(), 0, 1)]
+        );
+    }
+
+    #[test]
+    fn adjacent_blocks_decode_separately() {
+        assert_eq!(
+            block_ranges(&parse_circuit_json(
+                r#"{"cols":[["{a"],["H"],["}"],["{b"],["X"],["}"]]}"#
+            )),
+            vec![("a".to_owned(), 0, 1), ("b".to_owned(), 1, 2)]
+        );
+    }
+
+    #[test]
+    fn unclosed_block_closes_at_the_last_column() {
+        assert_eq!(
+            block_ranges(&parse_circuit_json(
+                r#"{"cols":[["H"],["{a"],["X"],["Z"]]}"#
+            )),
+            vec![("a".to_owned(), 1, 3)]
+        );
+    }
+
+    #[test]
+    fn empty_block_is_dropped() {
+        assert_eq!(
+            block_ranges(&parse_circuit_json(r#"{"cols":[["H"],["{a"],["}"]]}"#)),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn nested_block_rejects_the_circuit() {
+        assert!(try_decode(r#"{"cols":[["{a"],["{b"],["H"],["}"],["}"]]}"#).is_none());
+    }
+
+    #[test]
+    fn stray_block_close_rejects_the_circuit() {
+        assert!(try_decode(r#"{"cols":[["H"],["}"]]}"#).is_none());
+    }
+
+    #[test]
+    fn block_marker_sharing_a_column_rejects_the_circuit() {
+        assert!(try_decode(r#"{"cols":[[1,"{a"],["H"],["}"]]}"#).is_none());
+    }
+
+    #[test]
+    fn block_marker_next_to_a_gate_rejects_the_circuit() {
+        assert!(try_decode(r#"{"cols":[["{a","H"],["}"]]}"#).is_none());
+    }
+
+    #[test]
+    fn unlabelled_block_rejects_the_circuit() {
+        assert!(try_decode(r#"{"cols":[["{"],["H"],["}"]]}"#).is_none());
+    }
+
+    #[test]
+    fn malformed_block_checkpoint_decodes_to_the_empty_circuit() {
+        assert_eq!(
+            parse_circuit_json(r#"{"cols":[["H"],["}"]]}"#).gates.len(),
+            0
+        );
+    }
+
+    #[test]
+    fn summary_does_not_count_block_marker_columns() {
+        assert_eq!(
+            summarize_circuit_json(BELL_BLOCK_JSON),
+            Some(CircuitJsonSummary {
+                qubits: 2,
+                columns: 5,
+                gate_count: 7,
+            })
+        );
+    }
+
+    #[test]
+    fn block_circuit_round_trips_through_json() {
+        assert_eq!(round_trip(BELL_BLOCK_JSON), BELL_BLOCK_JSON);
+    }
+
+    #[test]
+    fn adjacent_blocks_round_trip_through_json() {
+        let json = r#"{"cols":[["{a"],["H"],["}"],["{b"],["X"],["}"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn block_ending_in_empty_columns_round_trips_through_json() {
+        let json = r#"{"cols":[["{a"],["H"],[1],["}"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn qni_bracket_block_markers_encode_as_braces() {
+        assert_eq!(
+            round_trip(r#"{"cols":[["[Bell"],["H"],["]"]]}"#),
+            r#"{"cols":[["{Bell"],["H"],["}"]]}"#
+        );
+    }
+
+    #[test]
+    fn unclosed_block_encodes_its_closing_marker() {
+        assert_eq!(
+            round_trip(r#"{"cols":[["{a"],["H"]]}"#),
+            r#"{"cols":[["{a"],["H"],["}"]]}"#
+        );
+    }
+
+    #[test]
+    fn block_label_with_quote_round_trips_through_json() {
+        let json = r#"{"cols":[["{say \"hi\""],["H"],["}"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn external_gpu_columns_omit_block_markers() {
+        let circuit = parse_circuit_json(BELL_BLOCK_JSON);
+
+        assert_eq!(
+            crate::url_circuit::circuit_columns_to_json(&circuit.gates, qubit_count(2)),
+            r#"[["|0>","|0>"],["H"],["•","X"],["Measure"],[1,"Measure"]]"#
+        );
     }
 }

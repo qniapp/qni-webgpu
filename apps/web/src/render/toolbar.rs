@@ -100,6 +100,7 @@ impl QniApp {
         .clicked()
         {
             self.placed_gates.clear();
+            self.circuit_blocks.clear();
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
             self.external_gpu.note_clear_requested();

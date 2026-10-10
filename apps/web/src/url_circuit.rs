@@ -37,6 +37,12 @@
 //!   Amps<n>      — n-qubit Amplitude display, n = 1..16 (no bare Amps token)
 //!   QFT<n>       — n-qubit QFT (span suffix)
 //!   QFT†<n>      — n-qubit inverse QFT
+//!   {<label>     - opens a circuit block (qni also writes `[<label>`)
+//!   }            - closes the circuit block (qni also writes `]`)
+//!
+//! Block markers are the sole entry of their own column and are not
+//! circuit steps: `[["{Bell"],["H"],["•","X"],["}"]]` is a two-step
+//! circuit with both steps inside the "Bell" block.
 //!
 //! Multi-qubit gates (CNOT, swap, controls) are split per wire across
 //! the same column; the wire's array index is its qubit number. The
@@ -56,7 +62,7 @@ pub(crate) const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 
 pub(crate) use decode::{
     current_url_has_circuit_payload, parse_circuit_from_url, parse_circuit_json,
-    qubit_count_from_gates, summarize_circuit_json,
+    qubit_count_from_gates, summarize_circuit_json, DecodedCircuit,
 };
 pub(crate) use encode::{circuit_columns_to_json, circuit_to_json};
 pub(crate) use history::{parse_exec_mode_from_url, write_circuit_to_url, write_exec_mode_to_url};

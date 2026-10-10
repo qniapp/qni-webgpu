@@ -15,6 +15,8 @@ use crate::qubit_count::{QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
 
+mod circuit_blocks;
+pub(crate) use circuit_blocks::{CircuitBlock, CircuitBlocks};
 mod column_index;
 pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
 mod gate_id;
@@ -166,8 +168,11 @@ impl QniApp {
     ///
     /// Each gate's column is semantic state (qni's step index), not a value
     /// recovered from pixels. Reserve one extra trailing slot as a drop-target
-    /// landing zone (mirrors qni's `appendMinimumSteps`).
+    /// landing zone (mirrors qni's `appendMinimumSteps`). Circuit blocks may
+    /// end in empty columns, so their columns count too.
     pub(super) fn min_circuit_slots(&self) -> usize {
+        let block_slots = (!self.circuit_blocks.is_empty())
+            .then(|| self.circuit_blocks.column_count().saturating_add(1));
         self.placed_gates
             .iter()
             .filter_map(|gate| {
@@ -176,6 +181,7 @@ impl QniApp {
                     .and_then(|column| column.checked_add(1))
                     .map(CircuitColumnIndex::as_usize)
             })
+            .chain(block_slots)
             .max()
             .unwrap_or(0)
     }
@@ -233,7 +239,8 @@ impl QniApp {
     /// and shift trailing gates left. Mirrors qni's
     /// `QuantumCircuitElement.removeEmptySteps()`.
     pub(crate) fn compact_empty_steps(&mut self) {
-        compact_gate_columns(&mut self.placed_gates);
+        let occupied = compact_gate_columns(&mut self.placed_gates);
+        self.circuit_blocks.compact_to(&occupied);
     }
 
     /// After a resizable gate changes horizontal footprint, move every gate
@@ -264,6 +271,7 @@ impl QniApp {
             }) {
                 return;
             }
+            self.circuit_blocks.widen_column(column, delta);
             for gate in &mut self.placed_gates {
                 if gate.id != gate_id && gate.column.as_usize() >= boundary {
                     let Some(column) = gate.column.checked_add(delta) else {
@@ -275,6 +283,8 @@ impl QniApp {
             }
         } else {
             let delta = old_width - new_width;
+            self.circuit_blocks
+                .remove_columns(CircuitColumnIndex::new(boundary - delta), delta);
             for gate in &mut self.placed_gates {
                 if gate.id != gate_id && gate.column.as_usize() >= boundary {
                     gate.column = gate.column.saturating_sub(delta);
@@ -291,14 +301,21 @@ impl QniApp {
         insert_index: CircuitColumnIndex,
         original_column: Option<CircuitColumnIndex>,
     ) {
-        insert_gate_in(
+        let Some(edit) = insert_gate_in(
             &mut self.placed_gates,
             gate_id,
             wire,
             insert_index,
             original_column,
             self.exec_mode.qubit_capacity(),
-        );
+        ) else {
+            return;
+        };
+        if let Some(removed) = edit.removed {
+            self.circuit_blocks.remove_columns(removed, edit.width);
+        }
+        self.circuit_blocks
+            .insert_columns(edit.inserted, edit.width);
     }
 
     pub(super) fn state_count(&self) -> usize {
@@ -308,10 +325,10 @@ impl QniApp {
     }
 }
 
-pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) {
-    if gates.is_empty() {
-        return;
-    }
+/// Collapse empty columns. Returns the occupied pre-compaction columns (the
+/// columns that survive, in order) so callers can apply the same renumbering
+/// to circuit blocks, whose ranges may also cover empty columns.
+pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) -> BTreeSet<usize> {
     let occupied: BTreeSet<usize> = gates
         .iter()
         .flat_map(|gate| {
@@ -327,7 +344,7 @@ pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) {
         .enumerate()
         .all(|(new_i, &old_i)| new_i == old_i);
     if already_compact {
-        return;
+        return occupied;
     }
     let mut remap: HashMap<usize, usize> = HashMap::with_capacity(occupied.len());
     for (new_i, &old_i) in occupied.iter().enumerate() {
@@ -339,6 +356,17 @@ pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) {
             gate.sync_pos_from_grid();
         }
     }
+    occupied
+}
+
+/// Column shifts performed by a successful `insert_gate_in`, in order:
+/// `width` columns removed at `removed` (the moved gate's emptied source
+/// column), then `width` columns inserted before `inserted`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct InsertColumnsEdit {
+    pub(super) removed: Option<CircuitColumnIndex>,
+    pub(super) inserted: CircuitColumnIndex,
+    pub(super) width: usize,
 }
 
 pub(super) fn insert_gate_in(
@@ -348,10 +376,8 @@ pub(super) fn insert_gate_in(
     insert_index: CircuitColumnIndex,
     original_column: Option<CircuitColumnIndex>,
     capacity: QubitCapacity,
-) {
-    let Some(gate_index) = gates.iter().position(|gate| gate.id == gate_id) else {
-        return;
-    };
+) -> Option<InsertColumnsEdit> {
+    let gate_index = gates.iter().position(|gate| gate.id == gate_id)?;
 
     let moving_width = gate_width_cols(gates[gate_index].kind, gates[gate_index].span.get());
     let mut adjusted_insert = insert_index;
@@ -373,7 +399,7 @@ pub(super) fn insert_gate_in(
             && gate.column >= adjusted_insert
             && gate.column.checked_add(moving_width).is_none()
     }) {
-        return;
+        return None;
     }
     if remove_old_column {
         if let Some(old_column) = original_column {
@@ -387,10 +413,7 @@ pub(super) fn insert_gate_in(
 
     for gate in gates.iter_mut() {
         if gate.id != gate_id && gate.column >= adjusted_insert {
-            let Some(column) = gate.column.checked_add(moving_width) else {
-                return;
-            };
-            gate.column = column;
+            gate.column = gate.column.checked_add(moving_width)?;
         }
     }
 
@@ -402,4 +425,9 @@ pub(super) fn insert_gate_in(
     for gate in gates.iter_mut() {
         gate.sync_pos_from_grid();
     }
+    Some(InsertColumnsEdit {
+        removed: original_column.filter(|_| remove_old_column),
+        inserted: adjusted_insert,
+        width: moving_width,
+    })
 }
