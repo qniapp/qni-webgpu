@@ -20,6 +20,6 @@ test('circuit block visual snapshot', async ({ page }) => {
 
   // 測定結果は確率的に決まるため、測定ゲートの手前までを撮る。
   await expect(page).toHaveScreenshot('circuit-block-bell.png', {
-    clip: { x: 120, y: 200, width: 200, height: 190 },
+    clip: { x: 120, y: 228, width: 200, height: 244 },
   })
 })
