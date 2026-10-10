@@ -44,11 +44,15 @@ mod angle;
 pub(crate) use angle::ParametricAngle;
 mod controls;
 pub(crate) use controls::ColumnControls;
+mod flag;
+pub(crate) use flag::{FlagName, GateFlag};
 mod span;
 pub(crate) use span::GateSpan;
 mod info;
 pub(crate) use info::{Amp, GateInfo};
 mod params;
+#[cfg(test)]
+pub(crate) use params::GATE_UNCONDITIONAL;
 pub(crate) use params::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params, GateParams,
 };

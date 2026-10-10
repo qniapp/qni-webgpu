@@ -6,7 +6,8 @@ use crate::gpu::{
     MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
 };
 use crate::simulation_plan::{
-    linearize_ops, validate_simulation_plan_capacity, SimulationPlanLimits,
+    linearize_ops, validate_simulation_plan_capacity, FlagSources, SimulationColumnAnalysis,
+    SimulationPlanLimits,
 };
 
 impl QniApp {
@@ -85,7 +86,11 @@ impl QniApp {
                     self.gpu_plan.set_capacity_error(message);
                     return false;
                 }
-                self.gpu_plan.replace_ops(sim_ops, snapshot_slot_count);
+                let flag_sources = FlagSources::from_columns(
+                    &SimulationColumnAnalysis::from_gates(gpu_gates.as_ref(), qubits),
+                );
+                self.gpu_plan
+                    .replace_ops(sim_ops, snapshot_slot_count, flag_sources);
                 self.publish_gpu_plan_capacity_error(None);
                 if external_gpu_state_refresh {
                     self.external_gpu.state_refresh_planned();

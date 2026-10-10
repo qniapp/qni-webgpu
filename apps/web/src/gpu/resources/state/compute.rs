@@ -13,7 +13,11 @@ pub(super) struct ComputeResources {
     pub(super) gate_params_staging_buffer: wgpu::Buffer,
 }
 
-pub(super) fn build(device: &wgpu::Device, common: &Common) -> ComputeResources {
+pub(super) fn build(
+    device: &wgpu::Device,
+    common: &Common,
+    measurement_aux_buffer: &wgpu::Buffer,
+) -> ComputeResources {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("state_vector_compute"),
         source: wgpu::ShaderSource::Wgsl(STATE_COMPUTE_SHADER.into()),
@@ -22,7 +26,13 @@ pub(super) fn build(device: &wgpu::Device, common: &Common) -> ComputeResources 
     let pipeline = create_compute_pipeline(device, &shader, &layout);
     let gate_params_buffer = create_gate_params_buffer(device);
     let gate_params_staging_buffer = create_gate_params_staging_buffer(device);
-    let bind_groups = create_compute_bind_groups(device, common, &layout, &gate_params_buffer);
+    let bind_groups = create_compute_bind_groups(
+        device,
+        common,
+        &layout,
+        &gate_params_buffer,
+        measurement_aux_buffer,
+    );
 
     ComputeResources {
         pipeline,
@@ -61,6 +71,17 @@ fn create_compute_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLay
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            // Measurement aux buffer read by conditional gates.
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
@@ -116,6 +137,7 @@ fn create_compute_bind_groups(
     common: &Common,
     layout: &wgpu::BindGroupLayout,
     gate_params_buffer: &wgpu::Buffer,
+    measurement_aux_buffer: &wgpu::Buffer,
 ) -> [wgpu::BindGroup; 2] {
     [
         device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -134,6 +156,10 @@ fn create_compute_bind_groups(
                     binding: 2,
                     resource: gate_params_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: measurement_aux_buffer.as_entire_binding(),
+                },
             ],
         }),
         device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -151,6 +177,10 @@ fn create_compute_bind_groups(
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: gate_params_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: measurement_aux_buffer.as_entire_binding(),
                 },
             ],
         }),

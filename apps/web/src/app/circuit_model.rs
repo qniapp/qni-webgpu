@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashMap};
 use crate::layout::gate_width_cols;
 
 use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MIN_QUBITS, SLOT_SPACING};
-use crate::gates::{GateKind, GateSpan, ParametricAngle};
+use crate::gates::{GateFlag, GateKind, GateSpan, ParametricAngle};
 use crate::qubit_count::{QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
@@ -47,6 +47,10 @@ pub(crate) struct PlacedGate {
     /// the angle label immediately. `None` still represents a bare legacy token
     /// and is evaluated as the gate's default.
     pub(crate) angle: Option<ParametricAngle>,
+    /// qni measurement variable link: `Measure>name` writes the measured bit
+    /// into `name`; `X<name` applies only when `name` is 1. Always fits
+    /// `kind` (see `GateFlag::fits`).
+    pub(crate) flag: Option<GateFlag>,
 }
 
 impl PlacedGate {
@@ -66,7 +70,17 @@ impl PlacedGate {
             wire,
             span,
             angle,
+            flag: None,
         }
+    }
+
+    /// Attach a measurement variable link. Returns `None` when `flag` does not
+    /// fit this gate kind (e.g. `If` on a measurement).
+    pub(crate) fn with_flag(mut self, flag: GateFlag) -> Option<Self> {
+        flag.fits(self.kind).then(|| {
+            self.flag = Some(flag);
+            self
+        })
     }
 
     pub(crate) fn grid_pos(column: CircuitColumnIndex, wire: WireIndex) -> egui::Pos2 {

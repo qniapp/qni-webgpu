@@ -2,7 +2,8 @@
 //!
 //! * `compute_pipeline` applies a single `GateParams` matrix (or
 //!   `Write0/Write1` permutation) to the active state buffer,
-//!   ping-ponging between the two `Common::state_buffers`.
+//!   ping-ponging between the two `Common::state_buffers`. Conditional
+//!   gates read their measurement outcome from `measure::aux_buffer`.
 //! * `render_pipeline` paints the state-vector circle grid (fill +
 //!   needle + outline) — the GPU side of the state panel.
 //!
@@ -44,8 +45,9 @@ impl StateResources {
         device: &wgpu::Device,
         target_format: wgpu::TextureFormat,
         common: &Common,
+        measurement_aux_buffer: &wgpu::Buffer,
     ) -> Self {
-        let compute = compute::build(device, common);
+        let compute = compute::build(device, common, measurement_aux_buffer);
         let render = render::build(device, target_format, common);
 
         Self {

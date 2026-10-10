@@ -33,6 +33,12 @@ function expected(c: RecomputeCase) {
     }
     switch (op.kind) {
       case 'gate': {
+        if (op.condition !== undefined) {
+          const aux = [...outputs]
+            .reverse()
+            .find((x) => x.name === 'measurement' && x.slot === op.condition)!.data
+          if (aux[2] < 0.5) break
+        }
         if (op.mode)
           for (let pair = 0; pair < state.length / 2; pair++) {
             const i0 = ((pair >> op.bit) << (op.bit + 1)) | (pair & ((1 << op.bit) - 1))

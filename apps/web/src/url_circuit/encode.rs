@@ -78,9 +78,14 @@ fn gate_columns_json(
         // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count.get()).map(|_| "1".to_string()).collect();
         for gate in bucket {
-            let Some(token) = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref()) else {
+            let Some(mut token) = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref())
+            else {
                 continue;
             };
+            // qni `gate-element-helpers.js` `tI` / `tF`: `X<name` / `Measure>name`.
+            if let Some(flag) = &gate.flag {
+                token.push_str(&flag.token_suffix());
+            }
             if gate.wire.as_usize() < entries.len() {
                 entries[gate.wire.as_usize()] = format!("\"{}\"", json_escape(&token));
             }
