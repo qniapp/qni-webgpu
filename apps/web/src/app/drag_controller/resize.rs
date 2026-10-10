@@ -29,7 +29,7 @@ impl DragController {
                     .iter()
                     .position(|gate| gate.id == drag.gate_id)
                 {
-                    let capacity = app.exec_mode.qubit_capacity();
+                    let capacity = app.wire_capacity();
                     let gate = &app.placed_gates[index];
                     let gate_id = gate.id;
                     let gate_kind = gate.kind;

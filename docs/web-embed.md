@@ -55,12 +55,13 @@ import { startEmbed } from './assets/qni-embed.mjs'
 const runner = await startEmbed(canvas, '{"cols":[["H"]]}', {
   showStatePanel: true,
   palette: ['H', 'X'],
+  maxWireCount: 1,
 })
 // キャンバスを取り外す前に呼ぶ。複数回呼んでもよい。
 runner.destroy()
 ```
 
-`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], onProgress?: function})`
+`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, onProgress?: function})`
 は `Promise<{destroy(): void}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
@@ -103,6 +104,27 @@ qni と同じく、`["{ラベル"]` の列と `["}"]` の列で囲んだ列は�
 制限したパレットが描画領域 (キャンバスから左右 8px ずつの余白を除いた領域) の左右に 16px を残した幅に 1 行で収まらない場合は、収まる最少の行数に折り返し、各行の個数をそろえる (354px 幅のキャンバスで 9 個なら 5 個と 4 個)。
 パレットが全ゲートのパレット (2 行) より低ければ回路を上へ詰め、3 行以上に折り返して高くなれば回路を下げる。
 
+### ワイヤー数の上限
+
+`maxWireCount` に正の整数を渡すと、エディタが追加する空のワイヤーをその本数までに抑える。
+旧 Qni の `<quantum-circuit>` 要素の `data-max-wire-count` 属性と同じ名前と意味で、
+`data-max-wire-count="1"` は `maxWireCount: 1` になる。
+
+- 回路の使う量子ビットが上限より少なくても、通常は最低 2 本のワイヤーを表示する。この最低本数を上限まで減らす。
+  `maxWireCount: 1` なら 1 量子ビットの回路は 1 本だけ表示する。
+- ゲートをドラッグしている間に下へ 1 本追加する空のワイヤーも、上限に達していれば追加しない。
+  表示していないワイヤーにはゲートを置けない。範囲を変えられるゲートの下端を伸ばして新しいワイヤーを増やすこともできない。
+- 回路がすでに上限より多くのワイヤーを使っていても、ワイヤーを削らず、回路を拒否もしない。
+  旧 Qni のチュートリアルは 3 量子ビットのテレポーテーション回路などにも `data-max-wire-count="1"` を付けており、
+  この場合はドラッグ中にワイヤーを追加しないことだけを意味する。
+
+省略すると従来どおり最低 2 本を表示し、ドラッグ中はローカル実行の上限 (16 量子ビット) まで 1 本追加する。
+0 以下、小数、数値でない値は起動前に拒否する。通常アプリにはこの設定がなく、動作は変わらない。
+
+旧 Qni のチュートリアル (`apps/tutorial`) では、`data-min-wire-count` は常に `1`、
+`data-max-wire-count` は `decrement_circuit.html` の 6 個の回路が `4`、
+Liquid フィルタ `mini_qni` (`_plugins/mini_qni_filter.rb`) で作る回路が `2`、それ以外の直接書いた回路はすべて `1` である。
+
 ### 狭いキャンバスの回路
 
 描画領域が 640px (Tailwind の `sm`) より狭い場合は、回路の左右の余白を詰める。
@@ -130,7 +152,7 @@ Undo / Redo で回路を読み込み直したときもステップ 0 に戻る�
 
 ```js
 start(canvas: HTMLCanvasElement): Promise<QniRunner>
-start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean, palette?: string[]): Promise<QniRunner>
+start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean, palette?: string[], max_wire_count?: number): Promise<QniRunner>
 ```
 
 直接使う場合は先に wasm を初期化する必要がある。
@@ -158,7 +180,8 @@ Linux でディスプレイがない場合は `xvfb-run -a` で Playwright を�
 テストは別オリジンのネストしたパスからモジュールを読み込み、shadow DOM の描画、
 H ゲートの計算、ストレージと履歴へのアクセス遮断、消去、破棄後の再起動、不正な回路の拒否、
 ステップ 0 の初期表示、制限したパレットからの配置、不正なパレットの拒否、960x560 で状態パネルが回路を隠さないこと、
-354x592 でパレットの折り返しと末尾のゲートが切れないこと、折り返した 2 行目のゲートを配置できることを確認する。
+354x592 でパレットの折り返しと末尾のゲートが切れないこと、折り返した 2 行目のゲートを配置できること、
+`maxWireCount: 1` で 1 本のワイヤーだけを表示し、ドラッグ中も 2 本目を追加せず置けないこと、不正な `maxWireCount` の拒否を確認する。
 GPU の読み戻しはテスト時だけ行う。
 
 ## 未対応事項

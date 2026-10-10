@@ -56,7 +56,7 @@ impl DragController {
                         app.placed_gates.remove(index);
                     }
                     Some(LiveDragSnap::Slot { column, wire }) => {
-                        let capacity = app.exec_mode.qubit_capacity();
+                        let capacity = app.wire_capacity();
                         let gate = &mut app.placed_gates[index];
                         gate.column = column;
                         gate.wire = wire;

@@ -254,7 +254,7 @@ mod tests {
 
     fn embed_app(json: &str, palette: Option<&[&str]>) -> QniApp {
         let ctx = egui::Context::default();
-        let startup = crate::app::EmbedStartup::parse(json, true, palette).unwrap();
+        let startup = crate::app::EmbedStartup::parse(json, true, palette, None).unwrap();
         QniApp::new_with_startup(&eframe::CreationContext::_new_kittest(ctx), Some(startup))
     }
 

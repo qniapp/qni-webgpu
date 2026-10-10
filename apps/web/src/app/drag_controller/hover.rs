@@ -51,7 +51,7 @@ impl DragController {
                     let resize_handles = SpanResizeHandles::for_gate_with_availability(
                         gate,
                         &app.placed_gates,
-                        app.exec_mode.qubit_capacity().get(),
+                        app.wire_capacity().get(),
                     );
                     let body_rect = resize_handles
                         .map(SpanResizeHandles::body_rect)

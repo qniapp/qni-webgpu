@@ -266,8 +266,9 @@ impl QniApp {
         } else {
             requested_exec_mode.unwrap_or_default()
         };
-        let initial_qubit_count =
-            initial_required_qubits.clamp(MIN_QUBITS, exec_mode.qubit_capacity().get());
+        let initial_qubit_count = initial_required_qubits
+            .max(mode.min_visible_wire_count())
+            .min(exec_mode.qubit_capacity().get());
         let initial_serialized_qubits =
             QubitCount::try_new(initial_required_qubits.max(MIN_QUBITS))
                 .expect("initial serialized qubit count is at least one");
@@ -367,12 +368,21 @@ impl QniApp {
     }
 
     fn layout_qubits(&self) -> usize {
-        let capacity = self.exec_mode.qubit_capacity().get();
-        let mut count = self.qubit_count.clamp(MIN_QUBITS, capacity);
-        if self.dragging.is_some() && count < capacity {
+        let mut count = self.qubit_count;
+        if self.dragging.is_some() && count < self.wire_capacity().get() {
             count += 1;
         }
         count
+    }
+
+    /// Wires that drops and span resizes may occupy. An embed's
+    /// `maxWireCount` stops new wires but keeps those the circuit uses.
+    pub(crate) fn wire_capacity(&self) -> QubitCapacity {
+        let capacity = self.exec_mode.qubit_capacity();
+        match self.mode.max_wire_count() {
+            Some(max) => capacity.limited_to(max.max(self.qubit_count)),
+            None => capacity,
+        }
     }
 
     pub(crate) fn local_state_vector_active(&self) -> bool {
