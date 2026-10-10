@@ -6,18 +6,18 @@ use crate::constants::{
     PALETTE_CORNER_RADIUS, PALETTE_PADDING_X, PALETTE_PADDING_Y, PALETTE_ROW_Y,
     PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
-use crate::gates::{palette_gate_kind, GateKind, PALETTE_GATE_COUNT};
+use crate::gates::GateKind;
 use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
-use crate::layout::{palette_gate_local_pos, palette_layout, palette_start_x};
+use crate::layout::palette_start_x;
 
 use super::super::hover_frame::{hover_frame_corner_radius, hover_frame_inner_corner_radius};
 
 impl QniApp {
     pub(crate) fn draw_palette(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
-        if self.library.active_locked() {
+        if self.library.active_locked() || self.palette.is_hidden() {
             return;
         }
-        let layout = palette_layout();
+        let layout = self.palette.layout();
         let palette_start_x = palette_start_x(rect.width(), &layout);
         let palette_rect = egui::Rect::from_min_size(
             rect.min
@@ -43,18 +43,20 @@ impl QniApp {
         painter.rect_filled(palette_rect, palette_corner, colors.surface);
 
         let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
-        let separator_rect = egui::Rect::from_min_size(
-            palette_origin + egui::vec2(layout.separator_x, 0.0),
-            egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
-        );
-        // Flexoki ui-2: section separator between operation gates and displays.
-        painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);
+        if let Some(separator_x) = layout.separator_x {
+            let separator_rect = egui::Rect::from_min_size(
+                palette_origin + egui::vec2(separator_x, 0.0),
+                egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
+            );
+            // Flexoki ui-2: section separator between operation gates and displays.
+            painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);
+        }
 
-        for index in 0..PALETTE_GATE_COUNT {
-            let Some(gate) = palette_gate_kind(index) else {
+        for index in 0..self.palette.len() {
+            let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
                 continue;
             };
-            let Some(local) = palette_gate_local_pos(index, &layout) else {
+            let Some(local) = self.palette.local_pos(index, &layout) else {
                 continue;
             };
             let gate_rect = egui::Rect::from_min_size(

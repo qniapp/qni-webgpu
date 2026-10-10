@@ -68,7 +68,19 @@ impl QniApp {
         };
     }
 
-    pub(crate) fn begin_resize_drag(&mut self, corner: ResizeCorner, pointer: egui::Pos2) {
+    /// `visible_viewport` is the viewport size on screen. A small embed can
+    /// show a shorter viewport than the stored size, so resizing starts from
+    /// what the user sees.
+    pub(crate) fn begin_resize_drag(
+        &mut self,
+        corner: ResizeCorner,
+        pointer: egui::Pos2,
+        visible_viewport: egui::Vec2,
+    ) {
+        self.state_panel.viewport_size = visible_viewport.clamp(
+            egui::vec2(STATE_VIEWPORT_MIN_WIDTH, STATE_VIEWPORT_MIN_HEIGHT),
+            egui::vec2(STATE_VIEWPORT_MAX_WIDTH, STATE_VIEWPORT_MAX_HEIGHT),
+        );
         self.state_panel.resize_drag = Some(ResizeDrag {
             corner,
             start_pointer: pointer,
@@ -114,7 +126,7 @@ impl QniApp {
             }
             if resp.drag_started() {
                 if let Some(p) = resp.interact_pointer_pos() {
-                    self.begin_resize_drag(corner, p);
+                    self.begin_resize_drag(corner, p, state_layout.viewport_rect.size());
                 }
             }
             if resp.dragged() && self.active_resize_corner() == Some(corner) {

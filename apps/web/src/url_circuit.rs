@@ -61,8 +61,8 @@ mod parser;
 pub(crate) const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
 
 pub(crate) use decode::{
-    current_url_has_circuit_payload, parse_circuit_from_url, parse_circuit_json,
-    qubit_count_from_gates, summarize_circuit_json, DecodedCircuit,
+    current_url_has_circuit_payload, palette_token_to_gate, parse_circuit_from_url,
+    parse_circuit_json, qubit_count_from_gates, summarize_circuit_json, DecodedCircuit,
 };
 pub(crate) use encode::{circuit_columns_to_json, circuit_to_json};
 pub(crate) use history::{parse_exec_mode_from_url, write_circuit_to_url, write_exec_mode_to_url};

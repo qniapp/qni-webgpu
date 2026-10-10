@@ -128,15 +128,18 @@ pub async fn start(canvas: web_sys::HtmlCanvasElement) -> Result<QniRunner, JsVa
 }
 
 /// Starts an isolated, local-WebGPU-only editor without URL or browser storage.
+/// `palette` restricts the palette to the listed gate tokens; `undefined`
+/// keeps the full palette.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start_embed(
     canvas: web_sys::HtmlCanvasElement,
     circuit_json: &str,
     show_state_panel: bool,
+    palette: Option<Vec<String>>,
 ) -> Result<QniRunner, JsValue> {
-    let startup =
-        app::EmbedStartup::parse(circuit_json, show_state_panel).map_err(JsValue::from_str)?;
+    let startup = app::EmbedStartup::parse(circuit_json, show_state_panel, palette.as_deref())
+        .map_err(|error| JsValue::from_str(&error))?;
     start_runner(canvas, Some(startup)).await
 }
 

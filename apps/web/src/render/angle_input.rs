@@ -66,7 +66,7 @@ impl QniApp {
         scroll_x: f32,
         angle_interaction_blocked: bool,
     ) {
-        let circuit_origin = rect.min - egui::vec2(scroll_x, 0.0);
+        let circuit_origin = self.circuit_origin(rect.min, scroll_x);
         let labels = self.collect_angle_labels(metrics, circuit_origin, dragging_gate_id);
         let now = crate::shared::now_seconds();
         if self.dragging.is_some() || self.span_resize_drag.is_some() {

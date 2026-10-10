@@ -290,6 +290,18 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
     gates
 }
 
+/// Decodes one palette entry token with the circuit JSON vocabulary, so an
+/// embed palette accepts what a circuit cell accepts: `H`, `|0>`, `•`,
+/// `Bloch`, and parametric `P(π/4)`. Span suffixes (`QFT3`) are rejected
+/// because palette gates always start with their default span.
+pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<ParametricAngle>)> {
+    match token_to_gate(token) {
+        Some((kind, 1, angle)) => Some((kind, angle)),
+        Some(_) => None,
+        None => GateKind::from_url_token(token).map(|kind| (kind, None)),
+    }
+}
+
 /// Reverse of `gate_token`. Handles the `QFT<n>` / `QFT†<n>` span
 /// suffixes and the parametric `P(<angle>)` / `Rx(<angle>)` /
 /// `Ry(<angle>)` / `Rz(<angle>)` forms. Returns `None` for unrecognised

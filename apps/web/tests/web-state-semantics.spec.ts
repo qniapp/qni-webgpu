@@ -482,3 +482,11 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
   await dragPointer(page, spacerSource, { x: targetX2, y: targetY })
   await waitForStateVectorApprox(page, superposition)
 })
+
+test('standalone app shows the final state of a loaded circuit', async ({ page }) => {
+  await page.goto(`/#${encodeURIComponent('{"cols":[["|0>","|0>"],["H"],["•","X"]]}')}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const bell = [Math.SQRT1_2, 0, 0, 0, 0, 0, Math.SQRT1_2, 0]
+  await expect.poll(async () => (await readStateVector(page) as number[]).map((value) => Math.round(value * 1e4) / 1e4))
+    .toEqual(bell.map((value) => Math.round(value * 1e4) / 1e4))
+})
