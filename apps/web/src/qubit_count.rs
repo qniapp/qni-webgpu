@@ -77,6 +77,11 @@ impl QubitCapacity {
     pub(crate) fn contains(self, count: QubitCount) -> bool {
         count.get() <= self.get()
     }
+
+    /// At most `wires`, but never below one wire.
+    pub(crate) fn limited_to(self, wires: usize) -> Self {
+        NonZeroUsize::new(wires.min(self.get())).map_or(Self(NonZeroUsize::MIN), Self)
+    }
 }
 
 const fn nonzero_const(value: usize) -> NonZeroUsize {

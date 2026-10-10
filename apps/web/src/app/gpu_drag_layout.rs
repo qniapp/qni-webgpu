@@ -21,7 +21,7 @@ impl QniApp {
             wire,
             column,
             drag.original_column,
-            self.exec_mode.qubit_capacity(),
+            self.wire_capacity(),
         );
         compact_gate_columns(&mut gates);
         Cow::Owned(gates)

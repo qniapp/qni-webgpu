@@ -16,8 +16,8 @@ async function fixture(t, headers, fail = false) {
       await module_or_path.arrayBuffer();
     }
     export const starts = { active: 0, max: 0, args: [] };
-    export async function start_embed(canvas, circuit, showStatePanel, palette) {
-      starts.args.push({ showStatePanel, palette });
+    export async function start_embed(canvas, circuit, showStatePanel, palette, maxWireCount) {
+      starts.args.push({ showStatePanel, palette, maxWireCount });
       starts.active++;
       starts.max = Math.max(starts.max, starts.active);
       await new Promise(resolve => setTimeout(resolve, 1));
@@ -98,4 +98,16 @@ test('omitted palette keeps the full palette', async t => {
   const f = await fixture(t, { 'content-type': 'application/wasm' })
   await f.module.startEmbed({}, '{}')
   assert.equal(f.starts.args.at(-1).palette, undefined)
+})
+
+test('maxWireCount setting reaches the wasm entry unchanged', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  await f.module.startEmbed({}, '{}', { maxWireCount: 1 })
+  assert.equal(f.starts.args.at(-1).maxWireCount, 1)
+})
+
+test('omitted maxWireCount keeps the default wire count', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  await f.module.startEmbed({}, '{}')
+  assert.equal(f.starts.args.at(-1).maxWireCount, undefined)
 })

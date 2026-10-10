@@ -1,6 +1,9 @@
 //! Per-instance embedding options and browser-state isolation.
 
+use std::num::NonZeroUsize;
+
 use super::CircuitColumnIndex;
+use crate::constants::MIN_QUBITS;
 use crate::layout::Palette;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -9,6 +12,10 @@ pub(crate) enum AppMode {
     Standalone,
     Embed {
         show_state_panel: bool,
+        /// qni's `data-max-wire-count`: caps the empty wires the editor adds
+        /// (the `MIN_QUBITS` padding and the extra wire while dragging), never
+        /// the wires a circuit already uses.
+        max_wire_count: Option<NonZeroUsize>,
     },
 }
 
@@ -30,9 +37,23 @@ impl AppMode {
         !matches!(
             self,
             Self::Embed {
-                show_state_panel: false
+                show_state_panel: false,
+                ..
             }
         )
+    }
+
+    pub(crate) fn max_wire_count(self) -> Option<usize> {
+        match self {
+            Self::Standalone => None,
+            Self::Embed { max_wire_count, .. } => max_wire_count.map(NonZeroUsize::get),
+        }
+    }
+
+    /// Wires drawn even when the circuit uses fewer.
+    pub(crate) fn min_visible_wire_count(self) -> usize {
+        self.max_wire_count()
+            .map_or(MIN_QUBITS, |max| MIN_QUBITS.min(max))
     }
 }
 
@@ -45,19 +66,32 @@ pub(crate) struct EmbedStartup {
 impl EmbedStartup {
     /// `palette` lists gate tokens as qni's `mini_qni` filter arguments do
     /// (`["|0>", "|1>", "H"]`); `None` keeps the full palette.
+    /// `max_wire_count` is the JavaScript number of qni's `data-max-wire-count`.
     pub(crate) fn parse<S: AsRef<str>>(
         circuit_json: &str,
         show_state_panel: bool,
         palette: Option<&[S]>,
+        max_wire_count: Option<f64>,
     ) -> Result<Self, String> {
         validate_circuit_json(circuit_json)?;
         let palette = palette.map(Palette::restricted).transpose()?;
+        let max_wire_count = max_wire_count.map(parse_max_wire_count).transpose()?;
         Ok(Self {
             circuit_json: circuit_json.to_owned(),
-            mode: AppMode::Embed { show_state_panel },
+            mode: AppMode::Embed {
+                show_state_panel,
+                max_wire_count,
+            },
             palette: palette.unwrap_or_default(),
         })
     }
+}
+
+fn parse_max_wire_count(value: f64) -> Result<NonZeroUsize, String> {
+    if value.fract() != 0.0 || !(1.0..=usize::MAX as f64).contains(&value) {
+        return Err(format!("maxWireCount must be a positive integer: {value}"));
+    }
+    Ok(NonZeroUsize::new(value as usize).expect("maxWireCount is at least one"))
 }
 
 fn validate_circuit_json(circuit_json: &str) -> Result<(), &'static str> {
@@ -98,7 +132,7 @@ mod tests {
     use super::*;
 
     fn parse_full(json: &str) -> Result<EmbedStartup, String> {
-        EmbedStartup::parse::<&str>(json, true, None)
+        EmbedStartup::parse::<&str>(json, true, None, None)
     }
 
     #[test]
@@ -127,7 +161,8 @@ mod tests {
     #[test]
     fn embed_disables_browser_persistence() {
         assert!(!AppMode::Embed {
-            show_state_panel: true
+            show_state_panel: true,
+            max_wire_count: None,
         }
         .uses_browser_state());
     }
@@ -140,7 +175,8 @@ mod tests {
     #[test]
     fn embed_can_hide_state_panel() {
         assert!(!AppMode::Embed {
-            show_state_panel: false
+            show_state_panel: false,
+            max_wire_count: None,
         }
         .shows_state_panel());
     }
@@ -148,7 +184,8 @@ mod tests {
         let ctx = eframe::egui::Context::default();
         let cc = eframe::CreationContext::_new_kittest(ctx.clone());
         let startup =
-            EmbedStartup::parse::<&str>(r#"{"cols":[["H"]]}"#, show_state_panel, None).unwrap();
+            EmbedStartup::parse::<&str>(r#"{"cols":[["H"]]}"#, show_state_panel, None, None)
+                .unwrap();
         (
             super::super::QniApp::new_with_startup(&cc, Some(startup)),
             ctx,
@@ -197,14 +234,16 @@ mod tests {
         let ctx = eframe::egui::Context::default();
         let cc = eframe::CreationContext::_new_kittest(ctx);
         let startup =
-            EmbedStartup::parse(r#"{"cols":[["H"]]}"#, true, Some(&["H", "X"][..])).unwrap();
+            EmbedStartup::parse(r#"{"cols":[["H"]]}"#, true, Some(&["H", "X"][..]), None).unwrap();
         let app = super::super::QniApp::new_with_startup(&cc, Some(startup));
         assert_eq!(app.palette, Palette::restricted(&["H", "X"]).unwrap());
     }
 
     #[test]
     fn rejects_unknown_palette_gate() {
-        assert!(EmbedStartup::parse(r#"{"cols":[]}"#, true, Some(&["H", "Foo"][..])).is_err());
+        assert!(
+            EmbedStartup::parse(r#"{"cols":[]}"#, true, Some(&["H", "Foo"][..]), None).is_err()
+        );
     }
 
     #[test]
@@ -272,5 +311,106 @@ mod tests {
         app.commit_current_circuit(&ctx);
         app.undo_circuit(&ctx);
         assert_eq!(app.library.active().circuit_json, r#"{"cols":[["H"]]}"#);
+    }
+
+    fn limited(json: &str, max_wire_count: f64) -> super::super::QniApp {
+        let cc = eframe::CreationContext::_new_kittest(eframe::egui::Context::default());
+        let startup = EmbedStartup::parse::<&str>(json, true, None, Some(max_wire_count)).unwrap();
+        super::super::QniApp::new_with_startup(&cc, Some(startup))
+    }
+
+    fn start_drag(app: &mut super::super::QniApp) {
+        app.dragging = Some(super::super::DragState {
+            id: app.placed_gates[0].id,
+            offset: eframe::egui::Vec2::ZERO,
+            original_column: None,
+            click_copy: None,
+        });
+    }
+
+    #[test]
+    fn max_wire_count_one_draws_one_wire() {
+        assert_eq!(limited(r#"{"cols":[["H"]]}"#, 1.0).layout_qubits(), 1);
+    }
+
+    #[test]
+    fn max_wire_count_one_adds_no_wire_while_dragging() {
+        let mut app = limited(r#"{"cols":[["H"]]}"#, 1.0);
+        start_drag(&mut app);
+        assert_eq!(app.layout_qubits(), 1);
+    }
+
+    #[test]
+    fn max_wire_count_allows_extra_drag_wire_below_limit() {
+        let mut app = limited(r#"{"cols":[["H"]]}"#, 3.0);
+        start_drag(&mut app);
+        assert_eq!(app.layout_qubits(), 3);
+    }
+
+    #[test]
+    fn max_wire_count_keeps_wires_the_circuit_uses() {
+        assert_eq!(
+            limited(r#"{"cols":[["H","H","H"]]}"#, 1.0).layout_qubits(),
+            3
+        );
+    }
+
+    #[test]
+    fn max_wire_count_limits_span_resize_to_existing_wires() {
+        assert_eq!(
+            limited(r#"{"cols":[["H","H"]]}"#, 1.0)
+                .wire_capacity()
+                .get(),
+            2
+        );
+    }
+
+    #[test]
+    fn omitted_max_wire_count_keeps_two_wires() {
+        let (app, _) = fixture(true);
+        assert_eq!(app.layout_qubits(), 2);
+    }
+
+    #[test]
+    fn omitted_max_wire_count_keeps_extra_drag_wire() {
+        let (mut app, _) = fixture(true);
+        start_drag(&mut app);
+        assert_eq!(app.layout_qubits(), 3);
+    }
+
+    #[test]
+    fn omitted_max_wire_count_keeps_local_capacity() {
+        let (app, _) = fixture(true);
+        assert_eq!(
+            app.wire_capacity(),
+            crate::qubit_count::QubitCapacity::local()
+        );
+    }
+
+    #[test]
+    fn standalone_keeps_two_visible_wires() {
+        assert_eq!(AppMode::Standalone.min_visible_wire_count(), MIN_QUBITS);
+    }
+
+    #[test]
+    fn rejects_zero_max_wire_count() {
+        assert!(EmbedStartup::parse::<&str>(r#"{"cols":[]}"#, true, None, Some(0.0)).is_err());
+    }
+
+    #[test]
+    fn rejects_fractional_max_wire_count() {
+        assert!(EmbedStartup::parse::<&str>(r#"{"cols":[]}"#, true, None, Some(1.5)).is_err());
+    }
+
+    #[test]
+    fn rejects_infinite_max_wire_count() {
+        assert!(
+            EmbedStartup::parse::<&str>(r#"{"cols":[]}"#, true, None, Some(f64::INFINITY)).is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_nan_max_wire_count() {
+        assert!(EmbedStartup::parse::<&str>(r#"{"cols":[]}"#, true, None, Some(f64::NAN)).is_err());
     }
 }

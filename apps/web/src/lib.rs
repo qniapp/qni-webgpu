@@ -129,7 +129,7 @@ pub async fn start(canvas: web_sys::HtmlCanvasElement) -> Result<QniRunner, JsVa
 
 /// Starts an isolated, local-WebGPU-only editor without URL or browser storage.
 /// `palette` restricts the palette to the listed gate tokens; `undefined`
-/// keeps the full palette.
+/// keeps the full palette. `max_wire_count` is qni's `data-max-wire-count`.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start_embed(
@@ -137,9 +137,15 @@ pub async fn start_embed(
     circuit_json: &str,
     show_state_panel: bool,
     palette: Option<Vec<String>>,
+    max_wire_count: Option<f64>,
 ) -> Result<QniRunner, JsValue> {
-    let startup = app::EmbedStartup::parse(circuit_json, show_state_panel, palette.as_deref())
-        .map_err(|error| JsValue::from_str(&error))?;
+    let startup = app::EmbedStartup::parse(
+        circuit_json,
+        show_state_panel,
+        palette.as_deref(),
+        max_wire_count,
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
     start_runner(canvas, Some(startup)).await
 }
 

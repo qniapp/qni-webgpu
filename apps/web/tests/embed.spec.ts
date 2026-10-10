@@ -6,7 +6,7 @@ import path from 'node:path'
 const assetOrigin = 'http://localhost:4175/tutorial/assets/'
 const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
-type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[] }, width?: number, height?: number }
+type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number }, width?: number, height?: number }
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
   settings = { showStatePanel: true }, width = 960, height = 640,
@@ -203,4 +203,53 @@ test('narrow embed drops a gate from the wrapped second palette row', async ({ p
   await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[])
     .map(value => Math.round(value * 1000) / 1000))
     .toEqual([0.707, 0, 0, -0.707])
+})
+
+// qni's h_gate.html tutorial: data-max-wire-count="1" with an H/X palette.
+const H_GATE_TUTORIAL = { settings: { palette: ['H', 'X'], maxWireCount: 1 } }
+// The 88px H/X palette is centred at x = 480, so H sits at 480 - 24. The
+// one-row palette lifts q0 to y = 216; slot 1 is 162 + SLOT_SPACING (56).
+const PALETTE_H_X = 456
+const SLOT_1_X = 218
+
+test('maxWireCount 1 draws a one-qubit circuit on one wire', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-max-wire-count-1.png')
+})
+
+test('maxWireCount 1 adds no wire while dragging', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  const canvas = page.locator('qni-webgpu-test canvas')
+  const box = (await canvas.boundingBox())!
+  await page.mouse.move(box.x + PALETTE_H_X, box.y + 100)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 400, box.y + 330, { steps: 8 })
+  await expect(canvas).toHaveScreenshot('embed-max-wire-count-1-drag.png')
+})
+
+test('maxWireCount 1 offers no second wire to drop on', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  const canvas = page.locator('qni-webgpu-test canvas')
+  const box = (await canvas.boundingBox())!
+  async function drag(fromX: number, toY: number) {
+    await page.mouse.move(box.x + fromX, box.y + 100)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 300, box.y + 240, { steps: 8 })
+    await page.mouse.move(box.x + SLOT_1_X, box.y + toY, { steps: 8 })
+    await page.mouse.up()
+  }
+  // H released where q1 would be is discarded; X then lands on q0. Without
+  // the limit, H would stay on q1 and the column would read ["X","H"].
+  await drag(PALETTE_H_X, 216 + 56)
+  await drag(PALETTE_H_X + 48, 216)
+  await expect.poll(() => page.evaluate(() => (window as any).runner.circuitJSON()))
+    .toBe('{"cols":[["|0>"],["X"]]}')
+})
+
+test('invalid maxWireCount rejects before runner startup', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[]}', { settings: { maxWireCount: 0 } })
+  expect(await page.evaluate(() => (window as any).startError)).toContain('maxWireCount must be a positive integer')
 })

@@ -271,7 +271,7 @@ impl QniApp {
                 gate,
                 gate_rect,
                 &self.placed_gates,
-                self.exec_mode.qubit_capacity().get(),
+                self.wire_capacity().get(),
             ) {
                 let visible = (edit_hover_visible && self.hovered_gate_id == Some(gate.id))
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);

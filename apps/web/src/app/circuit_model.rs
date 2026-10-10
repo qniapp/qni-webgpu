@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::layout::gate_width_cols;
 
-use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, MIN_QUBITS, SLOT_SPACING};
+use crate::constants::{GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_Y, SLOT_SPACING};
 use crate::gates::{GateFlag, GateKind, GateSpan, ParametricAngle};
 use crate::qubit_count::{QubitCapacity, QubitCount, QubitCountError};
 
@@ -214,7 +214,9 @@ impl QniApp {
     }
 
     pub(super) fn required_visible_wire_count(&self) -> usize {
-        self.required_qubit_count().get().max(MIN_QUBITS)
+        self.required_qubit_count()
+            .get()
+            .max(self.mode.min_visible_wire_count())
     }
 
     pub(super) fn external_execution_qubits(&self) -> Result<QubitCount, QubitCountError> {
@@ -246,7 +248,7 @@ impl QniApp {
     pub(crate) fn update_qubit_count(&mut self) {
         self.qubit_count = self
             .required_visible_wire_count()
-            .clamp(MIN_QUBITS, self.exec_mode.qubit_capacity().get());
+            .min(self.exec_mode.qubit_capacity().get());
     }
 
     /// After a successful drop or off-circuit removal, collapse empty columns

@@ -193,7 +193,7 @@ fn start_intent(
             SpanResizeHandles::for_gate_with_availability(
                 gate,
                 &app.placed_gates,
-                app.exec_mode.qubit_capacity().get(),
+                app.wire_capacity().get(),
             )?
             .drag_at(gate, cursor)
         })

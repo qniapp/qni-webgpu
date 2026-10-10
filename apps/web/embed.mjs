@@ -60,11 +60,13 @@ export function prepareEmbed() {
  * Start a local WebGPU editor on a connected canvas, including in a shadow root.
  * @param {HTMLCanvasElement} canvas
  * @param {string} circuit Quirk-style JSON, e.g. '{"cols":[["H"]]}'.
- * @param {{showStatePanel?: boolean, palette?: string[], onProgress?: function, onDeviceLost?: function}} settings
+ * @param {{showStatePanel?: boolean, palette?: string[], maxWireCount?: number, onProgress?: function, onDeviceLost?: function}} settings
  *   `palette` lists gate tokens like qni's `mini_qni` filter, e.g. ['|0>', 'H'].
+ *   `maxWireCount` is qni's `data-max-wire-count`: the editor adds no empty
+ *   wire beyond it, e.g. 1 keeps a one-qubit circuit on one wire while dragging.
  * @returns {Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>}
  */
-export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, onProgress, onDeviceLost } = {}) {
+export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, onProgress, onDeviceLost } = {}) {
   let runner
   let deviceLost = false
   const lost = () => { deviceLost = true; onDeviceLost?.() }
@@ -77,7 +79,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
     await prepareEmbed()
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
     performance.mark('qni:runner-start')
-    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel, palette))
+    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount))
     startup = starting.catch(() => {})
     runner = await starting
     if (deviceLost) throw new Error('Qni GPU device lost during startup')
