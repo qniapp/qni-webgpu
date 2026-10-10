@@ -34,8 +34,8 @@ impl QniApp {
         screen_rect: egui::Rect,
     ) -> f32 {
         let line_count = qubit_count.max(1);
-        let last_line_y = LINE_Y - self.palette.circuit_shift_y(screen_rect.width())
-            + LINE_GAP * (line_count.saturating_sub(1)) as f32;
+        let origin_y = self.circuit_origin(screen_rect, 0.0).y - screen_rect.min.y;
+        let last_line_y = origin_y + LINE_Y + LINE_GAP * (line_count.saturating_sub(1)) as f32;
         let content_height = last_line_y + GATE_SIZE + 4.0 * REM;
         content_height.max(screen_rect.height())
     }
@@ -52,8 +52,8 @@ impl QniApp {
         scroll_x: f32,
     ) -> bool {
         // `circuit_origin` is `rect.min` shifted left by the narrow-canvas
-        // gutter and the current horizontal scroll offset, and up by the
-        // restricted-palette shift.
+        // gutter and the current horizontal scroll offset, up by the
+        // restricted-palette shift, and down by the circuit blocks' outset.
         // Anything pinned to the circuit's coordinate system (wires, slot
         // grid, gate bodies, step indicators, connectors) is drawn relative
         // to it; the GPU callback viewports stay on `rect` so they don't

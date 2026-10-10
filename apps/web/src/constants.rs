@@ -163,16 +163,28 @@ pub(crate) const COMPACT_QUBIT_LABEL_GAP: f32 = 8.0;
 /// Compact right gutter past the last wire end (spacing-4 = 16px).
 pub(crate) const COMPACT_CIRCUIT_PADDING: f32 = 16.0;
 
-// qni circuit-block geometry. The block body extends spacing-2 = 8 px past
-// the step-preview bar (half a wire gap above the first wire / below the
-// last), keeping the label clear of the palette above.
-pub(crate) const CIRCUIT_BLOCK_PADDING_Y: f32 = 8.0;
+// qni circuit-block geometry, from the `min-width: 768px` rules in
+// `packages/elements/src/circuit-block-element.ts` (qniapp/qni@acf87bf):
+// `#body { margin: 1.5rem 0; padding: 2rem 0; border-width: 2px 0 }`.
+// The body wraps the step-preview bars (half a wire gap above the first
+// wire / below the last) and each label sits in the margin outside a rule.
+// spacing-8 = 32 px between a rule and the step-preview bar end.
+pub(crate) const CIRCUIT_BLOCK_PADDING_Y: f32 = 32.0;
 // 2 px top / bottom rules, as qni's `border-top-width: 2px`.
 pub(crate) const CIRCUIT_BLOCK_BORDER_WIDTH: f32 = 2.0;
-// spacing-1 = 4 px between a rule and its label.
-pub(crate) const CIRCUIT_BLOCK_LABEL_GAP: f32 = 4.0;
+// spacing-6 = 24 px label band outside each rule.
+pub(crate) const CIRCUIT_BLOCK_MARGIN_Y: f32 = 24.0;
 // text-base = 16 px monospace label, as qni's block comment.
 pub(crate) const CIRCUIT_BLOCK_LABEL_FONT_SIZE: f32 = 16.0;
+// leading-7 = 28 px label line box, the line height qni's label inherits.
+// It is anchored to the outer edge of the margin, so it overlaps the
+// rule by 28 - 24 = 4 px.
+pub(crate) const CIRCUIT_BLOCK_LABEL_LINE_HEIGHT: f32 = 28.0;
+/// How far a block reaches past the step-preview bar ends, label band
+/// included (32 + 2 + 24 = 58 px). Blocks push the circuit down by this,
+/// as qni's block box pushes its steps down.
+pub(crate) const CIRCUIT_BLOCK_OUTSET_Y: f32 =
+    CIRCUIT_BLOCK_PADDING_Y + CIRCUIT_BLOCK_BORDER_WIDTH + CIRCUIT_BLOCK_MARGIN_Y;
 
 // spacing-10 = 40 px, matching Quirk's operation base size.
 pub(crate) const GATE_SIZE: f32 = 40.0;

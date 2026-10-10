@@ -126,6 +126,13 @@ pub(crate) struct QniApp {
     fps_hud_svp_history: VecDeque<f32>,
 }
 
+/// Lifts Japanese fallback glyphs onto the Geist baseline, in ems. Geist
+/// (all faces) has hhea ascent / descent 1005 / -295 and the Noto CJK
+/// subset 1160 / -288 (units per em 1000). epaint centres the fallback in
+/// the Geist row, putting its baseline at 1.160 - (1.448 - 1.300) / 2 =
+/// 1.086 em below the row top instead of Geist's 1.005 em.
+const JAPANESE_FALLBACK_BASELINE_SHIFT: f32 = -0.081;
+
 impl QniApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>) -> Self {
         Self::new_with_startup(cc, None)
@@ -157,6 +164,10 @@ impl QniApp {
         //    Rename render Japanese text instead of tofu. Noto CJK is SIL
         //    OFL 1.1; the subset covers hiragana, katakana, common kanji,
         //    full-width forms, and Windows Japanese name variants.
+        //    Browsers set fallback glyphs on the primary font's baseline,
+        //    but epaint centres a fallback face in the primary row, which
+        //    drops Japanese glyphs below Geist's baseline; the tweak lifts
+        //    them back (see `JAPANESE_FALLBACK_BASELINE_SHIFT`).
         // 2. Register Hack only as the final fallback so mathematical
         //    angle brackets `⟨` `⟩` (U+27E8 / U+27E9) used in ket labels
         //    render instead of falling back to tofu if Geist lacks them.
@@ -193,9 +204,15 @@ impl QniApp {
         );
         fonts.font_data.insert(
             "qni_japanese_fallback".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/QniJapaneseFallback-Regular.otf"
-            ))),
+            std::sync::Arc::new(
+                egui::FontData::from_static(include_bytes!(
+                    "../assets/QniJapaneseFallback-Regular.otf"
+                ))
+                .tweak(egui::FontTweak {
+                    y_offset_factor: JAPANESE_FALLBACK_BASELINE_SHIFT,
+                    ..Default::default()
+                }),
+            ),
         );
         fonts.families.insert(
             egui::FontFamily::Proportional,
@@ -334,33 +351,36 @@ impl QniApp {
 
     /// Screen position of the circuit-space origin for a circuit content
     /// rect: shifted left by the narrow-canvas gutter and the horizontal
-    /// scroll, and up by the space a restricted palette saves.
+    /// scroll, up by the space a restricted palette saves, and down by the
+    /// room circuit blocks take above the wires.
     pub(crate) fn circuit_origin(&self, content_rect: egui::Rect, scroll_x: f32) -> egui::Pos2 {
         let width = content_rect.width();
         content_rect.min
             - egui::vec2(
                 crate::layout::CircuitGutters::for_canvas_width(width).shift_x + scroll_x,
-                self.palette.circuit_shift_y(width),
+                self.palette.circuit_shift_y(width) - self.circuit_block_outset_y(),
             )
+    }
+
+    /// Room circuit blocks take beyond the step-preview bars, above the
+    /// first wire and below the last; `0` without blocks.
+    fn circuit_block_outset_y(&self) -> f32 {
+        if self.circuit_blocks.is_empty() {
+            0.0
+        } else {
+            crate::constants::CIRCUIT_BLOCK_OUTSET_Y
+        }
     }
 
     /// Screen y of the lowest pixel the circuit draws: the last wire's step
     /// bar, or a block's lower label when the circuit has blocks.
     pub(crate) fn circuit_bottom_y(&self, screen_rect: egui::Rect) -> f32 {
-        use crate::constants::{
-            CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_GAP, CIRCUIT_BLOCK_PADDING_Y,
-            LINE_GAP, LINE_Y,
-        };
+        use crate::constants::{LINE_GAP, LINE_Y};
         let content_rect = self.last_content_rect.unwrap_or(screen_rect);
         let last_line_y = self.circuit_origin(content_rect, 0.0).y
             + LINE_Y
             + LINE_GAP * (self.layout_qubits() - 1) as f32;
-        let block_labels = if self.circuit_blocks.is_empty() {
-            0.0
-        } else {
-            CIRCUIT_BLOCK_PADDING_Y + CIRCUIT_BLOCK_LABEL_GAP + CIRCUIT_BLOCK_LABEL_FONT_SIZE
-        };
-        last_line_y + LINE_GAP * 0.5 + block_labels
+        last_line_y + LINE_GAP * 0.5 + self.circuit_block_outset_y()
     }
 
     pub(crate) fn colors(&self) -> Colors {
