@@ -5,6 +5,7 @@ import path from 'node:path'
 // Serve the bundle on a different origin and nested path without a second server.
 const assetOrigin = 'http://localhost:4175/tutorial/assets/'
 const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
+const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
 type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number }, width?: number, height?: number }
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
@@ -111,6 +112,13 @@ test('destroy is idempotent and the same canvas can restart', async ({ page }) =
 test('invalid embed circuit rejects before runner startup', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["unknown"]]}')
   expect(await page.evaluate(() => (window as any).startError)).toContain('invalid circuit JSON')
+})
+
+test('qni BB84 tutorial circuit with measurement variables starts', async ({ page }) => {
+  // Issue #53: qni `bb84_circuit.html` stores measurements in named variables
+  // (`Measure>aliceX`) and conditions gates on them (`X<aliceX`).
+  await hostEmbed(page, BB84, { settings: { showStatePanel: true, palette: [] } })
+  expect(await page.evaluate(() => (window as any).startError)).toBeUndefined()
 })
 
 test('embed starts at step 0 like qni tutorials', async ({ page }) => {

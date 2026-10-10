@@ -12,12 +12,15 @@
 //! * [`bloch_display`] — Bloch Display reduce (compute) + arrow overlay
 //!   (render). Both share the bloch output buffer.
 //! * [`measure`]— measurement reduce + collapse (compute only). Owns
-//!   `aux_buffer` consumed by `digit`.
+//!   `aux_buffer` consumed by `digit`, conditional gates in `state`, and
+//!   the conditional gate body overlay.
 //! * [`probability_display`] — Probability Display marginalization (compute) +
 //!   GPU-rendered bars. Both share the Probability output buffer.
 //! * [`amplitude_display`] — Amplitude Display capture + GPU-rendered grid / popup.
 //! * [`density_matrix_display`] — Density Matrix Display capture + GPU-rendered grid.
 //! * [`digit`]  — measurement digit overlay render pipeline. Reads
+//!   `measure::aux_buffer`.
+//! * [`conditional_gate_body`] - conditional gate body fill chosen from
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
 //!   active `common::state_buffers`.
@@ -34,6 +37,7 @@
 mod amplitude_display;
 mod bloch_display;
 mod common;
+mod conditional_gate_body;
 mod density_matrix_display;
 mod digit;
 mod measure;
@@ -46,6 +50,7 @@ use eframe::wgpu;
 use self::amplitude_display::AmplitudeResources;
 use self::bloch_display::BlochResources;
 use self::common::Common;
+use self::conditional_gate_body::ConditionalGateBodyResources;
 use self::density_matrix_display::DensityResources;
 use self::digit::DigitResources;
 use self::measure::MeasureResources;
@@ -62,6 +67,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) amplitude: AmplitudeResources,
     pub(crate) density: DensityResources,
     pub(crate) digit: DigitResources,
+    pub(crate) conditional_gate_body: ConditionalGateBodyResources,
     pub(crate) popup_value: PopupValueResources,
 
     /// Surface format the render pipelines were last built for; used
@@ -87,13 +93,15 @@ impl StateVectorResources {
         target_format: wgpu::TextureFormat,
     ) -> Self {
         let common = Common::build(device);
-        let state = StateResources::build(device, target_format, &common);
-        let bloch = BlochResources::build(device, queue, target_format, &common);
         let measure = MeasureResources::build(device, &common);
+        let state = StateResources::build(device, target_format, &common, &measure.aux_buffer);
+        let bloch = BlochResources::build(device, queue, target_format, &common);
         let probability = ProbabilityResources::build(device, queue, target_format, &common);
         let amplitude = AmplitudeResources::build(device, queue, target_format, &common);
         let density = DensityResources::build(device, target_format, &common);
         let digit = DigitResources::build(device, queue, target_format, &measure);
+        let conditional_gate_body =
+            ConditionalGateBodyResources::build(device, target_format, &measure);
         let popup_value = PopupValueResources::build(device, queue, target_format, &common);
 
         Self {
@@ -105,6 +113,7 @@ impl StateVectorResources {
             amplitude,
             density,
             digit,
+            conditional_gate_body,
             popup_value,
             target_format,
             state_count: 0,
@@ -119,7 +128,8 @@ impl StateVectorResources {
     ///
     /// Pre-refactor name was `update_render_pipeline`, but it only
     /// rebuilt one pipeline. Now genuine — touches `state`, `bloch`,
-    /// `probability`, `amplitude`, `density`, `digit`, and `popup_value`.
+    /// `probability`, `amplitude`, `density`, `digit`,
+    /// `conditional_gate_body`, and `popup_value`.
     pub(crate) fn update_target_format(
         &mut self,
         device: &wgpu::Device,
@@ -134,6 +144,8 @@ impl StateVectorResources {
         self.amplitude.update_target_format(device, target_format);
         self.density.update_target_format(device, target_format);
         self.digit.update_target_format(device, target_format);
+        self.conditional_gate_body
+            .update_target_format(device, target_format);
         self.popup_value.update_target_format(device, target_format);
         self.target_format = target_format;
     }

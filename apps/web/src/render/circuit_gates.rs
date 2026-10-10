@@ -6,25 +6,38 @@ use eframe::egui_wgpu;
 use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::Colors;
 use crate::constants::{GATE_SIZE, LINE_GAP};
-use crate::gates::GateKind;
+use crate::gates::{GateFlag, GateKind};
 use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
-    BlochOverlayInstance, BlochPopupValueCallback, DensityInstance, DensityMatrixDisplayCallback,
-    MeasurementDigitCallback, MeasurementDigitInstance, ProbabilityDisplayCallback,
-    ProbabilityInstance, ProbabilityPopupValueCallback, AMPLITUDE_FORCE_NONE,
-    AMPLITUDE_FORCE_PLACEHOLDER, DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE,
-    POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER,
-    PROBABILITY_RENDER_MODE_SAMPLE,
+    BlochOverlayInstance, BlochPopupValueCallback, ConditionalGateBodyCallback,
+    ConditionalGateBodyInstance, ConditionalGateBodyParams, DensityInstance,
+    DensityMatrixDisplayCallback, MeasurementDigitCallback, MeasurementDigitInstance,
+    ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
+    AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, DENSITY_RENDER_MODE_PLACEHOLDER,
+    DENSITY_RENDER_MODE_SAMPLE, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
+    PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use crate::grid_cell::GridCell;
-use crate::icons::{draw_bloch_vector, draw_gate_body, draw_meter_icon};
+use crate::icons::{
+    conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
+    draw_gate_glyph, draw_meter_icon,
+};
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
+use crate::simulation_plan::FlagSource;
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
 use super::amplitude_circle_popover as amplitude_popover;
 use super::hover_frame::hover_frame_corner_radius;
 use super::popover::{self, PopoverPlacement, PopoverTail};
 use super::state_panel_popup::{draw_amplitude_icon, draw_phase_icon, draw_probability_icon};
+
+/// How to paint the body of a conditional gate.
+enum ConditionalGateBody {
+    /// No earlier measurement writes the flag: always the disabled fill.
+    NeverApplies,
+    /// The GPU picks the fill from the measured outcome.
+    Gpu(ConditionalGateBodyCallback),
+}
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
 // circumference for ±Z states; the dot itself may extend slightly outside.
@@ -223,6 +236,24 @@ impl QniApp {
                 // masking the wire gap. Draw it once (instead of purple then
                 // neutral) so anti-aliased edges do not leak the palette colour.
                 draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
+            } else if let Some(body) =
+                self.conditional_gate_body(gate, gate_rect, colors, gpu_viewport)
+            {
+                match body {
+                    ConditionalGateBody::NeverApplies => draw_gate_body_filled(
+                        painter,
+                        gate_rect,
+                        gate.kind,
+                        colors,
+                        colors.semantic_disabled,
+                    ),
+                    ConditionalGateBody::Gpu(callback) => {
+                        painter.add(egui::Shape::Callback(
+                            egui_wgpu::Callback::new_paint_callback(gpu_viewport, callback),
+                        ));
+                        draw_gate_glyph(painter, gate_rect, gate.kind, colors);
+                    }
+                }
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
                 if gate.kind == GateKind::AntiControl {
@@ -274,6 +305,53 @@ impl QniApp {
             }
         }
         preview_painted
+    }
+
+    /// qni greys out a conditional gate (`X<name`) whose flag is not 1
+    /// (`quantum-simulator-element.ts` sets `disabled`). `None` paints the
+    /// regular body: the gate is unconditional or not planned yet.
+    fn conditional_gate_body(
+        &self,
+        gate: &PlacedGate,
+        gate_rect: egui::Rect,
+        colors: &Colors,
+        gpu_viewport: egui::Rect,
+    ) -> Option<ConditionalGateBody> {
+        let measurement = match self.gpu_plan.flag_source(gate.id)? {
+            FlagSource::NeverSet => return Some(ConditionalGateBody::NeverApplies),
+            FlagSource::Measurement(measurement) => measurement,
+        };
+        let slot = self.gpu_plan.measurement_slot(measurement)?;
+        // Index by position among the circuit's conditional gates, so the
+        // repeated insert-preview pass uploads the same instance to the same
+        // buffer slot.
+        let index = self
+            .placed_gates
+            .iter()
+            .filter(|other| matches!(other.flag, Some(GateFlag::If(_))))
+            .position(|other| other.id == gate.id)?;
+        if index >= ConditionalGateBodyCallback::MAX_PER_FRAME {
+            return None;
+        }
+        let (half_size, corner_radius) = conditional_gate_body_shape(gate_rect, gate.kind);
+        let center = gate_rect.center();
+        Some(ConditionalGateBody::Gpu(ConditionalGateBodyCallback {
+            index,
+            instance: ConditionalGateBodyInstance {
+                center: [center.x, center.y],
+                half_size,
+                corner_radius,
+                slot: slot.as_u32(),
+            },
+            params: ConditionalGateBodyParams {
+                viewport_min: [gpu_viewport.min.x, gpu_viewport.min.y],
+                viewport_size: [gpu_viewport.width(), gpu_viewport.height()],
+                // Same gamma story as the measurement digit callback.
+                enabled_color: colors.box_fill.to_normalized_gamma_f32(),
+                // qni `--qni-semantic-fill-color-disabled`.
+                disabled_color: colors.semantic_disabled.to_normalized_gamma_f32(),
+            },
+        }))
     }
 
     /// Repaint only the insertion footprint above panels, preserving the

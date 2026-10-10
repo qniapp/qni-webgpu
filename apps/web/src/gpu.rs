@@ -25,12 +25,13 @@ mod slot;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
-    BlochPopupValueCallback, DensityMatrixDisplayCallback, MeasurementDigitCallback,
-    PopupValueCallback, ProbabilityDisplayCallback, ProbabilityPopupValueCallback,
-    StateVectorCallback, StateVectorResourceBootstrapCallback,
+    BlochPopupValueCallback, ConditionalGateBodyCallback, DensityMatrixDisplayCallback,
+    MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
+    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorResourceBootstrapCallback,
 };
 pub(crate) use params::{
-    AmplitudeInstance, BlochOverlayInstance, DensityInstance, ExternalAmplitudeUpload,
+    AmplitudeInstance, BlochOverlayInstance, ConditionalGateBodyInstance,
+    ConditionalGateBodyParams, DensityInstance, ExternalAmplitudeUpload,
     ExternalAmplitudeUploadBatch, ExternalBlochUpload, ExternalBlochUploadBatch,
     ExternalDensityUpload, ExternalDensityUploadBatch, ExternalProbabilityUpload,
     ExternalProbabilityUploadBatch, MeasurementDigitInstance, ProbabilityInstance, RenderColors,

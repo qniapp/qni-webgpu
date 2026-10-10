@@ -25,6 +25,7 @@ test('Rust/WGSL host contract', () => {
       control_mask: 0,
       control_value: 0,
       mode: 0,
+      condition_slot: 0,
     }).byteLength,
     64,
   )

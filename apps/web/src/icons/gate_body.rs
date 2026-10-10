@@ -19,6 +19,44 @@ pub(crate) fn draw_gate_body(
     draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
+/// Paint a gate body with an explicit fill, e.g. qni's disabled fill for a
+/// conditional gate that can never apply.
+pub(crate) fn draw_gate_body_filled(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+    fill: egui::Color32,
+) {
+    draw_gate_body_with_fill(painter, gate_rect, kind, colors, fill, false);
+}
+
+/// Body outline of a conditional gate (`GateKind::is_ifable`) as
+/// `(half_size, corner_radius)`; X is a circle, the rest share the 6px gate
+/// corner radius. The GPU paints this shape for conditional gates whose fill
+/// depends on a measured outcome; `draw_gate_glyph` paints the glyph on top.
+pub(crate) fn conditional_gate_body_shape(gate_rect: egui::Rect, kind: GateKind) -> (f32, f32) {
+    let half_size = gate_rect.width().min(gate_rect.height()) / 2.0;
+    let corner_radius = if kind == GateKind::X {
+        half_size
+    } else {
+        GATE_CORNER_RADIUS as f32
+    };
+    (half_size, corner_radius)
+}
+
+/// Paint only the glyph of a gate whose body was painted elsewhere.
+pub(crate) fn draw_gate_glyph(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+) {
+    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, colors.box_fill);
+}
+
+const GATE_CORNER_RADIUS: u8 = 6;
+
 pub(crate) fn draw_drag_gate_body(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
@@ -91,8 +129,22 @@ fn draw_gate_body_with_fill(
         && kind != GateKind::Write0
         && kind != GateKind::Write1
     {
-        painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
+        painter.rect_filled(
+            gate_rect,
+            egui::CornerRadius::same(GATE_CORNER_RADIUS),
+            fill,
+        );
     }
+    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, fill);
+}
+
+fn draw_gate_icon_with_fallback(
+    painter: &egui::Painter,
+    gate_rect: egui::Rect,
+    kind: GateKind,
+    colors: &Colors,
+    fill: egui::Color32,
+) {
     let icon_color =
         if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
             fill
