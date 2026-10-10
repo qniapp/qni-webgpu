@@ -125,8 +125,8 @@ def apply_column_to_qiskit(
             continue
         deferred.append((wire, token))
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
-    for wire, token in deferred:
-        apply_gate(qc, wire, token, controls, anti_controls, qubits, basis)
+    for wire, token, partners in group_same_angle_phases(deferred):
+        apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
     apply_control_only_z(
         qc,
         controls,
@@ -137,6 +137,32 @@ def apply_column_to_qiskit(
         ),
     )
     apply_measurements(qc, measurement_wires, controls, anti_controls)
+
+
+def group_same_angle_phases(
+    deferred: list[tuple[int, str]],
+) -> list[tuple[int, str, list[int]]]:
+    """Fold same-angle `P` gates of one column into one multi-controlled phase.
+
+    Mirrors the WebGPU `PhaseGroupKey`: the top-most `P` of each angle keeps
+    the phase and the other wires join its controls (qni CPHASE / CCPHASE).
+    A bare `P` takes the π/2 default, so it groups with `P(π_2)`.
+    """
+    phase_groups: dict[float, list[int]] = {}
+    for wire, token in deferred:
+        base, angle = split_parametric(token)
+        if base.upper() == "P":
+            phase_groups.setdefault(parse_angle(angle), []).append(wire)
+    folded: list[tuple[int, str, list[int]]] = []
+    for wire, token in deferred:
+        base, angle = split_parametric(token)
+        if base.upper() != "P":
+            folded.append((wire, token, []))
+            continue
+        target, *partners = phase_groups[parse_angle(angle)]
+        if wire == target:
+            folded.append((wire, token, partners))
+    return folded
 
 
 def is_readonly_display_token(token: str) -> bool:

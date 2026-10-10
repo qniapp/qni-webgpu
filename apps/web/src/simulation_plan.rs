@@ -11,7 +11,9 @@ mod linearize;
 mod op;
 
 pub(crate) use capacity::{validate_simulation_plan_capacity, SimulationPlanLimits};
-pub(crate) use column_analysis::{AnalyzedColumn, ColumnAnalysis, SimulationColumnAnalysis};
+pub(crate) use column_analysis::{
+    AnalyzedColumn, ColumnAnalysis, PhaseGroupKey, SimulationColumnAnalysis,
+};
 pub(crate) use flag_sources::{FlagSource, FlagSources};
 pub(crate) use linearize::linearize_ops;
 pub(crate) use op::SimulationOp;

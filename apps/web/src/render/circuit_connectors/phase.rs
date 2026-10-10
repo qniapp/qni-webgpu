@@ -6,7 +6,7 @@ use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
 use crate::layout::LayoutMetrics;
-use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis};
+use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis, PhaseGroupKey};
 
 use super::super::circuit::gate_slot_index_for_render;
 use super::draw_vertical_connector;
@@ -219,24 +219,19 @@ fn draw_phase_phase_connectors(
     // Phase-Phase connector. qni's
     // `circuit-step-element.ts::updatePhasePhaseConnections` (:566-602)
     // draws a connector between same-angle Phase gates in the same column.
-    // Semantically it's a *visual* pairing only — qni's simulator still runs
-    // each Phase independently (`simulator.ts::cu` :413-417 loops over
-    // targets and applies the same 2x2 to each in turn), so we mirror just the
-    // line rendering. Bare legacy `P` uses the parametric default π/2.
+    // Each connected group is one multi-controlled phase (CPHASE / CCPHASE)
+    // in the simulation, so the buckets use the same `PhaseGroupKey`.
     for column in render_columns.columns() {
-        let mut angle_buckets: HashMap<ParametricAngle, Vec<egui::Pos2>> = HashMap::new();
+        let mut groups: HashMap<PhaseGroupKey<'_>, Vec<egui::Pos2>> = HashMap::new();
         for gate in column.gates() {
-            if gate.kind != GateKind::Phase {
-                continue;
-            }
-            let Some(angle) = phase_angle(gate) else {
+            let Some(key) = PhaseGroupKey::of(gate) else {
                 continue;
             };
             let center =
                 circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-            angle_buckets.entry(angle).or_default().push(center);
+            groups.entry(key).or_default().push(center);
         }
-        for points in angle_buckets.values() {
+        for points in groups.values() {
             if points.len() < 2 {
                 continue;
             }
@@ -307,7 +302,7 @@ pub(in crate::render) fn parametric_angle_label_info(
     let text = angle.label();
     let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
-        .map(|column| angle_label_connection_sides(column, gate, angle))
+        .map(|column| angle_label_connection_sides(column, gate))
         .unwrap_or_default();
     let layout = angle_label_layout(connection_sides);
     let (pos, align) = angle_label_position(center, layout);
@@ -439,18 +434,6 @@ fn draw_angle_label(
     painter.text(pos, align, text, font_id, colors.text_strong);
 }
 
-fn phase_angle(gate: &PlacedGate) -> Option<ParametricAngle> {
-    if gate.kind != GateKind::Phase {
-        return None;
-    }
-    parametric_angle(gate)
-}
-
-#[cfg(test)]
-fn phase_angle_label_text(gate: &PlacedGate) -> Option<String> {
-    phase_angle(gate).map(|angle| angle.label())
-}
-
 fn phase_render_column<'columns, 'gates>(
     render_columns: &'columns ColumnAnalysis<'gates>,
     gate: &PlacedGate,
@@ -479,30 +462,19 @@ fn parametric_angle_label_text(gate: &PlacedGate) -> Option<String> {
     parametric_angle(gate).map(|angle| angle.label())
 }
 
-fn angle_label_connection_sides(
-    column: &AnalyzedColumn<'_>,
-    gate: &PlacedGate,
-    angle: ParametricAngle,
-) -> ConnectionSides {
-    let mut sides = phase_phase_connection_sides(column, gate, angle);
+fn angle_label_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> ConnectionSides {
+    let mut sides = phase_phase_connection_sides(column, gate);
     sides.include(control_connection_sides(column, gate));
     sides
 }
 
-fn phase_phase_connection_sides(
-    column: &AnalyzedColumn<'_>,
-    gate: &PlacedGate,
-    angle: ParametricAngle,
-) -> ConnectionSides {
-    if gate.kind != GateKind::Phase {
+fn phase_phase_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> ConnectionSides {
+    let Some(key) = PhaseGroupKey::of(gate) else {
         return ConnectionSides::default();
-    }
+    };
     let mut sides = ConnectionSides::default();
     for other in column.gates() {
-        if other.id == gate.id || other.kind != GateKind::Phase {
-            continue;
-        }
-        if phase_angle(other) != Some(angle) {
+        if other.id == gate.id || PhaseGroupKey::of(other) != Some(key) {
             continue;
         }
         sides.include_wire(gate.wire, other.wire);
@@ -562,7 +534,7 @@ mod tests {
             None,
         );
 
-        assert_eq!(phase_angle_label_text(&gate), Some("π/2".to_owned()));
+        assert_eq!(parametric_angle_label_text(&gate), Some("π/2".to_owned()));
     }
 
     #[test]
@@ -576,7 +548,7 @@ mod tests {
             Some(angle("2π/3")),
         );
 
-        assert_eq!(phase_angle_label_text(&gate), Some("2π/3".to_owned()));
+        assert_eq!(parametric_angle_label_text(&gate), Some("2π/3".to_owned()));
     }
 
     #[test]
@@ -696,7 +668,7 @@ mod tests {
         let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column.as_usize()));
 
         assert_eq!(
-            angle_label_connection_sides(&analysis.columns()[0], &gates[1], angle("π/2")),
+            angle_label_connection_sides(&analysis.columns()[0], &gates[1]),
             ConnectionSides {
                 top: true,
                 bottom: true,
@@ -785,5 +757,43 @@ mod tests {
         let gates = flagged_column(r#"{"cols":[["X"]]}"#);
 
         assert_eq!(flag_label(&gates, 0), None);
+    }
+
+    fn phase_sides(json: &str, flags: &[(usize, &str)]) -> ConnectionSides {
+        let mut gates = flagged_column(json);
+        for (index, name) in flags {
+            gates[*index].flag = Some(crate::gates::GateFlag::If(
+                crate::gates::FlagName::parse(name).expect("flag name"),
+            ));
+        }
+        let analysis = ColumnAnalysis::from_gates(&gates, |gate| Some(gate.column.as_usize()));
+        phase_phase_connection_sides(&analysis.columns()[0], &gates[0])
+    }
+
+    #[test]
+    fn same_angle_phases_connect() {
+        assert_eq!(
+            phase_sides(r#"{"cols":[["P(π_4)","P(π_4)"]]}"#, &[]),
+            ConnectionSides {
+                top: false,
+                bottom: true,
+            }
+        );
+    }
+
+    #[test]
+    fn different_angle_phases_do_not_connect() {
+        assert_eq!(
+            phase_sides(r#"{"cols":[["P(π_4)","P(π_2)"]]}"#, &[]),
+            ConnectionSides::default()
+        );
+    }
+
+    #[test]
+    fn phases_with_different_conditions_do_not_connect() {
+        assert_eq!(
+            phase_sides(r#"{"cols":[["P(π_4)","P(π_4)"]]}"#, &[(0, "a"), (1, "b")]),
+            ConnectionSides::default()
+        );
     }
 }
