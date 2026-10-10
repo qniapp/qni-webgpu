@@ -55,6 +55,9 @@ pub(crate) struct Colors {
     pub(crate) measurement_fired_icon: egui::Color32,
     pub(crate) spacer_dots: egui::Color32,
     pub(crate) step_preview: egui::Color32,
+    pub(crate) circuit_block_fill: egui::Color32,
+    pub(crate) circuit_block_border: egui::Color32,
+    pub(crate) circuit_block_label: egui::Color32,
     pub(crate) palette_shadow: egui::Color32,
     pub(crate) state_panel_shadow: egui::Color32,
     pub(crate) state_cell_popup_shadow: egui::Color32,
@@ -217,6 +220,10 @@ fn flexoki_light() -> Colors {
         measurement_fired_icon: ui_2,
         spacer_dots: tx,
         step_preview: blue_600,
+        // qni circuit-block: bg-neutral-200/30 body, sky-500 rules + label.
+        circuit_block_fill: with_alpha(ui, 128), // Flexoki ui #E6E4D9 at 50%
+        circuit_block_border: blue_400,          // Flexoki blue-400 #4385BE
+        circuit_block_label: blue_400,           // Flexoki blue-400 #4385BE
         palette_shadow: with_alpha(tx, 25),
         state_panel_shadow: with_alpha(tx, 25),
         state_cell_popup_shadow: with_alpha(tx, 36),

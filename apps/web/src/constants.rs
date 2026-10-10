@@ -144,6 +144,17 @@ pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line
 pub(crate) const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
 pub(crate) const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
 
+// qni circuit-block geometry. The block body extends spacing-2 = 8 px past
+// the step-preview bar (half a wire gap above the first wire / below the
+// last), keeping the label clear of the palette above.
+pub(crate) const CIRCUIT_BLOCK_PADDING_Y: f32 = 8.0;
+// 2 px top / bottom rules, as qni's `border-top-width: 2px`.
+pub(crate) const CIRCUIT_BLOCK_BORDER_WIDTH: f32 = 2.0;
+// spacing-1 = 4 px between a rule and its label.
+pub(crate) const CIRCUIT_BLOCK_LABEL_GAP: f32 = 4.0;
+// text-base = 16 px monospace label, as qni's block comment.
+pub(crate) const CIRCUIT_BLOCK_LABEL_FONT_SIZE: f32 = 16.0;
+
 // spacing-10 = 40 px, matching Quirk's operation base size.
 pub(crate) const GATE_SIZE: f32 = 40.0;
 // spacing-14 = 56 px. Kept equal to LINE_GAP for a square visual rhythm.

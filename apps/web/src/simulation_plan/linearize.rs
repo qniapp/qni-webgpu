@@ -864,7 +864,7 @@ mod tests {
     /// 要約する。行列は 1e-6 精度で整数化し、順序づき比較が浮動小数の微小誤差に
     /// 振り回されないようにする。`SnapshotState` 等の非ユニタリ演算は除外する。
     fn applied_gate_summary(json: &str) -> Vec<(u32, u32, u32, [i64; 8])> {
-        let (gates, _) = crate::url_circuit::parse_circuit_json(json);
+        let gates = crate::url_circuit::parse_circuit_json(json).gates;
         linearize_ops(&gates, qubit_count(4), 0)
             .iter()
             .filter_map(|op| match op {
@@ -1184,5 +1184,20 @@ mod tests {
             Some(SimulationOp::CaptureBloch { gate_id, .. })
                 if *gate_id == crate::app::GateId::from_u32(5)
         ));
+    }
+
+    fn linearized(json: &str) -> String {
+        let gates = crate::url_circuit::parse_circuit_json(json).gates;
+        format!("{:?}", linearize_ops(&gates, qubit_count(2), 0))
+    }
+
+    #[test]
+    fn circuit_blocks_do_not_change_the_simulation_ops() {
+        assert_eq!(
+            linearized(
+                r#"{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["•","X"],["}"],["Measure"],[1,"Measure"]]}"#
+            ),
+            linearized(r#"{"cols":[["|0>","|0>"],["H"],["•","X"],["Measure"],[1,"Measure"]]}"#)
+        );
     }
 }

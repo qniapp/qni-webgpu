@@ -53,6 +53,9 @@ impl QniApp {
         // label strip on the left and the GPU callback viewports stay
         // on `rect.min` so they don't track the scroll.
         let circuit_origin = rect.min - egui::vec2(scroll_x, 0.0);
+        // Blocks sit behind everything else, like qni's block body that
+        // wraps its steps.
+        self.draw_circuit_blocks(painter, metrics, colors, circuit_origin);
         for &line_y in &metrics.line_ys {
             let start = circuit_origin + egui::vec2(metrics.line_left, line_y);
             let end = circuit_origin + egui::vec2(metrics.line_right, line_y);

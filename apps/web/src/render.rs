@@ -10,6 +10,7 @@
 mod amplitude_circle_popover;
 mod angle_input;
 mod circuit;
+mod circuit_blocks;
 mod circuit_connectors;
 mod circuit_gates;
 mod circuit_palette;
