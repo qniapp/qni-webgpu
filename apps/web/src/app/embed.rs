@@ -24,6 +24,12 @@ impl AppMode {
         matches!(self, Self::Standalone)
     }
 
+    /// Only the standalone editor shows the toolbar's clear-all button;
+    /// embeds keep Undo / Redo.
+    pub(crate) fn shows_clear_button(self) -> bool {
+        matches!(self, Self::Standalone)
+    }
+
     /// Step shown after a circuit loads. Embeds start at step 0 like qni's
     /// tutorial simulator; the standalone editor shows the final state.
     pub(crate) fn initial_breakpoint_step(self) -> Option<CircuitColumnIndex> {

@@ -87,27 +87,20 @@ impl QniApp {
         {
             self.redo_circuit(ctx);
         }
-        if icon_button(
-            ui,
-            colors,
-            ToolbarIcon::Trash,
-            ButtonState {
-                enabled: edit_allowed,
-                toggle_on: false,
-            },
-            "Clear circuit",
-        )
-        .clicked()
+        if self.mode.shows_clear_button()
+            && icon_button(
+                ui,
+                colors,
+                ToolbarIcon::Trash,
+                ButtonState {
+                    enabled: edit_allowed,
+                    toggle_on: false,
+                },
+                "Clear circuit",
+            )
+            .clicked()
         {
-            self.placed_gates.clear();
-            self.circuit_blocks.clear();
-            // qni's clear() resets the circuit to `{"cols":[]}`, title included.
-            self.circuit_title.clear();
-            self.write_document_title();
-            self.update_qubit_count();
-            self.gpu_plan.mark_dirty();
-            self.external_gpu.note_clear_requested();
-            self.commit_current_circuit(ctx);
+            self.clear_circuit(ctx);
         }
         if !self.mode.uses_browser_state() {
             return;
@@ -152,6 +145,18 @@ impl QniApp {
         {
             self.toggle_circuit_lock();
         }
+    }
+
+    fn clear_circuit(&mut self, ctx: &egui::Context) {
+        self.placed_gates.clear();
+        self.circuit_blocks.clear();
+        // qni's clear() resets the circuit to `{"cols":[]}`, title included.
+        self.circuit_title.clear();
+        self.write_document_title();
+        self.update_qubit_count();
+        self.gpu_plan.mark_dirty();
+        self.external_gpu.note_clear_requested();
+        self.commit_current_circuit(ctx);
     }
 
     fn show_gpu_execute_cluster(
