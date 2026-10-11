@@ -257,6 +257,22 @@ test('qni Superdense Coding tutorial circuit with a title starts', async ({ page
   expect(await page.evaluate(() => (window as any).startError)).toBeUndefined()
 })
 
+// Only a string `title` is accepted beside `cols`; anything else is rejected.
+for (const [name, circuit] of [
+  ['an unknown root key', '{"cols":[["H"]],"title":"Bell","mode":"gpu"}'],
+  ['a null title', '{"cols":[["H"]],"title":null}'],
+  ['a false title', '{"cols":[["H"]],"title":false}'],
+  ['a zero title', '{"cols":[["H"]],"title":0}'],
+  ['a number title', '{"cols":[["H"]],"title":123}'],
+  ['an object title', '{"cols":[["H"]],"title":{"text":"Bell"}}'],
+  ['an array title', '{"cols":[["H"]],"title":["Bell"]}'],
+]) {
+  test(`embed circuit with ${name} rejects before runner startup`, async ({ page }) => {
+    await hostEmbed(page, circuit)
+    expect(await page.evaluate(() => (window as any).startError)).toContain('invalid circuit JSON')
+  })
+}
+
 test('embed keeps the trimmed circuit title in circuitJSON after an edit', async ({ page }) => {
   await hostEmbed(page, '{"title":" Superdense Coding ","cols":[["|0>"]]}', H_GATE_TUTORIAL)
   await waitForStepZero(page)

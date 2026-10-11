@@ -279,14 +279,46 @@ mod tests {
         );
     }
 
+    // qni's `(circuit.title || '').trim()` would silently drop a falsy
+    // title, but a non-string title is malformed qni JSON, so reject it.
     #[test]
-    fn non_string_title_is_rejected() {
-        assert_eq!(title(r#"{"cols":[],"title":1}"#), None);
+    fn null_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":null}"#), None);
+    }
+
+    #[test]
+    fn false_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":false}"#), None);
+    }
+
+    #[test]
+    fn zero_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":0}"#), None);
+    }
+
+    #[test]
+    fn number_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":123}"#), None);
+    }
+
+    #[test]
+    fn object_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":{"text":"Bell"}}"#), None);
+    }
+
+    #[test]
+    fn array_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":["Bell"]}"#), None);
     }
 
     #[test]
     fn unknown_key_is_rejected() {
         assert_eq!(title(r#"{"cols":[],"mode":"gpu"}"#), None);
+    }
+
+    #[test]
+    fn unknown_key_beside_title_is_rejected() {
+        assert_eq!(title(r#"{"cols":[],"title":"Bell","mode":"gpu"}"#), None);
     }
 
     #[test]
