@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use super::{FlagSource, FlagSources, SimulationColumnAnalysis, SimulationOp};
+use super::{FlagSource, FlagSources, PhaseGroupKey, SimulationColumnAnalysis, SimulationOp};
 use crate::app::{GateId, PlacedGate};
 use crate::gates::{
     gate_params, gate_params_controlled, phase_params, rx_params, ry_params, rz_params,
@@ -109,11 +109,19 @@ pub(crate) fn linearize_ops(
         }
 
         targets.sort_by_key(|a| a.id);
+        let phase_roles = phase_group_roles(&targets, qubits);
         for target in &targets {
             let bit = target
                 .wire
                 .to_qubit_bit(qubits)
                 .expect("column gates are within the register");
+            let controls = match phase_roles.get(&target.id) {
+                None => controls,
+                Some(PhaseRole::Partner) => continue,
+                Some(PhaseRole::Target { partner_bits }) => partner_bits
+                    .iter()
+                    .fold(controls, |controls, bit| controls.with_control(*bit)),
+            };
             // Parametric gates carry an optional normalized angle. When
             // present we route through the matching `*_params(θ, …)` builder
             // so the matrix carries that angle; when absent we fall back to
@@ -331,6 +339,47 @@ pub(crate) fn linearize_ops(
         next_snapshot_slot += 1;
     }
     ops
+}
+
+/// How a `P` gate takes part in its column's multi-controlled phase.
+enum PhaseRole {
+    /// The top-most gate of a group carries the phase, controlled by the
+    /// other members' wires. Lone `P` gates are targets with no partners.
+    Target { partner_bits: Vec<QubitBit> },
+    /// Folded into its group's target as a control.
+    Partner,
+}
+
+/// Splits a column's `P` gates into `PhaseGroupKey` groups. A phase on
+/// |1…1⟩ is symmetric in its wires, so any member can be the target; the
+/// top-most one is picked for a stable op stream.
+fn phase_group_roles(targets: &[&PlacedGate], qubits: QubitCount) -> HashMap<GateId, PhaseRole> {
+    let mut groups: HashMap<PhaseGroupKey<'_>, Vec<&PlacedGate>> = HashMap::new();
+    for gate in targets {
+        if let Some(key) = PhaseGroupKey::of(gate) {
+            groups.entry(key).or_default().push(gate);
+        }
+    }
+    let mut roles = HashMap::new();
+    for mut members in groups.into_values() {
+        members.sort_by_key(|gate| gate.wire);
+        let (target, partners) = members
+            .split_first()
+            .expect("a phase group has at least one member");
+        let partner_bits = partners
+            .iter()
+            .map(|gate| {
+                gate.wire
+                    .to_qubit_bit(qubits)
+                    .expect("column gates are within the register")
+            })
+            .collect();
+        roles.insert(target.id, PhaseRole::Target { partner_bits });
+        for partner in partners {
+            roles.insert(partner.id, PhaseRole::Partner);
+        }
+    }
+    roles
 }
 
 /// Return only controls outside the QFT span. A decoded URL can contain a
@@ -1270,5 +1319,120 @@ mod tests {
         let ops = linearize_ops(&gates, qubit_count(2), 0);
 
         assert_eq!(apply_gate_params(&ops, 2).control_mask(), 0b01);
+    }
+
+    fn phase_ops(json: &str, qubits: usize) -> Vec<SimulationOp> {
+        linearize_ops(&flagged_gates(json), qubit_count(qubits), 0)
+    }
+
+    fn phase_controls(json: &str, qubits: usize) -> (u32, u32, u32) {
+        let params = apply_gate_params(&phase_ops(json, qubits), 0);
+        (params.bit(), params.control_mask(), params.control_value())
+    }
+
+    #[test]
+    fn same_angle_phases_emit_one_controlled_phase() {
+        assert_eq!(
+            apply_gate_count(&phase_ops(r#"{"cols":[["P(π_4)","P(π_4)"]]}"#, 2)),
+            1
+        );
+    }
+
+    #[test]
+    fn cphase_targets_the_top_wire_and_controls_the_others() {
+        assert_eq!(
+            phase_controls(r#"{"cols":[["P(π_4)",1,"P(π_4)"]]}"#, 3),
+            (0, 0b100, 0b100)
+        );
+    }
+
+    #[test]
+    fn ccphase_controls_every_other_phase_wire() {
+        assert_eq!(
+            phase_controls(r#"{"cols":[["P(π_4)","P(π_4)","P(π_4)"]]}"#, 3),
+            (0, 0b110, 0b110)
+        );
+    }
+
+    #[test]
+    fn cphase_joins_column_controls() {
+        assert_eq!(
+            phase_controls(r#"{"cols":[["P(π_4)","•","P(π_4)"]]}"#, 3),
+            (0, 0b110, 0b110)
+        );
+    }
+
+    #[test]
+    fn cphase_joins_column_anti_controls() {
+        assert_eq!(
+            phase_controls(r#"{"cols":[["P(π_4)","◦","P(π_4)"]]}"#, 3),
+            (0, 0b110, 0b100)
+        );
+    }
+
+    #[test]
+    fn bare_phase_groups_with_explicit_default_angle() {
+        assert_eq!(
+            apply_gate_count(&phase_ops(r#"{"cols":[["P","P(π_2)"]]}"#, 2)),
+            1
+        );
+    }
+
+    #[test]
+    fn different_angles_form_separate_phase_groups() {
+        assert_eq!(
+            apply_gate_count(&phase_ops(r#"{"cols":[["P(π_4)","P(π_2)","P(π_4)"]]}"#, 3)),
+            2
+        );
+    }
+
+    #[test]
+    fn lone_phase_of_another_angle_keeps_only_column_controls() {
+        assert_eq!(
+            phase_controls(r#"{"cols":[["•","P(π_2)","P(π_4)","P(π_4)"]]}"#, 4),
+            (1, 0b0001, 0b0001)
+        );
+    }
+
+    /// qni JSON cannot carry a condition on `P` (`GateKind::is_ifable`), so
+    /// attach the flags directly to exercise the grouping key.
+    fn conditional_phase_ops(
+        json: &str,
+        qubits: usize,
+        flags: &[(usize, &str)],
+    ) -> Vec<SimulationOp> {
+        let mut gates = flagged_gates(json);
+        for (index, name) in flags {
+            gates[*index].flag = Some(crate::gates::GateFlag::If(
+                crate::gates::FlagName::parse(name).expect("flag name"),
+            ));
+        }
+        linearize_ops(&gates, qubit_count(qubits), 0)
+    }
+
+    #[test]
+    fn different_conditions_form_separate_phase_groups() {
+        let ops = conditional_phase_ops(
+            r#"{"cols":[["Measure>a","Measure>b"],[1,1,"P(π_4)","P(π_4)"]]}"#,
+            4,
+            &[(2, "a"), (3, "b")],
+        );
+
+        assert_eq!(apply_gate_count(&ops), 2);
+    }
+
+    #[test]
+    fn same_condition_phases_emit_one_conditional_cphase() {
+        let ops = conditional_phase_ops(
+            r#"{"cols":[["Measure>a"],[1,"P(π_4)","P(π_4)"]]}"#,
+            3,
+            &[(1, "a"), (2, "a")],
+        );
+        let params = apply_gate_params(&ops, 2);
+
+        assert_eq!(
+            (params.bit(), params.control_mask(), params.condition_slot()),
+            (1, 0b100, 0)
+        );
     }
 }

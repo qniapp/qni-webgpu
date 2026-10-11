@@ -261,6 +261,7 @@
   <h2><span class="num">§ 01</span>概要 (見た目と用途)</h2>
   <div class="card">
     <p>Phase ゲートは θ を持つ可変位相ゲートで、固定角の S / T / Z より広い操作を表す。演算は内部表記 <code>P(θ)</code> の行列 <code>diag(1, e<sup>iθ</sup>)</code> で表す。<code>Rz(θ) = diag(e<sup>-iθ/2</sup>, e<sup>iθ/2</sup>) = e<sup>-iθ/2</sup> · P(θ)</code> なので、Rz(θ) とはグローバル位相を除いて同じ位相操作を表す。</p>
+    <p>同じ列にある同じ角度の Phase ゲートは、縦コネクタで結んだ 1 つの多重制御位相ゲート (CPHASE / CCPHASE) として計算する。<code>e<sup>iθ</sup></code> がかかるのは、それらのワイヤがすべて |1⟩ のときだけである。同じ列の <code>•</code> (|1⟩) や <code>◦</code> (|0⟩) も条件に加わる。角度が異なる Phase ゲートは、角度ごとに別のグループになる。角度を省略した <code>P</code> は既定角 <code>π/2</code> として <code>P(π/2)</code> と同じグループに入る。</p>
     <p>画面上は真円本体と固定の Φ 字形で「パラメータを持つ位相ゲート」を示す。現在の Φ グリフは θ の値に応じて回転する角度メータではなく、θ の値は本体外側の角度ラベルで表示し、編集は別 UI で扱う。</p>
     <div class="stage">
       <div class="col"><div class="caption">Phase ゲート<br />既定</div><div class="actual"><p-gate></p-gate></div></div>

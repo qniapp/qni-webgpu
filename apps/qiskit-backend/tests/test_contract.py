@@ -874,6 +874,95 @@ class ContractTests(unittest.TestCase):
         apply_columns_to_qiskit(fake, [["•", "P(π_4)"]], 2)
         self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [0], [1])])
 
+    def test_qiskit_builder_folds_same_angle_phases_into_cphase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P(π_4)", 1, "P(π_4)"]], 3)
+        self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [2], [0])])
+
+    def test_qiskit_builder_folds_column_controls_into_ccphase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P(π_4)", "•", "P(π_4)"]], 3)
+        self.assertEqual(fake.ops, [("controlled", ("P", "π/4"), [1, 2], [0])])
+
+    def test_qiskit_builder_folds_anti_controls_into_cphase(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+            def x(self, wire):
+                self.ops.append(("x", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P(π_4)", "◦", "P(π_4)"]], 3)
+        self.assertEqual(
+            fake.ops,
+            [("x", 1), ("controlled", ("P", "π/4"), [2, 1], [0]), ("x", 1)],
+        )
+
+    def test_qiskit_builder_groups_bare_phase_with_default_angle(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P", "P(π_2)"]], 2)
+        self.assertEqual(fake.ops, [("controlled", ("P", None), [1], [0])])
+
+    def test_qiskit_builder_keeps_different_angle_phases_separate(self):
+        class FakeCircuit:
+            def __init__(self):
+                self.ops = []
+
+            def append(self, instruction):
+                self.ops.append(instruction)
+
+            def p(self, phase, wire):
+                self.ops.append(("p", round(phase, 6), wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["P(π_4)", "P(π_2)", "P(π_4)"]], 3)
+        self.assertEqual(
+            fake.ops,
+            [
+                ("controlled", ("P", "π/4"), [2], [0]),
+                ("p", round(math.pi / 2, 6), 1),
+            ],
+        )
+
+    def test_qiskit_cphase_amplitudes_match_multi_controlled_phase(self):
+        if importlib.util.find_spec("qiskit") is None:
+            self.skipTest("qiskit is not installed")
+        from qiskit import QuantumCircuit  # type: ignore[import-not-found]
+        from qiskit.quantum_info import Statevector  # type: ignore[import-not-found]
+
+        qc = QuantumCircuit(3)
+        apply_columns_to_qiskit(qc, [["H", "H", "H"], ["P(π_4)", "•", "P(π_4)"]], 3)
+        phase = complex(math.cos(math.pi / 4), math.sin(math.pi / 4))
+        expected = [
+            (phase if index == 0b111 else 1) / math.sqrt(8) for index in range(8)
+        ]
+        self.assertTrue(Statevector(qc).equiv(Statevector(expected)))
+
     def test_qiskit_builder_applies_control_only_z(self):
         class FakeCircuit:
             def __init__(self):
