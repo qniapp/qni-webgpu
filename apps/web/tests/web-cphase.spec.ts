@@ -10,7 +10,8 @@ const PLUS3 = '["H","H","H"]'
 const circuit = (...cols: string[]): string => `{"cols":[${[PLUS3, ...cols].join(',')}]}`
 
 // hash だけが違う URL への goto はアプリを読み込み直さないので、回路ごとに
-// 新しいページで開く。
+// 新しいページで開く。起動完了後の状態ベクトルは確定しているので一度だけ読む。
+// expect.poll で包むと、並列実行で 1 回の起動が既定の 5 秒を超えたときに落ちる。
 const stateVectorOf = async (context: BrowserContext, json: string): Promise<number[]> => {
   const page = await context.newPage()
   try {
@@ -60,7 +61,7 @@ for (const { name, phases, controlled } of cases) {
   test(name, async ({ context }) => {
     const expected = await stateVectorOf(context, circuit(...controlled))
 
-    await expect.poll(() => stateVectorOf(context, circuit(phases))).toEqual(expected)
+    expect(await stateVectorOf(context, circuit(phases))).toEqual(expected)
   })
 }
 
@@ -70,5 +71,5 @@ test('CPHASE changes only the |101⟩ and |111⟩ amplitudes', async ({ context 
   const r = 0.25
   const expected = [s, 0, s, 0, s, 0, s, 0, s, 0, r, r, s, 0, r, r]
 
-  await expect.poll(() => stateVectorOf(context, circuit('["P(π_4)",1,"P(π_4)"]'))).toEqual(expected)
+  expect(await stateVectorOf(context, circuit('["P(π_4)",1,"P(π_4)"]'))).toEqual(expected)
 })
