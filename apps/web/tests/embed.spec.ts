@@ -81,18 +81,6 @@ test('embed renders without library or external execution controls', async ({ pa
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-h.png')
 })
 
-test('embed startup and clear never access host storage or history', async ({ page }) => {
-  await hostEmbed(page)
-  await waitForHState(page)
-  // Embedded toolbar: Undo, Redo, Clear, with 32px buttons and 8px gaps.
-  await page.locator('qni-webgpu-test canvas').click({ position: { x: 108, y: 22 } })
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[0] === 1 } catch { return false }
-  })
-  expect(await page.evaluate(() => ({ effects: (window as any).effects, url: location.pathname + location.search + location.hash })))
-    .toEqual({ effects: [], url: '/host/article?mode=gpu#host-fragment' })
-})
-
 test('destroy is idempotent and the same canvas can restart', async ({ page }) => {
   await hostEmbed(page)
   await waitForHState(page)
@@ -212,6 +200,76 @@ const H_GATE_TUTORIAL = { settings: { palette: ['H', 'X'], maxWireCount: 1 } }
 const PALETTE_H_X = 456
 const SLOT_1_X = 218
 
+// Embedded toolbar: Undo and Redo only, 32px buttons with an 8px gap inside
+// the 12px / 6px toolbar padding. The clear button used to sit at x = 108.
+const UNDO = { x: 28, y: 22 }
+const REDO = { x: 68, y: 22 }
+const FORMER_CLEAR = { x: 108, y: 22 }
+
+const ZERO = '{"cols":[["|0>"]]}'
+const ZERO_X = '{"cols":[["|0>"],["X"]]}'
+
+async function dropXOnSlot1(page: Page) {
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  await page.mouse.move(box.x + PALETTE_H_X + 48, box.y + 100)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
+  await page.mouse.move(box.x + SLOT_1_X, box.y + 216, { steps: 8 })
+  await page.mouse.up()
+}
+
+async function clickToolbar(page: Page, position: { x: number, y: number }) {
+  await page.locator('qni-webgpu-test canvas').click({ position })
+}
+
+async function waitForCircuit(page: Page, json: string) {
+  await page.waitForFunction(json => (window as any).runner.circuitJSON() === json, json)
+}
+
+const circuitJSON = (page: Page) => page.evaluate(() => (window as any).runner.circuitJSON())
+
+test('embed toolbar undo restores the circuit before an edit', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page)
+  await waitForCircuit(page, ZERO_X)
+  await clickToolbar(page, UNDO)
+  await expect.poll(() => circuitJSON(page)).toBe(ZERO)
+})
+
+test('embed toolbar redo reapplies the undone edit', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page)
+  await waitForCircuit(page, ZERO_X)
+  await clickToolbar(page, UNDO)
+  await waitForCircuit(page, ZERO)
+  await clickToolbar(page, REDO)
+  await expect.poll(() => circuitJSON(page)).toBe(ZERO_X)
+})
+
+test('embed toolbar has no clear button', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await clickToolbar(page, FORMER_CLEAR)
+  // Events apply in order: had the click cleared |0>, X would land alone.
+  await dropXOnSlot1(page)
+  await expect.poll(() => circuitJSON(page)).toBe(ZERO_X)
+})
+
+test('embed edits, undo and redo never access host storage or history', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page)
+  await waitForCircuit(page, ZERO_X)
+  await clickToolbar(page, UNDO)
+  await waitForCircuit(page, ZERO)
+  await clickToolbar(page, REDO)
+  await waitForCircuit(page, ZERO_X)
+  expect(await page.evaluate(() => ({ effects: (window as any).effects, url: location.pathname + location.search + location.hash })))
+    .toEqual({ effects: [], url: '/host/article?mode=gpu#host-fragment' })
+})
+
 test('maxWireCount 1 draws a one-qubit circuit on one wire', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["|0>"]]}', H_GATE_TUTORIAL)
   await waitForStepZero(page)
@@ -285,15 +343,6 @@ test('embed keeps the trimmed circuit title in circuitJSON after an edit', async
   await page.mouse.up()
   await expect.poll(() => page.evaluate(() => (window as any).runner.circuitJSON()))
     .toBe('{"cols":[["|0>"],["X"]],"title":"Superdense Coding"}')
-})
-
-test('embed clear drops the circuit title like qni', async ({ page }) => {
-  await hostEmbed(page, '{"cols":[["H"]],"title":"Bell"}')
-  await waitForHState(page)
-  // Embedded toolbar: Undo, Redo, Clear, with 32px buttons and 8px gaps.
-  await page.locator('qni-webgpu-test canvas').click({ position: { x: 108, y: 22 } })
-  await expect.poll(() => page.evaluate(() => (window as any).runner.circuitJSON()))
-    .toBe('{"cols":[]}')
 })
 
 test('embed circuit title never renames the host page', async ({ page }) => {

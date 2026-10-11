@@ -6,6 +6,8 @@ pub(crate) mod circuit_library;
 mod circuit_model;
 pub(crate) mod circuit_picker_state;
 mod drag_controller;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod edit_toolbar_tests;
 mod embed;
 mod exec_mode;
 mod external_gpu;
