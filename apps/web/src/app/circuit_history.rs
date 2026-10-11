@@ -149,6 +149,7 @@ impl QniApp {
         crate::url_circuit::circuit_to_json(
             &self.placed_gates,
             &self.circuit_blocks,
+            &self.circuit_title,
             QubitCount::try_new(self.required_visible_wire_count())
                 .expect("visible wire count is at least one"),
         )
@@ -178,6 +179,8 @@ impl QniApp {
         self.placed_gates = circuit.gates;
         self.gate_ids = circuit.gate_ids;
         self.circuit_blocks = circuit.blocks;
+        self.circuit_title = circuit.title;
+        self.write_document_title();
         if !self
             .exec_mode
             .qubit_capacity()

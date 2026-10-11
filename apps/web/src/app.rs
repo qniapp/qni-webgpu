@@ -57,6 +57,9 @@ pub(crate) struct QniApp {
     /// Labelled column ranges drawn around groups of gates (qni
     /// `circuit-block`). Presentation only; never part of the simulation.
     pub(crate) circuit_blocks: CircuitBlocks,
+    /// qni's optional circuit title (trimmed; empty when absent). Kept so
+    /// the serialised circuit round-trips it.
+    pub(crate) circuit_title: String,
     /// Horizontal scroll offset for the circuit area, in egui pixels.
     /// When circuit content exceeds the canvas width, this pushes the
     /// rendered circuit left by that many pixels so the user can see
@@ -259,6 +262,7 @@ impl QniApp {
             let url_json = crate::url_circuit::circuit_to_json(
                 &url_circuit.gates,
                 &url_circuit.blocks,
+                &url_circuit.title,
                 url_serialized_qubits,
             );
             let (library, initial_json) = circuit_library::for_startup(
@@ -276,6 +280,7 @@ impl QniApp {
             gates: initial_gates,
             gate_ids,
             blocks: circuit_blocks,
+            title: circuit_title,
         } = initial_circuit;
         let initial_required_qubits = crate::url_circuit::qubit_count_from_gates(&initial_gates);
         let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
@@ -292,11 +297,13 @@ impl QniApp {
         let initial_json = crate::url_circuit::circuit_to_json(
             &initial_gates,
             &circuit_blocks,
+            &circuit_title,
             initial_serialized_qubits,
         );
         if mode.uses_browser_state() {
             crate::url_circuit::write_circuit_to_url(&initial_json);
             crate::url_circuit::write_exec_mode_to_url(exec_mode);
+            embed::write_document_title(&circuit_title);
         }
         Self {
             mode,
@@ -313,6 +320,7 @@ impl QniApp {
             gate_ids,
             placed_gates: initial_gates,
             circuit_blocks,
+            circuit_title,
             circuit_scroll_x: 0.0,
             dragging: None,
             dragging_live_snap: None,
