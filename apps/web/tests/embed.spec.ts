@@ -249,6 +249,59 @@ test('maxWireCount 1 offers no second wire to drop on', async ({ page }) => {
     .toBe('{"cols":[["|0>"],["X"]]}')
 })
 
+// Issue #59: qni `superdense_coding_circuit.html` carries a root `title`.
+const SUPERDENSE = '{"cols":[[1,1,1,"|0>","|0>"],["{ベル回路"],[1,1,1,"H"],[1,1,1,"•","X"],["}"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap",1,"Swap"],["{送信する2ビットを生成"],["|0>","|0>"],["H","H"],["Measure>bit1","Measure>bit2"],["}"],[1],["|0>","|0>"],["{送信ビットに応じたベル状態を作る"],["X<bit1","X<bit2"],[1,"•","X"],["•",1,"Z"],["}"],["Measure","Measure"],[1,1,"Swap",1,1,"Swap"],["{ベル測定"],[1,1,1,1,1,"•","X"],[1,1,1,1,1,"H"],[1,1,1,1,1,"Measure","Measure"],["}"],[1]],"title":"Superdense Coding"}'
+
+test('qni Superdense Coding tutorial circuit with a title starts', async ({ page }) => {
+  await hostEmbed(page, SUPERDENSE, { settings: { showStatePanel: true, palette: [], maxWireCount: 1 } })
+  expect(await page.evaluate(() => (window as any).startError)).toBeUndefined()
+})
+
+// Only a string `title` is accepted beside `cols`; anything else is rejected.
+for (const [name, circuit] of [
+  ['an unknown root key', '{"cols":[["H"]],"title":"Bell","mode":"gpu"}'],
+  ['a null title', '{"cols":[["H"]],"title":null}'],
+  ['a false title', '{"cols":[["H"]],"title":false}'],
+  ['a zero title', '{"cols":[["H"]],"title":0}'],
+  ['a number title', '{"cols":[["H"]],"title":123}'],
+  ['an object title', '{"cols":[["H"]],"title":{"text":"Bell"}}'],
+  ['an array title', '{"cols":[["H"]],"title":["Bell"]}'],
+]) {
+  test(`embed circuit with ${name} rejects before runner startup`, async ({ page }) => {
+    await hostEmbed(page, circuit)
+    expect(await page.evaluate(() => (window as any).startError)).toContain('invalid circuit JSON')
+  })
+}
+
+test('embed keeps the trimmed circuit title in circuitJSON after an edit', async ({ page }) => {
+  await hostEmbed(page, '{"title":" Superdense Coding ","cols":[["|0>"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  const canvas = page.locator('qni-webgpu-test canvas')
+  const box = (await canvas.boundingBox())!
+  await page.mouse.move(box.x + PALETTE_H_X + 48, box.y + 100)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
+  await page.mouse.move(box.x + SLOT_1_X, box.y + 216, { steps: 8 })
+  await page.mouse.up()
+  await expect.poll(() => page.evaluate(() => (window as any).runner.circuitJSON()))
+    .toBe('{"cols":[["|0>"],["X"]],"title":"Superdense Coding"}')
+})
+
+test('embed clear drops the circuit title like qni', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["H"]],"title":"Bell"}')
+  await waitForHState(page)
+  // Embedded toolbar: Undo, Redo, Clear, with 32px buttons and 8px gaps.
+  await page.locator('qni-webgpu-test canvas').click({ position: { x: 108, y: 22 } })
+  await expect.poll(() => page.evaluate(() => (window as any).runner.circuitJSON()))
+    .toBe('{"cols":[]}')
+})
+
+test('embed circuit title never renames the host page', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["H"]],"title":"Bell"}')
+  await waitForHState(page)
+  expect(await page.title()).toBe('')
+})
+
 test('invalid maxWireCount rejects before runner startup', async ({ page }) => {
   await hostEmbed(page, '{"cols":[]}', { settings: { maxWireCount: 0 } })
   expect(await page.evaluate(() => (window as any).startError)).toContain('maxWireCount must be a positive integer')

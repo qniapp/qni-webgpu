@@ -125,7 +125,34 @@ impl super::QniApp {
             crate::url_circuit::write_exec_mode_to_url(self.exec_mode);
         }
     }
+
+    pub(crate) fn write_document_title(&self) {
+        if self.mode.uses_browser_state() {
+            write_document_title(&self.circuit_title);
+        }
+    }
 }
+
+/// qni names the page after the circuit title and falls back to the
+/// app name (`share_controller.ts` `updateDocumentTitle`).
+fn document_title(circuit_title: &str) -> &str {
+    if circuit_title.is_empty() {
+        "Qni"
+    } else {
+        circuit_title
+    }
+}
+
+/// Standalone only: an embed must not rename its host page.
+#[cfg(target_arch = "wasm32")]
+pub(super) fn write_document_title(circuit_title: &str) {
+    if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+        document.set_title(document_title(circuit_title));
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn write_document_title(_circuit_title: &str) {}
 
 #[cfg(test)]
 mod tests {
@@ -133,6 +160,26 @@ mod tests {
 
     fn parse_full(json: &str) -> Result<EmbedStartup, String> {
         EmbedStartup::parse::<&str>(json, true, None, None)
+    }
+
+    #[test]
+    fn document_title_is_circuit_title() {
+        assert_eq!(document_title("Superdense Coding"), "Superdense Coding");
+    }
+
+    #[test]
+    fn document_title_falls_back_to_app_name() {
+        assert_eq!(document_title(""), "Qni");
+    }
+
+    #[test]
+    fn accepts_circuit_with_title() {
+        assert!(parse_full(r#"{"cols":[["|0>"]],"title":"Superdense Coding"}"#).is_ok());
+    }
+
+    #[test]
+    fn rejects_unknown_root_key() {
+        assert!(parse_full(r#"{"cols":[["|0>"]],"mode":"gpu"}"#).is_err());
     }
 
     #[test]
@@ -221,6 +268,37 @@ mod tests {
         app.breakpoint_step = Some(CircuitColumnIndex::new(2));
         app.load_circuit_json_into_editor(r#"{"cols":[["X"],["H"],["Z"]]}"#, &ctx);
         assert_eq!(app.breakpoint_step, None);
+    }
+
+    #[test]
+    fn embed_startup_keeps_trimmed_title() {
+        let ctx = eframe::egui::Context::default();
+        let cc = eframe::CreationContext::_new_kittest(ctx);
+        let startup = parse_full(r#"{"cols":[["|0>"]],"title":" Superdense Coding "}"#).unwrap();
+        let app = super::super::QniApp::new_with_startup(&cc, Some(startup));
+        assert_eq!(app.circuit_title, "Superdense Coding");
+    }
+
+    #[test]
+    fn loading_untitled_circuit_drops_previous_title() {
+        let (mut app, ctx) = fixture(true);
+        app.load_circuit_json_into_editor(r#"{"cols":[["H"]],"title":"Bell"}"#, &ctx);
+        app.load_circuit_json_into_editor(r#"{"cols":[["X"]]}"#, &ctx);
+        assert_eq!(app.circuit_title, "");
+    }
+
+    #[test]
+    fn undo_restores_title_from_checkpoint() {
+        let (mut app, ctx) = fixture(true);
+        app.load_circuit_json_into_editor(r#"{"cols":[["H"]],"title":"Bell"}"#, &ctx);
+        app.circuit_revision = super::super::CircuitRevision::starting_at(
+            r#"{"cols":[["H"]],"title":"Bell"}"#.to_owned(),
+        );
+        app.circuit_title.clear();
+        app.placed_gates.clear();
+        app.commit_current_circuit(&ctx);
+        app.undo_circuit(&ctx);
+        assert_eq!(app.circuit_title, "Bell");
     }
 
     #[test]

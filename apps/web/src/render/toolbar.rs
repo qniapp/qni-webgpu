@@ -101,6 +101,9 @@ impl QniApp {
         {
             self.placed_gates.clear();
             self.circuit_blocks.clear();
+            // qni's clear() resets the circuit to `{"cols":[]}`, title included.
+            self.circuit_title.clear();
+            self.write_document_title();
             self.update_qubit_count();
             self.gpu_plan.mark_dirty();
             self.external_gpu.note_clear_requested();

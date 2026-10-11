@@ -7,7 +7,7 @@ use crate::qubit_count::QubitCount;
 use super::EMPTY_CIRCUIT_JSON;
 
 /// Serialise the circuit to qni's `{"cols":[...]}` JSON shape. Returns
-/// `EMPTY_CIRCUIT_JSON` if there are no gates and no blocks.
+/// `EMPTY_CIRCUIT_JSON` if there are no gates, no blocks, and no title.
 ///
 /// Each entry of `cols` is one column; each column is an array indexed
 /// by wire (qubit) number, with `1` for an empty wire and the gate's
@@ -17,12 +17,16 @@ use super::EMPTY_CIRCUIT_JSON;
 ///
 /// Each circuit block is written as an `["{<label>"]` column before its
 /// first column and a `["}"]` column after its last one.
+///
+/// A non-empty `title` follows `cols` as in qni's `toJson`:
+/// `{"cols":[...],"title":"..."}`.
 pub(crate) fn circuit_to_json(
     placed_gates: &[PlacedGate],
     blocks: &CircuitBlocks,
+    title: &str,
     qubit_count: QubitCount,
 ) -> String {
-    if placed_gates.is_empty() && blocks.is_empty() {
+    if placed_gates.is_empty() && blocks.is_empty() && title.is_empty() {
         return EMPTY_CIRCUIT_JSON.to_string();
     }
     let mut cols = gate_columns_json(placed_gates, qubit_count, blocks.column_count());
@@ -34,7 +38,12 @@ pub(crate) fn circuit_to_json(
             format!(r#"["{{{}"]"#, json_escape(block.label())),
         );
     }
-    format!(r#"{{"cols":[{}]}}"#, cols.join(","))
+    let cols = cols.join(",");
+    if title.is_empty() {
+        format!(r#"{{"cols":[{cols}]}}"#)
+    } else {
+        format!(r#"{{"cols":[{cols}],"title":"{}"}}"#, json_escape(title))
+    }
 }
 
 /// Serialise only the gate columns, without circuit-block markers. This is
@@ -155,16 +164,18 @@ fn format_parametric(base: &str, angle: Option<&ParametricAngle>) -> String {
     }
 }
 
-/// Escape a token for JSON string embedding. The token vocabulary only
-/// contains the `"` character via the write gates (none of which use
-/// it) and the backslash (likewise unused), so the only escape we
-/// actually need is for `"` itself — included for safety.
+/// Escape free text (block labels, the circuit title) for JSON string
+/// embedding, so `JSON.parse` accepts the output.
 fn json_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         match ch {
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{0}'..='\u{1f}' => out.push_str(&format!("\\u{:04x}", u32::from(ch))),
             _ => out.push(ch),
         }
     }
@@ -192,7 +203,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["Amps1"]]}"#
         );
     }
@@ -209,7 +220,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(16)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(16)),
             r#"{"cols":[["Amps16"]]}"#
         );
     }
@@ -226,7 +237,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["P(π_2)"]]}"#
         );
     }
@@ -243,7 +254,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["P(0)"]]}"#
         );
     }
@@ -260,7 +271,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["P"]]}"#
         );
     }
@@ -277,7 +288,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["Rx"]]}"#
         );
     }
@@ -294,7 +305,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["Ry"]]}"#
         );
     }
@@ -311,7 +322,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["Rz"]]}"#
         );
     }
@@ -328,7 +339,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[[1],["H"]]}"#
         );
     }
@@ -345,7 +356,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(1)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(1)),
             r#"{"cols":[["Density"]]}"#
         );
     }
@@ -362,7 +373,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(8)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(8)),
             r#"{"cols":[["Density8"]]}"#
         );
     }
@@ -379,7 +390,7 @@ mod tests {
         );
 
         assert_eq!(
-            circuit_to_json(&[gate], &CircuitBlocks::default(), qubit_count(33)),
+            circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(33)),
             format!(r#"{{"cols":[[{},"H"]]}}"#, vec!["1"; 32].join(","))
         );
     }

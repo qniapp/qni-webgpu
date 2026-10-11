@@ -8,6 +8,7 @@ fn circuit_json(app: &QniApp) -> String {
     crate::url_circuit::circuit_to_json(
         &app.placed_gates,
         &app.circuit_blocks,
+        &app.circuit_title,
         crate::qubit_count::QubitCount::try_new(app.required_visible_wire_count()).unwrap(),
     )
 }

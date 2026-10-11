@@ -4,7 +4,7 @@ use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, Pla
 use crate::gates::GateSpan;
 use crate::gates::{GateFlag, GateKind, ParametricAngle};
 
-use super::parser::parse_cols;
+use super::parser::{parse_circuit_document, CircuitDocument};
 
 // ─────────────────────────────────────────────────────────────────────
 //  URL → circuit decoder. Restores a circuit on page load so the URL
@@ -27,12 +27,13 @@ use super::parser::parse_cols;
 // ─────────────────────────────────────────────────────────────────────
 
 /// A decoded circuit: placed gates with sequential ids plus the circuit
-/// blocks drawn around them.
+/// blocks drawn around them and qni's (trimmed, possibly empty) title.
 #[derive(Debug, Default)]
 pub(crate) struct DecodedCircuit {
     pub(crate) gates: Vec<PlacedGate>,
     pub(crate) gate_ids: GateIdAllocator,
     pub(crate) blocks: CircuitBlocks,
+    pub(crate) title: String,
 }
 
 /// Decode the URL. Returns an empty circuit (with `next_gate_id = 1`) if no
@@ -95,10 +96,10 @@ pub(crate) fn current_url_has_circuit_payload() -> bool {
 /// `next_gate_id = 1`. Malformed JSON (including malformed block markers)
 /// also decodes to the empty circuit.
 pub(crate) fn parse_circuit_json(json: &str) -> DecodedCircuit {
-    let Some(columns) = parse_cols(json).and_then(split_block_markers) else {
+    let Some((columns, title)) = parse_circuit_document(json).and_then(split_document) else {
         return DecodedCircuit::default();
     };
-    with_gate_ids(build_gates(&columns.cols), columns.blocks)
+    with_gate_ids(build_gates(&columns.cols), columns.blocks, title)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,7 +113,7 @@ pub(crate) struct CircuitJsonSummary {
 /// Used by browser-local persistence metadata; state-vector / Bloch /
 /// measurement values remain GPU-only.
 pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
-    let cols = split_block_markers(parse_cols(json)?)?.cols;
+    let cols = split_block_markers(parse_circuit_document(json)?.cols)?.cols;
     let mut qubits = 0usize;
     let mut gate_count = 0usize;
     for col in &cols {
@@ -162,14 +163,18 @@ fn try_decode(payload: &str) -> Option<DecodedCircuit> {
     if !json.starts_with('{') {
         return None;
     }
-    let columns = split_block_markers(parse_cols(json)?)?;
+    let (columns, title) = split_document(parse_circuit_document(json)?)?;
     let gates = build_gates(&columns.cols);
     let has_gate_tokens = columns.cols.iter().flatten().any(Option::is_some);
     if gates.is_empty() && has_gate_tokens {
         None
     } else {
-        Some(with_gate_ids(gates, columns.blocks))
+        Some(with_gate_ids(gates, columns.blocks, title))
     }
+}
+
+fn split_document(document: CircuitDocument) -> Option<(SplitColumns, String)> {
+    Some((split_block_markers(document.cols)?, document.title))
 }
 
 /// Gate columns with the circuit-block marker columns removed.
@@ -407,7 +412,11 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
 
 /// Assign sequential gate ids starting from 1 and keep the allocator so
 /// `QniApp` can resume without collision.
-fn with_gate_ids(mut gates: Vec<PlacedGate>, blocks: CircuitBlocks) -> DecodedCircuit {
+fn with_gate_ids(
+    mut gates: Vec<PlacedGate>,
+    blocks: CircuitBlocks,
+    title: String,
+) -> DecodedCircuit {
     let mut gate_ids = GateIdAllocator::new();
     for gate in &mut gates {
         gate.id = gate_ids.allocate();
@@ -416,6 +425,7 @@ fn with_gate_ids(mut gates: Vec<PlacedGate>, blocks: CircuitBlocks) -> DecodedCi
         gates,
         gate_ids,
         blocks,
+        title,
     }
 }
 
@@ -469,6 +479,7 @@ mod tests {
             crate::url_circuit::circuit_to_json(
                 &circuit.gates,
                 &circuit.blocks,
+                "",
                 crate::qubit_count::QubitCount::try_new(1).expect("test qubit count"),
             ),
             r#"{"cols":[[1],["H"]]}"#
@@ -538,7 +549,12 @@ mod tests {
         let circuit = parse_circuit_json(r#"{"cols":[["P(4π_8)"]]}"#);
 
         assert_eq!(
-            crate::url_circuit::circuit_to_json(&circuit.gates, &circuit.blocks, qubit_count(1)),
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(1)
+            ),
             r#"{"cols":[["P(π_2)"]]}"#
         );
     }
@@ -621,7 +637,62 @@ mod tests {
     fn round_trip(json: &str) -> String {
         let circuit = parse_circuit_json(json);
         let qubits = qubit_count_from_gates(&circuit.gates).max(1);
-        crate::url_circuit::circuit_to_json(&circuit.gates, &circuit.blocks, qubit_count(qubits))
+        crate::url_circuit::circuit_to_json(
+            &circuit.gates,
+            &circuit.blocks,
+            &circuit.title,
+            qubit_count(qubits),
+        )
+    }
+
+    #[test]
+    fn title_round_trips_after_cols() {
+        assert_eq!(
+            round_trip(r#"{"title":"  Superdense Coding ","cols":[["|0>"]]}"#),
+            r#"{"cols":[["|0>"]],"title":"Superdense Coding"}"#
+        );
+    }
+
+    #[test]
+    fn title_of_empty_circuit_round_trips() {
+        assert_eq!(
+            round_trip(r#"{"cols":[],"title":"Bell"}"#),
+            r#"{"cols":[],"title":"Bell"}"#
+        );
+    }
+
+    #[test]
+    fn blank_title_is_dropped() {
+        assert_eq!(
+            round_trip(r#"{"cols":[["H"]],"title":"   "}"#),
+            r#"{"cols":[["H"]]}"#
+        );
+    }
+
+    #[test]
+    fn title_with_quote_and_newline_round_trips_as_valid_json() {
+        assert_eq!(
+            round_trip(r#"{"cols":[],"title":"a \"b\"\nc"}"#),
+            r#"{"cols":[],"title":"a \"b\"\nc"}"#
+        );
+    }
+
+    #[test]
+    fn titled_circuit_keeps_its_gates() {
+        assert_eq!(
+            parse_circuit_json(r#"{"cols":[["|0>"]],"title":"Superdense Coding"}"#)
+                .gates
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn titled_circuit_with_unknown_root_key_is_rejected() {
+        assert_eq!(
+            summarize_circuit_json(r#"{"cols":[["H"]],"title":"Bell","mode":"gpu"}"#),
+            None
+        );
     }
 
     #[test]
