@@ -54,6 +54,12 @@ impl StatePanelLayout {
     /// Cell-to-cell pitch in panel-local pixels: the distance between two
     /// adjacent cell origins. Used by hover-test code to map a cursor
     /// position to its `(col, row)` cell.
+    /// Keep the fitted overview reachable, but allow zooming up to 256px cells.
+    pub(crate) fn zoom_limits(&self, current_zoom: f32) -> (f32, f32) {
+        let (min, max) = crate::constants::state_grid_zoom_limits(self.size / current_zoom);
+        (min.min(1.0), max)
+    }
+
     pub(crate) fn cell_pitch(&self) -> f32 {
         self.size + self.gap
     }

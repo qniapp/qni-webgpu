@@ -49,11 +49,7 @@ impl QniApp {
             egui::pos2(right_center.x, right_center.y + size.y / 2.0),
         );
         let hit = visible.expand2(egui::vec2(6.0, 4.0));
-        if layout.show_restart_button {
-            hit.intersect(handle_rect)
-        } else {
-            hit
-        }
+        hit.intersect(handle_rect)
     }
 
     /// Hit rect for grabbing one corner. The visible handle is an arc of

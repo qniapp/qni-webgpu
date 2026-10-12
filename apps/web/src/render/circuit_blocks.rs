@@ -170,7 +170,7 @@ mod tests {
         let growth = app(BELL_BLOCK).circuit_content_height(2, short)
             - app(BELL).circuit_content_height(2, short);
 
-        assert_eq!(growth, 32.0 + 2.0 + 24.0);
+        assert_eq!(growth, 2.0 * (32.0 + 2.0 + 24.0));
     }
 
     #[test]

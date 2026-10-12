@@ -377,7 +377,7 @@ impl QniApp {
 
     /// Room circuit blocks take beyond the step-preview bars, above the
     /// first wire and below the last; `0` without blocks.
-    fn circuit_block_outset_y(&self) -> f32 {
+    pub(crate) fn circuit_block_outset_y(&self) -> f32 {
         if self.circuit_blocks.is_empty() {
             0.0
         } else {

@@ -11,6 +11,22 @@ impl QniApp {
         // of it inside `rect` on both axes.
         const MIN_VISIBLE: f32 = 40.0;
 
+        if matches!(self.mode, crate::app::AppMode::Embed { .. }) {
+            // Embedded panels stay entirely inside the canvas and below wires.
+            let min = egui::vec2(
+                rect.left() - layout.state_rect.left(),
+                self.circuit_bottom_y(rect) + crate::constants::EMBED_STATE_PANEL_CIRCUIT_GAP
+                    - layout.state_rect.top(),
+            );
+            let max = egui::vec2(
+                rect.right() - layout.state_rect.right(),
+                rect.bottom() - layout.state_rect.bottom(),
+            );
+            self.state_panel.offset.x = self.state_panel.offset.x.clamp(min.x.min(max.x), max.x);
+            self.state_panel.offset.y = self.state_panel.offset.y.clamp(min.y, max.y.max(min.y));
+            return;
+        }
+
         let panel_w = layout.state_rect.width();
         let handle_h = layout.handle_height;
 

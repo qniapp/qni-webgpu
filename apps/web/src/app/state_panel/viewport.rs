@@ -1,9 +1,7 @@
 use eframe::egui;
 
 use crate::app::QniApp;
-use crate::constants::{state_circle_layout, state_grid_zoom_limits, MAX_QUBITS};
 use crate::render::StatePanelLayout;
-use crate::shared::amplitude_qubits;
 
 impl QniApp {
     /// Pan the circle grid inside the viewport (drag) + zoom the grid
@@ -101,10 +99,7 @@ impl QniApp {
             if scroll.abs() > f32::EPSILON {
                 let pointer = ctx.input(|i| i.pointer.hover_pos());
                 let old_zoom = self.state_panel.grid_zoom;
-                let qubits = amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
-                let natural_circle_size =
-                    state_circle_layout(qubits, self.state_panel.aspect_index).size;
-                let (min_zoom, max_zoom) = state_grid_zoom_limits(natural_circle_size);
+                let (min_zoom, max_zoom) = state_layout.zoom_limits(old_zoom);
                 let new_zoom = (old_zoom * (scroll * 0.005).exp()).clamp(min_zoom, max_zoom);
                 if (new_zoom - old_zoom).abs() > f32::EPSILON {
                     let viewport_rect = state_layout
