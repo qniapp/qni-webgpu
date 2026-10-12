@@ -17,6 +17,7 @@ mod gpu_drag_layout;
 mod gpu_plan_state;
 mod state_panel;
 mod state_panel_state;
+mod step_selection;
 mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};

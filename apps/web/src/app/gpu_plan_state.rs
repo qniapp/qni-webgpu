@@ -14,7 +14,8 @@ use crate::simulation_plan::{FlagSource, FlagSources, SimulationOp};
 pub(crate) struct GpuPlanState {
     needs_recompute: bool,
     last_state_count: usize,
-    sim_ops: Vec<SimulationOp>,
+    sim_ops: std::sync::Arc<Vec<SimulationOp>>,
+    revision: u64,
     snapshot_slot_count: usize,
     /// gate_id → output_slot mapping derived from the latest `sim_ops` so
     /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
@@ -39,7 +40,8 @@ impl Default for GpuPlanState {
         Self {
             needs_recompute: true,
             last_state_count: 2,
-            sim_ops: Vec::new(),
+            sim_ops: std::sync::Arc::default(),
+            revision: 0,
             snapshot_slot_count: 0,
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
@@ -74,13 +76,6 @@ impl GpuPlanState {
         self.capacity_error = None;
     }
 
-    pub(crate) fn mark_step_preview_dirty(&mut self) {
-        // Qni keeps per-step results cached and only switches the displayed
-        // snapshot on hover. Do the same: changing the active preview column
-        // must not dirty the simulation plan or rerun WebGPU compute.
-        self.capacity_error = None;
-    }
-
     pub(crate) fn needs_recompute_for(&self, state_count: usize) -> bool {
         self.needs_recompute || state_count != self.last_state_count
     }
@@ -91,7 +86,8 @@ impl GpuPlanState {
     }
 
     pub(crate) fn clear_ops(&mut self) {
-        self.sim_ops.clear();
+        self.sim_ops = std::sync::Arc::default();
+        self.revision += 1;
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
@@ -103,7 +99,8 @@ impl GpuPlanState {
     }
 
     pub(crate) fn set_capacity_error(&mut self, message: String) {
-        self.sim_ops.clear();
+        self.sim_ops = std::sync::Arc::default();
+        self.revision += 1;
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
@@ -125,7 +122,8 @@ impl GpuPlanState {
         flag_sources: FlagSources,
     ) {
         self.capacity_error = None;
-        self.sim_ops = sim_ops;
+        self.sim_ops = std::sync::Arc::new(sim_ops);
+        self.revision += 1;
         self.snapshot_slot_count = snapshot_slot_count;
         self.rebuild_slot_maps();
         self.flag_sources = flag_sources;
@@ -141,7 +139,8 @@ impl GpuPlanState {
     ) {
         self.needs_recompute = false;
         self.last_state_count = state_count;
-        self.sim_ops.clear();
+        self.sim_ops = std::sync::Arc::default();
+        self.revision += 1;
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
@@ -172,12 +171,12 @@ impl GpuPlanState {
         self.snapshot_slot_count
     }
 
-    pub(crate) fn sim_ops_for_callback(&self, recompute: bool) -> Vec<SimulationOp> {
-        if recompute {
-            self.sim_ops.clone()
-        } else {
-            Vec::new()
-        }
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    pub(crate) fn sim_ops_for_callback(&self) -> std::sync::Arc<Vec<SimulationOp>> {
+        self.sim_ops.clone()
     }
 
     pub(crate) fn has_measurement_slot(&self, gate_id: GateId) -> bool {
@@ -217,7 +216,7 @@ impl GpuPlanState {
         self.amplitude_slots.clear();
         self.density_slots.clear();
         self.flag_sources = FlagSources::default();
-        for op in &self.sim_ops {
+        for op in self.sim_ops.iter() {
             match op {
                 SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::CaptureBloch {
@@ -269,12 +268,18 @@ mod tests {
     use crate::simulation_plan::SimulationOp;
 
     #[test]
-    fn step_preview_dirty_keeps_cached_gpu_plan_clean() {
+    fn callback_retains_plan_after_cpu_marks_it_clean() {
         let mut state = GpuPlanState::default();
+        state.replace_ops(
+            vec![SimulationOp::SnapshotState {
+                output_slot: SlotIndex::new(0),
+            }],
+            1,
+            FlagSources::default(),
+        );
+        let plan = state.sim_ops_for_callback();
         state.mark_clean_for(4);
-        state.mark_step_preview_dirty();
-
-        assert!(!state.needs_recompute_for(4));
+        assert!(std::sync::Arc::ptr_eq(&plan, &state.sim_ops_for_callback()));
     }
 
     #[test]

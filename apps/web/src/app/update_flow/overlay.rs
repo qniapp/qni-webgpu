@@ -48,6 +48,18 @@ impl QniApp {
                 }
             }
         }
+        if !self.state_panel_visible() && self.local_state_vector_active() {
+            if let Some(target_format) = target_format {
+                // Hidden panels still maintain GPU snapshots for displays and the runner API.
+                let callback = crate::gpu::StateVectorComputeCallback {
+                    update: self.state_vector_update(),
+                    target_format,
+                };
+                overlay_painter.add(egui::Shape::Callback(
+                    eframe::egui_wgpu::Callback::new_paint_callback(screen_rect, callback),
+                ));
+            }
+        }
         if let (Some(content_rect), Some(dragging_gate_id)) =
             (circuit_frame.content_rect, circuit_frame.dragging_gate_id)
         {

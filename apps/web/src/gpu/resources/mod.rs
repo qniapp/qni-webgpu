@@ -84,6 +84,8 @@ pub(crate) struct StateVectorResources {
     /// final-state buffers; 2 is the selected-step preview snapshot.
     pub(crate) active_state: usize,
     pub(crate) last_preview_step: Option<usize>,
+    /// Last plan actually submitted, distinct from the CPU plan's clean flag.
+    pub(crate) plan_revision: Option<u64>,
 }
 
 impl StateVectorResources {
@@ -120,6 +122,7 @@ impl StateVectorResources {
             final_state: 0,
             active_state: 0,
             last_preview_step: None,
+            plan_revision: None,
         }
     }
 

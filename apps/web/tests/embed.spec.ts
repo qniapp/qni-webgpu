@@ -51,7 +51,8 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
           });
         };
         window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, settings);
-        window.readState = (await import('${assetOrigin}qni-web.js')).read_state_vector;
+        window.embedWasm = await import('${assetOrigin}qni-web.js');
+        window.readState = window.embedWasm.read_state_vector;
         window.started = true;
       } catch(error) { window.startError = String(error); }
       </script></body></html>`,
@@ -82,6 +83,28 @@ test('cross-origin bundle initializes H on a shadow DOM canvas', async ({ page }
   await waitForHState(page)
   const values = await page.evaluate(async () => Array.from(await (window as any).readState()))
   expect(values).toEqual([expect.closeTo(Math.SQRT1_2, 5), 0, expect.closeTo(Math.SQRT1_2, 5), 0])
+})
+
+test('semantic step selection preserves preferredHeight', async ({ page }) => {
+  await hostEmbed(page, CNOT)
+  const result = await page.evaluate(() => {
+    const runner = (window as any).runner
+    const before = runner.preferredHeight(960)
+    runner.selectStep(2)
+    if (!Number.isFinite(before) || before <= 0) throw new Error('Invalid preferred height')
+    return runner.preferredHeight(960) - before
+  })
+  expect(result).toBe(0)
+})
+
+test('preferredHeight rejects calls after runner destruction', async ({ page }) => {
+  await hostEmbed(page, CNOT)
+  const error = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.destroy()
+    try { runner.preferredHeight(960); return null } catch (error) { return String(error) }
+  })
+  expect(error).toContain('Circuit runner is destroyed')
 })
 
 test('embed renders without library or external execution controls', async ({ page }) => {
@@ -161,6 +184,180 @@ test('embed starts at step 0 like qni tutorials', async ({ page }) => {
   await hostEmbed(page, CNOT)
   await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[]))
     .toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+})
+
+const SELECT_BELL = '{"cols":[["{Bell"],["H"],["•","X"],["}"]]}'
+const bellStates = [
+  [expect.closeTo(Math.SQRT1_2, 5), 0, expect.closeTo(Math.SQRT1_2, 5), 0, 0, 0, 0, 0],
+  [expect.closeTo(Math.SQRT1_2, 5), 0, 0, 0, 0, 0, expect.closeTo(Math.SQRT1_2, 5), 0],
+]
+
+for (const showStatePanel of [true, false]) {
+  for (const step of [0, 1]) {
+    test(`selectStep ${step} immediately reads Bell state (panel=${showStatePanel})`, async ({ page }) => {
+      await hostEmbed(page, SELECT_BELL, { settings: { showStatePanel } })
+      const values = await page.evaluate(async n => {
+        const runner = (window as any).runner
+        // Switch away first, then read without polling or waiting for a frame.
+        runner.selectStep(1 - n)
+        runner.selectStep(n)
+        return Array.from(await runner.readStateVector())
+      }, step)
+      expect(values).toEqual(bellStates[step])
+    })
+  }
+}
+
+test('low-level start_embed exposes the same step selection and readback', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  const values = await page.evaluate(async circuit => {
+    const w = window as any
+    w.runner.destroy()
+    const runner = await w.embedWasm.start_embed(w.canvas, circuit, true, undefined, undefined, false)
+    try {
+      runner.selectStep(1)
+      return Array.from(await runner.read_state_vector())
+    } finally { runner.destroy(); runner.free() }
+  }, SELECT_BELL)
+  expect(values).toEqual(bellStates[1])
+})
+
+test('low-level selection rejects numeric strings without coercion', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  const error = await page.evaluate(async circuit => {
+    const w = window as any
+    w.runner.destroy()
+    const runner = await w.embedWasm.start_embed(w.canvas, circuit, true, undefined, undefined, false)
+    try { runner.selectStep('1'); return null }
+    catch (error) { return String(error) }
+    finally { runner.destroy(); runner.free() }
+  }, SELECT_BELL)
+  expect(error).toContain('TypeError: selectStep index must be a number')
+})
+
+test('UI step click and selectStep lock the same state', async ({ page }) => {
+  await hostEmbed(page, CNOT, { settings: { palette: ['H', 'X'] } })
+  const selectedValues = await page.evaluate(async () => {
+    const runner = (window as any).runner
+    runner.selectStep(1)
+    return Array.from(await runner.readStateVector())
+  })
+  await page.evaluate(() => (window as any).runner.selectStep(2))
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  // One-row palette: q1 is at y=272; y=295 is outside gate bodies
+  // but inside the step row. Column 1 is at x=162+56.
+  await page.mouse.click(box.x + 218, box.y + 295)
+  await page.mouse.move(box.x + 800, box.y + 100)
+  await expect.poll(async () => page.evaluate(async () => Array.from(await (window as any).runner.readStateVector())))
+    .toEqual(selectedValues)
+})
+
+test('runner readback follows UI hover', async ({ page }) => {
+  await hostEmbed(page, CNOT, { settings: { palette: ['H', 'X'] } })
+  await page.evaluate(() => (window as any).runner.selectStep(1))
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  await page.mouse.move(box.x + 162, box.y + 295)
+  await expect.poll(async () => page.evaluate(async () => Array.from(await (window as any).runner.readStateVector())))
+    .toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+})
+
+test('stepCount excludes block markers', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  expect(await page.evaluate(() => (window as any).runner.stepCount())).toBe(2)
+})
+
+test('selectedStep reports the locked step', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  expect(await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.selectStep(1)
+    return runner.selectedStep()
+  })).toBe(1)
+})
+
+for (const expression of ['-1', '2', '0.5', 'NaN', 'Infinity', '"1"', 'null', 'undefined', 'true', '1n']) {
+  test(`selectStep rejects invalid index ${expression}`, async ({ page }) => {
+    await hostEmbed(page, SELECT_BELL)
+    const result = await page.evaluate(source => {
+      const runner = (window as any).runner
+      try { runner.selectStep(Function(`return (${source})`)()); return null }
+      catch (error) { return String(error) }
+    }, expression)
+    const errorType = ['"1"', 'null', 'undefined', 'true', '1n'].includes(expression) ? 'TypeError' : 'RangeError'
+    expect(result).toContain(`${errorType}: selectStep index must be`)
+  })
+}
+
+test('invalid selectStep leaves the locked step unchanged', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  const selected = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.selectStep(1)
+    try { runner.selectStep(2) } catch { /* expected invalid index */ }
+    return runner.selectedStep()
+  })
+  expect(selected).toBe(1)
+})
+
+test('empty circuit has no selected step', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[]}')
+  expect(await page.evaluate(() => (window as any).runner.selectedStep())).toBeNull()
+})
+
+test('empty circuit rejects step zero', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[]}')
+  const error = await page.evaluate(() => {
+    try { (window as any).runner.selectStep(0); return null }
+    catch (error) { return String(error) }
+  })
+  expect(error).toContain('integer in [0, 0)')
+})
+
+test('destroyed runner rejects selection clearly', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  const error = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.destroy()
+    try { runner.selectStep(0); return null }
+    catch (error) { return String(error) }
+  })
+  expect(error).toContain('Circuit runner is destroyed')
+})
+
+test('runner reads a committed gate before its deferred paint frame', async ({ page }) => {
+  await page.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window)
+    window.requestAnimationFrame = callback => raf(time => {
+      if (!(window as any).freezeFrames) callback(time)
+    })
+  })
+  await hostEmbed(page, '{"cols":[]}', { settings: { palette: ['X'] } })
+  await waitForStepZero(page)
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  await page.mouse.move(box.x + 480, box.y + 100)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
+  await page.mouse.move(box.x + 162, box.y + 216, { steps: 8 })
+  await page.evaluate(() => { (window as any).freezeFrames = true })
+  await page.mouse.up()
+  const values = await page.evaluate(async () => {
+    const runner = (window as any).runner
+    runner.selectStep(0)
+    return Array.from(await runner.readStateVector())
+  })
+  expect(values).toEqual([0, 0, 1, 0])
+})
+
+test('runner keeps rejecting readback after snapshot capacity failure and selection', async ({ page }) => {
+  const cols = Array.from({ length: 258 }, () => ['X'])
+  await hostEmbed(page, JSON.stringify({ cols }), { settings: { showStatePanel: false } })
+  const error = await page.evaluate(async () => {
+    const runner = (window as any).runner
+    try { await runner.readStateVector() } catch { /* selection must not clear this error */ }
+    runner.selectStep(0)
+    try { await runner.readStateVector(); return null } catch (error) { return String(error) }
+  })
+  expect(error).toContain('MAX_STEP_SNAPSHOT_SLOTS')
 })
 
 test('unknown palette gate rejects before runner startup', async ({ page }) => {

@@ -48,17 +48,21 @@ impl egui_wgpu::CallbackTrait for StateVectorResourceBootstrapCallback {
     }
 }
 
-pub(crate) struct StateVectorCallback {
+pub(crate) struct StateVectorUpdate {
     /// Linearised simulation ops for the GPU pipeline. Includes gate
     /// application, readout captures, measurement collapse, and optional
     /// state-panel snapshots. The GPU dispatches them in order; ping-pong of
     /// the state buffers happens for any op that mutates state (gates and
     /// `MeasureCollapse`).
-    pub(crate) sim_ops: Vec<SimulationOp>,
+    pub(crate) sim_ops: std::sync::Arc<Vec<SimulationOp>>,
     pub(crate) state_count: usize,
-    pub(crate) recompute: bool,
+    pub(crate) plan_revision: u64,
     pub(crate) preview_step: Option<usize>,
     pub(crate) snapshot_slot_count: usize,
+}
+
+pub(crate) struct StateVectorCallback {
+    pub(crate) update: StateVectorUpdate,
     pub(crate) target_format: wgpu::TextureFormat,
     /// Pre-built render params describing the panel geometry, cell pitch,
     /// circle radii, and palette. Built by `render.rs` from
@@ -68,7 +72,107 @@ pub(crate) struct StateVectorCallback {
     pub(crate) render_params: RenderParams,
 }
 
-impl StateVectorCallback {
+pub(crate) struct StateVectorComputeCallback {
+    pub(crate) update: StateVectorUpdate,
+    pub(crate) target_format: wgpu::TextureFormat,
+}
+
+impl egui_wgpu::CallbackTrait for StateVectorComputeCallback {
+    fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        encoder: &mut wgpu::CommandEncoder,
+        callback_resources: &mut egui_wgpu::CallbackResources,
+    ) -> Vec<wgpu::CommandBuffer> {
+        if !callback_resources.contains::<StateVectorResources>() {
+            callback_resources.insert(StateVectorResources::new(device, queue, self.target_format));
+        }
+        let resources = callback_resources
+            .get_mut::<StateVectorResources>()
+            .expect("resources inserted");
+        self.update.prepare(device, queue, encoder, resources);
+        Vec::new()
+    }
+
+    fn paint(
+        &self,
+        _info: egui::PaintCallbackInfo,
+        _pass: &mut wgpu::RenderPass<'static>,
+        _resources: &egui_wgpu::CallbackResources,
+    ) {
+    }
+}
+
+impl StateVectorUpdate {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn submit(
+        &self,
+        render: &egui_wgpu::RenderState,
+    ) -> Result<(), wasm_bindgen::JsValue> {
+        let mut renderer = render.renderer.write();
+        if !renderer
+            .callback_resources
+            .contains::<StateVectorResources>()
+        {
+            renderer
+                .callback_resources
+                .insert(StateVectorResources::new(
+                    &render.device,
+                    &render.queue,
+                    render.target_format,
+                ));
+        }
+        let resources = renderer
+            .callback_resources
+            .get_mut::<StateVectorResources>()
+            .expect("resources inserted");
+        let mut encoder = render
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("runner_state_selection"),
+            });
+        if !self.prepare(&render.device, &render.queue, &mut encoder, resources) {
+            return Err(wasm_bindgen::JsValue::from_str(
+                "state vector recompute failed",
+            ));
+        }
+        render.queue.submit(Some(encoder.finish()));
+        Ok(())
+    }
+
+    /// Shared GPU-only path for rendered frames and explicit runner reads.
+    pub(crate) fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &mut StateVectorResources,
+    ) -> bool {
+        let recomputed = resources.plan_revision != Some(self.plan_revision)
+            || resources.state_count != self.state_count;
+        if recomputed {
+            resources.common.ensure_snapshot_cache_slots(
+                device,
+                self.snapshot_slot_count.min(MAX_STEP_SNAPSHOT_SLOTS),
+            );
+        }
+        if recomputed
+            && !recompute_state_vector(device, queue, resources, &self.sim_ops, self.state_count)
+        {
+            return false;
+        }
+        if recomputed {
+            resources.final_state = resources.active_state;
+            resources.last_preview_step = None;
+            resources.plan_revision = Some(self.plan_revision);
+        }
+        self.select_preview_state(encoder, resources);
+        publish_readback_handles(device, queue, resources);
+        true
+    }
+
     fn select_preview_state(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -107,6 +211,65 @@ impl StateVectorCallback {
     }
 }
 
+// Keep the legacy module-level test hooks coherent with the latest prepared
+// runner, including compute-only frames. Runner reads use their own resources.
+fn publish_readback_handles(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    resources: &StateVectorResources,
+) {
+    GPU_READBACK.with(|slot| {
+        *slot.borrow_mut() = Some(GpuReadbackState {
+            device: device.clone(),
+            queue: queue.clone(),
+            state_buffers: [
+                resources.common.state_buffers[0].clone(),
+                resources.common.state_buffers[1].clone(),
+                resources.common.state_preview_buffer.clone(),
+            ],
+            state_count: resources.state_count,
+            active_state: resources.active_state,
+        });
+    });
+    BLOCH_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(BlochGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            output_buffer: resources.bloch.output_buffer.clone(),
+        });
+    });
+    MEASUREMENT_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(MeasurementGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            aux_buffer: resources.measure.aux_buffer.clone(),
+        });
+    });
+    PROBABILITY_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(ProbabilityGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            output_buffer: resources.probability.output_buffer.clone(),
+        });
+    });
+    AMPLITUDE_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(AmplitudeGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            output_buffer: resources.amplitude.output_buffer.clone(),
+            meta_buffer: resources.amplitude.meta_buffer.clone(),
+        });
+    });
+    DENSITY_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(DensityGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            output_buffer: resources.density.output_buffer.clone(),
+            meta_buffer: resources.density.meta_buffer.clone(),
+        });
+    });
+}
+
 impl egui_wgpu::CallbackTrait for StateVectorCallback {
     fn prepare(
         &self,
@@ -138,75 +301,9 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             resources.state.last_render_params = Some(self.render_params);
         }
 
-        let recomputed = self.recompute || resources.state_count != self.state_count;
-        if recomputed {
-            resources.common.ensure_snapshot_cache_slots(
-                device,
-                self.snapshot_slot_count.min(MAX_STEP_SNAPSHOT_SLOTS),
-            );
-        }
-        if recomputed
-            && !recompute_state_vector(device, queue, resources, &self.sim_ops, self.state_count)
-        {
+        if !self.update.prepare(device, queue, egui_encoder, resources) {
             return Vec::new();
         }
-        if recomputed {
-            resources.final_state = resources.active_state;
-            resources.last_preview_step = None;
-        }
-
-        self.select_preview_state(egui_encoder, resources);
-
-        GPU_READBACK.with(|slot| {
-            *slot.borrow_mut() = Some(GpuReadbackState {
-                device: device.clone(),
-                queue: queue.clone(),
-                state_buffers: [
-                    resources.common.state_buffers[0].clone(),
-                    resources.common.state_buffers[1].clone(),
-                    resources.common.state_preview_buffer.clone(),
-                ],
-                state_count: resources.state_count,
-                active_state: resources.active_state,
-            });
-        });
-        BLOCH_GPU_HANDLE.with(|slot| {
-            *slot.borrow_mut() = Some(BlochGpuHandle {
-                device: device.clone(),
-                queue: queue.clone(),
-                output_buffer: resources.bloch.output_buffer.clone(),
-            });
-        });
-        MEASUREMENT_GPU_HANDLE.with(|slot| {
-            *slot.borrow_mut() = Some(MeasurementGpuHandle {
-                device: device.clone(),
-                queue: queue.clone(),
-                aux_buffer: resources.measure.aux_buffer.clone(),
-            });
-        });
-        PROBABILITY_GPU_HANDLE.with(|slot| {
-            *slot.borrow_mut() = Some(ProbabilityGpuHandle {
-                device: device.clone(),
-                queue: queue.clone(),
-                output_buffer: resources.probability.output_buffer.clone(),
-            });
-        });
-        AMPLITUDE_GPU_HANDLE.with(|slot| {
-            *slot.borrow_mut() = Some(AmplitudeGpuHandle {
-                device: device.clone(),
-                queue: queue.clone(),
-                output_buffer: resources.amplitude.output_buffer.clone(),
-                meta_buffer: resources.amplitude.meta_buffer.clone(),
-            });
-        });
-        DENSITY_GPU_HANDLE.with(|slot| {
-            *slot.borrow_mut() = Some(DensityGpuHandle {
-                device: device.clone(),
-                queue: queue.clone(),
-                output_buffer: resources.density.output_buffer.clone(),
-                meta_buffer: resources.density.meta_buffer.clone(),
-            });
-        });
 
         Vec::new()
     }

@@ -49,6 +49,7 @@ use wasm_bindgen::prelude::*;
 pub struct QniRunner {
     runner: eframe::WebRunner,
     render_state: eframe::egui_wgpu::RenderState,
+    egui_ctx: eframe::egui::Context,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -77,8 +78,47 @@ impl QniRunner {
             .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
     }
 
-    /// Test-only, on-demand readback of this runner, never another canvas.
+    /// Lock the zero-based semantic column, just like clicking a UI step.
+    #[wasm_bindgen(js_name = selectStep)]
+    pub fn select_step(&self, value: JsValue) -> Result<(), JsValue> {
+        let value = value
+            .as_f64()
+            .ok_or_else(|| js_sys::TypeError::new("selectStep index must be a number"))?;
+        let mut app = self
+            .runner
+            .app_mut::<QniApp>()
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))?;
+        app.select_step(value, &self.egui_ctx)
+            .map_err(|error| js_sys::RangeError::new(&error))?;
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = selectedStep)]
+    pub fn selected_step(&self) -> Result<Option<usize>, JsValue> {
+        self.runner
+            .app_mut::<QniApp>()
+            .map(|app| app.selected_step())
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
+    }
+
+    #[wasm_bindgen(js_name = stepCount)]
+    pub fn step_count(&self) -> Result<usize, JsValue> {
+        self.runner
+            .app_mut::<QniApp>()
+            .map(|app| app.step_count())
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
+    }
+
+    /// Explicit on-demand readback, scoped to this runner and queue ordered
+    /// after any pending circuit recompute or step selection.
     pub async fn read_state_vector(&self) -> Result<js_sys::Float32Array, JsValue> {
+        {
+            let mut app = self
+                .runner
+                .app_mut::<QniApp>()
+                .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))?;
+            app.sync_runner_state(&self.render_state, &self.egui_ctx)?;
+        }
         gpu::read_runner_state_vector(&self.render_state).await
     }
 }
@@ -187,6 +227,8 @@ async fn start_runner(
     };
     let render_state = std::rc::Rc::new(std::cell::RefCell::new(None));
     let captured_render_state = render_state.clone();
+    let egui_ctx = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let captured_ctx = egui_ctx.clone();
     let web_options = eframe::WebOptions {
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
             wgpu_setup: setup,
@@ -201,6 +243,7 @@ async fn start_runner(
             web_options,
             Box::new(move |cc| {
                 *captured_render_state.borrow_mut() = cc.wgpu_render_state.clone();
+                *captured_ctx.borrow_mut() = Some(cc.egui_ctx.clone());
                 if standalone {
                     crate::test_hooks::set_startup_stage("app-new");
                 }
@@ -219,9 +262,14 @@ async fn start_runner(
         runner.destroy();
         return Err(JsValue::from_str("WebGPU render state missing"));
     };
+    let egui_ctx = egui_ctx
+        .borrow_mut()
+        .take()
+        .expect("context captured at startup");
     Ok(QniRunner {
         runner,
         render_state,
+        egui_ctx,
     })
 }
 

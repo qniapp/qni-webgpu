@@ -162,9 +162,7 @@ impl DragController {
             }
             DragStartIntent::BreakpointStep(step) => {
                 if app.breakpoint_step != Some(step) {
-                    app.breakpoint_step = Some(step);
-                    app.gpu_plan.mark_step_preview_dirty();
-                    ctx.request_repaint();
+                    app.lock_step(step, ctx);
                 }
                 true
             }

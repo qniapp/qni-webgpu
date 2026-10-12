@@ -27,4 +27,7 @@ pub(crate) use measurement_digit::MeasurementDigitCallback;
 pub(crate) use popup_value::PopupValueCallback;
 pub(crate) use probability_display::ProbabilityDisplayCallback;
 pub(crate) use probability_display_popup_value::ProbabilityPopupValueCallback;
-pub(crate) use state_vector::{StateVectorCallback, StateVectorResourceBootstrapCallback};
+pub(crate) use state_vector::{
+    StateVectorCallback, StateVectorComputeCallback, StateVectorResourceBootstrapCallback,
+    StateVectorUpdate,
+};
