@@ -35,16 +35,13 @@ impl QniApp {
         // grow / shrink together. Stroke has a 0.5 px floor so very-zoomed-
         // out cells still get a visible outline rather than collapsing into
         // pure fill.
-        let zoom = self.state_panel.grid_zoom;
-        let size = qni.size * zoom;
-        let stroke = (qni.line_width * zoom).max(0.5);
-        let gap = (qni.line_width + 1.0) * zoom;
-
-        let total_width = size * columns as f32 + gap * (columns.saturating_sub(1)) as f32;
-        let total_height = size * rows as f32 + gap * (rows.saturating_sub(1)) as f32;
-        let radius = size * 0.5;
-        let inner_radius = (radius - stroke * 0.5).max(0.0);
-
+        let embed = matches!(self.mode, AppMode::Embed { .. });
+        // Fit the initial state vector inside narrow embeds. User zoom is
+        // relative to this fit, so all states are visible before interaction.
+        let natural_width =
+            qni.size * qni.cols as f32 + (qni.line_width + 1.0) * qni.cols.saturating_sub(1) as f32;
+        let natural_height =
+            qni.size * qni.rows as f32 + (qni.line_width + 1.0) * qni.rows.saturating_sub(1) as f32;
         // qni-style header strip (G-2): fixed-height zinc-100 bar showing
         // qubit count + grid dims. Drag-to-move is the only interaction
         // attached to the strip for now (resize handles are TBD).
@@ -74,18 +71,17 @@ impl QniApp {
         // Strip-text minimum is the only thing that can force `panel_width`
         // above the user's choice — practically a no-op for ≤16 qubits
         // since min viewport width already covers the widest label.
-        let embed = matches!(self.mode, AppMode::Embed { .. });
         let viewport_width = if embed {
             // Narrow embeds (phone-width tutorial pages) keep the panel inside
             // the canvas with the same spacing-4 side margin.
             self.state_panel
                 .viewport_size
                 .x
-                .min(rect.width() - 2.0 * EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN)
+                .min((rect.width() - 2.0 * EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN).max(1.0))
         } else {
             self.state_panel.viewport_size.x
         };
-        let panel_width = if embed && self.on_restart.is_some() {
+        let panel_width = if embed {
             // Keep narrow tutorial panels inside the canvas. The header omits
             // the redundant qubit label when both labels no longer fit.
             viewport_width
@@ -105,6 +101,21 @@ impl QniApp {
                 viewport_height,
             )
         };
+        let fit = if embed {
+            (panel_width.max(1.0) / natural_width)
+                .min(viewport_height / natural_height)
+                .min(1.0)
+        } else {
+            1.0
+        };
+        let zoom = self.state_panel.grid_zoom * fit;
+        let size = qni.size * zoom;
+        let stroke = (qni.line_width * zoom).max(0.5);
+        let gap = (qni.line_width + 1.0) * zoom;
+        let total_width = size * columns as f32 + gap * columns.saturating_sub(1) as f32;
+        let total_height = size * rows as f32 + gap * rows.saturating_sub(1) as f32;
+        let radius = size * 0.5;
+        let inner_radius = (radius - stroke * 0.5).max(0.0);
         let panel_height = viewport_height + handle_height;
         let panel_min_x = rect.width() / 2.0 - panel_width / 2.0;
         let state_rect = egui::Rect::from_min_size(

@@ -36,7 +36,12 @@ impl QniApp {
         let line_count = qubit_count.max(1);
         let origin_y = self.circuit_origin(screen_rect, 0.0).y - screen_rect.min.y;
         let last_line_y = origin_y + LINE_Y + LINE_GAP * (line_count.saturating_sub(1)) as f32;
-        let content_height = last_line_y + GATE_SIZE + 4.0 * REM;
+        let content_height = if matches!(self.mode, crate::app::AppMode::Embed { .. }) {
+            // spacing-4: embeds do not need the standalone editor's drop-area padding.
+            last_line_y + GATE_SIZE + 16.0 + self.circuit_block_outset_y()
+        } else {
+            last_line_y + GATE_SIZE + 4.0 * REM
+        };
         content_height.max(screen_rect.height())
     }
 

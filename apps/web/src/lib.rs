@@ -66,6 +66,17 @@ impl QniRunner {
             .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
     }
 
+    /// Preferred canvas height in CSS pixels, without GPU readback.
+    pub fn preferred_height(&self, width_css_px: f32) -> Result<f32, JsValue> {
+        if !width_css_px.is_finite() || width_css_px <= 0.0 {
+            return Err(JsValue::from_str("width must be finite and positive"));
+        }
+        self.runner
+            .app_mut::<QniApp>()
+            .map(|app| app.preferred_height(width_css_px))
+            .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
+    }
+
     /// Test-only, on-demand readback of this runner, never another canvas.
     pub async fn read_state_vector(&self) -> Result<js_sys::Float32Array, JsValue> {
         gpu::read_runner_state_vector(&self.render_state).await

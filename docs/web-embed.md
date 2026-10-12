@@ -62,7 +62,7 @@ runner.destroy()
 ```
 
 `startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function})`
-は `Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
+は `Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
 圧縮応答の Content-Length から百分率を計算してはならない。
@@ -184,6 +184,34 @@ start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: b
 
 直接使う場合は先に wasm を初期化する必要がある。
 `QniRunner.destroy()` は `WebRunner::destroy()` を呼ぶ。
+
+### 自動高さ
+
+`runner.preferredHeight(canvas.clientWidth)` は、キャンバスに必要な高さを CSS ピクセルで返す。
+正の有限幅を渡す。破棄後の呼び出しはエラーになる。
+低水準 API の名前は `QniRunner.preferred_height(width_css_px)`。
+
+実際のパレットの折り返し、ワイヤー間隔、回路ブロックの上下余白、状態パネルの表示設定と
+指定された表示領域の高さを使って計算する。前の描画の高さやスクロール位置には依存せず、
+GPU の値の読み戻しも行わない。追加可能な場合は次の空ワイヤーを 1 本分確保するため、
+ドラッグ開始時にページが動かない。`maxWireCount` は追加ワイヤーを制限するが、既存のワイヤーは削らない。
+
+状態パネル表示時は、回路下端 + 間隔 16px + 見出し 32px + 表示領域の高さ + 下余白 64px を
+基本とし、回路のスクロール領域が収まる高さとの大きい方に中央パネルの下余白 8px を加える。
+非表示時も回路のスクロール領域の下余白 16px を確保する（描画下端からは 28px）。
+単位は CSS ピクセルで、外枠や外部リンクの高さは含まない。
+幅変更や回路編集の後に再度呼び出す。自動通知はないため、必要なら定期的に問い合わせる。
+
+これはキャンバス内の縦スクロールを避けるための高さであり、長い回路の横方向の移動や、
+状態パネル内のパン・ズームを無効にはしない。状態ベクトル全体を自然寸法で展開すると
+大きな回路では数千ピクセルになるため、指定された表示領域を保ち、埋め込みでは初期の円グリッド全体をその内側に縮小して収める。
+操作によるズーム後のパンは引き続き利用できる。狭い幅では冗長な量子ビット数の見出しを省略する。
+
+```js
+const height = runner.preferredHeight(canvas.clientWidth)
+canvas.style.height = `${height}px`
+```
+
 低水準のハンドルは最後に `free()` も呼ぶ。`startEmbed` の返すハンドルは両方を処理する。
 通常アプリの起動、URL 同期、ローカル保存は従来どおり。
 

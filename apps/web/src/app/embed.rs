@@ -112,6 +112,36 @@ fn validate_circuit_json(circuit_json: &str) -> Result<(), &'static str> {
 }
 
 impl super::QniApp {
+    /// Canvas CSS pixels, independent of the previous frame and scroll position.
+    /// Reserve the next editable wire so dragging does not move the host page.
+    pub(crate) fn preferred_height(&self, width: f32) -> f32 {
+        use crate::constants::{
+            EMBED_STATE_PANEL_CIRCUIT_GAP, GATE_SIZE, LINE_GAP, LINE_Y, STATE_CIRCLE_BOTTOM_MARGIN,
+            STATE_HANDLE_HEIGHT,
+        };
+        // egui CentralPanel's default margin is spacing-2 (8px) on each side.
+        let rect = eframe::egui::Rect::from_min_size(
+            eframe::egui::pos2(8.0, 8.0),
+            eframe::egui::vec2((width - 16.0).max(1.0), 1.0),
+        );
+        let wires = self.qubit_count + usize::from(self.qubit_count < self.wire_capacity().get());
+        let last_line =
+            self.circuit_origin(rect, 0.0).y + LINE_Y + LINE_GAP * wires.saturating_sub(1) as f32;
+        let bottom = last_line + LINE_GAP * 0.5 + self.circuit_block_outset_y();
+        // Mirror the scroll content padding as well as the visible geometry.
+        let content = last_line + GATE_SIZE + 16.0 + self.circuit_block_outset_y();
+        let panel = if self.state_panel_visible() {
+            bottom
+                + EMBED_STATE_PANEL_CIRCUIT_GAP
+                + STATE_HANDLE_HEIGHT
+                + self.state_panel.viewport_size.y
+                + STATE_CIRCLE_BOTTOM_MARGIN
+        } else {
+            bottom + 16.0 // spacing-4
+        };
+        (content.max(panel) + 8.0).ceil()
+    }
+
     pub(crate) fn accepts_circuit_json(&self, json: &str) -> bool {
         self.mode.uses_browser_state() || validate_circuit_json(json).is_ok()
     }
@@ -245,6 +275,118 @@ mod tests {
             super::super::QniApp::new_with_startup(&cc, Some(startup)),
             ctx,
         )
+    }
+
+    fn height_layout_cases() -> Vec<(usize, u32, bool, f32, bool)> {
+        let mut cases = Vec::new();
+        for wires in [1, 2, 4, 8, 14, 16] {
+            for width in [320, 390, 720, 1440] {
+                for shown in [false, true] {
+                    let column = std::iter::repeat_n("\"H\"", wires)
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let cc =
+                        eframe::CreationContext::_new_kittest(eframe::egui::Context::default());
+                    let startup = EmbedStartup::parse::<&str>(
+                        &format!("{{\"cols\":[[{column}]]}}"),
+                        shown,
+                        Some(&[]),
+                        Some(1.0),
+                    )
+                    .unwrap();
+                    let mut app = super::super::QniApp::new_with_startup(&cc, Some(startup));
+                    app.state_panel.aspect_index =
+                        crate::constants::state_circle_default_aspect_index(wires);
+                    let height = app.preferred_height(width as f32);
+                    let rect = eframe::egui::Rect::from_min_size(
+                        eframe::egui::pos2(8.0, 8.0),
+                        eframe::egui::vec2(width as f32 - 16.0, height - 16.0),
+                    );
+                    let layout = app.state_panel_layout(rect, 1 << wires);
+                    // pitch includes a trailing gap (at most 3px), unlike grid size.
+                    let fits = app.circuit_content_height(app.qubit_count, rect) <= rect.height()
+                        && (!shown
+                            || (rect.contains_rect(layout.state_rect)
+                                && layout.viewport_rect.height()
+                                    == app.state_panel.viewport_size.y
+                                && layout.state_rect.top() >= app.circuit_bottom_y(rect) + 16.0
+                                && layout.cell_pitch() * layout.columns() as f32
+                                    <= layout.viewport_rect.width() + 3.01
+                                && layout.cell_pitch() * layout.rows() as f32
+                                    <= layout.viewport_rect.height() + 3.01));
+                    cases.push((wires, width, shown, height, fits));
+                }
+            }
+        }
+        cases
+    }
+
+    #[test]
+    fn preferred_height_and_state_grid_fit_all_wire_counts() {
+        assert!(height_layout_cases().iter().all(|case| case.4));
+    }
+
+    #[test]
+    fn preferred_height_layout_snapshot() {
+        let cases = height_layout_cases()
+            .iter()
+            .map(|(wires, width, shown, height, fits)| {
+                format!(
+                    "wires={wires:2} width={width:4} state={shown:5} height={height:4} fits={fits}"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        insta::assert_snapshot!(cases);
+    }
+
+    #[test]
+    fn preferred_height_shrinks_without_state_panel() {
+        let (shown, _) = fixture(true);
+        let (hidden, _) = fixture(false);
+        assert!(shown.preferred_height(390.0) > hidden.preferred_height(390.0));
+    }
+
+    #[test]
+    fn preferred_height_reserves_drag_wire() {
+        let (mut app, _) = fixture(true);
+        let before = app.preferred_height(390.0);
+        start_drag(&mut app);
+        assert_eq!(app.preferred_height(390.0), before);
+    }
+
+    #[test]
+    fn preferred_height_ignores_previous_scroll_rect() {
+        let (mut app, _) = fixture(true);
+        let before = app.preferred_height(390.0);
+        app.last_content_rect = Some(eframe::egui::Rect::from_min_size(
+            eframe::egui::pos2(8.0, -900.0),
+            eframe::egui::vec2(1400.0, 100.0),
+        ));
+        assert_eq!(app.preferred_height(390.0), before);
+    }
+
+    #[test]
+    fn preferred_height_tracks_wrapped_palette() {
+        let cc = eframe::CreationContext::_new_kittest(eframe::egui::Context::default());
+        let startup = EmbedStartup::parse(
+            r#"{"cols":[["H"]]}"#,
+            true,
+            Some(&["H", "X", "Y", "Z", "S", "T", "Measure", "Bloch"]),
+            Some(1.0),
+        )
+        .unwrap();
+        let app = super::super::QniApp::new_with_startup(&cc, Some(startup));
+        assert!(app.preferred_height(300.0) > app.preferred_height(1000.0));
+    }
+
+    #[test]
+    fn preferred_height_keeps_fourteen_existing_wires() {
+        let column = std::iter::repeat_n("\"H\"", 14)
+            .collect::<Vec<_>>()
+            .join(",");
+        let app = limited(&format!("{{\"cols\":[[{column}]]}}"), 1.0);
+        assert!(app.preferred_height(390.0) > 1000.0);
     }
 
     #[test]

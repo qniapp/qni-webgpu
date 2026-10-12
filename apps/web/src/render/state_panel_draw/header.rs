@@ -79,10 +79,7 @@ fn paint_header_text(
                 .x
     });
     // spacing-4 = 16px gap. Narrow opt-in embeds prioritize states + restart.
-    if !layout.show_restart_button
-        || labels_width + strip_padding_x * 2.0 + layout.restart_space() + 16.0
-            <= handle_rect.width()
-    {
+    if labels_width + strip_padding_x * 2.0 + layout.restart_space() + 16.0 <= handle_rect.width() {
         painter.text(
             handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
             egui::Align2::LEFT_CENTER,
@@ -93,14 +90,11 @@ fn paint_header_text(
     }
     // Extremely narrow hosts may not fit even the states label. Clip it
     // inside the strip, leaving the restart action unobstructed.
-    let text_painter = if layout.show_restart_button {
+    let text_painter =
         painter.with_clip_rect(painter.clip_rect().intersect(egui::Rect::from_min_max(
             handle_rect.min,
             handle_rect.max - egui::vec2(strip_padding_x + layout.restart_space(), 0.0),
-        )))
-    } else {
-        painter.clone()
-    };
+        )));
     text_painter.text(
         handle_rect.right_center() - egui::vec2(strip_padding_x + layout.restart_space(), 0.0),
         egui::Align2::RIGHT_CENTER,

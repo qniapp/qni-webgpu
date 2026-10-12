@@ -64,7 +64,7 @@ export function prepareEmbed() {
  *   `palette` lists gate tokens like qni's `mini_qni` filter, e.g. ['|0>', 'H'].
  *   `maxWireCount` is qni's `data-max-wire-count`: the editor adds no empty
  *   wire beyond it, e.g. 1 keeps a one-qubit circuit on one wire while dragging.
- * @returns {Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>}
+ * @returns {Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, readStateVector(): Promise<Float32Array>}>}
  */
 export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, showRestartButton = false, onRestart, onProgress, onDeviceLost } = {}) {
   let destroyed = false
@@ -103,6 +103,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
   }
   return {
     circuitJSON() { return runner.circuit_json() },
+    preferredHeight(widthCssPx) { return runner.preferred_height(widthCssPx) },
     // Test-only, explicitly requested GPU readback, never part of rendering.
     readStateVector() { return runner.read_state_vector() },
     destroy() {
