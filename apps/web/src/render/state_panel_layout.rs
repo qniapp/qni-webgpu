@@ -26,9 +26,31 @@ pub(crate) struct StatePanelLayout {
     pub(crate) viewport_rect: egui::Rect,
     pub(crate) state_rect: egui::Rect,
     pub(crate) handle_height: f32,
+    pub(crate) show_restart_button: bool,
 }
 
 impl StatePanelLayout {
+    /// spacing-8 = 32px: a spacing-6 button and spacing-2 label gap.
+    pub(crate) fn restart_space(&self) -> f32 {
+        if self.show_restart_button {
+            32.0
+        } else {
+            0.0
+        }
+    }
+
+    pub(crate) fn restart_rect(&self, offset: egui::Vec2) -> egui::Rect {
+        let state_rect = self.state_rect.translate(offset);
+        let padding = crate::constants::STATE_PANEL_CORNER_RADIUS + 6.0;
+        egui::Rect::from_center_size(
+            egui::pos2(
+                state_rect.right() - padding - 12.0,
+                state_rect.top() + self.handle_height / 2.0,
+            ),
+            egui::vec2(24.0, 24.0), // spacing-6.
+        )
+    }
+
     /// Cell-to-cell pitch in panel-local pixels: the distance between two
     /// adjacent cell origins. Used by hover-test code to map a cursor
     /// position to its `(col, row)` cell.

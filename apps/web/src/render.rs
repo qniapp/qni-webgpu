@@ -18,6 +18,7 @@ mod circuit_picker;
 mod gpu_status_pill;
 mod hover_frame;
 mod popover;
+pub(crate) mod restart_button;
 mod state_panel_chrome;
 mod state_panel_draw;
 mod state_panel_layout;

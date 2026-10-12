@@ -28,6 +28,13 @@ pub(super) fn paint_header_strip(
     painter.rect_filled(handle_rect, handle_corner, colors.state_handle_bg);
 
     paint_header_text(painter, colors, layout, handle_rect);
+    if layout.show_restart_button {
+        super::super::restart_button::paint(
+            painter,
+            layout.restart_rect(state_rect.min - layout.state_rect.min),
+            colors,
+        );
+    }
     handle_rect
 }
 
@@ -61,16 +68,41 @@ fn paint_header_text(
         "{} × {} = {} {} ▾",
         layout.columns, rows, layout.state_count, states_label
     );
-    // sky-500 strip → white text for legibility.
-    painter.text(
-        handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
-        egui::Align2::LEFT_CENTER,
-        qubits_text,
-        strip_font.clone(),
-        colors.surface,
-    );
-    painter.text(
-        handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0),
+    let labels_width = painter.ctx().fonts_mut(|fonts| {
+        fonts
+            .layout_no_wrap(qubits_text.clone(), strip_font.clone(), colors.surface)
+            .size()
+            .x
+            + fonts
+                .layout_no_wrap(states_text.clone(), strip_font.clone(), colors.surface)
+                .size()
+                .x
+    });
+    // spacing-4 = 16px gap. Narrow opt-in embeds prioritize states + restart.
+    if !layout.show_restart_button
+        || labels_width + strip_padding_x * 2.0 + layout.restart_space() + 16.0
+            <= handle_rect.width()
+    {
+        painter.text(
+            handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
+            egui::Align2::LEFT_CENTER,
+            qubits_text,
+            strip_font.clone(),
+            colors.surface, // Flexoki bg.
+        );
+    }
+    // Extremely narrow hosts may not fit even the states label. Clip it
+    // inside the strip, leaving the restart action unobstructed.
+    let text_painter = if layout.show_restart_button {
+        painter.with_clip_rect(painter.clip_rect().intersect(egui::Rect::from_min_max(
+            handle_rect.min,
+            handle_rect.max - egui::vec2(strip_padding_x + layout.restart_space(), 0.0),
+        )))
+    } else {
+        painter.clone()
+    };
+    text_painter.text(
+        handle_rect.right_center() - egui::vec2(strip_padding_x + layout.restart_space(), 0.0),
         egui::Align2::RIGHT_CENTER,
         states_text,
         strip_font,

@@ -83,8 +83,8 @@ impl QniApp {
             ),
         );
 
-        // Order matters: resize handles are registered last so they take
-        // priority over the strip and viewport interacts at overlapping hits.
+        // Order matters: resize handles take priority over strip and viewport
+        // hits. The restart action occupies a separate area inside the strip.
         self.process_state_panel_strip_drag(ui, &state_frame.layout, screen_rect, handle_rect);
         self.process_state_panel_viewport_pan_and_zoom(
             ctx,
@@ -98,5 +98,15 @@ impl QniApp {
         self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
         self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit, state_rect);
         self.process_resize_handles(ctx, ui, &state_frame.layout);
+        if state_frame.layout.show_restart_button
+            && crate::render::restart_button::interact(
+                ui,
+                state_frame.layout.restart_rect(self.state_panel.offset),
+            )
+        {
+            if let Some(callback) = &self.on_restart {
+                callback();
+            }
+        }
     }
 }

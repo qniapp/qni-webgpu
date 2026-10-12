@@ -61,8 +61,8 @@ const runner = await startEmbed(canvas, '{"cols":[["H"]]}', {
 runner.destroy()
 ```
 
-`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, onProgress?: function})`
-は `Promise<{destroy(): void}>` を返す。`showStatePanel` の既定値は `true`。
+`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function})`
+は `Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
 圧縮応答の Content-Length から百分率を計算してはならない。
@@ -98,6 +98,24 @@ qni と同じく、`Measure>aliceX` は測定結果 (0 または 1) を変数 `a
 編集と Undo / Redo はメモリ内だけで行い、URL と localStorage へ書き込まない。
 回路ピッカー、保存操作、外部 GPU 実行への切り替え、回路を全消去するゴミ箱ボタンは表示しない。
 ツールバーには Undo と Redo だけが並ぶ。再読み込みで初期回路に戻る。
+
+### 再実行ボタン
+
+`showRestartButton: true` と `onRestart` を両方渡すと、青い状態バーの右端、状態数の右隣に円形の矢印を表示する。
+ボタンの読み上げ名とホバー時の説明は「量子回路を実行」。キーボードでも操作できる。
+状態数の表示と操作領域を左へずらし、ボタンの領域ではパネルをドラッグしない。
+狭い埋め込みでは状態数とボタンを優先し、両方のラベルが収まらないときは左の量子ビット数を省く。
+状態数も収まらない幅では、状態数の左側をパネル内で切り取る。
+`showRestartButton` の既定値は `false`。通知関数がない場合や `showStatePanel: false` の場合も表示しない。
+通常アプリには表示しない。
+
+クリックは引数なしで `onRestart()` に通知するだけで、埋め込み側は回路や状態を変更しない。
+ホストが再実行の意味を決める。たとえば `runner.circuitJSON()` で編集中の回路を取り出し、
+現在のランナーを破棄して同じキャンバスで起動し直せる。通知関数は例外を投げないようにする。
+通知は描画処理が終わった後のマイクロタスクで届けるため、その中で回路の取得や破棄をしてよい。
+通知前に破棄されたランナーやデバイスを失ったランナーからは通知しない。
+低水準の `start_embed` を直接使う場合は、通知関数内で同じランナーを操作せず、
+`queueMicrotask` でホスト側の処理を遅らせる。
 
 ### パレットの制限
 
@@ -161,7 +179,7 @@ Undo / Redo で回路を読み込み直したときもステップ 0 に戻る�
 
 ```js
 start(canvas: HTMLCanvasElement): Promise<QniRunner>
-start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean, palette?: string[], max_wire_count?: number): Promise<QniRunner>
+start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: boolean, palette: string[] | undefined, max_wire_count: number | undefined, show_restart_button: boolean, on_restart?: function): Promise<QniRunner>
 ```
 
 直接使う場合は先に wasm を初期化する必要がある。

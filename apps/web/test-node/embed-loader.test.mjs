@@ -16,8 +16,8 @@ async function fixture(t, headers, fail = false) {
       await module_or_path.arrayBuffer();
     }
     export const starts = { active: 0, max: 0, args: [] };
-    export async function start_embed(canvas, circuit, showStatePanel, palette, maxWireCount) {
-      starts.args.push({ showStatePanel, palette, maxWireCount });
+    export async function start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, onRestart) {
+      starts.args.push({ showStatePanel, palette, maxWireCount, showRestartButton, onRestart });
       starts.active++;
       starts.max = Math.max(starts.max, starts.active);
       await new Promise(resolve => setTimeout(resolve, 1));
@@ -110,4 +110,55 @@ test('omitted maxWireCount keeps the default wire count', async t => {
   const f = await fixture(t, { 'content-type': 'application/wasm' })
   await f.module.startEmbed({}, '{}')
   assert.equal(f.starts.args.at(-1).maxWireCount, undefined)
+})
+
+for (const settings of [{}, { showRestartButton: true }, { onRestart() {} }]) {
+  test(`restart action needs both opt-in and callback: ${JSON.stringify(settings)}`, async t => {
+    const f = await fixture(t, { 'content-type': 'application/wasm' })
+    await f.module.startEmbed({}, '{}', settings)
+    assert.equal(f.starts.args.at(-1).onRestart, undefined)
+  })
+}
+
+test('restart notification is deferred so the host can export and destroy safely', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  const events = []
+  const handle = await f.module.startEmbed({}, '{}', { showRestartButton: true, onRestart() {
+    events.push(handle.circuitJSON())
+    handle.destroy()
+  } })
+  f.starts.args.at(-1).onRestart()
+  events.push('egui returned')
+  await Promise.resolve()
+  assert.deepEqual(events, ['egui returned', '{}'])
+})
+
+test('device loss cancels a pending restart notification', async t => {
+  const target = new EventTarget()
+  const originalAdd = globalThis.addEventListener
+  const originalRemove = globalThis.removeEventListener
+  globalThis.addEventListener = target.addEventListener.bind(target)
+  globalThis.removeEventListener = target.removeEventListener.bind(target)
+  t.after(() => {
+    globalThis.addEventListener = originalAdd
+    globalThis.removeEventListener = originalRemove
+  })
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  let calls = 0
+  const handle = await f.module.startEmbed({}, '{}', { showRestartButton: true, onRestart() { calls++ } })
+  f.starts.args.at(-1).onRestart()
+  target.dispatchEvent(new Event('qni-device-lost'))
+  await Promise.resolve()
+  handle.destroy()
+  assert.equal(calls, 0)
+})
+
+test('destroy cancels a pending restart notification', async t => {
+  const f = await fixture(t, { 'content-type': 'application/wasm' })
+  let calls = 0
+  const handle = await f.module.startEmbed({}, '{}', { showRestartButton: true, onRestart() { calls++ } })
+  f.starts.args.at(-1).onRestart()
+  handle.destroy()
+  await Promise.resolve()
+  assert.equal(calls, 0)
 })

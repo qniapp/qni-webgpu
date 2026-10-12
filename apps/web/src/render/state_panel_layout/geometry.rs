@@ -85,7 +85,13 @@ impl QniApp {
         } else {
             self.state_panel.viewport_size.x
         };
-        let panel_width = viewport_width.max(strip_min_width);
+        let panel_width = if embed && self.on_restart.is_some() {
+            // Keep narrow tutorial panels inside the canvas. The header omits
+            // the redundant qubit label when both labels no longer fit.
+            viewport_width
+        } else {
+            viewport_width.max(strip_min_width)
+        };
         let (panel_min_y, viewport_height) = if embed {
             embed_panel_vertical(
                 rect.height(),
@@ -111,6 +117,7 @@ impl QniApp {
         );
 
         StatePanelLayout {
+            show_restart_button: self.on_restart.is_some(),
             state_count,
             qubits,
             columns,

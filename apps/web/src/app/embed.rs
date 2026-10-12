@@ -67,6 +67,7 @@ pub(crate) struct EmbedStartup {
     pub(crate) circuit_json: String,
     pub(crate) mode: AppMode,
     pub(crate) palette: Palette,
+    pub(crate) on_restart: Option<Box<dyn Fn()>>,
 }
 
 impl EmbedStartup {
@@ -89,6 +90,7 @@ impl EmbedStartup {
                 max_wire_count,
             },
             palette: palette.unwrap_or_default(),
+            on_restart: None,
         })
     }
 }
@@ -243,6 +245,47 @@ mod tests {
             super::super::QniApp::new_with_startup(&cc, Some(startup)),
             ctx,
         )
+    }
+
+    #[test]
+    fn restart_button_is_absent_by_default() {
+        let (app, _) = fixture(true);
+        assert!(
+            !app.state_panel_layout(
+                eframe::egui::Rect::from_min_size(
+                    eframe::egui::Pos2::ZERO,
+                    eframe::egui::vec2(960.0, 640.0)
+                ),
+                2
+            )
+            .show_restart_button
+        );
+    }
+
+    #[test]
+    fn restart_callback_reaches_app() {
+        let ctx = eframe::egui::Context::default();
+        let cc = eframe::CreationContext::_new_kittest(ctx);
+        let calls = std::rc::Rc::new(std::cell::Cell::new(0));
+        let captured = calls.clone();
+        let mut startup = parse_full(r#"{"cols":[["H"]]}"#).unwrap();
+        startup.on_restart = Some(Box::new(move || captured.set(captured.get() + 1)));
+        let app = super::super::QniApp::new_with_startup(&cc, Some(startup));
+        app.on_restart.as_ref().unwrap()();
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn restart_hit_does_not_overlap_dimensions() {
+        let (mut app, ctx) = fixture(true);
+        app.on_restart = Some(Box::new(|| {}));
+        let _ = ctx.run_ui(eframe::egui::RawInput::default(), |ui| {
+            let layout = app.state_panel_layout(ui.max_rect(), 256);
+            assert!(
+                !super::super::QniApp::dims_hit_rect(&ctx, &layout, eframe::egui::Vec2::ZERO)
+                    .intersects(layout.restart_rect(eframe::egui::Vec2::ZERO))
+            );
+        });
     }
 
     #[test]
