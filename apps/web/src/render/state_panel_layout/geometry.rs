@@ -308,6 +308,41 @@ mod tests {
     }
 
     #[test]
+    fn initial_grid_fits_a_shrunk_explicit_height() {
+        let mut app = embed_app(r#"{"cols":[["H"]]}"#, None);
+        app.state_panel.aspect_index = 4;
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 400.0));
+        let layout = app.state_panel_layout(rect, 256);
+        assert!(
+            layout.grid_size.x <= layout.viewport_rect.width() + 0.01
+                && layout.grid_size.y <= layout.viewport_rect.height() + 0.01
+        );
+    }
+
+    #[test]
+    fn fitted_grid_can_zoom_to_full_size_cells() {
+        let mut app = embed_app(r#"{"cols":[["H"]]}"#, None);
+        app.state_panel.aspect_index = 8;
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 600.0));
+        let layout = app.state_panel_layout(rect, 65536);
+        let (_, maximum) = layout.zoom_limits(app.state_panel.grid_zoom);
+        app.state_panel.grid_zoom = maximum;
+        assert!((app.state_panel_layout(rect, 65536).size - 256.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn insufficient_explicit_height_never_moves_panel_over_wires() {
+        let mut app = embed_app(r#"{"cols":[["H","H","H","H","H","H"]]}"#, None);
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 400.0));
+        let layout = app.state_panel_layout(rect, 64);
+        app.clamp_state_panel_offset(&layout, rect);
+        assert!(
+            layout.state_rect.translate(app.state_panel.offset).top()
+                >= app.circuit_bottom_y(rect) + EMBED_STATE_PANEL_CIRCUIT_GAP
+        );
+    }
+
+    #[test]
     fn resize_in_shrunk_embed_starts_from_visible_viewport() {
         let mut app = embed_app(r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#, None);
         let layout = app.state_panel_layout(small_embed_rect(), 4);
