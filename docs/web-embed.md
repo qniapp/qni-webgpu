@@ -62,7 +62,7 @@ runner.destroy()
 ```
 
 `startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function})`
-は `Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
+は `Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, selectStep(n: number): void, selectedStep(): number | null, stepCount(): number, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
 圧縮応答の Content-Length から百分率を計算してはならない。
@@ -98,6 +98,38 @@ qni と同じく、`Measure>aliceX` は測定結果 (0 または 1) を変数 `a
 編集と Undo / Redo はメモリ内だけで行い、URL と localStorage へ書き込まない。
 回路ピッカー、保存操作、外部 GPU 実行への切り替え、回路を全消去するゴミ箱ボタンは表示しない。
 ツールバーには Undo と Redo だけが並ぶ。再読み込みで初期回路に戻る。
+
+### ステップの選択
+
+```js
+const runner = await startEmbed(canvas, '{"cols":[["{量子もつれ"],["H"],["•","X"],["}"]]}')
+runner.stepCount() // 2
+runner.selectStep(1)
+runner.selectedStep() // 1
+const state = await runner.readStateVector() // CNOT を適用した直後の状態
+```
+
+`selectStep(n: number): void` は、回路のステップをクリックしたときと同じように固定選択を変更する。
+`n` はブロックの印 (`"{ラベル"` と `"}"`) を除いた列の 0 始まりの番号。
+初期化や表示ブロック、空の列も数えるが、エディタが右端に補う空の操作領域は数えない。
+ステップ 0 は最初の列を適用した直後であり、適用前の初期状態ではない。
+`n` は `0 <= n < runner.stepCount()` を満たす整数でなければならない。
+負数、小数、NaN、無限大、範囲外の値は `RangeError`、数値以外は `TypeError` を同期的に投げ、選択を変えない。
+空回路ではステップを選択できない。
+
+`stepCount(): number` は現在の確定済み回路のステップ数を返す。
+`selectedStep(): number | null` は固定選択の番号を返し、空回路では `null` を返す。
+UI で回路の右側の空の操作領域を選んだ場合や、編集で選択列がなくなった場合は、表示される状態が同じである最終ステップの番号を返す。
+ホバーによる一時表示は固定選択を変えない。ポインタが別のステップ上にある場合は、次の描画フレームから UI と同じ一時表示になる。
+
+`readStateVector(): Promise<Float32Array>` は、選択や保留中の回路更新を GPU に反映してから表示中の状態を読み戻す。
+ホバーによる一時表示中は、そのステップの状態を返す。
+`selectStep(n)` の直後に呼んでも描画フレームを待つ必要はなく、そのステップの状態を取得できる。
+戻り値は基底状態順の実部と虚部の組 `[re0, im0, re1, im1, ...]`。
+`showStatePanel: false` でも使える。量子状態の計算は GPU のみで行い、読み戻しはこの API を明示的に呼んだときだけ行う。
+ゲートのドラッグ中やローカル実行以外では読み戻しを拒否する。
+ドラッグ中の `selectStep(n)` は確定済み回路の番号を選び、ドラッグ終了後の固定選択に使う。
+破棄後は、回路やステップの取得、ステップの選択、読み戻しがエラーになる。
 
 ### 再実行ボタン
 
@@ -163,7 +195,7 @@ Liquid フィルタ `mini_qni` (`_plugins/mini_qni_filter.rb`) で作る回路�
 
 ### 初期表示と状態パネルの配置
 
-埋め込みでは、回路を読み込んだ直後にブレークポイントをステップ 0 に置き、最初の列を適用した状態を表示する。
+埋め込みでは、回路を読み込んだ直後に固定選択をステップ 0 に置き、最初の列を適用した状態を表示する。
 旧 Qni のチュートリアルと同じで、`{"cols":[["|0>","|0>"],["H"],["•","X"]]}` は |00> から始まる。
 Undo / Redo で回路を読み込み直したときもステップ 0 に戻る。通常アプリは従来どおり最終状態を表示する。
 
@@ -183,7 +215,13 @@ start_embed(canvas: HTMLCanvasElement, circuit_json: string, show_state_panel: b
 ```
 
 直接使う場合は先に wasm を初期化する必要がある。
-`QniRunner.destroy()` は `WebRunner::destroy()` を呼ぶ。
+`QniRunner` にも `selectStep(n)`、`selectedStep()`、`stepCount()` があり、番号の意味と数値検証は同じ。
+低水準の空回路の `selectedStep()` は `undefined` を返す。回路の取得は `circuit_json()`、
+非同期の読み戻しは `read_state_vector()` を使う。
+高さの取得は `preferred_height(width_css_px)` を使う。
+`QniRunner.destroy()` は `WebRunner::destroy()` を呼ぶ。低水準のハンドルは最後に `free()` も呼ぶ。
+`startEmbed` の返すハンドルは `destroy()` と `free()` の両方を処理する。
+通常アプリの起動、URL 同期、ローカル保存は従来どおり。
 
 ### 自動高さ
 
@@ -212,9 +250,6 @@ const height = runner.preferredHeight(canvas.clientWidth)
 canvas.style.height = `${height}px`
 ```
 
-低水準のハンドルは最後に `free()` も呼ぶ。`startEmbed` の返すハンドルは両方を処理する。
-通常アプリの起動、URL 同期、ローカル保存は従来どおり。
-
 ## カスタム要素への接続
 
 埋め込み API はキャンバスを起動する。カスタム要素は自動登録しない。
@@ -237,11 +272,14 @@ H ゲートの計算、ストレージと履歴へのアクセス遮断、消去
 ステップ 0 の初期表示、制限したパレットからの配置、不正なパレットの拒否、960x560 で状態パネルが回路を隠さないこと、
 354x592 でパレットの折り返しと末尾のゲートが切れないこと、折り返した 2 行目のゲートを配置できること、
 `maxWireCount: 1` で 1 本のワイヤーだけを表示し、ドラッグ中も 2 本目を追加せず置けないこと、不正な `maxWireCount` の拒否を確認する。
-GPU の読み戻しはテスト時だけ行う。
+ブロックの印を除いたステップの選択、H と CNOT の各ステップの選択直後の読み戻し、
+状態パネル非表示での選択、不正な番号と空回路の選択拒否も確認する。
+UI のクリックとの一致、ホバー表示、低水準の API、描画前の編集結果の読み戻し、容量エラーの保持、破棄後の選択拒否も検証する。
+ステップ選択の前後で必要な高さが変わらないことと、破棄後の高さ取得の拒否も確認する。
+GPU の読み戻しは明示的な検証時だけ行う。
 
 ## 未対応事項
 
-- TODO: ページ内で GPUDevice を共有する。現状はランナーごとにデバイスを作る。
 - TODO: デバイス喪失への復旧を追加する。
 - TODO: 複数の埋め込みで使うスレッドローカルの状態をインスタンスごとに分ける。
   `apps/web/src/icons/svg_icon.rs` の `TEXTURE_CACHE` は別の egui コンテキストのテクスチャを共有してしまう。

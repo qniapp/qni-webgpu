@@ -38,13 +38,14 @@ test('state panel overlay uses a layout refreshed after interactions', async () 
 })
 
 test('circuit step preview hover keeps the cached GPU plan clean', async () => {
-  const source = await fs.readFile(gpuPlanStatePath, 'utf8')
-  const body = source.match(/pub\(crate\) fn mark_step_preview_dirty\(&mut self\) \{([\s\S]*?)\n    \}/)?.[1] ?? ''
+  const source = await fs.readFile(path.resolve(__dirname, '../src/app/drag_controller/hover.rs'), 'utf8')
+  const body = source.match(/if new_hovered_step != app\.hovered_step \{([\s\S]*?)\n            \}/)?.[1]
 
   assert.deepEqual({
-    hasCachedPlanComment: body.includes('must not dirty the simulation plan'),
-    avoidsRecomputeDirtyFlag: !/needs_recompute\s*=\s*true/.test(body),
-  }, { hasCachedPlanComment: true, avoidsRecomputeDirtyFlag: true })
+    updatesPreview: body?.includes('app.hovered_step = new_hovered_step'),
+    requestsRepaint: body?.includes('ctx.request_repaint()'),
+    avoidsPlanMutation: !body?.includes('app.gpu_plan'),
+  }, { updatesPreview: true, requestsRepaint: true, avoidsPlanMutation: true })
 })
 
 test('state panel wheel zoom anchors against the zoomed layout origin', async () => {

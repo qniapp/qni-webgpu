@@ -76,7 +76,7 @@ fn offgrid_recompute_restores_the_original_gpu_operation_plan() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"],["X"]]}"#);
     let format = Some(eframe::wgpu::TextureFormat::Rgba8Unorm);
     app.test_process_gpu_recompute(format, true, 2, &ctx);
-    let original = format!("{:?}", app.gpu_plan.sim_ops_for_callback(true));
+    let original = format!("{:?}", app.gpu_plan.sim_ops_for_callback());
     start(&mut app, &ctx, &geometry, true);
     let target = egui::pos2(
         (geometry.metrics.slot_centers[0] + geometry.metrics.slot_centers[1]) / 2.0,
@@ -93,7 +93,7 @@ fn offgrid_recompute_restores_the_original_gpu_operation_plan() {
     app.test_process_gpu_recompute(format, frame.1, frame.0, &ctx);
 
     assert_eq!(
-        format!("{:?}", app.gpu_plan.sim_ops_for_callback(true)),
+        format!("{:?}", app.gpu_plan.sim_ops_for_callback()),
         original
     );
 }
@@ -103,7 +103,7 @@ fn reentering_insert_restores_the_tentative_gpu_operation_plan() {
     let (mut app, ctx, geometry) = inserted_copy(r#"{"cols":[["H"],["X"]]}"#, 1);
     let format = Some(eframe::wgpu::TextureFormat::Rgba8Unorm);
     app.test_process_gpu_recompute(format, true, 4, &ctx);
-    let inserted = format!("{:?}", app.gpu_plan.sim_ops_for_callback(true));
+    let inserted = format!("{:?}", app.gpu_plan.sim_ops_for_callback());
     DragController::update_gate_drag_preview(
         &mut app,
         pointer(egui::pos2(1100.0, 470.0), false),
@@ -122,7 +122,7 @@ fn reentering_insert_restores_the_tentative_gpu_operation_plan() {
     assert_eq!(
         (
             frame.0,
-            format!("{:?}", app.gpu_plan.sim_ops_for_callback(true))
+            format!("{:?}", app.gpu_plan.sim_ops_for_callback())
         ),
         (4, inserted)
     );
@@ -133,7 +133,7 @@ fn normal_move_offgrid_excludes_the_source_and_escape_restores_its_gpu_plan() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[[1,"H"],["X"]]}"#);
     let format = Some(eframe::wgpu::TextureFormat::Rgba8Unorm);
     app.test_process_gpu_recompute(format, true, 4, &ctx);
-    let original = format!("{:?}", app.gpu_plan.sim_ops_for_callback(true));
+    let original = format!("{:?}", app.gpu_plan.sim_ops_for_callback());
     let remaining = vec![app.placed_gates[1].clone()];
     let expected = format!(
         "{:?}",
@@ -157,7 +157,7 @@ fn normal_move_offgrid_excludes_the_source_and_escape_restores_its_gpu_plan() {
     );
     let offgrid = app.test_state_panel_dimensions();
     app.test_process_gpu_recompute(format, offgrid.1, offgrid.0, &ctx);
-    let actual = format!("{:?}", app.gpu_plan.sim_ops_for_callback(true));
+    let actual = format!("{:?}", app.gpu_plan.sim_ops_for_callback());
     input_frame(
         &mut app,
         &ctx,
@@ -178,7 +178,7 @@ fn normal_move_offgrid_excludes_the_source_and_escape_restores_its_gpu_plan() {
             offgrid.0,
             actual,
             restored.0,
-            format!("{:?}", app.gpu_plan.sim_ops_for_callback(true))
+            format!("{:?}", app.gpu_plan.sim_ops_for_callback())
         ),
         (2, expected, 4, original)
     );

@@ -15,7 +15,6 @@ impl DragController {
         app.hovered_density_cell = None;
         app.hovered_palette_index = None;
         if app.hovered_step.take().is_some() {
-            app.gpu_plan.mark_step_preview_dirty();
             ctx.request_repaint();
         }
     }
@@ -108,7 +107,6 @@ impl DragController {
             let new_hovered_step = step_at_cursor(cursor, &geometry.metrics);
             if new_hovered_step != app.hovered_step {
                 app.hovered_step = new_hovered_step;
-                app.gpu_plan.mark_step_preview_dirty();
                 ctx.request_repaint();
             }
 

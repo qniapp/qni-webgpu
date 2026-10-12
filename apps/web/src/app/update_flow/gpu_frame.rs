@@ -27,7 +27,7 @@ impl QniApp {
     /// something changed (qubits added, gates rearranged, etc.). Returns the
     /// recompute flag to pass into rendering; false if we punted because the GPU
     /// target wasn't ready yet.
-    pub(super) fn process_gpu_recompute(
+    pub(crate) fn process_gpu_recompute(
         &mut self,
         target_format: Option<eframe::wgpu::TextureFormat>,
         recompute: bool,

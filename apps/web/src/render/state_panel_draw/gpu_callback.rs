@@ -15,14 +15,13 @@ pub(super) fn paint_state_vector_gpu(
     viewport_rect: egui::Rect,
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
-    recompute: bool,
+    _recompute: bool,
     target_format: Option<wgpu::TextureFormat>,
 ) {
     let Some(target_format) = target_format else {
         return;
     };
 
-    let sim_ops = app.gpu_plan.sim_ops_for_callback(recompute);
     let render_colors = RenderColors::new(colors);
     let callback_rect = screen_rect;
     let cell_pitch = layout.size + layout.gap;
@@ -48,22 +47,11 @@ pub(super) fn paint_state_vector_gpu(
         outline_zero: render_colors.outline_zero,
         needle: render_colors.needle,
     };
-    // During a gate gesture, show the whole tentative circuit, not the
-    // cached column selected before pickup. Keep that selection for release.
-    let preview_step = if app.dragging.is_some() {
-        None
-    } else {
-        app.hovered_step
-            .or(app.breakpoint_step)
-            .map(|step| step.as_usize())
-    };
-    let snapshot_slot_count = app.gpu_plan.snapshot_slot_count();
+    let mut update = app.state_vector_update();
+    // A live gesture can retain the pickup state count until its next snap.
+    update.state_count = layout.state_count;
     let callback = StateVectorCallback {
-        sim_ops,
-        state_count: layout.state_count,
-        recompute,
-        preview_step,
-        snapshot_slot_count,
+        update,
         target_format,
         render_params,
     };

@@ -27,7 +27,8 @@ pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
     BlochPopupValueCallback, ConditionalGateBodyCallback, DensityMatrixDisplayCallback,
     MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
-    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorResourceBootstrapCallback,
+    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorComputeCallback,
+    StateVectorResourceBootstrapCallback, StateVectorUpdate,
 };
 pub(crate) use params::{
     AmplitudeInstance, BlochOverlayInstance, ConditionalGateBodyInstance,
