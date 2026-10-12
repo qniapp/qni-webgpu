@@ -17,7 +17,7 @@ impl QniApp {
         const STRIP_CORNER_EXCLUDE: f32 = 16.0;
         let strip_drag_rect = egui::Rect::from_min_max(
             handle_rect.min + egui::vec2(STRIP_CORNER_EXCLUDE, 0.0),
-            handle_rect.max - egui::vec2(STRIP_CORNER_EXCLUDE, 0.0),
+            handle_rect.max - egui::vec2(STRIP_CORNER_EXCLUDE + state_layout.restart_space(), 0.0),
         );
         let handle_response = ui.interact(
             strip_drag_rect,

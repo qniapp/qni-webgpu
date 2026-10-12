@@ -6,7 +6,7 @@ import path from 'node:path'
 const assetOrigin = 'http://localhost:4175/tutorial/assets/'
 const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
-type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number }, width?: number, height?: number }
+type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean }, width?: number, height?: number }
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
   settings = { showStatePanel: true }, width = 960, height = 640,
@@ -41,7 +41,16 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
         const {startEmbed} = await import('${assetOrigin}qni-embed.mjs');
         window.startEmbed = startEmbed;
         window.canvas = document.querySelector('qni-webgpu-test').shadowRoot.querySelector('canvas');
-        window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, ${JSON.stringify(settings)});
+        const settings = ${JSON.stringify(settings)};
+        if (settings.showRestartButton) settings.onRestart = () => {
+          window.restartCircuit = window.runner.circuitJSON();
+          window.runner.destroy();
+          startEmbed(window.canvas, window.restartCircuit, settings).then(runner => {
+            window.runner = runner;
+            window.restarted = true;
+          });
+        };
+        window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, settings);
         window.readState = (await import('${assetOrigin}qni-web.js')).read_state_vector;
         window.started = true;
       } catch(error) { window.startError = String(error); }
@@ -80,6 +89,45 @@ test('embed renders without library or external execution controls', async ({ pa
   await waitForHState(page)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-h.png')
 })
+
+test('opt-in restart icon appears at the right of the states label', async ({ page }) => {
+  await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
+  await waitForStepZero(page)
+  await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-restart.png')
+})
+
+for (const width of [354, 240]) {
+  test(`narrow ${width}px eight-qubit embed keeps restart inside the frame`, async ({ page }) => {
+    const circuit = JSON.stringify({ cols: [Array(8).fill('|0>')] })
+    await hostEmbed(page, circuit, { width, height: 640, settings: { showRestartButton: true, palette: [], maxWireCount: 1 } })
+    await waitForStepZero(page)
+    await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot(`embed-restart-narrow-${width}.png`)
+  })
+}
+
+for (const action of ['pointer', 'Enter', 'Space'] as const) {
+  test(`restart ${action} action lets host export, destroy and restart the real runner`, async ({ page }) => {
+    await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
+    await waitForStepZero(page)
+    const canvas = page.locator('qni-webgpu-test canvas')
+    const box = (await canvas.boundingBox())!
+    // Default panel: centered 560px width, 160px viewport, 32px strip,
+    // bottom margin 64px + content margin 8px. Icon center: 32px from right.
+    const x = box.x + box.width / 2 + 280 - 32
+    const y = box.y + box.height - 64 - 8 - 160 - 16
+    if (action === 'pointer') await page.mouse.click(x, y)
+    else {
+      await canvas.focus()
+      // Restart is the last registered focusable control. Reverse Tab enters
+      // it directly without activating the aspect popover along the way.
+      await page.keyboard.press('Shift+Tab')
+      await page.waitForTimeout(100)
+      await page.keyboard.press(action)
+    }
+    await page.waitForFunction(() => (window as any).restarted)
+    expect(await page.evaluate(() => (window as any).restartCircuit)).toBe(CNOT)
+  })
+}
 
 test('destroy is idempotent and the same canvas can restart', async ({ page }) => {
   await hostEmbed(page)

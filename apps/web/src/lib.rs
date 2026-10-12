@@ -138,14 +138,25 @@ pub async fn start_embed(
     show_state_panel: bool,
     palette: Option<Vec<String>>,
     max_wire_count: Option<f64>,
+    show_restart_button: bool,
+    on_restart: Option<js_sys::Function>,
 ) -> Result<QniRunner, JsValue> {
-    let startup = app::EmbedStartup::parse(
+    let mut startup = app::EmbedStartup::parse(
         circuit_json,
         show_state_panel,
         palette.as_deref(),
         max_wire_count,
     )
     .map_err(|error| JsValue::from_str(&error))?;
+    if show_restart_button {
+        startup.on_restart = on_restart.map(|callback| {
+            Box::new(move || {
+                if let Err(error) = callback.call0(&JsValue::NULL) {
+                    web_sys::console::error_1(&error);
+                }
+            }) as Box<dyn Fn()>
+        });
+    }
     start_runner(canvas, Some(startup)).await
 }
 

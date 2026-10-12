@@ -44,6 +44,7 @@ pub(crate) use state_panel_state::{ResizeCorner, ResizeDrag, StatePanelState};
 
 pub(crate) struct QniApp {
     pub(crate) mode: AppMode,
+    pub(crate) on_restart: Option<Box<dyn Fn()>>,
     pub(crate) palette: crate::layout::Palette,
     theme: ThemeKind,
     circuit_revision: CircuitRevision,
@@ -145,7 +146,7 @@ impl QniApp {
 
     pub(crate) fn new_with_startup(
         cc: &eframe::CreationContext<'_>,
-        embed: Option<EmbedStartup>,
+        mut embed: Option<EmbedStartup>,
     ) -> Self {
         let mode = embed
             .as_ref()
@@ -155,6 +156,7 @@ impl QniApp {
             .as_ref()
             .map(|startup| startup.palette.clone())
             .unwrap_or_default();
+        let on_restart = embed.as_mut().and_then(|startup| startup.on_restart.take());
         let theme = Theme::default();
         theme.apply_to_context(&cc.egui_ctx);
         cc.egui_ctx.global_style_mut(|style| {
@@ -309,6 +311,7 @@ impl QniApp {
         }
         Self {
             mode,
+            on_restart,
             palette,
             theme: theme.kind,
             circuit_revision: CircuitRevision::starting_at(initial_json),

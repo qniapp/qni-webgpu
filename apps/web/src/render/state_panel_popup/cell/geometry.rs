@@ -125,6 +125,7 @@ mod tests {
 
     fn test_layout() -> StatePanelLayout {
         StatePanelLayout {
+            show_restart_button: false,
             state_count: 1,
             qubits: 1,
             columns: 1,

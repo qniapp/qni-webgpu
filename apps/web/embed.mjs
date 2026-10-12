@@ -60,15 +60,21 @@ export function prepareEmbed() {
  * Start a local WebGPU editor on a connected canvas, including in a shadow root.
  * @param {HTMLCanvasElement} canvas
  * @param {string} circuit Quirk-style JSON, e.g. '{"cols":[["H"]]}'.
- * @param {{showStatePanel?: boolean, palette?: string[], maxWireCount?: number, onProgress?: function, onDeviceLost?: function}} settings
+ * @param {{showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function}} settings
  *   `palette` lists gate tokens like qni's `mini_qni` filter, e.g. ['|0>', 'H'].
  *   `maxWireCount` is qni's `data-max-wire-count`: the editor adds no empty
  *   wire beyond it, e.g. 1 keeps a one-qubit circuit on one wire while dragging.
  * @returns {Promise<{destroy(): void, circuitJSON(): string, readStateVector(): Promise<Float32Array>}>}
  */
-export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, onProgress, onDeviceLost } = {}) {
-  let runner
+export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, showRestartButton = false, onRestart, onProgress, onDeviceLost } = {}) {
+  let destroyed = false
   let deviceLost = false
+  // Defer host actions until egui releases its mutable app borrow. The host
+  // may synchronously export the circuit and destroy/recreate this runner.
+  const restart = showRestartButton && onRestart ? () => queueMicrotask(() => {
+    if (!destroyed && !deviceLost) onRestart()
+  }) : undefined
+  let runner
   const lost = () => { deviceLost = true; onDeviceLost?.() }
   globalThis.addEventListener?.('qni-device-lost', lost)
   try {
@@ -79,7 +85,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
     await prepareEmbed()
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
     performance.mark('qni:runner-start')
-    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount))
+    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart))
     startup = starting.catch(() => {})
     runner = await starting
     if (deviceLost) throw new Error('Qni GPU device lost during startup')
@@ -95,7 +101,6 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
   } finally {
     if (onProgress) listeners.delete(onProgress)
   }
-  let destroyed = false
   return {
     circuitJSON() { return runner.circuit_json() },
     // Test-only, explicitly requested GPU readback, never part of rendering.

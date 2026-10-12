@@ -42,12 +42,18 @@ impl QniApp {
         let text = Self::dims_text(layout);
         let measure_color = Colors::new().aspect_text_current;
         let size = ctx.fonts_mut(|f| f.layout_no_wrap(text, font, measure_color).size());
-        let right_center = handle_rect.right_center() - egui::vec2(strip_padding_x, 0.0);
+        let right_center =
+            handle_rect.right_center() - egui::vec2(strip_padding_x + layout.restart_space(), 0.0);
         let visible = egui::Rect::from_min_max(
             egui::pos2(right_center.x - size.x, right_center.y - size.y / 2.0),
             egui::pos2(right_center.x, right_center.y + size.y / 2.0),
         );
-        visible.expand2(egui::vec2(6.0, 4.0))
+        let hit = visible.expand2(egui::vec2(6.0, 4.0));
+        if layout.show_restart_button {
+            hit.intersect(handle_rect)
+        } else {
+            hit
+        }
     }
 
     /// Hit rect for grabbing one corner. The visible handle is an arc of
