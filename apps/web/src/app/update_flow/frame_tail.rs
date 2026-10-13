@@ -82,7 +82,13 @@ fn publish_hover_snapshot(
         .map(|(gate_id, cell)| format!("{{\"gateId\":{},\"cell\":{cell}}}", gate_id.as_u32()))
         .unwrap_or_else(|| "null".to_owned());
     let step = hovered_step
-        .map(|index| index.as_usize().to_string())
+        .map(|index| {
+            if index == CircuitColumnIndex::INITIAL {
+                "-1".to_owned()
+            } else {
+                index.as_usize().to_string()
+            }
+        })
         .unwrap_or_else(|| "null".to_owned());
     let snapshot = format!(
         "{{\"hoveredGateId\":{gate},\"hoveredPaletteIndex\":{palette},\"hoveredProbabilityOutcome\":{probability},\"hoveredAmplitudeOutcome\":{amplitude},\"hoveredDensityCell\":{density},\"hoveredStep\":{step}}}"

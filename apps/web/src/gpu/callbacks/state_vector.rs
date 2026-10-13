@@ -182,10 +182,10 @@ impl StateVectorUpdate {
             .snapshot_slot_count
             .min(MAX_STEP_SNAPSHOT_SLOTS)
             .min(resources.common.snapshot_cache_slots());
-        let Some(step) = self
-            .preview_step
-            .filter(|step| *step < available_snapshot_slots)
-        else {
+        let Some(step) = self.preview_step.filter(|step| {
+            *step == crate::app::CircuitColumnIndex::INITIAL.as_usize()
+                || *step < available_snapshot_slots
+        }) else {
             resources.active_state = resources.final_state;
             resources.last_preview_step = None;
             return;
@@ -198,13 +198,25 @@ impl StateVectorUpdate {
         if resources.active_state != 2 || resources.last_preview_step != Some(step) {
             let byte_len =
                 (self.state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
-            encoder.copy_buffer_to_buffer(
-                &resources.common.state_snapshot_cache_buffer,
-                resources.common.snapshot_cache_offset(step),
-                &resources.common.state_preview_buffer,
-                0,
-                byte_len,
-            );
+            if step == crate::app::CircuitColumnIndex::INITIAL.as_usize() {
+                // GPU-only |0…0⟩ preview, independent of snapshot capacity.
+                encoder.clear_buffer(&resources.common.state_preview_buffer, 0, Some(byte_len));
+                encoder.copy_buffer_to_buffer(
+                    &resources.common.state_seed_buffer,
+                    0,
+                    &resources.common.state_preview_buffer,
+                    0,
+                    std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                );
+            } else {
+                encoder.copy_buffer_to_buffer(
+                    &resources.common.state_snapshot_cache_buffer,
+                    resources.common.snapshot_cache_offset(step),
+                    &resources.common.state_preview_buffer,
+                    0,
+                    byte_len,
+                );
+            }
             resources.last_preview_step = Some(step);
         }
         resources.active_state = 2;

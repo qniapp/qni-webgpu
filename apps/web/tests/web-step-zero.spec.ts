@@ -33,3 +33,105 @@ test('clicking above the first gate selects step zero', async ({ page }) => {
   await page.mouse.move(1000, 450)
   await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
 })
+
+const initialState = [1, 0, 0, 0]
+
+test('hovering the left gap previews the initial state then restores post-H', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.move(132, 224)
+  await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial hover did not show ground state')
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
+})
+
+test('initial hover reports minus one to the inspection hook', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.move(132, 224)
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse((window as any).__qniHoverSnapshotJson).hoveredStep)).toBe(-1)
+})
+
+test('clicking the left gap locks the initial state after pointer leaves', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('hovering post-H temporarily overrides the initial breakpoint', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(170, 224)
+  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
+})
+
+test('dragging a gate overrides the initial breakpoint with the tentative final state', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(170, 264)
+  await page.mouse.down()
+  await page.mouse.move(282, 264, { steps: 8 })
+  await expect.poll(async () => matches(await readStateVector(page), [Math.SQRT1_2, 0, Math.SQRT1_2, 0])).toBe(true)
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+})
+
+test('initial breakpoint is drawn in the existing gap without moving gates', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(1000, 450)
+  await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial selection not ready')
+  await expect(page).toHaveScreenshot('initial-breakpoint.png', {
+    clip: { x: 80, y: 200, width: 200, height: 128 },
+  })
+})
+
+test('hovering the left gap draws a translucent initial bar', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.move(132, 224)
+  await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial hover not ready')
+  await expect(page).toHaveScreenshot('initial-hover.png', {
+    clip: { x: 80, y: 200, width: 200, height: 128 },
+  })
+})
+
+test('narrow circuit keeps the initial hit target without shifting columns', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(52, 224)
+  await page.mouse.move(389, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('dragging into the initial bar still inserts before column zero', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(226, 264)
+  await page.mouse.down()
+  await page.mouse.move(140, 264, { steps: 12 })
+  await page.mouse.up()
+  await page.mouse.move(1000, 450)
+  await expect.poll(() => JSON.parse(decodeURIComponent(page.url().split('#')[1] ?? '')).cols).toEqual([['Z'], ['H']])
+})
+
+test('initial breakpoint is restored after a tentative gate drag', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.move(170, 264)
+  await page.mouse.down()
+  await page.mouse.move(282, 264, { steps: 8 })
+  await waitForValue(() => readStateVector(page), state => matches(state, firstStep), 'drag did not show tentative final state')
+  await page.mouse.up()
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})

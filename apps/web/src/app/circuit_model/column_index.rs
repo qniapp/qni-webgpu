@@ -12,6 +12,9 @@ pub(crate) enum CircuitColumnIndexError {
 }
 
 impl CircuitColumnIndex {
+    /// Initial-state sentinel for breakpoint/hover only, never a gate column.
+    pub(crate) const INITIAL: Self = Self { value: usize::MAX };
+
     pub(crate) const ZERO: Self = Self { value: 0 };
 
     pub(crate) const fn new(value: usize) -> Self {
