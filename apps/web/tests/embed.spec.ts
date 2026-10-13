@@ -6,10 +6,13 @@ import path from 'node:path'
 const assetOrigin = 'http://localhost:4175/tutorial/assets/'
 const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
-type EmbedHost = { settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean }, width?: number, height?: number }
+type EmbedHost = {
+  settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean },
+  width?: number, height?: number, articleHeight?: number, fragment?: string,
+}
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
-  settings = { showStatePanel: true }, width = 960, height = 640,
+  settings = { showStatePanel: true }, width = 960, height = 640, articleHeight = 0, fragment = '#host-fragment',
 }: EmbedHost = {}) {
   await page.route(`${assetOrigin}*`, async route => {
     const file = new URL(route.request().url()).pathname.split('/').pop()!
@@ -22,7 +25,7 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
   await page.route('**/host/article?mode=gpu', route => route.fulfill({
     contentType: 'text/html',
     body: `<html><head><meta charset="utf-8"></head><body style="margin:0"><h1>Third-party tutorial</h1>
-      <qni-webgpu-test></qni-webgpu-test><script type="module">
+      <div style="height:${articleHeight}px"></div><qni-webgpu-test></qni-webgpu-test><script type="module">
       window.effects = [];
       for (const name of ['pushState', 'replaceState']) {
         history[name] = () => { window.effects.push(name); throw Error(name); };
@@ -57,7 +60,7 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
       } catch(error) { window.startError = String(error); }
       </script></body></html>`,
   }))
-  await page.goto('/host/article?mode=gpu#host-fragment')
+  await page.goto(`/host/article?mode=gpu${fragment}`)
   await page.waitForFunction(() => (window as any).started || (window as any).startError)
 }
 
@@ -599,4 +602,40 @@ test('embed circuit title never renames the host page', async ({ page }) => {
 test('invalid maxWireCount rejects before runner startup', async ({ page }) => {
   await hostEmbed(page, '{"cols":[]}', { settings: { maxWireCount: 0 } })
   expect(await page.evaluate(() => (window as any).startError)).toContain('maxWireCount must be a positive integer')
+})
+
+// eframe's TextAgent INPUT must not take the page's autofocus: the browser
+// would scroll a tutorial article to the embed on every load.
+const textAgent = (page: Page) => page.locator('qni-webgpu-test input')
+
+test('embed text agent input has no autofocus', async ({ page }) => {
+  await hostEmbed(page)
+  expect(await textAgent(page).evaluate(input => (input as HTMLInputElement).autofocus)).toBe(false)
+})
+
+test('embed below a long article leaves the page at the top', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["H"]]}', { articleHeight: 3000, fragment: '' })
+  await waitForHState(page)
+  // Autofocus runs at a rendering update; give the browser a few of them.
+  const scrollY = await page.evaluate(async () => {
+    for (let i = 0; i < 10; i++) await new Promise(requestAnimationFrame)
+    return window.scrollY
+  })
+  expect(scrollY).toBe(0)
+})
+
+// The angle editor is egui text input, which eframe routes through the
+// TextAgent INPUT. In the 960x640 host with an empty palette the π/2 label
+// sits above the gate at (170, 107).
+test('embed angle editor accepts typed text through the text agent', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["P(π_2)"]]}', { settings: { palette: [] } })
+  await waitForStepZero(page)
+  await page.locator('qni-webgpu-test canvas').click({ position: { x: 170, y: 107 } })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+    return root.activeElement === root.querySelector('input')
+  }, null, { timeout: 5000 })
+  await page.keyboard.type('1/4')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
 })
