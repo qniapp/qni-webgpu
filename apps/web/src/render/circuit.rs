@@ -3,7 +3,7 @@
 
 use eframe::egui;
 
-use crate::app::{GateId, PlacedGate, QniApp};
+use crate::app::{CircuitColumnIndex, GateId, PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::{GATE_SIZE, LINE_GAP, LINE_Y, REM, STEP_OUTSET_Y};
 use crate::layout::{nearest_slot_index, CircuitGutters, LayoutMetrics};
@@ -74,20 +74,23 @@ impl QniApp {
         }
 
         // Step-preview vertical bars at the right edge of the
-        // hovered / breakpoint column. Hovered = 30% alpha (live
-        // preview), breakpoint = full opacity (locked-in step). Mirrors
+        // hovered / breakpoint column (left edge of slot 0 for INITIAL).
+        // Hovered = 30% alpha (live preview), breakpoint = full opacity.
+        // Mirrors
         // qni's `circuit-step::after` data-active / data-breakpoint
         // styling.
         if !metrics.line_ys.is_empty() && !metrics.slot_centers.is_empty() {
             let top = metrics.line_ys[0] - STEP_OUTSET_Y;
             let bot = metrics.line_ys[metrics.line_ys.len() - 1] + STEP_OUTSET_Y;
             let step_line = |painter: &egui::Painter, slot: usize, alpha: u8| {
-                if slot >= metrics.slot_centers.len() {
+                let x = if slot == CircuitColumnIndex::INITIAL.as_usize() {
+                    metrics.slot_centers[0] - crate::constants::SLOT_SPACING * 0.5
+                } else if let Some(center) = metrics.slot_centers.get(slot) {
+                    center + crate::constants::SLOT_SPACING * 0.5
+                } else {
                     return;
-                }
-                let x = metrics.slot_centers[slot]
-                    + crate::constants::SLOT_SPACING * 0.5
-                    + circuit_origin.x;
+                };
+                let x = x + circuit_origin.x;
                 let color = with_alpha(colors.step_preview, alpha);
                 painter.line_segment(
                     [

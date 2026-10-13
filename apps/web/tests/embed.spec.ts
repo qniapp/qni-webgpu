@@ -278,7 +278,7 @@ test('selectedStep reports the locked step', async ({ page }) => {
   })).toBe(1)
 })
 
-for (const expression of ['-1', '2', '0.5', 'NaN', 'Infinity', '"1"', 'null', 'undefined', 'true', '1n']) {
+for (const expression of ['-2', '2', '0.5', 'NaN', 'Infinity', '"1"', 'null', 'undefined', 'true', '1n']) {
   test(`selectStep rejects invalid index ${expression}`, async ({ page }) => {
     await hostEmbed(page, SELECT_BELL)
     const result = await page.evaluate(source => {
@@ -313,7 +313,7 @@ test('empty circuit rejects step zero', async ({ page }) => {
     try { (window as any).runner.selectStep(0); return null }
     catch (error) { return String(error) }
   })
-  expect(error).toContain('integer in [0, 0)')
+  expect(error).toContain('integer in [-1, 0)')
 })
 
 test('destroyed runner rejects selection clearly', async ({ page }) => {
@@ -443,6 +443,16 @@ test('narrow embed drops a gate from the wrapped second palette row', async ({ p
 
 // qni's h_gate.html tutorial: data-max-wire-count="1" with an H/X palette.
 const H_GATE_TUTORIAL = { settings: { palette: ['H', 'X'], maxWireCount: 1 } }
+
+test('narrow single-wire embed selects the initial gap', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["H"]]}', { ...H_GATE_TUTORIAL, width: 390, height: 560 })
+  await waitForStepZero(page)
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  // Compact slot 0 is x=88, and its left edge is x=60.
+  await page.mouse.click(box.x + 54, box.y + 216)
+  await page.mouse.move(box.x + 380, box.y + 400)
+  await expect.poll(() => page.evaluate(() => (window as any).runner.selectedStep())).toBe(-1)
+})
 // The 88px H/X palette is centred at x = 480, so H sits at 480 - 24. The
 // one-row palette lifts q0 to y = 216; slot 1 is 162 + SLOT_SPACING (56).
 const PALETTE_H_X = 456
@@ -638,4 +648,30 @@ test('embed angle editor accepts typed text through the text agent', async ({ pa
   await page.keyboard.type('1/4')
   await page.keyboard.press('Enter')
   await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
+})
+
+for (const showStatePanel of [true, false]) {
+  test(`selectStep -1 immediately reads initial state (panel=${showStatePanel})`, async ({ page }) => {
+    await hostEmbed(page, SELECT_BELL, { settings: { showStatePanel } })
+    const values = await page.evaluate(async () => {
+      const runner = (window as any).runner
+      runner.selectStep(-1)
+      await runner.readStateVector()
+      runner.selectStep(1)
+      await runner.readStateVector()
+      runner.selectStep(-1)
+      return Array.from(await runner.readStateVector())
+    })
+    expect(values).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+  })
+}
+
+test('selectedStep reports initial state as a numeric minus one', async ({ page }) => {
+  await hostEmbed(page, SELECT_BELL)
+  const selected = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.selectStep(-1)
+    return runner.selectedStep()
+  })
+  expect(selected).toBe(-1)
 })

@@ -1497,3 +1497,41 @@ fn editing_trims_empty_columns_at_the_end_of_a_block() {
 
     assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],[1,"H"],["}"]]}"#);
 }
+
+#[test]
+fn initial_hit_region_uses_existing_left_gap() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let x = (metrics.line_left + metrics.slot_left - SLOT_SPACING * 0.5) / 2.0;
+    assert_eq!(
+        step_at_cursor(egui::pos2(x, metrics.line_ys[0]), &metrics),
+        Some(CircuitColumnIndex::INITIAL)
+    );
+}
+
+#[test]
+fn initial_hit_region_does_not_overlap_first_column() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let x = metrics.slot_left - SLOT_SPACING * 0.5;
+    assert_eq!(
+        step_at_cursor(egui::pos2(x, metrics.line_ys[0]), &metrics),
+        Some(CircuitColumnIndex::ZERO)
+    );
+}
+
+#[test]
+fn clicking_left_gap_locks_initial_state() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+    let metrics = &geometry.metrics;
+    let x = (metrics.line_left + metrics.slot_left - SLOT_SPACING * 0.5) / 2.0;
+    let cursor = egui::pos2(x, metrics.line_ys[0]);
+    DragController::handle_pointer_start(&mut app, pointer(cursor, false), &geometry, &ctx);
+    assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::INITIAL));
+}
+
+#[test]
+fn gate_drag_overrides_initial_selection() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+    app.lock_step(CircuitColumnIndex::INITIAL, &ctx);
+    start(&mut app, &ctx, &geometry, false);
+    assert_eq!(app.state_vector_update().preview_step, None);
+}

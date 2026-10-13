@@ -79,6 +79,10 @@ fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<Circuit
     if cursor.y < top || cursor.y > bottom {
         return None;
     }
+    // Reuse the wire gap before slot 0; its left half never hits column 0.
+    if cursor.x >= metrics.line_left && cursor.x < metrics.slot_left - SLOT_SPACING * 0.5 {
+        return Some(CircuitColumnIndex::INITIAL);
+    }
     if cursor.x < metrics.slot_left - SLOT_SPACING * 0.5
         || cursor.x > metrics.slot_right + SLOT_SPACING * 0.5
     {

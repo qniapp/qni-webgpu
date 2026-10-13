@@ -94,10 +94,10 @@ impl QniRunner {
     }
 
     #[wasm_bindgen(js_name = selectedStep)]
-    pub fn selected_step(&self) -> Result<Option<usize>, JsValue> {
+    pub fn selected_step(&self) -> Result<Option<f64>, JsValue> {
         self.runner
             .app_mut::<QniApp>()
-            .map(|app| app.selected_step())
+            .map(|app| app.selected_step().map(|step| step as f64))
             .ok_or_else(|| JsValue::from_str("Circuit runner is unavailable"))
     }
 
