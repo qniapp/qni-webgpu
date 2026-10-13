@@ -892,6 +892,28 @@ fn step_zero_hit_area_extends_above_a_full_first_column() {
 }
 
 #[test]
+fn step_zero_hit_area_stops_outside_the_step_padding() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let cursor = egui::pos2(
+        metrics.slot_centers[0],
+        metrics.line_ys[0] - STEP_OUTSET_Y - 1.0,
+    );
+
+    assert_eq!(step_at_cursor(cursor, &metrics), None);
+}
+
+#[test]
+fn step_zero_hit_area_stops_below_the_step_padding() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let cursor = egui::pos2(
+        metrics.slot_centers[0],
+        metrics.line_ys[0] + STEP_OUTSET_Y + 1.0,
+    );
+
+    assert_eq!(step_at_cursor(cursor, &metrics), None);
+}
+
+#[test]
 fn step_zero_hit_area_extends_below_a_single_wire() {
     let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
     let cursor = egui::pos2(metrics.slot_centers[0], metrics.line_ys[0] + 40.0);

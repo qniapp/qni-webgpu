@@ -2,7 +2,6 @@
 
 use std::num::NonZeroUsize;
 
-use super::CircuitColumnIndex;
 use crate::constants::MIN_QUBITS;
 use crate::layout::Palette;
 
@@ -28,11 +27,6 @@ impl AppMode {
     /// embeds keep Undo / Redo.
     pub(crate) fn shows_clear_button(self) -> bool {
         matches!(self, Self::Standalone)
-    }
-
-    /// qni starts every circuit at its first step, including the standalone editor.
-    pub(crate) fn initial_breakpoint_step(self) -> Option<CircuitColumnIndex> {
-        Some(CircuitColumnIndex::ZERO)
     }
 
     pub(crate) fn shows_state_panel(self) -> bool {
@@ -191,6 +185,7 @@ pub(super) fn write_document_title(_circuit_title: &str) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::CircuitColumnIndex;
 
     fn parse_full(json: &str) -> Result<EmbedStartup, String> {
         EmbedStartup::parse::<&str>(json, true, None, None)

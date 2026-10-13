@@ -484,7 +484,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const samples = await sampleCanvasPixels(page, canvas, [
     { name: 'circuit_background', x: blochX + 80, y: wireCenterY - 20 },
     { name: 'measurement_gap_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2, y: wireCenterY },
-    { name: 'measurement_wire_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2 - 8, y: wireCenterY },
+    { name: 'measurement_wire_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2 - 12, y: wireCenterY },
     { name: 'measurement_digit_centered', x: measureX, y: wireCenterY },
     { name: 'bloch_tip_on_sphere', x: blochX, y: wireCenterY + 21 },
     { name: 'bloch_tip_outside_sphere', x: blochX, y: wireCenterY + 26 },

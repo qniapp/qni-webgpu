@@ -91,8 +91,8 @@ pub(crate) struct QniApp {
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
     pub(crate) angle_editor: Option<AngleEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
-    /// `None` means: show the final-state (all columns applied). Loading a
-    /// circuit resets it to `AppMode::initial_breakpoint_step`.
+    /// `None` means: show the final state (all columns applied). Loading a
+    /// circuit selects step 0, as in qni.
     pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
     pub(crate) hovered_gate_id: Option<GateId>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
@@ -339,7 +339,7 @@ impl QniApp {
             hovered_step: None,
             angle_affordance: None,
             angle_editor: None,
-            breakpoint_step: mode.initial_breakpoint_step(),
+            breakpoint_step: Some(CircuitColumnIndex::ZERO),
             hovered_gate_id: None,
             hovered_probability_outcome: None,
             hovered_amplitude_outcome: None,
