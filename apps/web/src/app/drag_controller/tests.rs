@@ -877,6 +877,67 @@ fn fixture(json: &str) -> (QniApp, egui::Context, CircuitInputGeometry) {
     (app, ctx, geometry)
 }
 
+#[test]
+fn step_zero_hit_area_extends_above_a_full_first_column() {
+    let (_, _, geometry) = fixture(r#"{"cols":[["H","X","Z"],["X"]]}"#);
+    let cursor = egui::pos2(
+        geometry.metrics.slot_centers[0],
+        geometry.metrics.line_ys[0] - 40.0,
+    );
+
+    assert_eq!(
+        step_at_cursor(cursor, &geometry.metrics),
+        Some(CircuitColumnIndex::ZERO)
+    );
+}
+
+#[test]
+fn step_zero_hit_area_stops_outside_the_step_padding() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let cursor = egui::pos2(
+        metrics.slot_centers[0],
+        metrics.line_ys[0] - STEP_OUTSET_Y - 1.0,
+    );
+
+    assert_eq!(step_at_cursor(cursor, &metrics), None);
+}
+
+#[test]
+fn step_zero_hit_area_stops_below_the_step_padding() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let cursor = egui::pos2(
+        metrics.slot_centers[0],
+        metrics.line_ys[0] + STEP_OUTSET_Y + 1.0,
+    );
+
+    assert_eq!(step_at_cursor(cursor, &metrics), None);
+}
+
+#[test]
+fn step_zero_hit_area_extends_below_a_single_wire() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    let cursor = egui::pos2(metrics.slot_centers[0], metrics.line_ys[0] + 40.0);
+
+    assert_eq!(
+        step_at_cursor(cursor, &metrics),
+        Some(CircuitColumnIndex::ZERO)
+    );
+}
+
+#[test]
+fn clicking_above_a_full_first_column_locks_step_zero() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H","X","Z"],["X"]]}"#);
+    app.lock_step(CircuitColumnIndex::new(1), &ctx);
+    let cursor = egui::pos2(
+        geometry.metrics.slot_centers[0],
+        geometry.metrics.line_ys[0] - 40.0,
+    );
+
+    DragController::handle_pointer_start(&mut app, pointer(cursor, false), &geometry, &ctx);
+
+    assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::ZERO));
+}
+
 fn pointer(pos: egui::Pos2, released: bool) -> DragPointer {
     DragPointer {
         screen_pos: Some(pos),

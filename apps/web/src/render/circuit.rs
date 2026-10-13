@@ -5,7 +5,7 @@ use eframe::egui;
 
 use crate::app::{GateId, PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
-use crate::constants::{GATE_SIZE, LINE_GAP, LINE_Y, REM};
+use crate::constants::{GATE_SIZE, LINE_GAP, LINE_Y, REM, STEP_OUTSET_Y};
 use crate::layout::{nearest_slot_index, CircuitGutters, LayoutMetrics};
 
 const SLOT_CENTER_EPSILON: f32 = 0.5;
@@ -79,8 +79,8 @@ impl QniApp {
         // qni's `circuit-step::after` data-active / data-breakpoint
         // styling.
         if !metrics.line_ys.is_empty() && !metrics.slot_centers.is_empty() {
-            let top = metrics.line_ys[0] - crate::constants::LINE_GAP * 0.5;
-            let bot = metrics.line_ys[metrics.line_ys.len() - 1] + crate::constants::LINE_GAP * 0.5;
+            let top = metrics.line_ys[0] - STEP_OUTSET_Y;
+            let bot = metrics.line_ys[metrics.line_ys.len() - 1] + STEP_OUTSET_Y;
             let step_line = |painter: &egui::Painter, slot: usize, alpha: u8| {
                 if slot >= metrics.slot_centers.len() {
                     return;
@@ -94,7 +94,7 @@ impl QniApp {
                         egui::pos2(x, circuit_origin.y + top),
                         egui::pos2(x, circuit_origin.y + bot),
                     ],
-                    egui::Stroke::new(3.0_f32, color),
+                    egui::Stroke::new(4.0_f32, color),
                 );
             };
             if let Some(step) = self.breakpoint_step {

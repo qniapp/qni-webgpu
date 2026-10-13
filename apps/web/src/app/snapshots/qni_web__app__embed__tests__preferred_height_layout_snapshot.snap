@@ -2,51 +2,51 @@
 source: src/app/embed.rs
 expression: cases
 ---
-wires= 1 width= 320 state=false height= 200 fits=true
-wires= 1 width= 320 state=true  height= 444 fits=true
-wires= 1 width= 390 state=false height= 200 fits=true
-wires= 1 width= 390 state=true  height= 444 fits=true
-wires= 1 width= 720 state=false height= 200 fits=true
-wires= 1 width= 720 state=true  height= 444 fits=true
-wires= 1 width=1440 state=false height= 200 fits=true
-wires= 1 width=1440 state=true  height= 444 fits=true
-wires= 2 width= 320 state=false height= 256 fits=true
-wires= 2 width= 320 state=true  height= 500 fits=true
-wires= 2 width= 390 state=false height= 256 fits=true
-wires= 2 width= 390 state=true  height= 500 fits=true
-wires= 2 width= 720 state=false height= 256 fits=true
-wires= 2 width= 720 state=true  height= 500 fits=true
-wires= 2 width=1440 state=false height= 256 fits=true
-wires= 2 width=1440 state=true  height= 500 fits=true
-wires= 4 width= 320 state=false height= 368 fits=true
-wires= 4 width= 320 state=true  height= 612 fits=true
-wires= 4 width= 390 state=false height= 368 fits=true
-wires= 4 width= 390 state=true  height= 612 fits=true
-wires= 4 width= 720 state=false height= 368 fits=true
-wires= 4 width= 720 state=true  height= 612 fits=true
-wires= 4 width=1440 state=false height= 368 fits=true
-wires= 4 width=1440 state=true  height= 612 fits=true
-wires= 8 width= 320 state=false height= 592 fits=true
-wires= 8 width= 320 state=true  height= 836 fits=true
-wires= 8 width= 390 state=false height= 592 fits=true
-wires= 8 width= 390 state=true  height= 836 fits=true
-wires= 8 width= 720 state=false height= 592 fits=true
-wires= 8 width= 720 state=true  height= 836 fits=true
-wires= 8 width=1440 state=false height= 592 fits=true
-wires= 8 width=1440 state=true  height= 836 fits=true
-wires=14 width= 320 state=false height= 928 fits=true
-wires=14 width= 320 state=true  height=1172 fits=true
-wires=14 width= 390 state=false height= 928 fits=true
-wires=14 width= 390 state=true  height=1172 fits=true
-wires=14 width= 720 state=false height= 928 fits=true
-wires=14 width= 720 state=true  height=1172 fits=true
-wires=14 width=1440 state=false height= 928 fits=true
-wires=14 width=1440 state=true  height=1172 fits=true
-wires=16 width= 320 state=false height=1040 fits=true
-wires=16 width= 320 state=true  height=1284 fits=true
-wires=16 width= 390 state=false height=1040 fits=true
-wires=16 width= 390 state=true  height=1284 fits=true
-wires=16 width= 720 state=false height=1040 fits=true
-wires=16 width= 720 state=true  height=1284 fits=true
-wires=16 width=1440 state=false height=1040 fits=true
-wires=16 width=1440 state=true  height=1284 fits=true
+wires= 1 width= 320 state=false height= 212 fits=true
+wires= 1 width= 320 state=true  height= 468 fits=true
+wires= 1 width= 390 state=false height= 212 fits=true
+wires= 1 width= 390 state=true  height= 468 fits=true
+wires= 1 width= 720 state=false height= 212 fits=true
+wires= 1 width= 720 state=true  height= 468 fits=true
+wires= 1 width=1440 state=false height= 212 fits=true
+wires= 1 width=1440 state=true  height= 468 fits=true
+wires= 2 width= 320 state=false height= 268 fits=true
+wires= 2 width= 320 state=true  height= 524 fits=true
+wires= 2 width= 390 state=false height= 268 fits=true
+wires= 2 width= 390 state=true  height= 524 fits=true
+wires= 2 width= 720 state=false height= 268 fits=true
+wires= 2 width= 720 state=true  height= 524 fits=true
+wires= 2 width=1440 state=false height= 268 fits=true
+wires= 2 width=1440 state=true  height= 524 fits=true
+wires= 4 width= 320 state=false height= 380 fits=true
+wires= 4 width= 320 state=true  height= 636 fits=true
+wires= 4 width= 390 state=false height= 380 fits=true
+wires= 4 width= 390 state=true  height= 636 fits=true
+wires= 4 width= 720 state=false height= 380 fits=true
+wires= 4 width= 720 state=true  height= 636 fits=true
+wires= 4 width=1440 state=false height= 380 fits=true
+wires= 4 width=1440 state=true  height= 636 fits=true
+wires= 8 width= 320 state=false height= 604 fits=true
+wires= 8 width= 320 state=true  height= 860 fits=true
+wires= 8 width= 390 state=false height= 604 fits=true
+wires= 8 width= 390 state=true  height= 860 fits=true
+wires= 8 width= 720 state=false height= 604 fits=true
+wires= 8 width= 720 state=true  height= 860 fits=true
+wires= 8 width=1440 state=false height= 604 fits=true
+wires= 8 width=1440 state=true  height= 860 fits=true
+wires=14 width= 320 state=false height= 940 fits=true
+wires=14 width= 320 state=true  height=1196 fits=true
+wires=14 width= 390 state=false height= 940 fits=true
+wires=14 width= 390 state=true  height=1196 fits=true
+wires=14 width= 720 state=false height= 940 fits=true
+wires=14 width= 720 state=true  height=1196 fits=true
+wires=14 width=1440 state=false height= 940 fits=true
+wires=14 width=1440 state=true  height=1196 fits=true
+wires=16 width= 320 state=false height=1052 fits=true
+wires=16 width= 320 state=true  height=1308 fits=true
+wires=16 width= 390 state=false height=1052 fits=true
+wires=16 width= 390 state=true  height=1308 fits=true
+wires=16 width= 720 state=false height=1052 fits=true
+wires=16 width= 720 state=true  height=1308 fits=true
+wires=16 width=1440 state=false height=1052 fits=true
+wires=16 width=1440 state=true  height=1308 fits=true

@@ -10,7 +10,7 @@
 
 use eframe::egui;
 
-use super::{ExecMode, QniApp};
+use super::{CircuitColumnIndex, ExecMode, QniApp};
 use crate::qubit_count::QubitCount;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -207,7 +207,7 @@ impl QniApp {
         self.hovered_step = None;
         self.angle_affordance = None;
         self.angle_editor = None;
-        self.breakpoint_step = self.mode.initial_breakpoint_step();
+        self.breakpoint_step = Some(CircuitColumnIndex::ZERO);
         self.drag_cursor_pos = None;
         self.drag_repaint_deadline = None;
         self.drag_repaint_pending = false;

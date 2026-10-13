@@ -21,6 +21,13 @@ const openCircuit = async (page: Page, json: string): Promise<void> => {
   await waitForStartupReady(page, { waitForStateVector: true })
 }
 
+const openFinalState = async (page: Page, json: string): Promise<void> => {
+  await openCircuit(page, json)
+  // The editor now starts at step 0; inspect the final column for gate semantics.
+  await page.mouse.click(170 + 56 * (JSON.parse(json).cols.length - 1), 224)
+  await page.mouse.move(1000, 450)
+}
+
 const roundedStateVector = async (page: Page): Promise<number[]> =>
   (await readStateVector(page) as number[]).map((value) => Math.round(value * 1e4) / 1e4)
 
@@ -34,19 +41,19 @@ const waitForHashJson = async (page: Page, json: string): Promise<void> => {
 }
 
 test('conditional gate applies when its measurement reads 1', async ({ page }) => {
-  await openCircuit(page, APPLIED_JSON)
+  await openFinalState(page, APPLIED_JSON)
 
   await expect.poll(() => roundedStateVector(page)).toEqual([0, 0, 0, 0, 0, 0, 1, 0])
 })
 
 test('conditional gate is skipped when its measurement reads 0', async ({ page }) => {
-  await openCircuit(page, SKIPPED_JSON)
+  await openFinalState(page, SKIPPED_JSON)
 
   await expect.poll(() => roundedStateVector(page)).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
 })
 
 test('conditional gate on a never-measured variable is skipped', async ({ page }) => {
-  await openCircuit(page, UNSET_JSON)
+  await openFinalState(page, UNSET_JSON)
 
   await expect.poll(() => roundedStateVector(page)).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
 })

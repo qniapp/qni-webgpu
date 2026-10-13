@@ -481,6 +481,14 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
 
   const measureX = slotCenter(1)
   const blochX = slotCenter(2)
+  // Inspect the finished circuit: the approved step-0 startup marker otherwise
+  // crosses the short wire segment immediately left of the measurement body.
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  await page.mouse.click(box.x + blochX, box.y + wireCenterY - 32)
+  await page.waitForTimeout(100)
   const samples = await sampleCanvasPixels(page, canvas, [
     { name: 'circuit_background', x: blochX + 80, y: wireCenterY - 20 },
     { name: 'measurement_gap_left', x: measureX - UI_CONSTANTS.GATE_SIZE / 2, y: wireCenterY },
@@ -505,11 +513,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
     blochTipOutsideSphere: isBlochTipBlue(samples.bloch_tip_outside_sphere),
   }
 
-  const box = await canvas.boundingBox()
-  if (!box) {
-    throw new Error('expected egui canvas to be measurable')
-  }
-  await page.mouse.move((box?.x ?? 0) + measureX, (box?.y ?? 0) + wireCenterY)
+  await page.mouse.move(box.x + measureX, box.y + wireCenterY)
   await page.waitForTimeout(100)
   const hoverSamples = await sampleCanvasPixels(page, canvas, [
     { name: 'measurement_hover_left_side', x: measureX - UI_CONSTANTS.GATE_SIZE / 2 - 5, y: wireCenterY },

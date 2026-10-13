@@ -21,7 +21,7 @@ mod step_selection;
 mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
-use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
+use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS, STEP_OUTSET_Y};
 use crate::gates::GateKind;
 use crate::qubit_count::{QubitCapacity, QubitCount};
 use crate::shared::now_seconds;
@@ -91,8 +91,8 @@ pub(crate) struct QniApp {
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
     pub(crate) angle_editor: Option<AngleEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
-    /// `None` means: show the final-state (all columns applied). Loading a
-    /// circuit resets it to `AppMode::initial_breakpoint_step`.
+    /// `None` means: show the final state (all columns applied). Loading a
+    /// circuit selects step 0, as in qni.
     pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
     pub(crate) hovered_gate_id: Option<GateId>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
@@ -339,7 +339,7 @@ impl QniApp {
             hovered_step: None,
             angle_affordance: None,
             angle_editor: None,
-            breakpoint_step: mode.initial_breakpoint_step(),
+            breakpoint_step: Some(CircuitColumnIndex::ZERO),
             hovered_gate_id: None,
             hovered_probability_outcome: None,
             hovered_amplitude_outcome: None,
@@ -394,7 +394,7 @@ impl QniApp {
         let last_line_y = self.circuit_origin(content_rect, 0.0).y
             + LINE_Y
             + LINE_GAP * (self.layout_qubits() - 1) as f32;
-        last_line_y + LINE_GAP * 0.5 + self.circuit_block_outset_y()
+        last_line_y + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
     }
 
     pub(crate) fn colors(&self) -> Colors {
