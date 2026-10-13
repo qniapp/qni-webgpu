@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [workspace]
 members = ["crates/circuit-library-model", "crates/external-gpu-model"]
+exclude = ["vendor/eframe"]
 resolver = "2"
 
 [dependencies]
@@ -35,6 +36,11 @@ eframe = { version = "0.35.0", default-features = false, features = ["wgpu_no_de
 # Preserve the original graphics/font feature graph outside the browser target.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = { version = "0.35.0", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+
+# eframe 0.35.0 with a WebOptions opt-out for the TextAgent autofocus; see
+# vendor/eframe/PATCHES.md.
+[patch.crates-io]
+eframe = { path = "vendor/eframe" }
 
 [dev-dependencies]
 insta = "1.47"
