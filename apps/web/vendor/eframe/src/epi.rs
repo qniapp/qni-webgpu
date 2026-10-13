@@ -521,6 +521,15 @@ pub struct WebOptions {
     /// Maximum rate at which to repaint. This can be used to artificially reduce the repaint rate below
     /// vsync in order to save resources.
     pub max_fps: Option<u32>,
+
+    /// Whether the hidden text agent `<input>` (IME / mobile keyboard input)
+    /// gets the `autofocus` attribute.
+    ///
+    /// Set to `false` when the canvas is embedded in a longer page: browsers
+    /// scroll the page to an autofocused element on load.
+    ///
+    /// Defaults to true.
+    pub text_agent_autofocus: bool,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -547,6 +556,8 @@ impl Default for WebOptions {
             should_prevent_default: Box::new(|_| true),
 
             max_fps: None,
+
+            text_agent_autofocus: true,
         }
     }
 }

@@ -15,14 +15,14 @@ pub struct TextAgent {
 
 impl TextAgent {
     /// Attach the agent to the document.
-    pub fn attach(runner_ref: &WebRunner, root: Node) -> Result<Self, JsValue> {
+    pub fn attach(runner_ref: &WebRunner, root: Node, autofocus: bool) -> Result<Self, JsValue> {
         let document = web_sys::window().unwrap().document().unwrap();
 
         // create an `<input>` element
         let input = document
             .create_element("input")?
             .dyn_into::<web_sys::HtmlElement>()?;
-        input.set_autofocus(true)?;
+        input.set_autofocus(autofocus)?;
         let input = input.dyn_into::<web_sys::HtmlInputElement>()?;
         input.set_type("text");
         input.set_attribute("autocapitalize", "off")?;

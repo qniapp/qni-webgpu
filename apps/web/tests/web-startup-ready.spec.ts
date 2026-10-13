@@ -19,3 +19,13 @@ test('startup ready flag waits for the first painted frame', async ({ page }) =>
 
   expect(toolbarPainted).toBe(true)
 })
+
+// 埋め込みだけ TextAgent の autofocus を切る。単体アプリは eframe 既定のまま。
+test('standalone text agent input keeps autofocus', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page)
+
+  const autofocus = await page.locator('body > input').evaluate(input => (input as HTMLInputElement).autofocus)
+
+  expect(autofocus).toBe(true)
+})

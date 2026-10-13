@@ -234,6 +234,8 @@ async fn start_runner(
             wgpu_setup: setup,
             ..Default::default()
         },
+        // An autofocused INPUT scrolls the host article to the embed on load.
+        text_agent_autofocus: standalone,
         ..Default::default()
     };
     let runner = eframe::WebRunner::new();
