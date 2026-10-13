@@ -15,12 +15,12 @@
     "test:gpu": "node -r ts-node/register/transpile-only --test --test-concurrency=1 test-gpu/*.test.ts"
   },
   "devDependencies": {
-    "@cucumber/cucumber": "^13.2.1",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.4",
-    "playwright": "^1.63.0",
+    "@cucumber/cucumber": "^13.3.0",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
+    "playwright": "^1.64.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "webgpu": "0.6.1"
+    "webgpu": "0.6.2"
   }
 }
