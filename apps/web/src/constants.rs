@@ -143,6 +143,9 @@ pub(crate) const LINE_Y: f32 = PALETTE_ROW_Y
 // spacing-14 = 56 px. With GATE_SIZE = 40 this preserves the previous
 // 16 px visual gap between gates on neighbouring wires (48 - 32 = 56 - 40).
 pub(crate) const LINE_GAP: f32 = 56.0;
+// qni circuit-step sm:py-8: 32px above/below the outermost 40px gate.
+// spacing-8 = 32px; GATE_SIZE / 2 is the gate's half-height.
+pub(crate) const STEP_OUTSET_Y: f32 = GATE_SIZE / 2.0 + 32.0;
 pub(crate) const CIRCUIT_PADDING: f32 = 2.0 * REM; // spacing-16 = 64px circuit side padding.
 pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
 pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)

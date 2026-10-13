@@ -15,7 +15,7 @@ mod tests;
 use eframe::egui;
 
 use super::{CircuitColumnIndex, QniApp};
-use crate::constants::{LINE_GAP, PALETTE_ROW_Y, SLOT_SPACING};
+use crate::constants::{PALETTE_ROW_Y, SLOT_SPACING, STEP_OUTSET_Y};
 use crate::layout::{
     layout_metrics, nearest_slot_index, palette_start_x, LayoutMetrics, Palette, PaletteLayout,
 };
@@ -74,8 +74,8 @@ fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<Circuit
     if metrics.slot_centers.is_empty() || metrics.line_ys.is_empty() {
         return None;
     }
-    let top = metrics.line_ys[0] - LINE_GAP * 0.5;
-    let bottom = metrics.line_ys[metrics.line_ys.len() - 1] + LINE_GAP * 0.5;
+    let top = metrics.line_ys[0] - STEP_OUTSET_Y;
+    let bottom = metrics.line_ys[metrics.line_ys.len() - 1] + STEP_OUTSET_Y;
     if cursor.y < top || cursor.y > bottom {
         return None;
     }

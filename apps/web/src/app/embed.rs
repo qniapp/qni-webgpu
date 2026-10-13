@@ -30,13 +30,9 @@ impl AppMode {
         matches!(self, Self::Standalone)
     }
 
-    /// Step shown after a circuit loads. Embeds start at step 0 like qni's
-    /// tutorial simulator; the standalone editor shows the final state.
+    /// qni starts every circuit at its first step, including the standalone editor.
     pub(crate) fn initial_breakpoint_step(self) -> Option<CircuitColumnIndex> {
-        match self {
-            Self::Standalone => None,
-            Self::Embed { .. } => Some(CircuitColumnIndex::ZERO),
-        }
+        Some(CircuitColumnIndex::ZERO)
     }
 
     pub(crate) fn shows_state_panel(self) -> bool {
@@ -117,7 +113,7 @@ impl super::QniApp {
     pub(crate) fn preferred_height(&self, width: f32) -> f32 {
         use crate::constants::{
             EMBED_STATE_PANEL_CIRCUIT_GAP, GATE_SIZE, LINE_GAP, LINE_Y, STATE_CIRCLE_BOTTOM_MARGIN,
-            STATE_HANDLE_HEIGHT,
+            STATE_HANDLE_HEIGHT, STEP_OUTSET_Y,
         };
         // egui CentralPanel's default margin is spacing-2 (8px) on each side.
         let rect = eframe::egui::Rect::from_min_size(
@@ -127,7 +123,7 @@ impl super::QniApp {
         let wires = self.qubit_count + usize::from(self.qubit_count < self.wire_capacity().get());
         let last_line =
             self.circuit_origin(rect, 0.0).y + LINE_Y + LINE_GAP * wires.saturating_sub(1) as f32;
-        let bottom = last_line + LINE_GAP * 0.5 + self.circuit_block_outset_y();
+        let bottom = last_line + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y());
         // Mirror the scroll content padding as well as the visible geometry.
         let content = last_line + GATE_SIZE + 16.0 + self.circuit_block_outset_y();
         let panel = if self.state_panel_visible() {
@@ -437,10 +433,10 @@ mod tests {
     }
 
     #[test]
-    fn standalone_starts_with_final_state() {
+    fn standalone_starts_at_step_zero() {
         let ctx = eframe::egui::Context::default();
         let app = super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx));
-        assert_eq!(app.breakpoint_step, None);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::ZERO));
     }
 
     #[test]
@@ -452,13 +448,13 @@ mod tests {
     }
 
     #[test]
-    fn standalone_circuit_reload_shows_final_state() {
+    fn standalone_circuit_reload_pins_step_zero() {
         let ctx = eframe::egui::Context::default();
         let mut app =
             super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
         app.breakpoint_step = Some(CircuitColumnIndex::new(2));
         app.load_circuit_json_into_editor(r#"{"cols":[["X"],["H"],["Z"]]}"#, &ctx);
-        assert_eq!(app.breakpoint_step, None);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::ZERO));
     }
 
     #[test]

@@ -211,6 +211,8 @@ test('Control lets QFT run when the control wire is one', async ({ page }) => {
   )
 
   await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(226, 224)
+  await page.mouse.move(1000, 450)
 
   // q0=LSB: |1> on wire0 fixes bit0=1; QFT2 on wires 1,2 spreads bits 1,2
   // uniformly → state indices 1, 3, 5, 7 (positions 2, 6, 10, 14).
@@ -483,10 +485,8 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
   await waitForStateVectorApprox(page, superposition)
 })
 
-test('standalone app shows the final state of a loaded circuit', async ({ page }) => {
+test('standalone app shows step zero of a loaded circuit', async ({ page }) => {
   await page.goto(`/#${encodeURIComponent('{"cols":[["|0>","|0>"],["H"],["•","X"]]}')}`)
   await waitForStartupReady(page, { waitForStateVector: true })
-  const bell = [Math.SQRT1_2, 0, 0, 0, 0, 0, Math.SQRT1_2, 0]
-  await expect.poll(async () => (await readStateVector(page) as number[]).map((value) => Math.round(value * 1e4) / 1e4))
-    .toEqual(bell.map((value) => Math.round(value * 1e4) / 1e4))
+  await expect.poll(() => readStateVector(page)).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
 })

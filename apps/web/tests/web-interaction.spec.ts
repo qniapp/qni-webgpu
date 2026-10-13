@@ -386,7 +386,7 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 
   await dragPointer(page, hSource, { x: targetX2, y: LINE_Y })
   await waitForHashCols(page, [['X'], ['H']])
-  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [['X']])
@@ -402,7 +402,7 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [['X'], ['H']])
-  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await clickToolbar(98 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [])
@@ -410,7 +410,7 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [['X'], ['H']])
-  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
+  await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [])

@@ -17,6 +17,9 @@ const stateVectorOf = async (context: BrowserContext, json: string): Promise<num
   try {
     await page.goto(`/#${encodeURIComponent(json)}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    // 回路はステップ 0 で開くため、最後の列をクリックして演算結果を比較する。
+    await page.mouse.click(170 + 56 * (JSON.parse(json).cols.length - 1), 224)
+    await page.mouse.move(1000, 450)
     // P(π) の虚部は f32 の sin(π) で -0 に丸まることがあるので 0 にそろえる。
     return (await readStateVector(page) as number[]).map((value) => Math.round(value * 1e4) / 1e4 || 0)
   } finally {

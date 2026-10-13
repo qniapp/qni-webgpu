@@ -21,7 +21,7 @@ mod step_selection;
 mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
-use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS};
+use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS, STEP_OUTSET_Y};
 use crate::gates::GateKind;
 use crate::qubit_count::{QubitCapacity, QubitCount};
 use crate::shared::now_seconds;
@@ -394,7 +394,7 @@ impl QniApp {
         let last_line_y = self.circuit_origin(content_rect, 0.0).y
             + LINE_Y
             + LINE_GAP * (self.layout_qubits() - 1) as f32;
-        last_line_y + LINE_GAP * 0.5 + self.circuit_block_outset_y()
+        last_line_y + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
     }
 
     pub(crate) fn colors(&self) -> Colors {
