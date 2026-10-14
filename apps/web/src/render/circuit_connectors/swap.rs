@@ -20,7 +20,12 @@ pub(super) fn draw_swap_connectors(
     dragging_gate_id: Option<GateId>,
 ) {
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
-        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+        gate_slot_index_for_render(
+            gate,
+            metrics,
+            app.dragging
+                .filter(|drag| Some(drag.id) == dragging_gate_id),
+        )
     });
 
     for column in analysis.columns() {
@@ -35,7 +40,11 @@ pub(super) fn draw_swap_connectors(
         }
         let mut ys = gates
             .iter()
-            .map(|gate| circuit_origin.y + gate.pos.y + GATE_SIZE / 2.0)
+            .map(|gate| {
+                circuit_origin.y
+                    + crate::render::circuit::gate_draw_pos(gate, app.dragging).y
+                    + GATE_SIZE / 2.0
+            })
             .collect::<Vec<_>>();
         ys.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         let top_y = *ys.first().unwrap();
@@ -45,7 +54,11 @@ pub(super) fn draw_swap_connectors(
         // stays centred in the transparent Swap body during hover / drag.
         let x = gates
             .iter()
-            .map(|gate| circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0)
+            .map(|gate| {
+                circuit_origin.x
+                    + crate::render::circuit::gate_draw_pos(gate, app.dragging).x
+                    + GATE_SIZE / 2.0
+            })
             .sum::<f32>()
             / gates.len() as f32;
         draw_vertical_connector(painter, x, top_y, bottom_y, colors.box_fill);

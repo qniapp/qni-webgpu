@@ -23,7 +23,10 @@ impl QniApp {
         else {
             return;
         };
-        let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let gate_rect = gate_visible_rect(
+            gate,
+            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+        );
         let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
             amplitude_grid_rect(gate_rect, gate.span.get())
         } else {

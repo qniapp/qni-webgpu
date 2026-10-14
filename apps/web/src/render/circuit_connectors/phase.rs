@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::collections::HashMap;
 
-use crate::app::{GateId, PlacedGate, QniApp, WireIndex};
+use crate::app::{DragState, GateId, PlacedGate, QniApp, WireIndex};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
@@ -81,12 +81,19 @@ pub(super) fn draw_phase_connectors_and_labels(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) {
     let render_columns = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
-        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+        gate_slot_index_for_render(gate, metrics, drag)
     });
-    draw_phase_phase_connectors(&render_columns, painter, metrics, colors, circuit_origin);
+    draw_phase_phase_connectors(
+        &render_columns,
+        painter,
+        metrics,
+        colors,
+        circuit_origin,
+        drag,
+    );
     draw_parametric_angle_labels(
         app,
         &render_columns,
@@ -94,7 +101,7 @@ pub(super) fn draw_phase_connectors_and_labels(
         metrics,
         colors,
         circuit_origin,
-        dragging_gate_id,
+        drag,
     );
     draw_flag_labels(
         app,
@@ -103,7 +110,7 @@ pub(super) fn draw_phase_connectors_and_labels(
         metrics,
         colors,
         circuit_origin,
-        dragging_gate_id,
+        drag,
     );
 }
 
@@ -114,18 +121,13 @@ fn draw_flag_labels(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) {
     // `aliceX` above `Measure>aliceX` and `if aliceX` above `X<aliceX`, with
     // the same top / outlined top / bottom placement rules as angle labels.
     for gate in &app.placed_gates {
-        let Some(label) = flag_label_info(
-            gate,
-            render_columns,
-            metrics,
-            circuit_origin,
-            dragging_gate_id,
-        ) else {
+        let Some(label) = flag_label_info(gate, render_columns, metrics, circuit_origin, drag)
+        else {
             continue;
         };
         draw_flag_label(painter, &label, colors);
@@ -147,16 +149,18 @@ fn flag_label_info(
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) -> Option<FlagLabelInfo> {
     let flag = gate.flag.as_ref()?;
-    let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let center = circuit_origin
+        + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
+        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     // A measurement never joins a control connector (qni measurements are not
     // controllable), so its label always sits on top.
     let connection_sides = if gate.kind == GateKind::Measurement {
         ConnectionSides::default()
     } else {
-        phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+        phase_render_column(render_columns, gate, metrics, drag)
             .map(|column| control_connection_sides(column, gate))
             .unwrap_or_default()
     };
@@ -215,6 +219,7 @@ fn draw_phase_phase_connectors(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
+    drag: Option<DragState>,
 ) {
     // Phase-Phase connector. qni's
     // `circuit-step-element.ts::updatePhasePhaseConnections` (:566-602)
@@ -227,8 +232,9 @@ fn draw_phase_phase_connectors(
             let Some(key) = PhaseGroupKey::of(gate) else {
                 continue;
             };
-            let center =
-                circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+            let center = circuit_origin
+                + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
+                + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
             groups.entry(key).or_default().push(center);
         }
         for points in groups.values() {
@@ -255,7 +261,7 @@ fn draw_parametric_angle_labels(
     metrics: &LayoutMetrics,
     colors: &Colors,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) {
     // Angle labels for parametric gates. qni puts the angle text near the gate
     // body and draws a white text-shadow when the dropzone has both
@@ -271,13 +277,9 @@ fn draw_parametric_angle_labels(
         {
             continue;
         }
-        let Some(label) = parametric_angle_label_info(
-            gate,
-            render_columns,
-            metrics,
-            circuit_origin,
-            dragging_gate_id,
-        ) else {
+        let Some(label) =
+            parametric_angle_label_info(gate, render_columns, metrics, circuit_origin, drag)
+        else {
             continue;
         };
         draw_angle_label(
@@ -296,12 +298,14 @@ pub(in crate::render) fn parametric_angle_label_info(
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
     circuit_origin: egui::Pos2,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) -> Option<AngleLabelInfo> {
     let angle = parametric_angle(gate)?;
     let text = angle.label();
-    let center = circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-    let connection_sides = phase_render_column(render_columns, gate, metrics, dragging_gate_id)
+    let center = circuit_origin
+        + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
+        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let connection_sides = phase_render_column(render_columns, gate, metrics, drag)
         .map(|column| angle_label_connection_sides(column, gate))
         .unwrap_or_default();
     let layout = angle_label_layout(connection_sides);
@@ -438,9 +442,9 @@ fn phase_render_column<'columns, 'gates>(
     render_columns: &'columns ColumnAnalysis<'gates>,
     gate: &PlacedGate,
     metrics: &LayoutMetrics,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) -> Option<&'columns AnalyzedColumn<'gates>> {
-    let slot = gate_slot_index_for_render(gate, metrics, dragging_gate_id)?;
+    let slot = gate_slot_index_for_render(gate, metrics, drag)?;
     render_columns
         .columns()
         .iter()
@@ -724,7 +728,7 @@ mod tests {
     #[test]
     fn flag_label_shares_the_angle_label_anchor() {
         let gates = flagged_column(r#"{"cols":[["X<aliceX"]]}"#);
-        let gate_top = gates[0].pos.y;
+        let gate_top = gates[0].committed_pos().y;
 
         assert_eq!(
             flag_label(&gates, 0).map(|label| label.pos.y),

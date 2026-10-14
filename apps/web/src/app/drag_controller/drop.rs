@@ -18,7 +18,7 @@ impl DragController {
         let live_gpu_plan_touched = app.dragging_live_gpu_plan_touched;
         if let Some(drag) = app.dragging.take() {
             if let Some(index) = app.placed_gates.iter().position(|gate| gate.id == drag.id) {
-                let gate_pos = app.placed_gates[index].pos;
+                let gate_pos = drag.preview_pos;
                 let gate_id = app.placed_gates[index].id;
                 let center_x = gate_pos.x + GATE_SIZE / 2.0;
                 let center_y = gate_pos.y + GATE_SIZE / 2.0;
@@ -61,7 +61,6 @@ impl DragController {
                         gate.column = column;
                         gate.wire = wire;
                         gate.clamp_span_to_qubit_capacity(capacity);
-                        gate.sync_pos_from_grid();
                     }
                     Some(LiveDragSnap::Insert { column, wire }) => {
                         app.insert_gate_at_column(gate_id, wire, column, drag.original_column);

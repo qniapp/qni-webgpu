@@ -88,12 +88,12 @@ fn bloch_hover_popup_title() -> &'static str {
 pub(super) fn insert_preview_right_clip(
     mut clip: egui::Rect,
     circuit_origin: egui::Pos2,
-    gate: &PlacedGate,
+    gate_pos: egui::Pos2,
 ) -> egui::Rect {
     clip.min.x = clip
         .min
         .x
-        .max(circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0);
+        .max(circuit_origin.x + gate_pos.x + GATE_SIZE / 2.0);
     clip
 }
 
@@ -116,7 +116,11 @@ impl QniApp {
             .filter(|gate| matches!(gate.flag, Some(GateFlag::If(_))))
             .enumerate()
         {
-            let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+            let rect = gate_visible_rect(
+                gate,
+                circuit_origin
+                    + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+            );
             if let Some(body) =
                 self.conditional_gate_body(gate, rect, colors, batch.viewport, index)
             {
@@ -238,7 +242,11 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
             }
-            let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+            let gate_rect = gate_visible_rect(
+                gate,
+                circuit_origin
+                    + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+            );
             // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
             // draw area. The shared span-resize component uses that same body.
@@ -403,10 +411,17 @@ impl QniApp {
         let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
             return;
         };
-        let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let rect = gate_visible_rect(
+            gate,
+            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+        );
         let painter = painter.with_clip_rect(rect.intersect(painter.clip_rect()));
         self.draw_placed_circuit_gates(&painter, circuit_origin, colors, true, Some(id), batch);
-        let right_clip = insert_preview_right_clip(painter.clip_rect(), circuit_origin, gate);
+        let right_clip = insert_preview_right_clip(
+            painter.clip_rect(),
+            circuit_origin,
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
+        );
         if right_clip.is_positive() {
             batch.paint_overlays(&painter.with_clip_rect(right_clip));
         }
@@ -423,7 +438,9 @@ impl QniApp {
         let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
             return;
         };
-        let split_x = circuit_origin.x + gate.pos.x + GATE_SIZE / 2.0;
+        let split_x = circuit_origin.x
+            + crate::render::circuit::gate_draw_pos(gate, self.dragging).x
+            + GATE_SIZE / 2.0;
         let mut clip = painter.clip_rect();
         clip.max.x = clip.max.x.min(split_x);
         if clip.is_positive() {
@@ -480,7 +497,8 @@ impl QniApp {
                 };
                 let gate_height = (span.saturating_sub(1)) as f32 * LINE_GAP + GATE_SIZE;
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
                     egui::vec2(GATE_SIZE, gate_height),
                 );
                 let hovered_outcome = self
@@ -559,7 +577,11 @@ impl QniApp {
                 } else {
                     return None;
                 };
-                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let gate_rect = gate_visible_rect(
+                    gate,
+                    circuit_origin
+                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                );
                 let body_rect = amplitude_grid_rect(gate_rect, gate.span.get());
                 let hovered_outcome = self
                     .hovered_amplitude_outcome
@@ -638,7 +660,11 @@ impl QniApp {
                     return None;
                 };
                 let span = gate.span.get().clamp(1, 8) as u32;
-                let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+                let gate_rect = gate_visible_rect(
+                    gate,
+                    circuit_origin
+                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                );
                 let hovered_cell = self
                     .hovered_density_cell
                     .filter(|(id, _)| *id == gate.id)
@@ -700,7 +726,8 @@ impl QniApp {
                 }
                 let slot = self.bloch_display_slot(gate.id)?;
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
@@ -756,7 +783,8 @@ impl QniApp {
                 }
                 let slot = self.gpu_plan.measurement_slot(gate.id)?.as_u32();
                 let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin + gate.pos.to_vec2(),
+                    circuit_origin
+                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center =
@@ -817,7 +845,7 @@ impl QniApp {
             return;
         };
         let gate_rect = egui::Rect::from_min_size(
-            circuit_origin + gate.pos.to_vec2(),
+            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
 
@@ -929,7 +957,10 @@ impl QniApp {
             return;
         };
         let span = gate.span.get().clamp(1, 16);
-        let gate_rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+        let gate_rect = gate_visible_rect(
+            gate,
+            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+        );
         let Some((circle_center, circle_radius)) = amplitude_hover_circle(gate_rect, span, outcome)
         else {
             return;
@@ -1026,7 +1057,7 @@ impl QniApp {
         let row_count = 1usize << span;
         let gate_height = (span - 1) as f32 * LINE_GAP + GATE_SIZE;
         let gate_rect = egui::Rect::from_min_size(
-            circuit_origin + gate.pos.to_vec2(),
+            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
             egui::vec2(GATE_SIZE, gate_height),
         );
         let row_h = gate_rect.height() / row_count as f32;
@@ -1333,9 +1364,17 @@ mod tests {
         app.gpu_plan.replace_ops(ops, 4, sources);
         let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
         let metrics = crate::layout::layout_metrics(rect.width(), 1, 6);
-        let dragged = app.placed_gates.last_mut().unwrap();
+        let dragged = app.placed_gates.last().unwrap();
         let id = dragged.id;
-        dragged.pos.x = (metrics.slot_centers[0] + metrics.slot_centers[1] - GATE_SIZE) / 2.0;
+        let mut preview_pos = dragged.committed_pos();
+        preview_pos.x = (metrics.slot_centers[0] + metrics.slot_centers[1] - GATE_SIZE) / 2.0;
+        app.dragging = Some(crate::app::DragState {
+            id,
+            offset: egui::Vec2::ZERO,
+            preview_pos,
+            original_column: Some(dragged.column),
+            click_copy: None,
+        });
         app.dragging_live_snap = Some(crate::app::LiveDragSnap::Insert {
             column: crate::app::CircuitColumnIndex::new(1),
             wire: crate::app::WireIndex::new(0),
@@ -1433,7 +1472,7 @@ mod tests {
             .iter()
             .find(|gate| matches!(gate.flag, Some(GateFlag::If(_))))
             .unwrap();
-        let rect = gate_visible_rect(gate, gate.pos);
+        let rect = gate_visible_rect(gate, gate.committed_pos());
         let colors = app.colors();
         let capacity = ConditionalGateBodyCallback::MAX_PER_FRAME;
         assert_eq!(

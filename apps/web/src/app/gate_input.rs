@@ -38,11 +38,11 @@ impl QniApp {
             return;
         }
         // `local_pos` is the cursor in *circuit space* — the same
-        // coordinate frame `gate.pos` lives in. We undo the horizontal
+        // coordinate frame the gate draw position lives in. We undo the horizontal
         // scroll and the restricted-palette shift here once so every
         // downstream hit-test (gate body, slot snap, step preview,
         // palette drop on circuit) gets a cursor it can compare directly
-        // against `gate.pos`. Palette pickup itself uses `pos` (screen)
+        // against the gate draw position. Palette pickup itself uses `pos` (screen)
         // so it isn't affected by the offset.
         let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
         let local_pos = pos.map(|p| (p - circuit_origin).to_pos2());

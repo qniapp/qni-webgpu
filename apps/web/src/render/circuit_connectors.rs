@@ -76,7 +76,8 @@ impl QniApp {
             metrics,
             colors,
             circuit_origin,
-            dragging_gate_id,
+            self.dragging
+                .filter(|drag| Some(drag.id) == dragging_gate_id),
         );
     }
 }

@@ -28,14 +28,7 @@ pub(crate) use wire_index::{WireIndex, WireIndexError};
 pub(crate) struct PlacedGate {
     pub(crate) id: GateId,
     pub(crate) kind: GateKind,
-    /// Semantic circuit column (qni `CircuitStepElement` index). This is the
-    /// authoritative horizontal model; `pos.x` is only the derived draw/drag
-    /// preview coordinate.
     pub(crate) column: CircuitColumnIndex,
-    /// Derived circuit-local draw position. During drag this follows the
-    /// pointer as a preview; on committed placement it is resynchronised from
-    /// `column` / `wire`.
-    pub(crate) pos: egui::Pos2,
     pub(crate) wire: WireIndex,
     /// Vertical span in qubit wires. 1 for ordinary single-qubit gates;
     /// resizable-span gates (Probability, Amplitude, QFT / QFT†) can grow via hover-revealed
@@ -66,7 +59,6 @@ impl PlacedGate {
             id,
             kind,
             column,
-            pos: Self::grid_pos(column, wire),
             wire,
             span,
             angle,
@@ -90,8 +82,8 @@ impl PlacedGate {
         egui::pos2(slot_center_x - GATE_SIZE / 2.0, line_y - GATE_SIZE / 2.0)
     }
 
-    pub(crate) fn sync_pos_from_grid(&mut self) {
-        self.pos = Self::grid_pos(self.column, self.wire);
+    pub(crate) fn committed_pos(&self) -> egui::Pos2 {
+        Self::grid_pos(self.column, self.wire)
     }
 
     pub(crate) fn clamp_span_to_qubit_capacity(&mut self, capacity: QubitCapacity) {
@@ -107,6 +99,7 @@ impl PlacedGate {
 pub(crate) struct DragState {
     pub(crate) id: GateId,
     pub(crate) offset: egui::Vec2,
+    pub(crate) preview_pos: egui::Pos2,
     /// Original semantic column for a moved gate. `None` means a palette gate
     /// or a duplicate that has no committed source column yet.
     pub(crate) original_column: Option<CircuitColumnIndex>,
@@ -294,7 +287,6 @@ impl QniApp {
                         return;
                     };
                     gate.column = column;
-                    gate.sync_pos_from_grid();
                 }
             }
         } else {
@@ -304,7 +296,6 @@ impl QniApp {
             for gate in &mut self.placed_gates {
                 if gate.id != gate_id && gate.column.as_usize() >= boundary {
                     gate.column = gate.column.saturating_sub(delta);
-                    gate.sync_pos_from_grid();
                 }
             }
         }
@@ -369,7 +360,6 @@ pub(super) fn compact_gate_columns(gates: &mut [PlacedGate]) -> BTreeSet<usize> 
     for gate in gates.iter_mut() {
         if let Some(&new_i) = remap.get(&gate.column.as_usize()) {
             gate.column = CircuitColumnIndex::new(new_i);
-            gate.sync_pos_from_grid();
         }
     }
     occupied
@@ -438,9 +428,6 @@ pub(super) fn insert_gate_in(
     gate.wire = wire;
     gate.clamp_span_to_qubit_capacity(capacity);
 
-    for gate in gates.iter_mut() {
-        gate.sync_pos_from_grid();
-    }
     Some(InsertColumnsEdit {
         removed: original_column.filter(|_| remove_old_column),
         inserted: adjusted_insert,

@@ -24,7 +24,12 @@ pub(super) fn draw_control_connectors(
     dragging_gate_id: Option<GateId>,
 ) {
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
-        gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+        gate_slot_index_for_render(
+            gate,
+            metrics,
+            app.dragging
+                .filter(|drag| Some(drag.id) == dragging_gate_id),
+        )
     });
 
     for column in analysis.columns() {
@@ -32,8 +37,9 @@ pub(super) fn draw_control_connectors(
         let mut targets = Vec::new();
         let mut anti_control_gaps = Vec::new();
         for gate in column.gates() {
-            let center =
-                circuit_origin + gate.pos.to_vec2() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+            let center = circuit_origin
+                + crate::render::circuit::gate_draw_pos(gate, app.dragging).to_vec2()
+                + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
             if gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl {
                 controls.push(center);
                 if gate.kind == GateKind::AntiControl {
