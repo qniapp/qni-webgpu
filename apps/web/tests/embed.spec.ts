@@ -88,10 +88,10 @@ for (const failFirst of [false, true]) {
       w.deviceRequests = 0
       const prototype = GPUAdapter.prototype
       const requestDevice = prototype.requestDevice
-      prototype.requestDevice = function (...args: any[]) {
+      prototype.requestDevice = function (descriptor?: GPUDeviceDescriptor) {
         w.deviceRequests++
         if (failFirst && w.deviceRequests === 1) return Promise.reject(new Error('injected device failure'))
-        return requestDevice.apply(this, args)
+        return requestDevice.call(this, descriptor)
       }
     }, failFirst)
     await page.route(`${assetOrigin}*`, async route => {
