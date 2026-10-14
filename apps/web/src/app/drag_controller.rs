@@ -15,7 +15,7 @@ mod tests;
 use eframe::egui;
 
 use super::{CircuitColumnIndex, QniApp};
-use crate::constants::{PALETTE_ROW_Y, SLOT_SPACING, STEP_OUTSET_Y};
+use crate::constants::{GATE_SIZE, PALETTE_ROW_Y, SLOT_SPACING, STEP_OUTSET_Y};
 use crate::layout::{
     layout_metrics, nearest_slot_index, palette_start_x, LayoutMetrics, Palette, PaletteLayout,
 };
@@ -79,13 +79,15 @@ fn step_at_cursor(cursor: egui::Pos2, metrics: &LayoutMetrics) -> Option<Circuit
     if cursor.y < top || cursor.y > bottom {
         return None;
     }
-    // Reuse the wire gap before slot 0; its left half never hits column 0.
-    if cursor.x >= metrics.line_left && cursor.x < metrics.slot_left - SLOT_SPACING * 0.5 {
+    // The initial step occupies one full slot width up to the first gate's
+    // left edge. The column-zero step begins at that edge, not half a slot
+    // before its center. Coordinates are circuit-local even in narrow gutters.
+    let first_gate_left = metrics.slot_left - GATE_SIZE / 2.0;
+    let initial_left = first_gate_left - SLOT_SPACING;
+    if cursor.x >= initial_left && cursor.x < first_gate_left {
         return Some(CircuitColumnIndex::INITIAL);
     }
-    if cursor.x < metrics.slot_left - SLOT_SPACING * 0.5
-        || cursor.x > metrics.slot_right + SLOT_SPACING * 0.5
-    {
+    if cursor.x < first_gate_left || cursor.x > metrics.slot_right + SLOT_SPACING * 0.5 {
         return None;
     }
     let (slot, dist) = nearest_slot_index(cursor.x, &metrics.slot_centers)?;

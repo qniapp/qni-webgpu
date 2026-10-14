@@ -10,7 +10,7 @@
 
 use eframe::egui;
 
-use super::{CircuitColumnIndex, ExecMode, QniApp};
+use super::{ExecMode, QniApp};
 use crate::qubit_count::QubitCount;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -207,7 +207,9 @@ impl QniApp {
         self.hovered_step = None;
         self.angle_affordance = None;
         self.angle_editor = None;
-        self.breakpoint_step = Some(CircuitColumnIndex::ZERO);
+        let step_count =
+            crate::url_circuit::summarize_circuit_json(json).map_or(0, |summary| summary.columns);
+        self.breakpoint_step = self.initial_breakpoint_step(step_count);
         self.drag_cursor_pos = None;
         self.drag_repaint_deadline = None;
         self.drag_repaint_pending = false;

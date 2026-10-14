@@ -3,13 +3,14 @@ import { readStateVector, waitForStartupReady, waitForValue } from './support/we
 
 const circuit = '#%7B%22cols%22%3A%5B%5B%22H%22%5D%2C%5B%22Z%22%5D%5D%7D'
 const firstStep = [Math.SQRT1_2, 0, Math.SQRT1_2, 0]
+const finalStep = [Math.SQRT1_2, 0, -Math.SQRT1_2, 0]
 const matches = (actual: unknown[], expected: number[]) =>
   actual.length === expected.length && expected.every((value, index) => Math.abs(Number(actual[index]) - value) < 1e-3)
 
-test('standalone circuit initially shows the first column state', async ({ page }) => {
+test('standalone circuit initially shows the final column state', async ({ page }) => {
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
-  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
+  await expect.poll(async () => matches(await readStateVector(page), finalStep)).toBe(true)
 })
 
 test('hovering above the first gate previews step zero', async ({ page }) => {
@@ -36,13 +37,13 @@ test('clicking above the first gate selects step zero', async ({ page }) => {
 
 const initialState = [1, 0, 0, 0]
 
-test('hovering the left gap previews the initial state then restores post-H', async ({ page }) => {
+test('hovering the left gap previews the initial state then restores the final state', async ({ page }) => {
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   await page.mouse.move(132, 224)
   await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial hover did not show ground state')
   await page.mouse.move(1000, 450)
-  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
+  await expect.poll(async () => matches(await readStateVector(page), finalStep)).toBe(true)
 })
 
 test('initial hover reports minus one to the inspection hook', async ({ page }) => {
@@ -59,6 +60,39 @@ test('clicking the left gap locks the initial state after pointer leaves', async
   await page.mouse.click(132, 224)
   await page.mouse.move(1000, 450)
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking the middle of the gap pins initial state after pointer leaves', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(140, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking the extended left end pins initial state', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(100, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking just before the first gate left edge pins initial state', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(149, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking just inside the first gate left edge selects column zero', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.click(151, 224) // Above the gate body, in column zero's step padding.
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
 })
 
 test('hovering post-H temporarily overrides the initial breakpoint', async ({ page }) => {
@@ -95,6 +129,7 @@ test('initial breakpoint is drawn in the existing gap without moving gates', asy
 test('hovering the left gap draws a translucent initial bar', async ({ page }) => {
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定してからホバーする。
   await page.mouse.move(132, 224)
   await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial hover not ready')
   await expect(page).toHaveScreenshot('initial-hover.png', {
@@ -107,6 +142,15 @@ test('narrow circuit keeps the initial hit target without shifting columns', asy
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   await page.mouse.click(52, 224)
+  await page.mouse.move(389, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('narrow circuit hits the extended left end', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(25, 224)
   await page.mouse.move(389, 450)
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
 })

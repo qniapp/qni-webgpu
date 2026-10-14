@@ -5,6 +5,14 @@ use eframe::egui;
 use super::{CircuitColumnIndex, QniApp};
 
 impl QniApp {
+    pub(crate) fn initial_breakpoint_step(&self, step_count: usize) -> Option<CircuitColumnIndex> {
+        Some(if matches!(self.mode, super::AppMode::Standalone) {
+            CircuitColumnIndex::new(step_count.saturating_sub(1))
+        } else {
+            CircuitColumnIndex::ZERO
+        })
+    }
+
     /// Committed JSON columns, excluding block markers and editor padding.
     pub(crate) fn step_count(&self) -> usize {
         crate::url_circuit::summarize_circuit_json(&self.library.active().circuit_json)
