@@ -379,8 +379,7 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   const clickToolbar = async (x: number): Promise<void> => {
     await page.mouse.click((box?.x ?? 0) + x, (box?.y ?? 0) + 18)
   }
-  // Startup and history restoration select step 0. Lock the final column
-  // to verify that undo/redo also restores H's effect on the GPU state.
+  // 列の追加後は最終列を固定して、GPU 上で H の効果を確認する。
   const selectFinalStep = async (): Promise<void> => {
     await page.mouse.click(box.x + targetX2, box.y + LINE_Y - 32)
     await page.mouse.move(box.x + targetX2 + 120, box.y + LINE_Y + 120)
@@ -409,8 +408,6 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [['X'], ['H']])
-  await waitForStateVectorApprox(page, [0, 0, 1, 0])
-  await selectFinalStep()
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
   await clickToolbar(98 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
@@ -419,8 +416,6 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 
   await clickToolbar(26 + CIRCUIT_PICKER_TOOLBAR_SHIFT)
   await waitForHashCols(page, [['X'], ['H']])
-  await waitForStateVectorApprox(page, [0, 0, 1, 0])
-  await selectFinalStep()
   await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, -Math.SQRT1_2, 0])
 
   await clickToolbar(62 + CIRCUIT_PICKER_TOOLBAR_SHIFT)

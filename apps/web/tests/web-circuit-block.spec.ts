@@ -17,6 +17,8 @@ test('circuit block markers survive loading from the URL', async ({ page }) => {
 test('circuit block visual snapshot', async ({ page }) => {
   await page.goto(`/#${encodeURIComponent(BELL_BLOCK_JSON)}`)
   await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(170, 280) // ブロックの下で、既存の比較画像と同じ列 0 を固定する。
+  await page.mouse.move(1000, 450)
 
   // 測定結果は確率的に決まるため、測定ゲートの手前までを撮る。
   await expect(page).toHaveScreenshot('circuit-block-bell.png', {

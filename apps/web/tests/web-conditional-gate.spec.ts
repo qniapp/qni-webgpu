@@ -23,7 +23,7 @@ const openCircuit = async (page: Page, json: string): Promise<void> => {
 
 const openFinalState = async (page: Page, json: string): Promise<void> => {
   await openCircuit(page, json)
-  // The editor now starts at step 0; inspect the final column for gate semantics.
+  // ゲートの動作確認では、最終列を明示的に選択する。
   await page.mouse.click(170 + 56 * (JSON.parse(json).cols.length - 1), 224)
   await page.mouse.move(1000, 450)
 }
@@ -96,6 +96,8 @@ test('undo restores a deleted conditional gate with its condition', async ({ pag
 
 test('conditional gate visual snapshot', async ({ page }) => {
   await openCircuit(page, VISUAL_JSON)
+  await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定する。
+  await page.mouse.move(1000, 450)
 
   await expect(page).toHaveScreenshot('conditional-gates.png', {
     clip: { x: 120, y: 220, width: 320, height: 150 },

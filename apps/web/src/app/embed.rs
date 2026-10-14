@@ -428,10 +428,13 @@ mod tests {
     }
 
     #[test]
-    fn standalone_starts_at_step_zero() {
+    fn standalone_starts_at_final_step() {
         let ctx = eframe::egui::Context::default();
         let app = super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx));
-        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::ZERO));
+        assert_eq!(
+            app.breakpoint_step,
+            Some(CircuitColumnIndex::new(app.step_count().saturating_sub(1)))
+        );
     }
 
     #[test]
@@ -443,13 +446,32 @@ mod tests {
     }
 
     #[test]
-    fn standalone_circuit_reload_pins_step_zero() {
+    fn standalone_circuit_reload_pins_final_step() {
+        let ctx = eframe::egui::Context::default();
+        let mut app =
+            super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.breakpoint_step = Some(CircuitColumnIndex::ZERO);
+        app.load_circuit_json_into_editor(r#"{"cols":[["X"],["H"],["Z"]]}"#, &ctx);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::new(2)));
+    }
+
+    #[test]
+    fn standalone_empty_circuit_reload_pins_step_zero() {
         let ctx = eframe::egui::Context::default();
         let mut app =
             super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
         app.breakpoint_step = Some(CircuitColumnIndex::new(2));
-        app.load_circuit_json_into_editor(r#"{"cols":[["X"],["H"],["Z"]]}"#, &ctx);
+        app.load_circuit_json_into_editor(r#"{"cols":[]}"#, &ctx);
         assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::ZERO));
+    }
+
+    #[test]
+    fn standalone_reload_counts_committed_empty_columns() {
+        let ctx = eframe::egui::Context::default();
+        let mut app =
+            super::super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(r#"{"cols":[["H"],[],[]]}"#, &ctx);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::new(2)));
     }
 
     #[test]

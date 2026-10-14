@@ -92,7 +92,8 @@ pub(crate) struct QniApp {
     pub(crate) angle_editor: Option<AngleEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final state (all columns applied). Loading a
-    /// circuit selects step 0, as in qni.
+    /// circuit selects the final committed column in standalone mode and step 0
+    /// in embed modes. Empty circuits select step 0.
     pub(crate) breakpoint_step: Option<CircuitColumnIndex>,
     pub(crate) hovered_gate_id: Option<GateId>,
     /// `(gate_id, outcome)` for the Probability row under the pointer. The
@@ -310,7 +311,7 @@ impl QniApp {
             crate::url_circuit::write_exec_mode_to_url(exec_mode);
             embed::write_document_title(&circuit_title);
         }
-        Self {
+        let mut app = Self {
             mode,
             on_restart,
             palette,
@@ -360,7 +361,9 @@ impl QniApp {
             fps_hud_history: VecDeque::with_capacity(120),
             fps_hud_cpu_history: VecDeque::with_capacity(120),
             fps_hud_svp_history: VecDeque::with_capacity(120),
-        }
+        };
+        app.breakpoint_step = app.initial_breakpoint_step(app.step_count());
+        app
     }
 
     /// Screen position of the circuit-space origin for a circuit content

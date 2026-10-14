@@ -23,6 +23,8 @@ for (const side of ['left', 'right', 'center'] as const) {
   test(`shift click ${side} insertion preview visual snapshot`, async ({ page }) => {
     await page.goto(`/#${encodeURIComponent(JSON.stringify({ cols: [['H'], ['X']] }))}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定する。
+    await page.mouse.move(1000, 450)
     await page.keyboard.down('Shift')
     await page.mouse.move(side === 'left' ? 156 : side === 'right' ? 180 : 170, 264)
     await page.mouse.down()
@@ -39,6 +41,8 @@ for (const display of ['Probability', 'Amps4', 'Density2']) {
   test(`shift copy preserves neighboring ${display} GPU rendering`, async ({ page }) => {
     await page.goto(`/#${encodeURIComponent(JSON.stringify({ cols: [['H'], [display]] }))}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定する。
+    await page.mouse.move(1000, 450)
     await page.keyboard.down('Shift')
     await page.mouse.move(180, 264)
     await page.mouse.down()
@@ -54,6 +58,8 @@ for (const display of ['Probability', 'Amps4', 'Density2']) {
 test('shift copy panel overlap visual snapshot', async ({ page }) => {
   await page.goto(`/#${encodeURIComponent(JSON.stringify({ cols: [['H'], ['X']] }))}`)
   await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定する。
+  await page.mouse.move(1000, 450)
   await dragPointer(page, { x: 640, y: 552 }, { x: 470, y: 252 })
   await page.keyboard.down('Shift')
   await page.mouse.move(180, 264)

@@ -12,7 +12,6 @@ import {
   pixelRgbDistance,
   readEguiError,
   readMeasurementOutcomes,
-  readStateVector,
   releasePointer,
   sampleCanvasPixels,
   UI_CONSTANTS,
@@ -485,8 +484,8 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
   await waitForStateVectorApprox(page, superposition)
 })
 
-test('standalone app shows step zero of a loaded circuit', async ({ page }) => {
+test('standalone app shows the final step of a loaded circuit', async ({ page }) => {
   await page.goto(`/#${encodeURIComponent('{"cols":[["|0>","|0>"],["H"],["•","X"]]}')}`)
   await waitForStartupReady(page, { waitForStateVector: true })
-  await expect.poll(() => readStateVector(page)).toEqual([1, 0, 0, 0, 0, 0, 0, 0])
+  await waitForStateVectorApprox(page, [Math.SQRT1_2, 0, 0, 0, 0, 0, Math.SQRT1_2, 0])
 })
