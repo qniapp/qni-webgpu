@@ -19,7 +19,8 @@ use crate::shared::now_seconds;
 
 struct CircuitFrameState {
     content_rect: Option<egui::Rect>,
-    gpu_viewport: egui::Rect,
+    gpu_batch: Option<crate::render::CircuitGpuBatch>,
+    recompute: bool,
     dragging_gate_id: Option<GateId>,
     live_drag_gpu_overlay_ready: bool,
     insert_preview_painted: bool,
@@ -40,14 +41,14 @@ impl QniApp {
     ) {
         let screen_rect = ui.max_rect();
         let colors = self.colors();
-        let content_height = self.circuit_content_height(self.layout_qubits(), screen_rect);
+        let target_format = frame.wgpu_render_state().map(|state| state.target_format);
 
         // Decide whether wheel-over-the-panel should suppress the surrounding
         // ScrollArea's page-scroll. If pointer is on the state panel (or its
         // popover), route wheel to our aspect / zoom handlers instead.
         let pointer_over_state_panel = self.compute_state_panel_input_gate(ctx, screen_rect);
 
-        if let Some(target_format) = frame.wgpu_render_state().map(|state| state.target_format) {
+        if let Some(target_format) = target_format {
             if self.external_gpu_display_resources_needed() {
                 let callback = StateVectorResourceBootstrapCallback { target_format };
                 let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, callback);
@@ -59,7 +60,7 @@ impl QniApp {
             ctx,
             ui,
             screen_rect,
-            content_height,
+            target_format,
             pointer_over_state_panel,
             &colors,
         );

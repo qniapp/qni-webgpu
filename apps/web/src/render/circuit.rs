@@ -55,7 +55,7 @@ impl QniApp {
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
         scroll_x: f32,
-    ) -> bool {
+    ) -> (bool, super::circuit_gates::CircuitGpuBatch) {
         // `circuit_origin` is `rect.min` shifted left by the narrow-canvas
         // gutter and the current horizontal scroll offset, up by the
         // restricted-palette shift, and down by the circuit blocks' outset.
@@ -115,13 +115,15 @@ impl QniApp {
         // Keep one visible viewport for GPU geometry even when insert layering
         // splits its paint scissor into left and right passes.
         let gpu_viewport = rect.intersect(painter.clip_rect());
+        let batch =
+            self.build_circuit_gpu_batch(gpu_viewport, circuit_origin, dragging_gate_id, colors);
         let insert_preview_painted = self.draw_placed_circuit_gates(
             painter,
             circuit_origin,
             colors,
             fast_drag,
             dragging_gate_id,
-            gpu_viewport,
+            &batch,
         );
 
         let mut gpu_clip = painter.clip_rect();
@@ -136,13 +138,7 @@ impl QniApp {
             }
         }
         if gpu_clip.is_positive() {
-            self.draw_circuit_gpu_overlays(
-                &painter.with_clip_rect(gpu_clip),
-                gpu_viewport,
-                circuit_origin,
-                dragging_gate_id,
-                colors,
-            );
+            batch.paint_overlays(&painter.with_clip_rect(gpu_clip));
         }
 
         let gutters = CircuitGutters::for_canvas_width(rect.width());
@@ -162,7 +158,7 @@ impl QniApp {
                 colors.text,
             );
         }
-        insert_preview_painted
+        (insert_preview_painted, batch)
     }
 }
 
