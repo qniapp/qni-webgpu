@@ -172,15 +172,16 @@ const readRetryMarker = (): string | null => {
   }
 }
 
-const writeRetryMarker = (value: string | null): void => {
+const writeRetryMarker = (value: string | null): boolean => {
   try {
     if (value === null) {
       sessionStorage.removeItem(STARTUP_RETRY_KEY)
     } else {
       sessionStorage.setItem(STARTUP_RETRY_KEY, value)
     }
+    return true
   } catch {
-    // 保存できない場合は再読み込みを 1 回に制限できないため、再試行しない。
+    return false
   }
 }
 
@@ -193,8 +194,7 @@ const watchStartup = (): void => {
     }
     const detail = `WebGPU initialization did not finish within ${timeout} ms (stage: ${String(startupStage() ?? 'not-started')})`
     console.error(detail)
-    if (readRetryMarker() === null) {
-      writeRetryMarker(detail)
+    if (readRetryMarker() === null && writeRetryMarker(detail)) {
       location.reload()
       return
     }

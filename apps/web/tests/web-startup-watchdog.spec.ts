@@ -74,3 +74,34 @@ test('slow but successful startup clears the watchdog error', async ({ page }) =
 
   expect(recovered).toEqual({ error: null, screenHidden: true })
 })
+
+// sessionStorage が使えないと再読み込みの回数を記録できない。その場合に
+// 自動再読み込みを続けると、固まった起動のたびに読み込み直して終わらない。
+test('startup that stalls without sessionStorage surfaces the error without reloading', async ({ page }) => {
+  await page.addInitScript((watchdogMs: number) => {
+    Reflect.set(window, '__qniStartupWatchdogMs', watchdogMs)
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      get: () => {
+        throw new DOMException('The operation is insecure.', 'SecurityError')
+      },
+    })
+    if (!navigator.gpu) return
+    Object.defineProperty(navigator.gpu, 'requestAdapter', {
+      configurable: true,
+      value: () => new Promise(() => {}),
+    })
+  }, WATCHDOG_MS)
+
+  let loads = 0
+  page.on('load', () => {
+    loads += 1
+  })
+
+  await page.goto('/')
+  await page.getByTestId('webgpu-error').waitFor({ state: 'visible', timeout: 30_000 })
+  await page.waitForTimeout(WATCHDOG_MS * 3)
+
+  expect(loads).toBe(1)
+  await expect(page.getByTestId('webgpu-error')).toBeVisible()
+})
