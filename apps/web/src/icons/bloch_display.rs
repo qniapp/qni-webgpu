@@ -97,7 +97,7 @@ pub(crate) fn draw_bloch_vector(
             egui::Stroke::new(1.5_f32, colors.bloch_vector_line),
         );
         let tip_color = bloch_tip_color(vector[2], colors);
-        // 8px diameter at base size; add a 1px Flexoki tx outline for the
+        // 8px diameter at base size; add a 1px outline for the
         // brighter saturated tip trial.
         painter.circle_filled(tip, 4.0, tip_color);
         painter.circle_stroke(

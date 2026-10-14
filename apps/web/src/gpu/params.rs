@@ -302,7 +302,6 @@ pub(crate) struct DensityRenderParams {
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
     pub(crate) hover_border: [f32; 4],
-    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
     pub(crate) placeholder_background: [f32; 4],
 }
 
@@ -328,25 +327,17 @@ pub(crate) struct AmplitudeRenderParams {
     /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Flexoki bg / paper #FFFCF0 cell background.
     pub(crate) background: [f32; 4],
-    /// Flexoki purple-600 #5E409D dragged cell background.
     pub(crate) drag_background: [f32; 4],
-    /// Flexoki ui-2 #DAD8CE grid / outer border.
+    /// Grid / outer border.
     pub(crate) border: [f32; 4],
-    /// Flexoki blue-200 #92BFDB amplitude disk.
     pub(crate) disk: [f32; 4],
-    /// Flexoki blue-400 #4385BE amplitude disk inset border.
     pub(crate) disk_border: [f32; 4],
-    /// Flexoki tx-2 #6F6E69 coherent non-zero outline.
+    /// Coherent non-zero outline.
     pub(crate) outline: [f32; 4],
-    /// Flexoki ui-2 #DAD8CE zero outline.
     pub(crate) outline_zero: [f32; 4],
-    /// Flexoki tx #100F0F phase needle.
     pub(crate) needle: [f32; 4],
-    /// Flexoki purple-400 #8B7EC8 hovered cell outline.
     pub(crate) hover_border: [f32; 4],
-    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
     pub(crate) placeholder_background: [f32; 4],
 }
 
@@ -408,11 +399,10 @@ pub(crate) struct ProbabilityRenderParams {
     /// Pad to keep the following `vec4` colours 16-byte aligned (WGSL std layout).
     pub(crate) _pad_ppp: [f32; 3],
     pub(crate) background: [f32; 4],
-    /// Flexoki purple-100 #ECE1F3 pre-run placeholder background.
     pub(crate) placeholder_background: [f32; 4],
-    /// Flexoki ui-2 #DAD8CE outer border / row separators.
+    /// Outer border / row separators.
     pub(crate) border: [f32; 4],
-    /// Flexoki tx-3 #B7B5AC logarithm hints for Probability5..16.
+    /// Logarithm hints for Probability5..16.
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
     pub(crate) bar_edge: [f32; 4],

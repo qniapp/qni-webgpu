@@ -15,7 +15,7 @@ const THUMB_TEXT_GAP: f32 = 12.0; // spacing-3 = 12px.
 const TEXT_SM: f32 = 14.0; // text-sm = 14px.
 
 /// Draw the aspect popover (background + rows). Chrome and row rhythm mirror
-/// the Circuit picker dropdown: paper bg, ui-2 1px border, rounded-xl,
+/// the Circuit picker dropdown: 1px border, rounded-xl,
 /// p-1.5, shadow-popover, and 36px proportional rows.
 pub(crate) fn draw_aspect_popover(
     painter: &egui::Painter,
@@ -32,14 +32,14 @@ pub(crate) fn draw_aspect_popover(
         offset: [0, 12],
         blur: 32,
         spread: 0,
-        color: with_alpha(colors.text_strong, 25), // Flexoki tx alpha, shadow-popover.
+        color: with_alpha(colors.text_strong, 25),
     };
     painter.add(egui::Shape::Rect(shadow.as_shape(rect, corner)));
-    painter.rect_filled(rect, corner, colors.surface); // Flexoki bg / paper.
+    painter.rect_filled(rect, corner, colors.surface);
     painter.rect_stroke(
         rect,
         corner,
-        egui::Stroke::new(1.0_f32, colors.line), // Flexoki ui-2.
+        egui::Stroke::new(1.0_f32, colors.line),
         egui::StrokeKind::Inside,
     );
 
@@ -53,7 +53,7 @@ pub(crate) fn draw_aspect_popover(
             painter.rect_filled(
                 *row_rect,
                 egui::CornerRadius::same(ITEM_RADIUS),
-                colors.background, // Flexoki bg-2.
+                colors.background,
             );
         }
 
@@ -86,7 +86,7 @@ fn paint_aspect_thumbnail(
     painter.rect_filled(
         egui::Rect::from_min_size(thumb_min, egui::vec2(thumb_w, thumb_h)),
         egui::CornerRadius::ZERO,
-        colors.aspect_thumb_idle, // Flexoki tx-2 alpha; unchanged gray thumbnail.
+        colors.aspect_thumb_idle,
     );
 }
 
@@ -110,7 +110,7 @@ fn paint_aspect_row_text(
         row_rect.left() + ITEM_PAD_X + THUMB_SLOT_W + THUMB_TEXT_GAP,
         row_rect.center().y,
     );
-    let color = colors.text_strong; // Flexoki tx; no blue active text.
+    let color = colors.text_strong;
     let galley = painter.layout_no_wrap(label, font.clone(), color);
     painter.galley(
         egui::pos2(label_pos.x, label_pos.y - galley.size().y / 2.0),
