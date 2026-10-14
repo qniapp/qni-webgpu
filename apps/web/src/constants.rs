@@ -1,7 +1,7 @@
 pub(crate) const REM: f32 = 32.0;
 pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
-/// Height of the state panel's header strip (the blue-600 bar at the top
+/// Height of the state panel's header strip (the bar at the top
 /// showing "N qubits" / "C × R = N states", and that hosts the top resize
 /// handles). At 32px, giving 14px text with 20px line height ~6 px
 /// of breathing room above and below — a comfortable "header" feel
@@ -132,7 +132,7 @@ pub(crate) const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
 /// first qubit wire's top-of-gate. 48px — twice
 /// the toolbar→palette gap so the boundary between "input bank" and
 /// "circuit canvas" reads clearly even though both areas display
-/// visually identical cyan-400 gates.
+/// visually identical gates.
 pub(crate) const PALETTE_CIRCUIT_GAP: f32 = crate::tailwind::SPACING_12;
 
 pub(crate) const LINE_Y: f32 = PALETTE_ROW_Y
@@ -207,7 +207,7 @@ pub(crate) const PALETTE_GAP: f32 = crate::tailwind::SPACING_2;
 pub(crate) const PALETTE_ROW_GAP: f32 = crate::tailwind::SPACING_2;
 // 8px on both sides of the Display-section separator.
 pub(crate) const PALETTE_SECTION_GAP: f32 = crate::tailwind::SPACING_2;
-// 2px Flexoki ui-2 vertical divider used by UI section separators.
+// 2px vertical divider used by UI section separators.
 pub(crate) const SECTION_DIVIDER_WIDTH: f32 = 2.0;
 // Palette separator spans the full two-row palette height.
 pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = SECTION_DIVIDER_WIDTH;

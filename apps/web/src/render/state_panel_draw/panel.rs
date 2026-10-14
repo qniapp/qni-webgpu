@@ -37,12 +37,12 @@ pub(super) fn paint_capacity_error(
     painter.rect_filled(
         card,
         egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
-        with_alpha(colors.semantic_off, 18), // Flexoki red-600 alpha.
+        with_alpha(colors.semantic_off, 18),
     );
     painter.rect_stroke(
         card,
         egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
-        egui::Stroke::new(1.0_f32, colors.semantic_off), // Flexoki red-600.
+        egui::Stroke::new(1.0_f32, colors.semantic_off),
         egui::StrokeKind::Outside,
     );
     painter.text(
@@ -50,14 +50,14 @@ pub(super) fn paint_capacity_error(
         egui::Align2::CENTER_CENTER,
         "GPU capacity limit exceeded",
         egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional),
-        colors.semantic_off, // Flexoki red-600.
+        colors.semantic_off,
     );
     painter.text(
         egui::pos2(center.x, center.y + crate::tailwind::SPACING_3),
         egui::Align2::CENTER_CENTER,
         truncate_capacity_message(message),
         egui::FontId::new(crate::tailwind::TEXT_XS, egui::FontFamily::Proportional),
-        colors.text, // Flexoki tx-2.
+        colors.text,
     );
 }
 

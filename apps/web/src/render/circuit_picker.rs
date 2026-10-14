@@ -86,7 +86,7 @@ impl QniApp {
             ui.painter().rect_filled(
                 rect,
                 egui::CornerRadius::same(ITEM_RADIUS),
-                with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8), // Flexoki ui.
+                with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8),
             );
         }
         ui.painter().galley(
@@ -424,7 +424,7 @@ impl QniApp {
                 ui.painter().rect_filled(
                     visual_rect,
                     egui::CornerRadius::same(ITEM_RADIUS),
-                    colors.background, // Flexoki bg-2.
+                    colors.background,
                 );
             }
             paint_picker_item_text(ui, colors, visual_rect, kebab_rect, entry, active, 255);
@@ -434,9 +434,9 @@ impl QniApp {
                 ui.painter(),
                 kebab_rect.center(),
                 if kebab.hovered() || submenu_open {
-                    colors.toolbar_icon_hover // Flexoki tx.
+                    colors.toolbar_icon_hover
                 } else {
-                    colors.toolbar_icon_disabled // Flexoki tx-3.
+                    colors.toolbar_icon_disabled
                 },
             );
         }

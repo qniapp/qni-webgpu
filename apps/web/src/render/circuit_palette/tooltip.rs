@@ -11,7 +11,7 @@ use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
 use crate::layout::palette_start_x;
 
 impl QniApp {
-    /// Hover tooltip painted over the palette: a paper card with the
+    /// Hover tooltip painted over the palette: a card with the
     /// gate's full name, qni-style description paragraphs, and a mini
     /// transformation diagram (input amplitudes → gate → output
     /// amplitudes). Anchored below the hovered palette button, clamped

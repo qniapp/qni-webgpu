@@ -21,7 +21,7 @@ test('Amplitude render params expose a disk border color', async () => {
 test('Amplitude disk border maps to Flexoki blue-400', async () => {
   const colors = await fs.readFile(colorsPath, 'utf8')
 
-  assert.match(colors, /amplitude_disk_border: blue_400,\s*\/\/ amplitude disk inset border \(Flexoki blue-400\)/)
+  assert.match(colors, /amplitude_disk_border: flexoki::BLUE_400,/)
 })
 
 test('Amplitude shader samples the disk border uniform', async () => {

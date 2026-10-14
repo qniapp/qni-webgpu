@@ -55,7 +55,7 @@ pub(super) fn layout_tooltip_text(
     // title = 18px bold tx — qni's
     // `.tooltip-heading`. We can't render true bold without bundling a
     // bold font; rely on size + colour contrast for hierarchy.
-    // para = 14px tx-2 — `.tooltip-subheading`.
+    // para = 14px — `.tooltip-subheading`.
     let title = painter.layout_no_wrap(
         info.name.to_owned(),
         egui::FontId::proportional(crate::tailwind::TEXT_LG),

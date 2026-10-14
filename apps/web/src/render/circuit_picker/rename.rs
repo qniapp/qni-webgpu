@@ -21,7 +21,7 @@ impl QniApp {
             rect,
             egui::CornerRadius::same(ITEM_RADIUS),
             colors.surface,
-            egui::Stroke::new(1.5_f32, colors.semantic_on), // Flexoki blue-600.
+            egui::Stroke::new(1.5_f32, colors.semantic_on),
             egui::StrokeKind::Outside,
         );
         let (mut draft, select_all) = match &mut self.picker {
@@ -47,12 +47,18 @@ impl QniApp {
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
         edit_ui.set_min_size(edit_rect.size());
-        edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong); // selected glyphs use Flexoki tx (near-black).
+        edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong); // selected glyphs use near-black.
         let output = egui::TextEdit::singleline(&mut draft)
             .id(text_id)
-            .font(egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional))
-            .text_color(colors.text_strong) // Flexoki tx.
-            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(crate::tailwind::SPACING_0 as i8, crate::tailwind::SPACING_0_5 as i8)))
+            .font(egui::FontId::new(
+                crate::tailwind::TEXT_SM,
+                egui::FontFamily::Proportional,
+            ))
+            .text_color(colors.text_strong)
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(
+                crate::tailwind::SPACING_0 as i8,
+                crate::tailwind::SPACING_0_5 as i8,
+            )))
             .desired_width(edit_rect.width())
             .show(&mut edit_ui);
         publish_picker_rename_geometry_json(

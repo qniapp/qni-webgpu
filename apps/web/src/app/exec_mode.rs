@@ -274,8 +274,8 @@ fn paint_exec_mode_toggle(
         egui::vec2(thumb_width, local_rect.height()),
     );
     let thumb_color = colors
-        .text // Flexoki tx-2, Local active fill.
-        .lerp_to_gamma(colors.semantic_on, color_t.clamp(0.0, 1.0)); // Flexoki blue-600.
+        .text
+        .lerp_to_gamma(colors.semantic_on, color_t.clamp(0.0, 1.0));
     painter.rect_filled(thumb_rect, egui::CornerRadius::same(4), thumb_color);
 
     let pointer = ui.input(|input| input.pointer.hover_pos());
@@ -283,7 +283,7 @@ fn paint_exec_mode_toggle(
     let local_color = if local_available {
         inactive_label_color(inactive_hover(local_rect), colors)
     } else {
-        with_alpha(colors.text, 96) // Flexoki tx-2, disabled.
+        with_alpha(colors.text, 96)
     };
     paint_exec_mode_label(
         painter,

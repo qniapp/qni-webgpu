@@ -340,7 +340,7 @@ impl QniApp {
             if gate.kind == GateKind::BlochDisplay && self.bloch_display_slot(gate.id).is_none() {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
                 // or before the first frame's GPU dispatch). Show the
-                // inactive tx-3 center dot via egui until the GPU overlay takes over.
+                // inactive center dot via egui until the GPU overlay takes over.
                 draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
             }
         }

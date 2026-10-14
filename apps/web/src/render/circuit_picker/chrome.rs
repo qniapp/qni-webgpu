@@ -13,8 +13,8 @@ use super::constants::{
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
         inner_margin: egui::Margin::same(crate::tailwind::SPACING_1_5 as i8),
-        fill: colors.surface,                            // Flexoki bg / paper.
-        stroke: egui::Stroke::new(1.0_f32, colors.line), // Flexoki ui-2.
+        fill: colors.surface,
+        stroke: egui::Stroke::new(1.0_f32, colors.line),
         corner_radius: egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
         outer_margin: egui::Margin::ZERO,
         shadow: egui::epaint::Shadow {
@@ -156,14 +156,8 @@ pub(super) fn apply_items_scrollbar_style(ui: &mut egui::Ui, colors: &Colors) {
     style.spacing.scroll.active_handle_opacity = 1.0;
     style.spacing.scroll.interact_handle_opacity = 1.0;
 
-    let idle_thumb = with_alpha(
-        colors.toolbar_icon_disabled, // Flexoki tx-3 #B7B5AC @ 60%.
-        ITEMS_SCROLLBAR_IDLE_ALPHA,
-    );
-    let hover_thumb = with_alpha(
-        colors.toolbar_icon, // Flexoki tx-2 #6F6E69 @ 70%.
-        ITEMS_SCROLLBAR_HOVER_ALPHA,
-    );
+    let idle_thumb = with_alpha(colors.toolbar_icon_disabled, ITEMS_SCROLLBAR_IDLE_ALPHA);
+    let hover_thumb = with_alpha(colors.toolbar_icon, ITEMS_SCROLLBAR_HOVER_ALPHA);
     let radius = egui::CornerRadius::same(ITEMS_SCROLLBAR_THUMB_RADIUS);
     style.visuals.widgets.inactive.bg_fill = idle_thumb;
     style.visuals.widgets.inactive.corner_radius = radius;
@@ -181,7 +175,7 @@ pub(super) fn paint_dragged_row_background(
     painter.rect_filled(
         rect,
         egui::CornerRadius::same(ITEM_RADIUS),
-        colors.toolbar_hover_bg, // Flexoki ui.
+        colors.toolbar_hover_bg,
     );
 }
 
@@ -248,7 +242,7 @@ pub(super) fn paint_section_header(
         egui::vec2(ui.available_width(), SECTION_HEADER_HEIGHT),
         egui::Sense::hover(),
     );
-    let color = colors.toolbar_icon_disabled; // Flexoki tx-3.
+    let color = colors.toolbar_icon_disabled;
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
         egui::FontId::new(crate::tailwind::TEXT_XS, egui::FontFamily::Proportional),
@@ -264,7 +258,7 @@ pub(super) fn paint_section_header(
             egui::pos2(rect.left() + ITEM_PAD_X, line_y),
             egui::pos2(rect.left() + ITEM_PAD_X + ROW_ICON_SIZE, line_y),
         ],
-        egui::Stroke::new(1.0_f32, colors.line), // Flexoki ui-2.
+        egui::Stroke::new(1.0_f32, colors.line),
     );
     ui.painter().galley(text_pos, galley.clone(), color);
     ui.painter().line_segment(
@@ -272,7 +266,7 @@ pub(super) fn paint_section_header(
             egui::pos2(text_pos.x + galley.size().x + 6.0, line_y),
             egui::pos2(rect.right() - 4.0, line_y),
         ],
-        egui::Stroke::new(1.0_f32, colors.line), // Flexoki ui-2.
+        egui::Stroke::new(1.0_f32, colors.line),
     );
     rect
 }
@@ -286,10 +280,10 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
         ui.painter().rect_filled(
             rect,
             egui::CornerRadius::same(ITEM_RADIUS),
-            colors.background, // Flexoki bg-2.
+            colors.background,
         );
     }
-    let color = colors.text_strong; // Flexoki tx, matching circuit item labels.
+    let color = colors.text_strong;
     let galley = ui.painter().layout_no_wrap(
         "Create new circuit".to_owned(),
         egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional),
@@ -326,9 +320,9 @@ pub(super) fn paint_resize_separator(
         RESIZE_HANDLE_IDLE_STROKE
     };
     let color = if active {
-        colors.semantic_on // Flexoki blue-600.
+        colors.semantic_on
     } else {
-        colors.line // Flexoki ui-2.
+        colors.line
     };
     let y = rect.center().y;
     ui.painter().line_segment(

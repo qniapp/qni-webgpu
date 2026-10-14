@@ -292,7 +292,7 @@ impl QniApp {
         let output = egui::TextEdit::singleline(&mut draft)
             .id(text_id)
             .font(egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE))
-            .text_color(colors.text_strong) // Flexoki tx.
+            .text_color(colors.text_strong)
             .horizontal_align(egui::Align::Center)
             .frame(egui::Frame::NONE)
             .margin(egui::Margin::ZERO)
@@ -427,7 +427,7 @@ impl QniApp {
         let alpha = (255.0 * alpha.clamp(0.0, 1.0)).round() as u8;
         painter.line_segment(
             angle_underline_segment(label),
-            egui::Stroke::new(1.0_f32, with_alpha(colors.text, alpha)), // Flexoki tx-2.
+            egui::Stroke::new(1.0_f32, with_alpha(colors.text, alpha)),
         );
     }
 

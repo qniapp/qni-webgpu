@@ -1,4 +1,4 @@
-//! Shared popover chrome: paper card, tx-3 outline, soft shadow, and an
+//! Shared popover chrome: card, outline, soft shadow, and an
 //! optional triangular tail whose base seam is hidden under the card fill.
 
 use eframe::egui;
@@ -86,7 +86,7 @@ pub(crate) fn paint_popover(painter: &egui::Painter, colors: &Colors, placement:
 }
 
 pub(crate) fn paint_card(painter: &egui::Painter, colors: &Colors, rect: egui::Rect) {
-    // Drop shadow → paper fill → tx-3 hairline border so a paper tail remains readable.
+    // Drop shadow → fill → hairline border so the tail remains readable.
     let corner = egui::CornerRadius::same(RADIUS);
     let shadow = egui::epaint::Shadow {
         offset: [0, 10],

@@ -42,15 +42,14 @@ fn paint_header(
 }
 
 fn paint_metric_rows(painter: &egui::Painter, colors: &Colors, popup: &PopupGeometry) {
-    // Body text uses tx (near-black) for full readability; labels share the
-    // same colour so the row doesn't fade. Icons use tx-2 (a half-step lighter)
-    // to read as chrome rather than data.
+    // Body text and labels share a colour for full readability, so the row
+    // doesn't fade. Icons read as chrome rather than data.
     let body_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
     let label_color = colors.state_outline;
 
-    // Each icon is two-tone: chrome (tx-3 light gray) for the supporting frame,
-    // accent (blue-400) for a single "one-point" element — the arrow shaft +
-    // head for amplitude, the inner disk for probability, the arc for phase.
+    // Each icon uses a single "one-point" accent — the arrow shaft + head for
+    // amplitude, the inner disk for probability, the arc for phase — against a
+    // supporting frame.
     let icon_accent = colors.popup_icon;
     let icon_chrome = colors.popup_icon_chrome;
     let labels = ["Amplitude:", "Probability:", "Phase:"];

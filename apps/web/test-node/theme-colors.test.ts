@@ -6,6 +6,8 @@ const path = require('node:path')
 const srcDir = path.resolve(__dirname, '../src')
 const allowedFiles = new Set([
   path.join(srcDir, 'colors.rs'),
+  path.join(srcDir, 'colors', 'flexoki.rs'),
+  path.join(srcDir, 'colors', 'regression_tests.rs'),
   path.join(srcDir, 'shared.rs'),
 ])
 

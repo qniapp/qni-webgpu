@@ -1,7 +1,7 @@
 //! Shared geometry for amplitude-circle hover popovers.
 //!
 //! State-vector cells and Amplitude Display cells share the same popover body:
-//! a 296 px paper card, 14px header, and three 12px metric rows. Numeric
+//! a 296 px card, 14px header, and three 12px metric rows. Numeric
 //! values are still rendered by the caller's GPU callback; this module only owns
 //! fixed chrome/layout geometry.
 

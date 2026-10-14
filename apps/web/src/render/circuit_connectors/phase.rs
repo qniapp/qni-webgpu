@@ -266,7 +266,7 @@ fn draw_parametric_angle_labels(
     // body and draws a white text-shadow when the dropzone has both
     // `data-connect-top` and `data-connect-bottom`
     // (`packages/elements/css/qni.css`, `.operation-angleable`). We mirror that
-    // with the circuit background (Flexoki bg-2 via `colors.background`) so
+    // with the circuit background (via `colors.background`) so
     // labels stay legible over vertical connectors.
     for gate in &app.placed_gates {
         if app

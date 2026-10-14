@@ -1,5 +1,3 @@
-use eframe::egui;
-
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn now_seconds() -> f64 {
     web_sys::window()
@@ -66,13 +64,4 @@ pub(crate) fn amplitude_qubits(len: usize) -> usize {
         qubits += 1;
     }
     qubits.max(1)
-}
-
-pub(crate) fn color_rgba(r: f32, g: f32, b: f32, a: f32) -> egui::Color32 {
-    egui::Color32::from_rgba_unmultiplied(
-        (r * 255.0).round() as u8,
-        (g * 255.0).round() as u8,
-        (b * 255.0).round() as u8,
-        (a * 255.0).round() as u8,
-    )
 }

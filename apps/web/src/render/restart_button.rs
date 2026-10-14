@@ -30,9 +30,9 @@ pub(crate) fn paint(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) 
             egui::CornerRadius::same(crate::tailwind::ROUNDED),
             egui::Stroke::new(1.0, colors.surface),
             egui::StrokeKind::Inside,
-        ); // Flexoki bg.
+        );
     }
-    paint_icon(painter, rect.center(), colors.surface); // Flexoki bg.
+    paint_icon(painter, rect.center(), colors.surface);
 }
 
 fn paint_icon(painter: &egui::Painter, center: egui::Pos2, color: egui::Color32) {
