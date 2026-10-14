@@ -61,6 +61,39 @@ test('clicking the left gap locks the initial state after pointer leaves', async
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
 })
 
+test('clicking the middle of the gap pins initial state after pointer leaves', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(140, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking the extended left end pins initial state', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(100, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking just before the first gate left edge pins initial state', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(149, 224)
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('clicking just inside the first gate left edge selects column zero', async ({ page }) => {
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(132, 224)
+  await page.mouse.click(151, 224) // Above the gate body, in column zero's step padding.
+  await page.mouse.move(1000, 450)
+  await expect.poll(async () => matches(await readStateVector(page), firstStep)).toBe(true)
+})
+
 test('hovering post-H temporarily overrides the initial breakpoint', async ({ page }) => {
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -107,6 +140,15 @@ test('narrow circuit keeps the initial hit target without shifting columns', asy
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   await page.mouse.click(52, 224)
+  await page.mouse.move(389, 450)
+  await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
+})
+
+test('narrow circuit hits the extended left end', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto('/' + circuit)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await page.mouse.click(25, 224)
   await page.mouse.move(389, 450)
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
 })

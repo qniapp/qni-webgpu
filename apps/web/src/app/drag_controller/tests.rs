@@ -1498,32 +1498,105 @@ fn editing_trims_empty_columns_at_the_end_of_a_block() {
     assert_eq!(circuit_json(&app), r#"{"cols":[["{a"],[1,"H"],["}"]]}"#);
 }
 
-#[test]
-fn initial_hit_region_uses_existing_left_gap() {
-    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
-    let x = (metrics.line_left + metrics.slot_left - SLOT_SPACING * 0.5) / 2.0;
+fn assert_step_hit_at(x: f32, width: f32, expected: Option<CircuitColumnIndex>) {
+    let metrics = crate::layout::layout_metrics(width, 1, 6);
     assert_eq!(
         step_at_cursor(egui::pos2(x, metrics.line_ys[0]), &metrics),
-        Some(CircuitColumnIndex::INITIAL)
+        expected
     );
 }
 
 #[test]
-fn initial_hit_region_does_not_overlap_first_column() {
+fn initial_hit_starts_one_slot_spacing_before_first_gate() {
     let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
-    let x = metrics.slot_left - SLOT_SPACING * 0.5;
-    assert_eq!(
-        step_at_cursor(egui::pos2(x, metrics.line_ys[0]), &metrics),
-        Some(CircuitColumnIndex::ZERO)
+    assert_step_hit_at(
+        metrics.line_left - 36.0,
+        1280.0,
+        Some(CircuitColumnIndex::INITIAL),
     );
+}
+
+#[test]
+fn initial_hit_in_middle_of_wire_gap() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    assert_step_hit_at(
+        metrics.line_left + 10.0,
+        1280.0,
+        Some(CircuitColumnIndex::INITIAL),
+    );
+}
+
+#[test]
+fn initial_hit_ends_just_before_first_gate() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    assert_step_hit_at(
+        metrics.slot_left - GATE_SIZE / 2.0 - 0.5,
+        1280.0,
+        Some(CircuitColumnIndex::INITIAL),
+    );
+}
+
+#[test]
+fn first_gate_left_edge_hits_column_zero() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    assert_step_hit_at(
+        metrics.slot_left - GATE_SIZE / 2.0,
+        1280.0,
+        Some(CircuitColumnIndex::ZERO),
+    );
+}
+
+#[test]
+fn initial_hit_stops_before_its_left_edge() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    assert_step_hit_at(metrics.line_left - 37.0, 1280.0, None);
+}
+
+#[test]
+fn slot_center_still_hits_column_zero() {
+    let metrics = crate::layout::layout_metrics(1280.0, 1, 6);
+    assert_step_hit_at(metrics.slot_left, 1280.0, Some(CircuitColumnIndex::ZERO));
+}
+
+#[test]
+fn narrow_canvas_screen_click_uses_shifted_circuit_coordinates() {
+    let (mut app, ctx, _) = fixture(r#"{"cols":[["H"]]}"#);
+    let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(390.0, 800.0));
+    let metrics = crate::layout::layout_metrics(rect.width(), 1, 6);
+    let screen_pos =
+        app.circuit_origin(rect, 0.0) + egui::vec2(metrics.line_left - 36.0, metrics.line_ys[0]);
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(rect),
+        events: vec![
+            egui::Event::PointerMoved(screen_pos),
+            egui::Event::PointerButton {
+                pos: screen_pos,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: egui::Modifiers::default(),
+            },
+        ],
+        ..Default::default()
+    });
+    app.handle_input(rect, &ctx, rect, false);
+    let _ = ctx.end_pass();
+    assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::INITIAL));
+}
+
+#[test]
+fn gate_body_at_first_gate_left_edge_has_priority_over_step_hit() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"]]}"#);
+    let metrics = &geometry.metrics;
+    let cursor = egui::pos2(metrics.slot_left - GATE_SIZE / 2.0, metrics.line_ys[0]);
+    DragController::handle_pointer_start(&mut app, pointer(cursor, false), &geometry, &ctx);
+    assert!(app.dragging.is_some());
 }
 
 #[test]
 fn clicking_left_gap_locks_initial_state() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"],["X"]]}"#);
     let metrics = &geometry.metrics;
-    let x = (metrics.line_left + metrics.slot_left - SLOT_SPACING * 0.5) / 2.0;
-    let cursor = egui::pos2(x, metrics.line_ys[0]);
+    let cursor = egui::pos2(metrics.line_left + 10.0, metrics.line_ys[0]);
     DragController::handle_pointer_start(&mut app, pointer(cursor, false), &geometry, &ctx);
     assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::INITIAL));
 }
