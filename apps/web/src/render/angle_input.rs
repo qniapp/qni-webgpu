@@ -291,12 +291,12 @@ impl QniApp {
         edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong);
         let output = egui::TextEdit::singleline(&mut draft)
             .id(text_id)
-            .font(egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE)) // text-xs = 12px.
+            .font(egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE))
             .text_color(colors.text_strong)
             .horizontal_align(egui::Align::Center)
             .frame(egui::Frame::NONE)
             .margin(egui::Margin::ZERO)
-            .desired_width(GATE_SIZE) // spacing-10 = 40px.
+            .desired_width(GATE_SIZE)
             .show(&mut edit_ui);
         paint_reserved_angle_label_outline(
             ui.painter(),

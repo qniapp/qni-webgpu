@@ -282,7 +282,7 @@ mod tests {
         let canvas_width = NARROW + 2.0 * PANEL_MARGIN;
         let gate_right_on_canvas = PANEL_MARGIN + gate_right_on_screen(4, NARROW);
 
-        // spacing-4 = 16 px between the gate and the canvas edge.
+        // 16px between the gate and the canvas edge.
         assert!(gate_right_on_canvas <= canvas_width - 16.0);
     }
 

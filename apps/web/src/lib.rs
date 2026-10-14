@@ -13,6 +13,7 @@ mod render;
 mod shared;
 mod simulation_plan;
 mod span_resize;
+mod tailwind;
 mod test_hooks;
 mod url_circuit;
 

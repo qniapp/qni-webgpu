@@ -6,7 +6,7 @@ use crate::constants::SECTION_DIVIDER_WIDTH;
 
 use super::gpu_status_pill::gpu_status_pill;
 
-const TOOL_SIZE: egui::Vec2 = egui::vec2(32.0, 32.0); // w-8 / h-8 = 32×32 square.
+const TOOL_SIZE: egui::Vec2 = egui::vec2(crate::tailwind::SPACING_8, crate::tailwind::SPACING_8);
 const ICON_SIZE: egui::Vec2 = egui::vec2(18.0, 18.0); // Lucide 24×24 viewBox scaled to 18px.
 
 #[derive(Clone, Copy)]
@@ -32,10 +32,12 @@ impl QniApp {
             .show(ctx, |ui| {
                 ui.set_min_width(viewport.width());
                 toolbar_frame(colors).show(ui, |ui| {
-                    ui.set_min_width((viewport.width() - 24.0).max(0.0)); // px-3 x both sides.
-                    ui.set_min_height(32.0); // h-8 = 32px content row.
+                    ui.set_min_width(
+                        (viewport.width() - 2.0 * crate::tailwind::SPACING_3).max(0.0),
+                    ); // Padding on both sides.
+                    ui.set_min_height(crate::tailwind::SPACING_8);
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0); // gap-2 = 8px.
+                        ui.spacing_mut().item_spacing = egui::vec2(crate::tailwind::SPACING_2, 0.0);
                         if self.mode.uses_browser_state() {
                             self.show_circuit_picker(ui, colors, ctx);
                         }
@@ -188,7 +190,10 @@ impl QniApp {
 
 fn toolbar_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
-        inner_margin: egui::Margin::symmetric(12, 6), // px-3 / py-1.5 = 12px / 6px.
+        inner_margin: egui::Margin::symmetric(
+            crate::tailwind::SPACING_3 as i8,
+            crate::tailwind::SPACING_1_5 as i8,
+        ),
         fill: colors.surface,
         stroke: egui::Stroke::NONE,
         corner_radius: egui::CornerRadius::ZERO, // Full-width header strip: all 4 corners square.
@@ -230,7 +235,7 @@ fn icon_button(
     if state.toggle_on && state.enabled {
         ui.painter().rect_filled(
             rect,
-            egui::CornerRadius::same(6), // rounded-md = 6px.
+            egui::CornerRadius::same(crate::tailwind::ROUNDED_MD),
             if hovered {
                 colors.line
             } else {
@@ -240,7 +245,7 @@ fn icon_button(
     } else if hover_t > 0.0 {
         ui.painter().rect_filled(
             rect,
-            egui::CornerRadius::same(6), // rounded-md = 6px.
+            egui::CornerRadius::same(crate::tailwind::ROUNDED_MD),
             with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8),
         );
     }
@@ -305,7 +310,10 @@ fn publish_toolbar_button_debug_json(_tooltip: &str, _rect: egui::Rect, _hovered
 
 fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
     let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(SECTION_DIVIDER_WIDTH + 4.0, 24.0), // 2px divider + mx-0.5 = 2px each side.
+        egui::vec2(
+            SECTION_DIVIDER_WIDTH + 2.0 * crate::tailwind::SPACING_0_5,
+            24.0,
+        ), // Divider plus margin on each side.
         egui::Sense::hover(),
     );
     let divider_rect = egui::Rect::from_center_size(
@@ -319,7 +327,7 @@ fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
 
 fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, color: egui::Color32) {
     let icon_rect = egui::Rect::from_center_size(rect.center(), ICON_SIZE);
-    let stroke = egui::Stroke::new(2.0_f32, color); // Lucide stroke-2 at 18px scale.
+    let stroke = egui::Stroke::new(crate::tailwind::STROKE_2, color); // Lucide icon stroke, scaled to 18px.
     match icon {
         ToolbarIcon::Undo => {
             paint_path(

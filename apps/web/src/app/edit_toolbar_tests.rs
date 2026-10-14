@@ -7,7 +7,7 @@ use super::{CircuitRevision, EmbedStartup, QniApp};
 
 const H: &str = r#"{"cols":[["H"]]}"#;
 const EMPTY: &str = r#"{"cols":[]}"#;
-// Button centres: 32px buttons with gap-2 = 8px between them.
+// Button centres: 32px buttons with 8px between them.
 const UNDO_X: f32 = 16.0;
 const REDO_X: f32 = 56.0;
 const THIRD_BUTTON_X: f32 = 96.0;
@@ -41,7 +41,7 @@ fn click_toolbar(app: &mut QniApp, ctx: &egui::Context, x: f32) {
         let _ = ctx.run_ui(input, |root_ui| {
             egui::CentralPanel::default().show(root_ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0); // gap-2 = 8px.
+                    ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);
                     origin = ui.cursor().min;
                     app.show_test_edit_utilities(ui);
                 });

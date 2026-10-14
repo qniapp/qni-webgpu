@@ -48,12 +48,12 @@ impl QniApp {
         let handle_height = STATE_HANDLE_HEIGHT;
 
         // Make sure the panel is wide enough that the strip's left/right
-        // labels never overlap. Geist Mono at text-sm (14 px) is ≈ 9 px /
+        // labels never overlap. Geist Mono at 14px is ≈ 9 px /
         // glyph; budget a bit extra for the multiplication sign.
         const STRIP_CHAR_WIDTH: f32 = 9.0;
-        // spacing-3 (12px) padding, spacing-4 (16px) gap between labels.
-        const STRIP_PADDING_X: f32 = 12.0;
-        const STRIP_LABEL_GAP: f32 = 16.0;
+        // 12px padding, 16px gap between labels.
+        const STRIP_PADDING_X: f32 = crate::tailwind::SPACING_3;
+        const STRIP_LABEL_GAP: f32 = crate::tailwind::SPACING_4;
         let qubits_label = if qubits == 1 { "qubit" } else { "qubits" };
         let states_label = if state_count == 1 { "state" } else { "states" };
         let qubits_chars = format!("{qubits} {qubits_label}").chars().count();
@@ -73,7 +73,7 @@ impl QniApp {
         // since min viewport width already covers the widest label.
         let viewport_width = if embed {
             // Narrow embeds (phone-width tutorial pages) keep the panel inside
-            // the canvas with the same spacing-4 side margin.
+            // the canvas with the same 16px side margin.
             self.state_panel
                 .viewport_size
                 .x

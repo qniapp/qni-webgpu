@@ -7,7 +7,7 @@ use eframe::egui;
 
 use super::circuit_library::{CircuitEntry, CircuitId};
 
-const PICKER_ROW_HEIGHT: f32 = 36.0; // h-9 = 36px picker row height.
+const PICKER_ROW_HEIGHT: f32 = crate::tailwind::SPACING_9;
 const DEFAULT_PICKER_ITEMS_HEIGHT: f32 = 216.0; // 6 picker rows × 36px, mock §03 default.
 const DEFAULT_PICKER_MIN_ITEMS_HEIGHT: f32 = 72.0; // 2 picker rows × 36px, mock §03 min.
 

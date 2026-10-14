@@ -29,31 +29,34 @@ pub(super) fn paint_capacity_error(
     let center = viewport_rect.center();
     let card = egui::Rect::from_center_size(
         center,
-        egui::vec2((viewport_rect.width() - 32.0).clamp(160.0, 420.0), 64.0), // px-8 total margin, h-16 = 64px.
+        egui::vec2(
+            (viewport_rect.width() - crate::tailwind::SPACING_8).clamp(160.0, 420.0),
+            crate::tailwind::SPACING_16,
+        ),
     );
     painter.rect_filled(
         card,
-        egui::CornerRadius::same(12), // rounded-xl = 12px.
+        egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
         with_alpha(colors.semantic_off, 18),
     );
     painter.rect_stroke(
         card,
-        egui::CornerRadius::same(12), // rounded-xl = 12px.
+        egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
         egui::Stroke::new(1.0_f32, colors.semantic_off),
         egui::StrokeKind::Outside,
     );
     painter.text(
-        egui::pos2(center.x, center.y - 12.0), // spacing-3 = 12px.
+        egui::pos2(center.x, center.y - crate::tailwind::SPACING_3),
         egui::Align2::CENTER_CENTER,
         "GPU capacity limit exceeded",
-        egui::FontId::new(14.0, egui::FontFamily::Proportional), // text-sm = 14px.
+        egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional),
         colors.semantic_off,
     );
     painter.text(
-        egui::pos2(center.x, center.y + 12.0), // spacing-3 = 12px.
+        egui::pos2(center.x, center.y + crate::tailwind::SPACING_3),
         egui::Align2::CENTER_CENTER,
         truncate_capacity_message(message),
-        egui::FontId::new(12.0, egui::FontFamily::Proportional), // text-xs = 12px.
+        egui::FontId::new(crate::tailwind::TEXT_XS, egui::FontFamily::Proportional),
         colors.text,
     );
 }

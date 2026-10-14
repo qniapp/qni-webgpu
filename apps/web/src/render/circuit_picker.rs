@@ -58,7 +58,7 @@ impl QniApp {
     }
 
     fn show_picker_trigger(&self, ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
-        let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
+        let font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
         let name = self.active_circuit_name();
         let galley = egui::WidgetText::from(
             egui::RichText::new(name.to_owned())
@@ -123,7 +123,7 @@ impl QniApp {
             return None;
         }
         // Attach the picker to the topbar bottom with no gap below the bar.
-        // The trigger sits inside the toolbar's py-1.5 (6px) vertical padding.
+        // The trigger sits inside the toolbar's 6px vertical padding.
         let pos = trigger_rect.left_bottom() + egui::vec2(0.0, TOPBAR_BOTTOM_OFFSET);
         let entries = self.library.entries.clone();
         let display_rows = picker_display_rows(&entries);
@@ -168,8 +168,8 @@ impl QniApp {
                     };
                     let scroll_output = scroll_area.show(ui, |ui| {
                         ui.set_style(previous_style.clone());
-                        ui.spacing_mut().item_spacing.y = 0.0; // space-y-0: content cap equals row stack height.
-                        ui.add_space(ITEMS_CONTENT_PADDING_Y); // pt-1.5 = 6px.
+                        ui.spacing_mut().item_spacing.y = crate::tailwind::SPACING_0; // Content cap equals row stack height.
+                        ui.add_space(ITEMS_CONTENT_PADDING_Y);
                         let mut my_section_divider_y = None;
                         for row in &display_rows {
                             match *row {
@@ -223,7 +223,7 @@ impl QniApp {
                             ui.clip_rect(),
                             my_section_divider_y,
                         );
-                        ui.add_space(ITEMS_CONTENT_PADDING_Y); // pb-1.5 = 6px.
+                        ui.add_space(ITEMS_CONTENT_PADDING_Y);
                     });
                     ui.set_style(previous_style);
                     ctx.set_global_style(previous_context_style);
@@ -241,7 +241,7 @@ impl QniApp {
                         drag_min_scroll_offset,
                         drag_max_scroll_offset,
                     );
-                    ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y); // mt-0.
+                    ui.add_space(RESIZE_HANDLE_MARGIN_TOP_Y);
                     let (handle_rect, handle_response) = ui.allocate_exact_size(
                         egui::vec2(ui.available_width(), RESIZE_HANDLE_H),
                         egui::Sense::click_and_drag(),
@@ -276,7 +276,7 @@ impl QniApp {
                         ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::ResizeRow);
                     }
                     paint_resize_separator(ui, colors, handle_rect, handle_active);
-                    ui.add_space(RESIZE_HANDLE_MARGIN_BOTTOM_Y); // mb-0.5 = 2px.
+                    ui.add_space(RESIZE_HANDLE_MARGIN_BOTTOM_Y);
                     let (footer_response, footer_rect) = footer(ui, colors);
                     if footer_response.clicked() {
                         actions.push(PickerAction::Create);

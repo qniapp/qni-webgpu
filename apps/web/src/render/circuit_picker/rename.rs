@@ -50,9 +50,15 @@ impl QniApp {
         edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong); // selected glyphs use near-black.
         let output = egui::TextEdit::singleline(&mut draft)
             .id(text_id)
-            .font(egui::FontId::new(14.0, egui::FontFamily::Proportional)) // text-sm = 14px.
+            .font(egui::FontId::new(
+                crate::tailwind::TEXT_SM,
+                egui::FontFamily::Proportional,
+            ))
             .text_color(colors.text_strong)
-            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(0, 2))) // px-0, py-0.5 = 2px.
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(
+                crate::tailwind::SPACING_0 as i8,
+                crate::tailwind::SPACING_0_5 as i8,
+            )))
             .desired_width(edit_rect.width())
             .show(&mut edit_ui);
         publish_picker_rename_geometry_json(

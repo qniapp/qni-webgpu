@@ -11,17 +11,16 @@ use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis, PhaseGroupKey};
 use super::super::circuit::gate_slot_index_for_render;
 use super::draw_vertical_connector;
 
-pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = 12.0; // text-xs = 12px.
-pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = 16.0; // text-xs line-height = 16px.
+pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = crate::tailwind::TEXT_XS;
+pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = crate::tailwind::LEADING_4;
 pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.5; // Prototype ::after bottom: 1px + 0.5px optical lift.
                                                                      // The 16px label sits centered in a 17px row; lift the stroke center slightly while keeping it below text.
-                                                                     // spacing-0 = 0px. Anchor top labels at the target gate's top edge; this is
+                                                                     // Anchor top labels at the target gate's top edge; this is
                                                                      // the midpoint between the previous too-low +2px inset and too-high -2px gap.
-const ANGLE_LABEL_TOP_OFFSET: f32 = 0.0;
+const ANGLE_LABEL_TOP_OFFSET: f32 = crate::tailwind::SPACING_0;
 const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
-// qni styles measurement variable / condition labels with `font-mono
-// tracking-tighter text-xs` (`.operation-flaggable` / `.operation-ifable`):
-// tracking-tighter = -0.05em = -0.6px at 12px.
+// qni styles measurement variable / condition labels with 12px monospace
+// (`.operation-flaggable` / `.operation-ifable`), tracking -0.05em = -0.6px.
 const FLAG_LABEL_TRACKING: f32 = -0.6;
 // qni joins `if` and the flag name with U+2009. The monospace font advances
 // a thin space by a full cell, so paint the two runs apart instead: a 12px
@@ -165,7 +164,7 @@ fn flag_label_info(
             .unwrap_or_default()
     };
     let layout = angle_label_layout(connection_sides);
-    // qni's `-mt-3.5 leading-3` leaves 4px between the label ink and the
+    // qni's negative margin and 12px line height leave 4px between the label ink and the
     // gate; the angle label anchor already lands the egui galley there.
     let (pos, align) = angle_label_position(center, layout);
     Some(FlagLabelInfo {
@@ -183,7 +182,7 @@ fn draw_flag_label(painter: &egui::Painter, label: &FlagLabelInfo, colors: &Colo
         painter.layout_job(egui::text::LayoutJob::single_section(
             text.to_owned(),
             egui::TextFormat {
-                // text-xs (12 px), the same font as the angle labels.
+                // 12px, the same font as the angle labels.
                 font_id: egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE),
                 extra_letter_spacing: FLAG_LABEL_TRACKING,
                 color,
@@ -421,7 +420,7 @@ fn draw_angle_label(
     colors: &Colors,
     outline_with_background: bool,
 ) {
-    // text-xs (12 px) — Tailwind. Matches the popup body font so labels
+    // Matches the popup body font so labels
     // feel like they belong to the same typographic system.
     let font_id = egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE);
     if outline_with_background {

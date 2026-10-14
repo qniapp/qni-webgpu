@@ -13,10 +13,10 @@ use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::layout::LayoutMetrics;
 
-// Tailwind spacing-1 = 4px. Use the same even-width body for all vertical
+// 4px. Use the same even-width body for all vertical
 // gate connectors (Control / Swap / same-angle Phase) so the connector shares
 // the exact same center coordinate as the 40px gate grid.
-pub(super) const CONNECTOR_STROKE_WIDTH: f32 = 4.0;
+pub(super) const CONNECTOR_STROKE_WIDTH: f32 = crate::tailwind::SPACING_1;
 
 pub(super) fn draw_vertical_connector(
     painter: &egui::Painter,

@@ -3,8 +3,8 @@ use eframe::egui;
 use crate::colors::Colors;
 use crate::render::popover::{self, PopoverPlacement, PopoverTail};
 
-pub(super) const PAD_X: f32 = 16.0; // px-4
-pub(super) const PAD_Y: f32 = 12.0; // py-3
+pub(super) const PAD_X: f32 = crate::tailwind::SPACING_4;
+pub(super) const PAD_Y: f32 = crate::tailwind::SPACING_3;
 
 #[derive(Clone, Copy)]
 pub(super) struct TooltipCard {

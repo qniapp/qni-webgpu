@@ -1,0 +1,31 @@
+//! Used sizes from the default Tailwind scale (pixels).
+
+pub(crate) const TEXT_XS: f32 = 12.0;
+pub(crate) const TEXT_SM: f32 = 14.0;
+pub(crate) const TEXT_BASE: f32 = 16.0;
+pub(crate) const TEXT_LG: f32 = 18.0;
+pub(crate) const LEADING_4: f32 = 16.0;
+pub(crate) const LEADING_5: f32 = 20.0;
+pub(crate) const LEADING_7: f32 = 28.0;
+pub(crate) const ROUNDED: u8 = 4;
+pub(crate) const ROUNDED_MD: u8 = 6;
+pub(crate) const ROUNDED_XL: u8 = 12;
+pub(crate) const SPACING_0: f32 = 0.0;
+pub(crate) const SPACING_0_5: f32 = 2.0;
+pub(crate) const SPACING_1: f32 = 4.0;
+pub(crate) const SPACING_1_5: f32 = 6.0;
+pub(crate) const SPACING_2: f32 = 8.0;
+pub(crate) const SPACING_2_5: f32 = 10.0;
+pub(crate) const SPACING_3: f32 = 12.0;
+pub(crate) const SPACING_4: f32 = 16.0;
+pub(crate) const SPACING_5: f32 = 20.0;
+pub(crate) const SPACING_6: f32 = 24.0;
+pub(crate) const SPACING_8: f32 = 32.0;
+pub(crate) const SPACING_9: f32 = 36.0;
+pub(crate) const SPACING_10: f32 = 40.0;
+pub(crate) const SPACING_12: f32 = 48.0;
+pub(crate) const SPACING_14: f32 = 56.0;
+pub(crate) const SPACING_16: f32 = 64.0;
+pub(crate) const SPACING_44: f32 = 176.0;
+pub(crate) const STROKE_2: f32 = 2.0;
+pub(crate) const SCREEN_SM: f32 = 640.0;
