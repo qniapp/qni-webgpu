@@ -13,8 +13,10 @@ pub(crate) use session::{ExternalGpuSession, Invalidation};
 mod parser_fixtures;
 
 pub(crate) use qni_web_external_gpu_model::{
-    format_gpu_duration, qiskit_run_payload_with_display_outputs, short_failure_label,
-    unsupported_gate_from_message, ExternalGpuStatus, GpuFailure, Shots,
+    format_gpu_duration, qiskit_run_payload_with_display_outputs, ExternalGpuStatus, GpuFailure,
+    Shots,
 };
+#[cfg(target_arch = "wasm32")]
+pub(crate) use qni_web_external_gpu_model::{short_failure_label, unsupported_gate_from_message};
 
 use super::{ExecMode, QniApp};

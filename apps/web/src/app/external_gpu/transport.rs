@@ -3,7 +3,9 @@ use std::cell::RefCell;
 
 use eframe::egui;
 
-use super::{short_failure_label, unsupported_gate_from_message, GpuFailure};
+use super::GpuFailure;
+#[cfg(target_arch = "wasm32")]
+use super::{short_failure_label, unsupported_gate_from_message};
 
 pub(super) struct WireRequest(pub(super) String);
 pub(super) struct RawResponse(pub(super) String);

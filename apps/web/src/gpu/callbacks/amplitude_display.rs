@@ -7,7 +7,9 @@ use super::super::params::{
     AmplitudeInstance, AmplitudeRenderParams, ExternalAmplitudeUploadBatch,
     AMPLITUDE_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES,
 };
-use super::super::readback::{AmplitudeGpuHandle, AMPLITUDE_GPU_HANDLE, AMPLITUDE_SLOT_MAP};
+use super::super::readback::AMPLITUDE_SLOT_MAP;
+#[cfg(target_arch = "wasm32")]
+use super::super::readback::{AmplitudeGpuHandle, AMPLITUDE_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
 /// Renders Amplitude display cells straight from GPU amplitude buffers.
@@ -33,7 +35,7 @@ pub(crate) struct AmplitudeDisplayCallback {
 impl AmplitudeDisplayCallback {
     fn upload_external_amplitudes(
         &self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         resources: &mut StateVectorResources,
     ) {
@@ -69,9 +71,10 @@ impl AmplitudeDisplayCallback {
         AMPLITUDE_SLOT_MAP.with(|cell| {
             *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
         });
+        #[cfg(target_arch = "wasm32")]
         AMPLITUDE_GPU_HANDLE.with(|slot| {
             *slot.borrow_mut() = Some(AmplitudeGpuHandle {
-                device: device.clone(),
+                device: _device.clone(),
                 queue: queue.clone(),
                 output_buffer: resources.amplitude.output_buffer.clone(),
                 meta_buffer: resources.amplitude.meta_buffer.clone(),

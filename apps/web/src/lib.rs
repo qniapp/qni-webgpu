@@ -16,6 +16,7 @@ mod span_resize;
 mod test_hooks;
 mod url_circuit;
 
+#[cfg(target_arch = "wasm32")]
 use crate::app::QniApp;
 
 #[cfg(any(target_arch = "wasm32", test))]

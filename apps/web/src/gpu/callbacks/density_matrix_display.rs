@@ -6,7 +6,9 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::{
     DensityInstance, DensityRenderParams, ExternalDensityUploadBatch, DENSITY_VALUES_PER_SLOT,
 };
-use super::super::readback::{DensityGpuHandle, DENSITY_GPU_HANDLE, DENSITY_SLOT_MAP};
+use super::super::readback::DENSITY_SLOT_MAP;
+#[cfg(target_arch = "wasm32")]
+use super::super::readback::{DensityGpuHandle, DENSITY_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
 /// Renders Density Matrix display cells straight from the GPU density buffer.
@@ -31,7 +33,7 @@ pub(crate) struct DensityMatrixDisplayCallback {
 impl DensityMatrixDisplayCallback {
     fn upload_external_density(
         &self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         resources: &mut StateVectorResources,
     ) {
@@ -60,9 +62,10 @@ impl DensityMatrixDisplayCallback {
         DENSITY_SLOT_MAP.with(|cell| {
             *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
         });
+        #[cfg(target_arch = "wasm32")]
         DENSITY_GPU_HANDLE.with(|slot| {
             *slot.borrow_mut() = Some(DensityGpuHandle {
-                device: device.clone(),
+                device: _device.clone(),
                 queue: queue.clone(),
                 output_buffer: resources.density.output_buffer.clone(),
                 meta_buffer: resources.density.meta_buffer.clone(),

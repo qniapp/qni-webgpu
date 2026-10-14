@@ -1,9 +1,13 @@
+#[cfg(any(test, target_arch = "wasm32"))]
 use std::cell::RefCell;
+#[cfg(target_arch = "wasm32")]
 use std::time::Duration;
 
 use eframe::egui;
 
-use super::{ExternalGpuStatus, GpuFailure};
+use super::ExternalGpuStatus;
+#[cfg(target_arch = "wasm32")]
+use super::GpuFailure;
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {

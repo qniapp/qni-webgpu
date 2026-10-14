@@ -3,7 +3,9 @@ use eframe::egui;
 use crate::colors::{with_alpha, Colors};
 
 const PANEL_RADIUS: u8 = 12; // rounded-xl = 12px.
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 const PANEL_PADDING: f32 = 6.0; // p-1.5 = 6px.
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 const ITEM_HEIGHT: f32 = 36.0; // h-9 = 36px.
 const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.
 const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.
