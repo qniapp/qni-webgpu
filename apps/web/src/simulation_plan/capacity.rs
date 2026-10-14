@@ -133,3 +133,113 @@ pub(crate) fn validate_simulation_plan_capacity(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_simulation_plan_capacity, SimulationPlanLimits};
+    use crate::app::GateId;
+    use crate::gates::{gate_params, ColumnControls, GateKind};
+    use crate::gpu::SlotIndex;
+    use crate::qubit_bit::QubitBit;
+    use crate::simulation_plan::SimulationOp;
+
+    fn tiny_limits() -> SimulationPlanLimits {
+        SimulationPlanLimits {
+            max_ops_per_variant: 1,
+            max_step_snapshot_slots: 1,
+            max_bloch_slots: 1,
+            max_measurement_slots: 1,
+            max_probability_slots: 1,
+            max_amplitude_slots: 1,
+            max_density_slots: 1,
+        }
+    }
+
+    #[test]
+    fn gate_op_limit_reports_staging_capacity() {
+        let gate = SimulationOp::ApplyGate(gate_params(GateKind::H, QubitBit::new(0), 2));
+        let ops = vec![gate, gate];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "gate op count 2 exceeds MAX_OPS_PER_RECOMPUTE=1; split the circuit or grow the GPU staging buffer",
+        );
+    }
+
+    #[test]
+    fn bloch_slot_limit_reports_buffer_capacity() {
+        let ops = vec![SimulationOp::CaptureBloch {
+            gate_id: GateId::from_u32(1),
+            qubit_bit: QubitBit::new(0),
+            output_slot: SlotIndex::new(1),
+            controls: ColumnControls::NONE,
+        }];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Bloch slot 1 exceeds MAX_BLOCH_SLOTS=1; reduce Bloch displays or grow the GPU buffer",
+        );
+    }
+
+    #[test]
+    fn measurement_slot_limit_reports_buffer_capacity() {
+        let ops = vec![SimulationOp::MeasureReduceSample {
+            gate_id: GateId::from_u32(1),
+            qubit_bit: QubitBit::new(0),
+            output_slot: SlotIndex::new(1),
+        }];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "measurement slot 1 exceeds MAX_MEASUREMENT_SLOTS=1; reduce measurements or grow the GPU buffer",
+        );
+    }
+
+    #[test]
+    fn probability_slot_limit_reports_buffer_capacity() {
+        let ops = vec![SimulationOp::CaptureProbability {
+            gate_id: GateId::from_u32(1),
+            base_bit: QubitBit::new(0),
+            span: 1,
+            output_slot: SlotIndex::new(1),
+            controls: ColumnControls::NONE,
+        }];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Probability slot 1 exceeds MAX_PROBABILITY_SLOTS=1; reduce Probability displays or grow the GPU buffer",
+        );
+    }
+
+    #[test]
+    fn amplitude_slot_limit_reports_buffer_capacity() {
+        let ops = vec![SimulationOp::CaptureAmplitude {
+            gate_id: GateId::from_u32(1),
+            base_bit: QubitBit::new(0),
+            span: 1,
+            output_slot: SlotIndex::new(1),
+            controls: ColumnControls::NONE,
+        }];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Amplitude slot 1 exceeds MAX_AMPLITUDE_SLOTS=1; reduce Amplitude displays or grow the GPU buffer",
+        );
+    }
+
+    #[test]
+    fn density_slot_limit_reports_buffer_capacity() {
+        let ops = vec![SimulationOp::CaptureDensity {
+            gate_id: GateId::from_u32(1),
+            base_bit: QubitBit::new(0),
+            span: 1,
+            output_slot: SlotIndex::new(1),
+            controls: ColumnControls::NONE,
+        }];
+        let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Density slot 1 exceeds MAX_DENSITY_SLOTS=1; reduce Density displays or grow the GPU buffer",
+        );
+    }
+}

@@ -4,6 +4,7 @@ use eframe::{egui_wgpu, wgpu};
 use crate::simulation_plan::SimulationOp;
 
 use super::super::params::{RenderParams, MAX_STEP_SNAPSHOT_SLOTS};
+#[cfg(target_arch = "wasm32")]
 use super::super::readback::{
     AmplitudeGpuHandle, BlochGpuHandle, DensityGpuHandle, GpuReadbackState, MeasurementGpuHandle,
     ProbabilityGpuHandle, AMPLITUDE_GPU_HANDLE, BLOCH_GPU_HANDLE, DENSITY_GPU_HANDLE, GPU_READBACK,
@@ -169,6 +170,7 @@ impl StateVectorUpdate {
             resources.plan_revision = Some(self.plan_revision);
         }
         self.select_preview_state(encoder, resources);
+        #[cfg(target_arch = "wasm32")]
         publish_readback_handles(device, queue, resources);
         true
     }
@@ -225,6 +227,7 @@ impl StateVectorUpdate {
 
 // Keep the legacy module-level test hooks coherent with the latest prepared
 // runner, including compute-only frames. Runner reads use their own resources.
+#[cfg(target_arch = "wasm32")]
 fn publish_readback_handles(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

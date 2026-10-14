@@ -9,8 +9,10 @@
 
 use std::cell::RefCell;
 
+#[cfg(target_arch = "wasm32")]
 use eframe::wgpu;
 
+#[cfg(target_arch = "wasm32")]
 use super::params::{
     AMPLITUDE_VALUES_PER_SLOT, DENSITY_VALUES_PER_SLOT, MAX_AMPLITUDE_OUTCOMES,
     MAX_PROBABILITY_OUTCOMES,
@@ -21,6 +23,7 @@ use futures_channel::oneshot;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct GpuReadbackState {
     pub(crate) device: wgpu::Device,
@@ -30,6 +33,7 @@ pub(crate) struct GpuReadbackState {
     pub(crate) active_state: usize,
 }
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct BlochGpuHandle {
     pub(crate) device: wgpu::Device,
@@ -37,6 +41,7 @@ pub(crate) struct BlochGpuHandle {
     pub(crate) output_buffer: wgpu::Buffer,
 }
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct MeasurementGpuHandle {
     pub(crate) device: wgpu::Device,
@@ -44,6 +49,7 @@ pub(crate) struct MeasurementGpuHandle {
     pub(crate) aux_buffer: wgpu::Buffer,
 }
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct ProbabilityGpuHandle {
     pub(crate) device: wgpu::Device,
@@ -51,6 +57,7 @@ pub(crate) struct ProbabilityGpuHandle {
     pub(crate) output_buffer: wgpu::Buffer,
 }
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct AmplitudeGpuHandle {
     pub(crate) device: wgpu::Device,
@@ -59,6 +66,7 @@ pub(crate) struct AmplitudeGpuHandle {
     pub(crate) meta_buffer: wgpu::Buffer,
 }
 
+#[cfg(target_arch = "wasm32")]
 #[derive(Clone)]
 pub(crate) struct DensityGpuHandle {
     pub(crate) device: wgpu::Device,
@@ -68,11 +76,13 @@ pub(crate) struct DensityGpuHandle {
 }
 
 thread_local! {
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
     /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
     /// `prepare()`; consumed by the test-only async API
     /// `read_bloch_vectors_impl`. No production code touches it — production
     /// rendering reads `bloch_output_buffer` directly inside the GPU shader.
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static BLOCH_GPU_HANDLE: RefCell<Option<BlochGpuHandle>> =
         const { RefCell::new(None) };
     /// gate_id list ordered by output_slot. Parallel to the contents of
@@ -80,22 +90,26 @@ thread_local! {
     /// floats to produce `[gate_id, x, y, z, …]`.
     pub(crate) static BLOCH_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     /// Same as `BLOCH_GPU_HANDLE` for the measurement aux buffer.
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static MEASUREMENT_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     /// Same pattern for Probability displays. Test-only APIs may read this on
     /// demand; production rendering samples `probability_output` in a
     /// fragment shader.
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static PROBABILITY_GPU_HANDLE: RefCell<Option<ProbabilityGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static PROBABILITY_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     /// Same pattern for Amplitude displays. Production shaders sample
     /// `amplitude_output` + `amplitude_meta`; tests can ask for one cell.
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static AMPLITUDE_GPU_HANDLE: RefCell<Option<AmplitudeGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static AMPLITUDE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
     /// Same pattern for Density Matrix displays. Production shaders sample
     /// `density_output` + `density_meta`; tests can ask for one cell.
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static DENSITY_GPU_HANDLE: RefCell<Option<DensityGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static DENSITY_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };

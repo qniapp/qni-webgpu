@@ -1,8 +1,11 @@
+#[cfg(target_arch = "wasm32")]
 use std::sync::Arc;
 
 use crate::app::{CircuitColumnIndex, WireIndex};
 use crate::gates::{ColumnControls, GateKind};
-use crate::gpu::{ExternalBlochUpload, ExternalBlochUploadBatch};
+#[cfg(target_arch = "wasm32")]
+use crate::gpu::ExternalBlochUpload;
+use crate::gpu::ExternalBlochUploadBatch;
 use crate::simulation_plan::SimulationColumnAnalysis;
 
 pub(super) struct ExternalBlochRequest {

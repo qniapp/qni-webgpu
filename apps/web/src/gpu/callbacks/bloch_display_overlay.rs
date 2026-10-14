@@ -4,7 +4,9 @@ use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
 use super::super::params::{BlochOverlayInstance, BlochOverlayParams, ExternalBlochUploadBatch};
-use super::super::readback::{BlochGpuHandle, BLOCH_GPU_HANDLE, BLOCH_SLOT_MAP};
+use super::super::readback::BLOCH_SLOT_MAP;
+#[cfg(target_arch = "wasm32")]
+use super::super::readback::{BlochGpuHandle, BLOCH_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
 /// Renders the dynamic Bloch arrow + tip dot for every placed Bloch display
@@ -31,7 +33,7 @@ pub(crate) struct BlochOverlayCallback {
 impl BlochOverlayCallback {
     fn upload_external_bloch(
         &self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         resources: &mut StateVectorResources,
     ) {
@@ -53,9 +55,10 @@ impl BlochOverlayCallback {
         BLOCH_SLOT_MAP.with(|cell| {
             *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
         });
+        #[cfg(target_arch = "wasm32")]
         BLOCH_GPU_HANDLE.with(|slot| {
             *slot.borrow_mut() = Some(BlochGpuHandle {
-                device: device.clone(),
+                device: _device.clone(),
                 queue: queue.clone(),
                 output_buffer: resources.bloch.output_buffer.clone(),
             });

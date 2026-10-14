@@ -8,7 +8,9 @@ use super::super::params::{
     MAX_PROBABILITY_AGGREGATE_ROWS, MAX_PROBABILITY_OUTCOMES, PROBABILITY_AGGREGATE_MIN_SPAN,
     PROBABILITY_RENDER_MODE_SAMPLE,
 };
-use super::super::readback::{ProbabilityGpuHandle, PROBABILITY_GPU_HANDLE, PROBABILITY_SLOT_MAP};
+use super::super::readback::PROBABILITY_SLOT_MAP;
+#[cfg(target_arch = "wasm32")]
+use super::super::readback::{ProbabilityGpuHandle, PROBABILITY_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
 /// Renders Probability display bars straight from the GPU probability buffer
@@ -32,7 +34,7 @@ pub(crate) struct ProbabilityDisplayCallback {
 impl ProbabilityDisplayCallback {
     fn upload_external_probabilities(
         &self,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
         queue: &wgpu::Queue,
         resources: &mut StateVectorResources,
     ) {
@@ -55,9 +57,10 @@ impl ProbabilityDisplayCallback {
         PROBABILITY_SLOT_MAP.with(|cell| {
             *cell.borrow_mut() = batch.slot_to_gate_id.to_vec();
         });
+        #[cfg(target_arch = "wasm32")]
         PROBABILITY_GPU_HANDLE.with(|slot| {
             *slot.borrow_mut() = Some(ProbabilityGpuHandle {
-                device: device.clone(),
+                device: _device.clone(),
                 queue: queue.clone(),
                 output_buffer: resources.probability.output_buffer.clone(),
             });

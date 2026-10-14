@@ -1,10 +1,11 @@
+#[cfg(target_arch = "wasm32")]
 use std::sync::Arc;
 
 use crate::app::CircuitColumnIndex;
 use crate::gates::{ColumnControls, GateKind};
-use crate::gpu::{
-    ExternalProbabilityUpload, ExternalProbabilityUploadBatch, ProbabilityDistribution,
-};
+use crate::gpu::ExternalProbabilityUploadBatch;
+#[cfg(target_arch = "wasm32")]
+use crate::gpu::{ExternalProbabilityUpload, ProbabilityDistribution};
 use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 use crate::simulation_plan::SimulationColumnAnalysis;
