@@ -94,7 +94,7 @@ impl SpanResizeHandles {
     ) -> Option<Self> {
         Self::for_gate_at_with_availability(
             gate,
-            gate_visible_rect(gate, gate.pos),
+            gate_visible_rect(gate, gate.committed_pos()),
             gates,
             qubit_capacity,
         )

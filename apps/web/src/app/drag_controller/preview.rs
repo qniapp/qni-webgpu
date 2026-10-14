@@ -92,10 +92,11 @@ impl DragController {
             next_wire = wire;
             live_snap = Some(click.target);
         }
+        drag.preview_pos = next_pos;
+        app.dragging = Some(drag);
         let capacity = app.wire_capacity();
         let (gate_kind, gate_wire, gate_column, gate_span) = {
             let gate = &mut app.placed_gates[index];
-            gate.pos = next_pos;
             gate.wire = next_wire;
             gate.column = next_column;
             gate.clamp_span_to_qubit_capacity(capacity);

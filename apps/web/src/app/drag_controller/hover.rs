@@ -46,7 +46,7 @@ impl DragController {
             let mut hovered_density_cell = None;
             if edit_hover_allowed {
                 for gate in app.placed_gates.iter().rev() {
-                    let gate_rect = gate_visible_rect(gate, gate.pos);
+                    let gate_rect = gate_visible_rect(gate, gate.committed_pos());
                     let resize_handles = SpanResizeHandles::for_gate_with_availability(
                         gate,
                         &app.placed_gates,

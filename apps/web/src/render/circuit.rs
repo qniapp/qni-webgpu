@@ -3,24 +3,29 @@
 
 use eframe::egui;
 
-use crate::app::{CircuitColumnIndex, GateId, PlacedGate, QniApp};
+use crate::app::{CircuitColumnIndex, DragState, GateId, PlacedGate, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::{GATE_SIZE, LINE_GAP, LINE_Y, REM, STEP_OUTSET_Y};
 use crate::layout::{nearest_slot_index, CircuitGutters, LayoutMetrics};
+
+pub(in crate::render) fn gate_draw_pos(gate: &PlacedGate, drag: Option<DragState>) -> egui::Pos2 {
+    drag.filter(|drag| drag.id == gate.id)
+        .map_or_else(|| gate.committed_pos(), |drag| drag.preview_pos)
+}
 
 const SLOT_CENTER_EPSILON: f32 = 0.5;
 
 pub(super) fn gate_slot_index_for_render(
     gate: &PlacedGate,
     metrics: &LayoutMetrics,
-    dragging_gate_id: Option<GateId>,
+    drag: Option<DragState>,
 ) -> Option<usize> {
-    if dragging_gate_id == Some(gate.id) {
+    if drag.is_some_and(|drag| drag.id == gate.id) {
         // A dragged gate can snap to an insert preview halfway between real
         // slots. Do not coerce that preview back to the nearest slot for
         // connector drawing; otherwise a vertical connector is pulled away
         // from the gate center until drop shifts the grid.
-        let center_x = gate.pos.x + GATE_SIZE / 2.0;
+        let center_x = gate_draw_pos(gate, drag).x + GATE_SIZE / 2.0;
         let (slot_index, distance) = nearest_slot_index(center_x, &metrics.slot_centers)?;
         return (distance <= SLOT_CENTER_EPSILON).then_some(slot_index);
     }
@@ -133,8 +138,11 @@ impl QniApp {
                 .iter()
                 .find(|gate| Some(gate.id) == dragging_gate_id)
             {
-                gpu_clip =
-                    super::circuit_gates::insert_preview_right_clip(gpu_clip, circuit_origin, gate);
+                gpu_clip = super::circuit_gates::insert_preview_right_clip(
+                    gpu_clip,
+                    circuit_origin,
+                    gate_draw_pos(gate, self.dragging),
+                );
             }
         }
         if gpu_clip.is_positive() {
@@ -172,7 +180,7 @@ mod tests {
     #[test]
     fn dragged_insert_preview_does_not_join_slot_connector() {
         let metrics = layout_metrics(600.0, 2, 3);
-        let mut gate = PlacedGate::new(
+        let gate = PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::Control,
             crate::app::CircuitColumnIndex::new(0),
@@ -180,10 +188,22 @@ mod tests {
             crate::gates::GateSpan::SINGLE,
             None,
         );
-        gate.pos.x =
-            metrics.slot_centers[0] + SLOT_SPACING * 0.5 - crate::constants::GATE_SIZE * 0.5;
+        let preview_pos = eframe::egui::pos2(
+            metrics.slot_centers[0] + SLOT_SPACING * 0.5 - crate::constants::GATE_SIZE * 0.5,
+            gate.committed_pos().y,
+        );
 
-        let slot = super::gate_slot_index_for_render(&gate, &metrics, Some(gate.id));
+        let slot = super::gate_slot_index_for_render(
+            &gate,
+            &metrics,
+            Some(crate::app::DragState {
+                id: gate.id,
+                preview_pos,
+                offset: eframe::egui::Vec2::ZERO,
+                original_column: Some(gate.column),
+                click_copy: None,
+            }),
+        );
 
         assert_eq!(slot, None);
     }
@@ -200,7 +220,18 @@ mod tests {
             None,
         );
 
-        let slot = super::gate_slot_index_for_render(&gate, &metrics, Some(gate.id));
+        let preview_pos = gate.committed_pos();
+        let slot = super::gate_slot_index_for_render(
+            &gate,
+            &metrics,
+            Some(crate::app::DragState {
+                id: gate.id,
+                preview_pos,
+                offset: eframe::egui::Vec2::ZERO,
+                original_column: Some(gate.column),
+                click_copy: None,
+            }),
+        );
 
         assert_eq!(slot, Some(0));
     }

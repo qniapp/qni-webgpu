@@ -26,7 +26,7 @@ enum DragStartIntent {
 }
 
 fn copy_click_target(gate: &PlacedGate, cursor: egui::Pos2) -> Option<LiveDragSnap> {
-    let left = cursor.x < gate_visible_rect(gate, gate.pos).center().x;
+    let left = cursor.x < gate_visible_rect(gate, gate.committed_pos()).center().x;
     let column = if left {
         gate.column
     } else {
@@ -86,10 +86,12 @@ impl DragController {
                         return false;
                     };
                     copy.id = app.gate_ids.allocate();
-                    drag.click_copy =
-                        copy_click_target(&copy, copy.pos + drag.offset).map(|target| ClickCopy {
+                    drag.click_copy = copy_click_target(&copy, copy.committed_pos() + drag.offset)
+                        .map(|target| ClickCopy {
                             target,
-                            press_pos: pointer.screen_pos.unwrap_or(copy.pos + drag.offset),
+                            press_pos: pointer
+                                .screen_pos
+                                .unwrap_or(copy.committed_pos() + drag.offset),
                             max_distance: ctx
                                 .options(|options| options.input_options.max_click_dist),
                         });
@@ -128,7 +130,7 @@ impl DragController {
                     return false;
                 };
                 let new_id = app.gate_ids.allocate();
-                let mut new_gate = PlacedGate::new(
+                let new_gate = PlacedGate::new(
                     new_id,
                     entry.kind,
                     CircuitColumnIndex::ZERO,
@@ -139,10 +141,10 @@ impl DragController {
                     // circuit shows the same angle label Qni shows.
                     entry.angle,
                 );
-                new_gate.pos = preview_pos;
                 app.placed_gates.push(new_gate);
                 app.dragging = Some(DragState {
                     id: new_id,
+                    preview_pos,
                     offset: egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0),
                     original_column: None,
                     click_copy: None,
@@ -205,13 +207,14 @@ fn start_intent(
         .iter()
         .rev()
         .find(|gate| {
-            let gate_rect = gate_visible_rect(gate, gate.pos);
+            let gate_rect = gate_visible_rect(gate, gate.committed_pos());
             gate_rect.contains(cursor)
         })
         .map(|gate| DragStartIntent::ExistingGate {
             drag: DragState {
                 id: gate.id,
-                offset: cursor - gate.pos,
+                preview_pos: gate.committed_pos(),
+                offset: cursor - gate.committed_pos(),
                 original_column: Some(gate.column),
                 click_copy: None,
             },

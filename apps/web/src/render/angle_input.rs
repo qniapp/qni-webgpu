@@ -137,7 +137,12 @@ impl QniApp {
         dragging_gate_id: Option<GateId>,
     ) -> Vec<OwnedAngleLabel> {
         let render_columns = ColumnAnalysis::from_gates(&self.placed_gates, |gate| {
-            gate_slot_index_for_render(gate, metrics, dragging_gate_id)
+            gate_slot_index_for_render(
+                gate,
+                metrics,
+                self.dragging
+                    .filter(|drag| Some(drag.id) == dragging_gate_id),
+            )
         });
         self.placed_gates
             .iter()
@@ -147,7 +152,8 @@ impl QniApp {
                     &render_columns,
                     metrics,
                     circuit_origin,
-                    dragging_gate_id,
+                    self.dragging
+                        .filter(|drag| Some(drag.id) == dragging_gate_id),
                 )
             })
             .map(|label| OwnedAngleLabel {

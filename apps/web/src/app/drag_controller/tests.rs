@@ -13,7 +13,10 @@ fn circuit_json(app: &QniApp) -> String {
     )
 }
 
-fn layout(gates: &[crate::app::PlacedGate]) -> Vec<(crate::app::GateId, usize, usize, egui::Pos2)> {
+fn layout(
+    gates: &[crate::app::PlacedGate],
+    drag: Option<crate::app::DragState>,
+) -> Vec<(crate::app::GateId, usize, usize, egui::Pos2)> {
     gates
         .iter()
         .map(|gate| {
@@ -21,10 +24,18 @@ fn layout(gates: &[crate::app::PlacedGate]) -> Vec<(crate::app::GateId, usize, u
                 gate.id,
                 gate.column.as_usize(),
                 gate.wire.as_usize(),
-                gate.pos,
+                drag.filter(|drag| drag.id == gate.id)
+                    .map_or_else(|| gate.committed_pos(), |drag| drag.preview_pos),
             )
         })
         .collect()
+}
+
+fn gpu_layout(app: &QniApp) -> Vec<(crate::app::GateId, usize, usize, egui::Pos2)> {
+    match app.gpu_plan_gates() {
+        std::borrow::Cow::Borrowed(gates) => layout(gates, app.dragging),
+        std::borrow::Cow::Owned(gates) => layout(&gates, None),
+    }
 }
 
 fn inserted_copy(json: &str, wire: usize) -> (QniApp, egui::Context, CircuitInputGeometry) {
@@ -295,7 +306,7 @@ fn hover_y_between_h_and_x(shift: bool) -> (QniApp, egui::Context, CircuitInputG
         },
         ..Default::default()
     });
-    let source = app.placed_gates[2].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let source = app.placed_gates[2].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     DragController::handle_pointer_start(&mut app, pointer(source, false), &geometry, &ctx);
     let _ = ctx.end_pass();
     let target = egui::pos2(
@@ -393,7 +404,7 @@ fn gpu_display_passes_bracket_the_ghost_with_identical_viewports() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["Probability"],["Probability"],["Y"]]}"#);
     app.test_process_gpu_recompute(Some(eframe::wgpu::TextureFormat::Rgba8Unorm), true, 2, &ctx);
     ctx.begin_pass(egui::RawInput::default());
-    let source = app.placed_gates[2].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let source = app.placed_gates[2].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     DragController::handle_pointer_start(&mut app, pointer(source, false), &geometry, &ctx);
     let _ = ctx.end_pass();
     let split = (geometry.metrics.slot_centers[0] + geometry.metrics.slot_centers[1]) / 2.0;
@@ -465,7 +476,7 @@ fn side_copy(
 ) {
     let (mut app, ctx, geometry) = fixture(json);
     let source = app.placed_gates[source_index].clone();
-    let rect = crate::layout::gate_visible_rect(&source, source.pos);
+    let rect = crate::layout::gate_visible_rect(&source, source.committed_pos());
     let pos = rect.center() + egui::vec2(x_offset, 0.0);
     ctx.begin_pass(egui::RawInput {
         modifiers: egui::Modifiers {
@@ -670,12 +681,15 @@ fn gpu_insertion_plan_projects_all_rows_at_the_final_positions() {
         LINE_Y,
     );
     DragController::update_gate_drag_preview(&mut app, pointer(pos, false), &geometry.metrics);
-    let raw = layout(&app.placed_gates);
-    let preview = layout(app.gpu_plan_gates().as_ref());
-    let unchanged = layout(&app.placed_gates) == raw;
+    let raw = layout(&app.placed_gates, app.dragging);
+    let preview = gpu_layout(&app);
+    let unchanged = layout(&app.placed_gates, app.dragging) == raw;
     drop_at(&mut app, &ctx, &geometry, pos);
 
-    assert_eq!((preview, unchanged), (layout(&app.placed_gates), true));
+    assert_eq!(
+        (preview, unchanged),
+        (layout(&app.placed_gates, app.dragging), true)
+    );
 }
 
 #[test]
@@ -687,10 +701,10 @@ fn gpu_insertion_plan_matches_normal_move_source_column_removal() {
         LINE_Y,
     );
     DragController::update_gate_drag_preview(&mut app, pointer(pos, false), &geometry.metrics);
-    let preview = layout(app.gpu_plan_gates().as_ref());
+    let preview = gpu_layout(&app);
     drop_at(&mut app, &ctx, &geometry, pos);
 
-    assert_eq!(preview, layout(&app.placed_gates));
+    assert_eq!(preview, layout(&app.placed_gates, app.dragging));
 }
 
 #[test]
@@ -702,17 +716,17 @@ fn gpu_insertion_plan_matches_wide_gate_shift_and_compaction() {
         LINE_Y,
     );
     DragController::update_gate_drag_preview(&mut app, pointer(pos, false), &geometry.metrics);
-    let preview = layout(app.gpu_plan_gates().as_ref());
+    let preview = gpu_layout(&app);
     drop_at(&mut app, &ctx, &geometry, pos);
 
-    assert_eq!(preview, layout(&app.placed_gates));
+    assert_eq!(preview, layout(&app.placed_gates, app.dragging));
 }
 
 #[test]
 fn sparse_insert_target_and_scroll_stay_stable_across_held_frames() {
     let json = format!(r#"{{"cols":[["H"],{}["X"]]}}"#, "[],".repeat(29));
     let (mut app, ctx, _) = fixture(&json);
-    let origin = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let origin = app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     input_frame(
         &mut app,
         &ctx,
@@ -732,7 +746,10 @@ fn sparse_insert_target_and_scroll_stay_stable_across_held_frames() {
     );
     app.circuit_scroll_x = 650.0;
     let target = egui::pos2(
-        app.placed_gates[1].pos.x + GATE_SIZE / 2.0 + crate::constants::SLOT_SPACING / 2.0 - 650.0,
+        app.placed_gates[1].committed_pos().x
+            + GATE_SIZE / 2.0
+            + crate::constants::SLOT_SPACING / 2.0
+            - 650.0,
         LINE_Y,
     );
     input_frame(
@@ -761,7 +778,7 @@ fn sparse_insert_target_and_scroll_stay_stable_across_held_frames() {
 #[test]
 fn moving_out_of_insert_restores_trailing_gate_positions() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["H"],["X","Z"]]}"#);
-    let trailing = layout(&app.placed_gates)[1..3].to_vec();
+    let trailing = layout(&app.placed_gates, app.dragging)[1..3].to_vec();
     start(&mut app, &ctx, &geometry, true);
     DragController::update_gate_drag_preview(
         &mut app,
@@ -786,13 +803,13 @@ fn moving_out_of_insert_restores_trailing_gate_positions() {
         ),
         &geometry.metrics,
     );
-    let slots = layout(app.gpu_plan_gates().as_ref());
+    let slots = gpu_layout(&app);
     DragController::update_gate_drag_preview(
         &mut app,
         pointer(egui::pos2(1100.0, 470.0), false),
         &geometry.metrics,
     );
-    let off_grid = layout(app.gpu_plan_gates().as_ref());
+    let off_grid = gpu_layout(&app);
 
     assert_eq!(
         (
@@ -809,10 +826,10 @@ fn escape_from_insert_restores_layout_and_preserves_previous_undo() {
     let json = r#"{"cols":[["H"],["X"]]}"#;
     let previous = r#"{"cols":[["Z"]]}"#;
     let (mut app, ctx, geometry) = fixture(json);
-    let original = layout(&app.placed_gates);
+    let original = layout(&app.placed_gates, app.dragging);
     app.circuit_revision = CircuitRevision::starting_at(previous.to_owned());
     app.circuit_revision.commit(json.to_owned());
-    let origin = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let origin = app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     input_frame(
         &mut app,
         &ctx,
@@ -864,7 +881,7 @@ fn escape_from_insert_restores_layout_and_preserves_previous_undo() {
         }],
         false,
     );
-    let cancelled = (circuit_json(&app), layout(app.gpu_plan_gates().as_ref()));
+    let cancelled = (circuit_json(&app), gpu_layout(&app));
     app.undo_circuit(&ctx);
 
     assert_eq!(
@@ -964,7 +981,7 @@ fn start(app: &mut QniApp, ctx: &egui::Context, geometry: &CircuitInputGeometry,
         },
         ..Default::default()
     });
-    let pos = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let pos = app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     DragController::handle_pointer_start(app, pointer(pos, false), geometry, ctx);
     let _ = ctx.end_pass();
 }
@@ -1045,7 +1062,7 @@ fn shift_pickup_preserves_source_and_parametric_angle() {
             copy.kind,
             copy.span,
             copy.angle,
-            app.placed_gates[0].pos
+            app.placed_gates[0].committed_pos()
         ),
         (
             2,
@@ -1054,7 +1071,7 @@ fn shift_pickup_preserves_source_and_parametric_angle() {
             source.kind,
             source.span,
             source.angle,
-            source.pos
+            source.committed_pos()
         )
     );
 }
@@ -1180,7 +1197,7 @@ fn escape_cancels_copy_without_consuming_previous_undo() {
     let previous = r#"{"cols":[["X"]]}"#;
     app.circuit_revision = CircuitRevision::starting_at(previous.to_owned());
     app.circuit_revision.commit(json.to_owned());
-    let origin = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let origin = app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
     input_frame(
         &mut app,
         &ctx,
@@ -1285,7 +1302,8 @@ fn primary(pos: egui::Pos2, pressed: bool) -> egui::Event {
 #[test]
 fn same_frame_return_after_threshold_remains_a_drag() {
     let (mut app, ctx, _) = fixture(r#"{"cols":[["H"],["X"]]}"#);
-    let pos = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
+    let pos =
+        app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
     input_frame(&mut app, &ctx, vec![primary(pos, true)], true);
     input_frame(
         &mut app,
@@ -1303,7 +1321,8 @@ fn old_release_followed_by_new_press_does_not_commit_held_copy() {
     let json = r#"{"cols":[["H"],["X"]]}"#;
     let (mut app, ctx, _) = fixture(json);
     let empty = egui::pos2(1000.0, 470.0);
-    let pos = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
+    let pos =
+        app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
     input_frame(&mut app, &ctx, vec![primary(empty, true)], true);
     input_frame(
         &mut app,
@@ -1327,7 +1346,8 @@ fn old_release_followed_by_new_press_does_not_commit_held_copy() {
 #[test]
 fn pickup_frame_return_after_threshold_remains_a_drag() {
     let (mut app, ctx, _) = fixture(r#"{"cols":[["H"],["X"]]}"#);
-    let pos = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
+    let pos =
+        app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
     input_frame(
         &mut app,
         &ctx,
@@ -1344,7 +1364,8 @@ fn pickup_frame_return_after_threshold_remains_a_drag() {
 #[test]
 fn shift_at_press_is_latched_when_released_in_pickup_frame() {
     let (mut app, ctx, _) = fixture(r#"{"cols":[["H"],["X"]]}"#);
-    let pos = app.placed_gates[0].pos + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
+    let pos =
+        app.placed_gates[0].committed_pos() + egui::vec2(GATE_SIZE / 2.0 + 10.0, GATE_SIZE / 2.0);
     input_frame(&mut app, &ctx, vec![primary(pos, true)], false);
     assert_eq!(app.placed_gates.len(), 3);
 }
@@ -1362,13 +1383,11 @@ fn wide_gate_right_copy_starts_after_its_entire_footprint() {
 #[test]
 fn single_gate_right_click_previews_between_source_and_empty_next_column() {
     let (app, _, geometry, _, _) = side_copy(r#"{"cols":[["H"]]}"#, 0, 10.0);
-    let copy = app
-        .placed_gates
-        .iter()
-        .find(|g| g.id == app.dragging.unwrap().id)
-        .unwrap();
     assert_eq!(
-        (app.dragging_live_snap, copy.pos.x + GATE_SIZE / 2.0),
+        (
+            app.dragging_live_snap,
+            app.dragging.unwrap().preview_pos.x + GATE_SIZE / 2.0
+        ),
         (
             Some(LiveDragSnap::Insert {
                 column: CircuitColumnIndex::new(1),
@@ -1381,13 +1400,11 @@ fn single_gate_right_click_previews_between_source_and_empty_next_column() {
 #[test]
 fn free_left_neighbor_still_previews_at_source_left_boundary() {
     let (app, _, geometry, _, _) = side_copy(r#"{"cols":[["X"],[1,"Z"],["H"]]}"#, 2, -10.0);
-    let copy = app
-        .placed_gates
-        .iter()
-        .find(|g| g.id == app.dragging.unwrap().id)
-        .unwrap();
     assert_eq!(
-        (app.dragging_live_snap, copy.pos.x + GATE_SIZE / 2.0),
+        (
+            app.dragging_live_snap,
+            app.dragging.unwrap().preview_pos.x + GATE_SIZE / 2.0
+        ),
         (
             Some(LiveDragSnap::Insert {
                 column: CircuitColumnIndex::new(2),

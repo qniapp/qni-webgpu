@@ -69,7 +69,6 @@ impl DragController {
                     let gate = &mut app.placed_gates[index];
                     gate.wire = WireIndex::new(new_wire);
                     gate.span = GateSpan::try_new(new_span).expect("resize span is at least 1");
-                    gate.sync_pos_from_grid();
                     let changed = new_wire != old_wire || new_span != old_span;
                     if changed {
                         app.shift_trailing_gates_after_width_change(

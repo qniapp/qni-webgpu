@@ -604,6 +604,7 @@ mod tests {
     fn start_drag(app: &mut super::super::QniApp) {
         app.dragging = Some(super::super::DragState {
             id: app.placed_gates[0].id,
+            preview_pos: app.placed_gates[0].committed_pos(),
             offset: eframe::egui::Vec2::ZERO,
             original_column: None,
             click_copy: None,
