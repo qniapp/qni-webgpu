@@ -81,6 +81,63 @@ async function waitForHState(page: Page) {
   })
 }
 
+for (const failFirst of [false, true]) {
+  test(`concurrent low-level embeds share ${failFirst ? 'a failed GPU initialization and retry' : 'the first GPU initialization'}`, async ({ page }) => {
+    await page.addInitScript(failFirst => {
+      const w = window as any
+      w.deviceRequests = 0
+      const prototype = GPUAdapter.prototype
+      const requestDevice = prototype.requestDevice
+      prototype.requestDevice = function (...args: any[]) {
+        w.deviceRequests++
+        if (failFirst && w.deviceRequests === 1) return Promise.reject(new Error('injected device failure'))
+        return requestDevice.apply(this, args)
+      }
+    }, failFirst)
+    await page.route(`${assetOrigin}*`, async route => {
+      const file = new URL(route.request().url()).pathname.split('/').pop()!
+      await route.fulfill({
+        body: await readFile(path.resolve(__dirname, '../embed-dist', file)),
+        contentType: file.endsWith('.wasm') ? 'application/wasm' : 'text/javascript',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+      })
+    })
+    await page.route('**/host/concurrent', route => route.fulfill({
+      contentType: 'text/html',
+      body: '<html><body><canvas style="width:480px;height:640px"></canvas><canvas style="width:480px;height:640px"></canvas></body></html>',
+    }))
+    await page.goto('/host/concurrent')
+    const result = await page.evaluate(async ({ origin, failFirst }) => {
+      const { prepareEmbed } = await import(`${origin}qni-embed.mjs`)
+      await prepareEmbed()
+      const { start_embed } = await import(`${origin}qni-web.js`)
+      const startBoth = () => Array.from(document.querySelectorAll('canvas'), canvas =>
+        start_embed(canvas, '{"cols":[["H"]]}', true, undefined, undefined, false))
+      let failure
+      if (failFirst) {
+        const attempts = await Promise.allSettled(startBoth())
+        const errors = attempts.filter(attempt => attempt.status === 'rejected').map(attempt => attempt.reason)
+        for (const attempt of attempts) {
+          if (attempt.status === 'fulfilled') { attempt.value.destroy(); attempt.value.free() }
+        }
+        failure = { rejected: errors.length, sameError: errors.length === 2 && errors[0] === errors[1], deviceRequests: (window as any).deviceRequests }
+      }
+      const runners = await Promise.all(startBoth())
+      try {
+        for (const runner of runners) runner.selectStep(-1)
+        const states = await Promise.all(runners.map(async runner => Array.from(await runner.read_state_vector())))
+        return { runners: runners.length, states, deviceRequests: (window as any).deviceRequests, failure }
+      } finally {
+        for (const runner of runners) { runner.destroy(); runner.free() }
+      }
+    }, { origin: assetOrigin, failFirst })
+    expect(result).toEqual({
+      runners: 2, states: [[1, 0, 0, 0], [1, 0, 0, 0]], deviceRequests: failFirst ? 2 : 1,
+      failure: failFirst ? { rejected: 2, sameError: true, deviceRequests: 1 } : undefined,
+    })
+  })
+}
+
 test('cross-origin bundle initializes H on a shadow DOM canvas', async ({ page }) => {
   await hostEmbed(page)
   await waitForHState(page)
