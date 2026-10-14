@@ -1,7 +1,6 @@
 import init, { start_embed } from './qni-web.js'
 
 let initialization
-let startup = Promise.resolve()
 let progress = { stage: 'download', loaded: 0, total: null }
 const listeners = new Set()
 
@@ -85,9 +84,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
     await prepareEmbed()
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
     performance.mark('qni:runner-start')
-    const starting = startup.then(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart))
-    startup = starting.catch(() => {})
-    runner = await starting
+    runner = await start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart)
     if (deviceLost) throw new Error('Qni GPU device lost during startup')
     performance.mark('qni:runner-started')
     if (onProgress) onProgress({ ...progress, stage: 'prepare' })

@@ -15,13 +15,10 @@ async function fixture(t, headers, fail = false) {
       if (module_or_path.headers.get('content-type') !== 'application/wasm') throw new Error('Lost MIME type');
       await module_or_path.arrayBuffer();
     }
-    export const starts = { active: 0, max: 0, args: [] };
+    export const starts = { args: [] };
     export async function start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, onRestart) {
       starts.args.push({ showStatePanel, palette, maxWireCount, showRestartButton, onRestart });
-      starts.active++;
-      starts.max = Math.max(starts.max, starts.active);
       await new Promise(resolve => setTimeout(resolve, 1));
-      starts.active--;
       if (canvas.fail) throw new Error('startup failed');
       return {destroy(){}, free(){}, read_state_vector(){ return Promise.resolve(canvas.state) }, circuit_json(){ return canvas.circuit ?? circuit }};
     }
@@ -60,11 +57,11 @@ test('failed early preparation can retry on canvas startup', async t => {
   assert.equal(f.requests(), 2)
 })
 
-test('seven concurrent elements serialize GPU startup and fetch wasm once', async t => {
+test('seven concurrent elements all start and fetch wasm once', async t => {
   const f = await fixture(t, { 'content-type': 'application/wasm' })
   const handles = await Promise.all(Array.from({ length: 7 }, () => f.module.startEmbed({}, '{}')))
   handles.forEach(handle => handle.destroy())
-  assert.deepEqual({ maximumConcurrentStarts: f.starts.max, wasmRequests: f.requests() }, { maximumConcurrentStarts: 1, wasmRequests: 1 })
+  assert.deepEqual({ started: handles.length, runnerStarts: f.starts.args.length, wasmRequests: f.requests() }, { started: 7, runnerStarts: 7, wasmRequests: 1 })
 })
 
 test('a failed runner does not poison later startup or instance readback', async t => {

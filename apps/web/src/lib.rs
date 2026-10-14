@@ -125,17 +125,62 @@ impl QniRunner {
 }
 
 #[cfg(target_arch = "wasm32")]
-thread_local! {
-    static SHARED_GPU: std::cell::RefCell<Option<eframe::egui_wgpu::WgpuSetupExisting>> = const { std::cell::RefCell::new(None) };
+type SharedGpuResult = Result<eframe::egui_wgpu::WgpuSetupExisting, JsValue>;
+
+#[cfg(target_arch = "wasm32")]
+enum SharedGpuInitialization {
+    Idle,
+    Pending(Vec<futures_channel::oneshot::Sender<SharedGpuResult>>),
+    Ready(eframe::egui_wgpu::WgpuSetupExisting),
 }
 
-// embed.mjs serializes startup, including failed attempts, so concurrent
-// elements cannot race this asynchronous one-device initialization.
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static SHARED_GPU: std::cell::RefCell<SharedGpuInitialization> = const {
+        std::cell::RefCell::new(SharedGpuInitialization::Idle)
+    };
+}
+
 #[cfg(target_arch = "wasm32")]
 async fn shared_gpu_setup() -> Result<eframe::egui_wgpu::WgpuSetup, JsValue> {
-    if let Some(existing) = SHARED_GPU.with(|slot| slot.borrow().clone()) {
-        return Ok(existing.into());
+    let receiver = SHARED_GPU.with(|slot| {
+        let mut state = slot.borrow_mut();
+        let (sender, receiver) = futures_channel::oneshot::channel();
+        match &mut *state {
+            SharedGpuInitialization::Pending(waiters) => waiters.push(sender),
+            SharedGpuInitialization::Idle => {
+                *state = SharedGpuInitialization::Pending(vec![sender]);
+                wasm_bindgen_futures::spawn_local(async {
+                    let result = initialize_shared_gpu().await;
+                    let next = match &result {
+                        Ok(existing) => SharedGpuInitialization::Ready(existing.clone()),
+                        Err(_) => SharedGpuInitialization::Idle,
+                    };
+                    let previous = SHARED_GPU.with(|slot| slot.replace(next));
+                    if let SharedGpuInitialization::Pending(waiters) = previous {
+                        for waiter in waiters {
+                            let _ = waiter.send(result.clone());
+                        }
+                    }
+                });
+            }
+            SharedGpuInitialization::Ready(existing) => {
+                return std::ops::ControlFlow::Break(existing.clone());
+            }
+        }
+        std::ops::ControlFlow::Continue(receiver)
+    });
+    match receiver {
+        std::ops::ControlFlow::Break(existing) => Ok(existing.into()),
+        std::ops::ControlFlow::Continue(receiver) => receiver
+            .await
+            .map_err(|_| JsValue::from_str("Shared GPU initialization was interrupted"))?
+            .map(Into::into),
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn initialize_shared_gpu() -> SharedGpuResult {
     let setup = web_wgpu_setup();
     let instance = setup.new_instance().await;
     let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = setup else {
@@ -153,7 +198,12 @@ async fn shared_gpu_setup() -> Result<eframe::egui_wgpu::WgpuSetup, JsValue> {
         .await
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
     device.set_device_lost_callback(|reason, message| {
-        SHARED_GPU.with(|slot| *slot.borrow_mut() = None);
+        SHARED_GPU.with(|slot| {
+            let mut state = slot.borrow_mut();
+            if matches!(*state, SharedGpuInitialization::Ready(_)) {
+                *state = SharedGpuInitialization::Idle;
+            }
+        });
         web_sys::console::error_1(&JsValue::from_str(&format!(
             "Qni shared GPU device lost: {reason:?}: {message}"
         )));
@@ -169,8 +219,7 @@ async fn shared_gpu_setup() -> Result<eframe::egui_wgpu::WgpuSetup, JsValue> {
         device,
         queue,
     };
-    SHARED_GPU.with(|slot| *slot.borrow_mut() = Some(existing.clone()));
-    Ok(existing.into())
+    Ok(existing)
 }
 
 #[cfg(target_arch = "wasm32")]
