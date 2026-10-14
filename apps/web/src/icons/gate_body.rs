@@ -217,7 +217,7 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
         egui::Stroke::new(stroke_width, colors.state_outline),
     );
     painter.circle_filled(center, disk_radius, colors.state_fill);
-    // Flexoki blue-400: state_fill disk inset border, matching the spec mock.
+    // state_fill disk inset border, matching the spec mock.
     painter.circle_stroke(
         center,
         (disk_radius - 0.5).max(0.0),
@@ -295,7 +295,7 @@ fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colo
     painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
 
     // docs/design-system/probability-display.html §02: 4 行のガウス風 mini preview。
-    // 本体と同じく blue-200 bar + blue-400 右端マーカー、区切り線は
+    // 本体と同じく右端マーカー、区切り線は
     // 隣接 2 行の広いバーの右端から右端までだけ引く。
     let row_h = rect.height() / PROBABILITY_PREVIEW_BAR_WIDTHS.len() as f32;
     for (row, &width_ratio) in PROBABILITY_PREVIEW_BAR_WIDTHS.iter().enumerate() {
@@ -324,10 +324,9 @@ fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colo
             egui::Stroke::new(1.0_f32, colors.line),
         );
     }
-    // 回路側の probability display 外周 (`circuit_gates.rs:180` で `colors.line` =
-    // ui-2) と階調を合わせる。Quirk の `lightgray` (#D3D3D3) と同じ薄灰で
-    // 「データ領域の輪郭」だけを示し、ゲート本体の強調はバー (blue-200)
-    // に任せる。
+    // 回路側の probability display 外周 (`circuit_gates.rs:180`) と階調を
+    // 合わせる。Quirk の `lightgray` (#D3D3D3) と同じ薄灰で「データ領域の
+    // 輪郭」だけを示し、ゲート本体の強調はバーに任せる。
     painter.rect_stroke(
         rect,
         egui::CornerRadius::ZERO,

@@ -34,7 +34,7 @@ pub fn gpu_status_pill(ui: &mut egui::Ui, status: &ExternalGpuStatus) -> Option<
                     ui.label(
                         egui::RichText::new("·")
                             .size(14.0) // text-sm = 14px.
-                            .color(colors.gpu_status_separator), // Flexoki tx-3.
+                            .color(colors.gpu_status_separator),
                     );
                     ui.label(
                         egui::RichText::new(detail)
@@ -52,19 +52,19 @@ fn pill_parts(status: &ExternalGpuStatus, colors: &Colors) -> Option<PillParts> 
     match status {
         ExternalGpuStatus::Idle => None,
         ExternalGpuStatus::Running => Some(PillParts {
-            color: colors.gpu_status_running, // Flexoki blue-600.
+            color: colors.gpu_status_running,
             label: "Running on GPU…",
             detail: None,
             running: true,
         }),
         ExternalGpuStatus::Completed { duration } => Some(PillParts {
-            color: colors.gpu_status_completed, // Flexoki green-600.
+            color: colors.gpu_status_completed,
             label: "Completed",
             detail: Some(crate::app::format_gpu_duration(*duration)),
             running: false,
         }),
         ExternalGpuStatus::Failed(failure) => Some(PillParts {
-            color: colors.gpu_status_failed, // Flexoki red-600.
+            color: colors.gpu_status_failed,
             label: failure.label(),
             detail: Some(failure.detail()),
             running: false,

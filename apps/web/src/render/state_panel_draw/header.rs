@@ -49,7 +49,7 @@ fn paint_header_text(
     // curved handle marks at the top corners.
     let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
     // text-sm (14px) — Tailwind default. Matches the popup header so both
-    // blue-on-paper "card chrome" text sits at the same step on the type scale.
+    // "card chrome" text sits at the same step on the type scale.
     let strip_font = egui::FontId::monospace(14.0);
     let qubits_label = if layout.qubits == 1 {
         "qubit"
@@ -85,7 +85,7 @@ fn paint_header_text(
             egui::Align2::LEFT_CENTER,
             qubits_text,
             strip_font.clone(),
-            colors.surface, // Flexoki bg.
+            colors.surface,
         );
     }
     // Extremely narrow hosts may not fit even the states label. Clip it

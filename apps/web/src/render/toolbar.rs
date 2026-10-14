@@ -189,7 +189,7 @@ impl QniApp {
 fn toolbar_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
         inner_margin: egui::Margin::symmetric(12, 6), // px-3 / py-1.5 = 12px / 6px.
-        fill: colors.surface,                         // Flexoki bg / paper.
+        fill: colors.surface,
         stroke: egui::Stroke::NONE,
         corner_radius: egui::CornerRadius::ZERO, // Full-width header strip: all 4 corners square.
         outer_margin: egui::Margin::ZERO,
@@ -197,7 +197,7 @@ fn toolbar_frame(colors: &Colors) -> egui::Frame {
             offset: [0, 4],
             blur: 24,
             spread: 0,
-            color: colors.toolbar_shadow, // Flexoki tx alpha 15.
+            color: colors.toolbar_shadow,
         },
     }
 }
@@ -232,27 +232,27 @@ fn icon_button(
             rect,
             egui::CornerRadius::same(6), // rounded-md = 6px.
             if hovered {
-                colors.line // Flexoki ui-2.
+                colors.line
             } else {
-                colors.toolbar_hover_bg // Flexoki ui.
+                colors.toolbar_hover_bg
             },
         );
     } else if hover_t > 0.0 {
         ui.painter().rect_filled(
             rect,
             egui::CornerRadius::same(6), // rounded-md = 6px.
-            with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8), // Flexoki ui.
+            with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8),
         );
     }
 
     let color = if state.enabled {
         if hovered {
-            colors.toolbar_icon_hover // Flexoki tx.
+            colors.toolbar_icon_hover
         } else {
-            colors.toolbar_icon // Flexoki tx-2.
+            colors.toolbar_icon
         }
     } else {
-        colors.toolbar_icon_disabled // Flexoki tx-3.
+        colors.toolbar_icon_disabled
     };
     response.widget_info(|| {
         if matches!(icon, ToolbarIcon::Lock | ToolbarIcon::LockOpen) {
@@ -312,7 +312,7 @@ fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
         rect.center(),
         egui::vec2(SECTION_DIVIDER_WIDTH, rect.height()),
     );
-    // Match the gate-palette section separator: 2px Flexoki ui-2 solid rect.
+    // Match the gate-palette section separator: 2px solid rect.
     ui.painter()
         .rect_filled(divider_rect, egui::CornerRadius::ZERO, colors.line);
 }

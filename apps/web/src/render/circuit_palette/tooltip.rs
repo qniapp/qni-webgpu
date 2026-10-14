@@ -11,16 +11,16 @@ use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
 use crate::layout::palette_start_x;
 
 impl QniApp {
-    /// Hover tooltip painted over the palette: a paper card with the
+    /// Hover tooltip painted over the palette: a card with the
     /// gate's full name, qni-style description paragraphs, and a mini
     /// transformation diagram (input amplitudes → gate → output
     /// amplitudes). Anchored below the hovered palette button, clamped
     /// to the screen rect. No-op when nothing is hovered or while a
     /// gate drag is in progress.
     ///
-    /// Chrome matches the shared popover primitive (paper bg + tx-3 1 px border +
+    /// Chrome matches the shared popover primitive (1 px border +
     /// outlined tail + soft shadow). Typography follows the Tailwind scale: title
-    /// text-sm (14 px) in tx, description text-xs (12 px) in tx-2.
+    /// text-sm (14 px), description text-xs (12 px).
     pub(crate) fn draw_palette_tooltip(
         &self,
         painter: &egui::Painter,

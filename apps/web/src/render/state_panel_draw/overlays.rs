@@ -93,7 +93,7 @@ fn paint_cell_popup(
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
 ) {
-    // Cell hover popup (B — Paper + ui-2 1px border + shadow, with qni-style
+    // Cell hover popup (B — Paper + 1px border + shadow, with qni-style
     // amplitude / probability / phase icons). Drawn last so it lifts above the
     // resize handles + minimap + GPU circle pass. Suppressed while a capacity
     // error is visible so stale GPU state values never overlap the error card.

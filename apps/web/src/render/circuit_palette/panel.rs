@@ -48,7 +48,7 @@ impl QniApp {
                 palette_origin + egui::vec2(separator_x, 0.0),
                 egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
             );
-            // Flexoki ui-2: section separator between operation gates and displays.
+            // section separator between operation gates and displays.
             painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);
         }
 
