@@ -205,7 +205,7 @@ fn rendered_gate_bodies(
     ));
     let colors = app.colors();
     let dragged = app.dragging.map(|drag| drag.id);
-    let insert_preview_painted = app.draw_circuit(
+    let (insert_preview_painted, _) = app.draw_circuit(
         &painter,
         rect,
         &geometry.metrics,
@@ -421,27 +421,34 @@ fn gpu_display_passes_bracket_the_ghost_with_identical_viewports() {
         app.dragging.map(|d| d.id),
         0.0,
     );
+    let mut callbacks = Vec::new();
     let order = ctx
         .end_pass()
         .shapes
         .into_iter()
         .filter_map(|clipped| match clipped.shape {
-            egui::Shape::Callback(cb) => Some((
-                if clipped.clip_rect.max.x <= split {
-                    "left"
-                } else {
-                    "right"
-                },
-                cb.rect,
-            )),
+            egui::Shape::Callback(cb) => {
+                callbacks.push(cb.callback.clone());
+                Some((
+                    if clipped.clip_rect.max.x <= split {
+                        "left"
+                    } else {
+                        "right"
+                    },
+                    cb.rect,
+                ))
+            }
             egui::Shape::Rect(shape) if shape.fill == colors.drag_fill => Some(("ghost", rect)),
             _ => None,
         })
         .collect::<Vec<_>>();
 
     assert_eq!(
-        order,
-        vec![("left", rect), ("ghost", rect), ("right", rect)]
+        (
+            order,
+            callbacks.len() == 2 && std::sync::Arc::ptr_eq(&callbacks[0], &callbacks[1])
+        ),
+        (vec![("left", rect), ("ghost", rect), ("right", rect)], true)
     );
 }
 

@@ -26,7 +26,7 @@ mod slot;
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
     BlochPopupValueCallback, ConditionalGateBodyCallback, DensityMatrixDisplayCallback,
-    MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
+    FrameCallback, MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
     ProbabilityPopupValueCallback, StateVectorCallback, StateVectorComputeCallback,
     StateVectorResourceBootstrapCallback, StateVectorUpdate,
 };

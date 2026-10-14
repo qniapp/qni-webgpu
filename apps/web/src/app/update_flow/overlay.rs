@@ -25,7 +25,7 @@ impl QniApp {
             state_frame.recompute,
             state_frame.state_count,
             ctx,
-        );
+        ) || circuit_frame.recompute;
 
         self.draw_palette(&overlay_painter, screen_rect, colors);
         if self.state_panel_visible() {
@@ -64,10 +64,14 @@ impl QniApp {
             (circuit_frame.content_rect, circuit_frame.dragging_gate_id)
         {
             let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
-            if circuit_frame.insert_preview_painted {
+            if let Some(batch) = circuit_frame
+                .gpu_batch
+                .as_ref()
+                .filter(|_| circuit_frame.insert_preview_painted)
+            {
                 self.draw_insert_preview_overlay(
                     &overlay_painter,
-                    circuit_frame.gpu_viewport,
+                    batch,
                     circuit_origin,
                     colors,
                     dragging_gate_id,

@@ -26,3 +26,5 @@ mod state_panel_popup;
 mod toolbar;
 
 pub(crate) use state_panel_layout::StatePanelLayout;
+
+pub(crate) use circuit_gates::CircuitGpuBatch;

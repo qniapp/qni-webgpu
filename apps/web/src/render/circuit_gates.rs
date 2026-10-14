@@ -1,5 +1,7 @@
 //! Placed circuit gates and GPU-backed circuit overlays.
 
+use std::collections::HashMap;
+
 use eframe::egui;
 use eframe::egui_wgpu;
 
@@ -11,11 +13,11 @@ use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, AmplitudePopupValueCallback, BlochOverlayCallback,
     BlochOverlayInstance, BlochPopupValueCallback, ConditionalGateBodyCallback,
     ConditionalGateBodyInstance, ConditionalGateBodyParams, DensityInstance,
-    DensityMatrixDisplayCallback, MeasurementDigitCallback, MeasurementDigitInstance,
-    ProbabilityDisplayCallback, ProbabilityInstance, ProbabilityPopupValueCallback,
-    AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, DENSITY_RENDER_MODE_PLACEHOLDER,
-    DENSITY_RENDER_MODE_SAMPLE, POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W,
-    PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
+    DensityMatrixDisplayCallback, FrameCallback, MeasurementDigitCallback,
+    MeasurementDigitInstance, ProbabilityDisplayCallback, ProbabilityInstance,
+    ProbabilityPopupValueCallback, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER,
+    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, POPUP_GLYPH_CELL_H,
+    POPUP_GLYPH_CELL_W, PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 use crate::grid_cell::GridCell;
 use crate::icons::{
@@ -36,7 +38,19 @@ enum ConditionalGateBody {
     /// No earlier measurement writes the flag: always the disabled fill.
     NeverApplies,
     /// The GPU picks the fill from the measured outcome.
-    Gpu(ConditionalGateBodyCallback),
+    Gpu(egui::Shape),
+}
+
+pub(crate) struct CircuitGpuBatch {
+    viewport: egui::Rect,
+    conditional_bodies: HashMap<GateId, ConditionalGateBody>,
+    overlays: Vec<egui::Shape>,
+}
+
+impl CircuitGpuBatch {
+    pub(crate) fn paint_overlays(&self, painter: &egui::Painter) {
+        painter.extend(self.overlays.iter().cloned());
+    }
 }
 
 // qni's Bloch vector tip is a 6px dot whose centre lands on the sphere
@@ -84,6 +98,40 @@ pub(super) fn insert_preview_right_clip(
 }
 
 impl QniApp {
+    pub(super) fn build_circuit_gpu_batch(
+        &self,
+        viewport: egui::Rect,
+        circuit_origin: egui::Pos2,
+        dragging_gate_id: Option<GateId>,
+        colors: &Colors,
+    ) -> CircuitGpuBatch {
+        let mut batch = CircuitGpuBatch {
+            viewport,
+            conditional_bodies: HashMap::new(),
+            overlays: Vec::new(),
+        };
+        for (index, gate) in self
+            .placed_gates
+            .iter()
+            .filter(|gate| matches!(gate.flag, Some(GateFlag::If(_))))
+            .enumerate()
+        {
+            let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
+            if let Some(body) =
+                self.conditional_gate_body(gate, rect, colors, batch.viewport, index)
+            {
+                batch.conditional_bodies.insert(gate.id, body);
+            }
+        }
+        batch.overlays = self.build_circuit_gpu_overlays(
+            batch.viewport,
+            circuit_origin,
+            dragging_gate_id,
+            colors,
+        );
+        batch
+    }
+
     fn amplitude_display_slot(&self, gate_id: GateId) -> Option<u32> {
         let external_slot = self
             .external_gpu
@@ -158,7 +206,7 @@ impl QniApp {
         colors: &Colors,
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
-        gpu_viewport: egui::Rect,
+        batch: &CircuitGpuBatch,
     ) -> bool {
         let insert_preview = dragging_gate_id.and_then(|id| match self.dragging_live_snap {
             Some(crate::app::LiveDragSnap::Insert { column, .. }) => Some((id, column)),
@@ -177,13 +225,7 @@ impl QniApp {
         for gate in gates {
             if let Some((id, column)) = insert_preview {
                 if !preview_painted && gate.column >= column {
-                    self.draw_insert_drag_preview(
-                        painter,
-                        gpu_viewport,
-                        circuit_origin,
-                        colors,
-                        id,
-                    );
+                    self.draw_insert_drag_preview(painter, batch, circuit_origin, colors, id);
                     preview_painted = true;
                 }
             }
@@ -236,9 +278,7 @@ impl QniApp {
                 // masking the wire gap. Draw it once (instead of purple then
                 // neutral) so anti-aliased edges do not leak the palette colour.
                 draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
-            } else if let Some(body) =
-                self.conditional_gate_body(gate, gate_rect, colors, gpu_viewport)
-            {
+            } else if let Some(body) = batch.conditional_bodies.get(&gate.id) {
                 match body {
                     ConditionalGateBody::NeverApplies => draw_gate_body_filled(
                         painter,
@@ -248,9 +288,7 @@ impl QniApp {
                         colors.semantic_disabled,
                     ),
                     ConditionalGateBody::Gpu(callback) => {
-                        painter.add(egui::Shape::Callback(
-                            egui_wgpu::Callback::new_paint_callback(gpu_viewport, callback),
-                        ));
+                        painter.add(callback.clone());
                         draw_gate_glyph(painter, gate_rect, gate.kind, colors);
                     }
                 }
@@ -300,7 +338,7 @@ impl QniApp {
         }
         if let Some((id, _)) = insert_preview {
             if !preview_painted {
-                self.draw_insert_drag_preview(painter, gpu_viewport, circuit_origin, colors, id);
+                self.draw_insert_drag_preview(painter, batch, circuit_origin, colors, id);
                 preview_painted = true;
             }
         }
@@ -316,42 +354,40 @@ impl QniApp {
         gate_rect: egui::Rect,
         colors: &Colors,
         gpu_viewport: egui::Rect,
+        index: usize,
     ) -> Option<ConditionalGateBody> {
         let measurement = match self.gpu_plan.flag_source(gate.id)? {
             FlagSource::NeverSet => return Some(ConditionalGateBody::NeverApplies),
             FlagSource::Measurement(measurement) => measurement,
         };
         let slot = self.gpu_plan.measurement_slot(measurement)?;
-        // Index by position among the circuit's conditional gates, so the
-        // repeated insert-preview pass uploads the same instance to the same
-        // buffer slot.
-        let index = self
-            .placed_gates
-            .iter()
-            .filter(|other| matches!(other.flag, Some(GateFlag::If(_))))
-            .position(|other| other.id == gate.id)?;
         if index >= ConditionalGateBodyCallback::MAX_PER_FRAME {
             return None;
         }
         let (half_size, corner_radius) = conditional_gate_body_shape(gate_rect, gate.kind);
         let center = gate_rect.center();
-        Some(ConditionalGateBody::Gpu(ConditionalGateBodyCallback {
-            index,
-            instance: ConditionalGateBodyInstance {
-                center: [center.x, center.y],
-                half_size,
-                corner_radius,
-                slot: slot.as_u32(),
-            },
-            params: ConditionalGateBodyParams {
-                viewport_min: [gpu_viewport.min.x, gpu_viewport.min.y],
-                viewport_size: [gpu_viewport.width(), gpu_viewport.height()],
-                // Same gamma story as the measurement digit callback.
-                enabled_color: colors.box_fill.to_normalized_gamma_f32(),
-                // qni `--qni-semantic-fill-color-disabled`.
-                disabled_color: colors.semantic_disabled.to_normalized_gamma_f32(),
-            },
-        }))
+        Some(ConditionalGateBody::Gpu(egui::Shape::Callback(
+            egui_wgpu::Callback::new_paint_callback(
+                gpu_viewport,
+                FrameCallback::new(ConditionalGateBodyCallback {
+                    index,
+                    instance: ConditionalGateBodyInstance {
+                        center: [center.x, center.y],
+                        half_size,
+                        corner_radius,
+                        slot: slot.as_u32(),
+                    },
+                    params: ConditionalGateBodyParams {
+                        viewport_min: [gpu_viewport.min.x, gpu_viewport.min.y],
+                        viewport_size: [gpu_viewport.width(), gpu_viewport.height()],
+                        // Same gamma story as the measurement digit callback.
+                        enabled_color: colors.box_fill.to_normalized_gamma_f32(),
+                        // qni `--qni-semantic-fill-color-disabled`.
+                        disabled_color: colors.semantic_disabled.to_normalized_gamma_f32(),
+                    },
+                }),
+            ),
+        )))
     }
 
     /// Repaint only the insertion footprint above panels, preserving the
@@ -359,7 +395,7 @@ impl QniApp {
     pub(crate) fn draw_insert_preview_overlay(
         &self,
         painter: &egui::Painter,
-        gpu_viewport: egui::Rect,
+        batch: &CircuitGpuBatch,
         circuit_origin: egui::Pos2,
         colors: &Colors,
         id: GateId,
@@ -369,32 +405,17 @@ impl QniApp {
         };
         let rect = gate_visible_rect(gate, circuit_origin + gate.pos.to_vec2());
         let painter = painter.with_clip_rect(rect.intersect(painter.clip_rect()));
-        // Reuse the circuit viewport and full GPU batches: callbacks share
-        // instance buffers, so only their paint scissors may differ.
-        self.draw_placed_circuit_gates(
-            &painter,
-            circuit_origin,
-            colors,
-            true,
-            Some(id),
-            gpu_viewport,
-        );
+        self.draw_placed_circuit_gates(&painter, circuit_origin, colors, true, Some(id), batch);
         let right_clip = insert_preview_right_clip(painter.clip_rect(), circuit_origin, gate);
         if right_clip.is_positive() {
-            self.draw_circuit_gpu_overlays(
-                &painter.with_clip_rect(right_clip),
-                gpu_viewport,
-                circuit_origin,
-                Some(id),
-                colors,
-            );
+            batch.paint_overlays(&painter.with_clip_rect(right_clip));
         }
     }
 
     fn draw_insert_drag_preview(
         &self,
         painter: &egui::Painter,
-        gpu_viewport: egui::Rect,
+        batch: &CircuitGpuBatch,
         circuit_origin: egui::Pos2,
         colors: &Colors,
         id: GateId,
@@ -406,29 +427,21 @@ impl QniApp {
         let mut clip = painter.clip_rect();
         clip.max.x = clip.max.x.min(split_x);
         if clip.is_positive() {
-            // Both passes upload identical full batches and use one viewport.
-            // Only the paint scissor differs, so shared GPU buffers agree.
-            self.draw_circuit_gpu_overlays(
-                &painter.with_clip_rect(clip),
-                gpu_viewport,
-                circuit_origin,
-                Some(id),
-                colors,
-            );
+            batch.paint_overlays(&painter.with_clip_rect(clip));
         }
         self.draw_drag_preview(painter, circuit_origin, colors, id, false);
     }
 
-    pub(super) fn draw_circuit_gpu_overlays(
+    fn build_circuit_gpu_overlays(
         &self,
-        painter: &egui::Painter,
         callback_rect: egui::Rect,
         circuit_origin: egui::Pos2,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
-    ) {
+    ) -> Vec<egui::Shape> {
+        let mut shapes = Vec::new();
         if callback_rect.width() <= 0.0 || callback_rect.height() <= 0.0 {
-            return;
+            return shapes;
         }
 
         // GPU overlay: draw Probability bars from the GPU-side
@@ -504,8 +517,11 @@ impl QniApp {
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu.view().displays.probability.clone(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
-            painter.add(egui::Shape::Callback(paint_callback));
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
         }
 
         let live_dragging_amplitude_id =
@@ -583,8 +599,11 @@ impl QniApp {
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu.view().displays.amplitude.clone(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
-            painter.add(egui::Shape::Callback(paint_callback));
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
         }
 
         let live_dragging_density_id = dragging_gate_id.filter(|_| self.dragging_live_display_snap);
@@ -657,8 +676,11 @@ impl QniApp {
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu.view().displays.density.clone(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
-            painter.add(egui::Shape::Callback(paint_callback));
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
         }
 
         // GPU overlay: draws the dynamic arrow + tip dot for every placed
@@ -708,8 +730,11 @@ impl QniApp {
                 zero_color: colors.bloch_vector_zero.to_normalized_gamma_f32(),
                 external_uploads: self.external_gpu.view().displays.bloch.clone(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
-            painter.add(egui::Shape::Callback(paint_callback));
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
         }
 
         // GPU overlay: 0/1 digit per measurement, sourced directly from
@@ -758,9 +783,13 @@ impl QniApp {
                 zero_color: colors.semantic_off.to_normalized_gamma_f32(),
                 one_color: colors.semantic_on.to_normalized_gamma_f32(),
             };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
-            painter.add(egui::Shape::Callback(paint_callback));
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
         }
+        shapes
     }
 
     pub(crate) fn draw_bloch_hover_popup(
@@ -1264,6 +1293,156 @@ fn probability_hover_popup_placement(
 #[cfg(test)]
 mod tests {
     use eframe::egui;
+
+    use super::*;
+
+    fn batch_fixture() -> (QniApp, CircuitGpuBatch) {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(r#"{"cols":[["Measure>a"],["X<a"],["Bloch"]]}"#, &ctx);
+        let qubits = crate::qubit_count::QubitCount::try_new(1).unwrap();
+        let sources = crate::simulation_plan::FlagSources::from_columns(
+            &crate::simulation_plan::SimulationColumnAnalysis::from_gates(
+                &app.placed_gates,
+                qubits,
+            ),
+        );
+        let ops = crate::simulation_plan::linearize_ops(&app.placed_gates, qubits, 3);
+        app.gpu_plan.replace_ops(ops, 3, sources);
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let batch = app.build_circuit_gpu_batch(viewport, egui::Pos2::ZERO, None, &app.colors());
+        (app, batch)
+    }
+
+    #[test]
+    fn insert_preview_foreground_reuses_returned_batch_callbacks() {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(
+            r#"{"cols":[["Measure>a"],["X<a"],["Bloch"],["Y"]]}"#,
+            &ctx,
+        );
+        let qubits = crate::qubit_count::QubitCount::try_new(1).unwrap();
+        let sources = crate::simulation_plan::FlagSources::from_columns(
+            &crate::simulation_plan::SimulationColumnAnalysis::from_gates(
+                &app.placed_gates,
+                qubits,
+            ),
+        );
+        let ops = crate::simulation_plan::linearize_ops(&app.placed_gates, qubits, 4);
+        app.gpu_plan.replace_ops(ops, 4, sources);
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
+        let metrics = crate::layout::layout_metrics(rect.width(), 1, 6);
+        let dragged = app.placed_gates.last_mut().unwrap();
+        let id = dragged.id;
+        dragged.pos.x = (metrics.slot_centers[0] + metrics.slot_centers[1] - GATE_SIZE) / 2.0;
+        app.dragging_live_snap = Some(crate::app::LiveDragSnap::Insert {
+            column: crate::app::CircuitColumnIndex::new(1),
+            wire: crate::app::WireIndex::new(0),
+        });
+        let colors = app.colors();
+        let input = egui::RawInput {
+            screen_rect: Some(rect),
+            ..Default::default()
+        };
+        ctx.begin_pass(input.clone());
+        let painter = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Middle,
+            egui::Id::new("base"),
+        ));
+        let (inserted, batch) =
+            app.draw_circuit(&painter, rect, &metrics, &colors, true, Some(id), 0.0);
+        let base = ctx
+            .end_pass()
+            .shapes
+            .into_iter()
+            .filter_map(|shape| match shape.shape {
+                egui::Shape::Callback(callback) => Some(callback.callback),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        ctx.begin_pass(input);
+        let painter = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Foreground,
+            egui::Id::new("foreground"),
+        ));
+        app.draw_insert_preview_overlay(
+            &painter,
+            &batch,
+            app.circuit_origin(rect, 0.0),
+            &colors,
+            id,
+        );
+        let foreground = ctx
+            .end_pass()
+            .shapes
+            .into_iter()
+            .filter_map(|shape| match shape.shape {
+                egui::Shape::Callback(callback) => Some(callback.callback),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let expected = batch
+            .overlays
+            .iter()
+            .map(|shape| (shape, 2))
+            .chain(
+                batch
+                    .conditional_bodies
+                    .values()
+                    .filter_map(|body| match body {
+                        ConditionalGateBody::Gpu(shape) => Some((shape, 1)),
+                        _ => None,
+                    }),
+            )
+            .collect::<Vec<_>>();
+        let counts = expected
+            .iter()
+            .map(|(shape, count)| {
+                let egui::Shape::Callback(callback) = shape else {
+                    panic!("expected callback")
+                };
+                let base_count = base
+                    .iter()
+                    .filter(|actual| std::sync::Arc::ptr_eq(actual, &callback.callback))
+                    .count();
+                let foreground_count = foreground
+                    .iter()
+                    .filter(|actual| std::sync::Arc::ptr_eq(actual, &callback.callback))
+                    .count();
+                (base_count, foreground_count, *count)
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            inserted
+                && batch.conditional_bodies.len() == 1
+                && !batch.overlays.is_empty()
+                && base.len() == batch.overlays.len() * 2 + 1
+                && foreground.len() == base.len()
+                && counts
+                    .iter()
+                    .all(|(base, foreground, expected)| base == expected && foreground == expected)
+        );
+    }
+
+    #[test]
+    fn conditional_body_capacity_keeps_last_slot_and_falls_back_after_it() {
+        let (app, batch) = batch_fixture();
+        let gate = app
+            .placed_gates
+            .iter()
+            .find(|gate| matches!(gate.flag, Some(GateFlag::If(_))))
+            .unwrap();
+        let rect = gate_visible_rect(gate, gate.pos);
+        let colors = app.colors();
+        let capacity = ConditionalGateBodyCallback::MAX_PER_FRAME;
+        assert_eq!(
+            [capacity - 1, capacity].map(|index| app
+                .conditional_gate_body(gate, rect, &colors, batch.viewport, index)
+                .is_some()),
+            [true, false]
+        );
+    }
 
     #[test]
     fn bloch_hover_popup_title_matches_spec() {

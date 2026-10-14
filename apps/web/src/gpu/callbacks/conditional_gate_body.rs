@@ -10,8 +10,6 @@ use super::super::resources::StateVectorResources;
 /// chosen on the GPU from `measurement_aux_buffer.z`. The CPU never learns
 /// whether the gate applied.
 pub(crate) struct ConditionalGateBodyCallback {
-    /// Per-frame instance index; unique among this frame's callbacks because
-    /// egui runs every `prepare` before the first `paint`.
     pub(crate) index: usize,
     pub(crate) instance: ConditionalGateBodyInstance,
     pub(crate) params: ConditionalGateBodyParams,
